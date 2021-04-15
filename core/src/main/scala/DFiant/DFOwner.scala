@@ -92,12 +92,15 @@ object DFOwner {
   object NameFlatten {
     object UnderscoreSuffix extends NameFlatten {
       def apply(memberName : String, ownerName : String) : String = s"${ownerName}_${memberName}"
+      override def toString: String = "DFOwner.NameFlatten.UnderscoreSuffix"
     }
     object NoSuffix extends NameFlatten {
       def apply(memberName : String, ownerName : String) : String = s"${ownerName}${memberName}"
+      override def toString: String = "DFOwner.NameFlatten.NoSuffix"
     }
     object IgnoreOwnerName extends NameFlatten { //This function is special cased in FlattenInterfaces
       def apply(memberName : String, ownerName : String) : String = ???
+      override def toString: String = "DFOwner.NameFlatten.IgnoreName"
     }
   }
 

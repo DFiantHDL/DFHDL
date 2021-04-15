@@ -19,7 +19,6 @@ package DFiant.internals
 
 import singleton.ops._
 import singleton.ops.impl.std
-import singleton.twoface._
 
 object XRange {
   protected trait IntTag[Start, End]

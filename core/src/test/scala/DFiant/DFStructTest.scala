@@ -53,5 +53,5 @@ object Line extends DFStruct.Fields {
 object TestSammy extends App {
   val top = new Simple
   import compiler._
-  top.printCodeString.flattenStruct.printCodeString
+  top.printCodeString.flattenTypes.printCodeString
 }

@@ -2,6 +2,8 @@ package DFiant
 package compiler
 
 import DFDesign.DB.Patch
+import DFiant.internals.IntExtras
+
 import collection.immutable
 import scala.annotation.tailrec
 
@@ -27,8 +29,7 @@ final class UniqueDesigns[D <: DFDesign](c : IRCompilation[D]) {
     val uniqueTypeMap : Map[String, List[UniqueBlock]] = uniqueBlockMap.keys.toList.groupBy(ub => ub.block.designType)
     val patchList = uniqueTypeMap.flatMap {
       case (designType, list) if list.size > 1 => list.zipWithIndex.flatMap{case (ub, i) =>
-        val suffix = s"%0${list.size.toString.length}d".format(i)
-        val updatedDesignType = s"${designType}_$suffix"
+        val updatedDesignType = s"${designType}_${i.toPaddedString(list.size)}"
         uniqueBlockMap(ub).map(block => block -> Patch.Replace(block.copy(designType = updatedDesignType), Patch.Replace.Config.FullReplacement))
       }
       case _ => Nil

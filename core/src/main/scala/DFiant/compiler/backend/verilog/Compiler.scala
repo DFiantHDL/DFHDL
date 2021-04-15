@@ -74,7 +74,7 @@ final class Compiler[D <: DFDesign](c : IRCompilation[D]) {
       c.dropUnreferenced
        .fixAnonymous
        .flattenNames
-       .flattenStruct
+//       .flattenStructs
        .moveCBDesigns
 //       .controlDesigns
        .orderMembers(OrderMembers.Order.LazyConnectionLast)

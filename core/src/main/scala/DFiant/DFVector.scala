@@ -1,7 +1,6 @@
 package DFiant
 
 import singleton.ops._
-import singleton.twoface._
 import DFiant.internals._
 import DFiant.DFAny.{Func2, Modifier, TokenT, `Op==,!=`}
 import DFiant.DFVector.`LN == RN`

@@ -155,7 +155,61 @@ One of the most qualifying characteristics of hardware design is the composition
 
 ## Concurrency Abstraction
 
-DFiant assumes every dataflow variable is a stream
+Concurrency and data scheduling abstractions rely heavily on language semantics. DFiant code is expressed in a sequential manner yet employs an asynchronous dataflow programming model to enable implicit and intuitive concurrent hardware description. This is achieved by setting the data scheduling order, or *token-flow*, according to the *data dependency*: all independent dataflow expressions are scheduled concurrently, while dependent operations are synthesized into a guarded FIFO-styled pipeline. 
+
+$$\begin{aligned}
+	&f:(i_{k},j_{k})_{k\in \mathbb{N}}\rightarrow (a_k,b_k,c_k,d_k,e_k)_{k\in \mathbb{N}}\\ 
+  &\triangleq\left\{
+  \begin{split}
+  a_k & = i_k + 5 \\
+  b_k & = a_k * 3 \\
+  c_k & = a_k + b_k \\
+  d_k & = i_k - 1 \\
+  e_k & = j_k / 4 \\
+  \end{split}\right.~~~~~k\geq 0 \\
+  \\
+  \end{aligned}$$
+
+
+<p align="center">
+  <img src="../first-look/Conc.svg"><br>
+  <b>Fig. 4a: Functional drawing of the dataflow design 'Conc' with an input port 'x' and an output port 'y'</b><br>
+</p>
+=== "Conc.scala"
+
+    ``` scala
+    --8<-- "examples/first-look/src/main/scala/Conc.scala"
+    ```
+
+=== "Conc.vhdl"
+
+    ``` vhdl
+    --8<-- "examples/first-look/src/test/resources/Conc/vhdl2008/Conc.vhdl"
+    ```
+
+=== "Conc.v"
+
+    ``` verilog
+    --8<-- "examples/first-look/src/test/resources/Conc/verilog2001/Conc.v"
+    ```
+<p align="center">
+  <b>Fig. 4b: A DFiant implementation of Conc as a toplevel design and the generated VHDL/Verilog files</b><br>
+</p>
+
+??? dfiant "Conc.scala observations"
+	* **Lines 6-7**: 
+	* For more information access the [state section](/user-guide/state).
+
+??? rtl "Conc RTL files observations"
+	* Bla Bla
+
+??? dfiant "Conc demo"
+	```scastie
+	--8<-- "examples/first-look/src/main/scala/Conc.scala"
+	
+	--8<-- "examples/first-look/src/main/scala/ConcApp.scala"
+	```
+
 
 ---
 

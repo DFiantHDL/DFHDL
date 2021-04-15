@@ -1,6 +1,7 @@
 package DFiant.lib
 import DFiant._
 import DFDesign.Frontend._
+import DFiant.internals.targetName
 
 package object util {
   //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,10 +16,12 @@ package object util {
 
   final implicit class __ActiveHighOps(bit : ActiveHigh.TVal) {
     @df def isActive : DFBool = bit.actual
+    @targetName("not")
     @df def unary_! : ActiveLow.TVal = (!bit.actual).as(ActiveLow)
   }
   final implicit class __ActiveLowOps(bit : ActiveLow.TVal) {
     @df def isActive : DFBool = !bit.actual
+    @targetName("not")
     @df def unary_! : ActiveHigh.TVal = (!bit.actual).as(ActiveHigh)
   }
 

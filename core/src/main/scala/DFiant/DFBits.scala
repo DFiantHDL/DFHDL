@@ -1,7 +1,6 @@
 package DFiant
 
 import singleton.ops._
-import singleton.twoface._
 import DFiant.internals._
 import DFAny.{Func2, Modifier, `Op==,!=`}
 import compiler.csprinter._
@@ -597,18 +596,26 @@ object DFBits extends DFAny.Companion {
           else left
           ret.asInstanceOf[DFBits[RW]]
         }
-      }
-      protected implicit class __DFBitsAliases[LW, Mod <: DFAny.Modifier.Val](val left : DFAny.Value[Type[LW], Mod]) {
         /**
           * @return a dataflow alias as an unsigned integer.
           */
-        def uint(implicit ctx : DFAny.Context) : DFAny.Value[DFUInt.Type[LW], Mod] =
-          left.as(DFUInt(left.width)) tag cs"$left.uint"
+        def uint(implicit ctx : DFAny.Context) : DFUInt[LW] = left.member match {
+          case DFAny.Const(_, token : DFBits.Token, _, _) =>
+            DFAny.Const.forced(token.toUInt).asValOf[DFUInt.Type[LW]]
+          case _ =>
+            left.as(DFUInt(left.width)) tag cs"$left.uint"
+        }
+
         /**
           * @return a dataflow alias as a signed integer.
           */
-        def sint(implicit ctx : DFAny.Context) : DFAny.Value[DFSInt.Type[LW], Mod] =
-          left.as(DFSInt(left.width)) tag cs"$left.sint"
+        def sint(implicit ctx : DFAny.Context) : DFSInt[LW] = left.member match {
+          case DFAny.Const(_, token : DFBits.Token, _, _) =>
+            DFAny.Const.forced(token.toSInt).asValOf[DFSInt.Type[LW]]
+          case _ =>
+            left.as(DFSInt(left.width)) tag cs"$left.sint"
+        }
+
         /**
           * Cast the dataflow variable as specified by the dataflow type
           * @param dfTemplate The dataflow type to cast the variable as.
@@ -616,18 +623,22 @@ object DFBits extends DFAny.Companion {
           * @return the casted variable
           * @example
           * {{{
-          *   val x = DFBits(8)
+          *   val x = DFBits(8) <> IN
           *   val y = x.as(DFSInt(8))
           * }}}
           */
         final def as[TT, AT <: DFAny.Type](dfTemplate : TT)(
           implicit tc : TT => AT, ctx : DFAny.Context, equalWidth : AsWidth.CheckedShell[AT#Width, LW]
-        ) : DFAny.Value[AT, Mod] = trydf {
+        ) : DFAny.Of[AT] = trydf {
           val dfType = tc(dfTemplate)
-          equalWidth.unsafeCheck(dfType.width, left.dfType.width)
-          DFAny.Alias.AsIs(dfType, left)
+          if (left.dfType == dfType) left.asValOf[AT]
+          else {
+            equalWidth.unsafeCheck(dfType.width, left.dfType.width)
+            DFAny.Alias.AsIs(dfType, left)
+          }
         }
-
+      }
+      protected implicit class __DFBitsAliases[LW, Mod <: DFAny.Modifier.Val](val left : DFAny.Value[Type[LW], Mod]) {
         /**
           * Partial Bit Vector Selection
           * @param relBitHigh relative high bit index.
@@ -856,27 +867,27 @@ object DFBits extends DFAny.Companion {
         import DFDesign.Frontend._
         right.bits.asValOf[Type[LW]]
       }
-      //TODO: support DFUInt constant that will be made from a d"" string interpolation
-//      final implicit def __DFBits_ac_DFUIntConst[LW, R, RW](
-//        implicit
-//        ctx : DFAny.Context,
-//        rConst : DFUInt.Const.Aux[R, RW],
-//        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
-//      ) : Builder[Type[LW], R] = (left, rightR) => {
-//        val right = rConst(rightR)
-//        checkLWvRW.unsafeCheck(left.width, right.width)
-//        import DFDesign.Implicits._
-//        right.bits.asValOf[Type[LW]]
-//      }
+
+      protected implicit def __DFBits_ac_DFUIntToken[LW, RW](
+        implicit
+        ctx : DFAny.Context,
+        checkLWvRW : `LW == RW`.CheckedShell[LW, RW]
+      ) : DFAny.`Op:=,<>`.Builder[Type[LW], DFUInt.TokenW[RW]] = (left, right) => {
+        checkLWvRW.unsafeCheck(left.width, right.width)
+        import DFDesign.Frontend._
+        DFAny.Const.forced(right.bits).asValOf[Type[LW]]
+      }
     }
     object Frontend {
       trait Inherited extends Frontend {
         final override protected implicit def __DFBits_ac_DFBits[LW, RW](implicit ctx : DFAny.Context, checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : DFAny.`Op:=,<>`.Builder[Type[LW], DFBits[RW]] = super.__DFBits_ac_DFBits
         final override protected implicit def __DFBits_ac_DFUInt[LW, RW](implicit ctx : DFAny.Context, checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : DFAny.`Op:=,<>`.Builder[Type[LW], DFUInt[RW]] = super.__DFBits_ac_DFUInt
+        final override protected implicit def __DFBits_ac_DFUIntToken[LW, RW](implicit ctx: DFAny.Context, checkLWvRW: internals.`LW == RW`.CheckedShell[LW, RW]): DFAny.`Op:=,<>`.Builder[Type[LW], DFUInt.TokenW[RW]] = super.__DFBits_ac_DFUIntToken
       }
       trait Imported extends Frontend {
         final override implicit def __DFBits_ac_DFBits[LW, RW](implicit ctx : DFAny.Context, checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : DFAny.`Op:=,<>`.Builder[Type[LW], DFBits[RW]] = super.__DFBits_ac_DFBits
         final override implicit def __DFBits_ac_DFUInt[LW, RW](implicit ctx : DFAny.Context, checkLWvRW : internals.`LW == RW`.CheckedShell[LW, RW]) : DFAny.`Op:=,<>`.Builder[Type[LW], DFUInt[RW]] = super.__DFBits_ac_DFUInt
+        final override implicit def __DFBits_ac_DFUIntToken[LW, RW](implicit ctx: DFAny.Context, checkLWvRW: internals.`LW == RW`.CheckedShell[LW, RW]): DFAny.`Op:=,<>`.Builder[Type[LW], DFUInt.TokenW[RW]] = super.__DFBits_ac_DFUIntToken
       }
     }
   }

@@ -14,7 +14,7 @@ For example:
   @df class Accumulator extends DFDesign {
     final val x     = DFUInt(8) <> IN
     final val o     = DFUInt(8) <> OUT
-    private val acc = DFUInt(8) init 0
+    private val acc = DFUInt(8) <> VAR init 0
     acc := acc + x
     o := acc.prev
   }
@@ -23,7 +23,7 @@ For example:
     val x = DFUInt(8) <> IN
     val y = DFUInt(8) <> OUT
     ifdf (x < 10) {
-      val acc = new Accumulator !! OutsideOwnerDisable
+      val acc = new Accumulator tag OutsideOwnerDisable
       acc.x <> x
       y := acc.o
     }
@@ -49,7 +49,7 @@ final class MoveCBDesigns[D <: DFDesign](c : IRCompilation[D]) {
     val patchList : List[(DFMember, Patch)] = designDB.members.flatMap {
       case d @ DFDesign.Block.Internal.Unref(_, cb : DFConditional.Block, _, None) =>
         val topConditionalMember = cb.getTopConditionalMember
-        val outsideOp = d.getTagOf[OutsideOwner].getOrElse(OutsideOwnerInit).op
+        val outsideOp = d.getTagOf[OutsideOwner].getOrElse(OutsideOwnerClear).op
         //for adding control after the new design position
         val outsideCBDsn = new MetaDesign() {
           DFDesign.Control(d, outsideOp)

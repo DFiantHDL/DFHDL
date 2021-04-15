@@ -29,62 +29,73 @@ import scala.reflect.ClassTag
 
 package object DFiant {
   final implicit class __MemberSetExtender[T, M <: DFMember](t : T)(implicit tc : DFMember.TC.Aux[T, M]) {
-    private val member = tc(t)
+    private val memberContainer = tc(t)
     /**
-      * Force a name of a member.
+      * Force a name of a memberContainer.
       * @param value the new name value.
-      * @return the member after the change
+      * @return the memberContainer after the change
       */
     def setName(value : String)(implicit getSet : MemberGetSet) : T =
-      member.setTags(_.setName(value))
+      memberContainer.setTags(_.setName(value))
     /**
       * Force a suffix attached to the current name
       * @param value the suffix
-      * @return the member after the change
+      * @return the memberContainer after the change
       */
     def setNameSuffix(value : String)(implicit getSet : MemberGetSet) : T =
-      setName(s"${member.name}$value")
+      setName(s"${memberContainer.name}$value")
     /**
       * Force a prefix attached to the current name
       * @param value the suffix
-      * @return the member after the change
+      * @return the memberContainer after the change
       */
     def setNamePrefix(value : String)(implicit getSet : MemberGetSet) : T =
-      setName(s"$value${member.name}")
-    def anonymize(implicit getSet : MemberGetSet) : T =
-      member.setTags(_.anonymize)
+      setName(s"$value${memberContainer.name}")
+    def anonymize(implicit getSet : MemberGetSet) : T = {
+      memberContainer.member match {
+        //never anonymize declarations
+        case _ : DFAny.Dcl => t
+        //never anonymize a constant that is already named
+        case _ : DFAny.Const => t
+        case _ =>
+          memberContainer.setTags(_.anonymize)
+      }
+    }
+
     def keep(implicit getSet : MemberGetSet) : T =
-      member.setTags(_.setKeep(true))
+      memberContainer.setTags(_.setKeep(true))
 
     /**
-      * Tag a member with the tag `customTag`.
-      * Some tags are applicable to any type of member, others are bounded according the custom tag's bound.
-      * @param customTag The tag to be added to the custom tags of the member.
+      * Tag a memberContainer with the tag `customTag`.
+      * Some tags are applicable to any type of memberContainer, others are bounded according the custom tag's bound.
+      * @param customTag The tag to be added to the custom tags of the memberContainer.
       *                  If a custom tag of this type already exists, it will be overridden by the new tag.
-      * @return the member after the change
+      * @return the memberContainer after the change
       */
     def tag[CT <: DFMember.CustomTagOf[M] : ClassTag](customTag : CT)(implicit getSet : MemberGetSet) : T =
-      member.setTags(_.tag(customTag))
+      memberContainer.setTags(_.tag(customTag))
     def tag(customTags : DFMember.CustomTagMap)(implicit getSet : MemberGetSet) : T =
-      member.setTags(t => t.copy(customTags = t.customTags ++ customTags))
+      memberContainer.setTags(t => t.copy(customTags = t.customTags ++ customTags))
     def removeTagOf[CT <: DFMember.CustomTagOf[M] : ClassTag](implicit getSet : MemberGetSet) : T =
-      member.setTags(_.removeTagOf[CT])
+      memberContainer.setTags(_.removeTagOf[CT])
     def getTagOf[CT <: DFMember.CustomTagOf[M] : ClassTag](implicit getSet : MemberGetSet) : Option[CT] =
-      member.tags.getTagOf[CT]
+      memberContainer.tags.getTagOf[CT]
     def isTaggedWith[CT <: DFMember.CustomTagOf[M] : ClassTag](ct : CT)(implicit getSet : MemberGetSet) : Boolean =
       getTagOf[CT].isDefined
+    def isTaggedWith[CT <: DFMember.CustomTagOf[M] : ClassTag](implicit getSet : MemberGetSet) : Boolean =
+      getTagOf[CT].isDefined
     def setLateConstruction(value : Boolean)(implicit getSet : MemberGetSet) : T =
-      member.setTags(_.setLateConstruction(value))
+      memberContainer.setTags(_.setLateConstruction(value))
   }
   final implicit class __MemberGetExtender[T](t : T)(implicit tc : T => DFMember) {
     private val member = tc(t)
     /**
-      * @return true if the member is anonymous
+      * @return true if the memberContainer is anonymous
       */
     def isAnonymous : Boolean =
       member.isAnonymous
     /**
-      * @return the name of the member
+      * @return the name of the memberContainer
       */
     def name : String =
       member.name
@@ -663,6 +674,7 @@ package object DFiant {
       * @param cond A dataflow boolean expression to condition the exit on.
       * @return an FSM with the additional exit condition edge
       */
+    @targetName("nextIf")
     def =?> [C](cond : Exact[C])(
       implicit ctx : DFBlock.Context, ta : FSM.HasFSMAscription, arg : DFBool.Arg[C]
     ) : FSM = FSM {
@@ -727,7 +739,7 @@ package object DFiant {
   protected[DFiant] final case class OutsideOwner(op : DFDesign.Control.Op.Entry) extends DFMember.CustomTagOf[DFMember]
   final val OutsideOwnerEnable = OutsideOwner(DFDesign.Control.Op.Enable)
   final val OutsideOwnerStall = OutsideOwner(DFDesign.Control.Op.Stall)
-  final val OutsideOwnerInit = OutsideOwner(DFDesign.Control.Op.Init)
+  final val OutsideOwnerClear = OutsideOwner(DFDesign.Control.Op.Clear)
   ////////////////////////////////////////////////////////////////////////////////////
 
 }

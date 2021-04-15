@@ -19,7 +19,6 @@ package DFiant
 
 import DFiant.DFAny.`Op==,!=`
 import singleton.ops._
-import singleton.twoface._
 import DFiant.internals._
 
 import scala.collection.{immutable, mutable}

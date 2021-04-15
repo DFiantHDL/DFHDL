@@ -58,6 +58,13 @@ abstract class DFInterface(
   protected[DFiant] object DEFAULT_DIR extends DEFAULT_DIR
 }
 
+abstract class DFCrossInterface(
+  nameFlatten: DFOwner.NameFlatten = DFOwner.NameFlatten.UnderscoreSuffix
+)(implicit ctx : DFInterface.Context) extends DFInterface(nameFlatten) {
+  protected[DFiant] def crossConnection(twin : this.type)(implicit ctx : DFBlock.Context) : Unit
+}
+
+
 object DFInterface {
   trait Abstract extends DFOwner.Container {
     type Owner = DFInterface.Owner
@@ -80,7 +87,17 @@ object DFInterface {
   }
   implicit class InterfaceExt[T <: DFInterface](t : T) {
     def getMembers(implicit getSet: MemberGetSet) : List[DFMember] = getSet.getMembersOf(t.owner)
-    def <> (r : T)(implicit ctx : DFBlock.Context) : Unit = t.owner connectWith r.owner
+    def <> (r : T)(implicit ctx : DFBlock.Context) : Unit = trydf {
+      t match {
+        //For cross interfaces of sibling designs we connect them via cross connection
+        case tci : DFCrossInterface
+          if r.__ctx.dir == t.__ctx.dir &&
+            (r.owner.getOwnerDesign isSameOwnerDesignAs t.owner.getOwnerDesign) &&
+            t.owner.getOwnerDesign.getOwnerDesign == ctx.owner.getThisOrOwnerDesign =>
+          tci.crossConnection(r.asInstanceOf[tci.type])
+        case _ => t.owner connectWith r.owner
+      }
+    }
     private[DFiant] def replaceOwnerAndMembers(from : DFOwner, to : DFOwner)(implicit getSet: MemberGetSet) : Unit = {
       val oldMembers = from.getMembers
       val newMembers = to.getMembers

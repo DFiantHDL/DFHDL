@@ -1,7 +1,6 @@
 package DFiant
 
 import singleton.ops._
-import singleton.twoface._
 import DFiant.internals._
 import compiler.csprinter.CSPrinter
 import DFAny.{Func2, `Op==,!=`}

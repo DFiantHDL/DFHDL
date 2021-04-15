@@ -21,7 +21,6 @@ import java.lang.Double._
 import java.lang.Float._
 
 import singleton.ops._
-import singleton.twoface._
 
 import scala.math.{ceil, floor, log}
 import scodec.bits._
@@ -198,6 +197,7 @@ package object internals {
   implicit class IntExtras(value : Int) {
     def bitsWidth(signed : Boolean) : Int = BigInt(value).bitsWidth(signed)
     def toBitVector(width : Int) : BitVector = BigInt(value).toBitVector(width)
+    def toPaddedString(maxValue : Int) : String = s"%0${maxValue.toString.length}d".format(value)
   }
 
   implicit class LongExtras(value : Long) {
@@ -393,6 +393,11 @@ package object internals {
     }
   }
 
+  final val TwoFace = singleton.twoface.TwoFace
+  final val Checked1Param = singleton.twoface.Checked1Param
+  final val Checked0Param = singleton.twoface.Checked0Param
+  final val Checked = singleton.twoface.Checked
+
   def tmeas[R](block: => R): R = {
     val t0 = System.nanoTime()
     val result = block
@@ -470,6 +475,9 @@ package object internals {
       defaultAnnotatedSym.foreach(sym => setAnnotation(msg, sym))
       c.abort(c.enclosingPosition, msg)
     }
+  }
+  implicit class BlackBoxMacroExt(c : scala.reflect.macros.blackbox.Context) {
+    def abort(msg : String) : Nothing = c.abort(c.enclosingPosition, msg)
   }
 
 }

@@ -17,7 +17,6 @@
 
 package DFiant
 
-import singleton.twoface.TwoFace
 import compiler.printer.formatter._
 
 object TestUtils {

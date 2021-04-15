@@ -203,14 +203,14 @@ final class ControlDesigns[D <: DFDesign](c : IRCompilation[D]) {
                   controlledDesignMembers.foreach(controlVarMap(_) := Op.Stall)
                 }
                 //To clear state variables, we assign their initial value
-                .casedf(Op.Init) {
+                .casedf(Op.Clear) {
                   stateVarList.foreach {v =>
                     v.externalInit match {
                       case Some(token +: _) => v.asVar := DFAny.Const.forced[DFAny.Type](token)
                       case _ => v.asVar := ?
                     }
                   }
-                  controlledDesignMembers.foreach(controlVarMap(_) := Op.Init)
+                  controlledDesignMembers.foreach(controlVarMap(_) := Op.Clear)
                 }
                 //The defaults take care of the enable state, so we do nothing here
                 .casedf(Op.Enable) {/* do nothing */}

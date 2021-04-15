@@ -19,7 +19,6 @@
 //
 //import DFiant._
 //import DFiant.internals._
-//import singleton.twoface._
 ////import DFiant.fixedpoint._
 //
 //import scala.annotation.implicitNotFound

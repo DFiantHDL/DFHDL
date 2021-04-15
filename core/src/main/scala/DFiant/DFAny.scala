@@ -1,6 +1,5 @@
 package DFiant
 import singleton.ops._
-import singleton.twoface._
 import DFiant.internals._
 
 import language.dynamics
@@ -152,7 +151,7 @@ object DFAny {
     val dir : DFDir
   }
   trait LowPriority {
-    implicit def fromDefsCtx[T <: String with Singleton](implicit ctx : ContextOf[T], meta0 : Meta) : Context = new Context {
+    implicit def fromDefsCtx[T <: String with Singleton](implicit meta0 : Meta, ctx : ContextOf[T]) : Context = new Context {
       val dir: DFDir = ctx.dir
       val meta: Meta = meta0
       val container: DFOwner.Container = ctx.container
@@ -317,7 +316,9 @@ object DFAny {
 
       final protected def protBitsWL[W, L](relWidth : TwoFace.Int[W], relBitLow : TwoFace.Int[L])(
         implicit ctx : DFAny.Context
-      ) : DFBits[W] = DFAny.Alias.BitsWL[Mod, W](member, relWidth, relBitLow)
+      ) : DFBits[W] =
+        if (left.dfType == DFBits.Type(relWidth)) left.asValOf[DFBits.Type[W]]
+        else DFAny.Alias.BitsWL[Mod, W](member, relWidth, relBitLow)
 
       /**
         * Partial Bit Vector Selection at given low index and a relative width
@@ -880,6 +881,12 @@ object DFAny {
         implicit getSet: MemberGetSet
       ) : Option[(Type, Modifier, DFAny.Member, DFAny.Member, DFOwner, DFMember.Tags)] =
         Some(arg.dfType, arg.modifier, arg.relValRef.get, arg.idxRef.get, arg.ownerRef.get, arg.tags)
+    }
+    object ConstIdx {
+      def unapply(arg : DFAny.Member) : Option[Int] = arg match {
+        case DFAny.Const(_, DFUInt.Token(_, Some(valueBig)),_,_) => Some(valueBig.toInt)
+        case _ => None
+      }
     }
   }
 

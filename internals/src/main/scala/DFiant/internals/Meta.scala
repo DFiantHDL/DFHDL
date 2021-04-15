@@ -3,7 +3,7 @@ package DFiant.internals
 import DFiant.internals.Meta.Name.Anonymous
 
 import scala.annotation.tailrec
-import scala.reflect.macros.blackbox
+import scala.reflect.macros.{blackbox, whitebox}
 sealed trait LateConstructionConfig {
   def apply(value : Boolean) : Boolean
 }
@@ -110,25 +110,43 @@ object Meta {
   }
   /////////////////////////////////////////////////////////
 
+  def getTargetName(c : blackbox.Context)(sym : c.Symbol) : Option[String] = {
+    import c.universe._
+    sym.annotations.map(_.tree).collectFirst {
+      case Apply(Select(New(TypeTree()), termNames.CONSTRUCTOR), List(Literal(Constant(targetName : String)))) => targetName
+    }
+  }
+  def nameCheck(c : whitebox.Context)(name : String) : Unit = {
+    if (!name.matches("^[a-zA-Z0-9_]*$"))
+      c.abort(
+        s"""Unsupported dataflow member name $name.
+           |Only alphanumric or underscore characters are supported.
+           |You can leave the Scala name as-is and add @targetName("newName") annotation""".stripMargin
+      )
+  }
   final case class SymbolOf[T](value: String)
   object SymbolOf {
     implicit def ev[T]: SymbolOf[T] = macro evMacro[T]
-    def evMacro[T](c: blackbox.Context)(implicit t : c.WeakTypeTag[T]): c.Expr[SymbolOf[T]] = {
+    def evMacro[T](c: whitebox.Context)(implicit t : c.WeakTypeTag[T]): c.Tree = {
       import c.universe._
       val sym = symbolOf[T]
-      val name = sym.fullName
-      c.Expr[SymbolOf[T]](q"""${c.prefix}($name)""")
+      val tpe = weakTypeOf[T]
+      val name = getTargetName(c)(sym).getOrElse(sym.name.decodedName.toString)
+      nameCheck(c)(name)
+      val fullName = (sym.fullName.split('.').dropRight(1) :+ name).mkString(".")
+      q"""DFiant.internals.Meta.SymbolOf[$tpe]($fullName)"""
     }
   }
 
   implicit def ev(implicit lateConstructionConfig: LateConstructionConfig) : Meta = macro evMacro
-  def evMacro(c: blackbox.Context)(lateConstructionConfig : c.Tree): c.Expr[Meta] = {
+  def evMacro(c: whitebox.Context)(lateConstructionConfig : c.Tree): c.Tree = {
     import c.universe._
     val file = c.enclosingPosition.source.path
     val line = c.enclosingPosition.line
     val column = c.enclosingPosition.column
     val owner = getValidOwner(c)
-    val name = getOwnerName(c)(owner)
+    val name = getTargetName(c)(owner).getOrElse(getOwnerName(c)(owner))
+    nameCheck(c)(name)
     val lateConstruction = isOwnedByAnonymousClass(c)
     val nameFile = owner.pos.source.path
     val nameLine = owner.pos.line
@@ -138,7 +156,7 @@ object Meta {
       if (enclosingOwnerName.contains("<local") || enclosingOwnerName == "$anonfun") q"DFiant.internals.Meta.Name.Anonymous.On"
       else q"DFiant.internals.Meta.Name.Anonymous.Off"
 //    println(name, anonymous, owner.isMethod, c.enclosingPosition)
-    c.Expr[Meta](q"""${c.prefix}(DFiant.internals.Meta.Name($name, $anonymous), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn), $lateConstructionConfig($lateConstruction))""")
+    q"""DFiant.internals.Meta(DFiant.internals.Meta.Name($name, $anonymous), DFiant.internals.Meta.Position($file, $line, $column), DFiant.internals.Meta.Position($nameFile, $nameLine, $nameColumn), $lateConstructionConfig($lateConstruction))"""
   }
 
   import singleton.ops._
