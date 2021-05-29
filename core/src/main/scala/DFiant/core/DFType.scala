@@ -8,6 +8,7 @@ import scala.quoted.*
 import collection.mutable
 
 sealed trait DFType extends NCCode, Product, Serializable:
+  type Width <: Int
   protected val width: Int
 
 object DFType:
@@ -27,12 +28,12 @@ object DFType:
     def codeString(using Printer): String = dfType.codeString
     def <>(dir: Int): Unit = {}
 
-  trait Width[T <: DFType]:
+  type Supported = DFType | DFStruct.Fields | Tuple
+  trait Width[T <: Supported]:
     type Out <: Int
-  transparent inline given [T <: DFType]: Width[T] = ${ getWidthMacro[T] }
-  extension (quotes: Quotes)
-    def calcWidth(dfTpe: quotes.reflect.TypeRepr): Option[Int] =
-      given Quotes = quotes
+  transparent inline given [T <: Supported]: Width[T] = ${ getWidthMacro[T] }
+  extension (using quotes: Quotes)(dfTpe: quotes.reflect.TypeRepr)
+    def calcWidth: Option[Int] =
       import quotes.reflect.*
       dfTpe match
         case t if dfTpe <:< TypeRepr.of[DFBoolOrBit] => Some(1)
@@ -41,11 +42,11 @@ object DFType:
             case ConstantType(IntConstant(value)) => Some(value)
             case _                                => None
         case applied: AppliedType if applied <:< TypeRepr.of[Tuple] =>
-          val widths = applied.args.map(calcWidth)
+          val widths = applied.args.map(a => a.calcWidth)
           if (widths.forall(_.nonEmpty)) Some(widths.flatten.sum)
           else None
         case applied: AppliedType if applied <:< TypeRepr.of[DFTuple[_]] =>
-          calcWidth(applied.args.head)
+          applied.args.head.calcWidth
         case fieldsTpe if fieldsTpe <:< TypeRepr.of[DFStruct.Fields] =>
           val fieldTpe = TypeRepr.of[DFStruct.Field[_]]
           val clsSym = fieldsTpe.classSymbol.get
@@ -54,18 +55,17 @@ object DFType:
               .map(fieldsTpe.memberType)
               .collect {
                 case applied: AppliedType if applied <:< fieldTpe =>
-                  calcWidth(applied.args.head)
+                  applied.args.head.calcWidth
               }
           if (widths.forall(_.nonEmpty)) Some(widths.flatten.sum)
           else None
         case applied: AppliedType if applied <:< TypeRepr.of[DFStruct[_]] =>
-          calcWidth(applied.args.head)
-  def getWidthMacro[T <: DFType](using Quotes, Type[T]): Expr[Width[T]] =
+          applied.args.head.calcWidth
+  def getWidthMacro[T <: Supported](using Quotes, Type[T]): Expr[Width[T]] =
     import quotes.reflect.*
     val tTpe = TypeRepr.of[T]
     val widthTpe: Type[Int] =
-      quotes
-        .calcWidth(tTpe)
+      tTpe.calcWidth
         .map(w => ConstantType(IntConstant(w)))
         .getOrElse(TypeRepr.of[Int])
         .asType
@@ -101,6 +101,7 @@ object DFType:
   // DFBool or DFBit
   /////////////////////////////////////////////////////////////////////////////
   sealed trait DFBoolOrBit extends DFType:
+    type Width = 1
     final protected[DFType] val width = 1
 
   case object DFBool extends DFBoolOrBit:
@@ -115,6 +116,7 @@ object DFType:
   final case class DFBits[W <: Int] private (
       protected[DFType] val width: Int
   ) extends DFType:
+    type Width = W
     def codeString(using Printer): String = s"DFBits($width)"
   object DFBits:
     def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] = DFBits[W](width)
@@ -123,7 +125,10 @@ object DFType:
       DFBits[W](valueOf[W])
   /////////////////////////////////////////////////////////////////////////////
 
-  final case class DFStruct[F <: DFStruct.Fields](fields: F) extends DFType:
+  final case class DFStruct[F <: DFStruct.Fields](fields: F)(using
+      protected val __w: Width[F]
+  ) extends DFType:
+    type Width = __w.Out
     def codeString(using Printer): String = fields.name
     protected[DFType] val width = fields.width
 
@@ -148,14 +153,16 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   // DFTuple
   /////////////////////////////////////////////////////////////////////////////
-  final case class DFTuple[T <: Tuple] private (dfTypeList: List[DFType])
-      extends DFType:
+  final case class DFTuple[T <: Tuple] private (dfTypeList: List[DFType])(using
+      protected val __w: Width[T]
+  ) extends DFType:
+    type Width = __w.Out
     protected[DFType] val width: Int = dfTypeList.view.map(_.width).sum
     def codeString(using Printer): String =
       dfTypeList.view.map(_.codeString).mkString("(", ", ", ")")
 
   object DFTuple:
-    def apply[T <: Tuple](tuple: T)(using of: Of[T]): DFTuple[T] =
+    def apply[T <: Tuple](tuple: T)(using of: Of[T], w: Width[T]): DFTuple[T] =
       new DFTuple[T](of(tuple))
     trait Of[T <: Tuple]:
       def apply(t: T): List[DFType]
@@ -175,7 +182,10 @@ object DFType:
         new Of[(T1, T2)]:
           def apply(t: (T1, T2)): List[DFType] = List(tc1(t._1), tc2(t._2))
 
-  transparent inline given ofTuple[T <: Tuple](using of: DFTuple.Of[T]): TC[T] =
+  transparent inline given ofTuple[T <: Tuple](using
+      of: DFTuple.Of[T],
+      w: Width[T]
+  ): TC[T] =
     new TC[T]:
       type Type = DFTuple[T]
       def apply(t: T): Type = DFTuple(t)
