@@ -28,6 +28,8 @@ trait MetaContext {
   val nameOpt: Option[String]
   val position: Position
   val lateConstruction: Boolean
+  val clsNameOpt: Option[String]
+  val clsPosition: Position
   final val isAnonymous: Boolean = nameOpt.isEmpty
   final val name: String =
     nameOpt.getOrElse(s"anon${this.hashCode.toHexString}")

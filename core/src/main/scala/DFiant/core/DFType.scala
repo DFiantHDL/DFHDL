@@ -4,6 +4,8 @@ import compiler.printing.*
 import internals.*
 import scala.annotation.targetName
 import compiletime.*
+import scala.quoted.*
+import collection.mutable
 
 sealed trait DFType extends NCCode, Product, Serializable:
   protected val width: Int
@@ -20,17 +22,80 @@ object DFType:
 
   extension [T](t: T)(using tc: TC[T])
     def dfType: tc.Type = tc(t)
-    def width: Inlined.Int[Width[T]] =
-      Inlined.Int.forced[Width[T]](dfType.width)
+    def width(using w: Width[tc.Type]): Inlined.Int[w.Out] =
+      Inlined.Int.forced[w.Out](dfType.width)
     def codeString(using Printer): String = dfType.codeString
     def <>(dir: Int): Unit = {}
 
-  import ops.int.+
-  protected type Width[T] <: Int = T match
-    case EmptyTuple  => 0
-    case x *: r      => Width[x] + Width[r]
-    case DFBoolOrBit => 1
-    case DFBits[w]   => w
+  trait Width[T <: DFType]:
+    type Out <: Int
+  transparent inline given [T <: DFType]: Width[T] = ${ getWidthMacro[T] }
+  extension (quotes: Quotes)
+    def calcWidth(dfTpe: quotes.reflect.TypeRepr): Option[Int] =
+      given Quotes = quotes
+      import quotes.reflect.*
+      dfTpe match
+        case t if dfTpe <:< TypeRepr.of[DFBoolOrBit] => Some(1)
+        case applied: AppliedType if applied <:< TypeRepr.of[DFBits[_]] =>
+          applied.args.head match
+            case ConstantType(IntConstant(value)) => Some(value)
+            case _                                => None
+        case applied: AppliedType if applied <:< TypeRepr.of[Tuple] =>
+          val widths = applied.args.map(calcWidth)
+          if (widths.forall(_.nonEmpty)) Some(widths.flatten.sum)
+          else None
+        case applied: AppliedType if applied <:< TypeRepr.of[DFTuple[_]] =>
+          calcWidth(applied.args.head)
+        case fieldsTpe if fieldsTpe <:< TypeRepr.of[DFStruct.Fields] =>
+          val fieldTpe = TypeRepr.of[DFStruct.Field[_]]
+          val clsSym = fieldsTpe.classSymbol.get
+          val widths =
+            clsSym.declaredFields.view
+              .map(fieldsTpe.memberType)
+              .collect {
+                case applied: AppliedType if applied <:< fieldTpe =>
+                  calcWidth(applied.args.head)
+              }
+          if (widths.forall(_.nonEmpty)) Some(widths.flatten.sum)
+          else None
+        case applied: AppliedType if applied <:< TypeRepr.of[DFStruct[_]] =>
+          calcWidth(applied.args.head)
+  def getWidthMacro[T <: DFType](using Quotes, Type[T]): Expr[Width[T]] =
+    import quotes.reflect.*
+    val tTpe = TypeRepr.of[T]
+    val widthTpe: Type[Int] =
+      quotes
+        .calcWidth(tTpe)
+        .map(w => ConstantType(IntConstant(w)))
+        .getOrElse(TypeRepr.of[Int])
+        .asType
+        .asInstanceOf[Type[Int]]
+    '{
+      new Width[T] {
+        type Out = widthTpe.Underlying
+      }
+    }
+
+  type Of[T] <: DFType = T match
+    case DFBit.type  => DFBit.type
+    case DFBool.type => DFBool.type
+    case DFBits[w]   => DFBits[w]
+    case DFTuple[t]  => DFTuple[t]
+    case Tuple       => DFTuple[Tuple.Map[T, Of]]
+  // inline def doit[T <: Tuple](inline t: T): List[DFType] =
+  //   t.map[Of]([T] => (t: T) => of(t)).toList.asInstanceOf[List[DFType]]
+
+  // inline def of[T](inline t: T): Of[T] =
+  //   inline t match
+  //     case dfType: DFType => dfType.asInstanceOf[Of[T]]
+  //     case tuple: Tuple   => DFTuple[Tuple](doit(tuple)).asInstanceOf[Of[T]]
+
+  // inline def fromTuple[T](inline tpl : T, list : List[DFType]) : DFTuple = tpl match
+  //   case EmptyTuple => DFTuple[T]()
+  // inline def apply[T](inline t : T) : DFType =
+  //   inline t match
+  //     case dfType : DFType => dfType
+  //     case tuple : Tuple => ???
 
   /////////////////////////////////////////////////////////////////////////////
   // DFBool or DFBit
@@ -53,7 +118,32 @@ object DFType:
     def codeString(using Printer): String = s"DFBits($width)"
   object DFBits:
     def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] = DFBits[W](width)
+    @targetName("applyNoArg")
+    def apply[W <: Int with Singleton](using ValueOf[W]): DFBits[W] =
+      DFBits[W](valueOf[W])
   /////////////////////////////////////////////////////////////////////////////
+
+  final case class DFStruct[F <: DFStruct.Fields](fields: F) extends DFType:
+    def codeString(using Printer): String = fields.name
+    protected[DFType] val width = fields.width
+
+  object DFStruct:
+    abstract class Fields(using meta: MetaContext):
+      final private[DFStruct] val all =
+        mutable.ListBuffer.empty[DFStruct.Field[_ <: DFType]]
+      final private[DFType] lazy val width: Int = all.map(_.dfType.width).sum
+      final val name: String = meta.clsNameOpt.get
+      protected sealed trait FIELD
+      protected object FIELD extends FIELD
+      extension [T](t: T)(using tc: TC[T])
+        def <>(FIELD: FIELD)(using MetaContext): DFStruct.Field[tc.Type] =
+          val dfType = tc(t)
+          val field = DFStruct.Field(dfType)
+          all += field
+          field
+    object Fields
+
+    final case class Field[Type <: DFType](dfType: Type)(using MetaContext)
 
   /////////////////////////////////////////////////////////////////////////////
   // DFTuple
@@ -91,12 +181,3 @@ object DFType:
       def apply(t: T): Type = DFTuple(t)
 
 /////////////////////////////////////////////////////////////////////////////
-
-val w: Inlined.Int[8] = DFBits(8).width
-val w2: Inlined.Int[16] = (DFBits(8), DFBits(8)).width
-val w3: Inlined.Int[25] = ((DFBits(8), DFBit), (DFBits(8), DFBits(8))).width
-val x = (DFBits(8), DFBits(8))
-
-import DFType.TC
-
-val xx = summonInline[TC[DFBits[8]]]
