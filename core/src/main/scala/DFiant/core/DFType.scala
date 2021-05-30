@@ -125,10 +125,7 @@ object DFType:
       DFBits[W](valueOf[W])
   /////////////////////////////////////////////////////////////////////////////
 
-  final case class DFStruct[F <: DFStruct.Fields](fields: F)(using
-      protected val __w: Width[F]
-  ) extends DFType:
-    type Width = __w.Out
+  final case class DFStruct[F <: DFStruct.Fields](fields: F) extends DFType:
     def codeString(using Printer): String = fields.name
     protected[DFType] val width = fields.width
 
@@ -153,16 +150,14 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   // DFTuple
   /////////////////////////////////////////////////////////////////////////////
-  final case class DFTuple[T <: Tuple] private (dfTypeList: List[DFType])(using
-      protected val __w: Width[T]
-  ) extends DFType:
-    type Width = __w.Out
+  case class DFTuple[T <: Tuple] private (dfTypeList: List[DFType])
+      extends DFType:
     protected[DFType] val width: Int = dfTypeList.view.map(_.width).sum
     def codeString(using Printer): String =
       dfTypeList.view.map(_.codeString).mkString("(", ", ", ")")
 
   object DFTuple:
-    def apply[T <: Tuple](tuple: T)(using of: Of[T], w: Width[T]): DFTuple[T] =
+    def apply[T <: Tuple](tuple: T)(using of: Of[T]): DFTuple[T] =
       new DFTuple[T](of(tuple))
     trait Of[T <: Tuple]:
       def apply(t: T): List[DFType]
