@@ -8,7 +8,6 @@ import scala.quoted.*
 import collection.mutable
 
 sealed trait DFType extends NCCode, Product, Serializable:
-  type Width <: Int
   protected val width: Int
 
 object DFType:
@@ -21,14 +20,15 @@ object DFType:
       type Type = T
       def apply(t: T): Type = t
 
-  extension [T](t: T)(using tc: TC[T])
+  type Supported = DFType | DFStruct.Fields | Tuple
+
+  extension [T <: Supported](t: T)(using tc: TC[T])
     def dfType: tc.Type = tc(t)
     def width(using w: Width[tc.Type]): Inlined.Int[w.Out] =
       Inlined.Int.forced[w.Out](dfType.width)
     def codeString(using Printer): String = dfType.codeString
     def <>(dir: Int): Unit = {}
 
-  type Supported = DFType | DFStruct.Fields | Tuple
   trait Width[T <: Supported]:
     type Out <: Int
   transparent inline given [T <: Supported]: Width[T] = ${ getWidthMacro[T] }
@@ -101,7 +101,6 @@ object DFType:
   // DFBool or DFBit
   /////////////////////////////////////////////////////////////////////////////
   sealed trait DFBoolOrBit extends DFType:
-    type Width = 1
     final protected[DFType] val width = 1
 
   case object DFBool extends DFBoolOrBit:
@@ -116,7 +115,6 @@ object DFType:
   final case class DFBits[W <: Int] private (
       protected[DFType] val width: Int
   ) extends DFType:
-    type Width = W
     def codeString(using Printer): String = s"DFBits($width)"
   object DFBits:
     def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] = DFBits[W](width)
