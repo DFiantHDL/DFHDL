@@ -11,6 +11,14 @@ sealed trait DFType extends NCCode, Product, Serializable:
   protected val width: Int
 
 object DFType:
+  protected def apply[T <: Supported](t: T): DFType =
+    t match
+      case dfType: DFType => dfType
+      case tpl: NonEmptyTuple =>
+        new DFTuple(tpl.toList.asInstanceOf[List[Supported]].map(apply))
+      case fields: DFStruct.Fields =>
+        new DFStruct(fields)
+
   trait TC[T]:
     type Type <: DFType
     def apply(t: T): Type
@@ -20,14 +28,51 @@ object DFType:
       type Type = T
       def apply(t: T): Type = t
 
-  type Supported = DFType | DFStruct.Fields | Tuple
+  type Supported = DFType | DFStruct.Fields | NonEmptyTuple
 
-  extension [T <: Supported](t: T)(using tc: TC[T])
+  extension [T <: Supported](t: T)(using tc: TC[T], w: Width[T])
     def dfType: tc.Type = tc(t)
-    def width(using w: Width[tc.Type]): Inlined.Int[w.Out] =
+    def width: Inlined.Int[w.Out] =
       Inlined.Int.forced[w.Out](dfType.width)
     def codeString(using Printer): String = dfType.codeString
+    // transparent inline def X(inline cellDim: Int*): DFType =
+    //   x(dfType, cellDim: _*)
+    inline def X(inline cellDim: Int): DFVector[tc.Type, Tuple1[cellDim.type]] =
+      DFVector(dfType, Tuple1(cellDim))
+    inline def X(
+        inline cellDim0: Int,
+        inline cellDim1: Int
+    ): DFVector[tc.Type, Tuple2[cellDim0.type, cellDim1.type]] =
+      DFVector(dfType, Tuple2(cellDim0, cellDim1))
+    inline def X(
+        inline cellDim0: Int,
+        inline cellDim1: Int,
+        inline cellDim2: Int
+    ): DFVector[tc.Type, Tuple3[cellDim0.type, cellDim1.type, cellDim2.type]] =
+      DFVector(dfType, Tuple3(cellDim0, cellDim1, cellDim2))
     def <>(dir: Int): Unit = {}
+
+  // transparent inline def x[T <: DFType](
+  //     cellType: T,
+  //     inline cellDim: Int*
+  // ): DFType =
+  //   ${ xMacro('cellType, 'cellDim) }
+  // def xMacro[T <: DFType](cellType: Expr[T], cellDim: Expr[Seq[Int]])(using
+  //     Quotes,
+  //     Type[T]
+  // ): Expr[DFType] =
+  //   import quotes.reflect.*
+  //   val (tpe, tpl) = cellDim match
+  //     case Varargs(argExprs) =>
+  //       argExprs match
+  //         case arg :: Nil =>
+  //           println(arg)
+  //           val tp = ConstantType(IntConstant(5)).asType
+  //           (
+  //             TypeRepr.of[Tuple1[5]].asType.asInstanceOf[Type[Int]],
+  //             '{ Tuple1($arg) }
+  //           )
+  //   '{ new DFVector[T, tpe.Underlying]($cellType, $tpl) }
 
   trait Width[T <: Supported]:
     type Out <: Int
@@ -41,7 +86,16 @@ object DFType:
           applied.args.head match
             case ConstantType(IntConstant(value)) => Some(value)
             case _                                => None
-        case applied: AppliedType if applied <:< TypeRepr.of[Tuple] =>
+        case applied: AppliedType if applied <:< TypeRepr.of[DFVector[_, _]] =>
+          val cellWidth = applied.args.head.calcWidth
+          val cellDims = applied.args.last.asInstanceOf[AppliedType].args
+          val widths = cellWidth :: cellDims.map {
+            case ConstantType(IntConstant(value)) => Some(value)
+            case _                                => None
+          }
+          if (widths.forall(_.nonEmpty)) Some(widths.flatten.reduce(_ * _))
+          else None
+        case applied: AppliedType if applied <:< TypeRepr.of[NonEmptyTuple] =>
           val widths = applied.args.map(a => a.calcWidth)
           if (widths.forall(_.nonEmpty)) Some(widths.flatten.sum)
           else None
@@ -51,7 +105,7 @@ object DFType:
           val fieldTpe = TypeRepr.of[DFStruct.Field[_]]
           val clsSym = fieldsTpe.classSymbol.get
           val widths =
-            clsSym.declaredFields.view
+            clsSym.memberFields.view
               .map(fieldsTpe.memberType)
               .collect {
                 case applied: AppliedType if applied <:< fieldTpe =>
@@ -75,27 +129,6 @@ object DFType:
         type Out = widthTpe.Underlying
       }
     }
-
-  type Of[T] <: DFType = T match
-    case DFBit.type  => DFBit.type
-    case DFBool.type => DFBool.type
-    case DFBits[w]   => DFBits[w]
-    case DFTuple[t]  => DFTuple[t]
-    case Tuple       => DFTuple[Tuple.Map[T, Of]]
-  // inline def doit[T <: Tuple](inline t: T): List[DFType] =
-  //   t.map[Of]([T] => (t: T) => of(t)).toList.asInstanceOf[List[DFType]]
-
-  // inline def of[T](inline t: T): Of[T] =
-  //   inline t match
-  //     case dfType: DFType => dfType.asInstanceOf[Of[T]]
-  //     case tuple: Tuple   => DFTuple[Tuple](doit(tuple)).asInstanceOf[Of[T]]
-
-  // inline def fromTuple[T](inline tpl : T, list : List[DFType]) : DFTuple = tpl match
-  //   case EmptyTuple => DFTuple[T]()
-  // inline def apply[T](inline t : T) : DFType =
-  //   inline t match
-  //     case dfType : DFType => dfType
-  //     case tuple : Tuple => ???
 
   /////////////////////////////////////////////////////////////////////////////
   // DFBool or DFBit
@@ -123,6 +156,22 @@ object DFType:
       DFBits[W](valueOf[W])
   /////////////////////////////////////////////////////////////////////////////
 
+  /////////////////////////////////////////////////////////////////////////////
+  // DFVector
+  /////////////////////////////////////////////////////////////////////////////
+  final case class DFVector[T <: DFType, D <: NonEmptyTuple](
+      cellType: T,
+      cellDim: D
+  ) extends DFType:
+    protected[DFType] val width: Int =
+      cellType.width * cellDim.toList.asInstanceOf[List[Int]].reduce(_ * _)
+    def codeString(using Printer): String =
+      s"${cellType.codeString}.X${cellDim.toList.mkString("(", ", ", ")")}"
+  /////////////////////////////////////////////////////////////////////////////
+
+  /////////////////////////////////////////////////////////////////////////////
+  // DFStruct
+  /////////////////////////////////////////////////////////////////////////////
   final case class DFStruct[F <: DFStruct.Fields](fields: F) extends DFType:
     def codeString(using Printer): String = fields.name
     protected[DFType] val width = fields.width
@@ -135,7 +184,7 @@ object DFType:
       final val name: String = meta.clsNameOpt.get
       protected sealed trait FIELD
       protected object FIELD extends FIELD
-      extension [T](t: T)(using tc: TC[T])
+      extension [T <: Supported](t: T)(using tc: TC[T])
         def <>(FIELD: FIELD)(using MetaContext): DFStruct.Field[tc.Type] =
           val dfType = tc(t)
           val field = DFStruct.Field(dfType)
@@ -145,42 +194,28 @@ object DFType:
 
     final case class Field[Type <: DFType](dfType: Type)(using MetaContext)
 
+  transparent inline given ofStruct[T <: DFStruct.Fields]: TC[T] =
+    new TC[T]:
+      type Type = DFStruct[T]
+      def apply(t: T): Type = DFStruct(t)
+  /////////////////////////////////////////////////////////////////////////////
+
   /////////////////////////////////////////////////////////////////////////////
   // DFTuple
   /////////////////////////////////////////////////////////////////////////////
-  case class DFTuple[T <: Tuple] private (dfTypeList: List[DFType])
-      extends DFType:
+  final case class DFTuple[T <: NonEmptyTuple](
+      dfTypeList: List[DFType]
+  ) extends DFType:
     protected[DFType] val width: Int = dfTypeList.view.map(_.width).sum
     def codeString(using Printer): String =
       dfTypeList.view.map(_.codeString).mkString("(", ", ", ")")
 
-  object DFTuple:
-    def apply[T <: Tuple](tuple: T)(using of: Of[T]): DFTuple[T] =
-      new DFTuple[T](of(tuple))
-    trait Of[T <: Tuple]:
-      def apply(t: T): List[DFType]
-    object Of:
-      import ops.int.+
-      import DFType.TC
-      // inline given [T <: Tuple]: Of[T] =
-      //   new Of[T]:
-      //     def apply(t: T): List[DFType] =
-      //       t.map[[X] =>> DFType]([T] => (t: T) => summonInline[TC[T]](t))
-      //         .toList
-      //         .asInstanceOf[List[DFType]]
-      inline given [T1, T2](using
-          tc1: TC[T1],
-          tc2: TC[T2]
-      ): Of[(T1, T2)] =
-        new Of[(T1, T2)]:
-          def apply(t: (T1, T2)): List[DFType] = List(tc1(t._1), tc2(t._2))
+  object DFTuple
 
-  transparent inline given ofTuple[T <: Tuple](using
-      of: DFTuple.Of[T],
+  transparent inline given ofTuple[T <: NonEmptyTuple](using
       w: Width[T]
   ): TC[T] =
     new TC[T]:
       type Type = DFTuple[T]
-      def apply(t: T): Type = DFTuple(t)
-
+      def apply(t: T): Type = DFType(t).asInstanceOf[Type]
 /////////////////////////////////////////////////////////////////////////////
