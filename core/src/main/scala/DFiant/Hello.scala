@@ -3,7 +3,7 @@ import internals.*
 import annotation.targetName
 object Hello extends App {
   class Bar(using val ctx: Context) extends OnCreateEvents, LateConstruction:
-    val nameOpt                          = ctx.nameOpt
+    val nameOpt = ctx.nameOpt
     def +(that: Bar)(using Context): Bar = new Plus(this, that)
 
   class Plus(lhs: Bar, rhs: Bar)(using Context) extends Bar
@@ -42,13 +42,13 @@ object Hello extends App {
       val insider = new Bar
     }
     val internalFoo = new Internal.Foo(1, 2)
-    val nb1         = newBar setName "NB1"
-    val nb2         = newBar
-    val plus        = nb1 + nb2
-    val plus3       = nb1 + nb2 + nb1
-    val pp          = nb1 ++ nb2
-    val ppp         = nb1 +++ nb2
-    val barPlus     = new Bar + nb1
+    val nb1 = newBar setName "NB1"
+    val nb2 = newBar
+    val plus = nb1 + nb2
+    val plus3 = nb1 + nb2 + nb1
+    val pp = nb1 ++ nb2
+    val ppp = nb1 +++ nb2
+    val barPlus = new Bar + nb1
     val fooClsBlock =
       new Foo(1, 2)
       println("fooBlock")
@@ -57,11 +57,11 @@ object Hello extends App {
     case class FooCC(arg1: Int, arg2: Int)(using Context)
         extends Foo(arg1, arg2)
 
-    val fooCC    = FooCC(1, 2)
+    val fooCC = FooCC(1, 2)
     val fooNewCC = new FooCC(1, 2)
 
-  given ctx: Context =
-    Context(Some("top"), Position.unknown, false, None, Position.unknown)
+  given ctx: Context = ???
+//    Context(Some("top"), Position.unknown, false, None, Position.unknown)
 
   val top = new Top
 
