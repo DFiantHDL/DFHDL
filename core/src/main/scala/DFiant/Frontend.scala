@@ -1,5 +1,8 @@
 package DFiant
 
+export core.DFType.Ops.*
+export core.DFType.DFUnion.Ops.*
+
 type Context = core.Context
 type DFType = core.DFType
 val DFBool = core.DFType.DFBool
@@ -11,3 +14,15 @@ val DFBits = core.DFType.DFBits
 type DFStruct = core.DFType.DFStruct
 type DFOpaque[T <: DFType] = core.DFType.DFOpaque[T]
 val DFOpaque = core.DFType.DFOpaque
+type DFFields = core.DFType.DFFields
+
+extension (value: BigInt)
+  def bitsWidth(signed: Boolean): Int =
+    if (value > 0)
+      if (signed) value.bitLength + 1 else value.bitLength
+    else if (value == 0)
+      if (signed) 2 else 1
+    else (-value).bitLength + 1
+
+extension (value: Int)
+  def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
