@@ -15,8 +15,102 @@ case object MyFields2 extends DFFields:
   val y = DFBits(8)
 
 object Bla {
-  val z = MyFields | MyFields2 | MyFields
+  // val z = MyFields | MyFields2 | MyFields
+  // Color.getClass.getFields.map(print)
 
-  // Color.foo
-  Color.dfType
+  // // Color.foo
+  (Color, Color).dfType
+  // import core.DFType
+  // val x: DFType.DFTuple[(DFBit, DFBits[8], DFBool)] =
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
+  //   (DFBit, DFBits[8], DFBool).dfType
 }

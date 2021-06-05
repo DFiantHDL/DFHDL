@@ -11,10 +11,9 @@ val DFBit = core.DFType.DFBit
 type DFBit = DFBit.type
 type DFBits[W <: Int] = core.DFType.DFBits[W]
 val DFBits = core.DFType.DFBits
-type DFStruct = core.DFType.DFStruct
+type DFFields = core.DFType.DFFields
 type DFOpaque[T <: DFType] = core.DFType.DFOpaque[T]
 val DFOpaque = core.DFType.DFOpaque
-type DFFields = core.DFType.DFFields
 
 extension (value: BigInt)
   def bitsWidth(signed: Boolean): Int =

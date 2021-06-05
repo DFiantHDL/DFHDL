@@ -7,19 +7,73 @@ import compiletime.*
 import scala.quoted.*
 import collection.mutable
 import collection.immutable.ListMap
-import DFiant.core.DFType.DFEncoding.StartAt
-import DFiant.core.DFType.DFFields
+
 sealed trait DFType extends NCCode: //, Product, Serializable
   protected lazy val width: Int
 
 object DFType:
-  protected def apply[T <: Supported](t: T): DFType =
+  private def apply(t: Any): DFType =
     t match
-      case dfType: DFType                           => dfType
-      case enumCompanion: scala.deriving.Mirror.Sum => ???
-      // new DFEnum(t)
-      case tpl: NonEmptyTuple =>
-        new DFTuple(tpl.toList.asInstanceOf[List[Supported]].map(apply))
+      case dfType: DFType       => dfType
+      case tuple: NonEmptyTuple => DFTuple(tuple)
+      case fields: DFFields     => DFStruct(fields)
+      //TODO: need to add proper upper-bound if fixed in Scalac
+      //see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
+      case enumCompanion: AnyRef => DFEnum(enumCompanion)
+
+  sealed trait DFMatchable extends DFType
+  sealed trait DFFlattenable extends DFType
+  def tcMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
+    import quotes.reflect.*
+    val tTpe = TypeRepr.of[T]
+    val dfTypeTpe = TypeRepr.of[DFType]
+    val nonEmptyTupleTpe = TypeRepr.of[NonEmptyTuple]
+    val fieldTpe = TypeRepr.of[DFField[_]]
+    val fieldsTpe = TypeRepr.of[DFFields]
+    val encodingSym = TypeRepr.of[DFEncoding].typeSymbol
+    def checkSupported(tTpe: TypeRepr)(using Quotes): Unit = {
+      // println((tTpe.show, expr.show))
+      tTpe match
+        case t if t <:< dfTypeTpe =>
+        case applied: AppliedType if applied <:< nonEmptyTupleTpe =>
+          applied.args.foreach(checkSupported)
+        case t if t <:< fieldsTpe =>
+        case t if t.termSymbol.companionClass.flags.is(Flags.Enum) =>
+          val clsSym = t.termSymbol.companionClass
+          val isDFEnum = t
+            .memberType(clsSym)
+            .baseClasses
+            .contains(encodingSym)
+          if (!isDFEnum)
+            report.error(s"Enum does not extend DFEncoding: ${t.show}")
+        case t =>
+          report.error(s"Unsupported dataflow type can be found for: ${t.show}")
+    }
+
+    checkSupported(tTpe)
+    tTpe match
+      case t if t <:< nonEmptyTupleTpe =>
+        '{
+          new TC[T]:
+            type Type = DFTuple[T]
+            def apply(t: T): Type = DFTuple[T](t)
+        }
+      case t =>
+        val clsType =
+          t.termSymbol.declaredFields
+            .collectFirst {
+              case f if t.memberType(f) <:< TypeRepr.of[scala.reflect.Enum] =>
+                t.memberType(f)
+            }
+            .get
+            .asType
+        clsType match
+          case '[e] =>
+            '{
+              new TC[T]:
+                type Type = DFEnum[T, e]
+                def apply(t: T): Type = DFEnum[T, e](t)
+            }
 
   trait TC[T]:
     type Type <: DFType
@@ -29,12 +83,17 @@ object DFType:
     new TC[T]:
       type Type = T
       def apply(t: T): Type = t
+  transparent inline given ofDFFields[T <: DFFields]: TC[T] =
+    new TC[T]:
+      type Type = DFStruct[T]
+      def apply(t: T): Type = DFStruct[T](t)
+  transparent inline given ofAnyRef[T <: AnyRef]: TC[T] = ${ tcMacro[T] }
 
   type Supported = AnyRef //DFType | NonEmptyTuple
   object Ops:
-    extension [T <: Supported](t: T)(using tc: TC[T], w: Width[T])
+    extension [T <: Supported](t: T)(using tc: TC[T])
       def dfType: tc.Type = tc(t)
-      def width: Inlined.Int[w.Out] =
+      def width(using w: Width[T]): Inlined.Int[w.Out] =
         Inlined.Int.forced[w.Out](dfType.width)
       def codeString(using Printer): String = dfType.codeString
       // transparent inline def X(inline cellDim: Int*): DFType =
@@ -113,8 +172,8 @@ object DFType:
           else None
         case applied: AppliedType if applied <:< TypeRepr.of[DFTuple[_]] =>
           applied.args.head.calcWidth
-        case fieldsTpe if fieldsTpe <:< TypeRepr.of[DFStruct] =>
-          val fieldTpe = TypeRepr.of[DFStruct.Field[_]]
+        case fieldsTpe if fieldsTpe <:< TypeRepr.of[DFFields] =>
+          val fieldTpe = TypeRepr.of[DFField[_]]
           val clsSym = fieldsTpe.classSymbol.get
           val widths =
             clsSym.memberFields.view
@@ -153,7 +212,7 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   // DFBool or DFBit
   /////////////////////////////////////////////////////////////////////////////
-  sealed trait DFBoolOrBit extends DFType:
+  sealed trait DFBoolOrBit extends DFMatchable:
     final protected[DFType] lazy val width = 1
 
   case object DFBool extends DFBoolOrBit:
@@ -167,7 +226,7 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   final case class DFBits[W <: Int] private (
       private val _width: Int
-  ) extends DFType:
+  ) extends DFMatchable:
     protected[DFType] lazy val width: Int = _width
     def codeString(using Printer): String = s"DFBits($width)"
   object DFBits:
@@ -208,17 +267,11 @@ object DFType:
       final val func: Int => BigInt = _ => value
       val value: BigInt
 
-  final case class DFEnum[T](
-      entries: ListMap[String, (BigInt, DFType)]
-  ) extends DFType:
+  final case class DFEnum[C <: AnyRef, E](
+      enumCompanion: C
+  ) extends DFMatchable:
     protected[DFType] lazy val width: Int = 0
     def codeString(using Printer): String = s"DFBits($width)"
-
-  transparent inline given ofDFEnum[T <: AnyRef](using Width[T]): TC[T] =
-    new TC[T]:
-      type Type = DFEnum[T]
-      def apply(t: T): Type = ???
-  //DFEnum(t)
   /////////////////////////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////////////////////////
@@ -227,7 +280,7 @@ object DFType:
   final case class DFVector[T <: DFType, D <: NonEmptyTuple](
       cellType: T,
       cellDim: D
-  ) extends DFType:
+  ) extends DFFlattenable:
     protected[DFType] lazy val width: Int =
       cellType.width * cellDim.toList.asInstanceOf[List[Int]].reduce(_ * _)
     def codeString(using Printer): String =
@@ -240,7 +293,7 @@ object DFType:
   abstract class DFOpaque[T <: DFType](
       actualType: T
   )(using meta: MetaContext)
-      extends DFType:
+      extends DFFlattenable:
     protected[DFType] lazy val width: Int = actualType.width
     def codeString(using Printer): String = meta.name
   object DFOpaque:
@@ -253,7 +306,27 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   // DFFields are used for either struct or enumerations (tagged unions)
   /////////////////////////////////////////////////////////////////////////////
-  trait DFFields extends Product, Serializable
+  abstract class DFFields(using meta: MetaContext)
+      extends Product,
+        Serializable:
+    final private val all =
+      mutable.ListBuffer.empty[DFField[_ <: DFType]]
+    final protected[DFType] lazy val width: Int = all.map(_.dfType.width).sum
+    final lazy val getFields = all.toList
+    final val name: String = meta.clsNameOpt.get
+    protected sealed trait FIELD
+    protected object FIELD extends FIELD
+    extension [T <: Supported](t: T)(using tc: TC[T])
+      def <>(FIELD: FIELD)(using MetaContext): DFField[tc.Type] =
+        val dfType = tc(t)
+        val field = DFField(dfType)
+        all += field
+        field
+  final case class DFField[Type <: DFType](dfType: Type)(using
+      meta: MetaContext
+  ):
+    val name: String = meta.name
+  /////////////////////////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////////////////////////
   // DFUnion
@@ -284,46 +357,26 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   // DFStruct
   /////////////////////////////////////////////////////////////////////////////
-  abstract class DFStruct(using meta: MetaContext) extends DFType:
-    final private val all =
-      mutable.ListBuffer.empty[DFStruct.Field[_ <: DFType]]
-    final protected[DFType] lazy val width: Int = all.map(_.dfType.width).sum
-    final lazy val getFields = all.toList
-    final val name: String = meta.clsNameOpt.get
-    protected sealed trait FIELD
-    protected object FIELD extends FIELD
-    extension [T <: Supported](t: T)(using tc: TC[T])
-      def <>(FIELD: FIELD)(using MetaContext): DFStruct.Field[tc.Type] =
-        val dfType = tc(t)
-        val field = DFStruct.Field(dfType)
-        all += field
-        field
-    def codeString(using Printer): String = name
+  final case class DFStruct[F <: DFFields](fields: F) extends DFFlattenable:
+    protected[DFType] lazy val width: Int = fields.width
+    def codeString(using Printer): String = fields.name
+  /////////////////////////////////////////////////////////////////////////////
 
-  object DFStruct:
-    @annotation.targetName("StructField") //to avoid name collision with `FIELD`
-    final case class Field[Type <: DFType](dfType: Type)(using
-        meta: MetaContext
-    ):
-      val name: String = meta.name
   /////////////////////////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////////////////////////
   // DFTuple
   /////////////////////////////////////////////////////////////////////////////
-  final case class DFTuple[T <: NonEmptyTuple](
-      dfTypeList: List[DFType]
-  ) extends DFType:
+  final case class DFTuple[T <: AnyRef](t: T)
+      extends DFMatchable,
+        DFFlattenable:
+    val dfTypeList: List[DFType] =
+      t.asInstanceOf[NonEmptyTuple]
+        .toList
+        //TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
+        .asInstanceOf[List[AnyRef]]
+        .map(DFType.apply)
     protected[DFType] lazy val width: Int = dfTypeList.view.map(_.width).sum
     def codeString(using Printer): String =
       dfTypeList.view.map(_.codeString).mkString("(", ", ", ")")
-
-  object DFTuple
-
-  transparent inline given ofTuple[T <: NonEmptyTuple](using
-      w: Width[T]
-  ): TC[T] =
-    new TC[T]:
-      type Type = DFTuple[T]
-      def apply(t: T): Type = DFType(t).asInstanceOf[Type]
 /////////////////////////////////////////////////////////////////////////////
