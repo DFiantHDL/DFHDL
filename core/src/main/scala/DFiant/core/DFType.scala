@@ -9,7 +9,7 @@ import collection.mutable
 import collection.immutable.ListMap
 
 sealed trait DFType extends NCCode: //, Product, Serializable
-  protected lazy val width: Int
+  protected val width: Int
 
 object DFType:
   private def apply(t: Any): DFType =
@@ -31,21 +31,14 @@ object DFType:
     val fieldTpe = TypeRepr.of[DFField[_]]
     val fieldsTpe = TypeRepr.of[DFFields]
     val encodingSym = TypeRepr.of[DFEncoding].typeSymbol
-    def checkSupported(tTpe: TypeRepr)(using Quotes): Unit = {
+    def checkSupported(tTpe: TypeRepr): Unit = {
       // println((tTpe.show, expr.show))
       tTpe match
         case t if t <:< dfTypeTpe =>
         case applied: AppliedType if applied <:< nonEmptyTupleTpe =>
           applied.args.foreach(checkSupported)
         case t if t <:< fieldsTpe =>
-        case t if t.termSymbol.companionClass.flags.is(Flags.Enum) =>
-          val clsSym = t.termSymbol.companionClass
-          val isDFEnum = t
-            .memberType(clsSym)
-            .baseClasses
-            .contains(encodingSym)
-          if (!isDFEnum)
-            report.error(s"Enum does not extend DFEncoding: ${t.show}")
+        case DFEnum(_)            =>
         case t =>
           report.error(s"Unsupported dataflow type can be found for: ${t.show}")
     }
@@ -58,15 +51,8 @@ object DFType:
             type Type = DFTuple[T]
             def apply(t: T): Type = DFTuple[T](t)
         }
-      case t =>
-        val clsType =
-          t.termSymbol.declaredFields
-            .collectFirst {
-              case f if t.memberType(f) <:< TypeRepr.of[scala.reflect.Enum] =>
-                t.memberType(f)
-            }
-            .get
-            .asType
+      case DFEnum(entries) =>
+        val clsType = entries.head.asType
         clsType match
           case '[e] =>
             '{
@@ -184,16 +170,23 @@ object DFType:
               }
           if (widths.forall(_.nonEmpty)) Some(widths.flatten.sum)
           else None
-        case t if t.termSymbol.companionClass.flags.is(Flags.Enum) =>
-          val clsSym = t.termSymbol.companionClass
-          val length = clsSym.children.length
-          val encodingSym = TypeRepr.of[DFEncoding].typeSymbol
-          println(clsSym.children)
-          val isDFEnum = t
-            .memberType(clsSym)
-            .baseClasses
-            .contains(encodingSym)
-          Some(length.bitsWidth(false))
+        case DFEnum(entries) =>
+          val entryCount = entries.length
+          entries.head match
+            case DFEncoding.StartAt(startTpe) =>
+              startTpe match
+                case ConstantType(IntConstant(value)) =>
+                  Some((entryCount - 1 + value).bitsWidth(false))
+                case _ => None
+            case t if t <:< TypeRepr.of[DFEncoding.OneHot] =>
+              Some(entryCount)
+            case t if t <:< TypeRepr.of[DFEncoding.Grey] =>
+              Some((entryCount - 1).bitsWidth(false))
+            case DFEncoding.Manual(widthTpe) =>
+              widthTpe match
+                case ConstantType(IntConstant(value)) =>
+                  Some(value)
+                case _ => None
   def getWidthMacro[T <: Supported](using Quotes, Type[T]): Expr[Width[T]] =
     import quotes.reflect.*
     val tTpe = TypeRepr.of[T]
@@ -213,7 +206,7 @@ object DFType:
   // DFBool or DFBit
   /////////////////////////////////////////////////////////////////////////////
   sealed trait DFBoolOrBit extends DFMatchable:
-    final protected[DFType] lazy val width = 1
+    final protected[DFType] val width = 1
 
   case object DFBool extends DFBoolOrBit:
     def codeString(using Printer): String = "DFBool"
@@ -225,9 +218,8 @@ object DFType:
   // DFBits
   /////////////////////////////////////////////////////////////////////////////
   final case class DFBits[W <: Int] private (
-      private val _width: Int
+      protected[DFType] val width: Int
   ) extends DFMatchable:
-    protected[DFType] lazy val width: Int = _width
     def codeString(using Printer): String = s"DFBits($width)"
   object DFBits:
     def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] = new DFBits[W](width)
@@ -241,37 +233,92 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   sealed trait DFEncoding extends scala.reflect.Enum:
     def calcWidth(entryCount: Int): Int
-    val func: Int => BigInt
+    def encode(idx: Int): BigInt
+    val value: BigInt
 
   object DFEncoding:
+    sealed trait Auto extends DFEncoding:
+      val value: BigInt = encode(ordinal)
     abstract class Default extends StartAt(0)
 
-    abstract class Grey extends DFEncoding:
+    abstract class Grey extends Auto:
       final def calcWidth(entryCount: Int): Int =
         (entryCount - 1).bitsWidth(false)
-      final val func: Int => BigInt = t => BigInt(t ^ (t >>> 1))
+      final def encode(idx: Int): BigInt = BigInt(idx ^ (idx >>> 1))
 
-    abstract class StartAt[V <: Int with Singleton](value: V)
-        extends DFEncoding:
+    abstract class StartAt[V <: Int with Singleton](value: V) extends Auto:
       final def calcWidth(entryCount: Int): Int =
         (entryCount - 1 + value).bitsWidth(false)
-      final val func: Int => BigInt = t => BigInt(t + value)
+      final def encode(idx: Int): BigInt = BigInt(idx + value)
+    object StartAt:
+      def unapply(using Quotes)(
+          tpe: quotes.reflect.TypeRepr
+      ): Option[quotes.reflect.TypeRepr] =
+        import quotes.reflect.*
+        val encodingTpe = TypeRepr.of[StartAt[_]]
+        if (tpe <:< encodingTpe)
+          val applied =
+            tpe.baseType(encodingTpe.typeSymbol).asInstanceOf[AppliedType]
+          Some(applied.args.head)
+        else None
 
-    abstract class OneHot extends DFEncoding:
+    abstract class OneHot extends Auto:
       final def calcWidth(entryCount: Int): Int = entryCount
-      final val func: Int => BigInt = t => BigInt(1) << t
+      final def encode(idx: Int): BigInt = BigInt(1) << idx
 
     abstract class Manual[W <: Int with Singleton](val width: W)
         extends DFEncoding:
       final def calcWidth(entryCount: Int): Int = width
-      final val func: Int => BigInt = _ => value
-      val value: BigInt
+      final def encode(idx: Int): BigInt = value
+    object Manual:
+      def unapply(using Quotes)(
+          tpe: quotes.reflect.TypeRepr
+      ): Option[quotes.reflect.TypeRepr] =
+        import quotes.reflect.*
+        val encodingTpe = TypeRepr.of[Manual[_]]
+        if (tpe <:< encodingTpe)
+          val applied =
+            tpe.baseType(encodingTpe.typeSymbol).asInstanceOf[AppliedType]
+          Some(applied.args.head)
+        else None
 
   final case class DFEnum[C <: AnyRef, E](
-      enumCompanion: C
+      val name: String,
+      protected[DFType] val width: Int,
+      val entries: ListMap[String, BigInt]
   ) extends DFMatchable:
-    protected[DFType] lazy val width: Int = 0
-    def codeString(using Printer): String = s"DFBits($width)"
+    def codeString(using Printer): String = name
+  object DFEnum:
+    def unapply(using Quotes)(
+        tpe: quotes.reflect.TypeRepr
+    ): Option[List[quotes.reflect.TypeRepr]] =
+      import quotes.reflect.*
+      val enumTpe = TypeRepr.of[scala.reflect.Enum]
+      val sym = tpe.termSymbol
+      if (sym.companionClass.flags.is(Flags.Enum))
+        Some(
+          sym.declaredFields.view
+            .map(f => tpe.memberType(f))
+            .filter(_ <:< enumTpe)
+            .toList
+        )
+      else None
+    def apply[C <: AnyRef, E](enumCompanion: C): DFEnum[C, E] =
+      val enumClass = classOf[scala.reflect.Enum]
+      val enumCompanionCls = enumCompanion.getClass
+      val fieldsAsPairs = for (
+        field <- enumCompanionCls.getDeclaredFields
+        if enumClass.isAssignableFrom(field.getType)
+      ) yield {
+        field.setAccessible(true)
+        (field.getName, field.get(enumCompanion).asInstanceOf[DFEncoding])
+      }
+      val name = enumCompanionCls.getSimpleName.replace("$", "")
+      val width = fieldsAsPairs.head._2.calcWidth(fieldsAsPairs.size)
+      val entryPairs = fieldsAsPairs.zipWithIndex.map {
+        case ((name, entry), idx) => (name, entry.value)
+      }
+      DFEnum[C, E](name, width, ListMap(entryPairs: _*))
   /////////////////////////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////////////////////////
@@ -281,7 +328,7 @@ object DFType:
       cellType: T,
       cellDim: D
   ) extends DFFlattenable:
-    protected[DFType] lazy val width: Int =
+    protected[DFType] val width: Int =
       cellType.width * cellDim.toList.asInstanceOf[List[Int]].reduce(_ * _)
     def codeString(using Printer): String =
       s"${cellType.codeString}.X${cellDim.toList.mkString("(", ", ", ")")}"
@@ -294,8 +341,8 @@ object DFType:
       actualType: T
   )(using meta: MetaContext)
       extends DFFlattenable:
-    protected[DFType] lazy val width: Int = actualType.width
-    def codeString(using Printer): String = meta.name
+    final protected[DFType] val width: Int = actualType.width
+    final def codeString(using Printer): String = meta.name
   object DFOpaque:
     transparent inline def apply[T <: DFType](actualType: T)(using
         MetaContext
@@ -333,7 +380,7 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   final case class DFUnion[F <: DFFields](fieldsSet: Set[DFType])
       extends DFType:
-    protected[DFType] lazy val width: Int = fieldsSet.head.width
+    protected[DFType] val width: Int = fieldsSet.head.width
     def codeString(using Printer): String =
       fieldsSet.map(_.codeString).mkString(" | ")
   object DFUnion:
@@ -358,7 +405,7 @@ object DFType:
   // DFStruct
   /////////////////////////////////////////////////////////////////////////////
   final case class DFStruct[F <: DFFields](fields: F) extends DFFlattenable:
-    protected[DFType] lazy val width: Int = fields.width
+    protected[DFType] val width: Int = fields.width
     def codeString(using Printer): String = fields.name
   /////////////////////////////////////////////////////////////////////////////
 
@@ -376,7 +423,7 @@ object DFType:
         //TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
         .asInstanceOf[List[AnyRef]]
         .map(DFType.apply)
-    protected[DFType] lazy val width: Int = dfTypeList.view.map(_.width).sum
+    protected[DFType] val width: Int = dfTypeList.view.map(_.width).sum
     def codeString(using Printer): String =
       dfTypeList.view.map(_.codeString).mkString("(", ", ", ")")
 /////////////////////////////////////////////////////////////////////////////
