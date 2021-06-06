@@ -141,8 +141,6 @@ object DFType:
           applied.args.head match
             case ConstantType(IntConstant(value)) => Some(value)
             case _                                => None
-        case applied: AppliedType if applied <:< TypeRepr.of[DFOpaque[_]] =>
-          applied.args.head.calcWidth
         case applied: AppliedType if applied <:< TypeRepr.of[DFVector[_, _]] =>
           val cellWidth = applied.args.head.calcWidth
           val cellDims = applied.args.last.asInstanceOf[AppliedType].args
@@ -156,8 +154,6 @@ object DFType:
           val widths = applied.args.map(a => a.calcWidth)
           if (widths.forall(_.nonEmpty)) Some(widths.flatten.sum)
           else None
-        case applied: AppliedType if applied <:< TypeRepr.of[DFTuple[_]] =>
-          applied.args.head.calcWidth
         case fieldsTpe if fieldsTpe <:< TypeRepr.of[DFFields] =>
           val fieldTpe = TypeRepr.of[DFField[_]]
           val clsSym = fieldsTpe.classSymbol.get
@@ -187,6 +183,14 @@ object DFType:
                 case ConstantType(IntConstant(value)) =>
                   Some(value)
                 case _ => None
+        case applied: AppliedType if applied <:< TypeRepr.of[DFOpaque[_]] =>
+          applied.args.head.calcWidth
+        case applied: AppliedType if applied <:< TypeRepr.of[DFTuple[_]] =>
+          applied.args.head.calcWidth
+        case applied: AppliedType if applied <:< TypeRepr.of[DFEnum[_, _]] =>
+          applied.args.head.calcWidth
+        case applied: AppliedType if applied <:< TypeRepr.of[DFStruct[_]] =>
+          applied.args.head.calcWidth
   def getWidthMacro[T <: Supported](using Quotes, Type[T]): Expr[Width[T]] =
     import quotes.reflect.*
     val tTpe = TypeRepr.of[T]
@@ -404,26 +408,36 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   // DFStruct
   /////////////////////////////////////////////////////////////////////////////
-  final case class DFStruct[F <: DFFields](fields: F) extends DFFlattenable:
-    protected[DFType] val width: Int = fields.width
-    def codeString(using Printer): String = fields.name
-  /////////////////////////////////////////////////////////////////////////////
-
+  final case class DFStruct[F <: DFFields](
+      name: String,
+      fieldMap: ListMap[String, DFType]
+  ) extends DFFlattenable:
+    protected[DFType] val width: Int = fieldMap.values.map(_.width).sum
+    def codeString(using Printer): String = name
+  object DFStruct:
+    def apply[F <: DFFields](fields: F): DFStruct[F] =
+      val fieldMap = ListMap(fields.getFields.map(f => (f.name, f.dfType)): _*)
+      DFStruct[F](fields.name, fieldMap)
   /////////////////////////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////////////////////////
   // DFTuple
   /////////////////////////////////////////////////////////////////////////////
-  final case class DFTuple[T <: AnyRef](t: T)
+  final case class DFTuple[T <: AnyRef](dfTypeList: List[DFType])
       extends DFMatchable,
         DFFlattenable:
-    val dfTypeList: List[DFType] =
-      t.asInstanceOf[NonEmptyTuple]
-        .toList
-        //TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
-        .asInstanceOf[List[AnyRef]]
-        .map(DFType.apply)
     protected[DFType] val width: Int = dfTypeList.view.map(_.width).sum
     def codeString(using Printer): String =
       dfTypeList.view.map(_.codeString).mkString("(", ", ", ")")
+
+  object DFTuple:
+    def apply[T <: AnyRef](t: T): DFTuple[T] =
+      val dfTypeList: List[DFType] =
+        t.asInstanceOf[NonEmptyTuple]
+          .toList
+          //TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
+          .asInstanceOf[List[AnyRef]]
+          .map(DFType.apply)
+      DFTuple[T](dfTypeList)
+
 /////////////////////////////////////////////////////////////////////////////
