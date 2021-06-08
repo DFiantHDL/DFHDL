@@ -17,9 +17,8 @@ case object MyFields2 extends DFFields:
 object Bla {
   // val z = MyFields | MyFields2 | MyFields
   // Color.getClass.getFields.map(print)
-
+  val x: core.DFType.DFVector[DFBit, Tuple1[5]] = DFBit.X(5)
   // // Color.foo
-  (Color, Color).dfType
   // import core.DFType
   // val x: DFType.DFTuple[(DFBit, DFBits[8], DFBool)] =
   //   (DFBit, DFBits[8], DFBool).dfType

@@ -9,6 +9,9 @@ import collection.mutable
 import collection.immutable.ListMap
 
 sealed trait DFType extends NCCode: //, Product, Serializable
+  type TokenData
+  def tokenDataToBits(data: TokenData): (BitVector, BitVector) = ???
+  def tokenCodeString(data: TokenData)(using Printer): String = ???
   protected val width: Int
 
 object DFType:
@@ -138,6 +141,7 @@ object DFType:
       dfTpe match
         case t if dfTpe <:< TypeRepr.of[DFBoolOrBit] => Some(1)
         case applied: AppliedType if applied <:< TypeRepr.of[DFBits[_]] =>
+          println(applied.args.head)
           applied.args.head match
             case ConstantType(IntConstant(value)) => Some(value)
             case _                                => None
@@ -191,6 +195,9 @@ object DFType:
           applied.args.head.calcWidth
         case applied: AppliedType if applied <:< TypeRepr.of[DFStruct[_]] =>
           applied.args.head.calcWidth
+        //lost specific type information, but still has non-literal width
+        case t if t <:< TypeRepr.of[DFType] =>
+          None
   def getWidthMacro[T <: Supported](using Quotes, Type[T]): Expr[Width[T]] =
     import quotes.reflect.*
     val tTpe = TypeRepr.of[T]
@@ -210,11 +217,16 @@ object DFType:
   // DFBool or DFBit
   /////////////////////////////////////////////////////////////////////////////
   sealed trait DFBoolOrBit extends DFMatchable:
+    type TokenData = (Boolean, Boolean)
     final protected[DFType] val width = 1
+  object DFBoolOrBit:
+    type Token = DFToken[DFBoolOrBit]
 
   case object DFBool extends DFBoolOrBit:
+    type Token = DFToken[DFBool.type]
     def codeString(using Printer): String = "DFBool"
   case object DFBit extends DFBoolOrBit:
+    type Token = DFToken[DFBit.type]
     def codeString(using Printer): String = "DFBit"
   /////////////////////////////////////////////////////////////////////////////
 
@@ -224,12 +236,15 @@ object DFType:
   final case class DFBits[W <: Int] private (
       protected[DFType] val width: Int
   ) extends DFMatchable:
+    type TokenData = (BitVector, BitVector)
+    override def tokenDataToBits(data: TokenData): (BitVector, BitVector) = data
     def codeString(using Printer): String = s"DFBits($width)"
   object DFBits:
     def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] = new DFBits[W](width)
     @targetName("applyNoArg")
     def apply[W <: Int with Singleton](using ValueOf[W]): DFBits[W] =
       new DFBits[W](valueOf[W])
+    type Token[W <: Int] = DFToken[DFBits[W]]
   /////////////////////////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////////////////////////
