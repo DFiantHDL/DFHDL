@@ -1,6 +1,5 @@
-import DFiant.*
+import DFiant.{*, given}
 import internals.{MetaContext, Inlined}
-import DFiant.core.DFType.DFEncoding
 given MetaContext = ???
 
 enum Color extends DFEncoding.Default:
@@ -14,10 +13,17 @@ case object MyFields2 extends DFFields:
   val x = DFBit
   val y = DFBits(8)
 
+// given [T <: DFType](using
+//     w: core.DFType.Width[T]
+// ): core.HasWidth[T] with
+//   type Width = w.Out
+//   extension (t: T)
+//     def widthT: Inlined.Int[Width] = Inlined.Int.forced[Width](???)
+
 object Bla {
   val eight = 8
   val b8 = DFBits(eight)
-  val a: Inlined.Int[Int] = b8.width
+  val a = b8.width
   // val z = MyFields | MyFields2 | MyFields
   // Color.getClass.getFields.map(print)
   // val x: core.DFType.DFVector[DFBit, Tuple1[5]] = DFBit.X(5)

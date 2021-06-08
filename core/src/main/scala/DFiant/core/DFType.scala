@@ -12,7 +12,7 @@ sealed trait DFType extends NCCode: //, Product, Serializable
   type TokenData
   def tokenDataToBits(data: TokenData): (BitVector, BitVector) = ???
   def tokenCodeString(data: TokenData)(using Printer): String = ???
-  protected val width: Int
+  val __width: Int
 
 object DFType:
   private def apply(t: Any): DFType =
@@ -68,14 +68,12 @@ object DFType:
     type Type <: DFType
     def apply(t: T): Type
 
-  transparent inline given ofDFType[T <: DFType]: TC[T] =
-    new TC[T]:
-      type Type = T
-      def apply(t: T): Type = t
-  transparent inline given ofDFFields[T <: DFFields]: TC[T] =
-    new TC[T]:
-      type Type = DFStruct[T]
-      def apply(t: T): Type = DFStruct[T](t)
+  given ofDFType[T <: DFType]: TC[T] with
+    type Type = T
+    def apply(t: T): Type = t
+  given ofDFFields[T <: DFFields]: TC[T] with
+    type Type = DFStruct[T]
+    def apply(t: T): Type = DFStruct[T](t)
   transparent inline given ofAnyRef[T <: AnyRef]: TC[T] = ${ tcMacro[T] }
 
   type Supported = AnyRef //DFType | NonEmptyTuple
@@ -83,7 +81,7 @@ object DFType:
     extension [T <: Supported](t: T)(using tc: TC[T])
       def dfType: tc.Type = tc(t)
       def width(using w: Width[T]): Inlined.Int[w.Out] =
-        Inlined.Int.forced[w.Out](dfType.width)
+        Inlined.Int.forced[w.Out](dfType.__width)
       def codeString(using Printer): String = dfType.codeString
       // transparent inline def X(inline cellDim: Int*): DFType =
       //   x(dfType, cellDim: _*)
@@ -165,7 +163,6 @@ object DFType:
         case t if dfTpe <:< TypeRepr.of[DFBoolOrBit] =>
           ConstantType(IntConstant(1))
         case applied: AppliedType if applied <:< TypeRepr.of[DFBits[_]] =>
-          println(applied.args.head)
           applied.args.head.simplify
         case applied: AppliedType if applied <:< TypeRepr.of[DFVector[_, _]] =>
           val cellWidth = applied.args.head.calcWidth
@@ -234,7 +231,7 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   sealed trait DFBoolOrBit extends DFMatchable:
     type TokenData = (Boolean, Boolean)
-    final protected[DFType] val width = 1
+    final val __width = 1
   object DFBoolOrBit:
     type Token = DFToken[DFBoolOrBit]
 
@@ -250,11 +247,11 @@ object DFType:
   // DFBits
   /////////////////////////////////////////////////////////////////////////////
   final case class DFBits[W <: Int] private (
-      protected[DFType] val width: Int
+      val __width: Int
   ) extends DFMatchable:
     type TokenData = (BitVector, BitVector)
     override def tokenDataToBits(data: TokenData): (BitVector, BitVector) = data
-    def codeString(using Printer): String = s"DFBits($width)"
+    def codeString(using Printer): String = s"DFBits($__width)"
   object DFBits:
     def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] = new DFBits[W](width)
     @targetName("applyNoArg")
@@ -263,7 +260,7 @@ object DFType:
     type Token[W <: Int] = DFToken[DFBits[W]]
     object Token:
       def apply[W <: Int](
-          width: W
+          width: Inlined.Int[W]
       )(valueBits: BitVector, bubbleBits: BitVector): Token[W] =
         DFToken(DFBits(width))((valueBits, bubbleBits))
   /////////////////////////////////////////////////////////////////////////////
@@ -324,7 +321,7 @@ object DFType:
 
   final case class DFEnum[C <: AnyRef, E](
       val name: String,
-      protected[DFType] val width: Int,
+      val __width: Int,
       val entries: ListMap[String, BigInt]
   ) extends DFMatchable:
     def codeString(using Printer): String = name
@@ -368,8 +365,8 @@ object DFType:
       cellType: T,
       cellDim: D
   ) extends DFFlattenable:
-    protected[DFType] val width: Int =
-      cellType.width * cellDim.toList.asInstanceOf[List[Int]].reduce(_ * _)
+    val __width: Int =
+      cellType.__width * cellDim.toList.asInstanceOf[List[Int]].reduce(_ * _)
     def codeString(using Printer): String =
       s"${cellType.codeString}.X${cellDim.toList.mkString("(", ", ", ")")}"
   /////////////////////////////////////////////////////////////////////////////
@@ -381,7 +378,7 @@ object DFType:
       actualType: T
   )(using meta: MetaContext)
       extends DFFlattenable:
-    final protected[DFType] val width: Int = actualType.width
+    final val __width: Int = actualType.__width
     final def codeString(using Printer): String = meta.name
   object DFOpaque:
     transparent inline def apply[T <: DFType](actualType: T)(using
@@ -398,7 +395,7 @@ object DFType:
         Serializable:
     final private val all =
       mutable.ListBuffer.empty[DFField[_ <: DFType]]
-    final protected[DFType] lazy val width: Int = all.map(_.dfType.width).sum
+    final protected[DFType] lazy val width: Int = all.map(_.dfType.__width).sum
     final lazy val getFields = all.toList
     final val name: String = meta.clsNameOpt.get
     protected sealed trait FIELD
@@ -420,7 +417,7 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   final case class DFUnion[F <: DFFields](fieldsSet: Set[DFType])
       extends DFType:
-    protected[DFType] val width: Int = fieldsSet.head.width
+    val __width: Int = fieldsSet.head.__width
     def codeString(using Printer): String =
       fieldsSet.map(_.codeString).mkString(" | ")
   object DFUnion:
@@ -448,7 +445,7 @@ object DFType:
       name: String,
       fieldMap: ListMap[String, DFType]
   ) extends DFFlattenable:
-    protected[DFType] val width: Int = fieldMap.values.map(_.width).sum
+    val __width: Int = fieldMap.values.map(_.__width).sum
     def codeString(using Printer): String = name
   object DFStruct:
     def apply[F <: DFFields](fields: F): DFStruct[F] =
@@ -462,7 +459,7 @@ object DFType:
   final case class DFTuple[T <: AnyRef](dfTypeList: List[DFType])
       extends DFMatchable,
         DFFlattenable:
-    protected[DFType] val width: Int = dfTypeList.view.map(_.width).sum
+    val __width: Int = dfTypeList.view.map(_.__width).sum
     def codeString(using Printer): String =
       dfTypeList.view.map(_.codeString).mkString("(", ", ", ")")
 

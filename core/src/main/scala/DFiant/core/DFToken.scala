@@ -11,8 +11,7 @@ final case class DFToken[+T <: DFType](dfType: T)(val data: dfType.TokenData)
 
 object DFToken:
   extension [T <: DFType](token: DFToken[T])
-    def _width(using w: DFType.Width[T]): Inlined.Int[w.Out] =
-      token.dfType.width
+    def width(using w: DFType.Width[T]): Inlined.Int[w.Out] =
+      Inlined.Int.forced[w.Out](token.dfType.__width)
     def bits(using w: DFType.Width[T]): DFToken[DFBits[w.Out]] =
-      val bitsType = DFBits(_width)
-      DFToken(bitsType)((token.valueBits, token.bubbleBits))
+      DFBits.Token(width)(token.valueBits, token.bubbleBits)
