@@ -15,9 +15,12 @@ case object MyFields2 extends DFFields:
   val y = DFBits(8)
 
 object Bla {
+  val eight = 8
+  val b8 = DFBits(eight)
+  val a: Inlined.Int[Int] = b8.width
   // val z = MyFields | MyFields2 | MyFields
   // Color.getClass.getFields.map(print)
-  val x: core.DFType.DFVector[DFBit, Tuple1[5]] = DFBit.X(5)
+  // val x: core.DFType.DFVector[DFBit, Tuple1[5]] = DFBit.X(5)
   // // Color.foo
   // import core.DFType
   // val x: DFType.DFTuple[(DFBit, DFBits[8], DFBool)] =
