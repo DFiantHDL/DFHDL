@@ -261,6 +261,11 @@ object DFType:
     def apply[W <: Int with Singleton](using ValueOf[W]): DFBits[W] =
       new DFBits[W](valueOf[W])
     type Token[W <: Int] = DFToken[DFBits[W]]
+    object Token:
+      def apply[W <: Int](
+          width: W
+      )(valueBits: BitVector, bubbleBits: BitVector): Token[W] =
+        DFToken(DFBits(width))((valueBits, bubbleBits))
   /////////////////////////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////////////////////////
