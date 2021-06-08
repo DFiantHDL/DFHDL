@@ -2,6 +2,8 @@ package DFiant
 
 export core.DFType.Ops.*
 export core.DFType.DFUnion.Ops.*
+export core.SameBitsVector.*
+export core.DFBitsOps.*
 
 type Context = core.Context
 type DFType = core.DFType
@@ -27,30 +29,3 @@ extension (value: BigInt)
 
 extension (value: Int)
   def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
-
-//given fromDFBits[W <: Int]: core.HasWidth[DFBits[W]] with
-//  type Width = W
-//  def apply(t: DFBits[W]): Inlined.Int[Width] =
-//    Inlined.Int.forced[Width](t.__width)
-//given fromDFBitsToken[W <: Int]: core.HasWidth[DFBits.Token[W]] with
-//  type Width = W
-//  def apply(t: DFBits.Token[W]): Inlined.Int[Width] =
-//    Inlined.Int.forced[Width](t.dfType.__width)
-//given fromDFType[T <: DFType](using
-//    w: core.DFType.Width[T]
-//): core.HasWidth[T] with
-//  type Width = w.Out
-//  def apply(t: T): Inlined.Int[Width] = Inlined.Int.forced[Width](t.__width)
-//given fromDFToken[T <: DFType](using
-//    w: core.DFType.Width[T]
-//): core.HasWidth[core.DFToken[T]] with
-//  type Width = w.Out
-//  def apply(t: core.DFToken[T]): Inlined.Int[Width] =
-//    Inlined.Int.forced[Width](t.dfType.__width)
-//// given fromObject[T <: AnyRef](using
-////     tc: core.DFType.TC[T],
-////     w: core.DFType.Width[T]
-//// ): core.HasWidth[T] with
-////   type Width = w.Out
-////   def apply(t: T): Inlined.Int[Width] =
-////     Inlined.Int.forced[Width](tc(t).__width)
