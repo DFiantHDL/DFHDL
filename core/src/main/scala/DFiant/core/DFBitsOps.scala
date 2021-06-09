@@ -12,21 +12,22 @@ object DFBitsOps:
       val bubbleBits = lhs.bubbleBits ++ rhs.bubbleBits
       DFBits.Token(width)(valueBits, bubbleBits)
 
-// @targetName("bitwiseAnd")
-// def &[RW <: Int](rhs: DFBits.Token[RW])(using
-//     bb: Bubble.Behaviour
-// ): DFBits.Token[LW] =
-//   assert(lhs.width == rhs.width)
-//   bb match
-//     case Bubble.Stall =>
-//       Token(left.valueBits & right.valueBits, left.bubbleMask | right.bubbleMask)
-//     case Bubble.DontCare =>
-//       val valueBits = (left.valueBits | left.bubbleMask) & (right.valueBits | right.bubbleMask)
-//       val bubbleMask = (left.bubbleMask & right.bubbleMask) | (left.bubbleMask & right.valueBits) |
-//         (right.bubbleMask & left.valueBits)
-//       Token(valueBits, bubbleMask)
-
-//   val width = lhs.width
-//   val valueBits = lhs.valueBits ++ rhs.valueBits
-//   val bubbleBits = lhs.bubbleBits ++ rhs.bubbleBits
-//   DFBits.Token(width)(valueBits, bubbleBits)
+    @targetName("bitwiseAnd")
+    def &[RW <: Int](rhs: DFBits.Token[RW])(using
+        bb: Bubble.Behaviour
+    ): DFBits.Token[LW] =
+      assert(lhs.width == rhs.width)
+      val width = lhs.width
+      bb match
+        case Bubble.Behaviour.Stall =>
+          DFBits.Token(width)(
+            lhs.valueBits & rhs.valueBits,
+            lhs.bubbleBits | rhs.bubbleBits
+          )
+        case Bubble.Behaviour.DontCare =>
+          val valueBits =
+            (lhs.valueBits | lhs.bubbleBits) & (rhs.valueBits | rhs.bubbleBits)
+          val bubbleBits =
+            (lhs.bubbleBits & rhs.bubbleBits) | (lhs.bubbleBits & rhs.valueBits) |
+              (rhs.bubbleBits & lhs.valueBits)
+          DFBits.Token(width)(valueBits, bubbleBits)

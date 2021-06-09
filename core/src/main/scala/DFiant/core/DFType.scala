@@ -12,6 +12,8 @@ sealed trait DFType extends NCCode: //, Product, Serializable
   type TokenData
   def tokenDataToBits(data: TokenData): (BitVector, BitVector) = ???
   def tokenCodeString(data: TokenData)(using Printer): String = ???
+  def tokenEquals(lhs : DFToken[?], rhs : DFToken[?]) : DFBool.Token = ???
+  def tokenBubble : DFToken[?] = ???
   val __width: Int
 
 object DFType:
@@ -251,6 +253,8 @@ object DFType:
   ) extends DFMatchable:
     type TokenData = (BitVector, BitVector)
     override def tokenDataToBits(data: TokenData): (BitVector, BitVector) = data
+    override def tokenBubble : DFBits.Token[Int] = 
+      DFBits.Token.bubble(Inlined.Int(__width))
     def codeString(using Printer): String = s"DFBits($__width)"
   object DFBits:
     def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] = new DFBits[W](width)
@@ -259,6 +263,8 @@ object DFType:
       new DFBits[W](valueOf[W])
     type Token[W <: Int] = DFToken[DFBits[W]]
     object Token:
+      def bubble[W <: Int](width : Inlined.Int[W]) : Token[W] = 
+        DFBits.Token(width)(BitVector.low(width.value), BitVector.high(width.value))
       def apply[W <: Int](
           width: Inlined.Int[W]
       )(valueBits: BitVector, bubbleBits: BitVector): Token[W] =

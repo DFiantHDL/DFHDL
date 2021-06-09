@@ -5,6 +5,7 @@ import internals.*
 
 final case class DFToken[+T <: DFType](dfType: T)(val data: dfType.TokenData)
     extends NCCode:
+  def ==[R <: DFType](rhs: DFToken[R]): DFBool.Token = ???
   lazy val (valueBits: BitVector, bubbleBits: BitVector) =
     dfType.tokenDataToBits(data)
   def codeString(using Printer): String = dfType.tokenCodeString(data)
