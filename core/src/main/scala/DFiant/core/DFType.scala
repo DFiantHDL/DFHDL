@@ -10,10 +10,11 @@ import collection.immutable.ListMap
 
 sealed trait DFType extends NCCode: //, Product, Serializable
   type TokenData
-  def tokenDataToBits(data: TokenData): (BitVector, BitVector) = ???
-  def tokenCodeString(data: TokenData)(using Printer): String = ???
-  def tokenEquals(lhs : DFToken[?], rhs : DFToken[?]) : DFBool.Token = ???
-  def tokenBubble : DFToken[?] = ???
+  protected[DFiant] def tokenDataToBits(data: TokenData): (BitVector, BitVector) = ???
+  protected[DFiant] def tokenBitsToData(valueBits : BitVector, bubbleBits : BitVector) : TokenData = ???
+  protected[DFiant] def tokenCodeString(data: TokenData)(using Printer): String = ???
+  protected[DFiant] def tokenEquals(lhs : DFToken[?], rhs : DFToken[?]) : DFBool.Token = ???
+  protected[DFiant] def tokenBubble : DFToken[?] = ???
   val __width: Int
 
 object DFType:
@@ -248,27 +249,19 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
   // DFBits
   /////////////////////////////////////////////////////////////////////////////
-  final case class DFBits[W <: Int] private (
+  final case class DFBits[W <: Int] private[DFType] (
       val __width: Int
   ) extends DFMatchable:
     type TokenData = (BitVector, BitVector)
     override def tokenDataToBits(data: TokenData): (BitVector, BitVector) = data
-    override def tokenBubble : DFBits.Token[Int] = 
-      DFBits.Token.bubble(Inlined.Int(__width))
+    override def tokenBubble : core.DFBits.Token[Int] = 
+      core.DFBits.Token.bubble(Inlined.Int(__width))
     def codeString(using Printer): String = s"DFBits($__width)"
-  object DFBits:
+  trait DFBitsCompanion:
     def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] = new DFBits[W](width)
     @targetName("applyNoArg")
     def apply[W <: Int with Singleton](using ValueOf[W]): DFBits[W] =
       new DFBits[W](valueOf[W])
-    type Token[W <: Int] = DFToken[DFBits[W]]
-    object Token:
-      def bubble[W <: Int](width : Inlined.Int[W]) : Token[W] = 
-        DFBits.Token(width)(BitVector.low(width.value), BitVector.high(width.value))
-      def apply[W <: Int](
-          width: Inlined.Int[W]
-      )(valueBits: BitVector, bubbleBits: BitVector): Token[W] =
-        DFToken(DFBits(width))((valueBits, bubbleBits))
   /////////////////////////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////////////////////////
