@@ -28,7 +28,7 @@ sealed trait DFType extends NCCode: //, Product, Serializable
   val __width: Int
 
 object DFType:
-  private def apply(t: Any): DFType =
+  private[core] def apply(t: Any): DFType =
     t match
       case dfType: DFType       => dfType
       case tuple: NonEmptyTuple => DFTuple(tuple)
@@ -239,124 +239,6 @@ object DFType:
       }
     }
 
-
-  /////////////////////////////////////////////////////////////////////////////
-  // DFVector
-  /////////////////////////////////////////////////////////////////////////////
-  final case class DFVector[T <: DFType, D <: NonEmptyTuple](
-      cellType: T,
-      cellDim: D
-  ) extends DFFlattenable:
-    val __width: Int =
-      cellType.__width * cellDim.toList.asInstanceOf[List[Int]].reduce(_ * _)
-    def codeString(using Printer): String =
-      s"${cellType.codeString}.X${cellDim.toList.mkString("(", ", ", ")")}"
-  /////////////////////////////////////////////////////////////////////////////
-
-  /////////////////////////////////////////////////////////////////////////////
-  // DFOpaque
-  /////////////////////////////////////////////////////////////////////////////
-  abstract class DFOpaque[T <: DFType](
-      actualType: T
-  )(using meta: MetaContext)
-      extends DFFlattenable:
-    final val __width: Int = actualType.__width
-    final def codeString(using Printer): String = meta.name
-  object DFOpaque:
-    transparent inline def apply[T <: DFType](actualType: T)(using
-        MetaContext
-    ): DFOpaque[_] =
-      new DFOpaque[T](actualType) {}
-  /////////////////////////////////////////////////////////////////////////////
-
-  /////////////////////////////////////////////////////////////////////////////
-  // DFFields are used for either struct or enumerations (tagged unions)
-  /////////////////////////////////////////////////////////////////////////////
-  abstract class DFFields(using meta: MetaContext)
-      extends Product,
-        Serializable:
-    final private val all =
-      mutable.ListBuffer.empty[DFField[_ <: DFType]]
-    final protected[DFType] lazy val width: Int = all.map(_.dfType.__width).sum
-    final lazy val getFields = all.toList
-    final val name: String = meta.clsNameOpt.get
-    protected sealed trait FIELD
-    protected object FIELD extends FIELD
-    extension [T <: Supported](t: T)(using tc: TC[T])
-      def <>(FIELD: FIELD)(using MetaContext): DFField[tc.Type] =
-        val dfType = tc(t)
-        val field = DFField(dfType)
-        all += field
-        field
-  final case class DFField[Type <: DFType](dfType: Type)(using
-      meta: MetaContext
-  ):
-    val name: String = meta.name
-  /////////////////////////////////////////////////////////////////////////////
-
-  /////////////////////////////////////////////////////////////////////////////
-  // DFUnion
-  /////////////////////////////////////////////////////////////////////////////
-  final case class DFUnion[F <: DFFields](fieldsSet: Set[DFType])
-      extends DFType:
-    val __width: Int = fieldsSet.head.__width
-    def codeString(using Printer): String =
-      fieldsSet.map(_.codeString).mkString(" | ")
-  object DFUnion:
-    trait Able[T]:
-      type F <: DFFields
-      def apply(t: T): DFUnion[F]
-    object Able:
-      transparent inline given fromFields[F0 <: DFFields]: Able[F0] =
-        new Able[F0]:
-          type F = F0
-          def apply(t: F0): DFUnion[F] = DFUnion[F](???)
-      transparent inline given fromUnion[F0 <: DFFields]: Able[DFUnion[F0]] =
-        new Able[DFUnion[F0]]:
-          type F = F0
-          def apply(t: DFUnion[F0]): DFUnion[F] = t
-    object Ops:
-      extension [L](lhs: L)(using l: Able[L])
-        def |[R](rhs: R)(using r: Able[R]): DFUnion[l.F | r.F] = ???
-  /////////////////////////////////////////////////////////////////////////////
-
-  /////////////////////////////////////////////////////////////////////////////
-  // DFStruct
-  /////////////////////////////////////////////////////////////////////////////
-  final case class DFStruct[F <: DFFields](
-      name: String,
-      fieldMap: ListMap[String, DFType]
-  ) extends DFFlattenable:
-    val __width: Int = fieldMap.values.map(_.__width).sum
-    def codeString(using Printer): String = name
-  object DFStruct:
-    def apply[F <: DFFields](fields: F): DFStruct[F] =
-      val fieldMap = ListMap(fields.getFields.map(f => (f.name, f.dfType)): _*)
-      DFStruct[F](fields.name, fieldMap)
-  /////////////////////////////////////////////////////////////////////////////
-
-  /////////////////////////////////////////////////////////////////////////////
-  // DFTuple
-  /////////////////////////////////////////////////////////////////////////////
-  final case class DFTuple[T <: AnyRef](dfTypeList: List[DFType])
-      extends DFMatchable,
-        DFFlattenable:
-    val __width: Int = dfTypeList.view.map(_.__width).sum
-    def codeString(using Printer): String =
-      dfTypeList.view.map(_.codeString).mkString("(", ", ", ")")
-
-  object DFTuple:
-    def apply[T <: AnyRef](t: T): DFTuple[T] =
-      val dfTypeList: List[DFType] =
-        t.asInstanceOf[NonEmptyTuple]
-          .toList
-          //TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
-          .asInstanceOf[List[AnyRef]]
-          .map(DFType.apply)
-      DFTuple[T](dfTypeList)
-
-/////////////////////////////////////////////////////////////////////////////
-
 /////////////////////////////////////////////////////////////////////////////
 // DFBool or DFBit
 /////////////////////////////////////////////////////////////////////////////
@@ -399,14 +281,14 @@ object DFBits extends DFBitsCompanion:
 // DFEnum
 /////////////////////////////////////////////////////////////////////////////
 final case class DFEnum[C <: AnyRef, E](
-  val name: String,
-  val __width: Int,
-  val entries: ListMap[String, BigInt]
+    val name: String,
+    val __width: Int,
+    val entries: ListMap[String, BigInt]
 ) extends DFType.DFMatchable:
   def codeString(using Printer): String = name
 object DFEnum:
   def unapply(using Quotes)(
-    tpe: quotes.reflect.TypeRepr
+      tpe: quotes.reflect.TypeRepr
   ): Option[List[quotes.reflect.TypeRepr]] =
     import quotes.reflect.*
     val enumTpe = TypeRepr.of[scala.reflect.Enum]
@@ -435,4 +317,117 @@ object DFEnum:
       case ((name, entry), idx) => (name, entry.value)
     }
     DFEnum[C, E](name, width, ListMap(entryPairs: _*))
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFVector
+/////////////////////////////////////////////////////////////////////////////
+final case class DFVector[T <: DFType, D <: NonEmptyTuple](
+    cellType: T,
+    cellDim: D
+) extends DFType.DFFlattenable:
+  val __width: Int =
+    cellType.__width * cellDim.toList.asInstanceOf[List[Int]].reduce(_ * _)
+  def codeString(using Printer): String =
+    s"${cellType.codeString}.X${cellDim.toList.mkString("(", ", ", ")")}"
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFOpaque
+/////////////////////////////////////////////////////////////////////////////
+abstract class DFOpaque[T <: DFType](
+    actualType: T
+)(using meta: MetaContext)
+    extends DFType.DFFlattenable:
+  final val __width: Int = actualType.__width
+  final def codeString(using Printer): String = meta.name
+object DFOpaque:
+  transparent inline def apply[T <: DFType](actualType: T)(using
+      MetaContext
+  ): DFOpaque[_] =
+    new DFOpaque[T](actualType) {}
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFFields are used for either struct or enumerations (tagged unions)
+/////////////////////////////////////////////////////////////////////////////
+abstract class DFFields(using meta: MetaContext) extends Product, Serializable:
+  final private val all =
+    mutable.ListBuffer.empty[DFField[_ <: DFType]]
+  final lazy val getFields = all.toList
+  final val name: String = meta.clsNameOpt.get
+  protected sealed trait FIELD
+  protected object FIELD extends FIELD
+  extension [T <: DFType.Supported](t: T)(using tc: DFType.TC[T])
+    def <>(FIELD: FIELD)(using MetaContext): DFField[tc.Type] =
+      val dfType = tc(t)
+      val field = DFField(dfType)
+      all += field
+      field
+final case class DFField[Type <: DFType](dfType: Type)(using
+    meta: MetaContext
+):
+  val name: String = meta.name
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFUnion
+/////////////////////////////////////////////////////////////////////////////
+final case class DFUnion[F <: DFFields](fieldsSet: Set[DFType]) extends DFType:
+  val __width: Int = fieldsSet.head.__width
+  def codeString(using Printer): String =
+    fieldsSet.map(_.codeString).mkString(" | ")
+object DFUnion:
+  trait Able[T]:
+    type F <: DFFields
+    def apply(t: T): DFUnion[F]
+  object Able:
+    transparent inline given fromFields[F0 <: DFFields]: Able[F0] =
+      new Able[F0]:
+        type F = F0
+        def apply(t: F0): DFUnion[F] = DFUnion[F](???)
+    transparent inline given fromUnion[F0 <: DFFields]: Able[DFUnion[F0]] =
+      new Able[DFUnion[F0]]:
+        type F = F0
+        def apply(t: DFUnion[F0]): DFUnion[F] = t
+  object Ops:
+    extension [L](lhs: L)(using l: Able[L])
+      def |[R](rhs: R)(using r: Able[R]): DFUnion[l.F | r.F] = ???
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFStruct
+/////////////////////////////////////////////////////////////////////////////
+final case class DFStruct[F <: DFFields](
+    name: String,
+    fieldMap: ListMap[String, DFType]
+) extends DFType.DFFlattenable:
+  val __width: Int = fieldMap.values.map(_.__width).sum
+  def codeString(using Printer): String = name
+object DFStruct:
+  def apply[F <: DFFields](fields: F): DFStruct[F] =
+    val fieldMap = ListMap(fields.getFields.map(f => (f.name, f.dfType)): _*)
+    DFStruct[F](fields.name, fieldMap)
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFTuple
+/////////////////////////////////////////////////////////////////////////////
+final case class DFTuple[T <: AnyRef](dfTypeList: List[DFType])
+    extends DFType.DFMatchable,
+      DFType.DFFlattenable:
+  val __width: Int = dfTypeList.view.map(_.__width).sum
+  def codeString(using Printer): String =
+    dfTypeList.view.map(_.codeString).mkString("(", ", ", ")")
+
+object DFTuple:
+  def apply[T <: AnyRef](t: T): DFTuple[T] =
+    val dfTypeList: List[DFType] =
+      t.asInstanceOf[NonEmptyTuple]
+        .toList
+        //TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
+        .asInstanceOf[List[AnyRef]]
+        .map(DFType.apply)
+    DFTuple[T](dfTypeList)
+
 /////////////////////////////////////////////////////////////////////////////

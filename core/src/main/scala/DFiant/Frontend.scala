@@ -1,7 +1,6 @@
 package DFiant
 
 export core.DFType.Ops.*
-export core.DFType.DFUnion.Ops.*
 export core.SameBitsVector.*
 
 type Context = core.Context
@@ -12,9 +11,9 @@ val DFBit = core.DFBit
 type DFBit = core.DFBit
 type DFBits[W <: Int] = core.DFBits[W]
 val DFBits = core.DFBits
-type DFFields = core.DFType.DFFields
-type DFOpaque[T <: DFType] = core.DFType.DFOpaque[T]
-val DFOpaque = core.DFType.DFOpaque
+type DFFields = core.DFFields
+type DFOpaque[T <: DFType] = core.DFOpaque[T]
+val DFOpaque = core.DFOpaque
 type DFEncoding = core.DFEncoding
 val DFEncoding = core.DFEncoding
 
