@@ -64,7 +64,6 @@ object VerifyUnion:
         case t                   => List(t)
     val currentTpes = flattenOr(TypeRepr.of[Current])
     val addedTpes = flattenOr(TypeRepr.of[Added])
-    println(addedTpes)
     //checking for collisions
     val collisions =
       currentTpes.filter(c => addedTpes.exists(a => a <:< c | c <:< a))

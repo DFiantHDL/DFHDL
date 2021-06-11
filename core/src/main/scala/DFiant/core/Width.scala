@@ -91,7 +91,7 @@ object Width:
         case OrType(left, right) =>
           left.calcWidth max right.calcWidth
         case applied: AppliedType if applied <:< TypeRepr.of[ir.DFOpaque] =>
-          applied.args.head.calcWidth
+          applied.args.last.calcWidth
         case applied: AppliedType if applied <:< TypeRepr.of[ir.DFTuple] =>
           applied.args.head.calcWidth
         case applied: AppliedType if applied <:< TypeRepr.of[ir.DFEnum] =>
