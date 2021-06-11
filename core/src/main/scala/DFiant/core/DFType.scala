@@ -111,9 +111,27 @@ object DFType:
         cellDim2.type
       ]] =
         DFVector(dfType, Tuple3(cellDim0, cellDim1, cellDim2))
-      transparent inline def opaque(using MetaContext): DFOpaque[tc.Type] =
-        DFOpaque(dfType)
+      def opaque(using
+          meta: MetaContext,
+          uniqueId: UniqueId
+      ): DFOpaque[tc.Type, uniqueId.Out] =
+        DFOpaque[tc.Type, uniqueId.Out](tc(t))
       def <>(dir: Int): Unit = {}
+
+trait UniqueId:
+  type Out
+object UniqueId:
+  transparent inline given UniqueId = ${ getUniqueId }
+  var id = 0
+  def getUniqueId(using Quotes): Expr[UniqueId] =
+    import quotes.reflect.*
+    val idTpe = ConstantType(IntConstant(id)).asType.asInstanceOf[Type[Int]]
+    id = id + 1
+    '{
+      new UniqueId {
+        type Out = idTpe.Underlying
+      }
+    }
 
 // transparent inline def x[T <: DFType](
 //     cellType: T,

@@ -12,7 +12,9 @@ object Bla {
   val b8c = DFBits(8)
   val x: DFBits[8] = b8
   val a: Inlined.Int[80] = b8.X(10).width
-  b8 | b8.opaque | b8.opaque
+  val o1 = b8.opaque
+  val o2 = b8.opaque
+  b8 | o1 | o2
 //  val b: Inlined.Int[11] = (Color, b8).width
   // val z = MyFields | MyFields2 | MyFields
   // Color.getClass.getFields.map(print)
