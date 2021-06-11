@@ -12,8 +12,8 @@ type DFBit = core.DFBit
 type DFBits[W <: Int] = core.DFBits[W]
 val DFBits = core.DFBits
 type DFFields = core.DFFields
-type DFOpaque[T <: DFType] = core.DFOpaque[T]
-val DFOpaque = core.DFOpaque
+//type DFOpaque[T <: DFType] = core.DFOpaque[T]
+//val DFOpaque = core.DFOpaque
 type DFEncoding = core.DFEncoding
 val DFEncoding = core.DFEncoding
 
