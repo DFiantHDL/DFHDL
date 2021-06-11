@@ -3,7 +3,7 @@ package core
 import internals.*
 import scala.annotation.targetName
 
-trait DFBitsCompanion {
+trait DFBitsCompanion:
   type Token[W <: Int] = DFToken[DFBits[W]]
   object Token:
     protected[DFiant] def apply[W <: Int](
@@ -44,4 +44,3 @@ trait DFBitsCompanion {
                 (lhs.bubbleBits & rhs.bubbleBits) | (lhs.bubbleBits & rhs.valueBits) |
                   (rhs.bubbleBits & lhs.valueBits)
               DFBits.Token(width)(valueBits, bubbleBits)
-}
