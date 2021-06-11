@@ -28,6 +28,15 @@ object Width:
           TypeRepr.of[Int]
         case _ =>
           TypeRepr.of[scala.compiletime.ops.int.`*`].appliedTo(List(dfTpe, rhs))
+    def max(rhs: quotes.reflect.TypeRepr): quotes.reflect.TypeRepr =
+      import quotes.reflect.*
+      (dfTpe, rhs) match
+        case (ConstantType(IntConstant(l)), ConstantType(IntConstant(r))) =>
+          ConstantType(IntConstant(l max r))
+        case (l, r) if l =:= TypeRepr.of[Int] || r =:= TypeRepr.of[Int] =>
+          TypeRepr.of[Int]
+        case _ =>
+          TypeRepr.of[scala.compiletime.ops.int.Max].appliedTo(List(dfTpe, rhs))
     def simplify: quotes.reflect.TypeRepr =
       import quotes.reflect.*
       dfTpe match
@@ -79,7 +88,8 @@ object Width:
           widthOption
             .map(w => ConstantType(IntConstant(w)))
             .getOrElse(TypeRepr.of[Int])
-
+        case OrType(left, right) =>
+          left.calcWidth max right.calcWidth
         case applied: AppliedType if applied <:< TypeRepr.of[ir.DFOpaque] =>
           applied.args.head.calcWidth
         case applied: AppliedType if applied <:< TypeRepr.of[ir.DFTuple] =>
@@ -87,6 +97,8 @@ object Width:
         case applied: AppliedType if applied <:< TypeRepr.of[ir.DFEnum] =>
           applied.args.head.calcWidth
         case applied: AppliedType if applied <:< TypeRepr.of[ir.DFStruct] =>
+          applied.args.head.calcWidth
+        case applied: AppliedType if applied <:< TypeRepr.of[ir.DFUnion] =>
           applied.args.head.calcWidth
         //lost specific type information, but still has non-literal width
         case t if t <:< TypeRepr.of[ir.DFType] => TypeRepr.of[Int]

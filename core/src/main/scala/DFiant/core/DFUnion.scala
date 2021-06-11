@@ -3,7 +3,12 @@ import DFiant.compiler.ir
 import DFiant.internals.*
 import scala.quoted.*
 import collection.immutable.ListSet
+import DFiant.compiler.printing.DefaultPrinter
 
+private def collisionError(collisions: List[String]): String =
+  s"Dataflow union types must be exclusive.\nThe following types are repeated: ${collisions.mkString(", ")}"
+private def widthError(lhsWidth: Int, rhsWidth: Int): String =
+  s"All union types must have the same width.\nFound LHS-width $lhsWidth and RHS-width $rhsWidth"
 opaque type DFUnion[U <: DFType] <: ir.DFUnion = ir.DFUnion
 object DFUnion:
   def apply[U <: DFType](fieldSet: ListSet[DFType]): DFUnion[U] =
@@ -26,7 +31,20 @@ object DFUnion:
       def |[R](rhs: R)(using r: Able[R])(using
           VerifyUnion[l.U, r.U]
       ): DFUnion[l.U | r.U] =
-        DFUnion[l.U | r.U](l(lhs).fieldSet ++ r(rhs).fieldSet)
+        val lhsUnion = l(lhs)
+        val rhsUnion = r(rhs)
+        val collisions = lhsUnion.fieldSet & rhsUnion.fieldSet
+        if (collisions.nonEmpty)
+          throw new IllegalArgumentException(
+            collisionError(
+              collisions.toList.map(_.codeString(using DefaultPrinter))
+            )
+          )
+        assert(
+          lhsUnion.__width == rhsUnion.__width,
+          widthError(lhsUnion.__width, rhsUnion.__width)
+        )
+        DFUnion[l.U | r.U](lhsUnion.fieldSet ++ rhsUnion.fieldSet)
 
 trait VerifyUnion[Current <: DFType, Added <: DFType]
 object VerifyUnion:
@@ -47,13 +65,19 @@ object VerifyUnion:
     val currentTpes = flattenOr(TypeRepr.of[Current])
     val addedTpes = flattenOr(TypeRepr.of[Added])
     //checking for collisions
-    val collision =
+    val collisions =
       currentTpes.filter(c => addedTpes.exists(a => a <:< c | c <:< a))
-    if (collision.nonEmpty)
-      report.error(
-        s"Dataflow union types must be exclusive.\nThe following types are repeated: ${collision.map(_.show).mkString(", ")}"
-      )
+    if (collisions.nonEmpty)
+      report.error(collisionError(collisions.map(_.toString)))
+    import Width.*
+    //checking widths match
+    val currentWidth = currentTpes.head.calcWidth
+    val addedWidth = addedTpes.head.calcWidth
+    (currentWidth, addedWidth) match
+      case (ConstantType(IntConstant(c)), ConstantType(IntConstant(a)))
+          if a != c =>
+        report.error(widthError(c, a))
+      //either unknown at compile-time or are matching
+      case _ =>
 
-    println(currentTpes)
-    println(addedTpes)
     '{ new VerifyUnion[Current, Added] {} }
