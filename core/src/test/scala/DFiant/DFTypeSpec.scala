@@ -52,13 +52,13 @@
 //    assertEquals(b8.codeString, "DFBits(8)")
 //    assertEquals(bit.codeString, "DFBit")
 //    assertEquals(bool.codeString, "DFBool")
-//    assertEquals(tpl.codeString, "(DFBool, DFBit, DFBits(8))")
+//    assertEquals(tpl.dfType.codeString, "(DFBool, DFBit, DFBits(8))")
 //    assertEquals(vec_b8x10.codeString, "DFBits(8).X(10)")
-//    assertEquals(MyEnum1.codeString, "MyEnum1")
-//    assertEquals(MyEnum2.codeString, "MyEnum2")
-//    assertEquals(MyEnum3.codeString, "MyEnum3")
-//    assertEquals(MyEnum4.codeString, "MyEnum4")
-//    assertEquals(MyEnum5.codeString, "MyEnum5")
+//    assertEquals(MyEnum1.dfType.codeString, "MyEnum1")
+//    assertEquals(MyEnum2.dfType.codeString, "MyEnum2")
+//    assertEquals(MyEnum3.dfType.codeString, "MyEnum3")
+//    assertEquals(MyEnum4.dfType.codeString, "MyEnum4")
+//    assertEquals(MyEnum5.dfType.codeString, "MyEnum5")
 //  }
 //
 //  test("Enumeration Entries") {

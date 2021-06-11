@@ -2,7 +2,7 @@ package DFiant.compiler
 package ir
 import printing.{Printer, NCCode}
 import DFiant.internals.*
-import scala.collection.immutable.ListMap
+import scala.collection.immutable.{ListMap, ListSet}
 
 sealed trait DFType extends NCCode, Product, Serializable:
   val __width: Int
@@ -52,7 +52,7 @@ final case class DFVector(
 /////////////////////////////////////////////////////////////////////////////
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
-abstract class DFOpaque(name: String, actualType: DFType) extends DFType:
+final case class DFOpaque(name: String, actualType: DFType) extends DFType:
   final val __width: Int = actualType.__width
   final def codeString(using Printer): String = name
 /////////////////////////////////////////////////////////////////////////////
@@ -60,10 +60,10 @@ abstract class DFOpaque(name: String, actualType: DFType) extends DFType:
 /////////////////////////////////////////////////////////////////////////////
 // DFUnion
 /////////////////////////////////////////////////////////////////////////////
-final case class DFUnion(fieldsSet: Set[DFType]) extends DFType:
-  val __width: Int = fieldsSet.head.__width
+final case class DFUnion(fieldSet: ListSet[DFType]) extends DFType:
+  val __width: Int = fieldSet.head.__width
   def codeString(using Printer): String =
-    fieldsSet.map(_.codeString).mkString(" | ")
+    fieldSet.map(_.codeString).mkString(" | ")
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

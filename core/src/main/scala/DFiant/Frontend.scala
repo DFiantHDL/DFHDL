@@ -1,6 +1,7 @@
 package DFiant
 
 export core.DFType.Ops.*
+export core.DFUnion.Ops.*
 export core.SameBitsVector.*
 
 type Context = core.Context
