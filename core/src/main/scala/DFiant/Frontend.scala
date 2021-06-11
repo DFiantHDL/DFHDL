@@ -3,7 +3,6 @@ package DFiant
 export core.DFType.Ops.*
 export core.DFType.DFUnion.Ops.*
 export core.SameBitsVector.*
-export core.DFBitsOps.*
 
 type Context = core.Context
 type DFType = core.DFType

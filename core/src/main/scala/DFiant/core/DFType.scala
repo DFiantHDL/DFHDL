@@ -247,24 +247,6 @@ object DFType:
   /////////////////////////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////////////////////////
-  // DFBits
-  /////////////////////////////////////////////////////////////////////////////
-  final case class DFBits[W <: Int] private[DFType] (
-      val __width: Int
-  ) extends DFMatchable:
-    type TokenData = (BitVector, BitVector)
-    override def tokenDataToBits(data: TokenData): (BitVector, BitVector) = data
-    override def tokenBubble : core.DFBits.Token[Int] = 
-      core.DFBits.Token.bubble(Inlined.Int(__width))
-    def codeString(using Printer): String = s"DFBits($__width)"
-  trait DFBitsCompanion:
-    def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] = new DFBits[W](width)
-    @targetName("applyNoArg")
-    def apply[W <: Int with Singleton](using ValueOf[W]): DFBits[W] =
-      new DFBits[W](valueOf[W])
-  /////////////////////////////////////////////////////////////////////////////
-
-  /////////////////////////////////////////////////////////////////////////////
   // DFEnum
   /////////////////////////////////////////////////////////////////////////////
   sealed trait DFEncoding extends scala.reflect.Enum:
@@ -472,4 +454,23 @@ object DFType:
           .map(DFType.apply)
       DFTuple[T](dfTypeList)
 
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFBits
+/////////////////////////////////////////////////////////////////////////////
+final case class DFBits[W <: Int] private (
+  val __width: Int
+) extends DFType.DFMatchable:
+  type TokenData = (BitVector, BitVector)
+  override def tokenDataToBits(data: TokenData): (BitVector, BitVector) = data
+  override def tokenBubble : DFBits.Token[Int] =
+    DFBits.Token.bubble(Inlined.Int(__width))
+  def codeString(using Printer): String = s"DFBits($__width)"
+
+object DFBits extends DFBitsCompanion:
+  def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] = new DFBits[W](width)
+  @targetName("applyNoArg")
+  def apply[W <: Int with Singleton](using ValueOf[W]): DFBits[W] =
+    new DFBits[W](valueOf[W])
 /////////////////////////////////////////////////////////////////////////////

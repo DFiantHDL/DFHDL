@@ -3,9 +3,7 @@ package core
 import internals.*
 import scala.annotation.targetName
 
-type DFBits[W <: Int] = DFType.DFBits[W]
-
-object DFBits extends DFType.DFBitsCompanion {
+trait DFBitsCompanion {
   type Token[W <: Int] = DFToken[DFBits[W]]
   object Token:
     protected[DFiant] def apply[W <: Int](
