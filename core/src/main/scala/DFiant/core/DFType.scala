@@ -229,22 +229,6 @@ object DFType:
       }
     }
 
-  /////////////////////////////////////////////////////////////////////////////
-  // DFBool or DFBit
-  /////////////////////////////////////////////////////////////////////////////
-  sealed trait DFBoolOrBit extends DFMatchable:
-    type TokenData = (Boolean, Boolean)
-    final val __width = 1
-  object DFBoolOrBit:
-    type Token = DFToken[DFBoolOrBit]
-
-  case object DFBool extends DFBoolOrBit:
-    type Token = DFToken[DFBool.type]
-    def codeString(using Printer): String = "DFBool"
-  case object DFBit extends DFBoolOrBit:
-    type Token = DFToken[DFBit.type]
-    def codeString(using Printer): String = "DFBit"
-  /////////////////////////////////////////////////////////////////////////////
 
   /////////////////////////////////////////////////////////////////////////////
   // DFEnum
@@ -454,6 +438,25 @@ object DFType:
           .map(DFType.apply)
       DFTuple[T](dfTypeList)
 
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFBool or DFBit
+/////////////////////////////////////////////////////////////////////////////
+sealed trait DFBoolOrBit extends DFType.DFMatchable:
+  type TokenData = (Boolean, Boolean)
+  final val __width = 1
+object DFBoolOrBit extends DFBoolOrBitCompanion:
+  type Token = DFToken[DFBoolOrBit]
+
+case object DFBool extends DFBoolOrBit:
+  type Token = DFToken[DFBool.type]
+  def codeString(using Printer): String = "DFBool"
+type DFBool = DFBool.type
+case object DFBit extends DFBoolOrBit:
+  type Token = DFToken[DFBit.type]
+  def codeString(using Printer): String = "DFBit"
+type DFBit = DFBit.type
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
