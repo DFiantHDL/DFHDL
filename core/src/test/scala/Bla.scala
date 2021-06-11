@@ -14,7 +14,7 @@ case object MyFields2 extends DFFields:
   val y = DFBits(8)
 
 // given [T <: DFType](using
-//     w: core.DFType.Width[T]
+//     w: core.Width[T]
 // ): core.HasWidth[T] with
 //   type Width = w.Out
 //   extension (t: T)

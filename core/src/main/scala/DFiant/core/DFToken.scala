@@ -12,12 +12,12 @@ final case class DFToken[+T <: DFType](dfType: T)(val data: dfType.TokenData)
   def codeString(using Printer): String = dfType.tokenCodeString(data)
 
 object DFToken:
-  extension [T <: DFType](token: DFToken[T])(using w: DFType.Width[T])
+  extension [T <: DFType](token: DFToken[T])(using w: Width[T])
     def width: Inlined.Int[w.Out] =
       Inlined.Int.forced[w.Out](token.dfType.__width)
     def bits: DFToken[DFBits[w.Out]] =
       DFBits.Token(width)(token.valueBits, token.bubbleBits)
 
   extension [W <: Int](token: DFBits.Token[W])
-    def as[T <: DFType](dfType: T)(using w: DFType.Width[T]): DFToken[T] =
+    def as[T <: DFType](dfType: T)(using w: Width[T]): DFToken[T] =
       DFToken(dfType)(dfType.tokenBitsToData(token.valueBits, token.bubbleBits))
