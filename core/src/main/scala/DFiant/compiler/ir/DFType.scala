@@ -7,11 +7,36 @@ import scala.collection.immutable.{ListMap, ListSet}
 sealed trait DFType extends NCCode, Product, Serializable:
   val __width: Int
 
+//sealed trait DFToken extends NCCode, Product, Serializable:
+//  val __dfType: DFType
+//  val data: Any
+//  protected[DFiant] lazy val valueBits: BitVector
+//  protected[DFiant] lazy val bubbleBits: BitVector
+////  def ==[R <: DFType](rhs: DFToken): DFBool.Token =
+////    dfType.tokenEquals(this, rhs)
+////  def codeString(using Printer): String = dfType.tokenCodeString(data)
+//object DFToken:
+//  sealed trait DFOptional extends DFToken:
+//    val data: Option[Any]
+//    final lazy val (valueBits, bubbleBits): (BitVector, BitVector) =
+//      value match {
+//        case Some(t) => (valueToBitVector(t), false.toBitVector(width))
+//        case None    => (0.toBitVector(width), true.toBitVector(width))
+//      }
+//    def valueToBitVector(value: Value): BitVector
+//    def valueCodeString(value: Value)(implicit printer: CSPrinter): String
+
 /////////////////////////////////////////////////////////////////////////////
 // DFBool or DFBit
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFBoolOrBit extends DFType:
   final val __width = 1
+object DFBoolOrBit
+//  final case class Token(__dfType: DFBoolOrBit, data: Option[Boolean])
+//      extends DFToken:
+//    protected[DFiant] lazy val valueBits: BitVector = data._1
+//    protected[DFiant] lazy val bubbleBits: BitVector = data._2
+//    def codeString(using Printer): String = ???
 
 case object DFBool extends DFBoolOrBit:
   def codeString(using Printer): String = "DFBool"
@@ -24,6 +49,12 @@ case object DFBit extends DFBoolOrBit:
 /////////////////////////////////////////////////////////////////////////////
 final case class DFBits(val __width: Int) extends DFType:
   def codeString(using Printer): String = s"DFBits(${__width})"
+object DFBits
+//  final case class Token(__dfType: DFBits, data: (BitVector, BitVector))
+//      extends DFToken:
+//    protected[DFiant] lazy val valueBits: BitVector = data._1
+//    protected[DFiant] lazy val bubbleBits: BitVector = data._2
+//    def codeString(using Printer): String = ???
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

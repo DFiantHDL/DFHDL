@@ -5,6 +5,7 @@ export core.DFUnion.Ops.*
 export core.DFOpaque.Ops.*
 export core.DFVector.Ops.*
 export core.SameBitsVector.*
+export internals.CommonOps.*
 
 type Context = core.Context
 type DFType = core.DFType
@@ -17,14 +18,3 @@ val DFBits = core.DFBits
 type DFFields = core.DFFields
 type DFEncoding = core.DFEncoding
 val DFEncoding = core.DFEncoding
-
-extension (value: BigInt)
-  def bitsWidth(signed: Boolean): Int =
-    if (value > 0)
-      if (signed) value.bitLength + 1 else value.bitLength
-    else if (value == 0)
-      if (signed) 2 else 1
-    else (-value).bitLength + 1
-
-extension (value: Int)
-  def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
