@@ -7,36 +7,49 @@ import scala.collection.immutable.{ListMap, ListSet}
 sealed trait DFType extends NCCode, Product, Serializable:
   val __width: Int
 
-//sealed trait DFToken extends NCCode, Product, Serializable:
-//  val __dfType: DFType
-//  val data: Any
-//  protected[DFiant] lazy val valueBits: BitVector
-//  protected[DFiant] lazy val bubbleBits: BitVector
-////  def ==[R <: DFType](rhs: DFToken): DFBool.Token =
-////    dfType.tokenEquals(this, rhs)
-////  def codeString(using Printer): String = dfType.tokenCodeString(data)
-//object DFToken:
-//  sealed trait DFOptional extends DFToken:
-//    val data: Option[Any]
-//    final lazy val (valueBits, bubbleBits): (BitVector, BitVector) =
-//      value match {
-//        case Some(t) => (valueToBitVector(t), false.toBitVector(width))
-//        case None    => (0.toBitVector(width), true.toBitVector(width))
-//      }
-//    def valueToBitVector(value: Value): BitVector
-//    def valueCodeString(value: Value)(implicit printer: CSPrinter): String
+sealed trait DFToken extends NCCode, Product, Serializable:
+  val __dfType: DFType
+  val __data: Any
+  final lazy val __width: Int = __dfType.__width
+  lazy val __valueBits: BitVector
+  lazy val __bubbleBits: BitVector
+//  def ==[R <: DFType](rhs: DFToken): DFBool.Token =
+//    dfType.tokenEquals(this, rhs)
+//  def codeString(using Printer): String = dfType.tokenCodeString(data)
+object DFToken:
+  sealed trait Optional extends DFToken:
+    type Data
+    val __data: Option[Data]
+    final lazy val __valueBits: BitVector =
+      __data match
+        case Some(t) => dataToBitVector(t)
+        case None    => 0.toBitVector(__width)
+    final lazy val __bubbleBits: BitVector =
+      __data match
+        case Some(t) => false.toBitVector(__width)
+        case None    => true.toBitVector(__width)
+    protected def dataToBitVector(data: Data): BitVector
+    protected def dataCodeString(data: Data)(using Printer): String
+    final def codeString(using Printer): String = __data match {
+      case Some(t) => dataCodeString(t)
+      case None    => "?"
+    }
 
 /////////////////////////////////////////////////////////////////////////////
 // DFBool or DFBit
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFBoolOrBit extends DFType:
   final val __width = 1
-object DFBoolOrBit
-//  final case class Token(__dfType: DFBoolOrBit, data: Option[Boolean])
-//      extends DFToken:
-//    protected[DFiant] lazy val valueBits: BitVector = data._1
-//    protected[DFiant] lazy val bubbleBits: BitVector = data._2
-//    def codeString(using Printer): String = ???
+object DFBoolOrBit:
+  final case class Token(__dfType: DFBoolOrBit, __data: Option[Boolean])
+      extends DFToken.Optional:
+    type Data = Boolean
+    protected def dataToBitVector(data: Data): BitVector =
+      data.toBitVector(__width)
+    protected def dataCodeString(data: Data)(using Printer): String =
+      __dfType match
+        case DFBool => __data.toString
+        case DFBit  => if (data) "1" else "0"
 
 case object DFBool extends DFBoolOrBit:
   def codeString(using Printer): String = "DFBool"
@@ -49,13 +62,65 @@ case object DFBit extends DFBoolOrBit:
 /////////////////////////////////////////////////////////////////////////////
 final case class DFBits(val __width: Int) extends DFType:
   def codeString(using Printer): String = s"DFBits(${__width})"
-object DFBits
-//  final case class Token(__dfType: DFBits, data: (BitVector, BitVector))
-//      extends DFToken:
-//    protected[DFiant] lazy val valueBits: BitVector = data._1
-//    protected[DFiant] lazy val bubbleBits: BitVector = data._2
-//    def codeString(using Printer): String = ???
-/////////////////////////////////////////////////////////////////////////////
+object DFBits:
+  final case class Token(__dfType: DFBits, __data: (BitVector, BitVector))
+      extends DFToken:
+    lazy val __valueBits: BitVector = __data._1
+    lazy val __bubbleBits: BitVector = __data._2
+    private def binZip(v: BitVector, b: BitVector, bubbleChar: Char): String =
+      v.toBin
+        .zip(b.toBin)
+        .map {
+          case (_, '1')       => bubbleChar
+          case (zeroOrOne, _) => zeroOrOne
+        }
+        .mkString
+    private def hexZip(
+        v: BitVector,
+        b: BitVector,
+        bubbleChar: Char,
+        allowBinMode: Boolean
+    ): Option[String] =
+      Some(
+        v.toHex
+          .zip(b.toHex)
+          .flatMap {
+            case (_, 'F' | 'f') => s"$bubbleChar"
+            case (h, '0')       => s"$h"
+            case (h, b) if allowBinMode =>
+              s"{${binZip(BitVector(h), BitVector(b), bubbleChar)}}"
+            case _ => return None
+          }
+          .mkString
+      )
+    def toBinString(bubbleChar: Char): String =
+      binZip(__valueBits, __bubbleBits, bubbleChar)
+    def toHexString(bubbleChar: Char, allowBinMode: Boolean): Option[String] =
+      if (__width % 4 == 0)
+        hexZip(__valueBits, __bubbleBits, bubbleChar, allowBinMode)
+      else
+        val headWidth = __width % 4
+        val (headValue, theRestValue) = __valueBits.splitAt(headWidth)
+        val (headBubble, theRestBubble) = __bubbleBits.splitAt(headWidth)
+
+        val headOption =
+          if (headBubble == BitVector.high(headWidth)) Some(s"$bubbleChar")
+          else
+            hexZip(
+              headValue.resize(4),
+              headBubble.resize(4),
+              bubbleChar,
+              allowBinMode
+            )
+        val theRestOption =
+          hexZip(theRestValue, theRestBubble, bubbleChar, allowBinMode)
+        for (h <- headOption; tr <- theRestOption) yield h + tr
+    def codeString(using Printer): String =
+      val binRep = toBinString('?')
+      val hexRep = s"${__width}'${toHexString('?', allowBinMode = true).get}"
+      //choosing the shorter representation for readability
+      if (binRep.length <= hexRep.length) s"""b"$binRep""""
+      else s"""h"$hexRep""""
 
 /////////////////////////////////////////////////////////////////////////////
 // DFEnum
