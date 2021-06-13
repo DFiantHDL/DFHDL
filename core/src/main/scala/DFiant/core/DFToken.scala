@@ -14,7 +14,7 @@
 //object DFToken:
 //  extension [T <: DFType](token: DFToken[T])(using w: Width[T])
 //    def width: Inlined.Int[w.Out] =
-//      Inlined.Int.forced[w.Out](token.dfType.__width)
+//      Inlined.Int.forced[w.Out](token.dfType.width)
 //    def bits: DFToken[DFBits[w.Out]] =
 //      DFBits.Token(width)(token.valueBits, token.bubbleBits)
 //

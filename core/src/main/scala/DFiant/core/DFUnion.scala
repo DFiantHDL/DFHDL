@@ -42,8 +42,8 @@ object DFUnion:
             )
           )
         assert(
-          lhsUnion.__width == rhsUnion.__width,
-          widthError(lhsUnion.__width, rhsUnion.__width)
+          lhsUnion.width == rhsUnion.width,
+          widthError(lhsUnion.width, rhsUnion.width)
         )
         DFUnion[l.U | r.U](lhsUnion.fieldSet ++ rhsUnion.fieldSet)
 

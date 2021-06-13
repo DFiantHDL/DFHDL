@@ -45,7 +45,7 @@ object DFType:
     extension [T](t: T)(using tc: TC[T])
       def dfType: tc.Type = tc(t)
       def width(using w: Width[T]): Inlined.Int[w.Out] =
-        Inlined.Int.forced[w.Out](dfType.asIR.__width)
+        Inlined.Int.forced[w.Out](dfType.asIR.width)
       def <>(dir: Int): Unit = {}
 
 trait TC[T]:
