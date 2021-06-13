@@ -11,3 +11,9 @@ object DFDecimal:
       fractionWidth: Inlined.Int[F]
   ): DFDecimal[S, W, F] =
     ir.DFDecimal(signed, width, fractionWidth)
+
+type DFUInt[W <: Int] = DFDecimal[false, W, 0]
+object DFUInt
+
+type DFSInt[W <: Int] = DFDecimal[true, W, 0]
+object DFSInt
