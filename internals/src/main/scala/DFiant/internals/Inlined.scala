@@ -39,7 +39,7 @@ object Inlined:
     inline constValueOpt[T] match
       case Some(_) => constValue[T]
       case None    => inlined.value.asInstanceOf[T]
-  transparent inline implicit def fromValue[Wide, T <: Wide](
+  transparent inline implicit def fromValue[T <: Wide, Wide](
       inline value: T
   ): Inlined[?, Wide] =
     inline constValueOpt[value.type] match
@@ -48,7 +48,7 @@ object Inlined:
   protected trait Companion[Wide]:
     def forced[T <: Wide](value: Wide) = Inlined[T, Wide](value)
     transparent inline def apply(inline value: Wide) =
-      fromValue[Wide, value.type](value)
+      fromValue[value.type, Wide](value)
 
   type Int[T <: std.Int] = Inlined[T, std.Int]
   object Int extends Companion[std.Int]
