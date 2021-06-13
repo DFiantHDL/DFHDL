@@ -56,7 +56,7 @@ object DFEncoding:
         Some(applied.args.head)
       else None
 
-opaque type DFEnum[C <: AnyRef, E] <: ir.DFEnum = ir.DFEnum
+opaque type DFEnum[C <: AnyRef, E] <: DFType.Of[ir.DFEnum] = DFType.Of[ir.DFEnum]
 object DFEnum:
   def unapply(using Quotes)(
       tpe: quotes.reflect.TypeRepr
@@ -87,4 +87,4 @@ object DFEnum:
     val entryPairs = fieldsAsPairs.zipWithIndex.map {
       case ((name, entry), idx) => (name, entry.value)
     }
-    ir.DFEnum(name, width, ListMap(entryPairs: _*))
+    ir.DFEnum(name, width, ListMap(entryPairs: _*)).asInstanceOf[DFEnum[C, E]]

@@ -2,19 +2,22 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 
-opaque type DFVector[T <: DFType, D <: NonEmptyTuple] <: ir.DFVector =
+opaque type DFVector[T <: DFType, D <: NonEmptyTuple] <: DFType.Of[
   ir.DFVector
+] =
+  DFType.Of[ir.DFVector]
 
 object DFVector extends DFVectorCompanion:
   def apply[T <: DFType, D <: NonEmptyTuple](
       cellType: T,
       cellDims: D
   ): DFVector[T, D] =
-    ir.DFVector(cellType, cellDims.toList.asInstanceOf[List[Int]])
+    ir.DFVector(cellType.asIR, cellDims.toList.asInstanceOf[List[Int]])
+      .asInstanceOf[DFVector[T, D]]
 
 trait DFVectorCompanion:
   object Ops:
-    extension [T <: DFType.Supported](t: T)(using tc: DFType.TC[T])
+    extension [T <: DFType.Supported](t: T)(using tc: TC[T])
       // transparent inline def X(inline cellDim: Int*): DFType =
       //   x(dfType, cellDim: _*)
       inline def X(

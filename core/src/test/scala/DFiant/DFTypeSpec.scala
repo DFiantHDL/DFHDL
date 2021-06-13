@@ -49,37 +49,37 @@ class DFTypeSpec extends FunSuite:
 
   given Printer = DefaultPrinter
   test("codeString") {
-    assertEquals(b8.codeString, "DFBits(8)")
-    assertEquals(bit.codeString, "DFBit")
-    assertEquals(bool.codeString, "DFBool")
-    assertEquals(tpl.dfType.codeString, "(DFBool, DFBit, DFBits(8))")
-    assertEquals(vec_b8x10.codeString, "DFBits(8).X(10)")
-    assertEquals(MyEnum1.dfType.codeString, "MyEnum1")
-    assertEquals(MyEnum2.dfType.codeString, "MyEnum2")
-    assertEquals(MyEnum3.dfType.codeString, "MyEnum3")
-    assertEquals(MyEnum4.dfType.codeString, "MyEnum4")
-    assertEquals(MyEnum5.dfType.codeString, "MyEnum5")
+    assertEquals(b8.asIR.codeString, "DFBits(8)")
+    assertEquals(bit.asIR.codeString, "DFBit")
+    assertEquals(bool.asIR.codeString, "DFBool")
+    assertEquals(tpl.dfType.asIR.codeString, "(DFBool, DFBit, DFBits(8))")
+    assertEquals(vec_b8x10.asIR.codeString, "DFBits(8).X(10)")
+    assertEquals(MyEnum1.dfType.asIR.codeString, "MyEnum1")
+    assertEquals(MyEnum2.dfType.asIR.codeString, "MyEnum2")
+    assertEquals(MyEnum3.dfType.asIR.codeString, "MyEnum3")
+    assertEquals(MyEnum4.dfType.asIR.codeString, "MyEnum4")
+    assertEquals(MyEnum5.dfType.asIR.codeString, "MyEnum5")
   }
 
   test("Enumeration Entries") {
     assertEquals(
-      MyEnum1.dfType.entries,
+      MyEnum1.dfType.asIR.entries,
       ListMap("Foo" -> BigInt(0), "Bar" -> BigInt(1), "Baz" -> BigInt(2))
     )
     assertEquals(
-      MyEnum2.dfType.entries,
+      MyEnum2.dfType.asIR.entries,
       ListMap("Foo" -> BigInt(20), "Bar" -> BigInt(21), "Baz" -> BigInt(22))
     )
     assertEquals(
-      MyEnum3.dfType.entries,
+      MyEnum3.dfType.asIR.entries,
       ListMap("Foo" -> BigInt(1), "Bar" -> BigInt(2), "Baz" -> BigInt(4))
     )
     assertEquals(
-      MyEnum4.dfType.entries,
+      MyEnum4.dfType.asIR.entries,
       ListMap("Foo" -> BigInt(0), "Bar" -> BigInt(1), "Baz" -> BigInt(3))
     )
     assertEquals(
-      MyEnum5.dfType.entries,
+      MyEnum5.dfType.asIR.entries,
       ListMap("Foo" -> BigInt(200), "Bar" -> BigInt(100), "Baz" -> BigInt(0))
     )
   }

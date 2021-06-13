@@ -9,20 +9,21 @@ private def collisionError(collisions: List[String]): String =
   s"Dataflow union types must be exclusive.\nThe following types are repeated: ${collisions.mkString(", ")}"
 private def widthError(lhsWidth: Int, rhsWidth: Int): String =
   s"All union types must have the same width.\nFound LHS-width $lhsWidth and RHS-width $rhsWidth"
-opaque type DFUnion[U <: DFType] <: ir.DFUnion = ir.DFUnion
+opaque type DFUnion[U <: DFType] <: DFType.Of[ir.DFUnion] =
+  DFType.Of[ir.DFUnion]
 object DFUnion:
-  def apply[U <: DFType](fieldSet: ListSet[DFType]): DFUnion[U] =
-    ir.DFUnion(fieldSet)
+  def apply[U <: DFType](fieldSet: ListSet[ir.DFType]): DFUnion[U] =
+    ir.DFUnion(fieldSet).asInstanceOf[DFUnion[U]]
   trait Able[T]:
     type U <: DFType
     def apply(t: T): DFUnion[U]
   object Able:
     given fromDFType[T <: DFType]: Able[T] with
       type U = T
-      def apply(t: T): DFUnion[U] = DFUnion[U](ListSet(t))
-    given fromFields[T](using tc: DFType.TC[T]): Able[T] with
+      def apply(t: T): DFUnion[U] = DFUnion[U](ListSet(t.asIR))
+    given fromFields[T](using tc: TC[T]): Able[T] with
       type U = tc.Type
-      def apply(t: T): DFUnion[U] = DFUnion[U](ListSet(tc(t)))
+      def apply(t: T): DFUnion[U] = DFUnion[U](ListSet(tc(t).asIR))
     given fromUnion[U0 <: DFType]: Able[DFUnion[U0]] with
       type U = U0
       def apply(t: DFUnion[U0]): DFUnion[U] = t
@@ -31,8 +32,8 @@ object DFUnion:
       def |[R](rhs: R)(using r: Able[R])(using
           VerifyUnion[l.U, r.U]
       ): DFUnion[l.U | r.U] =
-        val lhsUnion = l(lhs)
-        val rhsUnion = r(rhs)
+        val lhsUnion = l(lhs).asIR
+        val rhsUnion = r(rhs).asIR
         val collisions = lhsUnion.fieldSet & rhsUnion.fieldSet
         if (collisions.nonEmpty)
           throw new IllegalArgumentException(

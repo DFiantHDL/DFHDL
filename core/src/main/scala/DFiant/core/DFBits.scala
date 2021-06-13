@@ -3,13 +3,13 @@ import DFiant.compiler.ir
 import DFiant.internals.*
 import scala.annotation.targetName
 
-opaque type DFBits[W <: Int] <: ir.DFBits = ir.DFBits
+opaque type DFBits[W <: Int] <: DFType.Of[ir.DFBits] = DFType.Of[ir.DFBits]
 object DFBits:
   def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] =
-    ir.DFBits(width)
+    ir.DFBits(width).asInstanceOf[DFBits[W]]
   @targetName("applyNoArg")
   def apply[W <: Int with Singleton](using ValueOf[W]): DFBits[W] =
-    DFBits[W](Inlined.Int.forced[W](valueOf[W]))
+    DFBits[W](Inlined.Int.forced[W](valueOf[W])).asInstanceOf[DFBits[W]]
 
 //  type Token[W <: Int] = DFToken[DFBits[W]]
 //  object Token:

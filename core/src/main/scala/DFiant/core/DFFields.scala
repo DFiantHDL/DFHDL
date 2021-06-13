@@ -14,7 +14,7 @@ abstract class DFFields(using meta: MetaContext) extends Product, Serializable:
   final val name: String = meta.clsNameOpt.get
   protected sealed trait FIELD
   protected object FIELD extends FIELD
-  extension [T <: DFType.Supported](t: T)(using tc: DFType.TC[T])
+  extension [T <: DFType.Supported](t: T)(using tc: TC[T])
     def <>(FIELD: FIELD)(using MetaContext): DFField[tc.Type] =
       val dfType = tc(t)
       val field = DFField(dfType)
