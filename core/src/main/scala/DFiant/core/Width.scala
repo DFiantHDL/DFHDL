@@ -48,6 +48,8 @@ object Width:
           ConstantType(IntConstant(1))
         case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFBits] =>
           applied.args.head.simplify
+        case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFDecimal] =>
+          applied.args(1).simplify
         case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFVector] =>
           val cellWidth = applied.args.head.calcWidth
           val cellDims = applied.args.last.asInstanceOf[AppliedType].args

@@ -8,6 +8,7 @@ type +[L, R] = (L, R) match
   case (String, Int)    => string.+[L, int.ToString[R]]
   case (Int, String)    => string.+[int.ToString[L], R]
 import int.{>, <, -, /, *}
+import scala.annotation.targetName
 
 protected object std:
   type Int = scala.Int
@@ -39,12 +40,14 @@ object Inlined:
     inline constValueOpt[T] match
       case Some(_) => constValue[T]
       case None    => inlined.value.asInstanceOf[T]
-  transparent inline implicit def fromValue[T <: Wide, Wide](
+  inline implicit def fromValue[T <: Wide with Singleton, Wide](
       inline value: T
-  ): Inlined[?, Wide] =
-    inline constValueOpt[value.type] match
-      case Some(c) => Inlined[value.type, Wide](value)
-      case _       => Inlined[Wide, Wide](value)
+  ): Inlined[T, Wide] = new Inlined[T, Wide](value)
+  @targetName("fromValueWide")
+  implicit def fromValue[Wide](
+      value: Wide
+  ): Inlined[Wide, Wide] = new Inlined[Wide, Wide](value)
+
   protected trait Companion[Wide]:
     def forced[T <: Wide](value: Wide) = Inlined[T, Wide](value)
     transparent inline def apply(inline value: Wide) =

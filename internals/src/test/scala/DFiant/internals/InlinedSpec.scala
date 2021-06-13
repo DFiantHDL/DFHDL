@@ -3,9 +3,10 @@ import scala.compiletime.ops.int.*
 import scala.compiletime.constValue
 object InlinedSpec {
   val tf1 = Inlined.Int(1)
-  val tf2 = Inlined.Int(2)
+  def fromInlined[T <: Int](x: Inlined.Int[T]): Inlined.Int[T] = x
+  val tf2 = fromInlined(2)
   val one = 1
-  val tfOne: Inlined.Int[Int] = Inlined.Int(one)
+  val tfOne: Inlined.Int[one.type] = Inlined.Int(one)
   val res: Inlined.Int[5] = tf1 + tf2 + 2
   val res5 = tfOne + tf2 + 2
   val x: 1 = tf1
