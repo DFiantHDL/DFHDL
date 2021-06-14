@@ -28,9 +28,9 @@ opaque type DFType = ir.DFType
 object DFType:
   extension (dfType: DFType) def asIR: ir.DFType = dfType
 
-  opaque type Of[+T <: ir.DFType] <: DFType = DFType
+  opaque type Of[+T <: ir.DFType] <: DFType = T
   object Of:
-    extension [T <: ir.DFType](of: Of[T]) def asIR: T = of.asInstanceOf[T]
+    extension [T <: ir.DFType](of: Of[T]) def asIR: T = of
 
   type Supported = AnyRef | DFType
   private[core] def apply(t: Any): DFType =

@@ -1,8 +1,12 @@
-//package DFiant
-//package core
-//import compiler.printing.*
-//import internals.*
-//
+package DFiant.core
+import DFiant.compiler.ir
+import DFiant.internals.*
+
+opaque type DFToken = ir.DFToken
+object DFToken:
+  extension (of: DFToken) def asIR: ir.DFToken = of
+  opaque type Of[+T <: DFType] <: DFToken = DFToken
+
 //final case class DFToken[+T <: DFType](dfType: T)(val data: dfType.TokenData)
 //    extends NCCode:
 //  def ==[R <: DFType](rhs: DFToken[R]): DFBool.Token =
