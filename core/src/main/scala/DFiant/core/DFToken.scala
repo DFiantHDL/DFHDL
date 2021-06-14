@@ -5,7 +5,13 @@ import DFiant.internals.*
 opaque type DFToken = ir.DFToken
 object DFToken:
   extension (of: DFToken) def asIR: ir.DFToken = of
-  opaque type Of[+T <: DFType] <: DFToken = DFToken
+  opaque type Of[+T <: DFType, D] <: DFToken = DFToken
+  object Of:
+    extension [T <: DFType, D](token: Of[T, D])
+      def data: D = token.asIR.data.asInstanceOf[D]
+      def dfType: T = token.asIR.dfType.asInstanceOf[T]
+      def width(using w: Width[T]): Inlined.Int[w.Out] =
+        Inlined.Int.forced[w.Out](token.asIR.width)
 
 //final case class DFToken[+T <: DFType](dfType: T)(val data: dfType.TokenData)
 //    extends NCCode:

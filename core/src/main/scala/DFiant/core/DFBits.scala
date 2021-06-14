@@ -11,7 +11,8 @@ object DFBits:
   def apply[W <: Int with Singleton](using ValueOf[W]): DFBits[W] =
     DFBits[W](Inlined.Int.forced[W](valueOf[W])).asInstanceOf[DFBits[W]]
 
-  opaque type Token[W <: Int] <: DFToken.Of[DFBits[W]] = DFToken.Of[DFBits[W]]
+  opaque type Token[W <: Int] <: DFToken.Of[DFBits[W], (BitVector, BitVector)] =
+    DFToken.Of[DFBits[W], (BitVector, BitVector)]
   object Token:
     protected[DFiant] def apply[W <: Int](
         width: Inlined.Int[W]
@@ -24,11 +25,8 @@ object DFBits:
         BitVector.high(width.value)
       )
     extension [W <: Int](token: Token[W])
-      def data: (BitVector, BitVector) =
-        token.asIR.data.asInstanceOf[(BitVector, BitVector)]
-      def valueBits: BitVector = data._1
-      def bubbleBits: BitVector = data._2
-      def width: Inlined.Int[W] = Inlined.Int.forced[W](token.asIR.width)
+      def valueBits: BitVector = token.data._1
+      def bubbleBits: BitVector = token.data._2
 
     extension [LW <: Int](lhs: DFBits.Token[LW])
       @targetName("concat")
