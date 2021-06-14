@@ -1,8 +1,8 @@
-package DFiant
-package core
-import internals.*
+package DFiant.core
+import DFiant.compiler.ir
+import DFiant.internals.*
 
 sealed trait DFModifier
 object DFModifier
 
-trait DFVal[+T <: DFType, +M <: DFModifier]
+opaque type DFVal[+T <: DFType, +M <: DFModifier] = ir.DFVal

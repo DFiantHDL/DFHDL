@@ -19,4 +19,6 @@ object DFUInt:
     DFDecimal(false, width, 0)
 
 type DFSInt[W <: Int] = DFDecimal[true, W, 0]
-object DFSInt
+object DFSInt:
+  def apply[W <: Int](width: Inlined.Int[W]): DFSInt[W] =
+    DFDecimal(true, width, 0)

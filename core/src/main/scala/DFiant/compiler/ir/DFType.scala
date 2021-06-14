@@ -126,10 +126,11 @@ object DFBits:
 // DFDecimal
 /////////////////////////////////////////////////////////////////////////////
 final case class DFDecimal(
-    __signed: Boolean,
+    signed: Boolean,
     width: Int,
-    __fractionWidth: Int
+    fractionWidth: Int
 ) extends DFType:
+  val magnitudeWidth: Int = width - fractionWidth
   def codeString(using Printer): String = ???
 
 /////////////////////////////////////////////////////////////////////////////
