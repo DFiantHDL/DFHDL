@@ -7,7 +7,9 @@ export core.DFVector.Ops.*
 export core.SameBitsVector.*
 export internals.CommonOps.*
 
-type Context = core.Context
+type DFC = core.DFC
+export core.dfc
+
 type DFType = core.DFType
 val DFBool = core.DFBool
 type DFBool = core.DFBool

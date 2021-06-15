@@ -2,17 +2,15 @@ package DFiant
 import internals.*
 import annotation.targetName
 object Hello extends App {
-  class Bar(using val ctx: Context) extends OnCreateEvents, LateConstruction:
+  class Bar(using val ctx: DFC) extends OnCreateEvents, LateConstruction:
     val nameOpt = ctx.nameOpt
-    def +(that: Bar)(using Context): Bar = new Plus(this, that)
+    def +(that: Bar)(using DFC): Bar = new Plus(this, that)
 
-  class Plus(lhs: Bar, rhs: Bar)(using Context) extends Bar
+  class Plus(lhs: Bar, rhs: Bar)(using DFC) extends Bar
 
-  extension (bar: Bar)(using Context)
-    def ++(that: Bar): Bar = new Plus(bar, that)
+  extension (bar: Bar)(using DFC) def ++(that: Bar): Bar = new Plus(bar, that)
 
-  extension (bar: Bar)
-    def +++(that: Bar)(using Context): Bar = new Plus(bar, that)
+  extension (bar: Bar) def +++(that: Bar)(using DFC): Bar = new Plus(bar, that)
 
   extension (bar: Bar)
     @metaContextDelegate
@@ -20,14 +18,14 @@ object Hello extends App {
     @metaContextDelegate
     def setName(name: String): Bar = ???
 
-  class Foo(arg1: Int, arg2: Int)(using Context) extends Bar
+  class Foo(arg1: Int, arg2: Int)(using DFC) extends Bar
 
   object Internal:
-    class Foo(arg1: Int, arg2: Int)(using Context) extends Bar
+    class Foo(arg1: Int, arg2: Int)(using DFC) extends Bar
 
-  def newBar(using Context): Bar = new Bar
+  def newBar(using DFC): Bar = new Bar
 
-  class Top(using Context) extends Bar:
+  class Top(using DFC) extends Bar:
     object FooObj extends Foo(1, 2):
       new Bar
       val insiderObj = new Bar
@@ -54,14 +52,13 @@ object Hello extends App {
       println("fooBlock")
       new Foo(11, 12)
 
-    case class FooCC(arg1: Int, arg2: Int)(using Context)
-        extends Foo(arg1, arg2)
+    case class FooCC(arg1: Int, arg2: Int)(using DFC) extends Foo(arg1, arg2)
 
     val fooCC = FooCC(1, 2)
     val fooNewCC = new FooCC(1, 2)
 
-  given ctx: Context = ???
-//    Context(Some("top"), Position.unknown, false, None, Position.unknown)
+  given ctx: DFC = ???
+//    DFC(Some("top"), Position.unknown, false, None, Position.unknown)
 
   val top = new Top
 

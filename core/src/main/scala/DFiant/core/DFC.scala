@@ -2,7 +2,7 @@ package DFiant
 package core
 import internals.*
 
-final case class Context(
+final case class DFC(
     nameOpt: Option[String],
     position: Position,
     lateConstruction: Boolean,
@@ -25,7 +25,9 @@ final case class Context(
   ).asInstanceOf[this.type]
   def setName(name: String): this.type =
     copy(nameOpt = Some(name)).asInstanceOf[this.type]
-  def anonymize: this.type     = copy(nameOpt = None).asInstanceOf[this.type]
+  def anonymize: this.type = copy(nameOpt = None).asInstanceOf[this.type]
   def <>(that: Int): this.type = copy(defaultDir = that).asInstanceOf[this.type]
 
 }
+
+def dfc(using DFC): DFC = summon[DFC]
