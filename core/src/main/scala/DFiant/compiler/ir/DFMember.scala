@@ -24,13 +24,13 @@ sealed trait DFVal extends DFMember:
 object DFVal:
   type Ref = DFMember.TwoWayRef[DFVal]
   
-  final case class Const(token: DFToken, ownerRef: DFOwner.Ref) extends DFVal:
+  final case class Const(token: DFType.Token, ownerRef: DFOwner.Ref) extends DFVal:
     val dfType = token.dfType
   
   final case class Dcl(
       dfType: DFType,
       modifier: Dcl.Modifier,
-      externalInit: Option[Seq[DFToken]],
+      externalInit: Option[Seq[DFType.Token]],
       ownerRef: DFOwner.Ref
   ) extends DFVal
   object Dcl:

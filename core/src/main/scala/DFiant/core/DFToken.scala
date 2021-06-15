@@ -2,9 +2,9 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 
-opaque type DFToken = ir.DFToken
+opaque type DFToken = ir.DFType.Token
 object DFToken:
-  extension (of: DFToken) def asIR: ir.DFToken = of
+  extension (of: DFToken) def asIR: ir.DFType.Token = of
   opaque type Of[+T <: DFType, D] <: DFToken = DFToken
   object Of:
     extension [T <: DFType, D](token: Of[T, D])
