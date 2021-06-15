@@ -16,3 +16,6 @@ def showTreeMacro[T](arg: Expr[T])(using Quotes, Type[T]): Expr[Unit] =
   println(TypeRepr.of[T].show)
   println(term.tpe.show)
   '{}
+
+extension [T](t: Iterable[T])
+  def mkStringBrackets: String = t.mkString("(", ", ", ")")

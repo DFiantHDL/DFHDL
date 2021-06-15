@@ -5,8 +5,10 @@ import DFiant.internals.*
 import scala.collection.immutable.{ListMap, ListSet}
 
 sealed trait DFType extends NCCode, Product, Serializable:
+  type TokenData
   val width: Int
-
+object DFType:
+  type Token = DFToken
 //object DFToken:
 //  sealed trait Optional extends DFToken:
 //    type Data
@@ -31,16 +33,14 @@ sealed trait DFType extends NCCode, Product, Serializable:
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFBoolOrBit extends DFType:
   final val width = 1
-//object DFBoolOrBit:
-//  final case class Token(dfType: DFBoolOrBit, data: Option[Boolean])
-//      extends DFToken.Optional:
-//    type Data = Boolean
-//    protected def dataToBitVector(data: Data): BitVector =
-//      data.toBitVector(width)
-//    protected def dataCodeString(data: Data)(using Printer): String =
-//      dfType match
-//        case DFBool => data.toString
-//        case DFBit  => if (data) "1" else "0"
+object DFBoolOrBit:
+  type TokenData = Option[Boolean]
+  object Token:
+    def unapply(token: DFToken): Option[(DFBoolOrBit, TokenData)] =
+      token.dfType match
+        case dt: DFBoolOrBit =>
+          Some((dt, token.data.asInstanceOf[TokenData]))
+        case _ => None
 
 case object DFBool extends DFBoolOrBit:
   def codeString(using Printer): String = "DFBool"
@@ -53,7 +53,14 @@ case object DFBit extends DFBoolOrBit:
 /////////////////////////////////////////////////////////////////////////////
 final case class DFBits(val width: Int) extends DFType:
   def codeString(using Printer): String = s"DFBits(${width})"
-//object DFBits:
+object DFBits:
+  type TokenData = (BitVector, BitVector)
+  object Token:
+    def unapply(token: DFToken): Option[(DFBits, TokenData)] =
+      token.dfType match
+        case dt: DFBits =>
+          Some((dt, token.data.asInstanceOf[TokenData]))
+        case _ => None
 //  final case class Token(dfType: DFBits, data: (BitVector, BitVector))
 //      extends DFToken:
 //    lazy val valueBits: BitVector = data._1
@@ -121,6 +128,7 @@ final case class DFDecimal(
     width: Int,
     fractionWidth: Int
 ) extends DFType:
+  type TokenData = Option[BigInt]
   val magnitudeWidth: Int = width - fractionWidth
   def codeString(using Printer): String = ???
 
@@ -132,6 +140,7 @@ final case class DFEnum(
     val width: Int,
     val entries: ListMap[String, BigInt]
 ) extends DFType:
+  type TokenData = Option[BigInt]
   def codeString(using Printer): String = name
 /////////////////////////////////////////////////////////////////////////////
 
@@ -142,15 +151,17 @@ final case class DFVector(
     cellType: DFType,
     cellDims: List[Int]
 ) extends DFType:
+  type TokenData = Vector[DFToken]
   val width: Int = cellType.width * cellDims.reduce(_ * _)
   def codeString(using Printer): String =
-    s"${cellType.codeString}.X${cellDims.mkString("(", ", ", ")")}"
+    s"${cellType.codeString}.X${cellDims.mkStringBrackets}"
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
 final case class DFOpaque(name: String, actualType: DFType) extends DFType:
+  type TokenData = DFToken
   final val width: Int = actualType.width
   final def codeString(using Printer): String = name
 /////////////////////////////////////////////////////////////////////////////
@@ -159,6 +170,7 @@ final case class DFOpaque(name: String, actualType: DFType) extends DFType:
 // DFUnion
 /////////////////////////////////////////////////////////////////////////////
 final case class DFUnion(fieldSet: ListSet[DFType]) extends DFType:
+  type TokenData = DFToken
   val width: Int = fieldSet.head.width
   def codeString(using Printer): String =
     fieldSet.map(_.codeString).mkString(" | ")
@@ -171,6 +183,7 @@ final case class DFStruct(
     name: String,
     fieldMap: ListMap[String, DFType]
 ) extends DFType:
+  type TokenData = ListMap[String, DFToken]
   val width: Int = fieldMap.values.map(_.width).sum
   def codeString(using Printer): String = name
 /////////////////////////////////////////////////////////////////////////////
@@ -179,7 +192,8 @@ final case class DFStruct(
 // DFTuple
 /////////////////////////////////////////////////////////////////////////////
 final case class DFTuple(fieldList: List[DFType]) extends DFType:
+  type TokenData = List[DFToken]
   val width: Int = fieldList.view.map(_.width).sum
   def codeString(using Printer): String =
-    fieldList.view.map(_.codeString).mkString("(", ", ", ")")
+    fieldList.view.map(_.codeString).mkStringBrackets
 /////////////////////////////////////////////////////////////////////////////
