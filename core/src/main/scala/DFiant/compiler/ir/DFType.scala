@@ -4,7 +4,7 @@ import printing.{Printer, NCCode}
 import DFiant.internals.*
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.reflect.ClassTag
-sealed trait DFType extends NCCode, Product, Serializable:
+sealed trait DFType extends Product, Serializable:
   val width: Int
 object DFType:
   type Token = DFToken[DFType, Any]
@@ -45,21 +45,16 @@ sealed trait DFBoolOrBit extends DFType:
   final val width = 1
 object DFBoolOrBit extends DFType.Companion[DFBoolOrBit, Option[Boolean]]
 
-case object DFBool extends DFBoolOrBit:
-  def codeString(using Printer): String = "DFBool"
-case object DFBit extends DFBoolOrBit:
-  def codeString(using Printer): String = "DFBit"
+case object DFBool extends DFBoolOrBit
+case object DFBit extends DFBoolOrBit
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
 // DFBits
 /////////////////////////////////////////////////////////////////////////////
-final case class DFBits(val width: Int) extends DFType:
-  def codeString(using Printer): String = s"DFBits(${width})"
+final case class DFBits(val width: Int) extends DFType
 object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]
-//  final case class Token(dfType: DFBits, data: (BitVector, BitVector))
-//      extends DFToken:
-//    def codeString(using Printer): String =
+/////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
 // DFDecimal
@@ -70,7 +65,6 @@ final case class DFDecimal(
     fractionWidth: Int
 ) extends DFType:
   val magnitudeWidth: Int = width - fractionWidth
-  def codeString(using Printer): String = ???
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]
 /////////////////////////////////////////////////////////////////////////////
@@ -80,8 +74,7 @@ final case class DFEnum(
     val name: String,
     val width: Int,
     val entries: ListMap[String, BigInt]
-) extends DFType:
-  def codeString(using Printer): String = name
+) extends DFType
 
 object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
 /////////////////////////////////////////////////////////////////////////////
@@ -94,8 +87,6 @@ final case class DFVector(
     cellDims: List[Int]
 ) extends DFType:
   val width: Int = cellType.width * cellDims.reduce(_ * _)
-  def codeString(using Printer): String =
-    s"${cellType.codeString}.X${cellDims.mkStringBrackets}"
 
 object DFVector extends DFType.Companion[DFVector, Vector[DFType.Token]]
 /////////////////////////////////////////////////////////////////////////////
@@ -105,7 +96,6 @@ object DFVector extends DFType.Companion[DFVector, Vector[DFType.Token]]
 /////////////////////////////////////////////////////////////////////////////
 final case class DFOpaque(name: String, actualType: DFType) extends DFType:
   final val width: Int = actualType.width
-  final def codeString(using Printer): String = name
 
 object DFOpaque extends DFType.Companion[DFOpaque, DFType.Token]
 /////////////////////////////////////////////////////////////////////////////
@@ -115,8 +105,6 @@ object DFOpaque extends DFType.Companion[DFOpaque, DFType.Token]
 /////////////////////////////////////////////////////////////////////////////
 final case class DFUnion(fieldSet: ListSet[DFType]) extends DFType:
   val width: Int = fieldSet.head.width
-  def codeString(using Printer): String =
-    fieldSet.map(_.codeString).mkString(" | ")
 
 object DFUnion extends DFType.Companion[DFUnion, DFType.Token]
 /////////////////////////////////////////////////////////////////////////////
@@ -129,7 +117,6 @@ final case class DFStruct(
     fieldMap: ListMap[String, DFType]
 ) extends DFType:
   val width: Int = fieldMap.values.map(_.width).sum
-  def codeString(using Printer): String = name
 
 object DFStruct extends DFType.Companion[DFStruct, List[DFType.Token]]
 /////////////////////////////////////////////////////////////////////////////
@@ -139,8 +126,6 @@ object DFStruct extends DFType.Companion[DFStruct, List[DFType.Token]]
 /////////////////////////////////////////////////////////////////////////////
 final case class DFTuple(fieldList: List[DFType]) extends DFType:
   val width: Int = fieldList.view.map(_.width).sum
-  def codeString(using Printer): String =
-    fieldList.view.map(_.codeString).mkStringBrackets
 
 object DFTuple extends DFType.Companion[DFTuple, List[DFType.Token]]
 /////////////////////////////////////////////////////////////////////////////

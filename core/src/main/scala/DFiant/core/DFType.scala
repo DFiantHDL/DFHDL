@@ -1,4 +1,5 @@
 package DFiant.core
+import DFiant.compiler.printing.Printer
 import DFiant.compiler.ir
 import DFiant.internals.*
 import scala.annotation.targetName
@@ -26,7 +27,9 @@ opaque type DFType = ir.DFType
 //  protected[DFiant] def tokenBubble: DFToken[?] = ???
 
 object DFType:
-  extension (dfType: DFType) def asIR: ir.DFType = dfType
+  extension (dfType: DFType)
+    def asIR: ir.DFType = dfType
+    def codeString(using printer: Printer): String = printer.csDFType(asIR)
 
   opaque type Of[+T <: ir.DFType] <: DFType = T
   object Of:

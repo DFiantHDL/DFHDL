@@ -38,7 +38,7 @@ object DFUnion:
         if (collisions.nonEmpty)
           throw new IllegalArgumentException(
             collisionError(
-              collisions.toList.map(_.codeString(using DefaultPrinter))
+              collisions.toList.map(DefaultPrinter.csDFType)
             )
           )
         assert(
