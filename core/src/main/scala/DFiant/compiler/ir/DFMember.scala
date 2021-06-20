@@ -1,6 +1,7 @@
 package DFiant.compiler
 package ir
 import DFiant.internals.*
+import annotation.tailrec
 
 sealed trait DFMember extends Product, Serializable:
   type Meta <: ir.Meta
@@ -18,10 +19,10 @@ sealed trait DFMember extends Product, Serializable:
     getSet.set(this)(m => setTags(tagsFunc(m.tags)))
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
-  final def getOwner(using MemberGetSet): DFOwner = this.ownerRef match
-    case DFOwner.EmptyRef => this.asInstanceOf[DFOwner]
-    case _                => ownerRef.get
-  final def getOwnerBlock(using MemberGetSet): DFBlock = ownerRef.get match
+  final def getOwner(using MemberGetSet): DFOwner = this match
+    case o: DFOwner if o.isTop => o
+    case _                     => ownerRef.get
+  final given getOwnerBlock(using MemberGetSet): DFBlock = ownerRef.get match
     case b: DFBlock => b
     case o          => o.getOwnerBlock
   final def getOwnerDesign(using MemberGetSet): DFDesignBlock =
@@ -31,6 +32,56 @@ sealed trait DFMember extends Product, Serializable:
   final def getThisOrOwnerDesign(using MemberGetSet): DFDesignBlock = this match
     case d: DFDesignBlock => d
     case x                => x.getOwnerDesign
+  final val isAnonymous: Boolean = meta.isAnonymous
+  final val name: String = meta.name
+  final val hasLateConstruction: Boolean = meta.lateConstruction
+  final def getFullName(using MemberGetSet): String = this match
+    case o @ DFDesignBlock.Top() => o.name
+    case _                       => s"${getOwnerBlock.getFullName}.${name}"
+  final def isMemberOfDesign(that: DFDesignBlock)(using MemberGetSet): Boolean =
+    getOwnerDesign == that
+  final def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
+    getOwnerDesign == that.getOwnerDesign
+  final def isOneLevelBelow(that: DFMember)(using MemberGetSet): Boolean =
+    this match {
+      case DFDesignBlock.Top()       => false
+      case _: DFDesignBlock          => getOwnerDesign isSameOwnerDesignAs that
+      case _ if getOwnerDesign.isTop => false
+      case _                         => getOwnerDesign isSameOwnerDesignAs that
+    }
+  //true if and only if the member is outside the design at any level
+  final def isOutsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
+    !isInsideOwner(that)
+  @tailrec private def isInsideOwner(thisMember: DFMember, thatOwner: DFOwner)(
+      using MemberGetSet
+  ): Boolean = {
+    (thisMember.getOwner, thatOwner) match {
+      case (a, b) if a == b         => true
+      case (DFDesignBlock.Top(), _) => false
+      case (od, _)                  => isInsideOwner(od, thatOwner)
+    }
+  }
+  //true if and only if the member is inside the design at any level
+  final def isInsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
+    isInsideOwner(this, that)
+  final def getOwnerChain(using MemberGetSet): List[DFBlock] =
+    if (getOwnerBlock.isTop) List(getOwnerBlock)
+    else getOwnerBlock.getOwnerChain :+ getOwnerBlock
+  def getRelativeName(using
+      callOwner: DFBlock,
+      getSet: MemberGetSet
+  ): String =
+    val designOwner = callOwner.getThisOrOwnerDesign
+    if (this isMemberOfDesign designOwner) name
+    else if (getOwnerDesign isOneLevelBelow designOwner)
+      s"${getOwnerDesign.name}.$name"
+    else if (callOwner isInsideOwner this.getOwnerDesign) name
+    else
+      //more complex referencing just summons the two owner chains and compares them.
+      //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
+      val memberChain = this.getOwnerChain
+      val ctxChain = designOwner.getOwnerChain
+      ??? //TODO
 
 sealed trait DFVal extends DFMember:
   type Meta = MemberMeta
@@ -198,6 +249,9 @@ object DFNet:
 sealed trait DFOwner extends DFMember:
   type Meta = OwnerMeta
   val meta: OwnerMeta
+  def isTop: Boolean = ownerRef match
+    case DFOwner.EmptyRef => true
+    case _                => false
 
 object DFOwner:
   type Ref = DFRef.OneWay[DFOwner]
@@ -224,6 +278,9 @@ final case class DFDesignBlock(
     copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type =
     copy(meta = meta).asInstanceOf[this.type]
+object DFDesignBlock:
+  object Top:
+    def unapply(block: DFDesignBlock): Boolean = block.isTop
 
 sealed trait DFSimMember extends DFMember
 object DFSimMember:

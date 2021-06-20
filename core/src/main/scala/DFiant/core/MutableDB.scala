@@ -1,6 +1,14 @@
 package DFiant.core
 import DFiant.internals.*
-import DFiant.compiler.ir.{DFOwner, DFMember, DFRef, DFTag, DB, MemberGetSet}
+import DFiant.compiler.ir.{
+  DFOwner,
+  DFMember,
+  DFRef,
+  DFTag,
+  DB,
+  DFDesignBlock,
+  MemberGetSet
+}
 import scala.reflect.{ClassTag, classTag}
 import collection.mutable
 
@@ -10,8 +18,9 @@ class MutableDB(val duringTest: Boolean = false):
   //                          Member    RefSet      Ignore
       : mutable.ArrayBuffer[(DFMember, Set[DFRef], Boolean)] =
     mutable.ArrayBuffer()
-//  def top: Block.Top = members.head._1 match
-//    case m: Block.Top => m
+  def top: DFDesignBlock = members.head._1 match
+    case o @ DFDesignBlock.Top() => o
+    case x => throw new IllegalArgumentException(s"Unexpected member head, $x")
   private var memberTable: mutable.Map[DFMember, Int] = mutable.Map()
   private var refTable: mutable.Map[DFRef, DFMember] = mutable.Map()
 
@@ -66,21 +75,21 @@ class MutableDB(val duringTest: Boolean = false):
     ref
 
   def getMembers: Iterator[DFMember] = members.view.map(e => e._1).iterator
-  def getMembersOf(owner: DFOwner): List[DFMember] = ???
-//    val ret = memberTable.get(owner) match {
-//      case Some(idx) =>
-//        var list = List.empty[DFMember]
-//        var i = idx + 1
-//        while (i < members.length) {
-//          val m = members(i)._1
-//          if (m.getOwner == owner) list = m :: list
-//          else if (m.isOutsideOwner(owner)) i = members.length
-//          i = i + 1
-//        }
-//        list
-//      case None => Nil
-//    }
-//    ret.reverse
+  def getMembersOf(owner: DFOwner): List[DFMember] =
+    val ret = memberTable.get(owner) match {
+      case Some(idx) =>
+        var list = List.empty[DFMember]
+        var i = idx + 1
+        while (i < members.length) {
+          val m = members(i)._1
+          if (m.getOwner == owner) list = m :: list
+          else if (m.isOutsideOwner(owner)) i = members.length
+          i = i + 1
+        }
+        list
+      case None => Nil
+    }
+    ret.reverse
 
   def getMember[M <: DFMember, M0 <: M](
       ref: DFRef.Of[M]
