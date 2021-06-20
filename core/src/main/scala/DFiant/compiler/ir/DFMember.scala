@@ -2,17 +2,10 @@ package DFiant.compiler
 package ir
 import DFiant.internals.*
 
-import scala.reflect.{ClassTag, classTag}
-
 sealed trait DFMember extends Product, Serializable:
   val ownerRef: DFOwner.Ref
   val meta: Meta
-  val tags: DFMember.Tags
-
-object DFMember:
-  sealed trait Tag extends Product with Serializable
-  trait TagOf[-T <: DFMember] extends Tag
-  type Tags = Map[ClassTag[_], Tag]
+  val tags: DFTags
 
 sealed trait DFVal extends DFMember:
   val dfType: DFType
@@ -24,7 +17,7 @@ object DFVal:
       token: DFType.Token,
       ownerRef: DFOwner.Ref,
       meta: MemberMeta,
-      tags: DFMember.Tags
+      tags: DFTags
   ) extends DFVal:
     val dfType = token.dfType
 
@@ -34,7 +27,7 @@ object DFVal:
       externalInit: Option[Seq[DFType.Token]],
       ownerRef: DFOwner.Ref,
       meta: MemberMeta,
-      tags: DFMember.Tags
+      tags: DFTags
   ) extends DFVal
   object Dcl:
     sealed trait Modifier extends Product, Serializable
@@ -48,7 +41,7 @@ object DFVal:
       args: List[DFVal.Ref],
       ownerRef: DFOwner.Ref,
       meta: MemberMeta,
-      tags: DFMember.Tags
+      tags: DFTags
   ) extends DFVal
   object Func:
     enum Op:
@@ -60,7 +53,7 @@ final case class DFNet(
     fromRef: DFVal.Ref,
     ownerRef: DFOwner.Ref,
     meta: MemberMeta,
-    tags: DFMember.Tags
+    tags: DFTags
 ) extends DFMember
 
 object DFNet:
@@ -78,5 +71,5 @@ object DFSimMember:
   final case class Assert(
       ownerRef: DFOwner.Ref,
       meta: OwnerMeta,
-      tags: DFMember.Tags
+      tags: DFTags
   ) extends DFSimMember

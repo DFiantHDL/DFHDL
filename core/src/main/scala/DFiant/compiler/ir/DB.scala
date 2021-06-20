@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 final case class DB(
     members: List[DFMember],
     refTable: Map[DFRef, DFMember],
-    globalTags: Map[(Any, ClassTag[_]), DFMember.Tag]
+    globalTags: Map[(Any, ClassTag[_]), DFTag]
 )
 
 trait MemberGetSet {
