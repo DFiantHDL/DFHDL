@@ -3,7 +3,7 @@ import scala.reflect.ClassTag
 
 final case class DB(
     members: List[DFMember],
-    refTable: Map[DFMember.Ref, DFMember],
+    refTable: Map[DFRef, DFMember],
     globalTags: Map[(Any, ClassTag[_]), DFMember.Tag]
 )
 

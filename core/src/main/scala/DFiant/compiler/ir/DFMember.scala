@@ -10,16 +10,6 @@ sealed trait DFMember extends Product, Serializable:
   val tags: DFMember.Tags
 
 object DFMember:
-  sealed trait Ref:
-    type Member <: DFMember
-    val refType: ClassTag[Member]
-    def get(using MemberGetSet): Member
-  trait OneWayRef[M <: DFMember] extends Ref:
-    type Member = M
-  trait TwoWayRef[M <: DFMember] extends Ref:
-    type Member = M
-    lazy val originRef: OneWayRef[DFMember]
-
   sealed trait Tag extends Product with Serializable
   trait TagOf[-T <: DFMember] extends Tag
   type Tags = Map[ClassTag[_], Tag]
@@ -28,7 +18,7 @@ sealed trait DFVal extends DFMember:
   val dfType: DFType
 
 object DFVal:
-  type Ref = DFMember.TwoWayRef[DFVal]
+  type Ref = DFRef.TwoWay[DFVal]
 
   final case class Const(
       token: DFType.Token,
@@ -81,7 +71,7 @@ sealed trait DFOwner extends DFMember:
   val meta: OwnerMeta
 
 object DFOwner:
-  type Ref = DFMember.OneWayRef[DFOwner]
+  type Ref = DFRef.OneWay[DFOwner]
 
 sealed trait DFSimMember extends DFMember
 object DFSimMember:
