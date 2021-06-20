@@ -7,8 +7,16 @@ sealed trait DFMember extends Product, Serializable:
   val ownerRef: DFOwner.Ref
   val meta: Meta
   val tags: DFTags
-  def setMeta(meta: Meta): this.type
-  def setTags(tags: DFTags): this.type
+  final def setMeta(metaFunc: Meta => Meta)(using
+      getSet: MemberGetSet
+  ): this.type =
+    getSet.set(this)(m => setMeta(metaFunc(m.meta)))
+  final def setTags(tagsFunc: DFTags => DFTags)(using
+      getSet: MemberGetSet
+  ): this.type =
+    getSet.set(this)(m => setTags(tagsFunc(m.tags)))
+  protected def setMeta(meta: Meta): this.type
+  protected def setTags(tags: DFTags): this.type
 
 sealed trait DFVal extends DFMember:
   type Meta = MemberMeta
@@ -24,9 +32,9 @@ object DFVal:
       tags: DFTags
   ) extends DFVal:
     val dfType = token.dfType
-    def setMeta(meta: Meta): this.type =
+    protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
-    def setTags(tags: DFTags): this.type =
+    protected def setTags(tags: DFTags): this.type =
       copy(meta = meta).asInstanceOf[this.type]
 
   final case class Dcl(
@@ -37,9 +45,9 @@ object DFVal:
       meta: MemberMeta,
       tags: DFTags
   ) extends DFVal:
-    def setMeta(meta: Meta): this.type =
+    protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
-    def setTags(tags: DFTags): this.type =
+    protected def setTags(tags: DFTags): this.type =
       copy(meta = meta).asInstanceOf[this.type]
 
   object Dcl:
@@ -56,9 +64,9 @@ object DFVal:
       meta: MemberMeta,
       tags: DFTags
   ) extends DFVal:
-    def setMeta(meta: Meta): this.type =
+    protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
-    def setTags(tags: DFTags): this.type =
+    protected def setTags(tags: DFTags): this.type =
       copy(meta = meta).asInstanceOf[this.type]
 
   object Func:
@@ -74,9 +82,9 @@ final case class DFNet(
     tags: DFTags
 ) extends DFMember:
   type Meta = MemberMeta
-  def setMeta(meta: Meta): this.type =
+  protected def setMeta(meta: Meta): this.type =
     copy(meta = meta).asInstanceOf[this.type]
-  def setTags(tags: DFTags): this.type =
+  protected def setTags(tags: DFTags): this.type =
     copy(meta = meta).asInstanceOf[this.type]
 
 object DFNet:
@@ -98,7 +106,7 @@ object DFSimMember:
       tags: DFTags
   ) extends DFSimMember:
     type Meta = MemberMeta
-    def setMeta(meta: Meta): this.type =
+    protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
-    def setTags(tags: DFTags): this.type =
+    protected def setTags(tags: DFTags): this.type =
       copy(meta = meta).asInstanceOf[this.type]
