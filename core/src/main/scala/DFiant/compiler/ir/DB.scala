@@ -1,6 +1,11 @@
 package DFiant.compiler.ir
+import scala.reflect.ClassTag
 
-final case class DB(members: List[DFMember])
+final case class DB(
+    members: List[DFMember],
+    refTable: Map[DFMember.Ref, DFMember],
+    globalTags: Map[(Any, ClassTag[_]), DFMember.Tag]
+)
 
 trait MemberGetSet {
   val designDB: DB
