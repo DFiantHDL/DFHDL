@@ -18,6 +18,26 @@ sealed trait DFMember extends Product, Serializable:
     getSet.set(this)(m => setTags(tagsFunc(m.tags)))
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
+//  final def getOwner(implicit getSet: MemberGetSet): DFOwner = this match {
+//    case top: DFDesign.Block.Top => top
+//    case _                       => ownerRef.get
+//  }
+//  implicit def getOwnerBlock(implicit getSet: MemberGetSet): DFBlock =
+//    ownerRef.get match {
+//      case b: DFBlock => b
+//      case o          => o.getOwnerBlock
+//    }
+//  final def getOwnerDesign(implicit getSet: MemberGetSet): DFDesign.Block =
+//    getOwnerBlock match {
+//      case d: DFDesign.Block => d
+//      case b: DFBlock        => b.getOwnerDesign
+//    }
+//  final def getThisOrOwnerDesign(implicit
+//      getSet: MemberGetSet
+//  ): DFDesign.Block = this match {
+//    case d: DFDesign.Block => d
+//    case x                 => x.getOwnerDesign
+//  }
 
 sealed trait DFVal extends DFMember:
   type Meta = MemberMeta

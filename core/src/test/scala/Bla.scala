@@ -5,7 +5,11 @@ enum Color extends DFEncoding.OneHot:
 
 given MetaContext = ???
 
-object Bla {
+@main def busy: Unit = {
+  summon[TopLevel]
+}
+
+object Bla extends App {
   val eight = 8
 //  val b8: DFBits[8] = DFBits(8)
 //  val b8b = DFBits(8)
