@@ -3,11 +3,15 @@ package ir
 import DFiant.internals.*
 
 sealed trait DFMember extends Product, Serializable:
+  type Meta <: ir.Meta
   val ownerRef: DFOwner.Ref
   val meta: Meta
   val tags: DFTags
+  def setMeta(meta: Meta): this.type
+  def setTags(tags: DFTags): this.type
 
 sealed trait DFVal extends DFMember:
+  type Meta = MemberMeta
   val dfType: DFType
 
 object DFVal:
@@ -20,6 +24,10 @@ object DFVal:
       tags: DFTags
   ) extends DFVal:
     val dfType = token.dfType
+    def setMeta(meta: Meta): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
+    def setTags(tags: DFTags): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
 
   final case class Dcl(
       dfType: DFType,
@@ -28,7 +36,12 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: MemberMeta,
       tags: DFTags
-  ) extends DFVal
+  ) extends DFVal:
+    def setMeta(meta: Meta): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
+    def setTags(tags: DFTags): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
+
   object Dcl:
     sealed trait Modifier extends Product, Serializable
     enum Port extends Modifier:
@@ -42,7 +55,12 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: MemberMeta,
       tags: DFTags
-  ) extends DFVal
+  ) extends DFVal:
+    def setMeta(meta: Meta): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
+    def setTags(tags: DFTags): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
+
   object Func:
     enum Op:
       case +, -, *, /, ==, !=, <, >, <=, >=, &, |, ^, %, ++, !
@@ -54,13 +72,19 @@ final case class DFNet(
     ownerRef: DFOwner.Ref,
     meta: MemberMeta,
     tags: DFTags
-) extends DFMember
+) extends DFMember:
+  type Meta = MemberMeta
+  def setMeta(meta: Meta): this.type =
+    copy(meta = meta).asInstanceOf[this.type]
+  def setTags(tags: DFTags): this.type =
+    copy(meta = meta).asInstanceOf[this.type]
 
 object DFNet:
   enum Op:
     case Assignment, Connection, LazyConnection
 
 sealed trait DFOwner extends DFMember:
+  type Meta = OwnerMeta
   val meta: OwnerMeta
 
 object DFOwner:
@@ -70,6 +94,11 @@ sealed trait DFSimMember extends DFMember
 object DFSimMember:
   final case class Assert(
       ownerRef: DFOwner.Ref,
-      meta: OwnerMeta,
+      meta: MemberMeta,
       tags: DFTags
-  ) extends DFSimMember
+  ) extends DFSimMember:
+    type Meta = MemberMeta
+    def setMeta(meta: Meta): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
+    def setTags(tags: DFTags): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
