@@ -7,6 +7,7 @@ sealed trait DFMember extends Product, Serializable:
   val ownerRef: DFOwner.Ref
   val meta: Meta
   val tags: DFTags
+  def =~(that: DFMember)(using MemberGetSet): Boolean
   final def setMeta(metaFunc: Meta => Meta)(using
       getSet: MemberGetSet
   ): this.type =
@@ -32,6 +33,11 @@ object DFVal:
       tags: DFTags
   ) extends DFVal:
     val dfType = token.dfType
+    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: Const =>
+        this.token == that.token &&
+          this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
     protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
@@ -45,6 +51,11 @@ object DFVal:
       meta: MemberMeta,
       tags: DFTags
   ) extends DFVal:
+    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: Dcl =>
+        this.dfType == that.dfType && this.modifier == that.modifier && this.externalInit == that.externalInit &&
+          this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
     protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
@@ -64,6 +75,13 @@ object DFVal:
       meta: MemberMeta,
       tags: DFTags
   ) extends DFVal:
+    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: Func =>
+        this.dfType == that.dfType && this.op == that.op && (this.args
+          .lazyZip(that.args)
+          .forall((l, r) => l =~ r)) &&
+          this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
     protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
@@ -72,6 +90,74 @@ object DFVal:
   object Func:
     enum Op:
       case +, -, *, /, ==, !=, <, >, <=, >=, &, |, ^, %, ++, !
+
+  sealed trait Alias extends DFVal:
+    val relValRef: DFVal.Ref
+
+  object Alias:
+    final case class AsIs(
+        dfType: DFType,
+        relValRef: DFVal.Ref,
+        ownerRef: DFOwner.Ref,
+        meta: MemberMeta,
+        tags: DFTags
+    ) extends Alias:
+      def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+        case that: AsIs =>
+          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
+            this.meta =~ that.meta && this.tags =~ that.tags
+        case _ => false
+      protected def setMeta(meta: Meta): this.type =
+        copy(meta = meta).asInstanceOf[this.type]
+      protected def setTags(tags: DFTags): this.type =
+        copy(meta = meta).asInstanceOf[this.type]
+
+    final case class Prev(
+        dfType: DFType,
+        relValRef: DFVal.Ref,
+        step: Int,
+        op: Prev.Op,
+        ownerRef: DFOwner.Ref,
+        meta: MemberMeta,
+        tags: DFTags
+    ) extends Alias:
+      def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+        case that: Prev =>
+          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
+            this.step == that.step && this.op == that.op &&
+            this.meta =~ that.meta && this.tags =~ that.tags
+        case _ => false
+      protected def setMeta(meta: Meta): this.type =
+        copy(meta = meta).asInstanceOf[this.type]
+      protected def setTags(tags: DFTags): this.type =
+        copy(meta = meta).asInstanceOf[this.type]
+
+    object Prev:
+      enum Op:
+        case State, Pipe
+
+    final case class BitsWL(
+        dfType: DFType,
+        relValRef: DFVal.Ref,
+        relWidth: Int,
+        relBitLow: Int,
+        ownerRef: DFOwner.Ref,
+        meta: MemberMeta,
+        tags: DFTags
+    ) extends Alias:
+      def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+        case that: BitsWL =>
+          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
+            this.relWidth == that.relWidth && this.relBitLow == that.relBitLow &&
+            this.meta =~ that.meta && this.tags =~ that.tags
+        case _ => false
+      protected def setMeta(meta: Meta): this.type =
+        copy(meta = meta).asInstanceOf[this.type]
+      protected def setTags(tags: DFTags): this.type =
+        copy(meta = meta).asInstanceOf[this.type]
+
+  end Alias
+end DFVal
 
 final case class DFNet(
     toRef: DFVal.Ref,
@@ -82,6 +168,11 @@ final case class DFNet(
     tags: DFTags
 ) extends DFMember:
   type Meta = MemberMeta
+  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: DFNet =>
+      this.toRef =~ that.toRef && this.op == that.op && this.fromRef =~ that.fromRef &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
   protected def setMeta(meta: Meta): this.type =
     copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type =
@@ -106,6 +197,10 @@ object DFSimMember:
       tags: DFTags
   ) extends DFSimMember:
     type Meta = MemberMeta
+    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: Assert =>
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
     protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
