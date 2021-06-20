@@ -10,8 +10,6 @@ object DFRef:
   type Of[M <: DFMember] = DFRef { type Member = M }
   trait OneWay[M <: DFMember] extends DFRef:
     type Member = M
-  object Empty extends OneWay[Nothing]:
-    val refType = ???
   trait TwoWay[M <: DFMember] extends DFRef:
     type Member = M
     lazy val originRef: OneWay[DFMember]

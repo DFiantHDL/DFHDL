@@ -18,26 +18,19 @@ sealed trait DFMember extends Product, Serializable:
     getSet.set(this)(m => setTags(tagsFunc(m.tags)))
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
-//  final def getOwner(implicit getSet: MemberGetSet): DFOwner = this match {
-//    case top: DFDesign.Block.Top => top
-//    case _                       => ownerRef.get
-//  }
-//  implicit def getOwnerBlock(implicit getSet: MemberGetSet): DFBlock =
-//    ownerRef.get match {
-//      case b: DFBlock => b
-//      case o          => o.getOwnerBlock
-//    }
-//  final def getOwnerDesign(implicit getSet: MemberGetSet): DFDesign.Block =
-//    getOwnerBlock match {
-//      case d: DFDesign.Block => d
-//      case b: DFBlock        => b.getOwnerDesign
-//    }
-//  final def getThisOrOwnerDesign(implicit
-//      getSet: MemberGetSet
-//  ): DFDesign.Block = this match {
-//    case d: DFDesign.Block => d
-//    case x                 => x.getOwnerDesign
-//  }
+  final def getOwner(using MemberGetSet): DFOwner = this.ownerRef match
+    case DFOwner.EmptyRef => this.asInstanceOf[DFOwner]
+    case _                => ownerRef.get
+  final def getOwnerBlock(using MemberGetSet): DFBlock = ownerRef.get match
+    case b: DFBlock => b
+    case o          => o.getOwnerBlock
+  final def getOwnerDesign(using MemberGetSet): DFDesignBlock =
+    getOwnerBlock match
+      case d: DFDesignBlock => d
+      case b: DFBlock       => b.getOwnerDesign
+  final def getThisOrOwnerDesign(using MemberGetSet): DFDesignBlock = this match
+    case d: DFDesignBlock => d
+    case x                => x.getOwnerDesign
 
 sealed trait DFVal extends DFMember:
   type Meta = MemberMeta
@@ -208,6 +201,29 @@ sealed trait DFOwner extends DFMember:
 
 object DFOwner:
   type Ref = DFRef.OneWay[DFOwner]
+  object EmptyRef extends Ref:
+    val refType = throw new IllegalArgumentException(
+      "Illegal access to a top-level's owner ref"
+    )
+
+sealed trait DFBlock extends DFOwner
+sealed trait DFConditionalBlock extends DFBlock
+final case class DFDesignBlock(
+    inSimulation: Boolean,
+    ownerRef: DFOwner.Ref,
+    meta: OwnerMeta,
+    tags: DFTags
+) extends DFBlock:
+  val designType: String = meta.clsName
+  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: DFDesignBlock =>
+      this.inSimulation == that.inSimulation &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type =
+    copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type =
+    copy(meta = meta).asInstanceOf[this.type]
 
 sealed trait DFSimMember extends DFMember
 object DFSimMember:
