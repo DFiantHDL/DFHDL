@@ -6,7 +6,8 @@ abstract class DFDesign(using DFC)
     extends OnCreateEvents,
       LateConstruction,
       HasTypeName:
-  val owner: DFOwner = DFDesign.Block(typeName)
+  private[DFDesign] val dfc: DFC = summon[DFC]
+  private final val owner: DFOwner = DFDesign.Block(typeName)
   dfc.enterOwner(owner)
 
   override def onCreateEnd: Unit =
@@ -24,4 +25,7 @@ object DFDesign:
         ownerRef,
         dfc.getMeta,
         ir.DFTags.empty
-      ).asFE
+      ).addMember
+        .asFE
+  extension [D <: DFDesign](dsn: D)
+    def getDB: ir.DB = dsn.dfc.mutableDB.immutable
