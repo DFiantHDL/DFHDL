@@ -31,6 +31,7 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase {
   override val runsBefore = Set(transform.FirstTransform.name)
 
   val ignore = mutable.Set.empty[Tree]
+  var onCreateEventsTpe: TypeRef = _
 
   private object OnCreateEventsInstance:
     def apply(clsSym: ClassSymbol, tree: Tree)(using Context): Tree =
@@ -39,12 +40,9 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase {
         .withType(TermRef(tree.tpe, clsSym.requiredMethod("onCreate")))
     @tailrec def unapply(tree: Tree)(using Context): Option[ClassSymbol] =
       tree match
-        case Apply(Select(New(id), _), _) =>
+        case Apply(Select(clsTree @ New(id), _), _) =>
           val sym = id.symbol
-          if (sym.isClass)
-            val clsSym = sym.asClass
-            if (clsSym.inherits("DFiant.internals.OnCreateEvents")) Some(clsSym)
-            else None
+          if (clsTree.tpe <:< onCreateEventsTpe) Some(sym.asClass)
           else None
         case Apply(tree, tpt) => unapply(tree)
         case _                => None
@@ -62,8 +60,8 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase {
     else tree
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
-    if (tree.source.toString.contains("Bla"))
-      println(tree.show)
+    super.prepareForUnit(tree)
+    onCreateEventsTpe = requiredClassRef("DFiant.internals.OnCreateEvents")
     ctx
 
 }

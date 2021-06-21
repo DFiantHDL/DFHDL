@@ -24,6 +24,7 @@ import annotation.tailrec
 class MetaContextGenPhase(setting: Setting) extends CommonPhase {
   import tpd._
 
+  override val show: Boolean = true
   val phaseName = "MetaContextGen"
 
   override val runsAfter = Set("MetaContextDelegate")
@@ -31,6 +32,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
   var positionCls: ClassSymbol = _
   var metaContextCls: ClassSymbol = _
   var setMetaSym: Symbol = _
+  var lateConstructionTpe: TypeRef = _
   val treeOwnerMap = mutable.Map.empty[String, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   val ignore = mutable.Set.empty[String]
@@ -60,9 +62,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
           ref(defn.NoneModule.termRef)
       val clsTree = clsStack.head
       val lateConstruction =
-        clsTree.name.toString.contains("$") && clsTree.symbol.inherits(
-          "DFiant.internals.LateConstruction"
-        ) &&
+        clsTree.name.toString.contains("$") &&
+          clsTree.tpe <:< lateConstructionTpe &&
           clsTree.rhs
             .asInstanceOf[Template]
             .parents
@@ -110,41 +111,42 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
     }
 
   override def transformApply(tree: Apply)(using Context): Tree =
-    if (tree.tpe.isParameterless && !ignore.contains(tree.unique)) tree match
-      case ContextArg(argTree) =>
-        val sym = argTree.symbol
-        treeOwnerMap.get(tree.unique) match
-          case Some(t: ValDef) =>
-            if (t.mods.is(Flags.Mutable))
-              report.warning(
-                "Variable modifier for DSL constructed values is highly discouraged!\nConsider changing to `val`.",
-                t.srcPos
-              )
-            tree.replaceArg(
-              argTree,
-              argTree.setMeta(Some(t.name.toString.nameCheck(t)), tree)
-            )
-          case Some(t: TypeDef) if t.name.toString.endsWith("$") =>
-            tree.replaceArg(
-              argTree,
-              argTree.setMeta(
-                Some(t.name.toString.dropRight(1).nameCheck(t)),
-                tree
-              )
-            )
-          case Some(t) => //Def or Class
-            contextDefs.get(sym.fixedFullName) match
-              case Some(ct) if ct != t =>
-                report.error(
-                  s"${t.symbol} is missing an implicit Context parameter",
-                  t.symbol
+    if (tree.tpe.isParameterless && !ignore.contains(tree.unique))
+      tree match
+        case ContextArg(argTree) =>
+          val sym = argTree.symbol
+          treeOwnerMap.get(tree.unique) match
+            case Some(t: ValDef) =>
+              if (t.mods.is(Flags.Mutable))
+                report.warning(
+                  "Variable modifier for DSL constructed values is highly discouraged!\nConsider changing to `val`.",
+                  t.srcPos
                 )
-              case _ =>
-            //do nothing
-            tree
-          case _ => //Anonymous
-            tree.replaceArg(argTree, argTree.setMeta(None, tree))
-      case _ => tree
+              tree.replaceArg(
+                argTree,
+                argTree.setMeta(Some(t.name.toString.nameCheck(t)), tree)
+              )
+            case Some(t: TypeDef) if t.name.toString.endsWith("$") =>
+              tree.replaceArg(
+                argTree,
+                argTree.setMeta(
+                  Some(t.name.toString.dropRight(1).nameCheck(t)),
+                  tree
+                )
+              )
+            case Some(t) => //Def or Class
+              contextDefs.get(sym.fixedFullName) match
+                case Some(ct) if ct != t =>
+                  report.error(
+                    s"${t.symbol} is missing an implicit Context parameter",
+                    t.symbol
+                  )
+                case _ =>
+              //do nothing
+              tree
+            case _ => //Anonymous
+              tree.replaceArg(argTree, argTree.setMeta(None, tree))
+        case _ => tree
     else tree
 
   val localPattern = "\\<local (.*)\\$\\>".r
@@ -181,7 +183,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
         // println(tree.symbol)
         tree.rhs.asInstanceOf[Template].constr
     defdefTree.paramss.flatten.view.reverse.collectFirst {
-      case a if a.tpe.typeSymbol.inherits("DFiant.internals.MetaContext") =>
+      case a if a.tpe <:< metaContextTpe =>
         val fixedName = a.symbol.fixedFullName
         // println(s"Def   ${fixedName}, ${tree.show}")
         contextDefs += (fixedName -> tree)
@@ -205,12 +207,11 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
     ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
+    super.prepareForUnit(tree)
     positionCls = requiredClass("DFiant.internals.Position")
     metaContextCls = requiredClass("DFiant.internals.MetaContext")
+    lateConstructionTpe = requiredClassRef("DFiant.internals.LateConstruction")
     setMetaSym = metaContextCls.requiredMethod("setMeta")
-
-//    if (tree.source.toString.contains("Hello"))
-//      println(tree.show)
     ctx
 
 }

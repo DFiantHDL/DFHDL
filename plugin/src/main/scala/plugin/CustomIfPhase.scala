@@ -26,9 +26,9 @@ class CustomIfPhase(setting: Setting) extends CommonPhase {
 
   val phaseName = "CustomIf"
 
-  override val runsAfter  = Set("MetaContextGen")
+  override val runsAfter = Set("MetaContextGen")
   override val runsBefore = Set(transform.FirstTransform.name)
-  val ignore              = mutable.Set.empty[String]
+  val ignore = mutable.Set.empty[String]
 
   override def transformApply(tree: Apply)(using Context): Tree =
     tree
@@ -38,8 +38,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase {
     ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
-    if (tree.source.toString.contains("Hello"))
-      println(tree.show)
+    super.prepareForUnit(tree)
     ctx
 
 }

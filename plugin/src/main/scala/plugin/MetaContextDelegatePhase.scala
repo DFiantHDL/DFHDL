@@ -26,16 +26,16 @@ class MetaContextDelegatePhase(setting: Setting) extends CommonPhase {
 
   val phaseName = "MetaContextDelegate"
 
-  override val runsAfter  = Set(transform.Pickler.name)
+  override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
-  val ignore              = mutable.Set.empty[String]
+  val ignore = mutable.Set.empty[String]
 
   override def transformApply(tree: Apply)(using Context): Tree =
     if (tree.tpe.isParameterless && tree.isContextDelegate) tree match
       case ApplyFunArgs(fun, ((lhs: Apply) :: Nil) :: rhsArgs :: Nil) =>
         lhs match
           case ContextArg(argTree) =>
-            val clsSym    = argTree.tpe.typeSymbol
+            val clsSym = argTree.tpe.typeSymbol
             val methodSym = clsSym.requiredMethod(fun.symbol.name.toString)
             val delegated = argTree.select(methodSym).appliedToArgs(rhsArgs)
             lhs.replaceArg(argTree, delegated)
@@ -45,8 +45,7 @@ class MetaContextDelegatePhase(setting: Setting) extends CommonPhase {
     else tree
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
-    // if (tree.source.toString.contains("Hello"))
-    // println(tree.show)
+    super.prepareForUnit(tree)
     ctx
 
 }
