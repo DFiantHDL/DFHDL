@@ -22,7 +22,7 @@ sealed trait DFMember extends Product, Serializable:
   final def getOwner(using MemberGetSet): DFOwner = this match
     case o: DFOwner if o.isTop => o
     case _                     => ownerRef.get
-  final given getOwnerBlock(using MemberGetSet): DFBlock = ownerRef.get match
+  final def getOwnerBlock(using MemberGetSet): DFBlock = ownerRef.get match
     case b: DFBlock => b
     case o          => o.getOwnerBlock
   final def getOwnerDesign(using MemberGetSet): DFDesignBlock =
@@ -278,9 +278,12 @@ final case class DFDesignBlock(
     copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type =
     copy(meta = meta).asInstanceOf[this.type]
+
 object DFDesignBlock:
   object Top:
     def unapply(block: DFDesignBlock): Boolean = block.isTop
+  object Internal:
+    def unapply(block: DFDesignBlock): Boolean = !block.isTop
 
 sealed trait DFSimMember extends DFMember
 object DFSimMember:

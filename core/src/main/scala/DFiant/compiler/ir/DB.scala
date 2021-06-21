@@ -14,7 +14,7 @@ end DB
 object DB:
 end DB
 
-trait MemberGetSet {
+trait MemberGetSet: 
   val designDB: DB
   def apply[M <: DFMember, M0 <: M](ref : DFRef.Of[M]) : M0
   def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M
@@ -23,4 +23,3 @@ trait MemberGetSet {
   def getMembersOf(owner : DFOwner) : List[DFMember]
   def setGlobalTag[CT <: DFTag : ClassTag](taggedElement : Any, tag : CT) : Unit
   def getGlobalTag[CT <: DFTag : ClassTag](taggedElement : Any) : Option[CT]
-}
