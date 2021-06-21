@@ -7,11 +7,14 @@ import scala.collection.mutable
 /////////////////////////////////////////////////////////////////////////////
 // DFFields are used for either struct or enumerations (tagged unions)
 /////////////////////////////////////////////////////////////////////////////
-abstract class DFFields(using meta: MetaContext) extends Product, Serializable:
+abstract class DFFields(using meta: MetaContext)
+    extends Product,
+      Serializable,
+      HasTypeName:
   final private val all =
     mutable.ListBuffer.empty[DFField[_ <: DFType]]
   final lazy val getFields = all.toList
-  final val name: String = meta.clsNameOpt.get
+  final lazy val name: String = typeName
   protected sealed trait FIELD
   protected object FIELD extends FIELD
   extension [T <: DFType.Supported](t: T)(using tc: TC[T])

@@ -70,20 +70,10 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
             .forall(p => !(p sameTree srcTree))
       val lateConstructionTree = Literal(Constant(lateConstruction))
       val positionTree = srcTree.srcPos.positionTree
-      val clsNameStr =
-        if (clsTree.name.toString.contains("$"))
-          clsTree.symbol.asClass.parentSyms.head.name.toString
-        else clsTree.name.toString
-      val clsNameOptTree =
-        New(
-          defn.SomeClass.typeRef.appliedTo(defn.StringType),
-          Literal(Constant(clsNameStr.nameCheck(clsTree))) :: Nil
-        )
-      val clsPositionTree = clsTree.srcPos.positionTree
       tree
         .select(setMetaSym)
         .appliedToArgs(
-          nameOptTree :: positionTree :: lateConstructionTree :: clsNameOptTree :: clsPositionTree :: Nil
+          nameOptTree :: positionTree :: lateConstructionTree :: Nil
         )
         .withType(TermRef(tree.tpe, setMetaSym))
 

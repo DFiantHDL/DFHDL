@@ -4,7 +4,6 @@ import DFiant.internals.*
 import annotation.tailrec
 
 sealed trait DFMember extends Product, Serializable:
-  type Meta <: ir.Meta
   val ownerRef: DFOwner.Ref
   val meta: Meta
   val tags: DFTags
@@ -84,7 +83,6 @@ sealed trait DFMember extends Product, Serializable:
       ??? //TODO
 
 sealed trait DFVal extends DFMember:
-  type Meta = MemberMeta
   val dfType: DFType
 
 object DFVal:
@@ -93,7 +91,7 @@ object DFVal:
   final case class Const(
       token: DFType.Token,
       ownerRef: DFOwner.Ref,
-      meta: MemberMeta,
+      meta: Meta,
       tags: DFTags
   ) extends DFVal:
     val dfType = token.dfType
@@ -112,7 +110,7 @@ object DFVal:
       modifier: Dcl.Modifier,
       externalInit: Option[Seq[DFType.Token]],
       ownerRef: DFOwner.Ref,
-      meta: MemberMeta,
+      meta: Meta,
       tags: DFTags
   ) extends DFVal:
     def =~(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -136,7 +134,7 @@ object DFVal:
       op: Func.Op,
       args: List[DFVal.Ref],
       ownerRef: DFOwner.Ref,
-      meta: MemberMeta,
+      meta: Meta,
       tags: DFTags
   ) extends DFVal:
     def =~(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -163,7 +161,7 @@ object DFVal:
         dfType: DFType,
         relValRef: DFVal.Ref,
         ownerRef: DFOwner.Ref,
-        meta: MemberMeta,
+        meta: Meta,
         tags: DFTags
     ) extends Alias:
       def =~(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -182,7 +180,7 @@ object DFVal:
         step: Int,
         op: Prev.Op,
         ownerRef: DFOwner.Ref,
-        meta: MemberMeta,
+        meta: Meta,
         tags: DFTags
     ) extends Alias:
       def =~(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -206,7 +204,7 @@ object DFVal:
         relWidth: Int,
         relBitLow: Int,
         ownerRef: DFOwner.Ref,
-        meta: MemberMeta,
+        meta: Meta,
         tags: DFTags
     ) extends Alias:
       def =~(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -228,10 +226,9 @@ final case class DFNet(
     op: DFNet.Op,
     fromRef: DFVal.Ref,
     ownerRef: DFOwner.Ref,
-    meta: MemberMeta,
+    meta: Meta,
     tags: DFTags
 ) extends DFMember:
-  type Meta = MemberMeta
   def =~(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFNet =>
       this.toRef =~ that.toRef && this.op == that.op && this.fromRef =~ that.fromRef &&
@@ -247,8 +244,7 @@ object DFNet:
     case Assignment, Connection, LazyConnection
 
 sealed trait DFOwner extends DFMember:
-  type Meta = OwnerMeta
-  val meta: OwnerMeta
+  val meta: Meta
   def isTop: Boolean = ownerRef match
     case DFOwner.EmptyRef => true
     case _                => false
@@ -263,15 +259,15 @@ object DFOwner:
 sealed trait DFBlock extends DFOwner
 sealed trait DFConditionalBlock extends DFBlock
 final case class DFDesignBlock(
+    designType : String,
     inSimulation: Boolean,
     ownerRef: DFOwner.Ref,
-    meta: OwnerMeta,
+    meta: Meta,
     tags: DFTags
 ) extends DFBlock:
-  val designType: String = meta.clsName
   def =~(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
-      this.inSimulation == that.inSimulation &&
+      this.designType == that.designType && this.inSimulation == that.inSimulation &&
         this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type =
@@ -289,10 +285,9 @@ sealed trait DFSimMember extends DFMember
 object DFSimMember:
   final case class Assert(
       ownerRef: DFOwner.Ref,
-      meta: MemberMeta,
+      meta: Meta,
       tags: DFTags
   ) extends DFSimMember:
-    type Meta = MemberMeta
     def =~(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Assert =>
         this.meta =~ that.meta && this.tags =~ that.tags

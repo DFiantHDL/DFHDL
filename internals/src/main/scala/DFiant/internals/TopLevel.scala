@@ -28,3 +28,6 @@ object TopLevel:
     else
       report.error("Not a top-level")
       '{ ??? }
+
+trait AllowTopLevel:
+  given TopLevel with {}

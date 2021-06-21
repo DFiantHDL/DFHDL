@@ -7,25 +7,18 @@ final case class DFC(
     nameOpt: Option[String],
     position: Position,
     lateConstruction: Boolean,
-    clsNameOpt: Option[String],
-    clsPosition: Position,
     defaultDir: Int = 0
 ) extends MetaContext:
   def setMeta(
       nameOpt: Option[String],
       position: Position,
-      lateConstruction: Boolean,
-      clsNameOpt: Option[String],
-      clsPosition: Position
+      lateConstruction: Boolean
   ) = copy(
     nameOpt = nameOpt,
     position = position,
-    lateConstruction = lateConstruction,
-    clsNameOpt = clsNameOpt,
-    clsPosition = clsPosition
+    lateConstruction = lateConstruction
   ).asInstanceOf[this.type]
-  def getOwnerMeta : ir.OwnerMeta = ???
-  def getMemberMeta : ir.MemberMeta = ???
+  def getMeta: ir.Meta = ir.Meta(nameOpt, position, lateConstruction)
   val mutableDB: MutableDB = new MutableDB()
   def enterOwner(owner: DFOwner): Unit =
     mutableDB.OwnershipContext.enter(owner.asIR)
@@ -41,6 +34,6 @@ final case class DFC(
 end DFC
 object DFC:
   given empty(using TopLevel): DFC =
-    DFC(None, Position.unknown, false, None, Position.unknown)
+    DFC(None, Position.unknown, false)
 
 def dfc(using DFC): DFC = summon[DFC]

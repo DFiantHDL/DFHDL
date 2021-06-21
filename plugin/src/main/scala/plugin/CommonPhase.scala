@@ -87,7 +87,7 @@ abstract class CommonPhase extends PluginPhase:
     ctx
 
   override def transformUnit(tree: Tree)(using Context): Tree =
-    if (show && tree.source.toString.contains("Bla"))
+    if (show && tree.source.toString.contains("BlaSpec"))
       println(
         s"""===============================================================
            |After: $phaseName
