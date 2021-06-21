@@ -57,7 +57,7 @@ lazy val core = project
   .settings(
     name := s"$projectName-core",
     settings,
-    // pluginUseSettings,
+    pluginTestUseSettings,
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
@@ -106,6 +106,16 @@ lazy val compilerOptions = Seq(
 
 lazy val pluginUseSettings = Seq(
   Compile / scalacOptions ++= {
+    val jar = (plugin / Compile / packageBin).value
+    Seq(
+      s"-Xplugin:${jar.getAbsolutePath}",
+      s"-Jdummy=${jar.lastModified}"
+    )
+  }
+)
+
+lazy val pluginTestUseSettings = Seq(
+  Test / scalacOptions ++= {
     val jar = (plugin / Compile / packageBin).value
     Seq(
       s"-Xplugin:${jar.getAbsolutePath}",

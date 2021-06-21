@@ -24,3 +24,9 @@ val DFBits = core.DFBits
 type DFFields = core.DFFields
 type DFEncoding = core.DFEncoding
 val DFEncoding = core.DFEncoding
+type DFDesign = core.DFDesign
+
+val IN = core.DFVal.Modifier.IN
+val OUT = core.DFVal.Modifier.OUT
+val INOUT = core.DFVal.Modifier.INOUT
+val VAR = core.DFVal.Modifier.VAR

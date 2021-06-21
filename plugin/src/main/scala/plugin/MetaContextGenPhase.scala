@@ -26,23 +26,23 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
 
   val phaseName = "MetaContextGen"
 
-  override val runsAfter          = Set("MetaContextDelegate")
-  override val runsBefore         = Set(transform.FirstTransform.name)
-  var positionCls: ClassSymbol    = _
+  override val runsAfter = Set("MetaContextDelegate")
+  override val runsBefore = Set(transform.FirstTransform.name)
+  var positionCls: ClassSymbol = _
   var metaContextCls: ClassSymbol = _
-  var setMetaSym: Symbol          = _
-  val treeOwnerMap                = mutable.Map.empty[String, Tree]
-  val contextDefs                 = mutable.Map.empty[String, Tree]
-  val ignore                      = mutable.Set.empty[String]
-  var clsStack                    = List.empty[TypeDef]
+  var setMetaSym: Symbol = _
+  val treeOwnerMap = mutable.Map.empty[String, Tree]
+  val contextDefs = mutable.Map.empty[String, Tree]
+  val ignore = mutable.Set.empty[String]
+  var clsStack = List.empty[TypeDef]
 
   extension (srcPos: util.SrcPos)(using Context)
     def positionTree: Tree =
-      val fileNameTree    = Literal(Constant(srcPos.startPos.source.path))
-      val lineStartTree   = Literal(Constant(srcPos.startPos.line + 1))
+      val fileNameTree = Literal(Constant(srcPos.startPos.source.path))
+      val lineStartTree = Literal(Constant(srcPos.startPos.line + 1))
       val columnStartTree = Literal(Constant(srcPos.startPos.column + 1))
-      val lineEndTree     = Literal(Constant(srcPos.endPos.line + 1))
-      val columnEndTree   = Literal(Constant(srcPos.endPos.column + 1))
+      val lineEndTree = Literal(Constant(srcPos.endPos.line + 1))
+      val columnEndTree = Literal(Constant(srcPos.endPos.column + 1))
       New(
         positionCls.typeRef,
         fileNameTree :: lineStartTree :: columnStartTree :: lineEndTree :: columnEndTree :: Nil
@@ -68,7 +68,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
             .parents
             .forall(p => !(p sameTree srcTree))
       val lateConstructionTree = Literal(Constant(lateConstruction))
-      val positionTree         = srcTree.srcPos.positionTree
+      val positionTree = srcTree.srcPos.positionTree
       val clsNameStr =
         if (clsTree.name.toString.contains("$"))
           clsTree.symbol.asClass.parentSyms.head.name.toString

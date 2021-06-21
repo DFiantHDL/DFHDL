@@ -23,6 +23,15 @@ class MutableDB(val duringTest: Boolean = false):
     case x => throw new IllegalArgumentException(s"Unexpected member head, $x")
   private var memberTable: mutable.Map[DFMember, Int] = mutable.Map()
   private var refTable: mutable.Map[DFRef, DFMember] = mutable.Map()
+  object OwnershipContext:
+    private var stack: List[DFOwner] = Nil
+    def enter(owner: DFOwner): Unit =
+      stack = owner :: stack
+    def exit(): Unit =
+      stack = stack.drop(1)
+    def owner: DFOwner = stack.head
+    def ownerOption: Option[DFOwner] = stack.headOption
+  end OwnershipContext
 
   object global_tags:
     private[MutableDB] var tagMap: mutable.Map[(Any, ClassTag[_]), DFTag] =

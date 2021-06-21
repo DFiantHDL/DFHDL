@@ -1,11 +1,9 @@
 package DFiant.internals
 
-trait OnCreateEvents {
+trait OnCreateEvents:
   onCreateStart
-  def onCreateStart : Unit = {}
-  def onCreateEnd : Unit = {}
-  final def onCreate : this.type = 
+  def onCreateStart: Unit = {}
+  def onCreateEnd: Unit = {}
+  final def onCreate: this.type =
     onCreateEnd
     this
-}
-

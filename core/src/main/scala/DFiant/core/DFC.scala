@@ -1,6 +1,7 @@
 package DFiant
 package core
 import internals.*
+import compiler.ir
 
 final case class DFC(
     nameOpt: Option[String],
@@ -23,6 +24,15 @@ final case class DFC(
     clsNameOpt = clsNameOpt,
     clsPosition = clsPosition
   ).asInstanceOf[this.type]
+  def getOwnerMeta : ir.OwnerMeta = ???
+  def getMemberMeta : ir.MemberMeta = ???
+  val mutableDB: MutableDB = new MutableDB()
+  def enterOwner(owner: DFOwner): Unit =
+    mutableDB.OwnershipContext.enter(owner.asIR)
+  def exitOwner(): Unit = mutableDB.OwnershipContext.exit()
+  def owner: DFOwner = mutableDB.OwnershipContext.owner.asFE
+  def ownerOption: Option[DFOwner] =
+    mutableDB.OwnershipContext.ownerOption.map(_.asFE)
   def setName(name: String): this.type =
     copy(nameOpt = Some(name)).asInstanceOf[this.type]
   def anonymize: this.type = copy(nameOpt = None).asInstanceOf[this.type]
@@ -30,6 +40,7 @@ final case class DFC(
 
 end DFC
 object DFC:
-  given empty(using TopLevel): DFC = ???
+  given empty(using TopLevel): DFC =
+    DFC(None, Position.unknown, false, None, Position.unknown)
 
 def dfc(using DFC): DFC = summon[DFC]
