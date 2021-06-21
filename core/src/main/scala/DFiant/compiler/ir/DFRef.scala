@@ -3,7 +3,7 @@ import scala.reflect.{ClassTag, classTag}
 
 sealed trait DFRef:
   type Member <: DFMember
-  val refType: ClassTag[Member]
+  lazy val refType: ClassTag[Member]
   final def =~(that: DFRef)(using MemberGetSet): Boolean = this.get =~ that.get
   final def get(using getSet: MemberGetSet): Member = getSet(this)
 object DFRef:

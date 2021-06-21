@@ -252,7 +252,7 @@ sealed trait DFOwner extends DFMember:
 object DFOwner:
   type Ref = DFRef.OneWay[DFOwner]
   object EmptyRef extends Ref:
-    val refType = throw new IllegalArgumentException(
+    lazy val refType = throw new IllegalArgumentException(
       "Illegal access to a top-level's owner ref"
     )
 

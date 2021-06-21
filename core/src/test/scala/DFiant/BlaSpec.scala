@@ -7,7 +7,7 @@ import scala.annotation.internal.sharable
 class BlaSpec extends FunSuite, AllowTopLevel:
   class Bar(using DFC) extends DFDesign:
     println(typeName)
-  class Foo(using DFC) extends DFDesign:
-    val barry = new Bar
+  class Foo(using DFC) extends DFDesign
+//    val barry = new Bar
 
   val top = new Foo
