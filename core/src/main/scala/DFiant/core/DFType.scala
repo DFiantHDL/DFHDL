@@ -46,47 +46,50 @@ object DFType:
     given ofDFFields[T <: DFFields]: TC[T] with
       type Type = DFStruct[T]
       def apply(t: T): Type = DFStruct[T](t)
-  transparent inline given ofAnyRef[T <: AnyRef]: TC[T] = ${ tcMacro[T] }
-  def tcMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
-    import quotes.reflect.*
-    val tTpe = TypeRepr.of[T]
-    val nonEmptyTupleTpe = TypeRepr.of[NonEmptyTuple]
-    val fieldTpe = TypeRepr.of[DFField[_]]
-    val fieldsTpe = TypeRepr.of[DFFields]
-    def checkSupported(tTpe: TypeRepr): Unit = {
-      tTpe.dealias match
-        case applied: AppliedType if applied <:< nonEmptyTupleTpe =>
-          applied.args.foreach(checkSupported)
-        case t if t <:< TypeRepr.of[DFBoolOrBit]                  =>
-        case t: AppliedType if t.tycon <:< TypeRepr.of[DFBits]    =>
-        case t: AppliedType if t.tycon <:< TypeRepr.of[DFDecimal] =>
-        case t: AppliedType if t.tycon <:< TypeRepr.of[DFVector]  =>
-        case t: AppliedType if t.tycon <:< TypeRepr.of[DFOpaque]  =>
-        case t: AppliedType if t.tycon <:< TypeRepr.of[DFTuple]   =>
-        case t: AppliedType if t.tycon <:< TypeRepr.of[DFEnum]    =>
-        case t: AppliedType if t.tycon <:< TypeRepr.of[DFStruct]  =>
-        case t: AppliedType if t.tycon <:< TypeRepr.of[DFUnion]   =>
-        case t if t <:< fieldsTpe                                 =>
-        case t if t <:< TypeRepr.of[DFType]                       =>
-        case DFEnum(_)                                            =>
-        case t =>
-          report.error(s"Unsupported dataflow type can be found for: ${t.show}")
-    }
+    transparent inline given ofAnyRef[T <: AnyRef]: TC[T] = ${ tcMacro[T] }
+    def tcMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
+      import quotes.reflect.*
+      val tTpe = TypeRepr.of[T]
+      val nonEmptyTupleTpe = TypeRepr.of[NonEmptyTuple]
+      val fieldTpe = TypeRepr.of[DFField[_]]
+      val fieldsTpe = TypeRepr.of[DFFields]
+      def checkSupported(tTpe: TypeRepr): Unit =
+        tTpe.dealias match
+          case applied: AppliedType if applied <:< nonEmptyTupleTpe =>
+            applied.args.foreach(checkSupported)
+          case t if t <:< TypeRepr.of[DFBoolOrBit]                  =>
+          case t: AppliedType if t.tycon <:< TypeRepr.of[DFBits]    =>
+          case t: AppliedType if t.tycon <:< TypeRepr.of[DFDecimal] =>
+          case t: AppliedType if t.tycon <:< TypeRepr.of[DFVector]  =>
+          case t: AppliedType if t.tycon <:< TypeRepr.of[DFOpaque]  =>
+          case t: AppliedType if t.tycon <:< TypeRepr.of[DFTuple]   =>
+          case t: AppliedType if t.tycon <:< TypeRepr.of[DFEnum]    =>
+          case t: AppliedType if t.tycon <:< TypeRepr.of[DFStruct]  =>
+          case t: AppliedType if t.tycon <:< TypeRepr.of[DFUnion]   =>
+          case t if t <:< fieldsTpe                                 =>
+          case t if t <:< TypeRepr.of[DFType]                       =>
+          case DFEnum(_)                                            =>
+          case t =>
+            report.error(
+              s"Unsupported dataflow type can be found for: ${t.show}"
+            )
 
-    checkSupported(tTpe)
-    tTpe.dealias match
-      case t if t <:< nonEmptyTupleTpe =>
-        '{
-          new TC[T]:
-            type Type = DFTuple[T]
-            def apply(t: T): Type = DFTuple[T](t)
-        }
-      case DFEnum(entries) =>
-        val clsType = entries.head.asType
-        clsType match
-          case '[e] =>
-            '{
-              new TC[T]:
-                type Type = DFEnum[T, e]
-                def apply(t: T): Type = DFEnum[T, e](t)
-            }
+      checkSupported(tTpe)
+      tTpe.dealias match
+        case t if t <:< nonEmptyTupleTpe =>
+          '{
+            new TC[T]:
+              type Type = DFTuple[T]
+              def apply(t: T): Type = DFTuple[T](t)
+          }
+        case DFEnum(entries) =>
+          val clsType = entries.head.asType
+          clsType match
+            case '[e] =>
+              '{
+                new TC[T]:
+                  type Type = DFEnum[T, e]
+                  def apply(t: T): Type = DFEnum[T, e](t)
+              }
+    end tcMacro
+  end TC
