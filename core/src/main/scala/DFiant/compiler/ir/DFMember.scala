@@ -21,6 +21,10 @@ sealed trait DFMember extends Product, Serializable:
   final def getOwner(using MemberGetSet): DFOwner = this match
     case o: DFOwner if o.isTop => o
     case _                     => ownerRef.get
+  final def getOwnerNamed(using MemberGetSet): DFOwner.Named =
+    ownerRef.get match
+      case b: DFOwner.Named => b
+      case o                => o.getOwnerNamed
   final def getOwnerBlock(using MemberGetSet): DFBlock = ownerRef.get match
     case b: DFBlock => b
     case o          => o.getOwnerBlock
@@ -31,12 +35,7 @@ sealed trait DFMember extends Product, Serializable:
   final def getThisOrOwnerDesign(using MemberGetSet): DFDesignBlock = this match
     case d: DFDesignBlock => d
     case x                => x.getOwnerDesign
-  final val isAnonymous: Boolean = meta.isAnonymous
-  final val name: String = meta.name
   final val hasLateConstruction: Boolean = meta.lateConstruction
-  final def getFullName(using MemberGetSet): String = this match
-    case o @ DFDesignBlock.Top() => o.name
-    case _                       => s"${getOwnerBlock.getFullName}.${name}"
   final def isMemberOfDesign(that: DFDesignBlock)(using MemberGetSet): Boolean =
     getOwnerDesign == that
   final def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
@@ -66,28 +65,36 @@ sealed trait DFMember extends Product, Serializable:
   final def getOwnerChain(using MemberGetSet): List[DFBlock] =
     if (getOwnerBlock.isTop) List(getOwnerBlock)
     else getOwnerBlock.getOwnerChain :+ getOwnerBlock
-  def getRelativeName(using
-      callOwner: DFBlock,
-      getSet: MemberGetSet
-  ): String =
-    val designOwner = callOwner.getThisOrOwnerDesign
-    if (this isMemberOfDesign designOwner) name
-    else if (getOwnerDesign isOneLevelBelow designOwner)
-      s"${getOwnerDesign.name}.$name"
-    else if (callOwner isInsideOwner this.getOwnerDesign) name
-    else
-      //more complex referencing just summons the two owner chains and compares them.
-      //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
-      val memberChain = this.getOwnerChain
-      val ctxChain = designOwner.getOwnerChain
-      ??? //TODO
 end DFMember
 
 object DFMember:
-  sealed trait Named extends DFMember
-  sealed trait NamedOrAnonymous extends Named
+  sealed trait Named extends DFMember:
+    final val name: String = meta.name
+    final def getFullName(using MemberGetSet): String = this match
+      case o @ DFDesignBlock.Top() => o.name
+      case _                       => s"${getOwnerNamed.getFullName}.${name}"
+    def getRelativeName(using
+        callOwner: DFBlock,
+        getSet: MemberGetSet
+    ): String =
+      val designOwner = callOwner.getThisOrOwnerDesign
+      if (this isMemberOfDesign designOwner) name
+      else if (getOwnerDesign isOneLevelBelow designOwner)
+        s"${getOwnerDesign.name}.$name"
+      else if (callOwner isInsideOwner this.getOwnerDesign) name
+      else
+        //more complex referencing just summons the two owner chains and compares them.
+        //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
+        val memberChain = this.getOwnerChain
+        val ctxChain = designOwner.getOwnerChain
+        ??? //TODO
+  end Named
 
-sealed trait DFVal extends DFMember:
+  sealed trait NamedOrAnonymous extends Named:
+    final val isAnonymous: Boolean = meta.isAnonymous
+end DFMember
+
+sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
 
 object DFVal:
@@ -98,7 +105,8 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends DFVal:
+  ) extends DFVal,
+        DFMember.NamedOrAnonymous:
     val dfType = token.dfType
     def =~(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
@@ -141,7 +149,8 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends DFVal:
+  ) extends DFVal,
+        DFMember.NamedOrAnonymous:
     def =~(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
         this.dfType == that.dfType && this.op == that.op && (this.args
@@ -158,7 +167,7 @@ object DFVal:
     enum Op:
       case +, -, *, /, ==, !=, <, >, <=, >=, &, |, ^, %, ++, !
 
-  sealed trait Alias extends DFVal:
+  sealed trait Alias extends DFVal, DFMember.NamedOrAnonymous:
     val relValRef: DFVal.Ref
 
   object Alias:
@@ -255,6 +264,7 @@ sealed trait DFOwner extends DFMember:
     case _                => false
 
 object DFOwner:
+  type Named = DFOwner & DFMember.Named
   type Ref = DFRef.OneWay[DFOwner]
   object EmptyRef extends Ref:
     lazy val refType = throw new IllegalArgumentException(
@@ -269,7 +279,8 @@ final case class DFDesignBlock(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFBlock:
+) extends DFBlock,
+      DFMember.Named:
   def =~(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.designType == that.designType && this.inSimulation == that.inSimulation &&
