@@ -9,22 +9,6 @@ import collection.mutable
 import collection.immutable.ListMap
 
 opaque type DFType = ir.DFType
-//  type TokenData
-//  protected[DFiant] def tokenDataToBits(
-//      data: TokenData
-//  ): (BitVector, BitVector) = ???
-//  protected[DFiant] def tokenBitsToData(
-//      valueBits: BitVector,
-//      bubbleBits: BitVector
-//  ): TokenData = ???
-//  protected[DFiant] def tokenCodeString(data: TokenData)(using
-//      Printer
-//  ): String = ???
-//  protected[DFiant] def tokenEquals(
-//      lhs: DFToken[?],
-//      rhs: DFToken[?]
-//  ): DFBool.Token = ???
-//  protected[DFiant] def tokenBubble: DFToken[?] = ???
 
 object DFType:
   extension (dfType: DFType)
