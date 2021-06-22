@@ -3,7 +3,7 @@ package printing
 import ir.*
 import DFiant.internals.*
 
-protected trait DFTypePrinter:
+protected trait DFTypePrinter extends AbstractPrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit): String = dfType match
     case DFBool => "DFBool"
     case DFBit  => "DFBit"

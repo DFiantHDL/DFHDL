@@ -3,7 +3,7 @@ package printing
 import ir.*
 import DFiant.internals.*
 
-protected trait DFTokenPrinter:
+protected trait DFTokenPrinter extends AbstractPrinter:
   def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String =
     val valueBits: BitVector = data._1
     val bubbleBits: BitVector = data._2
@@ -97,3 +97,5 @@ protected trait DFTokenPrinter:
       throw new IllegalArgumentException(
         s"Unexpected token found: $x"
       )
+  def csDFTokenSeq(tokenSeq: Seq[DFType.Token]): String =
+    tokenSeq.map(csDFToken).mkStringBrackets

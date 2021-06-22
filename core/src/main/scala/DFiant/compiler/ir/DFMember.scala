@@ -81,6 +81,11 @@ sealed trait DFMember extends Product, Serializable:
       val memberChain = this.getOwnerChain
       val ctxChain = designOwner.getOwnerChain
       ??? //TODO
+end DFMember
+
+object DFMember:
+  sealed trait Named extends DFMember
+  sealed trait NamedOrAnonymous extends Named
 
 sealed trait DFVal extends DFMember:
   val dfType: DFType
@@ -259,7 +264,7 @@ object DFOwner:
 sealed trait DFBlock extends DFOwner
 sealed trait DFConditionalBlock extends DFBlock
 final case class DFDesignBlock(
-    designType : String,
+    designType: String,
     inSimulation: Boolean,
     ownerRef: DFOwner.Ref,
     meta: Meta,

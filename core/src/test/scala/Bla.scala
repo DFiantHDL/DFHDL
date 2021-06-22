@@ -7,5 +7,6 @@ class Foo(using DFC) extends DFDesign:
 
 object Bla extends App {
   val top = new Foo
+  val db = top.getDB
   println(top.getDB)
 }
