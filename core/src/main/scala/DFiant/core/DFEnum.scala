@@ -56,7 +56,8 @@ object DFEncoding:
         Some(applied.args.head)
       else None
 
-opaque type DFEnum[C <: AnyRef, E] <: DFType.Of[ir.DFEnum] = DFType.Of[ir.DFEnum]
+opaque type DFEnum[C <: AnyRef, E] <: DFType.Of[ir.DFEnum] =
+  DFType.Of[ir.DFEnum]
 object DFEnum:
   def unapply(using Quotes)(
       tpe: quotes.reflect.TypeRepr

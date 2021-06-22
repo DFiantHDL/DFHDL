@@ -52,16 +52,16 @@ object DFType:
       def <>[M <: DFVal.Modifier](modifier: M)(using DFC): DFValNI[tc.Type, M] =
         DFVal.Dcl(tc(t), modifier)
 
-trait TC[T]:
-  type Type <: DFType
-  def apply(t: T): Type
-object TC:
-  given ofDFType[T <: DFType]: TC[T] with
-    type Type = T
-    def apply(t: T): Type = t
-  given ofDFFields[T <: DFFields]: TC[T] with
-    type Type = DFStruct[T]
-    def apply(t: T): Type = DFStruct[T](t)
+  trait TC[T]:
+    type Type <: DFType
+    def apply(t: T): Type
+  object TC:
+    given ofDFType[T <: DFType]: TC[T] with
+      type Type = T
+      def apply(t: T): Type = t
+    given ofDFFields[T <: DFFields]: TC[T] with
+      type Type = DFStruct[T]
+      def apply(t: T): Type = DFStruct[T](t)
   transparent inline given ofAnyRef[T <: AnyRef]: TC[T] = ${ tcMacro[T] }
   def tcMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
     import quotes.reflect.*
@@ -72,7 +72,7 @@ object TC:
     val fieldsTpe = TypeRepr.of[DFFields]
     def checkSupported(tTpe: TypeRepr): Unit = {
       // println((tTpe.show, expr.show))
-      tTpe match
+      tTpe.dealias match
         case t if t <:< dfTypeTpe =>
         case applied: AppliedType if applied <:< nonEmptyTupleTpe =>
           applied.args.foreach(checkSupported)
@@ -83,7 +83,7 @@ object TC:
     }
 
     checkSupported(tTpe)
-    tTpe match
+    tTpe.dealias match
       case t if t <:< nonEmptyTupleTpe =>
         '{
           new TC[T]:

@@ -17,7 +17,7 @@ object DFVector extends DFVectorCompanion:
 
 trait DFVectorCompanion:
   object Ops:
-    extension [T <: DFType.Supported](t: T)(using tc: TC[T])
+    extension [T <: DFType.Supported](t: T)(using tc: DFType.TC[T])
       // transparent inline def X(inline cellDim: Int*): DFType =
       //   x(dfType, cellDim: _*)
       inline def X(

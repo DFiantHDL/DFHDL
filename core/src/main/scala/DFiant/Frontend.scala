@@ -30,3 +30,23 @@ val IN = core.DFVal.Modifier.IN
 val OUT = core.DFVal.Modifier.OUT
 val INOUT = core.DFVal.Modifier.INOUT
 val VAR = core.DFVal.Modifier.VAR
+
+trait OpaqueTest[T]
+object OpaqueTest:
+  import scala.quoted.*
+  transparent inline given from[T]: OpaqueTest[T] = ${ testMacro[T] }
+  def testMacro[T](using Quotes, Type[T]): Expr[OpaqueTest[T]] =
+    import quotes.reflect.*
+    val t = TypeRepr.of[T]
+    val tupleTpe = TypeRepr.of[Tuple]
+    def checkOpaque(t: TypeRepr): Unit =
+      t.dealias match
+        case t: AppliedType if t <:< tupleTpe =>
+          t.args.foreach(checkOpaque)
+        case t: TypeRef if t.isOpaqueAlias => //OK
+          println(t)
+        case t =>
+          report.error(s"Found non-opaque type: ${t}")
+
+    checkOpaque(t)
+    '{ new OpaqueTest[T] {} }

@@ -9,7 +9,7 @@ object DFOpaque:
     ir.DFOpaque(name, actualType.asIR).asInstanceOf[DFOpaque[N, T]]
 
   object Ops:
-    extension [T <: DFType.Supported](t: T)(using tc: TC[T])
+    extension [T <: DFType.Supported](t: T)(using tc: DFType.TC[T])
       def opaque(using
           name: CTName
       ): DFOpaque[name.Out, tc.Type] =
