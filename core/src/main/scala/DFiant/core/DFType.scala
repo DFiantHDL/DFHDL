@@ -66,18 +66,25 @@ object DFType:
   def tcMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
     import quotes.reflect.*
     val tTpe = TypeRepr.of[T]
-    val dfTypeTpe = TypeRepr.of[DFType]
     val nonEmptyTupleTpe = TypeRepr.of[NonEmptyTuple]
     val fieldTpe = TypeRepr.of[DFField[_]]
     val fieldsTpe = TypeRepr.of[DFFields]
     def checkSupported(tTpe: TypeRepr): Unit = {
-      // println((tTpe.show, expr.show))
       tTpe.dealias match
-        case t if t <:< dfTypeTpe =>
         case applied: AppliedType if applied <:< nonEmptyTupleTpe =>
           applied.args.foreach(checkSupported)
-        case t if t <:< fieldsTpe =>
-        case DFEnum(_)            =>
+        case t if t <:< TypeRepr.of[DFBoolOrBit]                  =>
+        case t: AppliedType if t.tycon <:< TypeRepr.of[DFBits]    =>
+        case t: AppliedType if t.tycon <:< TypeRepr.of[DFDecimal] =>
+        case t: AppliedType if t.tycon <:< TypeRepr.of[DFVector]  =>
+        case t: AppliedType if t.tycon <:< TypeRepr.of[DFOpaque]  =>
+        case t: AppliedType if t.tycon <:< TypeRepr.of[DFTuple]   =>
+        case t: AppliedType if t.tycon <:< TypeRepr.of[DFEnum]    =>
+        case t: AppliedType if t.tycon <:< TypeRepr.of[DFStruct]  =>
+        case t: AppliedType if t.tycon <:< TypeRepr.of[DFUnion]   =>
+        case t if t <:< fieldsTpe                                 =>
+        case t if t <:< TypeRepr.of[DFType]                       =>
+        case DFEnum(_)                                            =>
         case t =>
           report.error(s"Unsupported dataflow type can be found for: ${t.show}")
     }

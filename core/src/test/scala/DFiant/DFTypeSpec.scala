@@ -11,7 +11,7 @@ class DFTypeSpec extends FunSuite:
   val s5 = DFSInt(5)
   val bit = DFBit
   val bool = DFBool
-//  val tpl = (bool, bit, b8)
+  val tpl = (bool, bit, b8)
   val vec_b8x10 = b8.X(10)
   enum MyEnum1 extends DFEncoding.Default:
     case Foo, Bar, Baz
@@ -33,8 +33,8 @@ class DFTypeSpec extends FunSuite:
     assert(bit.width.value == 1)
     val c: Inlined.Int[1] = bool.width
     assert(bool.width.value == 1)
-//    val d: Inlined.Int[10] = tpl.width
-//    assert(tpl.width.value == 10)
+    val d: Inlined.Int[10] = tpl.width
+    assert(tpl.width.value == 10)
     val e: Inlined.Int[80] = vec_b8x10.width
     assert(vec_b8x10.width.value == 80)
     val f: Inlined.Int[2] = MyEnum1.width
@@ -58,7 +58,7 @@ class DFTypeSpec extends FunSuite:
     assertEquals(b8.codeString, "DFBits(8)")
     assertEquals(bit.codeString, "DFBit")
     assertEquals(bool.codeString, "DFBool")
-//    assertEquals(tpl.dfType.codeString, "(DFBool, DFBit, DFBits(8))")
+    assertEquals(tpl.dfType.codeString, "(DFBool, DFBit, DFBits(8))")
     assertEquals(vec_b8x10.codeString, "DFBits(8).X(10)")
     assertEquals(MyEnum1.dfType.codeString, "MyEnum1")
     assertEquals(MyEnum2.dfType.codeString, "MyEnum2")
