@@ -70,13 +70,11 @@ end DFMember
 object DFMember:
   sealed trait Named extends DFMember:
     final val name: String = meta.name
+    final val isAnonymous: Boolean = meta.isAnonymous
     final def getFullName(using MemberGetSet): String = this match
       case o @ DFDesignBlock.Top() => o.name
       case _                       => s"${getOwnerNamed.getFullName}.${name}"
-    def getRelativeName(using
-        callOwner: DFBlock,
-        getSet: MemberGetSet
-    ): String =
+    def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
       val designOwner = callOwner.getThisOrOwnerDesign
       if (this isMemberOfDesign designOwner) name
       else if (getOwnerDesign isOneLevelBelow designOwner)
@@ -90,8 +88,7 @@ object DFMember:
         ??? //TODO
   end Named
 
-  sealed trait NamedOrAnonymous extends Named:
-    final val isAnonymous: Boolean = meta.isAnonymous
+  sealed trait NamedOrAnonymous extends Named
 end DFMember
 
 sealed trait DFVal extends DFMember.Named:
@@ -165,7 +162,8 @@ object DFVal:
 
   object Func:
     enum Op:
-      case +, -, *, /, ==, !=, <, >, <=, >=, &, |, ^, %, ++, !
+      case +, -, *, /, ==, !=, <, >, <=, >=, &, |, ^, %, ++
+      case unary_-, unary_~, unary_!
 
   sealed trait Alias extends DFVal, DFMember.NamedOrAnonymous:
     val relValRef: DFVal.Ref
@@ -273,6 +271,7 @@ object DFOwner:
 
 sealed trait DFBlock extends DFOwner
 sealed trait DFConditionalBlock extends DFBlock
+
 final case class DFDesignBlock(
     designType: String,
     inSimulation: Boolean,

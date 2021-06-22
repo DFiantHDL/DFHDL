@@ -5,10 +5,15 @@ import DFiant.internals.*
 import DFVal.*
 
 protected trait DFValPrinter extends AbstractPrinter:
-  def csDFValConst(dfVal: Const, anonRef: Boolean): String =
-    if (anonRef) printer.csDFToken(dfVal.token)
-    else
-      s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
+  extension (ref: DFVal.Ref)
+    def refCodeString(using MemberGetSet): String =
+      val dfVal = ref.get
+      val callOwner = ref.originRef.get.getOwner
+      csDFVal(dfVal, Some(callOwner))
+  def csDFValConst(dfVal: Const): String =
+    s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
+  def csDFValConstRef(dfVal: Const): String =
+    printer.csDFToken(dfVal.token)
   def csDFValDcl(dfVal: Dcl): String =
     val noinit =
       s"${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
@@ -18,15 +23,37 @@ protected trait DFValPrinter extends AbstractPrinter:
       case Some(initSeq) if initSeq.size == 1 =>
         s"$noinit init ${printer.csDFToken(initSeq.head)}"
       case _ => noinit
-  def csDFValFunc(dfVal: Func, ref: Boolean)(using MemberGetSet): String = ???
-  def csDFValAlias(dfVal: Alias, ref: Boolean)(using MemberGetSet): String = ???
-  def csDFVal(dfVal: DFVal, fromOwner: Option[DFBlock])(using
+
+  def csDFValFuncRef(dfVal: Func)(using MemberGetSet): String =
+    dfVal.args match
+      case argL :: argR :: Nil =>
+        s"${argL.refCodeString.applyBrackets(true)} ${dfVal.op} ${argR.refCodeString.applyBrackets(true)}"
+      case arg :: Nil =>
+        val opStr = dfVal.op.toString
+        val argStr = arg.refCodeString.applyBrackets(true)
+        if (opStr.startsWith("unary_")) s"${opStr.last}$argStr"
+        else s"${argStr}.${opStr}"
+      case args =>
+        dfVal.op match
+          case DFVal.Func.Op.++ => args.map(_.refCodeString).mkStringBrackets
+          case _ =>
+            args
+              .map(_.refCodeString.applyBrackets(true))
+              .mkString(s" ${dfVal.op} ")
+  def csDFValAliasRef(dfVal: Alias)(using MemberGetSet): String = ???
+  def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner])(using
       MemberGetSet
-  ): String = ???
-//    dfVal match
-//      case dv if fromOwner.isDefined && !dfVal.isAnonymous => dfVal.getRelativeName
-//      case dv: Const                      => csDFValConst(dv, ref)
-//      case dv: Dcl                        => csDFValDcl(dv)
-//      case dv: Func                       => csDFValFunc(dv, ref)
-//      case dv: Alias                      => csDFValAlias(dv, ref)
+  ): String =
+    def valDef = s"val ${dfVal.name} = "
+    def rhs = dfVal match
+      case dv: Dcl   => csDFValDcl(dv)
+      case dv: Const => csDFValConst(dv)
+      case dv: Func  => csDFValFuncRef(dv)
+      case dv: Alias => csDFValAliasRef(dv)
+    (dfVal, fromOwner) match
+      case (c: Const, Some(_)) if c.isAnonymous => csDFValConstRef(c)
+      case (dv, Some(owner)) if !dv.isAnonymous =>
+        dfVal.getRelativeName(owner)
+      case (dv, None) if !dv.isAnonymous => valDef + rhs
+      case _                             => rhs
 end DFValPrinter
