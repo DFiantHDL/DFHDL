@@ -96,6 +96,16 @@ sealed trait DFVal extends DFMember.Named:
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal]
+  sealed trait Modifier extends Product, Serializable
+  object Modifier:
+    sealed trait Assignable extends Modifier
+    sealed trait Connectable extends Modifier
+    sealed trait VAL extends Modifier
+    case object VAR extends VAL, Assignable, Connectable
+    sealed trait Port extends VAL, Assignable, Connectable
+    case object IN extends Port
+    case object OUT extends Port
+    case object INOUT extends Port
 
   final case class Const(
       token: DFType.Token,
@@ -117,7 +127,7 @@ object DFVal:
 
   final case class Dcl(
       dfType: DFType,
-      modifier: Dcl.Modifier,
+      modifier: Modifier,
       externalInit: Option[Seq[DFType.Token]],
       ownerRef: DFOwner.Ref,
       meta: Meta,
@@ -132,12 +142,6 @@ object DFVal:
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
       copy(meta = meta).asInstanceOf[this.type]
-
-  object Dcl:
-    sealed trait Modifier extends Product, Serializable
-    enum Port extends Modifier:
-      case IN, OUT, INOUT
-    case object VAR extends Modifier
 
   final case class Func(
       dfType: DFType,

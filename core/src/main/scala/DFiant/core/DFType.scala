@@ -49,7 +49,8 @@ object DFType:
       def dfType: tc.Type = tc(t)
       def width(using w: Width[T]): Inlined.Int[w.Out] =
         Inlined.Int.forced[w.Out](dfType.asIR.width)
-      def <>(dir: Int): Unit = {}
+      def <>[M <: DFVal.Modifier](modifier: M)(using DFC): DFValNI[tc.Type, M] =
+        DFVal.Dcl(tc(t), modifier)
 
 trait TC[T]:
   type Type <: DFType

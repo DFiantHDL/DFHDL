@@ -13,22 +13,38 @@ extension (dfVal: ir.DFVal)
   def asPortOf[T <: DFType]: DFPortOf[T] = dfVal
 
 object DFVal:
-  sealed trait Modifier extends Product, Serializable
-  object Modifier:
-    sealed trait Assignable extends Modifier
-    sealed trait Connectable extends Modifier
-    sealed trait VAL extends Modifier
-    case object VAR extends VAL, Assignable, Connectable
-    sealed trait Port extends VAL, Assignable, Connectable
-    case object IN extends Port
-    case object OUT extends Port
-    case object INOUT extends Port
+  export ir.DFVal.Modifier
 
   extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
+    def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]
+    def width(using w: Width[T]): Inlined.Int[w.Out] =
+      Inlined.Int.forced[w.Out](dfVal.asIR.dfType.width)
     def asIR: ir.DFVal = dfVal
 
   object Const:
     def apply[T <: DFType, D](token: DFToken.Of[T, D])(using DFC): DFValOf[T] =
-      ir.DFVal.Const(token.asIR, ???, ???, ???)
+      ir.DFVal
+        .Const(token.asIR, dfc.owner.ref, dfc.getMeta, ir.DFTags.empty)
+        .addMember
 
+  object Dcl:
+    def apply[T <: DFType, M <: Modifier](dfType: T, modifier: M)(using
+        DFC
+    ): DFValNI[T, M] =
+      ir.DFVal
+        .Dcl(
+          dfType.asIR,
+          modifier,
+          None,
+          dfc.owner.ref,
+          dfc.getMeta,
+          ir.DFTags.empty
+        )
+        .addMember
 end DFVal
+
+opaque type DFValNI[+T <: DFType, +M <: DFVal.Modifier] <: DFVal[T, M] =
+  DFVal[T, M]
+object DFValNI:
+  extension [T <: DFType, M <: DFVal.Modifier](dcl: DFValNI[T, M])
+    def init(token: Any*): DFVal[T, M] = ???

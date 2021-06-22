@@ -1,5 +1,5 @@
 val projectName = "dfiant"
-val compilerVersion = "3.0.1-RC1"
+val compilerVersion = "3.0.1-RC2"
 
 inThisBuild(
   List(
