@@ -34,6 +34,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
   var setMetaSym: Symbol = _
   var lateConstructionTpe: TypeRef = _
   val treeOwnerMap = mutable.Map.empty[String, Tree]
+  val inlinedSrcMap = mutable.Map.empty[String, util.SrcPos]
   val contextDefs = mutable.Map.empty[String, Tree]
   val ignore = mutable.Set.empty[String]
   var clsStack = List.empty[TypeDef]
@@ -69,7 +70,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
             .parents
             .forall(p => !(p sameTree srcTree))
       val lateConstructionTree = Literal(Constant(lateConstruction))
-      val positionTree = srcTree.srcPos.positionTree
+      val srcPos = inlinedSrcMap.getOrElse(srcTree.unique, srcTree.srcPos)
+      val positionTree = srcPos.positionTree
       tree
         .select(setMetaSym)
         .appliedToArgs(
@@ -184,6 +186,22 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
         // println(s"Def   ${fixedName}, ${tree.show}")
         contextDefs += (fixedName -> tree)
     }
+  @tailrec private def positionInlined(
+      tree: Inlined,
+      srcPosOption: Option[util.SrcPos]
+  )(using Context): Unit =
+    tree match
+      case Inlined(_, _, Typed(apply: Apply, _)) =>
+        val srcPos = srcPosOption.getOrElse(tree.srcPos)
+        if (!inlinedSrcMap.contains(apply.unique))
+          inlinedSrcMap += apply.unique -> srcPos
+      case Inlined(_, _, inlined: Inlined) =>
+        positionInlined(inlined, Some(tree.srcPos))
+      case _ =>
+
+  override def prepareForInlined(tree: Inlined)(using Context): Context =
+    positionInlined(tree, None)
+    ctx
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
     if (
