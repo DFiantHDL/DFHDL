@@ -41,10 +41,18 @@ object DFVal:
           ir.DFTags.empty
         )
         .addMember
+    def apply[T <: DFType, M <: Modifier](
+        dfVal: DFValNI[T, M],
+        init: Seq[DFToken]
+    )(using DFC): DFVal[T, M] =
+      dfVal
+        .asInstanceOf[ir.DFVal.Dcl]
+        .copy(externalInit = Some(init.map(_.asIR)))
 end DFVal
 
 opaque type DFValNI[+T <: DFType, +M <: DFVal.Modifier] <: DFVal[T, M] =
   DFVal[T, M]
 object DFValNI:
   extension [T <: DFType, M <: DFVal.Modifier](dcl: DFValNI[T, M])
-    def init(token: Any*): DFVal[T, M] = ???
+    inline def init(inline token: Any*)(using DFC): DFVal[T, M] =
+      DFVal.Dcl(dcl, ???)

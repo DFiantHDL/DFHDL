@@ -5,9 +5,9 @@ import DFiant.internals.*
 
 opaque type DFToken = ir.DFType.Token
 object DFToken:
-  extension (of: DFToken) 
+  extension (of: DFToken)
     def asIR: ir.DFType.Token = of
-    def codeString(using printer : Printer) : String = printer.csDFToken(asIR) 
+    def codeString(using printer: Printer): String = printer.csDFToken(asIR)
   opaque type Of[+T <: DFType, D] <: DFToken = DFToken
   object Of:
     extension [T <: DFType, D](token: Of[T, D])
@@ -15,6 +15,14 @@ object DFToken:
       def dfType: T = token.asIR.dfType.asInstanceOf[T]
       def width(using w: Width[T]): Inlined.Int[w.Out] =
         Inlined.Int.forced[w.Out](token.asIR.width)
+  trait TC[V, -T <: DFType]:
+    type Out <: DFToken
+    def apply(value: V, dfType: T): Out
+  object TC:
+    given DFBoolTokenFromBoolean[V <: Boolean]: TC[V, DFBoolOrBit] with
+      type Out = DFBoolOrBit.Token
+      def apply(value: V, dfType: DFBoolOrBit): Out = ???
+  end TC
 
 //final case class DFToken[+T <: DFType](dfType: T)(val data: dfType.TokenData)
 //    extends NCCode:

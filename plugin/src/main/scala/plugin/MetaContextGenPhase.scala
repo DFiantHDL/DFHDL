@@ -160,6 +160,12 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
     tree match
       case apply: Apply =>
         treeOwnerMap += (apply.unique -> ownerTree)
+      case Typed(tree, _) =>
+        nameValOrDef(tree, ownerTree)
+      case TypeApply(Select(tree, _), _) =>
+        nameValOrDef(tree, ownerTree)
+      case Inlined(_, _, tree) =>
+        nameValOrDef(tree, ownerTree)
       case Block((cls @ TypeDef(tpn, template: Template)) :: _, expr)
           if cls.symbol.isAnonymousClass =>
         template.parents.foreach(p => treeOwnerMap += (p.unique -> ownerTree))
@@ -180,7 +186,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
     }
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
-    if (!tree.symbol.isClassConstructor)
+    if (
+      !tree.symbol.isClassConstructor && !tree.name.toString.contains("$proxy")
+    )
       addContextDef(tree)
       nameValOrDef(tree.rhs, tree)
     ctx
@@ -193,7 +201,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
       case _ =>
 
   override def prepareForValDef(tree: ValDef)(using Context): Context =
-    nameValOrDef(tree.rhs, tree)
+    if (!tree.name.toString.contains("$proxy")) nameValOrDef(tree.rhs, tree)
     ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context =

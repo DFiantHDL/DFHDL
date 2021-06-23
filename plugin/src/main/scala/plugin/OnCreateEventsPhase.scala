@@ -26,7 +26,7 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase {
   import tpd._
 
   val phaseName = "OnCreateEvents"
-  override val show: Boolean = true
+  override val show: Boolean = false
 
   override val runsAfter = Set("CustomIf")
   override val runsBefore = Set(transform.FirstTransform.name)
