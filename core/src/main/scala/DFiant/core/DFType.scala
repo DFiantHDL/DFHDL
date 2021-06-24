@@ -35,6 +35,9 @@ object DFType:
         Inlined.Int.forced[w.Out](dfType.asIR.width)
       def <>[M <: DFVal.Modifier](modifier: M)(using DFC): DFValNI[tc.Type, M] =
         DFVal.Dcl(tc(t), modifier)
+      def const[V](tokenValue: V)(using
+          DFToken.TC[tc.Type, tokenValue.type]
+      ): Unit = {}
 
   trait TC[T]:
     type Type <: DFType
