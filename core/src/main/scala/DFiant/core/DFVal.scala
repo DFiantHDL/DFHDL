@@ -22,7 +22,7 @@ object DFVal:
     def asIR: ir.DFVal = dfVal
 
   object Const:
-    def apply[T <: DFType, D](token: DFToken.Of[T, D])(using DFC): DFValOf[T] =
+    def apply[T <: DFType](token: DFToken)(using DFC): DFValOf[T] =
       ir.DFVal
         .Const(token.asIR, dfc.owner.ref, dfc.getMeta, ir.DFTags.empty)
         .addMember

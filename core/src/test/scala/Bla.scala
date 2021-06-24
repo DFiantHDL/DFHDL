@@ -4,7 +4,7 @@ class Bar(using DFC) extends DFDesign:
   println(typeName)
 class Foo(using DFC) extends DFDesign:
   val x = DFUInt(8) <> IN init (1, 2, 3)
-  val c = DFBool const 1
+  val c = DFBits(8) const b0s
   val barry = new Bar
 
 object Bla extends App {

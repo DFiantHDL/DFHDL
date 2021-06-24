@@ -22,6 +22,13 @@ object DFToken:
     type Out <: DFToken
     def apply(dfType: T, value: V): Out
   object TC:
+    /////////////////////////////////////////////////////////////////////////////
+    // DFBool Token
+    /////////////////////////////////////////////////////////////////////////////
+    given DFBoolTokenFromBubble[V <: Bubble]: TC[DFBoolOrBit, V] with
+      type Out = DFBoolOrBit.Token
+      def apply(dfType: DFBoolOrBit, value: V): Out =
+        DFBoolOrBit.Token(dfType, value)
     given DFBoolTokenFromBoolean[V <: Boolean]: TC[DFBoolOrBit, V] with
       type Out = DFBoolOrBit.Token
       def apply(dfType: DFBoolOrBit, value: V): Out =
@@ -30,6 +37,29 @@ object DFToken:
       type Out = DFBoolOrBit.Token
       def apply(dfType: DFBoolOrBit, value: V): Out =
         DFBoolOrBit.Token(dfType, value)
+    given DFBoolTokenFromToken[V <: DFBoolOrBit.Token]: TC[DFBoolOrBit, V] with
+      type Out = DFBoolOrBit.Token
+      def apply(dfType: DFBoolOrBit, value: V): Out =
+        DFBoolOrBit.Token(dfType, value.data)
+
+    /////////////////////////////////////////////////////////////////////////////
+    // DFBits Token
+    /////////////////////////////////////////////////////////////////////////////
+    given DFBitsTokenFromBubble[W <: Int, V <: Bubble]: TC[DFBits[W], V] with
+      type Out = DFBits.Token[W]
+      def apply(dfType: DFBits[W], value: V): Out =
+        DFBits.Token[W](dfType.width, value)
+    given DFBitsTokenFromSBV[W <: Int, V <: SameBitsVector]: TC[DFBits[W], V]
+      with
+      type Out = DFBits.Token[W]
+      def apply(dfType: DFBits[W], value: V): Out =
+        DFBits.Token[W](dfType.width, value)
+    given DFBitsTokenFromToken[W <: Int, VW <: Int]
+        : TC[DFBits[W], DFBits.Token[VW]] with
+      type Out = DFBits.Token[W]
+      def apply(dfType: DFBits[W], value: DFBits.Token[VW]): Out =
+        DFBits.Token[W](dfType, ???)
+
   end TC
 
 //final case class DFToken[+T <: DFType](dfType: T)(val data: dfType.TokenData)

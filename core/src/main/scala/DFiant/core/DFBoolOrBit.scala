@@ -7,12 +7,17 @@ object DFBoolOrBit:
   opaque type Token <: DFToken.Of[DFBoolOrBit, Option[Boolean]] =
     DFToken.Of[DFBoolOrBit, Option[Boolean]]
   object Token:
-    def apply(dfType: DFBoolOrBit, value: Boolean): Token =
-      ir.DFToken(dfType.asIR, Some(value)).asInstanceOf[Token]
-    def apply(dfType: DFBoolOrBit, value: 0 | 1): Token =
+    protected[core] def apply(
+        dfType: DFBoolOrBit,
+        data: Option[Boolean]
+    ): Token =
+      ir.DFToken(dfType.asIR, data).asInstanceOf[Token]
+    protected[core] def apply(dfType: DFBoolOrBit, value: Boolean): Token =
+      Token(dfType, Some(value))
+    protected[core] def apply(dfType: DFBoolOrBit, value: 0 | 1): Token =
       Token(dfType, value > 0)
-    def bubble(dfType: DFBoolOrBit): Token =
-      ir.DFToken(dfType.asIR, None).asInstanceOf[Token]
+    protected[core] def apply(dfType: DFBoolOrBit, value: Bubble): Token =
+      Token(dfType, None)
 
 type DFBool = DFBoolOrBit
 final val DFBool = ir.DFBool.asInstanceOf[DFBoolOrBit]

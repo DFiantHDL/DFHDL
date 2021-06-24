@@ -4,7 +4,6 @@ export core.DFType.Ops.*
 export core.DFUnion.Ops.*
 export core.DFOpaque.Ops.*
 export core.DFVector.Ops.*
-export core.SameBitsVector.*
 export internals.CommonOps.*
 
 type DFC = core.DFC
@@ -30,6 +29,9 @@ val IN = core.DFVal.Modifier.IN
 val OUT = core.DFVal.Modifier.OUT
 val INOUT = core.DFVal.Modifier.INOUT
 val VAR = core.DFVal.Modifier.VAR
+
+val ? = core.?
+export core.SameBitsVector.*
 
 trait OpaqueTest[T]
 object OpaqueTest:

@@ -10,19 +10,44 @@ object DFBits:
   @targetName("applyNoArg")
   def apply[W <: Int with Singleton](using ValueOf[W]): DFBits[W] =
     DFBits[W](Inlined.Int.forced[W](valueOf[W])).asInstanceOf[DFBits[W]]
+  extension [W <: Int](dfType: DFBits[W])
+    def width: Inlined.Int[W] = Inlined.Int.forced[W](dfType.asIR.width)
 
   opaque type Token[W <: Int] <: DFToken.Of[DFBits[W], (BitVector, BitVector)] =
     DFToken.Of[DFBits[W], (BitVector, BitVector)]
   object Token:
-    protected[DFiant] def apply[W <: Int](
-        width: Inlined.Int[W]
-    )(valueBits: BitVector, bubbleBits: BitVector): Token[W] =
-      ir.DFToken(DFBits(width).asIR, (valueBits, bubbleBits))
+    protected[core] def apply[W <: Int](
+        dfType: DFBits[W],
+        data: (BitVector, BitVector)
+    ): Token[W] =
+      ir.DFToken(dfType.asIR, (valueBits, bubbleBits))
         .asInstanceOf[Token[W]]
-    protected[DFiant] def bubble[W <: Int](width: Inlined.Int[W]): Token[W] =
-      Token(width)(
+    protected[core] def apply[W <: Int](
+        width: Inlined.Int[W],
+        valueBits: BitVector,
+        bubbleBits: BitVector
+    ): Token[W] =
+      Token(DFBits(width), (valueBits, bubbleBits))
+    protected[core] def apply[W <: Int](
+        width: Inlined.Int[W],
+        value: Bubble
+    ): Token[W] =
+      Token(
+        width,
         BitVector.low(width.value),
         BitVector.high(width.value)
+      )
+    protected[core] def apply[W <: Int](
+        width: Inlined.Int[W],
+        value: SameBitsVector
+    ): Token[W] =
+      val level = value match
+        case SameBitsVector.b0s => false
+        case SameBitsVector.b1s => true
+      Token(
+        width,
+        BitVector.fill(width.value)(level),
+        BitVector.low(width.value)
       )
     extension [W <: Int](token: Token[W])
       def valueBits: BitVector = token.data._1
@@ -34,7 +59,7 @@ object DFBits:
         val width = lhs.width + rhs.width
         val valueBits = lhs.valueBits ++ rhs.valueBits
         val bubbleBits = lhs.bubbleBits ++ rhs.bubbleBits
-        DFBits.Token(width)(valueBits, bubbleBits)
+        DFBits.Token(width, valueBits, bubbleBits)
 
       @targetName("bitwiseAnd")
       def &[RW <: Int](rhs: DFBits.Token[RW])(using
@@ -44,7 +69,8 @@ object DFBits:
         val width = lhs.width
         bb match
           case Bubble.Behaviour.Stall =>
-            DFBits.Token(width)(
+            DFBits.Token(
+              width,
               lhs.valueBits & rhs.valueBits,
               lhs.bubbleBits | rhs.bubbleBits
             )
@@ -54,4 +80,4 @@ object DFBits:
             val bubbleBits =
               (lhs.bubbleBits & rhs.bubbleBits) | (lhs.bubbleBits & rhs.valueBits) |
                 (rhs.bubbleBits & lhs.valueBits)
-            DFBits.Token(width)(valueBits, bubbleBits)
+            DFBits.Token(width, valueBits, bubbleBits)
