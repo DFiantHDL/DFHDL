@@ -11,4 +11,5 @@ object Bla extends App {
   val top = new Foo
   val db = top.getDB
   println(top.getDB)
+  summon[core.DFToken.TC[DFBits[8], DFBits.Token[2]]]
 }

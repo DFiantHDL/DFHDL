@@ -15,6 +15,11 @@ object DFBits:
 
   opaque type Token[W <: Int] <: DFToken.Of[DFBits[W], (BitVector, BitVector)] =
     DFToken.Of[DFBits[W], (BitVector, BitVector)]
+  //TODO: remove after https://github.com/lampepfl/dotty/issues/12927 is fixed
+  extension [W <: Int](token: Token[W])
+    def width: Inlined.Int[W] = Inlined.Int.forced[W](token.asIR.width)
+    def data: (BitVector, BitVector) =
+      token.asIR.data.asInstanceOf[(BitVector, BitVector)]
   object Token:
     protected[core] def apply[W <: Int](
         dfType: DFBits[W],
