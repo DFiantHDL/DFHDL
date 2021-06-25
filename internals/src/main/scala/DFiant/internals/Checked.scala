@@ -44,27 +44,24 @@ object Check1:
       Type[MsgValue]
   ): Expr[Check[Wide, T, Cond, Msg, CondValue, MsgValue]] =
     import quotes.reflect.*
-    val wideTpe = TypeRepr.of[Wide]
-    val tTpe = TypeRepr.of[T]
     val condTpe = TypeRepr.of[Cond]
     val msgTpe = TypeRepr.of[Msg]
     val condValueTpe = TypeRepr.of[CondValue]
     val msgValueTpe = TypeRepr.of[MsgValue]
-//    println(wideTpe)
-//    println(tTpe)
 
-    def lambdaTypeToTerm(
+    def lambdaTypeToTermRecur(
         tpe: TypeRepr,
-        argTerm: Term,
-        argTypeParam: TypeRepr
+        argTerm: List[Term],
+        argTypeParam: List[TypeRepr]
     ): Term =
       import compiletime.ops.{int, string, any, boolean}
       tpe match
-        case ConstantType(const)    => Literal(const)
-        case t if t == argTypeParam => argTerm
+        case ConstantType(const) => Literal(const)
+        case t if argTypeParam.indexOf(t) >= 0 =>
+          argTerm(argTypeParam.indexOf(t))
         case func: AppliedType =>
           lazy val funcTermParts =
-            func.args.map(a => lambdaTypeToTerm(a, argTerm, argTypeParam))
+            func.args.map(a => lambdaTypeToTermRecur(a, argTerm, argTypeParam))
           lazy val arg0 = funcTermParts(0)
           lazy val arg1 = funcTermParts(1)
           val expr = func.tycon match
@@ -131,16 +128,22 @@ object Check1:
         case t =>
           report.error(s"Unsupported type function part ${t.show}")
           '{ ??? }.asTerm
-    end lambdaTypeToTerm
-    def applyExpr(argExpr: Expr[Wide]): Expr[Unit] =
-      def condExpr = condTpe match
-        case lambda @ TypeLambda(_, _, tpe) =>
-          lambdaTypeToTerm(tpe, argExpr.asTerm, lambda.param(0))
-            .asExprOf[Boolean]
-      def msgExpr = msgTpe match
-        case lambda @ TypeLambda(_, _, tpe) =>
-          lambdaTypeToTerm(tpe, argExpr.asTerm, lambda.param(0))
-            .asExprOf[String]
+    end lambdaTypeToTermRecur
+
+    def lambdaTypeToTerm(argsExpr: List[Term], tpe: TypeRepr): Term =
+      tpe match
+        case lambda @ TypeLambda(names, _, tpe) =>
+          lambdaTypeToTermRecur(
+            tpe,
+            argsExpr,
+            argsExpr.zipWithIndex.map { case (_, i) => lambda.param(i) }
+          )
+
+    def applyExpr(argsTerm: List[Term]): Expr[Unit] =
+      def condExpr = lambdaTypeToTerm(argsTerm, condTpe)
+        .asExprOf[Boolean]
+      def msgExpr = lambdaTypeToTerm(argsTerm, msgTpe)
+        .asExprOf[String]
       condValueTpe match
         case ConstantType(BooleanConstant(cond)) =>
           if (cond)
@@ -156,7 +159,7 @@ object Check1:
           '{ require($condExpr, $msgExpr) }
     '{
       new Check[Wide, T, Cond, Msg, CondValue, MsgValue]:
-        def apply(arg: Wide): Unit = ${ applyExpr('arg) }
+        def apply(arg: Wide): Unit = ${ applyExpr(List('arg.asTerm)) }
     }
   end checkMacro
 trait Check2[
