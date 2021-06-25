@@ -1,6 +1,12 @@
 package DFiant.internals
 import scala.quoted.*
 
+private val funcRealNameMap: Map[String, String] = Map(
+  "BitwiseAnd" -> "&",
+  "BitwiseOr" -> "|",
+  "ToString" -> "toString",
+  "Abs" -> "abs"
+)
 private class MacroClass[Q <: Quotes](using val quotes: Q)(
     condTpe: quotes.reflect.TypeRepr,
     msgTpe: quotes.reflect.TypeRepr,
@@ -19,70 +25,27 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
       case t if argTypeParam.indexOf(t) >= 0 =>
         argTerm(argTypeParam.indexOf(t))
       case func: AppliedType =>
-        lazy val funcTermParts =
+        val funcTermParts =
           func.args.map(a => lambdaTypeToTermRecur(a, argTerm, argTypeParam))
-        lazy val arg0 = funcTermParts(0)
+        val arg0 = funcTermParts(0)
         lazy val arg1 = funcTermParts(1)
-        val expr = func.tycon match
-          case t if t =:= TypeRepr.of[any.==] =>
-            '{ ${ arg0.asExprOf[Any] } == ${ arg1.asExprOf[Any] } }
-          case t if t =:= TypeRepr.of[any.!=] =>
-            '{ ${ arg0.asExprOf[Any] } != ${ arg1.asExprOf[Any] } }
-          case t if t =:= TypeRepr.of[boolean.!] =>
-            '{ !${ arg0.asExprOf[Boolean] } }
-          case t if t =:= TypeRepr.of[boolean.&&] =>
-            '{ ${ arg0.asExprOf[Boolean] } && ${ arg1.asExprOf[Boolean] } }
-          case t if t =:= TypeRepr.of[boolean.||] =>
-            '{ ${ arg0.asExprOf[Boolean] } || ${ arg1.asExprOf[Boolean] } }
-          case t if t =:= TypeRepr.of[boolean.^] =>
-            '{ ${ arg0.asExprOf[Boolean] } ^ ${ arg1.asExprOf[Boolean] } }
-          case t if t =:= TypeRepr.of[int.+] =>
-            '{ ${ arg0.asExprOf[Int] } + ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.-] =>
-            '{ ${ arg0.asExprOf[Int] } - ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.`*`] =>
-            '{ ${ arg0.asExprOf[Int] } * ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int./] =>
-            '{ ${ arg0.asExprOf[Int] } / ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.%] =>
-            '{ ${ arg0.asExprOf[Int] } % ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.<<] =>
-            '{ ${ arg0.asExprOf[Int] } << ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.>>] =>
-            '{ ${ arg0.asExprOf[Int] } >> ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.>>>] =>
-            '{ ${ arg0.asExprOf[Int] } >>> ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.>] =>
-            '{ ${ arg0.asExprOf[Int] } > ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.<] =>
-            '{ ${ arg0.asExprOf[Int] } < ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.>=] =>
-            '{ ${ arg0.asExprOf[Int] } >= ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.<=] =>
-            '{ ${ arg0.asExprOf[Int] } <= ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.BitwiseAnd] =>
-            '{ ${ arg0.asExprOf[Int] } & ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.BitwiseOr] =>
-            '{ ${ arg0.asExprOf[Int] } | ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.^] =>
-            '{ ${ arg0.asExprOf[Int] } ^ ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.Max] =>
+        val funcName = func.tycon.typeSymbol.name.toString
+        val expr = funcName match
+          case "Max" =>
             '{ ${ arg0.asExprOf[Int] } max ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.Min] =>
+          case "Min" =>
             '{ ${ arg0.asExprOf[Int] } min ${ arg1.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.Negate] =>
-            '{ -${ arg0.asExprOf[Int] } }
-          case t if t =:= TypeRepr.of[int.ToString] =>
-            '{ ${ arg0.asExprOf[Int] }.toString }
-          case t if t =:= TypeRepr.of[int.Abs] =>
-            '{ ${ arg0.asExprOf[Int] }.abs }
-          case t if t =:= TypeRepr.of[int.S] =>
+          case "S" =>
             '{ ${ arg0.asExprOf[Int] } + 1 }
-          case t if t =:= TypeRepr.of[string.+] =>
-            '{ ${ arg0.asExprOf[String] } + ${ arg1.asExprOf[String] } }
-          case t =>
-            report.error(s"Unsupported type function ${t.show}")
-            '{ ??? }
+          case "!" =>
+            '{ !${ arg0.asExprOf[Boolean] } }
+          case "Negate" =>
+            '{ -${ arg0.asExprOf[Int] } }
+          case _ =>
+            val realFuncName = funcRealNameMap.getOrElse(funcName, funcName)
+            Select
+              .overloaded(arg0, realFuncName, Nil, funcTermParts.drop(1))
+              .asExpr
         expr.asTerm
       case t =>
         report.error(s"Unsupported type function part ${t.show}")

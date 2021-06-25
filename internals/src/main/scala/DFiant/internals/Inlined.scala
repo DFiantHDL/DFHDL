@@ -1,14 +1,20 @@
 package DFiant.internals
 import scala.quoted.*
-import compiletime.ops.{int, string}
+import compiletime.ops.{int, string, boolean, any}
 import compiletime.{constValue, constValueOpt}
-export int.{+ => _, *}
+export int.{+ => _, ^ => _, *}
 export string.{+ => _, *}
+export boolean.{^ => _, *}
+export any.*
 type +[L, R] = (L, R) match
   case (Int, Int)       => int.+[L, R]
   case (String, String) => string.+[L, R]
   case (String, Int)    => string.+[L, int.ToString[R]]
   case (Int, String)    => string.+[int.ToString[L], R]
+type ^[L, R] = (L, R) match
+  case (Int, Int)         => int.^[L, R]
+  case (Boolean, Boolean) => boolean.^[L, R]
+
 import scala.annotation.targetName
 
 protected object std:
