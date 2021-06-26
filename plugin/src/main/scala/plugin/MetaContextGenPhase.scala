@@ -24,7 +24,7 @@ import annotation.tailrec
 class MetaContextGenPhase(setting: Setting) extends CommonPhase {
   import tpd._
 
-  override val show: Boolean = true
+//  override val show: Boolean = true
   val phaseName = "MetaContextGen"
 
   override val runsAfter = Set("MetaContextDelegate")

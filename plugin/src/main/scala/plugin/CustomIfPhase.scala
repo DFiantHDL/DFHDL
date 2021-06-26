@@ -34,7 +34,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase {
     tree
 
   override def prepareForIf(tree: If)(using Context): Context =
-    println(tree)
+//    println(tree)
     ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
