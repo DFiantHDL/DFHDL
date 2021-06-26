@@ -19,7 +19,7 @@ object DFToken:
       def width(using w: Width[T]): Inlined.Int[w.Out] =
         Inlined.Int.forced[w.Out](token.asIR.width)
   @implicitNotFound("Unsupported token value ${V} for type ${T}")
-  trait TC[-T <: DFType, V]:
+  trait TC[T <: DFType, V]:
     type Out <: DFToken
     def apply(dfType: T, value: V): Out
   object TC:
@@ -71,7 +71,7 @@ object DFToken:
     ): TC[DFBits[W], DFBits.Token[VW]] with
       type Out = DFBits.Token[W]
       def apply(dfType: DFBits[W], value: DFBits.Token[VW]): Out =
-//        check(dfType.width, value.width)
+        check(dfType.width, value.width)
         DFBits.Token[W](dfType, value.data)
 
   end TC

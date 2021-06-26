@@ -2,6 +2,7 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 import scala.annotation.targetName
+import scala.quoted.*
 
 opaque type DFBits[W <: Int] <: DFType.Of[ir.DFBits] = DFType.Of[ir.DFBits]
 object DFBits:
@@ -27,7 +28,8 @@ object DFBits:
     ): Token[W] =
       ir.DFToken(dfType.asIR, (valueBits, bubbleBits))
         .asInstanceOf[Token[W]]
-    protected[core] def apply[W <: Int](
+    //TODO: change to protected[core] after https://github.com/lampepfl/dotty/issues/12948 is resolved
+    def apply[W <: Int](
         width: Inlined.Int[W],
         valueBits: BitVector,
         bubbleBits: BitVector
@@ -57,6 +59,18 @@ object DFBits:
     extension [W <: Int](token: Token[W])
       def valueBits: BitVector = token.data._1
       def bubbleBits: BitVector = token.data._2
+
+    object StrInterp:
+      extension (sc: StringContext)
+        transparent inline def b[W <: Int](args: Any*): DFBits.Token[W] = ${
+          bInterpMacro[W]('sc, 'args)
+        }
+      protected def bInterpMacro[W <: Int](
+          sc: Expr[StringContext],
+          args: Expr[Seq[Any]]
+      )(using Quotes): Expr[DFBits.Token[W]] =
+        import quotes.reflect.*
+        '{ Token[8](8, ???, ???) }
 
     extension [LW <: Int](lhs: DFBits.Token[LW])
       @targetName("concat")

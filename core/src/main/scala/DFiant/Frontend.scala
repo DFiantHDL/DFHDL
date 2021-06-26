@@ -32,6 +32,7 @@ val VAR = core.DFVal.Modifier.VAR
 
 val ? = core.?
 export core.SameBitsVector.*
+export DFBits.Token.StrInterp.*
 
 trait OpaqueTest[T]
 object OpaqueTest:
