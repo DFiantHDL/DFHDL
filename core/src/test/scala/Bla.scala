@@ -5,7 +5,7 @@ class Bar(using DFC) extends DFDesign:
 class Foo(using DFC) extends DFDesign:
   val x = DFUInt(8) <> IN init (1, 2, 3)
   val c = DFBit const 1
-  val bb = b"111"
+  val bb = b"11111111"
   val bbv: DFBits.Token[8] = bb
   val barry = new Bar
 

@@ -56,21 +56,93 @@ object DFBits:
         BitVector.fill(width.value)(level),
         BitVector.low(width.value)
       )
+    private val widthExp = "([0-9]+)'(.*)".r
+    def fromBinString(bin: String): Either[String, (BitVector, BitVector)] =
+      val (explicitWidth, word) = bin match
+        case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
+        case _                           => (None, bin)
+      val (valueBits, bubbleBits) =
+        word.foldLeft((BitVector.empty, BitVector.empty)) {
+          case (t, '_') => t //ignoring underscore
+          case ((v, b), c) =>
+            c match { //bin mode
+              case '?' => (v :+ false, b :+ true)
+              case '0' => (v :+ false, b :+ false)
+              case '1' => (v :+ true, b :+ false)
+              case x   => return Left(s"Found invalid binary character: $x")
+            }
+        }
+      val actualWidth = valueBits.lengthOfValue.toInt
+      explicitWidth match
+        case Some(width) if width < actualWidth =>
+          Left(
+            s"Explicit given width ($width) is smaller than the actual width ($actualWidth)"
+          )
+        case Some(width) =>
+          Right((valueBits.resize(width), bubbleBits.resize(width)))
+        case None => Right((valueBits, bubbleBits))
+    end fromBinString
+
     extension [W <: Int](token: Token[W])
       def valueBits: BitVector = token.data._1
       def bubbleBits: BitVector = token.data._2
-
     object StrInterp:
-      extension (sc: StringContext)
-        transparent inline def b[W <: Int](args: Any*): DFBits.Token[W] = ${
-          bInterpMacro[W]('sc, 'args)
-        }
-      protected def bInterpMacro[W <: Int](
+      def interpMacro(op: Expr[String])(
           sc: Expr[StringContext],
           args: Expr[Seq[Any]]
-      )(using Quotes): Expr[DFBits.Token[W]] =
+      )(using Quotes): Expr[DFToken] =
         import quotes.reflect.*
-        '{ Token[8](8, ???, ???) }
+        val argsExprs = args match
+          case Varargs(argsExprs) => argsExprs
+        val '{ StringContext.apply($parts*) } = sc
+        val partsExprs = parts match
+          case Varargs(argsExprs) => argsExprs
+        val fullTermParts =
+          Seq(partsExprs, argsExprs)
+            .flatMap(_.zipWithIndex)
+            .sortBy(_._2)
+            .map(_._1.asTerm)
+        val fullTerm = fullTermParts.reduce[Term] {
+          case (Literal(StringConstant(l)), Literal(StringConstant(r))) =>
+            Literal(StringConstant(l + r))
+          case (l, r) =>
+            '{ ${ l.asExpr }.toString + ${ r.asExpr }.toString }.asTerm
+        }
+        val opStr = op.value.get
+        val widthTpe: TypeRepr = fullTerm match
+          case Literal(StringConstant(t)) =>
+            opStr match
+              case "b" =>
+                fromBinString(t) match
+                  case Right((valueBits, bubbleBits)) =>
+                    ConstantType(IntConstant(valueBits.length.toInt))
+                  case Left(msg) =>
+                    report.error(msg)
+                    ???
+//              case "h" =>
+//                DFBits.Token.fromHexString(t) match {
+//                  case Right(value) =>
+//                    c.internal.constantType(Constant(value.width))
+//                  case Left(msg) => c.abort(msg)
+//                }
+          case _ => TypeRepr.of[Int]
+        val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
+        println(widthTpe)
+        println(fullTerm)
+        //        println(args.asTerm.tpe.show)
+        opStr match
+          case "b" =>
+            '{
+              val (valueBits, bubbleBits): (BitVector, BitVector) =
+                fromBinString(${
+                  fullTerm.asExprOf[String]
+                }).toOption.get
+              val width =
+                DFiant.internals.Inlined.Int
+                  .forced[widthType.Underlying](valueBits.length.toInt)
+              Token[widthType.Underlying](width, valueBits, bubbleBits)
+            }
+    end StrInterp
 
     extension [LW <: Int](lhs: DFBits.Token[LW])
       @targetName("concat")

@@ -32,7 +32,18 @@ val VAR = core.DFVal.Modifier.VAR
 
 val ? = core.?
 export core.SameBitsVector.*
-export DFBits.Token.StrInterp.*
+
+//TODO: move to DFBits.Token.StrInterp and export here after
+//https://github.com/lampepfl/dotty/issues/12958 is resolved
+extension (inline sc: StringContext)
+  transparent inline def b(inline args: Any*): core.DFToken =
+    ${
+      DFBits.Token.StrInterp.interpMacro('{ "b" })('sc, 'args)
+    }
+  transparent inline def h(inline args: Any*): core.DFToken =
+    ${
+      DFBits.Token.StrInterp.interpMacro('{ "h" })('sc, 'args)
+    }
 
 trait OpaqueTest[T]
 object OpaqueTest:
