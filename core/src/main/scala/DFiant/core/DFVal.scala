@@ -1,6 +1,7 @@
 package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
+import scala.quoted.*
 
 opaque type DFVal[+T <: DFType, +M <: DFVal.Modifier] = ir.DFVal
 type DFValOf[+T <: DFType] = DFVal[T, DFVal.Modifier.VAL]
@@ -54,5 +55,44 @@ opaque type DFValNI[+T <: DFType, +M <: DFVal.Modifier] <: DFVal[T, M] =
   DFVal[T, M]
 object DFValNI:
   extension [T <: DFType, M <: DFVal.Modifier](dcl: DFValNI[T, M])
-    inline def init(inline token: Any*)(using DFC): DFVal[T, M] =
+    inline def init(inline tokenValues: Any*)(using DFC): DFVal[T, M] =
+      val x = initTokens[T](
+        dcl.asInstanceOf[ir.DFVal].dfType.asInstanceOf[T],
+        tokenValues*
+      )
       DFVal.Dcl(dcl, ???)
+  inline def initTokens[T <: DFType](
+      dfType: T,
+      inline tokenValues: Any*
+  ): Seq[DFToken] =
+    ${
+      initTokensMacro[T]('dfType, 'tokenValues)
+    }
+  def initTokensMacro[T <: DFType](
+      dfType: Expr[T],
+      tokenValues: Expr[Seq[Any]]
+  )(using
+      Quotes,
+      Type[T]
+  ): Expr[Seq[DFToken]] =
+    import quotes.reflect.*
+    val Varargs(args) = tokenValues
+    val valueOfTpe = TypeRepr.of[ValueOf]
+    val argShowedExprs = args.map { case '{ $arg: tp } =>
+      arg.asTerm match {
+        case Literal(const) =>
+          val tpe = valueOfTpe
+            .appliedTo(ConstantType(const))
+            .asType
+            .asInstanceOf[Type[Any]]
+          '{
+            compiletime.summonInline[DFToken.TC[T, tpe.Underlying]](
+              $dfType,
+              ValueOf($arg)
+            )
+          }
+        case _ =>
+          '{ compiletime.summonInline[DFToken.TC[T, tp]]($dfType, $arg) }
+      }
+    }
+    '{ Seq(${ Varargs(argShowedExprs) }*) }
