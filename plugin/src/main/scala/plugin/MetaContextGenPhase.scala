@@ -153,7 +153,10 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
     ctx
 
   override def transformTypeDef(tree: TypeDef)(using Context): Tree =
-    clsStack = clsStack.drop(1)
+    tree.rhs match
+      case template: Template =>
+        clsStack = clsStack.drop(1)
+      case _ =>
     tree
 
   @tailrec private def nameValOrDef(tree: Tree, ownerTree: Tree)(using

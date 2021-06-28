@@ -56,6 +56,39 @@ object DFBits:
         BitVector.fill(width.value)(level),
         BitVector.low(width.value)
       )
+
+    object TC:
+      import DFToken.TC
+      protected object `W == VW`
+          extends Check2[
+            Int,
+            Int,
+            [W <: Int, VW <: Int] =>> W == VW,
+            [W <: Int, VW <: Int] =>> "The token width (" +
+              ToString[VW] +
+              ") is different than the DFType width (" +
+              ToString[W] +
+              ")."
+          ]
+      transparent inline given DFBitsTokenFromBubble[W <: Int, V <: Bubble]
+          : TC[DFBits[W], V] =
+        new TC[DFBits[W], V]:
+          type Out = DFBits.Token[W]
+          def apply(dfType: DFBits[W], value: V): Out =
+            DFBits.Token[W](dfType.width, value)
+      transparent inline given DFBitsTokenFromSBV[W <: Int, V <: SameBitsVector]
+          : TC[DFBits[W], V] = new TC[DFBits[W], V]:
+        type Out = DFBits.Token[W]
+        def apply(dfType: DFBits[W], value: V): Out =
+          DFBits.Token[W](dfType.width, value)
+      transparent inline given DFBitsTokenFromToken[W <: Int, VW <: Int](using
+          check: `W == VW`.Check[W, VW]
+      ): TC[DFBits[W], DFBits.Token[VW]] = new TC[DFBits[W], DFBits.Token[VW]]:
+        type Out = DFBits.Token[W]
+        def apply(dfType: DFBits[W], value: DFBits.Token[VW]): Out =
+          check(dfType.width, value.width)
+          DFBits.Token[W](dfType, value.data)
+
     private val widthExp = "([0-9]+)'(.*)".r
     def fromBinString(bin: String): Either[String, (BitVector, BitVector)] =
       val (explicitWidth, word) = bin match

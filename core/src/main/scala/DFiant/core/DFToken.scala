@@ -23,55 +23,6 @@ object DFToken:
     type Out <: DFToken
     def apply(dfType: T, value: V): Out
   object TC:
-    /////////////////////////////////////////////////////////////////////////////
-    // DFBool Token
-    /////////////////////////////////////////////////////////////////////////////
-    given DFBoolTokenFromBubble[V <: Bubble]: TC[DFBoolOrBit, V] with
-      type Out = DFBoolOrBit.Token
-      def apply(dfType: DFBoolOrBit, value: V): Out =
-        DFBoolOrBit.Token(dfType, value)
-    given DFBoolTokenFromBoolean[V <: Boolean]: TC[DFBoolOrBit, V] with
-      type Out = DFBoolOrBit.Token
-      def apply(dfType: DFBoolOrBit, value: V): Out =
-        DFBoolOrBit.Token(dfType, value)
-    given DFBoolTokenFrom1Or0[V <: 0 | 1]: TC[DFBoolOrBit, V] with
-      type Out = DFBoolOrBit.Token
-      def apply(dfType: DFBoolOrBit, value: V): Out =
-        DFBoolOrBit.Token(dfType, value)
-    given DFBoolTokenFromToken[V <: DFBoolOrBit.Token]: TC[DFBoolOrBit, V] with
-      type Out = DFBoolOrBit.Token
-      def apply(dfType: DFBoolOrBit, value: V): Out =
-        ??? //DFBoolOrBit.Token(dfType, value.data)
-
-    /////////////////////////////////////////////////////////////////////////////
-    // DFBits Token
-    /////////////////////////////////////////////////////////////////////////////
-    object `W == VW`
-        extends Check2[
-          Int,
-          Int,
-          [W <: Int, VW <: Int] =>> W == VW,
-          [W <: Int, VW <: Int] =>> "The token width (" +
-            ToString[VW] +
-            ") is different than the DFType width (" +
-            ToString[W] +
-            ")."
-        ]
-    given DFBitsTokenFromBubble[W <: Int, V <: Bubble]: TC[DFBits[W], V] with
-      type Out = DFBits.Token[W]
-      def apply(dfType: DFBits[W], value: V): Out =
-        ??? //DFBits.Token[W](dfType.width, value)
-    given DFBitsTokenFromSBV[W <: Int, V <: SameBitsVector]: TC[DFBits[W], V]
-      with
-      type Out = DFBits.Token[W]
-      def apply(dfType: DFBits[W], value: V): Out =
-        ??? //DFBits.Token[W](dfType.width, value)
-    given DFBitsTokenFromToken[W <: Int, VW <: Int](using
-        check: `W == VW`.Check[W, VW]
-    ): TC[DFBits[W], DFBits.Token[VW]] with
-      type Out = DFBits.Token[W]
-      def apply(dfType: DFBits[W], value: DFBits.Token[VW]): Out =
-        check(dfType.width, value.width)
-        ??? //DFBits.Token[W](dfType, value.data)
-
+    export DFBoolOrBit.Token.TC.given
+    export DFBits.Token.TC.given
   end TC

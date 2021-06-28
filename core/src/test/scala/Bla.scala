@@ -4,14 +4,14 @@ class Bar(using DFC) extends DFDesign:
   println(typeName)
 class Foo(using DFC) extends DFDesign:
   val x = DFUInt(8) <> IN init (1, 2, 3)
-  val c = DFBit const 1
-  val bb = b"11111111"
-  val bbv: DFBits.Token[8] = bb
+  val bitConst = DFBit token 1
+  val bb: DFBits.Token[7] = b"1111111"
+//  val bitsConst = DFBits(8) token bb
   val barry = new Bar
 
 object Bla extends App {
   val top = new Foo
   val db = top.getDB
   println(top.getDB)
-  summon[core.DFToken.TC[DFBits[8], DFBits.Token[8]]]
+//  summon[core.DFToken.TC[DFBits[6], DFBits.Token[8]]]
 }
