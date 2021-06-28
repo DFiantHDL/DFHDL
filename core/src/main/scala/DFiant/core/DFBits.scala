@@ -98,12 +98,11 @@ object DFBits:
         word.foldLeft((BitVector.empty, BitVector.empty)) {
           case (t, '_') => t //ignoring underscore
           case ((v, b), c) =>
-            c match { //bin mode
+            c match //bin mode
               case '?' => (v :+ false, b :+ true)
               case '0' => (v :+ false, b :+ false)
               case '1' => (v :+ true, b :+ false)
               case x   => return Left(s"Found invalid binary character: $x")
-            }
         }
       val actualWidth = valueBits.lengthOfValue.toInt
       explicitWidth match
@@ -115,6 +114,49 @@ object DFBits:
           Right((valueBits.resize(width), bubbleBits.resize(width)))
         case None => Right((valueBits, bubbleBits))
     end fromBinString
+    def fromHexString(hex: String): Either[String, (BitVector, BitVector)] =
+      val isHex = "[0-9a-fA-F]".r
+      val (explicitWidth, word) = hex match
+        case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
+        case _                           => (None, hex)
+      val (valueBits, bubbleBits, binMode) =
+        word.foldLeft((BitVector.empty, BitVector.empty, false)) {
+          case (t, '_' | ' ') => t //ignoring underscore or space
+          case ((v, b, false), c) =>
+            c match { //hex mode
+              case '{' => (v, b, true)
+              case '?' => (v ++ BitVector.low(4), b ++ BitVector.high(4), false)
+              case isHex() =>
+                (
+                  v ++ BitVector.fromHex(c.toString).get,
+                  b ++ BitVector.low(4),
+                  false
+                )
+              case x => return Left(s"Found invalid hex character: $x")
+            }
+          case ((v, b, true), c) =>
+            c match //bin mode
+              case '}' => (v, b, false)
+              case '?' => (v :+ false, b :+ true, true)
+              case '0' => (v :+ false, b :+ false, true)
+              case '1' => (v :+ true, b :+ false, true)
+              case x =>
+                return Left(
+                  s"Found invalid binary character in binary mode: $x"
+                )
+        }
+      if (binMode) Left(s"Missing closing braces of binary mode")
+      else
+        val actualWidth = valueBits.length.toInt
+        explicitWidth match
+          case Some(width) if width < actualWidth =>
+            Left(
+              s"Explicit given width ($width) is smaller than the actual width ($actualWidth)"
+            )
+          case Some(width) =>
+            Right((valueBits.resize(width), bubbleBits.resize(width)))
+          case None => Right((valueBits, bubbleBits))
+    end fromHexString
 
     extension [W <: Int](token: Token[W])
       def valueBits: BitVector = token.data._1
@@ -144,37 +186,28 @@ object DFBits:
         val opStr = op.value.get
         val widthTpe: TypeRepr = fullTerm match
           case Literal(StringConstant(t)) =>
-            opStr match
-              case "b" =>
-                fromBinString(t) match
-                  case Right((valueBits, bubbleBits)) =>
-                    ConstantType(IntConstant(valueBits.length.toInt))
-                  case Left(msg) =>
-                    report.error(msg)
-                    ???
-//              case "h" =>
-//                DFBits.Token.fromHexString(t) match {
-//                  case Right(value) =>
-//                    c.internal.constantType(Constant(value.width))
-//                  case Left(msg) => c.abort(msg)
-//                }
+            val res = opStr match
+              case "b" => fromBinString(t)
+              case "h" => fromHexString(t)
+            res match
+              case Right((valueBits, bubbleBits)) =>
+                ConstantType(IntConstant(valueBits.length.toInt))
+              case Left(msg) =>
+                report.error(msg)
+                ???
           case _ => TypeRepr.of[Int]
         val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
-        println(widthTpe)
-        println(fullTerm)
-        //        println(args.asTerm.tpe.show)
-        opStr match
-          case "b" =>
-            '{
-              val (valueBits, bubbleBits): (BitVector, BitVector) =
-                fromBinString(${
-                  fullTerm.asExprOf[String]
-                }).toOption.get
-              val width =
-                DFiant.internals.Inlined.Int
-                  .forced[widthType.Underlying](valueBits.length.toInt)
-              Token[widthType.Underlying](width, valueBits, bubbleBits)
-            }
+        val fullExpr = fullTerm.asExprOf[String]
+        '{
+          val res = $op match
+            case "b" => fromBinString($fullExpr)
+            case "h" => fromHexString($fullExpr)
+          val (valueBits, bubbleBits) = res.toOption.get
+          val width =
+            DFiant.internals.Inlined.Int
+              .forced[widthType.Underlying](valueBits.length.toInt)
+          Token[widthType.Underlying](width, valueBits, bubbleBits)
+        }
     end StrInterp
 
     extension [LW <: Int](lhs: DFBits.Token[LW])

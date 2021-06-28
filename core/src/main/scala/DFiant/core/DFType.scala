@@ -35,11 +35,11 @@ object DFType:
         Inlined.Int.forced[w.Out](dfType.asIR.width)
       def <>[M <: DFVal.Modifier](modifier: M)(using DFC): DFValNI[tc.Type, M] =
         DFVal.Dcl(tc(t), modifier)
-      def token[V](tokenValue: V)(using
-          tokenTC: DFToken.TC[tc.Type, tokenValue.type]
+      def token[V](tokenValue: Exact[V])(using
+          tokenTC: DFToken.TC[tc.Type, V]
       ): tokenTC.Out = tokenTC(tc(t), tokenValue)
-      def const[V](tokenValue: V)(using
-          DFToken.TC[tc.Type, tokenValue.type]
+      def const[V](tokenValue: Exact[V])(using
+          DFToken.TC[tc.Type, V]
       )(using DFC): DFValOf[tc.Type] = DFVal.Const(token(tokenValue))
 
   trait TC[T]:
