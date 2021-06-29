@@ -86,11 +86,12 @@ object DFToken:
       def apply(dfType: DFBits[W], value: V): Out =
         DFBits.Token[W](dfType.width, value)
 
-    transparent inline given DFTupleTokenFromTuple[T, V <: NonEmptyTuple]
-        : TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
+    transparent inline given DFTupleTokenFromTuple[T, V <: NonEmptyTuple](using
+        creator: DFTuple.Token.Creator[T, V]
+    ): TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
       type Out = DFTuple.Token[T]
       def apply(dfType: DFTuple[T], value: V): Out =
-        DFTuple.Token[T](dfType, ???)
+        DFTuple.Token[T](dfType, creator(dfType.fieldList, value))
   end TC
 
   trait Value[T <: DFType]:

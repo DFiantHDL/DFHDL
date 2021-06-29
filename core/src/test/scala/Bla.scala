@@ -8,7 +8,7 @@ class Foo(using DFC) extends DFDesign:
   val bitsToken = DFBits(8) token b0s
   val bitsConst = DFBits(8) const bitsToken
   val barry = new Bar
-
+  val y = (DFBit, DFBits(8)) token (true, h"11")
 object Bla extends App {
   val top = new Foo
   val db = top.getDB
