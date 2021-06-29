@@ -3,7 +3,7 @@ import internals.*
 class Bar(using DFC) extends DFDesign:
   println(typeName)
 class Foo(using DFC) extends DFDesign:
-  val x = DFBits(8) <> IN init h"111"
+  val x = DFBits(8) <> IN init h"11"
   val bitConst = DFBit token 1
   val bb = h"11"
   val bitsConst = DFBits(8) token bb
