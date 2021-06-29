@@ -29,12 +29,18 @@ object DFToken:
         type Out = DFBoolOrBit.Token
         def apply(dfType: DFBoolOrBit, value: V): Out =
           DFBoolOrBit.Token(dfType, value)
-    transparent inline given DFBoolTokenFromBoolean[V <: Boolean]
+    transparent inline given DFBoolTokenFromBooleanSing[V <: Boolean]
         : TC[DFBoolOrBit, ValueOf[V]] =
       new TC[DFBoolOrBit, ValueOf[V]]:
         type Out = DFBoolOrBit.Token
         def apply(dfType: DFBoolOrBit, value: ValueOf[V]): Out =
           DFBoolOrBit.Token(dfType, value.value)
+    transparent inline given DFBoolTokenFromBoolean[V <: Boolean]
+        : TC[DFBoolOrBit, V] =
+      new TC[DFBoolOrBit, V]:
+        type Out = DFBoolOrBit.Token
+        def apply(dfType: DFBoolOrBit, value: V): Out =
+          DFBoolOrBit.Token(dfType, value)
     transparent inline given DFBoolTokenFrom1Or0[V <: 0 | 1]
         : TC[DFBoolOrBit, ValueOf[V]] =
       new TC[DFBoolOrBit, ValueOf[V]]:
@@ -79,6 +85,12 @@ object DFToken:
       type Out = DFBits.Token[W]
       def apply(dfType: DFBits[W], value: V): Out =
         DFBits.Token[W](dfType.width, value)
+
+    transparent inline given DFTupleTokenFromTuple[T, V <: NonEmptyTuple]
+        : TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
+      type Out = DFTuple.Token[T]
+      def apply(dfType: DFTuple[T], value: V): Out =
+        DFTuple.Token[T](dfType, ???)
   end TC
 
   trait Value[T <: DFType]:

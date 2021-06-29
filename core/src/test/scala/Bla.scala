@@ -3,7 +3,8 @@ import internals.*
 class Bar(using DFC) extends DFDesign:
   println(typeName)
 class Foo(using DFC) extends DFDesign:
-  val x = DFBit <> IN init 1
+  val bool = true
+  val x = DFBit <> IN init bool
   val bitsToken = DFBits(8) token b0s
   val bitsConst = DFBits(8) const bitsToken
   val barry = new Bar
