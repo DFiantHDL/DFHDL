@@ -2,8 +2,10 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 
-opaque type DFBoolOrBit <: DFType.Of[ir.DFBoolOrBit] = DFType.Of[ir.DFBoolOrBit]
+opaque type DFBoolOrBit <: DFType.Of[ir.DFBoolOrBit] with DFBoolOrBit.HasToken =
+  DFType.Of[ir.DFBoolOrBit] with DFBoolOrBit.HasToken
 object DFBoolOrBit:
+  trait HasToken { type Token = DFBoolOrBit.Token }
   opaque type Token <: DFToken.Of[DFBoolOrBit, Option[Boolean]] =
     DFToken.Of[DFBoolOrBit, Option[Boolean]]
   object Token:
