@@ -4,12 +4,14 @@ import internals.Inlined
 
 class DFTokenSpec extends FunSuite:
   test("DFBit Token Construction") {
+    val bool = true
     val t1: DFBit.Token = DFBit token 0
     val t2: DFBit.Token = DFBit token 1
     val t3: DFBool.Token = DFBool token true
     val t4: DFBool.Token = DFBool token false
     val t5: DFBit.Token = DFBit token ?
     val t6: DFBool.Token = DFBool token t5
+    val t7: DFBool.Token = DFBool token bool
   }
 
   test("DFBits Token Construction") {
