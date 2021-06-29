@@ -52,7 +52,7 @@ object DFToken:
       new TC[DFBoolOrBit, V]:
         type Out = DFBoolOrBit.Token
         def apply(dfType: DFBoolOrBit, value: V): Out =
-          DFBoolOrBit.Token(dfType, value.data)
+          ??? //DFBoolOrBit.Token(dfType, value.data)
 
     protected object `W == VW`
         extends Check2[
@@ -70,7 +70,7 @@ object DFToken:
       new TC[DFBits[W], V]:
         type Out = DFBits.Token[W]
         def apply(dfType: DFBits[W], value: V): Out =
-          DFBits.Token[W](dfType.width, value)
+          ??? //DFBits.Token[W](dfType.width, value)
 
     transparent inline given DFBitsTokenFromToken[W <: Int, VW <: Int](using
         check: `W == VW`.Check[W, VW]
@@ -78,20 +78,20 @@ object DFToken:
       type Out = DFBits.Token[W]
       def apply(dfType: DFBits[W], value: DFBits.Token[VW]): Out =
         check(dfType.width, value.width)
-        DFBits.Token[W](dfType, value.data)
+        ??? //DFBits.Token[W](dfType, value.data)
 
     transparent inline given DFBitsTokenFromSBV[W <: Int, V <: SameBitsVector]
         : TC[DFBits[W], V] = new TC[DFBits[W], V]:
       type Out = DFBits.Token[W]
       def apply(dfType: DFBits[W], value: V): Out =
-        DFBits.Token[W](dfType.width, value)
+        ??? //DFBits.Token[W](dfType.width, value)
 
     transparent inline given DFTupleTokenFromTuple[T, V <: NonEmptyTuple](using
         creator: DFTuple.Token.Creator[T, V]
     ): TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
       type Out = DFTuple.Token[T]
       def apply(dfType: DFTuple[T], value: V): Out =
-        DFTuple.Token[T](dfType, creator(dfType.fieldList, value))
+        ??? //DFTuple.Token[T](dfType, creator(dfType.fieldList, value))
   end TC
 
   trait Value[T <: DFType]:
@@ -107,27 +107,38 @@ object DFToken:
     )(using Quotes, Type[T], Type[V]): Expr[Value[T]] =
       import quotes.reflect.*
       val valueOfTpe = TypeRepr.of[ValueOf]
-      value.asTerm.underlyingArgument match
-        case Literal(const) =>
-          val constTpe = ConstantType(const)
-          val tpe = valueOfTpe
-            .appliedTo(constTpe)
-            .asType
-            .asInstanceOf[Type[Any]]
-          val constType = constTpe.asType.asInstanceOf[Type[Any]]
-          '{
-            val tc = compiletime.summonInline[DFToken.TC[T, tpe.Underlying]]
-            new Value[T]:
-              type Out = tc.Out
-              def apply(dfType: T): Out =
-                tc(dfType, ValueOf[constType.Underlying]($value))
-          }
-        case _ =>
-          '{
-            val tc = compiletime.summonInline[DFToken.TC[T, V]]
-            new Value[T]:
-              type Out = tc.Out
-              def apply(dfType: T): Out =
-                tc(dfType, $value)
-          }
+      def exactTpe(term: Term): (Term, TypeRepr) =
+        term match
+          case Literal(const) =>
+            val constTpe = ConstantType(const)
+            val tpe = valueOfTpe.appliedTo(constTpe)
+            val constType = constTpe.asType.asInstanceOf[Type[Any]]
+            val expr =
+              '{
+                ValueOf[constType.Underlying](${ term.asExpr })
+              }
+            (expr.asTerm, tpe)
+          case Apply(TypeApply(fun, _), tupleArgs)
+              if term.tpe <:< TypeRepr.of[NonEmptyTuple] =>
+            val (terms, tpes) = tupleArgs.map(exactTpe).unzip
+            val AppliedType(tycon, _) = term.tpe
+            val tupleTpe = tycon.appliedTo(tpes)
+            val tupleTypeArgs = tpes.map { t =>
+              t.asType match
+                case '[t] =>
+                  TypeTree.of[t]
+            }
+            val tupleTerm = Apply(TypeApply(fun, tupleTypeArgs), terms)
+            (tupleTerm, tupleTpe)
+          case _ =>
+            (term, term.tpe)
+      val (term, t) = exactTpe(value.asTerm.underlyingArgument)
+      val tpe = t.asType.asInstanceOf[Type[Any]]
+      '{
+        val tc = compiletime.summonInline[DFToken.TC[T, tpe.Underlying]]
+        new Value[T]:
+          type Out = tc.Out
+          def apply(dfType: T): Out =
+            tc(dfType, ${ term.asExpr })
+      }
     end fromValueMacro
