@@ -1,5 +1,6 @@
 package DFiant.internals
 import scala.quoted.*
+
 opaque type Exact[T] = T
 object Exact:
   //For singleton integers we create a special macro that offers some protection from hex literals that
@@ -43,3 +44,24 @@ object Exact:
   implicit def toValueSing[T](precise: Exact[ValueOf[T]]): T =
     precise.value
   implicit def toValue[T](precise: Exact[T]): T = precise
+
+extension (using quotes: Quotes)(term: quotes.reflect.Term)
+  def exactTerm: quotes.reflect.Term =
+    import quotes.reflect.*
+    term match
+      case Literal(const) =>
+        val constTpe = ConstantType(const).asTypeOf[Any]
+        val expr =
+          '{
+            ValueOf[constTpe.Underlying](${ term.asExpr })
+          }
+        expr.asTerm
+      case Apply(TypeApply(fun, _), tupleArgs)
+          if term.tpe <:< TypeRepr.of[NonEmptyTuple] =>
+        val terms = tupleArgs.map(t => t.exactTerm)
+        val tpes = terms.map(_.tpe)
+        val AppliedType(tycon, _) = term.tpe
+        val tupleTypeArgs = tpes.map(_.asTypeTree)
+        Apply(TypeApply(fun, tupleTypeArgs), terms)
+      case _ =>
+        term

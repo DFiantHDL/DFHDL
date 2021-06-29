@@ -107,30 +107,8 @@ object DFToken:
     )(using Quotes, Type[T], Type[V]): Expr[Value[T]] =
       import quotes.reflect.*
       val valueOfTpe = TypeRepr.of[ValueOf]
-      def exactTerm(term: Term): Term =
-        term match
-          case Literal(const) =>
-            val constTpe = ConstantType(const).asType.asInstanceOf[Type[Any]]
-            val expr =
-              '{
-                ValueOf[constTpe.Underlying](${ term.asExpr })
-              }
-            expr.asTerm
-          case Apply(TypeApply(fun, _), tupleArgs)
-              if term.tpe <:< TypeRepr.of[NonEmptyTuple] =>
-            val terms = tupleArgs.map(exactTerm)
-            val tpes = terms.map(_.tpe)
-            val AppliedType(tycon, _) = term.tpe
-            val tupleTypeArgs = tpes.map { t =>
-              t.asType match
-                case '[t] =>
-                  TypeTree.of[t]
-            }
-            Apply(TypeApply(fun, tupleTypeArgs), terms)
-          case _ =>
-            term
-      val term = exactTerm(value.asTerm.underlyingArgument)
-      val tpe = term.tpe.asType.asInstanceOf[Type[Any]]
+      val term = value.asTerm.underlyingArgument.exactTerm
+      val tpe = term.tpe.asTypeOf[Any]
       '{
         val tc = compiletime.summonInline[DFToken.TC[T, tpe.Underlying]]
         new Value[T]:

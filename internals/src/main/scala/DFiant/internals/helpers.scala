@@ -19,3 +19,13 @@ def showTreeMacro[T](arg: Expr[T])(using Quotes, Type[T]): Expr[Unit] =
 
 extension [T](t: Iterable[T])
   def mkStringBrackets: String = t.mkString("(", ", ", ")")
+
+extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
+  def asTypeOf[T]: Type[T] =
+    import quotes.reflect.*
+    tpe.asType.asInstanceOf[Type[T]]
+  def asTypeTree: quotes.reflect.TypeTree =
+    import quotes.reflect.*
+    tpe.asType match
+      case '[t] =>
+        TypeTree.of[t]

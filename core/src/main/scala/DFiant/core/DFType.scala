@@ -41,6 +41,7 @@ object DFType:
       def const[V](tokenValue: Exact[V])(using
           DFToken.TC[tc.Type, V]
       )(using DFC): DFValOf[tc.Type] = DFVal.Const(token(tokenValue))
+//    extension [T <: NonEmptyTuple](t: T)(using tc: TC[T])
 
   trait TC[T]:
     type Type <: DFType

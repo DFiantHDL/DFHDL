@@ -9,11 +9,8 @@ class Foo(using DFC) extends DFDesign:
 //  val bitsToken = DFBits(8) token b0s
 //  val bitsConst = DFBits(8) const bitsToken
 //  val barry = new Bar
-//  val z = (DFBit, DFBits(8)) <> IN init ((true, h"11"))
-  def foo[V](
-      tokenValue: core.DFToken.Value[core.DFTuple[(DFBit, DFBits[8])]]
-  ): Unit = {}
-  foo((1, 2))
+  val z = (DFBit, DFBits(8)) token (true, h"11")
+//  foo((1, 2))
 object Bla extends App {
   val top = new Foo
   val db = top.getDB
