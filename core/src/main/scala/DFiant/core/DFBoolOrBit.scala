@@ -19,33 +19,6 @@ object DFBoolOrBit:
     protected[core] def apply(dfType: DFBoolOrBit, value: Bubble): Token =
       Token(dfType, None)
 
-    object TC:
-      import DFToken.TC
-      transparent inline given DFBoolTokenFromBubble[V <: Bubble]
-          : TC[DFBoolOrBit, V] =
-        new TC[DFBoolOrBit, V]:
-          type Out = DFBoolOrBit.Token
-          def apply(dfType: DFBoolOrBit, value: V): Out =
-            DFBoolOrBit.Token(dfType, value)
-      transparent inline given DFBoolTokenFromBoolean[V <: Boolean]
-          : TC[DFBoolOrBit, ValueOf[V]] =
-        new TC[DFBoolOrBit, ValueOf[V]]:
-          type Out = DFBoolOrBit.Token
-          def apply(dfType: DFBoolOrBit, value: ValueOf[V]): Out =
-            DFBoolOrBit.Token(dfType, value.value)
-      transparent inline given DFBoolTokenFrom1Or0[V <: 0 | 1]
-          : TC[DFBoolOrBit, ValueOf[V]] =
-        new TC[DFBoolOrBit, ValueOf[V]]:
-          type Out = DFBoolOrBit.Token
-          def apply(dfType: DFBoolOrBit, value: ValueOf[V]): Out =
-            DFBoolOrBit.Token(dfType, value.value)
-      transparent inline given DFBoolTokenFromToken[V <: DFBoolOrBit.Token]
-          : TC[DFBoolOrBit, V] =
-        new TC[DFBoolOrBit, V]:
-          type Out = DFBoolOrBit.Token
-          def apply(dfType: DFBoolOrBit, value: V): Out =
-            DFBoolOrBit.Token(dfType, value.data)
-
 type DFBool = DFBoolOrBit
 final val DFBool = ir.DFBool.asInstanceOf[DFBoolOrBit]
 type DFBit = DFBoolOrBit
