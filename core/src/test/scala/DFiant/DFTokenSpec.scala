@@ -32,5 +32,5 @@ class DFTokenSpec extends FunSuite:
     val tplValue = (h"11", b"10010110")
     val t2 = tplDef token (h"11", b"10010110")
     val t3 = tplDef token tplValue
-//    println(h"11")
+    val z = (DFBit, DFBits(8), (DFBit, DFBool)) token (1, h"11", (true, 0))
   }

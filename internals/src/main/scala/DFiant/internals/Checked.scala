@@ -73,8 +73,7 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
         else
           msgValueTpe match
             case ConstantType(StringConstant(msg)) =>
-              report.error(msg)
-              '{ ??? }
+              '{ compiletime.error(${ Expr(msg) }) }
             case _ =>
               '{ throw new IllegalArgumentException($msgExpr) }
       case _ =>

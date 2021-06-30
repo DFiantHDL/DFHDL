@@ -79,9 +79,6 @@ object DFTuple:
             )
             '{ ??? }
         import quotes.reflect.*
-
-//        println(tTpe.show)
-//        println(vTpe.show)
         '{
           new Creator[T, V]:
             def apply(
