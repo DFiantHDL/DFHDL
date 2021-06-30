@@ -6,10 +6,14 @@ import scala.quoted.*
 
 opaque type DFBits[W <: Int] <: DFType.Of[ir.DFBits] = DFType.Of[ir.DFBits]
 object DFBits:
-  def apply[W <: Int](width: Inlined.Int[W]): DFBits[W] =
+  def apply[W <: Int](width: Inlined.Int[W])(using
+      Arg.Width.Check[W]
+  ): DFBits[W] =
     ir.DFBits(width).asInstanceOf[DFBits[W]]
   @targetName("applyNoArg")
-  def apply[W <: Int with Singleton](using ValueOf[W]): DFBits[W] =
+  def apply[W <: Int with Singleton](using ValueOf[W])(using
+      Arg.Width.Check[W]
+  ): DFBits[W] =
     DFBits[W](Inlined.Int.forced[W](valueOf[W])).asInstanceOf[DFBits[W]]
   extension [W <: Int](dfType: DFBits[W])
     def width: Inlined.Int[W] = Inlined.Int.forced[W](dfType.asIR.width)
