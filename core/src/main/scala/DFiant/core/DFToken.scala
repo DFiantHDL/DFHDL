@@ -91,7 +91,7 @@ object DFToken:
     ): TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
       type Out = DFTuple.Token[T]
       def apply(dfType: DFTuple[T], value: V): Out =
-        DFTuple.Token[T](dfType, creator(dfType.fieldList, value))
+        DFTuple.Token[T](dfType, creator(dfType.fieldList, value.toList))
   end TC
 
   trait Value[T <: DFType]:

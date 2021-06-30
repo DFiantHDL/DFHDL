@@ -29,27 +29,65 @@ object DFTuple:
       ir.DFToken(dfType.asIR, data).asInstanceOf[Token[T]]
 
     trait Creator[T, V <: NonEmptyTuple]:
-      def apply(fieldList: List[DFType], tokenTupleValue: V): List[DFToken]
+      def apply(
+          fieldList: List[DFType],
+          tokenTupleValues: List[Any]
+      ): List[DFToken]
     object Creator:
       inline given [T, V <: NonEmptyTuple]: Creator[T, V] = ${
         createMacro[T, V]
       }
-
+      import DFType.TC.MacroOps.*
       def createMacro[T, V <: NonEmptyTuple](using
           Quotes,
           Type[T],
           Type[V]
       ): Expr[Creator[T, V]] =
+        def applyExpr[T, V](
+            fieldListExpr: Expr[List[DFType]],
+            tokenTupleValuesExpr: Expr[List[Any]]
+        )(using Quotes, Type[T], Type[V]): Expr[List[DFToken]] =
+          import quotes.reflect.*
+          val AppliedType(fun, tArgs) = TypeRepr.of[T]
+          val AppliedType(_, vArgs) = TypeRepr.of[V]
+          if (tArgs.length == vArgs.length)
+            val exprs =
+              tArgs.zipWithIndex.lazyZip(vArgs).map { case ((t, i), v) =>
+                val vTpe = v.asTypeOf[Any]
+                val dfTypeTpe = t.dfTypeTpe.get.asTypeOf[DFType]
+                val iExpr = Literal(IntConstant(i)).asExprOf[Int]
+                '{
+                  val tc = compiletime
+                    .summonInline[
+                      DFToken.TC[dfTypeTpe.Underlying, vTpe.Underlying]
+                    ]
+                  val dfType =
+                    $fieldListExpr
+                      .apply($iExpr)
+                      .asInstanceOf[dfTypeTpe.Underlying]
+                  val value =
+                    $tokenTupleValuesExpr
+                      .apply($iExpr)
+                      .asInstanceOf[vTpe.Underlying]
+                  tc.apply(dfType, value)
+                }
+              }
+            '{ List(${ Varargs(exprs) }*) }
+          else
+            report.error(
+              s"DFType tuple length (${tArgs.length}) and token value tuple length (${vArgs.length}) do not match."
+            )
+            '{ ??? }
         import quotes.reflect.*
-        val tTpe = TypeRepr.of[T]
-        val vTpe = TypeRepr.of[V]
-        println(tTpe.show)
-        println(vTpe.show)
+
+//        println(tTpe.show)
+//        println(vTpe.show)
         '{
           new Creator[T, V]:
             def apply(
                 fieldList: List[DFType],
-                tokenTupleValue: V
-            ): List[DFToken] =
-              ???
+                tokenTupleValues: List[Any]
+            ): List[DFToken] = ${
+              applyExpr[T, V]('fieldList, 'tokenTupleValues)
+            }
         }

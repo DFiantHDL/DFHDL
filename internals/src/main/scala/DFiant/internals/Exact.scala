@@ -5,10 +5,6 @@ trait Exactly:
   type Out
   val value: Out
 object Exactly:
-  //For singleton integers we create a special macro that offers some protection from hex literals that
-  //overflow into negative values. E.g., 0x80000000
-  //This is no way close to a full protection from such incidents, but this is enough for most newbie cases
-  //that DFiant code may encounter.
   //TODO: remove when https://github.com/lampepfl/dotty/issues/12975 is resolved
   implicit transparent inline def fromValue[T](
       inline value: T
@@ -18,8 +14,12 @@ object Exactly:
   )(using Quotes, Type[T]): Expr[Exactly] = {
     import quotes.reflect.*
     val valueTerm = value.asTerm.exactTerm
-    println(valueTerm.show)
+//    println(valueTerm.show)
     valueTerm match
+      //For singleton integers we create a special macro that offers some protection from hex literals that
+      //overflow into negative values. E.g., 0x80000000
+      //This is no way close to a full protection from such incidents, but this is enough for most newbie cases
+      //that DFiant code may encounter.
       case Literal(IntConstant(i: Int)) if i < 0 =>
         val pos = Position.ofMacroExpansion
         val content = pos.sourceCode.get

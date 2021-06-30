@@ -53,6 +53,45 @@ object DFType:
     given ofDFFields[T <: DFFields]: TC[T] with
       type Type = DFStruct[T]
       def apply(t: T): Type = DFStruct[T](t)
+    object MacroOps:
+      extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
+        def dfTypeTpe: Option[quotes.reflect.TypeRepr] =
+          import quotes.reflect.*
+          val nonEmptyTupleTpe = TypeRepr.of[NonEmptyTuple]
+          val fieldsTpe = TypeRepr.of[DFFields]
+          tpe.dealias match
+            case applied: AppliedType if applied <:< nonEmptyTupleTpe =>
+              if (applied.args.forall(_.dfTypeTpe.nonEmpty))
+                Some(TypeRepr.of[DFTuple].appliedTo(applied))
+              else None
+            case t if t <:< TypeRepr.of[DFBoolOrBit] =>
+              Some(t)
+            case t: AppliedType if t.tycon <:< TypeRepr.of[DFBits] =>
+              Some(t)
+            case t: AppliedType if t.tycon <:< TypeRepr.of[DFDecimal] =>
+              Some(t)
+            case t: AppliedType if t.tycon <:< TypeRepr.of[DFVector] =>
+              Some(t)
+            case t: AppliedType if t.tycon <:< TypeRepr.of[DFOpaque] =>
+              Some(t)
+            case t: AppliedType if t.tycon <:< TypeRepr.of[DFTuple] =>
+              Some(t)
+            case t: AppliedType if t.tycon <:< TypeRepr.of[DFEnum] =>
+              Some(t)
+            case t: AppliedType if t.tycon <:< TypeRepr.of[DFStruct] =>
+              Some(t)
+            case t: AppliedType if t.tycon <:< TypeRepr.of[DFUnion] =>
+              Some(t)
+            case t if t <:< fieldsTpe =>
+              Some(TypeRepr.of[DFStruct].appliedTo(t))
+            case t if t <:< TypeRepr.of[DFType] =>
+              Some(t)
+            case t @ DFEnum(_) =>
+              Some(TypeRepr.of[DFEnum].appliedTo(t))
+            case t =>
+              None
+
+    import MacroOps.*
     transparent inline given ofAnyRef[T <: AnyRef]: TC[T] = ${ tcMacro[T] }
     def tcMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
       import quotes.reflect.*
@@ -61,25 +100,10 @@ object DFType:
       val fieldTpe = TypeRepr.of[DFField[_]]
       val fieldsTpe = TypeRepr.of[DFFields]
       def checkSupported(tTpe: TypeRepr): Unit =
-        tTpe.dealias match
-          case applied: AppliedType if applied <:< nonEmptyTupleTpe =>
-            applied.args.foreach(checkSupported)
-          case t if t <:< TypeRepr.of[DFBoolOrBit]                  =>
-          case t: AppliedType if t.tycon <:< TypeRepr.of[DFBits]    =>
-          case t: AppliedType if t.tycon <:< TypeRepr.of[DFDecimal] =>
-          case t: AppliedType if t.tycon <:< TypeRepr.of[DFVector]  =>
-          case t: AppliedType if t.tycon <:< TypeRepr.of[DFOpaque]  =>
-          case t: AppliedType if t.tycon <:< TypeRepr.of[DFTuple]   =>
-          case t: AppliedType if t.tycon <:< TypeRepr.of[DFEnum]    =>
-          case t: AppliedType if t.tycon <:< TypeRepr.of[DFStruct]  =>
-          case t: AppliedType if t.tycon <:< TypeRepr.of[DFUnion]   =>
-          case t if t <:< fieldsTpe                                 =>
-          case t if t <:< TypeRepr.of[DFType]                       =>
-          case DFEnum(_)                                            =>
-          case t =>
-            report.error(
-              s"Unsupported dataflow type can be found for: ${t.show}"
-            )
+        if (tTpe.dfTypeTpe.isEmpty)
+          report.error(
+            s"Unsupported dataflow type can be found for: ${tTpe.show}"
+          )
 
       checkSupported(tTpe)
       tTpe.dealias match
