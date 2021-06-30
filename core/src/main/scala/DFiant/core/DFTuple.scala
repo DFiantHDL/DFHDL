@@ -16,11 +16,7 @@ object DFTuple:
         .map(x => DFType(x).asIR)
     ir.DFTuple(fieldList).asInstanceOf[DFTuple[T]]
 
-  opaque type Token[T] <: DFToken.Of[DFTuple[T], List[DFToken]] =
-    DFToken.Of[DFTuple[T], List[DFToken]]
-  extension [T](token: Token[T])
-    def data: List[DFToken] =
-      token.asIR.data.asInstanceOf[List[DFToken]]
+  type Token[T] = DFToken.Of[DFTuple[T]]
   object Token:
     protected[core] def apply[T](
         dfType: DFTuple[T],

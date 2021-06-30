@@ -5,6 +5,7 @@ import scala.annotation.targetName
 import scala.quoted.*
 
 opaque type DFBits[W <: Int] <: DFType.Of[ir.DFBits] = DFType.Of[ir.DFBits]
+
 object DFBits:
   def apply[W <: Int](width: Inlined.Int[W])(using
       Arg.Width.Check[W]
@@ -18,13 +19,8 @@ object DFBits:
   extension [W <: Int](dfType: DFBits[W])
     def width: Inlined.Int[W] = Inlined.Int.forced[W](dfType.asIR.width)
 
-  opaque type Token[W <: Int] <: DFToken.Of[DFBits[W], (BitVector, BitVector)] =
-    DFToken.Of[DFBits[W], (BitVector, BitVector)]
+  type Token[W <: Int] = DFToken.Of[DFBits[W]]
   //TODO: remove after https://github.com/lampepfl/dotty/issues/12927 is fixed
-  extension [W <: Int](token: Token[W])
-    def width: Inlined.Int[W] = Inlined.Int.forced[W](token.asIR.width)
-    def data: (BitVector, BitVector) =
-      token.asIR.data.asInstanceOf[(BitVector, BitVector)]
   object Token:
     protected[core] def apply[W <: Int](
         dfType: DFBits[W],
@@ -59,6 +55,49 @@ object DFBits:
         BitVector.fill(width.value)(level),
         BitVector.low(width.value)
       )
+    extension [W <: Int](token: DFBits.Token[W])
+//      def width: Inlined.Int[W] = Inlined.Int.forced[W](token.asIR.width)
+      def data: (BitVector, BitVector) =
+        token.asIR.data.asInstanceOf[(BitVector, BitVector)]
+      def valueBits: BitVector = token.data._1
+      def bubbleBits: BitVector = token.data._2
+
+    object TC:
+      import DFToken.TC
+      protected object `W == VW`
+          extends Check2[
+            Int,
+            Int,
+            [W <: Int, VW <: Int] =>> W == VW,
+            [W <: Int, VW <: Int] =>> "The token width (" +
+              ToString[VW] +
+              ") is different than the DFType width (" +
+              ToString[W] +
+              ")."
+          ]
+      given DFBitsTokenFromBubble[W <: Int, V <: Bubble]: TC[DFBits[W], V] =
+        new TC[DFBits[W], V]:
+          def apply(dfType: DFBits[W], value: V): Out =
+            DFBits.Token[W](dfType.width, value)
+
+      given DFBitsTokenFromToken[W <: Int, VW <: Int](using
+          check: `W == VW`.Check[W, VW]
+      ): TC[DFBits[W], DFBits.Token[VW]] = new TC[DFBits[W], DFBits.Token[VW]]:
+        def apply(dfType: DFBits[W], value: DFBits.Token[VW]): Out =
+          check(dfType.width, value.width)
+          DFBits.Token[W](dfType, value.data)
+
+      given DFBitsTokenFromSBV[W <: Int, V <: SameBitsVector]
+          : TC[DFBits[W], V] = new TC[DFBits[W], V]:
+        def apply(dfType: DFBits[W], value: V): Out =
+          DFBits.Token[W](dfType.width, value)
+
+      given DFTupleTokenFromTuple[T, V <: NonEmptyTuple](using
+          creator: DFTuple.Token.Creator[T, V]
+      ): TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
+        def apply(dfType: DFTuple[T], value: V): Out =
+          DFTuple.Token[T](dfType, creator(dfType.fieldList, value.toList))
+    end TC
 
     private val widthExp = "([0-9]+)'(.*)".r
     def fromBinString(bin: String): Either[String, (BitVector, BitVector)] =
@@ -129,9 +168,6 @@ object DFBits:
           case None => Right((valueBits, bubbleBits))
     end fromHexString
 
-    extension [W <: Int](token: Token[W])
-      def valueBits: BitVector = token.data._1
-      def bubbleBits: BitVector = token.data._2
     object StrInterp:
       def interpMacro(op: Expr[String])(
           sc: Expr[StringContext],

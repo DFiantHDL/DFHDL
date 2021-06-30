@@ -10,6 +10,8 @@ class Foo(using DFC) extends DFDesign:
 //  val bitsConst = DFBits(8) const bitsToken
 //  val barry = new Bar
 //  foo((1, 2))
+//  (DFBits(8), DFBit) <> IN init ?
+
 object Bla extends App {
   val top = new Foo
   val db = top.getDB
