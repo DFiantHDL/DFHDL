@@ -24,6 +24,7 @@ class DFTokenSpec extends FunSuite:
     val t5: DFBits.Token[10] = h"1{00}1"
     val t6: DFBits.Token[3] = DFBits(3) token ?
     val t7: DFBits.Token[8] = DFBits(8) token t2
+    assert(t7 == t2)
   }
 
   test("DFTuple Token Construction") {
@@ -33,4 +34,6 @@ class DFTokenSpec extends FunSuite:
     val t2 = tplDef token (h"11", b"10010110")
     val t3 = tplDef token tplValue
     val z = (DFBit, DFBits(8), (DFBit, DFBool)) token (1, h"11", (true, 0))
+    assert(t1 == t2)
+    assert(t2 == t3)
   }

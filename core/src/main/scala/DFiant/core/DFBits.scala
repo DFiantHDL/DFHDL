@@ -26,8 +26,7 @@ object DFBits:
         dfType: DFBits[W],
         data: (BitVector, BitVector)
     ): Token[W] =
-      ir.DFToken(dfType.asIR, (valueBits, bubbleBits))
-        .asInstanceOf[Token[W]]
+      ir.DFToken(dfType.asIR, data).asInstanceOf[Token[W]]
     //TODO: change to protected[core] after https://github.com/lampepfl/dotty/issues/12948 is resolved
     def apply[W <: Int](
         width: Inlined.Int[W],
