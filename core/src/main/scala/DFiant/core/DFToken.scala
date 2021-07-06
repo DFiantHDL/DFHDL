@@ -2,12 +2,14 @@ package DFiant.core
 import DFiant.compiler.printing.Printer
 import DFiant.compiler.ir
 import DFiant.internals.*
+
 import scala.quoted.*
 import scala.annotation.implicitNotFound
 
 opaque type DFToken = ir.DFType.Token
 object DFToken:
-  protected[core] def bubble[T <: DFType](dfType: T): DFToken.Of[T] = ???
+  protected[core] def bubble[T <: DFType](dfType: T): DFToken.Of[T] =
+    ir.DFType.Token.bubble(dfType.asIR)
   extension (of: DFToken)
     def asIR: ir.DFType.Token = of
     def codeString(using printer: Printer): String = printer.csDFToken(asIR)
