@@ -26,7 +26,7 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase {
   import tpd._
 
   val phaseName = "OnCreateEvents"
-  override val show: Boolean = false
+//  override val debugFilter: String => Boolean = _.contains("BlaSpec.scala")
 
   override val runsAfter = Set("CustomIf")
   override val runsBefore = Set(transform.FirstTransform.name)

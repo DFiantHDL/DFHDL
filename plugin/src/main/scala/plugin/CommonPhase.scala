@@ -19,7 +19,7 @@ import scala.language.implicitConversions
 
 abstract class CommonPhase extends PluginPhase:
   import tpd._
-  val show: Boolean = false
+  val debugFilter: String => Boolean = _ => false
   var metaContextTpe: TypeRef = _
   extension (clsSym: Symbol)
     def inherits(parentFullName: String)(using Context): Boolean =
@@ -87,7 +87,7 @@ abstract class CommonPhase extends PluginPhase:
     ctx
 
   override def transformUnit(tree: Tree)(using Context): Tree =
-    if (show && tree.source.toString.contains("Bla.scala"))
+    if (debugFilter(tree.source.path.toString))
       println(
         s"""===============================================================
            |After: $phaseName

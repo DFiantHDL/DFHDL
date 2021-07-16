@@ -26,8 +26,10 @@ class MutableDB(val duringTest: Boolean = false):
   object OwnershipContext:
     private var stack: List[DFOwner] = Nil
     def enter(owner: DFOwner): Unit =
+//      println(s"enter ${owner}")
       stack = owner :: stack
     def exit(): Unit =
+//      println(s"exit ${owner}")
       stack = stack.drop(1)
     def owner: DFOwner = stack.head
     def ownerOption: Option[DFOwner] = stack.headOption

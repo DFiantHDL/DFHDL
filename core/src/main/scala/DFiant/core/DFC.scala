@@ -7,6 +7,7 @@ final case class DFC(
     nameOpt: Option[String],
     position: Position,
     lateConstruction: Boolean,
+    mutableDB: MutableDB = new MutableDB(),
     defaultDir: Int = 0
 ) extends MetaContext:
   def setMeta(
@@ -19,7 +20,6 @@ final case class DFC(
     lateConstruction = lateConstruction
   ).asInstanceOf[this.type]
   def getMeta: ir.Meta = ir.Meta(nameOpt, position, lateConstruction)
-  val mutableDB: MutableDB = new MutableDB()
   def enterOwner(owner: DFOwner): Unit =
     mutableDB.OwnershipContext.enter(owner.asIR)
   def exitOwner(): Unit = mutableDB.OwnershipContext.exit()
