@@ -4,10 +4,11 @@ import DFiant.compiler.ir
 import DFiant.compiler.printing.*
 
 import scala.reflect.classTag
-abstract class DFDesign(using val dfc: DFC)
+abstract class DFDesign(using DFC)
     extends OnCreateEvents,
       LateConstruction,
       HasTypeName:
+  private[DFiant] val dfc: DFC = summon[DFC]
   private final val owner: DFOwner = DFDesign.Block(typeName)
   dfc.enterOwner(owner)
 
