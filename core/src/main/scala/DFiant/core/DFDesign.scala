@@ -1,6 +1,8 @@
 package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
+import DFiant.compiler.printing.*
+
 import scala.reflect.classTag
 abstract class DFDesign(using DFC)
     extends OnCreateEvents,
@@ -27,5 +29,9 @@ object DFDesign:
         ir.DFTags.empty
       ).addMember
         .asFE
-  extension [D <: DFDesign](dsn: D)
+  extension [D <: DFDesign](dsn: D)(using TopLevel)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
+    def printCodeString(): D =
+      given Printer = DefaultPrinter
+      println(getDB.codeString)
+      dsn

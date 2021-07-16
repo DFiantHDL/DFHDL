@@ -5,9 +5,8 @@ import compiler.printing.{Printer, DefaultPrinter}
 import scala.annotation.internal.sharable
 
 class BlaSpec extends FunSuite, AllowTopLevel:
-  class Bar(using DFC) extends DFDesign:
-    println(typeName)
-  class Foo(using DFC) extends DFDesign
-//    val barry = new Bar
+  class Foo(using DFC) extends DFDesign:
+    val x = DFBits(8) <> IN
 
   val top = new Foo
+  top.printCodeString()

@@ -17,4 +17,5 @@ extension (text: String)
     if (text.requiresBrackets || (!onlyIfRequired && !text.hasBrackets))
       s"($text)"
     else text
-  def foo(using dummyImplicit: DummyImplicit): String = "1234"
+
+  def delim(count: Int = 1): String = text.replaceAll("(?m)^", "  " * count);
