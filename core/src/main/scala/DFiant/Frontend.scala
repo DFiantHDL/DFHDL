@@ -4,6 +4,7 @@ export core.DFType.Ops.*
 export core.DFUnion.Ops.*
 export core.DFOpaque.Ops.*
 export core.DFVector.Ops.*
+export core.DFVarOps.*
 export internals.CommonOps.*
 
 type DFC = core.DFC

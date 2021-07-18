@@ -49,6 +49,15 @@ object DFVal:
       dfVal
         .asInstanceOf[ir.DFVal.Dcl]
         .copy(externalInit = Some(init.map(_.asIR)))
+
+  trait TC[T <: DFType, R]:
+    type Out <: DFType
+    def apply(dfType: T, value: R): DFValOf[Out]
+  object TC:
+    transparent inline given [T <: DFType, R <: DFValOf[T]]: TC[T, R] =
+      new TC[T, R]:
+        type Out = T
+        def apply(dfType: T, value: R): DFValOf[T] = value
 end DFVal
 
 opaque type DFValNI[+T <: DFType, +M <: DFVal.Modifier] <: DFVal[T, M] =
@@ -101,3 +110,11 @@ object DFValNI:
       }
     }
     '{ Seq(${ Varargs(argShowedExprs) }*) }
+
+extension [T <: DFType](dfVar: DFVarOf[T])
+  def assign[R <: DFType](rhs: DFValOf[R])(using DFC): Unit = ???
+
+object DFVarOps:
+  extension [T <: DFType](dfVar: DFVarOf[T])
+    def :=[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
+      dfVar.assign(tc(dfVar.dfType, rhs))
