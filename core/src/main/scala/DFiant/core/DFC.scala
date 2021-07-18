@@ -19,6 +19,7 @@ final case class DFC(
     position = position,
     lateConstruction = lateConstruction
   ).asInstanceOf[this.type]
+  given getSet: ir.MemberGetSet = mutableDB.getSet
   def getMeta: ir.Meta = ir.Meta(nameOpt, position, lateConstruction)
   def enterOwner(owner: DFOwner): Unit =
     mutableDB.OwnershipContext.enter(owner.asIR)

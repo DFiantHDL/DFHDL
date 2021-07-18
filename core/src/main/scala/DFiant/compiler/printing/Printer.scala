@@ -13,7 +13,14 @@ trait Printer
       DFValPrinter,
       DFOwnerPrinter:
   given printer: Printer = this
-  def csDFNet(net: DFNet)(using MemberGetSet): String = ""
+  def csDFNet(net: DFNet)(using MemberGetSet): String =
+    import net.*
+    val opStr = op match
+      case DFNet.Op.Assignment     => ":="
+      case DFNet.Op.Connection     => "<>"
+      case DFNet.Op.LazyConnection => "`<LZ>`"
+    s"${toRef.refCodeString} $opStr ${fromRef.refCodeString}"
+
   def csDFMember(member: DFMember)(using MemberGetSet): String = member match
     case dfVal: DFVal   => csDFVal(dfVal, None)
     case net: DFNet     => csDFNet(net)

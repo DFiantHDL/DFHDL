@@ -4,12 +4,13 @@ import ir.*
 import DFiant.internals.*
 import DFVal.*
 
+extension (ref: DFVal.Ref)
+  def refCodeString(using getSet : MemberGetSet, printer : DFValPrinter): String =
+    val dfVal = ref.get
+    val callOwner = ref.originRef.get.getOwner
+    printer.csDFVal(dfVal, Some(callOwner))
+
 protected trait DFValPrinter extends AbstractPrinter:
-  extension (ref: DFVal.Ref)
-    def refCodeString(using MemberGetSet): String =
-      val dfVal = ref.get
-      val callOwner = ref.originRef.get.getOwner
-      csDFVal(dfVal, Some(callOwner))
   def csDFValConst(dfVal: Const): String =
     s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
   def csDFValConstRef(dfVal: Const): String =

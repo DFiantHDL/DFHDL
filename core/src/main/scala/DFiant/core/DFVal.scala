@@ -127,10 +127,12 @@ object DFValNI:
     }
     '{ Seq(${ Varargs(argShowedExprs) }*) }
 
-extension [T <: DFType](dfVar: DFVarOf[T])
-  def assign[R <: DFType](rhs: DFValOf[R])(using DFC): Unit = ???
+extension [T <: DFType](dfVar: DFValOf[T])
+  def assign[R <: DFType](rhs: DFValOf[R])(using DFC): Unit =
+    import DFVal.asIR
+    DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
 
 object DFVarOps:
-  extension [T <: DFType](dfVar: DFVarOf[T])
+  extension [T <: DFType](dfVar: DFValOf[T])
     def :=[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
       dfVar.assign(tc(dfVar.dfType, rhs))
