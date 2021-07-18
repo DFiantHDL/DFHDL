@@ -123,25 +123,24 @@ object DFVal:
     protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
-      copy(meta = meta).asInstanceOf[this.type]
+      copy(tags = tags).asInstanceOf[this.type]
 
   final case class Dcl(
       dfType: DFType,
       modifier: Modifier,
-      externalInit: Option[Seq[DFType.Token]],
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
   ) extends DFVal:
     def =~(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
-        this.dfType == that.dfType && this.modifier == that.modifier && this.externalInit == that.externalInit &&
+        this.dfType == that.dfType && this.modifier == that.modifier &&
           this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
-      copy(meta = meta).asInstanceOf[this.type]
+      copy(tags = tags).asInstanceOf[this.type]
 
   final case class Func(
       dfType: DFType,
@@ -162,7 +161,7 @@ object DFVal:
     protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
-      copy(meta = meta).asInstanceOf[this.type]
+      copy(tags = tags).asInstanceOf[this.type]
 
   object Func:
     enum Op:
@@ -188,7 +187,7 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type =
         copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type =
-        copy(meta = meta).asInstanceOf[this.type]
+        copy(tags = tags).asInstanceOf[this.type]
 
     final case class Prev(
         dfType: DFType,
@@ -208,7 +207,7 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type =
         copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type =
-        copy(meta = meta).asInstanceOf[this.type]
+        copy(tags = tags).asInstanceOf[this.type]
 
     object Prev:
       enum Op:
@@ -232,7 +231,7 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type =
         copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type =
-        copy(meta = meta).asInstanceOf[this.type]
+        copy(tags = tags).asInstanceOf[this.type]
 
   end Alias
 end DFVal
@@ -253,7 +252,7 @@ final case class DFNet(
   protected def setMeta(meta: Meta): this.type =
     copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type =
-    copy(meta = meta).asInstanceOf[this.type]
+    copy(tags = tags).asInstanceOf[this.type]
 
 object DFNet:
   enum Op:
@@ -292,7 +291,7 @@ final case class DFDesignBlock(
   protected def setMeta(meta: Meta): this.type =
     copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type =
-    copy(meta = meta).asInstanceOf[this.type]
+    copy(tags = tags).asInstanceOf[this.type]
 
 object DFDesignBlock:
   object Top:
@@ -314,4 +313,4 @@ object DFSimMember:
     protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
-      copy(meta = meta).asInstanceOf[this.type]
+      copy(tags = tags).asInstanceOf[this.type]

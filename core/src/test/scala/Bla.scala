@@ -1,7 +1,7 @@
 import DFiant.*
 class Foo(using DFC) extends DFDesign:
-  val x = DFBits(8) <> IN init ?
-  val y = DFBits(7) <> OUT
+  val x = DFBits(8) <> IN init b0s
+  val y = DFBits(8) <> OUT
   y := x
 //    .asInstanceOf[core.DFValOf[DFBits[8]]]
 //  x := 1

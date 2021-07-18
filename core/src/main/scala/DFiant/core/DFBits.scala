@@ -267,8 +267,8 @@ object DFBits:
         def apply(
             dfType: DFBits[LW],
             value: DFVal[DFBits[RW], M]
-        ): DFValOf[Out] = ???
+        ): DFValOf[Out] =
 //        check(dfType.width, value.width)
-//        DFBits.Token[W](dfType, value.data)
+          value.asIR.asValOf[DFBits[LW]]
 
 end DFBits

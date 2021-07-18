@@ -3,9 +3,10 @@ package printing
 import ir.*
 import DFiant.internals.*
 import DFVal.*
+import analysis.*
 
 extension (ref: DFVal.Ref)
-  def refCodeString(using getSet : MemberGetSet, printer : DFValPrinter): String =
+  def refCodeString(using getSet: MemberGetSet, printer: DFValPrinter): String =
     val dfVal = ref.get
     val callOwner = ref.originRef.get.getOwner
     printer.csDFVal(dfVal, Some(callOwner))
@@ -16,14 +17,7 @@ protected trait DFValPrinter extends AbstractPrinter:
   def csDFValConstRef(dfVal: Const): String =
     printer.csDFToken(dfVal.token)
   def csDFValDcl(dfVal: Dcl): String =
-    val noinit =
-      s"${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
-    dfVal.externalInit match
-      case Some(initSeq) if initSeq.size > 1 =>
-        s"$noinit init ${printer.csDFTokenSeq(initSeq)}"
-      case Some(initSeq) if initSeq.size == 1 =>
-        s"$noinit init ${printer.csDFToken(initSeq.head)}"
-      case _ => noinit
+    s"${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
 
   def csDFValFuncRef(dfVal: Func)(using MemberGetSet): String =
     dfVal.args match
@@ -51,10 +45,17 @@ protected trait DFValPrinter extends AbstractPrinter:
       case dv: Const => csDFValConst(dv)
       case dv: Func  => csDFValFuncRef(dv)
       case dv: Alias => csDFValAliasRef(dv)
+    def rhsInit = dfVal.getTagOf[ExternalInit] match {
+      case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
+        s"$rhs init ${printer.csDFTokenSeq(initSeq)}"
+      case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
+        s"$rhs init ${printer.csDFToken(initSeq.head)}"
+      case _ => rhs
+    }
     (dfVal, fromOwner) match
       case (c: Const, Some(_)) if c.isAnonymous => csDFValConstRef(c)
       case (dv, Some(owner)) if !dv.isAnonymous =>
         dfVal.getRelativeName(owner)
-      case (dv, None) if !dv.isAnonymous => valDef + rhs
-      case _                             => rhs
+      case (dv, None) if !dv.isAnonymous => valDef + rhsInit
+      case _                             => rhsInit
 end DFValPrinter

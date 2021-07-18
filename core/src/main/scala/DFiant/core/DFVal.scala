@@ -23,6 +23,9 @@ object DFVal:
     def width(using w: Width[T]): Inlined.Int[w.Out] =
       Inlined.Int.forced[w.Out](dfVal.asIR.dfType.width)
     def asIR: ir.DFVal = dfVal
+    def init(tokenValues: DFToken.Value[T]*)(using DFC): DFVal[T, M] =
+      val tokens = tokenValues.map(tv => tv(asIR.dfType.asInstanceOf[T]).asIR)
+      dfVal.tag(ir.ExternalInit(tokens))
 
   object Const:
     def apply[T <: DFType](token: DFToken, named: Boolean = false)(using
@@ -36,24 +39,16 @@ object DFVal:
   object Dcl:
     def apply[T <: DFType, M <: Modifier](dfType: T, modifier: M)(using
         DFC
-    ): DFValNI[T, M] =
+    ): DFVal[T, M] =
       ir.DFVal
         .Dcl(
           dfType.asIR,
           modifier,
-          None,
           dfc.owner.ref,
           dfc.getMeta,
           ir.DFTags.empty
         )
         .addMember
-    def apply[T <: DFType, M <: Modifier](
-        dfVal: DFValNI[T, M],
-        init: Seq[DFToken]
-    )(using DFC): DFVal[T, M] =
-      dfVal
-        .asInstanceOf[ir.DFVal.Dcl]
-        .copy(externalInit = Some(init.map(_.asIR)))
 
   @implicitNotFound("Unsupported argument value ${R} for dataflow type ${T}")
   trait TC[T <: DFType, R]:
@@ -77,20 +72,7 @@ object DFVal:
           Const(tokenTC(dfType, value))
 end DFVal
 
-opaque type DFValNI[+T <: DFType, +M <: DFVal.Modifier] <: DFVal[T, M] =
-  DFVal[T, M]
 object DFValNI:
-  extension [T <: DFType, M <: DFVal.Modifier](dcl: DFValNI[T, M])
-    private def asIR: ir.DFVal.Dcl = dcl.asInstanceOf[ir.DFVal.Dcl]
-    def init(tokenValues: DFToken.Value[T]*)(using DFC): DFVal[T, M] =
-      val tokens = tokenValues.map(tv => tv(asIR.dfType.asInstanceOf[T]).asIR)
-      val updated = asIR.copy(externalInit = Some(tokens), meta = dfc.getMeta)
-      if (dcl.isAnonymous)
-        asIR.replaceMemberWith(updated)
-      else
-        updated.addMember
-      updated.asInstanceOf[DFVal[T, M]]
-
   //TODO: Delete if no use eventually
   inline def initTokens[T <: DFType](
       dfType: T,
@@ -137,7 +119,3 @@ object DFVarOps:
   extension [T <: DFType](dfVar: DFVarOf[T])
     def :=[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
       dfVar.assign(tc(dfVar.dfType, rhs))
-  extension [T <: DFType](dfVar: DFValNI[T, DFVal.Modifier.Assignable])
-    @targetName("workAroundAssign")
-    def :=[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
-      dfVar.asInstanceOf[DFVarOf[T]] := rhs

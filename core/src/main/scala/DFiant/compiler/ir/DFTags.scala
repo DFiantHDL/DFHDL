@@ -14,3 +14,6 @@ object DFTags:
     def removeTagOf[CT <: DFTag: ClassTag]: DFTags = tags - classTag[CT]
     def getTagOf[CT <: DFTag: ClassTag]: Option[CT] =
       tags.get(classTag[CT]).asInstanceOf[Option[CT]]
+
+final case class ExternalInit(tokenSeq: Seq[DFType.Token])
+    extends DFTagOf[DFVal]

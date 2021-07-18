@@ -33,7 +33,7 @@ object DFType:
       def dfType: tc.Type = tc(t)
       def width(using w: Width[T]): Inlined.Int[w.Out] =
         Inlined.Int.forced[w.Out](dfType.asIR.width)
-      def <>[M <: DFVal.Modifier](modifier: M)(using DFC): DFValNI[tc.Type, M] =
+      def <>[M <: DFVal.Modifier](modifier: M)(using DFC): DFVal[tc.Type, M] =
         DFVal.Dcl(tc(t), modifier)
       def token[V](tokenValue: Exact[V])(using
           tokenTC: DFToken.TC[tc.Type, V]
