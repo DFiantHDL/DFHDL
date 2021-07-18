@@ -56,10 +56,11 @@ object DFVal:
         .copy(externalInit = Some(init.map(_.asIR)))
 
   @implicitNotFound("Unsupported argument value ${R} for dataflow type ${T}")
-  trait TC[T <: DFType, -R]:
+  trait TC[T <: DFType, R]:
     type Out <: DFType
     def apply(dfType: T, value: R): DFValOf[Out]
   object TC:
+    export DFBits.DFValTC.given
     //Accept any dataflow value of the same type
     transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
       new TC[T, DFValOf[T]]:

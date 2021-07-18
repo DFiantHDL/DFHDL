@@ -75,11 +75,6 @@ object DFBits:
               ToString[W] +
               ")."
           ]
-      given DFBitsTokenFromBubble[W <: Int, V <: Bubble]: TC[DFBits[W], V] =
-        new TC[DFBits[W], V]:
-          def apply(dfType: DFBits[W], value: V): Out =
-            DFBits.Token[W](dfType.width, value)
-
       given DFBitsTokenFromToken[W <: Int, VW <: Int](using
           check: `W == VW`.Check[W, VW]
       ): TC[DFBits[W], DFBits.Token[VW]] = new TC[DFBits[W], DFBits.Token[VW]]:
@@ -245,3 +240,35 @@ object DFBits:
               (lhs.bubbleBits & rhs.bubbleBits) | (lhs.bubbleBits & rhs.valueBits) |
                 (rhs.bubbleBits & lhs.valueBits)
             DFBits.Token(width, valueBits, bubbleBits)
+  end Token
+
+  object DFValTC:
+    import DFVal.TC
+    protected object `LW == RW`
+        extends Check2[
+          Int,
+          Int,
+          [LW <: Int, RW <: Int] =>> LW == RW,
+          [LW <: Int, RW <: Int] =>> "The argument width (" +
+            ToString[RW] +
+            ") is different than the DFType width (" +
+            ToString[LW] +
+            ")."
+        ]
+    transparent inline given DFBitsArg[
+        LW <: Int,
+        RW <: Int,
+        M <: DFVal.Modifier
+    ](using
+        check: `LW == RW`.Check[LW, RW]
+    ): TC[DFBits[LW], DFVal[DFBits[RW], M]] =
+      new TC[DFBits[LW], DFVal[DFBits[RW], M]]:
+        type Out = DFBits[LW]
+        def apply(
+            dfType: DFBits[LW],
+            value: DFVal[DFBits[RW], M]
+        ): DFValOf[Out] = ???
+//        check(dfType.width, value.width)
+//        DFBits.Token[W](dfType, value.data)
+
+end DFBits

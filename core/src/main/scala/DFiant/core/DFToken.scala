@@ -27,6 +27,11 @@ object DFToken:
   object TC:
     export DFBoolOrBit.Token.TC.given
     export DFBits.Token.TC.given
+
+    given DFTokenFromBubble[T <: DFType, V <: Bubble]: TC[T, V] =
+      new TC[T, V]:
+        def apply(dfType: T, value: V): Out =
+          Bubble(dfType)
   end TC
 
   trait Value[T <: DFType]:

@@ -25,10 +25,6 @@ object DFBoolOrBit:
 
     object TC:
       import DFToken.TC
-      given DFBoolTokenFromBubble[V <: Bubble]: TC[DFBoolOrBit, V] =
-        new TC[DFBoolOrBit, V]:
-          def apply(dfType: DFBoolOrBit, value: V): Out =
-            DFBoolOrBit.Token(dfType, value)
       given DFBoolTokenFromBooleanSing[V <: Boolean]
           : TC[DFBoolOrBit, ValueOf[V]] =
         new TC[DFBoolOrBit, ValueOf[V]]:
