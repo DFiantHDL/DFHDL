@@ -1,6 +1,8 @@
 package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
+
+import scala.annotation.implicitNotFound
 import scala.quoted.*
 
 opaque type DFVal[+T <: DFType, +M <: DFVal.Modifier] = ir.DFVal
@@ -23,9 +25,12 @@ object DFVal:
     def asIR: ir.DFVal = dfVal
 
   object Const:
-    def apply[T <: DFType](token: DFToken)(using DFC): DFValOf[T] =
+    def apply[T <: DFType](token: DFToken, named: Boolean = false)(using
+        DFC
+    ): DFValOf[T] =
+      val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
       ir.DFVal
-        .Const(token.asIR, dfc.owner.ref, dfc.getMeta, ir.DFTags.empty)
+        .Const(token.asIR, dfc.owner.ref, meta, ir.DFTags.empty)
         .addMember
 
   object Dcl:
@@ -50,14 +55,25 @@ object DFVal:
         .asInstanceOf[ir.DFVal.Dcl]
         .copy(externalInit = Some(init.map(_.asIR)))
 
-  trait TC[T <: DFType, R]:
+  @implicitNotFound("Unsupported argument value ${R} for dataflow type ${T}")
+  trait TC[T <: DFType, -R]:
     type Out <: DFType
     def apply(dfType: T, value: R): DFValOf[Out]
   object TC:
-    transparent inline given [T <: DFType, R <: DFValOf[T]]: TC[T, R] =
+    //Accept any dataflow value of the same type
+    transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
+      new TC[T, DFValOf[T]]:
+        type Out = T
+        def apply(dfType: T, value: DFValOf[T]): DFValOf[T] = value
+    //Accept any token value, according to a token type class
+    transparent inline given [T <: DFType, R](using
+        tokenTC: DFToken.TC[T, R],
+        dfc: DFC
+    ): TC[T, R] =
       new TC[T, R]:
         type Out = T
-        def apply(dfType: T, value: R): DFValOf[T] = value
+        def apply(dfType: T, value: R): DFValOf[T] =
+          Const(tokenTC(dfType, value))
 end DFVal
 
 opaque type DFValNI[+T <: DFType, +M <: DFVal.Modifier] <: DFVal[T, M] =

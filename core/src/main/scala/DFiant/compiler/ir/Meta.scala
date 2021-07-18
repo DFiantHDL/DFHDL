@@ -6,7 +6,8 @@ final case class Meta(
     position: Position,
     lateConstruction: Boolean
 ):
-  final val isAnonymous: Boolean = nameOpt.isEmpty
-  final val name: String =
+  val isAnonymous: Boolean = nameOpt.isEmpty
+  val name: String =
     nameOpt.getOrElse(s"anon${this.hashCode.toHexString}")
+  def anonymize : Meta = copy(nameOpt = None) 
   def =~(that: Meta): Boolean = this.nameOpt == that.nameOpt

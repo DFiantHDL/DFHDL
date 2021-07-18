@@ -20,7 +20,7 @@ object DFToken:
       def dfType: T = token.asIR.dfType.asInstanceOf[T]
       def width(using w: Width[T]): Inlined.Int[w.Out] =
         Inlined.Int.forced[w.Out](token.asIR.width)
-  @implicitNotFound("Unsupported token value ${V} for type ${T}")
+  @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
   trait TC[T <: DFType, V]:
     type Out = DFToken.Of[T]
     def apply(dfType: T, value: V): Out
