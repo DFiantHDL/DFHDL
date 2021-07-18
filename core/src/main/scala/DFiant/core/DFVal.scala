@@ -55,11 +55,15 @@ opaque type DFValNI[+T <: DFType, +M <: DFVal.Modifier] <: DFVal[T, M] =
   DFVal[T, M]
 object DFValNI:
   extension [T <: DFType, M <: DFVal.Modifier](dcl: DFValNI[T, M])
+    private def asIR: ir.DFVal.Dcl = dcl.asInstanceOf[ir.DFVal.Dcl]
     def init(tokenValues: DFToken.Value[T]*)(using DFC): DFVal[T, M] =
-      val tokens = tokenValues.map(tv =>
-        tv(dcl.asInstanceOf[ir.DFVal].dfType.asInstanceOf[T]).asIR
-      )
-      dcl.asInstanceOf[ir.DFVal.Dcl].copy(externalInit = Some(tokens))
+      val tokens = tokenValues.map(tv => tv(asIR.dfType.asInstanceOf[T]).asIR)
+      val updated = asIR.copy(externalInit = Some(tokens), meta = dfc.getMeta)
+      if (dcl.isAnonymous)
+        asIR.replaceMemberWith(updated)
+      else
+        updated.addMember
+      updated.asInstanceOf[DFVal[T, M]]
 
   //TODO: Delete if no use eventually
   inline def initTokens[T <: DFType](

@@ -8,7 +8,7 @@ abstract class DFDesign(using DFC)
     extends OnCreateEvents,
       LateConstruction,
       HasTypeName:
-  private[DFiant] val dfc: DFC = summon[DFC]
+  private[DFiant] final val dfc: DFC = summon[DFC]
   private final val owner: DFOwner = DFDesign.Block(typeName)
   dfc.enterOwner(owner)
 
