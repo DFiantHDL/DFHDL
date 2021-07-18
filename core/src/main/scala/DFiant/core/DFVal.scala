@@ -2,7 +2,7 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 
-import scala.annotation.implicitNotFound
+import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
 opaque type DFVal[+T <: DFType, +M <: DFVal.Modifier] = ir.DFVal
@@ -127,12 +127,16 @@ object DFValNI:
     }
     '{ Seq(${ Varargs(argShowedExprs) }*) }
 
-extension [T <: DFType](dfVar: DFValOf[T])
+extension [T <: DFType](dfVar: DFVarOf[T])
   def assign[R <: DFType](rhs: DFValOf[R])(using DFC): Unit =
     import DFVal.asIR
     DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
 
 object DFVarOps:
-  extension [T <: DFType](dfVar: DFValOf[T])
+  extension [T <: DFType](dfVar: DFVarOf[T])
     def :=[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
       dfVar.assign(tc(dfVar.dfType, rhs))
+  extension [T <: DFType](dfVar: DFValNI[T, DFVal.Modifier.Assignable])
+    @targetName("workAroundAssign")
+    def :=[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
+      dfVar.asInstanceOf[DFVarOf[T]] := rhs
