@@ -23,8 +23,13 @@ object DFVal:
     def width(using w: Width[T]): Inlined.Int[w.Out] =
       Inlined.Int.forced[w.Out](dfVal.asIR.dfType.width)
     def asIR: ir.DFVal = dfVal
-    def init(tokenValues: DFToken.Value[T]*)(using DFC): DFVal[T, M] =
+    def init(tokenValues: DFToken.Value[T]*)(using dfc: DFC): DFVal[T, M] =
+      import dfc.getSet
       val tokens = tokenValues.map(tv => tv(asIR.dfType.asInstanceOf[T]).asIR)
+      assert(
+        dfVal.isAnonymous,
+        s"Cannot initialize a named value ${dfVal.getFullName}. Initialization is only supported at the declaration of the value."
+      )
       dfVal.tag(ir.ExternalInit(tokens))
 
   object Const:
