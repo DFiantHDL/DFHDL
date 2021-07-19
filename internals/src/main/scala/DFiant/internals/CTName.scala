@@ -9,7 +9,7 @@ object CTName:
   def getName(using Quotes): Expr[CTName] =
     import quotes.reflect.*
     val nameConst = StringConstant(Symbol.spliceOwner.owner.name.toString)
-    val nameTpe = ConstantType(nameConst).asType.asInstanceOf[Type[String]]
+    val nameTpe = ConstantType(nameConst).asTypeOf[String]
     val nameExpr = Literal(nameConst).asExprOf[String]
     '{
       new CTName {

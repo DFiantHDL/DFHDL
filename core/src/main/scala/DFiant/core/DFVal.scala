@@ -5,32 +5,36 @@ import DFiant.internals.*
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
-opaque type DFVal[+T <: DFType, +M <: DFVal.Modifier] = ir.DFVal
+opaque type DFVal[+T <: DFType, +M <: DFVal.Modifier] <: DFMember.Of[ir.DFVal] =
+  DFMember.Of[ir.DFVal]
 type DFValOf[+T <: DFType] = DFVal[T, DFVal.Modifier.VAL]
 type DFVarOf[+T <: DFType] = DFVal[T, DFVal.Modifier.Assignable]
 type DFPortOf[+T <: DFType] = DFVal[T, DFVal.Modifier.Port]
 
 extension (dfVal: ir.DFVal)
-  def asValOf[T <: DFType]: DFValOf[T] = dfVal
-  def asVarOf[T <: DFType]: DFVarOf[T] = dfVal
-  def asPortOf[T <: DFType]: DFPortOf[T] = dfVal
+  def asValOf[T <: DFType]: DFValOf[T] = dfVal.asInstanceOf[DFValOf[T]]
+  def asVarOf[T <: DFType]: DFVarOf[T] = dfVal.asInstanceOf[DFVarOf[T]]
+  def asPortOf[T <: DFType]: DFPortOf[T] = dfVal.asInstanceOf[DFPortOf[T]]
 
 object DFVal:
   export ir.DFVal.Modifier
+  extension (dfVal: ir.DFVal)
+    def asFE[T <: DFType, M <: Modifier]: DFVal[T, M] =
+      dfVal.asInstanceOf[DFVal[T, M]]
 
   extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
     def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]
     def width(using w: Width[T]): Inlined.Int[w.Out] =
       Inlined.Int.forced[w.Out](dfVal.asIR.dfType.width)
-    def asIR: ir.DFVal = dfVal
     def init(tokenValues: DFToken.Value[T]*)(using dfc: DFC): DFVal[T, M] =
       import dfc.getSet
-      val tokens = tokenValues.map(tv => tv(asIR.dfType.asInstanceOf[T]).asIR)
+      val tokens =
+        tokenValues.map(tv => tv(dfVal.dfType).asIR)
       assert(
-        dfVal.isAnonymous,
-        s"Cannot initialize a named value ${dfVal.getFullName}. Initialization is only supported at the declaration of the value."
+        dfVal.asIR.isAnonymous,
+        s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
       )
-      dfVal.tag(ir.ExternalInit(tokens))
+      dfVal.asIR.tag(ir.ExternalInit(tokens)).asFE[T, M]
 
   object Const:
     def apply[T <: DFType](token: DFToken, named: Boolean = false)(using
@@ -40,6 +44,7 @@ object DFVal:
       ir.DFVal
         .Const(token.asIR, dfc.owner.ref, meta, ir.DFTags.empty)
         .addMember
+        .asValOf[T]
 
   object Dcl:
     def apply[T <: DFType, M <: Modifier](dfType: T, modifier: M)(using
@@ -54,6 +59,7 @@ object DFVal:
           ir.DFTags.empty
         )
         .addMember
+        .asFE[T, M]
 
   @implicitNotFound("Unsupported argument value ${R} for dataflow type ${T}")
   trait TC[T <: DFType, R]:
@@ -117,7 +123,6 @@ object DFValNI:
 
 extension [T <: DFType](dfVar: DFVarOf[T])
   def assign[R <: DFType](rhs: DFValOf[R])(using DFC): Unit =
-    import DFVal.asIR
     DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
 
 object DFVarOps:

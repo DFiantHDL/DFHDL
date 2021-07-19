@@ -4,6 +4,7 @@ import DFiant.internals.*
 
 opaque type DFNet <: DFMember.Of[ir.DFNet] = DFMember.Of[ir.DFNet]
 object DFNet:
+  extension (net: ir.DFNet) def asFE: DFNet = net.asInstanceOf[DFNet]
   export ir.DFNet.Op
 
   def apply(toVal: ir.DFVal, op: Op, fromVal: ir.DFVal)(using DFC): DFNet =
