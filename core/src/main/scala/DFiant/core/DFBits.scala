@@ -251,9 +251,9 @@ object DFBits:
           [LW <: Int, RW <: Int] =>> LW == RW,
           [LW <: Int, RW <: Int] =>> "The argument width (" +
             ToString[RW] +
-            ") is different than the DFType width (" +
+            ") is different than the reciever width (" +
             ToString[LW] +
-            ")."
+            "). \nConsider applying `.resize` to resolve this issue."
         ]
     transparent inline given DFBitsArg[
         LW <: Int,
