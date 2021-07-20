@@ -9,8 +9,9 @@ import collection.mutable
 import collection.immutable.ListMap
 
 opaque type DFType = ir.DFType
-
 object DFType:
+  extension (dfType: ir.DFType)
+    def asFE[T <: DFType]: T = dfType.asInstanceOf[T]
   extension (dfType: DFType)
     def asIR: ir.DFType = dfType
     def codeString(using printer: Printer): String = printer.csDFType(asIR)

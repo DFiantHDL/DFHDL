@@ -59,3 +59,5 @@ object DFToken:
             tc(dfType, ${ term.asExpr })
       }
     end fromValueMacro
+  end Value
+end DFToken

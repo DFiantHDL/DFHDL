@@ -270,5 +270,5 @@ object DFBits:
         ): DFValOf[Out] =
           check(dfType.width, value.width.value)
           value.asIR.asValOf[DFBits[LW]]
-
+  end DFValTC
 end DFBits

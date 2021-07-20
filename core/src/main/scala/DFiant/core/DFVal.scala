@@ -7,9 +7,20 @@ import scala.quoted.*
 
 opaque type DFVal[+T <: DFType, +M <: DFVal.Modifier] <: DFMember.Of[ir.DFVal] =
   DFMember.Of[ir.DFVal]
-type DFValOf[+T <: DFType] = DFVal[T, DFVal.Modifier.VAL]
+type DFValOf[+T <: DFType] = DFVal[T, DFVal.Modifier]
 type DFVarOf[+T <: DFType] = DFVal[T, DFVal.Modifier.Assignable]
 type DFPortOf[+T <: DFType] = DFVal[T, DFVal.Modifier.Port]
+
+type VAL = DFVal.Modifier.VAL
+type VAR = DFVal.Modifier.VAR.type
+type IN = DFVal.Modifier.IN.type
+type OUT = DFVal.Modifier.OUT.type
+
+type <>[T <: DFType, M <: DFVal.Modifier] = M match
+  case VAL => DFValOf[T]
+  case VAR => DFVarOf[T]
+  case IN  => DFPortOf[T]
+  case OUT => DFPortOf[T]
 
 extension (dfVal: ir.DFVal)
   def asValOf[T <: DFType]: DFValOf[T] = dfVal.asInstanceOf[DFValOf[T]]
@@ -18,9 +29,6 @@ extension (dfVal: ir.DFVal)
 
 object DFVal:
   export ir.DFVal.Modifier
-  extension (dfVal: ir.DFVal)
-    def asFE[T <: DFType, M <: Modifier]: DFVal[T, M] =
-      dfVal.asInstanceOf[DFVal[T, M]]
 
   extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
     def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]
@@ -61,17 +69,36 @@ object DFVal:
         .addMember
         .asFE[T, M]
 
-  @implicitNotFound("Unsupported argument value ${R} for dataflow type ${T}")
+  @implicitNotFound(
+    "Unsupported argument value ${R} for dataflow receiver type ${T}"
+  )
   trait TC[T <: DFType, R]:
     type Out <: DFType
     def apply(dfType: T, value: R): DFValOf[Out]
   object TC:
+    export DFBoolOrBit.DFValTC.given
     export DFBits.DFValTC.given
     //Accept any dataflow value of the same type
     transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
       new TC[T, DFValOf[T]]:
         type Out = T
-        def apply(dfType: T, value: DFValOf[T]): DFValOf[T] = value
+        def apply(dfType: T, value: DFValOf[T]): DFValOf[T] =
+          val updated = (dfType.asIR, value.asIR.dfType) match
+            case (_: ir.DFBoolOrBit, _: ir.DFBoolOrBit) =>
+              summon[TC[DFBoolOrBit, DFBoolOrBit <> VAL]](
+                dfType.asIR.asFE[DFBoolOrBit],
+                value.asIR.asValOf[DFBoolOrBit]
+              )
+            case (_: ir.DFBits, _: ir.DFBits) =>
+              summon[TC[DFBits[Int], DFBits[Int] <> VAL]](
+                dfType.asIR.asFE[DFBits[Int]],
+                value.asIR.asValOf[DFBits[Int]]
+              )
+            case _ =>
+              throw new IllegalArgumentException(
+                s"Unsupported argument value ${value} for dataflow receiver type ${dfType}"
+              )
+          updated.asIR.asValOf[T]
     //Accept any token value, according to a token type class
     transparent inline given [T <: DFType, R](using
         tokenTC: DFToken.TC[T, R],
@@ -81,7 +108,22 @@ object DFVal:
         type Out = T
         def apply(dfType: T, value: R): DFValOf[T] =
           Const(tokenTC(dfType, value))
+  end TC
+
+  object Ops:
+    extension [T <: DFType, M <: DFVal.Modifier](dfVal: DFVal[T, M])
+      def as[A](
+          aliasType: A
+      )(using
+          tc: DFType.TC[A],
+          w1: Width[T],
+          w2: Width[A],
+          dfc: DFC
+      )(using check: w1.Out =:= w2.Out): DFVal[tc.Type, M] = ???
+  end Ops
 end DFVal
+
+export DFVal.Ops.*
 
 object DFValNI:
   //TODO: Delete if no use eventually

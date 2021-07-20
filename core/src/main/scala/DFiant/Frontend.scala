@@ -1,9 +1,12 @@
 package DFiant
 
 export core.DFType.Ops.*
+export core.DFBoolOrBit.Token.Ops.*
+export core.DFBoolOrBit.Ops.*
 export core.DFUnion.Ops.*
 export core.DFOpaque.Ops.*
 export core.DFVector.Ops.*
+export core.DFVal.Ops.*
 export core.DFVarOps.*
 export internals.CommonOps.*
 
@@ -30,6 +33,11 @@ val IN = core.DFVal.Modifier.IN
 val OUT = core.DFVal.Modifier.OUT
 val INOUT = core.DFVal.Modifier.INOUT
 val VAR = core.DFVal.Modifier.VAR
+type VAL = core.DFVal.Modifier.VAL
+type VAR = core.DFVal.Modifier.VAR.type
+type IN = core.DFVal.Modifier.IN.type
+type OUT = core.DFVal.Modifier.OUT.type
+type <>[T <: DFType, M <: core.DFVal.Modifier] = core.<>[T, M]
 
 val ? = core.?
 export core.SameBitsVector.*
