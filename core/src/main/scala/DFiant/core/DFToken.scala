@@ -7,6 +7,8 @@ import scala.quoted.*
 import scala.annotation.implicitNotFound
 
 opaque type DFToken = ir.DFType.Token
+extension (token: ir.DFType.Token)
+  def asTokenOf[T <: DFType]: DFToken.Of[T] = token.asInstanceOf[DFToken.Of[T]]
 object DFToken:
   protected[core] def bubble[T <: DFType](dfType: T): DFToken.Of[T] =
     ir.DFType.Token.bubble(dfType.asIR)
