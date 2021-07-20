@@ -4,7 +4,9 @@ import DFiant.internals.*
 import scala.annotation.targetName
 import scala.quoted.*
 
-opaque type DFBits[W <: Int] <: DFType.Of[ir.DFBits] = DFType.Of[ir.DFBits]
+//TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
+opaque type DFBits[W <: Int] <: DFType.Of[DFiant.compiler.ir.DFBits] =
+  DFType.Of[DFiant.compiler.ir.DFBits]
 
 object DFBits:
   def apply[W <: Int](width: Inlined.Int[W])(using

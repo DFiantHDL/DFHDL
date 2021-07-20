@@ -5,8 +5,11 @@ import DFiant.internals.*
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
-opaque type DFVal[+T <: DFType, +M <: DFVal.Modifier] <: DFMember.Of[ir.DFVal] =
-  DFMember.Of[ir.DFVal]
+//TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
+opaque type DFVal[+T <: DFType, +M <: DFVal.Modifier] <: DFMember.Of[
+  DFiant.compiler.ir.DFVal
+] =
+  DFMember.Of[DFiant.compiler.ir.DFVal]
 type DFValOf[+T <: DFType] = DFVal[T, DFVal.Modifier]
 type DFVarOf[+T <: DFType] = DFVal[T, DFVal.Modifier.Assignable]
 type DFPortOf[+T <: DFType] = DFVal[T, DFVal.Modifier.Port]

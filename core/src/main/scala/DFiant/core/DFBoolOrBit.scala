@@ -2,8 +2,12 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 import annotation.targetName
-opaque type DFBoolOrBit <: DFType.Of[ir.DFBoolOrBit] with DFBoolOrBit.HasToken =
-  DFType.Of[ir.DFBoolOrBit] with DFBoolOrBit.HasToken
+
+//TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
+opaque type DFBoolOrBit <: DFType.Of[
+  DFiant.compiler.ir.DFBoolOrBit
+] with DFBoolOrBit.HasToken =
+  DFType.Of[DFiant.compiler.ir.DFBoolOrBit] with DFBoolOrBit.HasToken
 object DFBoolOrBit:
   type Data = Option[Boolean]
   trait HasToken { type Token = DFBoolOrBit.Token }
