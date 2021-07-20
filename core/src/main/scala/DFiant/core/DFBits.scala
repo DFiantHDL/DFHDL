@@ -268,7 +268,7 @@ object DFBits:
             dfType: DFBits[LW],
             value: DFVal[DFBits[RW], M]
         ): DFValOf[Out] =
-//        check(dfType.width, value.width)
+          check(dfType.width, value.width.value)
           value.asIR.asValOf[DFBits[LW]]
 
 end DFBits
