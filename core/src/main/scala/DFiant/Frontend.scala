@@ -37,7 +37,8 @@ type VAL = core.DFVal.Modifier.VAL
 type VAR = core.DFVal.Modifier.VAR.type
 type IN = core.DFVal.Modifier.IN.type
 type OUT = core.DFVal.Modifier.OUT.type
-type <>[T <: DFType, M <: core.DFVal.Modifier] = core.<>[T, M]
+type TOKEN = core.TOKEN
+type <>[T <: DFType, M] = core.<>[T, M]
 
 val ? = core.?
 export core.SameBitsVector.*

@@ -18,12 +18,13 @@ type VAL = DFVal.Modifier.VAL
 type VAR = DFVal.Modifier.VAR.type
 type IN = DFVal.Modifier.IN.type
 type OUT = DFVal.Modifier.OUT.type
-
-type <>[T <: DFType, M <: DFVal.Modifier] = M match
-  case VAL => DFValOf[T]
-  case VAR => DFVarOf[T]
-  case IN  => DFPortOf[T]
-  case OUT => DFPortOf[T]
+trait TOKEN
+type <>[T <: DFType, M] = M match
+  case VAL   => DFValOf[T]
+  case VAR   => DFVarOf[T]
+  case IN    => DFPortOf[T]
+  case OUT   => DFPortOf[T]
+  case TOKEN => DFToken.Of[T]
 
 extension (dfVal: ir.DFVal)
   def asValOf[T <: DFType]: DFValOf[T] = dfVal.asInstanceOf[DFValOf[T]]

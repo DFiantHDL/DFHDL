@@ -6,11 +6,9 @@ import annotation.targetName
 //TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
 opaque type DFBoolOrBit <: DFType.Of[
   DFiant.compiler.ir.DFBoolOrBit
-] with DFBoolOrBit.HasToken =
-  DFType.Of[DFiant.compiler.ir.DFBoolOrBit] with DFBoolOrBit.HasToken
+] = DFType.Of[DFiant.compiler.ir.DFBoolOrBit]
 object DFBoolOrBit:
   type Data = Option[Boolean]
-  trait HasToken { type Token = DFBoolOrBit.Token }
   type Token = DFToken.Of[DFBoolOrBit]
   object Token:
     extension (token: Token)
@@ -75,8 +73,8 @@ object DFBoolOrBit:
 
   object Ops:
     extension (dfVal: DFBoolOrBit <> VAL)
-      def asBool(using DFC): DFBoolOrBit <> VAL = ??? //dfVal.as(DFBool)
-      def asBit(using DFC): DFBoolOrBit <> VAL = ??? //dfVal.as(DFBit)
+      def asBool(using DFC): DFBoolOrBit <> VAL = dfVal.as(DFBool)
+      def asBit(using DFC): DFBoolOrBit <> VAL = dfVal.as(DFBit)
   end Ops
 end DFBoolOrBit
 
