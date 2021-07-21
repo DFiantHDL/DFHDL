@@ -32,7 +32,7 @@ extension (dfVal: ir.DFVal)
   def asPortOf[T <: DFType]: DFPortOf[T] = dfVal.asInstanceOf[DFPortOf[T]]
 
 object DFVal:
-  export ir.DFVal.Modifier
+  export DFiant.compiler.ir.DFVal.Modifier
 
   extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
     def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]
@@ -72,6 +72,22 @@ object DFVal:
         )
         .addMember
         .asFE[T, M]
+
+  object Alias:
+    object AsIs:
+      def apply[AT <: DFType, VT <: DFType, M <: Modifier](
+          aliasType: AT,
+          relVal: DFVal[VT, M]
+      )(using DFC): DFVal[AT, M] =
+        lazy val alias: ir.DFVal =
+          ir.DFVal.Alias.AsIs(
+            aliasType.asIR,
+            relVal.asIR.refTW(alias),
+            dfc.owner.ref,
+            dfc.getMeta,
+            ir.DFTags.empty
+          )
+        alias.addMember.asFE[AT, M]
 
   @implicitNotFound(
     "Unsupported argument value ${R} for dataflow receiver type ${T}"
@@ -115,15 +131,30 @@ object DFVal:
   end TC
 
   object Ops:
+    protected object `AW == TW`
+        extends Check2[
+          Int,
+          Int,
+          [AW <: Int, TW <: Int] =>> AW == TW,
+          [AW <: Int, TW <: Int] =>> "The alias width (" +
+            ToString[AW] +
+            ") is different than the dataflow value width (" +
+            ToString[TW] +
+            ")."
+        ]
     extension [T <: DFType, M <: DFVal.Modifier](dfVal: DFVal[T, M])
       def as[A](
           aliasType: A
       )(using
           tc: DFType.TC[A],
-          w1: Width[T],
-          w2: Width[A],
+          aW: Width[A],
+          tW: Width[T],
           dfc: DFC
-      )(using check: w1.Out =:= w2.Out): DFVal[tc.Type, M] = ???
+      )(using check: `AW == TW`.Check[aW.Out, tW.Out]): DFVal[tc.Type, M] =
+        val aliasDFType = tc(aliasType)
+        check.apply(aliasDFType.asIR.width, dfVal.width)
+        Alias.AsIs(aliasDFType, dfVal)
+
   end Ops
 end DFVal
 

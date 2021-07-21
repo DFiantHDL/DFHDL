@@ -35,7 +35,14 @@ protected trait DFValPrinter extends AbstractPrinter:
             args
               .map(_.refCodeString.applyBrackets(true))
               .mkString(s" ${dfVal.op} ")
-  def csDFValAliasRef(dfVal: Alias)(using MemberGetSet): String = ???
+  def csDFValAliasAsIs(dfVal: Alias.AsIs)(using MemberGetSet): String =
+    val relValStr = dfVal.relValRef.refCodeString.applyBrackets()
+    s"${relValStr}.as(${printer.csDFType(dfVal.dfType)})"
+  def csDFValAliasRef(dfVal: Alias)(using MemberGetSet): String = dfVal match {
+    case dv: Alias.AsIs  => csDFValAliasAsIs(dv)
+    case _: Alias.Prev   => ???
+    case _: Alias.BitsWL => ???
+  }
   def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner])(using
       MemberGetSet
   ): String =

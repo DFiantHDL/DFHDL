@@ -1,7 +1,6 @@
 package DFiant.compiler
 package printing
 import ir.*
-import DFiant.core.DFC
 import scala.collection.mutable
 
 protected trait AbstractPrinter:
@@ -56,5 +55,3 @@ extension (token: DFType.Token)(using printer: DFTokenPrinter)
     printer.csDFToken(token)
 
 object DefaultPrinter extends Printer
-trait CPrinter extends Printer:
-  val ctx: DFC

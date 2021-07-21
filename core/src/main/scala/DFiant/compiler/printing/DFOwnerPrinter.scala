@@ -10,7 +10,13 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       MemberGetSet
   ): String =
     owner.members.view
+      //only members that match the requested construction mode
       .filter(m => m.hasLateConstruction == lateConstruction)
+      //only members that are named or nets
+      .collect {
+        case m: DFMember.Named if !m.isAnonymous => m
+        case net: DFNet                          => net
+      }
       .map(_.codeString)
       .filter(_.nonEmpty)
       .mkString("\n")

@@ -1,6 +1,5 @@
 package DFiant.compiler
 package ir
-import printing.{Printer}
 import DFiant.internals.*
 
 import scala.collection.immutable.{ListMap, ListSet}
