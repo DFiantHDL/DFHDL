@@ -132,8 +132,6 @@ object DFVal:
   end Ops
 end DFVal
 
-export DFVal.Ops.*
-
 object DFValNI:
   //TODO: Delete if no use eventually
   inline def initTokens[T <: DFType](

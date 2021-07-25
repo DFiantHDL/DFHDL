@@ -26,6 +26,8 @@ class DFTokenSpec extends FunSuite:
     val t5: DFBits[10] <> TOKEN = h"1{00}1"
     val t6: DFBits[3] <> TOKEN = DFBits(3) token ?
     val t7: DFBits[8] <> TOKEN = DFBits(8) token t2
+//    val u: DFUInt[8] <> TOKEN = ???
+//    val t8: DFBits[8] <> TOKEN = u
     assert(t7 == t2)
   }
 

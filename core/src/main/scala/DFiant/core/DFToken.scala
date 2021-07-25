@@ -12,6 +12,7 @@ extension (token: ir.DFType.Token)
 object DFToken:
   //Implicit conversions for tokens
   export DFBoolOrBit.Token.Conversions.given
+  export DFBits.Token.Conversions.given
 
   protected[core] def bubble[T <: DFType](dfType: T): DFToken.Of[T] =
     ir.DFType.Token.bubble(dfType.asIR)
@@ -32,6 +33,7 @@ object DFToken:
   object TC:
     export DFBoolOrBit.Token.TC.given
     export DFBits.Token.TC.given
+    export DFTuple.Token.TC.given
 
     transparent inline given DFTokenFromBubble[T <: DFType, V <: Bubble]
         : TC[T, V] =
@@ -65,4 +67,9 @@ object DFToken:
       }
     end fromValueMacro
   end Value
+
+  object Ops:
+    extension [T <: DFType](token: T <> TOKEN)
+      def bits(using w: Width[T]): DFBits[w.Out] <> TOKEN = ???
+  end Ops
 end DFToken

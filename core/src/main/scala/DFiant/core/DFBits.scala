@@ -64,6 +64,14 @@ object DFBits:
       def valueBits: BitVector = token.data._1
       def bubbleBits: BitVector = token.data._2
 
+    object Conversions:
+      given toDFBitsKnownWidth[W <: Int & Singleton, V](using
+          tc: DFToken.TC[DFBits[W], V],
+          w: ValueOf[W]
+      ): Conversion[V, DFBits[W] <> TOKEN] = value =>
+        tc(DFBits(valueOf[W]), value)
+    end Conversions
+
     object TC:
       import DFToken.TC
       protected object `W == VW`
@@ -77,27 +85,30 @@ object DFBits:
               ToString[W] +
               ")."
           ]
-      transparent inline given DFBitsTokenFromToken[W <: Int, VW <: Int](using
-          check: `W == VW`.Check[W, VW]
-      ): TC[DFBits[W], DFBits.Token[VW]] = new TC[DFBits[W], DFBits.Token[VW]]:
-        type Out = DFBits[W] <> TOKEN
-        def apply(dfType: DFBits[W], value: DFBits.Token[VW]): Out =
-          check(dfType.width, value.asIR.width)
-          DFBits.Token[W](dfType, value.data)
+      transparent inline given DFBitsTokenFromDFBitsToken[W <: Int, VW <: Int](
+          using check: `W == VW`.Check[W, VW]
+      ): TC[DFBits[W], DFBits[VW] <> TOKEN] =
+        new TC[DFBits[W], DFBits[VW] <> TOKEN]:
+          type Out = DFBits[W] <> TOKEN
+          def apply(dfType: DFBits[W], value: DFBits[VW] <> TOKEN): Out =
+            check(dfType.width, value.asIR.width)
+            value.asInstanceOf[Out]
+
+      transparent inline given DFBitsTokenFromDFUIntToken[W <: Int, VW <: Int](
+          using check: `W == VW`.Check[W, VW]
+      ): TC[DFBits[W], DFUInt[VW] <> TOKEN] =
+        new TC[DFBits[W], DFUInt[VW] <> TOKEN]:
+          type Out = DFBits[W] <> TOKEN
+          def apply(dfType: DFBits[W], value: DFUInt[VW] <> TOKEN): Out =
+            import DFToken.Ops.bits
+            check(dfType.width, value.asIR.width)
+            value.bits
 
       transparent inline given DFBitsTokenFromSBV[W <: Int, V <: SameBitsVector]
           : TC[DFBits[W], V] = new TC[DFBits[W], V]:
         type Out = DFToken.Of[DFBits[W]]
         def apply(dfType: DFBits[W], value: V): Out =
           DFBits.Token[W](dfType.width, value)
-
-      //TODO: move to DFTuple
-      transparent inline given DFTupleTokenFromTuple[T, V <: NonEmptyTuple](
-          using creator: DFTuple.Token.Creator[T, V]
-      ): TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
-        type Out = DFTuple[T] <> TOKEN
-        def apply(dfType: DFTuple[T], value: V): Out =
-          DFTuple.Token[T](dfType, creator(dfType.fieldList, value.toList))
     end TC
 
     private val widthExp = "([0-9]+)'(.*)".r

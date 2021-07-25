@@ -84,3 +84,16 @@ object DFTuple:
               applyExpr[T, V]('fieldList, 'tokenTupleValues)
             }
         }
+    end Creator
+
+    object TC:
+      import DFToken.TC
+      transparent inline given DFTupleTokenFromTuple[T, V <: NonEmptyTuple](
+          using creator: Creator[T, V]
+      ): TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
+        type Out = DFTuple[T] <> TOKEN
+        def apply(dfType: DFTuple[T], value: V): Out =
+          DFTuple.Token[T](dfType, creator(dfType.fieldList, value.toList))
+    end TC
+  end Token
+end DFTuple
