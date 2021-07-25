@@ -37,7 +37,9 @@ protected trait DFValPrinter extends AbstractPrinter:
               .mkString(s" ${dfVal.op} ")
   def csDFValAliasAsIs(dfVal: Alias.AsIs)(using MemberGetSet): String =
     val relValStr = dfVal.relValRef.refCodeString.applyBrackets()
-    s"${relValStr}.as(${printer.csDFType(dfVal.dfType)})"
+    dfVal.dfType match
+      case _: DFBits => s"${relValStr}.bits"
+      case _         => s"${relValStr}.as(${printer.csDFType(dfVal.dfType)})"
   def csDFValAliasRef(dfVal: Alias)(using MemberGetSet): String = dfVal match {
     case dv: Alias.AsIs  => csDFValAliasAsIs(dv)
     case _: Alias.Prev   => ???

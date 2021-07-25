@@ -295,7 +295,18 @@ object DFBits:
             ToString[TW] +
             ")."
         ]
-    extension [T <: DFType, W <: Int](lhs: DFValOf[T])(using DFBits.WA[T, W])
+    protected object BitIndex
+        extends Check2[
+          Int,
+          Int,
+          [I <: Int, W <: Int] =>> (I < W) && (I >= 0),
+          [I <: Int, W <: Int] =>> "Index " + ToString[I] +
+            " is out of range of width/length " + ToString[W]
+        ]
+
+    extension [T <: DFType, W <: Int, M <: DFVal.Modifier](
+        lhs: DFVal[T, M]
+    )(using DFBits.WA[T, W])
       def as[A](
           aliasType: A
       )(using
@@ -306,5 +317,24 @@ object DFBits:
         val aliasDFType = tc(aliasType)
         check.apply(aliasDFType.asIR.width, lhs.width)
         DFVal.Alias.AsIs(aliasDFType, lhs)
+      def apply[I <: Int](
+          relBit: Inlined.Int[I]
+      )(using
+          check: BitIndex.Check[I, W],
+          dfc: DFC
+      ): DFVal[DFBoolOrBit, M] =
+        check(relBit, lhs.width)
+        ???
+      def apply[H <: Int, L <: Int](
+          relBitHigh: Inlined.Int[H],
+          relBitLow: Inlined.Int[L]
+      )(using
+          checkHigh: BitIndex.Check[H, W],
+          checkLow: BitIndex.Check[H, W],
+          dfc: DFC
+      ): DFVal[DFBits[H - L + 1], M] =
+        checkHigh(relBitHigh, lhs.width)
+        checkLow(relBitLow, lhs.width)
+        ???
   end Ops
 end DFBits

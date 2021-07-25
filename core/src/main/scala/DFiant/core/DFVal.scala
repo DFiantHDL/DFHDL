@@ -127,7 +127,8 @@ object DFVal:
 
   object Ops:
     extension [T <: DFType, M <: DFVal.Modifier](dfVal: DFVal[T, M])
-      def bits(using w: Width[T]): DFValOf[DFBits[w.Out]] = ???
+      def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
+        DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal)
   end Ops
 end DFVal
 
