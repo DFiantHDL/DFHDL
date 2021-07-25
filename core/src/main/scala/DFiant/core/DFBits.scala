@@ -77,21 +77,25 @@ object DFBits:
               ToString[W] +
               ")."
           ]
-      given DFBitsTokenFromToken[W <: Int, VW <: Int](using
+      transparent inline given DFBitsTokenFromToken[W <: Int, VW <: Int](using
           check: `W == VW`.Check[W, VW]
       ): TC[DFBits[W], DFBits.Token[VW]] = new TC[DFBits[W], DFBits.Token[VW]]:
+        type Out = DFBits[W] <> TOKEN
         def apply(dfType: DFBits[W], value: DFBits.Token[VW]): Out =
-          check(dfType.width, value.width)
+          check(dfType.width, value.asIR.width)
           DFBits.Token[W](dfType, value.data)
 
-      given DFBitsTokenFromSBV[W <: Int, V <: SameBitsVector]
+      transparent inline given DFBitsTokenFromSBV[W <: Int, V <: SameBitsVector]
           : TC[DFBits[W], V] = new TC[DFBits[W], V]:
+        type Out = DFToken.Of[DFBits[W]]
         def apply(dfType: DFBits[W], value: V): Out =
           DFBits.Token[W](dfType.width, value)
 
-      given DFTupleTokenFromTuple[T, V <: NonEmptyTuple](using
-          creator: DFTuple.Token.Creator[T, V]
+      //TODO: move to DFTuple
+      transparent inline given DFTupleTokenFromTuple[T, V <: NonEmptyTuple](
+          using creator: DFTuple.Token.Creator[T, V]
       ): TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
+        type Out = DFTuple[T] <> TOKEN
         def apply(dfType: DFTuple[T], value: V): Out =
           DFTuple.Token[T](dfType, creator(dfType.fieldList, value.toList))
     end TC
@@ -303,6 +307,14 @@ object DFBits:
           [I <: Int, W <: Int] =>> "Index " + ToString[I] +
             " is out of range of width/length " + ToString[W]
         ]
+    protected object BitsHiLo
+        extends Check2[
+          Int,
+          Int,
+          [H <: Int, L <: Int] =>> H >= L,
+          [H <: Int, L <: Int] =>> "Low index " + ToString[L] +
+            " is bigger than High bit index " + ToString[H]
+        ]
 
     extension [T <: DFType, W <: Int, M <: DFVal.Modifier](
         lhs: DFVal[T, M]
@@ -322,7 +334,7 @@ object DFBits:
       )(using
           check: BitIndex.Check[I, W],
           dfc: DFC
-      ): DFVal[DFBoolOrBit, M] =
+      ): DFBit <> M =
         check(relBit, lhs.width)
         ???
       def apply[H <: Int, L <: Int](
@@ -330,11 +342,13 @@ object DFBits:
           relBitLow: Inlined.Int[L]
       )(using
           checkHigh: BitIndex.Check[H, W],
-          checkLow: BitIndex.Check[H, W],
+          checkLow: BitIndex.Check[L, W],
+          checkHiLo: BitsHiLo.Check[H, L],
           dfc: DFC
-      ): DFVal[DFBits[H - L + 1], M] =
+      ): DFBits[H - L + 1] <> M =
         checkHigh(relBitHigh, lhs.width)
         checkLow(relBitLow, lhs.width)
+        checkHiLo(relBitHigh, relBitLow)
         ???
   end Ops
 end DFBits

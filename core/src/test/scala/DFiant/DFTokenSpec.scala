@@ -3,15 +3,17 @@ import munit.*
 import internals.Inlined
 
 class DFTokenSpec extends FunSuite:
-  test("DFBit Token Construction") {
+  test("DFBit/DFBool Token Construction and Conversion") {
     val bool = true
-    val t1: DFBit <> TOKEN = DFBit token 0
+    val t1: DFBit <> TOKEN = 0
     val t2: DFBit <> TOKEN = DFBit token 1
     val t3: DFBool <> TOKEN = DFBool token true
-    val t4: DFBool <> TOKEN = DFBool token false
+    val t4: DFBool <> TOKEN = false
     val t5: DFBit <> TOKEN = DFBit token ?
     val t6: DFBool <> TOKEN = DFBool token t5
     val t7: DFBool <> TOKEN = DFBool token bool
+    val t8: DFBit <> TOKEN = t7
+    val t9: DFBool <> TOKEN = t8
     assert(t3 == t7)
   }
 

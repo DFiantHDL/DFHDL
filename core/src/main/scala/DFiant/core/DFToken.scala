@@ -10,6 +10,9 @@ opaque type DFToken = ir.DFType.Token
 extension (token: ir.DFType.Token)
   def asTokenOf[T <: DFType]: DFToken.Of[T] = token.asInstanceOf[DFToken.Of[T]]
 object DFToken:
+  //Implicit conversions for tokens
+  export DFBoolOrBit.Token.Conversions.given
+
   protected[core] def bubble[T <: DFType](dfType: T): DFToken.Of[T] =
     ir.DFType.Token.bubble(dfType.asIR)
   extension (of: DFToken)
@@ -24,14 +27,16 @@ object DFToken:
         Inlined.Int.forced[w.Out](token.asIR.width)
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
   trait TC[T <: DFType, V]:
-    type Out = DFToken.Of[T]
+    type Out <: DFToken.Of[T]
     def apply(dfType: T, value: V): Out
   object TC:
     export DFBoolOrBit.Token.TC.given
     export DFBits.Token.TC.given
 
-    given DFTokenFromBubble[T <: DFType, V <: Bubble]: TC[T, V] =
+    transparent inline given DFTokenFromBubble[T <: DFType, V <: Bubble]
+        : TC[T, V] =
       new TC[T, V]:
+        type Out = DFToken.Of[T]
         def apply(dfType: T, value: V): Out =
           Bubble(dfType)
   end TC
