@@ -3,6 +3,8 @@ package DFiant
 export core.DFType.Ops.*
 export core.DFBoolOrBit.Token.Ops.*
 export core.DFBoolOrBit.Ops.*
+export core.DFBits.Token.Ops.*
+export core.DFBits.Ops.*
 export core.DFUnion.Ops.*
 export core.DFOpaque.Ops.*
 export core.DFVector.Ops.*

@@ -96,7 +96,6 @@ object DFVal:
     type Out <: DFType
     def apply(dfType: T, value: R): DFValOf[Out]
   object TC:
-    export DFBoolOrBit.DFValTC.given
     export DFBits.DFValTC.given
     //Accept any dataflow value of the same type
     transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
@@ -104,11 +103,7 @@ object DFVal:
         type Out = T
         def apply(dfType: T, value: DFValOf[T]): DFValOf[T] =
           val updated = (dfType.asIR, value.asIR.dfType) match
-            case (_: ir.DFBoolOrBit, _: ir.DFBoolOrBit) =>
-              summon[TC[DFBoolOrBit, DFBoolOrBit <> VAL]](
-                dfType.asIR.asFE[DFBoolOrBit],
-                value.asIR.asValOf[DFBoolOrBit]
-              )
+            case (_: ir.DFBoolOrBit, _: ir.DFBoolOrBit) => value
             case (_: ir.DFBits, _: ir.DFBits) =>
               summon[TC[DFBits[Int], DFBits[Int] <> VAL]](
                 dfType.asIR.asFE[DFBits[Int]],
@@ -131,30 +126,8 @@ object DFVal:
   end TC
 
   object Ops:
-    protected object `AW == TW`
-        extends Check2[
-          Int,
-          Int,
-          [AW <: Int, TW <: Int] =>> AW == TW,
-          [AW <: Int, TW <: Int] =>> "The alias width (" +
-            ToString[AW] +
-            ") is different than the dataflow value width (" +
-            ToString[TW] +
-            ")."
-        ]
     extension [T <: DFType, M <: DFVal.Modifier](dfVal: DFVal[T, M])
-      def as[A](
-          aliasType: A
-      )(using
-          tc: DFType.TC[A],
-          aW: Width[A],
-          tW: Width[T],
-          dfc: DFC
-      )(using check: `AW == TW`.Check[aW.Out, tW.Out]): DFVal[tc.Type, M] =
-        val aliasDFType = tc(aliasType)
-        check.apply(aliasDFType.asIR.width, dfVal.width)
-        Alias.AsIs(aliasDFType, dfVal)
-
+      def bits(using w: Width[T]): DFValOf[DFBits[w.Out]] = ???
   end Ops
 end DFVal
 

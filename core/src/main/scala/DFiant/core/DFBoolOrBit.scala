@@ -52,29 +52,12 @@ object DFBoolOrBit:
             DFBoolOrBit.Token(dfType, value.data)
     end TC
   end Token
-
-  object DFValTC:
-    import DFVal.TC
-    transparent inline given DFBoolOrBitArg[M <: DFVal.Modifier](using
-        DFC
-    ): TC[DFBoolOrBit, DFVal[DFBoolOrBit, M]] =
-      new TC[DFBoolOrBit, DFVal[DFBoolOrBit, M]]:
-        type Out = DFBoolOrBit
-        def apply(
-            dfType: DFBoolOrBit,
-            value: DFVal[DFBoolOrBit, M]
-        ): DFValOf[Out] =
-          val updated = (dfType.asIR, value.asIR.dfType) match
-            case (ir.DFBool, ir.DFBit) => value.asBool
-            case (ir.DFBit, ir.DFBool) => value.asBit
-            case _                     => value
-          updated.asIR.asValOf[Out]
-  end DFValTC
+  
 
   object Ops:
-    extension (dfVal: DFBoolOrBit <> VAL)
-      def asBool(using DFC): DFBoolOrBit <> VAL = dfVal.as(DFBool)
-      def asBit(using DFC): DFBoolOrBit <> VAL = dfVal.as(DFBit)
+//    extension (dfVal: DFBoolOrBit <> VAL)
+//      def asBool(using DFC): DFBoolOrBit <> VAL = dfVal.as(DFBool)
+//      def asBit(using DFC): DFBoolOrBit <> VAL = dfVal.as(DFBit)
   end Ops
 end DFBoolOrBit
 

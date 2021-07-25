@@ -276,7 +276,35 @@ object DFBits:
           value.asIR.asValOf[DFBits[LW]]
   end DFValTC
 
+  //TODO: remove workaround for https://github.com/lampepfl/dotty/issues/13128
+  type WA[T <: DFType, W0 <: Int] = WA.Internal[T] { type W = W0 }
+  object WA:
+    trait Internal[T <: DFType]:
+      type W <: Int
+    given [W0 <: Int]: Internal[DFBits[W0]] with
+      type W = W0
   object Ops:
-
+    protected object `AW == TW`
+        extends Check2[
+          Int,
+          Int,
+          [AW <: Int, TW <: Int] =>> AW == TW,
+          [AW <: Int, TW <: Int] =>> "The alias width (" +
+            ToString[AW] +
+            ") is different than the dataflow value width (" +
+            ToString[TW] +
+            ")."
+        ]
+    extension [T <: DFType, W <: Int](lhs: DFValOf[T])(using DFBits.WA[T, W])
+      def as[A](
+          aliasType: A
+      )(using
+          tc: DFType.TC[A],
+          aW: Width[A],
+          dfc: DFC
+      )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] =
+        val aliasDFType = tc(aliasType)
+        check.apply(aliasDFType.asIR.width, lhs.width)
+        DFVal.Alias.AsIs(aliasDFType, lhs)
   end Ops
 end DFBits
