@@ -8,6 +8,48 @@ sealed trait DFType extends Product, Serializable:
   val width: Int
 object DFType:
   type Token = DFToken[DFType, Any]
+  extension (token: Token)
+    def bits: DFBits.Token =
+      val bitsData: DFBits.Token.Data =
+        token.dfType match
+          case _: DFBoolOrBit =>
+            DFBoolOrBit.Token.dataToBitVectors(
+              token.data.asInstanceOf[DFBoolOrBit.Token.Data]
+            )
+          case t: DFBits =>
+            DFBits.Token.dataToBitVectors(
+              token.data.asInstanceOf[DFBits.Token.Data]
+            )
+          case t: DFDecimal =>
+            DFDecimal.Token.dataToBitVectors(
+              token.data.asInstanceOf[DFDecimal.Token.Data]
+            )
+          case t: DFEnum =>
+            DFEnum.Token.dataToBitVectors(
+              token.data.asInstanceOf[DFEnum.Token.Data]
+            )
+          case t: DFVector =>
+            DFVector.Token.dataToBitVectors(
+              token.data.asInstanceOf[DFVector.Token.Data]
+            )
+          case t: DFOpaque =>
+            DFOpaque.Token.dataToBitVectors(
+              token.data.asInstanceOf[DFOpaque.Token.Data]
+            )
+          case t: DFUnion =>
+            DFUnion.Token.dataToBitVectors(
+              token.data.asInstanceOf[DFUnion.Token.Data]
+            )
+          case t: DFStruct =>
+            DFStruct.Token.dataToBitVectors(
+              token.data.asInstanceOf[DFStruct.Token.Data]
+            )
+          case t: DFTuple =>
+            DFTuple.Token.dataToBitVectors(
+              token.data.asInstanceOf[DFTuple.Token.Data]
+            )
+      DFBits.Token(DFBits(token.width), bitsData)
+
   object Token:
     def bubble(dfType: DFType): Token = dfType match
       case t: DFBoolOrBit => DFBoolOrBit.Token.bubble(t)
@@ -33,7 +75,9 @@ object DFType:
             Some((dt, token.data.asInstanceOf[D]))
           case _ => None
       def bubble(dfType: T): DFToken[T, D] = apply(dfType, bubbleCreate(dfType))
+      def dataToBitVectors(token: D): DFBits.Token.Data = ???
 
+//  protected[ir] abstract class OptionDataCompanion[T <: DFType, D]()
 //object DFToken:
 //  sealed trait Optional extends DFToken:
 //    type Data
