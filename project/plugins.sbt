@@ -1,6 +1,6 @@
 logLevel := Level.Warn
 
-addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.5.3")
+addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.6.0")
 
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.15.0")
 
