@@ -4,6 +4,7 @@ export core.DFType.Ops.*
 //export core.DFBoolOrBit.Token.Ops.*
 //export core.DFBoolOrBit.Ops.*
 export core.DFBits.Token.Ops.*
+export core.DFBits.Token.StrInterp.*
 export core.DFBits.Ops.*
 export core.DFUnion.Ops.*
 export core.DFOpaque.Ops.*
@@ -44,18 +45,6 @@ type <>[T <: DFType, M] = core.<>[T, M]
 
 val ? = core.?
 export core.SameBitsVector.*
-
-//TODO: move to DFBits.Token.StrInterp and export here after
-//https://github.com/lampepfl/dotty/issues/12958 is resolved
-extension (inline sc: StringContext)
-  transparent inline def b(inline args: Any*): core.DFToken =
-    ${
-      DFBits.Token.StrInterp.interpMacro('{ "b" })('sc, 'args)
-    }
-  transparent inline def h(inline args: Any*): core.DFToken =
-    ${
-      DFBits.Token.StrInterp.interpMacro('{ "h" })('sc, 'args)
-    }
 
 trait OpaqueTest[T]
 object OpaqueTest:

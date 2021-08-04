@@ -29,8 +29,7 @@ object DFBits:
         data: (BitVector, BitVector)
     ): Token[W] =
       ir.DFToken(dfType.asIR, data).asInstanceOf[Token[W]]
-    //TODO: change to protected[core] after https://github.com/lampepfl/dotty/issues/12948 is resolved
-    def apply[W <: Int](
+    protected[core] def apply[W <: Int](
         width: Inlined.Int[W],
         valueBits: BitVector,
         bubbleBits: BitVector
@@ -181,7 +180,17 @@ object DFBits:
     end fromHexString
 
     object StrInterp:
-      def interpMacro(op: Expr[String])(
+      extension (inline sc: StringContext)
+        transparent inline def b(inline args: Any*): DFToken =
+          ${
+            interpMacro('{ "b" })('sc, 'args)
+          }
+        transparent inline def h(inline args: Any*): DFToken =
+          ${
+            interpMacro('{ "h" })('sc, 'args)
+          }
+
+      private def interpMacro(op: Expr[String])(
           sc: Expr[StringContext],
           args: Expr[Seq[Any]]
       )(using Quotes): Expr[DFToken] =
