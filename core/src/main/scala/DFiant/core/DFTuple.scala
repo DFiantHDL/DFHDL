@@ -24,17 +24,17 @@ object DFTuple:
     ): Token[T] =
       ir.DFToken(dfType.asIR, data).asInstanceOf[Token[T]]
 
-    trait Creator[T, V <: NonEmptyTuple]:
+    trait Creator[T <: NonEmptyTuple, V <: NonEmptyTuple]:
       def apply(
           fieldList: List[DFType],
           tokenTupleValues: List[Any]
       ): List[DFToken]
     object Creator:
-      inline given [T, V <: NonEmptyTuple]: Creator[T, V] = ${
+      inline given [T <: NonEmptyTuple, V <: NonEmptyTuple]: Creator[T, V] = ${
         createMacro[T, V]
       }
       import DFType.TC.MacroOps.*
-      def createMacro[T, V <: NonEmptyTuple](using
+      def createMacro[T <: NonEmptyTuple, V <: NonEmptyTuple](using
           Quotes,
           Type[T],
           Type[V]
@@ -74,6 +74,8 @@ object DFTuple:
               s"DFType tuple length (${tArgs.length}) and token value tuple length (${vArgs.length}) do not match."
             )
             '{ ??? }
+          end if
+        end applyExpr
         import quotes.reflect.*
         '{
           new Creator[T, V]:
@@ -84,16 +86,41 @@ object DFTuple:
               applyExpr[T, V]('fieldList, 'tokenTupleValues)
             }
         }
+      end createMacro
     end Creator
 
     object TC:
       import DFToken.TC
-      transparent inline given DFTupleTokenFromTuple[T, V <: NonEmptyTuple](
-          using creator: Creator[T, V]
+      transparent inline given DFTupleTokenFromTuple[
+          T <: NonEmptyTuple,
+          V <: NonEmptyTuple
+      ](using
+          creator: Creator[T, V]
       ): TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
         type Out = DFTuple[T] <> TOKEN
         def apply(dfType: DFTuple[T], value: V): Out =
           DFTuple.Token[T](dfType, creator(dfType.fieldList, value.toList))
     end TC
   end Token
+
+  object DFValTC:
+    import DFVal.TC
+    transparent inline given DFTupleArg[T <: NonEmptyTuple, R <: NonEmptyTuple]
+        : TC[DFTuple[T], R] = ${ DFTupleArgMacro[T, R] }
+    def DFTupleArgMacro[T <: NonEmptyTuple, R <: NonEmptyTuple](using
+        Quotes,
+        Type[T],
+        Type[R]
+    ): Expr[TC[DFTuple[T], R]] =
+      import quotes.reflect.*
+      val tTpe = TypeRepr.of[T]
+      val rTpe = TypeRepr.of[R]
+      println(tTpe)
+      println(rTpe)
+      '{
+        new TC[DFTuple[T], R]:
+          type Out = DFTuple[T]
+          def apply(dfType: DFTuple[T], value: R): DFValOf[Out] = ???
+      }
+  end DFValTC
 end DFTuple

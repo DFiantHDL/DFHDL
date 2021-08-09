@@ -2,8 +2,8 @@ import DFiant.*
 
 class Foo(using DFC) extends DFDesign:
   val x = DFUInt(8) <> IN
-  val y = DFBits(8) <> OUT
-  y := x.bits
+  val y = (DFBits(8), DFBit) <> OUT
+  y := (1, 3)
 //    .asInstanceOf[core.DFValOf[DFBits[8]]]
 //  x := 1
 //  val bitsToken = DFBits(8) token b0s
@@ -12,8 +12,7 @@ class Foo(using DFC) extends DFDesign:
 //  foo((1, 2))
 //  (DFBits(8), DFBit) <> IN init ?
 
-object Bla extends App {
+object Bla extends App:
   val top = new Foo
   top.printCodeString()
 //  summon[core.DFToken.TC[DFBits[6], DFBits.Token[8]]]
-}

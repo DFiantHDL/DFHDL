@@ -97,6 +97,7 @@ object DFVal:
     def apply(dfType: T, value: R): DFValOf[Out]
   object TC:
     export DFBits.DFValTC.given
+    export DFTuple.DFValTC.given
     //Accept any dataflow value of the same type
     transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
       new TC[T, DFValOf[T]]:
