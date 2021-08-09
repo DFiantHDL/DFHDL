@@ -144,7 +144,7 @@ object DFBits:
         word.foldLeft((BitVector.empty, BitVector.empty, false)) {
           case (t, '_' | ' ') => t //ignoring underscore or space
           case ((v, b, false), c) =>
-            c match { //hex mode
+            c match //hex mode
               case '{' => (v, b, true)
               case '?' => (v ++ BitVector.low(4), b ++ BitVector.high(4), false)
               case isHex() =>
@@ -154,7 +154,6 @@ object DFBits:
                   false
                 )
               case x => return Left(s"Found invalid hex character: $x")
-            }
           case ((v, b, true), c) =>
             c match //bin mode
               case '}' => (v, b, false)
@@ -291,11 +290,11 @@ object DFBits:
         check: `LW == RW`.Check[LW, RW]
     ): TC[DFBits[LW], DFVal[DFBits[RW], M]] =
       new TC[DFBits[LW], DFVal[DFBits[RW], M]]:
-        type Out = DFBits[LW]
+        type TType = DFBits[LW]
         def apply(
             dfType: DFBits[LW],
             value: DFVal[DFBits[RW], M]
-        ): DFValOf[Out] =
+        ): DFValOf[DFBits[LW]] =
           check(dfType.width, value.width.value)
           value.asIR.asValOf[DFBits[LW]]
   end DFValTC

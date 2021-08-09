@@ -95,16 +95,16 @@ object DFVal:
   @implicitNotFound(
     "Unsupported argument value ${R} for dataflow receiver type ${T}"
   )
-  trait TC[T <: DFType, R]:
-    type Out <: DFType
-    def apply(dfType: T, value: R): DFValOf[Out]
+  trait TC[T <: DFType, R] extends GeneralTC[T, R, DFValAny]:
+    type TType <: DFType
+    type Out = DFValOf[TType]
   object TC:
     export DFBits.DFValTC.given
     export DFTuple.DFValTC.given
     //Accept any dataflow value of the same type
     transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
       new TC[T, DFValOf[T]]:
-        type Out = T
+        type TType = T
         def apply(dfType: T, value: DFValOf[T]): DFValOf[T] =
           val updated = (dfType.asIR, value.asIR.dfType) match
             case (_: ir.DFBoolOrBit, _: ir.DFBoolOrBit) => value
@@ -124,7 +124,7 @@ object DFVal:
         dfc: DFC
     ): TC[T, R] =
       new TC[T, R]:
-        type Out = T
+        type TType = T
         def apply(dfType: T, value: R): DFValOf[T] =
           Const(tokenTC(dfType, value))
   end TC

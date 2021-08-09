@@ -136,8 +136,8 @@ object DFTuple:
       println(rTpe)
       '{
         new TC[DFTuple[T], R]:
-          type Out = DFTuple[T]
-          def apply(dfType: DFTuple[T], value: R): DFValOf[Out] = ???
+          type TType = DFTuple[T]
+          def apply(dfType: DFTuple[T], value: R): DFValOf[TType] = ???
       }
   end DFValTC
 end DFTuple
