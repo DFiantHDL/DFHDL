@@ -75,6 +75,23 @@ object DFVal:
         .asFE[T, M]
   end Dcl
 
+  object Func:
+    def apply[T <: DFType](
+        dfType: T,
+        op: ir.DFVal.Func.Op,
+        args: List[DFValAny]
+    )(using DFC): DFValOf[T] =
+      lazy val func: ir.DFVal = ir.DFVal.Func(
+        dfType.asIR,
+        op,
+        args.map(_.asIR.refTW(func)),
+        dfc.owner.ref,
+        dfc.getMeta,
+        ir.DFTags.empty
+      )
+      func.addMember.asValOf[T]
+  end Func
+
   object Alias:
     object AsIs:
       def apply[AT <: DFType, VT <: DFType, M <: Modifier](
@@ -96,8 +113,8 @@ object DFVal:
     "Unsupported argument value ${R} for dataflow receiver type ${T}"
   )
   trait TC[T <: DFType, R] extends GeneralTC[T, R, DFValAny]:
-    type TType <: DFType
-    type Out = DFValOf[TType]
+//    type TType <: DFType
+    type Out = DFValOf[T]
   object TC:
     export DFBits.DFValTC.given
     export DFTuple.DFValTC.given

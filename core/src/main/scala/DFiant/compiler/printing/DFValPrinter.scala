@@ -21,7 +21,7 @@ protected trait DFValPrinter extends AbstractPrinter:
 
   def csDFValFuncRef(dfVal: Func)(using MemberGetSet): String =
     dfVal.args match
-      case argL :: argR :: Nil =>
+      case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         s"${argL.refCodeString.applyBrackets(true)} ${dfVal.op} ${argR.refCodeString.applyBrackets(true)}"
       case arg :: Nil =>
         val opStr = dfVal.op.toString
@@ -40,11 +40,10 @@ protected trait DFValPrinter extends AbstractPrinter:
     dfVal.dfType match
       case _: DFBits => s"${relValStr}.bits"
       case _         => s"${relValStr}.as(${printer.csDFType(dfVal.dfType)})"
-  def csDFValAliasRef(dfVal: Alias)(using MemberGetSet): String = dfVal match {
+  def csDFValAliasRef(dfVal: Alias)(using MemberGetSet): String = dfVal match
     case dv: Alias.AsIs  => csDFValAliasAsIs(dv)
     case _: Alias.Prev   => ???
     case _: Alias.BitsWL => ???
-  }
   def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner])(using
       MemberGetSet
   ): String =
@@ -54,13 +53,12 @@ protected trait DFValPrinter extends AbstractPrinter:
       case dv: Const => csDFValConst(dv)
       case dv: Func  => csDFValFuncRef(dv)
       case dv: Alias => csDFValAliasRef(dv)
-    def rhsInit = dfVal.getTagOf[ExternalInit] match {
+    def rhsInit = dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
         s"$rhs init ${printer.csDFTokenSeq(initSeq)}"
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
         s"$rhs init ${printer.csDFToken(initSeq.head)}"
       case _ => rhs
-    }
     (dfVal, fromOwner) match
       case (c: Const, Some(_)) if c.isAnonymous => csDFValConstRef(c)
       case (dv, Some(owner)) if !dv.isAnonymous =>

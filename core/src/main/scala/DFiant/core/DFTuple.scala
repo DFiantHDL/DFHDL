@@ -122,7 +122,7 @@ object DFTuple:
 
   object DFValTC:
     import DFVal.TC
-    transparent inline given DFTupleArg[
+    given DFTupleArg[
         T <: NonEmptyTuple,
         R <: NonEmptyTuple
     ](using zipper: TCZipper[T, R, DFValAny, TC], dfc: DFC): TC[DFTuple[T], R] =
@@ -130,7 +130,7 @@ object DFTuple:
         type TType = DFTuple[T]
         def apply(dfType: DFTuple[T], value: R): DFValOf[TType] =
           val dfVals = zipper(dfType.fieldList, value.toList)
-          ???
+          DFVal.Func(dfType, ir.DFVal.Func.Op.++, dfVals)
 
   end DFValTC
 end DFTuple
