@@ -112,32 +112,25 @@ object DFTuple:
           T <: NonEmptyTuple,
           V <: NonEmptyTuple
       ](using
-          creator: TCZipper[T, V, DFToken, TC]
+          zipper: TCZipper[T, V, DFToken, TC]
       ): TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
         type Out = DFTuple[T] <> TOKEN
         def apply(dfType: DFTuple[T], value: V): Out =
-          DFTuple.Token[T](dfType, creator(dfType.fieldList, value.toList))
+          DFTuple.Token[T](dfType, zipper(dfType.fieldList, value.toList))
     end TC
   end Token
 
   object DFValTC:
     import DFVal.TC
-    transparent inline given DFTupleArg[T <: NonEmptyTuple, R <: NonEmptyTuple]
-        : TC[DFTuple[T], R] = ${ DFTupleArgMacro[T, R] }
-    def DFTupleArgMacro[T <: NonEmptyTuple, R <: NonEmptyTuple](using
-        Quotes,
-        Type[T],
-        Type[R]
-    ): Expr[TC[DFTuple[T], R]] =
-      import quotes.reflect.*
-      val tTpe = TypeRepr.of[T]
-      val rTpe = TypeRepr.of[R]
-      println(tTpe)
-      println(rTpe)
-      '{
-        new TC[DFTuple[T], R]:
-          type TType = DFTuple[T]
-          def apply(dfType: DFTuple[T], value: R): DFValOf[TType] = ???
-      }
+    transparent inline given DFTupleArg[
+        T <: NonEmptyTuple,
+        R <: NonEmptyTuple
+    ](using zipper: TCZipper[T, R, DFValAny, TC], dfc: DFC): TC[DFTuple[T], R] =
+      new TC[DFTuple[T], R]:
+        type TType = DFTuple[T]
+        def apply(dfType: DFTuple[T], value: R): DFValOf[TType] =
+          val dfVals = zipper(dfType.fieldList, value.toList)
+          ???
+
   end DFValTC
 end DFTuple
