@@ -10,6 +10,7 @@ opaque type DFVal[+T <: DFType, +M <: DFVal.Modifier] <: DFMember.Of[
   DFiant.compiler.ir.DFVal
 ] =
   DFMember.Of[DFiant.compiler.ir.DFVal]
+type DFValAny = DFVal[DFType, DFVal.Modifier]
 type DFValOf[+T <: DFType] = DFVal[T, DFVal.Modifier]
 type DFVarOf[+T <: DFType] = DFVal[T, DFVal.Modifier.Assignable]
 type DFPortOf[+T <: DFType] = DFVal[T, DFVal.Modifier.Port]
@@ -72,6 +73,7 @@ object DFVal:
         )
         .addMember
         .asFE[T, M]
+  end Dcl
 
   object Alias:
     object AsIs:
@@ -88,6 +90,7 @@ object DFVal:
             ir.DFTags.empty
           )
         alias.addMember.asFE[AT, M]
+  end Alias
 
   @implicitNotFound(
     "Unsupported argument value ${R} for dataflow receiver type ${T}"
@@ -153,7 +156,7 @@ object DFValNI:
     val Varargs(args) = tokenValues
     val valueOfTpe = TypeRepr.of[ValueOf]
     val argShowedExprs = args.map { case '{ $arg: tp } =>
-      arg.asTerm match {
+      arg.asTerm match
         case Literal(const) =>
           val tpe = valueOfTpe
             .appliedTo(ConstantType(const))
@@ -167,9 +170,10 @@ object DFValNI:
           }
         case _ =>
           '{ compiletime.summonInline[DFToken.TC[T, tp]]($dfType, $arg) }
-      }
     }
     '{ Seq(${ Varargs(argShowedExprs) }*) }
+  end initTokensMacro
+end DFValNI
 
 extension [T <: DFType](dfVar: DFVarOf[T])
   def assign[R <: DFType](rhs: DFValOf[R])(using DFC): Unit =

@@ -27,9 +27,8 @@ object DFToken:
       def width(using w: Width[T]): Inlined.Int[w.Out] =
         Inlined.Int.forced[w.Out](token.asIR.width)
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
-  trait TC[T <: DFType, V]:
+  trait TC[T <: DFType, V] extends GeneralTC[T, V, DFToken]:
     type Out <: DFToken.Of[T]
-    def apply(dfType: T, value: V): Out
   object TC:
     export DFBoolOrBit.Token.TC.given
     export DFBits.Token.TC.given

@@ -16,6 +16,88 @@ object DFTuple:
         .map(x => DFType(x).asIR)
     ir.DFTuple(fieldList).asInstanceOf[DFTuple[T]]
 
+  trait TCZipper[
+      T <: NonEmptyTuple,
+      V <: NonEmptyTuple,
+      O,
+      TC[T <: DFType, V] <: GeneralTC[T, V, O]
+  ]:
+    def apply(
+        fieldList: List[DFType],
+        tokenTupleValues: List[Any]
+    ): List[O]
+  object TCZipper:
+    inline given [
+        T <: NonEmptyTuple,
+        V <: NonEmptyTuple,
+        O,
+        TC[T <: DFType, V] <: GeneralTC[T, V, O]
+    ]: TCZipper[T, V, O, TC] = ${
+      zipperMacro[T, V, O, TC]
+    }
+    import DFType.TC.MacroOps.*
+    def zipperMacro[
+        T <: NonEmptyTuple,
+        V <: NonEmptyTuple,
+        O,
+        TC[T <: DFType, V] <: GeneralTC[T, V, O]
+    ](using
+        Quotes,
+        Type[T],
+        Type[V],
+        Type[O],
+        Type[TC]
+    ): Expr[TCZipper[T, V, O, TC]] =
+      def applyExpr[T, V](
+          fieldListExpr: Expr[List[DFType]],
+          tokenTupleValuesExpr: Expr[List[Any]]
+      )(using Quotes, Type[T], Type[V], Type[O], Type[TC]): Expr[List[O]] =
+        import quotes.reflect.*
+        val AppliedType(fun, tArgs) = TypeRepr.of[T]
+        val AppliedType(_, vArgs) = TypeRepr.of[V]
+        if (tArgs.length == vArgs.length)
+          val exprs =
+            tArgs.zipWithIndex.lazyZip(vArgs).map { case ((t, i), v) =>
+              val vTpe = v.asTypeOf[Any]
+              val dfTypeTpe = t.dfTypeTpe.get.asTypeOf[DFType]
+              val iExpr = Literal(IntConstant(i)).asExprOf[Int]
+              '{
+                val tc = compiletime
+                  .summonInline[
+                    TC[dfTypeTpe.Underlying, vTpe.Underlying]
+                  ]
+                val dfType =
+                  $fieldListExpr
+                    .apply($iExpr)
+                    .asInstanceOf[dfTypeTpe.Underlying]
+                val value =
+                  $tokenTupleValuesExpr
+                    .apply($iExpr)
+                    .asInstanceOf[vTpe.Underlying]
+                tc.apply(dfType, value)
+              }
+            }
+          '{ List(${ Varargs(exprs) }*) }
+        else
+          report.error(
+            s"DFType tuple length (${tArgs.length}) and value tuple length (${vArgs.length}) do not match."
+          )
+          '{ ??? }
+        end if
+      end applyExpr
+      import quotes.reflect.*
+      '{
+        new TCZipper[T, V, O, TC]:
+          def apply(
+              fieldList: List[DFType],
+              tokenTupleValues: List[Any]
+          ): List[O] = ${
+            applyExpr[T, V]('fieldList, 'tokenTupleValues)
+          }
+      }
+    end zipperMacro
+  end TCZipper
+
   type Token[T] = DFToken.Of[DFTuple[T]]
   object Token:
     protected[core] def apply[T](
@@ -24,78 +106,13 @@ object DFTuple:
     ): Token[T] =
       ir.DFToken(dfType.asIR, data).asInstanceOf[Token[T]]
 
-    trait Creator[T <: NonEmptyTuple, V <: NonEmptyTuple]:
-      def apply(
-          fieldList: List[DFType],
-          tokenTupleValues: List[Any]
-      ): List[DFToken]
-    object Creator:
-      inline given [T <: NonEmptyTuple, V <: NonEmptyTuple]: Creator[T, V] = ${
-        createMacro[T, V]
-      }
-      import DFType.TC.MacroOps.*
-      def createMacro[T <: NonEmptyTuple, V <: NonEmptyTuple](using
-          Quotes,
-          Type[T],
-          Type[V]
-      ): Expr[Creator[T, V]] =
-        def applyExpr[T, V](
-            fieldListExpr: Expr[List[DFType]],
-            tokenTupleValuesExpr: Expr[List[Any]]
-        )(using Quotes, Type[T], Type[V]): Expr[List[DFToken]] =
-          import quotes.reflect.*
-          val AppliedType(fun, tArgs) = TypeRepr.of[T]
-          val AppliedType(_, vArgs) = TypeRepr.of[V]
-          if (tArgs.length == vArgs.length)
-            val exprs =
-              tArgs.zipWithIndex.lazyZip(vArgs).map { case ((t, i), v) =>
-                val vTpe = v.asTypeOf[Any]
-                val dfTypeTpe = t.dfTypeTpe.get.asTypeOf[DFType]
-                val iExpr = Literal(IntConstant(i)).asExprOf[Int]
-                '{
-                  val tc = compiletime
-                    .summonInline[
-                      DFToken.TC[dfTypeTpe.Underlying, vTpe.Underlying]
-                    ]
-                  val dfType =
-                    $fieldListExpr
-                      .apply($iExpr)
-                      .asInstanceOf[dfTypeTpe.Underlying]
-                  val value =
-                    $tokenTupleValuesExpr
-                      .apply($iExpr)
-                      .asInstanceOf[vTpe.Underlying]
-                  tc.apply(dfType, value)
-                }
-              }
-            '{ List(${ Varargs(exprs) }*) }
-          else
-            report.error(
-              s"DFType tuple length (${tArgs.length}) and token value tuple length (${vArgs.length}) do not match."
-            )
-            '{ ??? }
-          end if
-        end applyExpr
-        import quotes.reflect.*
-        '{
-          new Creator[T, V]:
-            def apply(
-                fieldList: List[DFType],
-                tokenTupleValues: List[Any]
-            ): List[DFToken] = ${
-              applyExpr[T, V]('fieldList, 'tokenTupleValues)
-            }
-        }
-      end createMacro
-    end Creator
-
     object TC:
       import DFToken.TC
       transparent inline given DFTupleTokenFromTuple[
           T <: NonEmptyTuple,
           V <: NonEmptyTuple
       ](using
-          creator: Creator[T, V]
+          creator: TCZipper[T, V, DFToken, TC]
       ): TC[DFTuple[T], V] = new TC[DFTuple[T], V]:
         type Out = DFTuple[T] <> TOKEN
         def apply(dfType: DFTuple[T], value: V): Out =
