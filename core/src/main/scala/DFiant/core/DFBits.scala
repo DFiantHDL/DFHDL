@@ -284,19 +284,19 @@ object DFBits:
         ]
     transparent inline given DFBitsArg[
         LW <: Int,
-        RW <: Int,
-        M <: DFVal.Modifier
+        RW <: Int
     ](using
         check: `LW == RW`.Check[LW, RW]
-    ): TC[DFBits[LW], DFVal[DFBits[RW], M]] =
-      new TC[DFBits[LW], DFVal[DFBits[RW], M]]:
+    ): TC[DFBits[LW], DFBits[RW] <> VAL] =
+      new TC[DFBits[LW], DFBits[RW] <> VAL]:
         type TType = DFBits[LW]
         def apply(
             dfType: DFBits[LW],
-            value: DFVal[DFBits[RW], M]
-        ): DFValOf[DFBits[LW]] =
+            value: DFBits[RW] <> VAL
+        ): DFBits[RW] <> VAL =
           check(dfType.width, value.width.value)
           value.asIR.asValOf[DFBits[LW]]
+
   end DFValTC
 
   //TODO: remove workaround for https://github.com/lampepfl/dotty/issues/13128
