@@ -2,8 +2,8 @@ import DFiant.*
 
 class Foo(using DFC) extends DFDesign:
   val x = DFBits(8) <> IN
-  val y = (DFBits(8), DFBit) <> OUT
-  y := (x, 1)
+  val y = (DFBits(8), (DFBit, DFBool)) <> OUT
+  y := (x, (1, 1))
 
 object Bla extends App:
   val top = new Foo

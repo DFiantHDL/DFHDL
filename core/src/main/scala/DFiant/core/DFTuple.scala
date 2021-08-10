@@ -132,8 +132,9 @@ object DFTuple:
       new TC[DFTuple[T], ValueOf[R]]:
         type TType = DFTuple[T]
         def apply(dfType: DFTuple[T], value: ValueOf[R]): DFValOf[TType] =
-          val dfVals = zipper(dfType.fieldList, value.value.toList)
-          DFVal.Func(dfType, ir.DFVal.Func.Op.++, dfVals)
+          val dfVals =
+            zipper(dfType.fieldList, value.value.toList)
+          DFVal.Func(dfType, ir.DFVal.Func.Op.++, dfVals)(using dfc.anonymize)
 
   end DFValTC
 end DFTuple

@@ -34,11 +34,10 @@ object DFToken:
     export DFBits.Token.TC.given
     export DFTuple.Token.TC.given
 
-    transparent inline given DFTokenFromBubble[T <: DFType, V <: Bubble]
-        : TC[T, V] =
-      new TC[T, V]:
+    transparent inline given DFTokenFromBubble[T <: DFType]: TC[T, Bubble] =
+      new TC[T, Bubble]:
         type Out = DFToken.Of[T]
-        def apply(dfType: T, value: V): Out =
+        def apply(dfType: T, value: Bubble): Out =
           Bubble(dfType)
   end TC
 

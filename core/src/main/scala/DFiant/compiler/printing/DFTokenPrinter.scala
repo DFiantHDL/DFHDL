@@ -70,7 +70,7 @@ protected trait DFTokenPrinter extends AbstractPrinter:
     data match
       case Some(value) =>
         dfType match
-          case DFBool => data.toString
+          case DFBool => value.toString
           case DFBit  => if (value) "1" else "0"
       case None => "?"
   def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String = ???
@@ -99,3 +99,4 @@ protected trait DFTokenPrinter extends AbstractPrinter:
       )
   def csDFTokenSeq(tokenSeq: Seq[DFType.Token]): String =
     tokenSeq.map(csDFToken).mkStringBrackets
+end DFTokenPrinter
