@@ -11,7 +11,7 @@ object Exactly:
   ): Exactly = ${ fromValueMacro[T]('value) }
   def fromValueMacro[T](
       value: Expr[T]
-  )(using Quotes, Type[T]): Expr[Exactly] = {
+  )(using Quotes, Type[T]): Expr[Exactly] =
     import quotes.reflect.*
     val valueTerm = value.asTerm.exactTerm
 //    println(valueTerm.show)
@@ -33,11 +33,12 @@ object Exactly:
       case _ => //do nothing
     val tpe = valueTerm.tpe.widen.asTypeOf[Any]
     '{ Exact[tpe.Underlying](${ valueTerm.asExpr }) }
-  }
+  end fromValueMacro
 
   implicit def toValueSing[T](precise: Exact[ValueOf[T]]): T =
     precise.value.value
   implicit def toValue[T](precise: Exact[T]): T = precise.value
+end Exactly
 
 extension (using quotes: Quotes)(term: quotes.reflect.Term)
   def exactTerm: quotes.reflect.Term =
@@ -56,8 +57,20 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
         val tpes = terms.map(_.tpe)
         val AppliedType(tycon, _) = t.tpe
         val tupleTypeArgs = tpes.map(_.asTypeTree)
-        Apply(TypeApply(fun, tupleTypeArgs), terms)
-      case t => t
+        val tupleType = tycon.appliedTo(tpes).asTypeOf[Any]
+        val tupleTerm = Apply(TypeApply(fun, tupleTypeArgs), terms)
+        val expr =
+          '{
+            ValueOf[tupleType.Underlying](${ tupleTerm.asExpr })
+          }
+        expr.asTerm.underlyingArgument
+      case t =>
+        val tpe = t.tpe.widen
+        if (tpe <:< TypeRepr.of[NonEmptyTuple])
+          val tType = tpe.asTypeOf[Any]
+          '{ ValueOf[tType.Underlying](${ t.asExpr }) }.asTerm
+        else t
+    end match
 
 type Exact[T] = Exactly { type Out = T }
 object Exact:

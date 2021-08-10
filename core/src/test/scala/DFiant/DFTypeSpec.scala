@@ -89,3 +89,4 @@ class DFTypeSpec extends FunSuite:
       ListMap("Foo" -> BigInt(200), "Bar" -> BigInt(100), "Baz" -> BigInt(0))
     )
   }
+end DFTypeSpec

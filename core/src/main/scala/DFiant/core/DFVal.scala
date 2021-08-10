@@ -112,7 +112,7 @@ object DFVal:
   @implicitNotFound(
     "Unsupported argument value ${R} for dataflow receiver type ${T}"
   )
-  trait TC[T <: DFType, R] extends GeneralTC[T, R, DFValAny]:
+  trait TC[T <: DFType, -R] extends GeneralTC[T, R, DFValAny]:
 //    type TType <: DFType
     type Out = DFValOf[T]
   object TC:

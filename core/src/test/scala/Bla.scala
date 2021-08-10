@@ -1,16 +1,9 @@
 import DFiant.*
 
 class Foo(using DFC) extends DFDesign:
-  val x = DFUInt(8) <> IN
-  val y = (DFBits(8), DFBits(8)) <> OUT
-  y := (b0s, b0s)
-//    .asInstanceOf[core.DFValOf[DFBits[8]]]
-//  x := 1
-//  val bitsToken = DFBits(8) token b0s
-//  val bitsConst = DFBits(8) const bitsToken
-//  val barry = new Bar
-//  foo((1, 2))
-//  (DFBits(8), DFBit) <> IN init ?
+  val x = DFBits(8) <> IN
+  val y = (DFBits(8), DFBit) <> OUT
+  y := (x, 1)
 
 object Bla extends App:
   val top = new Foo

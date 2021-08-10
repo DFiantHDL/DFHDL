@@ -41,3 +41,4 @@ class DFTokenSpec extends FunSuite:
     assert(t1 == t2)
     assert(t2 == t3)
   }
+end DFTokenSpec
