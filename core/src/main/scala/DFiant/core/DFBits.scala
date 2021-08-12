@@ -282,21 +282,38 @@ object DFBits:
             ToString[LW] +
             "). \nConsider applying `.resize` to resolve this issue."
         ]
-    transparent inline given DFBitsArg[
+    transparent inline given DFBitsFromDFBitsArg[
         LW <: Int,
-        RW <: Int
-    ](using
-        check: `LW == RW`.Check[LW, RW]
-    ): TC[DFBits[LW], DFBits[RW] <> VAL] =
-      new TC[DFBits[LW], DFBits[RW] <> VAL]:
-        type TType = DFBits[LW]
-        def apply(
-            dfType: DFBits[LW],
-            value: DFBits[RW] <> VAL
-        ): DFBits[RW] <> VAL =
-          check(dfType.width, value.width.value)
-          value.asIR.asValOf[DFBits[LW]]
-
+        W <: Int
+    ](using DFC): TC[DFBits[LW], DFValOf[DFBits[W]]] =
+      ${ DFBitsMacro[LW, DFValOf[DFBits[W]]] }
+    transparent inline given DFBitsFromDFUIntArg[
+        LW <: Int,
+        W <: Int
+    ](using DFC): TC[DFBits[LW], DFValOf[DFUInt[W]]] =
+      ${ DFBitsMacro[LW, DFValOf[DFUInt[W]]] }
+//    transparent inline given DFBitsFromDFTokenArg[
+//        LW <: Int,
+//        R <: DFToken
+//    ](using DFC): TC[DFBits[LW], R] = ${ DFBitsMacro[LW, R] }
+    transparent inline given DFBitsFromTupleArg[
+        LW <: Int,
+        R <: NonEmptyTuple
+    ](using DFC): TC[DFBits[LW], ValueOf[R]] = ${ DFBitsMacro[LW, ValueOf[R]] }
+    def DFBitsMacro[LW <: Int, R](using
+        Quotes,
+        Type[LW],
+        Type[R]
+    ): Expr[TC[DFBits[LW], R]] =
+      import quotes.reflect.*
+      val rTpe = TypeRepr.of[R]
+      println(rTpe)
+      println(rTpe.show)
+      '{
+        new TC[DFBits[LW], R]:
+          type TType = DFBits[LW]
+          def apply(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] = ???
+      }
   end DFValTC
 
   //TODO: remove workaround for https://github.com/lampepfl/dotty/issues/13128
