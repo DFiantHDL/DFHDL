@@ -287,11 +287,11 @@ object DFBits:
         W <: Int
     ](using DFC): TC[DFBits[LW], DFValOf[DFBits[W]]] =
       ${ DFBitsMacro[LW, DFValOf[DFBits[W]]] }
-    transparent inline given DFBitsFromDFUIntArg[
-        LW <: Int,
-        W <: Int
-    ](using DFC): TC[DFBits[LW], DFValOf[DFUInt[W]]] =
-      ${ DFBitsMacro[LW, DFValOf[DFUInt[W]]] }
+//    transparent inline given DFBitsFromDFUIntArg[
+//        LW <: Int,
+//        W <: Int
+//    ](using DFC): TC[DFBits[LW], DFValOf[DFUInt[W]]] =
+//      ${ DFBitsMacro[LW, DFValOf[DFUInt[W]]] }
 //    transparent inline given DFBitsFromDFTokenArg[
 //        LW <: Int,
 //        R <: DFToken
@@ -300,19 +300,92 @@ object DFBits:
         LW <: Int,
         R <: NonEmptyTuple
     ](using DFC): TC[DFBits[LW], ValueOf[R]] = ${ DFBitsMacro[LW, ValueOf[R]] }
+    private def valueToBits(value: Any)(using DFC): DFBits[Int] <> VAL = ???
     def DFBitsMacro[LW <: Int, R](using
         Quotes,
         Type[LW],
         Type[R]
     ): Expr[TC[DFBits[LW], R]] =
       import quotes.reflect.*
+      import Width.*
+      val lwTpe = TypeRepr.of[LW]
       val rTpe = TypeRepr.of[R]
-      println(rTpe)
-      println(rTpe.show)
+      extension (tpe: TypeRepr)
+        def calcValWidth(insideTuple: Boolean): TypeRepr =
+          tpe.dealias match
+            case applied: AppliedType if applied <:< TypeRepr.of[ValueOf[_]] =>
+              applied.args.head.calcValWidth(insideTuple)
+            case AppliedType(tycon, tpe :: _) if tycon <:< TypeRepr.of[DFVal] =>
+              if (insideTuple) tpe.dealias.calcWidth
+              else
+                tpe match
+                  case AppliedType(tycon, width :: Nil)
+                      if tycon <:< TypeRepr.of[DFBits] =>
+                    width
+                  case AppliedType(
+                        tycon,
+                        ConstantType(
+                          BooleanConstant(false)
+                        ) :: width :: ConstantType(IntConstant(0)) :: Nil
+                      ) if tycon <:< TypeRepr.of[DFDecimal] =>
+                    width
+                  case x =>
+                    println("baddy 1")
+                    report.error(
+                      s"Unsupported argument value ${x.show} for dataflow receiver type DFBits"
+                    )
+                    ???
+            case AppliedType(tycon, tpe :: _)
+                if tycon <:< TypeRepr.of[DFToken.Of] =>
+              tpe.calcWidth
+            case AppliedType(tycon, args)
+                if tycon <:< TypeRepr.of[NonEmptyTuple] =>
+              val widths = args.map(a => a.calcValWidth(true))
+              widths.reduce(_ + _)
+            case ConstantType(IntConstant(v))
+                if insideTuple && (v == 1 || v == 0) =>
+              ConstantType(IntConstant(1))
+            case ref: TermRef =>
+              ref.widen.calcValWidth(insideTuple)
+            case x =>
+              println("baddy 2")
+              report.error(
+                s"Unsupported argument value ${x.show} for dataflow receiver type DFBits"
+              )
+              ???
+          end match
+
+      def checkExpr(lWidthExpr: Expr[Int], rWidthExpr: Expr[Int]) =
+        (lwTpe, rTpe.calcValWidth(false)) match
+          case (
+                ConstantType(IntConstant(lWidth)),
+                ConstantType(IntConstant(rWidth))
+              ) =>
+            val errMsg =
+              Literal(
+                StringConstant(
+                  s"""The argument width ($rWidth) is different than the reciever width ($lWidth)."""
+                )
+              ).asExprOf[String]
+            if (lWidth != rWidth) '{ compiletime.error($errMsg) }
+            else '{} //no runtime check needed
+          case _ =>
+            '{
+              throw new IllegalArgumentException(
+                "The argument width (" + $lWidthExpr +
+                  ") is different than the reciever width (" +
+                  $rWidthExpr + ")."
+              )
+            }
+      val dfcExpr = '{ compiletime.summonInline[DFC] }
       '{
         new TC[DFBits[LW], R]:
           type TType = DFBits[LW]
-          def apply(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] = ???
+          def apply(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
+            val valueBits =
+              valueToBits(value)(using $dfcExpr)
+            ${ checkExpr('{ dfType.width }, '{ valueBits.width.value }) }
+            valueBits.asInstanceOf[DFValOf[DFBits[LW]]]
       }
   end DFValTC
 

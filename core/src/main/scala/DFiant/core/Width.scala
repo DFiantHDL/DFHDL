@@ -43,7 +43,7 @@ object Width:
         case _          => dfTpe
     def calcWidth: quotes.reflect.TypeRepr =
       import quotes.reflect.*
-      dfTpe.dealias match
+      dfTpe match
         case t if dfTpe <:< TypeRepr.of[DFBoolOrBit] =>
           ConstantType(IntConstant(1))
         case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFBits] =>
@@ -103,6 +103,9 @@ object Width:
           applied.args.head.calcWidth
         //lost specific type information, but still has non-literal width
         case t if t <:< TypeRepr.of[DFType] => TypeRepr.of[Int]
+      end match
+    end calcWidth
+  end extension
   def getWidthMacro[T](using Quotes, Type[T]): Expr[Width[T]] =
     import quotes.reflect.*
     val tTpe = TypeRepr.of[T]
@@ -111,7 +114,7 @@ object Width:
       tTpe.calcWidth.asType
         .asInstanceOf[Type[Int]]
     '{
-      new Width[T] {
+      new Width[T]:
         type Out = widthTpe.Underlying
-      }
     }
+end Width
