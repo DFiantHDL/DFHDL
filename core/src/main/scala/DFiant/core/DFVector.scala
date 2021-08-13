@@ -13,7 +13,7 @@ object DFVector extends DFVectorCompanion:
       cellDims: D
   ): DFVector[T, D] =
     ir.DFVector(cellType.asIR, cellDims.toList.asInstanceOf[List[Int]])
-      .asInstanceOf[DFVector[T, D]]
+      .asFE[DFVector[T, D]]
 
 trait DFVectorCompanion:
   object Ops:
@@ -39,6 +39,9 @@ trait DFVectorCompanion:
         cellDim2.type
       ]] =
         DFVector(tc(t), Tuple3(cellDim0, cellDim1, cellDim2))
+    end extension
+  end Ops
+end DFVectorCompanion
 // transparent inline def x[T <: DFType](
 //     cellType: T,
 //     inline cellDim: Int*
