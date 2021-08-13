@@ -29,6 +29,7 @@ type <>[T <: DFType, M] = M match
 
 extension (dfVal: ir.DFVal)
   def asValOf[T <: DFType]: DFValOf[T] = dfVal.asInstanceOf[DFValOf[T]]
+  def asValAny: DFValAny = dfVal.asInstanceOf[DFValAny]
   def asVarOf[T <: DFType]: DFVarOf[T] = dfVal.asInstanceOf[DFVarOf[T]]
   def asPortOf[T <: DFType]: DFPortOf[T] = dfVal.asInstanceOf[DFPortOf[T]]
 

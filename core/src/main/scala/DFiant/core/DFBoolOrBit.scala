@@ -90,12 +90,6 @@ object DFBoolOrBit:
             DFBoolOrBit.Token(dfType, value.data)
     end TC
   end Token
-
-//  object Ops:
-////    extension (dfVal: DFBoolOrBit <> VAL)
-////      def asBool(using DFC): DFBoolOrBit <> VAL = dfVal.as(DFBool)
-////      def asBit(using DFC): DFBoolOrBit <> VAL = dfVal.as(DFBit)
-//  end Ops
 end DFBoolOrBit
 
 //export DFBoolOrBit.Token.Ops.*

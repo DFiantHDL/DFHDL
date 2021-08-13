@@ -46,6 +46,8 @@ object DFUnion:
           widthError(lhsUnion.width, rhsUnion.width)
         )
         DFUnion[l.U | r.U](lhsUnion.fieldSet ++ rhsUnion.fieldSet)
+  end Ops
+end DFUnion
 
 trait VerifyUnion[Current <: DFType, Added <: DFType]
 object VerifyUnion:
@@ -82,3 +84,5 @@ object VerifyUnion:
       case _ =>
 
     '{ new VerifyUnion[Current, Added] {} }
+  end verifyMacro
+end VerifyUnion

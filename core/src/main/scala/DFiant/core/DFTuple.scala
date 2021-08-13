@@ -14,7 +14,7 @@ object DFTuple:
         //TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
         .asInstanceOf[List[AnyRef]]
         .map(x => DFType(x).asIR)
-    ir.DFTuple(fieldList).asInstanceOf[DFTuple[T]]
+    ir.DFTuple(fieldList).asFE[DFTuple[T]]
 
   trait TCZipper[
       T <: NonEmptyTuple,

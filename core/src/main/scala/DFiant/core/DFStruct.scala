@@ -10,4 +10,4 @@ object DFStruct:
     val fieldMap = ListMap(
       fields.getFields.map(f => (f.name, f.dfType.asIR)): _*
     )
-    ir.DFStruct(fields.name, fieldMap).asInstanceOf[DFStruct[F]]
+    ir.DFStruct(fields.name, fieldMap).asFE[DFStruct[F]]

@@ -12,7 +12,7 @@ object DFBits:
   def apply[W <: Int](width: Inlined.Int[W])(using
       Arg.Width.Check[W]
   ): DFBits[W] =
-    ir.DFBits(width).asInstanceOf[DFBits[W]]
+    ir.DFBits(width).asFE[DFBits[W]]
   @targetName("applyNoArg")
   def apply[W <: Int with Singleton](using ValueOf[W])(using
       Arg.Width.Check[W]
@@ -28,7 +28,7 @@ object DFBits:
         dfType: DFBits[W],
         data: (BitVector, BitVector)
     ): Token[W] =
-      ir.DFToken(dfType.asIR, data).asInstanceOf[Token[W]]
+      ir.DFToken(dfType.asIR, data).asTokenOf[DFBits[W]]
     protected[core] def apply[W <: Int](
         width: Inlined.Int[W],
         valueBits: BitVector,
@@ -300,7 +300,28 @@ object DFBits:
         LW <: Int,
         R <: NonEmptyTuple
     ](using DFC): TC[DFBits[LW], ValueOf[R]] = ${ DFBitsMacro[LW, ValueOf[R]] }
-    private def valueToBits(value: Any)(using DFC): DFBits[Int] <> VAL = ???
+
+    private def valueToBits(value: Any)(using dfc: DFC): DFBits[Int] <> VAL =
+      import DFVal.Ops.bits
+      import DFBits.Ops.concatBits
+      given dfcAnon: DFC = dfc.anonymize
+      value match
+        case v: ValueOf[?] =>
+          valueToBits(v.value)
+        case x: NonEmptyTuple =>
+          x.toList.map(valueToBits).concatBits
+        case i: Int =>
+          valueToBits(i > 0)
+        case bool: Boolean =>
+          DFVal.Const(Token(1, BitVector.bit(bool), BitVector.zero))
+        case token: ir.DFType.Token =>
+          DFVal.Const(token.bits.asTokenOf[DFBits[Int]])
+        case dfVal: ir.DFVal =>
+          dfVal.dfType match
+            case _: ir.DFBits => dfVal.asValOf[DFBits[Int]]
+            case _            => dfVal.asValAny.bits
+    end valueToBits
+
     def DFBitsMacro[LW <: Int, R](using
         Quotes,
         Type[LW],
@@ -383,7 +404,7 @@ object DFBits:
           type TType = DFBits[LW]
           def apply(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
             val valueBits =
-              valueToBits(value)(using $dfcExpr)
+              valueToBits(value)(using ${ dfcExpr })
             ${ checkExpr('{ dfType.width }, '{ valueBits.width.value }) }
             valueBits.asInstanceOf[DFValOf[DFBits[LW]]]
       }
@@ -425,6 +446,10 @@ object DFBits:
             " is bigger than High bit index " + ToString[H]
         ]
 
+    extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
+      def concatBits(using DFC): DFBits[Int] <> VAL =
+        val width = iter.map(_.width.value).sum
+        DFVal.Func(DFBits(width), ir.DFVal.Func.Op.++, iter.toList)
     extension [T <: DFType, W <: Int, M <: DFVal.Modifier](
         lhs: DFVal[T, M]
     )(using DFBits.WA[T, W])

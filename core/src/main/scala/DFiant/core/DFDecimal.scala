@@ -11,7 +11,7 @@ object DFDecimal:
       width: Inlined.Int[W],
       fractionWidth: Inlined.Int[F]
   ): DFDecimal[S, W, F] =
-    ir.DFDecimal(signed, width, fractionWidth).asInstanceOf[DFDecimal[S, W, F]]
+    ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
 
 type DFUInt[W <: Int] = DFDecimal[false, W, 0]

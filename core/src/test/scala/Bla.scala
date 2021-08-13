@@ -2,11 +2,10 @@ import DFiant.*
 
 class Foo(using DFC) extends DFDesign:
   val x = DFBits(8) <> IN
-  val z = DFBits(8) <> OUT
+  val z = DFBits(12) <> OUT
   val y = (DFBits(8), (DFBit, DFBool)) <> OUT
 //  y := (x, (1, 1))
-  z := (x, x)
-  z := Tuple1(x)
+  z := (x, 1, 1, 1, 1)
 
 object Bla extends App:
   val top = new Foo

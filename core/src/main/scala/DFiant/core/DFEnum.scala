@@ -55,6 +55,7 @@ object DFEncoding:
           tpe.baseType(encodingTpe.typeSymbol).asInstanceOf[AppliedType]
         Some(applied.args.head)
       else None
+end DFEncoding
 
 opaque type DFEnum[C <: AnyRef, E] <: DFType.Of[ir.DFEnum] =
   DFType.Of[ir.DFEnum]
@@ -79,13 +80,14 @@ object DFEnum:
     val fieldsAsPairs = for (
       field <- enumCompanionCls.getDeclaredFields
       if enumClass.isAssignableFrom(field.getType)
-    ) yield {
+    ) yield
       field.setAccessible(true)
       (field.getName, field.get(enumCompanion).asInstanceOf[DFEncoding])
-    }
     val name = enumCompanionCls.getSimpleName.replace("$", "")
     val width = fieldsAsPairs.head._2.calcWidth(fieldsAsPairs.size)
     val entryPairs = fieldsAsPairs.zipWithIndex.map {
       case ((name, entry), idx) => (name, entry.value)
     }
     ir.DFEnum(name, width, ListMap(entryPairs: _*)).asInstanceOf[DFEnum[C, E]]
+  end apply
+end DFEnum
