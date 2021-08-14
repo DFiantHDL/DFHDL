@@ -40,13 +40,16 @@ protected trait DFValPrinter extends AbstractPrinter:
     dfVal.dfType match
       case _: DFBits => s"${relValStr}.bits"
       case _         => s"${relValStr}.as(${printer.csDFType(dfVal.dfType)})"
-  def csDFValAliasBitsSel(dfVal: Alias.BitsSel)(using MemberGetSet): String =
+  def csDFValAliasApplyRange(dfVal: Alias.ApplyRange)(using
+      MemberGetSet
+  ): String =
     val relValStr = dfVal.relValRef.refCodeString.applyBrackets()
     s"${relValStr}(${dfVal.relBitHigh}, ${dfVal.relBitLow})"
   def csDFValAliasRef(dfVal: Alias)(using MemberGetSet): String = dfVal match
-    case dv: Alias.AsIs    => csDFValAliasAsIs(dv)
-    case _: Alias.Prev     => ???
-    case dv: Alias.BitsSel => csDFValAliasBitsSel(dv)
+    case dv: Alias.AsIs       => csDFValAliasAsIs(dv)
+    case _: Alias.Prev        => ???
+    case dv: Alias.ApplyRange => csDFValAliasApplyRange(dv)
+    case dv: Alias.ApplyIdx   => ???
   def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner])(using
       MemberGetSet
   ): String =

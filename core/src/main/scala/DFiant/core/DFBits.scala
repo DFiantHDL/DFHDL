@@ -483,7 +483,7 @@ object DFBits:
         checkHigh(relBitHigh, lhs.width)
         checkLow(relBitLow, lhs.width)
         checkHiLo(relBitHigh, relBitLow)
-        DFVal.Alias.BitsSel(lhs, relBitHigh, relBitLow)
+        DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
     end extension
   end Ops
 end DFBits

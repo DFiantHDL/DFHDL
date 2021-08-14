@@ -108,14 +108,14 @@ object DFVal:
             ir.DFTags.empty
           )
         alias.addMember.asFE[AT, M]
-    object BitsSel:
+    object ApplyRange:
       def apply[W <: Int, M <: Modifier, H <: Int, L <: Int](
           relVal: DFVal[DFBits[W], M],
           relBitHigh: Inlined.Int[H],
           relBitLow: Inlined.Int[L]
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
         lazy val alias: ir.DFVal =
-          ir.DFVal.Alias.BitsSel(
+          ir.DFVal.Alias.ApplyRange(
             relVal.asIR.refTW(alias),
             relBitHigh,
             relBitLow,
@@ -125,7 +125,7 @@ object DFVal:
           )
         alias.addMember.asFE[DFBits[H - L + 1], M]
       end apply
-    end BitsSel
+    end ApplyRange
   end Alias
 
   @implicitNotFound(

@@ -215,7 +215,7 @@ object DFVal:
       enum Op:
         case State, Pipe
 
-    final case class BitsSel(
+    final case class ApplyRange(
         relValRef: DFVal.Ref,
         relBitHigh: Int,
         relBitLow: Int,
@@ -225,7 +225,7 @@ object DFVal:
     ) extends Alias:
       val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
       def =~(that: DFMember)(using MemberGetSet): Boolean = that match
-        case that: BitsSel =>
+        case that: ApplyRange =>
           this.relValRef =~ that.relValRef &&
             this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow &&
             this.meta =~ that.meta && this.tags =~ that.tags
@@ -234,7 +234,26 @@ object DFVal:
         copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type =
         copy(tags = tags).asInstanceOf[this.type]
-    end BitsSel
+    end ApplyRange
+    final case class ApplyIdx(
+        dfType: DFType,
+        relValRef: DFVal.Ref,
+        relIdx: DFVal.Ref,
+        ownerRef: DFOwner.Ref,
+        meta: Meta,
+        tags: DFTags
+    ) extends Alias:
+      def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+        case that: ApplyIdx =>
+          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
+            this.relIdx =~ that.relIdx &&
+            this.meta =~ that.meta && this.tags =~ that.tags
+        case _ => false
+      protected def setMeta(meta: Meta): this.type =
+        copy(meta = meta).asInstanceOf[this.type]
+      protected def setTags(tags: DFTags): this.type =
+        copy(tags = tags).asInstanceOf[this.type]
+    end ApplyIdx
 
   end Alias
 end DFVal
