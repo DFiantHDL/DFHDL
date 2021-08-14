@@ -235,6 +235,7 @@ object DFBits:
               .forced[widthType.Underlying](valueBits.length.toInt)
           Token[widthType.Underlying](width, valueBits, bubbleBits)
         }
+      end interpMacro
     end StrInterp
 
     object Ops:
@@ -266,6 +267,8 @@ object DFBits:
                 (lhs.bubbleBits & rhs.bubbleBits) | (lhs.bubbleBits & rhs.valueBits) |
                   (rhs.bubbleBits & lhs.valueBits)
               Token(width, valueBits, bubbleBits)
+        end &
+      end extension
     end Ops
   end Token
 
@@ -320,6 +323,7 @@ object DFBits:
           dfVal.dfType match
             case _: ir.DFBits => dfVal.asValOf[DFBits[Int]]
             case _            => dfVal.asValAny.bits
+      end match
     end valueToBits
 
     def DFBitsMacro[LW <: Int, R](using
@@ -366,6 +370,8 @@ object DFBits:
             case ConstantType(IntConstant(v))
                 if insideTuple && (v == 1 || v == 0) =>
               ConstantType(IntConstant(1))
+            case ConstantType(BooleanConstant(v)) if insideTuple =>
+              ConstantType(IntConstant(1))
             case ref: TermRef =>
               ref.widen.calcValWidth(insideTuple)
             case x =>
@@ -408,6 +414,7 @@ object DFBits:
             ${ checkExpr('{ dfType.width }, '{ valueBits.width.value }) }
             valueBits.asInstanceOf[DFValOf[DFBits[LW]]]
       }
+    end DFBitsMacro
   end DFValTC
 
   //TODO: remove workaround for https://github.com/lampepfl/dotty/issues/13128
@@ -447,7 +454,7 @@ object DFBits:
         ]
 
     extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
-      def concatBits(using DFC): DFBits[Int] <> VAL =
+      protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
         val width = iter.map(_.width.value).sum
         DFVal.Func(DFBits(width), ir.DFVal.Func.Op.++, iter.toList)
     extension [T <: DFType, W <: Int, M <: DFVal.Modifier](
@@ -484,5 +491,6 @@ object DFBits:
         checkLow(relBitLow, lhs.width)
         checkHiLo(relBitHigh, relBitLow)
         ???
+    end extension
   end Ops
 end DFBits
