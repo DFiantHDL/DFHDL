@@ -5,7 +5,7 @@ class Foo(using DFC) extends DFDesign:
   val z = DFBits(12) <> OUT
   val y = (DFBits(8), (DFBit, DFBool)) <> OUT
 //  y := (x, (1, 1))
-  z := (x, 1, 1, 1, 1)
+  z := (x(3, 0), x(3, 0), x(3, 0))
 
 object Bla extends App:
   val top = new Foo

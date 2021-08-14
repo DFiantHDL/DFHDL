@@ -108,6 +108,24 @@ object DFVal:
             ir.DFTags.empty
           )
         alias.addMember.asFE[AT, M]
+    object BitsSel:
+      def apply[W <: Int, M <: Modifier, H <: Int, L <: Int](
+          relVal: DFVal[DFBits[W], M],
+          relBitHigh: Inlined.Int[H],
+          relBitLow: Inlined.Int[L]
+      )(using DFC): DFVal[DFBits[H - L + 1], M] =
+        lazy val alias: ir.DFVal =
+          ir.DFVal.Alias.BitsSel(
+            relVal.asIR.refTW(alias),
+            relBitHigh,
+            relBitLow,
+            dfc.owner.ref,
+            dfc.getMeta,
+            ir.DFTags.empty
+          )
+        alias.addMember.asFE[DFBits[H - L + 1], M]
+      end apply
+    end BitsSel
   end Alias
 
   @implicitNotFound(

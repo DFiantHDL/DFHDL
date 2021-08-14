@@ -417,13 +417,6 @@ object DFBits:
     end DFBitsMacro
   end DFValTC
 
-  //TODO: remove workaround for https://github.com/lampepfl/dotty/issues/13128
-  type WA[T <: DFType, W0 <: Int] = WA.Internal[T] { type W = W0 }
-  object WA:
-    trait Internal[T <: DFType]:
-      type W <: Int
-    given [W0 <: Int]: Internal[DFBits[W0]] with
-      type W = W0
   object Ops:
     protected object `AW == TW`
         extends Check2[
@@ -458,8 +451,8 @@ object DFBits:
         val width = iter.map(_.width.value).sum
         DFVal.Func(DFBits(width), ir.DFVal.Func.Op.++, iter.toList)
     extension [T <: DFType, W <: Int, M <: DFVal.Modifier](
-        lhs: DFVal[T, M]
-    )(using DFBits.WA[T, W])
+        lhs: DFVal[DFBits[W], M]
+    )
       def as[A](
           aliasType: A
       )(using
@@ -486,11 +479,11 @@ object DFBits:
           checkLow: BitIndex.Check[L, W],
           checkHiLo: BitsHiLo.Check[H, L],
           dfc: DFC
-      ): DFBits[H - L + 1] <> M =
+      ): DFVal[DFBits[H - L + 1], M] =
         checkHigh(relBitHigh, lhs.width)
         checkLow(relBitLow, lhs.width)
         checkHiLo(relBitHigh, relBitLow)
-        ???
+        DFVal.Alias.BitsSel(lhs, relBitHigh, relBitLow)
     end extension
   end Ops
 end DFBits

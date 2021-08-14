@@ -41,24 +41,21 @@ sealed trait DFMember extends Product, Serializable:
   final def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
     getOwnerDesign == that.getOwnerDesign
   final def isOneLevelBelow(that: DFMember)(using MemberGetSet): Boolean =
-    this match {
+    this match
       case DFDesignBlock.Top()       => false
       case _: DFDesignBlock          => getOwnerDesign isSameOwnerDesignAs that
       case _ if getOwnerDesign.isTop => false
       case _                         => getOwnerDesign isSameOwnerDesignAs that
-    }
   //true if and only if the member is outside the design at any level
   final def isOutsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
     !isInsideOwner(that)
   @tailrec private def isInsideOwner(thisMember: DFMember, thatOwner: DFOwner)(
       using MemberGetSet
-  ): Boolean = {
-    (thisMember.getOwner, thatOwner) match {
+  ): Boolean =
+    (thisMember.getOwner, thatOwner) match
       case (a, b) if a == b         => true
       case (DFDesignBlock.Top(), _) => false
       case (od, _)                  => isInsideOwner(od, thatOwner)
-    }
-  }
   //true if and only if the member is inside the design at any level
   final def isInsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
     isInsideOwner(this, that)
@@ -124,6 +121,7 @@ object DFVal:
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
       copy(tags = tags).asInstanceOf[this.type]
+  end Const
 
   final case class Dcl(
       dfType: DFType,
@@ -141,6 +139,7 @@ object DFVal:
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
       copy(tags = tags).asInstanceOf[this.type]
+  end Dcl
 
   final case class Func(
       dfType: DFType,
@@ -162,6 +161,7 @@ object DFVal:
       copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type =
       copy(tags = tags).asInstanceOf[this.type]
+  end Func
 
   object Func:
     enum Op:
@@ -188,6 +188,7 @@ object DFVal:
         copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type =
         copy(tags = tags).asInstanceOf[this.type]
+    end AsIs
 
     final case class Prev(
         dfType: DFType,
@@ -208,30 +209,32 @@ object DFVal:
         copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type =
         copy(tags = tags).asInstanceOf[this.type]
+    end Prev
 
     object Prev:
       enum Op:
         case State, Pipe
 
-    final case class BitsWL(
-        dfType: DFType,
+    final case class BitsSel(
         relValRef: DFVal.Ref,
-        relWidth: Int,
+        relBitHigh: Int,
         relBitLow: Int,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
     ) extends Alias:
+      val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
       def =~(that: DFMember)(using MemberGetSet): Boolean = that match
-        case that: BitsWL =>
-          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
-            this.relWidth == that.relWidth && this.relBitLow == that.relBitLow &&
+        case that: BitsSel =>
+          this.relValRef =~ that.relValRef &&
+            this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow &&
             this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected def setMeta(meta: Meta): this.type =
         copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type =
         copy(tags = tags).asInstanceOf[this.type]
+    end BitsSel
 
   end Alias
 end DFVal
@@ -253,6 +256,7 @@ final case class DFNet(
     copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type =
     copy(tags = tags).asInstanceOf[this.type]
+end DFNet
 
 object DFNet:
   enum Op:
@@ -292,6 +296,7 @@ final case class DFDesignBlock(
     copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type =
     copy(tags = tags).asInstanceOf[this.type]
+end DFDesignBlock
 
 object DFDesignBlock:
   object Top:
