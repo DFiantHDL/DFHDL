@@ -464,13 +464,13 @@ object DFBits:
         check.apply(aliasDFType.asIR.width, lhs.width)
         DFVal.Alias.AsIs(aliasDFType, lhs)
       def apply[I <: Int](
-          relBit: Inlined.Int[I]
+          relIdx: Inlined.Int[I]
       )(using
           check: BitIndex.Check[I, W],
           dfc: DFC
-      ): DFBit <> M =
-        check(relBit, lhs.width)
-        ???
+      ): DFVal[DFBit, M] =
+        check(relIdx, lhs.width)
+        DFVal.Alias.ApplyIdx(lhs, relIdx)
       def apply[H <: Int, L <: Int](
           relBitHigh: Inlined.Int[H],
           relBitLow: Inlined.Int[L]

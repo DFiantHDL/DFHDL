@@ -126,6 +126,28 @@ object DFVal:
         alias.addMember.asFE[DFBits[H - L + 1], M]
       end apply
     end ApplyRange
+    object ApplyIdx:
+      def apply[W <: Int, M <: Modifier, IW <: Int](
+          relVal: DFVal[DFBits[W], M],
+          relIdx: DFUInt[IW] <> VAL
+      )(using DFC): DFVal[DFBit, M] =
+        lazy val alias: ir.DFVal =
+          ir.DFVal.Alias.ApplyIdx(
+            ir.DFBit,
+            relVal.asIR.refTW(alias),
+            relIdx.asIR.refTW(alias),
+            dfc.owner.ref,
+            dfc.getMeta,
+            ir.DFTags.empty
+          )
+        alias.addMember.asFE[DFBit, M]
+      end apply
+      def apply[W <: Int, M <: Modifier, I <: Int](
+          relVal: DFVal[DFBits[W], M],
+          relIdx: Inlined.Int[I]
+      )(using DFC): DFVal[DFBit, M] =
+        ???
+    end ApplyIdx
   end Alias
 
   @implicitNotFound(
