@@ -51,7 +51,7 @@ object DFVal:
       dfVal.asIR.tag(ir.ExternalInit(tokens)).asFE[T, M]
 
   object Const:
-    def apply[T <: DFType](token: DFToken, named: Boolean = false)(using
+    def apply[T <: DFType](token: DFToken.Of[T], named: Boolean = false)(using
         DFC
     ): DFValOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
