@@ -347,12 +347,8 @@ object DFBits:
                   case AppliedType(tycon, width :: Nil)
                       if tycon <:< TypeRepr.of[DFBits] =>
                     width
-                  case AppliedType(
-                        tycon,
-                        ConstantType(
-                          BooleanConstant(false)
-                        ) :: width :: ConstantType(IntConstant(0)) :: Nil
-                      ) if tycon <:< TypeRepr.of[DFDecimal] =>
+                  case AppliedType(tycon, width :: Nil)
+                      if tycon <:< TypeRepr.of[DFUInt] =>
                     width
                   case x =>
                     println("baddy 1")
@@ -360,6 +356,7 @@ object DFBits:
                       s"Unsupported argument value ${x.show} for dataflow receiver type DFBits"
                     )
                     ???
+                end match
             case AppliedType(tycon, tpe :: _)
                 if tycon <:< TypeRepr.of[DFToken.Of] =>
               tpe.calcWidth
