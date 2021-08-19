@@ -1,12 +1,12 @@
 import DFiant.*
 import munit.*
-import internals.{AllowTopLevel, Inlined}
+import internals.{AllowTopLevel, HasTypeName, Inlined}
 import compiler.printing.{DefaultPrinter, Printer}
 
 import scala.annotation.internal.sharable
 import collection.immutable.ListMap
 
-class DFBitsSpec extends FunSuite, AllowTopLevel:
+class DFBitsSpec extends DFSpec:
   val b8 = DFBits(8)
   test("Inlined width") {
     val a: Inlined.Int[8] = b8.width
@@ -39,6 +39,6 @@ class DFBitsSpec extends FunSuite, AllowTopLevel:
     //TODO: fix
 //    v8 := x
     v8 := x.bits
-    v8 := (h"1", 1, 0, v8(5), true)
+//    v8 := (h"1", 1, 0, v8(5), true)
   }
 end DFBitsSpec
