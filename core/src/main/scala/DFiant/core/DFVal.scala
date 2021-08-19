@@ -166,11 +166,11 @@ object DFVal:
         def apply(dfType: T, value: DFValOf[T]): DFValOf[T] =
           val updated = (dfType.asIR, value.asIR.dfType) match
             case (_: ir.DFBoolOrBit, _: ir.DFBoolOrBit) => value
-            case (_: ir.DFBits, _: ir.DFBits) =>
-              summon[TC[DFBits[Int], DFBits[Int] <> VAL]](
-                dfType.asIR.asFE[DFBits[Int]],
-                value.asIR.asValOf[DFBits[Int]]
-              )
+            case (_: ir.DFBits, _: ir.DFBits)           => ???
+//              summon[TC[DFBits[Int], DFBits[Int] <> VAL]](
+//                dfType.asIR.asFE[DFBits[Int]],
+//                value.asIR.asValOf[DFBits[Int]]
+//              )
             case _ =>
               throw new IllegalArgumentException(
                 s"Unsupported argument value ${value} for dataflow receiver type ${dfType}"

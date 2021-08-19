@@ -290,11 +290,11 @@ object DFBits:
         W <: Int
     ](using DFC): TC[DFBits[LW], DFValOf[DFBits[W]]] =
       ${ DFBitsMacro[LW, DFValOf[DFBits[W]]] }
-//    transparent inline given DFBitsFromDFUIntArg[
-//        LW <: Int,
-//        W <: Int
-//    ](using DFC): TC[DFBits[LW], DFValOf[DFUInt[W]]] =
-//      ${ DFBitsMacro[LW, DFValOf[DFUInt[W]]] }
+    transparent inline given DFBitsFromDFUIntArg[
+        LW <: Int,
+        W <: Int
+    ](using DFC): TC[DFBits[LW], DFValOf[DFUInt[W]]] =
+      ${ DFBitsMacro[LW, DFValOf[DFUInt[W]]] }
 //    transparent inline given DFBitsFromDFTokenArg[
 //        LW <: Int,
 //        R <: DFToken

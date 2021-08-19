@@ -37,7 +37,7 @@ class DFBitsSpec extends DFSpec:
     v8 := b1s
     v8 := ?
     //TODO: fix
-//    v8 := x
+    v8 := x
     v8 := x.bits
 //    v8 := (h"1", 1, 0, v8(5), true)
   }
