@@ -274,6 +274,9 @@ object DFBits:
 
   object DFValTC:
     import DFVal.TC
+    inline def tc: TC[DFBits[Int], DFBits[Int] <> VAL] = ${
+      DFBitsMacro[Int, DFValOf[DFBits[Int]]]
+    }
     protected object `LW == RW`
         extends Check2[
           Int,
