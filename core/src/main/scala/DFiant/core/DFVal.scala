@@ -35,6 +35,7 @@ extension (dfVal: ir.DFVal)
 
 object DFVal:
   export DFiant.compiler.ir.DFVal.Modifier
+  export DFBits.Conversions.*
 
   extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
     def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]

@@ -384,11 +384,16 @@ object DFBits:
         val dfVal = candidate(value)
         check(dfType.width, dfVal.width.value)
         dfVal.asIR.asValOf[DFBits[LW]]
-//    given DFBitsConversion[LW <: Int & Singleton, R](using
-//        v: ValueOf[LW],
-//        tc: TC[DFBits[LW], R]
-//    ): Conversion[R, DFBits[LW]] = ???
   end DFValTC
+
+  object Conversions:
+    implicit def DFBitsConversionSing[LW <: Int & Singleton, R](from: R)(using
+        v: ValueOf[LW],
+        tc: DFVal.TC[DFBits[LW], R]
+    ): DFValOf[DFBits[LW]] = tc(DFBits(valueOf[LW]), from)
+    implicit def DFBitsConversion[R](from: R)(using
+        candidate: Candidate[R]
+    ): DFValOf[DFBits[Int]] = candidate(from)
 
   object Ops:
     protected object `AW == TW`
