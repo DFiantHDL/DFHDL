@@ -374,7 +374,7 @@ object DFBits:
             ToString[LW] +
             "). \nConsider applying `.resize` to resolve this issue."
         ]
-    transparent inline given DFBitsFromDFBitsArg[
+    transparent inline given DFBitsFromCandidate[
         LW <: Int,
         R
     ](using dfc: DFC, candidate: Candidate[R])(using
@@ -384,6 +384,10 @@ object DFBits:
         val dfVal = candidate(value)
         check(dfType.width, dfVal.width.value)
         dfVal.asIR.asValOf[DFBits[LW]]
+//    given DFBitsConversion[LW <: Int & Singleton, R](using
+//        v: ValueOf[LW],
+//        tc: TC[DFBits[LW], R]
+//    ): Conversion[R, DFBits[LW]] = ???
   end DFValTC
 
   object Ops:
