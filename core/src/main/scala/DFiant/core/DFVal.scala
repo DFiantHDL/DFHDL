@@ -154,7 +154,6 @@ object DFVal:
     "Unsupported argument value ${R} for dataflow receiver type ${T}"
   )
   trait TC[T <: DFType, -R] extends GeneralTC[T, R, DFValAny]:
-//    type TType <: DFType
     type Out = DFValOf[T]
   object TC:
     export DFBits.DFValTC.given
@@ -167,7 +166,7 @@ object DFVal:
           val updated = (dfType.asIR, value.asIR.dfType) match
             case (_: ir.DFBoolOrBit, _: ir.DFBoolOrBit) => value
             case (_: ir.DFBits, _: ir.DFBits) =>
-              DFBits.DFValTC.tc(
+              DFBits.DFValTC(
                 dfType.asIR.asFE[DFBits[Int]],
                 value.asIR.asValOf[DFBits[Int]]
               )

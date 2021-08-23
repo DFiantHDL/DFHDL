@@ -272,41 +272,19 @@ object DFBits:
     end Ops
   end Token
 
-  object DFValTC:
-    import DFVal.TC
-    inline def tc: TC[DFBits[Int], DFBits[Int] <> VAL] = ${
-      DFBitsMacro[Int, DFValOf[DFBits[Int]]]
-    }
-    protected object `LW == RW`
-        extends Check2[
-          Int,
-          Int,
-          [LW <: Int, RW <: Int] =>> LW == RW,
-          [LW <: Int, RW <: Int] =>> "The argument width (" +
-            ToString[RW] +
-            ") is different than the reciever width (" +
-            ToString[LW] +
-            "). \nConsider applying `.resize` to resolve this issue."
-        ]
-    transparent inline given DFBitsFromDFBitsArg[
-        LW <: Int,
-        W <: Int
-    ](using DFC): TC[DFBits[LW], DFValOf[DFBits[W]]] =
-      ${ DFBitsMacro[LW, DFValOf[DFBits[W]]] }
-    transparent inline given DFBitsFromDFUIntArg[
-        LW <: Int,
-        W <: Int
-    ](using DFC): TC[DFBits[LW], DFValOf[DFUInt[W]]] =
-      ${ DFBitsMacro[LW, DFValOf[DFUInt[W]]] }
-//    transparent inline given DFBitsFromDFTokenArg[
-//        LW <: Int,
-//        R <: DFToken
-//    ](using DFC): TC[DFBits[LW], R] = ${ DFBitsMacro[LW, R] }
-    transparent inline given DFBitsFromTupleArg[
-        LW <: Int,
-        R <: NonEmptyTuple
-    ](using DFC): TC[DFBits[LW], ValueOf[R]] = ${ DFBitsMacro[LW, ValueOf[R]] }
-
+  trait Candidate[-R]:
+    type OutW <: Int
+    def apply(value: R): DFBits[OutW] <> VAL
+  object Candidate:
+    given fromDFBits[W <: Int]: Candidate[DFBits[W] <> VAL] with
+      type OutW = W
+      def apply(value: DFBits[W] <> VAL): DFBits[W] <> VAR =
+        value.asIR.asValOf[DFBits[W]]
+    given fromDFUInt[W <: Int](using DFC): Candidate[DFUInt[W] <> VAL] with
+      type OutW = W
+      def apply(value: DFUInt[W] <> VAL): DFBits[W] <> VAL =
+        import DFVal.Ops.bits
+        value.bits
     private def valueToBits(value: Any)(using dfc: DFC): DFBits[Int] <> VAL =
       import DFVal.Ops.bits
       import DFBits.Ops.concatBits
@@ -328,93 +306,84 @@ object DFBits:
             case _            => dfVal.asValAny.bits
       end match
     end valueToBits
-
-    def DFBitsMacro[LW <: Int, R](using
+    transparent inline given fromTuple[R <: NonEmptyTuple](using
+        DFC
+    ): Candidate[ValueOf[R]] = ${ DFBitsMacro[ValueOf[R]] }
+    def DFBitsMacro[R](using
         Quotes,
-        Type[LW],
         Type[R]
-    ): Expr[TC[DFBits[LW], R]] =
+    ): Expr[Candidate[R]] =
       import quotes.reflect.*
       import Width.*
-      val lwTpe = TypeRepr.of[LW]
       val rTpe = TypeRepr.of[R]
       extension (tpe: TypeRepr)
-        def calcValWidth(insideTuple: Boolean): TypeRepr =
+        def calcValWidth: TypeRepr =
           tpe.dealias match
             case applied: AppliedType if applied <:< TypeRepr.of[ValueOf[_]] =>
-              applied.args.head.calcValWidth(insideTuple)
+              applied.args.head.calcValWidth
             case AppliedType(tycon, tpe :: _) if tycon <:< TypeRepr.of[DFVal] =>
-              if (insideTuple) tpe.dealias.calcWidth
-              else
-                tpe match
-                  case AppliedType(tycon, width :: Nil)
-                      if tycon <:< TypeRepr.of[DFBits] =>
-                    width
-                  case AppliedType(tycon, width :: Nil)
-                      if tycon <:< TypeRepr.of[DFUInt] =>
-                    width
-                  case x =>
-                    println("baddy 1")
-                    report.error(
-                      s"Unsupported argument value ${x.show} for dataflow receiver type DFBits"
-                    )
-                    ???
-                end match
+              tpe.dealias.calcWidth
             case AppliedType(tycon, tpe :: _)
                 if tycon <:< TypeRepr.of[DFToken.Of] =>
               tpe.calcWidth
             case AppliedType(tycon, args)
                 if tycon <:< TypeRepr.of[NonEmptyTuple] =>
-              val widths = args.map(a => a.calcValWidth(true))
+              val widths = args.map(a => a.calcValWidth)
               widths.reduce(_ + _)
-            case ConstantType(IntConstant(v))
-                if insideTuple && (v == 1 || v == 0) =>
+            case ConstantType(IntConstant(v)) if (v == 1 || v == 0) =>
               ConstantType(IntConstant(1))
-            case ConstantType(BooleanConstant(v)) if insideTuple =>
+            case ConstantType(BooleanConstant(v)) =>
               ConstantType(IntConstant(1))
             case ref: TermRef =>
-              ref.widen.calcValWidth(insideTuple)
+              ref.widen.calcValWidth
             case x =>
-              println("baddy 2")
               report.error(
                 s"Unsupported argument value ${x.show} for dataflow receiver type DFBits"
               )
               ???
           end match
-
-      def checkExpr(lWidthExpr: Expr[Int], rWidthExpr: Expr[Int]) =
-        (lwTpe, rTpe.calcValWidth(false)) match
-          case (
-                ConstantType(IntConstant(lWidth)),
-                ConstantType(IntConstant(rWidth))
-              ) =>
-            val errMsg =
-              Literal(
-                StringConstant(
-                  s"""The argument width ($rWidth) is different than the reciever width ($lWidth)."""
-                )
-              ).asExprOf[String]
-            if (lWidth != rWidth) '{ compiletime.error($errMsg) }
-            else '{} //no runtime check needed
-          case _ =>
-            '{
-              throw new IllegalArgumentException(
-                "The argument width (" + $lWidthExpr +
-                  ") is different than the reciever width (" +
-                  $rWidthExpr + ")."
-              )
-            }
+      val wType = rTpe.calcValWidth.asTypeOf[Int]
       val dfcExpr = '{ compiletime.summonInline[DFC] }
       '{
-        new TC[DFBits[LW], R]:
-          type TType = DFBits[LW]
-          def apply(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
+        new Candidate[R]:
+          type OutW = wType.Underlying
+          def apply(value: R): DFValOf[DFBits[OutW]] =
             val valueBits =
               valueToBits(value)(using ${ dfcExpr })
-            ${ checkExpr('{ dfType.width }, '{ valueBits.width.value }) }
-            valueBits.asInstanceOf[DFValOf[DFBits[LW]]]
+            valueBits.asInstanceOf[DFValOf[DFBits[OutW]]]
       }
     end DFBitsMacro
+  end Candidate
+
+  object DFValTC:
+    import DFVal.TC
+    def apply(
+        dfType: DFBits[Int],
+        dfVal: DFBits[Int] <> VAL
+    ): DFBits[Int] <> VAL =
+      `LW == RW`(dfType.width, dfVal.width)
+      dfVal
+    protected object `LW == RW`
+        extends Check2[
+          Int,
+          Int,
+          [LW <: Int, RW <: Int] =>> LW == RW,
+          [LW <: Int, RW <: Int] =>> "The argument width (" +
+            ToString[RW] +
+            ") is different than the reciever width (" +
+            ToString[LW] +
+            "). \nConsider applying `.resize` to resolve this issue."
+        ]
+    transparent inline given DFBitsFromDFBitsArg[
+        LW <: Int,
+        R
+    ](using dfc: DFC, candidate: Candidate[R])(using
+        check: `LW == RW`.Check[LW, candidate.OutW]
+    ): TC[DFBits[LW], R] = new TC[DFBits[LW], R]:
+      def apply(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
+        val dfVal = candidate(value)
+        check(dfType.width, dfVal.width.value)
+        dfVal.asIR.asValOf[DFBits[LW]]
   end DFValTC
 
   object Ops:

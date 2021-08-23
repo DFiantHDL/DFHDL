@@ -50,6 +50,7 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
       case t =>
         report.error(s"Unsupported type function part ${t.show}")
         '{ ??? }.asTerm
+    end match
   end lambdaTypeToTermRecur
 
   def lambdaTypeToTerm(argsExpr: List[Term], tpe: TypeRepr): Term =
@@ -78,6 +79,8 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
               '{ throw new IllegalArgumentException($msgExpr) }
       case _ =>
         '{ if (! $condExpr) throw new IllegalArgumentException($msgExpr) }
+  end applyExpr
+end MacroClass
 
 trait Check1[
     Wide,
@@ -85,6 +88,8 @@ trait Check1[
     Msg[T <: Wide] <: String
 ]:
   type Check[T <: Wide] = Check1.Check[Wide, T, Cond, Msg, Cond[T], Msg[T]]
+  inline def apply(arg: Wide): Unit =
+    compiletime.summonInline[Check[Wide]]
 
 object Check1:
   trait Check[
@@ -149,6 +154,8 @@ trait Check2[
 ]:
   type Check[T1 <: Wide1, T2 <: Wide2] =
     Check2.Check[Wide1, Wide2, T1, T2, Cond, Msg, Cond[T1, T2], Msg[T1, T2]]
+  inline def apply(arg1: Wide1, arg2: Wide2): Unit =
+    compiletime.summonInline[Check[Wide1, Wide2]]
 
 object Check2:
   trait Check[
