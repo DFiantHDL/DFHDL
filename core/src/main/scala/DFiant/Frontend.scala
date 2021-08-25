@@ -65,3 +65,5 @@ object OpaqueTest:
 
     checkOpaque(t)
     '{ new OpaqueTest[T] {} }
+  end testMacro
+end OpaqueTest
