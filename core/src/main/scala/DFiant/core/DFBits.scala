@@ -84,19 +84,27 @@ object DFBits:
               ToString[W] +
               ")."
           ]
+      //TODO: instead of DFToken.Of[DFBits[VW]] use DFBits[VW] <> TOKEN
+      //Currently (Aug 27th 2021) it causes an issue for summoning a token TC
+      //from a tuple: `val t1 = (DFBits(8), DFBits(8)) token (h"11", b"10010110")`
+      //The issue goes away when we get rid of the match type `<>` or
+      //if we change `given ... with` into `transparent inline given`.
+      //Recheck after match type issues are resolved:
+      //https://github.com/lampepfl/dotty/issues/13377
+      //https://github.com/lampepfl/dotty/issues/12944
       given DFBitsTokenFromDFBitsToken[W <: Int, VW <: Int](using
           check: `W == VW`.Check[W, VW]
-      ): TC[DFBits[W], DFBits[VW] <> TOKEN] with
-        type Out = DFBits[W] <> TOKEN
-        def apply(dfType: DFBits[W], value: DFBits[VW] <> TOKEN): Out =
+      ): TC[DFBits[W], DFToken.Of[DFBits[VW]]] with
+        type Out = DFToken.Of[DFBits[W]]
+        def apply(dfType: DFBits[W], value: DFToken.Of[DFBits[W]]): Out =
           check(dfType.width, value.asIR.width)
           value.asInstanceOf[Out]
 
       given DFBitsTokenFromDFUIntToken[W <: Int, VW <: Int](using
           check: `W == VW`.Check[W, VW]
-      ): TC[DFBits[W], DFUInt[VW] <> TOKEN] with
-        type Out = DFBits[W] <> TOKEN
-        def apply(dfType: DFBits[W], value: DFUInt[VW] <> TOKEN): Out =
+      ): TC[DFBits[W], DFToken.Of[DFUInt[VW]]] with
+        type Out = DFToken.Of[DFBits[W]]
+        def apply(dfType: DFBits[W], value: DFToken.Of[DFUInt[VW]]): Out =
           import DFToken.Ops.bits
           check(dfType.width, value.asIR.width)
           value.bits
@@ -226,7 +234,10 @@ object DFBits:
           val res = $op match
             case "b" => fromBinString($fullExpr)
             case "h" => fromHexString($fullExpr)
-          val (valueBits, bubbleBits) = res.toOption.get
+          //TODO: remove unchecked annotation (and type signature) once
+          //https://github.com/lampepfl/dotty/issues/13405 is resolved
+          val (valueBits, bubbleBits): (BitVector, BitVector) @unchecked =
+            res.toOption.get
           val width =
             DFiant.internals.Inlined.Int
               .forced[widthType.Underlying](valueBits.length.toInt)
