@@ -58,36 +58,32 @@ object DFBoolOrBit:
 
     object TC:
       import DFToken.TC
-      transparent inline given DFBoolTokenFromBooleanSing[
+      given DFBoolTokenFromBooleanSing[
           T <: DFBoolOrBit,
           V <: Boolean
-      ]: TC[T, ValueOf[V]] =
-        new TC[T, ValueOf[V]]:
-          type Out = T <> TOKEN
-          def apply(dfType: T, value: ValueOf[V]): Out =
-            DFBoolOrBit.Token(dfType, value.value)
-      transparent inline given DFBoolTokenFromBoolean[
+      ]: TC[T, ValueOf[V]] with
+        type Out = T <> TOKEN
+        def apply(dfType: T, value: ValueOf[V]): Out =
+          DFBoolOrBit.Token(dfType, value.value)
+      given DFBoolTokenFromBoolean[
           T <: DFBoolOrBit,
           V <: Boolean
-      ]: TC[T, V] =
-        new TC[T, V]:
-          type Out = T <> TOKEN
-          def apply(dfType: T, value: V): Out =
-            DFBoolOrBit.Token(dfType, value)
-      transparent inline given DFBoolTokenFrom1Or0[T <: DFBoolOrBit, V <: 0 | 1]
-          : TC[T, ValueOf[V]] =
-        new TC[T, ValueOf[V]]:
-          type Out = T <> TOKEN
-          def apply(dfType: T, value: ValueOf[V]): Out =
-            DFBoolOrBit.Token(dfType, value.value)
-      transparent inline given DFBoolTokenFromToken[
+      ]: TC[T, V] with
+        type Out = T <> TOKEN
+        def apply(dfType: T, value: V): Out =
+          DFBoolOrBit.Token(dfType, value)
+      given DFBoolTokenFrom1Or0[T <: DFBoolOrBit, V <: 0 | 1]: TC[T, ValueOf[V]]
+        with
+        type Out = T <> TOKEN
+        def apply(dfType: T, value: ValueOf[V]): Out =
+          DFBoolOrBit.Token(dfType, value.value)
+      given DFBoolTokenFromToken[
           T <: DFBoolOrBit,
           V <: DFBoolOrBit.Token
-      ]: TC[T, V] =
-        new TC[T, V]:
-          type Out = T <> TOKEN
-          def apply(dfType: T, value: V): Out =
-            DFBoolOrBit.Token(dfType, value.data)
+      ]: TC[T, V] with
+        type Out = T <> TOKEN
+        def apply(dfType: T, value: V): Out =
+          DFBoolOrBit.Token(dfType, value.data)
     end TC
   end Token
 end DFBoolOrBit

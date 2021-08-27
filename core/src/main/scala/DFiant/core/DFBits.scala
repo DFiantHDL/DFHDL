@@ -84,29 +84,26 @@ object DFBits:
               ToString[W] +
               ")."
           ]
-      transparent inline given DFBitsTokenFromDFBitsToken[W <: Int, VW <: Int](
-          using check: `W == VW`.Check[W, VW]
-      ): TC[DFBits[W], DFBits[VW] <> TOKEN] =
-        new TC[DFBits[W], DFBits[VW] <> TOKEN]:
-          type Out = DFBits[W] <> TOKEN
-          def apply(dfType: DFBits[W], value: DFBits[VW] <> TOKEN): Out =
-            check(dfType.width, value.asIR.width)
-            value.asInstanceOf[Out]
+      given DFBitsTokenFromDFBitsToken[W <: Int, VW <: Int](using
+          check: `W == VW`.Check[W, VW]
+      ): TC[DFBits[W], DFBits[VW] <> TOKEN] with
+        type Out = DFBits[W] <> TOKEN
+        def apply(dfType: DFBits[W], value: DFBits[VW] <> TOKEN): Out =
+          check(dfType.width, value.asIR.width)
+          value.asInstanceOf[Out]
 
-      transparent inline given DFBitsTokenFromDFUIntToken[W <: Int, VW <: Int](
-          using check: `W == VW`.Check[W, VW]
-      ): TC[DFBits[W], DFUInt[VW] <> TOKEN] =
-        new TC[DFBits[W], DFUInt[VW] <> TOKEN]:
-          type Out = DFBits[W] <> TOKEN
-          def apply(dfType: DFBits[W], value: DFUInt[VW] <> TOKEN): Out =
-            import DFToken.Ops.bits
-            check(dfType.width, value.asIR.width)
-            value.bits
+      given DFBitsTokenFromDFUIntToken[W <: Int, VW <: Int](using
+          check: `W == VW`.Check[W, VW]
+      ): TC[DFBits[W], DFUInt[VW] <> TOKEN] with
+        type Out = DFBits[W] <> TOKEN
+        def apply(dfType: DFBits[W], value: DFUInt[VW] <> TOKEN): Out =
+          import DFToken.Ops.bits
+          check(dfType.width, value.asIR.width)
+          value.bits
 
-      transparent inline given DFBitsTokenFromSBV[W <: Int, V <: SameBitsVector]
-          : TC[DFBits[W], V] = new TC[DFBits[W], V]:
+      given DFBitsTokenFromSBV[W <: Int]: TC[DFBits[W], SameBitsVector] with
         type Out = DFToken.Of[DFBits[W]]
-        def apply(dfType: DFBits[W], value: V): Out =
+        def apply(dfType: DFBits[W], value: SameBitsVector): Out =
           DFBits.Token[W](dfType.width, value)
     end TC
 
@@ -374,12 +371,12 @@ object DFBits:
             ToString[LW] +
             "). \nConsider applying `.resize` to resolve this issue."
         ]
-    transparent inline given DFBitsFromCandidate[
+    given DFBitsFromCandidate[
         LW <: Int,
         R
     ](using dfc: DFC, candidate: Candidate[R])(using
         check: `LW == RW`.Check[LW, candidate.OutW]
-    ): TC[DFBits[LW], R] = new TC[DFBits[LW], R]:
+    ): TC[DFBits[LW], R] with
       def apply(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
         val dfVal = candidate(value)
         check(dfType.width, dfVal.width.value)
