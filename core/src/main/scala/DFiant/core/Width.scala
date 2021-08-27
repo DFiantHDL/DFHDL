@@ -62,7 +62,7 @@ object Width:
           val fieldTpe = TypeRepr.of[DFField[_]]
           val clsSym = fieldsTpe.classSymbol.get
           val widths =
-            clsSym.memberFields.view
+            clsSym.fieldMembers.view
               .map(fieldsTpe.memberType)
               .collect {
                 case applied: AppliedType if applied <:< fieldTpe =>
