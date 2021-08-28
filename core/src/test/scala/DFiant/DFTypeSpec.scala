@@ -47,10 +47,6 @@ class DFTypeSpec extends FunSuite:
     assert(MyEnum4.width.value == 2)
     val j: Inlined.Int[8] = MyEnum5.width
     assert(MyEnum5.width.value == 8)
-    val k: Inlined.Int[7] = u7.width
-    assert(u7.width.value == 7)
-    val l: Inlined.Int[5] = s5.width
-    assert(s5.width.value == 5)
   }
 
   given Printer = DefaultPrinter

@@ -116,7 +116,9 @@ object DFBits:
     end TC
 
     private val widthExp = "([0-9]+)'(.*)".r
-    def fromBinString(bin: String): Either[String, (BitVector, BitVector)] =
+    private def fromBinString(
+        bin: String
+    ): Either[String, (BitVector, BitVector)] =
       val (explicitWidth, word) = bin match
         case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
         case _                           => (None, bin)
@@ -140,7 +142,9 @@ object DFBits:
           Right((valueBits.resize(width), bubbleBits.resize(width)))
         case None => Right((valueBits, bubbleBits))
     end fromBinString
-    def fromHexString(hex: String): Either[String, (BitVector, BitVector)] =
+    private def fromHexString(
+        hex: String
+    ): Either[String, (BitVector, BitVector)] =
       val isHex = "[0-9a-fA-F]".r
       val (explicitWidth, word) = hex match
         case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)

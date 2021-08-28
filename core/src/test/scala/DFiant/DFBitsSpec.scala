@@ -1,10 +1,7 @@
 import DFiant.*
 import munit.*
-import internals.{AllowTopLevel, HasTypeName, Inlined}
+import internals.Inlined
 import compiler.printing.{DefaultPrinter, Printer}
-
-import scala.annotation.internal.sharable
-import collection.immutable.ListMap
 
 class DFBitsSpec extends DFSpec:
   val b8 = DFBits(8)
@@ -25,8 +22,8 @@ class DFBitsSpec extends DFSpec:
     val t5: DFBits[10] <> TOKEN = h"1{00}1"
     val t6: DFBits[3] <> TOKEN = DFBits(3) token ?
     val t7: DFBits[8] <> TOKEN = DFBits(8) token t2
-    //    val u: DFUInt[8] <> TOKEN = ???
-    //    val t8: DFBits[8] <> TOKEN = u
+    val u: DFUInt[8] <> TOKEN = d"255"
+    val t8: DFBits[8] <> TOKEN = u
     assert(t7 == t2)
   }
   test("Assignment") {

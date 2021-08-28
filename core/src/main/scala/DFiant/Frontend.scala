@@ -6,6 +6,7 @@ export core.DFType.Ops.*
 export core.DFBits.Token.Ops.*
 export core.DFBits.Token.StrInterp.*
 export core.DFBits.Ops.*
+export core.DFDecimal.Token.StrInterp.*
 export core.DFUnion.Ops.*
 export core.DFOpaque.Ops.*
 export core.DFVector.Ops.*
