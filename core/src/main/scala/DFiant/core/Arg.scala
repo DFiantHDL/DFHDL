@@ -18,4 +18,10 @@ object Arg:
           t
         ]
       ]
+  object Positive
+      extends Check1[
+        Int,
+        [t <: Int] =>> t > 0,
+        [t <: Int] =>> "Argument must be positive, but found: " + ToString[t]
+      ]
 end Arg

@@ -19,6 +19,7 @@ def showTreeMacro[T](arg: Expr[T])(using Quotes, Type[T]): Expr[Unit] =
 
 extension [T](t: Iterable[T])
   def mkStringBrackets: String = t.mkString("(", ", ", ")")
+  def allElementsAreEqual: Boolean = t.forall(_ == t.head)
 
 extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def asTypeOf[T]: Type[T] =

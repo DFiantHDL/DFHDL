@@ -441,7 +441,7 @@ object DFBits:
       protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
         val width = iter.map(_.width.value).sum
         DFVal.Func(DFBits(width), ir.DFVal.Func.Op.++, iter.toList)
-    extension [T <: DFType, W <: Int, M <: DFVal.Modifier](
+    extension [W <: Int, M <: DFVal.Modifier](
         lhs: DFVal[DFBits[W], M]
     )
       def as[A](
@@ -475,13 +475,21 @@ object DFBits:
         checkLow(relBitLow, lhs.width)
         checkHiLo(relBitHigh, relBitLow)
         DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
-      def resize[RW <: Int](updatedWidth: Inlined[RW])(using
-          check: Arg.Width.Check[RW],
+      def repeat[N <: Int](num: Inlined[N])(using
+          check: Arg.Positive.Check[N],
           dfc: DFC
+      ): DFValOf[DFBits[W * N]] =
+        check(num)
+        DFVal.Func(
+          DFBits(lhs.dfType.width * num),
+          ir.DFVal.Func.Op.++,
+          List.fill(num)(lhs)
+        )
+      def resize[RW <: Int](updatedWidth: Inlined[RW])(using
+          Arg.Width.Check[RW],
+          DFC
       ): DFValOf[DFBits[RW]] =
-        check(updatedWidth)
-        val resizeDFType = DFBits(updatedWidth)
-        DFVal.Alias.AsIs(resizeDFType, lhs)
+        DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
     end extension
   end Ops
 end DFBits

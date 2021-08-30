@@ -30,7 +30,13 @@ protected trait DFValPrinter extends AbstractPrinter:
         else s"${argStr}.${opStr}"
       case args =>
         dfVal.op match
-          case DFVal.Func.Op.++ => args.map(_.refCodeString).mkStringBrackets
+          case DFVal.Func.Op.++ =>
+            //all args are the same ==> repeat function
+            if (args.view.map(_.get).allElementsAreEqual)
+              s"${(args.head.refCodeString).applyBrackets()}.repeat(${args.length})"
+            //regular concatenation function
+            else
+              args.map(_.refCodeString).mkStringBrackets
           case _ =>
             args
               .map(_.refCodeString.applyBrackets(true))

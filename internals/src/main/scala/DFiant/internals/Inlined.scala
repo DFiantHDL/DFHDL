@@ -57,6 +57,8 @@ object Inlined:
       forced[int.+[T, R]](lhs.value + rhs.value)
     def -[R <: std.Int](rhs: Inlined[R]) =
       forced[int.-[T, R]](lhs.value - rhs.value)
+    def *[R <: std.Int](rhs: Inlined[R]) =
+      forced[int.*[T, R]](lhs.value * rhs.value)
     def >[R <: std.Int](rhs: Inlined[R]) =
       forced[T > R](lhs.value > rhs.value)
   // def >[R <: std.Int with Singleton](rhs: R) =
