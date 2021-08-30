@@ -32,31 +32,31 @@ type XDouble = Double with Singleton
 type XString = String with Singleton
 type XBoolean = Boolean with Singleton
 
-opaque type Inlined[T <: Wide, Wide] = T
+opaque type Inlined[T] = T
 
 object Inlined:
-  extension [T <: Wide, Wide](inlined: Inlined[T, Wide]) def value: T = inlined
-  transparent inline implicit def getValue[T <: Wide, Wide](
-      inlined: Inlined[T, Wide]
+  extension [T](inlined: Inlined[T]) def value: T = inlined
+  transparent inline implicit def getValue[T](
+      inlined: Inlined[T]
   ): T =
     inline constValueOpt[T] match
       case Some(_) => constValue[T]
       case None    => inlined.asInstanceOf[T]
-  inline implicit def fromValue[T <: Wide with Singleton, Wide](
+  inline implicit def fromValue[T <: Singleton](
       inline value: T
-  ): Inlined[T, Wide] = value
+  ): Inlined[T] = value
   @targetName("fromValueWide")
   implicit def fromValue[Wide](
       value: Wide
-  ): Inlined[Wide, Wide] = value
+  ): Inlined[Wide] = value
 
   protected trait Companion[Wide]:
-    def forced[T <: Wide](value: Wide): Inlined[T, Wide] = value.asInstanceOf[T]
-    def apply[T <: Wide with Singleton](
+    def forced[T <: Wide](value: Wide): Inlined[T] = value.asInstanceOf[T]
+    def apply[T <: Singleton](
         value: T
-    ): Inlined[T, Wide] = value
+    ): Inlined[T] = value
 
-  type Int[T <: std.Int] = Inlined[T, std.Int]
+  type Int[T <: std.Int] = Inlined[T]
   object Int extends Companion[std.Int]
   extension [T <: std.Int](lhs: Int[T])
     def +[R <: std.Int](rhs: Int[R]) =
@@ -66,10 +66,10 @@ object Inlined:
   // def >[R <: std.Int with Singleton](rhs: R) =
   // new Boolean[T > R](lhs.value > rhs)
 
-  type Boolean[T <: std.Boolean] = Inlined[T, std.Boolean]
+  type Boolean[T <: std.Boolean] = Inlined[T]
   object Boolean extends Companion[std.Boolean]
 
-  type String[T <: std.String] = Inlined[T, std.String]
+  type String[T <: std.String] = Inlined[T]
   object String extends Companion[std.String]
 
   inline def require(

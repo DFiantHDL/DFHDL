@@ -1,7 +1,7 @@
 import DFiant.internals.*
 import scala.compiletime.ops.int.*
 import scala.compiletime.constValue
-object InlinedSpec {
+object InlinedSpec:
   val tf1 = Inlined.Int(1)
   def fromInlined[T <: Int](x: Inlined.Int[T]): Inlined.Int[T] = x
   val tf2 = fromInlined(2)
@@ -27,5 +27,4 @@ object InlinedSpec {
   //         Inlined.Int(from).asInstanceOf[Positive[T]]
 
   // opaque type Positive[T <: Int] <: Inlined.Int[T] = Inlined.Int[T]
-
-}
+end InlinedSpec
