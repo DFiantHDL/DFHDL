@@ -32,39 +32,37 @@ type XDouble = Double with Singleton
 type XString = String with Singleton
 type XBoolean = Boolean with Singleton
 
-class Inlined[T <: Wide, Wide](val value: Wide) extends AnyVal:
-  type Out = T
-  override def equals(obj: Any): Boolean = obj match {
-    case right: Inlined[_, _] => value equals right.value
-    case _                    => false
-  }
-  override def toString: String = value.toString
+opaque type Inlined[T <: Wide, Wide] = T
 
 object Inlined:
+  extension [T <: Wide, Wide](inlined: Inlined[T, Wide]) def value: T = inlined
   transparent inline implicit def getValue[T <: Wide, Wide](
       inlined: Inlined[T, Wide]
   ): T =
     inline constValueOpt[T] match
       case Some(_) => constValue[T]
-      case None    => inlined.value.asInstanceOf[T]
+      case None    => inlined.asInstanceOf[T]
   inline implicit def fromValue[T <: Wide with Singleton, Wide](
       inline value: T
-  ): Inlined[T, Wide] = new Inlined[T, Wide](value)
+  ): Inlined[T, Wide] = value
   @targetName("fromValueWide")
   implicit def fromValue[Wide](
       value: Wide
-  ): Inlined[Wide, Wide] = new Inlined[Wide, Wide](value)
+  ): Inlined[Wide, Wide] = value
 
   protected trait Companion[Wide]:
-    def forced[T <: Wide](value: Wide) = Inlined[T, Wide](value)
-    transparent inline def apply(inline value: Wide) =
-      fromValue[value.type, Wide](value)
+    def forced[T <: Wide](value: Wide): Inlined[T, Wide] = value.asInstanceOf[T]
+    def apply[T <: Wide with Singleton](
+        value: T
+    ): Inlined[T, Wide] = value
 
   type Int[T <: std.Int] = Inlined[T, std.Int]
   object Int extends Companion[std.Int]
   extension [T <: std.Int](lhs: Int[T])
-    def +[R <: std.Int](rhs: Int[R]) = new Int[T + R](lhs.value + rhs.value)
-    def >[R <: std.Int](rhs: Int[R]) = new Boolean[T > R](lhs.value > rhs.value)
+    def +[R <: std.Int](rhs: Int[R]) =
+      Int.forced[int.+[T, R]](lhs.value + rhs.value)
+    def >[R <: std.Int](rhs: Int[R]) =
+      Boolean.forced[T > R](lhs.value > rhs.value)
   // def >[R <: std.Int with Singleton](rhs: R) =
   // new Boolean[T > R](lhs.value > rhs)
 
@@ -78,13 +76,14 @@ object Inlined:
       inline cond: std.Boolean,
       inline msg: std.String
   ): Unit = ${ requireMacro('cond, 'msg) }
+end Inlined
 
 def requireMacro(cond: Expr[Boolean], msg: Expr[String])(using
     Quotes
 ): Expr[Unit] =
   import quotes.reflect.*
 
-  val inlinedTpe = TypeRepr.of[DFiant.internals.Inlined[_, _]]
+  val inlinedTpe = TypeRepr.of[DFiant.internals.Inlined]
   extension (str: String)
     def toConstantExpr: Expr[?] =
       Literal(StringConstant(str)).asExpr
@@ -92,7 +91,7 @@ def requireMacro(cond: Expr[Boolean], msg: Expr[String])(using
     def unapply[T](expr: Expr[T]): Option[T] =
       expr.asTerm.tpe match
         case ConstantType(const) => Some(const.value).asInstanceOf[Option[T]]
-        case t: AppliedType if t <:< inlinedTpe =>
+        case t: AppliedType if t.tycon <:< inlinedTpe =>
           t.args.head match
             case ConstantType(const) =>
               Some(const.value).asInstanceOf[Option[T]]
@@ -103,6 +102,7 @@ def requireMacro(cond: Expr[Boolean], msg: Expr[String])(using
             case quotes.reflect.Inlined(_, _, Literal(const)) =>
               Some(const.value).asInstanceOf[Option[T]]
             case _ => None
+  end ValueExpr
 
   def inliner(expr: Expr[?]): Expr[?] =
     expr match
@@ -141,3 +141,4 @@ def requireMacro(cond: Expr[Boolean], msg: Expr[String])(using
         case _ => '{ throw new IllegalArgumentException($msg) }
       else '{}
     case _ => '{ throw new IllegalArgumentException($msg) }
+end requireMacro
