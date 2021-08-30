@@ -2,6 +2,7 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 import scala.quoted.*
+import scala.annotation.targetName
 
 opaque type DFDecimal[S <: Boolean, W <: Int, F <: Int] <: DFType.Of[
   ir.DFDecimal
@@ -150,12 +151,36 @@ end DFDecimal
 
 type DFUInt[W <: Int] = DFDecimal[false, W, 0]
 object DFUInt:
-  def apply[W <: Int](width: Inlined[W]): DFUInt[W] =
+  def apply[W <: Int](width: Inlined[W])(using
+      check: Arg.Width.Check[W]
+  ): DFUInt[W] =
+    check(width)
     DFDecimal(false, width, 0)
   type Token[W <: Int] = DFDecimal.Token[false, W, 0]
 
+  object Ops:
+    extension [W <: Int](lhs: DFValOf[DFUInt[W]])
+      @targetName("resizeDFUInt")
+      def resize[RW <: Int](
+          updatedWidth: Inlined[RW]
+      )(using Arg.Width.Check[RW], DFC): DFValOf[DFUInt[RW]] =
+        DFVal.Alias.AsIs(DFUInt(updatedWidth), lhs)
+end DFUInt
+
 type DFSInt[W <: Int] = DFDecimal[true, W, 0]
 object DFSInt:
-  def apply[W <: Int](width: Inlined[W]): DFSInt[W] =
+  def apply[W <: Int](width: Inlined[W])(using
+      check: Arg.SignedWidth.Check[W]
+  ): DFSInt[W] =
+    check(width)
     DFDecimal(true, width, 0)
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]
+
+  object Ops:
+    extension [W <: Int](lhs: DFValOf[DFSInt[W]])
+      @targetName("resizeDFSInt")
+      def resize[RW <: Int](
+          updatedWidth: Inlined[RW]
+      )(using Arg.SignedWidth.Check[RW], DFC): DFValOf[DFUInt[RW]] =
+        DFVal.Alias.AsIs(DFSInt(updatedWidth), lhs)
+end DFSInt

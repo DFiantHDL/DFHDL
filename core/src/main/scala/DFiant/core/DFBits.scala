@@ -10,8 +10,9 @@ opaque type DFBits[W <: Int] <: DFType.Of[DFiant.compiler.ir.DFBits] =
 
 object DFBits:
   def apply[W <: Int](width: Inlined[W])(using
-      Arg.Width.Check[W]
+      check: Arg.Width.Check[W]
   ): DFBits[W] =
+    check(width)
     ir.DFBits(width).asFE[DFBits[W]]
   @targetName("applyNoArg")
   def apply[W <: Int with Singleton](using ValueOf[W])(using
@@ -436,7 +437,6 @@ object DFBits:
           [H <: Int, L <: Int] =>> "Low index " + ToString[L] +
             " is bigger than High bit index " + ToString[H]
         ]
-
     extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
       protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
         val width = iter.map(_.width.value).sum
@@ -475,6 +475,13 @@ object DFBits:
         checkLow(relBitLow, lhs.width)
         checkHiLo(relBitHigh, relBitLow)
         DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
+      def resize[RW <: Int](updatedWidth: Inlined[RW])(using
+          check: Arg.Width.Check[RW],
+          dfc: DFC
+      ): DFValOf[DFBits[RW]] =
+        check(updatedWidth)
+        val resizeDFType = DFBits(updatedWidth)
+        DFVal.Alias.AsIs(resizeDFType, lhs)
     end extension
   end Ops
 end DFBits
