@@ -32,8 +32,8 @@ object DFType:
   object Ops:
     extension [T](t: T)(using tc: TC[T])
       def dfType: tc.Type = tc(t)
-      def width(using w: Width[T]): Inlined.Int[w.Out] =
-        Inlined.Int.forced[w.Out](dfType.asIR.width)
+      def width(using w: Width[T]): Inlined[w.Out] =
+        Inlined.forced[w.Out](dfType.asIR.width)
       def <>[M <: DFVal.Modifier](modifier: M)(using DFC): DFVal[tc.Type, M] =
         DFVal.Dcl(tc(t), modifier)
       def token[V](tokenValue: Exact[V])(using
@@ -92,6 +92,8 @@ object DFType:
               Some(TypeRepr.of[DFEnum].appliedTo(t))
             case t =>
               None
+          end match
+    end MacroOps
 
     import MacroOps.*
     transparent inline given ofAnyRef[T <: AnyRef]: TC[T] = ${ tcMacro[T] }
@@ -124,5 +126,7 @@ object DFType:
                   type Type = DFEnum[T, e]
                   def apply(t: T): Type = DFEnum[T, e](t)
               }
+      end match
     end tcMacro
   end TC
+end DFType

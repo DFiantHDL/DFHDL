@@ -33,7 +33,6 @@ type XString = String with Singleton
 type XBoolean = Boolean with Singleton
 
 opaque type Inlined[T] = T
-
 object Inlined:
   extension [T](inlined: Inlined[T]) def value: T = inlined
   transparent inline implicit def getValue[T](
@@ -50,27 +49,18 @@ object Inlined:
       value: Wide
   ): Inlined[Wide] = value
 
-  protected trait Companion[Wide]:
-    def forced[T <: Wide](value: Wide): Inlined[T] = value.asInstanceOf[T]
-    def apply[T <: Singleton](
-        value: T
-    ): Inlined[T] = value
+  def forced[T](value: Any): Inlined[T] = value.asInstanceOf[T]
+  def apply[T <: Singleton](value: T): Inlined[T] = value
 
-  type Int[T <: std.Int] = Inlined[T]
-  object Int extends Companion[std.Int]
-  extension [T <: std.Int](lhs: Int[T])
-    def +[R <: std.Int](rhs: Int[R]) =
-      Int.forced[int.+[T, R]](lhs.value + rhs.value)
-    def >[R <: std.Int](rhs: Int[R]) =
-      Boolean.forced[T > R](lhs.value > rhs.value)
+  extension [T <: std.Int](lhs: Inlined[T])
+    def +[R <: std.Int](rhs: Inlined[R]) =
+      forced[int.+[T, R]](lhs.value + rhs.value)
+    def -[R <: std.Int](rhs: Inlined[R]) =
+      forced[int.-[T, R]](lhs.value - rhs.value)
+    def >[R <: std.Int](rhs: Inlined[R]) =
+      forced[T > R](lhs.value > rhs.value)
   // def >[R <: std.Int with Singleton](rhs: R) =
   // new Boolean[T > R](lhs.value > rhs)
-
-  type Boolean[T <: std.Boolean] = Inlined[T]
-  object Boolean extends Companion[std.Boolean]
-
-  type String[T <: std.String] = Inlined[T]
-  object String extends Companion[std.String]
 
   inline def require(
       inline cond: std.Boolean,

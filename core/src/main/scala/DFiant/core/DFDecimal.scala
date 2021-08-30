@@ -8,9 +8,9 @@ opaque type DFDecimal[S <: Boolean, W <: Int, F <: Int] <: DFType.Of[
 ] = DFType.Of[ir.DFDecimal]
 object DFDecimal:
   def apply[S <: Boolean, W <: Int, F <: Int](
-      signed: Inlined.Boolean[S],
-      width: Inlined.Int[W],
-      fractionWidth: Inlined.Int[F]
+      signed: Inlined[S],
+      width: Inlined[W],
+      fractionWidth: Inlined[F]
   ): DFDecimal[S, W, F] =
     ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
@@ -21,9 +21,9 @@ object DFDecimal:
     ): Token[S, W, F] =
       ir.DFToken(dfType.asIR, data).asTokenOf[DFDecimal[S, W, F]]
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
-        signed: Inlined.Boolean[S],
-        width: Inlined.Int[W],
-        fractionWidth: Inlined.Int[F],
+        signed: Inlined[S],
+        width: Inlined[W],
+        fractionWidth: Inlined[F],
         value: BigInt
     ): Token[S, W, F] =
       assert(
@@ -32,9 +32,9 @@ object DFDecimal:
       )
       Token(DFDecimal(signed, width, fractionWidth), Some(value))
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
-        signed: Inlined.Boolean[S],
-        width: Inlined.Int[W],
-        fractionWidth: Inlined.Int[F],
+        signed: Inlined[S],
+        width: Inlined[W],
+        fractionWidth: Inlined[F],
         value: Int
     ): Token[S, W, F] = Token(signed, width, fractionWidth, BigInt(value))
 
@@ -131,11 +131,11 @@ object DFDecimal:
               : (Boolean, Int, Int, BigInt) @unchecked =
             fromDecString($fullExpr).toOption.get
           val signedInlined =
-            Inlined.Boolean.forced[signedType.Underlying](signed)
+            Inlined.forced[signedType.Underlying](signed)
           val widthInlined =
-            Inlined.Int.forced[widthType.Underlying](width)
+            Inlined.forced[widthType.Underlying](width)
           val fractionWidthInlined =
-            Inlined.Int.forced[fractionWidthType.Underlying](fractionWidth)
+            Inlined.forced[fractionWidthType.Underlying](fractionWidth)
           Token[
             signedType.Underlying,
             widthType.Underlying,
@@ -150,12 +150,12 @@ end DFDecimal
 
 type DFUInt[W <: Int] = DFDecimal[false, W, 0]
 object DFUInt:
-  def apply[W <: Int](width: Inlined.Int[W]): DFUInt[W] =
+  def apply[W <: Int](width: Inlined[W]): DFUInt[W] =
     DFDecimal(false, width, 0)
   type Token[W <: Int] = DFDecimal.Token[false, W, 0]
 
 type DFSInt[W <: Int] = DFDecimal[true, W, 0]
 object DFSInt:
-  def apply[W <: Int](width: Inlined.Int[W]): DFSInt[W] =
+  def apply[W <: Int](width: Inlined[W]): DFSInt[W] =
     DFDecimal(true, width, 0)
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]

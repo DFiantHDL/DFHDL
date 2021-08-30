@@ -9,7 +9,7 @@ opaque type DFBits[W <: Int] <: DFType.Of[DFiant.compiler.ir.DFBits] =
   DFType.Of[DFiant.compiler.ir.DFBits]
 
 object DFBits:
-  def apply[W <: Int](width: Inlined.Int[W])(using
+  def apply[W <: Int](width: Inlined[W])(using
       Arg.Width.Check[W]
   ): DFBits[W] =
     ir.DFBits(width).asFE[DFBits[W]]
@@ -17,9 +17,9 @@ object DFBits:
   def apply[W <: Int with Singleton](using ValueOf[W])(using
       Arg.Width.Check[W]
   ): DFBits[W] =
-    DFBits[W](Inlined.Int.forced[W](valueOf[W])).asInstanceOf[DFBits[W]]
+    DFBits[W](Inlined.forced[W](valueOf[W])).asInstanceOf[DFBits[W]]
   extension [W <: Int](dfType: DFBits[W])
-    def width: Inlined.Int[W] = Inlined.Int.forced[W](dfType.asIR.width)
+    def width: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
 
   type Token[W <: Int] = DFToken.Of[DFBits[W]]
   //TODO: remove after https://github.com/lampepfl/dotty/issues/12927 is fixed
@@ -30,13 +30,13 @@ object DFBits:
     ): Token[W] =
       ir.DFToken(dfType.asIR, data).asTokenOf[DFBits[W]]
     protected[core] def apply[W <: Int](
-        width: Inlined.Int[W],
+        width: Inlined[W],
         valueBits: BitVector,
         bubbleBits: BitVector
     ): Token[W] =
       Token(DFBits(width), (valueBits, bubbleBits))
     protected[core] def apply[W <: Int](
-        width: Inlined.Int[W],
+        width: Inlined[W],
         value: Bubble
     ): Token[W] =
       Token(
@@ -45,7 +45,7 @@ object DFBits:
         BitVector.high(width.value)
       )
     protected[core] def apply[W <: Int](
-        width: Inlined.Int[W],
+        width: Inlined[W],
         value: SameBitsVector
     ): Token[W] =
       val level = value match
@@ -57,7 +57,7 @@ object DFBits:
         BitVector.low(width.value)
       )
     extension [W <: Int](token: DFBits.Token[W])
-//      def width: Inlined.Int[W] = Inlined.Int.forced[W](token.asIR.width)
+//      def width: Inlined[W] = Inlined.forced[W](token.asIR.width)
       def data: (BitVector, BitVector) =
         token.asIR.data.asInstanceOf[(BitVector, BitVector)]
       def valueBits: BitVector = token.data._1
@@ -243,7 +243,7 @@ object DFBits:
           val (valueBits, bubbleBits): (BitVector, BitVector) @unchecked =
             res.toOption.get
           val width =
-            DFiant.internals.Inlined.Int
+            DFiant.internals.Inlined
               .forced[widthType.Underlying](valueBits.length.toInt)
           Token[widthType.Underlying](width, valueBits, bubbleBits)
         }
@@ -455,7 +455,7 @@ object DFBits:
         check.apply(aliasDFType.asIR.width, lhs.width)
         DFVal.Alias.AsIs(aliasDFType, lhs)
       def apply[I <: Int](
-          relIdx: Inlined.Int[I]
+          relIdx: Inlined[I]
       )(using
           check: BitIndex.Check[I, W],
           dfc: DFC
@@ -463,8 +463,8 @@ object DFBits:
         check(relIdx, lhs.width)
         DFVal.Alias.ApplyIdx(lhs, relIdx)
       def apply[H <: Int, L <: Int](
-          relBitHigh: Inlined.Int[H],
-          relBitLow: Inlined.Int[L]
+          relBitHigh: Inlined[H],
+          relBitLow: Inlined[L]
       )(using
           checkHigh: BitIndex.Check[H, W],
           checkLow: BitIndex.Check[L, W],

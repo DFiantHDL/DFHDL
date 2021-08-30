@@ -6,7 +6,7 @@ import compiler.printing.{DefaultPrinter, Printer}
 class DFBitsSpec extends DFSpec:
   val b8 = DFBits(8)
   test("Inlined width") {
-    val a: Inlined.Int[8] = b8.width
+    val a: Inlined[8] = b8.width
     assert(b8.width.value == 8)
   }
   given Printer = DefaultPrinter

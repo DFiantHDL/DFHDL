@@ -27,25 +27,25 @@ class DFTypeSpec extends FunSuite:
     case Baz extends MyEnum5(0)
 
   test("Inlined width") {
-    val a: Inlined.Int[8] = b8.width
+    val a: Inlined[8] = b8.width
     assert(b8.width.value == 8)
-    val b: Inlined.Int[1] = bit.width
+    val b: Inlined[1] = bit.width
     assert(bit.width.value == 1)
-    val c: Inlined.Int[1] = bool.width
+    val c: Inlined[1] = bool.width
     assert(bool.width.value == 1)
-    val d: Inlined.Int[10] = tpl.width
+    val d: Inlined[10] = tpl.width
     assert(tpl.width.value == 10)
-    val e: Inlined.Int[80] = vec_b8x10.width
+    val e: Inlined[80] = vec_b8x10.width
     assert(vec_b8x10.width.value == 80)
-    val f: Inlined.Int[2] = MyEnum1.width
+    val f: Inlined[2] = MyEnum1.width
     assert(MyEnum1.width.value == 2)
-    val g: Inlined.Int[5] = MyEnum2.width
+    val g: Inlined[5] = MyEnum2.width
     assert(MyEnum2.width.value == 5)
-    val h: Inlined.Int[3] = MyEnum3.width
+    val h: Inlined[3] = MyEnum3.width
     assert(MyEnum3.width.value == 3)
-    val i: Inlined.Int[2] = MyEnum4.width
+    val i: Inlined[2] = MyEnum4.width
     assert(MyEnum4.width.value == 2)
-    val j: Inlined.Int[8] = MyEnum5.width
+    val j: Inlined[8] = MyEnum5.width
     assert(MyEnum5.width.value == 8)
   }
 

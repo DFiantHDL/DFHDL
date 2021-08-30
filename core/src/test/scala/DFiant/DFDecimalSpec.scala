@@ -9,9 +9,9 @@ class DFDecimalSpec extends DFSpec:
   val u7 = DFUInt(7)
   val s5 = DFSInt(5)
   test("Inlined width") {
-    u7.width.verifyTypeOf[Inlined.Int[7]]
+    u7.width.verifyTypeOf[Inlined[7]]
     assert(u7.width.value == 7)
-    s5.width.verifyTypeOf[Inlined.Int[5]]
+    s5.width.verifyTypeOf[Inlined[5]]
     assert(s5.width.value == 5)
   }
   given Printer = DefaultPrinter

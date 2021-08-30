@@ -39,8 +39,8 @@ object DFVal:
 
   extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
     def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]
-    def width(using w: Width[T]): Inlined.Int[w.Out] =
-      Inlined.Int.forced[w.Out](dfVal.asIR.dfType.width)
+    def width(using w: Width[T]): Inlined[w.Out] =
+      Inlined.forced[w.Out](dfVal.asIR.dfType.width)
     def init(tokenValues: DFToken.Value[T]*)(using dfc: DFC): DFVal[T, M] =
       import dfc.getSet
       val tokens =
@@ -112,8 +112,8 @@ object DFVal:
     object ApplyRange:
       def apply[W <: Int, M <: Modifier, H <: Int, L <: Int](
           relVal: DFVal[DFBits[W], M],
-          relBitHigh: Inlined.Int[H],
-          relBitLow: Inlined.Int[L]
+          relBitHigh: Inlined[H],
+          relBitLow: Inlined[L]
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.ApplyRange(
@@ -145,7 +145,7 @@ object DFVal:
       end apply
       def apply[W <: Int, M <: Modifier, I <: Int](
           relVal: DFVal[DFBits[W], M],
-          relIdx: Inlined.Int[I]
+          relIdx: Inlined[I]
       )(using DFC): DFVal[DFBit, M] =
         ???
     end ApplyIdx
