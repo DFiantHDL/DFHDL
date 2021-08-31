@@ -56,6 +56,27 @@ object DFType:
             t,
             token.data.asInstanceOf[DFTuple.Token.Data]
           )
+  extension (token: DFBits.Token)
+    def as(dfType: DFType): DFType.Token =
+      dfType match
+        case t: DFBoolOrBit =>
+          DFBoolOrBit.Token.fromBits(t, token.data)
+        case t: DFBits =>
+          DFBits.Token.fromBits(t, token.data)
+        case t: DFDecimal =>
+          DFDecimal.Token.fromBits(t, token.data)
+        case t: DFEnum =>
+          DFEnum.Token.fromBits(t, token.data)
+        case t: DFVector =>
+          DFVector.Token.fromBits(t, token.data)
+        case t: DFOpaque =>
+          DFOpaque.Token.fromBits(t, token.data)
+        case t: DFUnion =>
+          DFUnion.Token.fromBits(t, token.data)
+        case t: DFStruct =>
+          DFStruct.Token.fromBits(t, token.data)
+        case t: DFTuple =>
+          DFTuple.Token.fromBits(t, token.data)
 
   object Token:
     def bubble(dfType: DFType): Token = dfType match
@@ -71,8 +92,8 @@ object DFType:
 
   protected[ir] abstract class Companion[T <: DFType, D](
       bubbleCreate: T => D,
-      val dataToBitsData: (T, D) => (BitVector, BitVector) = ???,
-      val bitsDataToData: (T, (BitVector, BitVector)) => D = ???
+      dataToBitsData: (T, D) => (BitVector, BitVector) = ???,
+      bitsDataToData: (T, (BitVector, BitVector)) => D = ???
   )(using ClassTag[T]):
     type Token = DFToken[T, D]
     object Token:
@@ -91,26 +112,6 @@ object DFType:
   end Companion
 end DFType
 
-//  protected[ir] abstract class OptionDataCompanion[T <: DFType, D]()
-//object DFToken:
-//  sealed trait Optional extends DFToken:
-//    type Data
-//    val data: Option[Data]
-//    final lazy val valueBits: BitVector =
-//      data match
-//        case Some(t) => dataToBitVector(t)
-//        case None    => 0.toBitVector(width)
-//    final lazy val bubbleBits: BitVector =
-//      data match
-//        case Some(t) => false.toBitVector(width)
-//        case None    => true.toBitVector(width)
-//    protected def dataToBitVector(data: Data): BitVector
-//    protected def dataCodeString(data: Data)(using Printer): String
-//    final def codeString(using Printer): String = data match {
-//      case Some(t) => dataCodeString(t)
-//      case None    => "?"
-//    }
-
 /////////////////////////////////////////////////////////////////////////////
 // DFBool or DFBit
 /////////////////////////////////////////////////////////////////////////////
@@ -124,7 +125,9 @@ object DFBoolOrBit
           case Some(value) => (BitVector.bit(value), BitVector.low(1))
           case None        => (BitVector.low(1), BitVector.high(1))
       ,
-      bitsDataToData = (_, d) => ???
+      bitsDataToData = (_, d) =>
+        if (d._2.isZeros) Some(!d._1.isZeros)
+        else None
     )
 
 case object DFBool extends DFBoolOrBit
@@ -163,7 +166,16 @@ object DFDecimal
             (value.toBitVector(t.width), BitVector.low(t.width))
           case None => (BitVector.low(t.width), BitVector.high(t.width))
       ,
-      bitsDataToData = (t, d) => ???
+      bitsDataToData = (t, d) =>
+        if (d._2.isZeros)
+          (t.signed, t.fractionWidth) match
+            //DFUInt
+            case (false, 0) => Some(d._1.toBigInt.asUnsigned(t.width))
+            //DFSInt
+            case (true, 0) => Some(d._1.toBigInt)
+            //DFUFix/DFSFix
+            case _ => ??? //not supported yet
+        else None
     )
 /////////////////////////////////////////////////////////////////////////////
 
@@ -179,8 +191,15 @@ final case class DFEnum(
 object DFEnum
     extends DFType.Companion[DFEnum, Option[BigInt]](
       bubbleCreate = _ => None,
-      dataToBitsData = (t, d) => ???,
-      bitsDataToData = (t, d) => ???
+      dataToBitsData = (t, d) =>
+        d match
+          case Some(value) =>
+            (value.toBitVector(t.width), BitVector.low(t.width))
+          case None => (BitVector.low(t.width), BitVector.high(t.width))
+      ,
+      bitsDataToData = (t, d) =>
+        if (d._2.isZeros) Some(d._1.toBigInt)
+        else None
     )
 /////////////////////////////////////////////////////////////////////////////
 
@@ -197,8 +216,23 @@ object DFVector
     extends DFType.Companion[DFVector, Vector[DFType.Token]](
       bubbleCreate = dfType =>
         Vector.fill(dfType.cellDims.head)(DFType.Token.bubble(dfType.cellType)),
-      dataToBitsData = (t, d) => ???,
-      bitsDataToData = (t, d) => ???
+      dataToBitsData = (t, d) =>
+        val vecs = d.map(_.bits).map(_.data).unzip
+        (vecs._1.reduce(_ ++ _), vecs._2.reduce(_ ++ _)),
+      bitsDataToData = (t, d) =>
+        val cellWidth = t.cellType.width
+        val seq =
+          for (i <- 1 to t.width / cellWidth)
+            yield DFBits
+              .Token(
+                DFBits(cellWidth),
+                (
+                  d._1.bitsWL(cellWidth, t.width - i * cellWidth),
+                  d._2.bitsWL(cellWidth, t.width - i * cellWidth)
+                )
+              )
+              .as(t.cellType)
+        seq.toVector
     )
 /////////////////////////////////////////////////////////////////////////////
 

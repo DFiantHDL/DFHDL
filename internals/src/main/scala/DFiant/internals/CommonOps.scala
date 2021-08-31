@@ -13,6 +13,12 @@ object CommonOps:
       if (value < 0 && vec.length < width)
         BitVector.fill(width - vec.length)(true) ++ vec
       else vec.resize(width)
+    def asUnsigned(ofWidth: Int): BigInt =
+      if (value >= 0) value
+      else
+        BigInt(2).pow(ofWidth) + value
+    def asUnsigned: BigInt = asUnsigned(bitsWidth(false))
+  end extension
 
   extension (value: Int)
     def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
