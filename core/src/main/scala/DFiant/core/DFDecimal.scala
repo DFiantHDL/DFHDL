@@ -157,6 +157,14 @@ object DFUInt:
     check(width)
     DFDecimal(false, width, 0)
   type Token[W <: Int] = DFDecimal.Token[false, W, 0]
+  object Token:
+    object Ops:
+      extension [W <: Int](lhs: Token[W])
+        def resize[RW <: Int](
+            updatedWidth: Inlined[RW]
+        )(using check: Arg.Width.Check[RW]): Token[RW] =
+          check(updatedWidth)
+          ???
 
   object Ops:
     extension [W <: Int](lhs: DFValOf[DFUInt[W]])
