@@ -27,6 +27,9 @@ class DFDecimalSpec extends DFSpec:
     val t4 = d"0".verifyTokenOf[DFUInt[1]]
     val t5 = d"10'0".verifyTokenOf[DFUInt[10]]
   }
+  test("Token Conversion") {
+    assertEquals(d"255".bits, h"FF")
+  }
   test("Assignment") {
 //    val v8 = DFBits(8) <> VAR
 //    val x = DFUInt(8) <> VAR

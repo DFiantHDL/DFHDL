@@ -309,7 +309,7 @@ object DFTuple
       dataToBitsData = (t, d) => d.map(_.bits.data).bitsConcat,
       bitsDataToData = (t, d) =>
         var relBitHigh: Int = t.width - 1
-        t.fieldMap.values
+        t.fieldList
           .map(fieldType =>
             val relWidth = fieldType.width
             val relBitLow = relBitHigh - relWidth

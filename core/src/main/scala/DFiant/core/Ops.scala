@@ -1,4 +1,4 @@
 package DFiant.core
 
-export DFToken.Ops.*
+//export DFTokenOps.*
 export DFVal.Ops.*

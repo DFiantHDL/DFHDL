@@ -106,7 +106,7 @@ object DFBits:
       ): TC[DFBits[W], DFToken.Of[DFUInt[VW]]] with
         type Out = DFToken.Of[DFBits[W]]
         def apply(dfType: DFBits[W], value: DFToken.Of[DFUInt[VW]]): Out =
-          import DFToken.Ops.bits
+          import DFTokenOps.bits
           check(dfType.width, value.asIR.width)
           value.bits
 

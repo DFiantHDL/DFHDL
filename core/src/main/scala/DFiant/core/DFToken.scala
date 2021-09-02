@@ -65,9 +65,10 @@ object DFToken:
       }
     end fromValueMacro
   end Value
-
-  object Ops:
-    extension [T <: DFType](token: T <> TOKEN)
-      def bits(using w: Width[T]): DFBits[w.Out] <> TOKEN = ???
-  end Ops
 end DFToken
+
+object DFTokenOps:
+  extension [T <: DFType](token: DFToken.Of[T])
+    def bits(using w: Width[T]): DFToken.Of[DFBits[w.Out]] =
+      token.asIR.bits.asTokenOf[DFBits[w.Out]]
+end DFTokenOps
