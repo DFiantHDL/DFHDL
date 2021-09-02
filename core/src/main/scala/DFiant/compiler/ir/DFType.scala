@@ -280,7 +280,14 @@ object DFStruct
       bubbleCreate = dfType =>
         dfType.fieldMap.values.map(DFType.Token.bubble).toList,
       dataToBitsData = (t, d) => d.map(_.bits.data).bitsConcat,
-      bitsDataToData = (t, d) => ???
+      bitsDataToData = (t, d) =>
+        var relBitHigh: Int = t.width - 1
+        t.fieldMap.values.map(dfType =>
+          val relWidth = dfType.width
+          val relBitLow = relBitHigh - relWidth
+          ???
+        )
+        ???
     )
 /////////////////////////////////////////////////////////////////////////////
 
