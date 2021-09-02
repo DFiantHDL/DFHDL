@@ -42,6 +42,21 @@ object CommonOps:
         )
     def reduceTree(f: (T, T) => T): T = reduceTreeRecur(list, f)
   end extension
+
+  extension (value: BigInt.type)
+    //get the maximum BigInt given a bits width
+    def maxUnsignedFromWidth(width: Int): BigInt = BigInt(2).pow(width) - 1
+    def maxSignedFromWidth(width: Int): BigInt = BigInt(2).pow(width - 1) - 1
+    def minSignedFromWidth(width: Int): BigInt = -BigInt(2).pow(width - 1)
+
+  extension (value: Int)
+    def toBitVector(width: Int): BitVector = BigInt(value).toBitVector(width)
+    def toPaddedString(maxValue: Int): String =
+      s"%0${maxValue.toString.length}d".format(value)
+
+  extension (value: Boolean)
+    def toBitVector(width: Int): BitVector = BitVector.fill(width)(value)
+
 end CommonOps
 
 export CommonOps.*

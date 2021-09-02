@@ -41,3 +41,11 @@ extension (vec: BitVector)
     val ext = vec.padLeft(len + 1)
     BigInt(ext.padToMulsOf(8).toByteArray)
 end extension
+
+extension (iter: Iterable[BitVector])
+  def bitsConcat: BitVector = iter.reduce(_ ++ _)
+
+extension (iter: Iterable[(BitVector, BitVector)])
+  def bitsConcat: (BitVector, BitVector) =
+    val vecs = iter.unzip
+    (vecs._1.bitsConcat, vecs._2.bitsConcat)

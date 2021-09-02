@@ -245,8 +245,9 @@ final case class DFOpaque(name: String, actualType: DFType) extends DFType:
 object DFOpaque
     extends DFType.Companion[DFOpaque, DFType.Token](
       bubbleCreate = dfType => DFType.Token.bubble(dfType.actualType),
-      dataToBitsData = (t, d) => ???,
-      bitsDataToData = (t, d) => ???
+      dataToBitsData = (t, d) => d.bits.data,
+      bitsDataToData = (t, d) =>
+        DFBits.Token(DFBits(t.width), d).as(t.actualType)
     )
 /////////////////////////////////////////////////////////////////////////////
 
@@ -259,8 +260,9 @@ final case class DFUnion(fieldSet: ListSet[DFType]) extends DFType:
 object DFUnion
     extends DFType.Companion[DFUnion, DFType.Token](
       bubbleCreate = dfType => DFType.Token.bubble(dfType.fieldSet.head),
-      dataToBitsData = (t, d) => ???,
-      bitsDataToData = (t, d) => ???
+      dataToBitsData = (t, d) => d.bits.data,
+      bitsDataToData = (t, d) =>
+        DFBits.Token(DFBits(t.width), d).as(t.fieldSet.head)
     )
 /////////////////////////////////////////////////////////////////////////////
 
@@ -277,7 +279,7 @@ object DFStruct
     extends DFType.Companion[DFStruct, List[DFType.Token]](
       bubbleCreate = dfType =>
         dfType.fieldMap.values.map(DFType.Token.bubble).toList,
-      dataToBitsData = (t, d) => ???,
+      dataToBitsData = (t, d) => d.map(_.bits.data).bitsConcat,
       bitsDataToData = (t, d) => ???
     )
 /////////////////////////////////////////////////////////////////////////////
