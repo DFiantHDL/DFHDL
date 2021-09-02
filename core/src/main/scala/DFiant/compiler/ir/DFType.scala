@@ -92,8 +92,8 @@ object DFType:
 
   protected[ir] abstract class Companion[T <: DFType, D](
       bubbleCreate: T => D,
-      dataToBitsData: (T, D) => (BitVector, BitVector) = ???,
-      bitsDataToData: (T, (BitVector, BitVector)) => D = ???
+      dataToBitsData: (T, D) => (BitVector, BitVector),
+      bitsDataToData: (T, (BitVector, BitVector)) => D
   )(using ClassTag[T]):
     type Token = DFToken[T, D]
     object Token:
@@ -282,12 +282,18 @@ object DFStruct
       dataToBitsData = (t, d) => d.map(_.bits.data).bitsConcat,
       bitsDataToData = (t, d) =>
         var relBitHigh: Int = t.width - 1
-        t.fieldMap.values.map(dfType =>
-          val relWidth = dfType.width
-          val relBitLow = relBitHigh - relWidth
-          ???
-        )
-        ???
+        t.fieldMap.values
+          .map(fieldType =>
+            val relWidth = fieldType.width
+            val relBitLow = relBitHigh - relWidth
+            relBitHigh = relBitLow - 1
+            val valueBits = d._1.bitsWL(relWidth, relBitLow)
+            val bubbleBits = d._2.bitsWL(relWidth, relBitLow)
+            DFBits
+              .Token(DFBits(relWidth), (valueBits, bubbleBits))
+              .as(fieldType)
+          )
+          .toList
     )
 /////////////////////////////////////////////////////////////////////////////
 
@@ -300,7 +306,20 @@ final case class DFTuple(fieldList: List[DFType]) extends DFType:
 object DFTuple
     extends DFType.Companion[DFTuple, List[DFType.Token]](
       bubbleCreate = dfType => dfType.fieldList.map(DFType.Token.bubble),
-      dataToBitsData = (t, d) => ???,
-      bitsDataToData = (t, d) => ???
+      dataToBitsData = (t, d) => d.map(_.bits.data).bitsConcat,
+      bitsDataToData = (t, d) =>
+        var relBitHigh: Int = t.width - 1
+        t.fieldMap.values
+          .map(fieldType =>
+            val relWidth = fieldType.width
+            val relBitLow = relBitHigh - relWidth
+            relBitHigh = relBitLow - 1
+            val valueBits = d._1.bitsWL(relWidth, relBitLow)
+            val bubbleBits = d._2.bitsWL(relWidth, relBitLow)
+            DFBits
+              .Token(DFBits(relWidth), (valueBits, bubbleBits))
+              .as(fieldType)
+          )
+          .toList
     )
 /////////////////////////////////////////////////////////////////////////////
