@@ -130,3 +130,15 @@ object DFType:
     end tcMacro
   end TC
 end DFType
+
+//TODO: move back with companions once https://github.com/lampepfl/dotty/issues/13461
+//is resolved
+opaque type DFBits[W <: Int] <: DFType.Of[DFiant.compiler.ir.DFBits] =
+  DFType.Of[DFiant.compiler.ir.DFBits]
+extension [W <: Int](dfType: DFBits[W])
+  def width: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
+  def widthI: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
+
+opaque type DFDecimal[S <: Boolean, W <: Int, F <: Int] <: DFType.Of[
+  ir.DFDecimal
+] = DFType.Of[ir.DFDecimal]

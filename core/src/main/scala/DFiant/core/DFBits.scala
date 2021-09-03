@@ -5,9 +5,6 @@ import scala.annotation.targetName
 import scala.quoted.*
 
 //TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
-opaque type DFBits[W <: Int] <: DFType.Of[DFiant.compiler.ir.DFBits] =
-  DFType.Of[DFiant.compiler.ir.DFBits]
-
 object DFBits:
   def apply[W <: Int](width: Inlined[W])(using
       check: Arg.Width.Check[W]
@@ -19,8 +16,6 @@ object DFBits:
       Arg.Width.Check[W]
   ): DFBits[W] =
     DFBits[W](Inlined.forced[W](valueOf[W])).asInstanceOf[DFBits[W]]
-  extension [W <: Int](dfType: DFBits[W])
-    def width: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
 
   type Token[W <: Int] = DFToken.Of[DFBits[W]]
   //TODO: remove after https://github.com/lampepfl/dotty/issues/12927 is fixed
@@ -97,7 +92,7 @@ object DFBits:
           check: `W == VW`.Check[W, VW]
       ): TC[DFBits[W], DFToken.Of[DFBits[VW]]] with
         type Out = DFToken.Of[DFBits[W]]
-        def apply(dfType: DFBits[W], value: DFToken.Of[DFBits[W]]): Out =
+        def apply(dfType: DFBits[W], value: DFToken.Of[DFBits[VW]]): Out =
           check(dfType.width, value.asIR.width)
           value.asInstanceOf[Out]
 
@@ -108,12 +103,12 @@ object DFBits:
         def apply(dfType: DFBits[W], value: DFToken.Of[DFUInt[VW]]): Out =
           import DFTokenOps.bits
           check(dfType.width, value.asIR.width)
-          value.bits
+          value.bits.asInstanceOf[Out]
 
       given DFBitsTokenFromSBV[W <: Int]: TC[DFBits[W], SameBitsVector] with
         type Out = DFToken.Of[DFBits[W]]
         def apply(dfType: DFBits[W], value: SameBitsVector): Out =
-          DFBits.Token[W](dfType.width, value)
+          DFBits.Token[W](dfType.widthI, value)
     end TC
 
     private val widthExp = "([0-9]+)'(.*)".r
@@ -363,7 +358,7 @@ object DFBits:
           def apply(value: R): DFValOf[DFBits[OutW]] =
             val valueBits =
               valueToBits(value)(using ${ dfcExpr })
-            valueBits.asInstanceOf[DFValOf[DFBits[OutW]]]
+            valueBits.asIR.asValOf[DFBits[OutW]]
       }
     end DFBitsMacro
   end Candidate
@@ -481,7 +476,7 @@ object DFBits:
       ): DFValOf[DFBits[W * N]] =
         check(num)
         DFVal.Func(
-          DFBits(lhs.dfType.width * num),
+          DFBits(lhs.dfType.widthI * num),
           ir.DFVal.Func.Op.++,
           List.fill(num)(lhs)
         )

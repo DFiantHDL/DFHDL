@@ -4,9 +4,6 @@ import DFiant.internals.*
 import scala.quoted.*
 import scala.annotation.targetName
 
-opaque type DFDecimal[S <: Boolean, W <: Int, F <: Int] <: DFType.Of[
-  ir.DFDecimal
-] = DFType.Of[ir.DFDecimal]
 object DFDecimal:
   def apply[S <: Boolean, W <: Int, F <: Int](
       signed: Inlined[S],
@@ -189,6 +186,6 @@ object DFSInt:
       @targetName("resizeDFSInt")
       def resize[RW <: Int](
           updatedWidth: Inlined[RW]
-      )(using Arg.SignedWidth.Check[RW], DFC): DFValOf[DFUInt[RW]] =
+      )(using Arg.SignedWidth.Check[RW], DFC): DFValOf[DFSInt[RW]] =
         DFVal.Alias.AsIs(DFSInt(updatedWidth), lhs)
 end DFSInt
