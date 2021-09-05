@@ -4,13 +4,32 @@ import DFiant.internals.*
 import scala.quoted.*
 import scala.annotation.targetName
 
-object DFDecimal:
-  def apply[S <: Boolean, W <: Int, F <: Int](
-      signed: Inlined[S],
-      width: Inlined[W],
-      fractionWidth: Inlined[F]
-  ): DFDecimal[S, W, F] =
-    ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
+type DFDecimal[S <: Boolean, W <: Int, F <: Int] =
+  OpaqueDFDecimal.DFDecimal[S, W, F]
+val DFDecimal = OpaqueDFDecimal.DFDecimal
+
+private object OpaqueDFDecimal:
+  opaque type DFDecimal[S <: Boolean, W <: Int, F <: Int] <: DFType.Of[
+    ir.DFDecimal
+  ] = DFType.Of[ir.DFDecimal]
+  object DFDecimal:
+    def apply[S <: Boolean, W <: Int, F <: Int](
+        signed: Inlined[S],
+        width: Inlined[W],
+        fractionWidth: Inlined[F]
+    ): DFDecimal[S, W, F] =
+      ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
+
+    type Token[S <: Boolean, W <: Int, F <: Int] =
+      CompanionsDFDecimal.Token[S, W, F]
+    val Token = CompanionsDFDecimal.Token
+//    val DFValTC = Companions.DFValTC
+//    val Conversions = Companions.Conversions
+//    val Ops = Companions.Ops
+//    export Companions.Extensions.*
+end OpaqueDFDecimal
+
+private object CompanionsDFDecimal:
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
   object Token:
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
@@ -142,9 +161,8 @@ object DFDecimal:
         }
       end interpMacro
     end StrInterp
-
   end Token
-end DFDecimal
+end CompanionsDFDecimal
 
 type DFUInt[W <: Int] = DFDecimal[false, W, 0]
 object DFUInt:

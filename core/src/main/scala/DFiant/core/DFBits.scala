@@ -4,11 +4,11 @@ import DFiant.internals.*
 import scala.annotation.targetName
 import scala.quoted.*
 
-type DFBits[W <: Int] = Opaque.DFBits[W]
-val DFBits = Opaque.DFBits
-//export Opaque.DFBits
+type DFBits[W <: Int] = OpaqueDFBits.DFBits[W]
+val DFBits = OpaqueDFBits.DFBits
+//export OpaqueDFBits.DFBits
 
-private object Opaque:
+private object OpaqueDFBits:
   opaque type DFBits[W <: Int] <: DFType.Of[DFiant.compiler.ir.DFBits] =
     DFType.Of[DFiant.compiler.ir.DFBits]
   object DFBits:
@@ -23,17 +23,17 @@ private object Opaque:
     ): DFBits[W] =
       DFBits[W](Inlined.forced[W](valueOf[W]))
 
-    type Token[W <: Int] = Companions.Token[W]
-    val Token = Companions.Token
-    val DFValTC = Companions.DFValTC
-    val Conversions = Companions.Conversions
-    val Ops = Companions.Ops
-    export Companions.Extensions.*
+    type Token[W <: Int] = CompanionsDFBits.Token[W]
+    val Token = CompanionsDFBits.Token
+    val DFValTC = CompanionsDFBits.DFValTC
+    val Conversions = CompanionsDFBits.Conversions
+    val Ops = CompanionsDFBits.Ops
+    export CompanionsDFBits.Extensions.*
   end DFBits
-end Opaque
+end OpaqueDFBits
 
 //TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
-private object Companions:
+private object CompanionsDFBits:
   object Extensions:
     extension [W <: Int](dfType: DFBits[W])
       def width: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
@@ -509,4 +509,4 @@ private object Companions:
         DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
     end extension
   end Ops
-end Companions
+end CompanionsDFBits
