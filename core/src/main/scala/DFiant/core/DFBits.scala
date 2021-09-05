@@ -4,18 +4,40 @@ import DFiant.internals.*
 import scala.annotation.targetName
 import scala.quoted.*
 
+type DFBits[W <: Int] = Opaque.DFBits[W]
+val DFBits = Opaque.DFBits
+//export Opaque.DFBits
+
+private object Opaque:
+  opaque type DFBits[W <: Int] <: DFType.Of[DFiant.compiler.ir.DFBits] =
+    DFType.Of[DFiant.compiler.ir.DFBits]
+  object DFBits:
+    def apply[W <: Int](width: Inlined[W])(using
+        check: Arg.Width.Check[W]
+    ): DFBits[W] =
+      check(width)
+      ir.DFBits(width).asFE[DFBits[W]]
+    @targetName("applyNoArg")
+    def apply[W <: Int with Singleton](using ValueOf[W])(using
+        Arg.Width.Check[W]
+    ): DFBits[W] =
+      DFBits[W](Inlined.forced[W](valueOf[W]))
+
+    type Token[W <: Int] = Companions.Token[W]
+    val Token = Companions.Token
+    val DFValTC = Companions.DFValTC
+    val Conversions = Companions.Conversions
+    val Ops = Companions.Ops
+    export Companions.Extensions.*
+  end DFBits
+end Opaque
+
 //TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
-object DFBits:
-  def apply[W <: Int](width: Inlined[W])(using
-      check: Arg.Width.Check[W]
-  ): DFBits[W] =
-    check(width)
-    ir.DFBits(width).asFE[DFBits[W]]
-  @targetName("applyNoArg")
-  def apply[W <: Int with Singleton](using ValueOf[W])(using
-      Arg.Width.Check[W]
-  ): DFBits[W] =
-    DFBits[W](Inlined.forced[W](valueOf[W])).asInstanceOf[DFBits[W]]
+private object Companions:
+  object Extensions:
+    extension [W <: Int](dfType: DFBits[W])
+      def width: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
+      def widthI: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
 
   type Token[W <: Int] = DFToken.Of[DFBits[W]]
   //TODO: remove after https://github.com/lampepfl/dotty/issues/12927 is fixed
@@ -487,4 +509,4 @@ object DFBits:
         DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
     end extension
   end Ops
-end DFBits
+end Companions
