@@ -3,11 +3,24 @@ import DFiant.compiler.ir
 import DFiant.internals.*
 import annotation.targetName
 
-//TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
-opaque type DFBoolOrBit <: DFType.Of[
-  DFiant.compiler.ir.DFBoolOrBit
-] = DFType.Of[DFiant.compiler.ir.DFBoolOrBit]
-object DFBoolOrBit:
+type DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
+val DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
+
+private object OpaqueDFBoolOrBit:
+  //TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
+  opaque type DFBoolOrBit <: DFType.Of[
+    DFiant.compiler.ir.DFBoolOrBit
+  ] = DFType.Of[DFiant.compiler.ir.DFBoolOrBit]
+  object DFBoolOrBit:
+    type Token = CompanionsDFBoolOrBit.Token
+    val Token = CompanionsDFBoolOrBit.Token
+//    val DFValTC = CompanionsDFBoolOrBit.DFValTC
+//    val Conversions = CompanionsDFBoolOrBit.Conversions
+//    val Ops = CompanionsDFBoolOrBit.Ops
+//    export CompanionsDFBoolOrBit.Extensions.*
+end OpaqueDFBoolOrBit
+
+private object CompanionsDFBoolOrBit:
   type Data = Option[Boolean]
   type Token = DFToken.Of[DFBoolOrBit]
   object Token:
@@ -86,7 +99,7 @@ object DFBoolOrBit:
           DFBoolOrBit.Token(dfType, value.data)
     end TC
   end Token
-end DFBoolOrBit
+end CompanionsDFBoolOrBit
 
 //export DFBoolOrBit.Token.Ops.*
 //export DFBoolOrBit.Ops.*
