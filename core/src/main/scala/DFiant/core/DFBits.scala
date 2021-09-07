@@ -32,12 +32,12 @@ private object OpaqueDFBits:
   end DFBits
 end OpaqueDFBits
 
+//make private after https://github.com/lampepfl/dotty/issues/13477 is resolved
 //TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
-private object CompanionsDFBits:
+object CompanionsDFBits:
   object Extensions:
     extension [W <: Int](dfType: DFBits[W])
       def width: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
-      def widthI: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
 
   type Token[W <: Int] = DFToken.Of[DFBits[W]]
   //TODO: remove after https://github.com/lampepfl/dotty/issues/12927 is fixed
@@ -130,7 +130,7 @@ private object CompanionsDFBits:
       given DFBitsTokenFromSBV[W <: Int]: TC[DFBits[W], SameBitsVector] with
         type Out = DFToken.Of[DFBits[W]]
         def apply(dfType: DFBits[W], value: SameBitsVector): Out =
-          DFBits.Token[W](dfType.widthI, value)
+          DFBits.Token[W](dfType.width, value)
     end TC
 
     private val widthExp = "([0-9]+)'(.*)".r
@@ -419,7 +419,7 @@ private object CompanionsDFBits:
   object Conversions:
     implicit def DFBitsConversionSing[LW <: Int & Singleton, R](from: R)(using
         v: ValueOf[LW],
-        tc: DFVal.TC[DFBits[LW], R]
+        tc: CompanionsDFVal.TC[DFBits[LW], R]
     ): DFValOf[DFBits[LW]] = tc(DFBits(valueOf[LW]), from)
   //TODO: currently causes compiler crash
   //    implicit def DFBitsConversion[R](from: R)(using
@@ -458,7 +458,7 @@ private object CompanionsDFBits:
       protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
         val width = iter.map(_.width.value).sum
         DFVal.Func(DFBits(width), ir.DFVal.Func.Op.++, iter.toList)
-    extension [W <: Int, M <: DFVal.Modifier](
+    extension [W <: Int, M <: ir.DFVal.Modifier](
         lhs: DFVal[DFBits[W], M]
     )
       def as[A](
@@ -498,7 +498,7 @@ private object CompanionsDFBits:
       ): DFValOf[DFBits[W * N]] =
         check(num)
         DFVal.Func(
-          DFBits(lhs.dfType.widthI * num),
+          DFBits(lhs.dfType.width * num),
           ir.DFVal.Func.Op.++,
           List.fill(num)(lhs)
         )

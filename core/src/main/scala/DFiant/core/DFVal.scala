@@ -1,24 +1,48 @@
 package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
+import DFiant.compiler.ir.DFVal.Modifier
 
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
 //TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
-opaque type DFVal[+T <: DFType, +M <: DFVal.Modifier] <: DFMember.Of[
-  DFiant.compiler.ir.DFVal
-] =
-  DFMember.Of[DFiant.compiler.ir.DFVal]
-type DFValAny = DFVal[DFType, DFVal.Modifier]
-type DFValOf[+T <: DFType] = DFVal[T, DFVal.Modifier]
-type DFVarOf[+T <: DFType] = DFVal[T, DFVal.Modifier.Assignable]
-type DFPortOf[+T <: DFType] = DFVal[T, DFVal.Modifier.Port]
 
-type VAL = DFVal.Modifier.VAL
-type VAR = DFVal.Modifier.VAR.type
-type IN = DFVal.Modifier.IN.type
-type OUT = DFVal.Modifier.OUT.type
+type DFVal[+T <: DFType, +M <: Modifier] =
+  OpaqueDFVal.DFVal[T, M]
+val DFVal = OpaqueDFVal.DFVal
+
+private object OpaqueDFVal:
+  opaque type DFVal[+T <: DFType, +M <: Modifier] <: DFMember.Of[
+    DFiant.compiler.ir.DFVal
+  ] =
+    DFMember.Of[DFiant.compiler.ir.DFVal]
+  object DFVal:
+    final val Modifier = DFiant.compiler.ir.DFVal.Modifier
+    export DFBits.Conversions.*
+    export CompanionsDFVal.Extensions.*
+    val Const = CompanionsDFVal.Const
+    val Dcl = CompanionsDFVal.Dcl
+    val Func = CompanionsDFVal.Func
+    val Alias = CompanionsDFVal.Alias
+    val TC = CompanionsDFVal.TC
+    type TC[T <: DFType, -R] = CompanionsDFVal.TC[T, R]
+    val Ops = CompanionsDFVal.Ops
+end OpaqueDFVal
+
+type DFValAny = DFVal[DFType, Modifier]
+type DFValOf[+T <: DFType] = DFVal[T, Modifier]
+type DFVarOf[+T <: DFType] = DFVal[T, Modifier.Assignable]
+type DFPortOf[+T <: DFType] = DFVal[T, Modifier.Port]
+
+val IN = Modifier.IN
+val OUT = Modifier.OUT
+val INOUT = Modifier.INOUT
+val VAR = Modifier.VAR
+type VAL = Modifier.VAL
+type VAR = Modifier.VAR.type
+type IN = Modifier.IN.type
+type OUT = Modifier.OUT.type
 trait TOKEN
 type <>[T <: DFType, M] = M match
   case VAL   => DFValOf[T]
@@ -33,23 +57,22 @@ extension (dfVal: ir.DFVal)
   def asVarOf[T <: DFType]: DFVarOf[T] = dfVal.asInstanceOf[DFVarOf[T]]
   def asPortOf[T <: DFType]: DFPortOf[T] = dfVal.asInstanceOf[DFPortOf[T]]
 
-object DFVal:
-  export DFiant.compiler.ir.DFVal.Modifier
-  export DFBits.Conversions.*
-
-  extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
-    def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]
-    def width(using w: Width[T]): Inlined[w.Out] =
-      Inlined.forced[w.Out](dfVal.asIR.dfType.width)
-    def init(tokenValues: DFToken.Value[T]*)(using dfc: DFC): DFVal[T, M] =
-      import dfc.getSet
-      val tokens =
-        tokenValues.map(tv => tv(dfVal.dfType).asIR)
-      assert(
-        dfVal.asIR.isAnonymous,
-        s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
-      )
-      dfVal.asIR.tag(ir.ExternalInit(tokens)).asFE[T, M]
+private object CompanionsDFVal:
+  object Extensions:
+    extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
+      def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]
+      def width(using w: Width[T]): Inlined[w.Out] =
+        Inlined.forced[w.Out](dfVal.asIR.dfType.width)
+      def init(tokenValues: DFToken.Value[T]*)(using dfc: DFC): DFVal[T, M] =
+        import dfc.getSet
+        val tokens =
+          tokenValues.map(tv => tv(dfVal.dfType).asIR)
+        assert(
+          dfVal.asIR.isAnonymous,
+          s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
+        )
+        dfVal.asIR.tag(ir.ExternalInit(tokens)).asFE[T, M]
+  end Extensions
 
   object Const:
     def apply[T <: DFType](token: DFToken.Of[T], named: Boolean = false)(using
@@ -188,11 +211,11 @@ object DFVal:
   end TC
 
   object Ops:
-    extension [T <: DFType, M <: DFVal.Modifier](dfVal: DFVal[T, M])
+    extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
       def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal)
   end Ops
-end DFVal
+end CompanionsDFVal
 
 object DFValNI:
   //TODO: Delete if no use eventually

@@ -29,7 +29,8 @@ private object OpaqueDFDecimal:
 //    export Companions.Extensions.*
 end OpaqueDFDecimal
 
-private object CompanionsDFDecimal:
+//make private after https://github.com/lampepfl/dotty/issues/13477 is resolved
+object CompanionsDFDecimal:
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
   object Token:
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](

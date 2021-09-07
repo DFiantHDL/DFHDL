@@ -37,14 +37,14 @@ type DFEncoding = core.DFEncoding
 val DFEncoding = core.DFEncoding
 type DFDesign = core.DFDesign
 
-val IN = core.DFVal.Modifier.IN
-val OUT = core.DFVal.Modifier.OUT
-val INOUT = core.DFVal.Modifier.INOUT
-val VAR = core.DFVal.Modifier.VAR
-type VAL = core.DFVal.Modifier.VAL
-type VAR = core.DFVal.Modifier.VAR.type
-type IN = core.DFVal.Modifier.IN.type
-type OUT = core.DFVal.Modifier.OUT.type
+val IN = core.IN
+val OUT = core.OUT
+val INOUT = core.INOUT
+val VAR = core.VAR
+type VAL = core.VAL
+type VAR = core.VAR
+type IN = core.IN
+type OUT = core.OUT
 type TOKEN = core.TOKEN
 type <>[T <: DFType, M] = core.<>[T, M]
 
