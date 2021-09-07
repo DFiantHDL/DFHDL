@@ -421,10 +421,9 @@ object CompanionsDFBits:
         v: ValueOf[LW],
         tc: CompanionsDFVal.TC[DFBits[LW], R]
     ): DFValOf[DFBits[LW]] = tc(DFBits(valueOf[LW]), from)
-  //TODO: currently causes compiler crash
-  //    implicit def DFBitsConversion[R](from: R)(using
-  //        candidate: Candidate[R]
-  //    ): DFValOf[DFBits[Int]] = candidate(from)
+    implicit def DFBitsConversion[R](from: R)(using
+        candidate: Candidate[R]
+    ): DFValOf[DFBits[Int]] = candidate(from)
 
   object Ops:
     protected object `AW == TW`
