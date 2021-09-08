@@ -39,6 +39,18 @@ object CompanionsDFBits:
     extension [W <: Int](dfType: DFBits[W])
       def width: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
 
+  protected object `AW == TW`
+      extends Check2[
+        Int,
+        Int,
+        [AW <: Int, TW <: Int] =>> AW == TW,
+        [AW <: Int, TW <: Int] =>> "The alias width (" +
+          ToString[AW] +
+          ") is different than the dataflow value width (" +
+          ToString[TW] +
+          ")."
+      ]
+
   type Token[W <: Int] = DFToken.Of[DFBits[W]]
   //TODO: remove after https://github.com/lampepfl/dotty/issues/12927 is fixed
   object Token:
@@ -270,6 +282,15 @@ object CompanionsDFBits:
 
     object Ops:
       extension [LW <: Int](lhs: DFBits.Token[LW])
+        def as[A](
+            aliasType: A
+        )(using
+            tc: DFType.TC[A],
+            aW: Width[A]
+        )(using check: `AW == TW`.Check[aW.Out, LW]): DFToken.Of[tc.Type] =
+          val dfType = tc(aliasType).asIR
+          check(dfType.width, lhs.width)
+          lhs.asIR.asInstanceOf[ir.DFBits.Token].as(dfType).asTokenOf[tc.Type]
         @targetName("concat")
         def ++[RW <: Int](rhs: DFBits.Token[RW]): DFBits.Token[LW + RW] =
           val width = lhs.width + rhs.width
@@ -426,17 +447,6 @@ object CompanionsDFBits:
     ): DFValOf[DFBits[Int]] = candidate(from)
 
   object Ops:
-    protected object `AW == TW`
-        extends Check2[
-          Int,
-          Int,
-          [AW <: Int, TW <: Int] =>> AW == TW,
-          [AW <: Int, TW <: Int] =>> "The alias width (" +
-            ToString[AW] +
-            ") is different than the dataflow value width (" +
-            ToString[TW] +
-            ")."
-        ]
     protected object BitIndex
         extends Check2[
           Int,

@@ -162,9 +162,9 @@ object DFDecimal
         if (d._2.isZeros)
           (t.signed, t.fractionWidth) match
             //DFUInt
-            case (false, 0) => Some(d._1.toBigInt.asUnsigned(t.width))
+            case (false, 0) => Some(d._1.toBigInt(false).asUnsigned(t.width))
             //DFSInt
-            case (true, 0) => Some(d._1.toBigInt)
+            case (true, 0) => Some(d._1.toBigInt(true))
             //DFUFix/DFSFix
             case _ => ??? //not supported yet
         else None
@@ -190,7 +190,7 @@ object DFEnum
           case None => (BitVector.low(t.width), BitVector.high(t.width))
       ,
       bitsDataToData = (t, d) =>
-        if (d._2.isZeros) Some(d._1.toBigInt)
+        if (d._2.isZeros) Some(d._1.toBigInt(false))
         else None
     )
 /////////////////////////////////////////////////////////////////////////////

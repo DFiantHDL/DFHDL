@@ -22,10 +22,10 @@ extension (vec: BitVector)
   def bitsWL[W](relWidth: Int, loIdx: Int): BitVector =
     val hiIdx = relWidth + loIdx - 1
     bits(hiIdx, loIdx)
-  def padToMulsOf(bitsNum: Int): BitVector =
+  def padToMulsOf(bitsNum: Int, signed: Boolean): BitVector =
     val paddedVecLength = ((vec.length + bitsNum - 1) / bitsNum) * bitsNum
-    vec.padLeft(paddedVecLength)
-  def toHexProper: String = padToMulsOf(4).toHex
+    BitVector.fill(paddedVecLength - vec.length)(vec(0)) ++ vec
+  def toHexProper: String = padToMulsOf(4, false).toHex
   def isZeros: Boolean = vec == BitVector.low(vec.length)
   def toShortString: String =
     val nibble = 4
@@ -35,11 +35,11 @@ extension (vec: BitVector)
     //default printing of bitvectors is padding-right in `toHex`.
     //padding left is much more intuitive for us because we consider
     // the leftest presented bit to be to MSbit.
-    s"0x${narrowVec.padToMulsOf(nibble).toHex}"
-  def toBigInt: BigInt =
+    s"0x${narrowVec.padToMulsOf(nibble, false).toHex}"
+  def toBigInt(signed: Boolean): BigInt =
     val len = vec.length
-    val ext = vec.padLeft(len + 1)
-    BigInt(ext.padToMulsOf(8).toByteArray)
+    val ext = BitVector.fill(1)(vec(0)) ++ vec
+    BigInt(ext.padToMulsOf(8, signed).toByteArray)
 end extension
 
 extension (iter: Iterable[BitVector])
