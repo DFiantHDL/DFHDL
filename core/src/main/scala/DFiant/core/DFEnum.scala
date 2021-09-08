@@ -57,37 +57,42 @@ object DFEncoding:
       else None
 end DFEncoding
 
-opaque type DFEnum[C <: AnyRef, E] <: DFType.Of[ir.DFEnum] =
-  DFType.Of[ir.DFEnum]
-object DFEnum:
-  def unapply(using Quotes)(
-      tpe: quotes.reflect.TypeRepr
-  ): Option[List[quotes.reflect.TypeRepr]] =
-    import quotes.reflect.*
-    val enumTpe = TypeRepr.of[scala.reflect.Enum]
-    val sym = tpe.termSymbol
-    if (sym.companionClass.flags.is(Flags.Enum))
-      Some(
-        sym.declaredFields.view
-          .map(f => tpe.memberType(f))
-          .filter(_ <:< enumTpe)
-          .toList
-      )
-    else None
-  def apply[C <: AnyRef, E](enumCompanion: C): DFEnum[C, E] =
-    val enumClass = classOf[scala.reflect.Enum]
-    val enumCompanionCls = enumCompanion.getClass
-    val fieldsAsPairs = for (
-      field <- enumCompanionCls.getDeclaredFields
-      if enumClass.isAssignableFrom(field.getType)
-    ) yield
-      field.setAccessible(true)
-      (field.getName, field.get(enumCompanion).asInstanceOf[DFEncoding])
-    val name = enumCompanionCls.getSimpleName.replace("$", "")
-    val width = fieldsAsPairs.head._2.calcWidth(fieldsAsPairs.size)
-    val entryPairs = fieldsAsPairs.zipWithIndex.map {
-      case ((name, entry), idx) => (name, entry.value)
-    }
-    ir.DFEnum(name, width, ListMap(entryPairs: _*)).asInstanceOf[DFEnum[C, E]]
-  end apply
-end DFEnum
+type DFEnum[C <: AnyRef, E] = OpaqueDFEnum.DFEnum[C, E]
+val DFEnum = OpaqueDFEnum.DFEnum
+
+private object OpaqueDFEnum:
+  opaque type DFEnum[C <: AnyRef, E] <: DFType.Of[ir.DFEnum] =
+    DFType.Of[ir.DFEnum]
+  object DFEnum:
+    def unapply(using Quotes)(
+        tpe: quotes.reflect.TypeRepr
+    ): Option[List[quotes.reflect.TypeRepr]] =
+      import quotes.reflect.*
+      val enumTpe = TypeRepr.of[scala.reflect.Enum]
+      val sym = tpe.termSymbol
+      if (sym.companionClass.flags.is(Flags.Enum))
+        Some(
+          sym.declaredFields.view
+            .map(f => tpe.memberType(f))
+            .filter(_ <:< enumTpe)
+            .toList
+        )
+      else None
+    def apply[C <: AnyRef, E](enumCompanion: C): DFEnum[C, E] =
+      val enumClass = classOf[scala.reflect.Enum]
+      val enumCompanionCls = enumCompanion.getClass
+      val fieldsAsPairs = for (
+        field <- enumCompanionCls.getDeclaredFields
+        if enumClass.isAssignableFrom(field.getType)
+      ) yield
+        field.setAccessible(true)
+        (field.getName, field.get(enumCompanion).asInstanceOf[DFEncoding])
+      val name = enumCompanionCls.getSimpleName.replace("$", "")
+      val width = fieldsAsPairs.head._2.calcWidth(fieldsAsPairs.size)
+      val entryPairs = fieldsAsPairs.zipWithIndex.map {
+        case ((name, entry), idx) => (name, entry.value)
+      }
+      ir.DFEnum(name, width, ListMap(entryPairs: _*)).asInstanceOf[DFEnum[C, E]]
+    end apply
+  end DFEnum
+end OpaqueDFEnum

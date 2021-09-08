@@ -5,15 +5,22 @@ import scala.quoted.*
 import collection.immutable.ListSet
 import DFiant.compiler.printing.DefaultPrinter
 
-private def collisionError(collisions: List[String]): String =
-  s"Dataflow union types must be exclusive.\nThe following types are repeated: ${collisions.mkString(", ")}"
-private def widthError(lhsWidth: Int, rhsWidth: Int): String =
-  s"All union types must have the same width.\nFound LHS-width $lhsWidth and RHS-width $rhsWidth"
-opaque type DFUnion[U <: DFType] <: DFType.Of[ir.DFUnion] =
-  DFType.Of[ir.DFUnion]
-object DFUnion:
-  def apply[U <: DFType](fieldSet: ListSet[ir.DFType]): DFUnion[U] =
-    ir.DFUnion(fieldSet).asInstanceOf[DFUnion[U]]
+type DFUnion[U <: DFType] = OpaqueDFUnion.DFUnion[U]
+val DFUnion = OpaqueDFUnion.DFUnion
+
+private object OpaqueDFUnion:
+  opaque type DFUnion[U <: DFType] <: DFType.Of[ir.DFUnion] =
+    DFType.Of[ir.DFUnion]
+  object DFUnion:
+    def apply[U <: DFType](fieldSet: ListSet[ir.DFType]): DFUnion[U] =
+      ir.DFUnion(fieldSet).asInstanceOf[DFUnion[U]]
+    val Ops = CompanionsDFUnion.Ops
+
+private object CompanionsDFUnion:
+  private def collisionError(collisions: List[String]): String =
+    s"Dataflow union types must be exclusive.\nThe following types are repeated: ${collisions.mkString(", ")}"
+  private def widthError(lhsWidth: Int, rhsWidth: Int): String =
+    s"All union types must have the same width.\nFound LHS-width $lhsWidth and RHS-width $rhsWidth"
   trait Able[T]:
     type U <: DFType
     def apply(t: T): DFUnion[U]
@@ -47,42 +54,41 @@ object DFUnion:
         )
         DFUnion[l.U | r.U](lhsUnion.fieldSet ++ rhsUnion.fieldSet)
   end Ops
-end DFUnion
+  trait VerifyUnion[Current <: DFType, Added <: DFType]
+  object VerifyUnion:
+    inline given [Current <: DFType, Added <: DFType]
+        : VerifyUnion[Current, Added] =
+      ${ verifyMacro[Current, Added] }
+    def verifyMacro[Current <: DFType, Added <: DFType](using
+        Quotes,
+        Type[Current],
+        Type[Added]
+    ): Expr[VerifyUnion[Current, Added]] =
+      import quotes.reflect.*
+      //flattens all the OrType into a list
+      def flattenOr(tpe: TypeRepr): List[TypeRepr] =
+        tpe.dealias match
+          case OrType(left, right) => flattenOr(left) ++ flattenOr(right)
+          case t                   => List(t)
+      val currentTpes = flattenOr(TypeRepr.of[Current])
+      val addedTpes = flattenOr(TypeRepr.of[Added])
+      //checking for collisions
+      val collisions =
+        currentTpes.filter(c => addedTpes.exists(a => a <:< c | c <:< a))
+      if (collisions.nonEmpty)
+        report.error(collisionError(collisions.map(_.toString)))
+      import Width.*
+      //checking widths match
+      val currentWidth = currentTpes.head.calcWidth
+      val addedWidth = addedTpes.head.calcWidth
+      (currentWidth, addedWidth) match
+        case (ConstantType(IntConstant(c)), ConstantType(IntConstant(a)))
+            if a != c =>
+          report.error(widthError(c, a))
+        //either unknown at compile-time or are matching
+        case _ =>
 
-trait VerifyUnion[Current <: DFType, Added <: DFType]
-object VerifyUnion:
-  inline given [Current <: DFType, Added <: DFType]
-      : VerifyUnion[Current, Added] =
-    ${ verifyMacro[Current, Added] }
-  def verifyMacro[Current <: DFType, Added <: DFType](using
-      Quotes,
-      Type[Current],
-      Type[Added]
-  ): Expr[VerifyUnion[Current, Added]] =
-    import quotes.reflect.*
-    //flattens all the OrType into a list
-    def flattenOr(tpe: TypeRepr): List[TypeRepr] =
-      tpe.dealias match
-        case OrType(left, right) => flattenOr(left) ++ flattenOr(right)
-        case t                   => List(t)
-    val currentTpes = flattenOr(TypeRepr.of[Current])
-    val addedTpes = flattenOr(TypeRepr.of[Added])
-    //checking for collisions
-    val collisions =
-      currentTpes.filter(c => addedTpes.exists(a => a <:< c | c <:< a))
-    if (collisions.nonEmpty)
-      report.error(collisionError(collisions.map(_.toString)))
-    import Width.*
-    //checking widths match
-    val currentWidth = currentTpes.head.calcWidth
-    val addedWidth = addedTpes.head.calcWidth
-    (currentWidth, addedWidth) match
-      case (ConstantType(IntConstant(c)), ConstantType(IntConstant(a)))
-          if a != c =>
-        report.error(widthError(c, a))
-      //either unknown at compile-time or are matching
-      case _ =>
-
-    '{ new VerifyUnion[Current, Added] {} }
-  end verifyMacro
-end VerifyUnion
+      '{ new VerifyUnion[Current, Added] {} }
+    end verifyMacro
+  end VerifyUnion
+end CompanionsDFUnion
