@@ -3,35 +3,24 @@ import DFiant.compiler.ir
 import DFiant.internals.*
 import scala.quoted.*
 
-type DFTuple[T] = OpaqueDFTuple.DFTuple[T]
-val DFTuple = OpaqueDFTuple.DFTuple
+type DFTuple[T] = DFStruct[DFTuple.Fields[T]]
+object DFTuple:
+  def apply[T <: AnyRef](t: T): DFTuple[T] =
+    val fieldList: List[DFType] =
+      t.asInstanceOf[NonEmptyTuple]
+        .toList
+        //TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
+        .asInstanceOf[List[AnyRef]]
+        .map(x => DFType(x))
+    DFStruct(Fields[T](fieldList))
 
-private object OpaqueDFTuple:
-  opaque type DFTuple[T] <: DFType.Of[ir.DFTuple] = DFType.Of[ir.DFTuple]
-  object DFTuple:
-    def apply[T <: AnyRef](t: T): DFTuple[T] =
-      val fieldList: List[ir.DFType] =
-        t.asInstanceOf[NonEmptyTuple]
-          .toList
-          //TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
-          .asInstanceOf[List[AnyRef]]
-          .map(x => DFType(x).asIR)
-      ir.DFTuple(fieldList).asFE[DFTuple[T]]
+  final case class Fields[T](fieldList: List[DFType]) extends DFFields:
+    override lazy val typeName: String = ir.DFStruct.ReservedTupleName
+    fieldList.zipWithIndex.foreach((f, i) => createField(f, (i + 1).toString))
 
-    type Token[T] = CompanionsDFTuple.Token[T]
-    val Token = CompanionsDFTuple.Token
-    val DFValTC = CompanionsDFTuple.DFValTC
-//    val Conversions = CompanionsDFTuple.Conversions
-//    val Ops = CompanionsDFTuple.Ops
-    export CompanionsDFTuple.Extensions.*
-  end DFTuple
-end OpaqueDFTuple
-
-private object CompanionsDFTuple:
-  object Extensions:
-    extension [T](dfType: DFTuple[T])
-      def fieldList: List[DFType] =
-        dfType.asIR.fieldList.asInstanceOf[List[DFType]]
+  extension [T](dfType: DFTuple[T])
+    def fieldList: List[DFType] =
+      dfType.asIR.fieldMap.values.toList.asInstanceOf[List[DFType]]
 
   trait TCZipper[
       T <: NonEmptyTuple,
@@ -154,4 +143,4 @@ private object CompanionsDFTuple:
           DFVal.Func(dfType, ir.DFVal.Func.Op.++, dfVals)(using dfc.anonymize)
 
   end DFValTC
-end CompanionsDFTuple
+end DFTuple

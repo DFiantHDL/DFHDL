@@ -58,6 +58,9 @@ object Width:
         case applied: AppliedType if applied <:< TypeRepr.of[NonEmptyTuple] =>
           val widths = applied.args.map(a => a.calcWidth)
           widths.reduce(_ + _)
+        case fieldsTpe: AppliedType
+            if fieldsTpe <:< TypeRepr.of[DFTuple.Fields[?]] =>
+          fieldsTpe.args.head.calcWidth
         case fieldsTpe if fieldsTpe <:< TypeRepr.of[DFFields] =>
           val fieldTpe = TypeRepr.of[DFField[_]]
           val clsSym = fieldsTpe.classSymbol.get

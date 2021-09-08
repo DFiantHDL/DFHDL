@@ -23,9 +23,11 @@ protected trait DFTypePrinter extends AbstractPrinter:
   def csDFOpaque(dfType: DFOpaque): String = dfType.name
   def csDFUnion(dfType: DFUnion): String =
     dfType.fieldSet.map(csDFType).mkString(" | ")
-  def csDFStruct(dfType: DFStruct): String = dfType.name
-  def csDFTuple(dfType: DFTuple): String =
-    dfType.fieldList.view.map(csDFType).mkStringBrackets
+  def csDFStruct(dfType: DFStruct): String = dfType.name match
+    case DFStruct.ReservedTupleName => csDFTuple(dfType.fieldMap.values.toList)
+    case n                          => n
+  def csDFTuple(fieldList: List[DFType]): String =
+    fieldList.view.map(csDFType).mkStringBrackets
 
   def csDFType(dfType: DFType): String = dfType match
     case dt: DFBoolOrBit => csDFBoolOrBit(dt)
@@ -36,4 +38,4 @@ protected trait DFTypePrinter extends AbstractPrinter:
     case dt: DFOpaque    => csDFOpaque(dt)
     case dt: DFUnion     => csDFUnion(dt)
     case dt: DFStruct    => csDFStruct(dt)
-    case dt: DFTuple     => csDFTuple(dt)
+end DFTypePrinter

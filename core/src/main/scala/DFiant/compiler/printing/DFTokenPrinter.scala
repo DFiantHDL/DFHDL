@@ -80,8 +80,11 @@ protected trait DFTokenPrinter extends AbstractPrinter:
     s"${dfType.name}(${csDFToken(data)})"
   def csDFUnionData(dfType: DFUnion, data: DFType.Token): String =
     csDFToken(data)
-  def csDFStructData(dfType: DFStruct, data: List[DFType.Token]): String = ???
-  def csDFTupleData(dfType: DFTuple, data: List[DFType.Token]): String =
+  def csDFStructData(dfType: DFStruct, data: List[DFType.Token]): String =
+    dfType.name match
+      case DFStruct.ReservedTupleName => csDFTupleData(data)
+      case _                          => ???
+  def csDFTupleData(data: List[DFType.Token]): String =
     data.map(csDFToken).mkStringBrackets
   def csDFToken(token: DFType.Token): String = token match
     case DFBits.Token(dt, data)      => csDFBitsData(dt, data)
@@ -92,7 +95,6 @@ protected trait DFTokenPrinter extends AbstractPrinter:
     case DFOpaque.Token(dt, data)    => csDFOpaqueData(dt, data)
     case DFUnion.Token(dt, data)     => csDFUnionData(dt, data)
     case DFStruct.Token(dt, data)    => csDFStructData(dt, data)
-    case DFTuple.Token(dt, data)     => csDFTupleData(dt, data)
     case x =>
       throw new IllegalArgumentException(
         s"Unexpected token found: $x"
