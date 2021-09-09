@@ -95,6 +95,9 @@ object CompanionsDFDecimal:
       end match
     end fromDecString
 
+    object TC:
+      import DFToken.TC
+    
     object StrInterp:
       extension (inline sc: StringContext)
         transparent inline def d(inline args: Any*): DFToken =

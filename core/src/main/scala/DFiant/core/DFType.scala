@@ -8,33 +8,47 @@ import scala.quoted.*
 import collection.mutable
 import collection.immutable.ListMap
 
-opaque type DFType = ir.DFType
-object DFType:
-  extension (dfType: ir.DFType)
-    def asFE[T <: DFType]: T = dfType.asInstanceOf[T]
-  extension (dfType: DFType)
-    def asIR: ir.DFType = dfType
-    def codeString(using printer: Printer): String = printer.csDFType(asIR)
+type DFType = OpaqueDFType.DFType
+val DFType = OpaqueDFType.DFType
 
-  opaque type Of[+T <: ir.DFType] <: DFType = T
+private object OpaqueDFType:
+  opaque type DFType = ir.DFType
+  object DFType:
+    private[core] def apply(t: Any): DFType =
+      t match
+        case dfType: ir.DFType    => dfType
+        case tuple: NonEmptyTuple => DFTuple(tuple)
+        case fields: DFFields     => DFStruct(fields)
+        //TODO: need to add proper upper-bound if fixed in Scalac
+        //see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
+        case enumCompanion: AnyRef => DFEnum(enumCompanion)
+    extension (dfType: DFType)
+      def asIR: ir.DFType = dfType
+      def codeString(using printer: Printer): String = printer.csDFType(asIR)
+    extension (dfType: ir.DFType)
+      def asFE[T <: DFType]: T = dfType.asInstanceOf[T]
+    type TC[T] = CompanionsDFType.TC[T]
+    val TC = CompanionsDFType.TC
+    type Of[+T <: ir.DFType] = CompanionsDFType.Of[T]
+    val Ops = CompanionsDFType.Ops
+    type Supported = CompanionsDFType.Supported
+  end DFType
+end OpaqueDFType
+
+object CompanionsDFType:
+  opaque type Of[+T <: ir.DFType] <: DFType = DFType
   object Of:
-    extension [T <: ir.DFType](of: Of[T]) def asIR: T = of
+    extension [T <: ir.DFType](of: Of[T]) def asIR: T = of.asInstanceOf[T]
 
   type Supported = AnyRef | DFType
-  private[core] def apply(t: Any): DFType =
-    t match
-      case dfType: ir.DFType    => dfType
-      case tuple: NonEmptyTuple => DFTuple(tuple)
-      case fields: DFFields     => DFStruct(fields)
-      //TODO: need to add proper upper-bound if fixed in Scalac
-      //see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
-      case enumCompanion: AnyRef => DFEnum(enumCompanion)
   object Ops:
     extension [T](t: T)(using tc: TC[T])
       def dfType: tc.Type = tc(t)
       def width(using w: Width[T]): Inlined[w.Out] =
         Inlined.forced[w.Out](dfType.asIR.width)
-      def <>[M <: ir.DFVal.Modifier](modifier: M)(using DFC): DFVal[tc.Type, M] =
+      def <>[M <: ir.DFVal.Modifier](modifier: M)(using
+          DFC
+      ): DFVal[tc.Type, M] =
         DFVal.Dcl(tc(t), modifier)
       def token[V](tokenValue: Exact[V])(using
           tokenTC: DFToken.TC[tc.Type, V]
@@ -43,6 +57,8 @@ object DFType:
           DFToken.TC[tc.Type, V]
       )(using DFC): DFValOf[tc.Type] =
         DFVal.Const(token(tokenValue), named = true)
+    end extension
+  end Ops
 //    extension [T <: NonEmptyTuple](t: T)(using tc: TC[T])
 
   trait TC[T]:
@@ -129,4 +145,4 @@ object DFType:
       end match
     end tcMacro
   end TC
-end DFType
+end CompanionsDFType
