@@ -23,7 +23,7 @@ class DFBitsSpec extends DFSpec:
     val t6: DFBits[3] <> TOKEN = DFBits(3) token ?
     val t7: DFBits[8] <> TOKEN = DFBits(8) token t2
     val u: DFUInt[8] <> TOKEN = d"255"
-//    val t8: DFBits[8] <> TOKEN = u
+    val t8: DFBits[8] <> TOKEN = u
     assert(t7 == t2)
   }
   test("Assignment") {
