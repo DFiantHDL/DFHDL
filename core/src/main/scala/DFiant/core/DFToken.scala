@@ -28,7 +28,7 @@ object DFToken:
         Inlined.forced[w.Out](token.asIR.width)
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
   trait TC[T <: DFType, -V] extends GeneralTC[T, V, DFToken]:
-    type Out <: DFToken.Of[T]
+    type Out = DFToken.Of[T]
   object TC:
     export DFBoolOrBit.Token.TC.given
     export DFBits.Token.TC.given
@@ -36,7 +36,6 @@ object DFToken:
 
     transparent inline given DFTokenFromBubble[T <: DFType]: TC[T, Bubble] =
       new TC[T, Bubble]:
-        type Out = DFToken.Of[T]
         def apply(dfType: T, value: Bubble): Out =
           Bubble(dfType)
   end TC

@@ -114,13 +114,12 @@ object DFTuple:
 
     object TC:
       import DFToken.TC
-      transparent inline given DFTupleTokenFromTuple[
+      given DFTupleTokenFromTuple[
           T <: NonEmptyTuple,
           V <: NonEmptyTuple
       ](using
           zipper: TCZipper[T, V, DFToken, TC]
-      ): TC[DFTuple[T], ValueOf[V]] = new TC[DFTuple[T], ValueOf[V]]:
-        type Out = DFTuple[T] <> TOKEN
+      ): TC[DFTuple[T], ValueOf[V]] with
         def apply(dfType: DFTuple[T], value: ValueOf[V]): Out =
           DFTuple.Token[T](dfType, zipper(dfType.fieldList, value.value.toList))
     end TC

@@ -75,26 +75,22 @@ private object CompanionsDFBoolOrBit:
           T <: DFBoolOrBit,
           V <: Boolean
       ]: TC[T, ValueOf[V]] with
-        type Out = T <> TOKEN
         def apply(dfType: T, value: ValueOf[V]): Out =
           DFBoolOrBit.Token(dfType, value.value)
       given DFBoolTokenFromBoolean[
           T <: DFBoolOrBit,
           V <: Boolean
       ]: TC[T, V] with
-        type Out = T <> TOKEN
         def apply(dfType: T, value: V): Out =
           DFBoolOrBit.Token(dfType, value)
       given DFBoolTokenFrom1Or0[T <: DFBoolOrBit, V <: 0 | 1]: TC[T, ValueOf[V]]
         with
-        type Out = T <> TOKEN
         def apply(dfType: T, value: ValueOf[V]): Out =
           DFBoolOrBit.Token(dfType, value.value)
       given DFBoolTokenFromToken[
           T <: DFBoolOrBit,
           V <: DFBoolOrBit.Token
       ]: TC[T, V] with
-        type Out = T <> TOKEN
         def apply(dfType: T, value: V): Out =
           DFBoolOrBit.Token(dfType, value.data)
     end TC

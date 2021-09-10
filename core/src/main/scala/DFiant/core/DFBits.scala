@@ -125,7 +125,6 @@ object CompanionsDFBits:
       given DFBitsTokenFromDFBitsToken[W <: Int, VW <: Int](using
           check: `W == VW`.Check[W, VW]
       ): TC[DFBits[W], DFToken.Of[DFBits[VW]]] with
-        type Out = DFToken.Of[DFBits[W]]
         def apply(dfType: DFBits[W], value: DFToken.Of[DFBits[VW]]): Out =
           check(dfType.width, value.asIR.width)
           value.asInstanceOf[Out]
@@ -133,14 +132,12 @@ object CompanionsDFBits:
       given DFBitsTokenFromDFUIntToken[W <: Int, VW <: Int](using
           check: `W == VW`.Check[W, VW]
       ): TC[DFBits[W], DFToken.Of[DFUInt[VW]]] with
-        type Out = DFToken.Of[DFBits[W]]
         def apply(dfType: DFBits[W], value: DFToken.Of[DFUInt[VW]]): Out =
           import DFTokenOps.bits
           check(dfType.width, value.asIR.width)
           value.bits.asInstanceOf[Out]
 
       given DFBitsTokenFromSBV[W <: Int]: TC[DFBits[W], SameBitsVector] with
-        type Out = DFToken.Of[DFBits[W]]
         def apply(dfType: DFBits[W], value: SameBitsVector): Out =
           DFBits.Token[W](dfType.width, value)
     end TC
