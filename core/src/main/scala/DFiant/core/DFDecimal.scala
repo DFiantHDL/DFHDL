@@ -110,17 +110,20 @@ object CompanionsDFDecimal:
       type OutW <: Int
       def apply(arg: R): Token[Signed, OutW, 0]
     object IntCandidate:
-      transparent inline given [R <: Int, Signed <: Boolean](using
-          w: IntWidth[R, Signed]
-      ): IntCandidate[ValueOf[R], Signed] =
-        new IntCandidate[ValueOf[R], Signed]:
-          type OutW = w.Out
-          def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] = ???
+      given [R <: Int, Signed <: Boolean](using
+          w: IntWidth[R, Signed],
+          v: ValueOf[Signed]
+      ): IntCandidate[ValueOf[R], Signed] with
+        type OutW = w.Out
+        def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] =
+          val width = Inlined.forced[OutW](w(arg.value))
+          Token(valueOf[Signed], width, 0, arg.value)
       given [W <: Int]: IntCandidate[DFBits.Token[W], false] with
         type OutW = W
         def apply(arg: DFBits.Token[W]): Token[false, W, 0] =
-          val dfType = DFUInt(arg.width).asIR
-          arg.asInstanceOf[ir.DFBits.Token].as(dfType).asTokenOf[DFUInt[W]]
+          import DFBits.Token.Ops.as
+          arg.as(DFUInt(arg.width.asInstanceOf[Inlined[W]]))
+    end IntCandidate
 
     object TC:
       import DFToken.TC

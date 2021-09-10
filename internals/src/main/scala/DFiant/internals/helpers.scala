@@ -36,5 +36,5 @@ object PrintType:
   inline given [T]: PrintType[T] = ${ macroImpl[T] }
   def macroImpl[T](using Quotes, Type[T]): Expr[PrintType[T]] =
     import quotes.reflect.*
-    println(TypeRepr.of[T])
+    println(TypeRepr.of[T].show)
     '{ new PrintType[T] {} }
