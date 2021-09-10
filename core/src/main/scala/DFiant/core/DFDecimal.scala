@@ -118,15 +118,15 @@ object CompanionsDFDecimal:
           def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] = ???
       given [W <: Int]: IntCandidate[DFBits.Token[W], false] with
         type OutW = W
-        def apply(arg: DFBits.Token[W]): Token[false, W, 0] = ???
+        def apply(arg: DFBits.Token[W]): Token[false, W, 0] =
+          val dfType = DFUInt(arg.width).asIR
+          arg.asInstanceOf[ir.DFBits.Token].as(dfType).asTokenOf[DFUInt[W]]
 
     object TC:
       import DFToken.TC
       given [S <: Boolean, LW <: Int, R](using
           ic: IntCandidate[R, S]
       )(using
-          p1: PrintType[LW],
-          p2: PrintType[ic.OutW],
           check: `LW >= RW`.Check[LW, ic.OutW]
       ): TC[DFDecimal[S, LW, 0], R] with
         def apply(dfType: DFDecimal[S, LW, 0], value: R): Out =
