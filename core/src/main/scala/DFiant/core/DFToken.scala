@@ -26,6 +26,9 @@ object DFToken:
       def dfType: T = token.asIR.dfType.asInstanceOf[T]
       def width(using w: Width[T]): Inlined[w.Out] =
         Inlined.forced[w.Out](token.asIR.width)
+      //Todo: remove
+      def widthHack(using w: Width[T]): Inlined[w.Out] =
+        Inlined.forced[w.Out](token.asIR.width)
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
   trait TC[T <: DFType, -V] extends GeneralTC[T, V, DFToken]:
     type Out = DFToken.Of[T]

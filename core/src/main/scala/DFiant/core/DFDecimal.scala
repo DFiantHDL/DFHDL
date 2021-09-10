@@ -122,7 +122,7 @@ object CompanionsDFDecimal:
         type OutW = W
         def apply(arg: DFBits.Token[W]): Token[false, W, 0] =
           import DFBits.Token.Ops.as
-          arg.as(DFUInt(arg.width.asInstanceOf[Inlined[W]]))
+          arg.as(DFUInt(arg.widthHack))
     end IntCandidate
 
     object TC:
