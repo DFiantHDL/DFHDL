@@ -95,9 +95,24 @@ object CompanionsDFDecimal:
       end match
     end fromDecString
 
+    trait IntCandidate[-R, Signed <: Boolean]:
+      type OutW <: Int
+      def apply(arg: R): Token[Signed, OutW, 0]
+    object Candidate:
+      given [R <: Int, Signed <: Boolean](using
+          w: IntWidth[R, Signed]
+      ): IntCandidate[ValueOf[R], Signed] with
+        type OutW = w.Out
+        def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] = ???
+      given [W <: Int]: IntCandidate[DFBits.Token[W], false] with
+        type OutW = W
+        def apply(arg: DFBits.Token[W]): Token[false, W, 0] = ???
+
     object TC:
       import DFToken.TC
-    
+      given [S <: Boolean, LW <: Int, R](using
+          IntCandidate[R, S]
+      ): TC[DFDecimal[S, LW, 0], R] = ???
     object StrInterp:
       extension (inline sc: StringContext)
         transparent inline def d(inline args: Any*): DFToken =
