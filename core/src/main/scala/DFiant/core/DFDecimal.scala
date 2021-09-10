@@ -31,6 +31,17 @@ end OpaqueDFDecimal
 
 //make private after https://github.com/lampepfl/dotty/issues/13477 is resolved
 object CompanionsDFDecimal:
+  protected object `LW >= RW`
+      extends Check2[
+        Int,
+        Int,
+        [LW <: Int, RW <: Int] =>> LW >= RW,
+        [LW <: Int, RW <: Int] =>> "The token value width (" +
+          ToString[RW] +
+          ") is larger than the dataflow value width (" +
+          ToString[LW] +
+          ")."
+      ]
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
   object Token:
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
@@ -98,12 +109,13 @@ object CompanionsDFDecimal:
     trait IntCandidate[-R, Signed <: Boolean]:
       type OutW <: Int
       def apply(arg: R): Token[Signed, OutW, 0]
-    object Candidate:
-      given [R <: Int, Signed <: Boolean](using
+    object IntCandidate:
+      transparent inline given [R <: Int, Signed <: Boolean](using
           w: IntWidth[R, Signed]
-      ): IntCandidate[ValueOf[R], Signed] with
-        type OutW = w.Out
-        def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] = ???
+      ): IntCandidate[ValueOf[R], Signed] =
+        new IntCandidate[ValueOf[R], Signed]:
+          type OutW = w.Out
+          def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] = ???
       given [W <: Int]: IntCandidate[DFBits.Token[W], false] with
         type OutW = W
         def apply(arg: DFBits.Token[W]): Token[false, W, 0] = ???
@@ -111,8 +123,27 @@ object CompanionsDFDecimal:
     object TC:
       import DFToken.TC
       given [S <: Boolean, LW <: Int, R](using
-          IntCandidate[R, S]
-      ): TC[DFDecimal[S, LW, 0], R] = ???
+          ic: IntCandidate[R, S]
+      )(using
+          p1: PrintType[LW],
+          p2: PrintType[ic.OutW],
+          check: `LW >= RW`.Check[LW, ic.OutW]
+      ): TC[DFDecimal[S, LW, 0], R] with
+        def apply(dfType: DFDecimal[S, LW, 0], value: R): Out =
+          val dfTypeIR = dfType.asIR
+          val token = ic(value).asIR
+          check(dfTypeIR.width, token.width)
+          //We either need to widen the token we got from a value int candidate
+          //or it remains the same. In either case, there is not need to touch
+          //the data itself, but just the dfType of the token.
+          val resizedToken =
+            if (dfTypeIR.width > token.width)
+              token.copy(dfType = dfTypeIR)
+            else token
+          resizedToken.asTokenOf[DFDecimal[S, LW, 0]]
+      end given
+    end TC
+
     object StrInterp:
       extension (inline sc: StringContext)
         transparent inline def d(inline args: Any*): DFToken =

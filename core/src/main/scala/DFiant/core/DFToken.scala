@@ -32,6 +32,7 @@ object DFToken:
   object TC:
     export DFBoolOrBit.Token.TC.given
     export DFBits.Token.TC.given
+    export DFDecimal.Token.TC.given
     export DFTuple.Token.TC.given
 
     transparent inline given DFTokenFromBubble[T <: DFType]: TC[T, Bubble] =

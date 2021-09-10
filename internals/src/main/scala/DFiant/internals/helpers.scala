@@ -30,3 +30,11 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
     tpe.asType match
       case '[t] =>
         TypeTree.of[t]
+
+trait PrintType[T]
+object PrintType:
+  inline given [T]: PrintType[T] = ${ macroImpl[T] }
+  def macroImpl[T](using Quotes, Type[T]): Expr[PrintType[T]] =
+    import quotes.reflect.*
+    println(TypeRepr.of[T])
+    '{ new PrintType[T] {} }
