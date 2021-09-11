@@ -19,7 +19,7 @@ private object OpaqueDFVal:
     DFMember.Of[DFiant.compiler.ir.DFVal]
   object DFVal:
     final val Modifier = DFiant.compiler.ir.DFVal.Modifier
-    export DFBits.Conversions.*
+    export DFBits.Conversions.given
     export CompanionsDFVal.Extensions.*
     val Const = CompanionsDFVal.Const
     val Dcl = CompanionsDFVal.Dcl

@@ -26,6 +26,14 @@ class DFBitsSpec extends DFSpec:
     val t8: DFBits[8] <> TOKEN = u
     assert(t7 == t2)
   }
+  test("DFVal Conversion") {
+    val t1: DFBits[8] <> VAL = b0s
+    val t2: DFBits[8] <> VAL = b1s
+    val t3: DFBits[8] <> VAL = d"255"
+    val t4: DFBits[5] <> VAL = ?
+    val t5: DFBits[4] <> VAL = h"A"
+    val t6: DFBits[3] <> VAL = b"101"
+  }
   test("Assignment") {
     val v8 = DFBits(8) <> VAR
     val x = DFUInt(8) <> VAR

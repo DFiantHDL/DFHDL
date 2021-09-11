@@ -93,7 +93,7 @@ private object CompanionsDFBits:
       def bubbleBits: BitVector = token.data._2
 
     object Conversions:
-      given toDFBitsKnownWidth[W <: Int & Singleton, V](using
+      given DFBitsTokenConversionSing[W <: Int & Singleton, V](using
           tc: DFToken.TC[DFBits[W], V],
           w: ValueOf[W]
       ): Conversion[V, DFBits[W] <> TOKEN] = value =>
@@ -434,13 +434,14 @@ private object CompanionsDFBits:
   end DFValTC
 
   object Conversions:
-    implicit def DFBitsConversionSing[LW <: Int & Singleton, R](from: R)(using
+    given DFBitsValConversionSing[LW <: Int & Singleton, R](using
         v: ValueOf[LW],
         tc: CompanionsDFVal.TC[DFBits[LW], R]
-    ): DFValOf[DFBits[LW]] = tc(DFBits(valueOf[LW]), from)
-    implicit def DFBitsConversion[R](from: R)(using
+    ): Conversion[R, DFValOf[DFBits[LW]]] = from =>
+      tc(DFBits(valueOf[LW]), from)
+    given DFBitsValConversion[R](using
         candidate: Candidate[R]
-    ): DFValOf[DFBits[Int]] = candidate(from)
+    ): Conversion[R, DFValOf[DFBits[Int]]] = from => candidate(from)
 
   object Ops:
     protected object BitIndex
