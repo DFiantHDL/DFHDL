@@ -214,6 +214,12 @@ private object CompanionsDFDecimal:
       end interpMacro
     end StrInterp
   end Token
+
+  object Val:
+
+    object TC:
+      import DFVal.TC
+
 end CompanionsDFDecimal
 
 type DFUInt[W <: Int] = DFDecimal[false, W, 0]

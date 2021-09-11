@@ -25,9 +25,7 @@ private object OpaqueDFBits:
 
     type Token[W <: Int] = CompanionsDFBits.Token[W]
     val Token = CompanionsDFBits.Token
-    val DFValTC = CompanionsDFBits.DFValTC
-    val Conversions = CompanionsDFBits.Conversions
-    val Ops = CompanionsDFBits.Ops
+    val Val = CompanionsDFBits.Val
     export CompanionsDFBits.Extensions.*
   end DFBits
 end OpaqueDFBits
@@ -319,200 +317,204 @@ private object CompanionsDFBits:
     end Ops
   end Token
 
-  trait Candidate[-R]:
-    type OutW <: Int
-    def apply(value: R): DFBits[OutW] <> VAL
-  object Candidate:
-    given fromDFBits[W <: Int]: Candidate[DFBits[W] <> VAL] with
-      type OutW = W
-      def apply(value: DFBits[W] <> VAL): DFBits[W] <> VAR =
-        value.asIR.asValOf[DFBits[W]]
-    given fromDFUInt[W <: Int](using DFC): Candidate[DFUInt[W] <> VAL] with
-      type OutW = W
-      def apply(value: DFUInt[W] <> VAL): DFBits[W] <> VAL =
+  object Val:
+    trait Candidate[-R]:
+      type OutW <: Int
+      def apply(value: R): DFBits[OutW] <> VAL
+    object Candidate:
+      given fromDFBits[W <: Int]: Candidate[DFBits[W] <> VAL] with
+        type OutW = W
+        def apply(value: DFBits[W] <> VAL): DFBits[W] <> VAR =
+          value.asIR.asValOf[DFBits[W]]
+      given fromDFUInt[W <: Int](using DFC): Candidate[DFUInt[W] <> VAL] with
+        type OutW = W
+        def apply(value: DFUInt[W] <> VAL): DFBits[W] <> VAL =
+          import DFVal.Ops.bits
+          value.bits
+      private def valueToBits(value: Any)(using dfc: DFC): DFBits[Int] <> VAL =
         import DFVal.Ops.bits
-        value.bits
-    private def valueToBits(value: Any)(using dfc: DFC): DFBits[Int] <> VAL =
-      import DFVal.Ops.bits
-      import DFBits.Ops.concatBits
-      given dfcAnon: DFC = dfc.anonymize
-      value match
-        case v: ValueOf[?] =>
-          valueToBits(v.value)
-        case x: NonEmptyTuple =>
-          x.toList.map(valueToBits).concatBits
-        case i: Int =>
-          valueToBits(i > 0)
-        case bool: Boolean =>
-          DFVal.Const(Token(1, BitVector.bit(bool), BitVector.zero))
-        case token: ir.DFType.Token =>
-          DFVal.Const(token.bits.asTokenOf[DFBits[Int]])
-        case dfVal: ir.DFVal =>
-          dfVal.dfType match
-            case _: ir.DFBits => dfVal.asValOf[DFBits[Int]]
-            case _            => dfVal.asValAny.bits
-      end match
-    end valueToBits
-    transparent inline given fromTuple[R <: NonEmptyTuple](using
-        DFC
-    ): Candidate[ValueOf[R]] = ${ DFBitsMacro[ValueOf[R]] }
-    def DFBitsMacro[R](using
-        Quotes,
-        Type[R]
-    ): Expr[Candidate[R]] =
-      import quotes.reflect.*
-      import Width.*
-      val rTpe = TypeRepr.of[R]
-      extension (tpe: TypeRepr)
-        def calcValWidth: TypeRepr =
-          tpe.dealias match
-            case applied: AppliedType if applied <:< TypeRepr.of[ValueOf[_]] =>
-              applied.args.head.calcValWidth
-            case AppliedType(tycon, tpe :: _) if tycon <:< TypeRepr.of[DFVal] =>
-              tpe.dealias.calcWidth
-            case AppliedType(tycon, tpe :: _)
-                if tycon <:< TypeRepr.of[DFToken.Of] =>
-              tpe.calcWidth
-            case AppliedType(tycon, args)
-                if tycon <:< TypeRepr.of[NonEmptyTuple] =>
-              val widths = args.map(a => a.calcValWidth)
-              widths.reduce(_ + _)
-            case ConstantType(IntConstant(v)) if (v == 1 || v == 0) =>
-              ConstantType(IntConstant(1))
-            case ConstantType(BooleanConstant(v)) =>
-              ConstantType(IntConstant(1))
-            case ref: TermRef =>
-              ref.widen.calcValWidth
-            case x =>
-              report.error(
-                s"Unsupported argument value ${x.show} for dataflow receiver type DFBits"
-              )
-              ???
-          end match
-      val wType = rTpe.calcValWidth.asTypeOf[Int]
-      val dfcExpr = '{ compiletime.summonInline[DFC] }
-      '{
-        new Candidate[R]:
-          type OutW = wType.Underlying
-          def apply(value: R): DFValOf[DFBits[OutW]] =
-            val valueBits =
-              valueToBits(value)(using ${ dfcExpr })
-            valueBits.asIR.asValOf[DFBits[OutW]]
-      }
-    end DFBitsMacro
-  end Candidate
-
-  object DFValTC:
-    import DFVal.TC
-    def apply(
-        dfType: DFBits[Int],
-        dfVal: DFBits[Int] <> VAL
-    ): DFBits[Int] <> VAL =
-      `LW == RW`(dfType.width, dfVal.width)
-      dfVal
-    protected object `LW == RW`
-        extends Check2[
-          Int,
-          Int,
-          [LW <: Int, RW <: Int] =>> LW == RW,
-          [LW <: Int, RW <: Int] =>> "The argument width (" +
-            ToString[RW] +
-            ") is different than the reciever width (" +
-            ToString[LW] +
-            "). \nConsider applying `.resize` to resolve this issue."
-        ]
-    given DFBitsFromCandidate[
-        LW <: Int,
-        R
-    ](using dfc: DFC, candidate: Candidate[R])(using
-        check: `LW == RW`.Check[LW, candidate.OutW]
-    ): TC[DFBits[LW], R] with
-      def apply(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
-        val dfVal = candidate(value)
-        check(dfType.width, dfVal.width.value)
-        dfVal.asIR.asValOf[DFBits[LW]]
-  end DFValTC
-
-  object Conversions:
-    given DFBitsValConversionSing[LW <: Int & Singleton, R](using
-        v: ValueOf[LW],
-        tc: CompanionsDFVal.TC[DFBits[LW], R]
-    ): Conversion[R, DFValOf[DFBits[LW]]] = from =>
-      tc(DFBits(valueOf[LW]), from)
-    given DFBitsValConversion[R](using
-        candidate: Candidate[R]
-    ): Conversion[R, DFValOf[DFBits[Int]]] = from => candidate(from)
-
-  object Ops:
-    protected object BitIndex
-        extends Check2[
-          Int,
-          Int,
-          [I <: Int, W <: Int] =>> (I < W) && (I >= 0),
-          [I <: Int, W <: Int] =>> "Index " + ToString[I] +
-            " is out of range of width/length " + ToString[W]
-        ]
-    protected object BitsHiLo
-        extends Check2[
-          Int,
-          Int,
-          [H <: Int, L <: Int] =>> H >= L,
-          [H <: Int, L <: Int] =>> "Low index " + ToString[L] +
-            " is bigger than High bit index " + ToString[H]
-        ]
-    extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
-      protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
-        val width = iter.map(_.width.value).sum
-        DFVal.Func(DFBits(width), ir.DFVal.Func.Op.++, iter.toList)
-    extension [W <: Int, M <: ir.DFVal.Modifier](
-        lhs: DFVal[DFBits[W], M]
-    )
-      def as[A](
-          aliasType: A
-      )(using
-          tc: DFType.TC[A],
-          aW: Width[A],
-          dfc: DFC
-      )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] =
-        val aliasDFType = tc(aliasType)
-        check.apply(aliasDFType.asIR.width, lhs.width)
-        DFVal.Alias.AsIs(aliasDFType, lhs)
-      def apply[I <: Int](
-          relIdx: Inlined[I]
-      )(using
-          check: BitIndex.Check[I, W],
-          dfc: DFC
-      ): DFVal[DFBit, M] =
-        check(relIdx, lhs.width)
-        DFVal.Alias.ApplyIdx(lhs, relIdx)
-      def apply[H <: Int, L <: Int](
-          relBitHigh: Inlined[H],
-          relBitLow: Inlined[L]
-      )(using
-          checkHigh: BitIndex.Check[H, W],
-          checkLow: BitIndex.Check[L, W],
-          checkHiLo: BitsHiLo.Check[H, L],
-          dfc: DFC
-      ): DFVal[DFBits[H - L + 1], M] =
-        checkHigh(relBitHigh, lhs.width)
-        checkLow(relBitLow, lhs.width)
-        checkHiLo(relBitHigh, relBitLow)
-        DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
-      def repeat[N <: Int](num: Inlined[N])(using
-          check: Arg.Positive.Check[N],
-          dfc: DFC
-      ): DFValOf[DFBits[W * N]] =
-        check(num)
-        DFVal.Func(
-          DFBits(lhs.dfType.width * num),
-          ir.DFVal.Func.Op.++,
-          List.fill(num)(lhs)
-        )
-      def resize[RW <: Int](updatedWidth: Inlined[RW])(using
-          Arg.Width.Check[RW],
+        import DFBits.Val.Ops.concatBits
+        given dfcAnon: DFC = dfc.anonymize
+        value match
+          case v: ValueOf[?] =>
+            valueToBits(v.value)
+          case x: NonEmptyTuple =>
+            x.toList.map(valueToBits).concatBits
+          case i: Int =>
+            valueToBits(i > 0)
+          case bool: Boolean =>
+            DFVal.Const(Token(1, BitVector.bit(bool), BitVector.zero))
+          case token: ir.DFType.Token =>
+            DFVal.Const(token.bits.asTokenOf[DFBits[Int]])
+          case dfVal: ir.DFVal =>
+            dfVal.dfType match
+              case _: ir.DFBits => dfVal.asValOf[DFBits[Int]]
+              case _            => dfVal.asValAny.bits
+        end match
+      end valueToBits
+      transparent inline given fromTuple[R <: NonEmptyTuple](using
           DFC
-      ): DFValOf[DFBits[RW]] =
-        DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
-    end extension
-  end Ops
+      ): Candidate[ValueOf[R]] = ${ DFBitsMacro[ValueOf[R]] }
+      def DFBitsMacro[R](using
+          Quotes,
+          Type[R]
+      ): Expr[Candidate[R]] =
+        import quotes.reflect.*
+        import Width.*
+        val rTpe = TypeRepr.of[R]
+        extension (tpe: TypeRepr)
+          def calcValWidth: TypeRepr =
+            tpe.dealias match
+              case applied: AppliedType
+                  if applied <:< TypeRepr.of[ValueOf[_]] =>
+                applied.args.head.calcValWidth
+              case AppliedType(tycon, tpe :: _)
+                  if tycon <:< TypeRepr.of[DFVal] =>
+                tpe.dealias.calcWidth
+              case AppliedType(tycon, tpe :: _)
+                  if tycon <:< TypeRepr.of[DFToken.Of] =>
+                tpe.calcWidth
+              case AppliedType(tycon, args)
+                  if tycon <:< TypeRepr.of[NonEmptyTuple] =>
+                val widths = args.map(a => a.calcValWidth)
+                widths.reduce(_ + _)
+              case ConstantType(IntConstant(v)) if (v == 1 || v == 0) =>
+                ConstantType(IntConstant(1))
+              case ConstantType(BooleanConstant(v)) =>
+                ConstantType(IntConstant(1))
+              case ref: TermRef =>
+                ref.widen.calcValWidth
+              case x =>
+                report.error(
+                  s"Unsupported argument value ${x.show} for dataflow receiver type DFBits"
+                )
+                ???
+            end match
+        val wType = rTpe.calcValWidth.asTypeOf[Int]
+        val dfcExpr = '{ compiletime.summonInline[DFC] }
+        '{
+          new Candidate[R]:
+            type OutW = wType.Underlying
+            def apply(value: R): DFValOf[DFBits[OutW]] =
+              val valueBits =
+                valueToBits(value)(using ${ dfcExpr })
+              valueBits.asIR.asValOf[DFBits[OutW]]
+        }
+      end DFBitsMacro
+    end Candidate
+
+    object TC:
+      import DFVal.TC
+      def apply(
+          dfType: DFBits[Int],
+          dfVal: DFBits[Int] <> VAL
+      ): DFBits[Int] <> VAL =
+        `LW == RW`(dfType.width, dfVal.width)
+        dfVal
+      protected object `LW == RW`
+          extends Check2[
+            Int,
+            Int,
+            [LW <: Int, RW <: Int] =>> LW == RW,
+            [LW <: Int, RW <: Int] =>> "The argument width (" +
+              ToString[RW] +
+              ") is different than the reciever width (" +
+              ToString[LW] +
+              "). \nConsider applying `.resize` to resolve this issue."
+          ]
+      given DFBitsFromCandidate[
+          LW <: Int,
+          R
+      ](using dfc: DFC, candidate: Candidate[R])(using
+          check: `LW == RW`.Check[LW, candidate.OutW]
+      ): TC[DFBits[LW], R] with
+        def apply(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
+          val dfVal = candidate(value)
+          check(dfType.width, dfVal.width.value)
+          dfVal.asIR.asValOf[DFBits[LW]]
+    end TC
+
+    object Conversions:
+      given DFBitsValConversionSing[LW <: Int & Singleton, R](using
+          v: ValueOf[LW],
+          tc: CompanionsDFVal.TC[DFBits[LW], R]
+      ): Conversion[R, DFValOf[DFBits[LW]]] = from =>
+        tc(DFBits(valueOf[LW]), from)
+      given DFBitsValConversion[R](using
+          candidate: Candidate[R]
+      ): Conversion[R, DFValOf[DFBits[Int]]] = from => candidate(from)
+
+    object Ops:
+      protected object BitIndex
+          extends Check2[
+            Int,
+            Int,
+            [I <: Int, W <: Int] =>> (I < W) && (I >= 0),
+            [I <: Int, W <: Int] =>> "Index " + ToString[I] +
+              " is out of range of width/length " + ToString[W]
+          ]
+      protected object BitsHiLo
+          extends Check2[
+            Int,
+            Int,
+            [H <: Int, L <: Int] =>> H >= L,
+            [H <: Int, L <: Int] =>> "Low index " + ToString[L] +
+              " is bigger than High bit index " + ToString[H]
+          ]
+      extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
+        protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
+          val width = iter.map(_.width.value).sum
+          DFVal.Func(DFBits(width), ir.DFVal.Func.Op.++, iter.toList)
+      extension [W <: Int, M <: ir.DFVal.Modifier](
+          lhs: DFVal[DFBits[W], M]
+      )
+        def as[A](
+            aliasType: A
+        )(using
+            tc: DFType.TC[A],
+            aW: Width[A],
+            dfc: DFC
+        )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] =
+          val aliasDFType = tc(aliasType)
+          check.apply(aliasDFType.asIR.width, lhs.width)
+          DFVal.Alias.AsIs(aliasDFType, lhs)
+        def apply[I <: Int](
+            relIdx: Inlined[I]
+        )(using
+            check: BitIndex.Check[I, W],
+            dfc: DFC
+        ): DFVal[DFBit, M] =
+          check(relIdx, lhs.width)
+          DFVal.Alias.ApplyIdx(lhs, relIdx)
+        def apply[H <: Int, L <: Int](
+            relBitHigh: Inlined[H],
+            relBitLow: Inlined[L]
+        )(using
+            checkHigh: BitIndex.Check[H, W],
+            checkLow: BitIndex.Check[L, W],
+            checkHiLo: BitsHiLo.Check[H, L],
+            dfc: DFC
+        ): DFVal[DFBits[H - L + 1], M] =
+          checkHigh(relBitHigh, lhs.width)
+          checkLow(relBitLow, lhs.width)
+          checkHiLo(relBitHigh, relBitLow)
+          DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
+        def repeat[N <: Int](num: Inlined[N])(using
+            check: Arg.Positive.Check[N],
+            dfc: DFC
+        ): DFValOf[DFBits[W * N]] =
+          check(num)
+          DFVal.Func(
+            DFBits(lhs.dfType.width * num),
+            ir.DFVal.Func.Op.++,
+            List.fill(num)(lhs)
+          )
+        def resize[RW <: Int](updatedWidth: Inlined[RW])(using
+            Arg.Width.Check[RW],
+            DFC
+        ): DFValOf[DFBits[RW]] =
+          DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
+      end extension
+    end Ops
+  end Val
 end CompanionsDFBits

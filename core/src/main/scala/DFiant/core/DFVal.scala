@@ -19,7 +19,7 @@ private object OpaqueDFVal:
     DFMember.Of[DFiant.compiler.ir.DFVal]
   object DFVal:
     final val Modifier = DFiant.compiler.ir.DFVal.Modifier
-    export DFBits.Conversions.given
+    export DFBits.Val.Conversions.given
     export CompanionsDFVal.Extensions.*
     val Const = CompanionsDFVal.Const
     val Dcl = CompanionsDFVal.Dcl
@@ -180,7 +180,7 @@ private object CompanionsDFVal:
   trait TC[T <: DFType, -R] extends GeneralTC[T, R, DFValAny]:
     type Out = DFValOf[T]
   object TC:
-    export DFBits.DFValTC.given
+    export DFBits.Val.TC.given
     export DFTuple.DFValTC.given
     //Accept any dataflow value of the same type
     transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
@@ -190,7 +190,7 @@ private object CompanionsDFVal:
           val updated = (dfType.asIR, value.asIR.dfType) match
             case (_: ir.DFBoolOrBit, _: ir.DFBoolOrBit) => value
             case (_: ir.DFBits, _: ir.DFBits) =>
-              DFBits.DFValTC(
+              DFBits.Val.TC(
                 dfType.asIR.asFE[DFBits[Int]],
                 value.asIR.asValOf[DFBits[Int]]
               )
