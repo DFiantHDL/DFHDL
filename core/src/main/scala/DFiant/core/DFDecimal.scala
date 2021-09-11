@@ -29,8 +29,7 @@ private object OpaqueDFDecimal:
 //    export Companions.Extensions.*
 end OpaqueDFDecimal
 
-//make private after https://github.com/lampepfl/dotty/issues/13477 is resolved
-object CompanionsDFDecimal:
+private object CompanionsDFDecimal:
   protected object `LW >= RW`
       extends Check2[
         Int,

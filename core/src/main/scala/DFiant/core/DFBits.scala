@@ -32,9 +32,8 @@ private object OpaqueDFBits:
   end DFBits
 end OpaqueDFBits
 
-//make private after https://github.com/lampepfl/dotty/issues/13477 is resolved
 //TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
-object CompanionsDFBits:
+private object CompanionsDFBits:
   object Extensions:
     extension [W <: Int](dfType: DFBits[W])
       def width: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
