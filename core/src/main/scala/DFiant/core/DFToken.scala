@@ -44,6 +44,7 @@ object DFToken:
           Bubble(dfType)
   end TC
 
+  val Ops = CompanionsDFToken.Ops
   trait Value[T <: DFType]:
     type Out <: DFToken
     def apply(dfType: T): Out
@@ -70,8 +71,9 @@ object DFToken:
   end Value
 end DFToken
 
-object DFTokenOps:
-  extension [T <: DFType](token: DFToken.Of[T])
-    def bits(using w: Width[T]): DFToken.Of[DFBits[w.Out]] =
-      token.asIR.bits.asTokenOf[DFBits[w.Out]]
-end DFTokenOps
+private object CompanionsDFToken:
+  object Ops:
+    extension [T <: DFType](token: DFToken.Of[T])
+      def bits(using w: Width[T]): DFToken.Of[DFBits[w.Out]] =
+        token.asIR.bits.asTokenOf[DFBits[w.Out]]
+  end Ops

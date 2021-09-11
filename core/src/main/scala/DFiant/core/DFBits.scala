@@ -130,7 +130,7 @@ private object CompanionsDFBits:
           check: `W == VW`.Check[W, VW]
       ): TC[DFBits[W], DFToken.Of[DFUInt[VW]]] with
         def apply(dfType: DFBits[W], value: DFToken.Of[DFUInt[VW]]): Out =
-          import DFTokenOps.bits
+          import DFToken.Ops.bits
           check(dfType.width, value.asIR.width)
           value.bits.asInstanceOf[Out]
 
