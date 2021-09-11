@@ -239,13 +239,14 @@ object DFUInt:
           check(updatedWidth)
           ???
 
-  object Ops:
-    extension [W <: Int](lhs: DFValOf[DFUInt[W]])
-      @targetName("resizeDFUInt")
-      def resize[RW <: Int](
-          updatedWidth: Inlined[RW]
-      )(using Arg.Width.Check[RW], DFC): DFValOf[DFUInt[RW]] =
-        DFVal.Alias.AsIs(DFUInt(updatedWidth), lhs)
+  object Val:
+    object Ops:
+      extension [W <: Int](lhs: DFValOf[DFUInt[W]])
+        @targetName("resizeDFUInt")
+        def resize[RW <: Int](
+            updatedWidth: Inlined[RW]
+        )(using Arg.Width.Check[RW], DFC): DFValOf[DFUInt[RW]] =
+          DFVal.Alias.AsIs(DFUInt(updatedWidth), lhs)
 end DFUInt
 
 type DFSInt[W <: Int] = DFDecimal[true, W, 0]
@@ -257,11 +258,12 @@ object DFSInt:
     DFDecimal(true, width, 0)
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]
 
-  object Ops:
-    extension [W <: Int](lhs: DFValOf[DFSInt[W]])
-      @targetName("resizeDFSInt")
-      def resize[RW <: Int](
-          updatedWidth: Inlined[RW]
-      )(using Arg.SignedWidth.Check[RW], DFC): DFValOf[DFSInt[RW]] =
-        DFVal.Alias.AsIs(DFSInt(updatedWidth), lhs)
+  object Val:
+    object Ops:
+      extension [W <: Int](lhs: DFValOf[DFSInt[W]])
+        @targetName("resizeDFSInt")
+        def resize[RW <: Int](
+            updatedWidth: Inlined[RW]
+        )(using Arg.SignedWidth.Check[RW], DFC): DFValOf[DFSInt[RW]] =
+          DFVal.Alias.AsIs(DFSInt(updatedWidth), lhs)
 end DFSInt
