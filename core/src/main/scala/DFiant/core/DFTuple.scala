@@ -125,21 +125,23 @@ object DFTuple:
     end TC
   end Token
 
-  object DFValTC:
-    import DFVal.TC
-    given DFTupleArg[
-        T <: NonEmptyTuple,
-        R <: NonEmptyTuple
-    ](using
-        zipper: TCZipper[T, R, DFValAny, TC],
-        dfc: DFC
-    ): TC[DFTuple[T], ValueOf[R]] =
-      new TC[DFTuple[T], ValueOf[R]]:
-        type TType = DFTuple[T]
-        def apply(dfType: DFTuple[T], value: ValueOf[R]): DFValOf[TType] =
-          val dfVals =
-            zipper(dfType.fieldList, value.value.toList)
-          DFVal.Func(dfType, ir.DFVal.Func.Op.++, dfVals)(using dfc.anonymize)
+  object Val:
+    object TC:
+      import DFVal.TC
+      given DFTupleArg[
+          T <: NonEmptyTuple,
+          R <: NonEmptyTuple
+      ](using
+          zipper: TCZipper[T, R, DFValAny, TC],
+          dfc: DFC
+      ): TC[DFTuple[T], ValueOf[R]] =
+        new TC[DFTuple[T], ValueOf[R]]:
+          type TType = DFTuple[T]
+          def apply(dfType: DFTuple[T], value: ValueOf[R]): DFValOf[TType] =
+            val dfVals =
+              zipper(dfType.fieldList, value.value.toList)
+            DFVal.Func(dfType, ir.DFVal.Func.Op.++, dfVals)(using dfc.anonymize)
 
-  end DFValTC
+    end TC
+  end Val
 end DFTuple

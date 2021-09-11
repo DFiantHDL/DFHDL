@@ -181,7 +181,7 @@ private object CompanionsDFVal:
     type Out = DFValOf[T]
   object TC:
     export DFBits.Val.TC.given
-    export DFTuple.DFValTC.given
+    export DFTuple.Val.TC.given
     //Accept any dataflow value of the same type
     transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
       new TC[T, DFValOf[T]]:
