@@ -35,9 +35,9 @@ object Exactly:
     '{ Exact[tpe.Underlying](${ valueTerm.asExpr }) }
   end fromValueMacro
 
-  implicit def toValueSing[T](precise: Exact[ValueOf[T]]): T =
-    precise.value.value
-  implicit def toValue[T](precise: Exact[T]): T = precise.value
+  given toValueSing[T]: Conversion[Exact[ValueOf[T]], T] =
+    precise => precise.value.value
+  given toValue[T]: Conversion[Exact[T], T] = precise => precise.value
 end Exactly
 
 extension (using quotes: Quotes)(term: quotes.reflect.Term)
