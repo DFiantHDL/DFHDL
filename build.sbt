@@ -80,8 +80,8 @@ lazy val lib = project
 
 lazy val dependencies =
   new {
-    private val scodecV = "1.1.27"
-    private val munitV = "0.7.26"
+    private val scodecV = "1.1.28"
+    private val munitV = "0.7.29"
 
     val scodec = "org.scodec" %% "scodec-bits" % scodecV
     val munit = "org.scalameta" %% "munit" % munitV % Test

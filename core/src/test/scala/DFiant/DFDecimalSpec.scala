@@ -33,12 +33,15 @@ class DFDecimalSpec extends DFSpec:
     assertEquals(d"8'-1".bits, h"FF")
     assertEquals(h"FF".as(DFSInt(8)), d"8'-1")
   }
+  test("DFVal Conversion") {
+//    val t1: DFUInt[8] <> VAL = 0
+  }
   test("Assignment") {
-//    val v8 = DFBits(8) <> VAR
-//    val x = DFUInt(8) <> VAR
-//    v8 := h"11"
-//    v8 := b0s
-//    v8 := b1s
+    val u8 = DFUInt(8) <> VAR init 255
+    val s8 = DFSInt(8) <> VAR
+    u8 := 0
+    u8 := 255
+    u8 := d"0"
 //    v8 := ?
 //    v8 := x
 //    v8 := x.bits

@@ -4,6 +4,14 @@ import internals.Inlined
 import compiler.printing.{DefaultPrinter, Printer}
 
 class DFBitsSpec extends DFSpec:
+  test("Type construction safety") {
+    val expectedMsg = "Width must be positive, but found: 0"
+    assertCompileError("""DFBits(0)""", expectedMsg)
+    val zero = 0
+    interceptMessage[java.lang.IllegalArgumentException](expectedMsg) {
+      DFBits(zero)
+    }
+  }
   val b8 = DFBits(8)
   test("Inlined width") {
     val a: Inlined[8] = b8.width

@@ -140,7 +140,7 @@ private object CompanionsDFBits:
     end TC
 
     private val widthExp = "([0-9]+)'(.*)".r
-    private def fromBinString(
+    def fromBinString(
         bin: String
     ): Either[String, (BitVector, BitVector)] =
       val (explicitWidth, word) = bin match
@@ -166,7 +166,7 @@ private object CompanionsDFBits:
           Right((valueBits.resize(width), bubbleBits.resize(width)))
         case None => Right((valueBits, bubbleBits))
     end fromBinString
-    private def fromHexString(
+    def fromHexString(
         hex: String
     ): Either[String, (BitVector, BitVector)] =
       val isHex = "[0-9a-fA-F]".r
@@ -257,15 +257,11 @@ private object CompanionsDFBits:
                 ???
           case _ => TypeRepr.of[Int]
         val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
-        val fullExpr = fullTerm.asExprOf[String]
+        val fullExpr = opStr match
+          case "b" => '{ fromBinString(${ fullTerm.asExprOf[String] }) }
+          case "h" => '{ fromHexString(${ fullTerm.asExprOf[String] }) }
         '{
-          val res = $op match
-            case "b" => fromBinString($fullExpr)
-            case "h" => fromHexString($fullExpr)
-          //TODO: remove unchecked annotation (and type signature) once
-          //https://github.com/lampepfl/dotty/issues/13405 is resolved
-          val (valueBits, bubbleBits): (BitVector, BitVector) @unchecked =
-            res.toOption.get
+          val (valueBits, bubbleBits) = ${ fullExpr }.toOption.get
           val width =
             DFiant.internals.Inlined
               .forced[widthType.Underlying](valueBits.length.toInt)

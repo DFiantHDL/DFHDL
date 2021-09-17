@@ -122,7 +122,11 @@ private object CompanionsDFVal:
       def apply[AT <: DFType, VT <: DFType, M <: Modifier](
           aliasType: AT,
           relVal: DFVal[VT, M]
+//          tokenFunc: DFToken.Of[VT] => DFToken.Of[AT] = _ => ???
       )(using DFC): DFVal[AT, M] =
+        relVal.asIR match
+          case const: ir.DFVal.Const if const.isAnonymous =>
+          case _                                          =>
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.AsIs(
             aliasType.asIR,
@@ -132,6 +136,8 @@ private object CompanionsDFVal:
             ir.DFTags.empty
           )
         alias.addMember.asFE[AT, M]
+      end apply
+    end AsIs
     object ApplyRange:
       def apply[W <: Int, M <: Modifier, H <: Int, L <: Int](
           relVal: DFVal[DFBits[W], M],
@@ -181,6 +187,7 @@ private object CompanionsDFVal:
     type Out = DFValOf[T]
   object TC:
     export DFBits.Val.TC.given
+    export DFDecimal.Val.TC.given
     export DFTuple.Val.TC.given
     //Accept any dataflow value of the same type
     transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
@@ -194,11 +201,17 @@ private object CompanionsDFVal:
                 dfType.asIR.asFE[DFBits[Int]],
                 value.asIR.asValOf[DFBits[Int]]
               )
+            case (_: ir.DFDecimal, _: ir.DFDecimal) =>
+              DFDecimal.Val.TC(
+                dfType.asIR.asFE[DFDecimal[Boolean, Int, Int]],
+                value.asIR.asValOf[DFDecimal[Boolean, Int, Int]]
+              )
             case _ =>
               throw new IllegalArgumentException(
                 s"Unsupported argument value ${value} for dataflow receiver type ${dfType}"
               )
           updated.asIR.asValOf[T]
+        end apply
     //Accept any token value, according to a token type class
     transparent inline given [T <: DFType, R](using
         tokenTC: DFToken.TC[T, R],

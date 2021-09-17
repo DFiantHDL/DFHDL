@@ -23,9 +23,7 @@ private object OpaqueDFDecimal:
     type Token[S <: Boolean, W <: Int, F <: Int] =
       CompanionsDFDecimal.Token[S, W, F]
     val Token = CompanionsDFDecimal.Token
-//    val DFValTC = Companions.DFValTC
-//    val Conversions = Companions.Conversions
-//    val Ops = Companions.Ops
+    val Val = CompanionsDFDecimal.Val
 //    export Companions.Extensions.*
 end OpaqueDFDecimal
 
@@ -117,11 +115,15 @@ private object CompanionsDFDecimal:
         def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] =
           val width = Inlined.forced[OutW](w(arg.value))
           Token(valueOf[Signed], width, 0, arg.value)
-      given [W <: Int]: IntCandidate[DFBits.Token[W], false] with
+      given [W <: Int, S <: Boolean]: IntCandidate[Token[S, W, 0], S] with
         type OutW = W
-        def apply(arg: DFBits.Token[W]): Token[false, W, 0] =
-          import DFBits.Token.Ops.as
-          arg.as(DFUInt(arg.widthHack))
+        def apply(arg: Token[S, W, 0]): Token[S, W, 0] = arg
+      given [W <: Int]: IntCandidate[DFUInt.Token[W], true] with
+        type OutW = W + 1
+        def apply(arg: DFUInt.Token[W]): Token[true, W + 1, 0] =
+//          import
+//          arg.signed
+          ???
     end IntCandidate
 
     object TC:
@@ -194,10 +196,7 @@ private object CompanionsDFDecimal:
         val fullExpr = fullTerm.asExprOf[String]
         '{
           import DFiant.internals.Inlined
-          //TODO: remove unchecked annotation (and type signature) once
-          //https://github.com/lampepfl/dotty/issues/13405 is resolved
-          val (signed, width, fractionWidth, value)
-              : (Boolean, Int, Int, BigInt) @unchecked =
+          val (signed, width, fractionWidth, value) =
             fromDecString($fullExpr).toOption.get
           val signedInlined =
             Inlined.forced[signedType.Underlying](signed)
@@ -216,9 +215,46 @@ private object CompanionsDFDecimal:
   end Token
 
   object Val:
+    trait IntCandidate[-R, Signed <: Boolean]:
+      type OutW <: Int
+      def apply(arg: R): DFValOf[DFDecimal[Signed, OutW, 0]]
+    object IntCandidate:
+      given [R, Signed <: Boolean](using
+          ic: Token.IntCandidate[R, Signed],
+          dfc: DFC
+      ): IntCandidate[R, Signed] with
+        type OutW = ic.OutW
+        def apply(arg: R): DFValOf[DFDecimal[Signed, OutW, 0]] =
+          val token = ic(arg)
+          DFVal.Const(token)
+//      given [W <: Int]: IntCandidate[DFBits.Token[W], false] with
+//        type OutW = W
+//        def apply(arg: DFBits.Token[W]): Token[false, W, 0] =
+//          import DFBits.Token.Ops.as
+//          arg.as(DFUInt(arg.widthHack))
+    end IntCandidate
 
     object TC:
       import DFVal.TC
+      def apply(
+          dfType: DFDecimal[Boolean, Int, Int],
+          dfVal: DFDecimal[Boolean, Int, Int] <> VAL
+      ): DFDecimal[Boolean, Int, Int] <> VAL =
+        `LW >= RW`(dfType.asIR.width, dfVal.asIR.dfType.width)
+        dfVal
+      given [S <: Boolean, LW <: Int, R](using
+          ic: IntCandidate[R, S],
+          p: PrintType[R]
+      )(using
+          check: `LW >= RW`.Check[LW, ic.OutW]
+      ): TC[DFDecimal[S, LW, 0], R] with
+        def apply(dfType: DFDecimal[S, LW, 0], value: R): Out =
+//          val dfTypeIR = dfType.asIR
+//          val token = ic(value).asIR
+//          check(dfTypeIR.width, token.width)
+          ???
+    end TC
+  end Val
 
 end CompanionsDFDecimal
 
