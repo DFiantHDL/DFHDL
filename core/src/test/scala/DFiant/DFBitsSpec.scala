@@ -5,10 +5,12 @@ import compiler.printing.{DefaultPrinter, Printer}
 
 class DFBitsSpec extends DFSpec:
   test("Type construction safety") {
-    val expectedMsg = "Width must be positive, but found: 0"
-    assertCompileError("""DFBits(0)""", expectedMsg)
-    val zero = 0
-    interceptMessage[java.lang.IllegalArgumentException](expectedMsg) {
+    val zero = -1
+    assertDSLError(
+      "Width must be positive, but found: 0"
+    )(
+      """DFBits(0)"""
+    ) {
       DFBits(zero)
     }
   }

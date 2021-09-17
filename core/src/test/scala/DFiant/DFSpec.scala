@@ -14,3 +14,12 @@ class DFSpec extends FunSuite, AllowTopLevel, HasTypeName:
       compiletime.testing.typeCheckErrors(code).head.message,
       expectedErr
     )
+
+  transparent inline def assertDSLError(expectedErr: String)(
+      inline compileTimeCode: String
+  )(runTimeCode: => Unit): Unit =
+    assertCompileError(compileTimeCode, expectedErr)
+    interceptMessage[java.lang.IllegalArgumentException](expectedErr) {
+      runTimeCode
+    }
+end DFSpec
