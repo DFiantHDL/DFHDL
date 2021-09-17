@@ -5,7 +5,7 @@ import compiler.printing.{DefaultPrinter, Printer}
 
 class DFBitsSpec extends DFSpec:
   test("Type construction safety") {
-    val zero = -1
+    val zero = 0
     assertDSLError(
       "Width must be positive, but found: 0"
     )(
