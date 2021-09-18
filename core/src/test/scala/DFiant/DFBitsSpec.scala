@@ -16,24 +16,37 @@ class DFBitsSpec extends DFSpec:
   }
   val b8 = DFBits(8)
   test("Inlined width") {
-    val a: Inlined[8] = b8.width
-    assert(b8.width.value == 8)
+    b8.width.verifyInlined(8)
   }
   given Printer = DefaultPrinter
   test("codeString") {
     assertEquals(b8.codeString, "DFBits(8)")
   }
   test("DFBits Token Construction") {
-    val t1: DFBits[8] <> TOKEN = DFBits(8) token b0s
-    val t1b: DFBits[8] <> TOKEN = DFBits(8) token b1s
-    val t2: DFBits[8] <> TOKEN = h"12"
-    val t3: DFBits[10] <> TOKEN = h"10'12"
-    val t4: DFBits[2] <> TOKEN = b"11"
-    val t5: DFBits[10] <> TOKEN = h"1{00}1"
-    val t6: DFBits[3] <> TOKEN = DFBits(3) token ?
-    val t7: DFBits[8] <> TOKEN = DFBits(8) token t2
-    val u: DFUInt[8] <> TOKEN = d"255"
-    val t8: DFBits[8] <> TOKEN = u
+    val t1 = (DFBits(8) token b0s).verifyTokenOf[DFBits[8]]
+    val t1b = (DFBits(8) token b1s).verifyTokenOf[DFBits[8]]
+    val t2 = h"12".verifyTokenOf[DFBits[8]]
+    val t3 = h"10'12".verifyTokenOf[DFBits[10]]
+    val t4 = b"11".verifyTokenOf[DFBits[2]]
+    val t5 = h"1{00}1".verifyTokenOf[DFBits[10]]
+    assertCompileError("""h"1{001"""", "Missing closing braces of binary mode")
+    assertCompileError("""h"1x"""", "Found invalid hex character: x")
+    assertCompileError(
+      """h"2'1"""",
+      "Explicit given width (2) is smaller than the actual width (4)"
+    )
+    assertCompileError(
+      """h"12{12}"""",
+      "Found invalid binary character in binary mode: 2"
+    )
+    assertCompileError("""b"1x"""", "Found invalid binary character: x")
+    assertCompileError(
+      """b"2'111"""",
+      "Explicit given width (2) is smaller than the actual width (3)"
+    )
+
+    val t6 = (DFBits(3) token ?).verifyTokenOf[DFBits[3]]
+    val t7 = (DFBits(8) token t2).verifyTokenOf[DFBits[8]]
     assert(t7 == t2)
   }
   test("DFVal Conversion") {

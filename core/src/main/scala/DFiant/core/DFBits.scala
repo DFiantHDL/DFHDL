@@ -253,8 +253,7 @@ private object CompanionsDFBits:
               case Right((valueBits, bubbleBits)) =>
                 ConstantType(IntConstant(valueBits.length.toInt))
               case Left(msg) =>
-                report.error(msg)
-                ???
+                report.errorAndAbort(msg)
           case _ => TypeRepr.of[Int]
         val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
         val fullExpr = opStr match
