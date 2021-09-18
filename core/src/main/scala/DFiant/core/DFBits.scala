@@ -321,11 +321,6 @@ private object CompanionsDFBits:
         type OutW = W
         def apply(value: DFBits[W] <> VAL): DFBits[W] <> VAL =
           value.asIR.asValOf[DFBits[W]]
-      given fromDFUInt[W <: Int](using DFC): Candidate[DFUInt[W] <> VAL] with
-        type OutW = W
-        def apply(value: DFUInt[W] <> VAL): DFBits[W] <> VAL =
-          import DFVal.Ops.bits
-          value.bits
       given fromDFBitsToken[W <: Int](using
           DFC
       ): Candidate[DFToken.Of[DFBits[W]]] with
@@ -434,6 +429,20 @@ private object CompanionsDFBits:
           val dfVal = candidate(value)
           check(dfType.width, dfVal.width.value)
           dfVal.asIR.asValOf[DFBits[LW]]
+      given DFBitsFromDFUInt[
+          LW <: Int,
+          RW <: Int
+      ](using
+          dfc: DFC,
+          check: `LW == RW`.Check[LW, RW]
+      ): TC[DFBits[LW], DFValOf[DFUInt[RW]]] with
+        def apply(
+            dfType: DFBits[LW],
+            value: DFValOf[DFUInt[RW]]
+        ): DFValOf[DFBits[LW]] =
+          check(dfType.width, value.width.value)
+          import DFVal.Ops.bits
+          value.bits.asIR.asValOf[DFBits[LW]]
     end TC
 
     object Conversions:
