@@ -319,13 +319,20 @@ private object CompanionsDFBits:
     object Candidate:
       given fromDFBits[W <: Int]: Candidate[DFBits[W] <> VAL] with
         type OutW = W
-        def apply(value: DFBits[W] <> VAL): DFBits[W] <> VAR =
+        def apply(value: DFBits[W] <> VAL): DFBits[W] <> VAL =
           value.asIR.asValOf[DFBits[W]]
       given fromDFUInt[W <: Int](using DFC): Candidate[DFUInt[W] <> VAL] with
         type OutW = W
         def apply(value: DFUInt[W] <> VAL): DFBits[W] <> VAL =
           import DFVal.Ops.bits
           value.bits
+      given fromDFBitsToken[W <: Int](using
+          DFC
+      ): Candidate[DFToken.Of[DFBits[W]]] with
+        type OutW = W
+        def apply(value: DFToken.Of[DFBits[W]]): DFBits[W] <> VAL =
+          DFVal.Const(value)
+
       private def valueToBits(value: Any)(using dfc: DFC): DFBits[Int] <> VAL =
         import DFVal.Ops.bits
         import DFBits.Val.Ops.concatBits
@@ -437,7 +444,8 @@ private object CompanionsDFBits:
         tc(DFBits(valueOf[LW]), from)
       given DFBitsValConversion[R](using
           candidate: Candidate[R]
-      ): Conversion[R, DFValOf[DFBits[Int]]] = from => candidate(from)
+      ): Conversion[R, DFValOf[DFBits[Int]]] = from =>
+        candidate(from).asIR.asValOf[DFBits[Int]]
 
     object Ops:
       protected object BitIndex

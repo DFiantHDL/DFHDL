@@ -47,6 +47,10 @@ class DFBitsSpec extends DFSpec:
 
     val t6 = (DFBits(3) token ?).verifyTokenOf[DFBits[3]]
     val t7 = (DFBits(8) token t2).verifyTokenOf[DFBits[8]]
+    assertCompileError(
+      """DFBits(3) token t7""",
+      "The token width (8) is different than the DFType width (3)."
+    )
     assert(t7 == t2)
   }
   test("DFVal Conversion") {
@@ -56,6 +60,7 @@ class DFBitsSpec extends DFSpec:
     val t4: DFBits[5] <> VAL = ?
     val t5: DFBits[4] <> VAL = h"A"
     val t6: DFBits[3] <> VAL = b"101"
+    val t7: DFBits[Int] <> VAL = b"11"
   }
   test("Assignment") {
     val v8 = DFBits(8) <> VAR

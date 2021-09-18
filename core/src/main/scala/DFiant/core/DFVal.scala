@@ -185,7 +185,17 @@ private object CompanionsDFVal:
   )
   trait TC[T <: DFType, -R] extends GeneralTC[T, R, DFValAny]:
     type Out = DFValOf[T]
-  object TC:
+  trait TCLP:
+    //Accept any token value, according to a token type class
+    transparent inline given [T <: DFType, R](using
+        tokenTC: DFToken.TC[T, R],
+        dfc: DFC
+    ): TC[T, R] =
+      new TC[T, R]:
+        type TType = T
+        def apply(dfType: T, value: R): DFValOf[T] =
+          Const(tokenTC(dfType, value))
+  object TC extends TCLP:
     export DFBits.Val.TC.given
     export DFDecimal.Val.TC.given
     export DFTuple.Val.TC.given
@@ -212,15 +222,6 @@ private object CompanionsDFVal:
               )
           updated.asIR.asValOf[T]
         end apply
-    //Accept any token value, according to a token type class
-    transparent inline given [T <: DFType, R](using
-        tokenTC: DFToken.TC[T, R],
-        dfc: DFC
-    ): TC[T, R] =
-      new TC[T, R]:
-        type TType = T
-        def apply(dfType: T, value: R): DFValOf[T] =
-          Const(tokenTC(dfType, value))
   end TC
 
   object Ops:
