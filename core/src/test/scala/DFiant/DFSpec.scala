@@ -10,8 +10,11 @@ class DFSpec extends FunSuite, AllowTopLevel, HasTypeName:
       inline code: String,
       expectedErr: String
   ): Unit =
+    val err = compiletime.testing.typeCheckErrors(code) match
+      case (head :: _) => head.message
+      case Nil         => "No error found"
     assertNoDiff(
-      compiletime.testing.typeCheckErrors(code).head.message,
+      err,
       expectedErr
     )
 

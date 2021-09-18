@@ -71,6 +71,19 @@ class DFBitsSpec extends DFSpec:
     v8 := ?
     v8 := x
     v8 := x.bits
+
+    val twelve = 12
+    val v12 = DFBits(twelve) <> VAR
+
+//    assertDSLError(
+//      """|The argument width (12) is different than the reciever width (8).
+//         |Consider applying `.resize` to resolve this issue.
+//         |""".stripMargin
+//    )(
+//      """v8 := h"123""""
+//    ) {
+//      v8 := v12
+//    }
 //    v8 := (h"1", 1, 0, v8(5), true)
   }
 end DFBitsSpec

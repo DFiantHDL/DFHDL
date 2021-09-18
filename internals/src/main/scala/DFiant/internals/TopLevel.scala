@@ -26,8 +26,10 @@ object TopLevel:
 
     if (isTop) '{ new TopLevel {} }
     else
-      report.error("Not a top-level")
+      report.errorAndAbort("Not a top-level")
       '{ ??? }
+  end evMacro
+end TopLevel
 
 trait AllowTopLevel:
   given TopLevel with {}

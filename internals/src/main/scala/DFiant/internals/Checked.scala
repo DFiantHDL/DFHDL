@@ -48,7 +48,7 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
               .asExpr
         expr.asTerm
       case t =>
-        report.error(s"Unsupported type function part ${t.show}")
+        report.errorAndAbort(s"Unsupported type function part ${t.show}")
         '{ ??? }.asTerm
     end match
   end lambdaTypeToTermRecur
