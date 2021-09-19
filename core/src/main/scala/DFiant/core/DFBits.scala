@@ -417,7 +417,7 @@ private object CompanionsDFBits:
               ToString[RW] +
               ") is different than the reciever width (" +
               ToString[LW] +
-              "). \nConsider applying `.resize` to resolve this issue."
+              ").\nConsider applying `.resize` to resolve this issue."
           ]
       given DFBitsFromCandidate[
           LW <: Int,
