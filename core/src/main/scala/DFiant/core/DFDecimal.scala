@@ -135,8 +135,8 @@ private object CompanionsDFDecimal:
           ic: IntCandidate[R, S]
       )(using
           check: `LW >= RW`.Check[LW, ic.OutW]
-      ): TC[DFDecimal[S, LW, 0], R] with
-        def apply(dfType: DFDecimal[S, LW, 0], value: R): Out =
+      ): TC[DFXInt[S, LW], R] with
+        def apply(dfType: DFXInt[S, LW], value: R): Out =
           val dfTypeIR = dfType.asIR
           val token = ic(value).asIR
           check(dfTypeIR.width, token.width)
@@ -220,14 +220,14 @@ private object CompanionsDFDecimal:
   object Val:
     trait IntCandidate[-R, Signed <: Boolean]:
       type OutW <: Int
-      def apply(arg: R): DFValOf[DFDecimal[Signed, OutW, 0]]
+      def apply(arg: R): DFValOf[DFXInt[Signed, OutW]]
     object IntCandidate:
       given [R, Signed <: Boolean](using
           ic: Token.IntCandidate[R, Signed],
           dfc: DFC
       ): IntCandidate[R, Signed] with
         type OutW = ic.OutW
-        def apply(arg: R): DFValOf[DFDecimal[Signed, OutW, 0]] =
+        def apply(arg: R): DFValOf[DFXInt[Signed, OutW]] =
           val token = ic(arg)
           DFVal.Const(token)
 //      given [W <: Int]: IntCandidate[DFBits.Token[W], false] with
@@ -249,18 +249,33 @@ private object CompanionsDFDecimal:
           ic: IntCandidate[R, S]
       )(using
           check: `LW >= RW`.Check[LW, ic.OutW]
-      ): TC[DFDecimal[S, LW, 0], R] with
-        def apply(dfType: DFDecimal[S, LW, 0], value: R): Out =
+      ): TC[DFXInt[S, LW], R] with
+        def apply(dfType: DFXInt[S, LW], value: R): Out =
 //          val dfTypeIR = dfType.asIR
 //          val token = ic(value).asIR
 //          check(dfTypeIR.width, token.width)
           ???
     end TC
+    object Conversions:
+      //TODO: add checks for LW according to signed
+      given DFXIntValConversionSing[S <: Boolean, LW <: Int & Singleton, R](
+          using
+          lw: ValueOf[LW],
+          signed: ValueOf[S],
+          tc: CompanionsDFVal.TC[DFXInt[S, LW], R]
+      ): Conversion[R, DFValOf[DFXInt[S, LW]]] = from =>
+        tc(DFDecimal(valueOf[S], valueOf[LW], 0), from)
+      given DFXIntValConversion[S <: Boolean, R](using
+          candidate: IntCandidate[R, S]
+      ): Conversion[R, DFValOf[DFXInt[S, Int]]] = from =>
+        candidate(from).asIR.asValOf[DFXInt[S, Int]]
   end Val
 
 end CompanionsDFDecimal
 
-type DFUInt[W <: Int] = DFDecimal[false, W, 0]
+type DFXInt[S <: Boolean, W <: Int] = DFDecimal[S, W, 0]
+
+type DFUInt[W <: Int] = DFXInt[false, W]
 object DFUInt:
   def apply[W <: Int](width: Inlined[W])(using
       check: Arg.Width.Check[W]
@@ -287,7 +302,7 @@ object DFUInt:
           DFVal.Alias.AsIs(DFUInt(updatedWidth), lhs)
 end DFUInt
 
-type DFSInt[W <: Int] = DFDecimal[true, W, 0]
+type DFSInt[W <: Int] = DFXInt[true, W]
 object DFSInt:
   def apply[W <: Int](width: Inlined[W])(using
       check: Arg.SignedWidth.Check[W]
