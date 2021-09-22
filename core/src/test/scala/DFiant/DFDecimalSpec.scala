@@ -20,8 +20,8 @@ class DFDecimalSpec extends DFSpec:
     assertEquals(s5.codeString, "DFSInt(5)")
   }
   test("Token Construction") {
-    val t1: DFUInt[8] <> TOKEN = DFUInt(8) token 100
-//    val t1b: DFSInt[8] <> TOKEN = DFSInt(8) token -1
+    val t1 = (DFUInt(8) token 100).verifyTokenOf[DFUInt[8]]
+    val t1b = (DFSInt(8) token -1).verifyTokenOf[DFSInt[8]]
     val t2 = d"255".verifyTokenOf[DFUInt[8]]
     val t3 = d"256".verifyTokenOf[DFUInt[9]]
     val t4 = d"0".verifyTokenOf[DFUInt[1]]

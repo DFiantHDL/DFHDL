@@ -107,14 +107,17 @@ private object CompanionsDFDecimal:
       type OutW <: Int
       def apply(arg: R): Token[Signed, OutW, 0]
     object IntCandidate:
-      given [R <: Int, Signed <: Boolean](using
+      //change to given...with after
+      //https://github.com/lampepfl/dotty/issues/13580 is resolved
+      transparent inline given [R <: Int, Signed <: Boolean](using
           w: IntWidth[R, Signed],
           v: ValueOf[Signed]
-      ): IntCandidate[ValueOf[R], Signed] with
-        type OutW = w.Out
-        def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] =
-          val width = Inlined.forced[OutW](w(arg.value))
-          Token(valueOf[Signed], width, 0, arg.value)
+      ): IntCandidate[ValueOf[R], Signed] =
+        new IntCandidate[ValueOf[R], Signed]:
+          type OutW = w.Out
+          def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] =
+            val width = Inlined.forced[OutW](w(arg.value))
+            Token(valueOf[Signed], width, 0, arg.value)
       given [W <: Int, S <: Boolean]: IntCandidate[Token[S, W, 0], S] with
         type OutW = W
         def apply(arg: Token[S, W, 0]): Token[S, W, 0] = arg
