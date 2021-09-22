@@ -1,7 +1,6 @@
 import DFiant.*
 import munit.*
 import internals.Inlined
-import compiler.printing.{DefaultPrinter, Printer}
 
 class DFBitsSpec extends DFSpec:
   test("Type construction safety") {
@@ -18,7 +17,6 @@ class DFBitsSpec extends DFSpec:
   test("Inlined width") {
     b8.width.verifyInlined(8)
   }
-  given Printer = DefaultPrinter
   test("codeString") {
     assertEquals(b8.codeString, "DFBits(8)")
   }

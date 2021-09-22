@@ -1,9 +1,11 @@
 package DFiant
 import munit.*
 import internals.{AllowTopLevel, HasTypeName}
+import compiler.printing.{DefaultPrinter, Printer}
 
 abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName:
   final given dfc: DFC = core.DFC.empty
+  given Printer = DefaultPrinter
   private final val owner: core.DFOwner = core.DFDesign.Block(typeName)
   dfc.enterOwner(owner)
   private val noErrMsg = "No error found"

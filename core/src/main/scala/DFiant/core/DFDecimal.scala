@@ -246,8 +246,7 @@ private object CompanionsDFDecimal:
         `LW >= RW`(dfType.asIR.width, dfVal.asIR.dfType.width)
         dfVal
       given [S <: Boolean, LW <: Int, R](using
-          ic: IntCandidate[R, S],
-          p: PrintType[R]
+          ic: IntCandidate[R, S]
       )(using
           check: `LW >= RW`.Check[LW, ic.OutW]
       ): TC[DFDecimal[S, LW, 0], R] with

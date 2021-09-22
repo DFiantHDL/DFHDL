@@ -2,19 +2,15 @@ package DFiant
 
 import DFiant.*
 import munit.*
-import compiler.printing.{DefaultPrinter, Printer}
 import internals.Inlined
 
 class DFDecimalSpec extends DFSpec:
   val u7 = DFUInt(7)
   val s5 = DFSInt(5)
   test("Inlined width") {
-    u7.width.verifyTypeOf[Inlined[7]]
-    assert(u7.width.value == 7)
-    s5.width.verifyTypeOf[Inlined[5]]
-    assert(s5.width.value == 5)
+    u7.width.verifyInlined(7)
+    s5.width.verifyInlined(5)
   }
-  given Printer = DefaultPrinter
   test("codeString") {
     assertEquals(u7.codeString, "DFUInt(7)")
     assertEquals(s5.codeString, "DFSInt(5)")
