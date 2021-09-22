@@ -5,6 +5,25 @@ import munit.*
 import internals.Inlined
 
 class DFDecimalSpec extends DFSpec:
+  test("Type construction safety") {
+    val zero = 0
+    assertDSLError(
+      "Width must be positive, but found: 0"
+    )(
+      """DFUInt(0)"""
+    ) {
+      DFUInt(zero)
+    }
+    val one = 1
+    assertDSLError(
+      "Signed value width must be larger than 1, but found: 1"
+    )(
+      """DFSInt(1)"""
+    ) {
+      DFSInt(one)
+    }
+  }
+
   val u7 = DFUInt(7)
   val s5 = DFSInt(5)
   test("Inlined width") {
