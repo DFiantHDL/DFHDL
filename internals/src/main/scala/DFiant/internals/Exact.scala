@@ -77,3 +77,32 @@ object Exact:
   def apply[T](value_ : T): Exact[T] = new Exactly:
     type Out = T
     val value = value_
+
+  trait Summon[T]:
+    type Out
+    def apply(t: T): Out
+  object Summon:
+    transparent inline given [T]: Summon[T] =
+      ${ summonMacro[T] }
+    def summonMacro[T](using Quotes, Type[T]): Expr[Summon[T]] =
+      import quotes.reflect.*
+      Expr.summon[ValueOf[T]].map(_.asTerm) match
+        case Some(Apply(_, arg :: Nil)) =>
+          val exact = arg.exactTerm
+          val exactExpr = exact.asExpr
+          val exactType = exact.tpe.asTypeOf[Any]
+          '{
+            new Summon[T]:
+              type Out = exactType.Underlying
+              def apply(t: T) = ${ exactExpr }
+          }
+        case _ =>
+          '{
+            new Summon[T]:
+              type Out = T
+              def apply(t: T): Out = t
+          }
+      end match
+    end summonMacro
+  end Summon
+end Exact

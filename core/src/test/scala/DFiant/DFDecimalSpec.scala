@@ -49,7 +49,7 @@ class DFDecimalSpec extends DFSpec:
     assertEquals(h"FF".as(DFSInt(8)), d"8'-1")
   }
   test("DFVal Conversion") {
-//    val t1: DFUInt[8] <> VAL = 0
+    val t1: DFUInt[8] <> VAL = 100
   }
   test("Assignment") {
     val u8 = DFUInt(8) <> VAR init 255

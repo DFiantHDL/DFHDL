@@ -20,7 +20,7 @@ private object OpaqueDFVal:
   object DFVal:
     final val Modifier = DFiant.compiler.ir.DFVal.Modifier
     export DFBits.Val.Conversions.given
-    export DFDecimal.Val.Conversions.given
+    export DFDecimal.Val.Conversions.*
     export CompanionsDFVal.Extensions.*
     val Const = CompanionsDFVal.Const
     val Dcl = CompanionsDFVal.Dcl
@@ -51,6 +51,9 @@ type <>[T <: DFType, M] = M match
   case IN    => DFPortOf[T]
   case OUT   => DFPortOf[T]
   case TOKEN => DFToken.Of[T]
+
+val xxxx = summon[Exact.Summon[Int]]
+val x5 = summon[xxxx.Out =:= Int]
 
 extension (dfVal: ir.DFVal)
   def asValOf[T <: DFType]: DFValOf[T] = dfVal.asInstanceOf[DFValOf[T]]
@@ -224,6 +227,11 @@ private object CompanionsDFVal:
           updated.asIR.asValOf[T]
         end apply
   end TC
+
+//  object Conversions:
+//    implicit transparent inline def fromArg[T <: DFType, R](
+//        inline arg: R
+//    ): DFValOf[T] = ${ fromArgMacro[T]('arg) }
 
   object Ops:
     extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])

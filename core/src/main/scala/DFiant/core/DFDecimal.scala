@@ -258,17 +258,21 @@ private object CompanionsDFDecimal:
     end TC
     object Conversions:
       //TODO: add checks for LW according to signed
-      given DFXIntValConversionSing[S <: Boolean, LW <: Int & Singleton, R](
-          using
+      implicit inline def DFXIntValConversionSing[
+          S <: Boolean,
+          LW <: Int & Singleton,
+          R
+      ](inline from: R)(using es: Exact.Summon[from.type])(using
           lw: ValueOf[LW],
           signed: ValueOf[S],
-          tc: CompanionsDFVal.TC[DFXInt[S, LW], R]
-      ): Conversion[R, DFValOf[DFXInt[S, LW]]] = from =>
-        tc(DFDecimal(valueOf[S], valueOf[LW], 0), from)
-      given DFXIntValConversion[S <: Boolean, R](using
-          candidate: IntCandidate[R, S]
-      ): Conversion[R, DFValOf[DFXInt[S, Int]]] = from =>
-        candidate(from).asIR.asValOf[DFXInt[S, Int]]
+          p: PrintType[es.Out],
+          tc: CompanionsDFVal.TC[DFXInt[S, LW], es.Out]
+      ): DFValOf[DFXInt[S, LW]] = ???
+//        tc(DFDecimal(valueOf[S], valueOf[LW], 0), from)
+//      given DFXIntValConversion[S <: Boolean, R](using
+//          candidate: IntCandidate[R, S]
+//      ): Conversion[R, DFValOf[DFXInt[S, Int]]] = from =>
+//        candidate(from).asIR.asValOf[DFXInt[S, Int]]
   end Val
 
 end CompanionsDFDecimal
