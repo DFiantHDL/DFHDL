@@ -19,7 +19,7 @@ private object OpaqueDFDecimal:
         fractionWidth: Inlined[F]
     ): DFDecimal[S, W, F] =
       ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
-
+    export CompanionsDFDecimal.DFTypeGiven.given
     type Token[S <: Boolean, W <: Int, F <: Int] =
       CompanionsDFDecimal.Token[S, W, F]
     val Token = CompanionsDFDecimal.Token
@@ -28,6 +28,12 @@ private object OpaqueDFDecimal:
 end OpaqueDFDecimal
 
 private object CompanionsDFDecimal:
+  object DFTypeGiven:
+    given [S <: Boolean, W <: Int, F <: Int](using
+        ValueOf[S],
+        ValueOf[W],
+        ValueOf[F]
+    ): DFDecimal[S, W, F] = DFDecimal(valueOf[S], valueOf[W], valueOf[F])
   protected object `LW >= RW`
       extends Check2[
         Int,
@@ -256,19 +262,8 @@ private object CompanionsDFDecimal:
 //          check(dfTypeIR.width, token.width)
           ???
     end TC
-    object Conversions:
-      //TODO: add checks for LW according to signed
-      implicit inline def DFXIntValConversionSing[
-          S <: Boolean,
-          LW <: Int & Singleton,
-          R
-      ](inline from: R)(using es: Exact.Summon[from.type])(using
-          lw: ValueOf[LW],
-          signed: ValueOf[S],
-          p: PrintType[es.Out],
-          tc: CompanionsDFVal.TC[DFXInt[S, LW], es.Out]
-      ): DFValOf[DFXInt[S, LW]] = ???
-//        tc(DFDecimal(valueOf[S], valueOf[LW], 0), from)
+    object Conversions
+  //TODO: add checks for LW according to signed
 //      given DFXIntValConversion[S <: Boolean, R](using
 //          candidate: IntCandidate[R, S]
 //      ): Conversion[R, DFValOf[DFXInt[S, Int]]] = from =>

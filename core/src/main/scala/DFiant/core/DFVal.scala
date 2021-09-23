@@ -20,7 +20,7 @@ private object OpaqueDFVal:
   object DFVal:
     final val Modifier = DFiant.compiler.ir.DFVal.Modifier
     export DFBits.Val.Conversions.given
-    export DFDecimal.Val.Conversions.*
+    export CompanionsDFVal.Conversions.*
     export CompanionsDFVal.Extensions.*
     val Const = CompanionsDFVal.Const
     val Dcl = CompanionsDFVal.Dcl
@@ -77,6 +77,15 @@ private object CompanionsDFVal:
         )
         dfVal.asIR.tag(ir.ExternalInit(tokens)).asFE[T, M]
   end Extensions
+
+  object Conversions:
+    implicit inline def DFValConversion[T <: DFType, R](
+        inline from: R
+    )(using es: Exact.Summon[from.type])(using
+        dfType: T,
+        tc: CompanionsDFVal.TC[T, es.Out]
+    ): DFValOf[T] = ???
+  //        tc(DFDecimal(valueOf[S], valueOf[LW], 0), from)
 
   object Const:
     def apply[T <: DFType](token: DFToken.Of[T], named: Boolean = false)(using
