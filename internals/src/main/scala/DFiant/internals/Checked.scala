@@ -5,7 +5,24 @@ private val funcRealNameMap: Map[String, String] = Map(
   "BitwiseAnd" -> "&",
   "BitwiseOr" -> "|",
   "ToString" -> "toString",
-  "Abs" -> "abs"
+  "Abs" -> "abs",
+  "+" -> "+",
+  "-" -> "-",
+  "*" -> "*",
+  "/" -> "/",
+  "%" -> "%",
+  ">>" -> ">>",
+  "<<" -> "<<",
+  ">>>" -> ">>>",
+  ">" -> ">",
+  "<" -> "<",
+  "^" -> "^",
+  "&&" -> "&&",
+  "||" -> "||",
+  ">=" -> ">=",
+  "<=" -> "<=",
+  "==" -> "==",
+  "!=" -> "!="
 )
 private class MacroClass[Q <: Quotes](using val quotes: Q)(
     condTpe: quotes.reflect.TypeRepr,
@@ -48,10 +65,19 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
               else ${ arg2.asExpr }
             }
           case _ =>
-            val realFuncName = funcRealNameMap.getOrElse(funcName, funcName)
-            Select
-              .overloaded(arg0, realFuncName, Nil, funcTermParts.drop(1))
-              .asExpr
+            funcRealNameMap.get(funcName) match
+              case Some(realFuncName) =>
+                Select
+                  .overloaded(arg0, realFuncName, Nil, funcTermParts.drop(1))
+                  .asExpr
+              case None =>
+                val da = tpe.dealias
+                if (da != tpe)
+                  lambdaTypeToTermRecur(da, argTerm, argTypeParam).asExpr
+                else
+                  report.errorAndAbort(
+                    s"Unsupported type function part ${tpe.show}"
+                  )
         expr.asTerm
       case t =>
         report.errorAndAbort(s"Unsupported type function part ${t.show}")
