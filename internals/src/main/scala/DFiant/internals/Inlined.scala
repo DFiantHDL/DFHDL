@@ -14,6 +14,9 @@ type +[L, R] = (L, R) match
 type ^[L, R] = (L, R) match
   case (Int, Int)         => int.^[L, R]
   case (Boolean, Boolean) => boolean.^[L, R]
+type ITE[I <: Boolean, T, E] <: T | E = I match
+  case true  => T
+  case false => E
 
 import scala.annotation.targetName
 

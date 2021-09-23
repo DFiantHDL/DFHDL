@@ -29,6 +29,7 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
           func.args.map(a => lambdaTypeToTermRecur(a, argTerm, argTypeParam))
         val arg0 = funcTermParts(0)
         lazy val arg1 = funcTermParts(1)
+        lazy val arg2 = funcTermParts(2)
         val funcName = func.tycon.typeSymbol.name.toString
         val expr = funcName match
           case "Max" =>
@@ -41,6 +42,11 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
             '{ !${ arg0.asExprOf[Boolean] } }
           case "Negate" =>
             '{ -${ arg0.asExprOf[Int] } }
+          case "ITE" => //if-then-else
+            '{
+              if (${ arg0.asExprOf[Boolean] }) ${ arg1.asExpr }
+              else ${ arg2.asExpr }
+            }
           case _ =>
             val realFuncName = funcRealNameMap.getOrElse(funcName, funcName)
             Select
