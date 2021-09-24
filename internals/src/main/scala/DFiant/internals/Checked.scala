@@ -99,12 +99,12 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
       .asExprOf[Boolean]
     def msgExpr = lambdaTypeToTerm(argsTerm, msgTpe)
       .asExprOf[String]
-    condValueTpe match
+    condValueTpe.dealias match
       case ConstantType(BooleanConstant(cond)) =>
         if (cond)
           '{} //the condition is satisfied, hence the apply method does nothing
         else
-          msgValueTpe match
+          msgValueTpe.dealias match
             case ConstantType(StringConstant(msg)) =>
               '{ compiletime.error(${ Expr(msg) }) }
             case _ =>

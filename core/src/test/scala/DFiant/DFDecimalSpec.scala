@@ -8,7 +8,7 @@ class DFDecimalSpec extends DFSpec:
   test("Type construction safety") {
     val zero = 0
     assertDSLError(
-      "Width must be positive, but found: 0"
+      "Unsigned value width must be positive, but found: 0"
     )(
       """DFUInt(0)"""
     ) {

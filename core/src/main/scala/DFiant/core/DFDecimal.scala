@@ -13,17 +13,19 @@ private object OpaqueDFDecimal:
     ir.DFDecimal
   ] = DFType.Of[ir.DFDecimal]
   object DFDecimal:
-    def apply[S <: Boolean, W <: Int, F <: Int](
+    protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
         signed: Inlined[S],
         width: Inlined[W],
         fractionWidth: Inlined[F]
-    ): DFDecimal[S, W, F] =
+    )(using check: CompanionsDFDecimal.Width.Check[S, W]): DFDecimal[S, W, F] =
+      check(signed, width)
       ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
     export CompanionsDFDecimal.DFTypeGiven.given
     type Token[S <: Boolean, W <: Int, F <: Int] =
       CompanionsDFDecimal.Token[S, W, F]
     val Token = CompanionsDFDecimal.Token
     val Val = CompanionsDFDecimal.Val
+  end DFDecimal
 //    export Companions.Extensions.*
 end OpaqueDFDecimal
 
@@ -33,7 +35,22 @@ private object CompanionsDFDecimal:
         ValueOf[S],
         ValueOf[W],
         ValueOf[F]
-    ): DFDecimal[S, W, F] = DFDecimal(valueOf[S], valueOf[W], valueOf[F])
+    )(using Width.Check[S, W]): DFDecimal[S, W, F] =
+      DFDecimal(valueOf[S], valueOf[W], valueOf[F])
+
+  object Width
+      extends Check2[
+        Boolean,
+        Int,
+        [s <: Boolean, w <: Int] =>> ITE[s, w > 1, w > 0],
+        [s <: Boolean, w <: Int] =>> ITE[
+          s,
+          "Signed value width must be larger than 1, but found: " +
+            ToString[w],
+          "Unsigned value width must be positive, but found: " + ToString[w]
+        ]
+      ]
+
   protected object `LW >= RW`
       extends Check2[
         Int,
@@ -277,10 +294,9 @@ type DFXInt[S <: Boolean, W <: Int] = DFDecimal[S, W, 0]
 type DFUInt[W <: Int] = DFXInt[false, W]
 object DFUInt:
   def apply[W <: Int](width: Inlined[W])(using
-      check: Arg.Width.Check[W]
-  ): DFUInt[W] =
-    check(width)
-    DFDecimal(false, width, 0)
+      CompanionsDFDecimal.Width.Check[false, W]
+  ): DFUInt[W] = DFDecimal(false, width, 0)
+
   type Token[W <: Int] = DFDecimal.Token[false, W, 0]
   object Token:
     object Ops:
