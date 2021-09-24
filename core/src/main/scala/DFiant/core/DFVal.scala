@@ -84,8 +84,7 @@ private object CompanionsDFVal:
     )(using es: Exact.Summon[from.type])(using
         dfType: T,
         tc: CompanionsDFVal.TC[T, es.Out]
-    ): DFValOf[T] = ???
-  //        tc(DFDecimal(valueOf[S], valueOf[LW], 0), from)
+    ): DFValOf[T] = tc(dfType, es(from))
 
   object Const:
     def apply[T <: DFType](token: DFToken.Of[T], named: Boolean = false)(using
