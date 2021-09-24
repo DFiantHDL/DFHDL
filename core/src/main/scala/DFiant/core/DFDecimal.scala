@@ -320,10 +320,8 @@ end DFUInt
 type DFSInt[W <: Int] = DFXInt[true, W]
 object DFSInt:
   def apply[W <: Int](width: Inlined[W])(using
-      check: Arg.SignedWidth.Check[W]
-  ): DFSInt[W] =
-    check(width)
-    DFDecimal(true, width, 0)
+      CompanionsDFDecimal.Width.Check[true, W]
+  ): DFSInt[W] = DFDecimal(true, width, 0)
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]
 
   object Val:
