@@ -81,8 +81,7 @@ private object CompanionsDFVal:
   object Conversions:
     implicit inline def DFValConversion[T <: DFType, R](
         inline from: R
-    )(using es: Exact.Summon[from.type])(using
-        dfType: T,
+    )(using dfType: T, es: Exact.Summon[from.type])(using
         tc: CompanionsDFVal.TC[T, es.Out]
     ): DFValOf[T] = tc(dfType, es(from))
 
