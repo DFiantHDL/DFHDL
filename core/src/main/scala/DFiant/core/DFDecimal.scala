@@ -290,6 +290,18 @@ private object CompanionsDFDecimal:
 end CompanionsDFDecimal
 
 type DFXInt[S <: Boolean, W <: Int] = DFDecimal[S, W, 0]
+object DFXInt:
+  type Token[S <: Boolean, W <: Int] = DFDecimal.Token[S, W, 0]
+  object Token:
+    object Ops:
+      extension [S <: Boolean, W <: Int](
+          lhs: Token[S, W]
+      )(using signed: ValueOf[S])
+        def resize[RW <: Int](
+            updatedWidth: Inlined[RW]
+        )(using check: CompanionsDFDecimal.Width.Check[S, RW]): Token[S, RW] =
+          check(valueOf[S], updatedWidth)
+          ???
 
 type DFUInt[W <: Int] = DFXInt[false, W]
 object DFUInt:
