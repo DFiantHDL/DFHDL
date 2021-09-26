@@ -53,6 +53,19 @@ class DFBitsSpec extends DFSpec:
   }
   test("Token Resize") {
     assertEquals(h"F0".resize(6), h"6'30")
+    assertEquals(h"F0".resize(1), b"0")
+    assertEquals(h"F1".resize(1), b"1")
+    assertEquals(b"1".resize(1), b"1")
+    assertEquals(b"1".resize(8), h"01")
+    assertEquals(b"0".resize(8), h"00")
+    val zero = 0
+    assertDSLError(
+      "Width must be positive, but found: 0"
+    )(
+      """h"F1".resize(0)"""
+    ) {
+      h"F1".resize(zero)
+    }
   }
   test("DFVal Conversion") {
     val t1: DFBits[8] <> VAL = b0s
