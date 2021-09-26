@@ -17,7 +17,6 @@ class DFTokenSpec extends FunSuite:
     assert(t3 == t7)
   }
 
-
   test("DFTuple Token Construction") {
     val t1 = (DFBits(8), DFBits(8)) token (h"11", b"10010110")
     val tplDef = (DFBits(8), DFBits(8))

@@ -8,6 +8,8 @@ extension (vec: BitVector)
     val l = for (i <- 0L until vec.length if vec(i)) yield i
     if (l.isEmpty) vec.length else l.head
   def lengthOfValue: Long = if (lzc == vec.length) 1L else vec.length - lzc
+  private def extensionPad(length: Long, signed: Boolean): BitVector =
+    BitVector.fill(length)(if (signed) vec(0) else false)
   def resize(newLength: Int): BitVector =
     if (newLength > vec.length) vec.padLeft(newLength)
     else if (newLength < vec.length) vec.drop(vec.length - newLength)
@@ -24,8 +26,7 @@ extension (vec: BitVector)
     bits(hiIdx, loIdx)
   def padToMulsOf(bitsNum: Int, signed: Boolean): BitVector =
     val paddedVecLength = ((vec.length + bitsNum - 1) / bitsNum) * bitsNum
-    val padding = if (signed) vec(0) else vec(0)
-    BitVector.fill(paddedVecLength - vec.length)(padding) ++ vec
+    extensionPad(paddedVecLength - vec.length, signed) ++ vec
   def toHexProper: String = padToMulsOf(4, false).toHex
   def isZeros: Boolean = vec == BitVector.low(vec.length)
   def toShortString: String =
@@ -39,7 +40,7 @@ extension (vec: BitVector)
     s"0x${narrowVec.padToMulsOf(nibble, false).toHex}"
   def toBigInt(signed: Boolean): BigInt =
     val len = vec.length
-    val ext = BitVector.fill(1)(vec(0)) ++ vec
+    val ext = extensionPad(1L, signed) ++ vec
     BigInt(ext.padToMulsOf(8, signed).toByteArray)
 end extension
 

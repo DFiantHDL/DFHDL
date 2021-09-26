@@ -156,7 +156,7 @@ object DFBits
     extends DFType.Companion[DFBits, (BitVector, BitVector)](
       bubbleCreate = dfType =>
         (BitVector.low(dfType.width), BitVector.high(dfType.width)),
-      isBubble = _ => ???,
+      isBubble = !_._2.isZeros,
       dataToBitsData = (_, d) => d,
       bitsDataToData = (_, d) => d
     )
