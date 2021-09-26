@@ -30,7 +30,7 @@ class DFBitsSpec extends DFSpec:
     assertCompileError("""h"1{001"""", "Missing closing braces of binary mode")
     assertCompileError("""h"1x"""", "Found invalid hex character: x")
     assertCompileError(
-      """h"2'1"""",
+      """h"2'F"""",
       "Explicit given width (2) is smaller than the actual width (4)"
     )
     assertCompileError(
@@ -50,6 +50,9 @@ class DFBitsSpec extends DFSpec:
       "The token width (8) is different than the DFType width (3)."
     )
     assert(t7 == t2)
+  }
+  test("Token Resize") {
+    assertEquals(h"F0".resize(6), h"6'30")
   }
   test("DFVal Conversion") {
     val t1: DFBits[8] <> VAL = b0s

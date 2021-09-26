@@ -200,7 +200,7 @@ private object CompanionsDFBits:
         }
       if (binMode) Left(s"Missing closing braces of binary mode")
       else
-        val actualWidth = valueBits.length.toInt
+        val actualWidth = valueBits.lengthOfValue.toInt
         explicitWidth match
           case Some(width) if width < actualWidth =>
             Left(
