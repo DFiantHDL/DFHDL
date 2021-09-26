@@ -17,10 +17,11 @@ private object OpaqueDFDecimal:
         signed: Inlined[S],
         width: Inlined[W],
         fractionWidth: Inlined[F]
-    )(using check: CompanionsDFDecimal.Width.Check[S, W]): DFDecimal[S, W, F] =
+    )(using check: Width.Check[S, W]): DFDecimal[S, W, F] =
       check(signed, width)
       ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
     export CompanionsDFDecimal.DFTypeGiven.given
+    val Width = CompanionsDFDecimal.Width
     type Token[S <: Boolean, W <: Int, F <: Int] =
       CompanionsDFDecimal.Token[S, W, F]
     val Token = CompanionsDFDecimal.Token
@@ -291,23 +292,40 @@ end CompanionsDFDecimal
 
 type DFXInt[S <: Boolean, W <: Int] = DFDecimal[S, W, 0]
 object DFXInt:
+  def apply[S <: Boolean, W <: Int](signed: Inlined[S], width: Inlined[W])(using
+      DFDecimal.Width.Check[S, W]
+  ): DFXInt[S, W] = DFDecimal(signed, width, 0)
+
   type Token[S <: Boolean, W <: Int] = DFDecimal.Token[S, W, 0]
   object Token:
     object Ops:
       extension [S <: Boolean, W <: Int](
           lhs: Token[S, W]
-      )(using signed: ValueOf[S])
+      )(using ValueOf[S])
         def resize[RW <: Int](
             updatedWidth: Inlined[RW]
-        )(using check: CompanionsDFDecimal.Width.Check[S, RW]): Token[S, RW] =
-          check(valueOf[S], updatedWidth)
-          ???
+        )(using check: DFDecimal.Width.Check[S, RW]): Token[S, RW] =
+          val tokenIR = lhs.asIR
+          val signed = valueOf[S]
+          check(signed, updatedWidth)
+          val updatedDFType = DFXInt(signed, updatedWidth).asIR
+          val updatedTokenIR =
+            if (updatedWidth == lhs.width) tokenIR
+            else if (updatedWidth > lhs.width || tokenIR.isBubble)
+              tokenIR.copy(dfType = updatedDFType)
+            else if (signed) ???
+            else //unsigned
+              ???
+          updatedTokenIR.asTokenOf[DFXInt[S, RW]]
+    end Ops
+  end Token
+end DFXInt
 
 type DFUInt[W <: Int] = DFXInt[false, W]
 object DFUInt:
   def apply[W <: Int](width: Inlined[W])(using
-      CompanionsDFDecimal.Width.Check[false, W]
-  ): DFUInt[W] = DFDecimal(false, width, 0)
+      DFDecimal.Width.Check[false, W]
+  ): DFUInt[W] = DFXInt(false, width)
 
   type Token[W <: Int] = DFDecimal.Token[false, W, 0]
   object Token:
@@ -332,8 +350,8 @@ end DFUInt
 type DFSInt[W <: Int] = DFXInt[true, W]
 object DFSInt:
   def apply[W <: Int](width: Inlined[W])(using
-      CompanionsDFDecimal.Width.Check[true, W]
-  ): DFSInt[W] = DFDecimal(true, width, 0)
+      DFDecimal.Width.Check[true, W]
+  ): DFSInt[W] = DFXInt(true, width)
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]
 
   object Val:

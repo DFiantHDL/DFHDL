@@ -24,7 +24,8 @@ extension (vec: BitVector)
     bits(hiIdx, loIdx)
   def padToMulsOf(bitsNum: Int, signed: Boolean): BitVector =
     val paddedVecLength = ((vec.length + bitsNum - 1) / bitsNum) * bitsNum
-    BitVector.fill(paddedVecLength - vec.length)(vec(0)) ++ vec
+    val padding = if (signed) vec(0) else vec(0)
+    BitVector.fill(paddedVecLength - vec.length)(padding) ++ vec
   def toHexProper: String = padToMulsOf(4, false).toHex
   def isZeros: Boolean = vec == BitVector.low(vec.length)
   def toShortString: String =

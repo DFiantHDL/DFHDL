@@ -51,6 +51,26 @@ object DFType:
             t,
             token.data.asInstanceOf[DFStruct.Token.Data]
           )
+    def isBubble: Boolean =
+      token.dfType match
+        case t: DFBoolOrBit =>
+          DFBoolOrBit.isBubble(token.data.asInstanceOf[DFBoolOrBit.Token.Data])
+        case t: DFBits =>
+          DFBits.isBubble(token.data.asInstanceOf[DFBits.Token.Data])
+        case t: DFDecimal =>
+          DFDecimal.isBubble(token.data.asInstanceOf[DFDecimal.Token.Data])
+        case t: DFEnum =>
+          DFEnum.isBubble(token.data.asInstanceOf[DFEnum.Token.Data])
+        case t: DFVector =>
+          DFVector.isBubble(token.data.asInstanceOf[DFVector.Token.Data])
+        case t: DFOpaque =>
+          DFOpaque.isBubble(token.data.asInstanceOf[DFOpaque.Token.Data])
+        case t: DFUnion =>
+          DFUnion.isBubble(token.data.asInstanceOf[DFUnion.Token.Data])
+        case t: DFStruct =>
+          DFStruct.isBubble(token.data.asInstanceOf[DFStruct.Token.Data])
+  end extension
+
   extension (token: DFBits.Token)
     def as(dfType: DFType): DFType.Token =
       dfType match
@@ -84,6 +104,7 @@ object DFType:
 
   protected[ir] abstract class Companion[T <: DFType, D](
       bubbleCreate: T => D,
+      val isBubble: D => Boolean,
       dataToBitsData: (T, D) => (BitVector, BitVector),
       bitsDataToData: (T, (BitVector, BitVector)) => D
   )(using ClassTag[T]):
@@ -112,6 +133,7 @@ sealed trait DFBoolOrBit extends DFType:
 object DFBoolOrBit
     extends DFType.Companion[DFBoolOrBit, Option[Boolean]](
       bubbleCreate = _ => None,
+      isBubble = _.isEmpty,
       dataToBitsData = (_, d) =>
         d match
           case Some(value) => (BitVector.bit(value), BitVector.low(1))
@@ -134,6 +156,7 @@ object DFBits
     extends DFType.Companion[DFBits, (BitVector, BitVector)](
       bubbleCreate = dfType =>
         (BitVector.low(dfType.width), BitVector.high(dfType.width)),
+      isBubble = _ => ???,
       dataToBitsData = (_, d) => d,
       bitsDataToData = (_, d) => d
     )
@@ -152,6 +175,7 @@ final case class DFDecimal(
 object DFDecimal
     extends DFType.Companion[DFDecimal, Option[BigInt]](
       bubbleCreate = _ => None,
+      isBubble = _.isEmpty,
       dataToBitsData = (t, d) =>
         d match
           case Some(value) =>
@@ -183,6 +207,7 @@ final case class DFEnum(
 object DFEnum
     extends DFType.Companion[DFEnum, Option[BigInt]](
       bubbleCreate = _ => None,
+      isBubble = _.isEmpty,
       dataToBitsData = (t, d) =>
         d match
           case Some(value) =>
@@ -208,6 +233,7 @@ object DFVector
     extends DFType.Companion[DFVector, Vector[DFType.Token]](
       bubbleCreate = dfType =>
         Vector.fill(dfType.cellDims.head)(DFType.Token.bubble(dfType.cellType)),
+      isBubble = _.exists(_.isBubble),
       dataToBitsData = (t, d) =>
         val vecs = d.map(_.bits).map(_.data).unzip
         (vecs._1.reduce(_ ++ _), vecs._2.reduce(_ ++ _)),
@@ -237,6 +263,7 @@ final case class DFOpaque(name: String, actualType: DFType) extends DFType:
 object DFOpaque
     extends DFType.Companion[DFOpaque, DFType.Token](
       bubbleCreate = dfType => DFType.Token.bubble(dfType.actualType),
+      isBubble = _.isBubble,
       dataToBitsData = (t, d) => d.bits.data,
       bitsDataToData = (t, d) =>
         DFBits.Token(DFBits(t.width), d).as(t.actualType)
@@ -252,6 +279,7 @@ final case class DFUnion(fieldSet: ListSet[DFType]) extends DFType:
 object DFUnion
     extends DFType.Companion[DFUnion, DFType.Token](
       bubbleCreate = dfType => DFType.Token.bubble(dfType.fieldSet.head),
+      isBubble = _.isBubble,
       dataToBitsData = (t, d) => d.bits.data,
       bitsDataToData = (t, d) =>
         DFBits.Token(DFBits(t.width), d).as(t.fieldSet.head)
@@ -271,6 +299,7 @@ object DFStruct
     extends DFType.Companion[DFStruct, List[DFType.Token]](
       bubbleCreate = dfType =>
         dfType.fieldMap.values.map(DFType.Token.bubble).toList,
+      isBubble = _.exists(_.isBubble),
       dataToBitsData = (t, d) => d.map(_.bits.data).bitsConcat,
       bitsDataToData = (t, d) =>
         var relBitHigh: Int = t.width - 1

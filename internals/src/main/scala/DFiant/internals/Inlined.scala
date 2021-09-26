@@ -61,8 +61,13 @@ object Inlined:
       forced[int.*[T, R]](lhs.value * rhs.value)
     def >[R <: std.Int](rhs: Inlined[R]) =
       forced[int.>[T, R]](lhs.value > rhs.value)
-  // def >[R <: std.Int with Singleton](rhs: R) =
-  // new Boolean[T > R](lhs.value > rhs)
+    def <[R <: std.Int](rhs: Inlined[R]) =
+      forced[int.<[T, R]](lhs.value < rhs.value)
+    def >=[R <: std.Int](rhs: Inlined[R]) =
+      forced[int.>=[T, R]](lhs.value >= rhs.value)
+    def <=[R <: std.Int](rhs: Inlined[R]) =
+      forced[int.<=[T, R]](lhs.value <= rhs.value)
+  end extension
 
   inline def require(
       inline cond: std.Boolean,

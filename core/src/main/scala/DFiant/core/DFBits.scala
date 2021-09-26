@@ -280,6 +280,21 @@ private object CompanionsDFBits:
           val dfType = tc(aliasType).asIR
           check(dfType.width, lhs.width)
           lhs.asIR.asInstanceOf[ir.DFBits.Token].as(dfType).asTokenOf[tc.Type]
+        @targetName("bitsResize")
+        def resize[RW <: Int](updatedWidth: Inlined[RW])(using
+            check: Arg.Width.Check[RW]
+        ): Token[RW] =
+          if (updatedWidth == lhs.width) lhs.asIR.asTokenOf[DFBits[RW]]
+          else
+            check(updatedWidth)
+            val data = lhs.data
+            import DFiant.internals.{resize => resizeBV}
+            Token(
+              updatedWidth,
+              data._1.resizeBV(updatedWidth),
+              data._2.resizeBV(updatedWidth)
+            )
+
         @targetName("concat")
         def ++[RW <: Int](rhs: DFBits.Token[RW]): DFBits.Token[LW + RW] =
           val width = lhs.width + rhs.width
