@@ -67,6 +67,7 @@ class DFBitsSpec extends DFSpec:
       h"F1".resize(zero)
     }
   }
+  test("Token Bits Selection") {}
   test("DFVal Conversion") {
     val t1: DFBits[8] <> VAL = b0s
     val t2: DFBits[8] <> VAL = b1s

@@ -280,6 +280,8 @@ private object CompanionsDFBits:
           val dfType = tc(aliasType).asIR
           check(dfType.width, lhs.width)
           lhs.asIR.asInstanceOf[ir.DFBits.Token].as(dfType).asTokenOf[tc.Type]
+        def uint: DFUInt.Token[LW] = as(DFUInt(lhs.width))
+        def sint: DFSInt.Token[LW] = as(DFSInt(lhs.width))
         @targetName("bitsResize")
         def resize[RW <: Int](updatedWidth: Inlined[RW])(using
             check: Arg.Width.Check[RW]

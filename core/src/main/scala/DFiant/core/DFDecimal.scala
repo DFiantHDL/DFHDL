@@ -65,6 +65,10 @@ private object CompanionsDFDecimal:
       ]
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
   object Token:
+    extension [S <: Boolean, W <: Int, F <: Int](token: Token[S, W, F])
+      def data: Option[BigInt] =
+        token.asIR.data.asInstanceOf[Option[BigInt]]
+
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
         dfType: DFDecimal[S, W, F],
         data: Option[BigInt]
@@ -298,10 +302,13 @@ object DFXInt:
 
   type Token[S <: Boolean, W <: Int] = DFDecimal.Token[S, W, 0]
   object Token:
+    import DFDecimal.Token.data
+
     object Ops:
       extension [S <: Boolean, W <: Int](
           lhs: Token[S, W]
       )(using ValueOf[S])
+        @targetName("resizeDFXInt")
         def resize[RW <: Int](
             updatedWidth: Inlined[RW]
         )(using check: DFDecimal.Width.Check[S, RW]): Token[S, RW] =
@@ -313,9 +320,13 @@ object DFXInt:
             if (updatedWidth == lhs.width) tokenIR
             else if (updatedWidth > lhs.width || tokenIR.isBubble)
               tokenIR.copy(dfType = updatedDFType)
-            else if (signed) ???
-            else //unsigned
-              ???
+            else
+              import DFToken.Ops.bits
+              import DFBits.Token.Ops.{resize => resizeDFBits}
+              val value = lhs.data.get
+              if (signed) ???
+              else //unsigned
+                ???
           updatedTokenIR.asTokenOf[DFXInt[S, RW]]
     end Ops
   end Token
