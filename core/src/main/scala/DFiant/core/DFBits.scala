@@ -47,6 +47,22 @@ private object CompanionsDFBits:
           ToString[TW] +
           ")."
       ]
+  protected object BitIndex
+      extends Check2[
+        Int,
+        Int,
+        [I <: Int, W <: Int] =>> (I < W) && (I >= 0),
+        [I <: Int, W <: Int] =>> "Index " + ToString[I] +
+          " is out of range of width/length " + ToString[W]
+      ]
+  protected object BitsHiLo
+      extends Check2[
+        Int,
+        Int,
+        [H <: Int, L <: Int] =>> H >= L,
+        [H <: Int, L <: Int] =>> "Low index " + ToString[L] +
+          " is bigger than High bit index " + ToString[H]
+      ]
 
   type Token[W <: Int] = DFToken.Of[DFBits[W]]
   //TODO: remove after https://github.com/lampepfl/dotty/issues/12927 is fixed
@@ -282,6 +298,28 @@ private object CompanionsDFBits:
           lhs.asIR.asInstanceOf[ir.DFBits.Token].as(dfType).asTokenOf[tc.Type]
         def uint: DFUInt.Token[LW] = as(DFUInt(lhs.width))
         def sint: DFSInt.Token[LW] = as(DFSInt(lhs.width))
+        def apply[I <: Int](
+            relIdx: Inlined[I]
+        )(using check: BitIndex.Check[I, LW]): DFBoolOrBit.Token =
+          check(relIdx, lhs.width)
+          val value = lhs.valueBits.bit(relIdx.toLong)
+          val bubble = lhs.bubbleBits.bit(relIdx.toLong)
+          val tokenData = if (bubble) None else Some(value)
+          DFBoolOrBit.Token(DFBit, tokenData)
+
+//        def apply[H <: Int, L <: Int](
+//            relBitHigh: Inlined[H],
+//            relBitLow: Inlined[L]
+//        )(using
+//            checkHigh: BitIndex.Check[H, W],
+//            checkLow: BitIndex.Check[L, W],
+//            checkHiLo: BitsHiLo.Check[H, L],
+//            dfc: DFC
+//        ): DFVal[DFBits[H - L + 1], M] =
+//          checkHigh(relBitHigh, lhs.width)
+//          checkLow(relBitLow, lhs.width)
+//          checkHiLo(relBitHigh, relBitLow)
+//          DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
         @targetName("bitsResize")
         def resize[RW <: Int](updatedWidth: Inlined[RW])(using
             check: Arg.Width.Check[RW]
@@ -474,22 +512,6 @@ private object CompanionsDFBits:
         candidate(from).asIR.asValOf[DFBits[Int]]
 
     object Ops:
-      protected object BitIndex
-          extends Check2[
-            Int,
-            Int,
-            [I <: Int, W <: Int] =>> (I < W) && (I >= 0),
-            [I <: Int, W <: Int] =>> "Index " + ToString[I] +
-              " is out of range of width/length " + ToString[W]
-          ]
-      protected object BitsHiLo
-          extends Check2[
-            Int,
-            Int,
-            [H <: Int, L <: Int] =>> H >= L,
-            [H <: Int, L <: Int] =>> "Low index " + ToString[L] +
-              " is bigger than High bit index " + ToString[H]
-          ]
       extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
         protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
           val width = iter.map(_.width.value).sum
