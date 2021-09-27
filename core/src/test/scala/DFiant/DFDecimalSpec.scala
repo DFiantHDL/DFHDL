@@ -42,6 +42,11 @@ class DFDecimalSpec extends DFSpec:
     val t4 = d"0".verifyTokenOf[DFUInt[1]]
     val t5 = d"10'0".verifyTokenOf[DFUInt[10]]
     val t6 = d"-1".verifyTokenOf[DFSInt[2]]
+    assertCompileError("""d"1x"""", "Invalid decimal pattern found: 1x")
+    assertCompileError(
+      """d"4'255"""",
+      "Explicit given width (4) is smaller than the actual width (8)"
+    )
   }
   test("Token Resize") {
     assertEquals(d"255".resize(4), d"15")

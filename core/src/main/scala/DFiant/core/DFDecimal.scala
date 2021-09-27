@@ -218,8 +218,7 @@ private object CompanionsDFDecimal:
                   ConstantType(IntConstant(fractionWidth))
                 )
               case Left(msg) =>
-                report.error(msg)
-                ???
+                report.errorAndAbort(msg)
           case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
         val signedType = signedTpe.asTypeOf[Boolean]
         val widthType = widthTpe.asTypeOf[Int]
