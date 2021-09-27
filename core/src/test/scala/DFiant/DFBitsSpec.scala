@@ -68,10 +68,12 @@ class DFBitsSpec extends DFSpec:
     }
   }
   test("Token Bits Selection") {
-    assertEquals(b"10".apply(0), b"0".as(DFBit))
-    assertEquals(b"10".apply(1), b"1".as(DFBit))
-    assertEquals(b"10".lsbit, b"0".as(DFBit))
-    assertEquals(b"10".msbit, b"1".as(DFBit))
+    assertEquals(b"10".apply(0), DFBit.token(0))
+    assertEquals(b"10".apply(1), DFBit.token(1))
+    assertEquals(b"1?".apply(0), DFBit.token(?))
+    assertEquals(b"10".lsbit, DFBit.token(0))
+    assertEquals(b"10".msbit, DFBit.token(1))
+    assert(b"10".msbit != DFBit.token(0))
     val four = 4
     assertDSLError(
       "Index 4 is out of range of width/length 2"
