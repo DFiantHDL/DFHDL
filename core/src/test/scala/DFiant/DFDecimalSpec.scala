@@ -1,5 +1,3 @@
-package DFiant
-
 import DFiant.*
 import munit.*
 import internals.Inlined
