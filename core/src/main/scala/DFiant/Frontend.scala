@@ -8,6 +8,8 @@ export core.DFBits.Token.Ops.*
 export core.DFBits.Token.StrInterp.*
 export core.DFBits.Val.Ops.*
 export core.DFDecimal.Token.StrInterp.*
+export core.DFXInt.Token.Ops.*
+export core.DFXInt.Val.Ops.*
 export core.DFUInt.Token.Ops.*
 export core.DFUInt.Val.Ops.*
 export core.DFSInt.Val.Ops.*

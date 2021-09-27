@@ -344,6 +344,23 @@ object DFXInt:
       end extension
     end Ops
   end Token
+
+  object Val:
+    object Ops:
+      extension [S <: Boolean, W <: Int](lhs: DFValOf[DFXInt[S, W]])(using
+          ValueOf[S]
+      )
+        @targetName("resizeDFXInt")
+        def resize[RW <: Int](
+            updatedWidth: Inlined[RW]
+        )(using
+            check: DFDecimal.Width.Check[S, RW],
+            dfc: DFC
+        ): DFValOf[DFXInt[S, RW]] =
+          val signed: S = valueOf[S]
+          check(signed, updatedWidth)
+          DFVal.Alias.AsIs(DFXInt(signed, updatedWidth), lhs)
+  end Val
 end DFXInt
 
 type DFUInt[W <: Int] = DFXInt[false, W]
@@ -356,20 +373,17 @@ object DFUInt:
   object Token:
     object Ops:
       extension [W <: Int](lhs: Token[W])
-        def resize[RW <: Int](
-            updatedWidth: Inlined[RW]
-        )(using check: Arg.Width.Check[RW]): Token[RW] =
-          check(updatedWidth)
-          ???
+        def signed: DFSInt.Token[W + 1] =
+          import DFToken.Ops.bits
+          import DFXInt.Token.Ops.resize
+          import DFBits.Token.Ops.sint
+          lhs.resize(lhs.width + 1).bits.sint
 
   object Val:
     object Ops:
       extension [W <: Int](lhs: DFValOf[DFUInt[W]])
-        @targetName("resizeDFUInt")
-        def resize[RW <: Int](
-            updatedWidth: Inlined[RW]
-        )(using Arg.Width.Check[RW], DFC): DFValOf[DFUInt[RW]] =
-          DFVal.Alias.AsIs(DFUInt(updatedWidth), lhs)
+        def signed(using DFC): DFValOf[DFUInt[W + 1]] =
+          DFVal.Alias.AsIs(DFUInt(lhs.width + 1), lhs)
 end DFUInt
 
 type DFSInt[W <: Int] = DFXInt[true, W]
@@ -380,11 +394,6 @@ object DFSInt:
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]
 
   object Val:
-    object Ops:
-      extension [W <: Int](lhs: DFValOf[DFSInt[W]])
-        @targetName("resizeDFSInt")
-        def resize[RW <: Int](
-            updatedWidth: Inlined[RW]
-        )(using Arg.SignedWidth.Check[RW], DFC): DFValOf[DFSInt[RW]] =
-          DFVal.Alias.AsIs(DFSInt(updatedWidth), lhs)
+    object Ops
+//      extension [W <: Int](lhs: DFValOf[DFSInt[W]])
 end DFSInt
