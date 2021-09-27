@@ -78,6 +78,10 @@ class DFDecimalSpec extends DFSpec:
     assertEquals(h"FF".uint, d"255")
     assertEquals(d"8'-1".bits, h"FF")
     assertEquals(h"FF".sint, d"8'-1")
+    assertEquals(DFUInt(8).token(?).bits, h"??")
+    assertEquals(DFSInt(3).token(?).bits, b"???")
+    assertEquals(b"111?".uint, DFUInt(4).token(?))
+    assertEquals(b"111?".sint, DFSInt(4).token(?))
     assertEquals(d"8".signed, DFSInt(5).token(8))
   }
   test("DFVal Conversion") {
