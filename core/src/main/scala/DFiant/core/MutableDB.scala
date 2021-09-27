@@ -70,7 +70,7 @@ class MutableDB(val duringTest: Boolean = false):
     addMember(member)
 
   def newRefFor[M <: DFMember, R <: DFRef.Of[M]](ref: R, member: M): R =
-    memberTable.get(member) match {
+    memberTable.get(member) match
       //The member already exists, but it might have been updated
       case Some(idx) =>
         //get the newest member at index
@@ -82,24 +82,26 @@ class MutableDB(val duringTest: Boolean = false):
       //So we only add the reference here.
       case _ =>
         refTable += (ref -> member)
-    }
     ref
+  end newRefFor
 
   def getMembers: Iterator[DFMember] = members.view.map(e => e._1).iterator
+  def getMembersSize: Int = members.size
+  def getMembers(from: Int, until: Int): List[DFMember] =
+    members.view.slice(from, until).filterNot(e => e._3).map(e => e._1).toList
+
   def getMembersOf(owner: DFOwner): List[DFMember] =
-    val ret = memberTable.get(owner) match {
+    val ret = memberTable.get(owner) match
       case Some(idx) =>
         var list = List.empty[DFMember]
         var i = idx + 1
-        while (i < members.length) {
+        while (i < members.length) do
           val m = members(i)._1
           if (m.getOwner == owner) list = m :: list
           else if (m.isOutsideOwner(owner)) i = members.length
           i = i + 1
-        }
         list
       case None => Nil
-    }
     ret.reverse
 
   def getMember[M <: DFMember, M0 <: M](
@@ -121,6 +123,7 @@ class MutableDB(val duringTest: Boolean = false):
     //update the member in the member position array
     members.update(idx, (newMember, refSet, ignore))
     newMember
+  end setMember
 
   def replaceMember[M <: DFMember](originalMember: M, newMember: M): M =
     ignoreMember(
@@ -137,21 +140,19 @@ class MutableDB(val duringTest: Boolean = false):
     }
     member
 
-  def immutable: DB = {
+  def immutable: DB =
     var size = -1
     //Touching all lazy origin refs to force their addition.
     //During this procedure it is possible that new reference are added. If so, we re-iterate
-    while (refTable.size != size) {
+    while (refTable.size != size) do
       size = refTable.size
       refTable.keys.foreach {
         case or: DFRef.TwoWay[_] => or.originRef
         case _                   => //do nothing
       }
-    }
     val notIgnoredMembers =
       members.iterator.filterNot(e => e._3).map(e => e._1).toList
     DB(notIgnoredMembers, refTable.toMap, global_tags.tagMap.toMap)
-  }
 
   given getSet: MemberGetSet with
     val designDB: DB = immutable
@@ -171,5 +172,6 @@ class MutableDB(val duringTest: Boolean = false):
     def getGlobalTag[CT <: DFTag: ClassTag](
         taggedElement: Any
     ): Option[CT] = global_tags.get(taggedElement)
+  end getSet
 
 end MutableDB

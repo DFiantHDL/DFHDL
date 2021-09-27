@@ -85,6 +85,14 @@ class DFDecimalSpec extends DFSpec:
   test("DFVal Conversion") {
     val t1: DFUInt[8] <> VAL = 100
   }
+  assertCodeString {
+    """val x = DFUInt(8) <> VAR
+      |val y = DFSInt(8) <> VAR
+      |""".stripMargin
+  } {
+    val x = DFUInt(8) <> VAR
+    val y = DFSInt(8) <> VAR
+  }
   test("Assignment") {
     val u8 = DFUInt(8) <> VAR init 255
     val s8 = DFSInt(8) <> VAR

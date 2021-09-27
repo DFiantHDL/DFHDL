@@ -8,8 +8,14 @@ import DFVal.*
 protected trait DFOwnerPrinter extends AbstractPrinter:
   private def csDFOwnerBody(owner: DFOwner, lateConstruction: Boolean)(using
       MemberGetSet
+  ): String = csDFMembers(owner.members, lateConstruction)
+  private[DFiant] def csDFMembers(
+      members: List[DFMember],
+      lateConstruction: Boolean
+  )(using
+      MemberGetSet
   ): String =
-    owner.members.view
+    members.view
       //only members that match the requested construction mode
       .filter(m => m.hasLateConstruction == lateConstruction)
       //only members that are named or nets
