@@ -306,6 +306,8 @@ private object CompanionsDFBits:
           val bubble = lhs.bubbleBits.bit(relIdx.toLong)
           val tokenData = if (bubble) None else Some(value)
           DFBoolOrBit.Token(DFBit, tokenData)
+        def msbit: DFBoolOrBit.Token = apply(lhs.width - 1)
+        def lsbit: DFBoolOrBit.Token = apply(0)
 
 //        def apply[H <: Int, L <: Int](
 //            relBitHigh: Inlined[H],
