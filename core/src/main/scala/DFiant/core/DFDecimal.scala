@@ -383,7 +383,10 @@ object DFUInt:
     object Ops:
       extension [W <: Int](lhs: DFValOf[DFUInt[W]])
         def signed(using DFC): DFValOf[DFUInt[W + 1]] =
-          DFVal.Alias.AsIs(DFUInt(lhs.width + 1), lhs)
+          import DFVal.Ops.bits
+          import DFBits.Val.Ops.sint
+          import DFXInt.Val.Ops.resize
+          lhs.resize(lhs.width + 1).bits.sint.asIR.asValOf[DFUInt[W + 1]]
 end DFUInt
 
 type DFSInt[W <: Int] = DFXInt[true, W]

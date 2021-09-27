@@ -537,6 +537,11 @@ private object CompanionsDFBits:
           val aliasDFType = tc(aliasType)
           check.apply(aliasDFType.asIR.width, lhs.width)
           DFVal.Alias.AsIs(aliasDFType, lhs)
+        def uint(using DFC): DFValOf[DFUInt[W]] =
+          as(DFUInt(lhs.width))
+        def sint(using DFC): DFValOf[DFSInt[W]] =
+          as(DFSInt(lhs.width))
+
         def apply[I <: Int](
             relIdx: Inlined[I]
         )(using

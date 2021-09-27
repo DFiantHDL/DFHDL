@@ -44,12 +44,19 @@ class DFDecimalSpec extends DFSpec:
   }
   test("Token Resize") {
     assertEquals(d"255".resize(4), d"15")
+    assertEquals(d"15".resize(8), d"8'15")
+    assertEquals(d"-15".resize(8), d"8'-15")
+    assertEquals(d"8'-1".resize(4), d"4'-1")
+    assertEquals(d"8'-1".resize(8), d"8'-1")
+    assertEquals(b"1001".uint.resize(3), d"3'1")
+    assertEquals(b"1001".sint.resize(3), d"3'-3")
   }
   test("Token Conversion") {
     assertEquals(d"255".bits, h"FF")
     assertEquals(h"FF".uint, d"255")
     assertEquals(d"8'-1".bits, h"FF")
     assertEquals(h"FF".sint, d"8'-1")
+    assertEquals(d"8".signed, DFSInt(5).token(8))
   }
   test("DFVal Conversion") {
     val t1: DFUInt[8] <> VAL = 100
