@@ -50,6 +50,22 @@ class DFDecimalSpec extends DFSpec:
     assertEquals(d"8'-1".resize(8), d"8'-1")
     assertEquals(b"1001".uint.resize(3), d"3'1")
     assertEquals(b"1001".sint.resize(3), d"3'-3")
+    val zero = 0
+    assertDSLError(
+      "Unsigned value width must be positive, but found: 0"
+    )(
+      """d"15".resize(0)"""
+    ) {
+      d"15".resize(zero)
+    }
+    val one = 1
+    assertDSLError(
+      "Signed value width must be larger than 1, but found: 1"
+    )(
+      """b"1001".sint.resize(1)"""
+    ) {
+      b"1001".sint.resize(one)
+    }
   }
   test("Token Conversion") {
     assertEquals(d"255".bits, h"FF")
