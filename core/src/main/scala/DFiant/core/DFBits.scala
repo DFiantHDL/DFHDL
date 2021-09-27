@@ -309,19 +309,25 @@ private object CompanionsDFBits:
         def msbit: DFBoolOrBit.Token = apply(lhs.width - 1)
         def lsbit: DFBoolOrBit.Token = apply(0)
 
-//        def apply[H <: Int, L <: Int](
-//            relBitHigh: Inlined[H],
-//            relBitLow: Inlined[L]
-//        )(using
-//            checkHigh: BitIndex.Check[H, W],
-//            checkLow: BitIndex.Check[L, W],
-//            checkHiLo: BitsHiLo.Check[H, L],
-//            dfc: DFC
-//        ): DFVal[DFBits[H - L + 1], M] =
-//          checkHigh(relBitHigh, lhs.width)
-//          checkLow(relBitLow, lhs.width)
-//          checkHiLo(relBitHigh, relBitLow)
-//          DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
+        def apply[H <: Int, L <: Int](
+            relBitHigh: Inlined[H],
+            relBitLow: Inlined[L]
+        )(using
+            checkHigh: BitIndex.Check[H, LW],
+            checkLow: BitIndex.Check[L, LW],
+            checkHiLo: BitsHiLo.Check[H, L]
+        ): DFBits.Token[H - L + 1] =
+          checkHigh(relBitHigh, lhs.width)
+          checkLow(relBitLow, lhs.width)
+          checkHiLo(relBitHigh, relBitLow)
+          val valueBits =
+            lhs.valueBits.bits(relBitHigh.toLong, relBitLow.toLong)
+          val bubbleBits =
+            lhs.bubbleBits.bits(relBitHigh.toLong, relBitLow.toLong)
+          val width = relBitHigh - relBitLow + 1
+          DFBits.Token(width, valueBits, bubbleBits)
+        end apply
+
         @targetName("bitsResize")
         def resize[RW <: Int](updatedWidth: Inlined[RW])(using
             check: Arg.Width.Check[RW]

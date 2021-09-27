@@ -82,6 +82,34 @@ class DFBitsSpec extends DFSpec:
     ) {
       b"10".apply(four)
     }
+    assertEquals(b"1010".apply(3, 2), b"10")
+    assertEquals(b"1010".apply(1, 0), b"10")
+    assertEquals(b"1010".apply(2, 1), b"01")
+    assertEquals(b"1010".apply(2, 2), b"0")
+
+    assertDSLError(
+      "Index 4 is out of range of width/length 4"
+    )(
+      """b"1010".apply(4, 2)"""
+    ) {
+      b"1010".apply(four, 2)
+    }
+    val negOne = -1
+    assertDSLError(
+      "Index -1 is out of range of width/length 4"
+    )(
+      """b"1010".apply(4, -1)"""
+    ) {
+      b"1010".apply(3, negOne)
+    }
+    val three = 3
+    assertDSLError(
+      "Low index 3 is bigger than High bit index 2"
+    )(
+      """b"1010".apply(2, 3)"""
+    ) {
+      b"1010".apply(2, three)
+    }
   }
   test("DFVal Conversion") {
     val t1: DFBits[8] <> VAL = b0s
