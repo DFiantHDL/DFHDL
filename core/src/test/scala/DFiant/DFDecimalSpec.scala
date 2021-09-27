@@ -41,6 +41,7 @@ class DFDecimalSpec extends DFSpec:
     val t3 = d"256".verifyTokenOf[DFUInt[9]]
     val t4 = d"0".verifyTokenOf[DFUInt[1]]
     val t5 = d"10'0".verifyTokenOf[DFUInt[10]]
+    val t6 = d"-1".verifyTokenOf[DFSInt[2]]
   }
   test("Token Resize") {
     assertEquals(d"255".resize(4), d"15")
