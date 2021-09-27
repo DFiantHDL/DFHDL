@@ -3,7 +3,7 @@ import munit.*
 import internals.Inlined
 
 class DFDecimalSpec extends DFSpec:
-  test("Type construction safety") {
+  test("Type Construction") {
     val zero = 0
     assertDSLError(
       "Unsigned value width must be positive, but found: 0"
@@ -20,6 +20,14 @@ class DFDecimalSpec extends DFSpec:
     ) {
       DFSInt(one)
     }
+    assertCodeString {
+      """val x = DFUInt(8) <> VAR
+        |val y = DFSInt(8) <> VAR
+        |""".stripMargin
+    } {
+      val x = DFUInt(8) <> VAR
+      val y = DFSInt(8) <> VAR
+    }
   }
 
   val u7 = DFUInt(7)
@@ -27,10 +35,6 @@ class DFDecimalSpec extends DFSpec:
   test("Inlined width") {
     u7.width.verifyInlined(7)
     s5.width.verifyInlined(5)
-  }
-  test("codeString") {
-    assertEquals(u7.codeString, "DFUInt(7)")
-    assertEquals(s5.codeString, "DFSInt(5)")
   }
   test("Token Construction") {
     val t1 = (DFUInt(8) token 100).verifyTokenOf[DFUInt[8]]
@@ -84,14 +88,6 @@ class DFDecimalSpec extends DFSpec:
   }
   test("DFVal Conversion") {
     val t1: DFUInt[8] <> VAL = 100
-  }
-  assertCodeString {
-    """val x = DFUInt(8) <> VAR
-      |val y = DFSInt(8) <> VAR
-      |""".stripMargin
-  } {
-    val x = DFUInt(8) <> VAR
-    val y = DFSInt(8) <> VAR
   }
   test("Assignment") {
     val u8 = DFUInt(8) <> VAR init 255
