@@ -67,6 +67,10 @@ object Inlined:
       forced[int.>=[T, R]](lhs.value >= rhs.value)
     def <=[R <: std.Int](rhs: Inlined[R]) =
       forced[int.<=[T, R]](lhs.value <= rhs.value)
+    def ==[R <: std.Int](rhs: Inlined[R]) =
+      forced[any.==[T, R]](lhs.value == rhs.value)
+    def !=[R <: std.Int](rhs: Inlined[R]) =
+      forced[any.!=[T, R]](lhs.value != rhs.value)
   end extension
 
   inline def require(

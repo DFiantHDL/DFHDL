@@ -303,6 +303,11 @@ object DFXInt:
   type Token[S <: Boolean, W <: Int] = DFDecimal.Token[S, W, 0]
   object Token:
     import DFDecimal.Token.data
+    protected[core] def apply[S <: Boolean, W <: Int](
+        signed: Inlined[S],
+        width: Inlined[W],
+        data: Option[BigInt]
+    ): Token[S, W] = DFDecimal.Token(DFXInt(signed, width), data)
 
     object Ops:
       extension [S <: Boolean, W <: Int](
@@ -312,22 +317,31 @@ object DFXInt:
         def resize[RW <: Int](
             updatedWidth: Inlined[RW]
         )(using check: DFDecimal.Width.Check[S, RW]): Token[S, RW] =
-          val tokenIR = lhs.asIR
-          val signed = valueOf[S]
-          check(signed, updatedWidth)
-          val updatedDFType = DFXInt(signed, updatedWidth).asIR
           val updatedTokenIR =
-            if (updatedWidth == lhs.width) tokenIR
-            else if (updatedWidth > lhs.width || tokenIR.isBubble)
-              tokenIR.copy(dfType = updatedDFType)
+            //no change in width
+            if (updatedWidth == lhs.width) lhs.asIR
             else
-              import DFToken.Ops.bits
-              import DFBits.Token.Ops.{resize => resizeDFBits}
-              val value = lhs.data.get
-              if (signed) ???
-              else //unsigned
-                ???
+              val signed = valueOf[S]
+              check(signed, updatedWidth)
+              //updated width is larger or the data is bubble
+              if (updatedWidth > lhs.width || lhs.asIR.isBubble)
+                DFXInt.Token(signed, updatedWidth, lhs.data).asIR
+              else //updated width is smaller
+                import DFToken.Ops.bits
+                import DFBits.Token.Ops.{resize => resizeDFBits, *}
+                val value = lhs.data.get
+                if (signed)
+                  val tokenBits = lhs.bits
+                  (tokenBits.msbit.bits ++
+                    tokenBits(updatedWidth - 2, 0)).sint.asIR
+                else //unsigned
+                  lhs.bits
+                    .resizeDFBits(updatedWidth)
+                    .uint
+                    .asIR
+              end if
           updatedTokenIR.asTokenOf[DFXInt[S, RW]]
+      end extension
     end Ops
   end Token
 end DFXInt
