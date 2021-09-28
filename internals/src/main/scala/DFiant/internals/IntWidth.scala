@@ -6,7 +6,11 @@ trait IntWidth[V <: Int, Signed <: Boolean]:
   def apply(value: Int)(using ValueOf[Signed]): Inlined[Out] =
     Inlined.forced[Out](IntWidth.calcWidth(value, valueOf[Signed]))
 object IntWidth:
+  private def negValueErr(value: Int) =
+    s"Unsigned value must be natural, but found: ${value}"
   private[internals] def calcWidth(value: Int, signed: Boolean): Int =
+    if (!signed && value < 0)
+      throw new IllegalArgumentException(negValueErr(value))
     val lzc = Integer.numberOfLeadingZeros(value)
     if (signed)
       if (value > 0) 33 - lzc
@@ -25,15 +29,23 @@ object IntWidth:
     import quotes.reflect.*
     val valueTpe = TypeRepr.of[V]
     val ConstantType(BooleanConstant(signed)) = TypeRepr.of[Signed]
-    val widthTpe = valueTpe match
+    valueTpe match
       case ConstantType(IntConstant(value)) =>
-        ConstantType(IntConstant(calcWidth(value, signed)))
-      case _ => TypeRepr.of[Int]
-    val widthType = widthTpe.asTypeOf[Int]
-    '{
-      new IntWidth[V, Signed]:
-        type Out = widthType.Underlying
-    }
+        if (!signed && value < 0)
+          '{ compiletime.error(${ Expr(negValueErr(value)) }) }
+        else
+          val widthType =
+            ConstantType(IntConstant(calcWidth(value, signed))).asTypeOf[Int]
+          '{
+            new IntWidth[V, Signed]:
+              type Out = widthType.Underlying
+          }
+      case _ =>
+        '{
+          new IntWidth[V, Signed]:
+            type Out = Int
+        }
+    end match
   end macroImpl
 end IntWidth
 

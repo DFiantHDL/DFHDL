@@ -51,6 +51,15 @@ private object CompanionsDFDecimal:
           "Unsigned value width must be positive, but found: " + ToString[w]
         ]
       ]
+  protected object Sign
+      extends Check2[
+        Boolean,
+        Int,
+        [s <: Boolean, n <: Int] =>> ITE[s, true, n >= 0],
+        [s <: Boolean,
+        n <: Int] =>> "Unsigned value must be natural, but found: " +
+          ToString[n]
+      ]
 
   protected object `LW >= RW`
       extends Check2[
@@ -138,14 +147,21 @@ private object CompanionsDFDecimal:
       //change to given...with after
       //https://github.com/lampepfl/dotty/issues/13580 is resolved
       transparent inline given [R <: Int, Signed <: Boolean](using
-          w: IntWidth[R, Signed],
-          v: ValueOf[Signed]
+          v: ValueOf[Signed],
+          w: IntWidth[R, Signed]
       ): IntCandidate[ValueOf[R], Signed] =
         new IntCandidate[ValueOf[R], Signed]:
           type OutW = w.Out
           def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] =
-            val width = Inlined.forced[OutW](w(arg.value))
-            Token(valueOf[Signed], width, 0, arg.value)
+            Token(valueOf[Signed], w(arg.value), 0, arg.value)
+      transparent inline given [Signed <: Boolean](using
+          v: ValueOf[Signed],
+          w: IntWidth[Int, Signed]
+      ): IntCandidate[Int, Signed] =
+        new IntCandidate[Int, Signed]:
+          type OutW = w.Out
+          def apply(arg: Int): Token[Signed, OutW, 0] =
+            Token(valueOf[Signed], w(arg.value), 0, arg.value)
       given [W <: Int, S <: Boolean]: IntCandidate[Token[S, W, 0], S] with
         type OutW = W
         def apply(arg: Token[S, W, 0]): Token[S, W, 0] = arg

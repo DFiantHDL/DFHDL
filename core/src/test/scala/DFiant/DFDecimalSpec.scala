@@ -49,6 +49,14 @@ class DFDecimalSpec extends DFSpec:
       """d"4'255"""",
       "Explicit given width (4) is smaller than the actual width (8)"
     )
+    val negOne = -1
+    assertDSLError(
+      "Unsigned value must be natural, but found: -1"
+    )(
+      """DFUInt(8).token(-1)"""
+    ) {
+      DFUInt(8).token(negOne)
+    }
   }
   test("Token Resize") {
     assertEquals(d"255".resize(4), d"15")
