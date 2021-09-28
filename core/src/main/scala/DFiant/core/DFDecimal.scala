@@ -174,9 +174,8 @@ private object CompanionsDFDecimal:
       given [W <: Int]: IntCandidate[DFUInt.Token[W], true] with
         type OutW = W + 1
         def apply(arg: DFUInt.Token[W]): Token[true, W + 1, 0] =
-//          import
-//          arg.signed
-          ???
+          import DFUInt.Token.Ops.signed
+          arg.signed
     end IntCandidate
 
     object TC:
