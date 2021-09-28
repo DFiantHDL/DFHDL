@@ -73,7 +73,13 @@ protected trait DFTokenPrinter extends AbstractPrinter:
           case DFBool => value.toString
           case DFBit  => if (value) "1" else "0"
       case None => "?"
-  def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String = ???
+  def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
+    data match
+      case Some(value) =>
+        if (dfType.fractionWidth == 0) //DFXInt
+          s"""d"${dfType.width}'$value""""
+        else ??? //DFXFix
+      case None => "?"
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String = ???
   def csDFVectorData(dfType: DFVector, data: Vector[DFType.Token]): String = ???
   def csDFOpaqueData(dfType: DFOpaque, data: DFType.Token): String =

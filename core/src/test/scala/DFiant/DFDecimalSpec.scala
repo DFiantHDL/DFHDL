@@ -21,12 +21,12 @@ class DFDecimalSpec extends DFSpec:
       DFSInt(one)
     }
     assertCodeString {
-      """val x = DFUInt(8) <> VAR
-        |val y = DFSInt(8) <> VAR
+      """val x = DFUInt(8) <> VAR init d"8'0"
+        |val y = DFSInt(8) <> VAR init d"8'-1"
         |""".stripMargin
     } {
-      val x = DFUInt(8) <> VAR
-      val y = DFSInt(8) <> VAR
+      val x = DFUInt(8) <> VAR init 0
+      val y = DFSInt(8) <> VAR init -1
     }
   }
 

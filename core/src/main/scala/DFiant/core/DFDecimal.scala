@@ -161,7 +161,7 @@ private object CompanionsDFDecimal:
         new IntCandidate[Int, Signed]:
           type OutW = w.Out
           def apply(arg: Int): Token[Signed, OutW, 0] =
-            Token(valueOf[Signed], w(arg.value), 0, arg.value)
+            Token(valueOf[Signed], w(arg), 0, arg)
       given [W <: Int, S <: Boolean]: IntCandidate[Token[S, W, 0], S] with
         type OutW = W
         def apply(arg: Token[S, W, 0]): Token[S, W, 0] = arg
