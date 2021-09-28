@@ -199,30 +199,20 @@ private object CompanionsDFDecimal:
       extension (inline sc: StringContext)
         transparent inline def d(inline args: Any*): DFToken =
           ${
-            interpMacro('sc, 'args)
+            interpMacro('{ false })('sc, 'args)
+          }
+        transparent inline def sd(inline args: Any*): DFToken =
+          ${
+            interpMacro('{ true })('sc, 'args)
           }
 
-      private def interpMacro(
+      private def interpMacro(signedForcedExpr: Expr[Boolean])(
           sc: Expr[StringContext],
           args: Expr[Seq[Any]]
       )(using Quotes): Expr[DFToken] =
         import quotes.reflect.*
-        val argsExprs = args match
-          case Varargs(argsExprs) => argsExprs
-        val '{ StringContext.apply($parts*) } = sc
-        val partsExprs = parts match
-          case Varargs(argsExprs) => argsExprs
-        val fullTermParts =
-          Seq(partsExprs, argsExprs)
-            .flatMap(_.zipWithIndex)
-            .sortBy(_._2)
-            .map(_._1.asTerm)
-        val fullTerm = fullTermParts.reduce[Term] {
-          case (Literal(StringConstant(l)), Literal(StringConstant(r))) =>
-            Literal(StringConstant(l + r))
-          case (l, r) =>
-            '{ ${ l.asExpr }.toString + ${ r.asExpr }.toString }.asTerm
-        }
+        val signedForced = signedForcedExpr.value.get
+        val fullTerm = sc.termWithArgs(args)
         val (signedTpe, widthTpe, fractionWidthTpe)
             : (TypeRepr, TypeRepr, TypeRepr) = fullTerm match
           case Literal(StringConstant(t)) =>

@@ -38,3 +38,23 @@ object PrintType:
     import quotes.reflect.*
     println(TypeRepr.of[T].show)
     '{ new PrintType[T] {} }
+
+extension (using quotes: Quotes)(sc: Expr[StringContext])
+  def termWithArgs(args: Expr[Seq[Any]]): quotes.reflect.Term =
+    import quotes.reflect.*
+    val argsExprs = args match
+      case Varargs(argsExprs) => argsExprs
+    val '{ StringContext.apply($parts*) } = sc
+    val partsExprs = parts match
+      case Varargs(argsExprs) => argsExprs
+    val fullTermParts =
+      Seq(partsExprs, argsExprs)
+        .flatMap(_.zipWithIndex)
+        .sortBy(_._2)
+        .map(_._1.asTerm)
+    fullTermParts.reduce[Term] {
+      case (Literal(StringConstant(l)), Literal(StringConstant(r))) =>
+        Literal(StringConstant(l + r))
+      case (l, r) =>
+        '{ ${ l.asExpr }.toString + ${ r.asExpr }.toString }.asTerm
+    }

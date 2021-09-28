@@ -243,22 +243,7 @@ private object CompanionsDFBits:
           args: Expr[Seq[Any]]
       )(using Quotes): Expr[DFToken] =
         import quotes.reflect.*
-        val argsExprs = args match
-          case Varargs(argsExprs) => argsExprs
-        val '{ StringContext.apply($parts*) } = sc
-        val partsExprs = parts match
-          case Varargs(argsExprs) => argsExprs
-        val fullTermParts =
-          Seq(partsExprs, argsExprs)
-            .flatMap(_.zipWithIndex)
-            .sortBy(_._2)
-            .map(_._1.asTerm)
-        val fullTerm = fullTermParts.reduce[Term] {
-          case (Literal(StringConstant(l)), Literal(StringConstant(r))) =>
-            Literal(StringConstant(l + r))
-          case (l, r) =>
-            '{ ${ l.asExpr }.toString + ${ r.asExpr }.toString }.asTerm
-        }
+        val fullTerm = sc.termWithArgs(args)
         val opStr = op.value.get
         val widthTpe: TypeRepr = fullTerm match
           case Literal(StringConstant(t)) =>
