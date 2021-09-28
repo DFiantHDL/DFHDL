@@ -166,6 +166,11 @@ private object CompanionsDFDecimal:
       given [W <: Int, S <: Boolean]: IntCandidate[Token[S, W, 0], S] with
         type OutW = W
         def apply(arg: Token[S, W, 0]): Token[S, W, 0] = arg
+      inline given [W <: Int, S <: Boolean]
+          : IntCandidate[DFSInt.Token[W], false] =
+        compiletime.error(
+          "Cannot apply a signed value to an unsigned variable."
+        )
       given [W <: Int]: IntCandidate[DFUInt.Token[W], true] with
         type OutW = W + 1
         def apply(arg: DFUInt.Token[W]): Token[true, W + 1, 0] =

@@ -48,6 +48,9 @@ class DFDecimalSpec extends DFSpec:
     val t6 = d"-1".verifyTokenOf[DFSInt[2]]
     val t7 = sd"-1".verifyTokenOf[DFSInt[2]]
     val t8 = sd"0".verifyTokenOf[DFSInt[2]]
+    val t9 = DFUInt(8).token(1)
+    val t10 = DFUInt(8).token(d"1")
+    val t11 = DFUInt(8).token(?)
     assertCompileError("""d"1x"""", "Invalid decimal pattern found: 1x")
     assertCompileError(
       """d"4'255"""",
@@ -61,6 +64,10 @@ class DFDecimalSpec extends DFSpec:
     ) {
       DFUInt(8).token(negOne)
     }
+    assertCompileError(
+      """DFUInt(8).token(sd"1")""",
+      "Cannot apply a signed value to an unsigned variable."
+    )
   }
   test("Token Resize") {
     assertEquals(d"255".resize(4), d"15")
