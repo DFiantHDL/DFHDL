@@ -77,7 +77,8 @@ protected trait DFTokenPrinter extends AbstractPrinter:
     data match
       case Some(value) =>
         if (dfType.fractionWidth == 0) //DFXInt
-          s"""d"${dfType.width}'$value""""
+          val interpStr = if (dfType.signed) "sd" else "d"
+          s"""$interpStr"${dfType.width}'$value""""
         else ??? //DFXFix
       case None => "?"
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String = ???

@@ -22,11 +22,13 @@ class DFDecimalSpec extends DFSpec:
     }
     assertCodeString {
       """val x = DFUInt(8) <> VAR init d"8'0"
-        |val y = DFSInt(8) <> VAR init d"8'-1"
+        |val y = DFSInt(8) <> VAR init sd"8'-1"
+        |val z = DFSInt(8) <> VAR init sd"8'0"
         |""".stripMargin
     } {
       val x = DFUInt(8) <> VAR init 0
       val y = DFSInt(8) <> VAR init -1
+      val z = DFSInt(8) <> VAR init 0
     }
   }
 
@@ -44,6 +46,8 @@ class DFDecimalSpec extends DFSpec:
     val t4 = d"0".verifyTokenOf[DFUInt[1]]
     val t5 = d"10'0".verifyTokenOf[DFUInt[10]]
     val t6 = d"-1".verifyTokenOf[DFSInt[2]]
+    val t7 = sd"-1".verifyTokenOf[DFSInt[2]]
+    val t8 = sd"0".verifyTokenOf[DFSInt[2]]
     assertCompileError("""d"1x"""", "Invalid decimal pattern found: 1x")
     assertCompileError(
       """d"4'255"""",

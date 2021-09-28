@@ -105,11 +105,12 @@ private object CompanionsDFDecimal:
     private val widthFixedExp = "(\\d+)\\.(\\d+)'(-?\\d+)\\.?(\\d*)".r
     private val intExp = "(-?\\d+)".r
     private def fromDecString(
-        dec: String
+        dec: String,
+        signedForced: Boolean
     ): Either[String, (Boolean, Int, Int, BigInt)] =
       def fromValidString(numStr: String): (Boolean, Int, Int, BigInt) =
         val value = BigInt(numStr)
-        val signed = value < 0
+        val signed = value < 0 | signedForced
         val actualWidth = value.bitsWidth(signed)
         (signed, actualWidth, 0, value)
       dec match
@@ -216,7 +217,7 @@ private object CompanionsDFDecimal:
         val (signedTpe, widthTpe, fractionWidthTpe)
             : (TypeRepr, TypeRepr, TypeRepr) = fullTerm match
           case Literal(StringConstant(t)) =>
-            fromDecString(t) match
+            fromDecString(t, signedForced) match
               case Right((signed, width, fractionWidth, _)) =>
                 (
                   ConstantType(BooleanConstant(signed)),
@@ -233,7 +234,7 @@ private object CompanionsDFDecimal:
         '{
           import DFiant.internals.Inlined
           val (signed, width, fractionWidth, value) =
-            fromDecString($fullExpr).toOption.get
+            fromDecString($fullExpr, $signedForcedExpr).toOption.get
           val signedInlined =
             Inlined.forced[signedType.Underlying](signed)
           val widthInlined =
