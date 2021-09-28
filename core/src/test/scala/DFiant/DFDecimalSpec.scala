@@ -55,6 +55,10 @@ class DFDecimalSpec extends DFSpec:
     val t13 = DFSInt(8).token(-1)
     val t14 = DFSInt(8).token(?)
     val t15 = DFSInt(8).token(127)
+    val t16 = DFSInt(8).token(d"127")
+    val t17 = DFSInt(8).token(sd"127")
+    assert(t15 == t16)
+    assert(t16 == t17)
 
     assertCompileError("""d"1x"""", "Invalid decimal pattern found: 1x")
     assertCompileError(
@@ -80,6 +84,14 @@ class DFDecimalSpec extends DFSpec:
     ) {
       val value = 128
       DFSInt(8).token(value)
+    }
+    assertDSLError(
+      "The token value width (9) is larger than the dataflow value width (8)."
+    )(
+      """DFSInt(8).token(d"128")"""
+    ) {
+      val value = 8
+      DFSInt(value).token(d"128")
     }
   }
   test("Token Resize") {

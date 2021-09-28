@@ -171,11 +171,12 @@ private object CompanionsDFDecimal:
         compiletime.error(
           "Cannot apply a signed value to an unsigned variable."
         )
-      given [W <: Int]: IntCandidate[DFUInt.Token[W], true] with
-        type OutW = W + 1
-        def apply(arg: DFUInt.Token[W]): Token[true, W + 1, 0] =
-          import DFUInt.Token.Ops.signed
-          arg.signed
+      transparent inline given [W <: Int]: IntCandidate[DFUInt.Token[W], true] =
+        new IntCandidate[DFUInt.Token[W], true]:
+          type OutW = W + 1
+          def apply(arg: DFUInt.Token[W]): Token[true, W + 1, 0] =
+            import DFUInt.Token.Ops.signed
+            arg.signed
     end IntCandidate
 
     object TC:
