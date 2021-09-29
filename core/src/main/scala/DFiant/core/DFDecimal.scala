@@ -141,50 +141,10 @@ private object CompanionsDFDecimal:
       end match
     end fromDecString
 
-    trait IntCandidate[-R, Signed <: Boolean]:
-      type OutW <: Int
-      def apply(arg: R): DFXInt.Token[Signed, OutW]
-    object IntCandidate:
-      //change to given...with after
-      //https://github.com/lampepfl/dotty/issues/13580 is resolved
-      transparent inline given [R <: Int, Signed <: Boolean](using
-          v: ValueOf[Signed],
-          w: IntWidth[R, Signed]
-      ): IntCandidate[ValueOf[R], Signed] =
-        new IntCandidate[ValueOf[R], Signed]:
-          type OutW = w.Out
-          def apply(arg: ValueOf[R]): DFXInt.Token[Signed, OutW] =
-            DFXInt.Token(valueOf[Signed], w(arg.value), Some(arg.value))
-      transparent inline given [Signed <: Boolean](using
-          v: ValueOf[Signed],
-          w: IntWidth[Int, Signed]
-      ): IntCandidate[Int, Signed] =
-        new IntCandidate[Int, Signed]:
-          type OutW = w.Out
-          def apply(arg: Int): DFXInt.Token[Signed, OutW] =
-            DFXInt.Token(valueOf[Signed], w(arg), Some(arg))
-      transparent inline given [W <: Int, S <: Boolean]
-          : IntCandidate[DFXInt.Token[S, W], S] =
-        new IntCandidate[DFXInt.Token[S, W], S]:
-          type OutW = W
-          def apply(arg: DFXInt.Token[S, W]): DFXInt.Token[S, W] = arg
-      inline given [W <: Int, S <: Boolean]
-          : IntCandidate[DFSInt.Token[W], false] =
-        compiletime.error(
-          "Cannot apply a signed value to an unsigned variable."
-        )
-      transparent inline given [W <: Int]: IntCandidate[DFUInt.Token[W], true] =
-        new IntCandidate[DFUInt.Token[W], true]:
-          type OutW = W + 1
-          def apply(arg: DFUInt.Token[W]): DFXInt.Token[true, W + 1] =
-            import DFUInt.Token.Ops.signed
-            arg.signed
-    end IntCandidate
-
     object TC:
       import DFToken.TC
       given [S <: Boolean, LW <: Int, R](using
-          ic: IntCandidate[R, S]
+          ic: DFXInt.Token.IntCandidate[R, S]
       )(using
           check: `LW >= RW`.Check[LW, ic.OutW]
       ): TC[DFXInt[S, LW], R] with
@@ -264,7 +224,7 @@ private object CompanionsDFDecimal:
       def apply(arg: R): DFValOf[DFXInt[Signed, OutW]]
     object IntCandidate:
       given [R, Signed <: Boolean](using
-          ic: Token.IntCandidate[R, Signed],
+          ic: DFXInt.Token.IntCandidate[R, Signed],
           dfc: DFC
       ): IntCandidate[R, Signed] with
         type OutW = ic.OutW
@@ -321,6 +281,46 @@ object DFXInt:
         width: Inlined[W],
         data: Option[BigInt]
     ): Token[S, W] = DFDecimal.Token(DFXInt(signed, width), data)
+
+    trait IntCandidate[-R, Signed <: Boolean]:
+      type OutW <: Int
+      def apply(arg: R): Token[Signed, OutW]
+    object IntCandidate:
+      //change to given...with after
+      //https://github.com/lampepfl/dotty/issues/13580 is resolved
+      transparent inline given [R <: Int, Signed <: Boolean](using
+          v: ValueOf[Signed],
+          w: IntWidth[R, Signed]
+      ): IntCandidate[ValueOf[R], Signed] =
+        new IntCandidate[ValueOf[R], Signed]:
+          type OutW = w.Out
+          def apply(arg: ValueOf[R]): Token[Signed, OutW] =
+            Token(valueOf[Signed], w(arg.value), Some(arg.value))
+      transparent inline given [Signed <: Boolean](using
+          v: ValueOf[Signed],
+          w: IntWidth[Int, Signed]
+      ): IntCandidate[Int, Signed] =
+        new IntCandidate[Int, Signed]:
+          type OutW = w.Out
+          def apply(arg: Int): Token[Signed, OutW] =
+            Token(valueOf[Signed], w(arg), Some(arg))
+      transparent inline given [W <: Int, S <: Boolean]
+          : IntCandidate[Token[S, W], S] =
+        new IntCandidate[Token[S, W], S]:
+          type OutW = W
+          def apply(arg: Token[S, W]): Token[S, W] = arg
+      inline given [W <: Int, S <: Boolean]
+          : IntCandidate[DFSInt.Token[W], false] =
+        compiletime.error(
+          "Cannot apply a signed value to an unsigned variable."
+        )
+      transparent inline given [W <: Int]: IntCandidate[DFUInt.Token[W], true] =
+        new IntCandidate[DFUInt.Token[W], true]:
+          type OutW = W + 1
+          def apply(arg: DFUInt.Token[W]): Token[true, W + 1] =
+            import DFUInt.Token.Ops.signed
+            arg.signed
+    end IntCandidate
 
     object Ops:
       extension [S <: Boolean, W <: Int](
