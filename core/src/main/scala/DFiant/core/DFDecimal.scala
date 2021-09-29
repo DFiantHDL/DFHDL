@@ -163,9 +163,11 @@ private object CompanionsDFDecimal:
           type OutW = w.Out
           def apply(arg: Int): Token[Signed, OutW, 0] =
             Token(valueOf[Signed], w(arg), 0, arg)
-      given [W <: Int, S <: Boolean]: IntCandidate[Token[S, W, 0], S] with
-        type OutW = W
-        def apply(arg: Token[S, W, 0]): Token[S, W, 0] = arg
+      transparent inline given [W <: Int, S <: Boolean]
+          : IntCandidate[Token[S, W, 0], S] =
+        new IntCandidate[Token[S, W, 0], S]:
+          type OutW = W
+          def apply(arg: Token[S, W, 0]): Token[S, W, 0] = arg
       inline given [W <: Int, S <: Boolean]
           : IntCandidate[DFSInt.Token[W], false] =
         compiletime.error(
