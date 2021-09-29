@@ -143,7 +143,7 @@ private object CompanionsDFDecimal:
 
     trait IntCandidate[-R, Signed <: Boolean]:
       type OutW <: Int
-      def apply(arg: R): Token[Signed, OutW, 0]
+      def apply(arg: R): DFXInt.Token[Signed, OutW]
     object IntCandidate:
       //change to given...with after
       //https://github.com/lampepfl/dotty/issues/13580 is resolved
@@ -153,21 +153,21 @@ private object CompanionsDFDecimal:
       ): IntCandidate[ValueOf[R], Signed] =
         new IntCandidate[ValueOf[R], Signed]:
           type OutW = w.Out
-          def apply(arg: ValueOf[R]): Token[Signed, OutW, 0] =
-            Token(valueOf[Signed], w(arg.value), 0, arg.value)
+          def apply(arg: ValueOf[R]): DFXInt.Token[Signed, OutW] =
+            DFXInt.Token(valueOf[Signed], w(arg.value), Some(arg.value))
       transparent inline given [Signed <: Boolean](using
           v: ValueOf[Signed],
           w: IntWidth[Int, Signed]
       ): IntCandidate[Int, Signed] =
         new IntCandidate[Int, Signed]:
           type OutW = w.Out
-          def apply(arg: Int): Token[Signed, OutW, 0] =
-            Token(valueOf[Signed], w(arg), 0, arg)
+          def apply(arg: Int): DFXInt.Token[Signed, OutW] =
+            DFXInt.Token(valueOf[Signed], w(arg), Some(arg))
       transparent inline given [W <: Int, S <: Boolean]
-          : IntCandidate[Token[S, W, 0], S] =
-        new IntCandidate[Token[S, W, 0], S]:
+          : IntCandidate[DFXInt.Token[S, W], S] =
+        new IntCandidate[DFXInt.Token[S, W], S]:
           type OutW = W
-          def apply(arg: Token[S, W, 0]): Token[S, W, 0] = arg
+          def apply(arg: DFXInt.Token[S, W]): DFXInt.Token[S, W] = arg
       inline given [W <: Int, S <: Boolean]
           : IntCandidate[DFSInt.Token[W], false] =
         compiletime.error(
@@ -176,7 +176,7 @@ private object CompanionsDFDecimal:
       transparent inline given [W <: Int]: IntCandidate[DFUInt.Token[W], true] =
         new IntCandidate[DFUInt.Token[W], true]:
           type OutW = W + 1
-          def apply(arg: DFUInt.Token[W]): Token[true, W + 1, 0] =
+          def apply(arg: DFUInt.Token[W]): DFXInt.Token[true, W + 1] =
             import DFUInt.Token.Ops.signed
             arg.signed
     end IntCandidate

@@ -130,9 +130,12 @@ class DFDecimalSpec extends DFSpec:
     assertEquals(b"111?".sint, DFSInt(4).token(?))
     assertEquals(d"8".signed, DFSInt(5).token(8))
   }
-  test("DFVal Conversion") {
-    val t1: DFUInt[8] <> VAL = 100
-  }
+//  test("DFVal Conversion") {
+//    assertCodeString("hi there") {
+//      val t0 = DFUInt(6) const 1
+////      val t1: DFUInt[8] <> VAL = t0
+//    }
+//  }
   test("Assignment") {
     val u8 = DFUInt(8) <> VAR init 255
     val s8 = DFSInt(8) <> VAR
