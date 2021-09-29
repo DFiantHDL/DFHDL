@@ -133,18 +133,18 @@ class DFDecimalSpec extends DFSpec:
 //  test("DFVal Conversion") {
 //    assertCodeString("hi there") {
 //      val t0 = DFUInt(6) const 1
-////      val t1: DFUInt[8] <> VAL = t0
+//      val t1: DFUInt[8] <> VAL = t0
 //    }
 //  }
-  test("Assignment") {
-    val u8 = DFUInt(8) <> VAR init 255
-    val s8 = DFSInt(8) <> VAR
-    u8 := 0
-    u8 := 255
-    u8 := d"0"
-//    v8 := ?
-//    v8 := x
-//    v8 := x.bits
-////    v8 := (h"1", 1, 0, v8(5), true)
-  }
+//  test("Assignment") {
+//    val u8 = DFUInt(8) <> VAR init 255
+//    val s8 = DFSInt(8) <> VAR
+//    u8 := 0
+//    u8 := 255
+//    u8 := d"0"
+////    v8 := ?
+////    v8 := x
+////    v8 := x.bits
+//////    v8 := (h"1", 1, 0, v8(5), true)
+//  }
 end DFDecimalSpec
