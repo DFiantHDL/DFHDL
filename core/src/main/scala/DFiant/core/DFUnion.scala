@@ -28,9 +28,10 @@ private object CompanionsDFUnion:
     given fromDFType[T <: DFType]: Able[T] with
       type U = T
       def apply(t: T): DFUnion[U] = DFUnion[U](ListSet(t.asIR))
-    given fromFields[T](using tc: DFType.TC[T]): Able[T] with
-      type U = tc.Type
-      def apply(t: T): DFUnion[U] = DFUnion[U](ListSet(tc(t).asIR))
+    transparent inline given fromFields[T](using tc: DFType.TC[T]): Able[T] =
+      new Able[T]:
+        type U = tc.Type
+        def apply(t: T): DFUnion[U] = DFUnion[U](ListSet(tc(t).asIR))
     given fromUnion[U0 <: DFType]: Able[DFUnion[U0]] with
       type U = U0
       def apply(t: DFUnion[U0]): DFUnion[U] = t
