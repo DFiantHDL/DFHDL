@@ -46,9 +46,8 @@ private object CompanionsDFDecimal:
         [s <: Boolean, w <: Int] =>> ITE[s, w > 1, w > 0],
         [s <: Boolean, w <: Int] =>> ITE[
           s,
-          "Signed value width must be larger than 1, but found: " +
-            ToString[w],
-          "Unsigned value width must be positive, but found: " + ToString[w]
+          "Signed value width must be larger than 1, but found: " + w,
+          "Unsigned value width must be positive, but found: " + w
         ]
       ]
   protected object Sign
@@ -57,8 +56,7 @@ private object CompanionsDFDecimal:
         Int,
         [s <: Boolean, n <: Int] =>> ITE[s, true, n >= 0],
         [s <: Boolean,
-        n <: Int] =>> "Unsigned value must be natural, but found: " +
-          ToString[n]
+        n <: Int] =>> "Unsigned value must be natural, but found: " + n
       ]
 
   protected object `LW >= RW`
@@ -66,11 +64,8 @@ private object CompanionsDFDecimal:
         Int,
         Int,
         [LW <: Int, RW <: Int] =>> LW >= RW,
-        [LW <: Int, RW <: Int] =>> "The token value width (" +
-          ToString[RW] +
-          ") is larger than the dataflow value width (" +
-          ToString[LW] +
-          ")."
+        [LW <: Int, RW <: Int] =>> "The token value width (" + RW +
+          ") is larger than the dataflow value width (" + LW + ")."
       ]
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
   object Token:
@@ -219,25 +214,6 @@ private object CompanionsDFDecimal:
   end Token
 
   object Val:
-    trait IntCandidate[-R, Signed <: Boolean]:
-      type OutW <: Int
-      def apply(arg: R): DFValOf[DFXInt[Signed, OutW]]
-    object IntCandidate:
-      transparent inline given [R, Signed <: Boolean](using
-          ic: DFXInt.Token.Candidate[R, Signed],
-          dfc: DFC
-      ): IntCandidate[R, Signed] = new IntCandidate[R, Signed]:
-        type OutW = ic.OutW
-        def apply(arg: R): DFValOf[DFXInt[Signed, OutW]] =
-          val token = ic(arg)
-          DFVal.Const(token)
-//      given [W <: Int]: IntCandidate[DFBits.Token[W], false] with
-//        type OutW = W
-//        def apply(arg: DFBits.Token[W]): Token[false, W, 0] =
-//          import DFBits.Token.Ops.as
-//          arg.as(DFUInt(arg.widthHack))
-    end IntCandidate
-
     object TC:
       import DFVal.TC
       def apply(
@@ -247,7 +223,7 @@ private object CompanionsDFDecimal:
         `LW >= RW`(dfType.asIR.width, dfVal.asIR.dfType.width)
         dfVal
       given [S <: Boolean, LW <: Int, R](using
-          ic: IntCandidate[R, S]
+          ic: DFXInt.Val.Candidate[R, S]
       )(using
           check: `LW >= RW`.Check[LW, ic.OutW]
       ): TC[DFXInt[S, LW], R] with
@@ -358,6 +334,24 @@ object DFXInt:
   end Token
 
   object Val:
+    trait Candidate[-R, Signed <: Boolean]:
+      type OutW <: Int
+      def apply(arg: R): DFValOf[DFXInt[Signed, OutW]]
+    object Candidate:
+      transparent inline given [R, Signed <: Boolean](using
+          ic: Token.Candidate[R, Signed],
+          dfc: DFC
+      ): Candidate[R, Signed] = new Candidate[R, Signed]:
+        type OutW = ic.OutW
+        def apply(arg: R): DFValOf[DFXInt[Signed, OutW]] =
+          val token = ic(arg)
+          DFVal.Const(token)
+    //      given [W <: Int]: IntCandidate[DFBits.Token[W], false] with
+    //        type OutW = W
+    //        def apply(arg: DFBits.Token[W]): Token[false, W, 0] =
+    //          import DFBits.Token.Ops.as
+    //          arg.as(DFUInt(arg.widthHack))
+    end Candidate
     object Ops:
       extension [S <: Boolean, W <: Int](lhs: DFValOf[DFXInt[S, W]])(using
           ValueOf[S]

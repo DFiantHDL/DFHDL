@@ -41,27 +41,24 @@ private object CompanionsDFBits:
         Int,
         Int,
         [AW <: Int, TW <: Int] =>> AW == TW,
-        [AW <: Int, TW <: Int] =>> "The alias width (" +
-          ToString[AW] +
-          ") is different than the dataflow value width (" +
-          ToString[TW] +
-          ")."
+        [AW <: Int, TW <: Int] =>> "The alias width (" + AW +
+          ") is different than the dataflow value width (" + TW + ")."
       ]
   protected object BitIndex
       extends Check2[
         Int,
         Int,
         [I <: Int, W <: Int] =>> (I < W) && (I >= 0),
-        [I <: Int, W <: Int] =>> "Index " + ToString[I] +
-          " is out of range of width/length " + ToString[W]
+        [I <: Int, W <: Int] =>> "Index " + I +
+          " is out of range of width/length " + W
       ]
   protected object BitsHiLo
       extends Check2[
         Int,
         Int,
         [H <: Int, L <: Int] =>> H >= L,
-        [H <: Int, L <: Int] =>> "Low index " + ToString[L] +
-          " is bigger than High bit index " + ToString[H]
+        [H <: Int, L <: Int] =>> "Low index " + L +
+          " is bigger than High bit index " + H
       ]
 
   type Token[W <: Int] = DFToken.Of[DFBits[W]]
@@ -121,11 +118,8 @@ private object CompanionsDFBits:
             Int,
             Int,
             [W <: Int, VW <: Int] =>> W == VW,
-            [W <: Int, VW <: Int] =>> "The token width (" +
-              ToString[VW] +
-              ") is different than the DFType width (" +
-              ToString[W] +
-              ")."
+            [W <: Int, VW <: Int] =>> "The token width (" + VW +
+              ") is different than the DFType width (" + W + ")."
           ]
       //TODO: instead of DFToken.Of[DFBits[VW]] use DFBits[VW] <> TOKEN
       //Currently (Aug 27th 2021) it causes an issue for summoning a token TC
