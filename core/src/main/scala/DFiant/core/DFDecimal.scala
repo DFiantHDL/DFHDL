@@ -59,7 +59,7 @@ private object CompanionsDFDecimal:
         n <: Int] =>> "Unsigned value must be natural, but found: " + n
       ]
 
-  protected object `LW >= RW`
+  protected[core] object `LW >= RW`
       extends Check2[
         Int,
         Int,
@@ -216,22 +216,13 @@ private object CompanionsDFDecimal:
   object Val:
     object TC:
       import DFVal.TC
+      export DFXInt.Val.TC.given
       def apply(
           dfType: DFDecimal[Boolean, Int, Int],
           dfVal: DFDecimal[Boolean, Int, Int] <> VAL
       ): DFDecimal[Boolean, Int, Int] <> VAL =
         `LW >= RW`(dfType.asIR.width, dfVal.asIR.dfType.width)
         dfVal
-      given [S <: Boolean, LW <: Int, R](using
-          ic: DFXInt.Val.Candidate[R, S]
-      )(using
-          check: `LW >= RW`.Check[LW, ic.OutW]
-      ): TC[DFXInt[S, LW], R] with
-        def apply(dfType: DFXInt[S, LW], value: R): Out =
-//          val dfTypeIR = dfType.asIR
-//          val token = ic(value).asIR
-//          check(dfTypeIR.width, token.width)
-          ???
     end TC
     object Conversions
   //TODO: add checks for LW according to signed
@@ -352,6 +343,19 @@ object DFXInt:
     //          import DFBits.Token.Ops.as
     //          arg.as(DFUInt(arg.widthHack))
     end Candidate
+    object TC:
+      import DFVal.TC
+      given [S <: Boolean, LW <: Int, R](using
+          ic: Candidate[R, S]
+      )(using
+          check: CompanionsDFDecimal.`LW >= RW`.Check[LW, ic.OutW]
+      ): TC[DFXInt[S, LW], R] with
+        def apply(dfType: DFXInt[S, LW], value: R): Out =
+          //          val dfTypeIR = dfType.asIR
+          //          val token = ic(value).asIR
+          //          check(dfTypeIR.width, token.width)
+          ???
+
     object Ops:
       extension [S <: Boolean, W <: Int](lhs: DFValOf[DFXInt[S, W]])(using
           ValueOf[S]
@@ -366,6 +370,7 @@ object DFXInt:
           val signed: S = valueOf[S]
           check(signed, updatedWidth)
           DFVal.Alias.AsIs(DFXInt(signed, updatedWidth), lhs)
+    end Ops
   end Val
 end DFXInt
 
