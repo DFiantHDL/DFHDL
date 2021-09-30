@@ -52,9 +52,6 @@ type <>[T <: DFType, M] = M match
   case OUT   => DFPortOf[T]
   case TOKEN => DFToken.Of[T]
 
-val xxxx = summon[Exact.Summon[Int]]
-val x5 = summon[xxxx.Out =:= Int]
-
 extension (dfVal: ir.DFVal)
   def asValOf[T <: DFType]: DFValOf[T] = dfVal.asInstanceOf[DFValOf[T]]
   def asValAny: DFValAny = dfVal.asInstanceOf[DFValAny]
