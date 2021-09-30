@@ -379,7 +379,12 @@ object DFXInt:
         ): DFValOf[DFXInt[S, RW]] =
           val signed: S = valueOf[S]
           check(signed, updatedWidth)
-          DFVal.Alias.AsIs(DFXInt(signed, updatedWidth), lhs)
+          import Token.Ops.{resize => resizeToken}
+          DFVal.Alias.AsIs(
+            DFXInt(signed, updatedWidth),
+            lhs,
+            _.resizeToken(updatedWidth)
+          )
     end Ops
   end Val
 end DFXInt

@@ -508,9 +508,10 @@ private object CompanionsDFBits:
             aW: Width[A],
             dfc: DFC
         )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] =
+          import Token.Ops.{as => asToken}
           val aliasDFType = tc(aliasType)
           check.apply(aliasDFType.asIR.width, lhs.width)
-          DFVal.Alias.AsIs(aliasDFType, lhs)
+          DFVal.Alias.AsIs(aliasDFType, lhs, _.asToken(aliasType))
         def uint(using DFC): DFValOf[DFUInt[W]] =
           as(DFUInt(lhs.width))
         def sint(using DFC): DFValOf[DFSInt[W]] =
@@ -551,7 +552,12 @@ private object CompanionsDFBits:
             Arg.Width.Check[RW],
             DFC
         ): DFValOf[DFBits[RW]] =
-          DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
+          import Token.Ops.{resize => resizeToken}
+          DFVal.Alias.AsIs(
+            DFBits(updatedWidth),
+            lhs,
+            _.resizeToken(updatedWidth)
+          )
       end extension
     end Ops
   end Val

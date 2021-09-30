@@ -53,6 +53,8 @@ type <>[T <: DFType, M] = M match
   case TOKEN => DFToken.Of[T]
 
 extension (dfVal: ir.DFVal)
+  def asVal[T <: DFType, M <: Modifier]: DFVal[T, M] =
+    dfVal.asInstanceOf[DFVal[T, M]]
   def asValOf[T <: DFType]: DFValOf[T] = dfVal.asInstanceOf[DFValOf[T]]
   def asValAny: DFValAny = dfVal.asInstanceOf[DFValAny]
   def asVarOf[T <: DFType]: DFVarOf[T] = dfVal.asInstanceOf[DFVarOf[T]]
@@ -69,7 +71,7 @@ private object CompanionsDFVal:
           dfVal.asIR.isAnonymous,
           s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
         )
-        dfVal.asIR.tag(ir.ExternalInit(tokens)).asFE[T, M]
+        dfVal.asIR.tag(ir.ExternalInit(tokens)).asVal[T, M]
   end Extensions
 
   object Conversions:
@@ -102,7 +104,7 @@ private object CompanionsDFVal:
           ir.DFTags.empty
         )
         .addMember
-        .asFE[T, M]
+        .asVal[T, M]
   end Dcl
 
   object Func:
@@ -126,21 +128,27 @@ private object CompanionsDFVal:
     object AsIs:
       def apply[AT <: DFType, VT <: DFType, M <: Modifier](
           aliasType: AT,
-          relVal: DFVal[VT, M]
-//          tokenFunc: DFToken.Of[VT] => DFToken.Of[AT] = _ => ???
+          relVal: DFVal[VT, M],
+          tokenFunc: DFToken.Of[VT] => DFToken.Of[AT]
       )(using DFC): DFVal[AT, M] =
         relVal.asIR match
+          //anonymous constant are replace by a different constant
+          //after its token value was converted according to the alias
           case const: ir.DFVal.Const if const.isAnonymous =>
-          case _                                          =>
-        lazy val alias: ir.DFVal =
-          ir.DFVal.Alias.AsIs(
-            aliasType.asIR,
-            relVal.asIR.refTW(alias),
-            dfc.owner.ref,
-            dfc.getMeta,
-            ir.DFTags.empty
-          )
-        alias.addMember.asFE[AT, M]
+            val updatedToken = tokenFunc(const.token.asTokenOf[VT])
+            Const(updatedToken).asIR.asVal[AT, M]
+          //named constants or other non-constant values are referenced
+          //in a new alias construct
+          case _ =>
+            lazy val alias: ir.DFVal =
+              ir.DFVal.Alias.AsIs(
+                aliasType.asIR,
+                relVal.asIR.refTW(alias),
+                dfc.owner.ref,
+                dfc.getMeta,
+                ir.DFTags.empty
+              )
+            alias.addMember.asVal[AT, M]
       end apply
     end AsIs
     object ApplyRange:
@@ -158,7 +166,7 @@ private object CompanionsDFVal:
             dfc.getMeta,
             ir.DFTags.empty
           )
-        alias.addMember.asFE[DFBits[H - L + 1], M]
+        alias.addMember.asVal[DFBits[H - L + 1], M]
       end apply
     end ApplyRange
     object ApplyIdx:
@@ -175,7 +183,7 @@ private object CompanionsDFVal:
             dfc.getMeta,
             ir.DFTags.empty
           )
-        alias.addMember.asFE[DFBit, M]
+        alias.addMember.asVal[DFBit, M]
       end apply
       def apply[W <: Int, M <: Modifier, I <: Int](
           relVal: DFVal[DFBits[W], M],
@@ -237,7 +245,8 @@ private object CompanionsDFVal:
   object Ops:
     extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
       def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
-        DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal)
+        import DFToken.Ops.{bits => bitsDFToken}
+        DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
   end Ops
 end CompanionsDFVal
 
