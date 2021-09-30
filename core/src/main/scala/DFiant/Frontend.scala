@@ -8,17 +8,15 @@ export core.DFBits.Token.Ops.*
 export core.DFBits.Token.StrInterp.*
 export core.DFBits.Val.Ops.*
 export core.DFDecimal.Token.StrInterp.*
-export core.DFXInt.Token.Ops.*
-export core.DFXInt.Val.Ops.*
-export core.DFUInt.Token.Ops.*
-export core.DFUInt.Val.Ops.*
-export core.DFSInt.Val.Ops.*
+export core.DFDecimal.Token.Ops.*
+export core.DFDecimal.Val.Ops.*
 export core.DFUnion.Ops.*
 export core.DFOpaque.Ops.*
 export core.DFVector.Ops.*
 export core.DFVal.Ops.*
 export core.DFVarOps.*
 export internals.CommonOps.*
+export core.{width, dfType}
 
 type DFC = core.DFC
 export core.dfc

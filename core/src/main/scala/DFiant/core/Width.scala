@@ -7,6 +7,13 @@ import compiler.ir
 trait Width[T]:
   type Out <: Int
 object Width:
+  given fromDFBoolOrBit[T <: DFBoolOrBit]: Width[T] with
+    type Out = 1
+  given fromDFBits[W <: Int]: Width[DFBits[W]] with
+    type Out = W
+  given fromDFDecimal[S <: Boolean, W <: Int, F <: Int]
+      : Width[DFDecimal[S, W, F]] with
+    type Out = W
   transparent inline given [T]: Width[T] = ${ getWidthMacro[T] }
   extension (using quotes: Quotes)(dfTpe: quotes.reflect.TypeRepr)
     def +(rhs: quotes.reflect.TypeRepr): quotes.reflect.TypeRepr =
@@ -121,3 +128,15 @@ object Width:
         type Out = widthTpe.Underlying
     }
 end Width
+
+extension [T <: DFType, M <: ir.DFVal.Modifier](dfVal: DFVal[T, M])
+  def width(using w: Width[T]): Inlined[w.Out] =
+    Inlined.forced[w.Out](dfVal.asIR.dfType.width)
+
+extension [T <: DFType](token: DFToken.Of[T])
+  def width(using w: Width[T]): Inlined[w.Out] =
+    Inlined.forced[w.Out](token.asIR.width)
+
+extension [T](t: T)(using tc: DFType.TC[T])
+  def width(using w: Width[T]): Inlined[w.Out] =
+    Inlined.forced[w.Out](tc(t).asIR.width)

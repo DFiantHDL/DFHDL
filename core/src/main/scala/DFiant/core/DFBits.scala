@@ -26,16 +26,11 @@ private object OpaqueDFBits:
     type Token[W <: Int] = CompanionsDFBits.Token[W]
     val Token = CompanionsDFBits.Token
     val Val = CompanionsDFBits.Val
-    export CompanionsDFBits.Extensions.*
   end DFBits
 end OpaqueDFBits
 
 //TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
 private object CompanionsDFBits:
-  object Extensions:
-    extension [W <: Int](dfType: DFBits[W])
-      def width: Inlined[W] = Inlined.forced[W](dfType.asIR.width)
-
   protected object `AW == TW`
       extends Check2[
         Int,

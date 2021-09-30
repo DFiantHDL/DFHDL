@@ -43,9 +43,6 @@ object CompanionsDFType:
   type Supported = AnyRef | DFType
   object Ops:
     extension [T](t: T)(using tc: TC[T])
-      def dfType: tc.Type = tc(t)
-      def width(using w: Width[T]): Inlined[w.Out] =
-        Inlined.forced[w.Out](dfType.asIR.width)
       def <>[M <: ir.DFVal.Modifier](modifier: M)(using
           DFC
       ): DFVal[tc.Type, M] =
@@ -146,3 +143,13 @@ object CompanionsDFType:
     end tcMacro
   end TC
 end CompanionsDFType
+
+extension [T](t: T)(using tc: DFType.TC[T]) def dfType: tc.Type = tc(t)
+
+extension [T <: DFType](
+    token: DFToken.Of[T]
+) def dfType: T = token.asIR.dfType.asInstanceOf[T]
+
+extension [T <: DFType, M <: ir.DFVal.Modifier](
+    dfVal: DFVal[T, M]
+) def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]

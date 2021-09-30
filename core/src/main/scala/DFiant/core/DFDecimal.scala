@@ -137,26 +137,7 @@ private object CompanionsDFDecimal:
     end fromDecString
 
     object TC:
-      import DFToken.TC
-      given [S <: Boolean, LW <: Int, R](using
-          ic: DFXInt.Token.Candidate[R, S]
-      )(using
-          check: `LW >= RW`.Check[LW, ic.OutW]
-      ): TC[DFXInt[S, LW], R] with
-        def apply(dfType: DFXInt[S, LW], value: R): Out =
-          val dfTypeIR = dfType.asIR
-          val token = ic(value).asIR
-          check(dfTypeIR.width, token.width)
-          //We either need to widen the token we got from a value int candidate
-          //or it remains the same. In either case, there is not need to touch
-          //the data itself, but just the dfType of the token.
-          val resizedToken =
-            if (dfTypeIR.width > token.width)
-              token.copy(dfType = dfTypeIR)
-            else token
-          resizedToken.asTokenOf[DFDecimal[S, LW, 0]]
-      end given
-    end TC
+      export DFXInt.Token.TC.given
 
     object StrInterp:
       extension (inline sc: StringContext)
@@ -211,11 +192,12 @@ private object CompanionsDFDecimal:
         }
       end interpMacro
     end StrInterp
+    object Ops:
+      export DFXInt.Token.Ops.*
   end Token
 
   object Val:
     object TC:
-      import DFVal.TC
       export DFXInt.Val.TC.given
       def apply(
           dfType: DFDecimal[Boolean, Int, Int],
@@ -224,6 +206,8 @@ private object CompanionsDFDecimal:
         `LW >= RW`(dfType.asIR.width, dfVal.asIR.dfType.width)
         dfVal
     end TC
+    object Ops:
+      export DFXInt.Val.Ops.*
     object Conversions
   //TODO: add checks for LW according to signed
 //      given DFXIntValConversion[S <: Boolean, R](using
@@ -288,7 +272,31 @@ object DFXInt:
             arg.signed
     end Candidate
 
+    object TC:
+      import DFToken.TC
+      given [S <: Boolean, LW <: Int, R](using
+          ic: Candidate[R, S]
+      )(using
+          check: CompanionsDFDecimal.`LW >= RW`.Check[LW, ic.OutW]
+      ): TC[DFXInt[S, LW], R] with
+        def apply(dfType: DFXInt[S, LW], value: R): Out =
+          val dfTypeIR = dfType.asIR
+          val token = ic(value).asIR
+          check(dfTypeIR.width, token.width)
+          //We either need to widen the token we got from a value int candidate
+          //or it remains the same. In either case, there is not need to touch
+          //the data itself, but just the dfType of the token.
+          val resizedToken =
+            if (dfTypeIR.width > token.width)
+              token.copy(dfType = dfTypeIR)
+            else token
+          resizedToken.asTokenOf[DFXInt[S, LW]]
+      end given
+    end TC
+
     object Ops:
+      export DFUInt.Token.Ops.*
+      export DFSInt.Token.Ops.*
       extension [S <: Boolean, W <: Int](
           lhs: Token[S, W]
       )(using ValueOf[S])
@@ -357,6 +365,8 @@ object DFXInt:
           ???
 
     object Ops:
+      export DFUInt.Val.Ops.*
+      export DFSInt.Val.Ops.*
       extension [S <: Boolean, W <: Int](lhs: DFValOf[DFXInt[S, W]])(using
           ValueOf[S]
       )
@@ -406,7 +416,8 @@ object DFSInt:
       DFDecimal.Width.Check[true, W]
   ): DFSInt[W] = DFXInt(true, width)
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]
-
+  object Token:
+    object Ops
   object Val:
     object Ops
 //      extension [W <: Int](lhs: DFValOf[DFSInt[W]])

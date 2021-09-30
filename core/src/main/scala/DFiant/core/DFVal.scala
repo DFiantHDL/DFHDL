@@ -64,9 +64,6 @@ extension (dfVal: ir.DFVal)
 private object CompanionsDFVal:
   object Extensions:
     extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
-      def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]
-      def width(using w: Width[T]): Inlined[w.Out] =
-        Inlined.forced[w.Out](dfVal.asIR.dfType.width)
       def init(tokenValues: DFToken.Value[T]*)(using dfc: DFC): DFVal[T, M] =
         import dfc.getSet
         val tokens =

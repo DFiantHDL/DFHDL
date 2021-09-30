@@ -23,10 +23,6 @@ object DFToken:
   opaque type Of[+T <: DFType] <: DFToken = DFToken
   object Of:
     extension [T <: DFType](token: Of[T])
-      def dfType: T = token.asIR.dfType.asInstanceOf[T]
-      def width(using w: Width[T]): Inlined[w.Out] =
-        Inlined.forced[w.Out](token.asIR.width)
-      //Todo: remove
       def widthHack(using w: Width[T]): Inlined[w.Out] =
         Inlined.forced[w.Out](token.asIR.width)
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
