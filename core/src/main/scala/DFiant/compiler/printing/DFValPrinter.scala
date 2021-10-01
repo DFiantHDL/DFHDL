@@ -43,14 +43,31 @@ protected trait DFValPrinter extends AbstractPrinter:
               .mkString(s" ${dfVal.op} ")
   def csDFValAliasAsIs(dfVal: Alias.AsIs)(using MemberGetSet): String =
     val relValStr = dfVal.relValRef.refCodeString.applyBrackets()
-    if (dfVal.dfType.width != dfVal.relValRef.get.dfType.width)
-      s"${relValStr}.resize(${dfVal.dfType.width})"
-    else
-      dfVal.dfType match
-        case _: DFBits              => s"${relValStr}.bits"
-        case DFDecimal(false, _, _) => s"${relValStr}.uint"
-        case DFDecimal(true, _, _)  => s"${relValStr}.sint"
-        case _ => s"${relValStr}.as(${printer.csDFType(dfVal.dfType)})"
+    val fromType = dfVal.relValRef.get.dfType
+    val toType = dfVal.dfType
+    (toType, fromType) match
+      case (DFSInt(tWidth), DFUInt(fWidth)) =>
+        assert(tWidth == fWidth + 1)
+        s"${relValStr}.signed"
+      case (DFUInt(tWidth), DFBits(fWidth)) =>
+        assert(tWidth == fWidth)
+        s"${relValStr}.uint"
+      case (DFSInt(tWidth), DFBits(fWidth)) =>
+        assert(tWidth == fWidth)
+        s"${relValStr}.sint"
+      case (DFBits(tWidth), _) =>
+        assert(tWidth == fromType.width)
+        s"${relValStr}.bits"
+      case (DFUInt(tWidth), DFUInt(fWidth)) =>
+        s"${relValStr}.resize($tWidth)"
+      case (DFSInt(tWidth), DFSInt(fWidth)) =>
+        s"${relValStr}.resize($tWidth)"
+      case (_, DFBits(fWidth)) =>
+        s"${relValStr}.as(${printer.csDFType(toType)})"
+      case _ =>
+        throw new IllegalArgumentException("Unsupported alias/conversion")
+    end match
+  end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange)(using
       MemberGetSet
   ): String =

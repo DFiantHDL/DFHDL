@@ -76,7 +76,7 @@ class DFDecimalSpec extends DFSpec:
       "Cannot apply a signed value to an unsigned variable."
     )("""DFUInt(8).token(sd"1")""")
     assertDSLError(
-      "The token value width (9) is larger than the dataflow value width (8)."
+      "The applied value width (9) is larger than the variable width (8)."
     )(
       """DFSInt(8).token(128)"""
     ) {
@@ -84,7 +84,7 @@ class DFDecimalSpec extends DFSpec:
       DFSInt(8).token(value)
     }
     assertDSLError(
-      "The token value width (9) is larger than the dataflow value width (8)."
+      "The applied value width (9) is larger than the variable width (8)."
     )(
       """DFSInt(8).token(d"128")"""
     ) {
@@ -161,6 +161,7 @@ class DFDecimalSpec extends DFSpec:
          |s8 := ?
          |s8 := sd"8'-1"
          |s8 := sd"8'-127"
+         |s8 := u6.signed.resize(8)
          |s8 := s6.resize(8)
          |""".stripMargin
     } {
@@ -198,7 +199,7 @@ class DFDecimalSpec extends DFSpec:
         """u8 := s8"""
       )
       assertDSLError(
-        "The token value width (9) is larger than the dataflow value width (8)."
+        "The applied value width (9) is larger than the variable width (8)."
       )(
         """u8 := 256"""
       ) {
@@ -206,13 +207,18 @@ class DFDecimalSpec extends DFSpec:
         u8 := value
       }
       assertDSLError(
-        "The token value width (9) is larger than the dataflow value width (8)."
+        "The applied value width (9) is larger than the variable width (8)."
       )(
         """s8 := 128"""
       ) {
         val value = 128
         s8 := value
       }
+      assertCompileError(
+        "The applied value width (9) is larger than the variable width (8)."
+      )(
+        """s8 := u8"""
+      )
     }
   }
 end DFDecimalSpec

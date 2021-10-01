@@ -64,8 +64,8 @@ private object CompanionsDFDecimal:
         Int,
         Int,
         [LW <: Int, RW <: Int] =>> LW >= RW,
-        [LW <: Int, RW <: Int] =>> "The token value width (" + RW +
-          ") is larger than the dataflow value width (" + LW + ")."
+        [LW <: Int, RW <: Int] =>> "The applied value width (" + RW +
+          ") is larger than the variable width (" + LW + ")."
       ]
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
   object Token:
@@ -445,10 +445,8 @@ object DFUInt:
     object Ops:
       extension [W <: Int](lhs: DFValOf[DFUInt[W]])
         def signed(using DFC): DFValOf[DFSInt[W + 1]] =
-          import DFVal.Ops.bits
-          import DFBits.Val.Ops.sint
-          import DFXInt.Val.Ops.resize
-          lhs.resize(lhs.width + 1).bits.sint
+          import Token.Ops.{signed => signedToken}
+          DFVal.Alias.AsIs(DFSInt(lhs.width + 1), lhs, _.signedToken)
 end DFUInt
 
 type DFSInt[W <: Int] = DFXInt[true, W]
