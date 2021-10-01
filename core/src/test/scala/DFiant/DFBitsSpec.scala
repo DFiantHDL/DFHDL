@@ -117,26 +117,39 @@ class DFBitsSpec extends DFSpec:
     val t7: DFBits[Int] <> VAL = b"11"
   }
   test("Assignment") {
-    val v8 = DFBits(8) <> VAR
-    val x = DFUInt(8) <> VAR
-    v8 := h"11"
-    v8 := b0s
-    v8 := b1s
-    v8 := ?
-    v8 := x
-    v8 := x.bits
+    assertCodeString {
+      """|val v8 = DFBits(8) <> VAR
+         |val x = DFUInt(8) <> VAR
+         |v8 := h"8'11"
+         |v8 := h"8'00"
+         |v8 := h"8'ff"
+         |v8 := h"8'??"
+         |v8 := x.bits
+         |v8 := x.bits
+         |val v12 = DFBits(12) <> VAR
+         |""".stripMargin
+    } {
+      val v8 = DFBits(8) <> VAR
+      val x = DFUInt(8) <> VAR
+      v8 := h"11"
+      v8 := b0s
+      v8 := b1s
+      v8 := ?
+      v8 := x
+      v8 := x.bits
 
-    val twelve = 12
-    val v12 = DFBits(twelve) <> VAR
+      val twelve = 12
+      val v12 = DFBits(twelve) <> VAR
 
-    assertDSLError(
-      """|The argument width (12) is different than the reciever width (8).
-         |Consider applying `.resize` to resolve this issue.""".stripMargin
-    )(
-      """v8 := h"123""""
-    ) {
-      v8 := v12
+      assertDSLError(
+        """|The argument width (12) is different than the reciever width (8).
+           |Consider applying `.resize` to resolve this issue.""".stripMargin
+      )(
+        """v8 := h"123""""
+      ) {
+        v8 := v12
+      }
+      // v8 := (h"1", 1, 0, v8(5), true)
     }
-    // v8 := (h"1", 1, 0, v8(5), true)
   }
 end DFBitsSpec
