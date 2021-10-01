@@ -354,6 +354,12 @@ object DFXInt:
         def apply(arg: R): DFValOf[DFXInt[Signed, OutW]] =
           val token = ic(arg)
           DFVal.Const(token)
+      given fromDFXIntVal[S <: Boolean, W <: Int](using
+          DFC
+      ): Candidate[DFValOf[DFXInt[S, W]], S] with
+        type OutW = W
+        def apply(arg: DFValOf[DFXInt[S, W]]): DFValOf[DFXInt[S, W]] =
+          arg
       given fromDFBitsVal[W <: Int](using
           DFC
       ): Candidate[DFValOf[DFBits[W]], false] with
