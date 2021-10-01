@@ -136,15 +136,43 @@ class DFDecimalSpec extends DFSpec:
 //      val t1: DFUInt[8] <> VAL = t0
 //    }
 //  }
-//  test("Assignment") {
-//    val u8 = DFUInt(8) <> VAR init 255
-//    val s8 = DFSInt(8) <> VAR
-//    u8 := 0
-//    u8 := 255
-//    u8 := d"0"
-////    v8 := ?
-////    v8 := x
-////    v8 := x.bits
-//////    v8 := (h"1", 1, 0, v8(5), true)
-//  }
+  test("Assignment") {
+    assertCodeString {
+      """|val u8 = DFUInt(8) <> VAR init d"8'255"
+         |val s8 = DFSInt(8) <> VAR init ?
+         |val b6 = DFBits(6) const h"6'00"
+         |u8 := d"8'0"
+         |u8 := d"8'255"
+         |u8 := d"8'0"
+         |u8 := ?
+         |u8 := d"8'7"
+         |u8 := b6.uint.resize(8)
+         |s8 := sd"8'0"
+         |s8 := sd"8'127"
+         |s8 := sd"8'0"
+         |s8 := ?
+         |s8 := sd"8'-1"
+         |s8 := sd"8'-127"
+         |""".stripMargin
+    } {
+      val u8 = DFUInt(8) <> VAR init 255
+      val s8 = DFSInt(8) <> VAR init ?
+      val b6 = DFBits(6) const b0s
+      u8 := 0
+      u8 := 255
+      u8 := d"0"
+      u8 := ?
+      u8 := b"111"
+      u8 := b6
+      s8 := 0
+      s8 := 127
+      s8 := d"0"
+      s8 := ?
+      s8 := -1
+      s8 := -127
+    }
+//    v8 := x
+//    v8 := x.bits
+////    v8 := (h"1", 1, 0, v8(5), true)
+  }
 end DFDecimalSpec

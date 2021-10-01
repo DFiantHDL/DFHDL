@@ -47,8 +47,10 @@ protected trait DFValPrinter extends AbstractPrinter:
       s"${relValStr}.resize(${dfVal.dfType.width})"
     else
       dfVal.dfType match
-        case _: DFBits => s"${relValStr}.bits"
-        case _         => s"${relValStr}.as(${printer.csDFType(dfVal.dfType)})"
+        case _: DFBits              => s"${relValStr}.bits"
+        case DFDecimal(false, _, _) => s"${relValStr}.uint"
+        case DFDecimal(true, _, _)  => s"${relValStr}.uint"
+        case _ => s"${relValStr}.as(${printer.csDFType(dfVal.dfType)})"
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange)(using
       MemberGetSet
   ): String =

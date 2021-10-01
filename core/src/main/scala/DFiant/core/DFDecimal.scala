@@ -239,7 +239,7 @@ object DFXInt:
     object Candidate:
       //change to given...with after
       //https://github.com/lampepfl/dotty/issues/13580 is resolved
-      transparent inline given [R <: Int, Signed <: Boolean](using
+      transparent inline given fromIntLiteral[R <: Int, Signed <: Boolean](using
           v: ValueOf[Signed],
           w: IntWidth[R, Signed]
       ): Candidate[ValueOf[R], Signed] =
@@ -247,7 +247,7 @@ object DFXInt:
           type OutW = w.Out
           def apply(arg: ValueOf[R]): Token[Signed, OutW] =
             Token(valueOf[Signed], w(arg.value), Some(arg.value))
-      transparent inline given [Signed <: Boolean](using
+      transparent inline given fromInt[Signed <: Boolean](using
           v: ValueOf[Signed],
           w: IntWidth[Int, Signed]
       ): Candidate[Int, Signed] =
@@ -255,16 +255,25 @@ object DFXInt:
           type OutW = w.Out
           def apply(arg: Int): Token[Signed, OutW] =
             Token(valueOf[Signed], w(arg), Some(arg))
-      transparent inline given [W <: Int, S <: Boolean]
+      transparent inline given fromDFXIntToken[W <: Int, S <: Boolean]
           : Candidate[Token[S, W], S] =
         new Candidate[Token[S, W], S]:
           type OutW = W
           def apply(arg: Token[S, W]): Token[S, W] = arg
-      inline given [W <: Int, S <: Boolean]: Candidate[DFSInt.Token[W], false] =
+      transparent inline given fromDFBitsToken[W <: Int]
+          : Candidate[DFBits.Token[W], false] =
+        new Candidate[DFBits.Token[W], false]:
+          type OutW = W
+          def apply(arg: DFBits.Token[W]): Token[false, W] =
+            import DFBits.Token.Ops.uint
+            arg.uint
+      inline given errorForSignedToUnsigned[W <: Int]
+          : Candidate[DFSInt.Token[W], false] =
         compiletime.error(
           "Cannot apply a signed value to an unsigned variable."
         )
-      transparent inline given [W <: Int]: Candidate[DFUInt.Token[W], true] =
+      transparent inline given fromUnsignedToSigned[W <: Int]
+          : Candidate[DFUInt.Token[W], true] =
         new Candidate[DFUInt.Token[W], true]:
           type OutW = W + 1
           def apply(arg: DFUInt.Token[W]): Token[true, W + 1] =
@@ -345,24 +354,30 @@ object DFXInt:
         def apply(arg: R): DFValOf[DFXInt[Signed, OutW]] =
           val token = ic(arg)
           DFVal.Const(token)
-    //      given [W <: Int]: IntCandidate[DFBits.Token[W], false] with
-    //        type OutW = W
-    //        def apply(arg: DFBits.Token[W]): Token[false, W, 0] =
-    //          import DFBits.Token.Ops.as
-    //          arg.as(DFUInt(arg.widthHack))
+      given [W <: Int](using DFC): Candidate[DFValOf[DFBits[W]], false] with
+        type OutW = W
+        def apply(arg: DFValOf[DFBits[W]]): DFValOf[DFXInt[false, W]] =
+          import DFBits.Val.Ops.uint
+          arg.uint
     end Candidate
     object TC:
       import DFVal.TC
       given [S <: Boolean, LW <: Int, R](using
-          ic: Candidate[R, S]
+          ic: Candidate[R, S],
+          s: ValueOf[S],
+          dfc: DFC
       )(using
           check: CompanionsDFDecimal.`LW >= RW`.Check[LW, ic.OutW]
       ): TC[DFXInt[S, LW], R] with
         def apply(dfType: DFXInt[S, LW], value: R): Out =
-          //          val dfTypeIR = dfType.asIR
-          //          val token = ic(value).asIR
-          //          check(dfTypeIR.width, token.width)
-          ???
+          import Ops.resize
+          val rhs = ic(value)
+          check(dfType.width, rhs.width)
+          if (rhs.width < dfType.width)
+            rhs.resize(dfType.width)
+          else rhs.asIR.asValOf[DFXInt[S, LW]]
+      end given
+    end TC
 
     object Ops:
       export DFUInt.Val.Ops.*
