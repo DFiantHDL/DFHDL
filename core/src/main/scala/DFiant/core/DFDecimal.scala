@@ -367,6 +367,14 @@ object DFXInt:
         def apply(arg: DFValOf[DFBits[W]]): DFValOf[DFXInt[false, W]] =
           import DFBits.Val.Ops.uint
           arg.uint
+      transparent inline given fromUnsignedToSigned[W <: Int](using
+          DFC
+      ): Candidate[DFValOf[DFUInt[W]], true] =
+        new Candidate[DFValOf[DFUInt[W]], true]:
+          type OutW = W + 1
+          def apply(arg: DFValOf[DFUInt[W]]): DFValOf[DFSInt[W + 1]] =
+            import DFUInt.Val.Ops.signed
+            arg.signed
       inline given errorForSignedToUnsigned[W <: Int]
           : Candidate[DFValOf[DFSInt[W]], false] =
         compiletime.error(
@@ -436,11 +444,11 @@ object DFUInt:
   object Val:
     object Ops:
       extension [W <: Int](lhs: DFValOf[DFUInt[W]])
-        def signed(using DFC): DFValOf[DFUInt[W + 1]] =
+        def signed(using DFC): DFValOf[DFSInt[W + 1]] =
           import DFVal.Ops.bits
           import DFBits.Val.Ops.sint
           import DFXInt.Val.Ops.resize
-          lhs.resize(lhs.width + 1).bits.sint.asIR.asValOf[DFUInt[W + 1]]
+          lhs.resize(lhs.width + 1).bits.sint
 end DFUInt
 
 type DFSInt[W <: Int] = DFXInt[true, W]

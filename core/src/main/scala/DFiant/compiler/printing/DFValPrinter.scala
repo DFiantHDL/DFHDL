@@ -49,7 +49,7 @@ protected trait DFValPrinter extends AbstractPrinter:
       dfVal.dfType match
         case _: DFBits              => s"${relValStr}.bits"
         case DFDecimal(false, _, _) => s"${relValStr}.uint"
-        case DFDecimal(true, _, _)  => s"${relValStr}.uint"
+        case DFDecimal(true, _, _)  => s"${relValStr}.sint"
         case _ => s"${relValStr}.as(${printer.csDFType(dfVal.dfType)})"
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange)(using
       MemberGetSet

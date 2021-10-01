@@ -145,6 +145,8 @@ class DFDecimalSpec extends DFSpec:
     assertCodeString {
       """|val u8 = DFUInt(8) <> VAR init d"8'255"
          |val s8 = DFSInt(8) <> VAR init ?
+         |val u6 = DFUInt(6) <> IN
+         |val s6 = DFSInt(6) <> IN
          |val b6 = DFBits(6) const h"6'00"
          |u8 := d"8'0"
          |u8 := d"8'255"
@@ -152,16 +154,20 @@ class DFDecimalSpec extends DFSpec:
          |u8 := ?
          |u8 := d"8'7"
          |u8 := b6.uint.resize(8)
+         |u8 := u6.resize(8)
          |s8 := sd"8'0"
          |s8 := sd"8'127"
          |s8 := sd"8'0"
          |s8 := ?
          |s8 := sd"8'-1"
          |s8 := sd"8'-127"
+         |s8 := s6.resize(8)
          |""".stripMargin
     } {
       val u8 = DFUInt(8) <> VAR init 255
       val s8 = DFSInt(8) <> VAR init ?
+      val u6 = DFUInt(6) <> IN
+      val s6 = DFSInt(6) <> IN
       val b6 = DFBits(6) const b0s
       u8 := 0
       u8 := 255
@@ -169,12 +175,15 @@ class DFDecimalSpec extends DFSpec:
       u8 := ?
       u8 := b"111"
       u8 := b6
+      u8 := u6
       s8 := 0
       s8 := 127
       s8 := d"0"
       s8 := ?
       s8 := -1
       s8 := -127
+      s8 := u6
+      s8 := s6
       assertDSLError(
         "Unsigned value must be natural, but found: -1"
       )(
