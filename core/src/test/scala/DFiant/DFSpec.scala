@@ -9,9 +9,8 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName:
   private final val owner: core.DFOwner = core.DFDesign.Block(typeName)
   dfc.enterOwner(owner)
   private val noErrMsg = "No error found"
-  transparent inline def assertCompileError(
-      inline code: String,
-      expectedErr: String
+  transparent inline def assertCompileError(expectedErr: String)(
+      inline code: String
   ): Unit =
     val err = compiletime.testing.typeCheckErrors(code) match
       case (head :: _) => head.message
@@ -25,7 +24,7 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName:
   transparent inline def assertDSLError(expectedErr: String)(
       inline compileTimeCode: String
   )(runTimeCode: => Unit): Unit =
-    assertCompileError(compileTimeCode, expectedErr)
+    assertCompileError(expectedErr)(compileTimeCode)
     val err =
       try
         runTimeCode

@@ -60,11 +60,10 @@ class DFDecimalSpec extends DFSpec:
     assert(t15 == t16)
     assert(t16 == t17)
 
-    assertCompileError("""d"1x"""", "Invalid decimal pattern found: 1x")
+    assertCompileError("Invalid decimal pattern found: 1x")("""d"1x"""")
     assertCompileError(
-      """d"4'255"""",
       "Explicit given width (4) is smaller than the actual width (8)"
-    )
+    )("""d"4'255"""")
     val negOne = -1
     assertDSLError(
       "Unsigned value must be natural, but found: -1"
@@ -74,9 +73,8 @@ class DFDecimalSpec extends DFSpec:
       DFUInt(8).token(negOne)
     }
     assertCompileError(
-      """DFUInt(8).token(sd"1")""",
       "Cannot apply a signed value to an unsigned variable."
-    )
+    )("""DFUInt(8).token(sd"1")""")
     assertDSLError(
       "The token value width (9) is larger than the dataflow value width (8)."
     )(
@@ -170,9 +168,37 @@ class DFDecimalSpec extends DFSpec:
       s8 := ?
       s8 := -1
       s8 := -127
+      assertDSLError(
+        "Unsigned value must be natural, but found: -1"
+      )(
+        """u8 := -1"""
+      ) {
+        val value = -1
+        u8 := value
+      }
+      assertCompileError(
+        "Cannot apply a signed value to an unsigned variable."
+      )(
+        """u8 := s8"""
+      )
+      assertDSLError(
+        "The token value width (9) is larger than the dataflow value width (8)."
+      )(
+        """u8 := 256"""
+      ) {
+        val value = 256
+        u8 := value
+      }
+      assertDSLError(
+        "The token value width (9) is larger than the dataflow value width (8)."
+      )(
+        """s8 := 128"""
+      ) {
+        val value = 128
+        s8 := value
+      }
+
     }
-//    v8 := x
-//    v8 := x.bits
 ////    v8 := (h"1", 1, 0, v8(5), true)
   }
 end DFDecimalSpec

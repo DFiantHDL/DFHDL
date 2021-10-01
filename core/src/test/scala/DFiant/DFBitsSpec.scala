@@ -27,28 +27,24 @@ class DFBitsSpec extends DFSpec:
     val t3 = h"10'12".verifyTokenOf[DFBits[10]]
     val t4 = b"11".verifyTokenOf[DFBits[2]]
     val t5 = h"1{00}1".verifyTokenOf[DFBits[10]]
-    assertCompileError("""h"1{001"""", "Missing closing braces of binary mode")
-    assertCompileError("""h"1x"""", "Found invalid hex character: x")
+    assertCompileError("Missing closing braces of binary mode")("""h"1{001"""")
+    assertCompileError("Found invalid hex character: x")("""h"1x"""")
     assertCompileError(
-      """h"2'F"""",
       "Explicit given width (2) is smaller than the actual width (4)"
+    )("""h"2'F"""")
+    assertCompileError("Found invalid binary character in binary mode: 2")(
+      """h"12{12}""""
     )
+    assertCompileError("Found invalid binary character: x")("""b"1x"""")
     assertCompileError(
-      """h"12{12}"""",
-      "Found invalid binary character in binary mode: 2"
-    )
-    assertCompileError("""b"1x"""", "Found invalid binary character: x")
-    assertCompileError(
-      """b"2'111"""",
       "Explicit given width (2) is smaller than the actual width (3)"
-    )
+    )("""b"2'111"""")
 
     val t6 = (DFBits(3) token ?).verifyTokenOf[DFBits[3]]
     val t7 = (DFBits(8) token t2).verifyTokenOf[DFBits[8]]
     assertCompileError(
-      """DFBits(3) token t7""",
       "The token width (8) is different than the DFType width (3)."
-    )
+    )("""DFBits(3) token t7""")
     assert(t7 == t2)
   }
   test("Token Resize") {

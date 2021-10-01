@@ -346,7 +346,7 @@ object DFXInt:
       type OutW <: Int
       def apply(arg: R): DFValOf[DFXInt[Signed, OutW]]
     object Candidate:
-      transparent inline given [R, Signed <: Boolean](using
+      transparent inline given fromTokenCandidate[R, Signed <: Boolean](using
           ic: Token.Candidate[R, Signed],
           dfc: DFC
       ): Candidate[R, Signed] = new Candidate[R, Signed]:
@@ -354,11 +354,18 @@ object DFXInt:
         def apply(arg: R): DFValOf[DFXInt[Signed, OutW]] =
           val token = ic(arg)
           DFVal.Const(token)
-      given [W <: Int](using DFC): Candidate[DFValOf[DFBits[W]], false] with
+      given fromDFBitsVal[W <: Int](using
+          DFC
+      ): Candidate[DFValOf[DFBits[W]], false] with
         type OutW = W
         def apply(arg: DFValOf[DFBits[W]]): DFValOf[DFXInt[false, W]] =
           import DFBits.Val.Ops.uint
           arg.uint
+      inline given errorForSignedToUnsigned[W <: Int]
+          : Candidate[DFValOf[DFSInt[W]], false] =
+        compiletime.error(
+          "Cannot apply a signed value to an unsigned variable."
+        )
     end Candidate
     object TC:
       import DFVal.TC
