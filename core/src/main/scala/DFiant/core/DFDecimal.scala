@@ -8,6 +8,9 @@ type DFDecimal[S <: Boolean, W <: Int, F <: Int] =
   OpaqueDFDecimal.DFDecimal[S, W, F]
 val DFDecimal = OpaqueDFDecimal.DFDecimal
 
+protected type SignedW[S <: Boolean, W <: Int] = ITE[S, W + 1, W]
+protected def signedW(signed: Boolean, width: Int): Int =
+  if (signed) width + 1 else width
 private object OpaqueDFDecimal:
   opaque type DFDecimal[S <: Boolean, W <: Int, F <: Int] <: DFType.Of[
     ir.DFDecimal
@@ -41,6 +44,7 @@ private object CompanionsDFDecimal:
   object Extensions:
     extension [S <: Boolean, W <: Int, F <: Int](dfType: DFDecimal[S, W, F])
       def signed: Inlined[S] = Inlined.forced[S](dfType.asIR.signed)
+
   object Width
       extends Check2[
         Boolean,
@@ -68,6 +72,14 @@ private object CompanionsDFDecimal:
         [LW <: Int, RW <: Int] =>> LW >= RW,
         [LW <: Int, RW <: Int] =>> "The applied value width (" + RW +
           ") is larger than the variable width (" + LW + ")."
+      ]
+  protected[core] object `LS >= RS`
+      extends Check2[
+        Boolean,
+        Boolean,
+        [LS <: Boolean, RS <: Boolean] =>> LS || ![RS],
+        [LS <: Boolean,
+        RS <: Boolean] =>> "Cannot apply a signed value to an unsigned variable."
       ]
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
   object Token:
@@ -205,7 +217,8 @@ private object CompanionsDFDecimal:
           dfType: DFDecimal[Boolean, Int, Int],
           dfVal: DFDecimal[Boolean, Int, Int] <> VAL
       ): DFDecimal[Boolean, Int, Int] <> VAL =
-        `LW >= RW`(dfType.asIR.width, dfVal.asIR.dfType.width)
+        `LW >= RW`(dfType.width, dfVal.width)
+        `LS >= RS`(dfType.signed, dfVal.dfType.signed)
         dfVal
     end TC
     object Ops:
@@ -277,19 +290,20 @@ object DFXInt:
       given [LS <: Boolean, LW <: Int, R](using
           ic: Candidate[R]
       )(using
-          check: CompanionsDFDecimal.`LW >= RW`.Check[LW, ic.OutW]
+          checkS: CompanionsDFDecimal.`LS >= RS`.Check[LS, ic.OutS],
+          checkW: CompanionsDFDecimal.`LW >= RW`.Check[LW, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
         def apply(dfType: DFXInt[LS, LW], value: R): Out =
-          val dfTypeIR = dfType.asIR
-          val token = ic(value).asIR
-          check(dfTypeIR.width, token.width)
+          val token = ic(value)
+          checkS(dfType.signed, token.dfType.signed)
+          checkW(dfType.width, token.width)
           //We either need to widen the token we got from a value int candidate
           //or it remains the same. In either case, there is not need to touch
           //the data itself, but just the dfType of the token.
           val resizedToken =
-            if (dfTypeIR.width > token.width)
-              token.copy(dfType = dfTypeIR)
-            else token
+            if (dfType.width > token.width)
+              token.asIR.copy(dfType = dfType.asIR)
+            else token.asIR
           resizedToken.asTokenOf[DFXInt[LS, LW]]
       end given
     end TC
@@ -364,21 +378,23 @@ object DFXInt:
     end Candidate
     object TC:
       import DFVal.TC
-      given [S <: Boolean, LW <: Int, R](using
+      given [LS <: Boolean, LW <: Int, R](using
           ic: Candidate[R],
           dfc: DFC
       )(using
-          check: CompanionsDFDecimal.`LW >= RW`.Check[LW, ic.OutW]
-      ): TC[DFXInt[S, LW], R] with
-        def apply(dfType: DFXInt[S, LW], value: R): Out =
+          checkS: CompanionsDFDecimal.`LS >= RS`.Check[LS, ic.OutS],
+          checkW: CompanionsDFDecimal.`LW >= RW`.Check[LW, ic.OutW]
+      ): TC[DFXInt[LS, LW], R] with
+        def apply(dfType: DFXInt[LS, LW], value: R): Out =
           import Ops.resize
           val rhs = ic(value)
-          check(dfType.width, rhs.width)
+          checkS(dfType.signed, rhs.dfType.signed)
+          checkW(dfType.width, rhs.width)
           val dfValIR =
             if (rhs.width < dfType.width)
               rhs.resize(dfType.width).asIR
             else rhs.asIR
-          dfValIR.asValOf[DFXInt[S, LW]]
+          dfValIR.asValOf[DFXInt[LS, LW]]
       end given
     end TC
 

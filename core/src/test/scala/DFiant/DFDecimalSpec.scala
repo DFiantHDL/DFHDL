@@ -189,7 +189,7 @@ class DFDecimalSpec extends DFSpec:
       s8 := u6
       s8 := s6
       assertDSLError(
-        "Unsigned value must be natural, but found: -1"
+        "Cannot apply a signed value to an unsigned variable."
       )(
         """u8 := -1"""
       ) {
