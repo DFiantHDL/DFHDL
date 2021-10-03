@@ -3,14 +3,12 @@ import DFiant.compiler.ir
 import DFiant.internals.*
 import scala.quoted.*
 import scala.annotation.targetName
+import CompanionsDFDecimal.Constraints.*
 
 type DFDecimal[S <: Boolean, W <: Int, F <: Int] =
   OpaqueDFDecimal.DFDecimal[S, W, F]
 val DFDecimal = OpaqueDFDecimal.DFDecimal
 
-protected type SignedW[S <: Boolean, W <: Int] = ITE[S, W + 1, W]
-protected def signedW(signed: Boolean, width: Int): Int =
-  if (signed) width + 1 else width
 private object OpaqueDFDecimal:
   opaque type DFDecimal[S <: Boolean, W <: Int, F <: Int] <: DFType.Of[
     ir.DFDecimal
@@ -25,7 +23,6 @@ private object OpaqueDFDecimal:
       ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
     export CompanionsDFDecimal.Extensions.*
     export CompanionsDFDecimal.DFTypeGiven.given
-    val Width = CompanionsDFDecimal.Width
     type Token[S <: Boolean, W <: Int, F <: Int] =
       CompanionsDFDecimal.Token[S, W, F]
     val Token = CompanionsDFDecimal.Token
@@ -45,42 +42,68 @@ private object CompanionsDFDecimal:
     extension [S <: Boolean, W <: Int, F <: Int](dfType: DFDecimal[S, W, F])
       def signed: Inlined[S] = Inlined.forced[S](dfType.asIR.signed)
 
-  object Width
-      extends Check2[
-        Boolean,
-        Int,
-        [s <: Boolean, w <: Int] =>> ITE[s, w > 1, w > 0],
-        [s <: Boolean, w <: Int] =>> ITE[
-          s,
-          "Signed value width must be larger than 1, but found: " + w,
-          "Unsigned value width must be positive, but found: " + w
+  protected[core] object Constraints:
+    object Width
+        extends Check2[
+          Boolean,
+          Int,
+          [s <: Boolean, w <: Int] =>> ITE[s, w > 1, w > 0],
+          [s <: Boolean, w <: Int] =>> ITE[
+            s,
+            "Signed value width must be larger than 1, but found: " + w,
+            "Unsigned value width must be positive, but found: " + w
+          ]
         ]
-      ]
-  protected object Sign
-      extends Check2[
-        Boolean,
-        Int,
-        [s <: Boolean, n <: Int] =>> ITE[s, true, n >= 0],
-        [s <: Boolean,
-        n <: Int] =>> "Unsigned value must be natural, but found: " + n
-      ]
+    object Sign
+        extends Check2[
+          Boolean,
+          Int,
+          [s <: Boolean, n <: Int] =>> ITE[s, true, n >= 0],
+          [s <: Boolean,
+          n <: Int] =>> "Unsigned value must be natural, but found: " + n
+        ]
 
-  protected[core] object `LW >= RW`
-      extends Check2[
-        Int,
-        Int,
-        [LW <: Int, RW <: Int] =>> LW >= RW,
-        [LW <: Int, RW <: Int] =>> "The applied value width (" + RW +
-          ") is larger than the variable width (" + LW + ")."
-      ]
-  protected[core] object `LS >= RS`
-      extends Check2[
-        Boolean,
-        Boolean,
-        [LS <: Boolean, RS <: Boolean] =>> LS || ![RS],
-        [LS <: Boolean,
-        RS <: Boolean] =>> "Cannot apply a signed value to an unsigned variable."
-      ]
+    object `LW >= RW`
+        extends Check2[
+          Int,
+          Int,
+          [LW <: Int, RW <: Int] =>> LW >= RW,
+          [LW <: Int, RW <: Int] =>> "The applied value width (" + RW +
+            ") is larger than the variable width (" + LW + ")."
+        ]
+    object `LS >= RS`
+        extends Check2[
+          Boolean,
+          Boolean,
+          [LS <: Boolean, RS <: Boolean] =>> LS || ![RS],
+          [LS <: Boolean,
+          RS <: Boolean] =>> "Cannot apply a signed value to an unsigned variable."
+        ]
+    trait LvRCheck[LS <: Boolean, LW <: Int, RS <: Boolean, RW <: Int]:
+      def apply(
+          leftSigned: Boolean,
+          leftWidth: Int,
+          rightSigned: Boolean,
+          rightWidth: Int
+      ): Unit
+    given [LS <: Boolean, LW <: Int, RS <: Boolean, RW <: Int](using
+        checkS: `LS >= RS`.Check[LS, RS],
+        checkW: `LW >= RW`.Check[LW, ITE[LS != RS, RW + 1, RW]]
+    ): LvRCheck[LS, LW, RS, RW] with
+      def apply(
+          leftSigned: Boolean,
+          leftWidth: Int,
+          rightSigned: Boolean,
+          rightWidth: Int
+      ): Unit =
+        checkS(leftSigned, rightSigned)
+        checkW(
+          leftWidth,
+          if (leftSigned != rightSigned) rightWidth + 1 else rightWidth
+        )
+    end given
+  end Constraints
+
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
   object Token:
     extension [S <: Boolean, W <: Int, F <: Int](token: Token[S, W, F])
@@ -224,7 +247,7 @@ private object CompanionsDFDecimal:
     object Ops:
       export DFXInt.Val.Ops.*
     object Conversions:
-      export DFXInt.Val.Conversions.given
+      export DFXInt.Val.Conversions.*
   end Val
 
 end CompanionsDFDecimal
@@ -232,7 +255,7 @@ end CompanionsDFDecimal
 type DFXInt[S <: Boolean, W <: Int] = DFDecimal[S, W, 0]
 object DFXInt:
   def apply[S <: Boolean, W <: Int](signed: Inlined[S], width: Inlined[W])(using
-      DFDecimal.Width.Check[S, W]
+      Width.Check[S, W]
   ): DFXInt[S, W] = DFDecimal(signed, width, 0)
 
   type Token[S <: Boolean, W <: Int] = DFDecimal.Token[S, W, 0]
@@ -290,21 +313,25 @@ object DFXInt:
       given [LS <: Boolean, LW <: Int, R](using
           ic: Candidate[R]
       )(using
-          checkS: CompanionsDFDecimal.`LS >= RS`.Check[LS, ic.OutS],
-          checkW: CompanionsDFDecimal.`LW >= RW`.Check[LW, ic.OutW]
+          check: LvRCheck[LS, LW, ic.OutS, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
         def apply(dfType: DFXInt[LS, LW], value: R): Out =
+          import DFUInt.Token.Ops.signed
           val token = ic(value)
-          checkS(dfType.signed, token.dfType.signed)
-          checkW(dfType.width, token.width)
+          check(dfType.signed, dfType.width, token.dfType.signed, token.width)
           //We either need to widen the token we got from a value int candidate
           //or it remains the same. In either case, there is not need to touch
           //the data itself, but just the dfType of the token.
           val resizedToken =
+            val tokenIR =
+              if (dfType.signed != token.dfType.signed)
+                token.asIR.asTokenOf[DFUInt[LW]].signed.asIR
+              else token.asIR
             if (dfType.width > token.width)
-              token.asIR.copy(dfType = dfType.asIR)
-            else token.asIR
+              tokenIR.copy(dfType = dfType.asIR)
+            else tokenIR
           resizedToken.asTokenOf[DFXInt[LS, LW]]
+        end apply
       end given
     end TC
 
@@ -317,7 +344,7 @@ object DFXInt:
         @targetName("resizeDFXInt")
         def resize[RW <: Int](
             updatedWidth: Inlined[RW]
-        )(using check: DFDecimal.Width.Check[S, RW]): Token[S, RW] =
+        )(using check: Width.Check[S, RW]): Token[S, RW] =
           val updatedTokenIR =
             //no change in width
             if (updatedWidth == lhs.width) lhs.asIR
@@ -382,18 +409,21 @@ object DFXInt:
           ic: Candidate[R],
           dfc: DFC
       )(using
-          checkS: CompanionsDFDecimal.`LS >= RS`.Check[LS, ic.OutS],
-          checkW: CompanionsDFDecimal.`LW >= RW`.Check[LW, ic.OutW]
+          check: LvRCheck[LS, LW, ic.OutS, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
         def apply(dfType: DFXInt[LS, LW], value: R): Out =
           import Ops.resize
+          import DFUInt.Val.Ops.signed
           val rhs = ic(value)
-          checkS(dfType.signed, rhs.dfType.signed)
-          checkW(dfType.width, rhs.width)
+          check(dfType.signed, dfType.width, rhs.dfType.signed, rhs.width)
           val dfValIR =
-            if (rhs.width < dfType.width)
-              rhs.resize(dfType.width).asIR
-            else rhs.asIR
+            val rhsSignFix: DFValOf[DFSInt[Int]] =
+              if (dfType.signed != rhs.dfType.signed)
+                rhs.asIR.asValOf[DFUInt[Int]].signed.asIR.asValOf[DFSInt[Int]]
+              else rhs.asIR.asValOf[DFSInt[Int]]
+            if (rhsSignFix.width < dfType.width)
+              rhsSignFix.resize(dfType.width).asIR
+            else rhsSignFix.asIR
           dfValIR.asValOf[DFXInt[LS, LW]]
       end given
     end TC
@@ -406,7 +436,7 @@ object DFXInt:
         def resize[RW <: Int](
             updatedWidth: Inlined[RW]
         )(using
-            check: DFDecimal.Width.Check[S, RW],
+            check: Width.Check[S, RW],
             dfc: DFC
         ): DFValOf[DFXInt[S, RW]] =
           val signed = lhs.dfType.signed
@@ -420,17 +450,19 @@ object DFXInt:
     end Ops
 
     object Conversions
-//      given DFXIntValConversion[S <: Boolean, R](using
-//          candidate: Candidate[R, S]
-//      ): Conversion[R, DFValOf[DFXInt[S, Int]]] = from =>
-//        candidate(from).asIR.asValOf[DFXInt[S, Int]]
+//      implicit inline def DFUIntValConversion[R](inline from: R)(using
+//          ic: Candidate[from.type]
+//      ): DFValOf[DFUInt[Int]] =
+//        val rhs = ic(from)
+////        check(false, rhs.dfType.signed)
+//        rhs.asIR.asValOf[DFUInt[Int]]
   end Val
 end DFXInt
 
 type DFUInt[W <: Int] = DFXInt[false, W]
 object DFUInt:
   def apply[W <: Int](width: Inlined[W])(using
-      DFDecimal.Width.Check[false, W]
+      Width.Check[false, W]
   ): DFUInt[W] = DFXInt(false, width)
 
   type Token[W <: Int] = DFDecimal.Token[false, W, 0]
@@ -454,7 +486,7 @@ end DFUInt
 type DFSInt[W <: Int] = DFXInt[true, W]
 object DFSInt:
   def apply[W <: Int](width: Inlined[W])(using
-      DFDecimal.Width.Check[true, W]
+      Width.Check[true, W]
   ): DFSInt[W] = DFXInt(true, width)
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]
   object Token:

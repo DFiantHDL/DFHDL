@@ -13,8 +13,8 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName:
       inline code: String
   ): Unit =
     val err = compiletime.testing.typeCheckErrors(code) match
-      case (head :: _) => head.message
-      case Nil         => noErrMsg
+      case (_ :+ last) => last.message
+      case _           => noErrMsg
     assertNoDiff(
       err,
       expectedErr

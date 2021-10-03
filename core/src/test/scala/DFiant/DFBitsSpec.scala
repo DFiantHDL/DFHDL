@@ -94,7 +94,7 @@ class DFBitsSpec extends DFSpec:
     assertDSLError(
       "Index -1 is out of range of width/length 4"
     )(
-      """b"1010".apply(4, -1)"""
+      """b"1010".apply(3, -1)"""
     ) {
       b"1010".apply(3, negOne)
     }
