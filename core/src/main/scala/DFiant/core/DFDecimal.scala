@@ -447,6 +447,20 @@ object DFXInt:
             lhs,
             _.resizeToken(updatedWidth)
           )
+      extension [L](inline lhs: L)(using sL: Exact.Summon[lhs.type])(using
+          icL: Candidate[sL.Out]
+      )
+        inline def +[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> VAL
+        )(using
+            dfc: DFC,
+            check: LvRCheck[icL.OutS, icL.OutW, RS, RW]
+        ): Unit = {}
+      extension [LS <: Boolean, LW <: Int](lhs: DFXInt[LS, LW] <> VAL)
+        def +[R](rhs: Exact[R])(using icR: Candidate[R])(using
+            dfc: DFC,
+            check: LvRCheck[LS, LW, icR.OutS, icR.OutW]
+        ): Unit = {}
     end Ops
 
     object Conversions
