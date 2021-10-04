@@ -231,5 +231,6 @@ class DFDecimalSpec extends DFSpec:
     x + y.bits
     x + d"12"
     d"1200" + y
+    d"1200" + d"10000"
   }
 end DFDecimalSpec
