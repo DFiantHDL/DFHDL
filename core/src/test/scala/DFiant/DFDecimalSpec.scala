@@ -48,6 +48,9 @@ class DFDecimalSpec extends DFSpec:
     val t6 = d"-1".verifyTokenOf[DFSInt[2]]
     val t7 = sd"-1".verifyTokenOf[DFSInt[2]]
     val t8 = sd"0".verifyTokenOf[DFSInt[2]]
+    val t8_a = d"-128".verifyTokenOf[DFSInt[8]]
+    val t8_b = d"-65".verifyTokenOf[DFSInt[8]]
+    val t8_c = d"-64".verifyTokenOf[DFSInt[7]]
     val t9 = DFUInt(8).token(1)
     val t10 = DFUInt(8).token(d"1")
     val t11 = DFUInt(8).token(?)
@@ -64,6 +67,9 @@ class DFDecimalSpec extends DFSpec:
     assertCompileError(
       "Explicit given width (4) is smaller than the actual width (8)"
     )("""d"4'255"""")
+    assertCompileError(
+      "Explicit given width (7) is smaller than the actual width (8)"
+    )("""d"7'-128"""")
     val negOne = -1
     assertDSLError(
       "Cannot apply a signed value to an unsigned variable."
@@ -231,6 +237,6 @@ class DFDecimalSpec extends DFSpec:
     x + y.bits
     x + d"12"
     d"1200" + y
-    d"1200" + d"10000"
+    d"1200" + d"100"
   }
 end DFDecimalSpec

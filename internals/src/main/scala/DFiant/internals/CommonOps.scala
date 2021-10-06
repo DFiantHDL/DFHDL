@@ -7,7 +7,8 @@ object CommonOps:
         if (signed) value.bitLength + 1 else value.bitLength
       else if (value == 0)
         if (signed) 2 else 1
-      else (-value).bitLength + 1
+      else if (value == -1) 2
+      else value.bitLength + 1 //value < 0
     def toBitVector(width: Int): BitVector =
       val vec = BitVector(value.toByteArray)
       if (value < 0 && vec.length < width)

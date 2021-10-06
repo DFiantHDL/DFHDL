@@ -9,10 +9,11 @@ trait IntInfo[V <: Int]:
   def width(value: Int): Inlined[OutW] =
     Inlined.forced[OutW](IntInfo.calcWidth(value))
 object IntInfo:
-  private[internals] def calcWidth(value: Int): Int =
-    if (value < 0) 33 - Integer.numberOfLeadingZeros(-value)
+  def calcWidth(value: Int): Int =
+    if (value == -1) 2
+    else if (value < 0) 33 - Integer.numberOfLeadingZeros(-value - 1)
     else if (value > 0) 32 - Integer.numberOfLeadingZeros(value)
-    else 1
+    else 1 //value == 0
 
   transparent inline given [V <: Int]: IntInfo[V] =
     ${ macroImpl[V] }
