@@ -28,7 +28,7 @@ extension (vec: BitVector)
     val paddedVecLength = ((vec.length + bitsNum - 1) / bitsNum) * bitsNum
     extensionPad(paddedVecLength - vec.length, signed) ++ vec
   def toHexProper: String = padToMulsOf(4, false).toHex
-  def isZeros: Boolean = vec == BitVector.low(vec.length)
+  def isZeros: Boolean = vec === BitVector.low(vec.length)
   def toShortString: String =
     val nibble = 4
     val lov = lengthOfValue

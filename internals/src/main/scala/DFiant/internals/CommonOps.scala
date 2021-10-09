@@ -24,7 +24,7 @@ object CommonOps:
   extension (value: Int)
     def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
 
-  extension [T](list: Iterable[T])
+  extension [T](list: Iterable[T])(using CanEqual[T, T])
     @tailrec private def reduceTreeRecur(
         recurList: Iterable[T],
         f: (T, T) => T

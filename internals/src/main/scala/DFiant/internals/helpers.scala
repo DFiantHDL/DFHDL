@@ -17,7 +17,7 @@ def showTreeMacro[T](arg: Expr[T])(using Quotes, Type[T]): Expr[Unit] =
   println(term.tpe.show)
   '{}
 
-extension [T](t: Iterable[T])
+extension [T](t: Iterable[T])(using CanEqual[T, T])
   def mkStringBrackets: String = t.mkString("(", ", ", ")")
   def allElementsAreEqual: Boolean = t.forall(_ == t.head)
 

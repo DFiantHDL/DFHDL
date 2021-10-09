@@ -378,6 +378,13 @@ object DFXInt:
           check: LvRCheck[icL.OutS, icL.OutW, RS, RW]
         ): Unit = {}
       end extension
+      extension [LS <: Boolean, LW <: Int](inline lhs: DFXInt[LS, LW] <> TOKEN)
+        inline def ==[RS <: Boolean, RW <: Int](
+          rhs: DFXInt[RS, RW] <> TOKEN
+        )(using
+          check: LvRCheck[LS, LW, RS, RW]
+        ): DFBool <> TOKEN = ???
+      end extension
     end Ops
   end Token
 

@@ -100,6 +100,7 @@ lazy val settings =
 lazy val compilerOptions = Seq(
   "-unchecked",
   "-feature",
+  "-language:strictEquality",
   "-language:implicitConversions",
   "-deprecation"
 )

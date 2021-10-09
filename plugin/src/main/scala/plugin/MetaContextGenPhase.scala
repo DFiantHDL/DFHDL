@@ -103,6 +103,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
     }
 
   override def transformApply(tree: Apply)(using Context): Tree =
+    given CanEqual[Tree, Tree] = CanEqual.derived
     if (tree.tpe.isParameterless && !ignore.contains(tree.unique))
       tree match
         case ContextArg(argTree) =>

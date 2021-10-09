@@ -4,7 +4,7 @@ import DFiant.internals.*
 
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.reflect.ClassTag
-sealed trait DFType extends Product, Serializable:
+sealed trait DFType extends Product, Serializable derives CanEqual:
   val width: Int
 object DFType:
   type Token = DFToken[DFType, Any]

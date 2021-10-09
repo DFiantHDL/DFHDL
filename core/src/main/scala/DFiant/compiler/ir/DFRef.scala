@@ -1,7 +1,7 @@
 package DFiant.compiler.ir
 import scala.reflect.{ClassTag, classTag}
 
-sealed trait DFRef:
+sealed trait DFRef derives CanEqual:
   type Member <: DFMember
   lazy val refType: ClassTag[Member]
   final def =~(that: DFRef)(using MemberGetSet): Boolean = this.get =~ that.get

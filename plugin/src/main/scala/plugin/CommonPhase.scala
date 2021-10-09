@@ -17,6 +17,9 @@ import Constants.Constant
 import annotation.tailrec
 import scala.language.implicitConversions
 
+given canEqualNothingL: CanEqual[Nothing, Any] = CanEqual.derived
+given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
+
 abstract class CommonPhase extends PluginPhase:
   import tpd._
   val debugFilter: String => Boolean = _ => false
@@ -39,7 +42,7 @@ abstract class CommonPhase extends PluginPhase:
     def replaceArg(fromArg: Tree, toArg: Tree): Apply =
       var changed = false
       val repArgs = tree.args.map { a =>
-        if (a == fromArg)
+        if (a eq fromArg)
           changed = true
           toArg
         else a

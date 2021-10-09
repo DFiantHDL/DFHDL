@@ -47,7 +47,7 @@ protected trait DFTokenPrinter extends AbstractPrinter:
         val (headBubble, theRestBubble) = bubbleBits.splitAt(headWidth)
 
         val headOption =
-          if (headBubble == BitVector.high(headWidth)) Some(s"$bubbleChar")
+          if (headBubble === BitVector.high(headWidth)) Some(s"$bubbleChar")
           else
             hexZip(
               headValue.resize(4),

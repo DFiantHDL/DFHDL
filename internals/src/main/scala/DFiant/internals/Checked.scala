@@ -72,7 +72,7 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
                   .asExpr
               case None =>
                 val da = tpe.dealias
-                if (da != tpe)
+                if (da =:= tpe)
                   lambdaTypeToTermRecur(da, argTerm, argTypeParam).asExpr
                 else
                   report.errorAndAbort(

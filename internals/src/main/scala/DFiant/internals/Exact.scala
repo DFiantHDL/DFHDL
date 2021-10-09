@@ -86,6 +86,7 @@ object Exact:
       ${ summonMacro[T] }
     def summonMacro[T](using Quotes, Type[T]): Expr[Summon[T]] =
       import quotes.reflect.*
+      given CanEqual[Term, Term] = CanEqual.derived
       Expr.summon[ValueOf[T]].map(_.asTerm) match
         case Some(Apply(_, arg :: Nil)) =>
           val exact = arg.exactTerm

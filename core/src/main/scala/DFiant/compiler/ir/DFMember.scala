@@ -3,7 +3,7 @@ package ir
 import DFiant.internals.*
 import annotation.tailrec
 
-sealed trait DFMember extends Product, Serializable:
+sealed trait DFMember extends Product, Serializable derives CanEqual:
   val ownerRef: DFOwner.Ref
   val meta: Meta
   val tags: DFTags
@@ -93,7 +93,7 @@ sealed trait DFVal extends DFMember.Named:
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal]
-  sealed trait Modifier extends Product, Serializable
+  sealed trait Modifier extends Product, Serializable derives CanEqual
   object Modifier:
     sealed trait Assignable extends Modifier
     sealed trait Connectable extends Modifier
@@ -114,6 +114,7 @@ object DFVal:
     val dfType = token.dfType
     def =~(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
+        given CanEqual[Any, Any] = CanEqual.derived
         this.token == that.token &&
           this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
@@ -164,7 +165,7 @@ object DFVal:
   end Func
 
   object Func:
-    enum Op:
+    enum Op derives CanEqual:
       case +, -, *, /, ==, !=, <, >, <=, >=, &, |, ^, %, ++
       case unary_-, unary_~, unary_!
 
@@ -212,7 +213,7 @@ object DFVal:
     end Prev
 
     object Prev:
-      enum Op:
+      enum Op derives CanEqual:
         case State, Pipe
 
     final case class ApplyRange(
@@ -278,7 +279,7 @@ final case class DFNet(
 end DFNet
 
 object DFNet:
-  enum Op:
+  enum Op derives CanEqual:
     case Assignment, Connection, LazyConnection
 
 sealed trait DFOwner extends DFMember:

@@ -35,8 +35,12 @@ type XDouble = Double with Singleton
 type XString = String with Singleton
 type XBoolean = Boolean with Singleton
 
+given canEqualNothingL: CanEqual[Nothing, Any] = CanEqual.derived
+given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
+
 opaque type Inlined[T] = T
 object Inlined:
+  given [L, R](using CanEqual[L, R]): CanEqual[Inlined[L], Inlined[R]] = CanEqual.derived
   extension [T](inlined: Inlined[T]) def value: T = inlined
   transparent inline implicit def getValue[T](
       inlined: Inlined[T]
@@ -70,6 +74,20 @@ object Inlined:
     def ==[R <: std.Int](rhs: Inlined[R]) =
       forced[any.==[T, R]](lhs.value == rhs.value)
     def !=[R <: std.Int](rhs: Inlined[R]) =
+      forced[any.!=[T, R]](lhs.value != rhs.value)
+  end extension
+  extension [T <: std.String](lhs: Inlined[T])
+    def +[R <: std.String](rhs: Inlined[R]) =
+      forced[string.+[T, R]](lhs.value + rhs.value)
+    def ==[R <: std.String](rhs: Inlined[R]) =
+      forced[any.==[T, R]](lhs.value == rhs.value)
+    def !=[R <: std.String](rhs: Inlined[R]) =
+      forced[any.!=[T, R]](lhs.value != rhs.value)
+  end extension
+  extension [T <: std.Boolean](lhs: Inlined[T])
+    def ==[R <: std.Boolean](rhs: Inlined[R]) =
+      forced[any.==[T, R]](lhs.value == rhs.value)
+    def !=[R <: std.Boolean](rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
   end extension
 

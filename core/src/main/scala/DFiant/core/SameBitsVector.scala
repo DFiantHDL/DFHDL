@@ -1,7 +1,7 @@
 package DFiant
 package core
 
-enum SameBitsVector(value: Boolean):
+enum SameBitsVector(value: Boolean) derives CanEqual:
   /** A unconstrained-width literal vector of zeros
     *
     * @example
