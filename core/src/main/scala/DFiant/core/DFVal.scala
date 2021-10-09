@@ -6,31 +6,24 @@ import DFiant.compiler.ir.DFVal.Modifier
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
-//TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
-
-type DFVal[+T <: DFType, +M <: Modifier] =
-  OpaqueDFVal.DFVal[T, M]
-val DFVal = OpaqueDFVal.DFVal
-
-private object OpaqueDFVal:
-  opaque type DFVal[+T <: DFType, +M <: Modifier] <: DFMember.Of[
-    DFiant.compiler.ir.DFVal
-  ] =
-    DFMember.Of[DFiant.compiler.ir.DFVal]
-  object DFVal:
-    final val Modifier = DFiant.compiler.ir.DFVal.Modifier
-    export DFBits.Val.Conversions.given
-    export DFDecimal.Val.Conversions.*
-    export CompanionsDFVal.Conversions.*
-    export CompanionsDFVal.Extensions.*
-    val Const = CompanionsDFVal.Const
-    val Dcl = CompanionsDFVal.Dcl
-    val Func = CompanionsDFVal.Func
-    val Alias = CompanionsDFVal.Alias
-    val TC = CompanionsDFVal.TC
-    type TC[T <: DFType, -R] = CompanionsDFVal.TC[T, R]
-    val Ops = CompanionsDFVal.Ops
-end OpaqueDFVal
+trait MyEq
+class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
+    extends AnyVal
+    with DFMember[ir.DFVal]:
+  def ==[R](that: R): DFBool <> VAL = ???
+object DFVal:
+  final val Modifier = DFiant.compiler.ir.DFVal.Modifier
+  export DFBits.Val.Conversions.given
+  export DFDecimal.Val.Conversions.*
+  export CompanionsDFVal.Conversions.*
+  export CompanionsDFVal.Extensions.*
+  val Const = CompanionsDFVal.Const
+  val Dcl = CompanionsDFVal.Dcl
+  val Func = CompanionsDFVal.Func
+  val Alias = CompanionsDFVal.Alias
+  val TC = CompanionsDFVal.TC
+  type TC[T <: DFType, -R] = CompanionsDFVal.TC[T, R]
+  val Ops = CompanionsDFVal.Ops
 
 type DFValAny = DFVal[DFType, Modifier]
 type DFValOf[+T <: DFType] = DFVal[T, Modifier]
@@ -55,11 +48,11 @@ type <>[T <: DFType, M] = M match
 
 extension (dfVal: ir.DFVal)
   def asVal[T <: DFType, M <: Modifier]: DFVal[T, M] =
-    dfVal.asInstanceOf[DFVal[T, M]]
-  def asValOf[T <: DFType]: DFValOf[T] = dfVal.asInstanceOf[DFValOf[T]]
-  def asValAny: DFValAny = dfVal.asInstanceOf[DFValAny]
-  def asVarOf[T <: DFType]: DFVarOf[T] = dfVal.asInstanceOf[DFVarOf[T]]
-  def asPortOf[T <: DFType]: DFPortOf[T] = dfVal.asInstanceOf[DFPortOf[T]]
+    DFVal[T, M](dfVal)
+  def asValOf[T <: DFType]: DFValOf[T] = DFVal[T, Modifier](dfVal)
+  def asValAny: DFValAny = DFVal[DFType, Modifier](dfVal)
+  def asVarOf[T <: DFType]: DFVarOf[T] = DFVal[T, Modifier.Assignable](dfVal)
+  def asPortOf[T <: DFType]: DFPortOf[T] = DFVal[T, Modifier.Port](dfVal)
 
 private object CompanionsDFVal:
   object Extensions:

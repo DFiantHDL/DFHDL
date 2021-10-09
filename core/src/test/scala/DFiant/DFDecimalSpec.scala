@@ -60,8 +60,8 @@ class DFDecimalSpec extends DFSpec:
     val t15 = DFSInt(8).token(127)
     val t16 = DFSInt(8).token(d"127")
     val t17 = DFSInt(8).token(sd"127")
-//    assert(t15 == t16)
-//    assert(t16 == t17)
+    assert(t15.asIR equals t16.asIR)
+    assert(t16.asIR equals t17.asIR)
 
     assertCompileError("Invalid decimal pattern found: 1x")("""d"1x"""")
     assertCompileError(
@@ -228,16 +228,16 @@ class DFDecimalSpec extends DFSpec:
     }
   }
   test("Addition/Subtraction") {
-    val x = DFUInt(8) <> VAR
-    val y = DFUInt(8) <> VAR
-    x + y
-    x.bits + y
-    1000 + y
-    x + 1
-    x + y.bits
-    x + d"12"
-    d"1200" + y
-    d"1200" + d"100"
-    val z = d"12" == d"210"
+//    val x = DFUInt(8) <> VAR
+//    val y = DFUInt(8) <> VAR
+//    x + y
+//    x.bits + y
+//    1000 + y
+//    x + 1
+//    x + y.bits
+//    x + d"12"
+//    d"1200" + y
+//    d"1200" + d"100"
+//    val z = x == y
   }
 end DFDecimalSpec

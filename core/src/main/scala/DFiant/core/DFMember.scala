@@ -3,15 +3,12 @@ import DFiant.compiler.ir
 import scala.reflect.ClassTag
 import DFiant.internals.*
 
-type DFMember = OpaqueDFMember.DFMember
-val DFMember = OpaqueDFMember.DFMember
+trait DFMember[+T <: ir.DFMember] extends Any:
+  val value: T
 
-private object OpaqueDFMember:
-  opaque type DFMember = ir.DFMember
-  object DFMember:
-    opaque type Of[+T <: ir.DFMember] <: DFMember = T
-    object Of:
-      extension [T <: ir.DFMember](of: Of[T]) def asIR: T = of
+type DFMemberAny = DFMember[ir.DFMember]
+object DFMember:
+  extension [T <: ir.DFMember](of: DFMember[T]) def asIR: T = of.value
 
 extension [M <: ir.DFMember](member: M)
   def addMember(using DFC): M =

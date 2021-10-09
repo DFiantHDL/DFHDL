@@ -1,5 +1,7 @@
 package DFiant.core
 import DFiant.compiler.ir
+
+import scala.annotation.targetName
 import scala.reflect.{ClassTag, classTag}
 extension [M <: ir.DFMember](member: M)
   def ref(using ClassTag[M], DFC): ir.DFRef.OneWay[M] =

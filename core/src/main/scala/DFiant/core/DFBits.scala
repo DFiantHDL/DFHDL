@@ -380,6 +380,8 @@ private object CompanionsDFBits:
             DFVal.Const(Token(1, BitVector.bit(bool), BitVector.zero))
           case token: ir.DFType.Token =>
             DFVal.Const(token.bits.asTokenOf[DFBits[Int]])
+          case dfVal: DFVal[_, _] =>
+            valueToBits(dfVal.asIR)
           case dfVal: ir.DFVal =>
             dfVal.dfType match
               case _: ir.DFBits => dfVal.asValOf[DFBits[Int]]

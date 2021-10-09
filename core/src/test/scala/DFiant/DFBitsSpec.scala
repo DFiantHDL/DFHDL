@@ -45,7 +45,7 @@ class DFBitsSpec extends DFSpec:
     assertCompileError(
       "The token width (8) is different than the DFType width (3)."
     )("""DFBits(3) token t7""")
-//    assert(t7 == t2)
+    assert(t7.asIR equals t2.asIR)
   }
   test("Token Resize") {
     assertEquals(h"F0".resize(6), h"6'30")
@@ -69,7 +69,7 @@ class DFBitsSpec extends DFSpec:
     assertEquals(b"1?".apply(0), DFBit.token(?))
     assertEquals(b"10".lsbit, DFBit.token(0))
     assertEquals(b"10".msbit, DFBit.token(1))
-//    assert(b"10".msbit != DFBit.token(0))
+    assert(!(b"10".msbit.asIR equals DFBit.token(0).asIR))
     val four = 4
     assertDSLError(
       "Index 4 is out of range of width/length 2"
