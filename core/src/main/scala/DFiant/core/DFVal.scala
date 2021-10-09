@@ -47,8 +47,7 @@ type <>[T <: DFType, M] = M match
   case TOKEN => DFToken.Of[T]
 
 extension (dfVal: ir.DFVal)
-  def asVal[T <: DFType, M <: Modifier]: DFVal[T, M] =
-    DFVal[T, M](dfVal)
+  def asVal[T <: DFType, M <: Modifier]: DFVal[T, M] = DFVal[T, M](dfVal)
   def asValOf[T <: DFType]: DFValOf[T] = DFVal[T, Modifier](dfVal)
   def asValAny: DFValAny = DFVal[DFType, Modifier](dfVal)
   def asVarOf[T <: DFType]: DFVarOf[T] = DFVal[T, Modifier.Assignable](dfVal)

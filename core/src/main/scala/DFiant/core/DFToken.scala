@@ -21,10 +21,6 @@ object DFToken:
     def codeString(using printer: Printer): String = printer.csDFToken(asIR)
 
   opaque type Of[+T <: DFType] <: DFToken = DFToken
-  object Of:
-    extension [T <: DFType](token: Of[T])
-      def widthHack(using w: Width[T]): Inlined[w.Out] =
-        Inlined.forced[w.Out](token.asIR.width)
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
   trait TC[T <: DFType, -V] extends GeneralTC[T, V, DFToken]:
     type Out = DFToken.Of[T]
@@ -35,9 +31,7 @@ object DFToken:
     export DFTuple.Token.TC.given
 
     transparent inline given DFTokenFromBubble[T <: DFType]: TC[T, Bubble] =
-      new TC[T, Bubble]:
-        def apply(dfType: T, value: Bubble): Out =
-          Bubble(dfType)
+      (dfType: T, value: Bubble) => Bubble(dfType)
   end TC
 
   val Ops = CompanionsDFToken.Ops

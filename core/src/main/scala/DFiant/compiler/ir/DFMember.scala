@@ -98,6 +98,7 @@ object DFVal:
     sealed trait Assignable extends Modifier
     sealed trait Connectable extends Modifier
     sealed trait VAL extends Modifier
+    sealed trait Extendable extends VAL
     case object VAR extends VAL, Assignable, Connectable
     sealed trait Port extends VAL, Assignable, Connectable
     case object IN extends Port
@@ -116,7 +117,7 @@ object DFVal:
       case that: Const =>
         given CanEqual[Any, Any] = CanEqual.derived
         this.token == that.token &&
-          this.meta =~ that.meta && this.tags =~ that.tags
+        this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type =
       copy(meta = meta).asInstanceOf[this.type]
