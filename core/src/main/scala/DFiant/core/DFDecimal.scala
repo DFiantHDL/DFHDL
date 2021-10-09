@@ -357,7 +357,6 @@ object DFXInt:
               else //updated width is smaller
                 import DFToken.Ops.bits
                 import DFBits.Token.Ops.{resize => resizeDFBits, *}
-                val value = lhs.data.get
                 if (signed)
                   val tokenBits = lhs.bits
                   (tokenBits.msbit.bits ++
@@ -370,19 +369,15 @@ object DFXInt:
               end if
           updatedTokenIR.asTokenOf[DFXInt[S, RW]]
       end extension
-//      extension [L](inline lhs: L)(using sL: Exact.Summon[lhs.type])(using
-//          icL: Candidate[sL.Out]
-//      )
-//        inline def +[RS <: Boolean, RW <: Int](
-//            rhs: DFXInt[RS, RW] <> TOKEN
-//        )(using
-//            check: LvRCheck[icL.OutS, icL.OutW, RS, RW]
-//        ): Unit = {}
-//      extension [LS <: Boolean, LW <: Int](lhs: DFXInt[LS, LW] <> TOKEN)
-//        def +[R](rhs: Exact[R])(using icR: Candidate[R])(using
-//            check: LvRCheck[LS, LW, icR.OutS, icR.OutW]
-//        ): Unit = {}
-
+      extension [L](inline lhs: L)
+        inline def +[RS <: Boolean, RW <: Int](
+          rhs: DFXInt[RS, RW] <> TOKEN
+        )(using sL: Exact.Summon[lhs.type])(using
+          icL: Candidate[sL.Out]
+        )(using
+          check: LvRCheck[icL.OutS, icL.OutW, RS, RW]
+        ): Unit = {}
+      end extension
     end Ops
   end Token
 
@@ -461,13 +456,6 @@ object DFXInt:
             _.resizeToken(updatedWidth)
           )
       extension [L](inline lhs: L)
-        inline def +[RS <: Boolean, RW <: Int](
-            rhs: DFXInt[RS, RW] <> TOKEN
-        )(using sL: Exact.Summon[lhs.type])(using
-            icL: Candidate[sL.Out]
-        )(using
-            check: LvRCheck[icL.OutS, icL.OutW, RS, RW]
-        ): Unit = {}
         inline def +[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
         )(using sL: Exact.Summon[lhs.type])(using
