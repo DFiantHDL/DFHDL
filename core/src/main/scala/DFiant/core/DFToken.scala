@@ -35,9 +35,10 @@ object DFToken:
   end TC
 
   @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
-  trait Equals[T <: DFType, -V]:
+  trait Equals[T <: DFType, -V, NE <: Boolean]:
     def apply(token: Of[T], arg: V): Of[DFBool]
-  object Equals
+  object Equals:
+    export DFDecimal.Token.Equals.given
 
   val Ops = CompanionsDFToken.Ops
   trait Value[T <: DFType]:

@@ -28,7 +28,8 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
     condTpe: quotes.reflect.TypeRepr,
     msgTpe: quotes.reflect.TypeRepr,
     condValueTpe: quotes.reflect.TypeRepr,
-    msgValueTpe: quotes.reflect.TypeRepr
+    msgValueTpe: quotes.reflect.TypeRepr,
+    warn: Boolean
 ):
   import quotes.reflect.*
   def lambdaTypeToTermRecur(
@@ -106,11 +107,21 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
         else
           msgValueTpe.dealias match
             case ConstantType(StringConstant(msg)) =>
-              '{ compiletime.error(${ Expr(msg) }) }
+              if (warn)
+                report.warning(msg)
+                '{}
+              else '{ compiletime.error(${ Expr(msg) }) }
             case _ =>
-              '{ throw new IllegalArgumentException($msgExpr) }
+              if (warn)
+                '{ println($msgExpr) }
+              else
+                '{ throw new IllegalArgumentException($msgExpr) }
       case _ =>
-        '{ if (! $condExpr) throw new IllegalArgumentException($msgExpr) }
+        if (warn)
+          '{ if (! $condExpr) println($msgExpr) }
+        else
+          '{ if (! $condExpr) throw new IllegalArgumentException($msgExpr) }
+    end match
   end applyExpr
 end MacroClass
 
@@ -119,7 +130,10 @@ trait Check1[
     Cond[T <: Wide] <: Boolean,
     Msg[T <: Wide] <: String
 ]:
-  type Check[T <: Wide] = Check1.Check[Wide, T, Cond, Msg, Cond[T], Msg[T]]
+  type Check[T <: Wide] =
+    Check1.Check[Wide, T, Cond, Msg, Cond[T], Msg[T], false]
+  type Warn[T <: Wide] =
+    Check1.Check[Wide, T, Cond, Msg, Cond[T], Msg[T], true]
   inline def apply(arg: Wide): Unit =
     compiletime.summonInline[Check[Wide]]
 
@@ -130,7 +144,8 @@ object Check1:
       Cond[T <: Wide] <: Boolean,
       Msg[T <: Wide] <: String,
       CondValue <: Boolean,
-      MsgValue <: String
+      MsgValue <: String,
+      Warn <: Boolean
   ]:
     def apply(arg: Wide): Unit
   inline given [
@@ -139,9 +154,10 @@ object Check1:
       Cond[T <: Wide] <: Boolean,
       Msg[T <: Wide] <: String,
       CondValue <: Boolean,
-      MsgValue <: String
-  ]: Check[Wide, T, Cond, Msg, CondValue, MsgValue] =
-    ${ checkMacro[Wide, T, Cond, Msg, CondValue, MsgValue] }
+      MsgValue <: String,
+      Warn <: Boolean
+  ]: Check[Wide, T, Cond, Msg, CondValue, MsgValue, Warn] =
+    ${ checkMacro[Wide, T, Cond, Msg, CondValue, MsgValue, Warn] }
 
   final def checkMacro[
       Wide,
@@ -149,7 +165,8 @@ object Check1:
       Cond[T <: Wide] <: Boolean,
       Msg[T <: Wide] <: String,
       CondValue <: Boolean,
-      MsgValue <: String
+      MsgValue <: String,
+      Warn <: Boolean
   ](using
       Quotes,
       Type[Wide],
@@ -157,22 +174,25 @@ object Check1:
       Type[Cond],
       Type[Msg],
       Type[CondValue],
-      Type[MsgValue]
-  ): Expr[Check[Wide, T, Cond, Msg, CondValue, MsgValue]] =
+      Type[MsgValue],
+      Type[Warn]
+  ): Expr[Check[Wide, T, Cond, Msg, CondValue, MsgValue, Warn]] =
     import quotes.reflect.*
     val condTpe = TypeRepr.of[Cond]
     val msgTpe = TypeRepr.of[Msg]
     val condValueTpe = TypeRepr.of[CondValue]
     val msgValueTpe = TypeRepr.of[MsgValue]
+    val ConstantType(BooleanConstant(warn)) = TypeRepr.of[Warn]
     val mc =
       new MacroClass[quotes.type](using quotes)(
         condTpe,
         msgTpe,
         condValueTpe,
-        msgValueTpe
+        msgValueTpe,
+        warn
       )
     '{
-      new Check[Wide, T, Cond, Msg, CondValue, MsgValue]:
+      new Check[Wide, T, Cond, Msg, CondValue, MsgValue, Warn]:
         def apply(arg: Wide): Unit = ${ mc.applyExpr(List('arg.asTerm)) }
     }
   end checkMacro
@@ -185,9 +205,32 @@ trait Check2[
     Msg[T1 <: Wide1, T2 <: Wide2] <: String
 ]:
   type Check[T1 <: Wide1, T2 <: Wide2] =
-    Check2.Check[Wide1, Wide2, T1, T2, Cond, Msg, Cond[T1, T2], Msg[T1, T2]]
+    Check2.Check[
+      Wide1,
+      Wide2,
+      T1,
+      T2,
+      Cond,
+      Msg,
+      Cond[T1, T2],
+      Msg[T1, T2],
+      false
+    ]
+  type Warn[T1 <: Wide1, T2 <: Wide2] =
+    Check2.Check[
+      Wide1,
+      Wide2,
+      T1,
+      T2,
+      Cond,
+      Msg,
+      Cond[T1, T2],
+      Msg[T1, T2],
+      true
+    ]
   inline def apply(arg1: Wide1, arg2: Wide2): Unit =
     compiletime.summonInline[Check[Wide1, Wide2]]
+end Check2
 
 object Check2:
   trait Check[
@@ -198,7 +241,8 @@ object Check2:
       Cond[T1 <: Wide1, T2 <: Wide2] <: Boolean,
       Msg[T1 <: Wide1, T2 <: Wide2] <: String,
       CondValue <: Boolean,
-      MsgValue <: String
+      MsgValue <: String,
+      Warn <: Boolean
   ]:
     def apply(arg1: Wide1, arg2: Wide2): Unit
   inline given [
@@ -209,9 +253,10 @@ object Check2:
       Cond[T1 <: Wide1, T2 <: Wide2] <: Boolean,
       Msg[T1 <: Wide1, T2 <: Wide2] <: String,
       CondValue <: Boolean,
-      MsgValue <: String
-  ]: Check[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue] =
-    ${ checkMacro[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue] }
+      MsgValue <: String,
+      Warn <: Boolean
+  ]: Check[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue, Warn] =
+    ${ checkMacro[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue, Warn] }
 
   final def checkMacro[
       Wide1,
@@ -221,7 +266,8 @@ object Check2:
       Cond[T1 <: Wide1, T2 <: Wide2] <: Boolean,
       Msg[T1 <: Wide1, T2 <: Wide2] <: String,
       CondValue <: Boolean,
-      MsgValue <: String
+      MsgValue <: String,
+      Warn <: Boolean
   ](using
       Quotes,
       Type[Wide1],
@@ -231,22 +277,25 @@ object Check2:
       Type[Cond],
       Type[Msg],
       Type[CondValue],
-      Type[MsgValue]
-  ): Expr[Check[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue]] =
+      Type[MsgValue],
+      Type[Warn]
+  ): Expr[Check[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue, Warn]] =
     import quotes.reflect.*
     val condTpe = TypeRepr.of[Cond]
     val msgTpe = TypeRepr.of[Msg]
     val condValueTpe = TypeRepr.of[CondValue]
     val msgValueTpe = TypeRepr.of[MsgValue]
+    val ConstantType(BooleanConstant(warn)) = TypeRepr.of[Warn]
     val mc =
       new MacroClass[quotes.type](using quotes)(
         condTpe,
         msgTpe,
         condValueTpe,
-        msgValueTpe
+        msgValueTpe,
+        warn
       )
     '{
-      new Check[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue]:
+      new Check[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue, Warn]:
         def apply(arg1: Wide1, arg2: Wide2): Unit = ${
           mc.applyExpr(List('arg1.asTerm, 'arg2.asTerm))
         }

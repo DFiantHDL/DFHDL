@@ -185,6 +185,9 @@ private object CompanionsDFDecimal:
     object TC:
       export DFXInt.Token.TC.given
 
+    object Equals:
+      export DFXInt.Token.Equals.given
+
     object StrInterp:
       extension (inline sc: StringContext)
         transparent inline def d(inline args: Any*): DFToken =
@@ -253,6 +256,8 @@ private object CompanionsDFDecimal:
         `LS >= RS`(dfType.signed, dfVal.dfType.signed)
         dfVal
     end TC
+    object Equals:
+      export DFXInt.Val.Equals.given
     object Ops:
       export DFXInt.Val.Ops.*
     object Conversions:
@@ -346,16 +351,17 @@ object DFXInt:
 
     object Equals:
       import DFToken.Equals
-      given [LS <: Boolean, LW <: Int, R](using
+      given [LS <: Boolean, LW <: Int, R, NE <: Boolean](using
           ic: Candidate[R]
       )(using
-          check: `LS == RS`.Check[LS, ic.OutS]
-      ): Equals[DFXInt[LS, LW], R] with
+          check: `LS == RS`.Check[LS, ic.OutS],
+          ne: ValueOf[NE]
+      ): Equals[DFXInt[LS, LW], R, NE] with
         def apply(token: Token[LS, LW], arg: R): DFBool <> TOKEN =
           val argToken = ic(arg)
           check(token.dfType.signed, argToken.dfType.signed)
           val outData = (token.data, argToken.data) match
-            case (Some(l), Some(r)) => Some(l == r)
+            case (Some(l), Some(r)) => Some(l == r ^ ne.value)
             case _                  => None
           DFBoolOrBit.Token(DFBool, outData)
       end given
@@ -444,6 +450,7 @@ object DFXInt:
           import DFBits.Val.Ops.uint
           arg.uint
     end Candidate
+
     object TC:
       import DFVal.TC
       given [LS <: Boolean, LW <: Int, R](using
@@ -468,6 +475,9 @@ object DFXInt:
           dfValIR.asValOf[DFXInt[LS, LW]]
       end given
     end TC
+
+    object Equals:
+      import DFVal.Equals
 
     object Ops:
       export DFUInt.Val.Ops.*

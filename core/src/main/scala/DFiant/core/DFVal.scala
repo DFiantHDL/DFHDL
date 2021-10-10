@@ -23,7 +23,10 @@ object DFVal:
   val Alias = CompanionsDFVal.Alias
   val TC = CompanionsDFVal.TC
   type TC[T <: DFType, -R] = CompanionsDFVal.TC[T, R]
+  val Equals = CompanionsDFVal.Equals
+  type Equals[T <: DFType, -V, NE <: Boolean] = CompanionsDFVal.Equals[T, V, NE]
   val Ops = CompanionsDFVal.Ops
+end DFVal
 
 type DFValAny = DFVal[DFType, Modifier]
 type DFValOf[+T <: DFType] = DFVal[T, Modifier]
@@ -229,6 +232,11 @@ private object CompanionsDFVal:
           updated.asIR.asValOf[T]
         end apply
   end TC
+
+  @implicitNotFound("Cannot compare dataflow value of ${T} with value of ${V}")
+  trait Equals[T <: DFType, -V, NE <: Boolean]:
+    def apply(dfVal: DFValOf[T], arg: V): DFValOf[DFBool]
+  object Equals
 
 //  object Conversions:
 //    implicit transparent inline def fromArg[T <: DFType, R](
