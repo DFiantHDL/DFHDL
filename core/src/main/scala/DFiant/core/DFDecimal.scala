@@ -1,6 +1,7 @@
 package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
+
 import scala.quoted.*
 import scala.annotation.targetName
 import CompanionsDFDecimal.Constraints.*
@@ -79,7 +80,15 @@ private object CompanionsDFDecimal:
           [LS <: Boolean,
           RS <: Boolean] =>> "Cannot apply a signed value to an unsigned variable."
         ]
-    trait LvRCheck[LS <: Boolean, LW <: Int, RS <: Boolean, RW <: Int]:
+    object `LS == RS`
+        extends Check2[
+          Boolean,
+          Boolean,
+          [LS <: Boolean, RS <: Boolean] =>> LS == RS,
+          [LS <: Boolean,
+          RS <: Boolean] =>> "Cannot compare a signed value to an unsigned value.\nAn explicit conversion must be applied."
+        ]
+    trait TCCheck[LS <: Boolean, LW <: Int, RS <: Boolean, RW <: Int]:
       def apply(
           leftSigned: Boolean,
           leftWidth: Int,
@@ -89,7 +98,7 @@ private object CompanionsDFDecimal:
     given [LS <: Boolean, LW <: Int, RS <: Boolean, RW <: Int](using
         checkS: `LS >= RS`.Check[LS, RS],
         checkW: `LW >= RW`.Check[LW, ITE[LS != RS, RW + 1, RW]]
-    ): LvRCheck[LS, LW, RS, RW] with
+    ): TCCheck[LS, LW, RS, RW] with
       def apply(
           leftSigned: Boolean,
           leftWidth: Int,
@@ -313,7 +322,7 @@ object DFXInt:
       given [LS <: Boolean, LW <: Int, R](using
           ic: Candidate[R]
       )(using
-          check: LvRCheck[LS, LW, ic.OutS, ic.OutW]
+          check: TCCheck[LS, LW, ic.OutS, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
         def apply(dfType: DFXInt[LS, LW], value: R): Out =
           import DFUInt.Token.Ops.signed
@@ -334,6 +343,23 @@ object DFXInt:
         end apply
       end given
     end TC
+
+    object Equals:
+      import DFToken.Equals
+      given [LS <: Boolean, LW <: Int, R](using
+          ic: Candidate[R]
+      )(using
+          check: `LS == RS`.Check[LS, ic.OutS]
+      ): Equals[DFXInt[LS, LW], R] with
+        def apply(token: Token[LS, LW], arg: R): DFBool <> TOKEN =
+          val argToken = ic(arg)
+          check(token.dfType.signed, argToken.dfType.signed)
+          val outData = (token.data, argToken.data) match
+            case (Some(l), Some(r)) => Some(l == r)
+            case _                  => None
+          DFBoolOrBit.Token(DFBool, outData)
+      end given
+    end Equals
 
     object Ops:
       export DFUInt.Token.Ops.*
@@ -371,18 +397,18 @@ object DFXInt:
       end extension
       extension [L](inline lhs: L)
         inline def +[RS <: Boolean, RW <: Int](
-          rhs: DFXInt[RS, RW] <> TOKEN
+            rhs: DFXInt[RS, RW] <> TOKEN
         )(using sL: Exact.Summon[lhs.type])(using
-          icL: Candidate[sL.Out]
+            icL: Candidate[sL.Out]
         )(using
-          check: LvRCheck[icL.OutS, icL.OutW, RS, RW]
+            check: TCCheck[icL.OutS, icL.OutW, RS, RW]
         ): Unit = {}
       end extension
       extension [LS <: Boolean, LW <: Int](inline lhs: DFXInt[LS, LW] <> TOKEN)
         inline def ==[RS <: Boolean, RW <: Int](
-          rhs: DFXInt[RS, RW] <> TOKEN
+            rhs: DFXInt[RS, RW] <> TOKEN
         )(using
-          check: LvRCheck[LS, LW, RS, RW]
+            check: TCCheck[LS, LW, RS, RW]
         ): DFBool <> TOKEN = ???
       end extension
     end Ops
@@ -424,7 +450,7 @@ object DFXInt:
           ic: Candidate[R],
           dfc: DFC
       )(using
-          check: LvRCheck[LS, LW, ic.OutS, ic.OutW]
+          check: TCCheck[LS, LW, ic.OutS, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
         def apply(dfType: DFXInt[LS, LW], value: R): Out =
           import Ops.resize
@@ -469,13 +495,13 @@ object DFXInt:
             icL: Candidate[sL.Out]
         )(using
             dfc: DFC,
-            check: LvRCheck[icL.OutS, icL.OutW, RS, RW]
+            check: TCCheck[icL.OutS, icL.OutW, RS, RW]
         ): Unit = {}
       end extension
       extension [LS <: Boolean, LW <: Int](lhs: DFXInt[LS, LW] <> VAL)
         def +[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
-            check: LvRCheck[LS, LW, icR.OutS, icR.OutW]
+            check: TCCheck[LS, LW, icR.OutS, icR.OutW]
         ): Unit = {}
     end Ops
 

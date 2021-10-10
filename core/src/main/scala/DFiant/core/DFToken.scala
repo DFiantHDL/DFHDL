@@ -34,6 +34,11 @@ object DFToken:
       (dfType: T, value: Bubble) => Bubble(dfType)
   end TC
 
+  @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
+  trait Equals[T <: DFType, -V]:
+    def apply(token: Of[T], arg: V): Of[DFBool]
+  object Equals
+
   val Ops = CompanionsDFToken.Ops
   trait Value[T <: DFType]:
     type Out <: DFToken
@@ -47,7 +52,6 @@ object DFToken:
         value: Expr[V]
     )(using Quotes, Type[T], Type[V]): Expr[Value[T]] =
       import quotes.reflect.*
-      val valueOfTpe = TypeRepr.of[ValueOf]
       val term = value.asTerm.underlyingArgument.exactTerm
       val tpe = term.tpe.asTypeOf[Any]
       '{
