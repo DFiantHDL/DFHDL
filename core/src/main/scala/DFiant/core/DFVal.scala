@@ -3,6 +3,7 @@ import DFiant.compiler.ir
 import DFiant.internals.*
 import DFiant.compiler.ir.DFVal.Modifier
 
+import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
@@ -10,7 +11,9 @@ trait MyEq
 class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
-  def ==[R](that: R): DFBool <> VAL = ???
+  inline def ==[R](inline that: R)(using es: Exact.Summon[that.type])(using
+      eq: DFVal.Equals[T @uncheckedVariance, es.Out, true]
+  ): DFBool <> VAL = eq(this, es(that))
 object DFVal:
   final val Modifier = DFiant.compiler.ir.DFVal.Modifier
   export DFBits.Val.Conversions.given
@@ -250,7 +253,8 @@ private object CompanionsDFVal:
       val op = if (valueOf[NE]) DFVal.Func.Op.!= else DFVal.Func.Op.==
       DFVal.Func(DFBool, op, List(arg1, arg2))
     def apply(dfVal: DFValOf[T], arg: V): DFValOf[DFBool]
-  object Equals
+  object Equals:
+    export DFDecimal.Val.Equals.given
 
 //  object Conversions:
 //    implicit transparent inline def fromArg[T <: DFType, R](

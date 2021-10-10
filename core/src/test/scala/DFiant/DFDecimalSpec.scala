@@ -228,8 +228,8 @@ class DFDecimalSpec extends DFSpec:
     }
   }
   test("Addition/Subtraction") {
-//    val x = DFUInt(8) <> VAR
-//    val y = DFUInt(8) <> VAR
+    val x = DFUInt(8) <> VAR
+    val y = DFSInt(8) <> VAR
 //    x + y
 //    x.bits + y
 //    1000 + y
@@ -238,6 +238,7 @@ class DFDecimalSpec extends DFSpec:
 //    x + d"12"
 //    d"1200" + y
 //    d"1200" + d"100"
-//    val z = x == y
+    val zz = sd"100"
+    val z = x == -100
   }
 end DFDecimalSpec
