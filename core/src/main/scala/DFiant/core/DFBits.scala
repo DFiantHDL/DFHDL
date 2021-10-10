@@ -498,7 +498,7 @@ private object CompanionsDFBits:
     object Ops:
       extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
         protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
-          val width = iter.map(_.width.value).sum
+          val width = Inlined.forced[Int](iter.map(_.width.value).sum)
           DFVal.Func(DFBits(width), ir.DFVal.Func.Op.++, iter.toList)
       extension [W <: Int, M <: ir.DFVal.Modifier](
           lhs: DFVal[DFBits[W], M]

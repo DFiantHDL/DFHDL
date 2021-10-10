@@ -104,20 +104,28 @@ private object CompanionsDFVal:
   end Dcl
 
   object Func:
+    export ir.DFVal.Func.Op
     def apply[T <: DFType](
         dfType: T,
         op: ir.DFVal.Func.Op,
         args: List[DFValAny]
+    )(using DFC): DFValOf[T] = apply(dfType, op, args.map(_.asIR))
+    @targetName("applyFromIR")
+    def apply[T <: DFType](
+        dfType: T,
+        op: ir.DFVal.Func.Op,
+        args: List[ir.DFVal]
     )(using DFC): DFValOf[T] =
       lazy val func: ir.DFVal = ir.DFVal.Func(
         dfType.asIR,
         op,
-        args.map(_.asIR.refTW(func)),
+        args.map(_.refTW(func)),
         dfc.owner.ref,
         dfc.getMeta,
         ir.DFTags.empty
       )
       func.addMember.asValOf[T]
+    end apply
   end Func
 
   object Alias:
@@ -235,6 +243,12 @@ private object CompanionsDFVal:
 
   @implicitNotFound("Cannot compare dataflow value of ${T} with value of ${V}")
   trait Equals[T <: DFType, -V, NE <: Boolean]:
+    final protected def func(arg1: DFValAny, arg2: DFValAny)(using
+        DFC,
+        ValueOf[NE]
+    ): DFValOf[DFBool] =
+      val op = if (valueOf[NE]) DFVal.Func.Op.!= else DFVal.Func.Op.==
+      DFVal.Func(DFBool, op, List(arg1, arg2))
     def apply(dfVal: DFValOf[T], arg: V): DFValOf[DFBool]
   object Equals
 

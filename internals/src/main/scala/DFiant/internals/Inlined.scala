@@ -40,7 +40,8 @@ given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
 
 opaque type Inlined[T] = T
 object Inlined:
-  given [L, R](using CanEqual[L, R]): CanEqual[Inlined[L], Inlined[R]] = CanEqual.derived
+  given [L, R](using CanEqual[L, R]): CanEqual[Inlined[L], Inlined[R]] =
+    CanEqual.derived
   extension [T](inlined: Inlined[T]) def value: T = inlined
   transparent inline implicit def getValue[T](
       inlined: Inlined[T]
@@ -57,6 +58,7 @@ object Inlined:
   def apply[T <: Singleton](value: T): Inlined[T] = value
 
   extension [T <: std.Int](lhs: Inlined[T])
+    def widen: Inlined[std.Int] = forced[std.Int](lhs.value)
     def +[R <: std.Int](rhs: Inlined[R]) =
       forced[int.+[T, R]](lhs.value + rhs.value)
     def -[R <: std.Int](rhs: Inlined[R]) =
@@ -75,8 +77,14 @@ object Inlined:
       forced[any.==[T, R]](lhs.value == rhs.value)
     def !=[R <: std.Int](rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
+    def max[R <: std.Int](rhs: Inlined[R]) =
+      forced[int.Max[T, R]](lhs.value max rhs.value)
+    def min[R <: std.Int](rhs: Inlined[R]) =
+      forced[int.Min[T, R]](lhs.value min rhs.value)
   end extension
+
   extension [T <: std.String](lhs: Inlined[T])
+    def widen: Inlined[std.String] = forced[std.String](lhs.value)
     def +[R <: std.String](rhs: Inlined[R]) =
       forced[string.+[T, R]](lhs.value + rhs.value)
     def ==[R <: std.String](rhs: Inlined[R]) =
@@ -84,7 +92,9 @@ object Inlined:
     def !=[R <: std.String](rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
   end extension
+
   extension [T <: std.Boolean](lhs: Inlined[T])
+    def widen: Inlined[std.Boolean] = forced[std.Boolean](lhs.value)
     def ==[R <: std.Boolean](rhs: Inlined[R]) =
       forced[any.==[T, R]](lhs.value == rhs.value)
     def !=[R <: std.Boolean](rhs: Inlined[R]) =

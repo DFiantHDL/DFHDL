@@ -478,6 +478,29 @@ object DFXInt:
 
     object Equals:
       import DFVal.Equals
+      given [LS <: Boolean, LW <: Int, R, NE <: Boolean](using
+          ic: Candidate[R],
+          dfc: DFC
+      )(using
+          check: `LS == RS`.Check[LS, ic.OutS],
+          ne: ValueOf[NE]
+      ): Equals[DFXInt[LS, LW], R, NE] with
+        def apply(dfVal: DFValOf[DFXInt[LS, LW]], arg: R): DFValOf[DFBool] =
+          import Ops.resize
+          import DFUInt.Val.Ops.signed
+          val dfValArg = ic(arg)
+          check(dfVal.dfType.signed, dfValArg.dfType.signed)
+          val maxWidth = dfVal.width max dfValArg.width
+          val dfValResized =
+            if (dfVal.width < dfValArg.width) dfVal.resize(maxWidth)
+            else dfVal
+          val dfValArgResized =
+            if (dfValArg.width < dfVal.width) dfValArg.resize(maxWidth)
+            else dfValArg
+          func(dfValResized, dfValArgResized)
+        end apply
+      end given
+    end Equals
 
     object Ops:
       export DFUInt.Val.Ops.*
