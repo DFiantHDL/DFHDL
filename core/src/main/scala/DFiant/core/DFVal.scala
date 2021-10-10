@@ -7,11 +7,10 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
-trait MyEq
 class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
-  inline def ==[R](inline that: R)(using es: Exact.Summon[that.type])(using
+  inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
       eq: DFVal.Equals[T @uncheckedVariance, es.Out, true]
   ): DFBool <> VAL = eq(this, es(that))
 object DFVal:
@@ -76,7 +75,7 @@ private object CompanionsDFVal:
   object Conversions:
     implicit inline def DFValConversion[T <: DFType, R](
         inline from: R
-    )(using dfType: T, es: Exact.Summon[from.type])(using
+    )(using dfType: T, es: Exact.Summon[R, from.type])(using
         tc: CompanionsDFVal.TC[T, es.Out]
     ): DFValOf[T] = tc(dfType, es(from))
 

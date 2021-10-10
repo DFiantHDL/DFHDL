@@ -239,6 +239,6 @@ class DFDecimalSpec extends DFSpec:
 //    d"1200" + y
 //    d"1200" + d"100"
     val zz = sd"100"
-    val z = x == -100
+//    val z = x == -100
   }
 end DFDecimalSpec

@@ -404,7 +404,7 @@ object DFXInt:
       extension [L](inline lhs: L)
         inline def +[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> TOKEN
-        )(using sL: Exact.Summon[lhs.type])(using
+        )(using sL: Exact.Summon[L, lhs.type])(using
             icL: Candidate[sL.Out]
         )(using
             check: TCCheck[icL.OutS, icL.OutW, RS, RW]
@@ -524,7 +524,7 @@ object DFXInt:
       extension [L](inline lhs: L)
         inline def +[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
-        )(using sL: Exact.Summon[lhs.type])(using
+        )(using sL: Exact.Summon[L, lhs.type])(using
             icL: Candidate[sL.Out]
         )(using
             dfc: DFC,

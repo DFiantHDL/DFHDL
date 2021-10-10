@@ -78,13 +78,17 @@ object Exact:
     type Out = T
     val value = value_
 
-  trait Summon[T]:
+  trait Summon[R, T <: R]:
     type Out
-    def apply(t: T): Out
+    def apply(t: R): Out
   object Summon:
-    transparent inline given [T]: Summon[T] =
-      ${ summonMacro[T] }
-    def summonMacro[T](using Quotes, Type[T]): Expr[Summon[T]] =
+    transparent inline given [R, T <: R]: Summon[R, T] =
+      ${ summonMacro[R, T] }
+    def summonMacro[R, T <: R](using
+        Quotes,
+        Type[R],
+        Type[T]
+    ): Expr[Summon[R, T]] =
       import quotes.reflect.*
       given CanEqual[Term, Term] = CanEqual.derived
       Expr.summon[ValueOf[T]].map(_.asTerm) match
@@ -93,15 +97,15 @@ object Exact:
           val exactExpr = exact.asExpr
           val exactType = exact.tpe.asTypeOf[Any]
           '{
-            new Summon[T]:
+            new Summon[R, T]:
               type Out = exactType.Underlying
-              def apply(t: T) = ${ exactExpr }
+              def apply(t: R) = ${ exactExpr }
           }
         case _ =>
           '{
-            new Summon[T]:
-              type Out = T
-              def apply(t: T): Out = t
+            new Summon[R, T]:
+              type Out = R
+              def apply(t: R): Out = t
           }
       end match
     end summonMacro
