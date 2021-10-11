@@ -72,6 +72,15 @@ private object CompanionsDFDecimal:
           [LW <: Int, RW <: Int] =>> "The applied value width (" + RW +
             ") is larger than the variable width (" + LW + ")."
         ]
+    object `VW == RW`
+        extends Check2[
+          Int,
+          Int,
+          [VW <: Int, RW <: Int] =>> VW == RW,
+          [VW <: Int,
+          RW <: Int] =>> "Cannot compare different width values (" + VW +
+            " != " + RW + ").\nAn explicit conversion must be applied."
+        ]
     object `LS >= RS`
         extends Check2[
           Boolean,
@@ -80,7 +89,7 @@ private object CompanionsDFDecimal:
           [LS <: Boolean,
           RS <: Boolean] =>> "Cannot apply a signed value to an unsigned variable."
         ]
-    object `LS == RS`
+    object `VS == RS`
         extends Check2[
           Boolean,
           Boolean,
@@ -110,6 +119,32 @@ private object CompanionsDFDecimal:
           leftWidth,
           if (leftSigned != rightSigned) rightWidth + 1 else rightWidth
         )
+    end given
+    trait CompareCheck[
+        VS <: Boolean,
+        VW <: Int,
+        RS <: Boolean,
+        RW <: Int,
+        RInt <: Boolean
+    ]:
+      def apply(
+          dfValSigned: Boolean,
+          dfValWidth: Int,
+          argSigned: Boolean,
+          argWidth: Int
+      ): Unit
+    given [VS <: Boolean, VW <: Int, RS <: Boolean, RW <: Int, RInt <: Boolean](
+        using
+        checkS: `VS == RS`.Check[VS, ITE[RInt, VS, RS]],
+        checkW: `VW == RW`.Check[VW, ITE[RInt, VW, RW]],
+        rInt: ValueOf[RInt]
+    ): CompareCheck[VS, VW, RS, RW, RInt] with
+      def apply(
+          dfValSigned: Boolean,
+          dfValWidth: Int,
+          argSigned: Boolean,
+          argWidth: Int
+      ): Unit = {}
     end given
   end Constraints
 
@@ -284,6 +319,7 @@ object DFXInt:
     trait Candidate[-R]:
       type OutS <: Boolean
       type OutW <: Int
+      type IsScalaInt <: Boolean
       def apply(arg: R): Token[OutS, OutW]
     object Candidate:
       //change to given...with after
@@ -293,6 +329,7 @@ object DFXInt:
       ): Candidate[ValueOf[R]] = new Candidate[ValueOf[R]]:
         type OutS = info.OutS
         type OutW = info.OutW
+        type IsScalaInt = true
         def apply(arg: ValueOf[R]): Token[OutS, OutW] =
           Token(
             info.signed(arg.value),
@@ -304,6 +341,7 @@ object DFXInt:
       ): Candidate[Int] = new Candidate[Int]:
         type OutS = info.OutS
         type OutW = info.OutW
+        type IsScalaInt = true
         def apply(arg: Int): Token[OutS, OutW] =
           Token(info.signed(arg), info.width(arg), Some(arg))
       transparent inline given fromDFXIntToken[W <: Int, S <: Boolean]
@@ -311,12 +349,14 @@ object DFXInt:
         new Candidate[Token[S, W]]:
           type OutS = S
           type OutW = W
+          type IsScalaInt = false
           def apply(arg: Token[S, W]): Token[S, W] = arg
       transparent inline given fromDFBitsToken[W <: Int]
           : Candidate[DFBits.Token[W]] =
         new Candidate[DFBits.Token[W]]:
           type OutS = false
           type OutW = W
+          type IsScalaInt = false
           def apply(arg: DFBits.Token[W]): Token[false, W] =
             import DFBits.Token.Ops.uint
             arg.uint
@@ -354,7 +394,7 @@ object DFXInt:
       given [LS <: Boolean, LW <: Int, R, NE <: Boolean](using
           ic: Candidate[R]
       )(using
-          check: `LS == RS`.Check[LS, ic.OutS],
+          check: `VS == RS`.Check[LS, ic.OutS],
           ne: ValueOf[NE]
       ): Equals[DFXInt[LS, LW], R, NE] with
         def apply(token: Token[LS, LW], arg: R): DFBool <> TOKEN =
@@ -424,6 +464,7 @@ object DFXInt:
     trait Candidate[-R]:
       type OutS <: Boolean
       type OutW <: Int
+      type IsScalaInt <: Boolean
       def apply(arg: R): DFValOf[DFXInt[OutS, OutW]]
     object Candidate:
       transparent inline given fromTokenCandidate[R](using
@@ -432,6 +473,7 @@ object DFXInt:
       ): Candidate[R] = new Candidate[R]:
         type OutS = ic.OutS
         type OutW = ic.OutW
+        type IsScalaInt = ic.IsScalaInt
         def apply(arg: R): DFValOf[DFXInt[OutS, OutW]] =
           DFVal.Const(ic(arg))
       given fromDFXIntVal[S <: Boolean, W <: Int](using
@@ -439,6 +481,7 @@ object DFXInt:
       ): Candidate[DFValOf[DFXInt[S, W]]] with
         type OutS = S
         type OutW = W
+        type IsScalaInt = false
         def apply(arg: DFValOf[DFXInt[S, W]]): DFValOf[DFXInt[S, W]] =
           arg
       given fromDFBitsVal[W <: Int](using
@@ -446,6 +489,7 @@ object DFXInt:
       ): Candidate[DFValOf[DFBits[W]]] with
         type OutS = false
         type OutW = W
+        type IsScalaInt = false
         def apply(arg: DFValOf[DFBits[W]]): DFValOf[DFXInt[false, W]] =
           import DFBits.Val.Ops.uint
           arg.uint
@@ -482,7 +526,7 @@ object DFXInt:
           ic: Candidate[R],
           dfc: DFC
       )(using
-          check: `LS == RS`.Check[LS, ic.OutS],
+          check: `VS == RS`.Check[LS, ic.OutS],
           ne: ValueOf[NE]
       ): Equals[DFXInt[LS, LW], R, NE] with
         def apply(dfVal: DFValOf[DFXInt[LS, LW]], arg: R): DFValOf[DFBool] =
@@ -521,6 +565,14 @@ object DFXInt:
             lhs,
             _.resizeToken(updatedWidth)
           )
+      extension [L](inline lhs: L)
+        inline def ===[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> VAL
+        )(using es: Exact.Summon[L, lhs.type])(using
+            dfc: DFC,
+            eq: DFVal.Equals[DFXInt[RS, RW], es.Out, false]
+        ): DFBool <> VAL = eq(rhs, es(lhs))
+      end extension
       extension [L](inline lhs: L)
         inline def +[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL

@@ -2,6 +2,8 @@ import DFiant.*
 import munit.*
 import internals.Inlined
 
+import scala.annotation.implicitNotFound
+
 class DFDecimalSpec extends DFSpec:
   test("Type Construction") {
     val zero = 0
@@ -237,8 +239,9 @@ class DFDecimalSpec extends DFSpec:
 //    x + y.bits
 //    x + d"12"
 //    d"1200" + y
-//    d"1200" + d"100"
-    val zz = sd"100"
+//    d"1200" == d"100"
+//    val zzz = 1 === y
+//    val zz = sd"100"
 //    val z = x == -100
   }
 end DFDecimalSpec
