@@ -11,8 +11,11 @@ class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
   inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      eq: DFVal.Compare[T @uncheckedVariance, es.Out, ir.DFVal.Func.Op.===.type]
-  ): DFBool <> VAL = eq(this, es(that))
+      c: DFVal.Compare[T @uncheckedVariance, es.Out, ir.DFVal.Func.Op.===.type]
+  ): DFBool <> VAL = c(this, es(that))
+  inline def !=[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
+      c: DFVal.Compare[T @uncheckedVariance, es.Out, ir.DFVal.Func.Op.=!=.type]
+  ): DFBool <> VAL = c(this, es(that))
 object DFVal:
   final val Modifier = DFiant.compiler.ir.DFVal.Modifier
   export DFBits.Val.Conversions.given
