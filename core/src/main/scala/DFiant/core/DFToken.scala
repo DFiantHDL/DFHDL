@@ -35,7 +35,7 @@ object DFToken:
   end TC
 
   @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
-  trait Compare[T <: DFType, -V, Op <: DFVal.Func.Op]:
+  trait Compare[T <: DFType, -V, Op <: ir.DFVal.Func.Op]:
     def apply(token: Of[T], arg: V): Of[DFBool]
   object Compare:
     export DFDecimal.Token.Compare.given

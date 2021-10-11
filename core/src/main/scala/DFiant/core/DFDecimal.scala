@@ -391,7 +391,7 @@ object DFXInt:
 
     object Compare:
       import DFToken.Compare
-      given [LS <: Boolean, LW <: Int, R, Op <: DFVal.Func.Op](using
+      given [LS <: Boolean, LW <: Int, R, Op <: ir.DFVal.Func.Op](using
           ic: Candidate[R]
       )(using
           check: `VS == RS`.Check[LS, ic.OutS],
@@ -532,7 +532,7 @@ object DFXInt:
 
     object Compare:
       import DFVal.Compare
-      given [LS <: Boolean, LW <: Int, R, Op <: DFVal.Func.Op](using
+      given [LS <: Boolean, LW <: Int, R, Op <: ir.DFVal.Func.Op](using
           ic: Candidate[R],
           dfc: DFC
       )(using
@@ -580,7 +580,7 @@ object DFXInt:
             rhs: DFXInt[RS, RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
-            eq: DFVal.Compare[DFXInt[RS, RW], es.Out, DFVal.Func.Op.===.type]
+            eq: DFVal.Compare[DFXInt[RS, RW], es.Out, ir.DFVal.Func.Op.===.type]
         ): DFBool <> VAL = eq(rhs, es(lhs))
       end extension
       extension [L](inline lhs: L)

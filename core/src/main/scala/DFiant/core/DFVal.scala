@@ -11,7 +11,7 @@ class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
   inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      eq: DFVal.Compare[T @uncheckedVariance, es.Out, DFVal.Func.Op.===.type]
+      eq: DFVal.Compare[T @uncheckedVariance, es.Out, ir.DFVal.Func.Op.===.type]
   ): DFBool <> VAL = eq(this, es(that))
 object DFVal:
   final val Modifier = DFiant.compiler.ir.DFVal.Modifier
@@ -26,7 +26,7 @@ object DFVal:
   val TC = CompanionsDFVal.TC
   type TC[T <: DFType, -R] = CompanionsDFVal.TC[T, R]
   val Compare = CompanionsDFVal.Compare
-  type Compare[T <: DFType, -V, Op <: DFVal.Func.Op] =
+  type Compare[T <: DFType, -V, Op <: ir.DFVal.Func.Op] =
     CompanionsDFVal.Compare[T, V, Op]
   val Ops = CompanionsDFVal.Ops
 end DFVal
@@ -245,7 +245,7 @@ private object CompanionsDFVal:
   end TC
 
   @implicitNotFound("Cannot compare dataflow value of ${T} with value of ${V}")
-  trait Compare[T <: DFType, -V, Op <: Func.Op]:
+  trait Compare[T <: DFType, -V, Op <: ir.DFVal.Func.Op]:
     final protected def func(arg1: DFValAny, arg2: DFValAny)(using
         DFC,
         ValueOf[Op]
