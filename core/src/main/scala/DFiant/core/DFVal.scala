@@ -2,7 +2,7 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 import DFiant.compiler.ir.DFVal.Modifier
-
+import ir.DFVal.Func.{Op => FuncOp}
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
@@ -11,11 +11,12 @@ class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
   inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      c: DFVal.Compare[T @uncheckedVariance, es.Out, ir.DFVal.Func.Op.===.type]
+      c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false]
   ): DFBool <> VAL = c(this, es(that))
   inline def !=[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      c: DFVal.Compare[T @uncheckedVariance, es.Out, ir.DFVal.Func.Op.=!=.type]
+      c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.=!=.type, false]
   ): DFBool <> VAL = c(this, es(that))
+end DFVal
 object DFVal:
   final val Modifier = DFiant.compiler.ir.DFVal.Modifier
   export DFBits.Val.Conversions.given
@@ -29,8 +30,8 @@ object DFVal:
   val TC = CompanionsDFVal.TC
   type TC[T <: DFType, -R] = CompanionsDFVal.TC[T, R]
   val Compare = CompanionsDFVal.Compare
-  type Compare[T <: DFType, -V, Op <: ir.DFVal.Func.Op] =
-    CompanionsDFVal.Compare[T, V, Op]
+  type Compare[T <: DFType, -V, Op <: ir.DFVal.Func.Op, C <: Boolean] =
+    CompanionsDFVal.Compare[T, V, Op, C]
   val Ops = CompanionsDFVal.Ops
 end DFVal
 
@@ -248,12 +249,14 @@ private object CompanionsDFVal:
   end TC
 
   @implicitNotFound("Cannot compare dataflow value of ${T} with value of ${V}")
-  trait Compare[T <: DFType, -V, Op <: ir.DFVal.Func.Op]:
+  trait Compare[T <: DFType, -V, Op <: ir.DFVal.Func.Op, C <: Boolean]:
     final protected def func(arg1: DFValAny, arg2: DFValAny)(using
         DFC,
-        ValueOf[Op]
+        ValueOf[Op],
+        ValueOf[C]
     ): DFValOf[DFBool] =
-      DFVal.Func(DFBool, valueOf[Op], List(arg1, arg2))
+      val list = if (valueOf[C]) List(arg2, arg1) else List(arg1, arg2)
+      DFVal.Func(DFBool, valueOf[Op], list)
     def apply(dfVal: DFValOf[T], arg: V): DFValOf[DFBool]
   object Compare:
     export DFDecimal.Val.Compare.given

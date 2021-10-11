@@ -1,6 +1,7 @@
 package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
+import ir.DFVal.Func.{Op => FuncOp}
 
 import scala.quoted.*
 import scala.annotation.targetName
@@ -532,13 +533,15 @@ object DFXInt:
 
     object Compare:
       import DFVal.Compare
-      given [LS <: Boolean, LW <: Int, R, Op <: ir.DFVal.Func.Op](using
+      given [LS <: Boolean, LW <: Int, R, Op <: ir.DFVal.Func.Op, C <: Boolean](
+          using
           ic: Candidate[R],
           dfc: DFC
       )(using
           check: `VS == RS`.Check[LS, ic.OutS],
-          op: ValueOf[Op]
-      ): Compare[DFXInt[LS, LW], R, Op] with
+          op: ValueOf[Op],
+          castling: ValueOf[C]
+      ): Compare[DFXInt[LS, LW], R, Op, C] with
         def apply(dfVal: DFValOf[DFXInt[LS, LW]], arg: R): DFValOf[DFBool] =
           import Ops.resize
           import DFUInt.Val.Ops.signed
@@ -580,7 +583,7 @@ object DFXInt:
             rhs: DFXInt[RS, RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
-            eq: DFVal.Compare[DFXInt[RS, RW], es.Out, ir.DFVal.Func.Op.===.type]
+            eq: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.===.type, true]
         ): DFBool <> VAL = eq(rhs, es(lhs))
       end extension
       extension [L](inline lhs: L)
