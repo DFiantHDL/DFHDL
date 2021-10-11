@@ -1,5 +1,6 @@
 package DFiant.core
 import DFiant.compiler.ir
+import ir.DFVal.Func.{Op => FuncOp}
 import DFiant.internals.*
 import scala.quoted.*
 
@@ -140,7 +141,7 @@ object DFTuple:
           def apply(dfType: DFTuple[T], value: ValueOf[R]): DFValOf[TType] =
             val dfVals =
               zipper(dfType.fieldList, value.value.toList)
-            DFVal.Func(dfType, ir.DFVal.Func.Op.++, dfVals)(using dfc.anonymize)
+            DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
 
     end TC
   end Val

@@ -392,7 +392,7 @@ object DFXInt:
 
     object Compare:
       import DFToken.Compare
-      given [LS <: Boolean, LW <: Int, R, Op <: ir.DFVal.Func.Op](using
+      given [LS <: Boolean, LW <: Int, R, Op <: FuncOp](using
           ic: Candidate[R]
       )(using
           check: `VS == RS`.Check[LS, ic.OutS],
@@ -533,8 +533,7 @@ object DFXInt:
 
     object Compare:
       import DFVal.Compare
-      given [LS <: Boolean, LW <: Int, R, Op <: ir.DFVal.Func.Op, C <: Boolean](
-          using
+      given [LS <: Boolean, LW <: Int, R, Op <: FuncOp, C <: Boolean](using
           ic: Candidate[R],
           dfc: DFC
       )(using

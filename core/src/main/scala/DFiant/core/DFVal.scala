@@ -30,7 +30,7 @@ object DFVal:
   val TC = CompanionsDFVal.TC
   type TC[T <: DFType, -R] = CompanionsDFVal.TC[T, R]
   val Compare = CompanionsDFVal.Compare
-  type Compare[T <: DFType, -V, Op <: ir.DFVal.Func.Op, C <: Boolean] =
+  type Compare[T <: DFType, -V, Op <: FuncOp, C <: Boolean] =
     CompanionsDFVal.Compare[T, V, Op, C]
   val Ops = CompanionsDFVal.Ops
 end DFVal
@@ -114,13 +114,13 @@ private object CompanionsDFVal:
     export ir.DFVal.Func.Op
     def apply[T <: DFType](
         dfType: T,
-        op: ir.DFVal.Func.Op,
+        op: FuncOp,
         args: List[DFValAny]
     )(using DFC): DFValOf[T] = apply(dfType, op, args.map(_.asIR))
     @targetName("applyFromIR")
     def apply[T <: DFType](
         dfType: T,
-        op: ir.DFVal.Func.Op,
+        op: FuncOp,
         args: List[ir.DFVal]
     )(using DFC): DFValOf[T] =
       lazy val func: ir.DFVal = ir.DFVal.Func(
@@ -249,7 +249,7 @@ private object CompanionsDFVal:
   end TC
 
   @implicitNotFound("Cannot compare dataflow value of ${T} with value of ${V}")
-  trait Compare[T <: DFType, -V, Op <: ir.DFVal.Func.Op, C <: Boolean]:
+  trait Compare[T <: DFType, -V, Op <: FuncOp, C <: Boolean]:
     final protected def func(arg1: DFValAny, arg2: DFValAny)(using
         DFC,
         ValueOf[Op],

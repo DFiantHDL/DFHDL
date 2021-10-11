@@ -1,5 +1,6 @@
 package DFiant.core
 import DFiant.compiler.ir
+import ir.DFVal.Func.{Op => FuncOp}
 import DFiant.internals.*
 import scala.annotation.targetName
 import scala.quoted.*
@@ -499,7 +500,7 @@ private object CompanionsDFBits:
       extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
         protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
           val width = Inlined.forced[Int](iter.map(_.width.value).sum)
-          DFVal.Func(DFBits(width), ir.DFVal.Func.Op.++, iter.toList)
+          DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
       extension [W <: Int, M <: ir.DFVal.Modifier](
           lhs: DFVal[DFBits[W], M]
       )
@@ -547,7 +548,7 @@ private object CompanionsDFBits:
           check(num)
           DFVal.Func(
             DFBits(lhs.dfType.width * num),
-            ir.DFVal.Func.Op.++,
+            FuncOp.++,
             List.fill(num)(lhs)
           )
         def resize[RW <: Int](updatedWidth: Inlined[RW])(using

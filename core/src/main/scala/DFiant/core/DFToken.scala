@@ -1,6 +1,7 @@
 package DFiant.core
 import DFiant.compiler.printing.Printer
 import DFiant.compiler.ir
+import ir.DFVal.Func.{Op => FuncOp}
 import DFiant.internals.*
 
 import scala.quoted.*
@@ -35,7 +36,7 @@ object DFToken:
   end TC
 
   @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
-  trait Compare[T <: DFType, -V, Op <: ir.DFVal.Func.Op]:
+  trait Compare[T <: DFType, -V, Op <: FuncOp]:
     def apply(token: Of[T], arg: V): Of[DFBool]
   object Compare:
     export DFDecimal.Token.Compare.given
