@@ -220,8 +220,8 @@ private object CompanionsDFDecimal:
     object TC:
       export DFXInt.Token.TC.given
 
-    object Equals:
-      export DFXInt.Token.Equals.given
+    object Compare:
+      export DFXInt.Token.Compare.given
 
     object StrInterp:
       extension (inline sc: StringContext)
@@ -291,8 +291,8 @@ private object CompanionsDFDecimal:
         `LS >= RS`(dfType.signed, dfVal.dfType.signed)
         dfVal
     end TC
-    object Equals:
-      export DFXInt.Val.Equals.given
+    object Compare:
+      export DFXInt.Val.Compare.given
     object Ops:
       export DFXInt.Val.Ops.*
     object Conversions:
@@ -389,23 +389,33 @@ object DFXInt:
       end given
     end TC
 
-    object Equals:
-      import DFToken.Equals
-      given [LS <: Boolean, LW <: Int, R, NE <: Boolean](using
+    object Compare:
+      import DFToken.Compare
+      given [LS <: Boolean, LW <: Int, R, Op <: DFVal.Func.Op](using
           ic: Candidate[R]
       )(using
           check: `VS == RS`.Check[LS, ic.OutS],
-          ne: ValueOf[NE]
-      ): Equals[DFXInt[LS, LW], R, NE] with
+          op: ValueOf[Op]
+      ): Compare[DFXInt[LS, LW], R, Op] with
         def apply(token: Token[LS, LW], arg: R): DFBool <> TOKEN =
           val argToken = ic(arg)
           check(token.dfType.signed, argToken.dfType.signed)
           val outData = (token.data, argToken.data) match
-            case (Some(l), Some(r)) => Some(l == r ^ ne.value)
-            case _                  => None
+            case (Some(l), Some(r)) =>
+              import DFVal.Func.Op
+              op.value match
+                case Op.=== => Some(l == r)
+                case Op.=!= => Some(l != r)
+                case Op.<   => Some(l < r)
+                case Op.>   => Some(l > r)
+                case Op.<=  => Some(l <= r)
+                case Op.>=  => Some(l >= r)
+                case _ => throw new IllegalArgumentException("Unsupported Op")
+            case _ => None
           DFBoolOrBit.Token(DFBool, outData)
+        end apply
       end given
-    end Equals
+    end Compare
 
     object Ops:
       export DFUInt.Token.Ops.*
@@ -520,15 +530,15 @@ object DFXInt:
       end given
     end TC
 
-    object Equals:
-      import DFVal.Equals
-      given [LS <: Boolean, LW <: Int, R, NE <: Boolean](using
+    object Compare:
+      import DFVal.Compare
+      given [LS <: Boolean, LW <: Int, R, Op <: DFVal.Func.Op](using
           ic: Candidate[R],
           dfc: DFC
       )(using
           check: `VS == RS`.Check[LS, ic.OutS],
-          ne: ValueOf[NE]
-      ): Equals[DFXInt[LS, LW], R, NE] with
+          op: ValueOf[Op]
+      ): Compare[DFXInt[LS, LW], R, Op] with
         def apply(dfVal: DFValOf[DFXInt[LS, LW]], arg: R): DFValOf[DFBool] =
           import Ops.resize
           import DFUInt.Val.Ops.signed
@@ -544,7 +554,7 @@ object DFXInt:
           func(dfValResized, dfValArgResized)
         end apply
       end given
-    end Equals
+    end Compare
 
     object Ops:
       export DFUInt.Val.Ops.*
@@ -570,7 +580,7 @@ object DFXInt:
             rhs: DFXInt[RS, RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
-            eq: DFVal.Equals[DFXInt[RS, RW], es.Out, false]
+            eq: DFVal.Compare[DFXInt[RS, RW], es.Out, DFVal.Func.Op.===.type]
         ): DFBool <> VAL = eq(rhs, es(lhs))
       end extension
       extension [L](inline lhs: L)

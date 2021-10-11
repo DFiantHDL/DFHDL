@@ -11,7 +11,7 @@ class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
   inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      eq: DFVal.Equals[T @uncheckedVariance, es.Out, true]
+      eq: DFVal.Compare[T @uncheckedVariance, es.Out, DFVal.Func.Op.===.type]
   ): DFBool <> VAL = eq(this, es(that))
 object DFVal:
   final val Modifier = DFiant.compiler.ir.DFVal.Modifier
@@ -25,8 +25,9 @@ object DFVal:
   val Alias = CompanionsDFVal.Alias
   val TC = CompanionsDFVal.TC
   type TC[T <: DFType, -R] = CompanionsDFVal.TC[T, R]
-  val Equals = CompanionsDFVal.Equals
-  type Equals[T <: DFType, -V, NE <: Boolean] = CompanionsDFVal.Equals[T, V, NE]
+  val Compare = CompanionsDFVal.Compare
+  type Compare[T <: DFType, -V, Op <: DFVal.Func.Op] =
+    CompanionsDFVal.Compare[T, V, Op]
   val Ops = CompanionsDFVal.Ops
 end DFVal
 
@@ -244,16 +245,15 @@ private object CompanionsDFVal:
   end TC
 
   @implicitNotFound("Cannot compare dataflow value of ${T} with value of ${V}")
-  trait Equals[T <: DFType, -V, NE <: Boolean]:
+  trait Compare[T <: DFType, -V, Op <: Func.Op]:
     final protected def func(arg1: DFValAny, arg2: DFValAny)(using
         DFC,
-        ValueOf[NE]
+        ValueOf[Op]
     ): DFValOf[DFBool] =
-      val op = if (valueOf[NE]) DFVal.Func.Op.!= else DFVal.Func.Op.==
-      DFVal.Func(DFBool, op, List(arg1, arg2))
+      DFVal.Func(DFBool, valueOf[Op], List(arg1, arg2))
     def apply(dfVal: DFValOf[T], arg: V): DFValOf[DFBool]
-  object Equals:
-    export DFDecimal.Val.Equals.given
+  object Compare:
+    export DFDecimal.Val.Compare.given
 
 //  object Conversions:
 //    implicit transparent inline def fromArg[T <: DFType, R](
