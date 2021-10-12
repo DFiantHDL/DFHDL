@@ -2,4 +2,5 @@ package DFiant.internals
 
 trait Id[T]:
   type Out = T
-given [T]: Id[T] with {}
+object Id:
+  given [T]: Id[T] = new Id[T] {}

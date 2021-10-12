@@ -73,14 +73,14 @@ private object CompanionsDFDecimal:
           [LW <: Int, RW <: Int] =>> "The applied value width (" + RW +
             ") is larger than the variable width (" + LW + ")."
         ]
-    object `VW == RW`
+    object `LW == RW`
         extends Check2[
           Int,
           Int,
-          [VW <: Int, RW <: Int] =>> VW == RW,
-          [VW <: Int,
-          RW <: Int] =>> "Cannot compare different width values (" + VW +
-            " != " + RW + ").\nAn explicit conversion must be applied."
+          [LW <: Int, RW <: Int] =>> LW == RW,
+          [LW <: Int,
+          RW <: Int] =>> "Cannot compare a value of " + LW + " bits width (LHS) to a value of " +
+            RW + " bits width (RHS).\nAn explicit conversion must be applied."
         ]
     object `LS >= RS`
         extends Check2[
@@ -97,6 +97,16 @@ private object CompanionsDFDecimal:
           [LS <: Boolean, RS <: Boolean] =>> LS == RS,
           [LS <: Boolean,
           RS <: Boolean] =>> "Cannot compare a signed value to an unsigned value.\nAn explicit conversion must be applied."
+        ]
+    type SignStr[S <: Boolean] = ITE[S, "a signed", "an unsigned"]
+    object `LS == RS`
+        extends Check2[
+          Boolean,
+          Boolean,
+          [LS <: Boolean, RS <: Boolean] =>> LS == RS,
+          [LS <: Boolean, RS <: Boolean] =>> "Cannot compare " + SignStr[LS] +
+            " value (LHS) to " + SignStr[RS] +
+            " value (RHS).\nAn explicit conversion must be applied."
         ]
     trait TCCheck[LS <: Boolean, LW <: Int, RS <: Boolean, RW <: Int]:
       def apply(
@@ -143,22 +153,37 @@ private object CompanionsDFDecimal:
         ArgIsInt <: Boolean,
         Castle <: Boolean
     ](using
-        ls: Id[ITE[Castle, ArgS, ValS]],
-        rs: Id[ITE[Castle, ValS, ArgS]],
-        skipChecks: Id[ArgIsInt && (ValS || ![ArgS])],
-        rw: Id[ITE[ArgIsInt && ValS && ![ArgS], ArgW + 1, ArgW]]
+        argWFix: Id[ITE[ArgIsInt && ValS && ![ArgS], ArgW + 1, ArgW]],
+        skipChecks: Id[ArgIsInt && (ValS || ![ArgS])]
     )(using
-        checkS: `VS == RS`.Check[ValS, ITE[ArgIsInt, ValS, ArgS]],
-        checkW: `VW == RW`.Check[ValW, ITE[ArgIsInt, ValW, ArgW]],
-        rInt: ValueOf[ArgIsInt],
-        castling: ValueOf[Castle]
+        ls: Id[ITE[Castle, ArgS, ValS]],
+        rs: Id[ITE[Castle ^ skipChecks.Out, ValS, ArgS]],
+        lw: Id[ITE[Castle, argWFix.Out, ValW]],
+        rw: Id[ITE[Castle ^ skipChecks.Out, ValW, argWFix.Out]]
+    )(using
+        checkS: `LS == RS`.Check[ls.Out, rs.Out],
+        checkW: `LW == RW`.Check[lw.Out, rw.Out],
+        argIsInt: ValueOf[ArgIsInt],
+        castle: ValueOf[Castle]
     ): CompareCheck[ValS, ValW, ArgS, ArgW, ArgIsInt, Castle] with
       def apply(
           dfValSigned: Boolean,
           dfValWidth: Int,
           argSigned: Boolean,
           argWidth: Int
-      ): Unit = {}
+      ): Unit =
+        val skipChecks = argIsInt.value && (dfValSigned || !argSigned)
+        if (!skipChecks)
+          val argWFix =
+            if (argIsInt.value && dfValSigned && !argSigned) argWidth + 1
+            else argWidth
+          val ls = if (castle) argSigned else dfValSigned
+          val rs = if (castle) dfValSigned else argSigned
+          checkS(ls, rs)
+          val lw = if (castle) argWFix else dfValWidth
+          val rw = if (castle) dfValWidth else argWFix
+          checkW(lw, rw)
+      end apply
     end given
   end Constraints
 
@@ -550,7 +575,7 @@ object DFXInt:
           ic: Candidate[R],
           dfc: DFC
       )(using
-          check: `VS == RS`.Check[LS, ic.OutS],
+          check: CompareCheck[LS, LW, ic.OutS, ic.OutW, ic.IsScalaInt, C],
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFXInt[LS, LW], R, Op, C] with
@@ -558,7 +583,12 @@ object DFXInt:
           import Ops.resize
           import DFUInt.Val.Ops.signed
           val dfValArg = ic(arg)
-          check(dfVal.dfType.signed, dfValArg.dfType.signed)
+          check(
+            dfVal.dfType.signed,
+            dfVal.dfType.width,
+            dfValArg.dfType.signed,
+            dfValArg.dfType.width
+          )
           val maxWidth = dfVal.width max dfValArg.width
           val dfValResized =
             if (dfVal.width < dfValArg.width) dfVal.resize(maxWidth)

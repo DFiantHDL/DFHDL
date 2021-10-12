@@ -229,19 +229,24 @@ class DFDecimalSpec extends DFSpec:
       )
     }
   }
-  test("Addition/Subtraction") {
-    val x = DFUInt(8) <> VAR
-    val y = DFSInt(8) <> VAR
-//    x + y
-//    x.bits + y
-//    1000 + y
-//    x + 1
-//    x + y.bits
-//    x + d"12"
-//    d"1200" + y
-//    d"1200" == d"100"
-//    val zzz = 1 === y
-//    val zz = sd"100"
-    val z = x == 100
+  test("Comparison") {
+    val u8 = DFUInt(8) <> VAR
+    val u7 = DFUInt(7) <> VAR
+    u8 == u8
+//    u8 == u7
+    u8 == 0
+    val v = 1
+    u8 === v
+//    assertDSLError(
+//      """Cannot compare an unsigned value (LHS) to a signed value (RHS).
+//        |An explicit conversion must be applied.
+//        |""".stripMargin
+//    )(
+//      """u8 == -1"""
+//    ) {
+//      val value = 1
+//      u8 == value
+//    }
+
   }
 end DFDecimalSpec
