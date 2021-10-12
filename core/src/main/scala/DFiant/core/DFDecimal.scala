@@ -122,11 +122,12 @@ private object CompanionsDFDecimal:
         )
     end given
     trait CompareCheck[
-        VS <: Boolean,
-        VW <: Int,
-        RS <: Boolean,
-        RW <: Int,
-        RInt <: Boolean
+        ValS <: Boolean,
+        ValW <: Int,
+        ArgS <: Boolean,
+        ArgW <: Int,
+        ArgIsInt <: Boolean, //argument is from a Scala Int
+        Castle <: Boolean //castling of dfVal and arg
     ]:
       def apply(
           dfValSigned: Boolean,
@@ -134,12 +135,24 @@ private object CompanionsDFDecimal:
           argSigned: Boolean,
           argWidth: Int
       ): Unit
-    given [VS <: Boolean, VW <: Int, RS <: Boolean, RW <: Int, RInt <: Boolean](
-        using
-        checkS: `VS == RS`.Check[VS, ITE[RInt, VS, RS]],
-        checkW: `VW == RW`.Check[VW, ITE[RInt, VW, RW]],
-        rInt: ValueOf[RInt]
-    ): CompareCheck[VS, VW, RS, RW, RInt] with
+    given [
+        ValS <: Boolean,
+        ValW <: Int,
+        ArgS <: Boolean,
+        ArgW <: Int,
+        ArgIsInt <: Boolean,
+        Castle <: Boolean
+    ](using
+        ls: Id[ITE[Castle, ArgS, ValS]],
+        rs: Id[ITE[Castle, ValS, ArgS]],
+        skipChecks: Id[ArgIsInt && (ValS || ![ArgS])],
+        rw: Id[ITE[ArgIsInt && ValS && ![ArgS], ArgW + 1, ArgW]]
+    )(using
+        checkS: `VS == RS`.Check[ValS, ITE[ArgIsInt, ValS, ArgS]],
+        checkW: `VW == RW`.Check[ValW, ITE[ArgIsInt, ValW, ArgW]],
+        rInt: ValueOf[ArgIsInt],
+        castling: ValueOf[Castle]
+    ): CompareCheck[ValS, ValW, ArgS, ArgW, ArgIsInt, Castle] with
       def apply(
           dfValSigned: Boolean,
           dfValWidth: Int,

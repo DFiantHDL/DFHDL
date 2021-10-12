@@ -10,8 +10,7 @@ val DFBits = OpaqueDFBits.DFBits
 //export OpaqueDFBits.DFBits
 
 private object OpaqueDFBits:
-  opaque type DFBits[W <: Int] <: DFType.Of[DFiant.compiler.ir.DFBits] =
-    DFType.Of[DFiant.compiler.ir.DFBits]
+  opaque type DFBits[W <: Int] <: DFType.Of[ir.DFBits] = DFType.Of[ir.DFBits]
   object DFBits:
     def apply[W <: Int](width: Inlined[W])(using
         check: Arg.Width.Check[W]
@@ -30,7 +29,6 @@ private object OpaqueDFBits:
   end DFBits
 end OpaqueDFBits
 
-//TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
 private object CompanionsDFBits:
   protected object `AW == TW`
       extends Check2[
@@ -58,7 +56,6 @@ private object CompanionsDFBits:
       ]
 
   type Token[W <: Int] = DFToken.Of[DFBits[W]]
-  //TODO: remove after https://github.com/lampepfl/dotty/issues/12927 is fixed
   object Token:
     protected[core] def apply[W <: Int](
         dfType: DFBits[W],
@@ -117,25 +114,18 @@ private object CompanionsDFBits:
             [W <: Int, VW <: Int] =>> "The token width (" + VW +
               ") is different than the DFType width (" + W + ")."
           ]
-      //TODO: instead of DFToken.Of[DFBits[VW]] use DFBits[VW] <> TOKEN
-      //Currently (Aug 27th 2021) it causes an issue for summoning a token TC
-      //from a tuple: `val t1 = (DFBits(8), DFBits(8)) token (h"11", b"10010110")`
-      //The issue goes away when we get rid of the match type `<>` or
-      //if we change `given ... with` into `transparent inline given`.
-      //Recheck after match type issues are resolved:
-      //https://github.com/lampepfl/dotty/issues/13377
-      //https://github.com/lampepfl/dotty/issues/12944
+
       given DFBitsTokenFromDFBitsToken[W <: Int, VW <: Int](using
           check: `W == VW`.Check[W, VW]
-      ): TC[DFBits[W], DFToken.Of[DFBits[VW]]] with
-        def apply(dfType: DFBits[W], value: DFToken.Of[DFBits[VW]]): Out =
+      ): TC[DFBits[W], DFBits[VW] <> TOKEN] with
+        def apply(dfType: DFBits[W], value: DFBits[VW] <> TOKEN): Out =
           check(dfType.width, value.asIR.width)
           value.asInstanceOf[Out]
 
       given DFBitsTokenFromDFUIntToken[W <: Int, VW <: Int](using
           check: `W == VW`.Check[W, VW]
-      ): TC[DFBits[W], DFToken.Of[DFUInt[VW]]] with
-        def apply(dfType: DFBits[W], value: DFToken.Of[DFUInt[VW]]): Out =
+      ): TC[DFBits[W], DFUInt[VW] <> TOKEN] with
+        def apply(dfType: DFBits[W], value: DFUInt[VW] <> TOKEN): Out =
           import DFToken.Ops.bits
           check(dfType.width, value.asIR.width)
           value.bits.asInstanceOf[Out]

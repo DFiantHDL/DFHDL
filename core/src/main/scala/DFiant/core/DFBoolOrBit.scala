@@ -7,10 +7,8 @@ type DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
 val DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
 
 private object OpaqueDFBoolOrBit:
-  //TODO: simplify after https://github.com/lampepfl/dotty/issues/13120 is fixed
-  opaque type DFBoolOrBit <: DFType.Of[
-    DFiant.compiler.ir.DFBoolOrBit
-  ] = DFType.Of[DFiant.compiler.ir.DFBoolOrBit]
+  opaque type DFBoolOrBit <: DFType.Of[ir.DFBoolOrBit] =
+    DFType.Of[ir.DFBoolOrBit]
   object DFBoolOrBit:
     type Token = CompanionsDFBoolOrBit.Token
     val Token = CompanionsDFBoolOrBit.Token
