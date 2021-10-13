@@ -232,21 +232,60 @@ class DFDecimalSpec extends DFSpec:
   test("Comparison") {
     val u8 = DFUInt(8) <> VAR
     val u7 = DFUInt(7) <> VAR
-    u8 == u8
-//    u8 == u7
-    u8 == 0
-    val v = 1
-    u8 === v
-//    assertDSLError(
-//      """Cannot compare an unsigned value (LHS) to a signed value (RHS).
-//        |An explicit conversion must be applied.
-//        |""".stripMargin
-//    )(
-//      """u8 == -1"""
-//    ) {
-//      val value = 1
-//      u8 == value
-//    }
+    val s8 = DFSInt(8) <> VAR
+    val b8 = DFBits(8) <> VAR
+    assertCodeString {
+      "testy"
+    } {
+      val t1 = u8 == u8
+      val t2 = u8 == 0
+      val t3 = 0 === u8
+      val t4 = u8 == d"8'12"
+      val t5 = u8 == h"FF"
+      val t6 = u8 == b8
+    }
+
+    assertDSLError(
+      """Cannot compare a value of 8 bits width (LHS) to a value of 7 bits width (RHS).
+        |An explicit conversion must be applied.
+        |""".stripMargin
+    )(
+      """u8 == u7"""
+    ) {
+      val value = 7
+      val u7 = DFUInt(value) <> VAR
+      u8 == u7
+    }
+    assertDSLError(
+      """Cannot compare an unsigned value (LHS) to a signed value (RHS).
+        |An explicit conversion must be applied.
+        |""".stripMargin
+    )(
+      """u8 == -1"""
+    ) {
+      val value = -1
+      u8 == value
+    }
+    assertDSLError(
+      """Cannot compare a signed value (LHS) to an unsigned value (RHS).
+        |An explicit conversion must be applied.
+        |""".stripMargin
+    )(
+      """-1 === u8"""
+    ) {
+      val value = -1
+      value === u8
+    }
+    assertDSLError(
+      """Cannot compare a dataflow value (width = 8) with a Scala `Int` argument that is wider (width = 10).
+        |An explicit conversion must be applied.
+        |""".stripMargin
+    )(
+      """u8 == 1000"""
+    ) {
+      val value = 1000
+      u8 == value
+    }
 
   }
 end DFDecimalSpec

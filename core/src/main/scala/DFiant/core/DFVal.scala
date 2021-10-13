@@ -13,9 +13,6 @@ class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
   inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
       c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false]
   ): DFBool <> VAL = c(this, es(that))
-  inline def ===[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false]
-  ): DFBool <> VAL = ??? //c(this, es(that))
   inline def !=[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
       c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.=!=.type, false]
   ): DFBool <> VAL = c(this, es(that))

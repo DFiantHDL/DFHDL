@@ -82,6 +82,15 @@ private object CompanionsDFDecimal:
           RW <: Int] =>> "Cannot compare a value of " + LW + " bits width (LHS) to a value of " +
             RW + " bits width (RHS).\nAn explicit conversion must be applied."
         ]
+    object `ValW >= ArgW`
+        extends Check2[
+          Int,
+          Int,
+          [ValW <: Int, ArgW <: Int] =>> ValW >= ArgW,
+          [ValW <: Int,
+          ArgW <: Int] =>> "Cannot compare a dataflow value (width = " + ValW +
+            ") with a Scala `Int` argument that is wider (width = " + ArgW + ").\nAn explicit conversion must be applied."
+        ]
     object `LS >= RS`
         extends Check2[
           Boolean,
@@ -104,8 +113,10 @@ private object CompanionsDFDecimal:
           Boolean,
           Boolean,
           [LS <: Boolean, RS <: Boolean] =>> LS == RS,
-          [LS <: Boolean, RS <: Boolean] =>> "Cannot compare " + SignStr[LS] +
-            " value (LHS) to " + SignStr[RS] +
+          [LS <: Boolean, RS <: Boolean] =>> "Cannot compare " +
+            ITE[LS, "a signed", "an unsigned"] +
+            " value (LHS) to " +
+            ITE[RS, "a signed", "an unsigned"] +
             " value (RHS).\nAn explicit conversion must be applied."
         ]
     trait TCCheck[LS <: Boolean, LW <: Int, RS <: Boolean, RW <: Int]:
@@ -163,6 +174,7 @@ private object CompanionsDFDecimal:
     )(using
         checkS: `LS == RS`.Check[ls.Out, rs.Out],
         checkW: `LW == RW`.Check[lw.Out, rw.Out],
+        checkVAW: `ValW >= ArgW`.Check[ValW, ITE[ArgIsInt, argWFix.Out, 0]],
         argIsInt: ValueOf[ArgIsInt],
         castle: ValueOf[Castle]
     ): CompareCheck[ValS, ValW, ArgS, ArgW, ArgIsInt, Castle] with
@@ -173,10 +185,11 @@ private object CompanionsDFDecimal:
           argWidth: Int
       ): Unit =
         val skipChecks = argIsInt.value && (dfValSigned || !argSigned)
+        val argWFix =
+          if (argIsInt.value && dfValSigned && !argSigned) argWidth + 1
+          else argWidth
+        if (argIsInt) checkVAW(dfValWidth, argWFix)
         if (!skipChecks)
-          val argWFix =
-            if (argIsInt.value && dfValSigned && !argSigned) argWidth + 1
-            else argWidth
           val ls = if (castle) argSigned else dfValSigned
           val rs = if (castle) dfValSigned else argSigned
           checkS(ls, rs)
