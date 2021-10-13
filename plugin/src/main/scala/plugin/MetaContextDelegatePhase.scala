@@ -21,13 +21,13 @@ import scala.language.implicitConversions
 import collection.mutable
 import annotation.tailrec
 
-class MetaContextDelegatePhase(setting: Setting) extends CommonPhase {
+class MetaContextDelegatePhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "MetaContextDelegate"
 
-  override val runsAfter = Set(transform.Pickler.name)
-  override val runsBefore = Set("MetaContextGen")
+  override val runsAfter = Set("MetaContextGen")
+  override val runsBefore = Set(transform.FirstTransform.name)
   val ignore = mutable.Set.empty[String]
 
   override def transformApply(tree: Apply)(using Context): Tree =
@@ -47,5 +47,4 @@ class MetaContextDelegatePhase(setting: Setting) extends CommonPhase {
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     ctx
-
-}
+end MetaContextDelegatePhase

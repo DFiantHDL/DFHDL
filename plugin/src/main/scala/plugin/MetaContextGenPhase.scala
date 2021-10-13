@@ -28,8 +28,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 //    _.contains("PluginSpec.scala")
   val phaseName = "MetaContextGen"
 
-  override val runsAfter = Set("MetaContextDelegate")
-  override val runsBefore = Set(transform.FirstTransform.name)
+  override val runsAfter = Set(transform.Pickler.name)
+  override val runsBefore = Set("MetaContextDelegate")
   var positionCls: ClassSymbol = _
   var metaContextCls: ClassSymbol = _
   var setMetaSym: Symbol = _

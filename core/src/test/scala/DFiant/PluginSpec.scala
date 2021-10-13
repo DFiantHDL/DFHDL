@@ -60,7 +60,7 @@ class PluginSpec extends DFSpec:
     val internalFoo = new Internal.Foo(1, 2)
     val nb1 = newBar setName "NB1"
     val nb2 = newBar
-    assertLastNames("internalFoo", "nb1", "nb2")
+    assertLastNames("internalFoo", "NB1", "nb2")
     val plus = nb1 + nb2
     assertLastNames("plus")
     val plus3 = nb1 + nb2 + nb1
