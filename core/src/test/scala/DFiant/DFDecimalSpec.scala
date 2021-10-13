@@ -234,16 +234,16 @@ class DFDecimalSpec extends DFSpec:
     val u7 = DFUInt(7) <> VAR
     val s8 = DFSInt(8) <> VAR
     val b8 = DFBits(8) <> VAR
-    assertCodeString {
-      "testy"
-    } {
-      val t1 = u8 == u8
-      val t2 = u8 == 0
-      val t3 = 0 === u8
-      val t4 = u8 == d"8'12"
-      val t5 = u8 == h"FF"
-      val t6 = u8 == b8
-    }
+//    assertCodeString {
+//      "testy"
+//    } {
+//      val t1 = u8 == u8
+//      val t2 = u8 == 0
+//      val t3 = 0 === u8
+//      val t4 = u8 == d"8'12"
+//      val t5 = u8 == h"FF"
+//      val t6 = u8 == b8
+//    }
 
     assertDSLError(
       """Cannot compare a value of 8 bits width (LHS) to a value of 7 bits width (RHS).

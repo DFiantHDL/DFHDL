@@ -43,7 +43,6 @@ class PluginSpec extends FunSuite, AllowTopLevel:
     object FooObj extends Foo(1, 2):
       new Bar
       val insiderObj = new Bar
-    FooObj.hashCode()
     assertLastNames("FooObj", "", "insiderObj")
     case object FooCaseObj extends Foo(1, 2)
 
