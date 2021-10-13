@@ -23,6 +23,9 @@ given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
 abstract class CommonPhase extends PluginPhase:
   import tpd._
   val debugFilter: String => Boolean = _ => false
+  def pluginPrint(tree: Tree, str: Any): Unit =
+    if (tree.source.path.toString.contains("PluginSpec.scala"))
+      println(str)
   var metaContextTpe: TypeRef = _
   extension (clsSym: Symbol)
     def inherits(parentFullName: String)(using Context): Boolean =
@@ -99,3 +102,4 @@ abstract class CommonPhase extends PluginPhase:
       )
       println(tree.show)
     tree
+end CommonPhase

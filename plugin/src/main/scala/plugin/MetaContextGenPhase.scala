@@ -21,10 +21,11 @@ import scala.language.implicitConversions
 import collection.mutable
 import annotation.tailrec
 
-class MetaContextGenPhase(setting: Setting) extends CommonPhase {
+class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-//  override val show: Boolean = true
+//  override val debugFilter: String => Boolean =
+//    _.contains("PluginSpec.scala")
   val phaseName = "MetaContextGen"
 
   override val runsAfter = Set("MetaContextDelegate")
@@ -84,7 +85,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
       sym.fullName.toString.replace("._$", ".")
 
   extension (name: String)
-    def nameCheck(posTree: Tree)(using Context): String = {
+    def nameCheck(posTree: Tree)(using Context): String =
       val finalName = posTree.symbol.annotations
         .collectFirst {
           case ann
@@ -100,7 +101,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
           posTree.srcPos
         )
       finalName
-    }
 
   override def transformApply(tree: Apply)(using Context): Tree =
     given CanEqual[Tree, Tree] = CanEqual.derived
@@ -139,8 +139,10 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
               tree
             case _ => //Anonymous
               tree.replaceArg(argTree, argTree.setMeta(None, tree))
+          end match
         case _ => tree
     else tree
+  end transformApply
 
   val localPattern = "\\<local (.*)\\$\\>".r
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
@@ -177,6 +179,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
         template.parents.foreach(p => treeOwnerMap += (p.unique -> ownerTree))
       case block: Block => nameValOrDef(block.expr, ownerTree)
       case _            =>
+  end nameValOrDef
 
   def addContextDef(tree: Tree)(using Context): Unit =
     val defdefTree = tree match
@@ -233,5 +236,4 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase {
     lateConstructionTpe = requiredClassRef("DFiant.internals.LateConstruction")
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     ctx
-
-}
+end MetaContextGenPhase
