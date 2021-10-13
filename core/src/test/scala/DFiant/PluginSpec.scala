@@ -83,9 +83,6 @@ class PluginSpec extends DFSpec:
     assertLastNames("fooCC", "fooNewCC")
   end Top
 
-  //  given ctx: DFC = ???
-  //    DFC(Some("top"), Position.unknown, false, None, Position.unknown)
-
   val top = new Top
   assertLastNames("top")
 end PluginSpec
