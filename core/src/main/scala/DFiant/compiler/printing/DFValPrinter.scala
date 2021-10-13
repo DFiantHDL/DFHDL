@@ -55,14 +55,16 @@ protected trait DFValPrinter extends AbstractPrinter:
       case (DFSInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
         s"${relValStr}.sint"
+      case (DFBits(tWidth), DFBits(_)) =>
+        s"${relValStr}.resize($tWidth)"
       case (DFBits(tWidth), _) =>
         assert(tWidth == fromType.width)
         s"${relValStr}.bits"
-      case (DFUInt(tWidth), DFUInt(fWidth)) =>
+      case (DFUInt(tWidth), DFUInt(_)) =>
         s"${relValStr}.resize($tWidth)"
-      case (DFSInt(tWidth), DFSInt(fWidth)) =>
+      case (DFSInt(tWidth), DFSInt(_)) =>
         s"${relValStr}.resize($tWidth)"
-      case (_, DFBits(fWidth)) =>
+      case (_, DFBits(_)) =>
         s"${relValStr}.as(${printer.csDFType(toType)})"
       case _ =>
         throw new IllegalArgumentException("Unsupported alias/conversion")

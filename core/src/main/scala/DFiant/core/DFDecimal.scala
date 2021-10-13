@@ -585,14 +585,15 @@ object DFXInt:
     object Compare:
       import DFVal.Compare
       given [LS <: Boolean, LW <: Int, R, Op <: FuncOp, C <: Boolean](using
-          ic: Candidate[R],
-          dfc: DFC
+          ic: Candidate[R]
       )(using
           check: CompareCheck[LS, LW, ic.OutS, ic.OutW, ic.IsScalaInt, C],
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFXInt[LS, LW], R, Op, C] with
-        def apply(dfVal: DFValOf[DFXInt[LS, LW]], arg: R): DFValOf[DFBool] =
+        def apply(dfVal: DFValOf[DFXInt[LS, LW]], arg: R)(using
+            DFC
+        ): DFValOf[DFBool] =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           val dfValArg = ic(arg)

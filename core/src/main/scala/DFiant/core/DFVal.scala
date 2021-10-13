@@ -11,10 +11,12 @@ class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
   inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false]
+      c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false],
+      dfc: DFC
   ): DFBool <> VAL = c(this, es(that))
   inline def !=[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.=!=.type, false]
+      c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.=!=.type, false],
+      dfc: DFC
   ): DFBool <> VAL = c(this, es(that))
 end DFVal
 object DFVal:
@@ -257,7 +259,7 @@ private object CompanionsDFVal:
     ): DFValOf[DFBool] =
       val list = if (valueOf[C]) List(arg2, arg1) else List(arg1, arg2)
       DFVal.Func(DFBool, valueOf[Op], list)
-    def apply(dfVal: DFValOf[T], arg: V): DFValOf[DFBool]
+    def apply(dfVal: DFValOf[T], arg: V)(using DFC): DFValOf[DFBool]
   object Compare:
     export DFDecimal.Val.Compare.given
 
