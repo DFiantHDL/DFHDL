@@ -97,7 +97,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         report.error(
           s"""Unsupported DSL member name $finalName.
            |Only alphanumric or underscore characters are supported.
-           |You can leave the Scala name as-is and add @targetName("newName") annotation""".stripMargin,
+           |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin,
           posTree.srcPos
         )
       finalName
