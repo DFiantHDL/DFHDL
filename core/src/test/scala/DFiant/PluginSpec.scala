@@ -5,7 +5,7 @@ import scala.annotation.targetName
 
 class PluginSpec extends DFSpec:
   var nameStack: List[Option[String]] = Nil
-  var posStack: List[Position] = Nil
+  var posStack: Set[Position] = Set()
   def assertLastNames(names: String*): Unit =
     assertEquals(
       nameStack,
@@ -13,10 +13,10 @@ class PluginSpec extends DFSpec:
     )
     nameStack = Nil
   def clearNameStack(): Unit = nameStack = Nil
-  def clearPosStack(): Unit = posStack = Nil
-  def getLastPos : List[Position] =
+  def clearPosStack(): Unit = posStack = Set()
+  def getLastPos: Set[Position] =
     val ret = posStack
-    posStack = Nil
+    posStack = Set()
     ret
 
   val fileName = new Throwable().getStackTrace().head.getFileName
@@ -25,11 +25,11 @@ class PluginSpec extends DFSpec:
     val pos = ctx.position
     assert(pos.file.endsWith(fileName))
     def +(that: Bar)(using DFC): Bar = new Plus(this, that)
-    def -(that: Bar)(using DFC): Bar = new Plus(this, that)
+    inline def -(that: Bar)(using DFC): Bar = new Plus(this, that)
 
     override def onCreateEnd: Unit =
       nameStack = ctx.nameOpt :: nameStack
-      posStack = ctx.position :: posStack
+      posStack = posStack + ctx.position
 
   class Plus(lhs: Bar, rhs: Bar)(using DFC) extends Bar
 
@@ -37,8 +37,16 @@ class PluginSpec extends DFSpec:
   val pls3Pos = getLastPos
   val min3 = new Bar - new Bar - new Bar
   val min3Pos = getLastPos
-  assertEquals(pls3Pos, min3Pos.map(_.copy(lineStart = 36, lineEnd = 36)))
   clearNameStack()
+  assertEquals(
+    pls3Pos,
+    min3Pos.map(
+      _.copy(
+        lineStart = pls3Pos.head.lineStart,
+        lineEnd = pls3Pos.head.lineStart
+      )
+    )
+  )
 
   extension (bar: Bar)(using DFC) def ++(that: Bar): Bar = new Plus(bar, that)
 
