@@ -1,22 +1,20 @@
 package DFiant.plugin
 
-import dotty.tools.dotc._
-
-import plugins._
-
-import core._
-import Contexts._
-import Symbols._
-import Flags._
-import SymDenotations._
-
-import Decorators._
-import ast.Trees._
+import dotty.tools.dotc.*
+import plugins.*
+import core.*
+import Contexts.*
+import Symbols.*
+import Flags.*
+import SymDenotations.*
+import Decorators.*
+import ast.Trees.*
 import ast.tpd
 import StdNames.nme
-import Names._
+import Names.*
 import Constants.Constant
-import Types._
+import Types.*
+
 import scala.language.implicitConversions
 import collection.mutable
 import annotation.tailrec
@@ -24,8 +22,8 @@ import annotation.tailrec
 class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-//  override val debugFilter: String => Boolean =
-//    _.contains("PluginSpec.scala")
+  override val debugFilter: String => Boolean =
+    _.contains("PluginSpec.scala")
   val phaseName = "MetaContextGen"
 
   override val runsAfter = Set(transform.Pickler.name)
@@ -35,10 +33,21 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var setMetaSym: Symbol = _
   var lateConstructionTpe: TypeRef = _
   val treeOwnerMap = mutable.Map.empty[String, Tree]
-  val inlinedSrcMap = mutable.Map.empty[String, util.SrcPos]
   val contextDefs = mutable.Map.empty[String, Tree]
   val ignore = mutable.Set.empty[String]
   var clsStack = List.empty[TypeDef]
+  var inlinedOwnerStack = List.empty[(Tree, Inlined)]
+
+  extension (tree: Tree)(using Context)
+    def inlinedPos: util.SrcPos =
+      inlinedOwnerStack.headOption match
+        case Some(t, inlined) if t == tree => inlined.srcPos
+        case _                             => tree.srcPos
+    def unique(using inlinedPosOpt: Option[util.SrcPos] = None): String =
+      val inlinedPos = tree.srcPos
+      val pos = inlinedPos.startPos
+      val endPos = inlinedPos.endPos
+      s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
 
   extension (srcPos: util.SrcPos)(using Context)
     def positionTree: Tree =
@@ -71,7 +80,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
             .parents
             .forall(p => !(p sameTree srcTree))
       val lateConstructionTree = Literal(Constant(lateConstruction))
-      val srcPos = inlinedSrcMap.getOrElse(srcTree.unique, srcTree.srcPos)
+      val srcPos = srcTree.inlinedPos
       val positionTree = srcPos.positionTree
       tree
         .select(setMetaSym)
@@ -98,12 +107,17 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           s"""Unsupported DSL member name $finalName.
            |Only alphanumric or underscore characters are supported.
            |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin,
-          posTree.srcPos
+          posTree.inlinedPos
         )
       finalName
 
+  private def ignoreValDef(tree: ValDef)(using Context): Boolean =
+    tree.name.toString match
+      case inlinedName(prefix) =>
+        tree.tpe.typeSymbol.name.toString == prefix ||
+          tree.tpe.parents.exists(_.typeSymbol.name.toString == prefix)
+      case _ => false
   override def transformApply(tree: Apply)(using Context): Tree =
-    given CanEqual[Tree, Tree] = CanEqual.derived
     if (tree.tpe.isParameterless && !ignore.contains(tree.unique))
       tree match
         case ContextArg(argTree) =>
@@ -113,12 +127,12 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
               if (t.mods.is(Flags.Mutable))
                 report.warning(
                   "Variable modifier for DSL constructed values is highly discouraged!\nConsider changing to `val`.",
-                  t.srcPos
+                  t.inlinedPos
                 )
-              tree.replaceArg(
-                argTree,
-                argTree.setMeta(Some(t.name.toString.nameCheck(t)), tree)
-              )
+              val nameOpt =
+                if (ignoreValDef(t)) None
+                else Some(t.name.toString.nameCheck(t))
+              tree.replaceArg(argTree, argTree.setMeta(nameOpt, tree))
             case Some(t: TypeDef) if t.name.toString.endsWith("$") =>
               tree.replaceArg(
                 argTree,
@@ -149,7 +163,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     tree.rhs match
       case template: Template =>
         if (!tree.symbol.isAnonymousClass)
-          template.parents.foreach(p => treeOwnerMap += (p.unique -> tree))
+          template.parents.foreach(p => addToTreeOwnerMap(p, tree)(using None))
           addContextDef(tree)
         clsStack = tree :: clsStack
       case _ =>
@@ -162,23 +176,47 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _ =>
     tree
 
-  @tailrec private def nameValOrDef(tree: Tree, ownerTree: Tree)(using
+  private def addToTreeOwnerMap(tree: Tree, ownerTree: Tree)(using
+      inlinedPosOpt: Option[util.SrcPos]
+  )(using
+      Context
+  ): Unit =
+
+    pluginPrint(tree, "Added!!!!")
+    ownerTree match
+      case vd: ValDef =>
+        pluginPrint(tree, s"${vd.name} -> ${tree.show}")
+      case _ =>
+        pluginPrint(tree, s"NONE -> ${tree.show}")
+    treeOwnerMap += (tree.unique -> ownerTree)
+  end addToTreeOwnerMap
+
+  @tailrec private def nameValOrDef(
+      tree: Tree,
+      ownerTree: Tree,
+      inlinedPosOpt: Option[util.SrcPos]
+  )(using
       Context
   ): Unit =
     tree match
       case apply: Apply =>
-        treeOwnerMap += (apply.unique -> ownerTree)
+        addToTreeOwnerMap(apply, ownerTree)(using inlinedPosOpt)
       case Typed(tree, _) =>
-        nameValOrDef(tree, ownerTree)
+        nameValOrDef(tree, ownerTree, inlinedPosOpt)
       case TypeApply(Select(tree, _), _) =>
-        nameValOrDef(tree, ownerTree)
+        nameValOrDef(tree, ownerTree, inlinedPosOpt)
       case Inlined(_, _, tree) =>
-        nameValOrDef(tree, ownerTree)
+        nameValOrDef(tree, ownerTree, Some(tree.srcPos))
       case Block((cls @ TypeDef(tpn, template: Template)) :: _, expr)
           if cls.symbol.isAnonymousClass =>
-        template.parents.foreach(p => treeOwnerMap += (p.unique -> ownerTree))
-      case block: Block => nameValOrDef(block.expr, ownerTree)
-      case _            =>
+        template.parents.foreach(p =>
+          addToTreeOwnerMap(p, ownerTree)(using inlinedPosOpt)
+        )
+      case block: Block =>
+        nameValOrDef(block.expr, ownerTree, inlinedPosOpt)
+      case _ =>
+        pluginPrint(tree, "done!")
+    end match
   end nameValOrDef
 
   def addContextDef(tree: Tree)(using Context): Unit =
@@ -193,29 +231,27 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         // println(s"Def   ${fixedName}, ${tree.show}")
         contextDefs += (fixedName -> tree)
     }
-  @tailrec private def positionInlined(
-      tree: Inlined,
-      srcPosOption: Option[util.SrcPos]
-  )(using Context): Unit =
-    tree match
-      case Inlined(_, _, Typed(apply: Apply, _)) =>
-        val srcPos = srcPosOption.getOrElse(tree.srcPos)
-        if (!inlinedSrcMap.contains(apply.unique))
-          inlinedSrcMap += apply.unique -> srcPos
-      case Inlined(_, _, inlined: Inlined) =>
-        positionInlined(inlined, Some(tree.srcPos))
-      case _ =>
 
   override def prepareForInlined(tree: Inlined)(using Context): Context =
-    positionInlined(tree, None)
+    tree match
+      case Inlined(_, _, Typed(actualTree, _)) =>
+        inlinedOwnerStack = (actualTree, tree) :: inlinedOwnerStack
+      case _ =>
     ctx
+
+  override def transformInlined(tree: Inlined)(using Context): Tree =
+    tree match
+      case Inlined(_, _, Typed(actualTree, _)) =>
+        inlinedOwnerStack = inlinedOwnerStack.drop(1)
+      case _ =>
+    tree
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
     if (
       !tree.symbol.isClassConstructor && !tree.name.toString.contains("$proxy")
     )
       addContextDef(tree)
-      nameValOrDef(tree.rhs, tree)
+      nameValOrDef(tree.rhs, tree, None)
     ctx
 
   @tailrec private def ignoreInternalApplies(tree: Apply)(using Context): Unit =
@@ -225,8 +261,14 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         ignoreInternalApplies(apply)
       case _ =>
 
+  private val inlinedName = "(.*)_this".r
   override def prepareForValDef(tree: ValDef)(using Context): Context =
-    if (!tree.name.toString.contains("$proxy")) nameValOrDef(tree.rhs, tree)
+    tree.name.toString match
+      case n if n.contains("$proxy") => //do nothing
+      case _ if tree.mods.is(Param)  => //do nothing
+      case _ if tree.rhs.isEmpty     => //do nothing
+      case _ =>
+        nameValOrDef(tree.rhs, tree, None)
     ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context =

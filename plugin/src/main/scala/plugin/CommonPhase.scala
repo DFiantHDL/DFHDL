@@ -13,12 +13,14 @@ import StdNames.nme
 import Names.*
 import Types.*
 import Constants.Constant
+import dotty.tools.dotc.ast.tpd.Tree
 
 import annotation.tailrec
 import scala.language.implicitConversions
 
 given canEqualNothingL: CanEqual[Nothing, Any] = CanEqual.derived
 given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
+given CanEqual[Tree, Tree] = CanEqual.derived
 
 abstract class CommonPhase extends PluginPhase:
   import tpd._
@@ -34,12 +36,6 @@ abstract class CommonPhase extends PluginPhase:
           ps.fullName.toString == parentFullName || ps.inherits(parentFullName)
         )
       else false
-
-  extension (tree: Tree)(using Context)
-    def unique: String =
-      val pos = tree.srcPos.startPos
-      val endPos = tree.srcPos.endPos
-      s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
 
   extension (tree: Apply)(using Context)
     def replaceArg(fromArg: Tree, toArg: Tree): Apply =
@@ -90,7 +86,17 @@ abstract class CommonPhase extends PluginPhase:
     metaContextTpe = requiredClassRef(
       "DFiant.internals.MetaContext"
     )
+    if (debugFilter(tree.source.path.toString))
+      println(
+        s"""===============================================================
+           |Before: $phaseName
+           |===============================================================
+           |""".stripMargin
+      )
+      println(tree.show)
+
     ctx
+  end prepareForUnit
 
   override def transformUnit(tree: Tree)(using Context): Tree =
     if (debugFilter(tree.source.path.toString))
