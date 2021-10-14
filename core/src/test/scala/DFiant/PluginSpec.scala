@@ -14,6 +14,10 @@ class PluginSpec extends DFSpec:
     nameStack = Nil
   def clearNameStack(): Unit = nameStack = Nil
   def clearPosStack(): Unit = posStack = Nil
+  def getLastNames: List[Option[String]] =
+    val ret = nameStack
+    nameStack = Nil
+    ret
   def getLastPos: List[Position] =
     val ret = posStack
     posStack = Nil
@@ -34,10 +38,12 @@ class PluginSpec extends DFSpec:
   class Plus(lhs: Bar, rhs: Bar)(using DFC) extends Bar
 
   val pls3 = new Bar + new Bar + new Bar
+  assertLastNames("", "", "", "", "pls3")
   val pls3Pos = getLastPos
   val min3 = new Bar - new Bar - new Bar
+  assertLastNames("", "", "", "", "min3")
+  val min3Names = getLastNames
   val min3Pos = getLastPos
-  clearNameStack()
   assertEquals(
     pls3Pos.toSet,
     min3Pos.toSet.map(
