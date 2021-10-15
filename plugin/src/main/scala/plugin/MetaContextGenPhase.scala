@@ -43,7 +43,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         case Some(t, inlined) if t == tree => inlined.srcPos
         case _                             => tree.srcPos
     def unique(using inlinedPosOpt: Option[util.SrcPos] = None): String =
-      val inlinedPos = tree.srcPos
+      val inlinedPos = tree.inlinedPos
       val pos = inlinedPos.startPos
       val endPos = inlinedPos.endPos
       s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
