@@ -22,8 +22,8 @@ import annotation.tailrec
 class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-  override val debugFilter: String => Boolean =
-    _.contains("PluginSpec.scala")
+//  override val debugFilter: String => Boolean =
+//    _.contains("PluginSpec.scala")
   val phaseName = "MetaContextGen"
 
   override val runsAfter = Set(transform.Pickler.name)
@@ -43,7 +43,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         case Some(t, inlined) if t == tree => inlined.srcPos
         case _                             => tree.srcPos
     def unique(using inlinedPosOpt: Option[util.SrcPos] = None): String =
-      val inlinedPos = tree.inlinedPos
+      val inlinedPos = inlinedPosOpt.getOrElse(tree.inlinedPos)
       val pos = inlinedPos.startPos
       val endPos = inlinedPos.endPos
       s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
@@ -177,26 +177,14 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   private def addToTreeOwnerMap(tree: Tree, ownerTree: Tree)(using
       inlinedPosOpt: Option[util.SrcPos]
-  )(using
-      Context
-  ): Unit =
-
-    pluginPrint(tree, "Added!!!!")
-    ownerTree match
-      case vd: ValDef =>
-        pluginPrint(tree, s"${vd.name} -> ${tree.show}")
-      case _ =>
-        pluginPrint(tree, s"NONE -> ${tree.show}")
+  )(using Context): Unit =
     treeOwnerMap += (tree.unique -> ownerTree)
-  end addToTreeOwnerMap
 
   @tailrec private def nameValOrDef(
       tree: Tree,
       ownerTree: Tree,
       inlinedPosOpt: Option[util.SrcPos]
-  )(using
-      Context
-  ): Unit =
+  )(using Context): Unit =
     tree match
       case apply: Apply =>
         addToTreeOwnerMap(apply, ownerTree)(using inlinedPosOpt)
@@ -204,9 +192,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         nameValOrDef(tree, ownerTree, inlinedPosOpt)
       case TypeApply(Select(tree, _), _) =>
         nameValOrDef(tree, ownerTree, inlinedPosOpt)
-      case Inlined(_, _, tree) =>
-        nameValOrDef(tree, ownerTree, Some(tree.srcPos))
-      case Block((cls @ TypeDef(tpn, template: Template)) :: _, expr)
+      case inlined @ Inlined(_, _, tree) =>
+        nameValOrDef(tree, ownerTree, Some(inlined.srcPos))
+      case Block((cls @ TypeDef(_, template: Template)) :: _, _)
           if cls.symbol.isAnonymousClass =>
         template.parents.foreach(p =>
           addToTreeOwnerMap(p, ownerTree)(using inlinedPosOpt)
@@ -214,7 +202,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case block: Block =>
         nameValOrDef(block.expr, ownerTree, inlinedPosOpt)
       case _ =>
-        pluginPrint(tree, "done!")
     end match
   end nameValOrDef
 
