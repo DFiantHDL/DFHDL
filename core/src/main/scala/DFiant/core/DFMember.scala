@@ -8,7 +8,10 @@ trait DFMember[+T <: ir.DFMember] extends Any:
 
 type DFMemberAny = DFMember[ir.DFMember]
 object DFMember:
-  extension [T <: ir.DFMember](of: DFMember[T]) def asIR: T = of.value
+  extension [T <: ir.DFMember](member: DFMember[T]) def asIR: T = member.value
+  extension [M <: DFMemberAny](member: M)
+    @metaContextDelegate
+    def anonymize: M = ???
 
 extension [M <: ir.DFMember](member: M)
   def addMember(using DFC): M =

@@ -527,32 +527,32 @@ object DFXInt:
       type OutS <: Boolean
       type OutW <: Int
       type IsScalaInt <: Boolean
-      def apply(arg: R): DFValOf[DFXInt[OutS, OutW]]
+      def apply(arg: R)(using DFC): DFValOf[DFXInt[OutS, OutW]]
     object Candidate:
       transparent inline given fromTokenCandidate[R](using
-          ic: Token.Candidate[R],
-          dfc: DFC
+          ic: Token.Candidate[R]
       ): Candidate[R] = new Candidate[R]:
         type OutS = ic.OutS
         type OutW = ic.OutW
         type IsScalaInt = ic.IsScalaInt
-        def apply(arg: R): DFValOf[DFXInt[OutS, OutW]] =
+        def apply(arg: R)(using DFC): DFValOf[DFXInt[OutS, OutW]] =
           DFVal.Const(ic(arg))
-      given fromDFXIntVal[S <: Boolean, W <: Int](using
-          DFC
-      ): Candidate[DFValOf[DFXInt[S, W]]] with
+      given fromDFXIntVal[S <: Boolean, W <: Int]
+          : Candidate[DFValOf[DFXInt[S, W]]] with
         type OutS = S
         type OutW = W
         type IsScalaInt = false
-        def apply(arg: DFValOf[DFXInt[S, W]]): DFValOf[DFXInt[S, W]] =
+        def apply(arg: DFValOf[DFXInt[S, W]])(using
+            DFC
+        ): DFValOf[DFXInt[S, W]] =
           arg
-      given fromDFBitsVal[W <: Int](using
-          DFC
-      ): Candidate[DFValOf[DFBits[W]]] with
+      given fromDFBitsVal[W <: Int]: Candidate[DFValOf[DFBits[W]]] with
         type OutS = false
         type OutW = W
         type IsScalaInt = false
-        def apply(arg: DFValOf[DFBits[W]]): DFValOf[DFXInt[false, W]] =
+        def apply(arg: DFValOf[DFBits[W]])(using
+            DFC
+        ): DFValOf[DFXInt[false, W]] =
           import DFBits.Val.Ops.uint
           arg.uint
     end Candidate
@@ -592,11 +592,11 @@ object DFXInt:
           castling: ValueOf[C]
       ): Compare[DFXInt[LS, LW], R, Op, C] with
         def apply(dfVal: DFValOf[DFXInt[LS, LW]], arg: R)(using
-            DFC
+            dfc: DFC
         ): DFValOf[DFBool] =
           import Ops.resize
           import DFUInt.Val.Ops.signed
-          val dfValArg = ic(arg)
+          val dfValArg = ic(arg)(using dfc.anonymize)
           check(
             dfVal.dfType.signed,
             dfVal.dfType.width,

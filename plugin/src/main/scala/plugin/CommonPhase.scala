@@ -20,7 +20,6 @@ import scala.language.implicitConversions
 
 given canEqualNothingL: CanEqual[Nothing, Any] = CanEqual.derived
 given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
-given CanEqual[Tree, Tree] = CanEqual.derived
 
 abstract class CommonPhase extends PluginPhase:
   import tpd._

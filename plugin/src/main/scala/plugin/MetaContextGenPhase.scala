@@ -144,7 +144,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
               )
             case Some(t) => //Def or Class
               contextDefs.get(sym.fixedFullName) match
-                case Some(ct) if ct != t =>
+                case Some(ct) if ct.toString != t.toString =>
                   report.error(
                     s"${t.symbol} is missing an implicit Context parameter",
                     t.symbol
