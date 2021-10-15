@@ -26,7 +26,7 @@ abstract class CommonPhase extends PluginPhase:
   import tpd._
   val debugFilter: String => Boolean = _ => false
   def pluginPrint(tree: Tree, str: Any): Unit =
-    if (tree.source.path.toString.contains("PluginSpec.scala"))
+    if (tree.source.path.toString.contains("DFDecimalSpec.scala"))
       println(str)
   var metaContextTpe: TypeRef = _
   extension (clsSym: Symbol)
@@ -93,7 +93,7 @@ abstract class CommonPhase extends PluginPhase:
            |===============================================================
            |""".stripMargin
       )
-      println(tree.show)
+      println(tree.showSummary(8))
 
     ctx
   end prepareForUnit
@@ -106,6 +106,6 @@ abstract class CommonPhase extends PluginPhase:
            |===============================================================
            |""".stripMargin
       )
-      println(tree.show)
+      println(tree.showSummary(10))
     tree
 end CommonPhase

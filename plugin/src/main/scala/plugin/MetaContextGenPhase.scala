@@ -40,13 +40,10 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   extension (tree: Tree)(using Context)
     def inlinedPos: util.SrcPos =
       inlinedOwnerStack.headOption match
-        case Some(t, inlined) if t == tree => inlined.srcPos
-        case _                             => tree.srcPos
+        case Some(t, inlined) if t.toString == tree.toString => inlined.srcPos
+        case _                                               => tree.srcPos
     def unique(using inlinedPosOpt: Option[util.SrcPos] = None): String =
-      val inlinedPos = inlinedPosOpt.getOrElse(tree.inlinedPos)
-      val pos = inlinedPos.startPos
-      val endPos = inlinedPos.endPos
-      s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
+      inlinedPosOpt.getOrElse(tree.inlinedPos).show
 
   extension (srcPos: util.SrcPos)(using Context)
     def positionTree: Tree =
@@ -59,6 +56,11 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         positionCls.typeRef,
         fileNameTree :: lineStartTree :: columnStartTree :: lineEndTree :: columnEndTree :: Nil
       )
+    def show: String =
+      val pos = srcPos.startPos
+      val endPos = srcPos.endPos
+      s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
+  end extension
 
   extension (tree: Tree)(using Context)
     def setMeta(nameOpt: Option[String], srcTree: Tree): Tree =
