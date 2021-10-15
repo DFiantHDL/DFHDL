@@ -235,12 +235,13 @@ class DFDecimalSpec extends DFSpec:
     val s8 = DFSInt(8) <> VAR
     val b8 = DFBits(8) <> VAR
     assertCodeString {
-      """|val t1 = u8 === u8
-         |val t2 = u8 === d"8'0"
-         |val t3 = d"8'0" === u8
-         |val t4 = u8 === d"8'12"
-         |val t5 = u8 === d"8'255"
-         |val t6 = u8 === b8.uint
+      """|val t1 = u8 == u8
+         |val t2 = u8 == d"8'0"
+         |val t3 = d"8'0" == u8
+         |val t4 = u8 == d"8'12"
+         |val t5 = u8 == d"8'255"
+         |val t6 = u8 == b8.uint
+         |val t7 = u8.resize(4) == b8.resize(4).uint
          |""".stripMargin
     } {
       val t1 = u8 == u8
@@ -249,6 +250,7 @@ class DFDecimalSpec extends DFSpec:
       val t4 = u8 == d"8'12"
       val t5 = u8 == h"FF"
       val t6 = u8 == b8
+      val t7 = u8.resize(4) == b8.resize(4)
     }
 
     assertDSLError(

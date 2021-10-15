@@ -22,7 +22,11 @@ protected trait DFValPrinter extends AbstractPrinter:
   def csDFValFuncRef(dfVal: Func)(using MemberGetSet): String =
     dfVal.args match
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
-        s"${argL.refCodeString.applyBrackets(true)} ${dfVal.op} ${argR.refCodeString.applyBrackets(true)}"
+        val opStr = dfVal.op match
+          case Func.Op.=== => "=="
+          case Func.Op.=!= => "!="
+          case op          => op.toString
+        s"${argL.refCodeString.applyBrackets(true)} $opStr ${argR.refCodeString.applyBrackets(true)}"
       case arg :: Nil =>
         val opStr = dfVal.op.toString
         val argStr = arg.refCodeString.applyBrackets(true)
