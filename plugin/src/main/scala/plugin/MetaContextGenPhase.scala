@@ -115,14 +115,22 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   private def ignoreValDef(tree: ValDef)(using Context): Boolean =
     tree.name.toString match
       case inlinedName(prefix) =>
-        tree.tpe.typeSymbol.name.toString == prefix ||
-          tree.tpe.parents.exists(_.typeSymbol.name.toString == prefix)
+        tree.tpe match
+          case x: TermRef =>
+            x.underlying.dealias.typeSymbol.name.toString == prefix ||
+              x.parents.exists(_.typeSymbol.name.toString == prefix)
+          case _ => false
       case _ => false
   override def transformApply(tree: Apply)(using Context): Tree =
     if (tree.tpe.isParameterless)
       tree match
         case ContextArg(argTree) =>
           val sym = argTree.symbol
+          debug("TRANSFORM:")
+          if (inlinedOwnerStack.nonEmpty)
+            debug("tree:   ", tree.showSummary(10))
+            debug("inline: ", inlinedOwnerStack.head._1.showSummary(10))
+          debug("from:   ", tree.unique)
           treeOwnerMap.get(tree.unique) match
             case Some(t: ValDef) =>
               if (t.mods.is(Flags.Mutable))
@@ -180,6 +188,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   private def addToTreeOwnerMap(tree: Tree, ownerTree: Tree)(using
       inlinedPosOpt: Option[util.SrcPos]
   )(using Context): Unit =
+    debug("Adding!!!")
+    debug(tree.unique)
     treeOwnerMap += (tree.unique -> ownerTree)
 
   @tailrec private def nameValOrDef(
@@ -187,21 +197,29 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       ownerTree: Tree,
       inlinedPosOpt: Option[util.SrcPos]
   )(using Context): Unit =
+    debug("------------------------------")
+    debug(tree.showSummary(10))
     tree match
       case apply: Apply =>
+        debug("Apply done!")
         addToTreeOwnerMap(apply, ownerTree)(using inlinedPosOpt)
       case Typed(tree, _) =>
+        debug("Typed")
         nameValOrDef(tree, ownerTree, inlinedPosOpt)
       case TypeApply(Select(tree, _), _) =>
+        debug("TypeApply")
         nameValOrDef(tree, ownerTree, inlinedPosOpt)
       case inlined @ Inlined(_, _, tree) =>
+        debug("Inlined")
         nameValOrDef(tree, ownerTree, Some(inlined.srcPos))
       case Block((cls @ TypeDef(_, template: Template)) :: _, _)
           if cls.symbol.isAnonymousClass =>
+        debug("Block done!")
         template.parents.foreach(p =>
           addToTreeOwnerMap(p, ownerTree)(using inlinedPosOpt)
         )
       case block: Block =>
+        debug("Block expr")
         nameValOrDef(block.expr, ownerTree, inlinedPosOpt)
       case _ =>
     end match
@@ -211,18 +229,21 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     val defdefTree = tree match
       case tree: DefDef  => tree
       case tree: TypeDef =>
-        // println(tree.symbol)
+        // debug(tree.symbol)
         tree.rhs.asInstanceOf[Template].constr
     defdefTree.paramss.flatten.view.reverse.collectFirst {
       case a if a.tpe <:< metaContextTpe =>
         val fixedName = a.symbol.fixedFullName
-        // println(s"Def   ${fixedName}, ${tree.show}")
+        // debug(s"Def   ${fixedName}, ${tree.show}")
         contextDefs += (fixedName -> tree)
     }
 
   override def prepareForInlined(tree: Inlined)(using Context): Context =
     tree match
       case Inlined(_, _, Typed(actualTree, _)) =>
+        debug("INLINE:")
+        debug("from", actualTree.srcPos.show)
+        debug("to  ", tree.srcPos.show)
         inlinedOwnerStack = (actualTree, tree) :: inlinedOwnerStack
       case _ =>
     ctx
@@ -249,6 +270,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _ if tree.mods.is(Param)  => //do nothing
       case _ if tree.rhs.isEmpty     => //do nothing
       case _ =>
+        debug("================================================")
+        debug(s"prepareForValDef: ${tree.name}")
         nameValOrDef(tree.rhs, tree, None)
     ctx
 

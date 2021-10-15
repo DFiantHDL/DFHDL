@@ -24,9 +24,10 @@ given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
 abstract class CommonPhase extends PluginPhase:
   import tpd._
   val debugFilter: String => Boolean = _ => false
-  def pluginPrint(tree: Tree, str: Any): Unit =
-    if (tree.source.path.toString.contains("DFDecimalSpec.scala"))
-      println(str)
+  var pluginDebugSource: String = ""
+  def debug(str: Any*): Unit =
+    if (pluginDebugSource.contains("DFDecimalSpec.scala"))
+      println(str.mkString(", "))
   var metaContextTpe: TypeRef = _
   extension (clsSym: Symbol)
     def inherits(parentFullName: String)(using Context): Boolean =
@@ -82,6 +83,7 @@ abstract class CommonPhase extends PluginPhase:
       fun.appliedToArgss(args).asInstanceOf[Apply]
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
+    pluginDebugSource = tree.source.path.toString
     metaContextTpe = requiredClassRef(
       "DFiant.internals.MetaContext"
     )
@@ -92,12 +94,13 @@ abstract class CommonPhase extends PluginPhase:
            |===============================================================
            |""".stripMargin
       )
-      println(tree.showSummary(8))
+      println(tree.showSummary(14))
 
     ctx
   end prepareForUnit
 
   override def transformUnit(tree: Tree)(using Context): Tree =
+    pluginDebugSource = ""
     if (debugFilter(tree.source.path.toString))
       println(
         s"""===============================================================
