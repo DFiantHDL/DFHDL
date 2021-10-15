@@ -34,7 +34,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var lateConstructionTpe: TypeRef = _
   val treeOwnerMap = mutable.Map.empty[String, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
-  val ignore = mutable.Set.empty[String]
   var clsStack = List.empty[TypeDef]
   var inlinedOwnerStack = List.empty[(Tree, Inlined)]
 
@@ -118,7 +117,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           tree.tpe.parents.exists(_.typeSymbol.name.toString == prefix)
       case _ => false
   override def transformApply(tree: Apply)(using Context): Tree =
-    if (tree.tpe.isParameterless && !ignore.contains(tree.unique))
+    if (tree.tpe.isParameterless)
       tree match
         case ContextArg(argTree) =>
           val sym = argTree.symbol
@@ -254,13 +253,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       nameValOrDef(tree.rhs, tree, None)
     ctx
 
-  @tailrec private def ignoreInternalApplies(tree: Apply)(using Context): Unit =
-    tree.fun match
-      case apply: Apply =>
-        ignore += apply.unique
-        ignoreInternalApplies(apply)
-      case _ =>
-
   private val inlinedName = "(.*)_this".r
   override def prepareForValDef(tree: ValDef)(using Context): Context =
     tree.name.toString match
@@ -277,5 +269,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     metaContextCls = requiredClass("DFiant.internals.MetaContext")
     lateConstructionTpe = requiredClassRef("DFiant.internals.LateConstruction")
     setMetaSym = metaContextCls.requiredMethod("setMeta")
+    treeOwnerMap.clear()
+    contextDefs.clear()
     ctx
 end MetaContextGenPhase
