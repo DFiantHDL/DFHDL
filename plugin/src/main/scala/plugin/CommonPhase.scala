@@ -26,8 +26,7 @@ abstract class CommonPhase extends PluginPhase:
   val debugFilter: String => Boolean = _ => false
   var pluginDebugSource: String = ""
   def debug(str: Any*): Unit =
-    if (pluginDebugSource.contains("DFDecimalSpec.scala"))
-      println(str.mkString(", "))
+    if (debugFilter(pluginDebugSource)) println(str.mkString(", "))
   var metaContextTpe: TypeRef = _
   extension (clsSym: Symbol)
     def inherits(parentFullName: String)(using Context): Boolean =

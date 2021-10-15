@@ -45,8 +45,8 @@ class PluginSpec extends DFSpec:
   val min3Names = getLastNames
   val min3Pos = getLastPos
   assertEquals(
-    pls3Pos.toSet,
-    min3Pos.toSet.map(
+    pls3Pos,
+    min3Pos.map(
       _.copy(
         lineStart = pls3Pos.head.lineStart,
         lineEnd = pls3Pos.head.lineStart
