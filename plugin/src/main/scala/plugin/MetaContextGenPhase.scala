@@ -32,6 +32,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var metaContextCls: ClassSymbol = _
   var setMetaSym: Symbol = _
   var lateConstructionTpe: TypeRef = _
+  var dfValSym: Symbol = _
   val treeOwnerMap = mutable.Map.empty[String, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   var clsStack = List.empty[TypeDef]
@@ -232,13 +233,26 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         // debug(s"Def   ${fixedName}, ${tree.show}")
         contextDefs += (fixedName -> tree)
     }
+  private def rejectBadEquals(tree: Apply, pos: util.SrcPos)(using
+      Context
+  ): Unit =
+    tree match
+      case Apply(Select(lhs, fun), List(rhs))
+          if (fun == nme.EQ || fun == nme.NE) &&
+            (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType) =>
+        if (dfValSym == rhs.tpe.typeSymbol)
+          report.error(
+            s"Unsupported Scala primitive at LHS of equality with a dataflow value.\nConsider switching positions of the arguments.",
+            pos
+          )
+      case _ =>
 
   override def prepareForApply(tree: Apply)(using Context): Context =
-    inlinedOwnerStack.headOption match
-      case Some(apply, inlined) if apply sameTree tree =>
-        applyPosStack = inlined.srcPos :: applyPosStack
-      case _ =>
-        applyPosStack = tree.srcPos :: applyPosStack
+    val srcPos = inlinedOwnerStack.headOption match
+      case Some(apply, inlined) if apply sameTree tree => inlined.srcPos
+      case _                                           => tree.srcPos
+    rejectBadEquals(tree, srcPos)
+    applyPosStack = srcPos :: applyPosStack
     ctx
 
   override def prepareForInlined(tree: Inlined)(using Context): Context =
@@ -284,6 +298,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     metaContextCls = requiredClass("DFiant.internals.MetaContext")
     lateConstructionTpe = requiredClassRef("DFiant.internals.LateConstruction")
     setMetaSym = metaContextCls.requiredMethod("setMeta")
+    dfValSym = requiredClass("DFiant.core.DFVal")
     treeOwnerMap.clear()
     contextDefs.clear()
     ctx

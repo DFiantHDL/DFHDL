@@ -19,7 +19,16 @@ class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
       dfc: DFC
   ): DFBool <> VAL = c(this, es(that))
 end DFVal
+
 object DFVal:
+  //Enabling equality with Int and Boolean,
+  //just to give a better error message via the compiler plugins.
+  //See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
+  given [T <: DFType, M <: Modifier]: CanEqual[Int, DFVal[T, M]] =
+    CanEqual.derived
+  given [T <: DFType, M <: Modifier]: CanEqual[Boolean, DFVal[T, M]] =
+    CanEqual.derived
+
   final val Modifier = DFiant.compiler.ir.DFVal.Modifier
   export DFBits.Val.Conversions.given
   export DFDecimal.Val.Conversions.*
