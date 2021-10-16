@@ -242,7 +242,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
             (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType) =>
         if (dfValSym == rhs.tpe.typeSymbol)
           report.error(
-            s"Unsupported Scala primitive at LHS of equality with a dataflow value.\nConsider switching positions of the arguments.",
+            s"Unsupported Scala primitive at the LHS of `$fun` with a dataflow value.\nConsider switching positions of the arguments.",
             pos
           )
       case _ =>
