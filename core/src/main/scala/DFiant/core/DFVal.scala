@@ -7,7 +7,7 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
-class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
+final class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
   inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
@@ -65,7 +65,7 @@ type <>[T <: DFType, M] = M match
   case VAR   => DFVarOf[T]
   case IN    => DFPortOf[T]
   case OUT   => DFPortOf[T]
-  case TOKEN => DFToken.Of[T]
+  case TOKEN => DFToken[T]
 
 extension (dfVal: ir.DFVal)
   def asVal[T <: DFType, M <: Modifier]: DFVal[T, M] = DFVal[T, M](dfVal)
@@ -96,7 +96,7 @@ private object CompanionsDFVal:
     ): DFValOf[T] = tc(dfType, es(from))
 
   object Const:
-    def apply[T <: DFType](token: DFToken.Of[T], named: Boolean = false)(using
+    def apply[T <: DFType](token: DFToken[T], named: Boolean = false)(using
         DFC
     ): DFValOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
@@ -151,7 +151,7 @@ private object CompanionsDFVal:
       def apply[AT <: DFType, VT <: DFType, M <: Modifier](
           aliasType: AT,
           relVal: DFVal[VT, M],
-          tokenFunc: DFToken.Of[VT] => DFToken.Of[AT]
+          tokenFunc: DFToken[VT] => DFToken[AT]
       )(using DFC): DFVal[AT, M] =
         relVal.asIR match
           //anonymous constant are replace by a different constant
@@ -290,7 +290,7 @@ object DFValNI:
   inline def initTokens[T <: DFType](
       dfType: T,
       inline tokenValues: Any*
-  ): Seq[DFToken] =
+  ): Seq[DFTokenAny] =
     ${
       initTokensMacro[T]('dfType, 'tokenValues)
     }
@@ -300,7 +300,7 @@ object DFValNI:
   )(using
       Quotes,
       Type[T]
-  ): Expr[Seq[DFToken]] =
+  ): Expr[Seq[DFTokenAny]] =
     import quotes.reflect.*
     val Varargs(args) = tokenValues
     val valueOfTpe = TypeRepr.of[ValueOf]

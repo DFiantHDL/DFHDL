@@ -200,7 +200,7 @@ private object CompanionsDFDecimal:
     end given
   end Constraints
 
-  type Token[S <: Boolean, W <: Int, F <: Int] = DFToken.Of[DFDecimal[S, W, F]]
+  type Token[S <: Boolean, W <: Int, F <: Int] = DFToken[DFDecimal[S, W, F]]
   object Token:
     extension [S <: Boolean, W <: Int, F <: Int](token: Token[S, W, F])
       def data: Option[BigInt] =
@@ -277,11 +277,11 @@ private object CompanionsDFDecimal:
 
     object StrInterp:
       extension (inline sc: StringContext)
-        transparent inline def d(inline args: Any*): DFToken =
+        transparent inline def d(inline args: Any*): DFTokenAny =
           ${
             interpMacro('{ false })('sc, 'args)
           }
-        transparent inline def sd(inline args: Any*): DFToken =
+        transparent inline def sd(inline args: Any*): DFTokenAny =
           ${
             interpMacro('{ true })('sc, 'args)
           }
@@ -289,7 +289,7 @@ private object CompanionsDFDecimal:
       private def interpMacro(signedForcedExpr: Expr[Boolean])(
           sc: Expr[StringContext],
           args: Expr[Seq[Any]]
-      )(using Quotes): Expr[DFToken] =
+      )(using Quotes): Expr[DFTokenAny] =
         import quotes.reflect.*
         val signedForced = signedForcedExpr.value.get
         val fullTerm = sc.termWithArgs(args)
@@ -443,12 +443,12 @@ object DFXInt:
 
     object Compare:
       import DFToken.Compare
-      given [LS <: Boolean, LW <: Int, R, Op <: FuncOp](using
+      given [LS <: Boolean, LW <: Int, R, Op <: FuncOp, C <: Boolean](using
           ic: Candidate[R]
       )(using
           check: `VS == RS`.Check[LS, ic.OutS],
           op: ValueOf[Op]
-      ): Compare[DFXInt[LS, LW], R, Op] with
+      ): Compare[DFXInt[LS, LW], R, Op, C] with
         def apply(token: Token[LS, LW], arg: R): DFBool <> TOKEN =
           val argToken = ic(arg)
           check(token.dfType.signed, argToken.dfType.signed)

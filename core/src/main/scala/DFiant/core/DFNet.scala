@@ -2,7 +2,7 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 
-class DFNet(val value: ir.DFNet) extends AnyVal with DFMember[ir.DFNet]
+final class DFNet(val value: ir.DFNet) extends AnyVal with DFMember[ir.DFNet]
 object DFNet:
   export ir.DFNet.Op
   extension (net: ir.DFNet) def asFE: DFNet = new DFNet(net)

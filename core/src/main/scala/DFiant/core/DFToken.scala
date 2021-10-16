@@ -6,25 +6,30 @@ import DFiant.internals.*
 
 import scala.quoted.*
 import scala.annotation.implicitNotFound
+import scala.annotation.unchecked.uncheckedVariance
 
-opaque type DFToken = ir.DFType.Token
-extension (token: ir.DFType.Token)
-  def asTokenOf[T <: DFType]: DFToken.Of[T] = token.asInstanceOf[DFToken.Of[T]]
+final class DFToken[+T <: DFType](val value: ir.DFType.Token) extends AnyVal:
+  inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
+      c: DFToken.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false]
+  ): DFToken[DFBool] = c(this, es(that))
+type DFTokenAny = DFToken[DFType]
+extension (tokenIR: ir.DFType.Token)
+  def asTokenOf[T <: DFType]: DFToken[T] = DFToken[T](tokenIR)
+
 object DFToken:
   //Implicit conversions for tokens
   export DFBoolOrBit.Token.Conversions.given
   export DFBits.Token.Conversions.given
 
-  protected[core] def bubble[T <: DFType](dfType: T): DFToken.Of[T] =
-    ir.DFType.Token.bubble(dfType.asIR)
-  extension (of: DFToken)
-    def asIR: ir.DFType.Token = of
+  protected[core] def bubble[T <: DFType](dfType: T): DFToken[T] =
+    ir.DFType.Token.bubble(dfType.asIR).asTokenOf[T]
+  extension (token: DFTokenAny)
+    def asIR: ir.DFType.Token = token.value
     def codeString(using printer: Printer): String = printer.csDFToken(asIR)
 
-  opaque type Of[+T <: DFType] <: DFToken = DFToken
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
-  trait TC[T <: DFType, -V] extends GeneralTC[T, V, DFToken]:
-    type Out = DFToken.Of[T]
+  trait TC[T <: DFType, -V] extends GeneralTC[T, V, DFTokenAny]:
+    type Out = DFToken[T]
   object TC:
     export DFBoolOrBit.Token.TC.given
     export DFBits.Token.TC.given
@@ -36,14 +41,19 @@ object DFToken:
   end TC
 
   @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
-  trait Compare[T <: DFType, -V, Op <: FuncOp]:
-    def apply(token: Of[T], arg: V): Of[DFBool]
+  trait Compare[T <: DFType, -V, Op <: FuncOp, C <: Boolean]:
+    def apply(token: DFToken[T], arg: V): DFToken[DFBool]
   object Compare:
     export DFDecimal.Token.Compare.given
 
-  val Ops = CompanionsDFToken.Ops
+  object Ops:
+    extension [T <: DFType](token: DFToken[T])
+      def bits(using w: Width[T]): DFToken[DFBits[w.Out]] =
+        token.asIR.bits.asTokenOf[DFBits[w.Out]]
+  end Ops
+
   trait Value[T <: DFType]:
-    type Out <: DFToken
+    type Out <: DFTokenAny
     def apply(dfType: T): Out
   object Value:
     transparent inline implicit def fromValue[T <: DFType, V](
@@ -66,10 +76,3 @@ object DFToken:
     end fromValueMacro
   end Value
 end DFToken
-
-private object CompanionsDFToken:
-  object Ops:
-    extension [T <: DFType](token: DFToken.Of[T])
-      def bits(using w: Width[T]): DFToken.Of[DFBits[w.Out]] =
-        token.asIR.bits.asTokenOf[DFBits[w.Out]]
-  end Ops

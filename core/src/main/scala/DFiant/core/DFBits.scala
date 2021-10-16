@@ -55,7 +55,7 @@ private object CompanionsDFBits:
           " is bigger than High bit index " + H
       ]
 
-  type Token[W <: Int] = DFToken.Of[DFBits[W]]
+  type Token[W <: Int] = DFToken[DFBits[W]]
   object Token:
     protected[core] def apply[W <: Int](
         dfType: DFBits[W],
@@ -209,11 +209,11 @@ private object CompanionsDFBits:
 
     object StrInterp:
       extension (inline sc: StringContext)
-        transparent inline def b(inline args: Any*): DFToken =
+        transparent inline def b(inline args: Any*): DFTokenAny =
           ${
             interpMacro('{ "b" })('sc, 'args)
           }
-        transparent inline def h(inline args: Any*): DFToken =
+        transparent inline def h(inline args: Any*): DFTokenAny =
           ${
             interpMacro('{ "h" })('sc, 'args)
           }
@@ -221,7 +221,7 @@ private object CompanionsDFBits:
       private def interpMacro(op: Expr[String])(
           sc: Expr[StringContext],
           args: Expr[Seq[Any]]
-      )(using Quotes): Expr[DFToken] =
+      )(using Quotes): Expr[DFTokenAny] =
         import quotes.reflect.*
         val fullTerm = sc.termWithArgs(args)
         val opStr = op.value.get
@@ -257,7 +257,7 @@ private object CompanionsDFBits:
         )(using
             tc: DFType.TC[A],
             aW: Width[A]
-        )(using check: `AW == TW`.Check[aW.Out, LW]): DFToken.Of[tc.Type] =
+        )(using check: `AW == TW`.Check[aW.Out, LW]): DFToken[tc.Type] =
           val dfType = tc(aliasType).asIR
           check(dfType.width, lhs.width)
           lhs.asIR.asInstanceOf[ir.DFBits.Token].as(dfType).asTokenOf[tc.Type]
@@ -351,9 +351,9 @@ private object CompanionsDFBits:
           value.asIR.asValOf[DFBits[W]]
       given fromDFBitsToken[W <: Int](using
           DFC
-      ): Candidate[DFToken.Of[DFBits[W]]] with
+      ): Candidate[DFToken[DFBits[W]]] with
         type OutW = W
-        def apply(value: DFToken.Of[DFBits[W]]): DFBits[W] <> VAL =
+        def apply(value: DFToken[DFBits[W]]): DFBits[W] <> VAL =
           DFVal.Const(value)
 
       private def valueToBits(value: Any)(using dfc: DFC): DFBits[Int] <> VAL =
@@ -399,7 +399,7 @@ private object CompanionsDFBits:
                   if tycon <:< TypeRepr.of[DFVal] =>
                 tpe.dealias.calcWidth
               case AppliedType(tycon, tpe :: _)
-                  if tycon <:< TypeRepr.of[DFToken.Of] =>
+                  if tycon <:< TypeRepr.of[DFToken] =>
                 tpe.calcWidth
               case AppliedType(tycon, args)
                   if tycon <:< TypeRepr.of[NonEmptyTuple] =>

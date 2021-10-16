@@ -147,7 +147,7 @@ end CompanionsDFType
 extension [T](t: T)(using tc: DFType.TC[T]) def dfType: tc.Type = tc(t)
 
 extension [T <: DFType](
-    token: DFToken.Of[T]
+    token: DFToken[T]
 ) def dfType: T = token.asIR.dfType.asInstanceOf[T]
 
 extension [T <: DFType, M <: ir.DFVal.Modifier](

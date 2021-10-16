@@ -105,13 +105,13 @@ object DFTuple:
     end zipperMacro
   end TCZipper
 
-  type Token[T] = DFToken.Of[DFTuple[T]]
+  type Token[T] = DFToken[DFTuple[T]]
   object Token:
     protected[core] def apply[T](
         dfType: DFTuple[T],
-        data: List[DFToken]
+        data: List[DFTokenAny]
     ): Token[T] =
-      ir.DFToken(dfType.asIR, data).asInstanceOf[Token[T]]
+      ir.DFToken(dfType.asIR, data).asTokenOf[DFTuple[T]]
 
     object TC:
       import DFToken.TC
@@ -119,7 +119,7 @@ object DFTuple:
           T <: NonEmptyTuple,
           V <: NonEmptyTuple
       ](using
-          zipper: TCZipper[T, V, DFToken, TC]
+          zipper: TCZipper[T, V, DFTokenAny, TC]
       ): TC[DFTuple[T], ValueOf[V]] with
         def apply(dfType: DFTuple[T], value: ValueOf[V]): Out =
           DFTuple.Token[T](dfType, zipper(dfType.fieldList, value.value.toList))

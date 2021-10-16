@@ -20,7 +20,7 @@ end OpaqueDFBoolOrBit
 
 private object CompanionsDFBoolOrBit:
   type Data = Option[Boolean]
-  type Token = DFToken.Of[DFBoolOrBit]
+  type Token = DFToken[DFBoolOrBit]
   object Token:
     extension (token: Token)
       def data: Option[Boolean] = token.asIR.data.asInstanceOf[Option[Boolean]]
@@ -28,7 +28,7 @@ private object CompanionsDFBoolOrBit:
         dfType: T,
         data: Option[Boolean]
     ): T <> TOKEN =
-      ir.DFToken(dfType.asIR, data).asInstanceOf[T <> TOKEN]
+      ir.DFToken(dfType.asIR, data).asTokenOf[T]
     protected[core] def apply[T <: DFBoolOrBit](
         dfType: T,
         value: Boolean
