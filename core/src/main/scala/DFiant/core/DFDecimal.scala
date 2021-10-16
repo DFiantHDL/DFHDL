@@ -634,6 +634,25 @@ object DFXInt:
             lhs,
             _.resizeToken(updatedWidth)
           )
+        end resize
+        def <[R](rhs: Inlined[R])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[S, W], R, FuncOp.<.type, false]
+        ): DFBool <> VAL = op(lhs, rhs)
+        def <=[R](rhs: Inlined[R])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[S, W], R, FuncOp.<=.type, false]
+        ): DFBool <> VAL = op(lhs, rhs)
+        def >[R](rhs: Inlined[R])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[S, W], R, FuncOp.>.type, false]
+        ): DFBool <> VAL = op(lhs, rhs)
+        def >=[R](rhs: Inlined[R])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[S, W], R, FuncOp.>=.type, false]
+        ): DFBool <> VAL = op(lhs, rhs)
+      end extension
+
       extension [L](inline lhs: L)
         inline def ===[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
@@ -641,6 +660,36 @@ object DFXInt:
             dfc: DFC,
             eq: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.===.type, true]
         ): DFBool <> VAL = eq(rhs, es(lhs))
+        inline def =!=[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> VAL
+        )(using es: Exact.Summon[L, lhs.type])(using
+            dfc: DFC,
+            eq: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.=!=.type, true]
+        ): DFBool <> VAL = eq(rhs, es(lhs))
+        inline def <[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> VAL
+        )(using es: Exact.Summon[L, lhs.type])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.<.type, true]
+        ): DFBool <> VAL = op(rhs, es(lhs))
+        inline def <=[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> VAL
+        )(using es: Exact.Summon[L, lhs.type])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.<=.type, true]
+        ): DFBool <> VAL = op(rhs, es(lhs))
+        inline def >[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> VAL
+        )(using es: Exact.Summon[L, lhs.type])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.>.type, true]
+        ): DFBool <> VAL = op(rhs, es(lhs))
+        inline def >=[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> VAL
+        )(using es: Exact.Summon[L, lhs.type])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.>=.type, true]
+        ): DFBool <> VAL = op(rhs, es(lhs))
       end extension
       extension [L](inline lhs: L)
         inline def +[RS <: Boolean, RW <: Int](
