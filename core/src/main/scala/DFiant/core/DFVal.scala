@@ -231,6 +231,7 @@ private object CompanionsDFVal:
         def apply(dfType: T, value: R): DFValOf[T] =
           Const(tokenTC(dfType, value))
   object TC extends TCLP:
+    export DFBoolOrBit.Val.TC.given
     export DFBits.Val.TC.given
     export DFDecimal.Val.TC.given
     export DFTuple.Val.TC.given

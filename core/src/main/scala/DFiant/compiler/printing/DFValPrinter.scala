@@ -25,7 +25,7 @@ protected trait DFValPrinter extends AbstractPrinter:
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
           case Func.Op.=!= => "!="
-          case Func.Op.| | Func.Op.& if argL.get.dfType.width > 1 =>
+          case Func.Op.| | Func.Op.& if argL.get.dfType.width == 1 =>
             s"${dfVal.op}${dfVal.op}"
           case op => op.toString
         s"${argL.refCodeString.applyBrackets(true)} $opStr ${argR.refCodeString.applyBrackets(true)}"
@@ -70,6 +70,10 @@ protected trait DFValPrinter extends AbstractPrinter:
         s"${relValStr}.resize($tWidth)"
       case (DFSInt(tWidth), DFSInt(_)) =>
         s"${relValStr}.resize($tWidth)"
+      case (DFBit, DFBool) =>
+        s"${relValStr}.bit"
+      case (DFBool, DFBit) =>
+        s"${relValStr}.bool"
       case (_, DFBits(_)) =>
         s"${relValStr}.as(${printer.csDFType(toType)})"
       case _ =>

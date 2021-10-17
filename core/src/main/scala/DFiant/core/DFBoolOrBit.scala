@@ -16,9 +16,8 @@ private object OpaqueDFBoolOrBit:
   object DFBoolOrBit:
     type Token = CompanionsDFBoolOrBit.Token
     val Token = CompanionsDFBoolOrBit.Token
-//    val DFValTC = CompanionsDFBoolOrBit.DFValTC
+    val Val = CompanionsDFBoolOrBit.Val
 //    val Conversions = CompanionsDFBoolOrBit.Conversions
-//    val Ops = CompanionsDFBoolOrBit.Ops
 //    export CompanionsDFBoolOrBit.Extensions.*
 end OpaqueDFBoolOrBit
 
@@ -161,12 +160,104 @@ private object CompanionsDFBoolOrBit:
         ): RT <> TOKEN = logicOp(rhs, ic(es(lhs)), FuncOp.^)
       end extension
     end Ops
-
   end Token
-end CompanionsDFBoolOrBit
 
-//export DFBoolOrBit.Token.Ops.*
-//export DFBoolOrBit.Ops.*
+  object Val:
+    @implicitNotFound(
+      "Argument of type ${R} is not a proper candidate for a DFBool or DFBit dataflow value."
+    )
+    trait Candidate[-R]:
+      type OutT <: DFBoolOrBit
+      def apply(arg: R)(using DFC): DFValOf[OutT]
+    object Candidate:
+      transparent inline given fromTokenCandidate[R](using
+          ic: Token.Candidate[R]
+      ): Candidate[R] = new Candidate[R]:
+        type OutT = ic.OutT
+        def apply(arg: R)(using DFC): DFValOf[OutT] = DFVal.Const(ic(arg))
+      transparent inline given fromDFBoolOrBitVal[T <: DFBoolOrBit]
+          : Candidate[T <> VAL] = new Candidate[T <> VAL]:
+        type OutT = T
+        def apply(arg: T <> VAL)(using DFC): T <> VAL = arg
+
+    private def b2b[T <: DFBoolOrBit, R](dfType: T, arg: R)(using
+        ic: Candidate[R],
+        dfc: DFC
+    ): T <> VAL =
+      val dfcAnon = dfc.anonymize
+      import Ops.{bit, bool}
+      val dfValArg = ic(arg)(using dfcAnon)
+      val dfValOut = (dfType, dfValArg.dfType) match
+        case (DFBit, DFBool) => dfValArg.asIR.asValOf[DFBool].bit(using dfcAnon)
+        case (DFBool, DFBit) => dfValArg.asIR.asValOf[DFBit].bool(using dfcAnon)
+        case _               => dfValArg
+      dfValOut.asIR.asValOf[T]
+
+    object TC:
+      import DFVal.TC
+      given DFBoolOrBitFromCandidate[T <: DFBoolOrBit, R](using
+          dfc: DFC,
+          ic: Candidate[R]
+      ): TC[T, R] with
+        def apply(dfType: T, arg: R): Out = b2b(dfType, arg)
+    end TC
+
+    object Ops:
+      extension (lhs: DFBit <> VAL)
+        def bool(using DFC): DFBool <> VAL =
+          import Token.Ops.{bool => boolToken}
+          DFVal.Alias.AsIs(DFBool, lhs, _.boolToken)
+        @targetName("notOfDFBit")
+        def unary_!(using DFC): DFBit <> VAL =
+          DFVal.Func(DFBit, FuncOp.unary_!, List(lhs))
+      extension (lhs: DFBool <> VAL)
+        def bit(using DFC): DFBit <> VAL =
+          import Token.Ops.{bit => bitToken}
+          DFVal.Alias.AsIs(DFBit, lhs, _.bitToken)
+        @targetName("notOfDFBool")
+        def unary_!(using DFC): DFBool <> VAL =
+          DFVal.Func(DFBool, FuncOp.unary_!, List(lhs))
+
+      private def logicOp[T <: DFBoolOrBit, R](
+          dfVal: T <> VAL,
+          arg: R,
+          op: FuncOp,
+          castle: Boolean
+      )(using dfc: DFC, ic: Candidate[R]): T <> VAL =
+        val dfValArg = b2b(dfVal.dfType, arg)
+        val (lhs, rhs) = if (castle) (dfValArg, dfVal) else (dfVal, dfValArg)
+        DFVal.Func(lhs.dfType.asIR.asFE[T], op, List(lhs, rhs))
+      extension [T <: DFBoolOrBit](lhs: T <> VAL)
+        def ||[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): T <> VAL =
+          logicOp[T, R](lhs, rhs, FuncOp.|, false)
+        def &&[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): T <> VAL =
+          logicOp[T, R](lhs, rhs, FuncOp.&, false)
+        def ^[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): T <> VAL =
+          logicOp[T, R](lhs, rhs, FuncOp.^, false)
+      extension [L](inline lhs: L)
+        inline def ||[RT <: DFBoolOrBit](
+            rhs: RT <> VAL
+        )(using es: Exact.Summon[L, lhs.type])(using
+            dfc: DFC,
+            ic: Candidate[es.Out]
+        ): RT <> VAL = logicOp(rhs, ic(es(lhs)), FuncOp.|, true)
+        inline def &&[RT <: DFBoolOrBit](
+            rhs: RT <> VAL
+        )(using es: Exact.Summon[L, lhs.type])(using
+            dfc: DFC,
+            ic: Candidate[es.Out]
+        ): RT <> VAL = logicOp(rhs, ic(es(lhs)), FuncOp.&, true)
+        inline def ^[RT <: DFBoolOrBit](
+            rhs: RT <> VAL
+        )(using es: Exact.Summon[L, lhs.type])(using
+            dfc: DFC,
+            ic: Candidate[es.Out]
+        ): RT <> VAL = logicOp(rhs, ic(es(lhs)), FuncOp.^, true)
+      end extension
+    end Ops
+
+  end Val
+end CompanionsDFBoolOrBit
 
 opaque type DFBool <: DFBoolOrBit = DFBoolOrBit
 final val DFBool = ir.DFBool.asInstanceOf[DFBool]

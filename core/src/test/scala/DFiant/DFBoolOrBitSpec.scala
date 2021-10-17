@@ -20,12 +20,36 @@ class DFBoolOrBitSpec extends DFSpec:
     val t8: DFBit <> TOKEN = t7
     val t9: DFBool <> TOKEN = t8
   }
-  test("Token Conversion") {
-//    assertEquals(d"8".signed, DFSInt(5).token(8))
-  }
+  test("Token Conversion") {}
   test("DFVal Conversion") {}
-  test("Assignment") {}
-  test("Comparison") {}
+  test("Assignment") {
+    assertCodeString(
+      """|val bt = DFBit <> VAR
+         |val bl = DFBool <> VAR
+         |bt := bl.bit
+         |bl := bt.bool
+         |bt := 1
+         |bt := 0
+         |bl := true
+         |bl := false
+         |bt := 1
+         |bl := false
+         |""".stripMargin
+    ) {
+      val bt = DFBit <> VAR
+      val bl = DFBool <> VAR
+      val bit0 = DFBit token 0
+      val boolT = DFBool token true
+      bt := bl
+      bl := bt
+      bt := true
+      bt := 0
+      bl := 1
+      bl := false
+      bt := boolT
+      bl := bit0
+    }
+  }
   test("Logical Ops") {
     val bit0 = DFBit token 0
     val bit1 = DFBit token 1
@@ -45,5 +69,28 @@ class DFBoolOrBitSpec extends DFSpec:
     assertEquals(1 || boolF, boolT)
     assertEquals(boolF && bit0, boolF)
     assertEquals(bit1 ^ boolT, bit0)
+    val bt = DFBit <> VAR
+    val bl = DFBool <> VAR
+    assertCodeString(
+      """|val t1 = bt && bl.bit
+         |val t2 = bt ^ 1
+         |val t3 = bl || false
+         |val t4 = 0 ^ bt
+         |val t5 = 1 && bt
+         |val t6 = bl || bt.bool
+         |val t7 = (bl ^ false) || bt.bool
+         |val t8 = (bl && bt.bool) ^ (bt || bl.bit).bool
+         |""".stripMargin
+    ) {
+      val t1 = bt && bl
+      val t2 = bt ^ 1
+      val t3 = bl || false
+      val t4 = 0 ^ bt
+      val t5 = true && bt
+      val t6 = bl || bt
+      val t7 = bl ^ 0 || bt
+      val t8 = (bl && bt) ^ (bt || bl)
+    }
+
   }
 end DFBoolOrBitSpec
