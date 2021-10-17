@@ -234,6 +234,7 @@ class DFDecimalSpec extends DFSpec:
     val u7 = DFUInt(7) <> VAR
     val s8 = DFSInt(8) <> VAR
     val b8 = DFBits(8) <> VAR
+    u8 < -1
     assertEquals(d"22" == d"22", DFBool.token(true))
     assertEquals(d"22" != d"22", DFBool.token(false))
     assertEquals(d"22" < 23, DFBool.token(true))
@@ -243,20 +244,20 @@ class DFDecimalSpec extends DFSpec:
     assertCodeString {
       """|val t1 = u8 == u8
          |val t2 = u8 != d"8'0"
-         |val t3 = d"8'0" == u8
-         |val t4 = u8 == d"8'12"
+         |val t3 = d"8'0" < u8
+         |val t4 = u8 > d"8'12"
          |val t5 = u8 != d"8'255"
-         |val t6 = u8 == b8.uint
-         |val t7 = u8.resize(4) == b8.resize(4).uint
+         |val t6 = u8 <= b8.uint
+         |val t7 = u8.resize(4) >= b8.resize(4).uint
          |""".stripMargin
     } {
       val t1 = u8 == u8
       val t2 = u8 != 0
-      val t3 = 0 === u8
-      val t4 = u8 == d"8'12"
+      val t3 = 0 < u8
+      val t4 = u8 > d"8'12"
       val t5 = u8 != h"FF"
-      val t6 = u8 == b8
-      val t7 = u8.resize(4) == b8.resize(4)
+      val t6 = u8 <= b8
+      val t7 = u8.resize(4) >= b8.resize(4)
     }
 
     assertDSLError(
@@ -275,30 +276,30 @@ class DFDecimalSpec extends DFSpec:
         |An explicit conversion must be applied.
         |""".stripMargin
     )(
-      """u8 == -1"""
+      """u8 < -1"""
     ) {
       val value = -1
-      u8 == value
+      u8 < value
     }
     assertDSLError(
       """Cannot compare a signed value (LHS) to an unsigned value (RHS).
         |An explicit conversion must be applied.
         |""".stripMargin
     )(
-      """-1 === u8"""
+      """-1 <= u8"""
     ) {
       val value = -1
-      value === u8
+      value <= u8
     }
     assertDSLError(
       """Cannot compare a dataflow value (width = 8) with a Scala `Int` argument that is wider (width = 10).
         |An explicit conversion must be applied.
         |""".stripMargin
     )(
-      """u8 == 1000"""
+      """u8 > 1000"""
     ) {
       val value = 1000
-      u8 == value
+      u8 > value
     }
 
   }

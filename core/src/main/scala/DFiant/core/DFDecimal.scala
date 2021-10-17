@@ -683,18 +683,6 @@ object DFXInt:
       end extension
 
       extension [L](inline lhs: L)
-        inline def ===[RS <: Boolean, RW <: Int](
-            rhs: DFXInt[RS, RW] <> VAL
-        )(using es: Exact.Summon[L, lhs.type])(using
-            dfc: DFC,
-            eq: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.===.type, true]
-        ): DFBool <> VAL = eq(rhs, es(lhs))
-        inline def =!=[RS <: Boolean, RW <: Int](
-            rhs: DFXInt[RS, RW] <> VAL
-        )(using es: Exact.Summon[L, lhs.type])(using
-            dfc: DFC,
-            eq: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.=!=.type, true]
-        ): DFBool <> VAL = eq(rhs, es(lhs))
         inline def <[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
