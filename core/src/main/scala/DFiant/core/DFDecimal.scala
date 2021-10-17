@@ -99,14 +99,6 @@ private object CompanionsDFDecimal:
           [LS <: Boolean,
           RS <: Boolean] =>> "Cannot apply a signed value to an unsigned variable."
         ]
-    object `VS == RS`
-        extends Check2[
-          Boolean,
-          Boolean,
-          [LS <: Boolean, RS <: Boolean] =>> LS == RS,
-          [LS <: Boolean,
-          RS <: Boolean] =>> "Cannot compare a signed value to an unsigned value.\nAn explicit conversion must be applied."
-        ]
     type SignStr[S <: Boolean] = ITE[S, "a signed", "an unsigned"]
     object `LS == RS`
         extends Check2[
@@ -446,13 +438,22 @@ object DFXInt:
       given [LS <: Boolean, LW <: Int, R, Op <: FuncOp, C <: Boolean](using
           ic: Candidate[R]
       )(using
-          check: `VS == RS`.Check[LS, ic.OutS],
-          op: ValueOf[Op]
+          check: CompareCheck[LS, LW, ic.OutS, ic.OutW, ic.IsScalaInt, C],
+          op: ValueOf[Op],
+          castling: ValueOf[C]
       ): Compare[DFXInt[LS, LW], R, Op, C] with
         def apply(token: Token[LS, LW], arg: R): DFBool <> TOKEN =
-          val argToken = ic(arg)
-          check(token.dfType.signed, argToken.dfType.signed)
-          val outData = (token.data, argToken.data) match
+          val tokenArg = ic(arg)
+          check(
+            token.dfType.signed,
+            token.dfType.width,
+            tokenArg.dfType.signed,
+            tokenArg.dfType.width
+          )
+          val (lhsData, rhsData) =
+            if (castling) (tokenArg.data, token.data)
+            else (token.data, tokenArg.data)
+          val outData = (lhsData, rhsData) match
             case (Some(l), Some(r)) =>
               import DFVal.Func.Op
               op.value match
@@ -486,7 +487,7 @@ object DFXInt:
               val signed = lhs.dfType.signed
               check(signed, updatedWidth)
               //updated width is larger or the data is bubble
-              if (updatedWidth > lhs.width || lhs.asIR.isBubble)
+              if (updatedWidth.value > lhs.width.value || lhs.asIR.isBubble)
                 DFXInt.Token(signed, updatedWidth, lhs.data).asIR
               else //updated width is smaller
                 import DFToken.Ops.bits
@@ -502,6 +503,41 @@ object DFXInt:
                     .asIR
               end if
           updatedTokenIR.asTokenOf[DFXInt[S, RW]]
+        end resize
+        def <[R](rhs: Inlined[R])(using
+            op: DFToken.Compare[DFXInt[S, W], R, FuncOp.<.type, false]
+        ): DFBool <> TOKEN = op(lhs, rhs)
+        def >[R](rhs: Inlined[R])(using
+            op: DFToken.Compare[DFXInt[S, W], R, FuncOp.>.type, false]
+        ): DFBool <> TOKEN = op(lhs, rhs)
+        def <=[R](rhs: Inlined[R])(using
+            op: DFToken.Compare[DFXInt[S, W], R, FuncOp.<=.type, false]
+        ): DFBool <> TOKEN = op(lhs, rhs)
+        def >=[R](rhs: Inlined[R])(using
+            op: DFToken.Compare[DFXInt[S, W], R, FuncOp.>=.type, false]
+        ): DFBool <> TOKEN = op(lhs, rhs)
+      end extension
+      extension [L](inline lhs: L)
+        inline def <[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> TOKEN
+        )(using es: Exact.Summon[L, lhs.type])(using
+            c: DFToken.Compare[DFXInt[RS, RW], es.Out, FuncOp.<.type, true]
+        ): DFBool <> TOKEN = c(rhs, es(lhs))
+        inline def >[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> TOKEN
+        )(using es: Exact.Summon[L, lhs.type])(using
+            c: DFToken.Compare[DFXInt[RS, RW], es.Out, FuncOp.>.type, true]
+        ): DFBool <> TOKEN = c(rhs, es(lhs))
+        inline def <=[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> TOKEN
+        )(using es: Exact.Summon[L, lhs.type])(using
+            c: DFToken.Compare[DFXInt[RS, RW], es.Out, FuncOp.<=.type, true]
+        ): DFBool <> TOKEN = c(rhs, es(lhs))
+        inline def >=[RS <: Boolean, RW <: Int](
+            rhs: DFXInt[RS, RW] <> TOKEN
+        )(using es: Exact.Summon[L, lhs.type])(using
+            c: DFToken.Compare[DFXInt[RS, RW], es.Out, FuncOp.>=.type, true]
+        ): DFBool <> TOKEN = c(rhs, es(lhs))
       end extension
       extension [L](inline lhs: L)
         inline def +[RS <: Boolean, RW <: Int](
@@ -511,13 +547,6 @@ object DFXInt:
         )(using
             check: TCCheck[icL.OutS, icL.OutW, RS, RW]
         ): Unit = {}
-      end extension
-      extension [LS <: Boolean, LW <: Int](inline lhs: DFXInt[LS, LW] <> TOKEN)
-        inline def ==[RS <: Boolean, RW <: Int](
-            rhs: DFXInt[RS, RW] <> TOKEN
-        )(using
-            check: TCCheck[LS, LW, RS, RW]
-        ): DFBool <> TOKEN = ???
       end extension
     end Ops
   end Token

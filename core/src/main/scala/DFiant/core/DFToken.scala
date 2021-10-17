@@ -12,6 +12,10 @@ final class DFToken[+T <: DFType](val value: ir.DFType.Token) extends AnyVal:
   inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
       c: DFToken.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false]
   ): DFToken[DFBool] = c(this, es(that))
+  inline def !=[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
+      c: DFToken.Compare[T @uncheckedVariance, es.Out, FuncOp.=!=.type, false]
+  ): DFToken[DFBool] = c(this, es(that))
+
 type DFTokenAny = DFToken[DFType]
 extension (tokenIR: ir.DFType.Token)
   def asTokenOf[T <: DFType]: DFToken[T] = DFToken[T](tokenIR)
