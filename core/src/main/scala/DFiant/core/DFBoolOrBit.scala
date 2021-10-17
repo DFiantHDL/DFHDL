@@ -3,6 +3,8 @@ import DFiant.compiler.ir
 import DFiant.internals.*
 import annotation.targetName
 
+type Bit = 0 | 1
+
 type DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
 val DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
 
@@ -36,7 +38,7 @@ private object CompanionsDFBoolOrBit:
       Token(dfType, Some(value))
     protected[core] def apply[T <: DFBoolOrBit](
         dfType: T,
-        value: 0 | 1
+        value: Bit
     ): T <> TOKEN =
       Token(dfType, value > 0)
     protected[core] def apply[T <: DFBoolOrBit](
@@ -67,30 +69,46 @@ private object CompanionsDFBoolOrBit:
 //        def asBit: Token = Token(DFBit, token.data)
 //    end Ops
 
+    trait Candidate[-R]:
+      type OutT <: DFBoolOrBit
+      def apply(arg: R): DFToken[OutT]
+    object Candidate:
+      transparent inline given fromBooleanSing[
+          R <: Boolean
+      ]: Candidate[ValueOf[R]] = new Candidate[ValueOf[R]]:
+        type OutT = DFBool
+        def apply(arg: ValueOf[R]): DFToken[DFBool] =
+          DFBoolOrBit.Token(DFBool, arg.value)
+      transparent inline given fromBoolean: Candidate[Boolean] =
+        new Candidate[Boolean]:
+          type OutT = DFBool
+          def apply(arg: Boolean): DFToken[DFBool] =
+            DFBoolOrBit.Token(DFBool, arg)
+      transparent inline given fromBit[
+          R <: Bit
+      ]: Candidate[ValueOf[R]] = new Candidate[ValueOf[R]]:
+        type OutT = DFBit
+        def apply(arg: ValueOf[R]): DFToken[DFBit] =
+          DFBoolOrBit.Token(DFBit, arg.value)
+      transparent inline given fromDFBoolOrBitToken[
+          T <: DFBoolOrBit
+      ]: Candidate[DFToken[T]] = new Candidate[DFToken[T]]:
+        type OutT = T
+        def apply(arg: DFToken[T]): DFToken[T] = arg
+    end Candidate
+
     object TC:
       import DFToken.TC
-      given DFBoolTokenFromBooleanSing[
-          T <: DFBoolOrBit,
-          V <: Boolean
-      ]: TC[T, ValueOf[V]] with
-        def apply(dfType: T, value: ValueOf[V]): Out =
-          DFBoolOrBit.Token(dfType, value.value)
-      given DFBoolTokenFromBoolean[
-          T <: DFBoolOrBit,
-          V <: Boolean
-      ]: TC[T, V] with
-        def apply(dfType: T, value: V): Out =
-          DFBoolOrBit.Token(dfType, value)
-      given DFBoolTokenFrom1Or0[T <: DFBoolOrBit, V <: 0 | 1]: TC[T, ValueOf[V]]
-        with
-        def apply(dfType: T, value: ValueOf[V]): Out =
-          DFBoolOrBit.Token(dfType, value.value)
-      given DFBoolTokenFromToken[
-          T <: DFBoolOrBit,
-          V <: DFBoolOrBit.Token
-      ]: TC[T, V] with
-        def apply(dfType: T, value: V): Out =
-          DFBoolOrBit.Token(dfType, value.data)
+      given DFBoolTokenFromCandidate[T <: DFBoolOrBit, R](using
+          ic: Candidate[R]
+      ): TC[T, R] with
+        def apply(dfType: T, arg: R): Out =
+          val tokenArg = ic(arg)
+          val tokenOut = (dfType, tokenArg.dfType) match
+            case (DFBit, DFBool) => DFBoolOrBit.Token(DFBit, tokenArg.data)
+            case (DFBool, DFBit) => DFBoolOrBit.Token(DFBool, tokenArg.data)
+            case _               => tokenArg
+          tokenOut.asIR.asTokenOf[T]
     end TC
   end Token
 end CompanionsDFBoolOrBit
@@ -102,3 +120,4 @@ opaque type DFBool <: DFBoolOrBit = DFBoolOrBit
 final val DFBool = ir.DFBool.asInstanceOf[DFBool]
 opaque type DFBit <: DFBoolOrBit = DFBoolOrBit
 final val DFBit = ir.DFBit.asInstanceOf[DFBit]
+given CanEqual[DFBoolOrBit, DFBoolOrBit] = CanEqual.derived

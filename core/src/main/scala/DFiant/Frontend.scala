@@ -2,6 +2,7 @@ package DFiant
 
 export core.DFType.Ops.*
 export core.DFToken.Ops.*
+type Bit = core.Bit
 //export core.DFBoolOrBit.Token.Ops.*
 //export core.DFBoolOrBit.Ops.*
 export core.DFBits.Token.Ops.*
