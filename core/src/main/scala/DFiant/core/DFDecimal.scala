@@ -487,6 +487,7 @@ object DFXInt:
               val signed = lhs.dfType.signed
               check(signed, updatedWidth)
               //updated width is larger or the data is bubble
+              //TODO:Wrong run error workaround by changing to `updatedWidth.value` and `lhs.width.value`
               if (updatedWidth.value > lhs.width.value || lhs.asIR.isBubble)
                 DFXInt.Token(signed, updatedWidth, lhs.data).asIR
               else //updated width is smaller

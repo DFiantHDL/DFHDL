@@ -140,7 +140,8 @@ private object CompanionsDFBits:
               ") is different than the DFType width (" + W + ")."
           ]
 
-      given fromTokenCandidate[W <: Int, R, VW <: Int](using
+      //TODO: minimize error when removing aux pattern
+      given DFBitsTokenFromCandidate[W <: Int, R, VW <: Int](using
           ic: Candidate.Aux[R, VW]
       )(using check: `W == VW`.Check[W, VW]): TC[DFBits[W], R] with
         def apply(dfType: DFBits[W], value: R): Out =
