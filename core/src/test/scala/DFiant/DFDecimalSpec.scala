@@ -234,7 +234,6 @@ class DFDecimalSpec extends DFSpec:
     val u7 = DFUInt(7) <> VAR
     val s8 = DFSInt(8) <> VAR
     val b8 = DFBits(8) <> VAR
-    u8 < -1
     assertEquals(d"22" == d"22", DFBool.token(true))
     assertEquals(d"22" != d"22", DFBool.token(false))
     assertEquals(d"22" < 23, DFBool.token(true))

@@ -504,16 +504,16 @@ object DFXInt:
               end if
           updatedTokenIR.asTokenOf[DFXInt[S, RW]]
         end resize
-        def <[R](rhs: Inlined[R])(using
+        def <[R](rhs: Exact[R])(using
             op: DFToken.Compare[DFXInt[S, W], R, FuncOp.<.type, false]
         ): DFBool <> TOKEN = op(lhs, rhs)
-        def >[R](rhs: Inlined[R])(using
+        def >[R](rhs: Exact[R])(using
             op: DFToken.Compare[DFXInt[S, W], R, FuncOp.>.type, false]
         ): DFBool <> TOKEN = op(lhs, rhs)
-        def <=[R](rhs: Inlined[R])(using
+        def <=[R](rhs: Exact[R])(using
             op: DFToken.Compare[DFXInt[S, W], R, FuncOp.<=.type, false]
         ): DFBool <> TOKEN = op(lhs, rhs)
-        def >=[R](rhs: Inlined[R])(using
+        def >=[R](rhs: Exact[R])(using
             op: DFToken.Compare[DFXInt[S, W], R, FuncOp.>=.type, false]
         ): DFBool <> TOKEN = op(lhs, rhs)
       end extension
@@ -664,19 +664,19 @@ object DFXInt:
             _.resizeToken(updatedWidth)
           )
         end resize
-        def <[R](rhs: Inlined[R])(using
+        def <[R](rhs: Exact[R])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[S, W], R, FuncOp.<.type, false]
         ): DFBool <> VAL = op(lhs, rhs)
-        def <=[R](rhs: Inlined[R])(using
+        def <=[R](rhs: Exact[R])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[S, W], R, FuncOp.<=.type, false]
         ): DFBool <> VAL = op(lhs, rhs)
-        def >[R](rhs: Inlined[R])(using
+        def >[R](rhs: Exact[R])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[S, W], R, FuncOp.>.type, false]
         ): DFBool <> VAL = op(lhs, rhs)
-        def >=[R](rhs: Inlined[R])(using
+        def >=[R](rhs: Exact[R])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[S, W], R, FuncOp.>=.type, false]
         ): DFBool <> VAL = op(lhs, rhs)
