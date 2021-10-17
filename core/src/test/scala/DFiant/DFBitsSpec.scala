@@ -137,7 +137,6 @@ class DFBitsSpec extends DFSpec:
       v8 := ?
       v8 := x
       v8 := x.bits
-
       val twelve = 12
       val v12 = DFBits(twelve) <> VAR
 

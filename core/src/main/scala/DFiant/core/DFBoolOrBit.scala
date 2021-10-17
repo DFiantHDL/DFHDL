@@ -72,6 +72,7 @@ private object CompanionsDFBoolOrBit:
       type OutT <: DFBoolOrBit
       def apply(arg: R): DFToken[OutT]
     object Candidate:
+      type Aux[-R, T <: DFBoolOrBit] = Candidate[R] { type OutT = T }
       transparent inline given fromBooleanSing[
           R <: Boolean
       ]: Candidate[ValueOf[R]] = new Candidate[ValueOf[R]]:
@@ -129,17 +130,17 @@ private object CompanionsDFBoolOrBit:
         val dataOut = (token.data, tokenArg.data) match
           case (Some(l), Some(r)) =>
             op match
-              case FuncOp.|| => Some(l || r)
-              case FuncOp.&& => Some(l && r)
-              case FuncOp.^  => Some(l ^ r)
+              case FuncOp.| => Some(l || r)
+              case FuncOp.& => Some(l && r)
+              case FuncOp.^ => Some(l ^ r)
               case _ => throw new IllegalArgumentException("Unsupported Op")
           case _ => None
         Token(token.dfType, dataOut)
       extension [T <: DFBoolOrBit](lhs: T <> TOKEN)
         def ||[R](rhs: Exact[R])(using ic: Candidate[R]): T <> TOKEN =
-          logicOp(lhs, ic(rhs), FuncOp.||)
+          logicOp(lhs, ic(rhs), FuncOp.|)
         def &&[R](rhs: Exact[R])(using ic: Candidate[R]): T <> TOKEN =
-          logicOp(lhs, ic(rhs), FuncOp.&&)
+          logicOp(lhs, ic(rhs), FuncOp.&)
         def ^[R](rhs: Exact[R])(using ic: Candidate[R]): T <> TOKEN =
           logicOp(lhs, ic(rhs), FuncOp.^)
       extension [L](inline lhs: L)
@@ -147,12 +148,12 @@ private object CompanionsDFBoolOrBit:
             rhs: DFToken[RT]
         )(using es: Exact.Summon[L, lhs.type])(using
             ic: Candidate[es.Out]
-        ): RT <> TOKEN = logicOp(rhs, ic(es(lhs)), FuncOp.||)
+        ): RT <> TOKEN = logicOp(rhs, ic(es(lhs)), FuncOp.|)
         inline def &&[RT <: DFBoolOrBit](
             rhs: DFToken[RT]
         )(using es: Exact.Summon[L, lhs.type])(using
             ic: Candidate[es.Out]
-        ): RT <> TOKEN = logicOp(rhs, ic(es(lhs)), FuncOp.&&)
+        ): RT <> TOKEN = logicOp(rhs, ic(es(lhs)), FuncOp.&)
         inline def ^[RT <: DFBoolOrBit](
             rhs: DFToken[RT]
         )(using es: Exact.Summon[L, lhs.type])(using

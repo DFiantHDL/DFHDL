@@ -1,8 +1,9 @@
 package DFiant.core
 import DFiant.compiler.ir
-import ir.DFVal.Func.{Op => FuncOp}
+import ir.DFVal.Func.Op as FuncOp
 import DFiant.internals.*
-import scala.annotation.targetName
+
+import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
 type DFBits[W <: Int] = OpaqueDFBits.DFBits[W]
@@ -104,6 +105,9 @@ private object CompanionsDFBits:
         tc(DFBits(valueOf[W]), value)
     end Conversions
 
+    @implicitNotFound(
+      "Argument of type ${R} is not a proper candidate for a DFBits token."
+    )
     trait Candidate[-R]:
       type OutW <: Int
       def apply(arg: R): Token[OutW]
@@ -114,19 +118,18 @@ private object CompanionsDFBits:
           type OutW = W
           def apply(arg: Token[W]): Token[OutW] = arg
       transparent inline given fromDFUIntToken[W <: Int]
-          : Candidate[DFUInt.Token[W]] =
-        new Candidate[DFUInt.Token[W]]:
-          type OutW = W
-          def apply(arg: DFUInt.Token[W]): Token[OutW] =
-            import DFToken.Ops.bits
-            arg.bits
-      transparent inline given fromDFBoolOrBitToken
-          : Candidate[DFBoolOrBit.Token] =
-        new Candidate[DFBoolOrBit.Token]:
-          type OutW = 1
-          def apply(arg: DFBoolOrBit.Token): Token[1] =
-            import DFToken.Ops.bits
-            arg.bits
+          : Candidate[DFUInt.Token[W]] = new Candidate[DFUInt.Token[W]]:
+        type OutW = W
+        def apply(arg: DFUInt.Token[W]): Token[OutW] =
+          import DFToken.Ops.bits
+          arg.bits
+      transparent inline given fromDFBitCandidate[R, T <: DFBoolOrBit](using
+          ic: DFBoolOrBit.Token.Candidate.Aux[R, T]
+      )(using T =:= DFBit): Candidate[R] = new Candidate[R]:
+        type OutW = 1
+        def apply(arg: R): Token[1] =
+          import DFToken.Ops.bits
+          ic(arg).bits
     end Candidate
 
     object TC:

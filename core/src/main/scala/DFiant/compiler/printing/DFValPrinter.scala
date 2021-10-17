@@ -25,7 +25,9 @@ protected trait DFValPrinter extends AbstractPrinter:
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
           case Func.Op.=!= => "!="
-          case op          => op.toString
+          case Func.Op.| | Func.Op.& if argL.get.dfType.width > 1 =>
+            s"${dfVal.op}${dfVal.op}"
+          case op => op.toString
         s"${argL.refCodeString.applyBrackets(true)} $opStr ${argR.refCodeString.applyBrackets(true)}"
       case arg :: Nil =>
         val opStr = dfVal.op.toString
