@@ -108,6 +108,7 @@ private object CompanionsDFBits:
       type OutW <: Int
       def apply(arg: R): Token[OutW]
     object Candidate:
+      type Aux[-R, W <: Int] = Candidate[R] { type OutW = W }
       transparent inline given fromDFBitsToken[W <: Int]: Candidate[Token[W]] =
         new Candidate[Token[W]]:
           type OutW = W
@@ -139,9 +140,9 @@ private object CompanionsDFBits:
               ") is different than the DFType width (" + W + ")."
           ]
 
-      given fromTokenCandidate[W <: Int, R](using ic: Candidate[R])(using
-          check: `W == VW`.Check[W, ic.OutW]
-      ): TC[DFBits[W], R] with
+      given fromTokenCandidate[W <: Int, R, VW <: Int](using
+          ic: Candidate.Aux[R, VW]
+      )(using check: `W == VW`.Check[W, VW]): TC[DFBits[W], R] with
         def apply(dfType: DFBits[W], value: R): Out =
           val tokenArg = ic(value)
           check(dfType.width, tokenArg.asIR.width)
