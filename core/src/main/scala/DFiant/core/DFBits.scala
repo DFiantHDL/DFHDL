@@ -104,6 +104,30 @@ private object CompanionsDFBits:
         tc(DFBits(valueOf[W]), value)
     end Conversions
 
+    trait Candidate[-R]:
+      type OutW <: Int
+      def apply(arg: R): Token[OutW]
+    object Candidate:
+      transparent inline given fromDFBitsToken[W <: Int]: Candidate[Token[W]] =
+        new Candidate[Token[W]]:
+          type OutW = W
+          def apply(arg: Token[W]): Token[OutW] = arg
+      transparent inline given fromDFUIntToken[W <: Int]
+          : Candidate[DFUInt.Token[W]] =
+        new Candidate[DFUInt.Token[W]]:
+          type OutW = W
+          def apply(arg: DFUInt.Token[W]): Token[OutW] =
+            import DFToken.Ops.bits
+            arg.bits
+      transparent inline given fromDFBoolOrBitToken
+          : Candidate[DFBoolOrBit.Token] =
+        new Candidate[DFBoolOrBit.Token]:
+          type OutW = 1
+          def apply(arg: DFBoolOrBit.Token): Token[1] =
+            import DFToken.Ops.bits
+            arg.bits
+    end Candidate
+
     object TC:
       import DFToken.TC
       protected object `W == VW`
@@ -115,20 +139,13 @@ private object CompanionsDFBits:
               ") is different than the DFType width (" + W + ")."
           ]
 
-      given DFBitsTokenFromDFBitsToken[W <: Int, VW <: Int](using
-          check: `W == VW`.Check[W, VW]
-      ): TC[DFBits[W], DFBits[VW] <> TOKEN] with
-        def apply(dfType: DFBits[W], value: DFBits[VW] <> TOKEN): Out =
-          check(dfType.width, value.asIR.width)
-          value.asInstanceOf[Out]
-
-      given DFBitsTokenFromDFUIntToken[W <: Int, VW <: Int](using
-          check: `W == VW`.Check[W, VW]
-      ): TC[DFBits[W], DFUInt[VW] <> TOKEN] with
-        def apply(dfType: DFBits[W], value: DFUInt[VW] <> TOKEN): Out =
-          import DFToken.Ops.bits
-          check(dfType.width, value.asIR.width)
-          value.bits.asInstanceOf[Out]
+      given fromTokenCandidate[W <: Int, R](using ic: Candidate[R])(using
+          check: `W == VW`.Check[W, ic.OutW]
+      ): TC[DFBits[W], R] with
+        def apply(dfType: DFBits[W], value: R): Out =
+          val tokenArg = ic(value)
+          check(dfType.width, tokenArg.asIR.width)
+          tokenArg.asInstanceOf[Out]
 
       given DFBitsTokenFromSBV[W <: Int]: TC[DFBits[W], SameBitsVector] with
         def apply(dfType: DFBits[W], value: SameBitsVector): Out =
@@ -249,6 +266,43 @@ private object CompanionsDFBits:
         }
       end interpMacro
     end StrInterp
+
+//    object Compare:
+//      import DFToken.Compare
+//      given [LS <: Boolean, LW <: Int, R, Op <: FuncOp, C <: Boolean](using
+//          ic: Candidate[R]
+//      )(using
+//          check: CompareCheck[LS, LW, ic.OutS, ic.OutW, ic.IsScalaInt, C],
+//          op: ValueOf[Op],
+//          castling: ValueOf[C]
+//      ): Compare[DFXInt[LS, LW], R, Op, C] with
+//        def apply(token: Token[LS, LW], arg: R): DFBool <> TOKEN =
+//          val tokenArg = ic(arg)
+//          check(
+//            token.dfType.signed,
+//            token.dfType.width,
+//            tokenArg.dfType.signed,
+//            tokenArg.dfType.width
+//          )
+//          val (lhsData, rhsData) =
+//            if (castling) (tokenArg.data, token.data)
+//            else (token.data, tokenArg.data)
+//          val outData = (lhsData, rhsData) match
+//            case (Some(l), Some(r)) =>
+//              import DFVal.Func.Op
+//              op.value match
+//                case Op.=== => Some(l == r)
+//                case Op.=!= => Some(l != r)
+//                case Op.<   => Some(l < r)
+//                case Op.>   => Some(l > r)
+//                case Op.<=  => Some(l <= r)
+//                case Op.>=  => Some(l >= r)
+//                case _ => throw new IllegalArgumentException("Unsupported Op")
+//            case _ => None
+//          DFBoolOrBit.Token(DFBool, outData)
+//        end apply
+//      end given
+//    end Compare
 
     object Ops:
       extension [LW <: Int](lhs: DFBits.Token[LW])
