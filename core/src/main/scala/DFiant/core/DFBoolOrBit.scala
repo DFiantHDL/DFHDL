@@ -77,18 +77,18 @@ private object CompanionsDFBoolOrBit:
       ]: Candidate[ValueOf[R]] = new Candidate[ValueOf[R]]:
         type OutT = DFBool
         def apply(arg: ValueOf[R]): DFToken[DFBool] =
-          DFBoolOrBit.Token(DFBool, arg.value)
+          Token(DFBool, arg.value)
       transparent inline given fromBoolean: Candidate[Boolean] =
         new Candidate[Boolean]:
           type OutT = DFBool
           def apply(arg: Boolean): DFToken[DFBool] =
-            DFBoolOrBit.Token(DFBool, arg)
+            Token(DFBool, arg)
       transparent inline given fromBit[
           R <: Bit
       ]: Candidate[ValueOf[R]] = new Candidate[ValueOf[R]]:
         type OutT = DFBit
         def apply(arg: ValueOf[R]): DFToken[DFBit] =
-          DFBoolOrBit.Token(DFBit, arg.value)
+          Token(DFBit, arg.value)
       transparent inline given fromDFBoolOrBitToken[
           T <: DFBoolOrBit
       ]: Candidate[DFToken[T]] = new Candidate[DFToken[T]]:
@@ -104,37 +104,51 @@ private object CompanionsDFBoolOrBit:
         def apply(dfType: T, arg: R): Out =
           val tokenArg = ic(arg)
           val tokenOut = (dfType, tokenArg.dfType) match
-            case (DFBit, DFBool) => DFBoolOrBit.Token(DFBit, tokenArg.data)
-            case (DFBool, DFBit) => DFBoolOrBit.Token(DFBool, tokenArg.data)
+            case (DFBit, DFBool) => Token(DFBit, tokenArg.data)
+            case (DFBool, DFBit) => Token(DFBool, tokenArg.data)
             case _               => tokenArg
           tokenOut.asIR.asTokenOf[T]
     end TC
 
+    private def logicOp[T <: DFBoolOrBit](
+        token: DFToken[T],
+        tokenArg: DFToken[DFBoolOrBit],
+        op: FuncOp
+    ): DFToken[T] =
+      val dataOut = (token.data, tokenArg.data) match
+        case (Some(l), Some(r)) =>
+          op match
+            case FuncOp.=== => Some(l == r)
+            case FuncOp.=!= => Some(l != r)
+            case FuncOp.|   => Some(l || r)
+            case FuncOp.&   => Some(l && r)
+            case FuncOp.^   => Some(l ^ r)
+            case _ => throw new IllegalArgumentException("Unsupported Op")
+        case _ => None
+      Token(token.dfType, dataOut)
+    end logicOp
+
+    object Compare:
+      import DFToken.Compare
+      given DFBoolOrBitCompare[T <: DFBoolOrBit, R, Op <: FuncOp, C <: Boolean](
+          using
+          ic: Candidate[R],
+          op: ValueOf[Op],
+          castle: ValueOf[C]
+      ): Compare[T, R, Op, C] with
+        def apply(token: T <> TOKEN, arg: R): DFBool <> TOKEN =
+          logicOp(token, ic(arg), op)
+    end Compare
+
     object Ops:
       extension (lhs: DFBit <> TOKEN)
-        def bool: DFBool <> TOKEN = DFBoolOrBit.Token(DFBool, lhs.data)
+        def bool: DFBool <> TOKEN = Token(DFBool, lhs.data)
         @targetName("notOfDFBit")
-        def unary_! : DFBit <> TOKEN =
-          DFBoolOrBit.Token(DFBit, lhs.data.map(!_))
+        def unary_! : DFBit <> TOKEN = Token(DFBit, lhs.data.map(!_))
       extension (lhs: DFBool <> TOKEN)
-        def bit: DFBit <> TOKEN = DFBoolOrBit.Token(DFBit, lhs.data)
+        def bit: DFBit <> TOKEN = Token(DFBit, lhs.data)
         @targetName("notOfDFBool")
-        def unary_! : DFBool <> TOKEN =
-          DFBoolOrBit.Token(DFBool, lhs.data.map(!_))
-      private def logicOp[T <: DFBoolOrBit](
-          token: DFToken[T],
-          tokenArg: DFToken[DFBoolOrBit],
-          op: FuncOp
-      ): DFToken[T] =
-        val dataOut = (token.data, tokenArg.data) match
-          case (Some(l), Some(r)) =>
-            op match
-              case FuncOp.| => Some(l || r)
-              case FuncOp.& => Some(l && r)
-              case FuncOp.^ => Some(l ^ r)
-              case _ => throw new IllegalArgumentException("Unsupported Op")
-          case _ => None
-        Token(token.dfType, dataOut)
+        def unary_! : DFBool <> TOKEN = Token(DFBool, lhs.data.map(!_))
       extension [T <: DFBoolOrBit](lhs: T <> TOKEN)
         def ||[R](rhs: Exact[R])(using ic: Candidate[R]): T <> TOKEN =
           logicOp(lhs, ic(rhs), FuncOp.|)

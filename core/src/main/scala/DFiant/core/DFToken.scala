@@ -23,6 +23,7 @@ final class DFToken[+T <: DFType](val value: ir.DFType.Token) extends AnyVal:
       dfc: DFC,
       op: DFVal.Compare[R, DFToken[T], FuncOp.=!=.type, true]
   ): DFBool <> VAL = op(that, this)
+  override def toString: String = value.toString
 end DFToken
 
 type DFTokenAny = DFToken[DFType]
@@ -57,7 +58,9 @@ object DFToken:
   trait Compare[T <: DFType, -V, Op <: FuncOp, C <: Boolean]:
     def apply(token: DFToken[T], arg: V): DFToken[DFBool]
   object Compare:
+    export DFBoolOrBit.Token.Compare.given
     export DFDecimal.Token.Compare.given
+    export DFBits.Token.Compare.given
 
   object Ops:
     extension [T <: DFType](token: DFToken[T])

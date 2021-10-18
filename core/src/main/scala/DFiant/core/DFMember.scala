@@ -5,6 +5,7 @@ import DFiant.internals.*
 
 trait DFMember[+T <: ir.DFMember] extends Any:
   val value: T
+  override def toString: String = value.toString
 
 type DFMemberAny = DFMember[ir.DFMember]
 object DFMember:

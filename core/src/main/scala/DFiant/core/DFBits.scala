@@ -8,7 +8,7 @@ import scala.quoted.*
 
 type DFBits[W <: Int] = OpaqueDFBits.DFBits[W]
 val DFBits = OpaqueDFBits.DFBits
-//export OpaqueDFBits.DFBits
+import CompanionsDFDecimal.Constraints.`LW == RW`
 
 private object OpaqueDFBits:
   opaque type DFBits[W <: Int] <: DFType.Of[ir.DFBits] = DFType.Of[ir.DFBits]
@@ -55,6 +55,28 @@ private object CompanionsDFBits:
         [H <: Int, L <: Int] =>> "Low index " + L +
           " is bigger than High bit index " + H
       ]
+  trait CompareCheck[
+      ValW <: Int,
+      ArgW <: Int,
+      Castle <: Boolean //castling of dfVal and arg
+  ]:
+    def apply(dfValWidth: Int, argWidth: Int): Unit
+  given [
+      ValW <: Int,
+      ArgW <: Int,
+      Castle <: Boolean
+  ](using
+      lw: Id[ITE[Castle, ArgW, ValW]],
+      rw: Id[ITE[Castle, ValW, ArgW]]
+  )(using
+      checkW: `LW == RW`.Check[lw.Out, rw.Out],
+      castle: ValueOf[Castle]
+  ): CompareCheck[ValW, ArgW, Castle] with
+    def apply(dfValWidth: Int, argWidth: Int): Unit =
+      val lw = if (castle) argWidth else dfValWidth
+      val rw = if (castle) dfValWidth else argWidth
+      checkW(lw, rw)
+  end given
 
   type Token[W <: Int] = DFToken[DFBits[W]]
   object Token:
@@ -272,42 +294,38 @@ private object CompanionsDFBits:
       end interpMacro
     end StrInterp
 
-//    object Compare:
-//      import DFToken.Compare
-//      given [LS <: Boolean, LW <: Int, R, Op <: FuncOp, C <: Boolean](using
-//          ic: Candidate[R]
-//      )(using
-//          check: CompareCheck[LS, LW, ic.OutS, ic.OutW, ic.IsScalaInt, C],
-//          op: ValueOf[Op],
-//          castling: ValueOf[C]
-//      ): Compare[DFXInt[LS, LW], R, Op, C] with
-//        def apply(token: Token[LS, LW], arg: R): DFBool <> TOKEN =
-//          val tokenArg = ic(arg)
-//          check(
-//            token.dfType.signed,
-//            token.dfType.width,
-//            tokenArg.dfType.signed,
-//            tokenArg.dfType.width
-//          )
-//          val (lhsData, rhsData) =
-//            if (castling) (tokenArg.data, token.data)
-//            else (token.data, tokenArg.data)
-//          val outData = (lhsData, rhsData) match
-//            case (Some(l), Some(r)) =>
-//              import DFVal.Func.Op
-//              op.value match
-//                case Op.=== => Some(l == r)
-//                case Op.=!= => Some(l != r)
-//                case Op.<   => Some(l < r)
-//                case Op.>   => Some(l > r)
-//                case Op.<=  => Some(l <= r)
-//                case Op.>=  => Some(l >= r)
-//                case _ => throw new IllegalArgumentException("Unsupported Op")
-//            case _ => None
-//          DFBoolOrBit.Token(DFBool, outData)
-//        end apply
-//      end given
-//    end Compare
+    object Compare:
+      import DFToken.Compare
+      given [LW <: Int, R, Op <: FuncOp, C <: Boolean](using
+          ic: Candidate[R]
+      )(using
+          check: CompareCheck[LW, ic.OutW, C],
+          op: ValueOf[Op],
+          castling: ValueOf[C]
+      ): Compare[DFBits[LW], R, Op, C] with
+        def apply(token: Token[LW], arg: R): DFBool <> TOKEN =
+          val tokenArg = ic(arg)
+          check(
+            token.dfType.width,
+            tokenArg.dfType.width
+          )
+          val outData =
+            if (token.data._2.isZeros && tokenArg.data._2.isZeros)
+              op.value match
+                case FuncOp.=== => Some(token.data._1 === tokenArg.data._1)
+                case FuncOp.=!= => Some(!(token.data._1 === tokenArg.data._1))
+                case _ => throw new IllegalArgumentException("Unsupported Op")
+            else None
+          DFBoolOrBit.Token(DFBool, outData)
+        end apply
+      end given
+      given [LW <: Int, Op <: FuncOp, C <: Boolean](using
+          op: ValueOf[Op],
+          castling: ValueOf[C]
+      ): Compare[DFBits[LW], SameBitsVector, Op, C] with
+        def apply(token: Token[LW], arg: SameBitsVector): DFBool <> TOKEN =
+          token == Token[LW](token.width, arg)
+    end Compare
 
     object Ops:
       extension [LW <: Int](lhs: DFBits.Token[LW])

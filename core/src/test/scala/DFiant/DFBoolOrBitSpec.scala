@@ -48,6 +48,16 @@ class DFBoolOrBitSpec extends DFSpec:
       val t7 = bt != boolT
       val t8 = bl == bit0
     }
+    val bit0 = DFBit token 0
+    val bit1 = DFBit token 1
+    val boolF = DFBool token false
+    val boolT = DFBool token true
+    assertEquals(bit0 == bit1, boolF)
+    assertEquals(bit1 == boolT, boolT)
+    assertEquals(bit0 != 1, boolT)
+    assertEquals(bit0 == false, boolT)
+    assertEquals(boolF != bit0, boolF)
+    assertEquals(boolT == 0, boolF)
   }
   test("Assignment") {
     assertCodeString(
