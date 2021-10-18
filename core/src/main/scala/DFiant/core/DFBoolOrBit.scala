@@ -202,6 +202,17 @@ private object CompanionsDFBoolOrBit:
         def apply(dfType: T, arg: R): Out = b2b(dfType, arg)
     end TC
 
+    object Compare:
+      import DFVal.Compare
+      given DFBoolOrBitCompare[T <: DFBoolOrBit, R, Op <: FuncOp, C <: Boolean](
+          using
+          Candidate[R],
+          ValueOf[Op],
+          ValueOf[C]
+      ): Compare[T, R, Op, C] with
+        def apply(dfVal: T <> VAL, arg: R)(using DFC): DFBool <> VAL =
+          func(dfVal, b2b(dfVal.dfType, arg))
+
     object Ops:
       extension (lhs: DFBit <> VAL)
         def bool(using DFC): DFBool <> VAL =

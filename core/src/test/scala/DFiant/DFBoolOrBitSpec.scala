@@ -21,7 +21,34 @@ class DFBoolOrBitSpec extends DFSpec:
     val t9: DFBool <> TOKEN = t8
   }
   test("Token Conversion") {}
-  test("DFVal Conversion") {}
+  test("Comparison") {
+    assertCodeString(
+      """|val bt = DFBit <> VAR
+         |val bl = DFBool <> VAR
+         |val t1 = bt == bl.bit
+         |val t2 = bl != bt.bool
+         |val t3 = bt == 1
+         |val t4 = bt != 0
+         |val t5 = bl == true
+         |val t6 = bl == false
+         |val t7 = bt != 1
+         |val t8 = bl == false
+         |""".stripMargin
+    ) {
+      val bt = DFBit <> VAR
+      val bl = DFBool <> VAR
+      val bit0 = DFBit token 0
+      val boolT = DFBool token true
+      val t1 = bt == bl
+      val t2 = bl != bt
+      val t3 = bt == true
+      val t4 = bt != 0
+      val t5 = bl == 1
+      val t6 = bl == false
+      val t7 = bt != boolT
+      val t8 = bl == bit0
+    }
+  }
   test("Assignment") {
     assertCodeString(
       """|val bt = DFBit <> VAR

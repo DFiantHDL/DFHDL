@@ -614,7 +614,13 @@ object DFXInt:
 
     object Compare:
       import DFVal.Compare
-      given [LS <: Boolean, LW <: Int, R, Op <: FuncOp, C <: Boolean](using
+      given DFXIntCompare[
+          LS <: Boolean,
+          LW <: Int,
+          R,
+          Op <: FuncOp,
+          C <: Boolean
+      ](using
           ic: Candidate[R]
       )(using
           check: CompareCheck[LS, LW, ic.OutS, ic.OutW, ic.IsScalaInt, C],
@@ -642,7 +648,7 @@ object DFXInt:
             else dfValArg
           func(dfValResized, dfValArgResized)
         end apply
-      end given
+      end DFXIntCompare
     end Compare
 
     object Ops:

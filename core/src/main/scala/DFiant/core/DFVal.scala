@@ -271,6 +271,7 @@ private object CompanionsDFVal:
       DFVal.Func(DFBool, valueOf[Op], list)
     def apply(dfVal: DFValOf[T], arg: V)(using DFC): DFValOf[DFBool]
   object Compare:
+    export DFBoolOrBit.Val.Compare.given
     export DFDecimal.Val.Compare.given
 
 //  object Conversions:
