@@ -3,7 +3,7 @@ import munit.*
 import internals.Inlined
 
 class DFBitsSpec extends DFSpec:
-  test("Type construction safety") {
+  test("Type Construction") {
     val zero = 0
     assertDSLError(
       "Width must be positive, but found: 0"
@@ -13,14 +13,11 @@ class DFBitsSpec extends DFSpec:
       DFBits(zero)
     }
   }
-  val b8 = DFBits(8)
   test("Inlined width") {
+    val b8 = DFBits(8)
     b8.width.verifyInlined(8)
   }
-  test("codeString") {
-    assertEquals(b8.codeString, "DFBits(8)")
-  }
-  test("DFBits Token Construction") {
+  test("Token Construction") {
     val t1 = (DFBits(8) token b0s).verifyTokenOf[DFBits[8]]
     val t1b = (DFBits(8) token b1s).verifyTokenOf[DFBits[8]]
     val t2 = h"12".verifyTokenOf[DFBits[8]]
@@ -117,38 +114,60 @@ class DFBitsSpec extends DFSpec:
     val t7: DFBits[Int] <> VAL = b"11"
   }
   test("Assignment") {
+    val b8 = DFBits(8) <> VAR
+    val u8 = DFUInt(8) <> VAR
     assertCodeString {
-      """|val v8 = DFBits(8) <> VAR
-         |val x = DFUInt(8) <> VAR
-         |v8 := h"8'11"
-         |v8 := h"8'00"
-         |v8 := h"8'ff"
-         |v8 := h"8'??"
-         |v8 := x.bits
-         |v8 := x.bits
-         |val v12 = DFBits(12) <> VAR
+      """|b8 := h"8'11"
+         |b8 := h"8'00"
+         |b8 := h"8'ff"
+         |b8 := h"8'??"
+         |b8 := u8.bits
+         |b8 := u8.bits
+         |b8 := (h"4'1", b"1", b"0", b"11")
+         |b8 := (u8.bits(3, 0), u8.bits(7, 4))
          |""".stripMargin
     } {
-      val v8 = DFBits(8) <> VAR
-      val x = DFUInt(8) <> VAR
-      v8 := h"11"
-      v8 := b0s
-      v8 := b1s
-      v8 := ?
-      v8 := x
-      v8 := x.bits
-      val twelve = 12
-      val v12 = DFBits(twelve) <> VAR
-
-      assertDSLError(
-        """|The argument width (12) is different than the reciever width (8).
-           |Consider applying `.resize` to resolve this issue.""".stripMargin
-      )(
-        """v8 := h"123""""
-      ) {
-        v8 := v12
-      }
-      // v8 := (h"1", 1, 0, v8(5), true)
+      b8 := h"11"
+      b8 := b0s
+      b8 := b1s
+      b8 := ?
+      b8 := u8
+      b8 := u8.bits
+      b8 := (h"1", 1, 0, b"11")
+      b8 := (u8.bits(3, 0), u8.bits(7, 4))
+    }
+    val twelve = 12
+    val v12 = DFBits(twelve) <> VAR
+    assertDSLError(
+      """|The argument width (12) is different than the reciever width (8).
+         |Consider applying `.resize` to resolve this issue.""".stripMargin
+    )(
+      """b8 := h"123""""
+    ) {
+      b8 := v12
+    }
+  }
+  test("Comparison") {
+    assertCodeString(
+      """|val b8 = DFBits(8) <> VAR
+         |val u8 = DFUInt(8) <> VAR
+         |val t1 = b8 == h"8'00"
+         |val t2 = b8 != h"8'ff"
+         |val t3 = b8 == u8.bits
+         |val t4 = b8 == h"8'0c"
+         |val t5 = b8 != h"8'22"
+         |val t6 = b8 == h"8'e7"
+         |""".stripMargin
+    ) {
+      val b8 = DFBits(8) <> VAR
+      val u8 = DFUInt(8) <> VAR
+      val t1 = b8 == b0s
+      val t2 = b8 != b1s
+      val t3 = b8 == u8
+      val t4 = b8 == d"8'12"
+      val t5 = b8 != h"22"
+      val t6 = b8 == b"11100111"
+//      val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4))
     }
   }
 end DFBitsSpec

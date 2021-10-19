@@ -272,6 +272,7 @@ private object CompanionsDFVal:
     def apply(dfVal: DFValOf[T], arg: V)(using DFC): DFValOf[DFBool]
   object Compare:
     export DFBoolOrBit.Val.Compare.given
+    export DFBits.Val.Compare.given
     export DFDecimal.Val.Compare.given
 
 //  object Conversions:
