@@ -133,7 +133,14 @@ private object CompanionsDFBits:
     trait Candidate[-R]:
       type OutW <: Int
       def apply(arg: R): Token[OutW]
-    object Candidate:
+    protected trait CandidateLP:
+      protected inline val intErrMsg =
+        "An integer value cannot be a candidate for a DFBits type.\nTry explicitly using a decimal token via the `d\"<width>'<number>\"` string interpolation."
+      transparent inline given errorOnSingInt[R <: Int]: Candidate[ValueOf[R]] =
+        compiletime.error(intErrMsg)
+      transparent inline given errorOnInt: Candidate[Int] =
+        compiletime.error(intErrMsg)
+    object Candidate extends CandidateLP:
       type Aux[-R, W <: Int] = Candidate[R] { type OutW = W }
       transparent inline given fromDFBitsToken[W <: Int]: Candidate[Token[W]] =
         new Candidate[Token[W]]:
@@ -152,10 +159,6 @@ private object CompanionsDFBits:
         def apply(arg: R): Token[1] =
           import DFToken.Ops.bits
           ic(arg).bits
-      transparent inline given errorOnInt[R <: Int]: Candidate[ValueOf[R]] =
-        compiletime.error(
-          "An integer value cannot be a candidate for a DFBits type.\nTry explicitly using a decimal token via the `d\"<width>'<number>\"` string interpolation."
-        )
     end Candidate
 
     object TC:

@@ -173,5 +173,11 @@ class DFBitsSpec extends DFSpec:
         |Try explicitly using a decimal token via the `d"<width>'<number>"` string interpolation.
         |""".stripMargin
     }("b8 == 25")
+    val num = 25
+    assertCompileError {
+      """An integer value cannot be a candidate for a DFBits type.
+        |Try explicitly using a decimal token via the `d"<width>'<number>"` string interpolation.
+        |""".stripMargin
+    }("b8 == num")
   }
 end DFBitsSpec
