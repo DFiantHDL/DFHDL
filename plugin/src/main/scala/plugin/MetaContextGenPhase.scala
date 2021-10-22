@@ -36,7 +36,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   val treeOwnerMap = mutable.Map.empty[String, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   var clsStack = List.empty[TypeDef]
-  var inlinedOwnerStack = List.empty[(Apply, Inlined)]
+  val inlinedOwnerStack = mutable.Map.empty[Apply, Inlined]
   var applyPosStack = List.empty[util.SrcPos]
 
   extension (srcPos: util.SrcPos)(using Context)
@@ -194,6 +194,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       inlinedPosOpt: Option[util.SrcPos]
   )(using Context): Unit =
     debug("------------------------------")
+    debug("pos--->  ", tree.srcPos.show)
     debug(tree.showSummary(10))
     tree match
       case apply: Apply =>
@@ -207,7 +208,11 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         nameValOrDef(tree, ownerTree, inlinedPosOpt)
       case inlined @ Inlined(_, _, tree) =>
         debug("Inlined")
-        nameValOrDef(tree, ownerTree, Some(inlined.srcPos))
+        nameValOrDef(
+          tree,
+          ownerTree,
+          Some(inlinedPosOpt.getOrElse(inlined.srcPos))
+        )
       case Block((cls @ TypeDef(_, template: Template)) :: _, _)
           if cls.symbol.isAnonymousClass =>
         debug("Block done!")
@@ -248,29 +253,44 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _ =>
 
   override def prepareForApply(tree: Apply)(using Context): Context =
-    val srcPos = inlinedOwnerStack.headOption match
-      case Some(apply, inlined) if apply sameTree tree => inlined.srcPos
-      case _                                           => tree.srcPos
+    val srcPos = inlinedOwnerStack.get(tree) match
+      case Some(inlined) =>
+        inlinedOwnerStack.remove(tree)
+        inlined.srcPos
+      case _ => tree.srcPos
+
     rejectBadEquals(tree, srcPos)
     applyPosStack = srcPos :: applyPosStack
     ctx
 
-  override def prepareForInlined(tree: Inlined)(using Context): Context =
+  @tailrec private def inlinePos(
+      tree: Tree,
+      inlinedTree: Inlined
+  )(using Context): Unit =
+//    debug("pos--->  ", tree.srcPos.show)
+//    debug(tree.show)
     tree match
-      case Inlined(_, _, Typed(apply: Apply, _)) =>
-        debug("INLINE:")
-        debug("from", apply.srcPos.show)
-        debug("to  ", tree.srcPos.show)
-        inlinedOwnerStack = (apply, tree) :: inlinedOwnerStack
+      case apply: Apply =>
+        if (!inlinedOwnerStack.contains(apply))
+          debug("INLINE:")
+          debug("from", apply.srcPos.show)
+          debug("to  ", inlinedTree.srcPos.show)
+          inlinedOwnerStack += (apply -> inlinedTree)
+      case Typed(tree, _) =>
+        inlinePos(tree, inlinedTree)
+      case TypeApply(Select(tree, _), _) =>
+        inlinePos(tree, inlinedTree)
+      case Inlined(_, _, tree) =>
+        inlinePos(tree, inlinedTree)
+      case block: Block =>
+        inlinePos(block.expr, inlinedTree)
       case _ =>
-    ctx
+    end match
+  end inlinePos
 
-  override def transformInlined(tree: Inlined)(using Context): Tree =
-    tree match
-      case Inlined(_, _, Typed(_: Apply, _)) =>
-        inlinedOwnerStack = inlinedOwnerStack.drop(1)
-      case _ =>
-    tree
+  override def prepareForInlined(inlined: Inlined)(using Context): Context =
+    inlinePos(inlined.expansion, inlined)
+    ctx
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
     if (

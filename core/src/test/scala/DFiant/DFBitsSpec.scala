@@ -157,6 +157,7 @@ class DFBitsSpec extends DFSpec:
          |val t4 = b8 == h"8'0c"
          |val t5 = b8 != h"8'22"
          |val t6 = b8 == h"8'e7"
+         |val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4))
          |""".stripMargin
     ) {
       val b8 = DFBits(8) <> VAR
@@ -167,7 +168,7 @@ class DFBitsSpec extends DFSpec:
       val t4 = b8 == d"8'12"
       val t5 = b8 != h"22"
       val t6 = b8 == b"11100111"
-//      val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4))
+      val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4))
     }
   }
 end DFBitsSpec

@@ -10,6 +10,9 @@ import scala.quoted.*
 final class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
+  transparent inline def ==[R <: NonEmptyTuple](
+      inline that: R
+  )(using DFC): DFBool <> VAL = ${ DFVal.equalityMacro[T, R]('this, 'that) }
   inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
       c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false],
       dfc: DFC
@@ -21,6 +24,22 @@ final class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
 end DFVal
 
 object DFVal:
+  def equalityMacro[T <: DFType, R](
+      dfVal: Expr[DFValOf[T]],
+      arg: Expr[R]
+  )(using Quotes, Type[T], Type[R]): Expr[DFValOf[DFBool]] =
+    import quotes.reflect.*
+    val exact = arg.asTerm.exactTerm
+    val exactExpr = exact.asExpr
+    val exactType = exact.tpe.asTypeOf[Any]
+    '{
+      val c = compiletime.summonInline[
+        DFVal.Compare[T, exactType.Underlying, FuncOp.===.type, false]
+      ]
+      c($dfVal, $exactExpr)(using compiletime.summonInline[DFC])
+    }
+  end equalityMacro
+
   //Enabling equality with Int and Boolean,
   //just to give a better error message via the compiler plugins.
   //See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
