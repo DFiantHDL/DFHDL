@@ -152,6 +152,10 @@ private object CompanionsDFBits:
         def apply(arg: R): Token[1] =
           import DFToken.Ops.bits
           ic(arg).bits
+      transparent inline given errorOnInt[R <: Int]: Candidate[ValueOf[R]] =
+        compiletime.error(
+          "An integer value cannot be a candidate for a DFBits type.\nTry explicitly using a decimal token via the `d\"<width>'<number>\"` string interpolation."
+        )
     end Candidate
 
     object TC:

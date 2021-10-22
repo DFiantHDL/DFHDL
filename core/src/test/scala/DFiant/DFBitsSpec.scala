@@ -148,10 +148,10 @@ class DFBitsSpec extends DFSpec:
     }
   }
   test("Comparison") {
+    val b8 = DFBits(8) <> VAR
+    val u8 = DFUInt(8) <> VAR
     assertCodeString(
-      """|val b8 = DFBits(8) <> VAR
-         |val u8 = DFUInt(8) <> VAR
-         |val t1 = b8 == h"8'00"
+      """|val t1 = b8 == h"8'00"
          |val t2 = b8 != h"8'ff"
          |val t3 = b8 == u8.bits
          |val t4 = b8 == h"8'0c"
@@ -160,8 +160,6 @@ class DFBitsSpec extends DFSpec:
          |val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4))
          |""".stripMargin
     ) {
-      val b8 = DFBits(8) <> VAR
-      val u8 = DFUInt(8) <> VAR
       val t1 = b8 == b0s
       val t2 = b8 != b1s
       val t3 = b8 == u8
@@ -170,5 +168,10 @@ class DFBitsSpec extends DFSpec:
       val t6 = b8 == b"11100111"
       val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4))
     }
+    assertCompileError {
+      """An integer value cannot be a candidate for a DFBits type.
+        |Try explicitly using a decimal token via the `d"<width>'<number>"` string interpolation.
+        |""".stripMargin
+    }("b8 == 25")
   }
 end DFBitsSpec
