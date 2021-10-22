@@ -10,31 +10,30 @@ import scala.quoted.*
 final class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
-  transparent inline def ==[R <: NonEmptyTuple](
+  transparent inline def ==[R](
       inline that: R
-  )(using DFC): DFBool <> VAL = ${ DFVal.equalityMacro[T, R]('this, 'that) }
-  inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false],
-      dfc: DFC
-  ): DFBool <> VAL = c(this, es(that))
-  inline def !=[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      c: DFVal.Compare[T @uncheckedVariance, es.Out, FuncOp.=!=.type, false],
-      dfc: DFC
-  ): DFBool <> VAL = c(this, es(that))
+  )(using DFC): DFBool <> VAL = ${
+    DFVal.equalityMacro[T, R, FuncOp.===.type]('this, 'that)
+  }
+  transparent inline def !=[R](
+      inline that: R
+  )(using DFC): DFBool <> VAL = ${
+    DFVal.equalityMacro[T, R, FuncOp.=!=.type]('this, 'that)
+  }
 end DFVal
 
 object DFVal:
-  def equalityMacro[T <: DFType, R](
+  def equalityMacro[T <: DFType, R, Op <: FuncOp](
       dfVal: Expr[DFValOf[T]],
       arg: Expr[R]
-  )(using Quotes, Type[T], Type[R]): Expr[DFValOf[DFBool]] =
+  )(using Quotes, Type[T], Type[R], Type[Op]): Expr[DFValOf[DFBool]] =
     import quotes.reflect.*
     val exact = arg.asTerm.exactTerm
     val exactExpr = exact.asExpr
     val exactType = exact.tpe.asTypeOf[Any]
     '{
       val c = compiletime.summonInline[
-        DFVal.Compare[T, exactType.Underlying, FuncOp.===.type, false]
+        DFVal.Compare[T, exactType.Underlying, Op, false]
       ]
       c($dfVal, $exactExpr)(using compiletime.summonInline[DFC])
     }
