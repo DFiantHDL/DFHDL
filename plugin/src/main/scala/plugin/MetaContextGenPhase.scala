@@ -321,5 +321,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     dfValSym = requiredClass("DFiant.core.DFVal")
     treeOwnerMap.clear()
     contextDefs.clear()
+    inlinedOwnerStack.clear()
     ctx
 end MetaContextGenPhase

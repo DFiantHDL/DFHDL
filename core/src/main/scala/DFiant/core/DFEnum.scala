@@ -6,6 +6,9 @@ import internals.*
 import collection.immutable.ListMap
 
 sealed trait DFEncoding extends scala.reflect.Enum:
+  def unapply[C <: AnyRef, E](arg: DFValOf[DFEnum[C, E]])(using
+      DFC
+  ): Boolean = false
   def calcWidth(entryCount: Int): Int
   def encode(idx: Int): BigInt
   val value: BigInt
