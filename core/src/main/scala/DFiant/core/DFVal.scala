@@ -78,7 +78,7 @@ type VAR = Modifier.VAR.type
 type IN = Modifier.IN.type
 type OUT = Modifier.OUT.type
 trait TOKEN
-type <>[T <: DFType, M] = M match
+type <>[T <: DFType | DFEncoding, M] = M match
   case VAL   => DFValOf[T]
   case VAR   => DFVarOf[T]
   case IN    => DFPortOf[T]

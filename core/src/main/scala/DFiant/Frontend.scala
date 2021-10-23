@@ -47,7 +47,7 @@ type VAR = core.VAR
 type IN = core.IN
 type OUT = core.OUT
 type TOKEN = core.TOKEN
-type <>[T <: DFType, M] = core.<>[T, M]
+type <>[T <: DFType | DFEncoding, M] = core.<>[T, M]
 
 val ? = core.?
 export core.SameBitsVector.*

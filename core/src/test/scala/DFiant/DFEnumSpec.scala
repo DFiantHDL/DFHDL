@@ -1,0 +1,55 @@
+import DFiant.*
+import munit.*
+import internals.Inlined
+import collection.immutable.ListMap
+
+class DFEnumSpec extends DFSpec:
+  enum MyEnum1 extends DFEncoding.Default:
+    case Foo, Bar, Baz
+  enum MyEnum2 extends DFEncoding.StartAt(20):
+    case Foo, Bar, Baz
+  enum MyEnum3 extends DFEncoding.OneHot:
+    case Foo, Bar, Baz
+  enum MyEnum4 extends DFEncoding.Grey:
+    case Foo, Bar, Baz
+  enum MyEnum5(val value: BigInt) extends DFEncoding.Manual(8):
+    case Foo extends MyEnum5(200)
+    case Bar extends MyEnum5(100)
+    case Baz extends MyEnum5(0)
+
+  test("Type Construction") {}
+  test("Inlined width") {
+    MyEnum1.width.verifyInlined(2)
+    MyEnum2.width.verifyInlined(5)
+    MyEnum3.width.verifyInlined(3)
+    MyEnum4.width.verifyInlined(2)
+    MyEnum5.width.verifyInlined(8)
+  }
+  test("Enumeration Entries") {
+    assertEquals(
+      MyEnum1.dfType.asIR.entries,
+      ListMap("Foo" -> BigInt(0), "Bar" -> BigInt(1), "Baz" -> BigInt(2))
+    )
+    assertEquals(
+      MyEnum2.dfType.asIR.entries,
+      ListMap("Foo" -> BigInt(20), "Bar" -> BigInt(21), "Baz" -> BigInt(22))
+    )
+    assertEquals(
+      MyEnum3.dfType.asIR.entries,
+      ListMap("Foo" -> BigInt(1), "Bar" -> BigInt(2), "Baz" -> BigInt(4))
+    )
+    assertEquals(
+      MyEnum4.dfType.asIR.entries,
+      ListMap("Foo" -> BigInt(0), "Bar" -> BigInt(1), "Baz" -> BigInt(3))
+    )
+    assertEquals(
+      MyEnum5.dfType.asIR.entries,
+      ListMap("Foo" -> BigInt(200), "Bar" -> BigInt(100), "Baz" -> BigInt(0))
+    )
+  }
+
+  test("Token Construction") {}
+  test("DFVal Conversion") {}
+  test("Assignment") {}
+  test("Comparison") {}
+end DFEnumSpec

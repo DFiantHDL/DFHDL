@@ -63,26 +63,4 @@ class DFTypeSpec extends FunSuite:
     assertEquals(MyEnum5.dfType.codeString, "MyEnum5")
   }
 
-  test("Enumeration Entries") {
-    assertEquals(
-      MyEnum1.dfType.asIR.entries,
-      ListMap("Foo" -> BigInt(0), "Bar" -> BigInt(1), "Baz" -> BigInt(2))
-    )
-    assertEquals(
-      MyEnum2.dfType.asIR.entries,
-      ListMap("Foo" -> BigInt(20), "Bar" -> BigInt(21), "Baz" -> BigInt(22))
-    )
-    assertEquals(
-      MyEnum3.dfType.asIR.entries,
-      ListMap("Foo" -> BigInt(1), "Bar" -> BigInt(2), "Baz" -> BigInt(4))
-    )
-    assertEquals(
-      MyEnum4.dfType.asIR.entries,
-      ListMap("Foo" -> BigInt(0), "Bar" -> BigInt(1), "Baz" -> BigInt(3))
-    )
-    assertEquals(
-      MyEnum5.dfType.asIR.entries,
-      ListMap("Foo" -> BigInt(200), "Bar" -> BigInt(100), "Baz" -> BigInt(0))
-    )
-  }
 end DFTypeSpec

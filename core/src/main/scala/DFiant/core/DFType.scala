@@ -131,14 +131,12 @@ object CompanionsDFType:
               def apply(t: T): Type = DFTuple[T](t)
           }
         case DFEnum(entries) =>
-          val clsType = entries.head.asType
-          clsType match
-            case '[e] =>
-              '{
-                new TC[T]:
-                  type Type = DFEnum[T, e]
-                  def apply(t: T): Type = DFEnum[T, e](t)
-              }
+          val clsType = entries.head.asTypeOf[DFEncoding]
+          '{
+            new TC[T]:
+              type Type = DFEnum[clsType.Underlying]
+              def apply(t: T): Type = DFEnum[clsType.Underlying](t)
+          }
       end match
     end tcMacro
   end TC

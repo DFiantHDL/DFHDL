@@ -6,9 +6,7 @@ import internals.*
 import collection.immutable.ListMap
 
 sealed trait DFEncoding extends scala.reflect.Enum:
-  def unapply[C <: AnyRef, E](arg: DFValOf[DFEnum[C, E]])(using
-      DFC
-  ): Boolean = false
+//  def unapply[E](arg: DFValOf[DFEnum[E]])(using DFC): Boolean = false
   def calcWidth(entryCount: Int): Int
   def encode(idx: Int): BigInt
   val value: BigInt
@@ -60,11 +58,11 @@ object DFEncoding:
       else None
 end DFEncoding
 
-type DFEnum[C <: AnyRef, E] = OpaqueDFEnum.DFEnum[C, E]
+type DFEnum[E <: DFEncoding] = OpaqueDFEnum.DFEnum[E]
 val DFEnum = OpaqueDFEnum.DFEnum
 
 private object OpaqueDFEnum:
-  opaque type DFEnum[C <: AnyRef, E] <: DFType.Of[ir.DFEnum] =
+  opaque type DFEnum[E <: DFEncoding] <: DFType.Of[ir.DFEnum] =
     DFType.Of[ir.DFEnum]
   object DFEnum:
     def unapply(using Quotes)(
@@ -81,7 +79,7 @@ private object OpaqueDFEnum:
             .toList
         )
       else None
-    def apply[C <: AnyRef, E](enumCompanion: C): DFEnum[C, E] =
+    def apply[E <: DFEncoding](enumCompanion: AnyRef): DFEnum[E] =
       val enumClass = classOf[scala.reflect.Enum]
       val enumCompanionCls = enumCompanion.getClass
       val fieldsAsPairs = for (
@@ -95,7 +93,7 @@ private object OpaqueDFEnum:
       val entryPairs = fieldsAsPairs.zipWithIndex.map {
         case ((name, entry), idx) => (name, entry.value)
       }
-      ir.DFEnum(name, width, ListMap(entryPairs: _*)).asInstanceOf[DFEnum[C, E]]
+      ir.DFEnum(name, width, ListMap(entryPairs: _*)).asInstanceOf[DFEnum[E]]
     end apply
   end DFEnum
 end OpaqueDFEnum
