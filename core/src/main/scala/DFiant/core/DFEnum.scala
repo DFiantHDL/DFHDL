@@ -4,6 +4,7 @@ import DFiant.compiler.ir
 import scala.quoted.*
 import internals.*
 import collection.immutable.ListMap
+import ir.DFVal.Func.Op as FuncOp
 
 sealed trait DFEncoding extends scala.reflect.Enum:
 //  def unapply[E](arg: DFValOf[DFEnum[E]])(using DFC): Boolean = false
@@ -95,5 +96,61 @@ private object OpaqueDFEnum:
       }
       ir.DFEnum(name, width, ListMap(entryPairs: _*)).asInstanceOf[DFEnum[E]]
     end apply
+
+    type Token[E <: DFEncoding] = DFToken[DFEnum[E]]
+    object Token:
+      extension [E <: DFEncoding](token: Token[E])
+        def data: Option[BigInt] =
+          token.asIR.data.asInstanceOf[Option[BigInt]]
+      def apply[E <: DFEncoding, RE <: E](
+          dfType: DFEnum[E],
+          entry: RE
+      ): Token[E] =
+        ir.DFToken(dfType.asIR, Some(entry.value)).asTokenOf[DFEnum[E]]
+
+      object TC:
+        import DFToken.TC
+        given DFEnumTokenFromEntry[E <: DFEncoding, RE <: E]
+            : TC[DFEnum[E], RE] =
+          (dfType: DFEnum[E], value: RE) => Token[E, RE](dfType, value)
+        given DFEnumTokenFromToken[E <: DFEncoding]
+            : TC[DFEnum[E], DFToken[DFEnum[E]]] =
+          (dfType: DFEnum[E], value: DFToken[DFEnum[E]]) => value
+
+      object Compare:
+        import DFToken.Compare
+        given DFEnumCompareEntry[
+            E <: DFEncoding,
+            R,
+            Op <: FuncOp,
+            C <: Boolean
+        ](using
+            tc: DFToken.TC[DFEnum[E], R],
+            op: ValueOf[Op]
+        ): Compare[DFEnum[E], R, Op, C] with
+          def apply(token: DFToken[DFEnum[E]], arg: R): DFToken[DFBool] =
+            val tokenArg = tc(token.dfType, arg)
+            val outData = (token.data, tokenArg.data) match
+              case (Some(l), Some(r)) =>
+                op.value match
+                  case FuncOp.=== => Some(l == r)
+                  case FuncOp.=!= => Some(l != r)
+                  case _ => throw new IllegalArgumentException("Unsupported Op")
+              case _ => None
+            DFBoolOrBit.Token(DFBool, outData)
+        end DFEnumCompareEntry
+      end Compare
+    end Token
+    object Val:
+      object TC:
+        import DFVal.TC
+        given DFEnumFromTokenTC[E <: DFEncoding, R](using
+            tc: DFToken.TC[DFEnum[E], R],
+            dfc: DFC
+        ): TC[DFEnum[E], R] with
+          def apply(dfType: DFEnum[E], value: R): DFValOf[DFEnum[E]] =
+            DFVal.Const(tc(dfType, value))
+      object Compare:
+        import DFVal.Compare
   end DFEnum
 end OpaqueDFEnum

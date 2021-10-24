@@ -48,8 +48,29 @@ class DFEnumSpec extends DFSpec:
     )
   }
 
-  test("Token Construction") {}
+  test("Token Construction") {
+    val t1 = MyEnum1 token MyEnum1.Bar
+    val t2 = MyEnum2 token MyEnum2.Bar
+    t1 == t1
+//    t1.width
+//    assertEquals(t1.bits, DFBits(2) token b0s)
+  }
   test("DFVal Conversion") {}
-  test("Assignment") {}
-  test("Comparison") {}
+  test("Assignment") {
+    assertCodeString {
+      """|val x = MyEnum1 <> VAR init MyEnum1.Bar
+         |x := MyEnum1.Foo
+         |""".stripMargin
+    } {
+      val x = MyEnum1 <> VAR init MyEnum1.Bar
+      x := MyEnum1.Foo
+    }
+  }
+  test("Comparison") {
+    val t1Bar = MyEnum1 token MyEnum1.Bar
+    val t1Baz = MyEnum1 token MyEnum1.Baz
+    assertEquals(t1Bar == t1Bar, DFBool token true)
+    assertEquals(t1Bar != t1Baz, DFBool token true)
+    assertEquals(t1Bar != MyEnum1.Baz, DFBool token true)
+  }
 end DFEnumSpec

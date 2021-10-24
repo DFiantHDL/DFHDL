@@ -48,6 +48,7 @@ object DFToken:
     export DFBoolOrBit.Token.TC.given
     export DFBits.Token.TC.given
     export DFDecimal.Token.TC.given
+    export DFEnum.Token.TC.given
     export DFTuple.Token.TC.given
 
     transparent inline given DFTokenFromBubble[T <: DFType]: TC[T, Bubble] =
@@ -59,8 +60,9 @@ object DFToken:
     def apply(token: DFToken[T], arg: V): DFToken[DFBool]
   object Compare:
     export DFBoolOrBit.Token.Compare.given
-    export DFDecimal.Token.Compare.given
     export DFBits.Token.Compare.given
+    export DFDecimal.Token.Compare.given
+    export DFEnum.Token.Compare.given
 
   object Ops:
     extension [T <: DFType](token: DFToken[T])

@@ -81,7 +81,12 @@ protected trait DFTokenPrinter extends AbstractPrinter:
           s"""$interpStr"${dfType.width}'$value""""
         else ??? //DFXFix
       case None => "?"
-  def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String = ???
+  def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
+    data match
+      case Some(value) =>
+        val entryName = dfType.entries.find(_._2 == value).get._1
+        s"${dfType.name}.${entryName}"
+      case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[DFType.Token]): String = ???
   def csDFOpaqueData(dfType: DFOpaque, data: DFType.Token): String =
     s"${dfType.name}(${csDFToken(data)})"

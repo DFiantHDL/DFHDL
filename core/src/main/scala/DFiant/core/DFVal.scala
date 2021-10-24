@@ -77,13 +77,24 @@ type VAL = Modifier.VAL
 type VAR = Modifier.VAR.type
 type IN = Modifier.IN.type
 type OUT = Modifier.OUT.type
-trait TOKEN
+sealed trait TOKEN
 type <>[T <: DFType | DFEncoding, M] = M match
-  case VAL   => DFValOf[T]
-  case VAR   => DFVarOf[T]
-  case IN    => DFPortOf[T]
-  case OUT   => DFPortOf[T]
-  case TOKEN => DFToken[T]
+  case VAL =>
+    T match
+      case DFType     => DFValOf[T]
+      case DFEncoding => DFValOf[DFEnum[T]]
+  case VAR =>
+    T match
+      case DFType     => DFVarOf[T]
+      case DFEncoding => DFVarOf[DFEnum[T]]
+  case IN | OUT =>
+    T match
+      case DFType     => DFPortOf[T]
+      case DFEncoding => DFPortOf[DFEnum[T]]
+  case TOKEN =>
+    T match
+      case DFType     => DFToken[T]
+      case DFEncoding => DFToken[DFEnum[T]]
 
 extension (dfVal: ir.DFVal)
   def asVal[T <: DFType, M <: Modifier]: DFVal[T, M] = DFVal[T, M](dfVal)
@@ -252,6 +263,7 @@ private object CompanionsDFVal:
     export DFBoolOrBit.Val.TC.given
     export DFBits.Val.TC.given
     export DFDecimal.Val.TC.given
+    export DFEnum.Val.TC.given
     export DFTuple.Val.TC.given
     //Accept any dataflow value of the same type
     transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
@@ -292,6 +304,7 @@ private object CompanionsDFVal:
     export DFBoolOrBit.Val.Compare.given
     export DFBits.Val.Compare.given
     export DFDecimal.Val.Compare.given
+    export DFEnum.Val.Compare.given
 
 //  object Conversions:
 //    implicit transparent inline def fromArg[T <: DFType, R](
