@@ -2,10 +2,13 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 
-opaque type DFOpaque[N <: String, T <: DFType] <: DFType.Of[ir.DFOpaque] =
-  DFType.Of[ir.DFOpaque]
+opaque type DFOpaque[N <: String, T <: DFTypeAny] <: DFType[ir.DFOpaque] =
+  DFType[ir.DFOpaque]
 object DFOpaque:
-  def apply[N <: String, T <: DFType](name: N, actualType: T): DFOpaque[N, T] =
+  def apply[N <: String, T <: DFTypeAny](
+      name: N,
+      actualType: T
+  ): DFOpaque[N, T] =
     ir.DFOpaque(name, actualType.asIR).asFE[DFOpaque[N, T]]
 
   object Ops:

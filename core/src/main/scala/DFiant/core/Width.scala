@@ -112,7 +112,7 @@ object Width:
         case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFUnion] =>
           applied.args.head.calcWidth
         //lost specific type information, but still has non-literal width
-        case t if t <:< TypeRepr.of[DFType] => TypeRepr.of[Int]
+        case t if t <:< TypeRepr.of[DFTypeAny] => TypeRepr.of[Int]
       end match
     end calcWidth
   end extension
@@ -129,11 +129,11 @@ object Width:
     }
 end Width
 
-extension [T <: DFType, M <: ir.DFVal.Modifier](dfVal: DFVal[T, M])
+extension [T <: DFTypeAny, M <: ir.DFVal.Modifier](dfVal: DFVal[T, M])
   def width(using w: Width[T]): Inlined[w.Out] =
     Inlined.forced[w.Out](dfVal.asIR.dfType.width)
 
-extension [T <: DFType](token: DFToken[T])
+extension [T <: DFTypeAny](token: DFToken[T])
   def width(using w: Width[T]): Inlined[w.Out] =
     Inlined.forced[w.Out](token.asIR.width)
 

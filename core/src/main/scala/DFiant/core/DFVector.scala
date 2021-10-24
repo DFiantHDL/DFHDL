@@ -2,17 +2,18 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 
-type DFVector[T <: DFType, D <: NonEmptyTuple] = OpaqueDFVector.DFVector[T, D]
+type DFVector[T <: DFTypeAny, D <: NonEmptyTuple] =
+  OpaqueDFVector.DFVector[T, D]
 val DFVector = OpaqueDFVector.DFVector
 
 private object OpaqueDFVector:
-  opaque type DFVector[T <: DFType, D <: NonEmptyTuple] <: DFType.Of[
+  opaque type DFVector[T <: DFTypeAny, D <: NonEmptyTuple] <: DFType[
     ir.DFVector
   ] =
-    DFType.Of[ir.DFVector]
+    DFType[ir.DFVector]
 
   object DFVector extends DFVectorCompanion:
-    def apply[T <: DFType, D <: NonEmptyTuple](
+    def apply[T <: DFTypeAny, D <: NonEmptyTuple](
         cellType: T,
         cellDims: D
     ): DFVector[T, D] =
@@ -46,15 +47,15 @@ trait DFVectorCompanion:
     end extension
   end Ops
 end DFVectorCompanion
-// transparent inline def x[T <: DFType](
+// transparent inline def x[T <: DFTypeAny](
 //     cellType: T,
 //     inline cellDim: Int*
 // ): DFType =
 //   ${ xMacro('cellType, 'cellDim) }
-// def xMacro[T <: DFType](cellType: Expr[T], cellDim: Expr[Seq[Int]])(using
+// def xMacro[T <: DFTypeAny](cellType: Expr[T], cellDim: Expr[Seq[Int]])(using
 //     Quotes,
 //     Type[T]
-// ): Expr[DFType] =
+// ): Expr[DFTypeAny] =
 //   import quotes.reflect.*
 //   val (tpe, tpl) = cellDim match
 //     case Varargs(argExprs) =>

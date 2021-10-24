@@ -5,14 +5,14 @@ import scala.quoted.*
 import collection.immutable.ListSet
 import DFiant.compiler.printing.DefaultPrinter
 
-type DFUnion[U <: DFType] = OpaqueDFUnion.DFUnion[U]
+type DFUnion[U <: DFTypeAny] = OpaqueDFUnion.DFUnion[U]
 val DFUnion = OpaqueDFUnion.DFUnion
 
 private object OpaqueDFUnion:
-  opaque type DFUnion[U <: DFType] <: DFType.Of[ir.DFUnion] =
-    DFType.Of[ir.DFUnion]
+  opaque type DFUnion[U <: DFTypeAny] <: DFType[ir.DFUnion] =
+    DFType[ir.DFUnion]
   object DFUnion:
-    def apply[U <: DFType](fieldSet: ListSet[ir.DFType]): DFUnion[U] =
+    def apply[U <: DFTypeAny](fieldSet: ListSet[ir.DFType]): DFUnion[U] =
       ir.DFUnion(fieldSet).asInstanceOf[DFUnion[U]]
     val Ops = CompanionsDFUnion.Ops
 
@@ -22,17 +22,17 @@ private object CompanionsDFUnion:
   private def widthError(lhsWidth: Int, rhsWidth: Int): String =
     s"All union types must have the same width.\nFound LHS-width $lhsWidth and RHS-width $rhsWidth"
   trait Able[T]:
-    type U <: DFType
+    type U <: DFTypeAny
     def apply(t: T): DFUnion[U]
   object Able:
-    given fromDFType[T <: DFType]: Able[T] with
+    given fromDFType[T <: DFTypeAny]: Able[T] with
       type U = T
       def apply(t: T): DFUnion[U] = DFUnion[U](ListSet(t.asIR))
     transparent inline given fromFields[T](using tc: DFType.TC[T]): Able[T] =
       new Able[T]:
         type U = tc.Type
         def apply(t: T): DFUnion[U] = DFUnion[U](ListSet(tc(t).asIR))
-    given fromUnion[U0 <: DFType]: Able[DFUnion[U0]] with
+    given fromUnion[U0 <: DFTypeAny]: Able[DFUnion[U0]] with
       type U = U0
       def apply(t: DFUnion[U0]): DFUnion[U] = t
   object Ops:
@@ -55,12 +55,12 @@ private object CompanionsDFUnion:
         )
         DFUnion[l.U | r.U](lhsUnion.fieldSet ++ rhsUnion.fieldSet)
   end Ops
-  trait VerifyUnion[Current <: DFType, Added <: DFType]
+  trait VerifyUnion[Current <: DFTypeAny, Added <: DFTypeAny]
   object VerifyUnion:
-    inline given [Current <: DFType, Added <: DFType]
+    inline given [Current <: DFTypeAny, Added <: DFTypeAny]
         : VerifyUnion[Current, Added] =
       ${ verifyMacro[Current, Added] }
-    def verifyMacro[Current <: DFType, Added <: DFType](using
+    def verifyMacro[Current <: DFTypeAny, Added <: DFTypeAny](using
         Quotes,
         Type[Current],
         Type[Added]

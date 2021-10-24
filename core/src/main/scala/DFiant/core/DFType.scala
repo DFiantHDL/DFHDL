@@ -8,39 +8,26 @@ import scala.quoted.*
 import collection.mutable
 import collection.immutable.ListMap
 
-type DFType = OpaqueDFType.DFType
-val DFType = OpaqueDFType.DFType
+final class DFType[+T <: ir.DFType](val value: T) extends AnyVal:
+  override def toString: String = value.toString
+type DFTypeAny = DFType[ir.DFType]
 
-private object OpaqueDFType:
-  opaque type DFType = ir.DFType
-  object DFType:
-    private[core] def apply(t: Any): DFType =
-      t match
-        case dfType: ir.DFType    => dfType
-        case tuple: NonEmptyTuple => DFTuple(tuple)
-        case fields: DFFields     => DFStruct(fields)
-        //TODO: need to add proper upper-bound if fixed in Scalac
-        //see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
-        case enumCompanion: AnyRef => DFEnum(enumCompanion)
-    extension (dfType: DFType)
-      def asIR: ir.DFType = dfType
-      def codeString(using printer: Printer): String = printer.csDFType(asIR)
-    extension (dfType: ir.DFType)
-      def asFE[T <: DFType]: T = dfType.asInstanceOf[T]
-    type TC[T] = CompanionsDFType.TC[T]
-    val TC = CompanionsDFType.TC
-    type Of[+T <: ir.DFType] = CompanionsDFType.Of[T]
-    val Ops = CompanionsDFType.Ops
-    type Supported = CompanionsDFType.Supported
-  end DFType
-end OpaqueDFType
+object DFType:
+  private[core] def apply(t: Any): DFTypeAny =
+    t match
+      case dfType: DFTypeAny    => dfType
+      case tuple: NonEmptyTuple => DFTuple(tuple)
+      case fields: DFFields     => DFStruct(fields)
+      //TODO: need to add proper upper-bound if fixed in Scalac
+      //see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
+      case enumCompanion: AnyRef => DFEnum(enumCompanion)
+  extension [T <: ir.DFType](dfType: DFType[T])
+    def asIR: T = dfType.value
+    def codeString(using printer: Printer): String = printer.csDFType(asIR)
+  extension (dfType: ir.DFType)
+    def asFE[T <: DFTypeAny]: T = (new DFType(dfType)).asInstanceOf[T]
 
-object CompanionsDFType:
-  opaque type Of[+T <: ir.DFType] <: DFType = DFType
-  object Of:
-    extension [T <: ir.DFType](of: Of[T]) def asIR: T = of.asInstanceOf[T]
-
-  type Supported = AnyRef | DFType
+  type Supported = AnyRef | DFTypeAny
   object Ops:
     extension [T](t: T)(using tc: TC[T])
       def <>[M <: ir.DFVal.Modifier](modifier: M)(using
@@ -56,13 +43,12 @@ object CompanionsDFType:
         DFVal.Const(token(tokenValue), named = true)
     end extension
   end Ops
-//    extension [T <: NonEmptyTuple](t: T)(using tc: TC[T])
 
   trait TC[T]:
-    type Type <: DFType
+    type Type <: DFTypeAny
     def apply(t: T): Type
   object TC:
-    given ofDFType[T <: DFType]: TC[T] with
+    given ofDFType[T <: DFTypeAny]: TC[T] with
       type Type = T
       def apply(t: T): Type = t
     given ofDFFields[T <: DFFields]: TC[T] with
@@ -99,7 +85,7 @@ object CompanionsDFType:
               Some(t)
             case t if t <:< fieldsTpe =>
               Some(TypeRepr.of[DFStruct].appliedTo(t))
-            case t if t <:< TypeRepr.of[DFType] =>
+            case t if t <:< TypeRepr.of[DFTypeAny] =>
               Some(t)
             case t @ DFEnum(_) =>
               Some(TypeRepr.of[DFEnum].appliedTo(t))
@@ -140,14 +126,14 @@ object CompanionsDFType:
       end match
     end tcMacro
   end TC
-end CompanionsDFType
+end DFType
 
 extension [T](t: T)(using tc: DFType.TC[T]) def dfType: tc.Type = tc(t)
 
-extension [T <: DFType](
+extension [T <: DFTypeAny](
     token: DFToken[T]
-) def dfType: T = token.asIR.dfType.asInstanceOf[T]
+) def dfType: T = token.asIR.dfType.asFE[T]
 
-extension [T <: DFType, M <: ir.DFVal.Modifier](
+extension [T <: DFTypeAny, M <: ir.DFVal.Modifier](
     dfVal: DFVal[T, M]
-) def dfType: T = dfVal.asIR.dfType.asInstanceOf[T]
+) def dfType: T = dfVal.asIR.dfType.asFE[T]

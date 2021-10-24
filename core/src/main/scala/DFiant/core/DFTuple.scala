@@ -7,7 +7,7 @@ import scala.quoted.*
 type DFTuple[T] = DFStruct[DFTuple.Fields[T]]
 object DFTuple:
   def apply[T <: AnyRef](t: T): DFTuple[T] =
-    val fieldList: List[DFType] =
+    val fieldList: List[DFTypeAny] =
       t.asInstanceOf[NonEmptyTuple]
         .toList
         //TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
@@ -15,22 +15,22 @@ object DFTuple:
         .map(x => DFType(x))
     DFStruct(Fields[T](fieldList))
 
-  final case class Fields[T](fieldList: List[DFType]) extends DFFields:
+  final case class Fields[T](fieldList: List[DFTypeAny]) extends DFFields:
     override lazy val typeName: String = ir.DFStruct.ReservedTupleName
     fieldList.zipWithIndex.foreach((f, i) => createField(f, (i + 1).toString))
 
   extension [T](dfType: DFTuple[T])
-    def fieldList: List[DFType] =
-      dfType.asIR.fieldMap.values.toList.asInstanceOf[List[DFType]]
+    def fieldList: List[DFTypeAny] =
+      dfType.asIR.fieldMap.values.map(_.asFE[DFTypeAny]).toList
 
   trait TCZipper[
       T <: NonEmptyTuple,
       V <: NonEmptyTuple,
       O,
-      TC[T <: DFType, V] <: GeneralTC[T, V, O]
+      TC[T <: DFTypeAny, V] <: GeneralTC[T, V, O]
   ]:
     def apply(
-        fieldList: List[DFType],
+        fieldList: List[DFTypeAny],
         tokenTupleValues: List[Any]
     ): List[O]
   object TCZipper:
@@ -38,7 +38,7 @@ object DFTuple:
         T <: NonEmptyTuple,
         V <: NonEmptyTuple,
         O,
-        TC[T <: DFType, V] <: GeneralTC[T, V, O]
+        TC[T <: DFTypeAny, V] <: GeneralTC[T, V, O]
     ]: TCZipper[T, V, O, TC] = ${
       zipperMacro[T, V, O, TC]
     }
@@ -47,7 +47,7 @@ object DFTuple:
         T <: NonEmptyTuple,
         V <: NonEmptyTuple,
         O,
-        TC[T <: DFType, V] <: GeneralTC[T, V, O]
+        TC[T <: DFTypeAny, V] <: GeneralTC[T, V, O]
     ](using
         Quotes,
         Type[T],
@@ -56,7 +56,7 @@ object DFTuple:
         Type[TC]
     ): Expr[TCZipper[T, V, O, TC]] =
       def applyExpr[T, V](
-          fieldListExpr: Expr[List[DFType]],
+          fieldListExpr: Expr[List[DFTypeAny]],
           tokenTupleValuesExpr: Expr[List[Any]]
       )(using Quotes, Type[T], Type[V], Type[O], Type[TC]): Expr[List[O]] =
         import quotes.reflect.*
@@ -66,7 +66,7 @@ object DFTuple:
           val exprs =
             tArgs.zipWithIndex.lazyZip(vArgs).map { case ((t, i), v) =>
               val vTpe = v.asTypeOf[Any]
-              val dfTypeTpe = t.dfTypeTpe.get.asTypeOf[DFType]
+              val dfTypeTpe = t.dfTypeTpe.get.asTypeOf[DFTypeAny]
               val iExpr = Literal(IntConstant(i)).asExprOf[Int]
               '{
                 val tc = compiletime
@@ -96,7 +96,7 @@ object DFTuple:
       '{
         new TCZipper[T, V, O, TC]:
           def apply(
-              fieldList: List[DFType],
+              fieldList: List[DFTypeAny],
               tokenTupleValues: List[Any]
           ): List[O] = ${
             applyExpr[T, V]('fieldList, 'tokenTupleValues)

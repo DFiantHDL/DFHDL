@@ -7,7 +7,7 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
-final class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
+final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
   transparent inline def ==[R](
@@ -23,7 +23,7 @@ final class DFVal[+T <: DFType, +M <: Modifier](val value: ir.DFVal)
 end DFVal
 
 object DFVal:
-  def equalityMacro[T <: DFType, R, Op <: FuncOp](
+  def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
       dfVal: Expr[DFValOf[T]],
       arg: Expr[R]
   )(using Quotes, Type[T], Type[R], Type[Op]): Expr[DFValOf[DFBool]] =
@@ -42,9 +42,9 @@ object DFVal:
   //Enabling equality with Int and Boolean,
   //just to give a better error message via the compiler plugins.
   //See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
-  given [T <: DFType, M <: Modifier]: CanEqual[Int, DFVal[T, M]] =
+  given [T <: DFTypeAny, M <: Modifier]: CanEqual[Int, DFVal[T, M]] =
     CanEqual.derived
-  given [T <: DFType, M <: Modifier]: CanEqual[Boolean, DFVal[T, M]] =
+  given [T <: DFTypeAny, M <: Modifier]: CanEqual[Boolean, DFVal[T, M]] =
     CanEqual.derived
 
   final val Modifier = DFiant.compiler.ir.DFVal.Modifier
@@ -57,17 +57,17 @@ object DFVal:
   val Func = CompanionsDFVal.Func
   val Alias = CompanionsDFVal.Alias
   val TC = CompanionsDFVal.TC
-  type TC[T <: DFType, -R] = CompanionsDFVal.TC[T, R]
+  type TC[T <: DFTypeAny, -R] = CompanionsDFVal.TC[T, R]
   val Compare = CompanionsDFVal.Compare
-  type Compare[T <: DFType, -V, Op <: FuncOp, C <: Boolean] =
+  type Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean] =
     CompanionsDFVal.Compare[T, V, Op, C]
   val Ops = CompanionsDFVal.Ops
 end DFVal
 
-type DFValAny = DFVal[DFType, Modifier]
-type DFValOf[+T <: DFType] = DFVal[T, Modifier]
-type DFVarOf[+T <: DFType] = DFVal[T, Modifier.Assignable]
-type DFPortOf[+T <: DFType] = DFVal[T, Modifier.Port]
+type DFValAny = DFVal[DFTypeAny, Modifier]
+type DFValOf[+T <: DFTypeAny] = DFVal[T, Modifier]
+type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier.Assignable]
+type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Port]
 
 val IN = Modifier.IN
 val OUT = Modifier.OUT
@@ -78,34 +78,34 @@ type VAR = Modifier.VAR.type
 type IN = Modifier.IN.type
 type OUT = Modifier.OUT.type
 sealed trait TOKEN
-type <>[T <: DFType | DFEncoding, M] = M match
+type <>[T <: DFTypeAny | DFEncoding, M] = M match
   case VAL =>
     T match
-      case DFType     => DFValOf[T]
+      case DFTypeAny  => DFValOf[T]
       case DFEncoding => DFValOf[DFEnum[T]]
   case VAR =>
     T match
-      case DFType     => DFVarOf[T]
+      case DFTypeAny  => DFVarOf[T]
       case DFEncoding => DFVarOf[DFEnum[T]]
   case IN | OUT =>
     T match
-      case DFType     => DFPortOf[T]
+      case DFTypeAny  => DFPortOf[T]
       case DFEncoding => DFPortOf[DFEnum[T]]
   case TOKEN =>
     T match
-      case DFType     => DFToken[T]
+      case DFTypeAny  => DFToken[T]
       case DFEncoding => DFToken[DFEnum[T]]
 
 extension (dfVal: ir.DFVal)
-  def asVal[T <: DFType, M <: Modifier]: DFVal[T, M] = DFVal[T, M](dfVal)
-  def asValOf[T <: DFType]: DFValOf[T] = DFVal[T, Modifier](dfVal)
-  def asValAny: DFValAny = DFVal[DFType, Modifier](dfVal)
-  def asVarOf[T <: DFType]: DFVarOf[T] = DFVal[T, Modifier.Assignable](dfVal)
-  def asPortOf[T <: DFType]: DFPortOf[T] = DFVal[T, Modifier.Port](dfVal)
+  def asVal[T <: DFTypeAny, M <: Modifier]: DFVal[T, M] = DFVal[T, M](dfVal)
+  def asValOf[T <: DFTypeAny]: DFValOf[T] = DFVal[T, Modifier](dfVal)
+  def asValAny: DFValAny = DFVal[DFTypeAny, Modifier](dfVal)
+  def asVarOf[T <: DFTypeAny]: DFVarOf[T] = DFVal[T, Modifier.Assignable](dfVal)
+  def asPortOf[T <: DFTypeAny]: DFPortOf[T] = DFVal[T, Modifier.Port](dfVal)
 
 private object CompanionsDFVal:
   object Extensions:
-    extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
+    extension [T <: DFTypeAny, M <: Modifier](dfVal: DFVal[T, M])
       def init(tokenValues: DFToken.Value[T]*)(using dfc: DFC): DFVal[T, M] =
         import dfc.getSet
         val tokens =
@@ -118,14 +118,14 @@ private object CompanionsDFVal:
   end Extensions
 
   object Conversions:
-    implicit inline def DFValConversion[T <: DFType, R](
+    implicit inline def DFValConversion[T <: DFTypeAny, R](
         inline from: R
     )(using dfType: T, es: Exact.Summon[R, from.type])(using
         tc: CompanionsDFVal.TC[T, es.Out]
     ): DFValOf[T] = tc(dfType, es(from))
 
   object Const:
-    def apply[T <: DFType](token: DFToken[T], named: Boolean = false)(using
+    def apply[T <: DFTypeAny](token: DFToken[T], named: Boolean = false)(using
         DFC
     ): DFValOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
@@ -135,7 +135,7 @@ private object CompanionsDFVal:
         .asValOf[T]
 
   object Dcl:
-    def apply[T <: DFType, M <: Modifier](dfType: T, modifier: M)(using
+    def apply[T <: DFTypeAny, M <: Modifier](dfType: T, modifier: M)(using
         DFC
     ): DFVal[T, M] =
       ir.DFVal
@@ -152,13 +152,13 @@ private object CompanionsDFVal:
 
   object Func:
     export ir.DFVal.Func.Op
-    def apply[T <: DFType](
+    def apply[T <: DFTypeAny](
         dfType: T,
         op: FuncOp,
         args: List[DFValAny]
     )(using DFC): DFValOf[T] = apply(dfType, op, args.map(_.asIR))
     @targetName("applyFromIR")
-    def apply[T <: DFType](
+    def apply[T <: DFTypeAny](
         dfType: T,
         op: FuncOp,
         args: List[ir.DFVal]
@@ -177,7 +177,7 @@ private object CompanionsDFVal:
 
   object Alias:
     object AsIs:
-      def apply[AT <: DFType, VT <: DFType, M <: Modifier](
+      def apply[AT <: DFTypeAny, VT <: DFTypeAny, M <: Modifier](
           aliasType: AT,
           relVal: DFVal[VT, M],
           tokenFunc: DFToken[VT] => DFToken[AT]
@@ -247,11 +247,11 @@ private object CompanionsDFVal:
   @implicitNotFound(
     "Unsupported argument value ${R} for dataflow receiver type ${T}"
   )
-  trait TC[T <: DFType, -R] extends GeneralTC[T, R, DFValAny]:
+  trait TC[T <: DFTypeAny, -R] extends GeneralTC[T, R, DFValAny]:
     type Out = DFValOf[T]
   trait TCLP:
     //Accept any token value, according to a token type class
-    transparent inline given [T <: DFType, R](using
+    transparent inline given [T <: DFTypeAny, R](using
         tokenTC: DFToken.TC[T, R],
         dfc: DFC
     ): TC[T, R] =
@@ -266,7 +266,7 @@ private object CompanionsDFVal:
     export DFEnum.Val.TC.given
     export DFTuple.Val.TC.given
     //Accept any dataflow value of the same type
-    transparent inline given [T <: DFType]: TC[T, DFValOf[T]] =
+    transparent inline given [T <: DFTypeAny]: TC[T, DFValOf[T]] =
       new TC[T, DFValOf[T]]:
         type TType = T
         def apply(dfType: T, value: DFValOf[T]): DFValOf[T] =
@@ -291,7 +291,7 @@ private object CompanionsDFVal:
   end TC
 
   @implicitNotFound("Cannot compare dataflow value of ${T} with value of ${V}")
-  trait Compare[T <: DFType, -V, Op <: FuncOp, C <: Boolean]:
+  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]:
     final protected def func(arg1: DFValAny, arg2: DFValAny)(using
         DFC,
         ValueOf[Op],
@@ -307,12 +307,12 @@ private object CompanionsDFVal:
     export DFEnum.Val.Compare.given
 
 //  object Conversions:
-//    implicit transparent inline def fromArg[T <: DFType, R](
+//    implicit transparent inline def fromArg[T <: DFTypeAny, R](
 //        inline arg: R
 //    ): DFValOf[T] = ${ fromArgMacro[T]('arg) }
 
   object Ops:
-    extension [T <: DFType, M <: Modifier](dfVal: DFVal[T, M])
+    extension [T <: DFTypeAny, M <: Modifier](dfVal: DFVal[T, M])
       def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
         import DFToken.Ops.{bits => bitsDFToken}
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
@@ -321,14 +321,14 @@ end CompanionsDFVal
 
 object DFValNI:
   //TODO: Delete if no use eventually
-  inline def initTokens[T <: DFType](
+  inline def initTokens[T <: DFTypeAny](
       dfType: T,
       inline tokenValues: Any*
   ): Seq[DFTokenAny] =
     ${
       initTokensMacro[T]('dfType, 'tokenValues)
     }
-  def initTokensMacro[T <: DFType](
+  def initTokensMacro[T <: DFTypeAny](
       dfType: Expr[T],
       tokenValues: Expr[Seq[Any]]
   )(using
@@ -358,11 +358,11 @@ object DFValNI:
   end initTokensMacro
 end DFValNI
 
-extension [T <: DFType](dfVar: DFVarOf[T])
-  def assign[R <: DFType](rhs: DFValOf[R])(using DFC): Unit =
+extension [T <: DFTypeAny](dfVar: DFVarOf[T])
+  def assign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
     DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
 
 object DFVarOps:
-  extension [T <: DFType](dfVar: DFVarOf[T])
+  extension [T <: DFTypeAny](dfVar: DFVarOf[T])
     def :=[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
       dfVar.assign(tc(dfVar.dfType, rhs))

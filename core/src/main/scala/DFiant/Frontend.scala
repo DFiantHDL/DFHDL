@@ -22,10 +22,10 @@ export core.{width, dfType}
 type DFC = core.DFC
 export core.dfc
 
-type DFType = core.DFType
-val DFBool = core.DFBool
+type DFTypeAny = core.DFTypeAny
+lazy val DFBool = core.DFBool
 type DFBool = core.DFBool
-val DFBit = core.DFBit
+lazy val DFBit = core.DFBit
 type DFBit = core.DFBit
 type DFBits[W <: Int] = core.DFBits[W]
 type DFUInt[W <: Int] = core.DFUInt[W]
@@ -47,7 +47,7 @@ type VAR = core.VAR
 type IN = core.IN
 type OUT = core.OUT
 type TOKEN = core.TOKEN
-type <>[T <: DFType | DFEncoding, M] = core.<>[T, M]
+type <>[T <: DFTypeAny | DFEncoding, M] = core.<>[T, M]
 
 val ? = core.?
 export core.SameBitsVector.*
