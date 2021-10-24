@@ -49,8 +49,8 @@ class DFEnumSpec extends DFSpec:
   }
 
   test("Token Construction") {
-    val t1 = MyEnum1 token MyEnum1.Bar
-    val t2 = MyEnum2 token MyEnum2.Bar
+    val t1: MyEnum1 <> TOKEN = MyEnum1 token MyEnum1.Bar
+    val t2: MyEnum2 <> TOKEN = MyEnum2 token MyEnum2.Bar
     t1 == t1
 //    t1.width
 //    assertEquals(t1.bits, DFBits(2) token b0s)
