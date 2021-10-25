@@ -9,8 +9,8 @@ type DFUnion[U <: DFTypeAny] = OpaqueDFUnion.DFUnion[U]
 val DFUnion = OpaqueDFUnion.DFUnion
 
 private object OpaqueDFUnion:
-  opaque type DFUnion[U <: DFTypeAny] <: DFType[ir.DFUnion] =
-    DFType[ir.DFUnion]
+  opaque type DFUnion[U <: DFTypeAny] <: DFType[ir.DFUnion, Tuple1[U]] =
+    DFType[ir.DFUnion, Tuple1[U]]
   object DFUnion:
     def apply[U <: DFTypeAny](fieldSet: ListSet[ir.DFType]): DFUnion[U] =
       ir.DFUnion(fieldSet).asInstanceOf[DFUnion[U]]

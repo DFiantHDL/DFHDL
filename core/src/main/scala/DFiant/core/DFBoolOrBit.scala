@@ -11,8 +11,8 @@ type DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
 val DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
 
 private object OpaqueDFBoolOrBit:
-  opaque type DFBoolOrBit <: DFType[ir.DFBoolOrBit] =
-    DFType[ir.DFBoolOrBit]
+  opaque type DFBoolOrBit <: DFType[ir.DFBoolOrBit, EmptyTuple] =
+    DFType[ir.DFBoolOrBit, EmptyTuple]
   object DFBoolOrBit:
     type Token = CompanionsDFBoolOrBit.Token
     val Token = CompanionsDFBoolOrBit.Token

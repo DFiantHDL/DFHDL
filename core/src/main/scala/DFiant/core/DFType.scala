@@ -8,9 +8,10 @@ import scala.quoted.*
 import collection.mutable
 import collection.immutable.ListMap
 
-final class DFType[+T <: ir.DFType](val value: T) extends AnyVal:
+final class DFType[+T <: ir.DFType, +Args <: Tuple](val value: T)
+    extends AnyVal:
   override def toString: String = value.toString
-type DFTypeAny = DFType[ir.DFType]
+type DFTypeAny = DFType[ir.DFType, Tuple]
 
 object DFType:
   private[core] def apply(t: Any): DFTypeAny =
@@ -21,7 +22,7 @@ object DFType:
       //TODO: need to add proper upper-bound if fixed in Scalac
       //see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: AnyRef => DFEnum(enumCompanion)
-  extension [T <: ir.DFType](dfType: DFType[T])
+  extension [T <: ir.DFType, Args <: Tuple](dfType: DFType[T, Args])
     def asIR: T = dfType.value
     def codeString(using printer: Printer): String = printer.csDFType(asIR)
   extension (dfType: ir.DFType)

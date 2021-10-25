@@ -11,7 +11,8 @@ val DFBits = OpaqueDFBits.DFBits
 import CompanionsDFDecimal.Constraints.`LW == RW`
 
 private object OpaqueDFBits:
-  opaque type DFBits[W <: Int] <: DFType[ir.DFBits] = DFType[ir.DFBits]
+  opaque type DFBits[W <: Int] <: DFType[ir.DFBits, Tuple1[W]] =
+    DFType[ir.DFBits, Tuple1[W]]
   object DFBits:
     def apply[W <: Int](width: Inlined[W])(using
         check: Arg.Width.Check[W]

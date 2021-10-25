@@ -63,8 +63,8 @@ type DFEnum[E <: DFEncoding] = OpaqueDFEnum.DFEnum[E]
 val DFEnum = OpaqueDFEnum.DFEnum
 
 private object OpaqueDFEnum:
-  opaque type DFEnum[E <: DFEncoding] <: DFType[ir.DFEnum] =
-    DFType[ir.DFEnum]
+  opaque type DFEnum[E <: DFEncoding] <: DFType[ir.DFEnum, Tuple1[E]] =
+    DFType[ir.DFEnum, Tuple1[E]]
   object DFEnum:
     def unapply(using Quotes)(
         tpe: quotes.reflect.TypeRepr

@@ -13,8 +13,9 @@ val DFDecimal = OpaqueDFDecimal.DFDecimal
 
 private object OpaqueDFDecimal:
   opaque type DFDecimal[S <: Boolean, W <: Int, F <: Int] <: DFType[
-    ir.DFDecimal
-  ] = DFType[ir.DFDecimal]
+    ir.DFDecimal,
+    (S, W, F)
+  ] = DFType[ir.DFDecimal, (S, W, F)]
   object DFDecimal:
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
         signed: Inlined[S],

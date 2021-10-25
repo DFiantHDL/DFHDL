@@ -8,9 +8,10 @@ val DFVector = OpaqueDFVector.DFVector
 
 private object OpaqueDFVector:
   opaque type DFVector[T <: DFTypeAny, D <: NonEmptyTuple] <: DFType[
-    ir.DFVector
+    ir.DFVector,
+    D
   ] =
-    DFType[ir.DFVector]
+    DFType[ir.DFVector, D]
 
   object DFVector extends DFVectorCompanion:
     def apply[T <: DFTypeAny, D <: NonEmptyTuple](
@@ -19,6 +20,7 @@ private object OpaqueDFVector:
     ): DFVector[T, D] =
       ir.DFVector(cellType.asIR, cellDims.toList.asInstanceOf[List[Int]])
         .asFE[DFVector[T, D]]
+end OpaqueDFVector
 
 trait DFVectorCompanion:
   object Ops:

@@ -7,8 +7,8 @@ type DFStruct[+F <: DFFields] = OpaqueDFStruct.DFStruct[F]
 val DFStruct = OpaqueDFStruct.DFStruct
 
 private object OpaqueDFStruct:
-  opaque type DFStruct[+F <: DFFields] <: DFType[ir.DFStruct] =
-    DFType[ir.DFStruct]
+  opaque type DFStruct[+F <: DFFields] <: DFType[ir.DFStruct, Tuple1[F]] =
+    DFType[ir.DFStruct, Tuple1[F]]
   object DFStruct:
     def apply[F <: DFFields](fields: F): DFStruct[F] =
       val fieldMap = ListMap(
