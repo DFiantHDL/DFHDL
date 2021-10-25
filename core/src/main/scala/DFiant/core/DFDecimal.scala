@@ -5,31 +5,19 @@ import ir.DFVal.Func.{Op => FuncOp}
 
 import scala.quoted.*
 import scala.annotation.targetName
-import CompanionsDFDecimal.Constraints.*
+import DFDecimal.Constraints.*
 
 type DFDecimal[S <: Boolean, W <: Int, F <: Int] =
-  OpaqueDFDecimal.DFDecimal[S, W, F]
-val DFDecimal = OpaqueDFDecimal.DFDecimal
+  DFType[ir.DFDecimal, Args3[S, W, F]]
+object DFDecimal:
+  protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
+      signed: Inlined[S],
+      width: Inlined[W],
+      fractionWidth: Inlined[F]
+  )(using check: Width.Check[S, W]): DFDecimal[S, W, F] =
+    check(signed, width)
+    ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
 
-private object OpaqueDFDecimal:
-  type DFDecimal[S <: Boolean, W <: Int, F <: Int] =
-    DFType[ir.DFDecimal, Args3[S, W, F]]
-  object DFDecimal:
-    protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
-        signed: Inlined[S],
-        width: Inlined[W],
-        fractionWidth: Inlined[F]
-    )(using check: Width.Check[S, W]): DFDecimal[S, W, F] =
-      check(signed, width)
-      ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
-    type Token[S <: Boolean, W <: Int, F <: Int] =
-      CompanionsDFDecimal.Token[S, W, F]
-    val Token = CompanionsDFDecimal.Token
-    val Val = CompanionsDFDecimal.Val
-  end DFDecimal
-end OpaqueDFDecimal
-
-private object CompanionsDFDecimal:
   object DFTypeGiven:
     given [S <: Boolean, W <: Int, F <: Int](using
         ValueOf[S],
@@ -339,8 +327,7 @@ private object CompanionsDFDecimal:
     object Conversions:
       export DFXInt.Val.Conversions.*
   end Val
-
-end CompanionsDFDecimal
+end DFDecimal
 
 type DFXInt[S <: Boolean, W <: Int] = DFDecimal[S, W, 0]
 object DFXInt:

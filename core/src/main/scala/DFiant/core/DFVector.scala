@@ -3,23 +3,16 @@ import DFiant.compiler.ir
 import DFiant.internals.*
 
 type DFVector[T <: DFTypeAny, D <: NonEmptyTuple] =
-  OpaqueDFVector.DFVector[T, D]
-val DFVector = OpaqueDFVector.DFVector
+  DFType[ir.DFVector, Args2[T, D]]
 
-private object OpaqueDFVector:
-  type DFVector[T <: DFTypeAny, D <: NonEmptyTuple] =
-    DFType[ir.DFVector, Args2[T, D]]
+object DFVector:
+  def apply[T <: DFTypeAny, D <: NonEmptyTuple](
+      cellType: T,
+      cellDims: D
+  ): DFVector[T, D] =
+    ir.DFVector(cellType.asIR, cellDims.toList.asInstanceOf[List[Int]])
+      .asFE[DFVector[T, D]]
 
-  object DFVector extends DFVectorCompanion:
-    def apply[T <: DFTypeAny, D <: NonEmptyTuple](
-        cellType: T,
-        cellDims: D
-    ): DFVector[T, D] =
-      ir.DFVector(cellType.asIR, cellDims.toList.asInstanceOf[List[Int]])
-        .asFE[DFVector[T, D]]
-end OpaqueDFVector
-
-trait DFVectorCompanion:
   object Ops:
     extension [T <: DFType.Supported](t: T)(using tc: DFType.TC[T])
       // transparent inline def X(inline cellDim: Int*): DFType =
@@ -45,7 +38,8 @@ trait DFVectorCompanion:
         DFVector(tc(t), Tuple3(cellDim0, cellDim1, cellDim2))
     end extension
   end Ops
-end DFVectorCompanion
+end DFVector
+
 // transparent inline def x[T <: DFTypeAny](
 //     cellType: T,
 //     inline cellDim: Int*

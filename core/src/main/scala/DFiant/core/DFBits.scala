@@ -8,7 +8,7 @@ import scala.quoted.*
 
 type DFBits[W <: Int] = OpaqueDFBits.DFBits[W]
 val DFBits = OpaqueDFBits.DFBits
-import CompanionsDFDecimal.Constraints.`LW == RW`
+import DFDecimal.Constraints.`LW == RW`
 
 private object OpaqueDFBits:
   type DFBits[W <: Int] =

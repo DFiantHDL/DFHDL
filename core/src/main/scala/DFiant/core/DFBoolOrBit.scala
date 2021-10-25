@@ -7,21 +7,8 @@ import annotation.{implicitNotFound, targetName}
 
 type Bit = 0 | 1
 
-type DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
-val DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
-
-private object OpaqueDFBoolOrBit:
-  type DFBoolOrBit =
-    DFType[ir.DFBoolOrBit, NoArgs]
-  object DFBoolOrBit:
-    type Token = CompanionsDFBoolOrBit.Token
-    val Token = CompanionsDFBoolOrBit.Token
-    val Val = CompanionsDFBoolOrBit.Val
-//    val Conversions = CompanionsDFBoolOrBit.Conversions
-//    export CompanionsDFBoolOrBit.Extensions.*
-end OpaqueDFBoolOrBit
-
-private object CompanionsDFBoolOrBit:
+type DFBoolOrBit = DFType[ir.DFBoolOrBit, NoArgs]
+object DFBoolOrBit:
   type Data = Option[Boolean]
   type Token = DFToken[DFBoolOrBit]
   object Token:
@@ -280,9 +267,8 @@ private object CompanionsDFBoolOrBit:
         ): RT <> VAL = logicOp(rhs, ic(es(lhs)), FuncOp.^, true)
       end extension
     end Ops
-
   end Val
-end CompanionsDFBoolOrBit
+end DFBoolOrBit
 
 type DFBool = DFType[ir.DFBool.type, NoArgs]
 final lazy val DFBool = ir.DFBool.asFE[DFBool]

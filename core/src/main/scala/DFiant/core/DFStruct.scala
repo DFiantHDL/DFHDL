@@ -5,15 +5,10 @@ import DFiant.internals.*
 import collection.immutable.ListMap
 import scala.annotation.unchecked.uncheckedVariance
 
-type DFStruct[+F <: DFFields] = OpaqueDFStruct.DFStruct[F]
-val DFStruct = OpaqueDFStruct.DFStruct
-
-private object OpaqueDFStruct:
-  type DFStruct[+F <: DFFields] =
-    DFType[ir.DFStruct, Args1[F @uncheckedVariance]]
-  object DFStruct:
-    def apply[F <: DFFields](fields: F): DFStruct[F] =
-      val fieldMap = ListMap(
-        fields.getFields.map(f => (f.name, f.dfType.asIR)): _*
-      )
-      ir.DFStruct(fields.name, fieldMap).asFE[DFStruct[F]]
+type DFStruct[+F <: DFFields] = DFType[ir.DFStruct, Args1[F @uncheckedVariance]]
+object DFStruct:
+  def apply[F <: DFFields](fields: F): DFStruct[F] =
+    val fieldMap = ListMap(
+      fields.getFields.map(f => (f.name, f.dfType.asIR)): _*
+    )
+    ir.DFStruct(fields.name, fieldMap).asFE[DFStruct[F]]

@@ -5,18 +5,11 @@ import scala.quoted.*
 import collection.immutable.ListSet
 import DFiant.compiler.printing.DefaultPrinter
 
-type DFUnion[U <: DFTypeAny] = OpaqueDFUnion.DFUnion[U]
-val DFUnion = OpaqueDFUnion.DFUnion
+type DFUnion[U <: DFTypeAny] = DFType[ir.DFUnion, Args1[U]]
+object DFUnion:
+  def apply[U <: DFTypeAny](fieldSet: ListSet[ir.DFType]): DFUnion[U] =
+    ir.DFUnion(fieldSet).asFE[DFUnion[U]]
 
-private object OpaqueDFUnion:
-  type DFUnion[U <: DFTypeAny] =
-    DFType[ir.DFUnion, Args1[U]]
-  object DFUnion:
-    def apply[U <: DFTypeAny](fieldSet: ListSet[ir.DFType]): DFUnion[U] =
-      ir.DFUnion(fieldSet).asInstanceOf[DFUnion[U]]
-    val Ops = CompanionsDFUnion.Ops
-
-private object CompanionsDFUnion:
   private def collisionError(collisions: List[String]): String =
     s"Dataflow union types must be exclusive.\nThe following types are repeated: ${collisions.mkString(", ")}"
   private def widthError(lhsWidth: Int, rhsWidth: Int): String =
@@ -92,4 +85,4 @@ private object CompanionsDFUnion:
       '{ new VerifyUnion[Current, Added] {} }
     end verifyMacro
   end VerifyUnion
-end CompanionsDFUnion
+end DFUnion
