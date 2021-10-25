@@ -7,6 +7,8 @@ import compiler.ir
 trait Width[T]:
   type Out <: Int
 object Width:
+  val wide: Width[DFTypeAny] = new Width[DFTypeAny]:
+    type Out = Int
   given fromDFBoolOrBit[T <: DFBoolOrBit]: Width[T] with
     type Out = 1
   given fromDFBits[W <: Int]: Width[DFBits[W]] with
@@ -51,17 +53,34 @@ object Width:
     def calcWidth: quotes.reflect.TypeRepr =
       import quotes.reflect.*
       dfTpe match
-        case t if dfTpe <:< TypeRepr.of[DFBoolOrBit] =>
-          ConstantType(IntConstant(1))
-        case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFBits] =>
-          applied.args.head.simplify
-        case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFDecimal] =>
-          applied.args(1).simplify
-        case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFVector] =>
-          val cellWidth = applied.args.head.calcWidth
-          val cellDims = applied.args.last.asInstanceOf[AppliedType].args
-          val widths = cellWidth :: cellDims
-          widths.reduce(_ * _)
+        case t if t <:< TypeRepr.of[DFTypeAny] =>
+          val AppliedType(_, List(irTpe, tuple)) = t.dealias
+          val args: List[TypeRepr] = tuple match
+            case AppliedType(_, args) => args
+            case _                    => Nil
+          irTpe match
+            case t if t <:< TypeRepr.of[ir.DFBoolOrBit] =>
+              ConstantType(IntConstant(1))
+            case t if t <:< TypeRepr.of[ir.DFBits] =>
+              args.head.simplify
+            case t if t <:< TypeRepr.of[ir.DFDecimal] =>
+              args(1).simplify
+            case t if t <:< TypeRepr.of[ir.DFEnum] =>
+              args.head.calcWidth
+            case t if t <:< TypeRepr.of[ir.DFVector] =>
+              val cellWidth = args.head.calcWidth
+              val cellDims = args.last.asInstanceOf[AppliedType].args
+              val widths = cellWidth :: cellDims
+              widths.reduce(_ * _)
+            case t if t <:< TypeRepr.of[ir.DFOpaque] =>
+              args.last.calcWidth
+            case t if t <:< TypeRepr.of[ir.DFStruct] =>
+              args.head.calcWidth
+            case t if t <:< TypeRepr.of[ir.DFUnion] =>
+              args.head.calcWidth
+            case _ =>
+              TypeRepr.of[Int]
+          end match
         case applied: AppliedType if applied <:< TypeRepr.of[NonEmptyTuple] =>
           val widths = applied.args.map(a => a.calcWidth)
           widths.reduce(_ + _)
@@ -101,28 +120,14 @@ object Width:
             .getOrElse(TypeRepr.of[Int])
         case OrType(left, right) =>
           left.calcWidth max right.calcWidth
-        case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFOpaque] =>
-          applied.args.last.calcWidth
-        case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFTuple] =>
-          applied.args.head.calcWidth
-        case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFEnum] =>
-          applied.args.head.calcWidth
-        case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFStruct] =>
-          applied.args.head.calcWidth
-        case applied: AppliedType if applied.tycon <:< TypeRepr.of[DFUnion] =>
-          applied.args.head.calcWidth
-        //lost specific type information, but still has non-literal width
-        case t if t <:< TypeRepr.of[DFTypeAny] => TypeRepr.of[Int]
       end match
     end calcWidth
   end extension
   def getWidthMacro[T](using Quotes, Type[T]): Expr[Width[T]] =
     import quotes.reflect.*
     val tTpe = TypeRepr.of[T]
-//    println(tTpe)
-    val widthTpe: Type[Int] =
-      tTpe.calcWidth.asType
-        .asInstanceOf[Type[Int]]
+//    println(tTpe.show)
+    val widthTpe = tTpe.calcWidth.asTypeOf[Int]
     '{
       new Width[T]:
         type Out = widthTpe.Underlying

@@ -11,8 +11,8 @@ type DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
 val DFBoolOrBit = OpaqueDFBoolOrBit.DFBoolOrBit
 
 private object OpaqueDFBoolOrBit:
-  opaque type DFBoolOrBit <: DFType[ir.DFBoolOrBit, EmptyTuple] =
-    DFType[ir.DFBoolOrBit, EmptyTuple]
+  type DFBoolOrBit =
+    DFType[ir.DFBoolOrBit, NoArgs]
   object DFBoolOrBit:
     type Token = CompanionsDFBoolOrBit.Token
     val Token = CompanionsDFBoolOrBit.Token
@@ -284,8 +284,8 @@ private object CompanionsDFBoolOrBit:
   end Val
 end CompanionsDFBoolOrBit
 
-opaque type DFBool <: DFBoolOrBit = DFBoolOrBit
+type DFBool = DFType[ir.DFBool.type, NoArgs]
 final lazy val DFBool = ir.DFBool.asFE[DFBool]
-opaque type DFBit <: DFBoolOrBit = DFBoolOrBit
+type DFBit = DFType[ir.DFBit.type, NoArgs]
 final lazy val DFBit = ir.DFBit.asFE[DFBit]
 given CanEqual[DFBoolOrBit, DFBoolOrBit] = CanEqual.derived

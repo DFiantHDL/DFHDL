@@ -7,11 +7,8 @@ type DFVector[T <: DFTypeAny, D <: NonEmptyTuple] =
 val DFVector = OpaqueDFVector.DFVector
 
 private object OpaqueDFVector:
-  opaque type DFVector[T <: DFTypeAny, D <: NonEmptyTuple] <: DFType[
-    ir.DFVector,
-    D
-  ] =
-    DFType[ir.DFVector, D]
+  type DFVector[T <: DFTypeAny, D <: NonEmptyTuple] =
+    DFType[ir.DFVector, Args2[T, D]]
 
   object DFVector extends DFVectorCompanion:
     def apply[T <: DFTypeAny, D <: NonEmptyTuple](

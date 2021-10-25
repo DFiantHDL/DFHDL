@@ -12,10 +12,8 @@ type DFDecimal[S <: Boolean, W <: Int, F <: Int] =
 val DFDecimal = OpaqueDFDecimal.DFDecimal
 
 private object OpaqueDFDecimal:
-  opaque type DFDecimal[S <: Boolean, W <: Int, F <: Int] <: DFType[
-    ir.DFDecimal,
-    (S, W, F)
-  ] = DFType[ir.DFDecimal, (S, W, F)]
+  type DFDecimal[S <: Boolean, W <: Int, F <: Int] =
+    DFType[ir.DFDecimal, Args3[S, W, F]]
   object DFDecimal:
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
         signed: Inlined[S],
@@ -24,8 +22,6 @@ private object OpaqueDFDecimal:
     )(using check: Width.Check[S, W]): DFDecimal[S, W, F] =
       check(signed, width)
       ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
-    export CompanionsDFDecimal.Extensions.*
-    export CompanionsDFDecimal.DFTypeGiven.given
     type Token[S <: Boolean, W <: Int, F <: Int] =
       CompanionsDFDecimal.Token[S, W, F]
     val Token = CompanionsDFDecimal.Token

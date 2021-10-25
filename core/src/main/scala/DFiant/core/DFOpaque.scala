@@ -2,11 +2,8 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 
-opaque type DFOpaque[N <: String, T <: DFTypeAny] <: DFType[
-  ir.DFOpaque,
-  (N, T)
-] =
-  DFType[ir.DFOpaque, (N, T)]
+type DFOpaque[N <: String, T <: DFTypeAny] =
+  DFType[ir.DFOpaque, Args2[N, T]]
 object DFOpaque:
   def apply[N <: String, T <: DFTypeAny](
       name: N,

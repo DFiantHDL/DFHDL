@@ -8,10 +8,15 @@ import scala.quoted.*
 import collection.mutable
 import collection.immutable.ListMap
 
-final class DFType[+T <: ir.DFType, +Args <: Tuple](val value: T)
-    extends AnyVal:
+sealed trait Args
+sealed trait NoArgs extends Args
+sealed trait Args1[T1] extends Args
+sealed trait Args2[T1, T2] extends Args
+sealed trait Args3[T1, T2, T3] extends Args
+
+final class DFType[+T <: ir.DFType, +A <: Args](val value: T) extends AnyVal:
   override def toString: String = value.toString
-type DFTypeAny = DFType[ir.DFType, Tuple]
+type DFTypeAny = DFType[ir.DFType, Args]
 
 object DFType:
   private[core] def apply(t: Any): DFTypeAny =
@@ -22,11 +27,13 @@ object DFType:
       //TODO: need to add proper upper-bound if fixed in Scalac
       //see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: AnyRef => DFEnum(enumCompanion)
-  extension [T <: ir.DFType, Args <: Tuple](dfType: DFType[T, Args])
+  extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
     def asIR: T = dfType.value
     def codeString(using printer: Printer): String = printer.csDFType(asIR)
   extension (dfType: ir.DFType)
     def asFE[T <: DFTypeAny]: T = (new DFType(dfType)).asInstanceOf[T]
+  export CompanionsDFDecimal.Extensions.*
+  export CompanionsDFDecimal.DFTypeGiven.given
 
   type Supported = AnyRef | DFTypeAny
   object Ops:
