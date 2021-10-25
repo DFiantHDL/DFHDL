@@ -6,30 +6,25 @@ import DFiant.internals.*
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 
-type DFBits[W <: Int] = OpaqueDFBits.DFBits[W]
-val DFBits = OpaqueDFBits.DFBits
+type DFBits[W <: Int] = DFType[ir.DFBits, Args1[W]]
 import DFDecimal.Constraints.`LW == RW`
 
-private object OpaqueDFBits:
-  type DFBits[W <: Int] =
-    DFType[ir.DFBits, Args1[W]]
-  object DFBits:
-    def apply[W <: Int](width: Inlined[W])(using
-        check: Arg.Width.Check[W]
-    ): DFBits[W] =
-      check(width)
-      ir.DFBits(width).asFE[DFBits[W]]
-    @targetName("applyNoArg")
-    def apply[W <: Int with Singleton](using ValueOf[W])(using
-        Arg.Width.Check[W]
-    ): DFBits[W] =
-      DFBits[W](Inlined.forced[W](valueOf[W]))
+object DFBits:
+  def apply[W <: Int](width: Inlined[W])(using
+      check: Arg.Width.Check[W]
+  ): DFBits[W] =
+    check(width)
+    ir.DFBits(width).asFE[DFBits[W]]
+  @targetName("applyNoArg")
+  def apply[W <: Int with Singleton](using ValueOf[W])(using
+      Arg.Width.Check[W]
+  ): DFBits[W] =
+    DFBits[W](Inlined.forced[W](valueOf[W]))
 
-    type Token[W <: Int] = CompanionsDFBits.Token[W]
-    val Token = CompanionsDFBits.Token
-    val Val = CompanionsDFBits.Val
-  end DFBits
-end OpaqueDFBits
+  type Token[W <: Int] = CompanionsDFBits.Token[W]
+  val Token = CompanionsDFBits.Token
+  val Val = CompanionsDFBits.Val
+end DFBits
 
 private object CompanionsDFBits:
   protected object `AW == TW`
