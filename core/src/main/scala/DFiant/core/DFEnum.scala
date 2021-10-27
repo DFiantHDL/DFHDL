@@ -59,8 +59,7 @@ object DFEncoding:
       else None
 end DFEncoding
 
-type DFEnum[E <: DFEncoding] =
-  DFType[ir.DFEnum, Args1[E]]
+type DFEnum[E <: DFEncoding] = DFType[ir.DFEnum, Args1[E]]
 object DFEnum:
   def unapply(using Quotes)(
       tpe: quotes.reflect.TypeRepr
@@ -78,6 +77,7 @@ object DFEnum:
           .toList
       )
     else None
+  end unapply
   def apply[E <: DFEncoding](enumCompanion: AnyRef): DFEnum[E] =
     val enumClass = classOf[scala.reflect.Enum]
     val enumCompanionCls = enumCompanion.getClass
