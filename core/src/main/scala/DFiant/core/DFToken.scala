@@ -32,12 +32,14 @@ extension (tokenIR: ir.DFType.Token)
 
 object DFToken:
   //Implicit conversions for tokens
-  export DFBoolOrBit.Token.Conversions.given
+//  export DFBoolOrBit.Token.Conversions.given
   export DFBits.Token.Conversions.given
-  given fromTC[T <: DFTypeAny, V](using
+  implicit inline def fromTC[T <: DFTypeAny, V](
+      inline value: V
+  )(using es: Exact.Summon[V, value.type])(using
       dfType: T,
-      tc: DFToken.TC[T, V]
-  ): Conversion[V, DFToken[T]] = value => tc(dfType, value)
+      tc: DFToken.TC[T, es.Out]
+  ): DFToken[T] = tc(dfType, es(value))
 
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
     ir.DFType.Token.bubble(dfType.asIR).asTokenOf[T]

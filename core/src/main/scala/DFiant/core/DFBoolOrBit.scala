@@ -11,6 +11,8 @@ type DFBoolOrBit = DFType[ir.DFBoolOrBit, NoArgs]
 object DFBoolOrBit:
   type Data = Option[Boolean]
   type Token = DFToken[DFBoolOrBit]
+  given DFBool = DFBool
+  given DFBit = DFBit
   object Token:
     extension (token: Token)
       def data: Option[Boolean] = token.asIR.data.asInstanceOf[Option[Boolean]]
@@ -97,11 +99,12 @@ object DFBoolOrBit:
           tokenOut.asIR.asTokenOf[T]
     end TC
 
-    private def logicOp[T <: DFBoolOrBit](
+    private def logicOp[O <: DFBoolOrBit, T <: DFBoolOrBit](
+        dfType: O,
         token: DFToken[T],
         tokenArg: DFToken[DFBoolOrBit],
         op: FuncOp
-    ): DFToken[T] =
+    ): DFToken[O] =
       val dataOut = (token.data, tokenArg.data) match
         case (Some(l), Some(r)) =>
           op match
@@ -112,8 +115,14 @@ object DFBoolOrBit:
             case FuncOp.^   => Some(l ^ r)
             case _ => throw new IllegalArgumentException("Unsupported Op")
         case _ => None
-      Token(token.dfType, dataOut)
+      Token(dfType, dataOut)
     end logicOp
+
+    private def logicOp[T <: DFBoolOrBit](
+        token: DFToken[T],
+        tokenArg: DFToken[DFBoolOrBit],
+        op: FuncOp
+    ): DFToken[T] = logicOp[T, T](token.dfType, token, tokenArg, op)
 
     object Compare:
       import DFToken.Compare
@@ -124,7 +133,7 @@ object DFBoolOrBit:
           castle: ValueOf[C]
       ): Compare[T, R, Op, C] with
         def apply(token: T <> TOKEN, arg: R): DFBool <> TOKEN =
-          logicOp(token, ic(arg), op)
+          logicOp(DFBool, token, ic(arg), op)
     end Compare
 
     object Ops:

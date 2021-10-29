@@ -33,6 +33,7 @@ object DFType:
   extension (dfType: ir.DFType)
     def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]
   export DFDecimal.Extensions.*
+  export DFBoolOrBit.given
   export DFDecimal.given
   export DFEnum.given
 
