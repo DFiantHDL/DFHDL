@@ -95,6 +95,13 @@ object DFEnum:
     ir.DFEnum(name, width, ListMap(entryPairs: _*)).asFE[DFEnum[E]]
   end apply
 
+  inline given [E <: DFEncoding]: DFEnum[E] = ${ dfTypeMacro[E] }
+  def dfTypeMacro[E <: DFEncoding](using Quotes, Type[E]): Expr[DFEnum[E]] =
+    import quotes.reflect.*
+    val companionSym = TypeRepr.of[E].typeSymbol.companionModule
+    val companionIdent = Ref(companionSym).asExprOf[AnyRef]
+    '{ DFEnum[E]($companionIdent) }
+
   type Token[E <: DFEncoding] = DFToken[DFEnum[E]]
   object Token:
     extension [E <: DFEncoding](token: Token[E])

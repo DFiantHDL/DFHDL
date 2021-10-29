@@ -31,9 +31,10 @@ object DFType:
     def asIR: T = dfType.value
     def codeString(using printer: Printer): String = printer.csDFType(asIR)
   extension (dfType: ir.DFType)
-    def asFE[T <: DFTypeAny]: T = (new DFType(dfType)).asInstanceOf[T]
+    def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]
   export DFDecimal.Extensions.*
-  export DFDecimal.DFTypeGiven.given
+  export DFDecimal.given
+  export DFEnum.given
 
   type Supported = AnyRef | DFTypeAny
   object Ops:

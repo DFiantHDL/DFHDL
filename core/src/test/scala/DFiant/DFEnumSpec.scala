@@ -54,7 +54,9 @@ class DFEnumSpec extends DFSpec:
     assertEquals(t1.bits, DFBits(2) token b"01")
     assertEquals(t2.bits, DFBits(5) token h"5'15")
   }
-  test("DFVal Conversion") {}
+  test("DFVal Conversion") {
+    val t1: MyEnum1 <> TOKEN = MyEnum1.Bar
+  }
   test("Assignment") {
     assertCodeString {
       """|val x = MyEnum1 <> VAR init MyEnum1.Bar

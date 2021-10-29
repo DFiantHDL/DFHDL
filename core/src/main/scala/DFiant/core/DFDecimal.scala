@@ -18,13 +18,12 @@ object DFDecimal:
     check(signed, width)
     ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
 
-  object DFTypeGiven:
-    given [S <: Boolean, W <: Int, F <: Int](using
-        ValueOf[S],
-        ValueOf[W],
-        ValueOf[F]
-    )(using Width.Check[S, W]): DFDecimal[S, W, F] =
-      DFDecimal(valueOf[S], valueOf[W], valueOf[F])
+  given [S <: Boolean, W <: Int, F <: Int](using
+      ValueOf[S],
+      ValueOf[W],
+      ValueOf[F]
+  )(using Width.Check[S, W]): DFDecimal[S, W, F] =
+    DFDecimal(valueOf[S], valueOf[W], valueOf[F])
   object Extensions:
     extension [S <: Boolean, W <: Int, F <: Int](dfType: DFDecimal[S, W, F])
       def signed: Inlined[S] = Inlined.forced[S](dfType.asIR.signed)

@@ -34,6 +34,10 @@ object DFToken:
   //Implicit conversions for tokens
   export DFBoolOrBit.Token.Conversions.given
   export DFBits.Token.Conversions.given
+  given fromTC[T <: DFTypeAny, V](using
+      dfType: T,
+      tc: DFToken.TC[T, V]
+  ): Conversion[V, DFToken[T]] = value => tc(dfType, value)
 
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
     ir.DFType.Token.bubble(dfType.asIR).asTokenOf[T]
