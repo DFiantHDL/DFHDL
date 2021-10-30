@@ -37,22 +37,6 @@ object DFBoolOrBit:
     ): T <> TOKEN =
       Token(dfType, None)
 
-    object Conversions:
-      import DFToken.TC
-      given fromSingletonToDFBoolToken[V <: Singleton](using
-          tc: DFToken.TC[DFBool, ValueOf[V]]
-      ): Conversion[V, DFBool <> TOKEN] = value => tc(DFBool, ValueOf(value))
-      given fromSingletonToDFBitToken[V <: Singleton](using
-          tc: DFToken.TC[DFBit, ValueOf[V]]
-      ): Conversion[V, DFBit <> TOKEN] = value => tc(DFBit, ValueOf(value))
-      given fromNonSingletonToDFBoolToken[V](using
-          tc: DFToken.TC[DFBool, V]
-      ): Conversion[V, DFBool <> TOKEN] = value => tc(DFBool, value)
-      given fromNonSingletonToDFBitToken[V](using
-          tc: DFToken.TC[DFBit, V]
-      ): Conversion[V, DFBit <> TOKEN] = value => tc(DFBit, value)
-    end Conversions
-
     @implicitNotFound(
       "Argument of type ${R} is not a proper candidate for a DFBool or DFBit token."
     )

@@ -32,8 +32,6 @@ extension (tokenIR: ir.DFType.Token)
 
 object DFToken:
   //Implicit conversions for tokens
-//  export DFBoolOrBit.Token.Conversions.given
-  export DFBits.Token.Conversions.given
   implicit inline def fromTC[T <: DFTypeAny, V](
       inline value: V
   )(using es: Exact.Summon[V, value.type])(using

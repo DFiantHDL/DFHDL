@@ -21,6 +21,10 @@ object DFBits:
   ): DFBits[W] =
     DFBits[W](Inlined.forced[W](valueOf[W]))
 
+  given [W <: Int](using ValueOf[W])(using
+      Arg.Width.Check[W]
+  ): DFBits[W] = DFBits[W](Inlined.forced[W](valueOf[W]))
+
   type Token[W <: Int] = CompanionsDFBits.Token[W]
   val Token = CompanionsDFBits.Token
   val Val = CompanionsDFBits.Val

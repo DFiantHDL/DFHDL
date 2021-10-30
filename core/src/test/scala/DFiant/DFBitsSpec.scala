@@ -43,6 +43,16 @@ class DFBitsSpec extends DFSpec:
       "The token width (8) is different than the DFType width (3)."
     )("""DFBits(3) token t7""")
     assert(t7.asIR equals t2.asIR)
+    val t8: DFBits[8] <> TOKEN = b0s
+    val t9: DFBits[8] <> TOKEN = h"22"
+    assertDSLError(
+      "The token width (4) is different than the DFType width (8)."
+    )(
+      """val t10: DFBits[8] <> TOKEN = h"2""""
+    ) {
+      val eight = 8
+      val t10: DFBits[eight.type] <> TOKEN = h"2"
+    }
   }
   test("Token Resize") {
     assertEquals(h"F0".resize(6), h"6'30")
