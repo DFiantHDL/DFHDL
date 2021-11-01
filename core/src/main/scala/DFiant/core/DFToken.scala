@@ -39,6 +39,16 @@ object DFToken:
       tc: DFToken.TC[T, es.Out]
   ): DFToken[T] = tc(dfType, es(value))
 
+  //Enabling equality with Int, Boolean, and Tuples.
+  //just to give a better error message via the compiler plugins.
+  //See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
+  given [T <: DFTypeAny]: CanEqual[Int, DFToken[T]] =
+    CanEqual.derived
+  given [T <: DFTypeAny]: CanEqual[Boolean, DFToken[T]] =
+    CanEqual.derived
+  given [T <: DFTypeAny]: CanEqual[Tuple, DFToken[T]] =
+    CanEqual.derived
+
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
     ir.DFType.Token.bubble(dfType.asIR).asTokenOf[T]
   extension (token: DFTokenAny)

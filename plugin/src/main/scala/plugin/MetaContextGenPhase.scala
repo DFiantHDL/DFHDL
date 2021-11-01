@@ -32,6 +32,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var metaContextCls: ClassSymbol = _
   var setMetaSym: Symbol = _
   var lateConstructionTpe: TypeRef = _
+  var dfTokenSym: Symbol = _
   var dfValSym: Symbol = _
   val treeOwnerMap = mutable.Map.empty[String, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
@@ -245,9 +246,10 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case Apply(Select(lhs, fun), List(rhs))
           if (fun == nme.EQ || fun == nme.NE) &&
             (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType || lhs.tpe <:< defn.TupleTypeRef) =>
-        if (dfValSym == rhs.tpe.typeSymbol)
+        val rhsSym = rhs.tpe.dealias.typeSymbol
+        if (rhsSym == dfValSym || rhsSym == dfTokenSym)
           report.error(
-            s"Unsupported Scala primitive at the LHS of `$fun` with a dataflow value.\nConsider switching positions of the arguments.",
+            s"Unsupported Scala primitive at the LHS of `$fun` with a dataflow value or token.\nConsider switching positions of the arguments.",
             pos
           )
       case _ =>
@@ -319,6 +321,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     lateConstructionTpe = requiredClassRef("DFiant.internals.LateConstruction")
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     dfValSym = requiredClass("DFiant.core.DFVal")
+    dfTokenSym = requiredClass("DFiant.core.DFToken")
     treeOwnerMap.clear()
     contextDefs.clear()
     inlinedOwnerStack.clear()
