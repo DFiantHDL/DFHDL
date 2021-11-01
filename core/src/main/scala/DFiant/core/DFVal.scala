@@ -39,12 +39,14 @@ object DFVal:
     }
   end equalityMacro
 
-  //Enabling equality with Int and Boolean,
+  //Enabling equality with Int, Boolean, and Tuples.
   //just to give a better error message via the compiler plugins.
   //See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
   given [T <: DFTypeAny, M <: Modifier]: CanEqual[Int, DFVal[T, M]] =
     CanEqual.derived
   given [T <: DFTypeAny, M <: Modifier]: CanEqual[Boolean, DFVal[T, M]] =
+    CanEqual.derived
+  given [T <: DFTypeAny, M <: Modifier]: CanEqual[Tuple, DFVal[T, M]] =
     CanEqual.derived
 
   final val Modifier = DFiant.compiler.ir.DFVal.Modifier

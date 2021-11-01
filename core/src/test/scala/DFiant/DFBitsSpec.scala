@@ -177,6 +177,7 @@ class DFBitsSpec extends DFSpec:
       val t5 = b8 != h"22"
       val t6 = b8 == b"11100111"
       val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4))
+      (1, 0) == b8
     }
     assertCompileError {
       """An integer value cannot be a candidate for a DFBits type.

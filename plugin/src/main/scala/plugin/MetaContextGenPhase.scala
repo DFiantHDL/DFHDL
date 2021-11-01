@@ -244,7 +244,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     tree match
       case Apply(Select(lhs, fun), List(rhs))
           if (fun == nme.EQ || fun == nme.NE) &&
-            (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType) =>
+            (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType || lhs.tpe <:< defn.TupleTypeRef) =>
         if (dfValSym == rhs.tpe.typeSymbol)
           report.error(
             s"Unsupported Scala primitive at the LHS of `$fun` with a dataflow value.\nConsider switching positions of the arguments.",
