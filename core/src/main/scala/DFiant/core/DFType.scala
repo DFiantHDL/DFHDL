@@ -38,6 +38,8 @@ object DFType:
   export DFDecimal.given
   export DFEnum.given
 
+  given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
+
   type Supported = AnyRef | DFTypeAny
   object Ops:
     extension [T](t: T)(using tc: TC[T])
