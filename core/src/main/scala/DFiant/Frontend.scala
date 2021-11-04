@@ -14,6 +14,7 @@ export core.DFDecimal.Val.Ops.*
 export core.DFUnion.Ops.*
 export core.DFOpaque.Ops.*
 export core.DFOpaque.Token.Ops.*
+export core.DFOpaque.Val.Ops.*
 export core.DFVector.Ops.*
 export core.DFVal.Ops.*
 export core.DFVarOps.*

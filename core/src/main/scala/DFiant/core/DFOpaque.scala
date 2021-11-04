@@ -44,13 +44,28 @@ object DFOpaque:
         def as[Id <: Int](opaque: DFOpaque[Id, T]): DFOpaque[Id, T] <> TOKEN =
           checkAs(lhs.dfType, opaque.actualType)
           Token(opaque, lhs)
+      extension [Id <: Int, T <: DFTypeAny](lhs: DFOpaque[Id, T] <> TOKEN)
+        def actual: T <> TOKEN =
+          lhs.asIR.data.asInstanceOf[ir.DFTokenAny].asTokenOf[T]
   end Token
 
   object Val:
     object Ops:
-      extension [T <: DFTypeAny](lhs: T <> VAL)
-        def as[Id <: Int](opaque: DFOpaque[Id, T]): DFOpaque[Id, T] <> VAL =
+      import ir.DFVal.Modifier
+      extension [T <: DFTypeAny, M <: Modifier](lhs: DFVal[T, M])
+        def as[Id <: Int](opaque: DFOpaque[Id, T])(using
+            DFC
+        ): DFVal[DFOpaque[Id, T], M] =
+          import Token.Ops.{as => asToken}
           checkAs(lhs.dfType, opaque.actualType)
-          ???
+          DFVal.Alias.AsIs(opaque, lhs, _.asToken(opaque))
+      extension [Id <: Int, T <: DFTypeAny, M <: Modifier](
+          lhs: DFVal[DFOpaque[Id, T], M]
+      )
+        def actual(using DFC): DFVal[T, M] =
+          import Token.Ops.{actual => actualToken}
+          DFVal.Alias.AsIs(lhs.dfType.actualType, lhs, _.actualToken)
+    end Ops
+  end Val
 
 end DFOpaque

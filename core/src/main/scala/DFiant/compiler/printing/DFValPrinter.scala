@@ -74,7 +74,9 @@ protected trait DFValPrinter extends AbstractPrinter:
         s"${relValStr}.bit"
       case (DFBool, DFBit) =>
         s"${relValStr}.bool"
-      case (_, DFBits(_)) =>
+      case (t, DFOpaque(_, ot)) if ot == t =>
+        s"${relValStr}.actual"
+      case (_, DFBits(_)) | (DFOpaque(_, _), _) =>
         s"${relValStr}.as(${printer.csDFType(toType)})"
       case _ =>
         throw new IllegalArgumentException("Unsupported alias/conversion")
