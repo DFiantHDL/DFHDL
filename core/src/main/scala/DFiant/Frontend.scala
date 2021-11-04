@@ -2,7 +2,7 @@ package DFiant
 
 export core.DFType.Ops.*
 export core.DFToken.Ops.*
-type Bit = core.Bit
+export core.Bit
 export core.DFBoolOrBit.Token.Ops.*
 export core.DFBoolOrBit.Val.Ops.*
 export core.DFBits.Token.Ops.*
@@ -12,7 +12,7 @@ export core.DFDecimal.Token.StrInterp.*
 export core.DFDecimal.Token.Ops.*
 export core.DFDecimal.Val.Ops.*
 export core.DFUnion.Ops.*
-type DFOpaque[T <: DFTypeAny] = core.DFOpaque.Frontend[T]
+export core.DFOpaque.Frontend as DFOpaque
 export core.DFOpaque.Token.Ops.*
 export core.DFOpaque.Val.Ops.*
 export core.DFVector.Ops.*
@@ -36,8 +36,7 @@ type DFSInt[W <: Int] = core.DFSInt[W]
 val DFSInt = core.DFSInt
 val DFBits = core.DFBits
 type DFFields = core.DFFields
-type DFEncoding = core.DFEncoding
-val DFEncoding = core.DFEncoding
+export core.DFEncoding as DFEnum
 type DFDesign = core.DFDesign
 
 val IN = core.IN
