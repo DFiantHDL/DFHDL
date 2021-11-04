@@ -73,7 +73,7 @@ object Width:
               val widths = cellWidth :: cellDims
               widths.reduce(_ * _)
             case t if t <:< TypeRepr.of[ir.DFOpaque] =>
-              args.last.calcWidth
+              args.head.calcWidth
             case t if t <:< TypeRepr.of[ir.DFStruct] =>
               args.head.calcWidth
             case t if t <:< TypeRepr.of[ir.DFUnion] =>
@@ -98,6 +98,9 @@ object Width:
                   applied.args.head.calcWidth
               }
           widths.reduce(_ + _)
+        case opaqueFE if opaqueFE <:< TypeRepr.of[DFOpaque.Abstract] =>
+          val clsSym = opaqueFE.classSymbol.get
+          opaqueFE.memberType(clsSym.fieldMember("actualType")).calcWidth
         case DFEnum(entries) =>
           val entryCount = entries.length
           val widthOption = entries.head match

@@ -21,11 +21,10 @@ type DFTypeAny = DFType[ir.DFType, Args]
 object DFType:
   private[core] def apply(t: Any): DFTypeAny =
     t match
-      case dfType: DFTypeAny    => dfType
-      case tuple: NonEmptyTuple => DFTuple(tuple)
-      case opaque: DFOpaque.Frontend[_] =>
-        DFOpaque(opaque.typeName, opaque.actualType)
-      case fields: DFFields => DFStruct(fields)
+      case dfType: DFTypeAny         => dfType
+      case tuple: NonEmptyTuple      => DFTuple(tuple)
+      case tfe: DFOpaque.Frontend[_] => DFOpaque(tfe)
+      case fields: DFFields          => DFStruct(fields)
       //TODO: need to add proper upper-bound if fixed in Scalac
       //see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: AnyRef => DFEnum(enumCompanion)
@@ -69,9 +68,9 @@ object DFType:
     given ofDFType[T <: DFTypeAny]: TC[T] with
       type Type = T
       def apply(t: T): Type = t
-    given ofOpaque[T <: DFTypeAny, OFE <: DFOpaque.Frontend[T]]: TC[OFE] with
-      type Type = DFOpaque[OFE, T]
-      def apply(t: OFE): Type = DFOpaque[OFE, T](t.typeName, t.actualType)
+    given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[T]]: TC[TFE] with
+      type Type = DFOpaque[TFE]
+      def apply(t: TFE): Type = DFOpaque(t)
     given ofDFFields[T <: DFFields]: TC[T] with
       type Type = DFStruct[T]
       def apply(t: T): Type = DFStruct[T](t)
@@ -88,7 +87,7 @@ object DFType:
               else None
             case t if t <:< TypeRepr.of[DFTypeAny] =>
               Some(t)
-            case t if t <:< TypeRepr.of[DFOpaque.Frontend] =>
+            case t if t <:< TypeRepr.of[DFOpaque.Abstract] =>
               Some(TypeRepr.of[DFOpaque].appliedTo(t))
             case t if t <:< fieldsTpe =>
               Some(TypeRepr.of[DFStruct].appliedTo(t))
