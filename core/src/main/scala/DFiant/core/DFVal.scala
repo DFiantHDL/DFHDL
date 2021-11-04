@@ -6,7 +6,7 @@ import ir.DFVal.Func.{Op => FuncOp}
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
-
+import DFOpaque.Frontend as DFOpaqueFE
 final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
@@ -80,23 +80,27 @@ type VAR = Modifier.VAR.type
 type IN = Modifier.IN.type
 type OUT = Modifier.OUT.type
 sealed trait TOKEN
-type <>[T <: DFTypeAny | DFEncoding, M] = M match
+type <>[T <: DFTypeAny | DFEncoding | DFOpaqueFE[_ <: DFTypeAny], M] = M match
   case VAL =>
     T match
-      case DFTypeAny  => DFValOf[T]
-      case DFEncoding => DFValOf[DFEnum[T]]
+      case DFTypeAny      => DFValOf[T]
+      case DFEncoding     => DFValOf[DFEnum[T]]
+      case DFOpaqueFE[tp] => DFValOf[DFOpaque[T, tp]]
   case VAR =>
     T match
-      case DFTypeAny  => DFVarOf[T]
-      case DFEncoding => DFVarOf[DFEnum[T]]
+      case DFTypeAny      => DFVarOf[T]
+      case DFEncoding     => DFVarOf[DFEnum[T]]
+      case DFOpaqueFE[tp] => DFVarOf[DFOpaque[T, tp]]
   case IN | OUT =>
     T match
-      case DFTypeAny  => DFPortOf[T]
-      case DFEncoding => DFPortOf[DFEnum[T]]
+      case DFTypeAny      => DFPortOf[T]
+      case DFEncoding     => DFPortOf[DFEnum[T]]
+      case DFOpaqueFE[tp] => DFPortOf[DFOpaque[T, tp]]
   case TOKEN =>
     T match
-      case DFTypeAny  => DFToken[T]
-      case DFEncoding => DFToken[DFEnum[T]]
+      case DFTypeAny      => DFToken[T]
+      case DFEncoding     => DFToken[DFEnum[T]]
+      case DFOpaqueFE[tp] => DFToken[DFOpaque[T, tp]]
 
 extension (dfVal: ir.DFVal)
   def asVal[T <: DFTypeAny, M <: Modifier]: DFVal[T, M] = DFVal[T, M](dfVal)

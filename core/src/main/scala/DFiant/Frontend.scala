@@ -13,7 +13,6 @@ export core.DFDecimal.Token.Ops.*
 export core.DFDecimal.Val.Ops.*
 export core.DFUnion.Ops.*
 type DFOpaque[T <: DFTypeAny] = core.DFOpaque.Frontend[T]
-val DFOpaque = core.DFOpaque.Frontend
 export core.DFOpaque.Token.Ops.*
 export core.DFOpaque.Val.Ops.*
 export core.DFVector.Ops.*
@@ -50,7 +49,7 @@ type VAR = core.VAR
 type IN = core.IN
 type OUT = core.OUT
 type TOKEN = core.TOKEN
-type <>[T <: DFTypeAny | DFEncoding, M] = core.<>[T, M]
+export core.<>
 
 val ? = core.?
 export core.SameBitsVector.*

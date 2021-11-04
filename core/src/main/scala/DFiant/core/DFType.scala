@@ -69,9 +69,9 @@ object DFType:
     given ofDFType[T <: DFTypeAny]: TC[T] with
       type Type = T
       def apply(t: T): Type = t
-    given ofOpaque[T <: DFTypeAny]: TC[DFOpaque.Frontend[T]] with
-      type Type = T
-      def apply(t: DFOpaque.Frontend[T]): Type = t.actualType
+    given ofOpaque[T <: DFTypeAny, OFE <: DFOpaque.Frontend[T]]: TC[OFE] with
+      type Type = DFOpaque[OFE, T]
+      def apply(t: OFE): Type = DFOpaque[OFE, T](t.typeName, t.actualType)
     given ofDFFields[T <: DFFields]: TC[T] with
       type Type = DFStruct[T]
       def apply(t: T): Type = DFStruct[T](t)

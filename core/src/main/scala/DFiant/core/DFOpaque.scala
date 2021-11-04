@@ -8,13 +8,11 @@ import scala.annotation.unchecked.uncheckedVariance
 type DFOpaque[+Id, T <: DFTypeAny] =
   DFType[ir.DFOpaque, Args2[Id @uncheckedVariance, T]]
 object DFOpaque:
-  class Frontend[T <: DFTypeAny](final val actualType: T) extends HasTypeName
-  object Frontend:
-    def apply[T <: DFTypeAny](actualType: T)(using
-        name: CTName,
-        uniqueId: UniqueId
-    ): DFOpaque[(name.Out, uniqueId.Out), T] =
-      DFOpaque[(name.Out, uniqueId.Out), T](name.value, actualType)
+  protected[core] sealed trait Abstract extends HasTypeName:
+    type ActualType <: DFTypeAny
+    val actualType: ActualType
+  class Frontend[T <: DFTypeAny](final val actualType: T) extends Abstract:
+    type ActualType = T
 
   def apply[Id, T <: DFTypeAny](
       name: String,
