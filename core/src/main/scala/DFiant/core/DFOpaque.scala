@@ -5,7 +5,7 @@ import DFiant.internals.*
 
 import scala.annotation.unchecked.uncheckedVariance
 
-type DFOpaque[Id, T <: DFTypeAny] =
+type DFOpaque[+Id, T <: DFTypeAny] =
   DFType[ir.DFOpaque, Args2[Id @uncheckedVariance, T]]
 object DFOpaque:
   class Frontend[T <: DFTypeAny](final val actualType: T) extends HasTypeName
