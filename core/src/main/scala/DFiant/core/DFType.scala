@@ -23,7 +23,9 @@ object DFType:
     t match
       case dfType: DFTypeAny    => dfType
       case tuple: NonEmptyTuple => DFTuple(tuple)
-      case fields: DFFields     => DFStruct(fields)
+      case opaque: DFOpaque.Frontend[_] =>
+        DFOpaque(opaque.typeName, opaque.actualType)
+      case fields: DFFields => DFStruct(fields)
       //TODO: need to add proper upper-bound if fixed in Scalac
       //see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: AnyRef => DFEnum(enumCompanion)
@@ -32,6 +34,9 @@ object DFType:
     def codeString(using printer: Printer): String = printer.csDFType(asIR)
   extension (dfType: ir.DFType)
     def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]
+  transparent inline implicit def conv[T <: Supported](t: T)(implicit
+      tc: TC[T]
+  ): DFTypeAny = tc(t)
   export DFDecimal.Extensions.*
   export DFBoolOrBit.given
   export DFBits.given
@@ -57,13 +62,16 @@ object DFType:
     end extension
   end Ops
 
-  trait TC[T]:
+  trait TC[-T]:
     type Type <: DFTypeAny
     def apply(t: T): Type
   object TC:
     given ofDFType[T <: DFTypeAny]: TC[T] with
       type Type = T
       def apply(t: T): Type = t
+    given ofOpaque[T <: DFTypeAny]: TC[DFOpaque.Frontend[T]] with
+      type Type = T
+      def apply(t: DFOpaque.Frontend[T]): Type = t.actualType
     given ofDFFields[T <: DFFields]: TC[T] with
       type Type = DFStruct[T]
       def apply(t: T): Type = DFStruct[T](t)
@@ -78,28 +86,12 @@ object DFType:
               if (applied.args.forall(_.dfTypeTpe.nonEmpty))
                 Some(TypeRepr.of[DFTuple].appliedTo(applied))
               else None
-            case t if t <:< TypeRepr.of[DFBoolOrBit] =>
-              Some(t)
-            case t: AppliedType if t.tycon <:< TypeRepr.of[DFBits] =>
-              Some(t)
-            case t: AppliedType if t.tycon <:< TypeRepr.of[DFDecimal] =>
-              Some(t)
-            case t: AppliedType if t.tycon <:< TypeRepr.of[DFVector] =>
-              Some(t)
-            case t: AppliedType if t.tycon <:< TypeRepr.of[DFOpaque] =>
-              Some(t)
-            case t: AppliedType if t.tycon <:< TypeRepr.of[DFTuple] =>
-              Some(t)
-            case t: AppliedType if t.tycon <:< TypeRepr.of[DFEnum] =>
-              Some(t)
-            case t: AppliedType if t.tycon <:< TypeRepr.of[DFStruct] =>
-              Some(t)
-            case t: AppliedType if t.tycon <:< TypeRepr.of[DFUnion] =>
-              Some(t)
-            case t if t <:< fieldsTpe =>
-              Some(TypeRepr.of[DFStruct].appliedTo(t))
             case t if t <:< TypeRepr.of[DFTypeAny] =>
               Some(t)
+            case t if t <:< TypeRepr.of[DFOpaque.Frontend] =>
+              Some(TypeRepr.of[DFOpaque].appliedTo(t))
+            case t if t <:< fieldsTpe =>
+              Some(TypeRepr.of[DFStruct].appliedTo(t))
             case t @ DFEnum(_) =>
               Some(TypeRepr.of[DFEnum].appliedTo(t))
             case t =>

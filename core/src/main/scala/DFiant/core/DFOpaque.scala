@@ -5,24 +5,24 @@ import DFiant.internals.*
 
 import scala.annotation.unchecked.uncheckedVariance
 
-type DFOpaque[Id <: Int, T <: DFTypeAny] =
+type DFOpaque[Id, T <: DFTypeAny] =
   DFType[ir.DFOpaque, Args2[Id @uncheckedVariance, T]]
 object DFOpaque:
-  def apply[Id <: Int, T <: DFTypeAny](
+  class Frontend[T <: DFTypeAny](final val actualType: T) extends HasTypeName
+  object Frontend:
+    def apply[T <: DFTypeAny](actualType: T)(using
+        name: CTName,
+        uniqueId: UniqueId
+    ): DFOpaque[(name.Out, uniqueId.Out), T] =
+      DFOpaque[(name.Out, uniqueId.Out), T](name.value, actualType)
+
+  def apply[Id, T <: DFTypeAny](
       name: String,
       actualType: T
   ): DFOpaque[Id, T] =
     ir.DFOpaque(name, actualType.asIR).asFE[DFOpaque[Id, T]]
-  extension [Id <: Int, T <: DFTypeAny](dfType: DFOpaque[Id, T])
+  extension [Id, T <: DFTypeAny](dfType: DFOpaque[Id, T])
     def actualType: T = dfType.asIR.actualType.asFE[T]
-
-  object Ops:
-    extension [T <: DFType.Supported](t: T)(using tc: DFType.TC[T])
-      def opaque(using
-          name: CTName,
-          uniqueId: UniqueId
-      ): DFOpaque[uniqueId.Out, tc.Type] =
-        DFOpaque[uniqueId.Out, tc.Type](name.value, tc(t))
 
   private def checkAs[T <: DFTypeAny](tokenDFType: T, actualDFType: T): Unit =
     given Printer = DefaultPrinter
@@ -31,9 +31,9 @@ object DFOpaque:
       s"The token type (${tokenDFType.codeString}) does not match the actual opaque type ${actualDFType.codeString}"
     )
 
-  type Token[Id <: Int, T <: DFTypeAny] = DFToken[DFOpaque[Id, T]]
+  type Token[Id, T <: DFTypeAny] = DFToken[DFOpaque[Id, T]]
   object Token:
-    def apply[Id <: Int, T <: DFTypeAny](
+    def apply[Id, T <: DFTypeAny](
         dfType: DFOpaque[Id, T],
         token: T <> TOKEN
     ): Token[Id, T] =
@@ -41,10 +41,10 @@ object DFOpaque:
 
     object Ops:
       extension [T <: DFTypeAny](lhs: T <> TOKEN)
-        def as[Id <: Int](opaque: DFOpaque[Id, T]): DFOpaque[Id, T] <> TOKEN =
+        def as[Id](opaque: DFOpaque[Id, T]): DFOpaque[Id, T] <> TOKEN =
           checkAs(lhs.dfType, opaque.actualType)
           Token(opaque, lhs)
-      extension [Id <: Int, T <: DFTypeAny](lhs: DFOpaque[Id, T] <> TOKEN)
+      extension [Id, T <: DFTypeAny](lhs: DFOpaque[Id, T] <> TOKEN)
         def actual: T <> TOKEN =
           lhs.asIR.data.asInstanceOf[ir.DFTokenAny].asTokenOf[T]
   end Token
@@ -53,13 +53,13 @@ object DFOpaque:
     object Ops:
       import ir.DFVal.Modifier
       extension [T <: DFTypeAny, M <: Modifier](lhs: DFVal[T, M])
-        def as[Id <: Int](opaque: DFOpaque[Id, T])(using
+        def as[Id](opaque: DFOpaque[Id, T])(using
             DFC
         ): DFVal[DFOpaque[Id, T], M] =
           import Token.Ops.{as => asToken}
           checkAs(lhs.dfType, opaque.actualType)
           DFVal.Alias.AsIs(opaque, lhs, _.asToken(opaque))
-      extension [Id <: Int, T <: DFTypeAny, M <: Modifier](
+      extension [Id, T <: DFTypeAny, M <: Modifier](
           lhs: DFVal[DFOpaque[Id, T], M]
       )
         def actual(using DFC): DFVal[T, M] =

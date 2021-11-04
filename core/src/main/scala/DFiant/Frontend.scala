@@ -12,7 +12,8 @@ export core.DFDecimal.Token.StrInterp.*
 export core.DFDecimal.Token.Ops.*
 export core.DFDecimal.Val.Ops.*
 export core.DFUnion.Ops.*
-export core.DFOpaque.Ops.*
+type DFOpaque[T <: DFTypeAny] = core.DFOpaque.Frontend[T]
+val DFOpaque = core.DFOpaque.Frontend
 export core.DFOpaque.Token.Ops.*
 export core.DFOpaque.Val.Ops.*
 export core.DFVector.Ops.*
