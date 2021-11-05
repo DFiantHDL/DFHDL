@@ -2,6 +2,7 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.compiler.printing.{DefaultPrinter, Printer}
 import DFiant.internals.*
+import scala.quoted.*
 
 import scala.annotation.unchecked.uncheckedVariance
 
@@ -37,10 +38,6 @@ object DFOpaque:
       ir.DFToken(DFOpaque(tfe).asIR, token.asIR).asTokenOf[DFOpaque[TFE]]
 
     object Ops:
-      extension [T <: DFTypeAny](lhs: T <> TOKEN)
-        def as[TFE <: Frontend[T]](tfe: TFE): DFOpaque[TFE] <> TOKEN =
-          checkAs(lhs.dfType, tfe.actualType)
-          Token(tfe, lhs)
       extension [T <: DFTypeAny, TFE <: Frontend[T]](
           lhs: DFOpaque[TFE] <> TOKEN
       )
@@ -51,13 +48,50 @@ object DFOpaque:
   object Val:
     object Ops:
       import ir.DFVal.Modifier
-      extension [T <: DFTypeAny, M <: Modifier](lhs: DFVal[T, M])
-        def as[TFE <: Frontend[T]](tfe: TFE)(using
-            DFC
-        ): DFVal[DFOpaque[TFE], M] =
-          import Token.Ops.{as => asToken}
-          checkAs(lhs.dfType, tfe.actualType)
-          DFVal.Alias.AsIs(DFOpaque(tfe), lhs, _.asToken(tfe))
+      extension [L](inline lhs: L)
+        transparent inline def as[T <: DFTypeAny, TFE <: Frontend[T]](
+            tfe: TFE
+        ): Any = ${ asMacro[L, T, TFE]('lhs, 'tfe) }
+      private def asMacro[L, T <: DFTypeAny, TFE <: Frontend[T]](
+          lhs: Expr[L],
+          tfe: Expr[TFE]
+      )(using Quotes, Type[L], Type[T], Type[TFE]): Expr[Any] =
+        import quotes.reflect.*
+        val tTpe = TypeRepr.of[T]
+        val lhsTerm = lhs.asTerm
+        val lhsTpe = lhsTerm.exactTerm.tpe
+        val lhsType = lhsTpe.asTypeOf[L]
+        val tExpr = '{ $tfe.actualType }
+        val tokenTCTpe = TypeRepr.of[DFToken.TC].appliedTo(List(tTpe, lhsTpe))
+        Implicits.search(tokenTCTpe) match
+          case iss: ImplicitSearchSuccess =>
+            '{
+              val tc = ${ iss.tree.asExprOf[DFToken.TC[T, lhsType.Underlying]] }
+              Token($tfe, tc($tExpr, $lhs))
+            }
+          case isf: ImplicitSearchFailure =>
+            val dfvalTCTpe = TypeRepr.of[DFVal.TC].appliedTo(List(tTpe, lhsTpe))
+            Implicits.search(dfvalTCTpe) match
+              case iss: ImplicitSearchSuccess =>
+                '{
+                  val tc = ${
+                    iss.tree.asExprOf[DFVal.TC[T, lhsType.Underlying]]
+                  }
+                  DFVal.Alias.AsIs(
+                    DFOpaque($tfe),
+                    tc($tExpr, $lhs),
+                    Token($tfe, _)
+                  )(using compiletime.summonInline[DFC])
+                }
+              case isf: ImplicitSearchFailure =>
+                val msg = Expr(
+                  s"The actual dataflow opaque type ${tTpe.show} does not support the applied value type ${lhsTpe.show}"
+                )
+                '{ compiletime.error($msg) }
+            end match
+        end match
+      end asMacro
+
       extension [T <: DFTypeAny, TFE <: Frontend[T], M <: Modifier](
           lhs: DFVal[DFOpaque[TFE], M]
       )

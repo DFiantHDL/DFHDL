@@ -78,9 +78,9 @@ object Inlined:
     def !=[R <: std.Int](rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
     def max[R <: std.Int](rhs: Inlined[R]) =
-      forced[int.Max[T, R]](lhs.value max rhs.value)
+      forced[int.Max[T, R]](math.max(lhs.value, rhs.value))
     def min[R <: std.Int](rhs: Inlined[R]) =
-      forced[int.Min[T, R]](lhs.value min rhs.value)
+      forced[int.Min[T, R]](math.min(lhs.value, rhs.value))
   end extension
 
   extension [T <: std.String](lhs: Inlined[T])
