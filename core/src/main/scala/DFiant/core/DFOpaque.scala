@@ -58,38 +58,34 @@ object DFOpaque:
       )(using Quotes, Type[L], Type[T], Type[TFE]): Expr[Any] =
         import quotes.reflect.*
         val tTpe = TypeRepr.of[T]
-        val lhsTerm = lhs.asTerm
-        val lhsTpe = lhsTerm.exactTerm.tpe
-        val lhsType = lhsTpe.asTypeOf[L]
+        val lhsTerm = lhs.asTerm.exactTerm
+        val lhsTpe = lhsTerm.tpe
+        val lhsExpr = lhsTerm.asExpr
+        val lhsType = lhsTpe.asTypeOf[Any]
         val tExpr = '{ $tfe.actualType }
-        val tokenTCTpe = TypeRepr.of[DFToken.TC].appliedTo(List(tTpe, lhsTpe))
-        Implicits.search(tokenTCTpe) match
-          case iss: ImplicitSearchSuccess =>
-            '{
-              val tc = ${ iss.tree.asExprOf[DFToken.TC[T, lhsType.Underlying]] }
-              Token($tfe, tc($tExpr, $lhs))
-            }
-          case isf: ImplicitSearchFailure =>
-            val dfvalTCTpe = TypeRepr.of[DFVal.TC].appliedTo(List(tTpe, lhsTpe))
-            Implicits.search(dfvalTCTpe) match
-              case iss: ImplicitSearchSuccess =>
-                '{
-                  val tc = ${
-                    iss.tree.asExprOf[DFVal.TC[T, lhsType.Underlying]]
-                  }
-                  DFVal.Alias.AsIs(
-                    DFOpaque($tfe),
-                    tc($tExpr, $lhs),
-                    Token($tfe, _)
-                  )(using compiletime.summonInline[DFC])
-                }
-              case isf: ImplicitSearchFailure =>
-                val msg = Expr(
-                  s"The actual dataflow opaque type ${tTpe.show} does not support the applied value type ${lhsTpe.show}"
-                )
-                '{ compiletime.error($msg) }
-            end match
-        end match
+        def hasDFVal(tpe: TypeRepr): Boolean =
+          tpe match
+            case t if t <:< TypeRepr.of[DFValAny] => true
+            case t: AppliedType if t.tycon <:< TypeRepr.of[ValueOf] =>
+              hasDFVal(t.args.head)
+            case t: AppliedType if t <:< TypeRepr.of[NonEmptyTuple] =>
+              t.args.exists(hasDFVal)
+            case _ => false
+        if (hasDFVal(lhsTpe))
+          '{
+            val tc = compiletime.summonInline[DFVal.TC[T, lhsType.Underlying]]
+            DFVal.Alias.AsIs(
+              DFOpaque($tfe),
+              tc($tExpr, $lhsExpr),
+              Token($tfe, _)
+            )(using compiletime.summonInline[DFC])
+          }
+        else
+          '{
+            val tc =
+              compiletime.summonInline[DFToken.TC[T, lhsType.Underlying]]
+            Token($tfe, tc($tExpr, $lhsExpr))
+          }
       end asMacro
 
       extension [T <: DFTypeAny, TFE <: Frontend[T], M <: Modifier](

@@ -34,7 +34,7 @@ object DFTuple:
         tokenTupleValues: List[Any]
     ): List[O]
   object TCZipper:
-    inline given [
+    transparent inline given [
         T <: NonEmptyTuple,
         V <: NonEmptyTuple,
         O,
@@ -86,10 +86,10 @@ object DFTuple:
             }
           '{ List(${ Varargs(exprs) }*) }
         else
-          report.error(
+          val msg = Expr(
             s"DFType tuple length (${tArgs.length}) and value tuple length (${vArgs.length}) do not match."
           )
-          '{ ??? }
+          '{ compiletime.error($msg) }
         end if
       end applyExpr
       import quotes.reflect.*
