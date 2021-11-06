@@ -113,19 +113,12 @@ object DFTuple:
     ): Token[T] =
       ir.DFToken(dfType.asIR, data).asTokenOf[DFTuple[T]]
 
-    protected type NotDFVal[T] <: Boolean = T match
-      case DFVal[_, _] => false
-      case Tuple       => ForAll[T, NotDFVal]
-      case Any         => true
-    protected type ContainsNoDFVal[T <: Tuple] = ForAll[T, NotDFVal] =:= true
-
     object TC:
       import DFToken.TC
       given DFTupleTokenFromTuple[
           T <: NonEmptyTuple,
           V <: NonEmptyTuple
       ](using
-          check: ContainsNoDFVal[T],
           zipper: TCZipper[T, V, DFTokenAny, TC]
       ): TC[DFTuple[T], ValueOf[V]] with
         def apply(dfType: DFTuple[T], value: ValueOf[V]): Out =
