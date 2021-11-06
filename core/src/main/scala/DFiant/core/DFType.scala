@@ -25,15 +25,15 @@ object DFType:
       case tuple: NonEmptyTuple      => DFTuple(tuple)
       case tfe: DFOpaque.Frontend[_] => DFOpaque(tfe)
       case fields: DFFields          => DFStruct(fields)
-      //TODO: need to add proper upper-bound if fixed in Scalac
-      //see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
+      // TODO: need to add proper upper-bound if fixed in Scalac
+      // see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: AnyRef => DFEnum(enumCompanion)
   extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
     def asIR: T = dfType.value
     def codeString(using printer: Printer): String = printer.csDFType(asIR)
   extension (dfType: ir.DFType)
     def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]
-  transparent inline implicit def conv[T <: Supported](t: T)(implicit
+  transparent inline implicit def conv[T <: Supported](inline t: T)(implicit
       tc: TC[T]
   ): DFTypeAny = tc(t)
   export DFDecimal.Extensions.*
