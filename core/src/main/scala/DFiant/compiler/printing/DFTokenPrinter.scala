@@ -61,7 +61,7 @@ protected trait DFTokenPrinter extends AbstractPrinter:
     end toHexString
     val binRep = toBinString('?')
     val hexRep = s"${width}'${toHexString('?', allowBinMode = true).get}"
-    //choosing the shorter representation for readability
+    // choosing the shorter representation for readability
     if (binRep.length <= hexRep.length) s"""b"$binRep""""
     else s"""h"$hexRep""""
   end csDFBitsData
@@ -76,10 +76,10 @@ protected trait DFTokenPrinter extends AbstractPrinter:
   def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
     data match
       case Some(value) =>
-        if (dfType.fractionWidth == 0) //DFXInt
+        if (dfType.fractionWidth == 0) // DFXInt
           val interpStr = if (dfType.signed) "sd" else "d"
           s"""$interpStr"${dfType.width}'$value""""
-        else ??? //DFXFix
+        else ??? // DFXFix
       case None => "?"
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
@@ -89,7 +89,7 @@ protected trait DFTokenPrinter extends AbstractPrinter:
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[DFType.Token]): String = ???
   def csDFOpaqueData(dfType: DFOpaque, data: DFType.Token): String =
-    s"${dfType.name}(${csDFToken(data)})"
+    s"${csDFToken(data).applyBrackets()}.as(${dfType.name})"
   def csDFUnionData(dfType: DFUnion, data: DFType.Token): String =
     csDFToken(data)
   def csDFStructData(dfType: DFStruct, data: List[DFType.Token]): String =

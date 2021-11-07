@@ -36,8 +36,22 @@ object PrintType:
   inline given [T]: PrintType[T] = ${ macroImpl[T] }
   def macroImpl[T](using Quotes, Type[T]): Expr[PrintType[T]] =
     import quotes.reflect.*
-    println(TypeRepr.of[T].show)
+    println(Type.show[T])
     '{ new PrintType[T] {} }
+
+object Error:
+  transparent inline def call[T <: NonEmptyTuple]: Nothing = ${ macroImpl[T] }
+  def macroImpl[T <: NonEmptyTuple](using Quotes, Type[T]): Expr[Nothing] =
+    import quotes.reflect.*
+    val AppliedType(_, args) = TypeRepr.of[T]
+    val msg = args
+      .map(_.dealias)
+      .map {
+        case ConstantType(StringConstant(msg)) => msg
+        case t                                 => t.show
+      }
+      .mkString
+    '{ compiletime.error(${ Expr(msg) }) }
 
 extension (using quotes: Quotes)(sc: Expr[StringContext])
   def termWithArgs(args: Expr[Seq[Any]]): quotes.reflect.Term =

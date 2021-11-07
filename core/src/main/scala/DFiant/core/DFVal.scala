@@ -39,9 +39,9 @@ object DFVal:
     }
   end equalityMacro
 
-  //Enabling equality with Int, Boolean, and Tuples.
-  //just to give a better error message via the compiler plugins.
-  //See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
+  // Enabling equality with Int, Boolean, and Tuples.
+  // just to give a better error message via the compiler plugins.
+  // See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
   given [T <: DFTypeAny, M <: Modifier]: CanEqual[Int, DFVal[T, M]] =
     CanEqual.derived
   given [T <: DFTypeAny, M <: Modifier]: CanEqual[Boolean, DFVal[T, M]] =
@@ -79,6 +79,7 @@ type VAL = Modifier.VAL
 type VAR = Modifier.VAR.type
 type IN = Modifier.IN.type
 type OUT = Modifier.OUT.type
+type INOUT = Modifier.INOUT.type
 sealed trait TOKEN
 type <>[T <: DFTypeAny | DFEncoding | DFOpaqueA, M] = M match
   case VAL =>
@@ -189,13 +190,13 @@ private object CompanionsDFVal:
           tokenFunc: DFToken[VT] => DFToken[AT]
       )(using DFC): DFVal[AT, M] =
         relVal.asIR match
-          //anonymous constant are replace by a different constant
-          //after its token value was converted according to the alias
+          // anonymous constant are replace by a different constant
+          // after its token value was converted according to the alias
           case const: ir.DFVal.Const if const.isAnonymous =>
             val updatedToken = tokenFunc(const.token.asTokenOf[VT])
             Const(updatedToken).asIR.asVal[AT, M]
-          //named constants or other non-constant values are referenced
-          //in a new alias construct
+          // named constants or other non-constant values are referenced
+          // in a new alias construct
           case _ =>
             lazy val alias: ir.DFVal =
               ir.DFVal.Alias.AsIs(
@@ -256,22 +257,36 @@ private object CompanionsDFVal:
   trait TC[T <: DFTypeAny, -R] extends GeneralTC[T, R, DFValAny]:
     type Out = DFValOf[T]
   trait TCLP:
-    //Accept any token value, according to a token type class
-    transparent inline given [T <: DFTypeAny, R](using
-        tokenTC: DFToken.TC[T, R],
+    // Accept any bubble value
+    transparent inline given fromBubble[T <: DFTypeAny](using
+        tokenTC: DFToken.TC[T, Bubble],
         dfc: DFC
-    ): TC[T, R] =
-      new TC[T, R]:
+    ): TC[T, Bubble] =
+      new TC[T, Bubble]:
         type TType = T
-        def apply(dfType: T, value: R): DFValOf[T] =
+        def apply(dfType: T, value: Bubble): DFValOf[T] =
           Const(tokenTC(dfType, value))
+    transparent inline given errorDMZ[T <: DFTypeAny, R](using
+        t: ShowType[T],
+        r: ShowType[R]
+    ): TC[T, R] =
+      Error.call[
+        (
+            "Unsupported value of type `",
+            r.Out,
+            "` for dataflow receiver type `",
+            t.Out,
+            "`"
+        )
+      ]
+  end TCLP
   object TC extends TCLP:
     export DFBoolOrBit.Val.TC.given
     export DFBits.Val.TC.given
     export DFDecimal.Val.TC.given
     export DFEnum.Val.TC.given
     export DFTuple.Val.TC.given
-    //Accept any dataflow value of the same type
+    // Accept any dataflow value of the same type
     transparent inline given [T <: DFTypeAny]: TC[T, DFValOf[T]] =
       new TC[T, DFValOf[T]]:
         type TType = T
@@ -306,7 +321,27 @@ private object CompanionsDFVal:
       val list = if (valueOf[C]) List(arg2, arg1) else List(arg1, arg2)
       DFVal.Func(DFBool, valueOf[Op], list)
     def apply(dfVal: DFValOf[T], arg: V)(using DFC): DFValOf[DFBool]
-  object Compare:
+  trait CompareLP:
+    transparent inline given errorDMZ[
+        T <: DFTypeAny,
+        R,
+        Op <: FuncOp,
+        C <: Boolean
+    ](using
+        t: ShowType[T],
+        r: ShowType[R]
+    ): Compare[T, R, Op, C] =
+      Error.call[
+        (
+            "Cannot compare dataflow value of type `",
+            t.Out,
+            "` with value of type `",
+            r.Out,
+            "`"
+        )
+      ]
+  end CompareLP
+  object Compare extends CompareLP:
     export DFBoolOrBit.Val.Compare.given
     export DFBits.Val.Compare.given
     export DFDecimal.Val.Compare.given
@@ -326,7 +361,7 @@ private object CompanionsDFVal:
 end CompanionsDFVal
 
 object DFValNI:
-  //TODO: Delete if no use eventually
+  // TODO: Delete if no use eventually
   inline def initTokens[T <: DFTypeAny](
       dfType: T,
       inline tokenValues: Any*

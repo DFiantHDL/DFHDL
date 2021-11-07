@@ -31,7 +31,7 @@ extension (tokenIR: ir.DFType.Token)
   def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
 
 object DFToken:
-  //Implicit conversions for tokens
+  // Implicit conversions for tokens
   implicit inline def fromTC[T <: DFTypeAny, V](
       inline value: V
   )(using es: Exact.Summon[V, value.type])(using
@@ -39,9 +39,9 @@ object DFToken:
       tc: DFToken.TC[T, es.Out]
   ): DFToken[T] = tc(dfType, es(value))
 
-  //Enabling equality with Int, Boolean, and Tuples.
-  //just to give a better error message via the compiler plugins.
-  //See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
+  // Enabling equality with Int, Boolean, and Tuples.
+  // just to give a better error message via the compiler plugins.
+  // See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
   given [T <: DFTypeAny]: CanEqual[Int, DFToken[T]] =
     CanEqual.derived
   given [T <: DFTypeAny]: CanEqual[Boolean, DFToken[T]] =
@@ -58,7 +58,26 @@ object DFToken:
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
   trait TC[T <: DFTypeAny, -V] extends GeneralTC[T, V, DFTokenAny]:
     type Out = DFToken[T]
-  object TC:
+  trait TCLPLP:
+    transparent inline given errorDMZ[T <: DFTypeAny, R](using
+        t: ShowType[T],
+        r: ShowType[R]
+    ): TC[T, R] =
+      Error.call[
+        (
+            "Unsupported value of type `",
+            r.Out,
+            "` for dataflow receiver type `",
+            t.Out,
+            "`"
+        )
+      ]
+  trait TCLP extends TCLPLP:
+    inline given sameTokenType[T <: DFTypeAny]: TC[T, T <> TOKEN] with
+      def apply(dfType: T, value: T <> TOKEN): Out =
+        assert(dfType == value.dfType)
+        value
+  object TC extends TCLP:
     export DFBoolOrBit.Token.TC.given
     export DFBits.Token.TC.given
     export DFDecimal.Token.TC.given
@@ -72,7 +91,28 @@ object DFToken:
   @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
   trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]:
     def apply(token: DFToken[T], arg: V): DFToken[DFBool]
-  object Compare:
+  trait CompareLPLP:
+    transparent inline given errorDMZ[
+        T <: DFTypeAny,
+        R,
+        Op <: FuncOp,
+        C <: Boolean
+    ](using
+        t: ShowType[T],
+        r: ShowType[R]
+    ): Compare[T, R, Op, C] =
+      Error.call[
+        (
+            "Cannot compare token of type `",
+            t.Out,
+            "` with value of type `",
+            r.Out,
+            "`"
+        )
+      ]
+  end CompareLPLP
+  trait CompareLP extends CompareLPLP
+  object Compare extends CompareLP:
     export DFBoolOrBit.Token.Compare.given
     export DFBits.Token.Compare.given
     export DFDecimal.Token.Compare.given
