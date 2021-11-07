@@ -69,14 +69,15 @@ object DFToken:
             r.Out,
             "` for dataflow receiver type `",
             t.Out,
-            "`"
+            "`."
         )
       ]
-  trait TCLP extends TCLPLP:
     inline given sameTokenType[T <: DFTypeAny]: TC[T, T <> TOKEN] with
       def apply(dfType: T, value: T <> TOKEN): Out =
         assert(dfType == value.dfType)
         value
+  end TCLPLP
+  trait TCLP extends TCLPLP
   object TC extends TCLP:
     export DFBoolOrBit.Token.TC.given
     export DFBits.Token.TC.given
@@ -107,9 +108,20 @@ object DFToken:
             t.Out,
             "` with value of type `",
             r.Out,
-            "`"
+            "`."
         )
       ]
+    inline given sameTokenType[T <: DFTypeAny, Op <: FuncOp, C <: Boolean](using
+        op: ValueOf[Op]
+    ): Compare[T, T <> TOKEN, Op, C] with
+      def apply(token: DFToken[T], arg: T <> TOKEN): DFToken[DFBool] =
+        given CanEqual[Any, Any] = CanEqual.derived
+        assert(token.dfType == arg.dfType)
+        val dataOut = op.value match
+          case FuncOp.=== => token.asIR.data == arg.asIR.data
+          case FuncOp.=!= => token.asIR.data != arg.asIR.data
+          case _ => throw new IllegalArgumentException("Unsupported Op")
+        DFBoolOrBit.Token(DFBool, token.asIR.data == arg.asIR.data)
   end CompareLPLP
   trait CompareLP extends CompareLPLP
   object Compare extends CompareLP:

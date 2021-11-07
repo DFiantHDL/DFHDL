@@ -2,11 +2,13 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 import DFiant.compiler.ir.DFVal.Modifier
-import ir.DFVal.Func.{Op => FuncOp}
+import ir.DFVal.Func.Op as FuncOp
+
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 import DFOpaque.Abstract as DFOpaqueA
+import DFiant.compiler.printing.{DefaultPrinter, Printer}
 final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]:
@@ -251,9 +253,6 @@ private object CompanionsDFVal:
     end ApplyIdx
   end Alias
 
-  @implicitNotFound(
-    "Unsupported argument value ${R} for dataflow receiver type ${T}"
-  )
   trait TC[T <: DFTypeAny, -R] extends GeneralTC[T, R, DFValAny]:
     type Out = DFValOf[T]
   trait TCLP:
@@ -276,9 +275,31 @@ private object CompanionsDFVal:
             r.Out,
             "` for dataflow receiver type `",
             t.Out,
-            "`"
+            "`."
         )
       ]
+    transparent inline given sameValType[T <: DFTypeAny]: TC[T, T <> VAL] =
+      new TC[T, T <> VAL]:
+        type TType = T
+        def apply(dfType: T, value: T <> VAL): DFValOf[T] =
+          given Printer = DefaultPrinter
+          assert(
+            dfType == value.dfType,
+            s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
+          )
+          value
+    transparent inline given sameValAndTokenType[T <: DFTypeAny](using
+        DFC
+    ): TC[T, T <> TOKEN] =
+      new TC[T, T <> TOKEN]:
+        type TType = T
+        def apply(dfType: T, value: T <> TOKEN): DFValOf[T] =
+          given Printer = DefaultPrinter
+          assert(
+            dfType == value.dfType,
+            s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
+          )
+          DFVal.Const(value)
   end TCLP
   object TC extends TCLP:
     export DFBoolOrBit.Val.TC.given
@@ -286,32 +307,8 @@ private object CompanionsDFVal:
     export DFDecimal.Val.TC.given
     export DFEnum.Val.TC.given
     export DFTuple.Val.TC.given
-    // Accept any dataflow value of the same type
-    transparent inline given [T <: DFTypeAny]: TC[T, DFValOf[T]] =
-      new TC[T, DFValOf[T]]:
-        type TType = T
-        def apply(dfType: T, value: DFValOf[T]): DFValOf[T] =
-          val updated = (dfType.asIR, value.asIR.dfType) match
-            case (_: ir.DFBoolOrBit, _: ir.DFBoolOrBit) => value
-            case (_: ir.DFBits, _: ir.DFBits) =>
-              DFBits.Val.TC(
-                dfType.asIR.asFE[DFBits[Int]],
-                value.asIR.asValOf[DFBits[Int]]
-              )
-            case (_: ir.DFDecimal, _: ir.DFDecimal) =>
-              DFDecimal.Val.TC(
-                dfType.asIR.asFE[DFDecimal[Boolean, Int, Int]],
-                value.asIR.asValOf[DFDecimal[Boolean, Int, Int]]
-              )
-            case _ =>
-              throw new IllegalArgumentException(
-                s"Unsupported argument value ${value} for dataflow receiver type ${dfType}"
-              )
-          updated.asIR.asValOf[T]
-        end apply
   end TC
 
-  @implicitNotFound("Cannot compare dataflow value of ${T} with value of ${V}")
   trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]:
     final protected def func(arg1: DFValAny, arg2: DFValAny)(using
         DFC,
@@ -337,15 +334,47 @@ private object CompanionsDFVal:
             t.Out,
             "` with value of type `",
             r.Out,
-            "`"
+            "`."
         )
       ]
+    inline given sameValType[T <: DFTypeAny, Op <: FuncOp, C <: Boolean](using
+        ValueOf[Op],
+        ValueOf[C]
+    ): Compare[T, T <> VAL, Op, C] with
+      def apply(dfVal: T <> VAL, arg: T <> VAL)(using
+          DFC
+      ): DFValOf[DFBool] =
+        given Printer = DefaultPrinter
+        assert(
+          dfVal.dfType == arg.dfType,
+          s"Cannot compare dataflow value type `${dfVal.dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
+        )
+        func(dfVal, arg)
+    inline given sameValAndTokenType[
+        T <: DFTypeAny,
+        Op <: FuncOp,
+        C <: Boolean
+    ](using
+        ValueOf[Op],
+        ValueOf[C]
+    ): Compare[T, T <> TOKEN, Op, C] with
+      def apply(dfVal: T <> VAL, arg: T <> TOKEN)(using
+          DFC
+      ): DFValOf[DFBool] =
+        given Printer = DefaultPrinter
+        assert(
+          dfVal.dfType == arg.dfType,
+          s"Cannot compare dataflow value type `${dfVal.dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
+        )
+        func(dfVal, DFVal.Const(arg))
+    end sameValAndTokenType
   end CompareLP
   object Compare extends CompareLP:
     export DFBoolOrBit.Val.Compare.given
     export DFBits.Val.Compare.given
     export DFDecimal.Val.Compare.given
     export DFEnum.Val.Compare.given
+  end Compare
 
 //  object Conversions:
 //    implicit transparent inline def fromArg[T <: DFTypeAny, R](
