@@ -52,7 +52,7 @@ object Width:
         case _          => dfTpe
     def calcWidth: quotes.reflect.TypeRepr =
       import quotes.reflect.*
-      dfTpe match
+      dfTpe.simplified match
         case t if t <:< TypeRepr.of[DFTypeAny] =>
           val AppliedType(_, List(irTpe, tuple)) = t.dealias
           val args: List[TypeRepr] = tuple match

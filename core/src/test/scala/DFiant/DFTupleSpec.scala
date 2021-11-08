@@ -2,11 +2,20 @@ import DFiant.*
 import munit.*
 
 class DFTupleSpec extends DFSpec:
-  val x = (DFUInt(8), DFBit, DFBits(3))
-  val y = ((DFUInt(8), DFBit), DFBits(3))
+  val tplA = (DFUInt(8), DFBit, DFBits(3))
+  val tplB = ((DFUInt(8), DFBit), DFBits(3))
+  assertCodeString(
+    """|val x = (DFUInt(8), DFBit, DFBits(3)) <> VAR
+       |val y = ((DFUInt(8), DFBit), DFBits(3)) <> VAR
+       |""".stripMargin
+  ) {
+    val x = tplA <> VAR
+    val y = tplB <> VAR
+  }
+
   test("Inlined width") {
-    x.width.verifyInlined(12)
-    y.width.verifyInlined(12)
+    tplA.width.verifyInlined(12)
+    tplB.width.verifyInlined(12)
   }
 
   test("Token Construction") {
