@@ -27,6 +27,7 @@ class DFOpaqueSpec extends DFSpec:
     val q2 = o1 == 1.as(o1u8)
     o1 := 1.as(o1u8)
     val z = u8.as(o1u8)
+    val conv: o1u8.type <> VAL = 1.as(o1u8)
     val zz = o1.actual
     o2.actual := 0
     zz := 15

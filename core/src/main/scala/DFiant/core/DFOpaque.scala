@@ -15,6 +15,8 @@ object DFOpaque:
   class Frontend[T <: DFTypeAny](final val actualType: T) extends Abstract:
     type ActualType = T
 
+  given [T <: Abstract](using ValueOf[T]): DFOpaque[T] = DFOpaque(valueOf[T])
+
   def apply[T <: Abstract](
       t: T
   ): DFOpaque[T] =
