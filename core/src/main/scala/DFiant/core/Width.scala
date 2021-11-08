@@ -52,77 +52,86 @@ object Width:
         case _          => dfTpe
     def calcWidth: quotes.reflect.TypeRepr =
       import quotes.reflect.*
-      dfTpe.simplified match
-        case t if t <:< TypeRepr.of[DFTypeAny] =>
-          val AppliedType(_, List(irTpe, tuple)) = t.dealias
-          val args: List[TypeRepr] = tuple match
-            case AppliedType(_, args) => args
-            case _                    => Nil
-          irTpe match
-            case t if t <:< TypeRepr.of[ir.DFBoolOrBit] =>
+      dfTpe.asTypeOf[Any] match
+        case '[DFTypeAny] =>
+          dfTpe.asTypeOf[DFTypeAny] match
+            case '[DFBoolOrBit] =>
               ConstantType(IntConstant(1))
-            case t if t <:< TypeRepr.of[ir.DFBits] =>
-              args.head.simplify
-            case t if t <:< TypeRepr.of[ir.DFDecimal] =>
-              args(1).simplify
-            case t if t <:< TypeRepr.of[ir.DFEnum] =>
-              args.head.calcWidth
-            case t if t <:< TypeRepr.of[ir.DFVector] =>
-              val cellWidth = args.head.calcWidth
-              val cellDims = args.last.asInstanceOf[AppliedType].args
+            case '[DFBits[w]] =>
+              TypeRepr.of[w].calcWidth
+            case '[DFDecimal[s, w, f]] =>
+              TypeRepr.of[w].calcWidth
+            case '[DFEnum[e]] =>
+              TypeRepr.of[e].calcWidth
+            case '[DFVector[t, d]] =>
+              val cellWidth = TypeRepr.of[t].calcWidth
+              val cellDims = TypeRepr.of[d].asInstanceOf[AppliedType].args
               val widths = cellWidth :: cellDims
               widths.reduce(_ * _)
-            case t if t <:< TypeRepr.of[ir.DFOpaque] =>
-              args.head.calcWidth
-            case t if t <:< TypeRepr.of[ir.DFStruct] =>
-              args.head.calcWidth
-            case t if t <:< TypeRepr.of[ir.DFUnion] =>
-              args.head.calcWidth
+            case '[DFOpaque[t]] =>
+              TypeRepr.of[t].calcWidth
+            case '[DFStruct[t]] =>
+              TypeRepr.of[t].calcWidth
+            case '[DFUnion[t]] =>
+              TypeRepr.of[t].calcWidth
             case _ =>
-              TypeRepr.of[Int]
+              val AppliedType(_, List(irTpe, tuple)) = dfTpe.dealias
+              val args: List[TypeRepr] = tuple match
+                case AppliedType(_, args) => args
+                case _                    => Nil
+              irTpe match
+                case t if t <:< TypeRepr.of[ir.DFVector] =>
+                  val cellWidth = args.head.calcWidth
+                  val cellDims = args.last.asInstanceOf[AppliedType].args
+                  val widths = cellWidth :: cellDims
+                  widths.reduce(_ * _)
+                case _ =>
+                  TypeRepr.of[Int]
           end match
-        case applied: AppliedType if applied <:< TypeRepr.of[NonEmptyTuple] =>
-          val widths = applied.args.map(a => a.calcWidth)
+        case '[Int] =>
+          dfTpe
+        case '[NonEmptyTuple] =>
+          val widths =
+            dfTpe.asInstanceOf[AppliedType].args.map(a => a.calcWidth)
           widths.reduce(_ + _)
-        case fieldsTpe: AppliedType
-            if fieldsTpe <:< TypeRepr.of[DFTuple.Fields[?]] =>
-          fieldsTpe.args.head.calcWidth
-        case fieldsTpe if fieldsTpe <:< TypeRepr.of[DFFields] =>
-          val fieldTpe = TypeRepr.of[DFField[_]]
-          val clsSym = fieldsTpe.classSymbol.get
+        case '[DFTuple.Fields[t]] =>
+          TypeRepr.of[t].calcWidth
+        case '[DFFields] =>
+          val clsSym = dfTpe.classSymbol.get
           val widths =
             clsSym.fieldMembers.view
-              .map(fieldsTpe.memberType)
-              .collect {
-                case applied: AppliedType if applied <:< fieldTpe =>
-                  applied.args.head.calcWidth
-              }
+              .map(dfTpe.memberType)
+              .map(_.asTypeOf[Any])
+              .collect { case '[DFField[t]] => TypeRepr.of[t].calcWidth }
           widths.reduce(_ + _)
-        case opaqueFE if opaqueFE <:< TypeRepr.of[DFOpaque.Abstract] =>
-          val clsSym = opaqueFE.classSymbol.get
-          opaqueFE.memberType(clsSym.fieldMember("actualType")).calcWidth
-        case DFEnum(entries) =>
-          val entryCount = entries.length
-          val widthOption = entries.head match
-            case DFEncoding.StartAt(startTpe) =>
-              startTpe match
-                case ConstantType(IntConstant(value)) =>
-                  Some((entryCount - 1 + value).bitsWidth(false))
-                case _ => None
-            case t if t <:< TypeRepr.of[DFEncoding.OneHot] =>
-              Some(entryCount)
-            case t if t <:< TypeRepr.of[DFEncoding.Grey] =>
-              Some((entryCount - 1).bitsWidth(false))
-            case DFEncoding.Manual(widthTpe) =>
-              widthTpe match
-                case ConstantType(IntConstant(value)) =>
-                  Some(value)
-                case _ => None
-          widthOption
-            .map(w => ConstantType(IntConstant(w)))
-            .getOrElse(TypeRepr.of[Int])
-        case OrType(left, right) =>
-          left.calcWidth max right.calcWidth
+        case '[DFOpaque.Abstract] =>
+          val clsSym = dfTpe.classSymbol.get
+          dfTpe.memberType(clsSym.fieldMember("actualType")).calcWidth
+        case _ =>
+          dfTpe match
+            case DFEnum(entries) =>
+              val entryCount = entries.length
+              val widthOption = entries.head match
+                case DFEncoding.StartAt(startTpe) =>
+                  startTpe match
+                    case ConstantType(IntConstant(value)) =>
+                      Some((entryCount - 1 + value).bitsWidth(false))
+                    case _ => None
+                case t if t <:< TypeRepr.of[DFEncoding.OneHot] =>
+                  Some(entryCount)
+                case t if t <:< TypeRepr.of[DFEncoding.Grey] =>
+                  Some((entryCount - 1).bitsWidth(false))
+                case DFEncoding.Manual(widthTpe) =>
+                  widthTpe match
+                    case ConstantType(IntConstant(value)) =>
+                      Some(value)
+                    case _ => None
+              widthOption
+                .map(w => ConstantType(IntConstant(w)))
+                .getOrElse(TypeRepr.of[Int])
+            case OrType(left, right) =>
+              left.calcWidth max right.calcWidth
+          end match
       end match
     end calcWidth
   end extension
