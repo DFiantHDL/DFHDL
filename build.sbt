@@ -1,3 +1,4 @@
+// format: off
 val projectName = "dfiant"
 val compilerVersion = "3.1.2-RC1-bin-SNAPSHOT"
 
@@ -24,8 +25,7 @@ ThisBuild / scalaVersion := compilerVersion
 
 // PROJECTS
 
-lazy val root = project
-  .in(file("."))
+lazy val root = (project in file("."))
   .settings(
     settings,
     publish / skip := true
