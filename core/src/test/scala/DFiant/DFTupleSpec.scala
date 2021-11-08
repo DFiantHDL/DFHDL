@@ -9,8 +9,8 @@ class DFTupleSpec extends DFSpec:
        |val y = ((DFUInt(8), DFBit), DFBits(3)) <> VAR
        |""".stripMargin
   ) {
-    val x = tplA <> VAR
-    val y = tplB <> VAR
+    val x: (DFUInt[8], DFBit, DFBits[3]) <> VAR = tplA <> VAR
+    val y: ((DFUInt[8], DFBit), DFBits[3]) <> VAR = tplB <> VAR
   }
 
   test("Inlined width") {
