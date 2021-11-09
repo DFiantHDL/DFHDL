@@ -86,10 +86,9 @@ object DFTuple:
             }
           '{ List(${ Varargs(exprs) }*) }
         else
-          val msg = Expr(
+          errorExpr(
             s"DFType tuple length (${tArgs.length}) and value tuple length (${vArgs.length}) do not match."
           )
-          '{ compiletime.error($msg) }
         end if
       end applyExpr
       import quotes.reflect.*

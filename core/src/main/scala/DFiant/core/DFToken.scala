@@ -159,4 +159,57 @@ object DFToken:
       }
     end fromValueMacro
   end Value
+  trait TupleValues[T <: NonEmptyTuple]:
+    def apply(dfType: DFTuple[T]): List[DFTokenAny]
+  object TupleValues:
+    transparent inline implicit def fromValue[T <: NonEmptyTuple, V](
+        inline value: V
+    ): TupleValues[T] = ${ fromValueMacro[T, V]('value) }
+
+    def fromValueMacro[T <: NonEmptyTuple, V](
+        value: Expr[V]
+    )(using Quotes, Type[T], Type[V]): Expr[TupleValues[T]] =
+      import quotes.reflect.*
+      val term = value.asTerm.underlyingArgument.exactTerm
+      val tpe = term.tpe.asTypeOf[Any]
+      tpe match
+        case '[ValueOf[t]] =>
+          Type.of[t] match
+            case '[NonEmptyTuple] =>
+              val AppliedType(_, argsTpe) = TypeRepr.of[t]
+              // In the case we have a tuple with one element, then that entire tuple (including the
+              // `ValueOf`) is considered the token candidate.
+              println(argsTpe.map(_.show))
+              if (argsTpe.length == 1)
+                '{
+                  val tc = compiletime
+                    .summonInline[DFToken.TC[DFTuple[T], tpe.Underlying]]
+                  new TupleValues[T]:
+                    def apply(dfType: DFTuple[T]): List[DFTokenAny] =
+                      List(tc(dfType, ${ term.asExpr }))
+                }
+              // In the case we have a multiple elements in the tuple, then each element
+              // is considered as a candidate
+              else
+                val Apply(_, List(Apply(_, argsTerm))) = term
+//              (argsTpe lazyZip argsTerm) .map { a =>
+//                val aType = a.asTypeOf[Any]
+//                '{
+//                  val tc = compiletime
+//                    .summonInline[DFToken.TC[DFTuple[T], aType.Underlying]]
+//
+//                }
+//              }
+                '{
+                  new TupleValues[T]:
+                    def apply(dfType: DFTuple[T]): List[DFTokenAny] = Nil
+                }
+              end if
+            case _ =>
+              errorExpr("shit")
+        case _ =>
+          errorExpr("dang")
+      end match
+    end fromValueMacro
+  end TupleValues
 end DFToken

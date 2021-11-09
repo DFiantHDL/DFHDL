@@ -119,15 +119,24 @@ extension (dfVal: ir.DFVal)
 private object CompanionsDFVal:
   object Extensions:
     extension [T <: DFTypeAny, M <: Modifier](dfVal: DFVal[T, M])
-      def init(tokenValues: DFToken.Value[T]*)(using dfc: DFC): DFVal[T, M] =
+      private[core] def initForced(tokens: List[ir.DFTokenAny])(using
+          dfc: DFC
+      ): DFVal[T, M] =
         import dfc.getSet
-        val tokens =
-          tokenValues.map(tv => tv(dfVal.dfType).asIR)
         assert(
           dfVal.asIR.isAnonymous,
           s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
         )
         dfVal.asIR.tag(ir.ExternalInit(tokens)).asVal[T, M]
+
+      def init(tokenValues: DFToken.Value[T]*)(using DFC): DFVal[T, M] =
+        initForced(tokenValues.view.map(tv => tv(dfVal.dfType).asIR).toList)
+    end extension
+    extension [T <: NonEmptyTuple, M <: Modifier](dfVal: DFVal[DFTuple[T], M])
+      def init(tokenValues: DFToken.TupleValues[T])(using
+          DFC
+      ): DFVal[DFTuple[T], M] =
+        dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
   end Extensions
 
   object Conversions:

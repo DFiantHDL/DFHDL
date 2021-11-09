@@ -8,6 +8,10 @@ extension [T](t: T)
 transparent inline def showTree[T](inline arg: T): Unit = ${
   showTreeMacro[T]('arg)
 }
+
+def errorExpr(msg: String)(using Quotes): Expr[Nothing] =
+  '{ compiletime.error(${ Expr(msg) }) }
+
 def showTreeMacro[T](arg: Expr[T])(using Quotes, Type[T]): Expr[Unit] =
   import quotes.reflect.*
   val Inlined(_, _, term) = arg.asTerm

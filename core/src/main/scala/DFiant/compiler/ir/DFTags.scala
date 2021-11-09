@@ -16,5 +16,5 @@ object DFTags:
     def getTagOf[CT <: DFTag: ClassTag]: Option[CT] =
       tags.get(classTag[CT]).asInstanceOf[Option[CT]]
 
-final case class ExternalInit(tokenSeq: Seq[DFType.Token])
+final case class ExternalInit(tokenSeq: List[DFType.Token])
     extends DFTagOf[DFVal]
