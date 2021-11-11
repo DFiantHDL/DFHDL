@@ -1,18 +1,21 @@
 import DFiant.*
 import munit.*
+import compiletime.ops.int.>
 
 class DFTupleSpec extends DFSpec:
   val tplA = (DFUInt(8), DFBit, DFBits(3))
   val tplB = ((DFUInt(8), DFBit), DFBits(3))
-  assertCodeString(
-    """|val x = (DFUInt(8), DFBit, DFBits(3)) <> VAR
-       |val y = ((DFUInt(8), DFBit), DFBits(3)) <> VAR
-       |""".stripMargin
-  ) {
-    val x: (DFUInt[8], DFBit, DFBits[3]) <> VAR =
-      tplA <> VAR init (0, 1, b0s)
-    val y: ((DFUInt[8], DFBit), DFBits[3]) <> VAR = tplB <> VAR
-  }
+  val tokenA = tplA token (22, 1, b"101")
+  assertEquals(tokenA(0), d"8'22")
+//  assertCodeString(
+//    """|val x = (DFUInt(8), DFBit, DFBits(3)) <> VAR
+//       |val y = ((DFUInt(8), DFBit), DFBits(3)) <> VAR
+//       |""".stripMargin
+//  ) {
+//    val x: (DFUInt[8], DFBit, DFBits[3]) <> VAR =
+//      tplA <> VAR init (0, 1, b0s)
+//    val y: ((DFUInt[8], DFBit), DFBits[3]) <> VAR = tplB <> VAR
+//  }
 
   test("Inlined width") {
     tplA.width.verifyInlined(12)

@@ -3,6 +3,7 @@
 project/project
 project/target
 target/
+null/
 private/doc/**/_minted*/
 private/doc/**/*.aux
 private/doc/**/*.bbl

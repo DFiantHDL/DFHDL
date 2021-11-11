@@ -15,6 +15,7 @@ export core.DFUnion.Ops.*
 export core.DFOpaque.Frontend as DFOpaque
 export core.DFOpaque.Token.Ops.*
 export core.DFOpaque.Val.Ops.*
+export core.DFTuple.Token.Ops.*
 export core.DFVector.Ops.*
 export core.DFVal.Ops.*
 export core.DFVarOps.*

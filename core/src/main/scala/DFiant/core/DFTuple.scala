@@ -1,10 +1,12 @@
 package DFiant.core
 import DFiant.compiler.ir
-import ir.DFVal.Func.{Op => FuncOp}
+import ir.DFVal.Func.Op as FuncOp
 import DFiant.internals.*
+
+import scala.annotation.unchecked.uncheckedVariance
 import scala.quoted.*
 
-type DFTuple[T] = DFStruct[DFTuple.Fields[T]]
+type DFTuple[+T] = DFStruct[DFTuple.Fields[T] @uncheckedVariance]
 object DFTuple:
   def apply[T <: AnyRef](t: T): DFTuple[T] =
     val fieldList: List[DFTypeAny] =
@@ -15,7 +17,7 @@ object DFTuple:
         .map(x => DFType(x))
     DFStruct(Fields[T](fieldList))
 
-  final case class Fields[T](fieldList: List[DFTypeAny]) extends DFFields:
+  final case class Fields[+T](fieldList: List[DFTypeAny]) extends DFFields:
     override lazy val typeName: String = ir.DFStruct.ReservedTupleName
     fieldList.zipWithIndex.foreach((f, i) => createField(f, (i + 1).toString))
 
@@ -104,14 +106,19 @@ object DFTuple:
     end zipperMacro
   end TCZipper
 
-  type Token[T] = DFToken[DFTuple[T]]
+  type Token[+T] = DFToken[DFTuple[T]]
   object Token:
     protected[core] def apply[T](
         dfType: DFTuple[T],
         data: List[DFTokenAny]
     ): Token[T] =
-      ir.DFToken(dfType.asIR, data).asTokenOf[DFTuple[T]]
+      ir.DFToken(dfType.asIR, data.map(_.asIR)).asTokenOf[DFTuple[T]]
 
+    extension [T](token: DFToken[DFTuple[T]])
+      def data: List[DFTokenAny] =
+        token.asIR.data
+          .asInstanceOf[List[ir.DFTokenAny]]
+          .map(_.asTokenOf[DFTypeAny])
     object TC:
       import DFToken.TC
       given DFTupleTokenFromTuple[
@@ -123,6 +130,43 @@ object DFTuple:
         def apply(dfType: DFTuple[T], value: ValueOf[V]): Out =
           DFTuple.Token[T](dfType, zipper(dfType.fieldList, value.value.toList))
     end TC
+
+    object Ops:
+      extension [T <: NonEmptyTuple](t: DFToken[DFTuple[T]])
+        transparent inline def apply(inline i: Int): DFTokenAny = ${
+          selectMacro('t, 'i)
+        }
+      private def selectRuntime[T <: DFTypeAny](
+          token: Token[NonEmptyTuple],
+          idx: Int
+      ): T <> TOKEN =
+        val dfType = token.dfType.fieldList(idx).asIR
+        val data = token.data(idx).asIR
+//        ir.DFToken(dfType, data).asTokenOf[T]
+        data.asTokenOf[T]
+      private def selectMacro[T <: NonEmptyTuple](
+          t: Expr[DFToken[DFTuple[T]]],
+          i: Expr[Int]
+      )(using Quotes, Type[T]): Expr[DFTokenAny] =
+        import quotes.reflect.*
+        val AppliedType(_, args) = TypeRepr.of[T]
+        i.value match
+          case Some(idx) if idx >= 0 || idx < args.length =>
+            val argType = args(idx).asTypeOf[Any]
+            '{
+              val tc = compiletime.summonInline[DFType.TC[argType.Underlying]]
+              selectRuntime[tc.Type]($t.asInstanceOf[Token[NonEmptyTuple]], $i)
+            }
+          case _ =>
+            errorExpr(
+              s"The index is expected to be a literal integer between 0 and ${args.length}, but found: ${i.show}"
+            )
+      end selectMacro
+      extension [T1](t: DFToken[DFTuple[Tuple1[T1]]])
+        def _1(using tc: DFType.TC[T1]): DFToken[tc.Type] =
+          selectRuntime[tc.Type](t, 0)
+    end Ops
+
   end Token
 
   object Val:
