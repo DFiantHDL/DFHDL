@@ -21,8 +21,6 @@ protected trait DFTypePrinter extends AbstractPrinter:
     import dfType.*
     s"${csDFType(cellType)}.X${cellDims.mkStringBrackets}"
   def csDFOpaque(dfType: DFOpaque): String = dfType.name
-  def csDFUnion(dfType: DFUnion): String =
-    dfType.fieldSet.map(csDFType).mkString(" | ")
   def csDFStruct(dfType: DFStruct): String = dfType.name match
     case DFStruct.ReservedTupleName => csDFTuple(dfType.fieldMap.values.toList)
     case n                          => n
@@ -36,6 +34,5 @@ protected trait DFTypePrinter extends AbstractPrinter:
     case dt: DFEnum      => csDFEnum(dt)
     case dt: DFVector    => csDFVector(dt)
     case dt: DFOpaque    => csDFOpaque(dt)
-    case dt: DFUnion     => csDFUnion(dt)
     case dt: DFStruct    => csDFStruct(dt)
 end DFTypePrinter

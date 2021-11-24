@@ -11,7 +11,6 @@ export core.DFBits.Val.Ops.*
 export core.DFDecimal.Token.StrInterp.*
 export core.DFDecimal.Token.Ops.*
 export core.DFDecimal.Val.Ops.*
-export core.DFUnion.Ops.*
 export core.DFOpaque.Frontend as DFOpaque
 export core.DFOpaque.Token.Ops.*
 export core.DFOpaque.Val.Ops.*

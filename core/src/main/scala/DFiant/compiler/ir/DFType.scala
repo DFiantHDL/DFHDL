@@ -41,11 +41,6 @@ object DFType:
             t,
             token.data.asInstanceOf[DFOpaque.Token.Data]
           )
-        case t: DFUnion =>
-          DFUnion.Token.toBits(
-            t,
-            token.data.asInstanceOf[DFUnion.Token.Data]
-          )
         case t: DFStruct =>
           DFStruct.Token.toBits(
             t,
@@ -68,8 +63,6 @@ object DFType:
           DFVector.isBubble(t, token.data.asInstanceOf[DFVector.Token.Data])
         case t: DFOpaque =>
           DFOpaque.isBubble(t, token.data.asInstanceOf[DFOpaque.Token.Data])
-        case t: DFUnion =>
-          DFUnion.isBubble(t, token.data.asInstanceOf[DFUnion.Token.Data])
         case t: DFStruct =>
           DFStruct.isBubble(t, token.data.asInstanceOf[DFStruct.Token.Data])
   end extension
@@ -89,8 +82,6 @@ object DFType:
           DFVector.Token.fromBits(t, token.data)
         case t: DFOpaque =>
           DFOpaque.Token.fromBits(t, token.data)
-        case t: DFUnion =>
-          DFUnion.Token.fromBits(t, token.data)
         case t: DFStruct =>
           DFStruct.Token.fromBits(t, token.data)
 
@@ -102,7 +93,6 @@ object DFType:
       case t: DFEnum      => DFEnum.Token.bubble(t)
       case t: DFVector    => DFVector.Token.bubble(t)
       case t: DFOpaque    => DFOpaque.Token.bubble(t)
-      case t: DFUnion     => DFUnion.Token.bubble(t)
       case t: DFStruct    => DFStruct.Token.bubble(t)
 
   protected[ir] abstract class Companion[T <: DFType, D](
@@ -271,22 +261,6 @@ object DFOpaque
       dataToBitsData = (t, d) => DFToken(t.actualType, d).bits.data,
       bitsDataToData = (t, d) =>
         DFBits.Token(DFBits(t.width), d).as(t.actualType).data
-    )
-/////////////////////////////////////////////////////////////////////////////
-
-/////////////////////////////////////////////////////////////////////////////
-// DFUnion
-/////////////////////////////////////////////////////////////////////////////
-final case class DFUnion(fieldSet: ListSet[DFType]) extends DFType:
-  val width: Int = fieldSet.head.width
-
-object DFUnion
-    extends DFType.Companion[DFUnion, DFType.Token](
-      bubbleCreate = dfType => DFType.Token.bubble(dfType.fieldSet.head),
-      isBubble = (t, d) => d.isBubble,
-      dataToBitsData = (t, d) => d.bits.data,
-      bitsDataToData = (t, d) =>
-        DFBits.Token(DFBits(t.width), d).as(t.fieldSet.head)
     )
 /////////////////////////////////////////////////////////////////////////////
 

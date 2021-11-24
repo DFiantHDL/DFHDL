@@ -90,8 +90,6 @@ protected trait DFTokenPrinter extends AbstractPrinter:
   def csDFVectorData(dfType: DFVector, data: Vector[DFType.Token]): String = ???
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csDFToken(DFToken(dfType.actualType, data)).applyBrackets()}.as(${dfType.name})"
-  def csDFUnionData(dfType: DFUnion, data: DFType.Token): String =
-    csDFToken(data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
     dfType.name match
       case DFStruct.ReservedTupleName =>
@@ -108,7 +106,6 @@ protected trait DFTokenPrinter extends AbstractPrinter:
     case DFEnum.Token(dt, data)      => csDFEnumData(dt, data)
     case DFVector.Token(dt, data)    => csDFVectorData(dt, data)
     case DFOpaque.Token(dt, data)    => csDFOpaqueData(dt, data)
-    case DFUnion.Token(dt, data)     => csDFUnionData(dt, data)
     case DFStruct.Token(dt, data)    => csDFStructData(dt, data)
     case x =>
       throw new IllegalArgumentException(

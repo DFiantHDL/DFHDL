@@ -72,8 +72,6 @@ object Width:
               TypeRepr.of[t].calcWidth
             case '[DFStruct[t]] =>
               TypeRepr.of[t].calcWidth
-            case '[DFUnion[t]] =>
-              TypeRepr.of[t].calcWidth
             case _ =>
               val AppliedType(_, List(irTpe, tuple)) = dfTpe.dealias
               val args: List[TypeRepr] = tuple match
