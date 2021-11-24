@@ -100,7 +100,7 @@ protected trait DFTokenPrinter extends AbstractPrinter:
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
-  def csDFToken(token: DFType.Token): String = token match
+  def csDFToken(token: DFTokenAny): String = token match
     case DFBits.Token(dt, data)      => csDFBitsData(dt, data)
     case DFBoolOrBit.Token(dt, data) => csDFBoolOrBitData(dt, data)
     case DFDecimal.Token(dt, data)   => csDFDecimalData(dt, data)
@@ -112,6 +112,6 @@ protected trait DFTokenPrinter extends AbstractPrinter:
       throw new IllegalArgumentException(
         s"Unexpected token found: $x"
       )
-  def csDFTokenSeq(tokenSeq: Seq[DFType.Token]): String =
+  def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String =
     tokenSeq.map(csDFToken).mkStringBrackets
 end DFTokenPrinter

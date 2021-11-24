@@ -403,7 +403,7 @@ object DFXInt:
           // We either need to widen the token we got from a value int candidate
           // or it remains the same. In either case, there is not need to touch
           // the data itself, but just the dfType of the token.
-          val resizedToken: ir.DFType.Token =
+          val resizedToken: ir.DFTokenAny =
             val tokenIR =
               if (dfType.signed != token.dfType.signed)
                 token.asIR.asTokenOf[DFUInt[LW]].signed.asIR

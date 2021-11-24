@@ -12,4 +12,6 @@ final case class DFToken[+T <: DFType](dfType: T)(
 object DFToken:
   def forced[T <: DFType](dfType: T, data: Any) =
     DFToken[T](dfType)(data.asInstanceOf[dfType.Data])
+  def bubble(dfType: DFType): DFTokenAny =
+    DFToken.forced(dfType, dfType.createBubbleData)
 type DFTokenAny = DFToken[DFType]

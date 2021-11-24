@@ -40,6 +40,8 @@ trait Printer
     }
 //    (globalEnumString ++ codeStringList).mkString(s"\n$EMPTY\n").formatted
     codeStringList.mkString("\n\n")
+  end csDB
+end Printer
 
 extension (member: DFMember)(using printer: Printer)
   def codeString(using MemberGetSet): String =
@@ -50,7 +52,7 @@ extension (db: DB)(using printer: Printer)
 extension (dfType: DFType)(using printer: DFTypePrinter)
   def codeString: String =
     printer.csDFType(dfType)
-extension (token: DFType.Token)(using printer: DFTokenPrinter)
+extension (token: DFTokenAny)(using printer: DFTokenPrinter)
   def codeString: String =
     printer.csDFToken(token)
 

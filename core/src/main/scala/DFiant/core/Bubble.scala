@@ -7,6 +7,6 @@ object Bubble extends Bubble:
     case Stall, DontCare
   given Behaviour = Behaviour.Stall
   def apply[T <: DFTypeAny](dfType: T): DFToken[T] =
-    ir.DFType.Token.bubble(dfType.asIR).asTokenOf[T]
+    ir.DFToken.bubble(dfType.asIR).asTokenOf[T]
 
 final val ? = Bubble

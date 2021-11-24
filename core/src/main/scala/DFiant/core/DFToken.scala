@@ -8,7 +8,7 @@ import scala.quoted.*
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 
-final class DFToken[+T <: DFTypeAny](val value: ir.DFType.Token) extends AnyVal:
+final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny) extends AnyVal:
   inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
       c: DFToken.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false]
   ): DFToken[DFBool] = c(this, es(that))
@@ -27,7 +27,7 @@ final class DFToken[+T <: DFTypeAny](val value: ir.DFType.Token) extends AnyVal:
 end DFToken
 
 type DFTokenAny = DFToken[DFTypeAny]
-extension (tokenIR: ir.DFType.Token)
+extension (tokenIR: ir.DFTokenAny)
   def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
 
 object DFToken:
@@ -50,9 +50,9 @@ object DFToken:
     CanEqual.derived
 
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
-    ir.DFType.Token.bubble(dfType.asIR).asTokenOf[T]
+    ir.DFToken.bubble(dfType.asIR).asTokenOf[T]
   extension (token: DFTokenAny)
-    def asIR: ir.DFType.Token = token.value
+    def asIR: ir.DFTokenAny = token.value
     def codeString(using printer: Printer): String = printer.csDFToken(asIR)
 
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")

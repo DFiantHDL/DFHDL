@@ -46,7 +46,7 @@ sealed trait DFMember extends Product, Serializable derives CanEqual:
       case _: DFDesignBlock          => getOwnerDesign isSameOwnerDesignAs that
       case _ if getOwnerDesign.isTop => false
       case _                         => getOwnerDesign isSameOwnerDesignAs that
-  //true if and only if the member is outside the design at any level
+  // true if and only if the member is outside the design at any level
   final def isOutsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
     !isInsideOwner(that)
   @tailrec private def isInsideOwner(thisMember: DFMember, thatOwner: DFOwner)(
@@ -56,7 +56,7 @@ sealed trait DFMember extends Product, Serializable derives CanEqual:
       case (a, b) if a == b         => true
       case (DFDesignBlock.Top(), _) => false
       case (od, _)                  => isInsideOwner(od, thatOwner)
-  //true if and only if the member is inside the design at any level
+  // true if and only if the member is inside the design at any level
   final def isInsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
     isInsideOwner(this, that)
   final def getOwnerChain(using MemberGetSet): List[DFBlock] =
@@ -78,11 +78,11 @@ object DFMember:
         s"${getOwnerDesign.name}.$name"
       else if (callOwner isInsideOwner this.getOwnerDesign) name
       else
-        //more complex referencing just summons the two owner chains and compares them.
-        //it is possible to do this more efficiently but the simple cases cover the most common usage anyway
+        // more complex referencing just summons the two owner chains and compares them.
+        // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
         val memberChain = this.getOwnerChain
         val ctxChain = designOwner.getOwnerChain
-        ??? //TODO
+        ??? // TODO
   end Named
 
   sealed trait NamedOrAnonymous extends Named
@@ -106,7 +106,7 @@ object DFVal:
     case object INOUT extends Port
 
   final case class Const(
-      token: DFType.Token,
+      token: DFTokenAny,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags

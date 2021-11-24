@@ -14,8 +14,7 @@ sealed trait DFType extends Product, Serializable derives CanEqual:
   def bitsDataToData(data: (BitVector, BitVector)): Data
 
 object DFType:
-  type Token = DFToken[DFType]
-  extension (token: Token)
+  extension (token: DFTokenAny)
     def bits: DFBits.Token = DFToken.forced(
       DFBits(token.width),
       token.dfType.dataToBitsData(token.data)
@@ -25,12 +24,8 @@ object DFType:
   end extension
 
   extension (token: DFBits.Token)
-    def as(dfType: DFType): DFType.Token =
+    def as(dfType: DFType): DFTokenAny =
       DFToken.forced(dfType, dfType.bitsDataToData(token.data))
-
-  object Token:
-    def bubble(dfType: DFType): Token =
-      DFToken.forced(dfType, dfType.createBubbleData)
 
   protected[ir] abstract class Companion[T <: DFType, D](using ClassTag[T]):
     type Token = DFToken[T]
@@ -38,7 +33,7 @@ object DFType:
       type Data = D
       def apply(dfType: T, data: D): DFToken[T] =
         DFToken.forced(dfType, data)
-      def unapply(token: DFType.Token): Option[(T, D)] =
+      def unapply(token: DFTokenAny): Option[(T, D)] =
         token.dfType match
           case dt: T =>
             Some((dt, token.data.asInstanceOf[D]))
@@ -141,7 +136,7 @@ final case class DFVector(
   type Data = Vector[Any]
   val width: Int = cellType.width * cellDims.product
   def createBubbleData: Data = Vector.fill(cellDims.head)(
-    DFType.Token.bubble(cellType).data
+    cellType.createBubbleData
   )
   def isDataBubble(data: Data): Boolean =
     data.exists(x => cellType.isDataBubble(x.asInstanceOf[cellType.Data]))
