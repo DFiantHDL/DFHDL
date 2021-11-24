@@ -256,7 +256,7 @@ final case class DFOpaque(name: String, actualType: DFType) extends DFType:
 
 object DFOpaque
     extends DFType.Companion[DFOpaque, Any](
-      bubbleCreate = dfType => DFType.Token.bubble(dfType.actualType),
+      bubbleCreate = dfType => DFType.Token.bubble(dfType.actualType).data,
       isBubble = (t, d) => DFToken(t.actualType, d).isBubble,
       dataToBitsData = (t, d) => DFToken(t.actualType, d).bits.data,
       bitsDataToData = (t, d) =>
@@ -276,7 +276,7 @@ final case class DFStruct(
 object DFStruct
     extends DFType.Companion[DFStruct, List[Any]](
       bubbleCreate = dfType =>
-        dfType.fieldMap.values.map(DFType.Token.bubble).toList,
+        dfType.fieldMap.values.map(x => DFType.Token.bubble(x).data).toList,
       isBubble = (t, d) =>
         (t.fieldMap.values lazyZip d).exists((ft, fd) =>
           DFToken(ft, fd).isBubble
