@@ -7,6 +7,7 @@ class DFTupleSpec extends DFSpec:
   val tplB = ((DFUInt(8), DFBit), DFBits(3))
   val tokenA = tplA token (22, 1, b"101")
   assertEquals(tokenA(0), d"8'22")
+  assertEquals(tokenA._1, d"8'22")
 //  assertCodeString(
 //    """|val x = (DFUInt(8), DFBit, DFBits(3)) <> VAR
 //       |val y = ((DFUInt(8), DFBit), DFBits(3)) <> VAR

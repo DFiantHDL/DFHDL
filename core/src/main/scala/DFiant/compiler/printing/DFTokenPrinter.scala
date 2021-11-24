@@ -88,16 +88,19 @@ protected trait DFTokenPrinter extends AbstractPrinter:
         s"${dfType.name}.${entryName}"
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[DFType.Token]): String = ???
-  def csDFOpaqueData(dfType: DFOpaque, data: DFType.Token): String =
-    s"${csDFToken(data).applyBrackets()}.as(${dfType.name})"
+  def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
+    s"${csDFToken(DFToken(dfType.actualType, data)).applyBrackets()}.as(${dfType.name})"
   def csDFUnionData(dfType: DFUnion, data: DFType.Token): String =
     csDFToken(data)
-  def csDFStructData(dfType: DFStruct, data: List[DFType.Token]): String =
+  def csDFStructData(dfType: DFStruct, data: List[Any]): String =
     dfType.name match
-      case DFStruct.ReservedTupleName => csDFTupleData(data)
-      case _                          => ???
-  def csDFTupleData(data: List[DFType.Token]): String =
-    data.map(csDFToken).mkStringBrackets
+      case DFStruct.ReservedTupleName =>
+        csDFTupleData(dfType.fieldMap.values.toList, data)
+      case _ => ???
+  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
+    (dfTypes lazyZip data)
+      .map((t, d) => csDFToken(DFToken(t, d)))
+      .mkStringBrackets
   def csDFToken(token: DFType.Token): String = token match
     case DFBits.Token(dt, data)      => csDFBitsData(dt, data)
     case DFBoolOrBit.Token(dt, data) => csDFBoolOrBitData(dt, data)
