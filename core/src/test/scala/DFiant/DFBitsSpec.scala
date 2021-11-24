@@ -76,7 +76,7 @@ class DFBitsSpec extends DFSpec:
     assertEquals(b"1?".apply(0), DFBit.token(?))
     assertEquals(b"10".lsbit, DFBit.token(0))
     assertEquals(b"10".msbit, DFBit.token(1))
-    assert(!(b"10".msbit.asIR equals DFBit.token(0).asIR))
+    assertNotEquals(b"10".msbit.asIR, DFBit.token(0).asIR)
     val four = 4
     assertDSLError(
       "Index 4 is out of range of width/length 2"

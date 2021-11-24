@@ -20,7 +20,7 @@ object DFBoolOrBit:
         dfType: T,
         data: Option[Boolean]
     ): T <> TOKEN =
-      ir.DFToken(dfType.asIR, data).asTokenOf[T]
+      ir.DFToken(dfType.asIR)(data).asTokenOf[T]
     protected[core] def apply[T <: DFBoolOrBit](
         dfType: T,
         value: Boolean

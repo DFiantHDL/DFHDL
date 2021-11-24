@@ -88,9 +88,9 @@ protected trait DFTokenPrinter extends AbstractPrinter:
         s"${dfType.name}.${entryName}"
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
-    s"Vector${data.map(x => csDFToken(DFToken(dfType.cellType, x))).mkStringBrackets}"
+    s"Vector${data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkStringBrackets}"
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
-    s"${csDFToken(DFToken(dfType.actualType, data)).applyBrackets()}.as(${dfType.name})"
+    s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.name})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
     dfType.name match
       case DFStruct.ReservedTupleName =>
@@ -98,7 +98,7 @@ protected trait DFTokenPrinter extends AbstractPrinter:
       case _ => ???
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
     (dfTypes lazyZip data)
-      .map((t, d) => csDFToken(DFToken(t, d)))
+      .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
   def csDFToken(token: DFType.Token): String = token match
     case DFBits.Token(dt, data)      => csDFBitsData(dt, data)

@@ -14,28 +14,30 @@ sealed trait DFType extends Product, Serializable derives CanEqual:
   def bitsDataToData(data: (BitVector, BitVector)): Data
 
 object DFType:
-  type Token = DFToken[DFType, Any]
+  type Token = DFToken[DFType]
   extension (token: Token)
-    def bits: DFBits.Token = DFToken(
+    def bits: DFBits.Token = DFToken.forced(
       DFBits(token.width),
-      token.dfType.dataToBitsData(token.data.asInstanceOf[token.dfType.Data])
+      token.dfType.dataToBitsData(token.data)
     )
     def isBubble: Boolean =
-      token.dfType.isDataBubble(token.data.asInstanceOf[token.dfType.Data])
+      token.dfType.isDataBubble(token.data)
   end extension
 
   extension (token: DFBits.Token)
     def as(dfType: DFType): DFType.Token =
-      DFToken(dfType, dfType.bitsDataToData(token.data))
+      DFToken.forced(dfType, dfType.bitsDataToData(token.data))
 
   object Token:
-    def bubble(dfType: DFType): Token = DFToken(dfType, dfType.createBubbleData)
+    def bubble(dfType: DFType): Token =
+      DFToken.forced(dfType, dfType.createBubbleData)
 
   protected[ir] abstract class Companion[T <: DFType, D](using ClassTag[T]):
-    type Token = DFToken[T, D]
+    type Token = DFToken[T]
     object Token:
       type Data = D
-      def apply(dfType: T, data: D): DFToken[T, D] = DFToken(dfType, data)
+      def apply(dfType: T, data: D): DFToken[T] =
+        DFToken.forced(dfType, data)
       def unapply(token: DFType.Token): Option[(T, D)] =
         token.dfType match
           case dt: T =>

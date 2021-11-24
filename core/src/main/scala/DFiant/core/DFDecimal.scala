@@ -123,8 +123,8 @@ object DFDecimal:
         ValW <: Int,
         ArgS <: Boolean,
         ArgW <: Int,
-        ArgIsInt <: Boolean, //argument is from a Scala Int
-        Castle <: Boolean //castling of dfVal and arg
+        ArgIsInt <: Boolean, // argument is from a Scala Int
+        Castle <: Boolean // castling of dfVal and arg
     ]:
       def apply(
           dfValSigned: Boolean,
@@ -186,7 +186,7 @@ object DFDecimal:
         dfType: DFDecimal[S, W, F],
         data: Option[BigInt]
     ): Token[S, W, F] =
-      ir.DFToken(dfType.asIR, data).asTokenOf[DFDecimal[S, W, F]]
+      ir.DFToken(dfType.asIR)(data).asTokenOf[DFDecimal[S, W, F]]
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
         signed: Inlined[S],
         width: Inlined[W],
@@ -349,8 +349,8 @@ object DFXInt:
       type IsScalaInt <: Boolean
       def apply(arg: R): Token[OutS, OutW]
     object Candidate:
-      //change to given...with after
-      //https://github.com/lampepfl/dotty/issues/13580 is resolved
+      // change to given...with after
+      // https://github.com/lampepfl/dotty/issues/13580 is resolved
       transparent inline given fromIntLiteral[R <: Int](using
           info: IntInfo[R]
       ): Candidate[ValueOf[R]] = new Candidate[ValueOf[R]]:
@@ -400,16 +400,16 @@ object DFXInt:
           import DFUInt.Token.Ops.signed
           val token = ic(value)
           check(dfType.signed, dfType.width, token.dfType.signed, token.width)
-          //We either need to widen the token we got from a value int candidate
-          //or it remains the same. In either case, there is not need to touch
-          //the data itself, but just the dfType of the token.
-          val resizedToken =
+          // We either need to widen the token we got from a value int candidate
+          // or it remains the same. In either case, there is not need to touch
+          // the data itself, but just the dfType of the token.
+          val resizedToken: ir.DFType.Token =
             val tokenIR =
               if (dfType.signed != token.dfType.signed)
                 token.asIR.asTokenOf[DFUInt[LW]].signed.asIR
               else token.asIR
             if (dfType.width > token.width)
-              tokenIR.copy(dfType = dfType.asIR)
+              ir.DFToken(dfType.asIR)(token.data)
             else tokenIR
           resizedToken.asTokenOf[DFXInt[LS, LW]]
         end apply
@@ -464,23 +464,23 @@ object DFXInt:
             updatedWidth: Inlined[RW]
         )(using check: Width.Check[S, RW]): Token[S, RW] =
           val updatedTokenIR =
-            //no change in width
+            // no change in width
             if (updatedWidth == lhs.width) lhs.asIR
             else
               val signed = lhs.dfType.signed
               check(signed, updatedWidth)
-              //updated width is larger or the data is bubble
-              //TODO:Wrong run error workaround by changing to `updatedWidth.value` and `lhs.width.value`
+              // updated width is larger or the data is bubble
+              // TODO:Wrong run error workaround by changing to `updatedWidth.value` and `lhs.width.value`
               if (updatedWidth.value > lhs.width.value || lhs.asIR.isBubble)
                 DFXInt.Token(signed, updatedWidth, lhs.data).asIR
-              else //updated width is smaller
+              else // updated width is smaller
                 import DFToken.Ops.bits
                 import DFBits.Token.Ops.{resize => resizeDFBits, *}
                 if (signed)
                   val tokenBits = lhs.bits
                   (tokenBits.msbit.bits ++
                     tokenBits(updatedWidth - 2, 0)).sint.asIR
-                else //unsigned
+                else // unsigned
                   lhs.bits
                     .resizeDFBits(updatedWidth)
                     .uint

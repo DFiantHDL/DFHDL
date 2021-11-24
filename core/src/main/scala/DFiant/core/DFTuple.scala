@@ -113,7 +113,7 @@ object DFTuple:
         dfType: DFTuple[T],
         data: List[Any]
     ): Token[T] =
-      ir.DFToken(dfType.asIR, data).asTokenOf[DFTuple[T]]
+      ir.DFToken(dfType.asIR)(data).asTokenOf[DFTuple[T]]
 
     extension [T](token: DFToken[DFTuple[T]])
       def data: List[Any] =
@@ -144,7 +144,7 @@ object DFTuple:
       ): DFToken[T] =
         val dfType = token.dfType.fieldList(idx).asIR
         val data = token.data(idx)
-        ir.DFToken(dfType, data).asTokenOf[T]
+        ir.DFToken.forced(dfType, data).asTokenOf[T]
       private def selectMacro[T <: NonEmptyTuple](
           t: Expr[DFToken[DFTuple[T]]],
           i: Expr[Int]

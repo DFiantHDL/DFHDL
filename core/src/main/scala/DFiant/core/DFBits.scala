@@ -58,7 +58,7 @@ private object CompanionsDFBits:
   trait CompareCheck[
       ValW <: Int,
       ArgW <: Int,
-      Castle <: Boolean //castling of dfVal and arg
+      Castle <: Boolean // castling of dfVal and arg
   ]:
     def apply(dfValWidth: Int, argWidth: Int): Unit
   given [
@@ -84,7 +84,7 @@ private object CompanionsDFBits:
         dfType: DFBits[W],
         data: (BitVector, BitVector)
     ): Token[W] =
-      ir.DFToken(dfType.asIR, data).asTokenOf[DFBits[W]]
+      ir.DFToken(dfType.asIR)(data).asTokenOf[DFBits[W]]
     protected[core] def apply[W <: Int](
         width: Inlined[W],
         valueBits: BitVector,
@@ -172,7 +172,7 @@ private object CompanionsDFBits:
               ") is different than the DFType width (" + W + ")."
           ]
 
-      //TODO: minimize error when removing aux pattern
+      // TODO: minimize error when removing aux pattern
       given DFBitsTokenFromCandidate[W <: Int, R, VW <: Int](using
           ic: Candidate.Aux[R, VW]
       )(using check: `W == VW`.Check[W, VW]): TC[DFBits[W], R] with
@@ -195,9 +195,9 @@ private object CompanionsDFBits:
         case _                           => (None, bin)
       val (valueBits, bubbleBits) =
         word.foldLeft((BitVector.empty, BitVector.empty)) {
-          case (t, '_') => t //ignoring underscore
+          case (t, '_') => t // ignoring underscore
           case ((v, b), c) =>
-            c match //bin mode
+            c match // bin mode
               case '?' => (v :+ false, b :+ true)
               case '0' => (v :+ false, b :+ false)
               case '1' => (v :+ true, b :+ false)
@@ -222,9 +222,9 @@ private object CompanionsDFBits:
         case _                           => (None, hex)
       val (valueBits, bubbleBits, binMode) =
         word.foldLeft((BitVector.empty, BitVector.empty, false)) {
-          case (t, '_' | ' ') => t //ignoring underscore or space
+          case (t, '_' | ' ') => t // ignoring underscore or space
           case ((v, b, false), c) =>
-            c match //hex mode
+            c match // hex mode
               case '{' => (v, b, true)
               case '?' => (v ++ BitVector.low(4), b ++ BitVector.high(4), false)
               case isHex() =>
@@ -235,7 +235,7 @@ private object CompanionsDFBits:
                 )
               case x => return Left(s"Found invalid hex character: $x")
           case ((v, b, true), c) =>
-            c match //bin mode
+            c match // bin mode
               case '}' => (v, b, false)
               case '?' => (v :+ false, b :+ true, true)
               case '0' => (v :+ false, b :+ false, true)

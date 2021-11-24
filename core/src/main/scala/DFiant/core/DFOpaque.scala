@@ -37,7 +37,7 @@ object DFOpaque:
         tfe: TFE,
         token: T <> TOKEN
     ): Token[TFE] =
-      ir.DFToken(DFOpaque(tfe).asIR, token.asIR.data).asTokenOf[DFOpaque[TFE]]
+      ir.DFToken(DFOpaque(tfe).asIR)(token.asIR.data).asTokenOf[DFOpaque[TFE]]
 
     object Ops:
       extension [T <: DFTypeAny, TFE <: Frontend[T]](
