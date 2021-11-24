@@ -26,17 +26,6 @@ object DFEncoding:
     final def calcWidth(entryCount: Int): Int =
       (entryCount - 1 + value).bitsWidth(false)
     final def encode(idx: Int): BigInt = BigInt(idx + value)
-  object StartAt:
-    def unapply(using Quotes)(
-        tpe: quotes.reflect.TypeRepr
-    ): Option[quotes.reflect.TypeRepr] =
-      import quotes.reflect.*
-      val encodingTpe = TypeRepr.of[StartAt[_]]
-      if (tpe <:< encodingTpe)
-        val applied =
-          tpe.baseType(encodingTpe.typeSymbol).asInstanceOf[AppliedType]
-        Some(applied.args.head)
-      else None
 
   abstract class OneHot extends Auto:
     final def calcWidth(entryCount: Int): Int = entryCount
@@ -46,17 +35,6 @@ object DFEncoding:
       extends DFEncoding:
     final def calcWidth(entryCount: Int): Int = width
     final def encode(idx: Int): BigInt = value
-  object Manual:
-    def unapply(using Quotes)(
-        tpe: quotes.reflect.TypeRepr
-    ): Option[quotes.reflect.TypeRepr] =
-      import quotes.reflect.*
-      val encodingTpe = TypeRepr.of[Manual[_]]
-      if (tpe <:< encodingTpe)
-        val applied =
-          tpe.baseType(encodingTpe.typeSymbol).asInstanceOf[AppliedType]
-        Some(applied.args.head)
-      else None
 end DFEncoding
 
 type DFEnum[E <: DFEncoding] = DFType[ir.DFEnum, Args1[E]]

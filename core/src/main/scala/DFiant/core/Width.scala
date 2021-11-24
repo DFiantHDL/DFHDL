@@ -109,18 +109,18 @@ object Width:
           dfTpe match
             case DFEnum(entries) =>
               val entryCount = entries.length
-              val widthOption = entries.head match
-                case DFEncoding.StartAt(startTpe) =>
-                  startTpe match
+              val widthOption = entries.head.asType match
+                case '[DFEncoding.StartAt[t]] =>
+                  TypeRepr.of[t] match
                     case ConstantType(IntConstant(value)) =>
                       Some((entryCount - 1 + value).bitsWidth(false))
                     case _ => None
-                case t if t <:< TypeRepr.of[DFEncoding.OneHot] =>
+                case '[DFEncoding.OneHot] =>
                   Some(entryCount)
-                case t if t <:< TypeRepr.of[DFEncoding.Grey] =>
+                case '[DFEncoding.Grey] =>
                   Some((entryCount - 1).bitsWidth(false))
-                case DFEncoding.Manual(widthTpe) =>
-                  widthTpe match
+                case '[DFEncoding.Manual[w]] =>
+                  TypeRepr.of[w] match
                     case ConstantType(IntConstant(value)) =>
                       Some(value)
                     case _ => None
