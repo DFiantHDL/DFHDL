@@ -4,103 +4,34 @@ import DFiant.internals.*
 
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.reflect.ClassTag
+
 sealed trait DFType extends Product, Serializable derives CanEqual:
+  type Data
   val width: Int
+  def createBubbleData: Data
+  def isDataBubble(data: Data): Boolean
+  def dataToBitsData(data: Data): (BitVector, BitVector)
+  def bitsDataToData(data: (BitVector, BitVector)): Data
+
 object DFType:
   type Token = DFToken[DFType, Any]
   extension (token: Token)
-    def bits: DFBits.Token =
-      token.dfType match
-        case t: DFBoolOrBit =>
-          DFBoolOrBit.Token.toBits(
-            t,
-            token.data.asInstanceOf[DFBoolOrBit.Token.Data]
-          )
-        case t: DFBits =>
-          DFBits.Token.toBits(
-            t,
-            token.data.asInstanceOf[DFBits.Token.Data]
-          )
-        case t: DFDecimal =>
-          DFDecimal.Token.toBits(
-            t,
-            token.data.asInstanceOf[DFDecimal.Token.Data]
-          )
-        case t: DFEnum =>
-          DFEnum.Token.toBits(
-            t,
-            token.data.asInstanceOf[DFEnum.Token.Data]
-          )
-        case t: DFVector =>
-          DFVector.Token.toBits(
-            t,
-            token.data.asInstanceOf[DFVector.Token.Data]
-          )
-        case t: DFOpaque =>
-          DFOpaque.Token.toBits(
-            t,
-            token.data.asInstanceOf[DFOpaque.Token.Data]
-          )
-        case t: DFStruct =>
-          DFStruct.Token.toBits(
-            t,
-            token.data.asInstanceOf[DFStruct.Token.Data]
-          )
+    def bits: DFBits.Token = DFToken(
+      DFBits(token.width),
+      token.dfType.dataToBitsData(token.data.asInstanceOf[token.dfType.Data])
+    )
     def isBubble: Boolean =
-      token.dfType match
-        case t: DFBoolOrBit =>
-          DFBoolOrBit.isBubble(
-            t,
-            token.data.asInstanceOf[DFBoolOrBit.Token.Data]
-          )
-        case t: DFBits =>
-          DFBits.isBubble(t, token.data.asInstanceOf[DFBits.Token.Data])
-        case t: DFDecimal =>
-          DFDecimal.isBubble(t, token.data.asInstanceOf[DFDecimal.Token.Data])
-        case t: DFEnum =>
-          DFEnum.isBubble(t, token.data.asInstanceOf[DFEnum.Token.Data])
-        case t: DFVector =>
-          DFVector.isBubble(t, token.data.asInstanceOf[DFVector.Token.Data])
-        case t: DFOpaque =>
-          DFOpaque.isBubble(t, token.data.asInstanceOf[DFOpaque.Token.Data])
-        case t: DFStruct =>
-          DFStruct.isBubble(t, token.data.asInstanceOf[DFStruct.Token.Data])
+      token.dfType.isDataBubble(token.data.asInstanceOf[token.dfType.Data])
   end extension
 
   extension (token: DFBits.Token)
     def as(dfType: DFType): DFType.Token =
-      dfType match
-        case t: DFBoolOrBit =>
-          DFBoolOrBit.Token.fromBits(t, token.data)
-        case t: DFBits =>
-          DFBits.Token.fromBits(t, token.data)
-        case t: DFDecimal =>
-          DFDecimal.Token.fromBits(t, token.data)
-        case t: DFEnum =>
-          DFEnum.Token.fromBits(t, token.data)
-        case t: DFVector =>
-          DFVector.Token.fromBits(t, token.data)
-        case t: DFOpaque =>
-          DFOpaque.Token.fromBits(t, token.data)
-        case t: DFStruct =>
-          DFStruct.Token.fromBits(t, token.data)
+      DFToken(dfType, dfType.bitsDataToData(token.data))
 
   object Token:
-    def bubble(dfType: DFType): Token = dfType match
-      case t: DFBoolOrBit => DFBoolOrBit.Token.bubble(t)
-      case t: DFBits      => DFBits.Token.bubble(t)
-      case t: DFDecimal   => DFDecimal.Token.bubble(t)
-      case t: DFEnum      => DFEnum.Token.bubble(t)
-      case t: DFVector    => DFVector.Token.bubble(t)
-      case t: DFOpaque    => DFOpaque.Token.bubble(t)
-      case t: DFStruct    => DFStruct.Token.bubble(t)
+    def bubble(dfType: DFType): Token = DFToken(dfType, dfType.createBubbleData)
 
-  protected[ir] abstract class Companion[T <: DFType, D](
-      bubbleCreate: T => D,
-      val isBubble: (T, D) => Boolean,
-      dataToBitsData: (T, D) => (BitVector, BitVector),
-      bitsDataToData: (T, (BitVector, BitVector)) => D
-  )(using ClassTag[T]):
+  protected[ir] abstract class Companion[T <: DFType, D](using ClassTag[T]):
     type Token = DFToken[T, D]
     object Token:
       type Data = D
@@ -110,11 +41,6 @@ object DFType:
           case dt: T =>
             Some((dt, token.data.asInstanceOf[D]))
           case _ => None
-      def bubble(dfType: T): DFToken[T, D] = apply(dfType, bubbleCreate(dfType))
-      def toBits(dfType: T, data: D): DFBits.Token =
-        DFBits.Token(DFBits(dfType.width), dataToBitsData(dfType, data))
-      def fromBits(dfType: T, data: (BitVector, BitVector)): Token =
-        Token(dfType, bitsDataToData(dfType, data))
   end Companion
 end DFType
 
@@ -122,20 +48,18 @@ end DFType
 // DFBool or DFBit
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFBoolOrBit extends DFType:
+  type Data = Option[Boolean]
   final val width = 1
-object DFBoolOrBit
-    extends DFType.Companion[DFBoolOrBit, Option[Boolean]](
-      bubbleCreate = _ => None,
-      isBubble = (t, d) => d.isEmpty,
-      dataToBitsData = (_, d) =>
-        d match
-          case Some(value) => (BitVector.bit(value), BitVector.low(1))
-          case None        => (BitVector.low(1), BitVector.high(1))
-      ,
-      bitsDataToData = (_, d) =>
-        if (d._2.isZeros) Some(!d._1.isZeros)
-        else None
-    )
+  def createBubbleData: Data = None
+  def isDataBubble(data: Data): Boolean = data.isEmpty
+  def dataToBitsData(data: Data): (BitVector, BitVector) = data match
+    case Some(value) => (BitVector.bit(value), BitVector.low(1))
+    case None        => (BitVector.low(1), BitVector.high(1))
+  def bitsDataToData(data: (BitVector, BitVector)): Data =
+    if (data._2.isZeros) Some(!data._1.isZeros)
+    else None
+
+object DFBoolOrBit extends DFType.Companion[DFBoolOrBit, Option[Boolean]]
 
 case object DFBool extends DFBoolOrBit
 case object DFBit extends DFBoolOrBit
@@ -144,15 +68,14 @@ case object DFBit extends DFBoolOrBit
 /////////////////////////////////////////////////////////////////////////////
 // DFBits
 /////////////////////////////////////////////////////////////////////////////
-final case class DFBits(val width: Int) extends DFType
-object DFBits
-    extends DFType.Companion[DFBits, (BitVector, BitVector)](
-      bubbleCreate = dfType =>
-        (BitVector.low(dfType.width), BitVector.high(dfType.width)),
-      isBubble = (t, d) => !d._2.isZeros,
-      dataToBitsData = (_, d) => d,
-      bitsDataToData = (_, d) => d
-    )
+final case class DFBits(width: Int) extends DFType:
+  type Data = (BitVector, BitVector)
+  def createBubbleData: Data = (BitVector.low(width), BitVector.high(width))
+  def isDataBubble(data: Data): Boolean = !data._2.isZeros
+  def dataToBitsData(data: Data): (BitVector, BitVector) = data
+  def bitsDataToData(data: (BitVector, BitVector)): Data = data
+
+object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -163,54 +86,47 @@ final case class DFDecimal(
     width: Int,
     fractionWidth: Int
 ) extends DFType:
+  type Data = Option[BigInt]
   val magnitudeWidth: Int = width - fractionWidth
+  def createBubbleData: Data = None
+  def isDataBubble(data: Data): Boolean = data.isEmpty
+  def dataToBitsData(data: Data): (BitVector, BitVector) = data match
+    case Some(value) => (value.toBitVector(width), BitVector.low(width))
+    case None        => (BitVector.low(width), BitVector.high(width))
+  def bitsDataToData(data: (BitVector, BitVector)): Data =
+    if (data._2.isZeros)
+      (signed, fractionWidth) match
+        // DFUInt
+        case (false, 0) => Some(data._1.toBigInt(false).asUnsigned(width))
+        // DFSInt
+        case (true, 0) => Some(data._1.toBigInt(true))
+        // DFUFix/DFSFix
+        case _ => ??? // not supported yet
+    else None
+end DFDecimal
 
-object DFDecimal
-    extends DFType.Companion[DFDecimal, Option[BigInt]](
-      bubbleCreate = _ => None,
-      isBubble = (t, d) => d.isEmpty,
-      dataToBitsData = (t, d) =>
-        d match
-          case Some(value) =>
-            (value.toBitVector(t.width), BitVector.low(t.width))
-          case None => (BitVector.low(t.width), BitVector.high(t.width))
-      ,
-      bitsDataToData = (t, d) =>
-        if (d._2.isZeros)
-          (t.signed, t.fractionWidth) match
-            // DFUInt
-            case (false, 0) => Some(d._1.toBigInt(false).asUnsigned(t.width))
-            // DFSInt
-            case (true, 0) => Some(d._1.toBigInt(true))
-            // DFUFix/DFSFix
-            case _ => ??? // not supported yet
-        else None
-    )
+object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
 // DFEnum
 /////////////////////////////////////////////////////////////////////////////
 final case class DFEnum(
-    val name: String,
-    val width: Int,
-    val entries: ListMap[String, BigInt]
-) extends DFType
+    name: String,
+    width: Int,
+    entries: ListMap[String, BigInt]
+) extends DFType:
+  type Data = Option[BigInt]
+  def createBubbleData: Data = None
+  def isDataBubble(data: Data): Boolean = data.isEmpty
+  def dataToBitsData(data: Data): (BitVector, BitVector) = data match
+    case Some(value) => (value.toBitVector(width), BitVector.low(width))
+    case None        => (BitVector.low(width), BitVector.high(width))
+  def bitsDataToData(data: (BitVector, BitVector)): Data =
+    if (data._2.isZeros) Some(data._1.toBigInt(false))
+    else None
 
-object DFEnum
-    extends DFType.Companion[DFEnum, Option[BigInt]](
-      bubbleCreate = _ => None,
-      isBubble = (t, d) => d.isEmpty,
-      dataToBitsData = (t, d) =>
-        d match
-          case Some(value) =>
-            (value.toBitVector(t.width), BitVector.low(t.width))
-          case None => (BitVector.low(t.width), BitVector.high(t.width))
-      ,
-      bitsDataToData = (t, d) =>
-        if (d._2.isZeros) Some(d._1.toBigInt(false))
-        else None
-    )
+object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -220,51 +136,47 @@ final case class DFVector(
     cellType: DFType,
     cellDims: List[Int]
 ) extends DFType:
+  type Data = Vector[Any]
   val width: Int = cellType.width * cellDims.product
+  def createBubbleData: Data = Vector.fill(cellDims.head)(
+    DFType.Token.bubble(cellType).data
+  )
+  def isDataBubble(data: Data): Boolean =
+    data.exists(x => cellType.isDataBubble(x.asInstanceOf[cellType.Data]))
+  def dataToBitsData(data: Data): (BitVector, BitVector) =
+    val vecs = data
+      .map(d => cellType.dataToBitsData(d.asInstanceOf[cellType.Data]))
+      .unzip
+    (vecs._1.reduce(_ ++ _), vecs._2.reduce(_ ++ _))
+  def bitsDataToData(data: (BitVector, BitVector)): Data =
+    val cellWidth = cellType.width
+    val seq =
+      for (i <- 1 to width / cellWidth)
+        yield cellType.bitsDataToData(
+          data._1.bitsWL(cellWidth, width - i * cellWidth),
+          data._2.bitsWL(cellWidth, width - i * cellWidth)
+        )
+    seq.toVector
+end DFVector
 
-object DFVector
-    extends DFType.Companion[DFVector, Vector[Any]](
-      bubbleCreate = dfType =>
-        Vector.fill(dfType.cellDims.head)(
-          DFType.Token.bubble(dfType.cellType).data
-        ),
-      isBubble = (t, d) => d.exists(DFToken(t.cellType, _).isBubble),
-      dataToBitsData = (t, d) =>
-        val vecs = d.map(DFToken(t.cellType, _).bits).map(_.data).unzip
-        (vecs._1.reduce(_ ++ _), vecs._2.reduce(_ ++ _))
-      ,
-      bitsDataToData = (t, d) =>
-        val cellWidth = t.cellType.width
-        val seq =
-          for (i <- 1 to t.width / cellWidth)
-            yield DFBits
-              .Token(
-                DFBits(cellWidth),
-                (
-                  d._1.bitsWL(cellWidth, t.width - i * cellWidth),
-                  d._2.bitsWL(cellWidth, t.width - i * cellWidth)
-                )
-              )
-              .as(t.cellType)
-              .data
-        seq.toVector
-    )
+object DFVector extends DFType.Companion[DFVector, Vector[Any]]
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
 final case class DFOpaque(name: String, actualType: DFType) extends DFType:
+  type Data = Any
   final val width: Int = actualType.width
+  def createBubbleData: Data = actualType.createBubbleData
+  def isDataBubble(data: Data): Boolean =
+    actualType.isDataBubble(data.asInstanceOf[actualType.Data])
+  def dataToBitsData(data: Data): (BitVector, BitVector) =
+    actualType.dataToBitsData(data.asInstanceOf[actualType.Data])
+  def bitsDataToData(data: (BitVector, BitVector)): Data =
+    actualType.bitsDataToData(data)
 
-object DFOpaque
-    extends DFType.Companion[DFOpaque, Any](
-      bubbleCreate = dfType => DFType.Token.bubble(dfType.actualType).data,
-      isBubble = (t, d) => DFToken(t.actualType, d).isBubble,
-      dataToBitsData = (t, d) => DFToken(t.actualType, d).bits.data,
-      bitsDataToData = (t, d) =>
-        DFBits.Token(DFBits(t.width), d).as(t.actualType).data
-    )
+object DFOpaque extends DFType.Companion[DFOpaque, Any]
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -274,36 +186,31 @@ final case class DFStruct(
     name: String,
     fieldMap: ListMap[String, DFType]
 ) extends DFType:
+  type Data = List[Any]
   val width: Int = fieldMap.values.map(_.width).sum
-
-object DFStruct
-    extends DFType.Companion[DFStruct, List[Any]](
-      bubbleCreate = dfType =>
-        dfType.fieldMap.values.map(x => DFType.Token.bubble(x).data).toList,
-      isBubble = (t, d) =>
-        (t.fieldMap.values lazyZip d).exists((ft, fd) =>
-          DFToken(ft, fd).isBubble
-        ),
-      dataToBitsData = (t, d) =>
-        (t.fieldMap.values lazyZip d)
-          .map((ft, fd) => DFToken(ft, fd).bits.data)
-          .bitsConcat,
-      bitsDataToData = (t, d) =>
-        var relBitHigh: Int = t.width - 1
-        t.fieldMap.values
-          .map(fieldType =>
-            val relWidth = fieldType.width
-            val relBitLow = relBitHigh - relWidth
-            relBitHigh = relBitLow - 1
-            val valueBits = d._1.bitsWL(relWidth, relBitLow)
-            val bubbleBits = d._2.bitsWL(relWidth, relBitLow)
-            DFBits
-              .Token(DFBits(relWidth), (valueBits, bubbleBits))
-              .as(fieldType)
-              .data
-          )
-          .toList
-    ):
-  final val ReservedTupleName = "$DFTuple$"
+  def createBubbleData: Data = fieldMap.values.map(_.createBubbleData).toList
+  def isDataBubble(data: Data): Boolean =
+    (fieldMap.values lazyZip data).exists((ft, fd) =>
+      ft.isDataBubble(fd.asInstanceOf[ft.Data])
+    )
+  def dataToBitsData(data: Data): (BitVector, BitVector) =
+    (fieldMap.values lazyZip data)
+      .map((ft, fd) => ft.dataToBitsData(fd.asInstanceOf[ft.Data]))
+      .bitsConcat
+  def bitsDataToData(data: (BitVector, BitVector)): Data =
+    var relBitHigh: Int = width - 1
+    fieldMap.values
+      .map(fieldType =>
+        val relWidth = fieldType.width
+        val relBitLow = relBitHigh - relWidth
+        relBitHigh = relBitLow - 1
+        val valueBits = data._1.bitsWL(relWidth, relBitLow)
+        val bubbleBits = data._2.bitsWL(relWidth, relBitLow)
+        fieldType.bitsDataToData((valueBits, bubbleBits))
+      )
+      .toList
 end DFStruct
+
+object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
+  final val ReservedTupleName = "$DFTuple$"
 /////////////////////////////////////////////////////////////////////////////
