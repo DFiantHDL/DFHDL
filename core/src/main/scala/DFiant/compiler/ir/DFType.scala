@@ -223,12 +223,14 @@ final case class DFVector(
   val width: Int = cellType.width * cellDims.product
 
 object DFVector
-    extends DFType.Companion[DFVector, Vector[DFType.Token]](
+    extends DFType.Companion[DFVector, Vector[Any]](
       bubbleCreate = dfType =>
-        Vector.fill(dfType.cellDims.head)(DFType.Token.bubble(dfType.cellType)),
-      isBubble = (t, d) => d.exists(_.isBubble),
+        Vector.fill(dfType.cellDims.head)(
+          DFType.Token.bubble(dfType.cellType).data
+        ),
+      isBubble = (t, d) => d.exists(DFToken(t.cellType, _).isBubble),
       dataToBitsData = (t, d) =>
-        val vecs = d.map(_.bits).map(_.data).unzip
+        val vecs = d.map(DFToken(t.cellType, _).bits).map(_.data).unzip
         (vecs._1.reduce(_ ++ _), vecs._2.reduce(_ ++ _))
       ,
       bitsDataToData = (t, d) =>
@@ -244,6 +246,7 @@ object DFVector
                 )
               )
               .as(t.cellType)
+              .data
         seq.toVector
     )
 /////////////////////////////////////////////////////////////////////////////

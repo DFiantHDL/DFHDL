@@ -87,7 +87,8 @@ protected trait DFTokenPrinter extends AbstractPrinter:
         val entryName = dfType.entries.find(_._2 == value).get._1
         s"${dfType.name}.${entryName}"
       case None => "?"
-  def csDFVectorData(dfType: DFVector, data: Vector[DFType.Token]): String = ???
+  def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
+    s"Vector${data.map(x => csDFToken(DFToken(dfType.cellType, x))).mkStringBrackets}"
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csDFToken(DFToken(dfType.actualType, data)).applyBrackets()}.as(${dfType.name})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
