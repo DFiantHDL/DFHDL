@@ -34,6 +34,28 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
     tpe.asType match
       case '[t] =>
         TypeTree.of[t]
+  def stripValueOf: quotes.reflect.TypeRepr =
+    import quotes.reflect.*
+    tpe.asType match
+      case '[ValueOf[t]] => TypeRepr.of[t]
+      case _             => tpe
+end extension
+
+extension (using quotes: Quotes)(lhs: quotes.reflect.TypeRepr)
+  def tupleSigMatch(
+      rhs: quotes.reflect.TypeRepr,
+      tupleAndNonTupleMatch: Boolean
+  ): Boolean =
+    import quotes.reflect.*
+    (lhs.asType, rhs.asType) match
+      case ('[Tuple], '[Tuple]) =>
+        val AppliedType(_, lArgs) = lhs
+        val AppliedType(_, rArgs) = rhs
+        if (lArgs.length != rArgs.length) false
+        else (lArgs lazyZip rArgs).forall((l, r) => l.tupleSigMatch(r, true))
+      case ('[Tuple], '[Any]) => tupleAndNonTupleMatch
+      case ('[Any], '[Tuple]) => tupleAndNonTupleMatch
+      case _                  => true
 
 trait PrintType[T]
 object PrintType:

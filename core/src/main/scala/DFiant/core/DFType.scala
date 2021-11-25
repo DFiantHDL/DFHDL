@@ -65,10 +65,12 @@ object DFType:
     type Type <: DFTypeAny
     def apply(t: T): Type
   object TC:
-    given ofDFType[T <: DFTypeAny]: TC[T] with
+    transparent inline given ofDFType[T <: DFTypeAny]: TC[T] = new TC[T]:
       type Type = T
       def apply(t: T): Type = t
-    given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[T]]: TC[TFE] with
+    transparent inline given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[
+      T
+    ]]: TC[TFE] = new TC[TFE]:
       type Type = DFOpaque[TFE]
       def apply(t: TFE): Type = DFOpaque(t)
     given ofDFFields[T <: DFFields]: TC[T] with
