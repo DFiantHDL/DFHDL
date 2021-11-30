@@ -310,28 +310,20 @@ private object CompanionsDFBits:
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFBits[LW], R, Op, C] with
-        def apply(token: Token[LW], arg: R): DFBool <> TOKEN =
+        def conv(dfType: DFBits[LW], arg: R): DFBits[LW] <> TOKEN =
           val tokenArg = ic(arg)
           check(
-            token.dfType.width,
+            dfType.width,
             tokenArg.dfType.width
           )
-          val outData =
-            if (token.data._2.isZeros && tokenArg.data._2.isZeros)
-              op.value match
-                case FuncOp.=== => Some(token.data._1 === tokenArg.data._1)
-                case FuncOp.=!= => Some(!(token.data._1 === tokenArg.data._1))
-                case _ => throw new IllegalArgumentException("Unsupported Op")
-            else None
-          DFBoolOrBit.Token(DFBool, outData)
-        end apply
+          tokenArg.asIR.asTokenOf[DFBits[LW]]
       end given
       given [LW <: Int, Op <: FuncOp, C <: Boolean](using
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFBits[LW], SameBitsVector, Op, C] with
-        def apply(token: Token[LW], arg: SameBitsVector): DFBool <> TOKEN =
-          token == Token[LW](token.width, arg)
+        def conv(dfType: DFBits[LW], arg: SameBitsVector): DFBits[LW] <> TOKEN =
+          Token[LW](dfType.width, arg)
     end Compare
 
     object Ops:

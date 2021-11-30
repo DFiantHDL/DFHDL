@@ -425,14 +425,11 @@ object DFXInt:
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFXInt[LS, LW], R, Op, C] with
-        def apply(token: Token[LS, LW], arg: R): DFBool <> TOKEN =
-          val tokenArg = ic(arg)
-          check(
-            token.dfType.signed,
-            token.dfType.width,
-            tokenArg.dfType.signed,
-            tokenArg.dfType.width
-          )
+        override def apply(token: Token[LS, LW], arg: R)(using
+            op: ValueOf[Op],
+            castling: ValueOf[C]
+        ): DFBool <> TOKEN =
+          val tokenArg = conv(token.dfType, arg)
           val (lhsData, rhsData) =
             if (castling) (tokenArg.data, token.data)
             else (token.data, tokenArg.data)
@@ -450,6 +447,15 @@ object DFXInt:
             case _ => None
           DFBoolOrBit.Token(DFBool, outData)
         end apply
+        def conv(dfType: DFXInt[LS, LW], arg: R): DFXInt[LS, LW] <> TOKEN =
+          val tokenArg = ic(arg)
+          check(
+            dfType.signed,
+            dfType.width,
+            tokenArg.dfType.signed,
+            tokenArg.dfType.width
+          )
+          tokenArg.asIR.asTokenOf[DFXInt[LS, LW]]
       end given
     end Compare
 

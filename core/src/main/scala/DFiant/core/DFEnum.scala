@@ -110,16 +110,9 @@ object DFEnum:
           tc: DFToken.TC[DFEnum[E], R],
           op: ValueOf[Op]
       ): Compare[DFEnum[E], R, Op, C] with
-        def apply(token: DFToken[DFEnum[E]], arg: R): DFToken[DFBool] =
-          val tokenArg = tc(token.dfType, arg)
-          val outData = (token.data, tokenArg.data) match
-            case (Some(l), Some(r)) =>
-              op.value match
-                case FuncOp.=== => Some(l == r)
-                case FuncOp.=!= => Some(l != r)
-                case _ => throw new IllegalArgumentException("Unsupported Op")
-            case _ => None
-          DFBoolOrBit.Token(DFBool, outData)
+        def conv(dfType: DFEnum[E], arg: R): DFEnum[E] <> TOKEN =
+          tc(dfType, arg)
+
       end DFEnumCompareEntry
     end Compare
   end Token

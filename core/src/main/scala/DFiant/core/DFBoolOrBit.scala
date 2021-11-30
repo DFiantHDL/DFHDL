@@ -116,8 +116,9 @@ object DFBoolOrBit:
           op: ValueOf[Op],
           castle: ValueOf[C]
       ): Compare[T, R, Op, C] with
-        def apply(token: T <> TOKEN, arg: R): DFBool <> TOKEN =
-          logicOp(DFBool, token, ic(arg), op)
+        def conv(dfType: T, arg: R): T <> TOKEN =
+          val tokenArg = ic(arg)
+          Token(dfType, tokenArg.data)
     end Compare
 
     object Ops:

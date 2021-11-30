@@ -91,7 +91,21 @@ object DFToken:
 
   @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
   trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]:
-    def apply(token: DFToken[T], arg: V): DFToken[DFBool]
+    def apply(token: DFToken[T], arg: V)(using
+        op: ValueOf[Op],
+        castling: ValueOf[C]
+    ): DFToken[DFBool] =
+      given CanEqual[Any, Any] = CanEqual.derived
+      val tokenArg = conv(token.dfType, arg)
+      assert(token.dfType == tokenArg.dfType)
+      val dataOut = op.value match
+        case FuncOp.=== => token.asIR.data == tokenArg.asIR.data
+        case FuncOp.=!= => token.asIR.data != tokenArg.asIR.data
+        case _          => throw new IllegalArgumentException("Unsupported Op")
+      DFBoolOrBit.Token(DFBool, dataOut)
+    def conv(dfType: T, arg: V): DFToken[T]
+  end Compare
+
   trait CompareLPLP:
     transparent inline given errorDMZ[
         T <: DFTypeAny,
@@ -114,14 +128,7 @@ object DFToken:
     inline given sameTokenType[T <: DFTypeAny, Op <: FuncOp, C <: Boolean](using
         op: ValueOf[Op]
     ): Compare[T, T <> TOKEN, Op, C] with
-      def apply(token: DFToken[T], arg: T <> TOKEN): DFToken[DFBool] =
-        given CanEqual[Any, Any] = CanEqual.derived
-        assert(token.dfType == arg.dfType)
-        val dataOut = op.value match
-          case FuncOp.=== => token.asIR.data == arg.asIR.data
-          case FuncOp.=!= => token.asIR.data != arg.asIR.data
-          case _ => throw new IllegalArgumentException("Unsupported Op")
-        DFBoolOrBit.Token(DFBool, token.asIR.data == arg.asIR.data)
+      def conv(dfType: T, arg: T <> TOKEN): DFToken[T] = arg
   end CompareLPLP
   trait CompareLP extends CompareLPLP
   object Compare extends CompareLP:
