@@ -133,11 +133,26 @@ object DFTuple:
           )
     end TC
 
+    object Compare:
+      import DFToken.Compare
+//      given DFTupleTokenFromTuple[
+//          T <: NonEmptyTuple,
+//          V <: NonEmptyTuple
+//      ](using
+//          zipper: TCZipper[T, V, DFTokenAny, DFToken.TC]
+//      ): Compare[DFTuple[T], ValueOf[V]] with
+//        def apply(dfType: DFTuple[T], value: ValueOf[V]): Out =
+//          DFTuple.Token[T](
+//            dfType,
+//            zipper(dfType.fieldList, value.value.toList).map(_.asIR.data)
+//          )
+
     object Ops:
       extension [T <: NonEmptyTuple](t: DFToken[DFTuple[T]])
-        transparent inline def apply(inline i: Int): DFTokenAny = ${
-          selectMacro('t, 'i)
-        }
+        def apply[I <: Int](i: Inlined[I])(using
+            tc: DFType.TC[Tuple.Elem[T, I]]
+        ): DFToken[tc.Type] =
+          selectRuntime[tc.Type](t.wide, i)
       private def selectRuntime[T <: DFTypeAny](
           token: Token[NonEmptyTuple],
           idx: Int
@@ -145,24 +160,6 @@ object DFTuple:
         val dfType = token.dfType.fieldList(idx).asIR
         val data = token.data(idx)
         ir.DFToken.forced(dfType, data).asTokenOf[T]
-      private def selectMacro[T <: NonEmptyTuple](
-          t: Expr[DFToken[DFTuple[T]]],
-          i: Expr[Int]
-      )(using Quotes, Type[T]): Expr[DFTokenAny] =
-        import quotes.reflect.*
-        val AppliedType(_, args) = TypeRepr.of[T]
-        i.value match
-          case Some(idx) if idx >= 0 || idx < args.length =>
-            val argType = args(idx).asTypeOf[Any]
-            '{
-              val tc = compiletime.summonInline[DFType.TC[argType.Underlying]]
-              selectRuntime[tc.Type]($t.wide, $i)
-            }
-          case _ =>
-            errorExpr(
-              s"The index is expected to be a literal integer between 0 and ${args.length}, but found: ${i.show}"
-            )
-      end selectMacro
       extension [T <: NonEmptyTuple](t: DFToken[DFTuple[T]])
         // TODO: workaround compiler issue that inline does not obey covariance
         private def wide: Token[NonEmptyTuple] =

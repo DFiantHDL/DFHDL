@@ -162,25 +162,24 @@ object DFToken:
   trait TupleValues[T <: NonEmptyTuple]:
     def apply(dfType: DFTuple[T]): List[DFTokenAny]
   object TupleValues:
-    transparent inline implicit def fromValue[
-        T <: NonEmptyTuple,
-        V <: NonEmptyTuple
-    ](
+    transparent inline implicit def fromValue[T <: NonEmptyTuple, V](
         inline value: V
     ): TupleValues[T] = ${ fromValueMacro[T, V]('value) }
 
-    def fromValueMacro[T <: NonEmptyTuple, V <: NonEmptyTuple](
+    def fromValueMacro[T <: NonEmptyTuple, V](
         value: Expr[V]
     )(using Quotes, Type[T], Type[V]): Expr[TupleValues[T]] =
       import quotes.reflect.*
       val term = value.asTerm.underlyingArgument
       val tTpe = TypeRepr.of[T]
       val vTpe = term.tpe
-      val AppliedType(_, vArgsTpe) = vTpe
-
+      val multiElements = vTpe match
+        case AppliedType(_, vArgsTpe) if vTpe.isTupleN =>
+          vArgsTpe.forall(va => tTpe.tupleSigMatch(va, false))
+        case _ => false
       // In the case we have a multiple elements in the tuple value that match the signature
       // of the dataflow type, then each element is considered as a candidate
-      if (vArgsTpe.forall(va => tTpe.tupleSigMatch(va, false)))
+      if (multiElements)
         val Apply(_, vArgsTerm) = term
         def tokens(dfType: Expr[DFTuple[T]]): List[Expr[DFTokenAny]] =
           vArgsTerm.map { a =>

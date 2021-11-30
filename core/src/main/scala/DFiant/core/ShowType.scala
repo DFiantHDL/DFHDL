@@ -19,10 +19,13 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFBool]      => "DFBool"
       case '[DFBits[w]]   => s"DFBits[${Type.show[w]}]"
       case '[DFUInt[w]]   => s"DFUInt[${Type.show[w]}]"
+      case '[DFSInt[w]]   => s"DFSInt[${Type.show[w]}]"
       case '[DFOpaque[t]] => Type.show[t]
       case '[DFTuple[t]] =>
-        TypeRepr.of[t].showTuple(_.showDFType).mkStringBrackets
-      case _ => "DFType"
+        TypeRepr.of[t].showTuple(_.showType).mkStringBrackets
+      case '[DFStruct[t]] => Type.show[t]
+      case _              => "DFType"
+  end showDFType
 
   def showModifier: String =
     import quotes.reflect.*
