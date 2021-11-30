@@ -557,20 +557,20 @@ private object CompanionsDFBits:
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFBits[LW], R, Op, C] with
-        def apply(dfVal: DFBits[LW] <> VAL, arg: R)(using
+        def conv(dfType: DFBits[LW], arg: R)(using
             dfc: DFC
-        ): DFBool <> VAL =
+        ): DFBits[LW] <> VAL =
           val dfValArg = ic(arg)(using dfc.anonymize)
-          check(dfVal.dfType.width, dfValArg.dfType.width)
-          func(dfVal, dfValArg)
+          check(dfType.width, dfValArg.dfType.width)
+          dfValArg.asIR.asValOf[DFBits[LW]]
       given DFBitsCompareSBV[LW <: Int, Op <: FuncOp, C <: Boolean](using
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFBits[LW], SameBitsVector, Op, C] with
-        def apply(dfVal: DFBits[LW] <> VAL, arg: SameBitsVector)(using
+        def conv(dfType: DFBits[LW], arg: SameBitsVector)(using
             dfc: DFC
-        ): DFBool <> VAL =
-          func(dfVal, DFVal.Const(Token(dfVal.width, arg)))
+        ): DFBits[LW] <> VAL =
+          DFVal.Const(Token(dfType.width, arg))
     end Compare
 
     object Conversions:

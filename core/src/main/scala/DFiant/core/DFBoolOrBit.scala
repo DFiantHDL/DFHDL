@@ -205,8 +205,8 @@ object DFBoolOrBit:
           ValueOf[Op],
           ValueOf[C]
       ): Compare[T, R, Op, C] with
-        def apply(dfVal: T <> VAL, arg: R)(using DFC): DFBool <> VAL =
-          func(dfVal, b2b(dfVal.dfType, arg))
+        def conv(dfType: T, arg: R)(using DFC): T <> VAL =
+          b2b(dfType, arg)
 
     object Ops:
       extension (lhs: DFBit <> VAL)

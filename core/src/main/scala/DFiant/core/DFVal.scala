@@ -37,7 +37,11 @@ object DFVal:
       val c = compiletime.summonInline[
         DFVal.Compare[T, exactType.Underlying, Op, false]
       ]
-      c($dfVal, $exactExpr)(using compiletime.summonInline[DFC])
+      c($dfVal, $exactExpr)(using
+        compiletime.summonInline[DFC],
+        compiletime.summonInline[ValueOf[Op]],
+        new ValueOf[false](false)
+      )
     }
   end equalityMacro
 
@@ -330,7 +334,15 @@ private object CompanionsDFVal:
     ): DFValOf[DFBool] =
       val list = if (valueOf[C]) List(arg2, arg1) else List(arg1, arg2)
       DFVal.Func(DFBool, valueOf[Op], list)
-    def apply(dfVal: DFValOf[T], arg: V)(using DFC): DFValOf[DFBool]
+    def apply(dfVal: DFValOf[T], arg: V)(using
+        DFC,
+        ValueOf[Op],
+        ValueOf[C]
+    ): DFValOf[DFBool] =
+      val dfValArg = conv(dfVal.dfType, arg)
+      func(dfVal, dfValArg)
+    def conv(dfType: T, arg: V)(using DFC): DFValOf[T]
+  end Compare
   trait CompareLP:
     transparent inline given errorDMZ[
         T <: DFTypeAny,
@@ -354,15 +366,15 @@ private object CompanionsDFVal:
         ValueOf[Op],
         ValueOf[C]
     ): Compare[T, T <> VAL, Op, C] with
-      def apply(dfVal: T <> VAL, arg: T <> VAL)(using
+      def conv(dfType: T, arg: T <> VAL)(using
           DFC
-      ): DFValOf[DFBool] =
+      ): DFValOf[T] =
         given Printer = DefaultPrinter
         assert(
-          dfVal.dfType == arg.dfType,
-          s"Cannot compare dataflow value type `${dfVal.dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
+          dfType == arg.dfType,
+          s"Cannot compare dataflow value type `${dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
         )
-        func(dfVal, arg)
+        arg
     inline given sameValAndTokenType[
         T <: DFTypeAny,
         Op <: FuncOp,
@@ -371,15 +383,15 @@ private object CompanionsDFVal:
         ValueOf[Op],
         ValueOf[C]
     ): Compare[T, T <> TOKEN, Op, C] with
-      def apply(dfVal: T <> VAL, arg: T <> TOKEN)(using
+      def conv(dfType: T, arg: T <> TOKEN)(using
           DFC
-      ): DFValOf[DFBool] =
+      ): DFValOf[T] =
         given Printer = DefaultPrinter
         assert(
-          dfVal.dfType == arg.dfType,
-          s"Cannot compare dataflow value type `${dfVal.dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
+          dfType == arg.dfType,
+          s"Cannot compare dataflow value type `${dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
         )
-        func(dfVal, DFVal.Const(arg))
+        DFVal.Const(arg)
     end sameValAndTokenType
   end CompareLP
   object Compare extends CompareLP:

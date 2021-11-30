@@ -616,27 +616,23 @@ object DFXInt:
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFXInt[LS, LW], R, Op, C] with
-        def apply(dfVal: DFValOf[DFXInt[LS, LW]], arg: R)(using
+        def conv(dfType: DFXInt[LS, LW], arg: R)(using
             dfc: DFC
-        ): DFValOf[DFBool] =
+        ): DFXInt[LS, LW] <> VAL =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           val dfValArg = ic(arg)(using dfc.anonymize)
           check(
-            dfVal.dfType.signed,
-            dfVal.dfType.width,
+            dfType.signed,
+            dfType.width,
             dfValArg.dfType.signed,
             dfValArg.dfType.width
           )
-          val maxWidth = dfVal.width max dfValArg.width
-          val dfValResized =
-            if (dfVal.width < dfValArg.width) dfVal.resize(maxWidth)
-            else dfVal
           val dfValArgResized =
-            if (dfValArg.width < dfVal.width) dfValArg.resize(maxWidth)
+            if (dfValArg.width < dfType.width) dfValArg.resize(dfType.width)
             else dfValArg
-          func(dfValResized, dfValArgResized)
-        end apply
+          dfValArgResized.asIR.asValOf[DFXInt[LS, LW]]
+        end conv
       end DFXIntCompare
     end Compare
 
