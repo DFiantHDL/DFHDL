@@ -178,10 +178,6 @@ object DFDecimal:
 
   type Token[S <: Boolean, W <: Int, F <: Int] = DFToken[DFDecimal[S, W, F]]
   object Token:
-    extension [S <: Boolean, W <: Int, F <: Int](token: Token[S, W, F])
-      def data: Option[BigInt] =
-        token.asIR.data.asInstanceOf[Option[BigInt]]
-
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
         dfType: DFDecimal[S, W, F],
         data: Option[BigInt]
@@ -336,7 +332,6 @@ object DFXInt:
 
   type Token[S <: Boolean, W <: Int] = DFDecimal.Token[S, W, 0]
   object Token:
-    import DFDecimal.Token.data
     protected[core] def apply[S <: Boolean, W <: Int](
         signed: Inlined[S],
         width: Inlined[W],

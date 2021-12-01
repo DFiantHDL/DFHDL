@@ -115,9 +115,6 @@ object DFTuple:
     ): Token[T] =
       ir.DFToken(dfType.asIR)(data).asTokenOf[DFTuple[T]]
 
-    extension [T](token: DFToken[DFTuple[T]])
-      def data: List[Any] =
-        token.asIR.data.asInstanceOf[List[Any]]
     object TC:
       import DFToken.TC
       given DFTupleTokenFromTuple[

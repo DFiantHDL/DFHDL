@@ -82,9 +82,6 @@ object DFEnum:
 
   type Token[E <: DFEncoding] = DFToken[DFEnum[E]]
   object Token:
-    extension [E <: DFEncoding](token: Token[E])
-      def data: Option[BigInt] =
-        token.asIR.data.asInstanceOf[Option[BigInt]]
     def apply[E <: DFEncoding, RE <: E](
         dfType: DFEnum[E],
         entry: RE

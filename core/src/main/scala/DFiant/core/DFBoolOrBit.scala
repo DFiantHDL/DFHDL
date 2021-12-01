@@ -14,8 +14,6 @@ object DFBoolOrBit:
   given DFBool = DFBool
   given DFBit = DFBit
   object Token:
-    extension (token: Token)
-      def data: Option[Boolean] = token.asIR.data.asInstanceOf[Option[Boolean]]
     protected[core] def apply[T <: DFBoolOrBit](
         dfType: T,
         data: Option[Boolean]

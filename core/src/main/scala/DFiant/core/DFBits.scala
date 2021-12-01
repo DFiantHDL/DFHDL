@@ -113,9 +113,6 @@ private object CompanionsDFBits:
         BitVector.low(width.value)
       )
     extension [W <: Int](token: DFBits.Token[W])
-//      def width: Inlined[W] = Inlined.forced[W](token.asIR.width)
-      def data: (BitVector, BitVector) =
-        token.asIR.data.asInstanceOf[(BitVector, BitVector)]
       def valueBits: BitVector = token.data._1
       def bubbleBits: BitVector = token.data._2
 

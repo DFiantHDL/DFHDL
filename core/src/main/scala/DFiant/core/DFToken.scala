@@ -54,6 +54,9 @@ object DFToken:
   extension (token: DFTokenAny)
     def asIR: ir.DFTokenAny = token.value
     def codeString(using printer: Printer): String = printer.csDFToken(asIR)
+  extension [T <: ir.DFType, Data](
+      token: DFToken[DFType[ir.DFType.Aux[T, Data], Args]]
+  ) def data: Data = token.value.data.asInstanceOf[Data]
 
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
   trait TC[T <: DFTypeAny, -V] extends GeneralTC[T, V, DFTokenAny]:

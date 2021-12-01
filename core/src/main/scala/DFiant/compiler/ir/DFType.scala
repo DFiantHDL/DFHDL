@@ -14,6 +14,7 @@ sealed trait DFType extends Product, Serializable derives CanEqual:
   def bitsDataToData(data: (BitVector, BitVector)): Data
 
 object DFType:
+  type Aux[T <: DFType, Data0] = DFType { type Data = Data0 }
   extension (token: DFTokenAny)
     def bits: DFBits.Token = DFToken.forced(
       DFBits(token.width),
