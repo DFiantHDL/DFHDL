@@ -121,8 +121,8 @@ object DFEnum:
           RE <: E,
           Op <: FuncOp,
           C <: Boolean
-      ]: Compare[DFEnum[E], RE, Op, C] with
-        def conv(dfType: DFEnum[E], arg: RE)(using DFC): DFEnum[E] <> VAL =
+      ](using DFC): Compare[DFEnum[E], RE, Op, C] with
+        def conv(dfType: DFEnum[E], arg: RE): DFEnum[E] <> VAL =
           DFVal.Const(Token[E, RE](dfType, arg))
   end Val
 end DFEnum

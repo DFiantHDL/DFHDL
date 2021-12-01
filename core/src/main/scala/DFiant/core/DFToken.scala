@@ -95,7 +95,9 @@ object DFToken:
   end TC
 
   @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
-  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]:
+  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]
+      extends TCConv[T, V, DFTokenAny]:
+    type Out = DFToken[T]
     def apply(token: DFToken[T], arg: V)(using
         op: ValueOf[Op],
         castling: ValueOf[C]

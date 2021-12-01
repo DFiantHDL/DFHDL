@@ -114,7 +114,7 @@ object DFBoolOrBit:
           op: ValueOf[Op],
           castle: ValueOf[C]
       ): Compare[T, R, Op, C] with
-        def conv(dfType: T, arg: R): T <> TOKEN =
+        def conv(dfType: T, arg: R): DFToken[T] =
           val tokenArg = ic(arg)
           Token(dfType, tokenArg.data)
     end Compare
@@ -199,11 +199,12 @@ object DFBoolOrBit:
       import DFVal.Compare
       given DFBoolOrBitCompare[T <: DFBoolOrBit, R, Op <: FuncOp, C <: Boolean](
           using
+          DFC,
           Candidate[R],
           ValueOf[Op],
           ValueOf[C]
       ): Compare[T, R, Op, C] with
-        def conv(dfType: T, arg: R)(using DFC): T <> VAL =
+        def conv(dfType: T, arg: R): T <> VAL =
           b2b(dfType, arg)
 
     object Ops:

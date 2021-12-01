@@ -607,13 +607,12 @@ object DFXInt:
       ](using
           ic: Candidate[R]
       )(using
+          dfc: DFC,
           check: CompareCheck[LS, LW, ic.OutS, ic.OutW, ic.IsScalaInt, C],
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFXInt[LS, LW], R, Op, C] with
-        def conv(dfType: DFXInt[LS, LW], arg: R)(using
-            dfc: DFC
-        ): DFXInt[LS, LW] <> VAL =
+        def conv(dfType: DFXInt[LS, LW], arg: R): DFXInt[LS, LW] <> VAL =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           val dfValArg = ic(arg)(using dfc.anonymize)

@@ -328,7 +328,9 @@ private object CompanionsDFVal:
     export DFTuple.Val.TC.given
   end TC
 
-  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]:
+  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]
+      extends TCConv[T, V, DFValAny]:
+    type Out = DFValOf[T]
     final protected def func(arg1: DFValAny, arg2: DFValAny)(using
         DFC,
         ValueOf[Op],
@@ -343,7 +345,7 @@ private object CompanionsDFVal:
     ): DFValOf[DFBool] =
       val dfValArg = conv(dfVal.dfType, arg)
       func(dfVal, dfValArg)
-    def conv(dfType: T, arg: V)(using DFC): DFValOf[T]
+    def conv(dfType: T, arg: V): DFValOf[T]
   end Compare
   trait CompareLP:
     transparent inline given errorDMZ[
@@ -365,12 +367,11 @@ private object CompanionsDFVal:
         )
       ]
     inline given sameValType[T <: DFTypeAny, Op <: FuncOp, C <: Boolean](using
+        DFC,
         ValueOf[Op],
         ValueOf[C]
     ): Compare[T, T <> VAL, Op, C] with
-      def conv(dfType: T, arg: T <> VAL)(using
-          DFC
-      ): DFValOf[T] =
+      def conv(dfType: T, arg: T <> VAL): DFValOf[T] =
         given Printer = DefaultPrinter
         assert(
           dfType == arg.dfType,
@@ -382,12 +383,11 @@ private object CompanionsDFVal:
         Op <: FuncOp,
         C <: Boolean
     ](using
+        DFC,
         ValueOf[Op],
         ValueOf[C]
     ): Compare[T, T <> TOKEN, Op, C] with
-      def conv(dfType: T, arg: T <> TOKEN)(using
-          DFC
-      ): DFValOf[T] =
+      def conv(dfType: T, arg: T <> TOKEN): DFValOf[T] =
         given Printer = DefaultPrinter
         assert(
           dfType == arg.dfType,

@@ -550,23 +550,21 @@ private object CompanionsDFBits:
       given DFBitsCompareCandidate[LW <: Int, R, Op <: FuncOp, C <: Boolean](
           using ic: Candidate[R]
       )(using
+          dfc: DFC,
           check: CompareCheck[LW, ic.OutW, C],
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFBits[LW], R, Op, C] with
-        def conv(dfType: DFBits[LW], arg: R)(using
-            dfc: DFC
-        ): DFBits[LW] <> VAL =
+        def conv(dfType: DFBits[LW], arg: R): DFBits[LW] <> VAL =
           val dfValArg = ic(arg)(using dfc.anonymize)
           check(dfType.width, dfValArg.dfType.width)
           dfValArg.asIR.asValOf[DFBits[LW]]
       given DFBitsCompareSBV[LW <: Int, Op <: FuncOp, C <: Boolean](using
-          op: ValueOf[Op],
-          castling: ValueOf[C]
+          DFC,
+          ValueOf[Op],
+          ValueOf[C]
       ): Compare[DFBits[LW], SameBitsVector, Op, C] with
-        def conv(dfType: DFBits[LW], arg: SameBitsVector)(using
-            dfc: DFC
-        ): DFBits[LW] <> VAL =
+        def conv(dfType: DFBits[LW], arg: SameBitsVector): DFBits[LW] <> VAL =
           DFVal.Const(Token(dfType.width, arg))
     end Compare
 
