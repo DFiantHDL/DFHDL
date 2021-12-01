@@ -20,6 +20,7 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFBits[w]]   => s"DFBits[${Type.show[w]}]"
       case '[DFUInt[w]]   => s"DFUInt[${Type.show[w]}]"
       case '[DFSInt[w]]   => s"DFSInt[${Type.show[w]}]"
+      case '[DFEnum[t]]   => Type.show[t]
       case '[DFOpaque[t]] => Type.show[t]
       case '[DFTuple[t]] =>
         TypeRepr.of[t].showTuple(_.showType).mkStringBrackets

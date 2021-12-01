@@ -95,36 +95,37 @@ object DFEnum:
       import DFToken.TC
       given DFEnumTokenFromEntry[E <: DFEncoding, RE <: E]: TC[DFEnum[E], RE] =
         (dfType: DFEnum[E], value: RE) => Token[E, RE](dfType, value)
-      given DFEnumTokenFromToken[E <: DFEncoding]
-          : TC[DFEnum[E], DFToken[DFEnum[E]]] =
-        (dfType: DFEnum[E], value: DFToken[DFEnum[E]]) => value
 
     object Compare:
       import DFToken.Compare
       given DFEnumCompareEntry[
           E <: DFEncoding,
-          R,
+          RE <: E,
           Op <: FuncOp,
           C <: Boolean
       ](using
-          tc: DFToken.TC[DFEnum[E], R],
           op: ValueOf[Op]
-      ): Compare[DFEnum[E], R, Op, C] with
-        def conv(dfType: DFEnum[E], arg: R): DFEnum[E] <> TOKEN =
-          tc(dfType, arg)
-
-      end DFEnumCompareEntry
-    end Compare
+      ): Compare[DFEnum[E], RE, Op, C] with
+        def conv(dfType: DFEnum[E], arg: RE): DFEnum[E] <> TOKEN =
+          Token[E, RE](dfType, arg)
   end Token
   object Val:
     object TC:
       import DFVal.TC
-      given DFEnumFromTokenTC[E <: DFEncoding, R](using
-          tc: DFToken.TC[DFEnum[E], R],
+      given DFEnumFromEntry[E <: DFEncoding, RE <: E](using
           dfc: DFC
-      ): TC[DFEnum[E], R] with
-        def apply(dfType: DFEnum[E], value: R): DFValOf[DFEnum[E]] =
-          DFVal.Const(tc(dfType, value))
+      ): TC[DFEnum[E], RE] with
+        def apply(dfType: DFEnum[E], value: RE): DFValOf[DFEnum[E]] =
+          DFVal.Const(Token[E, RE](dfType, value))
     object Compare:
       import DFVal.Compare
+      given DFEnumCompareEntry[
+          E <: DFEncoding,
+          RE <: E,
+          Op <: FuncOp,
+          C <: Boolean
+      ]: Compare[DFEnum[E], RE, Op, C] with
+        def conv(dfType: DFEnum[E], arg: RE)(using DFC): DFEnum[E] <> VAL =
+          DFVal.Const(Token[E, RE](dfType, arg))
+  end Val
 end DFEnum

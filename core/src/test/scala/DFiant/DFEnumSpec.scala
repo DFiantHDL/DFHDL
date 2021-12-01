@@ -73,5 +73,8 @@ class DFEnumSpec extends DFSpec:
     assertEquals(t1Bar == t1Bar, DFBool token true)
     assertEquals(t1Bar != t1Baz, DFBool token true)
     assertEquals(t1Bar != MyEnum1.Baz, DFBool token true)
+    val t1 = MyEnum1 <> VAR
+    t1 == t1Bar
+    t1 == MyEnum1.Bar
   }
 end DFEnumSpec
