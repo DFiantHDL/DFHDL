@@ -59,8 +59,10 @@ object DFToken:
   ) def data: Data = token.value.data.asInstanceOf[Data]
 
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
-  trait TC[T <: DFTypeAny, -V] extends GeneralTC[T, V, DFTokenAny]:
+  trait TC[T <: DFTypeAny, -V] extends TCConv[T, V, DFTokenAny]:
     type Out = DFToken[T]
+    def apply(dfType: T, value: V): Out = conv(dfType, value)
+
   trait TCLPLP:
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
@@ -76,7 +78,7 @@ object DFToken:
         )
       ]
     inline given sameTokenType[T <: DFTypeAny]: TC[T, T <> TOKEN] with
-      def apply(dfType: T, value: T <> TOKEN): Out =
+      def conv(dfType: T, value: T <> TOKEN): Out =
         assert(dfType == value.dfType)
         value
   end TCLPLP

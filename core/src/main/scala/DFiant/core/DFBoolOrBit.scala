@@ -72,7 +72,7 @@ object DFBoolOrBit:
       given DFBoolTokenFromCandidate[T <: DFBoolOrBit, R](using
           ic: Candidate[R]
       ): TC[T, R] with
-        def apply(dfType: T, arg: R): Out =
+        def conv(dfType: T, arg: R): Out =
           val tokenArg = ic(arg)
           val tokenOut = (dfType, tokenArg.dfType) match
             case (DFBit, DFBool) => Token(DFBit, tokenArg.data)
@@ -192,7 +192,7 @@ object DFBoolOrBit:
           dfc: DFC,
           ic: Candidate[R]
       ): TC[T, R] with
-        def apply(dfType: T, arg: R): Out = b2b(dfType, arg)
+        def conv(dfType: T, arg: R): Out = b2b(dfType, arg)
     end TC
 
     object Compare:

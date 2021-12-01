@@ -30,7 +30,7 @@ object DFTuple:
       T <: NonEmptyTuple,
       V <: NonEmptyTuple,
       O,
-      TC[T <: DFTypeAny, V] <: GeneralTC[T, V, O]
+      TC[T <: DFTypeAny, V] <: TCConv[T, V, O]
   ]:
     def apply(
         fieldList: List[DFTypeAny],
@@ -41,7 +41,7 @@ object DFTuple:
         T <: NonEmptyTuple,
         V <: NonEmptyTuple,
         O,
-        TC[T <: DFTypeAny, V] <: GeneralTC[T, V, O]
+        TC[T <: DFTypeAny, V] <: TCConv[T, V, O]
     ]: TCZipper[T, V, O, TC] = ${
       zipperMacro[T, V, O, TC]
     }
@@ -50,7 +50,7 @@ object DFTuple:
         T <: NonEmptyTuple,
         V <: NonEmptyTuple,
         O,
-        TC[T <: DFTypeAny, V] <: GeneralTC[T, V, O]
+        TC[T <: DFTypeAny, V] <: TCConv[T, V, O]
     ](using
         Quotes,
         Type[T],
@@ -84,7 +84,7 @@ object DFTuple:
                   $tokenTupleValuesExpr
                     .apply($iExpr)
                     .asInstanceOf[vTpe.Underlying]
-                tc.apply(dfType, value)
+                tc.conv(dfType, value)
               }
             }
           '{ List(${ Varargs(exprs) }*) }
@@ -123,7 +123,7 @@ object DFTuple:
       ](using
           zipper: TCZipper[T, V, DFTokenAny, TC]
       ): TC[DFTuple[T], ValueOf[V]] with
-        def apply(dfType: DFTuple[T], value: ValueOf[V]): Out =
+        def conv(dfType: DFTuple[T], value: ValueOf[V]): Out =
           DFTuple.Token[T](
             dfType,
             zipper(dfType.fieldList, value.value.toList).map(_.asIR.data)
@@ -193,7 +193,7 @@ object DFTuple:
       ): TC[DFTuple[T], ValueOf[R]] =
         new TC[DFTuple[T], ValueOf[R]]:
           type TType = DFTuple[T]
-          def apply(dfType: DFTuple[T], value: ValueOf[R]): DFValOf[TType] =
+          def conv(dfType: DFTuple[T], value: ValueOf[R]): DFValOf[TType] =
             val dfVals =
               zipper(dfType.fieldList, value.value.toList)
             DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)

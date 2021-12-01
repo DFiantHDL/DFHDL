@@ -173,13 +173,13 @@ private object CompanionsDFBits:
       given DFBitsTokenFromCandidate[W <: Int, R, VW <: Int](using
           ic: Candidate.Aux[R, VW]
       )(using check: `W == VW`.Check[W, VW]): TC[DFBits[W], R] with
-        def apply(dfType: DFBits[W], value: R): Out =
+        def conv(dfType: DFBits[W], value: R): Out =
           val tokenArg = ic(value)
           check(dfType.width, tokenArg.asIR.width)
           tokenArg.asInstanceOf[Out]
 
       given DFBitsTokenFromSBV[W <: Int]: TC[DFBits[W], SameBitsVector] with
-        def apply(dfType: DFBits[W], value: SameBitsVector): Out =
+        def conv(dfType: DFBits[W], value: SameBitsVector): Out =
           DFBits.Token[W](dfType.width, value)
     end TC
 
@@ -531,14 +531,14 @@ private object CompanionsDFBits:
       ](using dfc: DFC, candidate: Candidate[R])(using
           check: `LW == RW`.Check[LW, candidate.OutW]
       ): TC[DFBits[LW], R] with
-        def apply(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
+        def conv(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
           val dfVal = candidate(value)
           check(dfType.width, dfVal.width.value)
           dfVal.asIR.asValOf[DFBits[LW]]
       given DFBitsFromSBV[LW <: Int](using
           dfc: DFC
       ): TC[DFBits[LW], SameBitsVector] with
-        def apply(
+        def conv(
             dfType: DFBits[LW],
             value: SameBitsVector
         ): DFValOf[DFBits[LW]] =

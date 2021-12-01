@@ -391,7 +391,7 @@ object DFXInt:
       )(using
           check: TCCheck[LS, LW, ic.OutS, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
-        def apply(dfType: DFXInt[LS, LW], value: R): Out =
+        def conv(dfType: DFXInt[LS, LW], value: R): Out =
           import DFUInt.Token.Ops.signed
           val token = ic(value)
           check(dfType.signed, dfType.width, token.dfType.signed, token.width)
@@ -407,7 +407,7 @@ object DFXInt:
               ir.DFToken(dfType.asIR)(token.data)
             else tokenIR
           resizedToken.asTokenOf[DFXInt[LS, LW]]
-        end apply
+        end conv
       end given
     end TC
 
@@ -579,7 +579,7 @@ object DFXInt:
       )(using
           check: TCCheck[LS, LW, ic.OutS, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
-        def apply(dfType: DFXInt[LS, LW], value: R): Out =
+        def conv(dfType: DFXInt[LS, LW], value: R): Out =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           val rhs = ic(value)

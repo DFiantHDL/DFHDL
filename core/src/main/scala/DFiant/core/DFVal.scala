@@ -270,8 +270,10 @@ private object CompanionsDFVal:
     end ApplyIdx
   end Alias
 
-  trait TC[T <: DFTypeAny, -R] extends GeneralTC[T, R, DFValAny]:
+  trait TC[T <: DFTypeAny, -R] extends TCConv[T, R, DFValAny]:
     type Out = DFValOf[T]
+    def apply(dfType: T, value: R): Out = conv(dfType, value)
+
   trait TCLP:
     // Accept any bubble value
     transparent inline given fromBubble[T <: DFTypeAny](using
@@ -280,7 +282,7 @@ private object CompanionsDFVal:
     ): TC[T, Bubble] =
       new TC[T, Bubble]:
         type TType = T
-        def apply(dfType: T, value: Bubble): DFValOf[T] =
+        def conv(dfType: T, value: Bubble): DFValOf[T] =
           Const(tokenTC(dfType, value))
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
@@ -298,7 +300,7 @@ private object CompanionsDFVal:
     transparent inline given sameValType[T <: DFTypeAny]: TC[T, T <> VAL] =
       new TC[T, T <> VAL]:
         type TType = T
-        def apply(dfType: T, value: T <> VAL): DFValOf[T] =
+        def conv(dfType: T, value: T <> VAL): DFValOf[T] =
           given Printer = DefaultPrinter
           assert(
             dfType == value.dfType,
@@ -310,7 +312,7 @@ private object CompanionsDFVal:
     ): TC[T, T <> TOKEN] =
       new TC[T, T <> TOKEN]:
         type TType = T
-        def apply(dfType: T, value: T <> TOKEN): DFValOf[T] =
+        def conv(dfType: T, value: T <> TOKEN): DFValOf[T] =
           given Printer = DefaultPrinter
           assert(
             dfType == value.dfType,
