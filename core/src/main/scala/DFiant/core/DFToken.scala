@@ -9,12 +9,16 @@ import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 
 final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny) extends AnyVal:
-  inline def ==[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      c: DFToken.Compare[T @uncheckedVariance, es.Out, FuncOp.===.type, false]
-  ): DFToken[DFBool] = c(this, es(that))
-  inline def !=[R](inline that: R)(using es: Exact.Summon[R, that.type])(using
-      c: DFToken.Compare[T @uncheckedVariance, es.Out, FuncOp.=!=.type, false]
-  ): DFToken[DFBool] = c(this, es(that))
+  transparent inline def ==[R](
+      inline that: R
+  )(using DFC): DFBool <> TOKEN = ${
+    DFToken.equalityMacro[T, R, FuncOp.===.type]('this, 'that)
+  }
+  transparent inline def !=[R](
+      inline that: R
+  )(using DFC): DFBool <> TOKEN = ${
+    DFToken.equalityMacro[T, R, FuncOp.=!=.type]('this, 'that)
+  }
   def ==[R <: DFTypeAny](that: DFValOf[R])(using
       dfc: DFC,
       op: DFVal.Compare[R, DFToken[T], FuncOp.===.type, true]
@@ -31,6 +35,25 @@ extension (tokenIR: ir.DFTokenAny)
   def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
 
 object DFToken:
+  def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
+      token: Expr[DFToken[T]],
+      arg: Expr[R]
+  )(using Quotes, Type[T], Type[R], Type[Op]): Expr[DFToken[DFBool]] =
+    import quotes.reflect.*
+    val exact = arg.asTerm.exactTerm
+    val exactExpr = exact.asExpr
+    val exactType = exact.tpe.asTypeOf[Any]
+    '{
+      val c = compiletime.summonInline[
+        DFToken.Compare[T, exactType.Underlying, Op, false]
+      ]
+      c($token, $exactExpr)(using
+        compiletime.summonInline[ValueOf[Op]],
+        new ValueOf[false](false)
+      )
+    }
+  end equalityMacro
+
   // Implicit conversions for tokens
   implicit inline def fromTC[T <: DFTypeAny, V](
       inline value: V
