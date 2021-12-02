@@ -15,18 +15,6 @@ sealed trait DFType extends Product, Serializable derives CanEqual:
 
 object DFType:
   type Aux[T <: DFType, Data0] = DFType { type Data = Data0 }
-  extension (token: DFTokenAny)
-    def bits: DFBits.Token = DFToken.forced(
-      DFBits(token.width),
-      token.dfType.dataToBitsData(token.data)
-    )
-    def isBubble: Boolean =
-      token.dfType.isDataBubble(token.data)
-  end extension
-
-  extension (token: DFBits.Token)
-    def as(dfType: DFType): DFTokenAny =
-      DFToken.forced(dfType, dfType.bitsDataToData(token.data))
 
   protected[ir] abstract class Companion[T <: DFType, D](using ClassTag[T]):
     type Token = DFToken[T]

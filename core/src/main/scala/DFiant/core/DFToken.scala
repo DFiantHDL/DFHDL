@@ -171,7 +171,8 @@ object DFToken:
   object Ops:
     extension [T <: DFTypeAny](token: DFToken[T])
       def bits(using w: Width[T]): DFToken[DFBits[w.Out]] =
-        token.asIR.bits.asTokenOf[DFBits[w.Out]]
+        import ir.DFToken.bits as bitsIR
+        token.asIR.bitsIR.asTokenOf[DFBits[w.Out]]
   end Ops
 
   trait Value[T <: DFTypeAny]:
