@@ -156,6 +156,42 @@ private object CompanionsDFBits:
         def apply(arg: R): Token[1] =
           import DFToken.Ops.bits
           ic(arg).bits
+      private def valueToBits(value: Any): DFBits[Int] <> TOKEN =
+        import DFBits.Token.Ops.++
+        value match
+          case v: ValueOf[?] =>
+            valueToBits(v.value)
+          case x: NonEmptyTuple =>
+            x.toList
+              .map(valueToBits)
+              .reduce((l, r) => (l ++ r).asIR.asTokenOf[DFBits[Int]])
+          case i: Int =>
+            Token(1, BitVector.bit(i > 0), BitVector.zero)
+          case token: DFToken[_] =>
+            val tokenIR = token.asIR
+            val tokenOut = tokenIR.dfType match
+              case _: ir.DFBits => tokenIR.asTokenOf[DFBits[Int]]
+              case _            => tokenIR.bits.asTokenOf[DFBits[Int]]
+            tokenOut
+        end match
+      end valueToBits
+      transparent inline given fromTuple[R <: NonEmptyTuple]
+          : Candidate[ValueOf[R]] = ${ DFBitsMacro[ValueOf[R]] }
+      def DFBitsMacro[R](using
+          Quotes,
+          Type[R]
+      ): Expr[Candidate[R]] =
+        import quotes.reflect.*
+        import Width.*
+        val rTpe = TypeRepr.of[R]
+        val wType = rTpe.calcValWidth(true).asTypeOf[Int]
+        '{
+          new Candidate[R]:
+            type OutW = wType.Underlying
+            def apply(value: R): DFToken[DFBits[OutW]] =
+              valueToBits(value).asIR.asTokenOf[DFBits[OutW]]
+        }
+      end DFBitsMacro
     end Candidate
 
     object TC:
@@ -444,8 +480,6 @@ private object CompanionsDFBits:
             x.toList.map(valueToBits).concatBits
           case i: Int =>
             DFVal.Const(Token(1, BitVector.bit(i > 0), BitVector.zero))
-//          case bool: Boolean =>
-//            DFVal.Const(Token(1, BitVector.bit(bool), BitVector.zero))
           case token: DFToken[_] =>
             val tokenIR = token.asIR
             val tokenOut = tokenIR.dfType match
@@ -469,30 +503,7 @@ private object CompanionsDFBits:
         import quotes.reflect.*
         import Width.*
         val rTpe = TypeRepr.of[R]
-        extension (tpe: TypeRepr)
-          def calcValWidth: TypeRepr =
-            tpe.asType match
-              case '[ValueOf[t]] =>
-                TypeRepr.of[t].calcValWidth
-              case '[DFVal[t, m]] =>
-                TypeRepr.of[t].calcWidth
-              case '[DFToken[t]] =>
-                TypeRepr.of[t].calcWidth
-              case '[NonEmptyTuple] =>
-                val AppliedType(_, args) = tpe.dealias
-                val widths = args.map(a => a.calcValWidth)
-                widths.reduce(_ + _)
-              case _ =>
-                tpe.dealias match
-                  case ConstantType(IntConstant(v)) if (v == 1 || v == 0) =>
-                    ConstantType(IntConstant(1))
-                  case ref: TermRef =>
-                    ref.widen.calcValWidth
-                  case x =>
-                    report.errorAndAbort(
-                      s"Unsupported argument value ${x.showType} for dataflow receiver type DFBits"
-                    )
-        val wType = rTpe.calcValWidth.asTypeOf[Int]
+        val wType = rTpe.calcValWidth(false).asTypeOf[Int]
         '{
           new Candidate[R]:
             type OutW = wType.Underlying

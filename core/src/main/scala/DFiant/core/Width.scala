@@ -132,6 +132,31 @@ object Width:
           end match
       end match
     end calcWidth
+    def calcValWidth(onlyTokens: Boolean): quotes.reflect.TypeRepr =
+      import quotes.reflect.*
+      dfTpe.asType match
+        case '[ValueOf[t]] =>
+          TypeRepr.of[t].calcValWidth(onlyTokens)
+        case '[DFVal[t, m]] if !onlyTokens =>
+          TypeRepr.of[t].calcWidth
+        case '[DFToken[t]] =>
+          TypeRepr.of[t].calcWidth
+        case '[NonEmptyTuple] =>
+          val AppliedType(_, args) = dfTpe.dealias
+          val widths = args.map(a => a.calcValWidth(onlyTokens))
+          widths.reduce(_ + _)
+        case _ =>
+          dfTpe.dealias match
+            case ConstantType(IntConstant(v)) if (v == 1 || v == 0) =>
+              ConstantType(IntConstant(1))
+            case ref: TermRef =>
+              ref.widen.calcValWidth(onlyTokens)
+            case x =>
+              report.errorAndAbort(
+                s"Unsupported argument value ${x.showType} for dataflow receiver type DFBits"
+              )
+      end match
+    end calcValWidth
   end extension
   def getWidthMacro[T](using Quotes, Type[T]): Expr[Width[T]] =
     import quotes.reflect.*

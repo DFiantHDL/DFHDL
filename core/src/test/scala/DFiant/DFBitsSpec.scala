@@ -53,7 +53,9 @@ class DFBitsSpec extends DFSpec:
       val eight = 8
       val t10: DFBits[eight.type] <> TOKEN = h"2"
     }
-//    val t10 = (DFBits(8) token (h"A", h"9")).verifyTokenOf[DFBits[8]]
+    val t10 = (DFBits(8) token (h"A", h"7")).verifyTokenOf[DFBits[8]]
+    assertEquals(t10, h"A7")
+//    val t11: DFBits[8] <> TOKEN = (h"A", h"7")
   }
   test("Token Resize") {
     assertEquals(h"F0".resize(6), h"6'30")
@@ -123,6 +125,7 @@ class DFBitsSpec extends DFSpec:
     val t5: DFBits[4] <> VAL = h"A"
     val t6: DFBits[3] <> VAL = b"101"
     val t7: DFBits[Int] <> VAL = b"11"
+//    val t8: DFBits[8] <> VAL = (b"100", 1, h"9")
   }
   test("Assignment") {
     val b8 = DFBits(8) <> VAR
