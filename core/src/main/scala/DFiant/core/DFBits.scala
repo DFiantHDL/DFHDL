@@ -490,7 +490,7 @@ private object CompanionsDFBits:
                     ref.widen.calcValWidth
                   case x =>
                     report.errorAndAbort(
-                      s"Unsupported argument value ${x.show} for dataflow receiver type DFBits"
+                      s"Unsupported argument value ${x.showType} for dataflow receiver type DFBits"
                     )
         val wType = rTpe.calcValWidth.asTypeOf[Int]
         '{
