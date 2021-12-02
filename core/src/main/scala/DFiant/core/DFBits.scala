@@ -471,31 +471,27 @@ private object CompanionsDFBits:
         val rTpe = TypeRepr.of[R]
         extension (tpe: TypeRepr)
           def calcValWidth: TypeRepr =
-            tpe.dealias match
-              case applied: AppliedType
-                  if applied <:< TypeRepr.of[ValueOf[_]] =>
-                applied.args.head.calcValWidth
-              case AppliedType(tycon, tpe :: _)
-                  if tycon <:< TypeRepr.of[DFVal] =>
-                tpe.dealias.calcWidth
-              case AppliedType(tycon, tpe :: _)
-                  if tycon <:< TypeRepr.of[DFToken] =>
-                tpe.calcWidth
-              case AppliedType(tycon, args)
-                  if tycon <:< TypeRepr.of[NonEmptyTuple] =>
+            tpe.asType match
+              case '[ValueOf[t]] =>
+                TypeRepr.of[t].calcValWidth
+              case '[DFVal[t, m]] =>
+                TypeRepr.of[t].calcWidth
+              case '[DFToken[t]] =>
+                TypeRepr.of[t].calcWidth
+              case '[NonEmptyTuple] =>
+                val AppliedType(_, args) = tpe.dealias
                 val widths = args.map(a => a.calcValWidth)
                 widths.reduce(_ + _)
-              case ConstantType(IntConstant(v)) if (v == 1 || v == 0) =>
-                ConstantType(IntConstant(1))
-//              case ConstantType(BooleanConstant(v)) =>
-//                ConstantType(IntConstant(1))
-              case ref: TermRef =>
-                ref.widen.calcValWidth
-              case x =>
-                report.errorAndAbort(
-                  s"Unsupported argument value ${x.show} for dataflow receiver type DFBits"
-                )
-            end match
+              case _ =>
+                tpe.dealias match
+                  case ConstantType(IntConstant(v)) if (v == 1 || v == 0) =>
+                    ConstantType(IntConstant(1))
+                  case ref: TermRef =>
+                    ref.widen.calcValWidth
+                  case x =>
+                    report.errorAndAbort(
+                      s"Unsupported argument value ${x.show} for dataflow receiver type DFBits"
+                    )
         val wType = rTpe.calcValWidth.asTypeOf[Int]
         '{
           new Candidate[R]:

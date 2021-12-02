@@ -53,6 +53,7 @@ class DFBitsSpec extends DFSpec:
       val eight = 8
       val t10: DFBits[eight.type] <> TOKEN = h"2"
     }
+//    val t10 = (DFBits(8) token (h"A", h"9")).verifyTokenOf[DFBits[8]]
   }
   test("Token Resize") {
     assertEquals(h"F0".resize(6), h"6'30")
