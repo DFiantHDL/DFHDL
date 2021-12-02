@@ -132,17 +132,21 @@ object DFTuple:
 
     object Compare:
       import DFToken.Compare
-//      given DFTupleTokenFromTuple[
-//          T <: NonEmptyTuple,
-//          V <: NonEmptyTuple
-//      ](using
-//          zipper: TCZipper[T, V, DFTokenAny, DFToken.TC]
-//      ): Compare[DFTuple[T], ValueOf[V]] with
-//        def apply(dfType: DFTuple[T], value: ValueOf[V]): Out =
-//          DFTuple.Token[T](
-//            dfType,
-//            zipper(dfType.fieldList, value.value.toList).map(_.asIR.data)
-//          )
+      given DFTupleTokenFromTuple[
+          T <: NonEmptyTuple,
+          V <: NonEmptyTuple,
+          Op <: FuncOp,
+          C <: Boolean
+      ](using
+          zipper: TCZipper[T, V, DFTokenAny, [T <: DFTypeAny,
+          R] =>> Compare[T, R, Op, C]]
+      ): Compare[DFTuple[T], ValueOf[V], Op, C] with
+        def conv(dfType: DFTuple[T], value: ValueOf[V]): Out =
+          DFTuple.Token[T](
+            dfType,
+            zipper(dfType.fieldList, value.value.toList).map(_.asIR.data)
+          )
+    end Compare
 
     object Ops:
       extension [T <: NonEmptyTuple](t: DFToken[DFTuple[T]])
@@ -199,5 +203,23 @@ object DFTuple:
             DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
 
     end TC
+
+    object Compare:
+      import DFVal.Compare
+      given DFTupleArg[
+          T <: NonEmptyTuple,
+          R <: NonEmptyTuple,
+          Op <: FuncOp,
+          C <: Boolean
+      ](using
+          zipper: TCZipper[T, R, DFValAny, [T <: DFTypeAny,
+          R] =>> Compare[T, R, Op, C]],
+          dfc: DFC
+      ): Compare[DFTuple[T], ValueOf[R], Op, C] with
+        def conv(dfType: DFTuple[T], value: ValueOf[R]): Out =
+          val dfVals =
+            zipper(dfType.fieldList, value.value.toList)
+          DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
+    end Compare
   end Val
 end DFTuple

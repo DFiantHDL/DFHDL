@@ -143,6 +143,7 @@ object DFToken:
     export DFBits.Token.Compare.given
     export DFDecimal.Token.Compare.given
     export DFEnum.Token.Compare.given
+    export DFTuple.Token.Compare.given
 
   object Ops:
     extension [T <: DFTypeAny](token: DFToken[T])

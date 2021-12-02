@@ -401,6 +401,7 @@ private object CompanionsDFVal:
     export DFBits.Val.Compare.given
     export DFDecimal.Val.Compare.given
     export DFEnum.Val.Compare.given
+    export DFTuple.Val.Compare.given
   end Compare
 
 //  object Conversions:

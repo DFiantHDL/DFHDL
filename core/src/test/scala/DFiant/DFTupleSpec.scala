@@ -21,6 +21,8 @@ class DFTupleSpec extends DFSpec:
        |t4 := t3
        |val t5 = t3 == t4
        |val t6 = t3 == ((d"8'22", 1), b"101")
+       |val b3 = DFBits(3) <> VAR
+       |val t7 = t3 == ((d"8'11", 1), b3)
        |""".stripMargin
   ) {
     val t1: (DFUInt[8], DFBit, DFBits[3]) <> VAR =
@@ -34,7 +36,9 @@ class DFTupleSpec extends DFSpec:
     t4 := t3
     val t5 = t3 == t4
     val t6 = t3 == tokenB
-//    val t7 = t3 == ((d"11", 1), b"010")
+//    tokenA == (22, 1, b"101")
+    val b3 = DFBits(3) <> VAR
+    val t7 = t3 == ((d"8'11", 1), b3)
 //    val t5: (DFUInt[8], DFBit, DFBits[3]) <> VAR =
 //      tplA <> VAR init (22, 0, (b"1", b"0", b"0"))
   }
