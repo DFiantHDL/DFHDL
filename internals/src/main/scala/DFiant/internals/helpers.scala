@@ -99,4 +99,4 @@ extension (using quotes: Quotes)(sc: Expr[StringContext])
         '{ ${ l.asExpr }.toString + ${ r.asExpr }.toString }.asTerm
     }
 
-implicit def fromValueOf[T](v: ValueOf[T]): T = v.value
+inline implicit def fromValueOf[T](v: ValueOf[T]): T = v.value
