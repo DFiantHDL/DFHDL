@@ -247,27 +247,50 @@ private object CompanionsDFVal:
       end apply
     end ApplyRange
     object ApplyIdx:
-      def apply[W <: Int, M <: Modifier, IW <: Int](
-          relVal: DFVal[DFBits[W], M],
+      def apply[T <: DFTypeAny, W <: Int, M <: Modifier, IW <: Int](
+          dfType: T,
+          relVal: DFVal[DFTypeAny, M],
           relIdx: DFUInt[IW] <> VAL
-      )(using DFC): DFVal[DFBit, M] =
+      )(using DFC): DFVal[T, M] =
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.ApplyIdx(
-            ir.DFBit,
+            dfType.asIR,
             relVal.asIR.refTW(alias),
             relIdx.asIR.refTW(alias),
             dfc.owner.ref,
             dfc.getMeta,
             ir.DFTags.empty
           )
-        alias.addMember.asVal[DFBit, M]
+        alias.addMember.asVal[T, M]
       end apply
-      def apply[W <: Int, M <: Modifier, I <: Int](
-          relVal: DFVal[DFBits[W], M],
+      def apply[T <: DFTypeAny, W <: Int, M <: Modifier, I <: Int](
+          dfType: T,
+          relVal: DFVal[DFTypeAny, M],
           relIdx: Inlined[I]
-      )(using DFC): DFVal[DFBit, M] =
-        ???
+      )(using dfc: DFC, info: IntInfo[I]): DFVal[T, M] =
+        val idxConst = Const(
+          DFXInt.Token(false, info.width(relIdx), Some(relIdx.value))
+        )
+        apply(dfType, relVal, idxConst)
     end ApplyIdx
+    object SelectField:
+      def apply[T <: DFTypeAny, M <: Modifier](
+          dfType: T,
+          relVal: DFVal[DFTypeAny, M],
+          fieldName: String
+      )(using DFC): DFVal[T, M] =
+        lazy val alias: ir.DFVal =
+          ir.DFVal.Alias.SelectField(
+            dfType.asIR,
+            relVal.asIR.refTW(alias),
+            fieldName,
+            dfc.owner.ref,
+            dfc.getMeta,
+            ir.DFTags.empty
+          )
+        alias.addMember.asVal[T, M]
+      end apply
+    end SelectField
   end Alias
 
   trait TC[T <: DFTypeAny, -R] extends TCConv[T, R, DFValAny]:

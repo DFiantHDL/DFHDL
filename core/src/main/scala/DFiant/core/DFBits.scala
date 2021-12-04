@@ -39,7 +39,7 @@ private object CompanionsDFBits:
         [AW <: Int, TW <: Int] =>> "The alias width (" + AW +
           ") is different than the dataflow value width (" + TW + ")."
       ]
-  protected object BitIndex
+  protected[core] object BitIndex
       extends Check2[
         Int,
         Int,
@@ -619,7 +619,7 @@ private object CompanionsDFBits:
             dfc: DFC
         ): DFVal[DFBit, M] =
           check(relIdx, lhs.width)
-          DFVal.Alias.ApplyIdx(lhs, relIdx)
+          DFVal.Alias.ApplyIdx(DFBit, lhs, relIdx)
         def apply[H <: Int, L <: Int](
             relBitHigh: Inlined[H],
             relBitLow: Inlined[L]

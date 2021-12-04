@@ -1,5 +1,6 @@
 package DFiant.core
 import DFiant.compiler.ir
+import DFiant.compiler.ir.DFVal.Modifier
 import ir.DFVal.Func.Op as FuncOp
 import DFiant.internals.*
 
@@ -149,10 +150,14 @@ object DFTuple:
     end Compare
 
     object Ops:
+      import CompanionsDFBits.BitIndex
       extension [T <: NonEmptyTuple](t: DFToken[DFTuple[T]])
         def apply[I <: Int](i: Inlined[I])(using
+            check: BitIndex.Check[I, Tuple.Size[T]],
+            size: ValueOf[Tuple.Size[T]],
             tc: DFType.TC[Tuple.Elem[T, I]]
         ): DFToken[tc.Type] =
+          check(i, size)
           selectRuntime[tc.Type](t.wide, i)
       private def selectRuntime[T <: DFTypeAny](
           token: Token[NonEmptyTuple],
@@ -221,5 +226,41 @@ object DFTuple:
             zipper(dfType.fieldList, value.value.toList)
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
     end Compare
+
+    object Ops:
+      import CompanionsDFBits.BitIndex
+      extension [T <: NonEmptyTuple, M <: Modifier](t: DFVal[DFTuple[T], M])
+        def apply[I <: Int](i: Inlined[I])(using
+            dfc: DFC,
+            check: BitIndex.Check[I, Tuple.Size[T]],
+            size: ValueOf[Tuple.Size[T]],
+            tc: DFType.TC[Tuple.Elem[T, I]]
+        ): DFVal[tc.Type, M] =
+          check(i, size)
+          applyForced[tc.Type](i)
+        private def applyForced[OT <: DFTypeAny](i: Int)(using
+            dfc: DFC
+        ): DFVal[OT, M] =
+          DFVal.Alias
+            .SelectField(t.dfType.fieldList(i), t, i.toString())
+            .asIR
+            .asVal[OT, M]
+      end extension
+      extension [T1, M <: Modifier](t: DFVal[DFTuple[Tuple1[T1]], M])
+        inline def _1(using tc: DFType.TC[T1], dfc: DFC): DFVal[tc.Type, M] =
+          t.applyForced[tc.Type](0)
+      extension [T1, T2, M <: Modifier](t: DFVal[DFTuple[(T1, T2)], M])
+        inline def _1(using tc: DFType.TC[T1], dfc: DFC): DFVal[tc.Type, M] =
+          t.applyForced[tc.Type](0)
+        inline def _2(using tc: DFType.TC[T2], dfc: DFC): DFVal[tc.Type, M] =
+          t.applyForced[tc.Type](1)
+      extension [T1, T2, T3, M <: Modifier](t: DFVal[DFTuple[(T1, T2, T3)], M])
+        inline def _1(using tc: DFType.TC[T1], dfc: DFC): DFVal[tc.Type, M] =
+          t.applyForced[tc.Type](0)
+        inline def _2(using tc: DFType.TC[T2], dfc: DFC): DFVal[tc.Type, M] =
+          t.applyForced[tc.Type](1)
+        inline def _3(using tc: DFType.TC[T3], dfc: DFC): DFVal[tc.Type, M] =
+          t.applyForced[tc.Type](2)
+    end Ops
   end Val
 end DFTuple

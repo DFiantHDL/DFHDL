@@ -257,6 +257,26 @@ object DFVal:
         copy(tags = tags).asInstanceOf[this.type]
     end ApplyIdx
 
+    final case class SelectField(
+        dfType: DFType,
+        relValRef: DFVal.Ref,
+        fieldName: String,
+        ownerRef: DFOwner.Ref,
+        meta: Meta,
+        tags: DFTags
+    ) extends Alias:
+      def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+        case that: SelectField =>
+          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
+            this.fieldName == that.fieldName &&
+            this.meta =~ that.meta && this.tags =~ that.tags
+        case _ => false
+      protected def setMeta(meta: Meta): this.type =
+        copy(meta = meta).asInstanceOf[this.type]
+      protected def setTags(tags: DFTags): this.type =
+        copy(tags = tags).asInstanceOf[this.type]
+    end SelectField
+
   end Alias
 end DFVal
 

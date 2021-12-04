@@ -726,6 +726,7 @@ object DFUInt:
   def apply[W <: Int](width: Inlined[W])(using
       Width.Check[false, W]
   ): DFUInt[W] = DFXInt(false, width)
+  def apply[W <: Int](using dfType: DFUInt[W]): DFUInt[W] = dfType
 
   type Token[W <: Int] = DFDecimal.Token[false, W, 0]
   object Token:
@@ -750,6 +751,8 @@ object DFSInt:
   def apply[W <: Int](width: Inlined[W])(using
       Width.Check[true, W]
   ): DFSInt[W] = DFXInt(true, width)
+  def apply[W <: Int](using dfType: DFSInt[W]): DFSInt[W] = dfType
+
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]
   object Token:
     object Ops

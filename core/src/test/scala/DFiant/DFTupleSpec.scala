@@ -24,6 +24,10 @@ class DFTupleSpec extends DFSpec:
        |val b3 = DFBits(3) <> VAR
        |val t7 = t3 == ((d"8'11", 1), b3)
        |val t8 = (DFUInt(8), DFBit, DFBits(3)) <> VAR init (d"8'22", 0, b"100")
+       |val t9 = (DFUInt(8), DFBit, DFBits(3), DFBool) <> VAR
+       |val t10 = t1._1
+       |val t11 = t1._1
+       |val t12 = t9(0)
        |""".stripMargin
   ) {
     val t1: (DFUInt[8], DFBit, DFBits[3]) <> VAR =
@@ -43,6 +47,10 @@ class DFTupleSpec extends DFSpec:
     val t7 = t3 == ((d"8'11", 1), b3)
     val t8: (DFUInt[8], DFBit, DFBits[3]) <> VAR =
       tplA <> VAR init (22, 0, (b"1", b"0", b"0"))
+    val t9 = (DFUInt[8], DFBit, DFBits[3], DFBool) <> VAR
+    val t10: DFUInt[8] <> VAR = t1(0)
+    val t11: DFUInt[8] <> VAR = t1._1
+    val t12: DFUInt[8] <> VAR = t9(0)
   }
 
   test("Inlined width") {
