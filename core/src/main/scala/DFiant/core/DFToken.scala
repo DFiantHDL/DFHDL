@@ -1,14 +1,24 @@
 package DFiant.core
 import DFiant.compiler.printing.Printer
 import DFiant.compiler.ir
-import ir.DFVal.Func.{Op => FuncOp}
+import ir.DFVal.Func.Op as FuncOp
 import DFiant.internals.*
 
 import scala.quoted.*
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 
-final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny) extends AnyVal:
+final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny)
+    extends AnyVal
+    with Selectable:
+//  transparent inline def selectDynamic(inline name: String): Any = ${
+//    selectMacro('this, 'name)
+//  }
+
+  def selectDynamic(name: String): Any =
+    val ir.DFStruct(structName, fieldMap) = value.dfType
+//    val dfType = fieldMap(name)
+    1
   transparent inline def ==[R](
       inline that: R
   )(using DFC): DFBool <> TOKEN = ${
@@ -35,6 +45,37 @@ extension (tokenIR: ir.DFTokenAny)
   def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
 
 object DFToken:
+  trait Refiner[T <: DFFields]:
+    type Out <: DFToken[DFStruct[T]]
+  object Refiner:
+    transparent inline given [T <: DFFields]: Refiner[T] = ${
+      refineMacro[T]
+    }
+    def refineMacro[T <: DFFields](using
+        Quotes,
+        Type[T]
+    ): Expr[Refiner[T]] =
+      import quotes.reflect.*
+      '{
+        new Refiner[T]:
+          type Out = DFToken[DFStruct[T]] {
+            val bash: Int
+          }
+      }
+  end Refiner
+//  def selectMacro[T <: DFTypeAny](
+//      token: Expr[DFToken[T]],
+//      name: Expr[String]
+//  )(using Quotes, Type[T]): Expr[Any] =
+//    import quotes.reflect.*
+//    Type.of[T] match
+//      case '[DFTuple[t]] =>
+//      case '[DFStruct[t]] =>
+
+  implicit def refined[T <: DFFields](token: DFToken[DFStruct[T]])(using
+      r: Refiner[T]
+  ): r.Out = token.asInstanceOf[r.Out]
+
   def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
       token: Expr[DFToken[T]],
       arg: Expr[R]
