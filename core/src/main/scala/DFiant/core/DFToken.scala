@@ -56,12 +56,25 @@ object DFToken:
         Type[T]
     ): Expr[Refiner[T]] =
       import quotes.reflect.*
+      val tpt = TypeRepr.of[DFToken[DFStruct[T]]].asTypeTree
+      val sym = Symbol.newVal(
+        Symbol.noSymbol,
+        "bash",
+        TypeRepr.of[Int],
+        Flags.EmptyFlags,
+        Symbol.noSymbol
+      )
+      val r =
+        Refined
+          .copy(tpt)(tpt, List(ValDef(sym, None)))
+      println(r.tpe.show)
       '{
         new Refiner[T]:
           type Out = DFToken[DFStruct[T]] {
             val bash: Int
           }
       }
+    end refineMacro
   end Refiner
 //  def selectMacro[T <: DFTypeAny](
 //      token: Expr[DFToken[T]],
