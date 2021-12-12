@@ -105,8 +105,8 @@ private object CompanionsDFBits:
         value: SameBitsVector
     ): Token[W] =
       val level = value match
-        case SameBitsVector.b0s => false
-        case SameBitsVector.b1s => true
+        case SameBitsVector.Zeros => false
+        case SameBitsVector.Ones  => true
       Token(
         width,
         BitVector.fill(width.value)(level),

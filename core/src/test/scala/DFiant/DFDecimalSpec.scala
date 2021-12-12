@@ -143,7 +143,7 @@ class DFDecimalSpec extends DFSpec:
          |t2 := t0.uint.resize(8)
          |""".stripMargin
     } {
-      val t0 = DFBits(6) const b0s
+      val t0 = DFBits(6) const Zeros
       val t1: DFUInt[8] <> VAL = t0
       val t2 = DFUInt(8) <> VAR
       t2 := t1
@@ -177,7 +177,7 @@ class DFDecimalSpec extends DFSpec:
       val s8 = DFSInt(8) <> VAR init ?
       val u6 = DFUInt(6) <> IN
       val s6 = DFSInt(6) <> IN
-      val b6 = DFBits(6) const b0s
+      val b6 = DFBits(6) const Zeros
       u8 := 0
       u8 := 255
       u8 := d"0"
