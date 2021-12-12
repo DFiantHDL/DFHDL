@@ -4,6 +4,7 @@ import DFiant.compiler.ir.{
   DFOwner,
   DFMember,
   DFRef,
+  DFRefAny,
   DFTag,
   DB,
   DFDesignBlock,
@@ -16,13 +17,13 @@ class MutableDB(val duringTest: Boolean = false):
   private val self = this
   private var members
   //                          Member    RefSet      Ignore
-      : mutable.ArrayBuffer[(DFMember, Set[DFRef], Boolean)] =
+      : mutable.ArrayBuffer[(DFMember, Set[DFRefAny], Boolean)] =
     mutable.ArrayBuffer()
   def top: DFDesignBlock = members.head._1 match
     case o @ DFDesignBlock.Top() => o
     case x => throw new IllegalArgumentException(s"Unexpected member head, $x")
   private var memberTable: mutable.Map[DFMember, Int] = mutable.Map()
-  private var refTable: mutable.Map[DFRef, DFMember] = mutable.Map()
+  private var refTable: mutable.Map[DFRefAny, DFMember] = mutable.Map()
   object OwnershipContext:
     private var stack: List[DFOwner] = Nil
     def enter(owner: DFOwner): Unit =
@@ -61,25 +62,25 @@ class MutableDB(val duringTest: Boolean = false):
 ////  ): M with DFMember.RefOwner =
 ////    addMember(ctx.container, member).asInstanceOf[M with DFMember.RefOwner]
 //
-  //same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
+  // same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
   def plantMember[M <: DFMember](owner: DFOwner, member: M): M =
     newRefFor[DFOwner, DFOwner.Ref](
       member.ownerRef,
       owner
-    ) //now this reference will refer to meta design owner
+    ) // now this reference will refer to meta design owner
     addMember(member)
 
-  def newRefFor[M <: DFMember, R <: DFRef.Of[M]](ref: R, member: M): R =
+  def newRefFor[M <: DFMember, R <: DFRef[M]](ref: R, member: M): R =
     memberTable.get(member) match
-      //The member already exists, but it might have been updated
+      // The member already exists, but it might have been updated
       case Some(idx) =>
-        //get the newest member at index
+        // get the newest member at index
         val (newestMember, refSet, ignore) = members(idx)
         members.update(idx, (newestMember, refSet + ref, ignore))
         refTable += (ref -> newestMember)
-      //In case where we do meta programming and planting one design into another,
-      //we may not have the member available at the table. This is OK.
-      //So we only add the reference here.
+      // In case where we do meta programming and planting one design into another,
+      // we may not have the member available at the table. This is OK.
+      // So we only add the reference here.
       case _ =>
         refTable += (ref -> member)
     ref
@@ -105,22 +106,22 @@ class MutableDB(val duringTest: Boolean = false):
     ret.reverse
 
   def getMember[M <: DFMember, M0 <: M](
-      ref: DFRef.Of[M]
+      ref: DFRef[M]
   ): M0 = refTable(ref).asInstanceOf[M0]
 
   def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
     val idx = memberTable(originalMember)
-    //get the most updated member currently positioned at the index of the original member
+    // get the most updated member currently positioned at the index of the original member
     val originalMemberUpdated = members(idx)._1.asInstanceOf[M]
-    //apply function to get the new member
+    // apply function to get the new member
     val newMember = newMemberFunc(originalMemberUpdated)
     val (_, refSet, ignore) = members(idx)
-    //update all references to the new member
+    // update all references to the new member
     refSet.foreach(r => refTable.update(r, newMember))
-    //add the member to the table with the position index
-    //(we don't remove the old member since it might still be used as a user-reference in a mutable DB)
+    // add the member to the table with the position index
+    // (we don't remove the old member since it might still be used as a user-reference in a mutable DB)
     memberTable.update(newMember, idx)
-    //update the member in the member position array
+    // update the member in the member position array
     members.update(idx, (newMember, refSet, ignore))
     newMember
   end setMember
@@ -128,13 +129,13 @@ class MutableDB(val duringTest: Boolean = false):
   def replaceMember[M <: DFMember](originalMember: M, newMember: M): M =
     ignoreMember(
       newMember
-    ) //marking the newMember slot as 'ignore' in case it exists
+    ) // marking the newMember slot as 'ignore' in case it exists
     setMember[M](originalMember, _ => newMember)
     newMember
 
   def ignoreMember[M <: DFMember](
       member: M
-  ): M = //ignoring it means removing it for the immutable DB
+  ): M = // ignoring it means removing it for the immutable DB
     memberTable.get(member).foreach { idx =>
       members.update(idx, (member, members(idx)._2, true))
     }
@@ -142,13 +143,13 @@ class MutableDB(val duringTest: Boolean = false):
 
   def immutable: DB =
     var size = -1
-    //Touching all lazy origin refs to force their addition.
-    //During this procedure it is possible that new reference are added. If so, we re-iterate
+    // Touching all lazy origin refs to force their addition.
+    // During this procedure it is possible that new reference are added. If so, we re-iterate
     while (refTable.size != size) do
       size = refTable.size
       refTable.keys.foreach {
         case or: DFRef.TwoWay[_] => or.originRef
-        case _                   => //do nothing
+        case _                   => // do nothing
       }
     val notIgnoredMembers =
       members.iterator.filterNot(e => e._3).map(e => e._1).toList
@@ -157,7 +158,7 @@ class MutableDB(val duringTest: Boolean = false):
   given getSet: MemberGetSet with
     val designDB: DB = immutable
     def apply[M <: DFMember, M0 <: M](
-        ref: DFRef.Of[M]
+        ref: DFRef[M]
     ): M0 = getMember(ref)
     def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M =
       setMember(originalMember, newMemberFunc)

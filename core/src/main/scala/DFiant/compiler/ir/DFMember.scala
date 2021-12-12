@@ -303,6 +303,24 @@ object DFNet:
   enum Op derives CanEqual:
     case Assignment, Connection, LazyConnection
 
+//final case class If(
+//    cond: DFVal.Ref,
+//    thenB: Ref,
+//    ownerRef: DFOwner.Ref,
+//    meta: Meta,
+//    tags: DFTags
+//) extends DFMember:
+//  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+//    case that: If =>
+//      this.cond =~ that.cond && this.op == that.op && this.fromRef =~ that.fromRef &&
+//        this.meta =~ that.meta && this.tags =~ that.tags
+//    case _ => false
+//  protected def setMeta(meta: Meta): this.type =
+//    copy(meta = meta).asInstanceOf[this.type]
+//  protected def setTags(tags: DFTags): this.type =
+//    copy(tags = tags).asInstanceOf[this.type]
+//end If
+
 sealed trait DFOwner extends DFMember:
   val meta: Meta
   def isTop: Boolean = ownerRef match
@@ -318,7 +336,21 @@ object DFOwner:
     )
 
 sealed trait DFBlock extends DFOwner
-sealed trait DFConditionalBlock extends DFBlock
+
+final case class DFConditionalBlock(
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFBlock:
+  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: DFConditionalBlock =>
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type =
+    copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type =
+    copy(tags = tags).asInstanceOf[this.type]
+end DFConditionalBlock
 
 final case class DFDesignBlock(
     designType: String,
