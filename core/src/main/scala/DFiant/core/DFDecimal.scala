@@ -319,8 +319,6 @@ object DFDecimal:
       export DFXInt.Val.Compare.given
     object Ops:
       export DFXInt.Val.Ops.*
-    object Conversions:
-      export DFXInt.Val.Conversions.*
   end Val
 end DFDecimal
 
@@ -710,14 +708,6 @@ object DFXInt:
             check: TCCheck[LS, LW, icR.OutS, icR.OutW]
         ): Unit = {}
     end Ops
-
-    object Conversions
-//      implicit inline def DFUIntValConversion[R](inline from: R)(using
-//          ic: Candidate[from.type]
-//      ): DFValOf[DFUInt[Int]] =
-//        val rhs = ic(from)
-////        check(false, rhs.dfType.signed)
-//        rhs.asIR.asValOf[DFUInt[Int]]
   end Val
 end DFXInt
 

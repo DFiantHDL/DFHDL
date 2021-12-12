@@ -118,13 +118,14 @@ class DFBitsSpec extends DFSpec:
     }
   }
   test("DFVal Conversion") {
+    val w = 2
     val t1: DFBits[8] <> VAL = b0s
     val t2: DFBits[8] <> VAL = b1s
     val t3: DFBits[8] <> VAL = d"255"
     val t4: DFBits[5] <> VAL = ?
     val t5: DFBits[4] <> VAL = h"A"
     val t6: DFBits[3] <> VAL = b"101"
-    val t7: DFBits[Int] <> VAL = b"11"
+    val t7: DFBits[w.type] <> VAL = b"11"
 //    val t8: DFBits[8] <> VAL = (b"100", 1, h"9")
   }
   test("Assignment") {

@@ -491,7 +491,11 @@ private object CompanionsDFBits:
             val dfValIR = dfVal.asIR
             dfValIR.dfType match
               case _: ir.DFBits => dfValIR.asValOf[DFBits[Int]]
-              case _            => dfValIR.asValAny.bits(using Width.wide)
+              case _ =>
+                dfValIR.asValAny
+                  .bits(using Width.wide)
+                  .asIR
+                  .asValOf[DFBits[Int]]
         end match
       end valueToBits
       transparent inline given fromTuple[R <: NonEmptyTuple]
@@ -574,19 +578,6 @@ private object CompanionsDFBits:
         def conv(dfType: DFBits[LW], arg: SameBitsVector): DFBits[LW] <> VAL =
           DFVal.Const(Token(dfType.width, arg))
     end Compare
-
-    object Conversions:
-      given DFBitsValConversionSing[LW <: Int & Singleton, R](using
-          v: ValueOf[LW],
-          tc: CompanionsDFVal.TC[DFBits[LW], R],
-          dfc: DFC
-      ): Conversion[R, DFValOf[DFBits[LW]]] = from =>
-        tc(DFBits(valueOf[LW]), from)
-      given DFBitsValConversion[R](using
-          candidate: Candidate[R],
-          dfc: DFC
-      ): Conversion[R, DFValOf[DFBits[Int]]] = from =>
-        candidate(from).asIR.asValOf[DFBits[Int]]
 
     object Ops:
       extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])

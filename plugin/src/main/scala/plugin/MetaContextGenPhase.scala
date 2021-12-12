@@ -146,7 +146,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                   srcPos
                 )
               )
-            case Some(t) => //Def or Class
+            case Some(t) => // Def or Class
               contextDefs.get(sym.fixedFullName) match
                 case Some(ct) if !(ct sameTree t) =>
                   report.error(
@@ -154,9 +154,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                     t.symbol
                   )
                 case _ =>
-              //do nothing
+              // do nothing
               tree
-            case _ => //Anonymous
+            case _ => // Anonymous
               tree.replaceArg(argTree, argTree.setMeta(None, tree, srcPos))
           end match
         case _ => tree
@@ -239,7 +239,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         // debug(s"Def   ${fixedName}, ${tree.show}")
         contextDefs += (fixedName -> tree)
     }
-  private def rejectBadEquals(tree: Apply, pos: util.SrcPos)(using
+  private def rejectBadPrimitiveOps(tree: Apply, pos: util.SrcPos)(using
       Context
   ): Unit =
     tree match
@@ -252,6 +252,12 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
             s"Unsupported Scala primitive at the LHS of `$fun` with a dataflow value or token.\nConsider switching positions of the arguments.",
             pos
           )
+      case Apply(Select(lhs, fun), List(Apply(Ident(hackName), _)))
+          if (fun == nme.ZOR || fun == nme.ZAND || fun == nme.XOR) && hackName.toString == "BooleanHack" =>
+        report.error(
+          s"Unsupported Scala Boolean primitive at the LHS of `$fun` with a dataflow value.\nConsider switching positions of the arguments.",
+          pos
+        )
       case _ =>
 
   override def prepareForApply(tree: Apply)(using Context): Context =
@@ -261,7 +267,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         inlined.srcPos
       case _ => tree.srcPos
 
-    rejectBadEquals(tree, srcPos)
+    rejectBadPrimitiveOps(tree, srcPos)
     applyPosStack = srcPos :: applyPosStack
     ctx
 
@@ -305,9 +311,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   private val inlinedName = "(.*)_this".r
   override def prepareForValDef(tree: ValDef)(using Context): Context =
     tree.name.toString match
-      case n if n.contains("$proxy") => //do nothing
-      case _ if tree.mods.is(Param)  => //do nothing
-      case _ if tree.rhs.isEmpty     => //do nothing
+      case n if n.contains("$proxy") => // do nothing
+      case _ if tree.mods.is(Param)  => // do nothing
+      case _ if tree.rhs.isEmpty     => // do nothing
       case _ =>
         debug("================================================")
         debug(s"prepareForValDef: ${tree.name}")

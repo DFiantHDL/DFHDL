@@ -46,8 +46,8 @@ object DFVal:
   end equalityMacro
 
   // Enabling equality with Int, Boolean, and Tuples.
-  // just to give a better error message via the compiler plugins.
-  // See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
+  // just to give a better error message via the compiler plugin.
+  // See the method `rejectBadPrimitiveOps` in `MetaContextGenPhase.scala`
   given [T <: DFTypeAny, M <: Modifier]: CanEqual[Int, DFVal[T, M]] =
     CanEqual.derived
   given [T <: DFTypeAny, M <: Modifier]: CanEqual[Boolean, DFVal[T, M]] =
@@ -56,8 +56,6 @@ object DFVal:
     CanEqual.derived
 
   final val Modifier = DFiant.compiler.ir.DFVal.Modifier
-  export DFBits.Val.Conversions.given
-  export DFDecimal.Val.Conversions.*
   export CompanionsDFVal.Conversions.*
   export CompanionsDFVal.Extensions.*
   val Const = CompanionsDFVal.Const
@@ -144,6 +142,7 @@ private object CompanionsDFVal:
   end Extensions
 
   object Conversions:
+    implicit def BooleanHack(from: DFValOf[DFBoolOrBit]): Boolean = ???
     implicit inline def DFValConversion[T <: DFTypeAny, R](
         inline from: R
     )(using dfType: T, es: Exact.Summon[R, from.type])(using

@@ -117,8 +117,8 @@ object DFToken:
   ): DFToken[T] = tc(dfType, es(value))
 
   // Enabling equality with Int, Boolean, and Tuples.
-  // just to give a better error message via the compiler plugins.
-  // See the method `rejectBadEquals` in `MetaContextGenPhase.scala`
+  // just to give a better error message via the compiler plugin.
+  // See the method `rejectBadPrimitiveOps` in `MetaContextGenPhase.scala`
   given [T <: DFTypeAny]: CanEqual[Int, DFToken[T]] =
     CanEqual.derived
   given [T <: DFTypeAny]: CanEqual[Boolean, DFToken[T]] =
