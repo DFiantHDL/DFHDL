@@ -3,7 +3,6 @@ import DFiant.internals.*
 import DFiant.compiler.ir
 import DFiant.compiler.printing.*
 
-import scala.reflect.classTag
 abstract class DFDesign(using DFC)
     extends OnCreateEvents,
       LateConstruction,
@@ -20,7 +19,7 @@ object DFDesign:
     def apply(designType: String)(using DFC): DFOwner =
       val ownerRef = dfc.ownerOption match
         case Some(owner) => owner.asIR.ref
-        case None        => ir.DFOwner.EmptyRef
+        case None        => ir.DFRef.OneWay.Empty
       ir.DFDesignBlock(
         designType,
         false,
@@ -35,3 +34,4 @@ object DFDesign:
       given Printer = DefaultPrinter
       println(getDB.codeString)
       dsn
+end DFDesign
