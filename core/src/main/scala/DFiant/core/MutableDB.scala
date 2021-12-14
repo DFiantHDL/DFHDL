@@ -1,15 +1,17 @@
 package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir.{
-  DFOwner,
+  DB,
+  DFDesignBlock,
   DFMember,
+  DFOwner,
   DFRef,
   DFRefAny,
   DFTag,
-  DB,
-  DFDesignBlock,
-  MemberGetSet
+  MemberGetSet,
+  MemberView
 }
+
 import scala.reflect.{ClassTag, classTag}
 import collection.mutable
 
@@ -91,19 +93,24 @@ class MutableDB(val duringTest: Boolean = false):
   def getMembers(from: Int, until: Int): List[DFMember] =
     members.view.slice(from, until).filterNot(e => e._3).map(e => e._1).toList
 
-  def getMembersOf(owner: DFOwner): List[DFMember] =
+  def getMembersOf(owner: DFOwner, memberView: MemberView): List[DFMember] =
     val ret = memberTable.get(owner) match
       case Some(idx) =>
         var list = List.empty[DFMember]
         var i = idx + 1
         while (i < members.length) do
           val m = members(i)._1
-          if (m.getOwner == owner) list = m :: list
-          else if (m.isOutsideOwner(owner)) i = members.length
+          memberView match
+            case MemberView.Folded if m.getOwner == owner => list = m :: list
+            case MemberView.Flattened if m.isInsideOwner(owner) =>
+              list = m :: list
+            case _ if m.isOutsideOwner(owner) => i = members.length
+            case _                            => // do nothing
           i = i + 1
         list
       case None => Nil
     ret.reverse
+  end getMembersOf
 
   def getMember[M <: DFMember, M0 <: M](
       ref: DFRef[M]
@@ -165,7 +172,8 @@ class MutableDB(val duringTest: Boolean = false):
     def replace[M <: DFMember](originalMember: M)(newMember: M): M =
       replaceMember(originalMember, newMember)
     def remove[M <: DFMember](member: M): M = ignoreMember(member)
-    def getMembersOf(owner: DFOwner): List[DFMember] = self.getMembersOf(owner)
+    def getMembersOf(owner: DFOwner, memberView: MemberView): List[DFMember] =
+      self.getMembersOf(owner, memberView)
     def setGlobalTag[CT <: DFTag: ClassTag](
         taggedElement: Any,
         tag: CT

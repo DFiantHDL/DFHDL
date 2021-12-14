@@ -16,7 +16,14 @@ final case class DB(
       newMemberFunc(originalMember)
     def replace[M <: DFMember](originalMember: M)(newMember: M): M = newMember
     def remove[M <: DFMember](member: M): M = member
-    def getMembersOf(owner: DFOwner): List[DFMember] = ownerMemberTable(owner)
+    def getMembersOf(owner: DFOwner, memberView: MemberView): List[DFMember] =
+      memberView match
+        case MemberView.Folded =>
+          owner match
+            case d: DFDesignBlock => designMemberTable(d)
+            case b: DFBlock       => blockMemberTable(b)
+            case _                => ownerMemberTable(owner)
+        case MemberView.Flattened => ownerMemberTable(owner)
     def setGlobalTag[CT <: DFTag: ClassTag](
         taggedElement: Any,
         tag: CT
@@ -116,13 +123,16 @@ end DB
 //object DB:
 //end DB
 
+enum MemberView derives CanEqual:
+  case Folded, Flattened
+
 trait MemberGetSet:
   val designDB: DB
   def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0
   def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M
   def replace[M <: DFMember](originalMember: M)(newMember: M): M
   def remove[M <: DFMember](member: M): M
-  def getMembersOf(owner: DFOwner): List[DFMember]
+  def getMembersOf(owner: DFOwner, memberView: MemberView): List[DFMember]
   def setGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any, tag: CT): Unit
   def getGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any): Option[CT]
 
