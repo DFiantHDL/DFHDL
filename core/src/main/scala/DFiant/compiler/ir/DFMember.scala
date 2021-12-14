@@ -317,12 +317,14 @@ sealed trait DFBlock extends DFOwner
 sealed trait DFConditionalBlock extends DFBlock
 
 final case class DFIfElseBlock(
+    dfType: DFType,
     condRef: DFVal.Ref,
     prevBlockRef: DFIfElseBlock.Ref,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFConditionalBlock:
+) extends DFConditionalBlock,
+      DFVal:
   def =~(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFIfElseBlock =>
       this.condRef =~ that.condRef && this.prevBlockRef =~ that.prevBlockRef &&

@@ -200,3 +200,22 @@ end DFStruct
 object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
   final val ReservedTupleName = "$DFTuple$"
 /////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// NoType
+// ------
+// This meant to be just a DFType placeholder where no type is actually
+// useful. E.g., the return value of an IfElse block that has no valid
+// dataflow return value.
+/////////////////////////////////////////////////////////////////////////////
+case object NoType extends DFType:
+  type Data = Nothing
+  final val width = 0
+  def noTypeErr = throw new IllegalArgumentException(
+    "Unexpected access to `NoType`"
+  )
+  def createBubbleData: Data = noTypeErr
+  def isDataBubble(data: Data): Boolean = noTypeErr
+  def dataToBitsData(data: Data): (BitVector, BitVector) = noTypeErr
+  def bitsDataToData(data: (BitVector, BitVector)): Data = noTypeErr
+/////////////////////////////////////////////////////////////////////////////

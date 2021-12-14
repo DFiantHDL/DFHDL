@@ -10,7 +10,7 @@ final class DFIf[R](
 )(using DFC):
   private[DFiant] final val dfc: DFC = summon[DFC]
   protected final val owner: DFOwner =
-    DFIf.Block(condOption, prevIfOption.map(_.owner))
+    DFIf.Block(NoType, condOption, prevIfOption.map(_.owner))
   dfc.enterOwner(owner)
   val ret: R = block
   dfc.exitOwner()
@@ -24,15 +24,53 @@ end DFIf
 object ifdf:
   def apply[R](cond: DFValOf[DFBool], block: => R)(using DFC): DFIf[R] =
     new DFIf[R](Some(cond), block, None)
-//  def fromBranches[R](
-//      branches: List[(DFValOf[DFBool], () => R)],
-//      elseOption: Option[() => R]
-//  )(using DFC): R =
-//    val firstIf = DFIf.Block(Some(branches.head._1), None)
+  def fromBranches[R](
+      branches: List[(DFValOf[DFBool], () => R)],
+      elseOption: Option[() => R]
+  )(using DFC): R =
+    val dfcAnon = summon[DFC].anonymize
+    val firstIf = DFIf.Block(NoType, Some(branches.head._1), None)
+    dfcAnon.enterOwner(firstIf)
+    val firstIfRet: R = branches.head._2()
+    dfcAnon.exitOwner()
+    val (elseIfs, elseIfsRets) =
+      branches.drop(1).foldLeft((firstIf, List(firstIfRet))) {
+        case ((prevIf, prevIfRet), branch) =>
+          val lastIf =
+            DFIf.Block(NoType, Some(branch._1), Some(prevIf))(using dfcAnon)
+          dfcAnon.enterOwner(lastIf)
+          val lastIfRet: R = branch._2()
+          dfcAnon.exitOwner()
+          (lastIf, lastIfRet :: prevIfRet)
+      }
+    val elseRet = elseOption.map { e =>
+      val lastIf = DFIf.Block(NoType, None, Some(elseIfs))(using dfcAnon)
+      dfcAnon.enterOwner(lastIf)
+      val lastIfRet: R = e()
+      dfcAnon.exitOwner()
+      lastIfRet
+    }
+    val allRets: List[R] = elseIfsRets ++ elseRet
+    val allTypes: List[DFTypeAny] = allRets
+      .map {
+        case r: DFValAny => r.dfType
+        case _ =>
+          return firstIfRet
+      }
+    val sameType = allTypes.forall(_ == allTypes.head)
+    if (sameType)
+      val firstIfIR = firstIf.asIR.asInstanceOf[ir.DFIfElseBlock]
+      val firstIfIRUpdate = firstIfIR.copy(dfType = allTypes.head.asIR)
+      firstIfIR.replaceMemberWith(firstIfIRUpdate)
+      new DFVal(firstIfIRUpdate).asInstanceOf[R]
+    else firstIfRet
+  end fromBranches
+end ifdf
 
 object DFIf:
   object Block:
     def apply(
+        dfType: DFTypeAny,
         condOption: Option[DFValOf[DFBool]],
         prevBlockOption: Option[DFOwner]
     )(using
@@ -47,6 +85,7 @@ object DFIf:
         case None => ir.DFRef.OneWay.Empty
       lazy val block: ir.DFIfElseBlock =
         ir.DFIfElseBlock(
+          dfType.asIR,
           condRef,
           prevBlockRef,
           dfc.owner.ref,

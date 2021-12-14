@@ -35,10 +35,10 @@ protected trait DFValPrinter extends AbstractPrinter:
           case Func.Op.| | Func.Op.& if argL.get.dfType.width == 1 =>
             s"${dfVal.op}${dfVal.op}"
           case op => op.toString
-        s"${argL.refCodeString.applyBrackets(true)} $opStr ${argR.refCodeString.applyBrackets(true)}"
+        s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"
       case arg :: Nil =>
         val opStr = dfVal.op.toString
-        val argStr = arg.refCodeString.applyBrackets(true)
+        val argStr = arg.refCodeString.applyBrackets()
         if (opStr.startsWith("unary_")) s"${opStr.last}$argStr"
         else s"${argStr}.${opStr}"
       case args =>
@@ -52,7 +52,7 @@ protected trait DFValPrinter extends AbstractPrinter:
               args.map(_.refCodeString).mkStringBrackets
           case _ =>
             args
-              .map(_.refCodeString.applyBrackets(true))
+              .map(_.refCodeString.applyBrackets())
               .mkString(s" ${dfVal.op} ")
   def csDFValAliasAsIs(dfVal: Alias.AsIs)(using MemberGetSet): String =
     val relValStr = dfVal.relValCodeString
@@ -122,10 +122,11 @@ protected trait DFValPrinter extends AbstractPrinter:
   ): String =
     def valDef = s"val ${dfVal.name} = "
     def rhs = dfVal match
-      case dv: Dcl   => csDFValDcl(dv)
-      case dv: Const => csDFValConst(dv)
-      case dv: Func  => csDFValFuncRef(dv)
-      case dv: Alias => csDFValAliasRef(dv)
+      case dv: Dcl           => csDFValDcl(dv)
+      case dv: Const         => csDFValConst(dv)
+      case dv: Func          => csDFValFuncRef(dv)
+      case dv: Alias         => csDFValAliasRef(dv)
+      case dv: DFIfElseBlock => printer.csDFIfElseBlock(dv)
     def rhsInit = dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
         s"$rhs init ${printer.csDFTokenSeq(initSeq)}"

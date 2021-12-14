@@ -16,9 +16,9 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       MemberGetSet
   ): String =
     members.view
-      //only members that match the requested construction mode
+      // only members that match the requested construction mode
       .filter(m => m.hasLateConstruction == lateConstruction)
-      //only members that are named or nets
+      // only members that are named or nets
       .collect {
         case m: DFMember.Named if !m.isAnonymous => m
         case net: DFNet                          => net
@@ -34,9 +34,9 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
     val body = csDFOwnerBody(design, true)
     val inst = s"new ${design.designType}"
     if (body.isEmpty) inst else s"$inst:\n${body.delim(1)}"
-  def csDFConditionalBlock(cb: DFConditionalBlock)(using MemberGetSet): String =
+  def csDFIfElseBlock(ifBlock: DFIfElseBlock)(using MemberGetSet): String =
     ""
   def csDFOwner(owner: DFOwner)(using MemberGetSet): String = owner match
     case design: DFDesignBlock  => csDFDesignBlockInst(design)
-    case cb: DFConditionalBlock => csDFConditionalBlock(cb)
+    case ifBlock: DFIfElseBlock => csDFIfElseBlock(ifBlock)
 end DFOwnerPrinter

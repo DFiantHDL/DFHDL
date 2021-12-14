@@ -17,6 +17,7 @@ sealed trait Args3[T1, T2, T3] extends Args
 final class DFType[+T <: ir.DFType, +A <: Args](val value: T) extends AnyVal:
   override def toString: String = value.toString
 type DFTypeAny = DFType[ir.DFType, Args]
+val NoType = new DFType[ir.NoType.type, NoArgs](ir.NoType)
 
 object DFType:
   private[core] def apply(t: Any): DFTypeAny =

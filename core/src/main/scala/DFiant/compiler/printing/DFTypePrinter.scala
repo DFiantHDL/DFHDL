@@ -35,4 +35,5 @@ protected trait DFTypePrinter extends AbstractPrinter:
     case dt: DFVector    => csDFVector(dt)
     case dt: DFOpaque    => csDFOpaque(dt)
     case dt: DFStruct    => csDFStruct(dt)
+    case NoType          => NoType.noTypeErr
 end DFTypePrinter
