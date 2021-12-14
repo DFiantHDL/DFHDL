@@ -2,6 +2,7 @@ package DFiant.compiler
 package printing
 import ir.*
 import scala.collection.mutable
+import analysis.*
 
 protected trait AbstractPrinter:
   given printer: Printer

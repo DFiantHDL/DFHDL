@@ -33,10 +33,14 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName:
     assertNoDiff(err, expectedErr)
 
   def assertCodeString(expectedCS: String)(block: => Unit): Unit =
+    import dfc.getSet
     val startIdx = dfc.mutableDB.getMembersSize
     block
     val endIdx = dfc.mutableDB.getMembersSize
-    val members = dfc.mutableDB.getMembers(startIdx, endIdx)
+    val members =
+      dfc.mutableDB
+        .getMembers(startIdx, endIdx)
+        .filter(_.getOwner == dfc.owner.asIR)
     val cs = printer.csDFMembers(members, false)(using dfc.getSet)
     assertNoDiff(cs, expectedCS)
 
