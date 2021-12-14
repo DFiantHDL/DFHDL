@@ -122,11 +122,15 @@ protected trait DFValPrinter extends AbstractPrinter:
   ): String =
     def valDef = s"val ${dfVal.name} = "
     def rhs = dfVal match
-      case dv: Dcl           => csDFValDcl(dv)
-      case dv: Const         => csDFValConst(dv)
-      case dv: Func          => csDFValFuncRef(dv)
-      case dv: Alias         => csDFValAliasRef(dv)
-      case dv: DFIfElseBlock => printer.csDFIfElseBlock(dv)
+      case dv: Dcl   => csDFValDcl(dv)
+      case dv: Const => csDFValConst(dv)
+      case dv: Func  => csDFValFuncRef(dv)
+      case dv: Alias => csDFValAliasRef(dv)
+      case dv: DFIfElseBlock =>
+        val firstNewLine = dv.prevBlockRef match
+          case _: DFRef.Empty => "\n"
+          case _              => ""
+        s"$firstNewLine${printer.csDFIfElseBlock(dv).delim(1)}"
     def rhsInit = dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
         s"$rhs init ${printer.csDFTokenSeq(initSeq)}"

@@ -88,4 +88,14 @@ class DFIfSpec extends DFSpec:
       ifdf.fromBranches[Unit](branches, Some(() => x := 7))
     }
   }
+  test("With ret val") {
+    assertCodeString(
+      """""".stripMargin
+    ) {
+      def branch1: () => DFUInt[8] <> VAL = () => x
+      def branch2: () => DFUInt[8] <> VAL = () => x.bits.uint
+      val branches = List((i, branch1), (!i, branch2))
+      val res = ifdf.fromBranches[DFUInt[8] <> VAL](branches, None)
+    }
+  }
 end DFIfSpec
