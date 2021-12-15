@@ -18,11 +18,16 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
     members.view
       // only members that match the requested construction mode
       .filter(m => m.hasLateConstruction == lateConstruction)
-      // only members that are named, nets, or conditionals
+      // only members the following members are accepted:
       .collect {
+        // an ident placeholder (can be anonymous)
+        case m @ Ident() => m
+        // named members
         case m: DFMember.Named if !m.isAnonymous => m
-        case net: DFNet                          => net
-        case ifBlock: DFIfElseBlock              => ifBlock
+        // nets
+        case net: DFNet => net
+        // if headers
+        case ifBlock: DFIfElseBlock => ifBlock
       }
       .map(_.codeString)
       .filter(_.nonEmpty)

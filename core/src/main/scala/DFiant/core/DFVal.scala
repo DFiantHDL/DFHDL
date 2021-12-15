@@ -226,6 +226,9 @@ private object CompanionsDFVal:
               )
             alias.addMember.asVal[AT, M]
       end apply
+      def ident[T <: DFTypeAny, M <: Modifier](relVal: DFVal[T, M])(using
+          DFC
+      ): DFVal[T, M] = apply(relVal.dfType, relVal, x => x)
     end AsIs
     object ApplyRange:
       def apply[W <: Int, M <: Modifier, H <: Int, L <: Int](

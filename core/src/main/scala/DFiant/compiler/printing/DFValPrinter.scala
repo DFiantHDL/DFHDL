@@ -59,6 +59,7 @@ protected trait DFValPrinter extends AbstractPrinter:
     val fromType = dfVal.relValRef.get.dfType
     val toType = dfVal.dfType
     (toType, fromType) match
+      case (t, f) if t == f => relValStr // ident
       case (DFSInt(tWidth), DFUInt(fWidth)) =>
         assert(tWidth == fWidth + 1)
         s"${relValStr}.signed"
@@ -130,7 +131,8 @@ protected trait DFValPrinter extends AbstractPrinter:
         val firstNewLine = dv.prevBlockRef match
           case _: DFRef.Empty => "\n"
           case _              => ""
-        s"$firstNewLine${printer.csDFIfElseBlock(dv).delim(1)}"
+//        s"$firstNewLine${printer.csDFIfElseBlock(dv).delim(1)}"
+        printer.csDFIfElseBlock(dv)
     def rhsInit = dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
         s"$rhs init ${printer.csDFTokenSeq(initSeq)}"

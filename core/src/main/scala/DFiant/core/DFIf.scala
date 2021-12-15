@@ -24,46 +24,66 @@ end DFIf
 object ifdf:
   def apply[R](cond: DFValOf[DFBool], block: => R)(using DFC): DFIf[R] =
     new DFIf[R](Some(cond), block, None)
+  def singleBranch[R](
+      condOption: Option[DFValOf[DFBool]],
+      prevBlockOption: Option[DFOwner],
+      run: () => R
+  )(using
+      DFC
+  ): DFOwner =
+    // first we create the header without a known type.
+    val ifHeaderBlock = DFIf.Block(NoType, condOption, prevBlockOption)
+    dfc.enterOwner(ifHeaderBlock)
+    // now all members of the branch will be constructed
+    val ifRet: R = run()
+    val fixedIfHeader = ifRet match
+      case v: DFValAny =>
+        // adding ident placement as the last member in the if
+        DFVal.Alias.AsIs.ident(v)(using dfc.anonymize)
+        val ifHeaderBlockIR = ifHeaderBlock.asIR.asInstanceOf[ir.DFIfElseBlock]
+        val ifHeaderBlockUpdate = ifHeaderBlockIR.copy(dfType = v.dfType.asIR)
+        // updating the type of the if header
+        ifHeaderBlockIR.replaceMemberWith(ifHeaderBlockUpdate).asFE
+      case _ =>
+        ifHeaderBlock
+    dfc.exitOwner()
+    fixedIfHeader
+  end singleBranch
   def fromBranches[R](
       branches: List[(DFValOf[DFBool], () => R)],
       elseOption: Option[() => R]
   )(using DFC): R =
     val dfcAnon = summon[DFC].anonymize
-    val firstIf = DFIf.Block(NoType, Some(branches.head._1), None)
-    dfcAnon.enterOwner(firstIf)
-    val firstIfRet: R = branches.head._2()
-    dfcAnon.exitOwner()
-    val (elseIfs, elseIfsRets) =
-      branches.drop(1).foldLeft((firstIf, List(firstIfRet))) {
-        case ((prevIf, prevIfRet), branch) =>
-          val lastIf =
-            DFIf.Block(NoType, Some(branch._1), Some(prevIf))(using dfcAnon)
-          dfcAnon.enterOwner(lastIf)
-          val lastIfRet: R = branch._2()
-          dfcAnon.exitOwner()
-          (lastIf, lastIfRet :: prevIfRet)
+    // creating a hook to save the return value for the first branch run
+    var firstIfRet: Option[R] = None
+    val firstIfRun: () => R = () =>
+      firstIfRet = Some(branches.head._2())
+      firstIfRet.get
+    val firstIf = singleBranch(Some(branches.head._1), None, firstIfRun)
+    val midIfs =
+      branches.drop(1).foldLeft(List(firstIf)) { case (prevIfs, branch) =>
+        singleBranch(Some(branch._1), Some(prevIfs.head), branch._2)(using
+          dfcAnon
+        ) :: prevIfs
       }
-    val elseRet = elseOption.map { e =>
-      val lastIf = DFIf.Block(NoType, None, Some(elseIfs))(using dfcAnon)
-      dfcAnon.enterOwner(lastIf)
-      val lastIfRet: R = e()
-      dfcAnon.exitOwner()
-      lastIfRet
-    }
-    val allRets: List[R] = elseIfsRets ++ elseRet
-    val allTypes: List[DFTypeAny] = allRets
+    val allIfs = elseOption
+      .map { e =>
+        singleBranch(None, Some(midIfs.head), e)(using dfcAnon) :: midIfs
+      }
+      .getOrElse(midIfs)
+
+    val allTypes: List[ir.DFType] = allIfs.view
+      .map(_.asIR)
       .map {
-        case r: DFValAny => r.dfType
+        case r: ir.DFVal => r.dfType
         case _ =>
-          return firstIfRet
+          return firstIfRet.get
       }
+      .toList
     val sameType = allTypes.forall(_ == allTypes.head)
     if (sameType)
-      val firstIfIR = firstIf.asIR.asInstanceOf[ir.DFIfElseBlock]
-      val firstIfIRUpdate = firstIfIR.copy(dfType = allTypes.head.asIR)
-      firstIfIR.replaceMemberWith(firstIfIRUpdate)
-      new DFVal(firstIfIRUpdate).asInstanceOf[R]
-    else firstIfRet
+      new DFVal(firstIf.asIR.asInstanceOf[ir.DFVal]).asInstanceOf[R]
+    else firstIfRet.get
   end fromBranches
 end ifdf
 
