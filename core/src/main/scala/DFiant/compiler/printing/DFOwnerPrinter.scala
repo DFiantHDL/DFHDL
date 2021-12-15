@@ -21,7 +21,7 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       // only members the following members are accepted:
       .collect {
         // an ident placeholder (can be anonymous)
-        case m @ Ident() => m
+        case m @ Placeholder() => m
         // named members
         case m: DFMember.Named if !m.isAnonymous => m
         // nets
