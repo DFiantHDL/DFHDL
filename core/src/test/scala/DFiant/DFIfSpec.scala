@@ -90,9 +90,14 @@ class DFIfSpec extends DFSpec:
   }
   test("With ret val") {
     assertCodeString(
-      """""".stripMargin
+      """|val res = 
+         |if (i)
+         |  d"8'1"
+         |else if (!i)
+         |  x.bits.uint
+         |""".stripMargin
     ) {
-      def branch1: () => DFUInt[8] <> VAL = () => x
+      def branch1: () => DFUInt[8] <> VAL = () => 1
       def branch2: () => DFUInt[8] <> VAL = () => x.bits.uint
       val branches = List((i, branch1), (!i, branch2))
       val res = ifdf.fromBranches[DFUInt[8] <> VAL](branches, None)

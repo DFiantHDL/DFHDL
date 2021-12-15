@@ -205,12 +205,13 @@ private object CompanionsDFVal:
       def apply[AT <: DFTypeAny, VT <: DFTypeAny, M <: Modifier](
           aliasType: AT,
           relVal: DFVal[VT, M],
-          tokenFunc: DFToken[VT] => DFToken[AT]
+          tokenFunc: DFToken[VT] => DFToken[AT],
+          forceNewAlias: Boolean = false
       )(using DFC): DFVal[AT, M] =
         relVal.asIR match
           // anonymous constant are replace by a different constant
           // after its token value was converted according to the alias
-          case const: ir.DFVal.Const if const.isAnonymous =>
+          case const: ir.DFVal.Const if const.isAnonymous && !forceNewAlias =>
             val updatedToken = tokenFunc(const.token.asTokenOf[VT])
             Const(updatedToken).asIR.asVal[AT, M]
           // named constants or other non-constant values are referenced
@@ -228,7 +229,8 @@ private object CompanionsDFVal:
       end apply
       def ident[T <: DFTypeAny, M <: Modifier](relVal: DFVal[T, M])(using
           DFC
-      ): DFVal[T, M] = apply(relVal.dfType, relVal, x => x)
+      ): DFVal[T, M] =
+        apply(relVal.dfType, relVal, x => x, forceNewAlias = true)
     end AsIs
     object ApplyRange:
       def apply[W <: Int, M <: Modifier, H <: Int, L <: Int](

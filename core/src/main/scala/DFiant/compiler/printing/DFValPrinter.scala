@@ -129,10 +129,10 @@ protected trait DFValPrinter extends AbstractPrinter:
       case dv: Alias => csDFValAliasRef(dv)
       case dv: DFIfElseBlock =>
         val firstNewLine = dv.prevBlockRef match
-          case _: DFRef.Empty => "\n"
-          case _              => ""
-//        s"$firstNewLine${printer.csDFIfElseBlock(dv).delim(1)}"
-        printer.csDFIfElseBlock(dv)
+          case _: DFRef.Empty if !dv.isAnonymous => "\n"
+          case _                                 => ""
+        s"$firstNewLine${printer.csDFIfElseBlock(dv)}"
+//        printer.csDFIfElseBlock(dv)
     def rhsInit = dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
         s"$rhs init ${printer.csDFTokenSeq(initSeq)}"
