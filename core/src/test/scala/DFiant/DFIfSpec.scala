@@ -1,6 +1,5 @@
 import DFiant.*
 import munit.*
-import core.ifdf
 
 class DFIfSpec extends DFSpec:
   val i = DFBool <> IN

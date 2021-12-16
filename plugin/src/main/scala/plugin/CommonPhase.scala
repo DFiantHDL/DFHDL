@@ -25,7 +25,7 @@ abstract class CommonPhase extends PluginPhase:
   import tpd._
   val debugFilter: String => Boolean = _ => false
   var pluginDebugSource: String = ""
-  def debug(str: Any*): Unit =
+  def debug(str: => Any*): Unit =
     if (debugFilter(pluginDebugSource)) println(str.mkString(", "))
   var metaContextTpe: TypeRef = _
   extension (clsSym: Symbol)
