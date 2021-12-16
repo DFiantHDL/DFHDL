@@ -142,7 +142,8 @@ private object CompanionsDFVal:
   end Extensions
 
   object Conversions:
-    implicit def BooleanHack(from: DFValOf[DFBoolOrBit]): Boolean = ???
+    implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
+      ???
     implicit inline def DFValConversion[T <: DFTypeAny, R](
         inline from: R
     )(using dfType: T, es: Exact.Summon[R, from.type])(using

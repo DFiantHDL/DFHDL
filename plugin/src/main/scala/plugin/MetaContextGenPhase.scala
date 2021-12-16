@@ -51,10 +51,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         positionCls.typeRef,
         fileNameTree :: lineStartTree :: columnStartTree :: lineEndTree :: columnEndTree :: Nil
       )
-    def show: String =
-      val pos = srcPos.startPos
-      val endPos = srcPos.endPos
-      s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
   end extension
 
   extension (tree: Tree)(using Context)
