@@ -135,5 +135,21 @@ class DFIfSpec extends DFSpec:
         ((if (i) i else i): DFBool <> VAL) ||
           ((if (!i) !i else !i): DFBool <> VAL)
     }
+    assertCodeString(
+      """|val rs0: DFBool <> VAL =
+         |  if (!i) !i
+         |  else !i
+         |val res =
+         |  ((
+         |    if (i) i
+         |    else i
+         |  ): DFBool <> VAL) || rs0
+         |""".stripMargin
+    ) {
+      val rs0 = ((if (!i) !i else !i): DFBool <> VAL)
+      val res: DFBool <> VAL =
+        ((if (i) i else i): DFBool <> VAL) ||
+          rs0
+    }
   }
 end DFIfSpec

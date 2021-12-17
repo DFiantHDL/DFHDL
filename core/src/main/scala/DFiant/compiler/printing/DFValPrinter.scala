@@ -11,7 +11,7 @@ extension (ref: DFVal.Ref)
     val callOwner = ref.originRef.get.getOwner
     val cs = printer.csDFVal(dfVal, Some(callOwner))
     dfVal match
-      case DFIfElseBlock(dfType, _, _, _, _, _) =>
+      case ib @ DFIfElseBlock(dfType, _, _, _, _, _) if ib.isAnonymous =>
         s"(${cs.applyBrackets()}: ${printer.printer.csDFType(dfType, typeCS = true)} <> VAL)"
       case _ => cs
 
