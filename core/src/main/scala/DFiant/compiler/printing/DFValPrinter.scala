@@ -121,17 +121,17 @@ protected trait DFValPrinter extends AbstractPrinter:
   def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner])(using
       MemberGetSet
   ): String =
-    def valDef = s"val ${dfVal.name} = "
-    def rhs = dfVal match
-      case dv: Dcl   => csDFValDcl(dv)
-      case dv: Const => csDFValConst(dv)
-      case dv: Func  => csDFValFuncRef(dv)
-      case dv: Alias => csDFValAliasRef(dv)
+    def typeAnnot = dfVal match
       case dv: DFIfElseBlock =>
-        val firstNewLine = dv.prevBlockRef match
-          case _: DFRef.Empty if !dv.isAnonymous => "\n"
-          case _                                 => ""
-        s"$firstNewLine${printer.csDFIfElseBlockChain(dv)}"
+        s": ${printer.csDFType(dfVal.dfType, typeCS = true)} <> VAL"
+      case _ => ""
+    def valDef = s"val ${dfVal.name}$typeAnnot ="
+    def rhs = dfVal match
+      case dv: Dcl           => csDFValDcl(dv)
+      case dv: Const         => csDFValConst(dv)
+      case dv: Func          => csDFValFuncRef(dv)
+      case dv: Alias         => csDFValAliasRef(dv)
+      case dv: DFIfElseBlock => printer.csDFIfElseBlockChain(dv)
     def rhsInit = dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
         s"$rhs init ${printer.csDFTokenSeq(initSeq)}"
@@ -142,7 +142,12 @@ protected trait DFValPrinter extends AbstractPrinter:
       case (c: Const, Some(_)) if c.isAnonymous => csDFValConstRef(c)
       case (dv, Some(owner)) if !dv.isAnonymous =>
         dfVal.getRelativeName(owner)
-      case (dv, None) if !dv.isAnonymous => valDef + rhsInit
-      case _                             => rhsInit
+      case (dv, None) if !dv.isAnonymous =>
+        val rhsInitVal = rhsInit
+        val delimRHS =
+          if (rhsInitVal.contains("\n")) s"\n${rhsInitVal.delim(1)}"
+          else s" ${rhsInitVal}"
+        s"$valDef$delimRHS"
+      case _ => rhsInit
   end csDFVal
 end DFValPrinter

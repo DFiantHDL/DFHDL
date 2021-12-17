@@ -7,30 +7,25 @@ class DFIfSpec extends DFSpec:
 
   test("No ret val") {
     assertCodeString(
-      """|if (i)
-         |  x := d"8'1"
-         |else if (!i)
-         |  x := d"8'2"
+      """|if (i) x := d"8'1"
+         |else if (!i) x := d"8'2"
          |""".stripMargin
     ) {
       if (i) x := 1
       else if (!i) x := 2
     }
     assertCodeString(
-      """|if (i)
-         |  x := d"8'1"
+      """|if (i) x := d"8'1"
          |""".stripMargin
     ) {
       if (i) x := 1
     }
     assertCodeString(
-      """|if (i)
-         |  x := d"8'1"
+      """|if (i) x := d"8'1"
          |else if (!i)
          |  x := d"8'2"
          |  x := d"8'22"
-         |else if (i || i)
-         |  x := d"8'3"
+         |else if (i || i) x := d"8'3"
          |""".stripMargin
     ) {
       if (i) x := 1
@@ -41,15 +36,12 @@ class DFIfSpec extends DFSpec:
         x := 3
     }
     assertCodeString(
-      """|if (i)
-         |  x := d"8'1"
+      """|if (i) x := d"8'1"
          |else if (!i)
          |  x := d"8'2"
          |  x := d"8'22"
-         |else if (i || i)
-         |  x := d"8'3"
-         |else
-         |  x := d"8'7"
+         |else if (i || i) x := d"8'3"
+         |else x := d"8'7"
          |""".stripMargin
     ) {
       if (i) x := 1
@@ -61,17 +53,12 @@ class DFIfSpec extends DFSpec:
       else x := 7
     }
     assertCodeString(
-      """|if (i)
-         |  x := d"8'1"
+      """|if (i) x := d"8'1"
          |else if (!i)
-         |  if (i)
-         |    x := d"8'1"
-         |  else
-         |    x := d"8'7"
-         |else if (i || i)
-         |  x := d"8'3"
-         |else
-         |  x := d"8'7"
+         |  if (i) x := d"8'1"
+         |  else x := d"8'7"
+         |else if (i || i) x := d"8'3"
+         |else x := d"8'7"
          |""".stripMargin
     ) {
       if (i) x := 1
@@ -86,13 +73,10 @@ class DFIfSpec extends DFSpec:
 
   test("With ret val") {
     assertCodeString(
-      """|val res = 
-         |if (i)
-         |  d"8'1"
-         |else if (!i)
-         |  x.bits.uint
-         |else
-         |  d"8'2"
+      """|val res: DFUInt[8] <> VAL =
+         |  if (i) d"8'1"
+         |  else if (!i) x.bits.uint
+         |  else d"8'2"
          |""".stripMargin
     ) {
       val res: DFUInt[8] <> VAL =
@@ -101,16 +85,12 @@ class DFIfSpec extends DFSpec:
         else 2
     }
     assertCodeString(
-      """|val res = 
-         |if (i)
+      """|val res: DFUInt[8] <> VAL =
          |  if (i)
-         |    d"8'1"
-         |  else
-         |    d"8'2"
-         |else if (!i)
-         |  x.bits.uint
-         |else
-         |  d"8'3"
+         |    if (i) d"8'1"
+         |    else d"8'2"
+         |  else if (!i) x.bits.uint
+         |  else d"8'3"
          |""".stripMargin
     ) {
       val res: DFUInt[8] <> VAL =

@@ -48,7 +48,9 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       if (ifBlock.prevBlockRef.isEmpty) s"if (${ifBlock.condRef.refCodeString})"
       else if (ifBlock.condRef.isEmpty) s"else"
       else s"else if (${ifBlock.condRef.refCodeString})"
-    if (body.isEmpty) s"$statement {}" else s"$statement\n${body.delim(1)}"
+    val delimBody =
+      if (body.contains("\n")) s"\n${body.delim(1)}" else s" $body"
+    if (body.isEmpty) s"$statement {}" else s"$statement$delimBody"
   def csDFIfElseBlockChain(ifBlock: DFIfElseBlock)(using
       MemberGetSet
   ): String =
