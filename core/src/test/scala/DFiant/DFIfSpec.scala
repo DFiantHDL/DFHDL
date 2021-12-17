@@ -100,5 +100,40 @@ class DFIfSpec extends DFSpec:
         else if (!i) x.bits.uint
         else 3
     }
+    assertCodeString(
+      """|val res: DFUInt[8] <> VAL =
+         |  if (i)
+         |    val internal: DFUInt[8] <> VAL =
+         |      if (i) d"8'1"
+         |      else d"8'2"
+         |    internal
+         |  else if (!i) x.bits.uint
+         |  else d"8'3"
+         |""".stripMargin
+    ) {
+      val res: DFUInt[8] <> VAL =
+        if (i)
+          val internal: DFUInt[8] <> VAL =
+            if (i) 1
+            else 2
+          internal
+        else if (!i) x.bits.uint
+        else 3
+    }
+    assertCodeString(
+      """|val res =
+         |  ((
+         |    if (i) i
+         |    else i
+         |  ): DFBool <> VAL) || ((
+         |    if (!i) !i
+         |    else !i
+         |  ): DFBool <> VAL)
+         |""".stripMargin
+    ) {
+      val res: DFBool <> VAL =
+        ((if (i) i else i): DFBool <> VAL) ||
+          ((if (!i) !i else !i): DFBool <> VAL)
+    }
   }
 end DFIfSpec

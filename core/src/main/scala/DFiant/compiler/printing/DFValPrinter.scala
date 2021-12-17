@@ -9,14 +9,17 @@ extension (ref: DFVal.Ref)
   def refCodeString(using getSet: MemberGetSet, printer: DFValPrinter): String =
     val dfVal = ref.get
     val callOwner = ref.originRef.get.getOwner
-    printer.csDFVal(dfVal, Some(callOwner))
+    val cs = printer.csDFVal(dfVal, Some(callOwner))
+    dfVal match
+      case DFIfElseBlock(dfType, _, _, _, _, _) =>
+        s"(${cs.applyBrackets()}: ${printer.printer.csDFType(dfType, typeCS = true)} <> VAL)"
+      case _ => cs
 
 extension (alias: Alias)
   def relValCodeString(using
       getSet: MemberGetSet,
       printer: DFValPrinter
-  ): String =
-    alias.relValRef.refCodeString.applyBrackets()
+  ): String = alias.relValRef.refCodeString.applyBrackets()
 
 protected trait DFValPrinter extends AbstractPrinter:
   def csDFValConst(dfVal: Const): String =
@@ -55,11 +58,16 @@ protected trait DFValPrinter extends AbstractPrinter:
               .map(_.refCodeString.applyBrackets())
               .mkString(s" ${dfVal.op} ")
   def csDFValAliasAsIs(dfVal: Alias.AsIs)(using MemberGetSet): String =
+    val relVal = dfVal.relValRef.get
     val relValStr = dfVal.relValCodeString
-    val fromType = dfVal.relValRef.get.dfType
+    val fromType = relVal.dfType
     val toType = dfVal.dfType
     (toType, fromType) match
-      case (t, f) if t == f => relValStr // ident
+      case (t, f) if t == f => // ident
+        // an ident is used as a placeholder and therefore does not require
+        // applying brackets
+        val callOwner = dfVal.relValRef.originRef.get.getOwner
+        printer.csDFVal(relVal, Some(callOwner))
       case (DFSInt(tWidth), DFUInt(fWidth)) =>
         assert(tWidth == fWidth + 1)
         s"${relValStr}.signed"

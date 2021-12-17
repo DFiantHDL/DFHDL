@@ -15,7 +15,9 @@ extension (text: String)
 
   def applyBrackets(onlyIfRequired: Boolean = true): String =
     if (text.requiresBrackets || (!onlyIfRequired && !text.hasBrackets))
-      s"($text)"
+      if (text.contains("\n")) s"(\n${text.delim(1)}\n)"
+      else s"($text)"
     else text
 
   def delim(count: Int = 1): String = text.replaceAll("(?m)^", "  " * count);
+end extension

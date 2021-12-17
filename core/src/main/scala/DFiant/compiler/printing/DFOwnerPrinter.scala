@@ -21,13 +21,14 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       // only members the following members are accepted:
       .collect {
         // an ident placeholder (can be anonymous)
-        case m @ Placeholder() => m
+        case m @ Ident(_) => m
         // named members
         case m: DFMember.Named if !m.isAnonymous => m
         // nets
         case net: DFNet => net
         // if headers
-        case ifBlock: DFIfElseBlock if ifBlock.prevBlockRef.isEmpty => ifBlock
+        case ifBlock @ DFIfElseBlock(NoType, _, pbr, _, _, _) if pbr.isEmpty =>
+          ifBlock
       }
       .map(_.codeString)
       .filter(_.nonEmpty)
