@@ -1,6 +1,7 @@
 package DFiant.compiler.ir
 import scala.reflect.{ClassTag, classTag}
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 final case class DB(
     members: List[DFMember],
@@ -118,6 +119,25 @@ final case class DB(
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
     Map(designMemberList: _*)
 
+  private def ifChainGen: Map[DFIfElseBlock, List[DFIfElseBlock]] =
+    val handled = mutable.Set.empty[DFIfElseBlock]
+    members.foldRight(Map.empty[DFIfElseBlock, List[DFIfElseBlock]]) {
+      case (m: DFIfElseBlock, chainMap) if !handled.contains(m) =>
+        @tailrec def getChain(
+            ifBlock: DFIfElseBlock,
+            chain: List[DFIfElseBlock]
+        ): List[DFIfElseBlock] =
+          handled += ifBlock
+          ifBlock.prevBlockRef match
+            case _: DFRef.Empty => ifBlock :: chain
+            case x              => getChain(x.get, ifBlock :: chain)
+        val chain = getChain(m, Nil)
+        chainMap + (chain.head -> chain)
+      case (_, chainMap) => chainMap
+    }
+  end ifChainGen
+  // Maps the head IfElse with the entire branch chain (including the head)
+  lazy val ifChainTable: Map[DFIfElseBlock, List[DFIfElseBlock]] = ifChainGen
 end DB
 
 //object DB:
