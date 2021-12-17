@@ -12,6 +12,10 @@ sealed trait DFRef[+M <: DFMember] derives CanEqual:
       case (_, _: DFRef.Empty)              => false
       case _                                => this.get =~ that.get
   final def get(using getSet: MemberGetSet): M = getSet(this)
+  final def isEmpty: Boolean =
+    this match
+      case _: DFRef.Empty => true
+      case _              => false
 object DFRef:
   sealed trait Empty extends DFRef[Nothing]:
     lazy val refType = throw new IllegalArgumentException(

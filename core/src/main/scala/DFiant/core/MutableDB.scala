@@ -53,6 +53,7 @@ class MutableDB(val duringTest: Boolean = false):
   end global_tags
 
   def addMember[M <: DFMember](member: M): M =
+    dirtyDB()
 //    elaborateFSMHistoryHead()
     //        println(f"""${"addMember"}%-20s ${s"${member.name} : ${member.typeName}"}%-30s ${member.getOwner.nameAndType}""")
     memberTable += (member -> members.length)
@@ -117,6 +118,7 @@ class MutableDB(val duringTest: Boolean = false):
   ): M0 = refTable(ref).asInstanceOf[M0]
 
   def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
+    dirtyDB()
     val idx = memberTable(originalMember)
     // get the most updated member currently positioned at the index of the original member
     val originalMemberUpdated = members(idx)._1.asInstanceOf[M]
@@ -143,12 +145,17 @@ class MutableDB(val duringTest: Boolean = false):
   def ignoreMember[M <: DFMember](
       member: M
   ): M = // ignoring it means removing it for the immutable DB
+    dirtyDB()
     memberTable.get(member).foreach { idx =>
       members.update(idx, (member, members(idx)._2, true))
     }
     member
 
-  def immutable: DB =
+  private def dirtyDB(): Unit =
+    memoizedDB = None
+  private var memoizedDB: Option[DB] = None
+
+  def immutable: DB = memoizedDB.getOrElse {
     var size = -1
     // Touching all lazy origin refs to force their addition.
     // During this procedure it is possible that new reference are added. If so, we re-iterate
@@ -160,10 +167,13 @@ class MutableDB(val duringTest: Boolean = false):
       }
     val notIgnoredMembers =
       members.iterator.filterNot(e => e._3).map(e => e._1).toList
-    DB(notIgnoredMembers, refTable.toMap, global_tags.tagMap.toMap)
+    val db = DB(notIgnoredMembers, refTable.toMap, global_tags.tagMap.toMap)
+    memoizedDB = Some(db)
+    db
+  }
 
   given getSet: MemberGetSet with
-    val designDB: DB = immutable
+    def designDB: DB = immutable
     def apply[M <: DFMember, M0 <: M](
         ref: DFRef[M]
     ): M0 = getMember(ref)

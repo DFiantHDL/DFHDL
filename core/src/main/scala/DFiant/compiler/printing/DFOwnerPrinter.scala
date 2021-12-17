@@ -27,7 +27,7 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
         // nets
         case net: DFNet => net
         // if headers
-        case ifBlock: DFIfElseBlock => ifBlock
+        case ifBlock: DFIfElseBlock if ifBlock.prevBlockRef.isEmpty => ifBlock
       }
       .map(_.codeString)
       .filter(_.nonEmpty)
@@ -40,16 +40,22 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
     val body = csDFOwnerBody(design, true)
     val inst = s"new ${design.designType}"
     if (body.isEmpty) inst else s"$inst:\n${body.delim(1)}"
-  def csDFIfElseBlock(ifBlock: DFIfElseBlock)(using MemberGetSet): String =
+  def csDFIfElseBlockSingle(ifBlock: DFIfElseBlock)(using
+      MemberGetSet
+  ): String =
     val body = csDFOwnerBody(ifBlock, false)
-    val statement = ifBlock.prevBlockRef match
-      case _: DFRef.Empty => s"if (${ifBlock.condRef.refCodeString})"
-      case _ =>
-        ifBlock.condRef match
-          case _: DFRef.Empty => s"else"
-          case _              => s"else if (${ifBlock.condRef.refCodeString})"
+    val statement =
+      if (ifBlock.prevBlockRef.isEmpty) s"if (${ifBlock.condRef.refCodeString})"
+      else if (ifBlock.condRef.isEmpty) s"else"
+      else s"else if (${ifBlock.condRef.refCodeString})"
     if (body.isEmpty) s"$statement {}" else s"$statement\n${body.delim(1)}"
+  def csDFIfElseBlockChain(ifBlock: DFIfElseBlock)(using
+      MemberGetSet
+  ): String =
+    val ifChains = getSet.designDB.ifChainTable
+    val chain = ifChains(ifBlock)
+    chain.map(ib => csDFIfElseBlockSingle(ib)).mkString("\n")
   def csDFOwner(owner: DFOwner)(using MemberGetSet): String = owner match
     case design: DFDesignBlock  => csDFDesignBlockInst(design)
-    case ifBlock: DFIfElseBlock => csDFIfElseBlock(ifBlock)
+    case ifBlock: DFIfElseBlock => csDFIfElseBlockChain(ifBlock)
 end DFOwnerPrinter

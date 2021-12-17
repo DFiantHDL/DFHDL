@@ -10,7 +10,7 @@ final case class DB(
 ):
   private val self = this
   given getSet: MemberGetSet with
-    val designDB: DB = self
+    def designDB: DB = self
     def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0 =
       refTable(ref).asInstanceOf[M0]
     def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M =
@@ -128,9 +128,8 @@ final case class DB(
             chain: List[DFIfElseBlock]
         ): List[DFIfElseBlock] =
           handled += ifBlock
-          ifBlock.prevBlockRef match
-            case _: DFRef.Empty => ifBlock :: chain
-            case x              => getChain(x.get, ifBlock :: chain)
+          if (ifBlock.prevBlockRef.isEmpty) ifBlock :: chain
+          else getChain(ifBlock.prevBlockRef.get, ifBlock :: chain)
         val chain = getChain(m, Nil)
         chainMap + (chain.head -> chain)
       case (_, chainMap) => chainMap
@@ -147,7 +146,7 @@ enum MemberView derives CanEqual:
   case Folded, Flattened
 
 trait MemberGetSet:
-  val designDB: DB
+  def designDB: DB
   def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0
   def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M
   def replace[M <: DFMember](originalMember: M)(newMember: M): M

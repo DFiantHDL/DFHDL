@@ -131,8 +131,7 @@ protected trait DFValPrinter extends AbstractPrinter:
         val firstNewLine = dv.prevBlockRef match
           case _: DFRef.Empty if !dv.isAnonymous => "\n"
           case _                                 => ""
-        s"$firstNewLine${printer.csDFIfElseBlock(dv)}"
-//        printer.csDFIfElseBlock(dv)
+        s"$firstNewLine${printer.csDFIfElseBlockChain(dv)}"
     def rhsInit = dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
         s"$rhs init ${printer.csDFTokenSeq(initSeq)}"
