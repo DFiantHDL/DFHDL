@@ -65,32 +65,39 @@ object Width:
               TypeRepr.of[e].calcWidth
             case '[DFVector[t, d]] =>
               val cellWidth = TypeRepr.of[t].calcWidth
-              val cellDims = TypeRepr.of[d].asInstanceOf[AppliedType].args
+              val cellDims = TypeRepr.of[d].getTupleArgs
               val widths = cellWidth :: cellDims
               widths.reduce(_ * _)
             case '[DFOpaque[t]] =>
               TypeRepr.of[t].calcWidth
             case '[DFStruct[p]] =>
               val pTpe = TypeRepr.of[p]
-              val clsSym = pTpe.classSymbol.get
-              val widths =
-                clsSym.fieldMembers.view
-                  .map(m => pTpe.memberType(m).asTypeOf[Any])
-                  .collect { case '[DFValOf[t]] => TypeRepr.of[t].calcWidth }
-              widths.reduce(_ + _)
-            case _ =>
-              val AppliedType(_, List(irTpe, tuple)) = dfTpe.dealias
-              val args: List[TypeRepr] =
-                if (tuple.isTupleN) tuple.getTupleArgs
-                else Nil
-              irTpe match
-                case t if t <:< TypeRepr.of[ir.DFVector] =>
-                  val cellWidth = args.head.calcWidth
-                  val cellDims = args.last.asInstanceOf[AppliedType].args
-                  val widths = cellWidth :: cellDims
-                  widths.reduce(_ * _)
+              pTpe.asTypeOf[Any] match
+                case '[NonEmptyTuple] =>
+                  pTpe.getTupleArgs
+                    .map(_.asTypeOf[Any])
+                    .collect { case '[DFValOf[t]] =>
+                      TypeRepr.of[t].calcWidth
+                    }
+                    .reduce(_ + _)
                 case _ =>
-                  TypeRepr.of[Int]
+                  val clsSym = pTpe.classSymbol.get
+                  val widths =
+                    clsSym.fieldMembers.view
+                      .map(m => pTpe.memberType(m).asTypeOf[Any])
+                      .collect { case '[DFValOf[t]] =>
+                        TypeRepr.of[t].calcWidth
+                      }
+                  widths.reduce(_ + _)
+              end match
+            // TODO: figure out why this is needed and DFVector case is not taken
+            case '[DFType[ir.DFVector, Args2[t, d]]] =>
+              val cellWidth = TypeRepr.of[t].calcWidth
+              val cellDims = TypeRepr.of[d].getTupleArgs
+              val widths = cellWidth :: cellDims
+              widths.reduce(_ * _)
+            case _ =>
+              TypeRepr.of[Int]
           end match
         case '[Int] =>
           dfTpe
