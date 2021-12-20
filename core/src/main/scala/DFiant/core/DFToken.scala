@@ -265,6 +265,27 @@ object DFToken:
       import quotes.reflect.*
       val term = value.asTerm.underlyingArgument
       val tTpe = TypeRepr.of[T]
+      extension (lhs: TypeRepr)
+        def tupleSigMatch(
+            rhs: TypeRepr,
+            tupleAndNonTupleMatch: Boolean
+        ): Boolean =
+          import quotes.reflect.*
+          (lhs.asType, rhs.asType) match
+            case ('[DFTuple[t]], '[Any]) =>
+              TypeRepr.of[t].tupleSigMatch(rhs, tupleAndNonTupleMatch)
+            case ('[Tuple], '[Tuple]) =>
+              val lArgs = lhs.getTupleArgs
+              val rArgs = rhs.getTupleArgs
+              if (lArgs.length != rArgs.length) false
+              else
+                (lArgs lazyZip rArgs).forall((l, r) => l.tupleSigMatch(r, true))
+            case ('[Tuple], '[Any]) => tupleAndNonTupleMatch
+            case ('[Any], '[Tuple]) => tupleAndNonTupleMatch
+            case _                  => true
+        end tupleSigMatch
+      end extension
+
       val vTpe = term.tpe
       val multiElements = vTpe.asTypeOf[Any] match
         case '[NonEmptyTuple] =>

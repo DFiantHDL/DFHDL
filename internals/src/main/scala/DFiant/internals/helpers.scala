@@ -56,22 +56,6 @@ extension (using quotes: Quotes)(lhs: quotes.reflect.TypeRepr)
       report.errorAndAbort(s"Expecting a tuple, but found null")
     else
       recur(lhs, Nil)
-
-  def tupleSigMatch(
-      rhs: quotes.reflect.TypeRepr,
-      tupleAndNonTupleMatch: Boolean
-  ): Boolean =
-    import quotes.reflect.*
-    (lhs.asType, rhs.asType) match
-      case ('[Tuple], '[Tuple]) =>
-        val lArgs = lhs.getTupleArgs
-        val rArgs = rhs.getTupleArgs
-        if (lArgs.length != rArgs.length) false
-        else (lArgs lazyZip rArgs).forall((l, r) => l.tupleSigMatch(r, true))
-      case ('[Tuple], '[Any]) => tupleAndNonTupleMatch
-      case ('[Any], '[Tuple]) => tupleAndNonTupleMatch
-      case _                  => true
-  end tupleSigMatch
 end extension
 
 trait PrintType[T]
