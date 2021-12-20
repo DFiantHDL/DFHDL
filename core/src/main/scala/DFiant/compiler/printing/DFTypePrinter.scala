@@ -24,10 +24,10 @@ protected trait DFTypePrinter extends AbstractPrinter:
     import dfType.*
     s"${csDFType(cellType, typeCS)}.X${cellDims.mkStringBrackets}"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.name
-  def csDFStruct(dfType: DFStruct, typeCS: Boolean): String = dfType.name match
-    case DFStruct.ReservedTupleName =>
+  def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
+    if (dfType.name.isEmpty)
       csDFTuple(dfType.fieldMap.values.toList, typeCS)
-    case n => n
+    else dfType.name
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
 

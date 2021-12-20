@@ -22,10 +22,15 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFSInt[w]]   => s"DFSInt[${Type.show[w]}]"
       case '[DFEnum[t]]   => Type.show[t]
       case '[DFOpaque[t]] => Type.show[t]
-      case '[DFTuple[t]] =>
-        TypeRepr.of[t].showTuple(_.showType).mkStringBrackets
-      case '[DFStruct[t]] => Type.show[t]
-      case _              => "DFType"
+      case '[DFStruct[t]] =>
+        Type.of[t] match
+          case '[NonEmptyTuple] =>
+            TypeRepr.of[t].showTuple(_.showType).mkStringBrackets
+          case _ =>
+            val structName = TypeRepr.of[t].typeSymbol.name.toString
+            s"DFStruct[$structName]"
+      case _ => "DFType"
+    end match
   end showDFType
 
   def showModifier: String =

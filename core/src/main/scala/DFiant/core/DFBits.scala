@@ -361,15 +361,17 @@ private object CompanionsDFBits:
 
     object Ops:
       extension [LW <: Int](lhs: DFBits.Token[LW])
-        def as[A](
+        def as[A <: DFType.Supported](
             aliasType: A
         )(using
-            tc: DFType.TC[A],
             aW: Width[A]
-        )(using check: `AW == TW`.Check[aW.Out, LW]): DFToken[tc.Type] =
-          val dfType = tc(aliasType).asIR
+        )(using check: `AW == TW`.Check[aW.Out, LW]): DFToken[DFType.Of[A]] =
+          val dfType = DFType.of(aliasType).asIR
           check(dfType.width, lhs.width)
-          lhs.asIR.asInstanceOf[ir.DFBits.Token].as(dfType).asTokenOf[tc.Type]
+          lhs.asIR
+            .asInstanceOf[ir.DFBits.Token]
+            .as(dfType)
+            .asTokenOf[DFType.Of[A]]
         def uint: DFUInt.Token[LW] = as(DFUInt(lhs.width))
         def sint: DFSInt.Token[LW] = as(DFSInt(lhs.width))
         def apply[I <: Int](
@@ -587,15 +589,14 @@ private object CompanionsDFBits:
       extension [W <: Int, M <: ir.DFVal.Modifier](
           lhs: DFVal[DFBits[W], M]
       )
-        def as[A](
+        def as[A <: DFType.Supported](
             aliasType: A
         )(using
-            tc: DFType.TC[A],
             aW: Width[A],
             dfc: DFC
-        )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] =
+        )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[DFType.Of[A]] =
           import Token.Ops.{as => asToken}
-          val aliasDFType = tc(aliasType)
+          val aliasDFType = DFType.of(aliasType)
           check.apply(aliasDFType.asIR.width, lhs.width)
           DFVal.Alias.AsIs(aliasDFType, lhs, _.asToken(aliasType))
         def uint(using DFC): DFValOf[DFUInt[W]] =

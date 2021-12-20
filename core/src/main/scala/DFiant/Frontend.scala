@@ -36,7 +36,6 @@ val DFUInt = core.DFUInt
 type DFSInt[W <: Int] = core.DFSInt[W]
 val DFSInt = core.DFSInt
 val DFBits = core.DFBits
-type DFFields = core.DFFields
 export core.DFEncoding as DFEnum
 type DFDesign = core.DFDesign
 

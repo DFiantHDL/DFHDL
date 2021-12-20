@@ -66,12 +66,12 @@ object DFOpaque:
         val lhsType = lhsTpe.asTypeOf[Any]
         val tExpr = '{ $tfe.actualType }
         def hasDFVal(tpe: TypeRepr): Boolean =
-          tpe match
-            case t if t <:< TypeRepr.of[DFValAny] => true
-            case t: AppliedType if t.tycon <:< TypeRepr.of[ValueOf] =>
-              hasDFVal(t.args.head)
-            case t: AppliedType if t <:< TypeRepr.of[NonEmptyTuple] =>
-              t.args.exists(hasDFVal)
+          tpe.asTypeOf[Any] match
+            case '[DFValAny] => true
+            case '[ValueOf[t]] =>
+              hasDFVal(TypeRepr.of[t])
+            case '[NonEmptyTuple] =>
+              tpe.getTupleArgs.exists(hasDFVal)
             case _ => false
         if (hasDFVal(lhsTpe))
           '{

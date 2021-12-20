@@ -45,37 +45,37 @@ extension (tokenIR: ir.DFTokenAny)
   def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
 
 object DFToken:
-  trait Refiner[T <: DFFields]:
-    type Out <: DFToken[DFStruct[T]]
-  object Refiner:
-    transparent inline given [T <: DFFields]: Refiner[T] = ${
-      refineMacro[T]
-    }
-    def refineMacro[T <: DFFields](using
-        Quotes,
-        Type[T]
-    ): Expr[Refiner[T]] =
-      import quotes.reflect.*
-      val tpt = TypeRepr.of[DFToken[DFStruct[T]]].asTypeTree
-      val sym = Symbol.newVal(
-        Symbol.noSymbol,
-        "bash",
-        TypeRepr.of[Int],
-        Flags.EmptyFlags,
-        Symbol.noSymbol
-      )
-      val r =
-        Refined
-          .copy(tpt)(tpt, List(ValDef(sym, None)))
-      println(r.tpe.show)
-      '{
-        new Refiner[T]:
-          type Out = DFToken[DFStruct[T]] {
-            val bash: Int
-          }
-      }
-    end refineMacro
-  end Refiner
+//  trait Refiner[T <: DFFields]:
+//    type Out <: DFToken[DFStruct[T]]
+//  object Refiner:
+//    transparent inline given [T <: DFFields]: Refiner[T] = ${
+//      refineMacro[T]
+//    }
+//    def refineMacro[T <: DFFields](using
+//        Quotes,
+//        Type[T]
+//    ): Expr[Refiner[T]] =
+//      import quotes.reflect.*
+//      val tpt = TypeRepr.of[DFToken[DFStruct[T]]].asTypeTree
+//      val sym = Symbol.newVal(
+//        Symbol.noSymbol,
+//        "bash",
+//        TypeRepr.of[Int],
+//        Flags.EmptyFlags,
+//        Symbol.noSymbol
+//      )
+//      val r =
+//        Refined
+//          .copy(tpt)(tpt, List(ValDef(sym, None)))
+//      println(r.tpe.show)
+//      '{
+//        new Refiner[T]:
+//          type Out = DFToken[DFStruct[T]] {
+//            val bash: Int
+//          }
+//      }
+//    end refineMacro
+//  end Refiner
 //  def selectMacro[T <: DFTypeAny](
 //      token: Expr[DFToken[T]],
 //      name: Expr[String]
@@ -85,9 +85,9 @@ object DFToken:
 //      case '[DFTuple[t]] =>
 //      case '[DFStruct[t]] =>
 
-  implicit def refined[T <: DFFields](token: DFToken[DFStruct[T]])(using
-      r: Refiner[T]
-  ): r.Out = token.asInstanceOf[r.Out]
+//  implicit def refined[T <: DFFields](token: DFToken[DFStruct[T]])(using
+//      r: Refiner[T]
+//  ): r.Out = token.asInstanceOf[r.Out]
 
   def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
       token: Expr[DFToken[T]],
@@ -266,9 +266,9 @@ object DFToken:
       val term = value.asTerm.underlyingArgument
       val tTpe = TypeRepr.of[T]
       val vTpe = term.tpe
-      val multiElements = vTpe match
-        case AppliedType(_, vArgsTpe) if vTpe.isTupleN =>
-          vArgsTpe.forall(va => tTpe.tupleSigMatch(va, false))
+      val multiElements = vTpe.asTypeOf[Any] match
+        case '[NonEmptyTuple] =>
+          vTpe.getTupleArgs.forall(va => tTpe.tupleSigMatch(va, false))
         case _ => false
       // In the case we have a multiple elements in the tuple value that match the signature
       // of the dataflow type, then each element is considered as a candidate

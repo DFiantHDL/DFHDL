@@ -115,9 +115,10 @@ protected trait DFValPrinter extends AbstractPrinter:
   ): String =
     val DFStruct(structName, fieldMap) = dfVal.relValRef.get.dfType
     val fieldSel =
-      if (structName == DFStruct.ReservedTupleName)
-        if (fieldMap.size > TUPLE_MIN_INDEXING) s"(${dfVal.fieldName})"
-        else s"._${dfVal.fieldName.toInt + 1}"
+      if (structName.isEmpty)
+        if (fieldMap.size > TUPLE_MIN_INDEXING)
+          s"(${dfVal.fieldName.drop(1).toInt - 1})"
+        else s".${dfVal.fieldName}"
       else s".${dfVal.fieldName}"
     s"${dfVal.relValCodeString}$fieldSel"
   def csDFValAliasRef(dfVal: Alias)(using MemberGetSet): String = dfVal match

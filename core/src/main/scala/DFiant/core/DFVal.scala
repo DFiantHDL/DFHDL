@@ -85,31 +85,12 @@ type IN = Modifier.IN.type
 type OUT = Modifier.OUT.type
 type INOUT = Modifier.INOUT.type
 sealed trait TOKEN
-type <>[T <: DFTypeAny | DFEncoding | DFOpaqueA | NonEmptyTuple, M] = M match
-  case VAL =>
-    T match
-      case DFTypeAny     => DFValOf[T]
-      case DFEncoding    => DFValOf[DFEnum[T]]
-      case DFOpaqueA     => DFValOf[DFOpaque[T]]
-      case NonEmptyTuple => DFValOf[DFTuple[T]]
-  case VAR =>
-    T match
-      case DFTypeAny     => DFVarOf[T]
-      case DFEncoding    => DFVarOf[DFEnum[T]]
-      case DFOpaqueA     => DFVarOf[DFOpaque[T]]
-      case NonEmptyTuple => DFVarOf[DFTuple[T]]
-  case IN | OUT | INOUT =>
-    T match
-      case DFTypeAny     => DFPortOf[T]
-      case DFEncoding    => DFPortOf[DFEnum[T]]
-      case DFOpaqueA     => DFPortOf[DFOpaque[T]]
-      case NonEmptyTuple => DFPortOf[DFTuple[T]]
-  case TOKEN =>
-    T match
-      case DFTypeAny     => DFToken[T]
-      case DFEncoding    => DFToken[DFEnum[T]]
-      case DFOpaqueA     => DFToken[DFOpaque[T]]
-      case NonEmptyTuple => DFToken[DFTuple[T]]
+type <>[T <: DFType.Supported, M] = M match
+  case VAL              => DFValOf[DFType.Of[T]]
+  case VAR              => DFVarOf[DFType.Of[T]]
+  case IN | OUT | INOUT => DFPortOf[DFType.Of[T]]
+  case TOKEN            => DFToken[DFType.Of[T]]
+type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
 
 extension (dfVal: ir.DFVal)
   def asVal[T <: DFTypeAny, M <: Modifier]: DFVal[T, M] = DFVal[T, M](dfVal)

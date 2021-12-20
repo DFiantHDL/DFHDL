@@ -197,8 +197,7 @@ final case class DFStruct(
       .toList
 end DFStruct
 
-object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
-  final val ReservedTupleName = "$DFTuple$"
+object DFStruct extends DFType.Companion[DFStruct, List[Any]]
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

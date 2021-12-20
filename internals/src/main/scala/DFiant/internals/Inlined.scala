@@ -9,8 +9,8 @@ export any.*
 type +[L, R] = (L, R) match
   case (Int, Int)       => int.+[L, R]
   case (String, String) => string.+[L, R]
-  case (String, Int)    => string.+[L, int.ToString[R]]
-  case (Int, String)    => string.+[int.ToString[L], R]
+  case (String, Int)    => string.+[L, ToString[R]]
+  case (Int, String)    => string.+[ToString[L], R]
 type ^[L, R] = (L, R) match
   case (Int, Int)         => int.^[L, R]
   case (Boolean, Boolean) => boolean.^[L, R]

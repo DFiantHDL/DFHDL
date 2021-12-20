@@ -1,5 +1,6 @@
 package DFiant.internals
 import scala.quoted.*
+import scala.annotation.tailrec
 extension [T](t: T)
   def debugPrint: T =
     println(t)
@@ -42,6 +43,20 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
 end extension
 
 extension (using quotes: Quotes)(lhs: quotes.reflect.TypeRepr)
+  def getTupleArgs: List[quotes.reflect.TypeRepr] =
+    import quotes.reflect.*
+    @tailrec def recur(tpl: TypeRepr, args: List[TypeRepr]): List[TypeRepr] =
+      tpl.asTypeOf[Any] match
+        case '[head *: tail] =>
+          recur(TypeRepr.of[tail], TypeRepr.of[head] :: args)
+        case '[EmptyTuple] => args.reverse
+        case '[t] =>
+          report.errorAndAbort(s"Expecting a tuple, but found ${Type.show[t]}")
+    if (lhs.show == "null")
+      report.errorAndAbort(s"Expecting a tuple, but found null")
+    else
+      recur(lhs, Nil)
+
   def tupleSigMatch(
       rhs: quotes.reflect.TypeRepr,
       tupleAndNonTupleMatch: Boolean
@@ -49,13 +64,15 @@ extension (using quotes: Quotes)(lhs: quotes.reflect.TypeRepr)
     import quotes.reflect.*
     (lhs.asType, rhs.asType) match
       case ('[Tuple], '[Tuple]) =>
-        val AppliedType(_, lArgs) = lhs
-        val AppliedType(_, rArgs) = rhs
+        val lArgs = lhs.getTupleArgs
+        val rArgs = rhs.getTupleArgs
         if (lArgs.length != rArgs.length) false
         else (lArgs lazyZip rArgs).forall((l, r) => l.tupleSigMatch(r, true))
       case ('[Tuple], '[Any]) => tupleAndNonTupleMatch
       case ('[Any], '[Tuple]) => tupleAndNonTupleMatch
       case _                  => true
+  end tupleSigMatch
+end extension
 
 trait PrintType[T]
 object PrintType:
@@ -69,15 +86,18 @@ object Error:
   transparent inline def call[T <: NonEmptyTuple]: Nothing = ${ macroImpl[T] }
   def macroImpl[T <: NonEmptyTuple](using Quotes, Type[T]): Expr[Nothing] =
     import quotes.reflect.*
-    val AppliedType(_, args) = TypeRepr.of[T]
-    val msg = args
-      .map(_.dealias)
-      .map {
-        case ConstantType(StringConstant(msg)) => msg
-        case t                                 => t.show
-      }
-      .mkString
+    val msg =
+      TypeRepr
+        .of[T]
+        .getTupleArgs
+        .map(_.dealias)
+        .map {
+          case ConstantType(StringConstant(msg)) => msg
+          case t                                 => t.show
+        }
+        .mkString
     '{ compiletime.error(${ Expr(msg) }) }
+end Error
 
 extension (using quotes: Quotes)(sc: Expr[StringContext])
   def termWithArgs(args: Expr[Seq[Any]]): quotes.reflect.Term =
@@ -100,3 +120,6 @@ extension (using quotes: Quotes)(sc: Expr[StringContext])
     }
 
 inline implicit def fromValueOf[T](v: ValueOf[T]): T = v.value
+
+type <:![T <: UB, UB] <: UB = T match
+  case UB => T

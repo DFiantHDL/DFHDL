@@ -70,13 +70,19 @@ object Width:
               widths.reduce(_ * _)
             case '[DFOpaque[t]] =>
               TypeRepr.of[t].calcWidth
-            case '[DFStruct[t]] =>
-              TypeRepr.of[t].calcWidth
+            case '[DFStruct[p]] =>
+              val pTpe = TypeRepr.of[p]
+              val clsSym = pTpe.classSymbol.get
+              val widths =
+                clsSym.fieldMembers.view
+                  .map(m => pTpe.memberType(m).asTypeOf[Any])
+                  .collect { case '[DFValOf[t]] => TypeRepr.of[t].calcWidth }
+              widths.reduce(_ + _)
             case _ =>
               val AppliedType(_, List(irTpe, tuple)) = dfTpe.dealias
-              val args: List[TypeRepr] = tuple match
-                case AppliedType(_, args) => args
-                case _                    => Nil
+              val args: List[TypeRepr] =
+                if (tuple.isTupleN) tuple.getTupleArgs
+                else Nil
               irTpe match
                 case t if t <:< TypeRepr.of[ir.DFVector] =>
                   val cellWidth = args.head.calcWidth
@@ -90,17 +96,7 @@ object Width:
           dfTpe
         case '[NonEmptyTuple] =>
           val widths =
-            dfTpe.asInstanceOf[AppliedType].args.map(a => a.calcWidth)
-          widths.reduce(_ + _)
-        case '[DFTuple.Fields[t]] =>
-          TypeRepr.of[t].calcWidth
-        case '[DFFields] =>
-          val clsSym = dfTpe.classSymbol.get
-          val widths =
-            clsSym.fieldMembers.view
-              .map(dfTpe.memberType)
-              .map(_.asTypeOf[Any])
-              .collect { case '[DFField[t]] => TypeRepr.of[t].calcWidth }
+            dfTpe.getTupleArgs.map(a => a.calcWidth)
           widths.reduce(_ + _)
         case '[DFOpaque.Abstract] =>
           val clsSym = dfTpe.classSymbol.get
@@ -142,7 +138,7 @@ object Width:
         case '[DFToken[t]] =>
           TypeRepr.of[t].calcWidth
         case '[NonEmptyTuple] =>
-          val AppliedType(_, args) = dfTpe.dealias
+          val args = dfTpe.getTupleArgs
           val widths = args.map(a => a.calcValWidth(onlyTokens))
           widths.reduce(_ + _)
         case _ =>
@@ -177,6 +173,6 @@ extension [T <: DFTypeAny](token: DFToken[T])
   def width(using w: Width[T]): Inlined[w.Out] =
     Inlined.forced[w.Out](token.asIR.width)
 
-extension [T](t: T)(using tc: DFType.TC[T])
+extension [T <: DFType.Supported](t: T)
   def width(using w: Width[T]): Inlined[w.Out] =
-    Inlined.forced[w.Out](tc(t).asIR.width)
+    Inlined.forced[w.Out](DFType.of(t).asIR.width)

@@ -8,22 +8,14 @@ import scala.annotation.targetName
 import scala.annotation.unchecked.uncheckedVariance
 import scala.quoted.*
 
-type DFTuple[+T] = DFStruct[DFTuple.Fields[T] @uncheckedVariance]
+type DFTuple[+T <: NonEmptyTuple] = DFStruct[T @uncheckedVariance]
 object DFTuple:
-  def apply[T <: AnyRef](t: T): DFTuple[T] =
-    val fieldList: List[DFTypeAny] =
-      t.asInstanceOf[NonEmptyTuple]
-        .toList
-        // TODO: Hack due to https://github.com/lampepfl/dotty/issues/12721
-        .asInstanceOf[List[AnyRef]]
-        .map(x => DFType(x))
-    DFStruct(Fields[T](fieldList))
+  def apply[T <: NonEmptyTuple](t: NonEmptyTuple): DFTuple[T] =
+    val tList = t.toList
+    val fieldList: List[DFTypeAny] = tList.map(x => DFType(x))
+    DFStruct[T]("", (1 to fieldList.length).map(i => s"_$i").toList, fieldList)
 
-  final case class Fields[+T](fieldList: List[DFTypeAny]) extends DFFields:
-    override lazy val typeName: String = ir.DFStruct.ReservedTupleName
-    fieldList.zipWithIndex.foreach((f, i) => createField(f, (i + 1).toString))
-
-  extension [T](dfType: DFTuple[T])
+  extension [T <: NonEmptyTuple](dfType: DFTuple[T])
     def fieldList: List[DFTypeAny] =
       dfType.asIR.fieldMap.values.map(_.asFE[DFTypeAny]).toList
 
@@ -46,7 +38,6 @@ object DFTuple:
     ]: TCZipper[T, V, O, TC] = ${
       zipperMacro[T, V, O, TC]
     }
-    import DFType.TC.MacroOps.*
     def zipperMacro[
         T <: NonEmptyTuple,
         V <: NonEmptyTuple,
@@ -59,18 +50,19 @@ object DFTuple:
         Type[O],
         Type[TC]
     ): Expr[TCZipper[T, V, O, TC]] =
-      def applyExpr[T, V](
+      def applyExpr[T <: NonEmptyTuple, V <: NonEmptyTuple](
           fieldListExpr: Expr[List[DFTypeAny]],
           tokenTupleValuesExpr: Expr[List[Any]]
       )(using Quotes, Type[T], Type[V], Type[O], Type[TC]): Expr[List[O]] =
         import quotes.reflect.*
-        val AppliedType(fun, tArgs) = TypeRepr.of[T]
-        val AppliedType(_, vArgs) = TypeRepr.of[V]
+        val tArgs = TypeRepr.of[T].getTupleArgs
+        val vArgs = TypeRepr.of[V].getTupleArgs
         if (tArgs.length == vArgs.length)
           val exprs =
             tArgs.zipWithIndex.lazyZip(vArgs).map { case ((t, i), v) =>
               val vTpe = v.asTypeOf[Any]
-              val dfTypeTpe = t.dfTypeTpe.get.asTypeOf[DFTypeAny]
+              val dfTypeTpe: Type[DFTypeAny] = t.asTypeOf[Any] match
+                case '[DFValOf[t]] => TypeRepr.of[t].asTypeOf[DFTypeAny]
               val iExpr = Literal(IntConstant(i)).asExprOf[Int]
               '{
                 val tc = compiletime
@@ -108,9 +100,9 @@ object DFTuple:
     end zipperMacro
   end TCZipper
 
-  type Token[+T] = DFToken[DFTuple[T]]
+  type Token[+T <: NonEmptyTuple] = DFToken[DFTuple[T]]
   object Token:
-    protected[core] def apply[T](
+    protected[core] def apply[T <: NonEmptyTuple](
         dfType: DFTuple[T],
         data: List[Any]
     ): Token[T] =
@@ -154,11 +146,10 @@ object DFTuple:
       extension [T <: NonEmptyTuple](t: DFToken[DFTuple[T]])
         def apply[I <: Int](i: Inlined[I])(using
             check: BitIndex.Check[I, Tuple.Size[T]],
-            size: ValueOf[Tuple.Size[T]],
-            tc: DFType.TC[Tuple.Elem[T, I]]
-        ): DFToken[tc.Type] =
+            size: ValueOf[Tuple.Size[T]]
+        ): DFToken[DFType.FromDFVal[Tuple.Elem[T, I]]] =
           check(i, size)
-          selectRuntime[tc.Type](t.wide, i)
+          selectRuntime[DFType.FromDFVal[Tuple.Elem[T, I]]](t.wide, i)
       private def selectRuntime[T <: DFTypeAny](
           token: Token[NonEmptyTuple],
           idx: Int
@@ -171,21 +162,25 @@ object DFTuple:
         private def wide: Token[NonEmptyTuple] =
           t.asInstanceOf[Token[NonEmptyTuple]]
 
-      extension [T1](t: Token[Tuple1[T1]])
-        inline def _1(using tc: DFType.TC[T1]): DFToken[tc.Type] =
-          selectRuntime[tc.Type](t.wide, 0)
-      extension [T1, T2](t: Token[(T1, T2)])
-        inline def _1(using tc: DFType.TC[T1]): DFToken[tc.Type] =
-          selectRuntime[tc.Type](t.wide, 0)
-        inline def _2(using tc: DFType.TC[T2]): DFToken[tc.Type] =
-          selectRuntime[tc.Type](t.wide, 1)
-      extension [T1, T2, T3](t: Token[(T1, T2, T3)])
-        inline def _1(using tc: DFType.TC[T1]): DFToken[tc.Type] =
-          selectRuntime[tc.Type](t.wide, 0)
-        inline def _2(using tc: DFType.TC[T2]): DFToken[tc.Type] =
-          selectRuntime[tc.Type](t.wide, 1)
-        inline def _3(using tc: DFType.TC[T3]): DFToken[tc.Type] =
-          selectRuntime[tc.Type](t.wide, 2)
+      extension [T1 <: DFTypeAny](t: Token[Tuple1[DFValOf[T1]]])
+        inline def _1: DFToken[T1] =
+          selectRuntime[T1](t.wide, 0)
+      extension [T1 <: DFTypeAny, T2 <: DFTypeAny](
+          t: Token[(DFValOf[T1], DFValOf[T2])]
+      )
+        inline def _1: DFToken[T1] =
+          selectRuntime[T1](t.wide, 0)
+        inline def _2: DFToken[T2] =
+          selectRuntime[T2](t.wide, 1)
+      extension [T1 <: DFTypeAny, T2 <: DFTypeAny, T3 <: DFTypeAny](
+          t: Token[(DFValOf[T1], DFValOf[T2], DFValOf[T3])]
+      )
+        inline def _1: DFToken[T1] =
+          selectRuntime[T1](t.wide, 0)
+        inline def _2: DFToken[T2] =
+          selectRuntime[T2](t.wide, 1)
+        inline def _3: DFToken[T3] =
+          selectRuntime[T3](t.wide, 2)
     end Ops
 
   end Token
@@ -233,34 +228,42 @@ object DFTuple:
         def apply[I <: Int](i: Inlined[I])(using
             dfc: DFC,
             check: BitIndex.Check[I, Tuple.Size[T]],
-            size: ValueOf[Tuple.Size[T]],
-            tc: DFType.TC[Tuple.Elem[T, I]]
-        ): DFVal[tc.Type, M] =
+            size: ValueOf[Tuple.Size[T]]
+        ): DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M] =
           check(i, size)
-          applyForced[tc.Type](i)
+          applyForced[DFType.FromDFVal[Tuple.Elem[T, I]]](i)
         private def applyForced[OT <: DFTypeAny](i: Int)(using
             dfc: DFC
         ): DFVal[OT, M] =
           DFVal.Alias
-            .SelectField(t.dfType.fieldList(i), t, i.toString())
+            .SelectField(t.dfType.fieldList(i), t, s"_${i + 1}")
             .asIR
             .asVal[OT, M]
       end extension
-      extension [T1, M <: Modifier](t: DFVal[DFTuple[Tuple1[T1]], M])
-        inline def _1(using tc: DFType.TC[T1], dfc: DFC): DFVal[tc.Type, M] =
-          t.applyForced[tc.Type](0)
-      extension [T1, T2, M <: Modifier](t: DFVal[DFTuple[(T1, T2)], M])
-        inline def _1(using tc: DFType.TC[T1], dfc: DFC): DFVal[tc.Type, M] =
-          t.applyForced[tc.Type](0)
-        inline def _2(using tc: DFType.TC[T2], dfc: DFC): DFVal[tc.Type, M] =
-          t.applyForced[tc.Type](1)
-      extension [T1, T2, T3, M <: Modifier](t: DFVal[DFTuple[(T1, T2, T3)], M])
-        inline def _1(using tc: DFType.TC[T1], dfc: DFC): DFVal[tc.Type, M] =
-          t.applyForced[tc.Type](0)
-        inline def _2(using tc: DFType.TC[T2], dfc: DFC): DFVal[tc.Type, M] =
-          t.applyForced[tc.Type](1)
-        inline def _3(using tc: DFType.TC[T3], dfc: DFC): DFVal[tc.Type, M] =
-          t.applyForced[tc.Type](2)
+      extension [T1 <: DFTypeAny, M <: Modifier](
+          t: DFVal[DFTuple[Tuple1[DFValOf[T1]]], M]
+      )
+        inline def _1(using DFC): DFVal[T1, M] =
+          t.applyForced[T1](0)
+      extension [T1 <: DFTypeAny, T2 <: DFTypeAny, M <: Modifier](
+          t: DFVal[DFTuple[(DFValOf[T1], DFValOf[T2])], M]
+      )
+        inline def _1(using DFC): DFVal[T1, M] =
+          t.applyForced[T1](0)
+        inline def _2(using DFC): DFVal[T2, M] =
+          t.applyForced[T2](1)
+      extension [
+          T1 <: DFTypeAny,
+          T2 <: DFTypeAny,
+          T3 <: DFTypeAny,
+          M <: Modifier
+      ](t: DFVal[DFTuple[(DFValOf[T1], DFValOf[T2], DFValOf[T3])], M])
+        inline def _1(using DFC): DFVal[T1, M] =
+          t.applyForced[T1](0)
+        inline def _2(using DFC): DFVal[T2, M] =
+          t.applyForced[T2](1)
+        inline def _3(using DFC): DFVal[T3, M] =
+          t.applyForced[T3](2)
     end Ops
   end Val
 end DFTuple
