@@ -162,25 +162,25 @@ object DFTuple:
         private def wide: Token[NonEmptyTuple] =
           t.asInstanceOf[Token[NonEmptyTuple]]
 
-      extension [T1 <: DFTypeAny](t: Token[Tuple1[DFValOf[T1]]])
-        inline def _1: DFToken[T1] =
-          selectRuntime[T1](t.wide, 0)
-      extension [T1 <: DFTypeAny, T2 <: DFTypeAny](
-          t: Token[(DFValOf[T1], DFValOf[T2])]
-      )
-        inline def _1: DFToken[T1] =
-          selectRuntime[T1](t.wide, 0)
-        inline def _2: DFToken[T2] =
-          selectRuntime[T2](t.wide, 1)
-      extension [T1 <: DFTypeAny, T2 <: DFTypeAny, T3 <: DFTypeAny](
-          t: Token[(DFValOf[T1], DFValOf[T2], DFValOf[T3])]
-      )
-        inline def _1: DFToken[T1] =
-          selectRuntime[T1](t.wide, 0)
-        inline def _2: DFToken[T2] =
-          selectRuntime[T2](t.wide, 1)
-        inline def _3: DFToken[T3] =
-          selectRuntime[T3](t.wide, 2)
+//      extension [T1 <: DFTypeAny](t: Token[Tuple1[DFValOf[T1]]])
+//        inline def _1: DFToken[T1] =
+//          selectRuntime[T1](t.wide, 0)
+//      extension [T1 <: DFTypeAny, T2 <: DFTypeAny](
+//          t: Token[(DFValOf[T1], DFValOf[T2])]
+//      )
+//        inline def _1: DFToken[T1] =
+//          selectRuntime[T1](t.wide, 0)
+//        inline def _2: DFToken[T2] =
+//          selectRuntime[T2](t.wide, 1)
+//      extension [T1 <: DFTypeAny, T2 <: DFTypeAny, T3 <: DFTypeAny](
+//          t: Token[(DFValOf[T1], DFValOf[T2], DFValOf[T3])]
+//      )
+//        inline def _1: DFToken[T1] =
+//          selectRuntime[T1](t.wide, 0)
+//        inline def _2: DFToken[T2] =
+//          selectRuntime[T2](t.wide, 1)
+//        inline def _3: DFToken[T3] =
+//          selectRuntime[T3](t.wide, 2)
     end Ops
 
   end Token
@@ -240,30 +240,30 @@ object DFTuple:
             .asIR
             .asVal[OT, M]
       end extension
-      extension [T1 <: DFTypeAny, M <: Modifier](
-          t: DFVal[DFTuple[Tuple1[DFValOf[T1]]], M]
-      )
-        inline def _1(using DFC): DFVal[T1, M] =
-          t.applyForced[T1](0)
-      extension [T1 <: DFTypeAny, T2 <: DFTypeAny, M <: Modifier](
-          t: DFVal[DFTuple[(DFValOf[T1], DFValOf[T2])], M]
-      )
-        inline def _1(using DFC): DFVal[T1, M] =
-          t.applyForced[T1](0)
-        inline def _2(using DFC): DFVal[T2, M] =
-          t.applyForced[T2](1)
-      extension [
-          T1 <: DFTypeAny,
-          T2 <: DFTypeAny,
-          T3 <: DFTypeAny,
-          M <: Modifier
-      ](t: DFVal[DFTuple[(DFValOf[T1], DFValOf[T2], DFValOf[T3])], M])
-        inline def _1(using DFC): DFVal[T1, M] =
-          t.applyForced[T1](0)
-        inline def _2(using DFC): DFVal[T2, M] =
-          t.applyForced[T2](1)
-        inline def _3(using DFC): DFVal[T3, M] =
-          t.applyForced[T3](2)
+//      extension [T1 <: DFTypeAny, M <: Modifier](
+//          t: DFVal[DFTuple[Tuple1[DFValOf[T1]]], M]
+//      )
+//        inline def _1(using DFC): DFVal[T1, M] =
+//          t.applyForced[T1](0)
+//      extension [T1 <: DFTypeAny, T2 <: DFTypeAny, M <: Modifier](
+//          t: DFVal[DFTuple[(DFValOf[T1], DFValOf[T2])], M]
+//      )
+//        inline def _1(using DFC): DFVal[T1, M] =
+//          t.applyForced[T1](0)
+//        inline def _2(using DFC): DFVal[T2, M] =
+//          t.applyForced[T2](1)
+//      extension [
+//          T1 <: DFTypeAny,
+//          T2 <: DFTypeAny,
+//          T3 <: DFTypeAny,
+//          M <: Modifier
+//      ](t: DFVal[DFTuple[(DFValOf[T1], DFValOf[T2], DFValOf[T3])], M])
+//        inline def _1(using DFC): DFVal[T1, M] =
+//          t.applyForced[T1](0)
+//        inline def _2(using DFC): DFVal[T2, M] =
+//          t.applyForced[T2](1)
+//        inline def _3(using DFC): DFVal[T3, M] =
+//          t.applyForced[T3](2)
     end Ops
   end Val
 end DFTuple

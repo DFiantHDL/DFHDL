@@ -11,7 +11,17 @@ import DFOpaque.Abstract as DFOpaqueA
 import DFiant.compiler.printing.{DefaultPrinter, Printer}
 final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
-    with DFMember[ir.DFVal]:
+    with DFMember[ir.DFVal]
+    with Selectable:
+
+  inline def selectDynamic(name: String)(using DFC): Any =
+    val ir.DFStruct(structName, fieldMap) = value.dfType
+    val dfType = fieldMap(name)
+    DFVal.Alias
+      .SelectField(dfType.asFE[DFTypeAny], this, name)
+      .asIR
+      .asVal[DFTypeAny, Modifier]
+
   transparent inline def ==[R](
       inline that: R
   )(using DFC): DFBool <> VAL = ${
@@ -25,6 +35,46 @@ final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
 end DFVal
 
 object DFVal:
+  trait Refiner[T <: Product, M <: Modifier]:
+    type Out <: DFVal[DFStruct[T], M]
+  object Refiner:
+    transparent inline given [T <: Product, M <: Modifier]: Refiner[T, M] = ${
+      refineMacro[T, M]
+    }
+    def refineMacro[T <: Product, M <: Modifier](using
+        Quotes,
+        Type[T],
+        Type[M]
+    ): Expr[Refiner[T, M]] =
+      import quotes.reflect.*
+      val dfValTpe = TypeRepr.of[DFVal[DFStruct[T], M]]
+      val tTpe = TypeRepr.of[T]
+      val fields: List[(String, TypeRepr)] = tTpe.asTypeOf[Any] match
+        case '[NonEmptyTuple] =>
+          tTpe.getTupleArgs.zipWithIndex.map((f, i) =>
+            f.asTypeOf[Any] match
+              case '[DFValOf[t]] =>
+                (s"_${i + 1}", TypeRepr.of[DFVal[t, M]])
+          )
+        case _ => ???
+
+      val refined = fields.foldLeft(dfValTpe) { case (r, (n, t)) =>
+        Refinement(r, n, t)
+      }
+      val refinedType = refined.asTypeOf[DFVal[DFStruct[T], M]]
+      '{
+        new Refiner[T, M]:
+          type Out = refinedType.Underlying
+      }
+    end refineMacro
+  end Refiner
+
+  implicit def refined[T <: Product, M <: Modifier](
+      dfVal: DFVal[DFStruct[T], M]
+  )(using
+      r: Refiner[T, M]
+  ): r.Out = dfVal.asInstanceOf[r.Out]
+
   def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
       dfVal: Expr[DFValOf[T]],
       arg: Expr[R]

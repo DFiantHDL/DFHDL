@@ -11,14 +11,14 @@ import scala.annotation.unchecked.uncheckedVariance
 final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny)
     extends AnyVal
     with Selectable:
-//  transparent inline def selectDynamic(inline name: String): Any = ${
-//    selectMacro('this, 'name)
-//  }
 
   def selectDynamic(name: String): Any =
     val ir.DFStruct(structName, fieldMap) = value.dfType
-//    val dfType = fieldMap(name)
-    1
+    val dfType = fieldMap(name)
+    val idx = fieldMap.toList.indexWhere(_._1 == name)
+    val data = value.data.asInstanceOf[List[Any]](idx)
+    ir.DFToken.forced(dfType, data).asTokenOf[DFTypeAny]
+
   transparent inline def ==[R](
       inline that: R
   )(using DFC): DFBool <> TOKEN = ${
@@ -45,49 +45,42 @@ extension (tokenIR: ir.DFTokenAny)
   def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
 
 object DFToken:
-//  trait Refiner[T <: DFFields]:
-//    type Out <: DFToken[DFStruct[T]]
-//  object Refiner:
-//    transparent inline given [T <: DFFields]: Refiner[T] = ${
-//      refineMacro[T]
-//    }
-//    def refineMacro[T <: DFFields](using
-//        Quotes,
-//        Type[T]
-//    ): Expr[Refiner[T]] =
-//      import quotes.reflect.*
-//      val tpt = TypeRepr.of[DFToken[DFStruct[T]]].asTypeTree
-//      val sym = Symbol.newVal(
-//        Symbol.noSymbol,
-//        "bash",
-//        TypeRepr.of[Int],
-//        Flags.EmptyFlags,
-//        Symbol.noSymbol
-//      )
-//      val r =
-//        Refined
-//          .copy(tpt)(tpt, List(ValDef(sym, None)))
-//      println(r.tpe.show)
-//      '{
-//        new Refiner[T]:
-//          type Out = DFToken[DFStruct[T]] {
-//            val bash: Int
-//          }
-//      }
-//    end refineMacro
-//  end Refiner
-//  def selectMacro[T <: DFTypeAny](
-//      token: Expr[DFToken[T]],
-//      name: Expr[String]
-//  )(using Quotes, Type[T]): Expr[Any] =
-//    import quotes.reflect.*
-//    Type.of[T] match
-//      case '[DFTuple[t]] =>
-//      case '[DFStruct[t]] =>
+  trait Refiner[T <: Product]:
+    type Out <: DFToken[DFStruct[T]]
+  object Refiner:
+    transparent inline given [T <: Product]: Refiner[T] = ${
+      refineMacro[T]
+    }
+    def refineMacro[T <: Product](using
+        Quotes,
+        Type[T]
+    ): Expr[Refiner[T]] =
+      import quotes.reflect.*
+      val tokenTpe = TypeRepr.of[DFToken[DFStruct[T]]]
+      val tTpe = TypeRepr.of[T]
+      val fields: List[(String, TypeRepr)] = tTpe.asTypeOf[Any] match
+        case '[NonEmptyTuple] =>
+          tTpe.getTupleArgs.zipWithIndex.map((f, i) =>
+            f.asTypeOf[Any] match
+              case '[DFValOf[t]] =>
+                (s"_${i + 1}", TypeRepr.of[DFToken[t]])
+          )
+        case _ => ???
 
-//  implicit def refined[T <: DFFields](token: DFToken[DFStruct[T]])(using
-//      r: Refiner[T]
-//  ): r.Out = token.asInstanceOf[r.Out]
+      val refined = fields.foldLeft(tokenTpe) { case (r, (n, t)) =>
+        Refinement(r, n, t)
+      }
+      val refinedType = refined.asTypeOf[DFToken[DFStruct[T]]]
+      '{
+        new Refiner[T]:
+          type Out = refinedType.Underlying
+      }
+    end refineMacro
+  end Refiner
+
+  implicit def refined[T <: Product](token: DFToken[DFStruct[T]])(using
+      r: Refiner[T]
+  ): r.Out = token.asInstanceOf[r.Out]
 
   def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
       token: Expr[DFToken[T]],

@@ -1,13 +1,11 @@
 import DFiant.*
 import munit.*
-import compiletime.ops.int.>
 
 class DFTupleSpec extends DFSpec:
   val tplA = (DFUInt(8), DFBit, DFBits(3))
   val tplB = ((DFUInt(8), DFBit), DFBits(3))
   val tokenA = tplA token (22, 1, b"101")
   val tokenB = tplB token ((22, 1), b"101")
-//  println(tokenA.bash)
   assertEquals(d"8'22", tokenA(0))
   assertEquals(d"8'22", tokenA._1)
   assertEquals(tokenB(0)(1), DFBit.token(1))
