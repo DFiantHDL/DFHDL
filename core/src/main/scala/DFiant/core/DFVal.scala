@@ -75,8 +75,8 @@ object DFVal:
     end refineMacro
   end Refiner
 
-  implicit def refined[T <: Product, M <: Modifier](
-      dfVal: DFVal[DFStruct[T], M]
+  inline implicit def refined[T <: Product, M <: Modifier](
+      inline dfVal: DFVal[DFStruct[T], M]
   )(using
       r: Refiner[T, M]
   ): r.Out = dfVal.asInstanceOf[r.Out]
