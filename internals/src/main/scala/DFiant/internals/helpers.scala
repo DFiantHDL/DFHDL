@@ -107,3 +107,38 @@ inline implicit def fromValueOf[T](v: ValueOf[T]): T = v.value
 
 type <:![T <: UB, UB] <: UB = T match
   case UB => T
+
+// gets the case class from a companion object reference
+trait CaseClass[Companion <: AnyRef]:
+  type CC <: Product
+
+object CaseClass:
+  type Aux[Companion <: AnyRef, Case <: Product] = CaseClass[Companion] {
+    type CC = Case
+  }
+  transparent inline given [Comp <: AnyRef]: CaseClass[Comp] = ${
+    macroImpl[Comp]
+  }
+  def macroImpl[Comp <: AnyRef](using
+      Quotes,
+      Type[Comp]
+  ): Expr[CaseClass[Comp]] =
+    import quotes.reflect.*
+    val compObjTpe = TypeRepr.of[Comp]
+    val compPrefix = compObjTpe match
+      case TermRef(pre, _) => pre
+      case _ => report.throwError("Case class companion must be a term ref")
+    val clsSym = compObjTpe.typeSymbol.companionClass
+    if !clsSym.paramSymss.forall(_.headOption.forall(_.isTerm)) then
+      report.throwError("Case class with type parameters are not supported")
+    val clsTpe = compPrefix.select(clsSym)
+    clsTpe.asType match
+      case '[t & Product] =>
+        type Case = t & Product
+        '{
+          (new CaseClass[Comp]:
+            type CC = Case
+          ): CaseClass.Aux[Comp, Case]
+        }
+  end macroImpl
+end CaseClass

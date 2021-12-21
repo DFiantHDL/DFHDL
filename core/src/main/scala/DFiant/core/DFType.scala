@@ -8,6 +8,7 @@ import scala.quoted.*
 import collection.mutable
 import collection.immutable.ListMap
 import DFOpaque.Abstract as DFOpaqueA
+import reflect.EnumCompanion
 
 sealed trait Args
 sealed trait NoArgs extends Args
@@ -56,19 +57,18 @@ object DFType:
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
-  type Supported = DFTypeAny | DFEncoding | DFOpaqueA | NonEmptyTuple |
-    reflect.EnumCompanion[? <: DFEncoding]
+  type Supported = DFTypeAny | DFEncoding | AnyRef
   object Ops:
-    extension [T <: Supported](t: T)
+    extension [T <: Supported](t: T)(using tc: DFType.TC[T])
       def <>[M <: ir.DFVal.Modifier](modifier: M)(using
           DFC
-      ): DFVal[Of[T], M] = DFVal.Dcl(of(t), modifier)
+      ): DFVal[tc.Type, M] = DFVal.Dcl(tc(t), modifier)
       def token[V](tokenValue: Exact[V])(using
-          tokenTC: DFToken.TC[Of[T], V]
-      ): tokenTC.Out = tokenTC(of(t), tokenValue)
+          tokenTC: DFToken.TC[tc.Type, V]
+      ): tokenTC.Out = tokenTC(tc(t), tokenValue)
       def const[V](tokenValue: Exact[V])(using
-          DFToken.TC[Of[T], V]
-      )(using DFC): DFValOf[Of[T]] =
+          DFToken.TC[tc.Type, V]
+      )(using DFC): DFValOf[tc.Type] =
         DFVal.Const(token(tokenValue), named = true)
     end extension
   end Ops
@@ -77,14 +77,64 @@ object DFType:
     type Type <: DFTypeAny
     def apply(t: T): Type
   object TC:
-    transparent inline given ofDFType[T <: Supported]: TC[T] = new TC[T]:
-      type Type = Of[T]
-      def apply(t: T): Type = DFType(t).asInstanceOf[Type]
-//    transparent inline given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[
-//      T
-//    ]]: TC[TFE] = new TC[TFE]:
-//      type Type = DFOpaque[TFE]
-//      def apply(t: TFE): Type = DFOpaque(t)
+    transparent inline given ofDFType[T <: DFTypeAny]: TC[T] = new TC[T]:
+      type Type = T
+      def apply(t: T): Type = t
+
+    transparent inline given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[
+      T
+    ]]: TC[TFE] = new TC[TFE]:
+      type Type = DFOpaque[TFE]
+      def apply(t: TFE): Type = DFOpaque(t)
+
+    transparent inline given ofEnumCompanion[E <: DFEncoding]
+        : TC[EnumCompanion[E]] = new TC[EnumCompanion[E]]:
+      type Type = DFEnum[E]
+      def apply(t: EnumCompanion[E]): Type = DFEnum[E](t)
+
+    transparent inline given ofStructCompanion[F <: AnyRef](using
+        cc: CaseClass[F]
+    )(using dfType: DFStruct[cc.CC]): TC[F] = new TC[F]:
+      type Type = DFStruct[cc.CC]
+      def apply(t: F): Type = dfType
+
+    transparent inline given ofTuple[T <: NonEmptyTuple]: TC[T] = ${
+      ofTupleMacro[T]
+    }
+    def ofTupleMacro[T <: NonEmptyTuple](using Quotes, Type[T]): Expr[TC[T]] =
+      import quotes.reflect.*
+      val tTpe = TypeRepr.of[T]
+      val AppliedType(fun, args) = tTpe
+      val tcTrees = args.map(t =>
+        Implicits.search(TypeRepr.of[TC].appliedTo(t)) match
+          case iss: ImplicitSearchSuccess =>
+            iss.tree
+          case isf: ImplicitSearchFailure =>
+            report.errorAndAbort(isf.explanation)
+      )
+      val tcList = '{
+        List(${ Varargs(tcTrees.map(_.asExpr)) }*).asInstanceOf[List[TC[Any]]]
+      }
+      val tpes = tcTrees
+        .map(_.tpe.asTypeOf[Any] match
+          case '[TC[t] { type Type = z }] => TypeRepr.of[z]
+        )
+        .map(t => TypeRepr.of[DFValOf].appliedTo(t))
+      def applyExpr(t: Expr[T]): Expr[List[DFTypeAny]] =
+        '{
+          val tList = $t.toList.asInstanceOf[List[Any]]
+          $tcList.lazyZip(tList).map((tc, t) => tc(t)).toList
+        }
+      val tplTpe = fun.appliedTo(tpes)
+      val tplType = tplTpe.asTypeOf[NonEmptyTuple]
+      '{
+        new TC[T]:
+          type Type = DFTuple[tplType.Underlying]
+          def apply(t: T): Type =
+            DFTuple[tplType.Underlying](${ applyExpr('t) })
+      }
+    end ofTupleMacro
+
     object MacroOps:
       extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
         def dfTypeTpe: Option[quotes.reflect.TypeRepr] =

@@ -20,10 +20,10 @@ class DFStructSpec extends DFSpec:
        |t2.y := t1.x
        |""".stripMargin
   ) {
-    val t1 = DFStruct[XY] <> VAR // init XY(Zeros, 1)
+    val t1 = XY <> VAR // init XY(Zeros, 1)
     t1.x.verifyTypeOf[DFBits[8] <> VAR]
     t1.y.verifyTypeOf[DFUInt[8] <> VAR]
-    val t2 = DFStruct[XYZ] <> VAR
+    val t2 = XYZ <> VAR
     t1.x := t2.y
     t2.y := t1.x
 //    val t4 = DFStruct[XYZ] <> VAR init ?

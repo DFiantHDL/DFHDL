@@ -10,9 +10,13 @@ import scala.quoted.*
 
 type DFTuple[+T <: NonEmptyTuple] = DFStruct[T @uncheckedVariance]
 object DFTuple:
-  def apply[T <: NonEmptyTuple](t: NonEmptyTuple): DFTuple[T] =
+  private[core] def apply[T <: NonEmptyTuple](t: NonEmptyTuple): DFTuple[T] =
     val tList = t.toList
     val fieldList: List[DFTypeAny] = tList.map(x => DFType(x))
+    apply[T](fieldList)
+  private[core] def apply[T <: NonEmptyTuple](
+      fieldList: List[DFTypeAny]
+  ): DFTuple[T] =
     DFStruct[T]("", (1 to fieldList.length).map(i => s"_$i").toList, fieldList)
 
   extension [T <: NonEmptyTuple](dfType: DFTuple[T])
