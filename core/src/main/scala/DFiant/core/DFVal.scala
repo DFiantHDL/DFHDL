@@ -58,7 +58,7 @@ object DFVal:
           )
         case _ =>
           val clsSym = tTpe.classSymbol.get
-          clsSym.fieldMembers.map(m =>
+          clsSym.caseFields.map(m =>
             tTpe.memberType(m).asTypeOf[Any] match
               case '[DFValOf[t]] =>
                 (m.name.toString, TypeRepr.of[DFVal[t, M]])
