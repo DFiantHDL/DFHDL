@@ -7,18 +7,18 @@ import scala.annotation.unchecked.uncheckedVariance
 
 type DFStruct[+F <: Product] = DFType[ir.DFStruct, Args1[F @uncheckedVariance]]
 object DFStruct:
-  def apply[F <: Product](
+  private[core] def apply[F <: Product](
       name: String,
       fieldMap: ListMap[String, DFTypeAny]
   ): DFStruct[F] =
     ir.DFStruct(name, fieldMap.map((n, t) => (n, t.asIR))).asFE[DFStruct[F]]
-  def apply[F <: Product](
+  private[core] def apply[F <: Product](
       name: String,
       fieldNames: List[String],
       fieldTypes: List[DFTypeAny]
   ): DFStruct[F] =
     apply[F](name, ListMap(fieldNames.lazyZip(fieldTypes).toSeq*))
-  inline given [F <: Product]: DFStruct[F] = ${ dfTypeMacro[F] }
+  inline given apply[F <: Product]: DFStruct[F] = ${ dfTypeMacro[F] }
   def dfTypeMacro[F <: Product](using Quotes, Type[F]): Expr[DFStruct[F]] =
     import quotes.reflect.*
     val fTpe = TypeRepr.of[F]
@@ -61,6 +61,9 @@ object DFStruct:
       '{ compiletime.error(${ Expr(msg) }) }
     end if
   end dfTypeMacro
+
+  type Token[+F <: Product] = DFToken[DFStruct[F]]
+  object Token
 end DFStruct
 
 //  def apply[F <: Product](fields: F): DFStruct[F] =

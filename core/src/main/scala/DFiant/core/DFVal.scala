@@ -56,7 +56,13 @@ object DFVal:
               case '[DFValOf[t]] =>
                 (s"_${i + 1}", TypeRepr.of[DFVal[t, M]])
           )
-        case _ => ???
+        case _ =>
+          val clsSym = tTpe.classSymbol.get
+          clsSym.fieldMembers.map(m =>
+            tTpe.memberType(m).asTypeOf[Any] match
+              case '[DFValOf[t]] =>
+                (m.name.toString, TypeRepr.of[DFVal[t, M]])
+          )
 
       val refined = fields.foldLeft(dfValTpe) { case (r, (n, t)) =>
         Refinement(r, n, t)
