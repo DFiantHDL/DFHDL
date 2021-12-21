@@ -53,8 +53,9 @@ object DFStruct:
           s"${n}: ${TypeRepr.of[t].showType}"
         }
         .mkString("\n")
+      val intro = if (structName.isEmpty) "tuple" else s"struct `$structName`"
       val msg =
-        s"""The struct `$structName` has invalid dataflow value field types. 
+        s"""The $intro has invalid dataflow value field types. 
            |A valid field type is in the form of [DFType] <> VAL.
            |The following fields do not match this pattern:
            |$fieldTypesStr""".stripMargin
@@ -63,7 +64,25 @@ object DFStruct:
   end dfTypeMacro
 
   type Token[+F <: Product] = DFToken[DFStruct[F]]
-  object Token
+  object Token:
+    def apply[F <: Product](dfType: DFStruct[F], value: F): Token[F] =
+      val data = value.productIterator.map { case dfVal: DFVal[_, _] =>
+        dfVal.asIR match
+          case ir.DFVal.Const(token, _, _, _) => token.data
+          case v =>
+            throw new IllegalArgumentException(
+              s"Tokens must only be constant but found the value: ${v}"
+            )
+      }.toList
+      ir.DFToken(dfType.asIR)(data).asTokenOf[DFStruct[F]]
+    object TC:
+      import DFToken.TC
+      given DFStructTokenFromCC[
+          F <: Product
+      ]: TC[DFStruct[F], F] with
+        def conv(dfType: DFStruct[F], value: F): Out = Token(dfType, value)
+  end Token
+
 end DFStruct
 
 //  def apply[F <: Product](fields: F): DFStruct[F] =

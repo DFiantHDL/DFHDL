@@ -27,8 +27,7 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
           case '[NonEmptyTuple] =>
             TypeRepr.of[t].showTuple(_.showType).mkStringBrackets
           case _ =>
-            val structName = TypeRepr.of[t].typeSymbol.name.toString
-            s"DFStruct[$structName]"
+            TypeRepr.of[t].typeSymbol.name.toString
       case _ => "DFType"
     end match
   end showDFType

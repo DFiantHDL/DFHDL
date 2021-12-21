@@ -94,7 +94,13 @@ protected trait DFTokenPrinter extends AbstractPrinter:
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
     if (dfType.name.isEmpty)
       csDFTupleData(dfType.fieldMap.values.toList, data)
-    else ???
+    else
+      dfType.name + dfType.fieldMap
+        .lazyZip(data)
+        .map { case ((n, t), d) =>
+          s"$n = ${csDFToken(DFToken.forced(t, d))}"
+        }
+        .mkStringBrackets
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))

@@ -143,9 +143,9 @@ type INOUT = Modifier.INOUT.type
 sealed trait TOKEN
 type <>[T <: DFType.Supported, M] = M match
   case VAL              => DFValOf[DFType.Of[T]]
+  case TOKEN            => DFToken[DFType.Of[T]]
   case VAR              => DFVarOf[DFType.Of[T]]
   case IN | OUT | INOUT => DFPortOf[DFType.Of[T]]
-  case TOKEN            => DFToken[DFType.Of[T]]
 type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
 
 extension (dfVal: ir.DFVal)

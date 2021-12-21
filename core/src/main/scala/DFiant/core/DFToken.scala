@@ -159,6 +159,7 @@ object DFToken:
     export DFDecimal.Token.TC.given
     export DFEnum.Token.TC.given
     export DFTuple.Token.TC.given
+    export DFStruct.Token.TC.given
 
     transparent inline given DFTokenFromBubble[T <: DFTypeAny]: TC[T, Bubble] =
       (dfType: T, value: Bubble) => Bubble(dfType)

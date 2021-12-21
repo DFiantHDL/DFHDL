@@ -28,6 +28,7 @@ object DFType:
     case reflect.EnumCompanion[t] => Of[t]
     case DFOpaqueA                => DFOpaque[T]
     case NonEmptyTuple            => DFTuple[Tuple.Map[T, JUSTVAL]]
+    case Product                  => DFStruct[T]
   type FromDFVal[T] <: DFTypeAny = T match
     case DFValOf[t] => t
 
