@@ -47,12 +47,23 @@ protected trait DFValPrinter extends AbstractPrinter:
       case args =>
         dfVal.op match
           case DFVal.Func.Op.++ =>
-            // all args are the same ==> repeat function
-            if (args.view.map(_.get).allElementsAreEqual)
-              s"${(args.head.refCodeString).applyBrackets()}.repeat(${args.length})"
-            // regular concatenation function
-            else
-              args.map(_.refCodeString).mkStringBrackets
+            def argsInBrackets = args.map(_.refCodeString).mkStringBrackets
+            dfVal.dfType match
+              case DFStruct(structName, fieldMap) =>
+                if (structName.isEmpty) argsInBrackets
+                else
+                  structName + fieldMap
+                    .lazyZip(args)
+                    .map { case ((n, _), r) =>
+                      s"$n = ${r.refCodeString}"
+                    }
+                    .mkStringBrackets
+              // all args are the same ==> repeat function
+              case _ if args.view.map(_.get).allElementsAreEqual =>
+                s"${(args.head.refCodeString).applyBrackets()}.repeat(${args.length})"
+              // regular concatenation function
+              case _ => argsInBrackets
+            end match
           case _ =>
             args
               .map(_.refCodeString.applyBrackets())

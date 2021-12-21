@@ -341,14 +341,12 @@ private object CompanionsDFVal:
 
   trait TCLP:
     // Accept any bubble value
-    transparent inline given fromBubble[T <: DFTypeAny](using
+    given fromBubble[T <: DFTypeAny](using
         tokenTC: DFToken.TC[T, Bubble],
         dfc: DFC
-    ): TC[T, Bubble] =
-      new TC[T, Bubble]:
-        type TType = T
-        def conv(dfType: T, value: Bubble): DFValOf[T] =
-          Const(tokenTC(dfType, value))
+    ): TC[T, Bubble] with
+      def conv(dfType: T, value: Bubble): DFValOf[T] =
+        Const(tokenTC(dfType, value))
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
         r: ShowType[R]
@@ -362,28 +360,24 @@ private object CompanionsDFVal:
             "`."
         )
       ]
-    transparent inline given sameValType[T <: DFTypeAny]: TC[T, T <> VAL] =
-      new TC[T, T <> VAL]:
-        type TType = T
-        def conv(dfType: T, value: T <> VAL): DFValOf[T] =
-          given Printer = DefaultPrinter
-          assert(
-            dfType == value.dfType,
-            s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
-          )
-          value
-    transparent inline given sameValAndTokenType[T <: DFTypeAny](using
+    given sameValType[T <: DFTypeAny]: TC[T, T <> VAL] with
+      def conv(dfType: T, value: T <> VAL): DFValOf[T] =
+        given Printer = DefaultPrinter
+        assert(
+          dfType == value.dfType,
+          s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
+        )
+        value
+    given sameValAndTokenType[T <: DFTypeAny](using
         DFC
-    ): TC[T, T <> TOKEN] =
-      new TC[T, T <> TOKEN]:
-        type TType = T
-        def conv(dfType: T, value: T <> TOKEN): DFValOf[T] =
-          given Printer = DefaultPrinter
-          assert(
-            dfType == value.dfType,
-            s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
-          )
-          DFVal.Const(value)
+    ): TC[T, T <> TOKEN] with
+      def conv(dfType: T, value: T <> TOKEN): DFValOf[T] =
+        given Printer = DefaultPrinter
+        assert(
+          dfType == value.dfType,
+          s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
+        )
+        DFVal.Const(value)
   end TCLP
   object TC extends TCLP:
     export DFBoolOrBit.Val.TC.given
@@ -391,6 +385,7 @@ private object CompanionsDFVal:
     export DFDecimal.Val.TC.given
     export DFEnum.Val.TC.given
     export DFTuple.Val.TC.given
+    export DFStruct.Val.TC.given
   end TC
 
   trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]

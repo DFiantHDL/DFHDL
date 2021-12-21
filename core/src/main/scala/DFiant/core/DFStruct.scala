@@ -3,6 +3,7 @@ import DFiant.compiler.ir
 import DFiant.internals.*
 import scala.quoted.*
 import collection.immutable.ListMap
+import ir.DFVal.Func.Op as FuncOp
 import scala.annotation.unchecked.uncheckedVariance
 
 type DFStruct[+F <: Product] = DFType[ir.DFStruct, Args1[F @uncheckedVariance]]
@@ -82,6 +83,18 @@ object DFStruct:
       ]: TC[DFStruct[F], F] with
         def conv(dfType: DFStruct[F], value: F): Out = Token(dfType, value)
   end Token
+
+  object Val:
+    object TC:
+      import DFVal.TC
+      given DFStructValFromCC[
+          F <: Product
+      ](using DFC): TC[DFStruct[F], F] with
+        def conv(dfType: DFStruct[F], value: F): Out =
+          val dfVals = value.productIterator.map { case dfVal: DFVal[_, _] =>
+            dfVal
+          }.toList
+          DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
 
 end DFStruct
 

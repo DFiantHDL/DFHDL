@@ -198,13 +198,11 @@ object DFTuple:
       ](using
           zipper: TCZipper[T, R, DFValAny, TC],
           dfc: DFC
-      ): TC[DFTuple[T], ValueOf[R]] =
-        new TC[DFTuple[T], ValueOf[R]]:
-          type TType = DFTuple[T]
-          def conv(dfType: DFTuple[T], value: ValueOf[R]): DFValOf[TType] =
-            val dfVals =
-              zipper(dfType.fieldList, value.value.toList)
-            DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
+      ): TC[DFTuple[T], ValueOf[R]] with
+        def conv(dfType: DFTuple[T], value: ValueOf[R]): Out =
+          val dfVals =
+            zipper(dfType.fieldList, value.value.toList)
+          DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
 
     end TC
 
