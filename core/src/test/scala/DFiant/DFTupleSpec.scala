@@ -29,9 +29,9 @@ class DFTupleSpec extends DFSpec:
        |val t12 = t9(0)
        |""".stripMargin
   ) {
-    val t1: (DFUInt[8], DFBit, DFBits[3]) <> VAR =
+    val t1: (DFUInt[8], DFBit, DFBits[3]) <> VAL =
       tplA <> VAR init ((0, 1, Zeros), (22, 0, b"101"))
-    val t2: ((DFUInt[8], DFBit), DFBits[3]) <> VAR =
+    val t2: ((DFUInt[8], DFBit), DFBits[3]) <> VAL =
       tplB <> VAR init ((d"11", 1), b"010")
     val t3 = tplB <> VAR init tokenB
     val t4 = tplB <> VAR init ?
@@ -44,12 +44,12 @@ class DFTupleSpec extends DFSpec:
     assertEquals(tokenA == (22, 0, b"101"), DFBool token false)
     val b3 = DFBits(3) <> VAR
     val t7 = t3 == ((d"8'11", 1), b3)
-    val t8: (DFUInt[8], DFBit, DFBits[3]) <> VAR =
+    val t8: (DFUInt[8], DFBit, DFBits[3]) <> VAL =
       tplA <> VAR init (22, 0, (b"1", b"0", b"0"))
     val t9 = (DFUInt[8], DFBit, DFBits[3], DFBool) <> VAR
-    val t10: DFUInt[8] <> VAR = t1(0)
+    val t10: DFUInt[8] <> VAL = t1(0)
     val t11: DFBit <> VAL = !t2._1._2
-    val t12: DFUInt[8] <> VAR = t9(0)
+    val t12: DFUInt[8] <> VAL = t9(0)
   }
 
   test("Inlined width") {

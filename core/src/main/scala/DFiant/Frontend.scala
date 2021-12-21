@@ -44,9 +44,6 @@ val OUT = core.OUT
 val INOUT = core.INOUT
 val VAR = core.VAR
 type VAL = core.VAL
-type VAR = core.VAR
-type IN = core.IN
-type OUT = core.OUT
 type TOKEN = core.TOKEN
 export core.<>
 
