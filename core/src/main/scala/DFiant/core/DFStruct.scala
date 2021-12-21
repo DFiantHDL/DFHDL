@@ -95,11 +95,18 @@ object DFStruct:
             dfVal
           }.toList
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
-
+    object Compare:
+      import DFVal.Compare
+      given DFStructArg[
+          F <: Product,
+          Op <: FuncOp,
+          C <: Boolean
+      ](using DFC): Compare[DFStruct[F], F, Op, C] with
+        def conv(dfType: DFStruct[F], value: F): Out =
+          val dfVals = value.productIterator.map { case dfVal: DFVal[_, _] =>
+            dfVal
+          }.toList
+          DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
+    end Compare
+  end Val
 end DFStruct
-
-//  def apply[F <: Product](fields: F): DFStruct[F] =
-//    val fieldMap = ListMap(
-//      fields.getFields.map(f => (f.name, f.dfType.asIR))*
-//    )
-//    ir.DFStruct(fields.name, fieldMap).asFE[DFStruct[F]]

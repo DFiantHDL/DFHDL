@@ -14,10 +14,12 @@ class DFStructSpec extends DFSpec:
       case XY(Zeros, y) if y == 22 =>
       case o: XY                   =>
   assertCodeString(
-    """|val t1 = XY <> VAR
+    """|val t1 = XY <> VAR init XY(x = h"8'00", y = d"8'1")
        |val t2 = XYZ <> VAR
        |t1.x := t2.y
        |t2.y := t1.x
+       |t1 := XY(x = h"8'2a", y = d"8'0")
+       |val t3 = t2 == XYZ(z = d"8'22", x = h"8'??", y = 1)
        |""".stripMargin
   ) {
     val t1 = XY <> VAR init XY(Zeros, 1)
@@ -26,12 +28,14 @@ class DFStructSpec extends DFSpec:
     val t2 = XYZ <> VAR
     t1.x := t2.y
     t2.y := t1.x
-    t1 :== XY(h"2A", 0)
-//    val t4 = DFStruct[XYZ] <> VAR init ?
+    t1 := XY(h"2A", 0)
+    val t3 = t2 == XYZ(22, ?, 1)
   }
 
   test("Inlined width") {}
   test("Token Construction") {}
-  test("Comparison") {}
+  test("Comparison") {
+    assertEquals(XY.token(XY(h"27", 1)).bits == h"2701", DFBool.token(true))
+  }
   test("Assignment") {}
 end DFStructSpec

@@ -462,6 +462,7 @@ private object CompanionsDFVal:
     export DFDecimal.Val.Compare.given
     export DFEnum.Val.Compare.given
     export DFTuple.Val.Compare.given
+    export DFStruct.Val.Compare.given
   end Compare
 
 //  object Conversions:
