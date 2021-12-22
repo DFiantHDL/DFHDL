@@ -49,3 +49,8 @@ export core.<>
 
 val ? = core.?
 export core.SameBitsVector.*
+extension [Entry <: core.DFEncoding](e: Entry)
+  def unapply[E >: Entry <: core.DFEncoding](arg: core.DFValOf[core.DFEnum[E]])(
+      using DFC
+  ): Boolean =
+    ???
