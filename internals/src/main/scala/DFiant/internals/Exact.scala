@@ -1,16 +1,17 @@
 package DFiant.internals
 import scala.quoted.*
 import util.NotGiven
+type ExactTypes = NonEmptyTuple | Int | String | Boolean
 trait Exactly:
   type Out
   val value: Out
 object Exactly:
   // We need this `fromProduct` as a workaround for DFStruct where `v := XY(h"27", ...)`
-  implicit transparent inline def fromProduct[T <: Product](
+  implicit transparent inline def fromRegularTypes[T](
       inline value: T
-  )(using NotGiven[T <:< NonEmptyTuple]): Exactly = Exact[T](value)
+  ): Exactly = Exact[T](value)
   // TODO: remove when https://github.com/lampepfl/dotty/issues/12975 is resolved
-  implicit transparent inline def fromValue[T](
+  implicit transparent inline def fromExactTypes[T <: ExactTypes](
       inline value: T
   ): Exactly = ${ fromValueMacro[T]('value) }
   def fromValueMacro[T](
@@ -86,7 +87,12 @@ object Exact:
     type Out
     def apply(t: R): Out
   object Summon:
-    transparent inline given [R, T <: R]: Summon[R, T] =
+    transparent inline given fromRegularTypes[R, T <: R]: Summon[R, T] =
+      new Summon[R, T]:
+        type Out = R
+        def apply(t: R): Out = t
+    transparent inline given fromExactTypes[R <: ExactTypes, T <: R]
+        : Summon[R, T] =
       ${ summonMacro[R, T] }
     def summonMacro[R, T <: R](using
         Quotes,

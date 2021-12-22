@@ -181,11 +181,16 @@ private object CompanionsDFVal:
   object Conversions:
     implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
       ???
-    implicit inline def DFValConversion[T <: DFTypeAny, R](
+    implicit inline def DFValConversionExact[T <: DFTypeAny, R <: ExactTypes](
         inline from: R
     )(using dfType: T, es: Exact.Summon[R, from.type])(using
         tc: CompanionsDFVal.TC[T, es.Out]
     ): DFValOf[T] = tc(dfType, es(from))
+    implicit def DFValConversion[T <: DFTypeAny, R](
+        from: R
+    )(using dfType: T)(using
+        tc: CompanionsDFVal.TC[T, R]
+    ): DFValOf[T] = tc(dfType, from)
 
   object Const:
     def apply[T <: DFTypeAny](token: DFToken[T], named: Boolean = false)(using

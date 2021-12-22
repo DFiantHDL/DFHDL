@@ -36,8 +36,7 @@ class DFStructSpec extends DFSpec:
   test("Token Construction") {}
   test("Comparison") {
     assertEquals(XY.token(XY(h"27", 1)).bits == h"2701", DFBool.token(true))
-    val temp = XY(h"27", 1)
-    assertEquals(h"2701".as(XY) == XY.token(temp), DFBool.token(true))
+    assertEquals(h"2701".as(XY) == XY.token(XY(h"27", 1)), DFBool.token(true))
   }
   test("Assignment") {}
 end DFStructSpec
