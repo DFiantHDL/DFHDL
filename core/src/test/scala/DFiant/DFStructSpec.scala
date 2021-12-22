@@ -19,7 +19,7 @@ class DFStructSpec extends DFSpec:
        |t1.x := t2.y
        |t2.y := t1.x
        |t1 := XY(x = h"8'2a", y = d"8'0")
-       |val t3 = t2 == XYZ(z = d"8'22", x = h"8'??", y = 1)
+       |val t3 = t2 == XYZ(x = d"8'22", y = h"8'??", z = 1)
        |""".stripMargin
   ) {
     val t1 = XY <> VAR init XY(Zeros, 1)
@@ -36,6 +36,8 @@ class DFStructSpec extends DFSpec:
   test("Token Construction") {}
   test("Comparison") {
     assertEquals(XY.token(XY(h"27", 1)).bits == h"2701", DFBool.token(true))
+    val temp = XY(h"27", 1)
+    assertEquals(h"2701".as(XY) == XY.token(temp), DFBool.token(true))
   }
   test("Assignment") {}
 end DFStructSpec

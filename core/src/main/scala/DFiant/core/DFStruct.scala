@@ -23,12 +23,21 @@ object DFStruct:
   def dfTypeMacro[F <: Product](using Quotes, Type[F]): Expr[DFStruct[F]] =
     import quotes.reflect.*
     val fTpe = TypeRepr.of[F]
-    val clsSym = fTpe.classSymbol.get
-    val fields =
-      clsSym.fieldMembers.view
-        .map(m => (m.name.toString, fTpe.memberType(m).asTypeOf[Any]))
-    val structName = if (fTpe.isTupleN) "" else clsSym.name.toString
-
+    val (structName, fields) = fTpe.asTypeOf[Any] match
+      case '[NonEmptyTuple] =>
+        (
+          "",
+          fTpe.getTupleArgs.zipWithIndex.map((t, i) =>
+            (s"_${i + 1}", t.asTypeOf[Any])
+          )
+        )
+      case _ =>
+        val clsSym = fTpe.classSymbol.get
+        (
+          clsSym.name.toString,
+          clsSym.caseFields.view
+            .map(m => (m.name.toString, fTpe.memberType(m).asTypeOf[Any]))
+        )
     val fieldErrors = fields.filter {
       case (_, '[DFValOf[t]]) => false
       case _                  => true
@@ -39,8 +48,6 @@ object DFStruct:
         case (_, '[DFValOf[t]]) =>
           '{ compiletime.summonInline[t] }
       }.toList
-//      println(fieldNames.map(_.show))
-//      println(fieldTypes.map(_.show))
       val fieldNamesExpr = Varargs(fieldNames)
       val fieldTypesExpr = Varargs(fieldTypes)
       val nameExpr = Expr(structName)
@@ -75,13 +82,25 @@ object DFStruct:
               s"Tokens must only be constant but found the value: ${v}"
             )
       }.toList
-      ir.DFToken(dfType.asIR)(data).asTokenOf[DFStruct[F]]
+//      println(dfType.asIR.fieldMap.values.toList)
+//      println(data)
+      ir.DFToken.forced(dfType.asIR, data).asTokenOf[DFStruct[F]]
     object TC:
       import DFToken.TC
       given DFStructTokenFromCC[
           F <: Product
       ]: TC[DFStruct[F], F] with
         def conv(dfType: DFStruct[F], value: F): Out = Token(dfType, value)
+
+    object Compare:
+      import DFToken.Compare
+      given DFTupleTokenFromTuple[
+          F <: Product,
+          Op <: FuncOp,
+          C <: Boolean
+      ]: Compare[DFStruct[F], F, Op, C] with
+        def conv(dfType: DFStruct[F], value: F): Out = Token(dfType, value)
+    end Compare
   end Token
 
   object Val:

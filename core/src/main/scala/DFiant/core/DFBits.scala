@@ -363,9 +363,8 @@ private object CompanionsDFBits:
       extension [LW <: Int](lhs: DFBits.Token[LW])
         def as[A <: DFType.Supported](
             aliasType: A
-        )(using
-            tc: DFType.TC[A],
-            aW: Width[A]
+        )(using tc: DFType.TC[A])(using
+            aW: Width[tc.Type]
         )(using check: `AW == TW`.Check[aW.Out, LW]): DFToken[tc.Type] =
           val dfType = tc(aliasType).asIR
           check(dfType.width, lhs.width)
@@ -592,9 +591,8 @@ private object CompanionsDFBits:
       )
         def as[A <: DFType.Supported](
             aliasType: A
-        )(using
-            aW: Width[A],
-            tc: DFType.TC[A],
+        )(using tc: DFType.TC[A])(using
+            aW: Width[tc.Type],
             dfc: DFC
         )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] =
           import Token.Ops.{as => asToken}

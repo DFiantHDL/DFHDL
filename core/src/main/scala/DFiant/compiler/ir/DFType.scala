@@ -188,7 +188,7 @@ final case class DFStruct(
     fieldMap.values
       .map(fieldType =>
         val relWidth = fieldType.width
-        val relBitLow = relBitHigh - relWidth
+        val relBitLow = relBitHigh - relWidth + 1
         relBitHigh = relBitLow - 1
         val valueBits = data._1.bitsWL(relWidth, relBitLow)
         val bubbleBits = data._2.bitsWL(relWidth, relBitLow)
