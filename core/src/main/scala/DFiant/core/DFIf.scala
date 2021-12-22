@@ -3,27 +3,7 @@ import DFiant.internals.*
 import DFiant.compiler.ir
 import DFiant.compiler.printing.*
 
-final class DFIf[R](
-    condOption: Option[DFValOf[DFBool]],
-    block: => R,
-    prevIfOption: Option[DFIf[R]]
-)(using DFC):
-  private[DFiant] final val dfc: DFC = summon[DFC]
-  protected final val owner: DFOwner =
-    DFIf.Block(NoType, condOption, prevIfOption.map(_.owner))
-  dfc.enterOwner(owner)
-  val ret: R = block
-  dfc.exitOwner()
-  def elseifdf(cond: DFValOf[DFBool], block: => R): DFIf[R] =
-    new DFIf[R](Some(cond), block, Some(this))
-  def elsedf(block: => R): R =
-    val dfif = new DFIf[R](None, block, Some(this))
-    dfif.ret
-end DFIf
-
-object ifdf:
-  def apply[R](cond: DFValOf[DFBool], block: => R)(using DFC): DFIf[R] =
-    new DFIf[R](Some(cond), block, None)
+object DFIf:
   def singleBranch[R](
       condOption: Option[DFValOf[DFBool]],
       prevBlockOption: Option[DFOwner],
@@ -85,9 +65,7 @@ object ifdf:
       new DFVal(firstIf.asIR.asInstanceOf[ir.DFVal]).asInstanceOf[R]
     else firstIfRet.get
   end fromBranches
-end ifdf
 
-object DFIf:
   object Block:
     def apply(
         dfType: DFTypeAny,

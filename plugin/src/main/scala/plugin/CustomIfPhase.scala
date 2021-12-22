@@ -24,8 +24,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomIf"
-//  override val debugFilter: String => Boolean =
-//    _.contains("DFIfSpec.scala")
+  override val debugFilter: String => Boolean =
+    _.contains("DFEnumSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignore = mutable.Set.empty[String]
@@ -34,16 +34,20 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   var toFunc1Sym: Symbol = _
   var toTuple2Sym: Symbol = _
   var fromBranchesSym: Symbol = _
+  var dfValClsRef: TypeRef = _
 
   override def transformApply(tree: Apply)(using Context): Tree =
     tree
 
-  private def isHackedIf(tree: If)(using Context): Boolean =
-    tree.cond match
+  private def isHackedGuard(tree: Tree)(using Context): Boolean =
+    tree match
       case Apply(Apply(Ident(n), List(dfCond)), List(dfc))
           if n.toString == "BooleanHack" =>
         true
       case _ => false
+
+  private def isHackedIf(tree: If)(using Context): Boolean =
+    isHackedGuard(tree.cond)
 
   @tailrec private def isHackedIfRecur(tree: If)(using Context): Boolean =
     if (isHackedIf(tree)) true
@@ -139,6 +143,20 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         .appliedTo(branches, elseOption)
         .appliedTo(dfcTree)
     else tree
+
+  override def prepareForMatch(tree: Match)(using Context): Context =
+    tree.selector.tpe.underlyingIfProxy match
+      case AppliedType(tycon, _) if tycon <:< dfValClsRef =>
+        debug("The entire match tree")
+        debug(tree.show)
+        debug("Case pattern")
+        debug(tree.cases.head.pat)
+        debug("Case guard")
+        debug(isHackedGuard(tree.cases.head.guard))
+        debug("Case RHS")
+        debug(tree.cases.head.body)
+      case _ => // do nothing
+    ctx
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     ignore.empty
@@ -146,6 +164,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     fromBooleanSym = requiredMethod("DFiant.core.__For_Plugin.fromBoolean")
     toFunc1Sym = requiredMethod("DFiant.core.__For_Plugin.toFunc1")
     toTuple2Sym = requiredMethod("DFiant.core.__For_Plugin.toTuple2")
-    fromBranchesSym = requiredMethod("DFiant.core.ifdf.fromBranches")
+    fromBranchesSym = requiredMethod("DFiant.core.DFIf.fromBranches")
+    dfValClsRef = requiredClassRef("DFiant.core.DFVal")
     ctx
 end CustomIfPhase
