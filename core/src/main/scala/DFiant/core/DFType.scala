@@ -24,11 +24,15 @@ val NoType = new DFType[ir.NoType.type, NoArgs](ir.NoType)
 object DFType:
   type Of[T <: Supported] <: DFTypeAny = T match
     case DFTypeAny                => T <:! DFTypeAny
-    case DFEncoding               => DFEnum[T]
-    case reflect.EnumCompanion[t] => Of[t]
+    case Product                  => FromProduct[T]
     case DFOpaqueA                => DFOpaque[T]
-    case NonEmptyTuple            => DFTuple[Tuple.Map[T, JUSTVAL]]
-    case Product                  => DFStruct[T]
+    case reflect.EnumCompanion[t] => DFEnum[t]
+
+  type FromProduct[T <: Product] <: DFTypeAny = T match
+    case DFEncoding    => DFEnum[T]
+    case NonEmptyTuple => DFTuple[Tuple.Map[T, JUSTVAL]]
+    case Product       => DFStruct[T]
+
   type FromDFVal[T] <: DFTypeAny = T match
     case DFValOf[t] => t
 
