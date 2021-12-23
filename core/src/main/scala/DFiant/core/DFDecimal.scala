@@ -253,7 +253,7 @@ object DFDecimal:
           ${ applyMacro('{ false })('parts, 'args) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
-        ): Option[Seq[Any]] =
+        ): Option[Seq[DFValOf[T]]] =
           ${ unapplySeqMacro('{ false })('parts, 'arg) }
 
       class SDParts[P <: Tuple](parts: P): // extends SIParts(parts):
@@ -321,7 +321,7 @@ object DFDecimal:
       )(
           scParts: Expr[P],
           arg: Expr[DFValOf[T]]
-      )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[Any]]] =
+      )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[DFValOf[T]]]] =
         import quotes.reflect.*
         val parts = TypeRepr.of[P].getTupleArgs
         if (TypeRepr.of[P].getTupleArgs.length > 1)
@@ -351,11 +351,7 @@ object DFDecimal:
               ]
             Some(
               Seq(
-                tc($arg, $token)(using
-                  compiletime.summonInline[DFC],
-                  ValueOf(FuncOp.===),
-                  ValueOf(false)
-                )
+                tc.conv(${ arg }.dfType, $token)
               )
             )
           }
