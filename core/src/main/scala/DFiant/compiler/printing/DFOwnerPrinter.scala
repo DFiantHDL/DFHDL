@@ -56,6 +56,8 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       token match
         case DFEnum.Token(dt, data) => s"$csToken()"
         case _                      => csToken
+    case Pattern.Alternative(list) =>
+      list.map(csDFCasePattern).mkString(" | ")
 
   def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock)(using
       MemberGetSet

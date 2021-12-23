@@ -368,6 +368,13 @@ object DFConditional:
         def =~(that: Pattern)(using MemberGetSet): Boolean = this == that
       final case class Singleton(token: DFTokenAny) extends Pattern:
         def =~(that: Pattern)(using MemberGetSet): Boolean = this == that
+      final case class Alternative(list: List[Pattern]) extends Pattern:
+        def =~(that: Pattern)(using MemberGetSet): Boolean =
+          that match
+            case that: Alternative =>
+              this.list.lazyZip(that.list).forall(_ =~ _)
+            case _ => false
+  end DFCaseBlock
 
   final case class DFIfHeader(
       dfType: DFType,

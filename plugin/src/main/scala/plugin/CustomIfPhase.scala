@@ -24,8 +24,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomIf"
-//  override val debugFilter: String => Boolean =
-//    _.contains("DFEnumSpec.scala")
+  override val debugFilter: String => Boolean =
+    _.contains("DFMatchSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignore = mutable.Set.empty[String]
@@ -35,7 +35,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   var toTuple2Sym: Symbol = _
   var fromBranchesSym: Symbol = _
   var dfValClsRef: TypeRef = _
-  var hackedUnapplySym: Symbol = _
+  var enumHackedUnapply: Symbol = _
 
   override def transformApply(tree: Apply)(using Context): Tree =
     tree
@@ -148,6 +148,26 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         .appliedTo(dfcTree)
     else tree
 
+  private def transformCasePattern(tree: Tree)(using Context): Tree =
+    tree match
+      case literal: Literal =>
+      // hacked unapply for enum enumerations
+      case unapply: UnApply if unapply.fun.symbol == enumHackedUnapply =>
+      // catch all
+      case Ident(i) if i.toString == "_" =>
+      // catch all with name bind
+      case Bind(n, Ident(i)) if i.toString == "_" =>
+      // named and typed bind
+      case Bind(n, Typed(Ident(i), tpt)) if i.toString == "_" =>
+      // union of alternatives
+      case Alternative(list) =>
+      // unknown pattern
+      case _ =>
+        debug(s"Unknown pattern: ${tree.show}")
+    end match
+    ???
+  end transformCasePattern
+
   override def prepareForMatch(tree: Match)(using Context): Context =
     tree.selector.tpe.underlyingIfProxy match
       case AppliedType(tycon, _) if tycon <:< dfValClsRef =>
@@ -156,7 +176,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         debug("Case pattern")
         debug(tree.cases.head.pat)
         tree.cases.head.pat match
-          case tree: UnApply if tree.fun.symbol == hackedUnapplySym =>
+          // hacked unapply for enum enumerations
+          case tree: UnApply if tree.fun.symbol == enumHackedUnapply =>
             debug("DFC")
             debug(getDFC(tree))
           case _ =>
@@ -176,6 +197,6 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     toTuple2Sym = requiredMethod("DFiant.core.__For_Plugin.toTuple2")
     fromBranchesSym = requiredMethod("DFiant.core.DFIf.fromBranches")
     dfValClsRef = requiredClassRef("DFiant.core.DFVal")
-    hackedUnapplySym = requiredMethod("DFiant.unapply")
+    enumHackedUnapply = requiredMethod("DFiant.unapply")
     ctx
 end CustomIfPhase
