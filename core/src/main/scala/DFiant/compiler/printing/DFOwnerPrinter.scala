@@ -4,6 +4,7 @@ import ir.*
 import analysis.*
 import DFiant.internals.*
 import DFVal.*
+import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
 protected trait DFOwnerPrinter extends AbstractPrinter:
   private def csDFOwnerBody(owner: DFOwner, lateConstruction: Boolean)(using
       MemberGetSet
@@ -46,10 +47,23 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       case _: DFConditional.Header => s"if (${ifBlock.condRef.refCodeString})"
       case _ if ifBlock.condRef.isEmpty => s"else"
       case _ => s"else if (${ifBlock.condRef.refCodeString})"
+  def csDFCasePattern(pattern: DFConditional.DFCaseBlock.Pattern)(using
+      MemberGetSet
+  ): String = pattern match
+    case Pattern.CatchAll => "_"
+    case Pattern.Singleton(token) =>
+      val csToken = printer.csDFToken(token)
+      token match
+        case DFEnum.Token(dt, data) => s"$csToken()"
+        case _                      => csToken
+
   def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock)(using
       MemberGetSet
   ): String =
-    ???
+    val csGuard =
+      if (caseBlock.guardRef.isEmpty) ""
+      else s"if ${caseBlock.guardRef.refCodeString} "
+    s"case ${csDFCasePattern(caseBlock.pattern)} ${csGuard}=>"
   def csDFConditionalBlock(cb: DFConditional.Block)(using
       MemberGetSet
   ): String =
@@ -59,7 +73,10 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       case ifBlock: DFConditional.DFIfElseBlock => csDFIfElseStatement(ifBlock)
     val indentBody =
       if (body.contains("\n")) s"\n${body.indent()}" else s" $body"
-    if (body.isEmpty) s"$statement {}" else s"$statement$indentBody"
+    if (body.isEmpty) cb match
+      case caseBlock: DFConditional.DFCaseBlock => statement
+      case ifBlock: DFConditional.DFIfElseBlock => s"$statement {}"
+    else s"$statement$indentBody"
   def csDFConditional(ch: DFConditional.Header)(using
       MemberGetSet
   ): String =
