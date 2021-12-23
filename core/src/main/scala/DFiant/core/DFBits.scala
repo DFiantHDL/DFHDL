@@ -307,7 +307,7 @@ private object CompanionsDFBits:
           args: Expr[Seq[Any]]
       )(using Quotes): Expr[DFTokenAny] =
         import quotes.reflect.*
-        val fullTerm = sc.termWithArgs(args)
+        val fullTerm = sc.scPartsWithArgs(args)
         val opStr = op.value.get
         val widthTpe: TypeRepr = fullTerm match
           case Literal(StringConstant(t)) =>

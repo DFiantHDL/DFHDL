@@ -248,23 +248,28 @@ object DFDecimal:
       export DFXInt.Token.Compare.given
 
     object StrInterp:
-      extension (inline sc: StringContext)
-        transparent inline def d(inline args: Any*): DFTokenAny =
-          ${
-            interpMacro('{ false })('sc, 'args)
-          }
-        transparent inline def sd(inline args: Any*): DFTokenAny =
-          ${
-            interpMacro('{ true })('sc, 'args)
-          }
+      class DParts[P <: Tuple](parts: P) extends SIParts(parts):
+        transparent inline def apply(inline args: Any*): Any =
+          ${ interpMacro('{ false })('parts, 'args) }
+        transparent inline def unapplySeq(inline arg: Any): Option[Seq[Any]] =
+          Some(Seq())
+      class SDParts[P <: Tuple](parts: P) extends SIParts(parts):
+        transparent inline def apply(inline args: Any*): Any =
+          ${ interpMacro('{ true })('parts, 'args) }
+        transparent inline def unapplySeq(inline arg: Any): Option[Seq[Any]] =
+          Some(Seq())
 
-      private def interpMacro(signedForcedExpr: Expr[Boolean])(
-          sc: Expr[StringContext],
+      extension (inline sc: StringContext)
+        transparent inline def d: Any = ${ SIParts.scMacro[DParts]('sc) }
+        transparent inline def sd: Any = ${ SIParts.scMacro[SDParts]('sc) }
+
+      private def interpMacro[P <: Tuple](signedForcedExpr: Expr[Boolean])(
+          scParts: Expr[P],
           args: Expr[Seq[Any]]
-      )(using Quotes): Expr[DFTokenAny] =
+      )(using Quotes, Type[P]): Expr[DFTokenAny] =
         import quotes.reflect.*
         val signedForced = signedForcedExpr.value.get
-        val fullTerm = sc.termWithArgs(args)
+        val fullTerm = scParts.scPartsWithArgs(args)
         val (signedTpe, widthTpe, fractionWidthTpe)
             : (TypeRepr, TypeRepr, TypeRepr) = fullTerm match
           case Literal(StringConstant(t)) =>
