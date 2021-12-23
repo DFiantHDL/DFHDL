@@ -22,10 +22,10 @@ trait Printer
     s"${toRef.refCodeString} $opStr ${fromRef.refCodeString}"
 
   def csDFMember(member: DFMember)(using MemberGetSet): String = member match
-    case dfVal: DFVal   => csDFVal(dfVal, None)
-    case net: DFNet     => csDFNet(net)
-    case owner: DFOwner => csDFOwner(owner)
-    case _              => ???
+    case dfVal: DFVal          => csDFVal(dfVal, None)
+    case net: DFNet            => csDFNet(net)
+    case design: DFDesignBlock => csDFDesignBlockInst(design)
+    case _                     => ???
   def csDB(db: DB): String =
     import db.getSet
     val uniqueDesigns = mutable.Set.empty[String]

@@ -11,8 +11,8 @@ extension (ref: DFVal.Ref)
     val callOwner = ref.originRef.get.getOwner
     val cs = printer.csDFVal(dfVal, Some(callOwner))
     dfVal match
-      case ib @ DFIfElseBlock(dfType, _, _, _, _, _) if ib.isAnonymous =>
-        s"(${cs.applyBrackets()}: ${printer.printer.csDFType(dfType, typeCS = true)} <> VAL)"
+      case ch: DFConditional.Header if ch.isAnonymous =>
+        s"(${cs.applyBrackets()}: ${printer.printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
       case _ => cs
 
 extension (alias: Alias)
@@ -142,16 +142,16 @@ protected trait DFValPrinter extends AbstractPrinter:
       MemberGetSet
   ): String =
     def typeAnnot = dfVal match
-      case dv: DFIfElseBlock =>
+      case dv: DFConditional.Header =>
         s": ${printer.csDFType(dfVal.dfType, typeCS = true)} <> VAL"
       case _ => ""
     def valDef = s"val ${dfVal.name}$typeAnnot ="
     def rhs = dfVal match
-      case dv: Dcl           => csDFValDcl(dv)
-      case dv: Const         => csDFValConst(dv)
-      case dv: Func          => csDFValFuncRef(dv)
-      case dv: Alias         => csDFValAliasRef(dv)
-      case dv: DFIfElseBlock => printer.csDFIfElseBlockChain(dv)
+      case dv: Dcl                  => csDFValDcl(dv)
+      case dv: Const                => csDFValConst(dv)
+      case dv: Func                 => csDFValFuncRef(dv)
+      case dv: Alias                => csDFValAliasRef(dv)
+      case dv: DFConditional.Header => printer.csDFConditional(dv)
     def rhsInit = dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
         s"$rhs init ${printer.csDFTokenSeq(initSeq)}"
@@ -165,7 +165,7 @@ protected trait DFValPrinter extends AbstractPrinter:
       case (dv, None) if !dv.isAnonymous =>
         val rhsInitVal = rhsInit
         val delimRHS =
-          if (rhsInitVal.contains("\n")) s"\n${rhsInitVal.delim(1)}"
+          if (rhsInitVal.contains("\n")) s"\n${rhsInitVal.indent(1)}"
           else s" ${rhsInitVal}"
         s"$valDef$delimRHS"
       case _ => rhsInit

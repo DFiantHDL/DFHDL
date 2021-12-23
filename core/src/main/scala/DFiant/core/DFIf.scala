@@ -3,89 +3,95 @@ import DFiant.internals.*
 import DFiant.compiler.ir
 import DFiant.compiler.printing.*
 
+import ir.DFConditional.{DFIfHeader, DFIfElseBlock}
 object DFIf:
   def singleBranch[R](
       condOption: Option[DFValOf[DFBool]],
-      prevBlockOption: Option[DFOwner],
+      prevBlockOrHeader: DFOwner | DFValAny,
       run: () => R
   )(using
       DFC
-  ): DFOwner =
+  ): (DFTypeAny, DFOwner) =
     // first we create the header without a known type.
-    val ifHeaderBlock = DFIf.Block(NoType, condOption, prevBlockOption)
-    dfc.enterOwner(ifHeaderBlock)
+    val block = DFIf.Block(condOption, prevBlockOrHeader)
+    dfc.enterOwner(block)
     // now all members of the branch will be constructed
-    val ifRet: R = run()
-    val fixedIfHeader = ifRet match
+    val ret: R = run()
+    val dfType = ret match
       case v: DFValAny =>
         // adding ident placement as the last member in the if
         DFVal.Alias.AsIs.ident(v)(using dfc.anonymize)
-        val ifHeaderBlockIR = ifHeaderBlock.asIR.asInstanceOf[ir.DFIfElseBlock]
-        val ifHeaderBlockUpdate = ifHeaderBlockIR.copy(dfType = v.dfType.asIR)
-        // updating the type of the if header
-        ifHeaderBlockIR.replaceMemberWith(ifHeaderBlockUpdate).asFE
+        v.dfType
       case _ =>
-        ifHeaderBlock
+        NoType
     dfc.exitOwner()
-    fixedIfHeader
+    (dfType, block)
   end singleBranch
   def fromBranches[R](
       branches: List[(DFValOf[DFBool], () => R)],
       elseOption: Option[() => R]
   )(using DFC): R =
+    val header = Header(NoType)
     val dfcAnon = summon[DFC].anonymize
     // creating a hook to save the return value for the first branch run
     var firstIfRet: Option[R] = None
     val firstIfRun: () => R = () =>
       firstIfRet = Some(branches.head._2())
       firstIfRet.get
-    val firstIf = singleBranch(Some(branches.head._1), None, firstIfRun)
+    val firstIf = singleBranch(Some(branches.head._1), header, firstIfRun)
     val midIfs =
-      branches.drop(1).foldLeft(List(firstIf)) { case (prevIfs, branch) =>
-        singleBranch(Some(branch._1), Some(prevIfs.head), branch._2)(using
-          dfcAnon
-        ) :: prevIfs
+      branches.drop(1).foldLeft(firstIf) {
+        case ((prevDFType, prevBlock), branch) =>
+          val (dfType, block) =
+            singleBranch(Some(branch._1), prevBlock, branch._2)(using dfcAnon)
+          val commonDFType =
+            if (dfType.asIR == prevDFType.asIR) prevDFType else NoType
+          (commonDFType, block)
       }
-    val allIfs = elseOption
+    val retDFType = elseOption
       .map { e =>
-        singleBranch(None, Some(midIfs.head), e)(using dfcAnon) :: midIfs
+        val (dfType, _) = singleBranch(None, midIfs._2, e)(using dfcAnon)
+        if (dfType.asIR == midIfs._1.asIR) midIfs._1 else NoType
       }
-      .getOrElse(midIfs)
-
-    val allTypes: List[ir.DFType] = allIfs.view
-      .map(_.asIR)
-      .map {
-        case r: ir.DFVal => r.dfType
-        case _ =>
-          return firstIfRet.get
-      }
-      .toList
-    val sameType = allTypes.forall(_ == allTypes.head)
-    if (sameType)
-      new DFVal(firstIf.asIR.asInstanceOf[ir.DFVal]).asInstanceOf[R]
-    else firstIfRet.get
+      .getOrElse(midIfs._1)
+    retDFType match
+      case NoType => firstIfRet.get
+      case _ =>
+        val DFVal(headerIR: DFIfHeader) = header
+        val headerUpdate = headerIR.copy(dfType = retDFType.asIR)
+        // updating the type of the if header
+        headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
   end fromBranches
+
+  object Header:
+    def apply(dfType: DFTypeAny)(using DFC): DFValAny =
+      DFIfHeader(
+        dfType.asIR,
+        dfc.owner.ref,
+        dfc.getMeta,
+        ir.DFTags.empty
+      ).addMember.asValAny
+  end Header
 
   object Block:
     def apply(
-        dfType: DFTypeAny,
         condOption: Option[DFValOf[DFBool]],
-        prevBlockOption: Option[DFOwner]
+        prevBlockOrHeader: DFOwner | DFValAny
     )(using
         DFC
     ): DFOwner =
       lazy val condRef: ir.DFVal.Ref = condOption match
         case Some(cond) => cond.asIR.refTW(block)
         case None       => ir.DFRef.TwoWay.Empty
-      lazy val prevBlockRef: ir.DFIfElseBlock.Ref = prevBlockOption match
-        case Some(prevBlock) =>
-          prevBlock.asIR.asInstanceOf[ir.DFIfElseBlock].ref
-        case None => ir.DFRef.OneWay.Empty
-      lazy val block: ir.DFIfElseBlock =
-        ir.DFIfElseBlock(
-          dfType.asIR,
+      lazy val prevBlockOrHeaderRef: DFIfElseBlock.Ref = prevBlockOrHeader match
+        case prevBlock: DFOwner =>
+          prevBlock.asIR.asInstanceOf[DFIfElseBlock].ref
+        case header: DFValAny =>
+          header.asIR.asInstanceOf[DFIfHeader].ref
+      lazy val block: DFIfElseBlock =
+        DFIfElseBlock(
           condRef,
-          prevBlockRef,
+          prevBlockOrHeaderRef,
           dfc.owner.ref,
           dfc.getMeta,
           ir.DFTags.empty

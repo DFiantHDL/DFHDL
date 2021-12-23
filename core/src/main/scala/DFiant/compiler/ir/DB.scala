@@ -119,45 +119,30 @@ final case class DB(
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
     Map(designMemberList: _*)
 
-  private def ifChainGen: Map[DFIfElseBlock, List[DFIfElseBlock]] =
-    val handled = mutable.Set.empty[DFIfElseBlock]
-    members.foldRight(Map.empty[DFIfElseBlock, List[DFIfElseBlock]]) {
-      case (m: DFIfElseBlock, chainMap) if !handled.contains(m) =>
+  private def conditionalChainGen
+      : Map[DFConditional.Header, List[DFConditional.Block]] =
+    val handled = mutable.Set.empty[DFConditional.Block]
+    members.foldRight(
+      Map.empty[DFConditional.Header, List[DFConditional.Block]]
+    ) {
+      case (m: DFConditional.Block, chainMap) if !handled.contains(m) =>
         @tailrec def getChain(
-            ifBlock: DFIfElseBlock,
-            chain: List[DFIfElseBlock]
-        ): List[DFIfElseBlock] =
-          handled += ifBlock
-          if (ifBlock.prevBlockRef.isEmpty) ifBlock :: chain
-          else getChain(ifBlock.prevBlockRef.get, ifBlock :: chain)
-        val chain = getChain(m, Nil)
-        chainMap + (chain.head -> chain)
-      case (_, chainMap) => chainMap
-    }
-  end ifChainGen
-  // Maps the head IfElse with the entire branch chain (including the head)
-  lazy val ifChainTable: Map[DFIfElseBlock, List[DFIfElseBlock]] = ifChainGen
-
-  private def matchChainGen: Map[DFMatchHeader, List[DFCaseBlock]] =
-    val handled = mutable.Set.empty[DFCaseBlock]
-    members.foldRight(Map.empty[DFMatchHeader, List[DFCaseBlock]]) {
-      case (m: DFCaseBlock, chainMap) if !handled.contains(m) =>
-        @tailrec def getChain(
-            caseBlock: DFCaseBlock,
-            chain: List[DFCaseBlock]
-        ): (DFMatchHeader, List[DFCaseBlock]) =
-          handled += caseBlock
-          caseBlock.prevBlockOrHeaderRef.get match
-            case header: DFMatchHeader => (header, caseBlock :: chain)
-            case prevCaseBlock: DFCaseBlock =>
-              getChain(prevCaseBlock, caseBlock :: chain)
+            block: DFConditional.Block,
+            chain: List[DFConditional.Block]
+        ): (DFConditional.Header, List[DFConditional.Block]) =
+          handled += block
+          block.prevBlockOrHeaderRef.get match
+            case header: DFConditional.Header => (header, block :: chain)
+            case prevBlock: DFConditional.Block =>
+              getChain(prevBlock, block :: chain)
         chainMap + getChain(m, Nil)
       case (_, chainMap) => chainMap
     }
-  end matchChainGen
-  // Maps the match header with the entire case chain
-  lazy val matchChainTable: Map[DFMatchHeader, List[DFCaseBlock]] =
-    matchChainGen
+  end conditionalChainGen
+  // Maps the conditional construct header with the entire case/ifelse block chain
+  lazy val conditionalChainTable
+      : Map[DFConditional.Header, List[DFConditional.Block]] =
+    conditionalChainGen
 end DB
 
 //object DB:

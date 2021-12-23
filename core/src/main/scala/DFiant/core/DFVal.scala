@@ -35,6 +35,7 @@ final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
 end DFVal
 
 object DFVal:
+  def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.value)
   trait Refiner[T <: Product, M <: Modifier]:
     type Out <: DFVal[DFStruct[T], M]
   object Refiner:

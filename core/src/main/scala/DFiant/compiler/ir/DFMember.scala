@@ -314,77 +314,97 @@ object DFOwner:
   type Ref = DFRef.OneWay[DFOwner]
 
 sealed trait DFBlock extends DFOwner
-sealed trait DFConditionalBlock extends DFBlock
+object DFConditional:
+  sealed trait Block extends DFBlock:
+    val prevBlockOrHeaderRef: Block.Ref
+  object Block:
+    type Ref = DFRef.OneWay[Block | Header]
 
-final case class DFMatchHeader(
-    dfType: DFType,
-    selector: DFVal.Ref,
-    ownerRef: DFOwner.Ref,
-    meta: Meta,
-    tags: DFTags
-) extends DFVal:
-  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
-    case that: DFMatchHeader =>
-      this.dfType == that.dfType && this.selector =~ that.selector &&
-        this.meta =~ that.meta && this.tags =~ that.tags
-    case _ => false
-  protected def setMeta(meta: Meta): this.type =
-    copy(meta = meta).asInstanceOf[this.type]
-  protected def setTags(tags: DFTags): this.type =
-    copy(tags = tags).asInstanceOf[this.type]
-end DFMatchHeader
+  sealed trait Header extends DFVal
 
-final case class DFCaseBlock(
-    dfType: DFType,
-    pattern: DFCaseBlock.Pattern,
-    guard: DFVal.Ref,
-    prevBlockOrHeaderRef: DFCaseBlock.Ref,
-    ownerRef: DFOwner.Ref,
-    meta: Meta,
-    tags: DFTags
-) extends DFConditionalBlock,
-      DFVal:
-  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
-    case that: DFCaseBlock =>
-      this.pattern =~ that.pattern && this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
-        this.meta =~ that.meta && this.tags =~ that.tags
-    case _ => false
-  protected def setMeta(meta: Meta): this.type =
-    copy(meta = meta).asInstanceOf[this.type]
-  protected def setTags(tags: DFTags): this.type =
-    copy(tags = tags).asInstanceOf[this.type]
-end DFCaseBlock
-object DFCaseBlock:
-  type Ref = DFRef.OneWay[DFCaseBlock | DFMatchHeader]
-  sealed trait Pattern derives CanEqual:
-    def =~(that: Pattern)(using MemberGetSet): Boolean
-  object Pattern:
-    case object NoPattern extends Pattern:
-      def =~(that: Pattern)(using MemberGetSet): Boolean = this == that
-    final case class Singleton(token: DFTokenAny) extends Pattern:
-      def =~(that: Pattern)(using MemberGetSet): Boolean = this == that
+  final case class DFMatchHeader(
+      dfType: DFType,
+      selectorRef: DFVal.Ref,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Header:
+    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: DFMatchHeader =>
+        this.dfType == that.dfType && this.selectorRef =~ that.selectorRef &&
+          this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type =
+      copy(tags = tags).asInstanceOf[this.type]
+  end DFMatchHeader
 
-final case class DFIfElseBlock(
-    dfType: DFType,
-    condRef: DFVal.Ref,
-    prevBlockRef: DFIfElseBlock.Ref,
-    ownerRef: DFOwner.Ref,
-    meta: Meta,
-    tags: DFTags
-) extends DFConditionalBlock,
-      DFVal:
-  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
-    case that: DFIfElseBlock =>
-      this.condRef =~ that.condRef && this.prevBlockRef =~ that.prevBlockRef &&
-        this.meta =~ that.meta && this.tags =~ that.tags
-    case _ => false
-  protected def setMeta(meta: Meta): this.type =
-    copy(meta = meta).asInstanceOf[this.type]
-  protected def setTags(tags: DFTags): this.type =
-    copy(tags = tags).asInstanceOf[this.type]
-end DFIfElseBlock
-object DFIfElseBlock:
-  type Ref = DFRef.OneWay[DFIfElseBlock]
+  final case class DFCaseBlock(
+      pattern: DFCaseBlock.Pattern,
+      guard: DFVal.Ref,
+      prevBlockOrHeaderRef: DFCaseBlock.Ref,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Block:
+    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: DFCaseBlock =>
+        this.pattern =~ that.pattern && this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
+          this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type =
+      copy(tags = tags).asInstanceOf[this.type]
+  end DFCaseBlock
+  object DFCaseBlock:
+    type Ref = DFRef.OneWay[DFCaseBlock | DFMatchHeader]
+    sealed trait Pattern derives CanEqual:
+      def =~(that: Pattern)(using MemberGetSet): Boolean
+    object Pattern:
+      case object NoPattern extends Pattern:
+        def =~(that: Pattern)(using MemberGetSet): Boolean = this == that
+      final case class Singleton(token: DFTokenAny) extends Pattern:
+        def =~(that: Pattern)(using MemberGetSet): Boolean = this == that
+
+  final case class DFIfHeader(
+      dfType: DFType,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Header:
+    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: DFMatchHeader =>
+        this.dfType == that.dfType &&
+          this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type =
+      copy(tags = tags).asInstanceOf[this.type]
+  end DFIfHeader
+
+  final case class DFIfElseBlock(
+      condRef: DFVal.Ref,
+      prevBlockOrHeaderRef: DFIfElseBlock.Ref,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Block:
+    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: DFIfElseBlock =>
+        this.condRef =~ that.condRef && this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
+          this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type =
+      copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type =
+      copy(tags = tags).asInstanceOf[this.type]
+  end DFIfElseBlock
+  object DFIfElseBlock:
+    type Ref = DFRef.OneWay[DFIfElseBlock | DFIfHeader]
+end DFConditional
 
 final case class DFDesignBlock(
     designType: String,
