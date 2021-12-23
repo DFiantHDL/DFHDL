@@ -8,7 +8,7 @@ export core.DFBoolOrBit.Val.Ops.*
 export core.DFBits.Token.Ops.*
 export core.DFBits.Token.StrInterp.*
 export core.DFBits.Val.Ops.*
-export core.DFDecimal.Token.StrInterp.*
+export core.DFDecimal.Token.StrInterp.{d, sd}
 export core.DFDecimal.Token.Ops.*
 export core.DFDecimal.Val.Ops.*
 export core.DFOpaque.Frontend as DFOpaque

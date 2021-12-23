@@ -83,14 +83,9 @@ object Error:
     '{ compiletime.error(${ Expr(msg) }) }
 end Error
 
-extension (using quotes: Quotes)(sc: Expr[StringContext])
-  def termWithArgs(args: Expr[Seq[Any]]): quotes.reflect.Term =
+extension (using quotes: Quotes)(partsExprs: Seq[Expr[Any]])
+  def scPartsWithArgs(argsExprs: Seq[Expr[Any]]): quotes.reflect.Term =
     import quotes.reflect.*
-    val argsExprs = args match
-      case Varargs(argsExprs) => argsExprs
-    val '{ StringContext.apply($parts*) } = sc
-    val partsExprs = parts match
-      case Varargs(argsExprs) => argsExprs
     val fullTermParts =
       Seq(partsExprs, argsExprs)
         .flatMap(_.zipWithIndex)
@@ -102,6 +97,24 @@ extension (using quotes: Quotes)(sc: Expr[StringContext])
       case (l, r) =>
         '{ ${ l.asExpr }.toString + ${ r.asExpr }.toString }.asTerm
     }
+
+extension (using quotes: Quotes)(sc: Expr[StringContext])
+  def scPartsWithArgs(args: Expr[Seq[Any]]): quotes.reflect.Term =
+    import quotes.reflect.*
+    val argsExprs = args match
+      case Varargs(argsExprs) => argsExprs
+    val '{ StringContext.apply($parts*) } = sc
+    val partsExprs = parts match
+      case Varargs(argsExprs) => argsExprs
+    partsExprs.scPartsWithArgs(argsExprs)
+
+extension [P <: Tuple](using quotes: Quotes, p: Type[P])(partsTpl: Expr[P])
+  def scPartsWithArgs(args: Expr[Seq[Any]]): quotes.reflect.Term =
+    import quotes.reflect.*
+    val argsExprs = args match
+      case Varargs(argsExprs) => argsExprs
+    val partsExprs = SIParts.tupleToExprs(partsTpl)
+    partsExprs.scPartsWithArgs(argsExprs)
 
 inline implicit def fromValueOf[T](v: ValueOf[T]): T = v.value
 

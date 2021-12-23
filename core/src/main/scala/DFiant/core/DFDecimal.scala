@@ -248,62 +248,119 @@ object DFDecimal:
       export DFXInt.Token.Compare.given
 
     object StrInterp:
-      class DParts[P <: Tuple](parts: P) extends SIParts(parts):
+      class DParts[P <: Tuple](parts: P): // extends SIParts(parts):
         transparent inline def apply(inline args: Any*): Any =
-          ${ interpMacro('{ false })('parts, 'args) }
-        transparent inline def unapplySeq(inline arg: Any): Option[Seq[Any]] =
-          Some(Seq())
-      class SDParts[P <: Tuple](parts: P) extends SIParts(parts):
+          ${ applyMacro('{ false })('parts, 'args) }
+        transparent inline def unapplySeq[T <: DFTypeAny](
+            inline arg: DFValOf[T]
+        ): Option[Seq[Any]] =
+          ${ unapplySeqMacro('{ false })('parts, 'arg) }
+
+      class SDParts[P <: Tuple](parts: P): // extends SIParts(parts):
         transparent inline def apply(inline args: Any*): Any =
-          ${ interpMacro('{ true })('parts, 'args) }
-        transparent inline def unapplySeq(inline arg: Any): Option[Seq[Any]] =
-          Some(Seq())
+          ${ applyMacro('{ true })('parts, 'args) }
+        transparent inline def unapplySeq[T <: DFTypeAny](
+            inline arg: DFValOf[T]
+        ): Option[Seq[Any]] =
+          ${ unapplySeqMacro('{ true })('parts, 'arg) }
 
       extension (inline sc: StringContext)
         transparent inline def d: Any = ${ SIParts.scMacro[DParts]('sc) }
         transparent inline def sd: Any = ${ SIParts.scMacro[SDParts]('sc) }
 
-      private def interpMacro[P <: Tuple](signedForcedExpr: Expr[Boolean])(
+      private def applyMacro[P <: Tuple](signedForcedExpr: Expr[Boolean])(
           scParts: Expr[P],
           args: Expr[Seq[Any]]
       )(using Quotes, Type[P]): Expr[DFTokenAny] =
+        scParts.scPartsWithArgs(args).interpolate(signedForcedExpr)
+
+      extension (using Quotes)(fullTerm: quotes.reflect.Term)
+        private def interpolate(
+            signedForcedExpr: Expr[Boolean]
+        ): Expr[DFTokenAny] =
+          import quotes.reflect.*
+          val signedForced = signedForcedExpr.value.get
+          val (signedTpe, widthTpe, fractionWidthTpe)
+              : (TypeRepr, TypeRepr, TypeRepr) = fullTerm match
+            case Literal(StringConstant(t)) =>
+              fromDecString(t, signedForced) match
+                case Right((signed, width, fractionWidth, _)) =>
+                  (
+                    ConstantType(BooleanConstant(signed)),
+                    ConstantType(IntConstant(width)),
+                    ConstantType(IntConstant(fractionWidth))
+                  )
+                case Left(msg) =>
+                  report.errorAndAbort(msg)
+            case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
+          val signedType = signedTpe.asTypeOf[Boolean]
+          val widthType = widthTpe.asTypeOf[Int]
+          val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
+          val fullExpr = fullTerm.asExprOf[String]
+          '{
+            import DFiant.internals.Inlined
+            val (signed, width, fractionWidth, value) =
+              fromDecString($fullExpr, $signedForcedExpr).toOption.get
+            val signedInlined =
+              Inlined.forced[signedType.Underlying](signed)
+            val widthInlined =
+              Inlined.forced[widthType.Underlying](width)
+            val fractionWidthInlined =
+              Inlined.forced[fractionWidthType.Underlying](fractionWidth)
+            Token[
+              signedType.Underlying,
+              widthType.Underlying,
+              fractionWidthType.Underlying
+            ](signedInlined, widthInlined, fractionWidthInlined, value)
+          }
+        end interpolate
+      end extension
+
+      private def unapplySeqMacro[P <: Tuple, T <: DFTypeAny](
+          signedForcedExpr: Expr[Boolean]
+      )(
+          scParts: Expr[P],
+          arg: Expr[DFValOf[T]]
+      )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[Any]]] =
         import quotes.reflect.*
-        val signedForced = signedForcedExpr.value.get
-        val fullTerm = scParts.scPartsWithArgs(args)
-        val (signedTpe, widthTpe, fractionWidthTpe)
-            : (TypeRepr, TypeRepr, TypeRepr) = fullTerm match
-          case Literal(StringConstant(t)) =>
-            fromDecString(t, signedForced) match
-              case Right((signed, width, fractionWidth, _)) =>
-                (
-                  ConstantType(BooleanConstant(signed)),
-                  ConstantType(IntConstant(width)),
-                  ConstantType(IntConstant(fractionWidth))
+        val parts = TypeRepr.of[P].getTupleArgs
+        if (TypeRepr.of[P].getTupleArgs.length > 1)
+          '{
+            compiletime.error(
+              "Extractors for decimal token string interpolation are not allowed."
+            )
+            Some(Seq())
+          }
+        else
+          val token =
+            SIParts
+              .tupleToExprs(scParts)
+              .head
+              .asTerm
+              .interpolate(signedForcedExpr)
+          val tokenType = token.asTerm.tpe.asTypeOf[DFTokenAny]
+          '{
+            val tc = compiletime
+              .summonInline[
+                DFVal.Compare[
+                  T,
+                  tokenType.Underlying,
+                  FuncOp.===.type,
+                  false
+                ]
+              ]
+            Some(
+              Seq(
+                tc($arg, $token)(using
+                  compiletime.summonInline[DFC],
+                  ValueOf(FuncOp.===),
+                  ValueOf(false)
                 )
-              case Left(msg) =>
-                report.errorAndAbort(msg)
-          case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
-        val signedType = signedTpe.asTypeOf[Boolean]
-        val widthType = widthTpe.asTypeOf[Int]
-        val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
-        val fullExpr = fullTerm.asExprOf[String]
-        '{
-          import DFiant.internals.Inlined
-          val (signed, width, fractionWidth, value) =
-            fromDecString($fullExpr, $signedForcedExpr).toOption.get
-          val signedInlined =
-            Inlined.forced[signedType.Underlying](signed)
-          val widthInlined =
-            Inlined.forced[widthType.Underlying](width)
-          val fractionWidthInlined =
-            Inlined.forced[fractionWidthType.Underlying](fractionWidth)
-          Token[
-            signedType.Underlying,
-            widthType.Underlying,
-            fractionWidthType.Underlying
-          ](signedInlined, widthInlined, fractionWidthInlined, value)
-        }
-      end interpMacro
+              )
+            )
+          }
+        end if
+      end unapplySeqMacro
     end StrInterp
     object Ops:
       export DFXInt.Token.Ops.*
