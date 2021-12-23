@@ -24,8 +24,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomIf"
-  override val debugFilter: String => Boolean =
-    _.contains("DFEnumSpec.scala")
+//  override val debugFilter: String => Boolean =
+//    _.contains("DFEnumSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignore = mutable.Set.empty[String]
@@ -35,6 +35,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   var toTuple2Sym: Symbol = _
   var fromBranchesSym: Symbol = _
   var dfValClsRef: TypeRef = _
+  var hackedUnapplySym: Symbol = _
 
   override def transformApply(tree: Apply)(using Context): Tree =
     tree
@@ -72,6 +73,9 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         case _ =>
           report.error("Did not manage to find a DFC")
           ???
+  private def getDFC(tree: UnApply)(using Context): Tree =
+    val UnApply(TypeApply(Apply(_, List(entry)), _), List(dfc), _) = tree
+    dfc
 
   override def prepareForIf(tree: If)(using Context): Context =
     if (!ignore.contains(tree.srcPos.show) && isHackedIfRecur(tree))
@@ -151,12 +155,18 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         debug(tree.show)
         debug("Case pattern")
         debug(tree.cases.head.pat)
+        tree.cases.head.pat match
+          case tree: UnApply if tree.fun.symbol == hackedUnapplySym =>
+            debug("DFC")
+            debug(getDFC(tree))
+          case _ =>
         debug("Case guard")
         debug(isHackedGuard(tree.cases.head.guard))
         debug("Case RHS")
         debug(tree.cases.head.body)
       case _ => // do nothing
     ctx
+  end prepareForMatch
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     ignore.empty
@@ -166,5 +176,6 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     toTuple2Sym = requiredMethod("DFiant.core.__For_Plugin.toTuple2")
     fromBranchesSym = requiredMethod("DFiant.core.DFIf.fromBranches")
     dfValClsRef = requiredClassRef("DFiant.core.DFVal")
+    hackedUnapplySym = requiredMethod("DFiant.unapply")
     ctx
 end CustomIfPhase

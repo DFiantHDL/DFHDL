@@ -316,6 +316,54 @@ object DFOwner:
 sealed trait DFBlock extends DFOwner
 sealed trait DFConditionalBlock extends DFBlock
 
+final case class DFMatchHeader(
+    dfType: DFType,
+    selector: DFVal.Ref,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFVal:
+  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: DFMatchHeader =>
+      this.dfType == that.dfType && this.selector =~ that.selector &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type =
+    copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type =
+    copy(tags = tags).asInstanceOf[this.type]
+end DFMatchHeader
+
+final case class DFCaseBlock(
+    dfType: DFType,
+    pattern: DFCaseBlock.Pattern,
+    guard: DFVal.Ref,
+    prevBlockOrHeaderRef: DFCaseBlock.Ref,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFConditionalBlock,
+      DFVal:
+  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: DFCaseBlock =>
+      this.pattern =~ that.pattern && this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type =
+    copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type =
+    copy(tags = tags).asInstanceOf[this.type]
+end DFCaseBlock
+object DFCaseBlock:
+  type Ref = DFRef.OneWay[DFCaseBlock | DFMatchHeader]
+  sealed trait Pattern derives CanEqual:
+    def =~(that: Pattern)(using MemberGetSet): Boolean
+  object Pattern:
+    case object NoPattern extends Pattern:
+      def =~(that: Pattern)(using MemberGetSet): Boolean = this == that
+    final case class Singleton(token: DFTokenAny) extends Pattern:
+      def =~(that: Pattern)(using MemberGetSet): Boolean = this == that
+
 final case class DFIfElseBlock(
     dfType: DFType,
     condRef: DFVal.Ref,

@@ -137,6 +137,27 @@ final case class DB(
   end ifChainGen
   // Maps the head IfElse with the entire branch chain (including the head)
   lazy val ifChainTable: Map[DFIfElseBlock, List[DFIfElseBlock]] = ifChainGen
+
+  private def matchChainGen: Map[DFMatchHeader, List[DFCaseBlock]] =
+    val handled = mutable.Set.empty[DFCaseBlock]
+    members.foldRight(Map.empty[DFMatchHeader, List[DFCaseBlock]]) {
+      case (m: DFCaseBlock, chainMap) if !handled.contains(m) =>
+        @tailrec def getChain(
+            caseBlock: DFCaseBlock,
+            chain: List[DFCaseBlock]
+        ): (DFMatchHeader, List[DFCaseBlock]) =
+          handled += caseBlock
+          caseBlock.prevBlockOrHeaderRef.get match
+            case header: DFMatchHeader => (header, caseBlock :: chain)
+            case prevCaseBlock: DFCaseBlock =>
+              getChain(prevCaseBlock, caseBlock :: chain)
+        chainMap + getChain(m, Nil)
+      case (_, chainMap) => chainMap
+    }
+  end matchChainGen
+  // Maps the match header with the entire case chain
+  lazy val matchChainTable: Map[DFMatchHeader, List[DFCaseBlock]] =
+    matchChainGen
 end DB
 
 //object DB:
