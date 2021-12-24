@@ -205,31 +205,28 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   )(using
       Context
   ): Unit =
-    val refDFUInt = requiredClassRef("DFiant.core.DFDecimal")
-    selectorTpe match
-      case DFUInt(widthTpe) =>
-        constPat match
-          case Constant(i: Int) =>
-            if (i < 0)
-              report.error(
-                s"Cannot compare a signed literal value with an unsigned dataflow variable.\nAn explicit conversion must be applied.",
-                errPos
-              )
-            val constWidth = i.bitsWidth(signed = false)
-            widthTpe match
-              case ConstantType(Constant(width: Int)) if width < constWidth =>
-                report.error(
-                  s"Cannot compare a dataflow value (width = $width) with a Scala `Int` argument that is wider (width = $constWidth).\nAn explicit conversion must be applied.",
-                  errPos
-                )
-              case _ =>
-          case _ =>
-            report.error(
-              s"Unsupported literal type for unsigned dataflow variable. Found: $constPat",
-              errPos
-            )
-        end match
+    (selectorTpe, constPat) match
+      case (DFXInt(signed, widthTpe), Constant(i: Int)) if i < 0 && !signed =>
+        report.error(
+          s"Cannot compare a signed literal value with an unsigned dataflow variable.\nAn explicit conversion must be applied.",
+          errPos
+        )
+      case (
+            DFXInt(signed, ConstantType(Constant(width: Int))),
+            Constant(i: Int)
+          ) if i.bitsWidth(signed) > width =>
+        report.error(
+          s"Cannot compare a dataflow value (width = $width) with a Scala `Int` argument that is wider (width = ${i
+            .bitsWidth(signed)}).\nAn explicit conversion must be applied.",
+          errPos
+        )
+      case (DFXInt(signed, widthTpe), Constant(i: Int)) =>
+      // Construct a singleton pattern
       case _ =>
+        report.error(
+          s"Unsupported literal ${constPat.show} for the dataflow variable type ${selectorTpe.show}",
+          errPos
+        )
     end match
   end transformLiteralCasePattern
 
