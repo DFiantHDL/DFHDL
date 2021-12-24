@@ -2,9 +2,10 @@ package DFiant
 import munit.*
 import internals.{AllowTopLevel, HasTypeName}
 import compiler.printing.{DefaultPrinter, Printer}
+import core.HasDFC
 
-abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName:
-  final given dfc: DFC = core.DFC.empty
+abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
+  final val dfc: DFC = core.DFC.empty
   given printer: Printer = DefaultPrinter
   private final val owner: core.DFOwner = core.DFDesign.Block(typeName)
   dfc.enterOwner(owner)

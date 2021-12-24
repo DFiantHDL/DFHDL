@@ -35,7 +35,7 @@ final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
 end DFVal
 
 object DFVal:
-  def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.value)
+  inline def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.value)
   trait Refiner[T <: Product, M <: Modifier]:
     type Out <: DFVal[DFStruct[T], M]
   object Refiner:
@@ -150,11 +150,16 @@ type <>[T <: DFType.Supported, M] = M match
 type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
 
 extension (dfVal: ir.DFVal)
-  def asVal[T <: DFTypeAny, M <: Modifier]: DFVal[T, M] = DFVal[T, M](dfVal)
-  def asValOf[T <: DFTypeAny]: DFValOf[T] = DFVal[T, Modifier](dfVal)
-  def asValAny: DFValAny = DFVal[DFTypeAny, Modifier](dfVal)
-  def asVarOf[T <: DFTypeAny]: DFVarOf[T] = DFVal[T, Modifier.Assignable](dfVal)
-  def asPortOf[T <: DFTypeAny]: DFPortOf[T] = DFVal[T, Modifier.Port](dfVal)
+  inline def asVal[T <: DFTypeAny, M <: Modifier]: DFVal[T, M] =
+    DFVal[T, M](dfVal)
+  inline def asValOf[T <: DFTypeAny]: DFValOf[T] =
+    DFVal[T, Modifier](dfVal)
+  inline def asValAny: DFValAny =
+    DFVal[DFTypeAny, Modifier](dfVal)
+  inline def asVarOf[T <: DFTypeAny]: DFVarOf[T] =
+    DFVal[T, Modifier.Assignable](dfVal)
+  inline def asPortOf[T <: DFTypeAny]: DFPortOf[T] =
+    DFVal[T, Modifier.Port](dfVal)
 
 private object CompanionsDFVal:
   object Extensions:
