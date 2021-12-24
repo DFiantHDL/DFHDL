@@ -48,15 +48,15 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   var fromBooleanSym: Symbol = _
   var toFunc1Sym: Symbol = _
   var toTuple2Sym: Symbol = _
+  var toTuple3Sym: Symbol = _
   var fromBranchesSym: Symbol = _
+  var fromCasesSym: Symbol = _
   var dfValClsRef: TypeRef = _
   var enumHackedUnapply: Symbol = _
   var dfcStack: List[Tree] = Nil
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
     ContextArg.at(tree).foreach { t =>
-      debug("DefDef found:")
-      debug(t)
       dfcStack = t :: dfcStack
     }
     ctx
@@ -69,8 +69,6 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
 
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     ContextArg.at(tree).foreach { t =>
-      debug("TypeDef found:")
-      debug(t)
       dfcStack = t :: dfcStack
     }
     ctx
@@ -115,8 +113,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       replaceIfs += tree.srcPos.show
     ctx
 
-  // transforms the condition of an If or a guard of a CaseDef
-  private def transformCondOrGuard(condTree: Tree, dfcTree: Tree)(using
+  private def transformIfCond(condTree: Tree, dfcTree: Tree)(using
       Context
   ): Tree =
     condTree match
@@ -141,7 +138,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   )(using
       Context
   ): (List[Tree], Tree) =
-    val condTree = transformCondOrGuard(tree.cond, dfcTree)
+    val condTree = transformIfCond(tree.cond, dfcTree)
     val blockTree = transformBlock(tree.thenp, combinedTpe)
     val pairs =
       ref(toTuple2Sym)
@@ -181,7 +178,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
 
   object DFType:
     def unapply(arg: Type)(using Context): Option[(String, List[Type])] =
-      arg match
+      arg.dealias match
         case AppliedType(dfTypeCore, List(n, AppliedType(_, args)))
             if dfTypeCore.typeSymbol == requiredClass("DFiant.core.DFType") =>
           Some(n.typeSymbol.name.toString, args)
@@ -213,20 +210,35 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       arg match
         case DFXInt(sign, widthTpe) if sign => Some(widthTpe)
         case _                              => None
+  object DFEnum:
+    def unapply(arg: Type)(using Context): Option[Type] =
+      arg match
+        case DFType("DFEnum", e :: Nil) => Some(e)
+        case _                          => None
+  object DFVal:
+    def unapply(arg: Tree)(using Context): Option[(Type, Type)] =
+      unapply(arg.tpe.underlyingIfProxy.dealias)
+    def unapply(arg: Type)(using Context): Option[(Type, Type)] =
+      arg match
+        case AppliedType(t, List(dfType, mod)) if t <:< dfValClsRef =>
+          Some(dfType, mod)
+        case _ => None
 
   private def transformLiteralCasePattern(
-      selectorTpe: Type,
+      selector: Tree,
       constPat: Constant,
       errPos: util.SrcPos
   )(using
       Context
-  ): Unit =
+  ): Tree =
+    val DFVal(selectorTpe, _) = selector
     (selectorTpe, constPat) match
       case (DFXInt(signed, widthTpe), Constant(i: Int)) if i < 0 && !signed =>
         report.error(
           s"Cannot compare a signed literal value with an unsigned dataflow variable.\nAn explicit conversion must be applied.",
           errPos
         )
+        EmptyTree
       case (
             DFXInt(signed, ConstantType(Constant(width: Int))),
             Constant(i: Int)
@@ -236,19 +248,45 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
             .bitsWidth(signed)}).\nAn explicit conversion must be applied.",
           errPos
         )
+        EmptyTree
       case (DFXInt(signed, widthTpe), Constant(i: Int)) =>
-      // Construct a singleton pattern
-      case _ =>
+        // Construct a singleton pattern
+        ref(requiredMethod("DFiant.core.__For_Plugin.patternSingletonInt"))
+          .appliedToArgs(
+            List(selector, Literal(constPat))
+          )
+      case (selectorTpe, constPat) =>
         report.error(
           s"Unsupported literal ${constPat.show} for the dataflow variable type ${selectorTpe.show}",
           errPos
         )
+        EmptyTree
     end match
   end transformLiteralCasePattern
 
   private def getDFTypeTpe(selector: Tree)(using Context): Type =
     val AppliedType(_, List(dfTypeTpe, _)) = selector.tpe.underlyingIfProxy
     dfTypeTpe
+
+  private def mkSome(tree: Tree)(using Context): Tree =
+    ref(requiredMethod("scala.Some.apply"))
+      .appliedToType(tree.tpe)
+      .appliedTo(tree)
+
+  private def transformDFCaseGuard(guardTree: Tree)(using
+      Context
+  ): Tree =
+    guardTree match
+      case Apply(Apply(_, List(dfGuardTree)), _) =>
+        mkSome(dfGuardTree)
+      case _ if !guardTree.isEmpty =>
+        mkSome(
+          ref(fromBooleanSym)
+            .appliedTo(guardTree)
+            .appliedTo(dfcStack.head)
+        )
+      case _ =>
+        ref(defn.NoneModule.termRef)
 
   private def transformDFCasePattern(selector: Tree, tree: Tree)(using
       Context
@@ -257,61 +295,92 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       case Literal(const) =>
         debug("Found literal pattern")
         transformLiteralCasePattern(
-          getDFTypeTpe(selector),
+          selector,
           const,
           tree.srcPos
         )
       // hacked unapply for enum enumerations
-      case unapply: UnApply if unapply.fun.symbol == enumHackedUnapply =>
+      case unapply @ UnApply(TypeApply(Apply(_, List(arg)), _), _, _)
+          if unapply.fun.symbol == enumHackedUnapply =>
         debug("Found enum literal pattern")
-//        debug("DFC")
-//        debug(getDFC(tree))
+        val DFVal(DFEnum(enumTpe), _) = selector
+        if (arg.tpe <:< enumTpe)
+          ref(
+            requiredMethod("DFiant.core.__For_Plugin.patternSingletonEnum")
+          )
+            .appliedTo(selector, arg)
+        else
+          report.error(
+            s"""Wrong enum entry type.
+                  |Expecting: ${enumTpe.show}
+                  |Found: ${arg.tpe.show}""".stripMargin,
+            arg.srcPos
+          )
+          EmptyTree
       // token string interpolation
-      case UnApply(Select(Block(List(TypeDef(_, template)), _), _), _, _) =>
-        // extract inlined body from unapplySeq DefDef
-        val Template(_, _, _, (DefDef(_, _, _, inlined) :: _)) = template
-        // extract block by removing inlining
-        val Inlined(_, _, Inlined(_, _, expansion)) = inlined
-        // extract the token from `Some(Seq(arg))`
-        val Block(_, Apply(_, List(Apply(_, List(arg))))) = expansion
+      case UnApply(Select(tree @ Block(List(TypeDef(_, _)), _), _), _, _) =>
         debug("Found token string interpolation")
+        ref(requiredMethod("DFiant.core.__For_Plugin.patternSingletonSI"))
+          .appliedTo(
+            tree
+              .select("unapplySeq".toTermName)
+              .appliedTo(selector)
+              .appliedTo(dfcStack.head)
+          )
+      case Typed(tree, _) =>
+        transformDFCasePattern(selector, tree)
       // catch all
       case Ident(i) if i.toString == "_" =>
+        ref(requiredMethod("DFiant.core.__For_Plugin.patternCatchAll"))
       // catch all with name bind
       case Bind(n, Ident(i)) if i.toString == "_" =>
+        ???
       // named and typed bind
       case Bind(n, Typed(Ident(i), tpt)) if i.toString == "_" =>
+        ???
       // union of alternatives
       case Alternative(list) =>
         debug("Found pattern alternatives")
-        list.map(transformDFCasePattern(selector, _))
+        ref(requiredMethod("DFiant.core.__For_Plugin.patternAlternative"))
+          .appliedTo(
+            mkList(
+              list.map(transformDFCasePattern(selector, _)),
+              TypeTree(defn.AnyType)
+            )
+          )
+
       // unknown pattern
       case _ =>
         debug(s"Unknown pattern: ${tree.show}")
+        debug(tree)
+        ???
     end match
-    tree
   end transformDFCasePattern
 
-  private def transformDFCase(selector: Tree, tree: CaseDef)(using
-      Context
+  private def transformDFCase(selector: Tree, tree: CaseDef, combinedTpe: Type)(
+      using Context
   ): Tree =
-    val pattern = transformDFCasePattern(selector, tree.pat)
-    val guard = ???
-    ???
-  override def prepareForMatch(tree: Match)(using Context): Context =
+    val patternTree = transformDFCasePattern(selector, tree.pat)
+    val guardTree = transformDFCaseGuard(tree.guard)
+    val blockTree = transformBlock(tree.body, combinedTpe)
+    ref(toTuple3Sym)
+      .appliedToTypes(List(patternTree.tpe, guardTree.tpe, blockTree.tpe))
+      .appliedToArgs(List(patternTree, guardTree, blockTree))
+
+  override def transformMatch(tree: Match)(using Context): Tree =
     tree.selector.tpe.underlyingIfProxy match
       case AppliedType(tycon, _) if tycon <:< dfValClsRef =>
-        debug("The entire match tree")
-        debug(tree.show)
-        debug("Case pattern")
-        tree.cases.map(c => transformDFCasePattern(tree.selector, c.pat))
-        debug("Case guard")
-        debug(isHackedGuard(tree.cases.head.guard))
-        debug("Case RHS")
-        debug(tree.cases.head.body)
-      case _ => // do nothing
-    ctx
-  end prepareForMatch
+        debug("Found DFMatch")
+        val casesVarArgs =
+          tree.cases.map(c => transformDFCase(tree.selector, c, tree.tpe))
+        val cases = mkList(casesVarArgs, TypeTree(casesVarArgs.head.tpe))
+        ref(fromCasesSym)
+          .appliedToType(tree.tpe)
+          .appliedTo(tree.selector, cases)
+          .appliedTo(dfcStack.head)
+      case _ =>
+        tree
+  end transformMatch
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     ignoreIfs.empty
@@ -319,7 +388,9 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     fromBooleanSym = requiredMethod("DFiant.core.__For_Plugin.fromBoolean")
     toFunc1Sym = requiredMethod("DFiant.core.__For_Plugin.toFunc1")
     toTuple2Sym = requiredMethod("DFiant.core.__For_Plugin.toTuple2")
+    toTuple3Sym = requiredMethod("DFiant.core.__For_Plugin.toTuple3")
     fromBranchesSym = requiredMethod("DFiant.core.DFIf.fromBranches")
+    fromCasesSym = requiredMethod("DFiant.core.DFMatch.fromCases")
     dfValClsRef = requiredClassRef("DFiant.core.DFVal")
     enumHackedUnapply = requiredMethod("DFiant.unapply")
     ctx
