@@ -51,6 +51,35 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   var fromBranchesSym: Symbol = _
   var dfValClsRef: TypeRef = _
   var enumHackedUnapply: Symbol = _
+  var dfcStack: List[Tree] = Nil
+
+  override def prepareForDefDef(tree: DefDef)(using Context): Context =
+    ContextArg.at(tree).foreach { t =>
+      debug("DefDef found:")
+      debug(t)
+      dfcStack = t :: dfcStack
+    }
+    ctx
+
+  override def transformDefDef(tree: DefDef)(using Context): Tree =
+    ContextArg.at(tree).foreach { t =>
+      dfcStack = dfcStack.drop(1)
+    }
+    tree
+
+  override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
+    ContextArg.at(tree).foreach { t =>
+      debug("TypeDef found:")
+      debug(t)
+      dfcStack = t :: dfcStack
+    }
+    ctx
+
+  override def transformTypeDef(tree: TypeDef)(using Context): Tree =
+    ContextArg.at(tree).foreach { t =>
+      dfcStack = dfcStack.drop(1)
+    }
+    tree
 
   override def transformApply(tree: Apply)(using Context): Tree =
     tree
@@ -77,20 +106,6 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     tree.elsep match
       case tree: If => ignoreElseIfRecur(tree)
       case _        => // done
-
-  @tailrec private def getDFC(tree: If)(using Context): Tree =
-    if (isHackedIf(tree))
-      val Apply(_, List(dfcTree)) = tree.cond
-      dfcTree
-    else
-      tree.elsep match
-        case tree: If => getDFC(tree)
-        case _ =>
-          report.error("Did not manage to find a DFC")
-          ???
-  private def getDFC(tree: UnApply)(using Context): Tree =
-    val UnApply(TypeApply(Apply(_, List(entry)), _), List(dfc), _) = tree
-    dfc
 
   override def prepareForIf(tree: If)(using Context): Context =
     if (!ignoreIfs.contains(tree.srcPos.show) && isHackedIfRecur(tree))
@@ -149,7 +164,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   override def transformIf(tree: If)(using Context): Tree =
     if (replaceIfs.contains(tree.srcPos.show))
       debug("=======================")
-      val dfcTree = getDFC(tree)
+      val dfcTree = dfcStack.head
       val combinedTpe = tree.tpe
       debug("DFC", dfcTree)
       debug(tree.show)

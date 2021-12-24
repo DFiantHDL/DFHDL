@@ -8,7 +8,7 @@ import Flags.*
 import SymDenotations.*
 import Decorators.*
 import ast.Trees.*
-import ast.tpd
+import ast.{tpd, untpd}
 import StdNames.nme
 import Names.*
 import Types.*
@@ -28,6 +28,7 @@ abstract class CommonPhase extends PluginPhase:
   def debug(str: => Any*): Unit =
     if (debugFilter(pluginDebugSource)) println(str.mkString(", "))
   var metaContextTpe: TypeRef = _
+  var hasDFCTpe: TypeRef = _
   extension (clsSym: Symbol)
     def inherits(parentFullName: String)(using Context): Boolean =
       if (clsSym.isClass)
@@ -75,6 +76,17 @@ abstract class CommonPhase extends PluginPhase:
             }
             .orElse(unapply(tree))
         case _ => None
+    def at(tree: DefDef | TypeDef)(using Context): Option[Tree] =
+      tree match
+        case tree: DefDef =>
+          tree.paramss.flatten.view.reverse.collectFirst {
+            case a @ ValDef(name, _, _) if a.tpe <:< metaContextTpe =>
+              untpd.Ident(name).withType(a.tpe)
+          }
+        case TypeDef(name, _: Template) if tree.tpe <:< hasDFCTpe =>
+          Some(This(tree.symbol.asClass).select("dfc".toTermName))
+        case _ => None
+  end ContextArg
 
   object ApplyFunArgs:
     @tailrec private def recurUnapply(fun: Tree, args: List[List[Tree]])(using
@@ -90,9 +102,8 @@ abstract class CommonPhase extends PluginPhase:
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     pluginDebugSource = tree.source.path.toString
-    metaContextTpe = requiredClassRef(
-      "DFiant.internals.MetaContext"
-    )
+    metaContextTpe = requiredClassRef("DFiant.internals.MetaContext")
+    hasDFCTpe = requiredClassRef("DFiant.core.HasDFC")
     if (debugFilter(tree.source.path.toString))
       println(
         s"""===============================================================
