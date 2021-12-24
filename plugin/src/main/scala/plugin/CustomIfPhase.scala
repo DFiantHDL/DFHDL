@@ -14,11 +14,26 @@ import StdNames.nme
 import Names.*
 import Constants.Constant
 import Types.*
-import dotty.tools.dotc.semanticdb.ConstantMessage.SealedValue.UnitConstant
+import dotty.tools.dotc.semanticdb.ConstantMessage.SealedValue.{
+  BooleanConstant,
+  IntConstant,
+  UnitConstant
+}
 
 import scala.language.implicitConversions
 import collection.mutable
 import annotation.tailrec
+
+extension (value: BigInt)
+  def bitsWidth(signed: Boolean): Int =
+    if (value > 0)
+      if (signed) value.bitLength + 1 else value.bitLength
+    else if (value == 0)
+      if (signed) 2 else 1
+    else if (value == -1) 2
+    else value.bitLength + 1 // value < 0
+extension (value: Int)
+  def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
 
 class CustomIfPhase(setting: Setting) extends CommonPhase:
   import tpd._
@@ -148,11 +163,105 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         .appliedTo(dfcTree)
     else tree
 
-  private def transformCasePattern(tree: Tree)(using Context): Tree =
+  object DFType:
+    def unapply(arg: Type)(using Context): Option[(String, List[Type])] =
+      arg match
+        case AppliedType(dfTypeCore, List(n, AppliedType(_, args)))
+            if dfTypeCore.typeSymbol == requiredClass("DFiant.core.DFType") =>
+          Some(n.typeSymbol.name.toString, args)
+        case _ => None
+  object DFDecimal:
+    def unapply(arg: Type)(using Context): Option[(Type, Type, Type)] =
+      arg match
+        case DFType("DFDecimal", s :: w :: f :: Nil) =>
+          Some(s, w, f)
+        case _ => None
+  object DFXInt:
+    def unapply(arg: Type)(using Context): Option[(Boolean, Type)] =
+      arg match
+        case DFDecimal(
+              ConstantType(Constant(sign: Boolean)),
+              widthTpe,
+              ConstantType(Constant(fractionWidth: Int))
+            ) if fractionWidth == 0 =>
+          Some(sign, widthTpe)
+        case _ => None
+  object DFUInt:
+    def unapply(arg: Type)(using Context): Option[Type] =
+      arg match
+        case DFXInt(sign, widthTpe) if !sign =>
+          Some(widthTpe)
+        case _ => None
+  object DFSInt:
+    def unapply(arg: Type)(using Context): Option[Type] =
+      arg match
+        case DFXInt(sign, widthTpe) if sign => Some(widthTpe)
+        case _                              => None
+
+  private def transformLiteralCasePattern(
+      selectorTpe: Type,
+      constPat: Constant,
+      errPos: util.SrcPos
+  )(using
+      Context
+  ): Unit =
+    val refDFUInt = requiredClassRef("DFiant.core.DFDecimal")
+    selectorTpe match
+      case DFUInt(widthTpe) =>
+        constPat match
+          case Constant(i: Int) =>
+            if (i < 0)
+              report.error(
+                s"Cannot compare a signed literal value with an unsigned dataflow variable.\nAn explicit conversion must be applied.",
+                errPos
+              )
+            val constWidth = i.bitsWidth(signed = false)
+            widthTpe match
+              case ConstantType(Constant(width: Int)) if width < constWidth =>
+                report.error(
+                  s"Cannot compare a dataflow value (width = $width) with a Scala `Int` argument that is wider (width = $constWidth).\nAn explicit conversion must be applied.",
+                  errPos
+                )
+              case _ =>
+          case _ =>
+            report.error(
+              s"Unsupported literal type for unsigned dataflow variable. Found: $constPat",
+              errPos
+            )
+        end match
+      case _ =>
+    end match
+  end transformLiteralCasePattern
+
+  private def getDFTypeTpe(selector: Tree)(using Context): Type =
+    val AppliedType(_, List(dfTypeTpe, _)) = selector.tpe.underlyingIfProxy
+    dfTypeTpe
+
+  private def transformCasePattern(selector: Tree, tree: Tree)(using
+      Context
+  ): Tree =
     tree match
-      case literal: Literal =>
+      case Literal(const) =>
+        debug("Found literal pattern")
+        transformLiteralCasePattern(
+          getDFTypeTpe(selector),
+          const,
+          tree.srcPos
+        )
       // hacked unapply for enum enumerations
       case unapply: UnApply if unapply.fun.symbol == enumHackedUnapply =>
+        debug("Found enum literal pattern")
+//        debug("DFC")
+//        debug(getDFC(tree))
+      // token string interpolation
+      case UnApply(Select(Block(List(TypeDef(_, template)), _), _), _, _) =>
+        // extract inlined body from unapplySeq DefDef
+        val Template(_, _, _, (DefDef(_, _, _, inlined) :: _)) = template
+        // extract block by removing inlining
+        val Inlined(_, _, Inlined(_, _, expansion)) = inlined
+        // extract the token from `Some(Seq(arg))`
+        val Block(_, Apply(_, List(Apply(_, List(arg))))) = expansion
+        debug("Found token string interpolation")
       // catch all
       case Ident(i) if i.toString == "_" =>
       // catch all with name bind
@@ -161,11 +270,13 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       case Bind(n, Typed(Ident(i), tpt)) if i.toString == "_" =>
       // union of alternatives
       case Alternative(list) =>
+        debug("Found pattern alternatives")
+        list.map(transformCasePattern(selector, _))
       // unknown pattern
       case _ =>
         debug(s"Unknown pattern: ${tree.show}")
     end match
-    ???
+    tree
   end transformCasePattern
 
   override def prepareForMatch(tree: Match)(using Context): Context =
@@ -174,13 +285,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         debug("The entire match tree")
         debug(tree.show)
         debug("Case pattern")
-        debug(tree.cases.head.pat)
-        tree.cases.head.pat match
-          // hacked unapply for enum enumerations
-          case tree: UnApply if tree.fun.symbol == enumHackedUnapply =>
-            debug("DFC")
-            debug(getDFC(tree))
-          case _ =>
+        tree.cases.map(c => transformCasePattern(tree.selector, c.pat))
         debug("Case guard")
         debug(isHackedGuard(tree.cases.head.guard))
         debug("Case RHS")
