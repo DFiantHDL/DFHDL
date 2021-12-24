@@ -253,7 +253,7 @@ object DFDecimal:
           ${ applyMacro('{ false })('parts, 'args) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
-        ): Option[Seq[DFValOf[T]]] =
+        )(using DFC): Option[Seq[DFValOf[T]]] =
           ${ unapplySeqMacro('{ false })('parts, 'arg) }
 
       class SDParts[P <: Tuple](parts: P): // extends SIParts(parts):
@@ -261,7 +261,7 @@ object DFDecimal:
           ${ applyMacro('{ true })('parts, 'args) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
-        ): Option[Seq[Any]] =
+        )(using DFC): Option[Seq[DFValOf[T]]] =
           ${ unapplySeqMacro('{ true })('parts, 'arg) }
 
       extension (inline sc: StringContext)

@@ -43,8 +43,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     _.contains("DFMatchSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
-  val ignore = mutable.Set.empty[String]
-  val replace = mutable.Set.empty[String]
+  val ignoreIfs = mutable.Set.empty[String]
+  val replaceIfs = mutable.Set.empty[String]
   var fromBooleanSym: Symbol = _
   var toFunc1Sym: Symbol = _
   var toTuple2Sym: Symbol = _
@@ -73,7 +73,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         case _        => false
 
   @tailrec private def ignoreElseIfRecur(tree: If)(using Context): Unit =
-    ignore += tree.srcPos.show
+    ignoreIfs += tree.srcPos.show
     tree.elsep match
       case tree: If => ignoreElseIfRecur(tree)
       case _        => // done
@@ -93,14 +93,15 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     dfc
 
   override def prepareForIf(tree: If)(using Context): Context =
-    if (!ignore.contains(tree.srcPos.show) && isHackedIfRecur(tree))
+    if (!ignoreIfs.contains(tree.srcPos.show) && isHackedIfRecur(tree))
       tree.elsep match
         case tree: If => ignoreElseIfRecur(tree)
         case _        => // do nothing
-      replace += tree.srcPos.show
+      replaceIfs += tree.srcPos.show
     ctx
 
-  private def transformCond(condTree: Tree, dfcTree: Tree)(using
+  // transforms the condition of an If or a guard of a CaseDef
+  private def transformCondOrGuard(condTree: Tree, dfcTree: Tree)(using
       Context
   ): Tree =
     condTree match
@@ -125,7 +126,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   )(using
       Context
   ): (List[Tree], Tree) =
-    val condTree = transformCond(tree.cond, dfcTree)
+    val condTree = transformCondOrGuard(tree.cond, dfcTree)
     val blockTree = transformBlock(tree.thenp, combinedTpe)
     val pairs =
       ref(toTuple2Sym)
@@ -146,7 +147,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   end transformIfRecur
 
   override def transformIf(tree: If)(using Context): Tree =
-    if (replace.contains(tree.srcPos.show))
+    if (replaceIfs.contains(tree.srcPos.show))
       debug("=======================")
       val dfcTree = getDFC(tree)
       val combinedTpe = tree.tpe
@@ -234,7 +235,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     val AppliedType(_, List(dfTypeTpe, _)) = selector.tpe.underlyingIfProxy
     dfTypeTpe
 
-  private def transformCasePattern(selector: Tree, tree: Tree)(using
+  private def transformDFCasePattern(selector: Tree, tree: Tree)(using
       Context
   ): Tree =
     tree match
@@ -268,21 +269,27 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       // union of alternatives
       case Alternative(list) =>
         debug("Found pattern alternatives")
-        list.map(transformCasePattern(selector, _))
+        list.map(transformDFCasePattern(selector, _))
       // unknown pattern
       case _ =>
         debug(s"Unknown pattern: ${tree.show}")
     end match
     tree
-  end transformCasePattern
+  end transformDFCasePattern
 
+  private def transformDFCase(selector: Tree, tree: CaseDef)(using
+      Context
+  ): Tree =
+    val pattern = transformDFCasePattern(selector, tree.pat)
+    val guard = ???
+    ???
   override def prepareForMatch(tree: Match)(using Context): Context =
     tree.selector.tpe.underlyingIfProxy match
       case AppliedType(tycon, _) if tycon <:< dfValClsRef =>
         debug("The entire match tree")
         debug(tree.show)
         debug("Case pattern")
-        tree.cases.map(c => transformCasePattern(tree.selector, c.pat))
+        tree.cases.map(c => transformDFCasePattern(tree.selector, c.pat))
         debug("Case guard")
         debug(isHackedGuard(tree.cases.head.guard))
         debug("Case RHS")
@@ -292,8 +299,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   end prepareForMatch
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
-    ignore.empty
-    replace.empty
+    ignoreIfs.empty
+    replaceIfs.empty
     fromBooleanSym = requiredMethod("DFiant.core.__For_Plugin.fromBoolean")
     toFunc1Sym = requiredMethod("DFiant.core.__For_Plugin.toFunc1")
     toTuple2Sym = requiredMethod("DFiant.core.__For_Plugin.toTuple2")
