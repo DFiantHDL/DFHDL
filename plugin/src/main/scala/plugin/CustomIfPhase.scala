@@ -186,7 +186,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         )
       )
     def unapply(arg: Type)(using Context): Option[(String, List[Type])] =
-      arg.dealias match
+      arg.simple match
         case AppliedType(dfTypeCore, List(n, AppliedType(_, args)))
             if dfTypeCore.typeSymbol == requiredClass("DFiant.core.DFType") =>
           Some(n.typeSymbol.name.toString, args)
@@ -245,7 +245,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
             case DFTupleVal(tree) => Some(tree)
             case _                => None
     def unapply(arg: Type)(using Context): Option[(Type, Type)] =
-      arg.underlyingIfProxy.dealias match
+      arg.simple match
         case AppliedType(t, List(dfType, mod)) if t <:< dfValClsRef =>
           Some(dfType, mod)
         case _ => None
@@ -263,7 +263,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
           None
         case _ => None
     def unapply(arg: Type)(using Context): Option[Type] =
-      arg.underlyingIfProxy.dealias match
+      arg.simple match
         case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef =>
           val argsConv = args.map {
             case v @ DFVal(_, _) => Some(v)
@@ -287,6 +287,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
             None
           end if
         case _ => None
+      end match
+    end unapply
   end DFTupleVal
 
   private def transformLiteralCasePattern(
@@ -438,6 +440,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
           .appliedTo(selector, cases)
           .appliedTo(dfcStack.head)
       case _ =>
+        debug("Not compatible selector")
+        debug(tree.selector.show)
         debug(tree.selector)
         tree
   end transformMatch

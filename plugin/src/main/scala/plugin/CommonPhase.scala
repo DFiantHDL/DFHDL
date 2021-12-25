@@ -37,12 +37,17 @@ abstract class CommonPhase extends PluginPhase:
         )
       else false
 
+  extension (tpe: Type)(using Context)
+    def simple: Type =
+      tpe match
+        case tr: TermRef => tr.underlying.dealias
+        case _           => tpe.dealias
+
   extension (srcPos: util.SrcPos)(using Context)
     def show: String =
       val pos = srcPos.startPos
       val endPos = srcPos.endPos
       s"${pos.source.path}:${pos.line}:${pos.column}-${endPos.line}:${endPos.column}"
-  end extension
 
   extension (tree: Apply)(using Context)
     def replaceArg(fromArg: Tree, toArg: Tree): Apply =
