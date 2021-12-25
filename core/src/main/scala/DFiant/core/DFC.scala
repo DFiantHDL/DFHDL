@@ -40,5 +40,5 @@ object DFC:
 def dfc(using DFC): DFC = summon[DFC]
 
 trait HasDFC:
-  private[DFiant] val dfc: DFC
+  val dfc: DFC
   protected given DFC = dfc

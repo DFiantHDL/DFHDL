@@ -8,7 +8,7 @@ abstract class DFDesign(using DFC)
       LateConstruction,
       HasTypeName,
       HasDFC:
-  private[DFiant] final val dfc: DFC = summon[DFC]
+  final val dfc: DFC = summon[DFC]
   private final val owner: DFOwner = DFDesign.Block(typeName)
   dfc.enterOwner(owner)
 

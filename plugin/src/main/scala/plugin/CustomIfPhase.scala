@@ -251,6 +251,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       arg.simple match
         case AppliedType(t, List(dfType, _)) if t <:< dfValClsRef =>
           Some(dfType)
+//        case DFTupleVal(t) => Some(t)
         case _ => None
   end DFVal
 

@@ -237,10 +237,20 @@ object DFTuple:
         private[core] def applyForced[OT <: DFTypeAny](i: Int)(using
             dfc: DFC
         ): DFVal[OT, M] =
-          DFVal.Alias
-            .SelectField(t.dfType.fieldList(i), t, s"_${i + 1}")
-            .asIR
-            .asVal[OT, M]
+          t.asIR match
+            // in case the referenced value is anonymous and is a tuple
+            // of values, then we just directly reference the relevant
+            // value.
+            case ir.DFVal.Func(_, FuncOp.++, args, _, meta, _)
+                if meta.isAnonymous =>
+              import dfc.getSet
+              args(i).get.asVal[OT, M]
+            // for all other case create a selector
+            case _ =>
+              DFVal.Alias
+                .SelectField(t.dfType.fieldList(i), t, s"_${i + 1}")
+                .asIR
+                .asVal[OT, M]
       end extension
 //      extension [T1 <: DFTypeAny, M <: Modifier](
 //          t: DFVal[DFTuple[Tuple1[DFValOf[T1]]], M]
