@@ -233,21 +233,24 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         case _                            => None
 
   object DFVal:
-    def apply(dfTypeTpe: Type, modTpe: Type)(using Context): Type =
-      AppliedType(dfValClsRef, List(dfTypeTpe, modTpe))
+    def apply(dfTypeTpe: Type)(using Context): Type =
+      AppliedType(
+        dfValClsRef,
+        List(dfTypeTpe, requiredClassRef("DFiant.compiler.ir.DFVal.Modifier"))
+      )
     def unapply(selector: Tree)(using Context): Option[Tree] =
       selector.tpe match
         // return the unmodified selector tree
-        case DFVal(_, _) => Some(selector)
+        case DFVal(_) => Some(selector)
         case _ =>
           selector match
             // return the converted selector tree
             case DFTupleVal(tree) => Some(tree)
             case _                => None
-    def unapply(arg: Type)(using Context): Option[(Type, Type)] =
+    def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
-        case AppliedType(t, List(dfType, mod)) if t <:< dfValClsRef =>
-          Some(dfType, mod)
+        case AppliedType(t, List(dfType, _)) if t <:< dfValClsRef =>
+          Some(dfType)
         case _ => None
   end DFVal
 
@@ -266,18 +269,13 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       arg.simple match
         case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef =>
           val argsConv = args.map {
-            case v @ DFVal(_, _) => Some(v)
-            case _               => None
+            case v @ DFVal(_) => Some(v)
+            case _            => None
           }
           // all tuple arguments are dataflow args
           if (argsConv.forall(_.isDefined))
             val dfType = DFTuple(AppliedType(tpl, argsConv.flatten))
-            Some(
-              DFVal(
-                dfType,
-                requiredClassRef("DFiant.compiler.ir.DFVal.Modifier")
-              )
-            )
+            Some(DFVal(dfType))
           // all tuple arguments are NOT dataflow args
           else if (argsConv.forall(_.isEmpty)) None
           else
@@ -298,7 +296,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   )(using
       Context
   ): Tree =
-    val DFVal(dfTypeTpe, _) = selector.tpe
+    val DFVal(dfTypeTpe) = selector.tpe
     (dfTypeTpe, constPat) match
       case (DFXInt(signed, widthTpe), Constant(i: Int)) if i < 0 && !signed =>
         report.error(
@@ -354,18 +352,11 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   private def transformDFCasePattern(selectorTree: Tree, patternTree: Tree)(
       using Context
   ): Tree =
-//    (selectorTree.tpe, patternTree) match
-//      case (
-//            DFVal(DFTuple(AppliedType(tpl, args)), _),
-//            UnApply(patternFun, _, patterns)
-//          )
-//          if patternFun.tpe <:< defn.TupleTypeRef && args.length == patterns.length =>
-//      case _ =>
     patternTree match
       case UnApply(TypeApply(Select(Ident(tplName), _), _), _, patterns)
           if tplName.toString.startsWith("Tuple") =>
         selectorTree.tpe match
-          case DFVal(DFTuple(AppliedType(tpl, selectors)), _) =>
+          case DFVal(DFTuple(AppliedType(tpl, selectors))) =>
             if (selectors.length != patterns.length)
               report.error(
                 s"The number of patterns in the pattern (${patterns.length}) tuple does not match the number of fields in the selector (${selectors.length})",
@@ -405,7 +396,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       case unapply @ UnApply(TypeApply(Apply(_, List(arg)), _), _, _)
           if unapply.fun.symbol == enumHackedUnapply =>
         debug("Found enum literal pattern")
-        val DFVal(DFEnum(enumTpe), _) = selectorTree.tpe
+        val DFVal(DFEnum(enumTpe)) = selectorTree.tpe
         if (arg.tpe <:< enumTpe)
           ref(
             requiredMethod("DFiant.core.__For_Plugin.patternSingletonEnum")
