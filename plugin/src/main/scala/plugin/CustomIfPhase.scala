@@ -182,16 +182,25 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         requiredClassRef("DFiant.core.DFType"),
         List(
           requiredClassRef(s"DFiant.compiler.ir.$name"),
-          AppliedType(requiredClassRef("DFiant.core.Args"), args)
+          if (args.isEmpty) requiredClassRef("DFiant.core.NoArgs")
+          else AppliedType(requiredClassRef("DFiant.core.Args"), args)
         )
       )
     def unapply(arg: Type)(using Context): Option[(String, List[Type])] =
       arg.simple match
-        case AppliedType(dfTypeCore, List(n, AppliedType(_, args)))
+        case AppliedType(dfTypeCore, List(n, argsTp))
             if dfTypeCore.typeSymbol == requiredClass("DFiant.core.DFType") =>
-          Some(n.typeSymbol.name.toString, args)
+          val nameStr = n.typeSymbol.name.toString
+          argsTp match
+            case AppliedType(_, args) => Some(nameStr, args)
+            case _                    => Some(nameStr, Nil)
         case _ => None
   end DFType
+  object DFBoolOrBit:
+    def unapply(arg: Type)(using Context): Boolean =
+      arg match
+        case DFType("DFBool$" | "DFBit$", Nil) => true
+        case _                                 => false
   object DFDecimal:
     def unapply(arg: Type)(using Context): Option[(Type, Type, Type)] =
       arg match
@@ -251,7 +260,6 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       arg.simple match
         case AppliedType(t, List(dfType, _)) if t <:< dfValClsRef =>
           Some(dfType)
-//        case DFTupleVal(t) => Some(t)
         case _ => None
   end DFVal
 
@@ -270,8 +278,9 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       arg.simple match
         case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef =>
           val argsConv = args.map {
-            case v @ DFVal(_) => Some(v)
-            case _            => None
+            case v @ DFVal(_)      => Some(v)
+            case v @ DFTupleVal(t) => Some(t)
+            case _                 => None
           }
           // all tuple arguments are dataflow args
           if (argsConv.forall(_.isDefined))
@@ -290,6 +299,13 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     end unapply
   end DFTupleVal
 
+  private object PatternSingleton:
+    def apply(selector: Tree, constPat: Constant)(using Context): Tree =
+      apply(selector, Literal(constPat))
+    def apply(selector: Tree, constTree: Tree)(using Context): Tree =
+      ref(requiredMethod("DFiant.core.__For_Plugin.patternSingleton"))
+        .appliedToArgs(List(selector, constTree))
+
   private def transformLiteralCasePattern(
       selector: Tree,
       constPat: Constant,
@@ -297,6 +313,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   )(using
       Context
   ): Tree =
+    def patternSingleton: Tree = PatternSingleton(selector, constPat)
     val DFVal(dfTypeTpe) = selector.tpe
     (dfTypeTpe, constPat) match
       case (DFXInt(signed, widthTpe), Constant(i: Int)) if i < 0 && !signed =>
@@ -316,11 +333,11 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         )
         EmptyTree
       case (DFXInt(signed, widthTpe), Constant(i: Int)) =>
-        // Construct a singleton pattern
-        ref(requiredMethod("DFiant.core.__For_Plugin.patternSingletonInt"))
-          .appliedToArgs(
-            List(selector, Literal(constPat))
-          )
+        patternSingleton
+      case (DFBoolOrBit(), Constant(_: Boolean)) =>
+        patternSingleton
+      case (DFBoolOrBit(), Constant(i: Int)) if i == 0 | i == 1 =>
+        patternSingleton
       case (selectorTpe, constPat) =>
         report.error(
           s"Unsupported literal ${constPat.show} for the dataflow variable type ${selectorTpe.show}",
@@ -398,11 +415,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
           if unapply.fun.symbol == enumHackedUnapply =>
         debug("Found enum literal pattern")
         val DFVal(DFEnum(enumTpe)) = selectorTree.tpe
-        if (arg.tpe <:< enumTpe)
-          ref(
-            requiredMethod("DFiant.core.__For_Plugin.patternSingletonEnum")
-          )
-            .appliedTo(selectorTree, arg)
+        if (arg.tpe <:< enumTpe) PatternSingleton(selectorTree, arg)
         else
           report.error(
             s"""Wrong enum entry type.

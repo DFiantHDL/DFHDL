@@ -10,7 +10,10 @@ object __For_Plugin:
     DFVal.Const(DFBoolOrBit.Token(DFBool, value))
   // tuple of DFVals "concatenated" to be a DFVal of type tuple
   def tupleToDFVal[V <: DFValAny](tuple: Tuple)(using DFC): V =
-    val dfVals = tuple.toList.map { case dfVal: DFValAny => dfVal }
+    val dfVals = tuple.toList.map {
+      case dfVal: DFValAny => dfVal
+      case internal: Tuple => tupleToDFVal(internal)
+    }
     val dfType = DFTuple[NonEmptyTuple](dfVals.map(_.dfType))
     DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize).asInstanceOf[V]
   def tupleDFValSelect[V <: DFValAny](dfVal: DFValAny, index: Int)(using
@@ -21,16 +24,21 @@ object __For_Plugin:
       .asValOf[DFTuple[NonEmptyTuple]]
       .applyForced(index)(using dfc.anonymize)
       .asInstanceOf[V]
-  def patternSingletonInt(selector: DFValAny, value: Int): Pattern =
-    val token = DFDecimal.Token(
-      selector.dfType.asIR.asFE[DFUInt[Int]],
-      Some(BigInt(value))
-    )
-    Pattern.Singleton(token.asIR)
-  def patternSingletonEnum(selector: DFValAny, entry: DFEncoding): Pattern =
-    Pattern.Singleton(
-      ir.DFToken.forced(selector.dfType.asIR, Some(entry.value))
-    )
+  def patternSingleton(selector: DFValAny, value: Any): Pattern =
+    val tokenIR = (selector.dfType.asIR, value) match
+      case (dt: ir.DFBoolOrBit, v: Int) if v == 0 | v == 1 =>
+        ir.DFBoolOrBit.Token(dt, Some(v > 0))
+      case (dt: ir.DFBoolOrBit, v: Boolean) =>
+        ir.DFBoolOrBit.Token(dt, Some(v))
+      case (dt: ir.DFBits, v) => ???
+      case (dt: ir.DFDecimal, v: Int) =>
+        ir.DFDecimal.Token(dt, Some(BigInt(v)))
+      case (dt: ir.DFEnum, v: DFEncoding) =>
+        ir.DFEnum.Token(dt, Some(v.value))
+      case (dt: ir.DFStruct, v) => ???
+      case _                    => ???
+    Pattern.Singleton(tokenIR)
+  end patternSingleton
   def patternSingletonSI(si: Any): Pattern =
     si match
       case Some(Seq(DFVal(const: ir.DFVal.Const))) =>
