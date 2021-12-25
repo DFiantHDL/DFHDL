@@ -177,12 +177,21 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     else tree
 
   object DFType:
+    def apply(name: String, args: List[Type])(using Context): Type =
+      AppliedType(
+        requiredClassRef("DFiant.core.DFType"),
+        List(
+          requiredClassRef(s"DFiant.compiler.ir.$name"),
+          AppliedType(requiredClassRef("DFiant.core.Args"), args)
+        )
+      )
     def unapply(arg: Type)(using Context): Option[(String, List[Type])] =
       arg.dealias match
         case AppliedType(dfTypeCore, List(n, AppliedType(_, args)))
             if dfTypeCore.typeSymbol == requiredClass("DFiant.core.DFType") =>
           Some(n.typeSymbol.name.toString, args)
         case _ => None
+  end DFType
   object DFDecimal:
     def unapply(arg: Type)(using Context): Option[(Type, Type, Type)] =
       arg match
@@ -215,28 +224,70 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       arg match
         case DFType("DFEnum", e :: Nil) => Some(e)
         case _                          => None
+  object DFTuple:
+    def apply(tpl: Type)(using Context): Type =
+      DFType("DFTuple", List(tpl))
+    def unapply(arg: Type)(using Context): Option[Type] =
+      arg match
+        case DFType("DFTuple", t :: Nil) => Some(t)
+        case _                           => None
+
   object DFVal:
-    def unapply(arg: Tree)(using Context): Option[Tree] =
-      arg.tpe match
-        case DFVal(_, _) => Some(arg)
-        case _           => None
+    def apply(dfTypeTpe: Type, modTpe: Type)(using Context): Type =
+      AppliedType(dfValClsRef, List(dfTypeTpe, modTpe))
+    def unapply(selector: Tree)(using Context): Option[Tree] =
+      selector.tpe match
+        // return the unmodified selector tree
+        case DFVal(_, _) => Some(selector)
+        case _ =>
+          selector match
+            // return the converted selector tree
+            case DFTupleVal(tree) => Some(tree)
+            case _                => None
     def unapply(arg: Type)(using Context): Option[(Type, Type)] =
       arg.underlyingIfProxy.dealias match
         case AppliedType(t, List(dfType, mod)) if t <:< dfValClsRef =>
           Some(dfType, mod)
         case _ => None
+  end DFVal
 
-//  object DFTupleVal:
-//    def unapply(arg: Tree)(using Context): Option[List[Type]] =
-//      unapply(arg.tpe.underlyingIfProxy)
-//    def unapply(arg: Type)(using Context): Option[List[Type]] =
-//      arg match
-//        case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef =>
-//          args.map {
-//            case v @ DFVal(_,_) => v
-//            case _ => false
-//          })
-//        case _ => None
+  object DFTupleVal:
+    def unapply(arg: Tree)(using Context): Option[Tree] =
+      arg.tpe match
+        case DFTupleVal(x) =>
+//          arg match
+//            case Apply(fun, args) =>
+//            case _                => // need to use selectors
+          debug("#################################")
+          debug(x.show)
+          None
+        case _ => None
+    def unapply(arg: Type)(using Context): Option[Type] =
+      arg.underlyingIfProxy.dealias match
+        case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef =>
+          val argsConv = args.map {
+            case v @ DFVal(_, _) => Some(v)
+            case _               => None
+          }
+          // all tuple arguments are dataflow args
+          if (argsConv.forall(_.isDefined))
+            val dfType = DFTuple(AppliedType(tpl, argsConv.flatten))
+            Some(
+              DFVal(
+                dfType,
+                requiredClassRef("DFiant.compiler.ir.DFVal.Modifier")
+              )
+            )
+          // all tuple arguments are NOT dataflow args
+          else if (argsConv.forall(_.isEmpty)) None
+          else
+            report.error(
+              "Not all match selector tuple fields are dataflow values."
+            )
+            None
+          end if
+        case _ => None
+  end DFTupleVal
 
   private def transformLiteralCasePattern(
       selector: Tree,
@@ -358,12 +409,10 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
               TypeTree(defn.AnyType)
             )
           )
-
       // unknown pattern
       case _ =>
-        debug(s"Unknown pattern: ${tree.show}")
-        debug(tree)
-        ???
+        report.error(s"Unknown pattern:\n${tree.show}\n$tree")
+        EmptyTree
     end match
   end transformDFCasePattern
 
@@ -379,16 +428,17 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
 
   override def transformMatch(tree: Match)(using Context): Tree =
     tree.selector match
-      case DFVal(_) =>
+      case DFVal(selector) =>
         debug("Found DFMatch")
         val casesVarArgs =
-          tree.cases.map(c => transformDFCase(tree.selector, c, tree.tpe))
+          tree.cases.map(c => transformDFCase(selector, c, tree.tpe))
         val cases = mkList(casesVarArgs, TypeTree(casesVarArgs.head.tpe))
         ref(fromCasesSym)
           .appliedToType(tree.tpe)
-          .appliedTo(tree.selector, cases)
+          .appliedTo(selector, cases)
           .appliedTo(dfcStack.head)
       case _ =>
+        debug(tree.selector)
         tree
   end transformMatch
   override def prepareForUnit(tree: Tree)(using Context): Context =
