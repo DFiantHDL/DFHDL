@@ -216,13 +216,27 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         case DFType("DFEnum", e :: Nil) => Some(e)
         case _                          => None
   object DFVal:
-    def unapply(arg: Tree)(using Context): Option[(Type, Type)] =
-      unapply(arg.tpe.underlyingIfProxy.dealias)
+    def unapply(arg: Tree)(using Context): Option[Tree] =
+      arg.tpe match
+        case DFVal(_, _) => Some(arg)
+        case _           => None
     def unapply(arg: Type)(using Context): Option[(Type, Type)] =
-      arg match
+      arg.underlyingIfProxy.dealias match
         case AppliedType(t, List(dfType, mod)) if t <:< dfValClsRef =>
           Some(dfType, mod)
         case _ => None
+
+//  object DFTupleVal:
+//    def unapply(arg: Tree)(using Context): Option[List[Type]] =
+//      unapply(arg.tpe.underlyingIfProxy)
+//    def unapply(arg: Type)(using Context): Option[List[Type]] =
+//      arg match
+//        case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef =>
+//          args.map {
+//            case v @ DFVal(_,_) => v
+//            case _ => false
+//          })
+//        case _ => None
 
   private def transformLiteralCasePattern(
       selector: Tree,
@@ -231,8 +245,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   )(using
       Context
   ): Tree =
-    val DFVal(selectorTpe, _) = selector
-    (selectorTpe, constPat) match
+    val DFVal(dfTypeTpe, _) = selector.tpe
+    (dfTypeTpe, constPat) match
       case (DFXInt(signed, widthTpe), Constant(i: Int)) if i < 0 && !signed =>
         report.error(
           s"Cannot compare a signed literal value with an unsigned dataflow variable.\nAn explicit conversion must be applied.",
@@ -263,10 +277,6 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         EmptyTree
     end match
   end transformLiteralCasePattern
-
-  private def getDFTypeTpe(selector: Tree)(using Context): Type =
-    val AppliedType(_, List(dfTypeTpe, _)) = selector.tpe.underlyingIfProxy
-    dfTypeTpe
 
   private def mkSome(tree: Tree)(using Context): Tree =
     ref(requiredMethod("scala.Some.apply"))
@@ -303,7 +313,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       case unapply @ UnApply(TypeApply(Apply(_, List(arg)), _), _, _)
           if unapply.fun.symbol == enumHackedUnapply =>
         debug("Found enum literal pattern")
-        val DFVal(DFEnum(enumTpe), _) = selector
+        val DFVal(DFEnum(enumTpe), _) = selector.tpe
         if (arg.tpe <:< enumTpe)
           ref(
             requiredMethod("DFiant.core.__For_Plugin.patternSingletonEnum")
@@ -368,8 +378,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       .appliedToArgs(List(patternTree, guardTree, blockTree))
 
   override def transformMatch(tree: Match)(using Context): Tree =
-    tree.selector.tpe.underlyingIfProxy match
-      case AppliedType(tycon, _) if tycon <:< dfValClsRef =>
+    tree.selector match
+      case DFVal(_) =>
         debug("Found DFMatch")
         val casesVarArgs =
           tree.cases.map(c => transformDFCase(tree.selector, c, tree.tpe))
