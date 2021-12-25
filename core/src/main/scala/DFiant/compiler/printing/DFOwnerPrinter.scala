@@ -58,6 +58,8 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
         case _                      => csToken
     case Pattern.Alternative(list) =>
       list.map(csDFCasePattern).mkString(" | ")
+    case Pattern.Tuple(list) =>
+      list.map(csDFCasePattern).mkStringBrackets
 
   def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock)(using
       MemberGetSet

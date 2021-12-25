@@ -8,6 +8,19 @@ object __For_Plugin:
   def toTuple3[T1, T2, T3](t1: T1, t2: T2, t3: T3): (T1, T2, T3) = (t1, t2, t3)
   def fromBoolean(value: Boolean)(using DFC): DFValOf[DFBool] =
     DFVal.Const(DFBoolOrBit.Token(DFBool, value))
+  // tuple of DFVals "concatenated" to be a DFVal of type tuple
+  def tupleToDFVal[V <: DFValAny](tuple: Tuple)(using DFC): V =
+    val dfVals = tuple.toList.map { case dfVal: DFValAny => dfVal }
+    val dfType = DFTuple[NonEmptyTuple](dfVals.map(_.dfType))
+    DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize).asInstanceOf[V]
+  def tupleDFValSelect[V <: DFValAny](dfVal: DFValAny, index: Int)(using
+      DFC
+  ): V =
+    import DFTuple.Val.Ops.applyForced
+    dfVal.asIR
+      .asValOf[DFTuple[NonEmptyTuple]]
+      .applyForced(index)(using dfc.anonymize)
+      .asInstanceOf[V]
   def patternSingletonInt(selector: DFValAny, value: Int): Pattern =
     val token = DFDecimal.Token(
       selector.dfType.asIR.asFE[DFUInt[Int]],
@@ -25,5 +38,7 @@ object __For_Plugin:
       case _ => println(si); ???
   def patternAlternative(list: List[Any]): Pattern =
     Pattern.Alternative(list.asInstanceOf[List[Pattern]])
+  def patternTuple(list: List[Pattern]): Pattern =
+    Pattern.Tuple(list)
   def patternCatchAll: Pattern = Pattern.CatchAll
 end __For_Plugin

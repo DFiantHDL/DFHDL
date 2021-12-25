@@ -234,7 +234,7 @@ object DFTuple:
         ): DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M] =
           check(i, size)
           applyForced[DFType.FromDFVal[Tuple.Elem[T, I]]](i)
-        private def applyForced[OT <: DFTypeAny](i: Int)(using
+        private[core] def applyForced[OT <: DFTypeAny](i: Int)(using
             dfc: DFC
         ): DFVal[OT, M] =
           DFVal.Alias

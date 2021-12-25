@@ -226,11 +226,11 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         case _                          => None
   object DFTuple:
     def apply(tpl: Type)(using Context): Type =
-      DFType("DFTuple", List(tpl))
+      DFType("DFStruct", List(tpl))
     def unapply(arg: Type)(using Context): Option[Type] =
       arg match
-        case DFType("DFTuple", t :: Nil) => Some(t)
-        case _                           => None
+        case DFType("DFStruct", t :: Nil) => Some(t)
+        case _                            => None
 
   object DFVal:
     def apply(dfTypeTpe: Type, modTpe: Type)(using Context): Type =
@@ -252,15 +252,15 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   end DFVal
 
   object DFTupleVal:
-    def unapply(arg: Tree)(using Context): Option[Tree] =
-      arg.tpe match
-        case DFTupleVal(x) =>
-//          arg match
-//            case Apply(fun, args) =>
-//            case _                => // need to use selectors
-          debug("#################################")
-          debug(x.show)
-          None
+    def unapply(tuple: Tree)(using Context): Option[Tree] =
+      tuple.tpe match
+        case DFTupleVal(tpe) =>
+          Some(
+            ref(requiredMethod("DFiant.core.__For_Plugin.tupleToDFVal"))
+              .appliedToType(tpe)
+              .appliedTo(tuple)
+              .appliedTo(dfcStack.head)
+          )
         case _ => None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
@@ -351,27 +351,66 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       case _ =>
         ref(defn.NoneModule.termRef)
 
-  private def transformDFCasePattern(selector: Tree, tree: Tree)(using
-      Context
+  private def transformDFCasePattern(selectorTree: Tree, patternTree: Tree)(
+      using Context
   ): Tree =
-    tree match
+//    (selectorTree.tpe, patternTree) match
+//      case (
+//            DFVal(DFTuple(AppliedType(tpl, args)), _),
+//            UnApply(patternFun, _, patterns)
+//          )
+//          if patternFun.tpe <:< defn.TupleTypeRef && args.length == patterns.length =>
+//      case _ =>
+    patternTree match
+      case UnApply(TypeApply(Select(Ident(tplName), _), _), _, patterns)
+          if tplName.toString.startsWith("Tuple") =>
+        selectorTree.tpe match
+          case DFVal(DFTuple(AppliedType(tpl, selectors)), _) =>
+            if (selectors.length != patterns.length)
+              report.error(
+                s"The number of patterns in the pattern (${patterns.length}) tuple does not match the number of fields in the selector (${selectors.length})",
+                patternTree.srcPos
+              )
+            val dfPatterns =
+              selectors
+                .lazyZip(patterns)
+                .zipWithIndex
+                .map { case ((s, p), i) =>
+                  val splitSelect = ref(
+                    requiredMethod("DFiant.core.__For_Plugin.tupleDFValSelect")
+                  )
+                    .appliedToType(s)
+                    .appliedToArgs(List(selectorTree, Literal(Constant(i))))
+                    .appliedTo(dfcStack.head)
+                  transformDFCasePattern(splitSelect, p)
+                }
+                .toList
+            ref(requiredMethod("DFiant.core.__For_Plugin.patternTuple"))
+              .appliedTo(mkList(dfPatterns, TypeTree(dfPatterns.head.tpe)))
+          case _ =>
+            report.error(
+              s"Found a tuple pattern but the match selector is not a tuple.",
+              patternTree.srcPos
+            )
+            EmptyTree
+        end match
       case Literal(const) =>
         debug("Found literal pattern")
         transformLiteralCasePattern(
-          selector,
+          selectorTree,
           const,
-          tree.srcPos
+          patternTree.srcPos
         )
       // hacked unapply for enum enumerations
       case unapply @ UnApply(TypeApply(Apply(_, List(arg)), _), _, _)
           if unapply.fun.symbol == enumHackedUnapply =>
         debug("Found enum literal pattern")
-        val DFVal(DFEnum(enumTpe), _) = selector.tpe
+        val DFVal(DFEnum(enumTpe), _) = selectorTree.tpe
         if (arg.tpe <:< enumTpe)
           ref(
             requiredMethod("DFiant.core.__For_Plugin.patternSingletonEnum")
           )
-            .appliedTo(selector, arg)
+            .appliedTo(selectorTree, arg)
         else
           report.error(
             s"""Wrong enum entry type.
@@ -387,11 +426,11 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
           .appliedTo(
             tree
               .select("unapplySeq".toTermName)
-              .appliedTo(selector)
+              .appliedTo(selectorTree)
               .appliedTo(dfcStack.head)
           )
       case Typed(tree, _) =>
-        transformDFCasePattern(selector, tree)
+        transformDFCasePattern(selectorTree, tree)
       // catch all
       case Ident(i) if i.toString == "_" =>
         ref(requiredMethod("DFiant.core.__For_Plugin.patternCatchAll"))
@@ -407,13 +446,13 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         ref(requiredMethod("DFiant.core.__For_Plugin.patternAlternative"))
           .appliedTo(
             mkList(
-              list.map(transformDFCasePattern(selector, _)),
+              list.map(transformDFCasePattern(selectorTree, _)),
               TypeTree(defn.AnyType)
             )
           )
       // unknown pattern
       case _ =>
-        report.error(s"Unknown pattern:\n${tree.show}\n$tree")
+        report.error(s"Unknown pattern:\n${patternTree.show}\n$patternTree")
         EmptyTree
     end match
   end transformDFCasePattern

@@ -374,6 +374,13 @@ object DFConditional:
             case that: Alternative =>
               this.list.lazyZip(that.list).forall(_ =~ _)
             case _ => false
+      final case class Tuple(list: List[Pattern]) extends Pattern:
+        def =~(that: Pattern)(using MemberGetSet): Boolean =
+          that match
+            case that: Tuple =>
+              this.list.lazyZip(that.list).forall(_ =~ _)
+            case _ => false
+    end Pattern
   end DFCaseBlock
 
   final case class DFIfHeader(

@@ -9,9 +9,6 @@ class DFMatchSpec extends DFSpec:
   val x = DFUInt(8) <> VAR
   val e = MyEnum1 <> VAR
 
-  e match
-    case MyEnum1.Bar() =>
-
   test("No ret val") {
     assertCodeString(
       """|x match
@@ -22,6 +19,8 @@ class DFMatchSpec extends DFSpec:
          |    x := d"8'4"
          |e match
          |  case MyEnum1.Bar() =>
+         |(x, e) match
+         |  case (d"8'0", MyEnum1.Bar()) =>
          |""".stripMargin
     ) {
       x match
@@ -33,6 +32,8 @@ class DFMatchSpec extends DFSpec:
           x := 4
       e match
         case MyEnum1.Bar() =>
+      (x, e) match
+        case (0, MyEnum1.Bar()) =>
     }
   }
 //
