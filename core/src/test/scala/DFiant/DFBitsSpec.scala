@@ -74,47 +74,50 @@ class DFBitsSpec extends DFSpec:
     }
   }
   test("Token Bits Selection") {
-    assertEquals(b"10".apply(0), DFBit.token(0))
-    assertEquals(b"10".apply(1), DFBit.token(1))
-    assertEquals(b"1?".apply(0), DFBit.token(?))
+    val t1 = b"10"
+    val t2 = b"1?"
+    assertEquals(t1(0), DFBit.token(0))
+    assertEquals(t1(1), DFBit.token(1))
     assertEquals(b"10".lsbit, DFBit.token(0))
     assertEquals(b"10".msbit, DFBit.token(1))
+    assertEquals(t2(0), DFBit.token(?))
     assertNotEquals(b"10".msbit.asIR, DFBit.token(0).asIR)
     val four = 4
     assertDSLError(
       "Index 4 is out of range of width/length 2"
     )(
-      """b"10".apply(4)"""
+      """t1(4)"""
     ) {
-      b"10".apply(four)
+      t1(four)
     }
-    assertEquals(b"1010".apply(3, 2), b"10")
-    assertEquals(b"1010".apply(1, 0), b"10")
-    assertEquals(b"1010".apply(2, 1), b"01")
-    assertEquals(b"1010".apply(2, 2), b"0")
+    val t3 = b"1010"
+    assertEquals(t3(3, 2), b"10")
+    assertEquals(t3(1, 0), b"10")
+    assertEquals(t3(2, 1), b"01")
+    assertEquals(t3(2, 2), b"0")
 
     assertDSLError(
       "Index 4 is out of range of width/length 4"
     )(
-      """b"1010".apply(4, 2)"""
+      """t3(4, 2)"""
     ) {
-      b"1010".apply(four, 2)
+      t3(four, 2)
     }
     val negOne = -1
     assertDSLError(
       "Index -1 is out of range of width/length 4"
     )(
-      """b"1010".apply(3, -1)"""
+      """t3(3, -1)"""
     ) {
-      b"1010".apply(3, negOne)
+      t3(3, negOne)
     }
     val three = 3
     assertDSLError(
       "Low index 3 is bigger than High bit index 2"
     )(
-      """b"1010".apply(2, 3)"""
+      """t3(2, 3)"""
     ) {
-      b"1010".apply(2, three)
+      t3(2, three)
     }
   }
   test("DFVal Conversion") {

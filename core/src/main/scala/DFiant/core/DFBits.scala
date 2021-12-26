@@ -292,46 +292,60 @@ private object CompanionsDFBits:
     end fromHexString
 
     object StrInterp:
-      extension (inline sc: StringContext)
-        transparent inline def b(inline args: Any*): DFTokenAny =
-          ${
-            interpMacro('{ "b" })('sc, 'args)
-          }
-        transparent inline def h(inline args: Any*): DFTokenAny =
-          ${
-            interpMacro('{ "h" })('sc, 'args)
-          }
+      class BParts[P <: Tuple](parts: P):
+        transparent inline def apply(inline args: Any*): Any =
+          ${ applyMacro('{ "b" })('parts, 'args) }
+        transparent inline def unapplySeq[T <: DFTypeAny](
+            inline arg: DFValOf[T]
+        )(using DFC): Option[Seq[DFValOf[T]]] = ???
+//          ${ unapplySeqMacro('{ "b" })('parts, 'arg) }
 
-      private def interpMacro(op: Expr[String])(
-          sc: Expr[StringContext],
+      class HParts[P <: Tuple](parts: P):
+        transparent inline def apply(inline args: Any*): Any =
+          ${ applyMacro('{ "h" })('parts, 'args) }
+        transparent inline def unapplySeq[T <: DFTypeAny](
+            inline arg: DFValOf[T]
+        )(using DFC): Option[Seq[DFValOf[T]]] = ???
+//          ${ unapplySeqMacro('{ "h" })('parts, 'arg) }
+
+      extension (inline sc: StringContext)
+        transparent inline def b: Any = ${ SIParts.scMacro[BParts]('sc) }
+        transparent inline def h: Any = ${ SIParts.scMacro[HParts]('sc) }
+
+      private def applyMacro[P <: Tuple](opExpr: Expr[String])(
+          scParts: Expr[P],
           args: Expr[Seq[Any]]
-      )(using Quotes): Expr[DFTokenAny] =
-        import quotes.reflect.*
-        val fullTerm = sc.scPartsWithArgs(args)
-        val opStr = op.value.get
-        val widthTpe: TypeRepr = fullTerm match
-          case Literal(StringConstant(t)) =>
-            val res = opStr match
-              case "b" => fromBinString(t)
-              case "h" => fromHexString(t)
-            res match
-              case Right((valueBits, bubbleBits)) =>
-                ConstantType(IntConstant(valueBits.length.toInt))
-              case Left(msg) =>
-                report.errorAndAbort(msg)
-          case _ => TypeRepr.of[Int]
-        val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
-        val fullExpr = opStr match
-          case "b" => '{ fromBinString(${ fullTerm.asExprOf[String] }) }
-          case "h" => '{ fromHexString(${ fullTerm.asExprOf[String] }) }
-        '{
-          val (valueBits, bubbleBits) = ${ fullExpr }.toOption.get
-          val width =
-            DFiant.internals.Inlined
-              .forced[widthType.Underlying](valueBits.length.toInt)
-          Token[widthType.Underlying](width, valueBits, bubbleBits)
-        }
-      end interpMacro
+      )(using Quotes, Type[P]): Expr[DFTokenAny] =
+        scParts.scPartsWithArgs(args).interpolate(opExpr)
+
+      extension (using Quotes)(fullTerm: quotes.reflect.Term)
+        private def interpolate(
+            opExpr: Expr[String]
+        ): Expr[DFTokenAny] =
+          import quotes.reflect.*
+          val opStr = opExpr.value.get
+          val widthTpe: TypeRepr = fullTerm match
+            case Literal(StringConstant(t)) =>
+              val res = opStr match
+                case "b" => fromBinString(t)
+                case "h" => fromHexString(t)
+              res match
+                case Right((valueBits, bubbleBits)) =>
+                  ConstantType(IntConstant(valueBits.length.toInt))
+                case Left(msg) =>
+                  report.errorAndAbort(msg)
+            case _ => TypeRepr.of[Int]
+          val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
+          val fullExpr = opStr match
+            case "b" => '{ fromBinString(${ fullTerm.asExprOf[String] }) }
+            case "h" => '{ fromHexString(${ fullTerm.asExprOf[String] }) }
+          '{
+            val (valueBits, bubbleBits) = ${ fullExpr }.toOption.get
+            val width =
+              DFiant.internals.Inlined
+                .forced[widthType.Underlying](valueBits.length.toInt)
+            Token[widthType.Underlying](width, valueBits, bubbleBits)
+          }
     end StrInterp
 
     object Compare:

@@ -248,7 +248,7 @@ object DFDecimal:
       export DFXInt.Token.Compare.given
 
     object StrInterp:
-      class DParts[P <: Tuple](parts: P): // extends SIParts(parts):
+      class DParts[P <: Tuple](parts: P):
         transparent inline def apply(inline args: Any*): Any =
           ${ applyMacro('{ false })('parts, 'args) }
         transparent inline def unapplySeq[T <: DFTypeAny](
@@ -256,7 +256,7 @@ object DFDecimal:
         )(using DFC): Option[Seq[DFValOf[T]]] =
           ${ unapplySeqMacro('{ false })('parts, 'arg) }
 
-      class SDParts[P <: Tuple](parts: P): // extends SIParts(parts):
+      class SDParts[P <: Tuple](parts: P):
         transparent inline def apply(inline args: Any*): Any =
           ${ applyMacro('{ true })('parts, 'args) }
         transparent inline def unapplySeq[T <: DFTypeAny](
