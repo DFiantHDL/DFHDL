@@ -297,16 +297,16 @@ private object CompanionsDFBits:
           ${ applyMacro('{ "b" })('parts, 'args) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
-        )(using DFC): Option[Seq[DFValOf[T]]] = ???
-//          ${ unapplySeqMacro('{ "b" })('parts, 'arg) }
+        )(using DFC): Option[Seq[DFValOf[T]]] =
+          ${ unapplySeqMacro('{ "b" })('parts, 'arg) }
 
       class HParts[P <: Tuple](parts: P):
         transparent inline def apply(inline args: Any*): Any =
           ${ applyMacro('{ "h" })('parts, 'args) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
-        )(using DFC): Option[Seq[DFValOf[T]]] = ???
-//          ${ unapplySeqMacro('{ "h" })('parts, 'arg) }
+        )(using DFC): Option[Seq[DFValOf[T]]] =
+          ${ unapplySeqMacro('{ "h" })('parts, 'arg) }
 
       extension (inline sc: StringContext)
         transparent inline def b: Any = ${ SIParts.scMacro[BParts]('sc) }
@@ -346,6 +346,47 @@ private object CompanionsDFBits:
                 .forced[widthType.Underlying](valueBits.length.toInt)
             Token[widthType.Underlying](width, valueBits, bubbleBits)
           }
+      private def unapplySeqMacro[P <: Tuple, T <: DFTypeAny](
+          opForcedExpr: Expr[String]
+      )(
+          scParts: Expr[P],
+          arg: Expr[DFValOf[T]]
+      )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[DFValOf[T]]]] =
+        import quotes.reflect.*
+        val parts = TypeRepr.of[P].getTupleArgs
+        if (TypeRepr.of[P].getTupleArgs.length > 1)
+          '{
+            compiletime.error(
+              "Extractors for UNTRUE token string interpolation are not allowed."
+            )
+            Some(Seq())
+          }
+        else
+          val token =
+            SIParts
+              .tupleToExprs(scParts)
+              .head
+              .asTerm
+              .interpolate(opForcedExpr)
+          val tokenType = token.asTerm.tpe.asTypeOf[DFTokenAny]
+          '{
+            val tc = compiletime
+              .summonInline[
+                DFVal.Compare[
+                  T,
+                  tokenType.Underlying,
+                  FuncOp.===.type,
+                  false
+                ]
+              ]
+            Some(
+              Seq(
+                tc.conv(${ arg }.dfType, $token)
+              )
+            )
+          }
+        end if
+      end unapplySeqMacro
     end StrInterp
 
     object Compare:

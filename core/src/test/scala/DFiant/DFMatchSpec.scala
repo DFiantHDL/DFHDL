@@ -17,6 +17,8 @@ class DFMatchSpec extends DFSpec:
       """|x match
          |  case d"8'77" | d"8'11" => x := d"8'1"
          |  case d"8'22" =>
+         |  case d"8'150" =>
+         |  case d"8'34" =>
          |  case _ =>
          |    x := d"8'3"
          |    x := d"8'4"
@@ -31,7 +33,9 @@ class DFMatchSpec extends DFSpec:
       x match
         case 77 | 11 =>
           x := 1
-        case d"8'22" =>
+        case d"8'22"     =>
+        case b"10010110" =>
+        case h"8'22"     =>
         case _ =>
           x := 3
           x := 4
