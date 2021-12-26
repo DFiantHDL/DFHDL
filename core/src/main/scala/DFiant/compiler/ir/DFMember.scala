@@ -380,6 +380,16 @@ object DFConditional:
             case that: Tuple =>
               this.list.lazyZip(that.list).forall(_ =~ _)
             case _ => false
+      final case class Bind(ref: Bind.Ref, pattern: Pattern) extends Pattern:
+        def =~(that: Pattern)(using MemberGetSet): Boolean =
+          that match
+            case that: Bind =>
+              this.ref =~ that.ref && this.pattern =~ that.pattern
+            case _ => false
+      object Bind:
+        type Ref = DFRef.OneWay[DFVal]
+        case object Tag extends DFTagOf[DFVal]
+
     end Pattern
   end DFCaseBlock
 

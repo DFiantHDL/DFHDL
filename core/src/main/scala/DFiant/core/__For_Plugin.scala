@@ -49,4 +49,12 @@ object __For_Plugin:
   def patternTuple(list: List[Pattern]): Pattern =
     Pattern.Tuple(list)
   def patternCatchAll: Pattern = Pattern.CatchAll
+  def bindVal[V <: DFValAny](selector: V, bindName: String)(using DFC): V =
+    DFVal.Alias.AsIs
+      .ident(selector)(using dfc.setName(bindName))
+      .tag(Pattern.Bind.Tag)
+      .asInstanceOf[V]
+  def patternBind(bindVal: DFValAny, pattern: Pattern)(using DFC): Pattern =
+    Pattern.Bind(bindVal.asIR.ref, pattern)
+
 end __For_Plugin

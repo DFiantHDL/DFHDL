@@ -21,6 +21,7 @@ class DFMatchSpec extends DFSpec:
          |  case MyEnum1.Bar() =>
          |(x, e) match
          |  case (d"8'0", MyEnum1.Bar()) =>
+         |  case v @ _ =>
          |""".stripMargin
     ) {
       x match
@@ -34,6 +35,7 @@ class DFMatchSpec extends DFSpec:
         case MyEnum1.Bar() =>
       (x, e) match
         case (0, MyEnum1.Bar()) =>
+        case v                  =>
     }
   }
 //

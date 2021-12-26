@@ -18,6 +18,11 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
     members.view
       // only members that match the requested construction mode
       .filter(m => m.hasLateConstruction == lateConstruction)
+      // exclude bind members
+      .filter {
+        case Bind(_) => false
+        case _       => true
+      }
       // only members the following members are accepted:
       .collect {
         // an ident placeholder (can be anonymous)
@@ -60,6 +65,8 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       list.map(csDFCasePattern).mkString(" | ")
     case Pattern.Tuple(list) =>
       list.map(csDFCasePattern).mkStringBrackets
+    case Pattern.Bind(ref, pattern) =>
+      s"${ref.get.name} @ ${csDFCasePattern((pattern))}"
 
   def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock)(using
       MemberGetSet

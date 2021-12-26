@@ -9,7 +9,7 @@ import Flags.*
 import SymDenotations.*
 import Decorators.*
 import ast.Trees.*
-import ast.tpd
+import ast.{tpd, untpd}
 import StdNames.nme
 import Names.*
 import Constants.Constant
@@ -367,6 +367,9 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       case _ =>
         ref(defn.NoneModule.termRef)
 
+  var binds = List.empty[(Name, Tree)]
+  val bindTemp = mutable.Map.empty[Name, Tree]
+
   private def transformDFCasePattern(selectorTree: Tree, patternTree: Tree)(
       using Context
   ): Tree =
@@ -440,11 +443,27 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       case Ident(i) if i.toString == "_" =>
         ref(requiredMethod("DFiant.core.__For_Plugin.patternCatchAll"))
       // catch all with name bind
-      case Bind(n, Ident(i)) if i.toString == "_" =>
-        ???
-      // named and typed bind
-      case Bind(n, Typed(Ident(i), tpt)) if i.toString == "_" =>
-        ???
+      case Bind(n, boundPattern) =>
+        // first we construct a bind dataflow value with the name
+        val bindValTree =
+          ref(requiredMethod("DFiant.core.__For_Plugin.bindVal"))
+            .appliedToType(selectorTree.tpe)
+            .appliedToArgs(List(selectorTree, Literal(Constant(n.toString))))
+            .appliedTo(dfcStack.head)
+
+        // save the bind to later replace in guard and body
+        binds = (n -> bindValTree) :: binds
+        bindTemp += (n -> bindValTree)
+        println(s"added bind $n -> ${bindValTree.show}")
+        // continue to recursively explore the bounded pattern, but this time
+        // the bound val we constructed will be used as the selector.
+//        val ident = untpd.Ident(n).withType(selectorTree.tpe)
+//        println(ident)
+        val dfPattern = transformDFCasePattern(bindValTree, boundPattern)
+        // finally, construct the dataflow bounded pattern
+        ref(requiredMethod("DFiant.core.__For_Plugin.patternBind"))
+          .appliedToArgs(List(bindValTree, dfPattern))
+          .appliedTo(dfcStack.head)
       // union of alternatives
       case Alternative(list) =>
         debug("Found pattern alternatives")
@@ -462,15 +481,24 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     end match
   end transformDFCasePattern
 
+  val bindsReplace = new TreeMap():
+    override def transform(tree: tpd.Tree)(using Context): Tree =
+      tree match
+        case Ident(n) if bindTemp.contains(n) => bindTemp(n)
+        case _ =>
+          super.transform(tree)
+
   private def transformDFCase(selector: Tree, tree: CaseDef, combinedTpe: Type)(
       using Context
   ): Tree =
     val patternTree = transformDFCasePattern(selector, tree.pat)
-    val guardTree = transformDFCaseGuard(tree.guard)
-    val blockTree = transformBlock(tree.body, combinedTpe)
+    val guardTree = transformDFCaseGuard(bindsReplace.transform(tree.guard))
+    val blockTree =
+      transformBlock(bindsReplace.transform(tree.body), combinedTpe)
     ref(toTuple3Sym)
       .appliedToTypes(List(patternTree.tpe, guardTree.tpe, blockTree.tpe))
       .appliedToArgs(List(patternTree, guardTree, blockTree))
+  end transformDFCase
 
   override def transformMatch(tree: Match)(using Context): Tree =
     tree.selector match
@@ -479,10 +507,15 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         val casesVarArgs =
           tree.cases.map(c => transformDFCase(selector, c, tree.tpe))
         val cases = mkList(casesVarArgs, TypeTree(casesVarArgs.head.tpe))
-        ref(fromCasesSym)
+        val dfMatch = ref(fromCasesSym)
           .appliedToType(tree.tpe)
           .appliedTo(selector, cases)
           .appliedTo(dfcStack.head)
+//        val bindValDefs =
+//          binds.view.reverse.map((n, t) => SyntheticValDef(n.asTermName, t))
+//        println(bindValDefs.map(_.show).mkString("\n"))
+//        Block(bindValDefs.toList, dfMatch)
+        dfMatch
       case _ =>
         debug("Not compatible selector")
         debug(tree.selector.show)

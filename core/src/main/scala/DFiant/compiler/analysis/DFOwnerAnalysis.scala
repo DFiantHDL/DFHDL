@@ -11,3 +11,7 @@ extension (owner: DFOwner)
 extension (member: DFMember)
   def getTagOf[CT <: DFTag: ClassTag]: Option[CT] =
     member.tags.getTagOf[CT]
+
+  // does not work?
+  def isTaggedWith[CT <: DFTag: ClassTag]: Boolean =
+    getTagOf[CT].isDefined

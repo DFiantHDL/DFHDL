@@ -9,6 +9,8 @@ import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 import DFOpaque.Abstract as DFOpaqueA
 import DFiant.compiler.printing.{DefaultPrinter, Printer}
+
+import scala.reflect.ClassTag
 final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]
@@ -164,6 +166,11 @@ extension (dfVal: ir.DFVal)
 private object CompanionsDFVal:
   object Extensions:
     extension [T <: DFTypeAny, M <: Modifier](dfVal: DFVal[T, M])
+      def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
+          dfc: DFC
+      ): DFVal[T, M] =
+        import DFiant.core.tag as tagIR
+        dfVal.asIR.tagIR(customTag).asVal[T, M]
       private[core] def initForced(tokens: List[ir.DFTokenAny])(using
           dfc: DFC
       ): DFVal[T, M] =
@@ -172,7 +179,7 @@ private object CompanionsDFVal:
           dfVal.asIR.isAnonymous,
           s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
         )
-        dfVal.asIR.tag(ir.ExternalInit(tokens)).asVal[T, M]
+        tag(ir.ExternalInit(tokens))
 
       def init(tokenValues: DFToken.Value[T]*)(using DFC): DFVal[T, M] =
         initForced(tokenValues.view.map(tv => tv(dfVal.dfType).asIR).toList)
