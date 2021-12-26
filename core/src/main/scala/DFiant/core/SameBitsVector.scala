@@ -1,7 +1,7 @@
 package DFiant
 package core
 
-enum SameBitsVector(value: Boolean) derives CanEqual:
+enum SameBitsVector(val value: Bit) derives CanEqual:
   /** A unconstrained-width literal vector of zeros
     *
     * @example
@@ -12,7 +12,7 @@ enum SameBitsVector(value: Boolean) derives CanEqual:
     *   Zeros` is forbidden because concatenation cannot infer the output width
     *   from this operation.
     */
-  case Zeros extends SameBitsVector(false)
+  case Zeros extends SameBitsVector(0)
 
   /** A unconstrained-width literal vector of ones
     *
@@ -24,7 +24,7 @@ enum SameBitsVector(value: Boolean) derives CanEqual:
     *   Ones` is forbidden because concatenation cannot infer the output width
     *   from this operation.
     */
-  case Ones extends SameBitsVector(true)
+  case Ones extends SameBitsVector(1)
 end SameBitsVector
 
 object SameBitsVector:

@@ -102,14 +102,11 @@ private object CompanionsDFBits:
       )
     protected[core] def apply[W <: Int](
         width: Inlined[W],
-        value: SameBitsVector
+        sbv: SameBitsVector
     ): Token[W] =
-      val level = value match
-        case SameBitsVector.Zeros => false
-        case SameBitsVector.Ones  => true
       Token(
         width,
-        BitVector.fill(width.value)(level),
+        BitVector.fill(width.value)(sbv.value > 0),
         BitVector.low(width.value)
       )
     extension [W <: Int](token: DFBits.Token[W])
