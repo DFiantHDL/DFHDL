@@ -97,7 +97,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
             ann.argumentConstantString(0).get
         }
         .getOrElse(name)
-      if (!finalName.matches("^[a-zA-Z0-9_]*$"))
+      if (
+        !finalName.matches("^[a-zA-Z0-9_]*$") && !finalName.contains("plugin$")
+      )
         report.error(
           s"""Unsupported DSL member name $finalName.
            |Only alphanumric or underscore characters are supported.

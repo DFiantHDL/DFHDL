@@ -367,7 +367,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       case _ =>
         ref(defn.NoneModule.termRef)
 
-  var binds = List.empty[(Name, Tree)]
+  var binds = List.empty[Tree]
   val bindTemp = mutable.Map.empty[Name, Tree]
 
   private def transformDFCasePattern(selectorTree: Tree, patternTree: Tree)(
@@ -444,25 +444,29 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         ref(requiredMethod("DFiant.core.__For_Plugin.patternCatchAll"))
       // catch all with name bind
       case Bind(n, boundPattern) =>
+        val identName = NameKinds.UniqueName.fresh(s"${n}_plugin".toTermName)
+        val ident = untpd.Ident(identName).withType(selectorTree.tpe)
+        debug(ident)
         // first we construct a bind dataflow value with the name
         val bindValTree =
-          ref(requiredMethod("DFiant.core.__For_Plugin.bindVal"))
-            .appliedToType(selectorTree.tpe)
-            .appliedToArgs(List(selectorTree, Literal(Constant(n.toString))))
-            .appliedTo(dfcStack.head)
+          SyntheticValDef(
+            identName,
+            ref(requiredMethod("DFiant.core.__For_Plugin.bindVal"))
+              .appliedToType(selectorTree.tpe)
+              .appliedToArgs(List(selectorTree, Literal(Constant(n.toString))))
+              .appliedTo(dfcStack.head)
+          )
 
         // save the bind to later replace in guard and body
-        binds = (n -> bindValTree) :: binds
-        bindTemp += (n -> bindValTree)
-        println(s"added bind $n -> ${bindValTree.show}")
+        debug(s"added bind $n -> ${bindValTree.show}")
         // continue to recursively explore the bounded pattern, but this time
         // the bound val we constructed will be used as the selector.
-//        val ident = untpd.Ident(n).withType(selectorTree.tpe)
-//        println(ident)
-        val dfPattern = transformDFCasePattern(bindValTree, boundPattern)
+        binds = bindValTree :: binds
+        bindTemp += (n -> ident)
+        val dfPattern = transformDFCasePattern(ident, boundPattern)
         // finally, construct the dataflow bounded pattern
         ref(requiredMethod("DFiant.core.__For_Plugin.patternBind"))
-          .appliedToArgs(List(bindValTree, dfPattern))
+          .appliedToArgs(List(ident, dfPattern))
           .appliedTo(dfcStack.head)
       // union of alternatives
       case Alternative(list) =>
@@ -511,11 +515,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
           .appliedToType(tree.tpe)
           .appliedTo(selector, cases)
           .appliedTo(dfcStack.head)
-//        val bindValDefs =
-//          binds.view.reverse.map((n, t) => SyntheticValDef(n.asTermName, t))
-//        println(bindValDefs.map(_.show).mkString("\n"))
-//        Block(bindValDefs.toList, dfMatch)
-        dfMatch
+        Block(binds.reverse, dfMatch)
       case _ =>
         debug("Not compatible selector")
         debug(tree.selector.show)
