@@ -104,7 +104,6 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     tree.elsep match
       case tree: If => ignoreElseIfRecur(tree)
       case _        => // done
-
   override def prepareForIf(tree: If)(using Context): Context =
     if (!ignoreIfs.contains(tree.srcPos.show) && isHackedIfRecur(tree))
       tree.elsep match
@@ -201,12 +200,16 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       arg match
         case DFType("DFBool$" | "DFBit$", Nil) => true
         case _                                 => false
+  object DFBits:
+    def unapply(arg: Type)(using Context): Option[Type] =
+      arg match
+        case DFType("DFBits", w :: Nil) => Some(w)
+        case _                          => None
   object DFDecimal:
     def unapply(arg: Type)(using Context): Option[(Type, Type, Type)] =
       arg match
-        case DFType("DFDecimal", s :: w :: f :: Nil) =>
-          Some(s, w, f)
-        case _ => None
+        case DFType("DFDecimal", s :: w :: f :: Nil) => Some(s, w, f)
+        case _                                       => None
   object DFXInt:
     def unapply(arg: Type)(using Context): Option[(Boolean, Type)] =
       arg match
@@ -220,9 +223,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   object DFUInt:
     def unapply(arg: Type)(using Context): Option[Type] =
       arg match
-        case DFXInt(sign, widthTpe) if !sign =>
-          Some(widthTpe)
-        case _ => None
+        case DFXInt(sign, widthTpe) if !sign => Some(widthTpe)
+        case _                               => None
   object DFSInt:
     def unapply(arg: Type)(using Context): Option[Type] =
       arg match
@@ -447,6 +449,17 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
           const,
           patternTree.srcPos
         )
+      // unapply of "all" bits literal
+      case UnApply(fun, List(), List(lit: Literal))
+          if fun.symbol == requiredMethod("DFiant.all.unapply") =>
+        selectorTree.tpe match
+          case DFVal(DFBits(_)) => // ok
+          case _ =>
+            report.error(
+              "`all` pattern is allowed for a DFBits dataflow value only.",
+              patternTree.srcPos
+            )
+        PatternSingleton(selectorTree, lit)
       // hacked unapply for enum enumerations
       case unapply @ UnApply(TypeApply(Apply(_, List(arg)), _), _, _)
           if unapply.fun.symbol == enumHackedUnapply =>
