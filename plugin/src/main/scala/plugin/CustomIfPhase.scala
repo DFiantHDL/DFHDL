@@ -39,8 +39,8 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomIf"
-  override val debugFilter: String => Boolean =
-    _.contains("DFMatchSpec.scala")
+//  override val debugFilter: String => Boolean =
+//    _.contains("DFMatchSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignoreIfs = mutable.Set.empty[String]
@@ -535,9 +535,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
           .appliedToType(tree.tpe)
           .appliedTo(newSelector, cases)
           .appliedTo(dfcStack.head)
-        val x = Block(valDefGen.getValDefs, dfMatch)
-        debug(x.show)
-        x
+        Block(valDefGen.getValDefs, dfMatch)
       case _ =>
         debug("Not compatible selector")
         debug(tree.selector.show)

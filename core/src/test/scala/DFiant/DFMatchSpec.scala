@@ -5,6 +5,9 @@ import DFMatch.Pattern
 import core.__For_Plugin.*
 
 class DFMatchSpec extends DFSpec:
+  enum MyEnum1 extends DFEnum.Default:
+    case Foo, Bar, Baz
+
   val i = DFBool <> IN
   val x = DFUInt(8) <> VAR
   val e = MyEnum1 <> VAR
@@ -21,7 +24,8 @@ class DFMatchSpec extends DFSpec:
          |  case MyEnum1.Bar() =>
          |(x, e) match
          |  case (d"8'0", MyEnum1.Bar()) =>
-         |  case v @ _ =>
+         |  case (v, MyEnum1.Baz()) if v > d"8'20" =>
+         |  case (v, MyEnum1.Baz()) if v < d"8'15" =>
          |""".stripMargin
     ) {
       x match
