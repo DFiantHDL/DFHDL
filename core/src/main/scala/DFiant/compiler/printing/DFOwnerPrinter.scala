@@ -66,7 +66,10 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
     case Pattern.Tuple(list) =>
       list.map(csDFCasePattern).mkStringBrackets
     case Pattern.Bind(ref, pattern) =>
-      s"${ref.get.name} @ ${csDFCasePattern((pattern))}"
+      val bindStr = pattern match
+        case Pattern.CatchAll => ""
+        case _                => s" @ ${csDFCasePattern((pattern))}"
+      s"${ref.get.name}$bindStr"
 
   def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock)(using
       MemberGetSet

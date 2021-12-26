@@ -247,8 +247,10 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
         dfValClsRef,
         List(dfTypeTpe, requiredClassRef("DFiant.compiler.ir.DFVal.Modifier"))
       )
-    def unapply(selector: Tree)(using Context): Option[Tree] =
-      selector.tpe match
+    def unapply(
+        selector: Tree
+    )(using Context, ValDefGen): Option[Tree] =
+      val fixedTree = selector.tpe match
         // return the unmodified selector tree
         case DFVal(_) => Some(selector)
         case _ =>
@@ -256,6 +258,7 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
             // return the converted selector tree
             case DFTupleVal(tree) => Some(tree)
             case _                => None
+      fixedTree.map(summon[ValDefGen].mkSelectValDef("sel", _))
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
         case AppliedType(t, List(dfType, _)) if t <:< dfValClsRef =>
@@ -352,6 +355,38 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       .appliedToType(tree.tpe)
       .appliedTo(tree)
 
+  class ValDefGen:
+    private val binds = mutable.Map.empty[Name, Tree]
+    private var valDefs = List.empty[ValDef]
+    private val bindsReplacer = new TreeMap():
+      override def transform(tree: tpd.Tree)(using Context): Tree =
+        tree match
+          case Ident(n) if binds.contains(n) => binds(n)
+          case _ =>
+            super.transform(tree)
+    def mkSelectValDef(name: String, tree: Tree)(using
+        Context
+    ): Tree =
+      val uniqueName = NameKinds.UniqueName.fresh(s"${name}_plugin".toTermName)
+      val valDef = SyntheticValDef(uniqueName, tree)
+      val select = ref(valDef.symbol)
+      valDefs = valDef :: valDefs
+      select
+    def bind(bindTree: Bind, tree: Tree)(using
+        Context
+    ): Tree =
+      val name = s"bind_${bindTree.name}"
+      val ret = mkSelectValDef(name, tree)
+      binds += (bindTree.name -> ret)
+      ret
+    def replaceBinds(tree: Tree)(using Context): Tree =
+      val ret = bindsReplacer.transform(tree)
+      ret
+    def getValDefs: List[ValDef] = valDefs.reverse
+    def clearBinds(): Unit =
+      binds.clear()
+  end ValDefGen
+
   private def transformDFCaseGuard(guardTree: Tree)(using
       Context
   ): Tree =
@@ -367,11 +402,10 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       case _ =>
         ref(defn.NoneModule.termRef)
 
-  var binds = List.empty[Tree]
-  val bindTemp = mutable.Map.empty[Name, Tree]
-
   private def transformDFCasePattern(selectorTree: Tree, patternTree: Tree)(
-      using Context
+      using
+      Context,
+      ValDefGen
   ): Tree =
     patternTree match
       case UnApply(TypeApply(Select(Ident(tplName), _), _), _, patterns)
@@ -443,30 +477,18 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
       case Ident(i) if i.toString == "_" =>
         ref(requiredMethod("DFiant.core.__For_Plugin.patternCatchAll"))
       // catch all with name bind
-      case Bind(n, boundPattern) =>
-        val identName = NameKinds.UniqueName.fresh(s"${n}_plugin".toTermName)
-        val ident = untpd.Ident(identName).withType(selectorTree.tpe)
-        debug(ident)
-        // first we construct a bind dataflow value with the name
-        val bindValTree =
-          SyntheticValDef(
-            identName,
-            ref(requiredMethod("DFiant.core.__For_Plugin.bindVal"))
-              .appliedToType(selectorTree.tpe)
-              .appliedToArgs(List(selectorTree, Literal(Constant(n.toString))))
-              .appliedTo(dfcStack.head)
-          )
-
-        // save the bind to later replace in guard and body
-        debug(s"added bind $n -> ${bindValTree.show}")
-        // continue to recursively explore the bounded pattern, but this time
-        // the bound val we constructed will be used as the selector.
-        binds = bindValTree :: binds
-        bindTemp += (n -> ident)
-        val dfPattern = transformDFCasePattern(ident, boundPattern)
+      case b @ Bind(n, boundPattern) =>
+        val newBindSel = summon[ValDefGen].bind(
+          b,
+          ref(requiredMethod("DFiant.core.__For_Plugin.bindVal"))
+            .appliedToType(selectorTree.tpe)
+            .appliedToArgs(List(selectorTree, Literal(Constant(n.toString))))
+            .appliedTo(dfcStack.head)
+        )
+        val dfPattern = transformDFCasePattern(newBindSel, boundPattern)
         // finally, construct the dataflow bounded pattern
         ref(requiredMethod("DFiant.core.__For_Plugin.patternBind"))
-          .appliedToArgs(List(ident, dfPattern))
+          .appliedToArgs(List(newBindSel, dfPattern))
           .appliedTo(dfcStack.head)
       // union of alternatives
       case Alternative(list) =>
@@ -485,47 +507,48 @@ class CustomIfPhase(setting: Setting) extends CommonPhase:
     end match
   end transformDFCasePattern
 
-  val bindsReplace = new TreeMap():
-    override def transform(tree: tpd.Tree)(using Context): Tree =
-      tree match
-        case Ident(n) if bindTemp.contains(n) => bindTemp(n)
-        case _ =>
-          super.transform(tree)
-
   private def transformDFCase(selector: Tree, tree: CaseDef, combinedTpe: Type)(
-      using Context
+      using
+      Context,
+      ValDefGen
   ): Tree =
+    val valDefGen = summon[ValDefGen]
     val patternTree = transformDFCasePattern(selector, tree.pat)
-    val guardTree = transformDFCaseGuard(bindsReplace.transform(tree.guard))
+    val guardTree = transformDFCaseGuard(valDefGen.replaceBinds(tree.guard))
     val blockTree =
-      transformBlock(bindsReplace.transform(tree.body), combinedTpe)
+      transformBlock(valDefGen.replaceBinds(tree.body), combinedTpe)
+    valDefGen.clearBinds()
     ref(toTuple3Sym)
       .appliedToTypes(List(patternTree.tpe, guardTree.tpe, blockTree.tpe))
       .appliedToArgs(List(patternTree, guardTree, blockTree))
   end transformDFCase
 
   override def transformMatch(tree: Match)(using Context): Tree =
+    given valDefGen: ValDefGen = new ValDefGen
     tree.selector match
-      case DFVal(selector) =>
+      case DFVal(newSelector) =>
         debug("Found DFMatch")
         val casesVarArgs =
-          tree.cases.map(c => transformDFCase(selector, c, tree.tpe))
+          tree.cases.map(c => transformDFCase(newSelector, c, tree.tpe))
         val cases = mkList(casesVarArgs, TypeTree(casesVarArgs.head.tpe))
         val dfMatch = ref(fromCasesSym)
           .appliedToType(tree.tpe)
-          .appliedTo(selector, cases)
+          .appliedTo(newSelector, cases)
           .appliedTo(dfcStack.head)
-        Block(binds.reverse, dfMatch)
+        val x = Block(valDefGen.getValDefs, dfMatch)
+        debug(x.show)
+        x
       case _ =>
         debug("Not compatible selector")
         debug(tree.selector.show)
         debug(tree.selector)
         tree
+    end match
   end transformMatch
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
-    ignoreIfs.empty
-    replaceIfs.empty
+    ignoreIfs.clear()
+    replaceIfs.clear()
     fromBooleanSym = requiredMethod("DFiant.core.__For_Plugin.fromBoolean")
     toFunc1Sym = requiredMethod("DFiant.core.__For_Plugin.toFunc1")
     toTuple2Sym = requiredMethod("DFiant.core.__For_Plugin.toTuple2")
