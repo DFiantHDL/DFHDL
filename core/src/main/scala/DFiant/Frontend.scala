@@ -48,7 +48,7 @@ type TOKEN = core.TOKEN
 export core.<>
 
 val ? = core.?
-export core.SameBitsVector.*
+export core.SameBitsVector as all
 extension [Entry <: core.DFEncoding](e: Entry)
   def unapply[E >: Entry <: core.DFEncoding](arg: core.DFValOf[core.DFEnum[E]])(
       using DFC

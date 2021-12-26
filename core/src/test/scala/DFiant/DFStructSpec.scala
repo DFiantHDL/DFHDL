@@ -11,8 +11,8 @@ class DFStructSpec extends DFSpec:
   import cc.{XY, XYZ}
   def test(t: XY <> VAL): Unit =
     t match
-      case XY(Zeros, y) if y == 22 =>
-      case o: XY                   =>
+      case XY(all(0), y) if y == 22 =>
+      case o: XY                    =>
   assertCodeString(
     """|val t1 = XY <> VAR init XY(x = h"8'05", y = d"8'1")
        |val t2 = XYZ <> VAR
@@ -61,11 +61,11 @@ class DFStructSpec extends DFSpec:
       val xy = XY <> VAR init XY(x = 0, y = b"101")
       // accessing the fields and assigning them individually
       xy.x := 22
-      xy.y := Zeros
+      xy.y := all(0)
       // assign the whole struct, with named fields
-      xy := XY(x = 22, y = Zeros)
+      xy := XY(x = 22, y = all(0))
       // assign the whole struct, as unnamed fields
-      xy := XY(22, Zeros)
+      xy := XY(22, all(0))
       // easily composing structs
       case class XYZ(xy: XY <> VAL, z: DFBit <> VAL)
       val xyz = XYZ <> VAR

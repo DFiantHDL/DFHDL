@@ -18,8 +18,8 @@ class DFBitsSpec extends DFSpec:
     b8.width.verifyInlined(8)
   }
   test("Token Construction") {
-    val t1 = (DFBits(8) token Zeros).verifyTokenOf[DFBits[8]]
-    val t1b = (DFBits(8) token Ones).verifyTokenOf[DFBits[8]]
+    val t1 = (DFBits(8) token all(0)).verifyTokenOf[DFBits[8]]
+    val t1b = (DFBits(8) token all(1)).verifyTokenOf[DFBits[8]]
     val t2 = h"12".verifyTokenOf[DFBits[8]]
     val t3 = h"10'12".verifyTokenOf[DFBits[10]]
     val t4 = b"11".verifyTokenOf[DFBits[2]]
@@ -43,7 +43,7 @@ class DFBitsSpec extends DFSpec:
       "The token width (8) is different than the DFType width (3)."
     )("""DFBits(3) token t7""")
     assert(t7.asIR equals t2.asIR)
-    val t8: DFBits[8] <> TOKEN = Zeros
+    val t8: DFBits[8] <> TOKEN = all(0)
     val t9: DFBits[8] <> TOKEN = h"22"
     assertDSLError(
       "The token width (4) is different than the DFType width (8)."
@@ -122,8 +122,8 @@ class DFBitsSpec extends DFSpec:
   }
   test("DFVal Conversion") {
     val w = 2
-    val t1: DFBits[8] <> VAL = Zeros
-    val t2: DFBits[8] <> VAL = Ones
+    val t1: DFBits[8] <> VAL = all(0)
+    val t2: DFBits[8] <> VAL = all(1)
     val t3: DFBits[8] <> VAL = d"255"
     val t4: DFBits[5] <> VAL = ?
     val t5: DFBits[4] <> VAL = h"A"
@@ -146,8 +146,8 @@ class DFBitsSpec extends DFSpec:
          |""".stripMargin
     } {
       b8 := h"11"
-      b8 := Zeros
-      b8 := Ones
+      b8 := all(0)
+      b8 := all(1)
       b8 := ?
       b8 := u8
       b8 := u8.bits
@@ -178,8 +178,8 @@ class DFBitsSpec extends DFSpec:
          |val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4))
          |""".stripMargin
     ) {
-      val t1 = b8 == Zeros
-      val t2 = b8 != Ones
+      val t1 = b8 == all(0)
+      val t2 = b8 != all(1)
       val t3 = b8 == u8
       val t4 = b8 == d"8'12"
       val t5 = b8 != h"22"

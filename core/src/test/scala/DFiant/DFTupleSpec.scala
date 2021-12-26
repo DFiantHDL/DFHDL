@@ -30,7 +30,7 @@ class DFTupleSpec extends DFSpec:
        |""".stripMargin
   ) {
     val t1: (DFUInt[8], DFBit, DFBits[3]) <> VAL =
-      tplA <> VAR init ((0, 1, Zeros), (22, 0, b"101"))
+      tplA <> VAR init ((0, 1, all(0)), (22, 0, b"101"))
     val t2: ((DFUInt[8], DFBit), DFBits[3]) <> VAL =
       tplB <> VAR init ((d"11", 1), b"010")
     val t3 = tplB <> VAR init tokenB
