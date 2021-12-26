@@ -34,8 +34,9 @@ class DFMatchSpec extends DFSpec:
       e match
         case MyEnum1.Bar() =>
       (x, e) match
-        case (0, MyEnum1.Bar()) =>
-        case v                  =>
+        case (0, MyEnum1.Bar())           =>
+        case (v, MyEnum1.Baz()) if v > 20 =>
+        case (v, MyEnum1.Baz()) if v < 15 =>
     }
   }
 //
