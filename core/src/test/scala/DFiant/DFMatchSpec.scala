@@ -32,6 +32,8 @@ class DFMatchSpec extends DFSpec:
          |y match
          |  case h"DEAD${secret: B[32]}BEEF" =>
          |  case h"DE${secret1: B[16]}AD${secret2: B[16]}BEEF" =>
+         |  case h"64'0000000000000000" =>
+         |  case h"64'ffffffffffffffff" =>
          |""".stripMargin
     ) {
       x match
@@ -54,26 +56,24 @@ class DFMatchSpec extends DFSpec:
       y match
         case h"DEAD${secret: B[32]}BEEF"                   =>
         case h"DE${secret1: B[16]}AD${secret2: B[16]}BEEF" =>
+        case all(0)                                        =>
+        case all(1)                                        =>
     }
   }
-//
-//  test("With ret val") {
-//    assertCodeString(
-//      """|val res: DFUInt[8] <> VAL =
-//         |  x match
-//         |    case d"4'11" => d"8'1"
-//         |    case d"5'22" if i =>
-//         |      x := d"8'2"
-//         |      x
-//         |    case _ => x
-//         |""".stripMargin
-//    ) {
-//      val case1 =
-//        (Pattern.Singleton(d"11"), None, toFunc1 { 1: (DFUInt[8] <> VAL) })
-//      val case2 = (Pattern.Singleton(d"22"), Some(i), toFunc1 { x := 2; x })
-//      val case3 = (Pattern.CatchAll, None, toFunc1({ x }))
-//      val res = DFMatch.fromCases(x, case1 :: case2 :: case3 :: Nil)
-//    }
-//
-//  }
+
+  test("With ret val") {
+    assertCodeString(
+      """|val res: DFUInt[8] <> VAL =
+         |  x match
+         |    case d"8'0" | d"8'1" | d"8'2" | d"8'3" => d"8'77"
+         |    case _ => d"8'22"
+         |""".stripMargin
+    ) {
+      val res: DFUInt[8] <> VAL =
+        x match
+          case 0 | 1 | 2 | 3 => 77
+          case _             => 22
+    }
+
+  }
 end DFMatchSpec
