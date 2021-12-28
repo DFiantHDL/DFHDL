@@ -47,6 +47,8 @@ type VAL = core.VAL
 type TOKEN = core.TOKEN
 export core.<>
 
+//shorthand for annotating a DFBits value (useful for string interpolation)
+type B[W <: Int] = core.DFValOf[DFBits[W]]
 val ? = core.?
 export core.SameBitsVector as all
 extension [Entry <: core.DFEncoding](e: Entry)

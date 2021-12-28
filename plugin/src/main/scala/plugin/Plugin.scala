@@ -10,6 +10,6 @@ class Plugin extends StandardPlugin:
     val setting = new Setting(options.headOption)
     MetaContextDelegatePhase(setting) ::
       MetaContextGenPhase(setting) ::
-      CustomIfPhase(setting) ::
+      CustomControlPhase(setting) ::
       OnCreateEventsPhase(setting) ::
       Nil

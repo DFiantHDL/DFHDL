@@ -225,7 +225,7 @@ private object CompanionsDFBits:
         case _                           => (None, bin)
       val (valueBits, bubbleBits) =
         word.foldLeft((BitVector.empty, BitVector.empty)) {
-          case (t, '_') => t // ignoring underscore
+          case (t, '_' | ' ') => t // ignoring underscore or space
           case ((v, b), c) =>
             c match // bin mode
               case '?' => (v :+ false, b :+ true)
@@ -243,10 +243,10 @@ private object CompanionsDFBits:
           Right((valueBits.resize(width), bubbleBits.resize(width)))
         case None => Right((valueBits, bubbleBits))
     end fromBinString
+    private val isHex = "[0-9a-fA-F]".r
     def fromHexString(
         hex: String
     ): Either[String, (BitVector, BitVector)] =
-      val isHex = "[0-9a-fA-F]".r
       val (explicitWidth, word) = hex match
         case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
         case _                           => (None, hex)
@@ -294,7 +294,7 @@ private object CompanionsDFBits:
           ${ applyMacro('{ "b" })('parts, 'args) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
-        )(using DFC): Option[Seq[DFValOf[T]]] =
+        )(using DFC): Option[Seq[Any]] =
           ${ unapplySeqMacro('{ "b" })('parts, 'arg) }
 
       class HParts[P <: Tuple](parts: P):
@@ -302,7 +302,7 @@ private object CompanionsDFBits:
           ${ applyMacro('{ "h" })('parts, 'args) }
         transparent inline def unapplySeq[T <: DFTypeAny](
             inline arg: DFValOf[T]
-        )(using DFC): Option[Seq[DFValOf[T]]] =
+        )(using DFC): Option[Seq[Any]] =
           ${ unapplySeqMacro('{ "h" })('parts, 'arg) }
 
       extension (inline sc: StringContext)
@@ -348,15 +348,27 @@ private object CompanionsDFBits:
       )(
           scParts: Expr[P],
           arg: Expr[DFValOf[T]]
-      )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[DFValOf[T]]]] =
+      )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[Any]]] =
         import quotes.reflect.*
         val parts = TypeRepr.of[P].getTupleArgs
+        val op = opForcedExpr.value.get
         if (TypeRepr.of[P].getTupleArgs.length > 1)
+          val vArgs = Varargs(opForcedExpr :: parts.map {
+            case ConstantType(StringConstant(part: String)) =>
+              val partFiltered = part.filter {
+                case '_' | ' ' | '?'        => false
+                case isHex() if op == "h"   => true
+                case '0' | '1' if op == "b" => true
+                case x =>
+                  report.errorAndAbort(
+                    s"""Found invalid character: ${x}. 
+                      |Note: string interpolation with value extraction does not support via the `[w']` width extension syntax.""".stripMargin
+                  )
+              }
+              Literal(StringConstant(partFiltered)).asExprOf[String]
+          })
           '{
-            compiletime.error(
-              "Extractors for UNTRUE token string interpolation are not allowed."
-            )
-            Some(Seq())
+            Some(Seq(${ vArgs }*))
           }
         else
           val token =

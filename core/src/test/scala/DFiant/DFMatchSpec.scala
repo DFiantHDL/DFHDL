@@ -11,6 +11,7 @@ class DFMatchSpec extends DFSpec:
   val i = DFBool <> IN
   val x = DFUInt(8) <> VAR
   val e = MyEnum1 <> VAR
+  val y = DFBits(64) <> VAR
 
   test("No ret val") {
     assertCodeString(
@@ -28,6 +29,9 @@ class DFMatchSpec extends DFSpec:
          |  case (d"8'0", MyEnum1.Bar()) =>
          |  case (v, MyEnum1.Baz()) if v > d"8'20" =>
          |  case (v, MyEnum1.Baz()) if v < d"8'15" =>
+         |y match
+         |  case h"DEAD${secret: B[32]}BEEF" =>
+         |  case h"DE${secret1: B[16]}AD${secret2: B[16]}BEEF" =>
          |""".stripMargin
     ) {
       x match
@@ -39,12 +43,17 @@ class DFMatchSpec extends DFSpec:
         case _ =>
           x := 3
           x := 4
+
       e match
         case MyEnum1.Bar() =>
       (x, e) match
         case (0, MyEnum1.Bar())           =>
         case (v, MyEnum1.Baz()) if v > 20 =>
         case (v, MyEnum1.Baz()) if v < 15 =>
+
+      y match
+        case h"DEAD${secret: B[32]}BEEF"                   =>
+        case h"DE${secret1: B[16]}AD${secret2: B[16]}BEEF" =>
     }
   }
 //

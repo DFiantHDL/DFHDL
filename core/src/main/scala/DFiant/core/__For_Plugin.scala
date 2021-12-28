@@ -55,7 +55,32 @@ object __For_Plugin:
       .ident(selector)(using dfc.setName(bindName))
       .tag(Pattern.Bind.Tag)
       .asInstanceOf[V]
+  def bindValRange[V <: DFValAny](
+      selector: V,
+      bindName: String,
+      relBitHigh: Int,
+      relBitLow: Int
+  )(using DFC): V =
+    val dfType = selector.dfType.asIR
+    val selectorBitsIR: ir.DFVal = dfType match
+      case _: ir.DFBits => selector.asIR
+      case _ =>
+        import DFVal.Ops.bits
+        selector
+          .bits(using Width.wide)(using dfc.anonymize)
+          .asIR
+    DFVal.Alias
+      .ApplyRange(selectorBitsIR.asValOf[DFBits[Int]], relBitHigh, relBitLow)(
+        using dfc.setName(bindName)
+      )
+      .tag(Pattern.Bind.Tag)
+      .asInstanceOf[V]
+  end bindValRange
   def patternBind(bindVal: DFValAny, pattern: Pattern)(using DFC): Pattern =
     Pattern.Bind(bindVal.asIR.ref, pattern)
+  def patternBindSI(op: String, parts: List[String], bindVals: List[DFValAny])(
+      using DFC
+  ): Pattern =
+    Pattern.BindSI(op, parts, bindVals.map(_.asIR.ref))
 
 end __For_Plugin

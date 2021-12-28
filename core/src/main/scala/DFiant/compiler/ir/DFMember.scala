@@ -389,7 +389,18 @@ object DFConditional:
       object Bind:
         type Ref = DFRef.OneWay[DFVal]
         case object Tag extends DFTagOf[DFVal]
-
+      final case class BindSI(
+          op: String,
+          parts: List[String],
+          refs: List[Bind.Ref]
+      ) extends Pattern:
+        def =~(that: Pattern)(using MemberGetSet): Boolean =
+          that match
+            case that: BindSI =>
+              this.op == that.op && this.parts == that.parts && this.refs
+                .lazyZip(that.refs)
+                .forall(_ =~ _)
+            case _ => false
     end Pattern
   end DFCaseBlock
 

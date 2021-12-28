@@ -68,8 +68,19 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
     case Pattern.Bind(ref, pattern) =>
       val bindStr = pattern match
         case Pattern.CatchAll => ""
-        case _                => s" @ ${csDFCasePattern((pattern))}"
+        case _                => s" @ ${csDFCasePattern(pattern)}"
       s"${ref.get.name}$bindStr"
+    case Pattern.BindSI(op, parts, refs) =>
+      val csBinds = refs.view
+        .map { r => r.get }
+        .map(bindVal => s"$${${bindVal.name}: B[${bindVal.dfType.width}]}")
+      val fullTerm =
+        Seq(parts, csBinds)
+          .flatMap(_.zipWithIndex)
+          .sortBy(_._2)
+          .map(_._1)
+          .mkString
+      s"""$op"$fullTerm""""
 
   def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock)(using
       MemberGetSet

@@ -13,10 +13,9 @@ object Ident:
     else None
 
 object Bind:
-  def unapply(alias: ir.DFVal.Alias.AsIs)(using
+  def unapply(alias: ir.DFVal.Alias)(using
       MemberGetSet
   ): Option[ir.DFVal] =
-    alias match
-      case Ident(dfVal) if alias.getTagOf[Pattern.Bind.Tag.type].isDefined =>
-        Some(dfVal)
-      case _ => None
+    if (alias.getTagOf[Pattern.Bind.Tag.type].isDefined)
+      Some(alias.relValRef.get)
+    else None
