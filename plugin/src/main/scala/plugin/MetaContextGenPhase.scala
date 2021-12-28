@@ -98,7 +98,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         }
         .getOrElse(name)
       if (
-        !finalName.matches("^[a-zA-Z0-9_]*$") && !finalName.contains("plugin$")
+        !finalName.matches("^[a-zA-Z0-9_]*$") && !posTree.symbol.flags.is(
+          Flags.Synthetic
+        )
       )
         report.error(
           s"""Unsupported DSL member name $finalName.
