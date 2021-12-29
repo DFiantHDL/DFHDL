@@ -2,6 +2,7 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFVal.Func.Op as FuncOp
 import ir.DFConditional.DFCaseBlock.Pattern
+import collection.immutable.ListMap
 object __For_Plugin:
   def toFunc1[R](block: => R): () => R = () => block
   def toTuple2[T1, T2](t1: T1, t2: T2): (T1, T2) = (t1, t2)
@@ -11,10 +12,19 @@ object __For_Plugin:
   // tuple of DFVals "concatenated" to be a DFVal of type tuple
   def tupleToDFVal[V <: DFValAny](tuple: Tuple)(using DFC): V =
     val dfVals = tuple.toList.map {
-      case dfVal: DFValAny => dfVal
-      case internal: Tuple => tupleToDFVal(internal)
+      case dfVal: DFValAny  => dfVal
+      case internal: Tuple  => tupleToDFVal(internal)
+      case product: Product => structToDFVal(product)
     }
     val dfType = DFTuple[NonEmptyTuple](dfVals.map(_.dfType))
+    DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize).asInstanceOf[V]
+  def structToDFVal[V <: DFValAny](product: Product)(using DFC): V =
+    val fieldNames = product.productElementNames.toList
+    val dfVals = product.productIterator.map { case dfVal: DFValAny =>
+      dfVal
+    }.toList
+    val fieldTypes = dfVals.map(_.dfType)
+    val dfType = DFStruct(product.productPrefix, fieldNames, fieldTypes)
     DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize).asInstanceOf[V]
   def structDFValSelect[V <: DFValAny](dfVal: DFValAny, fieldName: String)(using
       DFC

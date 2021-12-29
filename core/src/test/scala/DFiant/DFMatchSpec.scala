@@ -8,10 +8,13 @@ class DFMatchSpec extends DFSpec:
   enum MyEnum1 extends DFEnum.Default:
     case Foo, Bar, Baz
 
+  case class Pixel(x: DFUInt[8] <> VAL, y: DFUInt[8] <> VAL)
+  case class PixelB(xy: core.DFStruct[Pixel] <> VAL, z: DFUInt[8] <> VAL)
   val i = DFBool <> IN
   val x = DFUInt(8) <> VAR
   val e = MyEnum1 <> VAR
   val y = DFBits(64) <> VAR
+  val p = Pixel <> VAR
 
   test("No ret val") {
     assertCodeString(
@@ -34,6 +37,14 @@ class DFMatchSpec extends DFSpec:
          |  case h"DE${secret1: B[16]}AD${secret2: B[16]}BEEF" =>
          |  case h"64'0000000000000000" =>
          |  case h"64'ffffffffffffffff" =>
+         |Pixel(x = x, y = x) match
+         |  case Pixel(d"8'1", d"8'2") =>
+         |p match
+         |  case Pixel(d"8'1", d"8'2") =>
+         |PixelB(xy = Pixel(x = x, y = x), z = x) match
+         |  case PixelB(Pixel(d"8'1", d"8'2"), d"8'3") =>
+         |(Pixel(x = x, y = x), x) match
+         |  case (Pixel(d"8'1", d"8'2"), d"8'3") =>
          |""".stripMargin
     ) {
       x match
@@ -58,6 +69,18 @@ class DFMatchSpec extends DFSpec:
         case h"DE${secret1: B[16]}AD${secret2: B[16]}BEEF" =>
         case all(0)                                        =>
         case all(1)                                        =>
+
+      Pixel(x, x) match
+        case Pixel(1, 2) =>
+
+      p match
+        case Pixel(1, 2) =>
+
+      PixelB(Pixel(x, x), x) match
+        case PixelB(Pixel(1, 2), 3) =>
+
+      (Pixel(x, x), x) match
+        case (Pixel(1, 2), 3) =>
     }
   }
 

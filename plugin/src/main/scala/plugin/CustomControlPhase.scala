@@ -39,8 +39,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomIf"
-  override val debugFilter: String => Boolean =
-    _.contains("DFMatchSpec.scala")
+//  override val debugFilter: String => Boolean =
+//    _.contains("DFMatchSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignoreIfs = mutable.Set.empty[String]
@@ -258,21 +258,60 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         case _ =>
           selector match
             // return the converted selector tree
-            case DFTupleVal(tree) => Some(tree)
-            case _                => None
+            case DFTupleVal(tree)  => Some(tree)
+            case DFStructVal(tree) => Some(tree)
+            case _                 => None
       fixedTree.map(summon[ValDefGen].mkSelectValDef("sel", _))
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
         case AppliedType(t, List(dfType, _)) if t <:< dfValClsRef =>
           Some(dfType)
-        case AppliedType(t, List(dfType, mod))
+        case AppliedType(t, List(arg, mod))
             if t.typeSymbol.name.toString == "<>" && mod <:< requiredClassRef(
               "DFiant.VAL"
             ) =>
-          Some(dfType)
+          arg match
+            case dfType @ DFType(_, _)      => Some(dfType)
+            case DFTupleVal(DFVal(dfType))  => Some(dfType)
+            case DFStructVal(DFVal(dfType)) => Some(dfType)
+            case _                          => None
         case _ =>
           None
   end DFVal
+
+  object DFStructVal:
+    def unapply(struct: Tree)(using Context): Option[Tree] =
+      struct.tpe match
+        case DFStructVal(tpe) =>
+          Some(
+            ref(requiredMethod("DFiant.core.__For_Plugin.structToDFVal"))
+              .appliedToType(tpe)
+              .appliedTo(struct)
+              .appliedTo(dfcStack.head)
+          )
+        case _ => None
+    def unapply(arg: Type)(using Context): Option[Type] =
+      arg.simple match
+        case fieldsTpe if fieldsTpe <:< requiredClassRef("scala.Product") =>
+          val args = fieldsTpe.typeSymbol.asClass.paramAccessors.collect {
+            case sym if sym.is(Flags.CaseAccessor) => fieldsTpe.memberInfo(sym)
+          }
+          val argsAreDFVal = args.map {
+            case DFVal(_) => true
+            case _        => false
+          }
+          // all tuple arguments are dataflow args
+          if (argsAreDFVal.forall(i => i)) Some(DFVal(DFStruct(fieldsTpe)))
+          // all tuple arguments are NOT dataflow args
+          else if (argsAreDFVal.forall(!_)) None
+          else
+            report.error(
+              "Not all match selector structs fields are dataflow values."
+            )
+            None
+          end if
+        case _ => None
+  end DFStructVal
 
   object DFTupleVal:
     def unapply(tuple: Tree)(using Context): Option[Tree] =
@@ -289,9 +328,10 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       arg.simple match
         case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef =>
           val argsConv = args.map {
-            case v @ DFVal(_)      => Some(v)
-            case v @ DFTupleVal(t) => Some(t)
-            case _                 => None
+            case v @ DFVal(_)   => Some(v)
+            case DFTupleVal(t)  => Some(t)
+            case DFStructVal(t) => Some(t)
+            case _              => None
           }
           // all tuple arguments are dataflow args
           if (argsConv.forall(_.isDefined))
@@ -659,7 +699,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               )
           case _ =>
             report.error(
-              s"Invalid pattern of type ${resType.show} for the given selector."
+              s"Invalid pattern of type ${resType.show} for the given selector.",
+              patternTree.srcPos
             )
             EmptyTree
         end match
