@@ -300,6 +300,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             case DFVal(_) => true
             case _        => false
           }
+          if (args.isEmpty) return None
           // all tuple arguments are dataflow args
           if (argsAreDFVal.forall(i => i)) Some(DFVal(DFStruct(fieldsTpe)))
           // all tuple arguments are NOT dataflow args
@@ -326,7 +327,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         case _ => None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
-        case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef =>
+        case AppliedType(tpl, args)
+            if tpl <:< defn.TupleTypeRef && args.nonEmpty =>
           val argsConv = args.map {
             case v @ DFVal(_)   => Some(v)
             case DFTupleVal(t)  => Some(t)
