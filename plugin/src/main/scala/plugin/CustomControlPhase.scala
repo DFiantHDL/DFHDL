@@ -39,8 +39,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomIf"
-//  override val debugFilter: String => Boolean =
-//    _.contains("DFMatchSpec.scala")
+  override val debugFilter: String => Boolean =
+    _.contains("DFMatchSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignoreIfs = mutable.Set.empty[String]
@@ -235,9 +235,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       arg match
         case DFType("DFEnum", e :: Nil) => Some(e)
         case _                          => None
-  object DFTuple:
-    def apply(tpl: Type)(using Context): Type =
-      DFType("DFStruct", List(tpl))
+  object DFStruct:
+    def apply(t: Type)(using Context): Type =
+      DFType("DFStruct", List(t))
     def unapply(arg: Type)(using Context): Option[Type] =
       arg match
         case DFType("DFStruct", t :: Nil) => Some(t)
@@ -265,7 +265,13 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       arg.simple match
         case AppliedType(t, List(dfType, _)) if t <:< dfValClsRef =>
           Some(dfType)
-        case _ => None
+        case AppliedType(t, List(dfType, mod))
+            if t.typeSymbol.name.toString == "<>" && mod <:< requiredClassRef(
+              "DFiant.VAL"
+            ) =>
+          Some(dfType)
+        case _ =>
+          None
   end DFVal
 
   object DFTupleVal:
@@ -289,7 +295,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           }
           // all tuple arguments are dataflow args
           if (argsConv.forall(_.isDefined))
-            val dfType = DFTuple(AppliedType(tpl, argsConv.flatten))
+            val dfType = DFStruct(AppliedType(tpl, argsConv.flatten))
             Some(DFVal(dfType))
           // all tuple arguments are NOT dataflow args
           else if (argsConv.forall(_.isEmpty)) None
@@ -411,32 +417,40 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       Context,
       ValDefGen
   ): Tree =
+    val DFVal(dfTypeTpe) = selectorTree.tpe
     patternTree match
       case UnApply(TypeApply(Select(Ident(tplName), _), _), _, patterns)
           if tplName.toString.startsWith("Tuple") =>
-        selectorTree.tpe match
-          case DFVal(DFTuple(AppliedType(tpl, selectors))) =>
-            if (selectors.length != patterns.length)
+        dfTypeTpe match
+          case DFStruct(AppliedType(tpl, selectorTpes)) =>
+            if (selectorTpes.length != patterns.length)
               report.error(
-                s"The number of patterns in the pattern (${patterns.length}) tuple does not match the number of fields in the selector (${selectors.length})",
+                s"The number of patterns in the pattern (${patterns.length}) tuple does not match the number of fields in the selector (${selectorTpes.length})",
                 patternTree.srcPos
               )
             val dfPatterns =
-              selectors
+              selectorTpes
                 .lazyZip(patterns)
                 .zipWithIndex
                 .map { case ((s, p), i) =>
                   val splitSelect = ref(
-                    requiredMethod("DFiant.core.__For_Plugin.tupleDFValSelect")
+                    requiredMethod("DFiant.core.__For_Plugin.structDFValSelect")
                   )
                     .appliedToType(s)
-                    .appliedToArgs(List(selectorTree, Literal(Constant(i))))
+                    .appliedToArgs(
+                      List(selectorTree, Literal(Constant(s"_${i + 1}")))
+                    )
                     .appliedTo(dfcStack.head)
                   transformDFCasePattern(splitSelect, p)
                 }
                 .toList
-            ref(requiredMethod("DFiant.core.__For_Plugin.patternTuple"))
-              .appliedTo(mkList(dfPatterns))
+            ref(requiredMethod("DFiant.core.__For_Plugin.patternStruct"))
+              .appliedToArgs(
+                List(
+                  Literal(Constant("")),
+                  mkList(dfPatterns)
+                )
+              )
           case _ =>
             report.error(
               s"Found a tuple pattern but the match selector is not a tuple.",
@@ -454,8 +468,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       // unapply of "all" bits literal
       case UnApply(fun, List(), List(lit: Literal))
           if fun.symbol == requiredMethod("DFiant.all.unapply") =>
-        selectorTree.tpe match
-          case DFVal(DFBits(_)) => // ok
+        dfTypeTpe match
+          case DFBits(_) => // ok
           case _ =>
             report.error(
               "`all` pattern is allowed for a DFBits dataflow value only.",
@@ -466,7 +480,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       case unapply @ UnApply(TypeApply(Apply(_, List(arg)), _), _, _)
           if unapply.fun.symbol == enumHackedUnapply =>
         debug("Found enum literal pattern")
-        val DFVal(DFEnum(enumTpe)) = selectorTree.tpe
+        val DFEnum(enumTpe) = dfTypeTpe
         if (arg.tpe <:< enumTpe) PatternSingleton(selectorTree, arg)
         else
           report.error(
@@ -482,7 +496,6 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             _,
             binds
           ) =>
-        val DFVal(dfTypeTpe) = selectorTree.tpe
         dfTypeTpe match
           case DFBits(_) | DFXInt(_, _) => // ok
           case _ =>
@@ -614,6 +627,42 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         debug("Found pattern alternatives")
         ref(requiredMethod("DFiant.core.__For_Plugin.patternAlternative"))
           .appliedTo(mkList(list.map(transformDFCasePattern(selectorTree, _))))
+      // struct pattern
+      case UnApply(fun @ Select(_, unapply), _, patterns: List[Tree]) =>
+        val resType = fun.tpe.simple match
+          case mt: MethodType => mt.resType
+        dfTypeTpe match
+          case DFStruct(t: Type) if resType <:< t =>
+            val fieldNamesAndTypes =
+              t.typeSymbol.asClass.paramAccessors.collect {
+                case sym if sym.is(Flags.CaseAccessor) =>
+                  (sym.name.toString, t.memberInfo(sym))
+              }
+            val dfPatterns =
+              fieldNamesAndTypes
+                .lazyZip(patterns)
+                .map { case ((fn, ft), p) =>
+                  val splitSelect = ref(
+                    requiredMethod("DFiant.core.__For_Plugin.structDFValSelect")
+                  )
+                    .appliedToType(ft)
+                    .appliedToArgs(List(selectorTree, Literal(Constant(fn))))
+                    .appliedTo(dfcStack.head)
+                  transformDFCasePattern(splitSelect, p)
+                }
+            ref(requiredMethod("DFiant.core.__For_Plugin.patternStruct"))
+              .appliedToArgs(
+                List(
+                  Literal(Constant(t.typeSymbol.name.toString)),
+                  mkList(dfPatterns)
+                )
+              )
+          case _ =>
+            report.error(
+              s"Invalid pattern of type ${resType.show} for the given selector."
+            )
+            EmptyTree
+        end match
       // unknown pattern
       case _ =>
         report.error(s"Unknown pattern:\n${patternTree.show}\n$patternTree")

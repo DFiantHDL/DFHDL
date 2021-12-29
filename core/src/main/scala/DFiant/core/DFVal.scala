@@ -20,7 +20,7 @@ final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
     val ir.DFStruct(structName, fieldMap) = value.dfType
     val dfType = fieldMap(name)
     DFVal.Alias
-      .SelectField(dfType.asFE[DFTypeAny], this, name)
+      .SelectField(this, name)
       .asIR
       .asVal[DFTypeAny, Modifier]
 
@@ -335,20 +335,34 @@ private object CompanionsDFVal:
     end ApplyIdx
     object SelectField:
       def apply[T <: DFTypeAny, M <: Modifier](
-          dfType: T,
           relVal: DFVal[DFTypeAny, M],
           fieldName: String
-      )(using DFC): DFVal[T, M] =
-        lazy val alias: ir.DFVal =
-          ir.DFVal.Alias.SelectField(
-            dfType.asIR,
-            relVal.asIR.refTW(alias),
-            fieldName,
-            dfc.owner.ref,
-            dfc.getMeta,
-            ir.DFTags.empty
-          )
-        alias.addMember.asVal[T, M]
+      )(using dfc: DFC): DFVal[T, M] =
+        val relValIR = relVal.asIR
+        val ir.DFStruct(_, fieldMap) = relValIR.dfType
+        val dfTypeIR = fieldMap(fieldName)
+        relValIR match
+          // in case the referenced value is anonymous and concatenates fields
+          // of values, then we just directly reference the relevant
+          // value.
+          case ir.DFVal.Func(_, FuncOp.++, args, _, meta, _)
+              if meta.isAnonymous =>
+            import dfc.getSet
+            val idx = fieldMap.keys.toList.indexWhere(_ == fieldName)
+            args(idx).get.asVal[T, M]
+          // for all other case create a selector
+          case _ =>
+            lazy val alias: ir.DFVal =
+              ir.DFVal.Alias.SelectField(
+                dfTypeIR,
+                relValIR.refTW(alias),
+                fieldName,
+                dfc.owner.ref,
+                dfc.getMeta,
+                ir.DFTags.empty
+              )
+            alias.addMember.asVal[T, M]
+        end match
       end apply
     end SelectField
   end Alias

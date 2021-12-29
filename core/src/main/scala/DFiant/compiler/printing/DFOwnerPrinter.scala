@@ -63,8 +63,8 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
         case _                      => csToken
     case Pattern.Alternative(list) =>
       list.map(csDFCasePattern).mkString(" | ")
-    case Pattern.Tuple(list) =>
-      list.map(csDFCasePattern).mkStringBrackets
+    case Pattern.Struct(name, list) =>
+      name + list.map(csDFCasePattern).mkStringBrackets
     case Pattern.Bind(ref, pattern) =>
       val bindStr = pattern match
         case Pattern.CatchAll => ""

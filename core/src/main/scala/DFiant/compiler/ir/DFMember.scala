@@ -374,11 +374,14 @@ object DFConditional:
             case that: Alternative =>
               this.list.lazyZip(that.list).forall(_ =~ _)
             case _ => false
-      final case class Tuple(list: List[Pattern]) extends Pattern:
+      final case class Struct(name: String, list: List[Pattern])
+          extends Pattern:
         def =~(that: Pattern)(using MemberGetSet): Boolean =
           that match
-            case that: Tuple =>
-              this.list.lazyZip(that.list).forall(_ =~ _)
+            case that: Struct =>
+              this.name == that.name && this.list
+                .lazyZip(that.list)
+                .forall(_ =~ _)
             case _ => false
       final case class Bind(ref: Bind.Ref, pattern: Pattern) extends Pattern:
         def =~(that: Pattern)(using MemberGetSet): Boolean =

@@ -16,13 +16,11 @@ object __For_Plugin:
     }
     val dfType = DFTuple[NonEmptyTuple](dfVals.map(_.dfType))
     DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize).asInstanceOf[V]
-  def tupleDFValSelect[V <: DFValAny](dfVal: DFValAny, index: Int)(using
+  def structDFValSelect[V <: DFValAny](dfVal: DFValAny, fieldName: String)(using
       DFC
   ): V =
-    import DFTuple.Val.Ops.applyForced
-    dfVal.asIR
-      .asValOf[DFTuple[NonEmptyTuple]]
-      .applyForced(index)(using dfc.anonymize)
+    DFVal.Alias
+      .SelectField(dfVal, fieldName)(using dfc.anonymize)
       .asInstanceOf[V]
   def patternSingleton(selector: DFValAny, value: Any): Pattern =
     val tokenIR = (selector.dfType.asIR, value) match
@@ -47,8 +45,8 @@ object __For_Plugin:
       case _ => println(si); ???
   def patternAlternative(list: List[Any]): Pattern =
     Pattern.Alternative(list.asInstanceOf[List[Pattern]])
-  def patternTuple(list: List[Pattern]): Pattern =
-    Pattern.Tuple(list)
+  def patternStruct(name: String, list: List[Pattern]): Pattern =
+    Pattern.Struct(name, list)
   def patternCatchAll: Pattern = Pattern.CatchAll
   def bindVal[V <: DFValAny](selector: V, bindName: String)(using DFC): V =
     DFVal.Alias.AsIs
