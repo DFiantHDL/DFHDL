@@ -33,7 +33,7 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
       catch case e: IllegalArgumentException => e.getMessage
     assertNoDiff(err, expectedErr)
 
-  def assertCodeString(expectedCS: String)(block: => Unit): Unit =
+  def getCodeStringFrom(block: => Unit): String =
     import dfc.getSet
     val startIdx = dfc.mutableDB.getMembersSize
     block
@@ -42,7 +42,13 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
       dfc.mutableDB
         .getMembers(startIdx, endIdx)
         .filter(_.getOwner == dfc.owner.asIR)
-    val cs = printer.csDFMembers(members, false)(using dfc.getSet)
+    printer.csDFMembers(members, false)(using dfc.getSet)
+
+  def printCodeString(block: => Unit): Unit =
+    println(getCodeStringFrom(block))
+
+  def assertCodeString(expectedCS: String)(block: => Unit): Unit =
+    val cs = getCodeStringFrom(block)
     assertNoDiff(cs, expectedCS)
 
 end DFSpec
