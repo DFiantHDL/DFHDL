@@ -142,7 +142,7 @@ protected trait DFValPrinter extends AbstractPrinter:
       MemberGetSet
   ): String =
     def typeAnnot = dfVal match
-      case dv: DFConditional.Header =>
+      case dv: DFConditional.Header if dv.dfType != NoType =>
         s": ${printer.csDFType(dfVal.dfType, typeCS = true)} <> VAL"
       case _ => ""
     def valDef = s"val ${dfVal.name}$typeAnnot ="

@@ -42,9 +42,17 @@ object DFType:
       case dfType: DFTypeAny         => dfType
       case tuple: NonEmptyTuple      => DFTuple(tuple)
       case tfe: DFOpaque.Frontend[_] => DFOpaque(tfe)
+      case product: Product          => DFStruct(product)
       // TODO: need to add proper upper-bound if fixed in Scalac
       // see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: AnyRef => DFEnum(enumCompanion)
+  private[core] def unapply(t: Any): Option[DFTypeAny] =
+    t match
+      case dfVal: DFValAny  => Some(dfVal.dfType)
+      case DFTuple(dfType)  => Some(dfType)
+      case DFStruct(dfType) => Some(dfType)
+      case _                => None
+
   extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
     def asIR: T = dfType.value
     def codeString(using printer: Printer): String = printer.csDFType(asIR)

@@ -16,7 +16,7 @@ final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
     with DFMember[ir.DFVal]
     with Selectable:
 
-  inline def selectDynamic(name: String)(using DFC): Any =
+  def selectDynamic(name: String)(using DFC): Any =
     val ir.DFStruct(structName, fieldMap) = value.dfType
     val dfType = fieldMap(name)
     DFVal.Alias
@@ -38,6 +38,14 @@ end DFVal
 
 object DFVal:
   inline def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.value)
+  object OrTupleOrStruct:
+    def unapply(arg: Any)(using DFC): Option[DFValAny] =
+      arg match
+        case dfVal: DFValAny     => Some(dfVal)
+        case DFTuple.Val(dfVal)  => Some(dfVal)
+        case DFStruct.Val(dfVal) => Some(dfVal)
+        case _                   => None
+
   trait Refiner[T <: Product, M <: Modifier]:
     type Out <: DFVal[DFStruct[T], M]
   object Refiner:

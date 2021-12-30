@@ -39,8 +39,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomIf"
-//  override val debugFilter: String => Boolean =
-//    _.contains("DFMatchSpec.scala")
+  override val debugFilter: String => Boolean =
+    _.contains("DFMatchSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignoreIfs = mutable.Set.empty[String]
@@ -406,6 +406,10 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       .appliedTo(tree)
   private def mkList(tree: List[Tree])(using Context): Tree =
     tpd.mkList(tree, TypeTree(tree.head.tpe.widen))
+  private def mkTuple(trees: List[Tree])(using Context): Tree =
+    ref(requiredMethod(s"scala.Tuple${trees.length}.apply"))
+      .appliedToTypes(trees.map(_.tpe.widen))
+      .appliedToArgs(trees)
 
   class ValDefGen:
     private val binds = mutable.Map.empty[Name, Tree]
@@ -746,6 +750,29 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         tree
     end match
   end transformMatch
+
+//  override def transformValDef(tree: ValDef)(using Context): Tree =
+//    given valDefGen: ValDefGen = new ValDefGen
+//    if (tree.name.toString == "$1$")
+//      tree.rhs match
+//        case DFTupleVal(tupleMatchTree) =>
+//          val matchRetTree =
+//            valDefGen.mkSelectValDef("match_ret", tupleMatchTree)
+//          val AppliedType(_, partTpes) = tree.tpe.simple
+//          val partTrees = partTpes.zipWithIndex.map((p, i) =>
+//            ref(requiredMethod("DFiant.core.__For_Plugin.structDFValSelect"))
+//              .appliedToType(p)
+//              .appliedToArgs(
+//                List(matchRetTree, Literal(Constant(s"_${i + 1}")))
+//              )
+//              .appliedTo(dfcStack.head)
+//          )
+//          val tplTree = mkTuple(partTrees)
+//          val updatedRHS = Block(valDefGen.getValDefs, tplTree)
+//          ValDef(tree.symbol.asTerm, updatedRHS)
+//        case _ => tree
+//    else tree
+//  end transformValDef
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     ignoreIfs.clear()

@@ -19,6 +19,18 @@ object DFStruct:
       fieldTypes: List[DFTypeAny]
   ): DFStruct[F] =
     apply[F](name, ListMap(fieldNames.lazyZip(fieldTypes).toSeq*))
+  private[core] def apply(product: Product): DFStruct[Product] = unapply(
+    product
+  ).get
+  private[core] def unapply(product: Product): Option[DFStruct[Product]] =
+    val fieldTypes = product.productIterator.map {
+      case dfVal: DFValAny =>
+        dfVal.dfType
+      case _ => return None
+    }.toList
+    val fieldNames = product.productElementNames.toList
+    Some(DFStruct(product.productPrefix, fieldNames, fieldTypes))
+
   inline given apply[F <: Product]: DFStruct[F] = ${ dfTypeMacro[F] }
   def dfTypeMacro[F <: Product](using Quotes, Type[F]): Expr[DFStruct[F]] =
     import quotes.reflect.*
@@ -104,6 +116,16 @@ object DFStruct:
   end Token
 
   object Val:
+    private[core] def unapply(
+        product: Product
+    )(using DFC): Option[DFValOf[DFStruct[Product]]] =
+      product match
+        case DFStruct(dfType) =>
+          val dfVals = product.productIterator.map { case dfVal: DFValAny =>
+            dfVal
+          }.toList
+          Some(DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize))
+        case _ => None
     object TC:
       import DFVal.TC
       given DFStructValFromCC[

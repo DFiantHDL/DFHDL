@@ -18,6 +18,13 @@ object DFTuple:
       fieldList: List[DFTypeAny]
   ): DFTuple[T] =
     DFStruct[T]("", (1 to fieldList.length).map(i => s"_$i").toList, fieldList)
+  private[core] def unapply(t: NonEmptyTuple): Option[DFTuple[NonEmptyTuple]] =
+    val tList = t.toList
+    val fieldList: List[DFTypeAny] = tList.map {
+      case DFType(x) => x
+      case _         => return None
+    }
+    Some(apply[NonEmptyTuple](fieldList))
 
   extension [T <: NonEmptyTuple](dfType: DFTuple[T])
     def fieldList: List[DFTypeAny] =
@@ -190,6 +197,15 @@ object DFTuple:
   end Token
 
   object Val:
+    private[core] def unapply(
+        tuple: Tuple
+    )(using DFC): Option[DFValOf[DFTuple[NonEmptyTuple]]] =
+      val dfVals = tuple.toList.map {
+        case DFVal.OrTupleOrStruct(dfVal) => dfVal
+        case _                            => return None
+      }
+      val dfType = DFTuple[NonEmptyTuple](dfVals.map(_.dfType))
+      Some(DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize))
     object TC:
       import DFVal.TC
       given DFTupleArg[
