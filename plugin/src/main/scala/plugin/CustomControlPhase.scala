@@ -565,6 +565,14 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               Some(elems)
             case _ => None
     end SI
+    object Struct:
+      def unapply(arg: UnApply)(using Context): Option[(Type, List[Tree])] =
+        arg match
+          case UnApply(fun @ Select(_, _), _, patterns: List[Tree]) =>
+            val resType = fun.tpe.simple match
+              case mt: MethodType => mt.resType
+            Some(resType, patterns)
+          case _ => None
   end Pattern
 
   private def transformDFCasePattern(selectorTree: Tree, patternTree: Tree)(
@@ -729,9 +737,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           list.map(transformDFCasePattern(selectorTree, _))
         )
       // struct pattern
-      case UnApply(fun @ Select(_, unapply), _, patterns: List[Tree]) =>
-        val resType = fun.tpe.simple match
-          case mt: MethodType => mt.resType
+      case Pattern.Struct(resType, patterns) =>
         dfTypeTpe match
           case DFStruct(t: Type) if resType <:< t =>
             val fieldNamesAndTypes =
