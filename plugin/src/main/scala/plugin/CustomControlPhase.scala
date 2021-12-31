@@ -47,8 +47,6 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   val replaceIfs = mutable.Set.empty[String]
   var fromBooleanSym: Symbol = _
   var toFunc1Sym: Symbol = _
-  var toTuple2Sym: Symbol = _
-  var toTuple3Sym: Symbol = _
   var fromBranchesSym: Symbol = _
   var fromCasesSym: Symbol = _
   var dfValClsRef: TypeRef = _
@@ -140,9 +138,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     val condTree = transformIfCond(tree.cond, dfcTree)
     val blockTree = transformBlock(tree.thenp, combinedTpe)
     val pairs =
-      ref(toTuple2Sym)
-        .appliedToTypes(List(condTree.tpe, blockTree.tpe))
-        .appliedToArgs(List(condTree, blockTree)) :: prevPairs
+      mkTuple(List(condTree, blockTree)) :: prevPairs
     tree.elsep match
       case tree: If =>
         transformIfRecur(tree, combinedTpe, dfcTree, pairs)
@@ -352,13 +348,6 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     end unapply
   end DFTupleVal
 
-  private object PatternSingleton:
-    def apply(selector: Tree, constPat: Constant)(using Context): Tree =
-      apply(selector, Literal(constPat))
-    def apply(selector: Tree, constTree: Tree)(using Context): Tree =
-      ref(requiredMethod("DFiant.core.__For_Plugin.patternSingleton"))
-        .appliedToArgs(List(selector, constTree))
-
   private def transformLiteralCasePattern(
       selector: Tree,
       constPat: Constant,
@@ -366,7 +355,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   )(using
       Context
   ): Tree =
-    def patternSingleton: Tree = PatternSingleton(selector, constPat)
+    def patternSingleton: Tree = FromCore.patternSingleton(selector, constPat)
     val DFVal(dfTypeTpe) = selector.tpe
     (dfTypeTpe, constPat) match
       case (DFXInt(signed, widthTpe), Constant(i: Int)) if i < 0 && !signed =>
@@ -385,10 +374,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           errPos
         )
         EmptyTree
-      case (DFXInt(signed, widthTpe), Constant(i: Int)) =>
-        patternSingleton
-      case (DFBoolOrBit(), Constant(_: Boolean)) =>
-        patternSingleton
+      case (DFXInt(signed, widthTpe), Constant(i: Int)) => patternSingleton
+      case (DFBoolOrBit(), Constant(_: Boolean))        => patternSingleton
       case (DFBoolOrBit(), Constant(i: Int)) if i == 0 | i == 1 =>
         patternSingleton
       case (selectorTpe, constPat) =>
@@ -411,7 +398,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       .appliedToTypes(trees.map(_.tpe.widen))
       .appliedToArgs(trees)
 
-  class ValDefGen:
+  class ValDefGen(val extractorMatch: Boolean):
     private val binds = mutable.Map.empty[Name, Tree]
     private var valDefs = List.empty[ValDef]
     private val bindsReplacer = new TreeMap():
@@ -431,8 +418,11 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     def bind(bindTree: Bind, tree: Tree)(using
         Context
     ): Tree =
-      val name = s"bind_${bindTree.name}"
-      val ret = mkSelectValDef(name, tree)
+      val ret = if (extractorMatch)
+        val valDef = ValDef(bindTree.symbol.asTerm, tree)
+        valDefs = valDef :: valDefs
+        valDef
+      else mkSelectValDef(s"bind_${bindTree.name}", tree)
       binds += (bindTree.name -> ret)
       ret
     def replaceBinds(tree: Tree)(using Context): Tree =
@@ -458,15 +448,133 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       case _ =>
         ref(defn.NoneModule.termRef)
 
+  object FromCore:
+    private val fullPath = "DFiant.core.__For_Plugin"
+    def selectMethod(methodName: String)(using Context): Tree =
+      ref(requiredMethod(s"$fullPath.$methodName"))
+    def structDFValSelect(retTpe: Type, dfValTree: Tree, fieldName: String)(
+        using Context
+    ): Tree =
+      selectMethod("structDFValSelect")
+        .appliedToType(retTpe)
+        .appliedToArgs(List(dfValTree, Literal(Constant(fieldName))))
+        .appliedTo(dfcStack.head)
+    def bindVal(selectorTree: Tree, bindName: String)(using Context): Tree =
+      selectMethod("bindVal")
+        .appliedToType(selectorTree.tpe.widen)
+        .appliedToArgs(List(selectorTree, Literal(Constant(bindName))))
+        .appliedTo(dfcStack.head)
+    def bindValRange(
+        selectorTree: Tree,
+        bindName: String,
+        relBitHigh: Int,
+        relBitLow: Int
+    )(using Context): Tree =
+      selectMethod("bindValRange")
+        .appliedToType(selectorTree.tpe.widen)
+        .appliedToArgs(
+          List(
+            selectorTree,
+            Literal(Constant(bindName)),
+            Literal(Constant(relBitHigh)),
+            Literal(Constant(relBitLow))
+          )
+        )
+        .appliedTo(dfcStack.head)
+    def patternStruct(name: String, patternTrees: List[Tree])(using
+        Context
+    ): Tree =
+      selectMethod("patternStruct")
+        .appliedToArgs(List(Literal(Constant(name)), mkList(patternTrees)))
+    def patternSingleton(selector: Tree, constPat: Constant)(using
+        Context
+    ): Tree =
+      patternSingleton(selector, Literal(constPat))
+    def patternSingleton(selector: Tree, constTree: Tree)(using Context): Tree =
+      selectMethod("patternSingleton").appliedToArgs(List(selector, constTree))
+    def patternBind(bindValTree: Tree, patternTree: Tree)(using Context): Tree =
+      selectMethod("patternBind")
+        .appliedToArgs(List(bindValTree, patternTree))
+        .appliedTo(dfcStack.head)
+    def patternBindSI(
+        opTree: Tree,
+        partTrees: List[Tree],
+        bindValTrees: List[Tree]
+    )(using
+        Context
+    ): Tree =
+      selectMethod("patternBindSI")
+        .appliedToArgs(
+          List(opTree, mkList(partTrees), mkList(bindValTrees))
+        )
+        .appliedTo(dfcStack.head)
+    def unapplySeq(tree: Tree, argTree: Tree)(using Context): Tree =
+      tree
+        .select("unapplySeq".toTermName)
+        .appliedTo(argTree)
+        .appliedTo(dfcStack.head)
+    def patternSingletonSI(siTree: Tree)(using Context): Tree =
+      selectMethod("patternSingletonSI").appliedTo(siTree)
+    def patternCatchAll(using Context): Tree = selectMethod("patternCatchAll")
+    def patternAlternative(patternTrees: List[Tree])(using Context): Tree =
+      selectMethod("patternAlternative").appliedTo(mkList(patternTrees))
+  end FromCore
+
+  object Pattern:
+    object Tuple:
+      def unapply(arg: UnApply)(using Context): Option[List[Tree]] =
+        arg match
+          case UnApply(TypeApply(Select(Ident(tplName), _), _), _, patterns)
+              if tplName.toString.startsWith("Tuple") =>
+            Some(patterns)
+          case _ => None
+    object SBV:
+      def unapply(arg: UnApply)(using Context): Option[Literal] =
+        arg match
+          case UnApply(fun, List(), List(lit: Literal))
+              if fun.symbol == requiredMethod("DFiant.all.unapply") =>
+            Some(lit)
+          case _ => None
+    object Enum:
+      def unapply(arg: UnApply)(using Context): Option[Tree] =
+        arg match
+          case unapply @ UnApply(TypeApply(Apply(_, List(arg)), _), _, _)
+              if unapply.fun.symbol == enumHackedUnapply =>
+            Some(arg)
+          case _ => None
+    object SI:
+      def unapply(arg: UnApply)(using
+          Context
+      ): Option[(Block, List[Tree], Tree)] =
+        arg match
+          case UnApply(select: Select, _, binds) =>
+            select match
+              case Select(tree @ Block(List(TypeDef(_, template)), _), _) =>
+                val Template(_, _, _, List(defdef)) = template
+                val DefDef(_, _, _, rhs: Tree @unchecked) = defdef
+                Some(tree, binds, rhs.underlying)
+              case _ => None
+          case _ => None
+      object Binds:
+        def unapply(rhs: Tree)(using Context): Option[List[Tree]] =
+          rhs match
+            case Apply(
+                  _,
+                  List(Apply(_, List(Typed(SeqLiteral(elems, _), _))))
+                ) =>
+              Some(elems)
+            case _ => None
+    end SI
+  end Pattern
+
   private def transformDFCasePattern(selectorTree: Tree, patternTree: Tree)(
       using
-      Context,
-      ValDefGen
+      ctx: Context,
+      valDefGen: ValDefGen
   ): Tree =
     val DFVal(dfTypeTpe) = selectorTree.tpe
     patternTree match
-      case UnApply(TypeApply(Select(Ident(tplName), _), _), _, patterns)
-          if tplName.toString.startsWith("Tuple") =>
+      case Pattern.Tuple(patterns) =>
         dfTypeTpe match
           case DFStruct(AppliedType(tpl, selectorTpes)) =>
             if (selectorTpes.length != patterns.length)
@@ -479,24 +587,13 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                 .lazyZip(patterns)
                 .zipWithIndex
                 .map { case ((s, p), i) =>
-                  val splitSelect = ref(
-                    requiredMethod("DFiant.core.__For_Plugin.structDFValSelect")
+                  transformDFCasePattern(
+                    FromCore.structDFValSelect(s, selectorTree, s"_${i + 1}"),
+                    p
                   )
-                    .appliedToType(s)
-                    .appliedToArgs(
-                      List(selectorTree, Literal(Constant(s"_${i + 1}")))
-                    )
-                    .appliedTo(dfcStack.head)
-                  transformDFCasePattern(splitSelect, p)
                 }
                 .toList
-            ref(requiredMethod("DFiant.core.__For_Plugin.patternStruct"))
-              .appliedToArgs(
-                List(
-                  Literal(Constant("")),
-                  mkList(dfPatterns)
-                )
-              )
+            FromCore.patternStruct("", dfPatterns)
           case _ =>
             report.error(
               s"Found a tuple pattern but the match selector is not a tuple.",
@@ -505,15 +602,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             EmptyTree
         end match
       case Literal(const) =>
-        debug("Found literal pattern")
-        transformLiteralCasePattern(
-          selectorTree,
-          const,
-          patternTree.srcPos
-        )
+        transformLiteralCasePattern(selectorTree, const, patternTree.srcPos)
       // unapply of "all" bits literal
-      case UnApply(fun, List(), List(lit: Literal))
-          if fun.symbol == requiredMethod("DFiant.all.unapply") =>
+      case Pattern.SBV(lit) =>
         dfTypeTpe match
           case DFBits(_) => // ok
           case _ =>
@@ -521,13 +612,11 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               "`all` pattern is allowed for a DFBits dataflow value only.",
               patternTree.srcPos
             )
-        PatternSingleton(selectorTree, lit)
+        FromCore.patternSingleton(selectorTree, lit)
       // hacked unapply for enum enumerations
-      case unapply @ UnApply(TypeApply(Apply(_, List(arg)), _), _, _)
-          if unapply.fun.symbol == enumHackedUnapply =>
-        debug("Found enum literal pattern")
+      case Pattern.Enum(arg) =>
         val DFEnum(enumTpe) = dfTypeTpe
-        if (arg.tpe <:< enumTpe) PatternSingleton(selectorTree, arg)
+        if (arg.tpe <:< enumTpe) FromCore.patternSingleton(selectorTree, arg)
         else
           report.error(
             s"""Wrong enum entry type.
@@ -537,11 +626,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           )
           EmptyTree
       // token string interpolation
-      case UnApply(
-            Select(tree @ Block(List(TypeDef(_, template)), _), _),
-            _,
-            binds
-          ) =>
+      case Pattern.SI(block, binds, rhs) =>
         dfTypeTpe match
           case DFBits(_) | DFXInt(_, _) => // ok
           case _ =>
@@ -550,15 +635,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               patternTree.srcPos
             )
             return EmptyTree
-
-        debug("Found token string interpolation")
-        val Template(_, _, _, List(DefDef(_, _, _, rhs: Tree @unchecked))) =
-          template
-        rhs.underlying match
-          case Apply(
-                _,
-                List(Apply(_, List(Typed(SeqLiteral(elems: List[Tree], _), _))))
-              ) =>
+        rhs match
+          case Pattern.SI.Binds(elems) =>
             val selectorWidth = dfTypeTpe match
               case DFBits(ConstantType(Constant(w: Int))) => w
               case DFUInt(ConstantType(Constant(w: Int))) => w
@@ -591,21 +669,12 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                         val relBitLow = relBitHigh - partWidth + 1
                         val newBindSel = summon[ValDefGen].bind(
                           bindTree,
-                          ref(
-                            requiredMethod(
-                              "DFiant.core.__For_Plugin.bindValRange"
-                            )
+                          FromCore.bindValRange(
+                            selectorTree,
+                            bindTree.name.toString,
+                            relBitHigh,
+                            relBitLow
                           )
-                            .appliedToType(selectorTree.tpe)
-                            .appliedToArgs(
-                              List(
-                                selectorTree,
-                                Literal(Constant(bindTree.name.toString)),
-                                Literal(Constant(relBitHigh)),
-                                Literal(Constant(relBitLow))
-                              )
-                            )
-                            .appliedTo(dfcStack.head)
                         )
                         bindSelTrees = newBindSel :: bindSelTrees
                         relBitHigh = relBitHigh - partWidth
@@ -617,7 +686,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                         return EmptyTree
                   case _ =>
                     report.error(
-                      s"The bind `${bindTree.name}` must a DFBits type annotation `: B[<width>]`",
+                      s"The bind `${bindTree.name}` must have a DFBits value type annotation `: B[<width>]`",
                       bindTree.srcPos
                     )
                     return EmptyTree
@@ -631,48 +700,34 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               )
               return EmptyTree
             // success!
-            ref(requiredMethod("DFiant.core.__For_Plugin.patternBindSI"))
-              .appliedToArgs(
-                List(
-                  elems.head,
-                  mkList(elems.drop(1)),
-                  mkList(bindSelTrees.reverse)
-                )
-              )
-              .appliedTo(dfcStack.head)
+            FromCore.patternBindSI(
+              elems.head,
+              elems.drop(1),
+              bindSelTrees.reverse
+            )
           case _ =>
-            ref(requiredMethod("DFiant.core.__For_Plugin.patternSingletonSI"))
-              .appliedTo(
-                tree
-                  .select("unapplySeq".toTermName)
-                  .appliedTo(selectorTree)
-                  .appliedTo(dfcStack.head)
-              )
+            FromCore.patternSingletonSI(
+              FromCore.unapplySeq(block, selectorTree)
+            )
         end match
       case Typed(tree, _) =>
         transformDFCasePattern(selectorTree, tree)
       // catch all
       case Ident(i) if i.toString == "_" =>
-        ref(requiredMethod("DFiant.core.__For_Plugin.patternCatchAll"))
+        FromCore.patternCatchAll
       // catch all with name bind
       case b @ Bind(n, boundPattern) =>
-        val newBindSel = summon[ValDefGen].bind(
-          b,
-          ref(requiredMethod("DFiant.core.__For_Plugin.bindVal"))
-            .appliedToType(selectorTree.tpe)
-            .appliedToArgs(List(selectorTree, Literal(Constant(n.toString))))
-            .appliedTo(dfcStack.head)
-        )
+        val newBindSel =
+          valDefGen.bind(b, FromCore.bindVal(selectorTree, n.toString))
         val dfPattern = transformDFCasePattern(newBindSel, boundPattern)
         // finally, construct the dataflow bounded pattern
-        ref(requiredMethod("DFiant.core.__For_Plugin.patternBind"))
-          .appliedToArgs(List(newBindSel, dfPattern))
-          .appliedTo(dfcStack.head)
+        if (valDefGen.extractorMatch) FromCore.patternCatchAll
+        else FromCore.patternBind(newBindSel, dfPattern)
       // union of alternatives
       case Alternative(list) =>
-        debug("Found pattern alternatives")
-        ref(requiredMethod("DFiant.core.__For_Plugin.patternAlternative"))
-          .appliedTo(mkList(list.map(transformDFCasePattern(selectorTree, _))))
+        FromCore.patternAlternative(
+          list.map(transformDFCasePattern(selectorTree, _))
+        )
       // struct pattern
       case UnApply(fun @ Select(_, unapply), _, patterns: List[Tree]) =>
         val resType = fun.tpe.simple match
@@ -688,21 +743,12 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               fieldNamesAndTypes
                 .lazyZip(patterns)
                 .map { case ((fn, ft), p) =>
-                  val splitSelect = ref(
-                    requiredMethod("DFiant.core.__For_Plugin.structDFValSelect")
+                  transformDFCasePattern(
+                    FromCore.structDFValSelect(ft, selectorTree, fn),
+                    p
                   )
-                    .appliedToType(ft)
-                    .appliedToArgs(List(selectorTree, Literal(Constant(fn))))
-                    .appliedTo(dfcStack.head)
-                  transformDFCasePattern(splitSelect, p)
                 }
-            ref(requiredMethod("DFiant.core.__For_Plugin.patternStruct"))
-              .appliedToArgs(
-                List(
-                  Literal(Constant(t.typeSymbol.name.toString)),
-                  mkList(dfPatterns)
-                )
-              )
+            FromCore.patternStruct(t.typeSymbol.name.toString, dfPatterns)
           case _ =>
             report.error(
               s"Invalid pattern of type ${resType.show} for the given selector.",
@@ -728,13 +774,13 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     val blockTree =
       transformBlock(valDefGen.replaceBinds(tree.body), combinedTpe)
     valDefGen.clearBinds()
-    ref(toTuple3Sym)
-      .appliedToTypes(List(patternTree.tpe, guardTree.tpe, blockTree.tpe))
-      .appliedToArgs(List(patternTree, guardTree, blockTree))
+    mkTuple(List(patternTree, guardTree, blockTree))
   end transformDFCase
 
   override def transformMatch(tree: Match)(using Context): Tree =
-    given valDefGen: ValDefGen = new ValDefGen
+    def extractorMatch = false
+//      tree.tpe <:< defn.TupleTypeRef && tree.cases.length == 1 && tree.cases.head.guard.isEmpty
+    given valDefGen: ValDefGen = new ValDefGen(extractorMatch)
     tree.selector match
       case DFVal(newSelector) =>
         debug("Found DFMatch")
@@ -779,8 +825,6 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     replaceIfs.clear()
     fromBooleanSym = requiredMethod("DFiant.core.__For_Plugin.fromBoolean")
     toFunc1Sym = requiredMethod("DFiant.core.__For_Plugin.toFunc1")
-    toTuple2Sym = requiredMethod("DFiant.core.__For_Plugin.toTuple2")
-    toTuple3Sym = requiredMethod("DFiant.core.__For_Plugin.toTuple3")
     fromBranchesSym = requiredMethod("DFiant.core.DFIf.fromBranches")
     fromCasesSym = requiredMethod("DFiant.core.DFMatch.fromCases")
     dfValClsRef = requiredClassRef("DFiant.core.DFVal")

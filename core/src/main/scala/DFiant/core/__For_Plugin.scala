@@ -41,8 +41,8 @@ object __For_Plugin:
       case Some(Seq(DFVal(const: ir.DFVal.Const))) =>
         Pattern.Singleton(const.token)
       case _ => println(si); ???
-  def patternAlternative(list: List[Any]): Pattern =
-    Pattern.Alternative(list.asInstanceOf[List[Pattern]])
+  def patternAlternative(list: List[Pattern]): Pattern =
+    Pattern.Alternative(list)
   def patternStruct(name: String, list: List[Pattern]): Pattern =
     Pattern.Struct(name, list)
   def patternCatchAll: Pattern = Pattern.CatchAll
