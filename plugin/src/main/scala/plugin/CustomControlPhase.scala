@@ -279,12 +279,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     def unapply(struct: Tree)(using Context): Option[Tree] =
       struct.tpe match
         case DFStructVal(tpe) =>
-          Some(
-            ref(requiredMethod("DFiant.core.__For_Plugin.structToDFVal"))
-              .appliedToType(tpe)
-              .appliedTo(struct)
-              .appliedTo(dfcStack.head)
-          )
+          Some(FromCore.structToDFVal(tpe, struct))
         case _ => None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
@@ -314,12 +309,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     def unapply(tuple: Tree)(using Context): Option[Tree] =
       tuple.tpe match
         case DFTupleVal(tpe) =>
-          Some(
-            ref(requiredMethod("DFiant.core.__For_Plugin.tupleToDFVal"))
-              .appliedToType(tpe)
-              .appliedTo(tuple)
-              .appliedTo(dfcStack.head)
-          )
+          Some(FromCore.structToDFVal(tpe, tuple))
         case _ => None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
@@ -452,6 +442,12 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     private val fullPath = "DFiant.core.__For_Plugin"
     def selectMethod(methodName: String)(using Context): Tree =
       ref(requiredMethod(s"$fullPath.$methodName"))
+    def structToDFVal(retTpe: Type, productTree: Tree)(using Context): Tree =
+      selectMethod("structToDFVal")
+        .appliedToType(retTpe)
+        .appliedTo(productTree)
+        .appliedTo(dfcStack.head)
+
     def structDFValSelect(retTpe: Type, dfValTree: Tree, fieldName: String)(
         using Context
     ): Tree =
