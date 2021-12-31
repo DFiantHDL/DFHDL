@@ -34,10 +34,12 @@ object DFMatch:
 
   def fromCases[R](
       selector: DFValAny,
-      cases: List[(Pattern, Option[DFValOf[DFBool]], () => R)]
+      cases: List[(Pattern, Option[DFValOf[DFBool]], () => R)],
+      forceAnonymous: Boolean
   )(using DFC): R =
-    val header = Header(NoType, selector)
     val dfcAnon = summon[DFC].anonymize
+    val header =
+      Header(NoType, selector)(using if (forceAnonymous) dfcAnon else dfc)
     // creating a hook to save the return value for the first branch run
     var firstCaseRet: Option[R] = None
     val firstCaseRun: () => R = () =>

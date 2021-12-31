@@ -1,7 +1,9 @@
 package DFiant.core
 import DFiant.compiler.ir
 import DFVal.Func.Op as FuncOp
+import DFiant.compiler.ir.DFVal.Modifier
 import ir.DFConditional.DFCaseBlock.Pattern
+
 import collection.immutable.ListMap
 object __For_Plugin:
   def toFunc1[R](block: => R): () => R = () => block
@@ -44,6 +46,15 @@ object __For_Plugin:
   def patternStruct(name: String, list: List[Pattern]): Pattern =
     Pattern.Struct(name, list)
   def patternCatchAll: Pattern = Pattern.CatchAll
+  def extractValDcl[V <: DFValAny](selector: V, extractName: String)(using
+      DFC
+  ): V =
+    val dcl =
+      DFVal.Dcl(selector.dfType, Modifier.VAR)(using dfc.setName(extractName))
+    dcl.assign(DFVal.Const(Bubble(selector.dfType)))
+    dcl.asInstanceOf[V]
+  def forcedAssign(toVal: DFValAny, fromVal: DFValAny)(using DFC): Unit =
+    toVal.asInstanceOf[DFVarOf[DFTypeAny]].assign(fromVal)
   def bindVal[V <: DFValAny](selector: V, bindName: String)(using DFC): V =
     DFVal.Alias.AsIs
       .ident(selector)(using dfc.setName(bindName))

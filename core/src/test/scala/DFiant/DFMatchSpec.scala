@@ -1,8 +1,5 @@
 import DFiant.*
 import munit.*
-import core.DFMatch
-import DFMatch.Pattern
-import core.__For_Plugin.*
 
 class DFMatchSpec extends DFSpec:
   enum MyEnum1 extends DFEnum.Default:
@@ -15,6 +12,7 @@ class DFMatchSpec extends DFSpec:
   val e = MyEnum1 <> VAR
   val y = DFBits(64) <> VAR
   val p = Pixel <> VAR
+  val pB = PixelB <> VAR
 
   test("No ret val") {
     assertCodeString(
@@ -45,6 +43,17 @@ class DFMatchSpec extends DFSpec:
          |  case PixelB(Pixel(d"8'1", d"8'2"), d"8'3") =>
          |(Pixel(x = x, y = x), x) match
          |  case (Pixel(d"8'1", d"8'2"), d"8'3") =>
+         |val t10: DFUInt[8] <> VAL =
+         |  p match
+         |    case Pixel(t10, d"8'55") => t10
+         |val t11 = DFUInt(8) <> VAR
+         |t11 := ?
+         |val t12 = DFUInt(8) <> VAR
+         |t12 := ?
+         |pB match
+         |  case PixelB(Pixel(_t11, _t12), d"8'55") =>
+         |    t11 := _t11
+         |    t12 := _t12
          |""".stripMargin
     ) {
       x match
@@ -81,6 +90,10 @@ class DFMatchSpec extends DFSpec:
 
       (Pixel(x, x), x) match
         case (Pixel(1, 2), 3) =>
+
+      val Pixel(t10, 55) = p
+
+      val PixelB(Pixel(t11, t12), 55) = pB
     }
   }
 
