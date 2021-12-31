@@ -54,6 +54,17 @@ class DFMatchSpec extends DFSpec:
          |  case PixelB(Pixel(_t11, _t12), d"8'55") =>
          |    t11 := _t11
          |    t12 := _t12
+         |val t13: DFBits[32] <> VAL =
+         |  y match
+         |    case h"DEAD${t13: B[32]}BEEF" => t13
+         |val t14 = DFBits(16) <> VAR
+         |t14 := h"16'????"
+         |val t15 = DFBits(16) <> VAR
+         |t15 := h"16'????"
+         |y match
+         |  case h"DE${_t14: B[16]}ADBE${_t15: B[16]}EF" =>
+         |    t14 := _t14
+         |    t15 := _t15
          |""".stripMargin
     ) {
       x match
@@ -94,6 +105,10 @@ class DFMatchSpec extends DFSpec:
       val Pixel(t10, 55) = p
 
       val PixelB(Pixel(t11, t12), 55) = pB
+
+      val h"DEAD${t13: B[32]}BEEF" = y
+
+      val h"DE${t14: B[16]}ADBE${t15: B[16]}EF" = y
     }
   }
 
