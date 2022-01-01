@@ -766,7 +766,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       // struct pattern
       case Pattern.Struct(resType, patterns) =>
         dfTypeTpe match
-          case DFStruct(t: Type) if resType <:< t =>
+          // TODO: change to <:< type check to support tagged unions, but need to consider sub-values first
+          case DFStruct(t: Type) if resType =:= t =>
             val fieldNamesAndTypes =
               t.typeSymbol.asClass.paramAccessors.collect {
                 case sym if sym.is(Flags.CaseAccessor) =>

@@ -12,7 +12,7 @@ class DFEnumSpec extends DFSpec:
     case Foo, Bar, Baz
   enum MyEnum4 extends DFEnum.Grey:
     case Foo, Bar, Baz
-  enum MyEnum5(val value: BigInt) extends DFEnum.Manual(8):
+  enum MyEnum5(val value: DFUInt[8] <> TOKEN) extends DFEnum.Manual(8):
     case Foo extends MyEnum5(200)
     case Bar extends MyEnum5(100)
     case Baz extends MyEnum5(0)

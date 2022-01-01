@@ -9,11 +9,11 @@ import ir.DFVal.Func.Op as FuncOp
 sealed trait DFEncoding extends scala.reflect.Enum:
   def calcWidth(entryCount: Int): Int
   def encode(idx: Int): BigInt
-  val value: BigInt
+  def bigIntValue: BigInt
 
 object DFEncoding:
   sealed trait Auto extends DFEncoding:
-    val value: BigInt = encode(ordinal)
+    final val bigIntValue: BigInt = encode(ordinal)
   abstract class Default extends StartAt(0)
 
   abstract class Grey extends Auto:
@@ -32,8 +32,15 @@ object DFEncoding:
 
   abstract class Manual[W <: Int with Singleton](val width: W)
       extends DFEncoding:
+    val value: DFToken[DFUInt[W]]
+    final def bigIntValue: BigInt =
+      value.data.getOrElse(
+        throw new IllegalArgumentException(
+          "Bubbles are not accepted as enumeration values."
+        )
+      )
     final def calcWidth(entryCount: Int): Int = width
-    final def encode(idx: Int): BigInt = value
+    final def encode(idx: Int): BigInt = bigIntValue
 end DFEncoding
 
 type DFEnum[E <: DFEncoding] = DFType[ir.DFEnum, Args1[E]]
@@ -67,7 +74,7 @@ object DFEnum:
     val name = enumCompanionCls.getSimpleName.replace("$", "")
     val width = fieldsAsPairs.head._2.calcWidth(fieldsAsPairs.size)
     val entryPairs = fieldsAsPairs.zipWithIndex.map {
-      case ((name, entry), idx) => (name, entry.value)
+      case ((name, entry), idx) => (name, entry.bigIntValue)
     }
     ir.DFEnum(name, width, ListMap(entryPairs: _*)).asFE[DFEnum[E]]
   end apply
@@ -85,7 +92,7 @@ object DFEnum:
         dfType: DFEnum[E],
         entry: RE
     ): Token[E] =
-      ir.DFToken(dfType.asIR)(Some(entry.value)).asTokenOf[DFEnum[E]]
+      ir.DFToken(dfType.asIR)(Some(entry.bigIntValue)).asTokenOf[DFEnum[E]]
 
     object TC:
       import DFToken.TC

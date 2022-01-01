@@ -31,7 +31,7 @@ object __For_Plugin:
       case (dt: ir.DFDecimal, v: Int) =>
         ir.DFDecimal.Token(dt, Some(BigInt(v)))
       case (dt: ir.DFEnum, v: DFEncoding) =>
-        ir.DFEnum.Token(dt, Some(v.value))
+        ir.DFEnum.Token(dt, Some(v.bigIntValue))
       case (dt: ir.DFStruct, v) => ???
       case _                    => ???
     Pattern.Singleton(tokenIR)
