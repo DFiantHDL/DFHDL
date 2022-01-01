@@ -6,7 +6,7 @@ class DFMatchSpec extends DFSpec:
     case Foo, Bar, Baz
 
   case class Pixel(x: DFUInt[8] <> VAL, y: DFUInt[8] <> VAL)
-  case class PixelB(xy: core.DFStruct[Pixel] <> VAL, z: DFUInt[8] <> VAL)
+  case class PixelB(xy: Pixel <> VAL, z: DFUInt[8] <> VAL)
   val i = DFBool <> IN
   val x = DFUInt(8) <> VAR
   val e = MyEnum1 <> VAR
