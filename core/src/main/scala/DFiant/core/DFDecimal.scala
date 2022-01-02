@@ -54,8 +54,8 @@ object DFDecimal:
           Int,
           Int,
           [LW <: Int, RW <: Int] =>> LW >= RW,
-          [LW <: Int, RW <: Int] =>> "The applied value width (" + RW +
-            ") is larger than the variable width (" + LW + ")."
+          [LW <: Int, RW <: Int] =>> "The applied RHS value width (" + RW +
+            ") is larger than the LHS variable width (" + LW + ")."
         ]
     object `LW == RW`
         extends Check2[
@@ -63,7 +63,7 @@ object DFDecimal:
           Int,
           [LW <: Int, RW <: Int] =>> LW == RW,
           [LW <: Int,
-          RW <: Int] =>> "Cannot compare a value of " + LW + " bits width (LHS) to a value of " +
+          RW <: Int] =>> "Cannot apply this operation between a value of " + LW + " bits width (LHS) to a value of " +
             RW + " bits width (RHS).\nAn explicit conversion must be applied."
         ]
     object `ValW >= ArgW`
@@ -722,6 +722,16 @@ object DFXInt:
             dfc: DFC,
             op: DFVal.Compare[DFXInt[S, W], R, FuncOp.>=.type, false]
         ): DFBool <> VAL = op(lhs, rhs)
+        @targetName("shiftRightDFXInt")
+        def >>[RW <: Int](shift: DFValOf[DFUInt[RW]])(using
+            DFC
+        ): DFValOf[DFXInt[S, W]] =
+          DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shift))
+        @targetName("shiftLeftDFXInt")
+        def <<[RW <: Int](shift: DFValOf[DFUInt[RW]])(using
+            DFC
+        ): DFValOf[DFXInt[S, W]] =
+          DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shift))
       end extension
 
       extension [L](inline lhs: L)

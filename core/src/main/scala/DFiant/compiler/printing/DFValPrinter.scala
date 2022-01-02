@@ -14,6 +14,14 @@ extension (ref: DFVal.Ref)
       case ch: DFConditional.Header if ch.isAnonymous =>
         s"(${cs.applyBrackets()}: ${printer.printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
       case _ => cs
+  def simpleRefCodeString(using
+      getSet: MemberGetSet,
+      printer: DFValPrinter
+  ): String =
+    ref.get match
+      case DFVal.Const(DFDecimal.Token(_, Some(i)), _, _, _) => i.toString
+      case _ => ref.refCodeString
+end extension
 
 extension (alias: Alias)
   def relValCodeString(using
@@ -31,6 +39,7 @@ protected trait DFValPrinter extends AbstractPrinter:
 
   def csDFValFuncRef(dfVal: Func)(using MemberGetSet): String =
     dfVal.args match
+      // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
@@ -38,12 +47,17 @@ protected trait DFValPrinter extends AbstractPrinter:
           case Func.Op.| | Func.Op.& if argL.get.dfType.width == 1 =>
             s"${dfVal.op}${dfVal.op}"
           case op => op.toString
-        s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"
+        val rhsStr = dfVal.op match
+          case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
+          case _                       => argR.refCodeString
+        s"${argL.refCodeString.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
+      // unary/postfix func
       case arg :: Nil =>
         val opStr = dfVal.op.toString
         val argStr = arg.refCodeString.applyBrackets()
         if (opStr.startsWith("unary_")) s"${opStr.last}$argStr"
         else s"${argStr}.${opStr}"
+      // multiarg func
       case args =>
         dfVal.op match
           case DFVal.Func.Op.++ =>
@@ -116,7 +130,7 @@ protected trait DFValPrinter extends AbstractPrinter:
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx)(using
       MemberGetSet
   ): String =
-    val relIdxStr = dfVal.relIdx.refCodeString
+    val relIdxStr = dfVal.relIdx.simpleRefCodeString
     s"${dfVal.relValCodeString}($relIdxStr)"
   // when the tuple field number exceeds this number, the tuple
   // field selections changes from `dv._${idx+1}` to `dv($idx)`

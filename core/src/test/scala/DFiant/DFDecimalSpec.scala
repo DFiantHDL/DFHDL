@@ -84,7 +84,7 @@ class DFDecimalSpec extends DFSpec:
       "Cannot apply a signed value to an unsigned variable."
     )("""DFUInt(8).token(sd"1")""")
     assertDSLError(
-      "The applied value width (9) is larger than the variable width (8)."
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
     )(
       """DFSInt(8).token(128)"""
     ) {
@@ -92,7 +92,7 @@ class DFDecimalSpec extends DFSpec:
       DFSInt(8).token(value)
     }
     assertDSLError(
-      "The applied value width (9) is larger than the variable width (8)."
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
     )(
       """DFSInt(8).token(d"128")"""
     ) {
@@ -207,7 +207,7 @@ class DFDecimalSpec extends DFSpec:
         """u8 := s8"""
       )
       assertDSLError(
-        "The applied value width (9) is larger than the variable width (8)."
+        "The applied RHS value width (9) is larger than the LHS variable width (8)."
       )(
         """u8 := 256"""
       ) {
@@ -215,7 +215,7 @@ class DFDecimalSpec extends DFSpec:
         u8 := value
       }
       assertDSLError(
-        "The applied value width (9) is larger than the variable width (8)."
+        "The applied RHS value width (9) is larger than the LHS variable width (8)."
       )(
         """s8 := 128"""
       ) {
@@ -223,7 +223,7 @@ class DFDecimalSpec extends DFSpec:
         s8 := value
       }
       assertCompileError(
-        "The applied value width (9) is larger than the variable width (8)."
+        "The applied RHS value width (9) is larger than the LHS variable width (8)."
       )(
         """s8 := u8"""
       )
@@ -260,9 +260,9 @@ class DFDecimalSpec extends DFSpec:
     }
 
     assertDSLError(
-      """Cannot compare a value of 8 bits width (LHS) to a value of 7 bits width (RHS).
-        |An explicit conversion must be applied.
-        |""".stripMargin
+      """|Cannot apply this operation between a value of 8 bits width (LHS) to a value of 7 bits width (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
     )(
       """u8 == u7"""
     ) {
