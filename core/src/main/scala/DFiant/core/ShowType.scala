@@ -2,6 +2,7 @@ package DFiant.core
 import DFiant.internals.*
 import scala.quoted.*
 import DFiant.compiler.ir.DFVal.Modifier
+import DFiant.compiler.ir
 
 extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def showTuple(showf: quotes.reflect.TypeRepr => String): List[String] =
@@ -15,12 +16,16 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def showDFType: String =
     import quotes.reflect.*
     tpe.asTypeOf[DFTypeAny] match
-      case '[DFBit]       => "DFBit"
-      case '[DFBool]      => "DFBool"
-      case '[DFBits[w]]   => s"DFBits[${Type.show[w]}]"
-      case '[DFUInt[w]]   => s"DFUInt[${Type.show[w]}]"
-      case '[DFSInt[w]]   => s"DFSInt[${Type.show[w]}]"
-      case '[DFEnum[t]]   => Type.show[t]
+      case '[DFBit]     => "DFBit"
+      case '[DFBool]    => "DFBool"
+      case '[DFBits[w]] => s"DFBits[${Type.show[w]}]"
+      case '[DFUInt[w]] => s"DFUInt[${Type.show[w]}]"
+      case '[DFSInt[w]] => s"DFSInt[${Type.show[w]}]"
+      case '[DFEnum[t]] => Type.show[t]
+      case '[DFVector[t, d]] =>
+        s"${TypeRepr.of[t].showDFType}.X${TypeRepr.of[d].showType}"
+      case '[DFType[ir.DFVector, Args2[t, d]]] =>
+        s"${TypeRepr.of[t].showDFType}.X${TypeRepr.of[d].showType}"
       case '[DFOpaque[t]] => Type.show[t]
       case '[DFStruct[t]] =>
         Type.of[t] match

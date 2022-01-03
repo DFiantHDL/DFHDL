@@ -158,6 +158,7 @@ object DFToken:
     export DFBits.Token.TC.given
     export DFDecimal.Token.TC.given
     export DFEnum.Token.TC.given
+    export DFVector.Token.TC.given
     export DFTuple.Token.TC.given
     export DFStruct.Token.TC.given
 
@@ -214,6 +215,7 @@ object DFToken:
     export DFBits.Token.Compare.given
     export DFDecimal.Token.Compare.given
     export DFEnum.Token.Compare.given
+    export DFVector.Token.Compare.given
     export DFTuple.Token.Compare.given
 
   object Ops:

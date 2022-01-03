@@ -78,6 +78,7 @@ protected trait DFValPrinter extends AbstractPrinter:
                       s"$n = ${r.refCodeString}"
                     }
                     .mkStringBrackets
+              case DFVector(_, _) => s"Vector${argsInBrackets}"
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"${(args.head.refCodeString).applyBrackets()}.repeat(${args.length})"

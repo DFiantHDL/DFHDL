@@ -676,6 +676,12 @@ private object CompanionsDFBits:
         ): DFVal[DFBit, M] =
           check(relIdx, lhs.width)
           DFVal.Alias.ApplyIdx(DFBit, lhs, relIdx)
+        def apply[IW <: Int](
+            relIdx: DFUInt[IW] <> VAL
+        )(using
+            dfc: DFC
+        ): DFVal[DFBit, M] =
+          DFVal.Alias.ApplyIdx(DFBit, lhs, relIdx)
         def apply[H <: Int, L <: Int](
             relBitHigh: Inlined[H],
             relBitLow: Inlined[L]

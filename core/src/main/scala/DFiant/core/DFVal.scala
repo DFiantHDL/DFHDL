@@ -140,7 +140,7 @@ end DFVal
 type DFValAny = DFVal[DFTypeAny, Modifier]
 type DFValOf[+T <: DFTypeAny] = DFVal[T, Modifier]
 type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier.Assignable]
-type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Port]
+type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Connectable]
 
 val IN = Modifier.IN
 val OUT = Modifier.OUT
@@ -424,6 +424,7 @@ private object CompanionsDFVal:
     export DFBits.Val.TC.given
     export DFDecimal.Val.TC.given
     export DFEnum.Val.TC.given
+    export DFVector.Val.TC.given
     export DFTuple.Val.TC.given
     export DFStruct.Val.TC.given
   end TC
@@ -501,6 +502,7 @@ private object CompanionsDFVal:
     export DFBits.Val.Compare.given
     export DFDecimal.Val.Compare.given
     export DFEnum.Val.Compare.given
+    export DFVector.Val.Compare.given
     export DFTuple.Val.Compare.given
     export DFStruct.Val.Compare.given
   end Compare
@@ -515,53 +517,25 @@ private object CompanionsDFVal:
       def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
         import DFToken.Ops.{bits => bitsDFToken}
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
+      def prev[S <: Int](step: Inlined[S])(using DFC): DFValOf[T] = ???
+      def prev(using DFC): DFValOf[T] = prev(1)
   end Ops
 end CompanionsDFVal
 
-object DFValNI:
-  // TODO: Delete if no use eventually
-  inline def initTokens[T <: DFTypeAny](
-      dfType: T,
-      inline tokenValues: Any*
-  ): Seq[DFTokenAny] =
-    ${
-      initTokensMacro[T]('dfType, 'tokenValues)
-    }
-  def initTokensMacro[T <: DFTypeAny](
-      dfType: Expr[T],
-      tokenValues: Expr[Seq[Any]]
-  )(using
-      Quotes,
-      Type[T]
-  ): Expr[Seq[DFTokenAny]] =
-    import quotes.reflect.*
-    val Varargs(args) = tokenValues
-    val valueOfTpe = TypeRepr.of[ValueOf]
-    val argShowedExprs = args.map { case '{ $arg: tp } =>
-      arg.asTerm match
-        case Literal(const) =>
-          val tpe = valueOfTpe
-            .appliedTo(ConstantType(const))
-            .asType
-            .asInstanceOf[Type[Any]]
-          '{
-            compiletime.summonInline[DFToken.TC[T, tpe.Underlying]](
-              $dfType,
-              ValueOf($arg)
-            )
-          }
-        case _ =>
-          '{ compiletime.summonInline[DFToken.TC[T, tp]]($dfType, $arg) }
-    }
-    '{ Seq(${ Varargs(argShowedExprs) }*) }
-  end initTokensMacro
-end DFValNI
-
-extension [T <: DFTypeAny](dfVar: DFVarOf[T])
+extension [T <: DFTypeAny](dfVar: DFValOf[T])
   def assign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
     DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
+
+extension [T <: DFTypeAny](lhs: DFValOf[T])
+  def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
+    DFNet(lhs.asIR, DFNet.Op.Connection, rhs.asIR)
 
 object DFVarOps:
   extension [T <: DFTypeAny](dfVar: DFVarOf[T])
     def :=[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
       dfVar.assign(tc(dfVar.dfType, rhs))
+
+object DFPortOps:
+  extension [T <: DFTypeAny](dfPort: DFPortOf[T])
+    def <>[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
+      dfPort.connect(tc(dfPort.dfType, rhs))
