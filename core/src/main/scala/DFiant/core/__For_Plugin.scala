@@ -26,7 +26,7 @@ object __For_Plugin:
         ir.DFBoolOrBit.Token(dt, Some(v > 0))
       case (dt: ir.DFBoolOrBit, v: Boolean) =>
         ir.DFBoolOrBit.Token(dt, Some(v))
-      case (dt: ir.DFBits, allBit: Bit) =>
+      case (dt: ir.DFBits, allBit: BitOrBool) =>
         DFBits.Token(dt.width, SameElementsVector(allBit)).asIR
       case (dt: ir.DFDecimal, v: Int) =>
         ir.DFDecimal.Token(dt, Some(BigInt(v)))

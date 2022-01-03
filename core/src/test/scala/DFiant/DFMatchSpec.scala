@@ -88,7 +88,7 @@ class DFMatchSpec extends DFSpec:
         case h"DEAD${secret: B[32]}BEEF"                   =>
         case h"DE${secret1: B[16]}AD${secret2: B[16]}BEEF" =>
         case all(0)                                        =>
-        case all(1)                                        =>
+        case all(true)                                     =>
 
       Pixel(x, x) match
         case Pixel(1, 2) =>

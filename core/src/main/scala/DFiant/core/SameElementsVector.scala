@@ -1,6 +1,7 @@
 package DFiant
 package core
 
+import internals.*
 import scala.annotation.targetName
 
 /** A unconstrained-width literal vector of a given bit value
@@ -15,16 +16,15 @@ import scala.annotation.targetName
   *   all(0)` is forbidden because concatenation cannot infer the output width
   *   from this operation.
   */
-final case class SameElementsVector[T](value: T) derives CanEqual
+final class SameElementsVector[T](val value: T) derives CanEqual
 
 object SameElementsVector:
-  def unapply[T <: Bit](arg: SameElementsVector[T]): Option[Bit] = Some(
-    arg.value
+  def apply[T](exact: Inlined[T]): SameElementsVector[T] =
+    new SameElementsVector[T](exact)
+  // hacked unapply will be replaced by plugin
+  def unapply[T, R](arg: SameElementsVector[T]): Option[R] = Some(
+    arg.value.asInstanceOf[R]
   )
-//  @targetName("unapplyBoolean")
-//  def unapply[T <: Boolean](arg: SameElementsVector[T]): Option[Boolean] = Some(
-//    arg.value
-//  )
   given eqBit[W <: Int, T <: BitOrBool]
       : CanEqual[SameElementsVector[T], DFBits[W] <> VAL] =
     CanEqual.derived
