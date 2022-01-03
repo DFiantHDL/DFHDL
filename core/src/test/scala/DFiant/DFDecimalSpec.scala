@@ -271,9 +271,9 @@ class DFDecimalSpec extends DFSpec:
       u8 == u7
     }
     assertDSLError(
-      """Cannot compare an unsigned value (LHS) to a signed value (RHS).
-        |An explicit conversion must be applied.
-        |""".stripMargin
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
     )(
       """u8 < -1"""
     ) {
@@ -281,9 +281,9 @@ class DFDecimalSpec extends DFSpec:
       u8 < value
     }
     assertDSLError(
-      """Cannot compare a signed value (LHS) to an unsigned value (RHS).
-        |An explicit conversion must be applied.
-        |""".stripMargin
+      """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
     )(
       """-1 <= u8"""
     ) {
@@ -300,6 +300,214 @@ class DFDecimalSpec extends DFSpec:
       val value = 1000
       u8 > value
     }
+  }
+  test("Arithmetic") {
+    assertEquals(d"8'22" + d"8'22", d"8'44")
+    assertEquals(d"8'22" +^ d"8'22", d"9'44")
+    assertEquals(d"5'22" +^ d"8'22", d"9'44")
+    assertEquals(d"8'22" +^ d"5'22", d"9'44")
+    assertEquals(sd"8'22" + sd"8'22", sd"8'44")
+    assertEquals(sd"8'22" + 22, sd"8'44")
+    assertEquals(d"8'22" + h"4", d"8'26")
+    assertEquals(d"8'255" + d"8'1", d"8'0")
+    assertEquals(d"8'255" +^ d"8'1", d"9'256")
+    assertEquals(sd"9'255" + sd"8'1", sd"9'-256")
+    assertEquals(sd"9'255" +^ sd"8'1", sd"10'256")
+    assertEquals(200 + d"8'1", d"8'201")
+    assertEquals(200 +^ d"8'1", d"9'201")
+    assertEquals(-200 + sd"8'1", sd"9'-199")
+    assertCompileError(
+      """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """sd"8'22" + d"8'22""""
+    )
+    assertCompileError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """d"8'22" + sd"8'22""""
+    )
+    assertCompileError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """h"8'22" + sd"8'22""""
+    )
+    assertCompileError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """d"8'22" + (-22)"""
+    )
+    assertCompileError(
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
+    )(
+      """d"8'22" + d"9'22""""
+    )
+    assertEquals(d"8'22" + 200, d"8'222")
+    assertEquals(sd"8'-1" + 1, sd"8'0")
+    assertDSLError(
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
+    )(
+      """sd"8'22" + 200"""
+    ) {
+      val value = 200
+      sd"8'22" + value
+    }
+    assertDSLError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """22 + sd"8'22""""
+    ) {
+      val value = 22
+      value + sd"8'22"
+    }
+    assertEquals(d"8'22" - d"8'22", d"8'0")
+    assertEquals(sd"8'22" - sd"8'22", sd"8'0")
+    assertEquals(sd"8'22" - 22, sd"8'0")
+    assertEquals(d"8'22" - b"1001", d"8'13")
+    assertEquals(d"8'22" - d"8'23", d"8'255")
+    assertEquals(sd"8'22" - sd"8'23", sd"8'-1")
+    assertCompileError(
+      """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """sd"8'22" - d"8'22""""
+    )
+    assertCompileError(
+      """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """sd"8'22" - h"8'22""""
+    )
+    assertCompileError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """d"8'22" - sd"8'22""""
+    )
+    assertCompileError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """d"8'22" - (-22)"""
+    )
+    assertCompileError(
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
+    )(
+      """d"8'22" - d"9'22""""
+    )
+    assertEquals(d"8'22" - 200, d"8'78")
+    assertEquals(sd"9'22" - 200, sd"9'-178")
+    assertDSLError(
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
+    )(
+      """sd"8'22" - 200"""
+    ) {
+      val value = 200
+      sd"8'22" - value
+    }
+    assertDSLError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """22 - sd"8'22""""
+    ) {
+      val value = 22
+      value - sd"8'22"
+    }
 
+    assertEquals(d"8'22" * d"8'2", d"8'44")
+    assertEquals(d"8'22" / d"8'2", d"8'11")
+    assertEquals(d"8'22" % d"8'2", d"8'0")
+    assertEquals(100 * d"7'2", d"7'72")
+    assertEquals(100 / d"7'2", d"7'50")
+    assertEquals(17 % d"3'2", d"5'1")
+    assertEquals(d"8'22" *^ d"8'2", d"16'44")
+    assertEquals(100 *^ d"7'2", d"14'200")
+
+    val u8 = DFUInt(8) <> VAR
+    val u7 = DFUInt(7) <> VAR
+    val s8 = DFSInt(8) <> VAR
+    val b8 = DFBits(8) <> VAR
+    assertCodeString {
+      """|val t1 = u8 + u8
+         |val t2 = u8 - d"1'0"
+         |val t3 = d"8'200" - u8
+         |val t4 = s8 / sd"3'2"
+         |val t5 = u8 % d"4'9"
+         |val t6 = u8 * d"5'22"
+         |val t7 = s8 + sd"6'22"
+         |val t8 = s8 +^ sd"2'1"
+         |val t9 = u8 -^ d"5'22"
+         |val t10 = d"7'100" *^ u8
+         |""".stripMargin
+    } {
+      val t1 = u8 + u8
+      t1.verifyValOf[DFUInt[8]]
+      val t2 = u8 - 0
+      t2.verifyValOf[DFUInt[8]]
+      val t3 = 200 - u8
+      t3.verifyValOf[DFUInt[8]]
+      val t4 = s8 / 2
+      t4.verifyValOf[DFSInt[8]]
+      val t5 = u8 % 9
+      t5.verifyValOf[DFUInt[8]]
+      val t6 = u8 * d"22"
+      t6.verifyValOf[DFUInt[8]]
+      val t7 = s8 + sd"22"
+      t7.verifyValOf[DFSInt[8]]
+      val t8 = s8 +^ 1
+      t8.verifyValOf[DFSInt[9]]
+      val t9 = u8 -^ d"22"
+      t9.verifyValOf[DFUInt[9]]
+      val t10 = 100 *^ u8
+      t10.verifyValOf[DFUInt[15]]
+    }
+    assertCompileError(
+      """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """s8 + d"8'22""""
+    )
+    assertCompileError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """u8 - sd"8'22""""
+    )
+    assertCompileError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """b8 * s8"""
+    )
+    assertCompileError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    )(
+      """u8 / (-22)"""
+    )
+    assertCompileError(
+      "The applied RHS value width (9) is larger than the LHS variable width (8)."
+    )(
+      """u8 % d"9'22""""
+    )
   }
 end DFDecimalSpec

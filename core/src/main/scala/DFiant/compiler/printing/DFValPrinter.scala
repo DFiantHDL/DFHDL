@@ -44,8 +44,14 @@ protected trait DFValPrinter extends AbstractPrinter:
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
           case Func.Op.=!= => "!="
+          // boolean logical operations
           case Func.Op.| | Func.Op.& if argL.get.dfType.width == 1 =>
             s"${dfVal.op}${dfVal.op}"
+          // if the result width for +/-/* ops is larger than the left argument width
+          // then we have a carry-inclusive operation
+          case Func.Op.+ | Func.Op.- | Func.Op.`*`
+              if dfVal.dfType.width > argL.get.dfType.width =>
+            s"${dfVal.op}^"
           case op => op.toString
         val rhsStr = dfVal.op match
           case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
