@@ -1,5 +1,4 @@
 import DFiant.*
-import DFiant.core.SameBitsVector
 import munit.*
 
 class DFStructSpec extends DFSpec:

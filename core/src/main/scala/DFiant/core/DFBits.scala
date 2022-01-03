@@ -100,13 +100,16 @@ private object CompanionsDFBits:
         BitVector.low(width.value),
         BitVector.high(width.value)
       )
-    protected[core] def apply[W <: Int](
+    protected[core] def apply[W <: Int, T <: BitOrBool](
         width: Inlined[W],
-        sbv: SameBitsVector
+        sev: SameElementsVector[T]
     ): Token[W] =
+      val boolVal = sev.value match
+        case b: Boolean => b
+        case i: Int     => i > 0
       Token(
         width,
-        BitVector.fill(width.value)(sbv.value > 0),
+        BitVector.fill(width.value)(boolVal),
         BitVector.low(width.value)
       )
     extension [W <: Int](token: DFBits.Token[W])
@@ -211,9 +214,10 @@ private object CompanionsDFBits:
           check(dfType.width, tokenArg.asIR.width)
           tokenArg.asInstanceOf[Out]
 
-      given DFBitsTokenFromSBV[W <: Int]: TC[DFBits[W], SameBitsVector] with
-        def conv(dfType: DFBits[W], value: SameBitsVector): Out =
-          DFBits.Token[W](dfType.width, value)
+      given DFBitsTokenFromSEV[W <: Int, T <: BitOrBool]
+          : TC[DFBits[W], SameElementsVector[T]] with
+        def conv(dfType: DFBits[W], value: SameElementsVector[T]): Out =
+          DFBits.Token(dfType.width, value)
     end TC
 
     private val widthExp = "([0-9]+)'(.*)".r
@@ -415,12 +419,15 @@ private object CompanionsDFBits:
           )
           tokenArg.asIR.asTokenOf[DFBits[LW]]
       end given
-      given [LW <: Int, Op <: FuncOp, C <: Boolean](using
+      given [LW <: Int, Op <: FuncOp, C <: Boolean, T <: BitOrBool](using
           op: ValueOf[Op],
           castling: ValueOf[C]
-      ): Compare[DFBits[LW], SameBitsVector, Op, C] with
-        def conv(dfType: DFBits[LW], arg: SameBitsVector): DFBits[LW] <> TOKEN =
-          Token[LW](dfType.width, arg)
+      ): Compare[DFBits[LW], SameElementsVector[T], Op, C] with
+        def conv(
+            dfType: DFBits[LW],
+            arg: SameElementsVector[T]
+        ): DFBits[LW] <> TOKEN =
+          Token(dfType.width, arg)
     end Compare
 
     object Ops:
@@ -612,12 +619,12 @@ private object CompanionsDFBits:
           val dfVal = candidate(value)
           check(dfType.width, dfVal.width.value)
           dfVal.asIR.asValOf[DFBits[LW]]
-      given DFBitsFromSBV[LW <: Int](using
+      given DFBitsFromSEV[LW <: Int, T <: BitOrBool](using
           dfc: DFC
-      ): TC[DFBits[LW], SameBitsVector] with
+      ): TC[DFBits[LW], SameElementsVector[T]] with
         def conv(
             dfType: DFBits[LW],
-            value: SameBitsVector
+            value: SameElementsVector[T]
         ): DFValOf[DFBits[LW]] =
           DFVal.Const(Token(dfType.width, value))
     end TC
@@ -636,13 +643,22 @@ private object CompanionsDFBits:
           val dfValArg = ic(arg)(using dfc.anonymize)
           check(dfType.width, dfValArg.dfType.width)
           dfValArg.asIR.asValOf[DFBits[LW]]
-      given DFBitsCompareSBV[LW <: Int, Op <: FuncOp, C <: Boolean](using
+      given DFBitsCompareSEV[
+          LW <: Int,
+          Op <: FuncOp,
+          C <: Boolean,
+          T <: BitOrBool
+      ](using
           DFC,
           ValueOf[Op],
           ValueOf[C]
-      ): Compare[DFBits[LW], SameBitsVector, Op, C] with
-        def conv(dfType: DFBits[LW], arg: SameBitsVector): DFBits[LW] <> VAL =
+      ): Compare[DFBits[LW], SameElementsVector[T], Op, C] with
+        def conv(
+            dfType: DFBits[LW],
+            arg: SameElementsVector[T]
+        ): DFBits[LW] <> VAL =
           DFVal.Const(Token(dfType.width, arg))
+      end DFBitsCompareSEV
     end Compare
 
     object Ops:

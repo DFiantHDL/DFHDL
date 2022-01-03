@@ -19,7 +19,7 @@ class DFBitsSpec extends DFSpec:
   }
   test("Token Construction") {
     val t1 = (DFBits(8) token all(0)).verifyTokenOf[DFBits[8]]
-    val t1b = (DFBits(8) token all(1)).verifyTokenOf[DFBits[8]]
+    val t1b = (DFBits(8) token all(true)).verifyTokenOf[DFBits[8]]
     val t2 = h"12".verifyTokenOf[DFBits[8]]
     val t3 = h"10'12".verifyTokenOf[DFBits[10]]
     val t4 = b"11".verifyTokenOf[DFBits[2]]
@@ -122,7 +122,7 @@ class DFBitsSpec extends DFSpec:
   }
   test("DFVal Conversion") {
     val w = 2
-    val t1: DFBits[8] <> VAL = all(0)
+    val t1: DFBits[8] <> VAL = all(false)
     val t2: DFBits[8] <> VAL = all(1)
     val t3: DFBits[8] <> VAL = d"255"
     val t4: DFBits[5] <> VAL = ?

@@ -548,7 +548,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               if tplName.toString.startsWith("Tuple") =>
             Some(patterns)
           case _ => None
-    object SBV:
+    object SEV:
       def unapply(arg: UnApply)(using Context): Option[Literal] =
         arg match
           case UnApply(fun, List(), List(lit: Literal))
@@ -636,7 +636,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       case Literal(const) =>
         transformLiteralCasePattern(selectorTree, const, patternTree.srcPos)
       // unapply of "all" bits literal
-      case Pattern.SBV(lit) =>
+      case Pattern.SEV(lit) =>
         dfTypeTpe match
           case DFBits(_) => // ok
           case _ =>

@@ -52,7 +52,7 @@ export core.<>
 //shorthand for annotating a DFBits value (useful for string interpolation)
 type B[W <: Int] = core.DFValOf[DFBits[W]]
 val ? = core.?
-export core.SameBitsVector as all
+export core.SameElementsVector as all
 extension [Entry <: core.DFEncoding](e: Entry)
   def unapply[E >: Entry <: core.DFEncoding](arg: core.DFValOf[core.DFEnum[E]])(
       using DFC

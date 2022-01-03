@@ -6,7 +6,7 @@ import DFiant.internals.*
 import annotation.{implicitNotFound, targetName}
 
 type Bit = 0 | 1
-
+type BitOrBool = Int | Boolean
 type DFBoolOrBit = DFType[ir.DFBoolOrBit, NoArgs]
 object DFBoolOrBit:
   type Data = Option[Boolean]
