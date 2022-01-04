@@ -128,9 +128,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           val sym = argTree.symbol
           treeOwnerMap.get(srcPos.show) match
             case Some(t: ValDef) =>
-              if (t.mods.is(Flags.Mutable))
+              if (t.symbol.flags.is(Flags.Mutable))
                 report.warning(
-                  "Variable modifier for DSL constructed values is highly discouraged!\nConsider changing to `val`.",
+                  "Scala `var` modifier for dataflow values/classes is highly discouraged!\nConsider changing to `val`.",
                   t.srcPos
                 )
               val nameOpt =
