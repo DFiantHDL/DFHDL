@@ -283,7 +283,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         case _ => None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
-        case fieldsTpe if fieldsTpe <:< requiredClassRef("scala.Product") =>
+        case fieldsTpe
+            if fieldsTpe <:< requiredClassRef("DFiant.core.DFStruct.Fields") =>
           val args = fieldsTpe.typeSymbol.asClass.paramAccessors.collect {
             case sym if sym.is(Flags.CaseAccessor) => fieldsTpe.memberInfo(sym)
           }
@@ -291,11 +292,13 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             case DFVal(_) => true
             case _        => false
           }
-          if (args.isEmpty) return None
-          // all tuple arguments are dataflow args
+          if (args.isEmpty)
+            report.error(
+              "No dataflow fields were found. A dataflow struct cannot be empty."
+            )
+            return None
+          // all fields are dataflow values
           if (argsAreDFVal.forall(i => i)) Some(DFVal(DFStruct(fieldsTpe)))
-          // all tuple arguments are NOT dataflow args
-          else if (argsAreDFVal.forall(!_)) None
           else
             report.error(
               "Not all match selector structs fields are dataflow values."
