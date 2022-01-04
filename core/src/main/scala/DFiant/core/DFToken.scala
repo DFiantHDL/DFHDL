@@ -45,13 +45,13 @@ extension (tokenIR: ir.DFTokenAny)
   def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
 
 object DFToken:
-  trait Refiner[T <: Product]:
+  trait Refiner[T <: FieldsOrTuple]:
     type Out <: DFToken[DFStruct[T]]
   object Refiner:
-    transparent inline given [T <: Product]: Refiner[T] = ${
+    transparent inline given [T <: FieldsOrTuple]: Refiner[T] = ${
       refineMacro[T]
     }
-    def refineMacro[T <: Product](using
+    def refineMacro[T <: FieldsOrTuple](using
         Quotes,
         Type[T]
     ): Expr[Refiner[T]] =
@@ -78,7 +78,7 @@ object DFToken:
     end refineMacro
   end Refiner
 
-  implicit def refined[T <: Product](token: DFToken[DFStruct[T]])(using
+  implicit def refined[T <: FieldsOrTuple](token: DFToken[DFStruct[T]])(using
       r: Refiner[T]
   ): r.Out = token.asInstanceOf[r.Out]
 

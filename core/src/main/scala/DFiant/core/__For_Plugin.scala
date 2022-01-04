@@ -12,7 +12,7 @@ object __For_Plugin:
   def fromBoolean(value: Boolean)(using DFC): DFValOf[DFBool] =
     DFVal.Const(DFBoolOrBit.Token(DFBool, value))
   // tuple of DFVals "concatenated" to be a DFVal of type tuple
-  def structToDFVal[V <: DFValAny](product: Product)(using DFC): V =
+  def structToDFVal[V <: DFValAny](product: FieldsOrTuple)(using DFC): V =
     DFVal.OrTupleOrStruct.unapply(product).get.asInstanceOf[V]
   def structDFValSelect[V <: DFValAny](dfVal: DFValAny, fieldName: String)(using
       DFC

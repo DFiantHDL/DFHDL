@@ -46,13 +46,14 @@ object DFVal:
         case DFStruct.Val(dfVal) => Some(dfVal)
         case _                   => None
 
-  trait Refiner[T <: Product, M <: Modifier]:
+  trait Refiner[T <: FieldsOrTuple, M <: Modifier]:
     type Out <: DFVal[DFStruct[T], M]
   object Refiner:
-    transparent inline given [T <: Product, M <: Modifier]: Refiner[T, M] = ${
+    transparent inline given [T <: FieldsOrTuple, M <: Modifier]
+        : Refiner[T, M] = ${
       refineMacro[T, M]
     }
-    def refineMacro[T <: Product, M <: Modifier](using
+    def refineMacro[T <: FieldsOrTuple, M <: Modifier](using
         Quotes,
         Type[T],
         Type[M]
@@ -86,7 +87,7 @@ object DFVal:
     end refineMacro
   end Refiner
 
-  inline implicit def refined[T <: Product, M <: Modifier](
+  inline implicit def refined[T <: FieldsOrTuple, M <: Modifier](
       inline dfVal: DFVal[DFStruct[T], M]
   )(using
       r: Refiner[T, M]

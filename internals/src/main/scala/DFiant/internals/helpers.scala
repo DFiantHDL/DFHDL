@@ -122,20 +122,19 @@ type <:![T <: UB, UB] <: UB = T match
   case UB => T
 
 // gets the case class from a companion object reference
-trait CaseClass[Companion <: AnyRef]:
-  type CC <: Product
+trait CaseClass[Companion <: AnyRef, UB <: Product]:
+  type CC <: UB
 
 object CaseClass:
-  type Aux[Companion <: AnyRef, Case <: Product] = CaseClass[Companion] {
-    type CC = Case
+  transparent inline given [Comp <: AnyRef, UB <: Product]
+      : CaseClass[Comp, UB] = ${
+    macroImpl[Comp, UB]
   }
-  transparent inline given [Comp <: AnyRef]: CaseClass[Comp] = ${
-    macroImpl[Comp]
-  }
-  def macroImpl[Comp <: AnyRef](using
+  def macroImpl[Comp <: AnyRef, UB <: Product](using
       Quotes,
-      Type[Comp]
-  ): Expr[CaseClass[Comp]] =
+      Type[Comp],
+      Type[UB]
+  ): Expr[CaseClass[Comp, UB]] =
     import quotes.reflect.*
     val compObjTpe = TypeRepr.of[Comp]
     val compPrefix = compObjTpe match
@@ -146,12 +145,20 @@ object CaseClass:
       report.errorAndAbort("Case class with type parameters are not supported")
     val clsTpe = compPrefix.select(clsSym)
     clsTpe.asType match
-      case '[t & Product] =>
-        type Case = t & Product
+      case '[t & UB] =>
+        type Case = t & UB
         '{
-          (new CaseClass[Comp]:
+          new CaseClass[Comp, UB]:
             type CC = Case
-          ): CaseClass.Aux[Comp, Case]
         }
+      case _ =>
+        val msg =
+          s"Type `${clsTpe.show}` is not a subtype of `${Type.show[UB]}`."
+        '{
+          compiletime.error(${ Expr(msg) })
+          new CaseClass[Comp, UB]:
+            type CC = UB
+        }
+    end match
   end macroImpl
 end CaseClass

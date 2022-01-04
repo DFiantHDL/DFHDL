@@ -3,8 +3,9 @@ import munit.*
 
 class DFStructSpec extends DFSpec:
   class CCs[W <: Int]:
-    case class XY(x: DFBits[W] <> VAL, y: DFUInt[W] <> VAL)
+    case class XY(x: DFBits[W] <> VAL, y: DFUInt[W] <> VAL) extends DFStruct
     case class XYZ(x: DFUInt[W] <> VAL, y: DFBits[W] <> VAL, z: DFBit <> VAL)
+        extends DFStruct
 
   val cc = new CCs[8]
   import cc.{XY, XYZ}
@@ -55,7 +56,7 @@ class DFStructSpec extends DFSpec:
          |""".stripMargin
     ) {
       // define the struct class
-      case class XY(x: DFUInt[8] <> VAL, y: DFBits[3] <> VAL)
+      case class XY(x: DFUInt[8] <> VAL, y: DFBits[3] <> VAL) extends DFStruct
       // constructing the dataflow value with initialization
       val xy = XY <> VAR init XY(x = 0, y = b"101")
       // accessing the fields and assigning them individually
@@ -66,7 +67,7 @@ class DFStructSpec extends DFSpec:
       // assign the whole struct, as unnamed fields
       xy := XY(22, all(0))
       // easily composing structs
-      case class XYZ(xy: XY <> VAL, z: DFBit <> VAL)
+      case class XYZ(xy: XY <> VAL, z: DFBit <> VAL) extends DFStruct
       val xyz = XYZ <> VAR
       // field assignments of a whole struct
       xyz.xy := xy

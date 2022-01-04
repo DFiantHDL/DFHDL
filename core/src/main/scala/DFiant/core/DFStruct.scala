@@ -6,23 +6,29 @@ import collection.immutable.ListMap
 import ir.DFVal.Func.Op as FuncOp
 import scala.annotation.unchecked.uncheckedVariance
 
-type DFStruct[+F <: Product] = DFType[ir.DFStruct, Args1[F @uncheckedVariance]]
+type FieldsOrTuple = DFStruct.Fields | NonEmptyTuple
+type DFStruct[+F <: FieldsOrTuple] =
+  DFType[ir.DFStruct, Args1[F @uncheckedVariance]]
 object DFStruct:
-  private[core] def apply[F <: Product](
+  abstract class Fields extends Product with Serializable
+  private[core] def apply[F <: FieldsOrTuple](
       name: String,
       fieldMap: ListMap[String, DFTypeAny]
   ): DFStruct[F] =
     ir.DFStruct(name, fieldMap.map((n, t) => (n, t.asIR))).asFE[DFStruct[F]]
-  private[core] def apply[F <: Product](
+  private[core] def apply[F <: FieldsOrTuple](
       name: String,
       fieldNames: List[String],
       fieldTypes: List[DFTypeAny]
   ): DFStruct[F] =
     apply[F](name, ListMap(fieldNames.lazyZip(fieldTypes).toSeq*))
-  private[core] def apply(product: Product): DFStruct[Product] = unapply(
-    product
-  ).get
-  private[core] def unapply(product: Product): Option[DFStruct[Product]] =
+  private[core] def apply(product: FieldsOrTuple): DFStruct[FieldsOrTuple] =
+    unapply(
+      product
+    ).get
+  private[core] def unapply(
+      product: FieldsOrTuple
+  ): Option[DFStruct[FieldsOrTuple]] =
     val fieldTypes = product.productIterator.map {
       case dfVal: DFValAny =>
         dfVal.dfType
@@ -31,8 +37,11 @@ object DFStruct:
     val fieldNames = product.productElementNames.toList
     Some(DFStruct(product.productPrefix, fieldNames, fieldTypes))
 
-  inline given apply[F <: Product]: DFStruct[F] = ${ dfTypeMacro[F] }
-  def dfTypeMacro[F <: Product](using Quotes, Type[F]): Expr[DFStruct[F]] =
+  inline given apply[F <: FieldsOrTuple]: DFStruct[F] = ${ dfTypeMacro[F] }
+  def dfTypeMacro[F <: FieldsOrTuple](using
+      Quotes,
+      Type[F]
+  ): Expr[DFStruct[F]] =
     import quotes.reflect.*
     val fTpe = TypeRepr.of[F]
     val (structName, fields) = fTpe.asTypeOf[Any] match
@@ -83,9 +92,9 @@ object DFStruct:
     end if
   end dfTypeMacro
 
-  type Token[+F <: Product] = DFToken[DFStruct[F]]
+  type Token[+F <: FieldsOrTuple] = DFToken[DFStruct[F]]
   object Token:
-    def apply[F <: Product](dfType: DFStruct[F], value: F): Token[F] =
+    def apply[F <: FieldsOrTuple](dfType: DFStruct[F], value: F): Token[F] =
       val data = value.productIterator.map { case dfVal: DFVal[_, _] =>
         dfVal.asIR match
           case ir.DFVal.Const(token, _, _, _) => token.data
@@ -100,14 +109,14 @@ object DFStruct:
     object TC:
       import DFToken.TC
       given DFStructTokenFromCC[
-          F <: Product
+          F <: FieldsOrTuple
       ]: TC[DFStruct[F], F] with
         def conv(dfType: DFStruct[F], value: F): Out = Token(dfType, value)
 
     object Compare:
       import DFToken.Compare
       given DFTupleTokenFromTuple[
-          F <: Product,
+          F <: FieldsOrTuple,
           Op <: FuncOp,
           C <: Boolean
       ]: Compare[DFStruct[F], F, Op, C] with
@@ -117,11 +126,11 @@ object DFStruct:
 
   object Val:
     private[core] def unapply(
-        product: Product
-    )(using DFC): Option[DFValOf[DFStruct[Product]]] =
-      product match
+        fields: FieldsOrTuple
+    )(using DFC): Option[DFValOf[DFStruct[FieldsOrTuple]]] =
+      fields match
         case DFStruct(dfType) =>
-          val dfVals = product.productIterator.map { case dfVal: DFValAny =>
+          val dfVals = fields.productIterator.map { case dfVal: DFValAny =>
             dfVal
           }.toList
           Some(DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize))
@@ -129,7 +138,7 @@ object DFStruct:
     object TC:
       import DFVal.TC
       given DFStructValFromCC[
-          F <: Product
+          F <: FieldsOrTuple
       ](using DFC): TC[DFStruct[F], F] with
         def conv(dfType: DFStruct[F], value: F): Out =
           val dfVals = value.productIterator.map { case dfVal: DFVal[_, _] =>
@@ -139,7 +148,7 @@ object DFStruct:
     object Compare:
       import DFVal.Compare
       given DFStructArg[
-          F <: Product,
+          F <: FieldsOrTuple,
           Op <: FuncOp,
           C <: Boolean
       ](using DFC): Compare[DFStruct[F], F, Op, C] with

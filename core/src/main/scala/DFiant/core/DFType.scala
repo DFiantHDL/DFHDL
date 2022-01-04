@@ -29,9 +29,9 @@ object DFType:
     case reflect.EnumCompanion[t] => DFEnum[t]
 
   type FromProduct[T <: Product] <: DFTypeAny = T match
-    case DFEncoding    => DFEnum[T]
-    case NonEmptyTuple => DFTuple[Tuple.Map[T, JUSTVAL]]
-    case Product       => DFStruct[T]
+    case DFEncoding      => DFEnum[T]
+    case NonEmptyTuple   => DFTuple[Tuple.Map[T, JUSTVAL]]
+    case DFStruct.Fields => DFStruct[T]
 
   type FromDFVal[T] <: DFTypeAny = T match
     case DFValOf[t] => t
@@ -42,7 +42,7 @@ object DFType:
       case dfType: DFTypeAny         => dfType
       case tuple: NonEmptyTuple      => DFTuple(tuple)
       case tfe: DFOpaque.Frontend[_] => DFOpaque(tfe)
-      case product: Product          => DFStruct(product)
+      case fields: DFStruct.Fields   => DFStruct(fields)
       // TODO: need to add proper upper-bound if fixed in Scalac
       // see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: AnyRef => DFEnum(enumCompanion)
@@ -66,20 +66,20 @@ object DFType:
   export DFBits.given
   export DFDecimal.given
   export DFEnum.given
-  export DFStruct.given
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
   type Supported = DFTypeAny | DFEncoding | AnyRef
   object Ops:
-    extension [T <: Supported](t: T)(using tc: DFType.TC[T])
+    extension [T <: Supported](t: T)
       def <>[M <: ir.DFVal.Modifier](modifier: M)(using
-          DFC
+          tc: DFType.TC[T],
+          dfc: DFC
       ): DFVal[tc.Type, M] = DFVal.Dcl(tc(t), modifier)
-      def token[V](tokenValue: Exact[V])(using
+      def token[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
           tokenTC: DFToken.TC[tc.Type, V]
       ): tokenTC.Out = tokenTC(tc(t), tokenValue)
-      def const[V](tokenValue: Exact[V])(using
+      def const[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
           DFToken.TC[tc.Type, V]
       )(using DFC): DFValOf[tc.Type] =
         DFVal.Const(token(tokenValue), named = true)
@@ -89,7 +89,20 @@ object DFType:
   trait TC[-T]:
     type Type <: DFTypeAny
     def apply(t: T): Type
-  object TC:
+  trait TCLP:
+    transparent inline given errorDMZ[
+        T
+    ](using
+        t: ShowType[T]
+    ): TC[T] =
+      Error.call[
+        (
+            "Dataflow type cannot be constructed from the type `",
+            t.Out,
+            "`."
+        )
+      ]
+  object TC extends TCLP:
     transparent inline given ofDFType[T <: DFTypeAny]: TC[T] = new TC[T]:
       type Type = T
       def apply(t: T): Type = t
@@ -106,7 +119,7 @@ object DFType:
       def apply(t: EnumCompanion[E]): Type = DFEnum[E](t)
 
     transparent inline given ofStructCompanion[F <: AnyRef](using
-        cc: CaseClass[F]
+        cc: CaseClass[F, DFStruct.Fields]
     )(using dfType: DFStruct[cc.CC]): TC[F] = new TC[F]:
       type Type = DFStruct[cc.CC]
       def apply(t: F): Type = dfType
