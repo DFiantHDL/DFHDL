@@ -8,7 +8,6 @@ import scala.quoted.*
 import collection.mutable
 import collection.immutable.ListMap
 import DFOpaque.Abstract as DFOpaqueA
-import reflect.EnumCompanion
 
 sealed trait Args
 sealed trait NoArgs extends Args
@@ -23,10 +22,9 @@ val NoType = new DFType[ir.NoType.type, NoArgs](ir.NoType)
 
 object DFType:
   type Of[T <: Supported] <: DFTypeAny = T match
-    case DFTypeAny                => T <:! DFTypeAny
-    case Product                  => FromProduct[T]
-    case DFOpaqueA                => DFOpaque[T]
-    case reflect.EnumCompanion[t] => DFEnum[t]
+    case DFTypeAny => T <:! DFTypeAny
+    case Product   => FromProduct[T]
+    case DFOpaqueA => DFOpaque[T]
 
   type FromProduct[T <: Product] <: DFTypeAny = T match
     case DFEncoding      => DFEnum[T]
@@ -113,16 +111,47 @@ object DFType:
       type Type = DFOpaque[TFE]
       def apply(t: TFE): Type = DFOpaque(t)
 
-    transparent inline given ofEnumCompanion[E <: DFEncoding]
-        : TC[EnumCompanion[E]] = new TC[EnumCompanion[E]]:
-      type Type = DFEnum[E]
-      def apply(t: EnumCompanion[E]): Type = DFEnum[E](t)
-
-    transparent inline given ofStructCompanion[F <: AnyRef](using
-        cc: CaseClass[F, DFStruct.Fields]
-    )(using dfType: DFStruct[cc.CC]): TC[F] = new TC[F]:
-      type Type = DFStruct[cc.CC]
-      def apply(t: F): Type = dfType
+    transparent inline given ofProductCompanion[T <: AnyRef]: TC[T] = ${
+      productMacro[T]
+    }
+    def productMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
+      import quotes.reflect.*
+      val compObjTpe = TypeRepr.of[T]
+      val compPrefix = compObjTpe match
+        case TermRef(pre, _) => pre
+        case _ =>
+          report.errorAndAbort("Case class companion must be a term ref")
+      val clsSym = compObjTpe.typeSymbol.companionClass
+      if !clsSym.paramSymss.forall(_.headOption.forall(_.isTerm)) then
+        report.errorAndAbort(
+          "Case class with type parameters are not supported"
+        )
+      val clsTpe = compPrefix.select(clsSym)
+      clsTpe.asType match
+        case '[t & DFEncoding] =>
+          '{
+            new TC[T]:
+              type Type = DFEnum[t & DFEncoding]
+              def apply(t: T): Type = summonInline[DFEnum[t & DFEncoding]]
+          }
+        case '[t & DFStruct.Fields] =>
+          '{
+            new TC[T]:
+              type Type = DFStruct[t & DFStruct.Fields]
+              def apply(t: T): Type =
+                summonInline[DFStruct[t & DFStruct.Fields]]
+          }
+        case _ =>
+          val msg =
+            s"Type `${clsTpe.show}` is not a supported product companion.\nHint: Did you forget to extends `DFStruct` or `DFEnum`?"
+          '{
+            compiletime.error(${ Expr(msg) })
+            new TC[T]:
+              type Type = DFTypeAny
+              def apply(t: T): Type = ???
+          }
+      end match
+    end productMacro
 
     transparent inline given ofTuple[T <: NonEmptyTuple]: TC[T] = ${
       ofTupleMacro[T]
@@ -186,38 +215,6 @@ object DFType:
                   None
           end match
     end MacroOps
-
-//    import MacroOps.*
-//    transparent inline given ofAnyRef[T <: AnyRef]: TC[T] = ${ tcMacro[T] }
-//    def tcMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
-//      import quotes.reflect.*
-//      val tTpe = TypeRepr.of[T]
-//      val nonEmptyTupleTpe = TypeRepr.of[NonEmptyTuple]
-////      val fieldTpe = TypeRepr.of[DFField[_]]
-////      val fieldsTpe = TypeRepr.of[DFFields]
-//      def checkSupported(tTpe: TypeRepr): Unit =
-//        if (tTpe.dfTypeTpe.isEmpty)
-//          report.error(
-//            s"Unsupported dataflow type can be found for: ${tTpe.show}"
-//          )
-//
-//      checkSupported(tTpe)
-//      tTpe.dealias match
-//        case t if t <:< nonEmptyTupleTpe =>
-//          '{
-//            new TC[T]:
-//              type Type = DFTuple[NonEmptyTuple]
-//              def apply(t: T): Type = DFTuple[NonEmptyTuple](???)
-//          }
-//        case DFEnum(entries) =>
-//          val clsType = entries.head.asTypeOf[DFEncoding]
-//          '{
-//            new TC[T]:
-//              type Type = DFEnum[clsType.Underlying]
-//              def apply(t: T): Type = DFEnum[clsType.Underlying](t)
-//          }
-//      end match
-//    end tcMacro
   end TC
 end DFType
 
