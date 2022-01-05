@@ -532,8 +532,15 @@ extension [T <: DFTypeAny](lhs: DFValOf[T])
     DFNet(lhs.asIR, DFNet.Op.Connection, rhs.asIR)
 
 object DFVarOps:
-  extension [T <: DFTypeAny](dfVar: DFVarOf[T])
-    def :=[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
+  extension [T <: DFTypeAny, M <: Modifier](dfVar: DFVal[T, M])
+    def :=[R](rhs: Exact[R])(using
+        varOnly: AssertGiven[
+          M <:< Modifier.Assignable,
+          "Cannot assign to an immutable dataflow value."
+        ],
+        tc: DFVal.TC[T, R],
+        dfc: DFC
+    ): Unit =
       dfVar.assign(tc(dfVar.dfType, rhs))
 
 object DFPortOps:

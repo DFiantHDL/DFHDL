@@ -310,8 +310,78 @@ private object CompanionsDFBits:
           ${ unapplySeqMacro('{ "h" })('parts, 'arg) }
 
       extension (inline sc: StringContext)
+        /** Binary Bits Vector Token String Interpolator
+          *
+          * Interpolator Syntax: {{{b"width'bin"}}}
+          *   - `bin` is a char sequence of '0', '1', and '?' (to indicate a bit
+          *     bubble).
+          *   - `bin` also allows separators of space ' ' or underscore '_' that
+          *     are ignored.
+          *   - `width` (with the following tag char `'`) is optional. If it's
+          *     not specified, the width is determined by the length of the char
+          *     sequence. Otherwise, the width is set as required. If the
+          *     required width is longer than the char sequence length, then
+          *     zeros are added as the MSBits. If the required width is shorter
+          *     then the char sequence, it is accepted only if the MSBits it is
+          *     truncating are zeros. Otherwise, a compilation error is
+          *     generated.
+          * @example
+          * {{{
+          *   b"1"        //value = 1
+          *   b"1000"     //value = 1000
+          *   b"8'1000"   //value = 00001000
+          *   b"3'0100"   //value = 100
+          *   b"3'1100"   //error
+          *   b"1?11"     //value = 1?11 (? is a bubble bit)
+          *   b"11_00"    //value = 1100
+          * }}}
+          * @note
+          *   The string interpolator currently does not accept external
+          *   arguments with `\${arg}`
+          * @return
+          *   Bits vector token.
+          */
         transparent inline def b: Any = ${ SIParts.scMacro[BParts]('sc) }
+
+        /** Hexadecimal Bits Vector Token String Interpolator
+          *
+          * Interpolator Syntax: {{{b"width'hex"}}}
+          *   - `hex` is a char sequence of '0'-'9','A'-'F','a'-'f','?' (to
+          *     indicate a 4-bit bubble). Each character is equivalent to a
+          *     4-bits nibble.
+          *   - `hex` also allows separators of space ' ' or underscore '_' that
+          *     are ignored.
+          *   - `hex` also supports a binary mode within `{bin}`, where bin is
+          *     equivalent to the char sequence of the binary string
+          *     interpolator (see [[b]]). So between 4-bit hex nibbles, it is
+          *     possible to insert a binary bit sequence of any length that is
+          *     not necessarily dividable by 4.
+          *   - `width` (with the following tag char `'`) is optional. If it's
+          *     not specified, the width is determined by the length of the char
+          *     sequence. Otherwise, the width is set as required. If the
+          *     required width is longer than the char sequence length, then
+          *     zeros are added as the MSBits. If the required width is shorter
+          *     then the char sequence, it is accepted only if the MSBits it is
+          *     truncating are zeros. Otherwise, a compilation error is
+          *     generated.
+          * @example
+          * {{{
+          *   h"1"        //value = 0001
+          *   h"27"       //value = 00100111
+          *   h"6'27"     //value = 100111
+          *   h"5'27"     //error
+          *   h"2?"       //value = 0010????
+          *   h"F{00}F"   //value = 1111001111
+          *   h"3_3"      //value = 00110011
+          * }}}
+          * @note
+          *   The string interpolator currently does not accept external
+          *   arguments with `\${arg}`
+          * @return
+          *   Bits vector token.
+          */
         transparent inline def h: Any = ${ SIParts.scMacro[HParts]('sc) }
+      end extension
 
       private def applyMacro[P <: Tuple](opExpr: Expr[String])(
           scParts: Expr[P],

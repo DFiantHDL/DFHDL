@@ -162,3 +162,21 @@ object CaseClass:
     end match
   end macroImpl
 end CaseClass
+
+trait AssertGiven[G, M <: String]
+object AssertGiven:
+  transparent inline given [G, M <: String]: AssertGiven[G, M] =
+    ${ macroImpl[G, M] }
+  def macroImpl[G, M <: String](using
+      Quotes,
+      Type[G],
+      Type[M]
+  ): Expr[AssertGiven[G, M]] =
+    import quotes.reflect.*
+    Expr.summon[G] match
+      case Some(_) =>
+        '{ new AssertGiven[G, M] {} }
+      case _ =>
+        val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias
+        '{ compiletime.error(${ Expr(msg) }) }
+end AssertGiven
