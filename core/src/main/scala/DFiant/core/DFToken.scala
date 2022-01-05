@@ -78,10 +78,6 @@ object DFToken:
     end refineMacro
   end Refiner
 
-  implicit def refined[T <: FieldsOrTuple](token: DFToken[DFStruct[T]])(using
-      r: Refiner[T]
-  ): r.Out = token.asInstanceOf[r.Out]
-
   def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
       token: Expr[DFToken[T]],
       arg: Expr[R]

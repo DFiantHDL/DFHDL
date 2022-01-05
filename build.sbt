@@ -1,6 +1,6 @@
 // format: off
 val projectName = "dfiant"
-val compilerVersion = "3.1.2-RC1-bin-SNAPSHOT"
+val compilerVersion = "3.1.1-RC2"
 
 inThisBuild(
   List(
@@ -102,7 +102,7 @@ lazy val compilerOptions = Seq(
   "-feature",
   "-language:strictEquality",
   "-language:implicitConversions",
-  "-deprecation"
+  "-deprecation",
 )
 
 lazy val pluginUseSettings = Seq(

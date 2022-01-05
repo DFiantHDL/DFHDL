@@ -59,3 +59,9 @@ extension [Entry <: core.DFEncoding](e: Entry)
       using DFC
   ): Boolean =
     ???
+
+implicit def __refined_token[T <: core.FieldsOrTuple](
+    token: core.DFToken[core.DFStruct[T]]
+)(using
+    r: core.DFToken.Refiner[T]
+): r.Out = token.asInstanceOf[r.Out]

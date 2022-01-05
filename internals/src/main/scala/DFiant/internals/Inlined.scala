@@ -2,7 +2,7 @@ package DFiant.internals
 import scala.quoted.*
 import compiletime.ops.{int, string, boolean, any}
 import compiletime.{constValue, constValueOpt}
-export int.{+ => _, ^ => _, ToString => _, *}
+export int.{+ => _, ^ => _, *}
 export string.{+ => _, *}
 export boolean.{^ => _, *}
 export any.*
