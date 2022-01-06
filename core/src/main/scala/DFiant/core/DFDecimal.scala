@@ -307,7 +307,7 @@ object DFDecimal:
         val signed = value < 0 | signedForced
         val actualWidth = value.bitsWidth(signed)
         (signed, actualWidth, 0, value)
-      dec match
+      dec.replace(",","").replace("_","") match
         case widthFixedExp(
               magnitudeWidthStr,
               fractionWidthStr,

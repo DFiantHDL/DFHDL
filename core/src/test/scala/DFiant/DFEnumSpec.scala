@@ -4,7 +4,7 @@ import internals.Inlined
 import collection.immutable.ListMap
 
 class DFEnumSpec extends DFSpec:
-  enum MyEnum1 extends DFEnum.Default:
+  enum MyEnum1 extends DFEnum:
     case Foo, Bar, Baz
   enum MyEnum2 extends DFEnum.StartAt(20):
     case Foo, Bar, Baz

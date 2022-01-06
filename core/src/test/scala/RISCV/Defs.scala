@@ -11,7 +11,7 @@ enum Opcode extends DFEnum.Manual(7):
   case MADD,   MSUB,     NMSUB,    NMADD,    OP_FP,  resr1, custom_2,  _48b2
   case BRANCH, JALR,     resr2,    JAL,      SYSTEM, resr3, custom_3,  _80b
 
-enum ALUSel extends DFEnum.Default:
+enum ALUSel extends DFEnum:
   case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
 
 case class Instr(fields: DFBits[25] <> VAL, opcode: Opcode <> VAL)

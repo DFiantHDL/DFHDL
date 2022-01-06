@@ -13,7 +13,7 @@ class DFTypeSpec extends FunSuite:
   val bool = DFBool
   val tpl = (bool, bit, b8)
   val vec_b8x10 = b8.X(10)
-  enum MyEnum1 extends DFEnum.Default:
+  enum MyEnum1 extends DFEnum:
     case Foo, Bar, Baz
   enum MyEnum2 extends DFEnum.StartAt(20):
     case Foo, Bar, Baz

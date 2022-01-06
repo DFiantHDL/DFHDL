@@ -2,7 +2,7 @@ import DFiant.*
 import munit.*
 
 class DFMatchSpec extends DFSpec:
-  enum MyEnum1 extends DFEnum.Default:
+  enum MyEnum1 extends DFEnum:
     case Foo, Bar, Baz
 
   case class Pixel(x: DFUInt[8] <> VAL, y: DFUInt[8] <> VAL) extends DFStruct

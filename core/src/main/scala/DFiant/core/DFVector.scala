@@ -36,9 +36,9 @@ object DFVector:
     extension [T <: DFType.Supported](t: T)(using tc: DFType.TC[T])
       // transparent inline def X(inline cellDim: Int*): DFType =
       //   x(dfType, cellDim: _*)
-      inline def X(
-          inline cellDim: Int
-      ): DFVector[tc.Type, Tuple1[cellDim.type]] =
+      def X[D <: Int](
+          cellDim: Inlined[D]
+      ): DFVector[tc.Type, Tuple1[D]] =
         DFVector(tc(t), Tuple1(cellDim))
 //      inline def X(
 //          inline cellDim0: Int,
@@ -189,11 +189,11 @@ object DFVector:
         @targetName("applyDFVector")
         def apply[IW <: Int](
             idx: DFUInt[IW] <> VAL
-        )(using info: IntInfo[D1])(using
+        )(using info: IntInfo[D1 - 1])(using
             check: IndexWidth.Check[IW, info.OutW],
             dfc: DFC
         ): DFVal[T, M] =
-          check(idx.width, info.width(lhs.dfType.cellDims.head))
+          check(idx.width, info.width(lhs.dfType.cellDims.head - 1))
           DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idx)
       end extension
     end Ops
