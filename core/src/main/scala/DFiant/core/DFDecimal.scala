@@ -307,7 +307,7 @@ object DFDecimal:
         val signed = value < 0 | signedForced
         val actualWidth = value.bitsWidth(signed)
         (signed, actualWidth, 0, value)
-      dec.replace(",","").replace("_","") match
+      dec.replace(",", "").replace("_", "") match
         case widthFixedExp(
               magnitudeWidthStr,
               fractionWidthStr,
@@ -997,15 +997,19 @@ object DFXInt:
             op: DFVal.Compare[DFXInt[S, W], R, FuncOp.>=.type, false]
         ): DFBool <> VAL = op(lhs, rhs)
         @targetName("shiftRightDFXInt")
-        def >>[RW <: Int](shift: DFValOf[DFUInt[RW]])(using
-            DFC
+        def >>[R](shift: Exact[R])(using
+            c: DFUInt.Val.UBArg[W, R],
+            dfc: DFC
         ): DFValOf[DFXInt[S, W]] =
-          DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shift))
+          val shiftVal = c(lhs.width, shift)
+          DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shiftVal))
         @targetName("shiftLeftDFXInt")
-        def <<[RW <: Int](shift: DFValOf[DFUInt[RW]])(using
-            DFC
+        def <<[R](shift: Exact[R])(using
+            c: DFUInt.Val.UBArg[W, R],
+            dfc: DFC
         ): DFValOf[DFXInt[S, W]] =
-          DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shift))
+          val shiftVal = c(lhs.width, shift)
+          DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
       end extension
 
       extension [L](inline lhs: L)
@@ -1239,6 +1243,29 @@ object DFUInt:
   ): DFUInt[W] = DFXInt(false, width)
   def apply[W <: Int](using dfType: DFUInt[W]): DFUInt[W] = dfType
 
+  protected object Unsigned
+      extends Check1[
+        Boolean,
+        [S <: Boolean] =>> ![S],
+        [S <: Boolean] =>> "Argument must be unsigned"
+      ]
+  protected object `UB > R`
+      extends Check2[
+        Int,
+        Int,
+        [UB <: Int, R <: Int] =>> UB > R,
+        [UB <: Int,
+        R <: Int] =>> "The argument must be smaller than the upper-bound " + UB + " but found: " + R
+      ]
+  protected object `UBW == RW`
+      extends Check2[
+        Int,
+        Int,
+        [UBW <: Int, RW <: Int] =>> UBW == RW,
+        [UBW <: Int,
+        RW <: Int] =>> "Expected argument width " + UBW + " but found: " + RW
+      ]
+
   type Token[W <: Int] = DFDecimal.Token[false, W, 0]
   object Token:
     object Ops:
@@ -1250,11 +1277,55 @@ object DFUInt:
           lhs.resize(lhs.width + 1).bits.sint
 
   object Val:
+    trait UBArg[UB <: Int, -R]:
+      type OutW <: Int
+      def apply(ub: Inlined[UB], arg: R): DFValOf[DFUInt[OutW]]
+    object UBArg:
+      transparent inline given fromInt[UB <: Int, R <: Int](using
+          dfc: DFC,
+          ubInfo: IntInfo[UB - 1]
+      )(using
+          unsignedCheck: Unsigned.Check[R < 0],
+          ubCheck: `UB > R`.Check[UB, R]
+      ): UBArg[UB, ValueOf[R]] = new UBArg[UB, ValueOf[R]]:
+        type OutW = ubInfo.OutW
+        def apply(ub: Inlined[UB], arg: ValueOf[R]): DFValOf[DFUInt[OutW]] =
+          unsignedCheck(arg.value < 0)
+          ubCheck(ub - 1, arg)
+          val token =
+            DFXInt.Token(false, ubInfo.width(ub - 1), Some(BigInt(arg)))
+          DFVal.Const(token)
+      transparent inline given fromR[UB <: Int, R](using
+          dfc: DFC,
+          c: DFXInt.Val.Candidate[R],
+          ubInfo: IntInfo[UB - 1]
+      )(using
+          unsignedCheck: Unsigned.Check[c.OutS],
+          widthCheck: `UBW == RW`.Check[ubInfo.OutW, c.OutW]
+      ): UBArg[UB, R] =
+        new UBArg[UB, R]:
+          type OutW = ubInfo.OutW
+          def apply(ub: Inlined[UB], arg: R): DFValOf[DFUInt[OutW]] =
+            val argVal = c(arg)
+            unsignedCheck(argVal.dfType.signed)
+            widthCheck(ubInfo.width(ub - 1), argVal.width)
+            // for constant value we apply an explicit check for the bound
+            argVal.asIR match
+              case ir.DFVal.Const(ir.DFDecimal.Token(dfType, data), _, _, _) =>
+                data match
+                  case Some(value) =>
+                    summon[`UB > R`.Check[UB, Int]](ub, value.toInt)
+                  case _ => // no check
+              case _ => // no check
+            argVal.asIR.asValOf[DFUInt[OutW]]
+    end UBArg
     object Ops:
       extension [W <: Int](lhs: DFValOf[DFUInt[W]])
         def signed(using DFC): DFValOf[DFSInt[W + 1]] =
           import Token.Ops.{signed => signedToken}
           DFVal.Alias.AsIs(DFSInt(lhs.width + 1), lhs, _.signedToken)
+  end Val
+
 end DFUInt
 
 type DFSInt[W <: Int] = DFXInt[true, W]

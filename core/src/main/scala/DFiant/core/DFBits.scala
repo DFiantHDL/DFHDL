@@ -754,20 +754,13 @@ private object CompanionsDFBits:
         def sint(using DFC): DFValOf[DFSInt[W]] =
           as(DFSInt(lhs.width))
 
-        def apply[I <: Int](
-            relIdx: Inlined[I]
+        def apply[I](
+            relIdx: Exact[I]
         )(using
-            check: BitIndex.Check[I, W],
+            c: DFUInt.Val.UBArg[W, I],
             dfc: DFC
         ): DFVal[DFBit, M] =
-          check(relIdx, lhs.width)
-          DFVal.Alias.ApplyIdx(DFBit, lhs, relIdx)
-        def apply[IW <: Int](
-            relIdx: DFUInt[IW] <> VAL
-        )(using
-            dfc: DFC
-        ): DFVal[DFBit, M] =
-          DFVal.Alias.ApplyIdx(DFBit, lhs, relIdx)
+          DFVal.Alias.ApplyIdx(DFBit, lhs, c(lhs.width, relIdx))
         def apply[H <: Int, L <: Int](
             relBitHigh: Inlined[H],
             relBitLow: Inlined[L]
@@ -831,15 +824,19 @@ private object CompanionsDFBits:
           check(lhs.width, rhsVal.width)
           DFVal.Func(lhs.dfType, FuncOp.^, List(lhs, rhsVal))
         @targetName("shiftRightDFBits")
-        def >>[RW <: Int](shift: DFValOf[DFUInt[RW]])(using
-            DFC
+        def >>[R](shift: Exact[R])(using
+            c: DFUInt.Val.UBArg[W, R],
+            dfc: DFC
         ): DFValOf[DFBits[W]] =
-          DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shift))
+          val shiftVal = c(lhs.width, shift)
+          DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shiftVal))
         @targetName("shiftLeftDFBits")
-        def <<[RW <: Int](shift: DFValOf[DFUInt[RW]])(using
-            DFC
+        def <<[R](shift: Exact[R])(using
+            c: DFUInt.Val.UBArg[W, R],
+            dfc: DFC
         ): DFValOf[DFBits[W]] =
-          DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shift))
+          val shiftVal = c(lhs.width, shift)
+          DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
       end extension
       extension [L](inline lhs: L)
         inline def ++[RW <: Int](

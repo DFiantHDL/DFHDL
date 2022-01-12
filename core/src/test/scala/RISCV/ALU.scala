@@ -13,7 +13,7 @@ class ALU(using DFC) extends DFDesign:
   private val op2u  = op2.uint
   private val op1s  = op1.sint
   private val op2s  = op2.sint
-  private val shamt = op2(4, 0).uint
+  private val shamt = op2(4, 0)
 
   import ALUSel.*
   val outCalc: DFBits[32] <> VAL = aluSel match

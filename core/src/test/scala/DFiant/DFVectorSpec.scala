@@ -34,12 +34,12 @@ class DFVectorSpec extends DFSpec:
       val i2 = DFUInt(4) <> VAR
       val t4 = v1(i)
       assertCompileError(
-        "The index width 4 is different than the expected width of the vector address 3"
+        "Expected argument width 3 but found: 4"
       )(
         """v1(i2)"""
       )
       assertCompileError(
-        "Index 5 is out of range of width/length 5"
+        "The argument must be smaller than the upper-bound 5 but found: 5"
       )(
         """v1(5)"""
       )

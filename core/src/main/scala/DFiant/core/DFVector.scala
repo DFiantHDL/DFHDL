@@ -178,23 +178,14 @@ object DFVector:
           lhs: DFVal[DFVector[T, Tuple1[D1]], M]
       )
         @targetName("applyDFVector")
-        def apply[I <: Int](
-            idx: Inlined[I]
+        def apply[I](
+            idx: Exact[I]
         )(using
-            dfc: DFC,
-            check: BitIndex.Check[I, D1]
-        ): DFVal[T, M] =
-          check(idx, lhs.dfType.cellDims.head)
-          DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idx)
-        @targetName("applyDFVector")
-        def apply[IW <: Int](
-            idx: DFUInt[IW] <> VAL
-        )(using info: IntInfo[D1 - 1])(using
-            check: IndexWidth.Check[IW, info.OutW],
+            c: DFUInt.Val.UBArg[D1, I],
             dfc: DFC
         ): DFVal[T, M] =
-          check(idx.width, info.width(lhs.dfType.cellDims.head - 1))
-          DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idx)
+          val idxVal = c(Inlined.forced[D1](lhs.dfType.cellDims.head), idx)
+          DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idxVal)
       end extension
     end Ops
   end Val

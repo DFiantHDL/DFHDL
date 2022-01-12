@@ -332,15 +332,6 @@ private object CompanionsDFVal:
           )
         alias.addMember.asVal[T, M]
       end apply
-      def apply[T <: DFTypeAny, W <: Int, M <: Modifier, I <: Int](
-          dfType: T,
-          relVal: DFVal[DFTypeAny, M],
-          relIdx: Inlined[I]
-      )(using dfc: DFC, info: IntInfo[I]): DFVal[T, M] =
-        val idxConst = Const(
-          DFXInt.Token(false, info.width(relIdx), Some(relIdx.value))
-        )
-        apply(dfType, relVal, idxConst)
     end ApplyIdx
     object SelectField:
       def apply[T <: DFTypeAny, M <: Modifier](
