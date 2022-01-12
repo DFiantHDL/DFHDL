@@ -155,6 +155,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
 
   override def transformIf(tree: If)(using Context): Tree =
     if (replaceIfs.contains(tree.srcPos.show))
+      errorWhenToken(tree)
       debug("=======================")
       val dfcTree = dfcStack.head
       val combinedTpe = tree.tpe
@@ -814,6 +815,22 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     mkTuple(List(patternTree, guardTree, blockTree))
   end transformDFCase
 
+  private def errorWhenToken(tree: Tree)(using Context): Unit =
+    val control = tree match
+      case _: If    => "if"
+      case _: Match => "match"
+    tree.tpe.simple match
+      case AppliedType(tycon, _)
+          if tycon <:< requiredClassRef(
+            "DFiant.core.DFToken"
+          ) =>
+        report.error(
+          s"This dataflow `$control` is missing an explicit type annotation.",
+          tree.srcPos
+        )
+      case _ =>
+  end errorWhenToken
+
   override def transformMatch(tree: Match)(using Context): Tree =
     given valDefGen: ValDefGen = new ValDefGen
     tree.selector match
@@ -842,6 +859,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             FromCore.dfMatchFromCases(defn.UnitType, newSelector, cases, true)
           Block(valDefGen.getValDefs :+ dfMatch, tupleRet)
         else
+          errorWhenToken(tree)
           val cases =
             tree.cases.map(c => transformDFCase(newSelector, c, tree.tpe))
           val dfMatch =
@@ -853,28 +871,6 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     end match
   end transformMatch
 
-//  override def transformValDef(tree: ValDef)(using Context): Tree =
-//    given valDefGen: ValDefGen = new ValDefGen
-//    if (tree.name.toString == "$1$")
-//      tree.rhs match
-//        case DFTupleVal(tupleMatchTree) =>
-//          val matchRetTree =
-//            valDefGen.mkSelectValDef("match_ret", tupleMatchTree)
-//          val AppliedType(_, partTpes) = tree.tpe.simple
-//          val partTrees = partTpes.zipWithIndex.map((p, i) =>
-//            ref(requiredMethod("DFiant.core.__For_Plugin.structDFValSelect"))
-//              .appliedToType(p)
-//              .appliedToArgs(
-//                List(matchRetTree, Literal(Constant(s"_${i + 1}")))
-//              )
-//              .appliedTo(dfcStack.head)
-//          )
-//          val tplTree = mkTuple(partTrees)
-//          val updatedRHS = Block(valDefGen.getValDefs, tplTree)
-//          ValDef(tree.symbol.asTerm, updatedRHS)
-//        case _ => tree
-//    else tree
-//  end transformValDef
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     ignoreIfs.clear()

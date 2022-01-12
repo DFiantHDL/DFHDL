@@ -58,7 +58,7 @@ lazy val core = project
     name := s"$projectName-core",
     settings,
     pluginTestUseSettings,
-    libraryDependencies ++= commonDependencies
+    libraryDependencies ++= commonDependencies :+ dependencies.scalafmt
   )
   .dependsOn(
     plugin,
@@ -82,9 +82,11 @@ lazy val dependencies =
   new {
     private val scodecV = "1.1.30"
     private val munitV = "0.7.29"
+    private val scalafmtV = "3.3.1"
 
     val scodec = "org.scodec" %% "scodec-bits" % scodecV
     val munit = "org.scalameta" %% "munit" % munitV % Test
+    val scalafmt = ("org.scalameta" %% "scalafmt-dynamic" % scalafmtV).cross(CrossVersion.for3Use2_13)
   }
 
 lazy val commonDependencies = Seq(

@@ -803,6 +803,12 @@ private object CompanionsDFBits:
             lhs,
             _.resizeToken(updatedWidth)
           )
+        def ++[R](rhs: Exact[R])(using c: Candidate[R])(using
+            dfc: DFC
+        ): DFValOf[DFBits[W + c.OutW]] =
+          val rhsVal = c(rhs)
+          val width = lhs.width + rhsVal.width
+          DFVal.Func(DFBits(width), FuncOp.++, List(lhs, rhsVal))
         def &[R](rhs: Exact[R])(using c: Candidate[R])(using
             dfc: DFC,
             check: `LW == RW`.Check[W, c.OutW]
@@ -836,6 +842,15 @@ private object CompanionsDFBits:
           DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shift))
       end extension
       extension [L](inline lhs: L)
+        inline def ++[RW <: Int](
+            rhs: DFBits[RW] <> VAL
+        )(using es: Exact.Summon[L, lhs.type])(using
+            dfc: DFC,
+            c: Candidate[es.Out]
+        ): DFBits[c.OutW + RW] <> VAL =
+          val lhsVal = c(es(lhs))
+          val width = lhsVal.width + rhs.width
+          DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhs))
         inline def &[RW <: Int](
             rhs: DFBits[RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using

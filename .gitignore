@@ -22,3 +22,4 @@ sandbox/
 /.bloop/**
 /project/.bloop/**
 /.vscode/**
+project/metals.sbt

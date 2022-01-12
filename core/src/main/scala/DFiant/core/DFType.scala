@@ -23,8 +23,8 @@ val NoType = new DFType[ir.NoType.type, NoArgs](ir.NoType)
 object DFType:
   type Of[T <: Supported] <: DFTypeAny = T match
     case DFTypeAny => T <:! DFTypeAny
-    case Product   => FromProduct[T]
     case DFOpaqueA => DFOpaque[T]
+    case Product   => FromProduct[T]
 
   type FromProduct[T <: Product] <: DFTypeAny = T match
     case DFEncoding      => DFEnum[T]
@@ -67,7 +67,7 @@ object DFType:
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
-  type Supported = DFTypeAny | DFEncoding | AnyRef
+  type Supported = DFTypeAny | DFEncoding | DFOpaqueA | AnyRef
   object Ops:
     extension [T <: Supported](t: T)
       def <>[M <: ir.DFVal.Modifier](modifier: M)(using
