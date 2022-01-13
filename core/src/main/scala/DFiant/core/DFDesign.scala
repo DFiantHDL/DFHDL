@@ -3,11 +3,7 @@ import DFiant.internals.*
 import DFiant.compiler.ir
 import DFiant.compiler.printing.*
 
-abstract class DFDesign(using DFC)
-    extends OnCreateEvents,
-      LateConstruction,
-      HasTypeName,
-      HasDFC:
+abstract class DFDesign(using DFC) extends OnCreateEvents, LateConstruction, HasTypeName, HasDFC:
   final val dfc: DFC = summon[DFC]
   private final val owner: DFOwner = DFDesign.Block(typeName)
   dfc.enterOwner(owner)

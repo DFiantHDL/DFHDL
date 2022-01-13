@@ -4,8 +4,7 @@ import munit.*
 class DFStructSpec extends DFSpec:
   class CCs[W <: Int]:
     case class XY(x: DFBits[W] <> VAL, y: DFUInt[W] <> VAL) extends DFStruct
-    case class XYZ(x: DFUInt[W] <> VAL, y: DFBits[W] <> VAL, z: DFBit <> VAL)
-        extends DFStruct
+    case class XYZ(x: DFUInt[W] <> VAL, y: DFBits[W] <> VAL, z: DFBit <> VAL) extends DFStruct
 
   val cc = new CCs[8]
   import cc.{XY, XYZ}

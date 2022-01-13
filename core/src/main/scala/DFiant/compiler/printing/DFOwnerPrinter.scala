@@ -49,9 +49,9 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       MemberGetSet
   ): String =
     ifBlock.prevBlockOrHeaderRef.get match
-      case _: DFConditional.Header => s"if (${ifBlock.condRef.refCodeString})"
+      case _: DFConditional.Header      => s"if (${ifBlock.condRef.refCodeString})"
       case _ if ifBlock.condRef.isEmpty => s"else"
-      case _ => s"else if (${ifBlock.condRef.refCodeString})"
+      case _                            => s"else if (${ifBlock.condRef.refCodeString})"
   def csDFCasePattern(pattern: DFConditional.DFCaseBlock.Pattern)(using
       MemberGetSet
   ): String = pattern match

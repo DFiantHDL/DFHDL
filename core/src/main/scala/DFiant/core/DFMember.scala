@@ -23,14 +23,10 @@ extension [M <: ir.DFMember](member: M)
     import dfc.getSet
     member
       .setTags(_.tag(customTag))
-      .setMeta(m =>
-        if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m
-      )
+      .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
   def removeTagOf[CT <: ir.DFTag: ClassTag](using dfc: DFC): M =
     import dfc.getSet
     member
       .setTags(_.removeTagOf[CT])
-      .setMeta(m =>
-        if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m
-      )
+      .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
 end extension

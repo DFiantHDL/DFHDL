@@ -95,7 +95,7 @@ object DFBoolOrBit:
             case FuncOp.|   => Some(l || r)
             case FuncOp.&   => Some(l && r)
             case FuncOp.^   => Some(l ^ r)
-            case _ => throw new IllegalArgumentException("Unsupported Op")
+            case _          => throw new IllegalArgumentException("Unsupported Op")
         case _ => None
       Token(dfType, dataOut)
     end logicOp
@@ -108,8 +108,7 @@ object DFBoolOrBit:
 
     object Compare:
       import DFToken.Compare
-      given DFBoolOrBitCompare[T <: DFBoolOrBit, R, Op <: FuncOp, C <: Boolean](
-          using
+      given DFBoolOrBitCompare[T <: DFBoolOrBit, R, Op <: FuncOp, C <: Boolean](using
           ic: Candidate[R],
           op: ValueOf[Op],
           castle: ValueOf[C]
@@ -168,10 +167,10 @@ object DFBoolOrBit:
       ): Candidate[R] = new Candidate[R]:
         type OutT = ic.OutT
         def apply(arg: R)(using DFC): DFValOf[OutT] = DFVal.Const(ic(arg))
-      transparent inline given fromDFBoolOrBitVal[T <: DFBoolOrBit]
-          : Candidate[T <> VAL] = new Candidate[T <> VAL]:
-        type OutT = T
-        def apply(arg: T <> VAL)(using DFC): T <> VAL = arg
+      transparent inline given fromDFBoolOrBitVal[T <: DFBoolOrBit]: Candidate[T <> VAL] =
+        new Candidate[T <> VAL]:
+          type OutT = T
+          def apply(arg: T <> VAL)(using DFC): T <> VAL = arg
 
     private def b2b[T <: DFBoolOrBit, R](dfType: T, arg: R)(using
         ic: Candidate[R],
@@ -197,8 +196,7 @@ object DFBoolOrBit:
 
     object Compare:
       import DFVal.Compare
-      given DFBoolOrBitCompare[T <: DFBoolOrBit, R, Op <: FuncOp, C <: Boolean](
-          using
+      given DFBoolOrBitCompare[T <: DFBoolOrBit, R, Op <: FuncOp, C <: Boolean](using
           DFC,
           Candidate[R],
           ValueOf[Op],

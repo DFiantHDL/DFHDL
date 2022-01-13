@@ -19,10 +19,10 @@ object TopLevel:
           .of[Any]
           .memberType(topOwner)
           .baseClasses
-          .contains(appSymbol) || //Top owner is the main object
+          .contains(appSymbol) || // Top owner is the main object
         Symbol.spliceOwner.owner.annotations.exists(a => a.tpe <:< mainTpe) ||
-        topOwner.name.toString == "$read" || //Top owner is REPL console
-        topOwner.fullName.startsWith("ammonite.") //ammonite console
+        topOwner.name.toString == "$read" || // Top owner is REPL console
+        topOwner.fullName.startsWith("ammonite.") // ammonite console
 
     if (isTop) '{ new TopLevel {} }
     else

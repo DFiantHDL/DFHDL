@@ -48,9 +48,7 @@ object DFStruct:
       case '[NonEmptyTuple] =>
         (
           "",
-          fTpe.getTupleArgs.zipWithIndex.map((t, i) =>
-            (s"_${i + 1}", t.asTypeOf[Any])
-          )
+          fTpe.getTupleArgs.zipWithIndex.map((t, i) => (s"_${i + 1}", t.asTypeOf[Any]))
         )
       case _ =>
         val clsSym = fTpe.classSymbol.get
@@ -65,9 +63,8 @@ object DFStruct:
     }.toList
     if (fieldErrors.isEmpty)
       val fieldNames: List[Expr[String]] = fields.map((n, _) => Expr(n)).toList
-      val fieldTypes: List[Expr[DFTypeAny]] = fields.collect {
-        case (_, '[DFValOf[t]]) =>
-          '{ compiletime.summonInline[t] }
+      val fieldTypes: List[Expr[DFTypeAny]] = fields.collect { case (_, '[DFValOf[t]]) =>
+        '{ compiletime.summonInline[t] }
       }.toList
       val fieldNamesExpr = Varargs(fieldNames)
       val fieldTypesExpr = Varargs(fieldTypes)

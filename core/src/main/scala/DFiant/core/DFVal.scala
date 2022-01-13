@@ -49,8 +49,7 @@ object DFVal:
   trait Refiner[T <: FieldsOrTuple, M <: Modifier]:
     type Out <: DFVal[DFStruct[T], M]
   object Refiner:
-    transparent inline given [T <: FieldsOrTuple, M <: Modifier]
-        : Refiner[T, M] = ${
+    transparent inline given [T <: FieldsOrTuple, M <: Modifier]: Refiner[T, M] = ${
       refineMacro[T, M]
     }
     def refineMacro[T <: FieldsOrTuple, M <: Modifier](using
@@ -345,8 +344,7 @@ private object CompanionsDFVal:
           // in case the referenced value is anonymous and concatenates fields
           // of values, then we just directly reference the relevant
           // value.
-          case ir.DFVal.Func(_, FuncOp.++, args, _, meta, _)
-              if meta.isAnonymous =>
+          case ir.DFVal.Func(_, FuncOp.++, args, _, meta, _) if meta.isAnonymous =>
             import dfc.getSet
             val idx = fieldMap.keys.toList.indexWhere(_ == fieldName)
             args(idx).get.asVal[T, M]
@@ -421,8 +419,7 @@ private object CompanionsDFVal:
     export DFStruct.Val.TC.given
   end TC
 
-  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]
-      extends TCConv[T, V, DFValAny]:
+  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
     type Out = DFValOf[T]
     final protected def func(arg1: DFValAny, arg2: DFValAny)(using
         DFC,

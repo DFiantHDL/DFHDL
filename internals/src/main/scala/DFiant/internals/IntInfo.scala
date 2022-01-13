@@ -13,7 +13,7 @@ object IntInfo:
     if (value == -1) 2
     else if (value < 0) 33 - Integer.numberOfLeadingZeros(-value - 1)
     else if (value > 0) 32 - Integer.numberOfLeadingZeros(value)
-    else 1 //value == 0
+    else 1 // value == 0
 
   transparent inline given [V <: Int]: IntInfo[V] =
     ${ macroImpl[V] }

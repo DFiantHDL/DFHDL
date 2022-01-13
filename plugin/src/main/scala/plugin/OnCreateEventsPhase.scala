@@ -59,7 +59,7 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
       tree match
         case Apply(Select(clsTree @ New(id), _), _) =>
           val sym = id.symbol
-          //An object's onCreate is handled under `transformStats`
+          // An object's onCreate is handled under `transformStats`
           if (clsTree.tpe <:< onCreateEventsTpe && !sym.is(Module))
             Some(sym.asClass)
           else None

@@ -45,8 +45,7 @@ object DFDecimal:
           Boolean,
           Int,
           [s <: Boolean, n <: Int] =>> ITE[s, true, n >= 0],
-          [s <: Boolean,
-          n <: Int] =>> "Unsigned value must be natural, but found: " + n
+          [s <: Boolean, n <: Int] =>> "Unsigned value must be natural, but found: " + n
         ]
 
     object `LW >= RW`
@@ -71,8 +70,7 @@ object DFDecimal:
           Int,
           Int,
           [ValW <: Int, ArgW <: Int] =>> ValW >= ArgW,
-          [ValW <: Int,
-          ArgW <: Int] =>> "Cannot compare a dataflow value (width = " + ValW +
+          [ValW <: Int, ArgW <: Int] =>> "Cannot compare a dataflow value (width = " + ValW +
             ") with a Scala `Int` argument that is wider (width = " + ArgW + ").\nAn explicit conversion must be applied."
         ]
     object `LS >= RS`
@@ -80,8 +78,7 @@ object DFDecimal:
           Boolean,
           Boolean,
           [LS <: Boolean, RS <: Boolean] =>> LS || ![RS],
-          [LS <: Boolean,
-          RS <: Boolean] =>> "Cannot apply a signed value to an unsigned variable."
+          [LS <: Boolean, RS <: Boolean] =>> "Cannot apply a signed value to an unsigned variable."
         ]
     type SignStr[S <: Boolean] = ITE[S, "a signed", "an unsigned"]
     object `LS == RS`
@@ -89,8 +86,7 @@ object DFDecimal:
           Boolean,
           Boolean,
           [LS <: Boolean, RS <: Boolean] =>> LS == RS,
-          [LS <: Boolean,
-          RS <: Boolean] =>> "Cannot apply this operation between " +
+          [LS <: Boolean, RS <: Boolean] =>> "Cannot apply this operation between " +
             ITE[LS, "a signed", "an unsigned"] +
             " value (LHS) and " +
             ITE[RS, "a signed", "an unsigned"] +
@@ -217,9 +213,7 @@ object DFDecimal:
         val skipSignChecks: Boolean =
           argIsInt.value && !castle && (dfValDFType.signed || !argDFType.signed)
         val argWFix: Int =
-          if (
-            argIsInt.value && !castle && dfValDFType.signed && !argDFType.signed
-          )
+          if (argIsInt.value && !castle && dfValDFType.signed && !argDFType.signed)
             argDFType.width + 1
           else argDFType.width
         if (!skipSignChecks)
@@ -374,19 +368,19 @@ object DFDecimal:
         ): Expr[DFTokenAny] =
           import quotes.reflect.*
           val signedForced = signedForcedExpr.value.get
-          val (signedTpe, widthTpe, fractionWidthTpe)
-              : (TypeRepr, TypeRepr, TypeRepr) = fullTerm match
-            case Literal(StringConstant(t)) =>
-              fromDecString(t, signedForced) match
-                case Right((signed, width, fractionWidth, _)) =>
-                  (
-                    ConstantType(BooleanConstant(signed)),
-                    ConstantType(IntConstant(width)),
-                    ConstantType(IntConstant(fractionWidth))
-                  )
-                case Left(msg) =>
-                  report.errorAndAbort(msg)
-            case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
+          val (signedTpe, widthTpe, fractionWidthTpe): (TypeRepr, TypeRepr, TypeRepr) =
+            fullTerm match
+              case Literal(StringConstant(t)) =>
+                fromDecString(t, signedForced) match
+                  case Right((signed, width, fractionWidth, _)) =>
+                    (
+                      ConstantType(BooleanConstant(signed)),
+                      ConstantType(IntConstant(width)),
+                      ConstantType(IntConstant(fractionWidth))
+                    )
+                  case Left(msg) =>
+                    report.errorAndAbort(msg)
+              case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
           val signedType = signedTpe.asTypeOf[Boolean]
           val widthType = widthTpe.asTypeOf[Int]
           val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
@@ -516,15 +510,13 @@ object DFXInt:
         type IsScalaInt = true
         def apply(arg: Int): Token[OutS, OutW] =
           Token(info.signed(arg), info.width(arg), Some(arg))
-      transparent inline given fromDFXIntToken[W <: Int, S <: Boolean]
-          : Candidate[Token[S, W]] =
+      transparent inline given fromDFXIntToken[W <: Int, S <: Boolean]: Candidate[Token[S, W]] =
         new Candidate[Token[S, W]]:
           type OutS = S
           type OutW = W
           type IsScalaInt = false
           def apply(arg: Token[S, W]): Token[S, W] = arg
-      transparent inline given fromDFBitsToken[W <: Int]
-          : Candidate[DFBits.Token[W]] =
+      transparent inline given fromDFBitsToken[W <: Int]: Candidate[DFBits.Token[W]] =
         new Candidate[DFBits.Token[W]]:
           type OutS = false
           type OutW = W
@@ -588,7 +580,7 @@ object DFXInt:
                 case Op.>   => Some(l > r)
                 case Op.<=  => Some(l <= r)
                 case Op.>=  => Some(l >= r)
-                case _ => throw new IllegalArgumentException("Unsupported Op")
+                case _      => throw new IllegalArgumentException("Unsupported Op")
             case _ => None
           DFBoolOrBit.Token(DFBool, outData)
         end apply
@@ -881,8 +873,7 @@ object DFXInt:
         type IsScalaInt = ic.IsScalaInt
         def apply(arg: R)(using DFC): DFValOf[DFXInt[OutS, OutW]] =
           DFVal.Const(ic(arg))
-      given fromDFXIntVal[S <: Boolean, W <: Int]
-          : Candidate[DFValOf[DFXInt[S, W]]] with
+      given fromDFXIntVal[S <: Boolean, W <: Int]: Candidate[DFValOf[DFXInt[S, W]]] with
         type OutS = S
         type OutW = W
         type IsScalaInt = false
@@ -1262,8 +1253,7 @@ object DFUInt:
         Int,
         Int,
         [UBW <: Int, RW <: Int] =>> UBW == RW,
-        [UBW <: Int,
-        RW <: Int] =>> "Expected argument width " + UBW + " but found: " + RW
+        [UBW <: Int, RW <: Int] =>> "Expected argument width " + UBW + " but found: " + RW
       ]
 
   type Token[W <: Int] = DFDecimal.Token[false, W, 0]

@@ -39,8 +39,7 @@ protected trait DFTokenPrinter extends AbstractPrinter:
     def toBinString(bubbleChar: Char): String =
       binZip(valueBits, bubbleBits, bubbleChar)
     def toHexString(bubbleChar: Char, allowBinMode: Boolean): Option[String] =
-      if (width % 4 == 0)
-        hexZip(valueBits, bubbleBits, bubbleChar, allowBinMode)
+      if (width % 4 == 0) hexZip(valueBits, bubbleBits, bubbleChar, allowBinMode)
       else
         val headWidth = width % 4
         val (headValue, theRestValue) = valueBits.splitAt(headWidth)

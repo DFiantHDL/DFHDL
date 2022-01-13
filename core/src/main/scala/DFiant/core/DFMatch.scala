@@ -48,15 +48,12 @@ object DFMatch:
     val firstCase =
       singleCase(cases.head._1, cases.head._2, header, firstCaseRun)
     val (retDFType, _) =
-      cases.drop(1).foldLeft(firstCase) {
-        case ((prevDFType, prevBlock), curCase) =>
-          val (dfType, block) =
-            singleCase(curCase._1, curCase._2, prevBlock, curCase._3)(using
-              dfcAnon
-            )
-          val commonDFType =
-            if (dfType.asIR == prevDFType.asIR) prevDFType else NoType
-          (commonDFType, block)
+      cases.drop(1).foldLeft(firstCase) { case ((prevDFType, prevBlock), curCase) =>
+        val (dfType, block) =
+          singleCase(curCase._1, curCase._2, prevBlock, curCase._3)(using dfcAnon)
+        val commonDFType =
+          if (dfType.asIR == prevDFType.asIR) prevDFType else NoType
+        (commonDFType, block)
       }
     retDFType match
       case NoType => firstCaseRet.get

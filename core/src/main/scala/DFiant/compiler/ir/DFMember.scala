@@ -49,8 +49,8 @@ sealed trait DFMember extends Product, Serializable derives CanEqual:
   // true if and only if the member is outside the design at any level
   final def isOutsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
     !isInsideOwner(that)
-  @tailrec private def isInsideOwner(thisMember: DFMember, thatOwner: DFOwner)(
-      using MemberGetSet
+  @tailrec private def isInsideOwner(thisMember: DFMember, thatOwner: DFOwner)(using
+      MemberGetSet
   ): Boolean =
     (thisMember.getOwner, thatOwner) match
       case (a, b) if a == b         => true
@@ -74,8 +74,7 @@ object DFMember:
     def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
       val designOwner = callOwner.getThisOrOwnerDesign
       if (this isMemberOfDesign designOwner) name
-      else if (getOwnerDesign isOneLevelBelow designOwner)
-        s"${getOwnerDesign.name}.$name"
+      else if (getOwnerDesign isOneLevelBelow designOwner) s"${getOwnerDesign.name}.$name"
       else if (callOwner isInsideOwner this.getOwnerDesign) name
       else
         // more complex referencing just summons the two owner chains and compares them.
@@ -375,8 +374,7 @@ object DFConditional:
             case that: Alternative =>
               this.list.lazyZip(that.list).forall(_ =~ _)
             case _ => false
-      final case class Struct(name: String, list: List[Pattern])
-          extends Pattern:
+      final case class Struct(name: String, list: List[Pattern]) extends Pattern:
         def =~(that: Pattern)(using MemberGetSet): Boolean =
           that match
             case that: Struct =>

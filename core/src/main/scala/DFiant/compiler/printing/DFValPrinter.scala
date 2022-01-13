@@ -20,7 +20,7 @@ extension (ref: DFVal.Ref)
   ): String =
     ref.get match
       case DFVal.Const(DFDecimal.Token(_, Some(i)), _, _, _) => i.toString
-      case _ => ref.refCodeString
+      case _                                                 => ref.refCodeString
 end extension
 
 extension (alias: Alias)
@@ -49,8 +49,7 @@ protected trait DFValPrinter extends AbstractPrinter:
             s"${dfVal.op}${dfVal.op}"
           // if the result width for +/-/* ops is larger than the left argument width
           // then we have a carry-inclusive operation
-          case Func.Op.+ | Func.Op.- | Func.Op.`*`
-              if dfVal.dfType.width > argL.get.dfType.width =>
+          case Func.Op.+ | Func.Op.- | Func.Op.`*` if dfVal.dfType.width > argL.get.dfType.width =>
             s"${dfVal.op}^"
           case op => op.toString
         val rhsStr = dfVal.op match

@@ -56,8 +56,7 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
             ValueOf[constTpe.Underlying](${ term.asExpr })
           }
         expr.asTerm.underlyingArgument
-      case t @ Apply(TypeApply(fun, _), tupleArgs)
-          if t.tpe <:< TypeRepr.of[NonEmptyTuple] =>
+      case t @ Apply(TypeApply(fun, _), tupleArgs) if t.tpe <:< TypeRepr.of[NonEmptyTuple] =>
         val terms = tupleArgs.map(t => t.exactTerm)
         val tpes = terms.map(_.tpe)
         val AppliedType(tycon, _) = t.tpe
@@ -91,8 +90,7 @@ object Exact:
       new Summon[R, T]:
         type Out = R
         def apply(t: R): Out = t
-    transparent inline given fromExactTypes[R <: ExactTypes, T <: R]
-        : Summon[R, T] =
+    transparent inline given fromExactTypes[R <: ExactTypes, T <: R]: Summon[R, T] =
       ${ summonMacro[R, T] }
     def summonMacro[R, T <: R](using
         Quotes,

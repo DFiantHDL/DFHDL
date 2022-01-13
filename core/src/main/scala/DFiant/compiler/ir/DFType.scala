@@ -176,9 +176,7 @@ final case class DFStruct(
   val width: Int = fieldMap.values.map(_.width).sum
   def createBubbleData: Data = fieldMap.values.map(_.createBubbleData).toList
   def isDataBubble(data: Data): Boolean =
-    (fieldMap.values lazyZip data).exists((ft, fd) =>
-      ft.isDataBubble(fd.asInstanceOf[ft.Data])
-    )
+    (fieldMap.values lazyZip data).exists((ft, fd) => ft.isDataBubble(fd.asInstanceOf[ft.Data]))
   def dataToBitsData(data: Data): (BitVector, BitVector) =
     (fieldMap.values lazyZip data)
       .map((ft, fd) => ft.dataToBitsData(fd.asInstanceOf[ft.Data]))

@@ -92,8 +92,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     def nameCheck(posTree: Tree)(using Context): String =
       val finalName = posTree.symbol.annotations
         .collectFirst {
-          case ann
-              if ann.symbol.fullName.toString == "scala.annotation.targetName" =>
+          case ann if ann.symbol.fullName.toString == "scala.annotation.targetName" =>
             ann.argumentConstantString(0).get
         }
         .getOrElse(name)
@@ -214,12 +213,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           ownerTree,
           Some(inlinedPosOpt.getOrElse(inlined.srcPos))
         )
-      case Block((cls @ TypeDef(_, template: Template)) :: _, _)
-          if cls.symbol.isAnonymousClass =>
+      case Block((cls @ TypeDef(_, template: Template)) :: _, _) if cls.symbol.isAnonymousClass =>
         debug("Block done!")
-        template.parents.foreach(p =>
-          addToTreeOwnerMap(p, ownerTree)(using inlinedPosOpt)
-        )
+        template.parents.foreach(p => addToTreeOwnerMap(p, ownerTree)(using inlinedPosOpt))
       case block: Block =>
         debug("Block expr")
         nameValOrDef(block.expr, ownerTree, inlinedPosOpt)
@@ -301,9 +297,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     ctx
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
-    if (
-      !tree.symbol.isClassConstructor && !tree.name.toString.contains("$proxy")
-    )
+    if (!tree.symbol.isClassConstructor && !tree.name.toString.contains("$proxy"))
       addContextDef(tree)
       nameValOrDef(tree.rhs, tree, None)
     ctx

@@ -60,7 +60,7 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
             '{ !${ arg0.asExprOf[Boolean] } }
           case "Negate" =>
             '{ -${ arg0.asExprOf[Int] } }
-          case "ITE" => //if-then-else
+          case "ITE" => // if-then-else
             '{
               if (${ arg0.asExprOf[Boolean] }) ${ arg1.asExpr }
               else ${ arg2.asExpr }
@@ -103,7 +103,7 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
     condValueTpe.dealias match
       case ConstantType(BooleanConstant(cond)) =>
         if (cond)
-          '{} //the condition is satisfied, hence the apply method does nothing
+          '{} // the condition is satisfied, hence the apply method does nothing
         else
           msgValueTpe.dealias match
             case ConstantType(StringConstant(msg)) =>

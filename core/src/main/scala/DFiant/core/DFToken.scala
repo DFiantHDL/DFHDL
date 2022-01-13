@@ -8,9 +8,7 @@ import scala.quoted.*
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 
-final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny)
-    extends AnyVal
-    with Selectable:
+final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny) extends AnyVal with Selectable:
 
   def selectDynamic(name: String): Any =
     val ir.DFStruct(structName, fieldMap) = value.dfType
@@ -41,8 +39,7 @@ final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny)
 end DFToken
 
 type DFTokenAny = DFToken[DFTypeAny]
-extension (tokenIR: ir.DFTokenAny)
-  def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
+extension (tokenIR: ir.DFTokenAny) def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
 
 object DFToken:
   trait Refiner[T <: FieldsOrTuple]:
@@ -90,10 +87,7 @@ object DFToken:
       val c = compiletime.summonInline[
         DFToken.Compare[T, exactType.Underlying, Op, false]
       ]
-      c($token, $exactExpr)(using
-        compiletime.summonInline[ValueOf[Op]],
-        new ValueOf[false](false)
-      )
+      c($token, $exactExpr)(using compiletime.summonInline[ValueOf[Op]], new ValueOf[false](false))
     }
   end equalityMacro
 
@@ -163,8 +157,7 @@ object DFToken:
   end TC
 
   @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
-  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean]
-      extends TCConv[T, V, DFTokenAny]:
+  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFTokenAny]:
     type Out = DFToken[T]
     def apply(token: DFToken[T], arg: V)(using
         op: ValueOf[Op],

@@ -7,11 +7,7 @@ import analysis.*
 protected trait AbstractPrinter:
   given printer: Printer
 
-trait Printer
-    extends DFTypePrinter,
-      DFTokenPrinter,
-      DFValPrinter,
-      DFOwnerPrinter:
+trait Printer extends DFTypePrinter, DFTokenPrinter, DFValPrinter, DFOwnerPrinter:
   given printer: Printer = this
   def csDFNet(net: DFNet)(using MemberGetSet): String =
     import net.*
@@ -33,8 +29,7 @@ trait Printer
     val codeStringList = db.blockMemberList.flatMap {
 //      case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
 //      case (d @ realtime.RTExternal.Block(), _) => None
-      case (block: DFDesignBlock, members)
-          if !uniqueDesigns.contains(block.designType) =>
+      case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.designType) =>
         uniqueDesigns += block.designType
         Some(csDFDesignBlockDcl(block))
       case _ => None

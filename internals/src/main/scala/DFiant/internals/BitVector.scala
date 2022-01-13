@@ -15,7 +15,7 @@ extension (vec: BitVector)
     else if (newLength < vec.length) vec.drop(vec.length - newLength)
     else vec
   def revIdx(bitIdx: Long): Long =
-    vec.length - 1 - bitIdx //reverse index for BitVector
+    vec.length - 1 - bitIdx // reverse index for BitVector
   def bit(idx: Long): Boolean = vec(revIdx(idx))
   def bits(hiIdx: Long, loIdx: Long): BitVector =
     val riLoIdx = revIdx(hiIdx)
@@ -32,10 +32,10 @@ extension (vec: BitVector)
   def toShortString: String =
     val nibble = 4
     val lov = lengthOfValue
-    //narrowing the vector by removing all the leftest zeros
+    // narrowing the vector by removing all the leftest zeros
     val narrowVec = vec.takeRight(lov)
-    //default printing of bitvectors is padding-right in `toHex`.
-    //padding left is much more intuitive for us because we consider
+    // default printing of bitvectors is padding-right in `toHex`.
+    // padding left is much more intuitive for us because we consider
     // the leftest presented bit to be to MSbit.
     s"0x${narrowVec.padToMulsOf(nibble, false).toHex}"
   def toBigInt(signed: Boolean): BigInt =
@@ -44,8 +44,7 @@ extension (vec: BitVector)
     BigInt(ext.padToMulsOf(8, signed).toByteArray)
 end extension
 
-extension (iter: Iterable[BitVector])
-  def bitsConcat: BitVector = iter.reduce(_ ++ _)
+extension (iter: Iterable[BitVector]) def bitsConcat: BitVector = iter.reduce(_ ++ _)
 
 extension (iter: Iterable[(BitVector, BitVector)])
   def bitsConcat: (BitVector, BitVector) =

@@ -8,7 +8,7 @@ object CommonOps:
       else if (value == 0)
         if (signed) 2 else 1
       else if (value == -1) 2
-      else value.bitLength + 1 //value < 0
+      else value.bitLength + 1 // value < 0
     def toBitVector(width: Int): BitVector =
       val vec = BitVector(value.toByteArray)
       if (value < 0 && vec.length < width)
@@ -21,8 +21,7 @@ object CommonOps:
     def asUnsigned: BigInt = asUnsigned(bitsWidth(false))
   end extension
 
-  extension (value: Int)
-    def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
+  extension (value: Int) def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
 
   extension [T](list: Iterable[T])(using CanEqual[T, T])
     @tailrec private def reduceTreeRecur(
@@ -45,7 +44,7 @@ object CommonOps:
   end extension
 
   extension (value: BigInt.type)
-    //get the maximum BigInt given a bits width
+    // get the maximum BigInt given a bits width
     def maxUnsignedFromWidth(width: Int): BigInt = BigInt(2).pow(width) - 1
     def maxSignedFromWidth(width: Int): BigInt = BigInt(2).pow(width - 1) - 1
     def minSignedFromWidth(width: Int): BigInt = -BigInt(2).pow(width - 1)
@@ -55,8 +54,7 @@ object CommonOps:
     def toPaddedString(maxValue: Int): String =
       s"%0${maxValue.toString.length}d".format(value)
 
-  extension (value: Boolean)
-    def toBitVector(width: Int): BitVector = BitVector.fill(width)(value)
+  extension (value: Boolean) def toBitVector(width: Int): BitVector = BitVector.fill(width)(value)
 
 end CommonOps
 

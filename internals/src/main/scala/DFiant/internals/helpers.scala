@@ -126,8 +126,7 @@ trait CaseClass[Companion <: AnyRef, UB <: Product]:
   type CC <: UB
 
 object CaseClass:
-  transparent inline given [Comp <: AnyRef, UB <: Product]
-      : CaseClass[Comp, UB] = ${
+  transparent inline given [Comp <: AnyRef, UB <: Product]: CaseClass[Comp, UB] = ${
     macroImpl[Comp, UB]
   }
   def macroImpl[Comp <: AnyRef, UB <: Product](using
@@ -139,7 +138,7 @@ object CaseClass:
     val compObjTpe = TypeRepr.of[Comp]
     val compPrefix = compObjTpe match
       case TermRef(pre, _) => pre
-      case _ => report.errorAndAbort("Case class companion must be a term ref")
+      case _               => report.errorAndAbort("Case class companion must be a term ref")
     val clsSym = compObjTpe.typeSymbol.companionClass
     if !clsSym.paramSymss.forall(_.headOption.forall(_.isTerm)) then
       report.errorAndAbort("Case class with type parameters are not supported")

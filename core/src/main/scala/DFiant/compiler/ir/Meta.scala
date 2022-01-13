@@ -9,5 +9,5 @@ final case class Meta(
   val isAnonymous: Boolean = nameOpt.isEmpty
   val name: String =
     nameOpt.getOrElse(s"anon${this.hashCode.toHexString}")
-  def anonymize : Meta = copy(nameOpt = None) 
+  def anonymize: Meta = copy(nameOpt = None)
   def =~(that: Meta): Boolean = this.nameOpt == that.nameOpt

@@ -83,8 +83,8 @@ object __For_Plugin:
   end bindValRange
   def patternBind(bindVal: DFValAny, pattern: Pattern)(using DFC): Pattern =
     Pattern.Bind(bindVal.asIR.ref, pattern)
-  def patternBindSI(op: String, parts: List[String], bindVals: List[DFValAny])(
-      using DFC
+  def patternBindSI(op: String, parts: List[String], bindVals: List[DFValAny])(using
+      DFC
   ): Pattern =
     Pattern.BindSI(op, parts, bindVals.map(_.asIR.ref))
 

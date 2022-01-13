@@ -35,7 +35,7 @@ final case class DB(
 
   lazy val top: DFDesignBlock = members.head match
     case m: DFDesignBlock => m
-    case _ => throw new IllegalArgumentException("Unexpected member as Top.")
+    case _                => throw new IllegalArgumentException("Unexpected member as Top.")
 
   @tailrec private def OMLGen[O <: DFOwner: ClassTag](
       getOwnerFunc: DFMember => O
@@ -119,8 +119,7 @@ final case class DB(
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
     Map(designMemberList: _*)
 
-  private def conditionalChainGen
-      : Map[DFConditional.Header, List[DFConditional.Block]] =
+  private def conditionalChainGen: Map[DFConditional.Header, List[DFConditional.Block]] =
     val handled = mutable.Set.empty[DFConditional.Block]
     members.foldRight(
       Map.empty[DFConditional.Header, List[DFConditional.Block]]
@@ -140,8 +139,7 @@ final case class DB(
     }
   end conditionalChainGen
   // Maps the conditional construct header with the entire case/ifelse block chain
-  lazy val conditionalChainTable
-      : Map[DFConditional.Header, List[DFConditional.Block]] =
+  lazy val conditionalChainTable: Map[DFConditional.Header, List[DFConditional.Block]] =
     conditionalChainGen
 end DB
 

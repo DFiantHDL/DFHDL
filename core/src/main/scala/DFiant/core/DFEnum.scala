@@ -30,8 +30,7 @@ object DFEncoding:
     final def calcWidth(entryCount: Int): Int = entryCount
     final def encode(idx: Int): BigInt = BigInt(1) << idx
 
-  abstract class Manual[W <: Int with Singleton](val width: W)
-      extends DFEncoding:
+  abstract class Manual[W <: Int with Singleton](val width: W) extends DFEncoding:
     val value: DFToken[DFUInt[W]]
     final def bigIntValue: BigInt =
       value.data.getOrElse(
@@ -73,8 +72,8 @@ object DFEnum:
       (field.getName, field.get(enumCompanion).asInstanceOf[DFEncoding])
     val name = enumCompanionCls.getSimpleName.replace("$", "")
     val width = fieldsAsPairs.head._2.calcWidth(fieldsAsPairs.size)
-    val entryPairs = fieldsAsPairs.zipWithIndex.map {
-      case ((name, entry), idx) => (name, entry.bigIntValue)
+    val entryPairs = fieldsAsPairs.zipWithIndex.map { case ((name, entry), idx) =>
+      (name, entry.bigIntValue)
     }
     ir.DFEnum(name, width, ListMap(entryPairs: _*)).asFE[DFEnum[E]]
   end apply

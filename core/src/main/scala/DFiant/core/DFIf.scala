@@ -40,13 +40,12 @@ object DFIf:
       firstIfRet.get
     val firstIf = singleBranch(Some(branches.head._1), header, firstIfRun)
     val midIfs =
-      branches.drop(1).foldLeft(firstIf) {
-        case ((prevDFType, prevBlock), branch) =>
-          val (dfType, block) =
-            singleBranch(Some(branch._1), prevBlock, branch._2)(using dfcAnon)
-          val commonDFType =
-            if (dfType.asIR == prevDFType.asIR) prevDFType else NoType
-          (commonDFType, block)
+      branches.drop(1).foldLeft(firstIf) { case ((prevDFType, prevBlock), branch) =>
+        val (dfType, block) =
+          singleBranch(Some(branch._1), prevBlock, branch._2)(using dfcAnon)
+        val commonDFType =
+          if (dfType.asIR == prevDFType.asIR) prevDFType else NoType
+        (commonDFType, block)
       }
     val retDFType = elseOption
       .map { e =>

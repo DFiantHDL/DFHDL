@@ -142,8 +142,7 @@ object DFTuple:
           Op <: FuncOp,
           C <: Boolean
       ](using
-          zipper: TCZipper[T, V, DFTokenAny, [T <: DFTypeAny,
-          R] =>> Compare[T, R, Op, C]]
+          zipper: TCZipper[T, V, DFTokenAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]]
       ): Compare[DFTuple[T], ValueOf[V], Op, C] with
         def conv(dfType: DFTuple[T], value: ValueOf[V]): Out =
           DFTuple.Token[T](
@@ -230,8 +229,7 @@ object DFTuple:
           Op <: FuncOp,
           C <: Boolean
       ](using
-          zipper: TCZipper[T, R, DFValAny, [T <: DFTypeAny,
-          R] =>> Compare[T, R, Op, C]],
+          zipper: TCZipper[T, R, DFValAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]],
           dfc: DFC
       ): Compare[DFTuple[T], ValueOf[R], Op, C] with
         def conv(dfType: DFTuple[T], value: ValueOf[R]): Out =

@@ -120,8 +120,7 @@ private object CompanionsDFBits:
       given DFBitsTokenConversionSing[W <: Int & Singleton, V](using
           tc: DFToken.TC[DFBits[W], V],
           w: ValueOf[W]
-      ): Conversion[V, DFBits[W] <> TOKEN] = value =>
-        tc(DFBits(valueOf[W]), value)
+      ): Conversion[V, DFBits[W] <> TOKEN] = value => tc(DFBits(valueOf[W]), value)
     end Conversions
 
     @implicitNotFound(
@@ -143,12 +142,12 @@ private object CompanionsDFBits:
         new Candidate[Token[W]]:
           type OutW = W
           def apply(arg: Token[W]): Token[OutW] = arg
-      transparent inline given fromDFUIntToken[W <: Int]
-          : Candidate[DFUInt.Token[W]] = new Candidate[DFUInt.Token[W]]:
-        type OutW = W
-        def apply(arg: DFUInt.Token[W]): Token[OutW] =
-          import DFToken.Ops.bits
-          arg.bits
+      transparent inline given fromDFUIntToken[W <: Int]: Candidate[DFUInt.Token[W]] =
+        new Candidate[DFUInt.Token[W]]:
+          type OutW = W
+          def apply(arg: DFUInt.Token[W]): Token[OutW] =
+            import DFToken.Ops.bits
+            arg.bits
       transparent inline given fromDFBitCandidate[R, T <: DFBoolOrBit](using
           ic: DFBoolOrBit.Token.Candidate.Aux[R, T]
       )(using T =:= DFBit): Candidate[R] = new Candidate[R]:
@@ -175,8 +174,9 @@ private object CompanionsDFBits:
             tokenOut
         end match
       end valueToBits
-      transparent inline given fromTuple[R <: NonEmptyTuple]
-          : Candidate[ValueOf[R]] = ${ DFBitsMacro[ValueOf[R]] }
+      transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[ValueOf[R]] = ${
+        DFBitsMacro[ValueOf[R]]
+      }
       def DFBitsMacro[R](using
           Quotes,
           Type[R]
@@ -214,8 +214,7 @@ private object CompanionsDFBits:
           check(dfType.width, tokenArg.asIR.width)
           tokenArg.asInstanceOf[Out]
 
-      given DFBitsTokenFromSEV[W <: Int, T <: BitOrBool]
-          : TC[DFBits[W], SameElementsVector[T]] with
+      given DFBitsTokenFromSEV[W <: Int, T <: BitOrBool]: TC[DFBits[W], SameElementsVector[T]] with
         def conv(dfType: DFBits[W], value: SameElementsVector[T]): Out =
           DFBits.Token(dfType.width, value)
     end TC
@@ -313,18 +312,14 @@ private object CompanionsDFBits:
         /** Binary Bits Vector Token String Interpolator
           *
           * Interpolator Syntax: {{{b"width'bin"}}}
-          *   - `bin` is a char sequence of '0', '1', and '?' (to indicate a bit
-          *     bubble).
-          *   - `bin` also allows separators of space ' ' or underscore '_' that
-          *     are ignored.
-          *   - `width` (with the following tag char `'`) is optional. If it's
-          *     not specified, the width is determined by the length of the char
-          *     sequence. Otherwise, the width is set as required. If the
-          *     required width is longer than the char sequence length, then
-          *     zeros are added as the MSBits. If the required width is shorter
-          *     then the char sequence, it is accepted only if the MSBits it is
-          *     truncating are zeros. Otherwise, a compilation error is
-          *     generated.
+          *   - `bin` is a char sequence of '0', '1', and '?' (to indicate a bit bubble).
+          *   - `bin` also allows separators of space ' ' or underscore '_' that are ignored.
+          *   - `width` (with the following tag char `'`) is optional. If it's not specified, the
+          *     width is determined by the length of the char sequence. Otherwise, the width is set
+          *     as required. If the required width is longer than the char sequence length, then
+          *     zeros are added as the MSBits. If the required width is shorter then the char
+          *     sequence, it is accepted only if the MSBits it is truncating are zeros. Otherwise, a
+          *     compilation error is generated.
           * @example
           * {{{
           *   b"1"        //value = 1
@@ -336,8 +331,7 @@ private object CompanionsDFBits:
           *   b"11_00"    //value = 1100
           * }}}
           * @note
-          *   The string interpolator currently does not accept external
-          *   arguments with `\${arg}`
+          *   The string interpolator currently does not accept external arguments with `\${arg}`
           * @return
           *   Bits vector token.
           */
@@ -346,24 +340,19 @@ private object CompanionsDFBits:
         /** Hexadecimal Bits Vector Token String Interpolator
           *
           * Interpolator Syntax: {{{b"width'hex"}}}
-          *   - `hex` is a char sequence of '0'-'9','A'-'F','a'-'f','?' (to
-          *     indicate a 4-bit bubble). Each character is equivalent to a
-          *     4-bits nibble.
-          *   - `hex` also allows separators of space ' ' or underscore '_' that
-          *     are ignored.
-          *   - `hex` also supports a binary mode within `{bin}`, where bin is
-          *     equivalent to the char sequence of the binary string
-          *     interpolator (see [[b]]). So between 4-bit hex nibbles, it is
-          *     possible to insert a binary bit sequence of any length that is
-          *     not necessarily dividable by 4.
-          *   - `width` (with the following tag char `'`) is optional. If it's
-          *     not specified, the width is determined by the length of the char
-          *     sequence. Otherwise, the width is set as required. If the
-          *     required width is longer than the char sequence length, then
-          *     zeros are added as the MSBits. If the required width is shorter
-          *     then the char sequence, it is accepted only if the MSBits it is
-          *     truncating are zeros. Otherwise, a compilation error is
-          *     generated.
+          *   - `hex` is a char sequence of '0'-'9','A'-'F','a'-'f','?' (to indicate a 4-bit
+          *     bubble). Each character is equivalent to a 4-bits nibble.
+          *   - `hex` also allows separators of space ' ' or underscore '_' that are ignored.
+          *   - `hex` also supports a binary mode within `{bin}`, where bin is equivalent to the
+          *     char sequence of the binary string interpolator (see [[b]]). So between 4-bit hex
+          *     nibbles, it is possible to insert a binary bit sequence of any length that is not
+          *     necessarily dividable by 4.
+          *   - `width` (with the following tag char `'`) is optional. If it's not specified, the
+          *     width is determined by the length of the char sequence. Otherwise, the width is set
+          *     as required. If the required width is longer than the char sequence length, then
+          *     zeros are added as the MSBits. If the required width is shorter then the char
+          *     sequence, it is accepted only if the MSBits it is truncating are zeros. Otherwise, a
+          *     compilation error is generated.
           * @example
           * {{{
           *   h"1"        //value = 0001
@@ -375,8 +364,7 @@ private object CompanionsDFBits:
           *   h"3_3"      //value = 00110011
           * }}}
           * @note
-          *   The string interpolator currently does not accept external
-          *   arguments with `\${arg}`
+          *   The string interpolator currently does not accept external arguments with `\${arg}`
           * @return
           *   Bits vector token.
           */
@@ -641,8 +629,9 @@ private object CompanionsDFBits:
                   .asValOf[DFBits[Int]]
         end match
       end valueToBits
-      transparent inline given fromTuple[R <: NonEmptyTuple]
-          : Candidate[ValueOf[R]] = ${ DFBitsMacro[ValueOf[R]] }
+      transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[ValueOf[R]] = ${
+        DFBitsMacro[ValueOf[R]]
+      }
       def DFBitsMacro[R](using
           Quotes,
           Type[R]
@@ -701,8 +690,8 @@ private object CompanionsDFBits:
 
     object Compare:
       import DFVal.Compare
-      given DFBitsCompareCandidate[LW <: Int, R, Op <: FuncOp, C <: Boolean](
-          using ic: Candidate[R]
+      given DFBitsCompareCandidate[LW <: Int, R, Op <: FuncOp, C <: Boolean](using
+          ic: Candidate[R]
       )(using
           dfc: DFC,
           check: CompareCheck[LW, ic.OutW, C],

@@ -13,8 +13,7 @@ object Width:
     type Out = 1
   given fromDFBits[W <: Int]: Width[DFBits[W]] with
     type Out = W
-  given fromDFDecimal[S <: Boolean, W <: Int, F <: Int]
-      : Width[DFDecimal[S, W, F]] with
+  given fromDFDecimal[S <: Boolean, W <: Int, F <: Int]: Width[DFDecimal[S, W, F]] with
     type Out = W
   transparent inline given [T]: Width[T] = ${ getWidthMacro[T] }
   extension (using quotes: Quotes)(dfTpe: quotes.reflect.TypeRepr)

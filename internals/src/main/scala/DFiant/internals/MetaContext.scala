@@ -12,7 +12,7 @@ final case class Position(
 object Position:
   val unknown = Position("", 0, 0, 0, 0)
 
-trait MetaContext {
+trait MetaContext:
   def setMeta(
       nameOpt: Option[String],
       position: Position,
@@ -29,7 +29,7 @@ trait MetaContext {
   final val isAnonymous: Boolean = nameOpt.isEmpty
   final val name: String =
     nameOpt.getOrElse(s"anon${this.hashCode.toHexString}")
-}
+end MetaContext
 
 trait LateConstruction
 

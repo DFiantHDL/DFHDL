@@ -32,8 +32,7 @@ extension (value: BigInt)
       if (signed) 2 else 1
     else if (value == -1) 2
     else value.bitLength + 1 // value < 0
-extension (value: Int)
-  def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
+extension (value: Int) def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
 
 class CustomControlPhase(setting: Setting) extends CommonPhase:
   import tpd._
@@ -82,8 +81,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
 
   private def isHackedGuard(tree: Tree)(using Context): Boolean =
     tree match
-      case Apply(Apply(Ident(n), List(dfCond)), List(dfc))
-          if n.toString == "BooleanHack" =>
+      case Apply(Apply(Ident(n), List(dfCond)), List(dfc)) if n.toString == "BooleanHack" =>
         true
       case _ => false
 
@@ -284,8 +282,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         case _ => None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
-        case fieldsTpe
-            if fieldsTpe <:< requiredClassRef("DFiant.core.DFStruct.Fields") =>
+        case fieldsTpe if fieldsTpe <:< requiredClassRef("DFiant.core.DFStruct.Fields") =>
           val args = fieldsTpe.typeSymbol.asClass.paramAccessors.collect {
             case sym if sym.is(Flags.CaseAccessor) => fieldsTpe.memberInfo(sym)
           }
@@ -317,8 +314,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         case _ => None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
-        case AppliedType(tpl, args)
-            if tpl <:< defn.TupleTypeRef && args.nonEmpty =>
+        case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef && args.nonEmpty =>
           val argsConv = args.map {
             case v @ DFVal(_)   => Some(v)
             case DFTupleVal(t)  => Some(t)
@@ -449,8 +445,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         .appliedToType(retTpe)
         .appliedTo(productTree)
         .appliedTo(dfcStack.head)
-    def structDFValSelect(retTpe: Type, dfValTree: Tree, fieldName: String)(
-        using Context
+    def structDFValSelect(retTpe: Type, dfValTree: Tree, fieldName: String)(using
+        Context
     ): Tree =
       selectMethod("structDFValSelect")
         .appliedToType(retTpe)
@@ -700,8 +696,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                 bindTree.tpe.simple match
                   case AndType(_, DFVal(DFBits(widthTpe))) =>
                     widthTpe match
-                      case ConstantType(Constant(partWidth: Int))
-                          if partWidth > 0 =>
+                      case ConstantType(Constant(partWidth: Int)) if partWidth > 0 =>
                         val relBitLow = relBitHigh - partWidth + 1
                         val newBindSel = valDefGen.bind(
                           bindTree.name,
@@ -802,8 +797,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     end match
   end transformDFCasePattern
 
-  private def transformDFCase(selector: Tree, tree: CaseDef, combinedTpe: Type)(
-      using
+  private def transformDFCase(selector: Tree, tree: CaseDef, combinedTpe: Type)(using
       ctx: Context,
       valDefGen: ValDefGen
   ): Tree =

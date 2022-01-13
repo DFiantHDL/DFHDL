@@ -12,9 +12,8 @@ import scala.annotation.targetName
   *   x := all(1)
   * }}}
   * @note
-  *   Some vector operations are not possible with this literal. E.g., `x ++
-  *   all(0)` is forbidden because concatenation cannot infer the output width
-  *   from this operation.
+  *   Some vector operations are not possible with this literal. E.g., `x ++ all(0)` is forbidden
+  *   because concatenation cannot infer the output width from this operation.
   */
 final class SameElementsVector[T](val value: T) derives CanEqual
 
@@ -25,8 +24,7 @@ object SameElementsVector:
   def unapply[T, R](arg: SameElementsVector[T]): Option[R] = Some(
     arg.value.asInstanceOf[R]
   )
-  given eqBit[W <: Int, T <: BitOrBool]
-      : CanEqual[SameElementsVector[T], DFBits[W] <> VAL] =
+  given eqBit[W <: Int, T <: BitOrBool]: CanEqual[SameElementsVector[T], DFBits[W] <> VAL] =
     CanEqual.derived
   given eqVec[DFT <: DFTypeAny, D <: NonEmptyTuple, T]
       : CanEqual[SameElementsVector[T], DFVector[DFT, D] <> VAL] =
