@@ -11,11 +11,14 @@ trait Printer extends DFTypePrinter, DFTokenPrinter, DFValPrinter, DFOwnerPrinte
   given printer: Printer = this
   def csDFNet(net: DFNet)(using MemberGetSet): String =
     import net.*
-    val opStr = op match
-      case DFNet.Op.Assignment     => ":="
-      case DFNet.Op.Connection     => "<>"
-      case DFNet.Op.LazyConnection => "`<LZ>`"
-    s"${toRef.refCodeString} $opStr ${fromRef.refCodeString}"
+    (toRef.get, fromRef.get) match
+      case (toVal: DFVal, fromVal: DFVal) =>
+        val opStr = op match
+          case DFNet.Op.Assignment     => ":="
+          case DFNet.Op.Connection     => "<>"
+          case DFNet.Op.LazyConnection => "`<LZ>`"
+        s"${toRef.asInstanceOf[DFVal.Ref].refCodeString} $opStr ${fromRef.asInstanceOf[DFVal.Ref].refCodeString}"
+      case _ => ???
 
   def csDFMember(member: DFMember)(using MemberGetSet): String = member match
     case dfVal: DFVal          => csDFVal(dfVal, None)
