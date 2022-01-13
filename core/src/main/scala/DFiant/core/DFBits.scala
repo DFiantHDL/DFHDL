@@ -443,12 +443,7 @@ private object CompanionsDFBits:
           '{
             val tc = compiletime
               .summonInline[
-                DFVal.Compare[
-                  T,
-                  tokenType.Underlying,
-                  FuncOp.===.type,
-                  false
-                ]
+                DFVal.Compare[T, tokenType.Underlying, FuncOp.===.type, false]
               ]
             Some(
               Seq(

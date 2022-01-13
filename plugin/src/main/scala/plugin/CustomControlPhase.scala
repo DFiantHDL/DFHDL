@@ -578,10 +578,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       object Binds:
         def unapply(rhs: Tree)(using Context): Option[List[Tree]] =
           rhs match
-            case Apply(
-                  _,
-                  List(Apply(_, List(Typed(SeqLiteral(elems, _), _))))
-                ) =>
+            case Apply(_, List(Apply(_, List(Typed(SeqLiteral(elems, _), _))))) =>
               Some(elems)
             case _ => None
     end SI
