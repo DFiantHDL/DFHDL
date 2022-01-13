@@ -7,14 +7,18 @@ sealed trait DFMember extends Product, Serializable derives CanEqual:
   val ownerRef: DFOwner.Ref
   val meta: Meta
   val tags: DFTags
-  def =~(that: DFMember)(using MemberGetSet): Boolean
-  final def setMeta(metaFunc: Meta => Meta)(using
-      getSet: MemberGetSet
-  ): this.type =
+  private var cachedCompare: Option[(DFMember, Boolean)] = None
+  final def =~(that: DFMember)(using MemberGetSet): Boolean =
+    cachedCompare match
+      case Some(prevCompare, result) if prevCompare eq that => result
+      case _ =>
+        val res = this =~ that
+        cachedCompare = Some(that, res)
+        res
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean
+  final def setMeta(metaFunc: Meta => Meta)(using getSet: MemberGetSet): this.type =
     getSet.set(this)(m => setMeta(metaFunc(m.meta)))
-  final def setTags(tagsFunc: DFTags => DFTags)(using
-      getSet: MemberGetSet
-  ): this.type =
+  final def setTags(tagsFunc: DFTags => DFTags)(using getSet: MemberGetSet): this.type =
     getSet.set(this)(m => setTags(tagsFunc(m.tags)))
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
@@ -112,7 +116,7 @@ object DFVal:
   ) extends DFVal,
         DFMember.NamedOrAnonymous:
     val dfType = token.dfType
-    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
         given CanEqual[Any, Any] = CanEqual.derived
         this.token == that.token &&
@@ -131,7 +135,7 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends DFVal:
-    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
         this.dfType == that.dfType && this.modifier == that.modifier &&
           this.meta =~ that.meta && this.tags =~ that.tags
@@ -151,7 +155,7 @@ object DFVal:
       tags: DFTags
   ) extends DFVal,
         DFMember.NamedOrAnonymous:
-    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
         this.dfType == that.dfType && this.op == that.op && (this.args
           .lazyZip(that.args)
@@ -181,7 +185,7 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Alias:
-      def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: AsIs =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
             this.meta =~ that.meta && this.tags =~ that.tags
@@ -201,7 +205,7 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Alias:
-      def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: Prev =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
             this.step == that.step && this.op == that.op &&
@@ -226,7 +230,7 @@ object DFVal:
         tags: DFTags
     ) extends Alias:
       val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
-      def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
           this.relValRef =~ that.relValRef &&
             this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow &&
@@ -245,7 +249,7 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Alias:
-      def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyIdx =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
             this.relIdx =~ that.relIdx &&
@@ -265,7 +269,7 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Alias:
-      def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+      protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: SelectField =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
             this.fieldName == that.fieldName &&
@@ -288,7 +292,7 @@ final case class DFNet(
     meta: Meta,
     tags: DFTags
 ) extends DFMember:
-  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFNet =>
       this.toRef =~ that.toRef && this.op == that.op && this.fromRef =~ that.fromRef &&
         this.meta =~ that.meta && this.tags =~ that.tags
@@ -329,7 +333,7 @@ object DFConditional:
       meta: Meta,
       tags: DFTags
   ) extends Header:
-    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFMatchHeader =>
         this.dfType == that.dfType && this.selectorRef =~ that.selectorRef &&
           this.meta =~ that.meta && this.tags =~ that.tags
@@ -348,7 +352,7 @@ object DFConditional:
       meta: Meta,
       tags: DFTags
   ) extends Block:
-    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFCaseBlock =>
         this.pattern =~ that.pattern && this.guardRef =~ that.guardRef &&
           this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
@@ -412,7 +416,7 @@ object DFConditional:
       meta: Meta,
       tags: DFTags
   ) extends Header:
-    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFMatchHeader =>
         this.dfType == that.dfType &&
           this.meta =~ that.meta && this.tags =~ that.tags
@@ -430,7 +434,7 @@ object DFConditional:
       meta: Meta,
       tags: DFTags
   ) extends Block:
-    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFIfElseBlock =>
         this.condRef =~ that.condRef && this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
           this.meta =~ that.meta && this.tags =~ that.tags
@@ -452,7 +456,7 @@ final case class DFDesignBlock(
     tags: DFTags
 ) extends DFBlock,
       DFMember.Named:
-  def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.designType == that.designType && this.inSimulation == that.inSimulation &&
         this.meta =~ that.meta && this.tags =~ that.tags
@@ -476,7 +480,7 @@ object DFSimMember:
       meta: Meta,
       tags: DFTags
   ) extends DFSimMember:
-    def =~(that: DFMember)(using MemberGetSet): Boolean = that match
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Assert =>
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
