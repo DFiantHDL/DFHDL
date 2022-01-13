@@ -532,6 +532,13 @@ object DFVarOps:
       dfVar.assign(tc(dfVar.dfType, rhs))
 
 object DFPortOps:
-  extension [T <: DFTypeAny](dfPort: DFPortOf[T])
-    def <>[R](rhs: Exact[R])(using tc: DFVal.TC[T, R], dfc: DFC): Unit =
+  extension [T <: DFTypeAny, M <: Modifier](dfPort: DFVal[T, M])
+    def <>[R](rhs: Exact[R])(using
+        connectableOnly: AssertGiven[
+          M <:< Modifier.Connectable,
+          "The LHS of a connection must be a connectable dataflow value (var/port)."
+        ],
+        tc: DFVal.TC[T, R],
+        dfc: DFC
+    ): Unit =
       dfPort.connect(tc(dfPort.dfType, rhs))

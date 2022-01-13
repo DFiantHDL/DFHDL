@@ -21,6 +21,7 @@ export core.DFTuple.Val.Ops.*
 export core.DFVector.Ops.*
 export core.DFVal.Ops.*
 export core.DFVarOps.*
+export core.DFPortOps.*
 export internals.CommonOps.*
 export core.{width, dfType}
 
@@ -56,8 +57,8 @@ type B[W <: Int] = core.DFValOf[DFBits[W]]
 val ? = core.?
 export core.SameElementsVector as all
 extension [Entry <: core.DFEncoding](e: Entry)
-  def unapply[E >: Entry <: core.DFEncoding](arg: core.DFValOf[core.DFEnum[E]])(
-      using DFC
+  def unapply[E >: Entry <: core.DFEncoding](arg: core.DFValOf[core.DFEnum[E]])(using
+      DFC
   ): Boolean =
     ???
 
