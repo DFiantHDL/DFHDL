@@ -5,28 +5,19 @@ import scala.reflect.{ClassTag, classTag}
 type DFRefAny = DFRef[DFMember]
 sealed trait DFRef[+M <: DFMember] derives CanEqual:
   lazy val refType: ClassTag[M @uncheckedVariance]
-  final def =~(that: DFRefAny)(using MemberGetSet): Boolean =
-    (this, that) match
-      case (_: DFRef.Empty, _: DFRef.Empty) => true
-      case (_: DFRef.Empty, _)              => false
-      case (_, _: DFRef.Empty)              => false
-      case _                                => this.get =~ that.get
-  final def get(using getSet: MemberGetSet): M = getSet(this)
-  final def isEmpty: Boolean =
-    this match
-      case _: DFRef.Empty => true
-      case _              => false
+  final def =~(that: DFRefAny)(using MemberGetSet): Boolean = this.get =~ that.get
+  def get(using getSet: MemberGetSet): M = getSet(this)
 object DFRef:
-  sealed trait Empty extends DFRef[Nothing]:
-    lazy val refType = throw new IllegalArgumentException(
-      "Illegal access to an empty ref"
-    )
+  sealed trait Empty extends DFRef[DFMember.Empty]:
+    lazy val refType = classTag[DFMember.Empty]
+    override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
   trait OneWay[+M <: DFMember] extends DFRef[M]
   object OneWay:
-    object Empty extends OneWay[Nothing] with DFRef.Empty
+    object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
 
   trait TwoWay[+M <: DFMember] extends DFRef[M]:
     lazy val originRef: OneWay[DFMember]
   object TwoWay:
-    object Empty extends TwoWay[Nothing] with DFRef.Empty:
+    object Empty extends TwoWay[DFMember.Empty] with DFRef.Empty:
       lazy val originRef: OneWay[DFMember] = OneWay.Empty
+end DFRef

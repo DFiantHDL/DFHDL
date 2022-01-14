@@ -79,7 +79,7 @@ object DFIf:
     )(using
         DFC
     ): DFOwner =
-      lazy val condRef: ir.DFVal.Ref = condOption match
+      lazy val condRef: DFIfElseBlock.CondRef = condOption match
         case Some(cond) => cond.asIR.refTW(block)
         case None       => ir.DFRef.TwoWay.Empty
       lazy val prevBlockOrHeaderRef: DFIfElseBlock.Ref = prevBlockOrHeader match

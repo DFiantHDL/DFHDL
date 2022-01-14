@@ -15,7 +15,7 @@ object DFDesign:
   object Block:
     def apply(designType: String)(using DFC): DFOwner =
       val ownerRef: ir.DFOwner.Ref =
-        dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFMember.Empty.ref)
+        dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFRef.OneWay.Empty)
       ir.DFDesignBlock(
         designType,
         false,

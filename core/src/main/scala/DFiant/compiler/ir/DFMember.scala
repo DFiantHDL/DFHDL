@@ -357,7 +357,7 @@ object DFConditional:
 
   final case class DFCaseBlock(
       pattern: DFCaseBlock.Pattern,
-      guardRef: DFVal.Ref,
+      guardRef: DFCaseBlock.GuardRef,
       prevBlockOrHeaderRef: DFCaseBlock.Ref,
       ownerRef: DFOwner.Ref,
       meta: Meta,
@@ -373,6 +373,7 @@ object DFConditional:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   end DFCaseBlock
   object DFCaseBlock:
+    type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty]
     type Ref = DFRef.OneWay[DFCaseBlock | DFMatchHeader]
     sealed trait Pattern extends HasRefCompare[Pattern] derives CanEqual
     object Pattern:
@@ -434,7 +435,7 @@ object DFConditional:
   end DFIfHeader
 
   final case class DFIfElseBlock(
-      condRef: DFVal.Ref,
+      condRef: DFIfElseBlock.CondRef,
       prevBlockOrHeaderRef: DFIfElseBlock.Ref,
       ownerRef: DFOwner.Ref,
       meta: Meta,
@@ -449,6 +450,7 @@ object DFConditional:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   end DFIfElseBlock
   object DFIfElseBlock:
+    type CondRef = DFRef.TwoWay[DFVal | DFMember.Empty]
     type Ref = DFRef.OneWay[DFIfElseBlock | DFIfHeader]
 end DFConditional
 

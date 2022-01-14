@@ -89,7 +89,7 @@ object DFMatch:
     )(using
         DFC
     ): DFOwner =
-      lazy val guardRef: ir.DFVal.Ref = guardOption match
+      lazy val guardRef: DFCaseBlock.GuardRef = guardOption match
         case Some(cond) => cond.asIR.refTW(block)
         case None       => ir.DFRef.TwoWay.Empty
       lazy val prevBlockOrHeaderRef: DFCaseBlock.Ref = prevBlockOrHeader match

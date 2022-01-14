@@ -5,15 +5,20 @@ import DFiant.internals.*
 import DFVal.*
 import analysis.*
 
-extension (ref: DFVal.Ref)
+extension [M <: DFMember](ref: DFRef.TwoWay[M])
   def refCodeString(using getSet: MemberGetSet, printer: DFValPrinter): String =
-    val dfVal = ref.get
+    val member = ref.get
     val callOwner = ref.originRef.get.getOwner
-    val cs = printer.csDFVal(dfVal, Some(callOwner))
-    dfVal match
-      case ch: DFConditional.Header if ch.isAnonymous =>
-        s"(${cs.applyBrackets()}: ${printer.printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
-      case _ => cs
+    member match
+      case dfVal: DFVal =>
+        val cs = printer.csDFVal(dfVal, Some(callOwner))
+        dfVal match
+          case ch: DFConditional.Header if ch.isAnonymous =>
+            s"(${cs.applyBrackets()}: ${printer.printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
+          case _ => cs
+      case named: DFMember.Named =>
+        named.name
+      case _ => throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
   def simpleRefCodeString(using
       getSet: MemberGetSet,
       printer: DFValPrinter
