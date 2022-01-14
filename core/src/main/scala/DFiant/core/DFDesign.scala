@@ -14,9 +14,8 @@ abstract class DFDesign(using DFC) extends OnCreateEvents, LateConstruction, Has
 object DFDesign:
   object Block:
     def apply(designType: String)(using DFC): DFOwner =
-      val ownerRef = dfc.ownerOption match
-        case Some(owner) => owner.asIR.ref
-        case None        => ir.DFRef.OneWay.Empty
+      val ownerRef: ir.DFOwner.Ref =
+        dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFMember.Empty.ref)
       ir.DFDesignBlock(
         designType,
         false,

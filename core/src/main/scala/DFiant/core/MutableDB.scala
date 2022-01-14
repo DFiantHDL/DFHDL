@@ -67,7 +67,7 @@ class MutableDB(val duringTest: Boolean = false):
 //
   // same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
   def plantMember[M <: DFMember](owner: DFOwner, member: M): M =
-    newRefFor[DFOwner, DFOwner.Ref](
+    newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
       member.ownerRef,
       owner
     ) // now this reference will refer to meta design owner

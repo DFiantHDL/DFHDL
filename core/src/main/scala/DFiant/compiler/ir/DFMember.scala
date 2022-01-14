@@ -1,6 +1,7 @@
 package DFiant.compiler
 package ir
 import DFiant.internals.*
+
 import annotation.tailrec
 
 trait HasRefCompare[T <: HasRefCompare[T]]:
@@ -26,7 +27,10 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   protected def setTags(tags: DFTags): this.type
   final def getOwner(using MemberGetSet): DFOwner = this match
     case o: DFOwner if o.isTop => o
-    case _                     => ownerRef.get
+    case _ =>
+      ownerRef.get match
+        case o: DFOwner     => o
+        case DFMember.Empty => throw new IllegalArgumentException("No owner found.")
   final def getOwnerNamed(using MemberGetSet): DFOwner.Named =
     ownerRef.get match
       case b: DFOwner.Named => b
@@ -41,7 +45,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getThisOrOwnerDesign(using MemberGetSet): DFDesignBlock = this match
     case d: DFDesignBlock => d
     case x                => x.getOwnerDesign
-  final val hasLateConstruction: Boolean = meta.lateConstruction
+  final def hasLateConstruction: Boolean = meta.lateConstruction
   final def isMemberOfDesign(that: DFDesignBlock)(using MemberGetSet): Boolean =
     getOwnerDesign == that
   final def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
@@ -71,6 +75,17 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
 end DFMember
 
 object DFMember:
+  type Empty = Empty.type
+  case object Empty extends DFMember:
+    val ownerRef: DFOwner.Ref = DFRef.OneWay.Empty
+    val meta: Meta = Meta(Some("Empty"), Position.unknown, false)
+    val tags: DFTags = DFTags.empty
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case Empty => true
+      case _     => false
+    protected def setMeta(meta: Meta): this.type = this
+    protected def setTags(tags: DFTags): this.type = this
+
   sealed trait Named extends DFMember:
     final val name: String = meta.name
     final val isAnonymous: Boolean = meta.isAnonymous
@@ -294,13 +309,13 @@ object DFNet:
 
 sealed trait DFOwner extends DFMember:
   val meta: Meta
-  def isTop: Boolean = ownerRef match
-    case _: DFRef.Empty => true
+  def isTop(using MemberGetSet): Boolean = ownerRef.get match
+    case DFMember.Empty => true
     case _              => false
 
 object DFOwner:
   type Named = DFOwner & DFMember.Named
-  type Ref = DFRef.OneWay[DFOwner]
+  type Ref = DFRef.OneWay[DFOwner | DFMember.Empty]
 
 final case class DFInterfaceOwner(
     ownerRef: DFOwner.Ref,
@@ -456,9 +471,9 @@ end DFDesignBlock
 
 object DFDesignBlock:
   object Top:
-    def unapply(block: DFDesignBlock): Boolean = block.isTop
+    def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = block.isTop
   object Internal:
-    def unapply(block: DFDesignBlock): Boolean = !block.isTop
+    def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = !block.isTop
 
 sealed trait DFSimMember extends DFMember
 object DFSimMember:
