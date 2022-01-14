@@ -43,7 +43,7 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
     if (body.isEmpty) dcl else s"$dcl:\n${body.indent(1)}"
   def csDFDesignBlockInst(design: DFDesignBlock)(using MemberGetSet): String =
     val body = csDFOwnerBody(design, true)
-    val inst = s"new ${design.designType}"
+    val inst = s"val ${design.name} = new ${design.designType}"
     if (body.isEmpty) inst else s"$inst:\n${body.indent(1)}"
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock)(using
       MemberGetSet
