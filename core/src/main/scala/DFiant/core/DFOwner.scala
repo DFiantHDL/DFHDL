@@ -2,6 +2,8 @@ package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
 
-class DFOwner(val value: ir.DFOwner) extends AnyVal with DFMember[ir.DFOwner]
+class DFOwner[+T <: ir.DFOwner](val value: T) extends AnyVal with DFMember[T]
 object DFOwner:
-  extension (owner: ir.DFOwner) def asFE: DFOwner = DFOwner(owner)
+  extension [T <: ir.DFOwner](owner: T) def asFE: DFOwner[T] = DFOwner(owner)
+
+type DFOwnerAny = DFOwner[ir.DFOwner]

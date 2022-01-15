@@ -21,11 +21,11 @@ final case class DFC(
   ).asInstanceOf[this.type]
   given getSet: ir.MemberGetSet = mutableDB.getSet
   def getMeta: ir.Meta = ir.Meta(nameOpt, position, lateConstruction)
-  def enterOwner(owner: DFOwner): Unit =
+  def enterOwner(owner: DFOwnerAny): Unit =
     mutableDB.OwnershipContext.enter(owner.asIR)
   def exitOwner(): Unit = mutableDB.OwnershipContext.exit()
-  def owner: DFOwner = mutableDB.OwnershipContext.owner.asFE
-  def ownerOption: Option[DFOwner] =
+  def owner: DFOwnerAny = mutableDB.OwnershipContext.owner.asFE
+  def ownerOption: Option[DFOwnerAny] =
     mutableDB.OwnershipContext.ownerOption.map(_.asFE)
   def setName(name: String): this.type =
     copy(nameOpt = Some(name)).asInstanceOf[this.type]

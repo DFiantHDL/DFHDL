@@ -10,9 +10,9 @@ abstract class DFDesign(using DFC)
       HasNamePos,
       HasDFC:
   final val dfc: DFC = summon[DFC]
-  private final val owner: DFOwner = DFDesign.Block("???")
+  private final val owner: DFDesign.Block = DFDesign.Block("???")
   final protected def setClsNamePos(name: String, position: Position): Unit =
-    val designBlock = owner.asIR.asInstanceOf[ir.DFDesignBlock]
+    val designBlock = owner.asIR
     dfc.getSet.replace(designBlock)(
       designBlock.copy(designType = name)
     )
@@ -23,8 +23,9 @@ abstract class DFDesign(using DFC)
 end DFDesign
 
 object DFDesign:
+  type Block = DFOwner[ir.DFDesignBlock]
   object Block:
-    def apply(designType: String)(using DFC): DFOwner =
+    def apply(designType: String)(using DFC): Block =
       val ownerRef: ir.DFOwner.Ref =
         dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFRef.OneWay.Empty)
       ir.DFDesignBlock(

@@ -7,11 +7,11 @@ import ir.DFConditional.{DFIfHeader, DFIfElseBlock}
 object DFIf:
   def singleBranch[R](
       condOption: Option[DFValOf[DFBool]],
-      prevBlockOrHeader: DFOwner | DFValAny,
+      prevBlockOrHeader: DFOwnerAny | DFValAny,
       run: () => R
   )(using
       DFC
-  ): (DFTypeAny, DFOwner) =
+  ): (DFTypeAny, DFOwnerAny) =
     // first we create the header without a known type.
     val block = DFIf.Block(condOption, prevBlockOrHeader)
     dfc.enterOwner(block)
@@ -75,15 +75,15 @@ object DFIf:
   object Block:
     def apply(
         condOption: Option[DFValOf[DFBool]],
-        prevBlockOrHeader: DFOwner | DFValAny
+        prevBlockOrHeader: DFOwnerAny | DFValAny
     )(using
         DFC
-    ): DFOwner =
+    ): DFOwnerAny =
       lazy val condRef: DFIfElseBlock.CondRef = condOption match
         case Some(cond) => cond.asIR.refTW(block)
         case None       => ir.DFRef.TwoWay.Empty
       lazy val prevBlockOrHeaderRef: DFIfElseBlock.Ref = prevBlockOrHeader match
-        case prevBlock: DFOwner =>
+        case prevBlock: DFOwnerAny =>
           prevBlock.asIR.asInstanceOf[DFIfElseBlock].ref
         case header: DFValAny =>
           header.asIR.asInstanceOf[DFIfHeader].ref

@@ -11,11 +11,11 @@ object DFMatch:
   def singleCase[R](
       pattern: Pattern,
       guardOption: Option[DFValOf[DFBool]],
-      prevBlockOrHeader: DFOwner | DFValAny,
+      prevBlockOrHeader: DFOwnerAny | DFValAny,
       run: () => R
   )(using
       DFC
-  ): (DFTypeAny, DFOwner) =
+  ): (DFTypeAny, DFOwnerAny) =
     // first we create the header without a known type.
     val block = Block(pattern, guardOption, prevBlockOrHeader)
     dfc.enterOwner(block)
@@ -85,15 +85,15 @@ object DFMatch:
     def apply(
         pattern: Pattern,
         guardOption: Option[DFValOf[DFBool]],
-        prevBlockOrHeader: DFOwner | DFValAny
+        prevBlockOrHeader: DFOwnerAny | DFValAny
     )(using
         DFC
-    ): DFOwner =
+    ): DFOwnerAny =
       lazy val guardRef: DFCaseBlock.GuardRef = guardOption match
         case Some(cond) => cond.asIR.refTW(block)
         case None       => ir.DFRef.TwoWay.Empty
       lazy val prevBlockOrHeaderRef: DFCaseBlock.Ref = prevBlockOrHeader match
-        case prevBlock: DFOwner =>
+        case prevBlock: DFOwnerAny =>
           prevBlock.asIR.asInstanceOf[DFCaseBlock].ref
         case header: DFValAny =>
           header.asIR.asInstanceOf[DFMatchHeader].ref

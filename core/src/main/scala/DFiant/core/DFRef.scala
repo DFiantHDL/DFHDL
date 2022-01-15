@@ -17,6 +17,6 @@ extension [M <: ir.DFMember](member: M)
       lazy val originRef = newOriginRef
     dfc.mutableDB.newRefFor(newRef, member)
 
-extension (owner: DFOwner)
-  def ref(using ClassTag[ir.DFOwner], DFC): ir.DFRef.OneWay[ir.DFOwner] =
+extension [T <: ir.DFOwner](owner: DFOwner[T])
+  def ref(using ClassTag[T], DFC): ir.DFRef.OneWay[T] =
     owner.asIR.ref
