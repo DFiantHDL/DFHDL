@@ -39,11 +39,11 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       .mkString("\n")
   def csDFDesignBlockDcl(design: DFDesignBlock)(using MemberGetSet): String =
     val body = csDFOwnerBody(design, false)
-    val dcl = s"class ${design.designType}(using DFC) extends DFDesign"
+    val dcl = s"class ${design.dclName}(using DFC) extends DFDesign"
     if (body.isEmpty) dcl else s"$dcl:\n${body.indent(1)}"
   def csDFDesignBlockInst(design: DFDesignBlock)(using MemberGetSet): String =
     val body = csDFOwnerBody(design, true)
-    val inst = s"val ${design.name} = new ${design.designType}"
+    val inst = s"val ${design.name} = new ${design.dclName}"
     if (body.isEmpty) inst else s"$inst:\n${body.indent(1)}"
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock)(using
       MemberGetSet

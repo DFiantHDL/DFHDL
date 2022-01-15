@@ -460,7 +460,8 @@ object DFConditional:
 end DFConditional
 
 final case class DFDesignBlock(
-    designType: String,
+    dclName: String,
+    dclPosition: Position,
     inSimulation: Boolean,
     ownerRef: DFOwner.Ref,
     meta: Meta,
@@ -469,7 +470,8 @@ final case class DFDesignBlock(
       DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
-      this.designType == that.designType && this.inSimulation == that.inSimulation &&
+      this.dclName == that.dclName && this.dclPosition == that.dclPosition &&
+        this.inSimulation == that.inSimulation &&
         this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]

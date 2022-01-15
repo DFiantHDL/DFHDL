@@ -6,7 +6,7 @@ final case class Position(
     columnStart: Int,
     lineEnd: Int,
     columnEnd: Int
-):
+) derives CanEqual:
   override def toString: String = s"$file:$lineStart:$columnStart"
 
 object Position:

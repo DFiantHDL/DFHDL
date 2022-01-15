@@ -36,8 +36,8 @@ trait Printer extends DFTypePrinter, DFTokenPrinter, DFValPrinter, DFOwnerPrinte
     val codeStringList = db.blockMemberList.flatMap {
 //      case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
 //      case (d @ realtime.RTExternal.Block(), _) => None
-      case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.designType) =>
-        uniqueDesigns += block.designType
+      case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.dclName) =>
+        uniqueDesigns += block.dclName
         Some(csDFDesignBlockDcl(block))
       case _ => None
     }
