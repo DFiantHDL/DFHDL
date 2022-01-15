@@ -55,6 +55,10 @@ class PluginSpec extends DFSpec:
 //    )
 //  )
 
+  class GotName extends HasNamePosWithVars
+  val gotName = new GotName
+  assertEquals(gotName.clsName, "GotName")
+
   extension (bar: Bar)(using DFC) def ++(that: Bar): Bar = new Plus(bar, that)
 
   extension (bar: Bar) def +++(that: Bar)(using DFC): Bar = new Plus(bar, that)

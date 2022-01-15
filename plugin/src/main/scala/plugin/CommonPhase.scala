@@ -28,6 +28,8 @@ abstract class CommonPhase extends PluginPhase:
   def debug(str: => Any*): Unit =
     if (debugFilter(pluginDebugSource)) println(str.mkString(", "))
   var metaContextTpe: TypeRef = _
+  var metaContextCls: ClassSymbol = _
+  var positionCls: ClassSymbol = _
   var hasDFCTpe: TypeRef = _
   extension (clsSym: Symbol)
     def inherits(parentFullName: String)(using Context): Boolean =
@@ -93,6 +95,19 @@ abstract class CommonPhase extends PluginPhase:
         case _ => None
   end ContextArg
 
+  extension (srcPos: util.SrcPos)(using Context)
+    def positionTree: Tree =
+      val fileNameTree = Literal(Constant(srcPos.startPos.source.path))
+      val lineStartTree = Literal(Constant(srcPos.startPos.line + 1))
+      val columnStartTree = Literal(Constant(srcPos.startPos.column + 1))
+      val lineEndTree = Literal(Constant(srcPos.endPos.line + 1))
+      val columnEndTree = Literal(Constant(srcPos.endPos.column + 1))
+      New(
+        positionCls.typeRef,
+        fileNameTree :: lineStartTree :: columnStartTree :: lineEndTree :: columnEndTree :: Nil
+      )
+  end extension
+
   object ApplyFunArgs:
     @tailrec private def recurUnapply(fun: Tree, args: List[List[Tree]])(using
         Context
@@ -108,6 +123,8 @@ abstract class CommonPhase extends PluginPhase:
   override def prepareForUnit(tree: Tree)(using Context): Context =
     pluginDebugSource = tree.source.path.toString
     metaContextTpe = requiredClassRef("DFiant.internals.MetaContext")
+    metaContextCls = requiredClass("DFiant.internals.MetaContext")
+    positionCls = requiredClass("DFiant.internals.Position")
     hasDFCTpe = requiredClassRef("DFiant.core.HasDFC")
     if (debugFilter(tree.source.path.toString))
       println(

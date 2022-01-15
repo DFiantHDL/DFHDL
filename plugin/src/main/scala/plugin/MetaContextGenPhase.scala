@@ -28,8 +28,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextDelegate")
-  var positionCls: ClassSymbol = _
-  var metaContextCls: ClassSymbol = _
   var setMetaSym: Symbol = _
   var lateConstructionTpe: TypeRef = _
   var dfTokenSym: Symbol = _
@@ -39,19 +37,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var clsStack = List.empty[TypeDef]
   val inlinedOwnerStack = mutable.Map.empty[Apply, Inlined]
   var applyPosStack = List.empty[util.SrcPos]
-
-  extension (srcPos: util.SrcPos)(using Context)
-    def positionTree: Tree =
-      val fileNameTree = Literal(Constant(srcPos.startPos.source.path))
-      val lineStartTree = Literal(Constant(srcPos.startPos.line + 1))
-      val columnStartTree = Literal(Constant(srcPos.startPos.column + 1))
-      val lineEndTree = Literal(Constant(srcPos.endPos.line + 1))
-      val columnEndTree = Literal(Constant(srcPos.endPos.column + 1))
-      New(
-        positionCls.typeRef,
-        fileNameTree :: lineStartTree :: columnStartTree :: lineEndTree :: columnEndTree :: Nil
-      )
-  end extension
 
   extension (tree: Tree)(using Context)
     def setMeta(
@@ -316,8 +301,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
-    positionCls = requiredClass("DFiant.internals.Position")
-    metaContextCls = requiredClass("DFiant.internals.MetaContext")
     lateConstructionTpe = requiredClassRef("DFiant.internals.LateConstruction")
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     dfValSym = requiredClass("DFiant.core.DFVal")

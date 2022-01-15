@@ -23,13 +23,14 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "OnCreateEvents"
-//  override val debugFilter: String => Boolean = _.contains("PluginSpec.scala")
+//  override val debugFilter: String => Boolean = _.contains("DFDesignSpec.scala")
 
   override val runsAfter = Set("CustomIf")
   override val runsBefore = Set(transform.FirstTransform.name)
 
   val ignore = mutable.Set.empty[Tree]
   var onCreateEventsTpe: TypeRef = _
+  var hasNamePosTpe: TypeRef = _
   var clsStack = List.empty[TypeDef]
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     tree.rhs match
@@ -40,10 +41,29 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
 
   override def transformTypeDef(tree: TypeDef)(using Context): Tree =
     tree.rhs match
-      case _: Template =>
+      case template: Template =>
         clsStack = clsStack.drop(1)
+        val clsTpe = tree.tpe
+        val clsSym = clsTpe.typeSymbol
+        if (clsTpe <:< hasNamePosTpe && !clsSym.isAnonymousClass)
+          val setClsNamePosTree =
+            This(clsSym.asClass)
+              .select("setClsNamePos".toTermName)
+              .appliedToArgs(List(Literal(Constant(tree.name.toString)), tree.positionTree))
+          val newTemplate = cpy.Template(template)(
+            template.constr,
+            template.parents,
+            template.derived,
+            template.self,
+            setClsNamePosTree :: template.body
+          )
+          cpy.TypeDef(tree)(tree.name, newTemplate)
+        else tree
+        end if
       case _ =>
-    tree
+        tree
+    end match
+  end transformTypeDef
 
   private object OnCreateEventsInstance:
     def apply(tree: ValDef)(using Context): Tree =
@@ -94,5 +114,6 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     onCreateEventsTpe = requiredClassRef("DFiant.internals.OnCreateEvents")
+    hasNamePosTpe = requiredClassRef("DFiant.internals.HasNamePos")
     ctx
 end OnCreateEventsPhase

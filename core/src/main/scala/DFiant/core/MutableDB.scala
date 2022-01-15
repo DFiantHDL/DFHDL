@@ -35,6 +35,11 @@ class MutableDB(val duringTest: Boolean = false):
 //      println(s"exit ${owner}")
       stack = stack.drop(1)
     def owner: DFOwner = stack.head
+    def replaceOwner(originalOwner: DFOwner, newOwner: DFOwner): Unit =
+      stack = stack.map { o =>
+        if (o == originalOwner) newOwner
+        else o
+      }
     def ownerOption: Option[DFOwner] = stack.headOption
   end OwnershipContext
 
@@ -124,6 +129,10 @@ class MutableDB(val duringTest: Boolean = false):
     val originalMemberUpdated = members(idx)._1.asInstanceOf[M]
     // apply function to get the new member
     val newMember = newMemberFunc(originalMemberUpdated)
+    // in case the member is an owner, we check the owner stack to replace it
+    (originalMember, newMember) match
+      case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
+      case _                        =>
     val (_, refSet, ignore) = members(idx)
     // update all references to the new member
     refSet.foreach(r => refTable.update(r, newMember))
@@ -136,9 +145,10 @@ class MutableDB(val duringTest: Boolean = false):
   end setMember
 
   def replaceMember[M <: DFMember](originalMember: M, newMember: M): M =
-    ignoreMember(
-      newMember
-    ) // marking the newMember slot as 'ignore' in case it exists
+    if (originalMember == newMember) return newMember // nothing to do
+    // marking the newMember slot as 'ignore' in case it exists
+    ignoreMember(newMember)
+    // replace the member by setting a new one at its position
     setMember[M](originalMember, _ => newMember)
     newMember
 
