@@ -25,17 +25,13 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
     getSet.set(this)(m => setTags(tagsFunc(m.tags)))
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
-  final def getOwner(using MemberGetSet): DFOwner = this match
-    case o: DFOwner if o.isTop => o
-    case _ =>
-      ownerRef.get match
-        case o: DFOwner     => o
-        case DFMember.Empty => throw new IllegalArgumentException("No owner found.")
-  final def getOwnerNamed(using MemberGetSet): DFOwner.Named =
-    ownerRef.get match
-      case b: DFOwner.Named => b
-      case o                => o.getOwnerNamed
-  final def getOwnerBlock(using MemberGetSet): DFBlock = ownerRef.get match
+  final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
+    case o: DFOwner     => o
+    case DFMember.Empty => throw new IllegalArgumentException("No owner found.")
+  final def getOwnerNamed(using MemberGetSet): DFOwner.Named = getOwner match
+    case b: DFOwner.Named => b
+    case o                => o.getOwnerNamed
+  final def getOwnerBlock(using MemberGetSet): DFBlock = getOwner match
     case b: DFBlock => b
     case o          => o.getOwnerBlock
   final def getOwnerDesign(using MemberGetSet): DFDesignBlock =
@@ -47,31 +43,40 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
     case x                => x.getOwnerDesign
   final def hasLateConstruction: Boolean = meta.lateConstruction
   final def isMemberOfDesign(that: DFDesignBlock)(using MemberGetSet): Boolean =
-    getOwnerDesign == that
+    this match
+      case DFDesignBlock.Top() => false
+      case _                   => getOwnerDesign == that
   final def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
-    getOwnerDesign == that.getOwnerDesign
+    (this, that) match
+      case (DFDesignBlock.Top(), DFDesignBlock.Top()) => this == that
+      case (DFDesignBlock.Top(), _)                   => false
+      case (_, DFDesignBlock.Top())                   => false
+      case _                                          => getOwnerDesign == that.getOwnerDesign
   final def isOneLevelBelow(that: DFMember)(using MemberGetSet): Boolean =
     this match
-      case DFDesignBlock.Top()       => false
-      case _: DFDesignBlock          => getOwnerDesign isSameOwnerDesignAs that
-      case _ if getOwnerDesign.isTop => false
-      case _                         => getOwnerDesign isSameOwnerDesignAs that
+      case DFDesignBlock.Top() => false
+      case _                   => getOwnerDesign isSameOwnerDesignAs that
   // true if and only if the member is outside the design at any level
   final def isOutsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
     !isInsideOwner(that)
   @tailrec private def isInsideOwner(thisMember: DFMember, thatOwner: DFOwner)(using
       MemberGetSet
   ): Boolean =
-    (thisMember.getOwner, thatOwner) match
-      case (a, b) if a == b         => true
-      case (DFDesignBlock.Top(), _) => false
-      case (od, _)                  => isInsideOwner(od, thatOwner)
+    thisMember match
+      case DFDesignBlock.Top() => false
+      case _ =>
+        (thisMember.getOwner, thatOwner) match
+          case (a, b) if a == b => true
+          case (od, _)          => isInsideOwner(od, thatOwner)
   // true if and only if the member is inside the design at any level
   final def isInsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
     isInsideOwner(this, that)
   final def getOwnerChain(using MemberGetSet): List[DFBlock] =
-    if (getOwnerBlock.isTop) List(getOwnerBlock)
-    else getOwnerBlock.getOwnerChain :+ getOwnerBlock
+    this match
+      case d @ DFDesignBlock.Top() => Nil
+      case _ =>
+        if (getOwnerBlock.isTop) List(getOwnerBlock)
+        else getOwnerBlock.getOwnerChain :+ getOwnerBlock
 end DFMember
 
 object DFMember:
@@ -90,8 +95,8 @@ object DFMember:
     final val name: String = meta.name
     final val isAnonymous: Boolean = meta.isAnonymous
     final def getFullName(using MemberGetSet): String = this match
-      case o @ DFDesignBlock.Top() => o.name
-      case _                       => s"${getOwnerNamed.getFullName}.${name}"
+      case o: DFOwner if o.isTop => o.name
+      case _                     => s"${getOwnerNamed.getFullName}.${name}"
     def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
       val designOwner = callOwner.getThisOrOwnerDesign
       if (this isMemberOfDesign designOwner) name
