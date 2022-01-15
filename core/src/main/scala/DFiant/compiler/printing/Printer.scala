@@ -10,12 +10,19 @@ protected trait AbstractPrinter:
 trait Printer extends DFTypePrinter, DFTokenPrinter, DFValPrinter, DFOwnerPrinter:
   given printer: Printer = this
   def csDFNet(net: DFNet)(using MemberGetSet): String =
+    // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
+    val lhsThis =
+      if (net.hasLateConstruction && net.toRef.get.isSameOwnerDesignAs(net)) "this."
+      else ""
+    val rhsThis =
+      if (net.hasLateConstruction && net.fromRef.get.isSameOwnerDesignAs(net)) "this."
+      else ""
     import net.*
     val opStr = op match
       case DFNet.Op.Assignment     => ":="
       case DFNet.Op.Connection     => "<>"
       case DFNet.Op.LazyConnection => "`<LZ>`"
-    s"${toRef.refCodeString} $opStr ${fromRef.refCodeString}"
+    s"$lhsThis${toRef.refCodeString} $opStr $rhsThis${fromRef.refCodeString}"
 
   def csDFMember(member: DFMember)(using MemberGetSet): String = member match
     case dfVal: DFVal          => csDFVal(dfVal, None)
