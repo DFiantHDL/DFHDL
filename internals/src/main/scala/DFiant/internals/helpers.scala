@@ -179,3 +179,11 @@ object AssertGiven:
         val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias
         '{ compiletime.error(${ Expr(msg) }) }
 end AssertGiven
+
+//from Map[K,V] to Map[V,Set[K]], traverse the input only once
+//From: https://stackoverflow.com/a/51356499/3845175
+extension [K, V](m: Map[K, V])
+  def invert: Map[V, Set[K]] =
+    m.foldLeft(Map.empty[V, Set[K]]) { case (acc, (k, v)) =>
+      acc + (v -> (acc.getOrElse(v, Set()) + k))
+    }

@@ -2,6 +2,7 @@ package DFiant.compiler.ir
 import scala.reflect.{ClassTag, classTag}
 import scala.annotation.tailrec
 import scala.collection.mutable
+import DFiant.internals.*
 
 final case class DB(
     members: List[DFMember],
@@ -36,6 +37,8 @@ final case class DB(
   lazy val top: DFDesignBlock = members.head match
     case m: DFDesignBlock => m
     case _                => throw new IllegalArgumentException("Unexpected member as Top.")
+
+  lazy val memberTable: Map[DFMember, Set[DFRefAny]] = refTable.invert
 
   @tailrec private def OMLGen[O <: DFOwner: ClassTag](
       getOwnerFunc: DFMember => O

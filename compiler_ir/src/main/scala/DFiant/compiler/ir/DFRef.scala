@@ -17,6 +17,7 @@ object DFRef:
 
   trait TwoWay[+M <: DFMember] extends DFRef[M]:
     lazy val originRef: OneWay[DFMember]
+  type TwoWayAny = TwoWay[DFMember]
   object TwoWay:
     object Empty extends TwoWay[DFMember.Empty] with DFRef.Empty:
       lazy val originRef: OneWay[DFMember] = OneWay.Empty

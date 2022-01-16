@@ -31,8 +31,9 @@ lazy val root = (project in file("."))
     publish / skip := true
   )
   .aggregate(
-    plugin,
     internals,
+    plugin,
+    compiler_ir,
     core,
     lib
   )
@@ -44,7 +45,7 @@ lazy val plugin = project
     crossTarget := target.value / s"scala-${scalaVersion.value}", // workaround for https://github.com/sbt/sbt/issues/5097
     crossVersion := CrossVersion.full,
     libraryDependencies += "org.scala-lang" %% "scala3-compiler" % compilerVersion % "provided"
-  )
+  ).dependsOn(internals)
 
 lazy val internals = project
   .settings(
@@ -52,6 +53,12 @@ lazy val internals = project
     settings,
     libraryDependencies ++= commonDependencies
   )
+
+lazy val compiler_ir = project
+  .settings(
+    name := s"$projectName-compiler-ir",
+    settings
+  ).dependsOn(internals)
 
 lazy val core = project
   .settings(
@@ -62,7 +69,8 @@ lazy val core = project
   )
   .dependsOn(
     plugin,
-    internals
+    internals,
+    compiler_ir
   )
 
 lazy val lib = project
