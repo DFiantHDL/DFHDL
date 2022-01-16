@@ -130,6 +130,13 @@ object DFVal:
     case object OUT extends Port
     case object INOUT extends Port
 
+  extension (dfVal: DFVal)
+    def isPort: Boolean = dfVal match
+      case dcl: DFVal.Dcl =>
+        dcl.modifier match
+          case _: Modifier.Port => true
+          case _                => false
+      case _ => false
   final case class Const(
       token: DFTokenAny,
       ownerRef: DFOwner.Ref,

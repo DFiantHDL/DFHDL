@@ -27,8 +27,16 @@ object DFType:
           case dt: T =>
             Some((dt, token.data.asInstanceOf[D]))
           case _ => None
+    object Val:
+      def unapply(arg: DFVal): Option[T] =
+        arg.dfType match
+          case dt: T => Some(dt)
+          case _     => None
   end Companion
 end DFType
+
+sealed trait NamedDFType extends DFType:
+  val name: String
 
 /////////////////////////////////////////////////////////////////////////////
 // DFBool or DFBit
@@ -101,7 +109,7 @@ final case class DFEnum(
     name: String,
     width: Int,
     entries: ListMap[String, BigInt]
-) extends DFType:
+) extends NamedDFType:
   type Data = Option[BigInt]
   def createBubbleData: Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
@@ -151,7 +159,7 @@ object DFVector extends DFType.Companion[DFVector, Vector[Any]]
 /////////////////////////////////////////////////////////////////////////////
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
-final case class DFOpaque(name: String, actualType: DFType) extends DFType:
+final case class DFOpaque(name: String, actualType: DFType) extends NamedDFType:
   type Data = Any
   final val width: Int = actualType.width
   def createBubbleData: Data = actualType.createBubbleData
@@ -171,7 +179,7 @@ object DFOpaque extends DFType.Companion[DFOpaque, Any]
 final case class DFStruct(
     name: String,
     fieldMap: ListMap[String, DFType]
-) extends DFType:
+) extends NamedDFType:
   type Data = List[Any]
   val width: Int = fieldMap.values.map(_.width).sum
   def createBubbleData: Data = fieldMap.values.map(_.createBubbleData).toList

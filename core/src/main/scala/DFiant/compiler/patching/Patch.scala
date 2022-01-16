@@ -268,7 +268,9 @@ extension (db: DB)
             case _                            => origMember.getOwnerBlock
           val actualNewOwner = rc.getLatestRepOf(newOwner) // owner may have been replaced before
           val dbPatched =
-            db.patch(db.top -> Patch.Replace(actualNewOwner, Patch.Replace.Config.ChangeRefOnly))
+            db.patchSingle(
+              db.top -> Patch.Replace(actualNewOwner, Patch.Replace.Config.ChangeRefOnly)
+            )
           // updating the patched DB reference table members with the newest members kept by the replacement context
           val updatedPatchRefTable = rc.getUpdatedRefTable(dbPatched.refTable)
           val repRT = config match
@@ -328,7 +330,7 @@ extension (db: DB)
     DB(patchedMembers, patchedRefTable, globalTags)
   end patch
 
-  def patch(singlePatch: (DFMember, Patch))(using MemberGetSet): DB =
+  def patchSingle(singlePatch: (DFMember, Patch))(using MemberGetSet): DB =
     db.patch(List(singlePatch), debug = false)
   def concat(that: DB): DB = DB(
     db.members ++ that.members.drop(1),

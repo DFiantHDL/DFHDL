@@ -1,6 +1,7 @@
 package DFiant.compiler
 package analysis
 import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
+import DFiant.compiler.ir.DFVal.Modifier
 import DFiant.internals.*
 import ir.*
 
@@ -19,3 +20,13 @@ object Bind:
     if (alias.getTagOf[Pattern.Bind.Tag.type].isDefined)
       Some(alias.relValRef.get)
     else None
+
+object NewVar:
+  def unapply(dcl: DFVal.Dcl)(using
+      MemberGetSet
+  ): Boolean = dcl.modifier match
+    case Modifier.VAR => true
+    case _            => false
+
+extension (dcl: DFVal.Dcl)
+  def externalInit: Option[List[DFTokenAny]] = dcl.getTagOf[ExternalInit].map(_.tokenSeq)
