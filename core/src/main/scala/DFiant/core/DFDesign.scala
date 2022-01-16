@@ -32,7 +32,7 @@ object DFDesign:
         ir.DFTags.empty
       ).addMember
         .asFE
-  extension [D <: DFDesign](dsn: D)(using TopLevel)
+  extension [D <: DFDesign](dsn: D)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
     def printCodeString(): D =
       given Printer = DefaultPrinter

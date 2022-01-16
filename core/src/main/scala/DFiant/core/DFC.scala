@@ -34,7 +34,8 @@ final case class DFC(
 
 end DFC
 object DFC:
-  given empty(using TopLevel): DFC =
+  given (using TopLevel): DFC = empty
+  def empty: DFC =
     DFC(None, Position.unknown, false)
 
 def dfc(using DFC): DFC = summon[DFC]

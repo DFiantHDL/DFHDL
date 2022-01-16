@@ -25,7 +25,9 @@ final case class DB(
             case d: DFDesignBlock => designMemberTable(d)
             case b: DFBlock       => blockMemberTable(b)
             case _                => ownerMemberTable(owner)
-        case MemberView.Flattened => ownerMemberTable(owner)
+        case MemberView.Flattened =>
+          throw new IllegalArgumentException("Flattened Memberview")
+          ownerMemberTable(owner)
     def setGlobalTag[CT <: DFTag: ClassTag](
         taggedElement: Any,
         tag: CT
