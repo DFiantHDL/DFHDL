@@ -114,7 +114,7 @@ object DFToken:
   extension (token: DFTokenAny)
     def asIR: ir.DFTokenAny = token.value
     def codeString(using printer: Printer)(using DFC): String =
-      printer.csDFToken(asIR)(using dfc.getSet)
+      printer.csDFToken(asIR)
   extension [T <: ir.DFType, Data](
       token: DFToken[DFType[ir.DFType.Aux[T, Data], Args]]
   ) def data: Data = token.value.data.asInstanceOf[Data]

@@ -4,7 +4,7 @@ import ir.*
 import DFiant.internals.*
 
 protected trait DFTokenPrinter extends AbstractPrinter:
-  def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector))(using MemberGetSet): String =
+  def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String =
     val valueBits: BitVector = data._1
     val bubbleBits: BitVector = data._2
     val width = dfType.width
@@ -65,14 +65,14 @@ protected trait DFTokenPrinter extends AbstractPrinter:
     else s"""h"$hexRep""""
   end csDFBitsData
 
-  def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean])(using MemberGetSet): String =
+  def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String =
     data match
       case Some(value) =>
         dfType match
           case DFBool => value.toString
           case DFBit  => if (value) "1" else "0"
       case None => "?"
-  def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt])(using MemberGetSet): String =
+  def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
     data match
       case Some(value) =>
         if (dfType.fractionWidth == 0) // DFXInt
@@ -80,17 +80,17 @@ protected trait DFTokenPrinter extends AbstractPrinter:
           s"""$interpStr"${dfType.width}'$value""""
         else ??? // DFXFix
       case None => "?"
-  def csDFEnumData(dfType: DFEnum, data: Option[BigInt])(using MemberGetSet): String =
+  def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
         s"${dfType.getName}.${entryName}"
       case None => "?"
-  def csDFVectorData(dfType: DFVector, data: Vector[Any])(using MemberGetSet): String =
+  def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     s"Vector${data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkStringBrackets}"
-  def csDFOpaqueData(dfType: DFOpaque, data: Any)(using MemberGetSet): String =
+  def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.getName})"
-  def csDFStructData(dfType: DFStruct, data: List[Any])(using MemberGetSet): String =
+  def csDFStructData(dfType: DFStruct, data: List[Any]): String =
     if (dfType.getName.isEmpty)
       csDFTupleData(dfType.fieldMap.values.toList, data)
     else
@@ -100,11 +100,11 @@ protected trait DFTokenPrinter extends AbstractPrinter:
           s"$n = ${csDFToken(DFToken.forced(t, d))}"
         }
         .mkStringBrackets
-  def csDFTupleData(dfTypes: List[DFType], data: List[Any])(using MemberGetSet): String =
+  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
-  def csDFToken(token: DFTokenAny)(using MemberGetSet): String = token match
+  def csDFToken(token: DFTokenAny): String = token match
     case DFBits.Token(dt, data)      => csDFBitsData(dt, data)
     case DFBoolOrBit.Token(dt, data) => csDFBoolOrBitData(dt, data)
     case DFDecimal.Token(dt, data)   => csDFDecimalData(dt, data)
@@ -116,6 +116,6 @@ protected trait DFTokenPrinter extends AbstractPrinter:
       throw new IllegalArgumentException(
         s"Unexpected token found: $x"
       )
-  def csDFTokenSeq(tokenSeq: Seq[DFTokenAny])(using MemberGetSet): String =
+  def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String =
     tokenSeq.map(csDFToken).mkStringBrackets
 end DFTokenPrinter

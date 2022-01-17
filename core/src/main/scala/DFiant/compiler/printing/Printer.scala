@@ -6,10 +6,15 @@ import analysis.*
 
 protected trait AbstractPrinter:
   given printer: Printer
+  given getSet: MemberGetSet
 
-trait Printer extends DFTypePrinter, DFTokenPrinter, DFValPrinter, DFOwnerPrinter:
+class Printer(using val getSet: MemberGetSet)
+    extends DFTypePrinter,
+      DFTokenPrinter,
+      DFValPrinter,
+      DFOwnerPrinter:
   given printer: Printer = this
-  def csDFNet(net: DFNet)(using MemberGetSet): String =
+  def csDFNet(net: DFNet): String =
     // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
     val lhsThis =
       if (net.hasLateConstruction && net.toRef.get.isSameOwnerDesignAs(net)) "this."
@@ -24,7 +29,7 @@ trait Printer extends DFTypePrinter, DFTokenPrinter, DFValPrinter, DFOwnerPrinte
       case DFNet.Op.LazyConnection => "`<LZ>`"
     s"$lhsThis${toRef.refCodeString} $opStr $rhsThis${fromRef.refCodeString}"
 
-  def csDFMember(member: DFMember)(using MemberGetSet): String = member match
+  def csDFMember(member: DFMember): String = member match
     case dfVal: DFVal          => csDFVal(dfVal, None)
     case net: DFNet            => csDFNet(net)
     case design: DFDesignBlock => csDFDesignBlockInst(design)
@@ -47,16 +52,16 @@ trait Printer extends DFTypePrinter, DFTokenPrinter, DFValPrinter, DFOwnerPrinte
 end Printer
 
 extension (member: DFMember)(using printer: Printer)
-  def codeString(using MemberGetSet): String =
+  def codeString: String =
     printer.csDFMember(member)
 extension (db: DB)(using printer: Printer)
-  def codeString(using MemberGetSet): String =
+  def codeString: String =
     printer.csDB(db)
 extension (dfType: DFType)(using printer: DFTypePrinter)
-  def codeString(using MemberGetSet): String =
+  def codeString: String =
     printer.csDFType(dfType)
 extension (token: DFTokenAny)(using printer: DFTokenPrinter)
-  def codeString(using MemberGetSet): String =
+  def codeString: String =
     printer.csDFToken(token)
 
-object DefaultPrinter extends Printer
+def DefaultPrinter(using MemberGetSet): Printer = new Printer

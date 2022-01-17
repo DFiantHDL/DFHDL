@@ -35,8 +35,8 @@ object DFDesign:
   extension [D <: DFDesign](dsn: D)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
     def printCodeString(): D =
-      given Printer = DefaultPrinter
       import dsn.dfc.getSet
+      given Printer = DefaultPrinter
       println(getDB.codeString)
       dsn
 end DFDesign

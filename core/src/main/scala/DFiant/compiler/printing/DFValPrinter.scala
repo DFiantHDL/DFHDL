@@ -6,7 +6,8 @@ import DFVal.*
 import analysis.*
 
 extension [M <: DFMember](ref: DFRef.TwoWay[M])
-  def refCodeString(using getSet: MemberGetSet, printer: DFValPrinter): String =
+  def refCodeString(using printer: DFValPrinter): String =
+    import printer.getSet
     val member = ref.get
     val callOwner = ref.originRef.get.getOwner
     member match
@@ -19,30 +20,26 @@ extension [M <: DFMember](ref: DFRef.TwoWay[M])
       case named: DFMember.Named =>
         named.name
       case _ => throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
-  def simpleRefCodeString(using
-      getSet: MemberGetSet,
-      printer: DFValPrinter
-  ): String =
+  def simpleRefCodeString(using printer: DFValPrinter): String =
+    import printer.getSet
     ref.get match
       case DFVal.Const(DFDecimal.Token(_, Some(i)), _, _, _) => i.toString
       case _                                                 => ref.refCodeString
 end extension
 
 extension (alias: Alias)
-  def relValCodeString(using
-      getSet: MemberGetSet,
-      printer: DFValPrinter
-  ): String = alias.relValRef.refCodeString.applyBrackets()
+  def relValCodeString(using printer: DFValPrinter): String =
+    alias.relValRef.refCodeString.applyBrackets()
 
 protected trait DFValPrinter extends AbstractPrinter:
-  def csDFValConst(dfVal: Const)(using MemberGetSet): String =
+  def csDFValConst(dfVal: Const): String =
     s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
-  def csDFValConstRef(dfVal: Const)(using MemberGetSet): String =
+  def csDFValConstRef(dfVal: Const): String =
     printer.csDFToken(dfVal.token)
-  def csDFValDcl(dfVal: Dcl)(using MemberGetSet): String =
+  def csDFValDcl(dfVal: Dcl): String =
     s"${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
 
-  def csDFValFuncRef(dfVal: Func)(using MemberGetSet): String =
+  def csDFValFuncRef(dfVal: Func): String =
     dfVal.args match
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
@@ -93,7 +90,7 @@ protected trait DFValPrinter extends AbstractPrinter:
             args
               .map(_.refCodeString.applyBrackets())
               .mkString(s" ${dfVal.op} ")
-  def csDFValAliasAsIs(dfVal: Alias.AsIs)(using MemberGetSet): String =
+  def csDFValAliasAsIs(dfVal: Alias.AsIs): String =
     val relVal = dfVal.relValRef.get
     val relValStr = dfVal.relValCodeString
     val fromType = relVal.dfType
@@ -134,21 +131,15 @@ protected trait DFValPrinter extends AbstractPrinter:
         throw new IllegalArgumentException("Unsupported alias/conversion")
     end match
   end csDFValAliasAsIs
-  def csDFValAliasApplyRange(dfVal: Alias.ApplyRange)(using
-      MemberGetSet
-  ): String =
+  def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     s"${dfVal.relValCodeString}(${dfVal.relBitHigh}, ${dfVal.relBitLow})"
-  def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx)(using
-      MemberGetSet
-  ): String =
+  def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
     val relIdxStr = dfVal.relIdx.simpleRefCodeString
     s"${dfVal.relValCodeString}($relIdxStr)"
   // when the tuple field number exceeds this number, the tuple
   // field selections changes from `dv._${idx+1}` to `dv($idx)`
   val TUPLE_MIN_INDEXING = 3
-  def csDFValAliasSelectField(dfVal: Alias.SelectField)(using
-      MemberGetSet
-  ): String =
+  def csDFValAliasSelectField(dfVal: Alias.SelectField): String =
     val DFStruct(structName, fieldMap) = dfVal.relValRef.get.dfType
     val fieldSel =
       if (structName.isEmpty)
@@ -157,15 +148,13 @@ protected trait DFValPrinter extends AbstractPrinter:
         else s".${dfVal.fieldName}"
       else s".${dfVal.fieldName}"
     s"${dfVal.relValCodeString}$fieldSel"
-  def csDFValAliasRef(dfVal: Alias)(using MemberGetSet): String = dfVal match
+  def csDFValAliasRef(dfVal: Alias): String = dfVal match
     case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
     case _: Alias.Prev         => ???
     case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
     case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
     case dv: Alias.SelectField => csDFValAliasSelectField(dv)
-  def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner])(using
-      MemberGetSet
-  ): String =
+  def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner]): String =
     def typeAnnot = dfVal match
       case dv: DFConditional.Header if dv.dfType != NoType =>
         s": ${printer.csDFType(dfVal.dfType, typeCS = true)} <> VAL"

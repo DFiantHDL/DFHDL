@@ -49,7 +49,7 @@ class DFTypeSpec extends DFSpec:
     assert(MyEnum5.width.value == 8)
   }
 
-  given Printer = DefaultPrinter
+  given Printer = DefaultPrinter(using dfc.getSet)
   test("codeString") {
     assertEquals(b8.codeString, "DFBits(8)")
     assertEquals(bit.codeString, "DFBit")

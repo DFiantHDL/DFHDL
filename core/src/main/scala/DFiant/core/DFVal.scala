@@ -465,7 +465,7 @@ private object CompanionsDFVal:
         ValueOf[C]
     ): Compare[T, T <> VAL, Op, C] with
       def conv(dfType: T, arg: T <> VAL): DFValOf[T] =
-        given Printer = DefaultPrinter
+        given Printer = DefaultPrinter(using dfc.getSet)
         assert(
           dfType == arg.dfType,
           s"Cannot compare dataflow value type `${dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
@@ -481,7 +481,7 @@ private object CompanionsDFVal:
         ValueOf[C]
     ): Compare[T, T <> TOKEN, Op, C] with
       def conv(dfType: T, arg: T <> TOKEN): DFValOf[T] =
-        given Printer = DefaultPrinter
+        given Printer = DefaultPrinter(using dfc.getSet)
         assert(
           dfType == arg.dfType,
           s"Cannot compare dataflow value type `${dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."

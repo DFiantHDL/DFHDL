@@ -6,7 +6,7 @@ import core.HasDFC
 
 abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   final val dfc: DFC = core.DFC.empty
-  given printer: Printer = DefaultPrinter
+  given printer: Printer = DefaultPrinter(using dfc.getSet)
   private final val owner: core.DFDesign.Block = core.DFDesign.Block(typeName, Position.unknown)
   dfc.enterOwner(owner)
   private val noErrMsg = "No error found"
@@ -42,7 +42,7 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
       dfc.mutableDB
         .getMembers(startIdx, endIdx)
         .filter(_.getOwner == dfc.owner.asIR)
-    printer.csDFMembers(members, false)(using dfc.getSet)
+    printer.csDFMembers(members, false)
 
   def printCodeString(block: => Unit): Unit =
     println(getCodeStringFrom(block))

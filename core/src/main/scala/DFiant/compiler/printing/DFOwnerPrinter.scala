@@ -6,14 +6,11 @@ import DFiant.internals.*
 import DFVal.*
 import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
 protected trait DFOwnerPrinter extends AbstractPrinter:
-  private def csDFOwnerBody(owner: DFOwner, lateConstruction: Boolean)(using
-      MemberGetSet
-  ): String = csDFMembers(owner.members(MemberView.Folded), lateConstruction)
+  private def csDFOwnerBody(owner: DFOwner, lateConstruction: Boolean): String =
+    csDFMembers(owner.members(MemberView.Folded), lateConstruction)
   private[DFiant] def csDFMembers(
       members: List[DFMember],
       lateConstruction: Boolean
-  )(using
-      MemberGetSet
   ): String =
     members.view
       // only members that match the requested construction mode
@@ -37,26 +34,22 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       .map(_.codeString)
       .filter(_.nonEmpty)
       .mkString("\n")
-  def csDFDesignBlockDcl(design: DFDesignBlock)(using MemberGetSet): String =
+  def csDFDesignBlockDcl(design: DFDesignBlock): String =
     val body = csDFOwnerBody(design, false)
     val dcl = s"class ${design.dclName}(using DFC) extends DFDesign"
     if (body.isEmpty) dcl else s"$dcl:\n${body.indent(1)}"
-  def csDFDesignBlockInst(design: DFDesignBlock)(using MemberGetSet): String =
+  def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerBody(design, true)
     val inst = s"val ${design.name} = new ${design.dclName}"
     if (body.isEmpty) inst else s"$inst:\n${body.indent(1)}"
-  def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock)(using
-      MemberGetSet
-  ): String =
+  def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
     ifBlock.prevBlockOrHeaderRef.get match
       case _: DFConditional.Header => s"if (${ifBlock.condRef.refCodeString})"
       case _ =>
         ifBlock.condRef.get match
           case DFMember.Empty => s"else"
           case _              => s"else if (${ifBlock.condRef.refCodeString})"
-  def csDFCasePattern(pattern: DFConditional.DFCaseBlock.Pattern)(using
-      MemberGetSet
-  ): String = pattern match
+  def csDFCasePattern(pattern: DFConditional.DFCaseBlock.Pattern): String = pattern match
     case Pattern.CatchAll => "_"
     case Pattern.Singleton(token) =>
       val csToken = printer.csDFToken(token)
@@ -84,17 +77,13 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
           .mkString
       s"""$op"$fullTerm""""
 
-  def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock)(using
-      MemberGetSet
-  ): String =
+  def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock): String =
     val csGuard =
       caseBlock.guardRef.get match
         case DFMember.Empty => ""
         case _              => s"if ${caseBlock.guardRef.refCodeString} "
     s"case ${csDFCasePattern(caseBlock.pattern)} ${csGuard}=>"
-  def csDFConditionalBlock(cb: DFConditional.Block)(using
-      MemberGetSet
-  ): String =
+  def csDFConditionalBlock(cb: DFConditional.Block): String =
     val body = csDFOwnerBody(cb, false)
     val statement = cb match
       case caseBlock: DFConditional.DFCaseBlock => csDFCaseStatement(caseBlock)
@@ -105,9 +94,7 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       case caseBlock: DFConditional.DFCaseBlock => statement
       case ifBlock: DFConditional.DFIfElseBlock => s"$statement {}"
     else s"$statement$indentBody"
-  def csDFConditional(ch: DFConditional.Header)(using
-      MemberGetSet
-  ): String =
+  def csDFConditional(ch: DFConditional.Header): String =
     val chain = getSet.designDB.conditionalChainTable(ch)
     val csChains = chain.map(ib => csDFConditionalBlock(ib)).mkString("\n")
     ch match
