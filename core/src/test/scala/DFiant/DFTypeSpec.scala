@@ -5,7 +5,7 @@ import compiler.printing.{Printer, DefaultPrinter}
 import scala.annotation.internal.sharable
 import collection.immutable.ListMap
 
-class DFTypeSpec extends FunSuite:
+class DFTypeSpec extends DFSpec:
   val b8 = DFBits(8)
   val u7 = DFUInt(7)
   val s5 = DFSInt(5)

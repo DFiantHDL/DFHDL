@@ -17,3 +17,4 @@ object DFTags:
       tags.get(classTag[CT]).asInstanceOf[Option[CT]]
 
 final case class ExternalInit(tokenSeq: List[DFTokenAny]) extends DFTagOf[DFVal]
+final case class NameTag(name: String) extends DFTag

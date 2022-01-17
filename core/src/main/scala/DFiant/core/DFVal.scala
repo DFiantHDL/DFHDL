@@ -8,6 +8,7 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 import DFOpaque.Abstract as DFOpaqueA
+import DFiant.compiler.ir.MemberGetSet
 import DFiant.compiler.printing.{DefaultPrinter, Printer}
 
 import scala.reflect.ClassTag
@@ -390,9 +391,10 @@ private object CompanionsDFVal:
             "`."
         )
       ]
-    given sameValType[T <: DFTypeAny]: TC[T, T <> VAL] with
+    given sameValType[T <: DFTypeAny](using DFC): TC[T, T <> VAL] with
       def conv(dfType: T, value: T <> VAL): DFValOf[T] =
         given Printer = DefaultPrinter
+        given MemberGetSet = dfc.getSet
         assert(
           dfType == value.dfType,
           s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
@@ -403,6 +405,7 @@ private object CompanionsDFVal:
     ): TC[T, T <> TOKEN] with
       def conv(dfType: T, value: T <> TOKEN): DFValOf[T] =
         given Printer = DefaultPrinter
+        given MemberGetSet = dfc.getSet
         assert(
           dfType == value.dfType,
           s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."

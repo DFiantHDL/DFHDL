@@ -36,7 +36,10 @@ object DFType:
 end DFType
 
 sealed trait NamedDFType extends DFType:
-  val name: String
+  protected val name: String
+  def getName(using getSet: MemberGetSet): String = getSet.getGlobalTag[NameTag](this) match
+    case Some(NameTag(taggedName)) => taggedName
+    case _                         => name
 
 /////////////////////////////////////////////////////////////////////////////
 // DFBool or DFBit
@@ -106,7 +109,7 @@ object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]
 // DFEnum
 /////////////////////////////////////////////////////////////////////////////
 final case class DFEnum(
-    name: String,
+    protected val name: String,
     width: Int,
     entries: ListMap[String, BigInt]
 ) extends NamedDFType:
@@ -159,7 +162,7 @@ object DFVector extends DFType.Companion[DFVector, Vector[Any]]
 /////////////////////////////////////////////////////////////////////////////
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
-final case class DFOpaque(name: String, actualType: DFType) extends NamedDFType:
+final case class DFOpaque(protected val name: String, actualType: DFType) extends NamedDFType:
   type Data = Any
   final val width: Int = actualType.width
   def createBubbleData: Data = actualType.createBubbleData
@@ -177,7 +180,7 @@ object DFOpaque extends DFType.Companion[DFOpaque, Any]
 // DFStruct
 /////////////////////////////////////////////////////////////////////////////
 final case class DFStruct(
-    name: String,
+    protected val name: String,
     fieldMap: ListMap[String, DFType]
 ) extends NamedDFType:
   type Data = List[Any]

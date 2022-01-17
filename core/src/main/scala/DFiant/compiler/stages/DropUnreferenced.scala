@@ -11,5 +11,4 @@ private class DropUnreferenced(db: DB) extends Stage(db):
     }
     designDB.patch(patchList)
 
-extension [T: HasDB](t: T)
-  def dropUnreferenced: DB = new DropUnreferenced(summon[HasDB[T]](t)).transform
+extension [T: HasDB](t: T) def dropUnreferenced: DB = new DropUnreferenced(t.db).transform

@@ -43,25 +43,21 @@
 //        reservedNames
 //
 //    val globalNamesLC = lowerCases(globalNames)
-//    val patchesAndTags = designDB.designMemberList.map { case (design, members) =>
+//    val patchList = designDB.designMemberList.flatMap { case (design, members) =>
 //      val localDFTypeUpdates = renamer(designDB.getLocalEnumEntries(design), globalNamesLC)(
 //        _.name,
 //        (e, n) => e -> e.copy(name = n)
 //      )
-//      val patchList = renamer(members.filterNot(_.isAnonymous), reservedNamesLC)(
-//        _.name,
-//        (m, n) => m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
-//      )
-//      (patchList, localTagList)
-//    }.unzip
-//    val patchList = patchesAndTags._1.flatten
-//    val tagList = patchesAndTags._2.flatten ++ globalTagList
-//    designDB.patch(patchList).setGlobalTags(tagList)
+//      val dfTypeUpdates = Map(localDFTypeUpdates.view ++ globalDFTypeUpdates)
+//      members.view.map { case dfVal: DFVal => dfVal }
+//      ???
+//    }
+//    designDB.patch(patchList)
 //  end transform
 //end UniqueNames
 //
 //extension [T: HasDB](t: T)
 //  def uniqueNames(reservedNames: Set[String], caseSensitive: Boolean): DB =
 //    new UniqueNames(reservedNames, caseSensitive)(
-//      summon[HasDB[T]](t)
+//      t.db
 //    ).transform

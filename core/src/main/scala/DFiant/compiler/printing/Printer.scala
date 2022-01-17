@@ -50,13 +50,13 @@ extension (member: DFMember)(using printer: Printer)
   def codeString(using MemberGetSet): String =
     printer.csDFMember(member)
 extension (db: DB)(using printer: Printer)
-  def codeString: String =
+  def codeString(using MemberGetSet): String =
     printer.csDB(db)
 extension (dfType: DFType)(using printer: DFTypePrinter)
-  def codeString: String =
+  def codeString(using MemberGetSet): String =
     printer.csDFType(dfType)
 extension (token: DFTokenAny)(using printer: DFTokenPrinter)
-  def codeString: String =
+  def codeString(using MemberGetSet): String =
     printer.csDFToken(token)
 
 object DefaultPrinter extends Printer

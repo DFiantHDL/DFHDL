@@ -35,11 +35,11 @@ extension (alias: Alias)
   ): String = alias.relValRef.refCodeString.applyBrackets()
 
 protected trait DFValPrinter extends AbstractPrinter:
-  def csDFValConst(dfVal: Const): String =
+  def csDFValConst(dfVal: Const)(using MemberGetSet): String =
     s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
-  def csDFValConstRef(dfVal: Const): String =
+  def csDFValConstRef(dfVal: Const)(using MemberGetSet): String =
     printer.csDFToken(dfVal.token)
-  def csDFValDcl(dfVal: Dcl): String =
+  def csDFValDcl(dfVal: Dcl)(using MemberGetSet): String =
     s"${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
 
   def csDFValFuncRef(dfVal: Func)(using MemberGetSet): String =

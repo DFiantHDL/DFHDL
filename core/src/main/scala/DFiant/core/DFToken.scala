@@ -113,7 +113,8 @@ object DFToken:
     ir.DFToken.bubble(dfType.asIR).asTokenOf[T]
   extension (token: DFTokenAny)
     def asIR: ir.DFTokenAny = token.value
-    def codeString(using printer: Printer): String = printer.csDFToken(asIR)
+    def codeString(using printer: Printer)(using DFC): String =
+      printer.csDFToken(asIR)(using dfc.getSet)
   extension [T <: ir.DFType, Data](
       token: DFToken[DFType[ir.DFType.Aux[T, Data], Args]]
   ) def data: Data = token.value.data.asInstanceOf[Data]
