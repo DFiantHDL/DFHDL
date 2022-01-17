@@ -1,7 +1,6 @@
 package DFiant.compiler.stages
 
 import DFiant.compiler.analysis.*
-import DFiant.compiler.ir
 import DFiant.compiler.ir.*
 import DFiant.compiler.patching.*
 import DFiant.internals.*
@@ -35,22 +34,28 @@ private class UniqueNames(reservedNames: Set[String], caseSensitive: Boolean)(db
       }
 
     val reservedNamesLC = lowerCases(reservedNames)
-    val globalTagList = renamer(designDB.getGlobalEnumEntries, reservedNamesLC)(
+    val globalTagList = renamer(designDB.getGlobalNamedDFTypes, reservedNamesLC)(
       _.getName,
       (e, n) => (e, classTag[NameTag]) -> NameTag(n)
     )
     val globalNames: Set[String] =
-      (designDB.getGlobalEnumEntries.map(e => e.getName) ++ globalTagList.map(e =>
+      (designDB.getGlobalNamedDFTypes.map(e => e.getName) ++ globalTagList.map(e =>
         e._2.name
       ) ++ reservedNames)
     val globalNamesLC = lowerCases(globalNames)
     val patchesAndTags = designDB.designMemberList.map { case (design, members) =>
-      val localTagList = renamer(designDB.getLocalEnumEntries(design), globalNamesLC)(
+      val localTagList = renamer(designDB.getLocalNamedDFTypes(design), globalNamesLC)(
         _.getName,
         (e, n) => (e, classTag[NameTag]) -> NameTag(n)
       )
       val patchList = renamer(
-        members.collect { case m: ir.DFMember.Named if !m.isAnonymous => m },
+        members.view.flatMap {
+          // no need to rename binds, since there is no collision
+          // and will be handled after the binds are converted to explicit selectors
+          case Bind(_)                             => None
+          case m: DFMember.Named if !m.isAnonymous => Some(m)
+          case _                                   => None
+        },
         reservedNamesLC
       )(
         _.name,

@@ -45,9 +45,9 @@ final case class DB(
   // Map of all enum types in the design with their design block owners.
   // If the enum type is global (used in IO or more than one design block),
   // then its owner is set to None.
-  private lazy val enumEntries: Map[DFEnum, Option[DFDesignBlock]] =
-    members.foldLeft(Map.empty[DFEnum, Option[DFDesignBlock]]) {
-      case (enumMap, enumMember @ DFEnum.Val(dfType)) => // an enum member
+  private lazy val namedDFTypes: Map[NamedDFType, Option[DFDesignBlock]] =
+    members.foldLeft(Map.empty[NamedDFType, Option[DFDesignBlock]]) {
+      case (enumMap, enumMember @ NamedDFType(dfType)) => // an enum member
         if (enumMember.isPort) enumMap + (dfType -> None) // IO means a global enum type
         else
           enumMap.get(dfType) match
@@ -60,15 +60,15 @@ final case class DB(
       case (enumMap, _) => enumMap // not an enum member
     }
 
-  private lazy val invertedEnumEntries = enumEntries.invert
-  lazy val getGlobalEnumEntries: Set[DFEnum] = invertedEnumEntries.getOrElse(None, Set())
-  private lazy val localEnumEntries: Map[DFDesignBlock, Set[DFEnum]] =
-    invertedEnumEntries.flatMap {
+  private lazy val invertedNamedDFTypes = namedDFTypes.invert
+  lazy val getGlobalNamedDFTypes: Set[NamedDFType] = invertedNamedDFTypes.getOrElse(None, Set())
+  private lazy val localNamedDFTypes: Map[DFDesignBlock, Set[NamedDFType]] =
+    invertedNamedDFTypes.flatMap {
       case (Some(b), set) => Some(b -> set)
       case _              => None
     }
-  def getLocalEnumEntries(design: DFDesignBlock): Set[DFEnum] =
-    localEnumEntries.getOrElse(design, Set())
+  def getLocalNamedDFTypes(design: DFDesignBlock): Set[NamedDFType] =
+    localNamedDFTypes.getOrElse(design, Set())
 
   @tailrec private def OMLGen[O <: DFOwner: ClassTag](
       getOwnerFunc: DFMember => O

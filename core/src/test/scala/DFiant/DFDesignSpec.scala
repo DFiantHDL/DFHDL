@@ -2,14 +2,17 @@ import DFiant.*
 import DFiant.internals.AllowTopLevel
 import munit.*
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
-
 class ID(using DFC) extends DFDesign:
+  enum MyEnum extends DFEnum:
+    case Foo, Baz, Bar
   val x = DFSInt(16) <> IN
   val y = DFSInt(16) <> OUT
-  val z = DFUInt(9)  <> VAR
+  val z = MyEnum     <> VAR init MyEnum.Bar
   object Hi:
-    val x = DFSInt(16) <> IN init 0
-  Hi.x := 0
+    enum MyEnum extends DFEnum:
+      case Baz, Bar, Foo
+    val x = MyEnum <> VAR init MyEnum.Baz
+  Hi.x
 
   y := x
 

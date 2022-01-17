@@ -40,7 +40,11 @@ sealed trait NamedDFType extends DFType:
   def getName(using getSet: MemberGetSet): String = getSet.getGlobalTag[NameTag](this) match
     case Some(NameTag(taggedName)) => taggedName
     case _                         => name
-
+object NamedDFType:
+  def unapply(dfVal: DFVal): Option[NamedDFType] =
+    dfVal.dfType match
+      case dt: NamedDFType => Some(dt)
+      case _               => None
 /////////////////////////////////////////////////////////////////////////////
 // DFBool or DFBit
 /////////////////////////////////////////////////////////////////////////////

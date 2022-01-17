@@ -19,11 +19,24 @@ protected trait DFTypePrinter extends AbstractPrinter:
       case (false, _) => s"DFUFix$ob$magnitudeWidth, $fractionWidth$cb"
       case (true, _)  => s"DFSFix$ob$magnitudeWidth, $fractionWidth$cb"
 
+  def csNamedDFTypeDcl(dfType: NamedDFType): String =
+    dfType match
+      case dt: DFEnum   => csDFEnumDcl(dt)
+      case dt: DFOpaque => csDFOpaqueDcl(dt)
+      case dt: DFStruct => csDFStructDcl(dt)
+  def csDFEnumDcl(dfType: DFEnum): String =
+    val entries = dfType.entries.view.map((n, v) => "")
+    s"enum ${dfType.getName} extends DFEnum:\n${entries.mkString("\n")}"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
     s"${csDFType(cellType, typeCS)}.X${cellDims.mkStringBrackets}"
+  def csDFOpaqueDcl(dfType: DFOpaque): String =
+    s"object ${dfType.getName} extends DFOpaque(${csDFType(dfType.actualType)})"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
+  def csDFStructDcl(dfType: DFStruct): String =
+    val fields = dfType.fieldMap.view.map((n, t) => s"${n}: ${csDFType(t, typeCS = true)} <> VAL")
+    s"final case class ${dfType.getName}(${fields.mkString("\n(", "\n", ")")}) extends DFStruct"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
     if (dfType.getName.isEmpty)
       csDFTuple(dfType.fieldMap.values.toList, typeCS)
