@@ -2,6 +2,8 @@ package DFiant.compiler.patching
 import DFiant.compiler.ir.*
 import DFiant.compiler.analysis.*
 
+import scala.reflect.ClassTag
+
 sealed trait Patch extends Product with Serializable derives CanEqual
 object Patch:
   case object Remove extends Patch
@@ -337,5 +339,7 @@ extension (db: DB)
     db.refTable ++ that.refTable,
     db.globalTags ++ that.globalTags
   )
+  def setGlobalTags(tagList: List[((Any, ClassTag[_]), DFTag)]): DB =
+    db.copy(globalTags = db.globalTags ++ tagList)
 
 end extension

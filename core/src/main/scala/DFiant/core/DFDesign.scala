@@ -32,11 +32,10 @@ object DFDesign:
         ir.DFTags.empty
       ).addMember
         .asFE
-  extension [D <: DFDesign](dsn: D)
-    def getDB: ir.DB = dsn.dfc.mutableDB.immutable
-    def printCodeString(): D =
-      import dsn.dfc.getSet
-      given Printer = DefaultPrinter
-      println(getDB.codeString)
-      dsn
+  extension [D <: DFDesign](dsn: D) def getDB: ir.DB = dsn.dfc.mutableDB.immutable
+//    def printCodeString(): D =
+//      import dsn.dfc.getSet
+//      given Printer = DefaultPrinter
+//      println(getDB.codeString)
+//      dsn
 end DFDesign

@@ -7,6 +7,10 @@ class ID(using DFC) extends DFDesign:
   val x = DFSInt(16) <> IN
   val y = DFSInt(16) <> OUT
   val z = DFUInt(9)  <> VAR
+  object Hi:
+    val x = DFSInt(16) <> IN init 0
+  Hi.x := 0
+
   y := x
 
 class IDTop(using DFC) extends DFDesign:
@@ -40,6 +44,6 @@ end IDTopVia
 class DFDesignSpec extends FunSuite, AllowTopLevel:
   val id = new IDTopVia
   import compiler.stages.*
-  id.dropUnreferenced.printCodeString
+  id.printCodeString
 
 end DFDesignSpec
