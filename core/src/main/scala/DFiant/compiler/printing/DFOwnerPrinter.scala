@@ -35,9 +35,17 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       .filter(_.nonEmpty)
       .mkString("\n")
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
+    val localDcls =
+      getSet.designDB
+        .getLocalNamedDFTypes(design)
+        .toList
+        .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
+        .map(printer.csNamedDFTypeDcl)
+        .mkString("\n")
     val body = csDFOwnerBody(design, false)
+    val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val dcl = s"class ${design.dclName}(using DFC) extends DFDesign"
-    if (body.isEmpty) dcl else s"$dcl:\n${body.indent(1)}\nend ${design.dclName}"
+    if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.indent(1)}\nend ${design.dclName}"
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerBody(design, true)
     val inst = s"val ${design.name} = new ${design.dclName}"

@@ -178,10 +178,10 @@ protected trait DFValPrinter extends AbstractPrinter:
         dfVal.getRelativeName(owner)
       case (dv, None) if !dv.isAnonymous =>
         val rhsInitVal = rhsInit
-        val delimRHS =
+        val indentRHS =
           if (rhsInitVal.contains("\n")) s"\n${rhsInitVal.indent(1)}"
           else s" ${rhsInitVal}"
-        s"$valDef$delimRHS"
+        s"$valDef$indentRHS"
       case _ => rhsInit
   end csDFVal
 end DFValPrinter

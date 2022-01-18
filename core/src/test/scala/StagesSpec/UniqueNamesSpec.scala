@@ -50,8 +50,12 @@ class UniqueNamesSpec extends StageSpec:
       case Bar, Baz
     enum MyEnumLcl extends DFEnum:
       case Bar, Baz
-    val x = MyEnumGlbl <> IN
-    val y = MyEnumLcl  <> VAR init MyEnumLcl.Bar
+    case class Pixel(x: DFUInt[8] <> VAL, y: DFUInt[8] <> VAL) extends DFStruct
+    object MyByte extends DFOpaque(DFBits(8))
+    val x     = MyEnumGlbl <> IN
+    val y     = MyEnumLcl  <> VAR init MyEnumLcl.Bar
+    val pixel = Pixel      <> VAR init Pixel(0, 0)
+    val byte  = MyByte     <> VAR init all(0).as(MyByte)
     object Temp:
       enum MyEnumLcl extends DFEnum:
         case Baz, Bar
@@ -62,9 +66,23 @@ class UniqueNamesSpec extends StageSpec:
     assertCodeString(
       top,
       """|class SomeEnums(using DFC) extends DFDesign:
+         |  object MyByte extends DFOpaque(DFBits(8))
+         |  enum MyEnumLcl_0(val value: DFUInt[1] <> TOKEN) extends DFEnum.Manual(1):
+         |    case Baz extends MyEnumLcl_0(d"1'0")
+         |    case Bar extends MyEnumLcl_0(d"1'1")
+         |  enum MyEnumLcl_1(val value: DFUInt[1] <> TOKEN) extends DFEnum.Manual(1):
+         |    case Bar extends MyEnumLcl_1(d"1'0")
+         |    case Baz extends MyEnumLcl_1(d"1'1")
+         |  final case class Pixel(
+         |      x: DFUInt[8] <> VAL
+         |      y: DFUInt[8] <> VAL
+         |  ) extends DFStruct
+         |
          |  val x = MyEnumGlbl <> IN
-         |  val y_0 = MyEnumLcl_0 <> VAR init MyEnumLcl_0.Bar
-         |  val y_1 = (MyEnumLcl_1, MyEnumLcl_1) <> VAR init (MyEnumLcl_1.Bar, MyEnumLcl_1.Baz)
+         |  val y_0 = MyEnumLcl_1 <> VAR init MyEnumLcl_1.Bar
+         |  val pixel = Pixel <> VAR init Pixel(x = d"8'0", y = d"8'0")
+         |  val byte = MyByte <> VAR init h"8'00".as(MyByte)
+         |  val y_1 = (MyEnumLcl_0, MyEnumLcl_0) <> VAR init (MyEnumLcl_0.Bar, MyEnumLcl_0.Baz)
          |end SomeEnums
          |""".stripMargin
     )

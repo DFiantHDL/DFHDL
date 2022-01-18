@@ -19,5 +19,11 @@ extension (text: String)
       else s"($text)"
     else text
 
-  def indent(count: Int = 1): String = text.replaceAll("(?m)^", "  " * count);
+  def indent(count: Int = 1): String =
+    text.linesIterator
+      .map(l =>
+        if (l.isEmpty) ""
+        else "  " * count + l
+      )
+      .mkString("\n")
 end extension

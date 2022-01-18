@@ -25,8 +25,15 @@ protected trait DFTypePrinter extends AbstractPrinter:
       case dt: DFOpaque => csDFOpaqueDcl(dt)
       case dt: DFStruct => csDFStructDcl(dt)
   def csDFEnumDcl(dfType: DFEnum): String =
-    val entries = dfType.entries.view.map((n, v) => "")
-    s"enum ${dfType.getName} extends DFEnum:\n${entries.mkString("\n")}"
+    val enumName = dfType.getName
+    val entries =
+      dfType.entries.view
+        .map((n, v) =>
+          s"case $n extends $enumName(${printer.csDFDecimalData(DFUInt(dfType.width), Some(v))})"
+        )
+        .mkString("\n")
+        .indent()
+    s"enum ${enumName}(val value: DFUInt[${dfType.width}] <> TOKEN) extends DFEnum.Manual(${dfType.width}):\n$entries"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
@@ -35,8 +42,11 @@ protected trait DFTypePrinter extends AbstractPrinter:
     s"object ${dfType.getName} extends DFOpaque(${csDFType(dfType.actualType)})"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
   def csDFStructDcl(dfType: DFStruct): String =
-    val fields = dfType.fieldMap.view.map((n, t) => s"${n}: ${csDFType(t, typeCS = true)} <> VAL")
-    s"final case class ${dfType.getName}(${fields.mkString("\n(", "\n", ")")}) extends DFStruct"
+    val fields = dfType.fieldMap.view
+      .map((n, t) => s"${n}: ${csDFType(t, typeCS = true)} <> VAL")
+      .mkString("\n")
+      .indent(2)
+    s"final case class ${dfType.getName}(\n$fields\n) extends DFStruct"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
     if (dfType.getName.isEmpty)
       csDFTuple(dfType.fieldMap.values.toList, typeCS)

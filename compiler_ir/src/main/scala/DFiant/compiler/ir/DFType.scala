@@ -124,6 +124,20 @@ final case class DFDecimal(
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]
+
+object DFUInt:
+  def apply(width: Int): DFDecimal = DFDecimal(false, width, 0)
+  def unapply(arg: DFDecimal): Option[Int] =
+    arg match
+      case DFDecimal(false, width, 0) => Some(width)
+      case _                          => None
+
+object DFSInt:
+  def apply(width: Int): DFDecimal = DFDecimal(true, width, 0)
+  def unapply(arg: DFDecimal): Option[Int] =
+    arg match
+      case DFDecimal(true, width, 0) => Some(width)
+      case _                         => None
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
