@@ -5,9 +5,9 @@ import munit.*
 class ID(using DFC) extends DFDesign:
   enum MyEnum extends DFEnum:
     case Foo, Baz, Bar
-  val x = DFSInt(16) <> IN
-  val y = DFSInt(16) <> OUT
-  val z = MyEnum     <> VAR init MyEnum.Bar
+  val x = DFSInt(16)       <> IN
+  val y = DFSInt(16)       <> OUT
+  val z = (MyEnum, MyEnum) <> VAR init (MyEnum.Bar, MyEnum.Baz)
   object Hi:
     enum MyEnum extends DFEnum:
       case Baz, Bar, Foo

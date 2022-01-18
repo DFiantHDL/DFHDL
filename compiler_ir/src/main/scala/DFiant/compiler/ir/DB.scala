@@ -47,17 +47,24 @@ final case class DB(
   // then its owner is set to None.
   private lazy val namedDFTypes: Map[NamedDFType, Option[DFDesignBlock]] =
     members.foldLeft(Map.empty[NamedDFType, Option[DFDesignBlock]]) {
-      case (enumMap, enumMember @ NamedDFType(dfType)) => // an enum member
-        if (enumMember.isPort) enumMap + (dfType -> None) // IO means a global enum type
+      case (namedDFTypeMap, namedDFTypeMember @ NamedDFTypes(dfTypes)) =>
+        if (namedDFTypeMember.isPort)
+          namedDFTypeMap ++ dfTypes.map(t => (t -> None)) // IO means a global named type
         else
-          enumMap.get(dfType) match
-            case Some(Some(owner)) => // enum type already found
-              if (owner == enumMember.getOwnerDesign) enumMap // same design block -> nothing to do
-              else enumMap + (dfType -> None) // used in more than one block -> global enum type
-            case Some(None) => enumMap // known to be a global type
-            case None =>
-              enumMap + (dfType -> Some(enumMember.getOwnerDesign)) // found new enum type
-      case (enumMap, _) => enumMap // not an enum member
+          dfTypes.foldLeft(namedDFTypeMap) { case (namedDFTypeMap, dfType) =>
+            namedDFTypeMap.get(dfType) match
+              case Some(Some(owner)) => // named type already found
+                if (owner == namedDFTypeMember.getOwnerDesign)
+                  namedDFTypeMap // same design block -> nothing to do
+                else
+                  namedDFTypeMap + (dfType -> None) // used in more than one block -> global named type
+              case Some(None) => namedDFTypeMap // known to be a global type
+              case None =>
+                namedDFTypeMap + (dfType -> Some(
+                  namedDFTypeMember.getOwnerDesign
+                )) // found new named type
+          }
+      case (namedDFTypeMap, _) => namedDFTypeMap // not a named type member
     }
 
   private lazy val invertedNamedDFTypes = namedDFTypes.invert

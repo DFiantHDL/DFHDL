@@ -40,11 +40,28 @@ sealed trait NamedDFType extends DFType:
   def getName(using getSet: MemberGetSet): String = getSet.getGlobalTag[NameTag](this) match
     case Some(NameTag(taggedName)) => taggedName
     case _                         => name
-object NamedDFType:
-  def unapply(dfVal: DFVal): Option[NamedDFType] =
-    dfVal.dfType match
-      case dt: NamedDFType => Some(dt)
-      case _               => None
+object NamedDFTypes:
+  def unapply(dfVal: DFVal)(using MemberGetSet): Option[Set[NamedDFType]] =
+    Flatten.unapply(dfVal.dfType)
+  object Flatten:
+    def unapply(dfType: DFType)(using MemberGetSet): Option[Set[NamedDFType]] =
+      dfType match
+        case dt: DFStruct =>
+          val subNamedDFTypes = dt.fieldMap.values.flatMap {
+            case Flatten(dfTypes) => dfTypes
+            case _                => Set()
+          }.toSet
+          if (dt.isTuple) Some(subNamedDFTypes)
+          else Some(subNamedDFTypes + dt)
+        case dt: DFOpaque =>
+          dt.actualType match
+            case Flatten(dfTypes) => Some(dfTypes + dt)
+            case _                => Some(Set(dt))
+        case dt: NamedDFType => Some(Set(dt))
+        case _               => None
+  end Flatten
+end NamedDFTypes
+
 /////////////////////////////////////////////////////////////////////////////
 // DFBool or DFBit
 /////////////////////////////////////////////////////////////////////////////
@@ -210,7 +227,8 @@ final case class DFStruct(
       .toList
 end DFStruct
 
-object DFStruct extends DFType.Companion[DFStruct, List[Any]]
+object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
+  extension (dfType: DFStruct) def isTuple: Boolean = dfType.name.isEmpty
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
