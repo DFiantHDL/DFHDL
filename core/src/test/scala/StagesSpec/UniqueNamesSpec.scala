@@ -4,7 +4,7 @@ import DFiant.*
 import DFiant.compiler.stages.uniqueNames
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class UniqueNames extends StageSpec:
+class UniqueNamesSpec extends StageSpec:
   class ID(using DFC) extends DFDesign:
     val x = DFSInt(16) <> IN
     val y = DFSInt(16) <> OUT
@@ -70,4 +70,4 @@ class UniqueNames extends StageSpec:
     )
   }
 
-end UniqueNames
+end UniqueNamesSpec

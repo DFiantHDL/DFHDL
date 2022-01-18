@@ -4,7 +4,7 @@ import DFiant.*
 import DFiant.compiler.stages.getCodeString
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class PrintCodeString extends StageSpec:
+class PrintCodeStringSpec extends StageSpec:
   class ID(using DFC) extends DFDesign:
     val x = DFSInt(16) <> IN
     val y = DFSInt(16) <> OUT
@@ -102,4 +102,4 @@ class PrintCodeString extends StageSpec:
          |""".stripMargin
     )
   }
-end PrintCodeString
+end PrintCodeStringSpec
