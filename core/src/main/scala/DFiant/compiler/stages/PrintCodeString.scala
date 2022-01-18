@@ -7,8 +7,12 @@ private class PrintCodeString(db: DB) extends Stage(db):
     db.dropUnreferenced
       .uniqueNames(Set(), caseSensitive = true)
   override def transform: DB =
-    given Printer = DefaultPrinter
-    println(designDB.codeString)
+    println(codeString)
     designDB
+  def codeString: String =
+    given Printer = DefaultPrinter
+    designDB.codeString
 
-extension [T: HasDB](t: T) def printCodeString: DB = new PrintCodeString(t.db).transform
+extension [T: HasDB](t: T)
+  def printCodeString: DB = new PrintCodeString(t.db).transform
+  def getCodeString: String = new PrintCodeString(t.db).codeString
