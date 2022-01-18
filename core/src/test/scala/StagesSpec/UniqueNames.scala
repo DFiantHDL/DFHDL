@@ -45,5 +45,29 @@ class UniqueNames extends StageSpec:
          |""".stripMargin
     )
   }
+  class SomeEnums(using DFC) extends DFDesign:
+    enum MyEnumGlbl extends DFEnum:
+      case Bar, Baz
+    enum MyEnumLcl extends DFEnum:
+      case Bar, Baz
+    val x = MyEnumGlbl <> IN
+    val y = MyEnumLcl  <> VAR init MyEnumLcl.Bar
+    object Temp:
+      enum MyEnumLcl extends DFEnum:
+        case Baz, Bar
+      val y = (MyEnumLcl, MyEnumLcl) <> VAR init (MyEnumLcl.Bar, MyEnumLcl.Baz)
+    Temp.y // touch to force evaluation
+  test("Unique names enumerations") {
+    val top = (new SomeEnums).uniqueNames(Set(), true)
+    assertCodeString(
+      top,
+      """|class SomeEnums(using DFC) extends DFDesign:
+         |  val x = MyEnumGlbl <> IN
+         |  val y_0 = MyEnumLcl_0 <> VAR init MyEnumLcl_0.Bar
+         |  val y_1 = (MyEnumLcl_1, MyEnumLcl_1) <> VAR init (MyEnumLcl_1.Bar, MyEnumLcl_1.Baz)
+         |end SomeEnums
+         |""".stripMargin
+    )
+  }
 
 end UniqueNames
