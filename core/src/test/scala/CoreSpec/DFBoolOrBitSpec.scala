@@ -1,3 +1,4 @@
+package CoreSpec
 import DFiant.*
 import munit.*
 import internals.Inlined

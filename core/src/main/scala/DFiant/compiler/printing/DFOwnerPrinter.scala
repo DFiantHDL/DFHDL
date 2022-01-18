@@ -8,7 +8,7 @@ import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
 protected trait DFOwnerPrinter extends AbstractPrinter:
   private def csDFOwnerBody(owner: DFOwner, lateConstruction: Boolean): String =
     csDFMembers(owner.members(MemberView.Folded), lateConstruction)
-  private[DFiant] def csDFMembers(
+  def csDFMembers(
       members: List[DFMember],
       lateConstruction: Boolean
   ): String =

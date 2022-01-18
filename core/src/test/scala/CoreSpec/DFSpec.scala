@@ -1,4 +1,5 @@
-package DFiant
+package CoreSpec
+import DFiant.*
 import munit.*
 import internals.{AllowTopLevel, HasTypeName, Position}
 import compiler.printing.{DefaultPrinter, Printer}
