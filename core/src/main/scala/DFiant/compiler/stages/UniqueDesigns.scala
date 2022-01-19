@@ -1,0 +1,47 @@
+package DFiant.compiler.stages
+
+import DFiant.compiler.analysis.*
+import DFiant.compiler.ir.*
+import DFiant.compiler.patching.*
+import DFiant.internals.*
+
+private final class UniqueBlock(val block: DFDesignBlock, val members: List[DFMember])(using
+    MemberGetSet
+):
+  override def equals(obj: Any): Boolean = obj match
+    case that: UniqueBlock
+        if this.block.dclName == that.block.dclName && this.block.dclPosition == that.block.dclPosition =>
+      (this.members lazyZip that.members).forall {
+        case (l, r) if l.hasLateConstruction && r.hasLateConstruction => true
+        case (l, r)                                                   => l =~ r
+      }
+    case _ => false
+  override def hashCode(): Int = block.dclName.hashCode
+
+private class UniqueDesigns(db: DB) extends Stage(db):
+  override def transform: DB =
+    val uniqueBlockMap: Map[UniqueBlock, List[DFDesignBlock]] = designDB.members
+      .collect {
+        case block: DFDesignBlock if !block.isTop => block
+      }
+      .groupBy(b => new UniqueBlock(b, designDB.designMemberTable(b)))
+    val uniqueTypeMap: Map[String, List[UniqueBlock]] =
+      uniqueBlockMap.keys.toList.groupBy(ub => ub.block.dclName)
+    val patchList = uniqueTypeMap.flatMap {
+      case (designType, list) if list.size > 1 =>
+        list.zipWithIndex.flatMap { case (ub, i) =>
+          val updatedDclName = s"${designType}_${i.toPaddedString(list.size)}"
+          uniqueBlockMap(ub).map(block =>
+            block -> Patch.Replace(
+              block.copy(dclName = updatedDclName),
+              Patch.Replace.Config.FullReplacement
+            )
+          )
+        }
+      case _ => Nil
+    }.toList
+    designDB.patch(patchList)
+  end transform
+end UniqueDesigns
+
+extension [T: HasDB](t: T) def uniqueDesigns: DB = new UniqueDesigns(t.db).transform
