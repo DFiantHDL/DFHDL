@@ -37,7 +37,11 @@ class Printer(using val getSet: MemberGetSet)
   def csDB(db: DB): String =
     import db.getSet
     val uniqueDesigns = mutable.Set.empty[String]
-//    val globalEnumString = db.getGlobalEnumEntries.map(e => e.codeString)
+    val globalDcls =
+      db.getGlobalNamedDFTypes.toList
+        .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
+        .map(printer.csNamedDFTypeDcl)
+        .mkString("\n")
     val codeStringList = db.blockMemberList.flatMap {
 //      case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
 //      case (d @ realtime.RTExternal.Block(), _) => None
@@ -47,7 +51,7 @@ class Printer(using val getSet: MemberGetSet)
       case _ => None
     }
 //    (globalEnumString ++ codeStringList).mkString(s"\n$EMPTY\n").formatted
-    codeStringList.mkString("\n\n")
+    s"$globalDcls\n\n${codeStringList.mkString("\n\n")}"
   end csDB
 end Printer
 

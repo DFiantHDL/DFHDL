@@ -65,7 +65,11 @@ class UniqueNamesSpec extends StageSpec:
     val top = (new SomeEnums).uniqueNames(Set(), true)
     assertCodeString(
       top,
-      """|class SomeEnums(using DFC) extends DFDesign:
+      """|enum MyEnumGlbl(val value: DFUInt[1] <> TOKEN) extends DFEnum.Manual(1):
+         |  case Bar extends MyEnumGlbl(d"1'0")
+         |  case Baz extends MyEnumGlbl(d"1'1")
+         |
+         |class SomeEnums(using DFC) extends DFDesign:
          |  object MyByte extends DFOpaque(DFBits(8))
          |  enum MyEnumLcl_0(val value: DFUInt[1] <> TOKEN) extends DFEnum.Manual(1):
          |    case Baz extends MyEnumLcl_0(d"1'0")
