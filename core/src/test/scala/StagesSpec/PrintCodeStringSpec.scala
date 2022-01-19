@@ -102,4 +102,25 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Design names affect named dataflow types") {
+    object ID extends DFOpaque(DFBit)
+    class ID(using DFC) extends DFDesign:
+      val x = DFSInt(16) <> IN
+      val y = DFSInt(16) <> OUT
+      val z = ID         <> VAR init 0.as(ID)
+      y := x
+    val id = (new ID).getCodeString
+    assertNoDiff(
+      id,
+      """|class ID(using DFC) extends DFDesign:
+         |  object ID_0 extends DFOpaque(DFBit)
+         |
+         |  val x = DFSInt(16) <> IN
+         |  val y = DFSInt(16) <> OUT
+         |  val z = ID_0 <> VAR init 0.as(ID_0)
+         |  y := x
+         |end ID
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

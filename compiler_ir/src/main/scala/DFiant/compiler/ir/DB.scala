@@ -42,8 +42,8 @@ final case class DB(
 
   lazy val memberTable: Map[DFMember, Set[DFRefAny]] = refTable.invert
 
-  // Map of all enum types in the design with their design block owners.
-  // If the enum type is global (used in IO or more than one design block),
+  // Map of all named types in the design with their design block owners.
+  // If the named type is global (used in IO or more than one design block),
   // then its owner is set to None.
   private lazy val namedDFTypes: Map[NamedDFType, Option[DFDesignBlock]] =
     members.foldLeft(Map.empty[NamedDFType, Option[DFDesignBlock]]) {

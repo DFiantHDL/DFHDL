@@ -61,7 +61,7 @@ class UniqueNamesSpec extends StageSpec:
         case Baz, Bar
       val y = (MyEnumLcl, MyEnumLcl) <> VAR init (MyEnumLcl.Bar, MyEnumLcl.Baz)
     Temp.y // touch to force evaluation
-  test("Unique names enumerations") {
+  test("Unique named dataflow types") {
     val top = (new SomeEnums).uniqueNames(Set(), true)
     assertCodeString(
       top,
