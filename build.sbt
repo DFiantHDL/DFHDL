@@ -35,6 +35,7 @@ lazy val root = (project in file("."))
     plugin,
     compiler_ir,
     core,
+	compiler_stages,
     lib
   )
 
@@ -54,11 +55,25 @@ lazy val internals = project
     libraryDependencies ++= commonDependencies
   )
 
-lazy val compiler_ir = project
+lazy val compiler_ir = (project in file("compiler/ir"))
   .settings(
     name := s"$projectName-compiler-ir",
     settings
   ).dependsOn(internals)
+
+lazy val compiler_stages = (project in file("compiler/stages"))
+  .settings(
+    name := s"$projectName-compiler-stages",
+    settings,
+    pluginTestUseSettings,
+    libraryDependencies ++= commonDependencies
+  )
+  .dependsOn(
+    plugin,
+    internals,
+    compiler_ir,
+	core
+  )
 
 lazy val core = project
   .settings(
