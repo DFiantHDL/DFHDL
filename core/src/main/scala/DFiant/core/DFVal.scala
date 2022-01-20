@@ -511,6 +511,8 @@ private object CompanionsDFVal:
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
       def prev[S <: Int](step: Inlined[S])(using DFC): DFValOf[T] = ???
       def prev(using DFC): DFValOf[T] = prev(1)
+      def genNewVar(using DFC): DFVarOf[T] =
+        DFVal.Dcl(dfVal.dfType, VAR)
   end Ops
 end CompanionsDFVal
 

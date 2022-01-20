@@ -10,9 +10,6 @@ private class DropBinds(db: DB) extends Stage(db):
   private object ReplacePattern:
     def unapply(pattern: Pattern): Option[Pattern] =
       pattern match
-        case Pattern.CatchAll          => None
-        case Pattern.Singleton(token)  => None
-        case Pattern.Alternative(list) => None
         case Pattern.Struct(name, fieldPatterns) =>
           var mod = false
           val updatedFieldPatterns = fieldPatterns.map {
@@ -43,9 +40,14 @@ private class DropBinds(db: DB) extends Stage(db):
             case "b" => b"${tokenStr}"
             case "h" => h"${tokenStr}"
           Some(Pattern.Singleton(token.asIR))
+        case _ => None
   end ReplacePattern
   override def transform: DB =
-//    val binds = designDB.members.collect { case m @ Bind(_) => m }
+//    val binds = designDB.members.collect { case m @ Bind(_) =>
+//      m
+//      val dsn = new MetaDesign:
+//        val x = DFiant.core.DFVal.Dcl(m.dfType, VAR)
+//    }
     val patchList = designDB.conditionalChainTable.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>
         cases.view.flatMap(c =>
