@@ -399,12 +399,12 @@ object DFConditional:
             case that: Alternative =>
               this.list.lazyZip(that.list).forall(_ =~ _)
             case _ => false
-      final case class Struct(name: String, list: List[Pattern]) extends Pattern:
+      final case class Struct(name: String, fieldPatterns: List[Pattern]) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
             case that: Struct =>
-              this.name == that.name && this.list
-                .lazyZip(that.list)
+              this.name == that.name && this.fieldPatterns
+                .lazyZip(that.fieldPatterns)
                 .forall(_ =~ _)
             case _ => false
       final case class Bind(ref: Bind.Ref, pattern: Pattern) extends Pattern:
