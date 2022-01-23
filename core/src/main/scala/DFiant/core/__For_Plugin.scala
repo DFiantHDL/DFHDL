@@ -56,10 +56,7 @@ object __For_Plugin:
   def forcedAssign(toVal: DFValAny, fromVal: DFValAny)(using DFC): Unit =
     toVal.asInstanceOf[DFVarOf[DFTypeAny]].assign(fromVal)
   def bindVal[V <: DFValAny](selector: V, bindName: String)(using DFC): V =
-    DFVal.Alias.AsIs
-      .ident(selector)(using dfc.setName(bindName))
-      .tag(Pattern.Bind.Tag)
-      .asInstanceOf[V]
+    DFVal.Alias.AsIs.bind(selector, bindName).asInstanceOf[V]
   def bindValRange[V <: DFValAny](
       selector: V,
       bindName: String,
@@ -74,12 +71,9 @@ object __For_Plugin:
         selector
           .bits(using Width.wide)(using dfc.anonymize)
           .asIR
-    DFVal.Alias
-      .ApplyRange(selectorBitsIR.asValOf[DFBits[Int]], relBitHigh, relBitLow)(
-        using dfc.setName(bindName)
-      )
-      .tag(Pattern.Bind.Tag)
-      .asInstanceOf[V]
+    val rangeAlias = DFVal.Alias
+      .ApplyRange(selectorBitsIR.asValOf[DFBits[Int]], relBitHigh, relBitLow)(using dfc.anonymize)
+    DFVal.Alias.AsIs.bind(rangeAlias, bindName).asInstanceOf[V]
   end bindValRange
   def patternBind(bindVal: DFValAny, pattern: Pattern)(using DFC): Pattern =
     Pattern.Bind(bindVal.asIR.ref, pattern)

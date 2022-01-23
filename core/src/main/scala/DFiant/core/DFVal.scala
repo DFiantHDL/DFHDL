@@ -296,6 +296,11 @@ private object CompanionsDFVal:
           DFC
       ): DFVal[T, M] =
         apply(relVal.dfType, relVal, x => x, forceNewAlias = true)
+      def bind[T <: DFTypeAny, M <: Modifier](relVal: DFVal[T, M], bindName: String)(using
+          DFC
+      ): DFVal[T, M] =
+        import ir.DFConditional.DFCaseBlock.Pattern
+        ident(relVal)(using dfc.setName(bindName)).tag(Pattern.Bind.Tag)
     end AsIs
     object ApplyRange:
       def apply[W <: Int, M <: Modifier, H <: Int, L <: Int](

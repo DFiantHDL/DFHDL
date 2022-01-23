@@ -38,12 +38,12 @@ private class DropBinds(db: DB) extends Stage(db):
         case _ => None
   end ReplacePattern
   override def transform: DB =
-    val bindPatchList = designDB.members.collect { case bindIR @ Bind(_) =>
-      val aliasIR = bindIR.removeTagOf[Pattern.Bind.Tag.type].anonymize
+    val bindPatchList = designDB.members.collect { case bindIR @ Bind(relValIR) =>
+//      val aliasIR = bindIR.removeTagOf[Pattern.Bind.Tag.type].anonymize
       val dsn = new MetaDesign:
         val bindVar = bindIR.asValAny.genNewVar(using dfc.setName(bindIR.name))
-        plantMember(aliasIR)
-        bindVar := aliasIR.asValAny
+//        plantMember(aliasIR)
+        bindVar := relValIR.asValAny
       bindIR -> Patch.Add(
         dsn,
         Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
