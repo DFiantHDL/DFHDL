@@ -29,12 +29,7 @@ private class DropBinds(db: DB) extends Stage(db):
                 case "b" => qmarks
                 case "h" => s"{$qmarks}" // using binary mode for hex
             }
-          val tokenStr =
-            Seq(parts, bubbles)
-              .flatMap(_.zipWithIndex)
-              .sortBy(_._2)
-              .map(_._1)
-              .mkString
+          val tokenStr = parts.coalesce(bubbles).mkString
           import DFiant.hdl.{b, h}
           val token = op match
             case "b" => b"${tokenStr}"
@@ -43,12 +38,18 @@ private class DropBinds(db: DB) extends Stage(db):
         case _ => None
   end ReplacePattern
   override def transform: DB =
-//    val binds = designDB.members.collect { case m @ Bind(_) =>
-//      m
-//      val dsn = new MetaDesign:
-//        val x = DFiant.core.DFVal.Dcl(m.dfType, VAR)
-//    }
-    val patchList = designDB.conditionalChainTable.flatMap {
+    val bindPatchList = designDB.members.collect { case bindIR @ Bind(_) =>
+      val aliasIR = bindIR.removeTagOf[Pattern.Bind.Tag.type].anonymize
+      val dsn = new MetaDesign:
+        val bindVar = bindIR.asValAny.genNewVar(using dfc.setName(bindIR.name))
+        plantMember(aliasIR)
+        bindVar := aliasIR.asValAny
+      bindIR -> Patch.Add(
+        dsn,
+        Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
+      )
+    }
+    val casePatchList = designDB.conditionalChainTable.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>
         cases.view.flatMap(c =>
           c.pattern match
@@ -60,7 +61,7 @@ private class DropBinds(db: DB) extends Stage(db):
         )
       case _ => None
     }
-    designDB.patch(patchList)
+    designDB.patch(bindPatchList ++ casePatchList).sanityCheck
   end transform
 end DropBinds
 

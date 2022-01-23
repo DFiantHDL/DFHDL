@@ -26,6 +26,13 @@ extension [T](t: Iterable[T])(using CanEqual[T, T])
   def mkStringBrackets: String = t.mkString("(", ", ", ")")
   def allElementsAreEqual: Boolean = t.forall(_ == t.head)
 
+extension [T](lhs: Iterable[T])
+  def coalesce(rhs: Iterable[T]): Iterable[T] =
+    Seq(lhs, rhs)
+      .flatMap(_.zipWithIndex)
+      .sortBy(_._2)
+      .map(_._1)
+
 extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def asTypeOf[T]: Type[T] =
     import quotes.reflect.*
@@ -86,11 +93,7 @@ end Error
 extension (using quotes: Quotes)(partsExprs: Seq[Expr[Any]])
   def scPartsWithArgs(argsExprs: Seq[Expr[Any]]): quotes.reflect.Term =
     import quotes.reflect.*
-    val fullTermParts =
-      Seq(partsExprs, argsExprs)
-        .flatMap(_.zipWithIndex)
-        .sortBy(_._2)
-        .map(_._1.asTerm)
+    val fullTermParts = partsExprs.coalesce(argsExprs).map(_.asTerm)
     fullTermParts.reduce[Term] {
       case (Literal(StringConstant(l)), Literal(StringConstant(r))) =>
         Literal(StringConstant(l + r))

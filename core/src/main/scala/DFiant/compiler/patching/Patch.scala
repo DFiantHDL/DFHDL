@@ -110,9 +110,8 @@ object Patch:
 end Patch
 
 extension (db: DB)
-  def patch(patchList: Iterable[(DFMember, Patch)], debug: Boolean = false)(using
-      MemberGetSet
-  ): DB =
+  def patch(patchList: Iterable[(DFMember, Patch)], debug: Boolean = false): DB =
+    import db.getSet
     import db.{members, refTable, memberTable, globalTags}
     if (patchList.isEmpty) return db
     def patchDebug(block: => Unit): Unit = if (debug) block
@@ -242,13 +241,13 @@ extension (db: DB)
     patchDebug {
       println("----------------------------------------------------------------------------")
       println("members:")
-      println(members.mkString("\n"))
+      println(members.map(m => s"${m.hashCode.toHexString}: $m").mkString("\n"))
       println("----------------------------------------------------------------------------")
       println("refTable:")
       println(refTable.mkString("\n"))
       println("----------------------------------------------------------------------------")
       println("patchedMembers:")
-      println(patchedMembers.mkString("\n"))
+      println(patchedMembers.map(m => s"${m.hashCode.toHexString}: $m").mkString("\n"))
       println("----------------------------------------------------------------------------")
     }
     // Patching reference table
@@ -332,8 +331,8 @@ extension (db: DB)
     DB(patchedMembers, patchedRefTable, globalTags)
   end patch
 
-  def patchSingle(singlePatch: (DFMember, Patch))(using MemberGetSet): DB =
-    db.patch(List(singlePatch), debug = false)
+  def patchSingle(singlePatch: (DFMember, Patch), debug: Boolean = false): DB =
+    db.patch(List(singlePatch), debug)
   def concat(that: DB): DB = DB(
     db.members ++ that.members.drop(1),
     db.refTable ++ that.refTable,

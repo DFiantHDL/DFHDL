@@ -7,6 +7,8 @@ sealed trait DFRef[+M <: DFMember] derives CanEqual:
   lazy val refType: ClassTag[M @uncheckedVariance]
   final def =~(that: DFRefAny)(using MemberGetSet): Boolean = this.get =~ that.get
   def get(using getSet: MemberGetSet): M = getSet(this)
+  override def toString: String = s"<${hashCode.toHexString}>"
+
 object DFRef:
   sealed trait Empty extends DFRef[DFMember.Empty]:
     lazy val refType = classTag[DFMember.Empty]

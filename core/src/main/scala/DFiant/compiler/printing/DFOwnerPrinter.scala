@@ -77,12 +77,7 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
       val csBinds = refs.view
         .map { r => r.get }
         .map(bindVal => s"$${${bindVal.name}: B[${bindVal.dfType.width}]}")
-      val fullTerm =
-        Seq(parts, csBinds)
-          .flatMap(_.zipWithIndex)
-          .sortBy(_._2)
-          .map(_._1)
-          .mkString
+      val fullTerm = parts.coalesce(csBinds).mkString
       s"""$op"$fullTerm""""
 
   def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock): String =
