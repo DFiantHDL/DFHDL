@@ -31,4 +31,16 @@ object NewVar:
 extension (dcl: DFVal.Dcl)
   def externalInit: Option[List[DFTokenAny]] = dcl.getTagOf[ExternalInit].map(_.tokenSeq)
 
-extension (dfVal: DFVal) def hasPrevAlias(using MemberGetSet): Boolean = false
+extension (dfVal: DFVal)
+  def hasPrevAlias(using MemberGetSet): Boolean =
+    val refs = getSet.designDB.memberTable(dfVal)
+    refs.foreach {
+      case DFRef.TwoWay(originRef) =>
+        originRef.get match
+          case history: DFVal.Alias.History if (history.op == DFVal.Alias.History.Op.Prev) =>
+            return true
+          case alias: DFVal.Alias => alias.relValRef.get.hasPrevAlias
+          case _                  => // false
+      case _ =>
+    }
+    false
