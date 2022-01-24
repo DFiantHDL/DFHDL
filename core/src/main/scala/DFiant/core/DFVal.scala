@@ -302,6 +302,21 @@ private object CompanionsDFVal:
         import ir.DFConditional.DFCaseBlock.Pattern
         ident(relVal)(using dfc.setName(bindName)).tag(Pattern.Bind.Tag)
     end AsIs
+    object History:
+      export ir.DFVal.Alias.History.Op
+      def apply[T <: DFTypeAny](relVal: DFValOf[T], step: Int, op: Op)(using DFC): DFValOf[T] =
+        lazy val alias: ir.DFVal =
+          ir.DFVal.Alias.History(
+            relVal.dfType.asIR,
+            relVal.asIR.refTW(alias),
+            step,
+            op,
+            dfc.owner.ref,
+            dfc.getMeta,
+            ir.DFTags.empty
+          )
+        alias.addMember.asValOf[T]
+
     object ApplyRange:
       def apply[W <: Int, M <: Modifier, H <: Int, L <: Int](
           relVal: DFVal[DFBits[W], M],
@@ -514,10 +529,21 @@ private object CompanionsDFVal:
       def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
         import DFToken.Ops.{bits => bitsDFToken}
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
-      def prev[S <: Int](step: Inlined[S])(using DFC): DFValOf[T] = ???
-      def prev(using DFC): DFValOf[T] = prev(1)
+      def prev[S <: Int](
+          step: Inlined[S]
+      )(using dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] =
+        check(step)
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev)
+      inline def prev(using DFC): DFValOf[T] = dfVal.prev(1)
+      def pipe[S <: Int](
+          step: Inlined[S]
+      )(using dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] =
+        check(step)
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe)
+      inline def pipe(using DFC): DFValOf[T] = dfVal.pipe(1)
       def genNewVar(using DFC): DFVarOf[T] =
         DFVal.Dcl(dfVal.dfType, VAR)
+    end extension
   end Ops
 end CompanionsDFVal
 

@@ -148,9 +148,17 @@ protected trait DFValPrinter extends AbstractPrinter:
         else s".${dfVal.fieldName}"
       else s".${dfVal.fieldName}"
     s"${dfVal.relValCodeString}$fieldSel"
+  def csDFValAliasHistory(dfVal: Alias.History): String =
+    val opStr = dfVal.op match
+      case Alias.History.Op.Prev => ".prev"
+      case Alias.History.Op.Pipe => ".pipe"
+    val appliedStr =
+      if (dfVal.step == 1) opStr
+      else s"$opStr(${dfVal.step})"
+    s"${dfVal.relValCodeString}$appliedStr"
   def csDFValAliasRef(dfVal: Alias): String = dfVal match
     case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
-    case _: Alias.Prev         => ???
+    case dv: Alias.History     => csDFValAliasHistory(dv)
     case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
     case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
     case dv: Alias.SelectField => csDFValAliasSelectField(dv)

@@ -32,6 +32,11 @@ extension [T](lhs: Iterable[T])
       .flatMap(_.zipWithIndex)
       .sortBy(_._2)
       .map(_._1)
+  def groupByCompare(customEq: (T, T) => Boolean): Iterable[List[T]] =
+    final class Unique(val value: T):
+      override def equals(that: Any): Boolean =
+        customEq(this.value, that.asInstanceOf[Unique].value)
+    lhs.groupBy(new Unique(_)).view.map((u, i) => u.value :: i.toList)
 
 extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def asTypeOf[T]: Type[T] =

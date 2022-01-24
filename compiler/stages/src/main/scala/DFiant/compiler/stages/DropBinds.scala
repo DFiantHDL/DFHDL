@@ -38,7 +38,9 @@ private class DropBinds(db: DB) extends Stage(db):
         case _ => None
   end ReplacePattern
   override def transform: DB =
-    val binds: List[DFVal] = designDB.members.collect { case bindIR @ Bind(_) => bindIR }
+    val binds: Iterable[List[DFVal]] = designDB.members.view
+      .collect { case bindIR @ Bind(_) => bindIR }
+      .groupByCompare((l, r) => l =~ r)
     val bindPatchList = designDB.members.collect { case bindIR @ Bind(relValIR) =>
       if (bindIR.hasPrevAlias)
         val dsn = new MetaDesign:

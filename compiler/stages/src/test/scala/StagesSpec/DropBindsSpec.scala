@@ -14,8 +14,8 @@ class DropBindsSpec extends StageSpec:
         case b"1000${hi: B[4]}10001000" =>
         case h"FB${hi: B[4]}E"          =>
       y match
-        case Packet(all(0), z) if (z < 20) =>
-        case _                             =>
+        case Packet(all(0), z) if z - z.prev < 20 =>
+        case _                                    =>
       (x, y) match
         case (h"FB${hi: B[4]}E", Packet(b"10${there: B[4]}01", 55)) if hi == there =>
         case _                                                                     =>

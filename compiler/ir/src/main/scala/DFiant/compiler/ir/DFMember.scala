@@ -217,28 +217,28 @@ object DFVal:
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     end AsIs
 
-    final case class Prev(
+    final case class History(
         dfType: DFType,
         relValRef: DFVal.Ref,
         step: Int,
-        op: Prev.Op,
+        op: History.Op,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
     ) extends Alias:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-        case that: Prev =>
+        case that: History =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
             this.step == that.step && this.op == that.op &&
             this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    end Prev
+    end History
 
-    object Prev:
+    object History:
       enum Op derives CanEqual:
-        case State, Pipe
+        case Prev, Pipe
 
     final case class ApplyRange(
         relValRef: DFVal.Ref,
