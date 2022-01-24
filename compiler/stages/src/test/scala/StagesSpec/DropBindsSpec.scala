@@ -13,12 +13,17 @@ class DropBindsSpec extends StageSpec:
       x match
         case b"1000${hi: B[4]}10001000" =>
         case h"FB${hi: B[4]}E"          =>
+      x match
+        case b"1000${same: B[4]}10001000" =>
+        case h"F${same: B[4]}BE"          =>
       y match
         case Packet(all(0), z) if z - z.prev < 20 =>
+        case Packet(all(1), z) if z - z.prev < 20 =>
         case _                                    =>
       (x, y) match
         case (h"FB${hi: B[4]}E", Packet(b"10${there: B[4]}01", 55)) if hi == there =>
         case _                                                                     =>
+    end ID
 
     val id = (new ID).dropBinds
     assertCodeString(
