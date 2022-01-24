@@ -38,16 +38,23 @@ private class DropBinds(db: DB) extends Stage(db):
         case _ => None
   end ReplacePattern
   override def transform: DB =
+    val binds: List[DFVal] = designDB.members.collect { case bindIR @ Bind(_) => bindIR }
     val bindPatchList = designDB.members.collect { case bindIR @ Bind(relValIR) =>
-//      val aliasIR = bindIR.removeTagOf[Pattern.Bind.Tag.type].anonymize
-      val dsn = new MetaDesign:
-        val bindVar = bindIR.asValAny.genNewVar(using dfc.setName(bindIR.name))
-//        plantMember(aliasIR)
-        bindVar := relValIR.asValAny
-      bindIR -> Patch.Add(
-        dsn,
-        Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
-      )
+      if (bindIR.hasPrevAlias)
+        val dsn = new MetaDesign:
+          val bindVar = bindIR.asValAny.genNewVar(using dfc.setName(bindIR.name))
+          //        plantMember(aliasIR)
+          bindVar := relValIR.asValAny
+        bindIR -> Patch.Add(
+          dsn,
+          Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
+        )
+      else
+        val aliasIR = bindIR.removeTagOf[Pattern.Bind.Tag.type]
+        bindIR -> Patch.Replace(
+          aliasIR,
+          Patch.Replace.Config.FullReplacement
+        )
     }
     val casePatchList = designDB.conditionalChainTable.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>

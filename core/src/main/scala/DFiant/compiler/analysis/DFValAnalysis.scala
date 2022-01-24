@@ -30,3 +30,5 @@ object NewVar:
 
 extension (dcl: DFVal.Dcl)
   def externalInit: Option[List[DFTokenAny]] = dcl.getTagOf[ExternalInit].map(_.tokenSeq)
+
+extension (dfVal: DFVal) def hasPrevAlias(using MemberGetSet): Boolean = false

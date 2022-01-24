@@ -20,11 +20,12 @@ private final class UniqueBlock(val block: DFDesignBlock, val members: List[DFMe
 
 private class UniqueDesigns(db: DB) extends Stage(db):
   override def transform: DB =
-    val uniqueBlockMap: Map[UniqueBlock, List[DFDesignBlock]] = designDB.members
-      .collect {
-        case block: DFDesignBlock if !block.isTop => block
-      }
-      .groupBy(b => new UniqueBlock(b, designDB.designMemberTable(b)))
+    val uniqueBlockMap: Map[UniqueBlock, List[DFDesignBlock]] =
+      designDB.designMemberList.view
+        .groupBy((design, members) => new UniqueBlock(design, members))
+        .view
+        .mapValues(_.map(_._1).toList)
+        .toMap
     val uniqueTypeMap: Map[String, List[UniqueBlock]] =
       uniqueBlockMap.keys.toList.groupBy(ub => ub.block.dclName)
     val patchList = uniqueTypeMap.flatMap {
