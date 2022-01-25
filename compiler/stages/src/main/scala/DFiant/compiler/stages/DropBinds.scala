@@ -42,7 +42,7 @@ private class DropBinds(db: DB) extends Stage(db):
         case _ => None
   end ReplacePattern
   override def transform: DB =
-    val patchList = designDB.conditionalChainTable.flatMap {
+    val patchList = designDB.conditionalChainTable.toList.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>
         val matchBinds = mutable.Map.empty[DFVal, DFConditional.DFCaseBlock]
         val casesPatchList: List[(DFMember, Patch)] = cases.flatMap(c =>
@@ -86,12 +86,12 @@ private class DropBinds(db: DB) extends Stage(db):
             end if
           case _ => ??? // not possible
         }.toList
-        val stallsPatchList = stalled.collect {
+        val stallsPatchList: List[(DFMember, Patch)] = stalled.collect {
           case (c, varsIR) if varsIR.nonEmpty =>
             val dsn = new MetaDesign:
               varsIR.view.reverse.foreach(v => v.asVarAny := v.asValAny.prev)
             c -> Patch.Add(dsn, Patch.Add.Config.InsideLast)
-        }
+        }.toList
         casesPatchList ++ bindsPatchList ++ stallsPatchList
       case _ => None
     }

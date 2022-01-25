@@ -383,6 +383,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+    override def toString: String = s"case ${hashCode.toHexString}"
   end DFCaseBlock
   object DFCaseBlock:
     type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty]

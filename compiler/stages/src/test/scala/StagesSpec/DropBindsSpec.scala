@@ -20,6 +20,10 @@ class DropBindsSpec extends StageSpec:
         case Packet(all(0), z) if z - z.prev < 20 =>
         case Packet(all(1), z) if z - z.prev < 20 =>
         case _                                    =>
+      y match
+        case Packet(all(0), z1) if z1 - z1.prev < 20 =>
+        case Packet(all(1), z2) if z2 - z2.prev < 20 =>
+        case _                                       =>
       (x, y) match
         case (h"FB${hi: B[4]}E", Packet(b"10${there: B[4]}01", 55)) if hi == there =>
         case _                                                                     =>
@@ -51,6 +55,16 @@ class DropBindsSpec extends StageSpec:
          |    case Packet(h"8'00", _) if (z - z.prev) < d"8'20" =>
          |    case Packet(h"8'ff", _) if (z - z.prev) < d"8'20" =>
          |    case _ => z := z.prev
+         |  val z1 = DFUInt(8) <> VAR
+         |  z1 := y.cnt
+         |  val z2 = DFUInt(8) <> VAR
+         |  z2 := y.cnt
+         |  y match
+         |    case Packet(h"8'00", _) if (z1 - z1.prev) < d"8'20" => z2 := z2.prev
+         |    case Packet(h"8'ff", _) if (z2 - z2.prev) < d"8'20" => z1 := z1.prev
+         |    case _ =>
+         |      z1 := z1.prev
+         |      z2 := z2.prev
          |  val hi = x(8, 5)
          |  val there = y.header(6, 3)
          |  (x, y) match

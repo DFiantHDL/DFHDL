@@ -110,7 +110,7 @@ object Patch:
 end Patch
 
 extension (db: DB)
-  def patch(patchList: Iterable[(DFMember, Patch)], debug: Boolean = false): DB =
+  def patch(patchList: List[(DFMember, Patch)], debug: Boolean = false): DB =
     import db.getSet
     import db.{members, refTable, memberTable, globalTags}
     if (patchList.isEmpty) return db
