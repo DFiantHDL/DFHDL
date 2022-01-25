@@ -42,7 +42,7 @@ class Printer(using val getSet: MemberGetSet)
         .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
         .map(printer.csNamedDFTypeDcl)
         .mkString("\n")
-    val codeStringList = db.blockMemberList.flatMap {
+    val codeStringList = db.designMemberList.flatMap {
 //      case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
 //      case (d @ realtime.RTExternal.Block(), _) => None
       case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.dclName) =>

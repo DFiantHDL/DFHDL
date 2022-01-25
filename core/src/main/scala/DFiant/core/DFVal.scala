@@ -139,6 +139,7 @@ object DFVal:
 end DFVal
 
 type DFValAny = DFVal[DFTypeAny, Modifier]
+type DFVarAny = DFVal[DFTypeAny, Modifier.Assignable]
 type DFValOf[+T <: DFTypeAny] = DFVal[T, Modifier]
 type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier.Assignable]
 type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Connectable]
@@ -169,6 +170,8 @@ extension (dfVal: ir.DFVal)
     DFVal[DFTypeAny, Modifier](dfVal)
   inline def asVarOf[T <: DFTypeAny]: DFVarOf[T] =
     DFVal[T, Modifier.Assignable](dfVal)
+  inline def asVarAny: DFVarAny =
+    DFVal[DFTypeAny, Modifier.Assignable](dfVal)
   inline def asPortOf[T <: DFTypeAny]: DFPortOf[T] =
     DFVal[T, Modifier.Port](dfVal)
 

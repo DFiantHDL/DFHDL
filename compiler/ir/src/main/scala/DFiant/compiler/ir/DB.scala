@@ -21,13 +21,12 @@ final case class DB(
     def getMembersOf(owner: DFOwner, memberView: MemberView): List[DFMember] =
       memberView match
         case MemberView.Folded =>
+          ownerMemberTable(owner)
+        case MemberView.Flattened =>
           owner match
             case d: DFDesignBlock => designMemberTable(d)
             case b: DFBlock       => blockMemberTable(b)
             case _                => ownerMemberTable(owner)
-        case MemberView.Flattened =>
-          throw new IllegalArgumentException("Flattened Memberview")
-          ownerMemberTable(owner)
     def setGlobalTag[CT <: DFTag: ClassTag](
         taggedElement: Any,
         tag: CT

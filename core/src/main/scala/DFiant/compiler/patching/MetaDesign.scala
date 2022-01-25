@@ -11,7 +11,7 @@ abstract class MetaDesign extends DFDesign(using DFC.empty) with reflect.Selecta
     dfc.mutableDB.OwnershipContext.exit()
 
   export DFiant.hdl.*
-  export DFiant.core.asValAny
+  export DFiant.core.{asValAny, asVarAny}
 
 //  final protected implicit val __lateConstructionConfig: LateConstructionConfig =
 //    LateConstructionConfig.Force(lateConstruction)

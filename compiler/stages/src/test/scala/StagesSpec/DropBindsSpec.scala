@@ -36,12 +36,23 @@ class DropBindsSpec extends StageSpec:
          |class ID(using DFC) extends DFDesign:
          |  val x = DFBits(16) <> IN
          |  val y = Packet <> IN
+         |  val hi = x(12, 9)
+         |  val hi = x(8, 5)
          |  x match
          |    case h"16'8?88" =>
          |    case h"16'fb?e" =>
+         |  val same = x(12, 9)
+         |  x match
+         |    case h"16'8?88" =>
+         |    case h"16'f?be" =>
+         |  val z = DFUInt(8) <> VAR
+         |  z := y.cnt
          |  y match
-         |    case Packet(h"8'00", _) if z < d"8'20" =>
-         |    case _ =>
+         |    case Packet(h"8'00", _) if (z - z.prev) < d"8'20" =>
+         |    case Packet(h"8'ff", _) if (z - z.prev) < d"8'20" =>
+         |    case _ => z := z.prev
+         |  val hi = x(8, 5)
+         |  val there = y.header(6, 3)
          |  (x, y) match
          |    case (h"16'fb?e", Packet(b"10????01", d"8'55")) if hi == there =>
          |    case _ =>
