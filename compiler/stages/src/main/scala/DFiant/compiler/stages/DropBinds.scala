@@ -9,6 +9,7 @@ import DFiant.internals.*
 import scala.collection.mutable
 
 private class DropBinds(db: DB) extends Stage(db):
+  // this unapply matches on bind patterns, strip them of their binds, and returns the binds as a list
   private object ReplacePattern:
     def unapply(pattern: Pattern): Option[(Pattern, List[DFVal])] =
       pattern match
@@ -42,32 +43,44 @@ private class DropBinds(db: DB) extends Stage(db):
         case _ => None
   end ReplacePattern
   override def transform: DB =
+    // going through all dataflow matches
     val patchList = designDB.conditionalChainTable.toList.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>
-        val matchBinds = mutable.Map.empty[DFVal, DFConditional.DFCaseBlock]
+        val bindCaseMap = mutable.Map.empty[DFVal, DFConditional.DFCaseBlock]
+        // go through all cases, set a patch to replace bind patterns, and memoize the binds and their cases
         val casesPatchList: List[(DFMember, Patch)] = cases.flatMap(c =>
           c.pattern match
             case ReplacePattern(pattern, binds) =>
-              binds.foreach(b => matchBinds += (b -> c))
+              // memoize binds and their cases
+              binds.foreach(b => bindCaseMap += (b -> c))
+              // bind-less pattern
               Some(
                 c -> Patch.Replace(c.copy(pattern = pattern), Patch.Replace.Config.FullReplacement)
               )
             case _ => None
         )
-        val bindGroups = matchBinds.keys.groupByCompare((l, r) => l =~ r, _.name.hashCode())
+        // group similar binds together
+        val bindGroups = bindCaseMap.keys.groupByCompare((l, r) => l =~ r, _.name.hashCode())
+        // will memoize the stalled bind variables required to be added in cases where those binds
+        // are not used
         val stalled = mutable.Map(cases.map(c => c -> List.empty[DFVal])*)
+        // go through all the groups and set a patch to replace the binds with a variable or named alias
         val bindsPatchList: List[(DFMember, Patch)] = bindGroups.flatMap {
           case bg @ ((headBind: DFVal.Alias) :: otherBinds) =>
+            // a bind group has a prev alias if at least one of its variables has
             val hasPrevAlias = bg.exists(_.hasPrevAlias)
+            // In case the group has prev alias, then we need to create a new dataflow variable
+            // and assign the underlying bind value to it. If the bind group contains more than one bind,
+            // then the rest of the binds are removed and reference the bind variable we created.
             if (hasPrevAlias)
-              val coveredCases = bg.map(matchBinds(_)).toSet
-              val missingCases = cases.filterNot(coveredCases.contains)
               val relValIR = headBind.relValRef.get
               val dsn = new MetaDesign:
                 val bindVar = headBind.asValAny.genNewVar(using dfc.setName(headBind.name))
                 val bindVarIR = bindVar.asIR
                 bindVar := relValIR.asValAny
               val bindVarIR = dsn.bindVarIR
+              val coveredCases = bg.map(bindCaseMap(_)).toSet
+              val missingCases = cases.filterNot(coveredCases.contains)
               missingCases.foreach(c => stalled += c -> (bindVarIR :: stalled(c)))
               headBind -> Patch.Add(
                 dsn,
@@ -75,6 +88,9 @@ private class DropBinds(db: DB) extends Stage(db):
               ) :: otherBinds.map(b =>
                 b -> Patch.Replace(bindVarIR, Patch.Replace.Config.ChangeRefAndRemove)
               )
+            // In case the group has no prev alias, then all we need is to strip the bind tag from its alias.
+            // If the bind group contains more than one bind, then the rest of the binds are removed and
+            // reference the first bind that is stripped from its alias.
             else
               val aliasIR = headBind.removeTagOf[Pattern.Bind.Tag.type]
               (headBind -> Patch.Replace(
@@ -86,6 +102,8 @@ private class DropBinds(db: DB) extends Stage(db):
             end if
           case _ => ??? // not possible
         }.toList
+        // for all the memoized stalled bind variables and cases we need to populate
+        // the missing bind cases with self-assignment of the previous value for each bind.
         val stallsPatchList: List[(DFMember, Patch)] = stalled.collect {
           case (c, varsIR) if varsIR.nonEmpty =>
             val dsn = new MetaDesign:
@@ -99,4 +117,7 @@ private class DropBinds(db: DB) extends Stage(db):
   end transform
 end DropBinds
 
+// Drops match case bind values and replaces them with either a variable
+// that is assigned with the bind alias or just the named bind alias.
+// UniqueDesign stage must be applied after this stage to resolve naming collisions.
 extension [T: HasDB](t: T) def dropBinds: DB = new DropBinds(t.db).transform
