@@ -10,9 +10,11 @@ class DropBindsSpec extends StageSpec:
       case class Packet(header: DFBits[8] <> VAL, cnt: DFUInt[8] <> VAL) extends DFStruct
       val x = DFBits(16) <> IN
       val y = Packet     <> IN
+      val z = DFBits(8)  <> OUT
       x match
         case b"1000${hi: B[4]}10001000" =>
-        case h"FB${hi: B[4]}E"          =>
+          z := hi.resize(8)
+        case h"FB${hi: B[4]}E" =>
       x match
         case b"1000${same: B[4]}10001000" =>
         case h"F${same: B[4]}BE"          =>
@@ -40,10 +42,11 @@ class DropBindsSpec extends StageSpec:
          |class ID(using DFC) extends DFDesign:
          |  val x = DFBits(16) <> IN
          |  val y = Packet <> IN
+         |  val z = DFBits(8) <> OUT
          |  val hi = x(12, 9)
          |  val hi = x(8, 5)
          |  x match
-         |    case h"16'8?88" =>
+         |    case h"16'8?88" => z := hi.resize(8)
          |    case h"16'fb?e" =>
          |  val same = x(12, 9)
          |  x match

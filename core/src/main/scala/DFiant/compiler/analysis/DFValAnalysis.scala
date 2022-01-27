@@ -53,11 +53,15 @@ extension (dfVal: DFVal)
         originRef.get match
           case history: DFVal.Alias.History if (history.op == DFVal.Alias.History.Op.Prev) =>
             return true
-          case alias: DFVal.Alias => alias.relValRef.get.hasPrevAlias
-          case _                  => // false
+          case alias: DFVal.Alias =>
+            val relVal = alias.relValRef.get
+            if (relVal == dfVal) false
+            else relVal.hasPrevAlias
+          case _ => // false
       case _ =>
     }
     false
+  end hasPrevAlias
   def getConnectionTo(using MemberGetSet): Option[DFVal] = ???
   def getConnectionsFrom(using MemberGetSet): Set[DFVal] = ???
   def getAssignmentsTo(using MemberGetSet): Set[DFVal] =
