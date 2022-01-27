@@ -323,8 +323,6 @@ object DFNet:
   type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner]
   enum Op derives CanEqual:
     case Assignment, Connection, LazyConnection
-  enum Dir derives CanEqual:
-    case L2R, R2L
 
 sealed trait DFOwner extends DFMember:
   val meta: Meta
