@@ -146,13 +146,13 @@ type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Connectable]
 
 val IN = Modifier.IN
 val OUT = Modifier.OUT
-val INOUT = Modifier.INOUT
+private val INOUT = Modifier.INOUT
 val VAR = Modifier.VAR
 type VAL = Modifier.VAL
 type VAR = Modifier.VAR.type
 type IN = Modifier.IN.type
 type OUT = Modifier.OUT.type
-type INOUT = Modifier.INOUT.type
+private type INOUT = Modifier.INOUT.type
 sealed trait TOKEN
 type <>[T <: DFType.Supported, M] = M match
   case VAL              => DFValOf[DFType.Of[T]]

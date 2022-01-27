@@ -64,6 +64,7 @@ private class SanityCheck(db: DB) extends Stage(db):
 
   override def transform: DB =
     memberExistenceCheck()
+    designDB.connToDcls // this does connectivity checks
     ownershipCheck(designDB.top, designDB.members.drop(1))
     designDB
 end SanityCheck

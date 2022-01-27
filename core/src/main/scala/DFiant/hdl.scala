@@ -47,7 +47,6 @@ object hdl:
 
   val IN = core.IN
   val OUT = core.OUT
-  val INOUT = core.INOUT
   val VAR = core.VAR
   type VAL = core.VAL
   type TOKEN = core.TOKEN

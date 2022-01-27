@@ -14,20 +14,31 @@ class Printer(using val getSet: MemberGetSet)
       DFValPrinter,
       DFOwnerPrinter:
   given printer: Printer = this
+  val showNetDirection: Boolean = true
   def csDFNet(net: DFNet): String =
     // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
     val lhsThis =
-      if (net.hasLateConstruction && net.toRef.get.isSameOwnerDesignAs(net)) "this."
+      if (net.hasLateConstruction && net.lhsRef.get.isSameOwnerDesignAs(net)) "this."
       else ""
     val rhsThis =
-      if (net.hasLateConstruction && net.fromRef.get.isSameOwnerDesignAs(net)) "this."
+      if (net.hasLateConstruction && net.rhsRef.get.isSameOwnerDesignAs(net)) "this."
       else ""
     import net.*
+    val directionStr =
+      if (showNetDirection)
+        net.lhsRef.get match
+          case dfIfc: DFInterfaceOwner => "/*<->*/"
+          case dfVal: DFVal =>
+            if (dfVal.dealias.flatMap(getSet.designDB.connToDcls.get).contains(net))
+              "/*<--*/"
+            else "/*-->*/"
+      else ""
     val opStr = op match
       case DFNet.Op.Assignment     => ":="
-      case DFNet.Op.Connection     => "<>"
-      case DFNet.Op.LazyConnection => "`<LZ>`"
-    s"$lhsThis${toRef.refCodeString} $opStr $rhsThis${fromRef.refCodeString}"
+      case DFNet.Op.Connection     => s"<>$directionStr"
+      case DFNet.Op.LazyConnection => s"`<LZ>`$directionStr"
+    s"$lhsThis${lhsRef.refCodeString} $opStr $rhsThis${rhsRef.refCodeString}"
+  end csDFNet
 
   def csDFMember(member: DFMember): String = member match
     case dfVal: DFVal          => csDFVal(dfVal, None)

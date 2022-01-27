@@ -137,6 +137,11 @@ object DFVal:
           case _: Modifier.Port => true
           case _                => false
       case _ => false
+    @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl] = dfVal match
+      case dcl: DFVal.Dcl     => Some(dcl)
+      case alias: DFVal.Alias => alias.relValRef.get.dealias
+      case _                  => None
+
   final case class Const(
       token: DFTokenAny,
       ownerRef: DFOwner.Ref,
@@ -298,16 +303,16 @@ object DFVal:
 end DFVal
 
 final case class DFNet(
-    toRef: DFNet.Ref,
+    lhsRef: DFNet.Ref,
     op: DFNet.Op,
-    fromRef: DFNet.Ref,
+    rhsRef: DFNet.Ref,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
 ) extends DFMember:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFNet =>
-      this.toRef =~ that.toRef && this.op == that.op && this.fromRef =~ that.fromRef &&
+      this.lhsRef =~ that.lhsRef && this.op == that.op && this.rhsRef =~ that.rhsRef &&
         this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -318,6 +323,8 @@ object DFNet:
   type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner]
   enum Op derives CanEqual:
     case Assignment, Connection, LazyConnection
+  enum Dir derives CanEqual:
+    case L2R, R2L
 
 sealed trait DFOwner extends DFMember:
   val meta: Meta
@@ -383,7 +390,6 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    override def toString: String = s"case ${hashCode.toHexString}"
   end DFCaseBlock
   object DFCaseBlock:
     type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty]

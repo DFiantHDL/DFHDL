@@ -50,10 +50,10 @@ class UniqueDesignsSpec extends StageSpec:
          |  val y2 = DFSInt(15) <> OUT
          |  val id1 = new ID_0
          |  val id2 = new ID_1
-         |  id1.x <> x1
-         |  id1.y <> y1
-         |  id2.x <> x2
-         |  id2.y <> y2
+         |  id1.x <>/*<--*/ x1
+         |  id1.y <>/*-->*/ y1
+         |  id2.x <>/*<--*/ x2
+         |  id2.y <>/*-->*/ y2
          |end IDTop
          |""".stripMargin
     )
