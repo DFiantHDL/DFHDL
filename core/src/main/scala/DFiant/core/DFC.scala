@@ -11,9 +11,9 @@ final case class DFC(
     defaultDir: Int = 0
 ) extends MetaContext:
   def setMeta(
-      nameOpt: Option[String],
-      position: Position,
-      lateConstruction: Boolean
+      nameOpt: Option[String] = nameOpt,
+      position: Position = position,
+      lateConstruction: Boolean = lateConstruction
   ) = copy(
     nameOpt = nameOpt,
     position = position,
@@ -30,6 +30,7 @@ final case class DFC(
   def setName(name: String): this.type =
     copy(nameOpt = Some(name)).asInstanceOf[this.type]
   def anonymize: this.type = copy(nameOpt = None).asInstanceOf[this.type]
+  def setLateConstruction(value: Boolean): this.type = setMeta(lateConstruction = value)
   def <>(that: Int): this.type = copy(defaultDir = that).asInstanceOf[this.type]
 
 end DFC

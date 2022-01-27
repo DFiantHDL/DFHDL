@@ -323,6 +323,29 @@ object DFNet:
   type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner]
   enum Op derives CanEqual:
     case Assignment, Connection, LazyConnection
+  extension (net: DFNet)
+    def isAssignment = net.op match
+      case Op.Assignment => true
+      case _             => false
+    def isConnection = net.op match
+      case Op.Connection | Op.LazyConnection => true
+      case _                                 => false
+    def isLazyConnection = net.op match
+      case Op.LazyConnection => true
+      case _                 => false
+
+  object Assignment:
+    def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
+      case DFNet(toRef, Op.Assignment, fromRef, _, _, _) =>
+        Some(toRef.get.asInstanceOf[DFVal], fromRef.get.asInstanceOf[DFVal])
+      case _ => None
+  object Connection:
+    def unapply(arg: DFNet)(using
+        MemberGetSet
+    ): Option[(DFVal | DFInterfaceOwner, DFVal | DFInterfaceOwner)] = arg match
+      case DFNet(lhsRef, Op.Connection, rhsRef, _, _, _) => ???
+      case _                                             => None
+end DFNet
 
 sealed trait DFOwner extends DFMember:
   val meta: Meta

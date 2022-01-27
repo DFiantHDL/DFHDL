@@ -21,11 +21,25 @@ object Bind:
       Some(alias.relValRef.get)
     else None
 
-object NewVar:
+object DclVar:
   def unapply(dcl: DFVal.Dcl)(using
       MemberGetSet
   ): Boolean = dcl.modifier match
     case Modifier.VAR => true
+    case _            => false
+
+object DclIn:
+  def unapply(dcl: DFVal.Dcl)(using
+      MemberGetSet
+  ): Boolean = dcl.modifier match
+    case Modifier.IN => true
+    case _           => false
+
+object DclOut:
+  def unapply(dcl: DFVal.Dcl)(using
+      MemberGetSet
+  ): Boolean = dcl.modifier match
+    case Modifier.OUT => true
     case _            => false
 
 extension (dcl: DFVal.Dcl)
@@ -44,3 +58,10 @@ extension (dfVal: DFVal)
       case _ =>
     }
     false
+  def getConnectionTo(using MemberGetSet): Option[DFVal] = ???
+  def getConnectionsFrom(using MemberGetSet): Set[DFVal] = ???
+  def getAssignmentsTo(using MemberGetSet): Set[DFVal] =
+    getSet.designDB.assignmentsTable.getOrElse(dfVal, Set())
+  def getAssignmentsFrom(using MemberGetSet): Set[DFVal] =
+    getSet.designDB.assignmentsTableInverted.getOrElse(dfVal, Set())
+end extension

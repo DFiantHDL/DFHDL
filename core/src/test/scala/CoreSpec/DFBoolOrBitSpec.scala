@@ -64,7 +64,7 @@ class DFBoolOrBitSpec extends DFSpec:
     assertCodeString(
       """|val bt = DFBit <> VAR
          |val bl = DFBool <> VAR
-         |bl <> (bt || 1).bool
+         |bl := (bt || 1).bool
          |bt := bl.bit
          |bl := bt.bool
          |bt := 1
@@ -79,7 +79,7 @@ class DFBoolOrBitSpec extends DFSpec:
       val bl = DFBool <> VAR
       val bit0 = DFBit token 0
       val boolT = DFBool token true
-      bl <> (bt || 1)
+      bl := (bt || 1)
       bt := bl
       bl := bt
       bt := true

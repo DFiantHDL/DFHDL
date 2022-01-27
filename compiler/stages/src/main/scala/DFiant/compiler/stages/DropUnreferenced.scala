@@ -6,7 +6,7 @@ import DFiant.compiler.analysis.*
 private class DropUnreferenced(db: DB) extends Stage(db):
   override def transform: DB =
     val patchList = designDB.members.collect {
-      case m @ NewVar() if !designDB.memberTable.contains(m) && m.externalInit.isEmpty =>
+      case m @ DclVar() if !designDB.memberTable.contains(m) && m.externalInit.isEmpty =>
         m -> Patch.Remove
     }
     designDB.patch(patchList)

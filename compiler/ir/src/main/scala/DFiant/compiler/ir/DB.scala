@@ -288,7 +288,11 @@ final case class DB(
               case Some(prevNet) if prevNet.op == Assignment && net.op == Assignment =>
               // previous net is either a connection or an assignment
               case Some(prevNet) =>
-                throw new IllegalArgumentException("Already connected to net. Cannot co")
+                throw new IllegalArgumentException(
+                  s"""Unsupported net connection to ${toDcl.getFullName} at ${net.meta.position}
+                     |Already connected to net at ${prevNet.meta.position}
+                     |${net.lhsRef.get.getFullName} <> ${net.rhsRef.get.getFullName}""".stripMargin
+                )
               // no previous connection is OK
               case None =>
             getConnToDcls(otherNets, pendingNets, connToDcls + (toDcl -> net))
@@ -316,6 +320,22 @@ final case class DB(
       case _          => Nil
     }
     getConnToDcls(flatNets, Nil, Map())
+  //                              To       From
+  lazy val assignmentsTable: Map[DFVal, Set[DFVal]] =
+    members.foldLeft(Map.empty[DFVal, Set[DFVal]]) {
+      case (at, DFNet.Assignment(toVal, fromVal)) =>
+        at + (toVal -> (at.getOrElse(toVal, Set()) + fromVal))
+      case (at, _) => at
+    }
+
+  //                                     From       To
+  lazy val assignmentsTableInverted: Map[DFVal, Set[DFVal]] =
+    members.foldLeft(Map.empty[DFVal, Set[DFVal]]) {
+      case (at, DFNet.Assignment(toVal, fromVal)) =>
+        at + (fromVal -> (at.getOrElse(fromVal, Set()) + toVal))
+      case (at, _) => at
+    }
+
 end DB
 
 //object DB:
