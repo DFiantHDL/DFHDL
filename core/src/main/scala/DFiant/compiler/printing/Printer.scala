@@ -16,12 +16,12 @@ class Printer(using val getSet: MemberGetSet)
   given printer: Printer = this
   val showNetDirection: Boolean = true
   def csDFNet(net: DFNet): String =
+    // true if the net is a late construction and the RHS is the internal port,
+    // so we need to swap positions since we always present the internal on the left side.
+    val swapLR = net.hasLateConstruction && net.rhsRef.get.isSameOwnerDesignAs(net)
     // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
     val lhsThis =
-      if (net.hasLateConstruction && net.lhsRef.get.isSameOwnerDesignAs(net)) "this."
-      else ""
-    val rhsThis =
-      if (net.hasLateConstruction && net.rhsRef.get.isSameOwnerDesignAs(net)) "this."
+      if (swapLR || net.hasLateConstruction && net.lhsRef.get.isSameOwnerDesignAs(net)) "this."
       else ""
     import net.*
     val directionStr =
@@ -29,15 +29,18 @@ class Printer(using val getSet: MemberGetSet)
         net.lhsRef.get match
           case dfIfc: DFInterfaceOwner => "/*<->*/"
           case dfVal: DFVal =>
-            if (dfVal.dealias.flatMap(getSet.designDB.connToDcls.get).contains(net))
-              "/*<--*/"
+            if (dfVal.getConnectionTo.contains(net) ^ swapLR) "/*<--*/"
             else "/*-->*/"
       else ""
     val opStr = op match
       case DFNet.Op.Assignment     => ":="
       case DFNet.Op.Connection     => s"<>$directionStr"
       case DFNet.Op.LazyConnection => s"`<LZ>`$directionStr"
-    s"$lhsThis${lhsRef.refCodeString} $opStr $rhsThis${rhsRef.refCodeString}"
+
+    val (leftStr, rightStr) =
+      if (swapLR) (rhsRef.refCodeString, lhsRef.refCodeString)
+      else (lhsRef.refCodeString, rhsRef.refCodeString)
+    s"$lhsThis$leftStr $opStr $rightStr"
   end csDFNet
 
   def csDFMember(member: DFMember): String = member match

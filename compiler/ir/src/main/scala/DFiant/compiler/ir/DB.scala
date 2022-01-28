@@ -311,15 +311,25 @@ final case class DB(
         if (reexamine) getConnToDcls(pendingNets, Nil, connToDcls)
         else
           throw new IllegalArgumentException(
-            "Unable to determine directionality for the following nets:"
+            s"Unable to determine directionality for the following nets:\n${pendingNets.map(_.net.meta.position).mkString("\n")}"
           )
       case Nil => connToDcls
-  lazy val connToDcls: Map[DFVal.Dcl, DFNet] =
+
+  // There can only be a single connection to a value (but multiple assignments are possible)
+  //                               To       Via
+  lazy val connectionTable: Map[DFVal.Dcl, DFNet] =
     val flatNets = members.flatMap {
       case net: DFNet => FlatNet(net)
       case _          => Nil
     }
-    getConnToDcls(flatNets, Nil, Map())
+    getConnToDcls(flatNets, Nil, Map()).filter(_._2.isConnection)
+
+  //                                    From       Via
+  lazy val connectionTableInverted: Map[DFVal, List[DFNet]] =
+    members
+      .collect { case n @ DFNet.Connection(toVal: DFVal, fromVal: DFVal) => n }
+      .groupBy(n => n.lhsRef.get.asInstanceOf[DFVal])
+
   //                              To       From
   lazy val assignmentsTable: Map[DFVal, Set[DFVal]] =
     members.foldLeft(Map.empty[DFVal, Set[DFVal]]) {

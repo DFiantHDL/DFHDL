@@ -343,10 +343,10 @@ object DFNet:
     def unapply(net: DFNet)(using
         MemberGetSet
     ): Option[(DFVal.Dcl | DFInterfaceOwner, DFVal | DFInterfaceOwner)] = net match
-      case DFNet(lhsRef, Op.Connection, rhsRef, _, _, _) =>
+      case DFNet(lhsRef, Op.Connection | Op.LazyConnection, rhsRef, _, _, _) =>
         (lhsRef.get, rhsRef.get) match
           case (lhsVal: DFVal, rhsVal: DFVal) =>
-            val toLeft = lhsVal.dealias.flatMap(getSet.designDB.connToDcls.get).contains(net)
+            val toLeft = lhsVal.dealias.flatMap(getSet.designDB.connectionTable.get).contains(net)
             if (toLeft) Some(lhsVal.dealias.get, rhsVal)
             else Some(rhsVal.dealias.get, lhsVal)
           case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
