@@ -11,4 +11,5 @@ final case class Meta(
     nameOpt.getOrElse(s"anon${this.hashCode.toHexString}")
   def anonymize: Meta = copy(nameOpt = None)
   def setName(name: String): Meta = copy(nameOpt = Some(name))
+  def setLateConstruction(value: Boolean): Meta = copy(lateConstruction = value)
   def =~(that: Meta): Boolean = this.nameOpt == that.nameOpt

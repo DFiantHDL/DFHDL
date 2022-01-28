@@ -60,8 +60,8 @@ extension (dfVal: DFVal)
     }
     false
   end hasPrevAlias
-  def getConnectionTo(using MemberGetSet): Option[DFVal] = ???
-  def getConnectionsFrom(using MemberGetSet): Set[DFVal] = ???
+  def getConnectionTo(using MemberGetSet): Option[DFNet] = ???
+  def getConnectionsFrom(using MemberGetSet): Set[DFNet] = ???
   def getAssignmentsTo(using MemberGetSet): Set[DFVal] =
     getSet.designDB.assignmentsTable.getOrElse(dfVal, Set())
   def getAssignmentsFrom(using MemberGetSet): Set[DFVal] =

@@ -340,11 +340,19 @@ object DFNet:
         Some(toRef.get.asInstanceOf[DFVal], fromRef.get.asInstanceOf[DFVal])
       case _ => None
   object Connection:
-    def unapply(arg: DFNet)(using
+    def unapply(net: DFNet)(using
         MemberGetSet
-    ): Option[(DFVal | DFInterfaceOwner, DFVal | DFInterfaceOwner)] = arg match
-      case DFNet(lhsRef, Op.Connection, rhsRef, _, _, _) => ???
-      case _                                             => None
+    ): Option[(DFVal.Dcl | DFInterfaceOwner, DFVal | DFInterfaceOwner)] = net match
+      case DFNet(lhsRef, Op.Connection, rhsRef, _, _, _) =>
+        (lhsRef.get, rhsRef.get) match
+          case (lhsVal: DFVal, rhsVal: DFVal) =>
+            val toLeft = lhsVal.dealias.flatMap(getSet.designDB.connToDcls.get).contains(net)
+            if (toLeft) Some(lhsVal.dealias.get, rhsVal)
+            else Some(rhsVal.dealias.get, lhsVal)
+          case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
+            Some(lhsIfc, rhsIfc)
+          case _ => ??? // not possible
+      case _ => None
 end DFNet
 
 sealed trait DFOwner extends DFMember:
