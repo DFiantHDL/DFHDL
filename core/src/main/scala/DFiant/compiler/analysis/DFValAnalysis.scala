@@ -54,9 +54,7 @@ extension (dfVal: DFVal)
           case history: DFVal.Alias.History if (history.op == DFVal.Alias.History.Op.Prev) =>
             return true
           case alias: DFVal.Alias =>
-            val relVal = alias.relValRef.get
-            if (relVal == dfVal) false
-            else relVal.hasPrevAlias
+            alias.hasPrevAlias
           case _ => // false
       case _ =>
     }
