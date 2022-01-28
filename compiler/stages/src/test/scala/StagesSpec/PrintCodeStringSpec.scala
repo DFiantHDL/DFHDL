@@ -10,6 +10,11 @@ class PrintCodeStringSpec extends StageSpec:
     val y = DFSInt(16) <> OUT
     y := x
 
+  class IDGen[T <: DFType](dfType: T)(using DFC) extends DFDesign:
+    val x = dfType <> IN
+    val y = dfType <> OUT
+    y := x
+
   class IDTop(using DFC) extends DFDesign:
     val x   = DFSInt(16) <> IN
     val y   = DFSInt(16) <> OUT
@@ -47,6 +52,28 @@ class PrintCodeStringSpec extends StageSpec:
          |  val y = DFSInt(16) <> OUT
          |  y := x
          |end ID
+         |""".stripMargin
+    )
+  }
+  test("Generic ID design") {
+    val id = (new IDGen(DFBits(8))).getCodeString
+    assertNoDiff(
+      id,
+      """|class IDGen(using DFC) extends DFDesign:
+         |  val x = DFBits(8) <> IN
+         |  val y = DFBits(8) <> OUT
+         |  y := x
+         |end IDGen
+         |""".stripMargin
+    )
+    val id2 = (new IDGen((DFBits(4), DFSInt(4)))).getCodeString
+    assertNoDiff(
+      id2,
+      """|class IDGen(using DFC) extends DFDesign:
+         |  val x = (DFBits(4), DFSInt(4)) <> IN
+         |  val y = (DFBits(4), DFSInt(4)) <> OUT
+         |  y := x
+         |end IDGen
          |""".stripMargin
     )
   }

@@ -29,7 +29,7 @@ object hdl:
   type DFC = core.DFC
   export core.dfc
 
-  type DFTypeAny = core.DFTypeAny
+  type DFType = core.DFTypeAny
   lazy val DFBool = core.DFBool
   type DFBool = core.DFBool
   lazy val DFBit = core.DFBit
