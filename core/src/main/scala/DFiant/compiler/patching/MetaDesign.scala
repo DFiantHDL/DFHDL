@@ -1,6 +1,7 @@
 package DFiant.compiler.patching
 import DFiant.core.*
 import DFiant.compiler.ir
+import DFiant.compiler.ir.DFVal.Modifier
 
 abstract class MetaDesign extends DFDesign(using DFC.empty) with reflect.Selectable:
   final def plantMember[T <: ir.DFMember](member: T): T =
@@ -12,6 +13,6 @@ abstract class MetaDesign extends DFDesign(using DFC.empty) with reflect.Selecta
 
   export DFiant.hdl.*
   export DFiant.core.{asValAny, asVarAny}
-
-//  final protected implicit val __lateConstructionConfig: LateConstructionConfig =
-//    LateConstructionConfig.Force(lateConstruction)
+  extension [T <: DFTypeAny, M <: Modifier](dfVal: DFVal[T, M])
+    def asInitialized: DFVal[T, M & Modifier.Initialized] =
+      dfVal.asInstanceOf[DFVal[T, M & Modifier.Initialized]]

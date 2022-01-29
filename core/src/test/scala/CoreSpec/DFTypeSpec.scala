@@ -64,4 +64,14 @@ class DFTypeSpec extends DFSpec:
     assertEquals(MyEnum5.dfType.codeString, "MyEnum5")
   }
 
+  test("init limitations") {
+    assertCompileError("The dataflow value is already initialized.")(
+      """val x = DFUInt(8) <> VAR init 0 init 0"""
+    )
+    val y = DFUInt(8) <> VAR
+    assertCompileError("Can only initialize a dataflow port or variable.")(
+      """(y + 1) init 0"""
+    )
+  }
+
 end DFTypeSpec

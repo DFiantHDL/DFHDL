@@ -176,6 +176,17 @@ extension (dfVal: ir.DFVal)
     DFVal[T, Modifier.Port](dfVal)
 
 private object CompanionsDFVal:
+  trait InitCheck[M <: Modifier]
+  given [M <: Modifier](using
+      initializableOnly: AssertGiven[
+        M <:< Modifier.Initializable,
+        "Can only initialize a dataflow port or variable."
+      ],
+      notInitialized: AssertGiven[
+        util.NotGiven[M <:< Modifier.Initialized],
+        "The dataflow value is already initialized."
+      ]
+  ): InitCheck[M] with {}
   object Extensions:
     extension [T <: DFTypeAny, M <: Modifier](dfVal: DFVal[T, M])
       def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
@@ -185,21 +196,23 @@ private object CompanionsDFVal:
         dfVal.asIR.tagIR(customTag).asVal[T, M]
       private[core] def initForced(tokens: List[ir.DFTokenAny])(using
           dfc: DFC
-      ): DFVal[T, M] =
+      ): DFVal[T, M & Modifier.Initialized] =
         import dfc.getSet
         assert(
           dfVal.asIR.isAnonymous,
           s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
         )
-        tag(ir.ExternalInit(tokens))
+        tag(ir.ExternalInit(tokens)).asIR.asVal[T, M & Modifier.Initialized]
 
-      def init(tokenValues: DFToken.Value[T]*)(using DFC): DFVal[T, M] =
+      def init(
+          tokenValues: DFToken.Value[T]*
+      )(using InitCheck[M], DFC): DFVal[T, M & Modifier.Initialized] =
         initForced(tokenValues.view.map(tv => tv(dfVal.dfType).asIR).toList)
     end extension
     extension [T <: NonEmptyTuple, M <: Modifier](dfVal: DFVal[DFTuple[T], M])
-      def init(tokenValues: DFToken.TupleValues[T])(using
-          DFC
-      ): DFVal[DFTuple[T], M] =
+      def init(
+          tokenValues: DFToken.TupleValues[T]
+      )(using InitCheck[M], DFC): DFVal[DFTuple[T], M & Modifier.Initialized] =
         dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
   end Extensions
 
@@ -527,6 +540,13 @@ private object CompanionsDFVal:
 //        inline arg: R
 //    ): DFValOf[T] = ${ fromArgMacro[T]('arg) }
 
+  trait PrevCheck[M <: Modifier]
+  given [M <: Modifier](using
+      AssertGiven[
+        M <:< Modifier.Initialized,
+        "Previous dataflow values can only be summoned for initialized values."
+      ]
+  ): PrevCheck[M] with {}
   object Ops:
     extension [T <: DFTypeAny, M <: Modifier](dfVal: DFVal[T, M])
       def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
@@ -534,13 +554,17 @@ private object CompanionsDFVal:
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
       def prev[S <: Int](
           step: Inlined[S]
-      )(using dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] =
+      )(using
+          dfc: DFC,
+          prevCheck: PrevCheck[M],
+          check: Arg.Positive.Check[S]
+      ): DFValOf[T] =
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev)
       inline def prev(using DFC): DFValOf[T] = dfVal.prev(1)
       def pipe[S <: Int](
           step: Inlined[S]
-      )(using dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] =
+      )(using dfc: DFC, prevCheck: PrevCheck[M], check: Arg.Positive.Check[S]): DFValOf[T] =
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe)
       inline def pipe(using DFC): DFValOf[T] = dfVal.pipe(1)

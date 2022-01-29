@@ -67,8 +67,12 @@ private class DropBinds(db: DB) extends Stage(db):
         // go through all the groups and set a patch to replace the binds with a variable or named alias
         val bindsPatchList: List[(DFMember, Patch)] = bindGroups.flatMap {
           case bg @ ((headBind: DFVal.Alias) :: otherBinds) =>
+            // TODO: current feature limitation of prev is that it can only be applied for
+            // initialized variables and ports. This means that binds currently cannot have
+            // prev dependencies. If we drop this limitation in the future, then this stage will
+            // be modified accordingly.
             // a bind group has a prev alias if at least one of its variables has
-            val hasPrevAlias = bg.exists(_.hasPrevAlias)
+            val hasPrevAlias = false // bg.exists(_.hasPrevAlias)
             // In case the group has prev alias, then we need to create a new dataflow variable
             // and assign the underlying bind value to it. If the bind group contains more than one bind,
             // then the rest of the binds are removed and reference the bind variable we created.
@@ -107,7 +111,7 @@ private class DropBinds(db: DB) extends Stage(db):
         val stallsPatchList: List[(DFMember, Patch)] = stalled.collect {
           case (c, varsIR) if varsIR.nonEmpty =>
             val dsn = new MetaDesign:
-              varsIR.view.reverse.foreach(v => v.asVarAny := v.asValAny.prev)
+              varsIR.view.reverse.foreach(v => v.asVarAny := v.asVarAny.asInitialized.prev)
             c -> Patch.Add(dsn, Patch.Add.Config.InsideLast)
         }.toList
         casesPatchList ++ bindsPatchList ++ stallsPatchList

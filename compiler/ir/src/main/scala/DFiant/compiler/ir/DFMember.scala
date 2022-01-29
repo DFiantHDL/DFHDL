@@ -122,10 +122,12 @@ object DFVal:
   object Modifier:
     sealed trait Assignable extends Modifier
     sealed trait Connectable extends Modifier
+    sealed trait Initializable extends Modifier
     sealed trait VAL extends Modifier
+    sealed trait Initialized extends Modifier
     sealed trait Extendable extends VAL
-    case object VAR extends VAL, Assignable, Connectable
-    sealed trait Port extends VAL, Assignable, Connectable
+    case object VAR extends VAL, Assignable, Connectable, Initializable
+    sealed trait Port extends VAL, Assignable, Connectable, Initializable
     case object IN extends Port
     case object OUT extends Port
     case object INOUT extends Port
