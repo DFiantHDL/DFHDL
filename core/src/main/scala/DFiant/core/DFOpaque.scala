@@ -49,7 +49,7 @@ object DFOpaque:
 
   object Val:
     object Ops:
-      import ir.DFVal.ModifierAny
+      import ir.DFVal.Modifier
       extension [L](inline lhs: L)
         transparent inline def as[T <: DFTypeAny, TFE <: Frontend[T]](
             tfe: TFE
@@ -90,10 +90,10 @@ object DFOpaque:
           }
       end asMacro
 
-      extension [T <: DFTypeAny, TFE <: Frontend[T], M <: ModifierAny](
-          lhs: DFVal[DFOpaque[TFE], M]
+      extension [T <: DFTypeAny, TFE <: Frontend[T], A, C, I](
+          lhs: DFVal[DFOpaque[TFE], Modifier[A, C, I]]
       )
-        def actual(using DFC): DFVal[T, M] =
+        def actual(using DFC): DFVal[T, Modifier[A, Any, Any]] =
           import Token.Ops.{actual => actualToken}
           DFVal.Alias.AsIs(lhs.dfType.actualType, lhs, _.actualToken)
     end Ops

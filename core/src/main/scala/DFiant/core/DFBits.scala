@@ -1,5 +1,6 @@
 package DFiant.core
 import DFiant.compiler.ir
+import DFiant.compiler.ir.DFVal.Modifier
 import ir.DFVal.Func.Op as FuncOp
 import DFiant.internals.*
 
@@ -720,12 +721,12 @@ private object CompanionsDFBits:
         protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
           val width = Inlined.forced[Int](iter.map(_.width.value).sum)
           DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
-      extension [W <: Int, M <: ir.DFVal.ModifierAny](
-          lhs: DFVal[DFBits[W], M]
+      extension [W <: Int, A, C, I](
+          lhs: DFVal[DFBits[W], Modifier[A, C, I]]
       )
-        def as[A <: DFType.Supported](
-            aliasType: A
-        )(using tc: DFType.TC[A])(using
+        def as[AT <: DFType.Supported](
+            aliasType: AT
+        )(using tc: DFType.TC[AT])(using
             aW: Width[tc.Type],
             dfc: DFC
         )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] =
@@ -738,12 +739,12 @@ private object CompanionsDFBits:
         def sint(using DFC): DFValOf[DFSInt[W]] =
           as(DFSInt(lhs.width))
 
-        def apply[I](
-            relIdx: Exact[I]
+        def apply[Idx](
+            relIdx: Exact[Idx]
         )(using
-            c: DFUInt.Val.UBArg[W, I],
+            c: DFUInt.Val.UBArg[W, Idx],
             dfc: DFC
-        ): DFVal[DFBit, M] =
+        ): DFVal[DFBit, Modifier[A, Any, Any]] =
           DFVal.Alias.ApplyIdx(DFBit, lhs, c(lhs.width, relIdx))
         def apply[H <: Int, L <: Int](
             relBitHigh: Inlined[H],
@@ -753,7 +754,7 @@ private object CompanionsDFBits:
             checkLow: BitIndex.Check[L, W],
             checkHiLo: BitsHiLo.Check[H, L],
             dfc: DFC
-        ): DFVal[DFBits[H - L + 1], M] =
+        ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any]] =
           checkHigh(relBitHigh, lhs.width)
           checkLow(relBitLow, lhs.width)
           checkHiLo(relBitHigh, relBitLow)

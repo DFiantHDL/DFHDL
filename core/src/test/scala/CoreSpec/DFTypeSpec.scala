@@ -64,7 +64,7 @@ class DFTypeSpec extends DFSpec:
     assertEquals(MyEnum5.dfType.codeString, "MyEnum5")
   }
 
-  test("init limitations") {
+  test("value modifier limitations") {
     assertCompileError(
       "Can only initialize a dataflow port or variable that are not already initialized."
     )(
@@ -83,6 +83,22 @@ class DFTypeSpec extends DFSpec:
     )(
       """(y + 1).prev"""
     )
+    assertCompileError(
+      "Previous dataflow values can only be summoned for initialized values."
+    )(
+      """z(3, 0).prev"""
+    )
+    assertCompileError(
+      "The LHS of a connection must be a connectable dataflow value (var/port)."
+    )(
+      """z(3, 0) <> all(0)"""
+    )
+    val tplx = tpl <> VAR
+    tplx._1 := 1
+    assertCompileError(
+      "The LHS of a connection must be a connectable dataflow value (var/port)."
+    )(
+      """tplx._1 <> 1"""
+    )
   }
-
 end DFTypeSpec

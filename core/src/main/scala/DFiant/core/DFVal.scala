@@ -47,50 +47,50 @@ object DFVal:
         case DFStruct.Val(dfVal) => Some(dfVal)
         case _                   => None
 
-  trait Refiner[T <: FieldsOrTuple, M <: ModifierAny]:
-    type Out <: DFVal[DFStruct[T], M]
+  trait Refiner[T <: FieldsOrTuple, A]:
+    type Out <: DFVal[DFStruct[T], Modifier[A, Any, Any]]
   object Refiner:
-    transparent inline given [T <: FieldsOrTuple, M <: ModifierAny]: Refiner[T, M] = ${
-      refineMacro[T, M]
+    transparent inline given [T <: FieldsOrTuple, A]: Refiner[T, A] = ${
+      refineMacro[T, A]
     }
-    def refineMacro[T <: FieldsOrTuple, M <: ModifierAny](using
+    def refineMacro[T <: FieldsOrTuple, A](using
         Quotes,
         Type[T],
-        Type[M]
-    ): Expr[Refiner[T, M]] =
+        Type[A]
+    ): Expr[Refiner[T, A]] =
       import quotes.reflect.*
-      val dfValTpe = TypeRepr.of[DFVal[DFStruct[T], M]]
+      val dfValTpe = TypeRepr.of[DFVal[DFStruct[T], Modifier[A, Any, Any]]]
       val tTpe = TypeRepr.of[T]
       val fields: List[(String, TypeRepr)] = tTpe.asTypeOf[Any] match
         case '[NonEmptyTuple] =>
           tTpe.getTupleArgs.zipWithIndex.map((f, i) =>
             f.asTypeOf[Any] match
               case '[DFValOf[t]] =>
-                (s"_${i + 1}", TypeRepr.of[DFVal[t, M]])
+                (s"_${i + 1}", TypeRepr.of[DFVal[t, Modifier[A, Any, Any]]])
           )
         case _ =>
           val clsSym = tTpe.classSymbol.get
           clsSym.caseFields.map(m =>
             tTpe.memberType(m).asTypeOf[Any] match
               case '[DFValOf[t]] =>
-                (m.name.toString, TypeRepr.of[DFVal[t, M]])
+                (m.name.toString, TypeRepr.of[DFVal[t, Modifier[A, Any, Any]]])
           )
 
       val refined = fields.foldLeft(dfValTpe) { case (r, (n, t)) =>
         Refinement(r, n, t)
       }
-      val refinedType = refined.asTypeOf[DFVal[DFStruct[T], M]]
+      val refinedType = refined.asTypeOf[DFVal[DFStruct[T], Modifier[A, Any, Any]]]
       '{
-        new Refiner[T, M]:
+        new Refiner[T, A]:
           type Out = refinedType.Underlying
       }
     end refineMacro
   end Refiner
 
-  inline implicit def refined[T <: FieldsOrTuple, M <: ModifierAny](
-      inline dfVal: DFVal[DFStruct[T], M]
+  inline implicit def refined[T <: FieldsOrTuple, A](
+      inline dfVal: DFVal[DFStruct[T], Modifier[A, Any, Any]]
   )(using
-      r: Refiner[T, M]
+      r: Refiner[T, A]
   ): r.Out = dfVal.asInstanceOf[r.Out]
 
   def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
