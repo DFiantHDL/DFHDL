@@ -13,6 +13,6 @@ abstract class MetaDesign extends DFDesign(using DFC.empty) with reflect.Selecta
 
   export DFiant.hdl.*
   export DFiant.core.{asValAny, asVarAny}
-  extension [T <: DFTypeAny, M <: Modifier](dfVal: DFVal[T, M])
-    def asInitialized: DFVal[T, M & Modifier.Initialized] =
-      dfVal.asInstanceOf[DFVal[T, M & Modifier.Initialized]]
+  extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
+    def asInitialized: DFVal[T, Modifier[A, C, Modifier.Initialized]] =
+      dfVal.asInstanceOf[DFVal[T, Modifier[A, C, Modifier.Initialized]]]

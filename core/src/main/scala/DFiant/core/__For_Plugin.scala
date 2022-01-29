@@ -1,7 +1,7 @@
 package DFiant.core
 import DFiant.compiler.ir
 import DFVal.Func.Op as FuncOp
-import DFiant.compiler.ir.DFVal.Modifier
+import DFiant.compiler.ir.DFVal.{Modifier, ModifierAny}
 import ir.DFConditional.DFCaseBlock.Pattern
 
 import collection.immutable.ListMap

@@ -65,12 +65,23 @@ class DFTypeSpec extends DFSpec:
   }
 
   test("init limitations") {
-    assertCompileError("The dataflow value is already initialized.")(
+    assertCompileError(
+      "Can only initialize a dataflow port or variable that are not already initialized."
+    )(
       """val x = DFUInt(8) <> VAR init 0 init 0"""
     )
     val y = DFUInt(8) <> VAR
-    assertCompileError("Can only initialize a dataflow port or variable.")(
+    assertCompileError(
+      "Can only initialize a dataflow port or variable that are not already initialized."
+    )(
       """(y + 1) init 0"""
+    )
+    val z = DFBits(8) <> VAR init all(0)
+    val zprev = z.prev
+    assertCompileError(
+      "Previous dataflow values can only be summoned for initialized values."
+    )(
+      """(y + 1).prev"""
     )
   }
 

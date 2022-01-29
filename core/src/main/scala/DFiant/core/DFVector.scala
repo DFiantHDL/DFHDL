@@ -2,7 +2,7 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 import DFVal.Func.Op as FuncOp
-import DFiant.compiler.ir.DFVal.Modifier
+import DFiant.compiler.ir.DFVal.ModifierAny
 import DFiant.core.CompanionsDFBits.BitIndex
 
 import scala.annotation.targetName
@@ -174,7 +174,7 @@ object DFVector:
       end DFVectorCompareDFValVector
     end Compare
     object Ops:
-      extension [T <: DFTypeAny, D1 <: Int, M <: Modifier](
+      extension [T <: DFTypeAny, D1 <: Int, M <: ModifierAny](
           lhs: DFVal[DFVector[T, Tuple1[D1]], M]
       )
         @targetName("applyDFVector")

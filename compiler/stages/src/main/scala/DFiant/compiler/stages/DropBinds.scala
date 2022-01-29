@@ -108,13 +108,13 @@ private class DropBinds(db: DB) extends Stage(db):
         }.toList
         // for all the memoized stalled bind variables and cases we need to populate
         // the missing bind cases with self-assignment of the previous value for each bind.
-        val stallsPatchList: List[(DFMember, Patch)] = stalled.collect {
-          case (c, varsIR) if varsIR.nonEmpty =>
-            val dsn = new MetaDesign:
-              varsIR.view.reverse.foreach(v => v.asVarAny := v.asVarAny.asInitialized.prev)
-            c -> Patch.Add(dsn, Patch.Add.Config.InsideLast)
-        }.toList
-        casesPatchList ++ bindsPatchList ++ stallsPatchList
+//        val stallsPatchList: List[(DFMember, Patch)] = stalled.collect {
+//          case (c, varsIR) if varsIR.nonEmpty =>
+//            val dsn = new MetaDesign:
+//              varsIR.view.reverse.foreach(v => v.asVarAny := v.asVarAny.asInitialized.prev)
+//            c -> Patch.Add(dsn, Patch.Add.Config.InsideLast)
+//        }.toList
+        casesPatchList ++ bindsPatchList // ++ stallsPatchList
       case _ => None
     }
     designDB.patch(patchList)

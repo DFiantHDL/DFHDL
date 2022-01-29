@@ -1,6 +1,6 @@
 package DFiant.core
 import DFiant.compiler.ir
-import DFiant.compiler.ir.DFVal.Modifier
+import DFiant.compiler.ir.DFVal.ModifierAny
 import ir.DFVal.Func.Op as FuncOp
 import DFiant.internals.*
 
@@ -240,7 +240,7 @@ object DFTuple:
 
     object Ops:
       import CompanionsDFBits.BitIndex
-      extension [T <: NonEmptyTuple, M <: Modifier](t: DFVal[DFTuple[T], M])
+      extension [T <: NonEmptyTuple, M <: ModifierAny](t: DFVal[DFTuple[T], M])
         def apply[I <: Int](i: Inlined[I])(using
             dfc: DFC,
             check: BitIndex.Check[I, Tuple.Size[T]],
@@ -255,12 +255,12 @@ object DFTuple:
           .asIR
           .asVal[OT, M]
       end extension
-//      extension [T1 <: DFTypeAny, M <: Modifier](
+//      extension [T1 <: DFTypeAny, M <: ModifierAny](
 //          t: DFVal[DFTuple[Tuple1[DFValOf[T1]]], M]
 //      )
 //        inline def _1(using DFC): DFVal[T1, M] =
 //          t.applyForced[T1](0)
-//      extension [T1 <: DFTypeAny, T2 <: DFTypeAny, M <: Modifier](
+//      extension [T1 <: DFTypeAny, T2 <: DFTypeAny, M <: ModifierAny](
 //          t: DFVal[DFTuple[(DFValOf[T1], DFValOf[T2])], M]
 //      )
 //        inline def _1(using DFC): DFVal[T1, M] =
@@ -271,7 +271,7 @@ object DFTuple:
 //          T1 <: DFTypeAny,
 //          T2 <: DFTypeAny,
 //          T3 <: DFTypeAny,
-//          M <: Modifier
+//          M <: ModifierAny
 //      ](t: DFVal[DFTuple[(DFValOf[T1], DFValOf[T2], DFValOf[T3])], M])
 //        inline def _1(using DFC): DFVal[T1, M] =
 //          t.applyForced[T1](0)

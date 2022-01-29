@@ -1,7 +1,7 @@
 package DFiant.core
 import DFiant.internals.*
 import scala.quoted.*
-import DFiant.compiler.ir.DFVal.Modifier
+import DFiant.compiler.ir.DFVal.ModifierAny
 import DFiant.compiler.ir
 
 extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
@@ -39,7 +39,7 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
 
   def showModifier: String =
     import quotes.reflect.*
-    tpe.asTypeOf[Modifier] match
+    tpe.asTypeOf[ModifierAny] match
       case '[IN]    => "IN"
       case '[OUT]   => "OUT"
       case '[INOUT] => "INOUT"

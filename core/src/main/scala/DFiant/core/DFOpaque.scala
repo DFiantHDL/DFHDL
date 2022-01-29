@@ -49,7 +49,7 @@ object DFOpaque:
 
   object Val:
     object Ops:
-      import ir.DFVal.Modifier
+      import ir.DFVal.ModifierAny
       extension [L](inline lhs: L)
         transparent inline def as[T <: DFTypeAny, TFE <: Frontend[T]](
             tfe: TFE
@@ -90,7 +90,7 @@ object DFOpaque:
           }
       end asMacro
 
-      extension [T <: DFTypeAny, TFE <: Frontend[T], M <: Modifier](
+      extension [T <: DFTypeAny, TFE <: Frontend[T], M <: ModifierAny](
           lhs: DFVal[DFOpaque[TFE], M]
       )
         def actual(using DFC): DFVal[T, M] =

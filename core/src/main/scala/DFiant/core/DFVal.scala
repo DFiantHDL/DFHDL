@@ -1,7 +1,7 @@
 package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
-import DFiant.compiler.ir.DFVal.Modifier
+import DFiant.compiler.ir.DFVal.{Modifier, ModifierAny}
 import ir.DFVal.Func.Op as FuncOp
 
 import scala.annotation.unchecked.uncheckedVariance
@@ -12,7 +12,7 @@ import DFiant.compiler.ir.MemberGetSet
 import DFiant.compiler.printing.{DefaultPrinter, Printer}
 
 import scala.reflect.ClassTag
-final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
+final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val value: ir.DFVal)
     extends AnyVal
     with DFMember[ir.DFVal]
     with Selectable:
@@ -23,7 +23,7 @@ final class DFVal[+T <: DFTypeAny, +M <: Modifier](val value: ir.DFVal)
     DFVal.Alias
       .SelectField(this, name)
       .asIR
-      .asVal[DFTypeAny, Modifier]
+      .asVal[DFTypeAny, ModifierAny]
 
   transparent inline def ==[R](
       inline that: R
@@ -47,13 +47,13 @@ object DFVal:
         case DFStruct.Val(dfVal) => Some(dfVal)
         case _                   => None
 
-  trait Refiner[T <: FieldsOrTuple, M <: Modifier]:
+  trait Refiner[T <: FieldsOrTuple, M <: ModifierAny]:
     type Out <: DFVal[DFStruct[T], M]
   object Refiner:
-    transparent inline given [T <: FieldsOrTuple, M <: Modifier]: Refiner[T, M] = ${
+    transparent inline given [T <: FieldsOrTuple, M <: ModifierAny]: Refiner[T, M] = ${
       refineMacro[T, M]
     }
-    def refineMacro[T <: FieldsOrTuple, M <: Modifier](using
+    def refineMacro[T <: FieldsOrTuple, M <: ModifierAny](using
         Quotes,
         Type[T],
         Type[M]
@@ -87,7 +87,7 @@ object DFVal:
     end refineMacro
   end Refiner
 
-  inline implicit def refined[T <: FieldsOrTuple, M <: Modifier](
+  inline implicit def refined[T <: FieldsOrTuple, M <: ModifierAny](
       inline dfVal: DFVal[DFStruct[T], M]
   )(using
       r: Refiner[T, M]
@@ -116,11 +116,11 @@ object DFVal:
   // Enabling equality with Int, Boolean, and Tuples.
   // just to give a better error message via the compiler plugin.
   // See the method `rejectBadPrimitiveOps` in `MetaContextGenPhase.scala`
-  given [T <: DFTypeAny, M <: Modifier]: CanEqual[Int, DFVal[T, M]] =
+  given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[Int, DFVal[T, M]] =
     CanEqual.derived
-  given [T <: DFTypeAny, M <: Modifier]: CanEqual[Boolean, DFVal[T, M]] =
+  given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[Boolean, DFVal[T, M]] =
     CanEqual.derived
-  given [T <: DFTypeAny, M <: Modifier]: CanEqual[Tuple, DFVal[T, M]] =
+  given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[Tuple, DFVal[T, M]] =
     CanEqual.derived
 
   final val Modifier = DFiant.compiler.ir.DFVal.Modifier
@@ -138,11 +138,11 @@ object DFVal:
   val Ops = CompanionsDFVal.Ops
 end DFVal
 
-type DFValAny = DFVal[DFTypeAny, Modifier]
+type DFValAny = DFVal[DFTypeAny, ModifierAny]
 type DFVarAny = DFVal[DFTypeAny, VAR]
-type DFValOf[+T <: DFTypeAny] = DFVal[T, Modifier]
+type DFValOf[+T <: DFTypeAny] = DFVal[T, ModifierAny]
 type DFVarOf[+T <: DFTypeAny] = DFVal[T, VAR]
-type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Connectable]
+type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Port]
 
 val IN = Modifier.IN
 val OUT = Modifier.OUT
@@ -162,12 +162,12 @@ type <>[T <: DFType.Supported, M] = M match
 type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
 
 extension (dfVal: ir.DFVal)
-  inline def asVal[T <: DFTypeAny, M <: Modifier]: DFVal[T, M] =
+  inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] =
     DFVal[T, M](dfVal)
   inline def asValOf[T <: DFTypeAny]: DFValOf[T] =
-    DFVal[T, Modifier](dfVal)
+    DFVal[T, ModifierAny](dfVal)
   inline def asValAny: DFValAny =
-    DFVal[DFTypeAny, Modifier](dfVal)
+    DFVal[DFTypeAny, ModifierAny](dfVal)
   inline def asVarOf[T <: DFTypeAny]: DFVarOf[T] =
     DFVal[T, VAR](dfVal)
   inline def asVarAny: DFVarAny =
@@ -176,43 +176,40 @@ extension (dfVal: ir.DFVal)
     DFVal[T, Modifier.Port](dfVal)
 
 private object CompanionsDFVal:
-  trait InitCheck[M <: Modifier]
-  given [M <: Modifier](using
+  trait InitCheck[I]
+  given [I](using
       initializableOnly: AssertGiven[
-        M <:< Modifier.Initializable,
-        "Can only initialize a dataflow port or variable."
-      ],
-      notInitialized: AssertGiven[
-        util.NotGiven[M <:< Modifier.Initialized],
-        "The dataflow value is already initialized."
+        I =:= Modifier.Initializable,
+        "Can only initialize a dataflow port or variable that are not already initialized."
       ]
-  ): InitCheck[M] with {}
+  ): InitCheck[I] with {}
   object Extensions:
-    extension [T <: DFTypeAny, M <: Modifier](dfVal: DFVal[T, M])
+    extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
       def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
           dfc: DFC
       ): DFVal[T, M] =
         import DFiant.core.tag as tagIR
         dfVal.asIR.tagIR(customTag).asVal[T, M]
+    extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
       private[core] def initForced(tokens: List[ir.DFTokenAny])(using
           dfc: DFC
-      ): DFVal[T, M & Modifier.Initialized] =
+      ): DFVal[T, Modifier[A, C, Modifier.Initialized]] =
         import dfc.getSet
         assert(
           dfVal.asIR.isAnonymous,
           s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
         )
-        tag(ir.ExternalInit(tokens)).asIR.asVal[T, M & Modifier.Initialized]
+        dfVal.tag(ir.ExternalInit(tokens)).asIR.asVal[T, Modifier[A, C, Modifier.Initialized]]
 
       def init(
           tokenValues: DFToken.Value[T]*
-      )(using InitCheck[M], DFC): DFVal[T, M & Modifier.Initialized] =
+      )(using InitCheck[I], DFC): DFVal[T, Modifier[A, C, Modifier.Initialized]] =
         initForced(tokenValues.view.map(tv => tv(dfVal.dfType).asIR).toList)
     end extension
-    extension [T <: NonEmptyTuple, M <: Modifier](dfVal: DFVal[DFTuple[T], M])
+    extension [T <: NonEmptyTuple, A, C, I](dfVal: DFVal[DFTuple[T], Modifier[A, C, I]])
       def init(
           tokenValues: DFToken.TupleValues[T]
-      )(using InitCheck[M], DFC): DFVal[DFTuple[T], M & Modifier.Initialized] =
+      )(using InitCheck[I], DFC): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]] =
         dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
   end Extensions
 
@@ -241,7 +238,7 @@ private object CompanionsDFVal:
         .asValOf[T]
 
   object Dcl:
-    def apply[T <: DFTypeAny, M <: Modifier](dfType: T, modifier: M)(using
+    def apply[T <: DFTypeAny, M <: ModifierAny](dfType: T, modifier: M)(using
         DFC
     ): DFVal[T, M] =
       ir.DFVal
@@ -283,7 +280,7 @@ private object CompanionsDFVal:
 
   object Alias:
     object AsIs:
-      def apply[AT <: DFTypeAny, VT <: DFTypeAny, M <: Modifier](
+      def apply[AT <: DFTypeAny, VT <: DFTypeAny, M <: ModifierAny](
           aliasType: AT,
           relVal: DFVal[VT, M],
           tokenFunc: DFToken[VT] => DFToken[AT],
@@ -308,11 +305,11 @@ private object CompanionsDFVal:
               )
             alias.addMember.asVal[AT, M]
       end apply
-      def ident[T <: DFTypeAny, M <: Modifier](relVal: DFVal[T, M])(using
+      def ident[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
           DFC
       ): DFVal[T, M] =
         apply(relVal.dfType, relVal, x => x, forceNewAlias = true)
-      def bind[T <: DFTypeAny, M <: Modifier](relVal: DFVal[T, M], bindName: String)(using
+      def bind[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M], bindName: String)(using
           DFC
       ): DFVal[T, M] =
         import ir.DFConditional.DFCaseBlock.Pattern
@@ -334,7 +331,7 @@ private object CompanionsDFVal:
         alias.addMember.asValOf[T]
 
     object ApplyRange:
-      def apply[W <: Int, M <: Modifier, H <: Int, L <: Int](
+      def apply[W <: Int, M <: ModifierAny, H <: Int, L <: Int](
           relVal: DFVal[DFBits[W], M],
           relBitHigh: Inlined[H],
           relBitLow: Inlined[L]
@@ -352,7 +349,7 @@ private object CompanionsDFVal:
       end apply
     end ApplyRange
     object ApplyIdx:
-      def apply[T <: DFTypeAny, W <: Int, M <: Modifier, IW <: Int](
+      def apply[T <: DFTypeAny, W <: Int, M <: ModifierAny, IW <: Int](
           dfType: T,
           relVal: DFVal[DFTypeAny, M],
           relIdx: DFUInt[IW] <> VAL
@@ -370,7 +367,7 @@ private object CompanionsDFVal:
       end apply
     end ApplyIdx
     object SelectField:
-      def apply[T <: DFTypeAny, M <: Modifier](
+      def apply[T <: DFTypeAny, M <: ModifierAny](
           relVal: DFVal[DFTypeAny, M],
           fieldName: String
       )(using dfc: DFC): DFVal[T, M] =
@@ -540,31 +537,33 @@ private object CompanionsDFVal:
 //        inline arg: R
 //    ): DFValOf[T] = ${ fromArgMacro[T]('arg) }
 
-  trait PrevCheck[M <: Modifier]
-  given [M <: Modifier](using
+  trait PrevCheck[I]
+  given [I](using
       AssertGiven[
-        M <:< Modifier.Initialized,
+        I =:= Modifier.Initialized,
         "Previous dataflow values can only be summoned for initialized values."
       ]
-  ): PrevCheck[M] with {}
+  ): PrevCheck[I] with {}
   object Ops:
-    extension [T <: DFTypeAny, M <: Modifier](dfVal: DFVal[T, M])
-      def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
-        import DFToken.Ops.{bits => bitsDFToken}
-        DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
+    implicit class __Prev[T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]]):
       def prev[S <: Int](
           step: Inlined[S]
       )(using
           dfc: DFC,
-          prevCheck: PrevCheck[M],
+          prevCheck: PrevCheck[I],
           check: Arg.Positive.Check[S]
       ): DFValOf[T] =
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev)
-      inline def prev(using DFC): DFValOf[T] = dfVal.prev(1)
+      inline def prev(using PrevCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
+
+    extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
+      def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
+        import DFToken.Ops.{bits => bitsDFToken}
+        DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
       def pipe[S <: Int](
           step: Inlined[S]
-      )(using dfc: DFC, prevCheck: PrevCheck[M], check: Arg.Positive.Check[S]): DFValOf[T] =
+      )(using dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] =
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe)
       inline def pipe(using DFC): DFValOf[T] = dfVal.pipe(1)
@@ -583,10 +582,10 @@ extension [T <: DFTypeAny](lhs: DFValOf[T])
     DFNet(lhs.asIR, DFNet.Op.Connection, rhs.asIR)
 
 object DFVarOps:
-  extension [T <: DFTypeAny, M <: Modifier](dfVar: DFVal[T, M])
+  extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])
     def :=[R](rhs: Exact[R])(using
         varOnly: AssertGiven[
-          M <:< Modifier.Assignable,
+          A =:= Modifier.Assignable,
           "Cannot assign to an immutable dataflow value."
         ],
         tc: DFVal.TC[T, R],
@@ -595,10 +594,10 @@ object DFVarOps:
       dfVar.assign(tc(dfVar.dfType, rhs))
 
 object DFPortOps:
-  extension [T <: DFTypeAny, M <: Modifier](dfPort: DFVal[T, M])
+  extension [T <: DFTypeAny, A, C, I](dfPort: DFVal[T, Modifier[A, C, I]])
     def <>[R](rhs: Exact[R])(using
         connectableOnly: AssertGiven[
-          M <:< Modifier.Connectable,
+          C =:= Modifier.Connectable,
           "The LHS of a connection must be a connectable dataflow value (var/port)."
         ],
         tc: DFVal.TC[T, R],

@@ -70,7 +70,7 @@ object DFType:
   type Supported = DFTypeAny | DFEncoding | DFOpaqueA | AnyRef
   object Ops:
     extension [T <: Supported](t: T)
-      def <>[M <: ir.DFVal.Modifier](modifier: M)(using
+      def <>[M <: ir.DFVal.ModifierAny](modifier: M)(using
           tc: DFType.TC[T],
           dfc: DFC
       ): DFVal[tc.Type, M] = DFVal.Dcl(tc(t), modifier)
@@ -224,6 +224,6 @@ extension [T <: DFTypeAny](
     token: DFToken[T]
 ) def dfType: T = token.asIR.dfType.asFE[T]
 
-extension [T <: DFTypeAny, M <: ir.DFVal.Modifier](
+extension [T <: DFTypeAny, M <: ir.DFVal.ModifierAny](
     dfVal: DFVal[T, M]
 ) def dfType: T = dfVal.asIR.dfType.asFE[T]

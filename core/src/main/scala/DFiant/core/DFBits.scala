@@ -720,7 +720,7 @@ private object CompanionsDFBits:
         protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
           val width = Inlined.forced[Int](iter.map(_.width.value).sum)
           DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
-      extension [W <: Int, M <: ir.DFVal.Modifier](
+      extension [W <: Int, M <: ir.DFVal.ModifierAny](
           lhs: DFVal[DFBits[W], M]
       )
         def as[A <: DFType.Supported](

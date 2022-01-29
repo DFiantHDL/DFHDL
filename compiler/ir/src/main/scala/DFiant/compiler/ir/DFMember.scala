@@ -118,19 +118,22 @@ sealed trait DFVal extends DFMember.Named:
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal]
-  sealed trait Modifier extends Product, Serializable derives CanEqual
+  sealed trait Modifier[+A, +C, +I] extends Product, Serializable
+  type ModifierAny = Modifier[Any, Any, Any]
   object Modifier:
-    sealed trait Assignable extends Modifier
-    sealed trait Connectable extends Modifier
-    sealed trait Initializable extends Modifier
-    sealed trait VAL extends Modifier
-    sealed trait Initialized extends Modifier
-    sealed trait Extendable extends VAL
-    case object VAR extends VAL, Assignable, Connectable, Initializable
-    sealed trait Port extends VAL, Assignable, Connectable, Initializable
+    sealed trait Assignable
+    sealed trait Connectable
+    sealed trait Initializable
+    sealed trait Initialized
+    sealed trait VAL extends Modifier[Any, Any, Any]
+    case object VAR extends Modifier[Assignable, Connectable, Initializable]
+    sealed trait Port extends Modifier[Assignable, Connectable, Initializable]
     case object IN extends Port
     case object OUT extends Port
     case object INOUT extends Port
+
+    given [AL, CL, IL, AR, CR, IR]: CanEqual[Modifier[AL, CL, IL], Modifier[AR, CR, IR]] =
+      CanEqual.derived
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match
@@ -164,7 +167,7 @@ object DFVal:
 
   final case class Dcl(
       dfType: DFType,
-      modifier: Modifier,
+      modifier: ModifierAny,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
