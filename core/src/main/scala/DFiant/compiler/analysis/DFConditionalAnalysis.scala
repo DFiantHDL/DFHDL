@@ -45,10 +45,12 @@ extension (cb: DFConditional.Block)(using MemberGetSet)
         getLeadingCBChain(prevBlock, prevBlock :: chain)
       case _ => chain
   def getLeadingChain: List[DFConditional.Block] = getLeadingCBChain(cb, List(cb))
-  def isExhaustive: Boolean = true // cb match
-//    case DFConditional.IfElseBlock(None, _, _, _)  => true // elsedf block
-//    case DFConditional.CaseBlock(_, _, None, _, _) => true // casedf(?) block
-//    case x: DFConditional.CaseBlock if x.isLastCB =>
+  def isExhaustive: Boolean = cb match
+    case ib: DFConditional.DFIfElseBlock if ib.guardRef.get == DFMember.Empty =>
+      true // else block
+    case DFConditional.DFCaseBlock(Pattern.CatchAll, gr, _, _, _, _) if gr.get == DFMember.Empty =>
+      true // case _ => block
+    case x: DFConditional.DFCaseBlock if x.isLastCB => false
 //      val matchVal = x.matchHeaderRef.matchValRef.get
 //      val patterns = getPatterns(x, List())
 //      matchVal.dfType match
@@ -89,7 +91,7 @@ extension (cb: DFConditional.Block)(using MemberGetSet)
 //            }
 //          union.size == e.entries.all.size
 //      end match
-//    case _ => false
+    case _ => false
   // Gets the topmost conditional header of an if/match chain.
   @tailrec private def getTopConditionalMember(
       currentBlock: DFConditional.Block
