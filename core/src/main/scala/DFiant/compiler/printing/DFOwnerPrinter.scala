@@ -52,11 +52,11 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
     if (body.isEmpty) inst else s"$inst:\n${body.indent(1)}"
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
     ifBlock.prevBlockOrHeaderRef.get match
-      case _: DFConditional.Header => s"if (${ifBlock.condRef.refCodeString})"
+      case _: DFConditional.Header => s"if (${ifBlock.guardRef.refCodeString})"
       case _ =>
-        ifBlock.condRef.get match
+        ifBlock.guardRef.get match
           case DFMember.Empty => s"else"
-          case _              => s"else if (${ifBlock.condRef.refCodeString})"
+          case _              => s"else if (${ifBlock.guardRef.refCodeString})"
   def csDFCasePattern(pattern: DFConditional.DFCaseBlock.Pattern): String = pattern match
     case Pattern.CatchAll => "_"
     case Pattern.Singleton(token) =>

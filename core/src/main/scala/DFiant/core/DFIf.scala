@@ -3,6 +3,7 @@ import DFiant.internals.*
 import DFiant.compiler.ir
 import DFiant.compiler.printing.*
 
+import ir.DFConditional
 import ir.DFConditional.{DFIfHeader, DFIfElseBlock}
 object DFIf:
   def singleBranch[R](
@@ -74,22 +75,22 @@ object DFIf:
 
   object Block:
     def apply(
-        condOption: Option[DFValOf[DFBool]],
+        guardOption: Option[DFValOf[DFBool]],
         prevBlockOrHeader: DFOwnerAny | DFValAny
     )(using
         DFC
     ): DFOwnerAny =
-      lazy val condRef: DFIfElseBlock.CondRef = condOption match
+      lazy val guardRef: DFConditional.Block.GuardRef = guardOption match
         case Some(cond) => cond.asIR.refTW(block)
         case None       => ir.DFRef.TwoWay.Empty
       lazy val prevBlockOrHeaderRef: DFIfElseBlock.Ref = prevBlockOrHeader match
         case prevBlock: DFOwnerAny =>
-          prevBlock.asIR.asInstanceOf[DFIfElseBlock].ref
+          prevBlock.asIR.asInstanceOf[DFIfElseBlock].refTW(block)
         case header: DFValAny =>
-          header.asIR.asInstanceOf[DFIfHeader].ref
+          header.asIR.asInstanceOf[DFIfHeader].refTW(block)
       lazy val block: DFIfElseBlock =
         DFIfElseBlock(
-          condRef,
+          guardRef,
           prevBlockOrHeaderRef,
           dfc.owner.ref,
           dfc.getMeta,

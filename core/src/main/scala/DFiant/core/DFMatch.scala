@@ -3,9 +3,9 @@ package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
 import DFiant.compiler.printing.*
-
-import ir.DFConditional.{DFMatchHeader, DFCaseBlock}
+import ir.DFConditional.{DFCaseBlock, DFMatchHeader}
 import DFCaseBlock.Pattern
+import DFiant.compiler.ir.DFConditional
 
 object DFMatch:
   def singleCase[R](
@@ -89,14 +89,14 @@ object DFMatch:
     )(using
         DFC
     ): DFOwnerAny =
-      lazy val guardRef: DFCaseBlock.GuardRef = guardOption match
+      lazy val guardRef: DFConditional.Block.GuardRef = guardOption match
         case Some(cond) => cond.asIR.refTW(block)
         case None       => ir.DFRef.TwoWay.Empty
       lazy val prevBlockOrHeaderRef: DFCaseBlock.Ref = prevBlockOrHeader match
         case prevBlock: DFOwnerAny =>
-          prevBlock.asIR.asInstanceOf[DFCaseBlock].ref
+          prevBlock.asIR.asInstanceOf[DFCaseBlock].refTW(block)
         case header: DFValAny =>
-          header.asIR.asInstanceOf[DFMatchHeader].ref
+          header.asIR.asInstanceOf[DFMatchHeader].refTW(block)
       lazy val block: DFCaseBlock =
         DFCaseBlock(
           pattern,

@@ -386,9 +386,11 @@ final case class DFInterfaceOwner(
 sealed trait DFBlock extends DFOwner
 object DFConditional:
   sealed trait Block extends DFBlock:
+    val guardRef: Block.GuardRef
     val prevBlockOrHeaderRef: Block.Ref
   object Block:
-    type Ref = DFRef.OneWay[Block | Header]
+    type Ref = DFRef.TwoWay[Block | Header]
+    type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty]
 
   sealed trait Header extends DFVal
 
@@ -410,7 +412,7 @@ object DFConditional:
 
   final case class DFCaseBlock(
       pattern: DFCaseBlock.Pattern,
-      guardRef: DFCaseBlock.GuardRef,
+      guardRef: Block.GuardRef,
       prevBlockOrHeaderRef: DFCaseBlock.Ref,
       ownerRef: DFOwner.Ref,
       meta: Meta,
@@ -426,8 +428,7 @@ object DFConditional:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   end DFCaseBlock
   object DFCaseBlock:
-    type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty]
-    type Ref = DFRef.OneWay[DFCaseBlock | DFMatchHeader]
+    type Ref = DFRef.TwoWay[DFCaseBlock | DFMatchHeader]
     sealed trait Pattern extends HasRefCompare[Pattern] derives CanEqual
     object Pattern:
       case object CatchAll extends Pattern:
@@ -488,7 +489,7 @@ object DFConditional:
   end DFIfHeader
 
   final case class DFIfElseBlock(
-      condRef: DFIfElseBlock.CondRef,
+      guardRef: Block.GuardRef,
       prevBlockOrHeaderRef: DFIfElseBlock.Ref,
       ownerRef: DFOwner.Ref,
       meta: Meta,
@@ -496,15 +497,14 @@ object DFConditional:
   ) extends Block:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFIfElseBlock =>
-        this.condRef =~ that.condRef && this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
+        this.guardRef =~ that.guardRef && this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
           this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   end DFIfElseBlock
   object DFIfElseBlock:
-    type CondRef = DFRef.TwoWay[DFVal | DFMember.Empty]
-    type Ref = DFRef.OneWay[DFIfElseBlock | DFIfHeader]
+    type Ref = DFRef.TwoWay[DFIfElseBlock | DFIfHeader]
 end DFConditional
 
 final case class DFDesignBlock(
