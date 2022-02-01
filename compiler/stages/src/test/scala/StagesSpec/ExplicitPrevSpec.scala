@@ -85,4 +85,144 @@ class ExplicitPrevSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("DFDecimal match pattern coverage") {
+    class ID(using DFC) extends DFDesign:
+      val x  = DFUInt(3) <> IN
+      val y  = DFUInt(8) <> OUT init 0
+      val y2 = DFUInt(8) <> OUT init 0
+      val y3 = DFUInt(8) <> OUT init 0
+      x match
+        case 0 | 1 | 2 => y := 1
+        case 3 | 4 | 5 => y := 1
+        case 6         => y := 1
+      y := y + 1
+      x match
+        case 0 | 1 | 2 => y2 := 1
+        case 3 | 4 | 5 => y2 := 1
+        case 6 | 7     => y2 := 1
+      y2 := y2 + 1
+      x match
+        case 0 | 1 | 2 => y3 := 1
+        case 3 | 4 | 5 => y3 := 1
+        case _         => y3 := 1
+      y3 := y3 + 1
+    end ID
+    val id = (new ID).explicitPrev
+    assertCodeString(
+      id,
+      """|class ID(using DFC) extends DFDesign:
+         |  val x = DFUInt(3) <> IN
+         |  val y = DFUInt(8) <> OUT init d"8'0"
+         |  y := y.prev
+         |  val y2 = DFUInt(8) <> OUT init d"8'0"
+         |  val y3 = DFUInt(8) <> OUT init d"8'0"
+         |  x match
+         |    case d"3'0" | d"3'1" | d"3'2" => y := d"8'1"
+         |    case d"3'3" | d"3'4" | d"3'5" => y := d"8'1"
+         |    case d"3'6" => y := d"8'1"
+         |  y := y + d"1'1"
+         |  x match
+         |    case d"3'0" | d"3'1" | d"3'2" => y2 := d"8'1"
+         |    case d"3'3" | d"3'4" | d"3'5" => y2 := d"8'1"
+         |    case d"3'6" | d"3'7" => y2 := d"8'1"
+         |  y2 := y2 + d"1'1"
+         |  x match
+         |    case d"3'0" | d"3'1" | d"3'2" => y3 := d"8'1"
+         |    case d"3'3" | d"3'4" | d"3'5" => y3 := d"8'1"
+         |    case _ => y3 := d"8'1"
+         |  y3 := y3 + d"1'1"
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("DFBits match pattern coverage") {
+    class ID(using DFC) extends DFDesign:
+      val x  = DFBits(3) <> IN
+      val y  = DFUInt(8) <> OUT init 0
+      val y2 = DFUInt(8) <> OUT init 0
+      val y3 = DFUInt(8) <> OUT init 0
+      x match
+        case b"000" | b"001" | b"010" => y := 1
+        case b"011" | b"100" | b"101" => y := 1
+        case b"110"                   => y := 1
+      y := y + 1
+      x match
+        case b"000" | b"001" | b"010" => y2 := 1
+        case b"011" | b"100" | b"101" => y2 := 1
+        case b"110" | b"111"          => y2 := 1
+      y2 := y2 + 1
+      // although this is fully covered, the current implementation does not check it
+      x match
+        case b"?1?" => y3 := 1
+        case b"?0?" => y3 := 1
+      y3 := y3 + 1
+    end ID
+    val id = (new ID).explicitPrev
+    assertCodeString(
+      id,
+      """|class ID(using DFC) extends DFDesign:
+         |  val x = DFBits(3) <> IN
+         |  val y = DFUInt(8) <> OUT init d"8'0"
+         |  y := y.prev
+         |  val y2 = DFUInt(8) <> OUT init d"8'0"
+         |  val y3 = DFUInt(8) <> OUT init d"8'0"
+         |  y3 := y3.prev
+         |  x match
+         |    case b"000" | b"001" | b"010" => y := d"8'1"
+         |    case b"011" | b"100" | b"101" => y := d"8'1"
+         |    case b"110" => y := d"8'1"
+         |  y := y + d"1'1"
+         |  x match
+         |    case b"000" | b"001" | b"010" => y2 := d"8'1"
+         |    case b"011" | b"100" | b"101" => y2 := d"8'1"
+         |    case b"110" | b"111" => y2 := d"8'1"
+         |  y2 := y2 + d"1'1"
+         |  x match
+         |    case b"?1?" => y3 := d"8'1"
+         |    case b"?0?" => y3 := d"8'1"
+         |  y3 := y3 + d"1'1"
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("DFEnum match pattern coverage") {
+    class ID(using DFC) extends DFDesign:
+      enum MyEnum extends DFEnum:
+        case Foo, Baz, Bar
+      import MyEnum.*
+      val x  = MyEnum    <> IN
+      val y  = DFUInt(8) <> OUT init 0
+      val y2 = DFUInt(8) <> OUT init 0
+      x match
+        case Foo() | Baz() => y := 1
+      y := y + 1
+      x match
+        case Foo() | Baz() => y2 := 1
+        case Bar()         => y2 := 1
+      y2 := y2 + 1
+    end ID
+    val id = (new ID).explicitPrev
+    assertCodeString(
+      id,
+      """|enum MyEnum(val value: DFUInt[2] <> TOKEN) extends DFEnum.Manual(2):
+         |  case Foo extends MyEnum(d"2'0")
+         |  case Baz extends MyEnum(d"2'1")
+         |  case Bar extends MyEnum(d"2'2")
+         |
+         |class ID(using DFC) extends DFDesign:
+         |  val x = MyEnum <> IN
+         |  val y = DFUInt(8) <> OUT init d"8'0"
+         |  y := y.prev
+         |  val y2 = DFUInt(8) <> OUT init d"8'0"
+         |  x match
+         |    case MyEnum.Foo() | MyEnum.Baz() => y := d"8'1"
+         |  y := y + d"1'1"
+         |  x match
+         |    case MyEnum.Foo() | MyEnum.Baz() => y2 := d"8'1"
+         |    case MyEnum.Bar() => y2 := d"8'1"
+         |  y2 := y2 + d"1'1"
+         |end ID
+         |""".stripMargin
+    )
+  }
 end ExplicitPrevSpec

@@ -146,7 +146,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
             case cb: DFConditional.Block =>
               //                println(s"exiting $cb", cb.isLastCB, cb.isExhaustive)
               //                val ret =
-              scopeMap.branchExit(cb.isLastCB, cb.isExhaustive)
+              scopeMap.branchExit(cb.isLastCB, cb.isExhaustive.getOrElse(false))
             //                println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
             //                ret
             case _ => scopeMap
