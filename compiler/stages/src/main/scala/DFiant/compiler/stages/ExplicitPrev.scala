@@ -163,13 +163,25 @@ private class ExplicitPrev(db: DB) extends Stage(db):
 //    println(explicitPrevSet)
 //    println("defaultSet")
 //    println(defaultsSet)
-    val patchList = explicitPrevSet.collect { case e =>
-      e -> Patch.Add(
-        new MetaDesign:
-          e.asVarAny := e.asVarAny.asInitialized.prev
-        ,
-        Patch.Add.Config.After
-      )
+    val patchList = explicitPrevSet.map {
+      // for initialized ports and variables we just add an explicit prev self-assignment
+      case e if e.tags.contains[ExternalInit] =>
+        e -> Patch.Add(
+          new MetaDesign:
+            e.asVarAny := e.asVarAny.asInitialized.prev
+          ,
+          Patch.Add.Config.After
+        )
+      // if not initialized we also need to add bubble tagging to the initialization
+      case e =>
+        e -> Patch.Add(
+          new MetaDesign:
+            val withInit = e.tag(ExternalInit(List(DFToken.bubble(e.dfType))))
+            plantMember(withInit)
+            e.asVarAny := withInit.asVarAny.asInitialized.prev
+          ,
+          Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
+        )
     }.toList
     designDB.patch(patchList)
   end transform

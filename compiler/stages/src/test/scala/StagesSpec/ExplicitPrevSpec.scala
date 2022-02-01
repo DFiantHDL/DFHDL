@@ -46,7 +46,7 @@ class ExplicitPrevSpec extends StageSpec:
       id,
       """|class ID(using DFC) extends DFDesign:
          |  val x = DFSInt(16) <> IN
-         |  val y = DFSInt(16) <> OUT
+         |  val y = DFSInt(16) <> OUT init ?
          |  y := y.prev
          |  val y2 = DFSInt(16) <> OUT
          |  if (x > d"16'0") y := sd"16'1"
@@ -73,7 +73,7 @@ class ExplicitPrevSpec extends StageSpec:
       id,
       """|class ID(using DFC) extends DFDesign:
          |  val x = DFSInt(16) <> IN
-         |  val y = DFBits(16) <> OUT
+         |  val y = DFBits(16) <> OUT init h"16'????"
          |  y := y.prev
          |  val y2 = DFBits(16) <> OUT
          |  y(7, 0) := h"8'00"
