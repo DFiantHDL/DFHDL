@@ -5,7 +5,7 @@ import compiletime.{constValue, constValueOpt}
 export int.{+ => _, ^ => _, *}
 export string.{+ => _, *}
 export boolean.{^ => _, *}
-export any.*
+export any.{ToString => _, *}
 type +[L, R] = (L, R) match
   case (Int, Int)       => int.+[L, R]
   case (String, String) => string.+[L, R]
