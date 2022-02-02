@@ -87,14 +87,14 @@ extension (cb: DFConditional.Block)(using MemberGetSet)
       end match
     case _ => Some(false)
   // Gets the topmost conditional header of an if/match chain.
-  @tailrec private def getTopConditionalMember(
+  @tailrec private def getTopConditionalHeader(
       currentBlock: DFConditional.Block
   ): DFConditional.Header =
     currentBlock.getOwnerBlock match
-      case cb: DFConditional.Block => getTopConditionalMember(cb)
+      case cb: DFConditional.Block => getTopConditionalHeader(cb)
       case _                       => currentBlock.getHeaderCB
 
-  def getTopConditionalMember: DFMember = getTopConditionalMember(cb)
+  def getTopConditionalHeader: DFConditional.Header = getTopConditionalHeader(cb)
 end extension
 
 extension (patterns: Iterable[Pattern])

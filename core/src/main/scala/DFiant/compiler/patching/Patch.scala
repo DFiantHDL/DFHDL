@@ -90,6 +90,8 @@ object Patch:
   object Move:
     def apply(owner: DFOwner, config: Config)(using MemberGetSet): Move =
       Move(owner.members(MemberView.Flattened), config)
+    def apply(member: DFMember, config: Config)(using MemberGetSet): Move =
+      Move(List(member), config)
     sealed trait Config extends Product with Serializable derives CanEqual:
       def ==(addConfig: Add.Config): Boolean = addConfig == this
     object Config:
@@ -101,6 +103,7 @@ object Patch:
       case object InsideFirst extends Config
       // moves members inside the given block, at the end
       case object InsideLast extends Config
+  end Move
 
   final case class ChangeRef[T <: DFMember](
       member: T,
