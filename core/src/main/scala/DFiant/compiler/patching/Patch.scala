@@ -165,6 +165,10 @@ extension (db: DB)
             // concatenating additions with the same configuration
             case (Patch.Add(db1, config1), Patch.Add(db2, config2)) if (config1 == config2) =>
               tbl + (m -> Patch.Add(db1 concat db2, config1))
+            // concatenating moves with the same configuration
+            case (Patch.Move(members1, config1), Patch.Move(members2, config2))
+                if (config1 == config2) =>
+              tbl + (m -> Patch.Move(members1 concat members2, config1))
             // concatenating addition and move with the same configuration
             case (Patch.Add(db, addConfig), Patch.Move(movedMembers, moveConfig))
                 if (addConfig == moveConfig) =>
