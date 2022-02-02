@@ -45,16 +45,15 @@ class PluginSpec extends DFSpec:
   assertLastNames("", "", "", "", "min3")
   val min3Names = getLastNames
   val min3Pos = getLastPos
-  // TODO: uncomment in 3.2.x
-//  assertEquals(
-//    pls3Pos,
-//    min3Pos.map(
-//      _.copy(
-//        lineStart = pls3Pos.head.lineStart,
-//        lineEnd = pls3Pos.head.lineStart
-//      )
-//    )
-//  )
+  assertEquals(
+    pls3Pos,
+    min3Pos.map(
+      _.copy(
+        lineStart = pls3Pos.head.lineStart,
+        lineEnd = pls3Pos.head.lineStart
+      )
+    )
+  )
 
   class GotName extends HasNamePosWithVars
   val gotName = new GotName

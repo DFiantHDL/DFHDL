@@ -18,6 +18,25 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
     def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
       refs -- WhenHeader(refs)
 
+  extension (ch: DFConditional.Header)
+    private def patchChains(headerVar: DFVal): List[(DFMember, Patch)] =
+      val cbChain = designDB.conditionalChainTable(ch)
+      val lastMembers = cbChain.map(_.members(MemberView.Folded).last)
+      lastMembers.flatMap {
+        case Ident(underlying: DFConditional.Header) =>
+          underlying.patchChains(headerVar)
+        case m @ Ident(underlying) =>
+          val assignDsn = new MetaDesign:
+            headerVar.asVarAny := underlying.asValAny
+          Some(
+            m -> Patch.Add(
+              assignDsn,
+              Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove)
+            )
+          )
+        case _ => ??? // not possible
+      }
+
   override def transform: DB =
     val patchList =
       designDB.members.view
@@ -49,17 +68,7 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
                 WhenNotHeader
               )
             )
-            val cbChain = designDB.conditionalChainTable(ch)
-            val lastMembers = cbChain.map(_.members(MemberView.Folded).last)
-            val cbPatchList = lastMembers.collect { case m @ Ident(underlying) =>
-              val assignDsn = new MetaDesign:
-                dsn.newVarIR.asVarAny := underlying.asValAny
-              m -> Patch.Add(
-                assignDsn,
-                Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove)
-              )
-            }
-            chPatchList ++ cbPatchList
+            chPatchList ++ ch.patchChains(dsn.newVarIR)
           case named =>
             val anonIR = named.anonymize
             val dsn = new MetaDesign:
@@ -72,5 +81,6 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
   end transform
 end ExplicitNamedVars
 
-//This stage turns all named values to variables that get assigned
+//This stage turns all named values to variables that get assigned.
+//As a result, conditional expressions (if/match) are converted to statements.
 extension [T: HasDB](t: T) def explicitNamedVars: DB = new ExplicitNamedVars(t.db).transform
