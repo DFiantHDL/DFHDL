@@ -10,7 +10,7 @@ import scala.collection.immutable
 
 private class ExplicitPrev(db: DB) extends Stage(db):
   override protected def preTransform: DB =
-    db.explicitNamedVars.noLocalVars
+    db.explicitNamedVars.noLocalDcls
   @tailrec private def consumeFrom(
       value: DFVal,
       relWidth: Int,

@@ -175,7 +175,7 @@ object DFVal:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
         this.dfType == that.dfType && this.modifier == that.modifier &&
-          this.meta =~ that.meta && this.tags =~ that.tags
+        this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -195,7 +195,7 @@ object DFVal:
         this.dfType == that.dfType && this.op == that.op && (this.args
           .lazyZip(that.args)
           .forall((l, r) => l =~ r)) &&
-          this.meta =~ that.meta && this.tags =~ that.tags
+        this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -221,7 +221,7 @@ object DFVal:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: AsIs =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
-            this.meta =~ that.meta && this.tags =~ that.tags
+          this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -239,8 +239,8 @@ object DFVal:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: History =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
-            this.step == that.step && this.op == that.op &&
-            this.meta =~ that.meta && this.tags =~ that.tags
+          this.step == that.step && this.op == that.op &&
+          this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -262,8 +262,8 @@ object DFVal:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
           this.relValRef =~ that.relValRef &&
-            this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow &&
-            this.meta =~ that.meta && this.tags =~ that.tags
+          this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow &&
+          this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -279,8 +279,8 @@ object DFVal:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyIdx =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
-            this.relIdx =~ that.relIdx &&
-            this.meta =~ that.meta && this.tags =~ that.tags
+          this.relIdx =~ that.relIdx &&
+          this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -297,8 +297,8 @@ object DFVal:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: SelectField =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
-            this.fieldName == that.fieldName &&
-            this.meta =~ that.meta && this.tags =~ that.tags
+          this.fieldName == that.fieldName &&
+          this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -318,7 +318,7 @@ final case class DFNet(
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFNet =>
       this.lhsRef =~ that.lhsRef && this.op == that.op && this.rhsRef =~ that.rhsRef &&
-        this.meta =~ that.meta && this.tags =~ that.tags
+      this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -404,7 +404,7 @@ object DFConditional:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFMatchHeader =>
         this.dfType == that.dfType && this.selectorRef =~ that.selectorRef &&
-          this.meta =~ that.meta && this.tags =~ that.tags
+        this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -421,8 +421,8 @@ object DFConditional:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFCaseBlock =>
         this.pattern =~ that.pattern && this.guardRef =~ that.guardRef &&
-          this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
-          this.meta =~ that.meta && this.tags =~ that.tags
+        this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
+        this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -482,7 +482,7 @@ object DFConditional:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFMatchHeader =>
         this.dfType == that.dfType &&
-          this.meta =~ that.meta && this.tags =~ that.tags
+        this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -498,7 +498,7 @@ object DFConditional:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFIfElseBlock =>
         this.guardRef =~ that.guardRef && this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&
-          this.meta =~ that.meta && this.tags =~ that.tags
+        this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -519,8 +519,8 @@ final case class DFDesignBlock(
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.dclName == that.dclName && this.dclPosition == that.dclPosition &&
-        this.inSimulation == that.inSimulation &&
-        this.meta =~ that.meta && this.tags =~ that.tags
+      this.inSimulation == that.inSimulation &&
+      this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]

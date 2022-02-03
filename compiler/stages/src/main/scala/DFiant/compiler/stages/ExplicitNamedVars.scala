@@ -19,6 +19,7 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
       refs -- WhenHeader(refs)
 
   extension (ch: DFConditional.Header)
+    // recursive call to patch conditional block chains
     private def patchChains(headerVar: DFVal): List[(DFMember, Patch)] =
       val cbChain = designDB.conditionalChainTable(ch)
       val lastMembers = cbChain.map(_.members(MemberView.Folded).last)
@@ -49,19 +50,22 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
           case _: DFVal.Const => None // named constants remain as they are
           // named if / match expressions will be changed to statements
           case ch: DFConditional.Header =>
+            // removing name and type from header
             val updatedCH = ch match
               case mh: DFConditional.DFMatchHeader => mh.copy(dfType = NoType).anonymize
-              case ih: DFConditional.DFIfHeader =>
-                ih.copy(dfType = NoType).anonymize
+              case ih: DFConditional.DFIfHeader    => ih.copy(dfType = NoType).anonymize
+            // this variable will replace the header as a value
             val dsn = new MetaDesign:
               final val plantedNewVar = ch.asValAny.genNewVar(using dfc.setName(ch.name))
               val newVarIR = plantedNewVar.asIR
               plantMember(updatedCH)
             val chPatchList = List(
+              // replacing all the references of header as a conditional header
               ch -> Patch.Add(
                 dsn,
                 Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement, WhenHeader)
               ),
+              // replacing all the references of header as a value
               ch -> Patch.Replace(
                 dsn.newVarIR,
                 Patch.Replace.Config.ChangeRefOnly,
@@ -69,6 +73,7 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
               )
             )
             chPatchList ++ ch.patchChains(dsn.newVarIR)
+          // all other named values
           case named =>
             val anonIR = named.anonymize
             val dsn = new MetaDesign:
