@@ -3,26 +3,14 @@ import DFiant.internals.*
 import DFiant.compiler.ir
 import DFiant.compiler.printing.*
 
-export ir.Domain
 private abstract class Design(using DFC)
-    extends OnCreateEvents,
-      LateConstruction,
-      HasNamePos,
-      HasDFC:
-  final val dfc: DFC = summon[DFC]
-  private[core] type TDmn <: Domain
-  private final val owner: DFDesign.Block =
-    DFDesign.Block("???", Position.unknown)
+    extends Container(_ ?=> DFDesign.Block("???", Position.unknown)),
+      HasNamePos:
   final protected def setClsNamePos(name: String, position: Position): Unit =
     val designBlock = owner.asIR
     dfc.getSet.replace(designBlock)(
       designBlock.copy(dclName = name, dclPosition = position)
     )
-  dfc.enterOwner(owner)
-
-  override def onCreateEnd: Unit =
-    dfc.exitOwner()
-end Design
 
 abstract class DFDesign(using DFC) extends Design:
   private[core] type TDmn = Domain.DF
