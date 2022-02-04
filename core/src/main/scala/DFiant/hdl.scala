@@ -44,6 +44,7 @@ object hdl:
   val DFEnum = core.DFEncoding
   export core.DFStruct.Fields as DFStruct
   type DFDesign = core.DFDesign
+  type RTDesign = core.RTDesign
 
   val IN = core.IN
   val OUT = core.OUT

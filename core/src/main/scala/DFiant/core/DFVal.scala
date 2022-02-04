@@ -538,10 +538,14 @@ private object CompanionsDFVal:
 //    ): DFValOf[T] = ${ fromArgMacro[T]('arg) }
 
   trait PrevCheck[I]
-  given [I](using
+  given [I](using domain: Domain)(using
       AssertGiven[
         I =:= Modifier.Initialized,
         "Previous dataflow values can only be summoned for initialized values."
+      ],
+      AssertGiven[
+        domain.type <:< Domain.DF,
+        "Bla Bla"
       ]
   ): PrevCheck[I] with {}
   object Ops:

@@ -248,7 +248,7 @@ object DFVal:
 
     object History:
       enum Op derives CanEqual:
-        case Prev, Pipe
+        case Prev, Pipe, Reg
 
     final case class ApplyRange(
         relValRef: DFVal.Ref,

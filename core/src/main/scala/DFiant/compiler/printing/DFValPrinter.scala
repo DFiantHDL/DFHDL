@@ -152,6 +152,7 @@ protected trait DFValPrinter extends AbstractPrinter:
     val opStr = dfVal.op match
       case Alias.History.Op.Prev => ".prev"
       case Alias.History.Op.Pipe => ".pipe"
+      case Alias.History.Op.Reg  => ".reg"
     val appliedStr =
       if (dfVal.step == 1) opStr
       else s"$opStr(${dfVal.step})"
