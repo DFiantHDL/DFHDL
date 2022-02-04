@@ -10,7 +10,7 @@ private abstract class Design(using DFC)
       HasNamePos,
       HasDFC:
   final val dfc: DFC = summon[DFC]
-  type TDmn <: Domain
+  private[core] type TDmn <: Domain
   private final val owner: DFDesign.Block =
     DFDesign.Block("???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =
@@ -25,14 +25,14 @@ private abstract class Design(using DFC)
 end Design
 
 abstract class DFDesign(using DFC) extends Design:
-  type TDmn = Domain.DF
-  given TDmn = Domain.DF
+  private[core] type TDmn = Domain.DF
+  protected given TDmn = Domain.DF
 abstract class RTDesign(using DFC) extends Design:
-  class TDmn extends Domain.RT.HL
-  given TDmn = new TDmn
+  private[core] class TDmn extends Domain.RT.HL
+  protected given TDmn = new TDmn
 abstract class LLRTDesign(using DFC) extends Design:
-  class TDmn extends Domain.RT.LL
-  given TDmn = new TDmn
+  private[core] class TDmn extends Domain.RT.LL
+  protected given TDmn = new TDmn
 
 object DFDesign:
   type Block = DFOwner[ir.DFDesignBlock]
