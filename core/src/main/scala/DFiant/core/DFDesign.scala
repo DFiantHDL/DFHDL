@@ -4,13 +4,13 @@ import DFiant.compiler.ir
 import DFiant.compiler.printing.*
 
 export ir.Domain
-private abstract class Design[Dmn <: Domain](domain: Dmn)(using DFC)
+private abstract class Design(using DFC)
     extends OnCreateEvents,
       LateConstruction,
       HasNamePos,
       HasDFC:
   final val dfc: DFC = summon[DFC]
-  given Dmn = domain
+  type TDmn <: Domain
   private final val owner: DFDesign.Block =
     DFDesign.Block("???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =
@@ -24,8 +24,15 @@ private abstract class Design[Dmn <: Domain](domain: Dmn)(using DFC)
     dfc.exitOwner()
 end Design
 
-abstract class DFDesign(using DFC) extends Design[Domain.DF](Domain.DF)
-abstract class RTDesign(using DFC) extends Design[Domain.RT](Domain.RT)
+abstract class DFDesign(using DFC) extends Design:
+  type TDmn = Domain.DF
+  given TDmn = Domain.DF
+abstract class RTDesign(using DFC) extends Design:
+  class TDmn extends Domain.RT.HL
+  given TDmn = new TDmn
+abstract class LLRTDesign(using DFC) extends Design:
+  class TDmn extends Domain.RT.LL
+  given TDmn = new TDmn
 
 object DFDesign:
   type Block = DFOwner[ir.DFDesignBlock]

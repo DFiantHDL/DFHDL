@@ -20,9 +20,3 @@ object DFTags:
 
 final case class ExternalInit(tokenSeq: List[DFTokenAny]) extends DFTagOf[DFVal]
 final case class NameTag(name: String) extends DFTag
-sealed trait Domain extends DFTagOf[DFOwner]
-object Domain:
-  sealed trait DF extends Domain
-  case object DF extends DF
-  sealed trait RT extends Domain
-  case object RT extends RT
