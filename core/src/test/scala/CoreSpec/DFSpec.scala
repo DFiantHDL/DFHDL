@@ -10,7 +10,7 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   type TDmn = core.Domain.DF
   given TDmn = core.Domain.DF
   given printer: Printer = DefaultPrinter(using dfc.getSet)
-  private final val owner: core.DFDesign.Block = core.DFDesign.Block(typeName, Position.unknown)
+  private final val owner: core.Design.Block = core.Design.Block(typeName, Position.unknown)
   dfc.enterOwner(owner)
   private val noErrMsg = "No error found"
   transparent inline def assertCompileError(expectedErr: String)(

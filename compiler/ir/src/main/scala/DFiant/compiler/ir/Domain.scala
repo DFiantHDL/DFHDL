@@ -13,23 +13,37 @@ object Domain:
         clkParams: ClockParams = ClockParams(),
         rstParams: ResetParams = ResetParams()
     ) extends RT
-    final case class ResetParams(
-        name: String = "rst",
-        mode: ResetParams.Mode = ResetParams.Mode.Async,
-        active: ResetParams.Active = ResetParams.Active.Low
-    )
+    sealed trait ResetParams extends Product with Serializable derives CanEqual
+    case object NoReset extends ResetParams
+    final case class WithReset(
+        name: String,
+        mode: ResetParams.Mode,
+        active: ResetParams.Active
+    ) extends ResetParams
     object ResetParams:
-      enum Mode:
+      def apply(
+          name: String = "rst",
+          mode: Mode = Mode.Async,
+          active: Active = Active.Low
+      ): ResetParams = WithReset(name, mode, active)
+      enum Mode derives CanEqual:
         case Async, Sync
-      enum Active:
+      enum Active derives CanEqual:
         case Low, High
+    end ResetParams
 
-    final case class ClockParams(
-        name: String = "clk",
-        edge: ClockParams.Edge = ClockParams.Edge.Rising
-    )
+    sealed trait ClockParams extends Product with Serializable derives CanEqual
+    case object NoClock extends ClockParams
+    final case class WithClock(
+        name: String,
+        edge: ClockParams.Edge
+    ) extends ClockParams
     object ClockParams:
-      enum Edge:
+      def apply(
+          name: String = "clk",
+          edge: ClockParams.Edge = Edge.Rising
+      ): ClockParams = WithClock(name, edge)
+      enum Edge derives CanEqual:
         case Rising, Falling
   end RT
 end Domain
