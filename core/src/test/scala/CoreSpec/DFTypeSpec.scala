@@ -79,12 +79,12 @@ class DFTypeSpec extends DFSpec:
     val z = DFBits(8) <> VAR init all(0)
     val zprev = z.prev
     assertCompileError(
-      "Previous dataflow values can only be summoned for initialized values."
+      "This construct is only available for initialized values."
     )(
       """(y + 1).prev"""
     )
     assertCompileError(
-      "Previous dataflow values can only be summoned for initialized values."
+      "This construct is only available for initialized values."
     )(
       """z(3, 0).prev"""
     )

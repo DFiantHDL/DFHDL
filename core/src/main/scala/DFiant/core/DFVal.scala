@@ -555,12 +555,12 @@ private object CompanionsDFVal:
   given [I](using
       AssertGiven[
         I =:= Modifier.Initialized,
-        "Previous dataflow values can only be summoned for initialized values."
+        "This construct is only available for initialized values."
       ],
       DFDomainOnly
   ): PrevCheck[I] with {}
   object Ops:
-    implicit class __Prev[T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]]):
+    implicit class __History[T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]]):
       def prev[S <: Int](
           step: Inlined[S]
       )(using
@@ -577,7 +577,17 @@ private object CompanionsDFVal:
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe)
       inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
-    end __Prev
+      def reg[S <: Int](
+          step: Inlined[S]
+      )(using
+          dfc: DFC,
+          rtOnly: HLRTDomainOnly,
+          check: Arg.Positive.Check[S]
+      ): DFValOf[T] =
+        check(step)
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg)
+      inline def reg(using DFC, HLRTDomainOnly): DFValOf[T] = dfVal.reg(1)
+    end __History
 
     extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
       def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
