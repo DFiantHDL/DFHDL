@@ -7,8 +7,10 @@ import core.HasDFC
 
 abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   final val dfc: DFC = core.DFC.empty
-  type TDmn = core.Domain.DF
-  given TDmn = core.Domain.DF
+  type TKind = core.Container.Kind.Design
+  given TKind = core.Container.Kind.Design
+  type TDomain = core.Container.Domain.DF
+  given TDomain = core.Container.Domain.DF
   given printer: Printer = DefaultPrinter(using dfc.getSet)
   private final val owner: core.Design.Block = core.Design.Block(typeName, Position.unknown)
   dfc.enterOwner(owner)

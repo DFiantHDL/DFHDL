@@ -537,16 +537,27 @@ private object CompanionsDFVal:
 //        inline arg: R
 //    ): DFValOf[T] = ${ fromArgMacro[T]('arg) }
 
+  trait DFDomainOnly
+  given (using domain: Container.Domain)(using
+      AssertGiven[
+        domain.type <:< Container.Domain.DF,
+        "This construct is only available in a dataflow domain."
+      ]
+  ): DFDomainOnly with {}
+  trait HLRTDomainOnly
+  given (using domain: Container.Domain)(using
+      AssertGiven[
+        domain.type <:< Container.Domain.HLRT,
+        "This construct is only available in a high-level register-transfer domain."
+      ]
+  ): HLRTDomainOnly with {}
   trait PrevCheck[I]
-  given [I](using domain: Domain)(using
+  given [I](using
       AssertGiven[
         I =:= Modifier.Initialized,
         "Previous dataflow values can only be summoned for initialized values."
       ],
-      AssertGiven[
-        domain.type <:< Domain.DF,
-        "Bla Bla"
-      ]
+      DFDomainOnly
   ): PrevCheck[I] with {}
   object Ops:
     implicit class __Prev[T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]]):
@@ -560,17 +571,18 @@ private object CompanionsDFVal:
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev)
       inline def prev(using PrevCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
+      def pipe[S <: Int](
+          step: Inlined[S]
+      )(using dfOnly: DFDomainOnly, dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] =
+        check(step)
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe)
+      inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
+    end __Prev
 
     extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
       def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
         import DFToken.Ops.{bits => bitsDFToken}
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
-      def pipe[S <: Int](
-          step: Inlined[S]
-      )(using dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] =
-        check(step)
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe)
-      inline def pipe(using DFC): DFValOf[T] = dfVal.pipe(1)
       def genNewVar(using DFC): DFVarOf[T] =
         DFVal.Dcl(dfVal.dfType, VAR)
     end extension

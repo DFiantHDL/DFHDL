@@ -6,6 +6,8 @@ import DFiant.compiler.ir.Domain.RT.{ClockParams, ResetParams}
 import DFiant.compiler.printing.*
 
 private abstract class Design(using DFC) extends Container, HasNamePos:
+  private[core] type TKind = Container.Kind.Design
+  protected given TKind = Container.Kind.Design
   private[core] final override lazy val owner: Design.Block =
     Design.Block("???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =
@@ -38,16 +40,16 @@ object Design:
 end Design
 
 abstract class DFDesign(using DFC) extends Design:
-  private[core] type TDmn = Domain.DF
-  protected given TDmn = Domain.DF
+  private[core] type TDomain = Container.Domain.DF
+  protected given TDomain = Container.Domain.DF
 
 abstract class RTDesign(
-    clkParams: ClockParams,
-    rstParams: ResetParams
+    clkParams: ClockParams = ClockParams(),
+    rstParams: ResetParams = ResetParams()
 )(using DFC)
     extends Design:
-  private[core] class TDmn extends Domain.RT.HL(clkParams, rstParams)
-  protected given TDmn = new TDmn
+  private[core] class TDomain extends Container.Domain.HLRT
+  protected given TDomain = new TDomain
   lazy val clk = clkParams match
     case RT.NoClock =>
       throw new IllegalArgumentException(
@@ -71,5 +73,5 @@ abstract class RTDesign(
 end RTDesign
 
 abstract class LLRTDesign(using DFC) extends Design:
-  private[core] class TDmn extends Domain.RT.LL
-  protected given TDmn = new TDmn
+  private[core] class TDomain extends Container.Domain.LLRT
+  protected given TDomain = new TDomain
