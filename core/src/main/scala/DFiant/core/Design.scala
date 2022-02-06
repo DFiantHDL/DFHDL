@@ -5,9 +5,9 @@ import DFiant.compiler.ir.Domain.RT
 import DFiant.compiler.ir.Domain.RT.{ClockParams, ResetParams}
 import DFiant.compiler.printing.*
 
-private abstract class Design(using DFC)
-    extends Container(_ ?=> Design.Block("???", Position.unknown)),
-      HasNamePos:
+private abstract class Design(using DFC) extends Container, HasNamePos:
+  private[core] final override lazy val owner: Design.Block =
+    Design.Block("???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =
     val designBlock = owner.asIR
     dfc.getSet.replace(designBlock)(
