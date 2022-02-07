@@ -14,7 +14,7 @@ object TopLevel:
     val appSymbol = (TypeRepr.of[App]).typeSymbol
     val mainTpe = TypeRepr.of[main]
     val isTop =
-      topOwner.name.toString.contains("Main$") ||
+      topOwner.name.toString.contains("$package$") ||
         topOwner.isClassDef &&
         TypeRepr
           .of[Any]
