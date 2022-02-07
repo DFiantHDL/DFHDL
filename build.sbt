@@ -22,9 +22,10 @@ inThisBuild(
 name := projectName
 ThisBuild / organization := "io.github.dfianthdl"
 ThisBuild / scalaVersion := compilerVersion
+ThisBuild / version      := "0.2.0-SNAPSHOT"
+
 
 // PROJECTS
-
 lazy val root = (project in file("."))
   .settings(
     settings,
@@ -96,7 +97,8 @@ lazy val lib = project
     libraryDependencies ++= commonDependencies
   )
   .dependsOn(
-    core % "test->test;compile->compile"
+    core % "test->test;compile->compile",
+    compiler_stages
   )
 
 // DEPENDENCIES

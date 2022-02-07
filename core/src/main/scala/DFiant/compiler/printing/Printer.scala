@@ -64,8 +64,9 @@ class Printer(using val getSet: MemberGetSet)
         Some(csDFDesignBlockDcl(block))
       case _ => None
     }
+    val globalDclsLE = if (globalDcls.isEmpty) "" else s"$globalDcls\n\n"
 //    (globalEnumString ++ codeStringList).mkString(s"\n$EMPTY\n").formatted
-    s"$globalDcls\n\n${codeStringList.mkString("\n\n")}"
+    s"$globalDclsLE${codeStringList.mkString("\n\n")}"
   end csDB
 end Printer
 

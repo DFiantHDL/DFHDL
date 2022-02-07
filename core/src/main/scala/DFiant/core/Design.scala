@@ -5,7 +5,7 @@ import DFiant.compiler.ir.Domain.RT
 import DFiant.compiler.ir.Domain.RT.{ClockParams, ResetParams}
 import DFiant.compiler.printing.*
 
-private abstract class Design(using DFC) extends Container, HasNamePos:
+private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
   private[core] type TKind = Container.Kind.Design
   protected given TKind = Container.Kind.Design
   private[core] final override lazy val owner: Design.Block =
@@ -31,7 +31,7 @@ object Design:
         ir.DFTags.empty
       ).addMember
         .asFE
-  extension [D <: DFDesign](dsn: D) def getDB: ir.DB = dsn.dfc.mutableDB.immutable
+  extension [D <: Design](dsn: D) def getDB: ir.DB = dsn.dfc.mutableDB.immutable
 //    def printCodeString(): D =
 //      import dsn.dfc.getSet
 //      given Printer = DefaultPrinter

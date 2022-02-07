@@ -12,7 +12,7 @@ trait HasDB[T]:
 object HasDB:
   given HasDB[DB] with
     def apply(t: DB): DB = t
-  given [T <: DFiant.core.DFDesign]: HasDB[T] with
+  given [T <: DFiant.core.Design]: HasDB[T] with
     def apply(t: T): DB = t.getDB
 
 extension [T: HasDB](t: T) def db: DB = summon[HasDB[T]](t)
