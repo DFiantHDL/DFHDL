@@ -58,6 +58,18 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
             setClsNamePosTree :: template.body
           )
           cpy.TypeDef(tree)(tree.name, newTemplate)
+        else if (clsTpe <:< onCreateEventsTpe && clsSym.isAnonymousClass)
+          val onCreateStartLateTree =
+            This(clsSym.asClass)
+              .select("onCreateStartLate".toTermName)
+          val newTemplate = cpy.Template(template)(
+            template.constr,
+            template.parents,
+            template.derived,
+            template.self,
+            onCreateStartLateTree :: template.body
+          )
+          cpy.TypeDef(tree)(tree.name, newTemplate)
         else tree
         end if
       case _ =>
