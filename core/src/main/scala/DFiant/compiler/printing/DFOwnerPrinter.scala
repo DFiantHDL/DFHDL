@@ -44,8 +44,12 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
         .mkString("\n")
     val body = csDFOwnerBody(design, false)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
-    val dcl = s"class ${design.dclName}(using DFC) extends DFDesign"
+    val dsnCls = design.domain match
+      case Domain.DF => "DFDesign"
+      case _         => "RTDesign"
+    val dcl = s"class ${design.dclName}(using DFC) extends $dsnCls"
     if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.indent(1)}\nend ${design.dclName}"
+  end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerBody(design, true)
     val inst = s"val ${design.name} = new ${design.dclName}"

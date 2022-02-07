@@ -5,7 +5,7 @@ import DFiant.compiler.ir
 private abstract class Container(using DFC) extends OnCreateEvents, LateConstruction, HasDFC:
   final val dfc: DFC = summon[DFC]
   private[core] type TKind <: Container.Kind
-  private[core] type TDomain <: Container.Domain
+  private[core] type TDomain <: ir.Domain
   private[core] lazy val owner: DFOwnerAny
   dfc.enterOwner(owner)
 

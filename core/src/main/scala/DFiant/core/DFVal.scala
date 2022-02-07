@@ -538,16 +538,16 @@ private object CompanionsDFVal:
 //    ): DFValOf[T] = ${ fromArgMacro[T]('arg) }
 
   trait DFDomainOnly
-  given (using domain: Container.Domain)(using
+  given (using domain: ir.Domain)(using
       AssertGiven[
-        domain.type <:< Container.Domain.DF,
+        domain.type <:< ir.Domain.DF,
         "This construct is only available in a dataflow domain."
       ]
   ): DFDomainOnly with {}
   trait HLRTDomainOnly
-  given (using domain: Container.Domain)(using
+  given (using domain: ir.Domain)(using
       AssertGiven[
-        domain.type <:< Container.Domain.HLRT,
+        domain.type <:< ir.Domain.RT.HL,
         "This construct is only available in a high-level register-transfer domain."
       ]
   ): HLRTDomainOnly with {}

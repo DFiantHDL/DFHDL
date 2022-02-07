@@ -534,6 +534,7 @@ object DFConditional:
 end DFConditional
 
 final case class DFDesignBlock(
+    domain: Domain,
     dclName: String,
     dclPosition: Position,
     inSimulation: Boolean,
@@ -544,6 +545,7 @@ final case class DFDesignBlock(
       DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
+      this.domain == that.domain &&
       this.dclName == that.dclName && this.dclPosition == that.dclPosition &&
       this.inSimulation == that.inSimulation &&
       this.meta =~ that.meta && this.tags =~ that.tags
