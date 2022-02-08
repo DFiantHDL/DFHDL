@@ -203,8 +203,9 @@ object DFVal:
   object Func:
     enum Op derives CanEqual:
       case +, -, *, /, ===, =!=, <, >, <=, >=, &, |, ^, %, ++
-      case >>, <<
+      case >>, <<, ror, rol, reverse
       case unary_-, unary_~, unary_!
+      case rising, falling
 
   sealed trait Alias extends DFVal, DFMember.NamedOrAnonymous:
     val relValRef: DFVal.Ref

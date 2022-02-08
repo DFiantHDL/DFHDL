@@ -153,19 +153,24 @@ class PrintCodeStringSpec extends StageSpec:
 
   test("Basic RTDesign") {
     class ID(using DFC) extends RTDesign:
-      val x = DFSInt(16) <> IN
-      val y = DFSInt(16) <> OUT
+      val x    = DFSInt(16) <> IN
+      val y    = DFSInt(16) <> OUT
+      val flag = DFBit      <> IN
       y := x
       always() {
         val z = DFSInt(8) <> VAR
         z := 1
       }
-      always(x, y) {
+      always(x, y, flag.rising) {
         val z = DFSInt(8) <> VAR
         z := 1
       }
       always.all {
         val z = DFSInt(8) <> VAR
+        object Bla:
+          val z = DFBits(8) <> VAR
+          z := all(0)
+        Bla.z
         z := 1
       }
     end ID
@@ -175,18 +180,21 @@ class PrintCodeStringSpec extends StageSpec:
       """|class ID(using DFC) extends RTDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
+         |  val flag = DFBit <> IN
          |  y := x
          |  always() {
-         |    val z_0 = DFSInt(8) <> VAR
-         |    z_0 := sd"8'1"
+         |    val z = DFSInt(8) <> VAR
+         |    z := sd"8'1"
          |  }
-         |  always(x, y) {
-         |    val z_1 = DFSInt(8) <> VAR
-         |    z_1 := sd"8'1"
+         |  always(x, y, flag.rising) {
+         |    val z = DFSInt(8) <> VAR
+         |    z := sd"8'1"
          |  }
          |  always.all {
-         |    val z_2 = DFSInt(8) <> VAR
-         |    z_2 := sd"8'1"
+         |    val z_0 = DFSInt(8) <> VAR
+         |    val z_1 = DFBits(8) <> VAR
+         |    z_1 := h"8'00"
+         |    z_0 := sd"8'1"
          |  }
          |end ID
          |""".stripMargin

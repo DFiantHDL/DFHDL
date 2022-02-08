@@ -207,6 +207,10 @@ object DFBoolOrBit:
 
     object Ops:
       extension (lhs: DFBit <> VAL)
+        def rising(using DFC): DFBit <> VAL =
+          DFVal.Func(DFBit, FuncOp.rising, List(lhs))
+        def falling(using DFC): DFBit <> VAL =
+          DFVal.Func(DFBit, FuncOp.falling, List(lhs))
         def bool(using DFC): DFBool <> VAL =
           import Token.Ops.{bool => boolToken}
           DFVal.Alias.AsIs(DFBool, lhs, _.boolToken)

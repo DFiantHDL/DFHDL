@@ -43,11 +43,14 @@ private class UniqueNames(reservedNames: Set[String], caseSensitive: Boolean)(db
         e._2.name
       ) ++ reservedNames)
     val globalNamesLC = lowerCases(globalNames)
-    val patchesAndTags = designDB.designMemberList.map { case (design, members) =>
-      val localTagList = renamer(designDB.getLocalNamedDFTypes(design), globalNamesLC)(
-        _.getName,
-        (e, n) => (e, classTag[NameTag]) -> NameTag(n)
-      )
+    val patchesAndTags = designDB.blockMemberList.map { case (block, members) =>
+      val localTagList = block match
+        case design: DFDesignBlock =>
+          renamer(designDB.getLocalNamedDFTypes(design), globalNamesLC)(
+            _.getName,
+            (e, n) => (e, classTag[NameTag]) -> NameTag(n)
+          )
+        case _ => Nil
       val patchList = renamer(
         members.view.flatMap {
           // no need to rename binds, since there is no collision
