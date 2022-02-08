@@ -150,4 +150,47 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Basic RTDesign") {
+    class ID(using DFC) extends RTDesign:
+      val x = DFSInt(16) <> IN
+      val y = DFSInt(16) <> OUT
+      y := x
+      always() {
+        val z = DFSInt(8) <> VAR
+        z := 1
+      }
+      always(x, y) {
+        val z = DFSInt(8) <> VAR
+        z := 1
+      }
+      always.all {
+        val z = DFSInt(8) <> VAR
+        z := 1
+      }
+    end ID
+    val id = (new ID).getCodeString
+    assertNoDiff(
+      id,
+      """|class ID(using DFC) extends RTDesign:
+         |  val x = DFSInt(16) <> IN
+         |  val y = DFSInt(16) <> OUT
+         |  y := x
+         |  always() {
+         |    val z_0 = DFSInt(8) <> VAR
+         |    z_0 := sd"8'1"
+         |  }
+         |  always(x, y) {
+         |    val z_1 = DFSInt(8) <> VAR
+         |    z_1 := sd"8'1"
+         |  }
+         |  always.all {
+         |    val z_2 = DFSInt(8) <> VAR
+         |    z_2 := sd"8'1"
+         |  }
+         |end ID
+         |""".stripMargin
+    )
+  }
+
 end PrintCodeStringSpec

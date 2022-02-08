@@ -4,6 +4,7 @@ import ir.*
 import analysis.*
 import DFiant.internals.*
 import DFVal.*
+import DFiant.compiler.ir.AlwaysBlock.Sensitivity
 import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
 protected trait DFOwnerPrinter extends AbstractPrinter:
   private def csDFOwnerBody(owner: DFOwner, lateConstruction: Boolean): String =
@@ -33,6 +34,8 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
         case net: DFNet => net
         // conditional headers
         case ch: DFConditional.Header if ch.dfType == NoType => ch
+        // always block
+        case ab: AlwaysBlock => ab
       }
       .map(_.codeString)
       .filter(_.nonEmpty)
@@ -113,4 +116,11 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
         s"$csSelector match\n${csChains.indent()}"
       case ih: DFConditional.DFIfHeader => csChains
   end csDFConditional
+  def csAlwaysBlock(ab: AlwaysBlock): String =
+    val body = csDFOwnerBody(ab, false)
+    val named = ab.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    val senList = ab.sensitivity match
+      case Sensitivity.All        => ".all"
+      case Sensitivity.List(refs) => refs.map(_.refCodeString).mkStringBrackets
+    s"${named}always${senList} {\n${body.indent()}\n}"
 end DFOwnerPrinter

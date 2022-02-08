@@ -385,20 +385,20 @@ final case class DFInterfaceOwner(
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
 
 sealed trait DFBlock extends DFOwner
-final case class Process(
-    sensitivity: Process.Sensitivity,
+final case class AlwaysBlock(
+    sensitivity: AlwaysBlock.Sensitivity,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
 ) extends DFBlock:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-    case that: Process =>
+    case that: AlwaysBlock =>
       this.sensitivity =~ that.sensitivity &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-object Process:
+object AlwaysBlock:
   sealed trait Sensitivity extends HasRefCompare[Sensitivity], Product, Serializable
       derives CanEqual
   object Sensitivity:

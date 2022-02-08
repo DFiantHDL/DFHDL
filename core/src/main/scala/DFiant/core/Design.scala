@@ -8,8 +8,6 @@ import DFiant.compiler.printing.*
 private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
   private[core] type TKind = Container.Kind.Design
   final protected given TKind = Container.Kind.Design
-  private[core] lazy val domain: TDomain
-  final protected given TDomain = domain
   private[core] final override lazy val owner: Design.Block =
     Design.Block(domain, "???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =

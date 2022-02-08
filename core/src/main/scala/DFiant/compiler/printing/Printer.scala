@@ -47,6 +47,7 @@ class Printer(using val getSet: MemberGetSet)
     case dfVal: DFVal          => csDFVal(dfVal, None)
     case net: DFNet            => csDFNet(net)
     case design: DFDesignBlock => csDFDesignBlockInst(design)
+    case ab: AlwaysBlock       => csAlwaysBlock(ab)
     case _                     => ???
   def csDB(db: DB): String =
     import db.getSet

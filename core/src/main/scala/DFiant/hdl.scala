@@ -52,6 +52,7 @@ object hdl:
   type VAL = core.VAL
   type TOKEN = core.TOKEN
   export core.<>
+  export core.Always.Ops.*
 
   // shorthand for annotating a DFBits value (useful for string interpolation)
   type B[W <: Int] = core.DFValOf[DFBits[W]]
