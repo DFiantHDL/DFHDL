@@ -15,7 +15,7 @@ private class ViaConnection(db: DB) extends Stage(db):
             case (p @ DclOut(), (ports, nets)) =>
               val conns = p.getConnectionsFrom
               conns.headOption match
-                case Some(n) if n.hasLateConstruction =>
+                case Some(n) if n.lateConstruction =>
                   (ports, nets) // already has via connections
                 case Some(n @ DFNet.Connection(DclVar(), _)) if conns.size == 1 =>
                   (ports, n :: nets)
@@ -25,7 +25,7 @@ private class ViaConnection(db: DB) extends Stage(db):
                 // we have a single net that is assigned not more than once
                 // (otherwise, for RTL purposes we require another value so an internal multi-assignment rtl variable/reg
                 // can be assigned into a signal/wire)
-                case Some(n) if n.hasLateConstruction =>
+                case Some(n) if n.lateConstruction =>
                   (ports, nets) // already has via connections
                 case Some(n @ DFNet.Connection(_, v @ DclVar())) if v.getAssignmentsTo.isEmpty =>
                   (ports, n :: nets)
@@ -39,9 +39,10 @@ private class ViaConnection(db: DB) extends Stage(db):
           }
         // Meta design for connections between ports and the added variables
         val connectDsn = new MetaDesign:
+          // forcing late construction since we don't activate the compiler plugin here
+          this.onCreateStartLate
           val thisDFC: DFC = dfc
           val refPatches: List[(DFMember, Patch)] = addVarsDsn.portsToVars.map { case (p, v) =>
-            given DFC = thisDFC.setLateConstruction(true)
             p match
               case _ @DclOut() => v.asVarAny.<>(p.asValAny)
               case _ @DclIn()  => p.asVarAny.<>(v.asValAny)
@@ -57,7 +58,7 @@ private class ViaConnection(db: DB) extends Stage(db):
           }
           val movedNets: List[(DFMember, Patch)] = nets.map { n =>
             plantMember(
-              n.setMeta(_.setLateConstruction(true))
+              n.copy(lateConstruction = true)
             ) // planet the net with a
             (n -> Patch.Remove)
           }

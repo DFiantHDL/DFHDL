@@ -131,7 +131,7 @@ final case class DB(
 //    this
 //  }
 
-  // holds a hash table that lists members of each owner owner. The member list order is maintained.
+    // holds a hash table that lists members of each owner owner. The member list order is maintained.
   lazy val ownerMemberTable: Map[DFOwner, List[DFMember]] =
     Map(ownerMemberList: _*)
 
@@ -143,7 +143,7 @@ final case class DB(
       List(top -> List())
     ).reverse // head will always be the TOP block
 
-  // holds a hash table that lists members of each owner block. The member list order is maintained.
+    // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val blockMemberTable: Map[DFBlock, List[DFMember]] =
     Map(blockMemberList: _*)
 
@@ -155,7 +155,7 @@ final case class DB(
       List(top -> List())
     ).reverse // head will always be the TOP block
 
-  // holds a hash table that lists members of each owner block. The member list order is maintained.
+    // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
     Map(designMemberList: _*)
 
@@ -189,10 +189,10 @@ final case class DB(
   import DFNet.Op.*
   private def getValAccess(dfVal: DFVal, net: DFNet)(connToDcls: Map[DFVal.Dcl, DFNet]): Access =
     def isExternalConn =
-      if (net.hasLateConstruction) dfVal isSameOwnerDesignAs net
+      if (net.lateConstruction) dfVal isSameOwnerDesignAs net
       else dfVal.getOwnerDesign isSameOwnerDesignAs net
     def isInternalConn =
-      if (net.hasLateConstruction) net.getOwnerDesign isSameOwnerDesignAs dfVal
+      if (net.lateConstruction) net.getOwnerDesign isSameOwnerDesignAs dfVal
       else dfVal isSameOwnerDesignAs net
     dfVal match
       case dcl: DFVal.Dcl =>

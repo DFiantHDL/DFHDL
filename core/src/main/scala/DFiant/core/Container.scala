@@ -2,13 +2,15 @@ package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
 
-private abstract class Container(using DFC) extends OnCreateEvents, LateConstruction, HasDFC:
+private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
   final val dfc: DFC = summon[DFC]
   private[core] type TKind <: Container.Kind
   private[core] type TDomain <: ir.Domain
   private[core] lazy val owner: DFOwnerAny
   dfc.enterOwner(owner)
 
+  final override def onCreateStartLate: Unit =
+    dfc.enterLate()
   final override def onCreateEnd: Unit =
     dfc.exitOwner()
 

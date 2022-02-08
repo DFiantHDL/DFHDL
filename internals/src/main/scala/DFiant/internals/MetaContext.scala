@@ -15,8 +15,7 @@ object Position:
 trait MetaContext:
   def setMeta(
       nameOpt: Option[String],
-      position: Position,
-      lateConstruction: Boolean
+      position: Position
   ): this.type
 
   def setName(name: String): this.type
@@ -25,12 +24,9 @@ trait MetaContext:
 
   val nameOpt: Option[String]
   val position: Position
-  val lateConstruction: Boolean
   final val isAnonymous: Boolean = nameOpt.isEmpty
   final val name: String =
     nameOpt.getOrElse(s"anon${this.hashCode.toHexString}")
 end MetaContext
-
-trait LateConstruction
 
 class metaContextDelegate extends scala.annotation.StaticAnnotation

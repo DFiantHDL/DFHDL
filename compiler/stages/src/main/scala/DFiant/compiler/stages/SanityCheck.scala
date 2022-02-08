@@ -11,7 +11,7 @@ private class SanityCheck(db: DB) extends Stage(db):
   private def memberExistenceCheck(): Unit =
     given Printer = DefaultPrinter
     val violations = designDB.members.flatMap {
-      case n @ DFNet(toRef, DFNet.Op.Assignment, fromRef, _, _, _) =>
+      case n @ DFNet(toRef, DFNet.Op.Assignment, fromRef, _, _, _, _) =>
         val toMember = toRef.get
         val fromMember = fromRef.get
         val toValMissing = !designDB.members.contains(toMember)

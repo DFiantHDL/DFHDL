@@ -6,38 +6,37 @@ import compiler.ir
 final case class DFC(
     nameOpt: Option[String],
     position: Position,
-    lateConstruction: Boolean,
     mutableDB: MutableDB = new MutableDB(),
     defaultDir: Int = 0
 ) extends MetaContext:
   def setMeta(
       nameOpt: Option[String] = nameOpt,
-      position: Position = position,
-      lateConstruction: Boolean = lateConstruction
+      position: Position = position
   ) = copy(
     nameOpt = nameOpt,
-    position = position,
-    lateConstruction = lateConstruction
+    position = position
   ).asInstanceOf[this.type]
   given getSet: ir.MemberGetSet = mutableDB.getSet
-  def getMeta: ir.Meta = ir.Meta(nameOpt, position, lateConstruction)
+  def getMeta: ir.Meta = ir.Meta(nameOpt, position)
   def enterOwner(owner: DFOwnerAny): Unit =
     mutableDB.OwnershipContext.enter(owner.asIR)
+  def enterLate(): Unit =
+    mutableDB.OwnershipContext.enterLate()
   def exitOwner(): Unit = mutableDB.OwnershipContext.exit()
   def owner: DFOwnerAny = mutableDB.OwnershipContext.owner.asFE
+  def lateConstruction: Boolean = mutableDB.OwnershipContext.lateConstruction
   def ownerOption: Option[DFOwnerAny] =
     mutableDB.OwnershipContext.ownerOption.map(_.asFE)
   def setName(name: String): this.type =
     copy(nameOpt = Some(name)).asInstanceOf[this.type]
   def anonymize: this.type = copy(nameOpt = None).asInstanceOf[this.type]
-  def setLateConstruction(value: Boolean): this.type = setMeta(lateConstruction = value)
   def <>(that: Int): this.type = copy(defaultDir = that).asInstanceOf[this.type]
 
 end DFC
 object DFC:
   given (using TopLevel): DFC = empty
   def empty: DFC =
-    DFC(None, Position.unknown, false)
+    DFC(None, Position.unknown)
 
 def dfc(using DFC): DFC = summon[DFC]
 

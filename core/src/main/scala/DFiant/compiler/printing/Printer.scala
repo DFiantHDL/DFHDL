@@ -18,10 +18,10 @@ class Printer(using val getSet: MemberGetSet)
   def csDFNet(net: DFNet): String =
     // true if the net is a late construction and the RHS is the internal port,
     // so we need to swap positions since we always present the internal on the left side.
-    val swapLR = net.hasLateConstruction && net.rhsRef.get.isSameOwnerDesignAs(net)
+    val swapLR = net.lateConstruction && net.rhsRef.get.isSameOwnerDesignAs(net)
     // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
     val lhsThis =
-      if (swapLR || net.hasLateConstruction && net.lhsRef.get.isSameOwnerDesignAs(net)) "this."
+      if (swapLR || net.lateConstruction && net.lhsRef.get.isSameOwnerDesignAs(net)) "this."
       else ""
     import net.*
     val directionStr =

@@ -41,7 +41,6 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getThisOrOwnerDesign(using MemberGetSet): DFDesignBlock = this match
     case d: DFDesignBlock => d
     case x                => x.getOwnerDesign
-  final def hasLateConstruction: Boolean = meta.lateConstruction
   final def isMemberOfDesign(that: DFDesignBlock)(using MemberGetSet): Boolean =
     this match
       case DFDesignBlock.Top() => false
@@ -83,7 +82,7 @@ object DFMember:
   type Empty = Empty.type
   case object Empty extends DFMember:
     val ownerRef: DFOwner.Ref = DFRef.OneWay.Empty
-    val meta: Meta = Meta(Some("Empty"), Position.unknown, false)
+    val meta: Meta = Meta(Some("Empty"), Position.unknown)
     val tags: DFTags = DFTags.empty
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case Empty => true
@@ -311,6 +310,7 @@ final case class DFNet(
     lhsRef: DFNet.Ref,
     op: DFNet.Op,
     rhsRef: DFNet.Ref,
+    lateConstruction: Boolean,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
@@ -318,6 +318,7 @@ final case class DFNet(
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFNet =>
       this.lhsRef =~ that.lhsRef && this.op == that.op && this.rhsRef =~ that.rhsRef &&
+      this.lateConstruction == that.lateConstruction &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -341,14 +342,14 @@ object DFNet:
 
   object Assignment:
     def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
-      case DFNet(toRef, Op.Assignment, fromRef, _, _, _) =>
+      case DFNet(toRef, Op.Assignment, fromRef, _, _, _, _) =>
         Some(toRef.get.asInstanceOf[DFVal], fromRef.get.asInstanceOf[DFVal])
       case _ => None
   object Connection:
     def unapply(net: DFNet)(using
         MemberGetSet
     ): Option[(DFVal.Dcl | DFInterfaceOwner, DFVal | DFInterfaceOwner)] = net match
-      case DFNet(lhsRef, Op.Connection | Op.LazyConnection, rhsRef, _, _, _) =>
+      case DFNet(lhsRef, Op.Connection | Op.LazyConnection, rhsRef, _, _, _, _) =>
         (lhsRef.get, rhsRef.get) match
           case (lhsVal: DFVal, rhsVal: DFVal) =>
             val toLeft = lhsVal.dealias.flatMap(getSet.designDB.connectionTable.get).contains(net)

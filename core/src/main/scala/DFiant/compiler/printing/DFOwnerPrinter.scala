@@ -14,7 +14,10 @@ protected trait DFOwnerPrinter extends AbstractPrinter:
   ): String =
     members.view
       // only members that match the requested construction mode
-      .filter(m => m.hasLateConstruction == lateConstruction)
+      .filter {
+        case n: DFNet => n.lateConstruction == lateConstruction
+        case _        => !lateConstruction
+      }
       // exclude bind members
       .filter {
         case Bind(_) => false

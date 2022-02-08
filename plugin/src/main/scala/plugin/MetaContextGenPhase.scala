@@ -29,7 +29,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextDelegate")
   var setMetaSym: Symbol = _
-  var lateConstructionTpe: TypeRef = _
   var dfTokenSym: Symbol = _
   var dfValSym: Symbol = _
   val treeOwnerMap = mutable.Map.empty[String, Tree]
@@ -53,19 +52,11 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         case None =>
           ref(defn.NoneModule.termRef)
       val clsTree = clsStack.head
-      val lateConstruction =
-        clsTree.name.toString.contains("$") &&
-          clsTree.tpe <:< lateConstructionTpe &&
-          clsTree.rhs
-            .asInstanceOf[Template]
-            .parents
-            .forall(p => !(p sameTree srcTree))
-      val lateConstructionTree = Literal(Constant(lateConstruction))
       val positionTree = srcPos.positionTree
       tree
         .select(setMetaSym)
         .appliedToArgs(
-          nameOptTree :: positionTree :: lateConstructionTree :: Nil
+          nameOptTree :: positionTree :: Nil
         )
         .withType(TermRef(tree.tpe, setMetaSym))
 
@@ -100,7 +91,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         tree.tpe match
           case x: TermRef =>
             x.underlying.dealias.typeSymbol.name.toString == prefix ||
-              x.parents.exists(_.typeSymbol.name.toString == prefix)
+            x.parents.exists(_.typeSymbol.name.toString == prefix)
           case _ => false
       case _ => false
   override def transformApply(tree: Apply)(using Context): Tree =
@@ -301,7 +292,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
-    lateConstructionTpe = requiredClassRef("DFiant.internals.LateConstruction")
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     dfValSym = requiredClass("DFiant.core.DFVal")
     dfTokenSym = requiredClass("DFiant.core.DFToken")

@@ -25,7 +25,7 @@ class PluginSpec extends DFSpec:
     ret
 
   val fileName = new Throwable().getStackTrace().head.getFileName
-  class Bar(using val ctx: DFC) extends OnCreateEvents, LateConstruction:
+  class Bar(using val ctx: DFC) extends OnCreateEvents:
     val nameOpt = ctx.nameOpt
     val pos = ctx.position
     assert(pos.file.endsWith(fileName))

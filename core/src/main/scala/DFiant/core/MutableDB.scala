@@ -28,13 +28,19 @@ class MutableDB(val duringTest: Boolean = false):
   private var refTable: mutable.Map[DFRefAny, DFMember] = mutable.Map()
   object OwnershipContext:
     private var stack: List[DFOwner] = Nil
+    private var lateStack: List[Boolean] = Nil
     def enter(owner: DFOwner): Unit =
 //      println(s"enter ${owner}")
       stack = owner :: stack
+      lateStack = false :: lateStack
     def exit(): Unit =
 //      println(s"exit ${owner}")
       stack = stack.drop(1)
+      lateStack = lateStack.drop(1)
+    def enterLate(): Unit =
+      lateStack = true :: lateStack.drop(1)
     def owner: DFOwner = stack.head
+    def lateConstruction: Boolean = lateStack.head
     def replaceOwner(originalOwner: DFOwner, newOwner: DFOwner): Unit =
       stack = stack.map { o =>
         if (o == originalOwner) newOwner
