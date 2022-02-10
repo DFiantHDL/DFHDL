@@ -188,8 +188,11 @@ private object CompanionsDFVal:
       def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
           dfc: DFC
       ): DFVal[T, M] =
-        import DFiant.core.tag as tagIR
-        dfVal.asIR.tagIR(customTag).asVal[T, M]
+        import dfc.getSet
+        dfVal.asIR
+          .setTags(_.tag(customTag))
+          .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
+          .asVal[T, M]
     extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
       private[core] def initForced(tokens: List[ir.DFTokenAny])(using
           dfc: DFC

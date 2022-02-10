@@ -8,7 +8,8 @@ import DFiant.internals.*
 final case class DB(
     members: List[DFMember],
     refTable: Map[DFRefAny, DFMember],
-    globalTags: Map[(Any, ClassTag[_]), DFTag]
+    globalTags: Map[(Any, ClassTag[_]), DFTag],
+    srcFiles: List[SourceFile]
 ):
   private val self = this
   given getSet: MemberGetSet with
@@ -143,7 +144,7 @@ final case class DB(
       List(top -> List())
     ).reverse // head will always be the TOP block
 
-    // holds a hash table that lists members of each owner block. The member list order is maintained.
+      // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val blockMemberTable: Map[DFBlock, List[DFMember]] =
     Map(blockMemberList: _*)
 
@@ -155,7 +156,7 @@ final case class DB(
       List(top -> List())
     ).reverse // head will always be the TOP block
 
-    // holds a hash table that lists members of each owner block. The member list order is maintained.
+      // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
     Map(designMemberList: _*)
 

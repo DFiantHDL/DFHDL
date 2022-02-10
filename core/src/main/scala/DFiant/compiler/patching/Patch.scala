@@ -115,7 +115,7 @@ end Patch
 extension (db: DB)
   def patch(patchList: List[(DFMember, Patch)], debug: Boolean = false): DB =
     import db.getSet
-    import db.{members, refTable, memberTable, globalTags}
+    import db.{members, refTable, memberTable, globalTags, srcFiles}
     if (patchList.isEmpty) return db
     def patchDebug(block: => Unit): Unit = if (debug) block
     val patchTable = patchList
@@ -335,7 +335,7 @@ extension (db: DB)
       println(patchedRefTable.mkString("\n"))
       println("----------------------------------------------------------------------------")
     }
-    DB(patchedMembers, patchedRefTable, globalTags)
+    DB(patchedMembers, patchedRefTable, globalTags, srcFiles)
   end patch
 
   def patchSingle(singlePatch: (DFMember, Patch), debug: Boolean = false): DB =
@@ -343,7 +343,8 @@ extension (db: DB)
   def concat(that: DB): DB = DB(
     db.members ++ that.members.drop(1),
     db.refTable ++ that.refTable,
-    db.globalTags ++ that.globalTags
+    db.globalTags ++ that.globalTags,
+    db.srcFiles ++ that.srcFiles
   )
   def setGlobalTags(tagList: List[((Any, ClassTag[_]), DFTag)]): DB =
     db.copy(globalTags = db.globalTags ++ tagList)

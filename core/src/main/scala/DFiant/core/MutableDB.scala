@@ -9,6 +9,7 @@ import DFiant.compiler.ir.{
   DFRefAny,
   DFTag,
   MemberGetSet,
+  SourceFile,
   MemberView
 }
 
@@ -63,6 +64,7 @@ class MutableDB(val duringTest: Boolean = false):
       tagMap.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
   end global_tags
 
+  private var srcFiles: List[SourceFile] = Nil
   def addMember[M <: DFMember](member: M): M =
     dirtyDB()
 //    elaborateFSMHistoryHead()
@@ -183,7 +185,7 @@ class MutableDB(val duringTest: Boolean = false):
       }
     val notIgnoredMembers =
       members.iterator.filterNot(e => e._3).map(e => e._1).toList
-    val db = DB(notIgnoredMembers, refTable.toMap, global_tags.tagMap.toMap)
+    val db = DB(notIgnoredMembers, refTable.toMap, global_tags.tagMap.toMap, srcFiles)
     memoizedDB = Some(db)
     db
   }
