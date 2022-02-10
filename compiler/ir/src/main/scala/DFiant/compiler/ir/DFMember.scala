@@ -368,24 +368,47 @@ sealed trait DFOwner extends DFMember:
     case DFMember.Empty => true
     case _              => false
 
+sealed trait DFDomainOwner extends DFOwner:
+  val domain: Domain
+
 object DFOwner:
   type Named = DFOwner & DFMember.Named
   type Ref = DFRef.OneWay[DFOwner | DFMember.Empty]
 
 final case class DFInterfaceOwner(
+    domain: Domain,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFOwner,
+) extends DFDomainOwner,
       DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFInterfaceOwner =>
+      this.domain == that.domain &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+end DFInterfaceOwner
 
 sealed trait DFBlock extends DFOwner
+final case class DFDomainBlock(
+    domain: Domain,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFDomainOwner,
+      DFBlock,
+      DFMember.Named:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: DFDomainBlock =>
+      this.domain == that.domain &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+end DFDomainBlock
+
 final case class AlwaysBlock(
     sensitivity: AlwaysBlock.Sensitivity,
     ownerRef: DFOwner.Ref,
@@ -544,6 +567,7 @@ final case class DFDesignBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
+      DFDomainOwner,
       DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
