@@ -40,6 +40,13 @@ lazy val root = (project in file("."))
     lib
   )
 
+lazy val internals = project
+  .settings(
+    name := s"$projectName-internals",
+    settings,
+    libraryDependencies ++= commonDependencies
+  )
+
 lazy val plugin = project
   .settings(
     name := s"$projectName-plugin",
@@ -49,32 +56,11 @@ lazy val plugin = project
     libraryDependencies += "org.scala-lang" %% "scala3-compiler" % compilerVersion % "provided"
   ).dependsOn(internals)
 
-lazy val internals = project
-  .settings(
-    name := s"$projectName-internals",
-    settings,
-    libraryDependencies ++= commonDependencies
-  )
-
 lazy val compiler_ir = (project in file("compiler/ir"))
   .settings(
     name := s"$projectName-compiler-ir",
     settings
   ).dependsOn(internals)
-
-lazy val compiler_stages = (project in file("compiler/stages"))
-  .settings(
-    name := s"$projectName-compiler-stages",
-    settings,
-    pluginTestUseSettings,
-    libraryDependencies ++= commonDependencies
-  )
-  .dependsOn(
-    plugin,
-    internals,
-    compiler_ir,
-	core
-  )
 
 lazy val core = project
   .settings(
@@ -87,6 +73,20 @@ lazy val core = project
     plugin,
     internals,
     compiler_ir
+  )
+
+lazy val compiler_stages = (project in file("compiler/stages"))
+  .settings(
+    name := s"$projectName-compiler-stages",
+    settings,
+    pluginTestUseSettings,
+    libraryDependencies ++= commonDependencies
+  )
+  .dependsOn(
+    plugin,
+    internals,
+    compiler_ir,
+    core
   )
 
 lazy val lib = project
