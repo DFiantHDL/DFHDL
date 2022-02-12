@@ -563,34 +563,36 @@ private object CompanionsDFVal:
       DFDomainOnly
   ): PrevCheck[I] with {}
   object Ops:
-    implicit class __History[T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]]):
-      def prev[S <: Int](
-          step: Inlined[S]
+    // TODO: change to step Inlined[S] for all operations after https://github.com/lampepfl/dotty/issues/14451
+    // is resolved.
+    extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
+      def prev(
+          step: Int
       )(using
           dfc: DFC,
           prevCheck: PrevCheck[I],
-          check: Arg.Positive.Check[S]
+          check: Arg.Positive.Check[Int]
       ): DFValOf[T] =
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev)
       inline def prev(using PrevCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
-      def pipe[S <: Int](
-          step: Inlined[S]
-      )(using dfOnly: DFDomainOnly, dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] =
+      def pipe(
+          step: Int
+      )(using dfOnly: DFDomainOnly, dfc: DFC, check: Arg.Positive.Check[Int]): DFValOf[T] =
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe)
       inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
-      def reg[S <: Int](
-          step: Inlined[S]
+      def reg(
+          step: Int
       )(using
           dfc: DFC,
           rtOnly: HLRTDomainOnly,
-          check: Arg.Positive.Check[S]
+          check: Arg.Positive.Check[Int]
       ): DFValOf[T] =
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg)
       inline def reg(using DFC, HLRTDomainOnly): DFValOf[T] = dfVal.reg(1)
-    end __History
+    end extension
 
     extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
       def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
