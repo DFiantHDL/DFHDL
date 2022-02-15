@@ -53,13 +53,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       .filter(_.nonEmpty)
       .mkString("\n")
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
-    val localDcls =
-      getSet.designDB
-        .getLocalNamedDFTypes(design)
-        .toList
-        .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
-        .map(printer.csNamedDFTypeDcl)
-        .mkString("\n")
+    val localDcls = printer.csLocalTypeDcls(design)
     val body = csDFOwnerBody(design, false)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val dsnCls = design.domain match

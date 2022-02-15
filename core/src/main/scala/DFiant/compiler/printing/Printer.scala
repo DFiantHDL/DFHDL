@@ -27,17 +27,12 @@ trait Printer
   final def csDB(db: DB): String =
     import db.getSet
     val uniqueDesigns = mutable.Set.empty[String]
-    val globalDcls =
-      db.getGlobalNamedDFTypes.toList
-        .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
-        .map(printer.csNamedDFTypeDcl)
-        .mkString("\n")
     val codeStringList = db.designMemberList.collect {
       case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.dclName) =>
         uniqueDesigns += block.dclName
         csDFDesignBlockDcl(block)
     }
-    s"${globalDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}"
+    s"${csGlobalTypeDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}"
   end csDB
 end Printer
 

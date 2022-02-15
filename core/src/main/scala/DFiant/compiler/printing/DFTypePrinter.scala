@@ -12,6 +12,18 @@ protected trait AbstractTypePrinter extends AbstractPrinter:
       case dt: DFEnum   => csDFEnumDcl(dt)
       case dt: DFOpaque => csDFOpaqueDcl(dt)
       case dt: DFStruct => csDFStructDcl(dt)
+  final def csGlobalTypeDcls: String =
+    getSet.designDB.getGlobalNamedDFTypes.toList
+      .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
+      .map(printer.csNamedDFTypeDcl)
+      .mkString("\n")
+  final def csLocalTypeDcls(design: DFDesignBlock): String =
+    getSet.designDB
+      .getLocalNamedDFTypes(design)
+      .toList
+      .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
+      .map(printer.csNamedDFTypeDcl)
+      .mkString("\n")
   def csDFEnumDcl(dfType: DFEnum): String
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String
   def csDFVector(dfType: DFVector, typeCS: Boolean): String
