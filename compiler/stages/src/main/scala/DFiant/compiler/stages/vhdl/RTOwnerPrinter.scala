@@ -1,24 +1,13 @@
-package DFiant.compiler
-package printing
-import ir.*
-import analysis.*
+package DFiant.compiler.stages.vhdl
+import DFiant.compiler.printing.*
+import DFiant.compiler.ir.*
+import DFiant.compiler.analysis.*
 import DFiant.internals.*
 import DFVal.*
 import DFiant.compiler.ir.AlwaysBlock.Sensitivity
 import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
 
-trait AbstractOwnerPrinter extends AbstractPrinter:
-  def csDFMembers(members: List[DFMember], lateConstruction: Boolean): String
-  def csDFDesignBlockDcl(design: DFDesignBlock): String
-  def csDFDesignBlockInst(design: DFDesignBlock): String
-  def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String
-  def csDFCasePattern(pattern: DFConditional.DFCaseBlock.Pattern): String
-  def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock): String
-  def csDFConditionalBlock(cb: DFConditional.Block): String
-  def csDFConditional(ch: DFConditional.Header): String
-  def csAlwaysBlock(ab: AlwaysBlock): String
-
-protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
+protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
   private def csDFOwnerBody(owner: DFOwner, lateConstruction: Boolean): String =
     csDFMembers(owner.members(MemberView.Folded), lateConstruction)
   def csDFMembers(
@@ -52,6 +41,16 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       .map(_.codeString)
       .filter(_.nonEmpty)
       .mkString("\n")
+  def csLibrary(packageName: String)(implicit printer: Printer): String =
+    s"""library ieee;
+       |use ieee.std_logic_1164.all;
+       |use ieee.numeric_std.all;
+       |use work.$packageName.all;
+       |""".stripMargin
+  def csEntityDcl(design: DFDesignBlock): String =
+    ""
+  def csArchitectureDcl(design: DFDesignBlock): String =
+    ""
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     val localDcls = printer.csLocalTypeDcls(design)
     val body = csDFOwnerBody(design, false)
@@ -129,4 +128,4 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.All        => ".all"
       case Sensitivity.List(refs) => refs.map(_.refCodeString).mkStringBrackets
     s"${named}always${senList} {\n${body.indent()}\n}"
-end DFOwnerPrinter
+end RTOwnerPrinter
