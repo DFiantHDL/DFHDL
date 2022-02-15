@@ -41,26 +41,31 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
       .map(_.codeString)
       .filter(_.nonEmpty)
       .mkString("\n")
-  def csLibrary(packageName: String)(implicit printer: Printer): String =
-    s"""library ieee;
-       |use ieee.std_logic_1164.all;
-       |use ieee.numeric_std.all;
-       |use work.$packageName.all;
-       |""".stripMargin
+  val useStdSimLibrary: Boolean
+  val packageName: String
+  def csLibrary(inSimulation: Boolean): String =
+    val default =
+      s"""library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.$packageName.all;""".stripMargin
+    if (useStdSimLibrary && inSimulation)
+      s"""$default
+         |
+         |library std;
+         |use std.env.all;""".stripMargin
+    else default
   def csEntityDcl(design: DFDesignBlock): String =
     ""
   def csArchitectureDcl(design: DFDesignBlock): String =
+    val localDcls = printer.csLocalTypeDcls(design)
     ""
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
-    val localDcls = printer.csLocalTypeDcls(design)
-    val body = csDFOwnerBody(design, false)
-    val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
-    val dsnCls = design.domain match
-      case Domain.DF => "DFDesign"
-      case _         => "RTDesign"
-    val dcl = s"class ${design.dclName}(using DFC) extends $dsnCls"
-    if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.indent(1)}\nend ${design.dclName}"
-  end csDFDesignBlockDcl
+    s"""${csLibrary(design.inSimulation)}
+       |
+       |${csEntityDcl(design)}
+       |
+       |${csArchitectureDcl(design)}""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerBody(design, true)
     val inst = s"val ${design.name} = new ${design.dclName}"
