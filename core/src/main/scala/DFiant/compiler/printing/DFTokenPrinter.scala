@@ -3,7 +3,31 @@ package printing
 import ir.*
 import DFiant.internals.*
 
-protected trait DFTokenPrinter extends AbstractPrinter:
+trait AbstractTokenPrinter extends AbstractPrinter:
+  def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String
+  def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String
+  def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String
+  def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String
+  def csDFVectorData(dfType: DFVector, data: Vector[Any]): String
+  def csDFOpaqueData(dfType: DFOpaque, data: Any): String
+  def csDFStructData(dfType: DFStruct, data: List[Any]): String
+  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String
+  final def csDFToken(token: DFTokenAny): String = token match
+    case DFBits.Token(dt, data)      => csDFBitsData(dt, data)
+    case DFBoolOrBit.Token(dt, data) => csDFBoolOrBitData(dt, data)
+    case DFDecimal.Token(dt, data)   => csDFDecimalData(dt, data)
+    case DFEnum.Token(dt, data)      => csDFEnumData(dt, data)
+    case DFVector.Token(dt, data)    => csDFVectorData(dt, data)
+    case DFOpaque.Token(dt, data)    => csDFOpaqueData(dt, data)
+    case DFStruct.Token(dt, data)    => csDFStructData(dt, data)
+    case x =>
+      throw new IllegalArgumentException(
+        s"Unexpected token found: $x"
+      )
+  def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String
+end AbstractTokenPrinter
+
+protected trait DFTokenPrinter extends AbstractTokenPrinter:
   def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String =
     val valueBits: BitVector = data._1
     val bubbleBits: BitVector = data._2
@@ -104,18 +128,6 @@ protected trait DFTokenPrinter extends AbstractPrinter:
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
-  def csDFToken(token: DFTokenAny): String = token match
-    case DFBits.Token(dt, data)      => csDFBitsData(dt, data)
-    case DFBoolOrBit.Token(dt, data) => csDFBoolOrBitData(dt, data)
-    case DFDecimal.Token(dt, data)   => csDFDecimalData(dt, data)
-    case DFEnum.Token(dt, data)      => csDFEnumData(dt, data)
-    case DFVector.Token(dt, data)    => csDFVectorData(dt, data)
-    case DFOpaque.Token(dt, data)    => csDFOpaqueData(dt, data)
-    case DFStruct.Token(dt, data)    => csDFStructData(dt, data)
-    case x =>
-      throw new IllegalArgumentException(
-        s"Unexpected token found: $x"
-      )
   def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String =
     tokenSeq.map(csDFToken).mkStringBrackets
 end DFTokenPrinter

@@ -6,7 +6,19 @@ import DFiant.internals.*
 import DFVal.*
 import DFiant.compiler.ir.AlwaysBlock.Sensitivity
 import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
-protected trait DFOwnerPrinter extends AbstractPrinter:
+
+protected trait AbstractOwnerPrinter extends AbstractPrinter:
+  def csDFMembers(members: List[DFMember], lateConstruction: Boolean): String
+  def csDFDesignBlockDcl(design: DFDesignBlock): String
+  def csDFDesignBlockInst(design: DFDesignBlock): String
+  def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String
+  def csDFCasePattern(pattern: DFConditional.DFCaseBlock.Pattern): String
+  def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock): String
+  def csDFConditionalBlock(cb: DFConditional.Block): String
+  def csDFConditional(ch: DFConditional.Header): String
+  def csAlwaysBlock(ab: AlwaysBlock): String
+
+protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   private def csDFOwnerBody(owner: DFOwner, lateConstruction: Boolean): String =
     csDFMembers(owner.members(MemberView.Folded), lateConstruction)
   def csDFMembers(

@@ -6,8 +6,40 @@ import DFVal.*
 import analysis.*
 
 extension [M <: DFMember](ref: DFRef.TwoWay[M])
-  def refCodeString(using printer: DFValPrinter): String =
-    import printer.getSet
+  def refCodeString(using printer: DFValPrinter): String = printer.csRef(ref)
+  def simpleRefCodeString(using printer: DFValPrinter): String = printer.csSimpleRef(ref)
+
+extension (alias: Alias)
+  def relValCodeString(using printer: DFValPrinter): String = printer.csRelVal(alias)
+
+trait AbstractValPrinter extends AbstractPrinter:
+  final def csSimpleRef(ref: DFRef.TwoWayAny): String =
+    ref.get match
+      case DFVal.Const(DFDecimal.Token(_, Some(i)), _, _, _) => i.toString
+      case _                                                 => ref.refCodeString
+  def csRef(ref: DFRef.TwoWayAny): String
+  final def csRelVal(alias: Alias): String =
+    alias.relValRef.refCodeString.applyBrackets()
+  def csDFValConst(dfVal: Const): String
+  def csDFValConstRef(dfVal: Const): String
+  def csDFValDcl(dfVal: Dcl): String
+  def csDFValFuncRef(dfVal: Func): String
+  def csDFValAliasAsIs(dfVal: Alias.AsIs): String
+  def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String
+  def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String
+  def csDFValAliasSelectField(dfVal: Alias.SelectField): String
+  def csDFValAliasHistory(dfVal: Alias.History): String
+  final def csDFValAliasRef(dfVal: Alias): String = dfVal match
+    case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
+    case dv: Alias.History     => csDFValAliasHistory(dv)
+    case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
+    case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
+    case dv: Alias.SelectField => csDFValAliasSelectField(dv)
+  def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner]): String
+end AbstractValPrinter
+
+protected trait DFValPrinter extends AbstractValPrinter:
+  def csRef(ref: DFRef.TwoWayAny): String =
     val member = ref.get
     val callOwner = ref.originRef.get.getOwner
     member match
@@ -20,18 +52,6 @@ extension [M <: DFMember](ref: DFRef.TwoWay[M])
       case named: DFMember.Named =>
         named.name
       case _ => throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
-  def simpleRefCodeString(using printer: DFValPrinter): String =
-    import printer.getSet
-    ref.get match
-      case DFVal.Const(DFDecimal.Token(_, Some(i)), _, _, _) => i.toString
-      case _                                                 => ref.refCodeString
-end extension
-
-extension (alias: Alias)
-  def relValCodeString(using printer: DFValPrinter): String =
-    alias.relValRef.refCodeString.applyBrackets()
-
-protected trait DFValPrinter extends AbstractPrinter:
   def csDFValConst(dfVal: Const): String =
     s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
   def csDFValConstRef(dfVal: Const): String =
@@ -157,12 +177,6 @@ protected trait DFValPrinter extends AbstractPrinter:
       if (dfVal.step == 1) opStr
       else s"$opStr(${dfVal.step})"
     s"${dfVal.relValCodeString}$appliedStr"
-  def csDFValAliasRef(dfVal: Alias): String = dfVal match
-    case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
-    case dv: Alias.History     => csDFValAliasHistory(dv)
-    case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
-    case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
-    case dv: Alias.SelectField => csDFValAliasSelectField(dv)
   def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner]): String =
     def typeAnnot = dfVal match
       case dv: DFConditional.Header if dv.dfType != NoType =>
