@@ -197,3 +197,7 @@ extension [K, V](m: Map[K, V])
     m.foldLeft(Map.empty[V, Set[K]]) { case (acc, (k, v)) =>
       acc + (v -> (acc.getOrElse(v, Set()) + k))
     }
+
+extension (str: String)
+  def emptyOr(f: String => String): String =
+    if (str.isEmpty) str else f(str)

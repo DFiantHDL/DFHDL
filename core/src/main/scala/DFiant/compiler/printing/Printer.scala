@@ -1,6 +1,7 @@
 package DFiant.compiler
 package printing
 import ir.*
+import DFiant.internals.*
 import scala.collection.mutable
 import analysis.*
 
@@ -58,16 +59,12 @@ class Printer(using val getSet: MemberGetSet)
         .map(printer.csNamedDFTypeDcl)
         .mkString("\n")
     val codeStringList = db.designMemberList.flatMap {
-//      case (DFDesign.Block.Internal(_,_,_,Some(_)), _) => None
-//      case (d @ realtime.RTExternal.Block(), _) => None
       case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.dclName) =>
         uniqueDesigns += block.dclName
         Some(csDFDesignBlockDcl(block))
       case _ => None
     }
-    val globalDclsLE = if (globalDcls.isEmpty) "" else s"$globalDcls\n\n"
-//    (globalEnumString ++ codeStringList).mkString(s"\n$EMPTY\n").formatted
-    s"$globalDclsLE${codeStringList.mkString("\n\n")}"
+    s"${globalDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}"
   end csDB
 end Printer
 
