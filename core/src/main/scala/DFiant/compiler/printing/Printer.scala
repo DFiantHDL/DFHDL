@@ -9,13 +9,44 @@ protected trait AbstractPrinter:
   given printer: Printer
   given getSet: MemberGetSet
 
-class Printer(using val getSet: MemberGetSet)
-    extends DFTypePrinter,
+trait Printer
+    extends AbstractTypePrinter,
+      AbstractTokenPrinter,
+      AbstractValPrinter,
+      AbstractOwnerPrinter:
+  given printer: Printer = this
+  val showNetDirection: Boolean = true
+  def csDFNet(net: DFNet): String
+
+  final def csDFMember(member: DFMember): String = member match
+    case dfVal: DFVal          => csDFVal(dfVal, None)
+    case net: DFNet            => csDFNet(net)
+    case design: DFDesignBlock => csDFDesignBlockInst(design)
+    case ab: AlwaysBlock       => csAlwaysBlock(ab)
+    case _                     => ???
+  final def csDB(db: DB): String =
+    import db.getSet
+    val uniqueDesigns = mutable.Set.empty[String]
+    val globalDcls =
+      db.getGlobalNamedDFTypes.toList
+        .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
+        .map(printer.csNamedDFTypeDcl)
+        .mkString("\n")
+    val codeStringList = db.designMemberList.collect {
+      case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.dclName) =>
+        uniqueDesigns += block.dclName
+        csDFDesignBlockDcl(block)
+    }
+    s"${globalDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}"
+  end csDB
+end Printer
+
+class DFPrinter(using val getSet: MemberGetSet)
+    extends Printer,
+      DFTypePrinter,
       DFTokenPrinter,
       DFValPrinter,
       DFOwnerPrinter:
-  given printer: Printer = this
-  val showNetDirection: Boolean = true
   def csDFNet(net: DFNet): String =
     // true if the net is a late construction and the RHS is the internal port,
     // so we need to swap positions since we always present the internal on the left side.
@@ -43,30 +74,7 @@ class Printer(using val getSet: MemberGetSet)
       else (lhsRef.refCodeString, rhsRef.refCodeString)
     s"$lhsThis$leftStr $opStr $rightStr"
   end csDFNet
-
-  def csDFMember(member: DFMember): String = member match
-    case dfVal: DFVal          => csDFVal(dfVal, None)
-    case net: DFNet            => csDFNet(net)
-    case design: DFDesignBlock => csDFDesignBlockInst(design)
-    case ab: AlwaysBlock       => csAlwaysBlock(ab)
-    case _                     => ???
-  def csDB(db: DB): String =
-    import db.getSet
-    val uniqueDesigns = mutable.Set.empty[String]
-    val globalDcls =
-      db.getGlobalNamedDFTypes.toList
-        .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
-        .map(printer.csNamedDFTypeDcl)
-        .mkString("\n")
-    val codeStringList = db.designMemberList.flatMap {
-      case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.dclName) =>
-        uniqueDesigns += block.dclName
-        Some(csDFDesignBlockDcl(block))
-      case _ => None
-    }
-    s"${globalDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}"
-  end csDB
-end Printer
+end DFPrinter
 
 extension (member: DFMember)(using printer: Printer)
   def codeString: String =
@@ -81,4 +89,4 @@ extension (token: DFTokenAny)(using printer: DFTokenPrinter)
   def codeString: String =
     printer.csDFToken(token)
 
-def DefaultPrinter(using MemberGetSet): Printer = new Printer
+def DefaultPrinter(using MemberGetSet): Printer = new DFPrinter

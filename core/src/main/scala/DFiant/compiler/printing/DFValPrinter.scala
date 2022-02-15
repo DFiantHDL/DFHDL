@@ -6,11 +6,11 @@ import DFVal.*
 import analysis.*
 
 extension [M <: DFMember](ref: DFRef.TwoWay[M])
-  def refCodeString(using printer: DFValPrinter): String = printer.csRef(ref)
-  def simpleRefCodeString(using printer: DFValPrinter): String = printer.csSimpleRef(ref)
+  def refCodeString(using printer: AbstractValPrinter): String = printer.csRef(ref)
+  def simpleRefCodeString(using printer: AbstractValPrinter): String = printer.csSimpleRef(ref)
 
 extension (alias: Alias)
-  def relValCodeString(using printer: DFValPrinter): String = printer.csRelVal(alias)
+  def relValCodeString(using printer: AbstractValPrinter): String = printer.csRelVal(alias)
 
 trait AbstractValPrinter extends AbstractPrinter:
   final def csSimpleRef(ref: DFRef.TwoWayAny): String =
