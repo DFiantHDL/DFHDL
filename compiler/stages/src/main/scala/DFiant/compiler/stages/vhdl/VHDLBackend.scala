@@ -7,12 +7,14 @@ import DFiant.compiler.printing.*
 
 private class VHDLBackend(db: DB) extends Stage(db):
   override protected def preTransform: DB =
-    db.toLLRT
+    val updatedDB = db.dropUnreferenced.uniqueDesigns
+    val designNames = updatedDB.members.collect { case block: DFDesignBlock => block.dclName }
+    updatedDB.uniqueNames(designNames.toSet, caseSensitive = true) // .toLLRT
   override def transform: DB =
     println(toVHDL)
     designDB
   def toVHDL: String =
-    given Printer = DefaultPrinter
+    given Printer = new RTPrinter
     designDB.codeString
 
 extension [T: HasDB](t: T)

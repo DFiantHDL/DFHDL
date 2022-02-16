@@ -41,8 +41,10 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
       .map(_.codeString)
       .filter(_.nonEmpty)
       .mkString("\n")
-  val useStdSimLibrary: Boolean
-  val packageName: String
+  val useStdSimLibrary: Boolean = true
+  def fileSuffix = "vhdl"
+  def packageName: String =
+    s"${getSet.designDB.top.name}_pkg.$fileSuffix"
   def csLibrary(inSimulation: Boolean): String =
     val default =
       s"""library ieee;
@@ -56,7 +58,19 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
          |use std.env.all;""".stripMargin
     else default
   def csEntityDcl(design: DFDesignBlock): String =
-    ""
+    val ports = design
+      .members(MemberView.Folded)
+      .view
+      .collect {
+        case p: DFVal.Dcl if p.isPort => printer.csDFValDcl(p)
+      }
+      .mkString(";\n")
+    val portBlock = ports.emptyOr(v => s"""
+         |port (
+         |${ports.indent()}
+         |);""".stripMargin)
+    s"""entity ${design.name} is$portBlock
+       |end ${design.name};""".stripMargin
   def csArchitectureDcl(design: DFDesignBlock): String =
     val localDcls = printer.csLocalTypeDcls(design)
     ""

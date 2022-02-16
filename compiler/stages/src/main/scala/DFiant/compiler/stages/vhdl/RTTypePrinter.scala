@@ -1,49 +1,10 @@
-package DFiant.compiler
-package printing
-import ir.*
+package DFiant.compiler.stages.vhdl
+import DFiant.compiler.printing.*
+import DFiant.compiler.ir.*
+import DFiant.compiler.analysis.*
 import DFiant.internals.*
 
-trait AbstractTypePrinter extends AbstractPrinter:
-  def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String
-  def csDFBits(dfType: DFBits, typeCS: Boolean): String
-  def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String
-  final def csNamedDFTypeDcl(dfType: NamedDFType): String =
-    dfType match
-      case dt: DFEnum   => csDFEnumDcl(dt)
-      case dt: DFOpaque => csDFOpaqueDcl(dt)
-      case dt: DFStruct => csDFStructDcl(dt)
-  final def csGlobalTypeDcls: String =
-    getSet.designDB.getGlobalNamedDFTypes.toList
-      .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
-      .map(printer.csNamedDFTypeDcl)
-      .mkString("\n")
-  final def csLocalTypeDcls(design: DFDesignBlock): String =
-    getSet.designDB
-      .getLocalNamedDFTypes(design)
-      .toList
-      .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
-      .map(printer.csNamedDFTypeDcl)
-      .mkString("\n")
-  def csDFEnumDcl(dfType: DFEnum): String
-  def csDFEnum(dfType: DFEnum, typeCS: Boolean): String
-  def csDFVector(dfType: DFVector, typeCS: Boolean): String
-  def csDFOpaqueDcl(dfType: DFOpaque): String
-  def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String
-  def csDFStructDcl(dfType: DFStruct): String
-  def csDFStruct(dfType: DFStruct, typeCS: Boolean): String
-  def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String
-  final def csDFType(dfType: DFType, typeCS: Boolean = false): String = dfType match
-    case dt: DFBoolOrBit => csDFBoolOrBit(dt, typeCS)
-    case dt: DFBits      => csDFBits(dt, typeCS)
-    case dt: DFDecimal   => csDFDecimal(dt, typeCS)
-    case dt: DFEnum      => csDFEnum(dt, typeCS)
-    case dt: DFVector    => csDFVector(dt, typeCS)
-    case dt: DFOpaque    => csDFOpaque(dt, typeCS)
-    case dt: DFStruct    => csDFStruct(dt, typeCS)
-    case NoType          => NoType.noTypeErr
-end AbstractTypePrinter
-
-protected trait DFTypePrinter extends AbstractTypePrinter:
+protected trait RTTypePrinter extends AbstractTypePrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = dfType match
     case DFBool => "DFBool"
     case DFBit  => "DFBit"
@@ -88,4 +49,4 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     else dfType.getName
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
-end DFTypePrinter
+end RTTypePrinter

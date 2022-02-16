@@ -6,7 +6,8 @@ import scala.collection.mutable
 import analysis.*
 
 protected trait AbstractPrinter:
-  given printer: Printer
+  type TPrinter <: Printer
+  given printer: TPrinter
   given getSet: MemberGetSet
 
 trait Printer
@@ -14,7 +15,8 @@ trait Printer
       AbstractTokenPrinter,
       AbstractValPrinter,
       AbstractOwnerPrinter:
-  given printer: Printer = this
+  type TPrinter = Printer
+  given printer: TPrinter = this
   val showNetDirection: Boolean = true
   def csDFNet(net: DFNet): String
 
