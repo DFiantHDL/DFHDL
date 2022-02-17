@@ -44,7 +44,7 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
   val useStdSimLibrary: Boolean = true
   def fileSuffix = "vhdl"
   def packageName: String =
-    s"${getSet.designDB.top.name}_pkg.$fileSuffix"
+    s"${getSet.designDB.top.dclName}_pkg"
   def csLibrary(inSimulation: Boolean): String =
     val default =
       s"""library ieee;
@@ -57,23 +57,36 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
          |library std;
          |use std.env.all;""".stripMargin
     else default
+  def entityName(design: DFDesignBlock): String = design.dclName
   def csEntityDcl(design: DFDesignBlock): String =
     val ports = design
       .members(MemberView.Folded)
       .view
       .collect {
-        case p: DFVal.Dcl if p.isPort => printer.csDFValDcl(p)
+        case p: DFVal.Dcl if p.isPort => printer.csDFVal(p, None)
       }
       .mkString(";\n")
     val portBlock = ports.emptyOr(v => s"""
          |port (
          |${ports.indent()}
          |);""".stripMargin)
-    s"""entity ${design.name} is$portBlock
-       |end ${design.name};""".stripMargin
+    s"""entity ${entityName(design)} is$portBlock
+       |end ${entityName(design)};""".stripMargin
+  def archName(design: DFDesignBlock): String = s"${design.dclName}_arch"
   def csArchitectureDcl(design: DFDesignBlock): String =
-    val localDcls = printer.csLocalTypeDcls(design)
-    ""
+    val localTypeDcls = printer.csLocalTypeDcls(design)
+    val dfValDcls = design
+      .members(MemberView.Folded)
+      .view
+      .collect {
+        case p: DFVal.Dcl if p.isVar          => p
+        case c: DFVal.Const if !c.isAnonymous => c
+      }
+      .map(printer.csDFVal(_, None))
+      .mkString("\n")
+    val declarations = s"$localTypeDcls$dfValDcls"
+    s"""architecture ${archName(design)} of ${design.dclName} is$declarations
+       |end ${archName(design)};""".stripMargin
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     s"""${csLibrary(design.inSimulation)}
        |

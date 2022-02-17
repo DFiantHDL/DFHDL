@@ -6,19 +6,17 @@ import DFiant.internals.*
 
 protected trait RTTypePrinter extends AbstractTypePrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = dfType match
-    case DFBool => "DFBool"
-    case DFBit  => "DFBit"
+    case DFBool => "boolean"
+    case DFBit  => "std_logic"
   def csDFBits(dfType: DFBits, typeCS: Boolean): String =
-    if (typeCS) s"DFBits[${dfType.width}]"
-    else s"DFBits(${dfType.width})"
+    s"std_logic_vector(${dfType.width - 1} downto 0)"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
-    val (ob, cb) = if (typeCS) ("[", "]") else ("(", ")")
     (signed, fractionWidth) match
-      case (false, 0) => s"DFUInt$ob$width$cb"
-      case (true, 0)  => s"DFSInt$ob$width$cb"
-      case (false, _) => s"DFUFix$ob$magnitudeWidth, $fractionWidth$cb"
-      case (true, _)  => s"DFSFix$ob$magnitudeWidth, $fractionWidth$cb"
+      case (false, 0) => s"unsigned(${width - 1} downto 0)"
+      case (true, 0)  => s"signed(${width - 1} downto 0)"
+      case (false, _) => ???
+      case (true, _)  => ???
 
   def csDFEnumDcl(dfType: DFEnum): String =
     val enumName = dfType.getName

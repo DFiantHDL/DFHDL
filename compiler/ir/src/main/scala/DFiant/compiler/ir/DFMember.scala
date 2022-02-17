@@ -141,10 +141,17 @@ object DFVal:
           case _: Modifier.Port => true
           case _                => false
       case _ => false
+    def isVar: Boolean = dfVal match
+      case dcl: DFVal.Dcl =>
+        dcl.modifier match
+          case Modifier.VAR => true
+          case _            => false
+      case _ => false
     @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl] = dfVal match
       case dcl: DFVal.Dcl     => Some(dcl)
       case alias: DFVal.Alias => alias.relValRef.get.dealias
       case _                  => None
+  end extension
 
   final case class Const(
       token: DFTokenAny,

@@ -20,7 +20,7 @@ protected trait RTValPrinter extends AbstractValPrinter:
   def csDFValConstRef(dfVal: Const): String =
     printer.csDFToken(dfVal.token)
   def csDFValDcl(dfVal: Dcl): String =
-    s": ${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
+    s"${printer.csDFType(dfVal.dfType)}"
 
   def csDFValFuncRef(dfVal: Func): String =
     dfVal.args match
@@ -142,7 +142,7 @@ protected trait RTValPrinter extends AbstractValPrinter:
       else s"$opStr(${dfVal.step})"
     s"${dfVal.relValCodeString}$appliedStr"
   def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner]): String =
-    def valDef = s"val ${dfVal.name} ="
+    def valDef = s"${dfVal.name} :"
     def rhs = dfVal match
       case dv: Dcl                  => csDFValDcl(dv)
       case dv: Const                => csDFValConst(dv)
@@ -150,10 +150,9 @@ protected trait RTValPrinter extends AbstractValPrinter:
       case dv: Alias                => csDFValAliasRef(dv)
       case dv: DFConditional.Header => printer.csDFConditional(dv)
     def rhsInit = dfVal.getTagOf[ExternalInit] match
-      case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
-        s"$rhs init ${printer.csDFTokenSeq(initSeq)}"
+      case Some(ExternalInit(initSeq)) if initSeq.size > 1 => ???
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
-        s"$rhs init ${printer.csDFToken(initSeq.head)}"
+        s"$rhs := ${printer.csDFToken(initSeq.head)}"
       case _ => rhs
     (dfVal, fromOwner) match
       case (c: Const, Some(_)) if c.isAnonymous => csDFValConstRef(c)
