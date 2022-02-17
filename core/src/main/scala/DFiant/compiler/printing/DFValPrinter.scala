@@ -70,9 +70,9 @@ protected trait DFValPrinter extends AbstractValPrinter:
     val noInit = s"${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
     dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
-        s"$noInit := ${printer.csDFTokenSeq(initSeq)}"
+        s"$noInit init ${printer.csDFTokenSeq(initSeq)}"
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
-        s"$noInit := ${printer.csDFToken(initSeq.head)}"
+        s"$noInit init ${printer.csDFToken(initSeq.head)}"
       case _ => noInit
 
   def csDFValFuncExpr(dfVal: Func): String =
