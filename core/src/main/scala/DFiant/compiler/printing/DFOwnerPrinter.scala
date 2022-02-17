@@ -8,7 +8,44 @@ import DFiant.compiler.ir.AlwaysBlock.Sensitivity
 import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
 
 trait AbstractOwnerPrinter extends AbstractPrinter:
-  def csDFMembers(members: List[DFMember], lateConstruction: Boolean): String
+  final def csDFOwnerBody(owner: DFOwner): String =
+    csDFMembers(owner.members(MemberView.Folded))
+  final def csDFMembers(members: List[DFMember]): String =
+    members.view
+      // selecting viewable members:
+      .filter {
+        // excluding binds
+        case Bind(_) => false
+        // an ident placeholder (can be anonymous)
+        case Ident(_) => true
+        // named members
+        case m: DFMember.Named if !m.isAnonymous => true
+        // including only nets that are not lateConstruction
+        case net: DFNet => !net.lateConstruction
+        // including only conditional statements (no type) headers
+        case ch: DFConditional.Header => ch.dfType == NoType
+        // always blocks
+        case ab: AlwaysBlock => true
+        // the rest are not directly viewable
+        case _ => false
+      }
+      .map(_.codeString)
+      .filter(_.nonEmpty)
+      .mkString("\n")
+  final def csDFOwnerLateBody(owner: DFOwner): String =
+    owner
+      .members(MemberView.Folded)
+      .view
+      // selecting viewable members:
+      .filter {
+        // late construction nets
+        case net: DFNet => net.lateConstruction
+        // the rest are not directly viewable
+        case _ => false
+      }
+      .map(_.codeString)
+      .filter(_.nonEmpty)
+      .mkString("\n")
   def csDFDesignBlockDcl(design: DFDesignBlock): String
   def csDFDesignBlockInst(design: DFDesignBlock): String
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String
@@ -17,44 +54,12 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFConditionalBlock(cb: DFConditional.Block): String
   def csDFConditional(ch: DFConditional.Header): String
   def csAlwaysBlock(ab: AlwaysBlock): String
+end AbstractOwnerPrinter
 
 protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
-  private def csDFOwnerBody(owner: DFOwner, lateConstruction: Boolean): String =
-    csDFMembers(owner.members(MemberView.Folded), lateConstruction)
-  def csDFMembers(
-      members: List[DFMember],
-      lateConstruction: Boolean
-  ): String =
-    members.view
-      // only members that match the requested construction mode
-      .filter {
-        case n: DFNet => n.lateConstruction == lateConstruction
-        case _        => !lateConstruction
-      }
-      // exclude bind members
-      .filter {
-        case Bind(_) => false
-        case _       => true
-      }
-      // only members the following members are accepted:
-      .collect {
-        // an ident placeholder (can be anonymous)
-        case m @ Ident(_) => m
-        // named members
-        case m: DFMember.Named if !m.isAnonymous => m
-        // nets
-        case net: DFNet => net
-        // conditional headers
-        case ch: DFConditional.Header if ch.dfType == NoType => ch
-        // always block
-        case ab: AlwaysBlock => ab
-      }
-      .map(_.codeString)
-      .filter(_.nonEmpty)
-      .mkString("\n")
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     val localDcls = printer.csLocalTypeDcls(design)
-    val body = csDFOwnerBody(design, false)
+    val body = csDFOwnerBody(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val dsnCls = design.domain match
       case Domain.DF => "DFDesign"
@@ -63,7 +68,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.indent(1)}\nend ${design.dclName}"
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
-    val body = csDFOwnerBody(design, true)
+    val body = csDFOwnerLateBody(design)
     val inst = s"val ${design.name} = new ${design.dclName}"
     if (body.isEmpty) inst else s"$inst:\n${body.indent(1)}"
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
@@ -103,7 +108,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
         case _              => s"if ${caseBlock.guardRef.refCodeString} "
     s"case ${csDFCasePattern(caseBlock.pattern)} ${csGuard}=>"
   def csDFConditionalBlock(cb: DFConditional.Block): String =
-    val body = csDFOwnerBody(cb, false)
+    val body = csDFOwnerBody(cb)
     val statement = cb match
       case caseBlock: DFConditional.DFCaseBlock => csDFCaseStatement(caseBlock)
       case ifBlock: DFConditional.DFIfElseBlock => csDFIfElseStatement(ifBlock)
@@ -123,7 +128,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case ih: DFConditional.DFIfHeader => csChains
   end csDFConditional
   def csAlwaysBlock(ab: AlwaysBlock): String =
-    val body = csDFOwnerBody(ab, false)
+    val body = csDFOwnerBody(ab)
     val named = ab.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val senList = ab.sensitivity match
       case Sensitivity.All        => ".all"
