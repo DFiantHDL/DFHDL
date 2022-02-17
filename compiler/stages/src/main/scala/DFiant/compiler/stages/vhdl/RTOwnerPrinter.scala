@@ -30,7 +30,7 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
       .members(MemberView.Folded)
       .view
       .collect {
-        case p: DFVal.Dcl if p.isPort => printer.csDFVal(p, None)
+        case p: DFVal.Dcl if p.isPort => printer.csDFValNamed(p)
       }
       .mkString(";\n")
     val portBlock = ports.emptyOr(v => s"""
@@ -49,7 +49,7 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
           case p: DFVal.Dcl if p.isVar          => p
           case c: DFVal.Const if !c.isAnonymous => c
         }
-        .map(printer.csDFVal(_, None))
+        .map(printer.csDFValNamed)
         .mkString("\n")
     val declarations = s"$localTypeDcls$dfValDcls"
     val statements = csDFMembers(designMembers.filter {

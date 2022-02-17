@@ -21,11 +21,12 @@ trait Printer
   def csDFNet(net: DFNet): String
 
   final def csDFMember(member: DFMember): String = member match
-    case dfVal: DFVal          => csDFVal(dfVal, None)
-    case net: DFNet            => csDFNet(net)
-    case design: DFDesignBlock => csDFDesignBlockInst(design)
-    case ab: AlwaysBlock       => csAlwaysBlock(ab)
-    case _                     => ???
+    case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
+    case dfVal: DFVal                                => csDFValNamed(dfVal)
+    case net: DFNet                                  => csDFNet(net)
+    case design: DFDesignBlock                       => csDFDesignBlockInst(design)
+    case ab: AlwaysBlock                             => csAlwaysBlock(ab)
+    case _                                           => ???
   final def csDB(db: DB): String =
     import db.getSet
     val uniqueDesigns = mutable.Set.empty[String]

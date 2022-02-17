@@ -108,8 +108,6 @@ object DFMember:
         val ctxChain = designOwner.getOwnerChain
         ??? // TODO
   end Named
-
-  sealed trait NamedOrAnonymous extends Named
 end DFMember
 
 sealed trait DFVal extends DFMember.Named:
@@ -153,13 +151,15 @@ object DFVal:
       case _                  => None
   end extension
 
+  // can be an expression
+  sealed trait CanBeExpr extends DFVal with DFMember.Named
+
   final case class Const(
       token: DFTokenAny,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends DFVal,
-        DFMember.NamedOrAnonymous:
+  ) extends CanBeExpr:
     val dfType = token.dfType
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
@@ -194,8 +194,7 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends DFVal,
-        DFMember.NamedOrAnonymous:
+  ) extends CanBeExpr:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
         this.dfType == that.dfType && this.op == that.op && (this.args
@@ -214,7 +213,7 @@ object DFVal:
       case unary_-, unary_~, unary_!
       case rising, falling
 
-  sealed trait Alias extends DFVal, DFMember.NamedOrAnonymous:
+  sealed trait Alias extends CanBeExpr:
     val relValRef: DFVal.Ref
 
   object Alias:
@@ -450,7 +449,7 @@ object DFConditional:
     type Ref = DFRef.TwoWay[Block | Header]
     type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty]
 
-  sealed trait Header extends DFVal
+  sealed trait Header extends DFVal.CanBeExpr
 
   final case class DFMatchHeader(
       dfType: DFType,

@@ -11,18 +11,28 @@ protected trait RTValPrinter extends AbstractValPrinter:
     val callOwner = ref.originRef.get.getOwner
     member match
       case dfVal: DFVal =>
-        printer.csDFVal(dfVal, Some(callOwner))
+        printer.csDFValRef(dfVal, callOwner)
       case named: DFMember.Named =>
         named.name
       case _ => throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
-  def csDFValConst(dfVal: Const): String =
-    s": ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)}"
-  def csDFValConstRef(dfVal: Const): String =
+  def csDFValConstDcl(dfVal: Const): String =
+    s"constant ${dfVal.name} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)};"
+  def csDFValConstExpr(dfVal: Const): String =
     printer.csDFToken(dfVal.token)
   def csDFValDcl(dfVal: Dcl): String =
-    s"${printer.csDFType(dfVal.dfType)}"
+    val dfTypeStr = printer.csDFType(dfVal.dfType)
+    val (noInit, endLine) =
+      if (dfVal.isPort) (s"${dfVal.name} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr", "")
+      else
+        val sigOrVar = "signal"
+        (s"$sigOrVar ${dfVal.name} : $dfTypeStr", ";")
+    dfVal.getTagOf[ExternalInit] match
+      case Some(ExternalInit(initSeq)) if initSeq.size > 1 => ???
+      case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
+        s"$noInit := ${printer.csDFToken(initSeq.head)}$endLine"
+      case _ => s"$noInit$endLine"
 
-  def csDFValFuncRef(dfVal: Func): String =
+  def csDFValFuncExpr(dfVal: Func): String =
     dfVal.args match
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
@@ -84,7 +94,7 @@ protected trait RTValPrinter extends AbstractValPrinter:
         // an ident is used as a placeholder and therefore does not require
         // applying brackets
         val callOwner = dfVal.relValRef.originRef.get.getOwner
-        printer.csDFVal(relVal, Some(callOwner))
+        printer.csDFValRef(relVal, callOwner)
       case (DFSInt(tWidth), DFUInt(fWidth)) =>
         assert(tWidth == fWidth + 1)
         s"${relValStr}.signed"
@@ -141,29 +151,10 @@ protected trait RTValPrinter extends AbstractValPrinter:
       if (dfVal.step == 1) opStr
       else s"$opStr(${dfVal.step})"
     s"${dfVal.relValCodeString}$appliedStr"
-  def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner]): String =
-    def valDef = s"${dfVal.name} :"
-    def rhs = dfVal match
-      case dv: Dcl                  => csDFValDcl(dv)
-      case dv: Const                => csDFValConst(dv)
-      case dv: Func                 => csDFValFuncRef(dv)
-      case dv: Alias                => csDFValAliasRef(dv)
-      case dv: DFConditional.Header => printer.csDFConditional(dv)
-    def rhsInit = dfVal.getTagOf[ExternalInit] match
-      case Some(ExternalInit(initSeq)) if initSeq.size > 1 => ???
-      case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
-        s"$rhs := ${printer.csDFToken(initSeq.head)}"
-      case _ => rhs
-    (dfVal, fromOwner) match
-      case (c: Const, Some(_)) if c.isAnonymous => csDFValConstRef(c)
-      case (dv, Some(owner)) if !dv.isAnonymous =>
-        dfVal.getRelativeName(owner)
-      case (dv, None) if !dv.isAnonymous =>
-        val rhsInitVal = rhsInit
-        val indentRHS =
-          if (rhsInitVal.contains("\n")) s"\n${rhsInitVal.indent}"
-          else s" ${rhsInitVal}"
-        s"$valDef$indentRHS"
-      case _ => rhsInit
-  end csDFVal
+  def csDFValNamed(dfVal: DFVal): String =
+    dfVal match
+      case dcl: DFVal.Dcl        => csDFValDcl(dcl)
+      case c: DFVal.Const        => csDFValConstDcl(c)
+      case expr: DFVal.CanBeExpr => csDFValExpr(expr)
+  end csDFValNamed
 end RTValPrinter

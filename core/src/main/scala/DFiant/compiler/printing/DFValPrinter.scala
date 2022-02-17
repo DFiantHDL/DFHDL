@@ -20,22 +20,32 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csRef(ref: DFRef.TwoWayAny): String
   final def csRelVal(alias: Alias): String =
     alias.relValRef.refCodeString.applyBrackets()
-  def csDFValConst(dfVal: Const): String
-  def csDFValConstRef(dfVal: Const): String
+  def csDFValConstDcl(dfVal: Const): String
+  def csDFValConstExpr(dfVal: Const): String
   def csDFValDcl(dfVal: Dcl): String
-  def csDFValFuncRef(dfVal: Func): String
+  def csDFValFuncExpr(dfVal: Func): String
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String
   def csDFValAliasHistory(dfVal: Alias.History): String
-  final def csDFValAliasRef(dfVal: Alias): String = dfVal match
+  final def csDFValAliasExpr(dfVal: Alias): String = dfVal match
     case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
     case dv: Alias.History     => csDFValAliasHistory(dv)
     case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
     case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
     case dv: Alias.SelectField => csDFValAliasSelectField(dv)
-  def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner]): String
+  final def csDFValExpr(dfValExpr: DFVal.CanBeExpr): String =
+    dfValExpr match
+      case dv: Const                => csDFValConstExpr(dv)
+      case dv: Func                 => csDFValFuncExpr(dv)
+      case dv: Alias                => csDFValAliasExpr(dv)
+      case dv: DFConditional.Header => printer.csDFConditional(dv)
+  def csDFValNamed(dfVal: DFVal): String
+  final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner): String =
+    dfVal match
+      case expr: CanBeExpr if expr.isAnonymous => csDFValExpr(expr)
+      case _                                   => dfVal.getRelativeName(fromOwner)
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:
@@ -44,7 +54,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
     val callOwner = ref.originRef.get.getOwner
     member match
       case dfVal: DFVal =>
-        val cs = printer.csDFVal(dfVal, Some(callOwner))
+        val cs = printer.csDFValRef(dfVal, callOwner)
         dfVal match
           case ch: DFConditional.Header if ch.isAnonymous =>
             s"(${cs.applyBrackets()}: ${printer.printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
@@ -52,14 +62,20 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case named: DFMember.Named =>
         named.name
       case _ => throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
-  def csDFValConst(dfVal: Const): String =
+  def csDFValConstDcl(dfVal: Const): String =
     s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
-  def csDFValConstRef(dfVal: Const): String =
+  def csDFValConstExpr(dfVal: Const): String =
     printer.csDFToken(dfVal.token)
   def csDFValDcl(dfVal: Dcl): String =
-    s"${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
+    val noInit = s"${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
+    dfVal.getTagOf[ExternalInit] match
+      case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
+        s"$noInit := ${printer.csDFTokenSeq(initSeq)}"
+      case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
+        s"$noInit := ${printer.csDFToken(initSeq.head)}"
+      case _ => noInit
 
-  def csDFValFuncRef(dfVal: Func): String =
+  def csDFValFuncExpr(dfVal: Func): String =
     dfVal.args match
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
@@ -120,7 +136,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         // an ident is used as a placeholder and therefore does not require
         // applying brackets
         val callOwner = dfVal.relValRef.originRef.get.getOwner
-        printer.csDFVal(relVal, Some(callOwner))
+        printer.csDFValRef(relVal, callOwner)
       case (DFSInt(tWidth), DFUInt(fWidth)) =>
         assert(tWidth == fWidth + 1)
         s"${relValStr}.signed"
@@ -177,34 +193,19 @@ protected trait DFValPrinter extends AbstractValPrinter:
       if (dfVal.step == 1) opStr
       else s"$opStr(${dfVal.step})"
     s"${dfVal.relValCodeString}$appliedStr"
-  def csDFVal(dfVal: DFVal, fromOwner: Option[DFOwner]): String =
+  def csDFValNamed(dfVal: DFVal): String =
     def typeAnnot = dfVal match
       case dv: DFConditional.Header if dv.dfType != NoType =>
         s": ${printer.csDFType(dfVal.dfType, typeCS = true)} <> VAL"
       case _ => ""
     def valDef = s"val ${dfVal.name}$typeAnnot ="
-    def rhs = dfVal match
-      case dv: Dcl                  => csDFValDcl(dv)
-      case dv: Const                => csDFValConst(dv)
-      case dv: Func                 => csDFValFuncRef(dv)
-      case dv: Alias                => csDFValAliasRef(dv)
-      case dv: DFConditional.Header => printer.csDFConditional(dv)
-    def rhsInit = dfVal.getTagOf[ExternalInit] match
-      case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
-        s"$rhs init ${printer.csDFTokenSeq(initSeq)}"
-      case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
-        s"$rhs init ${printer.csDFToken(initSeq.head)}"
-      case _ => rhs
-    (dfVal, fromOwner) match
-      case (c: Const, Some(_)) if c.isAnonymous => csDFValConstRef(c)
-      case (dv, Some(owner)) if !dv.isAnonymous =>
-        dfVal.getRelativeName(owner)
-      case (dv, None) if !dv.isAnonymous =>
-        val rhsInitVal = rhsInit
-        val indentRHS =
-          if (rhsInitVal.contains("\n")) s"\n${rhsInitVal.indent}"
-          else s" ${rhsInitVal}"
-        s"$valDef$indentRHS"
-      case _ => rhsInit
-  end csDFVal
+    val rhs = dfVal match
+      case dcl: DFVal.Dcl        => csDFValDcl(dcl)
+      case c: DFVal.Const        => csDFValConstDcl(c)
+      case expr: DFVal.CanBeExpr => csDFValExpr(expr)
+    val indentRHS =
+      if (rhs.contains("\n")) s"\n${rhs.indent}"
+      else s" ${rhs}"
+    s"$valDef$indentRHS"
+  end csDFValNamed
 end DFValPrinter
