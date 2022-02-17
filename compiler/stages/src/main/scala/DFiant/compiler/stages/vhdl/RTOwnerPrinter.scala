@@ -35,25 +35,33 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
       .mkString(";\n")
     val portBlock = ports.emptyOr(v => s"""
          |port (
-         |${ports.indent()}
+         |${ports.indent}
          |);""".stripMargin)
     s"""entity ${entityName(design)} is$portBlock
        |end ${entityName(design)};""".stripMargin
   def archName(design: DFDesignBlock): String = s"${design.dclName}_arch"
   def csArchitectureDcl(design: DFDesignBlock): String =
     val localTypeDcls = printer.csLocalTypeDcls(design)
-    val dfValDcls = design
-      .members(MemberView.Folded)
-      .view
-      .collect {
-        case p: DFVal.Dcl if p.isVar          => p
-        case c: DFVal.Const if !c.isAnonymous => c
-      }
-      .map(printer.csDFVal(_, None))
-      .mkString("\n")
+    val designMembers = design.members(MemberView.Folded)
+    val dfValDcls =
+      designMembers.view
+        .collect {
+          case p: DFVal.Dcl if p.isVar          => p
+          case c: DFVal.Const if !c.isAnonymous => c
+        }
+        .map(printer.csDFVal(_, None))
+        .mkString("\n")
     val declarations = s"$localTypeDcls$dfValDcls"
+    val statements = csDFMembers(designMembers.filter {
+      case _: DFVal.Dcl   => false
+      case _: DFVal.Const => false
+      case _              => true
+    })
     s"""architecture ${archName(design)} of ${design.dclName} is$declarations
+       |begin
+       |${statements.indent}
        |end ${archName(design)};""".stripMargin
+  end csArchitectureDcl
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     s"""${csLibrary(design.inSimulation)}
        |
@@ -62,8 +70,8 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
        |${csArchitectureDcl(design)}""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
-    val inst = s"val ${design.name} = new ${design.dclName}"
-    if (body.isEmpty) inst else s"$inst:\n${body.indent(1)}"
+    val inst = s"${design.name} : entity work.${entityName(design)}(${archName(design)})"
+    if (body.isEmpty) s"$inst;" else s"$inst port map (\n${body.indent}\n);"
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
     ifBlock.prevBlockOrHeaderRef.get match
       case _: DFConditional.Header => s"if (${ifBlock.guardRef.refCodeString})"
@@ -106,7 +114,7 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
       case caseBlock: DFConditional.DFCaseBlock => csDFCaseStatement(caseBlock)
       case ifBlock: DFConditional.DFIfElseBlock => csDFIfElseStatement(ifBlock)
     val indentBody =
-      if (body.contains("\n")) s"\n${body.indent()}" else s" $body"
+      if (body.contains("\n")) s"\n${body.indent}" else s" $body"
     if (body.isEmpty) cb match
       case caseBlock: DFConditional.DFCaseBlock => statement
       case ifBlock: DFConditional.DFIfElseBlock => s"$statement {}"
@@ -117,7 +125,7 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"$csSelector match\n${csChains.indent()}"
+        s"$csSelector match\n${csChains.indent}"
       case ih: DFConditional.DFIfHeader => csChains
   end csDFConditional
   def csAlwaysBlock(ab: AlwaysBlock): String =
@@ -126,5 +134,5 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
     val senList = ab.sensitivity match
       case Sensitivity.All        => ".all"
       case Sensitivity.List(refs) => refs.map(_.refCodeString).mkStringBrackets
-    s"${named}always${senList} {\n${body.indent()}\n}"
+    s"${named}always${senList} {\n${body.indent}\n}"
 end RTOwnerPrinter

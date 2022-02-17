@@ -15,11 +15,12 @@ extension (text: String)
 
   def applyBrackets(onlyIfRequired: Boolean = true): String =
     if (text.requiresBrackets || (!onlyIfRequired && !text.hasBrackets))
-      if (text.contains("\n")) s"(\n${text.indent(1)}\n)"
+      if (text.contains("\n")) s"(\n${text.indent}\n)"
       else s"($text)"
     else text
 
-  def indent(count: Int = 1): String =
+  def indent: String = indent(1)
+  def indent(count: Int): String =
     text.linesIterator
       .map(l =>
         if (l.isEmpty) ""

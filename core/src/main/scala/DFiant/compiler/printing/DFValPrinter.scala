@@ -202,7 +202,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case (dv, None) if !dv.isAnonymous =>
         val rhsInitVal = rhsInit
         val indentRHS =
-          if (rhsInitVal.contains("\n")) s"\n${rhsInitVal.indent(1)}"
+          if (rhsInitVal.contains("\n")) s"\n${rhsInitVal.indent}"
           else s" ${rhsInitVal}"
         s"$valDef$indentRHS"
       case _ => rhsInit

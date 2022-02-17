@@ -65,12 +65,12 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case Domain.DF => "DFDesign"
       case _         => "RTDesign"
     val dcl = s"class ${design.dclName}(using DFC) extends $dsnCls"
-    if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.indent(1)}\nend ${design.dclName}"
+    if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.indent}\nend ${design.dclName}"
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
     val inst = s"val ${design.name} = new ${design.dclName}"
-    if (body.isEmpty) inst else s"$inst:\n${body.indent(1)}"
+    if (body.isEmpty) inst else s"$inst:\n${body.indent}"
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
     ifBlock.prevBlockOrHeaderRef.get match
       case _: DFConditional.Header => s"if (${ifBlock.guardRef.refCodeString})"
@@ -113,7 +113,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case caseBlock: DFConditional.DFCaseBlock => csDFCaseStatement(caseBlock)
       case ifBlock: DFConditional.DFIfElseBlock => csDFIfElseStatement(ifBlock)
     val indentBody =
-      if (body.contains("\n")) s"\n${body.indent()}" else s" $body"
+      if (body.contains("\n")) s"\n${body.indent}" else s" $body"
     if (body.isEmpty) cb match
       case caseBlock: DFConditional.DFCaseBlock => statement
       case ifBlock: DFConditional.DFIfElseBlock => s"$statement {}"
@@ -124,7 +124,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"$csSelector match\n${csChains.indent()}"
+        s"$csSelector match\n${csChains.indent}"
       case ih: DFConditional.DFIfHeader => csChains
   end csDFConditional
   def csAlwaysBlock(ab: AlwaysBlock): String =
@@ -133,5 +133,5 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val senList = ab.sensitivity match
       case Sensitivity.All        => ".all"
       case Sensitivity.List(refs) => refs.map(_.refCodeString).mkStringBrackets
-    s"${named}always${senList} {\n${body.indent()}\n}"
+    s"${named}always${senList} {\n${body.indent}\n}"
 end DFOwnerPrinter
