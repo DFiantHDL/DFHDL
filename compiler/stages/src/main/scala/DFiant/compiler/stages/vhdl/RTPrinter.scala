@@ -10,6 +10,11 @@ class RTPrinter(using val getSet: MemberGetSet)
       RTTokenPrinter,
       RTValPrinter,
       RTOwnerPrinter:
+  type TPrinter = RTPrinter
+  given printer: TPrinter = this
+  def unsupported: Nothing = throw new IllegalArgumentException(
+    "Unsupported member for this RTPrinter."
+  )
   def csDFNet(net: DFNet): String =
     // true if the net is a late construction and the RHS is the internal port,
     // so we need to swap positions since we always present the internal on the left side.

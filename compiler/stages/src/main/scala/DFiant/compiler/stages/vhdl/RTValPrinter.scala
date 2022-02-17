@@ -6,6 +6,7 @@ import DFiant.internals.*
 import DFVal.*
 
 protected trait RTValPrinter extends AbstractValPrinter:
+  type TPrinter <: RTPrinter
   def csRef(ref: DFRef.TwoWayAny): String =
     val member = ref.get
     val callOwner = ref.originRef.get.getOwner
@@ -27,7 +28,7 @@ protected trait RTValPrinter extends AbstractValPrinter:
         val sigOrVar = "signal"
         (s"$sigOrVar ${dfVal.name} : $dfTypeStr", ";")
     dfVal.getTagOf[ExternalInit] match
-      case Some(ExternalInit(initSeq)) if initSeq.size > 1 => ???
+      case Some(ExternalInit(initSeq)) if initSeq.size > 1 => printer.unsupported
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
         s"$noInit := ${printer.csDFToken(initSeq.head)}$endLine"
       case _ => s"$noInit$endLine"
@@ -142,15 +143,7 @@ protected trait RTValPrinter extends AbstractValPrinter:
         else s".${dfVal.fieldName}"
       else s".${dfVal.fieldName}"
     s"${dfVal.relValCodeString}$fieldSel"
-  def csDFValAliasHistory(dfVal: Alias.History): String =
-    val opStr = dfVal.op match
-      case Alias.History.Op.Prev => ".prev"
-      case Alias.History.Op.Pipe => ".pipe"
-      case Alias.History.Op.Reg  => ".reg"
-    val appliedStr =
-      if (dfVal.step == 1) opStr
-      else s"$opStr(${dfVal.step})"
-    s"${dfVal.relValCodeString}$appliedStr"
+  def csDFValAliasHistory(dfVal: Alias.History): String = printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
     dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)

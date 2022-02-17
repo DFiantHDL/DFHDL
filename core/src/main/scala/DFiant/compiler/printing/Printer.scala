@@ -15,8 +15,6 @@ trait Printer
       AbstractTokenPrinter,
       AbstractValPrinter,
       AbstractOwnerPrinter:
-  type TPrinter = Printer
-  given printer: TPrinter = this
   val showNetDirection: Boolean = true
   def csDFNet(net: DFNet): String
 
@@ -45,6 +43,8 @@ class DFPrinter(using val getSet: MemberGetSet)
       DFTokenPrinter,
       DFValPrinter,
       DFOwnerPrinter:
+  type TPrinter = DFPrinter
+  given printer: TPrinter = this
   def csDFNet(net: DFNet): String =
     // true if the net is a late construction and the RHS is the internal port,
     // so we need to swap positions since we always present the internal on the left side.
