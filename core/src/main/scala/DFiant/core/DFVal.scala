@@ -124,7 +124,6 @@ object DFVal:
   given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[Tuple, DFVal[T, M]] =
     CanEqual.derived
 
-  final val Modifier = DFiant.compiler.ir.DFVal.Modifier
   export CompanionsDFVal.Conversions.*
   export CompanionsDFVal.Extensions.*
   val Const = CompanionsDFVal.Const

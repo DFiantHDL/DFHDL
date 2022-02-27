@@ -1234,6 +1234,18 @@ object DFUInt:
       Width.Check[false, W]
   ): DFUInt[W] = DFXInt(false, width)
   def apply[W <: Int](using dfType: DFUInt[W]): DFUInt[W] = dfType
+  def until[V <: Int](sup: Inlined[V])(using
+      check: Arg.LargerThan1.Check[V],
+      info: IntInfo[V - 1]
+  ): DFUInt[info.OutW] =
+    check(sup)
+    DFXInt(false, info.width(sup - 1))
+  def max[V <: Int](max: Inlined[V])(using
+      check: Arg.Positive.Check[V],
+      info: IntInfo[V]
+  ): DFUInt[info.OutW] =
+    check(max)
+    DFXInt(false, info.width(max))
 
   protected object Unsigned
       extends Check1[

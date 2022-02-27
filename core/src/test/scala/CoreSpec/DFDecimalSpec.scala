@@ -37,9 +37,17 @@ class DFDecimalSpec extends DFSpec:
 
   val u7 = DFUInt(7)
   val s5 = DFSInt(5)
+  val until8 = DFUInt.until(8)
+  val until9 = DFUInt.until(9)
+  val max7 = DFUInt.max(7)
+  val max8 = DFUInt.max(8)
   test("Inlined width") {
     u7.width.verifyInlined(7)
     s5.width.verifyInlined(5)
+    until8.width.verifyInlined(3)
+    until9.width.verifyInlined(4)
+    max7.width.verifyInlined(3)
+    max8.width.verifyInlined(4)
   }
   test("Token Construction") {
     val t1 = (DFUInt(8) token 100).verifyTokenOf[DFUInt[8]]
