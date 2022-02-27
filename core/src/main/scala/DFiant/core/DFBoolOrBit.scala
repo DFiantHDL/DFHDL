@@ -1,6 +1,7 @@
 package DFiant.core
 import DFiant.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
+import ir.DFVal.Modifier.*
 import DFiant.internals.*
 
 import annotation.{implicitNotFound, targetName}

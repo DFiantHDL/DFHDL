@@ -123,14 +123,19 @@ object DFVal:
     sealed trait Initializable
     sealed trait Initialized
     sealed trait VAL extends Modifier[Any, Any, Any]
-    case object VAR extends Modifier[Assignable, Connectable, Initializable]
+    sealed trait VAR extends Modifier[Assignable, Connectable, Initializable]
+    case object VAR extends VAR
     sealed trait Port extends Modifier[Assignable, Connectable, Initializable]
-    case object IN extends Port
-    case object OUT extends Port
-    case object INOUT extends Port
+    sealed trait IN extends Port
+    case object IN extends IN
+    sealed trait OUT extends Port
+    case object OUT extends OUT
+    sealed trait INOUT extends Port
+    case object INOUT extends INOUT
 
     given [AL, CL, IL, AR, CR, IR]: CanEqual[Modifier[AL, CL, IL], Modifier[AR, CR, IR]] =
       CanEqual.derived
+  end Modifier
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match

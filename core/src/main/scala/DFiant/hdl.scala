@@ -1,5 +1,5 @@
 package DFiant
-
+import compiler.ir.DFVal.Modifier
 object hdl:
   export core.DFType.Ops.*
   export core.DFToken.Ops.*
@@ -46,10 +46,10 @@ object hdl:
   type DFDesign = core.DFDesign
   type RTDesign = core.RTDesign
 
-  val IN = core.IN
-  val OUT = core.OUT
-  val VAR = core.VAR
-  type VAL = core.VAL
+  val IN = Modifier.IN
+  val OUT = Modifier.OUT
+  val VAR = Modifier.VAR
+  type VAL = Modifier.VAL
   type TOKEN = core.TOKEN
   export core.<>
   export core.Always.Ops.*

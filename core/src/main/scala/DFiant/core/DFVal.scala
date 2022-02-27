@@ -2,6 +2,7 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 import DFiant.compiler.ir.DFVal.{Modifier, ModifierAny}
+import Modifier.*
 import ir.DFVal.Func.Op as FuncOp
 
 import scala.annotation.unchecked.uncheckedVariance
@@ -144,15 +145,6 @@ type DFValOf[+T <: DFTypeAny] = DFVal[T, ModifierAny]
 type DFVarOf[+T <: DFTypeAny] = DFVal[T, VAR]
 type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Port]
 
-val IN = Modifier.IN
-val OUT = Modifier.OUT
-private val INOUT = Modifier.INOUT
-val VAR = Modifier.VAR
-type VAL = Modifier.VAL
-type VAR = Modifier.VAR.type
-type IN = Modifier.IN.type
-type OUT = Modifier.OUT.type
-private type INOUT = Modifier.INOUT.type
 sealed trait TOKEN
 type <>[T <: DFType.Supported, M] = M match
   case VAL              => DFValOf[DFType.Of[T]]

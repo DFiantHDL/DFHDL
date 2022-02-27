@@ -1,8 +1,9 @@
 package DFiant.core
 import DFiant.internals.*
 import scala.quoted.*
-import DFiant.compiler.ir.DFVal.ModifierAny
+import DFiant.compiler.ir.DFVal.{Modifier, ModifierAny}
 import DFiant.compiler.ir
+import Modifier.*
 
 extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def showTuple(showf: quotes.reflect.TypeRepr => String): List[String] =
