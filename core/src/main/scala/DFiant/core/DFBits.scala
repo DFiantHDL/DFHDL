@@ -322,7 +322,7 @@ private object CompanionsDFBits:
           *     sequence, it is accepted only if the MSBits it is truncating are zeros. Otherwise, a
           *     compilation error is generated.
           * @example
-          * {{{
+          *   {{{
           *   b"1"        //value = 1
           *   b"1000"     //value = 1000
           *   b"8'1000"   //value = 00001000
@@ -330,7 +330,7 @@ private object CompanionsDFBits:
           *   b"3'1100"   //error
           *   b"1?11"     //value = 1?11 (? is a bubble bit)
           *   b"11_00"    //value = 1100
-          * }}}
+          *   }}}
           * @note
           *   The string interpolator currently does not accept external arguments with `\${arg}`
           * @return
@@ -355,7 +355,7 @@ private object CompanionsDFBits:
           *     sequence, it is accepted only if the MSBits it is truncating are zeros. Otherwise, a
           *     compilation error is generated.
           * @example
-          * {{{
+          *   {{{
           *   h"1"        //value = 0001
           *   h"27"       //value = 00100111
           *   h"6'27"     //value = 100111
@@ -363,7 +363,7 @@ private object CompanionsDFBits:
           *   h"2?"       //value = 0010????
           *   h"F{00}F"   //value = 1111001111
           *   h"3_3"      //value = 00110011
-          * }}}
+          *   }}}
           * @note
           *   The string interpolator currently does not accept external arguments with `\${arg}`
           * @return
@@ -660,7 +660,7 @@ private object CompanionsDFBits:
             [LW <: Int, RW <: Int] =>> LW == RW,
             [LW <: Int, RW <: Int] =>> "The argument width (" +
               ToString[RW] +
-              ") is different than the reciever width (" +
+              ") is different than the receiver width (" +
               ToString[LW] +
               ").\nConsider applying `.resize` to resolve this issue."
           ]

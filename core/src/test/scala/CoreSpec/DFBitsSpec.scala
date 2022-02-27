@@ -158,7 +158,7 @@ class DFBitsSpec extends DFSpec:
     val twelve = 12
     val v12 = DFBits(twelve) <> VAR
     assertDSLError(
-      """|The argument width (12) is different than the reciever width (8).
+      """|The argument width (12) is different than the receiver width (8).
          |Consider applying `.resize` to resolve this issue.""".stripMargin
     )(
       """b8 := h"123""""
