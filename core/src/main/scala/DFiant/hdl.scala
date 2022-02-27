@@ -64,11 +64,18 @@ object hdl:
     ): Boolean =
       ???
 
-  implicit def __refined_token[T <: core.FieldsOrTuple](
+  inline implicit def __refined_token[T <: core.FieldsOrTuple](
       token: core.DFToken[core.DFStruct[T]]
   )(using
       r: core.DFToken.Refiner[T]
   ): r.Out = token.asInstanceOf[r.Out]
+
+  inline implicit def __refined_dfVal[T <: core.FieldsOrTuple, A](
+      dfVal: core.DFVal[core.DFStruct[T], Modifier[A, Any, Any]]
+  )(using
+      r: core.DFVal.Refiner[T, A]
+  ): r.Out = dfVal.asInstanceOf[r.Out]
+
 end hdl
 
 export hdl.*
