@@ -39,9 +39,9 @@ final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val value: ir.DFVal)
 end DFVal
 
 type DFValAny = DFVal[DFTypeAny, ModifierAny]
-type DFVarAny = DFVal[DFTypeAny, VAR]
+type DFVarAny = DFVal[DFTypeAny, Modifier[Modifier.Assignable, Modifier.Connectable, Any]]
 type DFValOf[+T <: DFTypeAny] = DFVal[T, ModifierAny]
-type DFVarOf[+T <: DFTypeAny] = DFVal[T, VAR]
+type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier[Modifier.Assignable, Any, Any]]
 type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Port]
 
 sealed trait TOKEN
@@ -300,7 +300,17 @@ object DFVal:
             ir.DFTags.empty
           )
         alias.addMember.asValOf[T]
-
+    object RegDIN:
+      def apply[T <: DFTypeAny](relVal: DFValOf[T])(using DFC): DFVarOf[T] =
+        lazy val alias: ir.DFVal =
+          ir.DFVal.Alias.RegDIN(
+            relVal.dfType.asIR,
+            relVal.asIR.refTW(alias),
+            dfc.owner.ref,
+            dfc.getMeta,
+            ir.DFTags.empty
+          )
+        alias.addMember.asVarOf[T]
     object ApplyRange:
       def apply[W <: Int, M <: ModifierAny, H <: Int, L <: Int](
           relVal: DFVal[DFBits[W], M],
@@ -589,8 +599,16 @@ object DFVarOps:
         ],
         tc: DFVal.TC[T, R],
         dfc: DFC
-    ): Unit =
-      dfVar.assign(tc(dfVar.dfType, rhs))
+    ): Unit = dfVar.assign(tc(dfVar.dfType, rhs))
+    def din(using
+        regOnly: AssertGiven[
+          A =:= Modifier.RegRef,
+          "Can only reference `din` of a register. This value is not a register."
+        ],
+        dfc: DFC
+    ): DFVarOf[T] = DFVal.Alias.RegDIN(dfVar)
+  end extension
+end DFVarOps
 
 object DFPortOps:
   extension [T <: DFTypeAny, A, C, I](dfPort: DFVal[T, Modifier[A, C, I]])

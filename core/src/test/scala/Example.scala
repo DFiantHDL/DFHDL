@@ -23,8 +23,6 @@ import DFiant.*
  */
 
 class Example(using DFC) extends RTDesign:
-  val REG = VAR
-  val WIRE = VAR
   val animate, b_draw, p1_draw = DFBool <> VAR
   val P_H = 40 // height in pixels
   val P_W = 10 // width in pixels
@@ -36,12 +34,12 @@ class Example(using DFC) extends RTDesign:
 
   p1_draw := (sx >= P_OFFS) && (sx < P_OFFS + P_W) && (sy >= p1y) && (sy < p1y + P_H)
 
-  if (animate)
-    p1_col := 0
+  if (animate.din)
+    p1_col.din := 0
   else if (b_draw)
-    if (p1_draw) p1_col := 1
+    if (p1_draw) p1_col.din := 1
 
-  p1_col := p1_col.reg
+  p1_col.din := p1_col.reg
   p1_col.reg
 
   val a, b = DFBool <> VAR

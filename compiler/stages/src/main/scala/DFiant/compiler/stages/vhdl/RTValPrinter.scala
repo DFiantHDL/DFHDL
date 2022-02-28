@@ -144,6 +144,7 @@ protected trait RTValPrinter extends AbstractValPrinter:
       else s".${dfVal.fieldName}"
     s"${dfVal.relValCodeString}$fieldSel"
   def csDFValAliasHistory(dfVal: Alias.History): String = printer.unsupported
+  def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String = printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
     dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)

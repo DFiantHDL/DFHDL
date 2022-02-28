@@ -29,12 +29,14 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String
   def csDFValAliasHistory(dfVal: Alias.History): String
+  def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String
   final def csDFValAliasExpr(dfVal: Alias): String = dfVal match
     case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
     case dv: Alias.History     => csDFValAliasHistory(dv)
     case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
     case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
     case dv: Alias.SelectField => csDFValAliasSelectField(dv)
+    case dv: Alias.RegDIN      => csDFValAliasRegDIN(dv)
   final def csDFValExpr(dfValExpr: DFVal.CanBeExpr): String =
     dfValExpr match
       case dv: Const                => csDFValConstExpr(dv)
@@ -193,6 +195,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
       if (dfVal.step == 1) opStr
       else s"$opStr(${dfVal.step})"
     s"${dfVal.relValCodeString}$appliedStr"
+  def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String =
+    s"${dfVal.relValCodeString}.din"
   def csDFValNamed(dfVal: DFVal): String =
     def typeAnnot = dfVal match
       case dv: DFConditional.Header if dv.dfType != NoType =>

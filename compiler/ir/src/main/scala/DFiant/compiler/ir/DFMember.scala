@@ -122,9 +122,14 @@ object DFVal:
     sealed trait Connectable
     sealed trait Initializable
     sealed trait Initialized
+    sealed trait RegRef
     sealed trait VAL extends Modifier[Any, Any, Any]
     sealed trait VAR extends Modifier[Assignable, Connectable, Initializable]
     case object VAR extends VAR
+    sealed trait REG extends Modifier[RegRef, RegRef, Initializable]
+    case object REG extends REG
+    sealed trait WIRE extends Modifier[Assignable, Connectable, Any]
+    case object WIRE extends WIRE
     sealed trait Port extends Modifier[Assignable, Connectable, Initializable]
     sealed trait IN extends Port
     case object IN extends IN
@@ -315,6 +320,21 @@ object DFVal:
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     end SelectField
 
+    final case class RegDIN(
+        dfType: DFType,
+        relValRef: DFVal.Ref,
+        ownerRef: DFOwner.Ref,
+        meta: Meta,
+        tags: DFTags
+    ) extends Alias:
+      protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+        case that: RegDIN =>
+          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
+          this.meta =~ that.meta && this.tags =~ that.tags
+        case _ => false
+      protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+      protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+    end RegDIN
   end Alias
 end DFVal
 

@@ -49,6 +49,8 @@ object hdl:
   val IN = Modifier.IN
   val OUT = Modifier.OUT
   val VAR = Modifier.VAR
+  val REG = Modifier.REG
+  val WIRE = Modifier.WIRE
   type VAL = Modifier.VAL
   type TOKEN = core.TOKEN
   export core.<>

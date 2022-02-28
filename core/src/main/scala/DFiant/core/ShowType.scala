@@ -46,6 +46,8 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[INOUT] => "INOUT"
       case '[VAR]   => "VAR"
       case '[VAL]   => "VAL"
+      case '[REG]   => "REG"
+      case '[WIRE]  => "WIRE"
 
   def showDFVal: String =
     import quotes.reflect.*
