@@ -34,7 +34,7 @@ class Example(using DFC) extends RTDesign:
 
   p1_draw := (sx >= P_OFFS) && (sx < P_OFFS + P_W) && (sy >= p1y) && (sy < p1y + P_H)
 
-  if (animate.din)
+  if (animate)
     p1_col.din := 0
   else if (b_draw)
     if (p1_draw) p1_col.din := 1
