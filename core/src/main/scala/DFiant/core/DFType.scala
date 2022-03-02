@@ -15,7 +15,7 @@ sealed trait Args1[T1] extends Args
 sealed trait Args2[T1, T2] extends Args
 sealed trait Args3[T1, T2, T3] extends Args
 
-final class DFType[+T <: ir.DFType, +A <: Args](val value: T) extends AnyVal:
+final class DFType[+T <: ir.DFType, +A <: Args](val value: T | DFError) extends AnyVal:
   override def toString: String = value.toString
 type DFTypeAny = DFType[ir.DFType, Args]
 val NoType = new DFType[ir.NoType.type, NoArgs](ir.NoType)
@@ -52,7 +52,7 @@ object DFType:
       case _                => None
 
   extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
-    def asIRForced: T = dfType.value
+    def asIRForced: T = dfType.value.asInstanceOf[T]
     def codeString(using printer: Printer)(using DFC): String =
       printer.csDFType(asIRForced)
   extension (dfType: ir.DFType) def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]
@@ -218,12 +218,14 @@ object DFType:
   end TC
 end DFType
 
-extension [T](t: T)(using tc: DFType.TC[T]) def dfType: tc.Type = tc(t)
+extension [T](t: T)(using tc: DFType.TC[T])
+  @targetName("tcDFType")
+  def dfType: tc.Type = tc(t)
 
-extension [T <: DFTypeAny](
-    token: DFToken[T]
-) def dfType: T = token.asIRForced.dfType.asFE[T]
+extension [T <: DFTypeAny](token: DFToken[T])
+  @targetName("tokenDFType")
+  def dfType: T = token.asIRForced.dfType.asFE[T]
 
-extension [T <: DFTypeAny, M <: ir.DFVal.ModifierAny](
-    dfVal: DFVal[T, M]
-) def dfType: T = dfVal.asIRForced.dfType.asFE[T]
+extension [T <: DFTypeAny, M <: ir.DFVal.ModifierAny](dfVal: DFVal[T, M])
+  @targetName("dfValDFType")
+  def dfType: T = dfVal.asIRForced.dfType.asFE[T]

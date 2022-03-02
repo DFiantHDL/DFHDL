@@ -9,13 +9,15 @@ import scala.quoted.*
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 
-final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny) extends AnyVal with Selectable:
+final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny | DFError)
+    extends AnyVal
+    with Selectable:
 
   def selectDynamic(name: String): Any =
-    val ir.DFStruct(structName, fieldMap) = value.dfType
+    val ir.DFStruct(structName, fieldMap) = this.asIRForced.dfType
     val dfType = fieldMap(name)
     val idx = fieldMap.toList.indexWhere(_._1 == name)
-    val data = value.data.asInstanceOf[List[Any]](idx)
+    val data = this.asIRForced.data.asInstanceOf[List[Any]](idx)
     ir.DFToken.forced(dfType, data).asTokenOf[DFTypeAny]
 
   transparent inline def ==[R](
@@ -113,12 +115,12 @@ object DFToken:
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
     ir.DFToken.bubble(dfType.asIRForced).asTokenOf[T]
   extension (token: DFTokenAny)
-    def asIRForced: ir.DFTokenAny = token.value
+    def asIRForced: ir.DFTokenAny = token.value.asInstanceOf[ir.DFTokenAny]
     def codeString(using printer: Printer)(using DFC): String =
       printer.csDFToken(asIRForced)
   extension [T <: ir.DFType, Data](
       token: DFToken[DFType[ir.DFType.Aux[T, Data], Args]]
-  ) def data: Data = token.value.data.asInstanceOf[Data]
+  ) def data: Data = token.asIRForced.data.asInstanceOf[Data]
 
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
   trait TC[T <: DFTypeAny, -V] extends TCConv[T, V, DFTokenAny]:
