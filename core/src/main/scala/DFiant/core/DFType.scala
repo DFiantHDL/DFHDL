@@ -226,4 +226,4 @@ extension [T <: DFTypeAny](
 
 extension [T <: DFTypeAny, M <: ir.DFVal.ModifierAny](
     dfVal: DFVal[T, M]
-) def dfType: T = dfVal.asIR.dfType.asFE[T]
+) def dfType: T = dfVal.asIRForced.dfType.asFE[T]

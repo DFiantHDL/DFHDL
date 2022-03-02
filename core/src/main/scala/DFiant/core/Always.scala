@@ -6,7 +6,7 @@ object Always:
   type Block = DFOwner[ir.AlwaysBlock]
   object Block:
     def list(dfVals: List[DFValAny])(using DFC): Block =
-      lazy val sl = ir.AlwaysBlock.Sensitivity.List(dfVals.map(_.asIR.refTW(block)))
+      lazy val sl = ir.AlwaysBlock.Sensitivity.List(dfVals.map(_.asIRForced.refTW(block)))
       lazy val block: ir.AlwaysBlock =
         ir.AlwaysBlock(
           sl,

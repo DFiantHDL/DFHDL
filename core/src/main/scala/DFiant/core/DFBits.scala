@@ -616,13 +616,13 @@ private object CompanionsDFBits:
             DFVal.Const(tokenOut)
           case dfVal: DFVal[_, _] =>
             import DFVal.Ops.bits
-            val dfValIR = dfVal.asIR
+            val dfValIR = dfVal.asIRForced
             dfValIR.dfType match
               case _: ir.DFBits => dfValIR.asValOf[DFBits[Int]]
               case _ =>
                 dfValIR.asValAny
                   .bits(using Width.wide)
-                  .asIR
+                  .asIRForced
                   .asValOf[DFBits[Int]]
         end match
       end valueToBits
@@ -641,7 +641,7 @@ private object CompanionsDFBits:
           new Candidate[R]:
             type OutW = wType.Underlying
             def apply(value: R)(using DFC): DFValOf[DFBits[OutW]] =
-              valueToBits(value).asIR.asValOf[DFBits[OutW]]
+              valueToBits(value).asIRForced.asValOf[DFBits[OutW]]
         }
       end DFBitsMacro
     end Candidate
@@ -674,7 +674,7 @@ private object CompanionsDFBits:
         def conv(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
           val dfVal = candidate(value)
           check(dfType.width, dfVal.width.value)
-          dfVal.asIR.asValOf[DFBits[LW]]
+          dfVal.asIRForced.asValOf[DFBits[LW]]
       given DFBitsFromSEV[LW <: Int, T <: BitOrBool](using
           dfc: DFC
       ): TC[DFBits[LW], SameElementsVector[T]] with
@@ -698,7 +698,7 @@ private object CompanionsDFBits:
         def conv(dfType: DFBits[LW], arg: R): DFBits[LW] <> VAL =
           val dfValArg = ic(arg)(using dfc.anonymize)
           check(dfType.width, dfValArg.dfType.width)
-          dfValArg.asIR.asValOf[DFBits[LW]]
+          dfValArg.asIRForced.asValOf[DFBits[LW]]
       given DFBitsCompareSEV[
           LW <: Int,
           Op <: FuncOp,

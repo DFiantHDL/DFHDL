@@ -93,7 +93,7 @@ object DFStruct:
   object Token:
     def apply[F <: FieldsOrTuple](dfType: DFStruct[F], value: F): Token[F] =
       val data = value.productIterator.map { case dfVal: DFVal[_, _] =>
-        dfVal.asIR match
+        dfVal.asIRForced match
           case ir.DFVal.Const(token, _, _, _) => token.data
           case v =>
             throw new IllegalArgumentException(

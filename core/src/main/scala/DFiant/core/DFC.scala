@@ -19,7 +19,7 @@ final case class DFC(
   given getSet: ir.MemberGetSet = mutableDB.getSet
   def getMeta: ir.Meta = ir.Meta(nameOpt, position)
   def enterOwner(owner: DFOwnerAny): Unit =
-    mutableDB.OwnershipContext.enter(owner.asIR)
+    mutableDB.OwnershipContext.enter(owner.asIRForced)
   def enterLate(): Unit =
     mutableDB.OwnershipContext.enterLate()
   def exitOwner(): Unit = mutableDB.OwnershipContext.exit()

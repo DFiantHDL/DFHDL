@@ -80,7 +80,7 @@ private class DropBinds(db: DB) extends Stage(db):
               val relValIR = headBind.relValRef.get
               val dsn = new MetaDesign:
                 val bindVar = headBind.asValAny.genNewVar(using dfc.setName(headBind.name))
-                val bindVarIR = bindVar.asIR
+                val bindVarIR = bindVar.asIRForced
                 bindVar := relValIR.asValAny
               val bindVarIR = dsn.bindVarIR
               val coveredCases = bg.map(bindCaseMap(_)).toSet

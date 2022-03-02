@@ -4,12 +4,14 @@ import scala.reflect.ClassTag
 import DFiant.internals.*
 
 trait DFMember[+T <: ir.DFMember] extends Any:
-  val value: T
+  val value: T | DFError
   override def toString: String = value.toString
 
 type DFMemberAny = DFMember[ir.DFMember]
 object DFMember:
-  extension [T <: ir.DFMember](member: DFMember[T]) def asIR: T = member.value
+  extension [T <: ir.DFMember](member: DFMember[T])
+    def asIRForced: T = member.value.asInstanceOf[T]
+    def asIROrErr: T | DFError = member.value
   extension [M <: DFMemberAny](member: M)
     @metaContextDelegate
     def anonymize: M = ???

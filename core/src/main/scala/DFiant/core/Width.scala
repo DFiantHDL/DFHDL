@@ -173,7 +173,7 @@ end Width
 
 extension [T <: DFTypeAny, M <: ir.DFVal.ModifierAny](dfVal: DFVal[T, M])
   def width(using w: Width[T]): Inlined[w.Out] =
-    Inlined.forced[w.Out](dfVal.asIR.dfType.width)
+    Inlined.forced[w.Out](dfVal.asIRForced.dfType.width)
 
 extension [T <: DFTypeAny](token: DFToken[T])
   def width(using w: Width[T]): Inlined[w.Out] =

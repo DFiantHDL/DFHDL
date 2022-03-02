@@ -66,19 +66,19 @@ object __For_Plugin:
     given DFC = dfc.anonymize
     val dfType = selector.dfType.asIR
     val selectorBitsIR: ir.DFVal = dfType match
-      case _: ir.DFBits => selector.asIR
+      case _: ir.DFBits => selector.asIRForced
       case _ =>
         import DFVal.Ops.bits
-        selector.bits(using Width.wide).asIR
+        selector.bits(using Width.wide).asIRForced
     val rangeAlias = DFVal.Alias
       .ApplyRange(selectorBitsIR.asValOf[DFBits[Int]], relBitHigh, relBitLow)
     DFVal.Alias.AsIs.bind(rangeAlias, bindName).asInstanceOf[V]
   end bindValRange
   def patternBind(bindVal: DFValAny, pattern: Pattern)(using DFC): Pattern =
-    Pattern.Bind(bindVal.asIR.ref, pattern)
+    Pattern.Bind(bindVal.asIRForced.ref, pattern)
   def patternBindSI(op: String, parts: List[String], bindVals: List[DFValAny])(using
       DFC
   ): Pattern =
-    Pattern.BindSI(op, parts, bindVals.map(_.asIR.ref))
+    Pattern.BindSI(op, parts, bindVals.map(_.asIRForced.ref))
 
 end __For_Plugin

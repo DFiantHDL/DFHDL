@@ -47,7 +47,7 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
     val members =
       dfc.mutableDB
         .getMembers(startIdx, endIdx)
-        .filter(_.getOwner == dfc.owner.asIR)
+        .filter(_.getOwner == dfc.owner.asIRForced)
     printer.csDFMembers(members)
 
   def printCodeString(block: => Unit): Unit =

@@ -909,11 +909,11 @@ object DFXInt:
           val dfValIR =
             val rhsSignFix: DFValOf[DFSInt[Int]] =
               if (dfType.signed != rhs.dfType.signed)
-                rhs.asIR.asValOf[DFUInt[Int]].signed.asIR.asValOf[DFSInt[Int]]
-              else rhs.asIR.asValOf[DFSInt[Int]]
+                rhs.asIRForced.asValOf[DFUInt[Int]].signed.asIRForced.asValOf[DFSInt[Int]]
+              else rhs.asIRForced.asValOf[DFSInt[Int]]
             if (rhsSignFix.width < dfType.width)
-              rhsSignFix.resize(dfType.width).asIR
-            else rhsSignFix.asIR
+              rhsSignFix.resize(dfType.width).asIRForced
+            else rhsSignFix.asIRForced
           dfValIR.asValOf[DFXInt[LS, LW]]
       end given
     end TC
@@ -947,7 +947,7 @@ object DFXInt:
           val dfValArgResized =
             if (dfValArg.width < dfType.width) dfValArg.resize(dfType.width)
             else dfValArg
-          dfValArgResized.asIR.asValOf[DFXInt[LS, LW]]
+          dfValArgResized.asIRForced.asValOf[DFXInt[LS, LW]]
         end conv
       end DFXIntCompare
     end Compare
@@ -1045,7 +1045,7 @@ object DFXInt:
       )(using DFC): DFValOf[DFXInt[OS, OW]] =
         val rhsFixed =
           if (lhs.dfType.signed && !rhs.dfType.signed)
-            rhs.asIR.asValOf[DFUInt[RW]].signed
+            rhs.asIRForced.asValOf[DFUInt[RW]].signed
           else rhs
         DFVal.Func(dfType, op, List(lhs, rhsFixed))
       end arithOp
@@ -1313,14 +1313,14 @@ object DFUInt:
             unsignedCheck(argVal.dfType.signed)
             widthCheck(ubInfo.width(ub - 1), argVal.width)
             // for constant value we apply an explicit check for the bound
-            argVal.asIR match
+            argVal.asIRForced match
               case ir.DFVal.Const(ir.DFDecimal.Token(dfType, data), _, _, _) =>
                 data match
                   case Some(value) =>
                     summon[`UB > R`.Check[UB, Int]](ub, value.toInt)
                   case _ => // no check
               case _ => // no check
-            argVal.asIR.asValOf[DFUInt[OutW]]
+            argVal.asIRForced.asValOf[DFUInt[OutW]]
     end UBArg
     object Ops:
       extension [W <: Int](lhs: DFValOf[DFUInt[W]])

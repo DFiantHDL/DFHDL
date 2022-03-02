@@ -1,12 +1,22 @@
 package DFiant.core
 import DFiant.compiler.ir
+import DFiant.internals.Position
+
+sealed trait DFError extends Product, Serializable derives CanEqual
+object DFError:
+  sealed trait Details extends DFError:
+    val msg: String
+    val designOwner: Option[ir.DFDesignBlock]
+    val pos: Position
+  case object Derived extends DFError
+
 ////////////////////////////////////////////////////////////////////////////////////
 // Exception handling for DFiant code errors
 ////////////////////////////////////////////////////////////////////////////////////
 def errordf(msg: String)(using dfc: DFC): Nothing =
   import scala.io.AnsiColor.{RED, RESET}
   import dfc.getSet
-  val designName = dfc.owner.asIR.getThisOrOwnerDesign.getFullName
+  val designName = dfc.owner.asIRForced.getThisOrOwnerDesign.getFullName
   val fullName =
     if (dfc.isAnonymous) designName
     else s"$designName.${dfc.name}"

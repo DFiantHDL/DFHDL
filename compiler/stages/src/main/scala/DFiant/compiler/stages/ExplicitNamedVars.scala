@@ -57,7 +57,7 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
             // this variable will replace the header as a value
             val dsn = new MetaDesign:
               final val plantedNewVar = ch.asValAny.genNewVar(using dfc.setName(ch.name))
-              val newVarIR = plantedNewVar.asIR
+              val newVarIR = plantedNewVar.asIRForced
               plantMember(updatedCH)
             val chPatchList = List(
               // replacing all the references of header as a conditional header

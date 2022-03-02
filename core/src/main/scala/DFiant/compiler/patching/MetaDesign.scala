@@ -5,7 +5,7 @@ import DFiant.compiler.ir.DFVal.Modifier
 
 abstract class MetaDesign extends DFDesign(using DFC.empty) with reflect.Selectable:
   final def plantMember[T <: ir.DFMember](member: T): T =
-    dfc.mutableDB.plantMember(dfc.owner.asIR, member)
+    dfc.mutableDB.plantMember(dfc.owner.asIRForced, member)
   final def applyBlock(owner: ir.DFOwner)(block: => Unit): Unit =
     dfc.mutableDB.OwnershipContext.enter(owner)
     block

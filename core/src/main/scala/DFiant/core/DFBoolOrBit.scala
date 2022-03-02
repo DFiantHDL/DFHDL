@@ -181,10 +181,10 @@ object DFBoolOrBit:
       import Ops.{bit, bool}
       val dfValArg = ic(arg)(using dfcAnon)
       val dfValOut = (dfType, dfValArg.dfType) match
-        case (DFBit, DFBool) => dfValArg.asIR.asValOf[DFBool].bit(using dfcAnon)
-        case (DFBool, DFBit) => dfValArg.asIR.asValOf[DFBit].bool(using dfcAnon)
+        case (DFBit, DFBool) => dfValArg.asIRForced.asValOf[DFBool].bit(using dfcAnon)
+        case (DFBool, DFBit) => dfValArg.asIRForced.asValOf[DFBit].bool(using dfcAnon)
         case _               => dfValArg
-      dfValOut.asIR.asValOf[T]
+      dfValOut.asIRForced.asValOf[T]
 
     object TC:
       import DFVal.TC

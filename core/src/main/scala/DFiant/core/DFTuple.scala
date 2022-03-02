@@ -252,7 +252,7 @@ object DFTuple:
             dfc: DFC
         ): DFVal[OT, M] = DFVal.Alias
           .SelectField(t, s"_${i + 1}")
-          .asIR
+          .asIRForced
           .asVal[OT, M]
       end extension
 //      extension [T1 <: DFTypeAny, M <: ModifierAny](

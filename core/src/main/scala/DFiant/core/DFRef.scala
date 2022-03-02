@@ -19,4 +19,4 @@ extension [M <: ir.DFMember](member: M)
 
 extension [T <: ir.DFOwner](owner: DFOwner[T])
   def ref(using ClassTag[T], DFC): ir.DFRef.OneWay[T] =
-    owner.asIR.ref
+    owner.asIRForced.ref
