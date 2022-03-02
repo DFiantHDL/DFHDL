@@ -91,7 +91,7 @@ object DFEnum:
         dfType: DFEnum[E],
         entry: RE
     ): Token[E] =
-      ir.DFToken(dfType.asIR)(Some(entry.bigIntValue)).asTokenOf[DFEnum[E]]
+      ir.DFToken(dfType.asIRForced)(Some(entry.bigIntValue)).asTokenOf[DFEnum[E]]
 
     object TC:
       import DFToken.TC

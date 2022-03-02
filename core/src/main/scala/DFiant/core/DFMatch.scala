@@ -52,14 +52,14 @@ object DFMatch:
         val (dfType, block) =
           singleCase(curCase._1, curCase._2, prevBlock, curCase._3)(using dfcAnon)
         val commonDFType =
-          if (dfType.asIR == prevDFType.asIR) prevDFType else NoType
+          if (dfType.asIRForced == prevDFType.asIRForced) prevDFType else NoType
         (commonDFType, block)
       }
     retDFType match
       case NoType => firstCaseRet.get
       case _ =>
         val DFVal(headerIR: DFMatchHeader) = header
-        val headerUpdate = headerIR.copy(dfType = retDFType.asIR)
+        val headerUpdate = headerIR.copy(dfType = retDFType.asIRForced)
         // updating the type of the if header
         headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
   end fromCases
@@ -67,7 +67,7 @@ object DFMatch:
   object Header:
     def apply(dfType: DFTypeAny, selector: DFValAny)(using DFC): DFValAny =
       lazy val header: ir.DFVal = DFMatchHeader(
-        dfType.asIR,
+        dfType.asIRForced,
         selector.asIRForced.refTW(header),
         dfc.owner.ref,
         dfc.getMeta,
@@ -80,7 +80,7 @@ object DFMatch:
     export DFCaseBlock.Pattern.CatchAll
     object Singleton:
       def apply(token: DFTokenAny): DFCaseBlock.Pattern =
-        DFCaseBlock.Pattern.Singleton(token.asIR)
+        DFCaseBlock.Pattern.Singleton(token.asIRForced)
   object Block:
     def apply(
         pattern: Pattern,

@@ -45,20 +45,20 @@ object DFIf:
         val (dfType, block) =
           singleBranch(Some(branch._1), prevBlock, branch._2)(using dfcAnon)
         val commonDFType =
-          if (dfType.asIR == prevDFType.asIR) prevDFType else NoType
+          if (dfType.asIRForced == prevDFType.asIRForced) prevDFType else NoType
         (commonDFType, block)
       }
     val retDFType = elseOption
       .map { e =>
         val (dfType, _) = singleBranch(None, midIfs._2, e)(using dfcAnon)
-        if (dfType.asIR == midIfs._1.asIR) midIfs._1 else NoType
+        if (dfType.asIRForced == midIfs._1.asIRForced) midIfs._1 else NoType
       }
       .getOrElse(midIfs._1)
     retDFType match
       case NoType => firstIfRet.get
       case _ =>
         val DFVal(headerIR: DFIfHeader) = header
-        val headerUpdate = headerIR.copy(dfType = retDFType.asIR)
+        val headerUpdate = headerIR.copy(dfType = retDFType.asIRForced)
         // updating the type of the if header
         headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
   end fromBranches
@@ -66,7 +66,7 @@ object DFIf:
   object Header:
     def apply(dfType: DFTypeAny)(using DFC): DFValAny =
       DFIfHeader(
-        dfType.asIR,
+        dfType.asIRForced,
         dfc.owner.ref,
         dfc.getMeta,
         ir.DFTags.empty

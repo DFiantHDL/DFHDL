@@ -52,9 +52,9 @@ object DFType:
       case _                => None
 
   extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
-    def asIR: T = dfType.value
+    def asIRForced: T = dfType.value
     def codeString(using printer: Printer)(using DFC): String =
-      printer.csDFType(asIR)
+      printer.csDFType(asIRForced)
   extension (dfType: ir.DFType) def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]
   transparent inline implicit def conv[T <: Supported](inline t: T)(implicit
       tc: TC[T]
@@ -222,7 +222,7 @@ extension [T](t: T)(using tc: DFType.TC[T]) def dfType: tc.Type = tc(t)
 
 extension [T <: DFTypeAny](
     token: DFToken[T]
-) def dfType: T = token.asIR.dfType.asFE[T]
+) def dfType: T = token.asIRForced.dfType.asFE[T]
 
 extension [T <: DFTypeAny, M <: ir.DFVal.ModifierAny](
     dfVal: DFVal[T, M]

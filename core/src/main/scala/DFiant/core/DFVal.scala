@@ -177,13 +177,13 @@ object DFVal:
     def init(
         tokenValues: DFToken.Value[T]*
     )(using InitCheck[I], DFC): DFVal[T, Modifier[A, C, Modifier.Initialized]] =
-      initForced(tokenValues.view.map(tv => tv(dfVal.dfType).asIR).toList)
+      initForced(tokenValues.view.map(tv => tv(dfVal.dfType).asIRForced).toList)
   end extension
   extension [T <: NonEmptyTuple, A, C, I](dfVal: DFVal[DFTuple[T], Modifier[A, C, I]])
     def init(
         tokenValues: DFToken.TupleValues[T]
     )(using InitCheck[I], DFC): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]] =
-      dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
+      dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIRForced))
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
     ???
@@ -204,7 +204,7 @@ object DFVal:
     ): DFValOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
       ir.DFVal
-        .Const(token.asIR, dfc.owner.ref, meta, ir.DFTags.empty)
+        .Const(token.asIRForced, dfc.owner.ref, meta, ir.DFTags.empty)
         .addMember
         .asValOf[T]
 
@@ -214,7 +214,7 @@ object DFVal:
     ): DFVal[T, M] =
       ir.DFVal
         .Dcl(
-          dfType.asIR,
+          dfType.asIRForced,
           modifier,
           dfc.owner.ref,
           dfc.getMeta,
@@ -238,7 +238,7 @@ object DFVal:
         args: List[ir.DFVal]
     )(using DFC): DFValOf[T] =
       lazy val func: ir.DFVal = ir.DFVal.Func(
-        dfType.asIR,
+        dfType.asIRForced,
         op,
         args.map(_.refTW(func)),
         dfc.owner.ref,
@@ -268,7 +268,7 @@ object DFVal:
           case _ =>
             lazy val alias: ir.DFVal =
               ir.DFVal.Alias.AsIs(
-                aliasType.asIR,
+                aliasType.asIRForced,
                 relVal.asIRForced.refTW(alias),
                 dfc.owner.ref,
                 dfc.getMeta,
@@ -291,7 +291,7 @@ object DFVal:
       def apply[T <: DFTypeAny](relVal: DFValOf[T], step: Int, op: Op)(using DFC): DFValOf[T] =
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.History(
-            relVal.dfType.asIR,
+            relVal.dfType.asIRForced,
             relVal.asIRForced.refTW(alias),
             step,
             op,
@@ -304,7 +304,7 @@ object DFVal:
       def apply[T <: DFTypeAny](relVal: DFValOf[T])(using DFC): DFVarOf[T] =
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.RegDIN(
-            relVal.dfType.asIR,
+            relVal.dfType.asIRForced,
             relVal.asIRForced.refTW(alias),
             dfc.owner.ref,
             dfc.getMeta,
@@ -337,7 +337,7 @@ object DFVal:
       )(using DFC): DFVal[T, M] =
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.ApplyIdx(
-            dfType.asIR,
+            dfType.asIRForced,
             relVal.asIRForced.refTW(alias),
             relIdx.asIRForced.refTW(alias),
             dfc.owner.ref,

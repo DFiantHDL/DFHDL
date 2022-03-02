@@ -86,7 +86,7 @@ private object CompanionsDFBits:
         dfType: DFBits[W],
         data: (BitVector, BitVector)
     ): Token[W] =
-      ir.DFToken(dfType.asIR)(data).asTokenOf[DFBits[W]]
+      ir.DFToken(dfType.asIRForced)(data).asTokenOf[DFBits[W]]
     protected[core] def apply[W <: Int](
         width: Inlined[W],
         valueBits: BitVector,
@@ -165,11 +165,11 @@ private object CompanionsDFBits:
           case x: NonEmptyTuple =>
             x.toList
               .map(valueToBits)
-              .reduce((l, r) => (l ++ r).asIR.asTokenOf[DFBits[Int]])
+              .reduce((l, r) => (l ++ r).asIRForced.asTokenOf[DFBits[Int]])
           case i: Int =>
             Token(1, BitVector.bit(i > 0), BitVector.zero)
           case token: DFToken[_] =>
-            val tokenIR = token.asIR
+            val tokenIR = token.asIRForced
             val tokenOut = tokenIR.dfType match
               case _: ir.DFBits => tokenIR.asTokenOf[DFBits[Int]]
               case _            => tokenIR.bits.asTokenOf[DFBits[Int]]
@@ -191,7 +191,7 @@ private object CompanionsDFBits:
           new Candidate[R]:
             type OutW = wType.Underlying
             def apply(value: R): DFToken[DFBits[OutW]] =
-              valueToBits(value).asIR.asTokenOf[DFBits[OutW]]
+              valueToBits(value).asIRForced.asTokenOf[DFBits[OutW]]
         }
       end DFBitsMacro
     end Candidate
@@ -213,7 +213,7 @@ private object CompanionsDFBits:
       )(using check: `W == VW`.Check[W, VW]): TC[DFBits[W], R] with
         def conv(dfType: DFBits[W], value: R): Out =
           val tokenArg = ic(value)
-          check(dfType.width, tokenArg.asIR.width)
+          check(dfType.width, tokenArg.asIRForced.width)
           tokenArg.asInstanceOf[Out]
 
       given DFBitsTokenFromSEV[W <: Int, T <: BitOrBool]: TC[DFBits[W], SameElementsVector[T]] with
@@ -472,7 +472,7 @@ private object CompanionsDFBits:
             dfType.width,
             tokenArg.dfType.width
           )
-          tokenArg.asIR.asTokenOf[DFBits[LW]]
+          tokenArg.asIRForced.asTokenOf[DFBits[LW]]
       end given
       given [LW <: Int, Op <: FuncOp, C <: Boolean, T <: BitOrBool](using
           op: ValueOf[Op],
@@ -492,9 +492,9 @@ private object CompanionsDFBits:
         )(using tc: DFType.TC[A])(using
             aW: Width[tc.Type]
         )(using check: `AW == TW`.Check[aW.Out, LW]): DFToken[tc.Type] =
-          val dfType = tc(aliasType).asIR
+          val dfType = tc(aliasType).asIRForced
           check(dfType.width, lhs.width)
-          lhs.asIR
+          lhs.asIRForced
             .asInstanceOf[ir.DFBits.Token]
             .as(dfType)
             .asTokenOf[tc.Type]
@@ -534,7 +534,7 @@ private object CompanionsDFBits:
         def resize[RW <: Int](updatedWidth: Inlined[RW])(using
             check: Arg.Width.Check[RW]
         ): Token[RW] =
-          if (updatedWidth == lhs.width) lhs.asIR.asTokenOf[DFBits[RW]]
+          if (updatedWidth == lhs.width) lhs.asIRForced.asTokenOf[DFBits[RW]]
           else
             check(updatedWidth)
             val data = lhs.data
@@ -609,7 +609,7 @@ private object CompanionsDFBits:
           case i: Int =>
             DFVal.Const(Token(1, BitVector.bit(i > 0), BitVector.zero))
           case token: DFToken[_] =>
-            val tokenIR = token.asIR
+            val tokenIR = token.asIRForced
             val tokenOut = tokenIR.dfType match
               case _: ir.DFBits => tokenIR.asTokenOf[DFBits[Int]]
               case _            => tokenIR.bits.asTokenOf[DFBits[Int]]
@@ -733,7 +733,7 @@ private object CompanionsDFBits:
         )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] =
           import Token.Ops.{as => asToken}
           val aliasDFType = tc(aliasType)
-          check.apply(aliasDFType.asIR.width, lhs.width)
+          check.apply(aliasDFType.asIRForced.width, lhs.width)
           DFVal.Alias.AsIs(aliasDFType, lhs, _.asToken(aliasType))
         def uint(using DFC): DFValOf[DFUInt[W]] =
           as(DFUInt(lhs.width))

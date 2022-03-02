@@ -28,7 +28,7 @@ object DFTuple:
 
   extension [T <: NonEmptyTuple](dfType: DFTuple[T])
     def fieldList: List[DFTypeAny] =
-      dfType.asIR.fieldMap.values.map(_.asFE[DFTypeAny]).toList
+      dfType.asIRForced.fieldMap.values.map(_.asFE[DFTypeAny]).toList
 
   trait TCZipper[
       T <: NonEmptyTuple,
@@ -117,7 +117,7 @@ object DFTuple:
         dfType: DFTuple[T],
         data: List[Any]
     ): Token[T] =
-      ir.DFToken(dfType.asIR)(data).asTokenOf[DFTuple[T]]
+      ir.DFToken(dfType.asIRForced)(data).asTokenOf[DFTuple[T]]
 
     object TC:
       import DFToken.TC
@@ -130,7 +130,7 @@ object DFTuple:
         def conv(dfType: DFTuple[T], value: ValueOf[V]): Out =
           DFTuple.Token[T](
             dfType,
-            zipper(dfType.fieldList, value.value.toList).map(_.asIR.data)
+            zipper(dfType.fieldList, value.value.toList).map(_.asIRForced.data)
           )
     end TC
 
@@ -147,7 +147,7 @@ object DFTuple:
         def conv(dfType: DFTuple[T], value: ValueOf[V]): Out =
           DFTuple.Token[T](
             dfType,
-            zipper(dfType.fieldList, value.value.toList).map(_.asIR.data)
+            zipper(dfType.fieldList, value.value.toList).map(_.asIRForced.data)
           )
     end Compare
 
@@ -164,7 +164,7 @@ object DFTuple:
           token: Token[NonEmptyTuple],
           idx: Int
       ): DFToken[T] =
-        val dfType = token.dfType.fieldList(idx).asIR
+        val dfType = token.dfType.fieldList(idx).asIRForced
         val data = token.data(idx)
         ir.DFToken.forced(dfType, data).asTokenOf[T]
       extension [T <: NonEmptyTuple](t: DFToken[DFTuple[T]])

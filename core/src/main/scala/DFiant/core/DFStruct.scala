@@ -15,7 +15,7 @@ object DFStruct:
       name: String,
       fieldMap: ListMap[String, DFTypeAny]
   ): DFStruct[F] =
-    ir.DFStruct(name, fieldMap.map((n, t) => (n, t.asIR))).asFE[DFStruct[F]]
+    ir.DFStruct(name, fieldMap.map((n, t) => (n, t.asIRForced))).asFE[DFStruct[F]]
   private[core] def apply[F <: FieldsOrTuple](
       name: String,
       fieldNames: List[String],
@@ -100,9 +100,9 @@ object DFStruct:
               s"Tokens must only be constant but found the value: ${v}"
             )
       }.toList
-//      println(dfType.asIR.fieldMap.values.toList)
+//      println(dfType.asIRForced.fieldMap.values.toList)
 //      println(data)
-      ir.DFToken.forced(dfType.asIR, data).asTokenOf[DFStruct[F]]
+      ir.DFToken.forced(dfType.asIRForced, data).asTokenOf[DFStruct[F]]
     object TC:
       import DFToken.TC
       given DFStructTokenFromCC[

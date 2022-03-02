@@ -19,7 +19,7 @@ object DFBoolOrBit:
         dfType: T,
         data: Option[Boolean]
     ): T <> TOKEN =
-      ir.DFToken(dfType.asIR)(data).asTokenOf[T]
+      ir.DFToken(dfType.asIRForced)(data).asTokenOf[T]
     protected[core] def apply[T <: DFBoolOrBit](
         dfType: T,
         value: Boolean
@@ -79,7 +79,7 @@ object DFBoolOrBit:
             case (DFBit, DFBool) => Token(DFBit, tokenArg.data)
             case (DFBool, DFBit) => Token(DFBool, tokenArg.data)
             case _               => tokenArg
-          tokenOut.asIR.asTokenOf[T]
+          tokenOut.asIRForced.asTokenOf[T]
     end TC
 
     private def logicOp[O <: DFBoolOrBit, T <: DFBoolOrBit](
@@ -234,7 +234,7 @@ object DFBoolOrBit:
       )(using dfc: DFC, ic: Candidate[R]): T <> VAL =
         val dfValArg = b2b(dfVal.dfType, arg)
         val (lhs, rhs) = if (castle) (dfValArg, dfVal) else (dfVal, dfValArg)
-        DFVal.Func(lhs.dfType.asIR.asFE[T], op, List(lhs, rhs))
+        DFVal.Func(lhs.dfType.asIRForced.asFE[T], op, List(lhs, rhs))
       extension [T <: DFBoolOrBit](lhs: T <> VAL)
         def ||[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): T <> VAL =
           logicOp[T, R](lhs, rhs, FuncOp.|, false)

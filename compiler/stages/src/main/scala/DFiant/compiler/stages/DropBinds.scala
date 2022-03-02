@@ -39,7 +39,7 @@ private class DropBinds(db: DB) extends Stage(db):
           val token = op match
             case "b" => b"${tokenStr}"
             case "h" => h"${tokenStr}"
-          Some(Pattern.Singleton(token.asIR), refs.map(_.get))
+          Some(Pattern.Singleton(token.asIRForced), refs.map(_.get))
         case _ => None
   end ReplacePattern
   override def transform: DB =

@@ -111,11 +111,11 @@ object DFToken:
     CanEqual.derived
 
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
-    ir.DFToken.bubble(dfType.asIR).asTokenOf[T]
+    ir.DFToken.bubble(dfType.asIRForced).asTokenOf[T]
   extension (token: DFTokenAny)
-    def asIR: ir.DFTokenAny = token.value
+    def asIRForced: ir.DFTokenAny = token.value
     def codeString(using printer: Printer)(using DFC): String =
-      printer.csDFToken(asIR)
+      printer.csDFToken(asIRForced)
   extension [T <: ir.DFType, Data](
       token: DFToken[DFType[ir.DFType.Aux[T, Data], Args]]
   ) def data: Data = token.value.data.asInstanceOf[Data]
@@ -169,8 +169,8 @@ object DFToken:
       val tokenArg = conv(token.dfType, arg)
       assert(token.dfType == tokenArg.dfType)
       val dataOut = op.value match
-        case FuncOp.=== => token.asIR.data == tokenArg.asIR.data
-        case FuncOp.=!= => token.asIR.data != tokenArg.asIR.data
+        case FuncOp.=== => token.asIRForced.data == tokenArg.asIRForced.data
+        case FuncOp.=!= => token.asIRForced.data != tokenArg.asIRForced.data
         case _          => throw new IllegalArgumentException("Unsupported Op")
       DFBoolOrBit.Token(DFBool, dataOut)
     def conv(dfType: T, arg: V): DFToken[T]
@@ -213,7 +213,7 @@ object DFToken:
     extension [T <: DFTypeAny](token: DFToken[T])
       def bits(using w: Width[T]): DFToken[DFBits[w.Out]] =
         import ir.DFToken.bits as bitsIR
-        token.asIR.bitsIR.asTokenOf[DFBits[w.Out]]
+        token.asIRForced.bitsIR.asTokenOf[DFBits[w.Out]]
   end Ops
 
   trait Value[T <: DFTypeAny]:

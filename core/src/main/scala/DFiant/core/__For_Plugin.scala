@@ -21,13 +21,13 @@ object __For_Plugin:
       .SelectField(dfVal, fieldName)(using dfc.anonymize)
       .asInstanceOf[V]
   def patternSingleton(selector: DFValAny, value: Any): Pattern =
-    val tokenIR = (selector.dfType.asIR, value) match
+    val tokenIR = (selector.dfType.asIRForced, value) match
       case (dt: ir.DFBoolOrBit, v: Int) if v == 0 | v == 1 =>
         ir.DFBoolOrBit.Token(dt, Some(v > 0))
       case (dt: ir.DFBoolOrBit, v: Boolean) =>
         ir.DFBoolOrBit.Token(dt, Some(v))
       case (dt: ir.DFBits, allBit: BitOrBool) =>
-        DFBits.Token(dt.width, SameElementsVector(allBit)).asIR
+        DFBits.Token(dt.width, SameElementsVector(allBit)).asIRForced
       case (dt: ir.DFDecimal, v: Int) =>
         ir.DFDecimal.Token(dt, Some(BigInt(v)))
       case (dt: ir.DFEnum, v: DFEncoding) =>
@@ -64,7 +64,7 @@ object __For_Plugin:
       relBitLow: Int
   )(using dfc: DFC): V =
     given DFC = dfc.anonymize
-    val dfType = selector.dfType.asIR
+    val dfType = selector.dfType.asIRForced
     val selectorBitsIR: ir.DFVal = dfType match
       case _: ir.DFBits => selector.asIRForced
       case _ =>

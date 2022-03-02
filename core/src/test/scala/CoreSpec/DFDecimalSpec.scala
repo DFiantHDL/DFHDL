@@ -71,8 +71,8 @@ class DFDecimalSpec extends DFSpec:
     val t15 = DFSInt(8).token(127)
     val t16 = DFSInt(8).token(d"127")
     val t17 = DFSInt(8).token(sd"127")
-    assert(t15.asIR equals t16.asIR)
-    assert(t16.asIR equals t17.asIR)
+    assert(t15.asIRForced equals t16.asIRForced)
+    assert(t16.asIRForced equals t17.asIRForced)
 
     assertCompileError("Invalid decimal pattern found: 1x")("""d"1x"""")
     assertCompileError(
