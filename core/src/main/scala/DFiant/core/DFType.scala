@@ -53,6 +53,7 @@ object DFType:
 
   extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
     def asIRForced: T = dfType.value.asInstanceOf[T]
+    def asIROrErr: T | DFError = dfType.value
     def codeString(using printer: Printer)(using DFC): String =
       printer.csDFType(asIRForced)
   extension (dfType: ir.DFType) def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]

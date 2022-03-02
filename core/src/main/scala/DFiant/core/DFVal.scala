@@ -382,7 +382,7 @@ object DFVal:
 
   trait TC[T <: DFTypeAny, -R] extends TCConv[T, R, DFValAny]:
     type Out = DFValOf[T]
-    def apply(dfType: T, value: R): Out = conv(dfType, value)
+    final def apply(dfType: T, value: R): Out = conv(dfType, value)
 
   trait TCLP:
     // Accept any bubble value
@@ -452,7 +452,6 @@ object DFVal:
     ): DFValOf[DFBool] =
       val dfValArg = conv(dfVal.dfType, arg)
       func(dfVal, dfValArg)
-    def conv(dfType: T, arg: V): DFValOf[T]
   end Compare
   trait CompareLP:
     transparent inline given errorDMZ[

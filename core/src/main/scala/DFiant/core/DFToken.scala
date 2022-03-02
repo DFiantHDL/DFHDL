@@ -125,7 +125,7 @@ object DFToken:
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
   trait TC[T <: DFTypeAny, -V] extends TCConv[T, V, DFTokenAny]:
     type Out = DFToken[T]
-    def apply(dfType: T, value: V): Out = conv(dfType, value)
+    final def apply(dfType: T, value: V): Out = conv(dfType, value)
 
   trait TCLPLP:
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
@@ -175,7 +175,6 @@ object DFToken:
         case FuncOp.=!= => token.asIRForced.data != tokenArg.asIRForced.data
         case _          => throw new IllegalArgumentException("Unsupported Op")
       DFBoolOrBit.Token(DFBool, dataOut)
-    def conv(dfType: T, arg: V): DFToken[T]
   end Compare
 
   trait CompareLPLP:
