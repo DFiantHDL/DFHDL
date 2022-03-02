@@ -31,7 +31,7 @@ final case class DFC(
     copy(nameOpt = Some(name)).asInstanceOf[this.type]
   def anonymize: this.type = copy(nameOpt = None).asInstanceOf[this.type]
   def <>(that: Int): this.type = copy(defaultDir = that).asInstanceOf[this.type]
-
+  def logError(err: DFError): this.type = ???
 end DFC
 object DFC:
   given (using TopLevel): DFC = empty
