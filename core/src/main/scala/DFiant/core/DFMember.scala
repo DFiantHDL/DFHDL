@@ -10,8 +10,9 @@ trait DFMember[+T <: ir.DFMember] extends Any:
 type DFMemberAny = DFMember[ir.DFMember]
 object DFMember:
   extension [T <: ir.DFMember](member: DFMember[T])
-    def asIRForced: T = member.value.asInstanceOf[T]
-    def asIROrErr: T | DFError = member.value
+    def asIR: T = member.value match
+      case memberIR: T @unchecked => memberIR
+      case err: DFError           => throw err
   extension [M <: DFMemberAny](member: M)
     @metaContextDelegate
     def anonymize: M = ???

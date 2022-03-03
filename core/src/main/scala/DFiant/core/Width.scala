@@ -175,14 +175,14 @@ end Width
 extension [T <: DFTypeAny, M <: ir.DFVal.ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValWidth")
   def width(using w: Width[T]): Inlined[w.Out] =
-    Inlined.forced[w.Out](dfVal.asIRForced.dfType.width)
+    Inlined.forced[w.Out](dfVal.asIR.dfType.width)
 
 extension [T <: DFTypeAny](token: DFToken[T])
   @targetName("tokenWidth")
   def width(using w: Width[T]): Inlined[w.Out] =
-    Inlined.forced[w.Out](token.asIRForced.width)
+    Inlined.forced[w.Out](token.asIR.width)
 
 extension [T <: DFType.Supported](t: T)
   @targetName("tWidth")
   def width(using w: Width[T]): Inlined[w.Out] =
-    Inlined.forced[w.Out](DFType.of(t).asIRForced.width)
+    Inlined.forced[w.Out](DFType.of(t).asIR.width)

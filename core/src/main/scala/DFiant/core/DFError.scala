@@ -41,7 +41,7 @@ class Logger:
 def errordf(msg: String)(using dfc: DFC): Nothing =
   import scala.io.AnsiColor.{RED, RESET}
   import dfc.getSet
-  val designName = dfc.owner.asIRForced.getThisOrOwnerDesign.getFullName
+  val designName = dfc.owner.asIR.getThisOrOwnerDesign.getFullName
   val fullName =
     if (dfc.isAnonymous) designName
     else s"$designName.${dfc.name}"
@@ -69,7 +69,7 @@ def trydf[T <: DFTypeAny, M <: ModifierAny](block: => DFVal[T, M])(using dfc: DF
   try
     val ret = block
     import dfc.getSet
-    val retIR = dfc.getSet.set(ret.asIRForced)(_.setMeta(_ => dfc.getMeta))
+    val retIR = dfc.getSet.set(ret.asIR)(_.setMeta(_ => dfc.getMeta))
     retIR.asVal[T, M]
   catch
     case e: Exception =>

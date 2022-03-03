@@ -21,13 +21,13 @@ object __For_Plugin:
       .SelectField(dfVal, fieldName)(using dfc.anonymize)
       .asInstanceOf[V]
   def patternSingleton(selector: DFValAny, value: Any): Pattern =
-    val tokenIR = (selector.dfType.asIRForced, value) match
+    val tokenIR = (selector.dfType.asIR, value) match
       case (dt: ir.DFBoolOrBit, v: Int) if v == 0 | v == 1 =>
         ir.DFBoolOrBit.Token(dt, Some(v > 0))
       case (dt: ir.DFBoolOrBit, v: Boolean) =>
         ir.DFBoolOrBit.Token(dt, Some(v))
       case (dt: ir.DFBits, allBit: BitOrBool) =>
-        DFBits.Token(dt.width, SameElementsVector(allBit)).asIRForced
+        DFBits.Token(dt.width, SameElementsVector(allBit)).asIR
       case (dt: ir.DFDecimal, v: Int) =>
         ir.DFDecimal.Token(dt, Some(BigInt(v)))
       case (dt: ir.DFEnum, v: DFEncoding) =>
@@ -64,21 +64,21 @@ object __For_Plugin:
       relBitLow: Int
   )(using dfc: DFC): V =
     given DFC = dfc.anonymize
-    val dfType = selector.dfType.asIRForced
+    val dfType = selector.dfType.asIR
     val selectorBitsIR: ir.DFVal = dfType match
-      case _: ir.DFBits => selector.asIRForced
+      case _: ir.DFBits => selector.asIR
       case _ =>
         import DFVal.Ops.bits
-        selector.bits(using Width.wide).asIRForced
+        selector.bits(using Width.wide).asIR
     val rangeAlias = DFVal.Alias
       .ApplyRange(selectorBitsIR.asValOf[DFBits[Int]], relBitHigh, relBitLow)
     DFVal.Alias.AsIs.bind(rangeAlias, bindName).asInstanceOf[V]
   end bindValRange
   def patternBind(bindVal: DFValAny, pattern: Pattern)(using DFC): Pattern =
-    Pattern.Bind(bindVal.asIRForced.ref, pattern)
+    Pattern.Bind(bindVal.asIR.ref, pattern)
   def patternBindSI(op: String, parts: List[String], bindVals: List[DFValAny])(using
       DFC
   ): Pattern =
-    Pattern.BindSI(op, parts, bindVals.map(_.asIRForced.ref))
+    Pattern.BindSI(op, parts, bindVals.map(_.asIR.ref))
 
 end __For_Plugin

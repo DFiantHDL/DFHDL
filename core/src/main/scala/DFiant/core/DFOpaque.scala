@@ -20,9 +20,9 @@ object DFOpaque:
   def apply[T <: Abstract](
       t: T
   ): DFOpaque[T] =
-    ir.DFOpaque(t.typeName, t.actualType.asIRForced).asFE[DFOpaque[T]]
+    ir.DFOpaque(t.typeName, t.actualType.asIR).asFE[DFOpaque[T]]
   extension [T <: DFTypeAny, TFE <: Frontend[T]](dfType: DFOpaque[TFE])
-    def actualType: T = dfType.asIRForced.actualType.asFE[T]
+    def actualType: T = dfType.asIR.actualType.asFE[T]
 
 //  private def checkAs[T <: DFTypeAny](tokenDFType: T, actualDFType: T): Unit =
 //    given Printer = DefaultPrinter
@@ -37,14 +37,14 @@ object DFOpaque:
         tfe: TFE,
         token: T <> TOKEN
     ): Token[TFE] =
-      ir.DFToken(DFOpaque(tfe).asIRForced)(token.asIRForced.data).asTokenOf[DFOpaque[TFE]]
+      ir.DFToken(DFOpaque(tfe).asIR)(token.asIR.data).asTokenOf[DFOpaque[TFE]]
 
     object Ops:
       extension [T <: DFTypeAny, TFE <: Frontend[T]](
           lhs: DFOpaque[TFE] <> TOKEN
       )
         def actual: T <> TOKEN =
-          lhs.asIRForced.data.asInstanceOf[ir.DFTokenAny].asTokenOf[T]
+          lhs.asIR.data.asInstanceOf[ir.DFTokenAny].asTokenOf[T]
   end Token
 
   object Val:

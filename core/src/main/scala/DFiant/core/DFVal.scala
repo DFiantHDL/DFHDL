@@ -19,11 +19,11 @@ final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val value: ir.DFVal | DFEr
     with Selectable:
 
   def selectDynamic(name: String)(using DFC): Any =
-    val ir.DFStruct(structName, fieldMap) = this.asIRForced.dfType
+    val ir.DFStruct(structName, fieldMap) = this.asIR.dfType
     val dfType = fieldMap(name)
     DFVal.Alias
       .SelectField(this, name)
-      .asIRForced
+      .asIR
       .asVal[DFTypeAny, ModifierAny]
 
   transparent inline def ==[R](
@@ -67,7 +67,7 @@ extension (dfVal: ir.DFVal)
     DFVal[T, Modifier.Port](dfVal)
 
 object DFVal:
-  inline def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.asIRForced)
+  inline def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.asIR)
   object OrTupleOrStruct:
     def unapply(arg: Any)(using DFC): Option[DFValAny] =
       arg match
@@ -128,13 +128,14 @@ object DFVal:
       val c = compiletime.summonInline[
         DFVal.Compare[T, exactType.Underlying, Op, false]
       ]
+      val dfc = compiletime.summonInline[DFC]
       trydf {
         c($dfVal, $exactExpr)(using
-          compiletime.summonInline[DFC],
+          dfc,
           compiletime.summonInline[ValueOf[Op]],
           new ValueOf[false](false)
         )
-      }(using compiletime.summonInline[DFC])
+      }(using dfc)
     }
   end equalityMacro
 
@@ -161,7 +162,7 @@ object DFVal:
         dfc: DFC
     ): DFVal[T, M] =
       import dfc.getSet
-      dfVal.asIRForced
+      dfVal.asIR
         .setTags(_.tag(customTag))
         .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
         .asVal[T, M]
@@ -171,21 +172,21 @@ object DFVal:
     ): DFVal[T, Modifier[A, C, Modifier.Initialized]] =
       import dfc.getSet
       assert(
-        dfVal.asIRForced.isAnonymous,
-        s"Cannot initialize a named value ${dfVal.asIRForced.getFullName}. Initialization is only supported at the declaration of the value."
+        dfVal.asIR.isAnonymous,
+        s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
       )
-      dfVal.tag(ir.ExternalInit(tokens)).asIRForced.asVal[T, Modifier[A, C, Modifier.Initialized]]
+      dfVal.tag(ir.ExternalInit(tokens)).asIR.asVal[T, Modifier[A, C, Modifier.Initialized]]
 
     def init(
         tokenValues: DFToken.Value[T]*
     )(using InitCheck[I], DFC): DFVal[T, Modifier[A, C, Modifier.Initialized]] =
-      initForced(tokenValues.view.map(tv => tv(dfVal.dfType).asIRForced).toList)
+      initForced(tokenValues.view.map(tv => tv(dfVal.dfType).asIR).toList)
   end extension
   extension [T <: NonEmptyTuple, A, C, I](dfVal: DFVal[DFTuple[T], Modifier[A, C, I]])
     def init(
         tokenValues: DFToken.TupleValues[T]
     )(using InitCheck[I], DFC): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]] =
-      dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIRForced))
+      dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
     ???
@@ -206,7 +207,7 @@ object DFVal:
     ): DFValOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
       ir.DFVal
-        .Const(token.asIRForced, dfc.owner.ref, meta, ir.DFTags.empty)
+        .Const(token.asIR, dfc.owner.ref, meta, ir.DFTags.empty)
         .addMember
         .asValOf[T]
 
@@ -216,7 +217,7 @@ object DFVal:
     ): DFVal[T, M] =
       ir.DFVal
         .Dcl(
-          dfType.asIRForced,
+          dfType.asIR,
           modifier,
           dfc.owner.ref,
           dfc.getMeta,
@@ -232,7 +233,7 @@ object DFVal:
         dfType: T,
         op: FuncOp,
         args: List[DFValAny]
-    )(using DFC): DFValOf[T] = apply(dfType, op, args.map(_.asIRForced))
+    )(using DFC): DFValOf[T] = apply(dfType, op, args.map(_.asIR))
     @targetName("applyFromIR")
     def apply[T <: DFTypeAny](
         dfType: T,
@@ -240,7 +241,7 @@ object DFVal:
         args: List[ir.DFVal]
     )(using DFC): DFValOf[T] =
       lazy val func: ir.DFVal = ir.DFVal.Func(
-        dfType.asIRForced,
+        dfType.asIR,
         op,
         args.map(_.refTW(func)),
         dfc.owner.ref,
@@ -259,19 +260,19 @@ object DFVal:
           tokenFunc: DFToken[VT] => DFToken[AT],
           forceNewAlias: Boolean = false
       )(using DFC): DFVal[AT, M] =
-        relVal.asIRForced match
+        relVal.asIR match
           // anonymous constant are replace by a different constant
           // after its token value was converted according to the alias
           case const: ir.DFVal.Const if const.isAnonymous && !forceNewAlias =>
             val updatedToken = tokenFunc(const.token.asTokenOf[VT])
-            Const(updatedToken).asIRForced.asVal[AT, M]
+            Const(updatedToken).asIR.asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
             lazy val alias: ir.DFVal =
               ir.DFVal.Alias.AsIs(
-                aliasType.asIRForced,
-                relVal.asIRForced.refTW(alias),
+                aliasType.asIR,
+                relVal.asIR.refTW(alias),
                 dfc.owner.ref,
                 dfc.getMeta,
                 ir.DFTags.empty
@@ -293,8 +294,8 @@ object DFVal:
       def apply[T <: DFTypeAny](relVal: DFValOf[T], step: Int, op: Op)(using DFC): DFValOf[T] =
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.History(
-            relVal.dfType.asIRForced,
-            relVal.asIRForced.refTW(alias),
+            relVal.dfType.asIR,
+            relVal.asIR.refTW(alias),
             step,
             op,
             dfc.owner.ref,
@@ -306,8 +307,8 @@ object DFVal:
       def apply[T <: DFTypeAny](relVal: DFValOf[T])(using DFC): DFVarOf[T] =
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.RegDIN(
-            relVal.dfType.asIRForced,
-            relVal.asIRForced.refTW(alias),
+            relVal.dfType.asIR,
+            relVal.asIR.refTW(alias),
             dfc.owner.ref,
             dfc.getMeta,
             ir.DFTags.empty
@@ -321,7 +322,7 @@ object DFVal:
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.ApplyRange(
-            relVal.asIRForced.refTW(alias),
+            relVal.asIR.refTW(alias),
             relBitHigh,
             relBitLow,
             dfc.owner.ref,
@@ -339,9 +340,9 @@ object DFVal:
       )(using DFC): DFVal[T, M] =
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.ApplyIdx(
-            dfType.asIRForced,
-            relVal.asIRForced.refTW(alias),
-            relIdx.asIRForced.refTW(alias),
+            dfType.asIR,
+            relVal.asIR.refTW(alias),
+            relIdx.asIR.refTW(alias),
             dfc.owner.ref,
             dfc.getMeta,
             ir.DFTags.empty
@@ -354,7 +355,7 @@ object DFVal:
           relVal: DFVal[DFTypeAny, M],
           fieldName: String
       )(using dfc: DFC): DFVal[T, M] =
-        val relValIR = relVal.asIRForced
+        val relValIR = relVal.asIR
         val ir.DFStruct(_, fieldMap) = relValIR.dfType
         val dfTypeIR = fieldMap(fieldName)
         relValIR match
@@ -585,11 +586,11 @@ end DFVal
 
 extension [T <: DFTypeAny](dfVar: DFValOf[T])
   def assign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
-    DFNet(dfVar.asIRForced, DFNet.Op.Assignment, rhs.asIRForced)
+    DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
 
 extension [T <: DFTypeAny](lhs: DFValOf[T])
   def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
-    DFNet(lhs.asIRForced, DFNet.Op.Connection, rhs.asIRForced)
+    DFNet(lhs.asIR, DFNet.Op.Connection, rhs.asIR)
 
 object DFVarOps:
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])

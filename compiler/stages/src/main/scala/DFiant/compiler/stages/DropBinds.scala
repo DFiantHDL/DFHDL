@@ -39,7 +39,7 @@ private class DropBinds(db: DB) extends Stage(db):
           val token = op match
             case "b" => b"${tokenStr}"
             case "h" => h"${tokenStr}"
-          Some(Pattern.Singleton(token.asIRForced), refs.map(_.get))
+          Some(Pattern.Singleton(token.asIR), refs.map(_.get))
         case _ => None
   end ReplacePattern
   override def transform: DB =
@@ -80,7 +80,7 @@ private class DropBinds(db: DB) extends Stage(db):
               val relValIR = headBind.relValRef.get
               val dsn = new MetaDesign:
                 val bindVar = headBind.asValAny.genNewVar(using dfc.setName(headBind.name))
-                val bindVarIR = bindVar.asIRForced
+                val bindVarIR = bindVar.asIR
                 bindVar := relValIR.asValAny
               val bindVarIR = dsn.bindVarIR
               val coveredCases = bg.map(bindCaseMap(_)).toSet

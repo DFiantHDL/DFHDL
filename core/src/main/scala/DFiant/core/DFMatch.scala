@@ -52,14 +52,14 @@ object DFMatch:
         val (dfType, block) =
           singleCase(curCase._1, curCase._2, prevBlock, curCase._3)(using dfcAnon)
         val commonDFType =
-          if (dfType.asIRForced == prevDFType.asIRForced) prevDFType else NoType
+          if (dfType.asIR == prevDFType.asIR) prevDFType else NoType
         (commonDFType, block)
       }
     retDFType match
       case NoType => firstCaseRet.get
       case _ =>
         val DFVal(headerIR: DFMatchHeader) = header
-        val headerUpdate = headerIR.copy(dfType = retDFType.asIRForced)
+        val headerUpdate = headerIR.copy(dfType = retDFType.asIR)
         // updating the type of the if header
         headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
   end fromCases
@@ -67,8 +67,8 @@ object DFMatch:
   object Header:
     def apply(dfType: DFTypeAny, selector: DFValAny)(using DFC): DFValAny =
       lazy val header: ir.DFVal = DFMatchHeader(
-        dfType.asIRForced,
-        selector.asIRForced.refTW(header),
+        dfType.asIR,
+        selector.asIR.refTW(header),
         dfc.owner.ref,
         dfc.getMeta,
         ir.DFTags.empty
@@ -80,7 +80,7 @@ object DFMatch:
     export DFCaseBlock.Pattern.CatchAll
     object Singleton:
       def apply(token: DFTokenAny): DFCaseBlock.Pattern =
-        DFCaseBlock.Pattern.Singleton(token.asIRForced)
+        DFCaseBlock.Pattern.Singleton(token.asIR)
   object Block:
     def apply(
         pattern: Pattern,
@@ -90,13 +90,13 @@ object DFMatch:
         DFC
     ): DFOwnerAny =
       lazy val guardRef: DFConditional.Block.GuardRef = guardOption match
-        case Some(cond) => cond.asIRForced.refTW(block)
+        case Some(cond) => cond.asIR.refTW(block)
         case None       => ir.DFRef.TwoWay.Empty
       lazy val prevBlockOrHeaderRef: DFCaseBlock.Ref = prevBlockOrHeader match
         case prevBlock: DFOwnerAny =>
-          prevBlock.asIRForced.asInstanceOf[DFCaseBlock].refTW(block)
+          prevBlock.asIR.asInstanceOf[DFCaseBlock].refTW(block)
         case header: DFValAny =>
-          header.asIRForced.asInstanceOf[DFMatchHeader].refTW(block)
+          header.asIR.asInstanceOf[DFMatchHeader].refTW(block)
       lazy val block: DFCaseBlock =
         DFCaseBlock(
           pattern,

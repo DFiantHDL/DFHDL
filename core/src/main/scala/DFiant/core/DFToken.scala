@@ -14,10 +14,10 @@ final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny | DFError)
     with Selectable:
 
   def selectDynamic(name: String): Any =
-    val ir.DFStruct(structName, fieldMap) = this.asIRForced.dfType
+    val ir.DFStruct(structName, fieldMap) = this.asIR.dfType
     val dfType = fieldMap(name)
     val idx = fieldMap.toList.indexWhere(_._1 == name)
-    val data = this.asIRForced.data.asInstanceOf[List[Any]](idx)
+    val data = this.asIR.data.asInstanceOf[List[Any]](idx)
     ir.DFToken.forced(dfType, data).asTokenOf[DFTypeAny]
 
   transparent inline def ==[R](
@@ -113,17 +113,16 @@ object DFToken:
     CanEqual.derived
 
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
-    ir.DFToken.bubble(dfType.asIRForced).asTokenOf[T]
+    ir.DFToken.bubble(dfType.asIR).asTokenOf[T]
   extension (token: DFTokenAny)
-    def asIRForced: ir.DFTokenAny = token.value match
+    def asIR: ir.DFTokenAny = token.value match
       case tokenIR: ir.DFTokenAny => tokenIR
       case err: DFError           => throw err
-    def asIROrErr: ir.DFTokenAny | DFError = token.value
     def codeString(using printer: Printer)(using DFC): String =
-      printer.csDFToken(asIRForced)
+      printer.csDFToken(asIR)
   extension [T <: ir.DFType, Data](
       token: DFToken[DFType[ir.DFType.Aux[T, Data], Args]]
-  ) def data: Data = token.asIRForced.data.asInstanceOf[Data]
+  ) def data: Data = token.asIR.data.asInstanceOf[Data]
 
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
   trait TC[T <: DFTypeAny, -V] extends TCConv[T, V, DFTokenAny]:
@@ -174,8 +173,8 @@ object DFToken:
       val tokenArg = conv(token.dfType, arg)
       assert(token.dfType == tokenArg.dfType)
       val dataOut = op.value match
-        case FuncOp.=== => token.asIRForced.data == tokenArg.asIRForced.data
-        case FuncOp.=!= => token.asIRForced.data != tokenArg.asIRForced.data
+        case FuncOp.=== => token.asIR.data == tokenArg.asIR.data
+        case FuncOp.=!= => token.asIR.data != tokenArg.asIR.data
         case _          => throw new IllegalArgumentException("Unsupported Op")
       DFBoolOrBit.Token(DFBool, dataOut)
   end Compare
@@ -217,7 +216,7 @@ object DFToken:
     extension [T <: DFTypeAny](token: DFToken[T])
       def bits(using w: Width[T]): DFToken[DFBits[w.Out]] =
         import ir.DFToken.bits as bitsIR
-        token.asIRForced.bitsIR.asTokenOf[DFBits[w.Out]]
+        token.asIR.bitsIR.asTokenOf[DFBits[w.Out]]
   end Ops
 
   trait Value[T <: DFTypeAny]:

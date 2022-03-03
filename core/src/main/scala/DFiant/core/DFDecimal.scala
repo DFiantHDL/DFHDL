@@ -27,7 +27,7 @@ object DFDecimal:
     DFDecimal(valueOf[S], valueOf[W], valueOf[F])
   object Extensions:
     extension [S <: Boolean, W <: Int, F <: Int](dfType: DFDecimal[S, W, F])
-      def signed: Inlined[S] = Inlined.forced[S](dfType.asIRForced.signed)
+      def signed: Inlined[S] = Inlined.forced[S](dfType.asIR.signed)
 
   protected[core] object Constraints:
     object Width
@@ -271,7 +271,7 @@ object DFDecimal:
         dfType: DFDecimal[S, W, F],
         data: Option[BigInt]
     ): Token[S, W, F] =
-      ir.DFToken(dfType.asIRForced)(data).asTokenOf[DFDecimal[S, W, F]]
+      ir.DFToken(dfType.asIR)(data).asTokenOf[DFDecimal[S, W, F]]
     protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
         signed: Inlined[S],
         width: Inlined[W],
@@ -544,10 +544,10 @@ object DFXInt:
           val resizedToken: ir.DFTokenAny =
             val tokenIR =
               if (dfType.signed != token.dfType.signed)
-                token.asIRForced.asTokenOf[DFUInt[LW]].signed.asIRForced
-              else token.asIRForced
+                token.asIR.asTokenOf[DFUInt[LW]].signed.asIR
+              else token.asIR
             if (dfType.width > token.width)
-              ir.DFToken(dfType.asIRForced)(token.data)
+              ir.DFToken(dfType.asIR)(token.data)
             else tokenIR
           resizedToken.asTokenOf[DFXInt[LS, LW]]
         end conv
@@ -593,7 +593,7 @@ object DFXInt:
             tokenArg.dfType.signed,
             tokenArg.dfType.width
           )
-          tokenArg.asIRForced.asTokenOf[DFXInt[LS, LW]]
+          tokenArg.asIR.asTokenOf[DFXInt[LS, LW]]
       end given
     end Compare
 
@@ -644,26 +644,26 @@ object DFXInt:
         )(using check: Width.Check[S, RW]): Token[S, RW] =
           val updatedTokenIR =
             // no change in width
-            if (updatedWidth == lhs.width) lhs.asIRForced
+            if (updatedWidth == lhs.width) lhs.asIR
             else
               val signed = lhs.dfType.signed
               check(signed, updatedWidth)
               // updated width is larger or the data is bubble
               // TODO:Wrong run error workaround by changing to `updatedWidth.value` and `lhs.width.value`
-              if (updatedWidth.value > lhs.width.value || lhs.asIRForced.isBubble)
-                DFXInt.Token(signed, updatedWidth, lhs.data).asIRForced
+              if (updatedWidth.value > lhs.width.value || lhs.asIR.isBubble)
+                DFXInt.Token(signed, updatedWidth, lhs.data).asIR
               else // updated width is smaller
                 import DFToken.Ops.bits
                 import DFBits.Token.Ops.{resize => resizeDFBits, *}
                 if (signed)
                   val tokenBits = lhs.bits
                   (tokenBits.msbit.bits ++
-                    tokenBits(updatedWidth.value - 2, 0)).sint.asIRForced
+                    tokenBits(updatedWidth.value - 2, 0)).sint.asIR
                 else // unsigned
                   lhs.bits
                     .resizeDFBits(updatedWidth)
                     .uint
-                    .asIRForced
+                    .asIR
               end if
           updatedTokenIR.asTokenOf[DFXInt[S, RW]]
         end resize
@@ -910,11 +910,11 @@ object DFXInt:
           val dfValIR =
             val rhsSignFix: DFValOf[DFSInt[Int]] =
               if (dfType.signed != rhs.dfType.signed)
-                rhs.asIRForced.asValOf[DFUInt[Int]].signed.asIRForced.asValOf[DFSInt[Int]]
-              else rhs.asIRForced.asValOf[DFSInt[Int]]
+                rhs.asIR.asValOf[DFUInt[Int]].signed.asIR.asValOf[DFSInt[Int]]
+              else rhs.asIR.asValOf[DFSInt[Int]]
             if (rhsSignFix.width < dfType.width)
-              rhsSignFix.resize(dfType.width).asIRForced
-            else rhsSignFix.asIRForced
+              rhsSignFix.resize(dfType.width).asIR
+            else rhsSignFix.asIR
           dfValIR.asValOf[DFXInt[LS, LW]]
         end conv
       end given
@@ -950,7 +950,7 @@ object DFXInt:
           val dfValArgResized =
             if (dfValArg.width < dfType.width) dfValArg.resize(dfType.width)
             else dfValArg
-          dfValArgResized.asIRForced.asValOf[DFXInt[LS, LW]]
+          dfValArgResized.asIR.asValOf[DFXInt[LS, LW]]
         end conv
       end DFXIntCompare
     end Compare
@@ -1051,7 +1051,7 @@ object DFXInt:
       )(using DFC): DFValOf[DFXInt[OS, OW]] =
         val rhsFixed =
           if (lhs.dfType.signed && !rhs.dfType.signed)
-            rhs.asIRForced.asValOf[DFUInt[RW]].signed
+            rhs.asIR.asValOf[DFUInt[RW]].signed
           else rhs
         DFVal.Func(dfType, op, List(lhs, rhsFixed))
       end arithOp
@@ -1327,14 +1327,14 @@ object DFUInt:
             unsignedCheck(argVal.dfType.signed)
             widthCheck(ubInfo.width(ub - 1), argVal.width)
             // for constant value we apply an explicit check for the bound
-            argVal.asIRForced match
+            argVal.asIR match
               case ir.DFVal.Const(ir.DFDecimal.Token(dfType, data), _, _, _) =>
                 data match
                   case Some(value) =>
                     summon[`UB > R`.Check[UB, Int]](ub, value.toInt)
                   case _ => // no check
               case _ => // no check
-            argVal.asIRForced.asValOf[DFUInt[OutW]]
+            argVal.asIR.asValOf[DFUInt[OutW]]
     end UBArg
     object Ops:
       extension [W <: Int](lhs: DFValOf[DFUInt[W]])

@@ -11,7 +11,7 @@ private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
   private[core] final override lazy val owner: Design.Block =
     Design.Block(domain, "???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =
-    val designBlock = owner.asIRForced
+    val designBlock = owner.asIR
     dfc.getSet.replace(designBlock)(
       designBlock.copy(dclName = name, dclPosition = position)
     )
@@ -21,7 +21,7 @@ object Design:
   object Block:
     def apply(domain: ir.Domain, dclName: String, dclPosition: Position)(using DFC): Block =
       val ownerRef: ir.DFOwner.Ref =
-        dfc.ownerOption.map(_.asIRForced.ref).getOrElse(ir.DFRef.OneWay.Empty)
+        dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFRef.OneWay.Empty)
       ir.DFDesignBlock(
         domain,
         dclName,

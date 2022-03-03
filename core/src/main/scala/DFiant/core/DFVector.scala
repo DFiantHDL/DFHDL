@@ -16,12 +16,12 @@ object DFVector:
       cellType: T,
       cellDims: D
   ): DFVector[T, D] =
-    ir.DFVector(cellType.asIRForced, cellDims.toList.asInstanceOf[List[Int]])
+    ir.DFVector(cellType.asIR, cellDims.toList.asInstanceOf[List[Int]])
       .asFE[DFVector[T, D]]
 
   extension [T <: DFTypeAny, D <: NonEmptyTuple](dfType: DFVector[T, D])
-    def cellType: T = dfType.asIRForced.cellType.asFE[T]
-    def cellDims: List[Int] = dfType.asIRForced.cellDims
+    def cellType: T = dfType.asIR.cellType.asFE[T]
+    def cellDims: List[Int] = dfType.asIR.cellDims
 
   protected[core] object IndexWidth
       extends Check2[
@@ -64,12 +64,12 @@ object DFVector:
         dfType: DFVector[T, D],
         data: Vector[Any]
     ): Token[T, D] =
-      val dim = dfType.asIRForced.cellDims.head
+      val dim = dfType.asIR.cellDims.head
       assert(
         data.length == dim,
         s"The length of the Scala vector (${data.length}) does not match the dataflow vector dimension ($dim)"
       )
-      ir.DFVector.Token(dfType.asIRForced, data).asTokenOf[DFVector[T, D]]
+      ir.DFVector.Token(dfType.asIR, data).asTokenOf[DFVector[T, D]]
 
     object TC:
       import DFToken.TC
@@ -77,7 +77,7 @@ object DFVector:
           tc: TC[T, R]
       ): TC[DFVector[T, Tuple1[D1]], Vector[R]] with
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: Vector[R]): Out =
-          Token(dfType, arg.map(tc(dfType.cellType, _).asIRForced.data))
+          Token(dfType, arg.map(tc(dfType.cellType, _).asIR.data))
       given DFVectorTokenFromSEV[T <: DFTypeAny, D1 <: Int, R](using
           tc: TC[T, R]
       ): TC[DFVector[T, Tuple1[D1]], SameElementsVector[R]] with
@@ -88,7 +88,7 @@ object DFVector:
           Token(
             dfType,
             Vector.fill(dfType.cellDims.head)(
-              tc(dfType.cellType, arg.value).asIRForced.data
+              tc(dfType.cellType, arg.value).asIR.data
             )
           )
     end TC
@@ -107,7 +107,7 @@ object DFVector:
           castle: ValueOf[C]
       ): Compare[DFVector[T, Tuple1[D1]], Vector[R], Op, C] with
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: Vector[R]): Out =
-          Token(dfType, arg.map(tc.conv(dfType.cellType, _).asIRForced.data))
+          Token(dfType, arg.map(tc.conv(dfType.cellType, _).asIR.data))
     end Compare
     object Ops:
       extension [T <: DFTypeAny, D1 <: Int](lhs: Token[T, Tuple1[D1]])
@@ -119,7 +119,7 @@ object DFVector:
         ): DFToken[T] =
           check(idx, lhs.dfType.cellDims.head)
           ir.DFToken
-            .forced(lhs.dfType.asIRForced.cellType, lhs.data(idx))
+            .forced(lhs.dfType.asIR.cellType, lhs.data(idx))
             .asTokenOf[T]
   end Token
 
