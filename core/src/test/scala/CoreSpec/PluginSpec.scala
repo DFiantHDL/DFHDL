@@ -55,6 +55,28 @@ class PluginSpec extends DFSpec:
     )
   )
 
+  inline def wrapper(block: DFC ?=> Bar)(using dfc: DFC): Bar =
+    block(using dfc)
+
+  val wrappedName = wrapper {
+    new Bar
+  }
+  assertLastNames("wrappedName")
+
+  val tryName =
+    try new Bar
+    catch case _ => ???
+  assertLastNames("tryName")
+
+  inline def wrapperTry(block: DFC ?=> Bar)(using dfc: DFC): Bar =
+    try block(using dfc)
+    catch case _ => ???
+
+  val wrappedTryName = wrapper {
+    new Bar
+  }
+  assertLastNames("wrappedTryName")
+
   class GotName extends HasNamePosWithVars
   val gotName = new GotName
   assertEquals(gotName.clsName, "GotName")

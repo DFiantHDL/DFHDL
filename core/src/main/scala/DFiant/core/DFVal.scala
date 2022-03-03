@@ -128,11 +128,14 @@ object DFVal:
       val c = compiletime.summonInline[
         DFVal.Compare[T, exactType.Underlying, Op, false]
       ]
-      c($dfVal, $exactExpr)(using
-        compiletime.summonInline[DFC],
-        compiletime.summonInline[ValueOf[Op]],
-        new ValueOf[false](false)
-      )
+      val dfc = compiletime.summonInline[DFC]
+      trydf {
+        c($dfVal, $exactExpr)(using
+          dfc,
+          compiletime.summonInline[ValueOf[Op]],
+          new ValueOf[false](false)
+        )
+      }(using dfc)
     }
   end equalityMacro
 

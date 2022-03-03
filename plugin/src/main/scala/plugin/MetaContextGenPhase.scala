@@ -195,6 +195,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case block: Block =>
         debug("Block expr")
         nameValOrDef(block.expr, ownerTree, inlinedPosOpt)
+      case tryBlock: Try =>
+        debug("Try block")
+        nameValOrDef(tryBlock.expr, ownerTree, inlinedPosOpt)
       case _ =>
     end match
   end nameValOrDef
