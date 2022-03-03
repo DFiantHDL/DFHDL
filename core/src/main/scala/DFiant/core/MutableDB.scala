@@ -73,6 +73,7 @@ class MutableDB(val duringTest: Boolean = false):
     members += Tuple3(member, Set(), false)
     member
 
+  val logger = new Logger
 ////  def addMemberOf[M <: DFMember](member: DFMember)(implicit
 ////      ctx: DFMember.Context
 ////  ): M with DFMember.RefOwner =

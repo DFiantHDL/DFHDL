@@ -962,7 +962,7 @@ object DFXInt:
         )(using
             check: Width.Check[S, RW],
             dfc: DFC
-        ): DFValOf[DFXInt[S, RW]] =
+        ): DFValOf[DFXInt[S, RW]] = trydf {
           val signed = lhs.dfType.signed
           check(signed, updatedWidth)
           import Token.Ops.{resize => resizeToken}
@@ -971,37 +971,40 @@ object DFXInt:
             lhs,
             _.resizeToken(updatedWidth)
           )
+        }
         end resize
         def <[R](rhs: Exact[R])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[S, W], R, FuncOp.<.type, false]
-        ): DFBool <> VAL = op(lhs, rhs)
+        ): DFBool <> VAL = trydf { op(lhs, rhs) }
         def <=[R](rhs: Exact[R])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[S, W], R, FuncOp.<=.type, false]
-        ): DFBool <> VAL = op(lhs, rhs)
+        ): DFBool <> VAL = trydf { op(lhs, rhs) }
         def >[R](rhs: Exact[R])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[S, W], R, FuncOp.>.type, false]
-        ): DFBool <> VAL = op(lhs, rhs)
+        ): DFBool <> VAL = trydf { op(lhs, rhs) }
         def >=[R](rhs: Exact[R])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[S, W], R, FuncOp.>=.type, false]
-        ): DFBool <> VAL = op(lhs, rhs)
+        ): DFBool <> VAL = trydf { op(lhs, rhs) }
         @targetName("shiftRightDFXInt")
         def >>[R](shift: Exact[R])(using
             c: DFUInt.Val.UBArg[W, R],
             dfc: DFC
-        ): DFValOf[DFXInt[S, W]] =
+        ): DFValOf[DFXInt[S, W]] = trydf {
           val shiftVal = c(lhs.width, shift)
           DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shiftVal))
+        }
         @targetName("shiftLeftDFXInt")
         def <<[R](shift: Exact[R])(using
             c: DFUInt.Val.UBArg[W, R],
             dfc: DFC
-        ): DFValOf[DFXInt[S, W]] =
+        ): DFValOf[DFXInt[S, W]] = trydf {
           val shiftVal = c(lhs.width, shift)
           DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
+        }
       end extension
 
       extension [L](inline lhs: L)
@@ -1053,42 +1056,47 @@ object DFXInt:
         def +[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: ArithCheck[LS, LW, icR.OutS, icR.OutW, icR.IsScalaInt, false]
-        ): DFValOf[DFXInt[LS, LW]] =
+        ): DFValOf[DFXInt[LS, LW]] = trydf {
           val rhsVal = icR(rhs)
           check(lhs.dfType, rhsVal.dfType)
           arithOp(lhs.dfType, FuncOp.+, lhs, rhsVal)
+        }
         def -[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: ArithCheck[LS, LW, icR.OutS, icR.OutW, icR.IsScalaInt, false]
-        ): DFValOf[DFXInt[LS, LW]] =
+        ): DFValOf[DFXInt[LS, LW]] = trydf {
           val rhsVal = icR(rhs)
           check(lhs.dfType, rhsVal.dfType)
           arithOp(lhs.dfType, FuncOp.-, lhs, rhsVal)
+        }
         def *[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: ArithCheck[LS, LW, icR.OutS, icR.OutW, icR.IsScalaInt, false]
-        ): DFValOf[DFXInt[LS, LW]] =
+        ): DFValOf[DFXInt[LS, LW]] = trydf {
           val rhsVal = icR(rhs)
           check(lhs.dfType, rhsVal.dfType)
           arithOp(lhs.dfType, FuncOp.`*`, lhs, rhsVal)
+        }
         def /[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: ArithCheck[LS, LW, icR.OutS, icR.OutW, icR.IsScalaInt, false]
-        ): DFValOf[DFXInt[LS, LW]] =
+        ): DFValOf[DFXInt[LS, LW]] = trydf {
           val rhsVal = icR(rhs)
           check(lhs.dfType, rhsVal.dfType)
           arithOp(lhs.dfType, FuncOp./, lhs, rhsVal)
+        }
         def %[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: ArithCheck[LS, LW, icR.OutS, icR.OutW, icR.IsScalaInt, false]
-        ): DFValOf[DFXInt[LS, LW]] =
+        ): DFValOf[DFXInt[LS, LW]] = trydf {
           val rhsVal = icR(rhs)
           check(lhs.dfType, rhsVal.dfType)
           arithOp(lhs.dfType, FuncOp.%, lhs, rhsVal)
+        }
         def +^[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: SignCheck[LS, icR.OutS, icR.IsScalaInt, false]
-        ): DFValOf[DFXInt[LS, Max[LW, icR.OutW] + 1]] =
+        ): DFValOf[DFXInt[LS, Max[LW, icR.OutW] + 1]] = trydf {
           val rhsVal = icR(rhs)
           check(lhs.dfType.signed, rhsVal.dfType.signed)
           val width = Inlined.forced[Max[LW, icR.OutW] + 1](
@@ -1096,10 +1104,11 @@ object DFXInt:
           )
           val dfType = DFXInt(lhs.dfType.signed, width)
           arithOp(dfType, FuncOp.+, lhs, rhsVal)
+        }
         def -^[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: SignCheck[LS, icR.OutS, icR.IsScalaInt, false]
-        ): DFValOf[DFXInt[LS, Max[LW, icR.OutW] + 1]] =
+        ): DFValOf[DFXInt[LS, Max[LW, icR.OutW] + 1]] = trydf {
           val rhsVal = icR(rhs)
           check(lhs.dfType.signed, rhsVal.dfType.signed)
           val width = Inlined.forced[Max[LW, icR.OutW] + 1](
@@ -1107,10 +1116,11 @@ object DFXInt:
           )
           val dfType = DFXInt(lhs.dfType.signed, width)
           arithOp(dfType, FuncOp.-, lhs, rhsVal)
+        }
         def *^[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: SignCheck[LS, icR.OutS, icR.IsScalaInt, false]
-        ): DFValOf[DFXInt[LS, LW + icR.OutW]] =
+        ): DFValOf[DFXInt[LS, LW + icR.OutW]] = trydf {
           val rhsVal = icR(rhs)
           check(lhs.dfType.signed, rhsVal.dfType.signed)
           val width = Inlined.forced[LW + icR.OutW](
@@ -1118,6 +1128,7 @@ object DFXInt:
           )
           val dfType = DFXInt(lhs.dfType.signed, width)
           arithOp(dfType, FuncOp.`*`, lhs, rhsVal)
+        }
       end extension
       extension [L](inline lhs: L)
         inline def +[RS <: Boolean, RW <: Int](

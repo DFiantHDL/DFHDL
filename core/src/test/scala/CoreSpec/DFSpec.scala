@@ -39,6 +39,16 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
       catch case e: IllegalArgumentException => e.getMessage
     assertNoDiff(err, expectedErr)
 
+  transparent inline def assertDSLErrorLog(expectedErr: String)(
+      inline compileTimeCode: String
+  )(runTimeCode: => Unit)(using DFC): Unit =
+    assertCompileError(expectedErr)(compileTimeCode)
+    dfc.clearErrors()
+    runTimeCode
+    val err = dfc.getErrors.headOption.map(_.dfMsg).getOrElse(noErrMsg)
+    dfc.clearErrors()
+    assertNoDiff(err, expectedErr)
+
   def getCodeStringFrom(block: => Unit): String =
     import dfc.getSet
     val startIdx = dfc.mutableDB.getMembersSize

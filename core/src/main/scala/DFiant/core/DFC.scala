@@ -31,7 +31,9 @@ final case class DFC(
     copy(nameOpt = Some(name)).asInstanceOf[this.type]
   def anonymize: this.type = copy(nameOpt = None).asInstanceOf[this.type]
   def <>(that: Int): this.type = copy(defaultDir = that).asInstanceOf[this.type]
-  def logError(err: DFError): this.type = ???
+  def logError(err: DFError): Unit = mutableDB.logger.logError(err)
+  def getErrors: List[DFError] = mutableDB.logger.getErrors
+  def clearErrors(): Unit = mutableDB.logger.clearErrors()
 end DFC
 object DFC:
   given (using TopLevel): DFC = empty

@@ -279,7 +279,7 @@ class DFDecimalSpec extends DFSpec:
       val u7 = DFUInt(value) <> VAR
       u8 == u7
     }
-    assertDSLError(
+    assertDSLErrorLog(
       """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
          |An explicit conversion must be applied.
          |""".stripMargin
@@ -299,7 +299,7 @@ class DFDecimalSpec extends DFSpec:
       val value = -1
       value <= u8
     }
-    assertDSLError(
+    assertDSLErrorLog(
       """Cannot compare a dataflow value (width = 8) with a Scala `Int` argument that is wider (width = 10).
         |An explicit conversion must be applied.
         |""".stripMargin
