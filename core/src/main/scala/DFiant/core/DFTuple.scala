@@ -245,9 +245,10 @@ object DFTuple:
             dfc: DFC,
             check: BitIndex.Check[I, Tuple.Size[T]],
             size: ValueOf[Tuple.Size[T]]
-        ): DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M] =
+        ): DFVal[DFType.FromDFVal[Tuple.Elem[T, I]], M] = trydf {
           check(i, size)
           applyForced[DFType.FromDFVal[Tuple.Elem[T, I]]](i)
+        }
         private[core] def applyForced[OT <: DFTypeAny](i: Int)(using
             dfc: DFC
         ): DFVal[OT, M] = DFVal.Alias

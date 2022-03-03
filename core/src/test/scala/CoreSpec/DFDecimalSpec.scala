@@ -202,7 +202,7 @@ class DFDecimalSpec extends DFSpec:
       s8 := -127
       s8 := u6
       s8 := s6
-      assertDSLError(
+      assertDSLErrorLog(
         "Cannot apply a signed value to an unsigned variable."
       )(
         """u8 := -1"""
@@ -215,7 +215,7 @@ class DFDecimalSpec extends DFSpec:
       )(
         """u8 := s8"""
       )
-      assertDSLError(
+      assertDSLErrorLog(
         "The applied RHS value width (9) is larger than the LHS variable width (8)."
       )(
         """u8 := 256"""
@@ -223,7 +223,7 @@ class DFDecimalSpec extends DFSpec:
         val value = 256
         u8 := value
       }
-      assertDSLError(
+      assertDSLErrorLog(
         "The applied RHS value width (9) is larger than the LHS variable width (8)."
       )(
         """s8 := 128"""
@@ -289,7 +289,7 @@ class DFDecimalSpec extends DFSpec:
       val value = -1
       u8 < value
     }
-    assertDSLError(
+    assertDSLErrorLog(
       """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).
          |An explicit conversion must be applied.
          |""".stripMargin

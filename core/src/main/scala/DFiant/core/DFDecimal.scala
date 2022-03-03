@@ -1016,25 +1016,25 @@ object DFXInt:
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.<.type, true]
-        ): DFBool <> VAL = op(rhs, es(lhs))
+        ): DFBool <> VAL = trydf { op(rhs, es(lhs)) }
         inline def <=[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.<=.type, true]
-        ): DFBool <> VAL = op(rhs, es(lhs))
+        ): DFBool <> VAL = trydf { op(rhs, es(lhs)) }
         inline def >[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.>.type, true]
-        ): DFBool <> VAL = op(rhs, es(lhs))
+        ): DFBool <> VAL = trydf { op(rhs, es(lhs)) }
         inline def >=[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[RS, RW], es.Out, FuncOp.>=.type, true]
-        ): DFBool <> VAL = op(rhs, es(lhs))
+        ): DFBool <> VAL = trydf { op(rhs, es(lhs)) }
       end extension
       private def arithOp[
           OS <: Boolean,
@@ -1141,10 +1141,11 @@ object DFXInt:
         )(using
             dfc: DFC,
             check: ArithCheck[RS, RW, icL.OutS, icL.OutW, icL.IsScalaInt, true]
-        ): DFValOf[DFXInt[icL.OutS, icL.OutW]] =
+        ): DFValOf[DFXInt[icL.OutS, icL.OutW]] = trydf {
           val lhsVal = icL(sL(lhs))
           check(rhs.dfType, lhsVal.dfType)
           DFVal.Func(lhsVal.dfType, FuncOp.+, List(lhsVal, rhs))
+        }
         inline def -[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
         )(using sL: Exact.Summon[L, lhs.type])(using
@@ -1152,10 +1153,11 @@ object DFXInt:
         )(using
             dfc: DFC,
             check: ArithCheck[RS, RW, icL.OutS, icL.OutW, icL.IsScalaInt, true]
-        ): DFValOf[DFXInt[icL.OutS, icL.OutW]] =
+        ): DFValOf[DFXInt[icL.OutS, icL.OutW]] = trydf {
           val lhsVal = icL(sL(lhs))
           check(rhs.dfType, lhsVal.dfType)
           DFVal.Func(lhsVal.dfType, FuncOp.-, List(lhsVal, rhs))
+        }
         inline def *[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
         )(using sL: Exact.Summon[L, lhs.type])(using
@@ -1163,10 +1165,11 @@ object DFXInt:
         )(using
             dfc: DFC,
             check: ArithCheck[RS, RW, icL.OutS, icL.OutW, icL.IsScalaInt, true]
-        ): DFValOf[DFXInt[icL.OutS, icL.OutW]] =
+        ): DFValOf[DFXInt[icL.OutS, icL.OutW]] = trydf {
           val lhsVal = icL(sL(lhs))
           check(rhs.dfType, lhsVal.dfType)
           DFVal.Func(lhsVal.dfType, FuncOp.`*`, List(lhsVal, rhs))
+        }
         inline def /[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
         )(using sL: Exact.Summon[L, lhs.type])(using
@@ -1174,10 +1177,11 @@ object DFXInt:
         )(using
             dfc: DFC,
             check: ArithCheck[RS, RW, icL.OutS, icL.OutW, icL.IsScalaInt, true]
-        ): DFValOf[DFXInt[icL.OutS, icL.OutW]] =
+        ): DFValOf[DFXInt[icL.OutS, icL.OutW]] = trydf {
           val lhsVal = icL(sL(lhs))
           check(rhs.dfType, lhsVal.dfType)
           DFVal.Func(lhsVal.dfType, FuncOp./, List(lhsVal, rhs))
+        }
         inline def %[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
         )(using sL: Exact.Summon[L, lhs.type])(using
@@ -1185,10 +1189,11 @@ object DFXInt:
         )(using
             dfc: DFC,
             check: ArithCheck[RS, RW, icL.OutS, icL.OutW, icL.IsScalaInt, true]
-        ): DFValOf[DFXInt[icL.OutS, icL.OutW]] =
+        ): DFValOf[DFXInt[icL.OutS, icL.OutW]] = trydf {
           val lhsVal = icL(sL(lhs))
           check(rhs.dfType, lhsVal.dfType)
           DFVal.Func(lhsVal.dfType, FuncOp.%, List(lhsVal, rhs))
+        }
         inline def +^[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
         )(using sL: Exact.Summon[L, lhs.type])(using
@@ -1196,7 +1201,7 @@ object DFXInt:
         )(using
             dfc: DFC,
             check: SignCheck[RS, icL.OutS, icL.IsScalaInt, true]
-        ): DFValOf[DFXInt[icL.OutS, Max[icL.OutW, RW] + 1]] =
+        ): DFValOf[DFXInt[icL.OutS, Max[icL.OutW, RW] + 1]] = trydf {
           val lhsVal = icL(sL(lhs))
           check(rhs.dfType.signed, lhsVal.dfType.signed)
           val width = Inlined.forced[Max[icL.OutW, RW] + 1](
@@ -1204,6 +1209,7 @@ object DFXInt:
           )
           val dfType = DFXInt(lhsVal.dfType.signed, width)
           DFVal.Func(dfType, FuncOp.+, List(lhsVal, rhs))
+        }
         end +^
         inline def -^[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
@@ -1212,7 +1218,7 @@ object DFXInt:
         )(using
             dfc: DFC,
             check: SignCheck[RS, icL.OutS, icL.IsScalaInt, true]
-        ): DFValOf[DFXInt[icL.OutS, Max[icL.OutW, RW] + 1]] =
+        ): DFValOf[DFXInt[icL.OutS, Max[icL.OutW, RW] + 1]] = trydf {
           val lhsVal = icL(sL(lhs))
           check(rhs.dfType.signed, lhsVal.dfType.signed)
           val width = Inlined.forced[Max[icL.OutW, RW] + 1](
@@ -1220,6 +1226,7 @@ object DFXInt:
           )
           val dfType = DFXInt(lhsVal.dfType.signed, width)
           DFVal.Func(dfType, FuncOp.-, List(lhsVal, rhs))
+        }
         end -^
         inline def *^[RS <: Boolean, RW <: Int](
             rhs: DFXInt[RS, RW] <> VAL
@@ -1228,7 +1235,7 @@ object DFXInt:
         )(using
             dfc: DFC,
             check: SignCheck[RS, icL.OutS, icL.IsScalaInt, true]
-        ): DFValOf[DFXInt[icL.OutS, icL.OutW + RW]] =
+        ): DFValOf[DFXInt[icL.OutS, icL.OutW + RW]] = trydf {
           val lhsVal = icL(sL(lhs))
           check(rhs.dfType.signed, lhsVal.dfType.signed)
           val width = Inlined.forced[icL.OutW + RW](
@@ -1236,6 +1243,7 @@ object DFXInt:
           )
           val dfType = DFXInt(lhsVal.dfType.signed, width)
           DFVal.Func(dfType, FuncOp.`*`, List(lhsVal, rhs))
+        }
         end *^
       end extension
     end Ops

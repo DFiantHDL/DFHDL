@@ -22,6 +22,7 @@ object DFError:
   final class Derived(from: DFError) extends DFError(from.dfMsg)
 
   extension (dfErr: DFError)
+    def asNet: DFNet = new DFNet(dfErr)
     def asFE[T <: DFTypeAny]: T = DFType(dfErr).asInstanceOf[T]
     def asValOf[T <: DFTypeAny]: DFValOf[T] = new DFVal[T, ModifierAny](dfErr)
     def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] = new DFVal[T, M](dfErr)
@@ -78,6 +79,21 @@ def trydf[T <: DFTypeAny, M <: ModifierAny](block: => DFVal[T, M])(using dfc: DF
         case e: DFError                  => e
       dfc.logError(dfErr)
       dfErr.asVal[T, M]
+
+@targetName("tryDFNet")
+def trydf(block: => DFNet)(using dfc: DFC): DFNet =
+  try
+    val ret = block
+    import dfc.getSet
+    val retIR = dfc.getSet.set(ret.asIR)(_.setMeta(_ => dfc.getMeta))
+    retIR.asFE
+  catch
+    case e: Exception =>
+      val dfErr = e match
+        case e: IllegalArgumentException => DFError.Basic(e)
+        case e: DFError                  => e
+      dfc.logError(dfErr)
+      dfErr.asNet
 
 //def trydf[T](block: => T)(using DFC): T =
 //  try block

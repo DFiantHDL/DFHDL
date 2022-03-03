@@ -183,9 +183,10 @@ object DFVector:
         )(using
             c: DFUInt.Val.UBArg[D1, I],
             dfc: DFC
-        ): DFVal[T, M] =
+        ): DFVal[T, M] = trydf {
           val idxVal = c(Inlined.forced[D1](lhs.dfType.cellDims.head), idx)
           DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idxVal)
+        }
       end extension
     end Ops
   end Val

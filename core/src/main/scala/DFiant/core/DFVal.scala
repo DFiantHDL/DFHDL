@@ -552,15 +552,17 @@ object DFVal:
           dfc: DFC,
           prevCheck: PrevCheck[I],
           check: Arg.Positive.Check[Int]
-      ): DFValOf[T] =
+      ): DFValOf[T] = trydf {
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev)
+      }
       inline def prev(using PrevCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
       def pipe(
           step: Int
-      )(using dfOnly: DFDomainOnly, dfc: DFC, check: Arg.Positive.Check[Int]): DFValOf[T] =
+      )(using dfOnly: DFDomainOnly, dfc: DFC, check: Arg.Positive.Check[Int]): DFValOf[T] = trydf {
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe)
+      }
       inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
       def reg(
           step: Int
@@ -568,9 +570,10 @@ object DFVal:
           dfc: DFC,
           rtOnly: HLRTDomainOnly,
           check: Arg.Positive.Check[Int]
-      ): DFValOf[T] =
+      ): DFValOf[T] = trydf {
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg)
+      }
       inline def reg(using DFC, HLRTDomainOnly): DFValOf[T] = dfVal.reg(1)
     end extension
 
@@ -585,11 +588,11 @@ object DFVal:
 end DFVal
 
 extension [T <: DFTypeAny](dfVar: DFValOf[T])
-  def assign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
+  def assign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): DFNet =
     DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
 
 extension [T <: DFTypeAny](lhs: DFValOf[T])
-  def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
+  def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): DFNet =
     DFNet(lhs.asIR, DFNet.Op.Connection, rhs.asIR)
 
 object DFVarOps:
@@ -601,7 +604,9 @@ object DFVarOps:
         ],
         tc: DFVal.TC[T, R],
         dfc: DFC
-    ): Unit = dfVar.assign(tc(dfVar.dfType, rhs))
+    ): Unit = trydf {
+      dfVar.assign(tc(dfVar.dfType, rhs))
+    }
     def din(using
         regOnly: AssertGiven[
           A =:= Modifier.RegRef,
@@ -621,5 +626,6 @@ object DFPortOps:
         ],
         tc: DFVal.TC[T, R],
         dfc: DFC
-    ): Unit =
+    ): Unit = trydf {
       dfPort.connect(tc(dfPort.dfType, rhs))
+    }
