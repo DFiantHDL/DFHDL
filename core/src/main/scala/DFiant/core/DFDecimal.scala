@@ -904,6 +904,7 @@ object DFXInt:
         def conv(dfType: DFXInt[LS, LW], value: R): Out =
           import Ops.resize
           import DFUInt.Val.Ops.signed
+          given dfcAnon: DFC = dfc.anonymize
           val rhs = ic(value)
           check(dfType.signed, dfType.width, rhs.dfType.signed, rhs.width)
           val dfValIR =
@@ -915,6 +916,7 @@ object DFXInt:
               rhsSignFix.resize(dfType.width).asIRForced
             else rhsSignFix.asIRForced
           dfValIR.asValOf[DFXInt[LS, LW]]
+        end conv
       end given
     end TC
 
