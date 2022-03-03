@@ -268,7 +268,7 @@ class DFDecimalSpec extends DFSpec:
       val t7 = u8.resize(4) >= b8.resize(4)
     }
 
-    assertDSLError(
+    assertDSLErrorLog(
       """|Cannot apply this operation between a value of 8 bits width (LHS) to a value of 7 bits width (RHS).
          |An explicit conversion must be applied.
          |""".stripMargin

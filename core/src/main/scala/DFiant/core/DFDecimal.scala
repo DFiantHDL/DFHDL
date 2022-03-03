@@ -937,7 +937,8 @@ object DFXInt:
         def conv(dfType: DFXInt[LS, LW], arg: R): DFXInt[LS, LW] <> VAL =
           import Ops.resize
           import DFUInt.Val.Ops.signed
-          val dfValArg = ic(arg)(using dfc.anonymize)
+          given dfcAnon: DFC = dfc.anonymize
+          val dfValArg = ic(arg)
           check(
             dfType.signed,
             dfType.width,

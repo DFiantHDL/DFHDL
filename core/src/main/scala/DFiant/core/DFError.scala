@@ -65,10 +65,12 @@ def errordf(msg: String)(using dfc: DFC): Nothing =
 //    case e: DFError                  => e.asTokenOf[T]
 
 @targetName("tryDFVal")
-inline def trydf[T <: DFTypeAny, M <: ModifierAny](inline block: DFC ?=> DFVal[T, M])(using
-    dfc: DFC
-): DFVal[T, M] =
-  try block(using dfc)
+def trydf[T <: DFTypeAny, M <: ModifierAny](block: => DFVal[T, M])(using dfc: DFC): DFVal[T, M] =
+  try
+    val ret = block
+    import dfc.getSet
+    val retIR = dfc.getSet.set(ret.asIRForced)(_.setMeta(_ => dfc.getMeta))
+    retIR.asVal[T, M]
   catch
     case e: Exception =>
       val dfErr = e match
