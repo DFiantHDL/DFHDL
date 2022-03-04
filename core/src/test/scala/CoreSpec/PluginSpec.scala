@@ -68,6 +68,9 @@ class PluginSpec extends DFSpec:
     catch case _ => ???
   assertLastNames("tryName")
 
+  def exactDef[T](exactValue : Exact[T]) : T = exactValue.value
+  val e = exactDef(new Bar) //assert inside `Bar` checks that it gets the proper position
+
   inline def wrapperTry(block: DFC ?=> Bar)(using dfc: DFC): Bar =
     try block(using dfc)
     catch case _ => ???
