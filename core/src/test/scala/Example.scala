@@ -13,6 +13,5 @@ end Example
 @main def hello : Unit = {
   println("start")
   val top = new Example
-  top.getDB
   println("done")
 }
