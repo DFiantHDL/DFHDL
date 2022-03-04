@@ -55,6 +55,19 @@ class PluginSpec extends DFSpec:
     )
   )
 
+  def exactDef[T](exactValue : Exact[T]) : T = exactValue.value
+  val e = exactDef(new Bar) //assert inside `Bar` checks that it gets the proper position
+  assertEquals(e.pos.lineStart, 59)
+  assertEquals(e.pos.lineEnd, 59)
+  assertEquals(e.pos.columnStart, 20)
+  assertEquals(e.pos.columnEnd, 27)
+  val e2 = exactDef(new Bar - new Bar) 
+  assertEquals(e2.pos.lineStart, 64)
+  assertEquals(e2.pos.lineEnd, 64)
+  assertEquals(e2.pos.columnStart, 21)
+  assertEquals(e2.pos.columnEnd, 38)
+  clearNameStack()
+
   inline def wrapper(block: DFC ?=> Bar)(using dfc: DFC): Bar =
     block(using dfc)
 
@@ -67,9 +80,6 @@ class PluginSpec extends DFSpec:
     try new Bar
     catch case _ => ???
   assertLastNames("tryName")
-
-  def exactDef[T](exactValue : Exact[T]) : T = exactValue.value
-  val e = exactDef(new Bar) //assert inside `Bar` checks that it gets the proper position
 
   inline def wrapperTry(block: DFC ?=> Bar)(using dfc: DFC): Bar =
     try block(using dfc)
