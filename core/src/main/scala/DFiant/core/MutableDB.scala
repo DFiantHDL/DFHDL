@@ -175,6 +175,10 @@ class MutableDB(val duringTest: Boolean = false):
   private var memoizedDB: Option[DB] = None
 
   def immutable: DB = memoizedDB.getOrElse {
+    val errors = logger.getErrors
+    // If we have errors, then we print them to stderr and exit
+    if (errors.nonEmpty)
+      exitWithError(errors.collect{case basicErr : DFError.Basic => basicErr.toString}.mkString("\n\n"))
     var size = -1
     // Touching all lazy origin refs to force their addition.
     // During this procedure it is possible that new reference are added. If so, we re-iterate
