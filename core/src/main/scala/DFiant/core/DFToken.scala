@@ -117,7 +117,7 @@ object DFToken:
   extension (token: DFTokenAny)
     def asIR: ir.DFTokenAny = token.value match
       case tokenIR: ir.DFTokenAny => tokenIR
-      case err: DFError           => throw err
+      case err: DFError           => throw DFError.Derived(err)
     def codeString(using printer: Printer)(using DFC): String =
       printer.csDFToken(asIR)
   extension [T <: ir.DFType, Data](
