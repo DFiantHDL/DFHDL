@@ -302,7 +302,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     dfValSym = requiredClass("DFiant.core.DFVal")
     dfTokenSym = requiredClass("DFiant.core.DFToken")
-    exactApplySym = requiredClass("DFiant.internals.Exact.apply")
+    exactApplySym = requiredMethod("DFiant.internals.Exact.apply")
     treeOwnerMap.clear()
     contextDefs.clear()
     inlinedOwnerStack.clear()
