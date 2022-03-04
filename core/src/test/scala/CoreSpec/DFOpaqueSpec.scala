@@ -16,6 +16,7 @@ class DFOpaqueSpec extends DFSpec:
        |val q2 = o1 == d"8'1".as(o1u8)
        |o1 := d"8'1".as(o1u8)
        |val z = u8.as(o1u8)
+       |val conv = o1u8 const d"8'1".as(o1u8)
        |val zz = o1.actual
        |o2.actual := d"8'0"
        |zz := d"8'15"

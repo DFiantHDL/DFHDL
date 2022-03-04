@@ -248,19 +248,19 @@ object DFBoolOrBit:
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             ic: Candidate[es.Out]
-        ): RT <> VAL = logicOp(rhs, ic(es(lhs)), FuncOp.|, true)
+        ): RT <> VAL = trydf { logicOp(rhs, ic(es(lhs)), FuncOp.|, true) }
         inline def &&[RT <: DFBoolOrBit](
             rhs: RT <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             ic: Candidate[es.Out]
-        ): RT <> VAL = logicOp(rhs, ic(es(lhs)), FuncOp.&, true)
+        ): RT <> VAL = trydf { logicOp(rhs, ic(es(lhs)), FuncOp.&, true) }
         inline def ^[RT <: DFBoolOrBit](
             rhs: RT <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             ic: Candidate[es.Out]
-        ): RT <> VAL = logicOp(rhs, ic(es(lhs)), FuncOp.^, true)
+        ): RT <> VAL = trydf { logicOp(rhs, ic(es(lhs)), FuncOp.^, true) }
       end extension
     end Ops
   end Val

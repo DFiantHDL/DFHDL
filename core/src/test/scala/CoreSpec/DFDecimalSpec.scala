@@ -148,8 +148,9 @@ class DFDecimalSpec extends DFSpec:
   test("DFVal Conversion") {
     assertCodeString {
       """|val t0 = DFBits(6) const h"6'00"
+         |val t1 = t0.uint.resize(8)
          |val t2 = DFUInt(8) <> VAR
-         |t2 := t0.uint.resize(8)
+         |t2 := t1
          |""".stripMargin
     } {
       val t0 = DFBits(6) const all(0)

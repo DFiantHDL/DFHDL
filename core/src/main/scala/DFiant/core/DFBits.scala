@@ -730,11 +730,12 @@ private object CompanionsDFBits:
         )(using tc: DFType.TC[AT])(using
             aW: Width[tc.Type],
             dfc: DFC
-        )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] =
+        )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] = trydf {
           import Token.Ops.{as => asToken}
           val aliasDFType = tc(aliasType)
           check.apply(aliasDFType.asIR.width, lhs.width)
           DFVal.Alias.AsIs(aliasDFType, lhs, _.asToken(aliasType))
+        }
         def uint(using DFC): DFValOf[DFUInt[W]] =
           as(DFUInt(lhs.width))
         def sint(using DFC): DFValOf[DFSInt[W]] =
@@ -745,8 +746,9 @@ private object CompanionsDFBits:
         )(using
             c: DFUInt.Val.UBArg[W, Idx],
             dfc: DFC
-        ): DFVal[DFBit, Modifier[A, Any, Any]] =
+        ): DFVal[DFBit, Modifier[A, Any, Any]] = trydf {
           DFVal.Alias.ApplyIdx(DFBit, lhs, c(lhs.width, relIdx))
+        }
         def apply[H <: Int, L <: Int](
             relBitHigh: Inlined[H],
             relBitLow: Inlined[L]
@@ -755,74 +757,83 @@ private object CompanionsDFBits:
             checkLow: BitIndex.Check[L, W],
             checkHiLo: BitsHiLo.Check[H, L],
             dfc: DFC
-        ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any]] =
+        ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any]] = trydf {
           checkHigh(relBitHigh, lhs.width)
           checkLow(relBitLow, lhs.width)
           checkHiLo(relBitHigh, relBitLow)
           DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
+        }
         def unary_~(using DFC): DFValOf[DFBits[W]] =
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         def repeat[N <: Int](num: Inlined[N])(using
             check: Arg.Positive.Check[N],
             dfc: DFC
-        ): DFValOf[DFBits[W * N]] =
+        ): DFValOf[DFBits[W * N]] = trydf {
           check(num)
           DFVal.Func(
             DFBits(lhs.dfType.width * num),
             FuncOp.++,
             List.fill(num)(lhs)
           )
+        }
         def resize[RW <: Int](updatedWidth: Inlined[RW])(using
             Arg.Width.Check[RW],
             DFC
-        ): DFValOf[DFBits[RW]] =
+        ): DFValOf[DFBits[RW]] = trydf {
           import Token.Ops.{resize => resizeToken}
           DFVal.Alias.AsIs(
             DFBits(updatedWidth),
             lhs,
             _.resizeToken(updatedWidth)
           )
+        }
         def ++[R](rhs: Exact[R])(using c: Candidate[R])(using
             dfc: DFC
-        ): DFValOf[DFBits[W + c.OutW]] =
+        ): DFValOf[DFBits[W + c.OutW]] = trydf {
           val rhsVal = c(rhs)
           val width = lhs.width + rhsVal.width
           DFVal.Func(DFBits(width), FuncOp.++, List(lhs, rhsVal))
+        }
         def &[R](rhs: Exact[R])(using c: Candidate[R])(using
             dfc: DFC,
             check: `LW == RW`.Check[W, c.OutW]
-        ): DFValOf[DFBits[W]] =
+        ): DFValOf[DFBits[W]] = trydf {
           val rhsVal = c(rhs)
           check(lhs.width, rhsVal.width)
           DFVal.Func(lhs.dfType, FuncOp.&, List(lhs, rhsVal))
+        }
         def |[R](rhs: Exact[R])(using c: Candidate[R])(using
             dfc: DFC,
             check: `LW == RW`.Check[W, c.OutW]
-        ): DFValOf[DFBits[W]] =
+        ): DFValOf[DFBits[W]] = trydf {
           val rhsVal = c(rhs)
           check(lhs.width, rhsVal.width)
           DFVal.Func(lhs.dfType, FuncOp.|, List(lhs, rhsVal))
+        }
         def ^[R](rhs: Exact[R])(using c: Candidate[R])(using
             dfc: DFC,
             check: `LW == RW`.Check[W, c.OutW]
-        ): DFValOf[DFBits[W]] =
+        ): DFValOf[DFBits[W]] = trydf {
           val rhsVal = c(rhs)
           check(lhs.width, rhsVal.width)
           DFVal.Func(lhs.dfType, FuncOp.^, List(lhs, rhsVal))
+        }
         @targetName("shiftRightDFBits")
         def >>[R](shift: Exact[R])(using
             c: DFUInt.Val.UBArg[W, R],
             dfc: DFC
-        ): DFValOf[DFBits[W]] =
+        ): DFValOf[DFBits[W]] = trydf {
           val shiftVal = c(lhs.width, shift)
           DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shiftVal))
+        }
         @targetName("shiftLeftDFBits")
         def <<[R](shift: Exact[R])(using
             c: DFUInt.Val.UBArg[W, R],
             dfc: DFC
-        ): DFValOf[DFBits[W]] =
+        ): DFValOf[DFBits[W]] = trydf {
           val shiftVal = c(lhs.width, shift)
           DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
+        }
       end extension
       extension [L](inline lhs: L)
         inline def ++[RW <: Int](
@@ -830,37 +841,41 @@ private object CompanionsDFBits:
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             c: Candidate[es.Out]
-        ): DFBits[c.OutW + RW] <> VAL =
+        ): DFBits[c.OutW + RW] <> VAL = trydf {
           val lhsVal = c(es(lhs))
           val width = lhsVal.width + rhs.width
           DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhs))
+        }
         inline def &[RW <: Int](
             rhs: DFBits[RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             c: Candidate[es.Out]
-        )(using check: `LW == RW`.Check[c.OutW, RW]): DFBits[RW] <> VAL =
+        )(using check: `LW == RW`.Check[c.OutW, RW]): DFBits[RW] <> VAL = trydf {
           val lhsVal = c(es(lhs))
           check(lhsVal.width, rhs.width)
           DFVal.Func(rhs.dfType, FuncOp.&, List(lhsVal, rhs))
+        }
         inline def |[RW <: Int](
             rhs: DFBits[RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             c: Candidate[es.Out]
-        )(using check: `LW == RW`.Check[c.OutW, RW]): DFBits[RW] <> VAL =
+        )(using check: `LW == RW`.Check[c.OutW, RW]): DFBits[RW] <> VAL = trydf {
           val lhsVal = c(es(lhs))
           check(lhsVal.width, rhs.width)
           DFVal.Func(rhs.dfType, FuncOp.|, List(lhsVal, rhs))
+        }
         inline def ^[RW <: Int](
             rhs: DFBits[RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             c: Candidate[es.Out]
-        )(using check: `LW == RW`.Check[c.OutW, RW]): DFBits[RW] <> VAL =
+        )(using check: `LW == RW`.Check[c.OutW, RW]): DFBits[RW] <> VAL = trydf {
           val lhsVal = c(es(lhs))
           check(lhsVal.width, rhs.width)
           DFVal.Func(rhs.dfType, FuncOp.^, List(lhsVal, rhs))
+        }
       end extension
 
     end Ops

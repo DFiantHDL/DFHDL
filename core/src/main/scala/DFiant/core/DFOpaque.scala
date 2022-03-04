@@ -76,11 +76,13 @@ object DFOpaque:
         if (hasDFVal(lhsTpe))
           '{
             val tc = compiletime.summonInline[DFVal.TC[T, lhsType.Underlying]]
-            DFVal.Alias.AsIs(
-              DFOpaque($tfe),
-              tc($tExpr, $lhsExpr),
-              Token($tfe, _)
-            )(using compiletime.summonInline[DFC])
+            trydf {
+              DFVal.Alias.AsIs(
+                DFOpaque($tfe),
+                tc($tExpr, $lhsExpr),
+                Token($tfe, _)
+              )(using compiletime.summonInline[DFC])
+            }(using compiletime.summonInline[DFC])
           }
         else
           '{

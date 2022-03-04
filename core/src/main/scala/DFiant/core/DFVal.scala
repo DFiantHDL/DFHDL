@@ -179,27 +179,31 @@ object DFVal:
 
     def init(
         tokenValues: DFToken.Value[T]*
-    )(using InitCheck[I], DFC): DFVal[T, Modifier[A, C, Modifier.Initialized]] =
+    )(using InitCheck[I], DFC): DFVal[T, Modifier[A, C, Modifier.Initialized]] = trydf {
       initForced(tokenValues.view.map(tv => tv(dfVal.dfType).asIR).toList)
+    }
   end extension
   extension [T <: NonEmptyTuple, A, C, I](dfVal: DFVal[DFTuple[T], Modifier[A, C, I]])
     def init(
         tokenValues: DFToken.TupleValues[T]
-    )(using InitCheck[I], DFC): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]] =
+    )(using InitCheck[I], DFC): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]] = trydf {
       dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
+    }
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
     ???
   implicit inline def DFValConversionExact[T <: DFTypeAny, R <: ExactTypes](
       inline from: R
   )(using dfType: T, es: Exact.Summon[R, from.type])(using
-      tc: TC[T, es.Out]
-  ): DFValOf[T] = tc(dfType, es(from))
+      tc: TC[T, es.Out],
+      dfc: DFC
+  ): DFValOf[T] = trydf { tc(dfType, es(from)) }
   implicit def DFValConversion[T <: DFTypeAny, R](
       from: R
   )(using dfType: T)(using
-      tc: TC[T, R]
-  ): DFValOf[T] = tc(dfType, from)
+      tc: TC[T, R],
+      dfc: DFC
+  ): DFValOf[T] = trydf { tc(dfType, from) }
 
   object Const:
     def apply[T <: DFTypeAny](token: DFToken[T], named: Boolean = false)(using
