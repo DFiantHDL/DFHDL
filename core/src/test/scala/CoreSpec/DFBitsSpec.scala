@@ -145,12 +145,12 @@ class DFBitsSpec extends DFSpec:
          |b8 := h"8'??"
          |b8 := u8.bits
          |b8 := u8.bits
-         |b8 := (h"4'1", b"1", b"0", b"11")
+         |b8 := (h"4'1", b"1", b"0", b"11").toBits
          |b4M := h"4'1"
-         |b4L := (b"1", b"0", b"11")
+         |b4L := (b"1", b"0", b"11").toBits
          |b3M := b"000"
-         |u5L := (b"1", b"1", b"0", b"11").uint
-         |b8 := (u8.bits(3, 0), u8.bits(7, 4))
+         |u5L := (b"1", b"1", b"0", b"11").toBits.uint
+         |b8 := (u8.bits(3, 0), u8.bits(7, 4)).toBits
          |b4M := u8.bits(3, 0)
          |b4L := u8.bits(7, 4)
          |""".stripMargin
@@ -161,7 +161,7 @@ class DFBitsSpec extends DFSpec:
       b8 := ?
       b8 := u8
       b8 := u8.bits
-      b8 := (h"1", 1, 0, b"11")
+      b8 := (h"1", 1, 0, b"11").toBits
       (b4M, b4L) := (h"1", 1, 0, b"11")
       (b3M, u5L) := (h"1", 1, 0, b"11")
       b8 := (u8.bits(3, 0), u8.bits(7, 4))
@@ -188,7 +188,7 @@ class DFBitsSpec extends DFSpec:
          |val t4 = b8 == h"8'0c"
          |val t5 = b8 != h"8'22"
          |val t6 = b8 == h"8'e7"
-         |val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4))
+         |val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4)).toBits
          |""".stripMargin
     ) {
       val t1 = b8 == all(0)

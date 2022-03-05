@@ -9,6 +9,7 @@ object hdl:
   export core.DFBits.Token.Ops.*
   export core.DFBits.Token.StrInterp.{h, b}
   export core.DFBits.Val.Ops.*
+  export core.DFBits.Val.TupleOps.*
   export core.DFDecimal.Token.StrInterp.{d, sd}
   export core.DFDecimal.Token.Ops.*
   export core.DFDecimal.Val.Ops.*

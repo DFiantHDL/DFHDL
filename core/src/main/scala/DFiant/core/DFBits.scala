@@ -598,7 +598,7 @@ private object CompanionsDFBits:
         def apply(arg: R)(using DFC): DFBits[OutW] <> VAL =
           DFVal.Const(ic(arg))
 
-      private def valueToBits(value: Any)(using dfc: DFC): DFBits[Int] <> VAL =
+      private[Val] def valueToBits(value: Any)(using dfc: DFC): DFBits[Int] <> VAL =
         import DFBits.Val.Ops.concatBits
         given dfcAnon: DFC = dfc.anonymize
         value match
@@ -716,6 +716,25 @@ private object CompanionsDFBits:
           DFVal.Const(Token(dfType.width, arg))
       end DFBitsCompareSEV
     end Compare
+
+    // this was defined separately from `Ops` to avoid collision with `.bits` used in `Ops`
+    object TupleOps:
+      // explicit conversion of a tuple to bits (conctatenation)
+      extension (inline tpl: NonEmptyTuple)
+        transparent inline def toBits(using dfc: DFC): Any = ${ bitsMacro('tpl) }
+      private def bitsMacro(tpl: Expr[NonEmptyTuple])(using Quotes): Expr[Any] =
+        import quotes.reflect.*
+        val tplTerm = tpl.asTerm.exactTerm
+        import Width.*
+        val rTpe = tplTerm.tpe
+        val wType = rTpe.calcValWidth(false).asTypeOf[Int]
+        '{
+          Val.Candidate
+            .valueToBits($tpl)(using compiletime.summonInline[DFC])
+            .asIR
+            .asValOf[DFBits[wType.Underlying]]
+        }
+    end TupleOps
 
     object Ops:
       extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])

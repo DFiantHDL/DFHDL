@@ -122,7 +122,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"${(args.head.refCodeString).applyBrackets()}.repeat(${args.length})"
               // regular concatenation function
-              case _ => argsInBrackets
+              case _ => s"$argsInBrackets.toBits"
             end match
           case _ =>
             args
