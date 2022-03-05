@@ -134,6 +134,9 @@ class DFBitsSpec extends DFSpec:
   }
   test("Assignment") {
     val b8 = DFBits(8) <> VAR
+    val b4M, b4L = DFBits(4) <> VAR
+    val b3M = DFBits(3) <> VAR
+    val u5L = DFUInt(5) <> VAR
     val u8 = DFUInt(8) <> VAR
     assertCodeString {
       """|b8 := h"8'11"
@@ -143,7 +146,13 @@ class DFBitsSpec extends DFSpec:
          |b8 := u8.bits
          |b8 := u8.bits
          |b8 := (h"4'1", b"1", b"0", b"11")
+         |b4M := h"4'1"
+         |b4L := (b"1", b"0", b"11")
+         |b3M := b"000"
+         |u5L := (b"1", b"1", b"0", b"11").uint
          |b8 := (u8.bits(3, 0), u8.bits(7, 4))
+         |b4M := u8.bits(3, 0)
+         |b4L := u8.bits(7, 4)
          |""".stripMargin
     } {
       b8 := h"11"
@@ -153,7 +162,10 @@ class DFBitsSpec extends DFSpec:
       b8 := u8
       b8 := u8.bits
       b8 := (h"1", 1, 0, b"11")
+      (b4M, b4L) := (h"1", 1, 0, b"11")
+      (b3M, u5L) := (h"1", 1, 0, b"11")
       b8 := (u8.bits(3, 0), u8.bits(7, 4))
+      (b4M, b4L) := (u8.bits(3, 0), u8.bits(7, 4))
     }
     val twelve = 12
     val v12 = DFBits(twelve) <> VAR

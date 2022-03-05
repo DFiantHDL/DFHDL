@@ -327,7 +327,17 @@ object DFVal:
           relBitHigh: Inlined[H],
           relBitLow: Inlined[L]
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
-        forced(relVal.asIR, relBitHigh, relBitLow).asVal[DFBits[H - L + 1], M]
+        relVal.asIR match
+          // anonymous constant are replace by a different constant
+          // after its token value was converted according to the alias
+          case const: ir.DFVal.Const if const.isAnonymous =>
+            import DFBits.Token.Ops.apply
+            val updatedToken = const.token.asTokenOf[DFBits[W]](relBitHigh, relBitLow)
+            Const(updatedToken).asIR.asVal[DFBits[H - L + 1], M]
+          // named constants or other non-constant values are referenced
+          // in a new alias construct
+          case _ =>
+            forced(relVal.asIR, relBitHigh, relBitLow).asVal[DFBits[H - L + 1], M]
       end apply
       def forced(
           relVal: ir.DFVal,
@@ -708,10 +718,11 @@ object DFVarOps:
             // too many bits are in concat, so we need to split the head and move the extra
             // bits to the args list
             else
+              val headBits = concat.head.asValOf[DFBits[Int]]
               val extraWidth = concatWidth - dfVar.dfType.width
-              val lsbits = DFVal.Alias.ApplyRange.forced(concat.head, extraWidth - 1, 0)
+              val lsbits = DFVal.Alias.ApplyRange(headBits, extraWidth - 1, 0).asIR
               val msbits =
-                DFVal.Alias.ApplyRange.forced(concat.head, concat.head.dfType.width - 1, extraWidth)
+                DFVal.Alias.ApplyRange(headBits, concat.head.dfType.width - 1, extraWidth).asIR
               // the args order are from msbits to lsbits, so when we end up with extra bits
               // those will be the lsbits that to be given back to the args list and just the
               // remaining msbits are placed in the concat list
