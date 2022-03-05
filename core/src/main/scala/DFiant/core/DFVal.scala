@@ -11,6 +11,7 @@ import scala.quoted.*
 import DFOpaque.Abstract as DFOpaqueA
 import DFiant.compiler.ir.MemberGetSet
 import DFiant.compiler.printing.{DefaultPrinter, Printer}
+import scala.annotation.tailrec
 
 import scala.reflect.ClassTag
 final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val value: ir.DFVal | DFError)
@@ -273,16 +274,18 @@ object DFVal:
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
-            lazy val alias: ir.DFVal =
-              ir.DFVal.Alias.AsIs(
-                aliasType.asIR,
-                relVal.asIR.refTW(alias),
-                dfc.owner.ref,
-                dfc.getMeta,
-                ir.DFTags.empty
-              )
-            alias.addMember.asVal[AT, M]
+            forced(aliasType.asIR, relVal.asIR).asVal[AT, M]
       end apply
+      def forced(aliasType: ir.DFType, relVal: ir.DFVal)(using DFC): ir.DFVal =
+        lazy val alias: ir.DFVal =
+          ir.DFVal.Alias.AsIs(
+            aliasType,
+            relVal.refTW(alias),
+            dfc.owner.ref,
+            dfc.getMeta,
+            ir.DFTags.empty
+          )
+        alias.addMember
       def ident[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
           DFC
       ): DFVal[T, M] =
@@ -324,17 +327,24 @@ object DFVal:
           relBitHigh: Inlined[H],
           relBitLow: Inlined[L]
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
+        forced(relVal.asIR, relBitHigh, relBitLow).asVal[DFBits[H - L + 1], M]
+      end apply
+      def forced(
+          relVal: ir.DFVal,
+          relBitHigh: Int,
+          relBitLow: Int
+      )(using DFC): ir.DFVal =
         lazy val alias: ir.DFVal =
           ir.DFVal.Alias.ApplyRange(
-            relVal.asIR.refTW(alias),
+            relVal.refTW(alias),
             relBitHigh,
             relBitLow,
             dfc.owner.ref,
             dfc.getMeta,
             ir.DFTags.empty
           )
-        alias.addMember.asVal[DFBits[H - L + 1], M]
-      end apply
+        alias.addMember
+      end forced
     end ApplyRange
     object ApplyIdx:
       def apply[T <: DFTypeAny, W <: Int, M <: ModifierAny, IW <: Int](
@@ -592,12 +602,39 @@ object DFVal:
 end DFVal
 
 extension [T <: DFTypeAny](dfVar: DFValOf[T])
-  def assign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): DFNet =
+  def assign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
     DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
 
 extension [T <: DFTypeAny](lhs: DFValOf[T])
-  def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): DFNet =
+  def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
     DFNet(lhs.asIR, DFNet.Op.Connection, rhs.asIR)
+
+protected trait VarsTuple[T <: NonEmptyTuple]:
+  type Width <: Int
+protected object VarsTuple:
+  transparent inline given [T <: NonEmptyTuple]: VarsTuple[T] = ${ evMacro[T] }
+  def evMacro[T <: NonEmptyTuple](using Quotes, Type[T]): Expr[VarsTuple[T]] =
+    import quotes.reflect.*
+    val tTpe = TypeRepr.of[T]
+    def varsCheck(tpe: TypeRepr): Option[String] =
+      tpe.asTypeOf[Any] match
+        case '[DFVarOf[t]] => None
+        case '[NonEmptyTuple] =>
+          val AppliedType(_, tArgs) = tpe
+          tArgs.view.map(varsCheck).collectFirst { case Some(v) => v }
+        case _ =>
+          Some(s"All tuple elements must be mutable but found an immutable type `${tpe.showType}`")
+    varsCheck(tTpe) match
+      case Some(err) => '{ compiletime.error(${ Expr(err) }) }
+      case None =>
+        import Width.calcValWidth
+        val widthType = tTpe.calcValWidth(false).asTypeOf[Int]
+        '{
+          new VarsTuple[T]:
+            type Width = widthType.Underlying
+        }
+  end evMacro
+end VarsTuple
 
 object DFVarOps:
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])
@@ -619,6 +656,73 @@ object DFVarOps:
         dfc: DFC
     ): DFVarOf[T] = DFVal.Alias.RegDIN(dfVar)
   end extension
+  extension [T <: NonEmptyTuple](dfVarTuple: T)
+    def :=[R](rhs: Exact[R])(using
+        vt: VarsTuple[T]
+    )(using tc: DFVal.TC[DFBits[vt.Width], R], dfc: DFC): Unit = trydf {
+      given dfcAnon: DFC = dfc.anonymize
+      def flattenDFValTuple(tpl: Tuple): List[ir.DFVal] =
+        tpl.toList.flatMap {
+          case dfVal: DFValAny => Some(dfVal.asIR)
+          case tpl: Tuple      => flattenDFValTuple(tpl)
+        }
+      def flattenConcatArgs(arg: ir.DFVal): List[ir.DFVal] =
+        import dfc.getSet
+        arg match
+          case func: ir.DFVal.Func if func.op == FuncOp.++ && func.isAnonymous =>
+            func.args.flatMap(ar => flattenConcatArgs(ar.get))
+          case _ => List(arg)
+      @tailrec def assignRecur(
+          dfVars: List[ir.DFVal],
+          args: List[ir.DFVal],
+          concat: List[ir.DFVal]
+      ): Unit =
+        dfVars match
+          case dfVar :: nextVars =>
+            val concatWidth = concat.map(_.dfType.width).sum
+            // widths match so we can assign
+            if (concatWidth == dfVar.dfType.width)
+              // only one element in concatenation, so there is no need for concaternation
+              // and we assign it directly.
+              val concatVal =
+                if (concat.size == 1) concat.head.asValAny
+                else
+                  DFVal.Func(DFBits(dfVar.dfType.width), FuncOp.++, concat.map(_.asValAny).reverse)
+              // non-bits variables need to be casted to
+              val assignVal = dfVar.dfType match
+                // no need to cast
+                case _: ir.DFBits => concatVal
+                // casting required
+                case dfType => DFVal.Alias.AsIs.forced(dfType, concatVal.asIR).asValAny
+              dfVar.asValAny.assign(assignVal)
+              assignRecur(nextVars, args, Nil)
+            // missing more bits to complete assignment, so moving arg element into concat list
+            else if (concatWidth < dfVar.dfType.width)
+              // casting argument to bits before placing it in `concat`
+              val argBits = args.head.dfType match
+                case _: ir.DFBits => args.head
+                case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.width), args.head)
+              // moving the head argument and stacking it in `concat`.
+              // we use the concat in reverse later on.
+              assignRecur(dfVars, args.drop(1), argBits :: concat)
+            // too many bits are in concat, so we need to split the head and move the extra
+            // bits to the args list
+            else
+              val extraWidth = concatWidth - dfVar.dfType.width
+              val lsbits = DFVal.Alias.ApplyRange.forced(concat.head, extraWidth - 1, 0)
+              val msbits =
+                DFVal.Alias.ApplyRange.forced(concat.head, concat.head.dfType.width - 1, extraWidth)
+              // the args order are from msbits to lsbits, so when we end up with extra bits
+              // those will be the lsbits that to be given back to the args list and just the
+              // remaining msbits are placed in the concat list
+              assignRecur(dfVars, lsbits :: args, msbits :: concat.drop(1))
+            end if
+          case Nil => // done!
+      val dfVarsIR = flattenDFValTuple(dfVarTuple)
+      val width = Inlined.forced[vt.Width](dfVarsIR.map(_.dfType.width).sum)
+      val argsIR = flattenConcatArgs(tc(DFBits(width), rhs).asIR)
+      assignRecur(dfVarsIR, argsIR, Nil)
+    }
 end DFVarOps
 
 object DFPortOps:

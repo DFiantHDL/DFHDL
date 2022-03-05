@@ -12,22 +12,24 @@ sealed abstract class DFError(
 
 object DFError:
   final class Basic(
-      val opName : String,
+      val opName: String,
       val iae: IllegalArgumentException
-  )(using dfc: DFC) extends DFError(iae.getMessage):
+  )(using dfc: DFC)
+      extends DFError(iae.getMessage):
     import dfc.getSet
     val designName = dfc.owner.asIR.getThisOrOwnerDesign.getFullName
     val fullName =
       if (dfc.isAnonymous) designName
       else s"$designName.${dfc.name}"
     val position = dfc.position
-    override def toString : String = 
+    override def toString: String =
       s"""|DFiant HDL elaboration error!
           |Position:  ${position}
           |Hierarchy: ${fullName}
           |Operation: `${opName}`
           |Message:   ${dfMsg}""".stripMargin
-    
+  end Basic
+
   final class Derived(from: DFError) extends DFError(from.dfMsg)
 
   extension (dfErr: DFError)
@@ -60,7 +62,9 @@ class Logger:
 //    case e: DFError                  => e.asTokenOf[T]
 
 @targetName("tryDFVal")
-def trydf[T <: DFTypeAny, M <: ModifierAny](block: => DFVal[T, M])(using dfc: DFC, ctName : CTName): DFVal[T, M] =
+def trydf[T <: DFTypeAny, M <: ModifierAny](
+    block: => DFVal[T, M]
+)(using dfc: DFC, ctName: CTName): DFVal[T, M] =
   try
     val ret = block
     import dfc.getSet
@@ -75,20 +79,15 @@ def trydf[T <: DFTypeAny, M <: ModifierAny](block: => DFVal[T, M])(using dfc: DF
       dfErr.asVal[T, M]
 
 @targetName("tryDFNet")
-def trydf(block: => DFNet)(using dfc: DFC, ctName : CTName): DFNet =
-  try
-    val ret = block
-    import dfc.getSet
-    val retIR = dfc.getSet.set(ret.asIR)(_.setMeta(_ => dfc.getMeta))
-    retIR.asFE
+def trydf(block: => Unit)(using dfc: DFC, ctName: CTName): Unit =
+  try block
   catch
     case e: Exception =>
       val dfErr = e match
         case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
         case e: DFError                  => e
       dfc.logError(dfErr)
-      dfErr.asNet
 
-def exitWithError(msg : String): Unit =
+def exitWithError(msg: String): Unit =
   System.err.println(msg)
   sys.exit(1)
