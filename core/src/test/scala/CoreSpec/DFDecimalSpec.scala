@@ -161,7 +161,8 @@ class DFDecimalSpec extends DFSpec:
   }
   test("Assignment") {
     assertCodeString {
-      """|val u8 = DFUInt(8) <> VAR init d"8'255"
+      """|val b8 = DFBits(8) <> VAR
+         |val u8 = DFUInt(8) <> VAR init d"8'255"
          |val s8 = DFSInt(8) <> VAR init ?
          |val u6 = DFUInt(6) <> IN
          |val s6 = DFSInt(6) <> IN
@@ -183,6 +184,7 @@ class DFDecimalSpec extends DFSpec:
          |s8 := s6.resize(8)
          |""".stripMargin
     } {
+      val b8 = DFBits(8) <> VAR
       val u8 = DFUInt(8) <> VAR init 255
       val s8 = DFSInt(8) <> VAR init ?
       val u6 = DFUInt(6) <> IN
@@ -211,6 +213,18 @@ class DFDecimalSpec extends DFSpec:
         val value = -1
         u8 := value
       }
+      assertCompileError(
+        """|Cannot apply a signed value to a bits variable.
+           |Consider applying `.bits` conversion to resolve this issue.
+           |""".stripMargin
+      )(
+        """b8 := s8"""
+      )
+      assertCompileError(
+        "Cannot apply a signed value to an unsigned variable."
+      )(
+        """u8 := s8"""
+      )
       assertCompileError(
         "Cannot apply a signed value to an unsigned variable."
       )(

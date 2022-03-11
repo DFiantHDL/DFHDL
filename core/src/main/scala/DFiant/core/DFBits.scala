@@ -591,6 +591,10 @@ private object CompanionsDFBits:
         def apply(value: DFUInt[W] <> VAL)(using DFC): DFBits[W] <> VAL =
           import DFVal.Ops.bits
           value.bits
+      inline given errDFSInt[W <: Int]: Candidate[DFSInt[W] <> VAL] =
+        compiletime.error(
+          "Cannot apply a signed value to a bits variable.\nConsider applying `.bits` conversion to resolve this issue."
+        )
       transparent inline given fromDFBitsTokenCandidate[R](using
           ic: Token.Candidate[R]
       ): Candidate[R] = new Candidate[R]:
