@@ -46,6 +46,9 @@ object hdl:
   export core.DFStruct.Fields as DFStruct
   type DFDesign = core.DFDesign
   type RTDesign = core.RTDesign
+  type DFDomain = core.DFDomain
+  type RTDomain = core.RTDomain
+  export compiler.ir.DomainType.RT.{ResetParams, NoReset, ClockParams, NoClock}
 
   val IN = Modifier.IN
   val OUT = Modifier.OUT

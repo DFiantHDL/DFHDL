@@ -54,6 +54,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFConditionalBlock(cb: DFConditional.Block): String
   def csDFConditional(ch: DFConditional.Header): String
   def csAlwaysBlock(ab: AlwaysBlock): String
+  def csDomainBlock(ab: DomainBlock): String
 end AbstractOwnerPrinter
 
 protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
@@ -61,9 +62,9 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val localDcls = printer.csLocalTypeDcls(design)
     val body = csDFOwnerBody(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
-    val dsnCls = design.domain match
-      case Domain.DF => "DFDesign"
-      case _         => "RTDesign"
+    val dsnCls = design.domainType match
+      case DomainType.DF => "DFDesign"
+      case _             => "RTDesign"
     val dcl = s"class ${design.dclName}(using DFC) extends $dsnCls"
     if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.indent}\nend ${design.dclName}"
   end csDFDesignBlockDcl
@@ -134,4 +135,12 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.All        => ".all"
       case Sensitivity.List(refs) => refs.map(_.refCodeString).mkStringBrackets
     s"${named}always${senList} {\n${body.indent}\n}"
+  def csDomainBlock(domain: DomainBlock): String =
+    val body = csDFOwnerBody(domain)
+    val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    val domainStr = domain.domainType match
+      case df: DomainType.DF => "DFDomain"
+      case rt: DomainType.RT => "RTDomain()"
+    s"${named}new $domainStr:\n${body.indent}\n"
+
 end DFOwnerPrinter

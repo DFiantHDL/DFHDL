@@ -15,8 +15,8 @@ import scala.annotation.tailrec
 
 import scala.reflect.ClassTag
 final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val value: ir.DFVal | DFError)
-    extends AnyVal
-    with DFMember[ir.DFVal]
+    extends // AnyVal with
+    DFMember[ir.DFVal]
     with Selectable:
 
   def selectDynamic(name: String)(using DFC): Any =
@@ -545,16 +545,16 @@ object DFVal:
 //    ): DFValOf[T] = ${ fromArgMacro[T]('arg) }
 
   trait DFDomainOnly
-  given (using domain: ir.Domain)(using
+  given (using domain: ir.DomainType)(using
       AssertGiven[
-        domain.type <:< ir.Domain.DF,
+        domain.type <:< ir.DomainType.DF,
         "This construct is only available in a dataflow domain."
       ]
   ): DFDomainOnly with {}
   trait HLRTDomainOnly
-  given (using domain: ir.Domain)(using
+  given (using domain: ir.DomainType)(using
       AssertGiven[
-        domain.type <:< ir.Domain.RT.HL,
+        domain.type <:< ir.DomainType.RT.HL,
         "This construct is only available in a high-level register-transfer domain."
       ]
   ): HLRTDomainOnly with {}

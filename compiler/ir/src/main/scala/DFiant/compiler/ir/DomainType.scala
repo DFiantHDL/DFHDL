@@ -1,12 +1,12 @@
 package DFiant.compiler.ir
 
-sealed trait Domain derives CanEqual
-object Domain:
+sealed trait DomainType derives CanEqual
+object DomainType:
   // dataflow domain
-  sealed trait DF extends Domain
+  sealed trait DF extends DomainType
   object DF extends DF
   // real-time / register-transfer domain
-  sealed trait RT extends Domain
+  sealed trait RT extends DomainType
   object RT:
     class LL() extends RT
     class HL(
@@ -46,4 +46,4 @@ object Domain:
       enum Edge derives CanEqual:
         case Rising, Falling
   end RT
-end Domain
+end DomainType

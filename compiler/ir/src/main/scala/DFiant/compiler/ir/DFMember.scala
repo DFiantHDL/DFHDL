@@ -402,14 +402,14 @@ sealed trait DFOwner extends DFMember:
     case _              => false
 
 sealed trait DFDomainOwner extends DFOwner:
-  val domain: Domain
+  val domainType: DomainType
 
 object DFOwner:
   type Named = DFOwner & DFMember.Named
   type Ref = DFRef.OneWay[DFOwner | DFMember.Empty]
 
 final case class DFInterfaceOwner(
-    domain: Domain,
+    domainType: DomainType,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
@@ -417,7 +417,7 @@ final case class DFInterfaceOwner(
       DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFInterfaceOwner =>
-      this.domain == that.domain &&
+      this.domainType == that.domainType &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -426,7 +426,7 @@ end DFInterfaceOwner
 
 sealed trait DFBlock extends DFOwner
 final case class DFDomainBlock(
-    domain: Domain,
+    domainType: DomainType,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
@@ -435,7 +435,7 @@ final case class DFDomainBlock(
       DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDomainBlock =>
-      this.domain == that.domain &&
+      this.domainType == that.domainType &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -592,7 +592,7 @@ object DFConditional:
 end DFConditional
 
 final case class DFDesignBlock(
-    domain: Domain,
+    domainType: DomainType,
     dclName: String,
     dclPosition: Position,
     inSimulation: Boolean,
@@ -604,7 +604,7 @@ final case class DFDesignBlock(
       DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
-      this.domain == that.domain &&
+      this.domainType == that.domainType &&
       this.dclName == that.dclName && this.dclPosition == that.dclPosition &&
       this.inSimulation == that.inSimulation &&
       this.meta =~ that.meta && this.tags =~ that.tags
@@ -618,6 +618,23 @@ object DFDesignBlock:
     def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = block.isTop
   object Internal:
     def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = !block.isTop
+
+final case class DomainBlock(
+    domainType: DomainType,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFBlock,
+      DFDomainOwner,
+      DFMember.Named:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: DomainBlock =>
+      this.domainType == that.domainType &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+end DomainBlock
 
 sealed trait DFSimMember extends DFMember
 object DFSimMember:

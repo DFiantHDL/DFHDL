@@ -1,15 +1,15 @@
 package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
-import DFiant.compiler.ir.Domain.RT
-import DFiant.compiler.ir.Domain.RT.{ClockParams, ResetParams}
+import DFiant.compiler.ir.DomainType.RT
+import DFiant.compiler.ir.DomainType.RT.{ClockParams, ResetParams}
 import DFiant.compiler.printing.*
 
 private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
   private[core] type TKind = Container.Kind.Design
   final protected given TKind = Container.Kind.Design
   private[core] final override lazy val owner: Design.Block =
-    Design.Block(domain, "???", Position.unknown)
+    Design.Block(domainType, "???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =
     val designBlock = owner.asIR
     dfc.getSet.replace(designBlock)(
@@ -19,7 +19,7 @@ private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
 object Design:
   type Block = DFOwner[ir.DFDesignBlock]
   object Block:
-    def apply(domain: ir.Domain, dclName: String, dclPosition: Position)(using DFC): Block =
+    def apply(domain: ir.DomainType, dclName: String, dclPosition: Position)(using DFC): Block =
       val ownerRef: ir.DFOwner.Ref =
         dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFRef.OneWay.Empty)
       ir.DFDesignBlock(
@@ -41,16 +41,16 @@ object Design:
 end Design
 
 abstract class DFDesign(using DFC) extends Design:
-  private[core] type TDomain = ir.Domain.DF
-  private[core] lazy val domain: TDomain = ir.Domain.DF
+  private[core] type TDomain = ir.DomainType.DF
+  private[core] lazy val domainType: TDomain = ir.DomainType.DF
 
 abstract class RTDesign(
     clkParams: ClockParams = ClockParams(),
     rstParams: ResetParams = ResetParams()
 )(using DFC)
     extends Design:
-  private[core] class TDomain extends ir.Domain.RT.HL
-  private[core] lazy val domain: TDomain = new TDomain
+  private[core] class TDomain extends ir.DomainType.RT.HL
+  private[core] lazy val domainType: TDomain = new TDomain
 //  lazy val clk = clkParams match
 //    case RT.NoClock =>
 //      throw new IllegalArgumentException(
@@ -74,5 +74,5 @@ abstract class RTDesign(
 end RTDesign
 
 abstract class LLRTDesign(using DFC) extends Design:
-  private[core] class TDomain extends ir.Domain.RT.LL
-  private[core] lazy val domain: TDomain = new TDomain
+  private[core] class TDomain extends ir.DomainType.RT.LL
+  private[core] lazy val domainType: TDomain = new TDomain

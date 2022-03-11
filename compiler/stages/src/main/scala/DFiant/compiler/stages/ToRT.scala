@@ -9,14 +9,14 @@ private class ToRT(db: DB) extends Stage(db):
     val patchList = designDB.members.collect {
       case h @ DFVal.Alias.History(_, _, _, HistoryOp.Prev | HistoryOp.Pipe, _, _, _) =>
         h -> Patch.Replace(h.copy(op = HistoryOp.Reg), Patch.Replace.Config.FullReplacement)
-      case d @ DFDesignBlock(Domain.DF, _, _, _, _, _, _) =>
+      case d @ DFDesignBlock(DomainType.DF, _, _, _, _, _, _) =>
         d -> Patch.Replace(
-          d.copy(domain = new Domain.RT.HL()),
+          d.copy(domainType = new DomainType.RT.HL()),
           Patch.Replace.Config.FullReplacement
         )
-      case i @ DFInterfaceOwner(Domain.DF, _, _, _) =>
+      case i @ DFInterfaceOwner(DomainType.DF, _, _, _) =>
         i -> Patch.Replace(
-          i.copy(domain = new Domain.RT.HL()),
+          i.copy(domainType = new DomainType.RT.HL()),
           Patch.Replace.Config.FullReplacement
         )
     }

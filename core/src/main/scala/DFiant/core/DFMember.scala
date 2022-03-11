@@ -3,7 +3,8 @@ import DFiant.compiler.ir
 import scala.reflect.ClassTag
 import DFiant.internals.*
 
-trait DFMember[+T <: ir.DFMember] extends Any:
+// TODO: return AnyVal workaround after https://github.com/lampepfl/dotty/issues/14340
+trait DFMember[+T <: ir.DFMember]: // extends Any:
   val value: T | DFError
   override def toString: String = value.toString
 

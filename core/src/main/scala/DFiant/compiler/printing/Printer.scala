@@ -72,6 +72,7 @@ trait Printer
     case net: DFNet                                  => csDFNet(net)
     case design: DFDesignBlock                       => csDFDesignBlockInst(design)
     case ab: AlwaysBlock                             => csAlwaysBlock(ab)
+    case domain: DomainBlock                         => csDomainBlock(domain)
     case _                                           => ???
   final def csDB(db: DB): String =
     import db.getSet

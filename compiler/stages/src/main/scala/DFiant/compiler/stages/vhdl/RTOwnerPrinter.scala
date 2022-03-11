@@ -135,4 +135,5 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.All        => ".all"
       case Sensitivity.List(refs) => refs.map(_.refCodeString).mkStringBrackets
     s"${named}always${senList} {\n${body.indent}\n}"
+  def csDomainBlock(ab: DomainBlock): String = ???
 end RTOwnerPrinter

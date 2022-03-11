@@ -5,9 +5,9 @@ import DFiant.compiler.ir
 private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
   final val dfc: DFC = summon[DFC]
   private[core] type TKind <: Container.Kind
-  private[core] type TDomain <: ir.Domain
-  private[core] lazy val domain: TDomain
-  final protected given TDomain = domain
+  private[core] type TDomain <: ir.DomainType
+  private[core] lazy val domainType: TDomain
+  final protected given TDomain = domainType
   private[core] lazy val owner: DFOwnerAny
   dfc.enterOwner(owner)
 
@@ -16,13 +16,16 @@ private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
   final override def onCreateEnd: Unit =
     dfc.exitOwner()
     import dfc.getSet
-    //At the end of the top-level instance we check for errors
+    // At the end of the top-level instance we check for errors
     if (owner.asIR.isTop)
       val errors = dfc.getErrors
       // If we have errors, then we print them to stderr and exit
       if (errors.nonEmpty)
-        exitWithError(errors.collect{case basicErr : DFError.Basic => basicErr.toString}.mkString("\n\n"))
+        exitWithError(
+          errors.collect { case basicErr: DFError.Basic => basicErr.toString }.mkString("\n\n")
+        )
     end if
+end Container
 
 object Container:
   sealed trait Kind
