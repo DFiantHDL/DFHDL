@@ -108,10 +108,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
           case DFVal.Func.Op.++ =>
             def argsInBrackets = args.map(_.refCodeString).mkStringBrackets
             dfVal.dfType match
-              case DFStruct(structName, fieldMap) =>
+              case structType @ DFStruct(structName, fieldMap) =>
                 if (structName.isEmpty) argsInBrackets
                 else
-                  structName + fieldMap
+                  structType.getName + fieldMap
                     .lazyZip(args)
                     .map { case ((n, _), r) =>
                       s"$n = ${r.refCodeString}"
