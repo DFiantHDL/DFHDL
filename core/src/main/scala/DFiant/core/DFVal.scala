@@ -19,13 +19,14 @@ final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val value: ir.DFVal | DFEr
     DFMember[ir.DFVal]
     with Selectable:
 
-  def selectDynamic(name: String)(using DFC): Any =
+  def selectDynamic(name: String)(using DFC): Any = trydf {
     val ir.DFStruct(structName, fieldMap) = this.asIR.dfType
     val dfType = fieldMap(name)
     DFVal.Alias
       .SelectField(this, name)
       .asIR
       .asVal[DFTypeAny, ModifierAny]
+  }
 
   transparent inline def ==[R](
       inline that: R

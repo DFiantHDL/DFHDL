@@ -208,23 +208,30 @@ object DFBoolOrBit:
 
     object Ops:
       extension (lhs: DFBit <> VAL)
-        def rising(using DFC): DFBit <> VAL =
+        def rising(using DFC): DFBit <> VAL = trydf {
           DFVal.Func(DFBit, FuncOp.rising, List(lhs))
-        def falling(using DFC): DFBit <> VAL =
+        }
+        def falling(using DFC): DFBit <> VAL = trydf {
           DFVal.Func(DFBit, FuncOp.falling, List(lhs))
-        def bool(using DFC): DFBool <> VAL =
+        }
+        def bool(using DFC): DFBool <> VAL = trydf {
           import Token.Ops.{bool => boolToken}
           DFVal.Alias.AsIs(DFBool, lhs, _.boolToken)
+        }
         @targetName("notOfDFBit")
-        def unary_!(using DFC): DFBit <> VAL =
+        def unary_!(using DFC): DFBit <> VAL = trydf {
           DFVal.Func(DFBit, FuncOp.unary_!, List(lhs))
+        }
+      end extension
       extension (lhs: DFBool <> VAL)
-        def bit(using DFC): DFBit <> VAL =
+        def bit(using DFC): DFBit <> VAL = trydf {
           import Token.Ops.{bit => bitToken}
           DFVal.Alias.AsIs(DFBit, lhs, _.bitToken)
+        }
         @targetName("notOfDFBool")
-        def unary_!(using DFC): DFBool <> VAL =
+        def unary_!(using DFC): DFBool <> VAL = trydf {
           DFVal.Func(DFBool, FuncOp.unary_!, List(lhs))
+        }
 
       private def logicOp[T <: DFBoolOrBit, R](
           dfVal: T <> VAL,
@@ -237,11 +244,11 @@ object DFBoolOrBit:
         DFVal.Func(lhs.dfType.asIR.asFE[T], op, List(lhs, rhs))
       extension [T <: DFBoolOrBit](lhs: T <> VAL)
         def ||[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): T <> VAL =
-          logicOp[T, R](lhs, rhs, FuncOp.|, false)
+          trydf { logicOp[T, R](lhs, rhs, FuncOp.|, false) }
         def &&[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): T <> VAL =
-          logicOp[T, R](lhs, rhs, FuncOp.&, false)
+          trydf { logicOp[T, R](lhs, rhs, FuncOp.&, false) }
         def ^[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): T <> VAL =
-          logicOp[T, R](lhs, rhs, FuncOp.^, false)
+          trydf { logicOp[T, R](lhs, rhs, FuncOp.^, false) }
       extension [L](inline lhs: L)
         inline def ||[RT <: DFBoolOrBit](
             rhs: RT <> VAL

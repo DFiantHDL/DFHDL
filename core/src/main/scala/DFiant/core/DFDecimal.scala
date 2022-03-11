@@ -872,7 +872,8 @@ object DFXInt:
         type OutS = ic.OutS
         type OutW = ic.OutW
         type IsScalaInt = ic.IsScalaInt
-        def apply(arg: R)(using DFC): DFValOf[DFXInt[OutS, OutW]] =
+        def apply(arg: R)(using dfc: DFC): DFValOf[DFXInt[OutS, OutW]] =
+          given DFC = dfc.anonymize
           DFVal.Const(ic(arg))
       given fromDFXIntVal[S <: Boolean, W <: Int]: Candidate[DFValOf[DFXInt[S, W]]] with
         type OutS = S
@@ -887,9 +888,10 @@ object DFXInt:
         type OutW = W
         type IsScalaInt = false
         def apply(arg: DFValOf[DFBits[W]])(using
-            DFC
+            dfc: DFC
         ): DFValOf[DFXInt[false, W]] =
           import DFBits.Val.Ops.uint
+          given DFC = dfc.anonymize
           arg.uint
     end Candidate
 
@@ -1048,7 +1050,8 @@ object DFXInt:
           op: FuncOp,
           lhs: DFValOf[DFXInt[LS, LW]],
           rhs: DFValOf[DFXInt[RS, RW]]
-      )(using DFC): DFValOf[DFXInt[OS, OW]] =
+      )(using dfc: DFC): DFValOf[DFXInt[OS, OW]] =
+        given DFC = dfc.anonymize
         val rhsFixed =
           if (lhs.dfType.signed && !rhs.dfType.signed)
             rhs.asIR.asValOf[DFUInt[RW]].signed
@@ -1327,28 +1330,29 @@ object DFUInt:
       )(using
           unsignedCheck: Unsigned.Check[c.OutS],
           widthCheck: `UBW == RW`.Check[ubInfo.OutW, c.OutW]
-      ): UBArg[UB, R] =
-        new UBArg[UB, R]:
-          type OutW = ubInfo.OutW
-          def apply(ub: Inlined[UB], arg: R): DFValOf[DFUInt[OutW]] =
-            val argVal = c(arg)
-            unsignedCheck(argVal.dfType.signed)
-            widthCheck(ubInfo.width(ub - 1), argVal.width)
-            // for constant value we apply an explicit check for the bound
-            argVal.asIR match
-              case ir.DFVal.Const(ir.DFDecimal.Token(dfType, data), _, _, _) =>
-                data match
-                  case Some(value) =>
-                    summon[`UB > R`.Check[UB, Int]](ub, value.toInt)
-                  case _ => // no check
-              case _ => // no check
-            argVal.asIR.asValOf[DFUInt[OutW]]
+      ): UBArg[UB, R] = new UBArg[UB, R]:
+        type OutW = ubInfo.OutW
+        def apply(ub: Inlined[UB], arg: R): DFValOf[DFUInt[OutW]] =
+          given DFC = dfc.anonymize
+          val argVal = c(arg)
+          unsignedCheck(argVal.dfType.signed)
+          widthCheck(ubInfo.width(ub - 1), argVal.width)
+          // for constant value we apply an explicit check for the bound
+          argVal.asIR match
+            case ir.DFVal.Const(ir.DFDecimal.Token(dfType, data), _, _, _) =>
+              data match
+                case Some(value) =>
+                  summon[`UB > R`.Check[UB, Int]](ub, value.toInt)
+                case _ => // no check
+            case _ => // no check
+          argVal.asIR.asValOf[DFUInt[OutW]]
     end UBArg
     object Ops:
       extension [W <: Int](lhs: DFValOf[DFUInt[W]])
-        def signed(using DFC): DFValOf[DFSInt[W + 1]] =
+        def signed(using DFC): DFValOf[DFSInt[W + 1]] = trydf {
           import Token.Ops.{signed => signedToken}
           DFVal.Alias.AsIs(DFSInt(lhs.width + 1), lhs, _.signedToken)
+        }
   end Val
 
 end DFUInt

@@ -759,10 +759,8 @@ private object CompanionsDFBits:
           check.apply(aliasDFType.asIR.width, lhs.width)
           DFVal.Alias.AsIs(aliasDFType, lhs, _.asToken(aliasType))
         }
-        def uint(using DFC): DFValOf[DFUInt[W]] =
-          as(DFUInt(lhs.width))
-        def sint(using DFC): DFValOf[DFSInt[W]] =
-          as(DFSInt(lhs.width))
+        def uint(using DFC): DFValOf[DFUInt[W]] = trydf { as(DFUInt(lhs.width)) }
+        def sint(using DFC): DFValOf[DFSInt[W]] = trydf { as(DFSInt(lhs.width)) }
 
         def apply[Idx](
             relIdx: Exact[Idx]
@@ -786,8 +784,9 @@ private object CompanionsDFBits:
           checkHiLo(relBitHigh, relBitLow)
           DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
         }
-        def unary_~(using DFC): DFValOf[DFBits[W]] =
+        def unary_~(using DFC): DFValOf[DFBits[W]] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
+        }
         def repeat[N <: Int](num: Inlined[N])(using
             check: Arg.Positive.Check[N],
             dfc: DFC
