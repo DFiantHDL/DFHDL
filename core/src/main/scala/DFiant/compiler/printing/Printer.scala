@@ -15,8 +15,56 @@ trait Printer
       AbstractTokenPrinter,
       AbstractValPrinter,
       AbstractOwnerPrinter:
-  val showNetDirection: Boolean = true
-  def csDFNet(net: DFNet): String
+  enum CommentConnDir derives CanEqual:
+    case Off, Inline, EOL
+  val commentConnDir: CommentConnDir
+  val csAssignmentOp: String
+  val csConnectionOp: String
+  val csLateConnectionOp: String
+  def csLazyConnectionOp: String
+  val normalizeLateConnection: Boolean
+  val normalizeConnection: Boolean
+  final def csDFNetOp(net: DFNet): String = net.op match
+    case DFNet.Op.Assignment => csAssignmentOp
+    case DFNet.Op.Connection =>
+      if (net.lateConstruction) csLateConnectionOp
+      else csConnectionOp
+    case DFNet.Op.LazyConnection => csLazyConnectionOp
+  def csInternalViaPortRef(dfValRef: DFNet.Ref): String
+  final def csDFNet(net: DFNet): String =
+    // True if the net needs to be shown in a swapped order.
+    // Normalized late connections always have the internal port on the LHS.
+    // Normalized connections always have the receiver port on the LHS.
+    val swapLR = net match
+      // swapped if the net is a late construction and the RHS is the internal port
+      case _ if net.lateConstruction =>
+        normalizeLateConnection && net.rhsRef.get.isSameOwnerDesignAs(net)
+      // swapped if the net is a regular connection and the RHS is receiver
+      case DFNet.Connection(_, _, swapped) =>
+        swapped && normalizeConnection
+      case _ => false
+//    val lhsThis =
+//      if (swapLR || net.lateConstruction && net.lhsRef.get.isSameOwnerDesignAs(net)) "this."
+//      else ""
+    val directionStr =
+      net.lhsRef.get match
+        case dfIfc: DFInterfaceOwner => "<->"
+        case dfVal: DFVal =>
+          if (dfVal.getConnectionTo.contains(net) ^ swapLR) "<--"
+          else "-->"
+    val opStr = commentConnDir match
+      case CommentConnDir.Inline
+          if (!normalizeConnection || net.lateConstruction) && !net.isAssignment =>
+        s"${csDFNetOp(net)}${csCommentInline(directionStr)}"
+      case _ => csDFNetOp(net)
+
+    val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
+    val leftStr = if (net.lateConstruction) csInternalViaPortRef(lhsRef) else lhsRef.refCodeString
+    val rightStr = rhsRef.refCodeString
+    s"$leftStr $opStr $rightStr"
+  end csDFNet
+  def csCommentInline(comment: String): String
+  def csCommentEOL(comment: String): String
 
   final def csDFMember(member: DFMember): String = member match
     case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
@@ -45,33 +93,22 @@ class DFPrinter(using val getSet: MemberGetSet)
       DFOwnerPrinter:
   type TPrinter = DFPrinter
   given printer: TPrinter = this
-  def csDFNet(net: DFNet): String =
-    // true if the net is a late construction and the RHS is the internal port,
-    // so we need to swap positions since we always present the internal on the left side.
-    val swapLR = net.lateConstruction && net.rhsRef.get.isSameOwnerDesignAs(net)
-    // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
-    val lhsThis =
-      if (swapLR || net.lateConstruction && net.lhsRef.get.isSameOwnerDesignAs(net)) "this."
-      else ""
-    import net.*
-    val directionStr =
-      if (showNetDirection)
-        net.lhsRef.get match
-          case dfIfc: DFInterfaceOwner => "/*<->*/"
-          case dfVal: DFVal =>
-            if (dfVal.getConnectionTo.contains(net) ^ swapLR) "/*<--*/"
-            else "/*-->*/"
-      else ""
-    val opStr = op match
-      case DFNet.Op.Assignment     => ":="
-      case DFNet.Op.Connection     => s"<>$directionStr"
-      case DFNet.Op.LazyConnection => s"`<LZ>`$directionStr"
-
-    val (leftStr, rightStr) =
-      if (swapLR) (rhsRef.refCodeString, lhsRef.refCodeString)
-      else (lhsRef.refCodeString, rhsRef.refCodeString)
-    s"$lhsThis$leftStr $opStr $rightStr"
-  end csDFNet
+  val commentConnDir: CommentConnDir = CommentConnDir.Inline
+  val csAssignmentOp: String = ":="
+  val csConnectionOp: String = "<>"
+  val csLateConnectionOp: String = "<>"
+  def csLazyConnectionOp: String = "`<LZ>`"
+  val normalizeLateConnection: Boolean = true
+  val normalizeConnection: Boolean = true
+  // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
+  def csInternalViaPortRef(dfValRef: DFNet.Ref): String = s"this.${dfValRef.refCodeString}"
+  def csCommentInline(comment: String): String =
+    if (comment.contains('\n'))
+      s"""/*
+         |${comment.indent}
+         |*/""".stripMargin
+    else s"/*$comment*/"
+  def csCommentEOL(comment: String): String = s"// $comment"
 end DFPrinter
 
 extension (member: DFMember)(using printer: Printer)

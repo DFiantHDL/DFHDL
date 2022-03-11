@@ -73,9 +73,9 @@ class ViaConnectionSpec extends StageSpec:
          |  val id2 = new ID:
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
-         |  id1_x <>/*<--*/ x
-         |  id1_y <>/*-->*/ id2_x
-         |  id2_y <>/*-->*/ y
+         |  id1_x <> x
+         |  id2_x <> id1_y
+         |  y <> id2_y
          |end IDTop
          |""".stripMargin
     )
@@ -103,9 +103,9 @@ class ViaConnectionSpec extends StageSpec:
          |  val id2 = new ID:
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
-         |  x <>/*-->*/ id1_x
-         |  id1_y <>/*-->*/ id2_x
-         |  y <>/*<--*/ id2_y
+         |  id1_x <> x
+         |  id2_x <> id1_y
+         |  y <> id2_y
          |end IDTopVia
          |""".stripMargin
     )

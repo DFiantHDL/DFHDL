@@ -51,7 +51,7 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
         }
         .map(printer.csDFValNamed)
         .mkString("\n")
-    val declarations = s"$localTypeDcls$dfValDcls"
+    val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.indent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl   => false
       case _: DFVal.Const => false

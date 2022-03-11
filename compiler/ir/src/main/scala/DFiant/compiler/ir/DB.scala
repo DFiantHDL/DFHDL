@@ -328,7 +328,7 @@ final case class DB(
   //                                    From       Via
   lazy val connectionTableInverted: Map[DFVal, List[DFNet]] =
     members
-      .collect { case n @ DFNet.Connection(toVal: DFVal, fromVal: DFVal) => n }
+      .collect { case n @ DFNet.Connection(toVal: DFVal, fromVal: DFVal, _) => n }
       .groupBy(n => n.lhsRef.get.asInstanceOf[DFVal])
 
   //                              To       From

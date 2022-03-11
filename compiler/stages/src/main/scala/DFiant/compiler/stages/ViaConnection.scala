@@ -17,7 +17,7 @@ private class ViaConnection(db: DB) extends Stage(db):
               conns.headOption match
                 case Some(n) if n.lateConstruction =>
                   (ports, nets) // already has via connections
-                case Some(n @ DFNet.Connection(DclVar(), _)) if conns.size == 1 =>
+                case Some(n @ DFNet.Connection(DclVar(), _, _)) if conns.size == 1 =>
                   (ports, n :: nets)
                 case _ => (p :: ports, nets)
             case (p @ DclIn(), (ports, nets)) =>
@@ -27,7 +27,7 @@ private class ViaConnection(db: DB) extends Stage(db):
                 // can be assigned into a signal/wire)
                 case Some(n) if n.lateConstruction =>
                   (ports, nets) // already has via connections
-                case Some(n @ DFNet.Connection(_, v @ DclVar())) if v.getAssignmentsTo.isEmpty =>
+                case Some(n @ DFNet.Connection(_, v @ DclVar(), _)) if v.getAssignmentsTo.isEmpty =>
                   (ports, n :: nets)
                 case _ => (p :: ports, nets)
             case (_, x) => x

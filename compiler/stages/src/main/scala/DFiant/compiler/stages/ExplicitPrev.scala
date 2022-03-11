@@ -39,7 +39,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
         ???
       case DclOut() | DclVar() =>
         value.getConnectionTo match
-          case Some(DFNet.Connection(_, fromVal: DFVal)) =>
+          case Some(DFNet.Connection(_, fromVal: DFVal, _)) =>
             consumeFrom(fromVal, relWidth, relBitLow, assignMap, currentSet)
           case _ =>
             val scope = assignMap(value)
@@ -105,7 +105,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
         val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = r match
           case net @ DFNet.Assignment(toVal, fromVal) =>
             (consumeFrom(fromVal, scopeMap, currentSet), assignTo(toVal, scopeMap))
-          case net @ DFNet.Connection(toVal: DFVal, fromVal: DFVal) =>
+          case net @ DFNet.Connection(toVal: DFVal, fromVal: DFVal, _) =>
             (consumeFrom(fromVal, scopeMap, currentSet), assignTo(toVal, scopeMap))
           case func: DFVal.Func =>
             val args = func.args.map(a => consumeFrom(a.get, scopeMap, currentSet))

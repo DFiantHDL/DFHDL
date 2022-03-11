@@ -92,9 +92,9 @@ class PrintCodeStringSpec extends StageSpec:
          |  val y = DFSInt(16) <> OUT
          |  val id1 = new ID
          |  val id2 = new ID
-         |  id1.x <>/*<--*/ x
-         |  id1.y <>/*-->*/ id2.x
-         |  id2.y <>/*-->*/ y
+         |  id1.x <> x
+         |  id2.x <> id1.y
+         |  y <> id2.y
          |end IDTop
          |""".stripMargin
     )
@@ -122,9 +122,9 @@ class PrintCodeStringSpec extends StageSpec:
          |  val id2 = new ID:
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
-         |  x <>/*-->*/ id1_x
-         |  id1_y <>/*-->*/ id2_x
-         |  y <>/*<--*/ id2_y
+         |  id1_x <> x
+         |  id2_x <> id1_y
+         |  y <> id2_y
          |end IDTopVia
          |""".stripMargin
     )
