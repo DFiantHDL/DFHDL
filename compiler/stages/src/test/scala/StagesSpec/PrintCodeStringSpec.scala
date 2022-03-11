@@ -200,5 +200,32 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
-
+  test("Domains") {
+    class IDWithDomains(using DFC) extends DFDesign:
+      val x = DFSInt(16) <> IN
+      val fast = new RTDomain:
+        val p = DFSInt(16) <> VAR
+        p := 1
+      x := fast.p
+      val fastdf = new DFDomain:
+        val p = DFSInt(16) <> VAR
+        p := 1
+      fast.p := fastdf.p
+    val id = (new IDWithDomains).getCodeString
+    assertNoDiff(
+      id,
+      """|class IDWithDomains(using DFC) extends DFDesign:
+         |  val x = DFSInt(16) <> IN
+         |  val fast = new RTDomain():
+         |    val p = DFSInt(16) <> VAR
+         |    p := sd"16'1"
+         |  x := fast.p
+         |  val fastdf = new DFDomain:
+         |    val p = DFSInt(16) <> VAR
+         |    p := sd"16'1"
+         |  fast.p := fastdf.p
+         |end IDWithDomains
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

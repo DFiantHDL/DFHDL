@@ -3,7 +3,11 @@ import DFiant.internals.*
 import DFiant.compiler.ir
 
 private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
-  final val dfc: DFC = summon[DFC]
+  final val dfc: DFC =
+    val ret = summon[DFC]
+    this match
+      case _: Design => ret
+      case _         => ret.copy()
   private[core] type TKind <: Container.Kind
   private[core] type TDomain <: ir.DomainType
   private[core] lazy val domainType: TDomain
@@ -11,8 +15,6 @@ private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
   private[core] lazy val owner: DFOwnerAny
   dfc.enterOwner(owner)
 
-  final override def onCreateStartLate: Unit =
-    dfc.enterLate()
   final override def onCreateEnd: Unit =
     dfc.exitOwner()
     import dfc.getSet

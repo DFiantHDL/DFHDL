@@ -41,10 +41,13 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getThisOrOwnerDesign(using MemberGetSet): DFDesignBlock = this match
     case d: DFDesignBlock => d
     case x                => x.getOwnerDesign
-  final def isMemberOfDesign(that: DFDesignBlock)(using MemberGetSet): Boolean =
+  final def getThisOrOwnerNamed(using MemberGetSet): DFOwner.Named = this match
+    case d: DFOwner.Named => d
+    case x                => x.getOwnerNamed
+  final def isMemberOf(that: DFOwner.Named)(using MemberGetSet): Boolean =
     this match
       case DFDesignBlock.Top() => false
-      case _                   => getOwnerDesign == that
+      case _                   => getOwnerNamed == that
   final def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
     (this, that) match
       case (DFDesignBlock.Top(), DFDesignBlock.Top()) => this == that
@@ -97,15 +100,15 @@ object DFMember:
       case o: DFOwner if o.isTop => o.name
       case _                     => s"${getOwnerNamed.getFullName}.${name}"
     def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
-      val designOwner = callOwner.getThisOrOwnerDesign
-      if (this isMemberOfDesign designOwner) name
-      else if (getOwnerDesign isOneLevelBelow designOwner) s"${getOwnerDesign.name}.$name"
-      else if (callOwner isInsideOwner this.getOwnerDesign) name
+      val namedOwner = callOwner.getThisOrOwnerNamed
+      if (this isMemberOf namedOwner) name
+      else if (getOwnerNamed isOneLevelBelow namedOwner) s"${getOwnerNamed.name}.$name"
+      else if (callOwner isInsideOwner this.getOwnerNamed) name
       else
         // more complex referencing just summons the two owner chains and compares them.
         // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
         val memberChain = this.getOwnerChain
-        val ctxChain = designOwner.getOwnerChain
+        val ctxChain = namedOwner.getOwnerChain
         ??? // TODO
   end Named
 end DFMember

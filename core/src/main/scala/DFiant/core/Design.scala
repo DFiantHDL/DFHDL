@@ -15,6 +15,8 @@ private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
     dfc.getSet.replace(designBlock)(
       designBlock.copy(dclName = name, dclPosition = position)
     )
+  final override def onCreateStartLate: Unit =
+    dfc.enterLate()
 
 object Design:
   type Block = DFOwner[ir.DFDesignBlock]

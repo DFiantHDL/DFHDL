@@ -141,6 +141,6 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val domainStr = domain.domainType match
       case df: DomainType.DF => "DFDomain"
       case rt: DomainType.RT => "RTDomain()"
-    s"${named}new $domainStr:\n${body.indent}\n"
+    s"${named}new $domainStr:\n${body.indent}"
 
 end DFOwnerPrinter
