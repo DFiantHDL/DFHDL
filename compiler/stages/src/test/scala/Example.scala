@@ -9,7 +9,6 @@ class VideoDefs[CW <: Int](val CORDW: Inlined[CW]):
 
 class Example(using DFC) extends DFDesign:
   val i = DFBits(16) <> IN
-
   object videoDefs extends VideoDefs(8)
   export videoDefs.*
 

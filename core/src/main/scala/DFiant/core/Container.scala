@@ -14,6 +14,7 @@ private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
   final protected given TDomain = domainType
   private[core] lazy val owner: DFOwnerAny
   dfc.enterOwner(owner)
+  private[DFiant] def skipChecks: Boolean = false
 
   final override def onCreateEnd: Unit =
     dfc.exitOwner()
@@ -26,7 +27,14 @@ private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
         exitWithError(
           errors.collect { case basicErr: DFError.Basic => basicErr.toString }.mkString("\n\n")
         )
+      if (!skipChecks)
+        try dfc.mutableDB.immutable.connectionTable // this does connectivity checks
+        catch
+          case err: IllegalArgumentException =>
+            exitWithError(err.getMessage)
+          case others => throw others
     end if
+  end onCreateEnd
 end Container
 
 object Container:

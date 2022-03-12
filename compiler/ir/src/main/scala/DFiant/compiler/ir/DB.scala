@@ -184,7 +184,7 @@ final case class DB(
     conditionalChainGen
 
   private enum Access derives CanEqual:
-    case Read, Write, ReadWrite, Unknown
+    case Read, Write, ReadWrite, Unknown, Error
   import Access.*
   import DFVal.Modifier.*
   import DFNet.Op.*
@@ -215,11 +215,7 @@ final case class DB(
             // otherwise it is unknown
             else Unknown
           // illegal connection
-          case _ =>
-            throw new IllegalArgumentException(
-              s"""Unsupported connection for ${dcl.getFullName} at ${net.meta.position}.
-                 |${net.lhsRef.get.getFullName} <> ${net.rhsRef.get.getFullName}""".stripMargin
-            )
+          case _ => Error
       case _ => Read
     end match
   end getValAccess
@@ -247,10 +243,21 @@ final case class DB(
   @tailrec private def getConnToDcls(
       analyzeNets: List[FlatNet],
       pendingNets: List[FlatNet],
-      connToDcls: Map[DFVal.Dcl, DFNet]
+      connToDcls: Map[DFVal.Dcl, DFNet],
+      errors: List[String]
   ): Map[DFVal.Dcl, DFNet] =
     analyzeNets match
       case flatNet :: otherNets =>
+        var newErrors = errors
+        def newError(errMsg: String): Unit =
+          val errMsgComplete =
+            s"""|DFiant HDL connectivity error!
+                |Position:  ${flatNet.net.meta.position}
+                |Hierarchy: ${flatNet.net.getOwnerDesign.getFullName}
+                |LHS:       ${flatNet.lhsVal.getFullName}
+                |RHS:       ${flatNet.rhsVal.getFullName}
+                |Message:   ${errMsg}""".stripMargin
+          newErrors = errMsgComplete :: newErrors
         import flatNet.{lhsVal, rhsVal, net}
         val owner = net.ownerRef.get
         val (lhsAccess, rhsAccess) = net.op match
@@ -262,24 +269,25 @@ final case class DB(
           case (Write, Read | ReadWrite | Unknown) => Some(lhsVal)
           case (Read | ReadWrite | Unknown, Write) => Some(rhsVal)
           case (Read, Read) =>
-            throw new IllegalArgumentException(
-              s"""Unsupported read-to-read connection at ${net.meta.position}.
-                 |${net.lhsRef.get.getFullName} <> ${net.rhsRef.get.getFullName}""".stripMargin
-            )
+            newError("Unsupported read-to-read connection.")
+            None
           case (Write, Write) =>
-            throw new IllegalArgumentException(
-              s"""Unsupported write-to-write connection at ${net.meta.position}.
-                 |${net.lhsRef.get.getFullName} <> ${net.rhsRef.get.getFullName}""".stripMargin
-            )
+            newError("Unsupported write-to-write connection.")
+            None
           case (_, Read) => Some(lhsVal)
           case (Read, _) => Some(rhsVal)
-          case _         => None
-        val toDclOption = toValOption.map(v =>
-          v.dealias.getOrElse(
-            throw new IllegalArgumentException(
-              s"Unexpected assignment to ${v.getFullName} at net in position ${net.meta.position}"
-            )
-          )
+          case (Error, _) =>
+            newError(s"Unknown access pattern with ${lhsVal.getFullName}.")
+            None
+          case (_, Error) =>
+            newError(s"Unknown access pattern with ${rhsVal.getFullName}.")
+            None
+          case _ => None
+        val toDclOption = toValOption.flatMap(v =>
+          val dclOpt = v.dealias
+          if (dclOpt.isEmpty)
+            newError(s"Unexpected write access to the immutable value ${v.getFullName}.")
+          dclOpt
         )
         toDclOption match
           // found target variable or port declaration for the given connection/assignment
@@ -289,18 +297,21 @@ final case class DB(
               case Some(prevNet) if prevNet.op == Assignment && net.op == Assignment =>
               // previous net is either a connection or an assignment
               case Some(prevNet) =>
-                throw new IllegalArgumentException(
-                  s"""Unsupported net connection to ${toDcl.getFullName} at ${net.meta.position}
-                     |Already connected to net at ${prevNet.meta.position}
-                     |${net.lhsRef.get.getFullName} <> ${net.rhsRef.get.getFullName}""".stripMargin
+                newError(
+                  s"""Multiple connections write to the same variable/port ${toDcl.getFullName}.
+                     |The previous write occured at ${prevNet.meta.position}""".stripMargin
                 )
               // no previous connection is OK
               case None =>
-            getConnToDcls(otherNets, pendingNets, connToDcls + (toDcl -> net))
+            getConnToDcls(otherNets, pendingNets, connToDcls + (toDcl -> net), newErrors)
           // unable to determine net directionality, so move net to pending
           case None =>
-            getConnToDcls(otherNets, flatNet :: pendingNets, connToDcls)
+            getConnToDcls(otherNets, flatNet :: pendingNets, connToDcls, newErrors)
         end match
+      case Nil if errors.nonEmpty =>
+        throw new IllegalArgumentException(
+          errors.view.reverse.mkString("\n\n")
+        )
       case Nil if pendingNets.nonEmpty =>
         val reexamine = pendingNets.exists {
           case n
@@ -309,12 +320,16 @@ final case class DB(
             true
           case _ => false
         }
-        if (reexamine) getConnToDcls(pendingNets, Nil, connToDcls)
+        if (reexamine) getConnToDcls(pendingNets, Nil, connToDcls, errors)
         else
           throw new IllegalArgumentException(
-            s"Unable to determine directionality for the following nets:\n${pendingNets.map(_.net.meta.position).mkString("\n")}"
+            s"""DFiant HDL connectivity errors!
+               |Unable to determine directionality for the following nets:
+               |${pendingNets.map(_.net.meta.position).mkString("\n")}""".stripMargin
           )
       case Nil => connToDcls
+    end match
+  end getConnToDcls
 
   // There can only be a single connection to a value (but multiple assignments are possible)
   //                               To       Via
@@ -323,7 +338,7 @@ final case class DB(
       case net: DFNet => FlatNet(net)
       case _          => Nil
     }
-    getConnToDcls(flatNets, Nil, Map()).filter(_._2.isConnection)
+    getConnToDcls(flatNets, Nil, Map(), Nil).filter(_._2.isConnection)
 
   //                                    From       Via
   lazy val connectionTableInverted: Map[DFVal, List[DFNet]] =

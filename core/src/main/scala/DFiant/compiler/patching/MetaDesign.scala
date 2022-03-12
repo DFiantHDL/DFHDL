@@ -10,9 +10,12 @@ abstract class MetaDesign extends DFDesign(using DFC.empty) with reflect.Selecta
     dfc.mutableDB.OwnershipContext.enter(owner)
     block
     dfc.mutableDB.OwnershipContext.exit()
+  // meta designs may be intermediate errornous designs
+  final override private[DFiant] def skipChecks: Boolean = true
 
   export DFiant.hdl.*
   export DFiant.core.{asValAny, asVarAny}
   extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
     def asInitialized: DFVal[T, Modifier[A, C, Modifier.Initialized]] =
       dfVal.asInstanceOf[DFVal[T, Modifier[A, C, Modifier.Initialized]]]
+end MetaDesign
