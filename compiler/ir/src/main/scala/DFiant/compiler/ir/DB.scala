@@ -4,6 +4,7 @@ import scala.reflect.{ClassTag, classTag}
 import scala.annotation.tailrec
 import scala.collection.mutable
 import DFiant.internals.*
+import DFiant.compiler.printing.{Printer, DefaultPrinter}
 
 final case class DB(
     members: List[DFMember],
@@ -240,6 +241,7 @@ final case class DB(
         case _ => ???
       }
   end FlatNet
+  given printer: Printer = DefaultPrinter
   @tailrec private def getConnToDcls(
       analyzeNets: List[FlatNet],
       pendingNets: List[FlatNet],
@@ -249,13 +251,16 @@ final case class DB(
     analyzeNets match
       case flatNet :: otherNets =>
         var newErrors = errors
+        extension (dfVal: DFVal)
+          def relValString: String =
+            printer.csDFValRef(dfVal, flatNet.net.getOwnerDesign)
         def newError(errMsg: String): Unit =
           val errMsgComplete =
             s"""|DFiant HDL connectivity error!
                 |Position:  ${flatNet.net.meta.position}
                 |Hierarchy: ${flatNet.net.getOwnerDesign.getFullName}
-                |LHS:       ${flatNet.lhsVal.getFullName}
-                |RHS:       ${flatNet.rhsVal.getFullName}
+                |LHS:       ${flatNet.lhsVal.relValString}
+                |RHS:       ${flatNet.rhsVal.relValString}
                 |Message:   ${errMsg}""".stripMargin
           newErrors = errMsgComplete :: newErrors
         import flatNet.{lhsVal, rhsVal, net}
@@ -277,16 +282,16 @@ final case class DB(
           case (_, Read) => Some(lhsVal)
           case (Read, _) => Some(rhsVal)
           case (Error, _) =>
-            newError(s"Unknown access pattern with ${lhsVal.getFullName}.")
+            newError(s"Unknown access pattern with ${lhsVal.relValString}.")
             None
           case (_, Error) =>
-            newError(s"Unknown access pattern with ${rhsVal.getFullName}.")
+            newError(s"Unknown access pattern with ${rhsVal.relValString}.")
             None
           case _ => None
         val toDclOption = toValOption.flatMap(v =>
           val dclOpt = v.dealias
           if (dclOpt.isEmpty)
-            newError(s"Unexpected write access to the immutable value ${v.getFullName}.")
+            newError(s"Unexpected write access to the immutable value ${v.relValString}.")
           dclOpt
         )
         toDclOption match
