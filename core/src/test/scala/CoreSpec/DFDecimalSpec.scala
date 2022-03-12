@@ -53,6 +53,8 @@ class DFDecimalSpec extends DFSpec:
     val t1 = (DFUInt(8) token 100).verifyTokenOf[DFUInt[8]]
     val t1b = (DFSInt(8) token -1).verifyTokenOf[DFSInt[8]]
     val t2 = d"255".verifyTokenOf[DFUInt[8]]
+    val t2b = (-d"255").verifyTokenOf[DFSInt[9]]
+    val t2c = (sd"-255").verifyTokenOf[DFSInt[9]]
     val t3 = d"256".verifyTokenOf[DFUInt[9]]
     val t4 = d"0".verifyTokenOf[DFUInt[1]]
     val t5 = d"10'0".verifyTokenOf[DFUInt[10]]
@@ -71,6 +73,7 @@ class DFDecimalSpec extends DFSpec:
     val t15 = DFSInt(8).token(127)
     val t16 = DFSInt(8).token(d"127")
     val t17 = DFSInt(8).token(sd"127")
+    assert(t2b.asIR equals t2c.asIR)
     assert(t15.asIR equals t16.asIR)
     assert(t16.asIR equals t17.asIR)
 
@@ -174,6 +177,8 @@ class DFDecimalSpec extends DFSpec:
          |u8 := d"8'7"
          |u8 := b6.uint.resize(8)
          |u8 := u6.resize(8)
+         |s8 := (-u6.signed).resize(8)
+         |s8 := -s8
          |s8 := sd"8'0"
          |s8 := sd"8'127"
          |s8 := sd"8'0"
@@ -197,6 +202,8 @@ class DFDecimalSpec extends DFSpec:
       u8 := b"111"
       u8 := b6
       u8 := u6
+      s8 := -u6
+      s8 := -s8
       s8 := 0
       s8 := 127
       s8 := d"0"
@@ -250,6 +257,11 @@ class DFDecimalSpec extends DFSpec:
         "The applied RHS value width (9) is larger than the LHS variable width (8)."
       )(
         """s8 := u8"""
+      )
+      assertCompileError(
+        "The applied RHS value width (9) is larger than the LHS variable width (8)."
+      )(
+        """s8 := -u8"""
       )
     }
   }

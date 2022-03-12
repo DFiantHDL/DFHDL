@@ -1303,6 +1303,10 @@ object DFUInt:
           import DFXInt.Token.Ops.resize
           import DFBits.Token.Ops.sint
           lhs.resize(lhs.width + 1).bits.sint
+        @targetName("negateDFUIntToken")
+        def unary_- : DFSInt.Token[W + 1] =
+          import DFSInt.Token.Ops.unary_- as negate
+          lhs.signed.negate
 
   object Val:
     trait UBArg[UB <: Int, -R]:
@@ -1353,6 +1357,11 @@ object DFUInt:
           import Token.Ops.{signed => signedToken}
           DFVal.Alias.AsIs(DFSInt(lhs.width + 1), lhs, _.signedToken)
         }
+        @targetName("negateDFUInt")
+        def unary_-(using DFC): DFValOf[DFSInt[W + 1]] = trydf {
+          import DFSInt.Val.Ops.unary_- as negate
+          lhs.signed.negate
+        }
   end Val
 
 end DFUInt
@@ -1366,8 +1375,16 @@ object DFSInt:
 
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]
   object Token:
-    object Ops
+    object Ops:
+      extension [W <: Int](lhs: Token[W])
+        @targetName("negateDFSIntToken")
+        def unary_- : Token[W] =
+          DFXInt.Token(true, lhs.width, lhs.data.map(-_))
   object Val:
-    object Ops
-//      extension [W <: Int](lhs: DFValOf[DFSInt[W]])
+    object Ops:
+      extension [W <: Int](lhs: DFValOf[DFSInt[W]])
+        @targetName("negateDFSInt")
+        def unary_-(using DFC): DFValOf[DFSInt[W]] = trydf {
+          DFVal.Func(lhs.dfType, FuncOp.unary_-, List(lhs))
+        }
 end DFSInt
