@@ -7,15 +7,7 @@ import DFVal.*
 
 protected trait RTValPrinter extends AbstractValPrinter:
   type TPrinter <: RTPrinter
-  def csRef(ref: DFRef.TwoWayAny): String =
-    val member = ref.get
-    val callOwner = ref.originRef.get.getOwner
-    member match
-      case dfVal: DFVal =>
-        printer.csDFValRef(dfVal, callOwner)
-      case named: DFMember.Named =>
-        named.name
-      case _ => throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
+  def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValConstDcl(dfVal: Const): String =
     s"constant ${dfVal.name} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)};"
   def csDFValConstExpr(dfVal: Const): String =

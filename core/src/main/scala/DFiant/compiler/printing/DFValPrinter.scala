@@ -17,7 +17,19 @@ trait AbstractValPrinter extends AbstractPrinter:
     ref.get match
       case DFVal.Const(DFDecimal.Token(_, Some(i)), _, _, _) => i.toString
       case _                                                 => ref.refCodeString
-  def csRef(ref: DFRef.TwoWayAny): String
+  def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String
+  final def csRef(ref: DFRef.TwoWayAny): String =
+    val member = ref.get
+    val callOwner = ref.originRef.get.getOwner
+    member match
+      case dfVal: DFVal =>
+        val cs = printer.csDFValRef(dfVal, callOwner)
+        dfVal match
+          case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
+          case _                                          => cs
+      case named: DFMember.Named =>
+        named.name
+      case _ => throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
   final def csRelVal(alias: Alias): String =
     alias.relValRef.refCodeString.applyBrackets()
   def csDFValConstDcl(dfVal: Const): String
@@ -51,19 +63,8 @@ trait AbstractValPrinter extends AbstractPrinter:
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:
-  def csRef(ref: DFRef.TwoWayAny): String =
-    val member = ref.get
-    val callOwner = ref.originRef.get.getOwner
-    member match
-      case dfVal: DFVal =>
-        val cs = printer.csDFValRef(dfVal, callOwner)
-        dfVal match
-          case ch: DFConditional.Header if ch.isAnonymous =>
-            s"(${cs.applyBrackets()}: ${printer.printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
-          case _ => cs
-      case named: DFMember.Named =>
-        named.name
-      case _ => throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
+  def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String =
+    s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
   def csDFValConstDcl(dfVal: Const): String =
     s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
   def csDFValConstExpr(dfVal: Const): String =

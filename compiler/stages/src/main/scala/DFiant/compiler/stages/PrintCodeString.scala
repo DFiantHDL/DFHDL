@@ -4,7 +4,7 @@ import DFiant.compiler.analysis.*
 import DFiant.compiler.printing.*
 private class PrintCodeString(db: DB) extends Stage(db):
   override protected def preTransform: DB =
-    val updatedDB = db.dropUnreferenced.uniqueDesigns
+    val updatedDB = db /*.dropUnreferenced*/ .uniqueDesigns
     val designNames = updatedDB.members.collect { case block: DFDesignBlock => block.dclName }
     updatedDB.uniqueNames(designNames.toSet, caseSensitive = true)
   override def transform: DB =
