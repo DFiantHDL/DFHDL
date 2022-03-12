@@ -1,11 +1,10 @@
 import DFiant.*
-import compiler.stages.printCodeString
 
-class VideoDefs(val CORDW: Int):
+class VideoDefs[CW <: Int](val CORDW: Inlined[CW]):
   // declare the struct
   case class Coord(
-      x: DFUInt[CORDW.type] <> VAL,
-      y: DFUInt[CORDW.type] <> VAL
+      x: DFUInt[CW] <> VAL,
+      y: DFUInt[CW] <> VAL
   ) extends DFStruct
 
 class Example(using DFC) extends DFDesign:
