@@ -95,9 +95,10 @@ object DFOpaque:
       extension [T <: DFTypeAny, TFE <: Frontend[T], A, C, I](
           lhs: DFVal[DFOpaque[TFE], Modifier[A, C, I]]
       )
-        def actual(using DFC): DFVal[T, Modifier[A, Any, Any]] =
+        def actual(using DFC): DFVal[T, Modifier[A, Any, Any]] = trydf {
           import Token.Ops.{actual => actualToken}
           DFVal.Alias.AsIs(lhs.dfType.actualType, lhs, _.actualToken)
+        }
     end Ops
   end Val
 
