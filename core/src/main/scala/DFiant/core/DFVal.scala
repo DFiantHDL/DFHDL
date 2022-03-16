@@ -603,11 +603,13 @@ object DFVal:
     end extension
 
     extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
-      def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] =
+      def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] = trydf {
         import DFToken.Ops.{bits => bitsDFToken}
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
-      def genNewVar(using DFC): DFVarOf[T] =
+      }
+      def genNewVar(using DFC): DFVarOf[T] = trydf {
         DFVal.Dcl(dfVal.dfType, VAR)
+      }
     end extension
   end Ops
 end DFVal
@@ -665,7 +667,7 @@ object DFVarOps:
           "Can only reference `din` of a register. This value is not a register."
         ],
         dfc: DFC
-    ): DFVarOf[T] = DFVal.Alias.RegDIN(dfVar)
+    ): DFVarOf[T] = trydf { DFVal.Alias.RegDIN(dfVar) }
   end extension
   extension [T <: NonEmptyTuple](dfVarTuple: T)
     def :=[R](rhs: Exact[R])(using
