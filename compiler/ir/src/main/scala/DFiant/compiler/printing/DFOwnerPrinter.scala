@@ -31,7 +31,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       }
       .map(_.codeString)
       .filter(_.nonEmpty)
-      .mkString("\n")
+      .mkString("", s"${printer.csEndOfStatement}\n", printer.csEndOfStatement)
   final def csDFOwnerLateBody(owner: DFOwner): String =
     owner
       .members(MemberView.Folded)
@@ -45,7 +45,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       }
       .map(_.codeString)
       .filter(_.nonEmpty)
-      .mkString("\n")
+      .mkString(s"${printer.csLateConnectionSep}\n")
   def csDFDesignBlockDcl(design: DFDesignBlock): String
   def csDFDesignBlockInst(design: DFDesignBlock): String
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String

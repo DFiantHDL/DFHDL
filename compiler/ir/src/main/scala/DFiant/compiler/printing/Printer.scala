@@ -21,6 +21,7 @@ trait Printer
   val csAssignmentOp: String
   val csConnectionOp: String
   val csLateConnectionOp: String
+  def csLateConnectionSep: String
   def csLazyConnectionOp: String
   val normalizeLateConnection: Boolean
   val normalizeConnection: Boolean
@@ -31,6 +32,7 @@ trait Printer
       else csConnectionOp
     case DFNet.Op.LazyConnection => csLazyConnectionOp
   def csInternalViaPortRef(dfValRef: DFNet.Ref): String
+  def csEndOfStatement: String
   final def csDFNet(net: DFNet): String =
     // True if the net needs to be shown in a swapped order.
     // Normalized late connections always have the internal port on the LHS.
@@ -98,6 +100,7 @@ class DFPrinter(using val getSet: MemberGetSet)
   val csAssignmentOp: String = ":="
   val csConnectionOp: String = "<>"
   val csLateConnectionOp: String = "<>"
+  def csLateConnectionSep: String = ""
   def csLazyConnectionOp: String = "`<LZ>`"
   val normalizeLateConnection: Boolean = true
   val normalizeConnection: Boolean = true
@@ -109,6 +112,7 @@ class DFPrinter(using val getSet: MemberGetSet)
          |${comment.indent}
          |*/""".stripMargin
     else s"/*$comment*/"
+  def csEndOfStatement: String = ""
   def csCommentEOL(comment: String): String = s"// $comment"
 end DFPrinter
 

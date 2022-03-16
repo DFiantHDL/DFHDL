@@ -19,6 +19,7 @@ class RTPrinter(using val getSet: MemberGetSet)
   val csAssignmentOp: String = ":="
   val csConnectionOp: String = "<="
   val csLateConnectionOp: String = "=>"
+  def csLateConnectionSep: String = ","
   def csLazyConnectionOp: String = unsupported
   final val normalizeLateConnection: Boolean = true
   final val normalizeConnection: Boolean = true
@@ -29,5 +30,6 @@ class RTPrinter(using val getSet: MemberGetSet)
          |${comment.indent}
          |*/""".stripMargin
     else s"/*$comment*/"
+  def csEndOfStatement: String = ";"
   def csCommentEOL(comment: String): String = s"-- $comment"
 end RTPrinter
