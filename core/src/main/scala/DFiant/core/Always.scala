@@ -37,5 +37,6 @@ object Always:
         dfc.enterOwner(owner)
         block
         dfc.exitOwner()
+  end Ops
 
 end Always

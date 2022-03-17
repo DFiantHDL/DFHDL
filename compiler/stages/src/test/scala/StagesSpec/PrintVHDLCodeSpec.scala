@@ -43,7 +43,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
 
-  test("Basic ID design") {
+  test("Basic hierarchy design") {
     val top = (new IDTop).getVHDLCode
     assertNoDiff(
       top,
@@ -94,6 +94,70 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  id2_x <= id1_y;
          |  y <= id2_y;
          |end IDTop_arch;
+         |""".stripMargin
+    )
+  }
+  test("always block") {
+    class Top(using DFC) extends DFDesign:
+      val clk = DFBit      <> IN
+      val rst = DFBit      <> IN
+      val x   = DFBits(16) <> IN
+      val y   = DFBits(16) <> OUT
+      val z   = DFBits(16) <> VAR
+      always(clk, rst) {
+        if (rst)
+          y := all(0)
+        else if (clk.rising)
+          y := x
+      }
+      val myblock = always.all {
+        val my_var = DFBits(16) <> VAR
+        my_var := x
+        y      := my_var
+      }
+      always() {
+        z := x
+        y := z
+      }
+    end Top
+    val top = (new Top).getVHDLCode
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.Top_pkg.all;
+         |
+         |entity Top is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  x : in std_logic_vector(15 downto 0);
+         |  y : out std_logic_vector(15 downto 0)
+         |);
+         |end Top;
+         |
+         |architecture Top_arch of Top is
+         |  signal z : std_logic_vector(15 downto 0);
+         |begin
+         |  process (clk, rst)
+         |  begin
+         |    if rst then y := h"16'0000";
+         |    elsif rising_edge(clk) then y := x;
+         |    end if;
+         |  end process;
+         |  myblock : process (all)
+         |  begin
+         |    signal my_var : std_logic_vector(15 downto 0);;
+         |    my_var := x;
+         |    y := my_var;
+         |  end process;
+         |  process
+         |  begin
+         |    z := x;
+         |    y := z;
+         |  end process;
+         |end Top_arch;
          |""".stripMargin
     )
   }

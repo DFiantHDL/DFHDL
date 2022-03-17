@@ -8,6 +8,7 @@ import DFiant.compiler.ir.AlwaysBlock.Sensitivity
 import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
 
 protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
+  type TPrinter <: RTPrinter
   val useStdSimLibrary: Boolean = true
   def fileSuffix = "vhdl"
   def packageName: String =
@@ -74,66 +75,42 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
     if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.indent}\n)"
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
     ifBlock.prevBlockOrHeaderRef.get match
-      case _: DFConditional.Header => s"if (${ifBlock.guardRef.refCodeString})"
+      case _: DFConditional.Header => s"if ${ifBlock.guardRef.refCodeString} then"
       case _ =>
         ifBlock.guardRef.get match
           case DFMember.Empty => s"else"
-          case _              => s"else if (${ifBlock.guardRef.refCodeString})"
-  def csDFCasePattern(pattern: DFConditional.DFCaseBlock.Pattern): String = pattern match
-    case Pattern.CatchAll => "_"
-    case Pattern.Singleton(token) =>
-      val csToken = printer.csDFToken(token)
-      token match
-        case DFEnum.Token(dt, data) => s"$csToken()"
-        case _                      => csToken
-    case Pattern.Alternative(list) =>
-      list.map(csDFCasePattern).mkString(" | ")
-    case Pattern.Struct(name, list) =>
-      name + list.map(csDFCasePattern).mkStringBrackets
-    case Pattern.Bind(ref, pattern) =>
-      val bindStr = pattern match
-        case Pattern.CatchAll => ""
-        case _                => s" @ ${csDFCasePattern(pattern)}"
-      s"${ref.get.name}$bindStr"
-    case Pattern.BindSI(op, parts, refs) =>
-      val csBinds = refs.view
-        .map { r => r.get }
-        .map(bindVal => s"$${${bindVal.name}: B[${bindVal.dfType.width}]}")
-      val fullTerm = parts.coalesce(csBinds).mkString
-      s"""$op"$fullTerm""""
+          case _              => s"elsif ${ifBlock.guardRef.refCodeString} then"
+  def csDFIfEnd: String = "end if"
+  def csDFCasePattern(pattern: Pattern): String = pattern match
+    case Pattern.CatchAll                => "others"
+    case Pattern.Singleton(token)        => printer.csDFToken(token)
+    case Pattern.Alternative(list)       => list.map(csDFCasePattern).mkString(" | ")
+    case Pattern.Struct(name, list)      => printer.unsupported
+    case Pattern.Bind(ref, pattern)      => printer.unsupported
+    case Pattern.BindSI(op, parts, refs) => printer.unsupported
 
   def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock): String =
-    val csGuard =
-      caseBlock.guardRef.get match
-        case DFMember.Empty => ""
-        case _              => s"if ${caseBlock.guardRef.refCodeString} "
-    s"case ${csDFCasePattern(caseBlock.pattern)} ${csGuard}=>"
-  def csDFConditionalBlock(cb: DFConditional.Block): String =
-    val body = csDFOwnerBody(cb)
-    val statement = cb match
-      case caseBlock: DFConditional.DFCaseBlock => csDFCaseStatement(caseBlock)
-      case ifBlock: DFConditional.DFIfElseBlock => csDFIfElseStatement(ifBlock)
-    val indentBody =
-      if (body.contains("\n")) s"\n${body.indent}" else s" $body"
-    if (body.isEmpty) cb match
-      case caseBlock: DFConditional.DFCaseBlock => statement
-      case ifBlock: DFConditional.DFIfElseBlock => s"$statement {}"
-    else s"$statement$indentBody"
+    caseBlock.guardRef.get match
+      case DFMember.Empty => // ok
+      case _              => printer.unsupported
+    s"when ${csDFCasePattern(caseBlock.pattern)} =>"
+  def csDFMatchEnd: String = "end case"
   def csDFConditional(ch: DFConditional.Header): String =
     val chain = getSet.designDB.conditionalChainTable(ch)
     val csChains = chain.map(ib => csDFConditionalBlock(ib)).mkString("\n")
     ch match
       case mh: DFConditional.DFMatchHeader =>
-        val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"$csSelector match\n${csChains.indent}"
+        val csSelector = mh.selectorRef.refCodeString
+        s"case ($csSelector)\n${csChains.indent}"
       case ih: DFConditional.DFIfHeader => csChains
   end csDFConditional
   def csAlwaysBlock(ab: AlwaysBlock): String =
     val body = csDFOwnerBody(ab)
-    val named = ab.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    val named = ab.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val senList = ab.sensitivity match
-      case Sensitivity.All        => ".all"
-      case Sensitivity.List(refs) => refs.map(_.refCodeString).mkStringBrackets
-    s"${named}always${senList} {\n${body.indent}\n}"
-  def csDomainBlock(ab: DomainBlock): String = ???
+      case Sensitivity.All => " (all)"
+      case Sensitivity.List(refs) =>
+        if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
+    s"${named}process$senList\nbegin\n${body.indent}\nend process"
+  def csDomainBlock(ab: DomainBlock): String = printer.unsupported
 end RTOwnerPrinter

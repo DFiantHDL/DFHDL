@@ -30,15 +30,25 @@ protected trait RTValPrinter extends AbstractValPrinter:
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val opStr = dfVal.op match
-          case Func.Op.=== => "=="
-          case Func.Op.=!= => "!="
-          // boolean logical operations
-          case Func.Op.| | Func.Op.& if argL.get.dfType.width == 1 =>
-            s"${dfVal.op}${dfVal.op}"
+          case Func.Op.=== => "="
+          case Func.Op.=!= => "/="
+          case Func.Op.|   => "or"
+          case Func.Op.&   => "and"
+          case Func.Op.^   => "xor"
+          case Func.Op.>=  => "=>"
+          case Func.Op.++  => "&"
+          case Func.Op.<< =>
+            argL.get.dfType match
+              case DFSInt(_) => "sla"
+              case _         => "sll"
+          case Func.Op.>> =>
+            argL.get.dfType match
+              case DFSInt(_) => "sra"
+              case _         => "srl"
           // if the result width for +/-/* ops is larger than the left argument width
           // then we have a carry-inclusive operation
           case Func.Op.+ | Func.Op.- | Func.Op.`*` if dfVal.dfType.width > argL.get.dfType.width =>
-            s"${dfVal.op}^"
+            printer.unsupported
           case op => op.toString
         val rhsStr = dfVal.op match
           case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
@@ -46,31 +56,26 @@ protected trait RTValPrinter extends AbstractValPrinter:
         s"${argL.refCodeString.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
       // unary/postfix func
       case arg :: Nil =>
-        val opStr = dfVal.op.toString
         val argStr = arg.refCodeString.applyBrackets()
-        if (opStr.startsWith("unary_")) s"${opStr.last}$argStr"
-        else s"${argStr}.${opStr}"
+        dfVal.op match
+          case Func.Op.rising  => s"rising_edge($argStr)"
+          case Func.Op.falling => s"falling_edge($argStr)"
+          case Func.Op.unary_- => s"-$argStr"
+          case Func.Op.unary_! => s"not $argStr"
+          case Func.Op.unary_~ => s"not $argStr"
+          case _               => printer.unsupported
       // multiarg func
       case args =>
         dfVal.op match
           case DFVal.Func.Op.++ =>
-            def argsInBrackets = args.map(_.refCodeString).mkStringBrackets
             dfVal.dfType match
-              case DFStruct(structName, fieldMap) =>
-                if (structName.isEmpty) argsInBrackets
-                else
-                  structName + fieldMap
-                    .lazyZip(args)
-                    .map { case ((n, _), r) =>
-                      s"$n = ${r.refCodeString}"
-                    }
-                    .mkStringBrackets
-              case DFVector(_, _) => s"Vector${argsInBrackets}"
+              case DFStruct(_, _) => printer.unsupported
+              case DFVector(_, _) => printer.unsupported
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
-                s"${(args.head.refCodeString).applyBrackets()}.repeat(${args.length})"
+                s"repeat(${args.head.refCodeString},${args.length})"
               // regular concatenation function
-              case _ => argsInBrackets
+              case _ => args.map(_.refCodeString).mkString(" & ")
             end match
           case _ =>
             args
@@ -79,43 +84,35 @@ protected trait RTValPrinter extends AbstractValPrinter:
 
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String =
     val relVal = dfVal.relValRef.get
-    val relValStr = dfVal.relValCodeString
+    val relValStr = dfVal.relValRef.refCodeString
     val fromType = relVal.dfType
     val toType = dfVal.dfType
     (toType, fromType) match
-      case (t, f) if t == f => // ident
-        // an ident is used as a placeholder and therefore does not require
-        // applying brackets
-        val callOwner = dfVal.relValRef.originRef.get.getOwner
-        printer.csDFValRef(relVal, callOwner)
+      case (t, f) if t == f => printer.unsupported
       case (DFSInt(tWidth), DFUInt(fWidth)) =>
         assert(tWidth == fWidth + 1)
-        s"${relValStr}.signed"
+        s"signed($relValStr)"
       case (DFUInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
-        s"${relValStr}.uint"
+        s"unsigned($relValStr)"
       case (DFSInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
-        s"${relValStr}.sint"
+        s"signed($relValStr)"
       case (DFBits(tWidth), DFBits(_)) =>
-        s"${relValStr}.resize($tWidth)"
+        s"resize($relValStr, $tWidth)"
       case (DFBits(tWidth), _) =>
         assert(tWidth == fromType.width)
-        s"${relValStr}.bits"
+        fromType match
+          case _ => s"to_slv($relValStr)"
       case (DFUInt(tWidth), DFUInt(_)) =>
-        s"${relValStr}.resize($tWidth)"
+        s"resize($relValStr, $tWidth)"
       case (DFSInt(tWidth), DFSInt(_)) =>
-        s"${relValStr}.resize($tWidth)"
+        s"resize($relValStr, $tWidth)"
       case (DFBit, DFBool) =>
-        s"${relValStr}.bit"
+        s"to_sl($relValStr)"
       case (DFBool, DFBit) =>
-        s"${relValStr}.bool"
-      case (t, DFOpaque(_, ot)) if ot == t =>
-        s"${relValStr}.actual"
-      case (_, DFBits(_)) | (DFOpaque(_, _), _) =>
-        s"${relValStr}.as(${printer.csDFType(toType)})"
-      case _ =>
-        throw new IllegalArgumentException("Unsupported alias/conversion")
+        s"to_bool($relValStr)"
+      case _ => printer.unsupported
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =

@@ -144,8 +144,12 @@ object DFType:
                 summonInline[DFStruct[t & DFStruct.Fields]]
           }
         case _ =>
+          val badTypeStr = clsTpe.show
           val msg =
-            s"Type `${clsTpe.show}` is not a supported product companion.\nHint: Did you forget to extends `DFStruct` or `DFEnum`?"
+            if (badTypeStr.endsWith("$package.<none>"))
+              s"Type `$badTypeStr` is not a supported dataflow type constructor.\nHint: Are you missing an argument in your dataflow type constructor?"
+            else
+              s"Type `$badTypeStr` is not a supported product companion.\nHint: Did you forget to extends `DFStruct` or `DFEnum`?"
           '{
             compiletime.error(${ Expr(msg) })
             new TC[T]:

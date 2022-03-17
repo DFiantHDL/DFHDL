@@ -49,9 +49,29 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFDesignBlockDcl(design: DFDesignBlock): String
   def csDFDesignBlockInst(design: DFDesignBlock): String
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String
+  def csDFIfEnd: String
   def csDFCasePattern(pattern: DFConditional.DFCaseBlock.Pattern): String
   def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock): String
-  def csDFConditionalBlock(cb: DFConditional.Block): String
+  def csDFMatchEnd: String
+
+  final def csDFConditionalBlock(cb: DFConditional.Block): String =
+    val body = csDFOwnerBody(cb)
+    val statement = cb match
+      case caseBlock: DFConditional.DFCaseBlock => csDFCaseStatement(caseBlock)
+      case ifBlock: DFConditional.DFIfElseBlock => csDFIfElseStatement(ifBlock)
+    val end =
+      if (cb.isLastCB)
+        cb match
+          case caseBlock: DFConditional.DFCaseBlock => csDFMatchEnd
+          case ifBlock: DFConditional.DFIfElseBlock => csDFIfEnd
+      else ""
+    val indentBody =
+      if (body.contains("\n")) s"\n${body.indent}" else s" $body"
+    if (body.isEmpty) cb match
+      case caseBlock: DFConditional.DFCaseBlock => statement
+      case ifBlock: DFConditional.DFIfElseBlock => s"$statement {}"
+    else s"$statement$indentBody${end.emptyOr(e => s"\n$e")}"
+  end csDFConditionalBlock
   def csDFConditional(ch: DFConditional.Header): String
   def csAlwaysBlock(ab: AlwaysBlock): String
   def csDomainBlock(ab: DomainBlock): String
@@ -79,6 +99,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
         ifBlock.guardRef.get match
           case DFMember.Empty => s"else"
           case _              => s"else if (${ifBlock.guardRef.refCodeString})"
+  def csDFIfEnd: String = ""
   def csDFCasePattern(pattern: DFConditional.DFCaseBlock.Pattern): String = pattern match
     case Pattern.CatchAll => "_"
     case Pattern.Singleton(token) =>
@@ -108,17 +129,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
         case DFMember.Empty => ""
         case _              => s"if ${caseBlock.guardRef.refCodeString} "
     s"case ${csDFCasePattern(caseBlock.pattern)} ${csGuard}=>"
-  def csDFConditionalBlock(cb: DFConditional.Block): String =
-    val body = csDFOwnerBody(cb)
-    val statement = cb match
-      case caseBlock: DFConditional.DFCaseBlock => csDFCaseStatement(caseBlock)
-      case ifBlock: DFConditional.DFIfElseBlock => csDFIfElseStatement(ifBlock)
-    val indentBody =
-      if (body.contains("\n")) s"\n${body.indent}" else s" $body"
-    if (body.isEmpty) cb match
-      case caseBlock: DFConditional.DFCaseBlock => statement
-      case ifBlock: DFConditional.DFIfElseBlock => s"$statement {}"
-    else s"$statement$indentBody"
+  def csDFMatchEnd: String = ""
   def csDFConditional(ch: DFConditional.Header): String =
     val chain = getSet.designDB.conditionalChainTable(ch)
     val csChains = chain.map(ib => csDFConditionalBlock(ib)).mkString("\n")
