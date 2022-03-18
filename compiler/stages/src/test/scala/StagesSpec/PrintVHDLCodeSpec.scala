@@ -37,7 +37,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture ID_arch of ID is
          |begin
-         |  y := x;
+         |  y <= x;
          |end ID_arch;
          |""".stripMargin
     )
@@ -61,7 +61,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture ID_arch of ID is
          |begin
-         |  y := x;
+         |  y <= x;
          |end ID_arch;
          |
          |library ieee;
@@ -144,20 +144,20 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  process (clk, rst)
          |    constant c : std_logic_vector(15 downto 0) := h"16'0000";
          |  begin
-         |    if rst then y := c;
-         |    elsif rising_edge(clk) then y := x;
+         |    if rst then y <= c;
+         |    elsif rising_edge(clk) then y <= x;
          |    end if;
          |  end process;
          |  myblock : process (all)
          |    variable my_var : std_logic_vector(15 downto 0);
          |  begin
          |    my_var := x;
-         |    y := my_var;
+         |    y <= my_var;
          |  end process;
          |  process
          |  begin
-         |    z := x;
-         |    y := z;
+         |    z <= x;
+         |    y <= z;
          |  end process;
          |end Top_arch;
          |""".stripMargin

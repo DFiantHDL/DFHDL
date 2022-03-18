@@ -16,9 +16,10 @@ class RTPrinter(using val getSet: MemberGetSet)
     "Unsupported member for this RTPrinter."
   )
   val commentConnDir: CommentConnDir = CommentConnDir.Inline
-  val csAssignmentOp: String = ":="
-  val csConnectionOp: String = "<="
-  val csLateConnectionOp: String = "=>"
+  def csAssignmentOp: String = ":="
+  def csNBAssignmentOp: String = "<="
+  def csConnectionOp: String = "<="
+  def csLateConnectionOp: String = "=>"
   def csLateConnectionSep: String = ","
   def csLazyConnectionOp: String = unsupported
   final val normalizeLateConnection: Boolean = true

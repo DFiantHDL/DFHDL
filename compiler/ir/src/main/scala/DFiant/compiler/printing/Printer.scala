@@ -18,15 +18,22 @@ trait Printer
   enum CommentConnDir derives CanEqual:
     case Off, Inline, EOL
   val commentConnDir: CommentConnDir
-  val csAssignmentOp: String
-  val csConnectionOp: String
-  val csLateConnectionOp: String
+  def csAssignmentOp: String
+  def csNBAssignmentOp: String
+  def csConnectionOp: String
+  def csLateConnectionOp: String
   def csLateConnectionSep: String
   def csLazyConnectionOp: String
   val normalizeLateConnection: Boolean
   val normalizeConnection: Boolean
   final def csDFNetOp(net: DFNet): String = net.op match
-    case DFNet.Op.Assignment => csAssignmentOp
+    case DFNet.Op.Assignment =>
+      val DFNet.Assignment(toVal, _) = net
+      // if the assigned declaration is at an `always` block, then this is a blocking assignment.
+      // otherwise, this is a non-blocking assignment.
+      toVal.dealias.get.getOwnerNamed match
+        case _: AlwaysBlock => csAssignmentOp
+        case _              => csNBAssignmentOp
     case DFNet.Op.Connection =>
       if (net.lateConstruction) csLateConnectionOp
       else csConnectionOp
@@ -97,9 +104,10 @@ class DFPrinter(using val getSet: MemberGetSet)
   type TPrinter = DFPrinter
   given printer: TPrinter = this
   val commentConnDir: CommentConnDir = CommentConnDir.Inline
-  val csAssignmentOp: String = ":="
-  val csConnectionOp: String = "<>"
-  val csLateConnectionOp: String = "<>"
+  def csAssignmentOp: String = ":="
+  def csNBAssignmentOp: String = ":="
+  def csConnectionOp: String = "<>"
+  def csLateConnectionOp: String = "<>"
   def csLateConnectionSep: String = ""
   def csLazyConnectionOp: String = "`<LZ>`"
   val normalizeLateConnection: Boolean = true
