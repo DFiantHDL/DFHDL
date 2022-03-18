@@ -108,8 +108,9 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
     val (statements, dcls) = ab
       .members(MemberView.Folded)
       .partition {
-        case dcl: DFVal.Dcl => false
-        case _              => true
+        case dcl: DFVal.Dcl                           => false
+        case const: DFVal.Const if !const.isAnonymous => false
+        case _                                        => true
       }
     val body = csDFMembers(statements)
     val dcl =

@@ -105,8 +105,9 @@ class PrintVHDLCodeSpec extends StageSpec:
       val y   = DFBits(16) <> OUT
       val z   = DFBits(16) <> VAR
       always(clk, rst) {
+        val c = DFBits(16) const all(0)
         if (rst)
-          y := all(0)
+          y := c
         else if (clk.rising)
           y := x
       }
@@ -141,8 +142,9 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  signal z : std_logic_vector(15 downto 0);
          |begin
          |  process (clk, rst)
+         |    constant c : std_logic_vector(15 downto 0) := h"16'0000";
          |  begin
-         |    if rst then y := h"16'0000";
+         |    if rst then y := c;
          |    elsif rising_edge(clk) then y := x;
          |    end if;
          |  end process;
