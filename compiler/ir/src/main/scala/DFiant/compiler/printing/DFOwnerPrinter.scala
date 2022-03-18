@@ -48,7 +48,16 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       .mkString(s"${printer.csLateConnectionSep}\n")
   def csDFDesignBlockDcl(design: DFDesignBlock): String
   def csDFDesignBlockInst(design: DFDesignBlock): String
-  def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String
+  def csDFIfStatement(csCond: String): String
+  def csDFElseStatement: String
+  def csDFElseIfStatement(csCond: String): String
+  final def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
+    ifBlock.prevBlockOrHeaderRef.get match
+      case _: DFConditional.Header => csDFIfStatement(ifBlock.guardRef.refCodeString)
+      case _ =>
+        ifBlock.guardRef.get match
+          case DFMember.Empty => csDFElseStatement
+          case _              => csDFElseIfStatement(ifBlock.guardRef.refCodeString)
   def csDFIfEnd: String
   def csIfBlockEmpty: String
   def csDFCasePattern(pattern: Pattern): String
@@ -108,6 +117,9 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerLateBody(design)
     val inst = s"val ${design.name} = new ${design.dclName}"
     if (body.isEmpty) inst else s"$inst:\n${body.indent}"
+  def csDFIfStatement(csCond: String): String = s"if ($csCond)"
+  def csDFElseStatement: String = "else"
+  def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"
   def csDFIfEnd: String = ""
   def csIfBlockEmpty: String = " {}"
   def csDFCasePattern(pattern: Pattern): String = pattern match

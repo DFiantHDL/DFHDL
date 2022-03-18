@@ -73,13 +73,9 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerLateBody(design)
     val inst = s"${design.name} : entity work.${entityName(design)}(${archName(design)})"
     if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.indent}\n)"
-  def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
-    ifBlock.prevBlockOrHeaderRef.get match
-      case _: DFConditional.Header => s"if ${ifBlock.guardRef.refCodeString} then"
-      case _ =>
-        ifBlock.guardRef.get match
-          case DFMember.Empty => s"else"
-          case _              => s"elsif ${ifBlock.guardRef.refCodeString} then"
+  def csDFIfStatement(csCond: String): String = s"if $csCond then"
+  def csDFElseStatement: String = "else"
+  def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"
   def csDFIfEnd: String = "end if"
   def csIfBlockEmpty: String = ""
   def csDFCasePattern(pattern: Pattern): String = pattern match
