@@ -91,16 +91,8 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCaseKeyword: String = "when"
   def csDFCaseSeparator: String = "=>"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
+  def csDFMatchStatement(csSelector: String): String = s"case $csSelector is"
   def csDFMatchEnd: String = "end case"
-  def csDFConditional(ch: DFConditional.Header): String =
-    val chain = getSet.designDB.conditionalChainTable(ch)
-    val csChains = chain.map(ib => csDFConditionalBlock(ib)).mkString("\n")
-    ch match
-      case mh: DFConditional.DFMatchHeader =>
-        val csSelector = mh.selectorRef.refCodeString
-        s"case ($csSelector)\n${csChains.indent}"
-      case ih: DFConditional.DFIfHeader => csChains
-  end csDFConditional
   def csAlwaysBlock(ab: AlwaysBlock): String =
     val (statements, dcls) = ab
       .members(MemberView.Folded)

@@ -50,6 +50,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFDesignBlockInst(design: DFDesignBlock): String
   def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String
   def csDFIfEnd: String
+  def csIfBlockEmpty: String
   def csDFCasePattern(pattern: Pattern): String
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String
   def csDFCaseKeyword: String
@@ -60,8 +61,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case DFMember.Empty => ""
         case _              => csDFCaseGuard(caseBlock.guardRef)
     s"$csDFCaseKeyword ${csDFCasePattern(caseBlock.pattern)} $csGuard$csDFCaseSeparator"
+  def csDFMatchStatement(csSelector: String): String
   def csDFMatchEnd: String
-  def csIfBlockEmpty: String
   final def csDFConditionalBlock(cb: DFConditional.Block): String =
     val body = csDFOwnerBody(cb)
     val statement = cb match
@@ -80,7 +81,14 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       case ifBlock: DFConditional.DFIfElseBlock => s"$statement$csIfBlockEmpty"
     else s"$statement$indentBody${end.emptyOr(e => s"\n$e")}"
   end csDFConditionalBlock
-  def csDFConditional(ch: DFConditional.Header): String
+  final def csDFConditional(ch: DFConditional.Header): String =
+    val chain = getSet.designDB.conditionalChainTable(ch)
+    val csChains = chain.map(ib => csDFConditionalBlock(ib)).mkString("\n")
+    ch match
+      case mh: DFConditional.DFMatchHeader =>
+        val csSelector = mh.selectorRef.refCodeString.applyBrackets()
+        s"$csSelector match\n${csChains.indent}"
+      case ih: DFConditional.DFIfHeader => csChains
   def csAlwaysBlock(ab: AlwaysBlock): String
   def csDomainBlock(ab: DomainBlock): String
 end AbstractOwnerPrinter
@@ -100,13 +108,6 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerLateBody(design)
     val inst = s"val ${design.name} = new ${design.dclName}"
     if (body.isEmpty) inst else s"$inst:\n${body.indent}"
-  def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
-    ifBlock.prevBlockOrHeaderRef.get match
-      case _: DFConditional.Header => s"if (${ifBlock.guardRef.refCodeString})"
-      case _ =>
-        ifBlock.guardRef.get match
-          case DFMember.Empty => s"else"
-          case _              => s"else if (${ifBlock.guardRef.refCodeString})"
   def csDFIfEnd: String = ""
   def csIfBlockEmpty: String = " {}"
   def csDFCasePattern(pattern: Pattern): String = pattern match
@@ -137,15 +138,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCaseKeyword: String = "case"
   def csDFCaseSeparator: String = "=>"
   def csDFMatchEnd: String = ""
-  def csDFConditional(ch: DFConditional.Header): String =
-    val chain = getSet.designDB.conditionalChainTable(ch)
-    val csChains = chain.map(ib => csDFConditionalBlock(ib)).mkString("\n")
-    ch match
-      case mh: DFConditional.DFMatchHeader =>
-        val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"$csSelector match\n${csChains.indent}"
-      case ih: DFConditional.DFIfHeader => csChains
-  end csDFConditional
+  def csDFMatchStatement(csSelector: String): String = s"$csSelector match"
   def csAlwaysBlock(ab: AlwaysBlock): String =
     val body = csDFOwnerBody(ab)
     val named = ab.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
