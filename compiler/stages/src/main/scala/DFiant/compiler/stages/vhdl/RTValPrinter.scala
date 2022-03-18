@@ -10,8 +10,6 @@ protected trait RTValPrinter extends AbstractValPrinter:
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValConstDcl(dfVal: Const): String =
     s"constant ${dfVal.name} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)}"
-  def csDFValConstExpr(dfVal: Const): String =
-    printer.csDFToken(dfVal.token)
   def csDFValDcl(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val noInit =

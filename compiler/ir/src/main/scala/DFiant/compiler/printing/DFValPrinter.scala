@@ -33,7 +33,8 @@ trait AbstractValPrinter extends AbstractPrinter:
   final def csRelVal(alias: Alias): String =
     alias.relValRef.refCodeString.applyBrackets()
   def csDFValConstDcl(dfVal: Const): String
-  def csDFValConstExpr(dfVal: Const): String
+  final def csDFValConstExpr(dfVal: Const): String =
+    printer.csDFToken(dfVal.token)
   def csDFValDcl(dfVal: Dcl): String
   def csDFValFuncExpr(dfVal: Func): String
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String
@@ -67,8 +68,6 @@ protected trait DFValPrinter extends AbstractValPrinter:
     s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
   def csDFValConstDcl(dfVal: Const): String =
     s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
-  def csDFValConstExpr(dfVal: Const): String =
-    printer.csDFToken(dfVal.token)
   def csDFValDcl(dfVal: Dcl): String =
     val noInit = s"${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
     dfVal.getTagOf[ExternalInit] match
@@ -77,7 +76,6 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
         s"$noInit init ${printer.csDFToken(initSeq.head)}"
       case _ => noInit
-
   def csDFValFuncExpr(dfVal: Func): String =
     dfVal.args match
       // infix func
