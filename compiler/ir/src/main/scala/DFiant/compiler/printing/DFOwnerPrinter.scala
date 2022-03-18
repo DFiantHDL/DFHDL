@@ -60,7 +60,19 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           case _              => csDFElseIfStatement(ifBlock.guardRef.refCodeString)
   def csDFIfEnd: String
   def csIfBlockEmpty: String
-  def csDFCasePattern(pattern: Pattern): String
+  def csDFCasePatternCatchAll: String
+  def csDFCasePatternAlternativeToken: String
+  def csDFCasePatternStruct(pattern: Pattern.Struct): String
+  def csDFCasePatternBind(pattern: Pattern.Bind): String
+  def csDFCasePatternBindSI(pattern: Pattern.BindSI): String
+  def csDFCasePattern(pattern: Pattern): String = pattern match
+    case Pattern.CatchAll         => csDFCasePatternCatchAll
+    case Pattern.Singleton(token) => printer.csDFToken(token, pattern = true)
+    case Pattern.Alternative(list) =>
+      list.map(csDFCasePattern).mkString(csDFCasePatternAlternativeToken)
+    case pattern: Pattern.Struct => csDFCasePatternStruct(pattern)
+    case pattern: Pattern.Bind   => csDFCasePatternBind(pattern)
+    case pattern: Pattern.BindSI => csDFCasePatternBindSI(pattern)
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String
   def csDFCaseKeyword: String
   def csDFCaseSeparator: String
@@ -122,29 +134,21 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"
   def csDFIfEnd: String = ""
   def csIfBlockEmpty: String = " {}"
-  def csDFCasePattern(pattern: Pattern): String = pattern match
-    case Pattern.CatchAll => "_"
-    case Pattern.Singleton(token) =>
-      val csToken = printer.csDFToken(token)
-      token match
-        case DFEnum.Token(dt, data) => s"$csToken()"
-        case _                      => csToken
-    case Pattern.Alternative(list) =>
-      list.map(csDFCasePattern).mkString(" | ")
-    case Pattern.Struct(name, list) =>
-      name + list.map(csDFCasePattern).mkStringBrackets
-    case Pattern.Bind(ref, pattern) =>
-      val bindStr = pattern match
-        case Pattern.CatchAll => ""
-        case _                => s" @ ${csDFCasePattern(pattern)}"
-      s"${ref.get.name}$bindStr"
-    case Pattern.BindSI(op, parts, refs) =>
-      val csBinds = refs.view
-        .map { r => r.get }
-        .map(bindVal => s"$${${bindVal.name}: B[${bindVal.dfType.width}]}")
-      val fullTerm = parts.coalesce(csBinds).mkString
-      s"""$op"$fullTerm""""
-
+  def csDFCasePatternCatchAll: String = "_"
+  def csDFCasePatternAlternativeToken: String = " | "
+  def csDFCasePatternStruct(pattern: Pattern.Struct): String =
+    pattern.name + pattern.fieldPatterns.map(csDFCasePattern).mkStringBrackets
+  def csDFCasePatternBind(pattern: Pattern.Bind): String =
+    val bindStr = pattern.pattern match
+      case Pattern.CatchAll => ""
+      case _                => s" @ ${csDFCasePattern(pattern.pattern)}"
+    s"${pattern.ref.get.name}$bindStr"
+  def csDFCasePatternBindSI(pattern: Pattern.BindSI): String =
+    val csBinds = pattern.refs.view
+      .map { r => r.get }
+      .map(bindVal => s"$${${bindVal.name}: B[${bindVal.dfType.width}]}")
+    val fullTerm = pattern.parts.coalesce(csBinds).mkString
+    s"""${pattern.op}"$fullTerm""""
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String =
     s"if ${guardRef.refCodeString} "
   def csDFCaseKeyword: String = "case"

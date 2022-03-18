@@ -7,16 +7,16 @@ trait AbstractTokenPrinter extends AbstractPrinter:
   def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String
   def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String
   def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String
-  def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String
+  def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String
   def csDFStructData(dfType: DFStruct, data: List[Any]): String
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String
-  final def csDFToken(token: DFTokenAny): String = token match
+  final def csDFToken(token: DFTokenAny, pattern: Boolean = false): String = token match
     case DFBits.Token(dt, data)      => csDFBitsData(dt, data)
     case DFBoolOrBit.Token(dt, data) => csDFBoolOrBitData(dt, data)
     case DFDecimal.Token(dt, data)   => csDFDecimalData(dt, data)
-    case DFEnum.Token(dt, data)      => csDFEnumData(dt, data)
+    case DFEnum.Token(dt, data)      => csDFEnumData(dt, data, pattern)
     case DFVector.Token(dt, data)    => csDFVectorData(dt, data)
     case DFOpaque.Token(dt, data)    => csDFOpaqueData(dt, data)
     case DFStruct.Token(dt, data)    => csDFStructData(dt, data)
@@ -104,11 +104,11 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
           s"""$interpStr"${dfType.width}'$value""""
         else ??? // DFXFix
       case None => "?"
-  def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
+  def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String =
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
-        s"${dfType.getName}.${entryName}"
+        s"${dfType.getName}.${entryName}${if (pattern) "()" else ""}"
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     s"Vector${data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkStringBrackets}"
@@ -129,5 +129,5 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
       .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
   def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String =
-    tokenSeq.map(csDFToken).mkStringBrackets
+    tokenSeq.map(csDFToken(_)).mkStringBrackets
 end DFTokenPrinter

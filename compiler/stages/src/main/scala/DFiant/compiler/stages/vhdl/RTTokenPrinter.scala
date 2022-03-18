@@ -82,7 +82,7 @@ protected trait RTTokenPrinter extends AbstractTokenPrinter:
           s"""$interpStr"${dfType.width}'$value""""
         else ??? // DFXFix
       case None => "?"
-  def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
+  def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String =
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
@@ -107,5 +107,5 @@ protected trait RTTokenPrinter extends AbstractTokenPrinter:
       .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
   def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String =
-    tokenSeq.map(csDFToken).mkStringBrackets
+    tokenSeq.map(csDFToken(_)).mkStringBrackets
 end RTTokenPrinter

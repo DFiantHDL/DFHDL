@@ -78,12 +78,11 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"
   def csDFIfEnd: String = "end if"
   def csIfBlockEmpty: String = ""
-  def csDFCasePattern(pattern: Pattern): String = pattern match
-    case Pattern.CatchAll          => "others"
-    case Pattern.Singleton(token)  => printer.csDFToken(token)
-    case Pattern.Alternative(list) => list.map(csDFCasePattern).mkString(" | ")
-    case _                         => printer.unsupported
-
+  def csDFCasePatternCatchAll: String = "others"
+  def csDFCasePatternAlternativeToken: String = " | "
+  def csDFCasePatternStruct(pattern: Pattern.Struct): String = printer.unsupported
+  def csDFCasePatternBind(pattern: Pattern.Bind): String = printer.unsupported
+  def csDFCasePatternBindSI(pattern: Pattern.BindSI): String = printer.unsupported
   def csDFCaseKeyword: String = "when"
   def csDFCaseSeparator: String = "=>"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
