@@ -51,7 +51,7 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
           case c: DFVal.Const if !c.isAnonymous => c
         }
         .map(printer.csDFValNamed)
-        .mkString("\n")
+        .emptyOr(_.mkString("", ";\n", ";"))
     val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.indent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl   => false
@@ -105,12 +105,22 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
       case ih: DFConditional.DFIfHeader => csChains
   end csDFConditional
   def csAlwaysBlock(ab: AlwaysBlock): String =
-    val body = csDFOwnerBody(ab)
+    val (statements, dcls) = ab
+      .members(MemberView.Folded)
+      .partition {
+        case dcl: DFVal.Dcl => false
+        case _              => true
+      }
+    val body = csDFMembers(statements)
+    val dcl =
+      if (dcls.isEmpty) ""
+      else s"\n${csDFMembers(dcls).indent}"
     val named = ab.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val senList = ab.sensitivity match
       case Sensitivity.All => " (all)"
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
-    s"${named}process$senList\nbegin\n${body.indent}\nend process"
+    s"${named}process$senList$dcl\nbegin\n${body.indent}\nend process"
+  end csAlwaysBlock
   def csDomainBlock(ab: DomainBlock): String = printer.unsupported
 end RTOwnerPrinter

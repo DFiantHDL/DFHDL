@@ -198,6 +198,10 @@ extension [K, V](m: Map[K, V])
       acc + (v -> (acc.getOrElse(v, Set()) + k))
     }
 
+extension [T](iter: Iterable[T])
+  def emptyOr(f: Iterable[T] => String): String =
+    if (iter.isEmpty) "" else f(iter)
+
 extension (str: String)
   def emptyOr(f: String => String): String =
     if (str.isEmpty) str else f(str)

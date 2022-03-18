@@ -9,21 +9,23 @@ protected trait RTValPrinter extends AbstractValPrinter:
   type TPrinter <: RTPrinter
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValConstDcl(dfVal: Const): String =
-    s"constant ${dfVal.name} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)};"
+    s"constant ${dfVal.name} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)}"
   def csDFValConstExpr(dfVal: Const): String =
     printer.csDFToken(dfVal.token)
   def csDFValDcl(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
-    val (noInit, endLine) =
-      if (dfVal.isPort) (s"${dfVal.name} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr", "")
+    val noInit =
+      if (dfVal.isPort) s"${dfVal.name} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
       else
-        val sigOrVar = "signal"
-        (s"$sigOrVar ${dfVal.name} : $dfTypeStr", ";")
+        val sigOrVar = dfVal.getOwnerNamed match
+          case dsn: DFDesignBlock => "signal"
+          case _                  => "variable"
+        s"$sigOrVar ${dfVal.name} : $dfTypeStr"
     dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 => printer.unsupported
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
-        s"$noInit := ${printer.csDFToken(initSeq.head)}$endLine"
-      case _ => s"$noInit$endLine"
+        s"$noInit := ${printer.csDFToken(initSeq.head)}"
+      case _ => noInit
 
   def csDFValFuncExpr(dfVal: Func): String =
     dfVal.args match

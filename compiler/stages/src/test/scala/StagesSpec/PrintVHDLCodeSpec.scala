@@ -147,8 +147,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end if;
          |  end process;
          |  myblock : process (all)
+         |    variable my_var : std_logic_vector(15 downto 0);
          |  begin
-         |    signal my_var : std_logic_vector(15 downto 0);;
          |    my_var := x;
          |    y := my_var;
          |  end process;

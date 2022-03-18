@@ -450,7 +450,8 @@ final case class AlwaysBlock(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFBlock:
+) extends DFBlock,
+      DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: AlwaysBlock =>
       this.sensitivity =~ that.sensitivity &&
@@ -458,6 +459,7 @@ final case class AlwaysBlock(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+end AlwaysBlock
 object AlwaysBlock:
   sealed trait Sensitivity extends HasRefCompare[Sensitivity], Product, Serializable
       derives CanEqual
