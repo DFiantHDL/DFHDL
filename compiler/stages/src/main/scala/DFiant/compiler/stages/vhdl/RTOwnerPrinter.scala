@@ -81,19 +81,16 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
           case DFMember.Empty => s"else"
           case _              => s"elsif ${ifBlock.guardRef.refCodeString} then"
   def csDFIfEnd: String = "end if"
+  def csIfBlockEmpty: String = ""
   def csDFCasePattern(pattern: Pattern): String = pattern match
-    case Pattern.CatchAll                => "others"
-    case Pattern.Singleton(token)        => printer.csDFToken(token)
-    case Pattern.Alternative(list)       => list.map(csDFCasePattern).mkString(" | ")
-    case Pattern.Struct(name, list)      => printer.unsupported
-    case Pattern.Bind(ref, pattern)      => printer.unsupported
-    case Pattern.BindSI(op, parts, refs) => printer.unsupported
+    case Pattern.CatchAll          => "others"
+    case Pattern.Singleton(token)  => printer.csDFToken(token)
+    case Pattern.Alternative(list) => list.map(csDFCasePattern).mkString(" | ")
+    case _                         => printer.unsupported
 
-  def csDFCaseStatement(caseBlock: DFConditional.DFCaseBlock): String =
-    caseBlock.guardRef.get match
-      case DFMember.Empty => // ok
-      case _              => printer.unsupported
-    s"when ${csDFCasePattern(caseBlock.pattern)} =>"
+  def csDFCaseKeyword: String = "when"
+  def csDFCaseSeparator: String = "=>"
+  def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
   def csDFMatchEnd: String = "end case"
   def csDFConditional(ch: DFConditional.Header): String =
     val chain = getSet.designDB.conditionalChainTable(ch)
