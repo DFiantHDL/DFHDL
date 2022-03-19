@@ -61,6 +61,7 @@ class UniqueNamesSpec extends StageSpec:
         case Baz, Bar
       val y = (MyEnumLcl, MyEnumLcl) <> VAR init (MyEnumLcl.Bar, MyEnumLcl.Baz)
     Temp.y // touch to force evaluation
+  end SomeEnums
   test("Unique named dataflow types") {
     val top = (new SomeEnums).uniqueNames(Set(), true)
     assertCodeString(
@@ -85,7 +86,7 @@ class UniqueNamesSpec extends StageSpec:
          |  val x = MyEnumGlbl <> IN
          |  val y_0 = MyEnumLcl_1 <> VAR init MyEnumLcl_1.Bar
          |  val pixel = Pixel <> VAR init Pixel(x = d"8'0", y = d"8'0")
-         |  val byte = MyByte <> VAR init h"8'00".as(MyByte)
+         |  val byte = MyByte <> VAR init h"00".as(MyByte)
          |  val y_1 = (MyEnumLcl_0, MyEnumLcl_0) <> VAR init (MyEnumLcl_0.Bar, MyEnumLcl_0.Baz)
          |end SomeEnums
          |""".stripMargin

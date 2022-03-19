@@ -34,8 +34,8 @@ class DFMatchSpec extends DFSpec:
          |y match
          |  case h"DEAD${secret: B[32]}BEEF" =>
          |  case h"DE${secret1: B[16]}AD${secret2: B[16]}BEEF" =>
-         |  case h"64'0000000000000000" =>
-         |  case h"64'ffffffffffffffff" =>
+         |  case h"0000000000000000" =>
+         |  case h"ffffffffffffffff" =>
          |Pixel(x = x, y = x) match
          |  case Pixel(d"8'1", d"8'2") =>
          |p match
@@ -59,9 +59,9 @@ class DFMatchSpec extends DFSpec:
          |  y match
          |    case h"DEAD${t13: B[32]}BEEF" => t13
          |val t14 = DFBits(16) <> VAR
-         |t14 := h"16'????"
+         |t14 := h"????"
          |val t15 = DFBits(16) <> VAR
-         |t15 := h"16'????"
+         |t15 := h"????"
          |y match
          |  case h"DE${_t14: B[16]}ADBE${_t15: B[16]}EF" =>
          |    t14 := _t14

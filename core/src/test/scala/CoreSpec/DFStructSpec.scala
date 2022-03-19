@@ -14,12 +14,12 @@ class DFStructSpec extends DFSpec:
       case XY(all(0), y) if y == 22 =>
       case o: XY                    =>
   assertCodeString(
-    """|val t1 = XY <> VAR init XY(x = h"8'05", y = d"8'1")
+    """|val t1 = XY <> VAR init XY(x = h"05", y = d"8'1")
        |val t2 = XYZ <> VAR
        |t1.x := t2.y
        |t2.y := t1.x
-       |t1 := XY(x = h"8'2a", y = d"8'0")
-       |val t3 = t2 == XYZ(x = d"8'22", y = h"8'??", z = 1)
+       |t1 := XY(x = h"2a", y = d"8'0")
+       |val t3 = t2 == XYZ(x = d"8'22", y = h"??", z = 1)
        |""".stripMargin
   ) {
     val t1 = XY <> VAR init XY(h"05", 1)

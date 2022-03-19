@@ -139,14 +139,14 @@ class DFBitsSpec extends DFSpec:
     val u5L = DFUInt(5) <> VAR
     val u8 = DFUInt(8) <> VAR
     assertCodeString {
-      """|b8 := h"8'11"
-         |b8 := h"8'00"
-         |b8 := h"8'ff"
-         |b8 := h"8'??"
+      """|b8 := h"11"
+         |b8 := h"00"
+         |b8 := h"ff"
+         |b8 := h"??"
          |b8 := u8.bits
          |b8 := u8.bits
-         |b8 := (h"4'1", b"1", b"0", b"11").toBits
-         |b4M := h"4'1"
+         |b8 := (h"1", b"1", b"0", b"11").toBits
+         |b4M := h"1"
          |b4L := (b"1", b"0", b"11").toBits
          |b3M := b"000"
          |u5L := (b"1", b"1", b"0", b"11").toBits.uint
@@ -182,12 +182,12 @@ class DFBitsSpec extends DFSpec:
     val b8 = DFBits(8) <> VAR
     val u8 = DFUInt(8) <> VAR
     assertCodeString(
-      """|val t1 = b8 == h"8'00"
-         |val t2 = b8 != h"8'ff"
+      """|val t1 = b8 == h"00"
+         |val t2 = b8 != h"ff"
          |val t3 = b8 == u8.bits
-         |val t4 = b8 == h"8'0c"
-         |val t5 = b8 != h"8'22"
-         |val t6 = b8 == h"8'e7"
+         |val t4 = b8 == h"0c"
+         |val t5 = b8 != h"22"
+         |val t6 = b8 == h"e7"
          |val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4)).toBits
          |""".stripMargin
     ) {

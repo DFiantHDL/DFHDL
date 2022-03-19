@@ -4,7 +4,63 @@ import ir.*
 import DFiant.internals.*
 
 trait AbstractTokenPrinter extends AbstractPrinter:
-  def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String
+  val allowBitsBinModeInHex: Boolean
+  val allowBitsExplicitWidth: Boolean
+  def csDFBitBubbleChar: Char
+  def csDFBitsBinFormat(binRep: String): String
+  def csDFBitsHexFormat(hexRep: String): String
+  def csDFBitsHexFormat(hexRep: String, width: Int): String
+  final def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String =
+    val valueBits: BitVector = data._1
+    val bubbleBits: BitVector = data._2
+    val width = dfType.width
+    def binZip(v: BitVector, b: BitVector): String =
+      v.toBin
+        .zip(b.toBin)
+        .map {
+          case (_, '1')       => csDFBitBubbleChar
+          case (zeroOrOne, _) => zeroOrOne
+        }
+        .mkString
+    end binZip
+    def hexZip(
+        v: BitVector,
+        b: BitVector
+    ): Option[String] = Some(
+      v.toHex
+        .zip(b.toHex)
+        .flatMap {
+          case (_, 'F' | 'f')                  => s"$csDFBitBubbleChar"
+          case (h, '0')                        => s"$h"
+          case (h, b) if allowBitsBinModeInHex => s"{${binZip(BitVector(h), BitVector(b))}}"
+          case _                               => return None
+        }
+        .mkString
+    )
+    end hexZip
+    def toBinString: String = binZip(valueBits, bubbleBits)
+    def toHexString: Option[String] =
+      if (width % 4 == 0) hexZip(valueBits, bubbleBits)
+      else
+        val headWidth = width % 4
+        val (headValue, theRestValue) = valueBits.splitAt(headWidth)
+        val (headBubble, theRestBubble) = bubbleBits.splitAt(headWidth)
+        val headOption =
+          if (headBubble === BitVector.high(headWidth)) Some(s"$csDFBitBubbleChar")
+          else hexZip(headValue.resize(4), headBubble.resize(4))
+        val theRestOption = hexZip(theRestValue, theRestBubble)
+        for (h <- headOption; tr <- theRestOption) yield h + tr
+    end toHexString
+    val binRep = csDFBitsBinFormat(toBinString)
+    val hexRepOption = toHexString match
+      case Some(v) if width % 4 == 0         => Some(csDFBitsHexFormat(v))
+      case Some(v) if allowBitsExplicitWidth => Some(csDFBitsHexFormat(v, width))
+      case _                                 => None
+    // choosing the shorter representation for readability
+    hexRepOption match
+      case Some(hr) if hr.length < binRep.length => hr
+      case _                                     => binRep
+  end csDFBitsData
   def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String
   def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String
@@ -24,71 +80,17 @@ trait AbstractTokenPrinter extends AbstractPrinter:
       throw new IllegalArgumentException(
         s"Unexpected token found: $x"
       )
-  def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String
+  final def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String =
+    tokenSeq.map(csDFToken(_)).mkStringBrackets
 end AbstractTokenPrinter
 
 protected trait DFTokenPrinter extends AbstractTokenPrinter:
-  def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String =
-    val valueBits: BitVector = data._1
-    val bubbleBits: BitVector = data._2
-    val width = dfType.width
-    def binZip(v: BitVector, b: BitVector, bubbleChar: Char): String =
-      v.toBin
-        .zip(b.toBin)
-        .map {
-          case (_, '1')       => bubbleChar
-          case (zeroOrOne, _) => zeroOrOne
-        }
-        .mkString
-    end binZip
-    def hexZip(
-        v: BitVector,
-        b: BitVector,
-        bubbleChar: Char,
-        allowBinMode: Boolean
-    ): Option[String] =
-      Some(
-        v.toHex
-          .zip(b.toHex)
-          .flatMap {
-            case (_, 'F' | 'f') => s"$bubbleChar"
-            case (h, '0')       => s"$h"
-            case (h, b) if allowBinMode =>
-              s"{${binZip(BitVector(h), BitVector(b), bubbleChar)}}"
-            case _ => return None
-          }
-          .mkString
-      )
-    end hexZip
-    def toBinString(bubbleChar: Char): String =
-      binZip(valueBits, bubbleBits, bubbleChar)
-    def toHexString(bubbleChar: Char, allowBinMode: Boolean): Option[String] =
-      if (width % 4 == 0) hexZip(valueBits, bubbleBits, bubbleChar, allowBinMode)
-      else
-        val headWidth = width % 4
-        val (headValue, theRestValue) = valueBits.splitAt(headWidth)
-        val (headBubble, theRestBubble) = bubbleBits.splitAt(headWidth)
-
-        val headOption =
-          if (headBubble === BitVector.high(headWidth)) Some(s"$bubbleChar")
-          else
-            hexZip(
-              headValue.resize(4),
-              headBubble.resize(4),
-              bubbleChar,
-              allowBinMode
-            )
-        val theRestOption =
-          hexZip(theRestValue, theRestBubble, bubbleChar, allowBinMode)
-        for (h <- headOption; tr <- theRestOption) yield h + tr
-    end toHexString
-    val binRep = toBinString('?')
-    val hexRep = s"${width}'${toHexString('?', allowBinMode = true).get}"
-    // choosing the shorter representation for readability
-    if (binRep.length <= hexRep.length) s"""b"$binRep""""
-    else s"""h"$hexRep""""
-  end csDFBitsData
-
+  val allowBitsBinModeInHex: Boolean = true
+  val allowBitsExplicitWidth: Boolean = true
+  def csDFBitBubbleChar: Char = '?'
+  def csDFBitsBinFormat(binRep: String): String = s"""b"$binRep""""
+  def csDFBitsHexFormat(hexRep: String): String = s"""h"$hexRep""""
+  def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""h"$width'$hexRep""""
   def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String =
     data match
       case Some(value) =>
@@ -128,6 +130,4 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
-  def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String =
-    tokenSeq.map(csDFToken(_)).mkStringBrackets
 end DFTokenPrinter

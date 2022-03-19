@@ -34,7 +34,7 @@ class DropUnreferencedSpec extends StageSpec:
       """|class ID(using DFC) extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
-         |  val z = DFBits(8) <> VAR init h"8'00"
+         |  val z = DFBits(8) <> VAR init h"00"
          |  y := x
          |end ID
          |""".stripMargin

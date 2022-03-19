@@ -193,7 +193,7 @@ class PrintCodeStringSpec extends StageSpec:
          |  always.all {
          |    val z_0 = DFSInt(8) <> VAR
          |    val z_1 = DFBits(8) <> VAR
-         |    z_1 := h"8'00"
+         |    z_1 := h"00"
          |    z_0 := sd"8'1"
          |  }
          |end ID

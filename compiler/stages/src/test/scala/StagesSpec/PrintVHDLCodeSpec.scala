@@ -142,7 +142,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  signal z : std_logic_vector(15 downto 0);
          |begin
          |  process (clk, rst)
-         |    constant c : std_logic_vector(15 downto 0) := h"16'0000";
+         |    constant c : std_logic_vector(15 downto 0) := x"0000";
          |  begin
          |    if rst then y <= c;
          |    elsif rising_edge(clk) then y <= x;
