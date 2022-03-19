@@ -61,7 +61,14 @@ trait AbstractTokenPrinter extends AbstractPrinter:
       case Some(hr) if hr.length < binRep.length => hr
       case _                                     => binRep
   end csDFBitsData
-  def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String
+  def csDFBitFormat(bitRep: String): String
+  final def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String =
+    data match
+      case Some(value) =>
+        dfType match
+          case DFBool => value.toString()
+          case DFBit  => csDFBitFormat(if (value) "1" else "0")
+      case None => csDFBitFormat(s"${csDFBitBubbleChar}")
   def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String
@@ -91,13 +98,7 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
   def csDFBitsBinFormat(binRep: String): String = s"""b"$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""h"$hexRep""""
   def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""h"$width'$hexRep""""
-  def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String =
-    data match
-      case Some(value) =>
-        dfType match
-          case DFBool => value.toString
-          case DFBit  => if (value) "1" else "0"
-      case None => "?"
+  def csDFBitFormat(bitRep: String): String = s"$bitRep"
   def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
     data match
       case Some(value) =>

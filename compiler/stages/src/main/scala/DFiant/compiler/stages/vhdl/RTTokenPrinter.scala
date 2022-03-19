@@ -12,13 +12,7 @@ protected trait RTTokenPrinter extends AbstractTokenPrinter:
   def csDFBitsBinFormat(binRep: String): String = s""""$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""x"$hexRep""""
   def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""${width}x"$hexRep""""
-  def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String =
-    data match
-      case Some(value) =>
-        dfType match
-          case DFBool => value.toString
-          case DFBit  => if (value) "1" else "0"
-      case None => "?"
+  def csDFBitFormat(bitRep: String): String = s"'$bitRep'"
   def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
     data match
       case Some(value) =>
