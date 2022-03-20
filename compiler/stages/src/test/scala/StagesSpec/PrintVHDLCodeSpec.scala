@@ -173,6 +173,11 @@ class PrintVHDLCodeSpec extends StageSpec:
       val c06 = DFBits(8) const h"22"
       val c07 = DFBits(7) const h"7'22"
       val c08 = DFBits(3) const b"101"
+      val c09 = DFUInt(3) const 7
+      val c10 = DFUInt(48) const d"48'239794508230343"
+      val c11 = DFSInt(4) const -8
+      val c12 = DFSInt(49) const sd"49'-239794508230343"
+
     end Top
     val top = (new Top).getVHDLCode
     assertNoDiff(
@@ -194,6 +199,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant c06 : std_logic_vector(7 downto 0) := x"22";
          |  constant c07 : std_logic_vector(6 downto 0) := 7x"22";
          |  constant c08 : std_logic_vector(2 downto 0) := "101";
+         |  constant c09 : unsigned(2 downto 0) := 3d"7";
+         |  constant c10 : unsigned(47 downto 0) := 48d"239794508230343";
+         |  constant c11 : signed(3 downto 0) := -4d"8";
+         |  constant c12 : signed(48 downto 0) := -49d"239794508230343";
          |begin
          |
          |end Top_arch;
