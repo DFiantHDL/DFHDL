@@ -52,9 +52,6 @@ trait Printer
       case DFNet.Connection(_, _, swapped) =>
         swapped && normalizeConnection
       case _ => false
-//    val lhsThis =
-//      if (swapLR || net.lateConstruction && net.lhsRef.get.isSameOwnerDesignAs(net)) "this."
-//      else ""
     val directionStr =
       net.lhsRef.get match
         case dfIfc: DFInterfaceOwner => "<->"

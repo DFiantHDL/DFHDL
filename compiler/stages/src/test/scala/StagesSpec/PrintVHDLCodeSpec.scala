@@ -163,4 +163,41 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("literals") {
+    class Top(using DFC) extends DFDesign:
+      val c01 = DFBit const 0
+      val c02 = DFBit const 1
+      val c03 = DFBit const ?
+      val c04 = DFBool const 0
+      val c05 = DFBool const 1
+      val c06 = DFBits(8) const h"22"
+      val c07 = DFBits(7) const h"7'22"
+      val c08 = DFBits(3) const b"101"
+    end Top
+    val top = (new Top).getVHDLCode
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.Top_pkg.all;
+         |
+         |entity Top is
+         |end Top;
+         |
+         |architecture Top_arch of Top is
+         |  constant c01 : std_logic := '0';
+         |  constant c02 : std_logic := '1';
+         |  constant c03 : std_logic := '-';
+         |  constant c04 : boolean := false;
+         |  constant c05 : boolean := true;
+         |  constant c06 : std_logic_vector(7 downto 0) := x"22";
+         |  constant c07 : std_logic_vector(6 downto 0) := 7x"22";
+         |  constant c08 : std_logic_vector(2 downto 0) := "101";
+         |begin
+         |
+         |end Top_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

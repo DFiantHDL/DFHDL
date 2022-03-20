@@ -69,7 +69,32 @@ trait AbstractTokenPrinter extends AbstractPrinter:
           case DFBool => value.toString()
           case DFBit  => csDFBitFormat(if (value) "1" else "0")
       case None => csDFBitFormat(s"${csDFBitBubbleChar}")
-  def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String
+  val allowDecimalBigInt: Boolean
+  def csDFUIntFormatBig(value: BigInt, width: Int): String
+  def csDFSIntFormatBig(value: BigInt, width: Int): String
+  def csDFUIntFormatSmall(value: BigInt, width: Int): String
+  def csDFSIntFormatSmall(value: BigInt, width: Int): String
+  def csDFUIntTokenFromBits(csBits: String): String
+  def csDFSIntTokenFromBits(csBits: String): String
+  final def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
+    data match
+      case Some(value) =>
+        import dfType.width
+        def csBits = csDFBitsData(DFBits(width), (value.toBitVector(width), BitVector.low(width)))
+        if (dfType.fractionWidth == 0) // DFXInt
+          // if the language supports big integers (with explicit widths) we can simply display the values
+          if (allowDecimalBigInt)
+            if (dfType.signed) csDFSIntFormatBig(value, width)
+            else csDFUIntFormatBig(value, width)
+          // otherwise, we need to reply on small value representation or cast a bits representation
+          // for big integers
+          else if (dfType.signed)
+            if (value.bitsWidth(true) < 31) csDFSIntFormatSmall(value, width)
+            else csDFSIntTokenFromBits(csBits)
+          else if (value.bitsWidth(false) < 31) csDFUIntFormatSmall(value, width)
+          else csDFUIntTokenFromBits(csBits)
+        else ??? // DFXFix
+      case None => "?"
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String
@@ -98,15 +123,14 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
   def csDFBitsBinFormat(binRep: String): String = s"""b"$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""h"$hexRep""""
   def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""h"$width'$hexRep""""
-  def csDFBitFormat(bitRep: String): String = s"$bitRep"
-  def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
-    data match
-      case Some(value) =>
-        if (dfType.fractionWidth == 0) // DFXInt
-          val interpStr = if (dfType.signed) "sd" else "d"
-          s"""$interpStr"${dfType.width}'$value""""
-        else ??? // DFXFix
-      case None => "?"
+  def csDFBitFormat(bitRep: String): String = bitRep
+  val allowDecimalBigInt: Boolean = true
+  def csDFUIntFormatBig(value: BigInt, width: Int): String = s"""d"$width'$value""""
+  def csDFSIntFormatBig(value: BigInt, width: Int): String = s"""sd"$width'$value""""
+  def csDFUIntFormatSmall(value: BigInt, width: Int): String = value.toString
+  def csDFSIntFormatSmall(value: BigInt, width: Int): String = value.toString
+  def csDFUIntTokenFromBits(csBits: String): String = s"$csBits.uint"
+  def csDFSIntTokenFromBits(csBits: String): String = s"$csBits.sint"
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String =
     data match
       case Some(value) =>

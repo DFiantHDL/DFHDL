@@ -13,14 +13,15 @@ protected trait RTTokenPrinter extends AbstractTokenPrinter:
   def csDFBitsHexFormat(hexRep: String): String = s"""x"$hexRep""""
   def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""${width}x"$hexRep""""
   def csDFBitFormat(bitRep: String): String = s"'$bitRep'"
-  def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
-    data match
-      case Some(value) =>
-        if (dfType.fractionWidth == 0) // DFXInt
-          val interpStr = if (dfType.signed) "sd" else "d"
-          s"""$interpStr"${dfType.width}'$value""""
-        else ??? // DFXFix
-      case None => "?"
+  val allowDecimalBigInt: Boolean = true
+  def csDFUIntFormatBig(value: BigInt, width: Int): String = s"""${width}d"$value""""
+  def csDFSIntFormatBig(value: BigInt, width: Int): String =
+    if (value >= 0) s"""${width}d"$value""""
+    else s"""-${width}d"${-value}""""
+  def csDFUIntFormatSmall(value: BigInt, width: Int): String = s"to_unsigned($value, $width)"
+  def csDFSIntFormatSmall(value: BigInt, width: Int): String = s"to_signed($value, $width)"
+  def csDFUIntTokenFromBits(csBits: String): String = s"""unsigned'($csBits)"""
+  def csDFSIntTokenFromBits(csBits: String): String = s"""signed'($csBits)"""
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String =
     data match
       case Some(value) =>

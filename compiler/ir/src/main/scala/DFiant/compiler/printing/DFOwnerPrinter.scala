@@ -31,7 +31,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       }
       .map(_.codeString)
       .filter(_.nonEmpty)
-      .mkString("", s"${printer.csEndOfStatement}\n", printer.csEndOfStatement)
+      .emptyOr(_.mkString("", s"${printer.csEndOfStatement}\n", printer.csEndOfStatement))
   final def csDFOwnerLateBody(owner: DFOwner): String =
     owner
       .members(MemberView.Folded)
