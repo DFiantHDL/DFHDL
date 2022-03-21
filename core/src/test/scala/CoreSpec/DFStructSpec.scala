@@ -15,6 +15,7 @@ class DFStructSpec extends DFSpec:
       case o: XY                    =>
   assertCodeString(
     """|val t1 = XY <> VAR init XY(x = h"05", y = d"8'1")
+       |val pt1x = t1.x.prev
        |val t2 = XYZ <> VAR
        |t1.x := t2.y
        |t2.y := t1.x
@@ -25,6 +26,7 @@ class DFStructSpec extends DFSpec:
     val t1 = XY <> VAR init XY(h"05", 1)
     t1.x.verifyTypeOf[DFBits[8] <> VAL]
     t1.y.verifyTypeOf[DFUInt[8] <> VAL]
+    val pt1x = t1.x.prev
     val t2 = XYZ <> VAR
     t1.x := t2.y
     t2.y := t1.x

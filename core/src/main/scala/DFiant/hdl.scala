@@ -26,7 +26,7 @@ object hdl:
   export core.DFPortOps.*
   export internals.CommonOps.*
   export core.{width, dfType}
-
+  export core.Timer.Ops.*
   type DFC = core.DFC
   export core.dfc
   type Inlined[T] = internals.Inlined[T]
@@ -78,10 +78,10 @@ object hdl:
       r: core.DFToken.Refiner[T]
   ): r.Out = token.asInstanceOf[r.Out]
 
-  inline implicit def __refined_dfVal[T <: core.FieldsOrTuple, A](
-      dfVal: core.DFVal[core.DFStruct[T], Modifier[A, Any, Any]]
+  inline implicit def __refined_dfVal[T <: core.FieldsOrTuple, A, I](
+      dfVal: core.DFVal[core.DFStruct[T], Modifier[A, Any, I]]
   )(using
-      r: core.DFVal.Refiner[T, A]
+      r: core.DFVal.Refiner[T, A, I]
   ): r.Out = dfVal.asInstanceOf[r.Out]
 
 end hdl
