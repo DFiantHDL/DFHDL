@@ -40,7 +40,16 @@ class DFStructSpec extends DFSpec:
     assertEquals(XY.token(XY(h"27", 1)).bits == h"2701", DFBool.token(true))
     assertEquals(h"2701".as(XY) != XY.token(XY(h"27", 1)), DFBool.token(false))
   }
-  test("Assignment") {}
+  test("Assignment") {
+    val cc2 = new CCs[8]
+    val t1 = XY <> VAR
+    val t2 = cc2.XY <> VAR
+    assertCompileError(
+      "Unsupported value of type `cc2.XY <> VAR` for dataflow receiver type `DFStructSpec.this.cc.XY`."
+    )(
+      """t1 := t2"""
+    )
+  }
 
   test("Showcase") {
     assertCodeString(

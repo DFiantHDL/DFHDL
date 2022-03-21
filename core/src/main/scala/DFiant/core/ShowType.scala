@@ -33,7 +33,7 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
           case '[NonEmptyTuple] =>
             TypeRepr.of[t].showTuple(_.showType).mkStringBrackets
           case _ =>
-            TypeRepr.of[t].typeSymbol.name.toString
+            Type.show[t]
       case _ => "DFType"
     end match
   end showDFType
