@@ -22,10 +22,10 @@ object DFStruct:
       fieldTypes: List[DFTypeAny]
   ): DFStruct[F] =
     apply[F](name, ListMap(fieldNames.lazyZip(fieldTypes).toSeq*))
-  private[core] def apply(product: FieldsOrTuple): DFStruct[FieldsOrTuple] =
+  private[core] def apply[F <: FieldsOrTuple](product: F): DFStruct[F] =
     unapply(
       product
-    ).get
+    ).get.asInstanceOf[DFStruct[F]]
   private[core] def unapply(
       product: FieldsOrTuple
   ): Option[DFStruct[FieldsOrTuple]] =
@@ -89,12 +89,12 @@ object DFStruct:
     end if
   end dfTypeMacro
 
-  protected trait SameFields[T <: Fields, R <: Fields]:
-    def check(fieldsT: T, fieldsR: R): Unit =
+  protected trait SameFields[T <: Fields, RF <: Fields]:
+    def check(dfType: DFStruct[T], argType: DFStruct[RF]): Unit =
       assert(
-        fieldsT equals fieldsR,
+        dfType == argType,
         throw new IllegalArgumentException(
-          s"Unsupported structure type `${fieldsR.getClass().getCanonicalName()}` for dataflow receiver structure type `${fieldsT.getClass().getCanonicalName()}`."
+          s"Unsupported structure type `${argType.asIR.getNameForced}` for dataflow receiver structure type `${dfType.asIR.getNameForced}`."
         )
       )
   inline given [L <: Fields, R <: Fields]: SameFields[L, R] = ${ sfMacro[L, R] }
@@ -159,18 +159,41 @@ object DFStruct:
     object TC:
       import DFToken.TC
       given DFStructTokenFromCC[
-          F <: Fields
-      ]: TC[DFStruct[F], F] with
-        def conv(dfType: DFStruct[F], value: F): Out = Token(dfType, value)
+          F <: Fields,
+          RF <: Fields
+      ](using sf: SameFields[F, RF]): TC[DFStruct[F], RF] with
+        def conv(dfType: DFStruct[F], value: RF): Out =
+          sf.check(dfType, DFStruct(value))
+          Token(dfType, value)
+      given DFStructTokenFromStruct[
+          F <: Fields,
+          RF <: Fields
+      ](using sf: SameFields[F, RF]): TC[DFStruct[F], Token[RF]] with
+        def conv(dfType: DFStruct[F], value: Token[RF]): Out =
+          sf.check(dfType, value.dfType)
+          value.asIR.asTokenOf[DFStruct[F]]
+    end TC
 
     object Compare:
       import DFToken.Compare
-      given DFTupleTokenFromTuple[
+      given DFStructTokenFromCC[
           F <: Fields,
+          RF <: Fields,
           Op <: FuncOp,
           C <: Boolean
-      ]: Compare[DFStruct[F], F, Op, C] with
-        def conv(dfType: DFStruct[F], value: F): Out = Token(dfType, value)
+      ](using sf: SameFields[F, RF]): Compare[DFStruct[F], RF, Op, C] with
+        def conv(dfType: DFStruct[F], value: RF): Out =
+          sf.check(dfType, DFStruct(value))
+          Token(dfType, value)
+      given DFStructTokenFromStruct[
+          F <: Fields,
+          RF <: Fields,
+          Op <: FuncOp,
+          C <: Boolean
+      ](using sf: SameFields[F, RF]): Compare[DFStruct[F], Token[RF], Op, C] with
+        def conv(dfType: DFStruct[F], value: Token[RF]): Out =
+          sf.check(dfType, value.dfType)
+          value.asIR.asTokenOf[DFStruct[F]]
     end Compare
   end Token
 
@@ -187,19 +210,23 @@ object DFStruct:
         case _ => None
     object TC:
       import DFVal.TC
-//      given DFStructValDFStruct[
-//          F <: Fields,
-//          F2 <: Fields
-//      ](using DFC, SameFields[F, F2]): TC[DFStruct[F], DFValOf[DFStruct[F2]]] with
-//        def conv(dfType: DFStruct[F], value: DFValOf[DFStruct[F2]]): Out = ???
       given DFStructValFromCC[
-          F <: Fields
-      ](using DFC): TC[DFStruct[F], F] with
-        def conv(dfType: DFStruct[F], value: F): Out =
+          F <: Fields,
+          RF <: Fields
+      ](using dfc: DFC, sf: SameFields[F, RF]): TC[DFStruct[F], RF] with
+        def conv(dfType: DFStruct[F], value: RF): Out =
+          sf.check(dfType, DFStruct(value))
           val dfVals = value.productIterator.map { case dfVal: DFVal[_, _] =>
             dfVal
           }.toList
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
+      given DFStructValFromStruct[
+          F <: Fields,
+          RF <: Fields
+      ](using dfc: DFC, sf: SameFields[F, RF]): TC[DFStruct[F], DFValOf[DFStruct[RF]]] with
+        def conv(dfType: DFStruct[F], value: DFValOf[DFStruct[RF]]): Out =
+          sf.check(dfType, value.dfType)
+          value.asIR.asValOf[DFStruct[F]]
     end TC
     object Compare:
       import DFVal.Compare

@@ -44,10 +44,13 @@ class DFStructSpec extends DFSpec:
     val cc2 = new CCs(8)
     val t1 = XY <> VAR
     val t2 = cc2.XY <> VAR
+    t1 := t2
+    val cc3 = new CCs(9)
+    val t3 = cc3.XY <> VAR
     assertCompileError(
-      "Unsupported value of type `cc2.XY <> VAR` for dataflow receiver type `DFStructSpec.this.cc.XY`."
+      "Unsupported structure type `cc3.XY` for dataflow receiver structure type `cc2.XY`."
     )(
-      """t1 := t2"""
+      """t2 := t3"""
     )
   }
 

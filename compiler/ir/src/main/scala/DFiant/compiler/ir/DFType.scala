@@ -219,6 +219,7 @@ final case class DFStruct(
     fieldMap: ListMap[String, DFType]
 ) extends NamedDFType:
   type Data = List[Any]
+  def getNameForced: String = name
   val width: Int = fieldMap.values.map(_.width).sum
   def createBubbleData: Data = fieldMap.values.map(_.createBubbleData).toList
   def isDataBubble(data: Data): Boolean =
