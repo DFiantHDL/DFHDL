@@ -3,11 +3,11 @@ import DFiant.*
 import munit.*
 
 class DFStructSpec extends DFSpec:
-  class CCs[W <: Int]:
+  class CCs[W <: Int](width: Inlined[W]):
     case class XY(x: DFBits[W] <> VAL, y: DFUInt[W] <> VAL) extends DFStruct
     case class XYZ(x: DFUInt[W] <> VAL, y: DFBits[W] <> VAL, z: DFBit <> VAL) extends DFStruct
 
-  val cc = new CCs[8]
+  val cc = new CCs(8)
   import cc.{XY, XYZ}
   def test(t: XY <> VAL): Unit =
     t match
@@ -41,7 +41,7 @@ class DFStructSpec extends DFSpec:
     assertEquals(h"2701".as(XY) != XY.token(XY(h"27", 1)), DFBool.token(false))
   }
   test("Assignment") {
-    val cc2 = new CCs[8]
+    val cc2 = new CCs(8)
     val t1 = XY <> VAR
     val t2 = cc2.XY <> VAR
     assertCompileError(

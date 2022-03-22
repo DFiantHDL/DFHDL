@@ -89,9 +89,64 @@ object DFStruct:
     end if
   end dfTypeMacro
 
+  protected trait SameFields[T <: Fields, R <: Fields]:
+    def check(fieldsT: T, fieldsR: R): Unit =
+      assert(
+        fieldsT equals fieldsR,
+        throw new IllegalArgumentException(
+          s"Unsupported structure type `${fieldsR.getClass().getCanonicalName()}` for dataflow receiver structure type `${fieldsT.getClass().getCanonicalName()}`."
+        )
+      )
+  inline given [L <: Fields, R <: Fields]: SameFields[L, R] = ${ sfMacro[L, R] }
+  protected def sfMacro[L <: Fields: Type, R <: Fields: Type](using
+      Quotes
+  ): Expr[SameFields[L, R]] =
+    import quotes.reflect.*
+    val tpeL = TypeRepr.of[L]
+    val tpeR = TypeRepr.of[R]
+    def sameTypes(tpeL: TypeRepr, tpeR: TypeRepr): Boolean =
+      // if the types match according to scala, then we return true
+      if (tpeL =:= tpeR) return true
+      (tpeL, tpeR) match
+        // if both types are constants, then they must return the same value
+        case (ConstantType(l), ConstantType(r)) => return l equals r
+        case _                                  => // continue
+      (tpeL.asTypeOf[Any], tpeR.asTypeOf[Any]) match
+        case ('[Int], '[Int])                 => true
+        case ('[Boolean], '[Boolean])         => true
+        case ('[DFBoolOrBit], '[DFBoolOrBit]) => true
+        case ('[DFBits[lw]], '[DFBits[rw]])   => sameTypes(TypeRepr.of[lw], TypeRepr.of[rw])
+        case ('[DFDecimal[ls, lw, lf]], '[DFDecimal[rs, rw, rf]]) =>
+          sameTypes(TypeRepr.of[ls], TypeRepr.of[rs]) &&
+          sameTypes(TypeRepr.of[lw], TypeRepr.of[rw]) &&
+          sameTypes(TypeRepr.of[lf], TypeRepr.of[rf])
+        case ('[DFEnum[le]], '[DFEnum[re]]) => sameTypes(TypeRepr.of[le], TypeRepr.of[re])
+        case ('[DFVector[lt, ld]], '[DFVector[rt, rd]]) =>
+          sameTypes(TypeRepr.of[lt], TypeRepr.of[rt]) &&
+          sameTypes(TypeRepr.of[ld], TypeRepr.of[rd])
+        case ('[DFOpaque[lt]], '[DFOpaque[rt]]) => sameTypes(TypeRepr.of[lt], TypeRepr.of[rt])
+        case ('[DFStruct[lt]], '[DFStruct[rt]]) => sameTypes(TypeRepr.of[lt], TypeRepr.of[rt])
+        case ('[Fields], '[Fields]) =>
+          val symL = tpeL.typeSymbol
+          val symR = tpeR.typeSymbol
+          if (!(symL equals symR)) return false
+          val fieldsL = symL.fieldMembers.map(tpeL.memberType)
+          val fieldsR = symR.fieldMembers.map(tpeR.memberType)
+          fieldsL.lazyZip(fieldsR).forall((l, r) => sameTypes(l, r))
+        case ('[DFValOf[l]], '[DFValOf[r]]) => sameTypes(TypeRepr.of[l], TypeRepr.of[r])
+        case _                              => false
+      end match
+    end sameTypes
+    if (sameTypes(tpeL, tpeR)) '{ new SameFields[L, R] {} }
+    else
+      val msg =
+        s"Unsupported structure type `${tpeR.showType}` for dataflow receiver structure type `${tpeL.showType}`."
+      '{ compiletime.error(${ Expr(msg) }) }
+  end sfMacro
+
   type Token[+F <: FieldsOrTuple] = DFToken[DFStruct[F]]
   object Token:
-    def apply[F <: FieldsOrTuple](dfType: DFStruct[F], value: F): Token[F] =
+    def apply[F <: FieldsOrTuple](dfType: DFStruct[F], value: Fields): Token[F] =
       val data = value.productIterator.map { case dfVal: DFVal[_, _] =>
         dfVal.asIR match
           case ir.DFVal.Const(token, _, _, _) => token.data
@@ -100,20 +155,18 @@ object DFStruct:
               s"Tokens must only be constant but found the value: ${v}"
             )
       }.toList
-//      println(dfType.asIR.fieldMap.values.toList)
-//      println(data)
       ir.DFToken.forced(dfType.asIR, data).asTokenOf[DFStruct[F]]
     object TC:
       import DFToken.TC
       given DFStructTokenFromCC[
-          F <: FieldsOrTuple
+          F <: Fields
       ]: TC[DFStruct[F], F] with
         def conv(dfType: DFStruct[F], value: F): Out = Token(dfType, value)
 
     object Compare:
       import DFToken.Compare
       given DFTupleTokenFromTuple[
-          F <: FieldsOrTuple,
+          F <: Fields,
           Op <: FuncOp,
           C <: Boolean
       ]: Compare[DFStruct[F], F, Op, C] with
@@ -134,18 +187,24 @@ object DFStruct:
         case _ => None
     object TC:
       import DFVal.TC
+//      given DFStructValDFStruct[
+//          F <: Fields,
+//          F2 <: Fields
+//      ](using DFC, SameFields[F, F2]): TC[DFStruct[F], DFValOf[DFStruct[F2]]] with
+//        def conv(dfType: DFStruct[F], value: DFValOf[DFStruct[F2]]): Out = ???
       given DFStructValFromCC[
-          F <: FieldsOrTuple
+          F <: Fields
       ](using DFC): TC[DFStruct[F], F] with
         def conv(dfType: DFStruct[F], value: F): Out =
           val dfVals = value.productIterator.map { case dfVal: DFVal[_, _] =>
             dfVal
           }.toList
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
+    end TC
     object Compare:
       import DFVal.Compare
       given DFStructArg[
-          F <: FieldsOrTuple,
+          F <: Fields,
           Op <: FuncOp,
           C <: Boolean
       ](using DFC): Compare[DFStruct[F], F, Op, C] with
