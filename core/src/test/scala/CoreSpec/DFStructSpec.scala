@@ -48,7 +48,7 @@ class DFStructSpec extends DFSpec:
     val cc3 = new CCs(9)
     val t3 = cc3.XY <> VAR
     assertCompileError(
-      "Unsupported structure type `cc3.XY` for dataflow receiver structure type `cc2.XY`."
+      "Mismatch structure value type `cc3.XY` for dataflow receiver structure type `cc2.XY`."
     )(
       """t2 := t3"""
     )

@@ -94,7 +94,7 @@ object DFStruct:
       assert(
         dfType == argType,
         throw new IllegalArgumentException(
-          s"Unsupported structure type `${argType.asIR.getNameForced}` for dataflow receiver structure type `${dfType.asIR.getNameForced}`."
+          s"Mismatch structure value type `${argType.asIR.getNameForced}` for dataflow receiver structure type `${dfType.asIR.getNameForced}`."
         )
       )
   inline given [L <: Fields, R <: Fields]: SameFields[L, R] = ${ sfMacro[L, R] }
@@ -140,7 +140,7 @@ object DFStruct:
     if (sameTypes(tpeL, tpeR)) '{ new SameFields[L, R] {} }
     else
       val msg =
-        s"Unsupported structure type `${tpeR.showType}` for dataflow receiver structure type `${tpeL.showType}`."
+        s"Mismatch structure value type `${tpeR.showType}` for dataflow receiver structure type `${tpeL.showType}`."
       '{ compiletime.error(${ Expr(msg) }) }
   end sfMacro
 
@@ -230,16 +230,28 @@ object DFStruct:
     end TC
     object Compare:
       import DFVal.Compare
-      given DFStructArg[
+      given DFStructArgCC[
           F <: Fields,
+          RF <: Fields,
           Op <: FuncOp,
           C <: Boolean
-      ](using DFC): Compare[DFStruct[F], F, Op, C] with
-        def conv(dfType: DFStruct[F], value: F): Out =
+      ](using dfc: DFC, sf: SameFields[F, RF]): Compare[DFStruct[F], RF, Op, C] with
+        def conv(dfType: DFStruct[F], value: RF): Out =
+          sf.check(dfType, DFStruct(value))
           val dfVals = value.productIterator.map { case dfVal: DFVal[_, _] =>
             dfVal
           }.toList
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
+      given DFStructArgStruct[
+          F <: Fields,
+          RF <: Fields,
+          Op <: FuncOp,
+          C <: Boolean
+      ](using dfc: DFC, sf: SameFields[F, RF]): Compare[DFStruct[F], DFValOf[DFStruct[RF]], Op, C]
+        with
+        def conv(dfType: DFStruct[F], value: DFValOf[DFStruct[RF]]): Out =
+          sf.check(dfType, value.dfType)
+          value.asIR.asValOf[DFStruct[F]]
     end Compare
   end Val
 end DFStruct
