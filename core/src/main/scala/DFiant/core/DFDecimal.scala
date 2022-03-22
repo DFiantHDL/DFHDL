@@ -278,7 +278,7 @@ object DFDecimal:
         fractionWidth: Inlined[F],
         value: BigInt
     ): Token[S, W, F] =
-      assert(
+      require(
         value.bitsWidth(signed) <= width,
         s"\nThe init value $value width must be smaller or equal to $width"
       )

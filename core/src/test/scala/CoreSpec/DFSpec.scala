@@ -28,6 +28,12 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
     )
   end assertCompileError
 
+  def assertRuntimeError(expectedErr: String)(runTimeCode: => Unit): Unit =
+    dfc.clearErrors()
+    runTimeCode
+    val err = dfc.getErrors.headOption.map(_.dfMsg).getOrElse(noErrMsg)
+    assertNoDiff(err, expectedErr)
+
   transparent inline def assertDSLError(expectedErr: String)(
       inline compileTimeCode: String
   )(runTimeCode: => Unit): Unit =

@@ -52,6 +52,23 @@ class DFStructSpec extends DFSpec:
     )(
       """t2 := t3"""
     )
+    val eight = 8
+    val cc4 = new CCs(eight)
+    val t4 = cc4.XY <> VAR
+    t1 := t4
+    val nine = 9
+    val cc5 = new CCs(nine)
+    val t5 = cc5.XY <> VAR
+    assertRuntimeError(
+      """|Mismatch in structure fields.
+         |The applied value type is:
+         |DFStruct(XY,ListMap(x -> DFBits(9), y -> DFDecimal(false,9,0)))
+         |The receiver type is:
+         |DFStruct(XY,ListMap(x -> DFBits(8), y -> DFDecimal(false,8,0)))
+         |""".stripMargin
+    ) {
+      t1 := t5
+    }
   }
 
   test("Showcase") {

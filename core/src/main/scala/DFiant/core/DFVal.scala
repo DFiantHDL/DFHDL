@@ -174,7 +174,7 @@ object DFVal:
         dfc: DFC
     ): DFVal[T, Modifier[A, C, Modifier.Initialized]] =
       import dfc.getSet
-      assert(
+      require(
         dfVal.asIR.isAnonymous,
         s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
       )
@@ -438,7 +438,7 @@ object DFVal:
       def conv(dfType: T, value: T <> VAL): DFValOf[T] =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
-        assert(
+        require(
           dfType == value.dfType,
           s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
         )
@@ -449,7 +449,7 @@ object DFVal:
       def conv(dfType: T, value: T <> TOKEN): DFValOf[T] =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
-        assert(
+        require(
           dfType == value.dfType,
           s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
         )
@@ -508,7 +508,7 @@ object DFVal:
     ): Compare[T, T <> VAL, Op, C] with
       def conv(dfType: T, arg: T <> VAL): DFValOf[T] =
         given Printer = DefaultPrinter(using dfc.getSet)
-        assert(
+        require(
           dfType == arg.dfType,
           s"Cannot compare dataflow value type `${dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
         )
@@ -524,7 +524,7 @@ object DFVal:
     ): Compare[T, T <> TOKEN, Op, C] with
       def conv(dfType: T, arg: T <> TOKEN): DFValOf[T] =
         given Printer = DefaultPrinter(using dfc.getSet)
-        assert(
+        require(
           dfType == arg.dfType,
           s"Cannot compare dataflow value type `${dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
         )

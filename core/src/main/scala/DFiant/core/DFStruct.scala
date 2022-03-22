@@ -91,12 +91,14 @@ object DFStruct:
 
   protected trait SameFields[T <: Fields, RF <: Fields]:
     def check(dfType: DFStruct[T], argType: DFStruct[RF]): Unit =
-      assert(
-        dfType == argType,
+      if (dfType != argType)
         throw new IllegalArgumentException(
-          s"Mismatch structure value type `${argType.asIR.getNameForced}` for dataflow receiver structure type `${dfType.asIR.getNameForced}`."
+          s"""Mismatch in structure fields.
+             |The applied value type is:
+             |$argType
+             |The receiver type is:
+             |$dfType""".stripMargin
         )
-      )
   inline given [L <: Fields, R <: Fields]: SameFields[L, R] = ${ sfMacro[L, R] }
   protected def sfMacro[L <: Fields: Type, R <: Fields: Type](using
       Quotes

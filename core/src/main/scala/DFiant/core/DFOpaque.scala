@@ -24,13 +24,6 @@ object DFOpaque:
   extension [T <: DFTypeAny, TFE <: Frontend[T]](dfType: DFOpaque[TFE])
     def actualType: T = dfType.asIR.actualType.asFE[T]
 
-//  private def checkAs[T <: DFTypeAny](tokenDFType: T, actualDFType: T): Unit =
-//    given Printer = DefaultPrinter
-//    assert(
-//      tokenDFType == actualDFType,
-//      s"The token type (${tokenDFType.codeString}) does not match the actual opaque type ${actualDFType.codeString}"
-//    )
-
   type Token[T <: Abstract] = DFToken[DFOpaque[T]]
   object Token:
     def apply[T <: DFTypeAny, TFE <: Frontend[T]](

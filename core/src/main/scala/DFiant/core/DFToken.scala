@@ -145,7 +145,7 @@ object DFToken:
       ]
     inline given sameTokenType[T <: DFTypeAny]: TC[T, T <> TOKEN] with
       def conv(dfType: T, value: T <> TOKEN): Out =
-        assert(dfType == value.dfType)
+        require(dfType == value.dfType)
         value
   end TCLPLP
   trait TCLP extends TCLPLP
@@ -171,7 +171,7 @@ object DFToken:
     ): DFToken[DFBool] =
       given CanEqual[Any, Any] = CanEqual.derived
       val tokenArg = conv(token.dfType, arg)
-      assert(token.dfType == tokenArg.dfType)
+      require(token.dfType == tokenArg.dfType)
       val dataOut = op.value match
         case FuncOp.=== => token.asIR.data == tokenArg.asIR.data
         case FuncOp.=!= => token.asIR.data != tokenArg.asIR.data

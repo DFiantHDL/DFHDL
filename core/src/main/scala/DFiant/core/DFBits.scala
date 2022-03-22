@@ -556,7 +556,7 @@ private object CompanionsDFBits:
         def &[RW <: Int](rhs: DFBits.Token[RW])(using
             bb: Bubble.Behaviour
         ): DFBits.Token[LW] =
-          assert(lhs.width == rhs.width)
+          require(lhs.width == rhs.width)
           val width = lhs.width
           bb match
             case Bubble.Behaviour.Stall =>
