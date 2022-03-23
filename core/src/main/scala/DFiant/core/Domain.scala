@@ -9,7 +9,7 @@ private[DFiant] abstract class Domain(using DFC) extends Container with scala.re
   private[core] type TKind = Container.Kind.Domain
   final protected given TKind = Container.Kind.Domain
   private[core] final override lazy val owner: Domain.Block =
-    Domain.Block(domainType)
+    Domain.Block(__domainType)
 
 object Domain:
   type Block = DFOwner[ir.DomainBlock]
@@ -28,7 +28,7 @@ end Domain
 
 abstract class DFDomain(using DFC) extends Domain:
   private[core] type TDomain = ir.DomainType.DF
-  private[core] lazy val domainType: TDomain = ir.DomainType.DF
+  private[core] lazy val __domainType: TDomain = ir.DomainType.DF
 
 abstract class RTDomain(
     clkParams: ClockParams = ClockParams(),
@@ -36,4 +36,4 @@ abstract class RTDomain(
 )(using DFC)
     extends Domain:
   private[core] class TDomain extends ir.DomainType.RT.HL
-  private[core] lazy val domainType: TDomain = new TDomain
+  private[core] lazy val __domainType: TDomain = new TDomain

@@ -1,6 +1,7 @@
 package StagesSpec
 
 import DFiant.*
+import DFiant.compiler.ir.DomainType.RT.ClockParams
 import DFiant.compiler.stages.dropRegsWires
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
@@ -20,17 +21,19 @@ class DropRegsWiresSpec extends StageSpec:
     val id = (new ID).dropRegsWires
     assertCodeString(
       id,
-      """|class ID(using DFC) extends RTDesign:
+      """|class ID(using DFC) extends LLRTDesign:
+         |  val clk = DFBit <> IN
+         |  val rst = DFBit <> IN
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
-         |  val r1 = DFSInt(16) <> VAR init 0
+         |  val r1 = DFSInt(16) <> VAR init sd"16'0"
          |  val r1_din_sig = DFSInt(16) <> VAR
          |  always.all {
          |    val w1 = DFSInt(16) <> VAR
          |    val w2 = DFSInt(16) <> VAR
          |    val r1_din = DFSInt(16) <> VAR
          |    w1 := x
-         |    w1 := w1 + 1
+         |    w1 := w1 + sd"2'1"
          |    w2 := x
          |    r1_din := w2
          |    y := w1 + r1

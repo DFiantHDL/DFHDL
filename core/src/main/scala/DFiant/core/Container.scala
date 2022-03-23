@@ -10,8 +10,8 @@ private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
       case _         => ret.copy()
   private[core] type TKind <: Container.Kind
   private[core] type TDomain <: ir.DomainType
-  private[core] lazy val domainType: TDomain
-  final protected given TDomain = domainType
+  private[core] lazy val __domainType: TDomain
+  final protected given TDomain = __domainType
   private[core] lazy val owner: DFOwnerAny
   dfc.enterOwner(owner)
   private[DFiant] def skipChecks: Boolean = false

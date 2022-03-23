@@ -428,22 +428,6 @@ final case class DFInterfaceOwner(
 end DFInterfaceOwner
 
 sealed trait DFBlock extends DFOwner
-final case class DFDomainBlock(
-    domainType: DomainType,
-    ownerRef: DFOwner.Ref,
-    meta: Meta,
-    tags: DFTags
-) extends DFDomainOwner,
-      DFBlock,
-      DFMember.Named:
-  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-    case that: DFDomainBlock =>
-      this.domainType == that.domainType &&
-      this.meta =~ that.meta && this.tags =~ that.tags
-    case _ => false
-  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-end DFDomainBlock
 
 final case class AlwaysBlock(
     sensitivity: AlwaysBlock.Sensitivity,

@@ -1,7 +1,7 @@
 package DFiant.compiler.patching
 import DFiant.compiler.ir.*
 import DFiant.compiler.analysis.*
-
+import scala.annotation.tailrec
 import scala.reflect.ClassTag
 
 sealed trait Patch extends Product with Serializable derives CanEqual
@@ -85,8 +85,7 @@ object Patch:
       case object Via extends Config
     end Config
   end Add
-  final case class Move private[patching] (movedMembers: List[DFMember], config: Move.Config)
-      extends Patch
+  final case class Move(movedMembers: List[DFMember], config: Move.Config) extends Patch
   object Move:
     def apply(owner: DFOwner, config: Config)(using MemberGetSet): Move =
       Move(owner.members(MemberView.Flattened), config)
@@ -209,42 +208,52 @@ extension (db: DB)
       println("----------------------------------------------------------------------------")
     }
     // Patching member list
-    val patchedMembers = members.flatMap(m =>
-      patchTable.get(m) match
-        case Some(Patch.Replace(r, config, _)) =>
-          config match
-            case Patch.Replace.Config.ChangeRefAndRemove => None
-            case Patch.Replace.Config.FullReplacement    => Some(r)
-            case Patch.Replace.Config.ChangeRefOnly =>
-              ??? // Not possible since we filtered these out
-        case Some(Patch.Add(db, config)) =>
-          val notTop = db.members.drop(1) // adding the members without the Top design block
-          config match
-            case Patch.Add.Config.After  => m :: notTop
-            case Patch.Add.Config.Before => notTop :+ m
-            case Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.ChangeRefOnly, _) =>
-              m :: notTop
-            case Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefOnly, _) =>
-              notTop :+ m
-            case Patch.Add.Config.ReplaceWithFirst(_, _) => notTop
-            case Patch.Add.Config.ReplaceWithLast(_, _)  => notTop
-            case Patch.Add.Config.Via                    => m :: notTop
-            case Patch.Add.Config.InsideFirst =>
-              ??? // Not possible since we replaced it to an `After`
-            case Patch.Add.Config.InsideLast =>
-              ??? // Not possible since we replaced it to an `After`
-        case Some(Patch.Move(movedMembers, config)) =>
-          config match
-            case Patch.Move.Config.After  => m :: movedMembers
-            case Patch.Move.Config.Before => movedMembers :+ m
-            case Patch.Move.Config.InsideFirst =>
-              ??? // Not possible since we replaced it to an `After`
-            case Patch.Move.Config.InsideLast =>
-              ??? // Not possible since we replaced it to an `After`
-        case Some(Patch.Remove)          => None
-        case Some(_: Patch.ChangeRef[_]) => Some(m)
-        case None => Some(m) // not in the patch table, therefore remain as-is
-    )
+    @tailrec def patchMembers(
+        waiting: List[DFMember],
+        patchTable: Map[DFMember, Patch],
+        patchedMembers: List[DFMember]
+    ): List[DFMember] =
+      waiting match
+        case m :: rest =>
+          var added = List.empty[DFMember]
+          val outgoing = patchTable.get(m) match
+            case Some(Patch.Replace(r, config, _)) =>
+              config match
+                case Patch.Replace.Config.ChangeRefAndRemove => Nil
+                case Patch.Replace.Config.FullReplacement    => List(r)
+                case Patch.Replace.Config.ChangeRefOnly =>
+                  ??? // Not possible since we filtered these out
+            case Some(Patch.Add(db, config)) =>
+              val notTop = db.members.drop(1) // adding the members without the Top design block
+              added = config match
+                case Patch.Add.Config.After  => m :: notTop
+                case Patch.Add.Config.Before => notTop :+ m
+                case Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.ChangeRefOnly, _) =>
+                  m :: notTop
+                case Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefOnly, _) =>
+                  notTop :+ m
+                case Patch.Add.Config.ReplaceWithFirst(_, _) => notTop
+                case Patch.Add.Config.ReplaceWithLast(_, _)  => notTop
+                case Patch.Add.Config.Via                    => m :: notTop
+                case Patch.Add.Config.InsideFirst =>
+                  ??? // Not possible since we replaced it to an `After`
+                case Patch.Add.Config.InsideLast =>
+                  ??? // Not possible since we replaced it to an `After`
+              Nil
+            case Some(Patch.Move(movedMembers, config)) =>
+              config match
+                case Patch.Move.Config.After  => m :: movedMembers
+                case Patch.Move.Config.Before => movedMembers :+ m
+                case Patch.Move.Config.InsideFirst =>
+                  ??? // Not possible since we replaced it to an `After`
+                case Patch.Move.Config.InsideLast =>
+                  ??? // Not possible since we replaced it to an `After`
+            case Some(Patch.Remove)          => Nil
+            case Some(_: Patch.ChangeRef[_]) => List(m)
+            case None => List(m) // not in the patch table, therefore remain as-is
+          patchMembers(added ++ rest, patchTable - m, outgoing.reverse ++ patchedMembers)
+        case Nil => patchedMembers.reverse
+    val patchedMembers = patchMembers(members, patchTable, Nil)
     patchDebug {
       println("----------------------------------------------------------------------------")
       println("members:")
@@ -310,15 +319,21 @@ extension (db: DB)
           //            println(ret.refTable.mkString("\n"))
           //          }
           ret
-        // a move patch just requires change of the owner reference of the head moved members
         case (rc, (origMember, Patch.Move(movedMembers, config))) =>
           val newOwner = config match
             case Patch.Move.Config.InsideFirst => origMember
             case Patch.Move.Config.InsideLast  => origMember
             case _                             => origMember.getOwnerBlock
           val actualNewOwner = rc.getLatestRepOf(newOwner) // owner may have been replaced before
-          val headRef = movedMembers.head.ownerRef
-          rc.changeRef(headRef, actualNewOwner)
+          // a move patch that just requires change of the owner reference of the head moved members
+          if (movedMembers.length == 1 || movedMembers(1).getOwner == movedMembers.head)
+            val headRef = movedMembers.head.ownerRef
+            rc.changeRef(headRef, actualNewOwner)
+          // or replace all references
+          else
+            movedMembers.foldLeft(rc) { case (rc, m) =>
+              rc.changeRef(m.ownerRef, actualNewOwner)
+            }
         case (rc, (origMember, Patch.Remove)) =>
           memberTable.get(origMember) match
             case Some(refs) => rc.copy(refTable = refs.foldLeft(rc.refTable)((rt2, r) => rt2 - r))

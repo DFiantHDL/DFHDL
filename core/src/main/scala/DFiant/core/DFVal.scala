@@ -169,6 +169,15 @@ object DFVal:
         .setTags(_.tag(customTag))
         .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
         .asVal[T, M]
+    def setName(name: String)(using dfc: DFC): DFVal[T, M] =
+      import dfc.getSet
+      dfVal.asIR
+        .setMeta(m =>
+          if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta.setName(name)
+          else m.setName(name)
+        )
+        .asVal[T, M]
+  end extension
   extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
     private[core] def initForced(tokens: List[ir.DFTokenAny])(using
         dfc: DFC

@@ -10,8 +10,8 @@ object DomainType:
   object RT:
     class LL() extends RT
     class HL(
-        clkParams: ClockParams = ClockParams(),
-        rstParams: ResetParams = ResetParams()
+        val clkParams: ClockParams = ClockParams(),
+        val rstParams: ResetParams = ResetParams()
     ) extends RT
     sealed trait ResetParams extends Product with Serializable derives CanEqual
     case object NoReset extends ResetParams

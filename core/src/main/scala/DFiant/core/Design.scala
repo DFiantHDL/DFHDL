@@ -9,7 +9,7 @@ private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
   private[core] type TKind = Container.Kind.Design
   final protected given TKind = Container.Kind.Design
   private[core] final override lazy val owner: Design.Block =
-    Design.Block(domainType, "???", Position.unknown)
+    Design.Block(__domainType, "???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =
     val designBlock = owner.asIR
     dfc.getSet.replace(designBlock)(
@@ -44,15 +44,15 @@ end Design
 
 abstract class DFDesign(using DFC) extends Design:
   private[core] type TDomain = ir.DomainType.DF
-  private[core] lazy val domainType: TDomain = ir.DomainType.DF
+  private[core] lazy val __domainType: TDomain = ir.DomainType.DF
 
 abstract class RTDesign(
     clkParams: ClockParams = ClockParams(),
     rstParams: ResetParams = ResetParams()
 )(using DFC)
     extends Design:
-  private[core] class TDomain extends ir.DomainType.RT.HL
-  private[core] lazy val domainType: TDomain = new TDomain
+  private[core] class TDomain extends ir.DomainType.RT.HL(clkParams, rstParams)
+  private[core] lazy val __domainType: TDomain = new TDomain
 //  lazy val clk = clkParams match
 //    case RT.NoClock =>
 //      throw new IllegalArgumentException(
@@ -77,4 +77,4 @@ end RTDesign
 
 abstract class LLRTDesign(using DFC) extends Design:
   private[core] class TDomain extends ir.DomainType.RT.LL
-  private[core] lazy val domainType: TDomain = new TDomain
+  private[core] lazy val __domainType: TDomain = new TDomain
