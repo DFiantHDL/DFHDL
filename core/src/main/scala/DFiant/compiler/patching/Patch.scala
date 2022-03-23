@@ -1,6 +1,7 @@
 package DFiant.compiler.patching
 import DFiant.compiler.ir.*
 import DFiant.compiler.analysis.*
+
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
 
@@ -116,6 +117,15 @@ extension (db: DB)
     import db.getSet
     import db.{members, refTable, memberTable, globalTags, srcFiles}
     if (patchList.isEmpty) return db
+    // added owners have their own getSet context which we may need to use
+    // in some conditions. currently this is done only for `getVeryLastMember`
+    lazy val addedOwnersGetSets = patchList.flatMap {
+      case (_, Patch.Add(db, _)) =>
+        db.members match
+          case top :: (owner: DFOwner) :: _ => Some(owner, db.getSet)
+          case _                            => None
+      case _ => None
+    }.toMap
     def patchDebug(block: => Unit): Unit = if (debug) block
     val patchTable = patchList
       .flatMap {
@@ -139,7 +149,9 @@ extension (db: DB)
               owner: DFOwner,
               Patch.Add(db, Patch.Add.Config.After | Patch.Add.Config.InsideLast)
             ) =>
-          owner.getVeryLastMember match
+          // the getSet context is set to external one if the owner is being added
+          val anyGetSet = addedOwnersGetSets.getOrElse(owner, getSet)
+          owner.getVeryLastMember(using anyGetSet) match
             case Some(l) => Some((l, Patch.Add(db, Patch.Add.Config.After)))
             case None    => Some((owner, Patch.Add(db, Patch.Add.Config.After)))
         // A move patch operation adds a remove patch to all the moved members
@@ -150,9 +162,11 @@ extension (db: DB)
             case (owner: DFOwner, Patch.Move.Config.InsideFirst) =>
               (owner, Patch.Move(movedMembers, Patch.Move.Config.After))
             case (owner: DFOwner, Patch.Move.Config.After | Patch.Move.Config.InsideLast) =>
-              owner.getVeryLastMember match
+              // the getSet context is set to external one if the owner is being added
+              val anyGetSet = addedOwnersGetSets.getOrElse(owner, getSet)
+              owner.getVeryLastMember(using anyGetSet) match
                 case Some(l) => (l, Patch.Move(movedMembers, Patch.Move.Config.After))
-                case None    => ((owner, Patch.Move(movedMembers, Patch.Move.Config.After)))
+                case None    => (owner, Patch.Move(movedMembers, Patch.Move.Config.After))
             case (m, Patch.Move.Config.Before) => (m, Patch.Move(movedMembers, config))
             case _                             => ???
           modMove :: movedMembers.map((_, Patch.Remove))

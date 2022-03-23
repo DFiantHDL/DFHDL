@@ -60,17 +60,23 @@ private class DropRegsWires(db: DB) extends Stage(db):
               owner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
 
             val alwaysBlockAllDsn = new MetaDesign:
-              val abOwner = DFiant.core.Always.Block.all(using dfc.anonymize).asIR
+              val abOwner = DFiant.core.Always.Block.all(using dfc.anonymize)
+              dfc.enterOwner(abOwner)
+              wires.foreach(w => w.asValAny.genNewVar(using dfc.setName(w.name)))
+              dfc.exitOwner()
+
+            val abOwnerIR = alwaysBlockAllDsn.abOwner.asIR
             val alwaysBlockAllPatch =
               owner -> Patch.Add(alwaysBlockAllDsn, Patch.Add.Config.InsideLast)
             val alwaysBlockAllMembers = members.filter {
-              case dcl: DFVal.Dcl => false
-              case m              => true
+              case dcl: DFVal.Dcl     => false
+              case dsn: DFOwner.Named => false
+              case m                  => true
             }
             val alwaysBlockMembersPatch =
-              alwaysBlockAllDsn.abOwner -> Patch.Move(
+              abOwnerIR -> Patch.Move(
                 alwaysBlockAllMembers,
-                Patch.Move.Config.InsideFirst
+                Patch.Move.Config.InsideLast
               )
             List(
               ownerDomainPatch
