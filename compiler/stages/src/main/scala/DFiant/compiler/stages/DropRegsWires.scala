@@ -25,7 +25,10 @@ private class DropRegsWires(db: DB) extends Stage(db):
             val regs = members.collect {
               case dcl: DFVal.Dcl if dcl.modifier == DFVal.Modifier.REG => dcl
             }
-
+            val regVars = regs.map(_.copy(modifier = DFVal.Modifier.VAR))
+            val regsPatch = regs
+              .lazyZip(regVars)
+              .map((r, rv) => r -> Patch.Replace(rv, Patch.Replace.Config.FullReplacement))
             // name and existence indicators for the clock and reset
             val hasClock = domainType.clkParams != NoClock
             val clkName = domainType.clkParams match
@@ -59,13 +62,35 @@ private class DropRegsWires(db: DB) extends Stage(db):
             val ownerDomainPatch =
               owner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
 
+            var wiresPatch = List.empty[(DFMember, Patch)]
+            var regs_dinPatch = List.empty[(DFMember, Patch)]
             val alwaysBlockAllDsn = new MetaDesign:
-              val abOwner = DFiant.core.Always.Block.all(using dfc.anonymize)
-              dfc.enterOwner(abOwner)
-              wires.foreach(w => w.asValAny.genNewVar(using dfc.setName(w.name)))
-              dfc.exitOwner()
+              regs_dinPatch = regs.flatMap { r =>
+                val reg_dinVar = r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
+                members.collect {
+                  case reg_din: DFVal.Alias.RegDIN if reg_din.relValRef.get == r =>
+                    reg_din -> Patch.Replace(reg_dinVar, Patch.Replace.Config.ChangeRefAndRemove)
+                }
+              }
+              always.all {
+                wiresPatch = wires.map { w =>
+                  w -> Patch.Replace(
+                    w.asValAny.genNewVar(using dfc.setName(w.name)).asIR,
+                    Patch.Replace.Config.ChangeRefAndRemove
+                  )
+                }
+              }
+              import DFiant.core.DFIf
+              import DFiant.core.NoType
+              always(clkRstPortsDsn.clk, clkRstPortsDsn.rst) {
+                val (_, rstBranch) =
+                  DFIf.singleBranch(Some(clkRstPortsDsn.rst), DFIf.Header(NoType), () => {})
+                DFIf.singleBranch(Some(clkRstPortsDsn.clk.rising), rstBranch, () => {})
+              }
 
-            val abOwnerIR = alwaysBlockAllDsn.abOwner.asIR
+            val abOwnerIR = alwaysBlockAllDsn.getDB.members.collectFirst { case ab: AlwaysBlock =>
+              ab
+            }.get
             val alwaysBlockAllPatch =
               owner -> Patch.Add(alwaysBlockAllDsn, Patch.Add.Config.InsideLast)
             val alwaysBlockAllMembers = members.filter {
@@ -79,8 +104,14 @@ private class DropRegsWires(db: DB) extends Stage(db):
                 Patch.Move.Config.InsideLast
               )
             List(
-              ownerDomainPatch
-            ) ++ addClkRstPatchOption :+ alwaysBlockAllPatch :+ alwaysBlockMembersPatch
+              Some(ownerDomainPatch),
+              addClkRstPatchOption,
+              Some(alwaysBlockAllPatch),
+              Some(alwaysBlockMembersPatch),
+              wiresPatch,
+              regsPatch,
+              regs_dinPatch
+            ).flatten
           // other domains
           case _ => None
       // other owners
