@@ -24,7 +24,7 @@ object DomainType:
       def apply(
           name: String = "rst",
           mode: Mode = Mode.Async,
-          active: Active = Active.Low
+          active: Active = Active.High
       ): ResetParams = WithReset(name, mode, active)
       enum Mode derives CanEqual:
         case Async, Sync

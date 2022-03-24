@@ -84,26 +84,54 @@ private class DropRegsWires(db: DB) extends Stage(db):
               }
               import DFiant.core.DFIf
               import DFiant.core.NoType
-              import DFiant.core.{asTokenOf, DFTypeAny}
-              def regInitBlock = regVars.foreach {
+              import DFiant.core.{asTokenOf, DFTypeAny, DFOwnerAny}
+              def regInitBlock() = regVars.foreach {
                 case r if r.externalInit.nonEmpty =>
                   r.asVarAny := DFiant.core.DFVal.Const(
                     r.externalInit.get.head.asTokenOf[DFTypeAny]
                   )
                 case _ =>
               }
-              def regSaveBlock = regs.lazyZip(regs_dinVars).foreach { (r, r_din_v) =>
+              def regSaveBlock() = regs.lazyZip(regs_dinVars).foreach { (r, r_din_v) =>
                 r.asVarAny := r_din_v.asValAny
               }
-              always(clkRstPortsDsn.clk, clkRstPortsDsn.rst) {
-                val (_, rstBranch) =
-                  DFIf.singleBranch(
-                    Some(clkRstPortsDsn.rst),
-                    DFIf.Header(NoType),
-                    () => regInitBlock
-                  )
-                DFIf.singleBranch(Some(clkRstPortsDsn.clk.rising), rstBranch, () => regSaveBlock)
-              }
+              def ifRstActive =
+                import clkRstPortsDsn.rst
+                val WithReset(_, _, active) = domainType.rstParams
+                val cond = active match
+                  case ResetParams.Active.High => rst == 1
+                  case ResetParams.Active.Low  => rst == 0
+                DFIf.singleBranch(Some(cond), DFIf.Header(NoType), regInitBlock)
+              def ifClkEdge(ifRstOption: Option[DFOwnerAny]) =
+                import clkRstPortsDsn.clk
+                val WithClock(_, edge) = domainType.clkParams
+                val cond = edge match
+                  case ClockParams.Edge.Rising  => clk.rising
+                  case ClockParams.Edge.Falling => clk.falling
+                DFIf.singleBranch(
+                  Some(cond),
+                  ifRstOption.getOrElse(DFIf.Header(NoType)),
+                  regSaveBlock
+                )
+
+              if (hasClock)
+                import clkRstPortsDsn.clk
+                if (hasReset)
+                  val WithReset(_, mode, _) = domainType.rstParams
+                  import clkRstPortsDsn.rst
+                  mode match
+                    case ResetParams.Mode.Sync =>
+                      always(clk) {
+                        ifClkEdge(None)
+                      }
+                    case ResetParams.Mode.Async =>
+                      always(clk, rst) {
+                        val (_, rstBranch) = ifRstActive
+                        ifClkEdge(Some(rstBranch))
+                      }
+                else always(clk) { ifClkEdge(None) }
+                end if
+              end if
 
             val abOwnerIR = alwaysBlockAllDsn.getDB.members.collectFirst { case ab: AlwaysBlock =>
               ab
