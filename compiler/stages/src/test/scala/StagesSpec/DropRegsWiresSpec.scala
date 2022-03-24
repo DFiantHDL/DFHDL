@@ -38,10 +38,8 @@ class DropRegsWiresSpec extends StageSpec:
          |    y := w1 + r1
          |  }
          |  always(clk, rst) {
-         |    if (rst.bool)
-         |      r1 := 0
-         |    else if (clk.rising)
-         |      r1 := r1_din
+         |    if (rst.bool) r1 := sd"16'0"
+         |    else if (clk.rising) r1 := r1_din
          |  }
          |end ID
          |""".stripMargin

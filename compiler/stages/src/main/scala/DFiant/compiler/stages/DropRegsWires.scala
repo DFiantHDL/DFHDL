@@ -65,11 +65,13 @@ private class DropRegsWires(db: DB) extends Stage(db):
             var wiresPatch = List.empty[(DFMember, Patch)]
             var regs_dinPatch = List.empty[(DFMember, Patch)]
             val alwaysBlockAllDsn = new MetaDesign:
-              regs_dinPatch = regs.flatMap { r =>
-                val reg_dinVar = r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
+              val regs_dinVars = regs.map { r =>
+                r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
+              }
+              regs_dinPatch = regs.lazyZip(regs_dinVars).flatMap { (r, r_din_v) =>
                 members.collect {
                   case reg_din: DFVal.Alias.RegDIN if reg_din.relValRef.get == r =>
-                    reg_din -> Patch.Replace(reg_dinVar, Patch.Replace.Config.ChangeRefAndRemove)
+                    reg_din -> Patch.Replace(r_din_v, Patch.Replace.Config.ChangeRefAndRemove)
                 }
               }
               always.all {
@@ -82,10 +84,25 @@ private class DropRegsWires(db: DB) extends Stage(db):
               }
               import DFiant.core.DFIf
               import DFiant.core.NoType
+              import DFiant.core.{asTokenOf, DFTypeAny}
+              def regInitBlock = regVars.foreach {
+                case r if r.externalInit.nonEmpty =>
+                  r.asVarAny := DFiant.core.DFVal.Const(
+                    r.externalInit.get.head.asTokenOf[DFTypeAny]
+                  )
+                case _ =>
+              }
+              def regSaveBlock = regs.lazyZip(regs_dinVars).foreach { (r, r_din_v) =>
+                r.asVarAny := r_din_v.asValAny
+              }
               always(clkRstPortsDsn.clk, clkRstPortsDsn.rst) {
                 val (_, rstBranch) =
-                  DFIf.singleBranch(Some(clkRstPortsDsn.rst), DFIf.Header(NoType), () => {})
-                DFIf.singleBranch(Some(clkRstPortsDsn.clk.rising), rstBranch, () => {})
+                  DFIf.singleBranch(
+                    Some(clkRstPortsDsn.rst),
+                    DFIf.Header(NoType),
+                    () => regInitBlock
+                  )
+                DFIf.singleBranch(Some(clkRstPortsDsn.clk.rising), rstBranch, () => regSaveBlock)
               }
 
             val abOwnerIR = alwaysBlockAllDsn.getDB.members.collectFirst { case ab: AlwaysBlock =>
