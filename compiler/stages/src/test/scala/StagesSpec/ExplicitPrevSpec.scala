@@ -194,11 +194,11 @@ class ExplicitPrevSpec extends StageSpec:
       val y  = DFUInt(8) <> OUT init 0
       val y2 = DFUInt(8) <> OUT init 0
       x match
-        case Foo() | Baz() => y := 1
+        case Foo | Baz => y := 1
       y := y + 1
       x match
-        case Foo() | Baz() => y2 := 1
-        case Bar()         => y2 := 1
+        case Foo | Baz => y2 := 1
+        case Bar       => y2 := 1
       y2 := y2 + 1
     end ID
     val id = (new ID).explicitPrev
@@ -215,11 +215,11 @@ class ExplicitPrevSpec extends StageSpec:
          |  y := y.prev
          |  val y2 = DFUInt(8) <> OUT init d"8'0"
          |  x match
-         |    case MyEnum.Foo() | MyEnum.Baz() => y := d"8'1"
+         |    case MyEnum.Foo | MyEnum.Baz => y := d"8'1"
          |  y := y + d"1'1"
          |  x match
-         |    case MyEnum.Foo() | MyEnum.Baz() => y2 := d"8'1"
-         |    case MyEnum.Bar() => y2 := d"8'1"
+         |    case MyEnum.Foo | MyEnum.Baz => y2 := d"8'1"
+         |    case MyEnum.Bar => y2 := d"8'1"
          |  y2 := y2 + d"1'1"
          |end ID
          |""".stripMargin

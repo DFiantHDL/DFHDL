@@ -29,7 +29,7 @@ object DFError:
           |Operation: `${opName}`
           |Message:   ${dfMsg}""".stripMargin
   end Basic
-
+  object FakeEnum extends DFError("This value of enum is no meant to be accessed.")
   final class Derived(from: DFError) extends DFError(from.dfMsg)
 
   extension (dfErr: DFError)

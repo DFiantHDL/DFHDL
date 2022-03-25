@@ -95,16 +95,16 @@ trait AbstractTokenPrinter extends AbstractPrinter:
           else csDFUIntTokenFromBits(csBits)
         else ??? // DFXFix
       case None => "?"
-  def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String
+  def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String
   def csDFStructData(dfType: DFStruct, data: List[Any]): String
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String
-  final def csDFToken(token: DFTokenAny, pattern: Boolean = false): String = token match
+  final def csDFToken(token: DFTokenAny): String = token match
     case DFBits.Token(dt, data)      => csDFBitsData(dt, data)
     case DFBoolOrBit.Token(dt, data) => csDFBoolOrBitData(dt, data)
     case DFDecimal.Token(dt, data)   => csDFDecimalData(dt, data)
-    case DFEnum.Token(dt, data)      => csDFEnumData(dt, data, pattern)
+    case DFEnum.Token(dt, data)      => csDFEnumData(dt, data)
     case DFVector.Token(dt, data)    => csDFVectorData(dt, data)
     case DFOpaque.Token(dt, data)    => csDFOpaqueData(dt, data)
     case DFStruct.Token(dt, data)    => csDFStructData(dt, data)
@@ -131,11 +131,11 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = value.toString
   def csDFUIntTokenFromBits(csBits: String): String = s"$csBits.uint"
   def csDFSIntTokenFromBits(csBits: String): String = s"$csBits.sint"
-  def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String =
+  def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
-        s"${dfType.getName}.${entryName}${if (pattern) "()" else ""}"
+        s"${dfType.getName}.${entryName}"
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     s"Vector${data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkStringBrackets}"

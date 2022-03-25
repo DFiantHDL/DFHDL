@@ -30,14 +30,6 @@ final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny | DFError)
   )(using DFC): DFBool <> TOKEN = ${
     DFToken.equalityMacro[T, R, FuncOp.=!=.type]('this, 'that)
   }
-  def ==[R <: DFTypeAny](that: DFValOf[R])(using
-      dfc: DFC,
-      op: DFVal.Compare[R, DFToken[T], FuncOp.===.type, true]
-  ): DFBool <> VAL = op(that, this)
-  def !=[R <: DFTypeAny](that: DFValOf[R])(using
-      dfc: DFC,
-      op: DFVal.Compare[R, DFToken[T], FuncOp.=!=.type, true]
-  ): DFBool <> VAL = op(that, this)
   override def toString: String = value.toString
 end DFToken
 

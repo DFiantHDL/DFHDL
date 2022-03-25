@@ -360,7 +360,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           ) if i.bitsWidth(signed) > width =>
         report.error(
           s"Cannot compare a dataflow value (width = $width) with a Scala `Int` argument that is wider (width = ${i
-            .bitsWidth(signed)}).\nAn explicit conversion must be applied.",
+              .bitsWidth(signed)}).\nAn explicit conversion must be applied.",
           errPos
         )
         EmptyTree
@@ -556,12 +556,13 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             Some(lit)
           case _ => None
     object Enum:
-      def unapply(arg: UnApply)(using Context): Option[Tree] =
+      def unapply(arg: UnApply | Select)(using Context): Option[Tree] =
         arg match
           case unapply @ UnApply(TypeApply(Apply(_, List(arg)), _), _, _)
               if unapply.fun.symbol == enumHackedUnapply =>
             Some(arg)
-          case _ => None
+          case select: Select => Some(select)
+          case _              => None
     object SI:
       def unapply(arg: UnApply)(using
           Context

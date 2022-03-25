@@ -6,7 +6,7 @@ import internals.*
 import collection.immutable.ListMap
 import ir.DFVal.Func.Op as FuncOp
 
-sealed trait DFEncoding extends scala.reflect.Enum:
+sealed abstract class DFEncoding extends DFVal(DFError.FakeEnum), scala.reflect.Enum:
   def calcWidth(entryCount: Int): Int
   def encode(idx: Int): BigInt
   def bigIntValue: BigInt

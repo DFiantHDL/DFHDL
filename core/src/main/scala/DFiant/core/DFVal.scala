@@ -14,7 +14,7 @@ import DFiant.compiler.printing.{DefaultPrinter, Printer}
 import scala.annotation.tailrec
 
 import scala.reflect.ClassTag
-final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val value: ir.DFVal | DFError)
+class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
     extends // AnyVal with
     DFMember[ir.DFVal]
     with Selectable:
@@ -124,6 +124,9 @@ object DFVal:
       arg: Expr[R]
   )(using Quotes, Type[T], Type[R], Type[Op]): Expr[DFValOf[DFBool]] =
     import quotes.reflect.*
+    if (TypeRepr.of[T].typeSymbol equals defn.NothingClass) return '{
+      compiletime.error("This is fake")
+    }
     val exact = arg.asTerm.exactTerm
     val exactExpr = exact.asExpr
     val exactType = exact.tpe.asTypeOf[Any]

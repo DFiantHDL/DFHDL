@@ -22,7 +22,7 @@ protected trait RTTokenPrinter extends AbstractTokenPrinter:
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = s"to_signed($value, $width)"
   def csDFUIntTokenFromBits(csBits: String): String = s"""unsigned'($csBits)"""
   def csDFSIntTokenFromBits(csBits: String): String = s"""signed'($csBits)"""
-  def csDFEnumData(dfType: DFEnum, data: Option[BigInt], pattern: Boolean): String =
+  def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1

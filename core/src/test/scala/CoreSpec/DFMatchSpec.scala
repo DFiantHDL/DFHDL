@@ -26,11 +26,11 @@ class DFMatchSpec extends DFSpec:
          |    x := d"8'3"
          |    x := d"8'4"
          |e match
-         |  case MyEnum1.Bar() =>
+         |  case MyEnum1.Bar =>
          |(x, e) match
-         |  case (d"8'0", MyEnum1.Bar()) =>
-         |  case (v, MyEnum1.Baz()) if v > d"8'20" =>
-         |  case (v, MyEnum1.Baz()) if v < d"8'15" =>
+         |  case (d"8'0", MyEnum1.Bar) =>
+         |  case (v, MyEnum1.Baz) if v > d"8'20" =>
+         |  case (v, MyEnum1.Baz) if v < d"8'15" =>
          |y match
          |  case h"DEAD${secret: B[32]}BEEF" =>
          |  case h"DE${secret1: B[16]}AD${secret2: B[16]}BEEF" =>
@@ -79,11 +79,11 @@ class DFMatchSpec extends DFSpec:
           x := 4
 
       e match
-        case MyEnum1.Bar() =>
+        case MyEnum1.Bar =>
       (x, e) match
-        case (0, MyEnum1.Bar())           =>
-        case (v, MyEnum1.Baz()) if v > 20 =>
-        case (v, MyEnum1.Baz()) if v < 15 =>
+        case (0, MyEnum1.Bar)           =>
+        case (v, MyEnum1.Baz) if v > 20 =>
+        case (v, MyEnum1.Baz) if v < 15 =>
 
       y match
         case h"DEAD${secret: B[32]}BEEF"                   =>
