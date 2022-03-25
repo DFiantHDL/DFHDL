@@ -176,7 +176,15 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     tree match
       case apply: Apply =>
         debug("Apply done!")
-        addToTreeOwnerMap(apply, ownerTree)(using inlinedPosOpt)
+        // ignoring anonymous method unless it has a context argument
+        val add =
+          if (ownerTree.symbol.isAnonymousFunction)
+            ownerTree match
+              // this case is for functions like `def foo(block : DFC ?=> Unit) : Unit`
+              case DefDef(_, List(List(arg)), _, _) => arg.tpe <:< metaContextTpe
+              case _                                => false
+          else true
+        if (add) addToTreeOwnerMap(apply, ownerTree)(using inlinedPosOpt)
       case Typed(tree, _) =>
         debug("Typed")
         nameValOrDef(tree, ownerTree, inlinedPosOpt)
@@ -254,7 +262,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 //    debug("pos--->  ", tree.srcPos.show)
 //    debug(tree.show)
     tree match
-      //special casing `Exact.apply` implicit conversion
+      // special casing `Exact.apply` implicit conversion
       case apply: Apply if apply.symbol == exactApplySym =>
         inlinePos(apply.args.head, inlinedTree)
       case apply: Apply =>

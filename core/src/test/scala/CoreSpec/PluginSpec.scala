@@ -55,13 +55,13 @@ class PluginSpec extends DFSpec:
     )
   )
 
-  def exactDef[T](exactValue : Exact[T]) : T = exactValue.value
-  val e = exactDef(new Bar) //assert inside `Bar` checks that it gets the proper position
+  def exactDef[T](exactValue: Exact[T]): T = exactValue.value
+  val e = exactDef(new Bar) // assert inside `Bar` checks that it gets the proper position
   assertEquals(e.pos.lineStart, 59)
   assertEquals(e.pos.lineEnd, 59)
   assertEquals(e.pos.columnStart, 20)
   assertEquals(e.pos.columnEnd, 27)
-  val e2 = exactDef(new Bar - new Bar) 
+  val e2 = exactDef(new Bar - new Bar)
   assertEquals(e2.pos.lineStart, 64)
   assertEquals(e2.pos.lineEnd, 64)
   assertEquals(e2.pos.columnStart, 21)

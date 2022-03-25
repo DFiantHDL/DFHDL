@@ -27,16 +27,18 @@ object Always:
 
   object Ops:
     object always:
-      def apply(dfVals: DFValAny*)(block: => Unit)(using DFC): Unit =
+      trait InsideAlways
+      def apply(dfVals: DFValAny*)(block: InsideAlways ?=> Unit)(using DFC): Unit =
         val owner = Block.list(dfVals.toList)
         dfc.enterOwner(owner)
-        block
+        block(using new InsideAlways {})
         dfc.exitOwner()
-      def all(block: => Unit)(using DFC): Unit =
+      def all(block: InsideAlways ?=> Unit)(using DFC): Unit =
         val owner = Block.all
         dfc.enterOwner(owner)
-        block
+        block(using new InsideAlways {})
         dfc.exitOwner()
+    end always
   end Ops
 
 end Always
