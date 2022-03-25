@@ -49,6 +49,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   var fromBranchesSym: Symbol = _
   var fromCasesSym: Symbol = _
   var dfValClsRef: TypeRef = _
+  var dfEncodingRef: TypeRef = _
   var enumHackedUnapply: Symbol = _
   var dfcStack: List[Tree] = Nil
 
@@ -556,13 +557,14 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             Some(lit)
           case _ => None
     object Enum:
-      def unapply(arg: UnApply | Select)(using Context): Option[Tree] =
+      def unapply(arg: UnApply | Select | Ident)(using Context): Option[Tree] =
         arg match
           case unapply @ UnApply(TypeApply(Apply(_, List(arg)), _), _, _)
               if unapply.fun.symbol == enumHackedUnapply =>
             Some(arg)
-          case select: Select => Some(select)
-          case _              => None
+          case arg: (Select | Ident) if arg.tpe <:< dfEncodingRef =>
+            Some(arg)
+          case _ => None
     object SI:
       def unapply(arg: UnApply)(using
           Context
@@ -863,6 +865,26 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     end match
   end transformMatch
 
+  override def prepareForApply(tree: Apply)(using Context): Context =
+    val sym = tree.symbol
+    val symName = sym.name.toString()
+    sym.signature.paramsSig
+      .drop(1)
+      .map(_.toString)
+      .lazyZip(tree.args)
+      .collectFirst {
+        case (sig, arg) if sig == "DFiant.core.DFVal" && arg.tpe <:< dfEncodingRef => arg
+      }
+      .foreach(t =>
+        report.error(
+          s"""value $symName is not a member of DFiant.core.DFEncoding.
+             |Note: this error was forced by the DFiant compiler plugin.""".stripMargin,
+          tree.srcPos
+        )
+      )
+    ctx
+  end prepareForApply
+
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     ignoreIfs.clear()
@@ -872,6 +894,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     fromBranchesSym = requiredMethod("DFiant.core.DFIf.fromBranches")
     fromCasesSym = requiredMethod("DFiant.core.DFMatch.fromCases")
     dfValClsRef = requiredClassRef("DFiant.core.DFVal")
+    dfEncodingRef = requiredClassRef("DFiant.core.DFEncoding")
     enumHackedUnapply = requiredMethod("DFiant.unapply")
     ctx
 end CustomControlPhase

@@ -17,17 +17,17 @@ class ALU(using DFC) extends DFDesign:
 
   import ALUSel.*
   val outCalc: DFBits[32] <> VAL = aluSel match
-    case ADD()   => (op1u + op2u).bits
-    case SUB()   => (op1u - op2u).bits
-    case AND()   => op1 & op2
-    case OR()    => op1 | op2
-    case XOR()   => op1 ^ op2
-    case SLT()   => (op1s < op2s).bits.resize(32)
-    case SLTU()  => (op1u < op2u).bits.resize(32)
-    case SLL()   => op1 << shamt
-    case SRL()   => op1 >> shamt
-    case SRA()   => (op1s >> shamt).bits
-    case COPY1() => op1
+    case ADD   => (op1u + op2u).bits
+    case SUB   => (op1u - op2u).bits
+    case AND   => op1 & op2
+    case OR    => op1 | op2
+    case XOR   => op1 ^ op2
+    case SLT   => (op1s < op2s).bits.resize(32)
+    case SLTU  => (op1u < op2u).bits.resize(32)
+    case SLL   => op1 << shamt
+    case SRL   => op1 >> shamt
+    case SRA   => (op1s >> shamt).bits
+    case COPY1 => op1
 
   aluOut := outCalc
 end ALU
