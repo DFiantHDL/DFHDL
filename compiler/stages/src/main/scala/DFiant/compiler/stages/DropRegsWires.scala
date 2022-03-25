@@ -64,7 +64,7 @@ private class DropRegsWires(db: DB) extends Stage(db):
 
             var wiresPatch = List.empty[(DFMember, Patch)]
             var regs_dinPatch = List.empty[(DFMember, Patch)]
-            val alwaysBlockAllDsn = new MetaDesign:
+            val alwaysBlockDsn = new MetaDesign:
               val regs_dinVars = regs.map { r =>
                 r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
               }
@@ -133,11 +133,11 @@ private class DropRegsWires(db: DB) extends Stage(db):
                 end if
               end if
 
-            val abOwnerIR = alwaysBlockAllDsn.getDB.members.collectFirst { case ab: AlwaysBlock =>
+            val abOwnerIR = alwaysBlockDsn.getDB.members.collectFirst { case ab: AlwaysBlock =>
               ab
             }.get
             val alwaysBlockAllPatch =
-              owner -> Patch.Add(alwaysBlockAllDsn, Patch.Add.Config.InsideLast)
+              owner -> Patch.Add(alwaysBlockDsn, Patch.Add.Config.InsideLast)
             val alwaysBlockAllMembers = members.filter {
               case dcl: DFVal.Dcl     => false
               case dsn: DFOwner.Named => false

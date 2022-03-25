@@ -18,7 +18,7 @@ class DropRegsWiresSpec extends StageSpec:
       w2     := x
       r1.din := w2
       y      := w1 + r1
-    val id = (new ID).dropRegsWires
+    val id = (new ID).dropRegsWires.printCodeString
     assertCodeString(
       id,
       """|class ID(using DFC) extends LLRTDesign:
@@ -34,12 +34,12 @@ class DropRegsWiresSpec extends StageSpec:
          |    w1 := x
          |    w1 := w1 + sd"2'1"
          |    w2 := x
-         |    r1_din := w2
-         |    y := w1 + r1
+         |    r1_din <= w2
+         |    y <= w1 + r1
          |  }
          |  always(clk, rst) {
-         |    if (rst == 1) r1 := sd"16'0"
-         |    else if (clk.rising) r1 := r1_din
+         |    if (rst == 1) r1 <= sd"16'0"
+         |    else if (clk.rising) r1 <= r1_din
          |  }
          |end ID
          |""".stripMargin
