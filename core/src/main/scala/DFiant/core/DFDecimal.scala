@@ -893,6 +893,10 @@ object DFXInt:
           import DFBits.Val.Ops.uint
           given DFC = dfc.anonymize
           arg.uint
+      inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
+        compiletime.error(
+          "Cannot apply an enum entry value to a dataflow decimal variable."
+        )
     end Candidate
 
     object TC:

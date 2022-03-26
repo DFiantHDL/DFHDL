@@ -591,6 +591,10 @@ private object CompanionsDFBits:
         def apply(value: DFUInt[W] <> VAL)(using DFC): DFBits[W] <> VAL =
           import DFVal.Ops.bits
           value.bits
+      inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
+        compiletime.error(
+          "Cannot apply an enum entry value to a bits variable."
+        )
       inline given errDFSInt[W <: Int]: Candidate[DFSInt[W] <> VAL] =
         compiletime.error(
           "Cannot apply a signed value to a bits variable.\nConsider applying `.bits` conversion to resolve this issue."
