@@ -1,7 +1,7 @@
 package RISCV
 import DFiant.*
 
-class ALU(using DFC) extends DFDesign:
+class ALU extends DFDesign:
   // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
   val op1    = DFBits(32) <> IN
   val op2    = DFBits(32) <> IN

@@ -68,9 +68,6 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
           lazy val hasIOVals = template.body.exists { x => hasIOVal(x) }
           val addMissingDFC =
             (isDFContainer || (!skipTestContainer && hasIOVals)) && !hasDFC(paramss)
-          val dsnAnnot = t.mods.annotations.collectFirst {
-            case Apply(Select(New(Ident(n)), _), _) if (n.toString == "dsn") => t
-          }
           if (addMissingDFC)
             val dfcArgBlock = List(
               ValDef("x$1".toTermName, Ident("DFC".toTypeName), EmptyTree)
