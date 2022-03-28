@@ -28,6 +28,19 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
 
   override val runsAfter = Set("parser")
   override val runsBefore = Set("typer")
+  @tailrec private def hasIOVal(tree: Tree)(using Context): Boolean =
+    tree match
+      case v @ ValDef(_, _, tree) => hasIOVal(v.rhs)
+      case InfixOp(_, Ident(connOp), Ident(modifier)) =>
+        val modStr = modifier.toString
+        connOp.toString == "<>" && (modStr == "IN" | modStr == "OUT" | modStr == "VAR")
+      case InfixOp(tree, _, _) => hasIOVal(tree)
+      case _                   => false
+  private def hasDFC(paramss: List[List[Tree]])(using Context): Boolean =
+    paramss.view.flatten.exists {
+      case v @ ValDef(_, Ident(n), _) if n.toString == "DFC" & v.mods.flags.is(Given) => true
+      case _                                                                          => false
+    }
 
   private val annotMap = new TreeMap(untpd.cpy):
     override def transform(tree: Tree)(using Context): Tree =
@@ -36,30 +49,48 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
               _,
               template @ Template(constr @ DefDef(_, paramss, _, _), parents, _, _)
             ) =>
+          val isDFContainer = parents.headOption.exists {
+            case Ident(n) =>
+              n.toString match
+                // these classes always require DFC
+                case "DFDesign" | "RTDesign" | "DFInterface" | "RTInterface" => true
+                case _                                                       => false
+            case _ => false
+          }
+          lazy val skipTestContainer = parents.headOption.exists {
+            case Ident(n) =>
+              n.toString match
+                // these classes always require DFC
+                case "DFSpec" => true
+                case _        => false
+            case _ => false
+          }
+          lazy val hasIOVals = template.body.exists { x => hasIOVal(x) }
+          val addMissingDFC =
+            (isDFContainer || (!skipTestContainer && hasIOVals)) && !hasDFC(paramss)
+
           val dsnAnnot = t.mods.annotations.collectFirst {
             case Apply(Select(New(Ident(n)), _), _) if (n.toString == "dsn") => t
           }
-          dsnAnnot
-            .map(a =>
-              val dfcArgBlock = List(
-                ValDef("x$1".toTermName, Ident("DFC".toTypeName), EmptyTree)
-                  .withFlags(Private | Synthetic | ParamAccessor | Given)
-              )
-              val updatedConstr = cpy.DefDef(constr)(paramss = paramss :+ dfcArgBlock)
-              val updatedParents =
-                if (parents.isEmpty) List(Ident("DFDesign".toTypeName)) else parents
-              val updatedTemplate =
-                cpy.Template(template)(constr = updatedConstr, parents = updatedParents)
-              cpy.TypeDef(t)(rhs = updatedTemplate)
+          if (addMissingDFC)
+            val dfcArgBlock = List(
+              ValDef("x$1".toTermName, Ident("DFC".toTypeName), EmptyTree)
+                .withFlags(Private | Synthetic | ParamAccessor | Given)
             )
-            .getOrElse(tree)
-        case _ =>
-          super.transform(tree)
+            val updatedConstr = cpy.DefDef(constr)(paramss = paramss :+ dfcArgBlock)
+            // val updatedParents =
+            // if (parents.isEmpty) List(Ident("DFDesign".toTypeName)) else parents
+            val updatedTemplate =
+              cpy.Template(template)(constr = updatedConstr) // , parents = updatedParents)
+            cpy.TypeDef(t)(rhs = updatedTemplate)
+          else super.transform(tree)
+        case _ => super.transform(tree)
     override def transformMoreCases(tree: Tree)(using Context): Tree =
       tree
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
     val parsed = super.runOn(units)
-    parsed.foreach { cu =>
+    parsed.filter(_.source.file.path.contains("Example.scala")).foreach { cu =>
+      // println(ctx.uniqueNamedTypes.toList.map(_.show))
       cu.untpdTree = annotMap.transform(cu.untpdTree)
     }
     parsed
