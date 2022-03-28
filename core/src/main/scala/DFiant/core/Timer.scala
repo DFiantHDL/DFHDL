@@ -9,13 +9,14 @@ sealed trait Timer:
   def delay(arg: Time): Timer = ???
 
 object Timer:
-  def apply(freq: Freq): Timer = ???
-  def apply(period: Time): Timer = ???
+  def running(freq: Freq): Timer = ???
+  def running(period: Time): Timer = ???
+  def controlled(period: Time, control: DFValOf[DFBit]): Timer = ???
   final case class Ratio()
   final class Periodic(period: Time) extends Timer
   final class DerivedDelay(origin: Timer, delay: Time) extends Timer
   final class DerivedRatio(origin: Timer, ratio: Ratio) extends Timer
-  final class FromDFBit(bit: DFValOf[DFBit]) extends Timer
+  final class OnRising(bit: DFValOf[DFBit]) extends Timer
   final class Unspecified() extends Timer
   extension (bit: DFValOf[DFBit]) def asTimer: Timer = ???
   trait Literal[T]:
