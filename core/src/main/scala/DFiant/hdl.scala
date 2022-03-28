@@ -1,6 +1,7 @@
 package DFiant
 import compiler.ir.DFVal.Modifier
 object hdl:
+  class dsn extends scala.annotation.StaticAnnotation
   export core.DFType.Ops.*
   export core.DFToken.Ops.*
   export core.Bit
