@@ -77,12 +77,16 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
                 .withFlags(Private | Synthetic | ParamAccessor | Given)
             )
             val updatedConstr = cpy.DefDef(constr)(paramss = paramss :+ dfcArgBlock)
-            // val updatedParents =
-            // if (parents.isEmpty) List(Ident("DFDesign".toTypeName)) else parents
             val updatedTemplate =
-              cpy.Template(template)(constr = updatedConstr) // , parents = updatedParents)
+              cpy.Template(template)(constr = updatedConstr)
             cpy.TypeDef(t)(rhs = updatedTemplate)
           else t
+        case tree @ ModuleDef(name, impl) =>
+          inContext(localCtx(tree)) {
+            cpy
+              .asInstanceOf[UntypedTreeCopier]
+              .ModuleDef(tree)(name, transform(impl).asInstanceOf[Template])
+          }
         case t => t
     override def transformMoreCases(tree: Tree)(using Context): Tree =
       tree

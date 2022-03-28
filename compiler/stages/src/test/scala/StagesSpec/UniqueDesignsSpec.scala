@@ -7,17 +7,17 @@ import DFiant.compiler.stages.uniqueDesigns
 class UniqueDesignsSpec extends StageSpec:
   test("Unique designs") {
     object Container:
-      class ID(using DFC) extends DFDesign:
+      class ID extends DFDesign:
         val x = DFSInt(15) <> IN
         val y = DFSInt(15) <> OUT
         y := x
 
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       y := x
 
-    class IDTop(using DFC) extends DFDesign:
+    class IDTop extends DFDesign:
       val x1  = DFSInt(16) <> IN
       val y1  = DFSInt(16) <> OUT
       val x2  = DFSInt(15) <> IN
