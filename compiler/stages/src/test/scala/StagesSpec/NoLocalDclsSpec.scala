@@ -6,7 +6,7 @@ import DFiant.compiler.stages.noLocalDcls
 
 class NoLocalDclsSpec extends StageSpec:
   test("Nested local dcl move") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       val z = DFSInt(16) <> VAR
@@ -26,7 +26,7 @@ class NoLocalDclsSpec extends StageSpec:
     val id = (new ID).noLocalDcls
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val z = DFSInt(16) <> VAR

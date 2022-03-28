@@ -5,12 +5,12 @@ import DFiant.compiler.stages.viaConnection
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class ViaConnectionSpec extends StageSpec:
-  class ID(using DFC) extends DFDesign:
+  class ID extends DFDesign:
     val x = DFSInt(16) <> IN
     val y = DFSInt(16) <> OUT
     y := x
 
-  class IDTop(using DFC) extends DFDesign:
+  class IDTop extends DFDesign:
     val x   = DFSInt(16) <> IN
     val y   = DFSInt(16) <> OUT
     val id1 = new ID
@@ -19,7 +19,7 @@ class ViaConnectionSpec extends StageSpec:
     id1.y <> id2.x
     id2.y <> y
 
-  class IDTopVia(using DFC) extends DFDesign:
+  class IDTopVia extends DFDesign:
     self =>
     val x     = DFSInt(16) <> IN
     val y     = DFSInt(16) <> OUT
@@ -42,7 +42,7 @@ class ViaConnectionSpec extends StageSpec:
     val id = (new ID).viaConnection
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  y := x
@@ -54,13 +54,13 @@ class ViaConnectionSpec extends StageSpec:
     val id = (new IDTop).viaConnection
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  y := x
          |end ID
          |
-         |class IDTop(using DFC) extends DFDesign:
+         |class IDTop extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val id1_x = DFSInt(16) <> VAR
@@ -84,13 +84,13 @@ class ViaConnectionSpec extends StageSpec:
     val id = (new IDTopVia).viaConnection
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  y := x
          |end ID
          |
-         |class IDTopVia(using DFC) extends DFDesign:
+         |class IDTopVia extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val id1_x = DFSInt(16) <> VAR

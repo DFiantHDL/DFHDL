@@ -6,7 +6,7 @@ import DFiant.compiler.stages.explicitPrev
 
 class ExplicitPrevSpec extends StageSpec:
   test("Basic explicit prev") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT init 0
       y := y + 1
@@ -16,7 +16,7 @@ class ExplicitPrevSpec extends StageSpec:
     val id = (new ID).explicitPrev
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT init sd"16'0"
          |  y := y.prev
@@ -29,7 +29,7 @@ class ExplicitPrevSpec extends StageSpec:
     )
   }
   test("If-else coverage") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x  = DFSInt(16) <> IN
       val y  = DFSInt(16) <> OUT
       val y2 = DFSInt(16) <> OUT
@@ -44,7 +44,7 @@ class ExplicitPrevSpec extends StageSpec:
     val id = (new ID).explicitPrev
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT init ?
          |  y := y.prev
@@ -59,7 +59,7 @@ class ExplicitPrevSpec extends StageSpec:
     )
   }
   test("Partial assignment coverage") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x  = DFSInt(16) <> IN
       val y  = DFBits(16) <> OUT
       val y2 = DFBits(16) <> OUT
@@ -71,7 +71,7 @@ class ExplicitPrevSpec extends StageSpec:
     val id = (new ID).explicitPrev
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFBits(16) <> OUT init h"????"
          |  y := y.prev
@@ -86,7 +86,7 @@ class ExplicitPrevSpec extends StageSpec:
     )
   }
   test("DFDecimal match pattern coverage") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x  = DFUInt(3) <> IN
       val y  = DFUInt(8) <> OUT init 0
       val y2 = DFUInt(8) <> OUT init 0
@@ -110,7 +110,7 @@ class ExplicitPrevSpec extends StageSpec:
     val id = (new ID).explicitPrev
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFUInt(3) <> IN
          |  val y = DFUInt(8) <> OUT init d"8'0"
          |  y := y.prev
@@ -136,7 +136,7 @@ class ExplicitPrevSpec extends StageSpec:
     )
   }
   test("DFBits match pattern coverage") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x  = DFBits(3) <> IN
       val y  = DFUInt(8) <> OUT init 0
       val y2 = DFUInt(8) <> OUT init 0
@@ -160,7 +160,7 @@ class ExplicitPrevSpec extends StageSpec:
     val id = (new ID).explicitPrev
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFBits(3) <> IN
          |  val y = DFUInt(8) <> OUT init d"8'0"
          |  y := y.prev
@@ -186,7 +186,7 @@ class ExplicitPrevSpec extends StageSpec:
     )
   }
   test("DFEnum match pattern coverage") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       enum MyEnum extends DFEnum:
         case Foo, Baz, Bar
       import MyEnum.*
@@ -209,7 +209,7 @@ class ExplicitPrevSpec extends StageSpec:
          |  case Baz extends MyEnum(d"2'1")
          |  case Bar extends MyEnum(d"2'2")
          |
-         |class ID(using DFC) extends DFDesign:
+         |class ID extends DFDesign:
          |  val x = MyEnum <> IN
          |  val y = DFUInt(8) <> OUT init d"8'0"
          |  y := y.prev

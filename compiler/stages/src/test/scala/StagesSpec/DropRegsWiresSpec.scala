@@ -7,7 +7,7 @@ import DFiant.compiler.stages.dropRegsWires
 
 class DropRegsWiresSpec extends StageSpec:
   test("Drop wires") {
-    class ID(using DFC) extends RTDesign:
+    class ID extends RTDesign:
       val x  = DFSInt(16) <> IN
       val y  = DFSInt(16) <> OUT
       val w1 = DFSInt(16) <> WIRE
@@ -21,7 +21,7 @@ class DropRegsWiresSpec extends StageSpec:
     val id = (new ID).dropRegsWires.printCodeString
     assertCodeString(
       id,
-      """|class ID(using DFC) extends LLRTDesign:
+      """|class ID extends LLRTDesign:
          |  val clk = DFBit <> IN
          |  val rst = DFBit <> IN
          |  val x = DFSInt(16) <> IN

@@ -6,7 +6,7 @@ import DFiant.compiler.stages.explicitNamedVars
 
 class ExplicitNamedVarsSpec extends StageSpec:
   test("Basic named variable") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       val z = x + 1
@@ -14,7 +14,7 @@ class ExplicitNamedVarsSpec extends StageSpec:
     val id = (new ID).explicitNamedVars
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val z = DFSInt(16) <> VAR
@@ -25,7 +25,7 @@ class ExplicitNamedVarsSpec extends StageSpec:
     )
   }
   test("Named conditional expression") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       val z: DFSInt[16] <> VAL =
@@ -40,7 +40,7 @@ class ExplicitNamedVarsSpec extends StageSpec:
     val id = (new ID).explicitNamedVars
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val z = DFSInt(16) <> VAR
@@ -57,7 +57,7 @@ class ExplicitNamedVarsSpec extends StageSpec:
     )
   }
   test("Nested named conditional expression") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       val z: DFSInt[16] <> VAL =
@@ -80,7 +80,7 @@ class ExplicitNamedVarsSpec extends StageSpec:
     val id = (new ID).explicitNamedVars
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val z = DFSInt(16) <> VAR

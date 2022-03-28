@@ -5,17 +5,17 @@ import DFiant.compiler.stages.{sanityCheck, getCodeString}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class PrintCodeStringSpec extends StageSpec:
-  class ID(using DFC) extends DFDesign:
+  class ID extends DFDesign:
     val x = DFSInt(16) <> IN
     val y = DFSInt(16) <> OUT
     y := x
 
-  class IDGen[T <: DFType](dfType: T)(using DFC) extends DFDesign:
+  class IDGen[T <: DFType](dfType: T) extends DFDesign:
     val x = dfType <> IN
     val y = dfType <> OUT
     y := x
 
-  class IDTop(using DFC) extends DFDesign:
+  class IDTop extends DFDesign:
     val x   = DFSInt(16) <> IN
     val y   = DFSInt(16) <> OUT
     val id1 = new ID
@@ -24,7 +24,7 @@ class PrintCodeStringSpec extends StageSpec:
     id1.y <> id2.x
     id2.y <> y
 
-  class IDTopVia(using DFC) extends DFDesign:
+  class IDTopVia extends DFDesign:
     self =>
     val x     = DFSInt(16) <> IN
     val y     = DFSInt(16) <> OUT
@@ -47,7 +47,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new ID).getCodeString
     assertNoDiff(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  y := x
@@ -59,7 +59,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDGen(DFBits(8))).getCodeString
     assertNoDiff(
       id,
-      """|class IDGen(using DFC) extends DFDesign:
+      """|class IDGen extends DFDesign:
          |  val x = DFBits(8) <> IN
          |  val y = DFBits(8) <> OUT
          |  y := x
@@ -69,7 +69,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id2 = (new IDGen((DFBits(4), DFSInt(4)))).getCodeString
     assertNoDiff(
       id2,
-      """|class IDGen(using DFC) extends DFDesign:
+      """|class IDGen extends DFDesign:
          |  val x = (DFBits(4), DFSInt(4)) <> IN
          |  val y = (DFBits(4), DFSInt(4)) <> OUT
          |  y := x
@@ -81,13 +81,13 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDTop).getCodeString
     assertNoDiff(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  y := x
          |end ID
          |
-         |class IDTop(using DFC) extends DFDesign:
+         |class IDTop extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val id1 = new ID
@@ -103,13 +103,13 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDTopVia).getCodeString
     assertNoDiff(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  y := x
          |end ID
          |
-         |class IDTopVia(using DFC) extends DFDesign:
+         |class IDTopVia extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val id1_x = DFSInt(16) <> VAR
@@ -131,7 +131,7 @@ class PrintCodeStringSpec extends StageSpec:
   }
   test("Design names affect named dataflow types") {
     object ID extends DFOpaque(DFBit)
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       val z = ID         <> VAR init 0.as(ID)
@@ -139,7 +139,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new ID).getCodeString
     assertNoDiff(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  object ID_0 extends DFOpaque(DFBit)
          |
          |  val x = DFSInt(16) <> IN
@@ -152,7 +152,7 @@ class PrintCodeStringSpec extends StageSpec:
   }
 
   test("Basic RTDesign") {
-    class ID(using DFC) extends RTDesign:
+    class ID extends RTDesign:
       val x    = DFSInt(16) <> IN
       val y    = DFSInt(16) <> OUT
       val flag = DFBit      <> IN
@@ -177,7 +177,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new ID).getCodeString
     assertNoDiff(
       id,
-      """|class ID(using DFC) extends RTDesign:
+      """|class ID extends RTDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val flag = DFBit <> IN
@@ -201,7 +201,7 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
   test("Domains") {
-    class IDWithDomains(using DFC) extends DFDesign:
+    class IDWithDomains extends DFDesign:
       val x = DFSInt(16) <> IN
       val fast = new RTDomain:
         val p = DFSInt(16) <> VAR
@@ -214,7 +214,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDWithDomains).getCodeString
     assertNoDiff(
       id,
-      """|class IDWithDomains(using DFC) extends DFDesign:
+      """|class IDWithDomains extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val fast = new RTDomain():
          |    val p = DFSInt(16) <> VAR

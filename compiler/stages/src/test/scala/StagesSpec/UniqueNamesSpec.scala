@@ -5,7 +5,7 @@ import DFiant.compiler.stages.uniqueNames
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class UniqueNamesSpec extends StageSpec:
-  class ID(using DFC) extends DFDesign:
+  class ID extends DFDesign:
     val x = DFSInt(16) <> IN
     val y = DFSInt(16) <> OUT
     val z = DFBits(8)  <> IN
@@ -19,7 +19,7 @@ class UniqueNamesSpec extends StageSpec:
     val id = (new ID).uniqueNames(Set("z"), true)
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x_0 = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val z_0 = DFBits(8) <> IN
@@ -34,7 +34,7 @@ class UniqueNamesSpec extends StageSpec:
     val id = (new ID).uniqueNames(Set(), false)
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x_0 = DFSInt(16) <> IN
          |  val y_0 = DFSInt(16) <> OUT
          |  val z = DFBits(8) <> IN
@@ -45,7 +45,7 @@ class UniqueNamesSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  class SomeEnums(using DFC) extends DFDesign:
+  class SomeEnums extends DFDesign:
     enum MyEnumGlbl extends DFEnum:
       case Bar, Baz
     enum MyEnumLcl extends DFEnum:
@@ -70,7 +70,7 @@ class UniqueNamesSpec extends StageSpec:
          |  case Bar extends MyEnumGlbl(d"1'0")
          |  case Baz extends MyEnumGlbl(d"1'1")
          |
-         |class SomeEnums(using DFC) extends DFDesign:
+         |class SomeEnums extends DFDesign:
          |  object MyByte extends DFOpaque(DFBits(8))
          |  enum MyEnumLcl_0(val value: DFUInt[1] <> TOKEN) extends DFEnum.Manual(1):
          |    case Baz extends MyEnumLcl_0(d"1'0")

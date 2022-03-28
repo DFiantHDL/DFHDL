@@ -31,19 +31,19 @@ class UniqueDesignsSpec extends StageSpec:
     val id = (new IDTop).uniqueDesigns
     assertCodeString(
       id,
-      """|class ID_0(using DFC) extends DFDesign:
+      """|class ID_0 extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  y := x
          |end ID_0
          |
-         |class ID_1(using DFC) extends DFDesign:
+         |class ID_1 extends DFDesign:
          |  val x = DFSInt(15) <> IN
          |  val y = DFSInt(15) <> OUT
          |  y := x
          |end ID_1
          |
-         |class IDTop(using DFC) extends DFDesign:
+         |class IDTop extends DFDesign:
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
          |  val x2 = DFSInt(15) <> IN

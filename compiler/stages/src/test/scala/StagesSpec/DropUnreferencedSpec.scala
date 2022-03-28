@@ -6,7 +6,7 @@ import compiler.stages.dropUnreferenced
 
 class DropUnreferencedSpec extends StageSpec:
   test("Drop unreferenced") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       val z = DFBits(8)  <> VAR
@@ -14,7 +14,7 @@ class DropUnreferencedSpec extends StageSpec:
     val id = (new ID).dropUnreferenced
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  y := x
@@ -23,7 +23,7 @@ class DropUnreferencedSpec extends StageSpec:
     )
   }
   test("Keep initialized unreferenced") {
-    class ID(using DFC) extends DFDesign:
+    class ID extends DFDesign:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       val z = DFBits(8)  <> VAR init all(0)
@@ -31,7 +31,7 @@ class DropUnreferencedSpec extends StageSpec:
     val id = (new ID).dropUnreferenced
     assertCodeString(
       id,
-      """|class ID(using DFC) extends DFDesign:
+      """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val z = DFBits(8) <> VAR init h"00"

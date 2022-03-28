@@ -5,12 +5,12 @@ import DFiant.compiler.stages.vhdl.{printVHDLCode, getVHDLCode}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class PrintVHDLCodeSpec extends StageSpec:
-  class ID(using DFC) extends DFDesign:
+  class ID extends DFDesign:
     val x = DFSInt(16) <> IN
     val y = DFSInt(16) <> OUT
     y := x
 
-  class IDTop(using DFC) extends DFDesign:
+  class IDTop extends DFDesign:
     val x   = DFSInt(16) <> IN
     val y   = DFSInt(16) <> OUT
     val id1 = new ID
@@ -98,7 +98,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
   test("always block") {
-    class Top(using DFC) extends DFDesign:
+    class Top extends DFDesign:
       val clk = DFBit      <> IN
       val rst = DFBit      <> IN
       val x   = DFBits(16) <> IN
@@ -164,7 +164,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
   test("literals") {
-    class Top(using DFC) extends DFDesign:
+    class Top extends DFDesign:
       val c01 = DFBit const 0
       val c02 = DFBit const 1
       val c03 = DFBit const ?

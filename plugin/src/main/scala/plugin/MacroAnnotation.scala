@@ -44,7 +44,7 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
 
   private val annotMap = new TreeMap(untpd.cpy):
     override def transform(tree: Tree)(using Context): Tree =
-      tree match
+      super.transform(tree) match
         case t @ TypeDef(
               _,
               template @ Template(constr @ DefDef(_, paramss, _, _), parents, _, _)
@@ -68,7 +68,6 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
           lazy val hasIOVals = template.body.exists { x => hasIOVal(x) }
           val addMissingDFC =
             (isDFContainer || (!skipTestContainer && hasIOVals)) && !hasDFC(paramss)
-
           val dsnAnnot = t.mods.annotations.collectFirst {
             case Apply(Select(New(Ident(n)), _), _) if (n.toString == "dsn") => t
           }
@@ -83,14 +82,13 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
             val updatedTemplate =
               cpy.Template(template)(constr = updatedConstr) // , parents = updatedParents)
             cpy.TypeDef(t)(rhs = updatedTemplate)
-          else super.transform(tree)
-        case _ => super.transform(tree)
+          else t
+        case t => t
     override def transformMoreCases(tree: Tree)(using Context): Tree =
       tree
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
     val parsed = super.runOn(units)
-    parsed.filter(_.source.file.path.contains("Example.scala")).foreach { cu =>
-      // println(ctx.uniqueNamedTypes.toList.map(_.show))
+    parsed.foreach { cu => // .filter(_.source.file.path.contains("Example.scala"))
       cu.untpdTree = annotMap.transform(cu.untpdTree)
     }
     parsed
