@@ -165,7 +165,7 @@ object DFVal:
   end extension
 
   // can be an expression
-  sealed trait CanBeExpr extends DFVal with DFMember.Named
+  sealed trait CanBeExpr extends DFVal
 
   final case class Const(
       token: DFTokenAny,
@@ -638,3 +638,59 @@ object DFSimMember:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+
+sealed trait Timer extends DFMember.Named
+object Timer:
+  type Ref = DFRef.TwoWay[Timer]
+  type TriggerRef = DFRef.TwoWay[DFVal | DFMember.Empty]
+  final case class Periodic(
+      triggerRef: TriggerRef,
+      periodOpt: Option[Time],
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Timer:
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: Periodic =>
+        this.triggerRef =~ that.triggerRef && this.periodOpt == that.periodOpt &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+
+  final case class Func(
+      sourceRef: Timer.Ref,
+      op: Func.Op,
+      arg: Time | Ratio,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Timer:
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: Func =>
+        this.sourceRef =~ that.sourceRef && this.op == that.op && this.arg == that.arg &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  end Func
+  object Func:
+    enum Op derives CanEqual:
+      case Delay, `*`, /
+
+  final case class IsActive(
+      timerRef: Ref,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends DFVal.CanBeExpr:
+    val dfType: DFType = DFBool
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: IsActive =>
+        this.timerRef =~ that.timerRef &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  end IsActive
+end Timer

@@ -33,4 +33,5 @@ class RTPrinter(using val getSet: MemberGetSet)
     else s"/*$comment*/"
   def csEndOfStatement: String = ";"
   def csCommentEOL(comment: String): String = s"-- $comment"
+  def csTimer(timer: Timer): String = unsupported
 end RTPrinter

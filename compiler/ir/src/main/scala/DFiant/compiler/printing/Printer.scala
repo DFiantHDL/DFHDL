@@ -69,9 +69,12 @@ trait Printer
     val rightStr = rhsRef.refCodeString
     s"$leftStr $opStr $rightStr"
   end csDFNet
+  def csTimeUnit(time: Time): String = s"${time.usec}.us"
+  def csFreqUnit(freq: Freq): String = s"${freq.hertz}.Hz"
+  def csRatioUnit(ratio: Ratio): String = s"${ratio.value}"
+  def csTimer(timer: Timer): String
   def csCommentInline(comment: String): String
   def csCommentEOL(comment: String): String
-
   final def csDFMember(member: DFMember): String = member match
     case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
     case dfVal: DFVal                                => csDFValNamed(dfVal)
@@ -79,6 +82,7 @@ trait Printer
     case design: DFDesignBlock                       => csDFDesignBlockInst(design)
     case ab: AlwaysBlock                             => csAlwaysBlock(ab)
     case domain: DomainBlock                         => csDomainBlock(domain)
+    case timer: Timer                                => csTimer(timer)
     case _                                           => ???
   final def csDB(db: DB): String =
     import db.getSet
@@ -119,6 +123,24 @@ class DFPrinter(using val getSet: MemberGetSet)
     else s"/*$comment*/"
   def csEndOfStatement: String = ""
   def csCommentEOL(comment: String): String = s"// $comment"
+  def csTimer(timer: Timer): String =
+    val timerBody = timer match
+      case p: Timer.Periodic =>
+        (p.triggerRef.get, p.periodOpt) match
+          case (DFMember.Empty, None)         => "Timer()"
+          case (DFMember.Empty, Some(period)) => s"Timer(${csTimeUnit(period)})"
+          case (trigger: DFVal, None) =>
+            s"Timer(${p.triggerRef.refCodeString})"
+          case (trigger: DFVal, Some(period)) =>
+            s"Timer(${p.triggerRef.refCodeString},${csTimeUnit(period)})"
+          case _ => ??? // impossible
+      case f: Timer.Func =>
+        val argStr = f.arg match
+          case r: Ratio => csRatioUnit(r)
+          case t: Time  => csTimeUnit(t)
+        s"${f.sourceRef.refCodeString} ${f.op} $argStr"
+    if (timer.isAnonymous) timerBody else s"val ${timer.name} = $timerBody"
+  end csTimer
 end DFPrinter
 
 extension (member: DFMember)(using printer: Printer)

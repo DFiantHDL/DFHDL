@@ -28,6 +28,8 @@ object hdl:
   export internals.CommonOps.*
   export core.{width, dfType}
   export core.Timer.Ops.*
+  type Timer = core.Timer
+  val Timer = core.Timer
   type DFC = core.DFC
   export core.dfc
   type Inlined[T] = internals.Inlined[T]

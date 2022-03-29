@@ -1,43 +1,96 @@
 package DFiant.core
+import DFiant.compiler.ir
+import ir.{Time, Freq, Ratio}
+import ir.Timer.Func.Op as FuncOp
 import DFiant.internals.*
-class Time(value: BigDecimal)
-class Freq(value: BigDecimal)
-sealed trait Timer:
-  def *[T <: Int | Double](arg: Inlined[T]): Timer = ???
-  def /[T <: Int | Double](arg: Inlined[T]): Timer = ???
-  def isActive: DFValOf[DFBool] = ???
-  def delay(arg: Time): Timer = ???
 
+sealed class Timer private (val irValue: ir.Timer | DFError) extends DFMember[ir.Timer]
 object Timer:
-  def running(freq: Freq): Timer = ???
-  def running(period: Time): Timer = ???
-  def controlled(period: Time, control: DFValOf[DFBit]): Timer = ???
-  final case class Ratio()
-  final class Periodic(period: Time) extends Timer
-  final class DerivedDelay(origin: Timer, delay: Time) extends Timer
-  final class DerivedRatio(origin: Timer, ratio: Ratio) extends Timer
-  final class OnRising(bit: DFValOf[DFBit]) extends Timer
-  final class Unspecified() extends Timer
-  extension (bit: DFValOf[DFBit]) def asTimer: Timer = ???
-  trait Literal[T]:
-    def apply(arg: T): BigDecimal
-  object Literal:
-    given fromInt[T <: Int]: Literal[T] with
-      def apply(arg: T): BigDecimal = BigDecimal(arg)
-    given fromDouble[T <: Double]: Literal[T] with
-      def apply(arg: T): BigDecimal = BigDecimal(arg)
-  object Ops:
-    extension (lhs: Int | Double)
-      def ps: Time = ???
-      def ns: Time = ???
-      def us: Time = ???
-      def ms: Time = ???
-      def units: Time = ???
-    extension (lhs: Int | Double)
-      def Hz: Freq = ???
-      def KHz: Freq = ???
-      def MHz: Freq = ???
-      def GHz: Freq = ???
+  extension (timer: ir.Timer) private def asFE: Timer = new Timer(timer)
+  type Period = Time | Freq
+  extension (period: Period)
+    def time = period match
+      case t: Time => t
+      case f: Freq => f.period
 
+  def apply()(using DFC): Timer = Periodic(None, None)
+  def apply(period: Period)(using DFC): Timer = Periodic(None, Some(period.time))
+  def apply(trigger: DFValOf[DFBit])(using DFC): Timer = Periodic(Some(trigger), None)
+  def apply(trigger: DFValOf[DFBit], period: Period)(using DFC): Timer =
+    Periodic(Some(trigger), Some(period.time))
+  extension (bd: BigDecimal.type)
+    private def apply(arg: Int | Double): BigDecimal = arg match
+      case i: Int    => BigDecimal(i)
+      case d: Double => BigDecimal(d)
+//  trait Literal[T]:
+//    def apply(arg: T): BigDecimal
+//  object Literal:
+//    given fromInt[T <: Int]: Literal[T] with
+//      def apply(arg: T): BigDecimal = BigDecimal(arg)
+//    given fromDouble[T <: Double]: Literal[T] with
+//      def apply(arg: T): BigDecimal = BigDecimal(arg)
+  object Ops:
+    extension (timer: Timer)
+      def *(ratio: Int | Double)(using DFC): Timer =
+        Timer.Func(timer, FuncOp.`*`, Ratio(BigDecimal(ratio)))
+      def /(ratio: Int | Double)(using DFC): Timer =
+        Timer.Func(timer, FuncOp./, Ratio(BigDecimal(ratio)))
+      def delay(arg: Time)(using DFC): Timer =
+        Timer.Func(timer, FuncOp.Delay, arg)
+      def isActive(using DFC): DFValOf[DFBool] =
+        Timer.IsActive(timer)
+    extension (lhs: Int | Double)
+      def ps: Time = Time(BigDecimal(lhs) * 1e6)
+      def ns: Time = Time(BigDecimal(lhs) * 1e3)
+      def us: Time = Time(BigDecimal(lhs))
+      def ms: Time = Time(BigDecimal(lhs) / 1e3)
+      def sec: Time = Time(BigDecimal(lhs) / 1e6)
+    extension (lhs: Int | Double)
+      def Hz: Freq = Freq(BigDecimal(lhs))
+      def KHz: Freq = Freq(BigDecimal(lhs) * 1e3)
+      def MHz: Freq = Freq(BigDecimal(lhs) * 1e6)
+      def GHz: Freq = Freq(BigDecimal(lhs) * 1e9)
   end Ops
+
+  object Periodic:
+    def apply(trigger: Option[DFValOf[DFBit]], periodOpt: Option[Time])(using DFC): Timer =
+      lazy val triggerRef: ir.Timer.TriggerRef = trigger match
+        case Some(value) => value.asIR.refTW(timer)
+        case None        => ir.DFRef.TwoWay.Empty
+      lazy val timer: ir.Timer = ir.Timer
+        .Periodic(
+          triggerRef,
+          periodOpt,
+          dfc.owner.ref,
+          dfc.getMeta,
+          ir.DFTags.empty
+        )
+        .addMember
+      timer.asFE
+  end Periodic
+  object Func:
+    def apply(source: Timer, op: FuncOp, arg: Time | Ratio)(using DFC): Timer =
+      lazy val timer: ir.Timer = ir.Timer
+        .Func(
+          source.asIR.refTW(timer),
+          op,
+          arg,
+          dfc.owner.ref,
+          dfc.getMeta,
+          ir.DFTags.empty
+        )
+        .addMember
+      timer.asFE
+
+  object IsActive:
+    def apply(timer: Timer)(using DFC): DFValOf[DFBool] =
+      lazy val dfVal: ir.DFVal = ir.Timer
+        .IsActive(
+          timer.asIR.refTW(dfVal),
+          dfc.owner.ref,
+          dfc.getMeta,
+          ir.DFTags.empty
+        )
+        .addMember
+      dfVal.asValOf[DFBool]
 end Timer

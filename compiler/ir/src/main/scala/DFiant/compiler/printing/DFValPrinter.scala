@@ -43,6 +43,7 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String
   def csDFValAliasHistory(dfVal: Alias.History): String
   def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String
+  def csTimerIsActive(dfVal: Timer.IsActive): String
   final def csDFValAliasExpr(dfVal: Alias): String = dfVal match
     case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
     case dv: Alias.History     => csDFValAliasHistory(dv)
@@ -56,6 +57,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dv: Func                 => csDFValFuncExpr(dv)
       case dv: Alias                => csDFValAliasExpr(dv)
       case dv: DFConditional.Header => printer.csDFConditional(dv)
+      case dv: Timer.IsActive       => csTimerIsActive(dv)
   def csDFValNamed(dfVal: DFVal): String
   final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner): String =
     dfVal match
@@ -196,6 +198,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
     s"${dfVal.relValCodeString}$appliedStr"
   def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String =
     s"${dfVal.relValCodeString}.din"
+  def csTimerIsActive(dfVal: Timer.IsActive): String =
+    s"${dfVal.timerRef.refCodeString}.isActive"
   def csDFValNamed(dfVal: DFVal): String =
     def typeAnnot = dfVal match
       case dv: DFConditional.Header if dv.dfType != NoType =>
