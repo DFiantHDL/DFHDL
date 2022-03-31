@@ -43,6 +43,11 @@ private class DropRegsWires(db: DB) extends Stage(db):
                 hasClock,
                 s"Clock is missing in high-level domain owner ${owner.getFullName}. Found registers but no clock is defined."
               )
+            // if the assigned declaration is at an `always` block, then this is a blocking assignment.
+            // otherwise, this is a non-blocking assignment.
+//        toVal.dealias.get.getOwnerNamed match
+//          case _: AlwaysBlock => csAssignmentOp
+//          case _              => csNBAssignmentOp
 
             // adding clock and reset ports according to the domain configuration
             val clkRstPortsDsn = new MetaDesign:

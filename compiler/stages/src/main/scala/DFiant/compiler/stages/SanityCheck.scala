@@ -11,7 +11,7 @@ private class SanityCheck(db: DB) extends Stage(db):
   private def memberExistenceCheck(): Unit =
     given Printer = DefaultPrinter
     val violations = designDB.members.flatMap {
-      case n @ DFNet(toRef, DFNet.Op.Assignment, fromRef, _, _, _, _) =>
+      case n @ DFNet(toRef, _: DFNet.Op.Assignment, fromRef, _, _, _, _) =>
         val toMember = toRef.get
         val fromMember = fromRef.get
         val toValMissing = !designDB.members.contains(toMember)
@@ -56,8 +56,8 @@ private class SanityCheck(db: DB) extends Stage(db):
           val prevMember = designDB.members(idx - 1)
           println(
             s"Previous member ${prevMember.hashCode().toHexString}:\n$prevMember\nHas owner ${prevMember.getOwner
-              .hashCode()
-              .toHexString}:\n${prevMember.getOwner}"
+                .hashCode()
+                .toHexString}:\n${prevMember.getOwner}"
           )
           require(false, "Failed ownership check!")
         ownershipCheck(currentOwner.getOwner, members) // exiting current owner

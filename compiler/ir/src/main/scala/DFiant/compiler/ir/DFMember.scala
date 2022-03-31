@@ -362,22 +362,31 @@ end DFNet
 
 object DFNet:
   type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner]
-  enum Op derives CanEqual:
-    case Assignment, Connection, LazyConnection
+  sealed trait Op extends Product with Serializable derives CanEqual
+  object Op:
+    sealed trait Assignment extends Op
+    case object Assignment extends Assignment
+    case object NBAssignment extends Assignment
+    sealed trait Connection extends Op
+    case object Connection extends Connection
+    case object LazyConnection extends Connection
   extension (net: DFNet)
     def isAssignment = net.op match
-      case Op.Assignment => true
-      case _             => false
+      case _: Op.Assignment => true
+      case _                => false
+    def isNBAssignment = net.op match
+      case Op.NBAssignment => true
+      case _               => false
     def isConnection = net.op match
-      case Op.Connection | Op.LazyConnection => true
-      case _                                 => false
+      case _: Op.Connection => true
+      case _                => false
     def isLazyConnection = net.op match
       case Op.LazyConnection => true
       case _                 => false
 
   object Assignment:
     def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
-      case DFNet(toRef, Op.Assignment, fromRef, _, _, _, _) =>
+      case DFNet(toRef, _: Op.Assignment, fromRef, _, _, _, _) =>
         Some(toRef.get.asInstanceOf[DFVal], fromRef.get.asInstanceOf[DFVal])
       case _ => None
   object Connection:

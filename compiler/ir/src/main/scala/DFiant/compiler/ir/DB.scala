@@ -267,7 +267,7 @@ final case class DB(
         val owner = net.ownerRef.get
         val (lhsAccess, rhsAccess) = net.op match
           // assignment is always from right to left
-          case Assignment => (Write, Read)
+          case _: Assignment => (Write, Read)
           // connections are analyzed according to the context of the net
           case _ => (getValAccess(lhsVal, net)(connToDcls), getValAccess(rhsVal, net)(connToDcls))
         val toValOption = (lhsAccess, rhsAccess) match
@@ -299,7 +299,7 @@ final case class DB(
           case Some(toDcl) =>
             connToDcls.get(toDcl) match
               // already has assignments, but multiple assignments are allowed
-              case Some(prevNet) if prevNet.op == Assignment && net.op == Assignment =>
+              case Some(prevNet) if prevNet.isAssignment && net.isAssignment =>
               // previous net is either a connection or an assignment
               case Some(prevNet) =>
                 newError(

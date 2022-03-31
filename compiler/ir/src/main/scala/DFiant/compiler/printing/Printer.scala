@@ -27,13 +27,8 @@ trait Printer
   val normalizeLateConnection: Boolean
   val normalizeConnection: Boolean
   final def csDFNetOp(net: DFNet): String = net.op match
-    case DFNet.Op.Assignment =>
-      val DFNet.Assignment(toVal, _) = net
-      // if the assigned declaration is at an `always` block, then this is a blocking assignment.
-      // otherwise, this is a non-blocking assignment.
-      toVal.dealias.get.getOwnerNamed match
-        case _: AlwaysBlock => csAssignmentOp
-        case _              => csNBAssignmentOp
+    case DFNet.Op.Assignment   => csAssignmentOp
+    case DFNet.Op.NBAssignment => csNBAssignmentOp
     case DFNet.Op.Connection =>
       if (net.lateConstruction) csLateConnectionOp
       else csConnectionOp
