@@ -71,6 +71,11 @@ object DFType:
 
   type Supported = DFTypeAny | DFEncoding | DFOpaqueA | AnyRef
   object Ops:
+    extension (inline cellDim: Int)
+      inline def <>[M <: ir.DFVal.ModifierAny](
+          modifier: M
+      ): DFVector.ComposedModifier[cellDim.type, M] =
+        new DFVector.ComposedModifier[cellDim.type, M](cellDim, modifier)
     extension [T <: Supported](t: T)
       def <>[M <: ir.DFVal.ModifierAny](modifier: M)(using
           tc: DFType.TC[T],

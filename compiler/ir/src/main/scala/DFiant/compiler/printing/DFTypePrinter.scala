@@ -72,7 +72,8 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
-    s"${csDFType(cellType, typeCS)}.X${cellDims.mkStringBrackets}"
+    val dimStr = if (cellDims.size == 1) cellDims.head.toString else cellDims.mkStringBrackets
+    s"${csDFType(cellType, typeCS)} X $dimStr"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     s"object ${dfType.getName} extends DFOpaque(${csDFType(dfType.actualType)})"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName

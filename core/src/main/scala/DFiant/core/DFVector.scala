@@ -32,14 +32,20 @@ object DFVector:
           " is different than the expected width of the vector address " + W
       ]
 
+  sealed class ComposedModifier[D <: Int, M <: ModifierAny](val cellDim: D, val modifier: M)
   object Ops:
     extension [T <: DFType.Supported](t: T)(using tc: DFType.TC[T])
       // transparent inline def X(inline cellDim: Int*): DFType =
       //   x(dfType, cellDim: _*)
-      def X[D <: Int](
-          cellDim: Inlined[D]
-      ): DFVector[tc.Type, Tuple1[D]] =
+      inline def X(
+          cellDim: Int
+      ): DFVector[tc.Type, Tuple1[cellDim.type]] =
         DFVector(tc(t), Tuple1(cellDim))
+    extension [T <: DFType.Supported, D <: Int, M <: ModifierAny](t: T)(using tc: DFType.TC[T])
+      def X(
+          composedModifier: ComposedModifier[D, M]
+      )(using DFC): DFVal[DFVector[tc.Type, Tuple1[D]], M] =
+        DFVal.Dcl(DFVector(tc(t), Tuple1(composedModifier.cellDim)), composedModifier.modifier)
 //      inline def X(
 //          inline cellDim0: Int,
 //          inline cellDim1: Int

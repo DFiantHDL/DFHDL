@@ -13,7 +13,7 @@ class DFTypeSpec extends DFSpec:
   val bit = DFBit
   val bool = DFBool
   val tpl = (bool, bit, b8)
-  val vec_b8x10 = b8.X(10)
+  val vec_b8x10 = b8 X 10
   enum MyEnum1 extends DFEnum:
     case Foo, Bar, Baz
   enum MyEnum2 extends DFEnum.StartAt(20):
@@ -56,7 +56,7 @@ class DFTypeSpec extends DFSpec:
     assertEquals(bit.codeString, "DFBit")
     assertEquals(bool.codeString, "DFBool")
     assertEquals(tpl.dfType.codeString, "(DFBool, DFBit, DFBits(8))")
-    assertEquals(vec_b8x10.codeString, "DFBits(8).X(10)")
+    assertEquals(vec_b8x10.codeString, "DFBits(8) X 10")
     assertEquals(MyEnum1.dfType.codeString, "MyEnum1")
     assertEquals(MyEnum2.dfType.codeString, "MyEnum2")
     assertEquals(MyEnum3.dfType.codeString, "MyEnum3")

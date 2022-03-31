@@ -630,7 +630,7 @@ end DFVal
 extension [T <: DFTypeAny](dfVar: DFValOf[T])
   def assign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
     DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
-  def assignNB[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
+  def nbAssign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
     DFNet(dfVar.asIR, DFNet.Op.NBAssignment, rhs.asIR)
   def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
     DFNet(dfVar.asIR, DFNet.Op.Connection, rhs.asIR)
@@ -663,16 +663,24 @@ protected object VarsTuple:
 end VarsTuple
 
 object DFVarOps:
+  protected type VarOnly[A] = AssertGiven[
+    A =:= Modifier.Assignable,
+    "Cannot assign to an immutable value."
+  ]
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])
     def :=[R](rhs: Exact[R])(using
-        varOnly: AssertGiven[
-          A =:= Modifier.Assignable,
-          "Cannot assign to an immutable dataflow value."
-        ],
+        varOnly: VarOnly[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): Unit = trydf {
       dfVar.assign(tc(dfVar.dfType, rhs))
+    }
+    def <=[R](rhs: Exact[R])(using
+        varOnly: VarOnly[A],
+        tc: DFVal.TC[T, R],
+        dfc: DFC
+    ): Unit = trydf {
+      dfVar.nbAssign(tc(dfVar.dfType, rhs))
     }
     def din(using
         regOnly: AssertGiven[
