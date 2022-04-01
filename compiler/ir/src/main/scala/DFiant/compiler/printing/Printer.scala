@@ -101,7 +101,7 @@ class DFPrinter(using val getSet: MemberGetSet)
   given printer: TPrinter = this
   val commentConnDir: CommentConnDir = CommentConnDir.Inline
   def csAssignmentOp: String = ":="
-  def csNBAssignmentOp: String = ":="
+  def csNBAssignmentOp: String = ":=="
   def csConnectionOp: String = "<>"
   def csLateConnectionOp: String = "<>"
   def csLateConnectionSep: String = ""

@@ -2,13 +2,13 @@ package StagesSpec
 
 import DFiant.*
 import DFiant.compiler.stages.vhdl.{printVHDLCode, getVHDLCode}
-// scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}, {code = "<="}]}
+// scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}, {code = ":=="}]}
 
 class PrintVHDLCodeSpec extends StageSpec:
   class ID extends RTDesign:
     val x = DFSInt(16) <> IN
     val y = DFSInt(16) <> OUT
-    y <= x
+    y :== x
 
   class IDTop extends RTDesign:
     self =>
@@ -24,13 +24,13 @@ class PrintVHDLCodeSpec extends StageSpec:
     val id2 = new ID:
       this.x <> id2_x
       this.y <> id2_y
-    id1_x <= x
-    id2_x <= id1_y
-    y     <= id2_y
+    id1_x :== x
+    id2_x :== id1_y
+    y     :== id2_y
   end IDTop
 
   test("Basic ID design") {
-    val id = (new ID).printCodeString.getVHDLCode
+    val id = (new ID).getVHDLCode
     assertNoDiff(
       id,
       """|library ieee;
@@ -117,18 +117,18 @@ class PrintVHDLCodeSpec extends StageSpec:
       always(clk, rst) {
         val c = DFBits(16) const all(0)
         if (rst)
-          y <= c
+          y :== c
         else if (clk.rising)
-          y <= x
+          y :== x
       }
       val myblock = always.all {
         val my_var = DFBits(16) <> VAR
         my_var := x
-        y      <= my_var
+        y     :== my_var
       }
       always() {
-        z <= x
-        y <= z
+        z :== x
+        y :== z
       }
     end Top
     val top = (new Top).getVHDLCode

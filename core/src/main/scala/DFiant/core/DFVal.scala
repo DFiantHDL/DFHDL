@@ -681,7 +681,7 @@ object DFVarOps:
     ): Unit = trydf {
       dfVar.assign(tc(dfVar.dfType, rhs))
     }
-    def <=[R](rhs: Exact[R])(using
+    def :==[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
