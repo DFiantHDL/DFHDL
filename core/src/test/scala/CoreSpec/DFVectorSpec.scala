@@ -47,7 +47,6 @@ class DFVectorSpec extends DFSpec:
       val v3 = DFUInt(8) X 4 X 4 <> VAR
       v3 := all(all(0))
       v3(3)(1) := 25
-      val v4 = summon[DFUInt[8] X 4]
     }
   }
 end DFVectorSpec

@@ -636,10 +636,10 @@ end DFVal
 extension [T <: DFTypeAny](dfVar: DFValOf[T])
   def assign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
     DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
-  def nbAssign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
-    DFNet(dfVar.asIR, DFNet.Op.NBAssignment, rhs.asIR)
+
+extension [T <: DFTypeAny](lhs: DFValOf[T])
   def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
-    DFNet(dfVar.asIR, DFNet.Op.Connection, rhs.asIR)
+    DFNet(lhs.asIR, DFNet.Op.Connection, rhs.asIR)
 
 protected trait VarsTuple[T <: NonEmptyTuple]:
   type Width <: Int
@@ -686,7 +686,7 @@ object DFVarOps:
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): Unit = trydf {
-      dfVar.nbAssign(tc(dfVar.dfType, rhs))
+      dfVar.assign(tc(dfVar.dfType, rhs))
     }
     def din(using
         regOnly: AssertGiven[

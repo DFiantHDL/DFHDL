@@ -37,3 +37,7 @@ abstract class RTDomain(
     extends Domain:
   private[core] class TDomain extends ir.DomainType.RT.HL
   private[core] lazy val __domainType: TDomain = new TDomain
+
+abstract class LLRTDomain(using DFC) extends Domain:
+  private[core] class TDomain extends ir.DomainType.RT.LL
+  private[core] lazy val __domainType: TDomain = new TDomain

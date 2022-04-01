@@ -38,6 +38,9 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
     getOwnerBlock match
       case d: DFDesignBlock => d
       case b: DFBlock       => b.getOwnerDesign
+  final def getOwnerDomain(using MemberGetSet): DFDomainOwner = getOwner match
+    case b: DFDomainOwner => b
+    case o                => o.getOwnerDomain
   final def getThisOrOwnerDesign(using MemberGetSet): DFDesignBlock = this match
     case d: DFDesignBlock => d
     case x                => x.getOwnerDesign
@@ -362,31 +365,22 @@ end DFNet
 
 object DFNet:
   type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner]
-  sealed trait Op extends Product with Serializable derives CanEqual
-  object Op:
-    sealed trait Assignment extends Op
-    case object Assignment extends Assignment
-    case object NBAssignment extends Assignment
-    sealed trait Connection extends Op
-    case object Connection extends Connection
-    case object LazyConnection extends Connection
+  enum Op derives CanEqual:
+    case Assignment, Connection, LazyConnection
   extension (net: DFNet)
     def isAssignment = net.op match
-      case _: Op.Assignment => true
-      case _                => false
-    def isNBAssignment = net.op match
-      case Op.NBAssignment => true
-      case _               => false
+      case Op.Assignment => true
+      case _             => false
     def isConnection = net.op match
-      case _: Op.Connection => true
-      case _                => false
+      case Op.Connection | Op.LazyConnection => true
+      case _                                 => false
     def isLazyConnection = net.op match
       case Op.LazyConnection => true
       case _                 => false
 
   object Assignment:
     def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
-      case DFNet(DFRef(toVal: DFVal), _: Op.Assignment, DFRef(fromVal: DFVal), _, _, _, _) =>
+      case DFNet(DFRef(toVal: DFVal), Op.Assignment, DFRef(fromVal: DFVal), _, _, _, _) =>
         Some(toVal, fromVal)
       case _ => None
   object Connection:
