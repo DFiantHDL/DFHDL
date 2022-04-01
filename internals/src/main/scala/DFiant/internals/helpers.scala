@@ -205,12 +205,21 @@ object AssertGiven:
       Type[M]
   ): Expr[AssertGiven[G, M]] =
     import quotes.reflect.*
-    Expr.summon[G] match
-      case Some(_) =>
-        '{ new AssertGiven[G, M] {} }
-      case _ =>
-        val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias
-        '{ compiletime.error(${ Expr(msg) }) }
+    def recur(tpe: TypeRepr): Boolean =
+      tpe match
+        case OrType(l, r) =>
+          if (recur(l)) true
+          else recur(r)
+        case _ =>
+          tpe.asTypeOf[Any] match
+            case '[x] =>
+              Expr.summon[x].nonEmpty
+
+    if (recur(TypeRepr.of[G])) '{ new AssertGiven[G, M] {} }
+    else
+      val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias
+      '{ compiletime.error(${ Expr(msg) }) }
+  end macroImpl
 end AssertGiven
 
 //from Map[K,V] to Map[V,Set[K]], traverse the input only once

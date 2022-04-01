@@ -80,9 +80,10 @@ object DFType:
       def <>[A, C, I](modifier: Modifier[A, C, I])(using
           tc: DFType.TC[T],
           ck: Container.Kind,
+          dt: ir.DomainType,
           dfc: DFC
-      ): DFVal[tc.Type, Modifier[A & ck.type, C, I]] =
-        DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type, C, I]])
+      ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I]] =
+        DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I]])
       def token[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
           tokenTC: DFToken.TC[tc.Type, V]
       ): tokenTC.Out = tokenTC(tc(t), tokenValue)

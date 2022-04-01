@@ -673,13 +673,22 @@ object DFVarOps:
     A <:< Modifier.RegRef,
     "Can only reference `din` of a register. This value is not a register."
   ]
-  protected type NotAlwaysBlockVAR[A] = AssertGiven[
+  protected type LocalOrNonLLRT[A] = AssertGiven[
+    (A <:< Container.Kind.Always) | util.NotGiven[A <:< ir.DomainType.RT.LL],
+    "Blocking assignment `:=` is not allowed for a non-local variable in this domain.\nChange the assignment to a non-blocking assignment `:==`, or the position of the defined variable."
+  ]
+  protected type NotLocalVar[A] = AssertGiven[
     util.NotGiven[A <:< Container.Kind.Always],
-    "You chose a non-blocking assignment `:==`, but this variable is local (defined inside the always block).\nChange the assignment to a blocking assignment `:=`, or the position of the defined variable."
+    "Non-blocking assignment `:==` is not allowed for a local variable (defined inside the always block).\nChange the assignment to a blocking assignment `:=`, or the position of the defined variable."
+  ]
+  protected type LLRTDomainOnly[A] = AssertGiven[
+    A <:< ir.DomainType.RT.LL,
+    "Non-blocking assignment `:==` is allowed only inside a low-level register-transfer (LLRT) domain.\nChange the assignment to a regular assignment `:=`, or the logic domain to LLRT."
   ]
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])
     def :=[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
+        localOrNonLLRT: LocalOrNonLLRT[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): Unit = trydf {
@@ -687,7 +696,8 @@ object DFVarOps:
     }
     def :==[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
-        notAlwaysBlockVAR: NotAlwaysBlockVAR[A],
+        llrtDomainOnly: LLRTDomainOnly[A],
+        notLocalVar: NotLocalVar[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): Unit = trydf {
