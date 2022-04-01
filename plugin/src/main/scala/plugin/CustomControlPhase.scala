@@ -243,7 +243,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     def apply(dfTypeTpe: Type)(using Context): Type =
       AppliedType(
         dfValClsRef,
-        List(dfTypeTpe, requiredClassRef("DFiant.compiler.ModifierAny"))
+        List(dfTypeTpe, requiredClassRef("DFiant.core.ModifierAny"))
       )
     def unapply(
         selector: Tree
