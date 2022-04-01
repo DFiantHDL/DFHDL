@@ -1,9 +1,9 @@
 package DFiant.compiler
 package analysis
-import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
-import DFiant.compiler.ir.DFVal.Modifier
 import DFiant.internals.*
 import ir.*
+import DFConditional.DFCaseBlock.Pattern
+import DFVal.Modifier
 
 object Ident:
   def unapply(alias: ir.DFVal.Alias.AsIs)(using

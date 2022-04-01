@@ -42,7 +42,6 @@ object DFOpaque:
 
   object Val:
     object Ops:
-      import ir.DFVal.Modifier
       extension [L](inline lhs: L)
         transparent inline def as[T <: DFTypeAny, TFE <: Frontend[T]](
             tfe: TFE

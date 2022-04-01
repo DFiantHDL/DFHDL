@@ -1,6 +1,5 @@
 package DFiant.core
 import DFiant.compiler.ir
-import DFiant.compiler.ir.DFVal.ModifierAny
 import ir.DFVal.Func.Op as FuncOp
 import DFiant.internals.*
 

@@ -72,12 +72,12 @@ object DFType:
   type Supported = DFTypeAny | DFEncoding | DFOpaqueA | AnyRef
   object Ops:
     extension (inline cellDim: Int)
-      inline def <>[M <: ir.DFVal.ModifierAny](
+      inline def <>[M <: ModifierAny](
           modifier: M
       ): DFVector.ComposedModifier[cellDim.type, M] =
         new DFVector.ComposedModifier[cellDim.type, M](cellDim, modifier)
     extension [T <: Supported](t: T)
-      def <>[M <: ir.DFVal.ModifierAny](modifier: M)(using
+      def <>[M <: ModifierAny](modifier: M)(using
           tc: DFType.TC[T],
           dfc: DFC
       ): DFVal[tc.Type, M] = DFVal.Dcl(tc(t), modifier)
@@ -237,6 +237,6 @@ extension [T <: DFTypeAny](token: DFToken[T])
   @targetName("tokenDFType")
   def dfType: T = token.asIR.dfType.asFE[T]
 
-extension [T <: DFTypeAny, M <: ir.DFVal.ModifierAny](dfVal: DFVal[T, M])
+extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValDFType")
   def dfType: T = dfVal.asIR.dfType.asFE[T]

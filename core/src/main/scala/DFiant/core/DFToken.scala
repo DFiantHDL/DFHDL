@@ -1,7 +1,6 @@
 package DFiant.core
 import DFiant.compiler.printing.Printer
 import DFiant.compiler.ir
-import ir.DFVal.Modifier.*
 import ir.DFVal.Func.Op as FuncOp
 import DFiant.internals.*
 

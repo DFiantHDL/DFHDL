@@ -2,7 +2,6 @@ package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
 import ir.DFVal.Func.{Op => FuncOp}
-import ir.DFVal.Modifier.*
 
 import scala.quoted.*
 import scala.annotation.targetName

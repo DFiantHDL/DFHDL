@@ -1,5 +1,4 @@
 package DFiant
-import compiler.ir.DFVal.Modifier
 object hdl:
   class dsn extends scala.annotation.StaticAnnotation
   export core.DFType.Ops.*
@@ -57,12 +56,13 @@ object hdl:
   type LLRTDomain = core.LLRTDomain
   export compiler.ir.DomainType.RT.{ResetParams, NoReset, ClockParams, NoClock}
 
-  val IN = Modifier.IN
-  val OUT = Modifier.OUT
-  val VAR = Modifier.VAR
-  val REG = Modifier.REG
-  val WIRE = Modifier.WIRE
-  type VAL = Modifier.VAL
+  val IN = core.Modifier.IN
+  val OUT = core.Modifier.OUT
+  val INOUT = core.Modifier.INOUT
+  val VAR = core.Modifier.VAR
+  val REG = core.Modifier.REG
+  val WIRE = core.Modifier.WIRE
+  type VAL = core.VAL
   type TOKEN = core.TOKEN
   export core.<>
   export core.X
@@ -85,7 +85,7 @@ object hdl:
   ): r.Out = token.asInstanceOf[r.Out]
 
   inline implicit def __refined_dfVal[T <: core.FieldsOrTuple, A, I](
-      dfVal: core.DFVal[core.DFStruct[T], Modifier[A, Any, I]]
+      dfVal: core.DFVal[core.DFStruct[T], core.Modifier[A, Any, I]]
   )(using
       r: core.DFVal.Refiner[T, A, I]
   ): r.Out = dfVal.asInstanceOf[r.Out]

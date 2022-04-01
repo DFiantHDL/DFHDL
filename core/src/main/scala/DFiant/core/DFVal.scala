@@ -1,8 +1,6 @@
 package DFiant.core
 import DFiant.compiler.ir
 import DFiant.internals.*
-import DFiant.compiler.ir.DFVal.{Modifier, ModifierAny}
-import Modifier.*
 import ir.DFVal.Func.Op as FuncOp
 
 import scala.annotation.unchecked.uncheckedVariance
@@ -50,10 +48,8 @@ sealed trait TOKEN
 type <>[T <: DFType.Supported | Int, M] = T match
   case DFType.Supported =>
     M match
-      case VAL              => DFValOf[DFType.Of[T]]
-      case TOKEN            => DFToken[DFType.Of[T]]
-      case VAR              => DFVarOf[DFType.Of[T]]
-      case IN | OUT | INOUT => DFPortOf[DFType.Of[T]]
+      case VAL   => DFValOf[DFType.Of[T]]
+      case TOKEN => DFToken[DFType.Of[T]]
   case Int => DFVector.ComposedModifier[T, M]
 type X[T <: DFType.Supported, M] = M match
   case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]
@@ -68,9 +64,9 @@ extension (dfVal: ir.DFVal)
   inline def asValAny: DFValAny =
     DFVal[DFTypeAny, ModifierAny](dfVal)
   inline def asVarOf[T <: DFTypeAny]: DFVarOf[T] =
-    DFVal[T, VAR](dfVal)
+    DFVal[T, Modifier.VAR](dfVal)
   inline def asVarAny: DFVarAny =
-    DFVal[DFTypeAny, VAR](dfVal)
+    DFVal[DFTypeAny, Modifier.VAR](dfVal)
   inline def asPortOf[T <: DFTypeAny]: DFPortOf[T] =
     DFVal[T, Modifier.Port](dfVal)
 
@@ -243,7 +239,7 @@ object DFVal:
       ir.DFVal
         .Dcl(
           dfType.asIR,
-          modifier,
+          modifier.asIR,
           dfc.owner.ref,
           dfc.getMeta,
           ir.DFTags.empty
@@ -627,7 +623,7 @@ object DFVal:
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
       }
       def genNewVar(using DFC): DFVarOf[T] = trydf {
-        DFVal.Dcl(dfVal.dfType, VAR)
+        DFVal.Dcl(dfVal.dfType, Modifier.VAR)
       }
     end extension
   end Ops

@@ -121,39 +121,15 @@ sealed trait DFVal extends DFMember.Named:
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal]
-  sealed trait Modifier[+A, +C, +I] extends Product, Serializable
-  type ModifierAny = Modifier[Any, Any, Any]
-  object Modifier:
-    sealed trait Assignable
-    sealed trait Connectable
-    sealed trait Initializable
-    sealed trait Initialized
-    sealed trait RegRef
-    sealed trait VAL extends Modifier[Any, Any, Any]
-    sealed trait VAR extends Modifier[Assignable, Connectable, Initializable]
-    case object VAR extends VAR
-    sealed trait REG extends Modifier[RegRef, RegRef, Initializable]
-    case object REG extends REG
-    sealed trait WIRE extends Modifier[Assignable, Connectable, Any]
-    case object WIRE extends WIRE
-    sealed trait Port extends Modifier[Assignable, Connectable, Initializable]
-    sealed trait IN extends Port
-    case object IN extends IN
-    sealed trait OUT extends Port
-    case object OUT extends OUT
-    sealed trait INOUT extends Port
-    case object INOUT extends INOUT
-
-    given [AL, CL, IL, AR, CR, IR]: CanEqual[Modifier[AL, CL, IL], Modifier[AR, CR, IR]] =
-      CanEqual.derived
-  end Modifier
+  enum Modifier derives CanEqual:
+    case VAR, IN, OUT, INOUT, REG, WIRE
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match
       case dcl: DFVal.Dcl =>
         dcl.modifier match
-          case _: Modifier.Port => true
-          case _                => false
+          case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
+          case _                                           => false
       case _ => false
     def isVar: Boolean = dfVal match
       case dcl: DFVal.Dcl =>
@@ -189,7 +165,7 @@ object DFVal:
 
   final case class Dcl(
       dfType: DFType,
-      modifier: ModifierAny,
+      modifier: Modifier,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags

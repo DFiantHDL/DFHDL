@@ -172,7 +172,7 @@ object Width:
     }
 end Width
 
-extension [T <: DFTypeAny, M <: ir.DFVal.ModifierAny](dfVal: DFVal[T, M])
+extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValWidth")
   def width(using w: Width[T]): Inlined[w.Out] =
     Inlined.forced[w.Out](dfVal.asIR.dfType.width)

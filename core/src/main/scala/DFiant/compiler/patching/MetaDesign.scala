@@ -1,7 +1,6 @@
 package DFiant.compiler.patching
 import DFiant.core.*
 import DFiant.compiler.ir
-import DFiant.compiler.ir.DFVal.Modifier
 
 abstract class MetaDesign extends DFDesign(using DFC.empty) with reflect.Selectable:
   final def plantMember[T <: ir.DFMember](member: T): T =
