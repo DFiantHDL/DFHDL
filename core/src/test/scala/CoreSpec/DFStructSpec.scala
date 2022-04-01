@@ -7,6 +7,10 @@ class DFStructSpec extends DFSpec:
     case class XY(x: DFBits[W] <> VAL, y: DFUInt[W] <> VAL) extends DFStruct
     case class XYZ(x: DFUInt[W] <> VAL, y: DFBits[W] <> VAL, z: DFBit <> VAL) extends DFStruct
 
+  case class VectorHolder(
+      vec1: DFUInt[8] X 5 <> VAL,
+      vec2: DFUInt[8] X 5 X 5 <> VAL
+  ) extends DFStruct
   val cc = new CCs(8)
   import cc.{XY, XYZ}
   def test(t: XY <> VAL): Unit =
@@ -21,6 +25,9 @@ class DFStructSpec extends DFSpec:
        |t2.y := t1.x
        |t1 := XY(x = h"2a", y = d"8'0")
        |val t3 = t2 == XYZ(x = d"8'22", y = h"??", z = 1)
+       |val t4 = VectorHolder <> VAR
+       |t4.vec1(0) := d"8'22"
+       |t4.vec2(4)(2) := d"8'25"
        |""".stripMargin
   ) {
     val t1 = XY <> VAR init XY(h"05", 1)
@@ -32,6 +39,9 @@ class DFStructSpec extends DFSpec:
     t2.y := t1.x
     t1 := XY(h"2A", 0)
     val t3 = t2 == XYZ(22, ?, 1)
+    val t4 = VectorHolder <> VAR
+    t4.vec1(0) := 22
+    t4.vec2(4)(2) := 25
   }
 
   test("Inlined width") {}

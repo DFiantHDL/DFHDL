@@ -63,6 +63,7 @@ object hdl:
   type VAL = Modifier.VAL
   type TOKEN = core.TOKEN
   export core.<>
+  export core.X
   export core.Always.Ops.*
 
   // shorthand for annotating a DFBits value (useful for string interpolation)

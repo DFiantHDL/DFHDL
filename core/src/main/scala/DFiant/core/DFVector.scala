@@ -18,6 +18,11 @@ object DFVector:
   ): DFVector[T, D] =
     ir.DFVector(cellType.asIR, cellDims.toList.asInstanceOf[List[Int]])
       .asFE[DFVector[T, D]]
+  @targetName("givenApply")
+  given apply[T <: DFTypeAny, D <: NonEmptyTuple](using
+      cellType: T,
+      cellDims: ValueOfTuple[D]
+  ): DFVector[T, D] = DFVector(cellType, cellDims.value)
 
   extension [T <: DFTypeAny, D <: NonEmptyTuple](dfType: DFVector[T, D])
     def cellType: T = dfType.asIR.cellType.asFE[T]

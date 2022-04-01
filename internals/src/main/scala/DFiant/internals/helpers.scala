@@ -128,6 +128,29 @@ extension [P <: Tuple](using quotes: Quotes, p: Type[P])(partsTpl: Expr[P])
 
 inline implicit def fromValueOf[T](v: ValueOf[T]): T = v.value
 
+trait ValueOfTuple[T <: NonEmptyTuple]:
+  val value: T
+object ValueOfTuple:
+  inline given [T <: NonEmptyTuple]: ValueOfTuple[T] = ${ givenMacro[T] }
+  def givenMacro[T <: NonEmptyTuple: Type](using Quotes): Expr[ValueOfTuple[T]] =
+    import quotes.reflect.*
+    // TODO: to generically handle this we need to support tuple of tuples,
+    // but currently where this is used (dimension tuple of vector) it won't happen.
+    def recur(tpe: TypeRepr): Term =
+      tpe.asTypeOf[Any] match
+        case '[NonEmptyTuple] =>
+          val AppliedType(fun, args) = tpe
+          Expr.ofTupleFromSeq(args.map(a => recur(a).asExprOf[Any])).asTerm
+        case '[x] =>
+          '{ compiletime.summonInline[ValueOf[x]].value }.asTerm
+    val valueExpr = recur(TypeRepr.of[T]).asExprOf[T]
+    '{
+      new ValueOfTuple[T]:
+        val value: T = $valueExpr
+    }
+  end givenMacro
+end ValueOfTuple
+
 type <:![T <: UB, UB] <: UB = T match
   case UB => T
 

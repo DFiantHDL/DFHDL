@@ -47,11 +47,17 @@ type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier[Modifier.Assignable, Any, Any]
 type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Port]
 
 sealed trait TOKEN
-type <>[T <: DFType.Supported, M] = M match
-  case VAL              => DFValOf[DFType.Of[T]]
-  case TOKEN            => DFToken[DFType.Of[T]]
-  case VAR              => DFVarOf[DFType.Of[T]]
-  case IN | OUT | INOUT => DFPortOf[DFType.Of[T]]
+type <>[T <: DFType.Supported | Int, M] = T match
+  case DFType.Supported =>
+    M match
+      case VAL              => DFValOf[DFType.Of[T]]
+      case TOKEN            => DFToken[DFType.Of[T]]
+      case VAR              => DFVarOf[DFType.Of[T]]
+      case IN | OUT | INOUT => DFPortOf[DFType.Of[T]]
+  case Int => DFVector.ComposedModifier[T, M]
+type X[T <: DFType.Supported, M] = M match
+  case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]
+  case Int                             => DFVector[DFType.Of[T], Tuple1[M]]
 type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
 
 extension (dfVal: ir.DFVal)
