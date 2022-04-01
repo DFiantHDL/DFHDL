@@ -157,9 +157,29 @@ class PrintCodeStringSpec extends StageSpec:
       val y    = DFSInt(16) <> OUT
       val flag = DFBit      <> IN
       y := x.reg.reg(2) - x
+    end ID
+    val id = (new ID).getCodeString
+    assertNoDiff(
+      id,
+      """|class ID extends RTDesign:
+         |  val x = DFSInt(16) <> IN
+         |  val y = DFSInt(16) <> OUT
+         |  val flag = DFBit <> IN
+         |  y := x.reg.reg(2) - x
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Basic LLRTDesign") {
+    class ID extends LLRTDesign:
+      val x    = DFSInt(16) <> IN
+      val y    = DFSInt(16) <> OUT
+      val flag = DFBit      <> IN
+      val v    = DFSInt(16) <> VAR
       always() {
         val z = DFSInt(8) <> VAR
         z := z + 1
+        v :== 1
       }
       always(x, y, flag.rising) {
         val z = DFSInt(8) <> VAR
@@ -177,14 +197,15 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new ID).getCodeString
     assertNoDiff(
       id,
-      """|class ID extends RTDesign:
+      """|class ID extends LLRTDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val flag = DFBit <> IN
-         |  y := x.reg.reg(2) - x
+         |  val v = DFSInt(16) <> VAR
          |  always() {
          |    val z = DFSInt(8) <> VAR
          |    z := z + sd"2'1"
+         |    v :== sd"16'1"
          |  }
          |  always(x, y, flag.rising) {
          |    val z = DFSInt(8) <> VAR

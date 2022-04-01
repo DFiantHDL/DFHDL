@@ -669,6 +669,14 @@ object DFVarOps:
     A <:< Modifier.Assignable,
     "Cannot assign to an immutable value."
   ]
+  protected type RegOnly[A] = AssertGiven[
+    A <:< Modifier.RegRef,
+    "Can only reference `din` of a register. This value is not a register."
+  ]
+  protected type NotAlwaysBlockVAR[A] = AssertGiven[
+    util.NotGiven[A <:< Container.Kind.Always],
+    "You chose a non-blocking assignment `:==`, but this variable is local (defined inside the always block).\nChange the assignment to a blocking assignment `:=`, or the position of the defined variable."
+  ]
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])
     def :=[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
@@ -679,16 +687,14 @@ object DFVarOps:
     }
     def :==[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
+        notAlwaysBlockVAR: NotAlwaysBlockVAR[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): Unit = trydf {
       dfVar.assign(tc(dfVar.dfType, rhs))
     }
     def din(using
-        regOnly: AssertGiven[
-          A =:= Modifier.RegRef,
-          "Can only reference `din` of a register. This value is not a register."
-        ],
+        regOnly: RegOnly[A],
         dfc: DFC
     ): DFVarOf[T] = trydf { DFVal.Alias.RegDIN(dfVar) }
   end extension
