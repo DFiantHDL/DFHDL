@@ -670,7 +670,7 @@ end VarsTuple
 
 object DFVarOps:
   protected type VarOnly[A] = AssertGiven[
-    A =:= Modifier.Assignable,
+    A <:< Modifier.Assignable,
     "Cannot assign to an immutable value."
   ]
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])

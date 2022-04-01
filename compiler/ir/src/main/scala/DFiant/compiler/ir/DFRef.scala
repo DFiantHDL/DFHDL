@@ -25,4 +25,6 @@ object DFRef:
       Some(ref.originRef)
     object Empty extends TwoWay[DFMember.Empty] with DFRef.Empty:
       lazy val originRef: OneWay[DFMember] = OneWay.Empty
+
+  def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
 end DFRef

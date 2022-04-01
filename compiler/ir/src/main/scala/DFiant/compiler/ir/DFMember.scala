@@ -386,8 +386,8 @@ object DFNet:
 
   object Assignment:
     def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
-      case DFNet(toRef, _: Op.Assignment, fromRef, _, _, _, _) =>
-        Some(toRef.get.asInstanceOf[DFVal], fromRef.get.asInstanceOf[DFVal])
+      case DFNet(DFRef(toVal: DFVal), _: Op.Assignment, DFRef(fromVal: DFVal), _, _, _, _) =>
+        Some(toVal, fromVal)
       case _ => None
   object Connection:
     def unapply(net: DFNet)(using
