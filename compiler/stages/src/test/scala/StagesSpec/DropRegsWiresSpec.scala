@@ -21,7 +21,7 @@ class DropRegsWiresSpec extends StageSpec:
     val id = (new ID).dropRegsWires.printCodeString
     assertCodeString(
       id,
-      """|class ID extends LLRTDesign:
+      """|class ID extends EDDesign:
          |  val clk = DFBit <> IN
          |  val rst = DFBit <> IN
          |  val x = DFSInt(16) <> IN

@@ -170,8 +170,8 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("Basic LLRTDesign") {
-    class ID extends LLRTDesign:
+  test("Basic EDDesign") {
+    class ID extends EDDesign:
       val x    = DFSInt(16) <> IN
       val y    = DFSInt(16) <> OUT
       val flag = DFBit      <> IN
@@ -197,7 +197,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new ID).getCodeString
     assertNoDiff(
       id,
-      """|class ID extends LLRTDesign:
+      """|class ID extends EDDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val flag = DFBit <> IN

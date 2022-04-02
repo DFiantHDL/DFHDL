@@ -5,14 +5,12 @@ object DomainType:
   // dataflow domain
   sealed trait DF extends DomainType
   object DF extends DF
-  // real-time / register-transfer domain
-  sealed trait RT extends DomainType
+  // register-transfer domain
+  class RT(
+      val clkParams: RT.ClockParams = RT.ClockParams(),
+      val rstParams: RT.ResetParams = RT.ResetParams()
+  ) extends DomainType
   object RT:
-    class LL() extends RT
-    class HL(
-        val clkParams: ClockParams = ClockParams(),
-        val rstParams: ResetParams = ResetParams()
-    ) extends RT
     sealed trait ResetParams extends Product with Serializable derives CanEqual
     case object NoReset extends ResetParams
     final case class WithReset(
@@ -46,4 +44,6 @@ object DomainType:
       enum Edge derives CanEqual:
         case Rising, Falling
   end RT
+  // event-driven domain
+  class ED() extends DomainType
 end DomainType

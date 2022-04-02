@@ -4,7 +4,7 @@ import DFiant.compiler.analysis.*
 import DFiant.compiler.ir.*
 import DFiant.compiler.patching.*
 
-private class ToLLRT(db: DB) extends Stage(db):
+private class ToED(db: DB) extends Stage(db):
   override protected def preTransform: DB = db.toRT
   override def transform: DB = db
 //    val patchList = designDB.members.collect {
@@ -13,4 +13,4 @@ private class ToLLRT(db: DB) extends Stage(db):
 //    }
 //    designDB.patch(patchList)
 
-extension [T: HasDB](t: T) def toLLRT: DB = new ToLLRT(t.db).transform
+extension [T: HasDB](t: T) def toED: DB = new ToED(t.db).transform

@@ -567,13 +567,13 @@ object DFVal:
         "This construct is only available in a dataflow domain."
       ]
   ): DFDomainOnly with {}
-  trait HLRTDomainOnly
+  trait RTDomainOnly
   given (using domain: ir.DomainType)(using
       AssertGiven[
-        domain.type <:< ir.DomainType.RT.HL,
-        "This construct is only available in a high-level register-transfer domain."
+        domain.type <:< ir.DomainType.RT,
+        "This construct is only available in a register-transfer domain."
       ]
-  ): HLRTDomainOnly with {}
+  ): RTDomainOnly with {}
   trait PrevCheck[I]
   given [I](using
       AssertGiven[
@@ -608,13 +608,13 @@ object DFVal:
           step: Int
       )(using
           dfc: DFC,
-          rtOnly: HLRTDomainOnly,
+          rtOnly: RTDomainOnly,
           check: Arg.Positive.Check[Int]
       ): DFValOf[T] = trydf {
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg)
       }
-      inline def reg(using DFC, HLRTDomainOnly): DFValOf[T] = dfVal.reg(1)
+      inline def reg(using DFC, RTDomainOnly): DFValOf[T] = dfVal.reg(1)
     end extension
 
     extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
@@ -677,23 +677,23 @@ object DFVarOps:
     A <:< Modifier.RegRef,
     "Can only reference `din` of a register. This value is not a register."
   ]
-  protected type LocalOrNonLLRT[A] = AssertGiven[
-    (A <:< Container.Kind.Always) | util.NotGiven[A <:< ir.DomainType.RT.LL],
+  protected type LocalOrNonED[A] = AssertGiven[
+    (A <:< Container.Kind.Always) | util.NotGiven[A <:< ir.DomainType.ED],
     "Blocking assignment `:=` is not allowed for a non-local variable in this domain.\nChange the assignment to a non-blocking assignment `:==`, or the position of the defined variable."
   ]
   protected type NotLocalVar[A] = AssertGiven[
     util.NotGiven[A <:< Container.Kind.Always],
     "Non-blocking assignment `:==` is not allowed for a local variable (defined inside the always block).\nChange the assignment to a blocking assignment `:=`, or the position of the defined variable."
   ]
-  protected type LLRTDomainOnly[A] = AssertGiven[
-    A <:< ir.DomainType.RT.LL,
-    "Non-blocking assignment `:==` is allowed only inside a low-level register-transfer (LLRT) domain.\nChange the assignment to a regular assignment `:=`, or the logic domain to LLRT."
+  protected type EDDomainOnly[A] = AssertGiven[
+    A <:< ir.DomainType.ED,
+    "Non-blocking assignment `:==` is allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=`, or the logic domain to ED."
   ]
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])
     def :=[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
         regNeedsDIN: RegNeedsDIN[A],
-        localOrNonLLRT: LocalOrNonLLRT[A],
+        localOrNonED: LocalOrNonED[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): Unit = trydf {
@@ -701,7 +701,7 @@ object DFVarOps:
     }
     def :==[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
-        llrtDomainOnly: LLRTDomainOnly[A],
+        edDomainOnly: EDDomainOnly[A],
         notLocalVar: NotLocalVar[A],
         tc: DFVal.TC[T, R],
         dfc: DFC

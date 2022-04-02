@@ -1,7 +1,6 @@
 package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
-import DFiant.compiler.ir.DomainType.RT
 import DFiant.compiler.ir.DomainType.RT.{ClockParams, ResetParams}
 import DFiant.compiler.printing.*
 
@@ -35,9 +34,9 @@ abstract class RTDomain(
     rstParams: ResetParams = ResetParams()
 )(using DFC)
     extends Domain:
-  private[core] class TDomain extends ir.DomainType.RT.HL
+  private[core] class TDomain extends ir.DomainType.RT(clkParams, rstParams)
   private[core] lazy val __domainType: TDomain = new TDomain
 
-abstract class LLRTDomain(using DFC) extends Domain:
-  private[core] class TDomain extends ir.DomainType.RT.LL
+abstract class EDDomain(using DFC) extends Domain:
+  private[core] class TDomain extends ir.DomainType.ED
   private[core] lazy val __domainType: TDomain = new TDomain

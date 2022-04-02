@@ -31,8 +31,8 @@ trait Printer
       val DFNet.Assignment(toVal, _) = net
       val toDcl = toVal.dealias.get
       toDcl.getOwnerDomain.domainType match
-        // low-level register-transfer domains can have non-blocking assignments
-        case _: DomainType.RT.LL =>
+        // event-driven domains can have non-blocking assignments
+        case _: DomainType.ED =>
           // if the assigned declaration is at an `always` block, then this is a blocking assignment.
           // otherwise, this is a non-blocking assignment.
           toDcl.getOwnerNamed match

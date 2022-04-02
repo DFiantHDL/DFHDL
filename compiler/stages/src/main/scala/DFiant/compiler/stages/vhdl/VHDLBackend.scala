@@ -25,7 +25,7 @@ private class VHDLBackend(db: DB) extends Stage(db):
     updatedDB
       .uniqueNames(designNames.toSet ++ reservedKeywords, caseSensitive = false)
       .viaConnection
-      .toLLRT
+      .toED
   override def transform: DB =
     println(toVHDL)
     designDB

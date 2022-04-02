@@ -52,6 +52,6 @@ object Container:
   object Domain:
     sealed trait DF extends Domain
     object DF extends DF
-    class HLRT extends Domain
-    class LLRT extends Domain
+    class RT extends Domain
+    class ED extends Domain
 end Container

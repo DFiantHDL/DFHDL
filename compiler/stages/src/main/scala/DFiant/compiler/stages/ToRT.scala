@@ -11,12 +11,12 @@ private class ToRT(db: DB) extends Stage(db):
         h -> Patch.Replace(h.copy(op = HistoryOp.Reg), Patch.Replace.Config.FullReplacement)
       case d @ DFDesignBlock(DomainType.DF, _, _, _, _, _, _) =>
         d -> Patch.Replace(
-          d.copy(domainType = new DomainType.RT.HL()),
+          d.copy(domainType = new DomainType.RT()),
           Patch.Replace.Config.FullReplacement
         )
       case i @ DFInterfaceOwner(DomainType.DF, _, _, _) =>
         i -> Patch.Replace(
-          i.copy(domainType = new DomainType.RT.HL()),
+          i.copy(domainType = new DomainType.RT()),
           Patch.Replace.Config.FullReplacement
         )
     }
@@ -24,6 +24,6 @@ private class ToRT(db: DB) extends Stage(db):
   end transform
 end ToRT
 
-//converts the dataflow domains to high-level RT domains
+//converts the dataflow domains to RT domains
 //TODO: this is a very basic implementation. Needs to handle valid, ready and stall.
 extension [T: HasDB](t: T) def toRT: DB = new ToRT(t.db).transform

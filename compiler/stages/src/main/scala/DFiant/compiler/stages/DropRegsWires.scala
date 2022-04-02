@@ -18,7 +18,7 @@ private class DropRegsWires(db: DB) extends Stage(db):
         owner.domainType match
           // only care about high-level domains.
           // those have wires and regs that we need to simplify.
-          case domainType: DomainType.RT.HL =>
+          case domainType: DomainType.RT =>
             val wires = members.collect {
               case dcl: DFVal.Dcl if dcl.modifier == DFVal.Modifier.WIRE => dcl
             }
@@ -60,10 +60,10 @@ private class DropRegsWires(db: DB) extends Stage(db):
                 Some(owner -> Patch.Add(clkRstPortsDsn, Patch.Add.Config.InsideFirst))
               else None
 
-            // changing the owner from high-level RT domain to low-level RT domain
+            // changing the owner from RT domain to ED domain
             val updatedOwner = owner match
-              case design: DFDesignBlock => design.copy(domainType = DomainType.RT.LL())
-              case domain: DomainBlock   => domain.copy(domainType = DomainType.RT.LL())
+              case design: DFDesignBlock => design.copy(domainType = DomainType.ED())
+              case domain: DomainBlock   => domain.copy(domainType = DomainType.ED())
             val ownerDomainPatch =
               owner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
 

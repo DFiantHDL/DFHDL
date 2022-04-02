@@ -42,6 +42,9 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
       case _                                                                          => false
     }
 
+  private val dfcContainers = Set(
+    "DFDesign", "RTDesign", "EDDesign", "DFInterface", "RTInterface", "EDInterface"
+  )
   private val annotMap = new TreeMap(untpd.cpy):
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
@@ -50,12 +53,8 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
               template @ Template(constr @ DefDef(_, paramss, _, _), parents, _, _)
             ) =>
           val isDFContainer = parents.headOption.exists {
-            case Ident(n) =>
-              n.toString match
-                // these classes always require DFC
-                case "DFDesign" | "RTDesign" | "DFInterface" | "RTInterface" => true
-                case _                                                       => false
-            case _ => false
+            case Ident(n) => dfcContainers.contains(n.toString)
+            case _        => false
           }
           lazy val skipTestContainer = parents.headOption.exists {
             case Ident(n) =>

@@ -1,8 +1,7 @@
 package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
-import DFiant.compiler.ir.DomainType.RT
-import DFiant.compiler.ir.DomainType.RT.{ClockParams, ResetParams}
+import ir.DomainType.RT.{ClockParams, ResetParams}
 import DFiant.compiler.printing.*
 
 private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
@@ -51,7 +50,7 @@ abstract class RTDesign(
     rstParams: ResetParams = ResetParams()
 )(using DFC)
     extends Design:
-  private[core] class TDomain extends ir.DomainType.RT.HL(clkParams, rstParams)
+  private[core] class TDomain extends ir.DomainType.RT(clkParams, rstParams)
   private[core] lazy val __domainType: TDomain = new TDomain
 //  lazy val clk = clkParams match
 //    case RT.NoClock =>
@@ -75,6 +74,6 @@ abstract class RTDesign(
 //    case _               => // do nothing
 end RTDesign
 
-abstract class LLRTDesign(using DFC) extends Design:
-  private[core] class TDomain extends ir.DomainType.RT.LL
+abstract class EDDesign(using DFC) extends Design:
+  private[core] class TDomain extends ir.DomainType.ED
   private[core] lazy val __domainType: TDomain = new TDomain
