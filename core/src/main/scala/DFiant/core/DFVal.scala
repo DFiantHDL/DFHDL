@@ -669,6 +669,10 @@ object DFVarOps:
     A <:< Modifier.Assignable,
     "Cannot assign to an immutable value."
   ]
+  protected type RegNeedsDIN[A] = AssertGiven[
+    util.NotGiven[A <:< Modifier.RegRef],
+    "Apply `.din` to write to this register."
+  ]
   protected type RegOnly[A] = AssertGiven[
     A <:< Modifier.RegRef,
     "Can only reference `din` of a register. This value is not a register."
@@ -688,6 +692,7 @@ object DFVarOps:
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])
     def :=[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
+        regNeedsDIN: RegNeedsDIN[A],
         localOrNonLLRT: LocalOrNonLLRT[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
