@@ -1,8 +1,7 @@
 package DFiant.compiler.stages
 
 import DFiant.compiler.analysis.*
-import DFiant.compiler.ir.*
-import DomainType.RT.{NoClock, WithClock, ClockParams, NoReset, ResetParams, WithReset}
+import DFiant.compiler.ir.{*, given}
 import DFiant.compiler.patching.*
 import DFiant.internals.*
 import scala.collection.mutable
@@ -30,14 +29,14 @@ private class DropRegsWires(db: DB) extends Stage(db):
               .lazyZip(regVars)
               .map((r, rv) => r -> Patch.Replace(rv, Patch.Replace.Config.FullReplacement))
             // name and existence indicators for the clock and reset
-            val hasClock = domainType.clkParams != NoClock
-            val clkName = domainType.clkParams match
-              case WithClock(name, _) => name
-              case _                  => ""
-            val hasReset = domainType.rstParams != NoReset
-            val rstName = domainType.rstParams match
-              case WithReset(name, _, _) => name
-              case _                     => ""
+            val hasClock = domainType.clkCfg != None
+            val clkName = domainType.clkCfg match
+              case ClkCfg.Explicit(name: String, _) => name
+              case _                                => ""
+            val hasReset = domainType.rstCfg != None
+            val rstName = domainType.rstCfg match
+              case RstCfg.Explicit(name: String, _, _) => name
+              case _                                   => ""
             if (regs.nonEmpty)
               assert(
                 hasClock,
@@ -102,34 +101,37 @@ private class DropRegsWires(db: DB) extends Stage(db):
               }
               def ifRstActive =
                 import clkRstPortsDsn.rst
-                val WithReset(_, _, active) = domainType.rstParams
+                val RstCfg.Explicit(_, _, active) = domainType.rstCfg
                 val cond = active match
-                  case ResetParams.Active.High => rst == 1
-                  case ResetParams.Active.Low  => rst == 0
+                  case RstCfg.Active.High => rst == 1
+                  case RstCfg.Active.Low  => rst == 0
                 DFIf.singleBranch(Some(cond), DFIf.Header(NoType), regInitBlock)
-              def ifClkEdge(ifRstOption: Option[DFOwnerAny]) =
+              def ifRstActiveElseRegSaveBlock(): Unit =
+                val (_, rstBranch) = ifRstActive
+                DFIf.singleBranch(None, rstBranch, regSaveBlock)
+              def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
                 import clkRstPortsDsn.clk
-                val WithClock(_, edge) = domainType.clkParams
+                val ClkCfg.Explicit(_, edge) = domainType.clkCfg
                 val cond = edge match
-                  case ClockParams.Edge.Rising  => clk.rising
-                  case ClockParams.Edge.Falling => clk.falling
+                  case ClkCfg.Edge.Rising  => clk.rising
+                  case ClkCfg.Edge.Falling => clk.falling
                 DFIf.singleBranch(
                   Some(cond),
                   ifRstOption.getOrElse(DFIf.Header(NoType)),
-                  regSaveBlock
+                  block
                 )
 
               if (hasClock)
                 import clkRstPortsDsn.clk
                 if (hasReset)
-                  val WithReset(_, mode, _) = domainType.rstParams
+                  val RstCfg.Explicit(_, mode, _) = domainType.rstCfg
                   import clkRstPortsDsn.rst
                   mode match
-                    case ResetParams.Mode.Sync =>
+                    case RstCfg.Mode.Sync =>
                       always(clk) {
-                        ifClkEdge(None)
+                        ifClkEdge(None, ifRstActiveElseRegSaveBlock)
                       }
-                    case ResetParams.Mode.Async =>
+                    case RstCfg.Mode.Async =>
                       always(clk, rst) {
                         val (_, rstBranch) = ifRstActive
                         ifClkEdge(Some(rstBranch))

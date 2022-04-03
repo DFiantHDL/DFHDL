@@ -1,7 +1,7 @@
 package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
-import ir.DomainType.RT.{ClockParams, ResetParams}
+import ir.{ClkCfg, RstCfg}
 import DFiant.compiler.printing.*
 
 private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
@@ -46,30 +46,30 @@ abstract class DFDesign(using DFC) extends Design:
   private[core] lazy val __domainType: TDomain = ir.DomainType.DF
 
 abstract class RTDesign(
-    clkParams: ClockParams = ClockParams(),
-    rstParams: ResetParams = ResetParams()
+    clkCfg: ClkCfg = ClkCfg(),
+    rstCfg: RstCfg = RstCfg()
 )(using DFC)
     extends Design:
-  private[core] class TDomain extends ir.DomainType.RT(clkParams, rstParams)
+  private[core] class TDomain extends ir.DomainType.RT(clkCfg, rstCfg)
   private[core] lazy val __domainType: TDomain = new TDomain
-//  lazy val clk = clkParams match
+//  lazy val clk = clkCfg match
 //    case RT.NoClock =>
 //      throw new IllegalArgumentException(
-//        "Tried to access `clk` but `clkParams` are set to `NoClock`."
+//        "Tried to access `clk` but `clkCfg` are set to `NoClock`."
 //      )
 //    case RT.WithClock(name, _) =>
 //      DFVal.Dcl(DFBit, IN)(using dfc.setName(name))
-//  clkParams match
+//  clkCfg match
 //    case _: RT.WithClock => clk
 //    case _               => // do nothing
-//  lazy val rst = rstParams match
+//  lazy val rst = rstCfg match
 //    case RT.NoReset =>
 //      throw new IllegalArgumentException(
-//        "Tried to access `rst` but `rstParams` are set to `NoReset`."
+//        "Tried to access `rst` but `rstCfg` are set to `NoReset`."
 //      )
 //    case RT.WithReset(name, _, _) =>
 //      DFVal.Dcl(DFBit, IN)(using dfc.setName(name))
-//  rstParams match
+//  rstCfg match
 //    case _: RT.WithReset => rst
 //    case _               => // do nothing
 end RTDesign

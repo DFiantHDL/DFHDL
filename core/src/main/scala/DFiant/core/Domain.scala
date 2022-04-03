@@ -1,7 +1,7 @@
 package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
-import DFiant.compiler.ir.DomainType.RT.{ClockParams, ResetParams}
+import DFiant.compiler.ir.{ClkCfg, RstCfg}
 import DFiant.compiler.printing.*
 
 private[DFiant] abstract class Domain(using DFC) extends Container with scala.reflect.Selectable:
@@ -30,11 +30,11 @@ abstract class DFDomain(using DFC) extends Domain:
   private[core] lazy val __domainType: TDomain = ir.DomainType.DF
 
 abstract class RTDomain(
-    clkParams: ClockParams = ClockParams(),
-    rstParams: ResetParams = ResetParams()
+    clkCfg: ClkCfg = ir.DerivedCfg,
+    rstCfg: RstCfg = ir.DerivedCfg
 )(using DFC)
     extends Domain:
-  private[core] class TDomain extends ir.DomainType.RT(clkParams, rstParams)
+  private[core] class TDomain extends ir.DomainType.RT(clkCfg, rstCfg)
   private[core] lazy val __domainType: TDomain = new TDomain
 
 abstract class EDDomain(using DFC) extends Domain:

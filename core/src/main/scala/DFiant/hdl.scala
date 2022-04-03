@@ -54,7 +54,6 @@ object hdl:
   type DFDomain = core.DFDomain
   type RTDomain = core.RTDomain
   type EDDomain = core.EDDomain
-  export compiler.ir.DomainType.RT.{ResetParams, NoReset, ClockParams, NoClock}
 
   val IN = core.Modifier.IN
   val OUT = core.Modifier.OUT
@@ -67,6 +66,8 @@ object hdl:
   export core.<>
   export core.X
   export core.Always.Ops.*
+
+  export compiler.ir.{DerivedCfg, ClkCfg, RstCfg}
 
   // shorthand for annotating a DFBits value (useful for string interpolation)
   type B[W <: Int] = core.DFValOf[DFBits[W]]

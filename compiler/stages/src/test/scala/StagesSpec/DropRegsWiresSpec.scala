@@ -1,13 +1,15 @@
 package StagesSpec
 
 import DFiant.*
-import DFiant.compiler.ir.DomainType.RT.ClockParams
+import DFiant.compiler.ir.{ClkCfg, RstCfg}
 import DFiant.compiler.stages.dropRegsWires
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropRegsWiresSpec extends StageSpec:
+  val clkCfg: ClkCfg = ClkCfg("clk", ClkCfg.Edge.Rising)
+  val rstCfg: RstCfg = RstCfg("rst", RstCfg.Mode.Async, RstCfg.Active.High)
   test("Drop wires") {
-    class ID extends RTDesign:
+    class ID extends RTDesign(clkCfg, rstCfg):
       val x  = DFSInt(16) <> IN
       val y  = DFSInt(16) <> OUT
       val w1 = DFSInt(16) <> WIRE
@@ -18,7 +20,7 @@ class DropRegsWiresSpec extends StageSpec:
       w2     := x
       r1.din := w2
       y      := w1 + r1
-    val id = (new ID).dropRegsWires.printCodeString
+    val id = (new ID).dropRegsWires
     assertCodeString(
       id,
       """|class ID extends EDDesign:
