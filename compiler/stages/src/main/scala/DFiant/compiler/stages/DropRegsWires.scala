@@ -9,6 +9,8 @@ import scala.collection.mutable
 private class DropRegsWires(db: DB) extends Stage(db):
   override protected def preTransform: DB =
     // need to order members so that ports are at the beginning
+    // need ViaPortConnection
+    // need derived clock and reset configuration to be explicit
     super.preTransform
   override def transform: DB =
     val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
@@ -24,6 +26,11 @@ private class DropRegsWires(db: DB) extends Stage(db):
             val regs = members.collect {
               case dcl: DFVal.Dcl if dcl.modifier == DFVal.Modifier.REG => dcl
             }
+            if (regs.nonEmpty)
+              assert(
+                domainType.clkCfg != None,
+                s"Clock is missing in high-level domain owner ${owner.getFullName}. Found registers but no clock is defined."
+              )
             val regVars = regs.map(_.copy(modifier = DFVal.Modifier.VAR))
             val regsPatch = regs
               .lazyZip(regVars)
@@ -37,11 +44,6 @@ private class DropRegsWires(db: DB) extends Stage(db):
             val rstName = domainType.rstCfg match
               case RstCfg.Explicit(name: String, _, _) => name
               case _                                   => ""
-            if (regs.nonEmpty)
-              assert(
-                hasClock,
-                s"Clock is missing in high-level domain owner ${owner.getFullName}. Found registers but no clock is defined."
-              )
 
             // adding clock and reset ports according to the domain configuration
             val clkRstPortsDsn = new MetaDesign:
@@ -63,15 +65,10 @@ private class DropRegsWires(db: DB) extends Stage(db):
 
             var wiresPatch = List.empty[(DFMember, Patch)]
             var regs_dinPatch = List.empty[(DFMember, Patch)]
+            var regs_din_vPatch = List.empty[(DFMember, Patch)]
             val alwaysBlockDsn = new MetaDesign:
               val regs_dinVars = regs.map { r =>
                 r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
-              }
-              regs_dinPatch = regs.lazyZip(regs_dinVars).flatMap { (r, r_din_v) =>
-                members.collect {
-                  case reg_din: DFVal.Alias.RegDIN if reg_din.relValRef.get == r =>
-                    reg_din -> Patch.Replace(r_din_v, Patch.Replace.Config.ChangeRefAndRemove)
-                }
               }
               always.all {
                 wiresPatch = wires.map { w =>
@@ -80,6 +77,15 @@ private class DropRegsWires(db: DB) extends Stage(db):
                     Patch.Replace.Config.ChangeRefAndRemove
                   )
                 }
+                regs_dinPatch = regs.lazyZip(regs_dinVars).flatMap { (r, r_din_v) =>
+                  members.collect {
+                    case reg_din: DFVal.Alias.RegDIN if reg_din.relValRef.get == r =>
+                      reg_din -> Patch.Replace(r_din_v, Patch.Replace.Config.ChangeRefAndRemove)
+                  }
+                }
+//                regs_din_vPatch = regs.map { r =>
+//                  r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
+//                }
               }
               import DFiant.core.DFIf
               import DFiant.core.NoType
@@ -141,9 +147,10 @@ private class DropRegsWires(db: DB) extends Stage(db):
             val alwaysBlockAllPatch =
               owner -> Patch.Add(alwaysBlockDsn, Patch.Add.Config.InsideLast)
             val alwaysBlockAllMembers = members.filter {
-              case dcl: DFVal.Dcl     => false
-              case dsn: DFOwner.Named => false
-              case m                  => true
+              case dcl: DFVal.Dcl                     => false
+              case dsn: DFOwner.Named                 => false
+              case net: DFNet if net.lateConstruction => false
+              case m                                  => true
             }
             val alwaysBlockMembersPatch =
               abOwnerIR -> Patch.Move(
