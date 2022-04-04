@@ -34,11 +34,6 @@ object Design:
       ).addMember
         .asFE
   extension [D <: Design](dsn: D) def getDB: ir.DB = dsn.dfc.mutableDB.immutable
-//    def printCodeString(): D =
-//      import dsn.dfc.getSet
-//      given Printer = DefaultPrinter
-//      println(getDB.codeString)
-//      dsn
 end Design
 
 abstract class DFDesign(using DFC) extends Design:
@@ -52,26 +47,35 @@ abstract class RTDesign(
     extends Design:
   private[core] class TDomain extends ir.DomainType.RT(clkCfg, rstCfg)
   private[core] lazy val __domainType: TDomain = new TDomain
-//  lazy val clk = clkCfg match
-//    case RT.NoClock =>
+
+//  /** This is a reference to the clock used. `clkCfg` must be explicitly defined with a name before
+//    * using this value.
+//    */
+//  final lazy val clk = clkCfg match
+//    case ClkCfg.Explicit(name: String, _) =>
+//      DFVal.Dcl(DFBit, Modifier.IN)(using dfc.setName(name))
+//    case _ =>
 //      throw new IllegalArgumentException(
-//        "Tried to access `clk` but `clkCfg` are set to `NoClock`."
+//        "Tried to access `clk` but `clkCfg` has no explicit clock name."
 //      )
-//    case RT.WithClock(name, _) =>
-//      DFVal.Dcl(DFBit, IN)(using dfc.setName(name))
+//  // forcing the clock to be added if the name is explicitly defined
 //  clkCfg match
-//    case _: RT.WithClock => clk
-//    case _               => // do nothing
+//    case ClkCfg.Explicit(_: String, _) => clk // touching lazy value
+//    case _                             => // do nothing
+//  /** This is a reference to the reset used. `rstCfg` must be explicitly defined with a name before
+//    * using this value.
+//    */
 //  lazy val rst = rstCfg match
-//    case RT.NoReset =>
+//    case RstCfg.Explicit(name: String, _, _) =>
+//      DFVal.Dcl(DFBit, Modifier.IN)(using dfc.setName(name))
+//    case _ =>
 //      throw new IllegalArgumentException(
-//        "Tried to access `rst` but `rstCfg` are set to `NoReset`."
+//        "Tried to access `rst` but `rstCfg` has no explicit reset name."
 //      )
-//    case RT.WithReset(name, _, _) =>
-//      DFVal.Dcl(DFBit, IN)(using dfc.setName(name))
+//  // forcing the reset to be added if the name is explicitly defined
 //  rstCfg match
-//    case _: RT.WithReset => rst
-//    case _               => // do nothing
+//    case RstCfg.Explicit(_: String, _, _) => rst
+//    case _                                => // do nothing
 end RTDesign
 
 abstract class EDDesign(using DFC) extends Design:

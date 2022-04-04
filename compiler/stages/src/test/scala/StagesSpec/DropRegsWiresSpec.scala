@@ -6,10 +6,10 @@ import DFiant.compiler.stages.dropRegsWires
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropRegsWiresSpec extends StageSpec:
-  val clkCfg: ClkCfg = ClkCfg("clk", ClkCfg.Edge.Rising)
-  val rstCfg: RstCfg = RstCfg("rst", RstCfg.Mode.Async, RstCfg.Active.High)
+//  val clkCfg = ClkCfg("clk", ClkCfg.Edge.Rising)
+//  val rstCfg = RstCfg("rst", RstCfg.Mode.Async, RstCfg.Active.High)
   test("Drop wires") {
-    class ID extends RTDesign(clkCfg, rstCfg):
+    class ID extends RTDesign():
       val x  = DFSInt(16) <> IN
       val y  = DFSInt(16) <> OUT
       val w1 = DFSInt(16) <> WIRE
@@ -39,9 +39,10 @@ class DropRegsWiresSpec extends StageSpec:
          |    r1_din :== w2
          |    y :== w1 + r1
          |  }
-         |  always(clk, rst) {
-         |    if (rst == 1) r1 :== sd"16'0"
-         |    else if (clk.rising) r1 :== r1_din
+         |  always(clk) {
+         |    if (clk.rising)
+         |      if (rst == 1) r1 :== sd"16'0"
+         |      else r1 :== r1_din
          |  }
          |end ID
          |""".stripMargin
