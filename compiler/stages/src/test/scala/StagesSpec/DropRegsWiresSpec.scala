@@ -6,8 +6,6 @@ import DFiant.compiler.stages.dropRegsWires
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropRegsWiresSpec extends StageSpec:
-//  val clkCfg = ClkCfg("clk", ClkCfg.Edge.Rising)
-//  val rstCfg = RstCfg("rst", RstCfg.Mode.Async, RstCfg.Active.High)
   test("Drop wires") {
     class ID extends RTDesign():
       val x  = DFSInt(16) <> IN
@@ -43,6 +41,85 @@ class DropRegsWiresSpec extends StageSpec:
          |    if (clk.rising)
          |      if (rst == 1) r1 :== sd"16'0"
          |      else r1 :== r1_din
+         |  }
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Rising clk, Async Reset") {
+    val clkCfg = ClkCfg("clk", ClkCfg.Edge.Rising)
+    val rstCfg = RstCfg("rst", RstCfg.Mode.Async, RstCfg.Active.High)
+    class ID extends RTDesign(clkCfg, rstCfg):
+      val x  = DFSInt(16) <> IN
+      val r1 = DFSInt(16) <> REG init 0
+      r1.din := x
+    val id = (new ID).dropRegsWires
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val clk = DFBit <> IN
+         |  val rst = DFBit <> IN
+         |  val x = DFSInt(16) <> IN
+         |  val r1 = DFSInt(16) <> VAR init sd"16'0"
+         |  val r1_din = DFSInt(16) <> VAR
+         |  always.all {
+         |    r1_din :== x
+         |  }
+         |  always(clk, rst) {
+         |    if (rst == 1) r1 :== sd"16'0"
+         |    else if (clk.rising) r1 :== r1_din
+         |  }
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Falling clk, no Reset") {
+    val clkCfg = ClkCfg("clk", ClkCfg.Edge.Falling)
+    val rstCfg = None
+    class ID extends RTDesign(clkCfg, rstCfg):
+      val x  = DFSInt(16) <> IN
+      val r1 = DFSInt(16) <> REG init 0
+      r1.din := x
+    val id = (new ID).dropRegsWires
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val clk = DFBit <> IN
+         |  val x = DFSInt(16) <> IN
+         |  val r1 = DFSInt(16) <> VAR init sd"16'0"
+         |  val r1_din = DFSInt(16) <> VAR
+         |  always.all {
+         |    r1_din :== x
+         |  }
+         |  always(clk) {
+         |    if (clk.falling) r1 :== r1_din
+         |  }
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Rising clk, Sync Reset & Active-low, names change") {
+    val clkCfg = ClkCfg("clk_p", ClkCfg.Edge.Rising)
+    val rstCfg = RstCfg("rst_n", RstCfg.Mode.Async, RstCfg.Active.Low)
+    class ID extends RTDesign(clkCfg, rstCfg):
+      val x  = DFSInt(16) <> IN
+      val r1 = DFSInt(16) <> REG init 0
+      r1.din := x
+    val id = (new ID).dropRegsWires
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val clk_p = DFBit <> IN
+         |  val rst_n = DFBit <> IN
+         |  val x = DFSInt(16) <> IN
+         |  val r1 = DFSInt(16) <> VAR init sd"16'0"
+         |  val r1_din = DFSInt(16) <> VAR
+         |  always.all {
+         |    r1_din :== x
+         |  }
+         |  always(clk_p, rst_n) {
+         |    if (rst_n == 0) r1 :== sd"16'0"
+         |    else if (clk_p.rising) r1 :== r1_din
          |  }
          |end ID
          |""".stripMargin
