@@ -1,17 +1,61 @@
 package DFiant.compiler.stages
 
 import DFiant.compiler.analysis.*
+import DFiant.compiler.ir.DFRef.TwoWay
 import DFiant.compiler.ir.{*, given}
 import DFiant.compiler.patching.*
 import DFiant.internals.*
-import scala.collection.mutable
 
+import scala.collection.mutable
+import scala.reflect.classTag
+
+/** This stage transforms a register-transfer (RT) design/domain into a valid event-driven (ED)
+  * design/domain. For this purpose it does the following:
+  *   a. Adds clock and reset ports and connects them across designs.
+  *   a. Converts the design/domain `domainType` from RT to ED.
+  *   a. Adds combinational always blocks and moves the core logic to it.
+  *   a. Drops register and wire declarations in favor of regular variable declarations. There are
+  *      two kinds of variable declartions: local and global. Local variable declarations will apear
+  *      inside the combinational always block and assignments to these variables are always
+  *      blocking. Global variables are declared outside the always blocks (within the scope of the
+  *      design/domain) and assignments to them are always non-blocking.
+  *   a. Adds a sequential always block according to the clock and reset parameters and adds the
+  *      register next value assignments to it.
+  */
 private class DropRegsWires(db: DB) extends Stage(db):
   override protected def preTransform: DB =
     // need to order members so that ports are at the beginning
-    // need ViaPortConnection
+    // need ViaPortConnection (assuming direct connections to variables)
     // need derived clock and reset configuration to be explicit
     super.preTransform
+
+  enum VarKind:
+    case Local, Global, GlobalWithLocal
+  object VarKind:
+    def unapply(dcl: DFVal.Dcl): Option[VarKind] =
+      dcl.modifier match
+        // A register does not have a local variable, as it relies on `reg.din`
+        case DFVal.Modifier.REG => Some(VarKind.Global)
+        case DFVal.Modifier.WIRE =>
+          val isGlobal = dcl.getConnectionTo.nonEmpty | dcl.getConnectionsFrom.nonEmpty
+          if (isGlobal)
+            if (dcl.getReadDeps.size > 1) Some(VarKind.GlobalWithLocal)
+            else Some(VarKind.Global)
+          else Some(VarKind.Local)
+        // Not a register or wire declaration? Nothing to do.
+        case _ => None
+  end VarKind
+  object WhenGlobalRefs extends Patch.Replace.RefFilter:
+    def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
+      refs.flatMap {
+        case r: DFRef.TwoWayAny =>
+          r.originRef.get match
+            case n: DFNet if n.lateConstruction => Some(r)
+            case _                              => None
+        case _ => None
+      }
+  final val WhenLocalRefs = !WhenGlobalRefs
+
   override def transform: DB =
     val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
       // for all domain owners that are also blocks (RTDesign, RTDomain)
@@ -20,30 +64,21 @@ private class DropRegsWires(db: DB) extends Stage(db):
           // only care about register-transfer domains.
           // those have wires and regs that we need to simplify.
           case domainType: DomainType.RT =>
-            val wires = members.collect {
-              case dcl: DFVal.Dcl if dcl.modifier == DFVal.Modifier.WIRE => dcl
-            }
+            // all the declarations that need to be converted to VARs
+            val dclVars = members.collect { case v @ VarKind(kind) => (v, kind) }
+            // all the registers
             val regs = members.collect {
               case dcl: DFVal.Dcl if dcl.modifier == DFVal.Modifier.REG => dcl
             }
-            if (regs.nonEmpty)
-              assert(
-                domainType.clkCfg != None,
-                s"Clock is missing in high-level domain owner ${owner.getFullName}. Found registers but no clock is defined."
-              )
-            val regVars = regs.map(_.copy(modifier = DFVal.Modifier.VAR))
-            val regsPatch = regs
-              .lazyZip(regVars)
-              .map((r, rv) => r -> Patch.Replace(rv, Patch.Replace.Config.FullReplacement))
             // name and existence indicators for the clock and reset
             val hasClock = domainType.clkCfg != None
             val clkName = domainType.clkCfg match
               case ClkCfg.Explicit(name: String, _) => name
-              case _                                => ""
+              case _                                => "clk"
             val hasReset = domainType.rstCfg != None
             val rstName = domainType.rstCfg match
               case RstCfg.Explicit(name: String, _, _) => name
-              case _                                   => ""
+              case _                                   => "rst"
 
             // adding clock and reset ports according to the domain configuration
             val clkRstPortsDsn = new MetaDesign:
@@ -63,43 +98,78 @@ private class DropRegsWires(db: DB) extends Stage(db):
             val ownerDomainPatch =
               owner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
 
-            var wiresPatch = List.empty[(DFMember, Patch)]
+            val globalWithLocals = mutable.ListBuffer.empty[DFVal]
+            val regVars = mutable.ListBuffer.empty[DFVal.Dcl]
+            val globalsPatch = dclVars.flatMap {
+              case (v, VarKind.Global) =>
+                val rep = v.copy(modifier = DFVal.Modifier.VAR)
+                if (v.modifier == DFVal.Modifier.REG) regVars += rep
+                Some(v -> Patch.Replace(rep, Patch.Replace.Config.FullReplacement))
+              case (v, VarKind.GlobalWithLocal) =>
+                val rep = v.copy(modifier = DFVal.Modifier.VAR)
+                globalWithLocals += rep
+                Some(
+                  v -> Patch.Replace(rep, Patch.Replace.Config.FullReplacement, WhenGlobalRefs)
+                )
+              case _ => None
+            }
+            var localsPatch = List.empty[(DFMember, Patch)]
+            val localWithGlobals = mutable.ListBuffer.empty[DFVal]
             var regs_dinPatch = List.empty[(DFMember, Patch)]
-            var regs_din_vPatch = List.empty[(DFMember, Patch)]
             val alwaysBlockDsn = new MetaDesign:
               val regs_dinVars = regs.map { r =>
                 r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
               }
+
               always.all {
-                wiresPatch = wires.map { w =>
-                  w -> Patch.Replace(
-                    w.asValAny.genNewVar(using dfc.setName(w.name)).asIR,
-                    Patch.Replace.Config.ChangeRefAndRemove
-                  )
+                localsPatch = dclVars.flatMap {
+                  case (v, VarKind.Local) =>
+                    val rep = v.asValAny.genNewVar(using dfc.setName(v.name)).asIR
+                    Some(v -> Patch.Replace(rep, Patch.Replace.Config.ChangeRefAndRemove))
+                  case (v, VarKind.GlobalWithLocal) =>
+                    val rep = v.asValAny.genNewVar(using dfc.setName(s"${v.name}_v")).asIR
+                    localWithGlobals += rep
+                    Some(v -> Patch.Replace(rep, Patch.Replace.Config.ChangeRefOnly, WhenLocalRefs))
+                  case _ => None
                 }
-                regs_dinPatch = regs.lazyZip(regs_dinVars).flatMap { (r, r_din_v) =>
+                val reg_dinLocals = members
+                  .collect { case reg_din: DFVal.Alias.RegDIN => reg_din }
+                  .groupByOrdered(_.relValRef.get)
+                  .view
+                  .filter((_, reg_dins) => reg_dins.exists { rdi => rdi.getReadDeps.nonEmpty })
+                  .map((r, _) =>
+                    (r, r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din_v")).asIR)
+                  )
+                  .toMap
+                regs_dinPatch = regs.lazyZip(regs_dinVars).flatMap { (r, r_din_global) =>
+                  val r_din_v = reg_dinLocals.get(r) match
+                    case Some(local) =>
+                      globalWithLocals += r_din_global
+                      localWithGlobals += local
+                      local
+                    case None => r_din_global
+
                   members.collect {
                     case reg_din: DFVal.Alias.RegDIN if reg_din.relValRef.get == r =>
                       reg_din -> Patch.Replace(r_din_v, Patch.Replace.Config.ChangeRefAndRemove)
                   }
                 }
-//                regs_din_vPatch = regs.map { r =>
-//                  r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
-//                }
               }
               import DFiant.core.DFIf
               import DFiant.core.NoType
               import DFiant.core.{asTokenOf, DFTypeAny, DFOwnerAny}
-              def regInitBlock() = regVars.foreach {
-                case r if r.externalInit.nonEmpty =>
-                  r.asVarAny := DFiant.core.DFVal.Const(
-                    r.externalInit.get.head.asTokenOf[DFTypeAny]
-                  )
-                case _ =>
-              }
-              def regSaveBlock() = regs.lazyZip(regs_dinVars).foreach { (r, r_din_v) =>
-                r.asVarAny := r_din_v.asValAny
-              }
+              def regInitBlock() =
+                regVars.foreach {
+                  case r if r.externalInit.nonEmpty =>
+                    r.asVarAny := DFiant.core.DFVal.Const(
+                      r.externalInit.get.head.asTokenOf[DFTypeAny]
+                    )
+                  case _ =>
+                }
+              def regSaveBlock() =
+                regVars.lazyZip(regs_dinVars).foreach { (r, r_din_v) =>
+                  r.asVarAny := r_din_v.asValAny
+                }
               def ifRstActive =
                 import clkRstPortsDsn.rst
                 val RstCfg.Explicit(_, _, active) = domainType.rstCfg
@@ -122,9 +192,9 @@ private class DropRegsWires(db: DB) extends Stage(db):
                   block
                 )
 
-              if (hasClock)
+              if (hasClock && regs.nonEmpty)
                 import clkRstPortsDsn.clk
-                if (hasReset)
+                if (hasReset && regs.exists(_.externalInit.nonEmpty))
                   val RstCfg.Explicit(_, mode, _) = domainType.rstCfg
                   import clkRstPortsDsn.rst
                   mode match
@@ -157,13 +227,20 @@ private class DropRegsWires(db: DB) extends Stage(db):
                 alwaysBlockAllMembers,
                 Patch.Move.Config.InsideLast
               )
+            val localToGlobalDsn = new MetaDesign:
+              globalWithLocals.lazyZip(localWithGlobals).foreach { (g, l) =>
+                g.asVarAny := l.asValAny
+              }
+            val localToGlobalPatch =
+              abOwnerIR -> Patch.Add(localToGlobalDsn, Patch.Add.Config.InsideLast)
             List(
               Some(ownerDomainPatch),
               addClkRstPatchOption,
               Some(alwaysBlockAllPatch),
               Some(alwaysBlockMembersPatch),
-              wiresPatch,
-              regsPatch,
+              Some(localToGlobalPatch),
+              globalsPatch,
+              localsPatch,
               regs_dinPatch
             ).flatten
           // other domains
@@ -171,7 +248,7 @@ private class DropRegsWires(db: DB) extends Stage(db):
       // other owners
       case _ => None
     }
-    designDB.patch(patchList)
+    designDB.patch(patchList).sanityCheck
   end transform
 end DropRegsWires
 

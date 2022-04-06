@@ -63,9 +63,26 @@ extension (dfVal: DFVal)
   def getConnectionTo(using MemberGetSet): Option[DFNet] =
     dfVal.dealias.flatMap(getSet.designDB.connectionTable.get)
   def getConnectionsFrom(using MemberGetSet): List[DFNet] =
-    getSet.designDB.connectionTableInverted(dfVal)
+    getSet.designDB.connectionTableInverted.getOrElse(dfVal, Nil)
   def getAssignmentsTo(using MemberGetSet): Set[DFVal] =
     getSet.designDB.assignmentsTable.getOrElse(dfVal, Set())
   def getAssignmentsFrom(using MemberGetSet): Set[DFVal] =
     getSet.designDB.assignmentsTableInverted.getOrElse(dfVal, Set())
+  def getReadDeps(using MemberGetSet): Set[DFNet | DFVal] =
+    val refs = getSet.designDB.memberTable(dfVal)
+    refs.flatMap {
+      case DFRef.TwoWay(originRef) =>
+        originRef.get match
+          case net: DFNet =>
+            net match
+              // ignoring
+              case DFNet.Connection(toVal: DFVal, _, _) if toVal == dfVal => None
+              case DFNet.Assignment(toVal, _) if toVal == dfVal           => None
+              case _                                                      => Some(net)
+          case alias: DFVal.Alias.ModPropagator => alias.getReadDeps
+          case dfVal: DFVal                     => Some(dfVal)
+          case _                                => None
+      case _ => None
+    }
+  end getReadDeps
 end extension

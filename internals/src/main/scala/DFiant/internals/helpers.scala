@@ -237,3 +237,18 @@ extension [T](iter: Iterable[T])
 extension (str: String)
   def emptyOr(f: String => String): String =
     if (str.isEmpty) str else f(str)
+
+extension [T](seq: Iterable[T])
+  def groupByOrdered[P](f: T => P): Seq[(P, Iterable[T])] =
+    @tailrec
+    def accumulator(
+        seq: Iterable[T],
+        f: T => P,
+        res: List[(P, Iterable[T])]
+    ): Seq[(P, Iterable[T])] = seq.headOption match
+      case None => res.reverse
+      case Some(h) =>
+        val key = f(h)
+        val subseq = seq.takeWhile(f(_) equals key)
+        accumulator(seq.drop(subseq.size), f, (key -> subseq) :: res)
+    accumulator(seq, f, Nil)

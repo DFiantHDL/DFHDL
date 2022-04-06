@@ -112,7 +112,7 @@ object DFMember:
         // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
         val memberChain = this.getOwnerChain
         val ctxChain = namedOwner.getOwnerChain
-        ??? // TODO
+        "???" // TODO
   end Named
 end DFMember
 
@@ -209,6 +209,9 @@ object DFVal:
     val relValRef: DFVal.Ref
 
   object Alias:
+    // This signifies as alias that can propagate its modifier.
+    // E.g., a mutable variable `x` that we select its bit `x(1)` is also mutable.
+    sealed trait ModPropagator extends Alias
     final case class AsIs(
         dfType: DFType,
         relValRef: DFVal.Ref,
@@ -255,7 +258,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Alias:
+    ) extends ModPropagator:
       val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
@@ -273,7 +276,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Alias:
+    ) extends ModPropagator:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyIdx =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -291,7 +294,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Alias:
+    ) extends ModPropagator:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: SelectField =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&

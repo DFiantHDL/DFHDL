@@ -51,7 +51,8 @@ class DropRegsWiresSpec extends StageSpec:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       val r = DFSInt(16) <> REG
-      r.din := x
+      r.din := 1
+      r.din := x + r.din
       y     := r
 
     class IDTop extends RTDesign:
@@ -63,16 +64,28 @@ class DropRegsWiresSpec extends StageSpec:
         this.x <> id_x
         this.y <> id_y
       id_x := x
+      id_x := id_x + 1
       y    := id_y
     end IDTop
-    val id = (new IDTop).printCodeString.dropRegsWires
+    val top = (new IDTop).dropRegsWires
     assertCodeString(
-      id,
+      top,
       """|class ID extends EDDesign:
+         |  val clk = DFBit <> IN
+         |  val rst = DFBit <> IN
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
+         |  val r = DFSInt(16) <> VAR
+         |  val r_din = DFSInt(16) <> VAR
          |  always.all {
-         |    y :== x
+         |    val r_din_v = DFSInt(16) <> VAR
+         |    r_din_v := sd"16'1"
+         |    r_din_v := x + r_din_v
+         |    y :== r
+         |    r_din :== r_din_v
+         |  }
+         |  always(clk) {
+         |    if (clk.rising) r :== r_din
          |  }
          |end ID
          |
@@ -81,31 +94,17 @@ class DropRegsWiresSpec extends StageSpec:
          |  val rst = DFBit <> IN
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
-         |  val r1 = DFSInt(16) <> VAR init sd"16'0"
-         |  val r2 = DFSInt(16) <> VAR init sd"16'5"
-         |  val r1_din = DFSInt(16) <> VAR
-         |  val r2_din = DFSInt(16) <> VAR
+         |  val id_x = DFSInt(16) <> VAR
+         |  val id_y = DFSInt(16) <> VAR
+         |  val id = new ID:
+         |    this.x <>/*<--*/ id_x
+         |    this.y <>/*-->*/ id_y
          |  always.all {
-         |    val w1 = DFSInt(16) <> VAR
-         |    val w2 = DFSInt(16) <> VAR
-         |    val r2_din_v = DFSInt(16) <> VAR
-         |    w1 := x
-         |    w1 := w1 + sd"2'1"
-         |    w2 := x
-         |    r1_din :== w2
-         |    r2_din_v := 0
-         |    r2_din_v := r2_din_v + 1
-         |    y :== w1 + r1
-         |    r2_din :== r2_din_v
-         |  }
-         |  always(clk) {
-         |    if (clk.rising)
-         |      if (rst == 1) 
-         |        r1 :== sd"16'0"
-         |        r2 :== sd"16'5"
-         |      else 
-         |        r1 :== r1_din
-         |        r2 :== r2_din
+         |    val id_x_v = DFSInt(16) <> VAR
+         |    id_x_v := x
+         |    id_x_v := id_x_v + sd"2'1"
+         |    y :== id_y
+         |    id_x :== id_x_v
          |  }
          |end IDTop
          |""".stripMargin

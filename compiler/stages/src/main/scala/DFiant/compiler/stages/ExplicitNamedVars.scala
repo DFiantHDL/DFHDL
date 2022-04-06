@@ -14,9 +14,7 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
     val matchHeaderTag = classTag[DFConditional.DFMatchHeader]
     def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
       refs.filter { r => (r.refType equals ifHeaderTag) || (r.refType equals matchHeaderTag) }
-  object WhenNotHeader extends Patch.Replace.RefFilter:
-    def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
-      refs -- WhenHeader(refs)
+  final val WhenNotHeader = !WhenHeader
 
   extension (ch: DFConditional.Header)
     // recursive call to patch conditional block chains

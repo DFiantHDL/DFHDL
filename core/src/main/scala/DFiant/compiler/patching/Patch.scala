@@ -30,6 +30,10 @@ object Patch:
     trait RefFilter derives CanEqual:
       def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny]
     object RefFilter:
+      extension (rf: RefFilter)
+        def unary_! : RefFilter = new RefFilter:
+          def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
+            refs -- rf(refs)
       // All references are replaced
       object All extends RefFilter:
         def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] = refs
@@ -41,6 +45,7 @@ object Patch:
       final case class Inside(block: DFOwner) extends RefFilter:
         def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
           refs.collect { case r: DFRef.TwoWayAny if r.originRef.get.isInsideOwner(block) => r }
+    end RefFilter
   end Replace
   final case class Add private[patching] (db: DB, config: Add.Config) extends Patch
   object Add:
