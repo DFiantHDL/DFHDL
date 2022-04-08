@@ -17,14 +17,14 @@ object DFRef:
   object OneWay:
     object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
 
-  trait TwoWay[+M <: DFMember] extends DFRef[M]:
-    lazy val originRef: OneWay[DFMember]
-  type TwoWayAny = TwoWay[DFMember]
+  trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
+    lazy val originRef: OneWay[O]
+  type TwoWayAny = TwoWay[DFMember, DFMember]
   object TwoWay:
     def unapply(ref: TwoWayAny): Option[OneWay[DFMember]] =
       Some(ref.originRef)
-    object Empty extends TwoWay[DFMember.Empty] with DFRef.Empty:
-      lazy val originRef: OneWay[DFMember] = OneWay.Empty
+    object Empty extends TwoWay[DFMember.Empty, Nothing] with DFRef.Empty:
+      lazy val originRef: OneWay[Nothing] = ???
 
   def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
 end DFRef

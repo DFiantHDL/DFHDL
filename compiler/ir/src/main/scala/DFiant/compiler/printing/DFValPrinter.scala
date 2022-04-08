@@ -5,7 +5,7 @@ import DFiant.internals.*
 import DFVal.*
 import analysis.*
 
-extension [M <: DFMember](ref: DFRef.TwoWay[M])
+extension (ref: DFRef.TwoWayAny)
   def refCodeString(using printer: AbstractValPrinter): String = printer.csRef(ref)
   def simpleRefCodeString(using printer: AbstractValPrinter): String = printer.csSimpleRef(ref)
 

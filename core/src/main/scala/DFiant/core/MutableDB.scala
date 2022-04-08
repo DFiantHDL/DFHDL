@@ -181,7 +181,7 @@ class MutableDB(val duringTest: Boolean = false):
     while (refTable.size != size) do
       size = refTable.size
       refTable.keys.foreach {
-        case or: DFRef.TwoWay[_] => or.originRef
+        case or: DFRef.TwoWayAny => or.originRef
         case _                   => // do nothing
       }
     val notIgnoredMembers =

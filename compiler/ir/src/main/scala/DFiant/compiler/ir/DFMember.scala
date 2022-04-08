@@ -120,7 +120,8 @@ sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
 
 object DFVal:
-  type Ref = DFRef.TwoWay[DFVal]
+  sealed trait Consumer extends DFMember
+  type Ref = DFRef.TwoWay[DFVal, DFMember]
   enum Modifier derives CanEqual:
     case VAR, IN, OUT, INOUT, REG, WIRE
 
@@ -343,7 +344,7 @@ final case class DFNet(
 end DFNet
 
 object DFNet:
-  type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner]
+  type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner, DFNet]
   enum Op derives CanEqual:
     case Assignment, Connection, LazyConnection
   extension (net: DFNet)
@@ -444,8 +445,8 @@ object DFConditional:
     val guardRef: Block.GuardRef
     val prevBlockOrHeaderRef: Block.Ref
   object Block:
-    type Ref = DFRef.TwoWay[Block | Header]
-    type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty]
+    type Ref = DFRef.TwoWay[Block | Header, Block]
+    type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty, Block]
 
   sealed trait Header extends DFVal.CanBeExpr
 
@@ -483,7 +484,7 @@ object DFConditional:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   end DFCaseBlock
   object DFCaseBlock:
-    type Ref = DFRef.TwoWay[DFCaseBlock | DFMatchHeader]
+    type Ref = DFRef.TwoWay[DFCaseBlock | DFMatchHeader, Block]
     sealed trait Pattern extends HasRefCompare[Pattern] derives CanEqual
     object Pattern:
       case object CatchAll extends Pattern:
@@ -559,7 +560,7 @@ object DFConditional:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   end DFIfElseBlock
   object DFIfElseBlock:
-    type Ref = DFRef.TwoWay[DFIfElseBlock | DFIfHeader]
+    type Ref = DFRef.TwoWay[DFIfElseBlock | DFIfHeader, Block]
 end DFConditional
 
 final case class DFDesignBlock(
@@ -623,8 +624,8 @@ object DFSimMember:
 
 sealed trait Timer extends DFMember.Named
 object Timer:
-  type Ref = DFRef.TwoWay[Timer]
-  type TriggerRef = DFRef.TwoWay[DFVal | DFMember.Empty]
+  type Ref = DFRef.TwoWay[Timer, DFMember]
+  type TriggerRef = DFRef.TwoWay[DFVal | DFMember.Empty, Timer]
   final case class Periodic(
       triggerRef: TriggerRef,
       periodOpt: Option[Time],

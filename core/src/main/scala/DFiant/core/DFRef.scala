@@ -8,11 +8,11 @@ extension [M <: ir.DFMember](member: M)
     val newRef = new ir.DFRef.OneWay[M]:
       lazy val refType = classTag[M]
     dfc.mutableDB.newRefFor(newRef, member)
-  def refTW(
-      originMember: => ir.DFMember
-  )(using ClassTag[M], DFC): ir.DFRef.TwoWay[M] =
+  def refTW[O <: ir.DFMember](
+      originMember: => O
+  )(using ClassTag[M], ClassTag[O], DFC): ir.DFRef.TwoWay[M, O] =
     lazy val newOriginRef = originMember.ref
-    val newRef = new ir.DFRef.TwoWay[M]:
+    val newRef = new ir.DFRef.TwoWay[M, O]:
       lazy val refType = classTag[M]
       lazy val originRef = newOriginRef
     dfc.mutableDB.newRefFor(newRef, member)
