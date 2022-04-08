@@ -120,7 +120,6 @@ sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
 
 object DFVal:
-  sealed trait Consumer extends DFMember
   type Ref = DFRef.TwoWay[DFVal, DFMember]
   enum Modifier derives CanEqual:
     case VAR, IN, OUT, INOUT, REG, WIRE
@@ -207,19 +206,28 @@ object DFVal:
       case rising, falling
 
   sealed trait Alias extends CanBeExpr:
-    val relValRef: DFVal.Ref
+    val relValRef: Alias.Ref
 
   object Alias:
-    // This signifies as alias that can propagate its modifier.
+    type Ref = DFRef.TwoWay[DFVal, Alias]
+    // This is complete alias that consumes its relative val
+    sealed trait Consumer extends Alias:
+      val relValRef: ConsumerRef
+    type ConsumerRef = DFRef.TwoWay[DFVal, Consumer]
+
+    // This is a partial alias that can propagate its modifier.
     // E.g., a mutable variable `x` that we select its bit `x(1)` is also mutable.
-    sealed trait ModPropagator extends Alias
+    sealed trait Partial extends Alias:
+      val relValRef: PartialRef
+    type PartialRef = DFRef.TwoWay[DFVal, Partial]
+
     final case class AsIs(
         dfType: DFType,
-        relValRef: DFVal.Ref,
+        relValRef: ConsumerRef,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Alias:
+    ) extends Consumer:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: AsIs =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -231,13 +239,13 @@ object DFVal:
 
     final case class History(
         dfType: DFType,
-        relValRef: DFVal.Ref,
+        relValRef: ConsumerRef,
         step: Int,
         op: History.Op,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Alias:
+    ) extends Consumer:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: History =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -253,13 +261,13 @@ object DFVal:
         case Prev, Pipe, Reg
 
     final case class ApplyRange(
-        relValRef: DFVal.Ref,
+        relValRef: PartialRef,
         relBitHigh: Int,
         relBitLow: Int,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends ModPropagator:
+    ) extends Partial:
       val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
@@ -272,12 +280,12 @@ object DFVal:
     end ApplyRange
     final case class ApplyIdx(
         dfType: DFType,
-        relValRef: DFVal.Ref,
+        relValRef: PartialRef,
         relIdx: DFVal.Ref,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends ModPropagator:
+    ) extends Partial:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyIdx =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -290,12 +298,12 @@ object DFVal:
 
     final case class SelectField(
         dfType: DFType,
-        relValRef: DFVal.Ref,
+        relValRef: PartialRef,
         fieldName: String,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends ModPropagator:
+    ) extends Partial:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: SelectField =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -308,11 +316,11 @@ object DFVal:
 
     final case class RegDIN(
         dfType: DFType,
-        relValRef: DFVal.Ref,
+        relValRef: ConsumerRef,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Alias:
+    ) extends Consumer:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: RegDIN =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -445,8 +453,8 @@ object DFConditional:
     val guardRef: Block.GuardRef
     val prevBlockOrHeaderRef: Block.Ref
   object Block:
-    type Ref = DFRef.TwoWay[Block | Header, Block]
-    type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty, Block]
+    type Ref = DFRef.TwoWay[Block | Header, DFMember]
+    type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty, DFMember]
 
   sealed trait Header extends DFVal.CanBeExpr
 
@@ -625,7 +633,7 @@ object DFSimMember:
 sealed trait Timer extends DFMember.Named
 object Timer:
   type Ref = DFRef.TwoWay[Timer, DFMember]
-  type TriggerRef = DFRef.TwoWay[DFVal | DFMember.Empty, Timer]
+  type TriggerRef = DFRef.TwoWay[DFVal | DFMember.Empty, DFMember]
   final case class Periodic(
       triggerRef: TriggerRef,
       periodOpt: Option[Time],

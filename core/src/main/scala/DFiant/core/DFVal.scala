@@ -293,7 +293,7 @@ object DFVal:
             forced(aliasType.asIR, relVal.asIR).asVal[AT, M]
       end apply
       def forced(aliasType: ir.DFType, relVal: ir.DFVal)(using DFC): ir.DFVal =
-        lazy val alias: ir.DFVal =
+        lazy val alias: ir.DFVal.Alias.AsIs =
           ir.DFVal.Alias.AsIs(
             aliasType,
             relVal.refTW(alias),
@@ -315,7 +315,7 @@ object DFVal:
     object History:
       export ir.DFVal.Alias.History.Op
       def apply[T <: DFTypeAny](relVal: DFValOf[T], step: Int, op: Op)(using DFC): DFValOf[T] =
-        lazy val alias: ir.DFVal =
+        lazy val alias: ir.DFVal.Alias.History =
           ir.DFVal.Alias.History(
             relVal.dfType.asIR,
             relVal.asIR.refTW(alias),
@@ -328,7 +328,7 @@ object DFVal:
         alias.addMember.asValOf[T]
     object RegDIN:
       def apply[T <: DFTypeAny](relVal: DFValOf[T])(using DFC): DFVarOf[T] =
-        lazy val alias: ir.DFVal =
+        lazy val alias: ir.DFVal.Alias.RegDIN =
           ir.DFVal.Alias.RegDIN(
             relVal.dfType.asIR,
             relVal.asIR.refTW(alias),
@@ -360,7 +360,7 @@ object DFVal:
           relBitHigh: Int,
           relBitLow: Int
       )(using DFC): ir.DFVal =
-        lazy val alias: ir.DFVal =
+        lazy val alias: ir.DFVal.Alias.ApplyRange =
           ir.DFVal.Alias.ApplyRange(
             relVal.refTW(alias),
             relBitHigh,
@@ -378,7 +378,7 @@ object DFVal:
           relVal: DFVal[DFTypeAny, M],
           relIdx: DFUInt[IW] <> VAL
       )(using DFC): DFVal[T, M] =
-        lazy val alias: ir.DFVal =
+        lazy val alias: ir.DFVal.Alias.ApplyIdx =
           ir.DFVal.Alias.ApplyIdx(
             dfType.asIR,
             relVal.asIR.refTW(alias),
@@ -408,7 +408,7 @@ object DFVal:
             args(idx).get.asVal[T, M]
           // for all other case create a selector
           case _ =>
-            lazy val alias: ir.DFVal =
+            lazy val alias: ir.DFVal.Alias.SelectField =
               ir.DFVal.Alias.SelectField(
                 dfTypeIR,
                 relValIR.refTW(alias),

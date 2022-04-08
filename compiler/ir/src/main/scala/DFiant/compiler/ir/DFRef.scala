@@ -23,8 +23,8 @@ object DFRef:
   object TwoWay:
     def unapply(ref: TwoWayAny): Option[OneWay[DFMember]] =
       Some(ref.originRef)
-    object Empty extends TwoWay[DFMember.Empty, Nothing] with DFRef.Empty:
-      lazy val originRef: OneWay[Nothing] = ???
+    object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty:
+      lazy val originRef: OneWay[DFMember.Empty] = OneWay.Empty
 
   def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
 end DFRef
