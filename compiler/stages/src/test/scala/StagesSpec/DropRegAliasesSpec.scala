@@ -33,6 +33,35 @@ class DropRegAliasesSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Anonymous value reg aliases") {
+    class ID extends RTDesign:
+      val x1 = DFSInt(16) <> IN
+      val y1 = DFSInt(16) <> OUT
+      val x2 = DFBits(16) <> IN
+      val y2 = DFBits(16) <> OUT
+      y1 := (x1 + 1).reg
+      val z = (x2 << 1).reg
+      y2 := x2(7, 0).reg.resize(16).reg(2) | z
+    val id = (new ID).dropRegAliases
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val x1 = DFSInt(16) <> IN
+         |  val x1_reg = DFSInt(16) <> REG
+         |  val y1 = DFSInt(16) <> OUT
+         |  val x2 = DFSInt(16) <> IN
+         |  val x2_reg1 = DFSInt(16) <> REG
+         |  val x2_reg2 = DFSInt(16) <> REG
+         |  val y2 = DFSInt(16) <> OUT
+         |  x1_reg.din := x1
+         |  y1 := x1_reg
+         |  x2_reg1.din := x2
+         |  x2_reg2.din := x2_reg1
+         |  y2 := x2_reg
+         |end ID
+         |""".stripMargin
+    )
+  }
   test("Reg alias of mutating wire") {
     class ID extends RTDesign:
       val x1 = DFSInt(16) <> IN
