@@ -314,18 +314,26 @@ object DFVal:
     end AsIs
     object History:
       export ir.DFVal.Alias.History.Op
-      def apply[T <: DFTypeAny](relVal: DFValOf[T], step: Int, op: Op)(using DFC): DFValOf[T] =
+      def apply[T <: DFTypeAny](
+          relVal: DFValOf[T],
+          step: Int,
+          op: Op,
+          initOption: Option[DFToken[T]]
+      )(using DFC): DFValOf[T] =
         lazy val alias: ir.DFVal.Alias.History =
           ir.DFVal.Alias.History(
             relVal.dfType.asIR,
             relVal.asIR.refTW(alias),
             step,
             op,
+            initOption.map(_.asIR),
             dfc.owner.ref,
             dfc.getMeta,
             ir.DFTags.empty
           )
         alias.addMember.asValOf[T]
+      end apply
+    end History
     object RegDIN:
       def apply[T <: DFTypeAny](relVal: DFValOf[T])(using DFC): DFVarOf[T] =
         lazy val alias: ir.DFVal.Alias.RegDIN =
@@ -578,41 +586,58 @@ object DFVal:
   given [I](using
       AssertGiven[
         I =:= Modifier.Initialized,
-        "This construct is only available for initialized values."
+        "This construct is only available for initialized values or must have an initialization argument.\nE.g.: `x.prev(step, init)`."
       ],
       DFDomainOnly
   ): PrevCheck[I] with {}
   object Ops:
     // TODO: change to step Inlined[S] for all operations after https://github.com/lampepfl/dotty/issues/14451
     // is resolved.
-    extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
-      def prev(
-          step: Int
-      )(using
+    extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I]])
+      def prev(step: Inlined[S], initValue: Exact[V])(using
           dfc: DFC,
-          prevCheck: PrevCheck[I],
-          check: Arg.Positive.Check[Int]
+          tokenTC: DFToken.TC[T, V],
+          check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev)
+        val initOpt = Some(tokenTC(dfVal.dfType, initValue))
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev, initOpt)
+      }
+      def prev(step: Inlined[S])(using
+          dfc: DFC,
+          prevCheck: PrevCheck[I],
+          check: Arg.Positive.Check[S]
+      ): DFValOf[T] = trydf {
+        check(step)
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev, None)
       }
       inline def prev(using PrevCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
       def pipe(
-          step: Int
-      )(using dfOnly: DFDomainOnly, dfc: DFC, check: Arg.Positive.Check[Int]): DFValOf[T] = trydf {
+          step: Inlined[S]
+      )(using dfOnly: DFDomainOnly, dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] = trydf {
         check(step)
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe)
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe, None)
       }
       inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
       def reg(
-          step: Int
+          step: Inlined[S]
       )(using
           dfc: DFC,
           rtOnly: RTDomainOnly,
-          check: Arg.Positive.Check[Int]
+          check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg)
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg, None)
+      }
+      def reg(step: Inlined[S], initValue: Exact[V])(using
+          dfc: DFC,
+          rtOnly: RTDomainOnly,
+          tokenTC: DFToken.TC[T, V],
+          check: Arg.Positive.Check[S]
+      ): DFValOf[T] = trydf {
+        check(step)
+        val initOpt = Some(tokenTC(dfVal.dfType, initValue))
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg, initOpt)
       }
       inline def reg(using DFC, RTDomainOnly): DFValOf[T] = dfVal.reg(1)
     end extension

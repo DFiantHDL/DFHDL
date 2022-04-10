@@ -193,8 +193,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case Alias.History.Op.Pipe => ".pipe"
       case Alias.History.Op.Reg  => ".reg"
     val appliedStr =
-      if (dfVal.step == 1) opStr
-      else s"$opStr(${dfVal.step})"
+      dfVal.initOption match
+        case Some(init)           => s"$opStr(${dfVal.step}, ${printer.csDFToken(init)})"
+        case _ if dfVal.step == 1 => opStr
+        case _                    => s"$opStr(${dfVal.step})"
     s"${dfVal.relValCodeString}$appliedStr"
   def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String =
     s"${dfVal.relValCodeString}.din"

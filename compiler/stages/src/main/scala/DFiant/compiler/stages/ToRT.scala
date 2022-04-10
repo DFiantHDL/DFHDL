@@ -7,7 +7,7 @@ import DFVal.Alias.History.Op as HistoryOp
 private class ToRT(db: DB) extends Stage(db):
   override def transform: DB =
     val patchList = designDB.members.collect {
-      case h @ DFVal.Alias.History(_, _, _, HistoryOp.Prev | HistoryOp.Pipe, _, _, _) =>
+      case h @ DFVal.Alias.History(_, _, _, HistoryOp.Prev | HistoryOp.Pipe, _, _, _, _) =>
         h -> Patch.Replace(h.copy(op = HistoryOp.Reg), Patch.Replace.Config.FullReplacement)
       case d @ DFDesignBlock(DomainType.DF, _, _, _, _, _, _) =>
         d -> Patch.Replace(

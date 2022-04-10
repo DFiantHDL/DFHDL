@@ -242,6 +242,7 @@ object DFVal:
         relValRef: ConsumerRef,
         step: Int,
         op: History.Op,
+        initOption: Option[DFTokenAny],
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
@@ -249,7 +250,7 @@ object DFVal:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: History =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
-          this.step == that.step && this.op == that.op &&
+          this.step == that.step && this.op == that.op && this.initOption == that.initOption
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]

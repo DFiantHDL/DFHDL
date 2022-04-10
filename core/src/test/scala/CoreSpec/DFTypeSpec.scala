@@ -79,12 +79,16 @@ class DFTypeSpec extends DFSpec:
     val z = DFBits(8) <> VAR init all(0)
     val zprev = z.prev
     assertCompileError(
-      "This construct is only available for initialized values."
+      """|This construct is only available for initialized values or must have an initialization argument.
+         |E.g.: `x.prev(step, init)`.
+         |""".stripMargin
     )(
       """(y + 1).prev"""
     )
     assertCompileError(
-      "This construct is only available for initialized values."
+      """|This construct is only available for initialized values or must have an initialization argument.
+         |E.g.: `x.prev(step, init)`.
+         |""".stripMargin
     )(
       """z(3, 0).prev"""
     )
