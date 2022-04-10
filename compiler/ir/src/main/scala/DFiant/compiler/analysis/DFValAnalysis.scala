@@ -94,7 +94,7 @@ extension (dfVal: DFVal)
   @tailrec private def suggestName(
       member: DFVal,
       prevMember: Option[DFVal] = None
-  )(using MemberGetSet): String =
+  )(using MemberGetSet): Option[String] =
     val refs = member.originRefs
 
     val refOwner: Option[DFMember] = refs
@@ -109,17 +109,15 @@ extension (dfVal: DFVal)
       }
     refOwner match
       // name from assignment destination
-      case Some(DFNet.Assignment(toVal, _)) => partName(toVal)
+      case Some(DFNet.Assignment(toVal, _)) => Some(partName(toVal))
       // name from connection destination
-      case Some(DFNet.Connection(toVal: DFVal, _, _)) => partName(toVal)
+      case Some(DFNet.Connection(toVal: DFVal, _, _)) => Some(partName(toVal))
       // name from a named value which was referenced by an alias
-      case Some(value: DFVal) if !value.isAnonymous => partName(value)
+      case Some(value: DFVal) if !value.isAnonymous => Some(partName(value))
       // found an (anonymous) value -> checking suggestion for it
       case Some(value: DFVal) => suggestName(value, Some(value))
-      // no named source found -> relying on the default anonymous naming
-      case _ => member.name
+      // no named source found
+      case _ => None
   end suggestName
-  def suggestName(using MemberGetSet): String = suggestName(dfVal)
-  def getNameOrSuggestion(using MemberGetSet): String =
-    if (dfVal.isAnonymous) dfVal.suggestName else dfVal.name
+  def suggestName(using MemberGetSet): Option[String] = suggestName(dfVal)
 end extension
