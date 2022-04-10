@@ -74,8 +74,10 @@ private class DropRegAliases(db: DB) extends Stage(db):
           case _: DFVal.Dcl => true
           case _            => false
         }.last
-        val regDsn = new MetaDesign:
-          def addRegs(dfType: DFiant.compiler.ir.DFType, namePrefix: String, maxRegs: Int): Unit =
+        val regDclMap = mutable.Map.empty[DFVal, Vector[DFVal.Dcl]]
+        val regPatches = mutable.ListBuffer.empty[(DFVal, Patch)]
+        val regDsn = new MetaDesign():
+          def addRegs(relVal: DFVal, namePrefix: String, maxRegs: Int): Unit =
             for (i <- 1 to maxRegs) do
               val nameSuffix =
                 if (maxRegs == 1) "_reg"
@@ -83,7 +85,9 @@ private class DropRegAliases(db: DB) extends Stage(db):
               val regName = namePrefix + nameSuffix
               import DFiant.core.{DFTypeAny, asFE}
               import DFiant.core.Modifier.REG as REGFE
-              DFiant.core.DFVal.Dcl(dfType.asFE[DFTypeAny], REGFE)(using dfc.setName(regName))
+              DFiant.core.DFVal.Dcl(relVal.dfType.asFE[DFTypeAny], REGFE)(using
+                dfc.setName(regName)
+              )
 
           nameGroupRegMap.foreach {
             case (NameGroup(groupName, true), groupNamedAliases) =>
@@ -92,11 +96,14 @@ private class DropRegAliases(db: DB) extends Stage(db):
                   val namePrefix =
                     if (groupNamedAliases.size == 1) groupName
                     else s"$groupName${(gnaIdx + 1).toPaddedString(groupNamedAliases.size)}"
-                  addRegs(alias.dfType, namePrefix, alias.step)
+                  addRegs(alias.getNonRegAliasRelVal, namePrefix, alias.step)
                 }
             case (NameGroup(groupName, false), groupNamedAliases) =>
-              val alias = groupNamedAliases.head
-              addRegs(alias.dfType, groupName, groupNamedAliases.map(_.getTotalSteps).max)
+              addRegs(
+                groupNamedAliases.head.getNonRegAliasRelVal,
+                groupName,
+                groupNamedAliases.map(_.getTotalSteps).max
+              )
           }
         Some(lastDcl -> Patch.Add(regDsn, Patch.Add.Config.After))
       case _ => None

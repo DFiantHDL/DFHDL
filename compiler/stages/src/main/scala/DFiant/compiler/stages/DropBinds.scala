@@ -78,7 +78,7 @@ private class DropBinds(db: DB) extends Stage(db):
             // then the rest of the binds are removed and reference the bind variable we created.
             if (hasPrevAlias)
               val relValIR = headBind.relValRef.get
-              val dsn = new MetaDesign:
+              val dsn = new MetaDesign():
                 val bindVar = headBind.asValAny.genNewVar(using dfc.setName(headBind.name))
                 val bindVarIR = bindVar.asIR
                 bindVar := relValIR.asValAny
@@ -110,7 +110,7 @@ private class DropBinds(db: DB) extends Stage(db):
         // the missing bind cases with self-assignment of the previous value for each bind.
 //        val stallsPatchList: List[(DFMember, Patch)] = stalled.collect {
 //          case (c, varsIR) if varsIR.nonEmpty =>
-//            val dsn = new MetaDesign:
+//            val dsn = new MetaDesign():
 //              varsIR.view.reverse.foreach(v => v.asVarAny := v.asVarAny.asInitialized.prev)
 //            c -> Patch.Add(dsn, Patch.Add.Config.InsideLast)
 //        }.toList

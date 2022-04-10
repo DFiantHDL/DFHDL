@@ -81,7 +81,7 @@ private class DropRegsWires(db: DB) extends Stage(db):
               case _                                   => "rst"
 
             // adding clock and reset ports according to the domain configuration
-            val clkRstPortsDsn = new MetaDesign:
+            val clkRstPortsDsn = new MetaDesign():
               lazy val clk = DFBit <> IN setName clkName
               if (hasClock) clk // touch lazy clk to create
               lazy val rst = DFBit <> IN setName rstName
@@ -116,7 +116,7 @@ private class DropRegsWires(db: DB) extends Stage(db):
             var localsPatch = List.empty[(DFMember, Patch)]
             val localWithGlobals = mutable.ListBuffer.empty[DFVal]
             var regs_dinPatch = List.empty[(DFMember, Patch)]
-            val alwaysBlockDsn = new MetaDesign:
+            val alwaysBlockDsn = new MetaDesign():
               val regs_dinVars = regs.map { r =>
                 r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
               }
@@ -227,7 +227,7 @@ private class DropRegsWires(db: DB) extends Stage(db):
                 alwaysBlockAllMembers,
                 Patch.Move.Config.InsideLast
               )
-            val localToGlobalDsn = new MetaDesign:
+            val localToGlobalDsn = new MetaDesign():
               globalWithLocals.lazyZip(localWithGlobals).foreach { (g, l) =>
                 g.asVarAny := l.asValAny
               }

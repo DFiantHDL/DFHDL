@@ -25,7 +25,7 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
         case Ident(underlying: DFConditional.Header) =>
           underlying.patchChains(headerVar)
         case m @ Ident(underlying) =>
-          val assignDsn = new MetaDesign:
+          val assignDsn = new MetaDesign():
             headerVar.asVarAny := underlying.asValAny
           Some(
             m -> Patch.Add(
@@ -53,7 +53,7 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
               case mh: DFConditional.DFMatchHeader => mh.copy(dfType = NoType).anonymize
               case ih: DFConditional.DFIfHeader    => ih.copy(dfType = NoType).anonymize
             // this variable will replace the header as a value
-            val dsn = new MetaDesign:
+            val dsn = new MetaDesign():
               final val plantedNewVar = ch.asValAny.genNewVar(using dfc.setName(ch.name))
               val newVarIR = plantedNewVar.asIR
               plantMember(updatedCH)
@@ -74,7 +74,7 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
           // all other named values
           case named =>
             val anonIR = named.anonymize
-            val dsn = new MetaDesign:
+            val dsn = new MetaDesign():
               final val plantedNewVar = named.asValAny.genNewVar(using dfc.setName(named.name))
               plantedNewVar := plantMember(anonIR).asValAny
             List(named -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst()))

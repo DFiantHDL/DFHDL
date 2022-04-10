@@ -2,7 +2,14 @@ package DFiant.compiler.patching
 import DFiant.core.*
 import DFiant.compiler.ir
 
-abstract class MetaDesign extends DFDesign(using DFC.empty) with reflect.Selectable:
+import scala.annotation.unchecked.uncheckedVariance
+
+type MetaDesignAny = MetaDesign[ir.DomainType]
+abstract class MetaDesign[+D <: ir.DomainType](domainType: D = ir.DomainType.DF)
+    extends Design(using DFC.empty)
+    with reflect.Selectable:
+  final type TDomain = D @uncheckedVariance
+  final lazy val __domainType: TDomain = domainType
   final def plantMember[T <: ir.DFMember](member: T): T =
     dfc.mutableDB.plantMember(dfc.owner.asIR, member)
   final def applyBlock(owner: ir.DFOwner)(block: => Unit): Unit =

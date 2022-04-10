@@ -169,7 +169,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
       // for initialized ports and variables we just add an explicit prev self-assignment
       case e if e.tags.contains[ExternalInit] =>
         e -> Patch.Add(
-          new MetaDesign:
+          new MetaDesign():
             e.asVarAny := e.asVarAny.asInitialized.prev
           ,
           Patch.Add.Config.After
@@ -177,7 +177,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
       // if not initialized we also need to add bubble tagging to the initialization
       case e =>
         e -> Patch.Add(
-          new MetaDesign:
+          new MetaDesign():
             val withInit = e.tag(ExternalInit(List(DFToken.bubble(e.dfType))))
             plantMember(withInit)
             e.asVarAny := withInit.asVarAny.asInitialized.prev
