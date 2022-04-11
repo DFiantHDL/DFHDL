@@ -28,9 +28,9 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
     case o: DFOwner     => o
     case DFMember.Empty => throw new IllegalArgumentException("No owner found.")
-  final def getOwnerNamed(using MemberGetSet): DFOwner.Named = getOwner match
-    case b: DFOwner.Named => b
-    case o                => o.getOwnerNamed
+  final def getOwnerNamed(using MemberGetSet): DFOwnerNamed = getOwner match
+    case b: DFOwnerNamed => b
+    case o               => o.getOwnerNamed
   final def getOwnerBlock(using MemberGetSet): DFBlock = getOwner match
     case b: DFBlock => b
     case o          => o.getOwnerBlock
@@ -44,10 +44,10 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getThisOrOwnerDesign(using MemberGetSet): DFDesignBlock = this match
     case d: DFDesignBlock => d
     case x                => x.getOwnerDesign
-  final def getThisOrOwnerNamed(using MemberGetSet): DFOwner.Named = this match
-    case d: DFOwner.Named => d
-    case x                => x.getOwnerNamed
-  final def isMemberOf(that: DFOwner.Named)(using MemberGetSet): Boolean =
+  final def getThisOrOwnerNamed(using MemberGetSet): DFOwnerNamed = this match
+    case d: DFOwnerNamed => d
+    case x               => x.getOwnerNamed
+  final def isMemberOf(that: DFOwnerNamed)(using MemberGetSet): Boolean =
     this match
       case DFDesignBlock.Top() => false
       case _                   => getOwnerNamed == that
@@ -396,11 +396,11 @@ sealed trait DFOwner extends DFMember:
     case DFMember.Empty => true
     case _              => false
 
-sealed trait DFDomainOwner extends DFOwner:
+sealed trait DFOwnerNamed extends DFOwner, DFMember.Named
+sealed trait DFDomainOwner extends DFOwnerNamed:
   val domainType: DomainType
 
 object DFOwner:
-  type Named = DFOwner & DFMember.Named
   type Ref = DFRef.OneWay[DFOwner | DFMember.Empty]
 
 final case class DFInterfaceOwner(
@@ -408,8 +408,7 @@ final case class DFInterfaceOwner(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFDomainOwner,
-      DFMember.Named:
+) extends DFDomainOwner:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFInterfaceOwner =>
       this.domainType == that.domainType &&
@@ -427,7 +426,7 @@ final case class AlwaysBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFMember.Named:
+      DFOwnerNamed:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: AlwaysBlock =>
       this.sensitivity =~ that.sensitivity &&
@@ -581,8 +580,7 @@ final case class DFDesignBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFDomainOwner,
-      DFMember.Named:
+      DFDomainOwner:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType == that.domainType &&
@@ -606,8 +604,7 @@ final case class DomainBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFDomainOwner,
-      DFMember.Named:
+      DFDomainOwner:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DomainBlock =>
       this.domainType == that.domainType &&

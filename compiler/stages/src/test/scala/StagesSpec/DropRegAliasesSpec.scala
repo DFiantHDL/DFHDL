@@ -104,4 +104,24 @@ class DropRegAliasesSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Reg alias inside conditionals") {
+    class ID extends RTDesign:
+      val x1 = DFSInt(16) <> IN
+      val y1 = DFSInt(16) <> OUT
+      if (x1 > 0)
+        y1 := x1.reg(2)
+    val id = (new ID).dropRegAliases
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val x1 = DFSInt(16) <> IN
+         |  val y1 = DFSInt(16) <> OUT
+         |  v := v_ver2_reg
+         |  v_ver3_reg1.din := v
+         |  v_ver3_reg2.din := v_ver3_reg1
+         |  y2 := v_ver3_reg2
+         |end ID
+         |""".stripMargin
+    )
+  }
 end DropRegAliasesSpec

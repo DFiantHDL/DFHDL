@@ -59,8 +59,8 @@ private class DropRegAliases(db: DB) extends Stage(db):
   end extension
   // assumes stages: order, uniqueNames
   override def transform: DB =
-    val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
-      case (owner: (DFDomainOwner & DFBlock & DFMember.Named), members) =>
+    val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
+      case (owner: (DFDomainOwner & DFBlock), members) =>
         val nameGroupRegMap =
           members.view
             .collect {

@@ -218,7 +218,7 @@ private class DropRegsWires(db: DB) extends Stage(db):
               owner -> Patch.Add(alwaysBlockDsn, Patch.Add.Config.InsideLast)
             val alwaysBlockAllMembers = members.filter {
               case dcl: DFVal.Dcl                     => false
-              case dsn: DFOwner.Named                 => false
+              case dsn: DFOwnerNamed                  => false
               case net: DFNet if net.lateConstruction => false
               case m                                  => true
             }
