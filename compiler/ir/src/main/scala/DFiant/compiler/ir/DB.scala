@@ -133,7 +133,7 @@ final case class DB(
 //    this
 //  }
 
-    // holds a hash table that lists members of each owner owner. The member list order is maintained.
+    // holds a hash table that lists members of each owner. The member list order is maintained.
   lazy val ownerMemberTable: Map[DFOwner, List[DFMember]] =
     Map(ownerMemberList: _*)
 
@@ -145,7 +145,11 @@ final case class DB(
       List(top -> List())
     ).reverse // head will always be the TOP owner
 
-      // holds the topological order of owner block dependency
+    // holds a hash table that lists members of each named owner. The member list order is maintained.
+  lazy val namedOwnerMemberTable: Map[DFOwnerNamed, List[DFMember]] =
+    Map(namedOwnerMemberList: _*)
+
+    // holds the topological order of owner block dependency
   lazy val blockMemberList: List[(DFBlock, List[DFMember])] =
     OMLGen[DFBlock](_.getOwnerBlock)(
       List(),
