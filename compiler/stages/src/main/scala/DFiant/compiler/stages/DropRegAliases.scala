@@ -87,7 +87,16 @@ private class DropRegAliases(db: DB) extends Stage(db):
                 else namePrefix + nameSuffix
               import DFiant.core.{DFTypeAny, asFE}
               alias.dfType.asFE[DFTypeAny] <> REG setName regName
-            regs.map(_.asIR).toList
+            val regsIR = regs.map(_.asIR).toList
+            val relVal = alias.getNonRegAliasRelVal
+            import DFiant.core.DFVal.Alias.RegDIN
+            val regDinDsn = new MetaDesign(new DomainType.RT(DerivedCfg, DerivedCfg)):
+              (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
+                RegDIN(curr.asValAny) := prev.asValAny
+              }
+            regPatches += alias -> Patch.Add(regDinDsn, Patch.Add.Config.Before)
+            regsIR
+          end addRegs
 
           nameGroupRegMap.foreach {
             case (NameGroup(groupName, true), groupNamedAliases) =>
@@ -96,14 +105,7 @@ private class DropRegAliases(db: DB) extends Stage(db):
                   val namePrefix =
                     if (groupNamedAliases.size == 1) groupName
                     else s"$groupName${(gnaIdx + 1).toPaddedString(groupNamedAliases.size)}"
-                  val relVal = alias.getNonRegAliasRelVal
                   val regsIR = addRegs(alias, namePrefix, alias.step)
-                  import DFiant.core.DFVal.Alias.RegDIN
-                  val regDinDsn = new MetaDesign(new DomainType.RT(DerivedCfg, DerivedCfg)):
-                    (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
-                      RegDIN(curr.asValAny) := prev.asValAny
-                    }
-                  regPatches += alias -> Patch.Add(regDinDsn, Patch.Add.Config.Before)
                   regPatches += alias -> Patch.Replace(
                     regsIR.last,
                     Patch.Replace.Config.ChangeRefAndRemove
@@ -115,13 +117,6 @@ private class DropRegAliases(db: DB) extends Stage(db):
                 groupName,
                 groupNamedAliases.map(_.getTotalSteps).max
               )
-              val relVal = groupNamedAliases.head.getNonRegAliasRelVal
-              import DFiant.core.DFVal.Alias.RegDIN
-              val regDinDsn = new MetaDesign(new DomainType.RT(DerivedCfg, DerivedCfg)):
-                (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
-                  RegDIN(curr.asValAny) := prev.asValAny
-                }
-              regPatches += groupNamedAliases.head -> Patch.Add(regDinDsn, Patch.Add.Config.Before)
               groupNamedAliases.foreach { alias =>
                 regPatches += alias -> Patch.Replace(
                   regsIR(alias.getTotalSteps - 1),
