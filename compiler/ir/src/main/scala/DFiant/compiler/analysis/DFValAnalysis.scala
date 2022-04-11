@@ -54,6 +54,14 @@ private val aliasPartClassTag = classTag[DFVal.Alias.Partial]
 extension (dfVal: DFVal)
   def originRefs(using MemberGetSet): Set[DFRefAny] =
     getSet.designDB.memberTable(dfVal).collect { case r: DFRef.TwoWayAny => r.originRef }
+  def getPartialAliases(using MemberGetSet): Set[DFVal.Alias.Partial] =
+    dfVal.originRefs.flatMap {
+      case r if r.refType equals aliasPartClassTag =>
+        r.get match
+          case alias: DFVal.Alias.Partial => Some(alias)
+          case _                          => None
+      case _ => None
+    }
   def hasPrevAlias(using MemberGetSet): Boolean =
     val refs = dfVal.originRefs
     refs.foreach { r =>
