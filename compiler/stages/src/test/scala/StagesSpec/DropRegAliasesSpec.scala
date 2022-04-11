@@ -25,9 +25,9 @@ class DropRegAliasesSpec extends StageSpec:
          |  val x2_reg1 = DFSInt(16) <> REG
          |  val x2_reg2 = DFSInt(16) <> REG
          |  x1_reg.din := x1
-         |  y1 := x1_reg
          |  x2_reg1.din := x2
          |  x2_reg2.din := x2_reg1
+         |  y1 := x1_reg
          |  y2 := x2_reg2 + x2_reg2
          |end ID
          |""".stripMargin
@@ -108,18 +108,22 @@ class DropRegAliasesSpec extends StageSpec:
     class ID extends RTDesign:
       val x1 = DFSInt(16) <> IN
       val y1 = DFSInt(16) <> OUT
+      val v  = DFSInt(16) <> WIRE
       if (x1 > 0)
-        y1 := x1.reg(2)
+        y1 := x1.reg
+      else
+        y1 := x1.reg + 1
     val id = (new ID).dropRegAliases
     assertCodeString(
       id,
       """|class ID extends RTDesign:
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
-         |  v := v_ver2_reg
-         |  v_ver3_reg1.din := v
-         |  v_ver3_reg2.din := v_ver3_reg1
-         |  y2 := v_ver3_reg2
+         |  val v = DFSInt(16) <> WIRE
+         |  val x1_reg = DFSInt(16) <> REG
+         |  x1_reg.din := x1
+         |  if (x1 > d"16'0") y1 := x1_reg
+         |  else y1 := x1_reg + sd"2'1"
          |end ID
          |""".stripMargin
     )

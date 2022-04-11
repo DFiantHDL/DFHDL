@@ -74,10 +74,14 @@ private class DropRegAliases(db: DB) extends Stage(db):
           case _: DFVal.Dcl => true
           case _            => false
         }.last
-        val regDclMap = mutable.Map.empty[DFVal, Vector[DFVal.Dcl]]
-        val regPatches = mutable.ListBuffer.empty[(DFVal, Patch)]
+        val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
         val regDsn = new MetaDesign(new DomainType.RT(DerivedCfg, DerivedCfg)):
-          def addRegs(alias: DFVal.Alias.History, namePrefix: String, maxRegs: Int): List[DFVal] =
+          def addRegs(
+              alias: DFVal.Alias.History,
+              namePrefix: String,
+              maxRegs: Int,
+              unique: Boolean
+          ): List[DFVal] =
             val regs = for (i <- 1 to maxRegs) yield
               val nameSuffix =
                 if (maxRegs == 1) "_reg"
@@ -94,7 +98,10 @@ private class DropRegAliases(db: DB) extends Stage(db):
               (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
                 RegDIN(curr.asValAny) := prev.asValAny
               }
-            regPatches += alias -> Patch.Add(regDinDsn, Patch.Add.Config.Before)
+            if (unique)
+              regPatches += alias -> Patch.Add(regDinDsn, Patch.Add.Config.Before)
+            else
+              regPatches += lastDcl -> Patch.Add(regDinDsn, Patch.Add.Config.After)
             regsIR
           end addRegs
 
@@ -105,7 +112,7 @@ private class DropRegAliases(db: DB) extends Stage(db):
                   val namePrefix =
                     if (groupNamedAliases.size == 1) groupName
                     else s"$groupName${(gnaIdx + 1).toPaddedString(groupNamedAliases.size)}"
-                  val regsIR = addRegs(alias, namePrefix, alias.step)
+                  val regsIR = addRegs(alias, namePrefix, alias.step, true)
                   regPatches += alias -> Patch.Replace(
                     regsIR.last,
                     Patch.Replace.Config.ChangeRefAndRemove
@@ -115,7 +122,8 @@ private class DropRegAliases(db: DB) extends Stage(db):
               val regsIR = addRegs(
                 groupNamedAliases.head,
                 groupName,
-                groupNamedAliases.map(_.getTotalSteps).max
+                groupNamedAliases.map(_.getTotalSteps).max,
+                false
               )
               groupNamedAliases.foreach { alias =>
                 regPatches += alias -> Patch.Replace(
