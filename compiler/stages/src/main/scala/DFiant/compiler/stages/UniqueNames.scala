@@ -10,7 +10,7 @@ import scala.reflect.classTag
 //see `uniqueNames` for additional information
 private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Boolean)
     extends Stage2:
-  def dependencies: List[Stage2] = List()
+  def dependencies: List[Stage2] = List(UniqueDesigns)
   def nullifies: Set[Stage2] = Set()
   def transform(designDB: DB)(using MemberGetSet): DB =
     // conditionally lower cases the name according to the case sensitivity as
@@ -34,7 +34,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
           }
         case _ => Nil
       }
-
+    val designNames = designDB.members.collect { case block: DFDesignBlock => block.dclName }
     val reservedNamesLC = lowerCases(reservedNames)
     val globalTagList = renamer(designDB.getGlobalNamedDFTypes, reservedNamesLC)(
       _.getName,
@@ -43,7 +43,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     val globalNames: Set[String] =
       (designDB.getGlobalNamedDFTypes.map(e => e.getName) ++ globalTagList.map(e =>
         e._2.name
-      ) ++ reservedNames)
+      ) ++ designNames ++ reservedNames)
     val globalNamesLC = lowerCases(globalNames)
     val patchesAndTags = designDB.blockMemberList.map { case (block, members) =>
       val localTagList = block match
@@ -73,6 +73,8 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     designDB.patch(patchList).setGlobalTags(tagList)
   end transform
 end UniqueNames
+
+case object DFHDLUniqueNames extends UniqueNames(Set(), caseSensitive = true)
 
 extension [T: HasDB](t: T)
   def uniqueNames(reservedNames: Set[String], caseSensitive: Boolean): DB =
