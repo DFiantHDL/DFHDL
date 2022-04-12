@@ -5,8 +5,10 @@ import DFiant.compiler.ir.*
 import DFiant.compiler.patching.*
 import DFiant.internals.*
 
-private class ViaConnection(db: DB) extends Stage(db):
-  override def transform: DB =
+case object ViaConnection extends Stage2:
+  def dependencies: List[Stage2] = List()
+  def nullifies: Set[Stage2] = Set()
+  def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
       case (ib, members) if !ib.isTop =>
         // getting only ports that are not already connected to variables unless these are clock variables
@@ -73,4 +75,4 @@ private class ViaConnection(db: DB) extends Stage(db):
   end transform
 end ViaConnection
 
-extension [T: HasDB](t: T) def viaConnection: DB = new ViaConnection(t.db).transform
+extension [T: HasDB](t: T) def viaConnection: DB = StageRunner.run(ViaConnection)(t.db)
