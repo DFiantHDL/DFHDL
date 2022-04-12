@@ -18,8 +18,10 @@ private final class UniqueBlock(val block: DFDesignBlock, val members: List[DFMe
     case _ => false
   override def hashCode(): Int = block.dclName.hashCode
 
-private class UniqueDesigns(db: DB) extends Stage(db):
-  override def transform: DB =
+case object UniqueDesigns extends Stage2:
+  def dependencies: List[Stage2] = List()
+  def nullifies: Set[Stage2] = Set()
+  def transform(designDB: DB)(using MemberGetSet): DB =
     val uniqueBlockMap: Map[UniqueBlock, List[DFDesignBlock]] =
       designDB.designMemberList.view
         .groupBy((design, members) => new UniqueBlock(design, members))
@@ -45,4 +47,4 @@ private class UniqueDesigns(db: DB) extends Stage(db):
   end transform
 end UniqueDesigns
 
-extension [T: HasDB](t: T) def uniqueDesigns: DB = new UniqueDesigns(t.db).transform
+extension [T: HasDB](t: T) def uniqueDesigns: DB = StageRunner.run(UniqueDesigns)(t.db)
