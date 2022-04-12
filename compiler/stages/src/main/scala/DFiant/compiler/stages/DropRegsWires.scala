@@ -22,10 +22,10 @@ import scala.reflect.classTag
   *   a. Adds a sequential always block according to the clock and reset parameters and adds the
   *      register next value assignments to it.
   */
-case object DropRegsWires extends Stage2:
+case object DropRegsWires extends Stage:
   // TODO: need derived clock and reset configuration to be explicit
-  def dependencies: List[Stage2] = List(DropRegAliases, SimpleOrderMembers, ViaConnection)
-  def nullifies: Set[Stage2] = Set()
+  def dependencies: List[Stage] = List(DropRegAliases, SimpleOrderMembers, ViaConnection)
+  def nullifies: Set[Stage] = Set()
 
   enum VarKind:
     case Local, Global, GlobalWithLocal

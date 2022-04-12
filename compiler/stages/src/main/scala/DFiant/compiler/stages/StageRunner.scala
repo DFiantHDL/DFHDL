@@ -7,12 +7,12 @@ import scala.annotation.tailrec
 object StageRunner extends LogSupport:
   Logger.setDefaultFormatter(LogFormatter.BareFormatter)
   Logger.setDefaultLogLevel(LogLevel.INFO)
-  private def runSingleStage(stage: Stage2)(designDB: DB): DB =
+  private def runSingleStage(stage: Stage)(designDB: DB): DB =
     debug(s"Running stage ${stage.typeName}....")
     val ret = stage.transform(designDB)(using designDB.getSet)
     debug(s"Finished stage ${stage.typeName}")
     ret
-  @tailrec private def run(deps: List[Stage2], done: Set[Stage2])(
+  @tailrec private def run(deps: List[Stage], done: Set[Stage])(
       designDB: DB
   ): DB =
     deps match
@@ -30,5 +30,5 @@ object StageRunner extends LogSupport:
         // (this is just to preserve consistency in compilation order).
         else run(head.dependencies ++ deps, done)(designDB)
       case Nil => designDB
-  def run(stage: Stage2)(designDB: DB): DB = run(List(stage), Set())(designDB)
+  def run(stage: Stage)(designDB: DB): DB = run(List(stage), Set())(designDB)
 end StageRunner

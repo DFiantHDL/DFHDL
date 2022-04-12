@@ -6,9 +6,9 @@ import DFiant.compiler.patching.*
 
 import scala.annotation.tailrec
 
-private abstract class OrderMembers(order: OrderMembers.Order) extends Stage2:
-  def dependencies: List[Stage2] = List()
-  def nullifies: Set[Stage2] = Set()
+private abstract class OrderMembers(order: OrderMembers.Order) extends Stage:
+  def dependencies: List[Stage] = List()
+  def nullifies: Set[Stage] = Set()
   @tailrec private def orderMembers(
       remaining: List[DFMember],
       retList: List[DFMember]

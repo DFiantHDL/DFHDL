@@ -5,9 +5,9 @@ import DFiant.compiler.ir.*
 import DFiant.compiler.patching.*
 import DFiant.internals.*
 
-case object ViaConnection extends Stage2:
-  def dependencies: List[Stage2] = List()
-  def nullifies: Set[Stage2] = Set()
+case object ViaConnection extends Stage:
+  def dependencies: List[Stage] = List()
+  def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
       case (ib, members) if !ib.isTop =>

@@ -7,9 +7,9 @@ import DFiant.internals.*
 
 import scala.reflect.classTag
 
-case object ExplicitNamedVars extends Stage2:
-  def dependencies: List[Stage2] = Nil
-  def nullifies: Set[Stage2] = Set()
+case object ExplicitNamedVars extends Stage:
+  def dependencies: List[Stage] = Nil
+  def nullifies: Set[Stage] = Set()
 
   object WhenHeader extends Patch.Replace.RefFilter:
     val ifHeaderTag = classTag[DFConditional.DFIfHeader]

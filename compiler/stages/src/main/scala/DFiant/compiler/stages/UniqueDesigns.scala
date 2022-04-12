@@ -18,9 +18,9 @@ private final class UniqueBlock(val block: DFDesignBlock, val members: List[DFMe
     case _ => false
   override def hashCode(): Int = block.dclName.hashCode
 
-case object UniqueDesigns extends Stage2:
-  def dependencies: List[Stage2] = List()
-  def nullifies: Set[Stage2] = Set()
+case object UniqueDesigns extends Stage:
+  def dependencies: List[Stage] = List()
+  def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet): DB =
     val uniqueBlockMap: Map[UniqueBlock, List[DFDesignBlock]] =
       designDB.designMemberList.view

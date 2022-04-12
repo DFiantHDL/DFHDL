@@ -2,16 +2,10 @@ package DFiant.compiler.stages
 import DFiant.compiler.ir.*
 import DFiant.internals.*
 
-abstract class Stage(db: DB):
-  protected def preTransform: DB = db
-  final val designDB: DB = preTransform
-  export designDB.getSet
-  def transform: DB
-
-abstract class Stage2 extends Product, Serializable, HasTypeName:
-  final lazy val depSet: Set[Stage2] = dependencies.toSet
-  def dependencies: List[Stage2]
-  def nullifies: Set[Stage2]
+abstract class Stage extends Product, Serializable, HasTypeName:
+  final lazy val depSet: Set[Stage] = dependencies.toSet
+  def dependencies: List[Stage]
+  def nullifies: Set[Stage]
   def transform(designDB: DB)(using MemberGetSet): DB
 
 trait HasDB[T]:

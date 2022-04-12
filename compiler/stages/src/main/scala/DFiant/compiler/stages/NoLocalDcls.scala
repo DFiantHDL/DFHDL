@@ -4,9 +4,9 @@ import DFiant.compiler.analysis.*
 import DFiant.compiler.ir.*
 import DFiant.compiler.patching.*
 
-case object NoLocalDcls extends Stage2:
-  override def dependencies: List[Stage2] = Nil
-  override def nullifies: Set[Stage2] = Set()
+case object NoLocalDcls extends Stage:
+  override def dependencies: List[Stage] = Nil
+  override def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList: List[(DFMember, Patch)] =
       designDB.members.view

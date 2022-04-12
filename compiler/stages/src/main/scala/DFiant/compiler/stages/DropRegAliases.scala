@@ -37,9 +37,9 @@ import scala.collection.mutable
   *        z := ((i + 1).reg + 7).reg(2) //z_part1_reg, z_part2_reg1, z_part2_reg2
   *      }}}
   */
-case object DropRegAliases extends Stage2:
-  def dependencies: List[Stage2] = List(DFHDLUniqueNames, SimpleOrderMembers)
-  def nullifies: Set[Stage2] = Set()
+case object DropRegAliases extends Stage:
+  def dependencies: List[Stage] = List(DFHDLUniqueNames, SimpleOrderMembers)
+  def nullifies: Set[Stage] = Set()
   final case class NameGroup(name: String, unique: Boolean)
   extension (regAlias: DFVal.Alias.History)(using MemberGetSet)
     @tailrec private def getNonRegAliasRelVal: DFVal =

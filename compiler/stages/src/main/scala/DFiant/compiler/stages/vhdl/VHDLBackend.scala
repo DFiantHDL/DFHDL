@@ -19,9 +19,9 @@ private val reservedKeywords: Set[String] = Set(
 )
 
 private case object VHDLUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = false)
-case object VHDLBackend extends Stage2:
-  def dependencies: List[Stage2] = List(ToED, VHDLUniqueNames)
-  def nullifies: Set[Stage2] = Set()
+case object VHDLBackend extends Stage:
+  def dependencies: List[Stage] = List(ToED, VHDLUniqueNames)
+  def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet): DB = designDB
 end VHDLBackend
 

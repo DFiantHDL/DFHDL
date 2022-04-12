@@ -8,9 +8,9 @@ import DFiant.internals.*
 import scala.annotation.tailrec
 import scala.collection.immutable
 
-case object ExplicitPrev extends Stage2:
-  def dependencies: List[Stage2] = List(ExplicitNamedVars, NoLocalDcls)
-  def nullifies: Set[Stage2] = Set()
+case object ExplicitPrev extends Stage:
+  def dependencies: List[Stage] = List(ExplicitNamedVars, NoLocalDcls)
+  def nullifies: Set[Stage] = Set()
 
   @tailrec private def consumeFrom(
       value: DFVal,

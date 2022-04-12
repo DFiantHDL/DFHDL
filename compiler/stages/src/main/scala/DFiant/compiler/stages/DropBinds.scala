@@ -8,9 +8,9 @@ import DFiant.internals.*
 
 import scala.collection.mutable
 
-case object DropBinds extends Stage2:
-  def dependencies: List[Stage2] = List()
-  def nullifies: Set[Stage2] = Set()
+case object DropBinds extends Stage:
+  def dependencies: List[Stage] = List()
+  def nullifies: Set[Stage] = Set()
   // this unapply matches on bind patterns, strip them of their binds, and returns the binds as a list
   private object ReplacePattern:
     def unapply(pattern: Pattern)(using MemberGetSet): Option[(Pattern, List[DFVal])] =
