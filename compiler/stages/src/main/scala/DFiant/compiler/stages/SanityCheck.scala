@@ -7,27 +7,30 @@ import DFiant.compiler.printing.*
 import DFiant.internals.*
 import scala.annotation.tailrec
 
-private class SanityCheck(db: DB) extends Stage(db):
-  private def memberExistenceCheck(): Unit =
+private case object SanityCheck extends Stage2:
+  def dependencies: List[Stage2] = List()
+  def nullifies: Set[Stage2] = Set()
+  private def memberExistenceCheck()(using MemberGetSet): Unit =
     given Printer = DefaultPrinter
-    val violations = designDB.members.flatMap {
+    val members = getSet.designDB.members
+    val violations = members.flatMap {
       case n @ DFNet(toRef, DFNet.Op.Assignment, fromRef, _, _, _, _) =>
         val toMember = toRef.get
         val fromMember = fromRef.get
-        val toValMissing = !designDB.members.contains(toMember)
+        val toValMissing = !members.contains(toMember)
         val fromValMissing = fromMember match
           case _: DFVal.Const => false
-          case _              => !designDB.members.contains(fromMember)
+          case _              => !members.contains(fromMember)
         if (toValMissing)
           println(s"Foreign value ${toMember.name} at net ${n.codeString}")
-          designDB.members.collectFirst {
+          members.collectFirst {
             case m: DFMember.Named if m.name == toMember.name => m
           } match
             case Some(value) => println(s"Found:\n$value\nInstead of:\n$toMember")
             case None        =>
         if (fromValMissing)
           println(s"Foreign value ${fromMember.name} at net ${n.codeString}")
-          designDB.members.collectFirst {
+          members.collectFirst {
             case m: DFMember.Named if m.name == fromMember.name => m
           } match
             case Some(value) => println(s"Found:\n$value\nInstead of:\n$fromMember")
@@ -38,7 +41,9 @@ private class SanityCheck(db: DB) extends Stage(db):
     }
     require(violations.isEmpty, "Failed member existence check!")
   end memberExistenceCheck
-  @tailrec private def ownershipCheck(currentOwner: DFOwner, members: List[DFMember]): Unit =
+  @tailrec private def ownershipCheck(currentOwner: DFOwner, members: List[DFMember])(using
+      MemberGetSet
+  ): Unit =
     members match
       case m :: nextMembers if (m.getOwner == currentOwner) =>
         m match // still in current owner
@@ -52,8 +57,8 @@ private class SanityCheck(db: DB) extends Stage(db):
           println(
             s"The member ${m.hashCode().toHexString}:\n$m\nHas owner ${m.getOwner.hashCode().toHexString}:\n${m.getOwner}"
           )
-          val idx = designDB.members.indexOf(m)
-          val prevMember = designDB.members(idx - 1)
+          val idx = getSet.designDB.members.indexOf(m)
+          val prevMember = getSet.designDB.members(idx - 1)
           println(
             s"Previous member ${prevMember.hashCode().toHexString}:\n$prevMember\nHas owner ${prevMember.getOwner
                 .hashCode()
@@ -62,11 +67,11 @@ private class SanityCheck(db: DB) extends Stage(db):
           require(false, "Failed ownership check!")
         ownershipCheck(currentOwner.getOwner, members) // exiting current owner
 
-  override def transform: DB =
+  def transform(designDB: DB)(using MemberGetSet): DB =
     memberExistenceCheck()
     designDB.connectionTable // this does connectivity checks
     ownershipCheck(designDB.top, designDB.members.drop(1))
     designDB
 end SanityCheck
 
-extension [T: HasDB](t: T) def sanityCheck: DB = new SanityCheck(t.db).transform
+extension [T: HasDB](t: T) def sanityCheck: DB = StageRunner.run(SanityCheck)(t.db)
