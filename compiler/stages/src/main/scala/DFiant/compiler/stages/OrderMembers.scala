@@ -6,13 +6,15 @@ import DFiant.compiler.patching.*
 
 import scala.annotation.tailrec
 
-private class OrderMembers(order: OrderMembers.Order)(db: DB) extends Stage(db):
+private abstract class OrderMembers(order: OrderMembers.Order) extends Stage2:
+  def dependencies: List[Stage2] = List()
+  def nullifies: Set[Stage2] = Set()
   @tailrec private def orderMembers(
       remaining: List[DFMember],
       retList: List[DFMember]
-  ): List[DFMember] = remaining match
+  )(using MemberGetSet): List[DFMember] = remaining match
     case (block: DFOwnerNamed) :: mList =>
-      val members = designDB.namedOwnerMemberTable(block)
+      val members = getSet.designDB.namedOwnerMemberTable(block)
       val sortedMembers = block match
         case _: DFBlock => members.sortBy(order())
         case _          => members
@@ -20,7 +22,7 @@ private class OrderMembers(order: OrderMembers.Order)(db: DB) extends Stage(db):
     case m :: mList => orderMembers(mList, m :: retList)
     case Nil        => retList.reverse
 
-  override def transform: DB =
+  def transform(designDB: DB)(using MemberGetSet): DB =
     designDB.copy(members = orderMembers(List(designDB.top), List()))
 
 end OrderMembers
@@ -29,7 +31,7 @@ object OrderMembers:
   trait Order:
     def apply()(using MemberGetSet): DFMember => Int
   object Order:
-    given Simple: Order with
+    object Simple extends Order:
       def apply()(using MemberGetSet): DFMember => Int = {
         case dcl: DFVal.Dcl if dcl.isPort => 1
         case _: DFVal.Dcl                 => 2
@@ -60,5 +62,5 @@ object OrderMembers:
   end Order
 end OrderMembers
 
-extension [T: HasDB](t: T)
-  def simpleOrder: DB = new OrderMembers(OrderMembers.Order.Simple)(t.db).transform
+case object SimpleOrderMembers extends OrderMembers(OrderMembers.Order.Simple)
+extension [T: HasDB](t: T) def simpleOrder: DB = StageRunner.run(SimpleOrderMembers)(t.db)
