@@ -8,10 +8,12 @@ import DFiant.internals.*
 
 import scala.collection.mutable
 
-private class DropBinds(db: DB) extends Stage(db):
+case object DropBinds extends Stage2:
+  def dependencies: List[Stage2] = List()
+  def nullifies: Set[Stage2] = Set()
   // this unapply matches on bind patterns, strip them of their binds, and returns the binds as a list
   private object ReplacePattern:
-    def unapply(pattern: Pattern): Option[(Pattern, List[DFVal])] =
+    def unapply(pattern: Pattern)(using MemberGetSet): Option[(Pattern, List[DFVal])] =
       pattern match
         case Pattern.Struct(name, fieldPatterns) =>
           var bindVals = List.empty[DFVal]
@@ -42,7 +44,7 @@ private class DropBinds(db: DB) extends Stage(db):
           Some(Pattern.Singleton(token.asIR), refs.map(_.get))
         case _ => None
   end ReplacePattern
-  override def transform: DB =
+  def transform(designDB: DB)(using MemberGetSet): DB =
     // going through all dataflow matches
     val patchList = designDB.conditionalChainTable.toList.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>
@@ -124,4 +126,4 @@ end DropBinds
 // Drops match case bind values and replaces them with either a variable
 // that is assigned with the bind alias or just the named bind alias.
 // UniqueDesign stage must be applied after this stage to resolve naming collisions.
-extension [T: HasDB](t: T) def dropBinds: DB = new DropBinds(t.db).transform
+extension [T: HasDB](t: T) def dropBinds: DB = StageRunner.run(DropBinds)(t.db)

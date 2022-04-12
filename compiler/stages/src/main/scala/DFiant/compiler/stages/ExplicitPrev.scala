@@ -9,8 +9,8 @@ import scala.annotation.tailrec
 import scala.collection.immutable
 
 case object ExplicitPrev extends Stage2:
-  override def dependencies: List[Stage2] = List(ExplicitNamedVars, NoLocalDcls)
-  override def nullifies: Set[Stage2] = Set()
+  def dependencies: List[Stage2] = List(ExplicitNamedVars, NoLocalDcls)
+  def nullifies: Set[Stage2] = Set()
 
   @tailrec private def consumeFrom(
       value: DFVal,
@@ -156,7 +156,7 @@ case object ExplicitPrev extends Stage2:
           getImplicitPrevVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet)
         else (updatedSet, scopeMap)
 
-  override def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet): DB =
     val (currentSet, scopeMap) =
       getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
 //    println("scopeMap:")
