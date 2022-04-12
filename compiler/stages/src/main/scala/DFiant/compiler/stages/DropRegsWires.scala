@@ -22,17 +22,15 @@ import scala.reflect.classTag
   *   a. Adds a sequential always block according to the clock and reset parameters and adds the
   *      register next value assignments to it.
   */
-private class DropRegsWires(db: DB) extends Stage(db):
-  override protected def preTransform: DB =
-    // need to order members so that ports are at the beginning
-    // need ViaPortConnection (assuming direct connections to variables)
-    // need derived clock and reset configuration to be explicit
-    super.preTransform
+case object DropRegsWires extends Stage2:
+  // TODO: need derived clock and reset configuration to be explicit
+  def dependencies: List[Stage2] = List(SimpleOrderMembers, ViaConnection)
+  def nullifies: Set[Stage2] = Set()
 
   enum VarKind:
     case Local, Global, GlobalWithLocal
   object VarKind:
-    def unapply(dcl: DFVal.Dcl): Option[VarKind] =
+    def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Option[VarKind] =
       dcl.modifier match
         // A register does not have a local variable, as it relies on `reg.din`
         case DFVal.Modifier.REG => Some(VarKind.Global)
@@ -56,7 +54,7 @@ private class DropRegsWires(db: DB) extends Stage(db):
       }
   final val WhenLocalRefs = !WhenGlobalRefs
 
-  override def transform: DB =
+  def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
       // for all domain owners that are also blocks (RTDesign, RTDomain)
       case (owner: (DFDomainOwner & DFBlock & DFMember.Named), members) =>
@@ -252,4 +250,4 @@ private class DropRegsWires(db: DB) extends Stage(db):
   end transform
 end DropRegsWires
 
-extension [T: HasDB](t: T) def dropRegsWires: DB = new DropRegsWires(t.db).transform
+extension [T: HasDB](t: T) def dropRegsWires: DB = StageRunner.run(DropRegsWires)(t.db)
