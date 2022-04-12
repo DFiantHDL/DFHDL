@@ -18,22 +18,18 @@ private val reservedKeywords: Set[String] = Set(
   "wait", "when", "while", "with", "xnor", "xor"
 )
 
-private class VHDLBackend(db: DB) extends Stage(db):
-  override protected def preTransform: DB =
-    val updatedDB = db /*.dropUnreferenced*/ .uniqueDesigns
-    val designNames = updatedDB.members.collect { case block: DFDesignBlock => block.dclName }
-    updatedDB
-      .uniqueNames(designNames.toSet ++ reservedKeywords, caseSensitive = false)
-      .viaConnection
-      .toED
-  override def transform: DB =
-    println(toVHDL)
-    designDB
-  def toVHDL: String =
-    given Printer = new RTPrinter
-    designDB.codeString
+private case object VHDLUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = false)
+case object VHDLBackend extends Stage2:
+  def dependencies: List[Stage2] = List(ToED, VHDLUniqueNames)
+  def nullifies: Set[Stage2] = Set()
+  def transform(designDB: DB)(using MemberGetSet): DB = designDB
 end VHDLBackend
 
 extension [T: HasDB](t: T)
-  def printVHDLCode: DB = new VHDLBackend(t.db).transform
-  def getVHDLCode: String = new VHDLBackend(t.db).toVHDL
+  def getVHDLCode: String =
+    val designDB = StageRunner.run(VHDLBackend)(t.db)
+    given Printer = new RTPrinter(using designDB.getSet)
+    designDB.codeString
+  def printVHDLCode: DB =
+    getVHDLCode
+    t.db
