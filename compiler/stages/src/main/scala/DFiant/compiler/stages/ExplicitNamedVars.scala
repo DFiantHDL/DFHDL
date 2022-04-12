@@ -7,7 +7,9 @@ import DFiant.internals.*
 
 import scala.reflect.classTag
 
-private class ExplicitNamedVars(db: DB) extends Stage(db):
+case object ExplicitNamedVars extends Stage2:
+  def dependencies: List[Stage2] = Nil
+  def nullifies: Set[Stage2] = Set()
 
   object WhenHeader extends Patch.Replace.RefFilter:
     val ifHeaderTag = classTag[DFConditional.DFIfHeader]
@@ -18,8 +20,8 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
 
   extension (ch: DFConditional.Header)
     // recursive call to patch conditional block chains
-    private def patchChains(headerVar: DFVal): List[(DFMember, Patch)] =
-      val cbChain = designDB.conditionalChainTable(ch)
+    private def patchChains(headerVar: DFVal)(using MemberGetSet): List[(DFMember, Patch)] =
+      val cbChain = getSet.designDB.conditionalChainTable(ch)
       val lastMembers = cbChain.map(_.members(MemberView.Folded).last)
       lastMembers.flatMap {
         case Ident(underlying: DFConditional.Header) =>
@@ -36,7 +38,7 @@ private class ExplicitNamedVars(db: DB) extends Stage(db):
         case _ => ??? // not possible
       }
 
-  override def transform: DB =
+  def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList =
       designDB.members.view
         // just named values
@@ -86,4 +88,4 @@ end ExplicitNamedVars
 
 //This stage turns all named values to variables that get assigned.
 //As a result, conditional expressions (if/match) are converted to statements.
-extension [T: HasDB](t: T) def explicitNamedVars: DB = new ExplicitNamedVars(t.db).transform
+extension [T: HasDB](t: T) def explicitNamedVars: DB = StageRunner.run(ExplicitNamedVars)(t.db)

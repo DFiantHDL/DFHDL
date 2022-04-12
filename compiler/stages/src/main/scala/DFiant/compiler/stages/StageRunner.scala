@@ -5,14 +5,14 @@ import wvlet.log.*
 import scala.collection.SortedSet
 import scala.annotation.tailrec
 object StageRunner extends LogSupport:
-  Logger.setDefaultFormatter(LogFormatter.AppLogFormatter)
-  Logger.setDefaultLogLevel(LogLevel.DEBUG)
+  Logger.setDefaultFormatter(LogFormatter.BareFormatter)
+  Logger.setDefaultLogLevel(LogLevel.INFO)
   private def runSingleStage(stage: Stage2)(designDB: DB): DB =
     debug(s"Running stage ${stage.typeName}....")
-    val ret = stage.run(designDB)
+    val ret = stage.transform(designDB)(using designDB.getSet)
     debug(s"Finished stage ${stage.typeName}")
     ret
-  @tailrec def run(deps: List[Stage2], done: Set[Stage2])(
+  @tailrec private def run(deps: List[Stage2], done: Set[Stage2])(
       designDB: DB
   ): DB =
     deps match
