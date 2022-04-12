@@ -9,7 +9,7 @@ object StageRunner extends LogSupport:
   Logger.setDefaultLogLevel(LogLevel.DEBUG)
   private def runSingleStage(stage: Stage2)(designDB: DB): DB =
     debug(s"Running stage ${stage.typeName}....")
-    val ret = stage(designDB)(using designDB.getSet)
+    val ret = stage.run(designDB)
     debug(s"Finished stage ${stage.typeName}")
     ret
   @tailrec def run(deps: List[Stage2], done: Set[Stage2])(

@@ -9,10 +9,15 @@ abstract class Stage(db: DB):
   def transform: DB
 
 abstract class Stage2 extends Product, Serializable, HasTypeName:
+  private var getSet: MemberGetSet = _
+  final protected given MemberGetSet = getSet
+  final lazy val depSet: Set[Stage2] = dependencies.toSet
+  final def run(designDB: DB): DB =
+    getSet = designDB.getSet
+    transform(designDB)
   def dependencies: List[Stage2]
-  lazy val depSet: Set[Stage2] = dependencies.toSet
   def nullifies: Set[Stage2]
-  def apply(designDB: DB)(using MemberGetSet): DB
+  protected def transform(designDB: DB): DB
 
 trait HasDB[T]:
   def apply(t: T): DB
