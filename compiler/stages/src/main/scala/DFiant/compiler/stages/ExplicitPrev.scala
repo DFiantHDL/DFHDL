@@ -8,16 +8,17 @@ import DFiant.internals.*
 import scala.annotation.tailrec
 import scala.collection.immutable
 
-private class ExplicitPrev(db: DB) extends Stage(db):
-  override protected def preTransform: DB =
-    db.explicitNamedVars.noLocalDcls
+case object ExplicitPrev extends Stage2:
+  override def dependencies: List[Stage2] = List(ExplicitNamedVars, NoLocalDcls)
+  override def nullifies: Set[Stage2] = Set()
+
   @tailrec private def consumeFrom(
       value: DFVal,
       relWidth: Int,
       relBitLow: Int,
       assignMap: AssignMap,
       currentSet: Set[DFVal]
-  ): Set[DFVal] =
+  )(using MemberGetSet): Set[DFVal] =
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
       case DFVal.Alias.AsIs(_, relValRef, _, _, _) =>
@@ -52,7 +53,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
       value: DFVal,
       assignMap: AssignMap,
       currentSet: Set[DFVal]
-  ): Set[DFVal] =
+  )(using MemberGetSet): Set[DFVal] =
     consumeFrom(value, value.dfType.width, 0, assignMap, currentSet)
 
   @tailrec private def assignTo(
@@ -60,7 +61,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
       relWidth: Int,
       relBitLow: Int,
       assignMap: AssignMap
-  ): AssignMap =
+  )(using MemberGetSet): AssignMap =
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
       case DFVal.Alias.AsIs(_, relValRef, _, _, _) =>
@@ -78,7 +79,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
   private def assignTo(
       value: DFVal,
       assignMap: AssignMap
-  ): AssignMap =
+  )(using MemberGetSet): AssignMap =
     assignTo(value, value.dfType.width, 0, assignMap)
 
   // retrieves a list of variables that are consumed as their implicit previous value.
@@ -88,7 +89,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
       currentBlock: DFBlock,
       scopeMap: AssignMap,
       currentSet: Set[DFVal]
-  ): (Set[DFVal], AssignMap) =
+  )(using MemberGetSet): (Set[DFVal], AssignMap) =
     remaining match
       case (nextBlock: DFBlock) :: rs
           if nextBlock.getOwnerBlock == currentBlock => // entering child block
@@ -130,7 +131,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
       case _ => // exiting child block or no more members
         val updatedSet = currentBlock match
           case d: DFDesignBlock if remaining.isEmpty =>
-            val outPorts: List[DFVal] = designDB.designMemberTable(d).collect {
+            val outPorts: List[DFVal] = getSet.designDB.designMemberTable(d).collect {
               case p @ DclOut() => p
               case p @ DclVar() => p
             }
@@ -140,7 +141,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
         val exitingBlock = remaining match
           case r :: _ if r.getOwnerBlock != currentBlock =>
             true // another member but not a child of current
-          case Nil if (currentBlock != designDB.top) =>
+          case Nil if !currentBlock.isTop =>
             true // there are no more members, but still not at top
           case _ => false // no more members and we are currently back at top
         if (exitingBlock)
@@ -155,7 +156,7 @@ private class ExplicitPrev(db: DB) extends Stage(db):
           getImplicitPrevVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet)
         else (updatedSet, scopeMap)
 
-  override def transform: DB =
+  override def transform(designDB: DB)(using MemberGetSet): DB =
     val (currentSet, scopeMap) =
       getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
 //    println("scopeMap:")
@@ -246,4 +247,4 @@ end AssignedScope
 private object AssignedScope:
   val empty: AssignedScope = AssignedScope(immutable.BitSet(), None, None, hasAssignments = false)
 
-extension [T: HasDB](t: T) def explicitPrev: DB = new ExplicitPrev(t.db).transform
+extension [T: HasDB](t: T) def explicitPrev: DB = StageRunner.run(ExplicitPrev)(t.db)

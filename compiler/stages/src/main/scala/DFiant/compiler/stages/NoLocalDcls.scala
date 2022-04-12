@@ -4,8 +4,10 @@ import DFiant.compiler.analysis.*
 import DFiant.compiler.ir.*
 import DFiant.compiler.patching.*
 
-private class NoLocalDcls(db: DB) extends Stage(db):
-  override def transform: DB =
+case object NoLocalDcls extends Stage2:
+  override def dependencies: List[Stage2] = Nil
+  override def nullifies: Set[Stage2] = Set()
+  def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList: List[(DFMember, Patch)] =
       designDB.members.view
         // only var declarations
@@ -27,4 +29,4 @@ private class NoLocalDcls(db: DB) extends Stage(db):
 end NoLocalDcls
 
 //This stage moves the local vars or named constants (at the conditional block level) to the design level
-extension [T: HasDB](t: T) def noLocalDcls: DB = new NoLocalDcls(t.db).transform
+extension [T: HasDB](t: T) def noLocalDcls: DB = StageRunner.run(NoLocalDcls)(t.db)
