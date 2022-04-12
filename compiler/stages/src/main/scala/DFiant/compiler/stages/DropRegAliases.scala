@@ -37,9 +37,11 @@ import scala.collection.mutable
   *        z := ((i + 1).reg + 7).reg(2) //z_part1_reg, z_part2_reg1, z_part2_reg2
   *      }}}
   */
-private class DropRegAliases(db: DB) extends Stage(db):
+case object DropRegAliases extends Stage2:
+  def dependencies: List[Stage2] = List(DFHDLUniqueNames, SimpleOrderMembers)
+  def nullifies: Set[Stage2] = Set()
   final case class NameGroup(name: String, unique: Boolean)
-  extension (regAlias: DFVal.Alias.History)
+  extension (regAlias: DFVal.Alias.History)(using MemberGetSet)
     @tailrec private def getNonRegAliasRelVal: DFVal =
       regAlias.relValRef.get match
         case anotherAlias: DFVal.Alias.History => anotherAlias.getNonRegAliasRelVal
@@ -57,8 +59,8 @@ private class DropRegAliases(db: DB) extends Stage(db):
           dfVal.suggestName.map(NameGroup(_, true)).getOrElse(NameGroup(dfVal.name, false))
         case dfVal: DFVal => NameGroup(dfVal.name, false)
   end extension
-  // assumes stages: order, uniqueNames
-  override def transform: DB =
+
+  def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
       case (owner: (DFDomainOwner & DFBlock), members) =>
         val nameGroupRegMap =
@@ -143,4 +145,4 @@ private class DropRegAliases(db: DB) extends Stage(db):
   end transform
 end DropRegAliases
 
-extension [T: HasDB](t: T) def dropRegAliases: DB = new DropRegAliases(t.db).transform
+extension [T: HasDB](t: T) def dropRegAliases: DB = StageRunner.run(DropRegAliases)(t.db)

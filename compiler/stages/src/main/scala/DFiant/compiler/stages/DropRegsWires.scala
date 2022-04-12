@@ -24,7 +24,7 @@ import scala.reflect.classTag
   */
 case object DropRegsWires extends Stage2:
   // TODO: need derived clock and reset configuration to be explicit
-  def dependencies: List[Stage2] = List(SimpleOrderMembers, ViaConnection)
+  def dependencies: List[Stage2] = List(DropRegAliases, SimpleOrderMembers, ViaConnection)
   def nullifies: Set[Stage2] = Set()
 
   enum VarKind:
