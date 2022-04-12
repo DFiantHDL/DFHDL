@@ -7,7 +7,7 @@ import DFiant.compiler.printing.*
 import DFiant.internals.*
 import scala.annotation.tailrec
 
-private case object SanityCheck extends Stage2:
+case object SanityCheck extends Stage2:
   def dependencies: List[Stage2] = List()
   def nullifies: Set[Stage2] = Set()
   private def memberExistenceCheck()(using MemberGetSet): Unit =
