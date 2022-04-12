@@ -8,9 +8,11 @@ import DFiant.internals.*
 import scala.reflect.classTag
 
 //see `uniqueNames` for additional information
-private class UniqueNames(reservedNames: Set[String], caseSensitive: Boolean)(db: DB)
-    extends Stage(db):
-  override def transform: DB =
+private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Boolean)
+    extends Stage2:
+  def dependencies: List[Stage2] = List()
+  def nullifies: Set[Stage2] = Set()
+  def transform(designDB: DB)(using MemberGetSet): DB =
     // conditionally lower cases the name according to the case sensitivity as
     // set by `caseSensitive`
     def lowerCase(name: String): String = if (caseSensitive) name else name.toLowerCase
@@ -74,6 +76,5 @@ end UniqueNames
 
 extension [T: HasDB](t: T)
   def uniqueNames(reservedNames: Set[String], caseSensitive: Boolean): DB =
-    new UniqueNames(reservedNames, caseSensitive)(
-      t.db
-    ).transform
+    case object CustomUniqueNames extends UniqueNames(reservedNames, caseSensitive)
+    StageRunner.run(CustomUniqueNames)(t.db)
