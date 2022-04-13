@@ -5,6 +5,7 @@ object DomainType:
   // dataflow domain
   sealed trait DF extends DomainType
   object DF extends DF
+  given DF = DF
   // register-transfer domain
   class RT(
       val clkCfg: ClkCfg,

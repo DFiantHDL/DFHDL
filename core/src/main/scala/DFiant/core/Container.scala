@@ -44,6 +44,7 @@ object Container:
   object Kind:
     sealed trait Design extends Kind
     object Design extends Design
+    given Design = Design
     sealed trait Domain extends Kind
     object Domain extends Domain
     sealed trait Always extends Kind
