@@ -170,22 +170,20 @@ case object DropRegsWires extends Stage:
                 }
               def ifRstActive =
                 import clkRstPortsDsn.rst
-                val RstCfg.Explicit(_, _, active) = domainType.rstCfg
+                val RstCfg.Explicit(_, _, active: RstCfg.Active) = domainType.rstCfg
                 val cond = active match
                   case RstCfg.Active.High => rst == 1
                   case RstCfg.Active.Low  => rst == 0
-                  case _                  => ???
                 DFIf.singleBranch(Some(cond), DFIf.Header(NoType), regInitBlock)
               def ifRstActiveElseRegSaveBlock(): Unit =
                 val (_, rstBranch) = ifRstActive
                 DFIf.singleBranch(None, rstBranch, regSaveBlock)
               def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
                 import clkRstPortsDsn.clk
-                val ClkCfg.Explicit(_, edge) = domainType.clkCfg
+                val ClkCfg.Explicit(_, edge: ClkCfg.Edge) = domainType.clkCfg
                 val cond = edge match
                   case ClkCfg.Edge.Rising  => clk.rising
                   case ClkCfg.Edge.Falling => clk.falling
-                  case _                   => ???
                 DFIf.singleBranch(
                   Some(cond),
                   ifRstOption.getOrElse(DFIf.Header(NoType)),
@@ -195,7 +193,7 @@ case object DropRegsWires extends Stage:
               if (hasClock && regs.nonEmpty)
                 import clkRstPortsDsn.clk
                 if (hasReset && regs.exists(_.externalInit.nonEmpty))
-                  val RstCfg.Explicit(_, mode, _) = domainType.rstCfg
+                  val RstCfg.Explicit(_, mode: RstCfg.Mode, _) = domainType.rstCfg
                   import clkRstPortsDsn.rst
                   mode match
                     case RstCfg.Mode.Sync =>
@@ -207,7 +205,6 @@ case object DropRegsWires extends Stage:
                         val (_, rstBranch) = ifRstActive
                         ifClkEdge(Some(rstBranch))
                       }
-                    case _ => ???
                 else always(clk) { ifClkEdge(None) }
                 end if
               end if
