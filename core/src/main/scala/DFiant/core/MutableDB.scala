@@ -16,13 +16,12 @@ import DFiant.compiler.ir.{
 import scala.reflect.{ClassTag, classTag}
 import collection.mutable
 
+private case class MemberEntry(irValue: DFMember, refSet: Set[DFRefAny], ignore: Boolean)
+
 class MutableDB(val duringTest: Boolean = false):
   private val self = this
-  private var members
-  //                          Member    RefSet      Ignore
-      : mutable.ArrayBuffer[(DFMember, Set[DFRefAny], Boolean)] =
-    mutable.ArrayBuffer()
-  def top: DFDesignBlock = members.head._1 match
+  private var members: mutable.ArrayBuffer[MemberEntry] = mutable.ArrayBuffer()
+  def top: DFDesignBlock = members.head.irValue match
     case o @ DFDesignBlock.Top() => o
     case x => throw new IllegalArgumentException(s"Unexpected member head, $x")
   private var memberTable: mutable.Map[DFMember, Int] = mutable.Map()
@@ -70,7 +69,7 @@ class MutableDB(val duringTest: Boolean = false):
 //    elaborateFSMHistoryHead()
     //        println(f"""${"addMember"}%-20s ${s"${member.name} : ${member.typeName}"}%-30s ${member.getOwner.nameAndType}""")
     memberTable += (member -> members.length)
-    members += Tuple3(member, Set(), false)
+    members += MemberEntry(member, Set(), false)
     member
 
   val logger = new Logger
@@ -92,8 +91,8 @@ class MutableDB(val duringTest: Boolean = false):
       // The member already exists, but it might have been updated
       case Some(idx) =>
         // get the newest member at index
-        val (newestMember, refSet, ignore) = members(idx)
-        members.update(idx, (newestMember, refSet + ref, ignore))
+        val MemberEntry(newestMember, refSet, ignore) = members(idx)
+        members.update(idx, MemberEntry(newestMember, refSet + ref, ignore))
         refTable += (ref -> newestMember)
       // In case where we do meta programming and planting one design into another,
       // we may not have the member available at the table. This is OK.
@@ -142,14 +141,14 @@ class MutableDB(val duringTest: Boolean = false):
     (originalMember, newMember) match
       case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
       case _                        =>
-    val (_, refSet, ignore) = members(idx)
+    val MemberEntry(_, refSet, ignore) = members(idx)
     // update all references to the new member
     refSet.foreach(r => refTable.update(r, newMember))
     // add the member to the table with the position index
     // (we don't remove the old member since it might still be used as a user-reference in a mutable DB)
     memberTable.update(newMember, idx)
     // update the member in the member position array
-    members.update(idx, (newMember, refSet, ignore))
+    members.update(idx, MemberEntry(newMember, refSet, ignore))
     newMember
   end setMember
 
@@ -166,7 +165,7 @@ class MutableDB(val duringTest: Boolean = false):
   ): M = // ignoring it means removing it for the immutable DB
     dirtyDB()
     memberTable.get(member).foreach { idx =>
-      members.update(idx, (member, members(idx)._2, true))
+      members.update(idx, MemberEntry(member, members(idx)._2, true))
     }
     member
 
