@@ -174,6 +174,7 @@ case object DropRegsWires extends Stage:
                 val cond = active match
                   case RstCfg.Active.High => rst == 1
                   case RstCfg.Active.Low  => rst == 0
+                  case _                  => ???
                 DFIf.singleBranch(Some(cond), DFIf.Header(NoType), regInitBlock)
               def ifRstActiveElseRegSaveBlock(): Unit =
                 val (_, rstBranch) = ifRstActive
@@ -184,6 +185,7 @@ case object DropRegsWires extends Stage:
                 val cond = edge match
                   case ClkCfg.Edge.Rising  => clk.rising
                   case ClkCfg.Edge.Falling => clk.falling
+                  case _                   => ???
                 DFIf.singleBranch(
                   Some(cond),
                   ifRstOption.getOrElse(DFIf.Header(NoType)),
@@ -205,6 +207,7 @@ case object DropRegsWires extends Stage:
                         val (_, rstBranch) = ifRstActive
                         ifClkEdge(Some(rstBranch))
                       }
+                    case _ => ???
                 else always(clk) { ifClkEdge(None) }
                 end if
               end if
