@@ -189,7 +189,7 @@ class MutableDB(val duringTest: Boolean = false):
         case _                   => // do nothing
       }
     val notIgnoredMembers =
-      members.iterator.filterNot(e => e._3).map(e => e._1).toList
+      members.iterator.filterNot(e => e.ignore).map(e => e.irValue).toList
     val db = DB(notIgnoredMembers, refTable.toMap, global_tags.tagMap.toMap, srcFiles)
     memoizedDB = Some(db)
     db
