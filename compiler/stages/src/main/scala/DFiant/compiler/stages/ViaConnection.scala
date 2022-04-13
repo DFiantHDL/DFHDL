@@ -17,7 +17,7 @@ case object ViaConnection extends Stage:
             case (p @ DclOut(), (ports, nets)) =>
               val conns = p.getConnectionsFrom
               conns.headOption match
-                case Some(n) if n.lateConstruction =>
+                case Some(n) if n.isLateConnection =>
                   (ports, nets) // already has via connections
                 case Some(n @ DFNet.Connection(DclVar(), _, _)) if conns.size == 1 =>
                   (ports, n :: nets)
@@ -27,7 +27,7 @@ case object ViaConnection extends Stage:
                 // we have a single net that is assigned not more than once
                 // (otherwise, for RTL purposes we require another value so an internal multi-assignment rtl variable/reg
                 // can be assigned into a signal/wire)
-                case Some(n) if n.lateConstruction =>
+                case Some(n) if n.isLateConnection =>
                   (ports, nets) // already has via connections
                 case Some(n @ DFNet.Connection(_, v @ DclVar(), _)) if v.getAssignmentsTo.isEmpty =>
                   (ports, n :: nets)
@@ -60,7 +60,7 @@ case object ViaConnection extends Stage:
           }
           val movedNets: List[(DFMember, Patch)] = nets.map { n =>
             plantMember(
-              n.copy(lateConstruction = true)
+              n.copy(op = DFNet.Op.LateConnection)
             ) // planet the net with a
             (n -> Patch.Remove)
           }

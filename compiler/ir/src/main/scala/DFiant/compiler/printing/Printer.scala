@@ -39,9 +39,8 @@ trait Printer
             case _: AlwaysBlock => csAssignmentOp
             case _              => csNBAssignmentOp
         case _ => csAssignmentOp
-    case DFNet.Op.Connection =>
-      if (net.lateConstruction) csLateConnectionOp
-      else csConnectionOp
+    case DFNet.Op.Connection     => csConnectionOp
+    case DFNet.Op.LateConnection => csLateConnectionOp
     case DFNet.Op.LazyConnection => csLazyConnectionOp
   def csInternalViaPortRef(dfValRef: DFNet.Ref): String
   def csEndOfStatement: String
@@ -51,7 +50,7 @@ trait Printer
     // Normalized connections always have the receiver port on the LHS.
     val swapLR = net match
       // swapped if the net is a late construction and the RHS is the internal port
-      case _ if net.lateConstruction =>
+      case _ if net.isLateConnection =>
         normalizeLateConnection && net.rhsRef.get.isSameOwnerDesignAs(net)
       // swapped if the net is a regular connection and the RHS is receiver
       case DFNet.Connection(_, _, swapped) =>
@@ -65,12 +64,12 @@ trait Printer
           else "-->"
     val opStr = commentConnDir match
       case CommentConnDir.Inline
-          if (!normalizeConnection || net.lateConstruction) && !net.isAssignment =>
+          if (!normalizeConnection || net.isLateConnection) && !net.isAssignment =>
         s"${csDFNetOp(net)}${csCommentInline(directionStr)}"
       case _ => csDFNetOp(net)
 
     val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
-    val leftStr = if (net.lateConstruction) csInternalViaPortRef(lhsRef) else lhsRef.refCodeString
+    val leftStr = if (net.isLateConnection) csInternalViaPortRef(lhsRef) else lhsRef.refCodeString
     val rightStr = rhsRef.refCodeString
     s"$leftStr $opStr $rightStr"
   end csDFNet

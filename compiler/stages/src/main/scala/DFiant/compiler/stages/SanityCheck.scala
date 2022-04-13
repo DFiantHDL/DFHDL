@@ -14,7 +14,7 @@ case object SanityCheck extends Stage:
     given Printer = DefaultPrinter
     val members = getSet.designDB.members
     val violations = members.flatMap {
-      case n @ DFNet(toRef, DFNet.Op.Assignment, fromRef, _, _, _, _) =>
+      case n @ DFNet(toRef, DFNet.Op.Assignment, fromRef, _, _, _) =>
         val toMember = toRef.get
         val fromMember = fromRef.get
         val toValMissing = !members.contains(toMember)

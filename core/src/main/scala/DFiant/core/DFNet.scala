@@ -12,7 +12,6 @@ object DFNet:
       toVal.refTW(net),
       op,
       fromVal.refTW(net),
-      dfc.lateConstruction,
       dfc.owner.ref,
       dfc.getMeta,
       ir.DFTags.empty

@@ -145,7 +145,7 @@ final case class DB(
       List(top -> List())
     ).reverse // head will always be the TOP owner
 
-    // holds a hash table that lists members of each named owner. The member list order is maintained.
+      // holds a hash table that lists members of each named owner. The member list order is maintained.
   lazy val namedOwnerMemberTable: Map[DFOwnerNamed, List[DFMember]] =
     Map(namedOwnerMemberList: _*)
 
@@ -203,10 +203,10 @@ final case class DB(
   import DFNet.Op.*
   private def getValAccess(dfVal: DFVal, net: DFNet)(connToDcls: Map[DFVal.Dcl, DFNet]): Access =
     def isExternalConn =
-      if (net.lateConstruction) dfVal isSameOwnerDesignAs net
+      if (net.isLateConnection) dfVal isSameOwnerDesignAs net
       else dfVal.getOwnerDesign isSameOwnerDesignAs net
     def isInternalConn =
-      if (net.lateConstruction) net.getOwnerDesign isSameOwnerDesignAs dfVal
+      if (net.isLateConnection) net.getOwnerDesign isSameOwnerDesignAs dfVal
       else dfVal isSameOwnerDesignAs net
     dfVal match
       case dcl: DFVal.Dcl =>

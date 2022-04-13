@@ -20,8 +20,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case Ident(_) => true
         // named members
         case m: DFMember.Named if !m.isAnonymous => true
-        // including only nets that are not lateConstruction
-        case net: DFNet => !net.lateConstruction
+        // including only nets that are not late connections
+        case net: DFNet => !net.isLateConnection
         // including only conditional statements (no type) headers
         case ch: DFConditional.Header => ch.dfType == NoType
         // always blocks
@@ -39,7 +39,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       // selecting viewable members:
       .filter {
         // late construction nets
-        case net: DFNet => net.lateConstruction
+        case net: DFNet => net.isLateConnection
         // the rest are not directly viewable
         case _ => false
       }

@@ -337,7 +337,6 @@ final case class DFNet(
     lhsRef: DFNet.Ref,
     op: DFNet.Op,
     rhsRef: DFNet.Ref,
-    lateConstruction: Boolean,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
@@ -345,7 +344,6 @@ final case class DFNet(
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFNet =>
       this.lhsRef =~ that.lhsRef && this.op == that.op && this.rhsRef =~ that.rhsRef &&
-      this.lateConstruction == that.lateConstruction &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -355,38 +353,40 @@ end DFNet
 object DFNet:
   type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner, DFNet]
   enum Op derives CanEqual:
-    case Assignment, Connection, LazyConnection
+    case Assignment, Connection, LateConnection, LazyConnection
   extension (net: DFNet)
     def isAssignment = net.op match
       case Op.Assignment => true
       case _             => false
     def isConnection = net.op match
-      case Op.Connection | Op.LazyConnection => true
-      case _                                 => false
+      case Op.Connection | Op.LateConnection | Op.LazyConnection => true
+      case _                                                     => false
+    def isLateConnection = net.op match
+      case Op.LateConnection => true
+      case _                 => false
     def isLazyConnection = net.op match
       case Op.LazyConnection => true
       case _                 => false
 
   object Assignment:
     def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
-      case DFNet(DFRef(toVal: DFVal), Op.Assignment, DFRef(fromVal: DFVal), _, _, _, _) =>
+      case DFNet(DFRef(toVal: DFVal), Op.Assignment, DFRef(fromVal: DFVal), _, _, _) =>
         Some(toVal, fromVal)
       case _ => None
   object Connection:
     def unapply(net: DFNet)(using
         MemberGetSet
         //             toVal                      fromVal              Swapped
-    ): Option[(DFVal.Dcl | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] = net match
-      case DFNet(lhsRef, Op.Connection | Op.LazyConnection, rhsRef, _, _, _, _) =>
-        (lhsRef.get, rhsRef.get) match
-          case (lhsVal: DFVal, rhsVal: DFVal) =>
-            val toLeft = lhsVal.dealias.flatMap(getSet.designDB.connectionTable.get).contains(net)
-            if (toLeft) Some(lhsVal.dealias.get, rhsVal, false)
-            else Some(rhsVal.dealias.get, lhsVal, true)
-          case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
-            Some(lhsIfc, rhsIfc, false)
-          case _ => ??? // not possible
-      case _ => None
+    ): Option[(DFVal.Dcl | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
+      if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
+        case (lhsVal: DFVal, rhsVal: DFVal) =>
+          val toLeft = lhsVal.dealias.flatMap(getSet.designDB.connectionTable.get).contains(net)
+          if (toLeft) Some(lhsVal.dealias.get, rhsVal, false)
+          else Some(rhsVal.dealias.get, lhsVal, true)
+        case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
+          Some(lhsIfc, rhsIfc, false)
+        case _ => ??? // not possible
+      else None
   end Connection
 end DFNet
 

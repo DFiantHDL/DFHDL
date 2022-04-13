@@ -23,15 +23,8 @@ object Design:
     def apply(domain: ir.DomainType, dclName: String, dclPosition: Position)(using DFC): Block =
       val ownerRef: ir.DFOwner.Ref =
         dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFRef.OneWay.Empty)
-      ir.DFDesignBlock(
-        domain,
-        dclName,
-        dclPosition,
-        false,
-        ownerRef,
-        dfc.getMeta,
-        ir.DFTags.empty
-      ).addMember
+      ir.DFDesignBlock(domain, dclName, dclPosition, false, ownerRef, dfc.getMeta, ir.DFTags.empty)
+        .addMember
         .asFE
   extension [D <: Design](dsn: D) def getDB: ir.DB = dsn.dfc.mutableDB.immutable
 end Design
