@@ -36,7 +36,7 @@ object DFMatch:
       selector: DFValAny,
       cases: List[(Pattern, Option[DFValOf[DFBool]], () => R)],
       forceAnonymous: Boolean
-  )(using DFC): R =
+  )(using DFC): R = try
     val dfcAnon = summon[DFC].anonymize
     val header =
       Header(NoType, selector)(using if (forceAnonymous) dfcAnon else dfc)
@@ -62,6 +62,7 @@ object DFMatch:
         val headerUpdate = headerIR.copy(dfType = retDFType.asIR)
         // updating the type of the if header
         headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
+  catch case e: DFError => DFVal(DFError.Derived(e)).asInstanceOf[R]
   end fromCases
 
   object Header:

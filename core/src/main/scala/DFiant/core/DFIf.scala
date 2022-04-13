@@ -31,7 +31,7 @@ object DFIf:
   def fromBranches[R](
       branches: List[(DFValOf[DFBool], () => R)],
       elseOption: Option[() => R]
-  )(using DFC): R =
+  )(using DFC): R = try
     val header = Header(NoType)
     val dfcAnon = summon[DFC].anonymize
     // creating a hook to save the return value for the first branch run
@@ -61,6 +61,7 @@ object DFIf:
         val headerUpdate = headerIR.copy(dfType = retDFType.asIR)
         // updating the type of the if header
         headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
+  catch case e: DFError => DFVal(DFError.Derived(e)).asInstanceOf[R]
   end fromBranches
 
   object Header:
