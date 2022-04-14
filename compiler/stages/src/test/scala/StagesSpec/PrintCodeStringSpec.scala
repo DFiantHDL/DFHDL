@@ -162,8 +162,8 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       id,
       """|class ID extends RTDesign(
-         |    clkCfg = ClkCfg.Explicit("clk", ClkCfg.Edge.Rising),
-         |    rstCfg = ClkCfg.Explicit("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
+         |    clkCfg = ClkCfg("clk", ClkCfg.Edge.Rising),
+         |    rstCfg = RstCfg("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
          |):
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT

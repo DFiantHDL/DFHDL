@@ -93,7 +93,7 @@ trait Printer
       case _: DerivedCfg.type => "DerivedCfg"
       case _: None.type       => "None"
       case ClkCfg.Explicit(name, edge) =>
-        s"ClkCfg.Explicit(${csNameCfg(name)}, ${csClkEdgeCfg(edge)})"
+        s"ClkCfg(${csNameCfg(name)}, ${csClkEdgeCfg(edge)})"
   def csRstModeCfg(modeCfg: RstCfg.ModeCfg): String =
     modeCfg match
       case _: DerivedCfg.type => "DerivedCfg"
@@ -113,7 +113,7 @@ trait Printer
       case _: DerivedCfg.type => "DerivedCfg"
       case _: None.type       => "None"
       case RstCfg.Explicit(name, mode, active) =>
-        s"ClkCfg.Explicit(${csNameCfg(name)}, ${csRstModeCfg(mode)}, ${csRstActiveCfg(active)})"
+        s"RstCfg(${csNameCfg(name)}, ${csRstModeCfg(mode)}, ${csRstActiveCfg(active)})"
   def csRTDomainCfg(rt: DomainType.RT): String =
     s"""(
        |    clkCfg = ${printer.csClkCfg(rt.clkCfg)},

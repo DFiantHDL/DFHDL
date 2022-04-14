@@ -17,8 +17,8 @@ class DropRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign(
-         |    clkCfg = ClkCfg.Explicit("clk", ClkCfg.Edge.Rising),
-         |    rstCfg = ClkCfg.Explicit("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
+         |    clkCfg = ClkCfg("clk", ClkCfg.Edge.Rising),
+         |    rstCfg = RstCfg("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
          |):
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
@@ -49,8 +49,8 @@ class DropRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign(
-         |    clkCfg = ClkCfg.Explicit("clk", ClkCfg.Edge.Rising),
-         |    rstCfg = ClkCfg.Explicit("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
+         |    clkCfg = ClkCfg("clk", ClkCfg.Edge.Rising),
+         |    rstCfg = RstCfg("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
          |):
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
@@ -88,8 +88,8 @@ class DropRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign(
-         |    clkCfg = ClkCfg.Explicit("clk", ClkCfg.Edge.Rising),
-         |    rstCfg = ClkCfg.Explicit("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
+         |    clkCfg = ClkCfg("clk", ClkCfg.Edge.Rising),
+         |    rstCfg = RstCfg("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
          |):
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
@@ -126,8 +126,8 @@ class DropRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign(
-         |    clkCfg = ClkCfg.Explicit("clk", ClkCfg.Edge.Rising),
-         |    rstCfg = ClkCfg.Explicit("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
+         |    clkCfg = ClkCfg("clk", ClkCfg.Edge.Rising),
+         |    rstCfg = RstCfg("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
          |):
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
