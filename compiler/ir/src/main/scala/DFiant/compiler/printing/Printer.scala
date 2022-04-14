@@ -77,6 +77,48 @@ trait Printer
   def csFreqUnit(freq: Freq): String = s"${freq.hertz}.Hz"
   def csRatioUnit(ratio: Ratio): String = s"${ratio.value}"
   def csTimer(timer: Timer): String
+  def csNameCfg(nameCfg: NameCfg): String =
+    nameCfg match
+      case _: DerivedCfg.type => "DerivedCfg"
+      case name: String       => s""""$name""""
+  def csClkEdgeCfg(edgeCfg: ClkCfg.EdgeCfg): String =
+    edgeCfg match
+      case _: DerivedCfg.type => "DerivedCfg"
+      case edge: ClkCfg.Edge =>
+        edge match
+          case _: ClkCfg.Edge.Rising.type  => "ClkCfg.Edge.Rising"
+          case _: ClkCfg.Edge.Falling.type => "ClkCfg.Edge.Falling"
+  def csClkCfg(clkCfg: ClkCfg): String =
+    clkCfg match
+      case _: DerivedCfg.type => "DerivedCfg"
+      case _: None.type       => "None"
+      case ClkCfg.Explicit(name, edge) =>
+        s"ClkCfg.Explicit(${csNameCfg(name)}, ${csClkEdgeCfg(edge)})"
+  def csRstModeCfg(modeCfg: RstCfg.ModeCfg): String =
+    modeCfg match
+      case _: DerivedCfg.type => "DerivedCfg"
+      case mode: RstCfg.Mode =>
+        mode match
+          case _: RstCfg.Mode.Sync.type  => "RstCfg.Mode.Sync"
+          case _: RstCfg.Mode.Async.type => "RstCfg.Mode.Async"
+  def csRstActiveCfg(activeCfg: RstCfg.ActiveCfg): String =
+    activeCfg match
+      case _: DerivedCfg.type => "DerivedCfg"
+      case active: RstCfg.Active =>
+        active match
+          case _: RstCfg.Active.High.type => "RstCfg.Active.High"
+          case _: RstCfg.Active.Low.type  => "RstCfg.Active.Low"
+  def csRstCfg(rstCfg: RstCfg): String =
+    rstCfg match
+      case _: DerivedCfg.type => "DerivedCfg"
+      case _: None.type       => "None"
+      case RstCfg.Explicit(name, mode, active) =>
+        s"ClkCfg.Explicit(${csNameCfg(name)}, ${csRstModeCfg(mode)}, ${csRstActiveCfg(active)})"
+  def csRTDomainCfg(rt: DomainType.RT): String =
+    s"""(
+       |    clkCfg = ${printer.csClkCfg(rt.clkCfg)},
+       |    rstCfg = ${printer.csRstCfg(rt.rstCfg)}
+       |)""".stripMargin
   def csCommentInline(comment: String): String
   def csCommentEOL(comment: String): String
   final def csDFMember(member: DFMember): String = member match

@@ -120,9 +120,10 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerBody(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val dsnCls = design.domainType match
-      case DomainType.DF    => "DFDesign"
-      case _: DomainType.RT => "RTDesign"
-      case _                => "EDDesign"
+      case DomainType.DF => "DFDesign"
+      case rt: DomainType.RT =>
+        s"""RTDesign${printer.csRTDomainCfg(rt)}""".stripMargin
+      case _ => "EDDesign"
     val dcl = s"class ${design.dclName} extends $dsnCls"
     if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.indent}\nend ${design.dclName}"
   end csDFDesignBlockDcl
@@ -168,7 +169,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val domainStr = domain.domainType match
       case df: DomainType.DF => "DFDomain"
-      case rt: DomainType.RT => "RTDomain()"
+      case rt: DomainType.RT =>
+        s"""RTDomain${printer.csRTDomainCfg(rt)}""".stripMargin
       case ed: DomainType.ED => "EDDomain"
     s"${named}new $domainStr:\n${body.indent}"
 

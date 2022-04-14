@@ -16,7 +16,10 @@ class DropRegAliasesSpec extends StageSpec:
     val id = (new ID).dropRegAliases
     assertCodeString(
       id,
-      """|class ID extends RTDesign:
+      """|class ID extends RTDesign(
+         |    clkCfg = ClkCfg.Explicit("clk", ClkCfg.Edge.Rising),
+         |    rstCfg = ClkCfg.Explicit("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
+         |):
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
          |  val x2 = DFSInt(16) <> IN
@@ -45,7 +48,10 @@ class DropRegAliasesSpec extends StageSpec:
     val id = (new ID).dropRegAliases
     assertCodeString(
       id,
-      """|class ID extends RTDesign:
+      """|class ID extends RTDesign(
+         |    clkCfg = ClkCfg.Explicit("clk", ClkCfg.Edge.Rising),
+         |    rstCfg = ClkCfg.Explicit("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
+         |):
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
          |  val x2 = DFBits(16) <> IN
@@ -81,7 +87,10 @@ class DropRegAliasesSpec extends StageSpec:
     val id = (new ID).dropRegAliases
     assertCodeString(
       id,
-      """|class ID extends RTDesign:
+      """|class ID extends RTDesign(
+         |    clkCfg = ClkCfg.Explicit("clk", ClkCfg.Edge.Rising),
+         |    rstCfg = ClkCfg.Explicit("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
+         |):
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
          |  val x2 = DFSInt(16) <> IN
@@ -116,7 +125,10 @@ class DropRegAliasesSpec extends StageSpec:
     val id = (new ID).dropRegAliases
     assertCodeString(
       id,
-      """|class ID extends RTDesign:
+      """|class ID extends RTDesign(
+         |    clkCfg = ClkCfg.Explicit("clk", ClkCfg.Edge.Rising),
+         |    rstCfg = ClkCfg.Explicit("rst", RstCfg.Mode.Sync, RstCfg.Active.High)
+         |):
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
          |  val v = DFSInt(16) <> WIRE
