@@ -4,7 +4,7 @@ import DFiant.compiler.ir.*
 import DFiant.compiler.analysis.*
 import DFiant.internals.*
 
-protected trait RTTypePrinter extends AbstractTypePrinter:
+protected trait VHDLTypePrinter extends AbstractTypePrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = dfType match
     case DFBool => "boolean"
     case DFBit  => "std_logic"
@@ -47,4 +47,4 @@ protected trait RTTypePrinter extends AbstractTypePrinter:
     else dfType.getName
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
-end RTTypePrinter
+end VHDLTypePrinter

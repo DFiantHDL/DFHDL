@@ -5,7 +5,7 @@ import DFiant.compiler.analysis.*
 import DFiant.internals.*
 import DFVal.*
 
-protected trait RTTokenPrinter extends AbstractTokenPrinter:
+protected trait VHDLTokenPrinter extends AbstractTokenPrinter:
   val allowBitsBinModeInHex: Boolean = false
   val allowBitsExplicitWidth: Boolean = true
   def csDFBitBubbleChar: Char = '-'
@@ -46,4 +46,4 @@ protected trait RTTokenPrinter extends AbstractTokenPrinter:
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
-end RTTokenPrinter
+end VHDLTokenPrinter

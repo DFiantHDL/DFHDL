@@ -28,7 +28,7 @@ end VHDLBackend
 extension [T: HasDB](t: T)
   def getVHDLCode: String =
     val designDB = StageRunner.run(VHDLBackend)(t.db)
-    given Printer = new RTPrinter(using designDB.getSet)
+    given Printer = new VHDLPrinter(using designDB.getSet)
     designDB.codeString
   def printVHDLCode: DB =
     getVHDLCode

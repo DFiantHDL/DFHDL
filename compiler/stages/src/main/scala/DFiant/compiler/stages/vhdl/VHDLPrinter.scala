@@ -4,13 +4,13 @@ import DFiant.compiler.ir.*
 import DFiant.compiler.analysis.*
 import DFiant.internals.*
 
-class RTPrinter(using val getSet: MemberGetSet)
+class VHDLPrinter(using val getSet: MemberGetSet)
     extends Printer,
-      RTTypePrinter,
-      RTTokenPrinter,
-      RTValPrinter,
-      RTOwnerPrinter:
-  type TPrinter = RTPrinter
+      VHDLTypePrinter,
+      VHDLTokenPrinter,
+      VHDLValPrinter,
+      VHDLOwnerPrinter:
+  type TPrinter = VHDLPrinter
   given printer: TPrinter = this
   def unsupported: Nothing = throw new IllegalArgumentException(
     "Unsupported member for this RTPrinter."
@@ -34,4 +34,4 @@ class RTPrinter(using val getSet: MemberGetSet)
   def csEndOfStatement: String = ";"
   def csCommentEOL(comment: String): String = s"-- $comment"
   def csTimer(timer: Timer): String = unsupported
-end RTPrinter
+end VHDLPrinter

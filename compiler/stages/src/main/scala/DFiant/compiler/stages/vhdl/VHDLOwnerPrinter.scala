@@ -7,8 +7,8 @@ import DFVal.*
 import DFiant.compiler.ir.ProcessBlock.Sensitivity
 import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
 
-protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
-  type TPrinter <: RTPrinter
+protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
+  type TPrinter <: VHDLPrinter
   val useStdSimLibrary: Boolean = true
   def fileSuffix = "vhdl"
   def packageName: String =
@@ -108,4 +108,4 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
     s"${named}process$senList$dcl\nbegin\n${body.indent}\nend process"
   end csProcessBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
-end RTOwnerPrinter
+end VHDLOwnerPrinter

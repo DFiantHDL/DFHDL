@@ -5,8 +5,8 @@ import DFiant.compiler.analysis.*
 import DFiant.internals.*
 import DFVal.*
 
-protected trait RTValPrinter extends AbstractValPrinter:
-  type TPrinter <: RTPrinter
+protected trait VHDLValPrinter extends AbstractValPrinter:
+  type TPrinter <: VHDLPrinter
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValConstDcl(dfVal: Const): String =
     s"constant ${dfVal.name} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)}"
@@ -141,4 +141,4 @@ protected trait RTValPrinter extends AbstractValPrinter:
       case c: DFVal.Const        => csDFValConstDcl(c)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)
   end csDFValNamed
-end RTValPrinter
+end VHDLValPrinter
