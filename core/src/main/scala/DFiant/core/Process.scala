@@ -2,13 +2,13 @@ package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
 
-object Always:
-  type Block = DFOwner[ir.AlwaysBlock]
+object Process:
+  type Block = DFOwner[ir.ProcessBlock]
   object Block:
     def list(dfVals: List[DFValAny])(using DFC): Block =
-      lazy val sl = ir.AlwaysBlock.Sensitivity.List(dfVals.map(_.asIR.refTW(block)))
-      lazy val block: ir.AlwaysBlock =
-        ir.AlwaysBlock(
+      lazy val sl = ir.ProcessBlock.Sensitivity.List(dfVals.map(_.asIR.refTW(block)))
+      lazy val block: ir.ProcessBlock =
+        ir.ProcessBlock(
           sl,
           dfc.owner.ref,
           dfc.getMeta,
@@ -16,8 +16,8 @@ object Always:
         ).addMember
       block.asFE
     def all(using DFC): Block =
-      ir.AlwaysBlock(
-        ir.AlwaysBlock.Sensitivity.All,
+      ir.ProcessBlock(
+        ir.ProcessBlock.Sensitivity.All,
         dfc.owner.ref,
         dfc.getMeta,
         ir.DFTags.empty
@@ -26,18 +26,18 @@ object Always:
   end Block
 
   object Ops:
-    object always:
-      def apply(dfVals: DFValAny*)(block: Container.Kind.Always ?=> Unit)(using DFC): Unit =
+    object process:
+      def apply(dfVals: DFValAny*)(block: Container.Kind.Process ?=> Unit)(using DFC): Unit =
         val owner = Block.list(dfVals.toList)
         dfc.enterOwner(owner)
-        block(using Container.Kind.Always)
+        block(using Container.Kind.Process)
         dfc.exitOwner()
-      def all(block: Container.Kind.Always ?=> Unit)(using DFC): Unit =
+      def all(block: Container.Kind.Process ?=> Unit)(using DFC): Unit =
         val owner = Block.all
         dfc.enterOwner(owner)
-        block(using Container.Kind.Always)
+        block(using Container.Kind.Process)
         dfc.exitOwner()
-    end always
+    end process
   end Ops
 
-end Always
+end Process

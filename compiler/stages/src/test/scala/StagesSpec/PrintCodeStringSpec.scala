@@ -179,16 +179,16 @@ class PrintCodeStringSpec extends StageSpec:
       val y    = DFSInt(16) <> OUT
       val flag = DFBit      <> IN
       val v    = DFSInt(16) <> VAR
-      always() {
+      process() {
         val z = DFSInt(8) <> VAR
         z := z + 1
         v :== 1
       }
-      always(x, y, flag.rising) {
+      process(x, y, flag.rising) {
         val z = DFSInt(8) <> VAR
         z := 1
       }
-      always.all {
+      process.all {
         val z = DFSInt(8) <> VAR
         object Bla:
           val z = DFBits(8) <> VAR
@@ -205,16 +205,16 @@ class PrintCodeStringSpec extends StageSpec:
          |  val y = DFSInt(16) <> OUT
          |  val flag = DFBit <> IN
          |  val v = DFSInt(16) <> VAR
-         |  always() {
+         |  process() {
          |    val z = DFSInt(8) <> VAR
          |    z := z + sd"2'1"
          |    v :== sd"16'1"
          |  }
-         |  always(x, y, flag.rising) {
+         |  process(x, y, flag.rising) {
          |    val z = DFSInt(8) <> VAR
          |    z := sd"8'1"
          |  }
-         |  always.all {
+         |  process.all {
          |    val z_0 = DFSInt(8) <> VAR
          |    val z_1 = DFBits(8) <> VAR
          |    z_1 := h"00"

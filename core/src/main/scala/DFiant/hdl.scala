@@ -65,7 +65,7 @@ object hdl:
   type TOKEN = core.TOKEN
   export core.<>
   export core.X
-  export core.Always.Ops.*
+  export core.Process.Ops.*
 
   export compiler.ir.{DerivedCfg, ClkCfg, RstCfg}
 

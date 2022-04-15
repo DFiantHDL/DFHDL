@@ -4,7 +4,7 @@ import ir.*
 import analysis.*
 import DFiant.internals.*
 import DFVal.*
-import DFiant.compiler.ir.AlwaysBlock.Sensitivity
+import DFiant.compiler.ir.ProcessBlock.Sensitivity
 import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
 
 trait AbstractOwnerPrinter extends AbstractPrinter:
@@ -24,8 +24,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case net: DFNet => !net.isLateConnection
         // including only conditional statements (no type) headers
         case ch: DFConditional.Header => ch.dfType == NoType
-        // always blocks
-        case ab: AlwaysBlock => true
+        // process blocks
+        case pb: ProcessBlock => true
         // the rest are not directly viewable
         case _ => false
       }
@@ -110,8 +110,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
         s"$csSelector match\n${csChains.indent}"
       case ih: DFConditional.DFIfHeader => csChains
-  def csAlwaysBlock(ab: AlwaysBlock): String
-  def csDomainBlock(ab: DomainBlock): String
+  def csProcessBlock(pb: ProcessBlock): String
+  def csDomainBlock(pb: DomainBlock): String
 end AbstractOwnerPrinter
 
 protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
@@ -157,13 +157,13 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCaseSeparator: String = "=>"
   def csDFMatchEnd: String = ""
   def csDFMatchStatement(csSelector: String): String = s"$csSelector match"
-  def csAlwaysBlock(ab: AlwaysBlock): String =
-    val body = csDFOwnerBody(ab)
-    val named = ab.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    val senList = ab.sensitivity match
+  def csProcessBlock(pb: ProcessBlock): String =
+    val body = csDFOwnerBody(pb)
+    val named = pb.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    val senList = pb.sensitivity match
       case Sensitivity.All        => ".all"
       case Sensitivity.List(refs) => refs.map(_.refCodeString).mkStringBrackets
-    s"${named}always${senList} {\n${body.indent}\n}"
+    s"${named}process${senList} {\n${body.indent}\n}"
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")

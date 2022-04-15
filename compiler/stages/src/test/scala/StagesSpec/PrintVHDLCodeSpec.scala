@@ -107,26 +107,26 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("always block") {
+  test("process block") {
     class Top extends EDDesign:
       val clk = DFBit      <> IN
       val rst = DFBit      <> IN
       val x   = DFBits(16) <> IN
       val y   = DFBits(16) <> OUT
       val z   = DFBits(16) <> VAR
-      always(clk, rst) {
+      process(clk, rst) {
         val c = DFBits(16) const all(0)
         if (rst)
           y :== c
         else if (clk.rising)
           y :== x
       }
-      val myblock = always.all {
+      val myblock = process.all {
         val my_var = DFBits(16) <> VAR
         my_var := x
         y     :== my_var
       }
-      always() {
+      process() {
         z :== x
         y :== z
       }

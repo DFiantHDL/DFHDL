@@ -4,7 +4,7 @@ import DFiant.compiler.ir.*
 import DFiant.compiler.analysis.*
 import DFiant.internals.*
 import DFVal.*
-import DFiant.compiler.ir.AlwaysBlock.Sensitivity
+import DFiant.compiler.ir.ProcessBlock.Sensitivity
 import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
 
 protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
@@ -88,8 +88,8 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
   def csDFMatchStatement(csSelector: String): String = s"case $csSelector is"
   def csDFMatchEnd: String = "end case"
-  def csAlwaysBlock(ab: AlwaysBlock): String =
-    val (statements, dcls) = ab
+  def csProcessBlock(pb: ProcessBlock): String =
+    val (statements, dcls) = pb
       .members(MemberView.Folded)
       .partition {
         case dcl: DFVal.Dcl                           => false
@@ -100,12 +100,12 @@ protected trait RTOwnerPrinter extends AbstractOwnerPrinter:
     val dcl =
       if (dcls.isEmpty) ""
       else s"\n${csDFMembers(dcls).indent}"
-    val named = ab.meta.nameOpt.map(n => s"$n : ").getOrElse("")
-    val senList = ab.sensitivity match
+    val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
+    val senList = pb.sensitivity match
       case Sensitivity.All => " (all)"
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
     s"${named}process$senList$dcl\nbegin\n${body.indent}\nend process"
-  end csAlwaysBlock
-  def csDomainBlock(ab: DomainBlock): String = printer.unsupported
+  end csProcessBlock
+  def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end RTOwnerPrinter

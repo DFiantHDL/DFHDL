@@ -47,8 +47,8 @@ object Container:
     given Design = Design
     sealed trait Domain extends Kind
     object Domain extends Domain
-    sealed trait Always extends Kind
-    object Always extends Always
+    sealed trait Process extends Kind
+    object Process extends Process
     sealed trait Interface extends Kind
     object Interface extends Interface
   sealed trait Domain

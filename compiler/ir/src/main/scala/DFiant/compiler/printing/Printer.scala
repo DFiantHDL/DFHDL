@@ -33,11 +33,11 @@ trait Printer
       toDcl.getOwnerDomain.domainType match
         // event-driven domains can have non-blocking assignments
         case _: DomainType.ED =>
-          // if the assigned declaration is at an `always` block, then this is a blocking assignment.
+          // if the assigned declaration is at an `process` block, then this is a blocking assignment.
           // otherwise, this is a non-blocking assignment.
           toDcl.getOwnerNamed match
-            case _: AlwaysBlock => csAssignmentOp
-            case _              => csNBAssignmentOp
+            case _: ProcessBlock => csAssignmentOp
+            case _               => csNBAssignmentOp
         case _ => csAssignmentOp
     case DFNet.Op.Connection     => csConnectionOp
     case DFNet.Op.LateConnection => csLateConnectionOp
@@ -126,7 +126,7 @@ trait Printer
     case dfVal: DFVal                                => csDFValNamed(dfVal)
     case net: DFNet                                  => csDFNet(net)
     case design: DFDesignBlock                       => csDFDesignBlockInst(design)
-    case ab: AlwaysBlock                             => csAlwaysBlock(ab)
+    case pb: ProcessBlock                            => csProcessBlock(pb)
     case domain: DomainBlock                         => csDomainBlock(domain)
     case timer: Timer                                => csTimer(timer)
     case _                                           => ???

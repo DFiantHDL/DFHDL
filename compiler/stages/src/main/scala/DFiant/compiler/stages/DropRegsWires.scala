@@ -13,13 +13,13 @@ import scala.reflect.classTag
   * design/domain. For this purpose it does the following:
   *   a. Adds clock and reset ports and connects them across designs.
   *   a. Converts the design/domain `domainType` from RT to ED.
-  *   a. Adds combinational always blocks and moves the core logic to it.
+  *   a. Adds combinational process blocks and moves the core logic to it.
   *   a. Drops register and wire declarations in favor of regular variable declarations. There are
   *      two kinds of variable declartions: local and global. Local variable declarations will apear
-  *      inside the combinational always block and assignments to these variables are always
-  *      blocking. Global variables are declared outside the always blocks (within the scope of the
+  *      inside the combinational process block and assignments to these variables are always
+  *      blocking. Global variables are declared outside the process blocks (within the scope of the
   *      design/domain) and assignments to them are always non-blocking.
-  *   a. Adds a sequential always block according to the clock and reset parameters and adds the
+  *   a. Adds a sequential process block according to the clock and reset parameters and adds the
   *      register next value assignments to it.
   */
 case object DropRegsWires extends Stage:
@@ -114,12 +114,12 @@ case object DropRegsWires extends Stage:
             var localsPatch = List.empty[(DFMember, Patch)]
             val localWithGlobals = mutable.ListBuffer.empty[DFVal]
             var regs_dinPatch = List.empty[(DFMember, Patch)]
-            val alwaysBlockDsn = new MetaDesign():
+            val processBlockDsn = new MetaDesign():
               val regs_dinVars = regs.map { r =>
                 r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
               }
 
-              always.all {
+              process.all {
                 localsPatch = dclVars.flatMap {
                   case (v, VarKind.Local) =>
                     val rep = v.asValAny.genNewVar(using dfc.setName(v.name)).asIR
@@ -197,32 +197,32 @@ case object DropRegsWires extends Stage:
                   import clkRstPortsDsn.rst
                   mode match
                     case RstCfg.Mode.Sync =>
-                      always(clk) {
+                      process(clk) {
                         ifClkEdge(None, ifRstActiveElseRegSaveBlock)
                       }
                     case RstCfg.Mode.Async =>
-                      always(clk, rst) {
+                      process(clk, rst) {
                         val (_, rstBranch) = ifRstActive
                         ifClkEdge(Some(rstBranch))
                       }
-                else always(clk) { ifClkEdge(None) }
+                else process(clk) { ifClkEdge(None) }
                 end if
               end if
 
-            val abOwnerIR = alwaysBlockDsn.getDB.members.collectFirst { case ab: AlwaysBlock =>
-              ab
+            val abOwnerIR = processBlockDsn.getDB.members.collectFirst { case pb: ProcessBlock =>
+              pb
             }.get
-            val alwaysBlockAllPatch =
-              owner -> Patch.Add(alwaysBlockDsn, Patch.Add.Config.InsideLast)
-            val alwaysBlockAllMembers = members.filter {
+            val processBlockAllPatch =
+              owner -> Patch.Add(processBlockDsn, Patch.Add.Config.InsideLast)
+            val processBlockAllMembers = members.filter {
               case dcl: DFVal.Dcl                     => false
               case dsn: DFOwnerNamed                  => false
               case net: DFNet if net.isLateConnection => false
               case m                                  => true
             }
-            val alwaysBlockMembersPatch =
+            val processBlockMembersPatch =
               abOwnerIR -> Patch.Move(
-                alwaysBlockAllMembers,
+                processBlockAllMembers,
                 Patch.Move.Config.InsideLast
               )
             val localToGlobalDsn = new MetaDesign():
@@ -234,8 +234,8 @@ case object DropRegsWires extends Stage:
             List(
               Some(ownerDomainPatch),
               addClkRstPatchOption,
-              Some(alwaysBlockAllPatch),
-              Some(alwaysBlockMembersPatch),
+              Some(processBlockAllPatch),
+              Some(processBlockMembersPatch),
               Some(localToGlobalPatch),
               globalsPatch,
               localsPatch,

@@ -28,7 +28,7 @@ class DropRegsWiresSpec extends StageSpec:
          |  val y = DFSInt(16) <> OUT
          |  val r1 = DFSInt(16) <> VAR init sd"16'0"
          |  val r1_din = DFSInt(16) <> VAR
-         |  always.all {
+         |  process.all {
          |    val w1 = DFSInt(16) <> VAR
          |    val w2 = DFSInt(16) <> VAR
          |    w1 := x
@@ -37,7 +37,7 @@ class DropRegsWiresSpec extends StageSpec:
          |    r1_din :== w2
          |    y :== w1 + r1
          |  }
-         |  always(clk) {
+         |  process(clk) {
          |    if (clk.rising)
          |      if (rst == 1) r1 :== sd"16'0"
          |      else r1 :== r1_din
@@ -77,14 +77,14 @@ class DropRegsWiresSpec extends StageSpec:
          |  val y = DFSInt(16) <> OUT
          |  val r = DFSInt(16) <> VAR
          |  val r_din = DFSInt(16) <> VAR
-         |  always.all {
+         |  process.all {
          |    val r_din_v = DFSInt(16) <> VAR
          |    r_din_v := sd"16'1"
          |    r_din_v := x + r_din_v
          |    y :== r
          |    r_din :== r_din_v
          |  }
-         |  always(clk) {
+         |  process(clk) {
          |    if (clk.rising) r :== r_din
          |  }
          |end ID
@@ -99,7 +99,7 @@ class DropRegsWiresSpec extends StageSpec:
          |  val id = new ID:
          |    this.x <>/*<--*/ id_x
          |    this.y <>/*-->*/ id_y
-         |  always.all {
+         |  process.all {
          |    val id_x_v = DFSInt(16) <> VAR
          |    id_x_v := x
          |    id_x_v := id_x_v + sd"2'1"
@@ -126,10 +126,10 @@ class DropRegsWiresSpec extends StageSpec:
          |  val x = DFSInt(16) <> IN
          |  val r1 = DFSInt(16) <> VAR init sd"16'0"
          |  val r1_din = DFSInt(16) <> VAR
-         |  always.all {
+         |  process.all {
          |    r1_din :== x
          |  }
-         |  always(clk, rst) {
+         |  process(clk, rst) {
          |    if (rst == 1) r1 :== sd"16'0"
          |    else if (clk.rising) r1 :== r1_din
          |  }
@@ -152,10 +152,10 @@ class DropRegsWiresSpec extends StageSpec:
          |  val x = DFSInt(16) <> IN
          |  val r1 = DFSInt(16) <> VAR init sd"16'0"
          |  val r1_din = DFSInt(16) <> VAR
-         |  always.all {
+         |  process.all {
          |    r1_din :== x
          |  }
-         |  always(clk) {
+         |  process(clk) {
          |    if (clk.falling) r1 :== r1_din
          |  }
          |end ID
@@ -178,10 +178,10 @@ class DropRegsWiresSpec extends StageSpec:
          |  val x = DFSInt(16) <> IN
          |  val r1 = DFSInt(16) <> VAR init sd"16'0"
          |  val r1_din = DFSInt(16) <> VAR
-         |  always.all {
+         |  process.all {
          |    r1_din :== x
          |  }
-         |  always(clk_p, rst_n) {
+         |  process(clk_p, rst_n) {
          |    if (rst_n == 0) r1 :== sd"16'0"
          |    else if (clk_p.rising) r1 :== r1_din
          |  }
