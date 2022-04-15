@@ -134,18 +134,18 @@ object DFBoolOrBit:
           logicOp(lhs, ic(rhs), FuncOp.&)
         def ^[R](rhs: Exact[R])(using ic: Candidate[R]): T <> TOKEN =
           logicOp(lhs, ic(rhs), FuncOp.^)
-      extension [L](inline lhs: L)
-        inline def ||[RT <: DFBoolOrBit](
+      extension [L](lhs: L)
+        def ||[RT <: DFBoolOrBit](
             rhs: DFToken[RT]
         )(using es: Exact.Summon[L, lhs.type])(using
             ic: Candidate[es.Out]
         ): RT <> TOKEN = logicOp(rhs, ic(es(lhs)), FuncOp.|)
-        inline def &&[RT <: DFBoolOrBit](
+        def &&[RT <: DFBoolOrBit](
             rhs: DFToken[RT]
         )(using es: Exact.Summon[L, lhs.type])(using
             ic: Candidate[es.Out]
         ): RT <> TOKEN = logicOp(rhs, ic(es(lhs)), FuncOp.&)
-        inline def ^[RT <: DFBoolOrBit](
+        def ^[RT <: DFBoolOrBit](
             rhs: DFToken[RT]
         )(using es: Exact.Summon[L, lhs.type])(using
             ic: Candidate[es.Out]
@@ -248,20 +248,20 @@ object DFBoolOrBit:
           trydf { logicOp[T, R](lhs, rhs, FuncOp.&, false) }
         def ^[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): T <> VAL =
           trydf { logicOp[T, R](lhs, rhs, FuncOp.^, false) }
-      extension [L](inline lhs: L)
-        inline def ||[RT <: DFBoolOrBit](
+      extension [L](lhs: L)
+        def ||[RT <: DFBoolOrBit](
             rhs: RT <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             ic: Candidate[es.Out]
         ): RT <> VAL = trydf { logicOp(rhs, ic(es(lhs)), FuncOp.|, true) }
-        inline def &&[RT <: DFBoolOrBit](
+        def &&[RT <: DFBoolOrBit](
             rhs: RT <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             ic: Candidate[es.Out]
         ): RT <> VAL = trydf { logicOp(rhs, ic(es(lhs)), FuncOp.&, true) }
-        inline def ^[RT <: DFBoolOrBit](
+        def ^[RT <: DFBoolOrBit](
             rhs: RT <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,

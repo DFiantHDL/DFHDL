@@ -44,16 +44,14 @@ private object CompanionsDFBits:
         Int,
         Int,
         [I <: Int, W <: Int] =>> (I < W) && (I >= 0),
-        [I <: Int, W <: Int] =>> "Index " + I +
-          " is out of range of width/length " + W
+        [I <: Int, W <: Int] =>> "Index " + I + " is out of range of width/length " + W
       ]
   protected object BitsHiLo
       extends Check2[
         Int,
         Int,
         [H <: Int, L <: Int] =>> H >= L,
-        [H <: Int, L <: Int] =>> "Low index " + L +
-          " is bigger than High bit index " + H
+        [H <: Int, L <: Int] =>> "Low index " + L + " is bigger than High bit index " + H
       ]
   trait CompareCheck[
       ValW <: Int,
@@ -665,10 +663,8 @@ private object CompanionsDFBits:
             Int,
             Int,
             [LW <: Int, RW <: Int] =>> LW == RW,
-            [LW <: Int, RW <: Int] =>> "The argument width (" +
-              ToString[RW] +
-              ") is different than the receiver width (" +
-              ToString[LW] +
+            [LW <: Int, RW <: Int] =>> "The argument width (" + ToString[RW] +
+              ") is different than the receiver width (" + ToString[LW] +
               ").\nConsider applying `.resize` to resolve this issue."
           ]
       given DFBitsFromCandidate[
@@ -859,8 +855,8 @@ private object CompanionsDFBits:
           DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
         }
       end extension
-      extension [L](inline lhs: L)
-        inline def ++[RW <: Int](
+      extension [L](lhs: L)
+        def ++[RW <: Int](
             rhs: DFBits[RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
@@ -870,7 +866,7 @@ private object CompanionsDFBits:
           val width = lhsVal.width + rhs.width
           DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhs))
         }
-        inline def &[RW <: Int](
+        def &[RW <: Int](
             rhs: DFBits[RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
@@ -880,7 +876,7 @@ private object CompanionsDFBits:
           check(lhsVal.width, rhs.width)
           DFVal.Func(rhs.dfType, FuncOp.&, List(lhsVal, rhs))
         }
-        inline def |[RW <: Int](
+        def |[RW <: Int](
             rhs: DFBits[RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
@@ -890,7 +886,7 @@ private object CompanionsDFBits:
           check(lhsVal.width, rhs.width)
           DFVal.Func(rhs.dfType, FuncOp.|, List(lhsVal, rhs))
         }
-        inline def ^[RW <: Int](
+        def ^[RW <: Int](
             rhs: DFBits[RW] <> VAL
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
