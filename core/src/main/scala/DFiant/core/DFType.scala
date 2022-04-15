@@ -71,6 +71,18 @@ object DFType:
 
   type Supported = DFTypeAny | DFEncoding | DFOpaqueA | AnyRef
   object Ops:
+    protected type VARNotInRTDomain[A] = AssertGiven[
+      util.NotGiven[A <:< Modifier.VarRef] | util.NotGiven[A <:< ir.DomainType.RT],
+      "`VAR` modifier is not allowed in a register-transfer (RT) design/domain.\nUse either `WIRE` or `REG` modifier."
+    ]
+    protected type WIREOnlyInRTDomain[A] = AssertGiven[
+      util.NotGiven[A <:< Modifier.WireRef] | A <:< ir.DomainType.RT,
+      "`WIRE` modifier only allowed in a register-transfer (RT) design/domain.\nUse a `VAR` modifier."
+    ]
+    protected type REGOnlyInRTDomain[A] = AssertGiven[
+      util.NotGiven[A <:< Modifier.RegRef] | A <:< ir.DomainType.RT,
+      "`REG` modifier only allowed in a register-transfer (RT) design/domain.\nUse a `VAR` modifier."
+    ]
     extension (inline cellDim: Int)
       inline def <>[M <: ModifierAny](
           modifier: M
@@ -82,6 +94,10 @@ object DFType:
           ck: Container.Kind,
           dt: ir.DomainType,
           dfc: DFC
+      )(using
+          VARNotInRTDomain[A & ck.type & dt.type],
+          WIREOnlyInRTDomain[A & ck.type & dt.type],
+          REGOnlyInRTDomain[A & ck.type & dt.type]
       ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I]] =
         DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I]])
       def token[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using

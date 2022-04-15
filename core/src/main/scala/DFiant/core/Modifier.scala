@@ -12,10 +12,13 @@ object Modifier:
   sealed trait Initializable
   sealed trait Initialized
   sealed trait RegRef
-  type VAR = Modifier[Assignable, Connectable, Initializable]
+  sealed trait VarRef
+  sealed trait WireRef
+  type VAR = Modifier[Assignable & VarRef, Connectable & VarRef, Initializable]
   final val VAR = new VAR(ir.DFVal.Modifier.VAR)
   final val REG = Modifier[Assignable & RegRef, RegRef, Initializable](ir.DFVal.Modifier.REG)
-  final val WIRE = Modifier[Assignable, Connectable, Any](ir.DFVal.Modifier.WIRE)
+  final val WIRE =
+    Modifier[Assignable & WireRef, Connectable & WireRef, Any](ir.DFVal.Modifier.WIRE)
   type Port = Modifier[Assignable, Connectable, Initializable]
   final val IN = new Port(ir.DFVal.Modifier.IN)
   final val OUT = new Port(ir.DFVal.Modifier.OUT)

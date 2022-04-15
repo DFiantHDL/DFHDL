@@ -813,7 +813,7 @@ object DFPortOps:
   extension [T <: DFTypeAny, A, C, I](dfPort: DFVal[T, Modifier[A, C, I]])
     def <>[R](rhs: Exact[R])(using
         connectableOnly: AssertGiven[
-          C =:= Modifier.Connectable,
+          C <:< Modifier.Connectable,
           "The LHS of a connection must be a connectable dataflow value (var/port)."
         ],
         tc: DFVal.TC[T, R],
