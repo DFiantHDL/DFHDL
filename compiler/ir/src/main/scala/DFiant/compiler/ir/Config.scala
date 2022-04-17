@@ -33,10 +33,6 @@ object ClkCfg:
       edge: EdgeCfg
   ) derives CanEqual
 
-  def apply(
-      edge: EdgeCfg = Edge.Rising
-  ): ClkCfg = Explicit(edge)
-
 type RstCfg = ConfigDN[RstCfg.Explicit]
 object RstCfg:
   enum Mode derives CanEqual:
@@ -50,11 +46,6 @@ object RstCfg:
       mode: ModeCfg,
       active: ActiveCfg
   ) derives CanEqual
-
-  def apply(
-      mode: ModeCfg = Mode.Sync,
-      active: ActiveCfg = Active.High
-  ): RstCfg = Explicit(mode, active)
 end RstCfg
 
 type RTDomainCfg = ConfigD[RTDomainCfg.Explicit]

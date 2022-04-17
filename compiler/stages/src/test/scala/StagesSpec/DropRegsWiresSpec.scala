@@ -1,7 +1,6 @@
 package StagesSpec
 
 import DFiant.*
-import DFiant.compiler.ir.{ClkCfg, RstCfg}
 import DFiant.compiler.stages.dropRegsWires
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 

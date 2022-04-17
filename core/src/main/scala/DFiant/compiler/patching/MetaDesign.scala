@@ -23,7 +23,7 @@ abstract class MetaDesign[+D <: Container.Domain](domainType: D = Container.Doma
   // meta designs may be intermediate errornous designs
   final override private[DFiant] def skipChecks: Boolean = true
 
-  export DFiant.hdl.*
+  export DFiant.hdl.{RTDomainCfg => _, ClkCfg => _, RstCfg => _, *}
   export DFiant.core.{asValAny, asVarAny}
   extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
     def asInitialized: DFVal[T, Modifier[A, C, Modifier.Initialized]] =

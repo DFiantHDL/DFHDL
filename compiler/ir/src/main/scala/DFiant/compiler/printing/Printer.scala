@@ -114,14 +114,17 @@ trait Printer
       case _: None.type       => "None"
       case RstCfg.Explicit(mode, active) =>
         s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)})"
+  def csRTDomainCfg(clkCfg: ClkCfg, rstCfg: RstCfg): String =
+    s"""RTDomainCfg(
+       |    clkCfg = ${printer.csClkCfg(clkCfg)},
+       |    rstCfg = ${printer.csRstCfg(rstCfg)}
+       |)""".stripMargin
   def csRTDomainCfg(cfg: RTDomainCfg): String =
     cfg match
-      case _: DerivedCfg.type => "(DerivedCfg)"
+      case _: DerivedCfg.type => "DerivedCfg"
       case RTDomainCfg.Explicit(name, clkCfg, rstCfg) =>
-        s"""(RTDomainCfg(
-           |    clkCfg = ${printer.csClkCfg(clkCfg)},
-           |    rstCfg = ${printer.csRstCfg(rstCfg)}
-           |))""".stripMargin
+        if (name.isEmpty) csRTDomainCfg(clkCfg, rstCfg)
+        else name
   def csCommentInline(comment: String): String
   def csCommentEOL(comment: String): String
   final def csDFMember(member: DFMember): String = member match

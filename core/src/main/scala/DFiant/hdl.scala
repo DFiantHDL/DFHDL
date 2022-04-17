@@ -67,8 +67,13 @@ object hdl:
   export core.X
   export core.Process.Ops.*
 
-  export compiler.ir.{DerivedCfg, ClkCfg, RstCfg}
-  export core.RTDomainCfg
+  val DerivedCfg = core.DerivedCfg
+  type ClkCfg = core.ClkCfg
+  val ClkCfg = core.ClkCfg
+  type RstCfg = core.RstCfg
+  val RstCfg = core.RstCfg
+  type RTDomainCfg = core.RTDomainCfg
+  val RTDomainCfg = core.RTDomainCfg
 
   // shorthand for annotating a DFBits value (useful for string interpolation)
   type B[W <: Int] = core.DFValOf[DFBits[W]]
