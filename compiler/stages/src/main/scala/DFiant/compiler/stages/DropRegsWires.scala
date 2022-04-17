@@ -70,13 +70,9 @@ case object DropRegsWires extends Stage:
             }
             // name and existence indicators for the clock and reset
             val hasClock = domainType.clkCfg != None
-            val clkName = domainType.clkCfg match
-              case ClkCfg.Explicit(name: String, _) => name
-              case _                                => "clk"
+            val clkName = "clk"
             val hasReset = domainType.rstCfg != None
-            val rstName = domainType.rstCfg match
-              case RstCfg.Explicit(name: String, _, _) => name
-              case _                                   => "rst"
+            val rstName = "rst"
 
             // adding clock and reset ports according to the domain configuration
             val clkRstPortsDsn = new MetaDesign():
@@ -170,7 +166,7 @@ case object DropRegsWires extends Stage:
                 }
               def ifRstActive =
                 import clkRstPortsDsn.rst
-                val RstCfg.Explicit(_, _, active: RstCfg.Active) = domainType.rstCfg
+                val RstCfg.Explicit(_, active: RstCfg.Active) = domainType.rstCfg
                 val cond = active match
                   case RstCfg.Active.High => rst == 1
                   case RstCfg.Active.Low  => rst == 0
@@ -180,7 +176,7 @@ case object DropRegsWires extends Stage:
                 DFIf.singleBranch(None, rstBranch, regSaveBlock)
               def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
                 import clkRstPortsDsn.clk
-                val ClkCfg.Explicit(_, edge: ClkCfg.Edge) = domainType.clkCfg
+                val ClkCfg.Explicit(edge: ClkCfg.Edge) = domainType.clkCfg
                 val cond = edge match
                   case ClkCfg.Edge.Rising  => clk.rising
                   case ClkCfg.Edge.Falling => clk.falling
@@ -193,7 +189,7 @@ case object DropRegsWires extends Stage:
               if (hasClock && regs.nonEmpty)
                 import clkRstPortsDsn.clk
                 if (hasReset && regs.exists(_.externalInit.nonEmpty))
-                  val RstCfg.Explicit(_, mode: RstCfg.Mode, _) = domainType.rstCfg
+                  val RstCfg.Explicit(mode: RstCfg.Mode, _) = domainType.rstCfg
                   import clkRstPortsDsn.rst
                   mode match
                     case RstCfg.Mode.Sync =>

@@ -30,14 +30,12 @@ object ClkCfg:
   type EdgeCfg = ConfigD[Edge]
 
   final case class Explicit(
-      name: NameCfg,
       edge: EdgeCfg
   ) derives CanEqual
 
   def apply(
-      name: NameCfg = "clk",
       edge: EdgeCfg = Edge.Rising
-  ): ClkCfg = Explicit(name, edge)
+  ): ClkCfg = Explicit(edge)
 
 type RstCfg = ConfigDN[RstCfg.Explicit]
 object RstCfg:
@@ -49,14 +47,14 @@ object RstCfg:
   type ActiveCfg = ConfigD[Active]
 
   final case class Explicit(
-      name: NameCfg,
       mode: ModeCfg,
       active: ActiveCfg
   ) derives CanEqual
 
   def apply(
-      name: NameCfg = "rst",
       mode: ModeCfg = Mode.Sync,
       active: ActiveCfg = Active.High
-  ): RstCfg = Explicit(name, mode, active)
+  ): RstCfg = Explicit(mode, active)
 end RstCfg
+
+final case class RTConfig(name: String, clkCfg: ClkCfg, rstCfg: RstCfg) extends NamedGlobal

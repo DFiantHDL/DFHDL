@@ -111,8 +111,8 @@ class DropRegsWiresSpec extends StageSpec:
     )
   }
   test("Rising clk, Async Reset") {
-    val clkCfg = ClkCfg("clk", ClkCfg.Edge.Rising)
-    val rstCfg = RstCfg("rst", RstCfg.Mode.Async, RstCfg.Active.High)
+    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
+    val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.High)
     class ID extends RTDesign(clkCfg, rstCfg):
       val x  = DFSInt(16) <> IN
       val r1 = DFSInt(16) <> REG init 0
@@ -138,7 +138,7 @@ class DropRegsWiresSpec extends StageSpec:
     )
   }
   test("Falling clk, no Reset") {
-    val clkCfg = ClkCfg("clk", ClkCfg.Edge.Falling)
+    val clkCfg = ClkCfg(ClkCfg.Edge.Falling)
     val rstCfg = None
     class ID extends RTDesign(clkCfg, rstCfg):
       val x  = DFSInt(16) <> IN
@@ -162,9 +162,9 @@ class DropRegsWiresSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("Rising clk, Sync Reset & Active-low, names change") {
-    val clkCfg = ClkCfg("clk_p", ClkCfg.Edge.Rising)
-    val rstCfg = RstCfg("rst_n", RstCfg.Mode.Async, RstCfg.Active.Low)
+  test("Rising clk, Sync Reset & Active-low") {
+    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
+    val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
     class ID extends RTDesign(clkCfg, rstCfg):
       val x  = DFSInt(16) <> IN
       val r1 = DFSInt(16) <> REG init 0
@@ -173,17 +173,17 @@ class DropRegsWiresSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends EDDesign:
-         |  val clk_p = DFBit <> IN
-         |  val rst_n = DFBit <> IN
+         |  val clk = DFBit <> IN
+         |  val rst = DFBit <> IN
          |  val x = DFSInt(16) <> IN
          |  val r1 = DFSInt(16) <> VAR init sd"16'0"
          |  val r1_din = DFSInt(16) <> VAR
          |  process.all {
          |    r1_din :== x
          |  }
-         |  process(clk_p, rst_n) {
-         |    if (rst_n == 0) r1 :== sd"16'0"
-         |    else if (clk_p.rising) r1 :== r1_din
+         |  process(clk, rst) {
+         |    if (rst == 0) r1 :== sd"16'0"
+         |    else if (clk.rising) r1 :== r1_din
          |  }
          |end ID
          |""".stripMargin

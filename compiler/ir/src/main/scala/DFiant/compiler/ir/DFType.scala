@@ -35,11 +35,7 @@ object DFType:
   end Companion
 end DFType
 
-sealed trait NamedDFType extends DFType:
-  protected val name: String
-  def getName(using getSet: MemberGetSet): String = getSet.getGlobalTag[NameTag](this) match
-    case Some(NameTag(taggedName)) => taggedName
-    case _                         => name
+sealed trait NamedDFType extends DFType, NamedGlobal
 object NamedDFTypes:
   def unapply(dfVal: DFVal)(using MemberGetSet): Option[Set[NamedDFType]] =
     Flatten.unapply(dfVal.dfType)
