@@ -1,16 +1,9 @@
 package DFiant.compiler.ir
 
-sealed trait DomainType derives CanEqual
-object DomainType:
+enum DomainType derives CanEqual:
   // dataflow domain
-  sealed trait DF extends DomainType
-  object DF extends DF
-  given DF = DF
+  case DF
   // register-transfer domain
-  class RT(
-      val clkCfg: ClkCfg,
-      val rstCfg: RstCfg
-  ) extends DomainType
+  case RT(clkCfg: ClkCfg, rstCfg: RstCfg)
   // event-driven domain
-  class ED() extends DomainType
-end DomainType
+  case ED

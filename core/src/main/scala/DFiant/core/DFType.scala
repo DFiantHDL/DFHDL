@@ -72,15 +72,15 @@ object DFType:
   type Supported = DFTypeAny | DFEncoding | DFOpaqueA | AnyRef
   object Ops:
     protected type VARNotInRTDomain[A] = AssertGiven[
-      util.NotGiven[A <:< Modifier.VarRef] | util.NotGiven[A <:< ir.DomainType.RT],
+      util.NotGiven[A <:< Modifier.VarRef] | util.NotGiven[A <:< Container.Domain.RT],
       "`VAR` modifier is not allowed in a register-transfer (RT) design/domain.\nUse either `WIRE` or `REG` modifier."
     ]
     protected type WIREOnlyInRTDomain[A] = AssertGiven[
-      util.NotGiven[A <:< Modifier.WireRef] | A <:< ir.DomainType.RT,
+      util.NotGiven[A <:< Modifier.WireRef] | A <:< Container.Domain.RT,
       "`WIRE` modifier only allowed in a register-transfer (RT) design/domain.\nUse a `VAR` modifier."
     ]
     protected type REGOnlyInRTDomain[A] = AssertGiven[
-      util.NotGiven[A <:< Modifier.RegRef] | A <:< ir.DomainType.RT,
+      util.NotGiven[A <:< Modifier.RegRef] | A <:< Container.Domain.RT,
       "`REG` modifier only allowed in a register-transfer (RT) design/domain.\nUse a `VAR` modifier."
     ]
     extension (inline cellDim: Int)
@@ -91,8 +91,8 @@ object DFType:
     extension [T <: Supported](t: T)
       def <>[A, C, I](modifier: Modifier[A, C, I])(using
           tc: DFType.TC[T],
-          ck: Container.Kind,
-          dt: ir.DomainType,
+          ck: Container.Scope,
+          dt: Container.Domain,
           dfc: DFC
       )(using
           VARNotInRTDomain[A & ck.type & dt.type],

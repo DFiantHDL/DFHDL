@@ -168,10 +168,10 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val domainStr = domain.domainType match
-      case df: DomainType.DF => "DFDomain"
+      case DomainType.DF => "DFDomain"
       case rt: DomainType.RT =>
         s"""RTDomain${printer.csRTDomainCfg(rt)}""".stripMargin
-      case ed: DomainType.ED => "EDDomain"
+      case DomainType.ED => "EDDomain"
     s"${named}new $domainStr:\n${body.indent}"
 
 end DFOwnerPrinter

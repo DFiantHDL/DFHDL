@@ -27,15 +27,15 @@ object Process:
 
   object Ops:
     object process:
-      def apply(dfVals: DFValAny*)(block: Container.Kind.Process ?=> Unit)(using DFC): Unit =
+      def apply(dfVals: DFValAny*)(block: Container.Scope.Process ?=> Unit)(using DFC): Unit =
         val owner = Block.list(dfVals.toList)
         dfc.enterOwner(owner)
-        block(using Container.Kind.Process)
+        block(using Container.Scope.Process)
         dfc.exitOwner()
-      def all(block: Container.Kind.Process ?=> Unit)(using DFC): Unit =
+      def all(block: Container.Scope.Process ?=> Unit)(using DFC): Unit =
         val owner = Block.all
         dfc.enterOwner(owner)
-        block(using Container.Kind.Process)
+        block(using Container.Scope.Process)
         dfc.exitOwner()
     end process
   end Ops

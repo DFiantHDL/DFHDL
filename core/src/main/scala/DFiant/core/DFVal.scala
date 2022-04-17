@@ -569,16 +569,16 @@ object DFVal:
 //    ): DFValOf[T] = ${ fromArgMacro[T]('arg) }
 
   trait DFDomainOnly
-  given (using domain: ir.DomainType)(using
+  given (using domain: Container.Domain)(using
       AssertGiven[
-        domain.type <:< ir.DomainType.DF,
+        domain.type <:< Container.Domain.DF,
         "This construct is only available in a dataflow domain."
       ]
   ): DFDomainOnly with {}
   trait RTDomainOnly
-  given (using domain: ir.DomainType)(using
+  given (using domain: Container.Domain)(using
       AssertGiven[
-        domain.type <:< ir.DomainType.RT,
+        domain.type <:< Container.Domain.RT,
         "This construct is only available in a register-transfer domain."
       ]
   ): RTDomainOnly with {}
@@ -704,15 +704,15 @@ object DFVarOps:
     "Can only reference `din` of a register. This value is not a register."
   ]
   protected type LocalOrNonED[A] = AssertGiven[
-    (A <:< Container.Kind.Process) | util.NotGiven[A <:< ir.DomainType.ED],
+    (A <:< Container.Scope.Process) | util.NotGiven[A <:< Container.Domain.ED],
     "Blocking assignment `:=` is not allowed for a non-local variable in this domain.\nChange the assignment to a non-blocking assignment `:==`, or the position of the defined variable."
   ]
   protected type NotLocalVar[A] = AssertGiven[
-    util.NotGiven[A <:< Container.Kind.Process],
+    util.NotGiven[A <:< Container.Scope.Process],
     "Non-blocking assignment `:==` is not allowed for a local variable (defined inside the process block).\nChange the assignment to a blocking assignment `:=`, or the position of the defined variable."
   ]
   protected type EDDomainOnly[A] = AssertGiven[
-    A <:< ir.DomainType.ED,
+    A <:< Container.Domain.ED,
     "Non-blocking assignment `:==` is allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=`, or the logic domain to ED."
   ]
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])

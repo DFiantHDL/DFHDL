@@ -87,8 +87,8 @@ case object DropRegsWires extends Stage:
 
             // changing the owner from RT domain to ED domain
             val updatedOwner = owner match
-              case design: DFDesignBlock => design.copy(domainType = DomainType.ED())
-              case domain: DomainBlock   => domain.copy(domainType = DomainType.ED())
+              case design: DFDesignBlock => design.copy(domainType = DomainType.ED)
+              case domain: DomainBlock   => domain.copy(domainType = DomainType.ED)
             val ownerDomainPatch =
               owner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
 

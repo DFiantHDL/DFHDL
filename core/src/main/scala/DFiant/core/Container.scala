@@ -10,10 +10,9 @@ private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
     this match
       case _: Design => ret
       case _         => ret.copy()
-  private[core] type TKind <: Container.Kind
-  private[core] type TDomain <: ir.DomainType
-  private[core] lazy val __domainType: TDomain
-  final protected given TDomain = __domainType
+  private[core] type TScope <: Container.Scope
+  private[core] type TDomain <: Container.Domain
+  private[core] lazy val __domainType: ir.DomainType
   private[core] lazy val owner: DFOwnerAny
   dfc.enterOwner(owner)
   private[DFiant] def skipChecks: Boolean = false
@@ -40,21 +39,23 @@ private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
 end Container
 
 object Container:
-  sealed trait Kind
-  object Kind:
-    sealed trait Design extends Kind
+  sealed trait Scope
+  object Scope:
+    sealed trait Design extends Scope
     object Design extends Design
     given Design = Design
-    sealed trait Domain extends Kind
+    sealed trait Domain extends Scope
     object Domain extends Domain
-    sealed trait Process extends Kind
+    sealed trait Process extends Scope
     object Process extends Process
-    sealed trait Interface extends Kind
+    sealed trait Interface extends Scope
     object Interface extends Interface
   sealed trait Domain
   object Domain:
     sealed trait DF extends Domain
     object DF extends DF
-    class RT extends Domain
-    class ED extends Domain
+    sealed trait RT extends Domain
+    object RT extends RT
+    sealed trait ED extends Domain
+    object ED extends ED
 end Container

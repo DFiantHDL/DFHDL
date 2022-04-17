@@ -5,8 +5,8 @@ import ir.{ClkCfg, RstCfg}
 import DFiant.compiler.printing.*
 
 private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
-  private[core] type TKind = Container.Kind.Design
-  final protected given TKind = Container.Kind.Design
+  private[core] type TScope = Container.Scope.Design
+  final protected given TScope = Container.Scope.Design
   private[core] final override lazy val owner: Design.Block =
     Design.Block(__domainType, "???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =
@@ -30,18 +30,20 @@ object Design:
 end Design
 
 abstract class DFDesign(using DFC) extends Design:
-  private[core] type TDomain = ir.DomainType.DF
-  private[core] lazy val __domainType: TDomain = ir.DomainType.DF
+  private[core] type TDomain = Container.Domain.DF
+  final protected given TDomain = Container.Domain.DF
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
 
 abstract class RTDesign(
     clkCfg: ClkCfg = ClkCfg(),
     rstCfg: RstCfg = RstCfg()
 )(using DFC)
     extends Design:
-  private[core] class TDomain extends ir.DomainType.RT(clkCfg, rstCfg)
-  private[core] lazy val __domainType: TDomain = new TDomain
+  private[core] type TDomain = Container.Domain.RT
+  final protected given TDomain = Container.Domain.RT
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(clkCfg, rstCfg)
 
-//  /** This is a reference to the clock used. `clkCfg` must be explicitly defined with a name before
+  //  /** This is a reference to the clock used. `clkCfg` must be explicitly defined with a name before
 //    * using this value.
 //    */
 //  final lazy val clk = clkCfg match
@@ -72,5 +74,6 @@ abstract class RTDesign(
 end RTDesign
 
 abstract class EDDesign(using DFC) extends Design:
-  private[core] class TDomain extends ir.DomainType.ED
-  private[core] lazy val __domainType: TDomain = new TDomain
+  private[core] type TDomain = Container.Domain.ED
+  final protected given TDomain = Container.Domain.ED
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED

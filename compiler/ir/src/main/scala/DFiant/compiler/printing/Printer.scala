@@ -32,7 +32,7 @@ trait Printer
       val toDcl = toVal.dealias.get
       toDcl.getOwnerDomain.domainType match
         // event-driven domains can have non-blocking assignments
-        case _: DomainType.ED =>
+        case DomainType.ED =>
           // if the assigned declaration is at an `process` block, then this is a blocking assignment.
           // otherwise, this is a non-blocking assignment.
           toDcl.getOwnerNamed match

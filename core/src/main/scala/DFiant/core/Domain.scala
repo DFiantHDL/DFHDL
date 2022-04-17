@@ -5,8 +5,8 @@ import DFiant.compiler.ir.{ClkCfg, RstCfg}
 import DFiant.compiler.printing.*
 
 private[DFiant] abstract class Domain(using DFC) extends Container with scala.reflect.Selectable:
-  private[core] type TKind = Container.Kind.Domain
-  final protected given TKind = Container.Kind.Domain
+  private[core] type TScope = Container.Scope.Domain
+  final protected given TScope = Container.Scope.Domain
   private[core] final override lazy val owner: Domain.Block =
     Domain.Block(__domainType)
 
@@ -26,17 +26,20 @@ object Domain:
 end Domain
 
 abstract class DFDomain(using DFC) extends Domain:
-  private[core] type TDomain = ir.DomainType.DF
-  private[core] lazy val __domainType: TDomain = ir.DomainType.DF
+  private[core] type TDomain = Container.Domain.DF
+  final protected given TDomain = Container.Domain.DF
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
 
 abstract class RTDomain(
     clkCfg: ClkCfg = ir.DerivedCfg,
     rstCfg: RstCfg = ir.DerivedCfg
 )(using DFC)
     extends Domain:
-  private[core] class TDomain extends ir.DomainType.RT(clkCfg, rstCfg)
-  private[core] lazy val __domainType: TDomain = new TDomain
+  private[core] type TDomain = Container.Domain.RT
+  final protected given TDomain = Container.Domain.RT
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(clkCfg, rstCfg)
 
 abstract class EDDomain(using DFC) extends Domain:
-  private[core] class TDomain extends ir.DomainType.ED
-  private[core] lazy val __domainType: TDomain = new TDomain
+  private[core] type TDomain = Container.Domain.ED
+  final protected given TDomain = Container.Domain.ED
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED
