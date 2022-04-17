@@ -102,6 +102,10 @@ class AddClkRstSpec extends StageSpec:
     class ID extends RTDesign(cfgNoClkRst):
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
+      val internal = new RTDomain(cfgNoRstI):
+        val x = DFSInt(16) <> IN
+        val y = DFSInt(16) <> OUT
+        x <> y
       y := x
     val id = (new ID).addClkRst
     assertCodeString(
@@ -109,6 +113,11 @@ class AddClkRstSpec extends StageSpec:
       """|class ID extends RTDesign(cfgNoClkRst):
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
+         |  val internal = new RTDomain(cfgNoRstI):
+         |    val clk = DFBit <> IN
+         |    val x = DFSInt(16) <> IN
+         |    val y = DFSInt(16) <> OUT
+         |    y <> x
          |  y := x
          |end ID
          |""".stripMargin
