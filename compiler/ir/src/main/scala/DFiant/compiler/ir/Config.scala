@@ -57,4 +57,6 @@ object RstCfg:
   ): RstCfg = Explicit(mode, active)
 end RstCfg
 
-final case class RTConfig(name: String, clkCfg: ClkCfg, rstCfg: RstCfg) extends NamedGlobal
+type RTDomainCfg = ConfigD[RTDomainCfg.Explicit]
+object RTDomainCfg:
+  final case class Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg) extends NamedGlobal
