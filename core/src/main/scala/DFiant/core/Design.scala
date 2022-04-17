@@ -1,7 +1,6 @@
 package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
-import ir.{ClkCfg, RstCfg}
 import DFiant.compiler.printing.*
 
 private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
@@ -35,13 +34,12 @@ abstract class DFDesign(using DFC) extends Design:
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
 
 abstract class RTDesign(
-    clkCfg: ClkCfg = ClkCfg(),
-    rstCfg: RstCfg = RstCfg()
+    cfg: ir.RTDomainCfg = ir.DerivedCfg
 )(using DFC)
     extends Design:
   private[core] type TDomain = Container.Domain.RT
   final protected given TDomain = Container.Domain.RT
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(clkCfg, rstCfg)
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(cfg)
 
   //  /** This is a reference to the clock used. `clkCfg` must be explicitly defined with a name before
 //    * using this value.

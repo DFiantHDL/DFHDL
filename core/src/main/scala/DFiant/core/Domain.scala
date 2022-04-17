@@ -1,7 +1,6 @@
 package DFiant.core
 import DFiant.internals.*
 import DFiant.compiler.ir
-import DFiant.compiler.ir.{ClkCfg, RstCfg}
 import DFiant.compiler.printing.*
 
 private[DFiant] abstract class Domain(using DFC) extends Container with scala.reflect.Selectable:
@@ -31,13 +30,12 @@ abstract class DFDomain(using DFC) extends Domain:
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
 
 abstract class RTDomain(
-    clkCfg: ClkCfg = ir.DerivedCfg,
-    rstCfg: RstCfg = ir.DerivedCfg
+    cfg: ir.RTDomainCfg = ir.DerivedCfg
 )(using DFC)
     extends Domain:
   private[core] type TDomain = Container.Domain.RT
   final protected given TDomain = Container.Domain.RT
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(clkCfg, rstCfg)
+  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(cfg)
 
 abstract class EDDomain(using DFC) extends Domain:
   private[core] type TDomain = Container.Domain.ED

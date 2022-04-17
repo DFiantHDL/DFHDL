@@ -4,6 +4,6 @@ enum DomainType derives CanEqual:
   // dataflow domain
   case DF
   // register-transfer domain
-  case RT(clkCfg: ClkCfg, rstCfg: RstCfg)
+  case RT(cfg: RTDomainCfg)
   // event-driven domain
   case ED

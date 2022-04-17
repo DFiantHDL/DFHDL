@@ -7,7 +7,10 @@ import DFiant.compiler.stages.dropRegsWires
 
 class DropRegsWiresSpec extends StageSpec:
   test("Basic wires and reg") {
-    class ID extends RTDesign:
+    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
+    val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
+    val cfg    = RTDomainCfg(clkCfg, rstCfg)
+    class ID extends RTDesign(cfg):
       val x  = DFSInt(16) <> IN
       val y  = DFSInt(16) <> OUT
       val w1 = DFSInt(16) <> WIRE
@@ -47,7 +50,10 @@ class DropRegsWiresSpec extends StageSpec:
     )
   }
   test("Basic Hierarchy") {
-    class ID extends RTDesign:
+    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
+    val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
+    val cfg    = RTDomainCfg(clkCfg, rstCfg)
+    class ID extends RTDesign(cfg):
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       val r = DFSInt(16) <> REG
@@ -55,7 +61,7 @@ class DropRegsWiresSpec extends StageSpec:
       r.din := x + r.din
       y     := r
 
-    class IDTop extends RTDesign:
+    class IDTop extends RTDesign(cfg):
       val x    = DFSInt(16) <> IN
       val y    = DFSInt(16) <> OUT
       val id_x = DFSInt(16) <> WIRE
@@ -113,7 +119,8 @@ class DropRegsWiresSpec extends StageSpec:
   test("Rising clk, Async Reset") {
     val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
     val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.High)
-    class ID extends RTDesign(clkCfg, rstCfg):
+    val cfg    = RTDomainCfg(clkCfg, rstCfg)
+    class ID extends RTDesign(cfg):
       val x  = DFSInt(16) <> IN
       val r1 = DFSInt(16) <> REG init 0
       r1.din := x
@@ -140,7 +147,8 @@ class DropRegsWiresSpec extends StageSpec:
   test("Falling clk, no Reset") {
     val clkCfg = ClkCfg(ClkCfg.Edge.Falling)
     val rstCfg = None
-    class ID extends RTDesign(clkCfg, rstCfg):
+    val cfg    = RTDomainCfg(clkCfg, rstCfg)
+    class ID extends RTDesign(cfg):
       val x  = DFSInt(16) <> IN
       val r1 = DFSInt(16) <> REG init 0
       r1.din := x
@@ -165,7 +173,8 @@ class DropRegsWiresSpec extends StageSpec:
   test("Rising clk, Sync Reset & Active-low") {
     val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
     val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
-    class ID extends RTDesign(clkCfg, rstCfg):
+    val cfg    = RTDomainCfg(clkCfg, rstCfg)
+    class ID extends RTDesign(cfg):
       val x  = DFSInt(16) <> IN
       val r1 = DFSInt(16) <> REG init 0
       r1.din := x

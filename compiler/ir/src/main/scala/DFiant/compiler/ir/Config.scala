@@ -60,3 +60,4 @@ end RstCfg
 type RTDomainCfg = ConfigD[RTDomainCfg.Explicit]
 object RTDomainCfg:
   final case class Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg) extends NamedGlobal
+      derives CanEqual

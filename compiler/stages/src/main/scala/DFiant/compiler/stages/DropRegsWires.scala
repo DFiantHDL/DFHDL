@@ -61,7 +61,7 @@ case object DropRegsWires extends Stage:
         owner.domainType match
           // only care about register-transfer domains.
           // those have wires and regs that we need to simplify.
-          case domainType: DomainType.RT =>
+          case domainType @ DomainType.RT(RTDomainCfg.Explicit(_, clkCfg, rstCfg)) =>
             // all the declarations that need to be converted to VARs
             val dclVars = members.collect { case v @ VarKind(kind) => (v, kind) }
             // all the registers
@@ -69,9 +69,9 @@ case object DropRegsWires extends Stage:
               case dcl: DFVal.Dcl if dcl.modifier == DFVal.Modifier.REG => dcl
             }
             // name and existence indicators for the clock and reset
-            val hasClock = domainType.clkCfg != None
+            val hasClock = clkCfg != None
             val clkName = "clk"
-            val hasReset = domainType.rstCfg != None
+            val hasReset = rstCfg != None
             val rstName = "rst"
 
             // adding clock and reset ports according to the domain configuration
@@ -166,7 +166,7 @@ case object DropRegsWires extends Stage:
                 }
               def ifRstActive =
                 import clkRstPortsDsn.rst
-                val RstCfg.Explicit(_, active: RstCfg.Active) = domainType.rstCfg
+                val RstCfg.Explicit(_, active: RstCfg.Active) = rstCfg
                 val cond = active match
                   case RstCfg.Active.High => rst == 1
                   case RstCfg.Active.Low  => rst == 0
@@ -176,7 +176,7 @@ case object DropRegsWires extends Stage:
                 DFIf.singleBranch(None, rstBranch, regSaveBlock)
               def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
                 import clkRstPortsDsn.clk
-                val ClkCfg.Explicit(edge: ClkCfg.Edge) = domainType.clkCfg
+                val ClkCfg.Explicit(edge: ClkCfg.Edge) = clkCfg
                 val cond = edge match
                   case ClkCfg.Edge.Rising  => clk.rising
                   case ClkCfg.Edge.Falling => clk.falling
@@ -189,7 +189,7 @@ case object DropRegsWires extends Stage:
               if (hasClock && regs.nonEmpty)
                 import clkRstPortsDsn.clk
                 if (hasReset && regs.exists(_.externalInit.nonEmpty))
-                  val RstCfg.Explicit(mode: RstCfg.Mode, _) = domainType.rstCfg
+                  val RstCfg.Explicit(mode: RstCfg.Mode, _) = rstCfg
                   import clkRstPortsDsn.rst
                   mode match
                     case RstCfg.Mode.Sync =>
