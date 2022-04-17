@@ -110,7 +110,7 @@ case object DropRegsWires extends Stage:
             var localsPatch = List.empty[(DFMember, Patch)]
             val localWithGlobals = mutable.ListBuffer.empty[DFVal]
             var regs_dinPatch = List.empty[(DFMember, Patch)]
-            val processBlockDsn = new MetaDesign():
+            val processBlockDsn = new MetaDesign(DFiant.core.Container.Domain.ED):
               val regs_dinVars = regs.map { r =>
                 r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
               }
