@@ -102,7 +102,7 @@ object DFMember:
     final def getFullName(using MemberGetSet): String = this match
       case o: DFOwner if o.isTop => o.name
       case _                     => s"${getOwnerNamed.getFullName}.${name}"
-    def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
+    final def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
       val namedOwner = callOwner.getThisOrOwnerNamed
       if (this isMemberOf namedOwner) name
       else if (getOwnerNamed isOneLevelBelow namedOwner) s"${getOwnerNamed.name}.$name"
@@ -110,9 +110,11 @@ object DFMember:
       else
         // more complex referencing just summons the two owner chains and compares them.
         // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
-        val memberChain = this.getOwnerChain
-        val ctxChain = namedOwner.getOwnerChain
-        "???" // TODO
+        val memberChain = this.getOwnerChain.collect { case o: DFOwnerNamed => o }
+        val ctxChain = namedOwner.getOwnerChain.collect { case o: DFOwnerNamed => o }
+        val samePath = memberChain.lazyZip(ctxChain).count(_ == _)
+        s"${memberChain.drop(samePath).map(_.name).mkString(".")}.$name"
+    end getRelativeName
   end Named
 end DFMember
 

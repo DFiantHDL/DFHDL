@@ -11,7 +11,9 @@ import scala.collection.mutable
 case object ConnectClkRst extends Stage:
   def dependencies: List[Stage] = List(AddClkRst)
   def nullifies: Set[Stage] = Set(ViaConnection)
+  private case class ClkRstOpt(clkOpt: Option[DFVal], rstOpt: Option[DFVal]) derives CanEqual
   def transform(designDB: DB)(using MemberGetSet): DB =
+    val domainClkRst = mutable.Map.empty[(DFDesignBlock, RTDomainCfg), ClkRstOpt]
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
       case (owner: (DFDomainOwner & DFBlock), members) =>
         owner.domainType match

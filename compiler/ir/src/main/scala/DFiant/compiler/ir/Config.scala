@@ -10,6 +10,9 @@ object ConfigDN:
     def apply(x: None.type): ConfigDN[T] = x
   given [T]: Conversion[T, ConfigDN[T]] with
     def apply(x: T): ConfigDN[T] = x
+  given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigDN[T1], ConfigDN[T2]] = CanEqual.derived
+  given [T]: CanEqual[ConfigDN[T], DerivedCfg.type] = CanEqual.derived
+  given [T]: CanEqual[ConfigDN[T], None.type] = CanEqual.derived
 case object DerivedCfg derives CanEqual
 
 opaque type ConfigD[T] = T | DerivedCfg.type
@@ -18,7 +21,8 @@ object ConfigD:
     def apply(x: DerivedCfg.type): ConfigD[T] = x
   given [T]: Conversion[T, ConfigD[T]] with
     def apply(x: T): ConfigD[T] = x
-
+  given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigD[T1], ConfigD[T2]] = CanEqual.derived
+  given [T]: CanEqual[ConfigD[T], DerivedCfg.type] = CanEqual.derived
 given ConfigDCE[L, R]: CanEqual[ConfigD[L], ConfigD[R]] = CanEqual.derived
 
 type NameCfg = ConfigD[String]

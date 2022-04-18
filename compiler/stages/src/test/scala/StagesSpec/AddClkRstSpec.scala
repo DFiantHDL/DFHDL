@@ -123,4 +123,68 @@ class AddClkRstSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Add once for the same domain config between design and internal domain") {
+    class ID extends RTDesign(cfg):
+      val x = DFSInt(16) <> IN
+      val y = DFSInt(16) <> OUT
+      val internal = new RTDomain(cfg):
+        val x = DFSInt(16) <> IN
+        val y = DFSInt(16) <> OUT
+        x <> y
+      y := x
+    val id = (new ID).addClkRst
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign(cfg):
+         |  val clk = DFBit <> IN
+         |  val rst = DFBit <> IN
+         |  val x = DFSInt(16) <> IN
+         |  val y = DFSInt(16) <> OUT
+         |  val internal = new RTDomain(cfg):
+         |    val x = DFSInt(16) <> IN
+         |    val y = DFSInt(16) <> OUT
+         |    y <> x
+         |  y := x
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Add once for the same domain config between internal domains") {
+    class ID extends RTDesign(cfg):
+      val x = DFSInt(16) <> IN
+      val y = DFSInt(16) <> OUT
+      val internal1 = new RTDomain(cfgI):
+        val ii = new RTDomain(cfgI):
+          val x = DFSInt(16) <> IN
+        val y = DFSInt(16) <> OUT
+        x <> y
+      val internal2 = new RTDomain(cfgI):
+        val x = DFSInt(16) <> IN
+        val y = DFSInt(16) <> OUT
+        y <> internal1.ii.x + x
+      y := x
+    val id = (new ID).addClkRst
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign(cfg):
+         |  val clk = DFBit <> IN
+         |  val rst = DFBit <> IN
+         |  val x = DFSInt(16) <> IN
+         |  val y = DFSInt(16) <> OUT
+         |  val internal1 = new RTDomain(cfgI):
+         |    val clk = DFBit <> IN
+         |    val rst = DFBit <> IN
+         |    val ii = new RTDomain(cfgI):
+         |      val x = DFSInt(16) <> IN
+         |    val y = DFSInt(16) <> OUT
+         |    y <> x
+         |  val internal2 = new RTDomain(cfgI):
+         |    val x = DFSInt(16) <> IN
+         |    val y = DFSInt(16) <> OUT
+         |    y <> internal1.ii.x + x
+         |  y := x
+         |end ID
+         |""".stripMargin
+    )
+  }
 end AddClkRstSpec
