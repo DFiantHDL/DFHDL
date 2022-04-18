@@ -6,10 +6,10 @@ import DFiant.compiler.patching.*
 import DFiant.internals.*
 import scala.collection.mutable
 
-/** This stage adds clock and reset ports across the entire design
+/** This connects clock and reset ports across the entire design
   */
-case object AddClkRst extends Stage:
-  def dependencies: List[Stage] = List(ToRT, ExplicitClkRstCfg)
+case object ConnectClkRst extends Stage:
+  def dependencies: List[Stage] = List(AddClkRst)
   def nullifies: Set[Stage] = Set(ViaConnection)
   def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
@@ -39,6 +39,6 @@ case object AddClkRst extends Stage:
     }
     designDB.patch(patchList)
   end transform
-end AddClkRst
+end ConnectClkRst
 
-extension [T: HasDB](t: T) def addClkRst: DB = StageRunner.run(AddClkRst)(t.db)
+extension [T: HasDB](t: T) def connectClkRst: DB = StageRunner.run(ConnectClkRst)(t.db)
