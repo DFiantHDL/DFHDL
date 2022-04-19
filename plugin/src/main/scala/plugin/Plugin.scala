@@ -8,7 +8,7 @@ class Plugin extends StandardPlugin:
 
   def init(options: List[String]): List[PluginPhase] =
     val setting = new Setting(options.headOption)
-    MacroAnnotation(setting) ::
+    MetaContextPlacer(setting) ::
       MetaContextDelegatePhase(setting) ::
       MetaContextGenPhase(setting) ::
       CustomControlPhase(setting) ::

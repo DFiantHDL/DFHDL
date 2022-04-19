@@ -21,7 +21,7 @@ import scala.language.implicitConversions
 import collection.mutable
 import annotation.tailrec
 
-class MacroAnnotation(setting: Setting) extends PluginPhase:
+class MetaContextPlacer(setting: Setting) extends PluginPhase:
   import untpd.*
 
   val phaseName = "MacroAnnotation"
@@ -47,23 +47,20 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
   )
   private val annotMap = new TreeMap(untpd.cpy):
     override def transform(tree: Tree)(using Context): Tree =
+      extension (tree: Tree)
+        @tailrec def inherits(set: Set[String]): Boolean =
+          tree match
+            case Ident(n)        => set.contains(n.toString)
+            case Apply(tree, _)  => tree.inherits(set)
+            case Select(tree, _) => tree.inherits(set)
+            case New(tree)       => tree.inherits(set)
       super.transform(tree) match
         case t @ TypeDef(
               _,
               template @ Template(constr @ DefDef(_, paramss, _, _), parents, _, _)
             ) =>
-          val isDFContainer = parents.headOption.exists {
-            case Ident(n) => dfcContainers.contains(n.toString)
-            case _        => false
-          }
-          lazy val skipTestContainer = parents.headOption.exists {
-            case Ident(n) =>
-              n.toString match
-                // these classes always require DFC
-                case "DFSpec" => true
-                case _        => false
-            case _ => false
-          }
+          val isDFContainer = parents.headOption.exists(_.inherits(dfcContainers))
+          lazy val skipTestContainer = parents.headOption.exists(_.inherits(Set("DFSpec")))
           lazy val hasIOVals = template.body.exists { x => hasIOVal(x) }
           val addMissingDFC =
             (isDFContainer || (!skipTestContainer && hasIOVals)) && !hasDFC(paramss)
@@ -84,6 +81,8 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
               .ModuleDef(tree)(name, transform(impl).asInstanceOf[Template])
           }
         case t => t
+      end match
+    end transform
     override def transformMoreCases(tree: Tree)(using Context): Tree =
       tree
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
@@ -92,4 +91,4 @@ class MacroAnnotation(setting: Setting) extends PluginPhase:
       cu.untpdTree = annotMap.transform(cu.untpdTree)
     }
     parsed
-end MacroAnnotation
+end MetaContextPlacer

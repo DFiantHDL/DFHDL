@@ -219,8 +219,7 @@ class AddClkRstSpec extends StageSpec:
   }
   test("Internal design generates clk and rst") {
     val genCfg = RTDomainCfg(clkCfg, rstCfg)
-    class ClkGen(srcCfg: RTDomainCfg, genCfg: RTDomainCfg)
-        extends RTDesign(RTDomainCfg(None, None)):
+    class ClkGen(srcCfg: RTDomainCfg, genCfg: RTDomainCfg) extends EDDesign:
       val src = new RTDomain(srcCfg):
         val clk = DFBit <> IN
         val rst = DFBit <> IN
@@ -228,25 +227,33 @@ class AddClkRstSpec extends StageSpec:
         val clk = DFBit <> OUT
         val rst = DFBit <> OUT
     class ID extends RTDesign(cfg):
-      val x = DFSInt(16) <> IN
-      val y = DFSInt(16) <> OUT
-      val clkGen = new ClkGen(cfg, genCfg):
-        println("hi")
+      val x      = DFSInt(16) <> IN
+      val y      = DFSInt(16) <> OUT
+      val clkGen = new ClkGen(cfg, genCfg)
       val internal = new RTDomain(genCfg):
         val x = DFSInt(16) <> IN
         val y = DFSInt(16) <> OUT
         x <> y
       y := x
-    val id = (new ID).printCodeString.addClkRst
+    val id = (new ID).addClkRst
     assertCodeString(
       id,
-      """|class ID extends RTDesign(cfg):
+      """|class ClkGen extends EDDesign:
+         |  val src = new RTDomain(cfg):
+         |    val clk = DFBit <> IN
+         |    val rst = DFBit <> IN
+         |  val gen = new RTDomain(genCfg):
+         |    val clk = DFBit <> OUT
+         |    val rst = DFBit <> OUT
+         |end ClkGen
+         |
+         |class ID extends RTDesign(cfg):
          |  val clk = DFBit <> IN
          |  val rst = DFBit <> IN
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val clkGen = new ClkGen
-         |  val internal = new RTDomain(cfg):
+         |  val internal = new RTDomain(genCfg):
          |    val clk = DFBit <> IN
          |    val rst = DFBit <> IN
          |    val x = DFSInt(16) <> IN
