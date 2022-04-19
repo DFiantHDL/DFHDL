@@ -187,4 +187,34 @@ class AddClkRstSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Explicit clk and rst are kept") {
+    class ID extends RTDesign(cfg):
+      val x = DFSInt(16) <> IN
+      val y = DFSInt(16) <> OUT
+      val internal = new RTDomain(cfg):
+        val clk = DFBit      <> IN
+        val rst = DFBit      <> IN
+        val x   = DFSInt(16) <> IN
+        val y   = DFSInt(16) <> OUT
+        x <> y
+      y := x
+    val id = (new ID).addClkRst
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign(cfg):
+         |  val clk = DFBit <> IN
+         |  val rst = DFBit <> IN
+         |  val x = DFSInt(16) <> IN
+         |  val y = DFSInt(16) <> OUT
+         |  val internal = new RTDomain(cfg):
+         |    val clk = DFBit <> IN
+         |    val rst = DFBit <> IN
+         |    val x = DFSInt(16) <> IN
+         |    val y = DFSInt(16) <> OUT
+         |    y <> x
+         |  y := x
+         |end ID
+         |""".stripMargin
+    )
+  }
 end AddClkRstSpec
