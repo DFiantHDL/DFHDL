@@ -226,6 +226,8 @@ class AddClkRstSpec extends StageSpec:
       val gen = new RTDomain(genCfg):
         val clk = DFBit <> OUT
         val rst = DFBit <> OUT
+      gen.clk <> src.clk
+      gen.rst <> src.rst
     class ID extends RTDesign(cfg):
       val x      = DFSInt(16) <> IN
       val y      = DFSInt(16) <> OUT
@@ -245,6 +247,8 @@ class AddClkRstSpec extends StageSpec:
          |  val gen = new RTDomain(genCfg):
          |    val clk = DFBit <> OUT
          |    val rst = DFBit <> OUT
+         |  gen.clk <> src.clk
+         |  gen.rst <> src.rst
          |end ClkGen
          |
          |class ID extends RTDesign(cfg):
@@ -254,8 +258,6 @@ class AddClkRstSpec extends StageSpec:
          |  val y = DFSInt(16) <> OUT
          |  val clkGen = new ClkGen
          |  val internal = new RTDomain(genCfg):
-         |    val clk = DFBit <> IN
-         |    val rst = DFBit <> IN
          |    val x = DFSInt(16) <> IN
          |    val y = DFSInt(16) <> OUT
          |    y <> x
