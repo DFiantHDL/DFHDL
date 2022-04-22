@@ -42,7 +42,7 @@ case object AddClkRst extends Stage:
                     clk
                 }
                 val existingRst = members.collectFirst {
-                  case clk: DFVal.Dcl if clk.name == "clk" => clk
+                  case rst: DFVal.Dcl if rst.name == "rst" => rst
                 }
                 // need to add clk and rst flags
                 val addClk = requiresClk && existingClk.isEmpty
