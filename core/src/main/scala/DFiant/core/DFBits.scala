@@ -422,7 +422,7 @@ private object CompanionsDFBits:
                 case x =>
                   report.errorAndAbort(
                     s"""Found invalid character: ${x}. 
-                      |Note: string interpolation with value extraction does not support via the `[w']` width extension syntax.""".stripMargin
+                      |Note: string interpolation with value extraction does not support the `[w']` width extension syntax.""".stripMargin
                   )
               }
               Literal(StringConstant(partFiltered)).asExprOf[String]
