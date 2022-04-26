@@ -1,18 +1,23 @@
 val projectName = "dfiant"
 
-inThisBuild(List(
-  homepage     := Some(url("https://dfianthdl.github.io/")),
-  licenses     := List("LGPL" -> url("https://www.gnu.org/licenses/lgpl-3.0.txt")),
-  developers := List(
-    Developer(
-      "soronpo",
-      "Oron Port",
-      "",
-      url("https://www.researchgate.net/profile/Oron_Port")
+inThisBuild(
+  List(
+    homepage := Some(url("https://dfianthdl.github.io/")),
+    licenses := List(
+      "LGPL" -> url("https://www.gnu.org/licenses/lgpl-3.0.txt")
+    ),
+    developers := List(
+      Developer(
+        "soronpo",
+        "Oron Port",
+        "",
+        url("https://www.researchgate.net/profile/Oron_Port")
+      )
     )
-)))
+  )
+)
 
-name := projectName
+name                     := projectName
 ThisBuild / organization := "io.github.dfianthdl"
 ThisBuild / scalaVersion := "2.13.5"
 //ThisBuild / resolvers += "pr" at "https://scala-ci.typesafe.com/artifactory/scala-pr-validation-snapshots/"
@@ -51,14 +56,16 @@ lazy val continuum = (project in file("modLibs/continuum"))
           Seq(baseDirectory.value / "src" / "main" / "scala_2.13+")
         case _ =>
           Seq(baseDirectory.value / "src" / "main" / "scala_2.12-")
-    }},
+      }
+    },
     Test / unmanagedSourceDirectories ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, v)) if v >= 13 =>
           Seq(baseDirectory.value / "src" / "test" / "scala_2.13+")
         case _ =>
           Seq(baseDirectory.value / "src" / "test" / "scala_2.12-")
-      }},
+      }
+    }
   )
 //////////////////////////////////////////////////////////////////////////////////////
 
@@ -103,7 +110,7 @@ lazy val lib = project
 //////////////////////////////////////////////////////////////////////////////////////
 lazy val `first-look` = (project in file("examples/first-look"))
   .settings(
-    name := "first-look",
+    name           := "first-look",
     publish / skip := true,
     settings,
     assemblySettings,
@@ -124,7 +131,6 @@ lazy val examples = project
   )
 //////////////////////////////////////////////////////////////////////////////////////
 
-
 // DEPENDENCIES
 
 lazy val dependencies =
@@ -137,7 +143,7 @@ lazy val dependencies =
     private val akkaV           = "2.6.14"
     private val singletonOpsV   = "0.5.2"
     private val shapelessV      = "2.3.4"
-    private val scodecV         = "1.1.12"
+    private val scodecV         = "1.1.31"
     private val oslibV          = "0.7.5"
     private val continuumV      = "0.4-SNAPSHOT"
     private val macroParadiseV  = "2.1.1"
@@ -146,23 +152,28 @@ lazy val dependencies =
     private val oscarV          = "4.1.0-SNAPSHOT"
     private val munitV          = "0.7.25"
 
-    val logback        = "ch.qos.logback"             % "logback-classic"          % logbackV
-    val logstash       = "net.logstash.logback"       % "logstash-logback-encoder" % logstashV
-    val scalaLogging   = "com.typesafe.scala-logging" %% "scala-logging"           % scalaLoggingV
-    val typesafeConfig = "com.typesafe"               % "config"                   % typesafeConfigV
-    val akka           = "com.typesafe.akka"          %% "akka-stream"             % akkaV
-    val pureconfig     = "com.github.pureconfig"      %% "pureconfig"              % pureconfigV
-    val singletonOps   = "eu.timepit"                 %% "singleton-ops"           % singletonOpsV
-    val shapeless      = "com.chuusai"                %% "shapeless"               % shapelessV
-    val scodec         = "org.scodec"                 %% "scodec-bits"             % scodecV
-    val oslib          = "com.lihaoyi"                %% "os-lib"                  % oslibV
-    val continuum      = "danburkert"                 %% "continuum"               % continuumV
-    val macroCompat    = "org.typelevel"              %% "macro-compat"            % macroCompatV
-    val ammoniteOps    = "com.lihaoyi"                %% "ammonite-ops"            % ammoniteV
-    val ammonite       = "com.lihaoyi"                %  "ammonite"                % ammoniteV % "test" cross CrossVersion.full
-    val oscar          = "oscar"                      %% "oscar-cp"                % oscarV
-    val munit          = "org.scalameta"              %% "munit"                   % munitV % Test
-    val macroParadise  = compilerPlugin("org.scalamacros" % "paradise" % macroParadiseV cross CrossVersion.patch)
+    val logback = "ch.qos.logback" % "logback-classic" % logbackV
+    val logstash =
+      "net.logstash.logback" % "logstash-logback-encoder" % logstashV
+    val scalaLogging =
+      "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingV
+    val typesafeConfig = "com.typesafe"           % "config"        % typesafeConfigV
+    val akka           = "com.typesafe.akka"     %% "akka-stream"   % akkaV
+    val pureconfig     = "com.github.pureconfig" %% "pureconfig"    % pureconfigV
+    val singletonOps   = "eu.timepit"            %% "singleton-ops" % singletonOpsV
+    val shapeless      = "com.chuusai"           %% "shapeless"     % shapelessV
+    val scodec         = "org.scodec"            %% "scodec-bits"   % scodecV
+    val oslib          = "com.lihaoyi"           %% "os-lib"        % oslibV
+    val continuum      = "danburkert"            %% "continuum"     % continuumV
+    val macroCompat    = "org.typelevel"         %% "macro-compat"  % macroCompatV
+    val ammoniteOps    = "com.lihaoyi"           %% "ammonite-ops"  % ammoniteV
+    val ammonite =
+      "com.lihaoyi" % "ammonite" % ammoniteV % "test" cross CrossVersion.full
+    val oscar = "oscar"         %% "oscar-cp" % oscarV
+    val munit = "org.scalameta" %% "munit"    % munitV % Test
+    val macroParadise = compilerPlugin(
+      "org.scalamacros" % "paradise" % macroParadiseV cross CrossVersion.patch
+    )
   }
 
 lazy val commonDependencies = Seq(
@@ -181,7 +192,7 @@ lazy val commonDependencies = Seq(
 // SETTINGS
 
 lazy val settings =
-  commonSettings 
+  commonSettings
 
 lazy val compilerOptions = Seq(
   "-unchecked",
@@ -209,7 +220,9 @@ lazy val macroSettings = Seq(
         Seq("-Xplugin-require:macroparadise")
     }
   },
-  libraryDependencies ++= Seq(scalaOrganization.value % "scala-compiler" % scalaVersion.value),
+  libraryDependencies ++= Seq(
+    scalaOrganization.value % "scala-compiler" % scalaVersion.value
+  ),
   libraryDependencies ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
       // if scala 2.13+ is used, macro annotations are merged into scala-reflect
@@ -243,7 +256,7 @@ lazy val commonSettings = Seq(
       case _ =>
         Seq(
           "-Yliteral-types", // enable SIP-23 implementation
-          "-Xsource:2.13",   //https://github.com/scala/scala/commit/33478bdc9792ee13baa8208e326278695b1bd4e4
+          "-Xsource:2.13"    //https://github.com/scala/scala/commit/33478bdc9792ee13baa8208e326278695b1bd4e4
         )
     }
   },
@@ -251,7 +264,7 @@ lazy val commonSettings = Seq(
     "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository",
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
-  ),
+  )
 //  libraryDependencies += dependencies.ammonite,
 //  sourceGenerators in Test += Def.task {
 //    val file = (sourceManaged in Test).value / "amm.scala"
@@ -274,13 +287,11 @@ lazy val assemblySettings = Seq(
 //libraryDependencies += "org.spire-math" %% "spire" % "0.11.0"
 ////////////////////////////////////////////////////////////////////
 
-
 ////////////////////////////////////////////////////////////////////
 // Tagging
 ////////////////////////////////////////////////////////////////////
 //libraryDependencies += "com.softwaremill.common" %% "tagging" % "1.0.0"
 ////////////////////////////////////////////////////////////////////
-
 
 ////////////////////////////////////////////////////////////////////
 // Oscar (constraints)
@@ -293,13 +304,11 @@ lazy val assemblySettings = Seq(
 //libraryDependencies += "oscar" %% "oscar-dfo" % "3.0.0"
 ////////////////////////////////////////////////////////////////////
 
-
 ////////////////////////////////////////////////////////////////////
 // Configs (configuration)
 ////////////////////////////////////////////////////////////////////
 //libraryDependencies += "com.github.kxbmap" %% "configs" % "0.4.2"
 ////////////////////////////////////////////////////////////////////
-
 
 ////////////////////////////////////////////////////////////////////
 // Scalatest
@@ -307,13 +316,11 @@ lazy val assemblySettings = Seq(
 //libraryDependencies += "org.scalatest" % "scalatest_2.11" % "latest.release"
 ////////////////////////////////////////////////////////////////////
 
-
 ////////////////////////////////////////////////////////////////////
 // Chisel
 ////////////////////////////////////////////////////////////////////
 //libraryDependencies += "edu.berkeley.cs" %% "chisel" % "latest.release"
 ////////////////////////////////////////////////////////////////////
-
 
 ////////////////////////////////////////////////////////////////////
 // SpinalHDL
@@ -323,7 +330,6 @@ lazy val assemblySettings = Seq(
 //  "com.github.spinalhdl" % "spinalhdl-lib_2.12" % "latest.release"
 //)
 ////////////////////////////////////////////////////////////////////
-
 
 ////////////////////////////////////////////////////////////////////
 // Treehugger (code generation)
