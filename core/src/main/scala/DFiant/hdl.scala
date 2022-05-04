@@ -30,6 +30,7 @@ object hdl:
   type Timer = core.Timer
   val Timer = core.Timer
   type DFC = core.DFC
+  val DFC = core.DFC
   export core.dfc
   type Inlined[T] = internals.Inlined[T]
   val Inlined = internals.Inlined

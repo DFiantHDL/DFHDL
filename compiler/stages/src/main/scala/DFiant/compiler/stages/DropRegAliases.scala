@@ -77,7 +77,7 @@ case object DropRegAliases extends Stage:
           case _            => false
         }.last
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
-        val regDsn = new MetaDesign(DFiant.core.Container.Domain.RT):
+        val regDsn = new MetaDesign(DFiant.core.DFC.Domain.RT):
           def addRegs(
               alias: DFVal.Alias.History,
               namePrefix: String,
@@ -96,7 +96,7 @@ case object DropRegAliases extends Stage:
             val regsIR = regs.map(_.asIR).toList
             val relVal = alias.getNonRegAliasRelVal
             import DFiant.core.DFVal.Alias.RegDIN
-            val regDinDsn = new MetaDesign(DFiant.core.Container.Domain.RT):
+            val regDinDsn = new MetaDesign(DFiant.core.DFC.Domain.RT):
               (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
                 RegDIN(curr.asValAny) := prev.asValAny
               }

@@ -4,8 +4,8 @@ import DFiant.compiler.ir
 
 import scala.annotation.unchecked.uncheckedVariance
 
-type MetaDesignAny = MetaDesign[Container.Domain]
-abstract class MetaDesign[+D <: Container.Domain](domainType: D = Container.Domain.DF)
+type MetaDesignAny = MetaDesign[DFC.Domain]
+abstract class MetaDesign[+D <: DFC.Domain](domainType: D = DFC.Domain.DF)
     extends Design(using DFC.empty)
     with reflect.Selectable:
   final type TDomain = D @uncheckedVariance

@@ -27,23 +27,23 @@ object Process:
 
   object Ops:
     protected type EDDomainOnly[A] = AssertGiven[
-      A <:< Container.Domain.ED,
+      A <:< DFC.Domain.ED,
       "Process block are only allowed inside an event-driven (ED) domain."
     ]
     object process:
-      def apply(dfVals: DFValAny*)(block: Container.Scope.Process ?=> Unit)(using
-          dt: Container.Domain
+      def apply(dfVals: DFValAny*)(block: DFC.Scope.Process ?=> Unit)(using
+          dt: DFC.Domain
       )(using EDDomainOnly[dt.type], DFC): Unit =
         val owner = Block.list(dfVals.toList)
         dfc.enterOwner(owner)
-        block(using Container.Scope.Process)
+        block(using DFC.Scope.Process)
         dfc.exitOwner()
-      def all(block: Container.Scope.Process ?=> Unit)(using
-          dt: Container.Domain
+      def all(block: DFC.Scope.Process ?=> Unit)(using
+          dt: DFC.Domain
       )(using EDDomainOnly[dt.type], DFC): Unit =
         val owner = Block.all
         dfc.enterOwner(owner)
-        block(using Container.Scope.Process)
+        block(using DFC.Scope.Process)
         dfc.exitOwner()
     end process
   end Ops

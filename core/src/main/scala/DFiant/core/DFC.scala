@@ -39,6 +39,26 @@ object DFC:
   given (using TopLevel): DFC = empty
   def empty: DFC =
     DFC(None, Position.unknown)
+  sealed trait Scope
+  object Scope:
+    sealed trait Design extends Scope
+    object Design extends Design
+    given Design = Design
+    sealed trait Domain extends Scope
+    object Domain extends Domain
+    sealed trait Process extends Scope
+    object Process extends Process
+    sealed trait Interface extends Scope
+    object Interface extends Interface
+  sealed trait Domain
+  object Domain:
+    sealed trait DF extends Domain
+    object DF extends DF
+    sealed trait RT extends Domain
+    object RT extends RT
+    sealed trait ED extends Domain
+    object ED extends ED
+end DFC
 
 def dfc(using DFC): DFC = summon[DFC]
 

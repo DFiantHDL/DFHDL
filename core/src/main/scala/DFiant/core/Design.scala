@@ -4,8 +4,8 @@ import DFiant.compiler.ir
 import DFiant.compiler.printing.*
 
 private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
-  private[core] type TScope = Container.Scope.Design
-  final protected given TScope = Container.Scope.Design
+  private[core] type TScope = DFC.Scope.Design
+  final protected given TScope = DFC.Scope.Design
   private[core] final override lazy val owner: Design.Block =
     Design.Block(__domainType, "???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =
@@ -29,16 +29,16 @@ object Design:
 end Design
 
 abstract class DFDesign(using DFC) extends Design:
-  private[core] type TDomain = Container.Domain.DF
-  final protected given TDomain = Container.Domain.DF
+  private[core] type TDomain = DFC.Domain.DF
+  final protected given TDomain = DFC.Domain.DF
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
 
 abstract class RTDesign(
     cfg: ir.RTDomainCfg = ir.DerivedCfg
 )(using DFC)
     extends Design:
-  private[core] type TDomain = Container.Domain.RT
-  final protected given TDomain = Container.Domain.RT
+  private[core] type TDomain = DFC.Domain.RT
+  final protected given TDomain = DFC.Domain.RT
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(cfg)
 
   //  /** This is a reference to the clock used. `clkCfg` must be explicitly defined with a name before
@@ -72,6 +72,6 @@ abstract class RTDesign(
 end RTDesign
 
 abstract class EDDesign(using DFC) extends Design:
-  private[core] type TDomain = Container.Domain.ED
-  final protected given TDomain = Container.Domain.ED
+  private[core] type TDomain = DFC.Domain.ED
+  final protected given TDomain = DFC.Domain.ED
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED
