@@ -54,6 +54,7 @@ object DFC:
   object Domain:
     sealed trait DF extends Domain
     object DF extends DF
+    given DF = DF
     sealed trait RT extends Domain
     object RT extends RT
     sealed trait ED extends Domain
