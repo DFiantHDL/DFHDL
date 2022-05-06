@@ -619,15 +619,21 @@ object DFVal:
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe, None)
       }
       inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
-      def reg(
-          step: Inlined[S]
-      )(using
+      def reg(step: Inlined[S])(using
           dfc: DFC,
           rtOnly: RTDomainOnly,
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(DerivedCfg), None)
+      }
+      def reg(step: Inlined[S])(domainCfg: RTDomainCfg)(using
+          dfc: DFC,
+          rtOnly: RTDomainOnly,
+          check: Arg.Positive.Check[S]
+      ): DFValOf[T] = trydf {
+        check(step)
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(domainCfg), None)
       }
       def reg(step: Inlined[S], initValue: Exact[V])(using
           dfc: DFC,
@@ -639,7 +645,19 @@ object DFVal:
         val initOpt = Some(tokenTC(dfVal.dfType, initValue))
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(DerivedCfg), initOpt)
       }
+      def reg(step: Inlined[S], initValue: Exact[V])(domainCfg: RTDomainCfg)(using
+          dfc: DFC,
+          rtOnly: RTDomainOnly,
+          tokenTC: DFToken.TC[T, V],
+          check: Arg.Positive.Check[S]
+      ): DFValOf[T] = trydf {
+        check(step)
+        val initOpt = Some(tokenTC(dfVal.dfType, initValue))
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(domainCfg), initOpt)
+      }
       inline def reg(using DFC, RTDomainOnly): DFValOf[T] = dfVal.reg(1)
+      inline def reg(domainCfg: RTDomainCfg)(using DFC, RTDomainOnly): DFValOf[T] =
+        dfVal.reg(1)(domainCfg)
     end extension
 
     extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])

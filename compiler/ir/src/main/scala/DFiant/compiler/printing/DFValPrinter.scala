@@ -198,12 +198,17 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case Alias.History.Op.Prev   => ".prev"
       case Alias.History.Op.Pipe   => ".pipe"
       case _: Alias.History.Op.Reg => ".reg"
+    val regDomainCfg = dfVal.op match
+      case Alias.History.Op.Reg(cfg) if cfg != DerivedCfg =>
+        s"(${printer.csRTDomainCfg(cfg)})"
+      case _ => ""
     val appliedStr =
       dfVal.initOption match
         case Some(init)           => s"$opStr(${dfVal.step}, ${printer.csDFToken(init)})"
         case _ if dfVal.step == 1 => opStr
         case _                    => s"$opStr(${dfVal.step})"
-    s"${dfVal.relValCodeString}$appliedStr"
+    s"${dfVal.relValCodeString}$appliedStr$regDomainCfg"
+  end csDFValAliasHistory
   def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String =
     s"${dfVal.relValCodeString}.din"
   def csTimerIsActive(dfVal: Timer.IsActive): String =
