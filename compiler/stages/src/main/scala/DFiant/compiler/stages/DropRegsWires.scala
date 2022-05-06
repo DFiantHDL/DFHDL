@@ -8,6 +8,7 @@ import DFiant.internals.*
 
 import scala.collection.mutable
 import scala.reflect.classTag
+import DFiant.core.DFC
 
 /** This stage transforms a register-transfer (RT) design/domain into a valid event-driven (ED)
   * design/domain. For this purpose it does the following:
@@ -75,7 +76,7 @@ case object DropRegsWires extends Stage:
             val rstName = "rst"
 
             // adding clock and reset ports according to the domain configuration
-            val clkRstPortsDsn = new MetaDesign():
+            val clkRstPortsDsn = new MetaDesign(DFC.Domain.ED):
               lazy val clk = DFBit <> IN setName clkName
               if (hasClock) clk // touch lazy clk to create
               lazy val rst = DFBit <> IN setName rstName
@@ -110,7 +111,7 @@ case object DropRegsWires extends Stage:
             var localsPatch = List.empty[(DFMember, Patch)]
             val localWithGlobals = mutable.ListBuffer.empty[DFVal]
             var regs_dinPatch = List.empty[(DFMember, Patch)]
-            val processBlockDsn = new MetaDesign(DFiant.core.DFC.Domain.ED):
+            val processBlockDsn = new MetaDesign(DFC.Domain.ED):
               val regs_dinVars = regs.map { r =>
                 r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
               }
