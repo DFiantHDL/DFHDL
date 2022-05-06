@@ -10,7 +10,10 @@ case object ToRT extends Stage:
   def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList = designDB.members.collect {
       case h @ DFVal.Alias.History(_, _, _, HistoryOp.Prev | HistoryOp.Pipe, _, _, _, _) =>
-        h -> Patch.Replace(h.copy(op = HistoryOp.Reg), Patch.Replace.Config.FullReplacement)
+        h -> Patch.Replace(
+          h.copy(op = HistoryOp.Reg(DerivedCfg)),
+          Patch.Replace.Config.FullReplacement
+        )
       case d @ DFDesignBlock(DomainType.DF, _, _, _, _, _, _) =>
         d -> Patch.Replace(
           d.copy(domainType = new DomainType.RT(DerivedCfg)),

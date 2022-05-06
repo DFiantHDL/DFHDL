@@ -65,9 +65,12 @@ case object DropRegAliases extends Stage:
       case (owner: (DFDomainOwner & DFBlock), members) =>
         val nameGroupRegMap =
           members.view
-            .collect {
-              case regAlias: DFVal.Alias.History if regAlias.op == DFVal.Alias.History.Op.Reg =>
-                regAlias
+            .flatMap {
+              case regAlias: DFVal.Alias.History =>
+                regAlias.op match
+                  case _: DFVal.Alias.History.Op.Reg => Some(regAlias)
+                  case _                             => None
+              case _ => None
             }
             .groupByOrdered(_.getNameGroup)
 

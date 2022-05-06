@@ -274,7 +274,8 @@ object DFVal:
 
     object History:
       enum Op derives CanEqual:
-        case Prev, Pipe, Reg
+        case Prev, Pipe
+        case Reg(domainCfg: RTDomainCfg)
 
     final case class ApplyRange(
         relValRef: PartialRef,

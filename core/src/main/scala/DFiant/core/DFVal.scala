@@ -627,7 +627,7 @@ object DFVal:
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg, None)
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(DerivedCfg), None)
       }
       def reg(step: Inlined[S], initValue: Exact[V])(using
           dfc: DFC,
@@ -637,7 +637,7 @@ object DFVal:
       ): DFValOf[T] = trydf {
         check(step)
         val initOpt = Some(tokenTC(dfVal.dfType, initValue))
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg, initOpt)
+        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(DerivedCfg), initOpt)
       }
       inline def reg(using DFC, RTDomainOnly): DFValOf[T] = dfVal.reg(1)
     end extension
