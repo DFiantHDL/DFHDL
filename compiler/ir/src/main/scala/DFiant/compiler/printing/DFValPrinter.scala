@@ -70,8 +70,14 @@ protected trait DFValPrinter extends AbstractValPrinter:
     s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
   def csDFValConstDcl(dfVal: Const): String =
     s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
+  def csDFValDclModifier(modifier: Modifier): String =
+    modifier match
+      case Modifier.REG(_: DerivedCfg.type) => "REG"
+      case Modifier.REG(cfg)                => s"REG(${printer.csRTDomainCfg(cfg)})"
+      case _                                => modifier.toString
+
   def csDFValDcl(dfVal: Dcl): String =
-    val noInit = s"${printer.csDFType(dfVal.dfType)} <> ${dfVal.modifier}"
+    val noInit = s"${printer.csDFType(dfVal.dfType)} <> ${csDFValDclModifier(dfVal.modifier)}"
     dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
         s"$noInit init ${printer.csDFTokenSeq(initSeq)}"

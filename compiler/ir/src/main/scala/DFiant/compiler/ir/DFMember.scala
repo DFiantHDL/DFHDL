@@ -124,7 +124,8 @@ sealed trait DFVal extends DFMember.Named:
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
   enum Modifier derives CanEqual:
-    case VAR, IN, OUT, INOUT, REG, WIRE
+    case VAR, IN, OUT, INOUT, WIRE
+    case REG(domainCfg: RTDomainCfg)
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match
@@ -138,6 +139,18 @@ object DFVal:
         dcl.modifier match
           case Modifier.VAR => true
           case _            => false
+      case _ => false
+    def isRegDcl: Boolean = dfVal match
+      case dcl: DFVal.Dcl =>
+        dcl.modifier match
+          case _: Modifier.REG => true
+          case _               => false
+      case _ => false
+    def isWireDcl: Boolean = dfVal match
+      case dcl: DFVal.Dcl =>
+        dcl.modifier match
+          case Modifier.WIRE => true
+          case _             => false
       case _ => false
     @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl] = dfVal match
       case dcl: DFVal.Dcl     => Some(dcl)

@@ -33,7 +33,7 @@ case object DropRegsWires extends Stage:
     def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Option[VarKind] =
       dcl.modifier match
         // A register does not have a local variable, as it relies on `reg.din`
-        case DFVal.Modifier.REG => Some(VarKind.Global)
+        case _: DFVal.Modifier.REG => Some(VarKind.Global)
         case DFVal.Modifier.WIRE =>
           val isGlobal = dcl.getConnectionTo.nonEmpty | dcl.getConnectionsFrom.nonEmpty
           if (isGlobal)
@@ -66,7 +66,7 @@ case object DropRegsWires extends Stage:
             val dclVars = members.collect { case v @ VarKind(kind) => (v, kind) }
             // all the registers
             val regs = members.collect {
-              case dcl: DFVal.Dcl if dcl.modifier == DFVal.Modifier.REG => dcl
+              case dcl: DFVal.Dcl if dcl.isRegDcl => dcl
             }
             // name and existence indicators for the clock and reset
             val hasClock = clkCfg != None
@@ -97,7 +97,7 @@ case object DropRegsWires extends Stage:
             val globalsPatch = dclVars.flatMap {
               case (v, VarKind.Global) =>
                 val rep = v.copy(modifier = DFVal.Modifier.VAR)
-                if (v.modifier == DFVal.Modifier.REG) regVars += rep
+                if (v.isRegDcl) regVars += rep
                 Some(v -> Patch.Replace(rep, Patch.Replace.Config.FullReplacement))
               case (v, VarKind.GlobalWithLocal) =>
                 val rep = v.copy(modifier = DFVal.Modifier.VAR)
