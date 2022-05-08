@@ -186,6 +186,38 @@ class AddClkRstSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Explicit domain in .reg or REG dcl") {
+    class ID extends RTDesign(NoClockCfg):
+      val x = DFSInt(16) <> IN
+      val y = DFSInt(16) <> OUT
+      val internal = new RTDomain(NoClockCfg):
+        val x = DFSInt(16) <> IN
+        val y = DFSInt(16) <> OUT
+        val z = DFBit      <> REG(cfgI)
+        x <> y
+      y := x.reg(cfg)
+    val id = (new ID).addClkRst
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign(NoClockCfg):
+         |  val cfgDmn = new RTDomain(cfg):
+         |    val clk = DFBit <> IN
+         |    val rst = DFBit <> IN
+         |  val cfgIDmn = new RTDomain(cfgI):
+         |    val clk = DFBit <> IN
+         |    val rst = DFBit <> IN
+         |  val x = DFSInt(16) <> IN
+         |  val y = DFSInt(16) <> OUT
+         |  val internal = new RTDomain(NoClockCfg):
+         |    val x = DFSInt(16) <> IN
+         |    val y = DFSInt(16) <> OUT
+         |    val z = DFBit <> REG(cfgI)
+         |    y <> x
+         |  y := x.reg(cfg)
+         |end ID
+         |""".stripMargin
+    )
+  }
   test("Explicit clk and rst are kept") {
     class ID extends RTDesign(cfg):
       val x = DFSInt(16) <> IN

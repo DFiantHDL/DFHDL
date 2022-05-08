@@ -18,17 +18,26 @@ case object AddClkRst extends Stage:
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
       // for all designs
       case (design, designMembers) =>
-        val prevCfg = mutable.Set.empty[RTDomainCfg]
+        // new configuration unapply object
+        object NewCfg:
+          // memoize previously handled domain configurations
+          val prevCfg = mutable.Set.empty[RTDomainCfg]
+          // a configuration that was not yet handled either by the design itself,
+          // by a different domain, or by an internal design that has a domain output
+          def unapply(cfg: RTDomainCfg.Explicit): Option[(ClkCfg, RstCfg)] =
+            val RTDomainCfg.Explicit(_, clkCfg, rstCfg) = cfg
+            if (!prevCfg.contains(cfg) && !designDomainOut.contains((design, cfg)))
+              prevCfg += cfg // will not handle this again
+              Some(clkCfg, rstCfg)
+            else None
+        end NewCfg
         (design :: designMembers).view
           // all the domain block owners, including the design block itself
           .collect { case o: (DFDomainOwner & DFBlock) => (o, designDB.namedOwnerMemberTable(o)) }
           .flatMap { case (owner, members) =>
-            owner.domainType match
-              // just register-transfer domains with a configuration that was not yet handled either by the
-              // design itself, by a different domain, or by an internal design that has a domain output
-              case DomainType.RT(cfg @ RTDomainCfg.Explicit(_, clkCfg, rstCfg))
-                  if !prevCfg.contains(cfg) && !designDomainOut.contains((design, cfg)) =>
-                prevCfg += cfg // will not handle this again
+            val ownerDomainPatchOption = owner.domainType match
+              // just register-transfer domains with new configuration
+              case DomainType.RT(cfg @ NewCfg(clkCfg, rstCfg)) =>
                 // clk and rst are required according to the configuration
                 val requiresClk = clkCfg != None
                 val requiresRst = rstCfg != None
@@ -57,6 +66,24 @@ case object AddClkRst extends Stage:
                   Some(owner -> Patch.Add(dsn, Patch.Add.Config.InsideFirst))
                 else None
               case _ => None
+            // register aliases and declarations can have explicit domain dependency, so for those
+            // configurations we need to create domains at the design level (if they don't exist)
+            val regDomainPatch = members.collect { case RegDomain(cfg @ NewCfg(clkCfg, rstCfg)) =>
+              val cfgName = cfg.getName + "Dmn"
+              val dsn = new MetaDesign():
+                val rtDomain = new RTDomain(cfg)(using dfc.setName(cfgName)):
+                  lazy val clk = DFBit <> IN setName s"clk"
+                  if (clkCfg != None) clk // touch lazy clk to create
+                  lazy val rst = DFBit <> IN setName s"rst"
+                  if (rstCfg != None) rst // touch lazy rst to create
+                rtDomain.onCreateEnd // need to run manually since plugin is not enabled here
+              // the ports are added as first members
+              design -> Patch.Add(dsn, Patch.Add.Config.InsideFirst)
+            }
+            List(
+              ownerDomainPatchOption,
+              regDomainPatch
+            ).flatten
           }
     }
     designDB.patch(patchList)

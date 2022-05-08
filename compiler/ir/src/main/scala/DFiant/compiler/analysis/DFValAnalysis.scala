@@ -45,6 +45,19 @@ object DclOut:
     case Modifier.OUT => true
     case _            => false
 
+object RegDomain:
+  def unapply(dfVal: DFVal)(using MemberGetSet): Option[RTDomainCfg] =
+    dfVal match
+      case reg: DFVal.Alias.History =>
+        reg.op match
+          case DFVal.Alias.History.Op.Reg(domainCfg) => Some(domainCfg)
+          case _                                     => None
+      case reg: DFVal.Dcl =>
+        reg.modifier match
+          case Modifier.REG(domainCfg) => Some(domainCfg)
+          case _                       => None
+      case _ => None
+
 extension (dcl: DFVal.Dcl)
   def externalInit: Option[List[DFTokenAny]] = dcl.getTagOf[ExternalInit].map(_.tokenSeq)
 
