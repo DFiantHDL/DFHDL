@@ -75,6 +75,7 @@ object hdl:
   val RstCfg = core.RstCfg
   type RTDomainCfg = core.RTDomainCfg
   val RTDomainCfg = core.RTDomainCfg
+  val NoClockCfg = RTDomainCfg(None, None)
 
   // shorthand for annotating a DFBits value (useful for string interpolation)
   type B[W <: Int] = core.DFValOf[DFBits[W]]

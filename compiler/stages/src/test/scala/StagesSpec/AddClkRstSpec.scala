@@ -5,13 +5,12 @@ import DFiant.compiler.stages.addClkRst
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class AddClkRstSpec extends StageSpec:
-  val clkCfg      = ClkCfg(ClkCfg.Edge.Rising)
-  val rstCfg      = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
-  val cfg         = RTDomainCfg(clkCfg, rstCfg)
-  val cfgI        = RTDomainCfg(clkCfg, rstCfg)
-  val cfgNoRst    = RTDomainCfg(clkCfg, None)
-  val cfgNoRstI   = RTDomainCfg(clkCfg, None)
-  val cfgNoClkRst = RTDomainCfg(None, None)
+  val clkCfg    = ClkCfg(ClkCfg.Edge.Rising)
+  val rstCfg    = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
+  val cfg       = RTDomainCfg(clkCfg, rstCfg)
+  val cfgI      = RTDomainCfg(clkCfg, rstCfg)
+  val cfgNoRst  = RTDomainCfg(clkCfg, None)
+  val cfgNoRstI = RTDomainCfg(clkCfg, None)
   test("Basic design clk and rst addition") {
     class ID extends RTDesign(cfg):
       val x = DFSInt(16) <> IN
@@ -99,7 +98,7 @@ class AddClkRstSpec extends StageSpec:
     )
   }
   test("No clk and rst") {
-    class ID extends RTDesign(cfgNoClkRst):
+    class ID extends RTDesign(NoClockCfg):
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
       val internal = new RTDomain(cfgNoRstI):
@@ -110,7 +109,7 @@ class AddClkRstSpec extends StageSpec:
     val id = (new ID).addClkRst
     assertCodeString(
       id,
-      """|class ID extends RTDesign(cfgNoClkRst):
+      """|class ID extends RTDesign(NoClockCfg):
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val internal = new RTDomain(cfgNoRstI):
