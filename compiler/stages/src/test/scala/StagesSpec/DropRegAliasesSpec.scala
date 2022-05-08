@@ -6,12 +6,15 @@ import DFiant.compiler.stages.dropRegAliases
 
 class DropRegAliasesSpec extends StageSpec:
   test("Basic reg alias") {
+    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
+    val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
+    val cfg    = RTDomainCfg(clkCfg, rstCfg)
     class ID extends RTDesign:
       val x1 = DFSInt(16) <> IN
       val y1 = DFSInt(16) <> OUT
       val x2 = DFSInt(16) <> IN
       val y2 = DFSInt(16) <> OUT
-      y1 := x1.reg
+      y1 := x1.reg(cfg)
       y2 := x2.reg(2) + x2.reg(2)
     val id = (new ID).dropRegAliases
     assertCodeString(
@@ -21,7 +24,7 @@ class DropRegAliasesSpec extends StageSpec:
          |  val y1 = DFSInt(16) <> OUT
          |  val x2 = DFSInt(16) <> IN
          |  val y2 = DFSInt(16) <> OUT
-         |  val x1_reg = DFSInt(16) <> REG
+         |  val x1_reg = DFSInt(16) <> REG(cfg)
          |  val x2_reg1 = DFSInt(16) <> REG
          |  val x2_reg2 = DFSInt(16) <> REG
          |  x1_reg.din := x1

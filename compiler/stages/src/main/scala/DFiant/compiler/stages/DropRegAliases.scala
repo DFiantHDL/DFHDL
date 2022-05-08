@@ -95,7 +95,8 @@ case object DropRegAliases extends Stage:
                 if (i == maxRegs && !alias.isAnonymous) alias.name
                 else namePrefix + nameSuffix
               import DFiant.core.{DFTypeAny, asFE}
-              alias.dfType.asFE[DFTypeAny] <> REG setName regName
+              val DFVal.Alias.History.Op.Reg(cfg) = alias.op
+              alias.dfType.asFE[DFTypeAny] <> REG(cfg) setName regName
             val regsIR = regs.map(_.asIR).toList
             val relVal = alias.getNonRegAliasRelVal
             import DFiant.core.DFVal.Alias.RegDIN
