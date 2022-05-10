@@ -63,14 +63,12 @@ class DropRegsWiresSpec extends StageSpec:
     class IDTop extends RTDesign(cfg):
       val x    = DFSInt(16) <> IN
       val y    = DFSInt(16) <> OUT
-      val id_x = DFSInt(16) <> WIRE
-      val id_y = DFSInt(16) <> WIRE
-      val id = new ID:
-        this.x <> id_x
-        this.y <> id_y
-      id_x := x
-      id_x := id_x + 1
-      y    := id_y
+      val temp = DFSInt(16) <> WIRE
+      val id   = new ID
+      temp := x
+      temp := temp + 1
+      id.x <> temp
+      y    := id.y
     end IDTop
     val top = (new IDTop).dropRegsWires
     assertCodeString(
@@ -99,17 +97,23 @@ class DropRegsWiresSpec extends StageSpec:
          |  val rst = DFBit <> IN
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
+         |  val temp = DFSInt(16) <> VAR
+         |  val id_clk = DFBit <> VAR
+         |  val id_rst = DFBit <> VAR
          |  val id_x = DFSInt(16) <> VAR
          |  val id_y = DFSInt(16) <> VAR
          |  val id = new ID:
+         |    this.clk <>/*<--*/ id_clk
+         |    this.rst <>/*<--*/ id_rst
          |    this.x <>/*<--*/ id_x
          |    this.y <>/*-->*/ id_y
          |  process.all {
-         |    val id_x_v = DFSInt(16) <> VAR
-         |    id_x_v := x
-         |    id_x_v := id_x_v + sd"2'1"
+         |    val temp_v = DFSInt(16) <> VAR
+         |    temp_v := x
+         |    temp_v := temp_v + sd"2'1"
+         |    id_x <> temp_v
          |    y :== id_y
-         |    id_x :== id_x_v
+         |    temp :== temp_v
          |  }
          |end IDTop
          |""".stripMargin

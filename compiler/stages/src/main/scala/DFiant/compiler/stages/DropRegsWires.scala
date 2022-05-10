@@ -25,7 +25,7 @@ import DFiant.core.DFC
   */
 case object DropRegsWires extends Stage:
   // TODO: need derived clock and reset configuration to be explicit
-  def dependencies: List[Stage] = List(DropRegAliases, SimpleOrderMembers, ViaConnection)
+  def dependencies: List[Stage] = List(DropRegAliases, AddClkRst, SimpleOrderMembers, ViaConnection)
   def nullifies: Set[Stage] = Set()
 
   enum VarKind:
@@ -56,35 +56,22 @@ case object DropRegsWires extends Stage:
   final val WhenLocalRefs = !WhenGlobalRefs
 
   def transform(designDB: DB)(using MemberGetSet): DB =
+    val domainAnalysis = new DomainAnalysis(designDB)
     val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
       // for all domain owners that are also blocks (RTDesign, RTDomain)
       case (owner: (DFDomainOwner & DFBlock & DFMember.Named), members) =>
         owner.domainType match
           // only care about register-transfer domains.
           // those have wires and regs that we need to simplify.
-          case domainType @ DomainType.RT(RTDomainCfg.Explicit(_, clkCfg, rstCfg)) =>
+          case domainType @ DomainType.RT(cfg @ RTDomainCfg.Explicit(_, clkCfg, rstCfg)) =>
             // all the declarations that need to be converted to VARs
             val dclVars = members.collect { case v @ VarKind(kind) => (v, kind) }
             // all the registers
             val regs = members.collect {
               case dcl: DFVal.Dcl if dcl.isRegDcl => dcl
             }
-            // name and existence indicators for the clock and reset
-            val hasClock = clkCfg != None
-            val clkName = "clk"
-            val hasReset = rstCfg != None
-            val rstName = "rst"
 
-            // adding clock and reset ports according to the domain configuration
-            val clkRstPortsDsn = new MetaDesign(DFC.Domain.ED):
-              lazy val clk = DFBit <> IN setName clkName
-              if (hasClock) clk // touch lazy clk to create
-              lazy val rst = DFBit <> IN setName rstName
-              if (hasReset) rst // touch lazy rst to create
-            val addClkRstPatchOption =
-              if (hasClock || hasReset)
-                Some(owner -> Patch.Add(clkRstPortsDsn, Patch.Add.Config.InsideFirst))
-              else None
+            val clkRstOpt = domainAnalysis.designDomains((owner.getThisOrOwnerDesign, cfg))
 
             // changing the owner from RT domain to ED domain
             val updatedOwner = owner match
@@ -112,6 +99,8 @@ case object DropRegsWires extends Stage:
             val localWithGlobals = mutable.ListBuffer.empty[DFVal]
             var regs_dinPatch = List.empty[(DFMember, Patch)]
             val processBlockDsn = new MetaDesign(DFC.Domain.ED):
+              lazy val clk = clkRstOpt.clkOpt.get.asValOf[DFBit]
+              lazy val rst = clkRstOpt.rstOpt.get.asValOf[DFBit]
               val regs_dinVars = regs.map { r =>
                 r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
               }
@@ -166,7 +155,6 @@ case object DropRegsWires extends Stage:
                   r.asVarAny := r_din_v.asValAny
                 }
               def ifRstActive =
-                import clkRstPortsDsn.rst
                 val RstCfg.Explicit(_, active: RstCfg.Active) = rstCfg
                 val cond = active match
                   case RstCfg.Active.High => rst == 1
@@ -176,7 +164,6 @@ case object DropRegsWires extends Stage:
                 val (_, rstBranch) = ifRstActive
                 DFIf.singleBranch(None, rstBranch, regSaveBlock)
               def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
-                import clkRstPortsDsn.clk
                 val ClkCfg.Explicit(edge: ClkCfg.Edge) = clkCfg
                 val cond = edge match
                   case ClkCfg.Edge.Rising  => clk.rising
@@ -187,11 +174,9 @@ case object DropRegsWires extends Stage:
                   block
                 )
 
-              if (hasClock && regs.nonEmpty)
-                import clkRstPortsDsn.clk
-                if (hasReset && regs.exists(_.externalInit.nonEmpty))
+              if (clkCfg != None && regs.nonEmpty)
+                if (rstCfg != None && regs.exists(_.externalInit.nonEmpty))
                   val RstCfg.Explicit(mode: RstCfg.Mode, _) = rstCfg
-                  import clkRstPortsDsn.rst
                   mode match
                     case RstCfg.Mode.Sync =>
                       process(clk) {
@@ -230,7 +215,6 @@ case object DropRegsWires extends Stage:
               abOwnerIR -> Patch.Add(localToGlobalDsn, Patch.Add.Config.InsideLast)
             List(
               Some(ownerDomainPatch),
-              addClkRstPatchOption,
               Some(processBlockAllPatch),
               Some(processBlockMembersPatch),
               Some(localToGlobalPatch),

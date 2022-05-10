@@ -24,7 +24,7 @@ abstract class MetaDesign[+D <: DFC.Domain](domainType: D = DFC.Domain.DF)
   final override private[DFiant] def skipChecks: Boolean = true
 
   export DFiant.hdl.{RTDomainCfg => _, ClkCfg => _, RstCfg => _, *}
-  export DFiant.core.{asValAny, asVarAny}
+  export DFiant.core.{asValAny, asVarAny, asValOf}
   extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
     def asInitialized: DFVal[T, Modifier[A, C, Modifier.Initialized]] =
       dfVal.asInstanceOf[DFVal[T, Modifier[A, C, Modifier.Initialized]]]
