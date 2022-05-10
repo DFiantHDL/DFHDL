@@ -5,8 +5,8 @@ import DFiant.internals.*
 
 import annotation.{implicitNotFound, targetName}
 
-type Bit = 0 | 1
-type BitOrBool = Bit | Boolean
+type BitNum = 0 | 1
+type BitOrBool = BitNum | Boolean
 type DFBoolOrBit = DFType[ir.DFBoolOrBit, NoArgs]
 object DFBoolOrBit:
   type Data = Option[Boolean]
@@ -26,7 +26,7 @@ object DFBoolOrBit:
       Token(dfType, Some(value))
     protected[core] def apply[T <: DFBoolOrBit](
         dfType: T,
-        value: Bit
+        value: BitNum
     ): T <> TOKEN =
       Token(dfType, value > 0)
     protected[core] def apply[T <: DFBoolOrBit](
@@ -55,7 +55,7 @@ object DFBoolOrBit:
           def apply(arg: Boolean): DFToken[DFBool] =
             Token(DFBool, arg)
       transparent inline given fromBit[
-          R <: Bit
+          R <: BitNum
       ]: Candidate[ValueOf[R]] = new Candidate[ValueOf[R]]:
         type OutT = DFBit
         def apply(arg: ValueOf[R]): DFToken[DFBit] =

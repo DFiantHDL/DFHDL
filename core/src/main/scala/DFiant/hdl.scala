@@ -3,7 +3,6 @@ object hdl:
   class dsn extends scala.annotation.StaticAnnotation
   export core.DFType.Ops.*
   export core.DFToken.Ops.*
-  export core.Bit
   export core.DFBoolOrBit.Token.Ops.*
   export core.DFBoolOrBit.Val.Ops.*
   export core.DFBits.Token.Ops.*
