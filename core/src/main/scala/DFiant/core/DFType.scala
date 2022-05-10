@@ -131,6 +131,10 @@ object DFType:
       type Type = T
       def apply(t: T): Type = t
 
+    transparent inline given ofIntCompanion: TC[Int.type] = new TC[Int.type]:
+      type Type = DFSInt[32]
+      def apply(t: Int.type): Type = DFSInt(32)
+
     transparent inline given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[
       T
     ]]: TC[TFE] = new TC[TFE]:

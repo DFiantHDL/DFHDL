@@ -20,6 +20,7 @@ class DFVectorSpec extends DFSpec:
          |val v3 = DFUInt(8) X 4 X 4 <> VAR
          |v3 := Vector(Vector(d"8'0", d"8'0", d"8'0", d"8'0"), Vector(d"8'0", d"8'0", d"8'0", d"8'0"), Vector(d"8'0", d"8'0", d"8'0", d"8'0"), Vector(d"8'0", d"8'0", d"8'0", d"8'0"))
          |v3(3)(1) := d"8'25"
+         |v3 := v3
          |""".stripMargin
     ) {
       val v1 = DFUInt(8) X 5 <> VAR init Vector.fill(5)(d"8'22")
@@ -47,6 +48,8 @@ class DFVectorSpec extends DFSpec:
       val v3 = DFUInt(8) X 4 X 4 <> VAR
       v3 := all(all(0))
       v3(3)(1) := 25
+      val t: DFUInt[8] X 4 X 4 <> VAL = v3
+      v3 := t
     }
   }
 end DFVectorSpec
