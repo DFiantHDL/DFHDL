@@ -5,15 +5,15 @@ import internals.Inlined
 import collection.immutable.ListMap
 
 class DFEnumSpec extends DFSpec:
-  enum MyEnum1 extends Enum:
+  enum MyEnum1 extends Encode:
     case Foo, Bar, Baz
-  enum MyEnum2 extends Enum.StartAt(20):
+  enum MyEnum2 extends Encode.StartAt(20):
     case Foo, Bar, Baz
-  enum MyEnum3 extends Enum.OneHot:
+  enum MyEnum3 extends Encode.OneHot:
     case Foo, Bar, Baz
-  enum MyEnum4 extends Enum.Grey:
+  enum MyEnum4 extends Encode.Grey:
     case Foo, Bar, Baz
-  enum MyEnum5(val value: UInt[8] <> TOKEN) extends Enum.Manual(8):
+  enum MyEnum5(val value: UInt[8] <> TOKEN) extends Encode.Manual(8):
     case Foo extends MyEnum5(200)
     case Bar extends MyEnum5(100)
     case Baz extends MyEnum5(0)

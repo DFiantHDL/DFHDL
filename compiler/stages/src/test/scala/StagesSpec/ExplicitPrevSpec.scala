@@ -185,9 +185,9 @@ class ExplicitPrevSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("Enum match pattern coverage") {
+  test("Encode match pattern coverage") {
     class ID extends DFDesign:
-      enum MyEnum extends Enum:
+      enum MyEnum extends Encode:
         case Foo, Baz, Bar
       import MyEnum.*
       val x  = MyEnum  <> IN
@@ -204,7 +204,7 @@ class ExplicitPrevSpec extends StageSpec:
     val id = (new ID).explicitPrev
     assertCodeString(
       id,
-      """|enum MyEnum(val value: UInt[2] <> TOKEN) extends Enum.Manual(2):
+      """|enum MyEnum(val value: UInt[2] <> TOKEN) extends Encode.Manual(2):
          |  case Foo extends MyEnum(d"2'0")
          |  case Baz extends MyEnum(d"2'1")
          |  case Bar extends MyEnum(d"2'2")

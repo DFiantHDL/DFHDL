@@ -68,7 +68,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
         )
         .mkString("\n")
         .indent
-    s"enum ${enumName}(val value: ${csDFDecimal(DFUInt(dfType.width), true)} <> TOKEN) extends Enum.Manual(${dfType.width}):\n$entries"
+    s"enum ${enumName}(val value: ${csDFDecimal(DFUInt(dfType.width), true)} <> TOKEN) extends Encode.Manual(${dfType.width}):\n$entries"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
