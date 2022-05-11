@@ -76,7 +76,7 @@ class DFBoolOrBitSpec extends DFSpec:
          |""".stripMargin
     ) {
       val bt = DFBit <> VAR
-      val bl = DFBool <> VAR
+      val bl = Boolean <> VAR
       val bit0 = DFBit token 0
       val boolT = DFBool token true
       bl := (bt || 1)
