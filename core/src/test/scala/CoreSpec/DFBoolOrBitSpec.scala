@@ -6,7 +6,7 @@ import internals.Inlined
 class DFBoolOrBitSpec extends DFSpec:
   test("Inlined width") {
     DFBit.width.verifyInlined(1)
-    DFBool.width.verifyInlined(1)
+    Boolean.width.verifyInlined(1)
   }
 
   test("Token Construction") {
@@ -17,9 +17,9 @@ class DFBoolOrBitSpec extends DFSpec:
     val t4: Boolean <> TOKEN = false
     val t5: DFBit <> TOKEN = DFBit token ?
     val t6: Boolean <> TOKEN = Boolean token t5
-    val t7: DFBool <> TOKEN = Boolean token bool
-    val t8: DFBit <> TOKEN = t7
-    val t9: Boolean <> TOKEN = t8
+    val t7: Boolean <> TOKEN = Boolean token bool
+    // val t8: DFBit <> TOKEN = t7
+    // val t9: Boolean <> TOKEN = t8
   }
   test("Token Conversion") {}
   test("Comparison") {
