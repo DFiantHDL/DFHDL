@@ -14,7 +14,6 @@ object hdl:
   export core.DFDecimal.Val.Ops.*
   export core.DFVector.Token.Ops.*
   export core.DFVector.Val.Ops.*
-  export core.DFOpaque.Frontend as DFOpaque
   export core.DFOpaque.Token.Ops.*
   export core.DFOpaque.Val.Ops.*
   export core.DFTuple.Token.Ops.*
@@ -46,6 +45,7 @@ object hdl:
   type Enum = core.DFEncoding.Default
   val Enum = core.DFEncoding
   export core.DFStruct.Fields as Struct
+  export core.DFOpaque.Frontend as Opaque
   type DFDesign = core.DFDesign
   type RTDesign = core.RTDesign
   type EDDesign = core.EDDesign

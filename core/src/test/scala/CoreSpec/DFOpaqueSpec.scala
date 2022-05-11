@@ -3,11 +3,11 @@ import DFiant.*
 import munit.*
 
 class DFOpaqueSpec extends DFSpec:
-  object o1u8 extends DFOpaque(UInt(8))
-  object o2u8 extends DFOpaque(UInt(8))
+  object o1u8 extends Opaque(UInt(8))
+  object o2u8 extends Opaque(UInt(8))
   val o1 = o1u8 <> VAR init 1.as(o1u8)
   val o2 = o2u8 <> VAR
-  object gogo extends DFOpaque((UInt(8), Bit))
+  object gogo extends Opaque((UInt(8), Bit))
   assertCodeString(
     """|val o11 = o1u8 <> VAR init d"8'1".as(o1u8)
        |val u8 = UInt(8) <> VAR
@@ -35,7 +35,7 @@ class DFOpaqueSpec extends DFSpec:
     zz := 15
   }
   test("Inlined width") {
-    object y extends DFOpaque((o1u8, Bit))
+    object y extends Opaque((o1u8, Bit))
     o1u8.width.verifyInlined(8)
     y.width.verifyInlined(9)
   }

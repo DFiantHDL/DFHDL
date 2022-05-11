@@ -130,7 +130,7 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
   test("Design names affect named dataflow types") {
-    object ID extends DFOpaque(Bit)
+    object ID extends Opaque(Bit)
     class ID extends DFDesign:
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT
@@ -140,7 +140,7 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       id,
       """|class ID extends DFDesign:
-         |  object ID_0 extends DFOpaque(Bit)
+         |  object ID_0 extends Opaque(Bit)
          |
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
