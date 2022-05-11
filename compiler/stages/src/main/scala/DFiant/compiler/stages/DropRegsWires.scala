@@ -105,7 +105,7 @@ case object DropRegsWires extends Stage:
                 r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
               }
 
-              process.all {
+              process(all) {
                 localsPatch = dclVars.flatMap {
                   case (v, VarKind.Local) =>
                     val rep = v.asValAny.genNewVar(using dfc.setName(v.name)).asIR

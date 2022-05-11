@@ -121,12 +121,12 @@ class PrintVHDLCodeSpec extends StageSpec:
         else if (clk.rising)
           y :== x
       }
-      val myblock = process.all {
+      val myblock = process(all) {
         val my_var = Bits(16) <> VAR
         my_var := x
         y     :== my_var
       }
-      process() {
+      process.forever {
         z :== x
         y :== z
       }

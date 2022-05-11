@@ -176,7 +176,7 @@ class PrintCodeStringSpec extends StageSpec:
       val y    = SInt(16) <> OUT
       val flag = Bit      <> IN
       val v    = SInt(16) <> VAR
-      process() {
+      process.forever {
         val z = SInt(8) <> VAR
         z := z + 1
         v :== 1
@@ -185,7 +185,7 @@ class PrintCodeStringSpec extends StageSpec:
         val z = SInt(8) <> VAR
         z := 1
       }
-      process.all {
+      process(all) {
         val z = SInt(8) <> VAR
         object Bla:
           val z = Bits(8) <> VAR
@@ -202,7 +202,7 @@ class PrintCodeStringSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val flag = Bit <> IN
          |  val v = SInt(16) <> VAR
-         |  process() {
+         |  process.forever {
          |    val z = SInt(8) <> VAR
          |    z := z + sd"2'1"
          |    v :== sd"16'1"
@@ -211,7 +211,7 @@ class PrintCodeStringSpec extends StageSpec:
          |    val z = SInt(8) <> VAR
          |    z := sd"8'1"
          |  }
-         |  process.all {
+         |  process(all) {
          |    val z_0 = SInt(8) <> VAR
          |    val z_1 = Bits(8) <> VAR
          |    z_1 := h"00"

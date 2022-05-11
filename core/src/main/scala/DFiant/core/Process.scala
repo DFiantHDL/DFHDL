@@ -31,14 +31,21 @@ object Process:
       "Process block are only allowed inside an event-driven (ED) domain."
     ]
     object process:
-      def apply(dfVals: DFValAny*)(block: DFC.Scope.Process ?=> Unit)(using
+      def apply(dfVal: DFValAny, dfVals: DFValAny*)(block: DFC.Scope.Process ?=> Unit)(using
           dt: DFC.Domain
       )(using EDDomainOnly[dt.type], DFC): Unit =
-        val owner = Block.list(dfVals.toList)
+        val owner = Block.list(dfVal :: dfVals.toList)
         dfc.enterOwner(owner)
         block(using DFC.Scope.Process)
         dfc.exitOwner()
-      def all(block: DFC.Scope.Process ?=> Unit)(using
+      def forever(block: DFC.Scope.Process ?=> Unit)(using
+          dt: DFC.Domain
+      )(using EDDomainOnly[dt.type], DFC): Unit =
+        val owner = Block.list(Nil)
+        dfc.enterOwner(owner)
+        block(using DFC.Scope.Process)
+        dfc.exitOwner()
+      def apply(all: SameElementsVector.type)(block: DFC.Scope.Process ?=> Unit)(using
           dt: DFC.Domain
       )(using EDDomainOnly[dt.type], DFC): Unit =
         val owner = Block.all
