@@ -641,7 +641,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           case DFBits(_) => // ok
           case _ =>
             report.error(
-              "`all` pattern is allowed for a DFBits dataflow value only.",
+              "`all` pattern is allowed for a Bits dataflow value only.",
               patternTree.srcPos
             )
         FromCore.patternSingleton(selectorTree, lit)
@@ -663,7 +663,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           case DFBits(_) | DFXInt(_, _) => // ok
           case _ =>
             report.error(
-              "String interpolation pattern is only allowed for DFBits, DFUInt, or DFSInt dataflow values.",
+              "String interpolation pattern is only allowed for Bits, UInt, or SInt dataflow values.",
               patternTree.srcPos
             )
             return EmptyTree
@@ -674,7 +674,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               case DFUInt(ConstantType(Constant(w: Int))) => w
               case _ =>
                 report.error(
-                  "Value extraction with a string interpolation pattern is only allowed for DFBits or DFUInt dataflow values.",
+                  "Value extraction with a string interpolation pattern is only allowed for Bits or UInt dataflow values.",
                   patternTree.srcPos
                 )
                 return EmptyTree
@@ -717,7 +717,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                         return EmptyTree
                   case _ =>
                     report.error(
-                      s"The bind `${bindTree.name}` must have a DFBits value type annotation `: B[<width>]`",
+                      s"The bind `${bindTree.name}` must have a Bits value type annotation `: B[<width>]`",
                       bindTree.srcPos
                     )
                     return EmptyTree

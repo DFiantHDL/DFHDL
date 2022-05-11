@@ -197,7 +197,7 @@ object DFType:
             if (badTypeStr.endsWith("$package.<none>"))
               s"Type `$badTypeStr` is not a supported dataflow type constructor.\nHint: Are you missing an argument in your dataflow type constructor?"
             else
-              s"Type `$badTypeStr` is not a supported product companion.\nHint: Did you forget to extends `DFStruct` or `DFEnum`?"
+              s"Type `$badTypeStr` is not a supported product companion.\nHint: Did you forget to extends `Struct` or `Enum`?"
           '{
             compiletime.error(${ Expr(msg) })
             new TC[T]:
