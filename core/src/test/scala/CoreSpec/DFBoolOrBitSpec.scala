@@ -18,8 +18,8 @@ class DFBoolOrBitSpec extends DFSpec:
     val t5: DFBit <> TOKEN = DFBit token ?
     val t6: Boolean <> TOKEN = Boolean token t5
     val t7: Boolean <> TOKEN = Boolean token bool
-    // val t8: DFBit <> TOKEN = t7
-    // val t9: Boolean <> TOKEN = t8
+    val t8: DFBit <> TOKEN = t7
+    val t9: Boolean <> TOKEN = t5
   }
   test("Token Conversion") {}
   test("Comparison") {

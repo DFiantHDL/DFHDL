@@ -23,6 +23,9 @@ val NoType = new DFType[ir.NoType.type, NoArgs](ir.NoType)
 object DFType:
   type Of[T <: Supported] <: DFTypeAny = T match
     case DFTypeAny => T <:! DFTypeAny
+    case Long      => DFSInt[64]
+    case Byte      => DFBits[8]
+    case Boolean   => DFBool
     case DFOpaqueA => DFOpaque[T]
     case Product   => FromProduct[T]
 
@@ -70,10 +73,11 @@ object DFType:
   export DFBits.given
   export DFDecimal.given
   export DFEnum.given
+  export DFVector.given
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
-  type Supported = DFTypeAny | DFEncoding | DFOpaqueA | AnyRef
+  type Supported = DFTypeAny | DFEncoding | DFOpaqueA | Byte | Long | Boolean | AnyRef
   object Ops:
     protected type VARNotInRTDomain[A] = AssertGiven[
       util.NotGiven[A <:< Modifier.VarRef] | util.NotGiven[A <:< DFC.Domain.RT],

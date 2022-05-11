@@ -45,16 +45,13 @@ type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier[Modifier.Assignable, Any, Any]
 type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Port]
 
 sealed trait TOKEN
-type <>[T <: DFType.Supported | Byte | Int | Long | Boolean, M] = T match
+type <>[T <: DFType.Supported | Int, M] = T match
   case DFType.Supported =>
     M match
       case VAL   => DFValOf[DFType.Of[T]]
       case TOKEN => DFToken[DFType.Of[T]]
   // Int is also special cased by the compiler plugin
-  case Int     => DFVector.ComposedModifier[T, M]
-  case Long    => DFValOf[DFType.Of[DFSInt[64]]]
-  case Byte    => DFValOf[DFType.Of[DFBits[8]]]
-  case Boolean => DFValOf[DFType.Of[DFBool]]
+  case Int => DFVector.ComposedModifier[T, M]
 
 type X[T <: DFType.Supported, M] = M match
   case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]
