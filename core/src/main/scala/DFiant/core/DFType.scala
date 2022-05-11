@@ -135,6 +135,10 @@ object DFType:
       type Type = DFBool
       def apply(t: Boolean.type): Type = DFBool
 
+    transparent inline given ofByteCompanion: TC[Byte.type] = new TC[Byte.type]:
+      type Type = DFBits[8]
+      def apply(t: Byte.type): Type = DFBits(8)
+
     transparent inline given ofIntCompanion: TC[Int.type] = new TC[Int.type]:
       type Type = DFSInt[32]
       def apply(t: Int.type): Type = DFSInt(32)

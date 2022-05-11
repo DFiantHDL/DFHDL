@@ -139,7 +139,8 @@ class DFBitsSpec extends DFSpec:
     val u5L = DFUInt(5) <> VAR
     val u8 = DFUInt(8) <> VAR
     assertCodeString {
-      """|b8 := h"11"
+      """|val byte = DFBits(8) <> VAR init h"00"
+         |b8 := h"11"
          |b8 := h"00"
          |b8 := h"ff"
          |b8 := h"??"
@@ -155,6 +156,7 @@ class DFBitsSpec extends DFSpec:
          |b4L := u8.bits(7, 4)
          |""".stripMargin
     } {
+      val byte: Byte <> VAL = Byte <> VAR init all(0)
       b8 := h"11"
       b8 := all(0)
       b8 := all(1)
