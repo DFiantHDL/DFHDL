@@ -131,9 +131,17 @@ object DFType:
       type Type = T
       def apply(t: T): Type = t
 
+    transparent inline given ofBooleanCompanion: TC[Boolean.type] = new TC[Boolean.type]:
+      type Type = DFBool
+      def apply(t: Boolean.type): Type = DFBool
+
     transparent inline given ofIntCompanion: TC[Int.type] = new TC[Int.type]:
       type Type = DFSInt[32]
       def apply(t: Int.type): Type = DFSInt(32)
+
+    transparent inline given ofLongCompanion: TC[Long.type] = new TC[Long.type]:
+      type Type = DFSInt[64]
+      def apply(t: Long.type): Type = DFSInt(64)
 
     transparent inline given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[
       T

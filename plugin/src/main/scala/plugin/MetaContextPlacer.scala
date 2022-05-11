@@ -42,6 +42,17 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
       case _                                                                          => false
     }
 
+  object IntConnVAL:
+    def unapply(tree: InfixOp)(using Context): Option[InfixOp] =
+      tree match
+        case InfixOp(Ident(intName), c @ Ident(connName), v @ Ident(valName))
+            if intName.toString == "Int" && connName.toString == "<>" && valName.toString == "VAL" =>
+          val intReplacement = AppliedTypeTree(
+            Ident("DFSInt".toTypeName),
+            List(SingletonTypeTree(Literal(Constant(32))))
+          )
+          Some(InfixOp(intReplacement, c, v))
+        case _ => None
   private val dfcContainers = Set(
     "DFDesign", "RTDesign", "EDDesign", "DFInterface", "RTInterface", "EDInterface"
   )
@@ -80,6 +91,10 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
               .asInstanceOf[UntypedTreeCopier]
               .ModuleDef(tree)(name, transform(impl).asInstanceOf[Template])
           }
+        case tree @ ValDef(_, IntConnVAL(fixedInfix), _) =>
+          cpy.ValDef(tree)(tpt = fixedInfix)
+        case tree @ DefDef(_, _, IntConnVAL(fixedInfix), _) =>
+          cpy.DefDef(tree)(tpt = fixedInfix)
         case t => t
       end match
     end transform

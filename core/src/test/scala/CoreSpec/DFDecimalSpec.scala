@@ -34,7 +34,7 @@ class DFDecimalSpec extends DFSpec:
       val z = DFSInt(8) <> VAR init 0
     }
   }
-
+  def foo: Int <> VAL = 1
   val u7 = DFUInt(7)
   val s5 = DFSInt(5)
   val until8 = DFUInt.until(8)
@@ -196,7 +196,7 @@ class DFDecimalSpec extends DFSpec:
       val u6 = DFUInt(6) <> IN
       val s6 = DFSInt(6) <> IN
       val b6 = DFBits(6) const all(0)
-      val s32 = Int <> VAR init 0
+      val s32: Int <> VAL = Int <> VAR init 0
       u8 := 0
       u8 := 255
       u8 := d"0"
