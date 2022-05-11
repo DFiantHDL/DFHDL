@@ -171,6 +171,7 @@ class DFDecimalSpec extends DFSpec:
          |val s6 = DFSInt(6) <> IN
          |val b6 = DFBits(6) const h"6'00"
          |val s32 = DFSInt(32) <> VAR init sd"32'0"
+         |val s64 = DFSInt(64) <> VAR init sd"64'0"
          |u8 := d"8'0"
          |u8 := d"8'255"
          |u8 := d"8'0"
@@ -197,6 +198,7 @@ class DFDecimalSpec extends DFSpec:
       val s6 = DFSInt(6) <> IN
       val b6 = DFBits(6) const all(0)
       val s32: Int <> VAL = Int <> VAR init 0
+      val s64: Long <> VAL = Long <> VAR init 0
       u8 := 0
       u8 := 255
       u8 := d"0"
