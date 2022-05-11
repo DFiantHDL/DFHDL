@@ -24,8 +24,8 @@ class DropRegsWiresSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends EDDesign:
-         |  val clk = DFBit <> IN
-         |  val rst = DFBit <> IN
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val r1 = DFSInt(16) <> VAR init sd"16'0"
@@ -74,8 +74,8 @@ class DropRegsWiresSpec extends StageSpec:
     assertCodeString(
       top,
       """|class ID extends EDDesign:
-         |  val clk = DFBit <> IN
-         |  val rst = DFBit <> IN
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val r = DFSInt(16) <> VAR
@@ -93,13 +93,13 @@ class DropRegsWiresSpec extends StageSpec:
          |end ID
          |
          |class IDTop extends EDDesign:
-         |  val clk = DFBit <> IN
-         |  val rst = DFBit <> IN
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
          |  val temp = DFSInt(16) <> VAR
-         |  val id_clk = DFBit <> VAR
-         |  val id_rst = DFBit <> VAR
+         |  val id_clk = Bit <> VAR
+         |  val id_rst = Bit <> VAR
          |  val id_x = DFSInt(16) <> VAR
          |  val id_y = DFSInt(16) <> VAR
          |  val id = new ID:
@@ -131,8 +131,8 @@ class DropRegsWiresSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends EDDesign:
-         |  val clk = DFBit <> IN
-         |  val rst = DFBit <> IN
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
          |  val x = DFSInt(16) <> IN
          |  val r1 = DFSInt(16) <> VAR init sd"16'0"
          |  val r1_din = DFSInt(16) <> VAR
@@ -159,7 +159,7 @@ class DropRegsWiresSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends EDDesign:
-         |  val clk = DFBit <> IN
+         |  val clk = Bit <> IN
          |  val x = DFSInt(16) <> IN
          |  val r1 = DFSInt(16) <> VAR init sd"16'0"
          |  val r1_din = DFSInt(16) <> VAR
@@ -185,8 +185,8 @@ class DropRegsWiresSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends EDDesign:
-         |  val clk = DFBit <> IN
-         |  val rst = DFBit <> IN
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
          |  val x = DFSInt(16) <> IN
          |  val r1 = DFSInt(16) <> VAR init sd"16'0"
          |  val r1_din = DFSInt(16) <> VAR

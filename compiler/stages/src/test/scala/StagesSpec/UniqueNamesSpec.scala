@@ -11,7 +11,7 @@ class UniqueNamesSpec extends StageSpec:
     val z = DFBits(8)  <> IN
     y := x
     object Temp:
-      val x = DFBit   <> VAR init 1
+      val x = Bit     <> VAR init 1
       val Y = Boolean <> VAR init 0
     Temp.x // touch to force evaluation
 
@@ -24,7 +24,7 @@ class UniqueNamesSpec extends StageSpec:
          |  val y = DFSInt(16) <> OUT
          |  val z_0 = DFBits(8) <> IN
          |  y := x_0
-         |  val x_1 = DFBit <> VAR init 1
+         |  val x_1 = Bit <> VAR init 1
          |  val Y = Boolean <> VAR init false
          |end ID
          |""".stripMargin
@@ -39,7 +39,7 @@ class UniqueNamesSpec extends StageSpec:
          |  val y_0 = DFSInt(16) <> OUT
          |  val z = DFBits(8) <> IN
          |  y_0 := x_0
-         |  val x_1 = DFBit <> VAR init 1
+         |  val x_1 = Bit <> VAR init 1
          |  val Y_1 = Boolean <> VAR init false
          |end ID
          |""".stripMargin

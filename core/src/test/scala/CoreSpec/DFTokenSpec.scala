@@ -10,7 +10,7 @@ class DFTokenSpec extends FunSuite:
     val tplValue = (h"11", b"10010110")
     val t2 = tplDef token (h"11", b"10010110")
     val t3 = tplDef token tplValue
-    val z = (DFBit, DFBits(8), (DFBit, Boolean)) token (1, h"11", (true, 0))
+    val z = (Bit, DFBits(8), (Bit, Boolean)) token (1, h"11", (true, 0))
 //    assert(t1 == t2)
 //    assert(t2 == t3)
   }

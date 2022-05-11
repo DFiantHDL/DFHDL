@@ -109,8 +109,8 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
   test("process block") {
     class Top extends EDDesign:
-      val clk = DFBit      <> IN
-      val rst = DFBit      <> IN
+      val clk = Bit        <> IN
+      val rst = Bit        <> IN
       val x   = DFBits(16) <> IN
       val y   = DFBits(16) <> OUT
       val z   = DFBits(16) <> VAR
@@ -175,9 +175,9 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
   test("literals") {
     class Top extends EDDesign:
-      val c01 = DFBit const 0
-      val c02 = DFBit const 1
-      val c03 = DFBit const ?
+      val c01 = Bit const 0
+      val c02 = Bit const 1
+      val c03 = Bit const ?
       val c04 = Boolean const 0
       val c05 = Boolean const 1
       val c06 = DFBits(8) const h"22"

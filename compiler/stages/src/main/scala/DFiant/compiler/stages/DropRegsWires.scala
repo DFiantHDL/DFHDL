@@ -99,8 +99,8 @@ case object DropRegsWires extends Stage:
             val localWithGlobals = mutable.ListBuffer.empty[DFVal]
             var regs_dinPatch = List.empty[(DFMember, Patch)]
             val processBlockDsn = new MetaDesign(DFC.Domain.ED):
-              lazy val clk = clkRstOpt.clkOpt.get.asValOf[DFBit]
-              lazy val rst = clkRstOpt.rstOpt.get.asValOf[DFBit]
+              lazy val clk = clkRstOpt.clkOpt.get.asValOf[Bit]
+              lazy val rst = clkRstOpt.rstOpt.get.asValOf[Bit]
               val regs_dinVars = regs.map { r =>
                 r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
               }

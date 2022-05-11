@@ -130,7 +130,7 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
   test("Design names affect named dataflow types") {
-    object ID extends DFOpaque(DFBit)
+    object ID extends DFOpaque(Bit)
     class ID extends DFDesign:
       val x = DFSInt(16) <> IN
       val y = DFSInt(16) <> OUT
@@ -140,7 +140,7 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       id,
       """|class ID extends DFDesign:
-         |  object ID_0 extends DFOpaque(DFBit)
+         |  object ID_0 extends DFOpaque(Bit)
          |
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
@@ -155,7 +155,7 @@ class PrintCodeStringSpec extends StageSpec:
     class ID extends RTDesign:
       val x    = DFSInt(16) <> IN
       val y    = DFSInt(16) <> OUT
-      val flag = DFBit      <> IN
+      val flag = Bit        <> IN
       y := x.reg.reg(2) - x
     end ID
     val id = (new ID).getCodeString
@@ -164,7 +164,7 @@ class PrintCodeStringSpec extends StageSpec:
       """|class ID extends RTDesign(DerivedCfg):
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
-         |  val flag = DFBit <> IN
+         |  val flag = Bit <> IN
          |  y := x.reg.reg(2) - x
          |end ID
          |""".stripMargin
@@ -174,7 +174,7 @@ class PrintCodeStringSpec extends StageSpec:
     class ID extends EDDesign:
       val x    = DFSInt(16) <> IN
       val y    = DFSInt(16) <> OUT
-      val flag = DFBit      <> IN
+      val flag = Bit        <> IN
       val v    = DFSInt(16) <> VAR
       process() {
         val z = DFSInt(8) <> VAR
@@ -200,7 +200,7 @@ class PrintCodeStringSpec extends StageSpec:
       """|class ID extends EDDesign:
          |  val x = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
-         |  val flag = DFBit <> IN
+         |  val flag = Bit <> IN
          |  val v = DFSInt(16) <> VAR
          |  process() {
          |    val z = DFSInt(8) <> VAR

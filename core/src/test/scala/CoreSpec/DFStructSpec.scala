@@ -5,7 +5,7 @@ import munit.*
 class DFStructSpec extends DFSpec:
   class CCs[W <: Int](width: Inlined[W]):
     case class XY(x: DFBits[W] <> VAL, y: DFUInt[W] <> VAL) extends DFStruct
-    case class XYZ(x: DFUInt[W] <> VAL, y: DFBits[W] <> VAL, z: DFBit <> VAL) extends DFStruct
+    case class XYZ(x: DFUInt[W] <> VAL, y: DFBits[W] <> VAL, z: Bit <> VAL) extends DFStruct
 
   case class VectorHolder(
       vec1: DFUInt[8] X 5 <> VAL,
@@ -108,7 +108,7 @@ class DFStructSpec extends DFSpec:
       // assign the whole struct, as unnamed fields
       xy := XY(22, all(0))
       // easily composing structs
-      case class XYZ(xy: XY <> VAL, z: DFBit <> VAL) extends DFStruct
+      case class XYZ(xy: XY <> VAL, z: Bit <> VAL) extends DFStruct
       val xyz = XYZ <> VAR
       // field assignments of a whole struct
       xyz.xy := xy

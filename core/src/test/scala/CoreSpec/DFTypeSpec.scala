@@ -10,7 +10,7 @@ class DFTypeSpec extends DFSpec:
   val b8 = DFBits(8)
   val u7 = DFUInt(7)
   val s5 = DFSInt(5)
-  val bit = DFBit
+  val bit = Bit
   val bool = Boolean
   val tpl = (bool, bit, b8)
   val vec_b8x10 = b8 X 10
@@ -53,8 +53,8 @@ class DFTypeSpec extends DFSpec:
   given Printer = DefaultPrinter(using dfc.getSet)
   test("codeString") {
     assertEquals(b8.codeString, "DFBits(8)")
-    assertEquals(bit.codeString, "DFBit")
-    assertEquals(tpl.dfType.codeString, "(Boolean, DFBit, DFBits(8))")
+    assertEquals(bit.codeString, "Bit")
+    assertEquals(tpl.dfType.codeString, "(Boolean, Bit, DFBits(8))")
     assertEquals(vec_b8x10.codeString, "DFBits(8) X 10")
     assertEquals(MyEnum1.dfType.codeString, "MyEnum1")
     assertEquals(MyEnum2.dfType.codeString, "MyEnum2")

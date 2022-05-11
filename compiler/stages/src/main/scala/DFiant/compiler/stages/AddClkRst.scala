@@ -58,9 +58,9 @@ case object AddClkRst extends Stage:
                 val addRst = requiresRst && existingRst.isEmpty
                 if (addClk || addRst)
                   val dsn = new MetaDesign():
-                    lazy val clk = DFBit <> IN setName "clk"
+                    lazy val clk = Bit <> IN setName "clk"
                     if (addClk) clk // touch lazy clk to create
-                    lazy val rst = DFBit <> IN setName "rst"
+                    lazy val rst = Bit <> IN setName "rst"
                     if (addRst) rst // touch lazy rst to create
                   // the ports are added as first members
                   Some(owner -> Patch.Add(dsn, Patch.Add.Config.InsideFirst))
@@ -72,9 +72,9 @@ case object AddClkRst extends Stage:
               val cfgName = cfg.getName + "Dmn"
               val dsn = new MetaDesign():
                 val rtDomain = new RTDomain(cfg)(using dfc.setName(cfgName)):
-                  lazy val clk = DFBit <> IN setName s"clk"
+                  lazy val clk = Bit <> IN setName s"clk"
                   if (clkCfg != None) clk // touch lazy clk to create
-                  lazy val rst = DFBit <> IN setName s"rst"
+                  lazy val rst = Bit <> IN setName s"rst"
                   if (rstCfg != None) rst // touch lazy rst to create
                 rtDomain.onCreateEnd // need to run manually since plugin is not enabled here
               // the ports are added as first members

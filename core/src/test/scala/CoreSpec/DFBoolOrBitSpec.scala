@@ -5,26 +5,26 @@ import internals.Inlined
 
 class DFBoolOrBitSpec extends DFSpec:
   test("Inlined width") {
-    DFBit.width.verifyInlined(1)
+    Bit.width.verifyInlined(1)
     Boolean.width.verifyInlined(1)
   }
 
   test("Token Construction") {
     val bool = true
-    val t1: DFBit <> TOKEN = 0
-    val t2: DFBit <> TOKEN = DFBit token 1
+    val t1: Bit <> TOKEN = 0
+    val t2: Bit <> TOKEN = Bit token 1
     val t3: Boolean <> TOKEN = Boolean token true
     val t4: Boolean <> TOKEN = false
-    val t5: DFBit <> TOKEN = DFBit token ?
+    val t5: Bit <> TOKEN = Bit token ?
     val t6: Boolean <> TOKEN = Boolean token t5
     val t7: Boolean <> TOKEN = Boolean token bool
-    val t8: DFBit <> TOKEN = t7
+    val t8: Bit <> TOKEN = t7
     val t9: Boolean <> TOKEN = t5
   }
   test("Token Conversion") {}
   test("Comparison") {
     assertCodeString(
-      """|val bt = DFBit <> VAR
+      """|val bt = Bit <> VAR
          |val bl = Boolean <> VAR
          |val t1 = bt == bl.bit
          |val t2 = bl != bt.bool
@@ -36,9 +36,9 @@ class DFBoolOrBitSpec extends DFSpec:
          |val t8 = bl == false
          |""".stripMargin
     ) {
-      val bt = DFBit <> VAR
+      val bt = Bit <> VAR
       val bl = Boolean <> VAR
-      val bit0 = DFBit token 0
+      val bit0 = Bit token 0
       val boolT = Boolean token true
       val t1 = bt == bl
       val t2 = bl != bt
@@ -49,8 +49,8 @@ class DFBoolOrBitSpec extends DFSpec:
       val t7 = bt != boolT
       val t8 = bl == bit0
     }
-    val bit0 = DFBit token 0
-    val bit1 = DFBit token 1
+    val bit0 = Bit token 0
+    val bit1 = Bit token 1
     val boolF = Boolean token false
     val boolT = Boolean token true
     assertEquals(bit0 == bit1, boolF)
@@ -62,7 +62,7 @@ class DFBoolOrBitSpec extends DFSpec:
   }
   test("Assignment") {
     assertCodeString(
-      """|val bt = DFBit <> VAR
+      """|val bt = Bit <> VAR
          |val bl = Boolean <> VAR
          |bl := (bt || 1).bool
          |bt := bl.bit
@@ -75,9 +75,9 @@ class DFBoolOrBitSpec extends DFSpec:
          |bl := false
          |""".stripMargin
     ) {
-      val bt = DFBit <> VAR
+      val bt = Bit <> VAR
       val bl = Boolean <> VAR
-      val bit0 = DFBit token 0
+      val bit0 = Bit token 0
       val boolT = Boolean token true
       bl := (bt || 1)
       bt := bl
@@ -91,8 +91,8 @@ class DFBoolOrBitSpec extends DFSpec:
     }
   }
   test("Logical Ops") {
-    val bit0 = DFBit token 0
-    val bit1 = DFBit token 1
+    val bit0 = Bit token 0
+    val bit1 = Bit token 1
     val boolF = Boolean token false
     val boolT = Boolean token true
     assertEquals(!bit0, bit1)
@@ -109,7 +109,7 @@ class DFBoolOrBitSpec extends DFSpec:
     assertEquals(1 || boolF, boolT)
     assertEquals(boolF && bit0, boolF)
     assertEquals(bit1 ^ boolT, bit0)
-    val bt = DFBit <> VAR
+    val bt = Bit <> VAR
     val bl = Boolean <> VAR
     assertCodeString(
       """|val t1 = bt && bl.bit

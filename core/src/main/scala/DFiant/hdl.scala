@@ -35,8 +35,8 @@ object hdl:
   val Inlined = internals.Inlined
 
   type DFType = core.DFTypeAny
-  lazy val DFBit = core.DFBit
-  type DFBit = core.DFBit
+  lazy val Bit = core.DFBit
+  type Bit = core.DFBit
   type DFBits[W <: Int] = core.DFBits[W]
   type DFUInt[W <: Int] = core.DFUInt[W]
   val DFUInt = core.DFUInt

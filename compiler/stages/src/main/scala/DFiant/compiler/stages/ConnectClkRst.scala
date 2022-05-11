@@ -47,9 +47,9 @@ case object ConnectClkRst extends Stage:
             val addRst = requiresRst && existingRst.isEmpty
             if (addClk || addRst)
               val dsn = new MetaDesign():
-                lazy val clk = DFBit <> IN setName "clk"
+                lazy val clk = Bit <> IN setName "clk"
                 if (addClk) clk // touch lazy clk to create
-                lazy val rst = DFBit <> IN setName "rst"
+                lazy val rst = Bit <> IN setName "rst"
                 if (addRst) rst // touch lazy rst to create
               Some(owner -> Patch.Add(dsn, Patch.Add.Config.InsideFirst))
             else None
