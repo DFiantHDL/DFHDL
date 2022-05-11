@@ -3,7 +3,7 @@ import DFiant.*
 import munit.*
 
 class DFIfSpec extends DFSpec:
-  val i = DFBool <> IN
+  val i = Boolean <> IN
   val x = DFUInt(8) <> VAR
 
   test("No ret val") {
@@ -126,30 +126,30 @@ class DFIfSpec extends DFSpec:
          |  ((
          |    if (i) i
          |    else i
-         |  ): DFBool <> VAL) || ((
+         |  ): Boolean <> VAL) || ((
          |    if (!i) !i
          |    else !i
-         |  ): DFBool <> VAL)
+         |  ): Boolean <> VAL)
          |""".stripMargin
     ) {
-      val res: DFBool <> VAL =
-        ((if (i) i else i): DFBool <> VAL) ||
-          ((if (!i) !i else !i): DFBool <> VAL)
+      val res: Boolean <> VAL =
+        ((if (i) i else i): Boolean <> VAL) ||
+          ((if (!i) !i else !i): Boolean <> VAL)
     }
     assertCodeString(
-      """|val rs0: DFBool <> VAL =
+      """|val rs0: Boolean <> VAL =
          |  if (!i) !i
          |  else !i
          |val res =
          |  ((
          |    if (i) i
          |    else i
-         |  ): DFBool <> VAL) || rs0
+         |  ): Boolean <> VAL) || rs0
          |""".stripMargin
     ) {
-      val rs0 = ((if (!i) !i else !i): DFBool <> VAL)
-      val res: DFBool <> VAL =
-        ((if (i) i else i): DFBool <> VAL) ||
+      val rs0 = ((if (!i) !i else !i): Boolean <> VAL)
+      val res: Boolean <> VAL =
+        ((if (i) i else i): Boolean <> VAL) ||
           rs0
     }
   }

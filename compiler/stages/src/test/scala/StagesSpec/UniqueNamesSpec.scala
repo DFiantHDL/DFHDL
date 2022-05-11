@@ -11,8 +11,8 @@ class UniqueNamesSpec extends StageSpec:
     val z = DFBits(8)  <> IN
     y := x
     object Temp:
-      val x = DFBit  <> VAR init 1
-      val Y = DFBool <> VAR init 0
+      val x = DFBit   <> VAR init 1
+      val Y = Boolean <> VAR init 0
     Temp.x // touch to force evaluation
 
   test("Unique names case-sensitive") {
@@ -25,7 +25,7 @@ class UniqueNamesSpec extends StageSpec:
          |  val z_0 = DFBits(8) <> IN
          |  y := x_0
          |  val x_1 = DFBit <> VAR init 1
-         |  val Y = DFBool <> VAR init false
+         |  val Y = Boolean <> VAR init false
          |end ID
          |""".stripMargin
     )
@@ -40,7 +40,7 @@ class UniqueNamesSpec extends StageSpec:
          |  val z = DFBits(8) <> IN
          |  y_0 := x_0
          |  val x_1 = DFBit <> VAR init 1
-         |  val Y_1 = DFBool <> VAR init false
+         |  val Y_1 = Boolean <> VAR init false
          |end ID
          |""".stripMargin
     )

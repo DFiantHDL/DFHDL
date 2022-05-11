@@ -71,9 +71,9 @@ class DFEnumSpec extends DFSpec:
   test("Comparison") {
     val t1Bar = MyEnum1 token MyEnum1.Bar
     val t1Baz = MyEnum1 token MyEnum1.Baz
-    assertEquals(t1Bar == t1Bar, DFBool token true)
-    assertEquals(t1Bar != t1Baz, DFBool token true)
-    assertEquals(t1Bar != MyEnum1.Baz, DFBool token true)
+    assertEquals(t1Bar == t1Bar, Boolean token true)
+    assertEquals(t1Bar != t1Baz, Boolean token true)
+    assertEquals(t1Bar != MyEnum1.Baz, Boolean token true)
     val t1 = MyEnum1 <> VAR
     t1 == t1Bar
     t1 == MyEnum1.Bar

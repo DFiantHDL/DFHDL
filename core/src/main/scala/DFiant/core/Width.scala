@@ -12,6 +12,8 @@ object Width:
     type Out = Int
   given fromDFBoolOrBit[T <: DFBoolOrBit]: Width[T] with
     type Out = 1
+  given fromBooleanCompanion: Width[Boolean.type] with
+    type Out = 1
   given fromDFBits[W <: Int]: Width[DFBits[W]] with
     type Out = W
   given fromDFDecimal[S <: Boolean, W <: Int, F <: Int]: Width[DFDecimal[S, W, F]] with
@@ -101,6 +103,10 @@ object Width:
           end match
         case '[Int] =>
           dfTpe
+        case '[Boolean.type] => ConstantType(IntConstant(1))
+        case '[Byte.type]    => ConstantType(IntConstant(8))
+        case '[Int.type]     => ConstantType(IntConstant(32))
+        case '[Long.type]    => ConstantType(IntConstant(64))
         case '[NonEmptyTuple] =>
           val widths =
             dfTpe.getTupleArgs.map(a => a.calcWidth)

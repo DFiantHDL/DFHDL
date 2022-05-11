@@ -54,7 +54,7 @@ type <>[T <: DFType.Supported | Byte | Int | Long | Boolean, M] = T match
   case Int     => DFVector.ComposedModifier[T, M]
   case Long    => DFValOf[DFType.Of[DFSInt[64]]]
   case Byte    => DFValOf[DFType.Of[DFBits[8]]]
-  case Boolean => DFValOf[DFType.Of[DFBit]]
+  case Boolean => DFValOf[DFType.Of[DFBool]]
 
 type X[T <: DFType.Supported, M] = M match
   case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]

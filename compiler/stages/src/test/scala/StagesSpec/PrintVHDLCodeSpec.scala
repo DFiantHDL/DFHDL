@@ -178,8 +178,8 @@ class PrintVHDLCodeSpec extends StageSpec:
       val c01 = DFBit const 0
       val c02 = DFBit const 1
       val c03 = DFBit const ?
-      val c04 = DFBool const 0
-      val c05 = DFBool const 1
+      val c04 = Boolean const 0
+      val c05 = Boolean const 1
       val c06 = DFBits(8) const h"22"
       val c07 = DFBits(7) const h"7'22"
       val c08 = DFBits(3) const b"101"

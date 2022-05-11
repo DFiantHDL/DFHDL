@@ -45,7 +45,7 @@ end AbstractTypePrinter
 
 protected trait DFTypePrinter extends AbstractTypePrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = dfType match
-    case DFBool => "DFBool"
+    case DFBool => "Boolean"
     case DFBit  => "DFBit"
   def csDFBits(dfType: DFBits, typeCS: Boolean): String =
     if (typeCS) s"DFBits[${dfType.width}]"

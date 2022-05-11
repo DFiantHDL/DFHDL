@@ -47,8 +47,8 @@ class DFStructSpec extends DFSpec:
   test("Inlined width") {}
   test("Token Construction") {}
   test("Comparison") {
-    assertEquals(XY.token(XY(h"27", 1)).bits == h"2701", DFBool.token(true))
-    assertEquals(h"2701".as(XY) != XY.token(XY(h"27", 1)), DFBool.token(false))
+    assertEquals(XY.token(XY(h"27", 1)).bits == h"2701", Boolean.token(true))
+    assertEquals(h"2701".as(XY) != XY.token(XY(h"27", 1)), Boolean.token(false))
   }
   test("Assignment") {
     val cc2 = new CCs(8)
