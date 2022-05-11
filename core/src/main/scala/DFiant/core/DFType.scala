@@ -41,6 +41,10 @@ object DFType:
       case tuple: NonEmptyTuple      => DFTuple(tuple)
       case tfe: DFOpaque.Frontend[_] => DFOpaque(tfe)
       case fields: DFStruct.Fields   => DFStruct(fields)
+      case _: Byte.type              => DFBits(8)
+      case _: Boolean.type           => DFBool
+      case _: Int.type               => DFSInt(32)
+      case _: Long.type              => DFSInt(64)
       // TODO: need to add proper upper-bound if fixed in Scalac
       // see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: AnyRef => DFEnum(enumCompanion)
