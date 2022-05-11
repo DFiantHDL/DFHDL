@@ -6,8 +6,8 @@ class DFMatchSpec extends DFSpec:
   enum MyEnum1 extends Enum:
     case Foo, Bar, Baz
 
-  case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends DFStruct
-  case class PixelB(xy: Pixel <> VAL, z: UInt[8] <> VAL) extends DFStruct
+  case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends Struct
+  case class PixelB(xy: Pixel <> VAL, z: UInt[8] <> VAL) extends Struct
   val i = Boolean <> IN
   val x = UInt(8) <> VAR
   val e = MyEnum1 <> VAR

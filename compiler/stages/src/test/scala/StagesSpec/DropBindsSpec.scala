@@ -7,7 +7,7 @@ import DFiant.compiler.stages.dropBinds
 class DropBindsSpec extends StageSpec:
   test("Drop binds") {
     class ID extends DFDesign:
-      case class Packet(header: Bits[8] <> VAL, cnt: UInt[8] <> VAL) extends DFStruct
+      case class Packet(header: Bits[8] <> VAL, cnt: UInt[8] <> VAL) extends Struct
       val x = Bits(16) <> IN
       val y = Packet   <> IN
       val z = Bits(8)  <> OUT
@@ -37,7 +37,7 @@ class DropBindsSpec extends StageSpec:
       """|final case class Packet(
          |    header: Bits[8] <> VAL
          |    cnt: UInt[8] <> VAL
-         |) extends DFStruct
+         |) extends Struct
          |
          |class ID extends DFDesign:
          |  val x = Bits(16) <> IN

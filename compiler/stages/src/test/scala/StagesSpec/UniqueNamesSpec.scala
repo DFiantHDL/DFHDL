@@ -50,7 +50,7 @@ class UniqueNamesSpec extends StageSpec:
       case Bar, Baz
     enum MyEnumLcl extends Enum:
       case Bar, Baz
-    case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends DFStruct
+    case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends Struct
     object MyByte extends DFOpaque(Bits(8))
     val x     = MyEnumGlbl <> IN
     val y     = MyEnumLcl  <> VAR init MyEnumLcl.Bar
@@ -81,7 +81,7 @@ class UniqueNamesSpec extends StageSpec:
          |  final case class Pixel(
          |      x: UInt[8] <> VAL
          |      y: UInt[8] <> VAL
-         |  ) extends DFStruct
+         |  ) extends Struct
          |
          |  val x = MyEnumGlbl <> IN
          |  val y_0 = MyEnumLcl_1 <> VAR init MyEnumLcl_1.Bar

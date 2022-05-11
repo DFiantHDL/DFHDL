@@ -45,7 +45,7 @@ object hdl:
   val SInt = core.DFSInt
   type Enum = core.DFEncoding.Default
   val Enum = core.DFEncoding
-  export core.DFStruct.Fields as DFStruct
+  export core.DFStruct.Fields as Struct
   type DFDesign = core.DFDesign
   type RTDesign = core.RTDesign
   type EDDesign = core.EDDesign

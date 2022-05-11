@@ -14,6 +14,6 @@ enum Opcode extends Enum.Manual(7):
 enum ALUSel extends Enum:
   case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
 
-case class Instr(fields: Bits[25] <> VAL, opcode: Opcode <> VAL) extends DFStruct
+case class Instr(fields: Bits[25] <> VAL, opcode: Opcode <> VAL) extends Struct
 
 case class IType(rs1: UInt[5] <> VAL, rs2: UInt[5] <> VAL)

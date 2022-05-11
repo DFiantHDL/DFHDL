@@ -82,7 +82,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
       .map((n, t) => s"${n}: ${csDFType(t, typeCS = true)} <> VAL")
       .mkString("\n")
       .indent(2)
-    s"final case class ${dfType.getName}(\n$fields\n) extends DFStruct"
+    s"final case class ${dfType.getName}(\n$fields\n) extends Struct"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
     if (dfType.getName.isEmpty)
       csDFTuple(dfType.fieldMap.values.toList, typeCS)
