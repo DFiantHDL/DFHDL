@@ -56,22 +56,22 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
   test("Generic ID design") {
-    val id = (new IDGen(DFBits(8))).getCodeString
+    val id = (new IDGen(Bits(8))).getCodeString
     assertNoDiff(
       id,
       """|class IDGen extends DFDesign:
-         |  val x = DFBits(8) <> IN
-         |  val y = DFBits(8) <> OUT
+         |  val x = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
          |  y := x
          |end IDGen
          |""".stripMargin
     )
-    val id2 = (new IDGen((DFBits(4), DFSInt(4)))).getCodeString
+    val id2 = (new IDGen((Bits(4), DFSInt(4)))).getCodeString
     assertNoDiff(
       id2,
       """|class IDGen extends DFDesign:
-         |  val x = (DFBits(4), DFSInt(4)) <> IN
-         |  val y = (DFBits(4), DFSInt(4)) <> OUT
+         |  val x = (Bits(4), DFSInt(4)) <> IN
+         |  val y = (Bits(4), DFSInt(4)) <> OUT
          |  y := x
          |end IDGen
          |""".stripMargin
@@ -188,7 +188,7 @@ class PrintCodeStringSpec extends StageSpec:
       process.all {
         val z = DFSInt(8) <> VAR
         object Bla:
-          val z = DFBits(8) <> VAR
+          val z = Bits(8) <> VAR
           z := all(0)
         Bla.z
         z := 1
@@ -213,7 +213,7 @@ class PrintCodeStringSpec extends StageSpec:
          |  }
          |  process.all {
          |    val z_0 = DFSInt(8) <> VAR
-         |    val z_1 = DFBits(8) <> VAR
+         |    val z_1 = Bits(8) <> VAR
          |    z_1 := h"00"
          |    z_0 := sd"8'1"
          |  }

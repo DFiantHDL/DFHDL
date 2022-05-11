@@ -8,7 +8,7 @@ class UniqueNamesSpec extends StageSpec:
   class ID extends DFDesign:
     val x = DFSInt(16) <> IN
     val y = DFSInt(16) <> OUT
-    val z = DFBits(8)  <> IN
+    val z = Bits(8)    <> IN
     y := x
     object Temp:
       val x = Bit     <> VAR init 1
@@ -22,7 +22,7 @@ class UniqueNamesSpec extends StageSpec:
       """|class ID extends DFDesign:
          |  val x_0 = DFSInt(16) <> IN
          |  val y = DFSInt(16) <> OUT
-         |  val z_0 = DFBits(8) <> IN
+         |  val z_0 = Bits(8) <> IN
          |  y := x_0
          |  val x_1 = Bit <> VAR init 1
          |  val Y = Boolean <> VAR init false
@@ -37,7 +37,7 @@ class UniqueNamesSpec extends StageSpec:
       """|class ID extends DFDesign:
          |  val x_0 = DFSInt(16) <> IN
          |  val y_0 = DFSInt(16) <> OUT
-         |  val z = DFBits(8) <> IN
+         |  val z = Bits(8) <> IN
          |  y_0 := x_0
          |  val x_1 = Bit <> VAR init 1
          |  val Y_1 = Boolean <> VAR init false
@@ -51,7 +51,7 @@ class UniqueNamesSpec extends StageSpec:
     enum MyEnumLcl extends DFEnum:
       case Bar, Baz
     case class Pixel(x: DFUInt[8] <> VAL, y: DFUInt[8] <> VAL) extends DFStruct
-    object MyByte extends DFOpaque(DFBits(8))
+    object MyByte extends DFOpaque(Bits(8))
     val x     = MyEnumGlbl <> IN
     val y     = MyEnumLcl  <> VAR init MyEnumLcl.Bar
     val pixel = Pixel      <> VAR init Pixel(0, 0)
@@ -71,7 +71,7 @@ class UniqueNamesSpec extends StageSpec:
          |  case Baz extends MyEnumGlbl(d"1'1")
          |
          |class SomeEnums extends DFDesign:
-         |  object MyByte extends DFOpaque(DFBits(8))
+         |  object MyByte extends DFOpaque(Bits(8))
          |  enum MyEnumLcl_0(val value: DFUInt[1] <> TOKEN) extends DFEnum.Manual(1):
          |    case Baz extends MyEnumLcl_0(d"1'0")
          |    case Bar extends MyEnumLcl_0(d"1'1")

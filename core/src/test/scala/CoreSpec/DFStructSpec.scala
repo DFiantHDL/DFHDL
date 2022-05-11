@@ -4,8 +4,8 @@ import munit.*
 
 class DFStructSpec extends DFSpec:
   class CCs[W <: Int](width: Inlined[W]):
-    case class XY(x: DFBits[W] <> VAL, y: DFUInt[W] <> VAL) extends DFStruct
-    case class XYZ(x: DFUInt[W] <> VAL, y: DFBits[W] <> VAL, z: Bit <> VAL) extends DFStruct
+    case class XY(x: Bits[W] <> VAL, y: DFUInt[W] <> VAL) extends DFStruct
+    case class XYZ(x: DFUInt[W] <> VAL, y: Bits[W] <> VAL, z: Bit <> VAL) extends DFStruct
 
   case class VectorHolder(
       vec1: DFUInt[8] X 5 <> VAL,
@@ -31,7 +31,7 @@ class DFStructSpec extends DFSpec:
        |""".stripMargin
   ) {
     val t1 = XY <> VAR init XY(h"05", 1)
-    t1.x.verifyTypeOf[DFBits[8] <> VAL]
+    t1.x.verifyTypeOf[Bits[8] <> VAL]
     t1.y.verifyTypeOf[DFUInt[8] <> VAL]
     val pt1x = t1.x.prev
     val t2 = XYZ <> VAR
@@ -97,7 +97,7 @@ class DFStructSpec extends DFSpec:
          |""".stripMargin
     ) {
       // define the struct class
-      case class XY(x: DFUInt[8] <> VAL, y: DFBits[3] <> VAL) extends DFStruct
+      case class XY(x: DFUInt[8] <> VAL, y: Bits[3] <> VAL) extends DFStruct
       // constructing the dataflow value with initialization
       val xy = XY <> VAR init XY(x = 0, y = b"101")
       // accessing the fields and assigning them individually

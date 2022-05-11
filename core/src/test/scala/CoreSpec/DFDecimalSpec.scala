@@ -150,13 +150,13 @@ class DFDecimalSpec extends DFSpec:
   }
   test("DFVal Conversion") {
     assertCodeString {
-      """|val t0 = DFBits(6) const h"6'00"
+      """|val t0 = Bits(6) const h"6'00"
          |val t1 = t0.uint.resize(8)
          |val t2 = DFUInt(8) <> VAR
          |t2 := t1
          |""".stripMargin
     } {
-      val t0 = DFBits(6) const all(0)
+      val t0 = Bits(6) const all(0)
       val t1: DFUInt[8] <> VAL = t0
       val t2 = DFUInt(8) <> VAR
       t2 := t1
@@ -164,12 +164,12 @@ class DFDecimalSpec extends DFSpec:
   }
   test("Assignment") {
     assertCodeString {
-      """|val b8 = DFBits(8) <> VAR
+      """|val b8 = Bits(8) <> VAR
          |val u8 = DFUInt(8) <> VAR init d"8'255"
          |val s8 = DFSInt(8) <> VAR init ?
          |val u6 = DFUInt(6) <> IN
          |val s6 = DFSInt(6) <> IN
-         |val b6 = DFBits(6) const h"6'00"
+         |val b6 = Bits(6) const h"6'00"
          |val s32 = DFSInt(32) <> VAR init sd"32'0"
          |val s64 = DFSInt(64) <> VAR init sd"64'0"
          |u8 := d"8'0"
@@ -191,12 +191,12 @@ class DFDecimalSpec extends DFSpec:
          |s8 := s6.resize(8)
          |""".stripMargin
     } {
-      val b8 = DFBits(8) <> VAR
+      val b8 = Bits(8) <> VAR
       val u8 = DFUInt(8) <> VAR init 255
       val s8 = DFSInt(8) <> VAR init ?
       val u6 = DFUInt(6) <> IN
       val s6 = DFSInt(6) <> IN
-      val b6 = DFBits(6) const all(0)
+      val b6 = Bits(6) const all(0)
       val s32: Int <> VAL = Int <> VAR init 0
       val s64: Long <> VAL = Long <> VAR init 0
       u8 := 0
@@ -273,7 +273,7 @@ class DFDecimalSpec extends DFSpec:
     val u8 = DFUInt(8) <> VAR
     val u7 = DFUInt(7) <> VAR
     val s8 = DFSInt(8) <> VAR
-    val b8 = DFBits(8) <> VAR
+    val b8 = Bits(8) <> VAR
     assertEquals(d"22" == d"22", Boolean.token(true))
     assertEquals(d"22" != d"22", Boolean.token(false))
     assertEquals(d"22" < 23, Boolean.token(true))
@@ -481,7 +481,7 @@ class DFDecimalSpec extends DFSpec:
     val u8 = DFUInt(8) <> VAR
     val u7 = DFUInt(7) <> VAR
     val s8 = DFSInt(8) <> VAR
-    val b8 = DFBits(8) <> VAR
+    val b8 = Bits(8) <> VAR
     assertCodeString {
       """|val t1 = u8 + u8
          |val t2 = u8 - d"1'0"

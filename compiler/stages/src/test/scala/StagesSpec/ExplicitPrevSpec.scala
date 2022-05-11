@@ -61,8 +61,8 @@ class ExplicitPrevSpec extends StageSpec:
   test("Partial assignment coverage") {
     class ID extends DFDesign:
       val x  = DFSInt(16) <> IN
-      val y  = DFBits(16) <> OUT
-      val y2 = DFBits(16) <> OUT
+      val y  = Bits(16)   <> OUT
+      val y2 = Bits(16)   <> OUT
       y(7, 0)   := all(0)
       y         := y << 1
       y2(7, 0)  := all(0)
@@ -73,9 +73,9 @@ class ExplicitPrevSpec extends StageSpec:
       id,
       """|class ID extends DFDesign:
          |  val x = DFSInt(16) <> IN
-         |  val y = DFBits(16) <> OUT init h"????"
+         |  val y = Bits(16) <> OUT init h"????"
          |  y := y.prev
-         |  val y2 = DFBits(16) <> OUT
+         |  val y2 = Bits(16) <> OUT
          |  y(7, 0) := h"00"
          |  y := y << 1
          |  y2(7, 0) := h"00"
@@ -135,9 +135,9 @@ class ExplicitPrevSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("DFBits match pattern coverage") {
+  test("Bits match pattern coverage") {
     class ID extends DFDesign:
-      val x  = DFBits(3) <> IN
+      val x  = Bits(3)   <> IN
       val y  = DFUInt(8) <> OUT init 0
       val y2 = DFUInt(8) <> OUT init 0
       val y3 = DFUInt(8) <> OUT init 0
@@ -161,7 +161,7 @@ class ExplicitPrevSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends DFDesign:
-         |  val x = DFBits(3) <> IN
+         |  val x = Bits(3) <> IN
          |  val y = DFUInt(8) <> OUT init d"8'0"
          |  y := y.prev
          |  val y2 = DFUInt(8) <> OUT init d"8'0"

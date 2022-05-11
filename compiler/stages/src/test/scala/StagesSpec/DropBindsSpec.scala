@@ -7,10 +7,10 @@ import DFiant.compiler.stages.dropBinds
 class DropBindsSpec extends StageSpec:
   test("Drop binds") {
     class ID extends DFDesign:
-      case class Packet(header: DFBits[8] <> VAL, cnt: DFUInt[8] <> VAL) extends DFStruct
-      val x = DFBits(16) <> IN
-      val y = Packet     <> IN
-      val z = DFBits(8)  <> OUT
+      case class Packet(header: Bits[8] <> VAL, cnt: DFUInt[8] <> VAL) extends DFStruct
+      val x = Bits(16) <> IN
+      val y = Packet   <> IN
+      val z = Bits(8)  <> OUT
       x match
         case b"1000${hi: B[4]}10001000" =>
           z := hi.resize(8)
@@ -35,14 +35,14 @@ class DropBindsSpec extends StageSpec:
     assertCodeString(
       id,
       """|final case class Packet(
-         |    header: DFBits[8] <> VAL
+         |    header: Bits[8] <> VAL
          |    cnt: DFUInt[8] <> VAL
          |) extends DFStruct
          |
          |class ID extends DFDesign:
-         |  val x = DFBits(16) <> IN
+         |  val x = Bits(16) <> IN
          |  val y = Packet <> IN
-         |  val z = DFBits(8) <> OUT
+         |  val z = Bits(8) <> OUT
          |  val hi = x(12, 9)
          |  val hi = x(8, 5)
          |  x match

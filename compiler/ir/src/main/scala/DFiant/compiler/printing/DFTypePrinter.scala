@@ -48,8 +48,8 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     case DFBool => "Boolean"
     case DFBit  => "Bit"
   def csDFBits(dfType: DFBits, typeCS: Boolean): String =
-    if (typeCS) s"DFBits[${dfType.width}]"
-    else s"DFBits(${dfType.width})"
+    if (typeCS) s"Bits[${dfType.width}]"
+    else s"Bits(${dfType.width})"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
     val (ob, cb) = if (typeCS) ("[", "]") else ("(", ")")

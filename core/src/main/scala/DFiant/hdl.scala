@@ -37,12 +37,12 @@ object hdl:
   type DFType = core.DFTypeAny
   lazy val Bit = core.DFBit
   type Bit = core.DFBit
-  type DFBits[W <: Int] = core.DFBits[W]
+  type Bits[W <: Int] = core.DFBits[W]
+  val Bits = core.DFBits
   type DFUInt[W <: Int] = core.DFUInt[W]
   val DFUInt = core.DFUInt
   type DFSInt[W <: Int] = core.DFSInt[W]
   val DFSInt = core.DFSInt
-  val DFBits = core.DFBits
   type DFEnum = core.DFEncoding.Default
   val DFEnum = core.DFEncoding
   export core.DFStruct.Fields as DFStruct
@@ -75,7 +75,7 @@ object hdl:
   val NoClockCfg = RTDomainCfg(None, None)
 
   // shorthand for annotating a DFBits value (useful for string interpolation)
-  type B[W <: Int] = core.DFValOf[DFBits[W]]
+  type B[W <: Int] = core.DFValOf[Bits[W]]
   val ? = core.?
   export core.SameElementsVector as all
   extension [Entry <: core.DFEncoding](e: Entry)

@@ -9,22 +9,22 @@ class DFBitsSpec extends DFSpec:
     assertDSLError(
       "Width must be positive, but found: 0"
     )(
-      """DFBits(0)"""
+      """Bits(0)"""
     ) {
-      DFBits(zero)
+      Bits(zero)
     }
   }
   test("Inlined width") {
-    val b8 = DFBits(8)
+    val b8 = Bits(8)
     b8.width.verifyInlined(8)
   }
   test("Token Construction") {
-    val t1 = (DFBits(8) token all(0)).verifyTokenOf[DFBits[8]]
-    val t1b = (DFBits(8) token all(true)).verifyTokenOf[DFBits[8]]
-    val t2 = h"12".verifyTokenOf[DFBits[8]]
-    val t3 = h"10'12".verifyTokenOf[DFBits[10]]
-    val t4 = b"11".verifyTokenOf[DFBits[2]]
-    val t5 = h"1{00}1".verifyTokenOf[DFBits[10]]
+    val t1 = (Bits(8) token all(0)).verifyTokenOf[Bits[8]]
+    val t1b = (Bits(8) token all(true)).verifyTokenOf[Bits[8]]
+    val t2 = h"12".verifyTokenOf[Bits[8]]
+    val t3 = h"10'12".verifyTokenOf[Bits[10]]
+    val t4 = b"11".verifyTokenOf[Bits[2]]
+    val t5 = h"1{00}1".verifyTokenOf[Bits[10]]
     assertCompileError("Missing closing braces of binary mode")("""h"1{001"""")
     assertCompileError("Found invalid hex character: x")("""h"1x"""")
     assertCompileError(
@@ -38,25 +38,25 @@ class DFBitsSpec extends DFSpec:
       "Explicit given width (2) is smaller than the actual width (3)"
     )("""b"2'111"""")
 
-    val t6 = (DFBits(3) token ?).verifyTokenOf[DFBits[3]]
-    val t7 = (DFBits(8) token t2).verifyTokenOf[DFBits[8]]
+    val t6 = (Bits(3) token ?).verifyTokenOf[Bits[3]]
+    val t7 = (Bits(8) token t2).verifyTokenOf[Bits[8]]
     assertCompileError(
       "The token width (8) is different than the DFType width (3)."
-    )("""DFBits(3) token t7""")
+    )("""Bits(3) token t7""")
     assert(t7.asIR equals t2.asIR)
-    val t8: DFBits[8] <> TOKEN = all(0)
-    val t9: DFBits[8] <> TOKEN = h"22"
+    val t8: Bits[8] <> TOKEN = all(0)
+    val t9: Bits[8] <> TOKEN = h"22"
     assertDSLError(
       "The token width (4) is different than the DFType width (8)."
     )(
-      """val t10: DFBits[8] <> TOKEN = h"2""""
+      """val t10: Bits[8] <> TOKEN = h"2""""
     ) {
       val eight = 8
-      val t10: DFBits[eight.type] <> TOKEN = h"2"
+      val t10: Bits[eight.type] <> TOKEN = h"2"
     }
-    val t10 = (DFBits(8) token (h"A", h"7")).verifyTokenOf[DFBits[8]]
+    val t10 = (Bits(8) token (h"A", h"7")).verifyTokenOf[Bits[8]]
     assertEquals(t10, h"A7")
-//    val t11: DFBits[8] <> TOKEN = (h"A", h"7")
+//    val t11: Bits[8] <> TOKEN = (h"A", h"7")
   }
   test("Token Resize") {
     assertEquals(h"F0".resize(6), h"6'30")
@@ -123,23 +123,23 @@ class DFBitsSpec extends DFSpec:
   }
   test("DFVal Conversion") {
     val w = 2
-    val t1: DFBits[8] <> VAL = all(false)
-    val t2: DFBits[8] <> VAL = all(1)
-    val t3: DFBits[8] <> VAL = d"255"
-    val t4: DFBits[5] <> VAL = ?
-    val t5: DFBits[4] <> VAL = h"A"
-    val t6: DFBits[3] <> VAL = b"101"
-    val t7: DFBits[w.type] <> VAL = b"11"
-//    val t8: DFBits[8] <> VAL = (b"100", 1, h"9")
+    val t1: Bits[8] <> VAL = all(false)
+    val t2: Bits[8] <> VAL = all(1)
+    val t3: Bits[8] <> VAL = d"255"
+    val t4: Bits[5] <> VAL = ?
+    val t5: Bits[4] <> VAL = h"A"
+    val t6: Bits[3] <> VAL = b"101"
+    val t7: Bits[w.type] <> VAL = b"11"
+//    val t8: Bits[8] <> VAL = (b"100", 1, h"9")
   }
   test("Assignment") {
-    val b8 = DFBits(8) <> VAR
-    val b4M, b4L = DFBits(4) <> VAR
-    val b3M = DFBits(3) <> VAR
+    val b8 = Bits(8) <> VAR
+    val b4M, b4L = Bits(4) <> VAR
+    val b3M = Bits(3) <> VAR
     val u5L = DFUInt(5) <> VAR
     val u8 = DFUInt(8) <> VAR
     assertCodeString {
-      """|val byte = DFBits(8) <> VAR init h"00"
+      """|val byte = Bits(8) <> VAR init h"00"
          |b8 := h"11"
          |b8 := h"00"
          |b8 := h"ff"
@@ -170,7 +170,7 @@ class DFBitsSpec extends DFSpec:
       (b4M, b4L) := (u8.bits(3, 0), u8.bits(7, 4))
     }
     val twelve = 12
-    val v12 = DFBits(twelve) <> VAR
+    val v12 = Bits(twelve) <> VAR
     assertDSLErrorLog(
       """|The argument width (12) is different than the receiver width (8).
          |Consider applying `.resize` to resolve this issue.""".stripMargin
@@ -181,7 +181,7 @@ class DFBitsSpec extends DFSpec:
     }
   }
   test("Comparison") {
-    val b8 = DFBits(8) <> VAR
+    val b8 = Bits(8) <> VAR
     val u8 = DFUInt(8) <> VAR
     assertCodeString(
       """|val t1 = b8 == h"00"
@@ -202,13 +202,13 @@ class DFBitsSpec extends DFSpec:
       val t7 = b8 == (u8.bits(3, 0), u8.bits(7, 4))
     }
     assertCompileError {
-      """An integer value cannot be a candidate for a DFBits type.
+      """An integer value cannot be a candidate for a Bits type.
         |Try explicitly using a decimal token via the `d"<width>'<number>"` string interpolation.
         |""".stripMargin
     }("b8 == 25")
     val num = 25
     assertCompileError {
-      """An integer value cannot be a candidate for a DFBits type.
+      """An integer value cannot be a candidate for a Bits type.
         |Try explicitly using a decimal token via the `d"<width>'<number>"` string interpolation.
         |""".stripMargin
     }("b8 == num")

@@ -3,10 +3,10 @@ import DFiant.*
 
 class ALU extends DFDesign:
   // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
-  val op1    = DFBits(32) <> IN
-  val op2    = DFBits(32) <> IN
-  val aluSel = ALUSel     <> IN
-  val aluOut = DFBits(32) <> OUT
+  val op1    = Bits(32) <> IN
+  val op2    = Bits(32) <> IN
+  val aluSel = ALUSel   <> IN
+  val aluOut = Bits(32) <> OUT
 
   // helper casted values
   private val op1u  = op1.uint
@@ -16,7 +16,7 @@ class ALU extends DFDesign:
   private val shamt = op2(4, 0)
 
   import ALUSel.*
-  val outCalc: DFBits[32] <> VAL = aluSel match
+  val outCalc: Bits[32] <> VAL = aluSel match
     case ADD   => (op1u + op2u).bits
     case SUB   => (op1u - op2u).bits
     case AND   => op1 & op2

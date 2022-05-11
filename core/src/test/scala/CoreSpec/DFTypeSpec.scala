@@ -7,7 +7,7 @@ import scala.annotation.internal.sharable
 import collection.immutable.ListMap
 
 class DFTypeSpec extends DFSpec:
-  val b8 = DFBits(8)
+  val b8 = Bits(8)
   val u7 = DFUInt(7)
   val s5 = DFSInt(5)
   val bit = Bit
@@ -52,10 +52,10 @@ class DFTypeSpec extends DFSpec:
 
   given Printer = DefaultPrinter(using dfc.getSet)
   test("codeString") {
-    assertEquals(b8.codeString, "DFBits(8)")
+    assertEquals(b8.codeString, "Bits(8)")
     assertEquals(bit.codeString, "Bit")
-    assertEquals(tpl.dfType.codeString, "(Boolean, Bit, DFBits(8))")
-    assertEquals(vec_b8x10.codeString, "DFBits(8) X 10")
+    assertEquals(tpl.dfType.codeString, "(Boolean, Bit, Bits(8))")
+    assertEquals(vec_b8x10.codeString, "Bits(8) X 10")
     assertEquals(MyEnum1.dfType.codeString, "MyEnum1")
     assertEquals(MyEnum2.dfType.codeString, "MyEnum2")
     assertEquals(MyEnum3.dfType.codeString, "MyEnum3")
@@ -75,7 +75,7 @@ class DFTypeSpec extends DFSpec:
     )(
       """(y + 1) init 0"""
     )
-    val z = DFBits(8) <> VAR init all(0)
+    val z = Bits(8) <> VAR init all(0)
     val zprev = z.prev
     assertCompileError(
       """|This construct is only available for initialized values or must have an initialization argument.

@@ -11,7 +11,7 @@ class DFMatchSpec extends DFSpec:
   val i = Boolean <> IN
   val x = DFUInt(8) <> VAR
   val e = MyEnum1 <> VAR
-  val y = DFBits(64) <> VAR
+  val y = Bits(64) <> VAR
   val p = Pixel <> VAR
   val pB = PixelB <> VAR
 
@@ -55,12 +55,12 @@ class DFMatchSpec extends DFSpec:
          |  case PixelB(Pixel(_t11, _t12), d"8'55") =>
          |    t11 := _t11
          |    t12 := _t12
-         |val t13: DFBits[32] <> VAL =
+         |val t13: Bits[32] <> VAL =
          |  y match
          |    case h"DEAD${t13: B[32]}BEEF" => t13
-         |val t14 = DFBits(16) <> VAR
+         |val t14 = Bits(16) <> VAR
          |t14 := h"????"
-         |val t15 = DFBits(16) <> VAR
+         |val t15 = Bits(16) <> VAR
          |t15 := h"????"
          |y match
          |  case h"DE${_t14: B[16]}ADBE${_t15: B[16]}EF" =>

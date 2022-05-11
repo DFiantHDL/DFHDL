@@ -40,8 +40,8 @@ class DropRegAliasesSpec extends StageSpec:
     class ID extends RTDesign:
       val x1 = DFSInt(16) <> IN
       val y1 = DFSInt(16) <> OUT
-      val x2 = DFBits(16) <> IN
-      val y2 = DFBits(16) <> OUT
+      val x2 = Bits(16)   <> IN
+      val y2 = Bits(16)   <> OUT
       y1 := (x1 + 1).reg
       val z = (x2 << 1).reg
       y2 := x2(7, 0).reg.resize(16).reg(2) | z
@@ -51,13 +51,13 @@ class DropRegAliasesSpec extends StageSpec:
       """|class ID extends RTDesign(DerivedCfg):
          |  val x1 = DFSInt(16) <> IN
          |  val y1 = DFSInt(16) <> OUT
-         |  val x2 = DFBits(16) <> IN
-         |  val y2 = DFBits(16) <> OUT
+         |  val x2 = Bits(16) <> IN
+         |  val y2 = Bits(16) <> OUT
          |  val y1_part_reg = DFSInt(16) <> REG
-         |  val z = DFBits(16) <> REG
-         |  val y2_part1_reg = DFBits(8) <> REG
-         |  val y2_part2_reg1 = DFBits(16) <> REG
-         |  val y2_part2_reg2 = DFBits(16) <> REG
+         |  val z = Bits(16) <> REG
+         |  val y2_part1_reg = Bits(8) <> REG
+         |  val y2_part2_reg1 = Bits(16) <> REG
+         |  val y2_part2_reg2 = Bits(16) <> REG
          |  y1_part_reg.din := x1 + sd"2'1"
          |  y1 := y1_part_reg
          |  z.din := x2 << 1

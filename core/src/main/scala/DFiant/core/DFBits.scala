@@ -122,14 +122,14 @@ private object CompanionsDFBits:
     end Conversions
 
     @implicitNotFound(
-      "Argument of type ${R} is not a proper candidate for a DFBits token."
+      "Argument of type ${R} is not a proper candidate for a Bits token."
     )
     trait Candidate[-R]:
       type OutW <: Int
       def apply(arg: R): Token[OutW]
     protected trait CandidateLP:
       protected inline val intErrMsg =
-        "An integer value cannot be a candidate for a DFBits type.\nTry explicitly using a decimal token via the `d\"<width>'<number>\"` string interpolation."
+        "An integer value cannot be a candidate for a Bits type.\nTry explicitly using a decimal token via the `d\"<width>'<number>\"` string interpolation."
       transparent inline given errorOnSingInt[R <: Int]: Candidate[ValueOf[R]] =
         compiletime.error(intErrMsg)
       transparent inline given errorOnInt: Candidate[Int] =
