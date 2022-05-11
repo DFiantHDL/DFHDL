@@ -193,7 +193,8 @@ object DFVector extends DFType.Companion[DFVector, Vector[Any]]
 /////////////////////////////////////////////////////////////////////////////
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
-final case class DFOpaque(protected val name: String, actualType: DFType) extends NamedDFType:
+final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualType: DFType)
+    extends NamedDFType:
   type Data = Any
   final val width: Int = actualType.width
   def createBubbleData: Data = actualType.createBubbleData
@@ -204,7 +205,11 @@ final case class DFOpaque(protected val name: String, actualType: DFType) extend
   def bitsDataToData(data: (BitVector, BitVector)): Data =
     actualType.bitsDataToData(data)
 
-object DFOpaque extends DFType.Companion[DFOpaque, Any]
+object DFOpaque extends DFType.Companion[DFOpaque, Any]:
+  sealed trait Id derives CanEqual
+  trait CustomId extends Id
+  enum BuiltInId extends Id:
+    case Clock, Reset
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

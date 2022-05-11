@@ -12,6 +12,7 @@ object DFOpaque:
   protected[core] sealed trait Abstract extends HasTypeName:
     type ActualType <: DFTypeAny
     val actualType: ActualType
+    val id = new ir.DFOpaque.CustomId {}
   class Frontend[T <: DFTypeAny](final val actualType: T) extends Abstract:
     type ActualType = T
 
@@ -20,7 +21,7 @@ object DFOpaque:
   def apply[T <: Abstract](
       t: T
   ): DFOpaque[T] =
-    ir.DFOpaque(t.typeName, t.actualType.asIR).asFE[DFOpaque[T]]
+    ir.DFOpaque(t.typeName, t.id, t.actualType.asIR).asFE[DFOpaque[T]]
   extension [T <: DFTypeAny, TFE <: Frontend[T]](dfType: DFOpaque[TFE])
     def actualType: T = dfType.asIR.actualType.asFE[T]
 

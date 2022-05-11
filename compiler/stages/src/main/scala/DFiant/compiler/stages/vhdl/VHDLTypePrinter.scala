@@ -27,7 +27,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         )
         .mkString("\n")
         .indent
-    s"enum ${enumName}(val value: DFUInt[${dfType.width}] <> TOKEN) extends DFEnum.Manual(${dfType.width}):\n$entries"
+    s"enum ${enumName}(val value: UInt[${dfType.width}] <> TOKEN) extends Encode.Manual(${dfType.width}):\n$entries"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
@@ -40,7 +40,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       .map((n, t) => s"${n}: ${csDFType(t, typeCS = true)} <> VAL")
       .mkString("\n")
       .indent(2)
-    s"final case class ${dfType.getName}(\n$fields\n) extends DFStruct"
+    s"final case class ${dfType.getName}(\n$fields\n) extends Struct"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
     if (dfType.getName.isEmpty)
       csDFTuple(dfType.fieldMap.values.toList, typeCS)
