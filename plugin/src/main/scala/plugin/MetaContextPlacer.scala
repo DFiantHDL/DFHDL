@@ -48,7 +48,7 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
         case InfixOp(Ident(intName), c @ Ident(connName), v @ Ident(valName))
             if intName.toString == "Int" && connName.toString == "<>" && valName.toString == "VAL" =>
           val intReplacement = AppliedTypeTree(
-            Ident("DFSInt".toTypeName),
+            Ident("SInt".toTypeName),
             List(SingletonTypeTree(Literal(Constant(32))))
           )
           Some(InfixOp(intReplacement, c, v))

@@ -8,20 +8,20 @@ class UniqueDesignsSpec extends StageSpec:
   test("Unique designs") {
     object Container:
       class ID extends DFDesign:
-        val x = DFSInt(15) <> IN
-        val y = DFSInt(15) <> OUT
+        val x = SInt(15) <> IN
+        val y = SInt(15) <> OUT
         y := x
 
     class ID extends DFDesign:
-      val x = DFSInt(16) <> IN
-      val y = DFSInt(16) <> OUT
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
       y := x
 
     class IDTop extends DFDesign:
-      val x1  = DFSInt(16) <> IN
-      val y1  = DFSInt(16) <> OUT
-      val x2  = DFSInt(15) <> IN
-      val y2  = DFSInt(15) <> OUT
+      val x1  = SInt(16) <> IN
+      val y1  = SInt(16) <> OUT
+      val x2  = SInt(15) <> IN
+      val y2  = SInt(15) <> OUT
       val id1 = new ID
       val id2 = new Container.ID
       id1.x <> x1
@@ -32,22 +32,22 @@ class UniqueDesignsSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID_0 extends DFDesign:
-         |  val x = DFSInt(16) <> IN
-         |  val y = DFSInt(16) <> OUT
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
          |  y := x
          |end ID_0
          |
          |class ID_1 extends DFDesign:
-         |  val x = DFSInt(15) <> IN
-         |  val y = DFSInt(15) <> OUT
+         |  val x = SInt(15) <> IN
+         |  val y = SInt(15) <> OUT
          |  y := x
          |end ID_1
          |
          |class IDTop extends DFDesign:
-         |  val x1 = DFSInt(16) <> IN
-         |  val y1 = DFSInt(16) <> OUT
-         |  val x2 = DFSInt(15) <> IN
-         |  val y2 = DFSInt(15) <> OUT
+         |  val x1 = SInt(16) <> IN
+         |  val y1 = SInt(16) <> OUT
+         |  val x2 = SInt(15) <> IN
+         |  val y2 = SInt(15) <> OUT
          |  val id1 = new ID_0
          |  val id2 = new ID_1
          |  id1.x <> x1

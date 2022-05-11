@@ -4,7 +4,7 @@ import munit.*
 
 class DFIfSpec extends DFSpec:
   val i = Boolean <> IN
-  val x = DFUInt(8) <> VAR
+  val x = UInt(8) <> VAR
 
   test("No ret val") {
     assertCodeString(
@@ -74,19 +74,19 @@ class DFIfSpec extends DFSpec:
 
   test("With ret val") {
     assertCodeString(
-      """|val res: DFUInt[8] <> VAL =
+      """|val res: UInt[8] <> VAL =
          |  if (i) d"8'1"
          |  else if (!i) x.bits.uint
          |  else d"8'2"
          |""".stripMargin
     ) {
-      val res: DFUInt[8] <> VAL =
+      val res: UInt[8] <> VAL =
         if (i) 1
         else if (!i) x.bits.uint
         else 2
     }
     assertCodeString(
-      """|val res: DFUInt[8] <> VAL =
+      """|val res: UInt[8] <> VAL =
          |  if (i)
          |    if (i) d"8'1"
          |    else d"8'2"
@@ -94,7 +94,7 @@ class DFIfSpec extends DFSpec:
          |  else d"8'3"
          |""".stripMargin
     ) {
-      val res: DFUInt[8] <> VAL =
+      val res: UInt[8] <> VAL =
         if (i)
           if (i) 1
           else 2
@@ -102,9 +102,9 @@ class DFIfSpec extends DFSpec:
         else 3
     }
     assertCodeString(
-      """|val res: DFUInt[8] <> VAL =
+      """|val res: UInt[8] <> VAL =
          |  if (i)
-         |    val internal: DFUInt[8] <> VAL =
+         |    val internal: UInt[8] <> VAL =
          |      if (i) d"8'1"
          |      else d"8'2"
          |    internal
@@ -112,9 +112,9 @@ class DFIfSpec extends DFSpec:
          |  else d"8'3"
          |""".stripMargin
     ) {
-      val res: DFUInt[8] <> VAL =
+      val res: UInt[8] <> VAL =
         if (i)
-          val internal: DFUInt[8] <> VAL =
+          val internal: UInt[8] <> VAL =
             if (i) 1
             else 2
           internal

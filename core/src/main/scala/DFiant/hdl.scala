@@ -39,10 +39,10 @@ object hdl:
   type Bit = core.DFBit
   type Bits[W <: Int] = core.DFBits[W]
   val Bits = core.DFBits
-  type DFUInt[W <: Int] = core.DFUInt[W]
-  val DFUInt = core.DFUInt
-  type DFSInt[W <: Int] = core.DFSInt[W]
-  val DFSInt = core.DFSInt
+  type UInt[W <: Int] = core.DFUInt[W]
+  val UInt = core.DFUInt
+  type SInt[W <: Int] = core.DFSInt[W]
+  val SInt = core.DFSInt
   type DFEnum = core.DFEncoding.Default
   val DFEnum = core.DFEncoding
   export core.DFStruct.Fields as DFStruct

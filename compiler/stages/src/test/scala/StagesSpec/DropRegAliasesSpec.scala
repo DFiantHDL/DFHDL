@@ -10,23 +10,23 @@ class DropRegAliasesSpec extends StageSpec:
     val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
     val cfg    = RTDomainCfg(clkCfg, rstCfg)
     class ID extends RTDesign:
-      val x1 = DFSInt(16) <> IN
-      val y1 = DFSInt(16) <> OUT
-      val x2 = DFSInt(16) <> IN
-      val y2 = DFSInt(16) <> OUT
+      val x1 = SInt(16) <> IN
+      val y1 = SInt(16) <> OUT
+      val x2 = SInt(16) <> IN
+      val y2 = SInt(16) <> OUT
       y1 := x1.reg(cfg)
       y2 := x2.reg(2) + x2.reg(2)
     val id = (new ID).dropRegAliases
     assertCodeString(
       id,
       """|class ID extends RTDesign(DerivedCfg):
-         |  val x1 = DFSInt(16) <> IN
-         |  val y1 = DFSInt(16) <> OUT
-         |  val x2 = DFSInt(16) <> IN
-         |  val y2 = DFSInt(16) <> OUT
-         |  val x1_reg = DFSInt(16) <> REG(cfg)
-         |  val x2_reg1 = DFSInt(16) <> REG
-         |  val x2_reg2 = DFSInt(16) <> REG
+         |  val x1 = SInt(16) <> IN
+         |  val y1 = SInt(16) <> OUT
+         |  val x2 = SInt(16) <> IN
+         |  val y2 = SInt(16) <> OUT
+         |  val x1_reg = SInt(16) <> REG(cfg)
+         |  val x2_reg1 = SInt(16) <> REG
+         |  val x2_reg2 = SInt(16) <> REG
          |  x1_reg.din := x1
          |  x2_reg1.din := x2
          |  x2_reg2.din := x2_reg1
@@ -38,10 +38,10 @@ class DropRegAliasesSpec extends StageSpec:
   }
   test("Anonymous value reg aliases") {
     class ID extends RTDesign:
-      val x1 = DFSInt(16) <> IN
-      val y1 = DFSInt(16) <> OUT
-      val x2 = Bits(16)   <> IN
-      val y2 = Bits(16)   <> OUT
+      val x1 = SInt(16) <> IN
+      val y1 = SInt(16) <> OUT
+      val x2 = Bits(16) <> IN
+      val y2 = Bits(16) <> OUT
       y1 := (x1 + 1).reg
       val z = (x2 << 1).reg
       y2 := x2(7, 0).reg.resize(16).reg(2) | z
@@ -49,11 +49,11 @@ class DropRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign(DerivedCfg):
-         |  val x1 = DFSInt(16) <> IN
-         |  val y1 = DFSInt(16) <> OUT
+         |  val x1 = SInt(16) <> IN
+         |  val y1 = SInt(16) <> OUT
          |  val x2 = Bits(16) <> IN
          |  val y2 = Bits(16) <> OUT
-         |  val y1_part_reg = DFSInt(16) <> REG
+         |  val y1_part_reg = SInt(16) <> REG
          |  val z = Bits(16) <> REG
          |  val y2_part1_reg = Bits(8) <> REG
          |  val y2_part2_reg1 = Bits(16) <> REG
@@ -71,11 +71,11 @@ class DropRegAliasesSpec extends StageSpec:
   }
   test("Reg alias of mutating wire") {
     class ID extends RTDesign:
-      val x1 = DFSInt(16) <> IN
-      val y1 = DFSInt(16) <> OUT
-      val x2 = DFSInt(16) <> IN
-      val y2 = DFSInt(16) <> OUT
-      val v  = DFSInt(16) <> WIRE
+      val x1 = SInt(16) <> IN
+      val y1 = SInt(16) <> OUT
+      val x2 = SInt(16) <> IN
+      val y2 = SInt(16) <> OUT
+      val v  = SInt(16) <> WIRE
       v  := x1
       y1 := v.reg
       v  := x2
@@ -85,15 +85,15 @@ class DropRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign(DerivedCfg):
-         |  val x1 = DFSInt(16) <> IN
-         |  val y1 = DFSInt(16) <> OUT
-         |  val x2 = DFSInt(16) <> IN
-         |  val y2 = DFSInt(16) <> OUT
-         |  val v = DFSInt(16) <> WIRE
-         |  val v_ver1_reg = DFSInt(16) <> REG
-         |  val v_ver2_reg = DFSInt(16) <> REG
-         |  val v_ver3_reg1 = DFSInt(16) <> REG
-         |  val v_ver3_reg2 = DFSInt(16) <> REG
+         |  val x1 = SInt(16) <> IN
+         |  val y1 = SInt(16) <> OUT
+         |  val x2 = SInt(16) <> IN
+         |  val y2 = SInt(16) <> OUT
+         |  val v = SInt(16) <> WIRE
+         |  val v_ver1_reg = SInt(16) <> REG
+         |  val v_ver2_reg = SInt(16) <> REG
+         |  val v_ver3_reg1 = SInt(16) <> REG
+         |  val v_ver3_reg2 = SInt(16) <> REG
          |  v := x1
          |  v_ver1_reg.din := v
          |  y1 := v_ver1_reg
@@ -109,9 +109,9 @@ class DropRegAliasesSpec extends StageSpec:
   }
   test("Reg alias inside conditionals") {
     class ID extends RTDesign:
-      val x1 = DFSInt(16) <> IN
-      val y1 = DFSInt(16) <> OUT
-      val v  = DFSInt(16) <> WIRE
+      val x1 = SInt(16) <> IN
+      val y1 = SInt(16) <> OUT
+      val v  = SInt(16) <> WIRE
       if (x1 > 0)
         y1 := x1.reg
       else
@@ -120,10 +120,10 @@ class DropRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign(DerivedCfg):
-         |  val x1 = DFSInt(16) <> IN
-         |  val y1 = DFSInt(16) <> OUT
-         |  val v = DFSInt(16) <> WIRE
-         |  val x1_reg = DFSInt(16) <> REG
+         |  val x1 = SInt(16) <> IN
+         |  val y1 = SInt(16) <> OUT
+         |  val v = SInt(16) <> WIRE
+         |  val x1_reg = SInt(16) <> REG
          |  x1_reg.din := x1
          |  if (x1 > d"16'0") y1 := x1_reg
          |  else y1 := x1_reg + sd"2'1"

@@ -6,18 +6,18 @@ import DFiant.compiler.stages.vhdl.{printVHDLCode, getVHDLCode}
 
 class PrintVHDLCodeSpec extends StageSpec:
   class ID extends EDDesign:
-    val x = DFSInt(16) <> IN
-    val y = DFSInt(16) <> OUT
+    val x = SInt(16) <> IN
+    val y = SInt(16) <> OUT
     y :== x
 
   class IDTop extends EDDesign:
     self =>
-    val x     = DFSInt(16) <> IN
-    val y     = DFSInt(16) <> OUT
-    val id1_x = DFSInt(16) <> VAR
-    val id1_y = DFSInt(16) <> VAR
-    val id2_x = DFSInt(16) <> VAR
-    val id2_y = DFSInt(16) <> VAR
+    val x     = SInt(16) <> IN
+    val y     = SInt(16) <> OUT
+    val id1_x = SInt(16) <> VAR
+    val id1_y = SInt(16) <> VAR
+    val id2_x = SInt(16) <> VAR
+    val id2_y = SInt(16) <> VAR
     val id1 = new ID:
       this.x <> id1_x
       this.y <> id1_y
@@ -183,10 +183,10 @@ class PrintVHDLCodeSpec extends StageSpec:
       val c06 = Bits(8) const h"22"
       val c07 = Bits(7) const h"7'22"
       val c08 = Bits(3) const b"101"
-      val c09 = DFUInt(3) const 7
-      val c10 = DFUInt(48) const d"48'239794508230343"
-      val c11 = DFSInt(4) const -8
-      val c12 = DFSInt(49) const sd"49'-239794508230343"
+      val c09 = UInt(3) const 7
+      val c10 = UInt(48) const d"48'239794508230343"
+      val c11 = SInt(4) const -8
+      val c12 = SInt(49) const sd"49'-239794508230343"
 
     end Top
     val top = (new Top).getVHDLCode

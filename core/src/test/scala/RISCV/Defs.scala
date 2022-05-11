@@ -4,7 +4,7 @@ import DFiant.*
 
 //https://five-embeddev.com/riscv-isa-manual/latest/opcode-map.html
 enum Opcode extends DFEnum.Manual(7):
-  val value: DFUInt[7] <> TOKEN = d"5'$ordinal".bits ++ b"11"
+  val value: UInt[7] <> TOKEN = d"5'$ordinal".bits ++ b"11"
   // scalafmt: { align.tokens = [{code = ","}]}
   case LOAD,   LOAD_FP,  custom_0, MISC_MEM, OP_IMM, AUIPC, OP_IMM_32, _48b
   case STORE,  STORE_FP, custom_1, AMO,      OP,     LUI,   OP_32,     _64b
@@ -16,4 +16,4 @@ enum ALUSel extends DFEnum:
 
 case class Instr(fields: Bits[25] <> VAL, opcode: Opcode <> VAL) extends DFStruct
 
-case class IType(rs1: DFUInt[5] <> VAL, rs2: DFUInt[5] <> VAL)
+case class IType(rs1: UInt[5] <> VAL, rs2: UInt[5] <> VAL)

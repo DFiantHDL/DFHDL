@@ -8,8 +8,8 @@ import collection.immutable.ListMap
 
 class DFTypeSpec extends DFSpec:
   val b8 = Bits(8)
-  val u7 = DFUInt(7)
-  val s5 = DFSInt(5)
+  val u7 = UInt(7)
+  val s5 = SInt(5)
   val bit = Bit
   val bool = Boolean
   val tpl = (bool, bit, b8)
@@ -22,7 +22,7 @@ class DFTypeSpec extends DFSpec:
     case Foo, Bar, Baz
   enum MyEnum4 extends DFEnum.Grey:
     case Foo, Bar, Baz
-  enum MyEnum5(val value: DFUInt[8] <> TOKEN) extends DFEnum.Manual(8):
+  enum MyEnum5(val value: UInt[8] <> TOKEN) extends DFEnum.Manual(8):
     case Foo extends MyEnum5(200)
     case Bar extends MyEnum5(100)
     case Baz extends MyEnum5(0)
@@ -67,9 +67,9 @@ class DFTypeSpec extends DFSpec:
     assertCompileError(
       "Can only initialize a dataflow port or variable that are not already initialized."
     )(
-      """val x = DFUInt(8) <> VAR init 0 init 0"""
+      """val x = UInt(8) <> VAR init 0 init 0"""
     )
-    val y = DFUInt(8) <> VAR
+    val y = UInt(8) <> VAR
     assertCompileError(
       "Can only initialize a dataflow port or variable that are not already initialized."
     )(

@@ -11,36 +11,36 @@ class DFDecimalSpec extends DFSpec:
     assertDSLError(
       "Unsigned value width must be positive, but found: 0"
     )(
-      """DFUInt(0)"""
+      """UInt(0)"""
     ) {
-      DFUInt(zero)
+      UInt(zero)
     }
     val one = 1
     assertDSLError(
       "Signed value width must be larger than 1, but found: 1"
     )(
-      """DFSInt(1)"""
+      """SInt(1)"""
     ) {
-      DFSInt(one)
+      SInt(one)
     }
     assertCodeString {
-      """val x = DFUInt(8) <> VAR init d"8'0"
-        |val y = DFSInt(8) <> VAR init sd"8'-1"
-        |val z = DFSInt(8) <> VAR init sd"8'0"
+      """val x = UInt(8) <> VAR init d"8'0"
+        |val y = SInt(8) <> VAR init sd"8'-1"
+        |val z = SInt(8) <> VAR init sd"8'0"
         |""".stripMargin
     } {
-      val x = DFUInt(8) <> VAR init 0
-      val y = DFSInt(8) <> VAR init -1
-      val z = DFSInt(8) <> VAR init 0
+      val x = UInt(8) <> VAR init 0
+      val y = SInt(8) <> VAR init -1
+      val z = SInt(8) <> VAR init 0
     }
   }
   def foo: Int <> VAL = 1
-  val u7 = DFUInt(7)
-  val s5 = DFSInt(5)
-  val until8 = DFUInt.until(8)
-  val until9 = DFUInt.until(9)
-  val max7 = DFUInt.max(7)
-  val max8 = DFUInt.max(8)
+  val u7 = UInt(7)
+  val s5 = SInt(5)
+  val until8 = UInt.until(8)
+  val until9 = UInt.until(9)
+  val max7 = UInt.max(7)
+  val max8 = UInt.max(8)
   test("Inlined width") {
     u7.width.verifyInlined(7)
     s5.width.verifyInlined(5)
@@ -50,29 +50,29 @@ class DFDecimalSpec extends DFSpec:
     max8.width.verifyInlined(4)
   }
   test("Token Construction") {
-    val t1 = (DFUInt(8) token 100).verifyTokenOf[DFUInt[8]]
-    val t1b = (DFSInt(8) token -1).verifyTokenOf[DFSInt[8]]
-    val t2 = d"255".verifyTokenOf[DFUInt[8]]
-    val t2b = (-d"255").verifyTokenOf[DFSInt[9]]
-    val t2c = (sd"-255").verifyTokenOf[DFSInt[9]]
-    val t3 = d"256".verifyTokenOf[DFUInt[9]]
-    val t4 = d"0".verifyTokenOf[DFUInt[1]]
-    val t5 = d"10'0".verifyTokenOf[DFUInt[10]]
-    val t6 = d"-1".verifyTokenOf[DFSInt[2]]
-    val t7 = sd"-1".verifyTokenOf[DFSInt[2]]
-    val t8 = sd"0".verifyTokenOf[DFSInt[2]]
-    val t8_a = d"-128".verifyTokenOf[DFSInt[8]]
-    val t8_b = d"-65".verifyTokenOf[DFSInt[8]]
-    val t8_c = d"-64".verifyTokenOf[DFSInt[7]]
-    val t9 = DFUInt(8).token(1)
-    val t10 = DFUInt(8).token(d"1")
-    val t11 = DFUInt(8).token(?)
-    val t12 = DFSInt(8).token(1)
-    val t13 = DFSInt(8).token(-1)
-    val t14 = DFSInt(8).token(?)
-    val t15 = DFSInt(8).token(127)
-    val t16 = DFSInt(8).token(d"127")
-    val t17 = DFSInt(8).token(sd"127")
+    val t1 = (UInt(8) token 100).verifyTokenOf[UInt[8]]
+    val t1b = (SInt(8) token -1).verifyTokenOf[SInt[8]]
+    val t2 = d"255".verifyTokenOf[UInt[8]]
+    val t2b = (-d"255").verifyTokenOf[SInt[9]]
+    val t2c = (sd"-255").verifyTokenOf[SInt[9]]
+    val t3 = d"256".verifyTokenOf[UInt[9]]
+    val t4 = d"0".verifyTokenOf[UInt[1]]
+    val t5 = d"10'0".verifyTokenOf[UInt[10]]
+    val t6 = d"-1".verifyTokenOf[SInt[2]]
+    val t7 = sd"-1".verifyTokenOf[SInt[2]]
+    val t8 = sd"0".verifyTokenOf[SInt[2]]
+    val t8_a = d"-128".verifyTokenOf[SInt[8]]
+    val t8_b = d"-65".verifyTokenOf[SInt[8]]
+    val t8_c = d"-64".verifyTokenOf[SInt[7]]
+    val t9 = UInt(8).token(1)
+    val t10 = UInt(8).token(d"1")
+    val t11 = UInt(8).token(?)
+    val t12 = SInt(8).token(1)
+    val t13 = SInt(8).token(-1)
+    val t14 = SInt(8).token(?)
+    val t15 = SInt(8).token(127)
+    val t16 = SInt(8).token(d"127")
+    val t17 = SInt(8).token(sd"127")
     assert(t2b.asIR equals t2c.asIR)
     assert(t15.asIR equals t16.asIR)
     assert(t16.asIR equals t17.asIR)
@@ -88,28 +88,28 @@ class DFDecimalSpec extends DFSpec:
     assertDSLError(
       "Cannot apply a signed value to an unsigned variable."
     )(
-      """DFUInt(8).token(-1)"""
+      """UInt(8).token(-1)"""
     ) {
-      DFUInt(8).token(negOne)
+      UInt(8).token(negOne)
     }
     assertCompileError(
       "Cannot apply a signed value to an unsigned variable."
-    )("""DFUInt(8).token(sd"1")""")
+    )("""UInt(8).token(sd"1")""")
     assertDSLError(
       "The applied RHS value width (9) is larger than the LHS variable width (8)."
     )(
-      """DFSInt(8).token(128)"""
+      """SInt(8).token(128)"""
     ) {
       val value = 128
-      DFSInt(8).token(value)
+      SInt(8).token(value)
     }
     assertDSLError(
       "The applied RHS value width (9) is larger than the LHS variable width (8)."
     )(
-      """DFSInt(8).token(d"128")"""
+      """SInt(8).token(d"128")"""
     ) {
       val value = 8
-      DFSInt(value).token(d"128")
+      SInt(value).token(d"128")
     }
   }
   test("Token Resize") {
@@ -142,36 +142,36 @@ class DFDecimalSpec extends DFSpec:
     assertEquals(h"FF".uint, d"255")
     assertEquals(d"8'-1".bits, h"FF")
     assertEquals(h"FF".sint, d"8'-1")
-    assertEquals(DFUInt(8).token(?).bits, h"??")
-    assertEquals(DFSInt(3).token(?).bits, b"???")
-    assertEquals(b"111?".uint, DFUInt(4).token(?))
-    assertEquals(b"111?".sint, DFSInt(4).token(?))
-    assertEquals(d"8".signed, DFSInt(5).token(8))
+    assertEquals(UInt(8).token(?).bits, h"??")
+    assertEquals(SInt(3).token(?).bits, b"???")
+    assertEquals(b"111?".uint, UInt(4).token(?))
+    assertEquals(b"111?".sint, SInt(4).token(?))
+    assertEquals(d"8".signed, SInt(5).token(8))
   }
   test("DFVal Conversion") {
     assertCodeString {
       """|val t0 = Bits(6) const h"6'00"
          |val t1 = t0.uint.resize(8)
-         |val t2 = DFUInt(8) <> VAR
+         |val t2 = UInt(8) <> VAR
          |t2 := t1
          |""".stripMargin
     } {
       val t0 = Bits(6) const all(0)
-      val t1: DFUInt[8] <> VAL = t0
-      val t2 = DFUInt(8) <> VAR
+      val t1: UInt[8] <> VAL = t0
+      val t2 = UInt(8) <> VAR
       t2 := t1
     }
   }
   test("Assignment") {
     assertCodeString {
       """|val b8 = Bits(8) <> VAR
-         |val u8 = DFUInt(8) <> VAR init d"8'255"
-         |val s8 = DFSInt(8) <> VAR init ?
-         |val u6 = DFUInt(6) <> IN
-         |val s6 = DFSInt(6) <> IN
+         |val u8 = UInt(8) <> VAR init d"8'255"
+         |val s8 = SInt(8) <> VAR init ?
+         |val u6 = UInt(6) <> IN
+         |val s6 = SInt(6) <> IN
          |val b6 = Bits(6) const h"6'00"
-         |val s32 = DFSInt(32) <> VAR init sd"32'0"
-         |val s64 = DFSInt(64) <> VAR init sd"64'0"
+         |val s32 = SInt(32) <> VAR init sd"32'0"
+         |val s64 = SInt(64) <> VAR init sd"64'0"
          |u8 := d"8'0"
          |u8 := d"8'255"
          |u8 := d"8'0"
@@ -192,10 +192,10 @@ class DFDecimalSpec extends DFSpec:
          |""".stripMargin
     } {
       val b8 = Bits(8) <> VAR
-      val u8 = DFUInt(8) <> VAR init 255
-      val s8 = DFSInt(8) <> VAR init ?
-      val u6 = DFUInt(6) <> IN
-      val s6 = DFSInt(6) <> IN
+      val u8 = UInt(8) <> VAR init 255
+      val s8 = SInt(8) <> VAR init ?
+      val u6 = UInt(6) <> IN
+      val s6 = SInt(6) <> IN
       val b6 = Bits(6) const all(0)
       val s32: Int <> VAL = Int <> VAR init 0
       val s64: Long <> VAL = Long <> VAR init 0
@@ -270,9 +270,9 @@ class DFDecimalSpec extends DFSpec:
     }
   }
   test("Comparison") {
-    val u8 = DFUInt(8) <> VAR
-    val u7 = DFUInt(7) <> VAR
-    val s8 = DFSInt(8) <> VAR
+    val u8 = UInt(8) <> VAR
+    val u7 = UInt(7) <> VAR
+    val s8 = SInt(8) <> VAR
     val b8 = Bits(8) <> VAR
     assertEquals(d"22" == d"22", Boolean.token(true))
     assertEquals(d"22" != d"22", Boolean.token(false))
@@ -307,7 +307,7 @@ class DFDecimalSpec extends DFSpec:
       """u8 == u7"""
     ) {
       val value = 7
-      val u7 = DFUInt(value) <> VAR
+      val u7 = UInt(value) <> VAR
       u8 == u7
     }
     assertDSLErrorLog(
@@ -478,9 +478,9 @@ class DFDecimalSpec extends DFSpec:
     assertEquals(d"8'22" *^ d"8'2", d"16'44")
     assertEquals(100 *^ d"7'2", d"14'200")
 
-    val u8 = DFUInt(8) <> VAR
-    val u7 = DFUInt(7) <> VAR
-    val s8 = DFSInt(8) <> VAR
+    val u8 = UInt(8) <> VAR
+    val u7 = UInt(7) <> VAR
+    val s8 = SInt(8) <> VAR
     val b8 = Bits(8) <> VAR
     assertCodeString {
       """|val t1 = u8 + u8
@@ -496,25 +496,25 @@ class DFDecimalSpec extends DFSpec:
          |""".stripMargin
     } {
       val t1 = u8 + u8
-      t1.verifyValOf[DFUInt[8]]
+      t1.verifyValOf[UInt[8]]
       val t2 = u8 - 0
-      t2.verifyValOf[DFUInt[8]]
+      t2.verifyValOf[UInt[8]]
       val t3 = 200 - u8
-      t3.verifyValOf[DFUInt[8]]
+      t3.verifyValOf[UInt[8]]
       val t4 = s8 / 2
-      t4.verifyValOf[DFSInt[8]]
+      t4.verifyValOf[SInt[8]]
       val t5 = u8 % 9
-      t5.verifyValOf[DFUInt[8]]
+      t5.verifyValOf[UInt[8]]
       val t6 = u8 * d"22"
-      t6.verifyValOf[DFUInt[8]]
+      t6.verifyValOf[UInt[8]]
       val t7 = s8 + sd"22"
-      t7.verifyValOf[DFSInt[8]]
+      t7.verifyValOf[SInt[8]]
       val t8 = s8 +^ 1
-      t8.verifyValOf[DFSInt[9]]
+      t8.verifyValOf[SInt[9]]
       val t9 = u8 -^ d"22"
-      t9.verifyValOf[DFUInt[9]]
+      t9.verifyValOf[UInt[9]]
       val t10 = 100 *^ u8
-      t10.verifyValOf[DFUInt[15]]
+      t10.verifyValOf[UInt[15]]
     }
     assertCompileError(
       """|Cannot apply this operation between a signed value (LHS) and an unsigned value (RHS).

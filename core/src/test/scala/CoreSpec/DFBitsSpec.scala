@@ -136,8 +136,8 @@ class DFBitsSpec extends DFSpec:
     val b8 = Bits(8) <> VAR
     val b4M, b4L = Bits(4) <> VAR
     val b3M = Bits(3) <> VAR
-    val u5L = DFUInt(5) <> VAR
-    val u8 = DFUInt(8) <> VAR
+    val u5L = UInt(5) <> VAR
+    val u8 = UInt(8) <> VAR
     assertCodeString {
       """|val byte = Bits(8) <> VAR init h"00"
          |b8 := h"11"
@@ -182,7 +182,7 @@ class DFBitsSpec extends DFSpec:
   }
   test("Comparison") {
     val b8 = Bits(8) <> VAR
-    val u8 = DFUInt(8) <> VAR
+    val u8 = UInt(8) <> VAR
     assertCodeString(
       """|val t1 = b8 == h"00"
          |val t2 = b8 != h"ff"

@@ -7,21 +7,21 @@ import DFiant.compiler.stages.explicitPrev
 class ExplicitPrevSpec extends StageSpec:
   test("Basic explicit prev") {
     class ID extends DFDesign:
-      val x = DFSInt(16) <> IN
-      val y = DFSInt(16) <> OUT init 0
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT init 0
       y := y + 1
-      val y2 = DFSInt(16) <> OUT init 0
+      val y2 = SInt(16) <> OUT init 0
       y := 1
       y := y + 1
     val id = (new ID).explicitPrev
     assertCodeString(
       id,
       """|class ID extends DFDesign:
-         |  val x = DFSInt(16) <> IN
-         |  val y = DFSInt(16) <> OUT init sd"16'0"
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT init sd"16'0"
          |  y := y.prev
          |  y := y + sd"2'1"
-         |  val y2 = DFSInt(16) <> OUT init sd"16'0"
+         |  val y2 = SInt(16) <> OUT init sd"16'0"
          |  y := sd"16'1"
          |  y := y + sd"2'1"
          |end ID
@@ -30,9 +30,9 @@ class ExplicitPrevSpec extends StageSpec:
   }
   test("If-else coverage") {
     class ID extends DFDesign:
-      val x  = DFSInt(16) <> IN
-      val y  = DFSInt(16) <> OUT
-      val y2 = DFSInt(16) <> OUT
+      val x  = SInt(16) <> IN
+      val y  = SInt(16) <> OUT
+      val y2 = SInt(16) <> OUT
       if (x > 0)
         y := 1
       y   := y + 1
@@ -45,10 +45,10 @@ class ExplicitPrevSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends DFDesign:
-         |  val x = DFSInt(16) <> IN
-         |  val y = DFSInt(16) <> OUT init ?
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT init ?
          |  y := y.prev
-         |  val y2 = DFSInt(16) <> OUT
+         |  val y2 = SInt(16) <> OUT
          |  if (x > d"16'0") y := sd"16'1"
          |  y := y + sd"2'1"
          |  if (x > d"16'0") y2 := sd"16'1"
@@ -60,9 +60,9 @@ class ExplicitPrevSpec extends StageSpec:
   }
   test("Partial assignment coverage") {
     class ID extends DFDesign:
-      val x  = DFSInt(16) <> IN
-      val y  = Bits(16)   <> OUT
-      val y2 = Bits(16)   <> OUT
+      val x  = SInt(16) <> IN
+      val y  = Bits(16) <> OUT
+      val y2 = Bits(16) <> OUT
       y(7, 0)   := all(0)
       y         := y << 1
       y2(7, 0)  := all(0)
@@ -72,7 +72,7 @@ class ExplicitPrevSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends DFDesign:
-         |  val x = DFSInt(16) <> IN
+         |  val x = SInt(16) <> IN
          |  val y = Bits(16) <> OUT init h"????"
          |  y := y.prev
          |  val y2 = Bits(16) <> OUT
@@ -87,10 +87,10 @@ class ExplicitPrevSpec extends StageSpec:
   }
   test("DFDecimal match pattern coverage") {
     class ID extends DFDesign:
-      val x  = DFUInt(3) <> IN
-      val y  = DFUInt(8) <> OUT init 0
-      val y2 = DFUInt(8) <> OUT init 0
-      val y3 = DFUInt(8) <> OUT init 0
+      val x  = UInt(3) <> IN
+      val y  = UInt(8) <> OUT init 0
+      val y2 = UInt(8) <> OUT init 0
+      val y3 = UInt(8) <> OUT init 0
       x match
         case 0 | 1 | 2 => y := 1
         case 3 | 4 | 5 => y := 1
@@ -111,11 +111,11 @@ class ExplicitPrevSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends DFDesign:
-         |  val x = DFUInt(3) <> IN
-         |  val y = DFUInt(8) <> OUT init d"8'0"
+         |  val x = UInt(3) <> IN
+         |  val y = UInt(8) <> OUT init d"8'0"
          |  y := y.prev
-         |  val y2 = DFUInt(8) <> OUT init d"8'0"
-         |  val y3 = DFUInt(8) <> OUT init d"8'0"
+         |  val y2 = UInt(8) <> OUT init d"8'0"
+         |  val y3 = UInt(8) <> OUT init d"8'0"
          |  x match
          |    case d"3'0" | d"3'1" | d"3'2" => y := d"8'1"
          |    case d"3'3" | d"3'4" | d"3'5" => y := d"8'1"
@@ -137,10 +137,10 @@ class ExplicitPrevSpec extends StageSpec:
   }
   test("Bits match pattern coverage") {
     class ID extends DFDesign:
-      val x  = Bits(3)   <> IN
-      val y  = DFUInt(8) <> OUT init 0
-      val y2 = DFUInt(8) <> OUT init 0
-      val y3 = DFUInt(8) <> OUT init 0
+      val x  = Bits(3) <> IN
+      val y  = UInt(8) <> OUT init 0
+      val y2 = UInt(8) <> OUT init 0
+      val y3 = UInt(8) <> OUT init 0
       x match
         case b"000" | b"001" | b"010" => y := 1
         case b"011" | b"100" | b"101" => y := 1
@@ -162,10 +162,10 @@ class ExplicitPrevSpec extends StageSpec:
       id,
       """|class ID extends DFDesign:
          |  val x = Bits(3) <> IN
-         |  val y = DFUInt(8) <> OUT init d"8'0"
+         |  val y = UInt(8) <> OUT init d"8'0"
          |  y := y.prev
-         |  val y2 = DFUInt(8) <> OUT init d"8'0"
-         |  val y3 = DFUInt(8) <> OUT init d"8'0"
+         |  val y2 = UInt(8) <> OUT init d"8'0"
+         |  val y3 = UInt(8) <> OUT init d"8'0"
          |  y3 := y3.prev
          |  x match
          |    case b"000" | b"001" | b"010" => y := d"8'1"
@@ -190,9 +190,9 @@ class ExplicitPrevSpec extends StageSpec:
       enum MyEnum extends DFEnum:
         case Foo, Baz, Bar
       import MyEnum.*
-      val x  = MyEnum    <> IN
-      val y  = DFUInt(8) <> OUT init 0
-      val y2 = DFUInt(8) <> OUT init 0
+      val x  = MyEnum  <> IN
+      val y  = UInt(8) <> OUT init 0
+      val y2 = UInt(8) <> OUT init 0
       x match
         case Foo | Baz => y := 1
       y := y + 1
@@ -204,16 +204,16 @@ class ExplicitPrevSpec extends StageSpec:
     val id = (new ID).explicitPrev
     assertCodeString(
       id,
-      """|enum MyEnum(val value: DFUInt[2] <> TOKEN) extends DFEnum.Manual(2):
+      """|enum MyEnum(val value: UInt[2] <> TOKEN) extends DFEnum.Manual(2):
          |  case Foo extends MyEnum(d"2'0")
          |  case Baz extends MyEnum(d"2'1")
          |  case Bar extends MyEnum(d"2'2")
          |
          |class ID extends DFDesign:
          |  val x = MyEnum <> IN
-         |  val y = DFUInt(8) <> OUT init d"8'0"
+         |  val y = UInt(8) <> OUT init d"8'0"
          |  y := y.prev
-         |  val y2 = DFUInt(8) <> OUT init d"8'0"
+         |  val y2 = UInt(8) <> OUT init d"8'0"
          |  x match
          |    case MyEnum.Foo | MyEnum.Baz => y := d"8'1"
          |  y := y + d"1'1"

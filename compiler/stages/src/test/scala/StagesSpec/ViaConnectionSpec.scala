@@ -6,13 +6,13 @@ import DFiant.compiler.stages.viaConnection
 
 class ViaConnectionSpec extends StageSpec:
   class ID extends DFDesign:
-    val x = DFSInt(16) <> IN
-    val y = DFSInt(16) <> OUT
+    val x = SInt(16) <> IN
+    val y = SInt(16) <> OUT
     y := x
 
   class IDTop extends DFDesign:
-    val x   = DFSInt(16) <> IN
-    val y   = DFSInt(16) <> OUT
+    val x   = SInt(16) <> IN
+    val y   = SInt(16) <> OUT
     val id1 = new ID
     val id2 = new ID
     id1.x <> x
@@ -21,12 +21,12 @@ class ViaConnectionSpec extends StageSpec:
 
   class IDTopVia extends DFDesign:
     self =>
-    val x     = DFSInt(16) <> IN
-    val y     = DFSInt(16) <> OUT
-    val id1_x = DFSInt(16) <> VAR
-    val id1_y = DFSInt(16) <> VAR
-    val id2_x = DFSInt(16) <> VAR
-    val id2_y = DFSInt(16) <> VAR
+    val x     = SInt(16) <> IN
+    val y     = SInt(16) <> OUT
+    val id1_x = SInt(16) <> VAR
+    val id1_y = SInt(16) <> VAR
+    val id2_x = SInt(16) <> VAR
+    val id2_y = SInt(16) <> VAR
     val id1 = new ID:
       this.x <> id1_x
       this.y <> id1_y
@@ -43,8 +43,8 @@ class ViaConnectionSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends DFDesign:
-         |  val x = DFSInt(16) <> IN
-         |  val y = DFSInt(16) <> OUT
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
          |  y := x
          |end ID
          |""".stripMargin
@@ -55,21 +55,21 @@ class ViaConnectionSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends DFDesign:
-         |  val x = DFSInt(16) <> IN
-         |  val y = DFSInt(16) <> OUT
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
          |  y := x
          |end ID
          |
          |class IDTop extends DFDesign:
-         |  val x = DFSInt(16) <> IN
-         |  val y = DFSInt(16) <> OUT
-         |  val id1_x = DFSInt(16) <> VAR
-         |  val id1_y = DFSInt(16) <> VAR
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val id1_x = SInt(16) <> VAR
+         |  val id1_y = SInt(16) <> VAR
          |  val id1 = new ID:
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y
-         |  val id2_x = DFSInt(16) <> VAR
-         |  val id2_y = DFSInt(16) <> VAR
+         |  val id2_x = SInt(16) <> VAR
+         |  val id2_y = SInt(16) <> VAR
          |  val id2 = new ID:
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
@@ -85,18 +85,18 @@ class ViaConnectionSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends DFDesign:
-         |  val x = DFSInt(16) <> IN
-         |  val y = DFSInt(16) <> OUT
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
          |  y := x
          |end ID
          |
          |class IDTopVia extends DFDesign:
-         |  val x = DFSInt(16) <> IN
-         |  val y = DFSInt(16) <> OUT
-         |  val id1_x = DFSInt(16) <> VAR
-         |  val id1_y = DFSInt(16) <> VAR
-         |  val id2_x = DFSInt(16) <> VAR
-         |  val id2_y = DFSInt(16) <> VAR
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val id1_x = SInt(16) <> VAR
+         |  val id1_y = SInt(16) <> VAR
+         |  val id2_x = SInt(16) <> VAR
+         |  val id2_y = SInt(16) <> VAR
          |  val id1 = new ID:
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y

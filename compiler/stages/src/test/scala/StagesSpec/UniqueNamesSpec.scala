@@ -6,9 +6,9 @@ import DFiant.compiler.stages.uniqueNames
 
 class UniqueNamesSpec extends StageSpec:
   class ID extends DFDesign:
-    val x = DFSInt(16) <> IN
-    val y = DFSInt(16) <> OUT
-    val z = Bits(8)    <> IN
+    val x = SInt(16) <> IN
+    val y = SInt(16) <> OUT
+    val z = Bits(8)  <> IN
     y := x
     object Temp:
       val x = Bit     <> VAR init 1
@@ -20,8 +20,8 @@ class UniqueNamesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends DFDesign:
-         |  val x_0 = DFSInt(16) <> IN
-         |  val y = DFSInt(16) <> OUT
+         |  val x_0 = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
          |  val z_0 = Bits(8) <> IN
          |  y := x_0
          |  val x_1 = Bit <> VAR init 1
@@ -35,8 +35,8 @@ class UniqueNamesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends DFDesign:
-         |  val x_0 = DFSInt(16) <> IN
-         |  val y_0 = DFSInt(16) <> OUT
+         |  val x_0 = SInt(16) <> IN
+         |  val y_0 = SInt(16) <> OUT
          |  val z = Bits(8) <> IN
          |  y_0 := x_0
          |  val x_1 = Bit <> VAR init 1
@@ -50,7 +50,7 @@ class UniqueNamesSpec extends StageSpec:
       case Bar, Baz
     enum MyEnumLcl extends DFEnum:
       case Bar, Baz
-    case class Pixel(x: DFUInt[8] <> VAL, y: DFUInt[8] <> VAL) extends DFStruct
+    case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends DFStruct
     object MyByte extends DFOpaque(Bits(8))
     val x     = MyEnumGlbl <> IN
     val y     = MyEnumLcl  <> VAR init MyEnumLcl.Bar
@@ -66,21 +66,21 @@ class UniqueNamesSpec extends StageSpec:
     val top = (new SomeEnums).uniqueNames(Set(), true)
     assertCodeString(
       top,
-      """|enum MyEnumGlbl(val value: DFUInt[1] <> TOKEN) extends DFEnum.Manual(1):
+      """|enum MyEnumGlbl(val value: UInt[1] <> TOKEN) extends DFEnum.Manual(1):
          |  case Bar extends MyEnumGlbl(d"1'0")
          |  case Baz extends MyEnumGlbl(d"1'1")
          |
          |class SomeEnums extends DFDesign:
          |  object MyByte extends DFOpaque(Bits(8))
-         |  enum MyEnumLcl_0(val value: DFUInt[1] <> TOKEN) extends DFEnum.Manual(1):
+         |  enum MyEnumLcl_0(val value: UInt[1] <> TOKEN) extends DFEnum.Manual(1):
          |    case Baz extends MyEnumLcl_0(d"1'0")
          |    case Bar extends MyEnumLcl_0(d"1'1")
-         |  enum MyEnumLcl_1(val value: DFUInt[1] <> TOKEN) extends DFEnum.Manual(1):
+         |  enum MyEnumLcl_1(val value: UInt[1] <> TOKEN) extends DFEnum.Manual(1):
          |    case Bar extends MyEnumLcl_1(d"1'0")
          |    case Baz extends MyEnumLcl_1(d"1'1")
          |  final case class Pixel(
-         |      x: DFUInt[8] <> VAL
-         |      y: DFUInt[8] <> VAL
+         |      x: UInt[8] <> VAL
+         |      y: UInt[8] <> VAL
          |  ) extends DFStruct
          |
          |  val x = MyEnumGlbl <> IN

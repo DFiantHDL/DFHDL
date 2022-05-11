@@ -6,10 +6,10 @@ class DFMatchSpec extends DFSpec:
   enum MyEnum1 extends DFEnum:
     case Foo, Bar, Baz
 
-  case class Pixel(x: DFUInt[8] <> VAL, y: DFUInt[8] <> VAL) extends DFStruct
-  case class PixelB(xy: Pixel <> VAL, z: DFUInt[8] <> VAL) extends DFStruct
+  case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends DFStruct
+  case class PixelB(xy: Pixel <> VAL, z: UInt[8] <> VAL) extends DFStruct
   val i = Boolean <> IN
-  val x = DFUInt(8) <> VAR
+  val x = UInt(8) <> VAR
   val e = MyEnum1 <> VAR
   val y = Bits(64) <> VAR
   val p = Pixel <> VAR
@@ -44,12 +44,12 @@ class DFMatchSpec extends DFSpec:
          |  case PixelB(Pixel(d"8'1", d"8'2"), d"8'3") =>
          |(Pixel(x = x, y = x), x) match
          |  case (Pixel(d"8'1", d"8'2"), d"8'3") =>
-         |val t10: DFUInt[8] <> VAL =
+         |val t10: UInt[8] <> VAL =
          |  p match
          |    case Pixel(t10, d"8'55") => t10
-         |val t11 = DFUInt(8) <> VAR
+         |val t11 = UInt(8) <> VAR
          |t11 := ?
-         |val t12 = DFUInt(8) <> VAR
+         |val t12 = UInt(8) <> VAR
          |t12 := ?
          |pB match
          |  case PixelB(Pixel(_t11, _t12), d"8'55") =>
@@ -115,13 +115,13 @@ class DFMatchSpec extends DFSpec:
 
   test("With ret val") {
     assertCodeString(
-      """|val res: DFUInt[8] <> VAL =
+      """|val res: UInt[8] <> VAL =
          |  x match
          |    case d"8'0" | d"8'1" | d"8'2" | d"8'3" => d"8'77"
          |    case _ => d"8'22"
          |""".stripMargin
     ) {
-      val res: DFUInt[8] <> VAL =
+      val res: UInt[8] <> VAL =
         x match
           case 0 | 1 | 2 | 3 => 77
           case _             => 22

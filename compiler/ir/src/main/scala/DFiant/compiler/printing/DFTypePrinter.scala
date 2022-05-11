@@ -54,10 +54,10 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     import dfType.*
     val (ob, cb) = if (typeCS) ("[", "]") else ("(", ")")
     (signed, fractionWidth) match
-      case (false, 0) => s"DFUInt$ob$width$cb"
-      case (true, 0)  => s"DFSInt$ob$width$cb"
-      case (false, _) => s"DFUFix$ob$magnitudeWidth, $fractionWidth$cb"
-      case (true, _)  => s"DFSFix$ob$magnitudeWidth, $fractionWidth$cb"
+      case (false, 0) => s"UInt$ob$width$cb"
+      case (true, 0)  => s"SInt$ob$width$cb"
+      case (false, _) => s"UFix$ob$magnitudeWidth, $fractionWidth$cb"
+      case (true, _)  => s"SFix$ob$magnitudeWidth, $fractionWidth$cb"
 
   def csDFEnumDcl(dfType: DFEnum): String =
     val enumName = dfType.getName
@@ -68,7 +68,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
         )
         .mkString("\n")
         .indent
-    s"enum ${enumName}(val value: DFUInt[${dfType.width}] <> TOKEN) extends DFEnum.Manual(${dfType.width}):\n$entries"
+    s"enum ${enumName}(val value: ${csDFDecimal(DFUInt(dfType.width), true)} <> TOKEN) extends DFEnum.Manual(${dfType.width}):\n$entries"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*

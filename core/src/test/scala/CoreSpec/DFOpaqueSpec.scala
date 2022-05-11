@@ -3,14 +3,14 @@ import DFiant.*
 import munit.*
 
 class DFOpaqueSpec extends DFSpec:
-  object o1u8 extends DFOpaque(DFUInt(8))
-  object o2u8 extends DFOpaque(DFUInt(8))
+  object o1u8 extends DFOpaque(UInt(8))
+  object o2u8 extends DFOpaque(UInt(8))
   val o1 = o1u8 <> VAR init 1.as(o1u8)
   val o2 = o2u8 <> VAR
-  object gogo extends DFOpaque((DFUInt(8), Bit))
+  object gogo extends DFOpaque((UInt(8), Bit))
   assertCodeString(
     """|val o11 = o1u8 <> VAR init d"8'1".as(o1u8)
-       |val u8 = DFUInt(8) <> VAR
+       |val u8 = UInt(8) <> VAR
        |val momo = (u8, 1).as(gogo)
        |val q = o1 == o1
        |val q2 = o1 == d"8'1".as(o1u8)
@@ -23,7 +23,7 @@ class DFOpaqueSpec extends DFSpec:
        |""".stripMargin
   ) {
     val o11 = o1u8 <> VAR init 1.as(o1u8)
-    val u8 = DFUInt(8) <> VAR
+    val u8 = UInt(8) <> VAR
     val momo = (u8, 1).as(gogo)
     val q = o1 == o1
     val q2 = o1 == 1.as(o1u8)
