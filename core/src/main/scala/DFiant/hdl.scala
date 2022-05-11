@@ -43,8 +43,8 @@ object hdl:
   val UInt = core.DFUInt
   type SInt[W <: Int] = core.DFSInt[W]
   val SInt = core.DFSInt
-  type DFEnum = core.DFEncoding.Default
-  val DFEnum = core.DFEncoding
+  type Enum = core.DFEncoding.Default
+  val Enum = core.DFEncoding
   export core.DFStruct.Fields as DFStruct
   type DFDesign = core.DFDesign
   type RTDesign = core.RTDesign

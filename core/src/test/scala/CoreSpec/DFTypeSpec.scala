@@ -14,15 +14,15 @@ class DFTypeSpec extends DFSpec:
   val bool = Boolean
   val tpl = (bool, bit, b8)
   val vec_b8x10 = b8 X 10
-  enum MyEnum1 extends DFEnum:
+  enum MyEnum1 extends Enum:
     case Foo, Bar, Baz
-  enum MyEnum2 extends DFEnum.StartAt(20):
+  enum MyEnum2 extends Enum.StartAt(20):
     case Foo, Bar, Baz
-  enum MyEnum3 extends DFEnum.OneHot:
+  enum MyEnum3 extends Enum.OneHot:
     case Foo, Bar, Baz
-  enum MyEnum4 extends DFEnum.Grey:
+  enum MyEnum4 extends Enum.Grey:
     case Foo, Bar, Baz
-  enum MyEnum5(val value: UInt[8] <> TOKEN) extends DFEnum.Manual(8):
+  enum MyEnum5(val value: UInt[8] <> TOKEN) extends Enum.Manual(8):
     case Foo extends MyEnum5(200)
     case Bar extends MyEnum5(100)
     case Baz extends MyEnum5(0)

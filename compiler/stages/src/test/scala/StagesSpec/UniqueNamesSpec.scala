@@ -46,9 +46,9 @@ class UniqueNamesSpec extends StageSpec:
     )
   }
   class SomeEnums extends DFDesign:
-    enum MyEnumGlbl extends DFEnum:
+    enum MyEnumGlbl extends Enum:
       case Bar, Baz
-    enum MyEnumLcl extends DFEnum:
+    enum MyEnumLcl extends Enum:
       case Bar, Baz
     case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends DFStruct
     object MyByte extends DFOpaque(Bits(8))
@@ -57,7 +57,7 @@ class UniqueNamesSpec extends StageSpec:
     val pixel = Pixel      <> VAR init Pixel(0, 0)
     val byte  = MyByte     <> VAR init all(0).as(MyByte)
     object Temp:
-      enum MyEnumLcl extends DFEnum:
+      enum MyEnumLcl extends Enum:
         case Baz, Bar
       val y = (MyEnumLcl, MyEnumLcl) <> VAR init (MyEnumLcl.Bar, MyEnumLcl.Baz)
     Temp.y // touch to force evaluation
@@ -66,16 +66,16 @@ class UniqueNamesSpec extends StageSpec:
     val top = (new SomeEnums).uniqueNames(Set(), true)
     assertCodeString(
       top,
-      """|enum MyEnumGlbl(val value: UInt[1] <> TOKEN) extends DFEnum.Manual(1):
+      """|enum MyEnumGlbl(val value: UInt[1] <> TOKEN) extends Enum.Manual(1):
          |  case Bar extends MyEnumGlbl(d"1'0")
          |  case Baz extends MyEnumGlbl(d"1'1")
          |
          |class SomeEnums extends DFDesign:
          |  object MyByte extends DFOpaque(Bits(8))
-         |  enum MyEnumLcl_0(val value: UInt[1] <> TOKEN) extends DFEnum.Manual(1):
+         |  enum MyEnumLcl_0(val value: UInt[1] <> TOKEN) extends Enum.Manual(1):
          |    case Baz extends MyEnumLcl_0(d"1'0")
          |    case Bar extends MyEnumLcl_0(d"1'1")
-         |  enum MyEnumLcl_1(val value: UInt[1] <> TOKEN) extends DFEnum.Manual(1):
+         |  enum MyEnumLcl_1(val value: UInt[1] <> TOKEN) extends Enum.Manual(1):
          |    case Bar extends MyEnumLcl_1(d"1'0")
          |    case Baz extends MyEnumLcl_1(d"1'1")
          |  final case class Pixel(
