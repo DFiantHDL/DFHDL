@@ -209,7 +209,8 @@ object DFOpaque extends DFType.Companion[DFOpaque, Any]:
   sealed trait Id derives CanEqual
   trait CustomId extends Id
   enum BuiltInId extends Id:
-    case Clock, Reset
+    case Clk(cfg: RTDomainCfg)
+    case Rst(cfg: RTDomainCfg)
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
