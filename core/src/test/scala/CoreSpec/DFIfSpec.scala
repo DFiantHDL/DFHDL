@@ -121,36 +121,37 @@ class DFIfSpec extends DFSpec:
         else if (!i) x.bits.uint
         else 3
     }
-    assertCodeString(
-      """|val res =
-         |  ((
-         |    if (i) i
-         |    else i
-         |  ): Boolean <> VAL) || ((
-         |    if (!i) !i
-         |    else !i
-         |  ): Boolean <> VAL)
-         |""".stripMargin
-    ) {
-      val res: Boolean <> VAL =
-        ((if (i) i else i): Boolean <> VAL) ||
-          ((if (!i) !i else !i): Boolean <> VAL)
-    }
-    assertCodeString(
-      """|val rs0: Boolean <> VAL =
-         |  if (!i) !i
-         |  else !i
-         |val res =
-         |  ((
-         |    if (i) i
-         |    else i
-         |  ): Boolean <> VAL) || rs0
-         |""".stripMargin
-    ) {
-      val rs0 = ((if (!i) !i else !i): Boolean <> VAL)
-      val res: Boolean <> VAL =
-        ((if (i) i else i): Boolean <> VAL) ||
-          rs0
-    }
+    // TODO: Uncomment in Scala 3.2.x, since a bug is fixed
+//    assertCodeString(
+//      """|val res =
+//         |  ((
+//         |    if (i) i
+//         |    else i
+//         |  ): Boolean <> VAL) || ((
+//         |    if (!i) !i
+//         |    else !i
+//         |  ): Boolean <> VAL)
+//         |""".stripMargin
+//    ) {
+//      val res: Boolean <> VAL =
+//        ((if (i) i else i): Boolean <> VAL) ||
+//          ((if (!i) !i else !i): Boolean <> VAL)
+//    }
+//    assertCodeString(
+//      """|val rs0: Boolean <> VAL =
+//         |  if (!i) !i
+//         |  else !i
+//         |val res =
+//         |  ((
+//         |    if (i) i
+//         |    else i
+//         |  ): Boolean <> VAL) || rs0
+//         |""".stripMargin
+//    ) {
+//      val rs0 = ((if (!i) !i else !i): Boolean <> VAL)
+//      val res: Boolean <> VAL =
+//        ((if (i) i else i): Boolean <> VAL) ||
+//          rs0
+//    }
   }
 end DFIfSpec

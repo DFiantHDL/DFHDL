@@ -73,7 +73,8 @@ object DFType:
   export DFBits.given
   export DFDecimal.given
   export DFEnum.given
-  export DFVector.given
+  // TODO: Uncomment for Scala 3.2.x since a bug is fixed
+//  export DFVector.given
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 

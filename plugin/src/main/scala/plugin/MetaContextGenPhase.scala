@@ -236,10 +236,15 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
             s"Unsupported Scala primitive at the LHS of `$fun` with a dataflow value or token.\nConsider switching positions of the arguments.",
             pos
           )
-      case Apply(Select(lhs, fun), List(Apply(Ident(hackName), _)))
+      case Apply(Select(lhs, fun), List(Apply(Apply(Ident(hackName), _), _)))
           if (fun == nme.ZOR || fun == nme.ZAND || fun == nme.XOR) && hackName.toString == "BooleanHack" =>
         report.error(
           s"Unsupported Scala Boolean primitive at the LHS of `$fun` with a dataflow value.\nConsider switching positions of the arguments.",
+          pos
+        )
+      case Apply(Apply(Ident(hackName), _), _) if hackName.toString == "BooleanHack" =>
+        report.error(
+          s"Found unexpected DFHDL boolean to Scala boolean conversion.",
           pos
         )
       case _ =>
