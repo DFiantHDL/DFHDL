@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.uniqueDesigns
+import dfhdl.*
+import dfhdl.compiler.stages.uniqueDesigns
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class UniqueDesignsSpec extends StageSpec:

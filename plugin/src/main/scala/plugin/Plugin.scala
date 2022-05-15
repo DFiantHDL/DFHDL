@@ -1,9 +1,9 @@
-package DFiant.plugin
+package dfhdl.plugin
 
 import dotty.tools.dotc.plugins._
 
 class Plugin extends StandardPlugin:
-  val name: String = "DFiant.plugin"
+  val name: String = "dfhdl.plugin"
   override val description: String = "Dedicated DSL capabilities for DFiant HDL"
 
   def init(options: List[String]): List[PluginPhase] =

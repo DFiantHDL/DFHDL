@@ -1,4 +1,4 @@
-package DFiant.core
+package dfhdl.core
 
 trait TCConv[T <: DFTypeAny, -V, O]:
   type Out <: O

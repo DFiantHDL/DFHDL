@@ -1,4 +1,4 @@
-package DFiant.plugin
+package dfhdl.plugin
 
 import scala.language.implicitConversions
 

@@ -1,5 +1,5 @@
 package RISCV
-import DFiant.*
+import dfhdl.*
 
 class ALU extends DFDesign:
   // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}

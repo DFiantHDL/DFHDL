@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 
 trait OnCreateEvents:
   onCreateStart

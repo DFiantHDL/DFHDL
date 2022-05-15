@@ -1,6 +1,6 @@
-package DFiant.core
-import DFiant.compiler.ir
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.compiler.ir
+import dfhdl.internals.*
 import ir.DFVal.Func.{Op => FuncOp}
 
 import scala.quoted.*
@@ -386,7 +386,7 @@ object DFDecimal:
           val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
           val fullExpr = fullTerm.asExprOf[String]
           '{
-            import DFiant.internals.Inlined
+            import dfhdl.internals.Inlined
             val (signed, width, fractionWidth, value) =
               fromDecString($fullExpr, $signedForcedExpr).toOption.get
             val signedInlined =

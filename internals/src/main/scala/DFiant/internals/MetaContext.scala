@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 
 final case class Position(
     file: String,

@@ -1,7 +1,7 @@
-package DFiant.compiler
+package dfhdl.compiler
 package printing
 import ir.*
-import DFiant.internals.*
+import dfhdl.internals.*
 
 trait AbstractTypePrinter extends AbstractPrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String

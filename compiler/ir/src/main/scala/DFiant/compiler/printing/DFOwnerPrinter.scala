@@ -1,11 +1,11 @@
-package DFiant.compiler
+package dfhdl.compiler
 package printing
 import ir.*
 import analysis.*
-import DFiant.internals.*
+import dfhdl.internals.*
 import DFVal.*
-import DFiant.compiler.ir.ProcessBlock.Sensitivity
-import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
+import dfhdl.compiler.ir.ProcessBlock.Sensitivity
+import dfhdl.compiler.ir.DFConditional.DFCaseBlock.Pattern
 
 trait AbstractOwnerPrinter extends AbstractPrinter:
   final def csDFOwnerBody(owner: DFOwner): String =

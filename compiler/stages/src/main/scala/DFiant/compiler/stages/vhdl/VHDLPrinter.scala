@@ -1,8 +1,8 @@
-package DFiant.compiler.stages.vhdl
-import DFiant.compiler.printing.*
-import DFiant.compiler.ir.*
-import DFiant.compiler.analysis.*
-import DFiant.internals.*
+package dfhdl.compiler.stages.vhdl
+import dfhdl.compiler.printing.*
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.analysis.*
+import dfhdl.internals.*
 
 class VHDLPrinter(using val getSet: MemberGetSet)
     extends Printer,

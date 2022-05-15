@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 import scala.quoted.*
 
 private val funcRealNameMap: Map[String, String] = Map(
@@ -185,11 +185,7 @@ object Check1:
     val ConstantType(BooleanConstant(warn)) = TypeRepr.of[Warn]
     val mc =
       new MacroClass[quotes.type](using quotes)(
-        condTpe,
-        msgTpe,
-        condValueTpe,
-        msgValueTpe,
-        warn
+        condTpe, msgTpe, condValueTpe, msgValueTpe, warn
       )
     '{
       new Check[Wide, T, Cond, Msg, CondValue, MsgValue, Warn]:
@@ -288,11 +284,7 @@ object Check2:
     val ConstantType(BooleanConstant(warn)) = TypeRepr.of[Warn]
     val mc =
       new MacroClass[quotes.type](using quotes)(
-        condTpe,
-        msgTpe,
-        condValueTpe,
-        msgValueTpe,
-        warn
+        condTpe, msgTpe, condValueTpe, msgValueTpe, warn
       )
     '{
       new Check[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue, Warn]:

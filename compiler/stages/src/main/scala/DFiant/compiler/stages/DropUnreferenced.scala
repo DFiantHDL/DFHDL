@@ -1,7 +1,7 @@
-package DFiant.compiler.stages
-import DFiant.compiler.ir.*
-import DFiant.compiler.patching.*
-import DFiant.compiler.analysis.*
+package dfhdl.compiler.stages
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.patching.*
+import dfhdl.compiler.analysis.*
 
 case object DropUnreferenced extends Stage:
   def dependencies: List[Stage] = List()

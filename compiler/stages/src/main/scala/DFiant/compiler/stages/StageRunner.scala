@@ -1,6 +1,6 @@
-package DFiant.compiler.stages
-import DFiant.compiler.ir.*
-import DFiant.internals.*
+package dfhdl.compiler.stages
+import dfhdl.compiler.ir.*
+import dfhdl.internals.*
 import wvlet.log.*
 import scala.collection.SortedSet
 import scala.annotation.tailrec

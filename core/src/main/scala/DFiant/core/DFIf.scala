@@ -1,7 +1,7 @@
-package DFiant.core
-import DFiant.internals.*
-import DFiant.compiler.ir
-import DFiant.compiler.printing.*
+package dfhdl.core
+import dfhdl.internals.*
+import dfhdl.compiler.ir
+import dfhdl.compiler.printing.*
 
 import ir.DFConditional
 import ir.DFConditional.{DFIfHeader, DFIfElseBlock}

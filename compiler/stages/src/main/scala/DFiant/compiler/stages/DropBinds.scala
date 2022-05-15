@@ -1,10 +1,10 @@
-package DFiant.compiler.stages
+package dfhdl.compiler.stages
 
-import DFiant.compiler.analysis.*
-import DFiant.compiler.ir.*
-import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
-import DFiant.compiler.patching.*
-import DFiant.internals.*
+import dfhdl.compiler.analysis.*
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.ir.DFConditional.DFCaseBlock.Pattern
+import dfhdl.compiler.patching.*
+import dfhdl.internals.*
 
 import scala.collection.mutable
 
@@ -37,7 +37,7 @@ case object DropBinds extends Stage:
                 case "h" => s"{$qmarks}" // using binary mode for hex
             }
           val tokenStr = parts.coalesce(bubbles).mkString
-          import DFiant.hdl.{b, h}
+          import dfhdl.hdl.{b, h}
           val token = op match
             case "b" => b"${tokenStr}"
             case "h" => h"${tokenStr}"

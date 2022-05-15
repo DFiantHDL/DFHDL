@@ -1,4 +1,4 @@
-package DFiant.compiler.ir
+package dfhdl.compiler.ir
 import scala.reflect.{ClassTag, classTag}
 
 sealed trait DFTag extends Product with Serializable

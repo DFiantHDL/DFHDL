@@ -1,6 +1,6 @@
-package DFiant.core
-import DFiant.internals.*
-import DFiant.compiler.ir
+package dfhdl.core
+import dfhdl.internals.*
+import dfhdl.compiler.ir
 
 class DFOwner[+T <: ir.DFOwner](val irValue: T | DFError) extends DFMember[T] //AnyVal with
 object DFOwner:

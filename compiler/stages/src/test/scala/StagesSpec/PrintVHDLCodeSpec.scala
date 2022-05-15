@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.vhdl.{printVHDLCode, getVHDLCode}
+import dfhdl.*
+import dfhdl.compiler.stages.vhdl.{printVHDLCode, getVHDLCode}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}, {code = ":=="}]}
 
 class PrintVHDLCodeSpec extends StageSpec:

@@ -1,8 +1,8 @@
-package DFiant.compiler.stages
+package dfhdl.compiler.stages
 
-import DFiant.compiler.analysis.*
-import DFiant.compiler.ir.*
-import DFiant.compiler.patching.*
+import dfhdl.compiler.analysis.*
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.patching.*
 import DFVal.Alias.History.Op as HistoryOp
 case object ToRT extends Stage:
   def dependencies: List[Stage] = List()

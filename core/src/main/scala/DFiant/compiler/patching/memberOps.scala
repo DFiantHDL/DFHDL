@@ -1,5 +1,5 @@
-package DFiant.compiler.patching
-import DFiant.compiler.ir.*
+package dfhdl.compiler.patching
+import dfhdl.compiler.ir.*
 
 import scala.reflect.{ClassTag, classTag}
 

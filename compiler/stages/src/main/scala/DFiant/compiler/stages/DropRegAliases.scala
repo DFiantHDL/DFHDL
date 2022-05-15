@@ -1,10 +1,10 @@
-package DFiant.compiler.stages
+package dfhdl.compiler.stages
 
-import DFiant.compiler.analysis.*
-import DFiant.compiler.ir.DFRef.TwoWay
-import DFiant.compiler.ir.{*, given}
-import DFiant.compiler.patching.*
-import DFiant.internals.*
+import dfhdl.compiler.analysis.*
+import dfhdl.compiler.ir.DFRef.TwoWay
+import dfhdl.compiler.ir.{*, given}
+import dfhdl.compiler.patching.*
+import dfhdl.internals.*
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -80,7 +80,7 @@ case object DropRegAliases extends Stage:
           case _            => false
         }.last
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
-        val regDsn = new MetaDesign(DFiant.core.DFC.Domain.RT):
+        val regDsn = new MetaDesign(dfhdl.core.DFC.Domain.RT):
           def addRegs(
               alias: DFVal.Alias.History,
               namePrefix: String,
@@ -94,13 +94,13 @@ case object DropRegAliases extends Stage:
               val regName =
                 if (i == maxRegs && !alias.isAnonymous) alias.name
                 else namePrefix + nameSuffix
-              import DFiant.core.{DFTypeAny, asFE}
+              import dfhdl.core.{DFTypeAny, asFE}
               val DFVal.Alias.History.Op.Reg(cfg) = alias.op
               alias.dfType.asFE[DFTypeAny] <> REG(cfg) setName regName
             val regsIR = regs.map(_.asIR).toList
             val relVal = alias.getNonRegAliasRelVal
-            import DFiant.core.DFVal.Alias.RegDIN
-            val regDinDsn = new MetaDesign(DFiant.core.DFC.Domain.RT):
+            import dfhdl.core.DFVal.Alias.RegDIN
+            val regDinDsn = new MetaDesign(dfhdl.core.DFC.Domain.RT):
               (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
                 RegDIN(curr.asValAny) := prev.asValAny
               }

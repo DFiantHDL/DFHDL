@@ -1,6 +1,6 @@
 package StagesSpec
 
-import DFiant.*
+import dfhdl.*
 import compiler.stages.dropUnreferenced
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 

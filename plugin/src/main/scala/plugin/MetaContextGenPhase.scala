@@ -1,4 +1,4 @@
-package DFiant.plugin
+package dfhdl.plugin
 
 import dotty.tools.dotc.*
 import plugins.*
@@ -313,9 +313,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     setMetaSym = metaContextCls.requiredMethod("setMeta")
-    dfValSym = requiredClass("DFiant.core.DFVal")
-    dfTokenSym = requiredClass("DFiant.core.DFToken")
-    exactApplySym = requiredMethod("DFiant.internals.Exact.apply")
+    dfValSym = requiredClass("dfhdl.core.DFVal")
+    dfTokenSym = requiredClass("dfhdl.core.DFToken")
+    exactApplySym = requiredMethod("dfhdl.internals.Exact.apply")
     treeOwnerMap.clear()
     contextDefs.clear()
     inlinedOwnerStack.clear()

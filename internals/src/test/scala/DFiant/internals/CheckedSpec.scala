@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 
 import munit.*
 
@@ -19,8 +19,8 @@ object LHSBiggerThanRHS
       Int,
       Int,
       [lhs <: Int, rhs <: Int] =>> lhs > rhs,
-      [lhs <: Int,
-      rhs <: Int] =>> "The LHS argument (" + lhs + ") is NOT bigger than the RHS argument (" + rhs + ")."
+      [lhs <: Int, rhs <: Int] =>> "The LHS argument (" + lhs +
+        ") is NOT bigger than the RHS argument (" + rhs + ")."
     ]
 extension [L <: Int](lhs: L)
   def biggerThan[R <: Int](rhs: R)(using

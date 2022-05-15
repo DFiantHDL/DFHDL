@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 
 trait HasTypeName:
   lazy val typeName: String =
@@ -15,3 +15,4 @@ trait HasTypeName:
         ifc.head.getSimpleName // get the name of the head interface
       else clsSimpleName
     ret.replace("$", "") // removing $ from object names
+end HasTypeName

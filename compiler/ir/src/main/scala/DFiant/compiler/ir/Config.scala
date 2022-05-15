@@ -1,4 +1,4 @@
-package DFiant.compiler.ir
+package dfhdl.compiler.ir
 
 //The reason we use opaque types here and not just types is because scala
 //looses type refinement such as in `val clkCfg = ClkCfg(...)`

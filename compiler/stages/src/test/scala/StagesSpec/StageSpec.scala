@@ -1,8 +1,8 @@
 package StagesSpec
 
-import DFiant.compiler.ir.DB
-import DFiant.compiler.printing.{DefaultPrinter, Printer, codeString}
-import DFiant.internals.AllowTopLevel
+import dfhdl.compiler.ir.DB
+import dfhdl.compiler.printing.{DefaultPrinter, Printer, codeString}
+import dfhdl.internals.AllowTopLevel
 import munit.*
 
 class StageSpec extends FunSuite, AllowTopLevel:

@@ -1,6 +1,6 @@
-package DFiant.compiler.patching
-import DFiant.compiler.ir.*
-import DFiant.compiler.analysis.*
+package dfhdl.compiler.patching
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.analysis.*
 
 import scala.annotation.tailrec
 import scala.reflect.ClassTag

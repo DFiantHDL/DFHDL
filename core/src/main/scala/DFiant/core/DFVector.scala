@@ -1,8 +1,8 @@
-package DFiant.core
-import DFiant.compiler.ir
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.compiler.ir
+import dfhdl.internals.*
 import DFVal.Func.Op as FuncOp
-import DFiant.core.CompanionsDFBits.BitIndex
+import dfhdl.core.CompanionsDFBits.BitIndex
 
 import scala.annotation.targetName
 import scala.annotation.unchecked.uncheckedVariance

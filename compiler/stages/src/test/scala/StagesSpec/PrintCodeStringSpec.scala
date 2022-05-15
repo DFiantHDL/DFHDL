@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.{sanityCheck, getCodeString}
+import dfhdl.*
+import dfhdl.compiler.stages.{sanityCheck, getCodeString}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class PrintCodeStringSpec extends StageSpec:

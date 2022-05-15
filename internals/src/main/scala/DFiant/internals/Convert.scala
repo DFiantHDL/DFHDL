@@ -1,4 +1,4 @@
-//package DFiant.internals
+//package dfhdl.internals
 //
 //trait ~[Of] extends Any:
 //  type To <: Of

@@ -1,4 +1,4 @@
-package DFiant
+package dfhdl
 import internals.Inlined
 
 extension [T](t: T)

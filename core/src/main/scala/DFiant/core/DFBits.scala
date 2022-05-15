@@ -1,7 +1,7 @@
-package DFiant.core
-import DFiant.compiler.ir
+package dfhdl.core
+import dfhdl.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
-import DFiant.internals.*
+import dfhdl.internals.*
 
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
@@ -399,7 +399,7 @@ private object CompanionsDFBits:
           '{
             val (valueBits, bubbleBits) = ${ fullExpr }.toOption.get
             val width =
-              DFiant.internals.Inlined
+              dfhdl.internals.Inlined
                 .forced[widthType.Underlying](valueBits.length.toInt)
             Token[widthType.Underlying](width, valueBits, bubbleBits)
           }
@@ -534,7 +534,7 @@ private object CompanionsDFBits:
           else
             check(updatedWidth)
             val data = lhs.data
-            import DFiant.internals.{resize => resizeBV}
+            import dfhdl.internals.{resize => resizeBV}
             Token(
               updatedWidth,
               data._1.resizeBV(updatedWidth),

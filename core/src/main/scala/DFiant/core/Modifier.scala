@@ -1,6 +1,6 @@
-package DFiant.core
-import DFiant.compiler.ir
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.compiler.ir
+import dfhdl.internals.*
 
 sealed class Modifier[+A, +C, +I](val value: ir.DFVal.Modifier):
   override def toString: String = value.toString

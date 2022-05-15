@@ -1,7 +1,7 @@
-package DFiant.core
-import DFiant.compiler.ir
+package dfhdl.core
+import dfhdl.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
-import DFiant.internals.*
+import dfhdl.internals.*
 
 import annotation.{implicitNotFound, targetName}
 

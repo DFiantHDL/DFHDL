@@ -1,5 +1,5 @@
-package DFiant.compiler.ir
-import DFiant.internals.*
+package dfhdl.compiler.ir
+import dfhdl.internals.*
 
 final case class Meta(
     nameOpt: Option[String],

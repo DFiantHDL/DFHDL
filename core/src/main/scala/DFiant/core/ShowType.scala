@@ -1,7 +1,7 @@
-package DFiant.core
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.internals.*
 import scala.quoted.*
-import DFiant.compiler.ir
+import dfhdl.compiler.ir
 import Modifier.*
 
 extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)

@@ -1,8 +1,8 @@
-package DFiant.core
-import DFiant.compiler.ir
+package dfhdl.core
+import dfhdl.compiler.ir
 import ir.{Time, Freq, Ratio}
 import ir.Timer.Func.Op as FuncOp
-import DFiant.internals.*
+import dfhdl.internals.*
 
 sealed class Timer private (val irValue: ir.Timer | DFError) extends DFMember[ir.Timer]
 object Timer:

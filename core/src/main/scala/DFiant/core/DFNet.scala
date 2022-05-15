@@ -1,6 +1,6 @@
-package DFiant.core
-import DFiant.compiler.ir
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.compiler.ir
+import dfhdl.internals.*
 
 final class DFNet(val irValue: ir.DFNet | DFError) extends DFMember[ir.DFNet] //AnyVal with
 object DFNet:

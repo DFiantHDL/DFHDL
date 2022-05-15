@@ -1,8 +1,8 @@
-package DFiant.core
-import DFiant.compiler.printing.Printer
-import DFiant.compiler.ir
+package dfhdl.core
+import dfhdl.compiler.printing.Printer
+import dfhdl.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
-import DFiant.internals.*
+import dfhdl.internals.*
 
 import scala.quoted.*
 import scala.annotation.implicitNotFound

@@ -1,7 +1,7 @@
-package DFiant.core
-import DFiant.compiler.printing.Printer
-import DFiant.compiler.ir
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.compiler.printing.Printer
+import dfhdl.compiler.ir
+import dfhdl.internals.*
 import scala.annotation.targetName
 import compiletime.*
 import scala.quoted.*

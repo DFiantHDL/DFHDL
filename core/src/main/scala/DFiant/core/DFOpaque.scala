@@ -1,7 +1,7 @@
-package DFiant.core
-import DFiant.compiler.ir
-import DFiant.compiler.printing.{DefaultPrinter, Printer}
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.compiler.ir
+import dfhdl.compiler.printing.{DefaultPrinter, Printer}
+import dfhdl.internals.*
 import scala.quoted.*
 
 import scala.annotation.unchecked.uncheckedVariance

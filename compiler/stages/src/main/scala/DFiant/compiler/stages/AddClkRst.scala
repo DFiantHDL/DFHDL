@@ -1,9 +1,9 @@
-package DFiant.compiler.stages
+package dfhdl.compiler.stages
 
-import DFiant.compiler.analysis.*
-import DFiant.compiler.ir.*
-import DFiant.compiler.patching.*
-import DFiant.internals.*
+import dfhdl.compiler.analysis.*
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.patching.*
+import dfhdl.internals.*
 import scala.collection.mutable
 
 /** This stage adds clock and reset ports across the entire design. For each design, clock and reset

@@ -1,5 +1,5 @@
 package CoreSpec
-import DFiant.*
+import dfhdl.*
 import munit.*
 import internals.{AllowTopLevel, HasTypeName, Position}
 import compiler.printing.{DefaultPrinter, Printer}

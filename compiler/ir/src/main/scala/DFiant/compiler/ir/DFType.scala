@@ -1,6 +1,6 @@
-package DFiant.compiler
+package dfhdl.compiler
 package ir
-import DFiant.internals.*
+import dfhdl.internals.*
 
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.reflect.ClassTag

@@ -1,9 +1,9 @@
-package DFiant.compiler.stages.vhdl
+package dfhdl.compiler.stages.vhdl
 
-import DFiant.compiler.stages.*
-import DFiant.compiler.analysis.*
-import DFiant.compiler.ir.*
-import DFiant.compiler.printing.*
+import dfhdl.compiler.stages.*
+import dfhdl.compiler.analysis.*
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.printing.*
 
 private val reservedKeywords: Set[String] = Set(
   "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert", "attribute",

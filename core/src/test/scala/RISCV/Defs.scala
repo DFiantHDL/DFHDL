@@ -1,6 +1,6 @@
 package RISCV
 
-import DFiant.*
+import dfhdl.*
 
 //https://five-embeddev.com/riscv-isa-manual/latest/opcode-map.html
 enum Opcode extends Encode.Manual(7):

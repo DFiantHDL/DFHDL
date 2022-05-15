@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 
 type BitVector = scodec.bits.BitVector
 val BitVector = scodec.bits.BitVector

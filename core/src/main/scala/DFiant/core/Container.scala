@@ -1,6 +1,6 @@
-package DFiant.core
-import DFiant.internals.*
-import DFiant.compiler.ir
+package dfhdl.core
+import dfhdl.internals.*
+import dfhdl.compiler.ir
 
 private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
   // TODO: revisit this. Maybe has something to do with errors and preventing repeated
@@ -15,7 +15,7 @@ private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
   private[core] lazy val __domainType: ir.DomainType
   private[core] lazy val owner: DFOwnerAny
   dfc.enterOwner(owner)
-  private[DFiant] def skipChecks: Boolean = false
+  private[dfhdl] def skipChecks: Boolean = false
 
   final override def onCreateEnd: Unit =
     dfc.exitOwner()

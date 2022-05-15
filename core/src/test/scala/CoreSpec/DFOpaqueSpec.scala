@@ -1,5 +1,5 @@
 package CoreSpec
-import DFiant.*
+import dfhdl.*
 import munit.*
 
 class DFOpaqueSpec extends DFSpec:

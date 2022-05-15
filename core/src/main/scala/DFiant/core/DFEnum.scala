@@ -1,6 +1,6 @@
-package DFiant
+package dfhdl
 package core
-import DFiant.compiler.ir
+import dfhdl.compiler.ir
 import scala.quoted.*
 import internals.*
 import collection.immutable.ListMap

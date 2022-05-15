@@ -1,14 +1,14 @@
-package DFiant.core
-import DFiant.compiler.ir
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.compiler.ir
+import dfhdl.internals.*
 import ir.DFVal.Func.Op as FuncOp
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
 import DFOpaque.Abstract as DFOpaqueA
-import DFiant.compiler.ir.MemberGetSet
-import DFiant.compiler.printing.{DefaultPrinter, Printer}
+import dfhdl.compiler.ir.MemberGetSet
+import dfhdl.compiler.printing.{DefaultPrinter, Printer}
 import scala.annotation.tailrec
 
 import scala.reflect.ClassTag

@@ -1,9 +1,9 @@
-package DFiant.core
-import DFiant.internals.*
-import DFiant.compiler.ir
-import DFiant.compiler.printing.*
+package dfhdl.core
+import dfhdl.internals.*
+import dfhdl.compiler.ir
+import dfhdl.compiler.printing.*
 
-private[DFiant] abstract class Design(using DFC) extends Container, HasNamePos:
+private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
   private[core] type TScope = DFC.Scope.Design
   final protected given TScope = DFC.Scope.Design
   private[core] final override lazy val owner: Design.Block =

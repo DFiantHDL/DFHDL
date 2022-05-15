@@ -1,4 +1,4 @@
-package DFiant
+package dfhdl
 package core
 import internals.*
 import scala.quoted.*

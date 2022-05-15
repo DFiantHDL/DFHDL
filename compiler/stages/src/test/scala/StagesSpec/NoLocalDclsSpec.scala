@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.noLocalDcls
+import dfhdl.*
+import dfhdl.compiler.stages.noLocalDcls
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class NoLocalDclsSpec extends StageSpec:

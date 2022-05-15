@@ -1,4 +1,4 @@
-package DFiant.compiler.ir
+package dfhdl.compiler.ir
 import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.{ClassTag, classTag}
 

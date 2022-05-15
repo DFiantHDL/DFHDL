@@ -1,4 +1,4 @@
-package DFiant.plugin
+package dfhdl.plugin
 import dotty.tools.dotc.*
 import plugins.*
 import core.*
@@ -121,10 +121,10 @@ abstract class CommonPhase extends PluginPhase:
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     pluginDebugSource = tree.source.path.toString
-    metaContextTpe = requiredClassRef("DFiant.internals.MetaContext")
-    metaContextCls = requiredClass("DFiant.internals.MetaContext")
-    positionCls = requiredClass("DFiant.internals.Position")
-    hasDFCTpe = requiredClassRef("DFiant.core.HasDFC")
+    metaContextTpe = requiredClassRef("dfhdl.internals.MetaContext")
+    metaContextCls = requiredClass("dfhdl.internals.MetaContext")
+    positionCls = requiredClass("dfhdl.internals.Position")
+    hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
     if (debugFilter(tree.source.path.toString))
       println(
         s"""===============================================================

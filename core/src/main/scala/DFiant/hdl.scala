@@ -1,4 +1,4 @@
-package DFiant
+package dfhdl
 object hdl:
   class dsn extends scala.annotation.StaticAnnotation
   export core.DFType.Ops.*

@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.simpleOrder
+import dfhdl.*
+import dfhdl.compiler.stages.simpleOrder
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class OrderMembersSpec extends StageSpec:

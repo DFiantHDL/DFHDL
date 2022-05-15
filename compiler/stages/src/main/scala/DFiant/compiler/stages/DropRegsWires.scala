@@ -1,14 +1,14 @@
-package DFiant.compiler.stages
+package dfhdl.compiler.stages
 
-import DFiant.compiler.analysis.*
-import DFiant.compiler.ir.DFRef.TwoWay
-import DFiant.compiler.ir.{*, given}
-import DFiant.compiler.patching.*
-import DFiant.internals.*
+import dfhdl.compiler.analysis.*
+import dfhdl.compiler.ir.DFRef.TwoWay
+import dfhdl.compiler.ir.{*, given}
+import dfhdl.compiler.patching.*
+import dfhdl.internals.*
 
 import scala.collection.mutable
 import scala.reflect.classTag
-import DFiant.core.DFC
+import dfhdl.core.DFC
 
 /** This stage transforms a register-transfer (RT) design/domain into a valid event-driven (ED)
   * design/domain. For this purpose it does the following:
@@ -139,13 +139,13 @@ case object DropRegsWires extends Stage:
                   }
                 }
               }
-              import DFiant.core.DFIf
-              import DFiant.core.NoType
-              import DFiant.core.{asTokenOf, DFTypeAny, DFOwnerAny}
+              import dfhdl.core.DFIf
+              import dfhdl.core.NoType
+              import dfhdl.core.{asTokenOf, DFTypeAny, DFOwnerAny}
               def regInitBlock() =
                 regVars.foreach {
                   case r if r.externalInit.nonEmpty =>
-                    r.asVarAny := DFiant.core.DFVal.Const(
+                    r.asVarAny := dfhdl.core.DFVal.Const(
                       r.externalInit.get.head.asTokenOf[DFTypeAny]
                     )
                   case _ =>

@@ -1,6 +1,6 @@
-package DFiant.compiler.stages
-import DFiant.compiler.ir.*
-import DFiant.internals.*
+package dfhdl.compiler.stages
+import dfhdl.compiler.ir.*
+import dfhdl.internals.*
 
 abstract class Stage extends Product, Serializable, HasTypeName:
   final lazy val depSet: Set[Stage] = dependencies.toSet
@@ -13,7 +13,7 @@ trait HasDB[T]:
 object HasDB:
   given HasDB[DB] with
     def apply(t: DB): DB = t
-  given [T <: DFiant.core.Design]: HasDB[T] with
+  given [T <: dfhdl.core.Design]: HasDB[T] with
     def apply(t: T): DB = t.getDB
 
 extension [T: HasDB](t: T) def db: DB = summon[HasDB[T]](t)

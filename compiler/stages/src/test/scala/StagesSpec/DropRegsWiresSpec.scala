@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.dropRegsWires
+import dfhdl.*
+import dfhdl.compiler.stages.dropRegsWires
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropRegsWiresSpec extends StageSpec:

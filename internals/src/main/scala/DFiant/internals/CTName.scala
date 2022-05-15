@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 import scala.quoted.*
 
 //returns empty string for anonymous names

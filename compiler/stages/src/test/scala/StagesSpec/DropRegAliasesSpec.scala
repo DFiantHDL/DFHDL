@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.dropRegAliases
+import dfhdl.*
+import dfhdl.compiler.stages.dropRegAliases
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropRegAliasesSpec extends StageSpec:

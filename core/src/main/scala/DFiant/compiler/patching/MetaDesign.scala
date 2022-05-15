@@ -1,6 +1,6 @@
-package DFiant.compiler.patching
-import DFiant.core.*
-import DFiant.compiler.ir
+package dfhdl.compiler.patching
+import dfhdl.core.*
+import dfhdl.compiler.ir
 
 import scala.annotation.unchecked.uncheckedVariance
 
@@ -21,10 +21,10 @@ abstract class MetaDesign[+D <: DFC.Domain](domainType: D = DFC.Domain.DF)
     block
     dfc.mutableDB.OwnershipContext.exit()
   // meta designs may be intermediate errornous designs
-  final override private[DFiant] def skipChecks: Boolean = true
+  final override private[dfhdl] def skipChecks: Boolean = true
 
-  export DFiant.hdl.{RTDomainCfg => _, ClkCfg => _, RstCfg => _, *}
-  export DFiant.core.{asValAny, asVarAny, asValOf}
+  export dfhdl.hdl.{RTDomainCfg => _, ClkCfg => _, RstCfg => _, *}
+  export dfhdl.core.{asValAny, asVarAny, asValOf}
   extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
     def asInitialized: DFVal[T, Modifier[A, C, Modifier.Initialized]] =
       dfVal.asInstanceOf[DFVal[T, Modifier[A, C, Modifier.Initialized]]]

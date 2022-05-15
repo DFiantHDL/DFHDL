@@ -1,10 +1,10 @@
-package DFiant.compiler.stages
+package dfhdl.compiler.stages
 
-import DFiant.compiler.analysis.*
-import DFiant.compiler.ir.*
-import DFiant.compiler.patching.*
-import DFiant.compiler.printing.*
-import DFiant.internals.*
+import dfhdl.compiler.analysis.*
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.patching.*
+import dfhdl.compiler.printing.*
+import dfhdl.internals.*
 import scala.annotation.tailrec
 
 case object SanityCheck extends Stage:

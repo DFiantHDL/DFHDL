@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.addClkRst
+import dfhdl.*
+import dfhdl.compiler.stages.addClkRst
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class AddClkRstSpec extends StageSpec:

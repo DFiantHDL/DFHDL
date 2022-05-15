@@ -1,6 +1,6 @@
-package DFiant.core
-import DFiant.internals.*
-import DFiant.compiler.ir
+package dfhdl.core
+import dfhdl.internals.*
+import dfhdl.compiler.ir
 
 object Process:
   type Block = DFOwner[ir.ProcessBlock]

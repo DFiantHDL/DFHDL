@@ -1,6 +1,6 @@
-package DFiant.core
-import DFiant.compiler.ir
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.compiler.ir
+import dfhdl.internals.*
 
 final val DerivedCfg = ir.DerivedCfg
 type ClkCfg = ir.ClkCfg

@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.explicitNamedVars
+import dfhdl.*
+import dfhdl.compiler.stages.explicitNamedVars
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class ExplicitNamedVarsSpec extends StageSpec:

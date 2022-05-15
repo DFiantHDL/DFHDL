@@ -1,11 +1,11 @@
-package DFiant.compiler.stages.vhdl
-import DFiant.compiler.printing.*
-import DFiant.compiler.ir.*
-import DFiant.compiler.analysis.*
-import DFiant.internals.*
+package dfhdl.compiler.stages.vhdl
+import dfhdl.compiler.printing.*
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.analysis.*
+import dfhdl.internals.*
 import DFVal.*
-import DFiant.compiler.ir.ProcessBlock.Sensitivity
-import DFiant.compiler.ir.DFConditional.DFCaseBlock.Pattern
+import dfhdl.compiler.ir.ProcessBlock.Sensitivity
+import dfhdl.compiler.ir.DFConditional.DFCaseBlock.Pattern
 
 protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter <: VHDLPrinter

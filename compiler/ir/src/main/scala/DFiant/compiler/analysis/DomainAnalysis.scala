@@ -1,6 +1,6 @@
-package DFiant.compiler.analysis
-import DFiant.compiler.ir.*
-import DFiant.internals.*
+package dfhdl.compiler.analysis
+import dfhdl.compiler.ir.*
+import dfhdl.internals.*
 import scala.collection.mutable
 
 /** Used to get context of existing clock and reset sources per design and domain configuration

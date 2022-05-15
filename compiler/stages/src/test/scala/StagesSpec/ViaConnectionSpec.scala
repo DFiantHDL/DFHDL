@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.viaConnection
+import dfhdl.*
+import dfhdl.compiler.stages.viaConnection
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class ViaConnectionSpec extends StageSpec:

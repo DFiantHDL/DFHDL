@@ -1,4 +1,4 @@
-package DFiant.compiler.ir
+package dfhdl.compiler.ir
 
 trait NamedGlobal:
   protected val name: String

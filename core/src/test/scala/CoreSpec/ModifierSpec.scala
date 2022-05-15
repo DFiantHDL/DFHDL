@@ -1,6 +1,6 @@
 package CoreSpec
 
-import DFiant.*
+import dfhdl.*
 import munit.*
 
 class ModifierSpec extends DFSpec:

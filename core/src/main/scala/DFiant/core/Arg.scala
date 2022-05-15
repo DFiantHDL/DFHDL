@@ -1,5 +1,5 @@
-package DFiant.core
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.internals.*
 
 object Arg:
   object Width

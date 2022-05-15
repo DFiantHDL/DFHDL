@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.dropBinds
+import dfhdl.*
+import dfhdl.compiler.stages.dropBinds
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropBindsSpec extends StageSpec:

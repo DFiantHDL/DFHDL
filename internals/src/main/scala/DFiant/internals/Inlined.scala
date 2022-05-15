@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 import scala.quoted.*
 import compiletime.ops.{int, string, boolean, any}
 import compiletime.{constValue, constValueOpt}
@@ -112,7 +112,7 @@ def requireMacro(cond: Expr[Boolean], msg: Expr[String])(using
 ): Expr[Unit] =
   import quotes.reflect.*
 
-  val inlinedTpe = TypeRepr.of[DFiant.internals.Inlined]
+  val inlinedTpe = TypeRepr.of[dfhdl.internals.Inlined]
   extension (str: String)
     def toConstantExpr: Expr[?] =
       Literal(StringConstant(str)).asExpr

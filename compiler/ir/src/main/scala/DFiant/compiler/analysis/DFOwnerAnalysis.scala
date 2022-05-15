@@ -1,6 +1,6 @@
-package DFiant.compiler
+package dfhdl.compiler
 package analysis
-import DFiant.internals.*
+import dfhdl.internals.*
 import ir.*
 import scala.reflect.ClassTag
 

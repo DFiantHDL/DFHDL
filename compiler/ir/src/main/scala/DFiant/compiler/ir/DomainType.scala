@@ -1,4 +1,4 @@
-package DFiant.compiler.ir
+package dfhdl.compiler.ir
 
 enum DomainType derives CanEqual:
   // dataflow domain

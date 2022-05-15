@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 import scala.quoted.*
 import util.NotGiven
 type ExactTypes = NonEmptyTuple | Int | String | Boolean
@@ -24,7 +24,7 @@ object Exactly:
       // For singleton integers we create a special macro that offers some protection from hex literals that
       // overflow into negative values. E.g., 0x80000000
       // This is no way close to a full protection from such incidents, but this is enough for most newbie cases
-      // that DFiant code may encounter.
+      // that DFHDL code may encounter.
       case Literal(IntConstant(i: Int)) if i < 0 =>
         val pos = Position.ofMacroExpansion
         val content = pos.sourceCode.get
@@ -32,10 +32,11 @@ object Exactly:
           val properText = s"""h"${content.drop(2)}""""
           report.error(
             s"""Found a hex integer literal that overflows into a negative value.
-               |Please use DFiant's built in string interpolator literals instead.
+               |Please use DFHDL's built in string interpolator literals instead.
                |E.g.: $properText""".stripMargin
           )
       case _ => // do nothing
+    end match
     val tpe = valueTerm.tpe.widen.asTypeOf[Any]
     '{ Exact[tpe.Underlying](${ valueTerm.asExpr }) }
   end fromValueMacro

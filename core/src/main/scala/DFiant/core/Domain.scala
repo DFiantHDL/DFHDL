@@ -1,9 +1,9 @@
-package DFiant.core
-import DFiant.internals.*
-import DFiant.compiler.ir
-import DFiant.compiler.printing.*
+package dfhdl.core
+import dfhdl.internals.*
+import dfhdl.compiler.ir
+import dfhdl.compiler.printing.*
 
-private[DFiant] abstract class Domain(using DFC) extends Container with scala.reflect.Selectable:
+private[dfhdl] abstract class Domain(using DFC) extends Container with scala.reflect.Selectable:
   private[core] type TScope = DFC.Scope.Domain
   final protected given TScope = DFC.Scope.Domain
   private[core] final override lazy val owner: Domain.Block =

@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 import annotation.tailrec
 object CommonOps:
   extension (value: BigInt)

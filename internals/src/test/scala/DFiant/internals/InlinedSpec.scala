@@ -1,4 +1,4 @@
-import DFiant.internals.*
+import dfhdl.internals.*
 import scala.compiletime.ops.int.*
 import scala.compiletime.constValue
 object InlinedSpec:

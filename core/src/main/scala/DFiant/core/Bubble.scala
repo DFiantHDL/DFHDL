@@ -1,5 +1,5 @@
-package DFiant.core
-import DFiant.compiler.ir
+package dfhdl.core
+import dfhdl.compiler.ir
 
 sealed trait Bubble
 object Bubble extends Bubble:

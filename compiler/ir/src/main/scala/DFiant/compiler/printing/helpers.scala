@@ -1,4 +1,4 @@
-package DFiant.compiler.printing
+package dfhdl.compiler.printing
 
 extension (text: String)
   private def hasBrackets: Boolean = text.startsWith("(") && text.endsWith(")")

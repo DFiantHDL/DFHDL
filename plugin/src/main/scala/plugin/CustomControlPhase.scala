@@ -1,4 +1,4 @@
-package DFiant.plugin
+package dfhdl.plugin
 
 import dotty.tools.dotc.*
 import plugins.*
@@ -174,17 +174,17 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   object DFType:
     def apply(name: String, args: List[Type])(using Context): Type =
       AppliedType(
-        requiredClassRef("DFiant.core.DFType"),
+        requiredClassRef("dfhdl.core.DFType"),
         List(
-          requiredClassRef(s"DFiant.compiler.ir.$name"),
-          if (args.isEmpty) requiredClassRef("DFiant.core.NoArgs")
-          else AppliedType(requiredClassRef("DFiant.core.Args"), args)
+          requiredClassRef(s"dfhdl.compiler.ir.$name"),
+          if (args.isEmpty) requiredClassRef("dfhdl.core.NoArgs")
+          else AppliedType(requiredClassRef("dfhdl.core.Args"), args)
         )
       )
     def unapply(arg: Type)(using Context): Option[(String, List[Type])] =
       arg.simple match
         case AppliedType(dfTypeCore, List(n, argsTp))
-            if dfTypeCore.typeSymbol == requiredClass("DFiant.core.DFType") =>
+            if dfTypeCore.typeSymbol == requiredClass("dfhdl.core.DFType") =>
           val nameStr = n.typeSymbol.name.toString
           argsTp match
             case AppliedType(_, args) => Some(nameStr, args)
@@ -243,7 +243,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     def apply(dfTypeTpe: Type)(using Context): Type =
       AppliedType(
         dfValClsRef,
-        List(dfTypeTpe, requiredClassRef("DFiant.core.ModifierAny"))
+        List(dfTypeTpe, requiredClassRef("dfhdl.core.ModifierAny"))
       )
     def unapply(
         selector: Tree
@@ -264,7 +264,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           Some(dfType)
         case AppliedType(t, List(arg, mod))
             if t.typeSymbol.name.toString == "<>" && mod <:< requiredClassRef(
-              "DFiant.VAL"
+              "dfhdl.VAL"
             ) =>
           arg match
             case dfType @ DFType(_, _)      => Some(dfType)
@@ -283,7 +283,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         case _ => None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
-        case fieldsTpe if fieldsTpe <:< requiredClassRef("DFiant.core.DFStruct.Fields") =>
+        case fieldsTpe if fieldsTpe <:< requiredClassRef("dfhdl.core.DFStruct.Fields") =>
           val args = fieldsTpe.typeSymbol.asClass.paramAccessors.collect {
             case sym if sym.is(Flags.CaseAccessor) => fieldsTpe.memberInfo(sym)
           }
@@ -438,7 +438,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         ref(defn.NoneModule.termRef)
 
   object FromCore:
-    private val fullPath = "DFiant.core.__For_Plugin"
+    private val fullPath = "dfhdl.core.__For_Plugin"
     def selectMethod(methodName: String)(using Context): Tree =
       ref(requiredMethod(s"$fullPath.$methodName"))
     def structToDFVal(retTpe: Type, productTree: Tree)(using Context): Tree =
@@ -553,7 +553,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       def unapply(arg: UnApply)(using Context): Option[Literal] =
         arg match
           case UnApply(fun, List(), List(lit: Literal))
-              if fun.symbol == requiredMethod("DFiant.all.unapply") =>
+              if fun.symbol == requiredMethod("dfhdl.all.unapply") =>
             Some(lit)
           case _ => None
     object Enum:
@@ -816,7 +816,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     tree.tpe.simple match
       case AppliedType(tycon, _)
           if tycon <:< requiredClassRef(
-            "DFiant.core.DFToken"
+            "dfhdl.core.DFToken"
           ) =>
         report.error(
           s"This dataflow `$control` is missing an explicit type annotation.",
@@ -873,12 +873,12 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       .map(_.toString)
       .lazyZip(tree.args)
       .collectFirst {
-        case (sig, arg) if sig == "DFiant.core.DFVal" && arg.tpe <:< dfEncodingRef => arg
+        case (sig, arg) if sig == "dfhdl.core.DFVal" && arg.tpe <:< dfEncodingRef => arg
       }
       .foreach(t =>
         report.error(
-          s"""value $symName is not a member of DFiant.core.DFEncoding.
-             |Note: this error was forced by the DFiant compiler plugin.""".stripMargin,
+          s"""value $symName is not a member of dfhdl.core.DFEncoding.
+             |Note: this error was forced by the DFHDL compiler plugin.""".stripMargin,
           tree.srcPos
         )
       )
@@ -889,12 +889,12 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     ignoreIfs.clear()
     replaceIfs.clear()
-    fromBooleanSym = requiredMethod("DFiant.core.__For_Plugin.fromBoolean")
-    toFunc1Sym = requiredMethod("DFiant.core.__For_Plugin.toFunc1")
-    fromBranchesSym = requiredMethod("DFiant.core.DFIf.fromBranches")
-    fromCasesSym = requiredMethod("DFiant.core.DFMatch.fromCases")
-    dfValClsRef = requiredClassRef("DFiant.core.DFVal")
-    dfEncodingRef = requiredClassRef("DFiant.core.DFEncoding")
-    enumHackedUnapply = requiredMethod("DFiant.unapply")
+    fromBooleanSym = requiredMethod("dfhdl.core.__For_Plugin.fromBoolean")
+    toFunc1Sym = requiredMethod("dfhdl.core.__For_Plugin.toFunc1")
+    fromBranchesSym = requiredMethod("dfhdl.core.DFIf.fromBranches")
+    fromCasesSym = requiredMethod("dfhdl.core.DFMatch.fromCases")
+    dfValClsRef = requiredClassRef("dfhdl.core.DFVal")
+    dfEncodingRef = requiredClassRef("dfhdl.core.DFEncoding")
+    enumHackedUnapply = requiredMethod("dfhdl.unapply")
     ctx
 end CustomControlPhase

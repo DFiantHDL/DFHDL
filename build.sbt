@@ -1,5 +1,5 @@
 // format: off
-val projectName = "dfiant"
+val projectName = "dfhdl"
 val compilerVersion = "3.1.2"
 
 inThisBuild(

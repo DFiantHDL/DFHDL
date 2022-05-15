@@ -1,11 +1,11 @@
-package DFiant.core
+package dfhdl.core
 
-import DFiant.internals.*
-import DFiant.compiler.ir
-import DFiant.compiler.printing.*
+import dfhdl.internals.*
+import dfhdl.compiler.ir
+import dfhdl.compiler.printing.*
 import ir.DFConditional.{DFCaseBlock, DFMatchHeader}
 import DFCaseBlock.Pattern
-import DFiant.compiler.ir.DFConditional
+import dfhdl.compiler.ir.DFConditional
 
 object DFMatch:
   def singleCase[R](

@@ -1,7 +1,7 @@
-package DFiant.compiler
+package dfhdl.compiler
 package printing
 import ir.*
-import DFiant.internals.*
+import dfhdl.internals.*
 import scala.collection.mutable
 import analysis.*
 

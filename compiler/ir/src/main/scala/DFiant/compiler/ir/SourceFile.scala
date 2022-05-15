@@ -1,4 +1,4 @@
-package DFiant.compiler.ir
+package dfhdl.compiler.ir
 
 final case class SourceFile(sourceType: SourceType, path: String, contents: String) derives CanEqual
 enum SourceType:

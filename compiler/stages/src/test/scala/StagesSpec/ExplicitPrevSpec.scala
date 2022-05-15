@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.explicitPrev
+import dfhdl.*
+import dfhdl.compiler.stages.explicitPrev
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class ExplicitPrevSpec extends StageSpec:

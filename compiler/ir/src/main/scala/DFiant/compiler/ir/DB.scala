@@ -1,10 +1,10 @@
-package DFiant.compiler.ir
+package dfhdl.compiler.ir
 
 import scala.reflect.{ClassTag, classTag}
 import scala.annotation.tailrec
 import scala.collection.mutable
-import DFiant.internals.*
-import DFiant.compiler.printing.{Printer, DefaultPrinter}
+import dfhdl.internals.*
+import dfhdl.compiler.printing.{Printer, DefaultPrinter}
 
 final case class DB(
     members: List[DFMember],

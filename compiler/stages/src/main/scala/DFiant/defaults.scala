@@ -1,3 +1,3 @@
-package DFiant
+package dfhdl
 
 export compiler.stages.printCodeString

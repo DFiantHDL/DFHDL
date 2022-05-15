@@ -1,9 +1,9 @@
-package DFiant.compiler.stages
+package dfhdl.compiler.stages
 
-import DFiant.compiler.analysis.*
-import DFiant.compiler.ir.*
-import DFiant.compiler.patching.*
-import DFiant.internals.*
+import dfhdl.compiler.analysis.*
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.patching.*
+import dfhdl.internals.*
 
 private final class UniqueBlock(val block: DFDesignBlock, val members: List[DFMember])(using
     MemberGetSet

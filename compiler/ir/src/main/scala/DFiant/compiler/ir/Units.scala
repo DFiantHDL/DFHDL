@@ -1,4 +1,4 @@
-package DFiant.compiler.ir
+package dfhdl.compiler.ir
 
 final case class Time(usec: BigDecimal) derives CanEqual
 final case class Freq(hertz: BigDecimal) derives CanEqual:

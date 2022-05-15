@@ -1,7 +1,7 @@
-package DFiant.compiler.stages
-import DFiant.compiler.ir.*
-import DFiant.compiler.analysis.*
-import DFiant.compiler.printing.*
+package dfhdl.compiler.stages
+import dfhdl.compiler.ir.*
+import dfhdl.compiler.analysis.*
+import dfhdl.compiler.printing.*
 
 case object PrintCodeString extends Stage:
   def dependencies: List[Stage] = List(UniqueDesigns, DFHDLUniqueNames)

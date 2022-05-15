@@ -1,4 +1,4 @@
-package DFiant.internals
+package dfhdl.internals
 import scala.quoted.*
 import scala.annotation.tailrec
 extension [T](t: T)

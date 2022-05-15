@@ -1,7 +1,7 @@
-package DFiant.core
-import DFiant.compiler.ir
+package dfhdl.core
+import dfhdl.compiler.ir
 import scala.reflect.ClassTag
-import DFiant.internals.*
+import dfhdl.internals.*
 
 // TODO: return AnyVal workaround after https://github.com/lampepfl/dotty/issues/14340
 trait DFMember[+T <: ir.DFMember]: // extends Any:

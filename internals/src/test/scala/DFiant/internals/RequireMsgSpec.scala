@@ -1,7 +1,7 @@
-package DFiant.internals
+package dfhdl.internals
 import munit.*
 import scala.compiletime.testing.typeCheckErrors
-class InlinedRequireSpec extends FunSuite {
+class InlinedRequireSpec extends FunSuite:
   Inlined.require(true, "xyz")
   val falseCond = false
 
@@ -29,4 +29,4 @@ class InlinedRequireSpec extends FunSuite {
     """positive(-7)"""
   ).head.message
   assertEquals(positiveError, "expected positive but found: -7")
-}
+end InlinedRequireSpec

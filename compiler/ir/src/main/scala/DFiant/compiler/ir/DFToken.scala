@@ -1,4 +1,4 @@
-package DFiant.compiler.ir
+package dfhdl.compiler.ir
 
 final case class DFToken[+T <: DFType](dfType: T)(
     val data: dfType.Data

@@ -1,4 +1,4 @@
-package DFiant.plugin
+package dfhdl.plugin
 
 import dotty.tools.dotc.*
 import plugins.*
@@ -125,7 +125,7 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
-    onCreateEventsTpe = requiredClassRef("DFiant.internals.OnCreateEvents")
-    hasNamePosTpe = requiredClassRef("DFiant.internals.HasNamePos")
+    onCreateEventsTpe = requiredClassRef("dfhdl.internals.OnCreateEvents")
+    hasNamePosTpe = requiredClassRef("dfhdl.internals.HasNamePos")
     ctx
 end OnCreateEventsPhase

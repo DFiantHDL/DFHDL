@@ -1,5 +1,5 @@
-package DFiant.compiler.patching
-import DFiant.compiler.ir.*
+package dfhdl.compiler.patching
+import dfhdl.compiler.ir.*
 
 private final case class ReplacementContext(
     refTable: Map[DFRefAny, DFMember],

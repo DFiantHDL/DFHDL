@@ -1,6 +1,6 @@
-package DFiant.core
-import DFiant.compiler.ir
-import DFiant.internals.*
+package dfhdl.core
+import dfhdl.compiler.ir
+import dfhdl.internals.*
 import scala.quoted.*
 import collection.immutable.ListMap
 import ir.DFVal.Func.Op as FuncOp

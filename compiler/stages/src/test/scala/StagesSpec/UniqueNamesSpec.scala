@@ -1,7 +1,7 @@
 package StagesSpec
 
-import DFiant.*
-import DFiant.compiler.stages.uniqueNames
+import dfhdl.*
+import dfhdl.compiler.stages.uniqueNames
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class UniqueNamesSpec extends StageSpec:
