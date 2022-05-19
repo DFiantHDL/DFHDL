@@ -19,7 +19,7 @@ class DropRegAliasesSpec extends StageSpec:
     val id = (new ID).dropRegAliases
     assertCodeString(
       id,
-      """|class ID extends RTDesign(DerivedCfg):
+      """|class ID extends RTDesign:
          |  val x1 = SInt(16) <> IN
          |  val y1 = SInt(16) <> OUT
          |  val x2 = SInt(16) <> IN
@@ -48,7 +48,7 @@ class DropRegAliasesSpec extends StageSpec:
     val id = (new ID).dropRegAliases
     assertCodeString(
       id,
-      """|class ID extends RTDesign(DerivedCfg):
+      """|class ID extends RTDesign:
          |  val x1 = SInt(16) <> IN
          |  val y1 = SInt(16) <> OUT
          |  val x2 = Bits(16) <> IN
@@ -84,7 +84,7 @@ class DropRegAliasesSpec extends StageSpec:
     val id = (new ID).dropRegAliases
     assertCodeString(
       id,
-      """|class ID extends RTDesign(DerivedCfg):
+      """|class ID extends RTDesign:
          |  val x1 = SInt(16) <> IN
          |  val y1 = SInt(16) <> OUT
          |  val x2 = SInt(16) <> IN
@@ -119,7 +119,7 @@ class DropRegAliasesSpec extends StageSpec:
     val id = (new ID).dropRegAliases
     assertCodeString(
       id,
-      """|class ID extends RTDesign(DerivedCfg):
+      """|class ID extends RTDesign:
          |  val x1 = SInt(16) <> IN
          |  val y1 = SInt(16) <> OUT
          |  val v = SInt(16) <> WIRE
@@ -131,4 +131,26 @@ class DropRegAliasesSpec extends StageSpec:
          |""".stripMargin
     )
   }
+//  test("Reg alias of a reg variable (fibonacci)") {
+//    class Fib extends RTDesign:
+//      val f = UInt(32) <> REG init 1
+//      val o = UInt(32) <> OUT
+//      f.din := f.reg + f.reg.reg(1, 0)
+//      o     := f.reg.reg(1, 0)
+//    val fib = (new Fib).dropRegAliases
+//    assertCodeString(
+//      fib,
+//      """|class Fib extends RTDesign:
+//         |  val o = UInt(32) <> OUT
+//         |  val f = UInt(32) <> REG init d"32'1"
+//         |  val f_reg1 = UInt(32) <> REG
+//         |  val f_reg2 = UInt(32) <> REG
+//         |  f_reg1.din := f
+//         |  f_reg2.din := f_reg1
+//         |  f.din := f_reg1 + f_reg2
+//         |  o := f_reg2
+//         |end Fib
+//         |""".stripMargin
+//    )
+//  }
 end DropRegAliasesSpec

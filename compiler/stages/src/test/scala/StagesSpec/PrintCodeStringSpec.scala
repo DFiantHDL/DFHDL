@@ -161,7 +161,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new ID).getCodeString
     assertNoDiff(
       id,
-      """|class ID extends RTDesign(DerivedCfg):
+      """|class ID extends RTDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val flag = Bit <> IN
@@ -238,7 +238,7 @@ class PrintCodeStringSpec extends StageSpec:
       id,
       """|class IDWithDomains extends DFDesign:
          |  val y = SInt(16) <> OUT
-         |  val fast = new RTDomain(DerivedCfg):
+         |  val fast = new RTDomain:
          |    val pr = SInt(16) <> REG
          |    val pw = SInt(16) <> WIRE
          |    pr.din := sd"16'1"
