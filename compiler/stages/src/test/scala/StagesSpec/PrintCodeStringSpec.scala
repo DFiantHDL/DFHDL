@@ -194,26 +194,26 @@ class PrintCodeStringSpec extends StageSpec:
         z := 1
       }
     end ID
-    val id = (new ID).getCodeString
+    val id = (new ID).getCodeString(fixAlign = true)
     assertNoDiff(
       id,
       """|class ID extends EDDesign:
-         |  val x = SInt(16) <> IN
-         |  val y = SInt(16) <> OUT
-         |  val flag = Bit <> IN
-         |  val v = SInt(16) <> VAR
+         |  val x     = SInt(16) <> IN
+         |  val y     = SInt(16) <> OUT
+         |  val flag  = Bit      <> IN
+         |  val v     = SInt(16) <> VAR
          |  process.forever {
-         |    val z = SInt(8) <> VAR
-         |    z := z + sd"2'1"
-         |    v :== sd"16'1"
+         |    val z   = SInt(8)  <> VAR
+         |    z   := z + sd"2'1"
+         |    v   :== sd"16'1"
          |  }
          |  process(x, y, flag.rising) {
-         |    val z = SInt(8) <> VAR
-         |    z := sd"8'1"
+         |    val z   = SInt(8)  <> VAR
+         |    z   := sd"8'1"
          |  }
          |  process(all) {
-         |    val z_0 = SInt(8) <> VAR
-         |    val z_1 = Bits(8) <> VAR
+         |    val z_0 = SInt(8)  <> VAR
+         |    val z_1 = Bits(8)  <> VAR
          |    z_1 := h"00"
          |    z_0 := sd"8'1"
          |  }

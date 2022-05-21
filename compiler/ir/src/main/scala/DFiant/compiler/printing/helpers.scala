@@ -27,4 +27,21 @@ extension (text: String)
         else "  " * count + l
       )
       .mkString("\n")
+  def align(lhsRegx: String, opRegx: String, rhsRegx: String): String =
+    val pat = s"($lhsRegx)($opRegx)($rhsRegx)".r
+    val maxAlign = text.linesIterator.map {
+      case pat(lhs, _, _) => lhs.length
+      case _              => 0
+    }.max
+    if (maxAlign > 0)
+      text.linesIterator
+        .map {
+          case pat(lhs, op, rhs) =>
+            val delta = " " * (maxAlign - lhs.length)
+            s"$lhs$delta$op$rhs"
+          case l => l
+        }
+        .mkString("\n")
+    else text
+  end align
 end extension
