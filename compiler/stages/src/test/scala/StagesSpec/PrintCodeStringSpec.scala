@@ -194,7 +194,7 @@ class PrintCodeStringSpec extends StageSpec:
         z := 1
       }
     end ID
-    val id = (new ID).getCodeString(fixAlign = true)
+    val id = (new ID).getCodeString(align = true)
     assertNoDiff(
       id,
       """|class ID extends EDDesign:

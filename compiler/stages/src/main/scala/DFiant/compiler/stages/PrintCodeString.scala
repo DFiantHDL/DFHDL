@@ -10,18 +10,18 @@ case object PrintCodeString extends Stage:
 end PrintCodeString
 
 extension [T: HasDB](t: T)
-  def getCodeString(fixAlign: Boolean): String =
+  def getCodeString(align: Boolean): String =
     val designDB = StageRunner.run(PrintCodeString)(t.db)
     given Printer = DefaultPrinter(using designDB.getSet)
-    if (fixAlign)
+    if (align)
       designDB.codeString
         .align("[ \\t]*val .*", "=", ".*<>.*")
         .align("[ \\t]*val .*", "<>", ".*")
         .align("[ \\t]*val .*<>.*", "init", ".*")
         .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<>|:==", ".*")
     else designDB.codeString
-  def getCodeString: String = getCodeString(fixAlign = false)
+  def getCodeString: String = getCodeString(align = false)
   def printCodeString: DB =
-    println(getCodeString(fixAlign = true))
+    println(getCodeString(align = true))
     t.db
 end extension
