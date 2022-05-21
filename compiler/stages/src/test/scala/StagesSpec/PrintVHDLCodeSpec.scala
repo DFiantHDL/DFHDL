@@ -131,7 +131,7 @@ class PrintVHDLCodeSpec extends StageSpec:
         y :== z
       }
     end Top
-    val top = (new Top).getVHDLCode
+    val top = (new Top).getVHDLCode(align = true)
     assertNoDiff(
       top,
       """|library ieee;
@@ -141,18 +141,18 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Top is
          |port (
-         |  clk : in std_logic;
-         |  rst : in std_logic;
-         |  x : in std_logic_vector(15 downto 0);
-         |  y : out std_logic_vector(15 downto 0)
+         |  clk : in  std_logic;
+         |  rst : in  std_logic;
+         |  x   : in  std_logic_vector(15 downto 0);
+         |  y   : out std_logic_vector(15 downto 0)
          |);
          |end Top;
          |
          |architecture Top_arch of Top is
-         |  signal z : std_logic_vector(15 downto 0);
+         |  signal z          : std_logic_vector(15 downto 0);
          |begin
          |  process (clk, rst)
-         |    constant c : std_logic_vector(15 downto 0) := x"0000";
+         |    constant c      : std_logic_vector(15 downto 0) := x"0000";
          |  begin
          |    if rst then y <= c;
          |    elsif rising_edge(clk) then y <= x;
@@ -162,12 +162,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    variable my_var : std_logic_vector(15 downto 0);
          |  begin
          |    my_var := x;
-         |    y <= my_var;
+         |    y      <= my_var;
          |  end process;
          |  process
          |  begin
-         |    z <= x;
-         |    y <= z;
+         |    z      <= x;
+         |    y      <= z;
          |  end process;
          |end Top_arch;
          |""".stripMargin

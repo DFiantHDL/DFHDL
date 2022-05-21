@@ -26,10 +26,18 @@ case object VHDLBackend extends Stage:
 end VHDLBackend
 
 extension [T: HasDB](t: T)
-  def getVHDLCode: String =
+  def getVHDLCode(align: Boolean): String =
     val designDB = StageRunner.run(VHDLBackend)(t.db)
     given Printer = new VHDLPrinter(using designDB.getSet)
-    designDB.codeString
+    if (align)
+      designDB.codeString
+        .align(".*", ":", "[ ]*(?:in|out|inout) .*")
+        .align(".*:[ ]*(?:in|out|inout)", " ", ".*")
+        .align("[ ]*(?:signal|variable|constant) .*", ": ", ".*")
+        .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<=", ".*")
+    else designDB.codeString
+  def getVHDLCode: String = getVHDLCode(align = false)
   def printVHDLCode: DB =
-    getVHDLCode
+    getVHDLCode(align = true)
     t.db
+end extension
