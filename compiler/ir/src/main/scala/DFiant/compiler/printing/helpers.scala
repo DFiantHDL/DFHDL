@@ -44,4 +44,12 @@ extension (text: String)
         .mkString("\n")
     else text
   end align
+  def colorWords(wordSet: Set[String], color: String): String =
+    wordSet.foldLeft(text) { case (t, w) =>
+      t.replaceAll(s"\\b$w\\b", s"$color$w${io.AnsiColor.RESET}")
+    }
+  def colorOps(wordSet: Set[String], color: String): String =
+    wordSet.foldLeft(text) { case (t, w) =>
+      t.replaceAll(s" $w ", s"$color $w ${io.AnsiColor.RESET}")
+    }
 end extension
