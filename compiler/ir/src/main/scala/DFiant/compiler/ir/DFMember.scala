@@ -699,3 +699,35 @@ object Timer:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   end IsActive
 end Timer
+
+sealed trait Wait extends DFMember
+object Wait:
+  final case class Duration(
+      timeOpt: Option[Time],
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Wait:
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: Duration =>
+        this.timeOpt == that.timeOpt &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+
+  type TriggerRef = DFRef.TwoWay[DFVal, DFMember]
+  final case class Until(
+      triggerRef: TriggerRef,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Timer:
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: Until =>
+        this.triggerRef =~ that.triggerRef &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+end Wait
