@@ -3,12 +3,13 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import ir.Time
 import dfhdl.internals.*
+import scala.annotation.targetName
 
-sealed class Wait private (val irValue: ir.Wait | DFError) extends DFMember[ir.Wait]
+//sealed class Wait private (val irValue: ir.Wait | DFError) extends DFMember[ir.Wait]
 object Wait:
-  extension (wait: ir.Wait) private def asFE: Wait = new Wait(wait)
+//  extension (wait: ir.Wait) private def asFE: Wait = new Wait(wait)
   object Duration:
-    def apply(timeOpt: Option[Time])(using DFC): Wait =
+    def apply(timeOpt: Option[Time])(using DFC): Unit =
       lazy val wait: ir.Wait = ir.Wait
         .Duration(
           timeOpt,
@@ -17,17 +18,24 @@ object Wait:
           ir.DFTags.empty
         )
         .addMember
-      wait.asFE
+      wait // .asFE
   object Until:
-    def apply(timeOpt: Option[Time])(using DFC): Wait =
+    def apply(trigger: DFValOf[DFBit])(using DFC): Unit =
       lazy val wait: ir.Wait = ir.Wait
-        .Duration(
-          timeOpt,
+        .Until(
+          trigger.asIR.refTW(wait),
           dfc.owner.ref,
           dfc.getMeta,
           ir.DFTags.empty
         )
         .addMember
-      wait.asFE
-  object Ops
+      wait // .asFE
+  object Ops:
+    def wait(time: Time)(using DFC): Unit = trydf { Duration(Some(time)) }
+    def waitForever(using DFC): Unit = trydf { Duration(None) }
+    def waitUntil(trigger: DFValOf[DFBit])(using DFC): Unit = trydf { Until(trigger) }
+    def waitWhile(trigger: DFValOf[DFBit])(using DFC): Unit = trydf {
+      import DFBoolOrBit.Val.Ops.unary_!
+      Until(!trigger)
+    }
 end Wait

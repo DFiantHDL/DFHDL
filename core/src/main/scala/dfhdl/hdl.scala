@@ -25,6 +25,7 @@ object hdl:
   export internals.CommonOps.*
   export core.{width, dfType}
   export core.Timer.Ops.*
+  export core.Wait.Ops.*
   type Timer = core.Timer
   val Timer = core.Timer
   type DFC = core.DFC

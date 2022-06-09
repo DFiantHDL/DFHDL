@@ -722,7 +722,7 @@ object Wait:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends Timer:
+  ) extends Wait:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Until =>
         this.triggerRef =~ that.triggerRef &&
