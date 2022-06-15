@@ -11,9 +11,9 @@ type DFOpaque[+T <: DFOpaque.Abstract] =
 object DFOpaque:
   protected[core] sealed trait Abstract extends HasTypeName:
     type ActualType <: DFTypeAny
-    val actualType: ActualType
-    val id: ir.DFOpaque.Id = new ir.DFOpaque.CustomId {}
-  class Frontend[T <: DFTypeAny](final val actualType: T) extends Abstract:
+    protected[core] val actualType: ActualType
+    protected[core] val id: ir.DFOpaque.Id = new ir.DFOpaque.CustomId {}
+  class Frontend[T <: DFTypeAny](final protected[core] val actualType: T) extends Abstract:
     type ActualType = T
 
   given [T <: Abstract](using ValueOf[T]): DFOpaque[T] = DFOpaque(valueOf[T])

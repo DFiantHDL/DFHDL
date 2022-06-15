@@ -192,6 +192,13 @@ object DFType:
               def apply(t: T): Type =
                 summonInline[DFStruct[t & DFStruct.Fields]]
           }
+        case '[t & DFOpaque.Abstract] =>
+          '{
+            new TC[T]:
+              type Type = DFOpaque[t & DFOpaque.Abstract]
+              def apply(t: T): Type =
+                summonInline[DFOpaque[t & DFOpaque.Abstract]]
+          }
         case _ =>
           val badTypeStr = clsTpe.show
           val msg =
