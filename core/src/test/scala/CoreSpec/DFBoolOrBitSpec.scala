@@ -104,7 +104,7 @@ class DFBoolOrBitSpec extends DFSpec:
     assertEquals(bit0 || 1, bit1)
     assertEquals(1 && bit0, bit0)
     assertEquals(bit0 ^ false, bit0)
-    assertEquals(false || bit0, bit0)
+    assertEquals(false || bit0, false)
     assertEquals(boolF && 1, boolF)
     assertEquals(1 || boolF, boolT)
     assertEquals(boolF && bit0, boolF)

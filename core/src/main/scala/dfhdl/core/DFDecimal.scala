@@ -1314,7 +1314,18 @@ object DFUInt:
     trait UBArg[UB <: Int, -R]:
       type OutW <: Int
       def apply(ub: Inlined[UB], arg: R): DFValOf[DFUInt[OutW]]
-    object UBArg:
+    trait UBArgLP:
+      transparent inline given errorDMZ[UB <: Int, R](using
+          r: ShowType[R]
+      ): UBArg[UB, R] =
+        Error.call[
+          (
+              "Upper-bound argument cannot be constructed from the type `",
+              r.Out,
+              "`."
+          )
+        ]
+    object UBArg extends UBArgLP:
       transparent inline given fromInt[UB <: Int, R <: Int](using
           dfc: DFC,
           ubInfo: IntInfo[UB - 1]

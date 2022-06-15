@@ -42,6 +42,13 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
       case _                                                                          => false
     }
 
+  extension (tree : DefDef) def addDFCArg(using Context) : DefDef =
+    val dfcArgBlock = List(
+      ValDef("x$1".toTermName, Ident("DFC".toTypeName), EmptyTree)
+        .withFlags(Private | Synthetic | ParamAccessor | Given)
+    )
+    untpd.cpy.DefDef(tree)(paramss = tree.paramss :+ dfcArgBlock)
+    
   object IntConnVAL:
     def unapply(tree: InfixOp)(using Context): Option[InfixOp] =
       tree match
@@ -76,13 +83,8 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
           val addMissingDFC =
             (isDFContainer || (!skipTestContainer && hasIOVals)) && !hasDFC(paramss)
           if (addMissingDFC)
-            val dfcArgBlock = List(
-              ValDef("x$1".toTermName, Ident("DFC".toTypeName), EmptyTree)
-                .withFlags(Private | Synthetic | ParamAccessor | Given)
-            )
-            val updatedConstr = cpy.DefDef(constr)(paramss = paramss :+ dfcArgBlock)
             val updatedTemplate =
-              cpy.Template(template)(constr = updatedConstr)
+              cpy.Template(template)(constr = constr.addDFCArg)
             cpy.TypeDef(t)(rhs = updatedTemplate)
           else t
         case tree @ ModuleDef(name, impl) =>

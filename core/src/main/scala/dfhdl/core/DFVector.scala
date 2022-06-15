@@ -38,12 +38,12 @@ object DFVector:
 
   sealed class ComposedModifier[D <: Int, M <: ModifierAny](val cellDim: D, val modifier: M)
   object Ops:
-    extension [T <: DFType.Supported](t: T)(using tc: DFType.TC[T])
+    extension [T <: DFType.Supported, D <: Int](t: T)(using tc: DFType.TC[T])
       // transparent inline def X(inline cellDim: Int*): DFType =
       //   x(dfType, cellDim: _*)
       inline def X(
-          cellDim: Int
-      ): DFVector[tc.Type, Tuple1[cellDim.type]] =
+          cellDim: Inlined[D]
+      ): DFVector[tc.Type, Tuple1[D]] =
         DFVector(tc(t), Tuple1(cellDim))
     extension [T <: DFType.Supported, D <: Int, M <: ModifierAny](t: T)(using tc: DFType.TC[T])
       def X(

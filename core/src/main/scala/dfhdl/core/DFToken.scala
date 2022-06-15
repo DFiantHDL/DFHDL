@@ -92,6 +92,9 @@ object DFToken:
       dfType: T,
       tc: DFToken.TC[T, es.Out]
   ): DFToken[T] = tc(dfType, es(value))
+  // implicit conversion to allow a boolean/bit token to be a Scala Boolean
+  implicit def fromDFBoolOrBitToken(from: DFToken[DFBoolOrBit]): Boolean =
+    from.asIR.data.asInstanceOf[ir.DFBool.Data].get
 
   // Enabling equality with Int, Boolean, and Tuples.
   // just to give a better error message via the compiler plugin.
