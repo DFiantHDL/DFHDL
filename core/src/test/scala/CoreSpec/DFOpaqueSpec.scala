@@ -8,8 +8,10 @@ class DFOpaqueSpec extends DFSpec:
   val o1 = o1u8 <> VAR init 1.as(o1u8)
   val o2 = o2u8 <> VAR
   object gogo extends Opaque((UInt(8), Bit))
+  object arr extends Opaque(UInt(8) X 4)
   assertCodeString(
     """|val o11 = o1u8 <> VAR init d"8'1".as(o1u8)
+       |val a = arr <> VAR init Vector(d"8'0", d"8'0", d"8'0", d"8'0").as(arr)
        |val u8 = UInt(8) <> VAR
        |val momo = (u8, 1).as(gogo)
        |val q = o1 == o1
@@ -23,12 +25,15 @@ class DFOpaqueSpec extends DFSpec:
        |""".stripMargin
   ) {
     val o11 = o1u8 <> VAR init 1.as(o1u8)
+    val a = arr <> VAR init all(0).as(arr)
     val u8 = UInt(8) <> VAR
     val momo = (u8, 1).as(gogo)
     val q = o1 == o1
     val q2 = o1 == 1.as(o1u8)
     o1 := 1.as(o1u8)
     val z = u8.as(o1u8)
+    // TODO: this should work
+    // a := a.actual.elements.as(arr)
     val conv: o1u8.type <> VAL = 1.as(o1u8)
     val zz = o1.actual
     o2.actual := 0

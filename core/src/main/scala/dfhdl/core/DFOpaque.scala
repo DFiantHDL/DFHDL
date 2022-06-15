@@ -47,6 +47,10 @@ object DFOpaque:
         transparent inline def as[T <: DFTypeAny, TFE <: Frontend[T]](
             tfe: TFE
         ): Any = ${ asMacro[L, T, TFE]('lhs, 'tfe) }
+      extension [T <: DFTypeAny](lhs: Vector[DFValOf[T]])
+        transparent inline def as[D <: Int, TFE <: Frontend[DFVector[T, Tuple1[D]]]](
+            tfe: TFE
+        ): DFValOf[DFOpaque[TFE]] = ???
       private def asMacro[L, T <: DFTypeAny, TFE <: Frontend[T]](
           lhs: Expr[L],
           tfe: Expr[TFE]

@@ -11,6 +11,7 @@ class DFVectorSpec extends DFSpec:
          |v1 := Vector(d"8'22", d"8'22", d"8'22", d"8'22", d"8'22")
          |v1 := Vector(x, x, x, x, x)
          |v2 := Vector(d"8'55", d"8'55", d"8'55", d"8'55", d"8'55", d"8'55")
+         |v2 := Vector(v1(0), v1(1), v1(2), v1(3), v1(4))
          |val t1 = v1 == Vector(d"8'22", d"8'22", d"8'22", d"8'22", d"8'22")
          |val t2 = v1 != Vector(x, x, x, x, x)
          |val t3 = v1(3)
@@ -29,6 +30,7 @@ class DFVectorSpec extends DFSpec:
       v1 := Vector.fill(5)(d"8'22")
       v1 := Vector.fill(5)(x)
       v2 := all(d"8'55")
+      v2 := v1.elements
       val t1 = v1 == Vector.fill(5)(d"8'22")
       val t2 = v1 != Vector.fill(5)(x)
       val t3 = v1(3)

@@ -1,5 +1,6 @@
 package AES
 import dfhdl.*
+import scala.annotation.targetName
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Byte
@@ -59,4 +60,26 @@ extension (lhs: AESByte <> VAL)
     val lookup = (AESByte X sboxLookupTable.length) <> VAR init sboxLookupTable
     lookup(lhs.actual)
 
+end extension
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// AES Word
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+object AESWord extends Opaque(AESByte X 4)
+type AESWord = AESWord.type
+
+extension (lhs: AESWord <> VAL)
+  @targetName("AESWordAdd")
+  def +(rhs: AESWord <> VAL)(using DFC): AESWord <> VAL =
+    lhs.actual.elements.lazyZip(rhs.actual.elements).map(_ + _).as(AESWord)
+
+  // Function used in the Key Expansion routine that takes a four-byte input word and applies
+  // an S-box to each of the four bytes to produce an output word.
+  def subWord(using DFC): AESWord <> VAL =
+    lhs.actual.elements.map(_.sbox).as(AESWord)
+
+  // Function used in the Key Expansion routine that takes a four-byte word and performs a cyclic permutation.
+  def rotWord(using DFC): AESWord <> VAL =
+    val elms = lhs.actual.elements
+    (elms.drop(1) :+ elms.head).as(AESWord)
 end extension

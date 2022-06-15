@@ -131,6 +131,16 @@ object DFVector:
           ir.DFToken
             .forced(lhs.dfType.asIR.cellType, lhs.data(idx))
             .asTokenOf[T]
+        def elements: Vector[DFToken[T]] =
+          val elementType = lhs.dfType.asIR.cellType
+          Vector.tabulate(lhs.dfType.cellDims.head)(i =>
+            ir.DFToken
+              .forced(elementType, lhs.data(i))
+              .asTokenOf[T]
+          )
+      end extension
+    end Ops
+
   end Token
 
   object Val:
@@ -197,6 +207,13 @@ object DFVector:
           val idxVal = c(Inlined.forced[D1](lhs.dfType.cellDims.head), idx)
           DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idxVal)
         }
+        def elements(using DFC): Vector[DFValOf[T]] =
+          import DFDecimal.Token.StrInterp.d
+          val elementType = lhs.dfType.cellType
+          Vector.tabulate(lhs.dfType.cellDims.head)(i =>
+            val idxVal = DFVal.Const(d"$i".asIR.asTokenOf[DFUInt[Int]], false)
+            DFVal.Alias.ApplyIdx(elementType, lhs, idxVal)(using dfc.anonymize)
+          )
       end extension
     end Ops
   end Val
