@@ -86,17 +86,22 @@ object DFType:
     ]
     protected type WIREOnlyInRTDomain[A] = AssertGiven[
       util.NotGiven[A <:< Modifier.WireRef] | A <:< DFC.Domain.RT,
-      "`WIRE` modifier only allowed in a register-transfer (RT) design/domain.\nUse a `VAR` modifier."
+      "`WIRE` modifier is only allowed in a register-transfer (RT) design/domain.\nUse a `VAR` modifier."
     ]
     protected type REGOnlyInRTDomain[A] = AssertGiven[
       util.NotGiven[A <:< Modifier.RegRef] | A <:< DFC.Domain.RT,
-      "`REG` modifier only allowed in a register-transfer (RT) design/domain.\nUse a `VAR` modifier."
+      "`REG` modifier is only allowed in a register-transfer (RT) design/domain.\nUse a `VAR` modifier."
     ]
-    extension (inline cellDim: Int)
+    extension [D <: Int with Singleton](cellDim: D)
       inline def <>[M <: ModifierAny](
           modifier: M
-      ): DFVector.ComposedModifier[cellDim.type, M] =
-        new DFVector.ComposedModifier[cellDim.type, M](cellDim, modifier)
+      ): DFVector.ComposedModifier[D, M] =
+        new DFVector.ComposedModifier[D, M](cellDim, modifier)
+    extension (cellDim: Int)
+      inline def <>[M <: ModifierAny](
+          modifier: M
+      ): DFVector.ComposedModifier[Int, M] =
+        new DFVector.ComposedModifier[Int, M](cellDim, modifier)
     extension [T <: Supported](t: T)
       def <>[A, C, I](modifier: Modifier[A, C, I])(using
           tc: DFType.TC[T],
@@ -156,15 +161,12 @@ object DFType:
       type Type = DFSInt[64]
       def apply(t: Long.type): Type = DFSInt(64)
 
-    transparent inline given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[
-      T
-    ]]: TC[TFE] = new TC[TFE]:
-      type Type = DFOpaque[TFE]
-      def apply(t: TFE): Type = DFOpaque(t)
+    transparent inline given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[T]]: TC[TFE] =
+      new TC[TFE]:
+        type Type = DFOpaque[TFE]
+        def apply(t: TFE): Type = DFOpaque(t)
 
-    transparent inline given ofProductCompanion[T <: AnyRef]: TC[T] = ${
-      productMacro[T]
-    }
+    transparent inline given ofProductCompanion[T <: AnyRef]: TC[T] = ${ productMacro[T] }
     def productMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
       import quotes.reflect.*
       val compObjTpe = TypeRepr.of[T]

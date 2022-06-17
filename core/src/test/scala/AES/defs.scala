@@ -36,7 +36,7 @@ extension (lhs: AESByte <> VAL)
   def +(rhs: AESByte <> VAL)(using DFC): AESByte <> VAL =
     (lhs.actual ^ rhs.actual).as(AESByte)
 
-  private def xtime()(using DFC): AESByte <> VAL =
+  private def xtime(using DFC): AESByte <> VAL =
     val shifted = lhs.actual << 1
     if (lhs.actual(7)) (shifted ^ h"1b").as(AESByte)
     else shifted.as(AESByte)
@@ -46,18 +46,16 @@ extension (lhs: AESByte <> VAL)
   // divisors are one and itself. For the AES algorithm, this irreducible polynomial is
   // m(x) = x^8 + x^4 + x^3 + x + 1, or {01}{1b} in hexadecimal notation.
   def *(that: AESByte <> TOKEN)(using DFC): AESByte <> VAL =
-    val p = AESByte <> VAR
-    p := all(0).as(AESByte)
-    val (ret, _) = (0 until 8).foldLeft[(AESByte <> VAL, AESByte <> VAL)]((p, lhs)) {
-      case ((p, a), i) if that.bits(i) => (p + a, a.xtime())
-      case ((p, a), _)                 => (p, a.xtime())
+    val (ret, _) = (0 until 8).foldLeft[(AESByte <> VAL, AESByte <> VAL)]((all(0).as(AESByte), lhs)) {
+      case ((p, a), i) if that.bits(i) => (p + a, a.xtime)
+      case ((p, a), _)                 => (p, a.xtime)
     }
     ret
 
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
   def sbox(using DFC): AESByte <> VAL =
-    val lookup = (AESByte X sboxLookupTable.length) <> VAR init sboxLookupTable
+    val lookup = AESByte X sboxLookupTable.length <> VAR init sboxLookupTable
     lookup(lhs.actual)
 
 end extension
