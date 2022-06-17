@@ -62,6 +62,7 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
 
   private val addDFCTreeMap = new UntypedTreeMap:
     protected var extensionWithDFVal: Boolean = false
+    protected var extensionWithDFC: Boolean = false
     override def transform(tree: Tree)(using Context): Tree =
       extension (tree: Tree)
         @tailrec def inherits(set: Set[String]): Boolean =
@@ -93,21 +94,23 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
             untpd.cpy.ModuleDef(tree)(name, transform(impl).asInstanceOf[Template])
           }
         case tree @ DefDef(name, paramss, tpt, _)
-            if (extensionWithDFVal | (name.toString != "<init>" && (hasDFVal(tpt) || hasDFVal(
+            if (extensionWithDFVal || (name.toString != "<init>" && (hasDFVal(tpt) || hasDFVal(
               paramss
             )))) &&
-              !hasDFC(paramss) =>
+              !(extensionWithDFC || hasDFC(paramss)) =>
           tree.addDFCArg
         case t => t
       end match
     end transform
     override def transformMoreCases(tree: Tree)(using Context): Tree =
       tree match
-        case ExtMethods(paramss, _) if hasDFVal(paramss) && !hasDFC(paramss) =>
-          val backup = extensionWithDFVal
-          extensionWithDFVal = true
+        case ExtMethods(paramss, _) =>
+          val backup = (extensionWithDFVal, extensionWithDFC)
+          extensionWithDFVal = hasDFVal(paramss)
+          extensionWithDFC = hasDFC(paramss)
           val ret = super.transformMoreCases(tree)
-          extensionWithDFVal = backup
+          extensionWithDFVal = backup._1
+          extensionWithDFC = backup._2
           ret
         case _ => super.transformMoreCases(tree)
 
