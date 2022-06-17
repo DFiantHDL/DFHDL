@@ -33,10 +33,10 @@ extension (lhs: AESByte <> VAL)
   // The addition of two elements in a finite field is achieved by “adding” the coefficients for the
   // corresponding powers in the polynomials for the two elements. The addition is performed with
   // the XOR operation.
-  def +(rhs: AESByte <> VAL)(using DFC): AESByte <> VAL =
+  def +(rhs: AESByte <> VAL): AESByte <> VAL =
     (lhs.actual ^ rhs.actual).as(AESByte)
 
-  private def xtime(using DFC): AESByte <> VAL =
+  private def xtime: AESByte <> VAL =
     val shifted = lhs.actual << 1
     if (lhs.actual(7)) (shifted ^ h"1b").as(AESByte)
     else shifted.as(AESByte)
@@ -45,16 +45,17 @@ extension (lhs: AESByte <> VAL)
   // polynomials modulo an irreducible polynomial of degree 8. A polynomial is irreducible if its only
   // divisors are one and itself. For the AES algorithm, this irreducible polynomial is
   // m(x) = x^8 + x^4 + x^3 + x + 1, or {01}{1b} in hexadecimal notation.
-  def *(that: AESByte <> TOKEN)(using DFC): AESByte <> VAL =
-    val (ret, _) = (0 until 8).foldLeft[(AESByte <> VAL, AESByte <> VAL)]((all(0).as(AESByte), lhs)) {
-      case ((p, a), i) if that.bits(i) => (p + a, a.xtime)
-      case ((p, a), _)                 => (p, a.xtime)
-    }
+  def *(rhs: AESByte <> TOKEN): AESByte <> VAL =
+    val (ret, _) =
+      (0 until 8).foldLeft[(AESByte <> VAL, AESByte <> VAL)]((all(0).as(AESByte), lhs)) {
+        case ((p, a), i) if rhs.bits(i) => (p + a, a.xtime)
+        case ((p, a), _)                => (p, a.xtime)
+      }
     ret
 
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
-  def sbox(using DFC): AESByte <> VAL =
+  def sbox: AESByte <> VAL =
     val lookup = AESByte X sboxLookupTable.length <> VAR init sboxLookupTable
     lookup(lhs.actual)
 
@@ -68,16 +69,16 @@ type AESWord = AESWord.type
 
 extension (lhs: AESWord <> VAL)
   @targetName("AESWordAdd")
-  def +(rhs: AESWord <> VAL)(using DFC): AESWord <> VAL =
+  def +(rhs: AESWord <> VAL): AESWord <> VAL =
     lhs.actual.elements.lazyZip(rhs.actual.elements).map(_ + _).as(AESWord)
 
   // Function used in the Key Expansion routine that takes a four-byte input word and applies
   // an S-box to each of the four bytes to produce an output word.
-  def subWord(using DFC): AESWord <> VAL =
+  def subWord: AESWord <> VAL =
     lhs.actual.elements.map(_.sbox).as(AESWord)
 
   // Function used in the Key Expansion routine that takes a four-byte word and performs a cyclic permutation.
-  def rotWord(using DFC): AESWord <> VAL =
+  def rotWord: AESWord <> VAL =
     val elms = lhs.actual.elements
     (elms.drop(1) :+ elms.head).as(AESWord)
 end extension
