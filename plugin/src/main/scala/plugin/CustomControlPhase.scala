@@ -249,16 +249,21 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     def unapply(
         selector: Tree
     )(using Context, ValDefGen): Option[Tree] =
-      val fixedTree = selector.tpe match
-        // return the unmodified selector tree
-        case DFVal(_) => Some(selector)
-        case _ =>
-          selector match
-            // return the converted selector tree
-            case DFTupleVal(tree)  => Some(tree)
-            case DFStructVal(tree) => Some(tree)
-            case _                 => None
-      fixedTree.map(summon[ValDefGen].mkSelectValDef("sel", _))
+      try
+        val fixedTree = selector.tpe match
+          // return the unmodified selector tree
+          case DFVal(_) => Some(selector)
+          case _ =>
+            selector match
+              // return the converted selector tree
+              case DFTupleVal(tree)  => Some(tree)
+              case DFStructVal(tree) => Some(tree)
+              case _                 => None
+        fixedTree.map(summon[ValDefGen].mkSelectValDef("sel", _))
+      catch
+        case e: IllegalArgumentException =>
+          report.error(e.getMessage, selector.srcPos)
+          None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
         case AppliedType(t, List(dfType, _)) if t <:< dfValClsRef =>
@@ -274,14 +279,20 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             case _                          => None
         case _ =>
           None
+    end unapply
   end DFVal
 
   object DFStructVal:
     def unapply(struct: Tree)(using Context): Option[Tree] =
-      struct.tpe match
-        case DFStructVal(tpe) =>
-          Some(FromCore.structToDFVal(tpe, struct))
-        case _ => None
+      try
+        struct.tpe match
+          case DFStructVal(tpe) =>
+            Some(FromCore.structToDFVal(tpe, struct))
+          case _ => None
+      catch
+        case e: IllegalArgumentException =>
+          report.error(e.getMessage, struct.srcPos)
+          None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
         case fieldsTpe if fieldsTpe <:< requiredClassRef("dfhdl.core.DFStruct.Fields") =>
@@ -293,27 +304,30 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             case _        => false
           }
           if (args.isEmpty)
-            report.error(
+            throw new IllegalArgumentException(
               "No dataflow fields were found. A dataflow struct cannot be empty."
             )
-            return None
           // all fields are dataflow values
           if (argsAreDFVal.forall(i => i)) Some(DFVal(DFStruct(fieldsTpe)))
           else
-            report.error(
+            throw new IllegalArgumentException(
               "Not all match selector structs fields are dataflow values."
             )
-            None
           end if
         case _ => None
   end DFStructVal
 
   object DFTupleVal:
     def unapply(tuple: Tree)(using Context): Option[Tree] =
-      tuple.tpe match
-        case DFTupleVal(tpe) =>
-          Some(FromCore.structToDFVal(tpe, tuple))
-        case _ => None
+      try
+        tuple.tpe match
+          case DFTupleVal(tpe) =>
+            Some(FromCore.structToDFVal(tpe, tuple))
+          case _ => None
+      catch
+        case e: IllegalArgumentException =>
+          report.error(e.getMessage, tuple.srcPos)
+          None
     def unapply(arg: Type)(using Context): Option[Type] =
       arg.simple match
         case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef && args.nonEmpty =>
@@ -330,10 +344,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           // all tuple arguments are NOT dataflow args
           else if (argsConv.forall(_.isEmpty)) None
           else
-            report.error(
+            throw new IllegalArgumentException(
               "Not all match selector tuple fields are dataflow values."
             )
-            None
           end if
         case _ => None
       end match
