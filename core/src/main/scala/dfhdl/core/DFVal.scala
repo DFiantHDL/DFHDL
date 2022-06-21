@@ -18,7 +18,7 @@ class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
     with Selectable:
 
   def selectDynamic(name: String)(using DFC): Any = trydf {
-    val ir.DFStruct(structName, fieldMap) = this.asIR.dfType
+    val ir.DFStruct(structName, fieldMap) = this.asIR.dfType: @unchecked
     val dfType = fieldMap(name)
     DFVal.Alias
       .SelectField(this, name)
@@ -406,7 +406,7 @@ object DFVal:
           fieldName: String
       )(using dfc: DFC): DFVal[T, M] =
         val relValIR = relVal.asIR
-        val ir.DFStruct(_, fieldMap) = relValIR.dfType
+        val ir.DFStruct(_, fieldMap) = relValIR.dfType: @unchecked
         val dfTypeIR = fieldMap(fieldName)
         relValIR match
           // in case the referenced value is anonymous and concatenates fields
@@ -694,7 +694,7 @@ protected object VarsTuple:
       tpe.asTypeOf[Any] match
         case '[DFVarOf[t]] => None
         case '[NonEmptyTuple] =>
-          val AppliedType(_, tArgs) = tpe
+          val AppliedType(_, tArgs) = tpe: @unchecked
           tArgs.view.map(varsCheck).collectFirst { case Some(v) => v }
         case _ =>
           Some(s"All tuple elements must be mutable but found an immutable type `${tpe.showType}`")

@@ -95,7 +95,7 @@ case object DropRegAliases extends Stage:
                 if (i == maxRegs && !alias.isAnonymous) alias.name
                 else namePrefix + nameSuffix
               import dfhdl.core.{DFTypeAny, asFE, asTokenOf}
-              val DFVal.Alias.History.Op.Reg(cfg) = alias.op
+              val DFVal.Alias.History.Op.Reg(cfg) = alias.op: @unchecked
               alias.initOption match
                 case Some(token) =>
                   alias.dfType.asFE[DFTypeAny] <> REG(cfg) init token

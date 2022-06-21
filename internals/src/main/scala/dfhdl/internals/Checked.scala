@@ -182,7 +182,7 @@ object Check1:
     val msgTpe = TypeRepr.of[Msg]
     val condValueTpe = TypeRepr.of[CondValue]
     val msgValueTpe = TypeRepr.of[MsgValue]
-    val ConstantType(BooleanConstant(warn)) = TypeRepr.of[Warn]
+    val ConstantType(BooleanConstant(warn)) = TypeRepr.of[Warn]: @unchecked
     val mc =
       new MacroClass[quotes.type](using quotes)(
         condTpe, msgTpe, condValueTpe, msgValueTpe, warn
@@ -281,7 +281,7 @@ object Check2:
     val msgTpe = TypeRepr.of[Msg]
     val condValueTpe = TypeRepr.of[CondValue]
     val msgValueTpe = TypeRepr.of[MsgValue]
-    val ConstantType(BooleanConstant(warn)) = TypeRepr.of[Warn]
+    val ConstantType(BooleanConstant(warn)) = TypeRepr.of[Warn]: @unchecked
     val mc =
       new MacroClass[quotes.type](using quotes)(
         condTpe, msgTpe, condValueTpe, msgValueTpe, warn

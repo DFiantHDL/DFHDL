@@ -13,7 +13,7 @@ final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny | DFError)
     with Selectable:
 
   def selectDynamic(name: String): Any =
-    val ir.DFStruct(structName, fieldMap) = this.asIR.dfType
+    val ir.DFStruct(structName, fieldMap) = this.asIR.dfType: @unchecked
     val dfType = fieldMap(name)
     val idx = fieldMap.toList.indexWhere(_._1 == name)
     val data = this.asIR.data.asInstanceOf[List[Any]](idx)
@@ -278,7 +278,7 @@ object DFToken:
       // In the case we have a multiple elements in the tuple value that match the signature
       // of the dataflow type, then each element is considered as a candidate
       if (multiElements)
-        val Apply(_, vArgsTerm) = term
+        val Apply(_, vArgsTerm) = term: @unchecked
         def tokens(dfType: Expr[DFTuple[T]]): List[Expr[DFTokenAny]] =
           vArgsTerm.map { a =>
             val aTerm = a.exactTerm

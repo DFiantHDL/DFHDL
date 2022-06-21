@@ -155,7 +155,7 @@ case object DropRegsWires extends Stage:
                   r.asVarAny := r_din_v.asValAny
                 }
               def ifRstActive =
-                val RstCfg.Explicit(_, active: RstCfg.Active) = rstCfg
+                val RstCfg.Explicit(_, active: RstCfg.Active) = rstCfg: @unchecked
                 val cond = active match
                   case RstCfg.Active.High => rst == 1
                   case RstCfg.Active.Low  => rst == 0
@@ -164,7 +164,7 @@ case object DropRegsWires extends Stage:
                 val (_, rstBranch) = ifRstActive
                 DFIf.singleBranch(None, rstBranch, regSaveBlock)
               def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
-                val ClkCfg.Explicit(edge: ClkCfg.Edge) = clkCfg
+                val ClkCfg.Explicit(edge: ClkCfg.Edge) = clkCfg: @unchecked
                 val cond = edge match
                   case ClkCfg.Edge.Rising  => clk.rising
                   case ClkCfg.Edge.Falling => clk.falling
@@ -176,7 +176,7 @@ case object DropRegsWires extends Stage:
 
               if (clkCfg != None && regs.nonEmpty)
                 if (rstCfg != None && regs.exists(_.externalInit.nonEmpty))
-                  val RstCfg.Explicit(mode: RstCfg.Mode, _) = rstCfg
+                  val RstCfg.Explicit(mode: RstCfg.Mode, _) = rstCfg: @unchecked
                   mode match
                     case RstCfg.Mode.Sync =>
                       process(clk) {

@@ -28,7 +28,7 @@ trait Printer
   val normalizeConnection: Boolean
   final def csDFNetOp(net: DFNet): String = net.op match
     case DFNet.Op.Assignment =>
-      val DFNet.Assignment(toVal, _) = net
+      val DFNet.Assignment(toVal, _) = net: @unchecked
       val toDcl = toVal.dealias.get
       toDcl.getOwnerDomain.domainType match
         // event-driven domains can have non-blocking assignments

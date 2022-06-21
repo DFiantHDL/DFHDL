@@ -55,9 +55,9 @@ extension (lhs: AESByte <> VAL)
 
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
-  def sbox: AESByte <> VAL =
-    val lookup = AESByte X sboxLookupTable.length <> VAR init sboxLookupTable
-    lookup(lhs.actual)
+  def sbox: AESByte <> VAL = ???
+//    val lookup = AESByte X sboxLookupTable.length <> VAR init sboxLookupTable
+//    lookup(lhs.actual)
 
 end extension
 

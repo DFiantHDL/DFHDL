@@ -124,7 +124,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   // field selections changes from `dv._${idx+1}` to `dv($idx)`
   val TUPLE_MIN_INDEXING = 3
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String =
-    val DFStruct(structName, fieldMap) = dfVal.relValRef.get.dfType
+    val DFStruct(structName, fieldMap) = dfVal.relValRef.get.dfType: @unchecked
     val fieldSel =
       if (structName.isEmpty)
         if (fieldMap.size > TUPLE_MIN_INDEXING)

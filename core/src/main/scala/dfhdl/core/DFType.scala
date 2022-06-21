@@ -73,8 +73,7 @@ object DFType:
   export DFBits.given
   export DFDecimal.given
   export DFEnum.given
-  // TODO: Uncomment for Scala 3.2.x since a bug is fixed
-//  export DFVector.given
+  export DFVector.given
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
@@ -216,7 +215,7 @@ object DFType:
     def ofTupleMacro[T <: NonEmptyTuple](using Quotes, Type[T]): Expr[TC[T]] =
       import quotes.reflect.*
       val tTpe = TypeRepr.of[T]
-      val AppliedType(fun, args) = tTpe
+      val AppliedType(fun, args) = tTpe: @unchecked
       val tcTrees = args.map(t =>
         Implicits.search(TypeRepr.of[TC].appliedTo(t)) match
           case iss: ImplicitSearchSuccess =>

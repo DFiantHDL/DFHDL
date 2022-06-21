@@ -10,11 +10,11 @@ object SIParts:
       Type[SI]
   ): Expr[Any] =
     import quotes.reflect.*
-    val '{ StringContext(${ Varargs(args) }*) } = sc
+    val '{ StringContext(${ Varargs(args) }*) } = sc: @unchecked
     val tplExpr = Expr.ofTupleFromSeq(args)
     val tplTpe = tplExpr.asTerm.tpe
     val tplType = tplTpe.asTypeOf[Tuple]
-    val AppliedType(siTpe, _) = TypeRepr.of[SI[Tuple]]
+    val AppliedType(siTpe, _) = TypeRepr.of[SI[Tuple]]: @unchecked
     val siSym = siTpe.typeSymbol
     val siTree =
       New(siTpe.asTypeTree)

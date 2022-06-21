@@ -57,7 +57,7 @@ object DFIf:
     retDFType match
       case NoType => firstIfRet.get
       case _ =>
-        val DFVal(headerIR: DFIfHeader) = header
+        val DFVal(headerIR: DFIfHeader) = header: @unchecked
         val headerUpdate = headerIR.copy(dfType = retDFType.asIR)
         // updating the type of the if header
         headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]

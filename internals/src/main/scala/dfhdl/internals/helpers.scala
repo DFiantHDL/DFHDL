@@ -15,7 +15,7 @@ def errorExpr(msg: String)(using Quotes): Expr[Nothing] =
 
 def showTreeMacro[T](arg: Expr[T])(using Quotes, Type[T]): Expr[Unit] =
   import quotes.reflect.*
-  val Inlined(_, _, term) = arg.asTerm
+  val Inlined(_, _, term) = arg.asTerm: @unchecked
   println(term.show)
   println(term)
   println(TypeRepr.of[T].show)
@@ -113,7 +113,7 @@ extension (using quotes: Quotes)(sc: Expr[StringContext])
     import quotes.reflect.*
     val argsExprs = args match
       case Varargs(argsExprs) => argsExprs
-    val '{ StringContext.apply($parts*) } = sc
+    val '{ StringContext.apply($parts*) } = sc: @unchecked
     val partsExprs = parts match
       case Varargs(argsExprs) => argsExprs
     partsExprs.scPartsWithArgs(argsExprs)
@@ -139,7 +139,7 @@ object ValueOfTuple:
     def recur(tpe: TypeRepr): Term =
       tpe.asTypeOf[Any] match
         case '[NonEmptyTuple] =>
-          val AppliedType(fun, args) = tpe
+          val AppliedType(fun, args) = tpe: @unchecked
           Expr.ofTupleFromSeq(args.map(a => recur(a).asExprOf[Any])).asTerm
         case '[x] =>
           '{ compiletime.summonInline[ValueOf[x]].value }.asTerm
@@ -217,7 +217,7 @@ object AssertGiven:
 
     if (recur(TypeRepr.of[G])) '{ new AssertGiven[G, M] {} }
     else
-      val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias
+      val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias: @unchecked
       '{ compiletime.error(${ Expr(msg) }) }
   end macroImpl
 end AssertGiven

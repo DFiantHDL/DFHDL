@@ -347,7 +347,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       Context
   ): Tree =
     def patternSingleton: Tree = FromCore.patternSingleton(selector, constPat)
-    val DFVal(dfTypeTpe) = selector.tpe
+    val DFVal(dfTypeTpe) = selector.tpe: @unchecked
     (dfTypeTpe, constPat) match
       case (DFXInt(signed, widthTpe), Constant(i: Int)) if i < 0 && !signed =>
         report.error(
@@ -573,8 +573,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           case UnApply(select: Select, _, binds) =>
             select match
               case Select(tree @ Block(List(TypeDef(_, template)), _), _) =>
-                val Template(_, _, _, List(defdef)) = template
-                val DefDef(_, _, _, rhs: Tree @unchecked) = defdef
+                val Template(_, _, _, List(defdef)) = template: @unchecked
+                val DefDef(_, _, _, rhs: Tree @unchecked) = defdef: @unchecked
                 Some(tree, binds, rhs.underlying)
               case _ => None
           case _ => None
@@ -603,7 +603,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       ctx: Context,
       valDefGen: ValDefGen
   ): Tree =
-    val DFVal(dfTypeTpe) = selectorTree.tpe
+    val DFVal(dfTypeTpe) = selectorTree.tpe: @unchecked
     patternTree match
       case Pattern.Tuple(patterns) =>
         dfTypeTpe match
@@ -647,7 +647,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         FromCore.patternSingleton(selectorTree, lit)
       // hacked unapply for enum enumerations
       case Pattern.Enum(arg) =>
-        val DFEnum(enumTpe) = dfTypeTpe
+        val DFEnum(enumTpe) = dfTypeTpe: @unchecked
         if (arg.tpe <:< enumTpe) FromCore.patternSingleton(selectorTree, arg)
         else
           report.error(
@@ -678,7 +678,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                   patternTree.srcPos
                 )
                 return EmptyTree
-            val Literal(Constant(op: String)) = elems.head
+            val Literal(Constant(op: String)) = elems.head: @unchecked
             val fullSI =
               Seq(elems.drop(1), binds)
                 .flatMap(_.zipWithIndex)
@@ -720,6 +720,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                       s"The bind `${bindTree.name}` must have a Bits value type annotation `: B[<width>]`",
                       bindTree.srcPos
                     )
+                    scala.util.control.NonLocalReturns
                     return EmptyTree
 
             }
