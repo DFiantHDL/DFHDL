@@ -1,4 +1,5 @@
 package dfhdl.plugin
+
 import dotty.tools.dotc.*
 import plugins.*
 import core.*
@@ -21,11 +22,15 @@ given canEqualNothingL: CanEqual[Nothing, Any] = CanEqual.derived
 given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
 
 abstract class CommonPhase extends PluginPhase:
+
   import tpd._
+
   val debugFilter: String => Boolean = _ => false
   var pluginDebugSource: String = ""
+
   def debug(str: => Any*): Unit =
     if (debugFilter(pluginDebugSource)) println(str.mkString(", "))
+
   var metaContextTpe: TypeRef = _
   var metaContextCls: ClassSymbol = _
   var positionCls: ClassSymbol = _
@@ -41,8 +46,9 @@ abstract class CommonPhase extends PluginPhase:
   extension (tpe: Type)(using Context)
     def simple: Type =
       tpe match
-        case tr: TermRef => tr.underlying.dealias
-        case _           => tpe.dealias
+        case tr: TermRef        => tr.underlying.dealias
+        case ann: AnnotatedType => ann.parent.simple
+        case _                  => tpe.dealias
 
   extension (srcPos: util.SrcPos)(using Context)
     def show: String =
@@ -82,6 +88,7 @@ abstract class CommonPhase extends PluginPhase:
             }
             .orElse(unapply(tree))
         case _ => None
+
     def at(tree: DefDef | TypeDef)(using Context): Option[Tree] =
       tree match
         case tree: DefDef =>
@@ -114,8 +121,10 @@ abstract class CommonPhase extends PluginPhase:
       fun match
         case Apply(f, a) => recurUnapply(f, a :: args)
         case f           => (f, args)
+
     def unapply(tree: Apply)(using Context): Option[(Tree, List[List[Tree]])] =
       Some(recurUnapply(tree, Nil))
+
     def apply(fun: Tree, args: List[List[Tree]])(using Context): Apply =
       fun.appliedToArgss(args).asInstanceOf[Apply]
 
