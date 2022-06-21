@@ -1,4 +1,5 @@
 package AES
+
 import dfhdl.*
 import scala.annotation.targetName
 
@@ -6,6 +7,7 @@ import scala.annotation.targetName
 // AES Byte
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 object AESByte extends Opaque(Byte)
+
 type AESByte = AESByte.type
 
 //Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
@@ -30,9 +32,9 @@ val sboxLookupTable: Vector[AESByte <> TOKEN] = Vector(
 ).map(byte => h"$byte".as(AESByte))
 
 extension (lhs: AESByte <> VAL)
-  // The addition of two elements in a finite field is achieved by “adding” the coefficients for the
-  // corresponding powers in the polynomials for the two elements. The addition is performed with
-  // the XOR operation.
+// The addition of two elements in a finite field is achieved by “adding” the coefficients for the
+// corresponding powers in the polynomials for the two elements. The addition is performed with
+// the XOR operation.
   def +(rhs: AESByte <> VAL): AESByte <> VAL =
     (lhs.actual ^ rhs.actual).as(AESByte)
 
@@ -55,9 +57,9 @@ extension (lhs: AESByte <> VAL)
 
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
-  def sbox: AESByte <> VAL = ???
-//    val lookup = AESByte X sboxLookupTable.length <> VAR init sboxLookupTable
-//    lookup(lhs.actual)
+  def sbox: AESByte <> VAL =
+    val lookup = (AESByte X sboxLookupTable.length) <> VAR init sboxLookupTable
+    lookup(lhs.actual)
 
 end extension
 
@@ -65,6 +67,7 @@ end extension
 // AES Word
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 object AESWord extends Opaque(AESByte X 4)
+
 type AESWord = AESWord.type
 
 extension (lhs: AESWord <> VAL)
