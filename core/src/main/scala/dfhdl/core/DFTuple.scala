@@ -19,11 +19,12 @@ object DFTuple:
     DFStruct[T]("", (1 to fieldList.length).map(i => s"_$i").toList, fieldList)
   private[core] def unapply(t: NonEmptyTuple): Option[DFTuple[NonEmptyTuple]] =
     val tList = t.toList
-    val fieldList: List[DFTypeAny] = tList.map {
-      case DFType(x) => x
-      case _         => return None
+    val fieldList: List[DFTypeAny] = tList.flatMap {
+      case DFType(x) => Some(x)
+      case _         => None
     }
-    Some(apply[NonEmptyTuple](fieldList))
+    if (fieldList.length == tList.length) Some(apply[NonEmptyTuple](fieldList))
+    else None
 
   extension [T <: NonEmptyTuple](dfType: DFTuple[T])
     def fieldList: List[DFTypeAny] =
