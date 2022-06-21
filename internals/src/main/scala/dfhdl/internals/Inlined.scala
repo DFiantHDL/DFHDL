@@ -150,15 +150,21 @@ def requireMacro(cond: Expr[Boolean], msg: Expr[String])(using
               .apply(${ Varargs(xargs) }: _*)
               .s(${ Varargs(yargs) }: _*)
           } =>
+        var skip = false
         val xArgsStr = xargs.map {
           case ValueExpr(v) => v.toString
-          case _            => return expr
+          case _ =>
+            skip = true
+            ""
         }
         val yArgsStr = yargs.map {
           case ValueExpr(v) => v.toString
-          case _            => return expr
+          case _ =>
+            skip = true
+            ""
         }
-        StringContext.apply(xArgsStr: _*).s(yArgsStr: _*).toConstantExpr
+        if (skip) expr
+        else StringContext.apply(xArgsStr: _*).s(yArgsStr: _*).toConstantExpr
       case _ => expr
 
   cond match

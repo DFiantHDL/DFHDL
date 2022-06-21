@@ -26,17 +26,22 @@ trait AbstractTokenPrinter extends AbstractPrinter:
     def hexZip(
         v: BitVector,
         b: BitVector
-    ): Option[String] = Some(
-      v.toHex
-        .zip(b.toHex)
-        .flatMap {
-          case (_, 'F' | 'f')                  => s"$csDFBitBubbleChar"
-          case (h, '0')                        => s"$h"
-          case (h, b) if allowBitsBinModeInHex => s"{${binZip(BitVector(h), BitVector(b))}}"
-          case _                               => return None
-        }
-        .mkString
-    )
+    ): Option[String] =
+      var err = false
+      val ret = Some(
+        v.toHex
+          .zip(b.toHex)
+          .flatMap {
+            case (_, 'F' | 'f')                  => s"$csDFBitBubbleChar"
+            case (h, '0')                        => s"$h"
+            case (h, b) if allowBitsBinModeInHex => s"{${binZip(BitVector(h), BitVector(b))}}"
+            case _                               =>
+              err = true
+              ""
+          }
+          .mkString
+      )
+      if (err) None else ret
     end hexZip
     def toBinString: String = binZip(valueBits, bubbleBits)
     def toHexString: Option[String] =

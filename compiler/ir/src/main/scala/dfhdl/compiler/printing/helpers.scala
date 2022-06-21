@@ -5,13 +5,15 @@ extension (text: String)
 
   private def requiresBrackets: Boolean =
     var count: Int = 0
-    for (i <- 0 until text.length)
+    var spaceBracket = false
+    for (i <- 0 until text.length; if !spaceBracket)
       text.charAt(i) match
         case '(' => count += 1
         case ')' => count -= 1
-        case ' ' => if (count == 0) return true
+        case ' ' => if (count == 0) spaceBracket = true
         case _   =>
-    text.startsWith("!") || text.startsWith("~") || text.startsWith("-")
+    if (spaceBracket) true
+    else text.startsWith("!") || text.startsWith("~") || text.startsWith("-")
 
   def applyBrackets(onlyIfRequired: Boolean = true): String =
     if (text.requiresBrackets || (!onlyIfRequired && !text.hasBrackets))
