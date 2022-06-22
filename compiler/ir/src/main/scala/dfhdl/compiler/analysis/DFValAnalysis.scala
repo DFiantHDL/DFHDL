@@ -77,15 +77,14 @@ extension (dfVal: DFVal)
     }
   def hasPrevAlias(using MemberGetSet): Boolean =
     val refs = dfVal.originRefs
-    refs.foreach { r =>
+    refs.exists { r =>
       r.get match
         case history: DFVal.Alias.History if (history.op == DFVal.Alias.History.Op.Prev) =>
-          return true
+          true
         case alias: DFVal.Alias =>
           alias.hasPrevAlias
-        case _ => // false
+        case _ => false
     }
-    false
   end hasPrevAlias
   def getConnectionTo(using MemberGetSet): Option[DFNet] =
     dfVal.dealias.flatMap(getSet.designDB.connectionTable.get)

@@ -61,15 +61,19 @@ extension (cb: DFConditional.Block)(using MemberGetSet)
       val cases = getLeadingChain.asInstanceOf[List[DFConditional.DFCaseBlock]]
       // Just checking singleton token patterns.
       // If we stumble upon more complex patterns, we return None to
+      var complexPattern = false
       lazy val tokenSet = cases.view
         .map(_.pattern)
         .flattenPatterns // getting rid of the pattern alternative
-        .collect {
-          case Pattern.Singleton(token) => token
-          case _                        => return None
+        .flatMap {
+          case Pattern.Singleton(token) => Some(token)
+          case _ =>
+            complexPattern = true
+            None
         }
         .toSet
       selectorVal.dfType match
+        case _ if complexPattern => None
         case DFBits(width) =>
           if (tokenSet.exists(_.isBubble)) None // currently not checking don't-care patterns
           else Some((1 << width) == tokenSet.size)

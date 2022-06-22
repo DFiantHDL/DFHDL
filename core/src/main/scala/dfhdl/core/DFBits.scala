@@ -5,7 +5,7 @@ import dfhdl.internals.*
 
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
-
+import scala.util.control.NonLocalReturns.*
 type DFBits[W <: Int] = DFType[ir.DFBits, Args1[W]]
 import DFDecimal.Constraints.`LW == RW`
 
@@ -220,7 +220,7 @@ private object CompanionsDFBits:
     private val widthExp = "([0-9]+)'(.*)".r
     def fromBinString(
         bin: String
-    ): Either[String, (BitVector, BitVector)] =
+    ): Either[String, (BitVector, BitVector)] = returning[Either[String, (BitVector, BitVector)]] {
       val (explicitWidth, word) = bin match
         case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
         case _                           => (None, bin)
@@ -232,7 +232,10 @@ private object CompanionsDFBits:
               case '?' => (v :+ false, b :+ true)
               case '0' => (v :+ false, b :+ false)
               case '1' => (v :+ true, b :+ false)
-              case x   => return Left(s"Found invalid binary character: $x")
+              case x =>
+                throwReturn[Either[String, (BitVector, BitVector)]](
+                  Left(s"Found invalid binary character: $x")
+                )
         }
       val actualWidth = valueBits.lengthOfValue.toInt
       explicitWidth match
@@ -243,11 +246,11 @@ private object CompanionsDFBits:
         case Some(width) =>
           Right((valueBits.resize(width), bubbleBits.resize(width)))
         case None => Right((valueBits, bubbleBits))
-    end fromBinString
+    }
     private val isHex = "[0-9a-fA-F]".r
     def fromHexString(
         hex: String
-    ): Either[String, (BitVector, BitVector)] =
+    ): Either[String, (BitVector, BitVector)] = returning[Either[String, (BitVector, BitVector)]] {
       val (explicitWidth, word) = hex match
         case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
         case _                           => (None, hex)
@@ -264,7 +267,10 @@ private object CompanionsDFBits:
                   b ++ BitVector.low(4),
                   false
                 )
-              case x => return Left(s"Found invalid hex character: $x")
+              case x =>
+                throwReturn[Either[String, (BitVector, BitVector)]](
+                  Left(s"Found invalid hex character: $x")
+                )
           case ((v, b, true), c) =>
             c match // bin mode
               case '}' => (v, b, false)
@@ -272,8 +278,8 @@ private object CompanionsDFBits:
               case '0' => (v :+ false, b :+ false, true)
               case '1' => (v :+ true, b :+ false, true)
               case x =>
-                return Left(
-                  s"Found invalid binary character in binary mode: $x"
+                throwReturn[Either[String, (BitVector, BitVector)]](
+                  Left(s"Found invalid binary character in binary mode: $x")
                 )
         }
       if (binMode) Left(s"Missing closing braces of binary mode")
@@ -287,7 +293,7 @@ private object CompanionsDFBits:
           case Some(width) =>
             Right((valueBits.resize(width), bubbleBits.resize(width)))
           case None => Right((valueBits, bubbleBits))
-    end fromHexString
+    }
 
     object StrInterp:
       class BParts[P <: Tuple](parts: P):

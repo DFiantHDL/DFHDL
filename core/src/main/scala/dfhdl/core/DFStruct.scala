@@ -29,13 +29,14 @@ object DFStruct:
   private[core] def unapply(
       product: FieldsOrTuple
   ): Option[DFStruct[FieldsOrTuple]] =
-    val fieldTypes = product.productIterator.map {
-      case dfVal: DFValAny =>
-        dfVal.dfType
-      case _ => return None
+    val fieldTypes = product.productIterator.flatMap {
+      case dfVal: DFValAny => Some(dfVal.dfType)
+      case _               => None
     }.toList
-    val fieldNames = product.productElementNames.toList
-    Some(DFStruct(product.productPrefix, fieldNames, fieldTypes))
+    if (fieldTypes.length == product.productIterator.size)
+      val fieldNames = product.productElementNames.toList
+      Some(DFStruct(product.productPrefix, fieldNames, fieldTypes))
+    else None
 
   inline given apply[F <: FieldsOrTuple]: DFStruct[F] = ${ dfTypeMacro[F] }
   def dfTypeMacro[F <: FieldsOrTuple](using
