@@ -92,12 +92,13 @@ object DFType:
       "`REG` modifier is only allowed in a register-transfer (RT) design/domain.\nUse a `VAR` modifier."
     ]
     extension [D <: Int with Singleton](cellDim: D)
-      inline def <>[M <: ModifierAny](
+      def <>[M <: ModifierAny](
           modifier: M
       ): DFVector.ComposedModifier[D, M] =
         new DFVector.ComposedModifier[D, M](cellDim, modifier)
     extension (cellDim: Int)
-      inline def <>[M <: ModifierAny](
+      @targetName("composeMod")
+      def <>[M <: ModifierAny](
           modifier: M
       ): DFVector.ComposedModifier[Int, M] =
         new DFVector.ComposedModifier[Int, M](cellDim, modifier)

@@ -7,7 +7,6 @@ import scala.annotation.targetName
 // AES Byte
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 object AESByte extends Opaque(Byte)
-
 type AESByte = AESByte.type
 
 //Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
@@ -58,7 +57,7 @@ extension (lhs: AESByte <> VAL)
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
   def sbox: AESByte <> VAL =
-    val lookup = (AESByte X sboxLookupTable.length) <> VAR init sboxLookupTable
+    val lookup = AESByte X sboxLookupTable.length <> VAR init sboxLookupTable
     lookup(lhs.actual)
 
 end extension
@@ -67,7 +66,6 @@ end extension
 // AES Word
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 object AESWord extends Opaque(AESByte X 4)
-
 type AESWord = AESWord.type
 
 extension (lhs: AESWord <> VAL)
