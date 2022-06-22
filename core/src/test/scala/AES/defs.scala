@@ -31,9 +31,9 @@ val sboxLookupTable: Vector[AESByte <> TOKEN] = Vector(
 ).map(byte => h"$byte".as(AESByte))
 
 extension (lhs: AESByte <> VAL)
-// The addition of two elements in a finite field is achieved by “adding” the coefficients for the
-// corresponding powers in the polynomials for the two elements. The addition is performed with
-// the XOR operation.
+  // The addition of two elements in a finite field is achieved by “adding” the coefficients for the
+  // corresponding powers in the polynomials for the two elements. The addition is performed with
+  // the XOR operation.
   def +(rhs: AESByte <> VAL): AESByte <> VAL =
     (lhs.actual ^ rhs.actual).as(AESByte)
 
