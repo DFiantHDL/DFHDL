@@ -73,25 +73,7 @@ object Width:
             case '[DFOpaque[t]] =>
               TypeRepr.of[t].calcWidth
             case '[DFStruct[p]] =>
-              val pTpe = TypeRepr.of[p]
-              pTpe.asTypeOf[Any] match
-                case '[NonEmptyTuple] =>
-                  pTpe.getTupleArgs
-                    .map(_.asTypeOf[Any])
-                    .collect { case '[DFValOf[t]] =>
-                      TypeRepr.of[t].calcWidth
-                    }
-                    .reduce(_ + _)
-                case _ =>
-                  val clsSym = pTpe.classSymbol.get
-                  val widths =
-                    clsSym.fieldMembers.view
-                      .map(m => pTpe.memberType(m).asTypeOf[Any])
-                      .collect { case '[DFValOf[t]] =>
-                        TypeRepr.of[t].calcWidth
-                      }
-                  widths.reduce(_ + _)
-              end match
+              TypeRepr.of[p].calcWidth
             // TODO: figure out why this is needed and DFVector case is not taken
             case '[DFType[ir.DFVector, Args2[t, d]]] =>
               val cellWidth = TypeRepr.of[t].calcWidth
@@ -114,6 +96,25 @@ object Width:
         case '[DFOpaque.Abstract] =>
           val clsSym = dfTpe.classSymbol.get
           dfTpe.memberType(clsSym.fieldMember("actualType")).calcWidth
+        case '[DFStruct.Fields] =>
+          dfTpe.asTypeOf[Any] match
+            case '[NonEmptyTuple] =>
+              dfTpe.getTupleArgs
+                .map(_.asTypeOf[Any])
+                .collect { case '[DFValOf[t]] =>
+                  TypeRepr.of[t].calcWidth
+                }
+                .reduce(_ + _)
+            case _ =>
+              val clsSym = dfTpe.classSymbol.get
+              val widths =
+                clsSym.fieldMembers.view
+                  .map(m => dfTpe.memberType(m).asTypeOf[Any])
+                  .collect { case '[DFValOf[t]] =>
+                    TypeRepr.of[t].calcWidth
+                  }
+              widths.reduce(_ + _)
+          end match
         case _ =>
           dfTpe match
             case DFEnum(entries) =>
@@ -138,6 +139,18 @@ object Width:
                 .getOrElse(TypeRepr.of[Int])
             case OrType(left, right) =>
               left.calcWidth max right.calcWidth
+            case compObjTpe =>
+              val compPrefix = compObjTpe match
+                case TermRef(pre, _) => pre
+                case _ =>
+                  report.errorAndAbort("Case class companion must be a term ref")
+              val clsSym = compObjTpe.typeSymbol.companionClass
+              if !clsSym.paramSymss.forall(_.headOption.forall(_.isTerm)) then
+                report.errorAndAbort(
+                  "Case class with type parameters are not supported"
+                )
+              compPrefix.select(clsSym).calcWidth
+
           end match
       end match
     end calcWidth

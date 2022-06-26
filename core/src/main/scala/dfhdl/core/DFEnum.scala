@@ -48,18 +48,22 @@ object DFEnum:
       tpe: quotes.reflect.TypeRepr
   ): Option[List[quotes.reflect.TypeRepr]] =
     import quotes.reflect.*
-    val enumTpe = TypeRepr.of[scala.reflect.Enum]
-    val sym = tpe.typeSymbol
-    val symCls = sym.companionClass
-    val symMdl = sym.companionModule
-    if (sym.flags.is(Flags.Enum) || symCls.flags.is(Flags.Enum))
-      Some(
-        symMdl.declaredFields.view
-          .map(f => tpe.memberType(f))
-          .filter(_ <:< enumTpe)
-          .toList
-      )
-    else None
+    tpe.asTypeOf[Any] match
+      case '[DFEncoding] =>
+        val enumTpe = TypeRepr.of[scala.reflect.Enum]
+        val sym = tpe.typeSymbol
+        val symCls = sym.companionClass
+        val symMdl = sym.companionModule
+        if (sym.flags.is(Flags.Enum) || symCls.flags.is(Flags.Enum))
+          Some(
+            symMdl.declaredFields.view
+              .map(f => tpe.memberType(f))
+              .filter(_ <:< enumTpe)
+              .toList
+          )
+        else None
+      case _ => None
+    end match
   end unapply
   def apply[E <: DFEncoding](enumCompanion: AnyRef): DFEnum[E] =
     val enumClass = classOf[scala.reflect.Enum]
