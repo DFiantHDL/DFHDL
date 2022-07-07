@@ -166,6 +166,11 @@ object DFType:
         type Type = DFOpaque[TFE]
         def apply(t: TFE): Type = DFOpaque(t)
 
+//    transparent inline given ofDFEnum[E <: DFEncoding]: TC[E] =
+//      new TC[E]:
+//        type Type = DFEnum[E]
+//        def apply(t: E): Type = DFEnum(e)
+
     transparent inline given ofProductCompanion[T <: AnyRef]: TC[T] = ${ productMacro[T] }
     def productMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
       import quotes.reflect.*
@@ -253,32 +258,6 @@ object DFType:
             DFTuple[tplType.Underlying](${ applyExpr('t) })
       }
     end ofTupleMacro
-
-    object MacroOps:
-      extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
-        def dfTypeTpe: Option[quotes.reflect.TypeRepr] =
-          import quotes.reflect.*
-          val nonEmptyTupleTpe = TypeRepr.of[NonEmptyTuple]
-//          val fieldsTpe = TypeRepr.of[DFFields]
-          tpe.asTypeOf[Any] match
-            case '[NonEmptyTuple] =>
-              if (tpe.getTupleArgs.forall(_.dfTypeTpe.nonEmpty))
-                Some(TypeRepr.of[DFTuple].appliedTo(tpe)) // TODO: this is wrong
-              else None
-            case '[DFTypeAny] =>
-              Some(tpe)
-            case '[DFOpaque.Abstract] =>
-              Some(TypeRepr.of[DFOpaque].appliedTo(tpe))
-//            case t if t <:< fieldsTpe =>
-//              Some(TypeRepr.of[DFStruct].appliedTo(t))
-            case _ =>
-              tpe.dealias match
-                case t @ DFEnum(_) =>
-                  Some(TypeRepr.of[DFEnum].appliedTo(t))
-                case t =>
-                  None
-          end match
-    end MacroOps
   end TC
 end DFType
 

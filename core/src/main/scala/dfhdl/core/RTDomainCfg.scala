@@ -28,9 +28,9 @@ object RTDomainCfg:
   def apply(clkCfg: ClkCfg, rstCfg: RstCfg)(using ctName: CTName): RTDomainCfg =
     ir.RTDomainCfg.Explicit(ctName.value, clkCfg, rstCfg)
 
-class RTDomain2(clkCfg: ClkCfg, rstCfg: RstCfg)(using ctName: CTName):
-  val cfg: ir.RTDomainCfg = ir.RTDomainCfg.Explicit(ctName.value, clkCfg, rstCfg)
-  object Clk extends DFOpaque.Frontend(DFBit):
-    override val id: ir.DFOpaque.Id = ir.DFOpaque.BuiltInId.Clk(cfg)
-  object Rst extends DFOpaque.Frontend(DFBit):
-    override val id: ir.DFOpaque.Id = ir.DFOpaque.BuiltInId.Rst(cfg)
+//class RTDomain2(clkCfg: ClkCfg, rstCfg: RstCfg)(using ctName: CTName):
+//  val cfg: ir.RTDomainCfg = ir.RTDomainCfg.Explicit(ctName.value, clkCfg, rstCfg)
+//  case class Clk() extends DFOpaque.Frontend(DFBit):
+//    override val id: ir.DFOpaque.Id = ir.DFOpaque.BuiltInId.Clk(cfg)
+//  case class Rst() extends DFOpaque.Frontend(DFBit):
+//    override val id: ir.DFOpaque.Id = ir.DFOpaque.BuiltInId.Rst(cfg)

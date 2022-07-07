@@ -75,7 +75,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     val dimStr = if (cellDims.size == 1) cellDims.head.toString else cellDims.mkStringBrackets
     s"${csDFType(cellType, typeCS)} X $dimStr"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
-    s"object ${dfType.getName} extends Opaque(${csDFType(dfType.actualType)})"
+    s"case class ${dfType.getName}() extends Opaque(${csDFType(dfType.actualType)})"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view

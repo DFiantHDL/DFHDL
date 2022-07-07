@@ -33,7 +33,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     import dfType.*
     s"${csDFType(cellType, typeCS)}.X${cellDims.mkStringBrackets}"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
-    s"object ${dfType.getName} extends Opaque(${csDFType(dfType.actualType)})"
+    s"case class ${dfType.getName}() extends Opaque(${csDFType(dfType.actualType)})"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view

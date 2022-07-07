@@ -9,19 +9,29 @@ import scala.annotation.unchecked.uncheckedVariance
 type DFOpaque[+T <: DFOpaque.Abstract] =
   DFType[ir.DFOpaque, Args1[T @uncheckedVariance]]
 object DFOpaque:
-  protected[core] sealed trait Abstract extends HasTypeName:
+  protected[core] sealed trait Abstract extends HasTypeName, ir.DFOpaque.CustomId:
     type ActualType <: DFTypeAny
     protected[core] val actualType: ActualType
-    protected[core] val id: ir.DFOpaque.Id = new ir.DFOpaque.CustomId {}
-  class Frontend[T <: DFTypeAny](final protected[core] val actualType: T) extends Abstract:
+  abstract class Frontend[T <: DFTypeAny](final protected[core] val actualType: T) extends Abstract:
     type ActualType = T
 
-  given [T <: Abstract](using ValueOf[T]): DFOpaque[T] = DFOpaque(valueOf[T])
+  inline given [T <: Abstract]: DFOpaque[T] = ${ dfTypeMacro[T] }
+  def dfTypeMacro[T <: Abstract](using Quotes, Type[T]): Expr[DFOpaque[T]] =
+    import quotes.reflect.*
+    val tpe = TypeRepr.of[T]
+    val sym = tpe.typeSymbol
+    val newOpaqueType =
+      New(tpe.asTypeTree)
+        .select(sym.primaryConstructor)
+        .appliedToNone
+        .asExprOf[T]
+    '{ DFOpaque($newOpaqueType) }
+  end dfTypeMacro
 
   def apply[T <: Abstract](
       t: T
   ): DFOpaque[T] =
-    ir.DFOpaque(t.typeName, t.id, t.actualType.asIR).asFE[DFOpaque[T]]
+    ir.DFOpaque(t.typeName, t, t.actualType.asIR).asFE[DFOpaque[T]]
   extension [T <: DFTypeAny, TFE <: Frontend[T]](dfType: DFOpaque[TFE])
     def actualType: T = dfType.asIR.actualType.asFE[T]
 
