@@ -72,6 +72,13 @@ object Width:
               widths.reduce(_ * _)
             case '[DFOpaque[t]] =>
               TypeRepr.of[t].calcWidth
+            case '[DFTuple[t]] =>
+              val AppliedType(tplSym, args) = TypeRepr.of[t]: @unchecked
+              println(args.map(_.show))
+              AppliedType(
+                tplSym,
+                args.collect { case AppliedType(_, dfTpe :: _) => dfTpe }
+              ).calcWidth
             case '[DFStruct[p]] =>
               TypeRepr.of[p].calcWidth
             // TODO: figure out why this is needed and DFVector case is not taken
@@ -201,7 +208,7 @@ extension [T <: DFTypeAny](token: DFToken[T])
   def width(using w: Width[T]): Inlined[w.Out] =
     Inlined.forced[w.Out](token.asIR.width)
 
-extension [T <: DFType.Supported](t: T)
+extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tWidth")
-  def width(using w: Width[T]): Inlined[w.Out] =
-    Inlined.forced[w.Out](DFType.of(t).asIR.width)
+  def width(using w: Width[tc.Type]): Inlined[w.Out] =
+    Inlined.forced[w.Out](tc(t).asIR.width)

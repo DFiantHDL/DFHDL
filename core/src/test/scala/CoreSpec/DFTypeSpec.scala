@@ -2,7 +2,8 @@ package CoreSpec
 import dfhdl.*
 import munit.*
 import internals.Inlined
-import compiler.printing.{Printer, DefaultPrinter}
+import compiler.printing.{DefaultPrinter, Printer}
+
 import scala.annotation.internal.sharable
 import collection.immutable.ListMap
 
@@ -26,8 +27,8 @@ class DFTypeSpec extends DFSpec:
     case Foo extends MyEnum5(200)
     case Bar extends MyEnum5(100)
     case Baz extends MyEnum5(0)
-  case class strct(x: UInt[5] <> VAL, y: Bits[4] <> VAL) extends Struct
-  case class opq() extends Opaque(u7)
+  case class MyStruct(x: UInt[5] <> VAL, y: Bits[4] <> VAL) extends Struct
+  case class MyOpaque() extends Opaque(u7)
 
   test("Inlined width") {
     val a: Inlined[8] = b8.width
@@ -50,8 +51,10 @@ class DFTypeSpec extends DFSpec:
     assert(MyEnum4.width.value == 2)
     val j: Inlined[8] = MyEnum5.width
     assert(MyEnum5.width.value == 8)
-//    val k: Inlined[9] = strct.width
-//    assert(strct.width.value == 9)
+    val k: Inlined[9] = MyStruct.width
+    assert(MyStruct.width.value == 9)
+    val l: Inlined[7] = MyOpaque.width
+    assert(MyOpaque.width.value == 7)
   }
 
   given Printer = DefaultPrinter(using dfc.getSet)
