@@ -64,20 +64,20 @@ end extension
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Word
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-//case class AESWord() extends Opaque(AESByte X 4)
-//
-//extension (lhs: AESWord <> VAL)
-//  @targetName("AESWordAdd")
-//  def +(rhs: AESWord <> VAL): AESWord <> VAL =
-//    lhs.actual.elements.lazyZip(rhs.actual.elements).map(_ + _).as(AESWord)
-//
-//  // Function used in the Key Expansion routine that takes a four-byte input word and applies
-//  // an S-box to each of the four bytes to produce an output word.
-//  def subWord: AESWord <> VAL =
-//    lhs.actual.elements.map(_.sbox).as(AESWord)
-//
-//  // Function used in the Key Expansion routine that takes a four-byte word and performs a cyclic permutation.
-//  def rotWord: AESWord <> VAL =
-//    val elms = lhs.actual.elements
-//    (elms.drop(1) :+ elms.head).as(AESWord)
-//end extension
+case class AESWord() extends Opaque(AESByte X 4)
+
+extension (lhs: AESWord <> VAL)
+  @targetName("AESWordAdd")
+  def +(rhs: AESWord <> VAL): AESWord <> VAL =
+    lhs.actual.elements.lazyZip(rhs.actual.elements).map(_ + _).as(AESWord)
+
+  // Function used in the Key Expansion routine that takes a four-byte input word and applies
+  // an S-box to each of the four bytes to produce an output word.
+  def subWord: AESWord <> VAL =
+    lhs.actual.elements.map(_.sbox).as(AESWord)
+
+  // Function used in the Key Expansion routine that takes a four-byte word and performs a cyclic permutation.
+  def rotWord: AESWord <> VAL =
+    val elms = lhs.actual.elements
+    (elms.drop(1) :+ elms.head).as(AESWord)
+end extension

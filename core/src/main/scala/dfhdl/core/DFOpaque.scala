@@ -50,10 +50,13 @@ object DFOpaque:
     object Ops:
       extension [L](inline lhs: L)
         transparent inline def as[Comp <: AnyRef](tfeComp: Comp): Any = ${ asMacro[L, Comp]('lhs) }
-//      extension [T <: DFTypeAny](lhs: Vector[DFValOf[T]])
-//        transparent inline def as[D <: Int, TFE <: Frontend[DFVector[T, Tuple1[D]]]](
-//            tfe: TFE
-//        ): DFValOf[DFOpaque[TFE]] = ???
+      extension [T <: DFTypeAny](lhs: Vector[DFValOf[T]])
+        transparent inline def as[Comp <: AnyRef, D <: Int](
+            tfeComp: Comp
+        )(using
+            cc: CaseClass[Comp, Abstract]
+        ): DFValOf[DFOpaque[cc.CC]] = // Frontend[DFVector[T, Tuple1[_ <: Int]]]
+          ???
       private def asMacro[L, Comp <: AnyRef](
           lhs: Expr[L]
       )(using Quotes, Type[L], Type[Comp]): Expr[Any] =
