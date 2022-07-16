@@ -49,7 +49,8 @@ end Exactly
 extension (using quotes: Quotes)(term: quotes.reflect.Term)
   def exactTerm: quotes.reflect.Term =
     import quotes.reflect.*
-    term.underlyingArgument match
+    term match
+      case Inlined(_, _, term) => term.exactTerm
       case Literal(const) =>
         val constTpe = ConstantType(const).asTypeOf[Any]
         val expr =
@@ -76,6 +77,8 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
           '{ ValueOf[tType.Underlying](${ t.asExpr }) }.asTerm
         else t
     end match
+  end exactTerm
+end extension
 
 type Exact[T] = Exactly { type Out = T }
 object Exact:

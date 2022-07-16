@@ -38,6 +38,11 @@ class DFVectorSpec extends DFSpec:
       val i2 = UInt(4) <> VAR
       val t4 = v1(i)
       assertCompileError(
+        "The argument vector length (6) is different than the receiver vector length (5)."
+      )(
+        """v1 := v2"""
+      )
+      assertCompileError(
         "Expected argument width 3 but found: 4"
       )(
         """v1(i2)"""

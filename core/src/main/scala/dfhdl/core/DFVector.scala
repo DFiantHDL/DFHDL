@@ -35,6 +35,14 @@ object DFVector:
         [IW <: Int, W <: Int] =>> "The index width " + IW +
           " is different than the expected width of the vector address " + W
       ]
+  protected object `LL == RL`
+      extends Check2[
+        Int,
+        Int,
+        [LL <: Int, RL <: Int] =>> LL == RL,
+        [LL <: Int, RL <: Int] =>> "The argument vector length (" + RL +
+          ") is different than the receiver vector length (" + LL + ")."
+      ]
 
   sealed class ComposedModifier[D <: Int, M <: ModifierAny](val cellDim: D, val modifier: M)
   object Ops:
@@ -146,6 +154,17 @@ object DFVector:
   object Val:
     object TC:
       import DFVal.TC
+      given DFVectorValFromDFVectorVal[
+          T <: DFTypeAny,
+          D1 <: Int,
+          RD1 <: Int
+      ](using
+          dfc: DFC,
+          check: `LL == RL`.Check[D1, RD1]
+      ): TC[DFVector[T, Tuple1[D1]], DFVector[T, Tuple1[RD1]] <> VAL] with
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: DFVector[T, Tuple1[RD1]] <> VAL): Out =
+          check(dfType.asIR.cellDims.head, arg.dfType.asIR.cellDims.head)
+          arg.asIR.asValOf[DFVector[T, Tuple1[D1]]]
       given DFVectorValFromDFValVector[
           T <: DFTypeAny,
           D1 <: Int,

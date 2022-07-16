@@ -67,7 +67,7 @@ end extension
 case class AESWord() extends Opaque(AESByte X 4)
 
 extension (lhs: AESWord <> VAL)
-  @targetName("AESWordAdd")
+  @targetName("addWord")
   def +(rhs: AESWord <> VAL): AESWord <> VAL =
     lhs.actual.elements.lazyZip(rhs.actual.elements).map(_ + _).as(AESWord)
 

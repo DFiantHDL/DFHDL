@@ -50,13 +50,15 @@ object DFOpaque:
     object Ops:
       extension [L](inline lhs: L)
         transparent inline def as[Comp <: AnyRef](tfeComp: Comp): Any = ${ asMacro[L, Comp]('lhs) }
+      private def asDFVector[T <: DFTypeAny](dfVals: Vector[DFValOf[T]])(using
+          DFC
+      ): DFValOf[DFVector[T, Tuple1[Int]]] =
+        val dfType = DFVector(dfVals.head.dfType, Tuple1(dfVals.length))
+        DFVal.Func(dfType, DFVal.Func.Op.++, dfVals.toList)(using dfc.anonymize)
       extension [T <: DFTypeAny](lhs: Vector[DFValOf[T]])
-        transparent inline def as[Comp <: AnyRef, D <: Int](
+        transparent inline def as[Comp <: AnyRef](
             tfeComp: Comp
-        )(using
-            cc: CaseClass[Comp, Abstract]
-        ): DFValOf[DFOpaque[cc.CC]] = // Frontend[DFVector[T, Tuple1[_ <: Int]]]
-          ???
+        ): Any = ${ asMacro[DFValOf[DFVector[T, Tuple1[Int]]], Comp]('{ asDFVector(lhs) }) }
       private def asMacro[L, Comp <: AnyRef](
           lhs: Expr[L]
       )(using Quotes, Type[L], Type[Comp]): Expr[Any] =
@@ -101,6 +103,7 @@ object DFOpaque:
                   compiletime.summonInline[DFToken.TC[tType.Underlying, lhsType.Underlying]]
                 Token.forced[tfeType.Underlying]($tfe, tc($tExpr, $lhsExpr))
               }
+            end if
           case _ =>
             report.errorAndAbort("Not a valid opaque type companion.")
         end match
