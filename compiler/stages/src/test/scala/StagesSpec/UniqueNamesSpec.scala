@@ -51,7 +51,7 @@ class UniqueNamesSpec extends StageSpec:
     enum MyEnumLcl extends Encode:
       case Bar, Baz
     case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends Struct
-    object MyByte extends Opaque(Bits(8))
+    case class MyByte() extends Opaque(Bits(8))
     val x     = MyEnumGlbl <> IN
     val y     = MyEnumLcl  <> VAR init MyEnumLcl.Bar
     val pixel = Pixel      <> VAR init Pixel(0, 0)
@@ -71,7 +71,7 @@ class UniqueNamesSpec extends StageSpec:
          |  case Baz extends MyEnumGlbl(d"1'1")
          |
          |class SomeEnums extends DFDesign:
-         |  object MyByte extends Opaque(Bits(8))
+         |  case class MyByte() extends Opaque(Bits(8))
          |  enum MyEnumLcl_0(val value: UInt[1] <> TOKEN) extends Encode.Manual(1):
          |    case Baz extends MyEnumLcl_0(d"1'0")
          |    case Bar extends MyEnumLcl_0(d"1'1")

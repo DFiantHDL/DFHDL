@@ -6,8 +6,7 @@ import scala.annotation.targetName
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Byte
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-object AESByte extends Opaque(Byte)
-type AESByte = AESByte.type
+case class AESByte() extends Opaque(Byte)
 
 //Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
 //routine to perform a one-for-one substitution of a byte value.
@@ -65,21 +64,20 @@ end extension
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Word
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-object AESWord extends Opaque(AESByte X 4)
-type AESWord = AESWord.type
-
-extension (lhs: AESWord <> VAL)
-  @targetName("AESWordAdd")
-  def +(rhs: AESWord <> VAL): AESWord <> VAL =
-    lhs.actual.elements.lazyZip(rhs.actual.elements).map(_ + _).as(AESWord)
-
-  // Function used in the Key Expansion routine that takes a four-byte input word and applies
-  // an S-box to each of the four bytes to produce an output word.
-  def subWord: AESWord <> VAL =
-    lhs.actual.elements.map(_.sbox).as(AESWord)
-
-  // Function used in the Key Expansion routine that takes a four-byte word and performs a cyclic permutation.
-  def rotWord: AESWord <> VAL =
-    val elms = lhs.actual.elements
-    (elms.drop(1) :+ elms.head).as(AESWord)
-end extension
+//case class AESWord() extends Opaque(AESByte X 4)
+//
+//extension (lhs: AESWord <> VAL)
+//  @targetName("AESWordAdd")
+//  def +(rhs: AESWord <> VAL): AESWord <> VAL =
+//    lhs.actual.elements.lazyZip(rhs.actual.elements).map(_ + _).as(AESWord)
+//
+//  // Function used in the Key Expansion routine that takes a four-byte input word and applies
+//  // an S-box to each of the four bytes to produce an output word.
+//  def subWord: AESWord <> VAL =
+//    lhs.actual.elements.map(_.sbox).as(AESWord)
+//
+//  // Function used in the Key Expansion routine that takes a four-byte word and performs a cyclic permutation.
+//  def rotWord: AESWord <> VAL =
+//    val elms = lhs.actual.elements
+//    (elms.drop(1) :+ elms.head).as(AESWord)
+//end extension

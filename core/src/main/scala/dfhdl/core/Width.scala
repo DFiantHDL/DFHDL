@@ -74,7 +74,6 @@ object Width:
               TypeRepr.of[t].calcWidth
             case '[DFTuple[t]] =>
               val AppliedType(tplSym, args) = TypeRepr.of[t]: @unchecked
-              println(args.map(_.show))
               AppliedType(
                 tplSym,
                 args.collect { case AppliedType(_, dfTpe :: _) => dfTpe }

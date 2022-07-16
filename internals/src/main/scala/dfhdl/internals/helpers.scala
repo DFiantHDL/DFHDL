@@ -54,6 +54,17 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
     tpe.asType match
       case '[ValueOf[t]] => TypeRepr.of[t]
       case _             => tpe
+  // gets the class type from its companion object type
+  def getCompanionClassTpe: quotes.reflect.TypeRepr =
+    import quotes.reflect.*
+    val compPrefix = tpe match
+      case TermRef(pre, _) => pre
+      case _               => report.errorAndAbort("Case class companion must be a term ref")
+    val clsSym = tpe.typeSymbol.companionClass
+    if !clsSym.paramSymss.forall(_.headOption.forall(_.isTerm)) then
+      report.errorAndAbort("Case class with type parameters are not supported")
+    compPrefix.select(clsSym)
+
 end extension
 
 extension (using quotes: Quotes)(lhs: quotes.reflect.TypeRepr)
@@ -154,11 +165,30 @@ end ValueOfTuple
 type <:![T <: UB, UB] <: UB = T match
   case UB => T
 
+//evidence of class T which has no arguments and no type arguments
+trait ClassEv[T]:
+  val value: T
+object ClassEv:
+  inline given [T]: ClassEv[T] = ${ macroImpl[T] }
+  def macroImpl[T](using Quotes, Type[T]): Expr[ClassEv[T]] =
+    import quotes.reflect.*
+    val tpe = TypeRepr.of[T]
+    val sym = tpe.typeSymbol
+    val valueExpr = New(tpe.asTypeTree)
+      .select(sym.primaryConstructor)
+      .appliedToNone
+      .asExprOf[T]
+    '{
+      new ClassEv[T]:
+        val value: T = $valueExpr
+    }
+
 // gets the case class from a companion object reference
 trait CaseClass[Companion <: AnyRef, UB <: Product]:
   type CC <: UB
 
 object CaseClass:
+  type Aux[Comp <: AnyRef, UB <: Product, CC0 <: UB] = CaseClass[Comp, UB] { type CC = CC0 }
   transparent inline given [Comp <: AnyRef, UB <: Product]: CaseClass[Comp, UB] = ${
     macroImpl[Comp, UB]
   }
@@ -168,14 +198,7 @@ object CaseClass:
       Type[UB]
   ): Expr[CaseClass[Comp, UB]] =
     import quotes.reflect.*
-    val compObjTpe = TypeRepr.of[Comp]
-    val compPrefix = compObjTpe match
-      case TermRef(pre, _) => pre
-      case _               => report.errorAndAbort("Case class companion must be a term ref")
-    val clsSym = compObjTpe.typeSymbol.companionClass
-    if !clsSym.paramSymss.forall(_.headOption.forall(_.isTerm)) then
-      report.errorAndAbort("Case class with type parameters are not supported")
-    val clsTpe = compPrefix.select(clsSym)
+    val clsTpe = TypeRepr.of[Comp].getCompanionClassTpe
     clsTpe.asType match
       case '[t & UB] =>
         type Case = t & UB
