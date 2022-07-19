@@ -8,7 +8,10 @@ class DFOpaqueSpec extends DFSpec:
   val o1 = o1u8 <> VAR init 1.as(o1u8)
   val o2 = o2u8 <> VAR
   case class gogo() extends Opaque((UInt(8), Bit))
-  case class arr() extends Opaque(UInt(8) X 4)
+  abstract class arrAbs extends Opaque(UInt(8) X 4)
+  case class arr() extends arrAbs
+  extension (a: arrAbs <> VAL) def booAbs: Unit = {}
+  extension (a: arr <> VAL) def boo: Unit = {}
   assertCodeString(
     """|val o11 = o1u8 <> VAR init d"8'1".as(o1u8)
        |val a = arr <> VAR init Vector(d"8'0", d"8'0", d"8'0", d"8'0").as(arr)
@@ -26,6 +29,8 @@ class DFOpaqueSpec extends DFSpec:
   ) {
     val o11 = o1u8 <> VAR init 1.as(o1u8)
     val a = arr <> VAR init all(0).as(arr)
+    a.booAbs
+    a.boo
     val u8 = UInt(8) <> VAR
     val momo = (u8, 1).as(gogo)
     val q = o1 == o1
