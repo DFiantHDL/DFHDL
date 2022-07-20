@@ -217,6 +217,22 @@ object DFVal:
       tc: TC[T, es.Out],
       dfc: DFC
   ): DFValOf[T] = trydf { tc(dfType, es(from)) }
+
+  // opaque values need special conversion that does not try to summon the opaque dftype
+  // because it can be abstract in extension methods that are applied generically on an abstract
+  // opaque super-type. E.g.:
+  // ```
+  // abstract class MyAbsOpaque extends Opaque
+  // case class MyOpaque extends MyAbsOpaque
+  // extension (a : MyAbsOpaque <> VAL) def foo : Unit = {}
+  // val a = MyOpaque <> VAR
+  // a.foo //here we currently access `foo` through conversion to MyAbsOpaque
+  //       //because DFOpaque is not completely covariant due to bug
+  //       //https://github.com/lampepfl/dotty/issues/15704
+  implicit def DFOpaqueValConversion[T <: DFOpaque.Abstract, R <: DFOpaque.Abstract](
+      from: DFValOf[DFOpaque[R]]
+  )(using DFC, R <:< T): DFValOf[DFOpaque[T]] = from.asInstanceOf[DFValOf[DFOpaque[T]]]
+
   implicit def DFValConversion[T <: DFTypeAny, R](
       from: R
   )(using dfType: T)(using
@@ -487,6 +503,7 @@ object DFVal:
     export DFVector.Val.TC.given
     export DFTuple.Val.TC.given
     export DFStruct.Val.TC.given
+    export DFOpaque.Val.TC.given
   end TC
 
   trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:

@@ -174,6 +174,7 @@ object ClassEv:
     import quotes.reflect.*
     val tpe = TypeRepr.of[T]
     val sym = tpe.typeSymbol
+    if (sym.flags.is(Flags.Abstract)) report.errorAndAbort(s"Class `${sym.name}` is abstract.")
     val valueExpr = New(tpe.asTypeTree)
       .select(sym.primaryConstructor)
       .appliedToNone
@@ -182,6 +183,7 @@ object ClassEv:
       new ClassEv[T]:
         val value: T = $valueExpr
     }
+end ClassEv
 
 // gets the case class from a companion object reference
 trait CaseClass[Companion <: AnyRef, UB <: Product]:

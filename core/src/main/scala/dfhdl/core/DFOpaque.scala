@@ -38,6 +38,15 @@ object DFOpaque:
     ): Token[TFE] =
       ir.DFToken(DFOpaque(tfe).asIR)(token.asIR.data).asTokenOf[DFOpaque[TFE]]
 
+    object TC:
+      import DFToken.TC
+      given DFOpaqueTokenFromDFOpaqueToken[
+          T <: Abstract,
+          RT <: Abstract
+      ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], DFOpaque[RT] <> TOKEN] with
+        def conv(dfType: DFOpaque[T], value: DFOpaque[RT] <> TOKEN): Out =
+          value.asIR.asTokenOf[DFOpaque[T]]
+
     object Ops:
       extension [T <: DFTypeAny, TFE <: Frontend[T]](
           lhs: DFOpaque[TFE] <> TOKEN
@@ -47,6 +56,15 @@ object DFOpaque:
   end Token
 
   object Val:
+    object TC:
+      import DFVal.TC
+      given DFOpaqueValFromDFOpaqueVal[
+          T <: Abstract,
+          RT <: Abstract
+      ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], DFOpaque[RT] <> VAL] with
+        def conv(dfType: DFOpaque[T], value: DFOpaque[RT] <> VAL): Out =
+          value.asIR.asValOf[DFOpaque[T]]
+
     object Ops:
       extension [L](inline lhs: L)
         transparent inline def as[Comp <: AnyRef](tfeComp: Comp): Any = ${ asMacro[L, Comp]('lhs) }

@@ -1,6 +1,8 @@
 package AES
 
-import dfhdl.*
+import dfhdl.{apply => _, *}
+export dfhdl.apply
+
 import scala.annotation.targetName
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,25 +43,25 @@ extension (lhs: AESByte <> VAL)
     if (lhs.actual(7)) (shifted ^ h"1b").as(AESByte)
     else shifted.as(AESByte)
 
-  // In the polynomial representation, multiplication in GF(2^8) corresponds with the multiplication of
-  // polynomials modulo an irreducible polynomial of degree 8. A polynomial is irreducible if its only
-  // divisors are one and itself. For the AES algorithm, this irreducible polynomial is
-  // m(x) = x^8 + x^4 + x^3 + x + 1, or {01}{1b} in hexadecimal notation.
-  def *(rhs: AESByte <> TOKEN): AESByte <> VAL =
-    val (ret, _) =
-      (0 until 8).foldLeft[(AESByte <> VAL, AESByte <> VAL)]((all(0).as(AESByte), lhs)) {
-        case ((p, a), i) if rhs.bits(i) => (p + a, a.xtime)
-        case ((p, a), _)                => (p, a.xtime)
-      }
-    ret
-
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
   def sbox: AESByte <> VAL =
     val lookup = AESByte X sboxLookupTable.length <> VAR init sboxLookupTable
     lookup(lhs.actual)
-
 end extension
+
+extension (lhs: Byte <> TOKEN)
+  // In the polynomial representation, multiplication in GF(2^8) corresponds with the multiplication of
+  // polynomials modulo an irreducible polynomial of degree 8. A polynomial is irreducible if its only
+  // divisors are one and itself. For the AES algorithm, this irreducible polynomial is
+  // m(x) = x^8 + x^4 + x^3 + x + 1, or {01}{1b} in hexadecimal notation.
+  def *(rhs: AESByte <> VAL): AESByte <> VAL =
+    val (ret, _) =
+      (0 until 8).foldLeft[(AESByte <> VAL, AESByte <> VAL)]((all(0).as(AESByte), rhs)) {
+        case ((p, a), i) if lhs.bits(i) => (p + a, a.xtime)
+        case ((p, a), _)                => (p, a.xtime)
+      }
+    ret
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Word
@@ -80,4 +82,68 @@ extension (lhs: AESWord <> VAL)
   def rotWord: AESWord <> VAL =
     val elms = lhs.actual.elements
     (elms.drop(1) :+ elms.head).as(AESWord)
+end extension
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// AES Matrix Data Structure
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+abstract class AESMatrix[C <: Int with Singleton](val colNum: C) extends Opaque(AESWord X colNum)
+extension [C <: Int with Singleton](lhs: AESMatrix[C] <> VAL)
+  def apply(colIdx: Int): AESWord <> VAL = lhs.actual(colIdx)
+  def apply(rowIdx: Int, colIdx: Int): AESByte <> VAL = lhs.actual(colIdx).actual(rowIdx)
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// AES Dimensions & Data Structures
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//Nb = Number of columns (32-bit words) comprising the State. For this standard, Nb = 4
+final val Nb = 4
+//Nk = Number of 32-bit words comprising the Cipher Key. For this standard, Nk = 4, 6, or 8.
+final val Nk = 4
+//Nr = Number of rounds, which is a function of Nk and Nb (which is fixed). For this standard, Nr = 10, 12, or 14.
+final val Nr = 10
+
+case class AESState() extends AESMatrix(Nb)
+case class AESRoundKey() extends AESMatrix(Nb)
+case class AESData() extends AESMatrix(Nb)
+case class AESKey() extends AESMatrix(Nk)
+case class AESKeySchedule() extends AESMatrix(Nb * (Nr + 1))
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// AES State
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+extension (lhs: AESState <> VAL)
+  // Transformation in the Cipher that processes the State using a non-linear byte substitution
+  // table (S-box) that operates on each of the State bytes independently.
+  def subBytes: AESState <> VAL =
+    Vector
+      .tabulate(Nb, 4)((c, r) => lhs(r, c).sbox)
+      .map(_.as(AESWord)).as(AESState)
+
+  private def shift(r: Int, Nb: Int): Int =
+    r
+
+  // Transformation in the Cipher that processes the State by cyclically shifting the last three rows of
+  // the State by different offsets.
+  def shiftRows: AESState <> VAL =
+    Vector
+      .tabulate(Nb, 4)((c, r) => lhs(r, (c + shift(r, Nb)) % Nb))
+      .map(_.as(AESWord)).as(AESState)
+
+  // Transformation in the Cipher that takes all of the columns of the State and mixes their data
+  // (independently of one another) to produce new columns.
+  def mixColumns: AESState <> VAL =
+    Vector.tabulate(Nb)(c =>
+      Vector(
+        h"02" * lhs(0, c) + h"03" * lhs(1, c) + h"01" * lhs(2, c) + h"01" * lhs(3, c),
+        h"01" * lhs(0, c) + h"02" * lhs(1, c) + h"03" * lhs(2, c) + h"01" * lhs(3, c),
+        h"01" * lhs(0, c) + h"01" * lhs(1, c) + h"02" * lhs(2, c) + h"03" * lhs(3, c),
+        h"03" * lhs(0, c) + h"01" * lhs(1, c) + h"01" * lhs(2, c) + h"02" * lhs(3, c)
+      ).as(AESWord)
+    ).as(AESState)
+
+  // Transformation in the Cipher and Inverse Cipher in which a Round Key is added to the State using an XOR
+  // operation. The length of a Round Key equals the size of the State (i.e., for Nb = 4, the Round Key length
+  // equals 128 bits/16 bytes).
+  def addRoundKey(key: AESRoundKey <> VAL): AESState <> VAL =
+    (lhs.bits ^ key.bits).as(AESState)
 end extension
