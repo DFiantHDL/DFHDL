@@ -147,3 +147,48 @@ extension (lhs: AESState <> VAL)
   def addRoundKey(key: AESRoundKey <> VAL): AESState <> VAL =
     (lhs.bits ^ key.bits).as(AESState)
 end extension
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// AES Key
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// The round constant word array.
+private val Rcon = Vector(
+  "00000000", "01000000", "02000000", "04000000", "08000000", "10000000", "20000000", "40000000",
+  "80000000", "1B000000", "36000000"
+).map(word => h"$word".as(AESWord))
+
+extension (lhs: AESKey <> VAL)
+  def keyExpansion: AESKeySchedule <> VAL =
+    val keySchedule = AESKeySchedule <> VAR
+    Vector.tabulate(Nb * (Nr + 1))(i =>
+      if (i < Nk) lhs(i)
+      else
+        val temp: AESWord <> VAL =
+          if (i % Nk == 0) keySchedule(i - 1).rotWord.subWord + Rcon(i / Nk)
+          else if ((Nk > 6) && (i % Nk == 4)) keySchedule(i - 1).subWord
+          else keySchedule(i - 1)
+        keySchedule(i - Nk) + temp
+    ).as(AESKeySchedule)
+  end keyExpansion
+end extension
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// AES Keyschedule
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+extension (lhs: AESKeySchedule <> VAL)
+  def roundKey(round: Int): AESRoundKey <> VAL =
+    Vector.tabulate(Nb)(b => lhs(round * Nb + b)).as(AESRoundKey)
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// Cipher
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+def cipher(data: AESData <> VAL, key: AESKey <> VAL): AESData <> VAL =
+  val keySchedule = key.keyExpansion
+  val state = (0 to Nr).foldLeft[AESState <> VAL](data.actual.as(AESState))((state, round) =>
+    val roundVal =
+      if (round == 0) state
+      else if (round < Nr) state.subBytes.shiftRows.mixColumns
+      else state.subBytes.shiftRows
+    roundVal.addRoundKey(keySchedule.roundKey(round))
+  )
+  state.actual.as(AESData)
