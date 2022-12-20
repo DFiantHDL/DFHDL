@@ -31,8 +31,7 @@ object hdl:
   type DFC = core.DFC
   val DFC = core.DFC
   export core.dfc
-  type Inlined[T] = internals.Inlined[T]
-  val Inlined = internals.Inlined
+  export internals.Inlined
 
   type DFType = core.DFTypeAny
   lazy val Bit = core.DFBit

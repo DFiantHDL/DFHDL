@@ -2,10 +2,10 @@ package dfhdl.internals
 import scala.quoted.*
 import compiletime.ops.{int, string, boolean, any}
 import compiletime.{constValue, constValueOpt}
-export int.{+ => _, ^ => _, *}
+export int.{ToString => _, + => _, ^ => _, *}
 export string.{+ => _, *}
 export boolean.{^ => _, *}
-export any.{ToString => _, *}
+export any.*
 type +[L, R] = (L, R) match
   case (Int, Int)       => int.+[L, R]
   case (String, String) => string.+[L, R]
@@ -19,14 +19,6 @@ type ITE[I <: Boolean, T, E] <: T | E = I match
   case false => E
 
 import scala.annotation.targetName
-
-protected object std:
-  type Int = scala.Int
-  type Long = scala.Long
-  type Float = scala.Float
-  type Double = scala.Double
-  type String = java.lang.String
-  type Boolean = scala.Boolean
 
 type XInt = Int with Singleton
 type XLong = Long with Singleton
@@ -57,53 +49,53 @@ object Inlined:
   inline def forced[T](value: Any): Inlined[T] = value.asInstanceOf[T]
   inline def apply[T <: Singleton](value: T): Inlined[T] = value
 
-  extension [T <: std.Int](lhs: Inlined[T])
-    inline def widen: Inlined[std.Int] = forced[std.Int](lhs.value)
-    inline def +[R <: std.Int](rhs: Inlined[R]) =
+  extension [T <: Int](lhs: Inlined[T])
+    inline def widen: Inlined[Int] = forced[Int](lhs.value)
+    inline def +[R <: Int](rhs: Inlined[R]) =
       forced[int.+[T, R]](lhs.value + rhs.value)
-    inline def -[R <: std.Int](rhs: Inlined[R]) =
+    inline def -[R <: Int](rhs: Inlined[R]) =
       forced[int.-[T, R]](lhs.value - rhs.value)
-    inline def *[R <: std.Int](rhs: Inlined[R]) =
+    inline def *[R <: Int](rhs: Inlined[R]) =
       forced[int.*[T, R]](lhs.value * rhs.value)
-    inline def >[R <: std.Int](rhs: Inlined[R]) =
+    inline def >[R <: Int](rhs: Inlined[R]) =
       forced[int.>[T, R]](lhs.value > rhs.value)
-    inline def <[R <: std.Int](rhs: Inlined[R]) =
+    inline def <[R <: Int](rhs: Inlined[R]) =
       forced[int.<[T, R]](lhs.value < rhs.value)
-    inline def >=[R <: std.Int](rhs: Inlined[R]) =
+    inline def >=[R <: Int](rhs: Inlined[R]) =
       forced[int.>=[T, R]](lhs.value >= rhs.value)
-    inline def <=[R <: std.Int](rhs: Inlined[R]) =
+    inline def <=[R <: Int](rhs: Inlined[R]) =
       forced[int.<=[T, R]](lhs.value <= rhs.value)
-    inline def ==[R <: std.Int](rhs: Inlined[R]) =
+    inline def ==[R <: Int](rhs: Inlined[R]) =
       forced[any.==[T, R]](lhs.value == rhs.value)
-    inline def !=[R <: std.Int](rhs: Inlined[R]) =
+    inline def !=[R <: Int](rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
-    inline def max[R <: std.Int](rhs: Inlined[R]) =
+    inline def max[R <: Int](rhs: Inlined[R]) =
       forced[int.Max[T, R]](math.max(lhs.value, rhs.value))
-    inline def min[R <: std.Int](rhs: Inlined[R]) =
+    inline def min[R <: Int](rhs: Inlined[R]) =
       forced[int.Min[T, R]](math.min(lhs.value, rhs.value))
   end extension
 
-  extension [T <: std.String](lhs: Inlined[T])
-    inline def widen: Inlined[std.String] = forced[std.String](lhs.value)
-    inline def +[R <: std.String](rhs: Inlined[R]) =
+  extension [T <: String](lhs: Inlined[T])
+    inline def widen: Inlined[String] = forced[String](lhs.value)
+    inline def +[R <: String](rhs: Inlined[R]) =
       forced[string.+[T, R]](lhs.value + rhs.value)
-    inline def ==[R <: std.String](rhs: Inlined[R]) =
+    inline def ==[R <: String](rhs: Inlined[R]) =
       forced[any.==[T, R]](lhs.value == rhs.value)
-    inline def !=[R <: std.String](rhs: Inlined[R]) =
+    inline def !=[R <: String](rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
   end extension
 
-  extension [T <: std.Boolean](lhs: Inlined[T])
-    inline def widen: Inlined[std.Boolean] = forced[std.Boolean](lhs.value)
-    inline def ==[R <: std.Boolean](rhs: Inlined[R]) =
+  extension [T <: Boolean](lhs: Inlined[T])
+    inline def widen: Inlined[Boolean] = forced[Boolean](lhs.value)
+    inline def ==[R <: Boolean](rhs: Inlined[R]) =
       forced[any.==[T, R]](lhs.value == rhs.value)
-    inline def !=[R <: std.Boolean](rhs: Inlined[R]) =
+    inline def !=[R <: Boolean](rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
   end extension
 
   inline def require(
-      inline cond: std.Boolean,
-      inline msg: std.String
+      inline cond: Boolean,
+      inline msg: String
   ): Unit = ${ requireMacro('cond, 'msg) }
 end Inlined
 

@@ -31,7 +31,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var setMetaSym: Symbol = _
   var dfTokenSym: Symbol = _
   var dfValSym: Symbol = _
-  var exactApplySym: Symbol = _
   val treeOwnerMap = mutable.Map.empty[String, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   var clsStack = List.empty[TypeDef]
@@ -267,9 +266,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 //    debug("pos--->  ", tree.srcPos.show)
 //    debug(tree.show)
     tree match
-      // special casing `Exact.apply` implicit conversion
-      case apply: Apply if apply.symbol == exactApplySym =>
-        inlinePos(apply.args.head, inlinedTree)
       case apply: Apply =>
         if (!inlinedOwnerStack.contains(apply))
           debug("INLINE:")
@@ -315,7 +311,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     dfValSym = requiredClass("dfhdl.core.DFVal")
     dfTokenSym = requiredClass("dfhdl.core.DFToken")
-    exactApplySym = requiredMethod("dfhdl.internals.Exact.apply")
     treeOwnerMap.clear()
     contextDefs.clear()
     inlinedOwnerStack.clear()

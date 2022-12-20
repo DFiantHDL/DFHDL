@@ -126,11 +126,11 @@ object DFTuple:
           V <: NonEmptyTuple
       ](using
           zipper: TCZipper[T, V, DFTokenAny, TC]
-      ): TC[DFTuple[T], ValueOf[V]] with
-        def conv(dfType: DFTuple[T], value: ValueOf[V]): Out =
+      ): TC[DFTuple[T], V] with
+        def conv(dfType: DFTuple[T], value: V): Out =
           DFTuple.Token[T](
             dfType,
-            zipper(dfType.fieldList, value.value.toList).map(_.asIR.data)
+            zipper(dfType.fieldList, value.toList).map(_.asIR.data)
           )
     end TC
 
@@ -143,11 +143,11 @@ object DFTuple:
           C <: Boolean
       ](using
           zipper: TCZipper[T, V, DFTokenAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]]
-      ): Compare[DFTuple[T], ValueOf[V], Op, C] with
-        def conv(dfType: DFTuple[T], value: ValueOf[V]): Out =
+      ): Compare[DFTuple[T], V, Op, C] with
+        def conv(dfType: DFTuple[T], value: V): Out =
           DFTuple.Token[T](
             dfType,
-            zipper(dfType.fieldList, value.value.toList).map(_.asIR.data)
+            zipper(dfType.fieldList, value.toList).map(_.asIR.data)
           )
     end Compare
 
@@ -215,12 +215,11 @@ object DFTuple:
       ](using
           zipper: TCZipper[T, R, DFValAny, TC],
           dfc: DFC
-      ): TC[DFTuple[T], ValueOf[R]] with
-        def conv(dfType: DFTuple[T], value: ValueOf[R]): Out =
+      ): TC[DFTuple[T], R] with
+        def conv(dfType: DFTuple[T], value: R): Out =
           val dfVals =
-            zipper(dfType.fieldList, value.value.toList)
+            zipper(dfType.fieldList, value.toList)
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
-
     end TC
 
     object Compare:
@@ -233,10 +232,10 @@ object DFTuple:
       ](using
           zipper: TCZipper[T, R, DFValAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]],
           dfc: DFC
-      ): Compare[DFTuple[T], ValueOf[R], Op, C] with
-        def conv(dfType: DFTuple[T], value: ValueOf[R]): Out =
+      ): Compare[DFTuple[T], R, Op, C] with
+        def conv(dfType: DFTuple[T], value: R): Out =
           val dfVals =
-            zipper(dfType.fieldList, value.value.toList)
+            zipper(dfType.fieldList, value.toList)
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
     end Compare
 

@@ -61,7 +61,6 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFValAny]   => tpe.showDFVal
       case '[DFTokenAny] => tpe.showDFToken
       case '[DFTypeAny]  => tpe.showDFType
-      case '[ValueOf[t]] => TypeRepr.of[t].showType
       case '[Tuple] =>
         tpe.showTuple(_.showType).mkStringBrackets
       case _ => tpe.show

@@ -163,8 +163,6 @@ object Width:
     def calcValWidth(onlyTokens: Boolean): quotes.reflect.TypeRepr =
       import quotes.reflect.*
       dfTpe.asType match
-        case '[ValueOf[t]] =>
-          TypeRepr.of[t].calcValWidth(onlyTokens)
         case '[DFVal[t, m]] if !onlyTokens =>
           TypeRepr.of[t].calcWidth
         case '[DFToken[t]] =>

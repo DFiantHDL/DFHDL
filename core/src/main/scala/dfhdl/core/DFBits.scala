@@ -124,26 +124,24 @@ private object CompanionsDFBits:
     @implicitNotFound(
       "Argument of type ${R} is not a proper candidate for a Bits token."
     )
-    trait Candidate[-R]:
+    trait Candidate[R]:
       type OutW <: Int
       def apply(arg: R): Token[OutW]
     protected trait CandidateLP:
       protected inline val intErrMsg =
         "An integer value cannot be a candidate for a Bits type.\nTry explicitly using a decimal token via the `d\"<width>'<number>\"` string interpolation."
-      transparent inline given errorOnSingInt[R <: Int]: Candidate[ValueOf[R]] =
-        compiletime.error(intErrMsg)
-      transparent inline given errorOnInt: Candidate[Int] =
+      inline given errorOnInt[V <: Int]: Candidate[V] =
         compiletime.error(intErrMsg)
     object Candidate extends CandidateLP:
-      type Aux[-R, W <: Int] = Candidate[R] { type OutW = W }
-      transparent inline given fromDFBitsToken[W <: Int]: Candidate[Token[W]] =
-        new Candidate[Token[W]]:
+      type Aux[R, W <: Int] = Candidate[R] { type OutW = W }
+      transparent inline given fromDFBitsToken[W <: Int, R <: Token[W]]: Candidate[R] =
+        new Candidate[R]:
           type OutW = W
-          def apply(arg: Token[W]): Token[OutW] = arg
-      transparent inline given fromDFUIntToken[W <: Int]: Candidate[DFUInt.Token[W]] =
-        new Candidate[DFUInt.Token[W]]:
+          def apply(arg: R): Token[OutW] = arg
+      transparent inline given fromDFUIntToken[W <: Int, R <: DFUInt.Token[W]]: Candidate[R] =
+        new Candidate[R]:
           type OutW = W
-          def apply(arg: DFUInt.Token[W]): Token[OutW] =
+          def apply(arg: R): Token[OutW] =
             import DFToken.Ops.bits
             arg.bits
       transparent inline given fromDFBitCandidate[R, T <: DFBoolOrBit](using
@@ -156,8 +154,6 @@ private object CompanionsDFBits:
       private def valueToBits(value: Any): DFBits[Int] <> TOKEN =
         import DFBits.Token.Ops.++
         value match
-          case v: ValueOf[?] =>
-            valueToBits(v.value)
           case x: NonEmptyTuple =>
             x.toList
               .map(valueToBits)
@@ -172,21 +168,21 @@ private object CompanionsDFBits:
             tokenOut
         end match
       end valueToBits
-      transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[ValueOf[R]] = ${
-        DFBitsMacro[ValueOf[R]]
+      transparent inline given fromTuple[R <: NonEmptyTuple, V <: NonEmptyTuple]: Candidate[V] = ${
+        DFBitsMacro[V]
       }
-      def DFBitsMacro[R](using
+      def DFBitsMacro[V](using
           Quotes,
-          Type[R]
-      ): Expr[Candidate[R]] =
+          Type[V]
+      ): Expr[Candidate[V]] =
         import quotes.reflect.*
         import Width.*
-        val rTpe = TypeRepr.of[R]
+        val rTpe = TypeRepr.of[V]
         val wType = rTpe.calcValWidth(true).asTypeOf[Int]
         '{
-          new Candidate[R]:
+          new Candidate[V]:
             type OutW = wType.Underlying
-            def apply(value: R): DFToken[DFBits[OutW]] =
+            def apply(value: V): DFToken[DFBits[OutW]] =
               valueToBits(value).asIR.asTokenOf[DFBits[OutW]]
         }
       end DFBitsMacro
@@ -212,8 +208,9 @@ private object CompanionsDFBits:
           check(dfType.width, tokenArg.asIR.width)
           tokenArg.asInstanceOf[Out]
 
-      given DFBitsTokenFromSEV[W <: Int, T <: BitOrBool]: TC[DFBits[W], SameElementsVector[T]] with
-        def conv(dfType: DFBits[W], value: SameElementsVector[T]): Out =
+      given DFBitsTokenFromSEV[W <: Int, T <: BitOrBool, V <: SameElementsVector[T]]
+          : TC[DFBits[W], V] with
+        def conv(dfType: DFBits[W], value: V): Out =
           DFBits.Token(dfType.width, value)
     end TC
 
@@ -476,14 +473,12 @@ private object CompanionsDFBits:
           )
           tokenArg.asIR.asTokenOf[DFBits[LW]]
       end given
-      given [LW <: Int, Op <: FuncOp, C <: Boolean, T <: BitOrBool](using
+      given [LW <: Int, Op <: FuncOp, C <: Boolean, T <: BitOrBool, V <: SameElementsVector[T]](
+          using
           op: ValueOf[Op],
           castling: ValueOf[C]
-      ): Compare[DFBits[LW], SameElementsVector[T], Op, C] with
-        def conv(
-            dfType: DFBits[LW],
-            arg: SameElementsVector[T]
-        ): DFBits[LW] <> TOKEN =
+      ): Compare[DFBits[LW], V, Op, C] with
+        def conv(dfType: DFBits[LW], arg: V): DFBits[LW] <> TOKEN =
           Token(dfType.width, arg)
     end Compare
 
@@ -580,24 +575,24 @@ private object CompanionsDFBits:
   end Token
 
   object Val:
-    trait Candidate[-R]:
+    trait Candidate[R]:
       type OutW <: Int
       def apply(value: R)(using DFC): DFBits[OutW] <> VAL
     object Candidate:
-      given fromDFBits[W <: Int]: Candidate[DFBits[W] <> VAL] with
+      given fromDFBits[W <: Int, R <: DFBits[W] <> VAL]: Candidate[R] with
         type OutW = W
-        def apply(value: DFBits[W] <> VAL)(using DFC): DFBits[W] <> VAL =
+        def apply(value: R)(using DFC): DFBits[W] <> VAL =
           value
-      given fromDFUInt[W <: Int]: Candidate[DFUInt[W] <> VAL] with
+      given fromDFUInt[W <: Int, R <: DFUInt[W] <> VAL]: Candidate[R] with
         type OutW = W
-        def apply(value: DFUInt[W] <> VAL)(using DFC): DFBits[W] <> VAL =
+        def apply(value: R)(using DFC): DFBits[W] <> VAL =
           import DFVal.Ops.bits
           value.bits
       inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
           "Cannot apply an enum entry value to a bits variable."
         )
-      inline given errDFSInt[W <: Int]: Candidate[DFSInt[W] <> VAL] =
+      inline given errDFSInt[W <: Int, R <: DFSInt[W] <> VAL]: Candidate[R] =
         compiletime.error(
           "Cannot apply a signed value to a bits variable.\nConsider applying `.bits` conversion to resolve this issue."
         )
@@ -612,8 +607,6 @@ private object CompanionsDFBits:
         import DFBits.Val.Ops.concatBits
         given dfcAnon: DFC = dfc.anonymize
         value match
-          case v: ValueOf[?] =>
-            valueToBits(v.value)
           case x: NonEmptyTuple =>
             x.toList.map(valueToBits).concatBits
           case i: Int =>
@@ -636,8 +629,8 @@ private object CompanionsDFBits:
                   .asValOf[DFBits[Int]]
         end match
       end valueToBits
-      transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[ValueOf[R]] = ${
-        DFBitsMacro[ValueOf[R]]
+      transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[R] = ${
+        DFBitsMacro[R]
       }
       def DFBitsMacro[R](using
           Quotes,
@@ -675,21 +668,18 @@ private object CompanionsDFBits:
           ]
       given DFBitsFromCandidate[
           LW <: Int,
-          R
-      ](using dfc: DFC, candidate: Candidate[R])(using
+          V
+      ](using dfc: DFC, candidate: Candidate[V])(using
           check: `LW == RW`.Check[LW, candidate.OutW]
-      ): TC[DFBits[LW], R] with
-        def conv(dfType: DFBits[LW], value: R): DFValOf[DFBits[LW]] =
+      ): TC[DFBits[LW], V] with
+        def conv(dfType: DFBits[LW], value: V): DFValOf[DFBits[LW]] =
           val dfVal = candidate(value)
           check(dfType.width, dfVal.width.value)
           dfVal.asIR.asValOf[DFBits[LW]]
-      given DFBitsFromSEV[LW <: Int, T <: BitOrBool](using
+      given DFBitsFromSEV[LW <: Int, T <: BitOrBool, V <: SameElementsVector[T]](using
           dfc: DFC
-      ): TC[DFBits[LW], SameElementsVector[T]] with
-        def conv(
-            dfType: DFBits[LW],
-            value: SameElementsVector[T]
-        ): DFValOf[DFBits[LW]] =
+      ): TC[DFBits[LW], V] with
+        def conv(dfType: DFBits[LW], value: V): DFValOf[DFBits[LW]] =
           DFVal.Const(Token(dfType.width, value))
     end TC
 
@@ -711,16 +701,14 @@ private object CompanionsDFBits:
           LW <: Int,
           Op <: FuncOp,
           C <: Boolean,
-          T <: BitOrBool
+          T <: BitOrBool,
+          V <: SameElementsVector[T]
       ](using
           DFC,
           ValueOf[Op],
           ValueOf[C]
-      ): Compare[DFBits[LW], SameElementsVector[T], Op, C] with
-        def conv(
-            dfType: DFBits[LW],
-            arg: SameElementsVector[T]
-        ): DFBits[LW] <> VAL =
+      ): Compare[DFBits[LW], V, Op, C] with
+        def conv(dfType: DFBits[LW], arg: V): DFBits[LW] <> VAL =
           DFVal.Const(Token(dfType.width, arg))
       end DFBitsCompareSEV
     end Compare

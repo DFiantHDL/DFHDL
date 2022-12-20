@@ -449,17 +449,17 @@ object DFVal:
     end SelectField
   end Alias
 
-  trait TC[T <: DFTypeAny, -R] extends TCConv[T, R, DFValAny]:
+  trait TC[T <: DFTypeAny, R] extends TCConv[T, R, DFValAny]:
     type Out = DFValOf[T]
     final def apply(dfType: T, value: R): Out = conv(dfType, value)
 
   trait TCLP:
     // Accept any bubble value
-    given fromBubble[T <: DFTypeAny](using
-        tokenTC: DFToken.TC[T, Bubble],
+    given fromBubble[T <: DFTypeAny, V <: Bubble](using
+        tokenTC: DFToken.TC[T, V],
         dfc: DFC
-    ): TC[T, Bubble] with
-      def conv(dfType: T, value: Bubble): DFValOf[T] =
+    ): TC[T, V] with
+      def conv(dfType: T, value: V): DFValOf[T] =
         Const(tokenTC(dfType, value))
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
@@ -474,8 +474,8 @@ object DFVal:
             "`."
         )
       ]
-    given sameValType[T <: DFTypeAny](using DFC): TC[T, T <> VAL] with
-      def conv(dfType: T, value: T <> VAL): DFValOf[T] =
+    given sameValType[T <: DFTypeAny, V <: T <> VAL](using DFC): TC[T, V] with
+      def conv(dfType: T, value: V): DFValOf[T] =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
         require(
@@ -483,10 +483,10 @@ object DFVal:
           s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
         )
         value
-    given sameValAndTokenType[T <: DFTypeAny](using
+    given sameValAndTokenType[T <: DFTypeAny, V <: T <> TOKEN](using
         DFC
-    ): TC[T, T <> TOKEN] with
-      def conv(dfType: T, value: T <> TOKEN): DFValOf[T] =
+    ): TC[T, V] with
+      def conv(dfType: T, value: V): DFValOf[T] =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
         require(
@@ -506,7 +506,7 @@ object DFVal:
     export DFOpaque.Val.TC.given
   end TC
 
-  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
+  trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
     type Out = DFValOf[T]
     final protected def func(arg1: DFValAny, arg2: DFValAny)(using
         DFC,
@@ -542,12 +542,12 @@ object DFVal:
             "`."
         )
       ]
-    inline given sameValType[T <: DFTypeAny, Op <: FuncOp, C <: Boolean](using
+    inline given sameValType[T <: DFTypeAny, R <: T <> VAL, Op <: FuncOp, C <: Boolean](using
         DFC,
         ValueOf[Op],
         ValueOf[C]
-    ): Compare[T, T <> VAL, Op, C] with
-      def conv(dfType: T, arg: T <> VAL): DFValOf[T] =
+    ): Compare[T, R, Op, C] with
+      def conv(dfType: T, arg: R): DFValOf[T] =
         given Printer = DefaultPrinter(using dfc.getSet)
         require(
           dfType == arg.dfType,
@@ -556,14 +556,15 @@ object DFVal:
         arg
     inline given sameValAndTokenType[
         T <: DFTypeAny,
+        R <: T <> TOKEN,
         Op <: FuncOp,
         C <: Boolean
     ](using
         DFC,
         ValueOf[Op],
         ValueOf[C]
-    ): Compare[T, T <> TOKEN, Op, C] with
-      def conv(dfType: T, arg: T <> TOKEN): DFValOf[T] =
+    ): Compare[T, R, Op, C] with
+      def conv(dfType: T, arg: R): DFValOf[T] =
         given Printer = DefaultPrinter(using dfc.getSet)
         require(
           dfType == arg.dfType,

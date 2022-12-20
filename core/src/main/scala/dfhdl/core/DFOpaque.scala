@@ -42,9 +42,10 @@ object DFOpaque:
       import DFToken.TC
       given DFOpaqueTokenFromDFOpaqueToken[
           T <: Abstract,
-          RT <: Abstract
-      ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], DFOpaque[RT] <> TOKEN] with
-        def conv(dfType: DFOpaque[T], value: DFOpaque[RT] <> TOKEN): Out =
+          RT <: Abstract,
+          V <: DFOpaque[RT] <> TOKEN
+      ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], V] with
+        def conv(dfType: DFOpaque[T], value: V): Out =
           value.asIR.asTokenOf[DFOpaque[T]]
 
     object Ops:
@@ -60,9 +61,10 @@ object DFOpaque:
       import DFVal.TC
       given DFOpaqueValFromDFOpaqueVal[
           T <: Abstract,
-          RT <: Abstract
-      ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], DFOpaque[RT] <> VAL] with
-        def conv(dfType: DFOpaque[T], value: DFOpaque[RT] <> VAL): Out =
+          RT <: Abstract,
+          V <: DFOpaque[RT] <> VAL
+      ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], V] with
+        def conv(dfType: DFOpaque[T], value: V): Out =
           value.asIR.asValOf[DFOpaque[T]]
 
     object Ops:
@@ -99,8 +101,6 @@ object DFOpaque:
             def hasDFVal(tpe: TypeRepr): Boolean =
               tpe.asTypeOf[Any] match
                 case '[DFValAny] => true
-                case '[ValueOf[t]] =>
-                  hasDFVal(TypeRepr.of[t])
                 case '[NonEmptyTuple] =>
                   tpe.getTupleArgs.exists(hasDFVal)
                 case _ => false

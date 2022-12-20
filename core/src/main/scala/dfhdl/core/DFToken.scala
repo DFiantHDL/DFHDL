@@ -119,7 +119,7 @@ object DFToken:
   ) def data: Data = token.asIR.data.asInstanceOf[Data]
 
   @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
-  trait TC[T <: DFTypeAny, -V] extends TCConv[T, V, DFTokenAny]:
+  trait TC[T <: DFTypeAny, V] extends TCConv[T, V, DFTokenAny]:
     type Out = DFToken[T]
     final def apply(dfType: T, value: V): Out = conv(dfType, value)
 
@@ -137,8 +137,8 @@ object DFToken:
             "`."
         )
       ]
-    inline given sameTokenType[T <: DFTypeAny]: TC[T, T <> TOKEN] with
-      def conv(dfType: T, value: T <> TOKEN): Out =
+    inline given sameTokenType[T <: DFTypeAny, V <: T <> TOKEN]: TC[T, V] with
+      def conv(dfType: T, value: V): Out =
         require(dfType == value.dfType)
         value
   end TCLPLP
@@ -153,12 +153,12 @@ object DFToken:
     export DFStruct.Token.TC.given
     export DFOpaque.Token.TC.given
 
-    transparent inline given DFTokenFromBubble[T <: DFTypeAny]: TC[T, Bubble] =
-      (dfType: T, value: Bubble) => Bubble(dfType)
+    transparent inline given DFTokenFromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] =
+      (dfType: T, value: V) => Bubble(dfType)
   end TC
 
   @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
-  trait Compare[T <: DFTypeAny, -V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFTokenAny]:
+  trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFTokenAny]:
     type Out = DFToken[T]
     def apply(token: DFToken[T], arg: V)(using
         op: ValueOf[Op],
@@ -193,10 +193,10 @@ object DFToken:
             "`."
         )
       ]
-    inline given sameTokenType[T <: DFTypeAny, Op <: FuncOp, C <: Boolean](using
+    inline given sameTokenType[T <: DFTypeAny, V <: T <> TOKEN, Op <: FuncOp, C <: Boolean](using
         op: ValueOf[Op]
-    ): Compare[T, T <> TOKEN, Op, C] with
-      def conv(dfType: T, arg: T <> TOKEN): DFToken[T] = arg
+    ): Compare[T, V, Op, C] with
+      def conv(dfType: T, arg: V): DFToken[T] = arg
   end CompareLPLP
   trait CompareLP extends CompareLPLP
   object Compare extends CompareLP:

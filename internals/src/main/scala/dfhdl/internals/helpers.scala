@@ -49,11 +49,6 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
     tpe.asType match
       case '[t] =>
         TypeTree.of[t]
-  def stripValueOf: quotes.reflect.TypeRepr =
-    import quotes.reflect.*
-    tpe.asType match
-      case '[ValueOf[t]] => TypeRepr.of[t]
-      case _             => tpe
   // gets the class type from its companion object type
   def getCompanionClassTpe: quotes.reflect.TypeRepr =
     import quotes.reflect.*

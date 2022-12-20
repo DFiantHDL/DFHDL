@@ -124,15 +124,11 @@ object DFType:
     end extension
   end Ops
 
-  trait TC[-T]:
+  trait TC[T]:
     type Type <: DFTypeAny
     def apply(t: T): Type
   trait TCLP:
-    transparent inline given errorDMZ[
-        T
-    ](using
-        t: ShowType[T]
-    ): TC[T] =
+    transparent inline given errorDMZ[T](using t: ShowType[T]): TC[T] =
       Error.call[
         (
             "Dataflow type cannot be constructed from the type `",

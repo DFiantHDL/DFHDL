@@ -37,12 +37,13 @@ object Exactly:
           )
       case _ => // do nothing
     end match
-    val tpe = valueTerm.tpe.widen.asTypeOf[Any]
+
+    val tpe = valueTerm.tpe match
+      case c: ConstantType => c.asTypeOf[Any]
+      case t               => t.widen.asTypeOf[Any]
     '{ Exact[tpe.Underlying](${ valueTerm.asExpr }) }
   end fromValueMacro
 
-  given toValueSing[T]: Conversion[Exact[ValueOf[T]], T] =
-    precise => precise.value.value
   given toValue[T]: Conversion[Exact[T], T] = precise => precise.value
 end Exactly
 
@@ -51,31 +52,14 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
     import quotes.reflect.*
     term match
       case Inlined(_, _, term) => term.exactTerm
-      case Literal(const) =>
-        val constTpe = ConstantType(const).asTypeOf[Any]
-        val expr =
-          '{
-            ValueOf[constTpe.Underlying](${ term.asExpr })
-          }
-        expr.asTerm.underlyingArgument
+      case Literal(const) => term
       case t @ Apply(TypeApply(fun, _), tupleArgs) if t.tpe <:< TypeRepr.of[NonEmptyTuple] =>
         val terms = tupleArgs.map(t => t.exactTerm)
         val tpes = terms.map(_.tpe)
         val AppliedType(tycon, _) = t.tpe: @unchecked
         val tupleTypeArgs = tpes.map(_.asTypeTree)
-        val tupleType = tycon.appliedTo(tpes).asTypeOf[Any]
-        val tupleTerm = Apply(TypeApply(fun, tupleTypeArgs), terms)
-        val expr =
-          '{
-            ValueOf[tupleType.Underlying](${ tupleTerm.asExpr })
-          }
-        expr.asTerm.underlyingArgument
-      case t =>
-        val tpe = t.tpe.widen
-        if (tpe <:< TypeRepr.of[NonEmptyTuple])
-          val tType = tpe.asTypeOf[Any]
-          '{ ValueOf[tType.Underlying](${ t.asExpr }) }.asTerm
-        else t
+        Apply(TypeApply(fun, tupleTypeArgs), terms)
+      case t => t
     end match
   end exactTerm
 end extension
