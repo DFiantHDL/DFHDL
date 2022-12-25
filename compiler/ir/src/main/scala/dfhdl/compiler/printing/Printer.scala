@@ -43,6 +43,7 @@ trait Printer
     case DFNet.Op.LateConnection => csLateConnectionOp
     case DFNet.Op.LazyConnection => csLazyConnectionOp
   def csInternalViaPortRef(dfValRef: DFNet.Ref): String
+  def csExternalViaPortRef(dfValRef: DFNet.Ref): String
   def csEndOfStatement: String
   final def csDFNet(net: DFNet): String =
     // True if the net needs to be shown in a swapped order.
@@ -70,7 +71,7 @@ trait Printer
 
     val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
     val leftStr = if (net.isLateConnection) csInternalViaPortRef(lhsRef) else lhsRef.refCodeString
-    val rightStr = rhsRef.refCodeString
+    val rightStr = if (net.isLateConnection) csExternalViaPortRef(rhsRef) else rhsRef.refCodeString
     s"$leftStr $opStr $rightStr"
   end csDFNet
   def csTimeUnit(time: Time): String = s"${time.usec}.us"
@@ -167,6 +168,7 @@ class DFPrinter(using val getSet: MemberGetSet)
   val normalizeConnection: Boolean = true
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
   def csInternalViaPortRef(dfValRef: DFNet.Ref): String = s"this.${dfValRef.refCodeString}"
+  def csExternalViaPortRef(dfValRef: DFNet.Ref): String = dfValRef.refCodeString
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
       s"""/*

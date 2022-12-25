@@ -33,22 +33,16 @@ class PrintVerilogCodeSpec extends StageSpec:
     val id = (new ID).getVerilogCode
     assertNoDiff(
       id,
-      """|library ieee;
-         |use ieee.std_logic_1164.all;
-         |use ieee.numeric_std.all;
-         |use work.ID_pkg.all;
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "ID_defs.v"
          |
-         |entity ID is
-         |port (
-         |  x : in signed(15 downto 0);
-         |  y : out signed(15 downto 0)
+         |module ID(
+         |  input wire signed [15:0] x,
+         |  output reg signed [15:0] y
          |);
-         |end ID;
-         |
-         |architecture ID_arch of ID is
-         |begin
          |  y <= x;
-         |end ID_arch;
+         |endmodule
          |""".stripMargin
     )
   }
@@ -57,53 +51,41 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new IDTop).getVerilogCode
     assertNoDiff(
       top,
-      """|library ieee;
-         |use ieee.std_logic_1164.all;
-         |use ieee.numeric_std.all;
-         |use work.IDTop_pkg.all;
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "IDTop_defs.v"
          |
-         |entity ID is
-         |port (
-         |  x : in signed(15 downto 0);
-         |  y : out signed(15 downto 0)
+         |module ID(
+         |  input wire signed [15:0] x,
+         |  output reg signed [15:0] y
          |);
-         |end ID;
-         |
-         |architecture ID_arch of ID is
-         |begin
          |  y <= x;
-         |end ID_arch;
+         |endmodule
          |
-         |library ieee;
-         |use ieee.std_logic_1164.all;
-         |use ieee.numeric_std.all;
-         |use work.IDTop_pkg.all;
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "IDTop_defs.v"
          |
-         |entity IDTop is
-         |port (
-         |  x : in signed(15 downto 0);
-         |  y : out signed(15 downto 0)
+         |module IDTop(
+         |  input wire signed [15:0] x,
+         |  output reg signed [15:0] y
          |);
-         |end IDTop;
-         |
-         |architecture IDTop_arch of IDTop is
-         |  signal id1_x : signed(15 downto 0);
-         |  signal id1_y : signed(15 downto 0);
-         |  signal id2_x : signed(15 downto 0);
-         |  signal id2_y : signed(15 downto 0);
-         |begin
-         |  id1 : entity work.ID(ID_arch) port map (
-         |    x =>/*<--*/ id1_x,
-         |    y =>/*-->*/ id1_y
+         |  wire signed [15:0] id1_x;
+         |  wire signed [15:0] id1_y;
+         |  wire signed [15:0] id2_x;
+         |  wire signed [15:0] id2_y;
+         |  ID id1(
+         |    .x /*<--*/ (id1_x),
+         |    .y /*-->*/ (id1_y)
          |  );
-         |  id2 : entity work.ID(ID_arch) port map (
-         |    x =>/*<--*/ id2_x,
-         |    y =>/*-->*/ id2_y
+         |  ID id2(
+         |    .x /*<--*/ (id2_x),
+         |    .y /*-->*/ (id2_y)
          |  );
          |  id1_x <= x;
          |  id2_x <= id1_y;
          |  y <= id2_y;
-         |end IDTop_arch;
+         |endmodule
          |""".stripMargin
     )
   }
@@ -134,23 +116,17 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Top).getVerilogCode(align = true)
     assertNoDiff(
       top,
-      """|library ieee;
-         |use ieee.std_logic_1164.all;
-         |use ieee.numeric_std.all;
-         |use work.Top_pkg.all;
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Top_defs.v"
          |
-         |entity Top is
-         |port (
-         |  clk : in  std_logic;
-         |  rst : in  std_logic;
-         |  x   : in  std_logic_vector(15 downto 0);
-         |  y   : out std_logic_vector(15 downto 0)
+         |module Top(
+         |  input wire        clk,
+         |  input wire        rst,
+         |  input wire [15:0] x,
+         |  output reg [15:0] y
          |);
-         |end Top;
-         |
-         |architecture Top_arch of Top is
-         |  signal z          : std_logic_vector(15 downto 0);
-         |begin
+         |  wire [15:0] z;
          |  process (clk, rst)
          |    constant c      : std_logic_vector(15 downto 0) := x"0000";
          |  begin
@@ -169,7 +145,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    z      <= x;
          |    y      <= z;
          |  end process;
-         |end Top_arch;
+         |endmodule
          |""".stripMargin
     )
   }

@@ -93,12 +93,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  signal id2_y : signed(15 downto 0);
          |begin
          |  id1 : entity work.ID(ID_arch) port map (
-         |    x =>/*<--*/ id1_x,
-         |    y =>/*-->*/ id1_y
+         |    x => id1_x,
+         |    y => id1_y
          |  );
          |  id2 : entity work.ID(ID_arch) port map (
-         |    x =>/*<--*/ id2_x,
-         |    y =>/*-->*/ id2_y
+         |    x => id2_x,
+         |    y => id2_y
          |  );
          |  id1_x <= x;
          |  id2_x <= id1_y;

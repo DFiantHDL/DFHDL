@@ -11,37 +11,24 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter <: VerilogPrinter
   val useStdSimLibrary: Boolean = true
   def fileSuffix = "v"
-  def packageName: String =
-    s"${getSet.designDB.top.dclName}_pkg"
+  def defsName: String =
+    s"${getSet.designDB.top.dclName}_defs"
   def csLibrary(inSimulation: Boolean): String =
-    val default =
-      s"""library ieee;
-         |use ieee.std_logic_1164.all;
-         |use ieee.numeric_std.all;
-         |use work.$packageName.all;""".stripMargin
-    if (useStdSimLibrary && inSimulation)
-      s"""$default
-         |
-         |library std;
-         |use std.env.all;""".stripMargin
-    else default
-  def entityName(design: DFDesignBlock): String = design.dclName
-  def csEntityDcl(design: DFDesignBlock): String =
+    s"""`default_nettype none
+       |`timescale 1ns/1ps
+       |`include "$defsName.v"""".stripMargin
+  def moduleName(design: DFDesignBlock): String = design.dclName
+  def csModuleDcl(design: DFDesignBlock): String =
     val ports = design
       .members(MemberView.Folded)
       .view
       .collect {
         case p: DFVal.Dcl if p.isPort => printer.csDFValNamed(p)
       }
-      .mkString(";\n")
-    val portBlock = ports.emptyOr(v => s"""
-         |port (
+      .mkString(",\n")
+    val portBlock = ports.emptyOr(v => s"""(
          |${ports.indent}
          |);""".stripMargin)
-    s"""entity ${entityName(design)} is$portBlock
-       |end ${entityName(design)};""".stripMargin
-  def archName(design: DFDesignBlock): String = s"${design.dclName}_arch"
-  def csArchitectureDcl(design: DFDesignBlock): String =
     val localTypeDcls = printer.csLocalTypeDcls(design)
     val designMembers = design.members(MemberView.Folded)
     val dfValDcls =
@@ -58,21 +45,18 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       case _: DFVal.Const => false
       case _              => true
     })
-    s"""architecture ${archName(design)} of ${design.dclName} is$declarations
-       |begin
+    s"""module ${moduleName(design)}$portBlock$declarations
        |${statements.indent}
-       |end ${archName(design)};""".stripMargin
-  end csArchitectureDcl
+       |endmodule""".stripMargin
+  end csModuleDcl
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     s"""${csLibrary(design.inSimulation)}
        |
-       |${csEntityDcl(design)}
-       |
-       |${csArchitectureDcl(design)}""".stripMargin
+       |${csModuleDcl(design)}""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
-    val inst = s"${design.name} : entity work.${entityName(design)}(${archName(design)})"
-    if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.indent}\n)"
+    val inst = s"${moduleName(design)} ${design.name}"
+    if (body.isEmpty) s"$inst" else s"$inst(\n${body.indent}\n)"
   def csDFIfStatement(csCond: String): String = s"if $csCond then"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"

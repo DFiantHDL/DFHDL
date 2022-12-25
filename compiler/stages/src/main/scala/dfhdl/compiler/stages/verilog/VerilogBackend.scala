@@ -31,14 +31,14 @@ extension [T: HasDB](t: T)
     val designDB = StageRunner.run(VerilogBackend)(t.db)
     given Printer = new VerilogPrinter(using designDB.getSet)
     // TODO: fix alignments
-//    if (align)
-//      designDB.codeString
-//        .align(".*", ":", "[ ]*(?:in|out|inout) .*")
-//        .align(".*:[ ]*(?:in|out|inout)", " ", ".*")
-//        .align("[ ]*(?:signal|variable|constant) .*", ": ", ".*")
-//        .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<=", ".*")
-//    else
-    designDB.codeString
+    if (align)
+      designDB.codeString
+        .align(".*", ":", "[ ]*(?:input wire|output reg|inout) .*")
+        .align(".*:[ ]*(?:in|out|inout)", " ", ".*")
+        .align("[ ]*(?:signal|variable|constant) .*", ": ", ".*")
+        .align("[ ]*[a-zA-Z0-9_.]+[ ]*", "=|<=", ".*")
+    else
+      designDB.codeString
   def getVerilogCode: String = getVerilogCode(align = false)
   def printVerilogCode: DB =
     getVerilogCode(align = true)

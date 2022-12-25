@@ -12,18 +12,23 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     s"constant ${dfVal.name} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)}"
   def csDFValDcl(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
+    val modifier = dfVal.modifier match
+      case Modifier.IN    => "input wire"
+      case Modifier.OUT   => "output reg"
+      case Modifier.INOUT => "inout"
+      case Modifier.VAR =>
+        dfVal.getOwnerNamed match
+          case dsn: DFDesignBlock => "wire"
+          case _                  => "reg"
+      case _ => printer.unsupported
     val noInit =
-      if (dfVal.isPort) s"${dfVal.name} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
-      else
-        val sigOrVar = dfVal.getOwnerNamed match
-          case dsn: DFDesignBlock => "signal"
-          case _                  => "variable"
-        s"$sigOrVar ${dfVal.name} : $dfTypeStr"
+      s"${modifier} $dfTypeStr ${dfVal.name}"
     dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 => printer.unsupported
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
-        s"$noInit := ${printer.csDFToken(initSeq.head)}"
+        s"$noInit = ${printer.csDFToken(initSeq.head)}"
       case _ => noInit
+  end csDFValDcl
 
   def csDFValFuncExpr(dfVal: Func): String =
     dfVal.args match
