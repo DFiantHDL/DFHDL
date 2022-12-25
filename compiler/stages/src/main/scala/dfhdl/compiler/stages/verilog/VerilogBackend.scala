@@ -19,7 +19,7 @@ private val reservedKeywords: Set[String] = Set(
   "else", "if", "notif1", "rnmos", "tranif0", "xor"
 )
 
-private case object VerilogUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = false)
+private case object VerilogUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = true)
 case object VerilogBackend extends Stage:
   def dependencies: List[Stage] = List(ToED, VerilogUniqueNames)
   def nullifies: Set[Stage] = Set()
@@ -30,13 +30,15 @@ extension [T: HasDB](t: T)
   def getVerilogCode(align: Boolean): String =
     val designDB = StageRunner.run(VerilogBackend)(t.db)
     given Printer = new VerilogPrinter(using designDB.getSet)
-    if (align)
-      designDB.codeString
-        .align(".*", ":", "[ ]*(?:in|out|inout) .*")
-        .align(".*:[ ]*(?:in|out|inout)", " ", ".*")
-        .align("[ ]*(?:signal|variable|constant) .*", ": ", ".*")
-        .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<=", ".*")
-    else designDB.codeString
+    // TODO: fix alignments
+//    if (align)
+//      designDB.codeString
+//        .align(".*", ":", "[ ]*(?:in|out|inout) .*")
+//        .align(".*:[ ]*(?:in|out|inout)", " ", ".*")
+//        .align("[ ]*(?:signal|variable|constant) .*", ": ", ".*")
+//        .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<=", ".*")
+//    else
+    designDB.codeString
   def getVerilogCode: String = getVerilogCode(align = false)
   def printVerilogCode: DB =
     getVerilogCode(align = true)
