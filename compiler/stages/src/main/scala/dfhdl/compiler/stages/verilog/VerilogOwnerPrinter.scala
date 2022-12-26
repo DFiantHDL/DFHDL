@@ -57,9 +57,9 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerLateBody(design)
     val inst = s"${moduleName(design)} ${design.name}"
     if (body.isEmpty) s"$inst" else s"$inst(\n${body.indent}\n)"
-  def csDFIfStatement(csCond: String): String = s"if $csCond then"
+  def csDFIfStatement(csCond: String): String = s"if ($csCond)"
   def csDFElseStatement: String = "else"
-  def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"
+  def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"
   def csDFIfEnd: String = "end if"
   def csIfBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "others"
@@ -86,10 +86,10 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       else s"\n${csDFMembers(dcls).indent}"
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val senList = pb.sensitivity match
-      case Sensitivity.All => " (all)"
+      case Sensitivity.All => " @(*)"
       case Sensitivity.List(refs) =>
-        if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
-    s"${named}process$senList$dcl\nbegin\n${body.indent}\nend process"
+        if (refs.isEmpty) "" else s" @${refs.map(_.refCodeString).mkStringBrackets}"
+    s"${named}always$senList$dcl\nbegin\n${body.indent}\nend"
   end csProcessBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VerilogOwnerPrinter
