@@ -33,12 +33,17 @@ extension [T: HasDB](t: T)
     // TODO: fix alignments
     if (align)
       designDB.codeString
+        // align after port modifiers
         .align("[ ]*(?:input|output|inout)[ ]*", "", ".*")
-        .align(".* (?:wire|reg)[ ]*", "", ".*")
+        // align after wire/reg/logic words
+        .align(".* (?:wire|reg|logic)[ ]*", "", ".*")
+        // align signal and port names
         .align(".* (?:wire|reg).*", "", " [a-zA-Z0-9_]+,?")
+        // align assignments
         .align("[ ]*[a-zA-Z0-9_]+[ ]*", "=|<=", ".*")
     else
       designDB.codeString
+  end getVerilogCode
   def getVerilogCode: String = getVerilogCode(align = false)
   def printVerilogCode: DB =
     getVerilogCode(align = true)
