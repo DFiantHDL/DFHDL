@@ -16,7 +16,7 @@ class VerilogPrinter(using val getSet: MemberGetSet)
     "Unsupported member for this VerilogPrinter."
   )
   val commentConnDir: CommentConnDir = CommentConnDir.Inline
-  def csAssignmentOp: String = ":="
+  def csAssignmentOp: String = "="
   def csNBAssignmentOp: String = "<="
   def csConnectionOp: String = "<="
   def csLateConnectionOp: String = ""
@@ -33,6 +33,6 @@ class VerilogPrinter(using val getSet: MemberGetSet)
          |*/""".stripMargin
     else s"/*$comment*/"
   def csEndOfStatement: String = ";"
-  def csCommentEOL(comment: String): String = s"-- $comment"
+  def csCommentEOL(comment: String): String = s"// $comment"
   def csTimer(timer: Timer): String = unsupported
 end VerilogPrinter

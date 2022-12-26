@@ -22,7 +22,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case _                  => "reg"
       case _ => printer.unsupported
     val noInit =
-      s"${modifier} $dfTypeStr ${dfVal.name}"
+      if (dfTypeStr.isEmpty) s"$modifier ${dfVal.name}"
+      else s"$modifier $dfTypeStr ${dfVal.name}"
     dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 => printer.unsupported
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>

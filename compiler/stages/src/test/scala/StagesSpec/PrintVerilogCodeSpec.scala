@@ -126,7 +126,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input wire [15:0] x,
          |  output reg [15:0] y
          |);
-         |  wire [15:0] z;
+         |  wire       [15:0] z;
          |  process (clk, rst)
          |    constant c      : std_logic_vector(15 downto 0) := x"0000";
          |  begin
