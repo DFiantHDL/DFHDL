@@ -83,13 +83,13 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFMembers(statements)
     val dcl =
       if (dcls.isEmpty) ""
-      else s"\n${csDFMembers(dcls).indent}"
+      else s"${csDFMembers(dcls)}\n"
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val senList = pb.sensitivity match
       case Sensitivity.All => " @(*)"
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" @${refs.map(_.refCodeString).mkStringBrackets}"
-    s"${named}always$senList$dcl\nbegin\n${body.indent}\nend"
+    s"$dcl${named}always$senList\nbegin\n${body.indent}\nend"
   end csProcessBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VerilogOwnerPrinter

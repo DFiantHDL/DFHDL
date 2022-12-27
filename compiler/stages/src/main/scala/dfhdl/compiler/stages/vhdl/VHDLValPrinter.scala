@@ -36,7 +36,6 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case Func.Op.&   => "and"
           case Func.Op.^   => "xor"
           case Func.Op.>=  => "=>"
-          case Func.Op.++  => "&"
           case Func.Op.<< =>
             argL.get.dfType match
               case DFSInt(_) => "sla"

@@ -8,20 +8,20 @@ import DFVal.*
 protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
   val allowBitsBinModeInHex: Boolean = false
   val allowBitsExplicitWidth: Boolean = true
-  def csDFBitBubbleChar: Char = '-'
-  def csDFBitsBinFormat(binRep: String): String = s""""$binRep""""
-  def csDFBitsHexFormat(hexRep: String): String = s"""x"$hexRep""""
-  def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""${width}x"$hexRep""""
-  def csDFBitFormat(bitRep: String): String = s"'$bitRep'"
+  def csDFBitBubbleChar: Char = 'x'
+  def csDFBitsBinFormat(binRep: String): String = s"""${binRep.length}'b$binRep"""
+  def csDFBitsHexFormat(hexRep: String): String = s"""${hexRep.length * 4}'h$hexRep"""
+  def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""${width}'h$hexRep"""
+  def csDFBitFormat(bitRep: String): String = csDFBitsBinFormat(bitRep)
   val allowDecimalBigInt: Boolean = true
-  def csDFUIntFormatBig(value: BigInt, width: Int): String = s"""${width}d"$value""""
+  def csDFUIntFormatBig(value: BigInt, width: Int): String = s"""${width}'d$value"""
   def csDFSIntFormatBig(value: BigInt, width: Int): String =
-    if (value >= 0) s"""${width}d"$value""""
-    else s"""-${width}d"${-value}""""
-  def csDFUIntFormatSmall(value: BigInt, width: Int): String = s"to_unsigned($value, $width)"
-  def csDFSIntFormatSmall(value: BigInt, width: Int): String = s"to_signed($value, $width)"
-  def csDFUIntTokenFromBits(csBits: String): String = s"""unsigned'($csBits)"""
-  def csDFSIntTokenFromBits(csBits: String): String = s"""signed'($csBits)"""
+    if (value >= 0) csDFUIntFormatBig(value, width)
+    else s"-${csDFUIntFormatBig(-value, width)}"
+  def csDFUIntFormatSmall(value: BigInt, width: Int): String = csDFUIntFormatBig(value, width)
+  def csDFSIntFormatSmall(value: BigInt, width: Int): String = csDFSIntFormatBig(value, width)
+  def csDFUIntTokenFromBits(csBits: String): String = s"""$$unsigned($csBits)"""
+  def csDFSIntTokenFromBits(csBits: String): String = s"""$$signed($csBits)"""
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
       case Some(value) =>

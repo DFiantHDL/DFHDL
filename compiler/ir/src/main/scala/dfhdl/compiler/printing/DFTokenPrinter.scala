@@ -35,7 +35,7 @@ trait AbstractTokenPrinter extends AbstractPrinter:
             case (_, 'F' | 'f')                  => s"$csDFBitBubbleChar"
             case (h, '0')                        => s"$h"
             case (h, b) if allowBitsBinModeInHex => s"{${binZip(BitVector(h), BitVector(b))}}"
-            case _                               =>
+            case _ =>
               err = true
               ""
           }
@@ -118,7 +118,7 @@ trait AbstractTokenPrinter extends AbstractPrinter:
         s"Unexpected token found: $x"
       )
   final def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String =
-    tokenSeq.map(csDFToken(_)).mkStringBrackets
+    tokenSeq.map(csDFToken).mkStringBrackets
 end AbstractTokenPrinter
 
 protected trait DFTokenPrinter extends AbstractTokenPrinter:

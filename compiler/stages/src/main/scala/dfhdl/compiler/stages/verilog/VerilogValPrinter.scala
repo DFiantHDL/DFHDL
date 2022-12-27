@@ -9,7 +9,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   type TPrinter <: VerilogPrinter
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValConstDcl(dfVal: Const): String =
-    s"constant ${dfVal.name} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)}"
+    s"parameter ${dfVal.name} = ${printer.csDFToken(dfVal.token)}"
   def csDFValDcl(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val modifier = dfVal.modifier match
@@ -36,21 +36,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val opStr = dfVal.op match
-          case Func.Op.=== => "="
-          case Func.Op.=!= => "/="
-          case Func.Op.|   => "or"
-          case Func.Op.&   => "and"
-          case Func.Op.^   => "xor"
-          case Func.Op.>=  => "=>"
-          case Func.Op.++  => "&"
-          case Func.Op.<< =>
-            argL.get.dfType match
-              case DFSInt(_) => "sla"
-              case _         => "sll"
-          case Func.Op.>> =>
-            argL.get.dfType match
-              case DFSInt(_) => "sra"
-              case _         => "srl"
+          case Func.Op.=== => "=="
+          case Func.Op.=!= => "!="
           // if the result width for +/-/* ops is larger than the left argument width
           // then we have a carry-inclusive operation
           case Func.Op.+ | Func.Op.- | Func.Op.`*` if dfVal.dfType.width > argL.get.dfType.width =>
@@ -67,8 +54,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case Func.Op.rising  => s"rising_edge($argStr)"
           case Func.Op.falling => s"falling_edge($argStr)"
           case Func.Op.unary_- => s"-$argStr"
-          case Func.Op.unary_! => s"not $argStr"
-          case Func.Op.unary_~ => s"not $argStr"
+          case Func.Op.unary_! => s"!$argStr"
+          case Func.Op.unary_~ => s"~$argStr"
           case _               => printer.unsupported
       // multiarg func
       case args =>
@@ -79,9 +66,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               case DFVector(_, _) => printer.unsupported
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
-                s"repeat(${args.head.refCodeString},${args.length})"
+                s"{${args.length}{${args.head.refCodeString}}"
               // regular concatenation function
-              case _ => args.map(_.refCodeString).mkString(" & ")
+              case _ => args.map(_.refCodeString).mkString("{", ", ", "}")
             end match
           case _ =>
             args
@@ -97,28 +84,26 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (t, f) if t == f => printer.unsupported
       case (DFSInt(tWidth), DFUInt(fWidth)) =>
         assert(tWidth == fWidth + 1)
-        s"signed($relValStr)"
+        s"$$signed({0, $relValStr})"
       case (DFUInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
-        s"unsigned($relValStr)"
+        s"$$unsigned($relValStr)"
       case (DFSInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
-        s"signed($relValStr)"
+        s"$$signed($relValStr)"
       case (DFBits(tWidth), DFBits(_)) =>
-        s"resize($relValStr, $tWidth)"
+        s"resize_u($relValStr, $tWidth)"
       case (DFBits(tWidth), _) =>
         assert(tWidth == fromType.width)
         fromType match
           case _ => s"to_slv($relValStr)"
       case (DFUInt(tWidth), DFUInt(_)) =>
-        s"resize($relValStr, $tWidth)"
+        s"resize_u($relValStr, $tWidth)"
       case (DFSInt(tWidth), DFSInt(_)) =>
-        s"resize($relValStr, $tWidth)"
-      case (DFBit, DFBool) =>
-        s"to_sl($relValStr)"
-      case (DFBool, DFBit) =>
-        s"to_bool($relValStr)"
-      case _ => printer.unsupported
+        s"resize_s($relValStr, $tWidth)"
+      case (DFBit, DFBool) => relValStr
+      case (DFBool, DFBit) => relValStr
+      case _               => printer.unsupported
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
