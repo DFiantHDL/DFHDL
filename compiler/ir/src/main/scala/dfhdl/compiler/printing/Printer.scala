@@ -72,7 +72,8 @@ trait Printer
     val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
     val leftStr = if (net.isLateConnection) csInternalViaPortRef(lhsRef) else lhsRef.refCodeString
     val rightStr = if (net.isLateConnection) csExternalViaPortRef(rhsRef) else rhsRef.refCodeString
-    s"$leftStr $opStr $rightStr"
+    val endChar = if (net.isLateConnection) "" else csEndOfStatement
+    s"$leftStr $opStr $rightStr$endChar"
   end csDFNet
   def csTimeUnit(time: Time): String = s"${time.usec}.us"
   def csFreqUnit(freq: Freq): String = s"${freq.hertz}.Hz"

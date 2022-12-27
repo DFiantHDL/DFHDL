@@ -9,7 +9,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   type TPrinter <: VerilogPrinter
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValConstDcl(dfVal: Const): String =
-    s"parameter ${dfVal.name} = ${printer.csDFToken(dfVal.token)}"
+    s"parameter ${dfVal.name} = ${printer.csDFToken(dfVal.token)};"
   def csDFValDcl(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val modifier = dfVal.modifier match
@@ -21,14 +21,15 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case dsn: DFDesignBlock => "wire"
           case _                  => "reg"
       case _ => printer.unsupported
+    val endChar = if (dfVal.isPort) "" else ";"
     val noInit =
       if (dfTypeStr.isEmpty) s"$modifier ${dfVal.name}"
       else s"$modifier $dfTypeStr ${dfVal.name}"
     dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 => printer.unsupported
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
-        s"$noInit = ${printer.csDFToken(initSeq.head)}"
-      case _ => noInit
+        s"$noInit = ${printer.csDFToken(initSeq.head)}$endChar"
+      case _ => s"$noInit$endChar"
   end csDFValDcl
 
   def csDFValFuncExpr(dfVal: Func): String =

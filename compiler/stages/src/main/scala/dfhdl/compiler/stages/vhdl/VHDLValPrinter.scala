@@ -9,7 +9,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   type TPrinter <: VHDLPrinter
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValConstDcl(dfVal: Const): String =
-    s"constant ${dfVal.name} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)}"
+    s"constant ${dfVal.name} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)};"
   def csDFValDcl(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val noInit =
@@ -19,11 +19,13 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case dsn: DFDesignBlock => "signal"
           case _                  => "variable"
         s"$sigOrVar ${dfVal.name} : $dfTypeStr"
+    val endChar = if (dfVal.isPort) "" else ";"
     dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 => printer.unsupported
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
-        s"$noInit := ${printer.csDFToken(initSeq.head)}"
-      case _ => noInit
+        s"$noInit := ${printer.csDFToken(initSeq.head)}$endChar"
+      case _ => s"$noInit$endChar"
+  end csDFValDcl
 
   def csDFValFuncExpr(dfVal: Func): String =
     dfVal.args match

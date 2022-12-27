@@ -51,7 +51,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
           case c: DFVal.Const if !c.isAnonymous => c
         }
         .map(printer.csDFValNamed)
-        .emptyOr(_.mkString("", ";\n", ";"))
+        .emptyOr(_.mkString("\n"))
     val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.indent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl   => false
@@ -72,11 +72,11 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
     val inst = s"${design.name} : entity work.${entityName(design)}(${archName(design)})"
-    if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.indent}\n)"
+    if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.indent}\n);"
   def csDFIfStatement(csCond: String): String = s"if $csCond then"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"
-  def csDFIfEnd: String = "end if"
+  def csDFIfEnd: String = "end if;"
   def csIfBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "others"
   def csDFCasePatternAlternativeToken: String = " | "
@@ -87,7 +87,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCaseSeparator: String = "=>"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
   def csDFMatchStatement(csSelector: String): String = s"case $csSelector is"
-  def csDFMatchEnd: String = "end case"
+  def csDFMatchEnd: String = "end case;"
   def csProcessBlock(pb: ProcessBlock): String =
     val (statements, dcls) = pb
       .members(MemberView.Folded)
@@ -105,7 +105,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.All => " (all)"
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
-    s"${named}process$senList$dcl\nbegin\n${body.indent}\nend process"
+    s"${named}process$senList$dcl\nbegin\n${body.indent}\nend process;"
   end csProcessBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VHDLOwnerPrinter

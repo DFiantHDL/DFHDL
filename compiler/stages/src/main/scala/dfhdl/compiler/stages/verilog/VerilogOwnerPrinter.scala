@@ -38,7 +38,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           case c: DFVal.Const if !c.isAnonymous => c
         }
         .map(printer.csDFValNamed)
-        .emptyOr(_.mkString("", ";\n", ";"))
+        .emptyOr(_.mkString("\n"))
     val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.indent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl   => false
@@ -56,11 +56,11 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
     val inst = s"${moduleName(design)} ${design.name}"
-    if (body.isEmpty) s"$inst" else s"$inst(\n${body.indent}\n)"
+    if (body.isEmpty) s"$inst" else s"$inst(\n${body.indent}\n);"
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"
-  def csDFIfEnd: String = "end if"
+  def csDFIfEnd: String = ""
   def csIfBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "others"
   def csDFCasePatternAlternativeToken: String = " | "
