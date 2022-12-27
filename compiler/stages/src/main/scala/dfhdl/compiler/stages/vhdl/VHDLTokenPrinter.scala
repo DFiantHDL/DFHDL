@@ -12,6 +12,7 @@ protected trait VHDLTokenPrinter extends AbstractTokenPrinter:
   def csDFBitsBinFormat(binRep: String): String = s""""$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""x"$hexRep""""
   def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""${width}x"$hexRep""""
+  def csDFBoolFormat(value: Boolean): String = value.toString()
   def csDFBitFormat(bitRep: String): String = s"'$bitRep'"
   val allowDecimalBigInt: Boolean = true
   def csDFUIntFormatBig(value: BigInt, width: Int): String = s"""${width}d"$value""""

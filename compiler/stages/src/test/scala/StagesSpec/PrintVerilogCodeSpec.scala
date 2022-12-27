@@ -121,30 +121,29 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Top_defs.v"
          |
          |module Top(
-         |  input wire        clk,
-         |  input wire        rst,
-         |  input wire [15:0] x,
-         |  output reg [15:0] y
+         |  input  wire        clk,
+         |  input  wire        rst,
+         |  input  wire [15:0] x,
+         |  output reg  [15:0] y
          |);
-         |  wire       [15:0] z;
-         |  process (clk, rst)
-         |    constant c      : std_logic_vector(15 downto 0) := x"0000";
+         |  wire        [15:0] z;
+         |  parameter c = 16'h0000;
+         |  always @(clk, rst)
          |  begin
-         |    if rst then y <= c;
-         |    elsif rising_edge(clk) then y <= x;
-         |    end if;
-         |  end process;
-         |  myblock : process (all)
-         |    variable my_var : std_logic_vector(15 downto 0);
+         |    if (rst) y <= c;
+         |    else if (rising_edge(clk)) y <= x;
+         |  end
+         |  reg         [15:0] my_var;
+         |  myblock : always @(*)
          |  begin
-         |    my_var := x;
+         |    my_var = x;
          |    y      <= my_var;
-         |  end process;
-         |  process
+         |  end
+         |  always
          |  begin
          |    z      <= x;
          |    y      <= z;
-         |  end process;
+         |  end
          |endmodule
          |""".stripMargin
     )
@@ -168,30 +167,25 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Top).getVerilogCode
     assertNoDiff(
       top,
-      """|library ieee;
-         |use ieee.std_logic_1164.all;
-         |use ieee.numeric_std.all;
-         |use work.Top_pkg.all;
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Top_defs.v"
          |
-         |entity Top is
-         |end Top;
+         |module Top
+         |  parameter c01 = 1'b0;
+         |  parameter c02 = 1'b1;
+         |  parameter c03 = 1'bx;
+         |  parameter c04 = 0;
+         |  parameter c05 = 1;
+         |  parameter c06 = 8'h22;
+         |  parameter c07 = 7'h22;
+         |  parameter c08 = 3'h5;
+         |  parameter c09 = 3'd7;
+         |  parameter c10 = 48'd239794508230343;
+         |  parameter c11 = -4'd8;
+         |  parameter c12 = -49'd239794508230343;
          |
-         |architecture Top_arch of Top is
-         |  constant c01 : std_logic := '0';
-         |  constant c02 : std_logic := '1';
-         |  constant c03 : std_logic := '-';
-         |  constant c04 : boolean := false;
-         |  constant c05 : boolean := true;
-         |  constant c06 : std_logic_vector(7 downto 0) := x"22";
-         |  constant c07 : std_logic_vector(6 downto 0) := 7x"22";
-         |  constant c08 : std_logic_vector(2 downto 0) := "101";
-         |  constant c09 : unsigned(2 downto 0) := 3d"7";
-         |  constant c10 : unsigned(47 downto 0) := 48d"239794508230343";
-         |  constant c11 : signed(3 downto 0) := -4d"8";
-         |  constant c12 : signed(48 downto 0) := -49d"239794508230343";
-         |begin
-         |
-         |end Top_arch;
+         |endmodule
          |""".stripMargin
     )
   }

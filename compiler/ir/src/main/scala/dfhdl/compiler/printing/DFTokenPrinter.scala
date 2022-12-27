@@ -67,11 +67,12 @@ trait AbstractTokenPrinter extends AbstractPrinter:
       case _                                     => binRep
   end csDFBitsData
   def csDFBitFormat(bitRep: String): String
+  def csDFBoolFormat(value: Boolean): String
   final def csDFBoolOrBitData(dfType: DFBoolOrBit, data: Option[Boolean]): String =
     data match
       case Some(value) =>
         dfType match
-          case DFBool => value.toString()
+          case DFBool => csDFBoolFormat(value)
           case DFBit  => csDFBitFormat(if (value) "1" else "0")
       case None => csDFBitFormat(s"${csDFBitBubbleChar}")
   val allowDecimalBigInt: Boolean
@@ -128,6 +129,7 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
   def csDFBitsBinFormat(binRep: String): String = s"""b"$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""h"$hexRep""""
   def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""h"$width'$hexRep""""
+  def csDFBoolFormat(value: Boolean): String = value.toString()
   def csDFBitFormat(bitRep: String): String = bitRep
   val allowDecimalBigInt: Boolean = true
   def csDFUIntFormatBig(value: BigInt, width: Int): String = s"""d"$width'$value""""
