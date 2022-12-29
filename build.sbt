@@ -131,6 +131,7 @@ lazy val compilerOptions = Seq(
   "-feature",
   "-language:strictEquality",
   "-language:implicitConversions",
+  "-language:experimental",
   "-deprecation",
 )
 
