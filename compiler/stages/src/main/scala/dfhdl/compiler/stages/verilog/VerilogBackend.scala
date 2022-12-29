@@ -4,6 +4,8 @@ import dfhdl.compiler.stages.*
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.printing.*
+import java.nio.file.{Files, Paths}
+import java.io._
 
 private val reservedKeywords: Set[String] = Set(
   "always", "end", "ifnone", "or", "rpmos", "tranif1", "and", "endcase", "initial", "output",
@@ -45,6 +47,10 @@ extension [T: HasDB](t: T)
       designDB.codeString
   end getVerilogCode
   def getVerilogCode: String = getVerilogCode(align = false)
+  def commitVerilogCode(): Unit =
+    val pw = new FileWriter(s"./../../sandbox/${t.db.top.dclName}.v")
+    pw.write(s"${getVerilogCode(align = true)}\n")
+    pw.close()
   def printVerilogCode: DB =
     getVerilogCode(align = true)
     t.db
