@@ -146,7 +146,7 @@ trait Printer
         uniqueDesigns += block.dclName
         csDFDesignBlockDcl(block)
     }
-    s"${csGlobalTypeDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}"
+    s"${csGlobalTypeDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}\n"
   end csDB
 end Printer
 
