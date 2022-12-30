@@ -61,7 +61,7 @@ trait Printer
               case _               => csNBAssignment(lhsStr, rhsStr)
           case _ => csAssignment(lhsStr, rhsStr)
       case DFNet.Op.Connection     => csConnection(lhsStr, rhsStr, directionStr)
-      case DFNet.Op.ViaConnection => csViaConnection(lhsStr, rhsStr, directionStr)
+      case DFNet.Op.ViaConnection  => csViaConnection(lhsStr, rhsStr, directionStr)
       case DFNet.Op.LazyConnection => csLazyConnection(lhsStr, rhsStr, directionStr)
     end match
   end csDFNet
@@ -162,8 +162,6 @@ class DFPrinter(using val getSet: MemberGetSet)
   val normalizeViaConnection: Boolean = true
   val normalizeConnection: Boolean = true
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
-  def csInternalViaPortRef(dfValRef: DFNet.Ref): String = s"this.${dfValRef.refCodeString}"
-  def csExternalViaPortRef(dfValRef: DFNet.Ref): String = dfValRef.refCodeString
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
       s"""/*
