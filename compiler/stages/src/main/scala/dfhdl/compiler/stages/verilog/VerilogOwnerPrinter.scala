@@ -67,11 +67,11 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCasePatternStruct(pattern: Pattern.Struct): String = printer.unsupported
   def csDFCasePatternBind(pattern: Pattern.Bind): String = printer.unsupported
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String = printer.unsupported
-  def csDFCaseKeyword: String = "when"
-  def csDFCaseSeparator: String = "=>"
+  def csDFCaseKeyword: String = ""
+  def csDFCaseSeparator: String = ":"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
-  def csDFMatchStatement(csSelector: String): String = s"case $csSelector is"
-  def csDFMatchEnd: String = "end case"
+  def csDFMatchStatement(csSelector: String): String = s"case ($csSelector)"
+  def csDFMatchEnd: String = "endcase"
   def csProcessBlock(pb: ProcessBlock): String =
     val (statements, dcls) = pb
       .members(MemberView.Folded)

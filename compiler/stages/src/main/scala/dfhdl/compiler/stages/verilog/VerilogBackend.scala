@@ -23,7 +23,8 @@ private val reservedKeywords: Set[String] = Set(
 
 private case object VerilogUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = true)
 case object VerilogBackend extends Stage:
-  def dependencies: List[Stage] = List(ToED, VerilogUniqueNames)
+  def dependencies: List[Stage] =
+    List(ToED, ExplicitNamedVars, SimpleOrderMembers, VerilogUniqueNames)
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet): DB = designDB
 end VerilogBackend
@@ -31,6 +32,7 @@ end VerilogBackend
 extension [T: HasDB](t: T)
   def getVerilogCode(align: Boolean): String =
     val designDB = StageRunner.run(VerilogBackend)(t.db)
+    designDB.printCodeString
     given Printer = new VerilogPrinter(using designDB.getSet)
     // TODO: fix alignments
     if (align)
@@ -52,6 +54,6 @@ extension [T: HasDB](t: T)
     pw.write(s"${getVerilogCode(align = true)}\n")
     pw.close()
   def printVerilogCode: DB =
-    getVerilogCode(align = true)
+    println(getVerilogCode(align = true))
     t.db
 end extension

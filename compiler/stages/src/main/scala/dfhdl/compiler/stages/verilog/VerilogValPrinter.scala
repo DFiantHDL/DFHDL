@@ -108,10 +108,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
-    s"${dfVal.relValCodeString}(${dfVal.relBitHigh}, ${dfVal.relBitLow})"
+    s"${dfVal.relValCodeString}[${dfVal.relBitHigh}:${dfVal.relBitLow}]"
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
     val relIdxStr = dfVal.relIdx.simpleRefCodeString
-    s"${dfVal.relValCodeString}($relIdxStr)"
+    s"${dfVal.relValCodeString}[$relIdxStr]"
   // when the tuple field number exceeds this number, the tuple
   // field selections changes from `dv._${idx+1}` to `dv($idx)`
   val TUPLE_MIN_INDEXING = 3

@@ -81,7 +81,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       caseBlock.guardRef.get match
         case DFMember.Empty => ""
         case _              => csDFCaseGuard(caseBlock.guardRef)
-    s"$csDFCaseKeyword ${csDFCasePattern(caseBlock.pattern)} $csGuard$csDFCaseSeparator"
+    s"$csDFCaseKeyword${csDFCasePattern(caseBlock.pattern)}$csGuard$csDFCaseSeparator"
   def csDFMatchStatement(csSelector: String): String
   def csDFMatchEnd: String
   final def csDFConditionalBlock(cb: DFConditional.Block): String =
@@ -108,7 +108,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"$csSelector match\n${csChains.indent}"
+        s"${csDFMatchStatement(csSelector)}\n${csChains.indent}"
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
   def csDomainBlock(pb: DomainBlock): String
@@ -155,9 +155,9 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val fullTerm = pattern.parts.coalesce(csBinds).mkString
     s"""${pattern.op}"$fullTerm""""
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String =
-    s"if ${guardRef.refCodeString} "
-  def csDFCaseKeyword: String = "case"
-  def csDFCaseSeparator: String = "=>"
+    s" if ${guardRef.refCodeString}"
+  def csDFCaseKeyword: String = "case "
+  def csDFCaseSeparator: String = " =>"
   def csDFMatchEnd: String = ""
   def csDFMatchStatement(csSelector: String): String = s"$csSelector match"
   def csProcessBlock(pb: ProcessBlock): String =
