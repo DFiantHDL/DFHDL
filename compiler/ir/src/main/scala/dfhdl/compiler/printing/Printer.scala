@@ -17,13 +17,13 @@ trait Printer
       AbstractOwnerPrinter:
   enum CommentConnDir derives CanEqual:
     case Off, Inline, EOL
-  def csLateConnectionSep: String
-  val normalizeLateConnection: Boolean
+  def csViaConnectionSep: String
+  val normalizeViaConnection: Boolean
   val normalizeConnection: Boolean
   def csAssignment(lhsStr: String, rhsStr: String): String
   def csNBAssignment(lhsStr: String, rhsStr: String): String
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String
-  def csLateConnection(lhsStr: String, rhsStr: String, directionStr: String): String
+  def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csEndOfStatement: String
   final def csDFNet(net: DFNet): String =
@@ -32,8 +32,8 @@ trait Printer
     // Normalized connections always have the receiver port on the LHS.
     val swapLR = net match
       // swapped if the net is a late construction and the RHS is the internal port
-      case _ if net.isLateConnection =>
-        normalizeLateConnection && net.rhsRef.get.isSameOwnerDesignAs(net)
+      case _ if net.isViaConnection =>
+        normalizeViaConnection && net.rhsRef.get.isSameOwnerDesignAs(net)
       // swapped if the net is a regular connection and the RHS is receiver
       case DFNet.Connection(_, _, swapped) =>
         swapped && normalizeConnection
@@ -61,7 +61,7 @@ trait Printer
               case _               => csNBAssignment(lhsStr, rhsStr)
           case _ => csAssignment(lhsStr, rhsStr)
       case DFNet.Op.Connection     => csConnection(lhsStr, rhsStr, directionStr)
-      case DFNet.Op.LateConnection => csLateConnection(lhsStr, rhsStr, directionStr)
+      case DFNet.Op.ViaConnection => csViaConnection(lhsStr, rhsStr, directionStr)
       case DFNet.Op.LazyConnection => csLazyConnection(lhsStr, rhsStr, directionStr)
     end match
   end csDFNet
@@ -148,18 +148,18 @@ class DFPrinter(using val getSet: MemberGetSet)
       DFOwnerPrinter:
   type TPrinter = DFPrinter
   given printer: TPrinter = this
-  def csLateConnectionSep: String = ""
+  def csViaConnectionSep: String = ""
   def csAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr := $rhsStr"
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr :== $rhsStr"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
     s"$lhsStr <> $rhsStr"
-  def csLateConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
+  def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
     s"this.$lhsStr <>/*$directionStr*/ $rhsStr"
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
     s"$lhsStr `<LZ>`/*$directionStr*/ $rhsStr"
-  val normalizeLateConnection: Boolean = true
+  val normalizeViaConnection: Boolean = true
   val normalizeConnection: Boolean = true
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
   def csInternalViaPortRef(dfValRef: DFNet.Ref): String = s"this.${dfValRef.refCodeString}"

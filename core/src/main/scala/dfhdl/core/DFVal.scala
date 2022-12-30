@@ -698,7 +698,7 @@ extension [T <: DFTypeAny](dfVar: DFValOf[T])
 
 extension [T <: DFTypeAny](lhs: DFValOf[T])
   def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
-    val op = if (dfc.lateConstruction) DFNet.Op.LateConnection else DFNet.Op.Connection
+    val op = if (dfc.lateConstruction) DFNet.Op.ViaConnection else DFNet.Op.Connection
     DFNet(lhs.asIR, op, rhs.asIR)
 
 protected trait VarsTuple[T <: NonEmptyTuple]:

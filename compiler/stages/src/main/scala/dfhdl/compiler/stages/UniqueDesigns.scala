@@ -12,7 +12,7 @@ private final class UniqueBlock(val block: DFDesignBlock, val members: List[DFMe
     case that: UniqueBlock
         if this.block.dclName == that.block.dclName && this.block.dclPosition == that.block.dclPosition =>
       (this.members lazyZip that.members).forall {
-        case (l: DFNet, r: DFNet) if l.isLateConnection && r.isLateConnection => true
+        case (l: DFNet, r: DFNet) if l.isViaConnection && r.isViaConnection => true
         case (l, r)                                                           => l =~ r
       }
     case _ => false

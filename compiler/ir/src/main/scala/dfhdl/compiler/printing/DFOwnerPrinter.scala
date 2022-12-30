@@ -21,7 +21,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // named members
         case m: DFMember.Named if !m.isAnonymous => true
         // including only nets that are not late connections
-        case net: DFNet => !net.isLateConnection
+        case net: DFNet => !net.isViaConnection
         // including only conditional statements (no type) headers
         case ch: DFConditional.Header => ch.dfType == NoType
         // process blocks
@@ -39,13 +39,13 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       // selecting viewable members:
       .filter {
         // late construction nets
-        case net: DFNet => net.isLateConnection
+        case net: DFNet => net.isViaConnection
         // the rest are not directly viewable
         case _ => false
       }
       .map(_.codeString)
       .filter(_.nonEmpty)
-      .mkString(s"${printer.csLateConnectionSep}\n")
+      .mkString(s"${printer.csViaConnectionSep}\n")
   def csDFDesignBlockDcl(design: DFDesignBlock): String
   def csDFDesignBlockInst(design: DFDesignBlock): String
   def csDFIfStatement(csCond: String): String

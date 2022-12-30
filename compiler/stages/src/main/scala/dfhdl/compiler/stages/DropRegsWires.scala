@@ -49,7 +49,7 @@ case object DropRegsWires extends Stage:
       refs.flatMap {
         case r: DFRef.TwoWayAny =>
           r.originRef.get match
-            case n: DFNet if n.isLateConnection => Some(r)
+            case n: DFNet if n.isViaConnection => Some(r)
             case _                              => None
         case _ => None
       }
@@ -199,7 +199,7 @@ case object DropRegsWires extends Stage:
             val processBlockAllMembers = members.filter {
               case dcl: DFVal.Dcl                     => false
               case dsn: DFOwnerNamed                  => false
-              case net: DFNet if net.isLateConnection => false
+              case net: DFNet if net.isViaConnection => false
               case m                                  => true
             }
             val processBlockMembersPatch =

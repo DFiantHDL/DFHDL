@@ -15,18 +15,18 @@ class VHDLPrinter(using val getSet: MemberGetSet)
   def unsupported: Nothing = throw new IllegalArgumentException(
     "Unsupported member for this RTPrinter."
   )
-  def csLateConnectionSep: String = ","
+  def csViaConnectionSep: String = ","
   def csAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr := $rhsStr;"
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr <= $rhsStr;"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
     s"$lhsStr <= $rhsStr;"
-  def csLateConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
+  def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
     s"$lhsStr => $rhsStr"
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
     unsupported
-  final val normalizeLateConnection: Boolean = true
+  final val normalizeViaConnection: Boolean = true
   final val normalizeConnection: Boolean = true
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))

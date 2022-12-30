@@ -203,10 +203,10 @@ final case class DB(
   import DFNet.Op.*
   private def getValAccess(dfVal: DFVal, net: DFNet)(connToDcls: Map[DFVal.Dcl, DFNet]): Access =
     def isExternalConn =
-      if (net.isLateConnection) dfVal isSameOwnerDesignAs net
+      if (net.isViaConnection) dfVal isSameOwnerDesignAs net
       else dfVal.getOwnerDesign isSameOwnerDesignAs net
     def isInternalConn =
-      if (net.isLateConnection) net.getOwnerDesign isSameOwnerDesignAs dfVal
+      if (net.isViaConnection) net.getOwnerDesign isSameOwnerDesignAs dfVal
       else dfVal isSameOwnerDesignAs net
     dfVal match
       case dcl: DFVal.Dcl =>
