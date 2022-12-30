@@ -8,7 +8,7 @@ class PrintVerilogCodeSpec extends StageSpec:
   class ID extends EDDesign:
     val x = SInt(16) <> IN
     val y = SInt(16) <> OUT
-    y :== x
+    y <> x
 
   class IDTop extends EDDesign:
     self =>
@@ -24,9 +24,9 @@ class PrintVerilogCodeSpec extends StageSpec:
     val id2 = new ID:
       this.x <> id2_x
       this.y <> id2_y
-    id1_x :== x
-    id2_x :== id1_y
-    y     :== id2_y
+    id1_x <> x
+    id2_x <> id1_y
+    y     <> id2_y
   end IDTop
 
   test("Basic ID design") {
@@ -41,7 +41,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input wire signed [15:0] x,
          |  output reg signed [15:0] y
          |);
-         |  y <= x;
+         |  assign y = x;
          |endmodule
          |""".stripMargin
     )
@@ -59,7 +59,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input wire signed [15:0] x,
          |  output reg signed [15:0] y
          |);
-         |  y <= x;
+         |  assign y = x;
          |endmodule
          |
          |`default_nettype none
@@ -82,9 +82,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    .x /*<--*/ (id2_x),
          |    .y /*-->*/ (id2_y)
          |  );
-         |  id1_x <= x;
-         |  id2_x <= id1_y;
-         |  y <= id2_y;
+         |  assign id1_x = x;
+         |  assign id2_x = id1_y;
+         |  assign y = id2_y;
          |endmodule
          |""".stripMargin
     )

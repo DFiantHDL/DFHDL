@@ -8,7 +8,7 @@ class PrintVHDLCodeSpec extends StageSpec:
   class ID extends EDDesign:
     val x = SInt(16) <> IN
     val y = SInt(16) <> OUT
-    y :== x
+    y <> x
 
   class IDTop extends EDDesign:
     self =>
@@ -24,9 +24,9 @@ class PrintVHDLCodeSpec extends StageSpec:
     val id2 = new ID:
       this.x <> id2_x
       this.y <> id2_y
-    id1_x :== x
-    id2_x :== id1_y
-    y     :== id2_y
+    id1_x <> x
+    id2_x <> id1_y
+    y     <> id2_y
   end IDTop
 
   test("Basic ID design") {

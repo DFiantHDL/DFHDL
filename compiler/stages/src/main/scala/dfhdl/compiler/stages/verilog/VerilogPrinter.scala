@@ -17,11 +17,11 @@ class VerilogPrinter(using val getSet: MemberGetSet)
   )
   def csLateConnectionSep: String = ","
   def csAssignment(lhsStr: String, rhsStr: String): String =
-    s"assign $lhsStr = $rhsStr;"
+    s"$lhsStr = $rhsStr;"
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr <= $rhsStr;"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
-    s"$lhsStr <= $rhsStr;"
+    s"assign $lhsStr = $rhsStr;"
   def csLateConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
     s".$lhsStr /*$directionStr*/ ($rhsStr)"
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String =

@@ -743,21 +743,26 @@ object DFVarOps:
   ]
   protected type LocalOrNonED[A] = AssertGiven[
     (A <:< DFC.Scope.Process) | util.NotGiven[A <:< DFC.Domain.ED],
-    "Blocking assignment `:=` is not allowed for a non-local variable in this domain.\nChange the assignment to a non-blocking assignment `:==`, or the position of the defined variable."
+    "Blocking assignment `:=` is not allowed for a non-local variable in this domain.\nChange the assignment to a non-blocking assignment `:==` or the position of the defined variable."
   ]
   protected type NotLocalVar[A] = AssertGiven[
     util.NotGiven[A <:< DFC.Scope.Process],
-    "Non-blocking assignment `:==` is not allowed for a local variable (defined inside the process block).\nChange the assignment to a blocking assignment `:=`, or the position of the defined variable."
+    "Non-blocking assignment `:==` is not allowed for a local variable (defined inside the process block).\nChange the assignment to a blocking assignment `:=` or the position of the defined variable."
   ]
   protected type EDDomainOnly[A] = AssertGiven[
     A <:< DFC.Domain.ED,
-    "Non-blocking assignment `:==` is allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=`, or the logic domain to ED."
+    "Non-blocking assignment `:==` is allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
+  ]
+  protected type InsideProcess[A] = AssertGiven[
+    DFC.Scope.Process | util.NotGiven[A <:< DFC.Domain.ED],
+    "Assignments `:=`/`:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])
     def :=[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
         regNeedsDIN: RegNeedsDIN[A],
         localOrNonED: LocalOrNonED[A],
+        insideProcess: InsideProcess[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): Unit = trydf {
@@ -767,6 +772,7 @@ object DFVarOps:
         varOnly: VarOnly[A],
         edDomainOnly: EDDomainOnly[A],
         notLocalVar: NotLocalVar[A],
+        insideProcess: InsideProcess[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): Unit = trydf {
