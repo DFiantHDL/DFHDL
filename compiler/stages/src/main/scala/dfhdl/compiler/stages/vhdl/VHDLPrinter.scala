@@ -15,17 +15,19 @@ class VHDLPrinter(using val getSet: MemberGetSet)
   def unsupported: Nothing = throw new IllegalArgumentException(
     "Unsupported member for this RTPrinter."
   )
-  val commentConnDir: CommentConnDir = CommentConnDir.EOL
-  def csAssignmentOp: String = ":="
-  def csNBAssignmentOp: String = "<="
-  def csConnectionOp: String = "<="
-  def csLateConnectionOp: String = "=>"
   def csLateConnectionSep: String = ","
-  def csLazyConnectionOp: String = unsupported
+  def csAssignment(lhsStr: String, rhsStr: String): String =
+    s"$lhsStr := $rhsStr;"
+  def csNBAssignment(lhsStr: String, rhsStr: String): String =
+    s"$lhsStr <= $rhsStr;"
+  def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
+    s"$lhsStr <= $rhsStr;"
+  def csLateConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
+    s"$lhsStr => $rhsStr"
+  def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
+    unsupported
   final val normalizeLateConnection: Boolean = true
   final val normalizeConnection: Boolean = true
-  def csInternalViaPortRef(dfValRef: DFNet.Ref): String = dfValRef.refCodeString
-  def csExternalViaPortRef(dfValRef: DFNet.Ref): String = dfValRef.refCodeString
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
       s"""/*

@@ -17,33 +17,14 @@ trait Printer
       AbstractOwnerPrinter:
   enum CommentConnDir derives CanEqual:
     case Off, Inline, EOL
-  val commentConnDir: CommentConnDir
-  def csAssignmentOp: String
-  def csNBAssignmentOp: String
-  def csConnectionOp: String
-  def csLateConnectionOp: String
   def csLateConnectionSep: String
-  def csLazyConnectionOp: String
   val normalizeLateConnection: Boolean
   val normalizeConnection: Boolean
-  final def csDFNetOp(net: DFNet): String = net.op match
-    case DFNet.Op.Assignment =>
-      val DFNet.Assignment(toVal, _) = net: @unchecked
-      val toDcl = toVal.dealias.get
-      toDcl.getOwnerDomain.domainType match
-        // event-driven domains can have non-blocking assignments
-        case DomainType.ED =>
-          // if the assigned declaration is at an `process` block, then this is a blocking assignment.
-          // otherwise, this is a non-blocking assignment.
-          toDcl.getOwnerNamed match
-            case _: ProcessBlock => csAssignmentOp
-            case _               => csNBAssignmentOp
-        case _ => csAssignmentOp
-    case DFNet.Op.Connection     => csConnectionOp
-    case DFNet.Op.LateConnection => csLateConnectionOp
-    case DFNet.Op.LazyConnection => csLazyConnectionOp
-  def csInternalViaPortRef(dfValRef: DFNet.Ref): String
-  def csExternalViaPortRef(dfValRef: DFNet.Ref): String
+  def csAssignment(lhsStr: String, rhsStr: String): String
+  def csNBAssignment(lhsStr: String, rhsStr: String): String
+  def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String
+  def csLateConnection(lhsStr: String, rhsStr: String, directionStr: String): String
+  def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csEndOfStatement: String
   final def csDFNet(net: DFNet): String =
     // True if the net needs to be shown in a swapped order.
@@ -63,17 +44,26 @@ trait Printer
         case dfVal: DFVal =>
           if (dfVal.getConnectionTo.contains(net) ^ swapLR) "<--"
           else "-->"
-    val opStr = commentConnDir match
-      case CommentConnDir.Inline
-          if (!normalizeConnection || net.isLateConnection) && !net.isAssignment =>
-        s"${csDFNetOp(net)}${csCommentInline(directionStr)}"
-      case _ => csDFNetOp(net)
-
     val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
-    val leftStr = if (net.isLateConnection) csInternalViaPortRef(lhsRef) else lhsRef.refCodeString
-    val rightStr = if (net.isLateConnection) csExternalViaPortRef(rhsRef) else rhsRef.refCodeString
-    val endChar = if (net.isLateConnection) "" else csEndOfStatement
-    s"$leftStr $opStr $rightStr$endChar"
+    val lhsStr = lhsRef.refCodeString
+    val rhsStr = rhsRef.refCodeString
+    net.op match
+      case DFNet.Op.Assignment =>
+        val DFNet.Assignment(toVal, _) = net: @unchecked
+        val toDcl = toVal.dealias.get
+        toDcl.getOwnerDomain.domainType match
+          // event-driven domains can have non-blocking assignments
+          case DomainType.ED =>
+            // if the assigned declaration is at an `process` block, then this is a blocking assignment.
+            // otherwise, this is a non-blocking assignment.
+            toDcl.getOwnerNamed match
+              case _: ProcessBlock => csAssignment(lhsStr, rhsStr)
+              case _               => csNBAssignment(lhsStr, rhsStr)
+          case _ => csAssignment(lhsStr, rhsStr)
+      case DFNet.Op.Connection     => csConnection(lhsStr, rhsStr, directionStr)
+      case DFNet.Op.LateConnection => csLateConnection(lhsStr, rhsStr, directionStr)
+      case DFNet.Op.LazyConnection => csLazyConnection(lhsStr, rhsStr, directionStr)
+    end match
   end csDFNet
   def csTimeUnit(time: Time): String = s"${time.usec}.us"
   def csFreqUnit(freq: Freq): String = s"${freq.hertz}.Hz"
@@ -158,13 +148,17 @@ class DFPrinter(using val getSet: MemberGetSet)
       DFOwnerPrinter:
   type TPrinter = DFPrinter
   given printer: TPrinter = this
-  val commentConnDir: CommentConnDir = CommentConnDir.Inline
-  def csAssignmentOp: String = ":="
-  def csNBAssignmentOp: String = ":=="
-  def csConnectionOp: String = "<>"
-  def csLateConnectionOp: String = "<>"
   def csLateConnectionSep: String = ""
-  def csLazyConnectionOp: String = "`<LZ>`"
+  def csAssignment(lhsStr: String, rhsStr: String): String =
+    s"$lhsStr := $rhsStr"
+  def csNBAssignment(lhsStr: String, rhsStr: String): String =
+    s"$lhsStr :== $rhsStr"
+  def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
+    s"$lhsStr <> $rhsStr"
+  def csLateConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
+    s"this.$lhsStr <>/*$directionStr*/ $rhsStr"
+  def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
+    s"$lhsStr `<LZ>`/*$directionStr*/ $rhsStr"
   val normalizeLateConnection: Boolean = true
   val normalizeConnection: Boolean = true
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
