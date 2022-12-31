@@ -60,6 +60,7 @@ trait Printer
               case _: ProcessBlock => csAssignment(lhsStr, rhsStr)
               case _               => csNBAssignment(lhsStr, rhsStr)
           case _ => csAssignment(lhsStr, rhsStr)
+      case DFNet.Op.NBAssignment   => csNBAssignment(lhsStr, rhsStr)
       case DFNet.Op.Connection     => csConnection(lhsStr, rhsStr, directionStr)
       case DFNet.Op.ViaConnection  => csViaConnection(lhsStr, rhsStr, directionStr)
       case DFNet.Op.LazyConnection => csLazyConnection(lhsStr, rhsStr, directionStr)

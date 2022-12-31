@@ -50,7 +50,7 @@ extension [T: HasDB](t: T)
   end getVerilogCode
   def getVerilogCode: String = getVerilogCode(align = false)
   def commitVerilogCode(): Unit =
-    val pw = new FileWriter(s"./../../sandbox/${t.db.top.dclName}.v")
+    val pw = new FileWriter(s"./../../sandbox/${t.db.top.dclName}.sv")
     pw.write(s"${getVerilogCode(align = true)}\n")
     pw.close()
   def printVerilogCode: DB =

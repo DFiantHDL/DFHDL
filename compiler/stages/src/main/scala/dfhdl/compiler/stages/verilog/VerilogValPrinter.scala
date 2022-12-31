@@ -7,9 +7,12 @@ import DFVal.*
 
 protected trait VerilogValPrinter extends AbstractValPrinter:
   type TPrinter <: VerilogPrinter
+  val supportLogicType: Boolean = true
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValConstDcl(dfVal: Const): String =
     s"parameter ${dfVal.name} = ${printer.csDFToken(dfVal.token)};"
+  private def wireOrLogic: String = if (supportLogicType) "logic" else "wire"
+  private def regOrLogic: String = if (supportLogicType) "logic" else "reg"
   def csDFValDcl(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val modifier = dfVal.modifier match
@@ -92,8 +95,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFSInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
         s"$$signed($relValStr)"
-      case (DFBits(tWidth), DFBits(_)) =>
-        s"$tWidth'($relValStr)"
+      case (DFBits(tWidth), DFBits(fWidth)) =>
+        if (tWidth == fWidth) relValStr
+        else if (tWidth < fWidth) s"$relValStr[${tWidth - 1}:0]"
+        else s"{${tWidth - fWidth}'b0, $relValStr}"
       case (DFBits(tWidth), _) =>
         assert(tWidth == fromType.width)
         fromType match
@@ -101,8 +106,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case DFUInt(_)      => relValStr
           case DFSInt(_)      => s"$$unsigned($relValStr)"
           case _              => s"to_slv($relValStr)"
-      case (DFUInt(tWidth), DFUInt(_)) =>
-        s"$tWidth'($relValStr)"
+      case (DFUInt(tWidth), DFUInt(fWidth)) =>
+        if (tWidth == fWidth) relValStr
+        else if (tWidth < fWidth) s"$relValStr[${tWidth - 1}:0]"
+        else s"{${tWidth - fWidth}'b0, $relValStr}"
       case (DFSInt(tWidth), DFSInt(_)) =>
         s"$tWidth'($relValStr)"
       case (DFBit, DFBool) => relValStr

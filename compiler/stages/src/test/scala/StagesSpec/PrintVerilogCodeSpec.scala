@@ -35,7 +35,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       id,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "ID_defs.v"
+         |`include "ID_defs.sv"
          |
          |module ID(
          |  input wire signed [15:0] x,
@@ -53,7 +53,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "IDTop_defs.v"
+         |`include "IDTop_defs.sv"
          |
          |module ID(
          |  input wire signed [15:0] x,
@@ -64,7 +64,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "IDTop_defs.v"
+         |`include "IDTop_defs.sv"
          |
          |module IDTop(
          |  input wire signed [15:0] x,
@@ -118,7 +118,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "Top_defs.v"
+         |`include "Top_defs.sv"
          |
          |module Top(
          |  input  wire        clk,
@@ -169,7 +169,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "Top_defs.v"
+         |`include "Top_defs.sv"
          |
          |module Top
          |  parameter c01 = 1'b0;

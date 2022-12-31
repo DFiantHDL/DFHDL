@@ -22,7 +22,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
       dfType.entries.view
         .map((n, v) => s"${enumName}_$n=$v")
         .mkString(", ")
-    s"typedef enum {$entries} ${enumName};"
+    s"typedef enum [${dfType.width - 1}:0] {$entries} ${enumName};"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*

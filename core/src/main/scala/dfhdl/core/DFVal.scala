@@ -695,6 +695,8 @@ end DFVal
 extension [T <: DFTypeAny](dfVar: DFValOf[T])
   def assign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
     DFNet(dfVar.asIR, DFNet.Op.Assignment, rhs.asIR)
+  def nbassign[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
+    DFNet(dfVar.asIR, DFNet.Op.NBAssignment, rhs.asIR)
 
 extension [T <: DFTypeAny](lhs: DFValOf[T])
   def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
@@ -761,7 +763,7 @@ object DFVarOps:
     def :=[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
         regNeedsDIN: RegNeedsDIN[A],
-        localOrNonED: LocalOrNonED[A],
+//        localOrNonED: LocalOrNonED[A],
         insideProcess: InsideProcess[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
@@ -776,7 +778,7 @@ object DFVarOps:
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): Unit = trydf {
-      dfVar.assign(tc(dfVar.dfType, rhs))
+      dfVar.nbassign(tc(dfVar.dfType, rhs))
     }
     def din(using
         regOnly: RegOnly[A],

@@ -369,10 +369,10 @@ end DFNet
 object DFNet:
   type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner, DFNet]
   enum Op derives CanEqual:
-    case Assignment, Connection, ViaConnection, LazyConnection
+    case Assignment, NBAssignment, Connection, ViaConnection, LazyConnection
   extension (net: DFNet)
     def isAssignment = net.op match
-      case Op.Assignment => true
+      case Op.Assignment | Op.NBAssignment => true
       case _             => false
     def isConnection = net.op match
       case Op.Connection | Op.ViaConnection | Op.LazyConnection => true
