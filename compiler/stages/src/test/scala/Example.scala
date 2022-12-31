@@ -33,14 +33,17 @@ class ALU extends EDDesign:
       case SRL   => op1 >> shamt
       case SRA   => (op1s >> shamt).bits
       case COPY1 => op1
-    aluOut :== outCalc
+      case _     => ?
+    aluOut := outCalc
   }
 end ALU
 
 @main def hello: Unit =
   System.setProperty("user.dir", "c:\\Users\\oronpo\\IdeaProjects\\dfhdl")
   val top = new ALU
-  top.printVerilogCode
-//  top.commitVerilogCode()
-//  val output = Process("verilator_bin --lint-only -Wall ./../../sandbox/ALU.v").!
+//  top.printVerilogCode
+  top.commitVerilogCode()
+  val output = Process(
+    "verilator_bin --lint-only -Wall -I./../../sandbox ./../../sandbox/ALU.sv"
+  ).!
 //  println("done")

@@ -92,7 +92,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     val end =
       if (cb.isLastCB)
         cb match
-          case caseBlock: DFConditional.DFCaseBlock => csDFMatchEnd
+          case caseBlock: DFConditional.DFCaseBlock => ""
           case ifBlock: DFConditional.DFIfElseBlock => csDFIfEnd
       else ""
     val indentBody =
@@ -108,7 +108,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"${csDFMatchStatement(csSelector)}\n${csChains.indent}"
+        s"${csDFMatchStatement(csSelector)}\n${csChains.indent}${csDFMatchEnd.emptyOr(e => s"\n$e")}"
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
   def csDomainBlock(pb: DomainBlock): String

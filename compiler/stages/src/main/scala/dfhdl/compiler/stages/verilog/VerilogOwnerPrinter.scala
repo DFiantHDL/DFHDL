@@ -62,7 +62,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"
   def csDFIfEnd: String = ""
   def csIfBlockEmpty: String = ""
-  def csDFCasePatternCatchAll: String = "others"
+  def csDFCasePatternCatchAll: String = "default"
   def csDFCasePatternAlternativeToken: String = " | "
   def csDFCasePatternStruct(pattern: Pattern.Struct): String = printer.unsupported
   def csDFCasePatternBind(pattern: Pattern.Bind): String = printer.unsupported
