@@ -93,15 +93,18 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         assert(tWidth == fWidth)
         s"$$signed($relValStr)"
       case (DFBits(tWidth), DFBits(_)) =>
-        s"resize_u($relValStr, $tWidth)"
+        s"$tWidth'($relValStr)"
       case (DFBits(tWidth), _) =>
         assert(tWidth == fromType.width)
         fromType match
-          case _ => s"to_slv($relValStr)"
+          case DFBit | DFBool => s"{$relValStr}"
+          case DFUInt(_)      => relValStr
+          case DFSInt(_)      => s"$$unsigned($relValStr)"
+          case _              => s"to_slv($relValStr)"
       case (DFUInt(tWidth), DFUInt(_)) =>
-        s"resize_u($relValStr, $tWidth)"
+        s"$tWidth'($relValStr)"
       case (DFSInt(tWidth), DFSInt(_)) =>
-        s"resize_s($relValStr, $tWidth)"
+        s"$tWidth'($relValStr)"
       case (DFBit, DFBool) => relValStr
       case (DFBool, DFBit) => relValStr
       case _               => printer.unsupported

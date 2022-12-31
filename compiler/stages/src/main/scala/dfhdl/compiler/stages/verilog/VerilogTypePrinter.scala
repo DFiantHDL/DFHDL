@@ -20,7 +20,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     val enumName = dfType.getName
     val entries =
       dfType.entries.view
-        .map((n, v) => s"$n=$v")
+        .map((n, v) => s"${enumName}_$n=$v")
         .mkString(", ")
     s"typedef enum {$entries} ${enumName};"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName

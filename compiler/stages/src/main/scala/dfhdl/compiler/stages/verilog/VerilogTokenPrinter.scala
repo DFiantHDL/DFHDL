@@ -27,7 +27,7 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
-        s"${dfType.getName}.${entryName}"
+        s"${dfType.getName}_${entryName}"
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     s"Vector${data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkStringBrackets}"
