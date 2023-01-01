@@ -39,8 +39,10 @@ class ALU extends EDDesign:
 end ALU
 
 @main def hello: Unit =
+  import backends.verilog.sv2005
   System.setProperty("user.dir", "c:\\Users\\oronpo\\IdeaProjects\\dfhdl")
   val top = new ALU
+  top.compile
 //  top.printVerilogCode
   top.commitVerilogCode()
   val output = Process(

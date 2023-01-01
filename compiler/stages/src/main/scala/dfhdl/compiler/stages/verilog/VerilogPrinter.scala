@@ -37,4 +37,14 @@ class VerilogPrinter(using val getSet: MemberGetSet)
   def csEndOfStatement: String = ";"
   def csCommentEOL(comment: String): String = s"// $comment"
   def csTimer(timer: Timer): String = unsupported
+  def alignFile(csFile: String): String =
+    csFile
+      // align after port modifiers
+      .align("[ ]*(?:input|output|inout)[ ]*", "", ".*")
+      // align after wire/reg/logic words
+      .align(".* (?:wire|reg|logic)[ ]*", "", ".*")
+      // align signal and port names
+      .align(".* (?:wire|reg).*", "", " [a-zA-Z0-9_]+,?")
+      // align assignments
+      .align("[ ]*[a-zA-Z0-9_]+[ ]*", "=|<=", ".*")
 end VerilogPrinter

@@ -15,8 +15,6 @@ trait Printer
       AbstractTokenPrinter,
       AbstractValPrinter,
       AbstractOwnerPrinter:
-  enum CommentConnDir derives CanEqual:
-    case Off, Inline, EOL
   def csViaConnectionSep: String
   val normalizeViaConnection: Boolean
   val normalizeConnection: Boolean
@@ -129,6 +127,8 @@ trait Printer
     case domain: DomainBlock                         => csDomainBlock(domain)
     case timer: Timer                                => csTimer(timer)
     case _                                           => ???
+  val alignEnable = true
+  def alignFile(csFile: String): String
   final def csDB(db: DB): String =
     import db.getSet
     val uniqueDesigns = mutable.Set.empty[String]
@@ -137,7 +137,8 @@ trait Printer
         uniqueDesigns += block.dclName
         csDFDesignBlockDcl(block)
     }
-    s"${csGlobalTypeDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}\n"
+    val csFiles = s"${csGlobalTypeDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}\n"
+    if (alignEnable) alignFile(csFiles) else csFiles
   end csDB
 end Printer
 
@@ -189,6 +190,14 @@ class DFPrinter(using val getSet: MemberGetSet)
         s"${f.sourceRef.refCodeString} ${f.op} $argStr"
     if (timer.isAnonymous) timerBody else s"val ${timer.name} = $timerBody"
   end csTimer
+  def alignFile(csFile: String): String =
+    csFile
+      .align("[ \\t]*val .*", "=", ".*<>.*")
+      .align("[ \\t]*val .*", "<>", ".*")
+      .align("[ \\t]*val .*<>.*", "init", ".*")
+      .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<>|:==", ".*")
+      .align("[ ]*[a-zA-Z0-9_.]+[ ]*(?::=|<>|:==)", " ", ".*")
+
 end DFPrinter
 
 extension (member: DFMember)(using printer: Printer)
@@ -204,4 +213,5 @@ extension (token: DFTokenAny)(using printer: DFTokenPrinter)
   def codeString: String =
     printer.csDFToken(token)
 
-def DefaultPrinter(using MemberGetSet): Printer = new DFPrinter
+def DefaultPrinter(using MemberGetSet): Printer = new DFPrinter:
+  override val alignEnable: Boolean = false

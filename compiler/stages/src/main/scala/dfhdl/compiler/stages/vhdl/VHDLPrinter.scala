@@ -37,4 +37,10 @@ class VHDLPrinter(using val getSet: MemberGetSet)
   def csEndOfStatement: String = ";"
   def csCommentEOL(comment: String): String = s"-- $comment"
   def csTimer(timer: Timer): String = unsupported
+  def alignFile(csFile: String): String =
+    csFile
+      .align(".*", ":", "[ ]*(?:in|out|inout) .*")
+      .align(".*:[ ]*(?:in|out|inout)", " ", ".*")
+      .align("[ ]*(?:signal|variable|constant) .*", ": ", ".*")
+      .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<=", ".*")
 end VHDLPrinter

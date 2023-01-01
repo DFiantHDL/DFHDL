@@ -37,15 +37,9 @@ end PrintCodeString
 extension [T: HasDB](t: T)
   def getCodeString(align: Boolean): String =
     val designDB = StageRunner.run(PrintCodeString)(t.db)
-    given Printer = DefaultPrinter(using designDB.getSet)
-    if (align)
-      designDB.codeString
-        .align("[ \\t]*val .*", "=", ".*<>.*")
-        .align("[ \\t]*val .*", "<>", ".*")
-        .align("[ \\t]*val .*<>.*", "init", ".*")
-        .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<>|:==", ".*")
-        .align("[ ]*[a-zA-Z0-9_.]+[ ]*(?::=|<>|:==)", " ", ".*")
-    else designDB.codeString
+    given Printer = new DFPrinter(using designDB.getSet):
+      override val alignEnable: Boolean = align
+    designDB.codeString
   def getCodeString: String = getCodeString(align = false)
   def printCodeString: T =
     import PrintCodeString.Coloring.color
