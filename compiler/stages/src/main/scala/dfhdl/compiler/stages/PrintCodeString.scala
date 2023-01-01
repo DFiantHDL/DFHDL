@@ -47,8 +47,8 @@ extension [T: HasDB](t: T)
         .align("[ ]*[a-zA-Z0-9_.]+[ ]*(?::=|<>|:==)", " ", ".*")
     else designDB.codeString
   def getCodeString: String = getCodeString(align = false)
-  def printCodeString: DB =
+  def printCodeString: T =
     import PrintCodeString.Coloring.color
     println(getCodeString(align = true).color)
-    t.db
+    t
 end extension

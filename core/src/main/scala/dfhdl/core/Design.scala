@@ -3,6 +3,8 @@ import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.compiler.printing.*
 
+import scala.annotation.implicitNotFound
+
 private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
   private[core] type TScope = DFC.Scope.Design
   final protected given TScope = DFC.Scope.Design
@@ -25,7 +27,11 @@ object Design:
       ir.DFDesignBlock(domain, dclName, dclPosition, false, ownerRef, dfc.getMeta, ir.DFTags.empty)
         .addMember
         .asFE
-  extension [D <: Design](dsn: D) def getDB: ir.DB = dsn.dfc.mutableDB.immutable
+  extension [D <: Design](dsn: D)
+    def getDB: ir.DB = dsn.dfc.mutableDB.immutable
+    def compile(using bc: BackendCompiler): CompiledDesign[D] = bc(
+      new StagedDesign[D](dsn, dsn.getDB)
+    )
 end Design
 
 abstract class DFDesign(using DFC) extends Design:
@@ -75,3 +81,30 @@ abstract class EDDesign(using DFC) extends Design:
   private[core] type TDomain = DFC.Domain.ED
   final protected given TDomain = DFC.Domain.ED
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED
+
+trait BackendCompiler:
+  def apply[D <: Design](sd: StagedDesign[D]): CompiledDesign[D]
+object BackendCompiler:
+  transparent inline given BackendCompiler =
+    compiletime.error(
+      "Missing an implicit backend argument.\nSolve this by importing the proper backend (e.g. `import backends.verilog.sv2005`)."
+    )
+
+final class StagedDesign[D <: Design](val design: D, val stagedDB: ir.DB)
+object StagedDesign:
+  extension [D <: Design](sd: StagedDesign[D])
+    def compile(using bc: BackendCompiler): CompiledDesign[D] = bc(sd)
+
+opaque type CompiledDesign[D <: Design] = StagedDesign[D]
+object CompiledDesign:
+  def apply[D <: Design](sd: StagedDesign[D]): CompiledDesign[D] = sd
+  extension [D <: Design](cd: CompiledDesign[D])
+    def staged: StagedDesign[D] = cd
+    def toFolder(path: String = cd.stagedDB.top.dclName): CommittedDesign[D] = ???
+    def printGenFiles(): CompiledDesign[D] = cd
+
+opaque type CommittedDesign[D <: Design] = CompiledDesign[D]
+object CommittedDesign:
+  extension [D <: Design](cd: CommittedDesign[D])
+    def staged: StagedDesign[D] = cd
+    def printBackend(): CommittedDesign[D] = cd
