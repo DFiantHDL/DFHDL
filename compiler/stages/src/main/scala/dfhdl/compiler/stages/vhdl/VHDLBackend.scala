@@ -28,9 +28,9 @@ end VHDLBackend
 extension [T: HasDB](t: T)
   def getVHDLCode(align: Boolean): String =
     val designDB = StageRunner.run(VHDLBackend)(t.db)
-    given Printer = new VHDLPrinter(using designDB.getSet):
+    val printer = new VHDLPrinter(using designDB.getSet):
       override val alignEnable = align
-    designDB.codeString
+    printer.csDB
   def getVHDLCode: String = getVHDLCode(align = false)
   def printVHDLCode: DB =
     getVHDLCode(align = true)

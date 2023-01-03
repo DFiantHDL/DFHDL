@@ -33,9 +33,9 @@ extension [T: HasDB](t: T)
   def getVerilogCode(align: Boolean): String =
     val designDB = StageRunner.run(VerilogBackend)(t.db)
     designDB.printCodeString
-    given Printer = new VerilogPrinter(using designDB.getSet):
+    val printer = new VerilogPrinter(using designDB.getSet):
       override val alignEnable: Boolean = align
-    designDB.codeString
+    printer.csDB
   end getVerilogCode
   def getVerilogCode: String = getVerilogCode(align = false)
   def commitVerilogCode(): Unit =

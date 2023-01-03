@@ -148,10 +148,10 @@ trait Printer
     designDB.copy(srcFiles = srcFiles)
   end printedDB
 
-  final def csDB(db: DB): String =
-    import db.getSet
+  final def csDB: String =
+    val designDB = getSet.designDB
     val uniqueDesigns = mutable.Set.empty[String]
-    val codeStringList = db.designMemberList.collect {
+    val codeStringList = designDB.designMemberList.collect {
       case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.dclName) =>
         uniqueDesigns += block.dclName
         csDFDesignBlockDcl(block)
@@ -223,9 +223,6 @@ end DFPrinter
 extension (member: DFMember)(using printer: Printer)
   def codeString: String =
     printer.csDFMember(member)
-extension (db: DB)(using printer: Printer)
-  def codeString: String =
-    printer.csDB(db)
 extension (dfType: DFType)(using printer: DFTypePrinter)
   def codeString: String =
     printer.csDFType(dfType)
