@@ -34,9 +34,10 @@ class VerilogPrinter(using val getSet: MemberGetSet)
          |${comment.indent}
          |*/""".stripMargin
     else s"/*$comment*/"
-  def csEndOfStatement: String = ";"
   def csCommentEOL(comment: String): String = s"// $comment"
   def csTimer(timer: Timer): String = unsupported
+  def globalFileName: String = s"${printer.defsName}.vhd"
+  def designFileName(designName: String): String = s"$designName.sv"
   def alignFile(csFile: String): String =
     csFile
       // align after port modifiers

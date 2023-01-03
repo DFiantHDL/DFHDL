@@ -94,6 +94,7 @@ final class StagedDesign[D <: Design](val design: D, val stagedDB: ir.DB)
 object StagedDesign:
   extension [D <: Design](sd: StagedDesign[D])
     def compile(using bc: BackendCompiler): CompiledDesign[D] = bc(sd)
+    def newStage(stagedDB: ir.DB): StagedDesign[D] = new StagedDesign[D](sd.design, stagedDB)
 
 opaque type CompiledDesign[D <: Design] = StagedDesign[D]
 object CompiledDesign:

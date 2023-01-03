@@ -23,7 +23,6 @@ trait Printer
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String
-  def csEndOfStatement: String
   final def csDFNet(net: DFNet): String =
     // True if the net needs to be shown in a swapped order.
     // Normalized late connections always have the internal port on the LHS.
@@ -128,7 +127,27 @@ trait Printer
     case timer: Timer                                => csTimer(timer)
     case _                                           => ???
   val alignEnable = true
+  def designFileName(designName: String): String
+  def globalFileName: String
   def alignFile(csFile: String): String
+  final def printedDB: DB =
+    val designDB = getSet.designDB
+    val uniqueDesigns = mutable.Set.empty[String]
+    val globalSourceFile = SourceFile(SourceType.Compiled, globalFileName, csGlobalTypeDcls)
+    val compiledFiles = globalSourceFile :: designDB.designMemberList.collect {
+      case (block: DFDesignBlock, _) if !uniqueDesigns.contains(block.dclName) =>
+        uniqueDesigns += block.dclName
+        csDFDesignBlockDcl(block)
+        SourceFile(SourceType.Compiled, designFileName(block.dclName), csDFDesignBlockDcl(block))
+    }
+    // removing existing compiled/committed files and adding the newly compiled files
+    val srcFiles = designDB.srcFiles.filter {
+      case SourceFile(SourceType.Compiled | SourceType.Committed, _, _) => false
+      case _                                                            => true
+    } ++ compiledFiles
+    designDB.copy(srcFiles = srcFiles)
+  end printedDB
+
   final def csDB(db: DB): String =
     import db.getSet
     val uniqueDesigns = mutable.Set.empty[String]
@@ -170,7 +189,6 @@ class DFPrinter(using val getSet: MemberGetSet)
          |${comment.indent}
          |*/""".stripMargin
     else s"/*$comment*/"
-  def csEndOfStatement: String = ""
   def csCommentEOL(comment: String): String = s"// $comment"
   def csTimer(timer: Timer): String =
     val timerBody = timer match
@@ -190,6 +208,8 @@ class DFPrinter(using val getSet: MemberGetSet)
         s"${f.sourceRef.refCodeString} ${f.op} $argStr"
     if (timer.isAnonymous) timerBody else s"val ${timer.name} = $timerBody"
   end csTimer
+  def globalFileName: String = s"${getSet.designDB.top.dclName}_globals.scala"
+  def designFileName(designName: String): String = s"$designName.scala"
   def alignFile(csFile: String): String =
     csFile
       .align("[ \\t]*val .*", "=", ".*<>.*")

@@ -11,8 +11,8 @@ object backends:
     given sv2005: BackendCompiler = new BackendCompiler:
       def apply[D <: Design](sd: StagedDesign[D]): CompiledDesign[D] =
         val designDB = StageRunner.run(VerilogBackend)(sd.stagedDB)
-        given Printer = new VerilogPrinter(using designDB.getSet)
-        ???
+        val printer = new VerilogPrinter(using designDB.getSet)
+        CompiledDesign(sd.newStage(printer.printedDB))
     given sv2012: BackendCompiler = sv2005
     given sv2017: BackendCompiler = sv2005
 

@@ -1,7 +1,7 @@
 package dfhdl.compiler.ir
 
 final case class SourceFile(sourceType: SourceType, path: String, contents: String) derives CanEqual
-enum SourceType:
+enum SourceType derives CanEqual:
   // Compiled files are a result from a compilation process.
   // These files exist only just in memory until they are committed.
   case Compiled
