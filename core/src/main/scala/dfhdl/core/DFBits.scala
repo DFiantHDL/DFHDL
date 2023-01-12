@@ -39,6 +39,14 @@ private object CompanionsDFBits:
         [AW <: Int, TW <: Int] =>> "The alias width (" + AW +
           ") is different than the dataflow value width (" + TW + ")."
       ]
+  protected object `LW >= RW`
+      extends Check2[
+        Int,
+        Int,
+        [LW <: Int, RW <: Int] =>> LW >= RW,
+        [LW <: Int, RW <: Int] =>> "The new width (" + RW +
+          ") is larger than the original width (" + LW + ")."
+      ]
   protected[core] object BitIndex
       extends Check2[
         Int,
@@ -800,6 +808,22 @@ private object CompanionsDFBits:
             lhs,
             _.resizeToken(updatedWidth)
           )
+        }
+        def msbits[RW <: Int](updatedWidth: Inlined[RW])(using
+            check: `LW >= RW`.Check[W, RW],
+            dfc: DFC
+        ): DFValOf[DFBits[RW]] = trydf {
+          check(lhs.width, updatedWidth)
+          DFVal.Alias.ApplyRange(lhs, lhs.width - 1, lhs.width - updatedWidth)
+            .asIR.asValOf[DFBits[RW]]
+        }
+        def lsbits[RW <: Int](updatedWidth: Inlined[RW])(using
+            check: `LW >= RW`.Check[W, RW],
+            dfc: DFC
+        ): DFValOf[DFBits[RW]] = trydf {
+          check(lhs.width, updatedWidth)
+          DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0)
+            .asIR.asValOf[DFBits[RW]]
         }
         def ++[R](rhs: Exact[R])(using c: Candidate[R])(using
             dfc: DFC

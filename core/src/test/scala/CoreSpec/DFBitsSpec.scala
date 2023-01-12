@@ -180,6 +180,40 @@ class DFBitsSpec extends DFSpec:
       b8 := v12
     }
   }
+  test("DFVal Selection") {
+    val b8 = Bits(8) <> VAR
+    assertCodeString {
+      """|val ms8 = b8(7, 0)
+         |val ms7 = b8(7, 1)
+         |val ms1 = b8(7, 7)
+         |val ls8 = b8(7, 0)
+         |val ls7 = b8(6, 0)
+         |val ls1 = b8(0, 0)
+         |""".stripMargin
+    } {
+      val ms8 = b8.msbits(8)
+      val ms7 = b8.msbits(7)
+      val ms1 = b8.msbits(1)
+      val ls8 = b8.lsbits(8)
+      val ls7 = b8.lsbits(7)
+      val ls1 = b8.lsbits(1)
+    }
+    val nine = 9
+    assertDSLErrorLog(
+      """The new width (9) is larger than the original width (8)."""
+    )(
+      """b8.msbits(9)"""
+    ) {
+      b8.msbits(nine)
+    }
+    assertDSLErrorLog(
+      """The new width (9) is larger than the original width (8)."""
+    )(
+      """b8.lsbits(9)"""
+    ) {
+      b8.lsbits(nine)
+    }
+  }
   test("Comparison") {
     val b8 = Bits(8) <> VAR
     val u8 = UInt(8) <> VAR
