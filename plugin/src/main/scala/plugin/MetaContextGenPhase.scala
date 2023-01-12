@@ -267,7 +267,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 //    debug(tree.show)
     tree match
       case apply: Apply =>
-        if (!inlinedOwnerStack.contains(apply))
+        if (!inlinedOwnerStack.contains(apply) && !inlinedTree.call.isEmpty)
           debug("INLINE:")
           debug("from", apply.srcPos.show)
           debug("to  ", inlinedTree.srcPos.show)
