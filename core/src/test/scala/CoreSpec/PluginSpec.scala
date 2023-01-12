@@ -31,6 +31,7 @@ class PluginSpec extends DFSpec:
     assert(pos.file.endsWith(fileName))
     def +(that: Bar)(using DFC): Bar = new Plus(this, that)
     inline def -(that: Bar)(using DFC): Bar = new Plus(this, that)
+    def /[T](that: Exact[T])(using DFC): Bar = new Plus(this, that.value.asInstanceOf[Bar])
 
     override def onCreateEnd: Unit =
       nameStack = ctx.nameOpt :: nameStack
@@ -48,6 +49,19 @@ class PluginSpec extends DFSpec:
   assertEquals(
     pls3Pos,
     min3Pos.map(
+      _.copy(
+        lineStart = pls3Pos.head.lineStart,
+        lineEnd = pls3Pos.head.lineStart
+      )
+    )
+  )
+  val div3 = new Bar / new Bar / new Bar
+  assertLastNames("", "", "", "", "div3")
+  val div3Names = getLastNames
+  val div3Pos = getLastPos
+  assertEquals(
+    pls3Pos,
+    div3Pos.map(
       _.copy(
         lineStart = pls3Pos.head.lineStart,
         lineEnd = pls3Pos.head.lineStart
