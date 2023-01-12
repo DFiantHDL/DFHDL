@@ -1,6 +1,6 @@
 // format: off
 val projectName = "dfhdl"
-val compilerVersion = "3.2.2-RC1"
+val compilerVersion = "3.2.2-RC2"
 
 inThisBuild(
   List(
@@ -22,7 +22,7 @@ inThisBuild(
 name := projectName
 ThisBuild / organization := "io.github.dfianthdl"
 ThisBuild / scalaVersion := compilerVersion
-ThisBuild / version      := "0.2.0-SNAPSHOT"
+ThisBuild / version      := "0.2.1-SNAPSHOT"
 
 
 // PROJECTS
