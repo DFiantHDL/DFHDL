@@ -14,7 +14,7 @@ class DFOpaqueSpec extends DFSpec:
   extension (a: arr <> VAL) def boo: Unit = {}
   assertCodeString(
     """|val o11 = o1u8 <> VAR init d"8'1".as(o1u8)
-       |val a = arr <> VAR init Vector(d"8'0", d"8'0", d"8'0", d"8'0").as(arr)
+       |val a = arr <> VAR init all(d"8'0").as(arr)
        |val u8 = UInt(8) <> VAR
        |val momo = (u8, 1).as(gogo)
        |val q = o1 == o1

@@ -5,26 +5,26 @@ import munit.*
 class DFVectorSpec extends DFSpec:
   test("Assignment") {
     assertCodeString(
-      """|val v1 = UInt(8) X 5 <> VAR init Vector(d"8'22", d"8'22", d"8'22", d"8'22", d"8'22")
-         |val v2 = UInt(8) X 6 <> VAR init Vector(d"8'55", d"8'55", d"8'55", d"8'55", d"8'55", d"8'55")
+      """|val v1 = UInt(8) X 5 <> VAR init Vector(d"8'22", d"8'23", d"8'24", d"8'25", d"8'26")
+         |val v2 = UInt(8) X 6 <> VAR init all(d"8'55")
          |val x = UInt(8) <> VAR
-         |v1 := Vector(d"8'22", d"8'22", d"8'22", d"8'22", d"8'22")
-         |v1 := Vector(x, x, x, x, x)
-         |v2 := Vector(d"8'55", d"8'55", d"8'55", d"8'55", d"8'55", d"8'55")
+         |v1 := all(d"8'22")
+         |v1 := all(x)
+         |v2 := all(d"8'55")
          |v2 := Vector(v1(0), v1(1), v1(2), v1(3), v1(4))
-         |val t1 = v1 == Vector(d"8'22", d"8'22", d"8'22", d"8'22", d"8'22")
-         |val t2 = v1 != Vector(x, x, x, x, x)
+         |val t1 = v1 == all(d"8'22")
+         |val t2 = v1 != all(x)
          |val t3 = v1(3)
          |val i = UInt(3) <> VAR
          |val i2 = UInt(4) <> VAR
          |val t4 = v1(i)
          |val v3 = UInt(8) X 4 X 4 <> VAR
-         |v3 := Vector(Vector(d"8'0", d"8'0", d"8'0", d"8'0"), Vector(d"8'0", d"8'0", d"8'0", d"8'0"), Vector(d"8'0", d"8'0", d"8'0", d"8'0"), Vector(d"8'0", d"8'0", d"8'0", d"8'0"))
+         |v3 := all(all(d"8'0"))
          |v3(3)(1) := d"8'25"
          |v3 := v3
          |""".stripMargin
     ) {
-      val v1 = UInt(8) X 5 <> VAR init Vector.fill(5)(d"8'22")
+      val v1 = UInt(8) X 5 <> VAR init Vector.tabulate(5)(d"8'22" + _)
       val v2 = UInt(8) X 6 <> VAR init all(d"8'55")
       val x = UInt(8) <> VAR
       v1 := Vector.fill(5)(d"8'22")

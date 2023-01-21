@@ -15,7 +15,10 @@ import scala.annotation.targetName
   *   Some vector operations are not possible with this literal. E.g., `x ++ all(0)` is forbidden
   *   because concatenation cannot infer the output width from this operation.
   */
-final class SameElementsVector[T](val value: T) derives CanEqual
+final class SameElementsVector[T](val value: T) derives CanEqual:
+  override def equals(that: Any): Boolean = that match
+    case sev: SameElementsVector[_] => value equals sev.value
+    case _                          => false
 
 object SameElementsVector:
   def apply[T](exact: Inlined[T]): SameElementsVector[T] =

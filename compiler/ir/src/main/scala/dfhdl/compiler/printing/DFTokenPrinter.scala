@@ -144,8 +144,15 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
         val entryName = dfType.entries.find(_._2 == value).get._1
         s"${dfType.getName}.${entryName}"
       case None => "?"
+  val maxVectorDisplay: Int = 64
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
-    s"Vector${data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkStringBrackets}"
+    given CanEqual[Any, Any] = CanEqual.derived
+    if (data.allElementsAreEqual)
+      s"all(${csDFToken(DFToken.forced(dfType.cellType, data.head))})"
+    else if (data.length > maxVectorDisplay)
+      "<vector data length over max `maxVectorDisplay` in printer>"
+    else
+      s"Vector${data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkStringBrackets}"
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.getName})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
