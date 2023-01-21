@@ -69,7 +69,7 @@ case object SanityCheck extends Stage:
 
   def transform(designDB: DB)(using MemberGetSet): DB =
     memberExistenceCheck()
-    designDB.connectionTable // this does connectivity checks
+    designDB.check()
     ownershipCheck(designDB.top, designDB.members.drop(1))
     designDB
 end SanityCheck

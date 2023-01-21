@@ -29,7 +29,7 @@ private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
           errors.collect { case basicErr: DFError.Basic => basicErr.toString }.mkString("\n\n")
         )
       if (!skipChecks)
-        try dfc.mutableDB.immutable.connectionTable // this does connectivity checks
+        try dfc.mutableDB.immutable.check() // various checks post initial elaboration
         catch
           case err: IllegalArgumentException =>
             exitWithError(err.getMessage)

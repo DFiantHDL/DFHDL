@@ -348,6 +348,49 @@ final case class DB(
     end match
   end getConnToDcls
 
+  def nameCheck(): Unit =
+    // We use a Set since meta programming is usually the cause and can result in
+    // multiple anonymous members with the same position. The top can be anonymous.
+    val anonErrorMemberPositions: Set[Position] = members.drop(1).view.collect {
+      case dcl: DFVal.Dcl if dcl.meta.isAnonymous     => dcl.meta.position
+      case dsn: DFDesignBlock if dsn.meta.isAnonymous => dsn.meta.position
+    }.toSet
+    if (anonErrorMemberPositions.nonEmpty)
+      throw new IllegalArgumentException(
+        s"""DFiant HDL name errors!
+           |Unable to determine names for the members declared at the following positions:
+           |${anonErrorMemberPositions.mkString("\n")}
+           |
+           |Explanation:
+           |This can happen when utilizing the meta programming power of Scala in a way that
+           |DFHDL cannot infer the actual name of the member.
+           |
+           |Resolution:
+           |To resolve this issue use `setName` when declaring the member.
+           |
+           |Example 1:
+           |```
+           |  // Scala Vector holding 4 DFHDL ports
+           |  val x_vec = Vector.fill(4)(UInt(8) <> IN setName "x_vec")
+           |```
+           |In this example all the ports will be named "x_vec", and DFHDL will enumerate
+           |them automatically to "x_vec_0", "x_vec_1", etc.
+           |
+           |Example 2:
+           |If you wish to give the ports an explicit unique name, you can just use the power
+           |of Scala, as in the following example:
+           |```
+           |  val x_vec = Vector.tabulate(4)(i => UInt(8) <> IN setName s"x_vec_{i + 10}")
+           |```
+           |This would yield the same ports, but named "x_vec_10", "x_vec_11", etc.
+           |""".stripMargin
+      )
+  end nameCheck
+
+  def check(): Unit =
+    nameCheck()
+    connectionTable // causes connectivity checks
+
   // There can only be a single connection to a value (but multiple assignments are possible)
   //                               To       Via
   lazy val connectionTable: Map[DFVal.Dcl, DFNet] =
