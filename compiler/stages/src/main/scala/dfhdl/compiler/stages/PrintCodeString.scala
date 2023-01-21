@@ -8,7 +8,8 @@ case object PrintCodeString extends Stage:
     import io.AnsiColor._
     val LIT: String = "\u001B[38;5;5m"
     val scalaKWColor: String = s"$BLUE$BOLD"
-    val scalaKW: Set[String] = Set("class", "end", "enum", "extends", "new", "object", "val")
+    val scalaKW: Set[String] =
+      Set("class", "end", "enum", "extends", "new", "object", "val", "if", "else", "match", "case")
     val dfhdlKWColor: String = s"$MAGENTA$BOLD"
     val dfhdlKW: Set[String] =
       Set("VAR", "REG", "WIRE", "IN", "OUT", "INOUT", "VAL", "DFDesign", "RTDesign", "EDDesign",
