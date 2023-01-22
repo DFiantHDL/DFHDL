@@ -279,7 +279,7 @@ final case class DB(
         val owner = net.ownerRef.get
         val (lhsAccess, rhsAccess) = net.op match
           // assignment is always from right to left
-          case Assignment => (Write, Read)
+          case Assignment | NBAssignment => (Write, Read)
           // connections are analyzed according to the context of the net
           case _ => (getValAccess(lhsVal, net)(connToDcls), getValAccess(rhsVal, net)(connToDcls))
         val toValOption = (lhsAccess, rhsAccess) match

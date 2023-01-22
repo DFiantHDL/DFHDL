@@ -770,10 +770,10 @@ object DFVarOps:
     ): Unit = trydf {
       dfVar.assign(tc(dfVar.dfType, rhs))
     }
-    def :==[R](rhs: Exact[R])(using
+    def :==[R](rhs: Exact[R])(using dt: DFC.Domain)(using
         varOnly: VarOnly[A],
-        edDomainOnly: EDDomainOnly[A],
-        notLocalVar: NotLocalVar[A],
+        edDomainOnly: EDDomainOnly[dt.type],
+//        notLocalVar: NotLocalVar[A],
         insideProcess: InsideProcess[A],
         tc: DFVal.TC[T, R],
         dfc: DFC
