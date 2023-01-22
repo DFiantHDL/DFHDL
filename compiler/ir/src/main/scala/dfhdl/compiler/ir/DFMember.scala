@@ -373,13 +373,13 @@ object DFNet:
   extension (net: DFNet)
     def isAssignment = net.op match
       case Op.Assignment | Op.NBAssignment => true
-      case _             => false
+      case _                               => false
     def isConnection = net.op match
       case Op.Connection | Op.ViaConnection | Op.LazyConnection => true
-      case _                                                     => false
+      case _                                                    => false
     def isViaConnection = net.op match
       case Op.ViaConnection => true
-      case _                 => false
+      case _                => false
     def isLazyConnection = net.op match
       case Op.LazyConnection => true
       case _                 => false
@@ -560,7 +560,7 @@ object DFConditional:
       tags: DFTags
   ) extends Header:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case that: DFMatchHeader =>
+      case that: DFIfHeader =>
         this.dfType == that.dfType &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
