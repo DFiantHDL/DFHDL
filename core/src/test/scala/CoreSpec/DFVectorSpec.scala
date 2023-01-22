@@ -28,10 +28,10 @@ class DFVectorSpec extends DFSpec:
       val v2 = UInt(8) X 6 <> VAR init all(d"8'55")
       val x = UInt(8) <> VAR
       v1 := Vector.fill(5)(d"8'22")
-      v1 := Vector.fill(5)(x)
+      v1 := List.fill(5)(x)
       v2 := all(d"8'55")
       v2 := v1.elements
-      val t1 = v1 == Vector.fill(5)(d"8'22")
+      val t1 = v1 == List.fill(5)(d"8'22")
       val t2 = v1 != Vector.fill(5)(x)
       val t3 = v1(3)
       val i = UInt(3) <> VAR

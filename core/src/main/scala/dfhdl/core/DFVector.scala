@@ -91,11 +91,11 @@ object DFVector:
 
     object TC:
       import DFToken.TC
-      given DFVectorTokenFromVector[T <: DFTypeAny, D1 <: Int, E, R <: Vector[E]](using
+      given DFVectorTokenFromVector[T <: DFTypeAny, D1 <: Int, E, R <: Iterable[E]](using
           tc: TC[T, E]
       ): TC[DFVector[T, Tuple1[D1]], R] with
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R): Out =
-          Token(dfType, arg.map(tc(dfType.cellType, _).asIR.data))
+          Token(dfType, arg.map(tc(dfType.cellType, _).asIR.data).toVector)
       given DFVectorTokenFromSEV[T <: DFTypeAny, D1 <: Int, E, R <: SameElementsVector[E]](using
           tc: TC[T, E]
       ): TC[DFVector[T, Tuple1[D1]], R] with
@@ -114,7 +114,7 @@ object DFVector:
           T <: DFTypeAny,
           D1 <: Int,
           E,
-          R <: Vector[E],
+          R <: Iterable[E],
           Op <: FuncOp,
           C <: Boolean
       ](using
@@ -123,7 +123,7 @@ object DFVector:
           castle: ValueOf[C]
       ): Compare[DFVector[T, Tuple1[D1]], R, Op, C] with
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R): Out =
-          Token(dfType, arg.map(tc.conv(dfType.cellType, _).asIR.data))
+          Token(dfType, arg.map(tc.conv(dfType.cellType, _).asIR.data).toVector)
     end Compare
     object Ops:
       extension [T <: DFTypeAny, D1 <: Int](lhs: Token[T, Tuple1[D1]])
@@ -168,7 +168,7 @@ object DFVector:
           T <: DFTypeAny,
           D1 <: Int,
           E,
-          R <: Vector[E]
+          R <: Iterable[E]
       ](using
           tc: TC[T, E],
           dfc: DFC
@@ -197,7 +197,7 @@ object DFVector:
           T <: DFTypeAny,
           D1 <: Int,
           E,
-          R <: Vector[E],
+          R <: Iterable[E],
           Op <: FuncOp,
           C <: Boolean
       ](using
