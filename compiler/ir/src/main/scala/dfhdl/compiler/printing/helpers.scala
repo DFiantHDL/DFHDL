@@ -17,12 +17,14 @@ extension (text: String)
 
   def applyBrackets(onlyIfRequired: Boolean = true): String =
     if (text.requiresBrackets || (!onlyIfRequired && !text.hasBrackets))
-      if (text.contains("\n")) s"(\n${text.indent}\n)"
+      if (text.contains("\n")) s"(\n${text.hindent}\n)"
       else s"($text)"
     else text
 
-  def indent: String = indent(1)
-  def indent(count: Int): String =
+  //TODO: this used to be called `indent`, but java 12 introduced its own indent and broke things
+  //See: https://github.com/lampepfl/dotty/issues/16743
+  def hindent: String = hindent(1)
+  def hindent(count: Int): String =
     text.linesIterator
       .map(l =>
         if (l.isEmpty) ""

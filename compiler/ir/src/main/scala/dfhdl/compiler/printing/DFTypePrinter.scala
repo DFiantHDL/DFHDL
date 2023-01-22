@@ -67,7 +67,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
           s"case $n extends $enumName(${printer.csDFDecimalData(DFUInt(dfType.width), Some(v))})"
         )
         .mkString("\n")
-        .indent
+        .hindent
     s"enum ${enumName}(val value: ${csDFDecimal(DFUInt(dfType.width), true)} <> TOKEN) extends Encode.Manual(${dfType.width}):\n$entries"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
@@ -81,7 +81,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${n}: ${csDFType(t, typeCS = true)} <> VAL")
       .mkString("\n")
-      .indent(2)
+      .hindent(2)
     s"final case class ${dfType.getName}(\n$fields\n) extends Struct"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
     if (dfType.getName.isEmpty)

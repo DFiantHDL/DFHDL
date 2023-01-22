@@ -227,7 +227,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case c: DFVal.Const        => csDFValConstDcl(c)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)
     val indentRHS =
-      if (rhs.contains("\n")) s"\n${rhs.indent}"
+      if (rhs.contains("\n")) s"\n${rhs.hindent}"
       else s" ${rhs}"
     s"$valDef$indentRHS"
   end csDFValNamed

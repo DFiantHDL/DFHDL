@@ -186,7 +186,7 @@ class DFPrinter(using val getSet: MemberGetSet)
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
       s"""/*
-         |${comment.indent}
+         |${comment.hindent}
          |*/""".stripMargin
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"// $comment"

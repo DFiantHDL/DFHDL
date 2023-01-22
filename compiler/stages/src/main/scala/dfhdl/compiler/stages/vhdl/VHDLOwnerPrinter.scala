@@ -36,7 +36,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       .mkString(";\n")
     val portBlock = ports.emptyOr(v => s"""
          |port (
-         |${ports.indent}
+         |${ports.hindent}
          |);""".stripMargin)
     s"""entity ${entityName(design)} is$portBlock
        |end ${entityName(design)};""".stripMargin
@@ -52,7 +52,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         }
         .map(printer.csDFValNamed)
         .emptyOr(_.mkString("\n"))
-    val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.indent}")
+    val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl   => false
       case _: DFVal.Const => false
@@ -60,7 +60,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     })
     s"""architecture ${archName(design)} of ${design.dclName} is$declarations
        |begin
-       |${statements.indent}
+       |${statements.hindent}
        |end ${archName(design)};""".stripMargin
   end csArchitectureDcl
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
@@ -72,7 +72,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
     val inst = s"${design.name} : entity work.${entityName(design)}(${archName(design)})"
-    if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.indent}\n);"
+    if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.hindent}\n);"
   def csDFIfStatement(csCond: String): String = s"if $csCond then"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"
@@ -99,13 +99,13 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFMembers(statements)
     val dcl =
       if (dcls.isEmpty) ""
-      else s"\n${csDFMembers(dcls).indent}"
+      else s"\n${csDFMembers(dcls).hindent}"
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val senList = pb.sensitivity match
       case Sensitivity.All => " (all)"
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
-    s"${named}process$senList$dcl\nbegin\n${body.indent}\nend process;"
+    s"${named}process$senList$dcl\nbegin\n${body.hindent}\nend process;"
   end csProcessBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VHDLOwnerPrinter

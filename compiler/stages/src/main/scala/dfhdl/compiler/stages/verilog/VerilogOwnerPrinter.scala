@@ -27,7 +27,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       }
       .mkString(",\n")
     val portBlock = ports.emptyOr(v => s"""(
-         |${ports.indent}
+         |${ports.hindent}
          |);""".stripMargin)
     val localTypeDcls = printer.csLocalTypeDcls(design)
     val designMembers = design.members(MemberView.Folded)
@@ -39,14 +39,14 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         }
         .map(printer.csDFValNamed)
         .emptyOr(_.mkString("\n"))
-    val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.indent}")
+    val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl   => false
       case _: DFVal.Const => false
       case _              => true
     })
     s"""module ${moduleName(design)}$portBlock$declarations
-       |${statements.indent}
+       |${statements.hindent}
        |endmodule""".stripMargin
   end csModuleDcl
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
@@ -56,7 +56,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
     val inst = s"${moduleName(design)} ${design.name}"
-    if (body.isEmpty) s"$inst" else s"$inst(\n${body.indent}\n);"
+    if (body.isEmpty) s"$inst" else s"$inst(\n${body.hindent}\n);"
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"
@@ -89,7 +89,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.All => " @(*)"
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" @${refs.map(_.refCodeString).mkStringBrackets}"
-    s"$dcl${named}always$senList\nbegin\n${body.indent}\nend"
+    s"$dcl${named}always$senList\nbegin\n${body.hindent}\nend"
   end csProcessBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VerilogOwnerPrinter

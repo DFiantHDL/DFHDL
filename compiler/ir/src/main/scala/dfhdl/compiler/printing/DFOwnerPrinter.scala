@@ -96,7 +96,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           case ifBlock: DFConditional.DFIfElseBlock => csDFIfEnd
       else ""
     val indentBody =
-      if (body.contains("\n")) s"\n${body.indent}" else s" $body"
+      if (body.contains("\n")) s"\n${body.hindent}" else s" $body"
     if (body.isEmpty) cb match
       case caseBlock: DFConditional.DFCaseBlock => statement
       case ifBlock: DFConditional.DFIfElseBlock => s"$statement$csIfBlockEmpty"
@@ -108,7 +108,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"${csDFMatchStatement(csSelector)}\n${csChains.indent}${csDFMatchEnd.emptyOr(e => s"\n$e")}"
+        s"${csDFMatchStatement(csSelector)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(e => s"\n$e")}"
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
   def csDomainBlock(pb: DomainBlock): String
@@ -128,12 +128,12 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
         s"""RTDesign$cfgStr""".stripMargin
       case _ => "EDDesign"
     val dcl = s"class ${design.dclName} extends $dsnCls"
-    if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.indent}\nend ${design.dclName}"
+    if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
     val inst = s"val ${design.name} = new ${design.dclName}"
-    if (body.isEmpty) inst else s"$inst:\n${body.indent}"
+    if (body.isEmpty) inst else s"$inst:\n${body.hindent}"
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"
@@ -167,7 +167,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.All                        => "(all)"
       case Sensitivity.List(refs) if refs.isEmpty => ".forever"
       case Sensitivity.List(refs)                 => refs.map(_.refCodeString).mkStringBrackets
-    s"${named}process${senList} {\n${body.indent}\n}"
+    s"${named}process${senList} {\n${body.hindent}\n}"
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
@@ -179,6 +179,6 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
           case _                  => s"(${printer.csRTDomainCfg(rt.cfg)})"
         s"RTDomain$cfgStr".stripMargin
       case DomainType.ED => "EDDomain"
-    s"${named}new $domainStr:\n${body.indent}"
+    s"${named}new $domainStr:\n${body.hindent}"
 
 end DFOwnerPrinter
