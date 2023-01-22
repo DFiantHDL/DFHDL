@@ -4,19 +4,24 @@ import dfhdl.compiler.ir
 import dfhdl.compiler.printing.*
 
 import scala.annotation.implicitNotFound
+import scala.reflect.ClassTag
 
 private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
   private[core] type TScope = DFC.Scope.Design
+  private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
-  private[core] final override lazy val owner: Design.Block =
+  final private[core] def initOwner: TOwner =
     Design.Block(__domainType, "???", Position.unknown)
   final protected def setClsNamePos(name: String, position: Position): Unit =
     val designBlock = owner.asIR
-    dfc.getSet.replace(designBlock)(
-      designBlock.copy(dclName = name, dclPosition = position)
+    setOwner(
+      dfc.getSet.replace(designBlock)(
+        designBlock.copy(dclName = name, dclPosition = position)
+      ).asFE
     )
   final override def onCreateStartLate: Unit =
     dfc.enterLate()
+end Design
 
 object Design:
   type Block = DFOwner[ir.DFDesignBlock]
@@ -32,6 +37,27 @@ object Design:
     def compile(using bc: BackendCompiler): CompiledDesign[D] = bc(
       new StagedDesign[D](dsn, dsn.getDB)
     )
+    def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
+        dfc: DFC
+    ): D =
+      import dfc.getSet
+      dsn.setOwner(
+        dsn.owner.asIR
+          .setTags(_.tag(customTag))
+          .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
+          .asFE
+      )
+    def setName(name: String)(using dfc: DFC): D =
+      import dfc.getSet
+      dsn.setOwner(
+        dsn.owner.asIR
+          .setMeta(m =>
+            if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta.setName(name)
+            else m.setName(name)
+          ).asFE
+      )
+  end extension
+
 end Design
 
 abstract class DFDesign(using DFC) extends Design:

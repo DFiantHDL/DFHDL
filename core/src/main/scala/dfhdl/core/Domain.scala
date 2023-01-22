@@ -5,8 +5,9 @@ import dfhdl.compiler.printing.*
 
 private[dfhdl] abstract class Domain(using DFC) extends Container with scala.reflect.Selectable:
   private[core] type TScope = DFC.Scope.Domain
+  private[core] type TOwner = Domain.Block
   final protected given TScope = DFC.Scope.Domain
-  private[core] final override lazy val owner: Domain.Block =
+  final private[core] def initOwner: TOwner =
     Domain.Block(__domainType)
 
 object Domain:
