@@ -276,7 +276,6 @@ final case class DB(
                 |Message:   ${errMsg}""".stripMargin
           newErrors = errMsgComplete :: newErrors
         import flatNet.{lhsVal, rhsVal, net}
-        val owner = net.ownerRef.get
         val (lhsAccess, rhsAccess) = net.op match
           // assignment is always from right to left
           case Assignment | NBAssignment => (Write, Read)
