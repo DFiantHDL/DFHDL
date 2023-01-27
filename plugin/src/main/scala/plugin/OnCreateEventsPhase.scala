@@ -9,7 +9,7 @@ import Flags.*
 import SymDenotations.*
 import Decorators.*
 import ast.Trees.*
-import ast.tpd
+import ast.{tpd, untpd}
 import StdNames.nme
 import Names.*
 import Types.*
@@ -46,10 +46,36 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
         val clsTpe = tree.tpe
         val clsSym = clsTpe.typeSymbol
         if (clsTpe <:< hasNamePosTpe && !clsSym.isAnonymousClass)
+          val args =
+            template.constr.paramss.flatten.collect { case v: ValDef =>
+              mkTuple(
+                List(Literal(Constant(v.name.toString)), untpd.Ident(v.name).withType(v.tpe))
+              )
+            }
+
+          val listMapTree =
+            if (args.isEmpty)
+              ref(requiredMethod("scala.collection.immutable.ListMap.empty"))
+                .appliedToTypes(List(defn.StringType, defn.AnyType))
+            else
+              ref(requiredModule("scala.collection.immutable.ListMap")).select(nme.apply)
+                .appliedToTypes(List(defn.StringType, defn.AnyType))
+                .appliedToVarargs(
+                  args,
+                  TypeTree(
+                    AppliedType(
+                      requiredClassRef("scala.Tuple2"),
+                      List(defn.StringType, defn.AnyType)
+                    )
+                  )
+                )
+
           val setClsNamePosTree =
             This(clsSym.asClass)
               .select("setClsNamePos".toTermName)
-              .appliedToArgs(List(Literal(Constant(tree.name.toString)), tree.positionTree))
+              .appliedToArgs(
+                List(Literal(Constant(tree.name.toString)), tree.positionTree, listMapTree)
+              )
           val newTemplate = cpy.Template(template)(
             template.constr,
             template.parents,
@@ -115,6 +141,21 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
     }
   end transformStats
 
+//  override def transformValDef(tree: tpd.ValDef)(using Context): tpd.Tree =
+//    if (tree.name.toString == "xoronx")
+//      println(tree.rhs.show)
+//      println(tree.rhs)
+//
+//      val args = List(mkTuple(List(Literal(Constant("x")), Literal(Constant("xvalue")))))
+//      val listMapTree =
+//        ref(requiredMethod("scala.collection.immutable.ListMap.apply"))
+//          .appliedToTypes(List(defn.StringType, defn.AnyType))
+//          .appliedToVarargs(args, TypeTree(args.head.tpe))
+//      println(listMapTree.show)
+//      println(listMapTree)
+////      tpd.cpy.ValDef(tree)(rhs = listMapTree)
+//      tree
+//    else tree
   override def transformApply(tree: Apply)(using Context): Tree =
     if (tree.tpe.isParameterless && !ignore.exists(i => i.sameTree(tree)))
       tree match

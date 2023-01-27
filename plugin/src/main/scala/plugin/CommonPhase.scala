@@ -31,6 +31,19 @@ abstract class CommonPhase extends PluginPhase:
   def debug(str: => Any*): Unit =
     if (debugFilter(pluginDebugSource)) println(str.mkString(", "))
 
+  protected def mkSome(tree: Tree)(using Context): Tree =
+    ref(requiredMethod("scala.Some.apply"))
+      .appliedToType(tree.tpe)
+      .appliedTo(tree)
+
+  protected def mkList(tree: List[Tree])(using Context): Tree =
+    tpd.mkList(tree, TypeTree(tree.head.tpe.widen))
+
+  protected def mkTuple(trees: List[Tree])(using Context): Tree =
+    ref(requiredMethod(s"scala.Tuple${trees.length}.apply"))
+      .appliedToTypes(trees.map(_.tpe.widen))
+      .appliedToArgs(trees)
+
   var metaContextTpe: TypeRef = _
   var metaContextCls: ClassSymbol = _
   var positionCls: ClassSymbol = _

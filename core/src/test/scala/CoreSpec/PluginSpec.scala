@@ -2,7 +2,9 @@ package CoreSpec
 import dfhdl.*
 import munit.*
 import internals.*
+
 import scala.annotation.targetName
+import scala.collection.immutable.ListMap
 
 class PluginSpec extends DFSpec:
   var nameStack: List[Option[String]] = Nil
@@ -96,18 +98,29 @@ class PluginSpec extends DFSpec:
   }
   assertLastNames("wrappedTryName")
 
-  trait HasNamePosWithVars extends HasNamePos:
+  trait HasNamePosWithVars extends internals.HasNamePos:
     private var _clsName: String = ""
     private var _clsPosition: Position = Position.unknown
-    final protected def setClsNamePos(name: String, position: Position): Unit =
+    private var _clsArgs: ListMap[String, Any] = ListMap()
+
+    final protected def setClsNamePos(
+        name: String,
+        position: Position,
+        args: ListMap[String, Any]
+    ): Unit =
       _clsName = name
       _clsPosition = position
+      _clsArgs = args
+
     final def clsName: String = _clsName
     final def clsPosition: Position = _clsPosition
+    final def clsArgs: ListMap[String, Any] = _clsArgs
+  end HasNamePosWithVars
 
-  class GotName extends HasNamePosWithVars
-  val gotName = new GotName
+  class GotName(x: Int, y: String, z: Int) extends HasNamePosWithVars
+  val gotName = new GotName(1, "2", 3)
   assertEquals(gotName.clsName, "GotName")
+  assertEquals(gotName.clsArgs, ListMap("x" -> 1, "y" -> "2", "z" -> 3))
 
   extension (bar: Bar)(using DFC) def ++(that: Bar): Bar = new Plus(bar, that)
 

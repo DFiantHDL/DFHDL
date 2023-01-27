@@ -397,17 +397,6 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     end match
   end transformLiteralCasePattern
 
-  private def mkSome(tree: Tree)(using Context): Tree =
-    ref(requiredMethod("scala.Some.apply"))
-      .appliedToType(tree.tpe)
-      .appliedTo(tree)
-  private def mkList(tree: List[Tree])(using Context): Tree =
-    tpd.mkList(tree, TypeTree(tree.head.tpe.widen))
-  private def mkTuple(trees: List[Tree])(using Context): Tree =
-    ref(requiredMethod(s"scala.Tuple${trees.length}.apply"))
-      .appliedToTypes(trees.map(_.tpe.widen))
-      .appliedToArgs(trees)
-
   class ValDefGen:
     private var bindMap = immutable.ListMap.empty[Name, Tree]
     private var valDefs = List.empty[ValDef]

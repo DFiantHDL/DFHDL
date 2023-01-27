@@ -4,6 +4,7 @@ import dfhdl.compiler.ir
 import dfhdl.compiler.printing.*
 
 import scala.annotation.implicitNotFound
+import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
 
 private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
@@ -12,7 +13,11 @@ private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
   final protected given TScope = DFC.Scope.Design
   final private[core] def initOwner: TOwner =
     Design.Block(__domainType, "???", Position.unknown)
-  final protected def setClsNamePos(name: String, position: Position): Unit =
+  final protected def setClsNamePos(
+      name: String,
+      position: Position,
+      args: ListMap[String, Any]
+  ): Unit =
     val designBlock = owner.asIR
     setOwner(
       dfc.getSet.replace(designBlock)(
