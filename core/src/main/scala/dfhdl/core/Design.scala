@@ -2,7 +2,7 @@ package dfhdl.core
 import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.compiler.printing.*
-
+import ir.DFDesignBlock.InstMode
 import scala.annotation.implicitNotFound
 import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
@@ -11,8 +11,9 @@ private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
+  private[core] def mkInstMode(args: ListMap[String, Any]): InstMode = InstMode.Normal
   final private[core] def initOwner: TOwner =
-    Design.Block(__domainType, "???", Position.unknown)
+    Design.Block(__domainType, "???", Position.unknown, InstMode.Normal)
   final protected def setClsNamePos(
       name: String,
       position: Position,
@@ -21,7 +22,7 @@ private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
     val designBlock = owner.asIR
     setOwner(
       dfc.getSet.replace(designBlock)(
-        designBlock.copy(dclName = name, dclPosition = position)
+        designBlock.copy(dclName = name, dclPosition = position, instMode = mkInstMode(args))
       ).asFE
     )
   final override def onCreateStartLate: Unit =
@@ -29,14 +30,27 @@ private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
 end Design
 
 object Design:
+  import ir.DFDesignBlock.InstMode
   type Block = DFOwner[ir.DFDesignBlock]
   object Block:
-    def apply(domain: ir.DomainType, dclName: String, dclPosition: Position)(using DFC): Block =
+    def apply(domain: ir.DomainType, dclName: String, dclPosition: Position, instMode: InstMode)(
+        using DFC
+    ): Block =
       val ownerRef: ir.DFOwner.Ref =
         dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFRef.OneWay.Empty)
-      ir.DFDesignBlock(domain, dclName, dclPosition, false, ownerRef, dfc.getMeta, ir.DFTags.empty)
+      ir.DFDesignBlock(
+        domain,
+        dclName,
+        dclPosition,
+        instMode,
+        ownerRef,
+        dfc.getMeta,
+        ir.DFTags.empty
+      )
         .addMember
         .asFE
+    end apply
+  end Block
   extension [D <: Design](dsn: D)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
     def compile(using bc: BackendCompiler): CompiledDesign[D] = bc(
@@ -112,6 +126,13 @@ abstract class EDDesign(using DFC) extends Design:
   private[core] type TDomain = DFC.Domain.ED
   final protected given TDomain = DFC.Domain.ED
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED
+
+abstract class EDBlackBox(verilogSrc: EDBlackBox.Source, vhdlSrc: EDBlackBox.Source)(using DFC)
+    extends EDDesign:
+  override private[core] def mkInstMode(args: ListMap[String, Any]): InstMode =
+    InstMode.BlackBox(args, verilogSrc, vhdlSrc)
+object EDBlackBox:
+  export ir.DFDesignBlock.InstMode.BlackBox.Source
 
 trait BackendCompiler:
   def apply[D <: Design](sd: StagedDesign[D]): CompiledDesign[D]

@@ -49,6 +49,8 @@ object hdl:
   type DFDesign = core.DFDesign
   type RTDesign = core.RTDesign
   type EDDesign = core.EDDesign
+  type EDBlackBox = core.EDBlackBox
+  val EDBlackBox = core.EDBlackBox
   type DFDomain = core.DFDomain
   type RTDomain = core.RTDomain
   type EDDomain = core.EDDomain

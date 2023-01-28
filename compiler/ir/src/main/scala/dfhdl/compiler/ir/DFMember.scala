@@ -3,6 +3,7 @@ package ir
 import dfhdl.internals.*
 
 import annotation.tailrec
+import scala.collection.immutable.ListMap
 
 trait HasRefCompare[T <: HasRefCompare[T]]:
   private var cachedCompare: Option[(T, Boolean)] = None
@@ -598,7 +599,7 @@ final case class DFDesignBlock(
     domainType: DomainType,
     dclName: String,
     dclPosition: Position,
-    inSimulation: Boolean,
+    instMode: DFDesignBlock.InstMode,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
@@ -608,7 +609,7 @@ final case class DFDesignBlock(
     case that: DFDesignBlock =>
       this.domainType == that.domainType &&
       this.dclName == that.dclName && this.dclPosition == that.dclPosition &&
-      this.inSimulation == that.inSimulation &&
+      this.instMode == that.instMode &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -616,10 +617,24 @@ final case class DFDesignBlock(
 end DFDesignBlock
 
 object DFDesignBlock:
+  import InstMode.BlackBox.Source
+  enum InstMode derives CanEqual:
+    case Normal, Simulation
+    case BlackBox(args: ListMap[String, Any], verilogSrc: Source, vhdlSrc: Source)
+  object InstMode:
+    object BlackBox:
+      enum Source derives CanEqual:
+        case NA
+        case File(path: String)
+        case Library(libName: String, nameSpace: String)
+
+  extension (dsn: DFDesignBlock) def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
+
   object Top:
     def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = block.isTop
   object Internal:
     def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = !block.isTop
+end DFDesignBlock
 
 final case class DomainBlock(
     domainType: DomainType,
