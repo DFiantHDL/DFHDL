@@ -36,10 +36,10 @@ class VerilogPrinter(using val getSet: MemberGetSet)
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"// $comment"
   def csTimer(timer: Timer): String = unsupported
-  def globalFileName: String = s"${printer.defsName}.vhd"
+  def globalFileName: String = s"${printer.defsName}.sv"
   def designFileName(designName: String): String = s"$designName.sv"
-  def alignFile(csFile: String): String =
-    csFile
+  def alignCode(cs: String): String =
+    cs
       // align after port modifiers
       .align("[ ]*(?:input|output|inout)[ ]*", "", ".*")
       // align after wire/reg/logic words
@@ -48,4 +48,11 @@ class VerilogPrinter(using val getSet: MemberGetSet)
       .align(".* (?:wire|reg).*", "", " [a-zA-Z0-9_]+,?")
       // align assignments
       .align("[ ]*[a-zA-Z0-9_]+[ ]*", "=|<=", ".*")
+      // align enum constants
+      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_]*[ ]*", "=", ".*")
+      // align cases
+      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_]*[ ]*:", "", ".*")
+  def colorCode(cs: String): String =
+    cs
+
 end VerilogPrinter

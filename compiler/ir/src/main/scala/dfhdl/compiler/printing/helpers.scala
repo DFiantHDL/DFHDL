@@ -21,8 +21,8 @@ extension (text: String)
       else s"($text)"
     else text
 
-  //TODO: this used to be called `indent`, but java 12 introduced its own indent and broke things
-  //See: https://github.com/lampepfl/dotty/issues/16743
+  // TODO: this used to be called `indent`, but java 12 introduced its own indent and broke things
+  // See: https://github.com/lampepfl/dotty/issues/16743
   def hindent: String = hindent(1)
   def hindent(count: Int): String =
     text.linesIterator
@@ -56,4 +56,6 @@ extension (text: String)
     wordSet.foldLeft(text) { case (t, w) =>
       t.replaceAll(s" $w ", s"$color $w ${io.AnsiColor.RESET}")
     }
+  def decolor: String = text.replaceAll("\u001B\\[[;\\d]*m", "")
+
 end extension

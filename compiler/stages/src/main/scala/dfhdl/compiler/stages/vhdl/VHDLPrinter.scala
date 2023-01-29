@@ -38,10 +38,12 @@ class VHDLPrinter(using val getSet: MemberGetSet)
   def csTimer(timer: Timer): String = unsupported
   def globalFileName: String = s"${printer.packageName}.vhd"
   def designFileName(designName: String): String = s"$designName.vhd"
-  def alignFile(csFile: String): String =
-    csFile
+  def alignCode(cs: String): String =
+    cs
       .align(".*", ":", "[ ]*(?:in|out|inout) .*")
       .align(".*:[ ]*(?:in|out|inout)", " ", ".*")
       .align("[ ]*(?:signal|variable|constant) .*", ": ", ".*")
       .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<=", ".*")
+  def colorCode(cs: String): String =
+    cs
 end VHDLPrinter

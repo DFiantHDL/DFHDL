@@ -4,6 +4,7 @@ import ir.*
 import dfhdl.internals.*
 import scala.collection.mutable
 import analysis.*
+import java.nio.file.Paths
 
 protected trait AbstractPrinter:
   type TPrinter <: Printer
@@ -126,19 +127,28 @@ trait Printer
     case domain: DomainBlock                         => csDomainBlock(domain)
     case timer: Timer                                => csTimer(timer)
     case _                                           => ???
-  val alignEnable = true
   def designFileName(designName: String): String
   def globalFileName: String
-  def alignFile(csFile: String): String
+  val alignEnable = true
+  def alignCode(cs: String): String
+  val colorEnable = true
+  def colorCode(cs: String): String
+  final def formatCode(cs: String): String =
+    val alignedContents = if (alignEnable) alignCode(cs) else cs
+    if (colorEnable) colorCode(alignedContents) else alignedContents
   final def printedDB: DB =
     val designDB = getSet.designDB
     val uniqueDesigns = mutable.Set.empty[String]
-    val globalSourceFile = SourceFile(SourceType.Compiled, globalFileName, csGlobalTypeDcls)
+    val globalSourceFile =
+      SourceFile(SourceType.Compiled, globalFileName, formatCode(csGlobalTypeDcls))
     val compiledFiles = globalSourceFile :: designDB.designMemberList.collect {
       case (block: DFDesignBlock, _) if !uniqueDesigns.contains(block.dclName) =>
         uniqueDesigns += block.dclName
-        csDFDesignBlockDcl(block)
-        SourceFile(SourceType.Compiled, designFileName(block.dclName), csDFDesignBlockDcl(block))
+        SourceFile(
+          SourceType.Compiled,
+          designFileName(block.dclName),
+          formatCode(csDFDesignBlockDcl(block))
+        )
     }
     // removing existing compiled/committed files and adding the newly compiled files
     val srcFiles = designDB.srcFiles.filter {
@@ -157,8 +167,31 @@ trait Printer
         csDFDesignBlockDcl(block)
     }
     val csFiles = s"${csGlobalTypeDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}\n"
-    if (alignEnable) alignFile(csFiles) else csFiles
+    if (alignEnable) alignCode(csFiles) else csFiles
   end csDB
+end Printer
+
+object Printer:
+  def printGenFiles(db: DB): Unit =
+    db.srcFiles.foreach {
+      case SourceFile(SourceType.Compiled | SourceType.Committed, path, contents) =>
+        println("==========================================================")
+        println(path)
+        println("==========================================================")
+        println(contents)
+        println("")
+      case _ =>
+    }
+  def toFolder(db: DB, folderPathStr: String): Unit =
+    db.srcFiles.foreach {
+      case SourceFile(SourceType.Compiled | SourceType.Committed, filePathStr, contents) =>
+        val filePath = Paths.get(filePathStr)
+        val finalPath =
+          if (filePath.isAbsolute) filePath else Paths.get(folderPathStr).resolve(filePathStr)
+        println(finalPath)
+        println(contents.decolor)
+      case _ =>
+    }
 end Printer
 
 class DFPrinter(using val getSet: MemberGetSet)
@@ -210,14 +243,37 @@ class DFPrinter(using val getSet: MemberGetSet)
   end csTimer
   def globalFileName: String = s"${getSet.designDB.top.dclName}_globals.scala"
   def designFileName(designName: String): String = s"$designName.scala"
-  def alignFile(csFile: String): String =
-    csFile
+  def alignCode(cs: String): String =
+    cs
       .align("[ \\t]*val .*", "=", ".*<>.*")
       .align("[ \\t]*val .*", "<>", ".*")
       .align("[ \\t]*val .*<>.*", "init", ".*")
       .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<>|:==", ".*")
       .align("[ ]*[a-zA-Z0-9_.]+[ ]*(?::=|<>|:==)", " ", ".*")
+      // align enums
+      .align("[ ]*case [a-zA-Z0-9_]+[ ]*", "extends", ".*")
+      // align cases
+      .align("[ ]*case [a-zA-Z0-9_.]+[ ]*", "=>", ".*")
 
+  import io.AnsiColor._
+  val scalaKWColor: String = s"$BLUE$BOLD"
+  val scalaKW: Set[String] =
+    Set("class", "end", "enum", "extends", "new", "object", "val", "if", "else", "match", "case")
+  val dfhdlKWColor: String = s"$MAGENTA$BOLD"
+  val dfhdlKW: Set[String] =
+    Set("VAR", "REG", "WIRE", "IN", "OUT", "INOUT", "VAL", "DFDesign", "RTDesign", "EDDesign",
+      "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all")
+  val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
+  val dfhdlTypes: Set[String] =
+    Set("Bit", "Boolean", "UInt", "SInt", "Bits", "X", "Encode", "Struct", "Opaque", "StartAt",
+      "OneHot", "Grey")
+  val dfhdlTPColor: String = "\u001B[38;5;94m"
+  def colorCode(cs: String): String =
+    cs
+      .colorWords(scalaKW, scalaKWColor)
+      .colorWords(dfhdlKW, dfhdlKWColor)
+      .colorOps(dfhdlOps, dfhdlKWColor)
+      .colorWords(dfhdlTypes, dfhdlTPColor)
 end DFPrinter
 
 extension (member: DFMember)(using printer: Printer)

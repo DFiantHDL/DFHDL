@@ -154,10 +154,15 @@ object CompiledDesign:
   extension [D <: Design](cd: CompiledDesign[D])
     def staged: StagedDesign[D] = cd
     def toFolder(path: String = cd.stagedDB.top.dclName): CommittedDesign[D] = ???
-    def printGenFiles(): CompiledDesign[D] = cd
+    def printGenFiles: CompiledDesign[D] =
+      Printer.printGenFiles(staged.stagedDB)
+      cd
 
 opaque type CommittedDesign[D <: Design] = CompiledDesign[D]
 object CommittedDesign:
   extension [D <: Design](cd: CommittedDesign[D])
     def staged: StagedDesign[D] = cd
-    def printBackend(): CommittedDesign[D] = cd
+    private def compiled: CompiledDesign[D] = cd
+    def printGenFiles: CommittedDesign[D] =
+      import CompiledDesign.printGenFiles as pgf
+      compiled.pgf
