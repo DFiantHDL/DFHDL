@@ -1,7 +1,7 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.verilog.{printVerilogCode, getVerilogCode}
+import dfhdl.compiler.stages.verilog.{getVerilogCode}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}, {code = ":=="}]}
 
 class PrintVerilogCodeSpec extends StageSpec:

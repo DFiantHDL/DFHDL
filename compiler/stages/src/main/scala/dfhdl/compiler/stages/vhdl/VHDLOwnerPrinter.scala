@@ -68,7 +68,8 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
        |
        |${csEntityDcl(design)}
        |
-       |${csArchitectureDcl(design)}""".stripMargin
+       |${csArchitectureDcl(design)}
+       |""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
     val inst = s"${design.name} : entity work.${entityName(design)}(${archName(design)})"

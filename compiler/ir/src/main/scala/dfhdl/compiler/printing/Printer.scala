@@ -4,6 +4,7 @@ import ir.*
 import dfhdl.internals.*
 import scala.collection.mutable
 import analysis.*
+import java.io.FileWriter
 import java.nio.file.Paths
 
 protected trait AbstractPrinter:
@@ -46,18 +47,7 @@ trait Printer
     val lhsStr = lhsRef.refCodeString
     val rhsStr = rhsRef.refCodeString
     net.op match
-      case DFNet.Op.Assignment =>
-        val DFNet.Assignment(toVal, _) = net: @unchecked
-        val toDcl = toVal.dealias.get
-        toDcl.getOwnerDomain.domainType match
-          // event-driven domains can have non-blocking assignments
-          case DomainType.ED =>
-            // if the assigned declaration is at an `process` block, then this is a blocking assignment.
-            // otherwise, this is a non-blocking assignment.
-            toDcl.getOwnerNamed match
-              case _: ProcessBlock => csAssignment(lhsStr, rhsStr)
-              case _               => csNBAssignment(lhsStr, rhsStr)
-          case _ => csAssignment(lhsStr, rhsStr)
+      case DFNet.Op.Assignment     => csAssignment(lhsStr, rhsStr)
       case DFNet.Op.NBAssignment   => csNBAssignment(lhsStr, rhsStr)
       case DFNet.Op.Connection     => csConnection(lhsStr, rhsStr, directionStr)
       case DFNet.Op.ViaConnection  => csViaConnection(lhsStr, rhsStr, directionStr)
@@ -182,16 +172,19 @@ object Printer:
         println("")
       case _ =>
     }
-  def toFolder(db: DB, folderPathStr: String): Unit =
-    db.srcFiles.foreach {
-      case SourceFile(SourceType.Compiled | SourceType.Committed, filePathStr, contents) =>
-        val filePath = Paths.get(filePathStr)
-        val finalPath =
-          if (filePath.isAbsolute) filePath else Paths.get(folderPathStr).resolve(filePathStr)
-        println(finalPath)
-        println(contents.decolor)
-      case _ =>
+  def toFolder(db: DB, folderPathStr: String): DB =
+    val updatedSrcFiles = db.srcFiles.map {
+      case srcFile @ SourceFile(SourceType.Compiled, filePathStr, contents) =>
+        val finalPathStr =
+          if (Paths.get(filePathStr).isAbsolute) filePathStr
+          else Paths.get(folderPathStr).resolve(filePathStr).toAbsolutePath.normalize().toString
+        val pw = new FileWriter(finalPathStr)
+        pw.write(contents.decolor)
+        pw.close()
+        srcFile.copy(path = finalPathStr)
+      case other => other
     }
+    db.copy(srcFiles = updatedSrcFiles)
 end Printer
 
 class DFPrinter(using val getSet: MemberGetSet)

@@ -40,12 +40,11 @@ end ALU
 
 @main def hello: Unit =
   import backends.verilog.sv2005
-  System.setProperty("user.dir", "c:\\Users\\oronpo\\IdeaProjects\\dfhdl")
   val top = new ALU
-  top.compile
-//  top.printVerilogCode
-  top.commitVerilogCode()
+  top
+    .compile
+    .toFolder(".\\..\\..\\sandbox")
+    .printGenFiles
   val output = Process(
     "verilator_bin --lint-only -Wall -I./../../sandbox ./../../sandbox/ALU.sv"
   ).!
-//  println("done")

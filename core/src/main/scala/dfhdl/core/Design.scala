@@ -153,7 +153,8 @@ object CompiledDesign:
   def apply[D <: Design](sd: StagedDesign[D]): CompiledDesign[D] = sd
   extension [D <: Design](cd: CompiledDesign[D])
     def staged: StagedDesign[D] = cd
-    def toFolder(path: String = cd.stagedDB.top.dclName): CommittedDesign[D] = ???
+    def toFolder(path: String = cd.stagedDB.top.dclName): CommittedDesign[D] =
+      staged.newStage(Printer.toFolder(staged.stagedDB, path))
     def printGenFiles: CompiledDesign[D] =
       Printer.printGenFiles(staged.stagedDB)
       cd

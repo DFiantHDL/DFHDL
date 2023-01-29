@@ -16,7 +16,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
     getSet.designDB.getGlobalNamedDFTypes.toList
       .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
       .map(printer.csNamedDFTypeDcl)
-      .mkString("\n")
+      .mkString("\n") + "\n"
   final def csLocalTypeDcls(design: DFDesignBlock): String =
     getSet.designDB
       .getLocalNamedDFTypes(design)
