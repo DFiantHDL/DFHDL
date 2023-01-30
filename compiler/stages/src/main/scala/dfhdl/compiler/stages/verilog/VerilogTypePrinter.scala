@@ -26,7 +26,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
-    s"${csDFType(cellType, typeCS)}.X${cellDims.mkStringBrackets}"
+    s"${csDFType(cellType, typeCS)}"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     s"case class ${dfType.getName}() extends Opaque(${csDFType(dfType.actualType)})"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName

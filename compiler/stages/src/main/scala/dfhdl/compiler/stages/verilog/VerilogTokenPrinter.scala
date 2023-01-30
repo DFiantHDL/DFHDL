@@ -30,7 +30,7 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
         s"${dfType.getName}_${entryName}"
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
-    s"Vector${data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkStringBrackets}"
+    data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkString("{", ", ", "}")
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.getName})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =

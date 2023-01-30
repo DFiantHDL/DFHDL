@@ -19,15 +19,18 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case Modifier.IN    => "input wire"
       case Modifier.OUT   => "output reg"
       case Modifier.INOUT => "inout"
-      case Modifier.VAR =>
-        dfVal.getOwnerNamed match
-          case dsn: DFDesignBlock => "wire"
-          case _                  => "reg"
+      case Modifier.VAR   => "logic"
+//        dfVal.getOwnerNamed match
+//          case dsn: DFDesignBlock => "wire"
+//          case _                  => "reg"
       case _ => printer.unsupported
     val endChar = if (dfVal.isPort) "" else ";"
+    val arrRange = dfVal.dfType match
+      case vec: DFVector => s" [0:${vec.cellDims.head - 1}]"
+      case _             => ""
     val noInit =
-      if (dfTypeStr.isEmpty) s"$modifier ${dfVal.name}"
-      else s"$modifier $dfTypeStr ${dfVal.name}"
+      if (dfTypeStr.isEmpty) s"$modifier ${dfVal.name}$arrRange"
+      else s"$modifier $dfTypeStr ${dfVal.name}$arrRange"
     dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 => printer.unsupported
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>

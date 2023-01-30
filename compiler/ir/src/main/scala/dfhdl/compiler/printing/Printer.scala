@@ -123,6 +123,10 @@ trait Printer
   def alignCode(cs: String): String
   val colorEnable = true
   def colorCode(cs: String): String
+  import io.AnsiColor._
+  val keywordColor: String = s"$BLUE$BOLD"
+  val keyword2Color: String = s"$MAGENTA$BOLD"
+  val typeColor: String = "\u001B[38;5;94m"
   final def formatCode(cs: String): String =
     val alignedContents = if (alignEnable) alignCode(cs) else cs
     if (colorEnable) colorCode(alignedContents) else alignedContents
@@ -164,8 +168,9 @@ end Printer
 object Printer:
   def printGenFiles(db: DB): Unit =
     db.srcFiles.foreach {
-      case SourceFile(SourceType.Compiled | SourceType.Committed, path, contents) =>
+      case srcFile @ SourceFile(SourceType.Compiled | SourceType.Committed, path, contents) =>
         println("==========================================================")
+        println(srcFile.sourceType)
         println(path)
         println("==========================================================")
         println(contents)
@@ -181,7 +186,7 @@ object Printer:
         val pw = new FileWriter(finalPathStr)
         pw.write(contents.decolor)
         pw.close()
-        srcFile.copy(path = finalPathStr)
+        srcFile.copy(sourceType = SourceType.Committed, path = finalPathStr)
       case other => other
     }
     db.copy(srcFiles = updatedSrcFiles)
@@ -249,10 +254,8 @@ class DFPrinter(using val getSet: MemberGetSet)
       .align("[ ]*case [a-zA-Z0-9_.]+[ ]*", "=>", ".*")
 
   import io.AnsiColor._
-  val scalaKWColor: String = s"$BLUE$BOLD"
   val scalaKW: Set[String] =
     Set("class", "end", "enum", "extends", "new", "object", "val", "if", "else", "match", "case")
-  val dfhdlKWColor: String = s"$MAGENTA$BOLD"
   val dfhdlKW: Set[String] =
     Set("VAR", "REG", "WIRE", "IN", "OUT", "INOUT", "VAL", "DFDesign", "RTDesign", "EDDesign",
       "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all")
@@ -260,13 +263,12 @@ class DFPrinter(using val getSet: MemberGetSet)
   val dfhdlTypes: Set[String] =
     Set("Bit", "Boolean", "UInt", "SInt", "Bits", "X", "Encode", "Struct", "Opaque", "StartAt",
       "OneHot", "Grey")
-  val dfhdlTPColor: String = "\u001B[38;5;94m"
   def colorCode(cs: String): String =
     cs
-      .colorWords(scalaKW, scalaKWColor)
-      .colorWords(dfhdlKW, dfhdlKWColor)
-      .colorOps(dfhdlOps, dfhdlKWColor)
-      .colorWords(dfhdlTypes, dfhdlTPColor)
+      .colorWords(scalaKW, keywordColor)
+      .colorWords(dfhdlKW, keyword2Color)
+      .colorOps(dfhdlOps, keyword2Color)
+      .colorWords(dfhdlTypes, typeColor)
 end DFPrinter
 
 extension (member: DFMember)(using printer: Printer)

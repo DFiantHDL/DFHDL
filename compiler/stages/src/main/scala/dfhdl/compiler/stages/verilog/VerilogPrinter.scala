@@ -52,7 +52,18 @@ class VerilogPrinter(using val getSet: MemberGetSet)
       .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_]*[ ]*", "=", ".*")
       // align cases
       .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_]*[ ]*:", "", ".*")
+
+  val verilogKW: Set[String] =
+    Set("module", "input", "output", "inout", "endmodule", "always", "begin", "end", "case",
+      "default", "endcase", "default_nettype", "include", "timescale", "if", "else", "typedef",
+      "enum", "posedge", "negedge")
+  val verilogOps: Set[String] = Set("=", "<=")
+  val verilogTypes: Set[String] =
+    Set("wire", "reg", "logic", "wire", "signed")
   def colorCode(cs: String): String =
     cs
+      .colorWords(verilogKW, keywordColor)
+      .colorOps(verilogOps, keywordColor)
+      .colorWords(verilogTypes, typeColor)
 
 end VerilogPrinter
