@@ -1,6 +1,5 @@
 import dfhdl.*
 import dfhdl.compiler.stages.verilog.*
-import scala.sys.process.*
 
 enum ALUSel extends Encode:
   case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
@@ -45,6 +44,4 @@ end ALU
     .compile
     .toFolder(".\\..\\..\\sandbox")
     .printGenFiles
-  val output = Process(
-    "verilator_bin --lint-only -Wall -I./../../sandbox ./../../sandbox/ALU.sv"
-  ).!
+    .lint

@@ -167,3 +167,22 @@ object CommittedDesign:
     def printGenFiles: CommittedDesign[D] =
       import CompiledDesign.printGenFiles as pgf
       compiled.pgf
+    def lint: CommittedDesign[D] =
+      import scala.sys.process.*
+      import ir.{SourceFile, SourceType}
+      val filePaths = cd.stagedDB.srcFiles.collect {
+        case SourceFile(SourceType.Committed, path, _) => path
+      }
+      // We drop the global definition file (it is included)
+      // We translate the windows `\` to unix `/` to fit the verilator needs
+      val filesInCmd = filePaths.drop(1).mkString(" ").replaceAll("""\\""", "/")
+      // Global include:
+      val globalInclude =
+        java.nio.file.Paths.get(filePaths.head).getParent.toString.replaceAll("""\\""", "/")
+      Process(
+        s"verilator_bin --lint-only -Wall -I${globalInclude} ${filesInCmd}"
+      ).!
+      cd
+    end lint
+  end extension
+end CommittedDesign

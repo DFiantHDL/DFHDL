@@ -58,8 +58,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case arg :: Nil =>
         val argStr = arg.refCodeString.applyBrackets()
         dfVal.op match
-          case Func.Op.rising  => s"rising_edge($argStr)"
-          case Func.Op.falling => s"falling_edge($argStr)"
+          case Func.Op.rising  => s"posedge $argStr"
+          case Func.Op.falling => s"negedge $argStr"
           case Func.Op.unary_- => s"-$argStr"
           case Func.Op.unary_! => s"!$argStr"
           case Func.Op.unary_~ => s"~$argStr"
