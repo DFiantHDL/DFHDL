@@ -41,7 +41,7 @@ extension (text: String)
     val maxAlign = text.betterLinesIterator.map {
       case pat(lhs, _, _) => lhs.length
       case _              => 0
-    }.max
+    }.maxOption.getOrElse(0)
     if (maxAlign > 0)
       text.betterLinesIterator
         .map {

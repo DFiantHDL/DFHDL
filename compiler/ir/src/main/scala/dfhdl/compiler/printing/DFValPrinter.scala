@@ -19,17 +19,20 @@ trait AbstractValPrinter extends AbstractPrinter:
       case _                                                 => ref.refCodeString
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String
   final def csRef(ref: DFRef.TwoWayAny): String =
-    val member = ref.get
-    val callOwner = ref.originRef.get.getOwner
-    member match
-      case dfVal: DFVal =>
-        val cs = printer.csDFValRef(dfVal, callOwner)
-        dfVal match
-          case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
-          case _                                          => cs
-      case named: DFMember.Named =>
-        named.name
-      case _ => throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
+    try
+      val member = ref.get
+      val callOwner = ref.originRef.get.getOwner
+      member match
+        case dfVal: DFVal =>
+          val cs = printer.csDFValRef(dfVal, callOwner)
+          dfVal match
+            case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
+            case _                                          => cs
+        case named: DFMember.Named =>
+          named.name
+        case _ =>
+          throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
+    catch case _: Throwable => "<BAD_REF>"
   final def csRelVal(alias: Alias): String =
     alias.relValRef.refCodeString.applyBrackets()
   def csDFValConstDcl(dfVal: Const): String

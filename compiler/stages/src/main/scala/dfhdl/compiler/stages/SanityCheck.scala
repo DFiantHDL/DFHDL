@@ -10,6 +10,27 @@ import scala.annotation.tailrec
 case object SanityCheck extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
+  def refCheck()(using MemberGetSet): Unit =
+    val refTable = getSet.designDB.refTable
+    var hasViolations: Boolean = false
+    getSet.designDB.members.foreach { m =>
+      if (
+        m.getRefs.exists {
+          case _: DFRef.Empty => false
+          case r              => !refTable.contains(r)
+        }
+      )
+        hasViolations = true
+        println(s"Missing ref for the member: $m")
+      m match
+        case m: DFDesignBlock if !m.isTop =>
+          if (!refTable.contains(m.ownerRef))
+            hasViolations = true
+            println(s"Missing owner ref for the member: $m")
+        case _ =>
+    }
+    require(!hasViolations, "Failed reference check!")
+  end refCheck
   private def memberExistenceCheck()(using MemberGetSet): Unit =
     given Printer = DefaultPrinter
     val members = getSet.designDB.members
@@ -68,6 +89,7 @@ case object SanityCheck extends Stage:
         ownershipCheck(currentOwner.getOwner, members) // exiting current owner
 
   def transform(designDB: DB)(using MemberGetSet): DB =
+    refCheck()
     memberExistenceCheck()
     designDB.check()
     ownershipCheck(designDB.top, designDB.members.drop(1))
