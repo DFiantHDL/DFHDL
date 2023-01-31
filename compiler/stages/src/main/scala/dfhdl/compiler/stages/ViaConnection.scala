@@ -11,7 +11,7 @@ case object ViaConnection extends Stage:
   def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
       case (ib, members) if !ib.isTop =>
-        // getting only ports that are not already connected to variables unless these are clock variables
+        // getting only ports that are not already connected to variables
         val (ports, nets): (List[DFVal], List[DFNet]) =
           members.foldRight((List.empty[DFVal], List.empty[DFNet])) {
             case (p @ DclOut(), (ports, nets)) =>
@@ -59,10 +59,9 @@ case object ViaConnection extends Stage:
             )
           }
           val movedNets: List[(DFMember, Patch)] = nets.map { n =>
-            plantMember(
-              n.copy(op = DFNet.Op.ViaConnection)
-            ) // planet the net with a
-            (n -> Patch.Remove)
+            // planet the net as via net
+            val viaNet = plantMember(n.copy(op = DFNet.Op.ViaConnection))
+            n -> Patch.Replace(viaNet, Patch.Replace.Config.ChangeRefAndRemove)
           }
         (ib -> Patch.Add(addVarsDsn, Patch.Add.Config.Before)) ::
           (ib -> Patch.Add(

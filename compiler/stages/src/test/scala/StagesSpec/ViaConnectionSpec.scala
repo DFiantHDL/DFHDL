@@ -19,6 +19,17 @@ class ViaConnectionSpec extends StageSpec:
     id1.y <> id2.x
     id2.y <> y
 
+  class IDTopVar extends DFDesign:
+    val x        = SInt(16) <> IN
+    val y        = SInt(16) <> OUT
+    val internal = SInt(16) <> VAR
+    val id1      = new ID
+    val id2      = new ID
+    id1.x <> x
+    id1.y <> internal
+    id2.x <> internal
+    id2.y <> y
+
   class IDTopVia extends DFDesign:
     self =>
     val x     = SInt(16) <> IN
@@ -107,6 +118,35 @@ class ViaConnectionSpec extends StageSpec:
          |  id2_x <> id1_y
          |  y <> id2_y
          |end IDTopVia
+         |""".stripMargin
+    )
+  }
+
+  test("Var intermediate connection design hierarchy") {
+    val id = (new IDTopVar).viaConnection
+    assertCodeString(
+      id,
+      """|class ID extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x
+         |end ID
+         |
+         |class IDTopVar extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val internal = SInt(16) <> VAR
+         |  val id1_x = SInt(16) <> VAR
+         |  val id1 = new ID:
+         |    this.x <>/*<--*/ id1_x
+         |    this.y <>/*-->*/ internal
+         |  val id2_y = SInt(16) <> VAR
+         |  val id2 = new ID:
+         |    this.y <>/*-->*/ id2_y
+         |    this.x <>/*<--*/ internal
+         |  id1_x <> x
+         |  y <> id2_y
+         |end IDTopVar
          |""".stripMargin
     )
   }

@@ -22,6 +22,14 @@ case object SanityCheck extends Stage:
       )
         hasViolations = true
         println(s"Missing ref for the member: $m")
+      if (
+        m.getRefs.collect { case tf: DFRef.TwoWayAny => tf.originRef }.exists {
+          case _: DFRef.Empty => false
+          case r              => !refTable.contains(r)
+        }
+      )
+        hasViolations = true
+        println(s"Missing origin ref to the member: $m")
       m match
         case m: DFDesignBlock if !m.isTop =>
           if (!refTable.contains(m.ownerRef))
