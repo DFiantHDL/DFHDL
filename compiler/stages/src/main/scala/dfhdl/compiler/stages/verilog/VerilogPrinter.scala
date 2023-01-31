@@ -45,9 +45,15 @@ class VerilogPrinter(using val getSet: MemberGetSet)
       // align after wire/reg/logic words
       .align(".* (?:wire|reg|logic)[ ]*", "", ".*")
       // align signal and port names
-      .align(".* (?:wire|reg).*", "", " [a-zA-Z0-9_]+,?")
+      .align(".* (?:wire|reg|logic).*", "", " [a-zA-Z0-9_]+.*")
+      // align via connections
+      .align(".*", "\\/\\*<--\\*\\/|\\/\\*-->\\*\\/", ".*")
       // align assignments
       .align("[ ]*[a-zA-Z0-9_]+[ ]*", "=|<=", ".*")
+      // align connections (verilog assignments)
+      .align("[ ]*assign [a-zA-Z0-9_]+[ ]*", "=", ".*")
+      // align parameters
+      .align("[ ]*parameter [a-zA-Z0-9_]+[ ]*", "=", ".*")
       // align enum constants
       .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_]*[ ]*", "=", ".*")
       // align cases
@@ -56,7 +62,7 @@ class VerilogPrinter(using val getSet: MemberGetSet)
   val verilogKW: Set[String] =
     Set("module", "input", "output", "inout", "endmodule", "always", "begin", "end", "case",
       "default", "endcase", "default_nettype", "include", "timescale", "if", "else", "typedef",
-      "enum", "posedge", "negedge")
+      "enum", "posedge", "negedge", "assign", "parameter")
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] =
     Set("wire", "reg", "logic", "wire", "signed")

@@ -50,7 +50,7 @@ case object DropRegsWires extends Stage:
         case r: DFRef.TwoWayAny =>
           r.originRef.get match
             case n: DFNet if n.isViaConnection => Some(r)
-            case _                              => None
+            case _                             => None
         case _ => None
       }
   final val WhenLocalRefs = !WhenGlobalRefs
@@ -145,14 +145,14 @@ case object DropRegsWires extends Stage:
               def regInitBlock() =
                 regVars.foreach {
                   case r if r.externalInit.nonEmpty =>
-                    r.asVarAny := dfhdl.core.DFVal.Const(
+                    r.asVarAny :== dfhdl.core.DFVal.Const(
                       r.externalInit.get.head.asTokenOf[DFTypeAny]
                     )
                   case _ =>
                 }
               def regSaveBlock() =
                 regVars.lazyZip(regs_dinVars).foreach { (r, r_din_v) =>
-                  r.asVarAny := r_din_v.asValAny
+                  r.asVarAny :== r_din_v.asValAny
                 }
               def ifRstActive =
                 val RstCfg.Explicit(_, active: RstCfg.Active) = rstCfg: @unchecked
@@ -197,19 +197,19 @@ case object DropRegsWires extends Stage:
             val processBlockAllPatch =
               owner -> Patch.Add(processBlockDsn, Patch.Add.Config.InsideLast)
             val processBlockAllMembers = members.filter {
-              case dcl: DFVal.Dcl                     => false
-              case dsn: DFOwnerNamed                  => false
+              case dcl: DFVal.Dcl                    => false
+              case dsn: DFOwnerNamed                 => false
               case net: DFNet if net.isViaConnection => false
-              case m                                  => true
+              case m                                 => true
             }
             val processBlockMembersPatch =
               abOwnerIR -> Patch.Move(
                 processBlockAllMembers,
                 Patch.Move.Config.InsideLast
               )
-            val localToGlobalDsn = new MetaDesign():
+            val localToGlobalDsn = new MetaDesign(DFC.Domain.ED):
               globalWithLocals.lazyZip(localWithGlobals).foreach { (g, l) =>
-                g.asVarAny := l.asValAny
+                g.asVarAny :== l.asValAny
               }
             val localToGlobalPatch =
               abOwnerIR -> Patch.Add(localToGlobalDsn, Patch.Add.Config.InsideLast)

@@ -58,6 +58,8 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerLateBody(design)
     val inst = s"${moduleName(design)} ${design.name}"
     if (body.isEmpty) s"$inst" else s"$inst(\n${body.hindent}\n);"
+  def csBlockBegin: String = "begin"
+  def csBlockEnd: String = "end"
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"

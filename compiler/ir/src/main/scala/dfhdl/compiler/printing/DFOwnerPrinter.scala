@@ -48,6 +48,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       .mkString(s"${printer.csViaConnectionSep}\n")
   def csDFDesignBlockDcl(design: DFDesignBlock): String
   def csDFDesignBlockInst(design: DFDesignBlock): String
+  def csBlockBegin: String
+  def csBlockEnd: String
   def csDFIfStatement(csCond: String): String
   def csDFElseStatement: String
   def csDFElseIfStatement(csCond: String): String
@@ -96,7 +98,9 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           case ifBlock: DFConditional.DFIfElseBlock => csDFIfEnd
       else ""
     val indentBody =
-      if (body.contains("\n")) s"\n${body.hindent}" else s" $body"
+      if (body.contains("\n"))
+        s"${csBlockBegin.emptyOr(" " + _)}\n${body.hindent}${csBlockEnd.emptyOr("\n" + _)}"
+      else s" $body"
     if (body.isEmpty) cb match
       case caseBlock: DFConditional.DFCaseBlock => statement
       case ifBlock: DFConditional.DFIfElseBlock => s"$statement$csIfBlockEmpty"
@@ -128,12 +132,16 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
         s"""RTDesign$cfgStr""".stripMargin
       case _ => "EDDesign"
     val dcl = s"class ${design.dclName} extends $dsnCls"
-    if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
+    val dclWithBody =
+      if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
+    s"$dclWithBody\n"
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
     val inst = s"val ${design.name} = new ${design.dclName}"
     if (body.isEmpty) inst else s"$inst:\n${body.hindent}"
+  def csBlockBegin: String = ""
+  def csBlockEnd: String = ""
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"

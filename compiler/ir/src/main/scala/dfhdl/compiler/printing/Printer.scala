@@ -160,7 +160,7 @@ trait Printer
         uniqueDesigns += block.dclName
         csDFDesignBlockDcl(block)
     }
-    val csFiles = s"${csGlobalTypeDcls.emptyOr(v => s"$v\n\n")}${codeStringList.mkString("\n\n")}\n"
+    val csFiles = s"${csGlobalTypeDcls.emptyOr(v => s"$v\n")}${codeStringList.mkString("\n")}\n"
     if (alignEnable) alignCode(csFiles) else csFiles
   end csDB
 end Printer

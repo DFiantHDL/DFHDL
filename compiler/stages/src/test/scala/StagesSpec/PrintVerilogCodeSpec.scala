@@ -70,10 +70,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input wire signed [15:0] x,
          |  output reg signed [15:0] y
          |);
-         |  wire signed [15:0] id1_x;
-         |  wire signed [15:0] id1_y;
-         |  wire signed [15:0] id2_x;
-         |  wire signed [15:0] id2_y;
+         |  logic signed [15:0] id1_x;
+         |  logic signed [15:0] id1_y;
+         |  logic signed [15:0] id2_x;
+         |  logic signed [15:0] id2_y;
          |  ID id1(
          |    .x /*<--*/ (id1_x),
          |    .y /*-->*/ (id1_y)
@@ -126,14 +126,14 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input  wire [15:0] x,
          |  output reg  [15:0] y
          |);
-         |  wire        [15:0] z;
+         |  logic       [15:0] z;
          |  parameter c = 16'h0000;
          |  always @(clk, rst)
          |  begin
          |    if (rst) y <= c;
-         |    else if (rising_edge(clk)) y <= x;
+         |    else if (posedge clk) y <= x;
          |  end
-         |  reg         [15:0] my_var;
+         |  logic       [15:0] my_var;
          |  myblock : always @(*)
          |  begin
          |    my_var = x;

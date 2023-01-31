@@ -3,7 +3,8 @@ package StagesSpec
 import dfhdl.*
 import dfhdl.compiler.stages.dropRegsWires
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
-
+//TODO: rethink blocking assignment in process(all) for VHDL vs. Verilog
+//TODO: rethink rising_edge for VHDL vs. Verilog
 class DropRegsWiresSpec extends StageSpec:
   test("Basic wires and reg") {
     val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
@@ -36,8 +37,8 @@ class DropRegsWiresSpec extends StageSpec:
          |    w1 := x
          |    w1 := w1 + sd"2'1"
          |    w2 := x
-         |    r1_din :== w2
-         |    y :== w1 + r1
+         |    r1_din := w2
+         |    y := w1 + r1
          |  }
          |  process(clk) {
          |    if (clk.rising)
@@ -84,7 +85,7 @@ class DropRegsWiresSpec extends StageSpec:
          |    val r_din_v = SInt(16) <> VAR
          |    r_din_v := sd"16'1"
          |    r_din_v := x + r_din_v
-         |    y :== r
+         |    y := r
          |    r_din :== r_din_v
          |  }
          |  process(clk) {
@@ -112,7 +113,7 @@ class DropRegsWiresSpec extends StageSpec:
          |    temp_v := x
          |    temp_v := temp_v + sd"2'1"
          |    id_x <> temp_v
-         |    y :== id_y
+         |    y := id_y
          |    temp :== temp_v
          |  }
          |end IDTop
@@ -137,7 +138,7 @@ class DropRegsWiresSpec extends StageSpec:
          |  val r1 = SInt(16) <> VAR init sd"16'0"
          |  val r1_din = SInt(16) <> VAR
          |  process(all) {
-         |    r1_din :== x
+         |    r1_din := x
          |  }
          |  process(clk, rst) {
          |    if (rst == 1) r1 :== sd"16'0"
@@ -164,7 +165,7 @@ class DropRegsWiresSpec extends StageSpec:
          |  val r1 = SInt(16) <> VAR init sd"16'0"
          |  val r1_din = SInt(16) <> VAR
          |  process(all) {
-         |    r1_din :== x
+         |    r1_din := x
          |  }
          |  process(clk) {
          |    if (clk.falling) r1 :== r1_din
@@ -191,7 +192,7 @@ class DropRegsWiresSpec extends StageSpec:
          |  val r1 = SInt(16) <> VAR init sd"16'0"
          |  val r1_din = SInt(16) <> VAR
          |  process(all) {
-         |    r1_din :== x
+         |    r1_din := x
          |  }
          |  process(clk, rst) {
          |    if (rst == 0) r1 :== sd"16'0"

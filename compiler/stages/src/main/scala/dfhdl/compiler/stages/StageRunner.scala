@@ -6,11 +6,19 @@ import scala.collection.SortedSet
 import scala.annotation.tailrec
 object StageRunner extends LogSupport:
   Logger.setDefaultFormatter(LogFormatter.BareFormatter)
-  Logger.setDefaultLogLevel(LogLevel.INFO)
+  Logger.setDefaultLogLevel(LogLevel.WARN)
+  def logDebug(): Unit =
+    logger.setLogLevel(LogLevel.DEBUG)
+  def logInfo(): Unit =
+    logger.setLogLevel(LogLevel.INFO)
+  def logWarn(): Unit =
+    logger.setLogLevel(LogLevel.WARN)
   private def runSingleStage(stage: Stage)(designDB: DB): DB =
-    debug(s"Running stage ${stage.typeName}....")
+    info(s"Running stage ${stage.typeName}....")
     val ret = stage.transform(designDB)(using designDB.getSet)
-    debug(s"Finished stage ${stage.typeName}")
+    info(s"Finished stage ${stage.typeName}")
+    if (logger.getLogLevel >= LogLevel.DEBUG && stage != SanityCheck)
+      ret.sanityCheck
     ret
   @tailrec private def run(deps: List[Stage], done: Set[Stage])(
       designDB: DB
