@@ -323,7 +323,8 @@ object DFVal:
       def ident[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
           DFC
       ): DFVal[T, M] =
-        apply(relVal.dfType, relVal, x => x, forceNewAlias = true)
+        import ir.DFVal.Alias.IdentTag
+        apply(relVal.dfType, relVal, x => x, forceNewAlias = true).tag(IdentTag)
       def bind[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M], bindName: String)(using
           DFC
       ): DFVal[T, M] =

@@ -12,8 +12,8 @@ object Ident:
   def unapply(alias: ir.DFVal.Alias.AsIs)(using
       MemberGetSet
   ): Option[ir.DFVal] =
-    val relVal = alias.relValRef.get
-    if (alias.dfType == relVal.dfType) Some(relVal)
+    if (alias.getTagOf[ir.DFVal.Alias.IdentTag.type].isDefined)
+      Some(alias.relValRef.get)
     else None
 
 object Bind:

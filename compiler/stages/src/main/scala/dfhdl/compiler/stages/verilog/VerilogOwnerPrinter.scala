@@ -29,7 +29,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val portBlock = ports.emptyOr(v => s"""(
          |${ports.hindent}
          |);""".stripMargin)
-    val localTypeDcls = printer.csLocalTypeDcls(design)
+    val localTypeDcls = printer.csLocalTypeDcls(design).emptyOr(x => s"$x\n")
     val designMembers = design.members(MemberView.Folded)
     val dfValDcls =
       designMembers.view

@@ -88,13 +88,14 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     val fromType = relVal.dfType
     val toType = dfVal.dfType
     (toType, fromType) match
-      case (t, f) if t == f => printer.unsupported
+      case (t, f) if t == f =>
+        relValStr
       case (DFSInt(tWidth), DFUInt(fWidth)) =>
         assert(tWidth == fWidth + 1)
         s"$$signed({0, $relValStr})"
       case (DFUInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
-        s"$$unsigned($relValStr)"
+        relValStr
       case (DFSInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
         s"$$signed($relValStr)"
