@@ -803,6 +803,9 @@ private object CompanionsDFBits:
             DFC
         ): DFValOf[DFBits[RW]] = trydf {
           import Token.Ops.{resize => resizeToken}
+          // TODO: why this causes anonymous references?
+//          if (lhs.width == updatedWidth) lhs.asIR.asValOf[DFBits[RW]]
+//          else
           DFVal.Alias.AsIs(
             DFBits(updatedWidth),
             lhs,

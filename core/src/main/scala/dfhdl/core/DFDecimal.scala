@@ -958,6 +958,9 @@ object DFXInt:
           val signed = lhs.dfType.signed
           check(signed, updatedWidth)
           import Token.Ops.{resize => resizeToken}
+          // TODO: why this causes anonymous references?
+//          if (lhs.width == updatedWidth) lhs.asIR.asValOf[DFXInt[S, RW]]
+//          else
           DFVal.Alias.AsIs(
             DFXInt(signed, updatedWidth),
             lhs,
@@ -1042,7 +1045,7 @@ object DFXInt:
         val rhsFixed =
           if (lhs.dfType.signed && !rhs.dfType.signed)
             rhs.asIR.asValOf[DFUInt[RW]].signed
-          else rhs
+          else rhs.resize(lhs.width) // TODO: maybe do this in a separate stage?
         DFVal.Func(dfType, op, List(lhs, rhsFixed))
       end arithOp
       extension [LS <: Boolean, LW <: Int](lhs: DFXInt[LS, LW] <> VAL)

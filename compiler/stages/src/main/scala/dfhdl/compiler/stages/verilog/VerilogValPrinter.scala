@@ -19,10 +19,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case Modifier.IN    => "input wire"
       case Modifier.OUT   => "output reg"
       case Modifier.INOUT => "inout"
-      case Modifier.VAR   => "logic"
-//        dfVal.getOwnerNamed match
-//          case dsn: DFDesignBlock => "wire"
-//          case _                  => "reg"
+      case Modifier.VAR =>
+        dfVal.dfType match
+          case _: DFEnum => ""
+          case _         => "logic"
       case _ => printer.unsupported
     val endChar = if (dfVal.isPort) "" else ";"
     val arrRange = dfVal.dfType match
@@ -92,7 +92,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         relValStr
       case (DFSInt(tWidth), DFUInt(fWidth)) =>
         assert(tWidth == fWidth + 1)
-        s"$$signed({0, $relValStr})"
+        s"$$signed({1'b0, $relValStr})"
       case (DFUInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
         relValStr
