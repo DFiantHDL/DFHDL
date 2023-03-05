@@ -87,7 +87,9 @@ end extension
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Matrix Data Structure
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-abstract class AESMatrix[C <: Int with Singleton](val colNum: C) extends Opaque(AESWord X colNum)
+//TODO: fix if https://github.com/lampepfl/dotty/issues/17036 is resolved
+abstract class AESMatrix[C <: Int with Singleton](val colNum: C)
+    extends Opaque[AESWord X C](AESWord X colNum)
 extension [C <: Int with Singleton](lhs: AESMatrix[C] <> VAL)
   def apply(colIdx: Int): AESWord <> VAL = lhs.actual(colIdx)
   def apply(rowIdx: Int, colIdx: Int): AESByte <> VAL = lhs.actual(colIdx).actual(rowIdx)

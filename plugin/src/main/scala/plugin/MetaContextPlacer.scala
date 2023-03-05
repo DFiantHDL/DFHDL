@@ -67,14 +67,15 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
       extension (tree: Tree)
         @tailrec def inherits(set: Set[String]): Boolean =
           tree match
-            case Ident(n)        => set.contains(n.toString)
-            case Apply(tree, _)  => tree.inherits(set)
-            case Select(tree, _) => tree.inherits(set)
-            case New(tree)       => tree.inherits(set)
+            case Ident(n)                 => set.contains(n.toString)
+            case Apply(tree, _)           => tree.inherits(set)
+            case Select(tree, _)          => tree.inherits(set)
+            case New(tree)                => tree.inherits(set)
+            case AppliedTypeTree(tree, _) => tree.inherits(set)
       super.transform(tree) match
         case t @ TypeDef(
               _,
-              template @ Template(constr @ DefDef(_, paramss, _, _), parents, _, _)
+              template @ Template(constr @ DefDef(_, paramss, _, _), parents: List[Tree], _, _)
             ) =>
           val isDFContainer = parents.headOption.exists(_.inherits(dfcContainers))
           lazy val skipTestContainer = parents.headOption.exists(_.inherits(Set("DFSpec")))

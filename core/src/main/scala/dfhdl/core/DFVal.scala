@@ -212,7 +212,7 @@ object DFVal:
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
     ???
   implicit inline def DFValConversionExact[T <: DFTypeAny, R <: ExactTypes](
-      inline from: R
+      from: R
   )(using dfType: T, es: Exact.Summon[R, from.type])(using
       tc: TC[T, es.Out],
       dfc: DFC

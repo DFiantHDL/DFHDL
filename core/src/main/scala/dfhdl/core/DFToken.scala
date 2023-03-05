@@ -87,7 +87,7 @@ object DFToken:
 
   // Implicit conversions for tokens
   implicit inline def fromTC[T <: DFTypeAny, V](
-      inline value: V
+      value: V
   )(using es: Exact.Summon[V, value.type])(using
       dfType: T,
       tc: DFToken.TC[T, es.Out]
