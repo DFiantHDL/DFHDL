@@ -956,6 +956,24 @@ object DFXInt:
     object Ops:
       export DFUInt.Val.Ops.*
       export DFSInt.Val.Ops.*
+      extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
+        def <[R](rhs: Exact[R])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[icL.OutS, icL.OutW], R, FuncOp.<.type, false]
+        ): DFBool <> VAL = trydf { op(icL(lhs), rhs) }
+        def <=[R](rhs: Exact[R])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[icL.OutS, icL.OutW], R, FuncOp.<=.type, false]
+        ): DFBool <> VAL = trydf { op(icL(lhs), rhs) }
+        def >[R](rhs: Exact[R])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[icL.OutS, icL.OutW], R, FuncOp.>.type, false]
+        ): DFBool <> VAL = trydf { op(icL(lhs), rhs) }
+        def >=[R](rhs: Exact[R])(using
+            dfc: DFC,
+            op: DFVal.Compare[DFXInt[icL.OutS, icL.OutW], R, FuncOp.>=.type, false]
+        ): DFBool <> VAL = trydf { op(icL(lhs), rhs) }
+      end extension
       extension [S <: Boolean, W <: Int](lhs: DFValOf[DFXInt[S, W]])
         @targetName("resizeDFXInt")
         def resize[RW <: Int](
@@ -977,22 +995,6 @@ object DFXInt:
           )
         }
         end resize
-        def <[R](rhs: Exact[R])(using
-            dfc: DFC,
-            op: DFVal.Compare[DFXInt[S, W], R, FuncOp.<.type, false]
-        ): DFBool <> VAL = trydf { op(lhs, rhs) }
-        def <=[R](rhs: Exact[R])(using
-            dfc: DFC,
-            op: DFVal.Compare[DFXInt[S, W], R, FuncOp.<=.type, false]
-        ): DFBool <> VAL = trydf { op(lhs, rhs) }
-        def >[R](rhs: Exact[R])(using
-            dfc: DFC,
-            op: DFVal.Compare[DFXInt[S, W], R, FuncOp.>.type, false]
-        ): DFBool <> VAL = trydf { op(lhs, rhs) }
-        def >=[R](rhs: Exact[R])(using
-            dfc: DFC,
-            op: DFVal.Compare[DFXInt[S, W], R, FuncOp.>=.type, false]
-        ): DFBool <> VAL = trydf { op(lhs, rhs) }
         @targetName("shiftRightDFXInt")
         def >>[R](shift: Exact[R])(using
             c: DFUInt.Val.UBArg[W, R],
