@@ -81,6 +81,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"
   def csDFIfEnd: String = "end if;"
   def csIfBlockEmpty: String = ""
+  def csDFCaseBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "others"
   def csDFCasePatternAlternativeToken: String = " | "
   def csDFCasePatternStruct(pattern: Pattern.Struct): String = printer.unsupported

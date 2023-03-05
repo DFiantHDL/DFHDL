@@ -62,6 +62,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           case _              => csDFElseIfStatement(ifBlock.guardRef.refCodeString)
   def csDFIfEnd: String
   def csIfBlockEmpty: String
+  def csDFCaseBlockEmpty: String
   def csDFCasePatternCatchAll: String
   def csDFCasePatternAlternativeToken: String
   def csDFCasePatternStruct(pattern: Pattern.Struct): String
@@ -102,7 +103,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         s"${csBlockBegin.emptyOr(" " + _)}\n${body.hindent}${csBlockEnd.emptyOr("\n" + _)}"
       else s" $body"
     if (body.isEmpty) cb match
-      case caseBlock: DFConditional.DFCaseBlock => statement
+      case caseBlock: DFConditional.DFCaseBlock => s"$statement$csDFCaseBlockEmpty"
       case ifBlock: DFConditional.DFIfElseBlock => s"$statement$csIfBlockEmpty"
     else s"$statement$indentBody${end.emptyOr(e => s"\n$e")}"
   end csDFConditionalBlock
@@ -147,6 +148,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"
   def csDFIfEnd: String = ""
   def csIfBlockEmpty: String = " {}"
+  def csDFCaseBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "_"
   def csDFCasePatternAlternativeToken: String = " | "
   def csDFCasePatternStruct(pattern: Pattern.Struct): String =
