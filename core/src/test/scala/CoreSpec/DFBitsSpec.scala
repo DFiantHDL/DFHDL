@@ -182,6 +182,7 @@ class DFBitsSpec extends DFSpec:
   }
   test("DFVal Selection") {
     val b8 = Bits(8) <> VAR
+    val b3 = Bits(3) <> VAR
     assertCodeString {
       """|val ms8 = b8(7, 0)
          |val ms7 = b8(7, 1)
@@ -189,6 +190,8 @@ class DFBitsSpec extends DFSpec:
          |val ls8 = b8(7, 0)
          |val ls7 = b8(6, 0)
          |val ls1 = b8(0, 0)
+         |val bit2 = b3(2)
+         |val bit0 = b3(0)
          |""".stripMargin
     } {
       val ms8 = b8.msbits(8)
@@ -197,6 +200,8 @@ class DFBitsSpec extends DFSpec:
       val ls8 = b8.lsbits(8)
       val ls7 = b8.lsbits(7)
       val ls1 = b8.lsbits(1)
+      val bit2 = b3(2)
+      val bit0 = b3(0)
     }
     val nine = 9
     assertDSLErrorLog(
@@ -212,6 +217,14 @@ class DFBitsSpec extends DFSpec:
       """b8.lsbits(9)"""
     ) {
       b8.lsbits(nine)
+    }
+    assertDSLErrorLog(
+      "The argument must be smaller than the upper-bound 3 but found: 3"
+    )(
+      """b3(3)"""
+    ) {
+      val three = 3
+      b3(three)
     }
   }
   test("Comparison") {

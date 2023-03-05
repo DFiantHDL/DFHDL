@@ -1362,7 +1362,7 @@ object DFUInt:
           unsignedCheck(arg < 0)
           // TODO: https://github.com/lampepfl/dotty/issues/15798
           val fixme = (ub - 1).asInstanceOf[Inlined[Int]].value
-          ubCheck(fixme, arg)
+          ubCheck(ub, arg)
           val token =
             DFXInt.Token(false, ubInfo.width(fixme), Some(BigInt(arg)))
           DFVal.Const(token)
