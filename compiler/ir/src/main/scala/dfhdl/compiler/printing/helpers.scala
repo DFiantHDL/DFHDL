@@ -4,16 +4,20 @@ extension (text: String)
   private def hasBrackets: Boolean = text.startsWith("(") && text.endsWith(")")
 
   private def requiresBrackets: Boolean =
-    var count: Int = 0
+    var countBrackets: Int = 0
+    var countBraces: Int = 0
     var spaceBracket = false
     for (i <- 0 until text.length; if !spaceBracket)
       text.charAt(i) match
-        case '(' => count += 1
-        case ')' => count -= 1
-        case ' ' => if (count == 0) spaceBracket = true
+        case '(' => countBrackets += 1
+        case ')' => countBrackets -= 1
+        case '{' => countBraces += 1
+        case '}' => countBraces -= 1
+        case ' ' => if (countBrackets == 0 && countBraces == 0) spaceBracket = true
         case _   =>
     if (spaceBracket) true
     else text.startsWith("!") || text.startsWith("~") || text.startsWith("-")
+  end requiresBrackets
 
   def applyBrackets(onlyIfRequired: Boolean = true): String =
     if (text.requiresBrackets || (!onlyIfRequired && !text.hasBrackets))
