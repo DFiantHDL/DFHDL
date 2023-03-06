@@ -32,6 +32,23 @@ class ALU extends EDDesign:
   }
 end ALU
 
+//TODO: bug when compiling to verilog (after order)
+/*
+class ALU extends EDDesign:
+  // cell coordinates
+  val read_step = UInt(8) <> VAR // reading step
+
+  // life generation state
+  process(all) {
+    read_step match
+      case 0 =>
+      case 1 =>
+        read_step match
+          case default =>
+  }
+end ALU
+ */
+
 @main def hello: Unit =
   import backends.verilog.sv2005
   val top = new ALU
@@ -42,3 +59,4 @@ end ALU
     .toFolder(".\\..\\..\\sandbox")
     .printGenFiles
     .lint
+end hello
