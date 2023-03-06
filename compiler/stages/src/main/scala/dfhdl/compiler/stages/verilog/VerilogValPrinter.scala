@@ -95,24 +95,20 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"$$signed({1'b0, $relValStr})"
       case (DFUInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
-        relValStr
+        s"$$unsigned($relValStr)"
       case (DFSInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
         s"$$signed($relValStr)"
       case (DFBits(tWidth), DFBits(fWidth)) =>
         if (tWidth == fWidth) relValStr
-        else if (tWidth < fWidth) s"$relValStr[${tWidth - 1}:0]"
+        else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tWidth - 1}:0]"
         else s"{${tWidth - fWidth}'b0, $relValStr}"
       case (DFBits(tWidth), _) =>
         assert(tWidth == fromType.width)
-        fromType match
-          case DFBit | DFBool => s"{$relValStr}"
-          case DFUInt(_)      => relValStr
-          case DFSInt(_)      => s"$$unsigned($relValStr)"
-          case _              => s"to_slv($relValStr)"
+        s"{$relValStr}"
       case (DFUInt(tWidth), DFUInt(fWidth)) =>
         if (tWidth == fWidth) relValStr
-        else if (tWidth < fWidth) s"$relValStr[${tWidth - 1}:0]"
+        else if (tWidth < fWidth) s"$$unsigned({$relValStr}[${tWidth - 1}:0])"
         else s"{${tWidth - fWidth}'b0, $relValStr}"
       case (DFSInt(tWidth), DFSInt(_)) =>
         s"$tWidth'($relValStr)"
