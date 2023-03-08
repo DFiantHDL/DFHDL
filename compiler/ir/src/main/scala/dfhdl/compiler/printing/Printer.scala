@@ -119,6 +119,8 @@ trait Printer
     case _                                           => ???
   def designFileName(designName: String): String
   def globalFileName: String
+  def csGlobalFileExtras: String 
+  final def csGlobalFileContent: String = s"$csGlobalFileExtras$csGlobalTypeDcls"
   val alignEnable = true
   def alignCode(cs: String): String
   val colorEnable = true
@@ -134,7 +136,7 @@ trait Printer
     val designDB = getSet.designDB
     val uniqueDesigns = mutable.Set.empty[String]
     val globalSourceFile =
-      SourceFile(SourceType.Compiled, globalFileName, formatCode(csGlobalTypeDcls))
+      SourceFile(SourceType.Compiled, globalFileName, formatCode(csGlobalFileContent))
     val compiledFiles = globalSourceFile :: designDB.designMemberList.collect {
       case (block: DFDesignBlock, _) if !uniqueDesigns.contains(block.dclName) =>
         uniqueDesigns += block.dclName
@@ -160,7 +162,7 @@ trait Printer
         uniqueDesigns += block.dclName
         csDFDesignBlockDcl(block)
     }
-    val csFiles = s"${csGlobalTypeDcls.emptyOr(v => s"$v\n")}${codeStringList.mkString("\n")}\n"
+    val csFiles = s"${csGlobalFileContent.emptyOr(v => s"$v\n")}${codeStringList.mkString("\n")}\n"
     if (alignEnable) alignCode(csFiles) else csFiles
   end csDB
 end Printer
@@ -239,6 +241,7 @@ class DFPrinter(using val getSet: MemberGetSet)
         s"${f.sourceRef.refCodeString} ${f.op} $argStr"
     if (timer.isAnonymous) timerBody else s"val ${timer.name} = $timerBody"
   end csTimer
+  def csGlobalFileExtras: String = ""
   def globalFileName: String = s"${getSet.designDB.top.dclName}_globals.scala"
   def designFileName(designName: String): String = s"$designName.scala"
   def alignCode(cs: String): String =

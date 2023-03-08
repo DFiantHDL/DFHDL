@@ -36,6 +36,7 @@ class VerilogPrinter(using val getSet: MemberGetSet)
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"// $comment"
   def csTimer(timer: Timer): String = unsupported
+  def csGlobalFileExtras: String = ""
   def globalFileName: String = s"${printer.defsName}.sv"
   def designFileName(designName: String): String = s"$designName.sv"
   def alignCode(cs: String): String =
