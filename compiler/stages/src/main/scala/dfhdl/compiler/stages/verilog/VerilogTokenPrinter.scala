@@ -29,12 +29,17 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
         val entryName = dfType.entries.find(_._2 == value).get._1
         s"${dfType.getName}_${entryName}"
       case None => "?"
+  val maxTokensPerLine = 64
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     given CanEqual[Any, Any] = CanEqual.derived
     if (data.allElementsAreEqual)
       s"'{${data.length}{${csDFToken(DFToken.forced(dfType.cellType, data.head))}}}"
     else
-      data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkString("{", ", ", "}")
+      val allTokens = data.view.grouped(maxTokensPerLine).map(line =>
+        line.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkString(", ")
+      ).mkString(",\n")
+      if (allTokens.contains("\n")) s"{\n${allTokens.hindent}\n}"
+      else s"{$allTokens}"
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.getName})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
