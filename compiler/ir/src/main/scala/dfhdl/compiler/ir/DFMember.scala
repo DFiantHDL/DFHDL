@@ -123,7 +123,8 @@ end DFMember
 
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
-
+  def width: Int = dfType.width
+  
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
   enum Modifier derives CanEqual:
