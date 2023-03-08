@@ -28,7 +28,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       .mkString(",\n")
     val portBlock = ports.emptyOr(v => s"""(
          |${ports.hindent}
-         |);""".stripMargin)
+         |)""".stripMargin)
     val localTypeDcls = printer.csLocalTypeDcls(design).emptyOr(x => s"$x\n")
     val designMembers = design.members(MemberView.Folded)
     val dfValDcls =
@@ -45,7 +45,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       case _: DFVal.Const => false
       case _              => true
     })
-    s"""module ${moduleName(design)}$portBlock$declarations
+    s"""module ${moduleName(design)}$portBlock;$declarations
        |${statements.hindent}
        |endmodule""".stripMargin
   end csModuleDcl

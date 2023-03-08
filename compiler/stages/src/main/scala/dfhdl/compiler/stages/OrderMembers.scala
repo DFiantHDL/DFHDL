@@ -16,8 +16,8 @@ private abstract class OrderMembers(order: OrderMembers.Order) extends Stage:
     case (block: DFOwnerNamed) :: mList =>
       val members = getSet.designDB.namedOwnerMemberTable(block)
       val sortedMembers = block match
-        case _: DFBlock => members.sortBy(order())
-        case _          => members
+        case _: DFDesignBlock => members.sortBy(order())
+        case _                => members
       orderMembers(sortedMembers ++ mList, block :: retList)
     case m :: mList => orderMembers(mList, m :: retList)
     case Nil        => retList.reverse

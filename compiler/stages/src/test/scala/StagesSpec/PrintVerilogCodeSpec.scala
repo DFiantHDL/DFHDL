@@ -121,8 +121,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Top_defs.sv"
          |
          |module Top(
-         |  input  wire        clk,
-         |  input  wire        rst,
+         |  input  wire clk,
+         |  input  wire rst,
          |  input  wire [15:0] x,
          |  output reg  [15:0] y
          |);
@@ -171,7 +171,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`timescale 1ns/1ps
          |`include "Top_defs.sv"
          |
-         |module Top
+         |module Top;
          |  parameter c01 = 1'b0;
          |  parameter c02 = 1'b1;
          |  parameter c03 = 1'bx;
