@@ -182,8 +182,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter c08 = 3'h5;
          |  parameter c09 = 3'd7;
          |  parameter c10 = 48'd239794508230343;
-         |  parameter c11 = -4'd8;
-         |  parameter c12 = -49'd239794508230343;
+         |  parameter c11 = -4'sd8;
+         |  parameter c12 = -49'sd239794508230343;
          |
          |endmodule
          |""".stripMargin

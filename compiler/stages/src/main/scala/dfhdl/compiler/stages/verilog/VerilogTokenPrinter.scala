@@ -17,8 +17,8 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
   val allowDecimalBigInt: Boolean = true
   def csDFUIntFormatBig(value: BigInt, width: Int): String = s"""${width}'d$value"""
   def csDFSIntFormatBig(value: BigInt, width: Int): String =
-    if (value >= 0) csDFUIntFormatBig(value, width)
-    else s"-${csDFUIntFormatBig(-value, width)}"
+    if (value >= 0) s"""$width'sd$value"""
+    else s"""-$width'sd${-value}"""
   def csDFUIntFormatSmall(value: BigInt, width: Int): String = csDFUIntFormatBig(value, width)
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = csDFSIntFormatBig(value, width)
   def csDFUIntTokenFromBits(csBits: String): String = s"""$$unsigned($csBits)"""
