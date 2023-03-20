@@ -963,9 +963,13 @@ object DFXInt:
             dfValArg.dfType.signed,
             dfValArg.dfType.width
           )
-          val dfValArgResized =
-            if (dfValArg.width < dfType.width) dfValArg.resize(dfType.width)
+          val dfValArgSigned =
+            if (dfType.signed && !dfValArg.dfType.signed) dfValArg.asIR.asValOf[DFUInt[Int]].signed
             else dfValArg
+          val dfValArgResized =
+            if (dfValArgSigned.width < dfType.width)
+              dfValArgSigned.asIR.asValOf[DFXInt[Boolean, Int]].resize(dfType.width)
+            else dfValArgSigned
           dfValArgResized.asIR.asValOf[DFXInt[LS, LW]]
         end conv
       end DFXIntCompare

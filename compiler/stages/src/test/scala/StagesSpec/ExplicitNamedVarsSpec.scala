@@ -44,8 +44,8 @@ class ExplicitNamedVarsSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val z = SInt(16) <> VAR
-         |  if (x > d"16'0") z := sd"16'5"
-         |  else if (x < d"16'0") z := x + sd"2'1"
+         |  if (x > sd"16'0") z := sd"16'5"
+         |  else if (x < sd"16'0") z := x + sd"2'1"
          |  else z := x
          |  val z2 = SInt(16) <> VAR
          |  z match
@@ -84,10 +84,10 @@ class ExplicitNamedVarsSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val z = SInt(16) <> VAR
-         |  if (x > d"16'0")
-         |    if (x > d"16'5") z := sd"16'5"
+         |  if (x > sd"16'0")
+         |    if (x > sd"16'5") z := sd"16'5"
          |    else z := sd"16'-5"
-         |  else if (x < d"16'0") z := x + sd"2'1"
+         |  else if (x < sd"16'0") z := x + sd"2'1"
          |  else z := x
          |  val z2 = SInt(16) <> VAR
          |  z match
@@ -96,7 +96,7 @@ class ExplicitNamedVarsSpec extends StageSpec:
          |      z match
          |        case sd"16'1" => zz := sd"4'5"
          |        case sd"16'2" => zz := sd"4'3"
-         |      if (x < d"16'11") z2 := (zz + sd"3'3").resize(16)
+         |      if (x < sd"16'11") z2 := (zz + sd"3'3").resize(16)
          |      else z2 := zz.resize(16)
          |    case _ => z2 := z + sd"5'12"
          |  y := z

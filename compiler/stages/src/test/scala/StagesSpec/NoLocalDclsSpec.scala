@@ -34,7 +34,7 @@ class NoLocalDclsSpec extends StageSpec:
          |  val zz = SInt(16) <> VAR
          |  val zzz = SInt(16) <> VAR init sd"16'0"
          |  val c = SInt(16) const sd"16'1"
-         |  if (x > d"16'5")
+         |  if (x > sd"16'5")
          |    x match
          |      case sd"16'2" => zzz := zzz.prev + c
          |      case _ =>

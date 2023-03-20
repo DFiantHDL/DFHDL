@@ -125,7 +125,7 @@ class DropRegAliasesSpec extends StageSpec:
          |  val v = SInt(16) <> WIRE
          |  val x1_reg = SInt(16) <> REG
          |  x1_reg.din := x1
-         |  if (x1 > d"16'0") y1 := x1_reg
+         |  if (x1 > sd"16'0") y1 := x1_reg
          |  else y1 := x1_reg + sd"2'1"
          |end ID
          |""".stripMargin

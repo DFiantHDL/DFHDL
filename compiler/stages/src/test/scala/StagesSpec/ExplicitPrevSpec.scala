@@ -49,9 +49,9 @@ class ExplicitPrevSpec extends StageSpec:
          |  val y = SInt(16) <> OUT init ?
          |  y := y.prev
          |  val y2 = SInt(16) <> OUT
-         |  if (x > d"16'0") y := sd"16'1"
+         |  if (x > sd"16'0") y := sd"16'1"
          |  y := y + sd"2'1"
-         |  if (x > d"16'0") y2 := sd"16'1"
+         |  if (x > sd"16'0") y2 := sd"16'1"
          |  else y2 := sd"16'2"
          |  y2 := y2 + sd"2'1"
          |end ID
