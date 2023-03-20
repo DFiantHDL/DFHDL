@@ -22,7 +22,7 @@ inThisBuild(
 name := projectName
 ThisBuild / organization := "io.github.dfianthdl"
 ThisBuild / scalaVersion := compilerVersion
-ThisBuild / version      := "0.2.7-SNAPSHOT"
+ThisBuild / version      := "0.2.8-SNAPSHOT"
 
 
 // PROJECTS
@@ -67,7 +67,13 @@ lazy val core = project
     name := s"$projectName-core",
     settings,
     pluginTestUseSettings,
-    libraryDependencies ++= commonDependencies :+ dependencies.scalafmt
+    libraryDependencies ++= commonDependencies :+ dependencies.scalafmt,
+    Compile / resourceGenerators += Def.task {
+      val file = (Compile / resourceManaged).value / "version.properties"
+      val contents = s"version=${version.value}"
+      IO.write(file, contents)
+      Seq(file)
+    }.taskValue
   )
   .dependsOn(
     plugin,

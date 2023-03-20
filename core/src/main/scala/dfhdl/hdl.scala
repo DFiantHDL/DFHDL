@@ -98,6 +98,13 @@ object hdl:
       r: core.DFVal.Refiner[T, A, I]
   ): r.Out = dfVal.asInstanceOf[r.Out]
 
+  import java.util.Properties
+
+  val dfhdlVersion: String =
+    val props = new Properties()
+    val inputStream = getClass.getClassLoader.getResourceAsStream("version.properties")
+    props.load(inputStream)
+    props.getProperty("version")
 end hdl
 
 export hdl.*
