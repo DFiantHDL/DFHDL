@@ -18,7 +18,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       case (false, _) => ???
       case (true, _)  => ???
 
-  def csDFEnumDcl(dfType: DFEnum): String =
+  def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.getName
     val entries =
       dfType.entries.view

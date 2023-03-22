@@ -16,13 +16,18 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
       case (false, _) => ???
       case (true, _)  => ???
 
-  def csDFEnumDcl(dfType: DFEnum): String =
+  def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.getName
     val entries =
       dfType.entries.view
         .map((n, v) => s"${enumName}_$n = $v")
         .mkString(",\n")
-    s"typedef enum [${dfType.width - 1}:0] {\n${entries.hindent}\n} ${enumName};"
+    // TODO: quartus seems to not accept an explicit size, so we drop it locally where it's not required.
+    // Globally, size is required (at least for verilator linter), so we need to drop enumeration altogether
+    // in such a case (change to a vector and list of constants) and then remove the special case handling
+    // here.
+    val explicitWidth = if (global) s" [${dfType.width - 1}:0]" else ""
+    s"typedef enum$explicitWidth {\n${entries.hindent}\n} ${enumName};"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*

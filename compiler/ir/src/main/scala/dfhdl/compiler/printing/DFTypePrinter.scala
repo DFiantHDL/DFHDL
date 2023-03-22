@@ -7,24 +7,24 @@ trait AbstractTypePrinter extends AbstractPrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String
   def csDFBits(dfType: DFBits, typeCS: Boolean): String
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String
-  final def csNamedDFTypeDcl(dfType: NamedDFType): String =
+  final def csNamedDFTypeDcl(dfType: NamedDFType, global: Boolean): String =
     dfType match
-      case dt: DFEnum   => csDFEnumDcl(dt)
+      case dt: DFEnum   => csDFEnumDcl(dt, global)
       case dt: DFOpaque => csDFOpaqueDcl(dt)
       case dt: DFStruct => csDFStructDcl(dt)
   final def csGlobalTypeDcls: String =
     getSet.designDB.getGlobalNamedDFTypes.toList
       .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
-      .map(printer.csNamedDFTypeDcl)
+      .map(x => printer.csNamedDFTypeDcl(x, global = true))
       .mkString("\n").emptyOr(x => s"$x\n")
   final def csLocalTypeDcls(design: DFDesignBlock): String =
     getSet.designDB
       .getLocalNamedDFTypes(design)
       .toList
       .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
-      .map(printer.csNamedDFTypeDcl)
+      .map(x => printer.csNamedDFTypeDcl(x, global = false))
       .mkString("\n")
-  def csDFEnumDcl(dfType: DFEnum): String
+  def csDFEnumDcl(dfType: DFEnum, global: Boolean): String
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String
   def csDFVector(dfType: DFVector, typeCS: Boolean): String
   def csDFOpaqueDcl(dfType: DFOpaque): String
@@ -59,7 +59,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
       case (false, _) => s"UFix$ob$magnitudeWidth, $fractionWidth$cb"
       case (true, _)  => s"SFix$ob$magnitudeWidth, $fractionWidth$cb"
 
-  def csDFEnumDcl(dfType: DFEnum): String =
+  def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.getName
     val entries =
       dfType.entries.view
