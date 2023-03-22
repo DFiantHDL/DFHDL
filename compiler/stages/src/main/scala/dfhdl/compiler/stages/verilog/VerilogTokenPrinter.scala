@@ -38,8 +38,8 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
       val allTokens = data.view.grouped(maxTokensPerLine).map(line =>
         line.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkString(", ")
       ).mkString(",\n")
-      if (allTokens.contains("\n")) s"{\n${allTokens.hindent}\n}"
-      else s"{$allTokens}"
+      if (allTokens.contains("\n")) s"'{\n${allTokens.hindent}\n}"
+      else s"'{$allTokens}"
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.getName})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
