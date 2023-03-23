@@ -44,7 +44,7 @@ class VerilogPrinter(using val getSet: MemberGetSet)
       // align after port modifiers
       .align("[ ]*(?:input|output|inout).*", " ", ".*")
       // align after wire/reg/logic words
-      .align("[ ]*(?:logic).*", " ", ".*")
+      .align("[ ]*(?:logic \\[.*:.*\\]|[a-zA-Z0-9_]+)", " ", ".*;")
 //      // align signal and port names
 //      .align(".* (?:wire|reg|logic).*", "", " [a-zA-Z0-9_]+.*")
       // align via connections
