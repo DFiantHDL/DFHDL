@@ -46,12 +46,12 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
     if (dfType.getName.isEmpty)
       csDFTupleData(dfType.fieldMap.values.toList, data)
     else
-      dfType.getName + dfType.fieldMap
+      dfType.fieldMap
         .lazyZip(data)
         .map { case ((n, t), d) =>
-          s"$n = ${csDFToken(DFToken.forced(t, d))}"
+          s"$n: ${csDFToken(DFToken.forced(t, d))}"
         }
-        .mkStringBrackets
+        .mkString("'{", ", ", "}")
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))

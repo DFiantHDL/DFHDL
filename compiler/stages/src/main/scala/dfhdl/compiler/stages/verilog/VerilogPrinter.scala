@@ -42,9 +42,9 @@ class VerilogPrinter(using val getSet: MemberGetSet)
   def alignCode(cs: String): String =
     cs
       // align after port modifiers
-      .align("[ ]*(?:input|output|inout)[ ]*", "", ".*")
+      .align("[ ]*(?:input|output|inout).*", " ", ".*")
       // align after wire/reg/logic words
-      .align(".* (?:wire|reg|logic)[ ]*", "", ".*")
+      .align("[ ]*(?:logic).*", " ", ".*")
 //      // align signal and port names
 //      .align(".* (?:wire|reg|logic).*", "", " [a-zA-Z0-9_]+.*")
       // align via connections
@@ -63,7 +63,7 @@ class VerilogPrinter(using val getSet: MemberGetSet)
   val verilogKW: Set[String] =
     Set("module", "input", "output", "inout", "endmodule", "always", "begin", "end", "case",
       "default", "endcase", "default_nettype", "include", "timescale", "if", "else", "typedef",
-      "enum", "posedge", "negedge", "assign", "parameter")
+      "enum", "posedge", "negedge", "assign", "parameter", "struct", "packed")
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] =
     Set("wire", "reg", "logic", "wire", "signed")

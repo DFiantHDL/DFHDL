@@ -38,8 +38,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "ID_defs.sv"
          |
          |module ID(
-         |  input wire signed [15:0] x,
-         |  output reg signed [15:0] y
+         |  input  logic signed [15:0] x,
+         |  output logic signed [15:0] y
          |);
          |  assign y = x;
          |endmodule
@@ -56,8 +56,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.sv"
          |
          |module ID(
-         |  input wire signed [15:0] x,
-         |  output reg signed [15:0] y
+         |  input  logic signed [15:0] x,
+         |  output logic signed [15:0] y
          |);
          |  assign y = x;
          |endmodule
@@ -67,8 +67,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.sv"
          |
          |module IDTop(
-         |  input wire signed [15:0] x,
-         |  output reg signed [15:0] y
+         |  input  logic signed [15:0] x,
+         |  output logic signed [15:0] y
          |);
          |  logic signed [15:0] id1_x;
          |  logic signed [15:0] id1_y;
@@ -121,19 +121,19 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Top_defs.sv"
          |
          |module Top(
-         |  input  wire clk,
-         |  input  wire rst,
-         |  input  wire [15:0] x,
-         |  output reg  [15:0] y
+         |  input  logic        clk,
+         |  input  logic        rst,
+         |  input  logic [15:0] x,
+         |  output logic [15:0] y
          |);
-         |  logic       [15:0] z;
+         |  logic [15:0] z;
          |  parameter c = 16'h0000;
          |  always @(clk, rst)
          |  begin
          |    if (rst) y <= c;
          |    else if (posedge clk) y <= x;
          |  end
-         |  logic       [15:0] my_var;
+         |  logic [15:0] my_var;
          |  myblock : always @(*)
          |  begin
          |    my_var = x;

@@ -16,21 +16,21 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csDFValDcl(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val modifier = dfVal.modifier match
-      case Modifier.IN    => "input wire"
-      case Modifier.OUT   => "output reg"
-      case Modifier.INOUT => "inout"
-      case Modifier.VAR =>
-        dfVal.dfType match
-          case _: DFEnum => ""
-          case _         => "logic"
+      case Modifier.IN    => "input  "
+      case Modifier.OUT   => "output "
+      case Modifier.INOUT => "inout  "
+      case Modifier.VAR   => ""
+//        dfVal.dfType match
+//          case _: DFEnum => ""
+//          case _         => "logic"
       case _ => printer.unsupported
     val endChar = if (dfVal.isPort) "" else ";"
     val arrRange = dfVal.dfType match
       case vec: DFVector => s" [0:${vec.cellDims.head - 1}]"
       case _             => ""
     val noInit =
-      if (dfTypeStr.isEmpty) s"$modifier ${dfVal.name}$arrRange"
-      else s"$modifier $dfTypeStr ${dfVal.name}$arrRange"
+      if (dfTypeStr.isEmpty) s"$modifier${dfVal.name}$arrRange"
+      else s"$modifier$dfTypeStr ${dfVal.name}$arrRange"
     dfVal.getTagOf[ExternalInit] match
       case Some(ExternalInit(initSeq)) if initSeq.size > 1 => printer.unsupported
       case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
@@ -114,7 +114,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"$tWidth'($relValStr)"
       case (DFBit, DFBool) => relValStr
       case (DFBool, DFBit) => relValStr
-      case _               => printer.unsupported
+      case (toStruct: DFStruct, _: DFBits) =>
+        s"${toStruct.getName}'($relValStr)"
+      case _ => printer.unsupported
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =

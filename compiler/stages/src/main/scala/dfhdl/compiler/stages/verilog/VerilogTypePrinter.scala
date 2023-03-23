@@ -5,14 +5,14 @@ import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 
 protected trait VerilogTypePrinter extends AbstractTypePrinter:
-  def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = ""
+  def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = "logic"
   def csDFBits(dfType: DFBits, typeCS: Boolean): String =
-    s"[${dfType.width - 1}:0]"
+    s"logic [${dfType.width - 1}:0]"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
     (signed, fractionWidth) match
-      case (false, 0) => s"[${dfType.width - 1}:0]"
-      case (true, 0)  => s"signed [${dfType.width - 1}:0]"
+      case (false, 0) => s"logic [${dfType.width - 1}:0]"
+      case (true, 0)  => s"logic signed [${dfType.width - 1}:0]"
       case (false, _) => ???
       case (true, _)  => ???
 
@@ -37,10 +37,15 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
-      .map((n, t) => s"${n}: ${csDFType(t, typeCS = true)} <> VAL")
+      .map((n, t) =>
+        val arrRange = t match
+          case vec: DFVector => s" [0:${vec.cellDims.head - 1}]"
+          case _             => ""
+        s"${csDFType(t, typeCS = true)} $n$arrRange;"
+      )
       .mkString("\n")
-      .hindent(2)
-    s"final case class ${dfType.getName}(\n$fields\n) extends Struct"
+      .hindent
+    s"typedef struct packed {\n$fields\n} ${dfType.getName};"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
     if (dfType.getName.isEmpty)
       csDFTuple(dfType.fieldMap.values.toList, typeCS)
