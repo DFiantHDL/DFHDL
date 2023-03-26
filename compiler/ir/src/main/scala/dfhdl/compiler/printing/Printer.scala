@@ -119,7 +119,7 @@ trait Printer
     case _                                           => ???
   def designFileName(designName: String): String
   def globalFileName: String
-  def csGlobalFileExtras: String 
+  def csGlobalFileExtras: String
   final def csGlobalFileContent: String = s"$csGlobalFileExtras$csGlobalTypeDcls"
   val alignEnable = true
   def alignCode(cs: String): String
@@ -258,7 +258,8 @@ class DFPrinter(using val getSet: MemberGetSet)
 
   import io.AnsiColor._
   val scalaKW: Set[String] =
-    Set("class", "end", "enum", "extends", "new", "object", "val", "if", "else", "match", "case")
+    Set("class", "end", "enum", "extends", "new", "object", "val", "if", "else", "match", "case",
+      "final")
   val dfhdlKW: Set[String] =
     Set("VAR", "REG", "WIRE", "IN", "OUT", "INOUT", "VAL", "DFDesign", "RTDesign", "EDDesign",
       "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all")

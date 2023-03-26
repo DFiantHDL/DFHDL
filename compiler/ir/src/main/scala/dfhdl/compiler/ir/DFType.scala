@@ -53,6 +53,7 @@ object NamedDFTypes:
           dt.actualType match
             case Flatten(dfTypes) => Some(dfTypes + dt)
             case _                => Some(Set(dt))
+        case dt: DFVector    => unapply(dt.cellType)
         case dt: NamedDFType => Some(Set(dt))
         case _               => None
   end Flatten
