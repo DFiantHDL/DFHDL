@@ -19,7 +19,8 @@ private abstract class NamedAliases(criteria: NamedAliases.Criteria) extends Sta
       case _: DFVal.Const          => false // ignore constants
       case _: DFVal.Alias.History  => false // history values will get proper names in another stage
       case _: DFVal.Alias.ApplyIdx => false // ignore index selection
-      case _                       => true
+      case _: DFVal.Alias.SelectField => false // ignore field selection
+      case _                          => true
     }
     // we force set the underlying original name before it was anonymized
     val patchList = membersToName.map(m =>

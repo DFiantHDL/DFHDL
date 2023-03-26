@@ -40,7 +40,12 @@ extension (text: String)
         else "  " * count + l
       )
       .mkString("\n")
-  def align(lhsRegx: String, opRegx: String, rhsRegx: String): String =
+  def align(
+      lhsRegx: String,
+      opRegx: String,
+      rhsRegx: String,
+      lhsFilter: String => Boolean = _ => true
+  ): String =
     val pat = s"($lhsRegx)($opRegx)($rhsRegx)".r
     val maxAlign = text.betterLinesIterator.map {
       case pat(lhs, _, _) => lhs.length
@@ -49,7 +54,7 @@ extension (text: String)
     if (maxAlign > 0)
       text.betterLinesIterator
         .map {
-          case pat(lhs, op, rhs) =>
+          case pat(lhs, op, rhs) if lhsFilter(lhs) =>
             val delta = " " * (maxAlign - lhs.length)
             s"$lhs$delta$op$rhs"
           case l => l

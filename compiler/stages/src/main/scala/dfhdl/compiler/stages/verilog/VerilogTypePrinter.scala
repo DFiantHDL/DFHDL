@@ -29,6 +29,10 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     val explicitWidth = if (global) s" [${dfType.width - 1}:0]" else ""
     s"typedef enum$explicitWidth {\n${entries.hindent}\n} ${enumName};"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
+  def csDFVectorRanges(dfType: DFType): String =
+    dfType match
+      case vec: DFVector => s" [0:${vec.cellDims.head - 1}]${csDFVectorRanges(vec.cellType)}"
+      case _             => ""
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
     s"${csDFType(cellType, typeCS)}"
@@ -37,12 +41,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
-      .map((n, t) =>
-        val arrRange = t match
-          case vec: DFVector => s" [0:${vec.cellDims.head - 1}]"
-          case _             => ""
-        s"${csDFType(t, typeCS = true)} $n$arrRange;"
-      )
+      .map((n, t) => s"${csDFType(t, typeCS = true)} $n${csDFVectorRanges(t)};")
       .mkString("\n")
       .hindent
     s"typedef struct packed {\n$fields\n} ${dfType.getName};"
