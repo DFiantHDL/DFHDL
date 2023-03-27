@@ -505,6 +505,15 @@ private object CompanionsDFBits:
             .asTokenOf[tc.Type]
         def uint: DFUInt.Token[LW] = as(DFUInt(lhs.width))
         def sint: DFSInt.Token[LW] = as(DFSInt(lhs.width))
+        def repeat[N <: Int](num: Inlined[N])(using
+            check: Arg.Positive.Check[N]
+        ): DFToken[DFBits[LW * N]] =
+          check(num)
+          Token(
+            lhs.width * num,
+            BitVector.concat(List.fill(num)(lhs.data._1)),
+            BitVector.concat(List.fill(num)(lhs.data._2))
+          )
         def apply[I <: Int](
             relIdx: Inlined[I]
         )(using check: BitIndex.Check[I, LW]): DFBoolOrBit.Token =
