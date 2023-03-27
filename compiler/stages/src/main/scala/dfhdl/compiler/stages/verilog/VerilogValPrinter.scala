@@ -66,12 +66,12 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case DFVal.Func.Op.++ =>
             dfVal.dfType match
               case DFStruct(_, _) => printer.unsupported
-              case DFVector(_, _) => printer.unsupported
+//              case DFVector(_, _) => printer.unsupported
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"{${args.length}{${args.head.refCodeString}}}"
               // regular concatenation function
-              case _ => args.map(_.refCodeString).mkString("{", ", ", "}")
+              case _ => args.map(_.refCodeString).mkString("'{", ", ", "}")
             end match
           case _ =>
             args
