@@ -2,7 +2,7 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.internals.*
 import DFVal.Func.Op as FuncOp
-import dfhdl.core.CompanionsDFBits.BitIndex
+import dfhdl.core.DFBits.BitIndex
 
 import scala.annotation.targetName
 import scala.annotation.unchecked.uncheckedVariance

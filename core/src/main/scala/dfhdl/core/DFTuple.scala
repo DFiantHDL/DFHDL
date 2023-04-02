@@ -152,7 +152,7 @@ object DFTuple:
     end Compare
 
     object Ops:
-      import CompanionsDFBits.BitIndex
+      import DFBits.BitIndex
       extension [T <: NonEmptyTuple](t: DFToken[DFTuple[T]])
         def apply[I <: Int](i: Inlined[I])(using
             check: BitIndex.Check[I, Tuple.Size[T]],
@@ -240,7 +240,7 @@ object DFTuple:
     end Compare
 
     object Ops:
-      import CompanionsDFBits.BitIndex
+      import DFBits.BitIndex
       extension [T <: NonEmptyTuple, M <: ModifierAny](t: DFVal[DFTuple[T], M])
         def apply[I <: Int](i: Inlined[I])(using
             dfc: DFC,

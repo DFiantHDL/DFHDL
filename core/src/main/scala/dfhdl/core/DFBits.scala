@@ -25,12 +25,6 @@ object DFBits:
       Arg.Width.Check[W]
   ): DFBits[W] = DFBits[W](Inlined.forced[W](valueOf[W]))
 
-  type Token[W <: Int] = CompanionsDFBits.Token[W]
-  val Token = CompanionsDFBits.Token
-  val Val = CompanionsDFBits.Val
-end DFBits
-
-private object CompanionsDFBits:
   protected object `AW == TW`
       extends Check2[
         Int,
@@ -930,4 +924,4 @@ private object CompanionsDFBits:
 
     end Ops
   end Val
-end CompanionsDFBits
+end DFBits
