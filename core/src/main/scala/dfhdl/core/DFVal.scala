@@ -12,10 +12,7 @@ import dfhdl.compiler.printing.{DefaultPrinter, Printer}
 import scala.annotation.tailrec
 
 import scala.reflect.ClassTag
-class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
-    extends // AnyVal with
-    DFMember[ir.DFVal]
-    with Selectable:
+trait DFVal[+T <: DFTypeAny, +M <: ModifierAny] extends Any with DFMember[ir.DFVal] with Selectable:
 
   def selectDynamic(name: String)(using DFC): Any = trydf {
     val ir.DFStruct(structName, fieldMap) = this.asIR.dfType: @unchecked
@@ -37,6 +34,10 @@ class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
     DFVal.equalityMacro[T, R, FuncOp.=!=.type]('this, 'that)
   }
 end DFVal
+
+class DFVal2[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
+    extends AnyVal
+    with DFVal[T, M]
 
 type DFValAny = DFVal[DFTypeAny, ModifierAny]
 type DFVarAny = DFVal[DFTypeAny, Modifier[Modifier.Assignable, Modifier.Connectable, Any]]
@@ -73,6 +74,8 @@ extension (dfVal: ir.DFVal)
     DFVal[T, Modifier.Port](dfVal)
 
 object DFVal:
+  def apply[T <: DFTypeAny, M <: ModifierAny](irValue: ir.DFVal | DFError): DFVal[T, M] =
+    new DFVal2[T, M](irValue)
   inline def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.asIR)
   object OrTupleOrStruct:
     def unapply(arg: Any)(using DFC): Option[DFValAny] =

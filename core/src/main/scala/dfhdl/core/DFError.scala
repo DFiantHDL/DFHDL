@@ -34,8 +34,8 @@ object DFError:
   extension (dfErr: DFError)
     def asNet: DFNet = new DFNet(dfErr)
     def asFE[T <: DFTypeAny]: T = DFType(dfErr).asInstanceOf[T]
-    def asValOf[T <: DFTypeAny]: DFValOf[T] = new DFVal[T, ModifierAny](dfErr)
-    def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] = new DFVal[T, M](dfErr)
+    def asValOf[T <: DFTypeAny]: DFValOf[T] = DFVal[T, ModifierAny](dfErr)
+    def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] = DFVal[T, M](dfErr)
     def asTokenOf[T <: DFTypeAny]: DFToken[T] = new DFToken[T](dfErr)
 end DFError
 
