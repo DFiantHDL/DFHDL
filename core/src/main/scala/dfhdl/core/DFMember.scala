@@ -3,7 +3,6 @@ import dfhdl.compiler.ir
 import scala.reflect.ClassTag
 import dfhdl.internals.*
 
-// TODO: return AnyVal workaround after https://github.com/lampepfl/dotty/issues/14340
 trait DFMember[+T <: ir.DFMember] extends Any:
   val irValue: T | DFError
   override def toString: String = irValue.toString
