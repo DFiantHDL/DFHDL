@@ -35,10 +35,6 @@ trait DFVal[+T <: DFTypeAny, +M <: ModifierAny] extends Any with DFMember[ir.DFV
   }
 end DFVal
 
-class DFVal2[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
-    extends AnyVal
-    with DFVal[T, M]
-
 type DFValAny = DFVal[DFTypeAny, ModifierAny]
 type DFVarAny = DFVal[DFTypeAny, Modifier[Modifier.Assignable, Modifier.Connectable, Any]]
 type DFValOf[+T <: DFTypeAny] = DFVal[T, ModifierAny]
@@ -74,8 +70,11 @@ extension (dfVal: ir.DFVal)
     DFVal[T, Modifier.Port](dfVal)
 
 object DFVal:
+  final class Final[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
+      extends AnyVal
+      with DFVal[T, M]
   def apply[T <: DFTypeAny, M <: ModifierAny](irValue: ir.DFVal | DFError): DFVal[T, M] =
-    new DFVal2[T, M](irValue)
+    new Final[T, M](irValue)
   inline def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.asIR)
   object OrTupleOrStruct:
     def unapply(arg: Any)(using DFC): Option[DFValAny] =

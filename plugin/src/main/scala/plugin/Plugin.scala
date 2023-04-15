@@ -1,6 +1,6 @@
 package dfhdl.plugin
 
-import dotty.tools.dotc.plugins._
+import dotty.tools.dotc.plugins.*
 
 class Plugin extends StandardPlugin:
   val name: String = "dfhdl.plugin"
@@ -13,4 +13,6 @@ class Plugin extends StandardPlugin:
       MetaContextGenPhase(setting) ::
       CustomControlPhase(setting) ::
       OnCreateEventsPhase(setting) ::
+      FixInterpDFValPhase(setting) ::
       Nil
+end Plugin
