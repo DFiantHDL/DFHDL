@@ -21,7 +21,7 @@ object DFBits:
   ): DFBits[W] =
     DFBits[W](Inlined.forced[W](valueOf[W]))
 
-  given [W <: Int](using ValueOf[W])(using
+  given bitsDFType[W <: Int](using ValueOf[W])(using
       Arg.Width.Check[W]
   ): DFBits[W] = DFBits[W](Inlined.forced[W](valueOf[W]))
 
@@ -61,22 +61,24 @@ object DFBits:
       Castle <: Boolean // castling of dfVal and arg
   ]:
     def apply(dfValWidth: Int, argWidth: Int): Unit
-  given [
-      ValW <: Int,
-      ArgW <: Int,
-      Castle <: Boolean
-  ](using
-      lw: Id[ITE[Castle, ArgW, ValW]],
-      rw: Id[ITE[Castle, ValW, ArgW]]
-  )(using
-      checkW: `LW == RW`.Check[lw.Out, rw.Out],
-      castle: ValueOf[Castle]
-  ): CompareCheck[ValW, ArgW, Castle] with
-    def apply(dfValWidth: Int, argWidth: Int): Unit =
-      val lw = if (castle) argWidth else dfValWidth
-      val rw = if (castle) dfValWidth else argWidth
-      checkW(lw, rw)
-  end given
+  object CompareCheck:
+    given [
+        ValW <: Int,
+        ArgW <: Int,
+        Castle <: Boolean
+    ](using
+        lw: Id[ITE[Castle, ArgW, ValW]],
+        rw: Id[ITE[Castle, ValW, ArgW]]
+    )(using
+        checkW: `LW == RW`.Check[lw.Out, rw.Out],
+        castle: ValueOf[Castle]
+    ): CompareCheck[ValW, ArgW, Castle] with
+      def apply(dfValWidth: Int, argWidth: Int): Unit =
+        val lw = if (castle) argWidth else dfValWidth
+        val rw = if (castle) dfValWidth else argWidth
+        checkW(lw, rw)
+    end given
+  end CompareCheck
 
   type Token[W <: Int] = DFToken[DFBits[W]]
   object Token:
