@@ -21,8 +21,8 @@ class ALU extends EDDesign:
       case AND   => op1 & op2
       case OR    => op1 | op2
       case XOR   => op1 ^ op2
-      case SLT   => (op1.sint < op2.sint).bits.resize(32)
-      case SLTU  => (op1 < op2).bits.resize(32)
+      case SLT   => (op1.sint < op2.sint).resize(32)
+      case SLTU  => (op1 < op2).resize(32)
       case SLL   => op1 << shamt
       case SRL   => op1 >> shamt
       case SRA   => (op1.sint >> shamt).bits
@@ -37,7 +37,7 @@ end ALU
   val top = new ALU
   import compiler.stages.StageRunner
   StageRunner.logDebug()
-  top
+  top.printCodeString
     .compile
     .toFolder(".\\..\\..\\sandbox")
     .printGenFiles

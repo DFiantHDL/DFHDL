@@ -596,6 +596,11 @@ object DFBits:
         type OutW = W
         def apply(value: R)(using DFC): DFBits[W] <> VAL =
           value
+      given fromDFBoolOrBit[R <: DFBoolOrBit <> VAL]: Candidate[R] with
+        type OutW = 1
+        def apply(value: R)(using DFC): DFBits[1] <> VAL =
+          import DFVal.Ops.bits
+          value.bits
       given fromDFUInt[W <: Int, R <: DFUInt[W] <> VAL]: Candidate[R] with
         type OutW = W
         def apply(value: R)(using DFC): DFBits[W] <> VAL =
@@ -750,6 +755,71 @@ object DFBits:
         protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
           val width = Inlined.forced[Int](iter.map(_.width.value).sum)
           DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
+
+      extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
+        def resize[RW <: Int](updatedWidth: Inlined[RW])(using
+            Arg.Width.Check[RW],
+            DFC
+        ): DFValOf[DFBits[RW]] = trydf {
+          import Token.Ops.{resize => resizeToken}
+          // TODO: why this causes anonymous references?
+//          if (lhs.width == updatedWidth) lhs.asIR.asValOf[DFBits[RW]]
+//          else
+          DFVal.Alias.AsIs(
+            DFBits(updatedWidth),
+            icL(lhs),
+            _.resizeToken(updatedWidth)
+          )
+        }
+        def &[R](rhs: Exact[R])(using icR: Candidate[R])(using
+            dfc: DFC,
+            check: `LW == RW`.Check[icL.OutW, icR.OutW]
+        ): DFValOf[DFBits[icL.OutW]] = trydf {
+          val lhsVal = icL(lhs)
+          val rhsVal = icR(rhs)
+          check(lhsVal.width, rhsVal.width)
+          DFVal.Func(lhsVal.dfType, FuncOp.&, List(lhsVal, rhsVal))
+        }
+        def |[R](rhs: Exact[R])(using icR: Candidate[R])(using
+            dfc: DFC,
+            check: `LW == RW`.Check[icL.OutW, icR.OutW]
+        ): DFValOf[DFBits[icL.OutW]] = trydf {
+          val lhsVal = icL(lhs)
+          val rhsVal = icR(rhs)
+          check(lhsVal.width, rhsVal.width)
+          DFVal.Func(lhsVal.dfType, FuncOp.|, List(lhsVal, rhsVal))
+        }
+        def ^[R](rhs: Exact[R])(using icR: Candidate[R])(using
+            dfc: DFC,
+            check: `LW == RW`.Check[icL.OutW, icR.OutW]
+        ): DFValOf[DFBits[icL.OutW]] = trydf {
+          val lhsVal = icL(lhs)
+          val rhsVal = icR(rhs)
+          check(lhsVal.width, rhsVal.width)
+          DFVal.Func(lhsVal.dfType, FuncOp.^, List(lhsVal, rhsVal))
+        }
+        def repeat[N <: Int](num: Inlined[N])(using
+            check: Arg.Positive.Check[N],
+            dfc: DFC
+        ): DFValOf[DFBits[icL.OutW * N]] = trydf {
+          val lhsVal = icL(lhs)
+          check(num)
+          DFVal.Func(
+            DFBits(lhsVal.dfType.width * num),
+            FuncOp.++,
+            List.fill(num)(lhsVal)
+          )
+        }
+        def ++[R](rhs: Exact[R])(using icR: Candidate[R])(using
+            dfc: DFC
+        ): DFValOf[DFBits[icL.OutW + icR.OutW]] = trydf {
+          val lhsVal = icL(lhs)
+          val rhsVal = icR(rhs)
+          val width = lhsVal.width + rhsVal.width
+          DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhsVal))
+        }
+      end extension
+
       extension [W <: Int, A, C, I](
           lhs: DFVal[DFBits[W], Modifier[A, C, I]]
       )
@@ -766,7 +836,6 @@ object DFBits:
         }
         def uint(using DFC): DFValOf[DFUInt[W]] = trydf { as(DFUInt(lhs.width)) }
         def sint(using DFC): DFValOf[DFSInt[W]] = trydf { as(DFSInt(lhs.width)) }
-
         def apply[Idx](
             relIdx: Exact[Idx]
         )(using
@@ -792,31 +861,6 @@ object DFBits:
         def unary_~(using DFC): DFValOf[DFBits[W]] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         }
-        def repeat[N <: Int](num: Inlined[N])(using
-            check: Arg.Positive.Check[N],
-            dfc: DFC
-        ): DFValOf[DFBits[W * N]] = trydf {
-          check(num)
-          DFVal.Func(
-            DFBits(lhs.dfType.width * num),
-            FuncOp.++,
-            List.fill(num)(lhs)
-          )
-        }
-        def resize[RW <: Int](updatedWidth: Inlined[RW])(using
-            Arg.Width.Check[RW],
-            DFC
-        ): DFValOf[DFBits[RW]] = trydf {
-          import Token.Ops.{resize => resizeToken}
-          // TODO: why this causes anonymous references?
-//          if (lhs.width == updatedWidth) lhs.asIR.asValOf[DFBits[RW]]
-//          else
-          DFVal.Alias.AsIs(
-            DFBits(updatedWidth),
-            lhs,
-            _.resizeToken(updatedWidth)
-          )
-        }
         def msbits[RW <: Int](updatedWidth: Inlined[RW])(using
             check: `LW >= RW`.Check[W, RW],
             dfc: DFC
@@ -832,37 +876,6 @@ object DFBits:
           check(lhs.width, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0)
             .asIR.asValOf[DFBits[RW]]
-        }
-        def ++[R](rhs: Exact[R])(using c: Candidate[R])(using
-            dfc: DFC
-        ): DFValOf[DFBits[W + c.OutW]] = trydf {
-          val rhsVal = c(rhs)
-          val width = lhs.width + rhsVal.width
-          DFVal.Func(DFBits(width), FuncOp.++, List(lhs, rhsVal))
-        }
-        def &[R](rhs: Exact[R])(using c: Candidate[R])(using
-            dfc: DFC,
-            check: `LW == RW`.Check[W, c.OutW]
-        ): DFValOf[DFBits[W]] = trydf {
-          val rhsVal = c(rhs)
-          check(lhs.width, rhsVal.width)
-          DFVal.Func(lhs.dfType, FuncOp.&, List(lhs, rhsVal))
-        }
-        def |[R](rhs: Exact[R])(using c: Candidate[R])(using
-            dfc: DFC,
-            check: `LW == RW`.Check[W, c.OutW]
-        ): DFValOf[DFBits[W]] = trydf {
-          val rhsVal = c(rhs)
-          check(lhs.width, rhsVal.width)
-          DFVal.Func(lhs.dfType, FuncOp.|, List(lhs, rhsVal))
-        }
-        def ^[R](rhs: Exact[R])(using c: Candidate[R])(using
-            dfc: DFC,
-            check: `LW == RW`.Check[W, c.OutW]
-        ): DFValOf[DFBits[W]] = trydf {
-          val rhsVal = c(rhs)
-          check(lhs.width, rhsVal.width)
-          DFVal.Func(lhs.dfType, FuncOp.^, List(lhs, rhsVal))
         }
         @targetName("shiftRightDFBits")
         def >>[R](shift: Exact[R])(using
