@@ -91,7 +91,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"$$signed({1'b0, $relValStr})"
       case (DFUInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
-        s"$relValStr"
+        relValStr
+      case (DFBits(tWidth), DFUInt(fWidth)) =>
+        assert(tWidth == fWidth)
+        relValStr
       case (DFSInt(tWidth), DFBits(fWidth)) =>
         assert(tWidth == fWidth)
         s"$$signed($relValStr)"
