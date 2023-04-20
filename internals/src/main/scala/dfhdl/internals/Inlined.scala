@@ -41,10 +41,11 @@ object Inlined:
     inline constValueOpt[T] match
       case Some(_) => constValue[T]
       case None    => inlined.asInstanceOf[T]
-  inline given fromValue[T <: Singleton]: Conversion[T, Inlined[T]] =
-    value => value
+  // TODO: without @precise it's impossible to define a proper precise `Conversion`
+  // as shown in https://github.com/lampepfl/dotty/pull/16499
+  inline implicit def fromValue[T <: Singleton](value: T): Inlined[T] = value
   @targetName("fromValueWide")
-  inline given fromValue[Wide]: Conversion[Wide, Inlined[Wide]] = value => value
+  inline implicit def fromValue[Wide](value: Wide): Inlined[Wide] = value
 
   inline def forced[T](value: Any): Inlined[T] = value.asInstanceOf[T]
   inline def apply[T <: Singleton](value: T): Inlined[T] = value

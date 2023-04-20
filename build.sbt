@@ -1,6 +1,6 @@
 // format: off
 val projectName = "dfhdl"
-val compilerVersion = "3.2.2"
+val compilerVersion = "3.3.0-RC4"
 
 inThisBuild(
   List(

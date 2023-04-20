@@ -11,7 +11,7 @@ class ALU extends EDDesign:
   val aluSel = ALUSel   <> IN
   val aluOut = Bits(32) <> OUT
 
-  process(all) {
+  process(all):
     val shamt = op2(4, 0)
 
     import ALUSel.*
@@ -29,7 +29,6 @@ class ALU extends EDDesign:
       case COPY1 => op1
       case _     => ?
     aluOut := outCalc
-  }
 end ALU
 
 @main def hello: Unit =
