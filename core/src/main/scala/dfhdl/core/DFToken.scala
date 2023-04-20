@@ -153,7 +153,7 @@ object DFToken:
     export DFStruct.Token.TC.given
     export DFOpaque.Token.TC.given
 
-    transparent inline given DFTokenFromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] =
+    given DFTokenFromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] =
       (dfType: T, value: V) => Bubble(dfType)
   end TC
 

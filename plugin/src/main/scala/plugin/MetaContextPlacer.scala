@@ -75,7 +75,12 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
       super.transform(tree) match
         case t @ TypeDef(
               _,
-              template @ Template(constr @ DefDef(_, paramss, _, _), parents: List[Tree], _, _)
+              template @ Template(
+                constr @ DefDef(_, paramss, _, _),
+                parents: List[Tree] @unchecked,
+                _,
+                _
+              )
             ) =>
           val isDFContainer = parents.headOption.exists(_.inherits(dfcContainers))
           lazy val skipTestContainer = parents.headOption.exists(_.inherits(Set("DFSpec")))

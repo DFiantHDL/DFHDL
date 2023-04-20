@@ -5,7 +5,7 @@ import dfhdl.internals.*
 
 import scala.annotation.{implicitNotFound, targetName}
 import scala.quoted.*
-import scala.util.control.NonLocalReturns.*
+import scala.util.boundary, boundary.break
 type DFBits[W <: Int] = DFType[ir.DFBits, Args1[W]]
 import DFDecimal.Constraints.`LW == RW`
 
@@ -221,7 +221,7 @@ object DFBits:
     private val widthExp = "([0-9]+)'(.*)".r
     def fromBinString(
         bin: String
-    ): Either[String, (BitVector, BitVector)] = returning[Either[String, (BitVector, BitVector)]] {
+    ): Either[String, (BitVector, BitVector)] = boundary {
       val (explicitWidth, word) = bin match
         case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
         case _                           => (None, bin)
@@ -234,9 +234,7 @@ object DFBits:
               case '0' => (v :+ false, b :+ false)
               case '1' => (v :+ true, b :+ false)
               case x =>
-                throwReturn[Either[String, (BitVector, BitVector)]](
-                  Left(s"Found invalid binary character: $x")
-                )
+                break(Left(s"Found invalid binary character: $x"))
         }
       val actualWidth = valueBits.lengthOfValue.toInt
       explicitWidth match
@@ -251,7 +249,7 @@ object DFBits:
     private val isHex = "[0-9a-fA-F]".r
     def fromHexString(
         hex: String
-    ): Either[String, (BitVector, BitVector)] = returning[Either[String, (BitVector, BitVector)]] {
+    ): Either[String, (BitVector, BitVector)] = boundary {
       val (explicitWidth, word) = hex match
         case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
         case _                           => (None, hex)
@@ -269,9 +267,7 @@ object DFBits:
                   false
                 )
               case x =>
-                throwReturn[Either[String, (BitVector, BitVector)]](
-                  Left(s"Found invalid hex character: $x")
-                )
+                break(Left(s"Found invalid hex character: $x"))
           case ((v, b, true), c) =>
             c match // bin mode
               case '}' => (v, b, false)
@@ -279,9 +275,7 @@ object DFBits:
               case '0' => (v :+ false, b :+ false, true)
               case '1' => (v :+ true, b :+ false, true)
               case x =>
-                throwReturn[Either[String, (BitVector, BitVector)]](
-                  Left(s"Found invalid binary character in binary mode: $x")
-                )
+                break(Left(s"Found invalid binary character in binary mode: $x"))
         }
       if (binMode) Left(s"Missing closing braces of binary mode")
       else

@@ -23,7 +23,7 @@ import dotty.tools.dotc.semanticdb.ConstantMessage.SealedValue.{
 import scala.language.implicitConversions
 import collection.{mutable, immutable}
 import annotation.tailrec
-import scala.util.control.NonLocalReturns.*
+import scala.util.boundary, boundary.break
 
 extension (value: BigInt)
   def bitsWidth(signed: Boolean): Int =
@@ -610,7 +610,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   )(using
       ctx: Context,
       valDefGen: ValDefGen
-  ): Tree = returning[Tree] {
+  ): Tree = boundary:
     val DFVal(dfTypeTpe) = selectorTree.tpe: @unchecked
     patternTree match
       case Pattern.Tuple(patterns) =>
@@ -674,7 +674,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               "String interpolation pattern is only allowed for Bits, UInt, or SInt dataflow values.",
               patternTree.srcPos
             )
-            throwReturn[Tree](EmptyTree)
+            break(EmptyTree)
         rhs match
           case Pattern.SI.Binds(elems) =>
             val selectorWidth = dfTypeTpe match
@@ -685,7 +685,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                   "Value extraction with a string interpolation pattern is only allowed for Bits or UInt dataflow values.",
                   patternTree.srcPos
                 )
-                throwReturn[Tree](EmptyTree)
+                break(EmptyTree)
             val Literal(Constant(op: String)) = elems.head: @unchecked
             val fullSI =
               Seq(elems.drop(1), binds)
@@ -722,13 +722,13 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                           s"The bind `${bindTree.name}` must have a known constant positive width, but found: ${widthTpe.show}",
                           bindTree.srcPos
                         )
-                        throwReturn[Tree](EmptyTree)
+                        break(EmptyTree)
                   case _ =>
                     report.error(
                       s"The bind `${bindTree.name}` must have a Bits value type annotation `: B[<width>]`",
                       bindTree.srcPos
                     )
-                    throwReturn[Tree](EmptyTree)
+                    break(EmptyTree)
 
             }
             if (relBitHigh != 0)
@@ -737,7 +737,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                    |An explicit conversion must be applied.""".stripMargin,
                 patternTree.srcPos
               )
-              throwReturn[Tree](EmptyTree)
+              break(EmptyTree)
             // success!
             FromCore.patternBindSI(
               elems.head,
@@ -803,7 +803,6 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         report.error(s"Unknown pattern:\n${patternTree.show}\n$patternTree")
         EmptyTree
     end match
-  }
 
   private def transformDFCase(selector: Tree, tree: CaseDef, combinedTpe: Type)(using
       ctx: Context,
