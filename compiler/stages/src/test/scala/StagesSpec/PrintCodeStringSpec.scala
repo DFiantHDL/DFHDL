@@ -176,23 +176,20 @@ class PrintCodeStringSpec extends StageSpec:
       val y    = SInt(16) <> OUT
       val flag = Bit      <> IN
       val v    = SInt(16) <> VAR
-      process.forever {
+      process.forever:
         val z = SInt(8) <> VAR
         z := z + 1
         v :== 1
-      }
-      process(x, y, flag.rising) {
+      process(x, y, flag.rising):
         val z = SInt(8) <> VAR
         z := 1
-      }
-      process(all) {
+      process(all):
         val z = SInt(8) <> VAR
         object Bla:
           val z = Bits(8) <> VAR
           z := all(0)
         Bla.z
         z := 1
-      }
     end ID
     val id = (new ID).getCodeString(align = true)
     assertNoDiff(
@@ -202,21 +199,18 @@ class PrintCodeStringSpec extends StageSpec:
          |  val y     = SInt(16) <> OUT
          |  val flag  = Bit      <> IN
          |  val v     = SInt(16) <> VAR
-         |  process.forever {
+         |  process.forever:
          |    val z   = SInt(8)  <> VAR
          |    z   :=  z + sd"2'1"
          |    v   :== sd"16'1"
-         |  }
-         |  process(x, y, flag.rising) {
+         |  process(x, y, flag.rising):
          |    val z   = SInt(8)  <> VAR
          |    z   :=  sd"8'1"
-         |  }
-         |  process(all) {
+         |  process(all):
          |    val z_0 = SInt(8)  <> VAR
          |    val z_1 = Bits(8)  <> VAR
          |    z_1 :=  h"00"
          |    z_0 :=  sd"8'1"
-         |  }
          |end ID
          |""".stripMargin
     )

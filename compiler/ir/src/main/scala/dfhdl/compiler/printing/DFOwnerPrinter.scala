@@ -177,7 +177,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.All                        => "(all)"
       case Sensitivity.List(refs) if refs.isEmpty => ".forever"
       case Sensitivity.List(refs)                 => refs.map(_.refCodeString).mkStringBrackets
-    s"${named}process${senList} {\n${body.hindent}\n}"
+    s"${named}process${senList}:\n${body.hindent}"
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")

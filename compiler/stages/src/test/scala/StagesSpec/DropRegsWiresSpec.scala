@@ -31,7 +31,7 @@ class DropRegsWiresSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val r1 = SInt(16) <> VAR init sd"16'0"
          |  val r1_din = SInt(16) <> VAR
-         |  process(all) {
+         |  process(all):
          |    val w1 = SInt(16) <> VAR
          |    val w2 = SInt(16) <> VAR
          |    w1 := x
@@ -39,12 +39,10 @@ class DropRegsWiresSpec extends StageSpec:
          |    w2 := x
          |    r1_din := w2
          |    y := w1 + r1
-         |  }
-         |  process(clk) {
+         |  process(clk):
          |    if (clk.rising)
          |      if (rst == 1) r1 :== sd"16'0"
          |      else r1 :== r1_din
-         |  }
          |end ID
          |""".stripMargin
     )
@@ -81,16 +79,14 @@ class DropRegsWiresSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val r = SInt(16) <> VAR
          |  val r_din = SInt(16) <> VAR
-         |  process(all) {
+         |  process(all):
          |    val r_din_v = SInt(16) <> VAR
          |    r_din_v := sd"16'1"
          |    r_din_v := x + r_din_v
          |    y := r
          |    r_din :== r_din_v
-         |  }
-         |  process(clk) {
+         |  process(clk):
          |    if (clk.rising) r :== r_din
-         |  }
          |end ID
          |
          |class IDTop extends EDDesign:
@@ -108,14 +104,13 @@ class DropRegsWiresSpec extends StageSpec:
          |    this.rst <>/*<--*/ id_rst
          |    this.x <>/*<--*/ id_x
          |    this.y <>/*-->*/ id_y
-         |  process(all) {
+         |  process(all):
          |    val temp_v = SInt(16) <> VAR
          |    temp_v := x
          |    temp_v := temp_v + sd"2'1"
          |    id_x <> temp_v
          |    y := id_y
          |    temp :== temp_v
-         |  }
          |end IDTop
          |""".stripMargin
     )
@@ -137,13 +132,11 @@ class DropRegsWiresSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val r1 = SInt(16) <> VAR init sd"16'0"
          |  val r1_din = SInt(16) <> VAR
-         |  process(all) {
+         |  process(all):
          |    r1_din := x
-         |  }
-         |  process(clk, rst) {
+         |  process(clk, rst):
          |    if (rst == 1) r1 :== sd"16'0"
          |    else if (clk.rising) r1 :== r1_din
-         |  }
          |end ID
          |""".stripMargin
     )
@@ -164,12 +157,10 @@ class DropRegsWiresSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val r1 = SInt(16) <> VAR init sd"16'0"
          |  val r1_din = SInt(16) <> VAR
-         |  process(all) {
+         |  process(all):
          |    r1_din := x
-         |  }
-         |  process(clk) {
+         |  process(clk):
          |    if (clk.falling) r1 :== r1_din
-         |  }
          |end ID
          |""".stripMargin
     )
@@ -191,13 +182,11 @@ class DropRegsWiresSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val r1 = SInt(16) <> VAR init sd"16'0"
          |  val r1_din = SInt(16) <> VAR
-         |  process(all) {
+         |  process(all):
          |    r1_din := x
-         |  }
-         |  process(clk, rst) {
+         |  process(clk, rst):
          |    if (rst == 0) r1 :== sd"16'0"
          |    else if (clk.rising) r1 :== r1_din
-         |  }
          |end ID
          |""".stripMargin
     )
