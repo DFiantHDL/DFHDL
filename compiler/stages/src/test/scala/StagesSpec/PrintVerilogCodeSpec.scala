@@ -33,7 +33,13 @@ class PrintVerilogCodeSpec extends StageSpec:
     val id = (new ID).getVerilogCode
     assertNoDiff(
       id,
-      """|`default_nettype none
+      """|`ifndef ID_DEFS
+         |`define ID_DEFS
+         |
+         |
+         |`endif
+         |
+         |`default_nettype none
          |`timescale 1ns/1ps
          |`include "ID_defs.sv"
          |
@@ -51,7 +57,13 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new IDTop).getVerilogCode
     assertNoDiff(
       top,
-      """|`default_nettype none
+      """|`ifndef IDTOP_DEFS
+         |`define IDTOP_DEFS
+         |
+         |
+         |`endif
+         |
+         |`default_nettype none
          |`timescale 1ns/1ps
          |`include "IDTop_defs.sv"
          |
@@ -116,7 +128,13 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Top).getVerilogCode(align = true)
     assertNoDiff(
       top,
-      """|`default_nettype none
+      """|`ifndef TOP_DEFS
+         |`define TOP_DEFS
+         |
+         |
+         |`endif
+         |
+         |`default_nettype none
          |`timescale 1ns/1ps
          |`include "Top_defs.sv"
          |
@@ -167,7 +185,13 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Top).getVerilogCode
     assertNoDiff(
       top,
-      """|`default_nettype none
+      """|`ifndef TOP_DEFS
+         |`define TOP_DEFS
+         |
+         |
+         |`endif
+         |
+         |`default_nettype none
          |`timescale 1ns/1ps
          |`include "Top_defs.sv"
          |
