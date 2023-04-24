@@ -119,8 +119,7 @@ trait Printer
     case _                                           => ???
   def designFileName(designName: String): String
   def globalFileName: String
-  def csGlobalFileExtras: String
-  final def csGlobalFileContent: String = s"$csGlobalFileExtras$csGlobalTypeDcls"
+  def csGlobalFileContent: String = csGlobalTypeDcls
   val alignEnable = true
   def alignCode(cs: String): String
   val colorEnable = true
@@ -241,7 +240,6 @@ class DFPrinter(using val getSet: MemberGetSet)
         s"${f.sourceRef.refCodeString} ${f.op} $argStr"
     if (timer.isAnonymous) timerBody else s"val ${timer.name} = $timerBody"
   end csTimer
-  def csGlobalFileExtras: String = ""
   def globalFileName: String = s"${getSet.designDB.top.dclName}_globals.scala"
   def designFileName(designName: String): String = s"$designName.scala"
   def alignCode(cs: String): String =

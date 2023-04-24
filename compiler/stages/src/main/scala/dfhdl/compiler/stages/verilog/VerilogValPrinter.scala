@@ -71,7 +71,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"{${args.length}{${args.head.refCodeString}}}"
               // regular concatenation function
-              case _ => args.map(_.refCodeString).mkString("'{", ", ", "}")
+              case _ => args.map(_.refCodeString).mkString("{", ", ", "}")
             end match
           case _ =>
             args

@@ -36,8 +36,16 @@ class VerilogPrinter(using val getSet: MemberGetSet)
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"// $comment"
   def csTimer(timer: Timer): String = unsupported
-  def csGlobalFileExtras: String = ""
   def globalFileName: String = s"${printer.defsName}.sv"
+  override def csGlobalFileContent: String =
+    val defName = printer.defsName.toUpperCase
+    s"""`ifndef $defName
+       |`define $defName
+       |
+       |$csGlobalTypeDcls
+       |`endif
+       |""".stripMargin
+
   def designFileName(designName: String): String = s"$designName.sv"
   def alignCode(cs: String): String =
     cs
@@ -55,15 +63,15 @@ class VerilogPrinter(using val getSet: MemberGetSet)
       // align via connections
       .align(".*", "\\/\\*<--\\*\\/|\\/\\*-->\\*\\/", ".*")
       // align assignments
-      .align("[ ]*[a-zA-Z0-9_]+[ ]*", "=|<=", ".*")
+      .align("[ ]*[a-zA-Z0-9_.]+[ ]*", "=|<=", ".*")
       // align connections (verilog assignments)
-      .align("[ ]*assign [a-zA-Z0-9_]+[ ]*", "=", ".*")
+      .align("[ ]*assign [a-zA-Z0-9_.]+[ ]*", "=", ".*")
       // align parameters
-      .align("[ ]*parameter [a-zA-Z0-9_]+[ ]*", "=", ".*")
+      .align("[ ]*parameter [a-zA-Z0-9_.]+[ ]*", "=", ".*")
       // align enum constants
-      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_]*[ ]*", "=", ".*")
+      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*", "=", ".*")
       // align cases
-      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_]*[ ]*:", "", ".*")
+      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*:", "", ".*")
 
   val verilogKW: Set[String] =
     Set("module", "input", "output", "inout", "endmodule", "always", "begin", "end", "case",

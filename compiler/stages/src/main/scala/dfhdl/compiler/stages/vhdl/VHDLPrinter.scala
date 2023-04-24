@@ -36,7 +36,6 @@ class VHDLPrinter(using val getSet: MemberGetSet)
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"-- $comment"
   def csTimer(timer: Timer): String = unsupported
-  def csGlobalFileExtras: String = ""
   def globalFileName: String = s"${printer.packageName}.vhd"
   def designFileName(designName: String): String = s"$designName.vhd"
   def alignCode(cs: String): String =
