@@ -53,7 +53,7 @@ class VerilogPrinter(using val getSet: MemberGetSet)
       .align("[ ]*(?:input|output|inout).*", " ", ".*")
       // align after wire/reg/logic words
       .align(
-        "[ ]*(?:logic \\[[0-9]+:[0-9]+\\]|[a-zA-Z0-9_]+)",
+        "\\s*(?:logic(?: signed)?\\s*\\[\\d+:\\d+]|[\\w]+)",
         " ",
         "[a-zA-Z0-9_]+[^=<]*;",
         !verilogKW.contains(_)
