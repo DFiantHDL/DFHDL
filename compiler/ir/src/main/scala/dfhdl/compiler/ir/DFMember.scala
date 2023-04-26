@@ -406,6 +406,14 @@ object DFNet:
           ) =>
         Some(toVal, fromVal)
       case _ => None
+  object BAssignment:
+    def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
+      case Assignment(lhs, rhs) if arg.op == Op.Assignment => Some(lhs, rhs)
+      case _                                               => None
+  object NBAssignment:
+    def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
+      case Assignment(lhs, rhs) if arg.op == Op.NBAssignment => Some(lhs, rhs)
+      case _                                                 => None
   object Connection:
     def unapply(net: DFNet)(using
         MemberGetSet

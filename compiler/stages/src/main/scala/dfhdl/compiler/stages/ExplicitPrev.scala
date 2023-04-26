@@ -9,7 +9,7 @@ import scala.annotation.tailrec
 import scala.collection.immutable
 
 case object ExplicitPrev extends Stage:
-  def dependencies: List[Stage] = List(ExplicitNamedVars, NoLocalDcls)
+  def dependencies: List[Stage] = List(ExplicitNamedVars, DropLocalDcls)
   def nullifies: Set[Stage] = Set()
 
   @tailrec private def consumeFrom(

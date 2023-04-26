@@ -8,7 +8,7 @@ import dfhdl.compiler.patching.*
 // The aliasing is limited according to the criteria provided
 private abstract class NamedAliases(criteria: NamedAliases.Criteria) extends Stage:
   override def dependencies: List[Stage] = Nil
-  override def nullifies: Set[Stage] = Set(DFHDLUniqueNames, NoLocalDcls)
+  override def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
 
   def transform(designDB: DB)(using MemberGetSet): DB =
 
