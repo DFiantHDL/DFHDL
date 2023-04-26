@@ -1,10 +1,10 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.moveBlockingAssignmentFromSeqProc
+import dfhdl.compiler.stages.dropBAssignFromSeqProc
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class MoveBlockingAssignmentFromSeqProcSpec extends StageSpec:
+class DropBAssignFromSeqProcSpec extends StageSpec:
   test("moving sequential process blocking assignments"):
     class ID extends EDDesign:
       val clk = Bit      <> IN
@@ -19,7 +19,7 @@ class MoveBlockingAssignmentFromSeqProcSpec extends StageSpec:
           z2 := x + 1
           y :== z2
 
-    val id = (new ID).moveBlockingAssignmentFromSeqProc
+    val id = (new ID).dropBAssignFromSeqProc
     assertCodeString(
       id,
       """|class ID extends EDDesign:
@@ -27,9 +27,12 @@ class MoveBlockingAssignmentFromSeqProcSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val z = SInt(16) <> VAR
+         |  val z2 = SInt(16) <> VAR
          |  z <> x + sd"2'1"
+         |  z2 <> x + sd"2'1"
          |  process(clk.rising):
          |    y :== z
+         |    if (x > sd"16'0") y :== z2
          |end ID
          |""".stripMargin
     )
@@ -44,7 +47,7 @@ class MoveBlockingAssignmentFromSeqProcSpec extends StageSpec:
         z := x + 1
         y :== z
 
-    val id = (new ID).moveBlockingAssignmentFromSeqProc
+    val id = (new ID).dropBAssignFromSeqProc
     assertCodeString(
       id,
       """|class ID extends EDDesign:
@@ -58,4 +61,4 @@ class MoveBlockingAssignmentFromSeqProcSpec extends StageSpec:
          |end ID
          |""".stripMargin
     )
-end MoveBlockingAssignmentFromSeqProcSpec
+end DropBAssignFromSeqProcSpec
