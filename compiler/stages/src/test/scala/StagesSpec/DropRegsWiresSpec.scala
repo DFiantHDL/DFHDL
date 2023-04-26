@@ -35,7 +35,7 @@ class DropRegsWiresSpec extends StageSpec:
          |    val w1 = SInt(16) <> VAR
          |    val w2 = SInt(16) <> VAR
          |    w1 := x
-         |    w1 := w1 + sd"2'1"
+         |    w1 := w1 + sd"16'1"
          |    w2 := x
          |    r1_din := w2
          |    y := w1 + r1
@@ -107,7 +107,7 @@ class DropRegsWiresSpec extends StageSpec:
          |  process(all):
          |    val temp_v = SInt(16) <> VAR
          |    temp_v := x
-         |    temp_v := temp_v + sd"2'1"
+         |    temp_v := temp_v + sd"16'1"
          |    id_x <> temp_v
          |    y := id_y
          |    temp :== temp_v

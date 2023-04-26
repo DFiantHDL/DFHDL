@@ -58,7 +58,7 @@ class DropRegAliasesSpec extends StageSpec:
          |  val y2_part1_reg = Bits(8) <> REG
          |  val y2_part2_reg1 = Bits(16) <> REG
          |  val y2_part2_reg2 = Bits(16) <> REG
-         |  y1_part_reg.din := x1 + sd"2'1"
+         |  y1_part_reg.din := x1 + sd"16'1"
          |  y1 := y1_part_reg
          |  z.din := x2 << 1
          |  y2_part1_reg.din := x2(7, 0)
@@ -126,7 +126,7 @@ class DropRegAliasesSpec extends StageSpec:
          |  val x1_reg = SInt(16) <> REG
          |  x1_reg.din := x1
          |  if (x1 > sd"16'0") y1 := x1_reg
-         |  else y1 := x1_reg + sd"2'1"
+         |  else y1 := x1_reg + sd"16'1"
          |end ID
          |""".stripMargin
     )

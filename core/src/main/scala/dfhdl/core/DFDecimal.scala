@@ -1075,11 +1075,14 @@ object DFXInt:
           rhs: DFValOf[DFXInt[RS, RW]]
       )(using dfc: DFC): DFValOf[DFXInt[OS, OW]] =
         given DFC = dfc.anonymize
-        val rhsFixed =
+        // TODO: maybe do fixing in a separate stage?
+        val rhsFixSign =
           if (lhs.dfType.signed && !rhs.dfType.signed)
-            rhs.asIR.asValOf[DFUInt[RW]].signed
-          else rhs.resize(lhs.width) // TODO: maybe do this in a separate stage?
-        DFVal.Func(dfType, op, List(lhs, rhsFixed))
+            rhs.asIR.asValOf[DFUInt[Int]].signed
+          else rhs
+        val rhsFixSize =
+          rhsFixSign.asIR.asValOf[DFSInt[Int]].resize(lhs.width)
+        DFVal.Func(dfType, op, List(lhs, rhsFixSize))
       end arithOp
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
         def +[R](rhs: Exact[R])(using icR: Candidate[R])(using

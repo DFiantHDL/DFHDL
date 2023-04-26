@@ -486,11 +486,11 @@ class DFDecimalSpec extends DFSpec:
       """|val t1 = u8 + u8
          |val t2 = u8 - d"8'0"
          |val t3 = d"8'200" - u8
-         |val t4 = s8 / sd"3'2"
+         |val t4 = s8 / sd"8'2"
          |val t5 = u8 % d"8'9"
          |val t6 = u8 * d"8'22"
          |val t7 = s8 + sd"8'22"
-         |val t8 = s8 +^ sd"2'1"
+         |val t8 = s8 +^ sd"8'1"
          |val t9 = u8 -^ d"8'22"
          |val t10 = d"7'100" *^ u8
          |""".stripMargin
