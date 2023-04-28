@@ -685,11 +685,12 @@ object DFBits:
           check: `LW == RW`.Check[LW, candidate.OutW]
       ): TC[DFBits[LW], V] with
         def conv(dfType: DFBits[LW], value: V): DFValOf[DFBits[LW]] =
-          import Ops.resize
+          import Ops.resizeBits
           val dfVal = candidate(value)
-          if (dfVal.hasTag[ir.TruncateTag] && dfType.width < dfVal.width) dfVal.resize(dfType.width)
-          else if (dfVal.hasTag[ir.ExtendTag] && dfType.width > dfVal.width)
-            dfVal.resize(dfType.width)
+          if (dfVal.hasTag[DFVal.TruncateTag] && dfType.width < dfVal.width)
+            dfVal.resizeBits(dfType.width)
+          else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.width > dfVal.width)
+            dfVal.resizeBits(dfType.width)
           else
             check(dfType.width, dfVal.width)
             dfVal.asValOf[DFBits[LW]]
@@ -753,13 +754,11 @@ object DFBits:
     object Ops:
       extension [W <: Int](lhs: DFValOf[DFBits[W]])
         def truncate(using DFC): DFValOf[DFBits[Int]] =
-          lhs.tag(ir.TruncateTag).asValOf[DFBits[Int]]
-        def extend(using DFC): DFValOf[DFBits[Int]] =
-          lhs.tag(ir.ExtendTag).asValOf[DFBits[Int]]
-        def resize[RW <: Int](updatedWidth: Inlined[RW])(using
+          lhs.tag(DFVal.TruncateTag).asValOf[DFBits[Int]]
+        private[DFBits] def resizeBits[RW <: Int](updatedWidth: Inlined[RW])(using
             Arg.Width.Check[RW],
             DFC
-        ): DFValOf[DFBits[RW]] = trydf {
+        ): DFValOf[DFBits[RW]] =
           import Token.Ops.{resize => resizeToken}
           // TODO: why this causes anonymous references?
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFBits[RW]]
@@ -769,13 +768,18 @@ object DFBits:
             lhs,
             _.resizeToken(updatedWidth)
           )
-        }
       end extension
       extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
         protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
           val width = Inlined.forced[Int](iter.map(_.width.value).sum)
           DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
+        def extend(using DFC): DFValOf[DFBits[Int]] =
+          icL(lhs).tag(DFVal.ExtendTag).asValOf[DFBits[Int]]
+        def resize[RW <: Int](updatedWidth: Inlined[RW])(using
+            Arg.Width.Check[RW],
+            DFC
+        ): DFValOf[DFBits[RW]] = trydf { icL(lhs).resizeBits(updatedWidth) }
         def &[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: `LW == RW`.Check[icL.OutW, icR.OutW]

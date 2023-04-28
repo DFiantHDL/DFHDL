@@ -922,7 +922,7 @@ object DFXInt:
           import DFUInt.Val.Ops.signed
           given dfcAnon: DFC = dfc.anonymize
           val rhs = ic(value)
-          if (!rhs.hasTag[ir.TruncateTag] || dfType.signed != rhs.dfType.signed)
+          if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhs.dfType.signed)
             check(dfType.signed, dfType.width, rhs.dfType.signed, rhs.width)
           val dfValIR =
             val rhsSignFix: DFValOf[DFSInt[Int]] =
@@ -931,7 +931,7 @@ object DFXInt:
               else rhs.asValOf[DFSInt[Int]]
             if (
               dfType.width > rhsSignFix.width ||
-              rhs.hasTag[ir.TruncateTag] && dfType.width < rhsSignFix.width
+              rhs.hasTag[DFVal.TruncateTag] && dfType.width < rhsSignFix.width
             )
               rhsSignFix.resize(dfType.width).asIR
             else rhsSignFix.asIR
@@ -1003,7 +1003,7 @@ object DFXInt:
       extension [S <: Boolean, W <: Int](lhs: DFValOf[DFXInt[S, W]])
         @targetName("truncateDFXInt")
         def truncate(using DFC): DFValOf[DFXInt[S, Int]] =
-          lhs.tag(ir.TruncateTag).asValOf[DFXInt[S, Int]]
+          lhs.tag(DFVal.TruncateTag).asValOf[DFXInt[S, Int]]
         @targetName("resizeDFXInt")
         def resize[RW <: Int](
             updatedWidth: Inlined[RW]

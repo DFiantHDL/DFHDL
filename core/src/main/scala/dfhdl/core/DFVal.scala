@@ -198,6 +198,12 @@ object DFVal:
         )
         .asVal[T, M]
   end extension
+
+  case object ExtendTag extends ir.DFTagOf[ir.DFVal]
+  type ExtendTag = ExtendTag.type
+  case object TruncateTag extends ir.DFTagOf[ir.DFVal]
+  type TruncateTag = TruncateTag.type
+
   extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
     private[core] def initForced(tokens: List[ir.DFTokenAny])(using
         dfc: DFC

@@ -20,7 +20,3 @@ object DFTags:
 
 final case class ExternalInit(tokenSeq: List[DFTokenAny]) extends DFTagOf[DFVal]
 final case class NameTag(name: String) extends DFTag
-case object ExtendTag extends DFTagOf[DFVal]
-type ExtendTag = ExtendTag.type
-case object TruncateTag extends DFTagOf[DFVal]
-type TruncateTag = TruncateTag.type
