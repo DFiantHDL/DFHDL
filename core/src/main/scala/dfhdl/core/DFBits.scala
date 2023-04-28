@@ -685,9 +685,15 @@ object DFBits:
           check: `LW == RW`.Check[LW, candidate.OutW]
       ): TC[DFBits[LW], V] with
         def conv(dfType: DFBits[LW], value: V): DFValOf[DFBits[LW]] =
+          import Ops.resize
           val dfVal = candidate(value)
-          check(dfType.width, dfVal.width.value)
-          dfVal.asValOf[DFBits[LW]]
+          if (dfVal.hasTag[ir.TruncateTag] && dfType.width < dfVal.width) dfVal.resize(dfType.width)
+          else if (dfVal.hasTag[ir.ExtendTag] && dfType.width > dfVal.width)
+            dfVal.resize(dfType.width)
+          else
+            check(dfType.width, dfVal.width)
+            dfVal.asValOf[DFBits[LW]]
+      end DFBitsFromCandidate
       given DFBitsFromSEV[LW <: Int, T <: BitOrBool, V <: SameElementsVector[T]](using
           dfc: DFC
       ): TC[DFBits[LW], V] with
@@ -745,12 +751,11 @@ object DFBits:
     end TupleOps
 
     object Ops:
-      extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
-        protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
-          val width = Inlined.forced[Int](iter.map(_.width.value).sum)
-          DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
-
-      extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
+      extension [W <: Int](lhs: DFValOf[DFBits[W]])
+        def truncate(using DFC): DFValOf[DFBits[Int]] =
+          lhs.tag(ir.TruncateTag).asValOf[DFBits[Int]]
+        def extend(using DFC): DFValOf[DFBits[Int]] =
+          lhs.tag(ir.ExtendTag).asValOf[DFBits[Int]]
         def resize[RW <: Int](updatedWidth: Inlined[RW])(using
             Arg.Width.Check[RW],
             DFC
@@ -761,10 +766,16 @@ object DFBits:
 //          else
           DFVal.Alias.AsIs(
             DFBits(updatedWidth),
-            icL(lhs),
+            lhs,
             _.resizeToken(updatedWidth)
           )
         }
+      end extension
+      extension [T <: Int](iter: Iterable[DFBits[T] <> VAL])
+        protected[core] def concatBits(using DFC): DFBits[Int] <> VAL =
+          val width = Inlined.forced[Int](iter.map(_.width.value).sum)
+          DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
+      extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
         def &[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: `LW == RW`.Check[icL.OutW, icR.OutW]

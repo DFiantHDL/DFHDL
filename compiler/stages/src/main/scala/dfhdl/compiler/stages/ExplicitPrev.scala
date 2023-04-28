@@ -168,7 +168,7 @@ case object ExplicitPrev extends Stage:
 //    println(defaultsSet)
     val patchList = explicitPrevSet.map {
       // for initialized ports and variables we just add an explicit prev self-assignment
-      case e if e.tags.contains[ExternalInit] =>
+      case e if e.tags.hasTagOf[ExternalInit] =>
         e -> Patch.Add(
           new MetaDesign():
             e.asVarAny := e.asVarAny.asInitialized.prev

@@ -27,4 +27,4 @@ extension (member: DFMember)
     member.tags.getTagOf[CT]
   // does not work?
   def contains[CT <: DFTag: ClassTag]: Boolean =
-    member.tags.contains[CT]
+    member.tags.hasTagOf[CT]
