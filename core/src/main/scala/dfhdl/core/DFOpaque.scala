@@ -46,7 +46,7 @@ object DFOpaque:
           V <: DFOpaque[RT] <> TOKEN
       ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], V] with
         def conv(dfType: DFOpaque[T], value: V): Out =
-          value.asIR.asTokenOf[DFOpaque[T]]
+          value.asTokenOf[DFOpaque[T]]
 
     object Ops:
       extension [T <: DFTypeAny, TFE <: Frontend[T]](
@@ -65,7 +65,7 @@ object DFOpaque:
           V <: DFOpaque[RT] <> VAL
       ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], V] with
         def conv(dfType: DFOpaque[T], value: V): Out =
-          value.asIR.asValOf[DFOpaque[T]]
+          value.asValOf[DFOpaque[T]]
 
     object Ops:
       extension [L](inline lhs: L)

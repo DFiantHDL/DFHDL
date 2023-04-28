@@ -163,7 +163,7 @@ object DFVector:
       ): TC[DFVector[T, Tuple1[D1]], R] with
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R): Out =
           check(dfType.asIR.cellDims.head, arg.dfType.asIR.cellDims.head)
-          arg.asIR.asValOf[DFVector[T, Tuple1[D1]]]
+          arg.asValOf[DFVector[T, Tuple1[D1]]]
       given DFVectorValFromDFValVector[
           T <: DFTypeAny,
           D1 <: Int,
@@ -229,7 +229,7 @@ object DFVector:
           import DFDecimal.Token.StrInterp.d
           val elementType = lhs.dfType.cellType
           Vector.tabulate(lhs.dfType.cellDims.head)(i =>
-            val idxVal = DFVal.Const(d"$i".asIR.asTokenOf[DFUInt[Int]], false)
+            val idxVal = DFVal.Const(d"$i".asTokenOf[DFUInt[Int]], false)
             DFVal.Alias.ApplyIdx(elementType, lhs, idxVal)(using dfc.anonymize)
           )
       end extension

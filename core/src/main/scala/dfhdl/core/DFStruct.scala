@@ -175,7 +175,7 @@ object DFStruct:
       ](using sf: SameFields[F, RF]): TC[DFStruct[F], V] with
         def conv(dfType: DFStruct[F], value: V): Out =
           sf.check(dfType, value.dfType)
-          value.asIR.asTokenOf[DFStruct[F]]
+          value.asTokenOf[DFStruct[F]]
     end TC
 
     object Compare:
@@ -198,7 +198,7 @@ object DFStruct:
       ](using sf: SameFields[F, RF]): Compare[DFStruct[F], R, Op, C] with
         def conv(dfType: DFStruct[F], value: R): Out =
           sf.check(dfType, value.dfType)
-          value.asIR.asTokenOf[DFStruct[F]]
+          value.asTokenOf[DFStruct[F]]
     end Compare
   end Token
 
@@ -232,7 +232,7 @@ object DFStruct:
       ](using dfc: DFC, sf: SameFields[F, RF]): TC[DFStruct[F], V] with
         def conv(dfType: DFStruct[F], value: V): Out =
           sf.check(dfType, value.dfType)
-          value.asIR.asValOf[DFStruct[F]]
+          value.asValOf[DFStruct[F]]
     end TC
     object Compare:
       import DFVal.Compare
@@ -257,7 +257,7 @@ object DFStruct:
       ](using dfc: DFC, sf: SameFields[F, RF]): Compare[DFStruct[F], R, Op, C] with
         def conv(dfType: DFStruct[F], value: R): Out =
           sf.check(dfType, value.dfType)
-          value.asIR.asValOf[DFStruct[F]]
+          value.asValOf[DFStruct[F]]
     end Compare
   end Val
 end DFStruct

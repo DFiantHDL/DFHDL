@@ -34,18 +34,15 @@ end DFToken
 
 type DFTokenAny = DFToken[DFTypeAny]
 extension (tokenIR: ir.DFTokenAny) def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
+extension (token: DFTokenAny)
+  def asTokenOf[T <: DFTypeAny]: DFToken[T] = token.asInstanceOf[DFToken[T]]
 
 object DFToken:
   trait Refiner[T <: FieldsOrTuple]:
     type Out <: DFToken[DFStruct[T]]
   object Refiner:
-    transparent inline given [T <: FieldsOrTuple]: Refiner[T] = ${
-      refineMacro[T]
-    }
-    def refineMacro[T <: FieldsOrTuple](using
-        Quotes,
-        Type[T]
-    ): Expr[Refiner[T]] =
+    transparent inline given [T <: FieldsOrTuple]: Refiner[T] = ${ refineMacro[T] }
+    def refineMacro[T <: FieldsOrTuple](using Quotes, Type[T]): Expr[Refiner[T]] =
       import quotes.reflect.*
       val tokenTpe = TypeRepr.of[DFToken[DFStruct[T]]]
       val tTpe = TypeRepr.of[T]
@@ -58,9 +55,7 @@ object DFToken:
           )
         case _ => ???
 
-      val refined = fields.foldLeft(tokenTpe) { case (r, (n, t)) =>
-        Refinement(r, n, t)
-      }
+      val refined = fields.foldLeft(tokenTpe) { case (r, (n, t)) => Refinement(r, n, t) }
       val refinedType = refined.asTypeOf[DFToken[DFStruct[T]]]
       '{
         new Refiner[T]:

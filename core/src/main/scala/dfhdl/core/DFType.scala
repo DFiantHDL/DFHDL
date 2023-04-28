@@ -65,6 +65,7 @@ object DFType:
     def codeString(using printer: Printer)(using DFC): String =
       printer.csDFType(asIR)
   extension (dfType: ir.DFType) def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]
+  extension (dfType: DFTypeAny) def asFE[T <: DFTypeAny]: T = dfType.asInstanceOf[T]
   transparent inline implicit def conv[T <: Supported](inline t: T)(implicit
       tc: TC[T]
   ): DFTypeAny = tc(t)

@@ -68,7 +68,7 @@ object DFBoolOrBit:
             case (DFBit, DFBool) => Token(DFBit, tokenArg.data)
             case (DFBool, DFBit) => Token(DFBool, tokenArg.data)
             case _               => tokenArg
-          tokenOut.asIR.asTokenOf[T]
+          tokenOut.asTokenOf[T]
     end TC
 
     private def logicOp[O <: DFBoolOrBit, T <: DFBoolOrBit](
@@ -170,10 +170,10 @@ object DFBoolOrBit:
       import Ops.{bit, bool}
       val dfValArg = ic(arg)(using dfcAnon)
       val dfValOut = (dfType, dfValArg.dfType) match
-        case (DFBit, DFBool) => dfValArg.asIR.asValOf[DFBool].bit(using dfcAnon)
-        case (DFBool, DFBit) => dfValArg.asIR.asValOf[DFBit].bool(using dfcAnon)
+        case (DFBit, DFBool) => dfValArg.asValOf[DFBool].bit(using dfcAnon)
+        case (DFBool, DFBit) => dfValArg.asValOf[DFBit].bool(using dfcAnon)
         case _               => dfValArg
-      dfValOut.asIR.asValOf[T]
+      dfValOut.asValOf[T]
 
     object TC:
       import DFVal.TC
@@ -230,7 +230,7 @@ object DFBoolOrBit:
       )(using dfc: DFC, ic: Candidate[R]): T <> VAL =
         val dfValArg = b2b(dfVal.dfType, arg)
         val (lhs, rhs) = if (castle) (dfValArg, dfVal) else (dfVal, dfValArg)
-        DFVal.Func(lhs.dfType.asIR.asFE[T], op, List(lhs, rhs))
+        DFVal.Func(lhs.dfType.asFE[T], op, List(lhs, rhs))
       extension [T <: DFBoolOrBit](lhs: T <> VAL)
         def ||[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): T <> VAL =
           trydf { logicOp[T, R](lhs, rhs, FuncOp.|, false) }

@@ -541,7 +541,7 @@ object DFXInt:
           val resizedToken: ir.DFTokenAny =
             val tokenIR =
               if (dfType.signed != token.dfType.signed)
-                token.asIR.asTokenOf[DFUInt[LW]].signed.asIR
+                token.asTokenOf[DFUInt[LW]].signed.asIR
               else token.asIR
             if (dfType.width > token.width)
               ir.DFToken(dfType.asIR)(token.data)
@@ -590,7 +590,7 @@ object DFXInt:
             tokenArg.dfType.signed,
             tokenArg.dfType.width
           )
-          tokenArg.asIR.asTokenOf[DFXInt[LS, LW]]
+          tokenArg.asTokenOf[DFXInt[LS, LW]]
       end given
     end Compare
 
@@ -926,8 +926,8 @@ object DFXInt:
           val dfValIR =
             val rhsSignFix: DFValOf[DFSInt[Int]] =
               if (dfType.signed != rhs.dfType.signed)
-                rhs.asIR.asValOf[DFUInt[Int]].signed.asIR.asValOf[DFSInt[Int]]
-              else rhs.asIR.asValOf[DFSInt[Int]]
+                rhs.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
+              else rhs.asValOf[DFSInt[Int]]
             if (rhsSignFix.width < dfType.width)
               rhsSignFix.resize(dfType.width).asIR
             else rhsSignFix.asIR
@@ -964,13 +964,13 @@ object DFXInt:
             dfValArg.dfType.width
           )
           val dfValArgSigned =
-            if (dfType.signed && !dfValArg.dfType.signed) dfValArg.asIR.asValOf[DFUInt[Int]].signed
+            if (dfType.signed && !dfValArg.dfType.signed) dfValArg.asValOf[DFUInt[Int]].signed
             else dfValArg
           val dfValArgResized =
             if (dfValArgSigned.width < dfType.width)
-              dfValArgSigned.asIR.asValOf[DFXInt[Boolean, Int]].resize(dfType.width)
+              dfValArgSigned.asValOf[DFXInt[Boolean, Int]].resize(dfType.width)
             else dfValArgSigned
-          dfValArgResized.asIR.asValOf[DFXInt[LS, LW]]
+          dfValArgResized.asValOf[DFXInt[LS, LW]]
         end conv
       end DFXIntCompare
     end Compare
@@ -1008,7 +1008,7 @@ object DFXInt:
           check(signed, updatedWidth)
           import Token.Ops.{resize => resizeToken}
           // TODO: why this causes anonymous references?
-//          if (lhs.width == updatedWidth) lhs.asIR.asValOf[DFXInt[S, RW]]
+//          if (lhs.width == updatedWidth) lhs.asValOf[DFXInt[S, RW]]
 //          else
           DFVal.Alias.AsIs(
             DFXInt(signed, updatedWidth),
@@ -1078,10 +1078,10 @@ object DFXInt:
         // TODO: maybe do fixing in a separate stage?
         val rhsFixSign =
           if (lhs.dfType.signed && !rhs.dfType.signed)
-            rhs.asIR.asValOf[DFUInt[Int]].signed
+            rhs.asValOf[DFUInt[Int]].signed
           else rhs
         val rhsFixSize =
-          rhsFixSign.asIR.asValOf[DFSInt[Int]].resize(lhs.width)
+          rhsFixSign.asValOf[DFSInt[Int]].resize(lhs.width)
         DFVal.Func(dfType, op, List(lhs, rhsFixSize))
       end arithOp
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
@@ -1397,7 +1397,7 @@ object DFUInt:
                   summon[`UB > R`.Check[UB, Int]](ub, value.toInt)
                 case _ => // no check
             case _ => // no check
-          argVal.asIR.asValOf[DFUInt[OutW]]
+          argVal.asValOf[DFUInt[OutW]]
         end apply
     end UBArg
     object Ops:

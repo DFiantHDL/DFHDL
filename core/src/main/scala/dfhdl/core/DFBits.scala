@@ -161,7 +161,7 @@ object DFBits:
           case x: NonEmptyTuple =>
             x.toList
               .map(valueToBits)
-              .reduce((l, r) => (l ++ r).asIR.asTokenOf[DFBits[Int]])
+              .reduce((l, r) => (l ++ r).asTokenOf[DFBits[Int]])
           case i: Int =>
             Token(1, BitVector.bit(i > 0), BitVector.zero)
           case token: DFToken[_] =>
@@ -187,7 +187,7 @@ object DFBits:
           new Candidate[V]:
             type OutW = wType.Underlying
             def apply(value: V): DFToken[DFBits[OutW]] =
-              valueToBits(value).asIR.asTokenOf[DFBits[OutW]]
+              valueToBits(value).asTokenOf[DFBits[OutW]]
         }
       end DFBitsMacro
     end Candidate
@@ -469,7 +469,7 @@ object DFBits:
             dfType.width,
             tokenArg.dfType.width
           )
-          tokenArg.asIR.asTokenOf[DFBits[LW]]
+          tokenArg.asTokenOf[DFBits[LW]]
       end given
       given [LW <: Int, Op <: FuncOp, C <: Boolean, T <: BitOrBool, V <: SameElementsVector[T]](
           using
@@ -538,7 +538,7 @@ object DFBits:
         def resize[RW <: Int](updatedWidth: Inlined[RW])(using
             check: Arg.Width.Check[RW]
         ): Token[RW] =
-          if (updatedWidth == lhs.width) lhs.asIR.asTokenOf[DFBits[RW]]
+          if (updatedWidth == lhs.width) lhs.asTokenOf[DFBits[RW]]
           else
             check(updatedWidth)
             val data = lhs.data
@@ -656,7 +656,7 @@ object DFBits:
           new Candidate[R]:
             type OutW = wType.Underlying
             def apply(value: R)(using DFC): DFValOf[DFBits[OutW]] =
-              valueToBits(value).asIR.asValOf[DFBits[OutW]]
+              valueToBits(value).asValOf[DFBits[OutW]]
         }
       end DFBitsMacro
     end Candidate
@@ -687,7 +687,7 @@ object DFBits:
         def conv(dfType: DFBits[LW], value: V): DFValOf[DFBits[LW]] =
           val dfVal = candidate(value)
           check(dfType.width, dfVal.width.value)
-          dfVal.asIR.asValOf[DFBits[LW]]
+          dfVal.asValOf[DFBits[LW]]
       given DFBitsFromSEV[LW <: Int, T <: BitOrBool, V <: SameElementsVector[T]](using
           dfc: DFC
       ): TC[DFBits[LW], V] with
@@ -708,7 +708,7 @@ object DFBits:
         def conv(dfType: DFBits[LW], arg: R): DFBits[LW] <> VAL =
           val dfValArg = ic(arg)(using dfc.anonymize)
           check(dfType.width, dfValArg.dfType.width)
-          dfValArg.asIR.asValOf[DFBits[LW]]
+          dfValArg.asValOf[DFBits[LW]]
       given DFBitsCompareSEV[
           LW <: Int,
           Op <: FuncOp,
@@ -757,7 +757,7 @@ object DFBits:
         ): DFValOf[DFBits[RW]] = trydf {
           import Token.Ops.{resize => resizeToken}
           // TODO: why this causes anonymous references?
-//          if (lhs.width == updatedWidth) lhs.asIR.asValOf[DFBits[RW]]
+//          if (lhs.width == updatedWidth) lhs.asValOf[DFBits[RW]]
 //          else
           DFVal.Alias.AsIs(
             DFBits(updatedWidth),
@@ -861,7 +861,7 @@ object DFBits:
         ): DFValOf[DFBits[RW]] = trydf {
           check(lhs.width, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, lhs.width - 1, lhs.width - updatedWidth)
-            .asIR.asValOf[DFBits[RW]]
+            .asValOf[DFBits[RW]]
         }
         def lsbits[RW <: Int](updatedWidth: Inlined[RW])(using
             check: `LW >= RW`.Check[W, RW],
@@ -869,7 +869,7 @@ object DFBits:
         ): DFValOf[DFBits[RW]] = trydf {
           check(lhs.width, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0)
-            .asIR.asValOf[DFBits[RW]]
+            .asValOf[DFBits[RW]]
         }
         @targetName("shiftRightDFBits")
         def >>[R](shift: Exact[R])(using

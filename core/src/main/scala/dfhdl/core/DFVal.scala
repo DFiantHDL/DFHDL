@@ -66,8 +66,16 @@ extension (dfVal: ir.DFVal)
     DFVal[T, Modifier.VAR](dfVal)
   inline def asVarAny: DFVarAny =
     DFVal[DFTypeAny, Modifier.VAR](dfVal)
-  inline def asPortOf[T <: DFTypeAny]: DFPortOf[T] =
-    DFVal[T, Modifier.Port](dfVal)
+
+extension (dfVal: DFValAny)
+  inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] =
+    dfVal.asInstanceOf[DFVal[T, M]]
+  inline def asValOf[T <: DFTypeAny]: DFValOf[T] =
+    dfVal.asInstanceOf[DFVal[T, ModifierAny]]
+  inline def asVarOf[T <: DFTypeAny]: DFVarOf[T] =
+    dfVal.asInstanceOf[DFVal[T, Modifier.VAR]]
+  inline def asVarAny: DFVarAny =
+    dfVal.asInstanceOf[DFVal[DFTypeAny, Modifier.VAR]]
 
 object DFVal:
   final class Final[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
@@ -196,7 +204,7 @@ object DFVal:
         dfVal.asIR.isAnonymous,
         s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
       )
-      dfVal.tag(ir.ExternalInit(tokens)).asIR.asVal[T, Modifier[A, C, Modifier.Initialized]]
+      dfVal.tag(ir.ExternalInit(tokens)).asVal[T, Modifier[A, C, Modifier.Initialized]]
 
     def init(
         tokenValues: DFToken.Value[T]*
@@ -306,7 +314,7 @@ object DFVal:
           // after its token value was converted according to the alias
           case const: ir.DFVal.Const if const.isAnonymous && !forceNewAlias =>
             val updatedToken = tokenFunc(const.token.asTokenOf[VT])
-            Const(updatedToken).asIR.asVal[AT, M]
+            Const(updatedToken).asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
@@ -378,7 +386,7 @@ object DFVal:
           case const: ir.DFVal.Const if const.isAnonymous =>
             import DFBits.Token.Ops.apply
             val updatedToken = const.token.asTokenOf[DFBits[W]](relBitHigh, relBitLow)
-            Const(updatedToken).asIR.asVal[DFBits[H - L + 1], M]
+            Const(updatedToken).asVal[DFBits[H - L + 1], M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
