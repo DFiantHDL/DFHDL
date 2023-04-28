@@ -211,6 +211,7 @@ object DFToken:
 
   trait Value[T <: DFTypeAny]:
     type Out <: DFTokenAny
+    def enable: Boolean
     def apply(dfType: T): Out
   object Value:
     transparent inline implicit def fromValue[T <: DFTypeAny, V](
@@ -221,18 +222,23 @@ object DFToken:
         value: Expr[V]
     )(using Quotes, Type[T], Type[V]): Expr[Value[T]] =
       import quotes.reflect.*
-      val term = value.asTerm.underlyingArgument.exactTerm
+      val (argExpr, enableExpr) = value match
+        case '{ dfhdl.@@[t]($x)($y) } => (x, y)
+        case _                        => (value, '{ true })
+      val term = argExpr.asTerm.underlyingArgument.exactTerm
       val tpe = term.tpe.asTypeOf[Any]
       '{
         val tc = compiletime.summonInline[DFToken.TC[T, tpe.Underlying]]
         new Value[T]:
           type Out = tc.Out
+          def enable: Boolean = $enableExpr
           def apply(dfType: T): Out =
             tc(dfType, ${ term.asExpr })
       }
     end fromValueMacro
   end Value
   trait TupleValues[T <: NonEmptyTuple]:
+    def enable: Boolean
     def apply(dfType: DFTuple[T]): List[DFTokenAny]
   object TupleValues:
     transparent inline implicit def fromValue[T <: NonEmptyTuple, V](
@@ -243,7 +249,10 @@ object DFToken:
         value: Expr[V]
     )(using Quotes, Type[T], Type[V]): Expr[TupleValues[T]] =
       import quotes.reflect.*
-      val term = value.asTerm.underlyingArgument
+      val (argExpr, enableExpr) = value match
+        case '{ dfhdl.@@[t]($x)($y) } => (x, y)
+        case _                        => (value, '{ true })
+      val term = argExpr.asTerm.underlyingArgument
       val tTpe = TypeRepr.of[T]
       extension (lhs: TypeRepr)
         def tupleSigMatch(
@@ -288,6 +297,7 @@ object DFToken:
           }
         '{
           new TupleValues[T]:
+            def enable: Boolean = $enableExpr
             def apply(dfType: DFTuple[T]): List[DFTokenAny] =
               List(${ Expr.ofList(tokens('{ dfType })) }*)
         }
@@ -299,6 +309,7 @@ object DFToken:
           val tc = compiletime
             .summonInline[DFToken.TC[DFTuple[T], vType.Underlying]]
           new TupleValues[T]:
+            def enable: Boolean = $enableExpr
             def apply(dfType: DFTuple[T]): List[DFTokenAny] =
               List(tc(dfType, ${ vTerm.asExpr }))
         }

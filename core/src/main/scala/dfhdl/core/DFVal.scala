@@ -204,7 +204,7 @@ object DFVal:
   case object TruncateTag extends ir.DFTagOf[ir.DFVal]
   type TruncateTag = TruncateTag.type
 
-  extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
+  extension [T <: DFTypeAny, A, C, I, R](dfVal: DFVal[T, Modifier[A, C, I]])
     private[core] def initForced(tokens: List[ir.DFTokenAny])(using
         dfc: DFC
     ): DFVal[T, Modifier[A, C, Modifier.Initialized]] =
@@ -218,14 +218,17 @@ object DFVal:
     def init(
         tokenValues: DFToken.Value[T]*
     )(using InitCheck[I], DFC): DFVal[T, Modifier[A, C, Modifier.Initialized]] = trydf {
-      initForced(tokenValues.view.map(tv => tv(dfVal.dfType).asIR).toList)
+      val tvList = tokenValues.view.filter(_.enable).map(tv => tv(dfVal.dfType).asIR).toList
+      if (tvList.isEmpty) dfVal.asVal[T, Modifier[A, C, Modifier.Initialized]]
+      else initForced(tvList)
     }
   end extension
   extension [T <: NonEmptyTuple, A, C, I](dfVal: DFVal[DFTuple[T], Modifier[A, C, I]])
     def init(
         tokenValues: DFToken.TupleValues[T]
     )(using InitCheck[I], DFC): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]] = trydf {
-      dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
+      if (tokenValues.enable) dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
+      else dfVal.asVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]]
     }
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =

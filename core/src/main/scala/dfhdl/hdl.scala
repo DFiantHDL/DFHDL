@@ -22,6 +22,7 @@ object hdl:
   export core.DFVal.Ops.*
   export core.DFVarOps.*
   export core.DFPortOps.*
+  export core.Conditional.Ops.*
   export internals.CommonOps.*
   export core.{width, dfType}
   export core.Timer.Ops.*
