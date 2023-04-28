@@ -922,13 +922,17 @@ object DFXInt:
           import DFUInt.Val.Ops.signed
           given dfcAnon: DFC = dfc.anonymize
           val rhs = ic(value)
-          check(dfType.signed, dfType.width, rhs.dfType.signed, rhs.width)
+          if (!rhs.hasTag[ir.TruncateTag] || dfType.signed != rhs.dfType.signed)
+            check(dfType.signed, dfType.width, rhs.dfType.signed, rhs.width)
           val dfValIR =
             val rhsSignFix: DFValOf[DFSInt[Int]] =
               if (dfType.signed != rhs.dfType.signed)
                 rhs.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
               else rhs.asValOf[DFSInt[Int]]
-            if (rhsSignFix.width < dfType.width)
+            if (
+              dfType.width > rhsSignFix.width ||
+              rhs.hasTag[ir.TruncateTag] && dfType.width < rhsSignFix.width
+            )
               rhsSignFix.resize(dfType.width).asIR
             else rhsSignFix.asIR
           dfValIR.asValOf[DFXInt[LS, LW]]
@@ -997,6 +1001,9 @@ object DFXInt:
         ): DFBool <> VAL = trydf { op(icL(lhs), rhs) }
       end extension
       extension [S <: Boolean, W <: Int](lhs: DFValOf[DFXInt[S, W]])
+        @targetName("truncateDFXInt")
+        def truncate(using DFC): DFValOf[DFXInt[S, Int]] =
+          lhs.tag(ir.TruncateTag).asValOf[DFXInt[S, Int]]
         @targetName("resizeDFXInt")
         def resize[RW <: Int](
             updatedWidth: Inlined[RW]

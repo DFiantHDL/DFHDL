@@ -146,6 +146,8 @@ class DFBitsSpec extends DFSpec:
          |b8 := h"??"
          |b8 := u8.bits
          |b8 := u8.bits
+         |b8 := b3M.resize(8)
+         |b3M := b8.resize(3)
          |b8 := (h"1", b"1", b"0", b"11").toBits
          |b4M := h"1"
          |b4L := (b"1", b"0", b"11").toBits
@@ -163,6 +165,8 @@ class DFBitsSpec extends DFSpec:
       b8 := ?
       b8 := u8
       b8 := u8.bits
+      b8 := b3M.extend
+      b3M := b8.truncate
       b8 := (h"1", 1, 0, b"11").toBits
       (b4M, b4L) := (h"1", 1, 0, b"11")
       (b3M, u5L) := (h"1", 1, 0, b"11")

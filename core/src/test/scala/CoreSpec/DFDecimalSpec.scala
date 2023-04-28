@@ -189,6 +189,8 @@ class DFDecimalSpec extends DFSpec:
          |s8 := sd"8'-127"
          |s8 := u6.signed.resize(8)
          |s8 := s6.resize(8)
+         |u6 := u8.resize(6)
+         |s6 := s8.resize(6)
          |""".stripMargin
     } {
       val b8 = Bits(8) <> VAR
@@ -216,6 +218,8 @@ class DFDecimalSpec extends DFSpec:
       s8 := -127
       s8 := u6
       s8 := s6
+      u6 := u8.truncate
+      s6 := s8.truncate
       assertDSLErrorLog(
         "Cannot apply a signed value to an unsigned variable."
       )(
