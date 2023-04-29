@@ -186,6 +186,9 @@ object DFVal:
         .setTags(_.tag(customTag))
         .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
         .asVal[T, M]
+    def tag[CT <: ir.DFTag: ClassTag](condCustomTag: Conditional[CT])(using
+        dfc: DFC
+    ): DFVal[T, M] = if (condCustomTag.isActive) dfVal.tag(condCustomTag.getArg) else dfVal
     def hasTag[CT <: ir.DFTag: ClassTag](using dfc: DFC): Boolean =
       import dfc.getSet
       dfVal.asIR.tags.hasTagOf[CT]

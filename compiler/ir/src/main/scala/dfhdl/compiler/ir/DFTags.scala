@@ -20,17 +20,15 @@ object DFTags:
 
 final case class ExternalInit(tokenSeq: List[DFTokenAny]) extends DFTagOf[DFVal]
 final case class NameTag(name: String) extends DFTag
-final case class Unused(action: Unused.Action) extends DFTagOf[DFVal]
-object Unused:
-  enum Action derives CanEqual:
-    /** Quiet just suppresses the unused warning for the tagged value.
-      */
-    case Quiet
+enum Unused extends DFTagOf[DFVal]:
+  /** Quiet just suppresses the unused warning for the tagged value.
+    */
+  case Quiet
 
-    /** Keep suppresses the unused warning, and also attempts to keep the tagged value.
-      */
-    case Keep
+  /** Keep suppresses the unused warning, and also attempts to keep the tagged value.
+    */
+  case Keep
 
-    /** Purge removes all the redundant paths until and including the tagged value.
-      */
-    case Purge
+  /** Purge removes all the redundant paths until and including the tagged value.
+    */
+  case Purge
