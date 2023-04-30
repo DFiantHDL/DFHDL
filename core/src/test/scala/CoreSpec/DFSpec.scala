@@ -4,7 +4,8 @@ import munit.*
 import internals.{AllowTopLevel, HasTypeName, Position}
 import compiler.printing.{DefaultPrinter, Printer}
 import core.HasDFC
-import compiler.ir.DFDesignBlock.InstMode
+import compiler.ir
+import ir.DFDesignBlock.InstMode
 
 abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   final val dfc: DFC = core.DFC.empty
@@ -14,7 +15,11 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   given TDomain = core.DFC.Domain.DF
   given printer: Printer = DefaultPrinter(using dfc.getSet)
   private final val owner: core.Design.Block =
-    core.Design.Block(compiler.ir.DomainType.DF, typeName, Position.unknown, InstMode.Normal)
+    core.Design.Block(
+      ir.DomainType.DF,
+      ir.Meta(Some(typeName), Position.unknown, None),
+      InstMode.Normal
+    )
   dfc.enterOwner(owner)
   private val noErrMsg = "No error found"
   transparent inline def assertCompileError(expectedErr: String)(

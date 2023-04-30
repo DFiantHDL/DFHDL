@@ -213,4 +213,51 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Docstrings"):
+    /** HasDocs has docs */
+    class HasDocs extends DFDesign:
+      /** My in */
+      val x = Bit <> IN
+
+      /** My Out
+        */
+      val y = Bit <> OUT
+
+      /** My very very very very very very very very very very very very very very very very very
+        * very very very very very very very very very very very very very very very very very very
+        * very very very very very very very very very very long doc
+        */
+      val z = Bit <> VAR
+
+    val top = (new HasDocs).getVerilogCode
+    assertNoDiff(
+      top,
+      """|`ifndef HASDOCS_DEFS
+         |`define HASDOCS_DEFS
+         |
+         |
+         |`endif
+         |
+         |/* HasDocs has docs */
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "HasDocs_defs.sv"
+         |
+         |module HasDocs(
+         |  /* My in */
+         |  input  logic x,
+         |  /* My Out
+         |    */
+         |  output logic y
+         |);
+         |  /* My very very very very very very very very very very very very very very very very very
+         |     very very very very very very very very very very very very very very very very very very
+         |     very very very very very very very very very very long doc
+         |    */
+         |  logic z;
+         |
+         |endmodule
+         |""".stripMargin
+    )
 end PrintVerilogCodeSpec

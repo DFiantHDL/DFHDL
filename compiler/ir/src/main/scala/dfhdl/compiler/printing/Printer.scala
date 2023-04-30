@@ -109,8 +109,8 @@ trait Printer
   def csCommentInline(comment: String): String
   def csCommentEOL(comment: String): String
   def csDocString(doc: String): String
-  final def csDocString(member: DFMember): String =
-    member.meta.docOpt.map(printer.csDocString).map(x => s"$x\n").getOrElse("")
+  final def csDocString(meta: Meta): String =
+    meta.docOpt.map(printer.csDocString).map(x => s"$x\n").getOrElse("")
   final def csDFMember(member: DFMember): String =
     val cs = member match
       case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
@@ -121,7 +121,7 @@ trait Printer
       case domain: DomainBlock                         => csDomainBlock(domain)
       case timer: Timer                                => csTimer(timer)
       case _                                           => ???
-    s"${printer.csDocString(member)}$cs"
+    s"${printer.csDocString(member.meta)}$cs"
   def designFileName(designName: String): String
   def globalFileName: String
   def csGlobalFileContent: String = csGlobalTypeDcls
@@ -136,6 +136,8 @@ trait Printer
   final def formatCode(cs: String): String =
     val alignedContents = if (alignEnable) alignCode(cs) else cs
     if (colorEnable) colorCode(alignedContents) else alignedContents
+  final def csFile(design: DFDesignBlock): String =
+    s"${csDocString(design.dclMeta)}${csDFDesignBlockDcl(design)}"
   final def printedDB: DB =
     val designDB = getSet.designDB
     val uniqueDesigns = mutable.Set.empty[String]
@@ -147,7 +149,7 @@ trait Printer
         SourceFile(
           SourceType.Compiled,
           designFileName(block.dclName),
-          formatCode(csDFDesignBlockDcl(block))
+          formatCode(csFile(block))
         )
     }
     // removing existing compiled/committed files and adding the newly compiled files
@@ -161,12 +163,12 @@ trait Printer
   final def csDB: String =
     val designDB = getSet.designDB
     val uniqueDesigns = mutable.Set.empty[String]
-    val codeStringList = designDB.designMemberList.collect {
+    val csFileList = designDB.designMemberList.collect {
       case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.dclName) =>
         uniqueDesigns += block.dclName
-        csDFDesignBlockDcl(block)
+        csFile(block)
     }
-    val csFiles = s"${csGlobalFileContent.emptyOr(v => s"$v\n")}${codeStringList.mkString("\n")}\n"
+    val csFiles = s"${csGlobalFileContent.emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
     if (alignEnable) alignCode(csFiles) else csFiles
   end csDB
 end Printer

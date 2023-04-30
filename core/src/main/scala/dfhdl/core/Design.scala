@@ -13,18 +13,23 @@ private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
   final protected given TScope = DFC.Scope.Design
   private[core] def mkInstMode(args: ListMap[String, Any]): InstMode = InstMode.Normal
   final private[core] def initOwner: TOwner =
-    Design.Block(__domainType, "???", Position.unknown, InstMode.Normal)
+    Design.Block(__domainType, ir.Meta(Some("???"), Position.unknown, None), InstMode.Normal)
   final protected def setClsNamePos(
       name: String,
       position: Position,
+      docOpt: Option[String],
       args: ListMap[String, Any]
   ): Unit =
     val designBlock = owner.asIR
     setOwner(
       dfc.getSet.replace(designBlock)(
-        designBlock.copy(dclName = name, dclPosition = position, instMode = mkInstMode(args))
+        designBlock.copy(
+          dclMeta = ir.Meta(Some(name), position, docOpt),
+          instMode = mkInstMode(args)
+        )
       ).asFE
     )
+  end setClsNamePos
   final override def onCreateStartLate: Unit =
     dfc.enterLate()
 end Design
@@ -33,15 +38,12 @@ object Design:
   import ir.DFDesignBlock.InstMode
   type Block = DFOwner[ir.DFDesignBlock]
   object Block:
-    def apply(domain: ir.DomainType, dclName: String, dclPosition: Position, instMode: InstMode)(
-        using DFC
-    ): Block =
+    def apply(domain: ir.DomainType, dclMeta: ir.Meta, instMode: InstMode)(using DFC): Block =
       val ownerRef: ir.DFOwner.Ref =
         dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFRef.OneWay.Empty)
       ir.DFDesignBlock(
         domain,
-        dclName,
-        dclPosition,
+        dclMeta,
         instMode,
         ownerRef,
         dfc.getMeta,

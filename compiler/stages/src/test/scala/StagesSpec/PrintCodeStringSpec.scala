@@ -246,6 +246,7 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
   test("Docstrings"):
+    /** HasDocs has docs */
     class HasDocs extends DFDesign:
       /** My in */
       val x = Bit <> IN
@@ -263,7 +264,8 @@ class PrintCodeStringSpec extends StageSpec:
     val top = (new HasDocs).getCodeString
     assertNoDiff(
       top,
-      """|class HasDocs extends DFDesign:
+      """|/** HasDocs has docs */
+         |class HasDocs extends DFDesign:
          |  /** My in */
          |  val x = Bit <> IN
          |  /** My Out

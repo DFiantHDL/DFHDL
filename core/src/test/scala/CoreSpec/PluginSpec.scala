@@ -101,25 +101,31 @@ class PluginSpec extends DFSpec:
   trait HasNamePosWithVars extends internals.HasNamePos:
     private var _clsName: String = ""
     private var _clsPosition: Position = Position.unknown
+    private var _clsDocOpt: Option[String] = None
     private var _clsArgs: ListMap[String, Any] = ListMap()
 
     final protected def setClsNamePos(
         name: String,
         position: Position,
+        docOpt: Option[String],
         args: ListMap[String, Any]
     ): Unit =
       _clsName = name
       _clsPosition = position
+      _clsDocOpt = docOpt
       _clsArgs = args
 
     final def clsName: String = _clsName
     final def clsPosition: Position = _clsPosition
+    final def clsDocOpt: Option[String] = _clsDocOpt
     final def clsArgs: ListMap[String, Any] = _clsArgs
   end HasNamePosWithVars
 
+  /** This is doc */
   class GotName(x: Int, y: String, z: Int) extends HasNamePosWithVars
   val gotName = new GotName(1, "2", 3)
   assertEquals(gotName.clsName, "GotName")
+  assertEquals(gotName.clsDocOpt, Some(" This is doc "))
   assertEquals(gotName.clsArgs, ListMap("x" -> 1, "y" -> "2", "z" -> 3))
 
   extension (bar: Bar)(using DFC) def ++(that: Bar): Bar = new Plus(bar, that)

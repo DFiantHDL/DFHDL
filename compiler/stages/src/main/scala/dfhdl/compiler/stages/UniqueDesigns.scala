@@ -9,11 +9,10 @@ private final class UniqueBlock(val block: DFDesignBlock, val members: List[DFMe
     MemberGetSet
 ):
   override def equals(obj: Any): Boolean = obj match
-    case that: UniqueBlock
-        if this.block.dclName == that.block.dclName && this.block.dclPosition == that.block.dclPosition =>
+    case that: UniqueBlock if this.block.dclMeta == that.block.dclMeta =>
       (this.members lazyZip that.members).forall {
         case (l: DFNet, r: DFNet) if l.isViaConnection && r.isViaConnection => true
-        case (l, r)                                                           => l =~ r
+        case (l, r)                                                         => l =~ r
       }
     case _ => false
   override def hashCode(): Int = block.dclName.hashCode
@@ -36,7 +35,7 @@ case object UniqueDesigns extends Stage:
           val updatedDclName = s"${designType}_${i.toPaddedString(list.size)}"
           uniqueBlockMap(ub).map(block =>
             block -> Patch.Replace(
-              block.copy(dclName = updatedDclName),
+              block.copy(dclMeta = block.dclMeta.copy(nameOpt = Some(updatedDclName))),
               Patch.Replace.Config.FullReplacement
             )
           )

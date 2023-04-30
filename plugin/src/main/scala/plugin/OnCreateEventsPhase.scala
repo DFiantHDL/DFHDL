@@ -74,7 +74,12 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
             This(clsSym.asClass)
               .select("setClsNamePos".toTermName)
               .appliedToArgs(
-                List(Literal(Constant(tree.name.toString)), tree.positionTree, listMapTree)
+                List(
+                  Literal(Constant(tree.name.toString)),
+                  tree.positionTree,
+                  mkOptionString(clsSym.docString),
+                  listMapTree
+                )
               )
           val newTemplate = cpy.Template(template)(
             template.constr,

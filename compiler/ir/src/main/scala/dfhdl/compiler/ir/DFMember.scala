@@ -628,18 +628,18 @@ end DFConditional
 
 final case class DFDesignBlock(
     domainType: DomainType,
-    dclName: String,
-    dclPosition: Position,
+    dclMeta: Meta,
     instMode: DFDesignBlock.InstMode,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
       DFDomainOwner:
+  val dclName: String = dclMeta.name
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
       this.domainType == that.domainType &&
-      this.dclName == that.dclName && this.dclPosition == that.dclPosition &&
+      this.dclMeta == that.dclMeta &&
       this.instMode == that.instMode &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false

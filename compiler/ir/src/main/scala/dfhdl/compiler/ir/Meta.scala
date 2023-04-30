@@ -5,7 +5,7 @@ final case class Meta(
     nameOpt: Option[String],
     position: Position,
     docOpt: Option[String]
-):
+) derives CanEqual:
   val isAnonymous: Boolean = nameOpt.isEmpty
   val name: String =
     nameOpt.getOrElse(s"anon${this.hashCode.toHexString}")

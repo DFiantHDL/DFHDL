@@ -14,7 +14,7 @@ case object ToRT extends Stage:
           h.copy(op = HistoryOp.Reg(DerivedCfg)),
           Patch.Replace.Config.FullReplacement
         )
-      case d @ DFDesignBlock(DomainType.DF, _, _, _, _, _, _) =>
+      case d @ DFDesignBlock(DomainType.DF, _, _, _, _, _) =>
         d -> Patch.Replace(
           d.copy(domainType = new DomainType.RT(DerivedCfg)),
           Patch.Replace.Config.FullReplacement
