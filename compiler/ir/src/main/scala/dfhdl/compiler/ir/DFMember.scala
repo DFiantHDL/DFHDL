@@ -90,7 +90,7 @@ object DFMember:
   type Empty = Empty.type
   case object Empty extends DFMember:
     val ownerRef: DFOwner.Ref = DFRef.OneWay.Empty
-    val meta: Meta = Meta(Some("Empty"), Position.unknown)
+    val meta: Meta = Meta(Some("Empty"), Position.unknown, None)
     val tags: DFTags = DFTags.empty
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case Empty => true
@@ -124,7 +124,7 @@ end DFMember
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
   def width: Int = dfType.width
-  
+
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
   enum Modifier derives CanEqual:

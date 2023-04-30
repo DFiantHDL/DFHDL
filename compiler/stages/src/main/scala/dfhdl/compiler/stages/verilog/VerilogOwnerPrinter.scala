@@ -23,7 +23,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       .members(MemberView.Folded)
       .view
       .collect {
-        case p: DFVal.Dcl if p.isPort => printer.csDFValNamed(p)
+        case p: DFVal.Dcl if p.isPort => printer.csDFMember(p)
       }
       .mkString(",\n")
     val portBlock = ports.emptyOr(v => s"""(
@@ -37,7 +37,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           case p: DFVal.Dcl if p.isVar          => p
           case c: DFVal.Const if !c.isAnonymous => c
         }
-        .map(printer.csDFValNamed)
+        .map(printer.csDFMember)
         .emptyOr(_.mkString("\n"))
     val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {

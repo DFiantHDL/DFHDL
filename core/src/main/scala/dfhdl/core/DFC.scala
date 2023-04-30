@@ -6,18 +6,21 @@ import compiler.ir
 final case class DFC(
     nameOpt: Option[String],
     position: Position,
+    docOpt: Option[String],
     mutableDB: MutableDB = new MutableDB(),
     defaultDir: Int = 0
 ) extends MetaContext:
   def setMeta(
       nameOpt: Option[String] = nameOpt,
-      position: Position = position
+      position: Position = position,
+      docOpt: Option[String] = docOpt
   ) = copy(
     nameOpt = nameOpt,
-    position = position
+    position = position,
+    docOpt = docOpt
   ).asInstanceOf[this.type]
   given getSet: ir.MemberGetSet = mutableDB.getSet
-  def getMeta: ir.Meta = ir.Meta(nameOpt, position)
+  def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt)
   def enterOwner(owner: DFOwnerAny): Unit =
     mutableDB.OwnershipContext.enter(owner.asIR)
   def enterLate(): Unit =
@@ -38,7 +41,7 @@ end DFC
 object DFC:
   given (using TopLevel): DFC = empty
   def empty: DFC =
-    DFC(None, Position.unknown)
+    DFC(None, Position.unknown, None)
   sealed trait Scope
   object Scope:
     sealed trait Design extends Scope

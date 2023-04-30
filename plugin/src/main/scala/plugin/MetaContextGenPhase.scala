@@ -40,23 +40,16 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   extension (tree: Tree)(using Context)
     def setMeta(
         nameOpt: Option[String],
-        srcTree: Tree,
-        srcPos: util.SrcPos
+        srcPos: util.SrcPos,
+        docOpt: Option[String]
     ): Tree =
-      val nameOptTree = nameOpt match
-        case Some(str) =>
-          New(
-            defn.SomeClass.typeRef.appliedTo(defn.StringType),
-            Literal(Constant(str)) :: Nil
-          )
-        case None =>
-          ref(defn.NoneModule.termRef)
-      val clsTree = clsStack.head
+      val nameOptTree = mkOptionString(nameOpt)
       val positionTree = srcPos.positionTree
+      val docOptTree = mkOptionString(docOpt)
       tree
         .select(setMetaSym)
         .appliedToArgs(
-          nameOptTree :: positionTree :: Nil
+          nameOptTree :: positionTree :: docOptTree :: Nil
         )
         .withType(TermRef(tree.tpe, setMetaSym))
 
@@ -111,14 +104,17 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
               val nameOpt =
                 if (ignoreValDef(t)) None
                 else Some(t.name.toString.nameCheck(t))
-              tree.replaceArg(argTree, argTree.setMeta(nameOpt, tree, srcPos))
+              val docOpt =
+                if (ignoreValDef(t)) None
+                else t.symbol.docString
+              tree.replaceArg(argTree, argTree.setMeta(nameOpt, srcPos, docOpt))
             case Some(t: TypeDef) if t.name.toString.endsWith("$") =>
               tree.replaceArg(
                 argTree,
                 argTree.setMeta(
                   Some(t.name.toString.dropRight(1).nameCheck(t)),
-                  tree,
-                  srcPos
+                  srcPos,
+                  t.symbol.docString
                 )
               )
             case Some(t) => // Def or Class
@@ -132,7 +128,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
               // do nothing
               tree
             case _ => // Anonymous
-              tree.replaceArg(argTree, argTree.setMeta(None, tree, srcPos))
+              tree.replaceArg(argTree, argTree.setMeta(None, srcPos, None))
           end match
         case _ => tree
     else tree

@@ -108,15 +108,20 @@ trait Printer
         else name
   def csCommentInline(comment: String): String
   def csCommentEOL(comment: String): String
-  final def csDFMember(member: DFMember): String = member match
-    case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
-    case dfVal: DFVal                                => csDFValNamed(dfVal)
-    case net: DFNet                                  => csDFNet(net)
-    case design: DFDesignBlock                       => csDFDesignBlockInst(design)
-    case pb: ProcessBlock                            => csProcessBlock(pb)
-    case domain: DomainBlock                         => csDomainBlock(domain)
-    case timer: Timer                                => csTimer(timer)
-    case _                                           => ???
+  def csDocString(doc: String): String
+  final def csDocString(member: DFMember): String =
+    member.meta.docOpt.map(printer.csDocString).map(x => s"$x\n").getOrElse("")
+  final def csDFMember(member: DFMember): String =
+    val cs = member match
+      case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
+      case dfVal: DFVal                                => csDFValNamed(dfVal)
+      case net: DFNet                                  => csDFNet(net)
+      case design: DFDesignBlock                       => csDFDesignBlockInst(design)
+      case pb: ProcessBlock                            => csProcessBlock(pb)
+      case domain: DomainBlock                         => csDomainBlock(domain)
+      case timer: Timer                                => csTimer(timer)
+      case _                                           => ???
+    s"${printer.csDocString(member)}$cs"
   def designFileName(designName: String): String
   def globalFileName: String
   def csGlobalFileContent: String = csGlobalTypeDcls
@@ -222,6 +227,7 @@ class DFPrinter(using val getSet: MemberGetSet)
          |*/""".stripMargin
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"// $comment"
+  def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/**", "\n  *", "*/")
   def csTimer(timer: Timer): String =
     val timerBody = timer match
       case p: Timer.Periodic =>

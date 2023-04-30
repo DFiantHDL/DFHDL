@@ -31,6 +31,16 @@ abstract class CommonPhase extends PluginPhase:
   def debug(str: => Any*): Unit =
     if (debugFilter(pluginDebugSource)) println(str.mkString(", "))
 
+  protected def mkOptionString(argOpt: Option[String])(using Context): Tree =
+    argOpt match
+      case Some(str) =>
+        New(
+          defn.SomeClass.typeRef.appliedTo(defn.StringType),
+          Literal(Constant(str)) :: Nil
+        )
+      case None =>
+        ref(defn.NoneModule.termRef)
+
   protected def mkSome(tree: Tree)(using Context): Tree =
     ref(requiredMethod("scala.Some.apply"))
       .appliedToType(tree.tpe)
@@ -48,13 +58,30 @@ abstract class CommonPhase extends PluginPhase:
   var metaContextCls: ClassSymbol = _
   var positionCls: ClassSymbol = _
   var hasDFCTpe: TypeRef = _
-  extension (clsSym: Symbol)
+  extension (sym: Symbol)
     def inherits(parentFullName: String)(using Context): Boolean =
-      if (clsSym.isClass)
-        clsSym.asClass.parentSyms.exists(ps =>
+      if (sym.isClass)
+        sym.asClass.parentSyms.exists(ps =>
           ps.fullName.toString == parentFullName || ps.inherits(parentFullName)
         )
       else false
+    def docString(using Context): Option[String] =
+      import Comments.CommentsContext
+      def removeLastLineWhitespace(input: String): String =
+        val lines = input.split("\n")
+        if (lines.length <= 1) input
+        else
+          val lastIndex = lines.length - 1
+          val lastLineWithoutWhitespace = lines(lastIndex).trim
+          lines.slice(0, lastIndex).mkString("\n") + "\n" + lastLineWithoutWhitespace
+      def extract(input: String): String =
+        val pattern = """(?s)/\*(.*?)\*/""".r
+        val extractedText = pattern.findFirstMatchIn(input).map(_.group(1)).getOrElse("")
+        removeLastLineWhitespace(extractedText).stripMargin('*')
+      end extract
+      ctx.docCtx.flatMap(_.docstring(sym)).map(_.raw).map(extract)
+    end docString
+  end extension
 
   extension (tpe: Type)(using Context)
     def simple: Type =

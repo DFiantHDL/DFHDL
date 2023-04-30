@@ -15,7 +15,8 @@ object Position:
 trait MetaContext:
   def setMeta(
       nameOpt: Option[String],
-      position: Position
+      position: Position,
+      doc: Option[String]
   ): this.type
 
   def setName(name: String): this.type

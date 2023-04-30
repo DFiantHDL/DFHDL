@@ -1,7 +1,7 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.{sanityCheck, getCodeString}
+import dfhdl.compiler.stages.{getCodeString, sanityCheck}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class PrintCodeStringSpec extends StageSpec:
@@ -245,4 +245,37 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Docstrings"):
+    class HasDocs extends DFDesign:
+      /** My in */
+      val x = Bit <> IN
+
+      /** My Out
+        */
+      val y = Bit <> OUT
+
+      /** My very very very very very very very very very very very very very very very very very
+        * very very very very very very very very very very very very very very very very very very
+        * very very very very very very very very very very long doc
+        */
+      val z = Bit <> VAR
+
+    val top = (new HasDocs).getCodeString
+    assertNoDiff(
+      top,
+      """|class HasDocs extends DFDesign:
+         |  /** My in */
+         |  val x = Bit <> IN
+         |  /** My Out
+         |    **/
+         |  val y = Bit <> OUT
+         |  /** My very very very very very very very very very very very very very very very very very
+         |    * very very very very very very very very very very very very very very very very very very
+         |    * very very very very very very very very very very long doc
+         |    **/
+         |  val z = Bit <> VAR
+         |end HasDocs
+         |""".stripMargin
+    )
+
 end PrintCodeStringSpec
