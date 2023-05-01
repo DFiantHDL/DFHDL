@@ -17,7 +17,7 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   private final val owner: core.Design.Block =
     core.Design.Block(
       ir.DomainType.DF,
-      ir.Meta(Some(typeName), Position.unknown, None),
+      ir.Meta(Some(typeName), Position.unknown, None, Nil),
       InstMode.Normal
     )
   dfc.enterOwner(owner)

@@ -1,5 +1,7 @@
 package dfhdl.internals
 
+import scala.annotation.Annotation
+
 final case class Position(
     file: String,
     lineStart: Int,
@@ -16,7 +18,8 @@ trait MetaContext:
   def setMeta(
       nameOpt: Option[String],
       position: Position,
-      doc: Option[String]
+      doc: Option[String],
+      annotations: List[Annotation]
   ): this.type
 
   def setName(name: String): this.type

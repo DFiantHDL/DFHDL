@@ -90,7 +90,7 @@ object DFMember:
   type Empty = Empty.type
   case object Empty extends DFMember:
     val ownerRef: DFOwner.Ref = DFRef.OneWay.Empty
-    val meta: Meta = Meta(Some("Empty"), Position.unknown, None)
+    val meta: Meta = Meta(Some("Empty"), Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case Empty => true

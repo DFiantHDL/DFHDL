@@ -29,6 +29,6 @@ enum Unused extends DFTagOf[DFVal]:
     */
   case Keep
 
-  /** Purge removes all the redundant paths until and including the tagged value.
+  /** Prune removes all the redundant paths until and including the tagged value.
     */
-  case Purge
+  case Prune

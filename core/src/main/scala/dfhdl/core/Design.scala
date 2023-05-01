@@ -3,7 +3,8 @@ import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.compiler.printing.*
 import ir.DFDesignBlock.InstMode
-import scala.annotation.implicitNotFound
+
+import scala.annotation.{Annotation, implicitNotFound}
 import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
 
@@ -13,18 +14,19 @@ private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
   final protected given TScope = DFC.Scope.Design
   private[core] def mkInstMode(args: ListMap[String, Any]): InstMode = InstMode.Normal
   final private[core] def initOwner: TOwner =
-    Design.Block(__domainType, ir.Meta(Some("???"), Position.unknown, None), InstMode.Normal)
+    Design.Block(__domainType, ir.Meta(Some("???"), Position.unknown, None, Nil), InstMode.Normal)
   final protected def setClsNamePos(
       name: String,
       position: Position,
       docOpt: Option[String],
+      annotations: List[Annotation],
       args: ListMap[String, Any]
   ): Unit =
     val designBlock = owner.asIR
     setOwner(
       dfc.getSet.replace(designBlock)(
         designBlock.copy(
-          dclMeta = ir.Meta(Some(name), position, docOpt),
+          dclMeta = ir.Meta(Some(name), position, docOpt, annotations),
           instMode = mkInstMode(args)
         )
       ).asFE

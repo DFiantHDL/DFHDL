@@ -41,15 +41,17 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     def setMeta(
         nameOpt: Option[String],
         srcPos: util.SrcPos,
-        docOpt: Option[String]
+        docOpt: Option[String],
+        annotations: List[Annotations.Annotation]
     ): Tree =
       val nameOptTree = mkOptionString(nameOpt)
       val positionTree = srcPos.positionTree
       val docOptTree = mkOptionString(docOpt)
+      val annotTree = mkList(annotations.map(_.tree))
       tree
         .select(setMetaSym)
         .appliedToArgs(
-          nameOptTree :: positionTree :: docOptTree :: Nil
+          nameOptTree :: positionTree :: docOptTree :: annotTree :: Nil
         )
         .withType(TermRef(tree.tpe, setMetaSym))
 
@@ -101,20 +103,18 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                   "Scala `var` modifier for dataflow values/classes is highly discouraged!\nConsider changing to `val`.",
                   t.srcPos
                 )
-              val nameOpt =
-                if (ignoreValDef(t)) None
-                else Some(t.name.toString.nameCheck(t))
-              val docOpt =
-                if (ignoreValDef(t)) None
-                else t.symbol.docString
-              tree.replaceArg(argTree, argTree.setMeta(nameOpt, srcPos, docOpt))
+              val (nameOpt, docOpt, annots) =
+                if (ignoreValDef(t)) (None, None, Nil)
+                else (Some(t.name.toString.nameCheck(t)), t.symbol.docString, t.symbol.annotations)
+              tree.replaceArg(argTree, argTree.setMeta(nameOpt, srcPos, docOpt, annots))
             case Some(t: TypeDef) if t.name.toString.endsWith("$") =>
               tree.replaceArg(
                 argTree,
                 argTree.setMeta(
                   Some(t.name.toString.dropRight(1).nameCheck(t)),
                   srcPos,
-                  t.symbol.docString
+                  t.symbol.docString,
+                  t.symbol.annotations
                 )
               )
             case Some(t) => // Def or Class
@@ -128,7 +128,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
               // do nothing
               tree
             case _ => // Anonymous
-              tree.replaceArg(argTree, argTree.setMeta(None, srcPos, None))
+              tree.replaceArg(argTree, argTree.setMeta(None, srcPos, None, Nil))
           end match
         case _ => tree
     else tree

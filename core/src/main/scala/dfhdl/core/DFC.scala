@@ -2,25 +2,29 @@ package dfhdl
 package core
 import internals.*
 import compiler.ir
+import scala.annotation.Annotation
 
 final case class DFC(
     nameOpt: Option[String],
     position: Position,
     docOpt: Option[String],
+    annotations: List[Annotation] = Nil, // TODO: removing default causes stale symbol crash
     mutableDB: MutableDB = new MutableDB(),
     defaultDir: Int = 0
 ) extends MetaContext:
   def setMeta(
       nameOpt: Option[String] = nameOpt,
       position: Position = position,
-      docOpt: Option[String] = docOpt
+      docOpt: Option[String] = docOpt,
+      annotations: List[Annotation] = Nil
   ) = copy(
     nameOpt = nameOpt,
     position = position,
-    docOpt = docOpt
+    docOpt = docOpt,
+    annotations = annotations
   ).asInstanceOf[this.type]
   given getSet: ir.MemberGetSet = mutableDB.getSet
-  def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt)
+  def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations)
   def enterOwner(owner: DFOwnerAny): Unit =
     mutableDB.OwnershipContext.enter(owner.asIR)
   def enterLate(): Unit =

@@ -47,7 +47,8 @@ abstract class CommonPhase extends PluginPhase:
       .appliedTo(tree)
 
   protected def mkList(tree: List[Tree])(using Context): Tree =
-    tpd.mkList(tree, TypeTree(tree.head.tpe.widen))
+    if (tree.isEmpty) ref(defn.NilModule)
+    else tpd.mkList(tree, TypeTree(tree.head.tpe.widen))
 
   protected def mkTuple(trees: List[Tree])(using Context): Tree =
     ref(requiredMethod(s"scala.Tuple${trees.length}.apply"))

@@ -78,6 +78,7 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
                   Literal(Constant(tree.name.toString)),
                   tree.positionTree,
                   mkOptionString(clsSym.docString),
+                  mkList(clsSym.annotations.map(_.tree)),
                   listMapTree
                 )
               )
