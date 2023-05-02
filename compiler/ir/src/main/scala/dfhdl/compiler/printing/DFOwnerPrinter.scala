@@ -120,6 +120,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
 end AbstractOwnerPrinter
 
 protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
+  type TPrinter = DFPrinter
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     val localDcls = printer.csLocalTypeDcls(design)
     val body = csDFOwnerBody(design)
@@ -135,7 +136,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val dcl = s"class ${design.dclName} extends $dsnCls"
     val dclWithBody =
       if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
-    s"$dclWithBody\n"
+    s"${printer.csAnnotations(design.dclMeta)}$dclWithBody\n"
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)

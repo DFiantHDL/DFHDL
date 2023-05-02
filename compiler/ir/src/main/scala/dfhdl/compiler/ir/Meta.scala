@@ -7,7 +7,7 @@ final case class Meta(
     nameOpt: Option[String],
     position: Position,
     docOpt: Option[String],
-    annotations: List[Annotation]
+    annotations: List[HWAnnotation]
 ) derives CanEqual:
   val isAnonymous: Boolean = nameOpt.isEmpty
   val name: String =
@@ -16,9 +16,9 @@ final case class Meta(
   def anonymize: Meta = copy(nameOpt = None, docOpt = None)
   def setName(name: String): Meta = copy(nameOpt = Some(name))
   def setDoc(doc: String): Meta = copy(docOpt = Some(doc))
-  def setAnnotations(annotations: List[Annotation]) = copy(annotations = annotations)
-  def addAnnotation(annotation: Annotation) = setAnnotations(annotation :: annotations)
-  def removeAnnotation(annotation: Annotation) = setAnnotations(
+  def setAnnotations(annotations: List[HWAnnotation]) = copy(annotations = annotations)
+  def addAnnotation(annotation: HWAnnotation) = setAnnotations(annotation :: annotations)
+  def removeAnnotation(annotation: HWAnnotation) = setAnnotations(
     annotations.filterNot(_ == annotation)
   )
   def =~(that: Meta): Boolean =

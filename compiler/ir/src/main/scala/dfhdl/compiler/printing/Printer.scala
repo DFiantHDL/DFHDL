@@ -111,6 +111,7 @@ trait Printer
   def csDocString(doc: String): String
   final def csDocString(meta: Meta): String =
     meta.docOpt.map(printer.csDocString).map(x => s"$x\n").getOrElse("")
+  def csAnnotations(meta: Meta): String
   final def csDFMember(member: DFMember): String =
     val cs = member match
       case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
@@ -121,7 +122,7 @@ trait Printer
       case domain: DomainBlock                         => csDomainBlock(domain)
       case timer: Timer                                => csTimer(timer)
       case _                                           => ???
-    s"${printer.csDocString(member.meta)}$cs"
+    s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta)}$cs"
   def designFileName(designName: String): String
   def globalFileName: String
   def csGlobalFileContent: String = csGlobalTypeDcls
@@ -230,6 +231,9 @@ class DFPrinter(using val getSet: MemberGetSet)
     else s"/*$comment*/"
   def csCommentEOL(comment: String): String = s"// $comment"
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/**", "\n  *", "*/")
+  def csAnnotations(meta: Meta): String =
+    if (meta.annotations.isEmpty) ""
+    else meta.annotations.view.map(x => s"@hw.${x.codeString}").mkString("", "\n", "\n")
   def csTimer(timer: Timer): String =
     val timerBody = timer match
       case p: Timer.Periodic =>

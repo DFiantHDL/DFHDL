@@ -26,7 +26,7 @@ private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
     setOwner(
       dfc.getSet.replace(designBlock)(
         designBlock.copy(
-          dclMeta = ir.Meta(Some(name), position, docOpt, annotations),
+          dclMeta = ir.Meta(Some(name), position, docOpt, annotations.getActiveHWAnnotations),
           instMode = mkInstMode(args)
         )
       ).asFE

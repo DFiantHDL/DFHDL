@@ -2,13 +2,20 @@ package dfhdl
 package core
 import internals.*
 import compiler.ir
+import dfhdl.compiler.ir.HWAnnotation
+
 import scala.annotation.Annotation
+
+extension (annotList: List[Annotation])
+  def getActiveHWAnnotations: List[HWAnnotation] = annotList.collect {
+    case annot: HWAnnotation if annot.getWhen => annot
+  }
 
 final case class DFC(
     nameOpt: Option[String],
     position: Position,
     docOpt: Option[String],
-    annotations: List[Annotation] = Nil, // TODO: removing default causes stale symbol crash
+    annotations: List[HWAnnotation] = Nil, // TODO: removing default causes stale symbol crash
     mutableDB: MutableDB = new MutableDB(),
     defaultDir: Int = 0
 ) extends MetaContext:
@@ -21,7 +28,7 @@ final case class DFC(
     nameOpt = nameOpt,
     position = position,
     docOpt = docOpt,
-    annotations = annotations
+    annotations = annotations.getActiveHWAnnotations
   ).asInstanceOf[this.type]
   given getSet: ir.MemberGetSet = mutableDB.getSet
   def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations)
