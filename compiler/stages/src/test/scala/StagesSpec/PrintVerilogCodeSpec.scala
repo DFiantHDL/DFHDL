@@ -6,9 +6,11 @@ import dfhdl.compiler.stages.verilog.{getVerilogCode}
 
 class PrintVerilogCodeSpec extends StageSpec:
   class ID extends EDDesign:
-    val x = SInt(16) <> IN
-    val y = SInt(16) <> OUT
-    y <> x
+    val x  = SInt(16) <> IN
+    val y  = SInt(16) <> OUT
+    val y2 = SInt(16) <> OUT
+    y  <> x
+    y2 <> x
 
   class IDTop extends EDDesign:
     self =>
@@ -19,11 +21,13 @@ class PrintVerilogCodeSpec extends StageSpec:
     val id2_x = SInt(16) <> VAR
     val id2_y = SInt(16) <> VAR
     val id1 = new ID:
-      this.x <> id1_x
-      this.y <> id1_y
+      this.x  <> id1_x
+      this.y  <> id1_y
+      this.y2 <> OPEN
     val id2 = new ID:
-      this.x <> id2_x
-      this.y <> id2_y
+      this.x  <> id2_x
+      this.y  <> id2_y
+      this.y2 <> OPEN
     id1_x <> x
     id2_x <> id1_y
     y     <> id2_y
@@ -45,9 +49,11 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module ID(
          |  input  logic signed [15:0] x,
-         |  output logic signed [15:0] y
+         |  output logic signed [15:0] y,
+         |  output logic signed [15:0] y2
          |);
          |  assign y = x;
+         |  assign y2 = x;
          |endmodule
          |""".stripMargin
     )
@@ -69,9 +75,11 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module ID(
          |  input  logic signed [15:0] x,
-         |  output logic signed [15:0] y
+         |  output logic signed [15:0] y,
+         |  output logic signed [15:0] y2
          |);
          |  assign y = x;
+         |  assign y2 = x;
          |endmodule
          |
          |`default_nettype none
@@ -88,11 +96,13 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  logic signed [15:0] id2_y;
          |  ID id1(
          |    .x /*<--*/ (id1_x),
-         |    .y /*-->*/ (id1_y)
+         |    .y /*-->*/ (id1_y),
+         |    .y2 /*-->*/ (/*open*/)
          |  );
          |  ID id2(
          |    .x /*<--*/ (id2_x),
-         |    .y /*-->*/ (id2_y)
+         |    .y /*-->*/ (id2_y),
+         |    .y2 /*-->*/ (/*open*/)
          |  );
          |  assign id1_x = x;
          |  assign id2_x = id1_y;

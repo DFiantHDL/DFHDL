@@ -481,6 +481,12 @@ object DFVal:
 
   trait TCLP:
     // Accept any bubble value
+    given fromOPEN[T <: DFTypeAny](using
+        dfc: DFC
+    ): TC[T, ir.OpenConnectTag] with
+      def conv(dfType: T, value: ir.OpenConnectTag): DFValOf[T] =
+        throw new IllegalArgumentException("OPEN cannot be used here")
+    // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble](using
         tokenTC: DFToken.TC[T, V],
         dfc: DFC
@@ -890,6 +896,7 @@ object DFPortOps:
         ],
         tc: DFVal.TC[T, R],
         dfc: DFC
-    ): Unit = trydf {
-      dfPort.connect(tc(dfPort.dfType, rhs))
-    }
+    ): Unit =
+      if (rhs.value equals ir.OpenConnectTag) dfPort.tag(ir.OpenConnectTag)
+      else trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
+end DFPortOps

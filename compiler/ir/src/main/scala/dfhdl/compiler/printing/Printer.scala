@@ -54,6 +54,13 @@ trait Printer
       case DFNet.Op.LazyConnection => csLazyConnection(lhsStr, rhsStr, directionStr)
     end match
   end csDFNet
+  def csOpenKeyWord: String
+  final def csOpenPorts(owner: DFOwner): List[String] =
+    owner
+      .members(MemberView.Folded).view.collect {
+        case p @ DclOut() if p.tags.hasTagOf[OpenConnectTag] =>
+          csViaConnection(p.name, csOpenKeyWord, "-->")
+      }.toList
   def csTimeUnit(time: Time): String = s"${time.usec}.us"
   def csFreqUnit(freq: Freq): String = s"${freq.hertz}.Hz"
   def csRatioUnit(ratio: Ratio): String = s"${ratio.value}"
@@ -222,6 +229,7 @@ class DFPrinter(using val getSet: MemberGetSet)
     s"$lhsStr `<LZ>`/*$directionStr*/ $rhsStr"
   val normalizeViaConnection: Boolean = true
   val normalizeConnection: Boolean = true
+  def csOpenKeyWord: String = "OPEN"
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))

@@ -21,6 +21,9 @@ case object ViaConnection extends Stage:
                   (ports, nets) // already has via connections
                 case Some(n @ DFNet.Connection(DclVar(), _, _)) if conns.size == 1 =>
                   (ports, n :: nets)
+                // output ports that are not used are skipped and not via-connected
+                case None if p.getReadDeps.isEmpty =>
+                  (ports, nets)
                 case _ => (p :: ports, nets)
             case (p @ DclIn(), (ports, nets)) =>
               p.getConnectionTo match

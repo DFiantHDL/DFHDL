@@ -20,6 +20,10 @@ object DFTags:
 
 final case class ExternalInit(tokenSeq: List[DFTokenAny]) extends DFTagOf[DFVal]
 final case class NameTag(name: String) extends DFTag
+
+case object OpenConnectTag extends DFTagOf[DFVal]
+type OpenConnectTag = OpenConnectTag.type
+
 enum Unused extends DFTagOf[DFVal]:
   /** Quiet just suppresses the unused warning for the tagged value.
     */

@@ -66,7 +66,8 @@ private val aliasPartClassTag = classTag[DFVal.Alias.Partial]
 
 extension (dfVal: DFVal)
   def originRefs(using MemberGetSet): Set[DFRefAny] =
-    getSet.designDB.memberTable(dfVal).collect { case r: DFRef.TwoWayAny => r.originRef }
+    getSet.designDB.memberTable
+      .getOrElse(dfVal, Set.empty).collect { case r: DFRef.TwoWayAny => r.originRef }
   def getPartialAliases(using MemberGetSet): Set[DFVal.Alias.Partial] =
     dfVal.originRefs.flatMap {
       case r if r.refType equals aliasPartClassTag =>

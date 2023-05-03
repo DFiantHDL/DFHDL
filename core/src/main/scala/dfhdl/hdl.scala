@@ -66,6 +66,7 @@ object hdl:
   type TOKEN = core.TOKEN
   export core.<>
   export core.X
+  export core.OPEN
   export core.Process.Ops.*
 
   val DerivedCfg = core.DerivedCfg

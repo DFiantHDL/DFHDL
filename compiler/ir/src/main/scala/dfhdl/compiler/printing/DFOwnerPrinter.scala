@@ -44,7 +44,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case _ => false
       }
       .map(_.codeString)
-      .filter(_.nonEmpty)
+      .filter(_.nonEmpty).++(printer.csOpenPorts(owner))
       .mkString(s"${printer.csViaConnectionSep}\n")
   def csDFDesignBlockDcl(design: DFDesignBlock): String
   def csDFDesignBlockInst(design: DFDesignBlock): String

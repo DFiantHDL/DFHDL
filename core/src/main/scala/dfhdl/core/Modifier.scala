@@ -31,3 +31,7 @@ object Modifier:
 end Modifier
 
 final type VAL = Modifier[Any, Any, Any]
+
+object OPEN extends Exactly:
+  type Out = ir.OpenConnectTag
+  val value = ir.OpenConnectTag
