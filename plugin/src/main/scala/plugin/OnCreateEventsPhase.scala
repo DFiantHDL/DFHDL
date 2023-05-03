@@ -123,14 +123,14 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
         .withType(TermRef(tpe, clsSym.requiredMethod("onCreate")))
     @tailrec def unapply(tree: Tree)(using Context): Option[ClassSymbol] =
       tree match
-        case Apply(Select(clsTree @ New(id), _), _) =>
-          val sym = id.symbol
+        case Select(clsTree @ New(id), _) if clsTree.tpe <:< onCreateEventsTpe =>
           // An object's onCreate is handled under `transformStats`
-          if (clsTree.tpe <:< onCreateEventsTpe && !sym.is(Module))
-            Some(sym.asClass)
+          if (!id.symbol.is(Module))
+            Some(clsTree.tpe.classSymbol.asClass)
           else None
-        case Apply(tree, tpt) => unapply(tree)
-        case _                => None
+        case Apply(tree, _)     => unapply(tree)
+        case TypeApply(tree, _) => unapply(tree)
+        case _                  => None
   end OnCreateEventsInstance
 
   override def prepareForTemplate(tree: Template)(using Context): Context =

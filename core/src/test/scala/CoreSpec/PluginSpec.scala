@@ -146,7 +146,7 @@ class PluginSpec extends DFSpec:
   class Foo(arg1: Int, arg2: Int)(using DFC) extends Bar
 
   object Internal:
-    class Foo(arg1: Int, arg2: Int)(using DFC) extends Bar
+    class Foo[T](arg1: Int, arg2: Int)(using DFC) extends Bar
 
   def newBar(using DFC): Bar = new Bar
 
