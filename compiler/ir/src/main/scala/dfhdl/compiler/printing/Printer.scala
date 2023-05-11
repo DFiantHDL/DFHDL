@@ -5,7 +5,7 @@ import dfhdl.internals.*
 import scala.collection.mutable
 import analysis.*
 import java.io.FileWriter
-import java.nio.file.Paths
+import java.nio.file.{Paths, Files}
 
 protected trait AbstractPrinter:
   type TPrinter <: Printer
@@ -194,11 +194,14 @@ object Printer:
       case _ =>
     }
   def toFolder(db: DB, folderPathStr: String): DB =
+    val folderPath = Paths.get(folderPathStr)
+    if (!Files.exists(folderPath))
+      Files.createDirectories(folderPath)
     val updatedSrcFiles = db.srcFiles.map {
       case srcFile @ SourceFile(SourceType.Compiled, filePathStr, contents) =>
         val finalPathStr =
           if (Paths.get(filePathStr).isAbsolute) filePathStr
-          else Paths.get(folderPathStr).resolve(filePathStr).toAbsolutePath.normalize().toString
+          else folderPath.resolve(filePathStr).toAbsolutePath.normalize().toString
         val pw = new FileWriter(finalPathStr)
         pw.write(contents.decolor)
         pw.close()
@@ -206,6 +209,7 @@ object Printer:
       case other => other
     }
     db.copy(srcFiles = updatedSrcFiles)
+  end toFolder
 end Printer
 
 class DFPrinter(using val getSet: MemberGetSet)
