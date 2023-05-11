@@ -6,6 +6,6 @@ import dfhdl.core.Design
 export compiler.stages.printCodeString
 
 extension [D <: Design](dsn: D)
-  def compile(using bc: BackendCompiler): CompiledDesign[D] = bc(
+  def compile(using bc: BackendCompiler): CompiledDesign[D] = bc.compile(
     new StagedDesign[D](dsn, dsn.getDB)
   )

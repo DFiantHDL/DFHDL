@@ -2,6 +2,7 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.printing.*
+import dfhdl.options.PrinterOptions
 
 case object PrintCodeString extends Stage:
   object Coloring:
@@ -42,8 +43,10 @@ extension [T: HasDB](t: T)
       override val alignEnable: Boolean = align
     printer.csDB
   def getCodeString: String = getCodeString(align = false)
-  def printCodeString: T =
+  def printCodeString(using po: PrinterOptions): T =
     import PrintCodeString.Coloring.color
-    println(getCodeString(align = true).color)
+    val alignedCode = getCodeString(align = po.align)
+    val coloredCode = if (po.color) alignedCode.color else alignedCode
+    println(coloredCode)
     t
 end extension

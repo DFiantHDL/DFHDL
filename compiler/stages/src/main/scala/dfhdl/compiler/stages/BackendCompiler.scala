@@ -1,8 +1,9 @@
 package dfhdl.compiler.stages
 
 import dfhdl.core.Design
+import dfhdl.options.CompilerOptions
 
 trait BackendCompiler:
-  def apply[D <: Design](sd: StagedDesign[D]): CompiledDesign[D]
+  def compile[D <: Design](sd: StagedDesign[D])(using CompilerOptions): CompiledDesign[D]
 object BackendCompiler:
   given BackendCompiler = dfhdl.backends.verilog.sv2005
