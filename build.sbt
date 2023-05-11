@@ -22,7 +22,7 @@ inThisBuild(
 name := projectName
 ThisBuild / organization := "io.github.dfianthdl"
 ThisBuild / scalaVersion := compilerVersion
-ThisBuild / version      := "0.2.19-SNAPSHOT"
+ThisBuild / version      := "0.2.20-SNAPSHOT"
 
 
 // PROJECTS
