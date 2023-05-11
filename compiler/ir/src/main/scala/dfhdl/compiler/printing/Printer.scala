@@ -177,7 +177,7 @@ trait Printer
         csFile(block)
     }
     val csFiles = s"${csGlobalFileContent.emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
-    if (alignEnable) alignCode(csFiles) else csFiles
+    formatCode(csFiles)
   end csDB
 end Printer
 

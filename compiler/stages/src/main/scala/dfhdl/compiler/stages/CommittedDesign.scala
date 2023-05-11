@@ -1,6 +1,7 @@
 package dfhdl.compiler.stages
 
 import dfhdl.core.Design
+import dfhdl.options.PrinterOptions
 
 opaque type CommittedDesign[D <: Design] = CompiledDesign[D]
 object CommittedDesign:
@@ -10,7 +11,7 @@ object CommittedDesign:
       import CompiledDesign.staged as cds
       cd.cds
     private def compiled: CompiledDesign[D] = cd
-    def printGenFiles: CommittedDesign[D] =
+    def printGenFiles(using PrinterOptions): CommittedDesign[D] =
       import CompiledDesign.printGenFiles as pgf
       compiled.pgf
   end extension

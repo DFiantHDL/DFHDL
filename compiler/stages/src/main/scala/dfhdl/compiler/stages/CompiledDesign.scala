@@ -2,6 +2,7 @@ package dfhdl.compiler.stages
 
 import dfhdl.compiler.printing.Printer
 import dfhdl.core.Design
+import dfhdl.options.PrinterOptions
 
 opaque type CompiledDesign[D <: Design] = StagedDesign[D]
 object CompiledDesign:
@@ -10,6 +11,6 @@ object CompiledDesign:
     def staged: StagedDesign[D] = cd
     def toFolder(path: String = cd.stagedDB.top.dclName): CommittedDesign[D] =
       CommittedDesign(staged.newStage(Printer.toFolder(staged.stagedDB, path)))
-    def printGenFiles: CompiledDesign[D] =
+    def printGenFiles(using PrinterOptions): CompiledDesign[D] =
       Printer.printGenFiles(staged.stagedDB)
       cd

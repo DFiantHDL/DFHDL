@@ -44,9 +44,10 @@ extension [T: HasDB](t: T)
     printer.csDB
   def getCodeString: String = getCodeString(align = false)
   def printCodeString(using po: PrinterOptions): T =
-    import PrintCodeString.Coloring.color
-    val alignedCode = getCodeString(align = po.align)
-    val coloredCode = if (po.color) alignedCode.color else alignedCode
-    println(coloredCode)
+    val designDB = StageRunner.run(PrintCodeString)(t.db)
+    val printer = new DFPrinter(using designDB.getSet):
+      override val alignEnable: Boolean = po.align
+      override val colorEnable: Boolean = po.color
+    println(printer.csDB)
     t
 end extension
