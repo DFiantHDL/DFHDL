@@ -79,7 +79,8 @@ class VerilogPrinter(using val getSet: MemberGetSet)
   val verilogKW: Set[String] =
     Set("module", "input", "output", "inout", "endmodule", "always", "begin", "end", "case",
       "default", "endcase", "default_nettype", "include", "timescale", "if", "else", "typedef",
-      "enum", "posedge", "negedge", "assign", "parameter", "struct", "packed")
+      "enum", "posedge", "negedge", "assign", "parameter", "struct", "packed", "ifndef", "endif",
+      "define")
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] =
     Set("wire", "reg", "logic", "wire", "signed")
