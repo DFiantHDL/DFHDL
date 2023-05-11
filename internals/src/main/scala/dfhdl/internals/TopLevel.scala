@@ -14,7 +14,7 @@ object TopLevel:
     val appSymbol = (TypeRepr.of[App]).typeSymbol
     val mainTpe = TypeRepr.of[main]
     val isTop =
-      topOwner.name.toString.contains("$package$") ||
+      topOwner.name.contains("$package$") ||
         topOwner.isClassDef &&
         TypeRepr
           .of[Any]
@@ -22,7 +22,8 @@ object TopLevel:
           .baseClasses
           .contains(appSymbol) || // Top owner is the main object
         Symbol.spliceOwner.owner.annotations.exists(a => a.tpe <:< mainTpe) ||
-        topOwner.name.toString == "$read" || // Top owner is REPL console
+        topOwner.name.endsWith("$_") || // scala-cli top
+        topOwner.name == "$read" || // Top owner is REPL console
         topOwner.fullName.startsWith("ammonite.") // ammonite console
 
     if (isTop) '{ new TopLevel {} }
