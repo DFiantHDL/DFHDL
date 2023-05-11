@@ -189,4 +189,46 @@ class ViaConnectionSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Via connection with partial selection") {
+    class IDTopVar extends DFDesign:
+      val x        = SInt(16)     <> IN
+      val y        = SInt(16)     <> OUT
+      val internal = SInt(16) X 1 <> VAR
+      val id1      = new ID
+      val id2      = new ID
+      id1.x <> x
+      id1.y <> internal(0)
+      id2.x <> internal(0)
+      id2.y <> y
+
+    val id = (new IDTopVar).viaConnection
+    assertCodeString(
+      id,
+      """|class ID extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x
+         |end ID
+         |
+         |class IDTopVar extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val internal = SInt(16) X 1 <> VAR
+         |  val id1_x = SInt(16) <> VAR
+         |  val id1 = new ID:
+         |    this.x <>/*<--*/ id1_x
+         |    this.y <>/*-->*/ internal(0)
+         |  val id2_x = SInt(16) <> VAR
+         |  val id2_y = SInt(16) <> VAR
+         |  val id2 = new ID:
+         |    this.x <>/*<--*/ id2_x
+         |    this.y <>/*-->*/ id2_y
+         |  id1_x <> x
+         |  id2_x <> internal(0)
+         |  y <> id2_y
+         |end IDTopVar
+         |""".stripMargin
+    )
+  }
 end ViaConnectionSpec

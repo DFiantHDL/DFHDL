@@ -229,6 +229,8 @@ final case class DB(
             else Unknown
           // illegal connection
           case _ => Error
+      case alias: DFVal.Alias.Partial =>
+        getValAccess(alias.relValRef.get, net)(connToDcls)
       case _ => Read
     end match
   end getValAccess
