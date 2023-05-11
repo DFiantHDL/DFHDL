@@ -1,10 +1,8 @@
 package dfhdl
 
-import dfhdl.core.{Design, StagedDesign, BackendCompiler, CompiledDesign}
-import dfhdl.compiler.stages.*
+import dfhdl.core.Design
+import dfhdl.compiler.stages.{BackendCompiler, CompiledDesign, StagedDesign, StageRunner}
 import dfhdl.compiler.stages.verilog.{VerilogBackend, VerilogPrinter}
-import dfhdl.compiler.ir.*
-import dfhdl.compiler.printing.*
 object backends:
   object verilog:
     given v2001: BackendCompiler = ???

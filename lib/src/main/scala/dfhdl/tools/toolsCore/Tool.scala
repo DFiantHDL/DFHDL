@@ -1,5 +1,6 @@
 package dfhdl.tools.toolsCore
-import dfhdl.core.{CommittedDesign, Design}
+import dfhdl.core.Design
+import dfhdl.compiler.stages.CommittedDesign
 
 trait Tool:
   final protected def exec[D <: Design](cd: CommittedDesign[D], cmd: String): CommittedDesign[D] =
@@ -10,7 +11,5 @@ trait Tool:
 trait Linter extends Tool:
   def lint[D <: Design](cd: CommittedDesign[D]): CommittedDesign[D]
 object Linter:
-  transparent inline given Linter =
-    compiletime.error(
-      "Missing an implicit linter tool argument.\nSolve this by importing the proper tool (e.g. `import tools.linters.verilator`)."
-    )
+  // default linter will be verilator
+  given Linter = dfhdl.tools.linters.verilator

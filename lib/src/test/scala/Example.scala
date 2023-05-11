@@ -32,8 +32,6 @@ class ALU extends EDDesign:
 end ALU
 
 @main def hello: Unit =
-  import backends.verilog.sv2005
-  import tools.linters.verilator
   val top = new ALU
   import compiler.stages.StageRunner
   StageRunner.logDebug()
@@ -41,5 +39,5 @@ end ALU
     .compile
     .toFolder(".\\..\\sandbox")
     .printGenFiles
-    .lint2
+    .lint
 end hello

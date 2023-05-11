@@ -1,7 +1,7 @@
 package dfhdl.compiler.stages
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.core.{Design, StagedDesign, CompiledDesign, CommittedDesign}
+import dfhdl.core.{Design}
 
 abstract class Stage extends Product, Serializable, HasTypeName derives CanEqual:
   final lazy val depSet: Set[Stage] = dependencies.toSet

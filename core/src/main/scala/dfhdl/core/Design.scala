@@ -57,9 +57,6 @@ object Design:
   end Block
   extension [D <: Design](dsn: D)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
-    def compile(using bc: BackendCompiler): CompiledDesign[D] = bc(
-      new StagedDesign[D](dsn, dsn.getDB)
-    )
     def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
         dfc: DFC
     ): D =
@@ -137,56 +134,3 @@ abstract class EDBlackBox(verilogSrc: EDBlackBox.Source, vhdlSrc: EDBlackBox.Sou
     InstMode.BlackBox(args, verilogSrc, vhdlSrc)
 object EDBlackBox:
   export ir.DFDesignBlock.InstMode.BlackBox.Source
-
-trait BackendCompiler:
-  def apply[D <: Design](sd: StagedDesign[D]): CompiledDesign[D]
-object BackendCompiler:
-  transparent inline given BackendCompiler =
-    compiletime.error(
-      "Missing an implicit backend argument.\nSolve this by importing the proper backend (e.g. `import backends.verilog.sv2005`)."
-    )
-
-final class StagedDesign[D <: Design](val design: D, val stagedDB: ir.DB)
-object StagedDesign:
-  extension [D <: Design](sd: StagedDesign[D])
-    def compile(using bc: BackendCompiler): CompiledDesign[D] = bc(sd)
-    def newStage(stagedDB: ir.DB): StagedDesign[D] = new StagedDesign[D](sd.design, stagedDB)
-
-opaque type CompiledDesign[D <: Design] = StagedDesign[D]
-object CompiledDesign:
-  def apply[D <: Design](sd: StagedDesign[D]): CompiledDesign[D] = sd
-  extension [D <: Design](cd: CompiledDesign[D])
-    def staged: StagedDesign[D] = cd
-    def toFolder(path: String = cd.stagedDB.top.dclName): CommittedDesign[D] =
-      staged.newStage(Printer.toFolder(staged.stagedDB, path))
-    def printGenFiles: CompiledDesign[D] =
-      Printer.printGenFiles(staged.stagedDB)
-      cd
-
-opaque type CommittedDesign[D <: Design] = CompiledDesign[D]
-object CommittedDesign:
-  extension [D <: Design](cd: CommittedDesign[D])
-    def staged: StagedDesign[D] = cd
-    private def compiled: CompiledDesign[D] = cd
-    def printGenFiles: CommittedDesign[D] =
-      import CompiledDesign.printGenFiles as pgf
-      compiled.pgf
-    def lint: CommittedDesign[D] =
-      import scala.sys.process.*
-      import ir.{SourceFile, SourceType}
-      val filePaths = cd.stagedDB.srcFiles.collect {
-        case SourceFile(SourceType.Committed, path, _) => path
-      }
-      // We drop the global definition file (it is included)
-      // We translate the windows `\` to unix `/` to fit the verilator needs
-      val filesInCmd = filePaths.drop(1).mkString(" ").replaceAll("""\\""", "/")
-      // Global include:
-      val globalInclude =
-        java.nio.file.Paths.get(filePaths.head).getParent.toString.replaceAll("""\\""", "/")
-      Process(
-        s"verilator_bin --lint-only -Wall -I${globalInclude} ${filesInCmd}"
-      ).!
-      cd
-    end lint
-  end extension
-end CommittedDesign
