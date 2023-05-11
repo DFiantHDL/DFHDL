@@ -33,12 +33,13 @@ end ALU
 
 @main def hello: Unit =
   import backends.verilog.sv2005
+  import tools.linters.verilator
   val top = new ALU
   import compiler.stages.StageRunner
   StageRunner.logDebug()
   top.printCodeString
     .compile
-    .toFolder(".\\..\\..\\sandbox")
+    .toFolder(".\\..\\sandbox")
     .printGenFiles
-    .lint
+    .lint2
 end hello
