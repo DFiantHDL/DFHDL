@@ -421,7 +421,7 @@ object DFNet:
     ): Option[(DFVal.Dcl | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
       if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>
-          val toLeft = lhsVal.dealias.flatMap(getSet.designDB.connectionTable.get).contains(net)
+          val toLeft = getSet.designDB.connectionTable.get(lhsVal).contains(net)
           if (toLeft) Some(lhsVal.dealias.get, rhsVal, false)
           else Some(rhsVal.dealias.get, lhsVal, true)
         case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>

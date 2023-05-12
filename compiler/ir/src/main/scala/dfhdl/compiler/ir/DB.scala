@@ -201,7 +201,7 @@ final case class DB(
   import Access.*
   import DFVal.Modifier.*
   import DFNet.Op.*
-  private def getValAccess(dfVal: DFVal, net: DFNet)(connToDcls: Map[DFVal.Dcl, DFNet]): Access =
+  private def getValAccess(dfVal: DFVal, net: DFNet)(connToDcls: Map[DFVal, DFNet]): Access =
     def isExternalConn =
       if (net.isViaConnection) dfVal isSameOwnerDesignAs net
       else dfVal.getOwnerDesign isSameOwnerDesignAs net
@@ -259,9 +259,9 @@ final case class DB(
   @tailrec private def getConnToDcls(
       analyzeNets: List[FlatNet],
       pendingNets: List[FlatNet],
-      connToDcls: Map[DFVal.Dcl, DFNet],
+      connToDcls: Map[DFVal, DFNet],
       errors: List[String]
-  ): Map[DFVal.Dcl, DFNet] =
+  ): Map[DFVal, DFNet] =
     analyzeNets match
       case flatNet :: otherNets =>
         var newErrors = errors
@@ -393,8 +393,8 @@ final case class DB(
     connectionTable // causes connectivity checks
 
   // There can only be a single connection to a value (but multiple assignments are possible)
-  //                               To       Via
-  lazy val connectionTable: Map[DFVal.Dcl, DFNet] =
+  //                             To     Via
+  lazy val connectionTable: Map[DFVal, DFNet] =
     val flatNets = members.flatMap {
       case net: DFNet => FlatNet(net)
       case _          => Nil
