@@ -2,6 +2,10 @@ package dfhdl.internals
 
 import scala.collection.immutable.SortedMap
 
+extension (range: Range)
+  def subRange(relWidth: Int, relBitLow: Int): Range =
+    Range(range.start + relBitLow, range.start + relBitLow + relWidth)
+
 case class RangeValue[+T](range: Range, value: T)
 
 case class RangeMap[+T](private val internalMap: SortedMap[Int, RangeValue[T]] = SortedMap.empty):

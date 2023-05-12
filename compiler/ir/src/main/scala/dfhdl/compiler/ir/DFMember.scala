@@ -160,6 +160,31 @@ object DFVal:
       case dcl: DFVal.Dcl     => Some(dcl)
       case alias: DFVal.Alias => alias.relValRef.get.dealias
       case _                  => None
+    @tailrec private def departial(range: Range)(using MemberGetSet): (DFVal, Range) =
+      dfVal match
+        case partial: DFVal.Alias.Partial =>
+          val relVal = partial.relValRef.get
+          partial match
+            case partial: DFVal.Alias.ApplyRange =>
+              relVal.departial(range.subRange(partial.width, partial.relBitLow))
+            case partial: DFVal.Alias.ApplyIdx =>
+              partial.relIdx.get match
+                case DFVal.Alias.ApplyIdx.Const(idx) =>
+                  relVal.departial(range.subRange(partial.width, idx * partial.width))
+                // if not a constant index selection, then the entire value range is affected
+                case _ =>
+                  (relVal, range)
+            case partial: DFVal.Alias.SelectField =>
+              relVal.departial(
+                range.subRange(
+                  partial.width,
+                  relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(partial.fieldName)
+                )
+              )
+          end match
+        case _ => (dfVal, range)
+    // for a given value remove partial selections as possible
+    def departial(using MemberGetSet): (DFVal, Range) = departial(0 until dfVal.width)
   end extension
 
   // can be an expression
@@ -321,6 +346,12 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     end ApplyIdx
+    object ApplyIdx:
+      object Const:
+        def unapply(applyIdx: ApplyIdx)(using MemberGetSet): Option[Int] =
+          applyIdx.relIdx.get match
+            case DFVal.Const(DFDecimal.Token(DFUInt(_), data), _, _, _) => data.map(_.toInt)
+            case _                                                      => None
 
     final case class SelectField(
         dfType: DFType,

@@ -243,6 +243,16 @@ final case class DFStruct(
         fieldType.bitsDataToData((valueBits, bubbleBits))
       )
       .toList
+  lazy val fieldPosMap: Map[String, Int] =
+    var relBitHigh: Int = width - 1
+    fieldMap
+      .map((fieldName, fieldType) =>
+        val relWidth = fieldType.width
+        val relBitLow = relBitHigh - relWidth + 1
+        relBitHigh = relBitLow - 1
+        (fieldName, relBitLow)
+      )
+  def fieldRelBitLow(fieldName: String): Int = fieldPosMap(fieldName)
 end DFStruct
 
 object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
