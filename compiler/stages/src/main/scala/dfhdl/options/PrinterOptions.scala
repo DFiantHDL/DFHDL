@@ -11,10 +11,8 @@ object PrinterOptions:
     color = color
   )
 
-  opaque type Align = Boolean
+  opaque type Align <: Boolean = Boolean
   given Conversion[Boolean, Align] = x => x
-  given Conversion[Align, Boolean] = x => x
 
-  opaque type Color = Boolean
+  opaque type Color <: Boolean = Boolean
   given Conversion[Boolean, Color] = x => x
-  given Conversion[Color, Boolean] = x => x
