@@ -402,10 +402,10 @@ final case class DB(
     getConnToDcls(flatNets, Nil, Map(), Nil).filter(_._2.isConnection)
 
   //                                    From       Via
-  lazy val connectionTableInverted: Map[DFVal, List[DFNet]] =
-    members
+  lazy val connectionTableInverted: Map[DFVal, Set[DFNet]] =
+    members.view
       .collect { case n @ DFNet.Connection(_: DFVal, fromVal: DFVal, _) => (fromVal, n) }
-      .groupMap(_._1)(_._2)
+      .groupMap(_._1)(_._2).view.mapValues(_.toSet).toMap
 
   //                              To       From
   lazy val assignmentsTable: Map[DFVal, Set[DFVal]] =
