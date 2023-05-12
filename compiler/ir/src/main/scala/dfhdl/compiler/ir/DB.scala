@@ -196,12 +196,18 @@ final case class DB(
   lazy val conditionalChainTable: Map[DFConditional.Header, List[DFConditional.Block]] =
     conditionalChainGen
 
+  type ConnectToMap = Map[DFVal, DFNet] // RangeMap[DFNet]
+//  extension (ctm: ConnectToMap)
+//    def isConnectedTo(dcl: DFVal.Dcl, range: Range): Boolean =
+//      ctm.get(dcl).exists(_.contains(range))
   private enum Access derives CanEqual:
     case Read, Write, ReadWrite, Unknown, Error
   import Access.*
   import DFVal.Modifier.*
   import DFNet.Op.*
-  private def getValAccess(dfVal: DFVal, net: DFNet)(connToDcls: Map[DFVal, DFNet]): Access =
+  private def getValAccess(dfVal: DFVal, net: DFNet)(
+      connToDcls: ConnectToMap
+  ): Access =
     def isExternalConn =
       if (net.isViaConnection) dfVal isSameOwnerDesignAs net
       else dfVal.getOwnerDesign isSameOwnerDesignAs net
@@ -259,7 +265,7 @@ final case class DB(
   @tailrec private def getConnToDcls(
       analyzeNets: List[FlatNet],
       pendingNets: List[FlatNet],
-      connToDcls: Map[DFVal, DFNet],
+      connToDcls: ConnectToMap,
       errors: List[String]
   ): Map[DFVal, DFNet] =
     analyzeNets match
