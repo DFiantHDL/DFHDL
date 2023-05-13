@@ -88,7 +88,7 @@ extension (dfVal: DFVal)
     }
   end hasPrevAlias
   def getConnectionTo(using MemberGetSet): Option[DFNet] =
-    getSet.designDB.connectionTable.get(dfVal)
+    getSet.designDB.connectionTable.getNets(dfVal).headOption
   def getConnectionsFrom(using MemberGetSet): Set[DFNet] =
     getSet.designDB.connectionTableInverted.getOrElse(dfVal, Set())
   def getAssignmentsTo(using MemberGetSet): Set[DFVal] =

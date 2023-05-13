@@ -168,7 +168,7 @@ object DFVal:
             case partial: DFVal.Alias.ApplyRange =>
               relVal.departial(range.subRange(partial.width, partial.relBitLow))
             case partial: DFVal.Alias.ApplyIdx =>
-              partial.relIdx.get match
+              partial match
                 case DFVal.Alias.ApplyIdx.Const(idx) =>
                   relVal.departial(range.subRange(partial.width, idx * partial.width))
                 // if not a constant index selection, then the entire value range is affected
@@ -181,10 +181,15 @@ object DFVal:
                   relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(partial.fieldName)
                 )
               )
+            case _ => relVal.departial(range)
           end match
         case _ => (dfVal, range)
     // for a given value remove partial selections as possible
     def departial(using MemberGetSet): (DFVal, Range) = departial(0 until dfVal.width)
+    def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Range)] =
+      departial match
+        case (dcl: DFVal.Dcl, range) => Some(dcl, range)
+        case _                       => None
   end extension
 
   // can be an expression
@@ -272,11 +277,11 @@ object DFVal:
 
     final case class AsIs(
         dfType: DFType,
-        relValRef: ConsumerRef,
+        relValRef: PartialRef,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Consumer:
+    ) extends Partial:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: AsIs =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -373,11 +378,11 @@ object DFVal:
 
     final case class RegDIN(
         dfType: DFType,
-        relValRef: ConsumerRef,
+        relValRef: PartialRef,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Consumer:
+    ) extends Partial:
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: RegDIN =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -452,7 +457,7 @@ object DFNet:
     ): Option[(DFVal.Dcl | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
       if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>
-          val toLeft = getSet.designDB.connectionTable.get(lhsVal).contains(net)
+          val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)
           if (toLeft) Some(lhsVal.dealias.get, rhsVal, false)
           else Some(rhsVal.dealias.get, lhsVal, true)
         case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>

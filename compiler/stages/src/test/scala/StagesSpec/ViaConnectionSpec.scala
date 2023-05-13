@@ -190,49 +190,50 @@ class ViaConnectionSpec extends StageSpec:
     )
   }
 
-//  test("Via connection with partial selection") {
-//    class ID extends DFDesign:
-//      val x = Bits(8) <> IN
-//      val y = Bits(8) <> OUT
-//      y := x
-//
-//    class IDTopVar extends DFDesign:
-//      val x   = Bits(16) <> IN
-//      val y   = Bits(16) <> OUT
-//      val id1 = new ID
-//      val id2 = new ID
-//      id1.x <> x(7, 0)
-//      id2.x <> x(15, 8)
-//      id1.y <> y(7, 0)
-//      id2.y <> y(15, 8)
-//
-//    val id = (new IDTopVar).viaConnection
-//    assertCodeString(
-//      id,
-//      """|class ID extends DFDesign:
-//         |  val x = SInt(16) <> IN
-//         |  val y = SInt(16) <> OUT
-//         |  y := x
-//         |end ID
-//         |
-//         |class IDTopVar extends DFDesign:
-//         |  val x = SInt(16) <> IN
-//         |  val y = SInt(16) <> OUT
-//         |  val internal = SInt(16) X 1 <> VAR
-//         |  val id1_x = SInt(16) <> VAR
-//         |  val id1 = new ID:
-//         |    this.x <>/*<--*/ id1_x
-//         |    this.y <>/*-->*/ internal(0)
-//         |  val id2_x = SInt(16) <> VAR
-//         |  val id2_y = SInt(16) <> VAR
-//         |  val id2 = new ID:
-//         |    this.x <>/*<--*/ id2_x
-//         |    this.y <>/*-->*/ id2_y
-//         |  id1_x <> x
-//         |  id2_x <> internal(0)
-//         |  y <> id2_y
-//         |end IDTopVar
-//         |""".stripMargin
-//    )
-//  }
+  test("Via connection with partial selection") {
+    class ID extends DFDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      y := x
+
+    class IDTopVar extends DFDesign:
+      val x   = Bits(16) <> IN
+      val y   = Bits(16) <> OUT
+      val id1 = new ID
+      val id2 = new ID
+      id1.x <> x(7, 0)
+      id2.x <> x(15, 8)
+      id1.y <> y(7, 0)
+      id2.y <> y(15, 8)
+
+    val id = (new IDTopVar).viaConnection
+    assertCodeString(
+      id,
+      """|class ID extends DFDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  y := x
+         |end ID
+         |
+         |class IDTopVar extends DFDesign:
+         |  val x = Bits(16) <> IN
+         |  val y = Bits(16) <> OUT
+         |  val id1_x = Bits(8) <> VAR
+         |  val id1_y = Bits(8) <> VAR
+         |  val id1 = new ID:
+         |    this.x <>/*<--*/ id1_x
+         |    this.y <>/*-->*/ id1_y
+         |  val id2_x = Bits(8) <> VAR
+         |  val id2_y = Bits(8) <> VAR
+         |  val id2 = new ID:
+         |    this.x <>/*<--*/ id2_x
+         |    this.y <>/*-->*/ id2_y
+         |  id1_x <> x(7, 0)
+         |  id2_x <> x(15, 8)
+         |  y(7, 0) <> id1_y
+         |  y(15, 8) <> id2_y
+         |end IDTopVar
+         |""".stripMargin
+    )
+  }
 end ViaConnectionSpec

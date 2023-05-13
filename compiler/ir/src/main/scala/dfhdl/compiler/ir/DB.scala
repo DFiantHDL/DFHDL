@@ -196,16 +196,12 @@ final case class DB(
   lazy val conditionalChainTable: Map[DFConditional.Header, List[DFConditional.Block]] =
     conditionalChainGen
 
-  type ConnectToMap = Map[DFVal, DFNet] // RangeMap[DFNet]
-//  extension (ctm: ConnectToMap)
-//    def isConnectedTo(dcl: DFVal.Dcl, range: Range): Boolean =
-//      ctm.get(dcl).exists(_.contains(range))
   private enum Access derives CanEqual:
     case Read, Write, ReadWrite, Unknown, Error
   import Access.*
   import DFVal.Modifier.*
   import DFNet.Op.*
-  private def getValAccess(dfVal: DFVal, net: DFNet)(
+  private def getValAccess(dfVal: DFVal, range: Range, net: DFNet)(
       connToDcls: ConnectToMap
   ): Access =
     def isExternalConn =
@@ -235,11 +231,14 @@ final case class DB(
             else Unknown
           // illegal connection
           case _ => Error
-      case alias: DFVal.Alias.Partial =>
-        getValAccess(alias.relValRef.get, net)(connToDcls)
       case _ => Read
     end match
   end getValAccess
+  private def getValAccess(dfVal: DFVal, net: DFNet)(
+      connToDcls: ConnectToMap
+  ): Access =
+    val dpart = dfVal.departial
+    getValAccess(dpart._1, dpart._2, net)(connToDcls)
   private case class FlatNet(lhsVal: DFVal, rhsVal: DFVal, net: DFNet) derives CanEqual
   private object FlatNet:
     def apply(net: DFNet): List[FlatNet] =
@@ -267,7 +266,7 @@ final case class DB(
       pendingNets: List[FlatNet],
       connToDcls: ConnectToMap,
       errors: List[String]
-  ): Map[DFVal, DFNet] =
+  ): ConnectToMap =
     analyzeNets match
       case flatNet :: otherNets =>
         var newErrors = errors
@@ -307,27 +306,34 @@ final case class DB(
             newError(s"Unknown access pattern with ${rhsVal.relValString}.")
             None
           case _ => None
-        val toDclOption = toValOption.flatMap(v =>
-          val dclOpt = v.dealias
-          if (dclOpt.isEmpty)
-            newError(s"Unexpected write access to the immutable value ${v.relValString}.")
-          dclOpt
+        val toDclAndRangeOption: Option[(DFVal.Dcl, Range)] = toValOption.flatMap(v =>
+          v.departialDcl match
+            case None =>
+              newError(s"Unexpected write access to the immutable value ${v.relValString}.")
+              None
+            case x => x
         )
-        toDclOption match
+        toDclAndRangeOption match
           // found target variable or port declaration for the given connection/assignment
-          case Some(toDcl) =>
-            connToDcls.get(toDcl) match
-              // already has assignments, but multiple assignments are allowed
-              case Some(prevNet) if prevNet.isAssignment && net.isAssignment =>
-              // previous net is either a connection or an assignment
-              case Some(prevNet) =>
+          case Some((toDcl, range)) =>
+            val prevNets = connToDcls.getNets(toDcl, range)
+            // go through all previous nets and check for collisions
+            prevNets.foreach: prevNet =>
+              // multiple assignments are allowed in the same range, but not multiple
+              // connections or a combination of an assignment and a connection
+              if (prevNet.isConnection || prevNet.isAssignment && !net.isAssignment)
                 newError(
                   s"""Multiple connections write to the same variable/port ${toDcl.getFullName}.
-                     |The previous write occured at ${prevNet.meta.position}""".stripMargin
+                     |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                 )
-              // no previous connection is OK
-              case None =>
-            getConnToDcls(otherNets, pendingNets, connToDcls + (toDcl -> net), newErrors)
+            // if no previous connection in this range, we add it to the range map
+            if (prevNets.isEmpty)
+              getConnToDcls(otherNets, pendingNets, connToDcls.addNet(toDcl, range, net), newErrors)
+            // if there are previous connections, it's either assignments or already reported as
+            // errors, so no need to further modify the range map (the range map is not intended
+            // to save all the previous assignment nets).
+            else
+              getConnToDcls(otherNets, pendingNets, connToDcls, newErrors)
           // unable to determine net directionality, so move net to pending
           case None =>
             getConnToDcls(otherNets, flatNet :: pendingNets, connToDcls, newErrors)
@@ -337,12 +343,8 @@ final case class DB(
           errors.view.reverse.mkString("\n\n")
         )
       case Nil if pendingNets.nonEmpty =>
-        val reexamine = pendingNets.exists {
-          case n
-              if n.lhsVal.dealias
-                .exists(connToDcls.contains) | n.rhsVal.dealias.exists(connToDcls.contains) =>
-            true
-          case _ => false
+        val reexamine = pendingNets.exists { n =>
+          connToDcls.contains(n.lhsVal) | connToDcls.contains(n.rhsVal)
         }
         if (reexamine) getConnToDcls(pendingNets, Nil, connToDcls, errors)
         else
@@ -398,14 +400,14 @@ final case class DB(
     nameCheck()
     connectionTable // causes connectivity checks
 
-  // There can only be a single connection to a value (but multiple assignments are possible)
-  //                             To     Via
-  lazy val connectionTable: Map[DFVal, DFNet] =
+  // There can only be a single connection to a value in a given range
+  // (multiple assignments are possible)
+  lazy val connectionTable: ConnectToMap =
     val flatNets = members.flatMap {
       case net: DFNet => FlatNet(net)
       case _          => Nil
     }
-    getConnToDcls(flatNets, Nil, Map(), Nil).filter(_._2.isConnection)
+    getConnToDcls(flatNets, Nil, ConnectToMap.empty, Nil).removeAssignments
 
   //                                    From       Via
   lazy val connectionTableInverted: Map[DFVal, Set[DFNet]] =

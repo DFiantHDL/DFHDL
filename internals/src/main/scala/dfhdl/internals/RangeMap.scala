@@ -1,6 +1,7 @@
 package dfhdl.internals
 
 import scala.collection.immutable.SortedMap
+import annotation.unchecked.uncheckedVariance
 
 extension (range: Range)
   def subRange(relWidth: Int, relBitLow: Int): Range =
@@ -11,7 +12,9 @@ case class RangeValue[+T](range: Range, value: T)
 case class RangeMap[+T](private val internalMap: SortedMap[Int, RangeValue[T]] = SortedMap.empty):
 
   def isEmpty: Boolean = internalMap.isEmpty
+  def nonEmpty: Boolean = !isEmpty
 
+  def values: Iterable[T] = internalMap.values.map(_.value)
   def insert[U >: T](range: Range, value: U): RangeMap[U] =
     if (range.isEmpty || range.step != 1)
       throw new IllegalArgumentException("Only non-empty ranges with a step of 1 are allowed")
@@ -26,6 +29,16 @@ case class RangeMap[+T](private val internalMap: SortedMap[Int, RangeValue[T]] =
       if (rangeValue.range.contains(key)) Some(rangeValue.value) else None
     }
 
+  def get(range: Range): Set[T @uncheckedVariance] =
+    val intersectingRanges = internalMap.range(range.start, range.end + 1)
+    intersectingRanges.flatMap { case (_, rangeValue) =>
+      if (rangeValue.range.exists(range.contains)) Some(rangeValue.value) else None
+    }.toSet
+  def filter(predicate: T => Boolean): RangeMap[T] =
+    val filteredInternalMap = internalMap.filter { case (_, rangeValue) =>
+      predicate(rangeValue.value)
+    }
+    RangeMap(filteredInternalMap)
   def contains(range: Range): Boolean =
     val previous = internalMap.get(range.start - 1)
     val next = internalMap.get(range.start)
