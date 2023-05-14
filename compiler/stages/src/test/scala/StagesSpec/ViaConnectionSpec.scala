@@ -236,4 +236,55 @@ class ViaConnectionSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Via connection with partial selection 2") {
+    class ID extends EDDesign:
+      val x = Bits(3) <> IN
+      val y = Bits(3) <> OUT
+      y <> x
+
+    class IDTop extends EDDesign:
+      val x = Bits(3)     <> IN
+      val y = Bits(3)     <> OUT
+      val v = Bits(3) X 2 <> VAR
+      // TODO: need to fix this edge-case that yields an error
+//      val c   = Bits(3) X 1 <> VAR init all(all(0))
+      val id1 = new ID
+      val id2 = new ID
+      id1.y <> v(0)
+      id2.y <> v(1)
+      id1.x <> x // c(0)
+      id2.x <> x
+      process(all):
+        y := v(0) | v(1)
+    end IDTop
+
+    val id = (new IDTop).viaConnection
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val x = Bits(3) <> IN
+         |  val y = Bits(3) <> OUT
+         |  y <> x
+         |end ID
+         |
+         |class IDTop extends EDDesign:
+         |  val x = Bits(3) <> IN
+         |  val y = Bits(3) <> OUT
+         |  val v = Bits(3) X 2 <> VAR
+         |  val id1_x = Bits(3) <> VAR
+         |  val id1 = new ID:
+         |    this.x <>/*<--*/ id1_x
+         |    this.y <>/*-->*/ v(0)
+         |  val id2_x = Bits(3) <> VAR
+         |  val id2 = new ID:
+         |    this.x <>/*<--*/ id2_x
+         |    this.y <>/*-->*/ v(1)
+         |  id1_x <> x
+         |  id2_x <> x
+         |  process(all):
+         |    y := v(0) | v(1)
+         |end IDTop
+         |""".stripMargin
+    )
+  }
 end ViaConnectionSpec
