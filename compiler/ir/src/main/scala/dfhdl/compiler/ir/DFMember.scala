@@ -161,29 +161,33 @@ object DFVal:
       case alias: DFVal.Alias => alias.relValRef.get.dealias
       case _                  => None
     @tailrec private def departial(range: Range)(using MemberGetSet): (DFVal, Range) =
+      extension (range: Range)
+        def offset(delta: Int) =
+          Range(range.start + delta, range.end + delta)
       dfVal match
         case partial: DFVal.Alias.Partial =>
           val relVal = partial.relValRef.get
           partial match
             case partial: DFVal.Alias.ApplyRange =>
-              relVal.departial(range.subRange(partial.width, partial.relBitLow))
+              relVal.departial(range.offset(partial.relBitLow))
             case partial: DFVal.Alias.ApplyIdx =>
               partial match
                 case DFVal.Alias.ApplyIdx.Const(idx) =>
-                  relVal.departial(range.subRange(partial.width, idx * partial.width))
+                  relVal.departial(range.offset(idx * partial.width))
                 // if not a constant index selection, then the entire value range is affected
                 case _ =>
                   (relVal, range)
             case partial: DFVal.Alias.SelectField =>
               relVal.departial(
-                range.subRange(
-                  partial.width,
+                range.offset(
                   relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(partial.fieldName)
                 )
               )
             case _ => relVal.departial(range)
           end match
         case _ => (dfVal, range)
+      end match
+    end departial
     // for a given value remove partial selections as possible
     def departial(using MemberGetSet): (DFVal, Range) = departial(0 until dfVal.width)
     def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Range)] =

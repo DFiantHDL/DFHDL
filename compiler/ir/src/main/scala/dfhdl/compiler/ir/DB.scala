@@ -226,7 +226,7 @@ final case class DB(
           // internal connection to a var
           case VAR | WIRE | (_: REG) if isInternalConn =>
             // if already was connected as write, then it must be read
-            if (connToDcls.contains(dcl)) Read
+            if (connToDcls.contains(dcl, range)) Read
             // otherwise it is unknown
             else Unknown
           // illegal connection
