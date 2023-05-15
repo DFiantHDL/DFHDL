@@ -1,15 +1,19 @@
 package dfhdl.tools.toolsCore
 import dfhdl.core.Design
-import dfhdl.compiler.stages.CommittedDesign
+import dfhdl.compiler.stages.{CommittedDesign, CompiledDesign}
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
+import dfhdl.options.{PrinterOptions, CommitOptions}
+import dfhdl.compiler.printing.Printer
+import java.nio.file.Paths
+import java.io.FileWriter
 
 object Verilator extends Linter:
   def binExec: String = "verilator_bin"
   def commonFlags: String = "-Wall"
   def filesCmdPart[D <: Design](cd: CommittedDesign[D]): String =
-
-    val filesInCmd = cd.stagedDB.srcFiles.view.collect {
+    // We use `forceWindowsToLinuxPath` fit the verilator needs
+    val designsInCmd = cd.stagedDB.srcFiles.view.collect {
       case SourceFile(
             SourceOrigin.Committed,
             SourceType.Design.Regular | SourceType.Design.BlackBox,
@@ -18,23 +22,33 @@ object Verilator extends Linter:
           ) =>
         path.forceWindowsToLinuxPath
     }.mkString(" ")
-    // We drop the global definition file (it is included)
-    // We translate the windows `\` to unix `/` to fit the verilator needs
+
+    val configsInCmd = cd.stagedDB.srcFiles.view.collect {
+      case SourceFile(SourceOrigin.Committed, VerilatorConfig, path, _) =>
+        path.forceWindowsToLinuxPath
+    }.mkString(" ")
+
     val globalIncludeFolder = cd.stagedDB.srcFiles.collectFirst {
       case SourceFile(SourceOrigin.Committed, SourceType.Design.GlobalDef, path, _) =>
-        java.nio.file.Paths.get(path).getParent.toString.forceWindowsToLinuxPath
+        Paths.get(path).getParent.toString.forceWindowsToLinuxPath
     }.get
 
-    s"-I${globalIncludeFolder} ${filesInCmd}"
+    // config files must be placed before the design sources
+    s"-I$globalIncludeFolder $configsInCmd $designsInCmd"
   end filesCmdPart
-  override def preprocess[D <: Design](cd: CommittedDesign[D]): CommittedDesign[D] = cd
-  def lint[D <: Design](cd: CommittedDesign[D]): CommittedDesign[D] =
+  override protected[dfhdl] def preprocess[D <: Design](cd: CommittedDesign[D])(using
+      CommitOptions
+  ): CommittedDesign[D] =
+    addSourceFiles(cd, List(new VerilatorConfigPrinter(using cd.stagedDB.getSet).getSourceFile))
+  def lint[D <: Design](cd: CommittedDesign[D])(using CommitOptions): CommittedDesign[D] =
     exec(
       cd,
       s"$binExec --lint-only $commonFlags ${filesCmdPart(cd)}"
     )
   end lint
 end Verilator
+
+case object VerilatorConfig extends SourceType.ToolConfig
 
 class VerilatorConfigPrinter(using getSet: MemberGetSet):
   val designDB: DB = getSet.designDB
@@ -43,7 +57,25 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
     s"""`verilator_config
        |$commands
        |""".stripMargin
-  def commands: String = ???
+  def commands: String = lintOffBlackBoxes
   def lintOffCommand(rule: String = "", file: String = "", lines: String = ""): String =
-    s"lint_off${rule.emptyOr(" -rule " + _)}${file.emptyOr(" -file " + _)}${lines.emptyOr(" -lines " + _)}"
-  def lintOffBlackBoxes: String = ???
+    s"lint_off${rule.emptyOr(" -rule " + _)}${file.emptyOr(f => s""" -file "*/$f"""")}${lines.emptyOr(" -lines " + _)}"
+  def lintOffBlackBoxes: String =
+    designDB.srcFiles.flatMap {
+      case SourceFile(SourceOrigin.Committed, SourceType.Design.BlackBox, path, _) =>
+        val fileNameStr = Paths.get(path).getFileName.toString
+        List(
+          lintOffCommand(rule = "UNUSEDSIGNAL", file = fileNameStr),
+          lintOffCommand(rule = "UNDRIVEN", file = fileNameStr)
+        )
+      case SourceFile(SourceOrigin.Committed, SourceType.Design.Regular, path, _) =>
+        val fileNameStr = Paths.get(path).getFileName.toString
+        List(
+          lintOffCommand(rule = "PINCONNECTEMPTY", file = fileNameStr)
+        )
+      case _ => None
+    }.mkString("\n")
+  def getSourceFile: SourceFile =
+    SourceFile(SourceOrigin.Compiled, VerilatorConfig, configFileName, contents)
+
+end VerilatorConfigPrinter

@@ -12,6 +12,8 @@ object CommittedDesign:
       import CompiledDesign.staged as cds
       cd.cds
     def stagedDB: ir.DB = staged.stagedDB
+    def newStage(stagedDB: ir.DB): CompiledDesign[D] =
+      CompiledDesign(cd.staged.newStage(stagedDB))
     private def compiled: CompiledDesign[D] = cd
     def printGenFiles(using PrinterOptions): CommittedDesign[D] =
       import CompiledDesign.printGenFiles as pgf

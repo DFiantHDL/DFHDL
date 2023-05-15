@@ -1,6 +1,8 @@
 package dfhdl.options
 
 import dfhdl.options.CommitOptions.*
+import dfhdl.compiler.ir
+import java.io.File.separatorChar
 
 final case class CommitOptions(
     commitFolder: CommitFolder,
@@ -15,6 +17,11 @@ object CommitOptions:
       commitFolder = commitFolder,
       newFolderForTop = newFolderForTop
     )
+
+  extension (co: CommitOptions)
+    def commitPath(stagedDB: ir.DB): String =
+      if (co.newFolderForTop) s"${co.commitFolder}$separatorChar${stagedDB.top.dclName}"
+      else co.commitFolder
 
   opaque type CommitFolder <: String = String
   given Conversion[String, CommitFolder] = x => x

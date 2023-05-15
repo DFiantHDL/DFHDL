@@ -207,7 +207,7 @@ object Printer:
         println("")
       case _ =>
     }
-  def toFolder(db: DB, folderPathStr: String): DB =
+  def commit(db: DB, folderPathStr: String): DB =
     val folderPath = Paths.get(folderPathStr)
     if (!Files.exists(folderPath))
       Files.createDirectories(folderPath)
@@ -223,7 +223,7 @@ object Printer:
       case other => other
     }
     db.copy(srcFiles = updatedSrcFiles)
-  end toFolder
+  end commit
 end Printer
 
 class DFPrinter(using val getSet: MemberGetSet)
