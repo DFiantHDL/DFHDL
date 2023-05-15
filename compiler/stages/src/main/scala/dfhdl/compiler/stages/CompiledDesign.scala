@@ -21,3 +21,6 @@ object CompiledDesign:
     def printGenFiles(using PrinterOptions): CompiledDesign[D] =
       Printer.printGenFiles(staged.stagedDB)
       cd
+    def addFiles(files: (Iterable[String] | String)*): CompiledDesign[D] =
+      staged.addFiles(files*)
+end CompiledDesign

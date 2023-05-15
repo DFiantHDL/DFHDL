@@ -14,5 +14,7 @@ object CommittedDesign:
     def printGenFiles(using PrinterOptions): CommittedDesign[D] =
       import CompiledDesign.printGenFiles as pgf
       compiled.pgf
+    def addFiles(files: (Iterable[String] | String)*): CommittedDesign[D] =
+      compiled.addFiles(files*)
   end extension
 end CommittedDesign

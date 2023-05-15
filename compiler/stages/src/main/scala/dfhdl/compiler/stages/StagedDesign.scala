@@ -8,3 +8,4 @@ object StagedDesign:
   extension [D <: Design](sd: StagedDesign[D])
     def compile(using bc: BackendCompiler): CompiledDesign[D] = bc.compile(sd)
     def newStage(stagedDB: ir.DB): StagedDesign[D] = new StagedDesign[D](sd.design, stagedDB)
+    def addFiles(files: (Iterable[String] | String)*): StagedDesign[D] = ???
