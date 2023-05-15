@@ -9,18 +9,25 @@ object Verilator extends Linter:
   def commonFlags: String = "-Wall"
   def filesCmdPart[D <: Design](cd: CommittedDesign[D]): String =
 
-    val filePaths = cd.staged.stagedDB.srcFiles.collect {
-      case SourceFile(SourceType.Committed, path, _) =>
-        path
-    }
+    val filesInCmd = cd.stagedDB.srcFiles.view.collect {
+      case SourceFile(
+            SourceOrigin.Committed,
+            SourceType.Design.Regular | SourceType.Design.BlackBox,
+            path,
+            _
+          ) =>
+        path.forceWindowsToLinuxPath
+    }.mkString(" ")
     // We drop the global definition file (it is included)
     // We translate the windows `\` to unix `/` to fit the verilator needs
-    val filesInCmd = filePaths.drop(1).mkString(" ").replaceAll("""\\""", "/")
-    // Global include:
-    val globalInclude =
-      java.nio.file.Paths.get(filePaths.head).getParent.toString.replaceAll("""\\""", "/")
-    s"-I${globalInclude} ${filesInCmd}"
-  override def preprocess[D <: Design](cd: CommittedDesign[D]): CommittedDesign[D] = ???
+    val globalIncludeFolder = cd.stagedDB.srcFiles.collectFirst {
+      case SourceFile(SourceOrigin.Committed, SourceType.Design.GlobalDef, path, _) =>
+        java.nio.file.Paths.get(path).getParent.toString.forceWindowsToLinuxPath
+    }.get
+
+    s"-I${globalIncludeFolder} ${filesInCmd}"
+  end filesCmdPart
+  override def preprocess[D <: Design](cd: CommittedDesign[D]): CommittedDesign[D] = cd
   def lint[D <: Design](cd: CommittedDesign[D]): CommittedDesign[D] =
     exec(
       cd,

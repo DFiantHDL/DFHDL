@@ -150,20 +150,29 @@ trait Printer
     val designDB = getSet.designDB
     val uniqueDesigns = mutable.Set.empty[String]
     val globalSourceFile =
-      SourceFile(SourceType.Compiled, globalFileName, formatCode(csGlobalFileContent))
+      SourceFile(
+        SourceOrigin.Compiled,
+        SourceType.Design.GlobalDef,
+        globalFileName,
+        formatCode(csGlobalFileContent)
+      )
     val compiledFiles = globalSourceFile :: designDB.designMemberList.collect {
       case (block: DFDesignBlock, _) if !uniqueDesigns.contains(block.dclName) =>
         uniqueDesigns += block.dclName
+        val sourceType = block.instMode match
+          case _: DFDesignBlock.InstMode.BlackBox => SourceType.Design.BlackBox
+          case _                                  => SourceType.Design.Regular
         SourceFile(
-          SourceType.Compiled,
+          SourceOrigin.Compiled,
+          sourceType,
           designFileName(block.dclName),
           formatCode(csFile(block))
         )
     }
     // removing existing compiled/committed files and adding the newly compiled files
     val srcFiles = designDB.srcFiles.filter {
-      case SourceFile(SourceType.Compiled | SourceType.Committed, _, _) => false
-      case _                                                            => true
+      case SourceFile(SourceOrigin.Compiled | SourceOrigin.Committed, _, _, _) => false
+      case _                                                                   => true
     } ++ compiledFiles
     designDB.copy(srcFiles = srcFiles)
   end printedDB
@@ -184,9 +193,14 @@ end Printer
 object Printer:
   def printGenFiles(db: DB): Unit =
     db.srcFiles.foreach {
-      case srcFile @ SourceFile(SourceType.Compiled | SourceType.Committed, path, contents) =>
+      case srcFile @ SourceFile(
+            SourceOrigin.Compiled | SourceOrigin.Committed,
+            _,
+            path,
+            contents
+          ) =>
         println("==========================================================")
-        println(srcFile.sourceType)
+        println(srcFile.sourceOrigin)
         println(path)
         println("==========================================================")
         println(contents)
@@ -198,14 +212,14 @@ object Printer:
     if (!Files.exists(folderPath))
       Files.createDirectories(folderPath)
     val updatedSrcFiles = db.srcFiles.map {
-      case srcFile @ SourceFile(SourceType.Compiled, filePathStr, contents) =>
+      case srcFile @ SourceFile(SourceOrigin.Compiled, _, filePathStr, contents) =>
         val finalPathStr =
           if (Paths.get(filePathStr).isAbsolute) filePathStr
           else folderPath.resolve(filePathStr).toAbsolutePath.normalize().toString
         val pw = new FileWriter(finalPathStr)
         pw.write(contents.decolor)
         pw.close()
-        srcFile.copy(sourceType = SourceType.Committed, path = finalPathStr)
+        srcFile.copy(sourceOrigin = SourceOrigin.Committed, path = finalPathStr)
       case other => other
     }
     db.copy(srcFiles = updatedSrcFiles)

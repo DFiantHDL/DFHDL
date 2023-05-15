@@ -257,6 +257,8 @@ extension [T](iter: Iterable[T])
 extension (str: String)
   def emptyOr(f: String => String): String =
     if (str.isEmpty) str else f(str)
+  // We translate the windows `\` to unix `/`
+  def forceWindowsToLinuxPath: String = str.replaceAll("""\\""", "/")
 
 extension [T](seq: Iterable[T])
   def groupByOrdered[P](f: T => P): Seq[(P, Iterable[T])] =
