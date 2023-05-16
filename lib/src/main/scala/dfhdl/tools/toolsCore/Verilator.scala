@@ -10,7 +10,10 @@ import java.nio.file.Paths
 import java.io.FileWriter
 
 object Verilator extends Linter:
-  def binExec: String = "verilator_bin"
+  def binExec: String =
+    val osName: String = sys.props("os.name").toLowerCase
+    if (osName.contains("windows")) "verilator_bin" else "verilator"
+
   def commonFlags: String = "-Wall"
   def filesCmdPart[D <: Design](cd: CommittedDesign[D]): String =
     // We use `forceWindowsToLinuxPath` fit the verilator needs
