@@ -100,23 +100,25 @@ object DFMember:
     def getRefs: List[DFRefAny] = Nil
 
   sealed trait Named extends DFMember:
-    final val name: String = meta.name
+    final def getName(using MemberGetSet): String = this match
+      case o: DFDesignBlock if o.isTop => o.dclName
+      case _                           => meta.name
     final val isAnonymous: Boolean = meta.isAnonymous
     final def getFullName(using MemberGetSet): String = this match
-      case o: DFDesignBlock if o.isTop => o.dclName
-      case _                           => s"${getOwnerNamed.getFullName}.${name}"
+      case o: DFDesignBlock if o.isTop => getName
+      case _                           => s"${getOwnerNamed.getFullName}.${getName}"
     final def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
       val namedOwner = callOwner.getThisOrOwnerNamed
-      if (this isMemberOf namedOwner) name
-      else if (getOwnerNamed isOneLevelBelow namedOwner) s"${getOwnerNamed.name}.$name"
-      else if (callOwner isInsideOwner this.getOwnerNamed) name
+      if (this isMemberOf namedOwner) getName
+      else if (getOwnerNamed isOneLevelBelow namedOwner) s"${getOwnerNamed.getName}.$getName"
+      else if (callOwner isInsideOwner this.getOwnerNamed) getName
       else
         // more complex referencing just summons the two owner chains and compares them.
         // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
         val memberChain = this.getOwnerChain.collect { case o: DFOwnerNamed => o }
         val ctxChain = namedOwner.getOwnerChain.collect { case o: DFOwnerNamed => o }
         val samePath = memberChain.lazyZip(ctxChain).count(_ == _)
-        s"${memberChain.drop(samePath).map(_.name).mkString(".")}.$name"
+        s"${memberChain.drop(samePath).map(_.getName).mkString(".")}.$getName"
     end getRelativeName
   end Named
 end DFMember

@@ -40,7 +40,7 @@ case object ViaConnection extends Stage:
         // Meta design to construct the variables to be connected to the ports
         val addVarsDsn = new MetaDesign():
           val portsToVars: List[(DFVal, DFVal)] = ports.map { p =>
-            p -> p.asValAny.genNewVar(using dfc.setName(s"${ib.name}_${p.name}")).asIR
+            p -> p.asValAny.genNewVar(using dfc.setName(s"${ib.getName}_${p.getName}")).asIR
           }
         // Meta design for connections between ports and the added variables
         val connectDsn = new MetaDesign():

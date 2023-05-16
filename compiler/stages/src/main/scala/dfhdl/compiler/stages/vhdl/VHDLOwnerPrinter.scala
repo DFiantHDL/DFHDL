@@ -72,7 +72,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
        |""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
-    val inst = s"${design.name} : entity work.${entityName(design)}(${archName(design)})"
+    val inst = s"${design.getName} : entity work.${entityName(design)}(${archName(design)})"
     if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.hindent}\n);"
   def csBlockBegin: String = "begin"
   def csBlockEnd: String = "end"

@@ -56,7 +56,7 @@ case object ExplicitNamedVars extends Stage:
               case ih: DFConditional.DFIfHeader    => ih.copy(dfType = NoType).anonymize
             // this variable will replace the header as a value
             val dsn = new MetaDesign():
-              final val plantedNewVar = ch.asValAny.genNewVar(using dfc.setName(ch.name))
+              final val plantedNewVar = ch.asValAny.genNewVar(using dfc.setName(ch.getName))
               val newVarIR = plantedNewVar.asIR
               plantMember(updatedCH)
             val chPatchList = List(
@@ -78,7 +78,7 @@ case object ExplicitNamedVars extends Stage:
             val anonIR = named.anonymize
             val dsn = new MetaDesign():
               final val plantedNewVar = named.asValAny.genNewVar(using
-                dfc.setName(named.name).setAnnotations(named.meta.annotations)
+                dfc.setName(named.getName).setAnnotations(named.meta.annotations)
               )
               plantedNewVar := plantMember(anonIR).asValAny
             List(named -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst()))

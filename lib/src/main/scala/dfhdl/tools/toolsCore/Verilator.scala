@@ -89,7 +89,7 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
       lintOffCommand(
         rule = "PINCONNECTEMPTY",
         file = s"${dfVal.getOwnerDesign.getOwnerDesign.dclName}.sv",
-        matchWild = s"*: '${dfVal.name}'*"
+        matchWild = s"*: '${dfVal.getName}'*"
       )
     .mkString("\n")
   def lintOffUnused: String =
@@ -99,7 +99,7 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
         file = s"${dfVal.getOwnerDesign.dclName}.sv",
-        matchWild = s"*: '${dfVal.name}'*"
+        matchWild = s"*: '${dfVal.getName}'*"
       )
     .mkString("\n")
   def getSourceFile: SourceFile =

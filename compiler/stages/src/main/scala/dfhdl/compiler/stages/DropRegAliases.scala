@@ -54,10 +54,10 @@ case object DropRegAliases extends Stage:
     private def getTotalSteps: Int = regAlias.getTotalSteps(0)
     private def getNameGroup: NameGroup =
       regAlias.getNonRegAliasRelVal match
-        case dcl: DFVal.Dcl if dcl.getAssignmentsTo.size > 1 => NameGroup(s"${dcl.name}_ver", true)
+        case dcl: DFVal.Dcl if dcl.getAssignmentsTo.size > 1 => NameGroup(s"${dcl.getName}_ver", true)
         case dfVal: DFVal if dfVal.isAnonymous =>
-          dfVal.suggestName.map(NameGroup(_, true)).getOrElse(NameGroup(dfVal.name, false))
-        case dfVal: DFVal => NameGroup(dfVal.name, false)
+          dfVal.suggestName.map(NameGroup(_, true)).getOrElse(NameGroup(dfVal.getName, false))
+        case dfVal: DFVal => NameGroup(dfVal.getName, false)
   end extension
 
   def transform(designDB: DB)(using MemberGetSet): DB =
@@ -92,7 +92,7 @@ case object DropRegAliases extends Stage:
                 if (maxRegs == 1) "_reg"
                 else s"_reg${i.toPaddedString(maxRegs)}"
               val regName =
-                if (i == maxRegs && !alias.isAnonymous) alias.name
+                if (i == maxRegs && !alias.isAnonymous) alias.getName
                 else namePrefix + nameSuffix
               import dfhdl.core.{DFTypeAny, asFE, asTokenOf}
               val DFVal.Alias.History.Op.Reg(cfg) = alias.op: @unchecked

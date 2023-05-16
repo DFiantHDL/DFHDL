@@ -63,7 +63,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
         },
         reservedNamesLC
       )(
-        _.name,
+        _.getName,
         (m, n) => m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
       )
       (patchList, localTagList)

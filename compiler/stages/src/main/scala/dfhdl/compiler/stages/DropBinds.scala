@@ -62,7 +62,7 @@ case object DropBinds extends Stage:
             case _ => None
         )
         // group similar binds together
-        val bindGroups = bindCaseMap.keys.groupByCompare((l, r) => l =~ r, _.name.hashCode())
+        val bindGroups = bindCaseMap.keys.groupByCompare((l, r) => l =~ r, _.getName.hashCode())
         // will memoize the stalled bind variables required to be added in cases where those binds
         // are not used
         val stalled = mutable.Map(cases.map(c => c -> List.empty[DFVal])*)
@@ -81,7 +81,7 @@ case object DropBinds extends Stage:
             if (hasPrevAlias)
               val relValIR = headBind.relValRef.get
               val dsn = new MetaDesign():
-                val bindVar = headBind.asValAny.genNewVar(using dfc.setName(headBind.name))
+                val bindVar = headBind.asValAny.genNewVar(using dfc.setName(headBind.getName))
                 val bindVarIR = bindVar.asIR
                 bindVar := relValIR.asValAny
               val bindVarIR = dsn.bindVarIR

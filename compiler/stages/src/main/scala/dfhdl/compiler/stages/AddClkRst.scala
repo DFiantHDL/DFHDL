@@ -43,7 +43,7 @@ case object AddClkRst extends Stage:
                 val requiresRst = rstCfg != None
                 // collect existing clk and rst dataflow value members
                 val existingClk = members.collectFirst {
-                  case clk: DFVal.Dcl if clk.name == "clk" =>
+                  case clk: DFVal.Dcl if clk.getName == "clk" =>
                     // if clk is an output then this is an output domain.
                     // if the design is not a top-level, then the design owner is the receiver of this domain.
                     if (clk.modifier == DFVal.Modifier.OUT && !design.isTop)
@@ -51,7 +51,7 @@ case object AddClkRst extends Stage:
                     clk
                 }
                 val existingRst = members.collectFirst {
-                  case rst: DFVal.Dcl if rst.name == "rst" => rst
+                  case rst: DFVal.Dcl if rst.getName == "rst" => rst
                 }
                 // need to add clk and rst flags
                 val addClk = requiresClk && existingClk.isEmpty

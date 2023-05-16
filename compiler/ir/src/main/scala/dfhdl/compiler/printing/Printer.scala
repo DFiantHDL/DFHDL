@@ -59,7 +59,7 @@ trait Printer
     owner
       .members(MemberView.Folded).view.collect {
         case p @ DclOut() if p.tags.hasTagOf[OpenConnectTag] =>
-          csViaConnection(p.name, csOpenKeyWord, "-->")
+          csViaConnection(p.getName, csOpenKeyWord, "-->")
       }.toList
   def csTimeUnit(time: Time): String = s"${time.usec}.us"
   def csFreqUnit(freq: Freq): String = s"${freq.hertz}.Hz"
@@ -276,7 +276,7 @@ class DFPrinter(using val getSet: MemberGetSet)
           case r: Ratio => csRatioUnit(r)
           case t: Time  => csTimeUnit(t)
         s"${f.sourceRef.refCodeString} ${f.op} $argStr"
-    if (timer.isAnonymous) timerBody else s"val ${timer.name} = $timerBody"
+    if (timer.isAnonymous) timerBody else s"val ${timer.getName} = $timerBody"
   end csTimer
   def globalFileName: String = s"${getSet.designDB.top.dclName}_globals.scala"
   def designFileName(designName: String): String = s"$designName.scala"

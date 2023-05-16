@@ -38,10 +38,10 @@ case object ConnectClkRst extends Stage:
             val requiresClk = !(clkCfg equals None)
             val requiresRst = !(rstCfg equals None)
             val existingClk = members.collectFirst {
-              case clk: DFVal.Dcl if clk.name == "clk" => clk
+              case clk: DFVal.Dcl if clk.getName == "clk" => clk
             }
             val existingRst = members.collectFirst {
-              case clk: DFVal.Dcl if clk.name == "clk" => clk
+              case clk: DFVal.Dcl if clk.getName == "clk" => clk
             }
             val addClk = requiresClk && existingClk.isEmpty
             val addRst = requiresRst && existingRst.isEmpty

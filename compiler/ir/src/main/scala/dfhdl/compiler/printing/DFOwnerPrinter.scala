@@ -140,7 +140,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
-    val inst = s"val ${design.name} = new ${design.dclName}"
+    val inst = s"val ${design.getName} = new ${design.dclName}"
     if (body.isEmpty) inst else s"$inst:\n${body.hindent}"
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
@@ -158,11 +158,11 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val bindStr = pattern.pattern match
       case Pattern.CatchAll => ""
       case _                => s" @ ${csDFCasePattern(pattern.pattern)}"
-    s"${pattern.ref.get.name}$bindStr"
+    s"${pattern.ref.get.getName}$bindStr"
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String =
     val csBinds = pattern.refs.view
       .map { r => r.get }
-      .map(bindVal => s"$${${bindVal.name}: B[${bindVal.dfType.width}]}")
+      .map(bindVal => s"$${${bindVal.getName}: B[${bindVal.dfType.width}]}")
     val fullTerm = pattern.parts.coalesce(csBinds).mkString
     s"""${pattern.op}"$fullTerm""""
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String =

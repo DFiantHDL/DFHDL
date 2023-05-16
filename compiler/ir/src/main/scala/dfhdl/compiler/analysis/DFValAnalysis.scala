@@ -111,7 +111,7 @@ extension (dfVal: DFVal)
     }
   end getReadDeps
 
-  private def partName(member: DFVal) = s"${member.name}_part"
+  private def partName(member: DFVal)(using MemberGetSet) = s"${member.getName}_part"
   @tailrec private def suggestName(
       member: DFVal,
       prevMember: Option[DFVal] = None

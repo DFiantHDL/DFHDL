@@ -51,16 +51,16 @@ case object SanityCheck extends Stage:
           case _: DFVal.Const => false
           case _              => !members.contains(fromMember)
         if (toValMissing)
-          println(s"Foreign value ${toMember.name} at net ${n.codeString}")
+          println(s"Foreign value ${toMember.getName} at net ${n.codeString}")
           members.collectFirst {
-            case m: DFMember.Named if m.name == toMember.name => m
+            case m: DFMember.Named if m.getName == toMember.getName => m
           } match
             case Some(value) => println(s"Found:\n$value\nInstead of:\n$toMember")
             case None        =>
         if (fromValMissing)
-          println(s"Foreign value ${fromMember.name} at net ${n.codeString}")
+          println(s"Foreign value ${fromMember.getName} at net ${n.codeString}")
           members.collectFirst {
-            case m: DFMember.Named if m.name == fromMember.name => m
+            case m: DFMember.Named if m.getName == fromMember.getName => m
           } match
             case Some(value) => println(s"Found:\n$value\nInstead of:\n$fromMember")
             case None        =>

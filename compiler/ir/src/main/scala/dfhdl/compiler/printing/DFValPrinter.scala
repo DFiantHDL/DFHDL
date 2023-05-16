@@ -29,7 +29,7 @@ trait AbstractValPrinter extends AbstractPrinter:
             case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
             case _                                          => cs
         case named: DFMember.Named =>
-          named.name
+          named.getName
         case _ =>
           throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
     catch case _: Throwable => "<BAD_REF>"
@@ -224,7 +224,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case dv: DFConditional.Header if dv.dfType != NoType =>
         s": ${printer.csDFType(dfVal.dfType, typeCS = true)} <> VAL"
       case _ => ""
-    def valDef = s"val ${dfVal.name}$typeAnnot ="
+    def valDef = s"val ${dfVal.getName}$typeAnnot ="
     val rhs = dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
       case c: DFVal.Const        => csDFValConstDcl(c)

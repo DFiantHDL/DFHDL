@@ -102,16 +102,16 @@ case object DropRegsWires extends Stage:
               lazy val clk = clkRstOpt.clkOpt.get.asValOf[Bit]
               lazy val rst = clkRstOpt.rstOpt.get.asValOf[Bit]
               val regs_dinVars = regs.map { r =>
-                r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din")).asIR
+                r.asValAny.genNewVar(using dfc.setName(s"${r.getName}_din")).asIR
               }
 
               process(all) {
                 localsPatch = dclVars.flatMap {
                   case (v, VarKind.Local) =>
-                    val rep = v.asValAny.genNewVar(using dfc.setName(v.name)).asIR
+                    val rep = v.asValAny.genNewVar(using dfc.setName(v.getName)).asIR
                     Some(v -> Patch.Replace(rep, Patch.Replace.Config.ChangeRefAndRemove))
                   case (v, VarKind.GlobalWithLocal) =>
-                    val rep = v.asValAny.genNewVar(using dfc.setName(s"${v.name}_v")).asIR
+                    val rep = v.asValAny.genNewVar(using dfc.setName(s"${v.getName}_v")).asIR
                     localWithGlobals += rep
                     Some(v -> Patch.Replace(rep, Patch.Replace.Config.ChangeRefOnly, WhenLocalRefs))
                   case _ => None
@@ -122,7 +122,7 @@ case object DropRegsWires extends Stage:
                   .view
                   .filter((_, reg_dins) => reg_dins.exists { rdi => rdi.getReadDeps.nonEmpty })
                   .map((r, _) =>
-                    (r, r.asValAny.genNewVar(using dfc.setName(s"${r.name}_din_v")).asIR)
+                    (r, r.asValAny.genNewVar(using dfc.setName(s"${r.getName}_din_v")).asIR)
                   )
                   .toMap
                 regs_dinPatch = regs.lazyZip(regs_dinVars).flatMap { (r, r_din_global) =>

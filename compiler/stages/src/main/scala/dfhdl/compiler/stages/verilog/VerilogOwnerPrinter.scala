@@ -56,7 +56,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
        |""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
-    val inst = s"${moduleName(design)} ${design.name}"
+    val inst = s"${moduleName(design)} ${design.getName}"
     if (body.isEmpty) s"$inst" else s"$inst(\n${body.hindent}\n);"
   def csBlockBegin: String = "begin"
   def csBlockEnd: String = "end"

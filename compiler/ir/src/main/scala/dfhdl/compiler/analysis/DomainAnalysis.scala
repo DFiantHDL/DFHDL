@@ -49,7 +49,7 @@ final class DomainAnalysis(designDB: DB):
                 if collectedDesignDomains.isNotComplete((design, cfg)) =>
               // collect existing clk and rst dataflow value members
               members.collectFirst {
-                case clk: DFVal.Dcl if clk.name == "clk" =>
+                case clk: DFVal.Dcl if clk.getName == "clk" =>
                   // if clk is an output then this is an output domain.
                   // if the design is not a top-level, then the design owner is the receiver of this domain.
                   if (clk.modifier == DFVal.Modifier.OUT && !design.isTop)
@@ -57,7 +57,7 @@ final class DomainAnalysis(designDB: DB):
                   collectedDesignDomains.addClk((design, cfg), clk)
               }
               members.collectFirst {
-                case rst: DFVal.Dcl if rst.name == "rst" =>
+                case rst: DFVal.Dcl if rst.getName == "rst" =>
                   // if rst is an output then this is an output domain.
                   // if the design is not a top-level, then the design owner is the receiver of this domain.
                   if (rst.modifier == DFVal.Modifier.OUT && !design.isTop)
