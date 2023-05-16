@@ -91,17 +91,15 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
         file = s"${dfVal.getOwnerDesign.getOwnerDesign.dclName}.sv",
         matchWild = s"*: '${dfVal.getName}'*"
       )
-    .mkString("\n")
+    .distinct.mkString("\n")
   def lintOffUnused: String =
     designDB.getUnusedTaggedValues.map: dfVal =>
-      // TODO: find out if we can filter according to instance name
-      val instanceName = dfVal.getOwnerDesign.getFullName
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
         file = s"${dfVal.getOwnerDesign.dclName}.sv",
         matchWild = s"*: '${dfVal.getName}'*"
       )
-    .mkString("\n")
+    .distinct.mkString("\n")
   def getSourceFile: SourceFile =
     SourceFile(SourceOrigin.Compiled, VerilatorConfig, configFileName, contents)
 
