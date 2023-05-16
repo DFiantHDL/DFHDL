@@ -58,8 +58,17 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
        |$commands
        |""".stripMargin
   def commands: String = lintOffBlackBoxes
-  def lintOffCommand(rule: String = "", file: String = "", lines: String = ""): String =
-    s"lint_off${rule.emptyOr(" -rule " + _)}${file.emptyOr(f => s""" -file "*/$f"""")}${lines.emptyOr(" -lines " + _)}"
+  def lintOffCommand(
+      rule: String = "",
+      file: String = "",
+      lines: String = "",
+      matchWild: String = ""
+  ): String =
+    val ruleArg = rule.emptyOr(" -rule " + _)
+    val fileArg = file.emptyOr(f => s""" -file "*/$f"""")
+    val lineArg = lines.emptyOr(" -lines " + _)
+    val matchWildArg = matchWild.emptyOr(m => s""" -match "$m"""")
+    s"lint_off$ruleArg$fileArg$lineArg$matchWildArg"
   def lintOffBlackBoxes: String =
     designDB.srcFiles.flatMap {
       case SourceFile(SourceOrigin.Committed, SourceType.Design.BlackBox, path, _) =>
@@ -71,7 +80,12 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
       case SourceFile(SourceOrigin.Committed, SourceType.Design.Regular, path, _) =>
         val fileNameStr = Paths.get(path).getFileName.toString
         List(
-          lintOffCommand(rule = "PINCONNECTEMPTY", file = fileNameStr)
+          lintOffCommand(rule = "PINCONNECTEMPTY", file = fileNameStr),
+          lintOffCommand(
+            rule = "UNUSEDSIGNAL",
+            file = fileNameStr,
+            matchWild = "*Bits of signal are not used*_part*"
+          )
         )
       case _ => None
     }.mkString("\n")
