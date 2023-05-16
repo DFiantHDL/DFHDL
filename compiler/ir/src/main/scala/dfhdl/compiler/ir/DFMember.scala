@@ -103,8 +103,8 @@ object DFMember:
     final val name: String = meta.name
     final val isAnonymous: Boolean = meta.isAnonymous
     final def getFullName(using MemberGetSet): String = this match
-      case o: DFOwner if o.isTop => o.name
-      case _                     => s"${getOwnerNamed.getFullName}.${name}"
+      case o: DFDesignBlock if o.isTop => o.dclName
+      case _                           => s"${getOwnerNamed.getFullName}.${name}"
     final def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
       val namedOwner = callOwner.getThisOrOwnerNamed
       if (this isMemberOf namedOwner) name

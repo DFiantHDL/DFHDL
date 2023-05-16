@@ -5,6 +5,7 @@ import dfhdl.compiler.ir.*
 import dfhdl.internals.*
 import dfhdl.options.{PrinterOptions, CommitOptions}
 import dfhdl.compiler.printing.Printer
+import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
 
@@ -57,7 +58,10 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
     s"""`verilator_config
        |$commands
        |""".stripMargin
-  def commands: String = lintOffBlackBoxes
+  def commands: String =
+    lintOffBlackBoxes.emptyOr(_ + "\n") +
+      lintOffOpenOutPorts.emptyOr(_ + "\n") +
+      lintOffUnused.emptyOr(_ + "\n")
   def lintOffCommand(
       rule: String = "",
       file: String = "",
@@ -77,18 +81,27 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
           lintOffCommand(rule = "UNUSEDSIGNAL", file = fileNameStr),
           lintOffCommand(rule = "UNDRIVEN", file = fileNameStr)
         )
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.Regular, path, _) =>
-        val fileNameStr = Paths.get(path).getFileName.toString
-        List(
-          lintOffCommand(rule = "PINCONNECTEMPTY", file = fileNameStr),
-          lintOffCommand(
-            rule = "UNUSEDSIGNAL",
-            file = fileNameStr,
-            matchWild = "*Bits of signal are not used*_part*"
-          )
-        )
       case _ => None
     }.mkString("\n")
+  end lintOffBlackBoxes
+  def lintOffOpenOutPorts: String =
+    designDB.getOpenOutPorts.map: dfVal =>
+      lintOffCommand(
+        rule = "PINCONNECTEMPTY",
+        file = s"${dfVal.getOwnerDesign.getOwnerDesign.dclName}.sv",
+        matchWild = s"*: '${dfVal.name}'*"
+      )
+    .mkString("\n")
+  def lintOffUnused: String =
+    designDB.getUnusedTaggedValues.map: dfVal =>
+      // TODO: find out if we can filter according to instance name
+      val instanceName = dfVal.getOwnerDesign.getFullName
+      lintOffCommand(
+        rule = "UNUSEDSIGNAL",
+        file = s"${dfVal.getOwnerDesign.dclName}.sv",
+        matchWild = s"*: '${dfVal.name}'*"
+      )
+    .mkString("\n")
   def getSourceFile: SourceFile =
     SourceFile(SourceOrigin.Compiled, VerilatorConfig, configFileName, contents)
 

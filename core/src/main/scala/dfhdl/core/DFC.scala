@@ -8,7 +8,7 @@ import scala.annotation.Annotation
 
 extension (annotList: List[Annotation])
   def getActiveHWAnnotations: List[HWAnnotation] = annotList.collect {
-    case annot: HWAnnotation if annot.getWhen => annot
+    case annot: HWAnnotation if annot.isActive => annot
   }
 
 final case class DFC(
@@ -43,6 +43,8 @@ final case class DFC(
     mutableDB.OwnershipContext.ownerOption.map(_.asFE)
   def setName(name: String): this.type =
     copy(nameOpt = Some(name)).asInstanceOf[this.type]
+  def setAnnotations(annotations: List[HWAnnotation]): this.type =
+    copy(annotations = annotations).asInstanceOf[this.type]
   def anonymize: this.type = copy(nameOpt = None).asInstanceOf[this.type]
   def <>(that: Int): this.type = copy(defaultDir = that).asInstanceOf[this.type]
   def logError(err: DFError): Unit = mutableDB.logger.logError(err)

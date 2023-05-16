@@ -77,7 +77,9 @@ case object ExplicitNamedVars extends Stage:
           case named =>
             val anonIR = named.anonymize
             val dsn = new MetaDesign():
-              final val plantedNewVar = named.asValAny.genNewVar(using dfc.setName(named.name))
+              final val plantedNewVar = named.asValAny.genNewVar(using
+                dfc.setName(named.name).setAnnotations(named.meta.annotations)
+              )
               plantedNewVar := plantMember(anonIR).asValAny
             List(named -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst()))
         }

@@ -6,7 +6,8 @@ import dfhdl.compiler.patching.*
 
 // Names an anonymous relative value which is aliased.
 // The aliasing is limited according to the criteria provided
-private abstract class NamedAliases(criteria: NamedAliases.Criteria) extends Stage:
+private abstract class NamedAliases(criteria: NamedAliases.Criteria, setUnusedAnnot: Boolean)
+    extends Stage:
   override def dependencies: List[Stage] = Nil
   override def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
 
@@ -24,8 +25,13 @@ private abstract class NamedAliases(criteria: NamedAliases.Criteria) extends Sta
     }
     // we force set the underlying original name before it was anonymized
     val patchList = membersToName.map(m =>
+      val namedMember = m.setName(m.suggestName.getOrElse("anon"))
+      val annotMember =
+        if (setUnusedAnnot)
+          namedMember.setMeta(_.addAnnotation(new dfhdl.core.hw.unused()))
+        else namedMember
       m -> (Patch.Replace(
-        m.setName(m.suggestName.getOrElse("anon")),
+        annotMember,
         Patch.Replace.Config.FullReplacement
       ))
     )
@@ -57,10 +63,11 @@ end NamedAliases
 // For verilog simulation in verilator (and possibly other tools), bit selection from unnamed values is limited.
 // This compilation stage names the intermediate values. A future stage (UniqueNames) is responsible for
 // making sure the names will be unique.
-case object NamedSelection extends NamedAliases(NamedAliases.Criteria.NamedSelection)
+case object NamedSelection
+    extends NamedAliases(NamedAliases.Criteria.NamedSelection, setUnusedAnnot = true)
 extension [T: HasDB](t: T) def namedSelection: DB = StageRunner.run(NamedSelection)(t.db)
 
 // Creating a previous values of a value requires that value to be names to avoid random anonymous names in the
 // the backend
-case object NamedPrev extends NamedAliases(NamedAliases.Criteria.NamedPrev)
+case object NamedPrev extends NamedAliases(NamedAliases.Criteria.NamedPrev, setUnusedAnnot = false)
 extension [T: HasDB](t: T) def namedPrev: DB = StageRunner.run(NamedPrev)(t.db)

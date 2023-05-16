@@ -7,5 +7,5 @@ import dfhdl.compiler.printing.Printer
   */
 object hw:
 
-  class unused(when: => Boolean) extends HWAnnotation(when):
+  class unused(when: Boolean) extends HWAnnotation(when):
     def this() = this(true)
