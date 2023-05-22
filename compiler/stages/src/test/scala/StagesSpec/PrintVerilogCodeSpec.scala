@@ -48,7 +48,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "ID_defs.sv"
          |
          |module ID(
-         |  input  logic signed [15:0] x,
+         |  input wire logic signed [15:0] x,
          |  output logic signed [15:0] y,
          |  output logic signed [15:0] y2
          |);
@@ -74,7 +74,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.sv"
          |
          |module ID(
-         |  input  logic signed [15:0] x,
+         |  input wire logic signed [15:0] x,
          |  output logic signed [15:0] y,
          |  output logic signed [15:0] y2
          |);
@@ -87,7 +87,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.sv"
          |
          |module IDTop(
-         |  input  logic signed [15:0] x,
+         |  input wire logic signed [15:0] x,
          |  output logic signed [15:0] y
          |);
          |  logic signed [15:0] id1_x;
@@ -149,10 +149,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Top_defs.sv"
          |
          |module Top(
-         |  input  logic        clk,
-         |  input  logic        rst,
-         |  input  logic [15:0] x,
-         |  output logic [15:0] y
+         |  input wire logic        clk,
+         |  input wire logic        rst,
+         |  input wire logic [15:0] x,
+         |  output logic [15:0]     y
          |);
          |  logic [15:0] z;
          |  logic [15:0] my_var;
@@ -256,7 +256,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module HasDocs(
          |  /* My in */
-         |  input  logic x,
+         |  input wire logic x,
          |  /* My Out
          |    */
          |  output logic y
