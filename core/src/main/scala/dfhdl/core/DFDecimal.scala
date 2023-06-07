@@ -893,7 +893,9 @@ object DFXInt:
         def apply(arg: R)(using dfc: DFC): DFValOf[DFXInt[false, W]] =
           import DFBits.Val.Ops.uint
           given DFC = dfc.anonymize
-          arg.uint
+          if (arg.hasTag[DFVal.TruncateTag]) arg.uint.tag(DFVal.TruncateTag)
+          else if (arg.hasTag[DFVal.ExtendTag]) arg.uint.tag(DFVal.ExtendTag)
+          else arg.uint
       given fromDFBoolOrBitVal[R <: DFValOf[DFBoolOrBit]]: Candidate[R] with
         type OutS = false
         type OutW = 1

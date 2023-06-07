@@ -599,7 +599,9 @@ object DFBits:
         type OutW = W
         def apply(value: R)(using DFC): DFBits[W] <> VAL =
           import DFVal.Ops.bits
-          value.bits
+          if (value.hasTag[DFVal.TruncateTag]) value.bits.tag(DFVal.TruncateTag)
+          else if (value.hasTag[DFVal.ExtendTag]) value.bits.tag(DFVal.ExtendTag)
+          else value.bits
       inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
           "Cannot apply an enum entry value to a bits variable."
