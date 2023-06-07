@@ -45,11 +45,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
           case Func.Op.=!= => "!="
-          // if the result width for +/-/* ops is larger than the left argument width
-          // then we have a carry-inclusive operation
-          case Func.Op.+ | Func.Op.- | Func.Op.`*` if dfVal.dfType.width > argL.get.dfType.width =>
-            printer.unsupported
-          case op => op.toString
+          case op          => op.toString
         val rhsStr = dfVal.op match
           case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
           case _                       => argR.refCodeString
