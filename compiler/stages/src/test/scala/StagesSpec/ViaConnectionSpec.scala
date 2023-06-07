@@ -67,6 +67,8 @@ class ViaConnectionSpec extends StageSpec:
       val x  = SInt(16) <> IN
       val y  = SInt(16) <> OUT
       val y2 = SInt(16) <> OUT
+      y2 := x
+      y  := y2
 
     class IDTop extends DFDesign:
       val x  = SInt(16) <> IN
@@ -83,6 +85,8 @@ class ViaConnectionSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val y2 = SInt(16) <> OUT
+         |  y2 := x
+         |  y := y2
          |end IDExtra
          |
          |class IDTop extends DFDesign:
