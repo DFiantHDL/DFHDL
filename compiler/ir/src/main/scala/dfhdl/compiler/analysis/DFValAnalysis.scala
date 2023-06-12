@@ -113,7 +113,35 @@ extension (dfVal: DFVal)
     }
   end getReadDeps
 
-  private def partName(member: DFVal)(using MemberGetSet) = s"${member.getName}_part"
+  @tailrec private def flatName(member: DFVal, suffix: String)(using MemberGetSet): String =
+    member match
+      case named if !named.isAnonymous => s"${member.getName}$suffix"
+      case alias: DFVal.Alias.Partial =>
+        val relVal = alias.relValRef.get
+        val newSuffix = alias match
+          case _: DFVal.Alias.AsIs => suffix
+          case applyIdx: DFVal.Alias.ApplyIdx =>
+            applyIdx match
+              case DFVal.Alias.ApplyIdx.Const(i) =>
+                val maxValue = relVal.dfType match
+                  case vector: DFVector => vector.cellDims.head - 1
+                  case bits: DFBits     => bits.width - 1
+                  case _                => ???
+                s"_${i.toPaddedString(maxValue)}"
+              case _ => "_sel"
+          case applyRange: DFVal.Alias.ApplyRange =>
+            s"_${applyRange.relBitHigh.toPaddedString(applyRange.width - 1)}_${applyRange.relBitLow.toPaddedString(applyRange.width - 1)}"
+          case selectField: DFVal.Alias.SelectField => s"_${selectField.fieldName}"
+          case _: DFVal.Alias.RegDIN                => "_din"
+        flatName(relVal, s"$newSuffix$suffix")
+      case _ => s"${member.getName}$suffix"
+
+  // returns the name if the value is named, or the flat representation using
+  // suffixes to differential between partial field selection or index application
+  def flatName(using MemberGetSet): String = flatName(dfVal, "")
+
+  private def partName(member: DFVal)(using MemberGetSet): String = s"${member.flatName}_part"
+
   @tailrec private def suggestName(
       member: DFVal,
       prevMember: Option[DFVal] = None
