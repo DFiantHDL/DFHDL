@@ -30,6 +30,14 @@ final case class DFC(
     docOpt = docOpt,
     annotations = annotations.getActiveHWAnnotations
   ).asInstanceOf[this.type]
+  def setMeta(
+      meta: ir.Meta
+  ) = copy(
+    nameOpt = meta.nameOpt,
+    position = meta.position,
+    docOpt = meta.docOpt,
+    annotations = meta.annotations
+  ).asInstanceOf[this.type]
   given getSet: ir.MemberGetSet = mutableDB.getSet
   def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations)
   def enterOwner(owner: DFOwnerAny): Unit =

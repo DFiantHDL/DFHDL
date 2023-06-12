@@ -4,25 +4,27 @@ import dfhdl.internals.*
 import ir.*
 import DFConditional.DFCaseBlock.Pattern
 import DFVal.Modifier
-
+import DFVal.Func.Op as FuncOp
 import scala.annotation.tailrec
 import scala.reflect.classTag
 
 object Ident:
-  def unapply(alias: ir.DFVal.Alias.AsIs)(using
-      MemberGetSet
-  ): Option[ir.DFVal] =
+  def unapply(alias: ir.DFVal.Alias.AsIs)(using MemberGetSet): Option[ir.DFVal] =
     if (alias.getTagOf[ir.DFVal.Alias.IdentTag.type].isDefined)
       Some(alias.relValRef.get)
     else None
 
 object Bind:
-  def unapply(alias: ir.DFVal.Alias)(using
-      MemberGetSet
-  ): Option[ir.DFVal] =
+  def unapply(alias: ir.DFVal.Alias)(using MemberGetSet): Option[ir.DFVal] =
     if (alias.getTagOf[Pattern.Bind.Tag.type].isDefined)
       Some(alias.relValRef.get)
     else None
+
+object Edge:
+  def unapply(func: ir.DFVal.Func)(using MemberGetSet): Option[ir.DFVal] =
+    func.op match
+      case FuncOp.rising | FuncOp.falling if func.args.length == 1 => Some(func.args.head.get)
+      case _                                                       => None
 
 object DclVar:
   def unapply(dcl: DFVal.Dcl)(using
