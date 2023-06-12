@@ -3,19 +3,22 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import DFVal.Func.Op as FuncOp
 
 // Names an anonymous relative value which is aliased.
 // The aliasing is limited according to the criteria provided
-private abstract class NamedAliases(criteria: NamedAliases.Criteria, setUnusedAnnot: Boolean)
-    extends Stage:
+private abstract class NamedAliases(
+    criteria: NamedAliases.Criteria,
+    setUnusedAnnot: Boolean
+) extends Stage:
   override def dependencies: List[Stage] = Nil
   override def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
 
   def transform(designDB: DB)(using MemberGetSet): DB =
 
-    val membersToName = designDB.members.collect {
-      case alias: DFVal.Alias if alias.relValRef.get.isAnonymous && criteria()(alias) =>
-        alias.relValRef.get
+    val membersToName = designDB.members.flatMap {
+      case dfVal: DFVal => criteria()(dfVal)
+      case _            => Nil
     }.filter {
       case _: DFVal.Const          => false // ignore constants
       case _: DFVal.Alias.History  => false // history values will get proper names in another stage
@@ -41,21 +44,44 @@ end NamedAliases
 
 object NamedAliases:
   trait Criteria:
-    def apply()(using MemberGetSet): DFVal.Alias => Boolean
+    def apply()(using MemberGetSet): DFVal => List[DFVal]
   object Criteria:
+    private val carryOps = Set(FuncOp.`*`, FuncOp.+, FuncOp.-)
+    extension (dfVal: DFVal)(using MemberGetSet)
+      def hasVerilogName: Boolean =
+        dfVal match
+          case dfVal if !dfVal.isAnonymous => true
+          case alias: DFVal.Alias.AsIs =>
+            val relVal = alias.relValRef.get
+            val transparentConversion = (alias.dfType, relVal.dfType) match
+              case (DFUInt(toWidth), DFBits(fromWidth)) => toWidth == fromWidth
+              case (DFBits(toWidth), DFUInt(fromWidth)) => toWidth == fromWidth
+              case (DFBit, DFBool)                      => true
+              case (DFBool, DFBit)                      => true
+              case _                                    => false
+            if (transparentConversion) relVal.hasVerilogName
+            else false
+          case _ => false
     object NamedSelection extends Criteria:
-      def apply()(using MemberGetSet): DFVal.Alias => Boolean = {
-        case applyRange: DFVal.Alias.ApplyRange =>
-          applyRange.width != applyRange.relValRef.get.width
-        case alias: DFVal.Alias.AsIs =>
-          alias.width < alias.relValRef.get.width
-        case _: DFVal.Alias.ApplyIdx => true
-        case _                       => false
+      def apply()(using MemberGetSet): DFVal => List[DFVal] = {
+        case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName => Nil
+        case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>
+          List(alias.relValRef.get)
+        case alias: DFVal.Alias.AsIs if alias.width < alias.relValRef.get.width =>
+          List(alias.relValRef.get)
+        case alias: DFVal.Alias.ApplyIdx =>
+          List(alias.relValRef.get)
+        case func @ DFVal.Func(_, op, DFRef(lhs) :: _ :: Nil, _, _, _)
+            if !lhs.hasVerilogName && carryOps.contains(op) && func.width > lhs.width =>
+          List(lhs)
+        case _ => Nil
       }
+    end NamedSelection
     object NamedPrev extends Criteria:
-      def apply()(using MemberGetSet): DFVal.Alias => Boolean = {
-        case _: DFVal.Alias.History => true
-        case _                      => false
+      def apply()(using MemberGetSet): DFVal => List[DFVal] = {
+        case alias: DFVal.Alias.History if alias.relValRef.get.isAnonymous =>
+          List(alias.relValRef.get)
+        case _ => Nil
       }
   end Criteria
 end NamedAliases
