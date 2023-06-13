@@ -64,7 +64,8 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
   def commands: String =
     lintOffBlackBoxes.emptyOr(_ + "\n") +
       lintOffOpenOutPorts.emptyOr(_ + "\n") +
-      lintOffUnused.emptyOr(_ + "\n")
+      lintOffUnused.emptyOr(_ + "\n") +
+      lintOffUnusedBits.emptyOr(_ + "\n")
   def lintOffCommand(
       rule: String = "",
       file: String = "",
@@ -101,6 +102,14 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
         rule = "UNUSEDSIGNAL",
         file = s"${dfVal.getOwnerDesign.dclName}.sv",
         matchWild = s"*: '${dfVal.getName}'*"
+      )
+    .distinct.mkString("\n")
+  def lintOffUnusedBits: String =
+    designDB.getUnusedBitsValues.map: (dfVal, relBitHigh, relBitLow) =>
+      lintOffCommand(
+        rule = "UNUSEDSIGNAL",
+        file = s"${dfVal.getOwnerDesign.dclName}.sv",
+        matchWild = s"*Bits of signal are not used: '${dfVal.getName}'[$relBitHigh:$relBitLow]*"
       )
     .distinct.mkString("\n")
   def getSourceFile: SourceFile =
