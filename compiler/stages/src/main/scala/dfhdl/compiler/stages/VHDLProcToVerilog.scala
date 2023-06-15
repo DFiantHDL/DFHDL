@@ -34,7 +34,7 @@ case object VHDLProcToVerilog extends Stage:
           case ifBlock :: Nil if stVals.size == 1 =>
             ifBlock.guardRef.get match
               case clkEdge @ Edge(edgeVal) if stVals.contains(edgeVal) =>
-                val dsn = new MetaDesign(dfhdl.DFC.Domain.ED):
+                val dsn = new MetaDesign(dfhdl.core.DFC.Domain.ED):
                   val clkGuard = clkEdge.op match
                     case FuncOp.rising  => edgeVal.asValOf[Bit].rising
                     case FuncOp.falling => edgeVal.asValOf[Bit].falling

@@ -1,8 +1,7 @@
-package dfhdl
-package core
-import internals.*
+package dfhdl.core
+import dfhdl.internals.*
+import dfhdl.compiler.ir
 import scala.quoted.*
-import compiler.ir
 import annotation.targetName
 
 trait Width[T]:

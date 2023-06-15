@@ -1,8 +1,7 @@
-package dfhdl
-package core
-import internals.*
-import compiler.ir
-import dfhdl.compiler.ir.HWAnnotation
+package dfhdl.core
+import dfhdl.internals.*
+import dfhdl.compiler.ir
+import ir.HWAnnotation
 
 import scala.annotation.Annotation
 

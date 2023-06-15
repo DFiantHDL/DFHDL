@@ -1,5 +1,5 @@
 package dfhdl
-object hdl:
+protected object hdl:
   class dsn extends scala.annotation.StaticAnnotation
   export core.DFType.Ops.*
   export core.DFToken.Ops.*

@@ -1,7 +1,6 @@
-package dfhdl
-package core
+package dfhdl.core
 
-import internals.*
+import dfhdl.internals.*
 import scala.annotation.targetName
 
 /** A unconstrained-width literal vector of a given bit value

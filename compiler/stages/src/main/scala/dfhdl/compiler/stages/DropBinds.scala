@@ -37,7 +37,7 @@ case object DropBinds extends Stage:
                 case "h" => s"{$qmarks}" // using binary mode for hex
             }
           val tokenStr = parts.coalesce(bubbles).mkString
-          import dfhdl.hdl.{b, h}
+          import dfhdl.core.DFBits.Token.StrInterp.{b, h}
           val token = op match
             case "b" => b"${tokenStr}"
             case "h" => h"${tokenStr}"

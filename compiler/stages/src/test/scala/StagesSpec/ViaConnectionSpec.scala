@@ -2,7 +2,6 @@ package StagesSpec
 
 import dfhdl.*
 import dfhdl.compiler.stages.viaConnection
-import dfhdl.hdl.DFDesign
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class ViaConnectionSpec extends StageSpec:

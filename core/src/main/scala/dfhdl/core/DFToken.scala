@@ -223,8 +223,8 @@ object DFToken:
     )(using Quotes, Type[T], Type[V]): Expr[Value[T]] =
       import quotes.reflect.*
       val (argExpr, enableExpr) = value match
-        case '{ dfhdl.@@[t]($x)($y) } => (x, y)
-        case _                        => (value, '{ true })
+        case '{ Conditional.Ops.@@[t]($x)($y) } => (x, y)
+        case _                                  => (value, '{ true })
       val term = argExpr.asTerm.underlyingArgument.exactTerm
       val tpe = term.tpe.asTypeOf[Any]
       '{
@@ -250,8 +250,8 @@ object DFToken:
     )(using Quotes, Type[T], Type[V]): Expr[TupleValues[T]] =
       import quotes.reflect.*
       val (argExpr, enableExpr) = value match
-        case '{ dfhdl.@@[t]($x)($y) } => (x, y)
-        case _                        => (value, '{ true })
+        case '{ Conditional.Ops.@@[t]($x)($y) } => (x, y)
+        case _                                  => (value, '{ true })
       val term = argExpr.asTerm.underlyingArgument
       val tTpe = TypeRepr.of[T]
       extension (lhs: TypeRepr)
