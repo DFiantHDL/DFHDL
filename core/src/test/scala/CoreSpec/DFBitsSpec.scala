@@ -156,6 +156,10 @@ class DFBitsSpec extends DFSpec:
          |b8 := (u8.bits(3, 0), u8.bits(7, 4)).toBits
          |b4M := u8.bits(3, 0)
          |b4L := u8.bits(7, 4)
+         |b4M := u8.bits(7, 4)
+         |b3M := u8.bits(3, 1)
+         |u5L := (u8.bits(0, 0), b8(7, 4)).toBits.uint
+         |b4L := b8(3, 0)
          |""".stripMargin
     } {
       val byte: Byte <> VAL = Byte <> VAR init all(0)
@@ -172,6 +176,7 @@ class DFBitsSpec extends DFSpec:
       (b3M, u5L) := (h"1", 1, 0, b"11")
       b8 := (u8.bits(3, 0), u8.bits(7, 4))
       (b4M, b4L) := (u8.bits(3, 0), u8.bits(7, 4))
+      (b4M, b3M, u5L, b4L) := (u8, b8)
     }
     val twelve = 12
     val v12 = Bits(twelve) <> VAR

@@ -395,33 +395,33 @@ object DFVal:
           relBitHigh: Inlined[H],
           relBitLow: Inlined[L]
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
-        relVal.asIR match
-          // anonymous constant are replace by a different constant
-          // after its token value was converted according to the alias
-          case const: ir.DFVal.Const if const.isAnonymous =>
-            import DFBits.Token.Ops.apply
-            val updatedToken = const.token.asTokenOf[DFBits[W]](relBitHigh, relBitLow)
-            Const(updatedToken).asVal[DFBits[H - L + 1], M]
-          // named constants or other non-constant values are referenced
-          // in a new alias construct
-          case _ =>
-            forced(relVal.asIR, relBitHigh, relBitLow).asVal[DFBits[H - L + 1], M]
+        forced(relVal.asIR, relBitHigh, relBitLow).asVal[DFBits[H - L + 1], M]
       end apply
       def forced(
           relVal: ir.DFVal,
           relBitHigh: Int,
           relBitLow: Int
       )(using DFC): ir.DFVal =
-        lazy val alias: ir.DFVal.Alias.ApplyRange =
-          ir.DFVal.Alias.ApplyRange(
-            relVal.refTW(alias),
-            relBitHigh,
-            relBitLow,
-            dfc.owner.ref,
-            dfc.getMeta,
-            ir.DFTags.empty
-          )
-        alias.addMember
+        relVal match
+          // anonymous constant are replace by a different constant
+          // after its token value was converted according to the alias
+          case const: ir.DFVal.Const if const.isAnonymous =>
+            import DFBits.Token.Ops.apply
+            val updatedToken = const.token.asTokenOf[DFBits[Int]](relBitHigh, relBitLow)
+            Const(updatedToken).asIR
+          // named constants or other non-constant values are referenced
+          // in a new alias construct
+          case _ =>
+            lazy val alias: ir.DFVal.Alias.ApplyRange =
+              ir.DFVal.Alias.ApplyRange(
+                relVal.refTW(alias),
+                relBitHigh,
+                relBitLow,
+                dfc.owner.ref,
+                dfc.getMeta,
+                ir.DFTags.empty
+              )
+            alias.addMember
       end forced
     end ApplyRange
     object ApplyIdx:
@@ -820,7 +820,7 @@ object DFVarOps:
   extension [T <: NonEmptyTuple](dfVarTuple: T)
     def :=[R](rhs: Exact[R])(using
         vt: VarsTuple[T]
-    )(using tc: DFVal.TC[DFBits[vt.Width], R], dfc: DFC): Unit = trydf {
+    )(using tc: DFVal.TC[DFBits[vt.Width], R], dfc: DFC): Unit = trydf:
       given dfcAnon: DFC = dfc.anonymize
       def flattenDFValTuple(tpl: Tuple): List[ir.DFVal] =
         tpl.toList.flatMap {
@@ -834,21 +834,28 @@ object DFVarOps:
             func.args.flatMap(ar => flattenConcatArgs(ar.get))
           case _ => List(arg)
       @tailrec def assignRecur(
+          // the remaining variables to assign to from most-significant to least
           dfVars: List[ir.DFVal],
+          // the remaining arguments to read for assignment from most-significant to least
           args: List[ir.DFVal],
+          // the most-significant bits width read so far from the left-most argument
+          argReadWidth: Int,
+          // the current accumulated concatenated arguments in reverse order
           concat: List[ir.DFVal]
       ): Unit =
         dfVars match
           case dfVar :: nextVars =>
-            val concatWidth = concat.map(_.dfType.width).sum
+            val concatWidth = concat.map(_.width).sum
+            val missingConcatWidth = dfVar.width - concatWidth
+            assert(missingConcatWidth >= 0)
             // widths match so we can assign
-            if (concatWidth == dfVar.dfType.width)
-              // only one element in concatenation, so there is no need for concaternation
+            if (missingConcatWidth == 0)
+              // only one element in concatenation, so there is no need for concatenation
               // and we assign it directly.
               val concatVal =
                 if (concat.size == 1) concat.head.asValAny
                 else
-                  DFVal.Func(DFBits(dfVar.dfType.width), FuncOp.++, concat.map(_.asValAny).reverse)
+                  DFVal.Func(DFBits(dfVar.dfType.width), FuncOp.++, concat.reverse)
               // non-bits variables need to be casted to
               val assignVal = dfVar.dfType match
                 // no need to cast
@@ -856,35 +863,45 @@ object DFVarOps:
                 // casting required
                 case dfType => DFVal.Alias.AsIs.forced(dfType, concatVal.asIR).asValAny
               dfVar.asValAny.assign(assignVal)
-              assignRecur(nextVars, args, Nil)
+              assignRecur(nextVars, args, argReadWidth, Nil)
             // missing more bits to complete assignment, so moving arg element into concat list
-            else if (concatWidth < dfVar.dfType.width)
-              // casting argument to bits before placing it in `concat`
-              val argBits = args.head.dfType match
-                case _: ir.DFBits => args.head
-                case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.width), args.head)
-              // moving the head argument and stacking it in `concat`.
-              // we use the concat in reverse later on.
-              assignRecur(dfVars, args.drop(1), argBits :: concat)
-            // too many bits are in concat, so we need to split the head and move the extra
-            // bits to the args list
             else
-              val headBits = concat.head.asValOf[DFBits[Int]]
-              val extraWidth = concatWidth - dfVar.dfType.width
-              val lsbits = DFVal.Alias.ApplyRange(headBits, extraWidth - 1, 0).asIR
-              val msbits =
-                DFVal.Alias.ApplyRange(headBits, concat.head.dfType.width - 1, extraWidth).asIR
-              // the args order are from msbits to lsbits, so when we end up with extra bits
-              // those will be the lsbits that to be given back to the args list and just the
-              // remaining msbits are placed in the concat list
-              assignRecur(dfVars, lsbits :: args, msbits :: concat.drop(1))
+              val arg = args.head
+              val argLeftoverWidth = arg.width - argReadWidth
+              val extraWidth = argLeftoverWidth - missingConcatWidth
+              if (extraWidth <= 0)
+                val concatArg =
+                  // the entire arg should be used
+                  if (argReadWidth == 0) arg
+                  // partially reading the leftover arg
+                  else DFVal.Alias.ApplyRange.forced(arg, argLeftoverWidth - 1, 0)
+                // moving the head argument and stacking it in `concat`.
+                // we use the concat in reverse later on.
+                assignRecur(dfVars, args.drop(1), 0, concatArg :: concat)
+              // with the current arg, there will be too many bits are in concat, so we need to
+              // split the head and move the extra bits to the args list
+              else
+                val concatArg = DFVal.Alias.ApplyRange.forced(
+                  arg,
+                  argLeftoverWidth - 1,
+                  extraWidth
+                )
+                // the args order are from msbits to lsbits, so when we end up with extra bits
+                // those will be the lsbits that to be given back to the args list and just the
+                // remaining msbits are placed in the concat list
+                assignRecur(dfVars, args, argReadWidth + concatArg.width, concatArg :: concat)
+              end if
             end if
           case Nil => // done!
       val dfVarsIR = flattenDFValTuple(dfVarTuple)
       val width = Inlined.forced[vt.Width](dfVarsIR.map(_.dfType.width).sum)
       val argsIR = flattenConcatArgs(tc(DFBits(width), rhs).asIR)
-      assignRecur(dfVarsIR, argsIR, Nil)
-    }
+      val argsBitsIR = argsIR.map { arg =>
+        arg.dfType match
+          case _: ir.DFBits => arg
+          case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.width), arg)
+      }
+      assignRecur(dfVarsIR, argsBitsIR, 0, Nil)
 end DFVarOps
 
 object DFPortOps:
