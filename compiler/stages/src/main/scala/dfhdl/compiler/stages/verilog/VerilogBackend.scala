@@ -24,8 +24,8 @@ private val reservedKeywords: Set[String] = Set(
 private case object VerilogUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = true)
 case object VerilogBackend extends Stage:
   def dependencies: List[Stage] =
-    List(ToED, NamedSelection, ExplicitNamedVars, DropLocalDcls, DropBAssignFromSeqProc,
-      SimpleOrderMembers, VerilogUniqueNames, ViaConnection)
+    List(DropUnreferencedAnons, ToED, NamedSelection, ExplicitNamedVars, DropLocalDcls,
+      DropBAssignFromSeqProc, SimpleOrderMembers, VerilogUniqueNames, ViaConnection)
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet): DB = designDB
 end VerilogBackend

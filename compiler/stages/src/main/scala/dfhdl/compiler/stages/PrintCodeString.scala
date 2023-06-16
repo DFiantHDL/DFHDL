@@ -31,7 +31,7 @@ case object PrintCodeString extends Stage:
           .colorOps(dfhdlOps, dfhdlKWColor)
           .colorWords(dfhdlTypes, dfhdlTPColor)
   end Coloring
-  def dependencies: List[Stage] = List(UniqueDesigns, DFHDLUniqueNames)
+  def dependencies: List[Stage] = List(DropUnreferencedAnons, UniqueDesigns, DFHDLUniqueNames)
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet): DB = designDB
 end PrintCodeString

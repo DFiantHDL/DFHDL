@@ -1,7 +1,7 @@
 package StagesSpec
 
 import dfhdl.*
-import compiler.stages.dropUnreferenced
+import compiler.stages.dropUnreferencedVars
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropUnreferencedSpec extends StageSpec:
@@ -11,7 +11,7 @@ class DropUnreferencedSpec extends StageSpec:
       val y = SInt(16) <> OUT
       val z = Bits(8)  <> VAR
       y := x
-    val id = (new ID).dropUnreferenced
+    val id = (new ID).dropUnreferencedVars
     assertCodeString(
       id,
       """|class ID extends DFDesign:
@@ -28,7 +28,7 @@ class DropUnreferencedSpec extends StageSpec:
       val y = SInt(16) <> OUT
       val z = Bits(8)  <> VAR init all(0)
       y := x
-    val id = (new ID).dropUnreferenced
+    val id = (new ID).dropUnreferencedVars
     assertCodeString(
       id,
       """|class ID extends DFDesign:
