@@ -106,10 +106,13 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
     .distinct.mkString("\n")
   def lintOffUnusedBits: String =
     designDB.getUnusedBitsValues.map: (dfVal, relBitHigh, relBitLow) =>
+      val bitSel =
+        if (relBitHigh == relBitLow) s"$relBitHigh"
+        else s"$relBitHigh:$relBitLow"
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
         file = s"${dfVal.getOwnerDesign.dclName}.sv",
-        matchWild = s"*Bits of signal are not used: '${dfVal.getName}'[$relBitHigh:$relBitLow]*"
+        matchWild = s"*Bits of signal are not used: '${dfVal.getName}'[$bitSel]*"
       )
     .distinct.mkString("\n")
   def getSourceFile: SourceFile =
