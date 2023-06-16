@@ -12,6 +12,7 @@ case object SanityCheck extends Stage:
   def nullifies: Set[Stage] = Set()
   def refCheck()(using MemberGetSet): Unit =
     val refTable = getSet.designDB.refTable
+    val memberTable = getSet.designDB.memberTable
     var hasViolations: Boolean = false
     getSet.designDB.members.foreach { m =>
       if (
@@ -30,6 +31,22 @@ case object SanityCheck extends Stage:
       )
         hasViolations = true
         println(s"Missing origin ref to the member: $m")
+      var originRef: DFRefAny | Null = null
+      var missingRef: DFRefAny | Null = null
+      if (
+        memberTable.getOrElse(m, Set.empty).collect { case r: DFRef.TwoWayAny =>
+          (r, r.originRef)
+        }
+          .exists {
+            case (_, _: DFRef.Empty) => false
+            case (r, o) =>
+              missingRef = r
+              originRef = o
+              !refTable.contains(o)
+          }
+      )
+        hasViolations = true
+        println(s"Ref $missingRef missing origin ref $originRef to the member: $m")
       m match
         case m: DFDesignBlock if !m.isTop =>
           if (!refTable.contains(m.ownerRef))
