@@ -289,14 +289,13 @@ extension (db: DB)
     val patchedRefTable = patchList
       .foldLeft(ReplacementContext.fromRefTable(refTable)) {
         case (rc, (origMember, Patch.Replace(repMember, _, refFilter)))
-            if (origMember != repMember) => {
+            if (origMember != repMember) =>
           val ret = rc.replaceMember(origMember, repMember, refFilter)
           patchDebug {
             println("rc.refTable:")
             println(ret.refTable.mkString("\n"))
           }
           ret
-        }
         case (rc, (origMember, Patch.Add(db, config))) =>
           val newOwner = config match
             case Patch.Add.Config.InsideFirst => origMember
@@ -355,8 +354,14 @@ extension (db: DB)
             }
         case (rc, (origMember, Patch.Remove)) =>
           memberTable.get(origMember) match
-            case Some(refs) => rc.copy(refTable = refs.foldLeft(rc.refTable)((rt2, r) => rt2 - r))
-            case None       => rc
+            case Some(refs) =>
+              // total references to be removed are both
+              // * refs - directly referencing the member
+              // * originRefs - the member is referencing other members with a two-way
+              //                reference that points back to it.
+              val totalRefs = refs ++ origMember.getRefs
+              rc.copy(refTable = totalRefs.foldLeft(rc.refTable)((rt2, r) => rt2 - r))
+            case None => rc
         case (rc, (_, Patch.ChangeRef(origMember, refFunc, updatedRefMember))) =>
           val ref = refFunc(origMember)
           rc.copy(refTable = rc.refTable + (ref -> updatedRefMember))
