@@ -16,8 +16,8 @@ import dfhdl.core.DFC
   *   a. Converts the design/domain `domainType` from RT to ED.
   *   a. Adds combinational process blocks and moves the core logic to it.
   *   a. Drops register and wire declarations in favor of regular variable declarations. There are
-  *      two kinds of variable declartions: local and global. Local variable declarations will apear
-  *      inside the combinational process block and assignments to these variables are always
+  *      two kinds of variable declarations: local and global. Local variable declarations will
+  *      appear inside the combinational process block and assignments to these variables are always
   *      blocking. Global variables are declared outside the process blocks (within the scope of the
   *      design/domain) and assignments to them are always non-blocking.
   *   a. Adds a sequential process block according to the clock and reset parameters and adds the
