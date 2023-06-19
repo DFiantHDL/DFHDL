@@ -1,5 +1,6 @@
 package dfhdl.compiler.analysis
 import dfhdl.compiler.ir.*
+import dfhdl.core.DFVal.TruncateTag
 
 extension (designDB: DB)
   def getUnusedTaggedValues: List[DFVal] =
@@ -13,14 +14,10 @@ extension (designDB: DB)
   def getUnusedBitsValues: List[(DFVal, Int, Int)] =
     import designDB.getSet
     designDB.members.flatMap:
-      case dfVal: DFVal if !dfVal.isAnonymous =>
-        val deps = dfVal.getReadDeps
-        if (deps.size == 1)
-          deps.head match
-            case DFNet.Assignment(toVal, _) if toVal.width < dfVal.width =>
-              Some(dfVal, dfVal.width - 1, toVal.width)
-            case _ => None
-        else None
+      case net @ DFNet.Assignment(toVal, DFVal.Alias.AsIs(_, DFRef(fromVal), _, _, _))
+          if !fromVal.isAnonymous && fromVal.getReadDeps.size == 1 &&
+            toVal.width < fromVal.width => // && fromVal.tags.hasTagOf[TruncateTag]
+        Some(fromVal, fromVal.width - 1, toVal.width)
       case _ => None
   end getUnusedBitsValues
   def getOpenOutPorts: List[DFVal] =

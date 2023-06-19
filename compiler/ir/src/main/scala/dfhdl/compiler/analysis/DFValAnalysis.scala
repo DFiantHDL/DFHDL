@@ -107,9 +107,8 @@ extension (dfVal: DFVal)
             case DFNet.Connection(toVal: DFVal, _, _) if toVal == dfVal => None
             case DFNet.Assignment(toVal, _) if toVal == dfVal           => None
             case _                                                      => Some(net)
-        case alias: DFVal.Alias.Partial => alias.getReadDeps
-        case dfVal: DFVal               => Some(dfVal)
-        case _                          => None
+        case dfVal: DFVal => Some(dfVal)
+        case _            => None
     }
   end getReadDeps
 
