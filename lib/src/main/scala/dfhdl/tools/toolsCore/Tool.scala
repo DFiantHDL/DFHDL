@@ -28,3 +28,9 @@ trait Linter extends Tool:
 object Linter:
   // default linter will be verilator
   given Linter = dfhdl.tools.linters.verilator
+
+trait Builder extends Tool:
+  def build[D <: Design](cd: CommittedDesign[D])(using CommitOptions): CommittedDesign[D]
+object Builder:
+  // default linter will be vivado
+  given Builder = dfhdl.tools.builders.vivado
