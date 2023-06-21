@@ -208,7 +208,6 @@ object Printer:
       case _ =>
     }
   def commit(db: DB, folderPathStr: String): DB =
-    println("hey")
     val folderPath = Paths.get(folderPathStr)
     if (!Files.exists(folderPath))
       Files.createDirectories(folderPath)
