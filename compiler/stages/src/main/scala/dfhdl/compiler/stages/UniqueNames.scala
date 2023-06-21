@@ -79,4 +79,4 @@ case object DFHDLUniqueNames extends UniqueNames(Set(), caseSensitive = true)
 extension [T: HasDB](t: T)
   def uniqueNames(reservedNames: Set[String], caseSensitive: Boolean): DB =
     case object CustomUniqueNames extends UniqueNames(reservedNames, caseSensitive)
-    StageRunner.run(CustomUniqueNames)(t.db)
+    StageRunner.run(CustomUniqueNames)(t.db)(using dfhdl.options.CompilerOptions.default)

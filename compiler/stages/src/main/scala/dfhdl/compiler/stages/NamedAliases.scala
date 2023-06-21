@@ -83,9 +83,12 @@ end NamedAliases
 // This compilation stage names the intermediate values. A future stage (UniqueNames) is responsible for
 // making sure the names will be unique.
 case object NamedSelection extends NamedAliases(NamedAliases.Criteria.NamedSelection)
-extension [T: HasDB](t: T) def namedSelection: DB = StageRunner.run(NamedSelection)(t.db)
+extension [T: HasDB](t: T)
+  def namedSelection: DB =
+    StageRunner.run(NamedSelection)(t.db)(using dfhdl.options.CompilerOptions.default)
 
 // Creating a previous values of a value requires that value to be names to avoid random anonymous names in the
 // the backend
 case object NamedPrev extends NamedAliases(NamedAliases.Criteria.NamedPrev)
-extension [T: HasDB](t: T) def namedPrev: DB = StageRunner.run(NamedPrev)(t.db)
+extension [T: HasDB](t: T)
+  def namedPrev: DB = StageRunner.run(NamedPrev)(t.db)(using dfhdl.options.CompilerOptions.default)

@@ -90,4 +90,6 @@ end ExplicitNamedVars
 
 //This stage turns all named values to variables that get assigned.
 //As a result, conditional expressions (if/match) are converted to statements.
-extension [T: HasDB](t: T) def explicitNamedVars: DB = StageRunner.run(ExplicitNamedVars)(t.db)
+extension [T: HasDB](t: T)
+  def explicitNamedVars: DB =
+    StageRunner.run(ExplicitNamedVars)(t.db)(using dfhdl.options.CompilerOptions.default)

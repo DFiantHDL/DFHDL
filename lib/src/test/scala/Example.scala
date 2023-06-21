@@ -32,10 +32,9 @@ class ALU extends EDDesign:
 end ALU
 
 @main def hello: Unit =
-  val top = new ALU
-  import compiler.stages.StageRunner
-  StageRunner.logDebug()
   given options.CompilerOptions.CommitFolder = ".\\..\\sandbox"
+
+  val top = new ALU
   top.printCodeString
     .compile
     .printGenFiles

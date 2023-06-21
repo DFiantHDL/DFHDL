@@ -54,7 +54,8 @@ case object DropRegAliases extends Stage:
     private def getTotalSteps: Int = regAlias.getTotalSteps(0)
     private def getNameGroup: NameGroup =
       regAlias.getNonRegAliasRelVal match
-        case dcl: DFVal.Dcl if dcl.getAssignmentsTo.size > 1 => NameGroup(s"${dcl.getName}_ver", true)
+        case dcl: DFVal.Dcl if dcl.getAssignmentsTo.size > 1 =>
+          NameGroup(s"${dcl.getName}_ver", true)
         case dfVal: DFVal if dfVal.isAnonymous =>
           dfVal.suggestName.map(NameGroup(_, true)).getOrElse(NameGroup(dfVal.getName, false))
         case dfVal: DFVal => NameGroup(dfVal.getName, false)
@@ -154,4 +155,6 @@ case object DropRegAliases extends Stage:
   end transform
 end DropRegAliases
 
-extension [T: HasDB](t: T) def dropRegAliases: DB = StageRunner.run(DropRegAliases)(t.db)
+extension [T: HasDB](t: T)
+  def dropRegAliases: DB =
+    StageRunner.run(DropRegAliases)(t.db)(using dfhdl.options.CompilerOptions.default)

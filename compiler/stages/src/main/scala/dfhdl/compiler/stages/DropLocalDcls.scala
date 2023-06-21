@@ -45,5 +45,9 @@ case object DropLocalDcls extends DropLocalDcls(keepProcessDcls = false)
 //VHDL does support declarations at the process level.
 case object DropCondDcls extends DropLocalDcls(keepProcessDcls = true)
 
-extension [T: HasDB](t: T) def dropLocalDcls: DB = StageRunner.run(DropLocalDcls)(t.db)
-extension [T: HasDB](t: T) def dropCondDcls: DB = StageRunner.run(DropCondDcls)(t.db)
+extension [T: HasDB](t: T)
+  def dropLocalDcls: DB =
+    StageRunner.run(DropLocalDcls)(t.db)(using dfhdl.options.CompilerOptions.default)
+extension [T: HasDB](t: T)
+  def dropCondDcls: DB =
+    StageRunner.run(DropCondDcls)(t.db)(using dfhdl.options.CompilerOptions.default)

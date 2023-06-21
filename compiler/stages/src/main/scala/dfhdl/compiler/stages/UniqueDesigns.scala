@@ -46,4 +46,6 @@ case object UniqueDesigns extends Stage:
   end transform
 end UniqueDesigns
 
-extension [T: HasDB](t: T) def uniqueDesigns: DB = StageRunner.run(UniqueDesigns)(t.db)
+extension [T: HasDB](t: T)
+  def uniqueDesigns: DB =
+    StageRunner.run(UniqueDesigns)(t.db)(using dfhdl.options.CompilerOptions.default)

@@ -5,6 +5,7 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.compiler.printing.*
 import dfhdl.internals.*
+import dfhdl.options.CompilerOptions
 import scala.annotation.tailrec
 
 case object SanityCheck extends Stage:
@@ -121,4 +122,4 @@ case object SanityCheck extends Stage:
     designDB
 end SanityCheck
 
-extension [T: HasDB](t: T) def sanityCheck: DB = StageRunner.run(SanityCheck)(t.db)
+extension [T: HasDB](t: T) def sanityCheck(using CompilerOptions): DB = StageRunner.run(SanityCheck)(t.db)

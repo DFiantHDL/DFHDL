@@ -73,4 +73,6 @@ case object VHDLProcToVerilog extends Stage:
   end transform
 end VHDLProcToVerilog
 
-extension [T: HasDB](t: T) def vhdlProcToVerilog: DB = StageRunner.run(VHDLProcToVerilog)(t.db)
+extension [T: HasDB](t: T)
+  def vhdlProcToVerilog: DB =
+    StageRunner.run(VHDLProcToVerilog)(t.db)(using dfhdl.options.CompilerOptions.default)

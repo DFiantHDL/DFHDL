@@ -2,24 +2,28 @@ package dfhdl.options
 import CompilerOptions.*
 import dfhdl.compiler.ir
 import dfhdl.compiler.stages.BackendCompiler
+export wvlet.log.LogLevel
 
 import java.io.File.separatorChar
 
 final case class CompilerOptions(
     commitFolder: CommitFolder,
     newFolderForTop: NewFolderForTop,
-    backend: BackendCompiler
+    backend: BackendCompiler,
+    logLevel: CompilerLogLevel
 )
 object CompilerOptions:
   given default(using
       commitFolder: CommitFolder = "sandbox",
       newFolderForTop: NewFolderForTop = true,
-      backend: BackendCompiler
+      backend: BackendCompiler,
+      logLevel: CompilerLogLevel = LogLevel.WARN
   ): CompilerOptions =
     CompilerOptions(
       commitFolder = commitFolder,
       newFolderForTop = newFolderForTop,
-      backend = backend
+      backend = backend,
+      logLevel = logLevel
     )
 
   extension (co: CompilerOptions)
@@ -32,4 +36,7 @@ object CompilerOptions:
 
   opaque type NewFolderForTop <: Boolean = Boolean
   given Conversion[Boolean, NewFolderForTop] = x => x
+
+  opaque type CompilerLogLevel <: LogLevel = LogLevel
+  given Conversion[LogLevel, CompilerLogLevel] = x => x
 end CompilerOptions

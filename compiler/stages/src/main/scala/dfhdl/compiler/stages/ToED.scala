@@ -14,4 +14,5 @@ case object ToED extends Stage:
 //    }
 //    designDB.patch(patchList)
 
-extension [T: HasDB](t: T) def toED: DB = StageRunner.run(ToED)(t.db)
+extension [T: HasDB](t: T)
+  def toED: DB = StageRunner.run(ToED)(t.db)(using dfhdl.options.CompilerOptions.default)

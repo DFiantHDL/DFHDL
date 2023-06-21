@@ -40,4 +40,4 @@ end DropBAssignFromSeqProc
 //if that variable being assigned to is not an alias and is assigned only once.
 extension [T: HasDB](t: T)
   def dropBAssignFromSeqProc: DB =
-    StageRunner.run(DropBAssignFromSeqProc)(t.db)
+    StageRunner.run(DropBAssignFromSeqProc)(t.db)(using dfhdl.options.CompilerOptions.default)

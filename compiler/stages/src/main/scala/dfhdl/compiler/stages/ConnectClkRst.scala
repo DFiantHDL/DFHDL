@@ -60,4 +60,6 @@ case object ConnectClkRst extends Stage:
   end transform
 end ConnectClkRst
 
-extension [T: HasDB](t: T) def connectClkRst: DB = StageRunner.run(ConnectClkRst)(t.db)
+extension [T: HasDB](t: T)
+  def connectClkRst: DB =
+    StageRunner.run(ConnectClkRst)(t.db)(using dfhdl.options.CompilerOptions.default)

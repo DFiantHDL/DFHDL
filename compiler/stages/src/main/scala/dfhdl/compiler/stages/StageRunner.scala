@@ -1,12 +1,14 @@
 package dfhdl.compiler.stages
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
+import dfhdl.options.CompilerOptions
 import wvlet.log.*
+
 import scala.collection.SortedSet
 import scala.annotation.tailrec
-object StageRunner extends LogSupport:
+class StageRunner(using co: CompilerOptions) extends LogSupport:
   Logger.setDefaultFormatter(LogFormatter.BareFormatter)
-  Logger.setDefaultLogLevel(LogLevel.WARN)
+  Logger.setDefaultLogLevel(co.logLevel)
   def logDebug(): Unit =
     logger.setLogLevel(LogLevel.DEBUG)
   def logInfo(): Unit =
@@ -40,3 +42,7 @@ object StageRunner extends LogSupport:
       case Nil => designDB
   def run(stage: Stage)(designDB: DB): DB = run(List(stage), Set())(designDB)
 end StageRunner
+
+object StageRunner:
+  def run(stage: Stage)(designDB: DB)(using CompilerOptions): DB =
+    new StageRunner().run(List(stage), Set())(designDB)

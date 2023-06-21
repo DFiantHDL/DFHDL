@@ -227,8 +227,10 @@ case object DropRegsWires extends Stage:
       // other owners
       case _ => None
     }
-    designDB.patch(patchList).sanityCheck
+    designDB.patch(patchList)
   end transform
 end DropRegsWires
 
-extension [T: HasDB](t: T) def dropRegsWires: DB = StageRunner.run(DropRegsWires)(t.db)
+extension [T: HasDB](t: T)
+  def dropRegsWires: DB =
+    StageRunner.run(DropRegsWires)(t.db)(using dfhdl.options.CompilerOptions.default)

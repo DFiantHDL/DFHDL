@@ -18,4 +18,6 @@ case object ExplicitClkRstCfg extends Stage:
     }
     designDB.patch(patchList)
 
-extension [T: HasDB](t: T) def explicitClkRstCfg: DB = StageRunner.run(ExplicitClkRstCfg)(t.db)
+extension [T: HasDB](t: T)
+  def explicitClkRstCfg: DB =
+    StageRunner.run(ExplicitClkRstCfg)(t.db)(using dfhdl.options.CompilerOptions.default)

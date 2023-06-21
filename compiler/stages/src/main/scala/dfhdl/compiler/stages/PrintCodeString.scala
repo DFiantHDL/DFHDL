@@ -2,7 +2,7 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.printing.*
-import dfhdl.options.PrinterOptions
+import dfhdl.options.{CompilerOptions, PrinterOptions}
 
 case object PrintCodeString extends Stage:
   object Coloring:
@@ -38,12 +38,13 @@ end PrintCodeString
 
 extension [T: HasDB](t: T)
   def getCodeString(align: Boolean): String =
-    val designDB = StageRunner.run(PrintCodeString)(t.db)
+    val designDB =
+      StageRunner.run(PrintCodeString)(t.db)(using dfhdl.options.CompilerOptions.default)
     val printer = new DFPrinter(using designDB.getSet):
       override val alignEnable: Boolean = align
     printer.csDB
   def getCodeString: String = getCodeString(align = false)
-  def printCodeString(using po: PrinterOptions): T =
+  def printCodeString(using po: PrinterOptions, co: CompilerOptions): T =
     val designDB = StageRunner.run(PrintCodeString)(t.db)
     val printer = new DFPrinter(using designDB.getSet):
       override val alignEnable: Boolean = po.align

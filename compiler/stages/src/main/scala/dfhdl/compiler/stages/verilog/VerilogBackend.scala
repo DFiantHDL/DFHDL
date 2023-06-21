@@ -4,8 +4,10 @@ import dfhdl.compiler.stages.*
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.printing.*
+import dfhdl.options.CompilerOptions
+
 import java.nio.file.{Files, Paths}
-import java.io._
+import java.io.*
 
 private val reservedKeywords: Set[String] = Set(
   "always", "end", "ifnone", "or", "rpmos", "tranif1", "and", "endcase", "initial", "output",
@@ -32,7 +34,8 @@ end VerilogBackend
 
 extension [T: HasDB](t: T)
   def getVerilogCode(align: Boolean): String =
-    val designDB = StageRunner.run(VerilogBackend)(t.db)
+    val designDB =
+      StageRunner.run(VerilogBackend)(t.db)(using dfhdl.options.CompilerOptions.default)
     val printer = new VerilogPrinter(using designDB.getSet):
       override val alignEnable: Boolean = align
     printer.csDB
