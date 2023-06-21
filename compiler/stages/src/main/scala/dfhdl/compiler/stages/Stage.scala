@@ -20,7 +20,5 @@ object HasDB:
     def apply(t: StagedDesign[D]): DB = t.stagedDB
   given [D <: Design]: HasDB[CompiledDesign[D]] with
     def apply(t: CompiledDesign[D]): DB = t.staged.stagedDB
-  given [D <: Design]: HasDB[CommittedDesign[D]] with
-    def apply(t: CommittedDesign[D]): DB = t.staged.stagedDB
 
 extension [T: HasDB](t: T) def db: DB = summon[HasDB[T]](t)

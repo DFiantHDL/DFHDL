@@ -10,6 +10,7 @@ object backends:
       val designDB = StageRunner.run(VerilogBackend)(sd.stagedDB)
       val printer = new VerilogPrinter(using designDB.getSet)
       CompiledDesign(sd.newStage(printer.printedDB))
+      
     given v2001: BackendCompiler = ???
     given sv2005: BackendCompiler = this
     given sv2012: BackendCompiler = sv2005

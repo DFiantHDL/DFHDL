@@ -35,10 +35,9 @@ end ALU
   val top = new ALU
   import compiler.stages.StageRunner
   StageRunner.logDebug()
-  given options.CommitOptions.CommitFolder = ".\\..\\sandbox"
+  given options.CompilerOptions.CommitFolder = ".\\..\\sandbox"
   top.printCodeString
     .compile
-    .commit
     .printGenFiles
     .lint
 end hello

@@ -1,9 +1,9 @@
 package dfhdl.tools.toolsCore
 import dfhdl.core.Design
-import dfhdl.compiler.stages.{CommittedDesign, CompiledDesign}
+import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CommitOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
@@ -15,7 +15,7 @@ object Verilator extends Linter:
     if (osName.contains("windows")) "verilator_bin" else "verilator"
 
   def commonFlags: String = "-Wall"
-  def filesCmdPart[D <: Design](cd: CommittedDesign[D]): String =
+  def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
     // We use `forceWindowsToLinuxPath` fit the verilator needs
     val designsInCmd = cd.stagedDB.srcFiles.view.collect {
       case SourceFile(
@@ -40,11 +40,11 @@ object Verilator extends Linter:
     // config files must be placed before the design sources
     s"-I$globalIncludeFolder $configsInCmd $designsInCmd"
   end filesCmdPart
-  override protected[dfhdl] def preprocess[D <: Design](cd: CommittedDesign[D])(using
-      CommitOptions
-  ): CommittedDesign[D] =
+  override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
+      CompilerOptions
+  ): CompiledDesign[D] =
     addSourceFiles(cd, List(new VerilatorConfigPrinter(using cd.stagedDB.getSet).getSourceFile))
-  def lint[D <: Design](cd: CommittedDesign[D])(using CommitOptions): CommittedDesign[D] =
+  def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions): CompiledDesign[D] =
     exec(
       cd,
       s"$binExec --lint-only $commonFlags ${filesCmdPart(cd)}"

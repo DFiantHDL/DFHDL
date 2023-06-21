@@ -1,25 +1,25 @@
 package dfhdl.tools.toolsCore
 
 import dfhdl.core.Design
-import dfhdl.compiler.stages.{CommittedDesign, CompiledDesign}
+import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CommitOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 
 object Vivado extends Builder:
   def binExec: String = "vivado"
-  def filesCmdPart[D <: Design](cd: CommittedDesign[D]): String = ???
-  override protected[dfhdl] def preprocess[D <: Design](cd: CommittedDesign[D])(using
-      CommitOptions
-  ): CommittedDesign[D] =
+  def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String = ???
+  override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
+      CompilerOptions
+  ): CompiledDesign[D] =
     addSourceFiles(
       cd,
       List(new VivadoProjectTclConfigPrinter(using cd.stagedDB.getSet).getSourceFile)
     )
-  def build[D <: Design](cd: CommittedDesign[D])(using CommitOptions): CommittedDesign[D] =
+  def build[D <: Design](cd: CompiledDesign[D])(using CompilerOptions): CompiledDesign[D] =
     exec(
       cd,
       s"$binExec -mode batch -source ${cd.stagedDB.top.dclName}.tcl"
