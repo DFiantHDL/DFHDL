@@ -34,8 +34,8 @@ end ALU
 @main def hello: Unit =
   given options.CompilerOptions.CommitFolder = ".\\..\\sandbox"
 
-  val top = new ALU
-  top.printCodeString
+  ALU()
+    .printCodeString
     .compile
     .printGenFiles
     .lint
