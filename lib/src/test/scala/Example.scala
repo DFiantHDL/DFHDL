@@ -32,7 +32,7 @@ class ALU extends EDDesign:
 end ALU
 
 @main def hello: Unit =
-  given options.CompilerOptions.CommitFolder = ".\\..\\sandbox"
+  given options.CompilerOptions.CommitFolder = ".\\sandbox"
 
   ALU()
     .printCodeString

@@ -18,8 +18,6 @@ object CompiledDesign:
     def transform(transformDB: ir.DB => ir.DB): CompiledDesign[D] =
       import StagedDesign.transform as transform2
       CompiledDesign(staged.transform2(transformDB))
-    def toFolder(path: String = cd.stagedDB.top.dclName): CompiledDesign[D] = cd
-    def commit: CompiledDesign[D] = cd
     def printGenFiles(using PrinterOptions): CompiledDesign[D] =
       Printer.printGenFiles(staged.stagedDB)
       cd

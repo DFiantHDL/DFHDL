@@ -27,9 +27,11 @@ object CompilerOptions:
     )
 
   extension (co: CompilerOptions)
-    def commitPath(stagedDB: ir.DB): String =
+    def topCommitPath(stagedDB: ir.DB): String =
       if (co.newFolderForTop) s"${co.commitFolder}$separatorChar${stagedDB.top.dclName}"
       else co.commitFolder
+    def compilePath(stagedDB: ir.DB): String =
+      s"${co.topCommitPath(stagedDB)}${separatorChar}hdl"
 
   opaque type CommitFolder <: String = String
   given Conversion[String, CommitFolder] = x => x

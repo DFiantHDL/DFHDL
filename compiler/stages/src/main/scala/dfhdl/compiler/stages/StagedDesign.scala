@@ -13,7 +13,7 @@ object StagedDesign:
         co: CompilerOptions
     ): CompiledDesign[D] =
       co.backend.compile(sd).transform(designDB =>
-        Printer.commit(designDB, co.commitPath(designDB))
+        Printer.commit(designDB, co.compilePath(designDB))
       )
     def newStage(stagedDB: ir.DB): StagedDesign[D] = new StagedDesign[D](sd.design, stagedDB)
     def transform(transformDB: ir.DB => ir.DB): StagedDesign[D] =

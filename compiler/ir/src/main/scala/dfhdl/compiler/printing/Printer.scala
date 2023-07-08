@@ -213,13 +213,13 @@ object Printer:
       Files.createDirectories(folderPath)
     val updatedSrcFiles = db.srcFiles.map {
       case srcFile @ SourceFile(SourceOrigin.Compiled, _, filePathStr, contents) =>
-        val finalPathStr =
+        val commitPathStr =
           if (Paths.get(filePathStr).isAbsolute) filePathStr
           else folderPath.resolve(filePathStr).toAbsolutePath.normalize().toString
-        val pw = new FileWriter(finalPathStr)
+        val pw = new FileWriter(commitPathStr)
         pw.write(contents.decolor)
         pw.close()
-        srcFile.copy(sourceOrigin = SourceOrigin.Committed, path = finalPathStr)
+        srcFile.copy(sourceOrigin = SourceOrigin.Committed, path = commitPathStr)
       case other => other
     }
     db.copy(srcFiles = updatedSrcFiles)

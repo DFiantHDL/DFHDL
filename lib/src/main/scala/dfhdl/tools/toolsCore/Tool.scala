@@ -13,13 +13,13 @@ trait Tool:
       sourceFiles: List[SourceFile]
   )(using CompilerOptions): CompiledDesign[D] =
     val stagedDB = cd.stagedDB
-    cd.newStage(stagedDB.copy(srcFiles = stagedDB.srcFiles ++ sourceFiles)).commit
+    cd.newStage(stagedDB.copy(srcFiles = stagedDB.srcFiles ++ sourceFiles))
 
   final protected def exec[D <: Design](cd: CompiledDesign[D], cmd: String)(using
       co: CompilerOptions
   ): CompiledDesign[D] =
     import scala.sys.process.*
-    val pwd = new java.io.File(co.commitPath(cd.stagedDB))
+    val pwd = new java.io.File(co.topCommitPath(cd.stagedDB))
     Process(cmd, pwd).!
     cd
 end Tool
