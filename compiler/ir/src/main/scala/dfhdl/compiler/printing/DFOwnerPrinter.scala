@@ -140,8 +140,9 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFOwnerLateBody(design)
-    val inst = s"val ${design.getName} = new ${design.dclName}"
-    if (body.isEmpty) inst else s"$inst:\n${body.hindent}"
+    val inst =
+      if (body.isEmpty) s"${design.dclName}()" else s"new ${design.dclName}:\n${body.hindent}"
+    s"val ${design.getName} = ${inst}"
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"

@@ -287,7 +287,7 @@ class AddClkRstSpec extends StageSpec:
          |  val rst = Bit <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  val clkGen = new ClkGen
+         |  val clkGen = ClkGen()
          |  val internal = new RTDomain(genCfg):
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT

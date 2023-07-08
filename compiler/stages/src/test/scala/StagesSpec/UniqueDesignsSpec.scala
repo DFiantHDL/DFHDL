@@ -48,8 +48,8 @@ class UniqueDesignsSpec extends StageSpec:
          |  val y1 = SInt(16) <> OUT
          |  val x2 = SInt(15) <> IN
          |  val y2 = SInt(15) <> OUT
-         |  val id1 = new ID_0
-         |  val id2 = new ID_1
+         |  val id1 = ID_0()
+         |  val id2 = ID_1()
          |  id1.x <> x1
          |  y1 <> id1.y
          |  id2.x <> x2
