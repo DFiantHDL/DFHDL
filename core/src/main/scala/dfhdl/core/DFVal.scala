@@ -646,13 +646,13 @@ object DFVal:
     // TODO: change to step Inlined[S] for all operations after https://github.com/lampepfl/dotty/issues/14451
     // is resolved.
     extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I]])
-      def prev(step: Inlined[S], initValue: Exact[V])(using
+      def prev(step: Inlined[S], init: Exact[V])(using
           dfc: DFC,
           tokenTC: DFToken.TC[T, V],
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        val initOpt = Some(tokenTC(dfVal.dfType, initValue))
+        val initOpt = Some(tokenTC(dfVal.dfType, init))
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev, initOpt)
       }
       def prev(step: Inlined[S])(using
@@ -687,24 +687,24 @@ object DFVal:
         check(step)
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(domainCfg), None)
       }
-      def reg(step: Inlined[S], initValue: Exact[V])(using
+      def reg(step: Inlined[S], init: Exact[V])(using
           dfc: DFC,
           rtOnly: RTDomainOnly,
           tokenTC: DFToken.TC[T, V],
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        val initOpt = Some(tokenTC(dfVal.dfType, initValue))
+        val initOpt = Some(tokenTC(dfVal.dfType, init))
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(DerivedCfg), initOpt)
       }
-      def reg(step: Inlined[S], initValue: Exact[V])(domainCfg: RTDomainCfg)(using
+      def reg(step: Inlined[S], init: Exact[V])(domainCfg: RTDomainCfg)(using
           dfc: DFC,
           rtOnly: RTDomainOnly,
           tokenTC: DFToken.TC[T, V],
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        val initOpt = Some(tokenTC(dfVal.dfType, initValue))
+        val initOpt = Some(tokenTC(dfVal.dfType, init))
         DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(domainCfg), initOpt)
       }
       inline def reg(using DFC, RTDomainOnly): DFValOf[T] = dfVal.reg(1)
