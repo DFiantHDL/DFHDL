@@ -16,10 +16,11 @@ trait Tool:
     cd.newStage(stagedDB.copy(srcFiles = stagedDB.srcFiles ++ sourceFiles)).commit
 
   final protected def exec[D <: Design](cd: CompiledDesign[D], cmd: String)(using
-      CompilerOptions
+      co: CompilerOptions
   ): CompiledDesign[D] =
     import scala.sys.process.*
-    Process(cmd).!
+    val pwd = new java.io.File(co.commitPath(cd.stagedDB))
+    Process(cmd, pwd).!
     cd
 end Tool
 
