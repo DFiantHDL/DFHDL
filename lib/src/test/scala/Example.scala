@@ -1,5 +1,4 @@
 import dfhdl.*
-import dfhdl.compiler.stages.verilog.*
 
 enum ALUSel extends Encode:
   case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
