@@ -1,0 +1,119 @@
+# Project information
+site_name: DFDocs
+site_dir: site
+site_url: https://dfianthdl.github.io/
+site_description: DFiant Hardware Description Language (DFHDL) Documentation
+site_author: Oron Port
+
+# Repository
+repo_name: 'DFiantHDL/DFiant'
+repo_url: 'https://github.com/DFiantHDL/DFiant'
+
+# Copyright
+copyright: Copyright &copy; 2021 <a href="https://www.dfiant.works">DFiant Inc.</a>
+
+# Configuration
+theme:
+    name: 'material'
+    palette:
+        primary: 'indigo'
+        accent: 'indigo'
+    font:
+        text: 'Roboto'
+        code: 'Roboto Mono'    
+    features:
+        - navigation.tabs
+        - navigation.tabs.sticky
+        - navigation.sections
+        - navigation.expand
+        # - navigation.instant
+    icon:
+        logo: 'material/home'    
+        
+# Customization
+extra:
+  social:
+    - icon: fontawesome/brands/github-alt
+      link: 'https://www.github.com/DFiantWorks/'
+    - icon: fontawesome/brands/linkedin
+      link: 'https://linkedin.com/company/dfiant'
+    - icon: fontawesome/brands/twitter
+      link: 'https://twitter.com/DFiantWorks'
+        
+
+nav:
+  - Introduction:
+    - DFDocs: index.md
+    - 'DFiant: First Look': intro/first-look/index.md
+    - Motivation (Why Another HDL): intro/motivation/index.md
+    - A Dataflow Hardware Description Abstraction: intro/dataflow-abstraction/index.md
+  - Getting Started:
+    - Initial Setup: getting-started/initial-setup/index.md
+    - Hello Hardware World: getting-started/hello-world.md
+  - User Guide:
+    - Type System: user-guide/type-system/index.md
+    - State (Memory): user-guide/state/index.md
+    - Connectivity: user-guide/connectivity/index.md
+    - Meta Hardware Description: user-guide/meta/index.md
+    - Compilation: user-guide/compilation/index.md
+    - Simulation: user-guide/simulation/index.md
+    - Synthesis: user-guide/synthesis/index.md
+    - Errors: user-guide/errors/index.md
+  - About:
+    - Release Notes: about/release-notes.md
+    - Contributing: about/contributing.md
+    - License: about/LICENSE.md
+    - Acknowledgements: about/acknowledgements.md
+
+extra_javascript:
+  - javascripts/config.js 
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js
+  - https://scastie.scala-lang.org/embedded.js
+  - javascripts/scastie.js
+
+markdown_extensions:
+    - toc:
+        # See https://github.com/facelessuser/pymdown-extensions/issues/609
+        permalink: "\U0001F517"
+    - abbr
+    - admonition
+    - pymdownx.snippets:
+        check_paths: true
+    - pymdownx.arithmatex:
+        generic: true
+    - pymdownx.superfences:
+        custom_fences:
+          - name: math
+            class: arithmatex
+            format: !!python/name:pymdownx.arithmatex.fence_mathjax_format    
+          - name: scastie
+            class: scastie
+            format: !!python/name:pymdownx.superfences.fence_code_format
+    - pymdownx.tabbed:
+        alternate_style: true 
+    - pymdownx.details
+    - pymdownx.inlinehilite: 
+        custom_inline:
+          - name: math
+            class: arithmatex
+            format: !!python/name:pymdownx.arithmatex.inline_mathjax_format
+    - pymdownx.highlight:
+        use_pygments: true
+        linenums_style: pymdownx.inline
+        linenums: true
+      
+extra_css:
+    - css/scastie.css
+    - css/vs.css
+    - css/extra.css
+    - css/dfiant-admonition.css
+    - css/rtl-admonition.css
+
+
+plugins:
+    - search
+    - redirects:
+        redirect_maps:
+            'LEGaTO/index.md': 'index.md'
+

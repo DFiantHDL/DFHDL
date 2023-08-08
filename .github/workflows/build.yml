@@ -15,8 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2.3.4
+        uses: actions/checkout@v3
       - name: Setup Scala
-        uses: olafurpg/setup-scala@v10
+        uses: coursier/setup-action@v1
+        with:
+          jvm: adopt:16
+          apps: sbt bloop
       - name: Run tests
         run: sbt test
