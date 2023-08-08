@@ -13,7 +13,7 @@ inThisBuild(
         "soronpo",
         "Oron Port",
         "",
-        url("https://www.researchgate.net/profile/Oron_Port")
+        url("https://twitter.com/soronpo")
       )
     )
   )
