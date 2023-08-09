@@ -1,16 +1,15 @@
-html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded {
-  margin-left: -11px;
-}
-
 div.output-console * {
   color: white
 }
 
 html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded {
+  margin-left: -11px;
+  margin-right: 0px;
+  margin-top: 0px;
+  margin-bottom: 0px;
+  width: calc(100% + 22px);
+  padding-left: 0px;
+  padding-right: 0px;
   padding-top: 0px;
   padding-bottom: 0px;
-  margin-bottom: 0px;
-  margin-top: 0px;
-  width: 103.5%;
-  padding-right: 0px;
 }
