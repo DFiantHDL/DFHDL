@@ -3,11 +3,11 @@ div.output-console * {
 }
 
 html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded {
-  margin-left: -11px;
+  margin-left: -0.6rem;
   margin-right: 0px;
   margin-top: 0px;
   margin-bottom: 0px;
-  width: calc(100% + 22px);
+  width: calc(100% + 1.2rem);
   padding-left: 0px;
   padding-right: 0px;
   padding-top: 0px;
