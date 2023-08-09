@@ -3,8 +3,9 @@ import dfhdl.compiler.printing.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
+import dfhdl.options.PrinterOptions
 
-class VHDLPrinter(using val getSet: MemberGetSet)
+class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptions)
     extends Printer,
       VHDLTypePrinter,
       VHDLTokenPrinter,

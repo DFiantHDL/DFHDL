@@ -4,7 +4,7 @@ import dfhdl.compiler.stages.*
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.printing.*
-import dfhdl.options.CompilerOptions
+import dfhdl.options.{CompilerOptions, PrinterOptions}
 
 import java.nio.file.{Files, Paths}
 import java.io.*
@@ -36,8 +36,8 @@ extension [T: HasDB](t: T)
   def getVerilogCode(align: Boolean): String =
     val designDB =
       StageRunner.run(VerilogBackend)(t.db)(using dfhdl.options.CompilerOptions.default)
-    val printer = new VerilogPrinter(using designDB.getSet):
-      override val alignEnable: Boolean = align
+    given PrinterOptions.Align = align
+    val printer = new VerilogPrinter(using designDB.getSet)
     printer.csDB
   end getVerilogCode
   def getVerilogCode: String = getVerilogCode(align = false)

@@ -6,11 +6,13 @@ import scala.collection.mutable
 import analysis.*
 import java.io.FileWriter
 import java.nio.file.{Paths, Files}
+import dfhdl.options.PrinterOptions
 
 protected trait AbstractPrinter:
   type TPrinter <: Printer
   given printer: TPrinter
   given getSet: MemberGetSet
+  given printerOptions: PrinterOptions
 
 trait Printer
     extends AbstractTypePrinter,
@@ -133,9 +135,9 @@ trait Printer
   def designFileName(designName: String): String
   def globalFileName: String
   def csGlobalFileContent: String = csGlobalTypeDcls
-  val alignEnable = true
+  val alignEnable = printerOptions.align
   def alignCode(cs: String): String
-  val colorEnable = true
+  val colorEnable = printerOptions.color
   def colorCode(cs: String): String
   import io.AnsiColor._
   val keywordColor: String = s"$BLUE$BOLD"
@@ -226,7 +228,7 @@ object Printer:
   end commit
 end Printer
 
-class DFPrinter(using val getSet: MemberGetSet)
+class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptions)
     extends Printer,
       DFTypePrinter,
       DFTokenPrinter,
@@ -321,5 +323,6 @@ extension (token: DFTokenAny)(using printer: DFTokenPrinter)
   def codeString: String =
     printer.csDFToken(token)
 
-def DefaultPrinter(using MemberGetSet): Printer = new DFPrinter:
-  override val alignEnable: Boolean = false
+def DefaultPrinter(using MemberGetSet): Printer =
+  given PrinterOptions.Align = false
+  new DFPrinter

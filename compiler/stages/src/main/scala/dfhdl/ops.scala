@@ -2,11 +2,9 @@ package dfhdl
 
 import dfhdl.compiler.stages.{BackendCompiler, CompiledDesign, StagedDesign}
 import dfhdl.core.Design
-import dfhdl.options.CompilerOptions
+import dfhdl.options.{CompilerOptions, PrinterOptions}
 import dfhdl.compiler.printing.Printer
 export compiler.stages.printCodeString
 
 extension [D <: Design](dsn: D)
-  def compile(using
-      co: CompilerOptions
-  ): CompiledDesign[D] = StagedDesign(dsn).compile
+  def compile(using CompilerOptions, PrinterOptions): CompiledDesign[D] = StagedDesign(dsn).compile

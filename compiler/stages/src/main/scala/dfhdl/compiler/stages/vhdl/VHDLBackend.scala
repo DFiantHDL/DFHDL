@@ -4,7 +4,7 @@ import dfhdl.compiler.stages.*
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.printing.*
-import dfhdl.options.CompilerOptions
+import dfhdl.options.{CompilerOptions, PrinterOptions}
 
 private val reservedKeywords: Set[String] = Set(
   "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert", "attribute",
@@ -29,8 +29,8 @@ end VHDLBackend
 extension [T: HasDB](t: T)
   def getVHDLCode(align: Boolean): String =
     val designDB = StageRunner.run(VHDLBackend)(t.db)(using dfhdl.options.CompilerOptions.default)
-    val printer = new VHDLPrinter(using designDB.getSet):
-      override val alignEnable = align
+    given PrinterOptions.Align = align
+    val printer = new VHDLPrinter(using designDB.getSet)
     printer.csDB
   def getVHDLCode: String = getVHDLCode(align = false)
 end extension

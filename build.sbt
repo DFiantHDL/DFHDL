@@ -22,6 +22,7 @@ inThisBuild(
 name := projectName
 ThisBuild / organization := "io.github.dfianthdl"
 ThisBuild / scalaVersion := compilerVersion
+ThisBuild / versionScheme := Some("semver-spec")
 //ThisBuild / version      := "0.3.0-SNAPSHOT"
 
 

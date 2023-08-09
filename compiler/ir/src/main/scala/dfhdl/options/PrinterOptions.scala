@@ -1,5 +1,5 @@
 package dfhdl.options
-import PrinterOptions.*
+import dfhdl.options.PrinterOptions.*
 
 final case class PrinterOptions(
     align: Align,

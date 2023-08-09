@@ -40,15 +40,13 @@ extension [T: HasDB](t: T)
   def getCodeString(align: Boolean): String =
     val designDB =
       StageRunner.run(PrintCodeString)(t.db)(using dfhdl.options.CompilerOptions.default)
-    val printer = new DFPrinter(using designDB.getSet):
-      override val alignEnable: Boolean = align
+    given PrinterOptions.Align = align
+    val printer = new DFPrinter(using designDB.getSet)
     printer.csDB
   def getCodeString: String = getCodeString(align = false)
   def printCodeString(using po: PrinterOptions, co: CompilerOptions): T =
     val designDB = StageRunner.run(PrintCodeString)(t.db)
-    val printer = new DFPrinter(using designDB.getSet):
-      override val alignEnable: Boolean = po.align
-      override val colorEnable: Boolean = po.color
+    val printer = new DFPrinter(using designDB.getSet)
     println(printer.csDB)
     t
 end extension

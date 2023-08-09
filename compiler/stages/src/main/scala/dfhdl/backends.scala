@@ -1,16 +1,18 @@
 package dfhdl
 
 import dfhdl.core.Design
-import dfhdl.options.CompilerOptions
+import dfhdl.options.{CompilerOptions, PrinterOptions}
 import dfhdl.compiler.stages.{BackendCompiler, CompiledDesign, StagedDesign, StageRunner}
 import dfhdl.compiler.stages.verilog.{VerilogBackend, VerilogPrinter}
 object backends:
   protected class verilog extends BackendCompiler:
-    def compile[D <: Design](sd: StagedDesign[D])(using CompilerOptions): CompiledDesign[D] =
+    def compile[D <: Design](
+        sd: StagedDesign[D]
+    )(using CompilerOptions, PrinterOptions): CompiledDesign[D] =
       val designDB = StageRunner.run(VerilogBackend)(sd.stagedDB)
       val printer = new VerilogPrinter(using designDB.getSet)
       CompiledDesign(sd.newStage(printer.printedDB))
-      
+
     given v2001: BackendCompiler = ???
     given sv2005: BackendCompiler = this
     given sv2012: BackendCompiler = sv2005
@@ -18,7 +20,9 @@ object backends:
   given verilog: verilog = new verilog
 
   protected class vhdl extends BackendCompiler:
-    def compile[D <: Design](sd: StagedDesign[D])(using CompilerOptions): CompiledDesign[D] = ???
+    def compile[D <: Design](
+        sd: StagedDesign[D]
+    )(using CompilerOptions, PrinterOptions): CompiledDesign[D] = ???
     given v93: BackendCompiler = ???
     given v2008: BackendCompiler = ???
     given v2019: BackendCompiler = this
