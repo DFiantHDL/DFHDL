@@ -2,11 +2,9 @@ html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.m
   margin-left: -11px;
 }
 
-html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant p {
-  margin-bottom: 0px;
-  margin-top: 0px;
+div.output-console * {
+  color: white
 }
-
 
 html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded {
   padding-top: 0px;
