@@ -1,12 +1,12 @@
 --8<-- "docs/include/abbr.md"
 
-# DFiant: First Look
+# DFHDL: First Look
 
-Your first encounter with the DFiant syntax, semantics and language features
+Your first encounter with the DFHDL syntax, semantics and language features
 
 ---
 
-In this section we provide simple examples to demonstrate various DFiant syntax, semantics and languages features. If you wish to understand how to run these examples yourself, please refer to the [Getting Started](/getting-started/) chapter of this documentation. 
+In this section we provide simple examples to demonstrate various DFHDL syntax, semantics and languages features. If you wish to understand how to run these examples yourself, please refer to the [Getting Started](/getting-started/) chapter of this documentation. 
 
 ## Main Feature Overview
 
@@ -21,7 +21,7 @@ In this section we provide simple examples to demonstrate various DFiant syntax,
 
 ## Basic Example: An Identity Function
 
-Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit input port `x` and a signed 16-bit output port `y`. We implemented an identity function between the input and output, meaning that for an input series $x_k$ the output series shall be $y_k=x_k$. Fig. 1a depicts a functional drawing of the design and Fig. 1b contains five tabs: the `ID.scala` DFiant dataflow design `ID` class and its compiled RTL files in VHDL (v2008) and Verilog (v2001).
+Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit input port `x` and a signed 16-bit output port `y`. We implemented an identity function between the input and output, meaning that for an input series $x_k$ the output series shall be $y_k=x_k$. Fig. 1a depicts a functional drawing of the design and Fig. 1b contains five tabs: the `ID.scala` DFHDL dataflow design `ID` class and its compiled RTL files in VHDL (v2008) and Verilog (v2001).
 
 <p align="center">
   <img src="../first-look/id.png"><br>
@@ -33,6 +33,18 @@ Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit i
 
     ``` scala
     --8<-- "examples/first-look/src/main/scala/ID.scala"
+    ```
+
+=== "ID.sv"
+
+    ``` verilog
+    --8<-- "examples/first-look/src/test/resources/id/verilog2001/ID.v"
+    ```
+
+=== "ID_defs.sv"
+
+    ``` verilog
+    --8<-- "examples/first-look/src/test/resources/id/verilog2001/ID_defs.v"
     ```
 
 === "ID.vhdl"
@@ -47,20 +59,8 @@ Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit i
     --8<-- "examples/first-look/src/test/resources/id/vhdl2008/ID_pkg.vhdl"
     ```
 
-=== "ID.v"
-
-    ``` verilog
-    --8<-- "examples/first-look/src/test/resources/id/verilog2001/ID.v"
-    ```
-
-=== "ID_defs.v"
-
-    ``` verilog
-    --8<-- "examples/first-look/src/test/resources/id/verilog2001/ID_defs.v"
-    ```
-
 <p align="center">
-  <b>Fig. 1b: A DFiant implementation of the identity function as a toplevel design and the generated VHDL/Verilog files</b><br>
+  <b>Fig. 1b: A DFHDL implementation of the identity function as a toplevel design and the generated VHDL/Verilog files</b><br>
 </p>
 
 
@@ -68,22 +68,22 @@ The Scala code in Fig. 1b describes our ID design as a Scala class. To compile t
 
 !!! summary "Defining a new dataflow design"
 
-	1. `#!scala import DFiant._` once per source file.
-	2. `#!scala @df class _design_name_ extends DFDesign {}` to define your dataflow design. Populate your design with the required dataflow functionality.
+	1. `#!scala import dfhdl.*` once per source file.
+	2. `#!scala class _design_name_ extends DFDesign:` to define your dataflow design. Populate your design with the required dataflow functionality.
 
 ??? dfiant "ID.scala line-by-line breakdown"
-	* **Line 1**: The `#!scala import DFiant._` statement summons all the DFiant classes, types and objects into the current scope. This is a must for every dataflow design source file.
+	* **Line 1**: The `#!scala import dfhdl.*` statement summons all the DFHDL classes, types and objects into the current scope. This is a must for every dataflow design source file.
 	
 
-	* **Lines 3-7**: The `ID` Scala `#!scala class` is extended from the `DFDesign` (abstract) class and therefore declares it as a dataflow design. In addition, we also need to annotate the class with the `@df` dataflow context annotation. This annotation provides an `#!scala implicit` context that is required for the DFiant compilation. In case this annotation is missing, you will get a [missing context](/user-guide/errors/#missing-context) error. Note: currently in Scala 2.xx we populate a class within braces `{}`. For those of you who dislike braces, a braceless syntax is expected to be available in Scala 3, where DFiant will migrate to in the future. 
+	* **Lines 3-7**: The `ID` Scala `#!scala class` is extended from the `DFDesign` (abstract) class and therefore declares it as a dataflow design. Note: in these example we use braceless syntax of Scala 3. You can use braces instead if you choose to.   
 	
-		* **Lines 4-5**: Here we construct the input port `x` and output port `y`. Both were set as a 16-bit signed integer dataflow variable via the `DFSInt(width)` constructor, where `width` is any positive integer. DFiant also support various types such as `DFBits`, `DFUInt`, and `DFBool`. All these dataflow variable construction options and more are discussed [later](/user-guide/type-system) in this documentation. <br />The syntax `#!scala val _name_ = _dftype_ <> _direction_` is used to construct a port and give it a named Scala reference. The Scala reference name will affect the name of this port when compiled to the required backend representation. 
+		* **Lines 4-5**: Here we construct the input port `x` and output port `y`. Both were set as a 16-bit signed integer dataflow variable via the `SInt(width)` constructor, where `width` is any positive integer. DFHDL also support various types such as `Bits`, `UInt`, and `Boolean`. All these dataflow variable construction options and more are discussed [later](/user-guide/type-system) in this documentation. <br />The syntax `#!scala val _name_ = _dftype_ <> _modifier_` is used to construct a hardware port/variable and give it a named Scala reference. The Scala reference name will affect the name of this port when compiled to the required backend representation. 
 	
 		* **Line 6**: The assignment operator `:=` sets the dataflow output port to consume all input port tokens as they are.
 
 ??? rtl "ID RTL files observations"
-	* The ID.vhdl/ID.v files are readable and maintain the names set in the DFiant design. The generated files follow various writing conventions such as lowercase keywords and proper code alignment.
-	* The ID_pkg.vhdl is a package file that is shared between all VHDL files generated by DFiant and  contains common conversion functions that may be required. Additionally it may contain other definitions like enumeration types.
+	* The ID.vhdl/ID.sv files are readable and maintain the names set in the DFHDL design. The generated files follow various writing conventions such as lowercase keywords and proper code alignment.
+	* The ID_pkg.vhdl is a package file that is shared between all VHDL files generated by DFHDL and contains common conversion functions that may be required. Additionally it may contain other definitions like enumeration types.
 
 ??? dfiant "ID demo"
 	```scastie
@@ -98,7 +98,7 @@ The Scala code in Fig. 1b describes our ID design as a Scala class. To compile t
 
 ## Hierarchy and Connection Example
 
-One of the most qualifying characteristics of hardware design is the composition of modules/entities via hierarchies and IO port connections. DFiant is no exception and easily enables dataflow design compositions. Fig. 2a demonstrates such a composition that creates yet another identity function, but this time as a chained composition of two identity function designs. The top-level design `IDTop` introduces two instances of `ID` we saw in the previous example and connects them accordingly.
+One of the most qualifying characteristics of hardware design is the composition of modules/entities via hierarchies and IO port connections. DFHDL is no exception and easily enables dataflow design compositions. Fig. 2a demonstrates such a composition that creates yet another identity function, but this time as a chained composition of two identity function designs. The top-level design `IDTop` introduces two instances of `ID` we saw in the previous example and connects them accordingly.
 
 <p align="center">
   <img src="../first-look/idtop.png"><br>
@@ -110,20 +110,21 @@ One of the most qualifying characteristics of hardware design is the composition
     --8<-- "examples/first-look/src/main/scala/IDTop.scala"
     ```
 
+=== "IDTop.sv"
+
+    ``` verilog
+    --8<-- "examples/first-look/src/test/resources/idTop/verilog2001/IDTop.v"
+    ```
+
 === "IDTop.vhdl"
 
     ``` vhdl
     --8<-- "examples/first-look/src/test/resources/idTop/vhdl2008/IDTop.vhdl"
     ```
 
-=== "IDTop.v"
-
-    ``` verilog
-    --8<-- "examples/first-look/src/test/resources/idTop/verilog2001/IDTop.v"
-    ```
 
 <p align="center">
-  <b>Fig. 2b: A DFiant implementation of IDTop as a toplevel design and the generated VHDL/Verilog files</b><br>
+  <b>Fig. 2b: A DFHDL implementation of IDTop as a toplevel design and the generated VHDL/Verilog files</b><br>
 </p>
 ??? dfiant "IDTop.scala observations"
 	* **Lines 6-7**: Instantiating and naming the two internal `ID` designs (by constructing a Scala class).
@@ -136,17 +137,16 @@ One of the most qualifying characteristics of hardware design is the composition
 
 ??? rtl "IDTop RTL files observations"
 
-	* Unlike DFiant, RTLs do not support direct sibling module/component port connections and therefore require intermediate wires/signals to connect through. For consistency and brevity the DFiant backend compiler always creates signals for all ports of all modules and connects them accordingly.
+	* Unlike DFHDL, RTLs do not support direct sibling module/component port connections and therefore require intermediate wires/signals to connect through. For consistency and brevity the DFHDL backend compiler always creates signals for all ports of all modules and connects them accordingly.
 
 ??? dfiant "IDTop demo"
 	```scastie
 	--8<-- "examples/first-look/src/main/scala/IDTop.scala"
 
-	@df class ID extends DFDesign {
-	  val x = DFSInt(16) <> IN  
-	  val y = DFSInt(16) <> OUT 
+	class ID extends DFDesign:
+	  val x = SInt(16) <> IN  
+	  val y = SInt(16) <> OUT 
 	  y := x 
-	}
 	
 	--8<-- "examples/first-look/src/main/scala/IDTopApp.scala"
 	```
@@ -155,7 +155,7 @@ One of the most qualifying characteristics of hardware design is the composition
 
 ## Concurrency Abstraction
 
-Concurrency and data scheduling abstractions rely heavily on language semantics. DFiant code is expressed in a sequential manner yet employs an asynchronous dataflow programming model to enable implicit and intuitive concurrent hardware description. This is achieved by setting the data scheduling order, or *token-flow*, according to the *data dependency*: all independent dataflow expressions are scheduled concurrently, while dependent operations are synthesized into a guarded FIFO-styled pipeline. 
+Concurrency and data scheduling abstractions rely heavily on language semantics. DFHDL code is expressed in a sequential manner yet employs an asynchronous dataflow programming model to enable implicit and intuitive concurrent hardware description. This is achieved by setting the data scheduling order, or *token-flow*, according to the *data dependency*: all independent dataflow expressions are scheduled concurrently, while dependent operations are synthesized into a guarded FIFO-styled pipeline. 
 
 $$\begin{aligned}
 	&f:(i_{k},j_{k})_{k\in \mathbb{N}}\rightarrow (a_k,b_k,c_k,d_k,e_k)_{k\in \mathbb{N}}\\ 
@@ -193,7 +193,7 @@ $$\begin{aligned}
     --8<-- "examples/first-look/src/test/resources/Conc/verilog2001/Conc.v"
     ```
 <p align="center">
-  <b>Fig. 4b: A DFiant implementation of Conc as a toplevel design and the generated VHDL/Verilog files</b><br>
+  <b>Fig. 4b: A DFHDL implementation of Conc as a toplevel design and the generated VHDL/Verilog files</b><br>
 </p>
 
 ??? dfiant "Conc.scala observations"
@@ -215,9 +215,9 @@ $$\begin{aligned}
 
 ## State Abstraction
 
-So far, all the examples were [pure (stateless) functions](https://en.wikipedia.org/wiki/Pure_function), whereas frequently in hardware we need to express a *state*. A state is needed when a design must access (previous) values that are no longer (or never were) available on its input. DFiant assumes every dataflow variable is a token stream and provides constructs to initialize the token history via the `init` construct, reuse tokens via the `.prev` construct, and update the state via the assignment `:=` construct. 
+So far, all the examples were [pure (stateless) functions](https://en.wikipedia.org/wiki/Pure_function), whereas frequently in hardware we need to express a *state*. A state is needed when a design must access (previous) values that are no longer (or never were) available on its input. DFHDL assumes every dataflow variable is a token stream and provides constructs to initialize the token history via the `init` construct, reuse tokens via the `.prev` construct, and update the state via the assignment `:=` construct. 
 
-Here we provide various implementations of a [simple moving average](https://en.wikipedia.org/wiki/Moving_average) (SMA); all have a 4-tap average window of a 16-bit integer input and output a 16-bit integer average. With regards to overflow avoidance and precision loss, DFiant is no different than any other HDL, and we took those into account when we selected our operators and declared the variable widths. Via the SMA examples we can differentiate between two kinds of state: a *derived state*, and a *commit state*. 
+Here we provide various implementations of a [simple moving average](https://en.wikipedia.org/wiki/Moving_average) (SMA); all have a 4-tap average window of a 16-bit integer input and output a 16-bit integer average. With regards to overflow avoidance and precision loss, DFHDL is no different than any other HDL, and we took those into account when we selected our operators and declared the variable widths. Via the SMA examples we can differentiate between two kinds of state: a *derived state*, and a *commit state*. 
 
 ### Derived State SMA
 
@@ -233,7 +233,7 @@ y_k=\left(x_k+x_{k-1}+x_{k-2}+x_{k-3}\right)/4~~~~x_{i<0}=0
 $$
 
 
-As can be seen from the formula, we need 3 state elements to match the maximum `x` history access. Fortunately, state creation is implicit in DFiant. Just by calling `x.prev(_step_)` to access the history of `x` we construct  `_step_` number of states and chain them, as can be seen in Fig. 3 (DFiant automatically merges the same states constructed from several calls). 
+As can be seen from the formula, we need 3 state elements to match the maximum `x` history access. Fortunately, state creation is implicit in DFHDL. Just by calling `x.prev(_step_)` to access the history of `x` we construct  `_step_` number of states and chain them, as can be seen in Fig. 3 (DFHDL automatically merges the same states constructed from several calls). 
 
 
 <p align="center">
@@ -258,15 +258,15 @@ As can be seen from the formula, we need 3 state elements to match the maximum `
     --8<-- "examples/first-look/src/test/resources/SMA_DS/verilog2001/SMA_DS.v"
     ```
 <p align="center">
-  <b>Fig. 3b: A DFiant implementation of SMA_DS as a toplevel design and the generated VHDL/Verilog files</b><br>
+  <b>Fig. 3b: A DFHDL implementation of SMA_DS as a toplevel design and the generated VHDL/Verilog files</b><br>
 </p>
 ??? dfiant "SMA_DS.scala observations"
 	* **Line 4**: The SMA forumla defines the history of `x` is at the start of the system (all values are considered to be `0`). We apply this information by initializing the `x` history via `init 0`. 
 	* **Lines 6-7**: Accessing the history of `x` is done via `.prev(_step_)`, where `_step_` is a constant positive integer that defines the number of steps into history we require to retrieve the proper value.
 	* **Lines 6-8**: To avoid overflow we chose the `+^` carry-addition operator, meaning that `s0` and `s2` are 17-bit wide, and `sum` is 18-bit wide.
-	* **Line 9**: The `sum/4` division result keeps the LHS 18-bit width. To assign this value to the output `y` which is 16-bit wide, we must resize it first, via `.resize`. DFiant has strong bit-accurate type-safety, and it does not allow assigning a wider value to a narrower value without explicit resizing. In the following animated figure we show what happens if we did not resize the value.   
+	* **Line 9**: The `sum/4` division result keeps the LHS 18-bit width. To assign this value to the output `y` which is 16-bit wide, we must resize it first, via `.resize`. DFHDL has strong bit-accurate type-safety, and it does not allow assigning a wider value to a narrower value without explicit resizing. In the following animated figure we show what happens if we did not resize the value.   
 	![SMA_DS_error](SMA_DS_error.gif)<br/>
-	The Scala presentation compiler is able to interact with the editor and a custom message is presented due to the DFiant type-safe checks.
+	The Scala presentation compiler is able to interact with the editor and a custom message is presented due to the DFHDL type-safe checks.
 	* The various dataflow type inference and operator safety rules are discussed at the [type-system section](/user-guide/type-system).
 	* For more information on state and initialization access the [this section](/user-guide/state).
 
@@ -291,7 +291,7 @@ s_{2,k} &=& x_{k-2}+x_{k-3} = \left.\left (x_t+x_{t-1}  \right )\right|_{t=k-2} 
 y_k &=& \left(s_{0,k}+s_{2,k}\right)/4~~~~x_{i<0}=0
 \end{eqnarray}$$
 
-Instead of relying only on the history of `x`, we can utilize the history of `s0` to produce `s2`. DFiant has [*time invariant*](/user-guide/state#time-invariance) history access through basic operators like addition, so `(x +^ x.prev).prev(2)` is equivalent to `x.prev(2) +^ x.prev(3)`. 
+Instead of relying only on the history of `x`, we can utilize the history of `s0` to produce `s2`. DFHDL has [*time invariant*](/user-guide/state#time-invariance) history access through basic operators like addition, so `(x +^ x.prev).prev(2)` is equivalent to `x.prev(2) +^ x.prev(3)`. 
 
 
 <p align="center">
@@ -316,7 +316,7 @@ Instead of relying only on the history of `x`, we can utilize the history of `s0
     --8<-- "examples/first-look/src/test/resources/SMA_DS2/verilog2001/SMA_DS2.v"
     ```
 <p align="center">
-  <b>Fig. 4b: A DFiant implementation of SMA_DS2 as a toplevel design and the generated VHDL/Verilog files</b><br>
+  <b>Fig. 4b: A DFHDL implementation of SMA_DS2 as a toplevel design and the generated VHDL/Verilog files</b><br>
 </p>
 
 ??? dfiant "SMA_DS2.scala observations"
