@@ -5,10 +5,12 @@ on:
     branches:
       - master
       - dev
+      - scala_opencb
   pull_request:
     branches: 
       - master
       - dev
+      - scala_opencb
 
 jobs:
   build:
