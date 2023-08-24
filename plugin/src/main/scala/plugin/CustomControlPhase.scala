@@ -264,8 +264,14 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         case e: IllegalArgumentException =>
           report.error(e.getMessage, selector.srcPos)
           None
+    private def stripAndType(tpeOpt: Option[Type])(using Context): Option[Type] =
+      tpeOpt.map(tpe =>
+        tpe.simple match
+          case AndType(t1, _) => t1
+          case _              => tpe
+      )
     def unapply(arg: Type)(using Context): Option[Type] =
-      arg.simple match
+      val ret = arg.simple match
         case AppliedType(t, List(dfType, _)) if t <:< dfValClsRef =>
           Some(dfType)
         case AppliedType(t, List(arg, mod))
@@ -279,6 +285,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             case _                          => None
         case _ =>
           None
+      stripAndType(ret)
     end unapply
   end DFVal
 
