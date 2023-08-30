@@ -505,23 +505,16 @@ object DFXInt:
           type OutW = W
           type IsScalaInt = false
           def apply(arg: R): Token[S, W] = arg
-      transparent inline given fromDFBitsToken[W <: Int, R <: DFBits.Token[W]]: Candidate[R] =
+      transparent inline given fromDFBitsTokenCandidate[R](using
+          ic: DFBits.Token.Candidate[R]
+      ): Candidate[R] =
         new Candidate[R]:
           type OutS = false
-          type OutW = W
+          type OutW = ic.OutW
           type IsScalaInt = false
-          def apply(arg: R): Token[false, W] =
+          def apply(arg: R): Token[false, ic.OutW] =
             import DFBits.Token.Ops.uint
-            arg.uint
-      transparent inline given fromDFBoolOrBitToken[R <: DFToken[DFBoolOrBit]]: Candidate[R] =
-        new Candidate[R]:
-          type OutS = false
-          type OutW = 1
-          type IsScalaInt = false
-          def apply(arg: R): Token[false, 1] =
-            import DFBits.Token.Ops.uint
-            import DFToken.Ops.bits
-            arg.bits.uint
+            ic(arg).uint
     end Candidate
 
     object TC:
