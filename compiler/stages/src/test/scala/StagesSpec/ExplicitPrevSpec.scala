@@ -58,6 +58,33 @@ class ExplicitPrevSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  // TODO: without `v := ?`, is this a valid code?
+  // Should we place default assignment to bubble outside of the `if` automatically?
+  test("Global declaration, local usage, no prev") {
+    class ID extends DFDesign:
+      val x = SInt(16) <> IN
+      val v = SInt(16) <> VAR
+      val y = SInt(16) <> OUT
+      v := ?
+      if (x > 0)
+        v := 123
+        y := v
+    val id = (new ID).explicitPrev
+    assertCodeString(
+      id,
+      """|class ID extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val v = SInt(16) <> VAR
+         |  val y = SInt(16) <> OUT init ?
+         |  y := y.prev
+         |  v := ?
+         |  if (x > sd"16'0")
+         |    v := sd"16'123"
+         |    y := v
+         |end ID
+         |""".stripMargin
+    )
+  }
   test("Partial assignment coverage") {
     class ID extends DFDesign:
       val x  = SInt(16) <> IN
