@@ -864,7 +864,23 @@ object DFXInt:
       type OutW <: Int
       type IsScalaInt <: Boolean
       def apply(arg: R)(using DFC): DFValOf[DFXInt[OutS, OutW]]
-    object Candidate:
+    trait CandidateLP:
+      transparent inline given fromDFBitsValCandidate[R](using
+          ic: DFBits.Val.Candidate[R]
+      ): Candidate[R] =
+        new Candidate[R]:
+          type OutS = false
+          type OutW = ic.OutW
+          type IsScalaInt = false
+          def apply(arg: R)(using dfc: DFC): DFValOf[DFXInt[false, ic.OutW]] =
+            import DFBits.Val.Ops.uint
+            given DFC = dfc.anonymize
+            val dfVal = ic(arg)
+            if (dfVal.hasTag[DFVal.TruncateTag]) dfVal.uint.tag(DFVal.TruncateTag)
+            else if (dfVal.hasTag[DFVal.ExtendTag]) dfVal.uint.tag(DFVal.ExtendTag)
+            else dfVal.uint
+    end CandidateLP
+    object Candidate extends CandidateLP:
       transparent inline given fromTokenCandidate[R](using
           ic: Token.Candidate[R]
       ): Candidate[R] = new Candidate[R]:
@@ -879,25 +895,6 @@ object DFXInt:
         type OutW = W
         type IsScalaInt = false
         def apply(arg: R)(using DFC): DFValOf[DFXInt[S, W]] = arg
-      given fromDFBitsVal[W <: Int, R <: DFValOf[DFBits[W]]]: Candidate[R] with
-        type OutS = false
-        type OutW = W
-        type IsScalaInt = false
-        def apply(arg: R)(using dfc: DFC): DFValOf[DFXInt[false, W]] =
-          import DFBits.Val.Ops.uint
-          given DFC = dfc.anonymize
-          if (arg.hasTag[DFVal.TruncateTag]) arg.uint.tag(DFVal.TruncateTag)
-          else if (arg.hasTag[DFVal.ExtendTag]) arg.uint.tag(DFVal.ExtendTag)
-          else arg.uint
-      given fromDFBoolOrBitVal[R <: DFValOf[DFBoolOrBit]]: Candidate[R] with
-        type OutS = false
-        type OutW = 1
-        type IsScalaInt = false
-        def apply(arg: R)(using dfc: DFC): DFValOf[DFXInt[false, 1]] =
-          import DFBits.Val.Ops.uint
-          import DFVal.Ops.bits
-          given DFC = dfc.anonymize
-          arg.bits.uint
       inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
           "Cannot apply an enum entry value to a dataflow decimal variable."
