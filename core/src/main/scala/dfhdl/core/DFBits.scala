@@ -31,7 +31,7 @@ object DFBits:
         Int,
         [AW <: Int, TW <: Int] =>> AW == TW,
         [AW <: Int, TW <: Int] =>> "The alias width (" + AW +
-          ") is different than the dataflow value width (" + TW + ")."
+          ") is different than the DFHDL value width (" + TW + ")."
       ]
   protected object `LW >= RW`
       extends Check2[

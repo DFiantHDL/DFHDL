@@ -129,7 +129,7 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("Design names affect named dataflow types") {
+  test("Design names affect named DFHDL types") {
     class ID extends DFDesign:
       case class ID() extends Opaque(Bit)
       val x = SInt(16) <> IN

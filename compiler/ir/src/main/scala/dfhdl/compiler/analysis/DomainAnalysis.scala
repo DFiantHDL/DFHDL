@@ -47,7 +47,7 @@ final class DomainAnalysis(designDB: DB):
             // just register-transfer domains with new configuration
             case DomainType.RT(cfg: RTDomainCfg.Explicit)
                 if collectedDesignDomains.isNotComplete((design, cfg)) =>
-              // collect existing clk and rst dataflow value members
+              // collect existing clk and rst DFHDL value members
               members.collectFirst {
                 case clk: DFVal.Dcl if clk.getName == "clk" =>
                   // if clk is an output then this is an output domain.

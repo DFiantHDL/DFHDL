@@ -62,7 +62,7 @@ class UniqueNamesSpec extends StageSpec:
       val y = (MyEnumLcl, MyEnumLcl) <> VAR init (MyEnumLcl.Bar, MyEnumLcl.Baz)
     Temp.y // touch to force evaluation
   end SomeEnums
-  test("Unique named dataflow types") {
+  test("Unique named DFHDL types") {
     val top = (new SomeEnums).uniqueNames(Set(), true)
     assertCodeString(
       top,

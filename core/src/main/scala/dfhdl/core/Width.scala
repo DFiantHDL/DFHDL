@@ -178,7 +178,7 @@ object Width:
               ref.widen.calcValWidth(onlyTokens)
             case x =>
               report.errorAndAbort(
-                s"Unsupported argument value ${x.showType} for dataflow receiver type DFBits"
+                s"Unsupported argument value ${x.showType} for DFHDL receiver type DFBits"
               )
       end match
     end calcValWidth

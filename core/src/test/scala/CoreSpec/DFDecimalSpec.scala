@@ -335,7 +335,7 @@ class DFDecimalSpec extends DFSpec:
       value <= u8
     }
     assertDSLErrorLog(
-      """Cannot compare a dataflow value (width = 8) with a Scala `Int` argument that is wider (width = 10).
+      """Cannot compare a DFHDL value (width = 8) with a Scala `Int` argument that is wider (width = 10).
         |An explicit conversion must be applied.
         |""".stripMargin
     )(

@@ -57,14 +57,14 @@ class DFOpaqueSpec extends DFSpec:
   }
   test("Comparison") {
     assertCompileError(
-      "Cannot compare dataflow value of type `DFOpaqueSpec.this.o1u8` with value of type `DFOpaqueSpec.this.o2u8 <> VAR`."
+      "Cannot compare DFHDL value of type `DFOpaqueSpec.this.o1u8` with value of type `DFOpaqueSpec.this.o2u8 <> VAR`."
     )(
       """o1 == o2"""
     )
   }
   test("Assignment") {
     assertCompileError(
-      "Unsupported value of type `DFOpaqueSpec.this.o2u8 <> VAR` for dataflow receiver type `DFOpaqueSpec.this.o1u8`."
+      "Unsupported value of type `DFOpaqueSpec.this.o2u8 <> VAR` for DFHDL receiver type `DFOpaqueSpec.this.o1u8`."
     )(
       """o1 := o2"""
     )

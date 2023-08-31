@@ -264,7 +264,7 @@ object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
 // ------
 // This meant to be just a DFType placeholder where no type is actually
 // useful. E.g., the return value of an IfElse block that has no valid
-// dataflow return value.
+// DFHDL return value.
 /////////////////////////////////////////////////////////////////////////////
 case object NoType extends DFType:
   type Data = Nothing

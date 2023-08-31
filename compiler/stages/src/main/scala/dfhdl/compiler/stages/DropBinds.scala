@@ -45,7 +45,7 @@ case object DropBinds extends Stage:
         case _ => None
   end ReplacePattern
   def transform(designDB: DB)(using MemberGetSet): DB =
-    // going through all dataflow matches
+    // going through all DFHDL matches
     val patchList = designDB.conditionalChainTable.toList.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>
         val bindCaseMap = mutable.Map.empty[DFVal, DFConditional.DFCaseBlock]
@@ -75,7 +75,7 @@ case object DropBinds extends Stage:
             // be modified accordingly.
             // a bind group has a prev alias if at least one of its variables has
             val hasPrevAlias = false // bg.exists(_.hasPrevAlias)
-            // In case the group has prev alias, then we need to create a new dataflow variable
+            // In case the group has prev alias, then we need to create a new DFHDL variable
             // and assign the underlying bind value to it. If the bind group contains more than one bind,
             // then the rest of the binds are removed and reference the bind variable we created.
             if (hasPrevAlias)

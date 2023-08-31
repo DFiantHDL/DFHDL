@@ -58,7 +58,7 @@ class DFStructSpec extends DFSpec:
     val cc3 = new CCs(9)
     val t3 = cc3.XY <> VAR
     assertCompileError(
-      "Mismatch structure value type `cc3.XY` for dataflow receiver structure type `cc2.XY`."
+      "Mismatch structure value type `cc3.XY` for DFHDL receiver structure type `cc2.XY`."
     )(
       """t2 := t3"""
     )
@@ -98,7 +98,7 @@ class DFStructSpec extends DFSpec:
     ) {
       // define the struct class
       case class XY(x: UInt[8] <> VAL, y: Bits[3] <> VAL) extends Struct
-      // constructing the dataflow value with initialization
+      // constructing the DFHDL value with initialization
       val xy = XY <> VAR init XY(x = 0, y = b"101")
       // accessing the fields and assigning them individually
       xy.x := 22

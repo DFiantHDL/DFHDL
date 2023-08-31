@@ -70,7 +70,7 @@ object DFDecimal:
           Int,
           Int,
           [ValW <: Int, ArgW <: Int] =>> ValW >= ArgW,
-          [ValW <: Int, ArgW <: Int] =>> "Cannot compare a dataflow value (width = " + ValW +
+          [ValW <: Int, ArgW <: Int] =>> "Cannot compare a DFHDL value (width = " + ValW +
             ") with a Scala `Int` argument that is wider (width = " + ArgW +
             ").\nAn explicit conversion must be applied."
         ]
@@ -897,7 +897,7 @@ object DFXInt:
         def apply(arg: R)(using DFC): DFValOf[DFXInt[S, W]] = arg
       inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
-          "Cannot apply an enum entry value to a dataflow decimal variable."
+          "Cannot apply an enum entry value to a DFHDL decimal variable."
         )
     end Candidate
 

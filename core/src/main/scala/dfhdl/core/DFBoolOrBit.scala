@@ -146,7 +146,7 @@ object DFBoolOrBit:
 
   object Val:
     @implicitNotFound(
-      "Argument of type ${R} is not a proper candidate for a DFBool or DFBit dataflow value."
+      "Argument of type ${R} is not a proper candidate for a DFBool or DFBit DFHDL value."
     )
     trait Candidate[R]:
       type OutT <: DFBoolOrBit

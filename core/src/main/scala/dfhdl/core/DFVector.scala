@@ -85,7 +85,7 @@ object DFVector:
       val dim = dfType.asIR.cellDims.head
       require(
         data.length == dim,
-        s"The length of the Scala vector (${data.length}) does not match the dataflow vector dimension ($dim)"
+        s"The length of the Scala vector (${data.length}) does not match the DFHDL vector dimension ($dim)"
       )
       ir.DFVector.Token(dfType.asIR, data).asTokenOf[DFVector[T, D]]
 

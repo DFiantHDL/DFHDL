@@ -82,7 +82,7 @@ object DFStruct:
         .mkString("\n")
       val intro = if (structName.isEmpty) "tuple" else s"struct `$structName`"
       val msg =
-        s"""The $intro has invalid dataflow value field types. 
+        s"""The $intro has invalid DFHDL value field types. 
            |A valid field type is in the form of [DFType] <> VAL.
            |The following fields do not match this pattern:
            |$fieldTypesStr""".stripMargin
@@ -143,7 +143,7 @@ object DFStruct:
     if (sameTypes(tpeL, tpeR)) '{ new SameFields[L, R] {} }
     else
       val msg =
-        s"Mismatch structure value type `${tpeR.showType}` for dataflow receiver structure type `${tpeL.showType}`."
+        s"Mismatch structure value type `${tpeR.showType}` for DFHDL receiver structure type `${tpeL.showType}`."
       '{ compiletime.error(${ Expr(msg) }) }
   end sfMacro
 

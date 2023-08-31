@@ -207,7 +207,7 @@ object DFType:
           val badTypeStr = clsTpe.show
           val msg =
             if (badTypeStr.endsWith("$package.<none>"))
-              s"Type `$badTypeStr` is not a supported dataflow type constructor.\nHint: Are you missing an argument in your dataflow type constructor?"
+              s"Type `$badTypeStr` is not a supported DFHDL type constructor.\nHint: Are you missing an argument in your DFHDL type constructor?"
             else
               s"Type `$badTypeStr` is not a supported product companion.\nHint: Did you forget to extends `Struct` or `Encode`?"
           '{

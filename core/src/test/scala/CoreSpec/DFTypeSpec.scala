@@ -72,13 +72,13 @@ class DFTypeSpec extends DFSpec:
 
   test("value modifier limitations") {
     assertCompileError(
-      "Can only initialize a dataflow port or variable that are not already initialized."
+      "Can only initialize a DFHDL port or variable that are not already initialized."
     )(
       """val x = UInt(8) <> VAR init 0 init 0"""
     )
     val y = UInt(8) <> VAR
     assertCompileError(
-      "Can only initialize a dataflow port or variable that are not already initialized."
+      "Can only initialize a DFHDL port or variable that are not already initialized."
     )(
       """(y + 1) init 0"""
     )
@@ -99,14 +99,14 @@ class DFTypeSpec extends DFSpec:
       """z(3, 0).prev"""
     )
     assertCompileError(
-      "The LHS of a connection must be a connectable dataflow value (var/port)."
+      "The LHS of a connection must be a connectable DFHDL value (var/port)."
     )(
       """z(3, 0) <> all(0)"""
     )
     val tplx = tpl <> VAR
     tplx._1 := 1
     assertCompileError(
-      "The LHS of a connection must be a connectable dataflow value (var/port)."
+      "The LHS of a connection must be a connectable DFHDL value (var/port)."
     )(
       """tplx._1 <> 1"""
     )

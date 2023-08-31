@@ -41,7 +41,7 @@ case object AddClkRst extends Stage:
                 // clk and rst are required according to the configuration
                 val requiresClk = clkCfg != None
                 val requiresRst = rstCfg != None
-                // collect existing clk and rst dataflow value members
+                // collect existing clk and rst DFHDL value members
                 val existingClk = members.collectFirst {
                   case clk: DFVal.Dcl if clk.getName == "clk" =>
                     // if clk is an output then this is an output domain.

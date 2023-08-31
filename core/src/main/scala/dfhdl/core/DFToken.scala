@@ -113,7 +113,7 @@ object DFToken:
       token: DFToken[DFType[ir.DFType.Aux[T, Data], Args]]
   ) def data: Data = token.asIR.data.asInstanceOf[Data]
 
-  @implicitNotFound("Unsupported token value ${V} for dataflow type ${T}")
+  @implicitNotFound("Unsupported token value ${V} for DFHDL type ${T}")
   trait TC[T <: DFTypeAny, V] extends TCConv[T, V, DFTokenAny]:
     type Out = DFToken[T]
     final def apply(dfType: T, value: V): Out = conv(dfType, value)
@@ -127,7 +127,7 @@ object DFToken:
         (
             "Unsupported value of type `",
             r.Out,
-            "` for dataflow receiver type `",
+            "` for DFHDL receiver type `",
             t.Out,
             "`."
         )
@@ -281,7 +281,7 @@ object DFToken:
           vTpe.getTupleArgs.forall(va => tTpe.tupleSigMatch(va, false))
         case _ => false
       // In the case we have a multiple elements in the tuple value that match the signature
-      // of the dataflow type, then each element is considered as a candidate
+      // of the DFHDL type, then each element is considered as a candidate
       if (multiElements)
         val Apply(_, vArgsTerm) = term: @unchecked
         def tokens(dfType: Expr[DFTuple[T]]): List[Expr[DFTokenAny]] =

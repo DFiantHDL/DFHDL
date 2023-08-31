@@ -173,7 +173,7 @@ object DFVal:
   given [I](using
       initializableOnly: AssertGiven[
         I =:= Modifier.Initializable,
-        "Can only initialize a dataflow port or variable that are not already initialized."
+        "Can only initialize a DFHDL port or variable that are not already initialized."
       ]
   ): InitCheck[I] with {}
 
@@ -501,7 +501,7 @@ object DFVal:
         (
             "Unsupported value of type `",
             r.Out,
-            "` for dataflow receiver type `",
+            "` for DFHDL receiver type `",
             t.Out,
             "`."
         )
@@ -512,7 +512,7 @@ object DFVal:
         given MemberGetSet = dfc.getSet
         require(
           dfType == value.dfType,
-          s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
+          s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
         )
         value
     given sameValAndTokenType[T <: DFTypeAny, V <: T <> TOKEN](using
@@ -523,7 +523,7 @@ object DFVal:
         given MemberGetSet = dfc.getSet
         require(
           dfType == value.dfType,
-          s"Unsupported value of type `${value.dfType.codeString}` for dataflow receiver type `${dfType.codeString}`."
+          s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
         )
         DFVal.Const(value)
   end TCLP
@@ -567,7 +567,7 @@ object DFVal:
     ): Compare[T, R, Op, C] =
       Error.call[
         (
-            "Cannot compare dataflow value of type `",
+            "Cannot compare DFHDL value of type `",
             t.Out,
             "` with value of type `",
             r.Out,
@@ -583,7 +583,7 @@ object DFVal:
         given Printer = DefaultPrinter(using dfc.getSet)
         require(
           dfType == arg.dfType,
-          s"Cannot compare dataflow value type `${dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
+          s"Cannot compare DFHDL value type `${dfType.codeString}` with DFHDL value type `${arg.dfType.codeString}`."
         )
         arg
     inline given sameValAndTokenType[
@@ -600,7 +600,7 @@ object DFVal:
         given Printer = DefaultPrinter(using dfc.getSet)
         require(
           dfType == arg.dfType,
-          s"Cannot compare dataflow value type `${dfType.codeString}` with dataflow value type `${arg.dfType.codeString}`."
+          s"Cannot compare DFHDL value type `${dfType.codeString}` with DFHDL value type `${arg.dfType.codeString}`."
         )
         DFVal.Const(arg)
     end sameValAndTokenType
@@ -909,7 +909,7 @@ object DFPortOps:
     def <>[R](rhs: Exact[R])(using
         connectableOnly: AssertGiven[
           C <:< Modifier.Connectable,
-          "The LHS of a connection must be a connectable dataflow value (var/port)."
+          "The LHS of a connection must be a connectable DFHDL value (var/port)."
         ],
         tc: DFVal.TC[T, R],
         dfc: DFC
