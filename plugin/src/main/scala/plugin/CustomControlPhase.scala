@@ -312,13 +312,13 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           }
           if (args.isEmpty)
             throw new IllegalArgumentException(
-              "No dataflow fields were found. A dataflow struct cannot be empty."
+              "No DFHDL fields were found. A DFHDL struct cannot be empty."
             )
-          // all fields are dataflow values
+          // all fields are DFHDL values
           if (argsAreDFVal.forall(i => i)) Some(DFVal(DFStruct(fieldsTpe)))
           else
             throw new IllegalArgumentException(
-              "Not all match selector structs fields are dataflow values."
+              "Not all match selector structs fields are DFHDL values."
             )
           end if
         case _ => None
@@ -349,15 +349,15 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             case DFStructVal(t) => Some(t)
             case _              => None
           }
-          // all tuple arguments are dataflow args
+          // all tuple arguments are DFHDL args
           if (argsConv.forall(_.isDefined))
             val dfType = DFStruct(AppliedType(tpl, argsConv.flatten))
             Some(DFVal(dfType))
-          // all tuple arguments are NOT dataflow args
+          // all tuple arguments are NOT DFHDL args
           else if (argsConv.forall(_.isEmpty)) None
           else
             throw new IllegalArgumentException(
-              "Not all match selector tuple fields are dataflow values."
+              "Not all match selector tuple fields are DFHDL values."
             )
           end if
         case _ => None
@@ -377,7 +377,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     (dfTypeTpe, constPat) match
       case (DFXInt(signed, widthTpe), Constant(i: Int)) if i < 0 && !signed =>
         report.error(
-          s"Cannot compare a signed literal value with an unsigned dataflow variable.\nAn explicit conversion must be applied.",
+          s"Cannot compare a signed literal value with an unsigned DFHDL variable.\nAn explicit conversion must be applied.",
           errPos
         )
         EmptyTree
@@ -386,7 +386,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             Constant(i: Int)
           ) if i.bitsWidth(signed) > width =>
         report.error(
-          s"Cannot compare a dataflow value (width = $width) with a Scala `Int` argument that is wider (width = ${i
+          s"Cannot compare a DFHDL value (width = $width) with a Scala `Int` argument that is wider (width = ${i
               .bitsWidth(signed)}).\nAn explicit conversion must be applied.",
           errPos
         )
@@ -397,7 +397,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         patternSingleton
       case (selectorTpe, constPat) =>
         report.error(
-          s"Unsupported literal ${constPat.show} for the dataflow variable type ${selectorTpe.show}",
+          s"Unsupported literal ${constPat.show} for the DFHDL variable type ${selectorTpe.show}",
           errPos
         )
         EmptyTree
@@ -656,7 +656,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           case DFBits(_) => // ok
           case _ =>
             report.error(
-              "`all` pattern is allowed for a Bits dataflow value only.",
+              "`all` pattern is allowed for a Bits DFHDL value only.",
               patternTree.srcPos
             )
         FromCore.patternSingleton(selectorTree, lit)
@@ -678,7 +678,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           case DFBits(_) | DFXInt(_, _) => // ok
           case _ =>
             report.error(
-              "String interpolation pattern is only allowed for Bits, UInt, or SInt dataflow values.",
+              "String interpolation pattern is only allowed for Bits, UInt, or SInt DFHDL values.",
               patternTree.srcPos
             )
             break(EmptyTree)
@@ -689,7 +689,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
               case DFUInt(ConstantType(Constant(w: Int))) => w
               case _ =>
                 report.error(
-                  "Value extraction with a string interpolation pattern is only allowed for Bits or UInt dataflow values.",
+                  "Value extraction with a string interpolation pattern is only allowed for Bits or UInt DFHDL values.",
                   patternTree.srcPos
                 )
                 break(EmptyTree)
@@ -770,7 +770,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           )
         val dfPattern =
           transformDFCasePattern(newBindSel, boundPattern, prefixBindName)
-        // finally, construct the dataflow bounded pattern
+        // finally, construct the DFHDL bounded pattern
         FromCore.patternBind(newBindSel, dfPattern)
       // union of alternatives
       case Alternative(list) =>
@@ -833,7 +833,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             "dfhdl.core.DFToken"
           ) =>
         report.error(
-          s"This dataflow `$control` is missing an explicit type annotation.",
+          s"This DFHDL `$control` is missing an explicit type annotation.",
           tree.srcPos
         )
       case _ =>

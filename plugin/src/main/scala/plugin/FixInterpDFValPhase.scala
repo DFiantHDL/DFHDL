@@ -20,7 +20,7 @@ import collection.mutable
 import annotation.tailrec
 
 /*
-  This phase fixes dataflow value string interpolation extractors that infer types as `String & B[xyz]`.
+  This phase fixes DFHDL value string interpolation extractors that infer types as `String & B[xyz]`.
   This phase detects such occurrences and changes the type to `B[xyz]`.
  */
 class FixInterpDFValPhase(setting: Setting) extends CommonPhase:

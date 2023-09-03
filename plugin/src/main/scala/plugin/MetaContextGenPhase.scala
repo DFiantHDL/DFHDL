@@ -100,7 +100,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
             case Some(t: ValDef) =>
               if (t.symbol.flags.is(Flags.Mutable))
                 report.warning(
-                  "Scala `var` modifier for dataflow values/classes is highly discouraged!\nConsider changing to `val`.",
+                  "Scala `var` modifier for DFHDL values/classes is highly discouraged!\nConsider changing to `val`.",
                   t.srcPos
                 )
               val (nameOpt, docOpt, annots) =
@@ -248,13 +248,13 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         val rhsSym = rhs.tpe.dealias.typeSymbol
         if (rhsSym == dfValSym || rhsSym == dfTokenSym)
           report.error(
-            s"Unsupported Scala primitive at the LHS of `$fun` with a dataflow value or token.\nConsider switching positions of the arguments.",
+            s"Unsupported Scala primitive at the LHS of `$fun` with a DFHDL value or token.\nConsider switching positions of the arguments.",
             pos
           )
       case Apply(Select(lhs, fun), List(Apply(Apply(Ident(hackName), _), _)))
           if (fun == nme.ZOR || fun == nme.ZAND || fun == nme.XOR) && hackName.toString == "BooleanHack" =>
         report.error(
-          s"Unsupported Scala Boolean primitive at the LHS of `$fun` with a dataflow value.\nConsider switching positions of the arguments.",
+          s"Unsupported Scala Boolean primitive at the LHS of `$fun` with a DFHDL value.\nConsider switching positions of the arguments.",
           pos
         )
       case Apply(Apply(Ident(hackName), _), _) if hackName.toString == "BooleanHack" =>
