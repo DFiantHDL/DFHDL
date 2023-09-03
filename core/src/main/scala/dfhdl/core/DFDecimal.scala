@@ -865,20 +865,19 @@ object DFXInt:
       type IsScalaInt <: Boolean
       def apply(arg: R)(using DFC): DFValOf[DFXInt[OutS, OutW]]
     trait CandidateLP:
-      transparent inline given fromDFBitsValCandidate[R](using
+      given fromDFBitsValCandidate[R](using
           ic: DFBits.Val.Candidate[R]
-      ): Candidate[R] =
-        new Candidate[R]:
-          type OutS = false
-          type OutW = ic.OutW
-          type IsScalaInt = false
-          def apply(arg: R)(using dfc: DFC): DFValOf[DFXInt[false, ic.OutW]] =
-            import DFBits.Val.Ops.uint
-            given DFC = dfc.anonymize
-            val dfVal = ic(arg)
-            if (dfVal.hasTag[DFVal.TruncateTag]) dfVal.uint.tag(DFVal.TruncateTag)
-            else if (dfVal.hasTag[DFVal.ExtendTag]) dfVal.uint.tag(DFVal.ExtendTag)
-            else dfVal.uint
+      ): Candidate[R] with
+        type OutS = false
+        type OutW = ic.OutW
+        type IsScalaInt = false
+        def apply(arg: R)(using dfc: DFC): DFValOf[DFXInt[false, ic.OutW]] =
+          import DFBits.Val.Ops.uint
+          given DFC = dfc.anonymize
+          val dfVal = ic(arg)
+          if (dfVal.hasTag[DFVal.TruncateTag]) dfVal.uint.tag(DFVal.TruncateTag)
+          else if (dfVal.hasTag[DFVal.ExtendTag]) dfVal.uint.tag(DFVal.ExtendTag)
+          else dfVal.uint
     end CandidateLP
     object Candidate extends CandidateLP:
       transparent inline given fromTokenCandidate[R](using
