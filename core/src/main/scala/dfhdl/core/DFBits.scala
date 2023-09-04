@@ -131,26 +131,23 @@ object DFBits:
     trait Candidate[R]:
       type OutW <: Int
       def apply(arg: R): Token[OutW]
-    protected trait CandidateLP:
-      protected inline val intErrMsg =
+    object Candidate:
+      protected[DFBits] inline val intErrMsg =
         "An integer value cannot be a candidate for a Bits type.\nTry explicitly using a decimal token via the `d\"<width>'<number>\"` string interpolation."
       inline given errorOnInt[V <: Int]: Candidate[V] =
         compiletime.error(intErrMsg)
-    object Candidate extends CandidateLP:
       type Aux[R, W <: Int] = Candidate[R] { type OutW = W }
-      transparent inline given fromDFBitsToken[W <: Int, R <: Token[W]]: Candidate[R] =
-        new Candidate[R]:
-          type OutW = W
-          def apply(arg: R): Token[OutW] = arg
-      transparent inline given fromDFUIntToken[W <: Int, R <: DFUInt.Token[W]]: Candidate[R] =
-        new Candidate[R]:
-          type OutW = W
-          def apply(arg: R): Token[OutW] =
-            import DFToken.Ops.bits
-            arg.bits
-      transparent inline given fromDFBitCandidate[R, T <: DFBoolOrBit](using
+      given fromDFBitsToken[W <: Int, R <: Token[W]]: Candidate[R] with
+        type OutW = W
+        def apply(arg: R): Token[OutW] = arg
+      given fromDFUIntToken[W <: Int, R <: DFUInt.Token[W]]: Candidate[R] with
+        type OutW = W
+        def apply(arg: R): Token[OutW] =
+          import DFToken.Ops.bits
+          arg.bits
+      given fromDFBitCandidate[R, T <: DFBoolOrBit](using
           ic: DFBoolOrBit.Token.Candidate.Aux[R, T]
-      )(using T =:= DFBit): Candidate[R] = new Candidate[R]:
+      )(using T =:= DFBit): Candidate[R] with
         type OutW = 1
         def apply(arg: R): Token[1] =
           import DFToken.Ops.bits
@@ -203,10 +200,9 @@ object DFBits:
               ") is different than the DFType width (" + W + ")."
           ]
 
-      // TODO: minimize error when removing aux pattern
-      given DFBitsTokenFromCandidate[W <: Int, R, VW <: Int](using
-          ic: Candidate.Aux[R, VW]
-      )(using check: `W == VW`.Check[W, VW]): TC[DFBits[W], R] with
+      given DFBitsTokenFromCandidate[W <: Int, R, IC <: Candidate[R]](using ic: IC)(using
+          check: `W == VW`.Check[W, ic.OutW]
+      ): TC[DFBits[W], R] with
         def conv(dfType: DFBits[W], value: R): Out =
           val tokenArg = ic(value)
           check(dfType.width, tokenArg.asIR.width)
@@ -586,6 +582,8 @@ object DFBits:
       type OutW <: Int
       def apply(value: R)(using DFC): DFBits[OutW] <> VAL
     object Candidate:
+      inline given errorOnInt[V <: Int]: Candidate[V] =
+        compiletime.error(Token.Candidate.intErrMsg)
       given fromDFBits[W <: Int, R <: DFBits[W] <> VAL]: Candidate[R] with
         type OutW = W
         def apply(value: R)(using DFC): DFBits[W] <> VAL =
@@ -610,9 +608,7 @@ object DFBits:
         compiletime.error(
           "Cannot apply a signed value to a bits variable.\nConsider applying `.bits` conversion to resolve this issue."
         )
-      transparent inline given fromDFBitsTokenCandidate[R](using
-          ic: Token.Candidate[R]
-      ): Candidate[R] = new Candidate[R]:
+      given fromDFBitsTokenCandidate[R, IC <: Token.Candidate[R]](using ic: IC): Candidate[R] with
         type OutW = ic.OutW
         def apply(arg: R)(using DFC): DFBits[OutW] <> VAL =
           DFVal.Const(ic(arg))
@@ -643,9 +639,7 @@ object DFBits:
                   .asValOf[DFBits[Int]]
         end match
       end valueToBits
-      transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[R] = ${
-        DFBitsMacro[R]
-      }
+      transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[R] = ${ DFBitsMacro[R] }
       def DFBitsMacro[R](using
           Quotes,
           Type[R]
@@ -680,15 +674,13 @@ object DFBits:
               ") is different than the receiver width (" + ToString[LW] +
               ").\nConsider applying `.resize` to resolve this issue."
           ]
-      given DFBitsFromCandidate[
-          LW <: Int,
-          V
-      ](using dfc: DFC, candidate: Candidate[V])(using
-          check: `LW == RW`.Check[LW, candidate.OutW]
+      given DFBitsFromCandidate[LW <: Int, V, IC <: Candidate[V]](using dfc: DFC, ic: Candidate[V])(
+          using check: `LW == RW`.Check[LW, ic.OutW]
       ): TC[DFBits[LW], V] with
         def conv(dfType: DFBits[LW], value: V): DFValOf[DFBits[LW]] =
           import Ops.resizeBits
-          val dfVal = candidate(value)
+          given DFC = dfc.anonymize
+          val dfVal = ic(value)
           if (dfVal.hasTag[DFVal.TruncateTag] && dfType.width < dfVal.width)
             dfVal.resizeBits(dfType.width)
           else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.width > dfVal.width)

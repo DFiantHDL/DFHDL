@@ -43,16 +43,13 @@ object DFBoolOrBit:
       def apply(arg: R): DFToken[OutT]
     object Candidate:
       type Aux[R, T <: DFBoolOrBit] = Candidate[R] { type OutT = T }
-      transparent inline given fromBoolean[R <: Boolean]: Candidate[R] = new Candidate[R]:
+      given fromBoolean[R <: Boolean]: Candidate[R] with
         type OutT = DFBool
         def apply(arg: R): DFToken[DFBool] = Token(DFBool, arg)
-      transparent inline given fromBit[R <: BitNum]: Candidate[R] = new Candidate[R]:
+      given fromBit[R <: BitNum]: Candidate[R] with
         type OutT = DFBit
         def apply(arg: R): DFToken[DFBit] = Token(DFBit, arg)
-      transparent inline given fromDFBoolOrBitToken[
-          T <: DFBoolOrBit,
-          R <: DFToken[T]
-      ]: Candidate[R] = new Candidate[R]:
+      given fromDFBoolOrBitToken[T <: DFBoolOrBit, R <: DFToken[T]]: Candidate[R] with
         type OutT = T
         def apply(arg: R): DFToken[T] = arg
     end Candidate
@@ -152,15 +149,12 @@ object DFBoolOrBit:
       type OutT <: DFBoolOrBit
       def apply(arg: R)(using DFC): DFValOf[OutT]
     object Candidate:
-      transparent inline given fromTokenCandidate[R](using
-          ic: Token.Candidate[R]
-      ): Candidate[R] = new Candidate[R]:
+      given fromTokenCandidate[R, IC <: Token.Candidate[R]](using ic: IC): Candidate[R] with
         type OutT = ic.OutT
         def apply(arg: R)(using DFC): DFValOf[OutT] = DFVal.Const(ic(arg))
-      transparent inline given fromDFBoolOrBitVal[T <: DFBoolOrBit, R <: T <> VAL]: Candidate[R] =
-        new Candidate[R]:
-          type OutT = T
-          def apply(arg: R)(using DFC): T <> VAL = arg
+      given fromDFBoolOrBitVal[T <: DFBoolOrBit, R <: T <> VAL]: Candidate[R] with
+        type OutT = T
+        def apply(arg: R)(using DFC): T <> VAL = arg
 
     private def b2b[T <: DFBoolOrBit, R](dfType: T, arg: R)(using
         ic: Candidate[R],

@@ -138,35 +138,29 @@ object DFType:
         )
       ]
   object TC extends TCLP:
-    transparent inline given ofDFType[T <: DFTypeAny]: TC[T] = new TC[T]:
+    given ofDFType[T <: DFTypeAny]: TC[T] with
       type Type = T
       def apply(t: T): Type = t
 
-    transparent inline given ofBooleanCompanion: TC[Boolean.type] = new TC[Boolean.type]:
+    given ofBooleanCompanion: TC[Boolean.type] with
       type Type = DFBool
       def apply(t: Boolean.type): Type = DFBool
 
-    transparent inline given ofByteCompanion: TC[Byte.type] = new TC[Byte.type]:
+    given ofByteCompanion: TC[Byte.type] with
       type Type = DFBits[8]
       def apply(t: Byte.type): Type = DFBits(8)
 
-    transparent inline given ofIntCompanion: TC[Int.type] = new TC[Int.type]:
+    given ofIntCompanion: TC[Int.type] with
       type Type = DFSInt[32]
       def apply(t: Int.type): Type = DFSInt(32)
 
-    transparent inline given ofLongCompanion: TC[Long.type] = new TC[Long.type]:
+    given ofLongCompanion: TC[Long.type] with
       type Type = DFSInt[64]
       def apply(t: Long.type): Type = DFSInt(64)
 
-    transparent inline given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[T]]: TC[TFE] =
-      new TC[TFE]:
-        type Type = DFOpaque[TFE]
-        def apply(t: TFE): Type = DFOpaque(t)
-
-//    transparent inline given ofDFEnum[E <: DFEncoding]: TC[E] =
-//      new TC[E]:
-//        type Type = DFEnum[E]
-//        def apply(t: E): Type = DFEnum(e)
+    given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[T]]: TC[TFE] with
+      type Type = DFOpaque[TFE]
+      def apply(t: TFE): Type = DFOpaque(t)
 
     transparent inline given ofProductCompanion[T <: AnyRef]: TC[T] = ${ productMacro[T] }
     def productMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
@@ -219,9 +213,7 @@ object DFType:
       end match
     end productMacro
 
-    transparent inline given ofTuple[T <: NonEmptyTuple]: TC[T] = ${
-      ofTupleMacro[T]
-    }
+    transparent inline given ofTuple[T <: NonEmptyTuple]: TC[T] = ${ ofTupleMacro[T] }
     def ofTupleMacro[T <: NonEmptyTuple](using Quotes, Type[T]): Expr[TC[T]] =
       import quotes.reflect.*
       val tTpe = TypeRepr.of[T]

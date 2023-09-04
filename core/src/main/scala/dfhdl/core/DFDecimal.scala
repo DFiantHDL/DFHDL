@@ -488,8 +488,8 @@ object DFXInt:
       type IsScalaInt <: Boolean
       def apply(arg: R): Token[OutS, OutW]
     object Candidate:
-      // change to given...with after
-      // https://github.com/lampepfl/dotty/issues/13580 is resolved
+      // change to `given fromInt[R <: Int, I <: IntInfo[R]](using info: I): Candidate[R] with` after
+      // https://github.com/lampepfl/dotty/issues/18509 is resolved
       transparent inline given fromInt[R <: Int](using
           info: IntInfo[R]
       ): Candidate[R] = new Candidate[R]:
@@ -498,29 +498,25 @@ object DFXInt:
         type IsScalaInt = true
         def apply(arg: R): Token[OutS, OutW] =
           Token(info.signed(arg), info.width(arg), Some(arg))
-      transparent inline given fromDFXIntToken[W <: Int, S <: Boolean, R <: Token[S, W]]
-          : Candidate[R] =
-        new Candidate[R]:
-          type OutS = S
-          type OutW = W
-          type IsScalaInt = false
-          def apply(arg: R): Token[S, W] = arg
-      transparent inline given fromDFBitsTokenCandidate[R](using
-          ic: DFBits.Token.Candidate[R]
-      ): Candidate[R] =
-        new Candidate[R]:
-          type OutS = false
-          type OutW = ic.OutW
-          type IsScalaInt = false
-          def apply(arg: R): Token[false, ic.OutW] =
-            import DFBits.Token.Ops.uint
-            ic(arg).uint
+      given fromDFXIntToken[W <: Int, S <: Boolean, R <: Token[S, W]]: Candidate[R] with
+        type OutS = S
+        type OutW = W
+        type IsScalaInt = false
+        def apply(arg: R): Token[S, W] = arg
+      given fromDFBitsTokenCandidate[R, IC <: DFBits.Token.Candidate[R]](using ic: IC): Candidate[R]
+      with
+        type OutS = false
+        type OutW = ic.OutW
+        type IsScalaInt = false
+        def apply(arg: R): Token[false, ic.OutW] =
+          import DFBits.Token.Ops.uint
+          ic(arg).uint
     end Candidate
 
     object TC:
       import DFToken.TC
-      given [LS <: Boolean, LW <: Int, R](using
-          ic: Candidate[R]
+      given [LS <: Boolean, LW <: Int, R, IC <: Candidate[R]](using
+          ic: IC
       )(using
           check: TCCheck[LS, LW, ic.OutS, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
@@ -546,8 +542,8 @@ object DFXInt:
 
     object Compare:
       import DFToken.Compare
-      given [LS <: Boolean, LW <: Int, R, Op <: FuncOp, C <: Boolean](using
-          ic: Candidate[R]
+      given [LS <: Boolean, LW <: Int, R, Op <: FuncOp, C <: Boolean, IC <: Candidate[R]](using
+          ic: IC
       )(using
           check: CompareCheck[LS, LW, ic.OutS, ic.OutW, ic.IsScalaInt, C],
           op: ValueOf[Op],
@@ -865,8 +861,8 @@ object DFXInt:
       type IsScalaInt <: Boolean
       def apply(arg: R)(using DFC): DFValOf[DFXInt[OutS, OutW]]
     trait CandidateLP:
-      given fromDFBitsValCandidate[R](using
-          ic: DFBits.Val.Candidate[R]
+      given fromDFBitsValCandidate[R, IC <: DFBits.Val.Candidate[R]](using
+          ic: IC
       ): Candidate[R] with
         type OutS = false
         type OutW = ic.OutW
@@ -880,9 +876,9 @@ object DFXInt:
           else dfVal.uint
     end CandidateLP
     object Candidate extends CandidateLP:
-      transparent inline given fromTokenCandidate[R](using
-          ic: Token.Candidate[R]
-      ): Candidate[R] = new Candidate[R]:
+      given fromTokenCandidate[R, IC <: Token.Candidate[R]](using
+          ic: IC
+      ): Candidate[R] with
         type OutS = ic.OutS
         type OutW = ic.OutW
         type IsScalaInt = ic.IsScalaInt
@@ -1355,13 +1351,13 @@ object DFUInt:
           )
         ]
     object UBArg extends UBArgLP:
-      transparent inline given fromInt[UB <: Int, R <: Int](using
+      given fromInt[UB <: Int, R <: Int, I <: IntInfo[UB - 1]](using
           dfc: DFC,
-          ubInfo: IntInfo[UB - 1]
+          ubInfo: I
       )(using
           unsignedCheck: Unsigned.Check[R < 0],
           ubCheck: `UB > R`.Check[UB, R]
-      ): UBArg[UB, R] = new UBArg[UB, R]:
+      ): UBArg[UB, R] with
         type OutW = ubInfo.OutW
         def apply(ub: Inlined[UB], arg: R): DFValOf[DFUInt[OutW]] =
           unsignedCheck(arg < 0)
@@ -1371,18 +1367,19 @@ object DFUInt:
           val token =
             DFXInt.Token(false, ubInfo.width(fixme), Some(BigInt(arg)))
           DFVal.Const(token)
-      transparent inline given fromR[UB <: Int, R](using
+      end fromInt
+      given fromR[UB <: Int, R, IC <: DFXInt.Val.Candidate[R], I <: IntInfo[UB - 1]](using
           dfc: DFC,
-          c: DFXInt.Val.Candidate[R],
-          ubInfo: IntInfo[UB - 1]
+          ic: IC,
+          ubInfo: I
       )(using
-          unsignedCheck: Unsigned.Check[c.OutS],
-          widthCheck: `UBW == RW`.Check[ubInfo.OutW, c.OutW]
-      ): UBArg[UB, R] = new UBArg[UB, R]:
+          unsignedCheck: Unsigned.Check[ic.OutS],
+          widthCheck: `UBW == RW`.Check[ubInfo.OutW, ic.OutW]
+      ): UBArg[UB, R] with
         type OutW = ubInfo.OutW
         def apply(ub: Inlined[UB], arg: R): DFValOf[DFUInt[OutW]] =
           given DFC = dfc.anonymize
-          val argVal = c(arg)
+          val argVal = ic(arg)
           unsignedCheck(argVal.dfType.signed)
           // TODO: https://github.com/lampepfl/dotty/issues/15798
           val fixme = (ub - 1).asInstanceOf[Inlined[Int]].value
@@ -1397,6 +1394,7 @@ object DFUInt:
             case _ => // no check
           argVal.asValOf[DFUInt[OutW]]
         end apply
+      end fromR
     end UBArg
     object Ops:
       extension [W <: Int](lhs: DFValOf[DFUInt[W]])

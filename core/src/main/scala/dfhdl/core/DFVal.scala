@@ -574,7 +574,7 @@ object DFVal:
             "`."
         )
       ]
-    inline given sameValType[T <: DFTypeAny, R <: T <> VAL, Op <: FuncOp, C <: Boolean](using
+    given sameValType[T <: DFTypeAny, R <: T <> VAL, Op <: FuncOp, C <: Boolean](using
         DFC,
         ValueOf[Op],
         ValueOf[C]
@@ -586,7 +586,7 @@ object DFVal:
           s"Cannot compare DFHDL value type `${dfType.codeString}` with DFHDL value type `${arg.dfType.codeString}`."
         )
         arg
-    inline given sameValAndTokenType[
+    given sameValAndTokenType[
         T <: DFTypeAny,
         R <: T <> TOKEN,
         Op <: FuncOp,

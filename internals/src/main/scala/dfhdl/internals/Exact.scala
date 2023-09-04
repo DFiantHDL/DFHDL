@@ -52,7 +52,7 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
     import quotes.reflect.*
     term match
       case Inlined(_, _, term) => term.exactTerm
-      case Literal(const) => term
+      case Literal(const)      => term
       case t @ Apply(TypeApply(fun, _), tupleArgs) if t.tpe <:< TypeRepr.of[NonEmptyTuple] =>
         val terms = tupleArgs.map(t => t.exactTerm)
         val tpes = terms.map(_.tpe)
@@ -74,10 +74,9 @@ object Exact:
     type Out
     def apply(t: R): Out
   object Summon:
-    transparent inline given fromRegularTypes[R, T <: R]: Summon[R, T] =
-      new Summon[R, T]:
-        type Out = R
-        def apply(t: R): Out = t
+    given fromRegularTypes[R, T <: R]: Summon[R, T] with
+      type Out = R
+      def apply(t: R): Out = t
     transparent inline given fromExactTypes[R <: ExactTypes, T <: R]: Summon[R, T] =
       ${ summonMacro[R, T] }
     def summonMacro[R, T <: R](using
