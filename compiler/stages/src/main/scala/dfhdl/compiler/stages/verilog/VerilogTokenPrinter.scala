@@ -6,6 +6,7 @@ import dfhdl.internals.*
 import DFVal.*
 
 protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
+  type TPrinter <: VerilogPrinter
   val allowBitsBinModeInHex: Boolean = false
   val allowBitsExplicitWidth: Boolean = true
   def csDFBitBubbleChar: Char = 'x'
@@ -23,6 +24,8 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = csDFSIntFormatBig(value, width)
   def csDFUIntTokenFromBits(csBits: String): String = s"""$$unsigned($csBits)"""
   def csDFSIntTokenFromBits(csBits: String): String = s"""$$signed($csBits)"""
+  def csDFUIntBubble(width: Int): String = bubbleBits(width)
+  def csDFSIntBubble(width: Int): String = csDFSIntTokenFromBits(bubbleBits(width))
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
       case Some(value) =>

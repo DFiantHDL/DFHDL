@@ -190,7 +190,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       val c10 = UInt(48) const d"48'239794508230343"
       val c11 = SInt(4) const -8
       val c12 = SInt(49) const sd"49'-239794508230343"
-
+      val c13 = UInt(8) const ?
+      val c14 = SInt(8) const ?
     end Top
     val top = (new Top).getVerilogCode
     assertNoDiff(
@@ -218,6 +219,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  logic [47:0]  c10 = 48'd239794508230343;
          |  logic signed [3:0]  c11 = -4'sd8;
          |  logic signed [48:0]  c12 = -49'sd239794508230343;
+         |  logic [7:0]  c13 = 8'hxx;
+         |  logic signed [7:0]  c14 = $signed(8'hxx);
          |
          |endmodule
          |""".stripMargin

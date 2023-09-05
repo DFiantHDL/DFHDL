@@ -82,10 +82,15 @@ trait AbstractTokenPrinter extends AbstractPrinter:
   def csDFSIntFormatSmall(value: BigInt, width: Int): String
   def csDFUIntTokenFromBits(csBits: String): String
   def csDFSIntTokenFromBits(csBits: String): String
+  def csDFUIntBubble(width: Int): String
+  def csDFSIntBubble(width: Int): String
+  final protected def bubbleBits(width: Int): String =
+    csDFBitsData(DFBits(width), (BitVector.low(width), BitVector.high(width)))
+
   final def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
+    import dfType.width
     data match
       case Some(value) =>
-        import dfType.width
         def csBits = csDFBitsData(DFBits(width), (value.toBitVector(width), BitVector.low(width)))
         if (dfType.fractionWidth == 0) // DFXInt
           // if the language supports big integers (with explicit widths) we can simply display the values
@@ -100,7 +105,11 @@ trait AbstractTokenPrinter extends AbstractPrinter:
           else if (value.bitsWidth(false) < 31) csDFUIntFormatSmall(value, width)
           else csDFUIntTokenFromBits(csBits)
         else ??? // DFXFix
-      case None => "?"
+      case None =>
+        if (dfType.signed) csDFSIntBubble(width = width)
+        else csDFUIntBubble(width = width)
+    end match
+  end csDFDecimalData
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String
@@ -138,6 +147,8 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = value.toString
   def csDFUIntTokenFromBits(csBits: String): String = s"$csBits.uint"
   def csDFSIntTokenFromBits(csBits: String): String = s"$csBits.sint"
+  def csDFUIntBubble(width: Int): String = "?"
+  def csDFSIntBubble(width: Int): String = "?"
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
       case Some(value) =>

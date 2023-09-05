@@ -23,6 +23,8 @@ protected trait VHDLTokenPrinter extends AbstractTokenPrinter:
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = s"to_signed($value, $width)"
   def csDFUIntTokenFromBits(csBits: String): String = s"""unsigned'($csBits)"""
   def csDFSIntTokenFromBits(csBits: String): String = s"""signed'($csBits)"""
+  def csDFUIntBubble(width: Int): String = csDFUIntTokenFromBits(bubbleBits(width))
+  def csDFSIntBubble(width: Int): String = csDFSIntTokenFromBits(bubbleBits(width))
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
       case Some(value) =>

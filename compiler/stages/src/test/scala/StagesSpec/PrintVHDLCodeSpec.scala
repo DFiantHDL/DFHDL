@@ -187,6 +187,8 @@ class PrintVHDLCodeSpec extends StageSpec:
       val c10 = UInt(48) const d"48'239794508230343"
       val c11 = SInt(4) const -8
       val c12 = SInt(49) const sd"49'-239794508230343"
+      val c13 = UInt(8) const ?
+      val c14 = SInt(8) const ?
 
     end Top
     val top = (new Top).getVHDLCode
@@ -213,6 +215,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant c10 : unsigned(47 downto 0) := 48d"239794508230343";
          |  constant c11 : signed(3 downto 0) := -4d"8";
          |  constant c12 : signed(48 downto 0) := -49d"239794508230343";
+         |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
+         |  constant c14 : signed(7 downto 0) := signed'(x"--");
          |begin
          |
          |end Top_arch;
