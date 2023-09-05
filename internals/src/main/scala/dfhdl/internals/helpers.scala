@@ -41,7 +41,7 @@ extension [T](lhs: Iterable[T])
 end extension
 
 extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
-  def asTypeOf[T]: Type[T] =
+  def asTypeOf[T <: AnyKind]: Type[T] =
     import quotes.reflect.*
     tpe.asType.asInstanceOf[Type[T]]
   def asTypeTree: quotes.reflect.TypeTree =

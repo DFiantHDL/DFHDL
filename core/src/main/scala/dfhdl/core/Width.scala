@@ -105,7 +105,7 @@ object Width:
           dfTpe.asTypeOf[Any] match
             case '[NonEmptyTuple] =>
               dfTpe.getTupleArgs
-                .map(_.asTypeOf[Any])
+                .map(_.asTypeOf[AnyKind])
                 .collect { case '[DFValOf[t]] =>
                   TypeRepr.of[t].calcWidth
                 }
@@ -114,7 +114,7 @@ object Width:
               val clsSym = dfTpe.classSymbol.get
               val widths =
                 clsSym.fieldMembers.view
-                  .map(m => dfTpe.memberType(m).asTypeOf[Any])
+                  .map(m => dfTpe.memberType(m).asTypeOf[AnyKind])
                   .collect { case '[DFValOf[t]] =>
                     TypeRepr.of[t].calcWidth
                   }
