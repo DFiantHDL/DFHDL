@@ -6,7 +6,7 @@ trait Exactly:
   type Out
   val value: Out
 object Exactly:
-  // We need this `fromProduct` as a workaround for DFStruct where `v := XY(h"27", ...)`
+  // We need this `fromRegularTypes` as a workaround for DFStruct where `v := XY(h"27", ...)`
   implicit transparent inline def fromRegularTypes[T](
       inline value: T
   ): Exactly = Exact[T](value)
