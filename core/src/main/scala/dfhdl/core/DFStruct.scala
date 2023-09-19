@@ -218,7 +218,7 @@ object DFStruct:
       given DFStructValFromCC[
           F <: Fields,
           RF <: Fields
-      ](using dfc: DFC, sf: SameFields[F, RF]): TC[DFStruct[F], RF] with
+      ](using sf: SameFields[F, RF]): TC[DFStruct[F], RF] with
         def conv(dfType: DFStruct[F], value: RF)(using Ctx): Out =
           sf.check(dfType, DFStruct(value))
           val dfVals = value.productIterator.map { case dfVal: DFVal[_, _] =>
@@ -229,7 +229,7 @@ object DFStruct:
           F <: Fields,
           RF <: Fields,
           V <: DFValOf[DFStruct[RF]]
-      ](using dfc: DFC, sf: SameFields[F, RF]): TC[DFStruct[F], V] with
+      ](using sf: SameFields[F, RF]): TC[DFStruct[F], V] with
         def conv(dfType: DFStruct[F], value: V)(using Ctx): Out =
           sf.check(dfType, value.dfType)
           value.asValOf[DFStruct[F]]
@@ -241,7 +241,7 @@ object DFStruct:
           RF <: Fields,
           Op <: FuncOp,
           C <: Boolean
-      ](using dfc: DFC, sf: SameFields[F, RF]): Compare[DFStruct[F], RF, Op, C] with
+      ](using sf: SameFields[F, RF]): Compare[DFStruct[F], RF, Op, C] with
         def conv(dfType: DFStruct[F], value: RF)(using Ctx): Out =
           sf.check(dfType, DFStruct(value))
           val dfVals = value.productIterator.map { case dfVal: DFVal[_, _] =>
@@ -254,7 +254,7 @@ object DFStruct:
           R <: DFValOf[DFStruct[RF]],
           Op <: FuncOp,
           C <: Boolean
-      ](using dfc: DFC, sf: SameFields[F, RF]): Compare[DFStruct[F], R, Op, C] with
+      ](using sf: SameFields[F, RF]): Compare[DFStruct[F], R, Op, C] with
         def conv(dfType: DFStruct[F], value: R)(using Ctx): Out =
           sf.check(dfType, value.dfType)
           value.asValOf[DFStruct[F]]

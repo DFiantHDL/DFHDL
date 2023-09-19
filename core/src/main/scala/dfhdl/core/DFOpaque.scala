@@ -44,7 +44,7 @@ object DFOpaque:
           T <: Abstract,
           RT <: Abstract,
           V <: DFOpaque[RT] <> TOKEN
-      ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], V] with
+      ](using RT <:< T): TC[DFOpaque[T], V] with
         def conv(dfType: DFOpaque[T], value: V)(using Ctx): Out =
           value.asTokenOf[DFOpaque[T]]
 
@@ -63,7 +63,7 @@ object DFOpaque:
           T <: Abstract,
           RT <: Abstract,
           V <: DFOpaque[RT] <> VAL
-      ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], V] with
+      ](using RT <:< T): TC[DFOpaque[T], V] with
         def conv(dfType: DFOpaque[T], value: V)(using Ctx): Out =
           value.asValOf[DFOpaque[T]]
 

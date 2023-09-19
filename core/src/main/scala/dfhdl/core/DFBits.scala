@@ -674,10 +674,10 @@ object DFBits:
               ") is different than the receiver width (" + ToString[LW] +
               ").\nConsider applying `.resize` to resolve this issue."
           ]
-      given DFBitsFromCandidate[LW <: Int, V, IC <: Candidate[V]](using dfc: DFC, ic: Candidate[V])(
-          using check: `LW == RW`.Check[LW, ic.OutW]
+      given DFBitsFromCandidate[LW <: Int, V, IC <: Candidate[V]](using ic: Candidate[V])(using
+          check: `LW == RW`.Check[LW, ic.OutW]
       ): TC[DFBits[LW], V] with
-        def conv(dfType: DFBits[LW], value: V)(using Ctx): DFValOf[DFBits[LW]] =
+        def conv(dfType: DFBits[LW], value: V)(using dfc: Ctx): DFValOf[DFBits[LW]] =
           import Ops.resizeBits
           given DFC = dfc.anonymize
           val dfVal = ic(value)
@@ -689,9 +689,8 @@ object DFBits:
             check(dfType.width, dfVal.width)
             dfVal.asValOf[DFBits[LW]]
       end DFBitsFromCandidate
-      given DFBitsFromSEV[LW <: Int, T <: BitOrBool, V <: SameElementsVector[T]](using
-          dfc: DFC
-      ): TC[DFBits[LW], V] with
+      given DFBitsFromSEV[LW <: Int, T <: BitOrBool, V <: SameElementsVector[T]]: TC[DFBits[LW], V]
+      with
         def conv(dfType: DFBits[LW], value: V)(using Ctx): DFValOf[DFBits[LW]] =
           DFVal.Const(Token(dfType.width, value))
     end TC
@@ -701,7 +700,6 @@ object DFBits:
       given DFBitsCompareCandidate[LW <: Int, R, Op <: FuncOp, C <: Boolean](using
           ic: Candidate[R]
       )(using
-          dfc: DFC,
           check: CompareCheck[LW, ic.OutW, C],
           op: ValueOf[Op],
           castling: ValueOf[C]
@@ -717,7 +715,6 @@ object DFBits:
           T <: BitOrBool,
           V <: SameElementsVector[T]
       ](using
-          DFC,
           ValueOf[Op],
           ValueOf[C]
       ): Compare[DFBits[LW], V, Op, C] with

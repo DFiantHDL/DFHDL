@@ -482,15 +482,12 @@ object DFVal:
 
   trait TCLP:
     // Accept any bubble value
-    given fromOPEN[T <: DFTypeAny](using
-        dfc: DFC
-    ): TC[T, ir.OpenConnectTag] with
+    given fromOPEN[T <: DFTypeAny]: TC[T, ir.OpenConnectTag] with
       def conv(dfType: T, value: ir.OpenConnectTag)(using Ctx): DFValOf[T] =
         throw new IllegalArgumentException("OPEN cannot be used here")
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble](using
-        tokenTC: DFToken.TC[T, V],
-        dfc: DFC
+        tokenTC: DFToken.TC[T, V]
     ): TC[T, V] with
       def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
         Const(tokenTC(dfType, value))
@@ -507,7 +504,7 @@ object DFVal:
             "`."
         )
       ]
-    given sameValType[T <: DFTypeAny, V <: T <> VAL](using DFC): TC[T, V] with
+    given sameValType[T <: DFTypeAny, V <: T <> VAL]: TC[T, V] with
       def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
@@ -516,9 +513,7 @@ object DFVal:
           s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
         )
         value
-    given sameValAndTokenType[T <: DFTypeAny, V <: T <> TOKEN](using
-        DFC
-    ): TC[T, V] with
+    given sameValAndTokenType[T <: DFTypeAny, V <: T <> TOKEN]: TC[T, V] with
       def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
@@ -577,7 +572,6 @@ object DFVal:
         )
       ]
     given sameValType[T <: DFTypeAny, R <: T <> VAL, Op <: FuncOp, C <: Boolean](using
-        DFC,
         ValueOf[Op],
         ValueOf[C]
     ): Compare[T, R, Op, C] with
@@ -594,7 +588,6 @@ object DFVal:
         Op <: FuncOp,
         C <: Boolean
     ](using
-        DFC,
         ValueOf[Op],
         ValueOf[C]
     ): Compare[T, R, Op, C] with

@@ -171,17 +171,13 @@ object DFBoolOrBit:
 
     object TC:
       import DFVal.TC
-      given DFBoolOrBitFromCandidate[T <: DFBoolOrBit, R](using
-          dfc: DFC,
-          ic: Candidate[R]
-      ): TC[T, R] with
+      given DFBoolOrBitFromCandidate[T <: DFBoolOrBit, R](using Candidate[R]): TC[T, R] with
         def conv(dfType: T, arg: R)(using Ctx): Out = b2b(dfType, arg)
     end TC
 
     object Compare:
       import DFVal.Compare
       given DFBoolOrBitCompare[T <: DFBoolOrBit, R, Op <: FuncOp, C <: Boolean](using
-          DFC,
           Candidate[R],
           ValueOf[Op],
           ValueOf[C]

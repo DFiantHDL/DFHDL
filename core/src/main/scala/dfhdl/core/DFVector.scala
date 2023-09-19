@@ -158,7 +158,6 @@ object DFVector:
           RD1 <: Int,
           R <: DFVector[T, Tuple1[RD1]] <> VAL
       ](using
-          dfc: DFC,
           check: `LL == RL`.Check[D1, RD1]
       ): TC[DFVector[T, Tuple1[D1]], R] with
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
@@ -170,8 +169,7 @@ object DFVector:
           E,
           R <: Iterable[E]
       ](using
-          tc: TC[T, E],
-          dfc: DFC
+          tc: TC[T, E]
       ): TC[DFVector[T, Tuple1[D1]], R] with
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
@@ -182,8 +180,7 @@ object DFVector:
           E,
           R <: SameElementsVector[E]
       ](using
-          tc: TC[T, E],
-          dfc: DFC
+          tc: TC[T, E]
       ): TC[DFVector[T, Tuple1[D1]], R] with
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           val dfVals =
@@ -201,7 +198,6 @@ object DFVector:
           Op <: FuncOp,
           C <: Boolean
       ](using
-          dfc: DFC,
           tc: Compare[T, E, Op, C],
           op: ValueOf[Op],
           castle: ValueOf[C]

@@ -213,8 +213,7 @@ object DFTuple:
           T <: NonEmptyTuple,
           R <: NonEmptyTuple
       ](using
-          zipper: TCZipper[T, R, DFValAny, TC],
-          dfc: DFC
+          zipper: TCZipper[T, R, DFValAny, TC]
       ): TC[DFTuple[T], R] with
         def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
           val dfVals =
@@ -230,8 +229,7 @@ object DFTuple:
           Op <: FuncOp,
           C <: Boolean
       ](using
-          zipper: TCZipper[T, R, DFValAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]],
-          dfc: DFC
+          zipper: TCZipper[T, R, DFValAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]]
       ): Compare[DFTuple[T], R, Op, C] with
         def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
           val dfVals =

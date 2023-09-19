@@ -899,12 +899,11 @@ object DFXInt:
     object TC:
       import DFVal.TC
       given [LS <: Boolean, LW <: Int, R](using
-          ic: Candidate[R],
-          dfc: DFC
+          ic: Candidate[R]
       )(using
           check: TCCheck[LS, LW, ic.OutS, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
-        def conv(dfType: DFXInt[LS, LW], value: R)(using Ctx): Out =
+        def conv(dfType: DFXInt[LS, LW], value: R)(using dfc: Ctx): Out =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           given dfcAnon: DFC = dfc.anonymize
@@ -938,12 +937,11 @@ object DFXInt:
       ](using
           ic: Candidate[R]
       )(using
-          dfc: DFC,
           check: CompareCheck[LS, LW, ic.OutS, ic.OutW, ic.IsScalaInt, C],
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFXInt[LS, LW], R, Op, C] with
-        def conv(dfType: DFXInt[LS, LW], arg: R)(using Ctx): DFXInt[LS, LW] <> VAL =
+        def conv(dfType: DFXInt[LS, LW], arg: R)(using dfc: Ctx): DFXInt[LS, LW] <> VAL =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           given dfcAnon: DFC = dfc.anonymize
