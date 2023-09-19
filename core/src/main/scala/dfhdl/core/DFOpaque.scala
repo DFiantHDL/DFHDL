@@ -78,7 +78,9 @@ object DFOpaque:
       extension [T <: DFTypeAny](lhs: Vector[DFValOf[T]])
         transparent inline def as[Comp <: AnyRef](
             tfeComp: Comp
-        ): Any = ${ asMacro[DFValOf[DFVector[T, Tuple1[Int]]], Comp]('{ asDFVector(lhs) }) }
+        )(using DFC): Any = ${
+          asMacro[DFValOf[DFVector[T, Tuple1[Int]]], Comp]('{ asDFVector(lhs) })
+        }
       private def asMacro[L, Comp <: AnyRef](
           lhs: Expr[L]
       )(using Quotes, Type[L], Type[Comp]): Expr[Any] =
@@ -107,13 +109,14 @@ object DFOpaque:
             if (hasDFVal(lhsTpe))
               '{
                 val tc = compiletime.summonInline[DFVal.TC[tType.Underlying, lhsType.Underlying]]
+                val ctx = compiletime.summonInline[tc.Ctx]
                 trydf {
                   DFVal.Alias.AsIs(
                     DFOpaque[tfeType.Underlying]($tfe),
-                    tc($tExpr, $lhsExpr)(using compiletime.summonInline[DFC]),
+                    tc($tExpr, $lhsExpr)(using ctx),
                     Token.forced[tfeType.Underlying]($tfe, _)
-                  )(using compiletime.summonInline[DFC])
-                }(using compiletime.summonInline[DFC])
+                  )(using ctx)
+                }(using ctx)
               }
             else
               '{
