@@ -203,14 +203,14 @@ object DFBits:
       given DFBitsTokenFromCandidate[W <: Int, R, IC <: Candidate[R]](using ic: IC)(using
           check: `W == VW`.Check[W, ic.OutW]
       ): TC[DFBits[W], R] with
-        def conv(dfType: DFBits[W], value: R): Out =
+        def conv(dfType: DFBits[W], value: R)(using Ctx): Out =
           val tokenArg = ic(value)
           check(dfType.width, tokenArg.asIR.width)
           tokenArg.asInstanceOf[Out]
 
       given DFBitsTokenFromSEV[W <: Int, T <: BitOrBool, V <: SameElementsVector[T]]
           : TC[DFBits[W], V] with
-        def conv(dfType: DFBits[W], value: V): Out =
+        def conv(dfType: DFBits[W], value: V)(using Ctx): Out =
           DFBits.Token(dfType.width, value)
     end TC
 
@@ -442,7 +442,7 @@ object DFBits:
               ]
             Some(
               Seq(
-                tc.conv(${ arg }.dfType, $token)
+                tc.conv(${ arg }.dfType, $token)(using compiletime.summonInline[tc.Ctx])
               )
             )
           }
@@ -459,7 +459,7 @@ object DFBits:
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFBits[LW], R, Op, C] with
-        def conv(dfType: DFBits[LW], arg: R): DFBits[LW] <> TOKEN =
+        def conv(dfType: DFBits[LW], arg: R)(using Ctx): DFBits[LW] <> TOKEN =
           val tokenArg = ic(arg)
           check(
             dfType.width,
@@ -472,7 +472,7 @@ object DFBits:
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFBits[LW], V, Op, C] with
-        def conv(dfType: DFBits[LW], arg: V): DFBits[LW] <> TOKEN =
+        def conv(dfType: DFBits[LW], arg: V)(using Ctx): DFBits[LW] <> TOKEN =
           Token(dfType.width, arg)
     end Compare
 
@@ -677,7 +677,7 @@ object DFBits:
       given DFBitsFromCandidate[LW <: Int, V, IC <: Candidate[V]](using dfc: DFC, ic: Candidate[V])(
           using check: `LW == RW`.Check[LW, ic.OutW]
       ): TC[DFBits[LW], V] with
-        def conv(dfType: DFBits[LW], value: V): DFValOf[DFBits[LW]] =
+        def conv(dfType: DFBits[LW], value: V)(using Ctx): DFValOf[DFBits[LW]] =
           import Ops.resizeBits
           given DFC = dfc.anonymize
           val dfVal = ic(value)
@@ -692,7 +692,7 @@ object DFBits:
       given DFBitsFromSEV[LW <: Int, T <: BitOrBool, V <: SameElementsVector[T]](using
           dfc: DFC
       ): TC[DFBits[LW], V] with
-        def conv(dfType: DFBits[LW], value: V): DFValOf[DFBits[LW]] =
+        def conv(dfType: DFBits[LW], value: V)(using Ctx): DFValOf[DFBits[LW]] =
           DFVal.Const(Token(dfType.width, value))
     end TC
 
@@ -706,7 +706,7 @@ object DFBits:
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFBits[LW], R, Op, C] with
-        def conv(dfType: DFBits[LW], arg: R): DFBits[LW] <> VAL =
+        def conv(dfType: DFBits[LW], arg: R)(using Ctx): DFBits[LW] <> VAL =
           val dfValArg = ic(arg)(using dfc.anonymize)
           check(dfType.width, dfValArg.dfType.width)
           dfValArg.asValOf[DFBits[LW]]
@@ -721,7 +721,7 @@ object DFBits:
           ValueOf[Op],
           ValueOf[C]
       ): Compare[DFBits[LW], V, Op, C] with
-        def conv(dfType: DFBits[LW], arg: V): DFBits[LW] <> VAL =
+        def conv(dfType: DFBits[LW], arg: V)(using Ctx): DFBits[LW] <> VAL =
           DFVal.Const(Token(dfType.width, arg))
       end DFBitsCompareSEV
     end Compare

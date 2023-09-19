@@ -477,21 +477,22 @@ object DFVal:
 
   trait TC[T <: DFTypeAny, R] extends TCConv[T, R, DFValAny]:
     type Out = DFValOf[T]
-    final def apply(dfType: T, value: R): Out = conv(dfType, value)
+    type Ctx = DFC
+    final def apply(dfType: T, value: R)(using DFC): Out = conv(dfType, value)
 
   trait TCLP:
     // Accept any bubble value
     given fromOPEN[T <: DFTypeAny](using
         dfc: DFC
     ): TC[T, ir.OpenConnectTag] with
-      def conv(dfType: T, value: ir.OpenConnectTag): DFValOf[T] =
+      def conv(dfType: T, value: ir.OpenConnectTag)(using Ctx): DFValOf[T] =
         throw new IllegalArgumentException("OPEN cannot be used here")
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble](using
         tokenTC: DFToken.TC[T, V],
         dfc: DFC
     ): TC[T, V] with
-      def conv(dfType: T, value: V): DFValOf[T] =
+      def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
         Const(tokenTC(dfType, value))
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
@@ -507,7 +508,7 @@ object DFVal:
         )
       ]
     given sameValType[T <: DFTypeAny, V <: T <> VAL](using DFC): TC[T, V] with
-      def conv(dfType: T, value: V): DFValOf[T] =
+      def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
         require(
@@ -518,7 +519,7 @@ object DFVal:
     given sameValAndTokenType[T <: DFTypeAny, V <: T <> TOKEN](using
         DFC
     ): TC[T, V] with
-      def conv(dfType: T, value: V): DFValOf[T] =
+      def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
         require(
@@ -540,6 +541,7 @@ object DFVal:
 
   trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
     type Out = DFValOf[T]
+    type Ctx = DFC
     final protected def func(arg1: DFValAny, arg2: DFValAny)(using
         DFC,
         ValueOf[Op],
@@ -579,7 +581,7 @@ object DFVal:
         ValueOf[Op],
         ValueOf[C]
     ): Compare[T, R, Op, C] with
-      def conv(dfType: T, arg: R): DFValOf[T] =
+      def conv(dfType: T, arg: R)(using Ctx): DFValOf[T] =
         given Printer = DefaultPrinter(using dfc.getSet)
         require(
           dfType == arg.dfType,
@@ -596,7 +598,7 @@ object DFVal:
         ValueOf[Op],
         ValueOf[C]
     ): Compare[T, R, Op, C] with
-      def conv(dfType: T, arg: R): DFValOf[T] =
+      def conv(dfType: T, arg: R)(using Ctx): DFValOf[T] =
         given Printer = DefaultPrinter(using dfc.getSet)
         require(
           dfType == arg.dfType,

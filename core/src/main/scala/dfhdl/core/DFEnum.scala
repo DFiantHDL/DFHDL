@@ -99,8 +99,9 @@ object DFEnum:
 
     object TC:
       import DFToken.TC
-      given DFEnumTokenFromEntry[E <: DFEncoding, RE <: E]: TC[DFEnum[E], RE] =
-        (dfType: DFEnum[E], value: RE) => Token[E, RE](dfType, value)
+      given DFEnumTokenFromEntry[E <: DFEncoding, RE <: E]: TC[DFEnum[E], RE] with
+        def conv(dfType: DFEnum[E], value: RE)(using Ctx): Token[E] =
+          Token[E, RE](dfType, value)
 
     object Compare:
       import DFToken.Compare
@@ -112,7 +113,7 @@ object DFEnum:
       ](using
           op: ValueOf[Op]
       ): Compare[DFEnum[E], RE, Op, C] with
-        def conv(dfType: DFEnum[E], arg: RE): DFEnum[E] <> TOKEN =
+        def conv(dfType: DFEnum[E], arg: RE)(using Ctx): DFEnum[E] <> TOKEN =
           Token[E, RE](dfType, arg)
   end Token
   object Val:
@@ -121,7 +122,7 @@ object DFEnum:
       given DFEnumFromEntry[E <: DFEncoding, RE <: E](using
           dfc: DFC
       ): TC[DFEnum[E], RE] with
-        def conv(dfType: DFEnum[E], value: RE): DFValOf[DFEnum[E]] =
+        def conv(dfType: DFEnum[E], value: RE)(using Ctx): DFValOf[DFEnum[E]] =
           DFVal.Const(Token[E, RE](dfType, value))
     object Compare:
       import DFVal.Compare
@@ -131,7 +132,7 @@ object DFEnum:
           Op <: FuncOp,
           C <: Boolean
       ](using DFC): Compare[DFEnum[E], RE, Op, C] with
-        def conv(dfType: DFEnum[E], arg: RE): DFEnum[E] <> VAL =
+        def conv(dfType: DFEnum[E], arg: RE)(using Ctx): DFEnum[E] <> VAL =
           DFVal.Const(Token[E, RE](dfType, arg))
   end Val
 end DFEnum

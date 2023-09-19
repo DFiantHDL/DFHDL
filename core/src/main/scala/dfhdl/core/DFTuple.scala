@@ -88,7 +88,7 @@ object DFTuple:
                   $tokenTupleValuesExpr
                     .apply($iExpr)
                     .asInstanceOf[vTpe.Underlying]
-                tc.conv(dfType, value)
+                tc.conv(dfType, value)(using compiletime.summonInline[tc.Ctx])
               }
             }
           '{ List(${ Varargs(exprs) }*) }
@@ -127,7 +127,7 @@ object DFTuple:
       ](using
           zipper: TCZipper[T, V, DFTokenAny, TC]
       ): TC[DFTuple[T], V] with
-        def conv(dfType: DFTuple[T], value: V): Out =
+        def conv(dfType: DFTuple[T], value: V)(using Ctx): Out =
           DFTuple.Token[T](
             dfType,
             zipper(dfType.fieldList, value.toList).map(_.asIR.data)
@@ -144,7 +144,7 @@ object DFTuple:
       ](using
           zipper: TCZipper[T, V, DFTokenAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]]
       ): Compare[DFTuple[T], V, Op, C] with
-        def conv(dfType: DFTuple[T], value: V): Out =
+        def conv(dfType: DFTuple[T], value: V)(using Ctx): Out =
           DFTuple.Token[T](
             dfType,
             zipper(dfType.fieldList, value.toList).map(_.asIR.data)
@@ -216,7 +216,7 @@ object DFTuple:
           zipper: TCZipper[T, R, DFValAny, TC],
           dfc: DFC
       ): TC[DFTuple[T], R] with
-        def conv(dfType: DFTuple[T], value: R): Out =
+        def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
@@ -233,7 +233,7 @@ object DFTuple:
           zipper: TCZipper[T, R, DFValAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]],
           dfc: DFC
       ): Compare[DFTuple[T], R, Op, C] with
-        def conv(dfType: DFTuple[T], value: R): Out =
+        def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)

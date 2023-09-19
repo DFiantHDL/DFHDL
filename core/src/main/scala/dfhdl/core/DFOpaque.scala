@@ -45,7 +45,7 @@ object DFOpaque:
           RT <: Abstract,
           V <: DFOpaque[RT] <> TOKEN
       ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], V] with
-        def conv(dfType: DFOpaque[T], value: V): Out =
+        def conv(dfType: DFOpaque[T], value: V)(using Ctx): Out =
           value.asTokenOf[DFOpaque[T]]
 
     object Ops:
@@ -64,7 +64,7 @@ object DFOpaque:
           RT <: Abstract,
           V <: DFOpaque[RT] <> VAL
       ](using dfc: DFC, st: RT <:< T): TC[DFOpaque[T], V] with
-        def conv(dfType: DFOpaque[T], value: V): Out =
+        def conv(dfType: DFOpaque[T], value: V)(using Ctx): Out =
           value.asValOf[DFOpaque[T]]
 
     object Ops:
@@ -110,7 +110,7 @@ object DFOpaque:
                 trydf {
                   DFVal.Alias.AsIs(
                     DFOpaque[tfeType.Underlying]($tfe),
-                    tc($tExpr, $lhsExpr),
+                    tc($tExpr, $lhsExpr)(using compiletime.summonInline[DFC]),
                     Token.forced[tfeType.Underlying]($tfe, _)
                   )(using compiletime.summonInline[DFC])
                 }(using compiletime.summonInline[DFC])

@@ -439,7 +439,7 @@ object DFDecimal:
               ]
             Some(
               Seq(
-                tc.conv(${ arg }.dfType, $token)
+                tc.conv(${ arg }.dfType, $token)(using compiletime.summonInline[tc.Ctx])
               )
             )
           }
@@ -520,7 +520,7 @@ object DFXInt:
       )(using
           check: TCCheck[LS, LW, ic.OutS, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
-        def conv(dfType: DFXInt[LS, LW], value: R): Out =
+        def conv(dfType: DFXInt[LS, LW], value: R)(using Ctx): Out =
           import DFUInt.Token.Ops.signed
           val token = ic(value)
           check(dfType.signed, dfType.width, token.dfType.signed, token.width)
@@ -571,7 +571,7 @@ object DFXInt:
             case _ => None
           DFBoolOrBit.Token(DFBool, outData)
         end apply
-        def conv(dfType: DFXInt[LS, LW], arg: R): DFXInt[LS, LW] <> TOKEN =
+        def conv(dfType: DFXInt[LS, LW], arg: R)(using Ctx): DFXInt[LS, LW] <> TOKEN =
           val tokenArg = ic(arg)
           check(
             dfType.signed,
@@ -904,7 +904,7 @@ object DFXInt:
       )(using
           check: TCCheck[LS, LW, ic.OutS, ic.OutW]
       ): TC[DFXInt[LS, LW], R] with
-        def conv(dfType: DFXInt[LS, LW], value: R): Out =
+        def conv(dfType: DFXInt[LS, LW], value: R)(using Ctx): Out =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           given dfcAnon: DFC = dfc.anonymize
@@ -943,7 +943,7 @@ object DFXInt:
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFXInt[LS, LW], R, Op, C] with
-        def conv(dfType: DFXInt[LS, LW], arg: R): DFXInt[LS, LW] <> VAL =
+        def conv(dfType: DFXInt[LS, LW], arg: R)(using Ctx): DFXInt[LS, LW] <> VAL =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           given dfcAnon: DFC = dfc.anonymize

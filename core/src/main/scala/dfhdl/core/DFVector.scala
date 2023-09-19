@@ -94,12 +94,12 @@ object DFVector:
       given DFVectorTokenFromVector[T <: DFTypeAny, D1 <: Int, E, R <: Iterable[E]](using
           tc: TC[T, E]
       ): TC[DFVector[T, Tuple1[D1]], R] with
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           Token(dfType, arg.map(tc(dfType.cellType, _).asIR.data).toVector)
       given DFVectorTokenFromSEV[T <: DFTypeAny, D1 <: Int, E, R <: SameElementsVector[E]](using
           tc: TC[T, E]
       ): TC[DFVector[T, Tuple1[D1]], R] with
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           Token(
             dfType,
             Vector.fill(dfType.cellDims.head)(
@@ -122,7 +122,7 @@ object DFVector:
           op: ValueOf[Op],
           castle: ValueOf[C]
       ): Compare[DFVector[T, Tuple1[D1]], R, Op, C] with
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           Token(dfType, arg.map(tc.conv(dfType.cellType, _).asIR.data).toVector)
     end Compare
     object Ops:
@@ -161,7 +161,7 @@ object DFVector:
           dfc: DFC,
           check: `LL == RL`.Check[D1, RD1]
       ): TC[DFVector[T, Tuple1[D1]], R] with
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           check(dfType.asIR.cellDims.head, arg.dfType.asIR.cellDims.head)
           arg.asValOf[DFVector[T, Tuple1[D1]]]
       given DFVectorValFromDFValVector[
@@ -173,7 +173,7 @@ object DFVector:
           tc: TC[T, E],
           dfc: DFC
       ): TC[DFVector[T, Tuple1[D1]], R] with
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
           DFVal.Func(dfType, FuncOp.++, dfVals)
       given DFVectorValFromSEV[
@@ -185,7 +185,7 @@ object DFVector:
           tc: TC[T, E],
           dfc: DFC
       ): TC[DFVector[T, Tuple1[D1]], R] with
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           val dfVals =
             List.fill(dfType.cellDims.head)(tc.conv(dfType.cellType, arg.value))
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
@@ -206,7 +206,7 @@ object DFVector:
           op: ValueOf[Op],
           castle: ValueOf[C]
       ): Compare[DFVector[T, Tuple1[D1]], R, Op, C] with
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
       end DFVectorCompareDFValVector
