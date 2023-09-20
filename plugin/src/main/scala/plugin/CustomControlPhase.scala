@@ -38,7 +38,7 @@ extension (value: Int) def bitsWidth(signed: Boolean): Int = BigInt(value).bitsW
 class CustomControlPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-  val phaseName = "CustomIf"
+  val phaseName = "CustomControlPhase"
   //  override val debugFilter: String => Boolean =
   //    _.contains("DFMatchSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)
@@ -156,13 +156,13 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   override def transformIf(tree: If)(using Context): Tree =
     if (replaceIfs.contains(tree.srcPos.show))
       errorWhenToken(tree)
-      debug("=======================")
+      // debug("=======================")
       val dfcTree = dfcStack.head
       val combinedTpe = tree.tpe
-      debug("DFC", dfcTree)
-      debug(tree.show)
-      debug(tree.srcPos.show)
-      debug(tree)
+      // debug("DFC", dfcTree)
+      // debug(tree.show)
+      // debug(tree.srcPos.show)
+      // debug(tree)
       val (branchesVarArgs, elseOption) =
         transformIfRecur(tree, combinedTpe, dfcTree, Nil)
       val branches = mkList(branchesVarArgs)

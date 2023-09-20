@@ -25,7 +25,7 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
   val phaseName = "OnCreateEvents"
 //  override val debugFilter: String => Boolean = _.contains("DFDesignSpec.scala")
 
-  override val runsAfter = Set("CustomIf")
+  override val runsAfter = Set("CustomControlPhase")
   override val runsBefore = Set(transform.FirstTransform.name)
 
   val ignore = mutable.Set.empty[Tree]
