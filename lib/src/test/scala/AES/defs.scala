@@ -46,7 +46,7 @@ extension (lhs: AESByte <> VAL)
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
   def sbox: AESByte <> VAL =
-    val lookup = AESByte X sboxLookupTable.length <> VAR init sboxLookupTable
+    val lookup = AESByte X sboxLookupTable.length const sboxLookupTable
     lookup(lhs.actual)
 end extension
 
@@ -89,7 +89,7 @@ end extension
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //TODO: fix if https://github.com/lampepfl/dotty/issues/17036 is resolved
 abstract class AESMatrix[C <: Int with Singleton](val colNum: C)
-  extends Opaque[AESWord X C](AESWord X colNum)
+    extends Opaque[AESWord X C](AESWord X colNum)
 extension [C <: Int with Singleton](lhs: AESMatrix[C] <> VAL)
   def apply(colIdx: Int): AESWord <> VAL = lhs.actual(colIdx)
   def apply(rowIdx: Int, colIdx: Int): AESByte <> VAL = lhs.actual(colIdx).actual(rowIdx)
