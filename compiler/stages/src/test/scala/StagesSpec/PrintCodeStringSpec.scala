@@ -215,6 +215,25 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Named anonymous multireference") {
+    class IDMultiRef extends DFDesign:
+      val data = UInt(32) <> IN
+      val o    = UInt(32) <> OUT
+      def test(arg: UInt[32] <> VAL): UInt[32] <> VAL =
+        arg + arg
+      o := test(data + 1)
+    val id = (new IDMultiRef).getCodeString
+    assertNoDiff(
+      id,
+      """|class IDMultiRef extends DFDesign:
+         |  val data = UInt(32) <> IN
+         |  val o = UInt(32) <> OUT
+         |  val o_part = data + d"32'1"
+         |  o := o_part + o_part
+         |end IDMultiRef      
+         |""".stripMargin
+    )
+  }
   test("Domains") {
     class IDWithDomains extends DFDesign:
       val y = SInt(16) <> OUT

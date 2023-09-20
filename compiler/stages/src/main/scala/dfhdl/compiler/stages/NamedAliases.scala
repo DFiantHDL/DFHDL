@@ -92,3 +92,30 @@ extension [T: HasDB](t: T)
 case object NamedPrev extends NamedAliases(NamedAliases.Criteria.NamedPrev)
 extension [T: HasDB](t: T)
   def namedPrev: DB = StageRunner.run(NamedPrev)(t.db)(using dfhdl.options.CompilerOptions.default)
+
+// Names an anonymous value which is referenced more than once
+case object NamedAnonMultiref extends Stage:
+  override def dependencies: List[Stage] = Nil
+  override def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
+
+  def transform(designDB: DB)(using MemberGetSet): DB =
+
+    val patchList =
+      designDB.members.view
+        // just anonymous values
+        .collect { case dfVal: DFVal if dfVal.isAnonymous => dfVal }
+        // referenced more than once
+        .filter { dfVal =>
+          designDB.memberTable.getOrElse(dfVal, Set())
+            .view.collect { case r: DFRef.TwoWayAny => r }.size > 1
+        }.map { m =>
+          // try giving it the best name
+          val namedMember = m.setName(m.suggestName.getOrElse("anon"))
+          m -> Patch.Replace(
+            namedMember,
+            Patch.Replace.Config.FullReplacement
+          )
+        }.toList
+    designDB.patch(patchList)
+  end transform
+end NamedAnonMultiref
