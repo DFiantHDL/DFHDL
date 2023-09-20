@@ -126,6 +126,14 @@ class DFMatchSpec extends DFSpec:
           case 0 | 1 | 2 | 3 => 77
           case _             => 22
     }
+  }
 
+  test("Trivial tuple match skip") {
+    assertCodeString("") {
+      val (ret, _) =
+        (0 until 8).foldLeft[(Byte <> VAL, Byte <> VAL)]((all(0), all(0))) { case ((p, a), _) =>
+          (p, a)
+        }
+    }
   }
 end DFMatchSpec

@@ -39,8 +39,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomIf"
-//  override val debugFilter: String => Boolean =
-//    _.contains("DFMatchSpec.scala")
+  //  override val debugFilter: String => Boolean =
+  //    _.contains("DFMatchSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignoreIfs = mutable.Set.empty[String]
@@ -839,10 +839,23 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       case _ =>
   end errorWhenToken
 
+  // skipping trivial tuple match replacement that should cause the match
+  // to be discarded by scalac. one example is a foldLeft (see relevant under DFMatchSpec).
+  private def skipTrivialTupleMatch(tree: Match)(using Context): Boolean =
+    if (tree.selector.tpe <:< defn.TupleTypeRef) tree.cases match
+      case CaseDef(UnApply(_, _, patterns), guard, _) :: Nil if guard.isEmpty =>
+        patterns.forall {
+          case Ident(_)          => true
+          case Bind(_, Ident(_)) => true
+          case _                 => false
+        }
+      case _ => false
+    else false
+
   override def transformMatch(tree: Match)(using Context): Tree =
     given valDefGen: ValDefGen = new ValDefGen
     tree.selector match
-      case DFVal(newSelector) =>
+      case DFVal(newSelector) if !skipTrivialTupleMatch(tree) =>
         debug("Found DFMatch")
         val extractorMatch =
           tree.tpe <:< defn.TupleTypeRef && tree.cases.length == 1 && tree.cases.head.guard.isEmpty
