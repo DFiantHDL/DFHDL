@@ -20,7 +20,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case Ident(_) => true
         // named members
         case m: DFMember.Named if !m.isAnonymous => true
-        // including only nets that are not late connections
+        // including only nets that are not late (via) connections
         case net: DFNet => !net.isViaConnection
         // including only conditional statements (no type) headers
         case ch: DFConditional.Header => ch.dfType == NoType
@@ -33,13 +33,15 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       .filter(_.nonEmpty)
       .emptyOr(_.mkString("\n"))
   final def csDFOwnerLateBody(owner: DFOwner): String =
-    owner
+    owner.getOwner
       .members(MemberView.Folded)
       .view
       // selecting viewable members:
       .filter {
         // late construction nets
-        case net: DFNet => net.isViaConnection
+        case net: DFNet if net.isViaConnection =>
+          // getting the nets that belong to this owner
+          net.lhsRef.get.isInsideOwner(owner) || net.rhsRef.get.isInsideOwner(owner)
         // the rest are not directly viewable
         case _ => false
       }

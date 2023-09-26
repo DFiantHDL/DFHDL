@@ -27,25 +27,4 @@ private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
         ownerOpt = Some(owner)
         owner
   dfc.enterOwner(owner)
-  private[dfhdl] def skipChecks: Boolean = false
-
-  final override def onCreateEnd: Unit =
-    dfc.exitOwner()
-    import dfc.getSet
-    // At the end of the top-level instance we check for errors
-    if (owner.asIR.isTop)
-      val errors = dfc.getErrors
-      // If we have errors, then we print them to stderr and exit
-      if (errors.nonEmpty)
-        exitWithError(
-          errors.collect { case basicErr: DFError.Basic => basicErr.toString }.mkString("\n\n")
-        )
-      if (!skipChecks)
-        try dfc.mutableDB.immutable.check() // various checks post initial elaboration
-        catch
-          case err: IllegalArgumentException =>
-            exitWithError(err.getMessage)
-          case others => throw others
-    end if
-  end onCreateEnd
 end Container

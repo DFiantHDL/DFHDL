@@ -9,6 +9,8 @@ private[dfhdl] abstract class Domain(using DFC) extends Container with scala.ref
   final protected given TScope = DFC.Scope.Domain
   final private[core] def initOwner: TOwner =
     Domain.Block(__domainType)
+  final override def onCreateEnd: Unit =
+    dfc.exitOwner()
 
 object Domain:
   type Block = DFOwner[ir.DomainBlock]

@@ -34,7 +34,7 @@ trait Printer
     val swapLR = net match
       // swapped if the net is a late construction and the RHS is the internal port
       case _ if net.isViaConnection =>
-        normalizeViaConnection && net.rhsRef.get.isSameOwnerDesignAs(net)
+        normalizeViaConnection && net.rhsRef.get.getOwner.isSameOwnerDesignAs(net)
       // swapped if the net is a regular connection and the RHS is receiver
       case DFNet.Connection(_, _, swapped) =>
         swapped && normalizeConnection
@@ -46,8 +46,8 @@ trait Printer
           if (dfVal.getConnectionTo.contains(net) ^ swapLR) "<--"
           else "-->"
     val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
-    val lhsStr = lhsRef.refCodeString
-    val rhsStr = rhsRef.refCodeString
+    val lhsStr = if (lhsRef.isViaRef) lhsRef.get.getName else lhsRef.refCodeString
+    val rhsStr = if (rhsRef.isViaRef) rhsRef.get.getName else rhsRef.refCodeString
     net.op match
       case DFNet.Op.Assignment     => csAssignment(lhsStr, rhsStr)
       case DFNet.Op.NBAssignment   => csNBAssignment(lhsStr, rhsStr)

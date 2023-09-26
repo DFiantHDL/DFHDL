@@ -19,8 +19,7 @@ import collection.mutable
 private case class MemberEntry(
     irValue: DFMember,
     refSet: Set[DFRefAny],
-    ignore: Boolean,
-    late: Boolean
+    ignore: Boolean
 )
 
 class MutableDB(val duringTest: Boolean = false):
@@ -43,7 +42,9 @@ class MutableDB(val duringTest: Boolean = false):
       stack = stack.drop(1)
       lateStack = lateStack.drop(1)
     def enterLate(): Unit =
-      lateStack = true :: lateStack.drop(1)
+      lateStack = true :: lateStack
+    def exitLate(): Unit =
+      lateStack = lateStack.drop(1)
     def owner: DFOwner = stack.head
     def lateConstruction: Boolean = lateStack.headOption.getOrElse(false)
     def replaceOwner(originalOwner: DFOwner, newOwner: DFOwner): Unit =
@@ -74,7 +75,7 @@ class MutableDB(val duringTest: Boolean = false):
 //    elaborateFSMHistoryHead()
     //        println(f"""${"addMember"}%-20s ${s"${member.name} : ${member.typeName}"}%-30s ${member.getOwner.nameAndType}""")
     memberTable += (member -> members.length)
-    members += MemberEntry(member, Set(), false, OwnershipContext.lateConstruction)
+    members += MemberEntry(member, Set(), false)
     member
 
   val logger = new Logger

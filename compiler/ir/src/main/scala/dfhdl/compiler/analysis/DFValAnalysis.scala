@@ -171,3 +171,10 @@ extension (dfVal: DFVal)
   end suggestName
   def suggestName(using MemberGetSet): Option[String] = suggestName(dfVal)
 end extension
+
+extension (refTW: DFRef.TwoWayAny)
+  def isViaRef(using MemberGetSet): Boolean =
+    refTW.originRef.get match
+      case net: DFNet if net.isViaConnection =>
+        refTW.get.getOwner.isSameOwnerDesignAs(net)
+      case _ => false

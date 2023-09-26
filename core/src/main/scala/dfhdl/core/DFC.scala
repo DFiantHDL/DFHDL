@@ -41,10 +41,12 @@ final case class DFC(
   def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations)
   def enterOwner(owner: DFOwnerAny): Unit =
     mutableDB.OwnershipContext.enter(owner.asIR)
-  def enterLate(): Unit =
-    mutableDB.OwnershipContext.enterLate()
   def exitOwner(): Unit = mutableDB.OwnershipContext.exit()
   def owner: DFOwnerAny = mutableDB.OwnershipContext.owner.asFE
+  def enterLate(): Unit =
+    mutableDB.OwnershipContext.enterLate()
+  def exitLate(): Unit =
+    mutableDB.OwnershipContext.exitLate()
   def lateConstruction: Boolean = mutableDB.OwnershipContext.lateConstruction
   def ownerOption: Option[DFOwnerAny] =
     mutableDB.OwnershipContext.ownerOption.map(_.asFE)

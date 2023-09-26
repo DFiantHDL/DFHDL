@@ -481,7 +481,7 @@ object DFVal:
     final def apply(dfType: T, value: R)(using DFC): Out = conv(dfType, value)
 
   trait TCLP:
-    // Accept any bubble value
+    // Accept OPEN in compile-time, but throw exception where it should not be used
     given fromOPEN[T <: DFTypeAny]: TC[T, ir.OpenConnectTag] with
       def conv(dfType: T, value: ir.OpenConnectTag)(using Ctx): DFValOf[T] =
         throw new IllegalArgumentException("OPEN cannot be used here")

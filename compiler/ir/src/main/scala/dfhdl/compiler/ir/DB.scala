@@ -205,11 +205,9 @@ final case class DB(
       connToDcls: ConnectToMap
   ): Access =
     def isExternalConn =
-      if (net.isViaConnection) dfVal isSameOwnerDesignAs net
-      else dfVal.getOwnerDesign isSameOwnerDesignAs net
+      dfVal.getOwnerDesign isSameOwnerDesignAs net
     def isInternalConn =
-      if (net.isViaConnection) net.getOwnerDesign isSameOwnerDesignAs dfVal
-      else dfVal isSameOwnerDesignAs net
+      dfVal isSameOwnerDesignAs net
     dfVal match
       case dcl: DFVal.Dcl =>
         dcl.modifier match

@@ -44,9 +44,7 @@ case object ViaConnection extends Stage:
           }
         // Meta design for connections between ports and the added variables
         val connectDsn = new MetaDesign():
-          // forcing late construction since we don't activate the compiler plugin here
-          this.onCreateStartLate
-          val thisDFC: DFC = dfc
+          dfc.enterLate()
           val refPatches: List[(DFMember, Patch)] = addVarsDsn.portsToVars.map { case (p, v) =>
             p match
               case _ @DclOut() => v.asVarAny.<>(p.asValAny)
@@ -69,7 +67,7 @@ case object ViaConnection extends Stage:
         (ib -> Patch.Add(addVarsDsn, Patch.Add.Config.Before)) ::
           (ib -> Patch.Add(
             connectDsn,
-            Patch.Add.Config.InsideLast
+            Patch.Add.Config.After
           )) :: connectDsn.refPatches ++ connectDsn.movedNets
       case _ => Nil
     }

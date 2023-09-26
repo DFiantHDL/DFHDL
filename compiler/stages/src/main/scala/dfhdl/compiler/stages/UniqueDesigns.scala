@@ -10,9 +10,8 @@ private final class UniqueBlock(val block: DFDesignBlock, val members: List[DFMe
 ):
   override def equals(obj: Any): Boolean = obj match
     case that: UniqueBlock if this.block.dclMeta == that.block.dclMeta =>
-      (this.members lazyZip that.members).forall {
-        case (l: DFNet, r: DFNet) if l.isViaConnection && r.isViaConnection => true
-        case (l, r)                                                         => l =~ r
+      (this.members lazyZip that.members).forall { case (l, r) =>
+        l =~ r
       }
     case _ => false
   override def hashCode(): Int = block.dclName.hashCode
