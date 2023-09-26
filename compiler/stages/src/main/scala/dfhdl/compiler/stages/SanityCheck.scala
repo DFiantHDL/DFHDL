@@ -60,14 +60,15 @@ case object SanityCheck extends Stage:
   private def memberExistenceCheck()(using MemberGetSet): Unit =
     given Printer = DefaultPrinter
     val members = getSet.designDB.members
+    val memberTable = getSet.designDB.memberTable
     val violations = members.flatMap {
       case n @ DFNet(toRef, DFNet.Op.Assignment, fromRef, _, _, _) =>
         val toMember = toRef.get
         val fromMember = fromRef.get
-        val toValMissing = !members.contains(toMember)
+        val toValMissing = !memberTable.contains(toMember)
         val fromValMissing = fromMember match
           case _: DFVal.Const => false
-          case _              => !members.contains(fromMember)
+          case _              => !memberTable.contains(fromMember)
         if (toValMissing)
           println(s"Foreign value ${toMember.getName} at net ${n.codeString}")
           members.collectFirst {
@@ -122,4 +123,5 @@ case object SanityCheck extends Stage:
     designDB
 end SanityCheck
 
-extension [T: HasDB](t: T) def sanityCheck(using CompilerOptions): DB = StageRunner.run(SanityCheck)(t.db)
+extension [T: HasDB](t: T)
+  def sanityCheck(using CompilerOptions): DB = StageRunner.run(SanityCheck)(t.db)
