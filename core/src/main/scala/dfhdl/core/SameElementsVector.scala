@@ -18,6 +18,8 @@ final class SameElementsVector[T](val value: T) derives CanEqual:
   override def equals(that: Any): Boolean = that match
     case sev: SameElementsVector[_] => value equals sev.value
     case _                          => false
+  override def hashCode(): Int = value.hashCode()
+end SameElementsVector
 
 object SameElementsVector:
   def apply[T](exact: Inlined[T]): SameElementsVector[T] =

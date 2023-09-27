@@ -8,6 +8,7 @@ final case class DFToken[+T <: DFType](dfType: T)(
     case that @ DFToken(dfType) if this.dfType equals dfType =>
       that.data equals this.data
     case _ => false
+  override def hashCode(): Int = data.hashCode()
   override def toString: String = s"DFToken($dfType)($data)"
 
 object DFToken:
