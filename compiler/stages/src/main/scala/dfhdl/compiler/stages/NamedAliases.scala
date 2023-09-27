@@ -27,6 +27,7 @@ private abstract class NamedAliases(criteria: NamedAliases.Criteria) extends Sta
             false // history values will get proper names in another stage
           case _: DFVal.Alias.ApplyIdx    => false // ignore index selection
           case _: DFVal.Alias.SelectField => false // ignore field selection
+          case OpaqueActual(_)            => false // ignore opaque actual selection
           case _                          => true
         }
         // tuple with the suggested name

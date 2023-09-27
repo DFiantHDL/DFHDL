@@ -39,4 +39,25 @@ class NamedSelectionSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Ignore opaque type actual selection") {
+    case class Wrapper() extends Opaque(Bits(16) X 4)
+    class ID extends DFDesign:
+      val x = Wrapper <> IN
+      val y = Bits(8) <> OUT
+      y := x.actual(0).bits(7, 0)
+
+    val id = (new ID).namedSelection
+    assertCodeString(
+      id,
+      """|case class Wrapper() extends Opaque(Bits(16) X 4)
+         |
+         |class ID extends DFDesign:
+         |  val x = Wrapper <> IN
+         |  val y = Bits(8) <> OUT
+         |  val y_part = x.actual(0)
+         |  y := y_part(7, 0)
+         |end ID
+         |""".stripMargin
+    )
+  }
 end NamedSelectionSpec
