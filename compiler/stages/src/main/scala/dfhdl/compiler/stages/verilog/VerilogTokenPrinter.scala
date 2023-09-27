@@ -44,7 +44,7 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
       if (allTokens.contains("\n")) s"'{\n${allTokens.hindent}\n}"
       else s"'{$allTokens}"
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
-    s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.getName})"
+    csDFToken(DFToken.forced(dfType.actualType, data))
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
     if (dfType.getName.isEmpty)
       csDFTupleData(dfType.fieldMap.values.toList, data)
