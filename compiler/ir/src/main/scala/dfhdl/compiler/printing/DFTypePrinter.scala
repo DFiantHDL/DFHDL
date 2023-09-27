@@ -13,15 +13,12 @@ trait AbstractTypePrinter extends AbstractPrinter:
       case dt: DFOpaque => csDFOpaqueDcl(dt)
       case dt: DFStruct => csDFStructDcl(dt)
   final def csGlobalTypeDcls: String =
-    getSet.designDB.getGlobalNamedDFTypes.toList
-      .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
+    getSet.designDB.getGlobalNamedDFTypes
       .map(x => printer.csNamedDFTypeDcl(x, global = true))
       .mkString("\n").emptyOr(x => s"$x\n")
   final def csLocalTypeDcls(design: DFDesignBlock): String =
     getSet.designDB
       .getLocalNamedDFTypes(design)
-      .toList
-      .sortBy(_.getName) // we sort the declarations by name, to have compilation consistency
       .map(x => printer.csNamedDFTypeDcl(x, global = false))
       .mkString("\n")
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String

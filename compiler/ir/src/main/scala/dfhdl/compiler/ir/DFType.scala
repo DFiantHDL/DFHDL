@@ -37,24 +37,24 @@ end DFType
 
 sealed trait NamedDFType extends DFType, NamedGlobal
 object NamedDFTypes:
-  def unapply(dfVal: DFVal)(using MemberGetSet): Option[Set[NamedDFType]] =
+  def unapply(dfVal: DFVal)(using MemberGetSet): Option[ListSet[NamedDFType]] =
     Flatten.unapply(dfVal.dfType)
   object Flatten:
-    def unapply(dfType: DFType)(using MemberGetSet): Option[Set[NamedDFType]] =
+    def unapply(dfType: DFType)(using MemberGetSet): Option[ListSet[NamedDFType]] =
       dfType match
         case dt: DFStruct =>
-          val subNamedDFTypes = dt.fieldMap.values.flatMap {
+          val subNamedDFTypes = ListSet.from(dt.fieldMap.values.flatMap {
             case Flatten(dfTypes) => dfTypes
-            case _                => Set()
-          }.toSet
+            case _                => Nil
+          })
           if (dt.isTuple) Some(subNamedDFTypes)
           else Some(subNamedDFTypes + dt)
         case dt: DFOpaque =>
           dt.actualType match
             case Flatten(dfTypes) => Some(dfTypes + dt)
-            case _                => Some(Set(dt))
+            case _                => Some(ListSet(dt))
         case dt: DFVector    => unapply(dt.cellType)
-        case dt: NamedDFType => Some(Set(dt))
+        case dt: NamedDFType => Some(ListSet(dt))
         case _               => None
   end Flatten
 end NamedDFTypes

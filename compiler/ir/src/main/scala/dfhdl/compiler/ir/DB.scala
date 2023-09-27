@@ -3,6 +3,7 @@ package dfhdl.compiler.ir
 import scala.reflect.{ClassTag, classTag}
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.collection.immutable.{ListMap, ListSet}
 import dfhdl.internals.*
 import dfhdl.compiler.printing.{Printer, DefaultPrinter}
 
@@ -47,8 +48,8 @@ final case class DB(
   // Map of all named types in the design with their design block owners.
   // If the named type is global (used in IO or more than one design block),
   // then its owner is set to None.
-  private lazy val namedDFTypes: Map[NamedDFType, Option[DFDesignBlock]] =
-    members.foldLeft(Map.empty[NamedDFType, Option[DFDesignBlock]]) {
+  private lazy val namedDFTypes: ListMap[NamedDFType, Option[DFDesignBlock]] =
+    members.foldLeft(ListMap.empty[NamedDFType, Option[DFDesignBlock]]) {
       case (namedDFTypeMap, namedDFTypeMember @ NamedDFTypes(dfTypes)) =>
         if (namedDFTypeMember.isPort)
           namedDFTypeMap ++ dfTypes.map(t => (t -> None)) // IO means a global named type
@@ -70,8 +71,9 @@ final case class DB(
     }
 
   private lazy val invertedNamedDFTypes = namedDFTypes.invert
-  lazy val getGlobalNamedDFTypes: Set[NamedDFType] = invertedNamedDFTypes.getOrElse(None, Set())
-  private lazy val localNamedDFTypes: Map[DFDesignBlock, Set[NamedDFType]] =
+  lazy val getGlobalNamedDFTypes: ListSet[NamedDFType] =
+    invertedNamedDFTypes.getOrElse(None, ListSet())
+  private lazy val localNamedDFTypes: Map[DFDesignBlock, ListSet[NamedDFType]] =
     invertedNamedDFTypes.flatMap {
       case (Some(b), set) => Some(b -> set)
       case _              => None

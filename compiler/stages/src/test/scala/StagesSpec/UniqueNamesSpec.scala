@@ -71,23 +71,23 @@ class UniqueNamesSpec extends StageSpec:
          |  case Baz extends MyEnumGlbl(d"1'1")
          |
          |class SomeEnums extends DFDesign:
-         |  case class MyByte() extends Opaque(Bits(8))
          |  enum MyEnumLcl_0(val value: UInt[1] <> TOKEN) extends Encode.Manual(1):
-         |    case Baz extends MyEnumLcl_0(d"1'0")
-         |    case Bar extends MyEnumLcl_0(d"1'1")
-         |  enum MyEnumLcl_1(val value: UInt[1] <> TOKEN) extends Encode.Manual(1):
-         |    case Bar extends MyEnumLcl_1(d"1'0")
-         |    case Baz extends MyEnumLcl_1(d"1'1")
+         |    case Bar extends MyEnumLcl_0(d"1'0")
+         |    case Baz extends MyEnumLcl_0(d"1'1")
          |  final case class Pixel(
          |      x: UInt[8] <> VAL
          |      y: UInt[8] <> VAL
          |  ) extends Struct
+         |  case class MyByte() extends Opaque(Bits(8))
+         |  enum MyEnumLcl_1(val value: UInt[1] <> TOKEN) extends Encode.Manual(1):
+         |    case Baz extends MyEnumLcl_1(d"1'0")
+         |    case Bar extends MyEnumLcl_1(d"1'1")
          |
          |  val x = MyEnumGlbl <> IN
-         |  val y_0 = MyEnumLcl_1 <> VAR init MyEnumLcl_1.Bar
+         |  val y_0 = MyEnumLcl_0 <> VAR init MyEnumLcl_0.Bar
          |  val pixel = Pixel <> VAR init Pixel(x = d"8'0", y = d"8'0")
          |  val byte = MyByte <> VAR init h"00".as(MyByte)
-         |  val y_1 = (MyEnumLcl_0, MyEnumLcl_0) <> VAR init (MyEnumLcl_0.Bar, MyEnumLcl_0.Baz)
+         |  val y_1 = (MyEnumLcl_1, MyEnumLcl_1) <> VAR init (MyEnumLcl_1.Bar, MyEnumLcl_1.Baz)
          |end SomeEnums
          |""".stripMargin
     )
