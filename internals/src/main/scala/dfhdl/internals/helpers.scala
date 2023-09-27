@@ -1,6 +1,7 @@
 package dfhdl.internals
 import scala.quoted.*
 import scala.annotation.tailrec
+import scala.collection.immutable.{ListMap, ListSet}
 extension [T](t: T)
   def debugPrint: T =
     println(t)
@@ -247,6 +248,14 @@ extension [K, V](m: Map[K, V])
   def invert: Map[V, Set[K]] =
     m.foldLeft(Map.empty[V, Set[K]]) { case (acc, (k, v)) =>
       acc + (v -> (acc.getOrElse(v, Set()) + k))
+    }
+
+//from ListMap[K,V] to ListMap[V,ListSet[K]], traverse the input only once
+//From: https://stackoverflow.com/a/51356499/3845175
+extension [K, V](m: ListMap[K, V])
+  def invert: ListMap[V, ListSet[K]] =
+    m.foldLeft(ListMap.empty[V, ListSet[K]]) { case (acc, (k, v)) =>
+      acc + (v -> (acc.getOrElse(v, ListSet()) + k))
     }
 
 extension [T](iter: Iterable[T])
