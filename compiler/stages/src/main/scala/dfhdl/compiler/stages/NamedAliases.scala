@@ -5,6 +5,7 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.internals.*
 import DFVal.Func.Op as FuncOp
+import scala.reflect.{ClassTag, classTag}
 
 // Names an anonymous relative value which is aliased.
 // The aliasing is limited according to the criteria provided
@@ -124,16 +125,20 @@ case object NamedAnonMultiref extends Stage:
   override def dependencies: List[Stage] = Nil
   override def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
 
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  private val cbTags: Set[ClassTag[_]] =
+    Set(classTag[DFConditional.DFMatchHeader], classTag[DFConditional.DFIfHeader])
 
+  def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList =
       designDB.members.view
         // just anonymous values
         .collect { case dfVal: DFVal if dfVal.isAnonymous => dfVal }
-        // referenced more than once
+        // referenced more than once (excluding else/case blocks referencing their headers)
         .filter { dfVal =>
-          designDB.memberTable.getOrElse(dfVal, Set())
-            .view.collect { case r: DFRef.TwoWayAny => r }.size > 1
+          designDB.memberTable.getOrElse(dfVal, Set()).view.collect {
+            case r: DFRef.TwoWayAny if !cbTags.contains(r.refType) =>
+              r
+          }.size > 1
         }.map { m =>
           // try giving it the best name
           val namedMember = m.setName(m.suggestName.getOrElse("anon"))
