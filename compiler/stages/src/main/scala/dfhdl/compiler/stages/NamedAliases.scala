@@ -103,6 +103,19 @@ object NamedAliases:
           List(alias.relValRef.get)
         case _ => Nil
       }
+    object NamedAnonMultiref extends Criteria:
+      private val cbTags: Set[ClassTag[_]] =
+        Set(classTag[DFConditional.DFMatchHeader], classTag[DFConditional.DFIfHeader])
+      def apply()(using MemberGetSet): DFVal => List[DFVal] = {
+        case dfVal if !dfVal.isAnonymous => Nil
+        case dfVal                       =>
+          // referenced more than once (excluding else/case blocks referencing their headers)
+          val refs = getSet.designDB.memberTable.getOrElse(dfVal, Set()).view.collect {
+            case r: DFRef.TwoWayAny if !cbTags.contains(r.refType) => r
+          }
+          if (refs.size > 1) List(dfVal)
+          else Nil
+      }
   end Criteria
 end NamedAliases
 
@@ -121,32 +134,7 @@ extension [T: HasDB](t: T)
   def namedPrev: DB = StageRunner.run(NamedPrev)(t.db)(using dfhdl.options.CompilerOptions.default)
 
 // Names an anonymous value which is referenced more than once
-case object NamedAnonMultiref extends Stage:
-  override def dependencies: List[Stage] = Nil
-  override def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
-
-  private val cbTags: Set[ClassTag[_]] =
-    Set(classTag[DFConditional.DFMatchHeader], classTag[DFConditional.DFIfHeader])
-
-  def transform(designDB: DB)(using MemberGetSet): DB =
-    val patchList =
-      designDB.members.view
-        // just anonymous values
-        .collect { case dfVal: DFVal if dfVal.isAnonymous => dfVal }
-        // referenced more than once (excluding else/case blocks referencing their headers)
-        .filter { dfVal =>
-          designDB.memberTable.getOrElse(dfVal, Set()).view.collect {
-            case r: DFRef.TwoWayAny if !cbTags.contains(r.refType) =>
-              r
-          }.size > 1
-        }.map { m =>
-          // try giving it the best name
-          val namedMember = m.setName(m.suggestName.getOrElse("anon"))
-          m -> Patch.Replace(
-            namedMember,
-            Patch.Replace.Config.FullReplacement
-          )
-        }.toList
-    designDB.patch(patchList)
-  end transform
-end NamedAnonMultiref
+case object NamedAnonMultiref extends NamedAliases(NamedAliases.Criteria.NamedAnonMultiref)
+extension [T: HasDB](t: T)
+  def namedAnonMultiref: DB =
+    StageRunner.run(NamedAnonMultiref)(t.db)(using dfhdl.options.CompilerOptions.default)
