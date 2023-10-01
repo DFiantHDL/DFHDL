@@ -4,7 +4,7 @@ import dfhdl.{apply => _, *}
 export dfhdl.apply
 
 import scala.annotation.targetName
-
+import scala.collection.mutable.ArrayBuffer
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Byte
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -73,8 +73,9 @@ case class AESWord() extends Opaque(AESByte X 4)
 
 extension (lhs: AESWord <> VAL)
   @targetName("addWord")
+  @inline
   def +(rhs: AESWord <> VAL): AESWord <> VAL =
-    lhs.actual.elements.lazyZip(rhs.actual.elements).map(_ + _).as(AESWord)
+    (lhs.bits ^ rhs.bits).as(AESWord)
 
   // Function used in the Key Expansion routine that takes a four-byte input word and applies
   // an S-box to each of the four bytes to produce an output word.
@@ -93,9 +94,9 @@ end extension
 //TODO: fix if https://github.com/lampepfl/dotty/issues/17036 is resolved
 abstract class AESMatrix[C <: Int with Singleton](val colNum: C)
     extends Opaque[AESWord X C](AESWord X colNum)
-extension [C <: Int with Singleton](lhs: AESMatrix[C] <> VAL)
-  @inline def apply(colIdx: Int): AESWord <> VAL = lhs.actual(colIdx)
-  @inline def apply(rowIdx: Int, colIdx: Int): AESByte <> VAL = lhs.actual(colIdx).actual(rowIdx)
+extension [C <: Int with Singleton](matrix: AESMatrix[C] <> VAL)
+  @inline def apply(colIdx: Int): AESWord <> VAL = matrix.actual(colIdx)
+  @inline def apply(rowIdx: Int, colIdx: Int): AESByte <> VAL = matrix.actual(colIdx).actual(rowIdx)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Dimensions & Data Structures
@@ -116,12 +117,12 @@ case class AESKeySchedule() extends AESMatrix(Nb * (Nr + 1))
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES State
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-extension (lhs: AESState <> VAL)
+extension (state: AESState <> VAL)
   // Transformation in the Cipher that processes the State using a non-linear byte substitution
   // table (S-box) that operates on each of the State bytes independently.
   def subBytes: AESState <> VAL =
     Vector
-      .tabulate(Nb, 4)((c, r) => lhs(r, c).sbox)
+      .tabulate(Nb, 4)((c, r) => state(r, c).sbox)
       .map(_.as(AESWord)).as(AESState)
 
   private def shift(r: Int, Nb: Int): Int =
@@ -131,7 +132,7 @@ extension (lhs: AESState <> VAL)
   // the State by different offsets.
   def shiftRows: AESState <> VAL =
     Vector
-      .tabulate(Nb, 4)((c, r) => lhs(r, (c + shift(r, Nb)) % Nb))
+      .tabulate(Nb, 4)((c, r) => state(r, (c + shift(r, Nb)) % Nb))
       .map(_.as(AESWord)).as(AESState)
 
   // Transformation in the Cipher that takes all of the columns of the State and mixes their data
@@ -139,10 +140,10 @@ extension (lhs: AESState <> VAL)
   def mixColumns: AESState <> VAL =
     Vector.tabulate(Nb)(c =>
       Vector(
-        h"02" * lhs(0, c) + h"03" * lhs(1, c) + h"01" * lhs(2, c) + h"01" * lhs(3, c),
-        h"01" * lhs(0, c) + h"02" * lhs(1, c) + h"03" * lhs(2, c) + h"01" * lhs(3, c),
-        h"01" * lhs(0, c) + h"01" * lhs(1, c) + h"02" * lhs(2, c) + h"03" * lhs(3, c),
-        h"03" * lhs(0, c) + h"01" * lhs(1, c) + h"01" * lhs(2, c) + h"02" * lhs(3, c)
+        h"02" * state(0, c) + h"03" * state(1, c) + h"01" * state(2, c) + h"01" * state(3, c),
+        h"01" * state(0, c) + h"02" * state(1, c) + h"03" * state(2, c) + h"01" * state(3, c),
+        h"01" * state(0, c) + h"01" * state(1, c) + h"02" * state(2, c) + h"03" * state(3, c),
+        h"03" * state(0, c) + h"01" * state(1, c) + h"01" * state(2, c) + h"02" * state(3, c)
       ).as(AESWord)
     ).as(AESState)
 
@@ -150,7 +151,7 @@ extension (lhs: AESState <> VAL)
   // operation. The length of a Round Key equals the size of the State (i.e., for Nb = 4, the Round Key length
   // equals 128 bits/16 bytes).
   @inline def addRoundKey(key: AESRoundKey <> VAL): AESState <> VAL =
-    (lhs.bits ^ key.bits).as(AESState)
+    (state.bits ^ key.bits).as(AESState)
 end extension
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,27 +163,23 @@ private val Rcon = Vector(
   "80000000", "1B000000", "36000000"
 ).map(word => h"$word".as(AESWord))
 
-extension (lhs: AESKey <> VAL)
+extension (key: AESKey <> VAL)
   def keyExpansion: AESKeySchedule <> VAL =
-    val keySchedule = AESKeySchedule <> VAR
-    Vector.tabulate(Nb * (Nr + 1))(i =>
-      if (i < Nk) lhs(i)
-      else
-        val temp: AESWord <> VAL =
-          if (i % Nk == 0) keySchedule(i - 1).rotWord.subWord + Rcon(i / Nk)
-          else if ((Nk > 6) && (i % Nk == 4)) keySchedule(i - 1).subWord
-          else keySchedule(i - 1)
-        keySchedule(i - Nk) + temp
-    ).as(AESKeySchedule)
-  end keyExpansion
-end extension
+    val w = ArrayBuffer.tabulate(Nk)(i => key(i))
+    for (i <- Nk until Nb * (Nr + 1)) do
+      val temp =
+        if (i % Nk == 0) w(i - 1).rotWord.subWord + Rcon(i / Nk)
+        else if ((Nk > 6) && (i % Nk == 4)) w(i - 1).subWord
+        else w(i - 1)
+      w += w(i - Nk) + temp
+    w.as(AESKeySchedule)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Keyschedule
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-extension (lhs: AESKeySchedule <> VAL)
+extension (keySched: AESKeySchedule <> VAL)
   @inline def roundKey(round: Int): AESRoundKey <> VAL =
-    Vector.tabulate(Nb)(b => lhs(round * Nb + b)).as(AESRoundKey)
+    Vector.tabulate(Nb)(b => keySched(round * Nb + b)).as(AESRoundKey)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // Cipher

@@ -71,12 +71,12 @@ object DFOpaque:
     object Ops:
       extension [L](inline lhs: L)
         transparent inline def as[Comp <: AnyRef](tfeComp: Comp): Any = ${ asMacro[L, Comp]('lhs) }
-      private def asDFVector[T <: DFTypeAny](dfVals: Vector[DFValOf[T]])(using
+      private def asDFVector[T <: DFTypeAny](dfVals: Iterable[DFValOf[T]])(using
           DFC
       ): DFValOf[DFVector[T, Tuple1[Int]]] =
-        val dfType = DFVector(dfVals.head.dfType, Tuple1(dfVals.length))
+        val dfType = DFVector(dfVals.head.dfType, Tuple1(dfVals.size))
         DFVal.Func(dfType, DFVal.Func.Op.++, dfVals.toList)(using dfc.anonymize)
-      extension [T <: DFTypeAny](lhs: Vector[DFValOf[T]])
+      extension [T <: DFTypeAny](lhs: Iterable[DFValOf[T]])
         transparent inline def as[Comp <: AnyRef](
             tfeComp: Comp
         )(using DFC): Any = ${
