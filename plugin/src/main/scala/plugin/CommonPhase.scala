@@ -82,6 +82,11 @@ abstract class CommonPhase extends PluginPhase:
       end extract
       ctx.docCtx.flatMap(_.docstring(sym)).map(_.raw).map(extract)
     end docString
+    def staticAnnotations(using Context): List[Annotations.Annotation] =
+      sym.annotations.collect {
+        case a if a.tree.tpe <:< defn.StaticAnnotationClass.typeRef => a
+      }
+
   end extension
 
   extension (tpe: Type)(using Context)
@@ -118,6 +123,10 @@ abstract class CommonPhase extends PluginPhase:
         _.symbol.name.toString == "metaContextDelegate"
       )
 
+  extension (tree: ValOrDefDef)(using Context)
+    def ident: Tree =
+      untpd.Ident(tree.name).withType(tree.tpe)
+
   object ContextArg:
     def unapply(tree: Tree)(using Context): Option[Tree] =
       tree match
@@ -135,7 +144,7 @@ abstract class CommonPhase extends PluginPhase:
         case tree: DefDef =>
           tree.paramss.flatten.view.reverse.collectFirst {
             case a @ ValDef(name, _, _) if a.tpe <:< metaContextTpe =>
-              untpd.Ident(name).withType(a.tpe)
+              a.ident
           }
         case TypeDef(name, _: Template) if tree.tpe <:< hasDFCTpe =>
           Some(This(tree.symbol.asClass).select("dfc".toTermName))

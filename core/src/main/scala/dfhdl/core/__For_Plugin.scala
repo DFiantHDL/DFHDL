@@ -80,4 +80,37 @@ object __For_Plugin:
   ): Pattern =
     Pattern.BindSI(op, parts, bindVals.map(_.asIR.ref))
 
+  def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =
+    dfc.mutableDB.OwnershipContext.getDefInputs(idx).asInstanceOf[V]
+  def designFromDef[V <: DFValAny](
+      args: List[(DFValAny, ir.Meta)],
+      dclMeta: ir.Meta
+  )(
+      func: => V
+  )(using DFC): V =
+    val instNameSuffix = s"${dclMeta.name}_inst"
+    val instName = dfc.nameOpt match
+      case Some(name) => s"${name}_${instNameSuffix}"
+      case None       => instNameSuffix
+    val designBlock =
+      Design.Block.apply(
+        domain = ir.DomainType.DF,
+        dclMeta = dclMeta,
+        instMode = ir.DFDesignBlock.InstMode.Normal
+      )(using
+        dfc.setName(instName)
+      )
+    dfc.enterOwner(designBlock)
+    val inputs = args.map { (arg, argMeta) =>
+      DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
+    }
+    dfc.mutableDB.OwnershipContext.saveDefInputs(inputs)
+    val ret = func
+    val output = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setName("o"))
+    output.connect(ret)
+    dfc.exitOwner()
+    inputs.lazyZip(args).foreach { case (input, (arg, _)) => input.connect(arg) }
+    output.asInstanceOf[V]
+  end designFromDef
+
 end __For_Plugin

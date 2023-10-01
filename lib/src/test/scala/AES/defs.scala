@@ -35,6 +35,8 @@ extension (lhs: AESByte <> VAL)
   // The addition of two elements in a finite field is achieved by “adding” the coefficients for the
   // corresponding powers in the polynomials for the two elements. The addition is performed with
   // the XOR operation.
+  @targetName("addByte")
+  @inline
   def +(rhs: AESByte <> VAL): AESByte <> VAL =
     (lhs.actual ^ rhs.actual).as(AESByte)
 
@@ -55,6 +57,7 @@ extension (lhs: Byte <> TOKEN)
   // polynomials modulo an irreducible polynomial of degree 8. A polynomial is irreducible if its only
   // divisors are one and itself. For the AES algorithm, this irreducible polynomial is
   // m(x) = x^8 + x^4 + x^3 + x + 1, or {01}{1b} in hexadecimal notation.
+  @targetName("mulByte")
   def *(rhs: AESByte <> VAL): AESByte <> VAL =
     val (ret, _) =
       (0 until 8).foldLeft[(AESByte <> VAL, AESByte <> VAL)]((all(0).as(AESByte), rhs)) {
@@ -91,8 +94,8 @@ end extension
 abstract class AESMatrix[C <: Int with Singleton](val colNum: C)
     extends Opaque[AESWord X C](AESWord X colNum)
 extension [C <: Int with Singleton](lhs: AESMatrix[C] <> VAL)
-  def apply(colIdx: Int): AESWord <> VAL = lhs.actual(colIdx)
-  def apply(rowIdx: Int, colIdx: Int): AESByte <> VAL = lhs.actual(colIdx).actual(rowIdx)
+  @inline def apply(colIdx: Int): AESWord <> VAL = lhs.actual(colIdx)
+  @inline def apply(rowIdx: Int, colIdx: Int): AESByte <> VAL = lhs.actual(colIdx).actual(rowIdx)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Dimensions & Data Structures
@@ -146,7 +149,7 @@ extension (lhs: AESState <> VAL)
   // Transformation in the Cipher and Inverse Cipher in which a Round Key is added to the State using an XOR
   // operation. The length of a Round Key equals the size of the State (i.e., for Nb = 4, the Round Key length
   // equals 128 bits/16 bytes).
-  def addRoundKey(key: AESRoundKey <> VAL): AESState <> VAL =
+  @inline def addRoundKey(key: AESRoundKey <> VAL): AESState <> VAL =
     (lhs.bits ^ key.bits).as(AESState)
 end extension
 
@@ -178,7 +181,7 @@ end extension
 // AES Keyschedule
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 extension (lhs: AESKeySchedule <> VAL)
-  def roundKey(round: Int): AESRoundKey <> VAL =
+  @inline def roundKey(round: Int): AESRoundKey <> VAL =
     Vector.tabulate(Nb)(b => lhs(round * Nb + b)).as(AESRoundKey)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////

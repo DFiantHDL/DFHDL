@@ -1,14 +1,9 @@
 package dfhdl.core
 import dfhdl.internals.*
 import dfhdl.compiler.ir
-import ir.HWAnnotation
+import ir.{HWAnnotation, getActiveHWAnnotations}
 
 import scala.annotation.Annotation
-
-extension (annotList: List[Annotation])
-  def getActiveHWAnnotations: List[HWAnnotation] = annotList.collect {
-    case annot: HWAnnotation if annot.isActive => annot
-  }
 
 final case class DFC(
     nameOpt: Option[String],

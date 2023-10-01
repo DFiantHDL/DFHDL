@@ -26,7 +26,7 @@ private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
     setOwner(
       dfc.getSet.replace(designBlock)(
         designBlock.copy(
-          dclMeta = ir.Meta(Some(name), position, docOpt, annotations.getActiveHWAnnotations),
+          dclMeta = ir.Meta.gen(Some(name), position, docOpt, annotations),
           instMode = mkInstMode(args)
         )
       ).asFE
@@ -84,9 +84,7 @@ object Design:
   end Block
   extension [D <: Design](dsn: D)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
-    def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
-        dfc: DFC
-    ): D =
+    def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
       import dfc.getSet
       dsn.setOwner(
         dsn.owner.asIR

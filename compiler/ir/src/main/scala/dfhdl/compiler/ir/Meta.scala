@@ -24,3 +24,11 @@ final case class Meta(
   def =~(that: Meta): Boolean =
     this.nameOpt == that.nameOpt && this.docOpt == that.docOpt && this.annotations == that.annotations
 end Meta
+
+object Meta:
+  def gen(
+      nameOpt: Option[String],
+      position: Position,
+      docOpt: Option[String],
+      annotations: List[Annotation]
+  ): Meta = Meta(nameOpt, position, docOpt, annotations.getActiveHWAnnotations)
