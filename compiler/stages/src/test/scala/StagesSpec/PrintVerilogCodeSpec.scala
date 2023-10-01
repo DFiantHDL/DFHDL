@@ -156,7 +156,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |);
          |  logic [15:0] z;
          |  logic [15:0] my_var;
-         |  logic [15:0]  c = 16'h0000;
+         |  parameter logic [15:0]  c = 16'h0000;
          |  always @(clk, rst)
          |  begin
          |    if (rst) y <= c;
@@ -207,20 +207,20 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Top_defs.sv"
          |
          |module Top;
-         |  logic  c01 = 1'b0;
-         |  logic  c02 = 1'b1;
-         |  logic  c03 = 1'bx;
-         |  logic  c04 = 0;
-         |  logic  c05 = 1;
-         |  logic [7:0]  c06 = 8'h22;
-         |  logic [6:0]  c07 = 7'h22;
-         |  logic [2:0]  c08 = 3'h5;
-         |  logic [2:0]  c09 = 3'd7;
-         |  logic [47:0]  c10 = 48'd239794508230343;
-         |  logic signed [3:0]  c11 = -4'sd8;
-         |  logic signed [48:0]  c12 = -49'sd239794508230343;
-         |  logic [7:0]  c13 = 8'hxx;
-         |  logic signed [7:0]  c14 = $signed(8'hxx);
+         |  parameter logic  c01 = 1'b0;
+         |  parameter logic  c02 = 1'b1;
+         |  parameter logic  c03 = 1'bx;
+         |  parameter logic  c04 = 0;
+         |  parameter logic  c05 = 1;
+         |  parameter logic [7:0]  c06 = 8'h22;
+         |  parameter logic [6:0]  c07 = 7'h22;
+         |  parameter logic [2:0]  c08 = 3'h5;
+         |  parameter logic [2:0]  c09 = 3'd7;
+         |  parameter logic [47:0]  c10 = 48'd239794508230343;
+         |  parameter logic signed [3:0]  c11 = -4'sd8;
+         |  parameter logic signed [48:0]  c12 = -49'sd239794508230343;
+         |  parameter logic [7:0]  c13 = 8'hxx;
+         |  parameter logic signed [7:0]  c14 = $signed(8'hxx);
          |
          |endmodule
          |""".stripMargin
