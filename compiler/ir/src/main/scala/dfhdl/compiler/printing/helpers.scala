@@ -47,15 +47,24 @@ extension (text: String)
       lhsFilter: String => Boolean = _ => true
   ): String =
     val pat = s"($lhsRegx)($opRegx)($rhsRegx)".r
-    val maxAlign = text.betterLinesIterator.map {
-      case pat(lhs, _, _) => lhs.length
-      case _              => 0
-    }.maxOption.getOrElse(0)
-    if (maxAlign > 0)
+    var cnt = 0
+    var sum = 0
+    var maxAlign = 0
+    text.betterLinesIterator.foreach {
+      case pat(lhs, _, _) =>
+        cnt = cnt + 1
+        val len = lhs.length()
+        sum = sum + len
+        maxAlign = maxAlign max len
+      case _ =>
+    }
+    if (cnt > 0)
+      val avgAlign = sum / cnt
+      val setAlign = if (cnt > 10) avgAlign else maxAlign
       text.betterLinesIterator
         .map {
           case pat(lhs, op, rhs) if lhsFilter(lhs) =>
-            val delta = " " * (maxAlign - lhs.length)
+            val delta = " " * (setAlign - lhs.length)
             s"$lhs$delta$op$rhs"
           case l => l
         }
