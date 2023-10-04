@@ -537,13 +537,15 @@ object ProcessBlock:
 
 object DFConditional:
   sealed trait Block extends DFBlock:
+    type THeader <: Header
     val guardRef: Block.GuardRef
     val prevBlockOrHeaderRef: Block.Ref
   object Block:
     type Ref = DFRef.TwoWay[Block | Header, DFMember]
     type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty, DFMember]
 
-  sealed trait Header extends DFVal.CanBeExpr
+  sealed trait Header extends DFVal.CanBeExpr:
+    type TBlock <: Block
 
   final case class DFMatchHeader(
       dfType: DFType,
@@ -552,6 +554,7 @@ object DFConditional:
       meta: Meta,
       tags: DFTags
   ) extends Header:
+    type TBlock = DFCaseBlock
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFMatchHeader =>
         this.dfType == that.dfType && this.selectorRef =~ that.selectorRef &&
@@ -570,6 +573,7 @@ object DFConditional:
       meta: Meta,
       tags: DFTags
   ) extends Block:
+    type THeader = DFMatchHeader
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFCaseBlock =>
         this.pattern =~ that.pattern && this.guardRef =~ that.guardRef &&
@@ -638,6 +642,7 @@ object DFConditional:
       meta: Meta,
       tags: DFTags
   ) extends Header:
+    type TBlock = DFIfElseBlock
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFIfHeader =>
         this.dfType == that.dfType &&
@@ -655,6 +660,7 @@ object DFConditional:
       meta: Meta,
       tags: DFTags
   ) extends Block:
+    type THeader = DFIfHeader
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFIfElseBlock =>
         this.guardRef =~ that.guardRef && this.prevBlockOrHeaderRef =~ that.prevBlockOrHeaderRef &&

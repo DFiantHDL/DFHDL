@@ -8,25 +8,25 @@ import DFVal.Modifier
 import scala.annotation.tailrec
 import scala.reflect.{ClassTag, classTag}
 
-extension (cb: DFConditional.Block)(using MemberGetSet)
-  @tailrec def getFirstCB: DFConditional.Block = cb.prevBlockOrHeaderRef.get match
+extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
+  @tailrec def getFirstCB: CB = cb.prevBlockOrHeaderRef.get match
     case _: DFConditional.Header        => cb
-    case prevBlock: DFConditional.Block => prevBlock.getFirstCB
-  def getHeaderCB: DFConditional.Header =
-    cb.getFirstCB.prevBlockOrHeaderRef.get.asInstanceOf[DFConditional.Header]
+    case prevBlock: DFConditional.Block => prevBlock.getFirstCB.asInstanceOf[CB]
+  def getHeaderCB: cb.THeader =
+    cb.getFirstCB.prevBlockOrHeaderRef.get.asInstanceOf[cb.THeader]
   def isFirstCB: Boolean = cb.prevBlockOrHeaderRef.get match
-    case _: DFConditional.DFMatchHeader => true
-    case _                              => false
-  def getNextCB: Option[DFConditional.Block] =
+    case _: DFConditional.Header => true
+    case _                       => false
+  def getNextCB: Option[CB] =
     val refs = getSet.designDB.memberTable.getOrElse(cb, Set())
     // the conditional block is last if there is no reference to it as a previous block
     val cbTags: Set[ClassTag[_]] =
       Set(classTag[DFConditional.DFCaseBlock], classTag[DFConditional.DFIfElseBlock])
-    refs
+    refs.view
       .collectFirst {
         case r @ DFRef.TwoWay(originRef) if cbTags.contains(r.refType) => originRef.get
       }
-      .collectFirst { case cb: DFConditional.Block => cb }
+      .collectFirst { case cb: DFConditional.Block => cb.asInstanceOf[CB] }
   def isLastCB: Boolean = getNextCB.isEmpty
 //  @tailrec private def getPatterns(
 //      casePattenBlock: DFConditional.CaseBlock,
@@ -37,14 +37,14 @@ extension (cb: DFConditional.Block)(using MemberGetSet)
 //      case Some(r) => getPatterns(r.get, updatedPattens)
 //      case None    => updatedPattens
   @tailrec private def getLeadingCBChain(
-      block: DFConditional.Block,
-      chain: List[DFConditional.Block]
-  ): List[DFConditional.Block] =
+      block: CB,
+      chain: List[CB]
+  ): List[CB] =
     block.prevBlockOrHeaderRef.get match
       case prevBlock: DFConditional.Block =>
-        getLeadingCBChain(prevBlock, prevBlock :: chain)
+        getLeadingCBChain(prevBlock.asInstanceOf[CB], prevBlock.asInstanceOf[CB] :: chain)
       case _ => chain
-  def getLeadingChain: List[DFConditional.Block] = getLeadingCBChain(cb, List(cb))
+  def getLeadingChain: List[CB] = getLeadingCBChain(cb, List(cb))
   // returns Some(true/false) if the is conditional structure is known to be exhaustive or not.
   // returns None if the coverage is not known.
   def isExhaustive: Option[Boolean] = cb match
@@ -92,13 +92,13 @@ extension (cb: DFConditional.Block)(using MemberGetSet)
     case _ => Some(false)
   // Gets the topmost conditional header of an if/match chain.
   @tailrec private def getTopConditionalHeader(
-      currentBlock: DFConditional.Block
-  ): DFConditional.Header =
+      currentBlock: CB
+  ): cb.THeader =
     currentBlock.getOwnerBlock match
       case cb: DFConditional.Block => getTopConditionalHeader(cb)
-      case _                       => currentBlock.getHeaderCB
+      case _                       => currentBlock.getHeaderCB.asInstanceOf[cb.THeader]
 
-  def getTopConditionalHeader: DFConditional.Header = getTopConditionalHeader(cb)
+  def getTopConditionalHeader: cb.THeader = getTopConditionalHeader(cb)
 end extension
 
 extension (patterns: Iterable[Pattern])
@@ -106,3 +106,19 @@ extension (patterns: Iterable[Pattern])
     case Pattern.Alternative(list) => list.flattenPatterns
     case p                         => Some(p)
   }
+
+extension [CH <: DFConditional.Header](ch: CH)(using MemberGetSet)
+  def getLastCB: ch.TBlock =
+    val refs = getSet.designDB.memberTable.getOrElse(ch, Set())
+    // the conditional block is last if there is no reference to it as a previous block
+    val cbTags: Set[ClassTag[_]] =
+      Set(classTag[DFConditional.DFIfHeader], classTag[DFConditional.DFMatchHeader])
+    refs.view
+      .collect {
+        case r @ DFRef.TwoWay(originRef) if cbTags.contains(r.refType) => originRef.get
+      }
+      .collectFirst { case cb: DFConditional.Block if cb.isLastCB => cb.asInstanceOf[ch.TBlock] }
+      .get
+
+  def getCBList: List[ch.TBlock] = getLastCB.getLeadingChain
+end extension
