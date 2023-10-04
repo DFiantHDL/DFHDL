@@ -6,7 +6,7 @@ import DFConditional.DFCaseBlock.Pattern
 import DFVal.Modifier
 import DFVal.Func.Op as FuncOp
 import scala.annotation.tailrec
-import scala.reflect.classTag
+import scala.reflect.{ClassTag, classTag}
 
 object Ident:
   def unapply(alias: ir.DFVal.Alias.AsIs)(using MemberGetSet): Option[ir.DFVal] =
@@ -72,6 +72,11 @@ extension (dcl: DFVal.Dcl)
 
 private val netClassTag = classTag[DFNet]
 private val aliasPartClassTag = classTag[DFVal.Alias.Partial]
+private val nonConsumingRefs: Set[ClassTag[_]] = Set(
+  aliasPartClassTag,
+  classTag[DFConditional.DFIfElseBlock],
+  classTag[DFConditional.DFCaseBlock]
+)
 
 extension (dfVal: DFVal)
   def originRefs(using MemberGetSet): Set[DFRefAny] =
@@ -156,7 +161,7 @@ extension (dfVal: DFVal)
 
     val refOwner: Option[DFMember] = refs
       // search consuming references first
-      .collectFirst { case r if !(r.refType equals aliasPartClassTag) => r.get }
+      .collectFirst { case r if !nonConsumingRefs.contains(r.refType) => r.get }
       // search aliasing references, as long as we don't go back to previous member
       // (aliasing can be used for both producing and consuming)
       .orElse {

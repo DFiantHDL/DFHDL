@@ -5,6 +5,39 @@ import dfhdl.compiler.stages.namedSelection
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class NamedSelectionSpec extends StageSpec:
+  test("Anonymous conditional expressions") {
+    class Mux extends DFDesign:
+      val c = Boolean <> IN
+      val i = Byte    <> IN
+      val o = Byte    <> OUT
+      val z = Byte    <> OUT
+      o := ((if (c) i else i): Byte <> VAL)
+      z := ((i match
+        case all(0) => i
+        case _      => i
+      ): Byte <> VAL)
+
+    val id = (new Mux).namedSelection
+    assertCodeString(
+      id,
+      """|class Mux extends DFDesign:
+         |  val c = Boolean <> IN
+         |  val i = Bits(8) <> IN
+         |  val o = Bits(8) <> OUT
+         |  val z = Bits(8) <> OUT
+         |  val o_part: Bits[8] <> VAL =
+         |    if (c) i
+         |    else i
+         |  o := o_part
+         |  val z_part: Bits[8] <> VAL =
+         |    i match
+         |      case h"00" => i
+         |      case _ => i
+         |  z := z_part
+         |end Mux
+         |""".stripMargin
+    )
+  }
   test("Named selection multiple references") {
     class ID extends DFDesign:
       val x = UInt(16) <> IN

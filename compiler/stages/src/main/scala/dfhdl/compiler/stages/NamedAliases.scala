@@ -94,7 +94,9 @@ object NamedAliases:
         case func @ DFVal.Func(_, op, DFRef(lhs) :: _ :: Nil, _, _, _)
             if !lhs.hasVerilogName && carryOps.contains(op) && func.width > lhs.width =>
           List(lhs)
-        case _ => Nil
+        // anonymous conditional expressions
+        case ch: DFConditional.Header if ch.isAnonymous && ch.dfType != NoType => List(ch)
+        case _                                                                 => Nil
       }
     end NamedSelection
     object NamedPrev extends Criteria:
