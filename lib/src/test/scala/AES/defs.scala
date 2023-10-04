@@ -36,8 +36,7 @@ extension (lhs: AESByte <> VAL)
   // corresponding powers in the polynomials for the two elements. The addition is performed with
   // the XOR operation.
   @targetName("addByte")
-  @inline
-  def +(rhs: AESByte <> VAL): AESByte <> VAL =
+  @inline def +(rhs: AESByte <> VAL): AESByte <> VAL =
     (lhs.actual ^ rhs.actual).as(AESByte)
 
   private def xtime: AESByte <> VAL =
@@ -73,8 +72,7 @@ case class AESWord() extends Opaque(AESByte X 4)
 
 extension (lhs: AESWord <> VAL)
   @targetName("addWord")
-  @inline
-  def +(rhs: AESWord <> VAL): AESWord <> VAL =
+  @inline def +(rhs: AESWord <> VAL): AESWord <> VAL =
     (lhs.bits ^ rhs.bits).as(AESWord)
 
   // Function used in the Key Expansion routine that takes a four-byte input word and applies
