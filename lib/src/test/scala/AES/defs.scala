@@ -58,12 +58,10 @@ extension (lhs: Byte <> TOKEN)
   // m(x) = x^8 + x^4 + x^3 + x + 1, or {01}{1b} in hexadecimal notation.
   @targetName("mulByte")
   def *(rhs: AESByte <> VAL): AESByte <> VAL =
-    val (ret, _) =
-      (0 until 8).foldLeft[(AESByte <> VAL, AESByte <> VAL)]((all(0).as(AESByte), rhs)) {
-        case ((p, a), i) if lhs.bits(i) => (p + a, a.xtime)
-        case ((p, a), _)                => (p, a.xtime)
-      }
-    ret
+    val a = LazyList.iterate[AESByte <> VAL](rhs)(_.xtime)
+    (0 until 8).foldLeft[AESByte <> VAL](all(0).as(AESByte)):
+      case (p, i) if lhs.bits(i) => p + a(i)
+      case (p, _)                => p
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Word
