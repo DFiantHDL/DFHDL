@@ -4,6 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import DFVal.Alias.History.Op as HistoryOp
+import dfhdl.compiler.ir.DFDesignBlock.InstMode
 case object ToRT extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
@@ -14,9 +15,12 @@ case object ToRT extends Stage:
           h.copy(op = HistoryOp.Reg(DerivedCfg)),
           Patch.Replace.Config.FullReplacement
         )
-      case d @ DFDesignBlock(DomainType.DF, _, _, _, _, _) =>
+      case d @ DFDesignBlock(DomainType.DF, _, instMode, _, _, _) =>
+        val updatedInstMode = instMode match
+          case InstMode.Def => InstMode.Normal
+          case _            => instMode
         d -> Patch.Replace(
-          d.copy(domainType = new DomainType.RT(DerivedCfg)),
+          d.copy(domainType = new DomainType.RT(DerivedCfg), instMode = updatedInstMode),
           Patch.Replace.Config.FullReplacement
         )
       case i @ DFInterfaceOwner(DomainType.DF, _, _, _) =>
