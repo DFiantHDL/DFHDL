@@ -96,7 +96,7 @@ object __For_Plugin:
       Design.Block.apply(
         domain = ir.DomainType.DF,
         dclMeta = dclMeta,
-        instMode = ir.DFDesignBlock.InstMode.Normal
+        instMode = ir.DFDesignBlock.InstMode.Def
       )(using
         dfc.setName(instName)
       )

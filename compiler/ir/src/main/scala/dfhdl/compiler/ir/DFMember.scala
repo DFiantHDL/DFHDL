@@ -699,7 +699,7 @@ end DFDesignBlock
 object DFDesignBlock:
   import InstMode.BlackBox.Source
   enum InstMode derives CanEqual:
-    case Normal, Simulation
+    case Normal, Def, Simulation
     case BlackBox(args: ListMap[String, Any], verilogSrc: Source, vhdlSrc: Source)
   object InstMode:
     object BlackBox:
