@@ -60,7 +60,9 @@ extension (text: String)
     }
     if (cnt > 0)
       val avgAlign = sum / cnt
-      val setAlign = if (cnt > 10) avgAlign else maxAlign
+      val setAlign =
+        if (cnt > 10) (avgAlign + maxAlign) / 2 + 3
+        else maxAlign
       text.betterLinesIterator
         .map {
           case pat(lhs, op, rhs) if lhsFilter(lhs) =>
