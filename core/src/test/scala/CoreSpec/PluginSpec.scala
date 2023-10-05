@@ -31,9 +31,9 @@ class PluginSpec extends DFSpec:
     val nameOpt = ctx.nameOpt
     val pos = ctx.position
     assert(pos.file.endsWith(fileName))
-    def +(that: Bar)(using DFC): Bar = new Plus(this, that)
+    @inline def +(that: Bar)(using DFC): Bar = new Plus(this, that)
     inline def -(that: Bar)(using DFC): Bar = new Plus(this, that)
-    def /[T](that: Exact[T])(using DFC): Bar = new Plus(this, that.value.asInstanceOf[Bar])
+    @inline def /[T](that: Exact[T])(using DFC): Bar = new Plus(this, that.value.asInstanceOf[Bar])
 
     override def onCreateEnd: Unit =
       nameStack = ctx.nameOpt :: nameStack
@@ -76,7 +76,7 @@ class PluginSpec extends DFSpec:
   val bar_vec2 = Vector.fill(3)(new Bar)
   assertLastNames("bar_vec2", "bar_vec2", "bar_vec2")
 
-  inline def wrapper(block: DFC ?=> Bar)(using dfc: DFC): Bar =
+  inline def wrapper(inline block: DFC ?=> Bar)(using dfc: DFC): Bar =
     block(using dfc)
 
   val wrappedName = wrapper {
@@ -133,9 +133,9 @@ class PluginSpec extends DFSpec:
   assertEquals(gotName.clsDocOpt, Some(" This is doc "))
   assertEquals(gotName.clsArgs, ListMap("x" -> 1, "y" -> "2", "z" -> 3))
   assert(gotName.clsAnnotations.head.isInstanceOf[nowarn])
-  extension (bar: Bar)(using DFC) def ++(that: Bar): Bar = new Plus(bar, that)
+  extension (bar: Bar)(using DFC) @inline def ++(that: Bar): Bar = new Plus(bar, that)
 
-  extension (bar: Bar) def +++(that: Bar)(using DFC): Bar = new Plus(bar, that)
+  extension (bar: Bar) @inline def +++(that: Bar)(using DFC): Bar = new Plus(bar, that)
 
   extension (bar: Bar)
     @metaContextDelegate
@@ -148,7 +148,7 @@ class PluginSpec extends DFSpec:
   object Internal:
     class Foo[T](arg1: Int, arg2: Int)(using DFC) extends Bar
 
-  def newBar(using DFC): Bar = new Bar
+  @inline def newBar(using DFC): Bar = new Bar
 
   class Top(using DFC) extends Bar:
     object FooObj extends Foo(1, 2):

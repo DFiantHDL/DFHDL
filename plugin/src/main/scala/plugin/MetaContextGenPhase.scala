@@ -41,6 +41,20 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   val inlinedOwnerStack = mutable.Map.empty[Apply, Inlined]
   var applyPosStack = List.empty[util.SrcPos]
 
+  extension (tree: ValOrDefDef)(using Context)
+    def isInline: Boolean =
+      val sym = tree.symbol
+      (sym is Inline) || sym.hasAnnotation(inlineAnnotSym)
+    def needsNewContext: Boolean =
+      tree match
+        case _: ValDef => true // valdefs always generate new context
+        case _         =>
+          // defdefs generate new context if they are not inline
+          // and when they are not synthetic, indicating that they
+          // are actually constructor definitions (other synthetics
+          // should not have context, anyways)
+          !tree.isInline && !tree.symbol.is(Synthetic)
+
   extension (tree: Tree)(using Context)
     def isDFVal: Boolean =
       val rhsSym = tree.tpe.dealias.typeSymbol
@@ -115,20 +129,22 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         case ContextArg(argTree) =>
           val sym = argTree.symbol
           treeOwnerMap.get(srcPos.show) match
-            case Some(t: ValDef) =>
+            case Some(t: ValOrDefDef) if t.needsNewContext =>
               if (t.symbol.flags.is(Flags.Mutable))
                 report.warning(
                   "Scala `var` modifier for DFHDL values/classes is highly discouraged!\nConsider changing to `val`.",
                   t.srcPos
                 )
               val (nameOpt, docOpt, annots) =
-                if (ignoreValDef(t)) (None, None, Nil)
-                else
-                  (
-                    Some(t.name.toString.nameCheck(t)),
-                    t.symbol.docString,
-                    t.symbol.staticAnnotations
-                  )
+                t match
+                  case vd: ValDef if (ignoreValDef(vd)) => (None, None, Nil)
+                  case dd: DefDef                       => (None, None, Nil)
+                  case _ =>
+                    (
+                      Some(t.name.toString.nameCheck(t)),
+                      t.symbol.docString,
+                      t.symbol.staticAnnotations
+                    )
               tree.replaceArg(argTree, argTree.setMeta(nameOpt, srcPos, docOpt, annots))
             case Some(t: TypeDef) if t.name.toString.endsWith("$") =>
               tree.replaceArg(
@@ -332,7 +348,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     lazy val dfcArg = ContextArg.at(tree)
     if (
       // ignore inline methods and exported methods
-      !(sym is Inline) && !sym.hasAnnotation(inlineAnnotSym) && !(sym is Exported) &&
+      !tree.isInline && !(sym is Exported) &&
       // trivially ignorable methods before type checking
       !sym.isConstructor && !(sym is JavaStatic) &&
       // accept only methods that return a DFHDL value and
