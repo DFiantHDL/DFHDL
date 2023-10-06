@@ -5,34 +5,26 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.internals.*
 
-private final class UniqueBlock(val block: DFDesignBlock, val members: List[DFMember])(using
-    MemberGetSet
-):
-  override def equals(obj: Any): Boolean = obj match
-    case that: UniqueBlock if this.block.dclMeta == that.block.dclMeta =>
-      (this.members lazyZip that.members).forall { case (l, r) =>
-        l =~ r
-      }
-    case _ => false
-  override def hashCode(): Int = block.dclName.hashCode
-
 case object UniqueDesigns extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet): DB =
-    val uniqueBlockMap: Map[UniqueBlock, List[DFDesignBlock]] =
+    val eqDesign: ((DFDesignBlock, List[DFMember]), (DFDesignBlock, List[DFMember])) => Boolean =
+      case ((thisBlock, theseMembers), (thatBlock, thoseMembers))
+          if thisBlock.dclMeta == thatBlock.dclMeta =>
+        (theseMembers lazyZip thoseMembers).forall { case (l, r) => l =~ r }
+      case _ => false
+    end eqDesign
+    val sameBlockLists: Iterable[List[DFDesignBlock]] =
       designDB.designMemberList.view
-        .groupBy((design, members) => new UniqueBlock(design, members))
-        .view
-        .mapValues(_.map(_._1).toList)
-        .toMap
-    val uniqueTypeMap: Map[String, List[UniqueBlock]] =
-      uniqueBlockMap.keys.toList.groupBy(ub => ub.block.dclName)
+        .groupByCompare(eqDesign, _._1.dclName.hashCode()).map(_.unzip._1)
+    val uniqueTypeMap: Map[String, Iterable[List[DFDesignBlock]]] =
+      sameBlockLists.groupBy(g => g.head.dclName)
     val patchList = uniqueTypeMap.flatMap {
       case (designType, list) if list.size > 1 =>
-        list.zipWithIndex.flatMap { case (ub, i) =>
+        list.zipWithIndex.flatMap { case (group, i) =>
           val updatedDclName = s"${designType}_${i.toPaddedString(list.size)}"
-          uniqueBlockMap(ub).map(block =>
+          group.map(block =>
             block -> Patch.Replace(
               block.copy(dclMeta = block.dclMeta.copy(nameOpt = Some(updatedDclName))),
               Patch.Replace.Config.FullReplacement
