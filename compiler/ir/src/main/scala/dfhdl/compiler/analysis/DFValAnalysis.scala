@@ -7,6 +7,7 @@ import DFVal.Modifier
 import DFVal.Func.Op as FuncOp
 import scala.annotation.tailrec
 import scala.reflect.{ClassTag, classTag}
+import DFDesignBlock.InstMode
 
 object Ident:
   def unapply(alias: ir.DFVal.Alias.AsIs)(using MemberGetSet): Option[ir.DFVal] =
@@ -53,6 +54,17 @@ object DclOut:
   ): Boolean = dcl.modifier match
     case Modifier.OUT => true
     case _            => false
+
+object PortOfDefDesign:
+  def unapply(dcl: DFVal.Dcl)(using
+      MemberGetSet
+  ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignBlock)] =
+    dcl.modifier match
+      case mod: (Modifier.IN.type | Modifier.OUT.type) =>
+        val design = dcl.getOwnerDesign
+        if (design.instMode == InstMode.Def) Some(mod, design)
+        else None
+      case _ => None
 
 object RegDomain:
   def unapply(dfVal: DFVal)(using MemberGetSet): Option[RTDomainCfg] =
