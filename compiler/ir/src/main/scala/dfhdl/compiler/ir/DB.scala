@@ -6,6 +6,7 @@ import scala.collection.mutable
 import scala.collection.immutable.{ListMap, ListSet}
 import dfhdl.internals.*
 import dfhdl.compiler.printing.{Printer, DefaultPrinter}
+import DFDesignBlock.InstMode
 
 final case class DB(
     members: List[DFMember],
@@ -361,8 +362,11 @@ final case class DB(
     // We use a Set since meta programming is usually the cause and can result in
     // multiple anonymous members with the same position. The top can be anonymous.
     val anonErrorMemberPositions: Set[Position] = members.drop(1).view.collect {
-      case dcl: DFVal.Dcl if dcl.meta.isAnonymous     => dcl.meta.position
-      case dsn: DFDesignBlock if dsn.meta.isAnonymous => dsn.meta.position
+      case dcl: DFVal.Dcl if dcl.meta.isAnonymous =>
+        dcl.meta.position
+      // definition design are allowed to be anonymous
+      case dsn: DFDesignBlock if dsn.meta.isAnonymous && dsn.instMode != InstMode.Def =>
+        dsn.meta.position
     }.toSet
     if (anonErrorMemberPositions.nonEmpty)
       throw new IllegalArgumentException(
