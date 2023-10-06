@@ -58,7 +58,7 @@ extension (lhs: Byte <> TOKEN)
   // m(x) = x^8 + x^4 + x^3 + x + 1, or {01}{1b} in hexadecimal notation.
   @targetName("mulByte")
   def *(rhs: AESByte <> VAL): AESByte <> VAL =
-    val a = LazyList.iterate[AESByte <> VAL](rhs)(_.xtime)
+    val a = LazyList.iterate(rhs)(_.xtime)
     (0 until 8).foldLeft[AESByte <> VAL](all(0).as(AESByte)):
       case (p, i) if lhs.bits(i) => p + a(i)
       case (p, _)                => p
@@ -181,7 +181,7 @@ extension (keySched: AESKeySchedule <> VAL)
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 def cipher(data: AESData <> VAL, key: AESKey <> VAL): AESData <> VAL =
   val keySchedule = key.keyExpansion
-  val state = (0 to Nr).foldLeft[AESState <> VAL](data.actual.as(AESState))((state, round) =>
+  val state = (0 to Nr).foldLeft(data.actual.as(AESState))((state, round) =>
     val roundVal =
       if (round == 0) state
       else if (round < Nr) state.subBytes.shiftRows.mixColumns
