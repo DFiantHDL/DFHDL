@@ -88,17 +88,11 @@ object __For_Plugin:
   )(
       func: => V
   )(using DFC): V =
-    val instNameSuffix = s"${dclMeta.name}_inst"
-    val instName = dfc.nameOpt match
-      case Some(name) => s"${name}_${instNameSuffix}"
-      case None       => instNameSuffix
     val designBlock =
       Design.Block.apply(
         domain = ir.DomainType.DF,
         dclMeta = dclMeta,
         instMode = ir.DFDesignBlock.InstMode.Def
-      )(using
-        dfc.setName(instName)
       )
     dfc.enterOwner(designBlock)
     val inputs = args.map { (arg, argMeta) =>
@@ -106,10 +100,13 @@ object __For_Plugin:
     }
     dfc.mutableDB.OwnershipContext.saveDefInputs(inputs)
     val ret = func
-    val output = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setName("o"))
-    output.connect(ret)
+    val retMeta = ret.asIR.meta
+    val output = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setMeta(retMeta.setName("o")))
+    output.connect(ret)(using dfc.setMeta(retMeta.anonymize))
     dfc.exitOwner()
-    inputs.lazyZip(args).foreach { case (input, (arg, _)) => input.connect(arg) }
+    inputs.lazyZip(args).foreach { case (input, (arg, _)) =>
+      input.connect(arg)(using dfc.anonymize)
+    }
     output.asInstanceOf[V]
   end designFromDef
 
