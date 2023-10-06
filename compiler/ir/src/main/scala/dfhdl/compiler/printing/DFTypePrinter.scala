@@ -76,7 +76,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
-      .map((n, t) => s"${n}: ${csDFType(t, typeCS = true)} <> VAL")
+      .map((n, t) => s"${n}${csDFValType(t)}")
       .mkString("\n")
       .hindent(2)
     s"final case class ${dfType.getName}(\n$fields\n) extends Struct"
@@ -86,4 +86,6 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     else dfType.getName
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
+  def csDFValType(dfType: DFType): String =
+    s": ${printer.csDFType(dfType, typeCS = true)} <> VAL"
 end DFTypePrinter

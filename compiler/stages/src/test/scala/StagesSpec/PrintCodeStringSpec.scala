@@ -246,6 +246,8 @@ class PrintCodeStringSpec extends StageSpec:
       def test(arg: UInt[32] <> VAL): UInt[32] <> VAL =
         arg + arg
       o := test(data + 1)
+      val x = test(data)
+      o := x
     val id = (new IDWithDesignDef).getCodeString
     assertNoDiff(
       id,
@@ -253,18 +255,16 @@ class PrintCodeStringSpec extends StageSpec:
          |  * @param arg
          |  * @return
          |  **/
-         |class test extends DFDesign:
-         |  val arg = UInt(32) <> IN
-         |  val o = UInt(32) <> OUT
-         |  o <> arg + arg
+         |def test(arg: UInt[32] <> VAL): UInt[32] <> VAL =
+         |  arg + arg
          |end test
          |
          |class IDWithDesignDef extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
-         |  val test_inst = test()
-         |  test_inst.arg <> data + d"32'1"
-         |  o := test_inst.o
+         |  o := test(data + d"32'1")
+         |  val x = test(data)
+         |  o := x
          |end IDWithDesignDef
          |""".stripMargin
     )

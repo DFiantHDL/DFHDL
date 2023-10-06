@@ -7,6 +7,7 @@ import analysis.*
 import java.io.FileWriter
 import java.nio.file.{Paths, Files}
 import dfhdl.options.PrinterOptions
+import DFDesignBlock.InstMode
 
 protected trait AbstractPrinter:
   type TPrinter <: Printer
@@ -126,11 +127,14 @@ trait Printer
       case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
       case dfVal: DFVal                                => csDFValNamed(dfVal)
       case net: DFNet                                  => csDFNet(net)
-      case design: DFDesignBlock                       => csDFDesignBlockInst(design)
-      case pb: ProcessBlock                            => csProcessBlock(pb)
-      case domain: DomainBlock                         => csDomainBlock(domain)
-      case timer: Timer                                => csTimer(timer)
-      case _                                           => ???
+      case design: DFDesignBlock =>
+        design.instMode match
+          case InstMode.Def => csDFDesignDefInst(design)
+          case _            => csDFDesignBlockInst(design)
+      case pb: ProcessBlock    => csProcessBlock(pb)
+      case domain: DomainBlock => csDomainBlock(domain)
+      case timer: Timer        => csTimer(timer)
+      case _                   => ???
     s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta)}$cs"
   def designFileName(designName: String): String
   def globalFileName: String
@@ -147,7 +151,10 @@ trait Printer
     val alignedContents = if (alignEnable) alignCode(cs) else cs
     if (colorEnable) colorCode(alignedContents) else alignedContents
   final def csFile(design: DFDesignBlock): String =
-    s"${csDocString(design.dclMeta)}${csDFDesignBlockDcl(design)}"
+    val designDcl = design.instMode match
+      case InstMode.Def => csDFDesignDefDcl(design)
+      case _            => csDFDesignBlockDcl(design)
+    s"${csDocString(design.dclMeta)}$designDcl"
   final def printedDB: DB =
     val designDB = getSet.designDB
     val uniqueDesigns = mutable.Set.empty[String]
@@ -296,8 +303,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
 
   import io.AnsiColor._
   val scalaKW: Set[String] =
-    Set("class", "end", "enum", "extends", "new", "object", "val", "if", "else", "match", "case",
-      "final")
+    Set("class", "def", "end", "enum", "extends", "new", "object", "val", "if", "else", "match",
+      "case", "final")
   val dfhdlKW: Set[String] =
     Set("VAR", "REG", "WIRE", "IN", "OUT", "INOUT", "VAL", "DFDesign", "RTDesign", "EDDesign",
       "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all")

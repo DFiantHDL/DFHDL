@@ -4,8 +4,9 @@ import ir.*
 import analysis.*
 import dfhdl.internals.*
 import DFVal.*
-import dfhdl.compiler.ir.ProcessBlock.Sensitivity
-import dfhdl.compiler.ir.DFConditional.DFCaseBlock.Pattern
+import ProcessBlock.Sensitivity
+import DFConditional.DFCaseBlock.Pattern
+import DFDesignBlock.InstMode
 
 trait AbstractOwnerPrinter extends AbstractPrinter:
   final def csDFOwnerBody(owner: DFOwner): String =
@@ -20,8 +21,13 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case Ident(_) => true
         // named members
         case m: DFMember.Named if !m.isAnonymous => true
-        // including only nets that are not late (via) connections
-        case net: DFNet => !net.isViaConnection
+        // excluding late (via) connections
+        case net: DFNet if net.isViaConnection => false
+        // excluding nets that are inputs to a definition design
+        case DFNet.Connection(PortOfDefDesign(Modifier.IN, _), _, _) =>
+          false
+        // include the rest of the nets
+        case net: DFNet => true
         // including only conditional statements (no type) headers
         case ch: DFConditional.Header => ch.dfType == NoType
         // process blocks
@@ -50,6 +56,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       .mkString(s"${printer.csViaConnectionSep}\n")
   def csDFDesignBlockDcl(design: DFDesignBlock): String
   def csDFDesignBlockInst(design: DFDesignBlock): String
+  def csDFDesignDefDcl(design: DFDesignBlock): String
+  def csDFDesignDefInst(design: DFDesignBlock): String
   def csBlockBegin: String
   def csBlockEnd: String
   def csDFIfStatement(csCond: String): String
@@ -123,7 +131,45 @@ end AbstractOwnerPrinter
 
 protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter = DFPrinter
+  def csDFDesignDefDcl(design: DFDesignBlock): String =
+    val designMembers = design.members(MemberView.Folded)
+    val (outNet, outPort, retVal) = designMembers.view.reverse.collectFirst {
+      case outNet @ DFNet.Connection(outPort @ DclOut(), retVal: DFVal, _) =>
+        (outNet, outPort, retVal)
+    }.get
+    val defMembers = designMembers.filter {
+      case port: DFVal if port.isPort  => false
+      case net: DFNet if net == outNet => false
+      case _                           => true
+    }
+    val retValCS =
+      if (retVal.isAnonymous) retVal.codeString
+      else retVal.getName
+    val body = s"${csDFMembers(defMembers).emptyOr(_ + "\n")}$retValCS"
+    val localDcls = printer.csLocalTypeDcls(design)
+    val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
+    val defArgList = designMembers.collect { case port @ DclIn() =>
+      s"${port.getName}${printer.csDFValType(port.dfType)}"
+    }
+    val defArgsCS =
+      if (defArgList.length <= 2) defArgList.mkString(", ")
+      else defArgList.mkString("\n", ",\n", "\n").hindent(2)
+
+    val retType = printer.csDFValType(retVal.dfType)
+    val dcl =
+      s"def ${design.dclName}($defArgsCS)$retType =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
+    s"${printer.csAnnotations(design.dclMeta)}$dcl\n"
+  end csDFDesignDefDcl
+  def csDFDesignDefInst(design: DFDesignBlock): String =
+    val ports = design.members(MemberView.Folded).view.collect { case port @ DclIn() =>
+      val DFNet.Connection(_, from: DFVal, _) = port.getConnectionTo.get: @unchecked
+      printer.csDFValRef(from, design.getOwner)
+    }.mkString(", ")
+    val dcl = s"${design.dclName}($ports)"
+    if (design.isAnonymous) dcl
+    else s"val ${design.getName} = $dcl"
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
+    import design.instMode
     val localDcls = printer.csLocalTypeDcls(design)
     val body = csDFOwnerBody(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"

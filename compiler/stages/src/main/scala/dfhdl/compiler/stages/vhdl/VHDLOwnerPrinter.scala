@@ -74,6 +74,8 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerLateBody(design)
     val inst = s"${design.getName} : entity work.${entityName(design)}(${archName(design)})"
     if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.hindent}\n);"
+  def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
+  def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported
   def csBlockBegin: String = "begin"
   def csBlockEnd: String = "end"
   def csDFIfStatement(csCond: String): String = s"if $csCond then"

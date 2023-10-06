@@ -65,10 +65,14 @@ trait AbstractValPrinter extends AbstractPrinter:
   final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner): String =
     dfVal match
       case expr: CanBeExpr if expr.isAnonymous => csDFValExpr(expr)
-      case _                                   => dfVal.getRelativeName(fromOwner)
+      case PortOfDefDesign(Modifier.OUT, design) =>
+        if (design.isAnonymous) printer.csDFDesignDefInst(design)
+        else design.getName
+      case _ => dfVal.getRelativeName(fromOwner)
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:
+  type TPrinter <: DFPrinter
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String =
     s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
   def csDFValConstDcl(dfVal: Const): String =
@@ -221,9 +225,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
     s"${dfVal.timerRef.refCodeString}.isActive"
   def csDFValNamed(dfVal: DFVal): String =
     def typeAnnot = dfVal match
-      case dv: DFConditional.Header if dv.dfType != NoType =>
-        s": ${printer.csDFType(dfVal.dfType, typeCS = true)} <> VAL"
-      case _ => ""
+      case dv: DFConditional.Header if dv.dfType != NoType => printer.csDFValType(dfVal.dfType)
+      case _                                               => ""
     def valDef = s"val ${dfVal.getName}$typeAnnot ="
     val rhs = dfVal match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
