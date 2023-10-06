@@ -2,6 +2,7 @@ package dfhdl.internals
 import scala.quoted.*
 import scala.annotation.tailrec
 import scala.collection.immutable.{ListMap, ListSet}
+import scala.collection.mutable
 extension [T](t: T)
   def debugPrint: T =
     println(t)
@@ -34,11 +35,19 @@ extension [T](lhs: Iterable[T])
       .sortBy(_._2)
       .map(_._1)
   def groupByCompare(customEq: (T, T) => Boolean, customHash: T => Int): Iterable[List[T]] =
+    val cache = mutable.Map.empty[(T, T), Boolean]
     final class Unique(val value: T):
       override def equals(that: Any): Boolean =
-        customEq(this.value, that.asInstanceOf[Unique].value)
+        val thatUniqueValue = that.asInstanceOf[Unique].value
+        cache.getOrElseUpdate(
+          (value, thatUniqueValue),
+          cache.getOrElseUpdate(
+            (thatUniqueValue, value),
+            customEq(this.value, thatUniqueValue)
+          )
+        )
       override def hashCode(): Int = customHash(value)
-    lhs.groupBy(new Unique(_)).view.map((u, i) => i.toList)
+    lhs.groupBy(new Unique(_)).values.map(_.toList)
 end extension
 
 extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
