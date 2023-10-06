@@ -121,14 +121,13 @@ extension (state: AESState <> VAL)
       .tabulate(Nb, 4)((c, r) => state(r, c).sbox)
       .map(_.as(AESWord)).as(AESState)
 
-  private def shift(r: Int, Nb: Int): Int =
-    r
-
   // Transformation in the Cipher that processes the State by cyclically shifting the last three rows of
-  // the State by different offsets.
+  // the State by different offsets. Note: this algorithm only follows the AES spec, and assumes Nb=4. If
+  // this were to change, instead of `c + r` to change it to `c + shift(r, Nb)` that sets the shift
+  // according to the general Rijndael algorithm.
   def shiftRows: AESState <> VAL =
     Vector
-      .tabulate(Nb, 4)((c, r) => state(r, (c + shift(r, Nb)) % Nb))
+      .tabulate(Nb, 4)((c, r) => state(r, (c + r) % Nb))
       .map(_.as(AESWord)).as(AESState)
 
   // Transformation in the Cipher that takes all of the columns of the State and mixes their data
