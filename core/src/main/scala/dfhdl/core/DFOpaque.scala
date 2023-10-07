@@ -5,6 +5,7 @@ import dfhdl.internals.*
 import scala.quoted.*
 
 import scala.annotation.unchecked.uncheckedVariance
+import scala.annotation.targetName
 
 type DFOpaque[+TFE <: DFOpaque.Abstract] =
   DFType[ir.DFOpaque, Args1[TFE @uncheckedVariance]]
@@ -12,6 +13,25 @@ object DFOpaque:
   protected[core] sealed trait Abstract extends HasTypeName, ir.DFOpaque.CustomId:
     type ActualType <: DFTypeAny
     protected[core] val actualType: ActualType
+  object Abstract:
+    inline implicit def fromComp[TFE <: Abstract, Comp <: AnyRef](tfeComp: Comp)(implicit
+        cc: CaseClass[Comp, TFE]
+    ): cc.CC = compiletime.summonInline[ClassEv[cc.CC]].value
+    def fromCompMacro[TFE <: Abstract, Comp <: AnyRef](using
+        Quotes,
+        Type[TFE],
+        Type[Comp]
+    ): Expr[TFE] =
+      import quotes.reflect.*
+      val compTpe = TypeRepr.of[Comp]
+      val tfeTpe = compTpe.getCompanionClassTpe
+      val tfeType = tfeTpe.asTypeOf[TFE]
+      '{
+        compiletime
+          .summonInline[ClassEv[tfeType.Underlying]]
+          .value
+      }
+  end Abstract
 
   abstract class Frontend[A <: DFTypeAny](final protected[core] val actualType: A) extends Abstract:
     type ActualType = A
@@ -70,7 +90,9 @@ object DFOpaque:
 
     object Ops:
       extension [L](inline lhs: L)
-        transparent inline def as[Comp <: AnyRef](tfeComp: Comp): Any = ${ asMacro[L, Comp]('lhs) }
+        transparent inline def as[Comp <: AnyRef](tfeComp: Comp): Any = ${
+          asMacro[L, Comp]('lhs, 'tfeComp)
+        }
       private def asDFVector[A <: DFTypeAny](dfVals: Iterable[DFValOf[A]])(using
           DFC
       ): DFValOf[DFVector[A, Tuple1[Int]]] =
@@ -80,13 +102,17 @@ object DFOpaque:
         transparent inline def as[Comp <: AnyRef](
             tfeComp: Comp
         )(using DFC): Any = ${
-          asMacro[DFValOf[DFVector[A, Tuple1[Int]]], Comp]('{ asDFVector(lhs) })
+          asMacro[DFValOf[DFVector[A, Tuple1[Int]]], Comp]('{ asDFVector(lhs) }, 'tfeComp)
         }
       private def asMacro[L, Comp <: AnyRef](
-          lhs: Expr[L]
+          lhs: Expr[L],
+          tfeComp: Expr[Comp]
       )(using Quotes, Type[L], Type[Comp]): Expr[Any] =
         import quotes.reflect.*
-        val tfeTpe = TypeRepr.of[Comp].getCompanionClassTpe
+        val compTpe = TypeRepr.of[Comp]
+        val tfeTpe =
+          if (compTpe <:< TypeRepr.of[Abstract]) compTpe
+          else compTpe.getCompanionClassTpe
         tfeTpe.baseType(TypeRepr.of[Frontend[_ <: DFTypeAny]].typeSymbol) match
           case AppliedType(_, aTpe :: _) =>
             val aType = aTpe.asTypeOf[DFTypeAny]
