@@ -26,13 +26,13 @@ class DropDefDesignsSpec extends StageSpec:
          |  * @param arg
          |  * @return
          |  **/
-         |class test extends RTDesign:
+         |class test extends DFDesign:
          |  val arg = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  o <> arg + arg
          |end test
          |
-         |class IDWithDesignDef extends RTDesign:
+         |class IDWithDesignDef extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  val o_part_test_inst = test()
