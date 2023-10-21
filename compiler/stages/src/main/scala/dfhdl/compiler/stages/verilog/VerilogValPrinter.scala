@@ -27,7 +27,6 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
 //        dfVal.dfType match
 //          case _: DFEnum => ""
 //          case _         => "logic"
-      case _ => printer.unsupported
     val endChar = if (dfVal.isPort) "" else ";"
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
     val noInit = s"$modifier${dfTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
@@ -140,7 +139,6 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       else s".${dfVal.fieldName}"
     s"${dfVal.relValCodeString}$fieldSel"
   def csDFValAliasHistory(dfVal: Alias.History): String = printer.unsupported
-  def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String = printer.unsupported
   def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
     dfVal match

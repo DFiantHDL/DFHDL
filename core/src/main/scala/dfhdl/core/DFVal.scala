@@ -2,6 +2,7 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.internals.*
 import ir.DFVal.Func.Op as FuncOp
+import ir.DFVal.Alias.History.Op as HistoryOp
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
@@ -357,11 +358,10 @@ object DFVal:
         ident(relVal)(using dfc.setName(bindName)).tag(Pattern.Bind.Tag)
     end AsIs
     object History:
-      export ir.DFVal.Alias.History.Op
       def apply[T <: DFTypeAny](
           relVal: DFValOf[T],
           step: Int,
-          op: Op,
+          op: HistoryOp,
           initOption: Option[DFToken[T]]
       )(using DFC): DFValOf[T] =
         lazy val alias: ir.DFVal.Alias.History =
@@ -378,17 +378,6 @@ object DFVal:
         alias.addMember.asValOf[T]
       end apply
     end History
-    object RegDIN:
-      def apply[T <: DFTypeAny](relVal: DFValOf[T])(using DFC): DFVarOf[T] =
-        lazy val alias: ir.DFVal.Alias.RegDIN =
-          ir.DFVal.Alias.RegDIN(
-            relVal.dfType.asIR,
-            relVal.asIR.refTW(alias),
-            dfc.owner.ref,
-            dfc.getMeta,
-            ir.DFTags.empty
-          )
-        alias.addMember.asVarOf[T]
     object ApplyRange:
       def apply[W <: Int, M <: ModifierAny, H <: Int, L <: Int](
           relVal: DFVal[DFBits[W], M],
@@ -629,58 +618,64 @@ object DFVal:
         "This construct is only available in a register-transfer domain."
       ]
   ): RTDomainOnly with {}
-  trait PrevCheck[I]
+  trait PrevInitCheck[I]
   given [I](using
       AssertGiven[
         I =:= Modifier.Initialized,
-        "This construct is only available for initialized values or must have an initialization argument.\nE.g.: `x.prev(step, init)`."
-      ],
-      DFDomainOnly
-  ): PrevCheck[I] with {}
+        "Value must be an initialized declaration or `.prev` must have an initialization argument.\nE.g.: `x.prev(step, init)`.\nIt's possible to apply a bubble initialization with `init = ?`"
+      ]
+  ): PrevInitCheck[I] with {}
+  trait RegInitCheck[I]
+  given [I](using
+      AssertGiven[
+        I =:= Modifier.Initialized,
+        "Value must be an initialized declaration or `.reg` must have an initialization argument.\nE.g.: `x.reg(step, init)`.\nIt's possible to apply an unknown initialization with `init = ?`"
+      ]
+  ): RegInitCheck[I] with {}
   object Ops:
     // TODO: change to step Inlined[S] for all operations after https://github.com/lampepfl/dotty/issues/14451
     // is resolved.
     extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I]])
       def prev(step: Inlined[S], init: Exact[V])(using
           dfc: DFC,
+          dfOnly: DFDomainOnly,
           tokenTC: DFToken.TC[T, V],
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
         val initOpt = Some(tokenTC(dfVal.dfType, init))
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev, initOpt)
+        DFVal.Alias.History(dfVal, step, HistoryOp.Prev, initOpt)
       }
       def prev(step: Inlined[S])(using
           dfc: DFC,
-          prevCheck: PrevCheck[I],
+          dfOnly: DFDomainOnly,
+          initCheck: PrevInitCheck[I],
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Prev, None)
+        DFVal.Alias.History(dfVal, step, HistoryOp.Prev, None)
       }
-      inline def prev(using PrevCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
+      inline def prev(using DFDomainOnly, PrevInitCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
       def pipe(
           step: Inlined[S]
       )(using dfOnly: DFDomainOnly, dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] = trydf {
         check(step)
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Pipe, None)
+        DFVal.Alias.History(
+          dfVal,
+          step,
+          HistoryOp.Pipe,
+          Some(DFToken.bubble(dfVal.dfType)) // pipe always has a bubble for initialization
+        )
       }
       inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
       def reg(step: Inlined[S])(using
           dfc: DFC,
           rtOnly: RTDomainOnly,
+          initCheck: RegInitCheck[I],
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(DerivedCfg), None)
-      }
-      def reg(step: Inlined[S])(domainCfg: RTDomainCfg)(using
-          dfc: DFC,
-          rtOnly: RTDomainOnly,
-          check: Arg.Positive.Check[S]
-      ): DFValOf[T] = trydf {
-        check(step)
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(domainCfg), None)
+        DFVal.Alias.History(dfVal, step, HistoryOp.Reg, None)
       }
       def reg(step: Inlined[S], init: Exact[V])(using
           dfc: DFC,
@@ -690,21 +685,9 @@ object DFVal:
       ): DFValOf[T] = trydf {
         check(step)
         val initOpt = Some(tokenTC(dfVal.dfType, init))
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(DerivedCfg), initOpt)
+        DFVal.Alias.History(dfVal, step, HistoryOp.Reg, initOpt)
       }
-      def reg(step: Inlined[S], init: Exact[V])(domainCfg: RTDomainCfg)(using
-          dfc: DFC,
-          rtOnly: RTDomainOnly,
-          tokenTC: DFToken.TC[T, V],
-          check: Arg.Positive.Check[S]
-      ): DFValOf[T] = trydf {
-        check(step)
-        val initOpt = Some(tokenTC(dfVal.dfType, init))
-        DFVal.Alias.History(dfVal, step, DFVal.Alias.History.Op.Reg(domainCfg), initOpt)
-      }
-      inline def reg(using DFC, RTDomainOnly): DFValOf[T] = dfVal.reg(1)
-      inline def reg(domainCfg: RTDomainCfg)(using DFC, RTDomainOnly): DFValOf[T] =
-        dfVal.reg(1)(domainCfg)
+      inline def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
     end extension
 
     extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
@@ -762,10 +745,6 @@ object DFVarOps:
     A <:< Modifier.Assignable,
     "Cannot assign to an immutable value."
   ]
-  protected type RegNeedsDIN[A] = AssertGiven[
-    util.NotGiven[A <:< Modifier.RegRef],
-    "Apply `.din` to write to this register."
-  ]
   protected type RegOnly[A] = AssertGiven[
     A <:< Modifier.RegRef,
     "Can only reference `din` of a register. This value is not a register."
@@ -789,7 +768,6 @@ object DFVarOps:
   extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])
     def :=[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
-        regNeedsDIN: RegNeedsDIN[A],
 //        localOrNonED: LocalOrNonED[A],
         insideProcess: InsideProcess[A],
         tc: DFVal.TC[T, R],
@@ -807,10 +785,6 @@ object DFVarOps:
     ): Unit = trydf {
       dfVar.nbassign(tc(dfVar.dfType, rhs))
     }
-    def din(using
-        regOnly: RegOnly[A],
-        dfc: DFC
-    ): DFVarOf[T] = trydf { DFVal.Alias.RegDIN(dfVar) }
   end extension
   extension [T <: NonEmptyTuple](dfVarTuple: T)
     def :=[R](rhs: Exact[R])(using

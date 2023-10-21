@@ -33,7 +33,9 @@ final class DFToken[+T <: DFTypeAny](val value: ir.DFTokenAny | DFError)
 end DFToken
 
 type DFTokenAny = DFToken[DFTypeAny]
-extension (tokenIR: ir.DFTokenAny) def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
+extension (tokenIR: ir.DFTokenAny)
+  def asTokenOf[T <: DFTypeAny]: DFToken[T] = DFToken[T](tokenIR)
+  def asTokenAny: DFTokenAny = DFToken[DFTypeAny](tokenIR)
 extension (token: DFTokenAny)
   def asTokenOf[T <: DFTypeAny]: DFToken[T] = token.asInstanceOf[DFToken[T]]
 

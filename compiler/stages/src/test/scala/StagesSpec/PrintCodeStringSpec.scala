@@ -153,19 +153,19 @@ class PrintCodeStringSpec extends StageSpec:
 
   test("Basic RTDesign") {
     class ID extends RTDesign:
-      val x    = SInt(16) <> IN
+      val x    = SInt(16) <> IN init 0
       val y    = SInt(16) <> OUT
       val flag = Bit      <> IN
-      y := x.reg.reg(2) - x
+      y := x.reg.reg(2, init = 0) - x
     end ID
     val id = (new ID).getCodeString
     assertNoDiff(
       id,
       """|class ID extends RTDesign:
-         |  val x = SInt(16) <> IN
+         |  val x = SInt(16) <> IN init sd"16'0"
          |  val y = SInt(16) <> OUT
          |  val flag = Bit <> IN
-         |  y := x.reg.reg(2) - x
+         |  y := x.reg.reg(2, sd"16'0") - x
          |end ID
          |""".stripMargin
     )
@@ -273,9 +273,9 @@ class PrintCodeStringSpec extends StageSpec:
     class IDWithDomains extends DFDesign:
       val y = SInt(16) <> OUT
       val fast = new RTDomain:
-        val pr = SInt(16) <> REG
-        val pw = SInt(16) <> WIRE
-        pr.din := 1
+        val pr = SInt(16) <> VAR init 0
+        val pw = SInt(16) <> VAR
+        pr := pr.reg + 1
       y := fast.pr
       val fastdf = new DFDomain:
         val p = SInt(16) <> VAR
@@ -287,9 +287,9 @@ class PrintCodeStringSpec extends StageSpec:
       """|class IDWithDomains extends DFDesign:
          |  val y = SInt(16) <> OUT
          |  val fast = new RTDomain:
-         |    val pr = SInt(16) <> REG
-         |    val pw = SInt(16) <> WIRE
-         |    pr.din := sd"16'1"
+         |    val pr = SInt(16) <> VAR init sd"16'0"
+         |    val pw = SInt(16) <> VAR
+         |    pr := pr.reg + sd"16'1"
          |  y := fast.pr
          |  val fastdf = new DFDomain:
          |    val p = SInt(16) <> VAR

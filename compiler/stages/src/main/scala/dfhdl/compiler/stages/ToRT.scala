@@ -12,15 +12,12 @@ case object ToRT extends Stage:
     val patchList = designDB.members.collect {
       case h @ DFVal.Alias.History(_, _, _, HistoryOp.Prev | HistoryOp.Pipe, _, _, _, _) =>
         h -> Patch.Replace(
-          h.copy(op = HistoryOp.Reg(DerivedCfg)),
+          h.copy(op = HistoryOp.Reg),
           Patch.Replace.Config.FullReplacement
         )
-      case d @ DFDesignBlock(DomainType.DF, _, instMode, _, _, _) =>
-        val updatedInstMode = instMode match
-          case InstMode.Def => InstMode.Normal
-          case _            => instMode
+      case d @ DFDesignBlock(DomainType.DF, _, _, _, _, _) =>
         d -> Patch.Replace(
-          d.copy(domainType = new DomainType.RT(DerivedCfg), instMode = updatedInstMode),
+          d.copy(domainType = new DomainType.RT(DerivedCfg)),
           Patch.Replace.Config.FullReplacement
         )
       case i @ DFInterfaceOwner(DomainType.DF, _, _, _) =>

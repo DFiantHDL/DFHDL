@@ -5,11 +5,11 @@ import dfhdl.compiler.ir.DFRef.TwoWay
 import dfhdl.compiler.ir.{*, given}
 import dfhdl.compiler.patching.*
 import dfhdl.internals.*
-
+import DFVal.Alias.History.Op as HistoryOp
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-/** This stage drops register aliases (e.g., `x.reg`) and replaces them with explicit register
+/** This stage names register aliases (e.g., `x.reg`) and replaces them with explicit register
   * variables. The most complex mechanism about this stage is the naming conversion convention.
   *   1. If `.reg` is applied on a named immutable value `x` or a mutated wire/port that is mutated
   *      only once, then that register variable will be named `x_reg`. If we have several register
@@ -20,7 +20,7 @@ import scala.collection.mutable
   *      {{{
   *        val i = DFUInt(8) <> IN
   *        val o = DFUInt(8) <> OUT
-  *        val x = DFUInt(8) <> WIRE
+  *        val x = DFUInt(8) <> VAR
   *        x := i
   *        o := x.reg //x_ver1_reg
   *        x := i + 1
@@ -37,9 +37,12 @@ import scala.collection.mutable
   *        z := ((i + 1).reg + 7).reg(2) //z_part1_reg, z_part2_reg1, z_part2_reg2
   *      }}}
   */
-case object DropRegAliases extends Stage:
-  def dependencies: List[Stage] = List(DFHDLUniqueNames, SimpleOrderMembers)
-  def nullifies: Set[Stage] = Set()
+case object NameRegAliases extends Stage:
+  // We order the members to have declarations first and make sure there are unique names
+  // so that the naming system will be more coherent. However, this stage also may cause naming
+  // collisions in rare cases, so we also need to nullify the unique name stage.
+  def dependencies: List[Stage] = List(DFHDLUniqueNames, SimpleOrderMembers, ExplicitRegInits)
+  def nullifies: Set[Stage] = Set(DFHDLUniqueNames)
   final case class NameGroup(name: String, unique: Boolean)
   extension (regAlias: DFVal.Alias.History)(using MemberGetSet)
     @tailrec private def getNonRegAliasRelVal: DFVal =
@@ -64,18 +67,26 @@ case object DropRegAliases extends Stage:
   def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
       case (owner: (DFDomainOwner & DFBlock), members) =>
+        // A reg alias that is already properly named should be ignored.
+        // A reg alias is properly named when there is single assignment to a
+        // DFHDL variable from a single-step reg alias.
+        val ignoredAliases = members.view.collect {
+          case DFNet.Assignment(
+                dcl @ DclVar(),
+                regAlias @ DFVal.Alias.History(_, _, 1, HistoryOp.Reg, _, _, _, _)
+              ) if dcl.getAssignmentsTo.size == 1 =>
+            regAlias
+        }.toSet
         val nameGroupRegMap =
           members.view
-            .flatMap {
-              case regAlias: DFVal.Alias.History =>
-                regAlias.op match
-                  case _: DFVal.Alias.History.Op.Reg => Some(regAlias)
-                  case _                             => None
-              case _ => None
+            .collect {
+              case regAlias @ DFVal.Alias.History(_, _, _, HistoryOp.Reg, _, _, _, _)
+                  if !ignoredAliases.contains(regAlias) =>
+                regAlias
             }
             .groupByOrdered(_.getNameGroup)
 
-        // assumes we ordered the members so that declarations come first
+        // assumes we ordered the members so the declarations come first
         val lastDcl = members.view.takeWhile {
           case _: DFVal.Dcl => true
           case _            => false
@@ -96,19 +107,12 @@ case object DropRegAliases extends Stage:
                 if (i == maxRegs && !alias.isAnonymous) alias.getName
                 else namePrefix + nameSuffix
               import dfhdl.core.{DFTypeAny, asFE, asTokenOf}
-              val DFVal.Alias.History.Op.Reg(cfg) = alias.op: @unchecked
-              alias.initOption match
-                case Some(token) =>
-                  alias.dfType.asFE[DFTypeAny] <> REG(cfg) init token
-                    .asTokenOf[DFTypeAny] setName regName
-                case None =>
-                  alias.dfType.asFE[DFTypeAny] <> REG(cfg) setName regName
+              alias.dfType.asFE[DFTypeAny] <> VAR setName regName
             val regsIR = regs.map(_.asIR).toList
             val relVal = alias.getNonRegAliasRelVal
-            import dfhdl.core.DFVal.Alias.RegDIN
             val regDinDsn = new MetaDesign(dfhdl.core.DFC.Domain.RT):
               (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
-                RegDIN(curr.asValAny) := prev.asValAny
+                curr.asVarAny := prev.asValAny.reg(1, init = alias.initOption.get.asTokenAny)
               }
             if (unique)
               regPatches += alias -> Patch.Add(regDinDsn, Patch.Add.Config.Before)
@@ -153,8 +157,8 @@ case object DropRegAliases extends Stage:
 
     designDB.patch(patchList)
   end transform
-end DropRegAliases
+end NameRegAliases
 
 extension [T: HasDB](t: T)
-  def dropRegAliases: DB =
-    StageRunner.run(DropRegAliases)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def nameRegAliases: DB =
+    StageRunner.run(NameRegAliases)(t.db)(using dfhdl.options.CompilerOptions.default)

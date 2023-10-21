@@ -225,7 +225,7 @@ final case class DB(
           // internal or external connections to input/output port
           case INOUT if isExternalConn || isInternalConn => ReadWrite
           // internal connection to a var
-          case VAR | WIRE | (_: REG) if isInternalConn =>
+          case VAR if isInternalConn =>
             // if already was connected as write, then it must be read
             if (connToDcls.contains(dcl, range)) Read
             // otherwise it is unknown

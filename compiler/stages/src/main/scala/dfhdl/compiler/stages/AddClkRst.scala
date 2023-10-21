@@ -66,23 +66,8 @@ case object AddClkRst extends Stage:
                   Some(owner -> Patch.Add(dsn, Patch.Add.Config.InsideFirst))
                 else None
               case _ => None
-            // register aliases and declarations can have explicit domain dependency, so for those
-            // configurations we need to create domains at the design level (if they don't exist)
-            val regDomainPatch = members.collect { case RegDomain(cfg @ NewCfg(clkCfg, rstCfg)) =>
-              val cfgName = cfg.getName + "Dmn"
-              val dsn = new MetaDesign():
-                val rtDomain = new RTDomain(cfg)(using dfc.setName(cfgName)):
-                  lazy val clk = Bit <> IN setName s"clk"
-                  if (clkCfg != None) clk // touch lazy clk to create
-                  lazy val rst = Bit <> IN setName s"rst"
-                  if (rstCfg != None) rst // touch lazy rst to create
-                rtDomain.onCreateEnd // need to run manually since plugin is not enabled here
-              // the ports are added as first members
-              design -> Patch.Add(dsn, Patch.Add.Config.InsideFirst)
-            }
             List(
-              ownerDomainPatchOption,
-              regDomainPatch
+              ownerDomainPatchOption
             ).flatten
           }
     }

@@ -45,7 +45,6 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String
   def csDFValAliasHistory(dfVal: Alias.History): String
-  def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String
   def csTimerIsActive(dfVal: Timer.IsActive): String
   final def csDFValAliasExpr(dfVal: Alias): String = dfVal match
     case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
@@ -53,7 +52,6 @@ trait AbstractValPrinter extends AbstractPrinter:
     case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
     case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
     case dv: Alias.SelectField => csDFValAliasSelectField(dv)
-    case dv: Alias.RegDIN      => csDFValAliasRegDIN(dv)
   final def csDFValExpr(dfValExpr: DFVal.CanBeExpr): String =
     dfValExpr match
       case dv: Const                => csDFValConstExpr(dv)
@@ -77,11 +75,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
     s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
   def csDFValConstDcl(dfVal: Const): String =
     s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
-  def csDFValDclModifier(modifier: Modifier): String =
-    modifier match
-      case Modifier.REG(_: DerivedCfg.type) => "REG"
-      case Modifier.REG(cfg)                => s"REG(${printer.csRTDomainCfg(cfg)})"
-      case _                                => modifier.toString
+  def csDFValDclModifier(modifier: Modifier): String = modifier.toString
 
   def csDFValDcl(dfVal: Dcl): String =
     val noInit = s"${printer.csDFType(dfVal.dfType)} <> ${csDFValDclModifier(dfVal.modifier)}"
@@ -205,22 +199,16 @@ protected trait DFValPrinter extends AbstractValPrinter:
     s"${dfVal.relValCodeString}$fieldSel"
   def csDFValAliasHistory(dfVal: Alias.History): String =
     val opStr = dfVal.op match
-      case Alias.History.Op.Prev   => ".prev"
-      case Alias.History.Op.Pipe   => ".pipe"
-      case _: Alias.History.Op.Reg => ".reg"
-    val regDomainCfg = dfVal.op match
-      case Alias.History.Op.Reg(cfg) if cfg != DerivedCfg =>
-        s"(${printer.csRTDomainCfg(cfg)})"
-      case _ => ""
+      case Alias.History.Op.Prev => ".prev"
+      case Alias.History.Op.Pipe => ".pipe"
+      case Alias.History.Op.Reg  => ".reg"
     val appliedStr =
       dfVal.initOption match
         case Some(init)           => s"$opStr(${dfVal.step}, ${printer.csDFToken(init)})"
         case _ if dfVal.step == 1 => opStr
         case _                    => s"$opStr(${dfVal.step})"
-    s"${dfVal.relValCodeString}$appliedStr$regDomainCfg"
+    s"${dfVal.relValCodeString}$appliedStr"
   end csDFValAliasHistory
-  def csDFValAliasRegDIN(dfVal: Alias.RegDIN): String =
-    s"${dfVal.relValCodeString}.din"
   def csTimerIsActive(dfVal: Timer.IsActive): String =
     s"${dfVal.timerRef.refCodeString}.isActive"
   def csDFValNamed(dfVal: DFVal): String =

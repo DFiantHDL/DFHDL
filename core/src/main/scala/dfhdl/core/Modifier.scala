@@ -16,12 +16,6 @@ object Modifier:
   sealed trait WireRef
   type VAR = Modifier[Assignable & VarRef, Connectable & VarRef, Initializable]
   final val VAR = new VAR(ir.DFVal.Modifier.VAR)
-  final def REG =
-    Modifier[Assignable & RegRef, RegRef, Initializable](ir.DFVal.Modifier.REG(DerivedCfg))
-  final def REG(domainCfg: RTDomainCfg) =
-    Modifier[Assignable & RegRef, RegRef, Initializable](ir.DFVal.Modifier.REG(domainCfg))
-  final val WIRE =
-    Modifier[Assignable & WireRef, Connectable & WireRef, Any](ir.DFVal.Modifier.WIRE)
   type Port = Modifier[Assignable, Connectable, Initializable]
   final val IN = new Port(ir.DFVal.Modifier.IN)
   final val OUT = new Port(ir.DFVal.Modifier.OUT)

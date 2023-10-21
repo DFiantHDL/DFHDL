@@ -5,6 +5,7 @@ import ir.*
 import DFConditional.DFCaseBlock.Pattern
 import DFVal.Modifier
 import DFVal.Func.Op as FuncOp
+import DFVal.Alias.History.Op as HistoryOp
 import scala.annotation.tailrec
 import scala.reflect.{ClassTag, classTag}
 import DFDesignBlock.InstMode
@@ -64,19 +65,6 @@ object PortOfDefDesign:
         val design = dcl.getOwnerDesign
         if (design.instMode == InstMode.Def) Some(mod, design)
         else None
-      case _ => None
-
-object RegDomain:
-  def unapply(dfVal: DFVal)(using MemberGetSet): Option[RTDomainCfg] =
-    dfVal match
-      case reg: DFVal.Alias.History =>
-        reg.op match
-          case DFVal.Alias.History.Op.Reg(domainCfg) => Some(domainCfg)
-          case _                                     => None
-      case reg: DFVal.Dcl =>
-        reg.modifier match
-          case Modifier.REG(domainCfg) => Some(domainCfg)
-          case _                       => None
       case _ => None
 
 extension (dcl: DFVal.Dcl)
@@ -155,7 +143,6 @@ extension (dfVal: DFVal)
           case applyRange: DFVal.Alias.ApplyRange =>
             s"_${applyRange.relBitHigh.toPaddedString(applyRange.width - 1)}_${applyRange.relBitLow.toPaddedString(applyRange.width - 1)}"
           case selectField: DFVal.Alias.SelectField => s"_${selectField.fieldName}"
-          case _: DFVal.Alias.RegDIN                => "_din"
         flatName(relVal, s"$newSuffix$suffix")
       case _ => s"${member.getName}$suffix"
 

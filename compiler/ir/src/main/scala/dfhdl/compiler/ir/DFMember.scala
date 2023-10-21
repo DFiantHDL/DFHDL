@@ -130,8 +130,7 @@ sealed trait DFVal extends DFMember.Named:
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
   enum Modifier derives CanEqual:
-    case VAR, IN, OUT, INOUT, WIRE
-    case REG(domainCfg: RTDomainCfg)
+    case VAR, IN, OUT, INOUT
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match
@@ -145,18 +144,6 @@ object DFVal:
         dcl.modifier match
           case Modifier.VAR => true
           case _            => false
-      case _ => false
-    def isRegDcl: Boolean = dfVal match
-      case dcl: DFVal.Dcl =>
-        dcl.modifier match
-          case _: Modifier.REG => true
-          case _               => false
-      case _ => false
-    def isWireDcl: Boolean = dfVal match
-      case dcl: DFVal.Dcl =>
-        dcl.modifier match
-          case Modifier.WIRE => true
-          case _             => false
       case _ => false
     @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl] = dfVal match
       case dcl: DFVal.Dcl     => Some(dcl)
@@ -319,8 +306,7 @@ object DFVal:
 
     object History:
       enum Op derives CanEqual:
-        case Prev, Pipe
-        case Reg(domainCfg: RTDomainCfg)
+        case Prev, Pipe, Reg
 
     final case class ApplyRange(
         relValRef: PartialRef,
@@ -381,22 +367,6 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     end SelectField
-
-    final case class RegDIN(
-        dfType: DFType,
-        relValRef: PartialRef,
-        ownerRef: DFOwner.Ref,
-        meta: Meta,
-        tags: DFTags
-    ) extends Partial:
-      protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-        case that: RegDIN =>
-          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
-          this.meta =~ that.meta && this.tags =~ that.tags
-        case _ => false
-      protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-      protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    end RegDIN
   end Alias
 end DFVal
 

@@ -85,15 +85,17 @@ class DFTypeSpec extends DFSpec:
     val z = Bits(8) <> VAR init all(0)
     val zprev = z.prev
     assertCompileError(
-      """|This construct is only available for initialized values or must have an initialization argument.
+      """|Value must be an initialized declaration or `.prev` must have an initialization argument.
          |E.g.: `x.prev(step, init)`.
+         |It's possible to apply a bubble initialization with `init = ?`
          |""".stripMargin
     )(
       """(y + 1).prev"""
     )
     assertCompileError(
-      """|This construct is only available for initialized values or must have an initialization argument.
+      """|Value must be an initialized declaration or `.prev` must have an initialization argument.
          |E.g.: `x.prev(step, init)`.
+         |It's possible to apply a bubble initialization with `init = ?`
          |""".stripMargin
     )(
       """z(3, 0).prev"""

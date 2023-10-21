@@ -29,7 +29,7 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
   override val runsAfter = Set("parser")
   override val runsBefore = Set("typer")
   private var debugFlag = false
-  private val modifiers = Set("IN", "OUT", "INOUT", "VAR", "VAL", "REG", "WIRE")
+  private val modifiers = Set("IN", "OUT", "INOUT", "VAR", "VAL")
   private val dfcContainers = Set(
     "DFDesign", "RTDesign", "EDDesign", "DFInterface", "RTInterface", "EDInterface"
   )
