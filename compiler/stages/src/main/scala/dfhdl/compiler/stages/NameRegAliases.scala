@@ -66,7 +66,7 @@ case object NameRegAliases extends Stage:
 
   def transform(designDB: DB)(using MemberGetSet): DB =
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
-      case (owner: (DFDomainOwner & DFBlock), members) =>
+      case (domainOwner: (DFDomainOwner & DFBlock), members) =>
         // A reg alias that is already properly named should be ignored.
         // A reg alias is properly named when there is single assignment to a
         // DFHDL variable from a single-step reg alias.
@@ -86,11 +86,13 @@ case object NameRegAliases extends Stage:
             }
             .groupByOrdered(_.getNameGroup)
 
-        // assumes we ordered the members so the declarations come first
-        val lastDcl = members.view.takeWhile {
+        // assumes we ordered the members so the declarations come first.
+        // if there are no declarations, we set the owner as position
+        // var lastDcl: DFMember | Null = null
+        val lastDclOpt: Option[DFMember] = members.view.takeWhile {
           case _: DFVal.Dcl => true
           case _            => false
-        }.last
+        }.lastOption
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
         val regDsn = new MetaDesign(dfhdl.core.DFC.Domain.RT):
           def addRegs(
@@ -117,7 +119,11 @@ case object NameRegAliases extends Stage:
             if (unique)
               regPatches += alias -> Patch.Add(regDinDsn, Patch.Add.Config.Before)
             else
-              regPatches += lastDcl -> Patch.Add(regDinDsn, Patch.Add.Config.After)
+              lastDclOpt match
+                case Some(lastDcl) =>
+                  regPatches += lastDcl -> Patch.Add(regDinDsn, Patch.Add.Config.After)
+                case None =>
+                  regPatches += domainOwner -> Patch.Add(regDinDsn, Patch.Add.Config.InsideFirst)
             regsIR
           end addRegs
 
@@ -148,8 +154,13 @@ case object NameRegAliases extends Stage:
                 )
               }
           }
+        val regDclPatch = lastDclOpt match
+          case Some(lastDcl) =>
+            lastDcl -> Patch.Add(regDsn, Patch.Add.Config.After)
+          case None =>
+            domainOwner -> Patch.Add(regDsn, Patch.Add.Config.InsideFirst)
         List(
-          Some(lastDcl -> Patch.Add(regDsn, Patch.Add.Config.After)),
+          Some(regDclPatch),
           regPatches
         ).flatten
       case _ => None

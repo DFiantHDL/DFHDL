@@ -155,8 +155,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [15:0]     y
          |);
          |  logic [15:0] z;
-         |  logic [15:0] my_var;
          |  parameter logic [15:0]  c = 16'h0000;
+         |  logic [15:0] my_var;
          |  always @(clk, rst)
          |  begin
          |    if (rst) y <= c;

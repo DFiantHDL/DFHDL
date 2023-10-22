@@ -159,6 +159,8 @@ extension (db: DB)
           owner.getVeryLastMember(using anyGetSet) match
             case Some(l) => Some((l, Patch.Add(db, Patch.Add.Config.After)))
             case None    => Some((owner, Patch.Add(db, Patch.Add.Config.After)))
+        // Skip over empty move
+        case (m, Patch.Move(Nil, _)) => None
         // A move patch operation adds a remove patch to all the moved members
         // If we move insideFirst in an owner, we need to actually place after the owner head
         // If we move after/insideLast an owner, we need to actually place after the last member of the owner
@@ -337,6 +339,8 @@ extension (db: DB)
           //            println(ret.refTable.mkString("\n"))
           //          }
           ret
+        // skip over empty move
+        case (rc, (origMember, Patch.Move(Nil, config))) => rc
         case (rc, (origMember, Patch.Move(movedMembers, config))) =>
           val newOwner = config match
             case Patch.Move.Config.InsideFirst => origMember

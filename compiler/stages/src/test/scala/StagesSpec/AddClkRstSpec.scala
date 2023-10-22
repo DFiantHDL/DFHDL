@@ -39,6 +39,42 @@ class AddClkRstSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Basic hierarchy, applied twice") {
+    class ID extends RTDesign(cfg):
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      y := x.reg(1, init = ?)
+
+    class IDTop extends RTDesign(cfg):
+      val x  = SInt(16) <> IN
+      val y  = SInt(16) <> OUT
+      val id = ID()
+      id.x <> x
+      y    <> id.y
+
+    val id = (new IDTop).addClkRst.addClkRst
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign(cfg):
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x.reg(1, ?)
+         |end ID
+         |
+         |class IDTop extends RTDesign(cfg):
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val id = ID()
+         |  id.x <> x
+         |  y <> id.y
+         |end IDTop
+         |""".stripMargin
+    )
+  }
   test("Clk and rst already exist") {
     class ID extends RTDesign(cfg):
       val clk = Bit      <> IN
