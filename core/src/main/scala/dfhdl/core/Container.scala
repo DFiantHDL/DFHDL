@@ -4,13 +4,7 @@ import dfhdl.compiler.ir
 
 private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
   type This <: Container
-  // TODO: revisit this. Maybe has something to do with errors and preventing repeated
-  // messages. Need to check and document properly or simplify to `= summon[DFC]`
-  final val dfc: DFC =
-    val ret = summon[DFC]
-    this match
-      case _: Design => ret
-      case _         => ret.copy()
+  final val dfc: DFC = summon[DFC]
   private[core] type TScope <: DFC.Scope
   private[core] type TDomain <: DFC.Domain
   private[core] type TOwner <: DFOwnerAny
