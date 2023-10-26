@@ -32,9 +32,13 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
   var onCreateEventsTpe: TypeRef = _
   var hasNamePosTpe: TypeRef = _
   var clsStack = List.empty[TypeDef]
+  var dfcClsStack = List.empty[TypeDef]
+
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     tree.rhs match
       case _: Template =>
+        if (tree.tpe <:< hasDFCTpe)
+          dfcClsStack = tree :: dfcClsStack
         clsStack = tree :: clsStack
       case _ =>
     ctx
@@ -42,6 +46,8 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
   override def transformTypeDef(tree: TypeDef)(using Context): Tree =
     tree.rhs match
       case template: Template =>
+        if (tree.tpe <:< hasDFCTpe)
+          dfcClsStack = dfcClsStack.drop(1)
         clsStack = clsStack.drop(1)
         val clsTpe = tree.tpe
         val clsSym = clsTpe.typeSymbol
@@ -110,15 +116,17 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
   end transformTypeDef
 
   private object OnCreateEventsInstance:
+    def mkThisOwner(using Context): Tree =
+      dfcClsStack.headOption.map(h => mkSome(This(h.tpe.classSymbol.asClass))).getOrElse(mkNone)
     def apply(tree: ValDef)(using Context): Tree =
       val clsSym = tree.tpe.classSymbol.asClass
       Select(This(clsStack.head.tpe.classSymbol.asClass), tree.name)
-        .select(clsSym.requiredMethod("onCreate"))
+        .select(clsSym.requiredMethod("onCreate")).appliedTo(mkThisOwner)
     end apply
     def apply(clsSym: ClassSymbol, tpe: Type, tree: Tree)(using Context): Tree =
       tree
         .select(clsSym.requiredMethodRef("onCreate"))
-        .withType(TermRef(tpe, clsSym.requiredMethod("onCreate")))
+        .withType(TermRef(tpe, clsSym.requiredMethod("onCreate"))).appliedTo(mkThisOwner)
     @tailrec def unapply(tree: Tree)(using Context): Option[ClassSymbol] =
       tree match
         case Select(clsTree @ New(id), _) if clsTree.tpe <:< onCreateEventsTpe =>
@@ -147,21 +155,6 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
     }
   end transformStats
 
-//  override def transformValDef(tree: tpd.ValDef)(using Context): tpd.Tree =
-//    if (tree.name.toString == "xoronx")
-//      println(tree.rhs.show)
-//      println(tree.rhs)
-//
-//      val args = List(mkTuple(List(Literal(Constant("x")), Literal(Constant("xvalue")))))
-//      val listMapTree =
-//        ref(requiredMethod("scala.collection.immutable.ListMap.apply"))
-//          .appliedToTypes(List(defn.StringType, defn.AnyType))
-//          .appliedToVarargs(args, TypeTree(args.head.tpe))
-//      println(listMapTree.show)
-//      println(listMapTree)
-////      tpd.cpy.ValDef(tree)(rhs = listMapTree)
-//      tree
-//    else tree
   override def transformApply(tree: Apply)(using Context): Tree =
     if (tree.tpe.isParameterless && !ignore.exists(i => i.sameTree(tree)))
       tree match
@@ -174,5 +167,8 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     onCreateEventsTpe = requiredClassRef("dfhdl.internals.OnCreateEvents")
     hasNamePosTpe = requiredClassRef("dfhdl.internals.HasNamePos")
+    ignore.clear()
+    dfcClsStack = Nil
+    clsStack = Nil
     ctx
 end OnCreateEventsPhase

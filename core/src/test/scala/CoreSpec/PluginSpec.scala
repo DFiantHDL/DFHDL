@@ -28,6 +28,7 @@ class PluginSpec extends DFSpec:
 
   val fileName = new Throwable().getStackTrace().head.getFileName
   class Bar(using val ctx: DFC) extends OnCreateEvents:
+    type This <: Bar
     val nameOpt = ctx.nameOpt
     val pos = ctx.position
     assert(pos.file.endsWith(fileName))
@@ -35,7 +36,7 @@ class PluginSpec extends DFSpec:
     inline def -(that: Bar)(using DFC): Bar = new Plus(this, that)
     @inline def /[T](that: Exact[T])(using DFC): Bar = new Plus(this, that.value.asInstanceOf[Bar])
 
-    override def onCreateEnd: Unit =
+    final override def onCreateEnd(thisOwner: Option[This]): Unit =
       nameStack = ctx.nameOpt :: nameStack
       posStack = ctx.position :: posStack
 

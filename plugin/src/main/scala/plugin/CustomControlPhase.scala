@@ -450,7 +450,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             .appliedTo(dfcStack.head)
         )
       case _ =>
-        ref(defn.NoneModule.termRef)
+        mkNone
 
   object FromCore:
     private val fullPath = "dfhdl.core.__For_Plugin"
@@ -862,7 +862,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         if (extractorMatch)
           val patternTree =
             transformDFCasePattern(newSelector, tree.cases.head.pat, "_")
-          val guardTree = ref(defn.NoneModule.termRef)
+          val guardTree = mkNone
           val assignmentTrees = valDefGen.getBinds.map { (n, sel) =>
             val dcl = valDefGen.bind(n, FromCore.extractValDcl(sel, n.toString))
             FromCore.forcedAssign(dcl, sel)

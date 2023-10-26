@@ -39,12 +39,15 @@ abstract class CommonPhase extends PluginPhase:
           Literal(Constant(str)) :: Nil
         )
       case None =>
-        ref(defn.NoneModule.termRef)
+        mkNone
 
   protected def mkSome(tree: Tree)(using Context): Tree =
     ref(requiredMethod("scala.Some.apply"))
       .appliedToType(tree.tpe)
       .appliedTo(tree)
+
+  protected def mkNone(using Context): Tree =
+    ref(defn.NoneModule.termRef)
 
   protected def mkList(tree: List[Tree])(using Context): Tree =
     if (tree.isEmpty) ref(defn.NilModule)

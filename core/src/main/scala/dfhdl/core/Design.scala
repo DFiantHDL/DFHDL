@@ -39,7 +39,7 @@ private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false
 
-  final override def onCreateEnd: Unit =
+  final override def onCreateEnd(thisOwner: Option[This]): Unit =
     if (hasStartedLate)
       dfc.exitLate()
     else

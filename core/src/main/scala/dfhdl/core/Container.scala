@@ -3,6 +3,7 @@ import dfhdl.internals.*
 import dfhdl.compiler.ir
 
 private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
+  type This <: Container
   // TODO: revisit this. Maybe has something to do with errors and preventing repeated
   // messages. Need to check and document properly or simplify to `= summon[DFC]`
   final val dfc: DFC =

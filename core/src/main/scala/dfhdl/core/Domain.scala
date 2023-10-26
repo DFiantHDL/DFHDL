@@ -9,7 +9,7 @@ private[dfhdl] abstract class Domain(using DFC) extends Container with scala.ref
   final protected given TScope = DFC.Scope.Domain
   final private[core] def initOwner: TOwner =
     Domain.Block(__domainType)
-  final override def onCreateEnd: Unit =
+  final override def onCreateEnd(thisOwner: Option[This]): Unit =
     dfc.exitOwner()
 
 object Domain:
