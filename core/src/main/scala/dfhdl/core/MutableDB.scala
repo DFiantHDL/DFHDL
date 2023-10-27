@@ -24,12 +24,12 @@ private case class MemberEntry(
 
 class MutableDB(val duringTest: Boolean = false):
   private val self = this
-  private var members: mutable.ArrayBuffer[MemberEntry] = mutable.ArrayBuffer()
+  private[MutableDB] val members: mutable.ArrayBuffer[MemberEntry] = mutable.ArrayBuffer()
   def top: DFDesignBlock = members.head.irValue match
     case o @ DFDesignBlock.Top() => o
     case x => throw new IllegalArgumentException(s"Unexpected member head, $x")
-  private var memberTable: mutable.Map[DFMember, Int] = mutable.Map()
-  private var refTable: mutable.Map[DFRefAny, DFMember] = mutable.Map()
+  private[MutableDB] val memberTable: mutable.Map[DFMember, Int] = mutable.Map()
+  private[MutableDB] val refTable: mutable.Map[DFRefAny, DFMember] = mutable.Map()
   object OwnershipContext:
     private var stack: List[DFOwner] = Nil
     private var lateStack: List[Boolean] = Nil
@@ -62,7 +62,7 @@ class MutableDB(val duringTest: Boolean = false):
   end OwnershipContext
 
   object global_tags:
-    private[MutableDB] var tagMap: mutable.Map[(Any, ClassTag[_]), DFTag] =
+    private[MutableDB] val tagMap: mutable.Map[(Any, ClassTag[_]), DFTag] =
       mutable.Map()
     def set[CT <: DFTag: ClassTag](
         taggedElement: Any,
@@ -75,21 +75,45 @@ class MutableDB(val duringTest: Boolean = false):
       tagMap.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
   end global_tags
 
-  private var srcFiles: List[SourceFile] = Nil
+  def injectDB(injected: MutableDB): Unit =
+    println("injected")
+    // The injected ref table may reference existing members due to port connections across hierarchies.
+    // In this case we first update the existing member entries with the additional references.
+    // Additionally, we add the injected reference to the reference table in any case.
+    injected.refTable.foreach:
+      case rec @ (ref, member) if memberTable.contains(member) =>
+        val idx = memberTable(member)
+        val memberEntry = members(idx)
+        members.update(idx, memberEntry.copy(refSet = memberEntry.refSet + ref))
+        refTable += rec
+      case rec =>
+        refTable += rec
+    val offset = members.length
+    // Add the injected member table while taking into account the offset from the existing
+    // member entries.
+    memberTable ++= injected.memberTable.view.mapValues(_ + offset)
+    // Add the injected member entries
+    members ++= injected.members
+    // Add the injected global tags
+    global_tags.tagMap ++= injected.global_tags.tagMap
+    // Add the injected errors
+    logger.injectErrors(injected.logger)
+    // The owner of the injected top will be this top
+    newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
+      injected.top.ownerRef,
+      this.top
+    )
+  end injectDB
+
   def addMember[M <: DFMember](member: M): M =
     dirtyDB()
-//    elaborateFSMHistoryHead()
     //        println(f"""${"addMember"}%-20s ${s"${member.name} : ${member.typeName}"}%-30s ${member.getOwner.nameAndType}""")
     memberTable += (member -> members.length)
     members += MemberEntry(member, Set(), false)
     member
 
   val logger = new Logger
-////  def addMemberOf[M <: DFMember](member: DFMember)(implicit
-////      ctx: DFMember.Context
-////  ): M with DFMember.RefOwner =
-////    addMember(ctx.container, member).asInstanceOf[M with DFMember.RefOwner]
-//
+
   // same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
   def plantMember[M <: DFMember](owner: DFOwner, member: M): M =
     newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
@@ -197,7 +221,7 @@ class MutableDB(val duringTest: Boolean = false):
       }
     val notIgnoredMembers =
       members.iterator.filterNot(e => e.ignore).map(e => e.irValue).toList
-    val db = DB(notIgnoredMembers, refTable.toMap, global_tags.tagMap.toMap, srcFiles)
+    val db = DB(notIgnoredMembers, refTable.toMap, global_tags.tagMap.toMap, Nil)
     memoizedDB = Some(db)
     db
   }

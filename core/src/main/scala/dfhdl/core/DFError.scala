@@ -40,9 +40,11 @@ object DFError:
 end DFError
 
 class Logger:
-  private var errors: List[DFError] = Nil
+  private[Logger] var errors: List[DFError] = Nil
   def logError(err: DFError): Unit =
     errors = err :: errors
+  def injectErrors(fromLogger: Logger): Unit =
+    errors = fromLogger.errors ++ errors
   def getErrors: List[DFError] = errors.reverse
   def clearErrors(): Unit = errors = Nil
 

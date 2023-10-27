@@ -54,6 +54,7 @@ final case class DFC(
   def logError(err: DFError): Unit = mutableDB.logger.logError(err)
   def getErrors: List[DFError] = mutableDB.logger.getErrors
   def clearErrors(): Unit = mutableDB.logger.clearErrors()
+  def injectDFC(injected: DFC): Unit = mutableDB.injectDB(injected.mutableDB)
 end DFC
 object DFC:
   given (using TopLevel): DFC = empty
