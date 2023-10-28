@@ -45,8 +45,9 @@ private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
     else
       dfc.exitOwner()
     import dfc.getSet
+//    thisOwner.foreach(_.dfc.injectDFC(dfc))
     // At the end of the top-level instance we check for errors
-    if (owner.asIR.isTop)
+    if (owner.asIR.isTop && thisOwner.isEmpty)
       val errors = dfc.getErrors
       // If we have errors, then we print them to stderr and exit
       if (errors.nonEmpty)
@@ -69,7 +70,7 @@ object Design:
   object Block:
     def apply(domain: ir.DomainType, dclMeta: ir.Meta, instMode: InstMode)(using DFC): Block =
       val ownerRef: ir.DFOwner.Ref =
-        dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFRef.OneWay.Empty)
+        dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFMember.Empty.ref)
       ir.DFDesignBlock(
         domain,
         dclMeta,
@@ -105,14 +106,14 @@ object Design:
 
 end Design
 
-abstract class DFDesign(using DFC) extends Design:
+abstract class DFDesign(using dfc: DFC = DFC.empty) extends Design:
   private[core] type TDomain = DFC.Domain.DF
   final protected given TDomain = DFC.Domain.DF
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
 
 abstract class RTDesign(
     cfg: ir.RTDomainCfg = ir.DerivedCfg
-)(using DFC)
+)(using dfc: DFC = DFC.empty)
     extends Design:
   private[core] type TDomain = DFC.Domain.RT
   final protected given TDomain = DFC.Domain.RT
@@ -148,7 +149,7 @@ abstract class RTDesign(
 //    case _                                => // do nothing
 end RTDesign
 
-abstract class EDDesign(using DFC) extends Design:
+abstract class EDDesign(using dfc: DFC = DFC.empty) extends Design:
   private[core] type TDomain = DFC.Domain.ED
   final protected given TDomain = DFC.Domain.ED
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED

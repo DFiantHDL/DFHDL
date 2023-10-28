@@ -17,7 +17,7 @@ object Domain:
   object Block:
     def apply(domainType: ir.DomainType)(using DFC): Block =
       val ownerRef: ir.DFOwner.Ref =
-        dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFRef.OneWay.Empty)
+        dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFMember.Empty.ref)
       ir.DomainBlock(
         domainType,
         ownerRef,
