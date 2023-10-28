@@ -28,9 +28,9 @@ object SameElementsVector:
   def unapply[T, R](arg: SameElementsVector[T]): Option[R] = Some(
     arg.value.asInstanceOf[R]
   )
-  given eqBit[W <: Int, T <: BitOrBool]: CanEqual[SameElementsVector[T], DFBits[W] <> VAL] =
+  given eqBit[W <: Int, T <: BitOrBool]: CanEqual[SameElementsVector[T], DFValOf[DFBits[W]]] =
     CanEqual.derived
   given eqVec[DFT <: DFTypeAny, D <: NonEmptyTuple, T]
-      : CanEqual[SameElementsVector[T], DFVector[DFT, D] <> VAL] =
+      : CanEqual[SameElementsVector[T], DFValOf[DFVector[DFT, D]]] =
     CanEqual.derived
 end SameElementsVector

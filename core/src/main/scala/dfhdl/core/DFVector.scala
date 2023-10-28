@@ -156,7 +156,7 @@ object DFVector:
           T <: DFTypeAny,
           D1 <: Int,
           RD1 <: Int,
-          R <: DFVector[T, Tuple1[RD1]] <> VAL
+          R <: DFValOf[DFVector[T, Tuple1[RD1]]]
       ](using
           check: `LL == RL`.Check[D1, RD1]
       ): TC[DFVector[T, Tuple1[D1]], R] with

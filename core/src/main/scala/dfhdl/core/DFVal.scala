@@ -26,12 +26,12 @@ trait DFVal[+T <: DFTypeAny, +M <: ModifierAny] extends Any with DFMember[ir.DFV
 
   transparent inline def ==[R](
       inline that: R
-  )(using DFC): DFBool <> VAL = ${
+  )(using DFC): DFValOf[DFBool] = ${
     DFVal.equalityMacro[T, R, FuncOp.===.type]('this, 'that)
   }
   transparent inline def !=[R](
       inline that: R
-  )(using DFC): DFBool <> VAL = ${
+  )(using DFC): DFValOf[DFBool] = ${
     DFVal.equalityMacro[T, R, FuncOp.=!=.type]('this, 'that)
   }
 end DFVal
@@ -417,7 +417,7 @@ object DFVal:
       def apply[T <: DFTypeAny, W <: Int, M <: ModifierAny, IW <: Int](
           dfType: T,
           relVal: DFVal[DFTypeAny, M],
-          relIdx: DFUInt[IW] <> VAL
+          relIdx: DFValOf[DFUInt[IW]]
       )(using DFC): DFVal[T, M] =
         lazy val alias: ir.DFVal.Alias.ApplyIdx =
           ir.DFVal.Alias.ApplyIdx(
@@ -493,7 +493,7 @@ object DFVal:
             "`."
         )
       ]
-    given sameValType[T <: DFTypeAny, V <: T <> VAL]: TC[T, V] with
+    given sameValType[T <: DFTypeAny, V <: DFValOf[T]]: TC[T, V] with
       def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
@@ -560,7 +560,7 @@ object DFVal:
             "`."
         )
       ]
-    given sameValType[T <: DFTypeAny, R <: T <> VAL, Op <: FuncOp, C <: Boolean](using
+    given sameValType[T <: DFTypeAny, R <: DFValOf[T], Op <: FuncOp, C <: Boolean](using
         ValueOf[Op],
         ValueOf[C]
     ): Compare[T, R, Op, C] with
