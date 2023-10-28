@@ -118,8 +118,8 @@ case object SanityCheck extends Stage:
   def transform(designDB: DB)(using MemberGetSet): DB =
     refCheck()
     memberExistenceCheck()
-    designDB.check()
     ownershipCheck(designDB.top, designDB.members.drop(1))
+    designDB.check()
     designDB
 end SanityCheck
 

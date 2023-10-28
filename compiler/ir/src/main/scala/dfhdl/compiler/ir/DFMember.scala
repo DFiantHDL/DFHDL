@@ -29,7 +29,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   protected def setTags(tags: DFTags): this.type
   final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
     case o: DFOwner     => o
-    case DFMember.Empty => throw new IllegalArgumentException("No owner found.")
+    case DFMember.Empty => throw new IllegalArgumentException(s"No owner found for member $this.")
   final def getOwnerNamed(using MemberGetSet): DFOwnerNamed = getOwner match
     case b: DFOwnerNamed => b
     case o               => o.getOwnerNamed

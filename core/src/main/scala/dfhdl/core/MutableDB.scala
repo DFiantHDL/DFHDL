@@ -77,6 +77,7 @@ class MutableDB(val duringTest: Boolean = false):
 
   def injectDB(injected: MutableDB): Unit =
     println("injected")
+    injected.touchLazyRefs()
     // The injected ref table may reference existing members due to port connections across hierarchies.
     // In this case we first update the existing member entries with the additional references.
     // Additionally, we add the injected reference to the reference table in any case.
@@ -209,7 +210,7 @@ class MutableDB(val duringTest: Boolean = false):
     memoizedDB = None
   private var memoizedDB: Option[DB] = None
 
-  def immutable: DB = memoizedDB.getOrElse {
+  private[MutableDB] def touchLazyRefs(): Unit =
     var size = -1
     // Touching all lazy origin refs to force their addition.
     // During this procedure it is possible that new reference are added. If so, we re-iterate
@@ -219,6 +220,9 @@ class MutableDB(val duringTest: Boolean = false):
         case or: DFRef.TwoWayAny => or.originRef
         case _                   => // do nothing
       }
+
+  def immutable: DB = memoizedDB.getOrElse {
+    touchLazyRefs()
     val notIgnoredMembers =
       members.iterator.filterNot(e => e.ignore).map(e => e.irValue).toList
     val db = DB(notIgnoredMembers, refTable.toMap, global_tags.tagMap.toMap, Nil)
