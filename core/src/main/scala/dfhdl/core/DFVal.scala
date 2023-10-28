@@ -48,6 +48,7 @@ type <>[T <: DFType.Supported | Int, M] = T match
     M match
       case VAL   => DFValOf[DFType.Of[T]]
       case TOKEN => DFToken[DFType.Of[T]]
+      case FIELD => DFValOf[DFType.Of[T]]
   // Int is also special cased by the compiler plugin
   case Int => DFVector.ComposedModifier[T, M]
 
@@ -255,6 +256,7 @@ object DFVal:
   // a.foo //here we currently access `foo` through conversion to MyAbsOpaque
   //       //because DFOpaque is not completely covariant due to bug
   //       //https://github.com/lampepfl/dotty/issues/15704
+  // ```
   implicit def DFOpaqueValConversion[T <: DFOpaque.Abstract, R <: DFOpaque.Abstract](
       from: DFValOf[DFOpaque[R]]
   )(using DFC, R <:< T): DFValOf[DFOpaque[T]] = from.asInstanceOf[DFValOf[DFOpaque[T]]]

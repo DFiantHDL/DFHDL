@@ -4,12 +4,12 @@ import munit.*
 
 class DFStructSpec extends DFSpec:
   class CCs[W <: Int](width: Inlined[W]):
-    case class XY(x: Bits[W] <> VAL, y: UInt[W] <> VAL) extends Struct
-    case class XYZ(x: UInt[W] <> VAL, y: Bits[W] <> VAL, z: Bit <> VAL) extends Struct
+    case class XY(x: Bits[W] <> FIELD, y: UInt[W] <> FIELD) extends Struct
+    case class XYZ(x: UInt[W] <> FIELD, y: Bits[W] <> FIELD, z: Bit <> FIELD) extends Struct
 
   case class VectorHolder(
-      vec1: UInt[8] X 5 <> VAL,
-      vec2: UInt[8] X 5 X 5 <> VAL
+      vec1: UInt[8] X 5 <> FIELD,
+      vec2: UInt[8] X 5 X 5 <> FIELD
   ) extends Struct
   val cc = new CCs(8)
   import cc.{XY, XYZ}
@@ -97,7 +97,7 @@ class DFStructSpec extends DFSpec:
          |""".stripMargin
     ) {
       // define the struct class
-      case class XY(x: UInt[8] <> VAL, y: Bits[3] <> VAL) extends Struct
+      case class XY(x: UInt[8] <> FIELD, y: Bits[3] <> FIELD) extends Struct
       // constructing the DFHDL value with initialization
       val xy = XY <> VAR init XY(x = 0, y = b"101")
       // accessing the fields and assigning them individually
@@ -108,7 +108,7 @@ class DFStructSpec extends DFSpec:
       // assign the whole struct, as unnamed fields
       xy := XY(22, all(0))
       // easily composing structs
-      case class XYZ(xy: XY <> VAL, z: Bit <> VAL) extends Struct
+      case class XYZ(xy: XY <> FIELD, z: Bit <> FIELD) extends Struct
       val xyz = XYZ <> VAR
       // field assignments of a whole struct
       xyz.xy := xy

@@ -44,7 +44,7 @@ object DFVector:
           ") is different than the receiver vector length (" + LL + ")."
       ]
 
-  sealed class ComposedModifier[D <: Int, M <: ModifierAny](val cellDim: D, val modifier: M)
+  sealed class ComposedModifier[D <: Int, M](val cellDim: D, val modifier: M)
   object Ops:
     extension [T <: DFType.Supported, D <: Int](t: T)(using tc: DFType.TC[T])
       // transparent inline def X(inline cellDim: Int*): DFType =

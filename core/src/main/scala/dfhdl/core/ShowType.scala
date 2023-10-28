@@ -63,7 +63,8 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFTypeAny]  => tpe.showDFType
       case '[Tuple] =>
         tpe.showTuple(_.showType).mkStringBrackets
-      case _ => tpe.show
+      case '[ContextFunction1[DFC, t]] => TypeRepr.of[t].showType
+      case _                           => tpe.show
 end extension
 
 trait ShowType[T]:

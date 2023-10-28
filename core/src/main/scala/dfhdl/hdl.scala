@@ -62,6 +62,7 @@ protected object hdl:
   val VAR = core.Modifier.VAR
   type VAL = core.VAL
   type TOKEN = core.TOKEN
+  type FIELD = core.FIELD
   export core.<>
   export core.X
   export core.OPEN

@@ -50,7 +50,7 @@ class UniqueNamesSpec extends StageSpec:
       case Bar, Baz
     enum MyEnumLcl extends Encode:
       case Bar, Baz
-    case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends Struct
+    case class Pixel(x: UInt[8] <> FIELD, y: UInt[8] <> FIELD) extends Struct
     case class MyByte() extends Opaque(Bits(8))
     val x     = MyEnumGlbl <> IN
     val y     = MyEnumLcl  <> VAR init MyEnumLcl.Bar

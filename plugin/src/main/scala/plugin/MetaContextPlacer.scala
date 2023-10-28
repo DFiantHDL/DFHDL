@@ -121,10 +121,12 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
         case _ => super.transformMoreCases(tree)
 
   object IntConnVAL:
+    private val acceptedModifiers = Set("VAL", "FIELD")
     def unapply(tree: InfixOp)(using Context): Option[InfixOp] =
       tree match
         case InfixOp(Ident(intName), c @ Ident(connName), v @ Ident(valName))
-            if intName.toString == "Int" && connName.toString == "<>" && valName.toString == "VAL" =>
+            if intName.toString == "Int" && connName.toString == "<>" &&
+              acceptedModifiers.contains(valName.toString) =>
           val intReplacement = AppliedTypeTree(
             Ident("SInt".toTypeName),
             List(SingletonTypeTree(Literal(Constant(32))))
