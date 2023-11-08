@@ -77,7 +77,7 @@ class PluginSpec extends DFSpec:
   val bar_vec2 = Vector.fill(3)(new Bar)
   assertLastNames("bar_vec2", "bar_vec2", "bar_vec2")
 
-  inline def wrapper(inline block: DFC ?=> Bar)(using dfc: DFC): Bar =
+  inline def wrapper(inline block: DFC ?=> Bar): DFC ?=> Bar =
     block(using dfc)
 
   val wrappedName = wrapper {
@@ -90,7 +90,7 @@ class PluginSpec extends DFSpec:
     catch case _ => ???
   assertLastNames("tryName")
 
-  inline def wrapperTry(block: DFC ?=> Bar)(using dfc: DFC): Bar =
+  inline def wrapperTry(block: DFC ?=> Bar): DFC ?=> Bar =
     try block(using dfc)
     catch case _ => ???
 

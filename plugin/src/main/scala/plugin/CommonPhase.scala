@@ -63,6 +63,7 @@ abstract class CommonPhase extends PluginPhase:
   var metaContextTpe: TypeRef = _
   var metaContextCls: ClassSymbol = _
   var positionCls: ClassSymbol = _
+  var contextFunctionSym: Symbol = _
   var hasDFCTpe: TypeRef = _
   extension (sym: Symbol)
     def inherits(parentFullName: String)(using Context): Boolean =
@@ -91,7 +92,6 @@ abstract class CommonPhase extends PluginPhase:
       sym.annotations.collect {
         case a if a.tree.tpe <:< defn.StaticAnnotationClass.typeRef => a
       }
-
   end extension
 
   extension (tpe: Type)(using Context)
@@ -100,6 +100,29 @@ abstract class CommonPhase extends PluginPhase:
         case tr: TermRef        => tr.underlying.dealias
         case ann: AnnotatedType => ann.parent.simple
         case _                  => tpe.dealias
+
+  extension (tp: Type)(using Context)
+    def dfcFuncTpeOptRecur: Option[Type] =
+      tp.dealias match
+        case defn.ContextFunctionType(ctx, res, _) if ctx.head <:< metaContextTpe => Some(res)
+        case AppliedType(tycon, args) =>
+          var requiresUpdate = false
+          val updatedArgs = args.map { tp =>
+            tp.dfcFuncTpeOptRecur match
+              case Some(tp) =>
+                requiresUpdate = true
+                tp
+              case None => tp
+          }
+          if (requiresUpdate) Some(AppliedType(tycon, updatedArgs))
+          else None
+        case _ => None
+    def dfcFuncTpeOpt: Option[Type] =
+      tp.dealias match
+        case defn.ContextFunctionType(ctx, res, _) if ctx.head <:< metaContextTpe =>
+          Some(res)
+        case _ => None
+  end extension
 
   extension (srcPos: util.SrcPos)(using Context)
     def show: String =
@@ -135,6 +158,10 @@ abstract class CommonPhase extends PluginPhase:
   object ContextArg:
     def unapply(tree: Tree)(using Context): Option[Tree] =
       tree match
+        // skip over default implicit function type context applications
+        case Apply(Select(x, applyFn), List(ctx))
+            if applyFn == nme.apply && ctx.tpe <:< metaContextTpe && x.tpe.dfcFuncTpeOpt.nonEmpty =>
+          None
         case Apply(tree, args) =>
           args
             .collectFirst {
@@ -189,6 +216,7 @@ abstract class CommonPhase extends PluginPhase:
     metaContextCls = requiredClass("dfhdl.internals.MetaContext")
     positionCls = requiredClass("dfhdl.internals.Position")
     hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
+    contextFunctionSym = defn.FunctionSymbol(1, isContextual = true)
     if (debugFilter(tree.source.path.toString))
       println(
         s"""===============================================================

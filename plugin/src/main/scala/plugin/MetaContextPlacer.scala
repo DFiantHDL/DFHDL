@@ -99,12 +99,12 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
           inContext(localCtx(tree)) {
             untpd.cpy.ModuleDef(tree)(name, transform(impl).asInstanceOf[Template])
           }
-        case tree @ DefDef(name, paramss, tpt, _)
-            if (extensionWithDFVal || (name.toString != "<init>" && (hasDFVal(tpt) || hasDFVal(
-              paramss
-            )))) &&
-              !(extensionWithDFC || hasDFC(paramss)) =>
-          tree.addDFCArg
+        // case tree @ DefDef(name, paramss, tpt, _)
+        //     if (extensionWithDFVal || (name.toString != "<init>" && (hasDFVal(tpt) || hasDFVal(
+        //       paramss
+        //     )))) &&
+        //       !(extensionWithDFC || hasDFC(paramss)) =>
+        //   tree.addDFCArg
         case t => t
       end match
     end transform

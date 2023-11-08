@@ -13,9 +13,6 @@ object DFMember:
     def asIR: T = member.irValue match
       case memberIR: T @unchecked => memberIR
       case err: DFError           => throw DFError.Derived(err)
-  extension [M <: DFMemberAny](member: M)
-    @metaContextDelegate
-    def anonymize: M = ???
 
 extension [M <: ir.DFMember](member: M)
   def addMember(using DFC): M =

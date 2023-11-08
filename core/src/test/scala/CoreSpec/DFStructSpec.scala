@@ -13,10 +13,10 @@ class DFStructSpec extends DFSpec:
   ) extends Struct
   val cc = new CCs(8)
   import cc.{XY, XYZ}
-  def test(t: XY <> VAL): Unit =
+  @inline def test(t: XY <> VAL): XY <> VAL =
     t match
-      case XY(all(0), y) if y == 22 =>
-      case o: XY                    =>
+      case XY(all(0), y) if y == 22 => t
+      case o: XY                    => t
   assertCodeString(
     """|val t1 = XY <> VAR init XY(x = h"05", y = d"8'1")
        |val pt1x = t1.x.prev
@@ -31,8 +31,8 @@ class DFStructSpec extends DFSpec:
        |""".stripMargin
   ) {
     val t1 = XY <> VAR init XY(h"05", 1)
-    t1.x.verifyTypeOf[Bits[8] <> VAL]
-    t1.y.verifyTypeOf[UInt[8] <> VAL]
+    t1.x.verifyValOf[Bits[8]]
+    t1.y.verifyValOf[UInt[8]]
     val pt1x = t1.x.prev
     val t2 = XYZ <> VAR
     t1.x := t2.y

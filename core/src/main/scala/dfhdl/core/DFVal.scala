@@ -46,7 +46,7 @@ sealed trait TOKEN
 type <>[T <: DFType.Supported | Int, M] = T match
   case DFType.Supported =>
     M match
-      case VAL   => DFValOf[DFType.Of[T]]
+      case VAL   => DFC ?=> DFValOf[DFType.Of[T]]
       case TOKEN => DFToken[DFType.Of[T]]
       case FIELD => DFValOf[DFType.Of[T]]
   // Int is also special cased by the compiler plugin
@@ -55,7 +55,7 @@ type <>[T <: DFType.Supported | Int, M] = T match
 type X[T <: DFType.Supported, M] = M match
   case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]
   case Int                             => DFVector[DFType.Of[T], Tuple1[M]]
-type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
+type JUSTVAL[T <: DFType.Supported] = <>[T, FIELD]
 
 extension (dfVal: ir.DFVal)
   inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] =
@@ -202,6 +202,11 @@ object DFVal:
           else m.setName(name)
         )
         .asVal[T, M]
+    def anonymize(using dfc: DFC): DFVal[T, M] =
+      import dfc.getSet
+      dfVal.asIR match
+        case dcl: ir.DFVal.Dcl => dfVal
+        case dfValIR           => dfValIR.setMeta(m => m.anonymize).asVal[T, M]
   end extension
 
   case object ExtendTag extends ir.DFTagOf[ir.DFVal]
