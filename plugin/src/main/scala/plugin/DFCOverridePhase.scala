@@ -120,7 +120,7 @@ class DFCOverridePhase(setting: Setting) extends CommonPhase:
                     val updatedAnonDef = cpy.DefDef(anonDef)(rhs = transform(anonDef.rhs))
                     val updatedBlock = Block(List(updatedAnonDef), closure)
                     Apply(Select(updatedBlock, nme.apply), List(updatedDFC))
-                  case _ => vdRHS
+                  case _ => transform(vdRHS)
                 symMap += vdSym -> retSym
                 ValDef(retSym, retRHS, inferred = false).withSpan(vd.span)
               case _ => super.transform(vd)
