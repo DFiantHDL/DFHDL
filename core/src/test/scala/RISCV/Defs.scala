@@ -14,6 +14,6 @@ enum Opcode extends Encode.Manual(7):
 enum ALUSel extends Encode:
   case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
 
-case class Instr(fields: Bits[25] <> FIELD, opcode: Opcode <> FIELD) extends Struct
+case class Instr(fields: Bits[25] <> VAL, opcode: Opcode <> VAL) extends Struct
 
-case class IType(rs1: UInt[5] <> FIELD, rs2: UInt[5] <> FIELD)
+case class IType(rs1: UInt[5] <> VAL, rs2: UInt[5] <> VAL)

@@ -27,7 +27,7 @@ class DFTypeSpec extends DFSpec:
     case Foo extends MyEnum5(200)
     case Bar extends MyEnum5(100)
     case Baz extends MyEnum5(0)
-  case class MyStruct(x: UInt[5] <> FIELD, y: Bits[4] <> FIELD) extends Struct
+  case class MyStruct(x: UInt[5] <> VAL, y: Bits[4] <> VAL) extends Struct
   case class MyOpaque() extends Opaque(u7)
 
   test("Inlined width") {

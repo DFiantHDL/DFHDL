@@ -10,8 +10,8 @@ class DFOpaqueSpec extends DFSpec:
   case class gogo() extends Opaque((UInt(8), Bit))
   abstract class arrAbs extends Opaque(UInt(8) X 4)
   case class arr() extends arrAbs
-  extension (a: arrAbs <> VAL) @inline def booAbs: arrAbs <> VAL = a
-  extension (a: arr <> VAL) @inline def boo: arr <> VAL = a
+  extension (a: arrAbs <> VAL) @inline def booAbs: arrAbs <> RET = a
+  extension (a: arr <> VAL) @inline def boo: arr <> RET = a
   assertCodeString(
     """|val o11 = o1u8 <> VAR init d"8'1".as(o1u8)
        |val a = arr <> VAR init all(d"8'0").as(arr)

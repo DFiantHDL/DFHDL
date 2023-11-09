@@ -38,17 +38,17 @@ extension (lhs: AESByte <> VAL)
   // corresponding powers in the polynomials for the two elements. The addition is performed with
   // the XOR operation.
   @targetName("addByte")
-  @inline def +(rhs: AESByte <> VAL): AESByte <> VAL =
+  @inline def +(rhs: AESByte <> VAL): AESByte <> RET =
     (lhs.actual ^ rhs.actual).as(AESByte)
 
-  private def xtime: AESByte <> VAL =
+  private def xtime: AESByte <> RET =
     val shifted = lhs.actual << 1
     if (lhs.actual(7)) (shifted ^ h"1b").as(AESByte)
     else shifted.as(AESByte)
 
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
-  def sbox: AESByte <> VAL =
+  def sbox: AESByte <> RET =
     val lookup = AESByte X sboxLookupTable.length const sboxLookupTable
     lookup(lhs.actual)
 end extension
@@ -59,7 +59,7 @@ extension (lhs: Byte <> TOKEN)
   // divisors are one and itself. For the AES algorithm, this irreducible polynomial is
   // m(x) = x^8 + x^4 + x^3 + x + 1, or {01}{1b} in hexadecimal notation.
   @targetName("mulByte")
-  def *(rhs: AESByte <> VAL): AESByte <> VAL =
+  def *(rhs: AESByte <> VAL): AESByte <> RET =
     val a = LazyList.iterate(rhs)(_.xtime)
     (0 until 8).foldLeft[AESByte <> VAL](all(0).as(AESByte)):
       case (p, i) if lhs.bits(i) => p + a(i)
@@ -72,15 +72,15 @@ case class AESWord() extends Column(AESByte, 4)
 
 extension (lhs: AESWord <> VAL)
   @targetName("addWord")
-  @inline def +(rhs: AESWord <> VAL): AESWord <> VAL =
+  @inline def +(rhs: AESWord <> VAL): AESWord <> RET =
     (lhs.bits ^ rhs.bits).as(AESWord)
 
   // Function used in the Key Expansion routine that takes a four-byte input word and applies
   // an S-box to each of the four bytes to produce an output word.
-  def subWord: AESWord <> VAL = lhs.mapElements(_.sbox)
+  def subWord: AESWord <> RET = lhs.mapElements(_.sbox)
 
   // Function used in the Key Expansion routine that takes a four-byte word and performs a cyclic permutation.
-  def rotWord: AESWord <> VAL =
+  def rotWord: AESWord <> RET =
     val elms = lhs.actual.elements
     (elms.drop(1) :+ elms.head).as(AESWord)
 end extension
@@ -107,19 +107,19 @@ case class AESKeySchedule() extends Matrix(AESWord, Nb * (Nr + 1))
 extension (state: AESState <> VAL)
   // Transformation in the Cipher that processes the State using a non-linear byte substitution
   // table (S-box) that operates on each of the State bytes independently.
-  def subBytes: AESState <> VAL =
+  def subBytes: AESState <> RET =
     state.mapElementsViaIndexes((c, r) => state(r, c).sbox)
 
   // Transformation in the Cipher that processes the State by cyclically shifting the last three rows of
   // the State by different offsets. Note: this algorithm only follows the AES spec, and assumes Nb=4. If
   // this were to change, instead of `c + r` to change it to `c + shift(r, Nb)` that sets the shift
   // according to the general Rijndael algorithm.
-  def shiftRows: AESState <> VAL =
+  def shiftRows: AESState <> RET =
     state.mapElementsViaIndexes((c, r) => state(r, (c + r) % Nb))
 
   // Transformation in the Cipher that takes all of the columns of the State and mixes their data
   // (independently of one another) to produce new columns.
-  def mixColumns: AESState <> VAL =
+  def mixColumns: AESState <> RET =
     state.mapColumnsViaIndex(c =>
       Vector(
         h"02" * state(0, c) + h"03" * state(1, c) + h"01" * state(2, c) + h"01" * state(3, c),
@@ -132,7 +132,7 @@ extension (state: AESState <> VAL)
   // Transformation in the Cipher and Inverse Cipher in which a Round Key is added to the State using an XOR
   // operation. The length of a Round Key equals the size of the State (i.e., for Nb = 4, the Round Key length
   // equals 128 bits/16 bytes).
-  def addRoundKey(key: AESRoundKey <> VAL): AESState <> VAL =
+  def addRoundKey(key: AESRoundKey <> VAL): AESState <> RET =
     (state.bits ^ key.bits).as(AESState)
 end extension
 
@@ -146,7 +146,7 @@ private val Rcon = Vector(
 ).map(word => h"$word".as(AESWord))
 
 extension (key: AESKey <> VAL)
-  def keyExpansion: AESKeySchedule <> VAL =
+  def keyExpansion: AESKeySchedule <> RET =
     val w = ArrayBuffer.tabulate(Nk)(i => key(i))
     for (i <- Nk until Nb * (Nr + 1)) do
       val temp =
@@ -160,13 +160,13 @@ extension (key: AESKey <> VAL)
 // AES Keyschedule
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 extension (keySched: AESKeySchedule <> VAL)
-  @inline def roundKey(round: Int): AESRoundKey <> VAL =
+  @inline def roundKey(round: Int): AESRoundKey <> RET =
     Vector.tabulate(Nb)(b => keySched(round * Nb + b)).as(AESRoundKey)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // Cipher
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-def cipher(data: AESData <> VAL, key: AESKey <> VAL): AESData <> VAL =
+def cipher(data: AESData <> VAL, key: AESKey <> VAL): AESData <> RET =
   val keySchedule = key.keyExpansion
   val state = (0 to Nr).foldLeft(data.actual.as(AESState))((state, round) =>
     val roundVal =

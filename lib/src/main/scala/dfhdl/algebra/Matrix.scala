@@ -13,7 +13,7 @@ abstract class Column[ET <: core.DFTypeAny, RN <: Int with Singleton](
 extension [ET <: core.DFTypeAny, RN <: Int with Singleton, T <: Column[ET, RN]](
     col: T <> VAL
 )(using ce: dfhdl.internals.ClassEv[T])
-  @inline def mapElements(f: ET <> VAL => ET <> VAL): T <> VAL = col.actual.elements.as(ce.value)
+  @inline def mapElements(f: ET <> VAL => ET <> VAL): T <> RET = col.actual.elements.as(ce.value)
 
 abstract class Matrix[
     CN <: Int with Singleton,
@@ -31,13 +31,13 @@ extension [
     CFE <: Column[ET, RN],
     M <: Matrix[CN, ET, RN, CFE]
 ](matrix: M <> VAL)(using cfe: dfhdl.internals.ClassEv[CFE], m: dfhdl.internals.ClassEv[M])
-  @inline def apply(colIdx: Int): CFE <> VAL = matrix.actual(colIdx)
-  @inline def apply(rowIdx: Int, colIdx: Int): ET <> VAL = matrix.actual(colIdx).actual(rowIdx)
-  @inline def mapElementsViaIndexes(f: (Int, Int) => ET <> VAL): M <> VAL =
+  @inline def apply(colIdx: Int): CFE <> RET = matrix.actual(colIdx)
+  @inline def apply(rowIdx: Int, colIdx: Int): ET <> RET = matrix.actual(colIdx).actual(rowIdx)
+  @inline def mapElementsViaIndexes(f: (Int, Int) => ET <> VAL): M <> RET =
     Vector
       .tabulate(m.value.colNum, m.value.colFE.rowNum)(f)
       .map(_.as(cfe.value)).as(m.value)
-  @inline def mapColumnsViaIndex(f: Int => Vector[ET <> VAL]): M <> VAL =
+  @inline def mapColumnsViaIndex(f: Int => Vector[ET <> VAL]): M <> RET =
     Vector
       .tabulate(m.value.colNum)(x => f(x).as(cfe.value))
       .as(m.value)

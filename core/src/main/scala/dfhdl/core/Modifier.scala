@@ -25,7 +25,7 @@ object Modifier:
 end Modifier
 
 final type VAL = Modifier[Any, Any, Any]
-sealed trait FIELD
+sealed trait RET
 
 object OPEN extends Exactly:
   type Out = ir.OpenConnectTag

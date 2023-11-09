@@ -219,7 +219,7 @@ class PrintCodeStringSpec extends StageSpec:
     class IDMultiRef extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
-      @inline def test(arg: UInt[32] <> VAL): UInt[32] <> VAL =
+      @inline def test(arg: UInt[32] <> VAL): UInt[32] <> RET =
         arg + arg
       o := test(data + 1)
     val id = (new IDMultiRef).getCodeString
@@ -243,7 +243,7 @@ class PrintCodeStringSpec extends StageSpec:
         * @param arg
         * @return
         */
-      def test(arg: UInt[32] <> VAL): UInt[32] <> VAL =
+      def test(arg: UInt[32] <> VAL): UInt[32] <> RET =
         arg + arg
       o := test(data + 1)
       val x = test(data)
@@ -255,7 +255,7 @@ class PrintCodeStringSpec extends StageSpec:
          |  * @param arg
          |  * @return
          |  **/
-         |def test(arg: UInt[32] <> VAL): UInt[32] <> VAL =
+         |def test(arg: UInt[32] <> VAL): UInt[32] <> RET =
          |  arg + arg
          |end test
          |

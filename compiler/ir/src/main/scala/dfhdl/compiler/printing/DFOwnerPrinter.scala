@@ -155,7 +155,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       if (defArgList.length <= 2) defArgList.mkString(", ")
       else defArgList.mkString("\n", ",\n", "\n").hindent(2)
 
-    val retType = printer.csDFValType(retVal.dfType)
+    val retType = s": ${printer.csDFType(retVal.dfType, typeCS = true)} <> RET"
     val dcl =
       s"def ${design.dclName}($defArgsCS)$retType =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     s"${printer.csAnnotations(design.dclMeta)}$dcl\n"

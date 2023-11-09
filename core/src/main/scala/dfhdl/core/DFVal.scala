@@ -46,16 +46,16 @@ sealed trait TOKEN
 type <>[T <: DFType.Supported | Int, M] = T match
   case DFType.Supported =>
     M match
-      case VAL   => DFC ?=> DFValOf[DFType.Of[T]]
+      case RET   => DFC ?=> DFValOf[DFType.Of[T]]
+      case VAL   => DFValOf[DFType.Of[T]]
       case TOKEN => DFToken[DFType.Of[T]]
-      case FIELD => DFValOf[DFType.Of[T]]
   // Int is also special cased by the compiler plugin
   case Int => DFVector.ComposedModifier[T, M]
 
 type X[T <: DFType.Supported, M] = M match
   case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]
   case Int                             => DFVector[DFType.Of[T], Tuple1[M]]
-type JUSTVAL[T <: DFType.Supported] = <>[T, FIELD]
+type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
 
 extension (dfVal: ir.DFVal)
   inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] =
