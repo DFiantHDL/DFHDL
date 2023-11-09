@@ -125,6 +125,8 @@ object DFOpaque:
             val lhsTerm = lhs.asTerm.exactTerm
             val lhsTpe = lhsTerm.tpe
             val lhsExpr = lhsTerm.asExpr
+            // println(lhsExpr.show)
+            // println(lhsTpe.show)
             val lhsType = lhsTpe.asTypeOf[Any]
             val aExpr = '{ $tfe.actualType.asInstanceOf[aType.Underlying] }
             def hasDFVal(tpe: TypeRepr): Boolean =
@@ -132,7 +134,8 @@ object DFOpaque:
                 case '[DFValAny] => true
                 case '[NonEmptyTuple] =>
                   tpe.getTupleArgs.exists(hasDFVal)
-                case _ => false
+                case '[Iterable[t]] => hasDFVal(TypeRepr.of[t])
+                case _              => false
             if (hasDFVal(lhsTpe))
               '{
                 val tc = compiletime.summonInline[DFVal.TC[aType.Underlying, lhsType.Underlying]]

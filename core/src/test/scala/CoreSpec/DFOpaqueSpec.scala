@@ -21,6 +21,8 @@ class DFOpaqueSpec extends DFSpec:
        |val q2 = o1 == d"8'1".as(o1u8)
        |o1 := d"8'1".as(o1u8)
        |val z = u8.as(o1u8)
+       |a := Vector(a.actual(0), a.actual(1), a.actual(2), a.actual(3)).as(arr)
+       |val ax = all(u8).as(arr)
        |val conv = o1u8 const d"8'1".as(o1u8)
        |val zz = o1.actual
        |o2.actual := d"8'0"
@@ -37,8 +39,9 @@ class DFOpaqueSpec extends DFSpec:
     val q2 = o1 == 1.as(o1u8)
     o1 := 1.as(o1u8)
     val z = u8.as(o1u8)
-    // TODO: this should work
-//    a := a.actual.elements.as(arr)
+    a := a.actual.elements.as(arr)
+    val x: Vector[UInt[8] <> VAL] = Vector.fill(4)(u8)
+    val ax = x.as(arr)
     val conv: o1u8 <> VAL = 1.as(o1u8)
     val zz = o1.actual
     o2.actual := 0
