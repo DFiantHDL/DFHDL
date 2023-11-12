@@ -158,10 +158,6 @@ abstract class CommonPhase extends PluginPhase:
   object ContextArg:
     def unapply(tree: Tree)(using Context): Option[Tree] =
       tree match
-        // skip over default implicit function type context applications
-        case Apply(Select(x, applyFn), List(ctx))
-            if applyFn == nme.apply && ctx.tpe <:< metaContextTpe && x.tpe.dfcFuncTpeOpt.nonEmpty =>
-          None
         case Apply(tree, args) =>
           args
             .collectFirst {

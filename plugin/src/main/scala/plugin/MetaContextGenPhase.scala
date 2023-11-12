@@ -341,59 +341,60 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   // DFHDL design construction from definitions transformation.
   // Such transformation rely on code like `def foo(arg: Bit <> VAL): Bit <> VAL`
   // The `Bit <> VAL` type is a match type that is manifests as `DFC ?=> DFValOf[Bit]`.
-  // The `DFC ?=> ` implicit function type is removed during the DFC Override phase,
-  // and we are left with an implicit DFC argument instead.
   override def transformDefDef(tree: DefDef)(using Context): tpd.Tree =
     val sym = tree.symbol
     lazy val dfValArgs = tree.paramss.view.flatten.collect {
       case vd: ValDef if vd.dfValTpeOpt.nonEmpty => vd
     }.toList
-    lazy val dfcArg = ContextArg.at(tree)
-    if (
-      // We ignore inline method, since these should not be transformed into
-      // design hierarchies.
-      // We also ignore exported methods, to prevent transforming a method that
-      // was already transformed at its origin.
-      !tree.isInline && !(sym is Exported) &&
-      // transform only methods that return a DFHDL value and
-      // have at least one DFHDL parameter and
-      // have a context argument
-      tree.dfValTpeOpt.nonEmpty && dfValArgs.nonEmpty && dfcArg.nonEmpty
-    )
-      debug("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-      debug(tree.show)
-      val dfc = dfcArg.get
+    tree.rhs match
+      case Block(List(anonDef: DefDef), closure: Closure)
+          if (
+            // We ignore inline method, since these should not be transformed into
+            // design hierarchies.
+            // We also ignore exported methods, to prevent transforming a method that
+            // was already transformed at its origin.
+            !tree.isInline && !(sym is Exported) &&
+              // transform only methods that return a DFHDL value and
+              // have at least one DFHDL parameter and
+              // have a context argument
+              anonDef.dfValTpeOpt.nonEmpty && dfValArgs.nonEmpty
+          ) =>
+        debug("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        debug(tree.show)
+        val dfc = ContextArg.at(anonDef).get
 
-      // replacing the old arg references according to the argument map
-      def replaceArgs(expr: Tree, argMap: Map[TermName, Tree]): Tree =
-        val replacer = new TreeMap():
-          override def transform(tree: Tree)(using Context): Tree =
-            tree match
-              case Ident(n: TermName) if argMap.contains(n) =>
-                argMap(n)
-              case _ => super.transform(tree)
-        replacer.transform(expr)
+        // replacing the old arg references according to the argument map
+        def replaceArgs(expr: Tree, argMap: Map[TermName, Tree]): Tree =
+          val replacer = new TreeMap():
+            override def transform(tree: Tree)(using Context): Tree =
+              tree match
+                case Ident(n: TermName) if argMap.contains(n) =>
+                  argMap(n)
+                case _ => super.transform(tree)
+          replacer.transform(expr)
 
-      val updatedRHS: Tree =
-        // list of tuples of the old arguments and their meta data
-        val args = mkList(dfValArgs.map(a => mkTuple(List(a.ident, a.genMeta))))
-        // input map to replace old arg references with new input references
-        val inputMap = dfValArgs.view.zipWithIndex.map((a, i) =>
-          a.name -> ref(designFromDefGetInputSym)
-            .appliedToType(a.dfValTpeOpt.get.widen)
-            .appliedTo(Literal(Constant(i)))
+        val updatedAnonRHS: Tree =
+          // list of tuples of the old arguments and their meta data
+          val args = mkList(dfValArgs.map(a => mkTuple(List(a.ident, a.genMeta))))
+          // input map to replace old arg references with new input references
+          val inputMap = dfValArgs.view.zipWithIndex.map((a, i) =>
+            a.name -> ref(designFromDefGetInputSym)
+              .appliedToType(a.dfValTpeOpt.get.widen)
+              .appliedTo(Literal(Constant(i)))
+              .appliedTo(dfc)
+          ).toMap
+          // calling the runtime method that constructs the design from the definition
+          ref(designFromDefSym)
+            .appliedToType(anonDef.dfValTpeOpt.get.widen)
+            .appliedToArgs(List(args, tree.genMeta)) // meta represents the transformed tree
+            .appliedTo(replaceArgs(anonDef.rhs, inputMap))
             .appliedTo(dfc)
-        ).toMap
-        // calling the runtime method that constructs the design from the definition
-        ref(designFromDefSym)
-          .appliedToType(tree.dfValTpeOpt.get.widen)
-          .appliedToArgs(List(args, tree.genMeta)) // meta represents the transformed tree
-          .appliedTo(replaceArgs(tree.rhs, inputMap))
-          .appliedTo(dfc)
-      end updatedRHS
-      cpy.DefDef(tree)(rhs = updatedRHS)
-    else tree
-    end if
+        end updatedAnonRHS
+        val updatedAnonDef = cpy.DefDef(anonDef)(rhs = updatedAnonRHS)
+        val updatedRHS = Block(List(updatedAnonDef), closure)
+        cpy.DefDef(tree)(rhs = updatedRHS)
+      case _ => tree
+    end match
   end transformDefDef
 
   override def prepareForInlined(inlined: Inlined)(using Context): Context =
@@ -418,16 +419,16 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _                         =>
         // debug("================================================")
         // debug(s"prepareForValDef: ${tree.name}")
-        tree.rhs match
-          // For DFHDL annotated values (E.g., `val x: Bit <> VAL = `), the DFC override stage
-          // does not completely remove the need for closure blocks, so we are left with an
-          // application of the context that we special case while getting the name and position
-          // ValDef contexts for DFHDL values.
-          case Apply(Select(Block(List(anonDef: DefDef), closure: Closure), applyFn), List(ctx))
-              if applyFn == nme.apply && ctx.tpe <:< metaContextTpe =>
-            nameValOrDef(anonDef.rhs, tree, anonDef.rhs.tpe.simple, None)
-          case _ =>
-            nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)
+        // tree.rhs match
+        //   // For DFHDL annotated values (E.g., `val x: Bit <> VAL = `), the DFC override stage
+        //   // does not completely remove the need for closure blocks, so we are left with an
+        //   // application of the context that we special case while getting the name and position
+        //   // ValDef contexts for DFHDL values.
+        //   case Apply(Select(Block(List(anonDef: DefDef), closure: Closure), applyFn), List(ctx))
+        //       if applyFn == nme.apply && ctx.tpe <:< metaContextTpe =>
+        //     nameValOrDef(anonDef.rhs, tree, anonDef.rhs.tpe.simple, None)
+        //   case _ =>
+        nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)
     end match
     ctx
   end prepareForValDef
