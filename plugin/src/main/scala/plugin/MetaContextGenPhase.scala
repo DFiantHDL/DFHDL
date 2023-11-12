@@ -419,15 +419,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _                         =>
         // debug("================================================")
         // debug(s"prepareForValDef: ${tree.name}")
-        // tree.rhs match
-        //   // For DFHDL annotated values (E.g., `val x: Bit <> VAL = `), the DFC override stage
-        //   // does not completely remove the need for closure blocks, so we are left with an
-        //   // application of the context that we special case while getting the name and position
-        //   // ValDef contexts for DFHDL values.
-        //   case Apply(Select(Block(List(anonDef: DefDef), closure: Closure), applyFn), List(ctx))
-        //       if applyFn == nme.apply && ctx.tpe <:< metaContextTpe =>
-        //     nameValOrDef(anonDef.rhs, tree, anonDef.rhs.tpe.simple, None)
-        //   case _ =>
         nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)
     end match
     ctx
