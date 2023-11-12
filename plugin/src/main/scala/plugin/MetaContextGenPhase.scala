@@ -393,7 +393,15 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         val updatedAnonDef = cpy.DefDef(anonDef)(rhs = updatedAnonRHS)
         val updatedRHS = Block(List(updatedAnonDef), closure)
         cpy.DefDef(tree)(rhs = updatedRHS)
-      case _ => tree
+      case _ =>
+        if (
+          !sym.isAnonymousFunction && !(sym is Exported) && tree.dfValTpeOpt.nonEmpty && dfValArgs.nonEmpty
+        )
+          report.error(
+            "Must use a `<> RET` modifier for a DFHDL function return type.",
+            tree.tpt.srcPos
+          )
+        tree
     end match
   end transformDefDef
 
