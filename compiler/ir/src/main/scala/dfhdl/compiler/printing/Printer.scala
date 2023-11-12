@@ -306,7 +306,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     Set("class", "def", "end", "enum", "extends", "new", "object", "val", "if", "else", "match",
       "case", "final")
   val dfhdlKW: Set[String] =
-    Set("VAR", "IN", "OUT", "INOUT", "VAL", "DFDesign", "RTDesign", "EDDesign", "DFDomain",
+    Set("VAR", "IN", "OUT", "INOUT", "VAL", "RET", "DFDesign", "RTDesign", "EDDesign", "DFDomain",
       "RTDomain", "EDDomain", "process", "forever", "all")
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] =
