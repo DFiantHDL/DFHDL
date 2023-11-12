@@ -209,9 +209,6 @@ final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualTyp
 object DFOpaque extends DFType.Companion[DFOpaque, Any]:
   sealed trait Id extends Product, Serializable derives CanEqual
   trait CustomId extends Id
-  enum BuiltInId extends Id:
-    case Clk(cfg: RTDomainCfg)
-    case Rst(cfg: RTDomainCfg)
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

@@ -44,6 +44,7 @@ object DFOpaque:
     ir.DFOpaque(t.typeName, t, t.actualType.asIR).asFE[DFOpaque[TFE]]
   extension [A <: DFTypeAny, TFE <: Frontend[A]](dfType: DFOpaque[TFE])
     def actualType: A = dfType.asIR.actualType.asFE[A]
+    def opaqueType: TFE = dfType.asIR.id.asInstanceOf[TFE]
 
   type Token[TFE <: Abstract] = DFToken[DFOpaque[TFE]]
   object Token:
@@ -110,18 +111,21 @@ object DFOpaque:
       )(using Quotes, Type[L], Type[Comp]): Expr[Any] =
         import quotes.reflect.*
         val compTpe = TypeRepr.of[Comp]
-        val tfeTpe =
-          if (compTpe <:< TypeRepr.of[Abstract]) compTpe
-          else compTpe.getCompanionClassTpe
-        tfeTpe.baseType(TypeRepr.of[Frontend[_ <: DFTypeAny]].typeSymbol) match
-          case AppliedType(_, aTpe :: _) =>
-            val aType = aTpe.asTypeOf[DFTypeAny]
+        val (tfe, tfeTpe) =
+          if (compTpe <:< TypeRepr.of[Abstract]) (tfeComp.asExprOf[Abstract], compTpe)
+          else
+            val tfeTpe = compTpe.getCompanionClassTpe
             val tfeType = tfeTpe.asTypeOf[Abstract]
             val tfe = '{
               compiletime
                 .summonInline[ClassEv[tfeType.Underlying]]
                 .value
             }
+            (tfe, tfeTpe)
+        val tfeType = tfeTpe.asTypeOf[Abstract]
+        tfeTpe.baseType(TypeRepr.of[Frontend[_ <: DFTypeAny]].typeSymbol) match
+          case AppliedType(_, aTpe :: _) =>
+            val aType = aTpe.asTypeOf[DFTypeAny]
             val lhsTerm = lhs.asTerm.exactTerm
             val lhsTpe = lhsTerm.tpe
             val lhsExpr = lhsTerm.asExpr
@@ -163,6 +167,7 @@ object DFOpaque:
       extension [AT <: DFTypeAny, TFE <: Frontend[AT], A, C, I](
           lhs: DFVal[DFOpaque[TFE], Modifier[A, C, I]]
       )
+        def opaqueType: TFE = lhs.dfType.asIR.id.asInstanceOf[TFE]
         def actual(using DFC): DFVal[AT, Modifier[A, Any, Any]] = // trydf {
           import Token.Ops.{actual => actualToken}
           DFVal.Alias.AsIs(lhs.dfType.actualType, lhs, _.actualToken)

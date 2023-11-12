@@ -1,44 +1,54 @@
 package dfhdl.lib.algebra
 import dfhdl.{apply => _, *}
+import scala.annotation.targetName
 export dfhdl.apply
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Matrix Data Structure
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //TODO: fix if https://github.com/lampepfl/dotty/issues/17036 is resolved
 
-abstract class Column[ET <: core.DFTypeAny, RN <: Int with Singleton](
+abstract class Column[ET <: DFType, RN <: Int with Singleton](
     val elemType: ET,
     val rowNum: RN
 ) extends Opaque[ET X RN](elemType X rowNum)
-extension [ET <: core.DFTypeAny, RN <: Int with Singleton, T <: Column[ET, RN]](
-    col: T <> VAL
-)(using ce: dfhdl.internals.ClassEv[T])
-  @inline def mapElements(f: ET <> VAL => ET <> VAL): T <> RET = col.actual.elements.as(ce.value)
+extension [ET <: DFType, RN <: Int with Singleton, CT <: Column[ET, RN]](
+    col: CT <> VAL
+)
+  def colType: CT = col.opaqueType
+  def rowNum: RN = colType.rowNum
+  def elemType: ET = colType.elemType
+  @inline def mapElements(f: ET <> VAL => ET <> VAL): CT <> RET = col.actual.elements.as(colType)
 
 abstract class Matrix[
     CN <: Int with Singleton,
-    ET <: core.DFTypeAny,
+    ET <: DFType,
     RN <: Int with Singleton,
-    CFE <: Column[ET, RN]
+    CT <: Column[ET, RN]
 ](
-    val colFE: CFE,
+    val colType: CT,
     val colNum: CN
-) extends Opaque[CFE X CN](colFE X colNum)
+) extends Opaque[CT X CN](colType X colNum)
 extension [
     CN <: Int with Singleton,
-    ET <: core.DFTypeAny,
+    ET <: DFType,
     RN <: Int with Singleton,
-    CFE <: Column[ET, RN],
-    M <: Matrix[CN, ET, RN, CFE]
-](matrix: M <> VAL)(using cfe: dfhdl.internals.ClassEv[CFE], m: dfhdl.internals.ClassEv[M])
-  @inline def apply(colIdx: Int): CFE <> RET = matrix.actual(colIdx)
+    CT <: Column[ET, RN],
+    MT <: Matrix[CN, ET, RN, CT]
+](matrix: MT <> VAL)
+  def matType: MT = matrix.opaqueType
+  @targetName("matColType")
+  def colType: CT = matType.colType
+  @targetName("matRowNum")
+  def rowNum: RN = colType.rowNum
+  def colNum: CN = matType.colNum
+  @inline def apply(colIdx: Int): CT <> RET = matrix.actual(colIdx)
   @inline def apply(rowIdx: Int, colIdx: Int): ET <> RET = matrix.actual(colIdx).actual(rowIdx)
-  @inline def mapElementsViaIndexes(f: (Int, Int) => ET <> VAL): M <> RET =
+  @inline def mapElementsViaIndexes(f: (Int, Int) => ET <> VAL): MT <> RET =
     Vector
-      .tabulate(m.value.colNum, m.value.colFE.rowNum)(f)
-      .map(_.as(cfe.value)).as(m.value)
-  @inline def mapColumnsViaIndex(f: Int => Vector[ET <> VAL]): M <> RET =
+      .tabulate(colNum, rowNum)(f)
+      .map(_.as(colType)).as(matType)
+  @inline def mapColumnsViaIndex(f: Int => Vector[ET <> VAL]): MT <> RET =
     Vector
-      .tabulate(m.value.colNum)(x => f(x).as(cfe.value))
-      .as(m.value)
+      .tabulate(colNum)(x => f(x).as(colType))
+      .as(matType)
 end extension
