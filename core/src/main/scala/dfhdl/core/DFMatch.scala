@@ -21,13 +21,7 @@ object DFMatch:
     dfc.enterOwner(block)
     // now all members of the branch will be constructed
     val ret: R = run()
-    val dfType = ret match
-      case v: DFValAny =>
-        // adding ident placement as the last member in the if
-        DFVal.Alias.AsIs.ident(v)(using dfc.anonymize)
-        v.dfType
-      case _ =>
-        NoType
+    val dfType = analyzeControlRet(ret)
     dfc.exitOwner()
     (dfType, block)
   end singleCase

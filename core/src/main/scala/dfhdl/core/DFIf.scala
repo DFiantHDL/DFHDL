@@ -5,6 +5,16 @@ import dfhdl.compiler.printing.*
 
 import ir.DFConditional
 import ir.DFConditional.{DFIfHeader, DFIfElseBlock}
+
+protected[core] def analyzeControlRet(ret: Any)(using DFC): DFTypeAny = ret match
+  case v: DFValAny =>
+    // adding ident placement as the last member in the control block
+    DFVal.Alias.AsIs.ident(v)(using dfc.anonymize)
+    v.dfType
+  case e: Exactly => analyzeControlRet(e.value)
+  case _ =>
+    NoType
+
 object DFIf:
   def singleBranch[R](
       condOption: Option[DFValOf[DFBool]],
@@ -18,13 +28,7 @@ object DFIf:
     dfc.enterOwner(block)
     // now all members of the branch will be constructed
     val ret: R = run()
-    val dfType = ret match
-      case v: DFValAny =>
-        // adding ident placement as the last member in the if
-        DFVal.Alias.AsIs.ident(v)(using dfc.anonymize)
-        v.dfType
-      case _ =>
-        NoType
+    val dfType = analyzeControlRet(ret)
     dfc.exitOwner()
     (dfType, block)
   end singleBranch

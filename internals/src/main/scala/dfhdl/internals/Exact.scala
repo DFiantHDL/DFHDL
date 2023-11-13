@@ -1,15 +1,15 @@
 package dfhdl.internals
 import scala.quoted.*
 import util.NotGiven
+import scala.annotation.unchecked.uncheckedVariance
 type ExactTypes = NonEmptyTuple | Int | String | Boolean
 trait Exactly:
   type Out
   val value: Out
 object Exactly:
   // We need this `fromRegularTypes` as a workaround for DFStruct where `v := XY(h"27", ...)`
-  implicit transparent inline def fromRegularTypes[T](
-      inline value: T
-  ): Exactly = Exact[T](value)
+  given fromValue[T](using NotGiven[T <:< ExactTypes]): Conversion[T, Exact[T]] with
+    def apply(x: T): Exact[T] = Exact[T](x)
   // TODO: remove when https://github.com/lampepfl/dotty/issues/12975 is resolved
   implicit transparent inline def fromExactTypes[T <: ExactTypes](
       inline value: T
@@ -64,7 +64,7 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
   end exactTerm
 end extension
 
-type Exact[T] = Exactly { type Out = T }
+type Exact[+T] = Exactly { type Out = T @uncheckedVariance }
 object Exact:
   def apply[T](value_ : T): Exact[T] = new Exactly:
     type Out = T
