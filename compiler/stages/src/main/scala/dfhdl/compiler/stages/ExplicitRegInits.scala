@@ -3,6 +3,7 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 import DFVal.Alias.History.Op as HistoryOp
 import collection.mutable
 
@@ -12,7 +13,7 @@ import collection.mutable
 case object ExplicitRegInits extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val handledDcls = mutable.Set.empty[DFVal.Dcl]
     val patchList = designDB.members.flatMap {
       case ra @ DFVal.Alias.History(_, DFRef(dcl: DFVal.Dcl), _, HistoryOp.Reg, None, _, _, _) =>

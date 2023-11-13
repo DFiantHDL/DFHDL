@@ -3,12 +3,13 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 import DFVal.Alias.History.Op as HistoryOp
 import dfhdl.compiler.ir.DFDesignBlock.InstMode
 case object ToRT extends Stage:
   def dependencies: List[Stage] = List(DropDefDesigns)
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.collect {
       case h @ DFVal.Alias.History(_, _, _, HistoryOp.Prev | HistoryOp.Pipe, _, _, _, _) =>
         h -> Patch.Replace(

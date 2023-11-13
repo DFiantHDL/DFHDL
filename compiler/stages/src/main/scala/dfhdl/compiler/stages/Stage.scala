@@ -1,13 +1,14 @@
 package dfhdl.compiler.stages
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
+import dfhdl.options.CompilerOptions
 import dfhdl.core.{Design}
 
 abstract class Stage extends Product, Serializable, HasTypeName derives CanEqual:
   final lazy val depSet: Set[Stage] = dependencies.toSet
   def dependencies: List[Stage]
   def nullifies: Set[Stage]
-  def transform(designDB: DB)(using MemberGetSet): DB
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB
 
 trait HasDB[T]:
   def apply(t: T): DB

@@ -3,12 +3,13 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
 
 case object UniqueDesigns extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val eqDesign: ((DFDesignBlock, List[DFMember]), (DFDesignBlock, List[DFMember])) => Boolean =
       case ((thisBlock, theseMembers), (thatBlock, thoseMembers))
           if thisBlock.dclMeta == thatBlock.dclMeta =>

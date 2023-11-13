@@ -4,6 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.internals.*
+import dfhdl.options.CompilerOptions
 import DFVal.Func.Op as FuncOp
 import scala.reflect.{ClassTag, classTag}
 
@@ -13,7 +14,7 @@ private abstract class NamedAliases(criteria: NamedAliases.Criteria) extends Sta
   override def dependencies: List[Stage] = Nil
   override def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
 
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
 
     val patchList: List[(DFMember, Patch)] =
       designDB.members.view

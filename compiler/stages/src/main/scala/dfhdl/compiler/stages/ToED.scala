@@ -3,6 +3,7 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 import DFVal.Alias.History.Op as HistoryOp
 import dfhdl.core.{DFC, DFIf, NoType, DFOwnerAny}
 
@@ -16,7 +17,7 @@ case object ToED extends Stage:
       relVal: DFVal,
       initOption: Option[DFTokenAny]
   )
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val domainAnalysis = new DomainAnalysis(designDB)
     val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
       // for all domain owners that are also blocks (RTDesign, RTDomain)
@@ -138,7 +139,7 @@ case object ToED extends Stage:
       // other owners
       case _ => None
     }
-    designDB.patch(patchList).sanityCheck
+    designDB.patch(patchList)
   end transform
 end ToED
 

@@ -3,6 +3,7 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 
 import scala.annotation.tailrec
 
@@ -22,7 +23,7 @@ private abstract class OrderMembers(order: OrderMembers.Order) extends Stage:
     case m :: mList => orderMembers(mList, m :: retList)
     case Nil        => retList.reverse
 
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     designDB.copy(members = orderMembers(List(designDB.top), List()))
 
 end OrderMembers

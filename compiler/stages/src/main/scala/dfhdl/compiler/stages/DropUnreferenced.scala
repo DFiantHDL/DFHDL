@@ -2,11 +2,12 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.compiler.analysis.*
+import dfhdl.options.CompilerOptions
 
 case object DropUnreferencedVars extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.collect {
       case m @ DclVar() if !designDB.memberTable.contains(m) && m.externalInit.isEmpty =>
         m -> Patch.Remove
@@ -16,7 +17,7 @@ case object DropUnreferencedVars extends Stage:
 case object DropUnreferencedAnons extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.flatMap {
       // skipping over conditional headers that can be considered values as well.
       case _: DFConditional.Header => None

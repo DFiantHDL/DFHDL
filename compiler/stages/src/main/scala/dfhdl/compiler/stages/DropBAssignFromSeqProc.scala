@@ -3,11 +3,12 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 import dfhdl.core.DFC.Domain
 case object DropBAssignFromSeqProc extends Stage:
   override def dependencies: List[Stage] = List(DropLocalDcls, ExplicitNamedVars)
   override def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] =
       var latestSeqProc: Option[ProcessBlock] = None
       designDB.members.view

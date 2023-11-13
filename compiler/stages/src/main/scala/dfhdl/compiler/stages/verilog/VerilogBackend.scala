@@ -29,7 +29,7 @@ case object VerilogBackend extends Stage:
     List(DropUnreferencedAnons, NamedAnonMultiref, ToED, NamedSelection, ExplicitNamedVars,
       DropLocalDcls, DropBAssignFromSeqProc, SimpleOrderMembers, VerilogUniqueNames, ViaConnection)
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB = designDB
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB = designDB
 end VerilogBackend
 
 extension [T: HasDB](t: T)

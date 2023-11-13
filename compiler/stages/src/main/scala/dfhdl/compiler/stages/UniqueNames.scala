@@ -3,6 +3,7 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
 
 import scala.reflect.classTag
@@ -12,7 +13,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     extends Stage:
   def dependencies: List[Stage] = List(UniqueDesigns)
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     // conditionally lower cases the name according to the case sensitivity as
     // set by `caseSensitive`
     def lowerCase(name: String): String = if (caseSensitive) name else name.toLowerCase

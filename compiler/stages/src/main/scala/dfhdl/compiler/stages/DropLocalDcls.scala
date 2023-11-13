@@ -3,11 +3,12 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 
 abstract class DropLocalDcls(keepProcessDcls: Boolean) extends Stage:
   override def dependencies: List[Stage] = Nil
   override def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] =
       designDB.members.view
         // only var declarations

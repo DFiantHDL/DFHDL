@@ -3,12 +3,13 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
 
 case object ViaConnection extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
       case (ib, members) if !ib.isTop =>
         // getting only ports that are not already connected to variables

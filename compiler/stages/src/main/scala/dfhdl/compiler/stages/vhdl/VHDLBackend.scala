@@ -23,7 +23,7 @@ private case object VHDLUniqueNames extends UniqueNames(reservedKeywords, caseSe
 case object VHDLBackend extends Stage:
   def dependencies: List[Stage] = List(ToED, VHDLUniqueNames)
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet): DB = designDB
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB = designDB
 end VHDLBackend
 
 extension [T: HasDB](t: T)

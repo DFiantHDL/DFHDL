@@ -4,6 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.ir.DFConditional.DFCaseBlock.Pattern
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
 
 import scala.collection.mutable
@@ -44,7 +45,7 @@ case object DropBinds extends Stage:
           Some(Pattern.Singleton(token.asIR), refs.map(_.get))
         case _ => None
   end ReplacePattern
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     // going through all DFHDL matches
     val patchList = designDB.conditionalChainTable.toList.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>

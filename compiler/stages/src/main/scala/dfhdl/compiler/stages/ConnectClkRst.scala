@@ -4,6 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.internals.*
+import dfhdl.options.CompilerOptions
 import scala.collection.mutable
 
 /** This connects clock and reset ports across the entire design
@@ -12,7 +13,7 @@ case object ConnectClkRst extends Stage:
   def dependencies: List[Stage] = List(AddClkRst)
   def nullifies: Set[Stage] = Set(ViaConnection)
   private case class ClkRstOpt(clkOpt: Option[DFVal], rstOpt: Option[DFVal]) derives CanEqual
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
 //    val domainClkRst = mutable.Map.empty[(DFDesignBlock, RTDomainCfg), ClkRstOpt]
 //    designDB.namedOwnerMemberList.foreach {
 //      case (owner: (DFDomainOwner & DFBlock), members) =>

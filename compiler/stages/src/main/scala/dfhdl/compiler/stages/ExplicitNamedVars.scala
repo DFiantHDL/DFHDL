@@ -4,6 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.internals.*
+import dfhdl.options.CompilerOptions
 
 import scala.reflect.classTag
 
@@ -38,7 +39,7 @@ case object ExplicitNamedVars extends Stage:
         case _ => ??? // not possible
       }
 
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList =
       designDB.members.view
         // just named values

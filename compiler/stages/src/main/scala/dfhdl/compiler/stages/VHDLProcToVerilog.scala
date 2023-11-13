@@ -3,6 +3,7 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.compiler.analysis.*
+import dfhdl.options.CompilerOptions
 import DFConditional.{DFIfElseBlock, DFIfHeader}
 import DFVal.Func.Op as FuncOp
 import ProcessBlock.Sensitivity
@@ -24,7 +25,7 @@ case object VHDLProcToVerilog extends Stage:
 
   def nullifies: Set[Stage] = Set()
 
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] = designDB.members.flatMap {
       case pb @ ProcessBlock(Sensitivity.List(stRefs), _, _, _) =>
         val stVals = stRefs.view.map(_.get).toSet

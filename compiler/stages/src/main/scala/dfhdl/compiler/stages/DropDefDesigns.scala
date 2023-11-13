@@ -4,10 +4,11 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.compiler.ir.DFDesignBlock.InstMode
+import dfhdl.options.CompilerOptions
 case object DropDefDesigns extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.designMemberList.collect {
       // only going after definition designs
       case (d @ DFDesignBlock(DomainType.DF, _, InstMode.Def, _, _, _), members) =>

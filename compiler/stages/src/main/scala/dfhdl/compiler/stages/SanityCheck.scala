@@ -115,7 +115,7 @@ case object SanityCheck extends Stage:
           require(false, "Failed ownership check!")
         ownershipCheck(currentOwner.getOwner, members) // exiting current owner
 
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     refCheck()
     memberExistenceCheck()
     ownershipCheck(designDB.top, designDB.members.drop(1))

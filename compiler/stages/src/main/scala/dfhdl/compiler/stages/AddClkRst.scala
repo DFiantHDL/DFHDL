@@ -4,6 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.internals.*
+import dfhdl.options.CompilerOptions
 import scala.collection.mutable
 
 /** This stage adds clock and reset ports across the entire design. For each design, clock and reset
@@ -12,7 +13,7 @@ import scala.collection.mutable
 case object AddClkRst extends Stage:
   def dependencies: List[Stage] = List(ToRT, ExplicitClkRstCfg)
   def nullifies: Set[Stage] = Set(ViaConnection)
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     // saves domains that are outputting clk and rst
     val designDomainOut = mutable.Set.empty[(DFDesignBlock, RTDomainCfg)]
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {

@@ -4,6 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.internals.*
+import dfhdl.options.CompilerOptions
 
 import scala.annotation.tailrec
 import scala.collection.immutable
@@ -156,7 +157,7 @@ case object ExplicitPrev extends Stage:
           getImplicitPrevVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet)
         else (updatedSet, scopeMap)
 
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val (currentSet, scopeMap) =
       getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
 //    println("scopeMap:")

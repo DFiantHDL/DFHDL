@@ -4,6 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.DFRef.TwoWay
 import dfhdl.compiler.ir.{*, given}
 import dfhdl.compiler.patching.*
+import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
 import DFVal.Alias.History.Op as HistoryOp
 import scala.annotation.tailrec
@@ -64,7 +65,7 @@ case object NameRegAliases extends Stage:
         case dfVal: DFVal => NameGroup(dfVal.getName, false)
   end extension
 
-  def transform(designDB: DB)(using MemberGetSet): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
       case (domainOwner: (DFDomainOwner & DFBlock), members) =>
         // A reg alias that is already properly named should be ignored.
