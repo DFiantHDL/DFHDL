@@ -6,12 +6,11 @@ import dfhdl.compiler.printing.*
 import ir.DFConditional
 import ir.DFConditional.{DFIfHeader, DFIfElseBlock}
 
-protected[core] def analyzeControlRet(ret: Any)(using DFC): DFTypeAny = ret match
+protected[core] def analyzeControlRet(ret: Any)(using DFC): DFTypeAny = Exact.strip(ret) match
   case v: DFValAny =>
     // adding ident placement as the last member in the control block
     DFVal.Alias.AsIs.ident(v)(using dfc.anonymize)
     v.dfType
-  case e: Exactly => analyzeControlRet(e.value)
   case _ =>
     NoType
 

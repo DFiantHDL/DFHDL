@@ -128,4 +128,4 @@ end DropBinds
 // that is assigned with the bind alias or just the named bind alias.
 // UniqueDesign stage must be applied after this stage to resolve naming collisions.
 extension [T: HasDB](t: T)
-  def dropBinds: DB = StageRunner.run(DropBinds)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def dropBinds(using CompilerOptions): DB = StageRunner.run(DropBinds)(t.db)

@@ -47,8 +47,8 @@ case object DropLocalDcls extends DropLocalDcls(keepProcessDcls = false)
 case object DropCondDcls extends DropLocalDcls(keepProcessDcls = true)
 
 extension [T: HasDB](t: T)
-  def dropLocalDcls: DB =
-    StageRunner.run(DropLocalDcls)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def dropLocalDcls(using CompilerOptions): DB =
+    StageRunner.run(DropLocalDcls)(t.db)
 extension [T: HasDB](t: T)
-  def dropCondDcls: DB =
-    StageRunner.run(DropCondDcls)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def dropCondDcls(using CompilerOptions): DB =
+    StageRunner.run(DropCondDcls)(t.db)

@@ -130,9 +130,10 @@ class ToEDSpec extends StageSpec:
       val temp = SInt(16) <> VAR
       val id   = new ID
       temp := x
-      temp := temp + 1
-      id.x <> temp
-      y    := id.y
+      if (x > 0)
+        temp := temp + 1
+      id.x   <> temp
+      y      := id.y
     end IDTop
     val top = (new IDTop).toED
     assertCodeString(
@@ -162,7 +163,7 @@ class ToEDSpec extends StageSpec:
          |  id.x <> temp
          |  process(all):
          |    temp := x
-         |    temp := temp + sd"16'1"
+         |    if (x > sd"16'0") temp := temp + sd"16'1"
          |    y := id.y
          |end IDTop
          |""".stripMargin

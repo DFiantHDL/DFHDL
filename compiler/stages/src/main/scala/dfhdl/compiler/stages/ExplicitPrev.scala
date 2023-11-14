@@ -249,5 +249,5 @@ private object AssignedScope:
   val empty: AssignedScope = AssignedScope(immutable.BitSet(), None, None, hasAssignments = false)
 
 extension [T: HasDB](t: T)
-  def explicitPrev: DB =
-    StageRunner.run(ExplicitPrev)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def explicitPrev(using CompilerOptions): DB =
+    StageRunner.run(ExplicitPrev)(t.db)

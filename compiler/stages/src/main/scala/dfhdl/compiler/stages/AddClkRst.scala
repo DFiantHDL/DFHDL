@@ -77,4 +77,4 @@ case object AddClkRst extends Stage:
 end AddClkRst
 
 extension [T: HasDB](t: T)
-  def addClkRst: DB = StageRunner.run(AddClkRst)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def addClkRst(using CompilerOptions): DB = StageRunner.run(AddClkRst)(t.db)

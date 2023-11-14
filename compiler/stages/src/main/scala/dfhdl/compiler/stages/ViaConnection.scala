@@ -77,5 +77,5 @@ case object ViaConnection extends Stage:
 end ViaConnection
 
 extension [T: HasDB](t: T)
-  def viaConnection: DB =
-    StageRunner.run(ViaConnection)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def viaConnection(using CompilerOptions): DB =
+    StageRunner.run(ViaConnection)(t.db)

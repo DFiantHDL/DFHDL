@@ -37,7 +37,7 @@ case object DropUnreferencedAnons extends Stage:
 end DropUnreferencedAnons
 
 extension [T: HasDB](t: T)
-  def dropUnreferencedVars: DB =
-    StageRunner.run(DropUnreferencedVars)(t.db)(using dfhdl.options.CompilerOptions.default)
-  def dropUnreferencedAnons: DB =
-    StageRunner.run(DropUnreferencedAnons)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def dropUnreferencedVars(using CompilerOptions): DB =
+    StageRunner.run(DropUnreferencedVars)(t.db)
+  def dropUnreferencedAnons(using CompilerOptions): DB =
+    StageRunner.run(DropUnreferencedAnons)(t.db)

@@ -36,5 +36,5 @@ case object ExplicitClkRstCfg extends Stage:
 end ExplicitClkRstCfg
 
 extension [T: HasDB](t: T)
-  def explicitClkRstCfg: DB =
-    StageRunner.run(ExplicitClkRstCfg)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def explicitClkRstCfg(using CompilerOptions): DB =
+    StageRunner.run(ExplicitClkRstCfg)(t.db)

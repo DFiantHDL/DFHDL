@@ -158,18 +158,28 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       errorWhenToken(tree)
       // debug("=======================")
       val dfcTree = dfcStack.head
-      val combinedTpe = tree.tpe
-      // debug("DFC", dfcTree)
+      var exactWrapper = false
+      val combinedTpe = tree.tpe match
+        case AppliedType(tycon, List(combinedTpe))
+            if tycon.dealias.typeSymbol == requiredClass("dfhdl.internals.Exactly") =>
+          exactWrapper = true
+          combinedTpe.widen
+        case tpe => tpe
       // debug(tree.show)
-      // debug(tree.srcPos.show)
+      // debug(combinedTpe.show)
       // debug(tree)
       val (branchesVarArgs, elseOption) =
         transformIfRecur(tree, combinedTpe, dfcTree, Nil)
       val branches = mkList(branchesVarArgs)
-      ref(fromBranchesSym)
+      val ifTree = ref(fromBranchesSym)
         .appliedToType(combinedTpe)
         .appliedTo(branches, elseOption)
         .appliedTo(dfcTree)
+      if (exactWrapper)
+        ref(requiredMethod("dfhdl.internals.Exact.apply"))
+          .appliedToType(combinedTpe)
+          .appliedTo(ifTree.withType(combinedTpe))
+      else ifTree
     else tree
 
   object DFType:

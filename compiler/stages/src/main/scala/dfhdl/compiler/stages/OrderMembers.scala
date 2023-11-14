@@ -65,5 +65,5 @@ end OrderMembers
 
 case object SimpleOrderMembers extends OrderMembers(OrderMembers.Order.Simple)
 extension [T: HasDB](t: T)
-  def simpleOrder: DB =
-    StageRunner.run(SimpleOrderMembers)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def simpleOrder(using CompilerOptions): DB =
+    StageRunner.run(SimpleOrderMembers)(t.db)

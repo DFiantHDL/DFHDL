@@ -136,6 +136,21 @@ class DFIfSpec extends DFSpec:
         ((if (i) i else i): Boolean <> VAL) ||
           ((if (!i) !i else !i): Boolean <> VAL)
     }
+    // TODO: make this work! We have Exact casting to DFVal.
+    // assertCodeString(
+    //   """|val res =
+    //      |  ((
+    //      |    if (i) i
+    //      |    else i
+    //      |  ): Boolean <> VAL) || ((
+    //      |    if (!i) !i
+    //      |    else !i
+    //      |  ): Boolean <> VAL)
+    //      |""".stripMargin
+    // ) {
+    //   val res: Boolean <> VAL =
+    //     (if (i) i else i) || (if (!i) !i else !i)
+    // }
     assertCodeString(
       """|val rs0: Boolean <> VAL =
          |  if (!i) !i
@@ -147,10 +162,9 @@ class DFIfSpec extends DFSpec:
          |  ): Boolean <> VAL) || rs0
          |""".stripMargin
     ) {
-      val rs0 = ((if (!i) !i else !i): Boolean <> VAL)
+      val rs0 = (if (!i) !i else !i)
       val res: Boolean <> VAL =
-        ((if (i) i else i): Boolean <> VAL) ||
-          rs0
+        (if (i) i else i) || rs0
     }
   }
 end DFIfSpec

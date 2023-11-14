@@ -57,12 +57,13 @@ case object ToED extends Stage:
                 rn.regAlias -> Patch.Remove
               )
             )
-            val processBlockAllMembers = members.filter {
-              case dcl: DFVal.Dcl                                              => false
-              case dsn: DFOwnerNamed                                           => false
-              case net: DFNet if net.isConnection || removedNets.contains(net) => false
-              case history: DFVal.Alias.History                                => false
-              case m                                                           => true
+            val processBlockAllMembers = members.flatMap {
+              case dcl: DFVal.Dcl          => None
+              case cb: DFConditional.Block => cb :: designDB.blockMemberTable(cb)
+              case dsn: DFOwnerNamed       => None
+              case net: DFNet if net.isConnection || removedNets.contains(net) => None
+              case history: DFVal.Alias.History                                => None
+              case m                                                           => Some(m)
             }
             val processBlocksDsn = new MetaDesign(DFC.Domain.ED):
               lazy val clk = clkRstOpt.clkOpt.get.asValOf[Bit]
@@ -123,7 +124,13 @@ case object ToED extends Stage:
                 case pb: ProcessBlock =>
                   pb
               }.get
-              Some(pbAllOwner -> Patch.Move(processBlockAllMembers, Patch.Move.Config.InsideLast))
+              Some(
+                pbAllOwner -> Patch.Move(
+                  processBlockAllMembers,
+                  owner,
+                  Patch.Move.Config.InsideLast
+                )
+              )
             else None
             val processBlocksPatch =
               owner -> Patch.Add(processBlocksDsn, Patch.Add.Config.InsideLast)
@@ -143,5 +150,4 @@ case object ToED extends Stage:
   end transform
 end ToED
 
-extension [T: HasDB](t: T)
-  def toED: DB = StageRunner.run(ToED)(t.db)(using dfhdl.options.CompilerOptions.default)
+extension [T: HasDB](t: T) def toED(using CompilerOptions): DB = StageRunner.run(ToED)(t.db)

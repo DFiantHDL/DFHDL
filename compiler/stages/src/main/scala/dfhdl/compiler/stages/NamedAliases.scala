@@ -127,17 +127,17 @@ end NamedAliases
 // making sure the names will be unique.
 case object NamedSelection extends NamedAliases(NamedAliases.Criteria.NamedSelection)
 extension [T: HasDB](t: T)
-  def namedSelection: DB =
-    StageRunner.run(NamedSelection)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def namedSelection(using CompilerOptions): DB =
+    StageRunner.run(NamedSelection)(t.db)
 
 // Creating a previous values of a value requires that value to be names to avoid random anonymous names in the
 // the backend
 case object NamedPrev extends NamedAliases(NamedAliases.Criteria.NamedPrev)
 extension [T: HasDB](t: T)
-  def namedPrev: DB = StageRunner.run(NamedPrev)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def namedPrev(using CompilerOptions): DB = StageRunner.run(NamedPrev)(t.db)
 
 // Names an anonymous value which is referenced more than once
 case object NamedAnonMultiref extends NamedAliases(NamedAliases.Criteria.NamedAnonMultiref)
 extension [T: HasDB](t: T)
-  def namedAnonMultiref: DB =
-    StageRunner.run(NamedAnonMultiref)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def namedAnonMultiref(using CompilerOptions): DB =
+    StageRunner.run(NamedAnonMultiref)(t.db)

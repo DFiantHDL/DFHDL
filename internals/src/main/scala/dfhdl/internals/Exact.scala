@@ -69,6 +69,10 @@ object Exact:
   def apply[T](value_ : T): Exact[T] = new Exactly:
     type Out = T
     val value = value_
+  def strip(value: Any): Any =
+    value match
+      case exact: Exactly => strip(exact.value)
+      case _              => value
 
   trait Summon[R, T <: R]:
     type Out

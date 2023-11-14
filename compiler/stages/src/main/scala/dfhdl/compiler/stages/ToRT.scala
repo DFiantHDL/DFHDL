@@ -33,5 +33,4 @@ end ToRT
 
 //converts the dataflow domains to RT domains
 //TODO: this is a very basic implementation. Needs to handle valid, ready and stall.
-extension [T: HasDB](t: T)
-  def toRT: DB = StageRunner.run(ToRT)(t.db)(using dfhdl.options.CompilerOptions.default)
+extension [T: HasDB](t: T) def toRT(using CompilerOptions): DB = StageRunner.run(ToRT)(t.db)

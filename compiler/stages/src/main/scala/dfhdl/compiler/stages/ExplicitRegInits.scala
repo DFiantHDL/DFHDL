@@ -39,5 +39,5 @@ case object ExplicitRegInits extends Stage:
 end ExplicitRegInits
 
 extension [T: HasDB](t: T)
-  def explicitRegInits: DB =
-    StageRunner.run(ExplicitRegInits)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def explicitRegInits(using CompilerOptions): DB =
+    StageRunner.run(ExplicitRegInits)(t.db)

@@ -33,12 +33,12 @@ case object VerilogBackend extends Stage:
 end VerilogBackend
 
 extension [T: HasDB](t: T)
-  def getVerilogCode(align: Boolean): String =
+  def getVerilogCode(align: Boolean)(using CompilerOptions): String =
     val designDB =
-      StageRunner.run(VerilogBackend)(t.db)(using dfhdl.options.CompilerOptions.default)
+      StageRunner.run(VerilogBackend)(t.db)
     given PrinterOptions.Align = align
     val printer = new VerilogPrinter(using designDB.getSet)
     printer.csDB
   end getVerilogCode
-  def getVerilogCode: String = getVerilogCode(align = false)
+  def getVerilogCode(using CompilerOptions): String = getVerilogCode(align = false)
 end extension

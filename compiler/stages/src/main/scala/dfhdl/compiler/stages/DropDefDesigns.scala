@@ -34,5 +34,5 @@ end DropDefDesigns
 //turns definitions designs into normal designs, and set their instance names
 //if non exist
 extension [T: HasDB](t: T)
-  def dropDefDesigns: DB =
-    StageRunner.run(DropDefDesigns)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def dropDefDesigns(using CompilerOptions): DB =
+    StageRunner.run(DropDefDesigns)(t.db)

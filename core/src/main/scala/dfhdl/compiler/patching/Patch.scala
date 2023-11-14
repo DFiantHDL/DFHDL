@@ -91,12 +91,15 @@ object Patch:
       case object Via extends Config
     end Config
   end Add
-  final case class Move(movedMembers: List[DFMember], config: Move.Config) extends Patch
+  // movedMembers: members to move
+  // origOwner: the original owner of the top members
+  final case class Move(movedMembers: List[DFMember], origOwner: DFOwner, config: Move.Config)
+      extends Patch
   object Move:
     def apply(owner: DFOwner, config: Config)(using MemberGetSet): Move =
-      Move(owner.members(MemberView.Flattened), config)
+      Move(owner.members(MemberView.Flattened), owner, config)
     def apply(member: DFMember, config: Config)(using MemberGetSet): Move =
-      Move(List(member), config)
+      Move(List(member), member.getOwner, config)
     sealed trait Config extends Product with Serializable derives CanEqual:
       def ==(addConfig: Add.Config): Boolean = addConfig == this
     object Config:
@@ -160,21 +163,21 @@ extension (db: DB)
             case Some(l) => Some((l, Patch.Add(db, Patch.Add.Config.After)))
             case None    => Some((owner, Patch.Add(db, Patch.Add.Config.After)))
         // Skip over empty move
-        case (m, Patch.Move(Nil, _)) => None
+        case (m, Patch.Move(Nil, _, _)) => None
         // A move patch operation adds a remove patch to all the moved members
         // If we move insideFirst in an owner, we need to actually place after the owner head
         // If we move after/insideLast an owner, we need to actually place after the last member of the owner
-        case (m, Patch.Move(movedMembers, config)) =>
+        case (m, Patch.Move(movedMembers, origOwner, config)) =>
           val modMove = (m, config) match
             case (owner: DFOwner, Patch.Move.Config.InsideFirst) =>
-              (owner, Patch.Move(movedMembers, Patch.Move.Config.After))
+              (owner, Patch.Move(movedMembers, origOwner, Patch.Move.Config.After))
             case (owner: DFOwner, Patch.Move.Config.After | Patch.Move.Config.InsideLast) =>
               // the getSet context is set to external one if the owner is being added
               val anyGetSet = addedOwnersGetSets.getOrElse(owner, getSet)
               owner.getVeryLastMember(using anyGetSet) match
-                case Some(l) => (l, Patch.Move(movedMembers, Patch.Move.Config.After))
-                case None    => (owner, Patch.Move(movedMembers, Patch.Move.Config.After))
-            case (m, Patch.Move.Config.Before) => (m, Patch.Move(movedMembers, config))
+                case Some(l) => (l, Patch.Move(movedMembers, origOwner, Patch.Move.Config.After))
+                case None => (owner, Patch.Move(movedMembers, origOwner, Patch.Move.Config.After))
+            case (m, Patch.Move.Config.Before) => (m, Patch.Move(movedMembers, origOwner, config))
             case _                             => ???
           modMove :: movedMembers.map((_, Patch.Remove))
         case x => Some(x)
@@ -186,16 +189,19 @@ extension (db: DB)
             case (Patch.Add(db1, config1), Patch.Add(db2, config2)) if (config1 == config2) =>
               tbl + (m -> Patch.Add(db1 concat db2, config1))
             // concatenating moves with the same configuration
-            case (Patch.Move(members1, config1), Patch.Move(members2, config2))
-                if (config1 == config2) =>
-              tbl + (m -> Patch.Move(members1 concat members2, config1))
+            // (the patch table does not care about original owner, so we ignore it.
+            // only the patchList that has all the move patches uses the original owners
+            // for updating the references)
+            case (Patch.Move(members1, _, config1), Patch.Move(members2, _, config2))
+                if config1 == config2 =>
+              tbl + (m -> Patch.Move(members1 concat members2, null, config1))
             // concatenating addition and move with the same configuration
-            case (Patch.Add(db, addConfig), Patch.Move(movedMembers, moveConfig))
+            case (Patch.Add(db, addConfig), Patch.Move(movedMembers, origOwner, moveConfig))
                 if (addConfig == moveConfig) =>
-              tbl + (m -> Patch.Move(db.members.drop(1) ++ movedMembers, moveConfig))
-            case (Patch.Move(movedMembers, moveConfig), Patch.Add(db, addConfig))
+              tbl + (m -> Patch.Move(db.members.drop(1) ++ movedMembers, origOwner, moveConfig))
+            case (Patch.Move(movedMembers, origOwner, moveConfig), Patch.Add(db, addConfig))
                 if (addConfig == moveConfig) =>
-              tbl + (m -> Patch.Move(movedMembers ++ db.members.drop(1), moveConfig))
+              tbl + (m -> Patch.Move(movedMembers ++ db.members.drop(1), origOwner, moveConfig))
             // removed followed an add replacement is allowed via a tandem patch execution
             case (Patch.Remove, add: Patch.Add) =>
               tbl + (m -> Patch.Add(add.db, Patch.Add.Config.ReplaceWithLast()))
@@ -261,7 +267,7 @@ extension (db: DB)
                 case Patch.Add.Config.InsideLast =>
                   ??? // Not possible since we replaced it to an `After`
               Nil
-            case Some(Patch.Move(movedMembers, config)) =>
+            case Some(Patch.Move(movedMembers, _, config)) =>
               config match
                 case Patch.Move.Config.After  => m :: movedMembers
                 case Patch.Move.Config.Before => movedMembers :+ m
@@ -340,22 +346,20 @@ extension (db: DB)
           //          }
           ret
         // skip over empty move
-        case (rc, (origMember, Patch.Move(Nil, config))) => rc
-        case (rc, (origMember, Patch.Move(movedMembers, config))) =>
+        case (rc, (origMember, Patch.Move(Nil, _, config))) => rc
+        case (rc, (origMember, Patch.Move(movedMembers, origOwner, config))) =>
           val newOwner = config match
             case Patch.Move.Config.InsideFirst => origMember
             case Patch.Move.Config.InsideLast  => origMember
             case _                             => origMember.getOwnerBlock
           val actualNewOwner = rc.getLatestRepOf(newOwner) // owner may have been replaced before
-          // a move patch that just requires change of the owner reference of the head moved members
-          if (movedMembers.length == 1 || movedMembers(1).getOwner == movedMembers.head)
-            val headRef = movedMembers.head.ownerRef
-            rc.changeRef(headRef, actualNewOwner)
-          // or replace all references
-          else
-            movedMembers.foldLeft(rc) { case (rc, m) =>
+          val actualOrigOwner = rc.getLatestRepOf(origOwner) // owner may have been replaced before
+          // replace all owner references that point to the original owner
+          movedMembers.foldLeft(rc) {
+            case (rc, m) if rc.getLatestRepOf(m.getOwner) == actualOrigOwner =>
               rc.changeRef(m.ownerRef, actualNewOwner)
-            }
+            case (rc, _) => rc
+          }
         case (rc, (origMember, Patch.Remove)) =>
           memberTable.get(origMember) match
             case Some(refs) =>

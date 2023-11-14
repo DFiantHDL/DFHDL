@@ -172,5 +172,5 @@ case object NameRegAliases extends Stage:
 end NameRegAliases
 
 extension [T: HasDB](t: T)
-  def nameRegAliases: DB =
-    StageRunner.run(NameRegAliases)(t.db)(using dfhdl.options.CompilerOptions.default)
+  def nameRegAliases(using CompilerOptions): DB =
+    StageRunner.run(NameRegAliases)(t.db)
