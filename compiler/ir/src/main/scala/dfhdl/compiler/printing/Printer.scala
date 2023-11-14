@@ -192,10 +192,9 @@ trait Printer
     val csFileList = designDB.designMemberList.collect {
       case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.dclName) =>
         uniqueDesigns += block.dclName
-        csFile(block)
+        formatCode(csFile(block))
     }
-    val csFiles = s"${csGlobalFileContent.emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
-    formatCode(csFiles)
+    s"${formatCode(csGlobalFileContent).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
   end csDB
 end Printer
 
