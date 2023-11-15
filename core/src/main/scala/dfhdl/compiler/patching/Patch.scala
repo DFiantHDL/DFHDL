@@ -4,6 +4,7 @@ import dfhdl.compiler.analysis.*
 
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
+import dfhdl.internals.hashString
 
 sealed trait Patch extends Product with Serializable derives CanEqual
 object Patch:
@@ -284,13 +285,13 @@ extension (db: DB)
     patchDebug {
       println("----------------------------------------------------------------------------")
       println("members:")
-      println(members.map(m => s"${m.hashCode.toHexString}: $m").mkString("\n"))
+      println(members.map(m => s"${m.hashString}: $m").mkString("\n"))
       println("----------------------------------------------------------------------------")
       println("refTable:")
       println(refTable.mkString("\n"))
       println("----------------------------------------------------------------------------")
       println("patchedMembers:")
-      println(patchedMembers.map(m => s"${m.hashCode.toHexString}: $m").mkString("\n"))
+      println(patchedMembers.map(m => s"${m.hashString}: $m").mkString("\n"))
       println("----------------------------------------------------------------------------")
     }
     // Patching reference table

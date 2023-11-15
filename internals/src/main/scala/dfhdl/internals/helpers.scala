@@ -8,6 +8,8 @@ extension [T](t: T)
     println(t)
     t
 
+extension (t: Any) def hashString: String = t.hashCode().toHexString
+
 transparent inline def showTree[T](inline arg: T): Unit = ${
   showTreeMacro[T]('arg)
 }

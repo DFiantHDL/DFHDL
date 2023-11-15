@@ -5,10 +5,12 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
 import DFVal.Alias.History.Op as HistoryOp
-import dfhdl.core.{DFC, DFIf, NoType, DFOwnerAny}
+import dfhdl.core.{DFC, DFIf, DFOwnerAny}
+import scala.annotation.tailrec
 
 case object ToED extends Stage:
-  def dependencies: List[Stage] = List(ToRT, NameRegAliases, AddClkRst, SimpleOrderMembers)
+  def dependencies: List[Stage] =
+    List(ToRT, NameRegAliases, ExplicitNamedVars, AddClkRst, SimpleOrderMembers)
   def nullifies: Set[Stage] = Set()
   case class RegNet(
       net: DFNet,
@@ -57,13 +59,35 @@ case object ToED extends Stage:
                 rn.regAlias -> Patch.Remove
               )
             )
-            val processBlockAllMembers = members.flatMap {
-              case dcl: DFVal.Dcl          => None
-              case cb: DFConditional.Block => cb :: designDB.blockMemberTable(cb)
-              case dsn: DFOwnerNamed       => None
+            @tailrec def getDeps(
+                leftMembers: List[DFMember],
+                handledMembers: Set[DFMember]
+            ): Set[DFMember] =
+              leftMembers match
+                case head :: last =>
+                  head match
+                    case dcl: DFVal.Dcl => getDeps(last, handledMembers)
+                    case _ if !handledMembers.contains(head) =>
+                      getDeps(last ++ head.getRefs.map(_.get), handledMembers + head)
+                    case _ => getDeps(last, handledMembers)
+                case Nil => handledMembers
+            val processBlockAllMembersSet = members.view.flatMap {
               case net: DFNet if net.isConnection || removedNets.contains(net) => None
-              case history: DFVal.Alias.History                                => None
-              case m                                                           => Some(m)
+              case net: DFNet =>
+                getDeps(List(net), Set())
+              case ch: DFConditional.Header if ch.dfType == NoType =>
+                getDeps(List(ch), Set())
+              case _ => None
+            }.toSet
+            // println(processBlockAllMembersSet.mkString("\n"))
+            val processBlockAllMembers = members.flatMap {
+              case dcl: DFVal.Dcl => None
+              case cb: DFConditional.Block if cb.getHeaderCB.dfType == NoType =>
+                cb :: designDB.blockMemberTable(cb)
+              case dsn: DFOwnerNamed                          => None
+              case history: DFVal.Alias.History               => None
+              case m if processBlockAllMembersSet.contains(m) => Some(m)
+              case _                                          => None
             }
             val processBlocksDsn = new MetaDesign(DFC.Domain.ED):
               lazy val clk = clkRstOpt.clkOpt.get.asValOf[Bit]
@@ -83,7 +107,7 @@ case object ToED extends Stage:
                 val cond = active match
                   case RstCfg.Active.High => rst == 1
                   case RstCfg.Active.Low  => rst == 0
-                DFIf.singleBranch(Some(cond), DFIf.Header(NoType), regInitBlock)
+                DFIf.singleBranch(Some(cond), DFIf.Header(dfhdl.core.NoType), regInitBlock)
               def ifRstActiveElseRegSaveBlock(): Unit =
                 val (_, rstBranch) = ifRstActive
                 DFIf.singleBranch(None, rstBranch, regSaveBlock)
@@ -94,7 +118,7 @@ case object ToED extends Stage:
                   case ClkCfg.Edge.Falling => clk.falling
                 DFIf.singleBranch(
                   Some(cond),
-                  ifRstOption.getOrElse(DFIf.Header(NoType)),
+                  ifRstOption.getOrElse(DFIf.Header(dfhdl.core.NoType)),
                   block
                 )
 

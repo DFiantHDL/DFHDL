@@ -7,6 +7,7 @@ import dfhdl.compiler.printing.*
 import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 case object SanityCheck extends Stage:
   def dependencies: List[Stage] = List()
@@ -103,22 +104,42 @@ case object SanityCheck extends Stage:
       case m :: _ => // not in current owner
         if (currentOwner.isTop)
           println(
-            s"The member ${m.hashCode().toHexString}:\n$m\nHas owner ${m.getOwner.hashCode().toHexString}:\n${m.getOwner}"
+            s"The member ${m.hashString}:\n$m\nHas owner ${m.getOwner.hashString}:\n${m.getOwner}"
           )
           val idx = getSet.designDB.members.indexOf(m)
           val prevMember = getSet.designDB.members(idx - 1)
           println(
-            s"Previous member ${prevMember.hashCode().toHexString}:\n$prevMember\nHas owner ${prevMember.getOwner
+            s"Previous member ${prevMember.hashString}:\n$prevMember\nHas owner ${prevMember.getOwner
                 .hashCode()
                 .toHexString}:\n${prevMember.getOwner}"
           )
           require(false, "Failed ownership check!")
         ownershipCheck(currentOwner.getOwner, members) // exiting current owner
 
+  // checks that a member can only reference members that were defined before it
+  private def orderCheck()(using MemberGetSet): Unit =
+    val discoveredMembers = mutable.Set[DFMember](DFMember.Empty)
+    var hasViolations: Boolean = false
+    getSet.designDB.members.foreach { m =>
+      m.getRefs.foreach {
+        case r @ DFRef(rm) if !discoveredMembers.contains(rm) =>
+          println(
+            s"The member ${m.hashString}:\n$m\nHas reference $r\n Pointing to a later member ${rm.hashString}:\n${rm}"
+          )
+          hasViolations = true
+          require(!hasViolations, "Failed member order check!")
+        case _ =>
+      }
+      discoveredMembers += m
+    }
+    require(!hasViolations, "Failed member order check!")
+  end orderCheck
+
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     refCheck()
     memberExistenceCheck()
     ownershipCheck(designDB.top, designDB.members.drop(1))
+    orderCheck()
     designDB.check()
     designDB
 end SanityCheck

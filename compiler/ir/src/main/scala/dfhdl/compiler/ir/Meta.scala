@@ -11,7 +11,7 @@ final case class Meta(
 ) derives CanEqual:
   val isAnonymous: Boolean = nameOpt.isEmpty
   val name: String =
-    nameOpt.getOrElse(s"anon${this.hashCode.toHexString}")
+    nameOpt.getOrElse(s"anon${this.hashString}")
   val comment: String = docOpt.getOrElse("")
   def anonymize: Meta = copy(nameOpt = None, docOpt = None)
   def setName(name: String): Meta = copy(nameOpt = Some(name))

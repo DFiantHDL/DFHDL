@@ -1,13 +1,14 @@
 package dfhdl.compiler.ir
 import scala.annotation.unchecked.uncheckedVariance
 import scala.reflect.{ClassTag, classTag}
+import dfhdl.internals.hashString
 
 type DFRefAny = DFRef[DFMember]
 sealed trait DFRef[+M <: DFMember] derives CanEqual:
   lazy val refType: ClassTag[M @uncheckedVariance]
   final def =~(that: DFRefAny)(using MemberGetSet): Boolean = this.get =~ that.get
   def get(using getSet: MemberGetSet): M = getSet(this)
-  override def toString: String = s"<${hashCode.toHexString}>"
+  override def toString: String = s"<${this.hashString}>"
 
 object DFRef:
   sealed trait Empty extends DFRef[DFMember.Empty]:

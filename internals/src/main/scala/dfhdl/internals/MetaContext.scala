@@ -30,7 +30,7 @@ trait MetaContext:
   val position: Position
   final val isAnonymous: Boolean = nameOpt.isEmpty
   final val name: String =
-    nameOpt.getOrElse(s"anon${this.hashCode.toHexString}")
+    nameOpt.getOrElse(s"anon${this.hashString}")
 end MetaContext
 
 class metaContextDelegate extends scala.annotation.StaticAnnotation
