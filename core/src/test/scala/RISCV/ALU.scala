@@ -11,14 +11,14 @@ class ALU extends DFDesign:
   private val shamt = op2(4, 0)
 
   import ALUSel.*
-  private val outCalc: Bits[32] <> VAL = aluSel match
+  val outCalc: Bits[32] <> VAL = aluSel match
     case ADD   => op1 + op2
     case SUB   => op1 - op2
     case AND   => op1 & op2
     case OR    => op1 | op2
     case XOR   => op1 ^ op2
-    case SLT   => (op1.sint < op2.sint).bits.resize(32)
-    case SLTU  => (op1 < op2).bits.resize(32)
+    case SLT   => (op1.sint < op2.sint).extend
+    case SLTU  => (op1 < op2).extend
     case SLL   => op1 << shamt
     case SRL   => op1 >> shamt
     case SRA   => (op1.sint >> shamt).bits
