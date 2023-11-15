@@ -7,8 +7,10 @@ import wvlet.log.*
 import scala.collection.SortedSet
 import scala.annotation.tailrec
 class StageRunner(using co: CompilerOptions) extends LogSupport:
-  Logger.setDefaultFormatter(LogFormatter.BareFormatter)
-  Logger.setDefaultLogLevel(co.logLevel)
+  logger.setFormatter(LogFormatter.BareFormatter)
+  logger.setLogLevel(co.logLevel)
+  private val ignoredTraceStages: Set[Stage] =
+    PrintCodeString.dependencies.toSet + PrintCodeString + SanityCheck
   def logDebug(): Unit =
     logger.setLogLevel(LogLevel.DEBUG)
   def logInfo(): Unit =
@@ -21,6 +23,11 @@ class StageRunner(using co: CompilerOptions) extends LogSupport:
     info(s"Finished stage ${stage.typeName}")
     if (logger.getLogLevel >= LogLevel.DEBUG && stage != SanityCheck)
       ret.sanityCheck
+    if ((logger.getLogLevel eq LogLevel.TRACE) && !ignoredTraceStages.contains(stage))
+      val ll = logger.getLogLevel
+      given CompilerOptions = co.copy(logLevel = LogLevel.OFF)
+      ret.printCodeString
+      logger.setLogLevel(ll)
     ret
   @tailrec private def run(deps: List[Stage], done: Set[Stage])(
       designDB: DB
