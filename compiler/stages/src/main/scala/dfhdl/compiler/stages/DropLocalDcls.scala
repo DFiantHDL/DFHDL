@@ -6,7 +6,7 @@ import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
 
 abstract class DropLocalDcls(keepProcessDcls: Boolean) extends Stage:
-  override def dependencies: List[Stage] = Nil
+  override def dependencies: List[Stage] = List(ExplicitNamedVars)
   override def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] =
