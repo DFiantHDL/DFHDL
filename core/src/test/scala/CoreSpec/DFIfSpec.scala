@@ -27,6 +27,7 @@ class DFIfSpec extends DFSpec:
          |  x := d"8'2"
          |  x := d"8'22"
          |else if (i || i) x := d"8'3"
+         |end if
          |""".stripMargin
     ) {
       if (i) x := 1
@@ -43,6 +44,7 @@ class DFIfSpec extends DFSpec:
          |  x := d"8'22"
          |else if (i || i) x := d"8'3"
          |else x := d"8'7"
+         |end if
          |""".stripMargin
     ) {
       if (i) x := 1
@@ -60,6 +62,7 @@ class DFIfSpec extends DFSpec:
          |  else x := d"8'7"
          |else if (i || i) x := d"8'3"
          |else x := d"8'7"
+         |end if
          |""".stripMargin
     ) {
       if (i) x := 1
@@ -92,6 +95,7 @@ class DFIfSpec extends DFSpec:
          |    else d"8'2"
          |  else if (!i) x.bits.uint
          |  else d"8'3"
+         |  end if
          |""".stripMargin
     ) {
       val res: UInt[8] <> VAL =
@@ -110,6 +114,7 @@ class DFIfSpec extends DFSpec:
          |    internal
          |  else if (!i) x.bits.uint
          |  else d"8'3"
+         |  end if
          |""".stripMargin
     ) {
       val res: UInt[8] <> VAL =

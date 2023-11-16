@@ -70,7 +70,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         ifBlock.guardRef.get match
           case DFMember.Empty => csDFElseStatement
           case _              => csDFElseIfStatement(ifBlock.guardRef.refCodeString)
-  def csDFIfEnd: String
+  def csDFIfEnd(lastCB: DFConditional.DFIfElseBlock): String
   def csIfBlockEmpty: String
   def csDFCaseBlockEmpty: String
   def csDFCasePatternCatchAll: String
@@ -106,7 +106,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       if (cb.isLastCB)
         cb match
           case caseBlock: DFConditional.DFCaseBlock => ""
-          case ifBlock: DFConditional.DFIfElseBlock => csDFIfEnd
+          case ifBlock: DFConditional.DFIfElseBlock => csDFIfEnd(ifBlock)
       else ""
     val indentBody =
       if (body.contains("\n"))
@@ -196,7 +196,22 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDFIfStatement(csCond: String): String = s"if ($csCond)"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"else if ($csCond)"
-  def csDFIfEnd: String = ""
+  def csDFIfEnd(lastCB: DFConditional.DFIfElseBlock): String =
+    import scala.util.boundary, boundary.break
+    // check if a block is "big", meaning too many statements that should yield an "end if"
+    def isBigBlock(cb: DFConditional.DFIfElseBlock): Boolean = boundary {
+      var hasNet = false
+      cb.members(MemberView.Folded).foreach {
+        case block: DFBlock => break(true)
+        case net: DFNet =>
+          if (hasNet) break(true)
+          hasNet = true
+        case _ =>
+      }
+      false
+    }
+    if (lastCB.getLeadingChain.exists(isBigBlock)) "end if" else ""
+  end csDFIfEnd
   def csIfBlockEmpty: String = " {}"
   def csDFCaseBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "_"
@@ -218,7 +233,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     s" if ${guardRef.refCodeString}"
   def csDFCaseKeyword: String = "case "
   def csDFCaseSeparator: String = " =>"
-  def csDFMatchEnd: String = ""
+  def csDFMatchEnd: String = "end match"
   def csDFMatchStatement(csSelector: String): String = s"$csSelector match"
   def csProcessBlock(pb: ProcessBlock): String =
     val body = csDFOwnerBody(pb)

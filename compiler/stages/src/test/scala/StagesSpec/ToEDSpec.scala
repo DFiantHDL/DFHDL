@@ -41,6 +41,7 @@ class ToEDSpec extends StageSpec:
          |    if (clk.rising)
          |      if (rst == 1) r1 :== sd"16'0"
          |      else r1 :== w2
+         |    end if
          |end ID
          |""".stripMargin
     )

@@ -81,6 +81,7 @@ class ExplicitPrevSpec extends StageSpec:
          |  if (x > sd"16'0")
          |    v := sd"16'123"
          |    y := v
+         |  end if
          |end ID
          |""".stripMargin
     )
@@ -147,16 +148,19 @@ class ExplicitPrevSpec extends StageSpec:
          |    case d"3'0" | d"3'1" | d"3'2" => y := d"8'1"
          |    case d"3'3" | d"3'4" | d"3'5" => y := d"8'1"
          |    case d"3'6" => y := d"8'1"
+         |  end match
          |  y := y + d"8'1"
          |  x match
          |    case d"3'0" | d"3'1" | d"3'2" => y2 := d"8'1"
          |    case d"3'3" | d"3'4" | d"3'5" => y2 := d"8'1"
          |    case d"3'6" | d"3'7" => y2 := d"8'1"
+         |  end match
          |  y2 := y2 + d"8'1"
          |  x match
          |    case d"3'0" | d"3'1" | d"3'2" => y3 := d"8'1"
          |    case d"3'3" | d"3'4" | d"3'5" => y3 := d"8'1"
          |    case _ => y3 := d"8'1"
+         |  end match
          |  y3 := y3 + d"8'1"
          |end ID
          |""".stripMargin
@@ -198,15 +202,18 @@ class ExplicitPrevSpec extends StageSpec:
          |    case b"000" | b"001" | b"010" => y := d"8'1"
          |    case b"011" | b"100" | b"101" => y := d"8'1"
          |    case b"110" => y := d"8'1"
+         |  end match
          |  y := y + d"8'1"
          |  x match
          |    case b"000" | b"001" | b"010" => y2 := d"8'1"
          |    case b"011" | b"100" | b"101" => y2 := d"8'1"
          |    case b"110" | b"111" => y2 := d"8'1"
+         |  end match
          |  y2 := y2 + d"8'1"
          |  x match
          |    case b"?1?" => y3 := d"8'1"
          |    case b"?0?" => y3 := d"8'1"
+         |  end match
          |  y3 := y3 + d"8'1"
          |end ID
          |""".stripMargin
@@ -243,10 +250,12 @@ class ExplicitPrevSpec extends StageSpec:
          |  val y2 = UInt(8) <> OUT init d"8'0"
          |  x match
          |    case MyEnum.Foo | MyEnum.Baz => y := d"8'1"
+         |  end match
          |  y := y + d"8'1"
          |  x match
          |    case MyEnum.Foo | MyEnum.Baz => y2 := d"8'1"
          |    case MyEnum.Bar => y2 := d"8'1"
+         |  end match
          |  y2 := y2 + d"8'1"
          |end ID
          |""".stripMargin

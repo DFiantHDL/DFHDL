@@ -38,8 +38,10 @@ class DropLocalDclsSpec extends StageSpec:
          |    x match
          |      case sd"16'2" => zzz := zzz.prev + c
          |      case _ =>
+         |    end match
          |    zz := x
          |    z := zz
+         |  end if
          |  y := z
          |end ID
          |""".stripMargin
@@ -78,8 +80,10 @@ class DropLocalDclsSpec extends StageSpec:
          |      x match
          |        case sd"16'2" => zzz := x + c
          |        case _ =>
+         |      end match
          |      zz := x
          |      z := zz
+         |    end if
          |    y := z
          |end ID
          |""".stripMargin
@@ -117,8 +121,10 @@ class DropLocalDclsSpec extends StageSpec:
          |      x match
          |        case sd"16'2" => zzz := x + c
          |        case _ =>
+         |      end match
          |      zz := x
          |      z := zz
+         |    end if
          |    y := z
          |end ID
          |""".stripMargin

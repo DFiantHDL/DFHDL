@@ -27,6 +27,9 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
         case r @ DFRef.TwoWay(originRef) if cbTags.contains(r.refType) => originRef.get
       }
       .collectFirst { case cb: DFConditional.Block => cb.asInstanceOf[CB] }
+  def getPrevCB: Option[CB] = cb.prevBlockOrHeaderRef.get match
+    case cb: DFConditional.Block => Some(cb.asInstanceOf[CB])
+    case _                       => None
   def isLastCB: Boolean = getNextCB.isEmpty
 //  @tailrec private def getPatterns(
 //      casePattenBlock: DFConditional.CaseBlock,

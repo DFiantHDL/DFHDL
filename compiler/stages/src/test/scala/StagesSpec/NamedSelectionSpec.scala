@@ -33,6 +33,7 @@ class NamedSelectionSpec extends StageSpec:
          |    i match
          |      case h"00" => i
          |      case _ => i
+         |    end match
          |  z := z_part
          |end Mux
          |""".stripMargin

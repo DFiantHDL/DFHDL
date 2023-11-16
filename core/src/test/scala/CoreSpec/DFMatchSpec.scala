@@ -25,28 +25,37 @@ class DFMatchSpec extends DFSpec:
          |  case _ =>
          |    x := d"8'3"
          |    x := d"8'4"
+         |end match
          |e match
          |  case MyEnum1.Bar =>
+         |end match
          |(x, e) match
          |  case (d"8'0", MyEnum1.Bar) =>
          |  case (v, MyEnum1.Baz) if v > d"8'20" =>
          |  case (v, MyEnum1.Baz) if v < d"8'15" =>
+         |end match
          |y match
          |  case h"DEAD${secret: B[32]}BEEF" =>
          |  case h"DE${secret1: B[16]}AD${secret2: B[16]}BEEF" =>
          |  case h"0000000000000000" =>
          |  case h"ffffffffffffffff" =>
+         |end match
          |Pixel(x = x, y = x) match
          |  case Pixel(d"8'1", d"8'2") =>
+         |end match
          |p match
          |  case Pixel(d"8'1", d"8'2") =>
+         |end match
          |PixelB(xy = Pixel(x = x, y = x), z = x) match
          |  case PixelB(Pixel(d"8'1", d"8'2"), d"8'3") =>
+         |end match
          |(Pixel(x = x, y = x), x) match
          |  case (Pixel(d"8'1", d"8'2"), d"8'3") =>
+         |end match
          |val t10: UInt[8] <> VAL =
          |  p match
          |    case Pixel(t10, d"8'55") => t10
+         |  end match
          |val t11 = UInt(8) <> VAR
          |t11 := ?
          |val t12 = UInt(8) <> VAR
@@ -55,9 +64,11 @@ class DFMatchSpec extends DFSpec:
          |  case PixelB(Pixel(_t11, _t12), d"8'55") =>
          |    t11 := _t11
          |    t12 := _t12
+         |end match
          |val t13: Bits[32] <> VAL =
          |  y match
          |    case h"DEAD${t13: B[32]}BEEF" => t13
+         |  end match
          |val t14 = Bits(16) <> VAR
          |t14 := h"????"
          |val t15 = Bits(16) <> VAR
@@ -66,6 +77,7 @@ class DFMatchSpec extends DFSpec:
          |  case h"DE${_t14: B[16]}ADBE${_t15: B[16]}EF" =>
          |    t14 := _t14
          |    t15 := _t15
+         |end match
          |""".stripMargin
     ) {
       x match
@@ -119,6 +131,7 @@ class DFMatchSpec extends DFSpec:
          |  x match
          |    case d"8'0" | d"8'1" | d"8'2" | d"8'3" => d"8'77"
          |    case _ => d"8'22"
+         |  end match
          |""".stripMargin
     ) {
       val res: UInt[8] <> VAL =
