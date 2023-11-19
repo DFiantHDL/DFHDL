@@ -94,47 +94,6 @@ object DFVal:
         case DFStruct.Val(dfVal) => Some(dfVal)
         case _                   => None
 
-  trait Refiner[T <: FieldsOrTuple, A, I]:
-    type Out <: DFVal[DFStruct[T], Modifier[A, Any, I]]
-  object Refiner:
-    transparent inline given [T <: FieldsOrTuple, A, I]: Refiner[T, A, I] = ${
-      refineMacro[T, A, I]
-    }
-    def refineMacro[T <: FieldsOrTuple, A, I](using
-        Quotes,
-        Type[T],
-        Type[A],
-        Type[I]
-    ): Expr[Refiner[T, A, I]] =
-      import quotes.reflect.*
-      val dfValTpe = TypeRepr.of[DFVal[DFStruct[T], Modifier[A, Any, I]]]
-      val tTpe = TypeRepr.of[T]
-      val fields: List[(String, TypeRepr)] = tTpe.asTypeOf[Any] match
-        case '[NonEmptyTuple] =>
-          tTpe.getTupleArgs.zipWithIndex.map((f, i) =>
-            f.asTypeOf[Any] match
-              case '[DFValOf[t]] =>
-                (s"_${i + 1}", TypeRepr.of[DFVal[t, Modifier[A, Any, I]]])
-          )
-        case _ =>
-          val clsSym = tTpe.classSymbol.get
-          clsSym.caseFields.map(m =>
-            tTpe.memberType(m).asTypeOf[Any] match
-              case '[DFValOf[t]] =>
-                (m.name.toString, TypeRepr.of[DFVal[t, Modifier[A, Any, I]]])
-          )
-
-      val refined = fields.foldLeft(dfValTpe) { case (r, (n, t)) =>
-        Refinement(r, n, t)
-      }
-      val refinedType = refined.asTypeOf[DFVal[DFStruct[T], Modifier[A, Any, I]]]
-      '{
-        new Refiner[T, A, I]:
-          type Out = refinedType.Underlying
-      }
-    end refineMacro
-  end Refiner
-
   def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
       dfVal: Expr[DFValOf[T]],
       arg: Expr[R]
@@ -170,6 +129,11 @@ object DFVal:
     CanEqual.derived
   given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[Tuple, DFVal[T, M]] =
     CanEqual.derived
+
+  given __refined_dfVal[T <: FieldsOrTuple, A, I](using
+      r: DFStruct.Val.Refiner[T, A, I]
+  ): Conversion[DFVal[DFStruct[T], Modifier[A, Any, I]], r.Out] =
+    dfVal => dfVal.asInstanceOf[r.Out]
 
   trait InitCheck[I]
   given [I](using
@@ -262,9 +226,16 @@ object DFVal:
   //       //because DFOpaque is not completely covariant due to bug
   //       //https://github.com/lampepfl/dotty/issues/15704
   // ```
-  implicit def DFOpaqueValConversion[T <: DFOpaque.Abstract, R <: DFOpaque.Abstract](
-      from: DFValOf[DFOpaque[R]]
-  )(using DFC, R <:< T): DFValOf[DFOpaque[T]] = from.asInstanceOf[DFValOf[DFOpaque[T]]]
+  given DFOpaqueValConversion[T <: DFOpaque.Abstract, R <: DFOpaque.Abstract](using
+      DFC,
+      R <:< T
+  ): Conversion[DFValOf[DFOpaque[R]], DFValOf[DFOpaque[T]]] = from =>
+    from.asInstanceOf[DFValOf[DFOpaque[T]]]
+
+  // given DFValConversion[T <: DFTypeAny, R](using dfType: T)(using
+  //     tc: TC[T, R],
+  //     dfc: DFC
+  // ): Conversion[R, DFValOf[T]] = from => trydf { tc(dfType, from) }
 
   implicit def DFValConversion[T <: DFTypeAny, R](
       from: R

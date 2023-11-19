@@ -87,18 +87,6 @@ protected object hdl:
     ): Boolean =
       ???
 
-  inline implicit def __refined_token[T <: core.FieldsOrTuple](
-      token: core.DFToken[core.DFStruct[T]]
-  )(using
-      r: core.DFToken.Refiner[T]
-  ): r.Out = token.asInstanceOf[r.Out]
-
-  inline implicit def __refined_dfVal[T <: core.FieldsOrTuple, A, I](
-      dfVal: core.DFVal[core.DFStruct[T], core.Modifier[A, Any, I]]
-  )(using
-      r: core.DFVal.Refiner[T, A, I]
-  ): r.Out = dfVal.asInstanceOf[r.Out]
-
   import java.util.Properties
 
   val dfhdlVersion: String =

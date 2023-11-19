@@ -200,6 +200,32 @@ object DFStruct:
           sf.check(dfType, value.dfType)
           value.asTokenOf[DFStruct[F]]
     end Compare
+
+    trait Refiner[T <: FieldsOrTuple]:
+      type Out <: DFToken[DFStruct[T]]
+    object Refiner:
+      transparent inline given [T <: FieldsOrTuple]: Refiner[T] = ${ refineMacro[T] }
+      def refineMacro[T <: FieldsOrTuple](using Quotes, Type[T]): Expr[Refiner[T]] =
+        import quotes.reflect.*
+        val tokenTpe = TypeRepr.of[DFToken[DFStruct[T]]]
+        val tTpe = TypeRepr.of[T]
+        val fields: List[(String, TypeRepr)] = tTpe.asTypeOf[Any] match
+          case '[NonEmptyTuple] =>
+            tTpe.getTupleArgs.zipWithIndex.map((f, i) =>
+              f.asTypeOf[Any] match
+                case '[DFValOf[t]] =>
+                  (s"_${i + 1}", TypeRepr.of[DFToken[t]])
+            )
+          case _ => ???
+
+        val refined = fields.foldLeft(tokenTpe) { case (r, (n, t)) => Refinement(r, n, t) }
+        val refinedType = refined.asTypeOf[DFToken[DFStruct[T]]]
+        '{
+          new Refiner[T]:
+            type Out = refinedType.Underlying
+        }
+      end refineMacro
+    end Refiner
   end Token
 
   object Val:
@@ -259,5 +285,46 @@ object DFStruct:
           sf.check(dfType, value.dfType)
           value.asValOf[DFStruct[F]]
     end Compare
+
+    trait Refiner[T <: FieldsOrTuple, A, I]:
+      type Out <: DFVal[DFStruct[T], Modifier[A, Any, I]]
+    object Refiner:
+      transparent inline given [T <: FieldsOrTuple, A, I]: Refiner[T, A, I] = ${
+        refineMacro[T, A, I]
+      }
+      def refineMacro[T <: FieldsOrTuple, A, I](using
+          Quotes,
+          Type[T],
+          Type[A],
+          Type[I]
+      ): Expr[Refiner[T, A, I]] =
+        import quotes.reflect.*
+        val dfValTpe = TypeRepr.of[DFVal[DFStruct[T], Modifier[A, Any, I]]]
+        val tTpe = TypeRepr.of[T]
+        val fields: List[(String, TypeRepr)] = tTpe.asTypeOf[Any] match
+          case '[NonEmptyTuple] =>
+            tTpe.getTupleArgs.zipWithIndex.map((f, i) =>
+              f.asTypeOf[Any] match
+                case '[DFValOf[t]] =>
+                  (s"_${i + 1}", TypeRepr.of[DFVal[t, Modifier[A, Any, I]]])
+            )
+          case _ =>
+            val clsSym = tTpe.classSymbol.get
+            clsSym.caseFields.map(m =>
+              tTpe.memberType(m).asTypeOf[Any] match
+                case '[DFValOf[t]] =>
+                  (m.name.toString, TypeRepr.of[DFVal[t, Modifier[A, Any, I]]])
+            )
+
+        val refined = fields.foldLeft(dfValTpe) { case (r, (n, t)) =>
+          Refinement(r, n, t)
+        }
+        val refinedType = refined.asTypeOf[DFVal[DFStruct[T], Modifier[A, Any, I]]]
+        '{
+          new Refiner[T, A, I]:
+            type Out = refinedType.Underlying
+        }
+      end refineMacro
+    end Refiner
   end Val
 end DFStruct

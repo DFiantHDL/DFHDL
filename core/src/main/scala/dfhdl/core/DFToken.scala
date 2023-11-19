@@ -40,32 +40,6 @@ extension (token: DFTokenAny)
   def asTokenOf[T <: DFTypeAny]: DFToken[T] = token.asInstanceOf[DFToken[T]]
 
 object DFToken:
-  trait Refiner[T <: FieldsOrTuple]:
-    type Out <: DFToken[DFStruct[T]]
-  object Refiner:
-    transparent inline given [T <: FieldsOrTuple]: Refiner[T] = ${ refineMacro[T] }
-    def refineMacro[T <: FieldsOrTuple](using Quotes, Type[T]): Expr[Refiner[T]] =
-      import quotes.reflect.*
-      val tokenTpe = TypeRepr.of[DFToken[DFStruct[T]]]
-      val tTpe = TypeRepr.of[T]
-      val fields: List[(String, TypeRepr)] = tTpe.asTypeOf[Any] match
-        case '[NonEmptyTuple] =>
-          tTpe.getTupleArgs.zipWithIndex.map((f, i) =>
-            f.asTypeOf[Any] match
-              case '[DFValOf[t]] =>
-                (s"_${i + 1}", TypeRepr.of[DFToken[t]])
-          )
-        case _ => ???
-
-      val refined = fields.foldLeft(tokenTpe) { case (r, (n, t)) => Refinement(r, n, t) }
-      val refinedType = refined.asTypeOf[DFToken[DFStruct[T]]]
-      '{
-        new Refiner[T]:
-          type Out = refinedType.Underlying
-      }
-    end refineMacro
-  end Refiner
-
   def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
       token: Expr[DFToken[T]],
       arg: Expr[R]
@@ -102,6 +76,10 @@ object DFToken:
     CanEqual.derived
   given [T <: DFTypeAny]: CanEqual[Tuple, DFToken[T]] =
     CanEqual.derived
+
+  given __refined_token[T <: FieldsOrTuple](using
+      r: DFStruct.Token.Refiner[T]
+  ): Conversion[DFToken[DFStruct[T]], r.Out] = token => token.asInstanceOf[r.Out]
 
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
     ir.DFToken.bubble(dfType.asIR).asTokenOf[T]
