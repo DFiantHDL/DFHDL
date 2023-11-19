@@ -161,7 +161,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       var exactWrapper = false
       val combinedTpe = tree.tpe match
         case AppliedType(tycon, List(combinedTpe))
-            if tycon.dealias.typeSymbol == requiredClass("dfhdl.internals.Exactly") =>
+            if tycon.dealias.typeSymbol == requiredClass("dfhdl.internals.Exact") =>
           exactWrapper = true
           combinedTpe.widen
         case tpe => tpe

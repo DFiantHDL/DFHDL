@@ -3,20 +3,41 @@ import scala.quoted.*
 import util.NotGiven
 import scala.annotation.unchecked.uncheckedVariance
 type ExactTypes = NonEmptyTuple | Int | String | Boolean
-trait Exactly:
-  type Out
-  val value: Out
-object Exactly:
+
+extension (using quotes: Quotes)(term: quotes.reflect.Term)
+  def exactTerm: quotes.reflect.Term =
+    import quotes.reflect.*
+    term match
+      case Inlined(_, _, term) => term.exactTerm
+      case Literal(const)      => term
+      case t @ Apply(TypeApply(fun, _), tupleArgs) if t.tpe <:< TypeRepr.of[NonEmptyTuple] =>
+        val terms = tupleArgs.map(t => t.exactTerm)
+        val tpes = terms.map(_.tpe)
+        val AppliedType(tycon, _) = t.tpe: @unchecked
+        val tupleTypeArgs = tpes.map(_.asTypeTree)
+        Apply(TypeApply(fun, tupleTypeArgs), terms)
+      case t => t
+    end match
+  end exactTerm
+end extension
+
+final class Exact[T](val value: T) extends AnyVal
+object Exact:
+  def apply[T](value_ : T): Exact[T] = new Exact(value_)
+  def strip(value: Any): Any =
+    value match
+      case exact: Exact[?] => strip(exact.value)
+      case _               => value
   // We need this `fromRegularTypes` as a workaround for DFStruct where `v := XY(h"27", ...)`
-  given fromValue[T](using NotGiven[T <:< ExactTypes]): Conversion[T, Exact[T]] with
-    def apply(x: T): Exact[T] = Exact[T](x)
+  implicit inline def fromValue[T](value: T)(using NotGiven[T <:< ExactTypes]): Exact[T] =
+    Exact[T](value)
   // TODO: remove when https://github.com/lampepfl/dotty/issues/12975 is resolved
   implicit transparent inline def fromExactTypes[T <: ExactTypes](
       inline value: T
-  ): Exactly = ${ fromValueMacro[T]('value) }
+  ): Exact[?] = ${ fromValueMacro[T]('value) }
   def fromValueMacro[T](
       value: Expr[T]
-  )(using Quotes, Type[T]): Expr[Exactly] =
+  )(using Quotes, Type[T]): Expr[Exact[?]] =
     import quotes.reflect.*
     val valueTerm = value.asTerm.exactTerm
 //    println(valueTerm.show)
@@ -44,35 +65,7 @@ object Exactly:
     '{ Exact[tpe.Underlying](${ valueTerm.asExpr }) }
   end fromValueMacro
 
-  given toValue[T]: Conversion[Exact[T], T] = precise => precise.value
-end Exactly
-
-extension (using quotes: Quotes)(term: quotes.reflect.Term)
-  def exactTerm: quotes.reflect.Term =
-    import quotes.reflect.*
-    term match
-      case Inlined(_, _, term) => term.exactTerm
-      case Literal(const)      => term
-      case t @ Apply(TypeApply(fun, _), tupleArgs) if t.tpe <:< TypeRepr.of[NonEmptyTuple] =>
-        val terms = tupleArgs.map(t => t.exactTerm)
-        val tpes = terms.map(_.tpe)
-        val AppliedType(tycon, _) = t.tpe: @unchecked
-        val tupleTypeArgs = tpes.map(_.asTypeTree)
-        Apply(TypeApply(fun, tupleTypeArgs), terms)
-      case t => t
-    end match
-  end exactTerm
-end extension
-
-type Exact[+T] = Exactly { type Out = T @uncheckedVariance }
-object Exact:
-  def apply[T](value_ : T): Exact[T] = new Exactly:
-    type Out = T
-    val value = value_
-  def strip(value: Any): Any =
-    value match
-      case exact: Exactly => strip(exact.value)
-      case _              => value
+  implicit inline def toValue[T](exact: Exact[T]): T = exact.value
 
   trait Summon[R, T <: R]:
     type Out

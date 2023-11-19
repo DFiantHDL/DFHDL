@@ -27,6 +27,4 @@ end Modifier
 final type VAL = Modifier[Any, Any, Any]
 sealed trait RET
 
-object OPEN extends Exactly:
-  type Out = ir.OpenConnectTag
-  val value = ir.OpenConnectTag
+val OPEN = Exact(ir.OpenConnectTag)
