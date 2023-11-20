@@ -114,11 +114,12 @@ object Patch:
       case object InsideLast extends Config
   end Move
 
-  final case class ChangeRef[T <: DFMember](
-      member: T,
-      refAccess: T => DFRefAny,
+  final case class ChangeRef(
+      refAccess: DFMember => DFRefAny,
       updatedRefMember: DFMember
   ) extends Patch
+  def ChangeOwner(updatedOwner: DFOwner): Patch =
+    ChangeRef(_.ownerRef, updatedOwner)
 end Patch
 
 extension (db: DB)
@@ -276,8 +277,8 @@ extension (db: DB)
                   ??? // Not possible since we replaced it to an `After`
                 case Patch.Move.Config.InsideLast =>
                   ??? // Not possible since we replaced it to an `After`
-            case Some(Patch.Remove)          => Nil
-            case Some(_: Patch.ChangeRef[_]) => List(m)
+            case Some(Patch.Remove)       => Nil
+            case Some(_: Patch.ChangeRef) => List(m)
             case None => List(m) // not in the patch table, therefore remain as-is
           patchMembers(added ++ rest, patchTable - m, outgoing.reverse ++ patchedMembers)
         case Nil => patchedMembers.reverse
@@ -371,7 +372,7 @@ extension (db: DB)
               val totalRefs = refs ++ origMember.getRefs
               rc.copy(refTable = totalRefs.foldLeft(rc.refTable)((rt2, r) => rt2 - r))
             case None => rc
-        case (rc, (_, Patch.ChangeRef(origMember, refFunc, updatedRefMember))) =>
+        case (rc, (origMember, Patch.ChangeRef(refFunc, updatedRefMember))) =>
           val ref = refFunc(origMember)
           rc.copy(refTable = rc.refTable + (ref -> updatedRefMember))
         case (rc, _) => rc
