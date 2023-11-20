@@ -10,7 +10,7 @@ object ClkCfg:
 
   def apply(
       edge: Edge = Edge.Rising
-  ): ir.ClkCfg.Explicit = ir.ClkCfg.Explicit(edge)
+  ): ClkCfg = ir.ClkCfg.Explicit(edge)
 
 type RstCfg = ir.RstCfg
 object RstCfg:
@@ -21,7 +21,7 @@ object RstCfg:
   def apply(
       mode: Mode = Mode.Sync,
       active: Active = Active.High
-  ): ir.RstCfg.Explicit = ir.RstCfg.Explicit(mode, active)
+  ): RstCfg = ir.RstCfg.Explicit(mode, active)
 
 type RTDomainCfg = ir.RTDomainCfg
 object RTDomainCfg:
