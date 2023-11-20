@@ -8,6 +8,7 @@ import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
+import java.io.File.separatorChar
 
 object Verilator extends Linter:
   def binExec: String =
@@ -73,7 +74,7 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
       matchWild: String = ""
   ): String =
     val ruleArg = rule.emptyOr(" -rule " + _)
-    val fileArg = file.emptyOr(f => s""" -file "*/$f"""")
+    val fileArg = file.emptyOr(f => s""" -file "*$separatorChar$f"""")
     val lineArg = lines.emptyOr(" -lines " + _)
     val matchWildArg = matchWild.emptyOr(m => s""" -match "$m"""")
     s"lint_off$ruleArg$fileArg$lineArg$matchWildArg"
