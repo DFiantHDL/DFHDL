@@ -13,7 +13,7 @@ trait Tool:
       sourceFiles: List[SourceFile]
   )(using CompilerOptions): CompiledDesign[D] =
     val stagedDB = cd.stagedDB
-    cd.newStage(stagedDB.copy(srcFiles = stagedDB.srcFiles ++ sourceFiles))
+    cd.newStage(stagedDB.copy(srcFiles = stagedDB.srcFiles ++ sourceFiles)).commit
 
   final protected def exec[D <: Design](cd: CompiledDesign[D], cmd: String)(using
       co: CompilerOptions

@@ -21,6 +21,8 @@ object CompiledDesign:
     def printGenFiles(using PrinterOptions): CompiledDesign[D] =
       Printer.printGenFiles(staged.stagedDB)
       cd
+    def commit(using co: CompilerOptions): CompiledDesign[D] =
+      cd.transform(designDB => Printer.commit(designDB, co.compilePath(designDB)))
     def addFiles(files: (Iterable[String] | String)*): CompiledDesign[D] =
       import StagedDesign.addFiles as addFiles2
       staged.addFiles2(files*)
