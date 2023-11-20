@@ -34,14 +34,13 @@ case object VHDLProcToVerilog extends Stage:
           .collect { case ifBlock: DFIfElseBlock => ifBlock } match
           case ifBlock :: Nil if stVals.size == 1 =>
             ifBlock.guardRef.get match
-              case clkEdge @ Edge(edgeVal) if stVals.contains(edgeVal) =>
+              case clkEdge @ ClkEdge(clk, edge) if stVals.contains(clk) =>
                 val dsn = new MetaDesign(dfhdl.core.DFC.Domain.ED):
-                  val clkGuard = clkEdge.op match
-                    case FuncOp.rising  => edgeVal.asValOf[Bit].rising
-                    case FuncOp.falling => edgeVal.asValOf[Bit].falling
-                    case _              => ???
+                  val clkEdgeSig = edge match
+                    case ClkCfg.Edge.Rising  => clk.asValOf[Bit].rising
+                    case ClkCfg.Edge.Falling => clk.asValOf[Bit].falling
                   val newPB =
-                    dfhdl.core.Process.Block.list(List(clkGuard))(using dfc.setMeta(pb.meta)).asIR
+                    dfhdl.core.Process.Block.list(List(clkEdgeSig))(using dfc.setMeta(pb.meta)).asIR
                 List(
                   clkEdge -> Patch.Remove,
                   ifBlock.prevBlockOrHeaderRef.get -> Patch.Remove,
@@ -49,23 +48,26 @@ case object VHDLProcToVerilog extends Stage:
                   ifBlock -> Patch.Replace(dsn.newPB, Patch.Replace.Config.ChangeRefAndRemove)
                 )
               case _ => None
-//          case ifBlock :: elseBlock :: Nil if stVals.size == 2 && elseBlock.getFirstCB == ifBlock =>
-//            elseBlock.guardRef.get match
-//              case clkEdge @ Edge(edgeVal) if stVals.contains(edgeVal) =>
-//                val dsn = new MetaDesign(dfhdl.DFC.Domain.ED):
-//                  val clkGuard = clkEdge.op match
-//                    case FuncOp.rising  => edgeVal.asValOf[Bit].rising
-//                    case FuncOp.falling => edgeVal.asValOf[Bit].falling
-//                    case _              => ???
-//                  val newPB =
-//                    dfhdl.core.Process.Block.list(List(clkGuard))(using dfc.setMeta(pb.meta)).asIR
-//                List(
-//                  clkEdge -> Patch.Remove,
-//                  ifBlock.prevBlockOrHeaderRef.get -> Patch.Remove,
-//                  pb -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast()),
-//                  ifBlock -> Patch.Replace(dsn.newPB, Patch.Replace.Config.ChangeRefAndRemove)
-//                )
-//              case _ => None
+          case ifBlock :: elseBlock :: Nil if stVals.size == 2 && elseBlock.getFirstCB == ifBlock =>
+            (ifBlock.guardRef.get, elseBlock.guardRef.get) match
+              case (rstActive @ RstActive(rst, active), clkEdge @ ClkEdge(clk, edge))
+                  if stVals == Set(clk, rst) =>
+                val dsn = new MetaDesign(dfhdl.DFC.Domain.ED):
+                  val clkEdgeSig = edge match
+                    case ClkCfg.Edge.Rising  => clk.asValOf[Bit].rising
+                    case ClkCfg.Edge.Falling => clk.asValOf[Bit].falling
+                  val rstEdgeSig = active match
+                    case RstCfg.Active.High => rst.asValOf[Bit].rising
+                    case RstCfg.Active.Low  => rst.asValOf[Bit].falling
+                  val newPB =
+                    dfhdl.core.Process.Block.list(List(clkEdgeSig, rstEdgeSig))(using
+                      dfc.setMeta(pb.meta)
+                    ).asIR
+                List(
+                  clkEdge -> Patch.Replace(DFMember.Empty, Patch.Replace.Config.ChangeRefAndRemove),
+                  pb -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast())
+                )
+              case _ => None
           case _ => None
         end match
       case _ => None

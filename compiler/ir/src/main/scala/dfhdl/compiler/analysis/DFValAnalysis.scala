@@ -9,31 +9,59 @@ import DFVal.Alias.History.Op as HistoryOp
 import scala.annotation.tailrec
 import scala.reflect.{ClassTag, classTag}
 import DFDesignBlock.InstMode
+import scala.util.boundary, boundary.break
 
 object Ident:
-  def unapply(alias: ir.DFVal.Alias.AsIs)(using MemberGetSet): Option[ir.DFVal] =
-    if (alias.getTagOf[ir.DFVal.Alias.IdentTag.type].isDefined)
+  def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
+    if (alias.getTagOf[DFVal.Alias.IdentTag.type].isDefined)
       Some(alias.relValRef.get)
     else None
 
 object OpaqueActual:
-  def unapply(alias: ir.DFVal.Alias.AsIs)(using MemberGetSet): Option[ir.DFVal] =
+  def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
     val relVal = alias.relValRef.get
     relVal.dfType match
       case dfType: DFOpaque if dfType.actualType == alias.dfType => Some(relVal)
       case _                                                     => None
 
 object Bind:
-  def unapply(alias: ir.DFVal.Alias)(using MemberGetSet): Option[ir.DFVal] =
+  def unapply(alias: DFVal.Alias)(using MemberGetSet): Option[DFVal] =
     if (alias.getTagOf[Pattern.Bind.Tag.type].isDefined)
       Some(alias.relValRef.get)
     else None
 
-object Edge:
-  def unapply(func: ir.DFVal.Func)(using MemberGetSet): Option[ir.DFVal] =
+object ClkEdge:
+  def unapply(func: DFVal.Func)(using MemberGetSet): Option[(DFVal, ClkCfg.Edge)] =
     func.op match
-      case FuncOp.rising | FuncOp.falling if func.args.length == 1 => Some(func.args.head.get)
-      case _                                                       => None
+      case FuncOp.rising if func.args.length == 1  => Some(func.args.head.get, ClkCfg.Edge.Rising)
+      case FuncOp.falling if func.args.length == 1 => Some(func.args.head.get, ClkCfg.Edge.Falling)
+      case _                                       => None
+
+object RstActive:
+  def unapply(dfVal: DFVal)(using MemberGetSet): Option[(DFVal, RstCfg.Active)] =
+    boundary:
+      dfVal match
+        case func: DFVal.Func =>
+          func.op match
+            case FuncOp.=== | FuncOp.=!= =>
+              val List(lhsRef, rhsRef) = func.args
+              val (dcl, const) = (lhsRef.get, rhsRef.get) match
+                case (dcl: DFVal.Dcl, const: DFVal.Const) if const.dfType == DFBit => (dcl, const)
+                case (const: DFVal.Const, dcl: DFVal.Dcl) if const.dfType == DFBit => (dcl, const)
+                case _                                                             => break(None)
+              val DFBoolOrBit.Token(_, Some(value: Boolean)) = const.token: @unchecked
+              val actualValue = func.op match
+                case FuncOp.=== => value
+                case _          => !value
+              val active = if (actualValue) RstCfg.Active.High else RstCfg.Active.Low
+              Some(dcl, active)
+            case FuncOp.unary_! =>
+              val relVal = func.args.head.get
+              Some(relVal, RstCfg.Active.Low)
+            case _ => None
+        case dcl: DFVal.Dcl => Some(dcl, RstCfg.Active.High)
+        case _              => None
+end RstActive
 
 object DclVar:
   def unapply(dcl: DFVal.Dcl)(using
