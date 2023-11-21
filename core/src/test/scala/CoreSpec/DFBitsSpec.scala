@@ -201,6 +201,8 @@ class DFBitsSpec extends DFSpec:
          |val ls1 = b8(0, 0)
          |val bit2 = b3(2)
          |val bit0 = b3(0)
+         |val b8_msbit = b8(7)
+         |val b8_lsbit = b8(0)
          |""".stripMargin
     } {
       val ms8 = b8.msbits(8)
@@ -211,6 +213,8 @@ class DFBitsSpec extends DFSpec:
       val ls1 = b8.lsbits(1)
       val bit2 = b3(2)
       val bit0 = b3(0)
+      val b8_msbit = b8.msbit
+      val b8_lsbit = b8.lsbit
     }
     val nine = 9
     assertDSLErrorLog(

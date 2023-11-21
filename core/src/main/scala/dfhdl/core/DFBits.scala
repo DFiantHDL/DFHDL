@@ -861,6 +861,10 @@ object DFBits:
         def unary_~(using DFC): DFValOf[DFBits[W]] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         }
+        def msbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any]] =
+          lhs.apply(lhs.width - 1)
+        def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any]] =
+          lhs.apply(0)
         def msbits[RW <: Int](updatedWidth: Inlined[RW])(using
             check: `LW >= RW`.Check[W, RW],
             dfc: DFC
