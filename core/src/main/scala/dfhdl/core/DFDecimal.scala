@@ -498,6 +498,14 @@ object DFXInt:
         type IsScalaInt = true
         def apply(arg: R): Token[OutS, OutW] =
           Token(info.signed(arg), info.width(arg), Some(arg))
+      transparent inline given fromInlinedInt[R <: Int](using
+          info: IntInfo[R]
+      ): Candidate[Inlined[R]] = new Candidate[Inlined[R]]:
+        type OutS = info.OutS
+        type OutW = info.OutW
+        type IsScalaInt = true
+        def apply(arg: Inlined[R]): Token[OutS, OutW] =
+          Token(info.signed(arg), info.width(arg), Some(arg.value))
       given fromDFXIntToken[W <: Int, S <: Boolean, R <: Token[S, W]]: Candidate[R] with
         type OutS = S
         type OutW = W
