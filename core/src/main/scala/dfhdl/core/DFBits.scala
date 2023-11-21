@@ -674,7 +674,7 @@ object DFBits:
               ") is different than the receiver width (" + ToString[LW] +
               ").\nConsider applying `.resize` to resolve this issue."
           ]
-      given DFBitsFromCandidate[LW <: Int, V, IC <: Candidate[V]](using ic: Candidate[V])(using
+      given DFBitsFromCandidate[LW <: Int, V](using ic: Candidate[V])(using
           check: `LW == RW`.Check[LW, ic.OutW]
       ): TC[DFBits[LW], V] with
         def conv(dfType: DFBits[LW], value: V)(using dfc: Ctx): DFValOf[DFBits[LW]] =
