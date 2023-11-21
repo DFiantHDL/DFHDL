@@ -21,6 +21,7 @@ type DFTypeAny = DFType[ir.DFType, Args]
 val NoType = new DFType[ir.NoType.type, NoArgs](ir.NoType)
 
 object DFType:
+  val Empty = new DFType(DFError.EmptyDFType).asInstanceOf[DFType[Nothing, Nothing]]
   type Of[T <: Supported] <: DFTypeAny = T match
     case DFTypeAny => T <:! DFTypeAny
     case Long      => DFSInt[64]
