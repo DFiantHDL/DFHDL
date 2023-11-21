@@ -34,6 +34,9 @@ opaque type Inlined[T] = T
 object Inlined:
   given [L, R](using CanEqual[L, R]): CanEqual[Inlined[L], Inlined[R]] =
     CanEqual.derived
+  given [T <: Int]: CanEqual[Inlined[T], Int] = CanEqual.derived
+  given [T <: String]: CanEqual[Inlined[T], String] = CanEqual.derived
+  given [T <: Boolean]: CanEqual[Inlined[T], Boolean] = CanEqual.derived
   extension [T](inlined: Inlined[T]) def value: T = inlined
   transparent inline implicit def getValue[T](
       inlined: Inlined[T]
