@@ -1,5 +1,4 @@
-package CoreSpec
-import dfhdl.*
+package dfhdl
 import munit.*
 import internals.{AllowTopLevel, HasTypeName, Position}
 import compiler.printing.{DefaultPrinter, Printer}
