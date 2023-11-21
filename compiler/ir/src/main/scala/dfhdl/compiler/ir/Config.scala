@@ -23,32 +23,39 @@ object ConfigD:
     def apply(x: T): ConfigD[T] = x
   given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigD[T1], ConfigD[T2]] = CanEqual.derived
   given [T]: CanEqual[ConfigD[T], DerivedCfg.type] = CanEqual.derived
-given ConfigDCE[L, R]: CanEqual[ConfigD[L], ConfigD[R]] = CanEqual.derived
+  given [L, R]: CanEqual[ConfigD[L], ConfigD[R]] = CanEqual.derived
+
+opaque type ConfigN[T] = T | None.type
+object ConfigN:
+  given [T]: Conversion[None.type, ConfigN[T]] with
+    def apply(x: None.type): ConfigN[T] = x
+  given [T]: Conversion[T, ConfigN[T]] with
+    def apply(x: T): ConfigN[T] = x
+  given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigN[T1], ConfigN[T2]] = CanEqual.derived
+  given [T]: CanEqual[ConfigN[T], None.type] = CanEqual.derived
+  given [L, R]: CanEqual[ConfigN[L], ConfigN[R]] = CanEqual.derived
 
 type NameCfg = ConfigD[String]
 
-type ClkCfg = ConfigDN[ClkCfg.Explicit]
+type ClkCfg = ConfigN[ClkCfg.Explicit]
 object ClkCfg:
   enum Edge derives CanEqual:
     case Rising, Falling
-  type EdgeCfg = ConfigD[Edge]
 
   final case class Explicit(
-      edge: EdgeCfg
+      edge: Edge
   ) derives CanEqual
 
-type RstCfg = ConfigDN[RstCfg.Explicit]
+type RstCfg = ConfigN[RstCfg.Explicit]
 object RstCfg:
   enum Mode derives CanEqual:
     case Async, Sync
-  type ModeCfg = ConfigD[Mode]
   enum Active derives CanEqual:
     case Low, High
-  type ActiveCfg = ConfigD[Active]
 
   final case class Explicit(
-      mode: ModeCfg,
-      active: ActiveCfg
+      mode: Mode,
+      active: Active
   ) derives CanEqual
 end RstCfg
 

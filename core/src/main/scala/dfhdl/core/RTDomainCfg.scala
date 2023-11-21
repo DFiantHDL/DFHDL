@@ -5,7 +5,7 @@ import dfhdl.internals.*
 final val DerivedCfg = ir.DerivedCfg
 type ClkCfg = ir.ClkCfg
 object ClkCfg:
-  type Edge = ir.ClkCfg.EdgeCfg
+  type Edge = ir.ClkCfg.Edge
   final val Edge = ir.ClkCfg.Edge
 
   def apply(
@@ -14,9 +14,9 @@ object ClkCfg:
 
 type RstCfg = ir.RstCfg
 object RstCfg:
-  type Mode = ir.RstCfg.ModeCfg
+  type Mode = ir.RstCfg.Mode
   final val Mode = ir.RstCfg.Mode
-  type Active = ir.RstCfg.ActiveCfg
+  type Active = ir.RstCfg.Active
   final val Active = ir.RstCfg.Active
   def apply(
       mode: Mode = Mode.Sync,

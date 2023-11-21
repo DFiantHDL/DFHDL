@@ -72,37 +72,26 @@ trait Printer
     nameCfg match
       case _: DerivedCfg.type => "DerivedCfg"
       case name: String       => s""""$name""""
-  def csClkEdgeCfg(edgeCfg: ClkCfg.EdgeCfg): String =
-    edgeCfg match
-      case _: DerivedCfg.type => "DerivedCfg"
-      case edge: ClkCfg.Edge =>
-        edge match
-          case _: ClkCfg.Edge.Rising.type  => "ClkCfg.Edge.Rising"
-          case _: ClkCfg.Edge.Falling.type => "ClkCfg.Edge.Falling"
+  def csClkEdgeCfg(edge: ClkCfg.Edge): String =
+    edge match
+      case ClkCfg.Edge.Rising  => "ClkCfg.Edge.Rising"
+      case ClkCfg.Edge.Falling => "ClkCfg.Edge.Falling"
   def csClkCfg(clkCfg: ClkCfg): String =
     clkCfg match
-      case _: DerivedCfg.type => "DerivedCfg"
-      case _: None.type       => "None"
+      case _: None.type => "None"
       case ClkCfg.Explicit(edge) =>
         s"ClkCfg(${csClkEdgeCfg(edge)})"
-  def csRstModeCfg(modeCfg: RstCfg.ModeCfg): String =
-    modeCfg match
-      case _: DerivedCfg.type => "DerivedCfg"
-      case mode: RstCfg.Mode =>
-        mode match
-          case _: RstCfg.Mode.Sync.type  => "RstCfg.Mode.Sync"
-          case _: RstCfg.Mode.Async.type => "RstCfg.Mode.Async"
-  def csRstActiveCfg(activeCfg: RstCfg.ActiveCfg): String =
-    activeCfg match
-      case _: DerivedCfg.type => "DerivedCfg"
-      case active: RstCfg.Active =>
-        active match
-          case _: RstCfg.Active.High.type => "RstCfg.Active.High"
-          case _: RstCfg.Active.Low.type  => "RstCfg.Active.Low"
+  def csRstModeCfg(mode: RstCfg.Mode): String =
+    mode match
+      case RstCfg.Mode.Sync  => "RstCfg.Mode.Sync"
+      case RstCfg.Mode.Async => "RstCfg.Mode.Async"
+  def csRstActiveCfg(active: RstCfg.Active): String =
+    active match
+      case RstCfg.Active.High => "RstCfg.Active.High"
+      case RstCfg.Active.Low  => "RstCfg.Active.Low"
   def csRstCfg(rstCfg: RstCfg): String =
     rstCfg match
-      case _: DerivedCfg.type => "DerivedCfg"
-      case _: None.type       => "None"
+      case _: None.type => "None"
       case RstCfg.Explicit(mode, active) =>
         s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)})"
   def csRTDomainCfg(clkCfg: ClkCfg, rstCfg: RstCfg): String =
