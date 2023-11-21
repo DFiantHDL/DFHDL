@@ -1,7 +1,6 @@
 package CoreSpec
 import dfhdl.*
 import munit.*
-import internals.Inlined
 
 class DFBitsSpec extends DFSpec:
   test("Type Construction") {

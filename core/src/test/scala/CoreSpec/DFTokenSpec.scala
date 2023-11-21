@@ -1,7 +1,6 @@
 package CoreSpec
 import dfhdl.*
 import munit.*
-import internals.Inlined
 
 class DFTokenSpec extends FunSuite:
   test("DFTuple Token Construction") {

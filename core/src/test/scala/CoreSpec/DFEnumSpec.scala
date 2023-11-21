@@ -1,7 +1,6 @@
 package CoreSpec
 import dfhdl.*
 import munit.*
-import internals.Inlined
 import collection.immutable.ListMap
 
 class DFEnumSpec extends DFSpec:
