@@ -157,10 +157,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  logic [15:0] z;
          |  parameter logic [15:0]  c = 16'h0000;
          |  logic [15:0] my_var;
-         |  always @(clk, rst)
+         |  always @(posedge clk, posedge rst)
          |  begin
          |    if (rst) y <= c;
-         |    else if (posedge clk) y <= x;
+         |    else y <= x;
          |  end
          |  myblock : always @(*)
          |  begin
