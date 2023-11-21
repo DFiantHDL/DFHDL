@@ -61,6 +61,8 @@ object Inlined:
       forced[int.-[T, R]](lhs.value - rhs.value)
     inline def *[R <: Int](rhs: Inlined[R]) =
       forced[int.*[T, R]](lhs.value * rhs.value)
+    inline def /[R <: Int](rhs: Inlined[R]) =
+      forced[int./[T, R]](lhs.value / rhs.value)
     inline def >[R <: Int](rhs: Inlined[R]) =
       forced[int.>[T, R]](lhs.value > rhs.value)
     inline def <[R <: Int](rhs: Inlined[R]) =
