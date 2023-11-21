@@ -5,8 +5,8 @@ import core.asValOf
 import internals.IntInfo
 
 def prioEncRecur(value: Bits[Int] <> VAL): Bits[Int] <> RET =
-  val width = value.width.value
-  if (width == 1) value.asValOf[Bits[Int]]
+  val width = value.width
+  if (width == 1) value
   else
     val lPrio = prioEncRecur(value.msbits(width / 2))
     val rPrio = prioEncRecur(value.lsbits(width - width / 2))

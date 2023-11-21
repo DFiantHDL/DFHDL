@@ -237,6 +237,14 @@ object DFVal:
   //     dfc: DFC
   // ): Conversion[R, DFValOf[T]] = from => trydf { tc(dfType, from) }
 
+  implicit def DFBitsEmpty[T <: DFTypeAny, R](
+      from: R
+  )(using
+      ic: DFBits.Val.Candidate[R],
+      dfc: DFC
+  ): DFValOf[DFBits[Int]] = trydf { ic(from).asValOf[DFBits[Int]] }
+
+  // TODO: dfType:T = DFType.Empty in 3.4 and see if no compiler error
   implicit def DFValConversion[T <: DFTypeAny, R](
       from: R
   )(using dfType: T)(using
