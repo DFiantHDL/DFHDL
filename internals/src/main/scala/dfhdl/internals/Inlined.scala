@@ -31,7 +31,9 @@ given canEqualNothingL: CanEqual[Nothing, Any] = CanEqual.derived
 given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
 
 opaque type Inlined[T] = T
-object Inlined:
+protected sealed trait LP:
+  given [T <: Int]: Conversion[Inlined[T], Inlined[Int]] = value => value.asInstanceOf[Inlined[Int]]
+object Inlined extends LP:
   given [L, R](using CanEqual[L, R]): CanEqual[Inlined[L], Inlined[R]] =
     CanEqual.derived
   given [T <: Int]: CanEqual[Inlined[T], Int] = CanEqual.derived
