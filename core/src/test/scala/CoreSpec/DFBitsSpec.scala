@@ -122,15 +122,28 @@ class DFBitsSpec extends DFSpec:
   }
   test("DFVal Conversion") {
     val w = 2
-    val t1: Bits[8] <> VAL = all(false)
-    val t2: Bits[8] <> VAL = all(1)
-    val t3: Bits[8] <> VAL = d"255"
-    val t4: Bits[5] <> VAL = ?
-    val t5: Bits[4] <> VAL = h"A"
-    val t6: Bits[3] <> VAL = b"101"
-    val t7: Bits[w.type] <> VAL = b"11"
-    val t8: Bits[8] <> VAL = (b"100", 1, h"9")
-    val t9: Bits[Int] <> VAL = (b"100", 1, h"9")
+    assertCodeString {
+      """|val t1 = Bits(8) const h"00"
+         |val t2 = Bits(8) const h"ff"
+         |val t3 = Bits(8) const h"ff"
+         |val t4 = Bits(5) const h"5'??"
+         |val t5 = Bits(4) const h"a"
+         |val t6 = Bits(3) const b"101"
+         |val t7 = Bits(2) const b"11"
+         |val t8 = (b"100", b"1", h"9").toBits
+         |val t9 = (b"100", b"1", h"9").toBits
+         |""".stripMargin
+    } {
+      val t1: Bits[8] <> VAL = all(false)
+      val t2: Bits[8] <> VAL = all(1)
+      val t3: Bits[8] <> VAL = d"255"
+      val t4: Bits[5] <> VAL = ?
+      val t5: Bits[4] <> VAL = h"A"
+      val t6: Bits[3] <> VAL = b"101"
+      val t7: Bits[w.type] <> VAL = b"11"
+      val t8: Bits[8] <> VAL = (b"100", 1, h"9")
+      val t9: Bits[Int] <> VAL = (b"100", 1, h"9")
+    }
   }
   test("Assignment") {
     val b8 = Bits(8) <> VAR
