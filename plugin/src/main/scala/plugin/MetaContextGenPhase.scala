@@ -364,12 +364,12 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         val dfc = ContextArg.at(anonDef).get
 
         // replacing the old arg references according to the argument map
-        def replaceArgs(expr: Tree, argMap: Map[TermName, Tree]): Tree =
+        def replaceArgs(expr: Tree, argMap: Map[Symbol, Tree]): Tree =
           val replacer = new TreeMap():
             override def transform(tree: Tree)(using Context): Tree =
               tree match
-                case Ident(n: TermName) if argMap.contains(n) =>
-                  argMap(n)
+                case id @ Ident(_) if argMap.contains(id.symbol) =>
+                  argMap(id.symbol)
                 case _ => super.transform(tree)
           replacer.transform(expr)
 
@@ -378,7 +378,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           val args = mkList(dfValArgs.map(a => mkTuple(List(a.ident, a.genMeta))))
           // input map to replace old arg references with new input references
           val inputMap = dfValArgs.view.zipWithIndex.map((a, i) =>
-            a.name -> ref(designFromDefGetInputSym)
+            a.symbol -> ref(designFromDefGetInputSym)
               .appliedToType(a.dfValTpeOpt.get.widen)
               .appliedTo(Literal(Constant(i)))
               .appliedTo(dfc)

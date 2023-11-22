@@ -11,7 +11,7 @@ def prioEncRecur(value: Bits[Int] <> VAL): Bits[Int] <> RET =
     val lPrio = prioEncRecur(value.msbits(width / 2))
     val rPrio = prioEncRecur(value.lsbits(width - width / 2))
     val selPrio = if (value.msbit) lPrio else rPrio
-    (value.msbit, selPrio).toBits
+    (value.msbit, selPrio)
 
 @inline def prioEnc[W <: Int](value: Bits[W] <> VAL)(using
     info: IntInfo[W]
