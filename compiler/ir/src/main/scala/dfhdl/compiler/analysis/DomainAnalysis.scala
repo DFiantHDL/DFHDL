@@ -23,7 +23,9 @@ final class DomainAnalysis(designDB: DB):
             case Some(clkRstOpt) =>
               (clkCfg != None && clkRstOpt.clkOpt.isEmpty) || (rstCfg != None && clkRstOpt.rstOpt.isEmpty)
             case None => true
-        case _ => false
+        case _ =>
+          setEmpty(key) // TODO: probably ugly to do this here
+          false
     private def addClk(key: DesignDomainKey, clk: DFVal.Dcl): Unit =
       collectedDesignDomains += key -> collectedDesignDomains
         .get(key)
@@ -34,6 +36,8 @@ final class DomainAnalysis(designDB: DB):
         .get(key)
         .map(_.addRst(rst))
         .getOrElse(ClkRstOpt(None, Some(rst)))
+    private def setEmpty(key: DesignDomainKey): Unit =
+      collectedDesignDomains += key -> ClkRstOpt(None, None)
   end extension
 
   val designDomains: Map[DesignDomainKey, ClkRstOpt] =
@@ -65,6 +69,7 @@ final class DomainAnalysis(designDB: DB):
                   collectedDesignDomains.addRst((design, cfg), rst)
               }
             case _ => // do nothing
+          end match
         }
     }
     collectedDesignDomains.toMap
