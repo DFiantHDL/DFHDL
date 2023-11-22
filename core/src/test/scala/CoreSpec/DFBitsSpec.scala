@@ -129,7 +129,8 @@ class DFBitsSpec extends DFSpec:
     val t5: Bits[4] <> VAL = h"A"
     val t6: Bits[3] <> VAL = b"101"
     val t7: Bits[w.type] <> VAL = b"11"
-//    val t8: Bits[8] <> VAL = (b"100", 1, h"9")
+    val t8: Bits[8] <> VAL = (b"100", 1, h"9")
+    val t9: Bits[Int] <> VAL = (b"100", 1, h"9")
   }
   test("Assignment") {
     val b8 = Bits(8) <> VAR

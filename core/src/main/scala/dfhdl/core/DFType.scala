@@ -202,7 +202,8 @@ object DFType:
     def ofTupleMacro[T <: NonEmptyTuple](using Quotes, Type[T]): Expr[TC[T]] =
       import quotes.reflect.*
       val tTpe = TypeRepr.of[T]
-      val AppliedType(fun, args) = tTpe: @unchecked
+      val args = tTpe.getTupleArgs
+      val fun = defn.TupleClass(args.length).typeRef
       val tcTrees = args.map(t =>
         Implicits.search(TypeRepr.of[TC].appliedTo(t)) match
           case iss: ImplicitSearchSuccess =>

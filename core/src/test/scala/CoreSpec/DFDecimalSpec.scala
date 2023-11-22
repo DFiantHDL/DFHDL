@@ -158,6 +158,8 @@ class DFDecimalSpec extends DFSpec:
       val t0 = Bits(6) const all(0)
       val t1: UInt[8] <> VAL = t0
       val t2 = UInt(8) <> VAR
+      // val t3: UInt[Int] <> VAL = t0
+      // val t4: SInt[Int] <> VAL = t0
       t2 := t1
     }
   }

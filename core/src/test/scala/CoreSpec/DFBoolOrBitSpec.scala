@@ -129,6 +129,16 @@ class DFBoolOrBitSpec extends DFSpec:
       val t6 = bl || bt
       val t7 = bl ^ 0 || bt
       val t8 = (bl && bt) ^ (bt || bl)
+      // TODO: why are these not printing?
+      // Could be that Conversion does not propagate the name to const?
+      val t9: Bit <> VAL = 1
+      val t10: Bit <> VAL = 0
+      val t11: Bit <> VAL = true
+      val t12: Bit <> VAL = false
+      val t13: Boolean <> VAL = 1
+      val t14: Boolean <> VAL = 0
+      val t15: Boolean <> VAL = true
+      val t16: Boolean <> VAL = false
     }
 
   }

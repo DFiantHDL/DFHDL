@@ -79,7 +79,76 @@ extension (dfVal: DFValAny)
   inline def asVarAny: DFVarAny =
     dfVal.asInstanceOf[DFVal[DFTypeAny, Modifier.VAR]]
 
-object DFVal:
+def DFValConversionMacro[T <: DFTypeAny, R](
+    from: Expr[R]
+)(using Quotes, Type[T], Type[R]): Expr[DFValOf[T]] =
+  import quotes.reflect.*
+  val fromExactTerm = from.asTerm.exactTerm
+  val fromExactType = fromExactTerm.tpe.asTypeOf[Any]
+  val fromExactExpr = fromExactTerm.asExpr
+  def withTC = '{
+    import DFStruct.apply
+    val tc = compiletime.summonInline[DFVal.TC[T, fromExactType.Underlying]]
+    val dfc = compiletime.summonInline[DFC]
+    val dfType = compiletime.summonInline[T]
+    val ctName = compiletime.summonInline[CTName]
+    trydf { tc(dfType, $fromExactExpr)(using dfc) }(using dfc, ctName)
+  }
+  Type.of[T] match
+    case '[DFBits[Int]] =>
+      '{
+        val ic = compiletime.summonInline[DFBits.Val.Candidate[fromExactType.Underlying]]
+        val dfc = compiletime.summonInline[DFC]
+        val ctName = compiletime.summonInline[CTName]
+        trydf { ic($fromExactExpr)(using dfc).asValOf[T] }(using dfc, ctName)
+      }
+    case _ => withTC
+  end match
+end DFValConversionMacro
+
+sealed protected trait DFValLP:
+  implicit transparent inline def DFBitsValConversion[
+      W <: Int,
+      R <: DFValAny | DFTokenAny | SameElementsVector[?] | NonEmptyTuple | Bubble
+  ](
+      inline from: R
+  ): DFValOf[DFBits[W]] = ${ DFValConversionMacro[DFBits[W], R]('from) }
+  // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
+  implicit transparent inline def DFXIntValConversion[
+      S <: Boolean,
+      W <: Int,
+      R <: DFValAny | DFTokenAny | Int | Bubble
+  ](
+      inline from: R
+  ): DFValOf[DFXInt[S, W]] = ${ DFValConversionMacro[DFXInt[S, W], R]('from) }
+  implicit transparent inline def DFOpaqueValConversion[
+      TFE <: DFOpaque.Abstract,
+      R <: DFValAny | DFTokenAny | Bubble
+  ](
+      inline from: R
+  ): DFValOf[DFOpaque[TFE]] = ${ DFValConversionMacro[DFOpaque[TFE], R]('from) }
+  implicit transparent inline def DFStructValConversion[
+      F <: DFStruct.Fields,
+      R <: DFValAny | DFTokenAny | DFStruct.Fields | Bubble
+  ](
+      inline from: R
+  ): DFValOf[DFStruct[F]] = ${ DFValConversionMacro[DFStruct[F], R]('from) }
+  implicit transparent inline def DFTupleValConversion[
+      T <: NonEmptyTuple,
+      R <: DFValAny | DFTokenAny | NonEmptyTuple | Bubble
+  ](
+      inline from: R
+  ): DFValOf[DFTuple[T]] = ${ DFValConversionMacro[DFTuple[T], R]('from) }
+  given DFBitValConversion[R <: BitOrBool](using
+      tc: DFVal.TC[DFBit, R],
+      dfc: DFC
+  ): Conversion[R, DFBit <> VAL] = from => tc(DFBit, from)
+  given DFBoolValConversion[R <: BitOrBool](using
+      tc: DFVal.TC[DFBool, R],
+      dfc: DFC
+  ): Conversion[R, DFBool <> VAL] = from => tc(DFBool, from)
+end DFValLP
+object DFVal extends DFValLP:
   final class Final[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
       extends AnyVal
       with DFVal[T, M]
@@ -207,12 +276,12 @@ object DFVal:
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
     ???
-  implicit inline def DFValConversionExact[T <: DFTypeAny, R <: ExactTypes](
-      from: R
-  )(using dfType: T, es: Exact.Summon[R, from.type])(using
-      tc: TC[T, es.Out],
-      dfc: DFC
-  ): DFValOf[T] = trydf { tc(dfType, es(from)) }
+  // implicit inline def DFValConversionExact[T <: DFTypeAny, R <: ExactTypes](
+  //     from: R
+  // )(using dfType: T, es: Exact.Summon[R, from.type])(using
+  //     tc: TC[T, es.Out],
+  //     dfc: DFC
+  // ): DFValOf[T] = trydf { tc(dfType, es(from)) }
 
   // opaque values need special conversion that does not try to summon the opaque dftype
   // because it can be abstract in extension methods that are applied generically on an abstract
@@ -237,20 +306,20 @@ object DFVal:
   //     dfc: DFC
   // ): Conversion[R, DFValOf[T]] = from => trydf { tc(dfType, from) }
 
-  implicit def DFBitsEmpty[T <: DFTypeAny, R](
-      from: R
-  )(using
-      ic: DFBits.Val.Candidate[R],
-      dfc: DFC
-  ): DFValOf[DFBits[Int]] = trydf { ic(from).asValOf[DFBits[Int]] }
+  // implicit def DFBitsEmpty[T <: DFTypeAny, R](
+  //     from: R
+  // )(using
+  //     ic: DFBits.Val.Candidate[R],
+  //     dfc: DFC
+  // ): DFValOf[DFBits[Int]] = trydf { ic(from).asValOf[DFBits[Int]] }
 
   // TODO: dfType:T = DFType.Empty in 3.4 and see if no compiler error
-  implicit def DFValConversion[T <: DFTypeAny, R](
-      from: R
-  )(using dfType: T)(using
-      tc: TC[T, R],
-      dfc: DFC
-  ): DFValOf[T] = trydf { tc(dfType, from) }
+  // implicit def DFValConversion[T <: DFTypeAny, R](
+  //     from: R
+  // )(using dfType: T)(using
+  //     tc: TC[T, R],
+  //     dfc: DFC
+  // ): DFValOf[T] = trydf { tc(dfType, from) }
 
   object Const:
     def apply[T <: DFTypeAny](token: DFToken[T], named: Boolean = false)(using

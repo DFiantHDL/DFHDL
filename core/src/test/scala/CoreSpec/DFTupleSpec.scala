@@ -28,6 +28,7 @@ class DFTupleSpec extends DFSpec:
        |val t10 = t1._1
        |val t11 = !t2._1._2
        |val t12 = t9(0)
+       |val t13 = (d"8'8", 1)
        |""".stripMargin
   ) {
     val t1: (UInt[8], Bit, Bits[3]) <> VAL =
@@ -51,6 +52,7 @@ class DFTupleSpec extends DFSpec:
     val t10: UInt[8] <> VAL = t1(0)
     val t11: Bit <> VAL = !t2._1._2
     val t12: UInt[8] <> VAL = t9(0)
+    val t13: (UInt[8], Bit) <> VAL = (8, 1)
   }
 
   test("Inlined width") {
