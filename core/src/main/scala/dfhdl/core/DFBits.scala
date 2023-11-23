@@ -611,32 +611,29 @@ object DFBits:
       given fromDFBitsTokenCandidate[R, IC <: Token.Candidate[R]](using ic: IC): Candidate[R] with
         type OutW = ic.OutW
         def apply(arg: R)(using DFC): DFValOf[DFBits[OutW]] =
-          DFVal.Const(ic(arg))
+          DFVal.Const(ic(arg), named = true)
 
       private[Val] def valueToBits(value: Any)(using dfc: DFC): DFValOf[DFBits[Int]] =
         import DFBits.Val.Ops.concatBits
-        given dfcAnon: DFC = dfc.anonymize
+        val dfcAnon = dfc.anonymize
         value match
           case x: NonEmptyTuple =>
-            x.toList.map(valueToBits).concatBits
+            x.toList.map(x => valueToBits(x)(using dfcAnon)).concatBits
           case i: Int =>
-            DFVal.Const(Token(1, BitVector.bit(i > 0), BitVector.zero))
+            DFVal.Const(Token(1, BitVector.bit(i > 0), BitVector.zero), named = true)
           case token: DFToken[_] =>
             val tokenIR = token.asIR
             val tokenOut = tokenIR.dfType match
               case _: ir.DFBits => tokenIR.asTokenOf[DFBits[Int]]
               case _            => tokenIR.bits.asTokenOf[DFBits[Int]]
-            DFVal.Const(tokenOut)
+            DFVal.Const(tokenOut, named = true)
           case dfVal: DFVal[_, _] =>
             import DFVal.Ops.bits
             val dfValIR = dfVal.asIR
             dfValIR.dfType match
               case _: ir.DFBits => dfValIR.asValOf[DFBits[Int]]
               case _ =>
-                dfValIR.asValAny
-                  .bits(using Width.wide)
-                  .asIR
-                  .asValOf[DFBits[Int]]
+                dfValIR.asValAny.bits(using Width.wide).asValOf[DFBits[Int]]
         end match
       end valueToBits
       transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[R] = ${ DFBitsMacro[R] }
@@ -679,12 +676,11 @@ object DFBits:
       ): TC[DFBits[LW], V] with
         def conv(dfType: DFBits[LW], value: V)(using dfc: Ctx): DFValOf[DFBits[LW]] =
           import Ops.resizeBits
-          given DFC = dfc.anonymize
           val dfVal = ic(value)
           if (dfVal.hasTag[DFVal.TruncateTag] && dfType.width < dfVal.width)
-            dfVal.resizeBits(dfType.width)
+            dfVal.anonymize.resizeBits(dfType.width)
           else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.width > dfVal.width)
-            dfVal.resizeBits(dfType.width)
+            dfVal.anonymize.resizeBits(dfType.width)
           else
             check(dfType.width, dfVal.width)
             dfVal.asValOf[DFBits[LW]]
@@ -692,7 +688,7 @@ object DFBits:
       given DFBitsFromSEV[LW <: Int, T <: BitOrBool, V <: SameElementsVector[T]]: TC[DFBits[LW], V]
       with
         def conv(dfType: DFBits[LW], value: V)(using Ctx): DFValOf[DFBits[LW]] =
-          DFVal.Const(Token(dfType.width, value))
+          DFVal.Const(Token(dfType.width, value), named = true)
     end TC
 
     object Compare:
@@ -705,7 +701,7 @@ object DFBits:
           castling: ValueOf[C]
       ): Compare[DFBits[LW], R, Op, C] with
         def conv(dfType: DFBits[LW], arg: R)(using Ctx): DFValOf[DFBits[LW]] =
-          val dfValArg = ic(arg)(using dfc.anonymize)
+          val dfValArg = ic(arg)
           check(dfType.width, dfValArg.dfType.width)
           dfValArg.asValOf[DFBits[LW]]
       given DFBitsCompareSEV[
@@ -719,7 +715,7 @@ object DFBits:
           ValueOf[C]
       ): Compare[DFBits[LW], V, Op, C] with
         def conv(dfType: DFBits[LW], arg: V)(using Ctx): DFValOf[DFBits[LW]] =
-          DFVal.Const(Token(dfType.width, arg))
+          DFVal.Const(Token(dfType.width, arg), named = true)
       end DFBitsCompareSEV
     end Compare
 
@@ -727,7 +723,7 @@ object DFBits:
     object TupleOps:
       // explicit conversion of a tuple to bits (conctatenation)
       extension (inline tpl: NonEmptyTuple)
-        transparent inline def toBits(using dfc: DFC): Any = ${ bitsMacro('tpl) }
+        transparent inline def toBits: Any = ${ bitsMacro('tpl) }
       private def bitsMacro(tpl: Expr[NonEmptyTuple])(using Quotes): Expr[Any] =
         import quotes.reflect.*
         val tplTerm = tpl.asTerm.exactTerm
@@ -842,7 +838,7 @@ object DFBits:
             c: DFUInt.Val.UBArg[W, Idx],
             dfc: DFC
         ): DFVal[DFBit, Modifier[A, Any, Any]] = trydf {
-          DFVal.Alias.ApplyIdx(DFBit, lhs, c(lhs.width, relIdx))
+          DFVal.Alias.ApplyIdx(DFBit, lhs, c(lhs.width, relIdx)(using dfc.anonymize))
         }
         def apply[H <: Int, L <: Int](
             relBitHigh: Inlined[H],
@@ -886,7 +882,7 @@ object DFBits:
             c: DFUInt.Val.UBArg[W, R],
             dfc: DFC
         ): DFValOf[DFBits[W]] = trydf {
-          val shiftVal = c(lhs.width, shift)
+          val shiftVal = c(lhs.width, shift)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shiftVal))
         }
         @targetName("shiftLeftDFBits")
@@ -894,7 +890,7 @@ object DFBits:
             c: DFUInt.Val.UBArg[W, R],
             dfc: DFC
         ): DFValOf[DFBits[W]] = trydf {
-          val shiftVal = c(lhs.width, shift)
+          val shiftVal = c(lhs.width, shift)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
         }
       end extension

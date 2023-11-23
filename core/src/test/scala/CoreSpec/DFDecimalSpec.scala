@@ -2,8 +2,6 @@ package CoreSpec
 import dfhdl.*
 import munit.*
 
-import scala.annotation.implicitNotFound
-
 class DFDecimalSpec extends DFSpec:
   test("Type Construction") {
     val zero = 0

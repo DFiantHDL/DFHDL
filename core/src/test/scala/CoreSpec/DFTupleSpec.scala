@@ -53,6 +53,8 @@ class DFTupleSpec extends DFSpec:
     val t11: Bit <> VAL = !t2._1._2
     val t12: UInt[8] <> VAL = t9(0)
     val t13: (UInt[8], Bit) <> VAL = (8, 1)
+    // TODO: this needs to work
+    // val t14: (Bits[Int], Bit) <> VAL = (all(0), 1)
   }
 
   test("Inlined width") {

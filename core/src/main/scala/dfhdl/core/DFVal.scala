@@ -91,16 +91,14 @@ def DFValConversionMacro[T <: DFTypeAny, R](
     val tc = compiletime.summonInline[DFVal.TC[T, fromExactType.Underlying]]
     val dfc = compiletime.summonInline[DFC]
     val dfType = compiletime.summonInline[T]
-    val ctName = compiletime.summonInline[CTName]
-    trydf { tc(dfType, $fromExactExpr)(using dfc) }(using dfc, ctName)
+    tc(dfType, $fromExactExpr)(using dfc)
   }
   Type.of[T] match
     case '[DFBits[Int]] =>
       '{
         val ic = compiletime.summonInline[DFBits.Val.Candidate[fromExactType.Underlying]]
         val dfc = compiletime.summonInline[DFC]
-        val ctName = compiletime.summonInline[CTName]
-        trydf { ic($fromExactExpr)(using dfc).asValOf[T] }(using dfc, ctName)
+        ic($fromExactExpr)(using dfc).asValOf[T]
       }
     case _ => withTC
   end match
@@ -179,13 +177,11 @@ object DFVal extends DFValLP:
         DFVal.Compare[T, exactType.Underlying, Op, false]
       ]
       val dfc = compiletime.summonInline[DFC]
-      trydf {
-        c($dfVal, $exactExpr)(using
-          dfc,
-          compiletime.summonInline[ValueOf[Op]],
-          new ValueOf[false](false)
-        )
-      }(using dfc)
+      c($dfVal, $exactExpr)(using
+        dfc,
+        compiletime.summonInline[ValueOf[Op]],
+        new ValueOf[false](false)
+      )
     }
   end equalityMacro
 
@@ -238,8 +234,9 @@ object DFVal extends DFValLP:
     def anonymize(using dfc: DFC): DFVal[T, M] =
       import dfc.getSet
       dfVal.asIR match
-        case dcl: ir.DFVal.Dcl => dfVal
-        case dfValIR           => dfValIR.setMeta(m => m.anonymize).asVal[T, M]
+        case dfValIR: (ir.DFVal.Alias | ir.DFVal.Const | ir.DFVal.Func) =>
+          dfValIR.setMeta(m => m.anonymize).asVal[T, M]
+        case _ => dfVal
   end extension
 
   case object ExtendTag extends ir.DFTagOf[ir.DFVal]
@@ -276,12 +273,6 @@ object DFVal extends DFValLP:
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
     ???
-  // implicit inline def DFValConversionExact[T <: DFTypeAny, R <: ExactTypes](
-  //     from: R
-  // )(using dfType: T, es: Exact.Summon[R, from.type])(using
-  //     tc: TC[T, es.Out],
-  //     dfc: DFC
-  // ): DFValOf[T] = trydf { tc(dfType, es(from)) }
 
   // opaque values need special conversion that does not try to summon the opaque dftype
   // because it can be abstract in extension methods that are applied generically on an abstract
@@ -300,26 +291,6 @@ object DFVal extends DFValLP:
       R <:< T
   ): Conversion[DFValOf[DFOpaque[R]], DFValOf[DFOpaque[T]]] = from =>
     from.asInstanceOf[DFValOf[DFOpaque[T]]]
-
-  // given DFValConversion[T <: DFTypeAny, R](using dfType: T)(using
-  //     tc: TC[T, R],
-  //     dfc: DFC
-  // ): Conversion[R, DFValOf[T]] = from => trydf { tc(dfType, from) }
-
-  // implicit def DFBitsEmpty[T <: DFTypeAny, R](
-  //     from: R
-  // )(using
-  //     ic: DFBits.Val.Candidate[R],
-  //     dfc: DFC
-  // ): DFValOf[DFBits[Int]] = trydf { ic(from).asValOf[DFBits[Int]] }
-
-  // TODO: dfType:T = DFType.Empty in 3.4 and see if no compiler error
-  // implicit def DFValConversion[T <: DFTypeAny, R](
-  //     from: R
-  // )(using dfType: T)(using
-  //     tc: TC[T, R],
-  //     dfc: DFC
-  // ): DFValOf[T] = trydf { tc(dfType, from) }
 
   object Const:
     def apply[T <: DFTypeAny](token: DFToken[T], named: Boolean = false)(using
@@ -522,7 +493,8 @@ object DFVal extends DFValLP:
   trait TC[T <: DFTypeAny, R] extends TCConv[T, R, DFValAny]:
     type Out = DFValOf[T]
     type Ctx = DFC
-    final def apply(dfType: T, value: R)(using DFC): Out = conv(dfType, value)
+    final def apply(dfType: T, value: R)(using DFC): Out = trydf:
+      conv(dfType, value)
 
   trait TCLP:
     // Accept OPEN in compile-time, but throw exception where it should not be used
@@ -534,7 +506,7 @@ object DFVal extends DFValLP:
         tokenTC: DFToken.TC[T, V]
     ): TC[T, V] with
       def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
-        Const(tokenTC(dfType, value))
+        Const(tokenTC(dfType, value), named = true)
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
         r: ShowType[R]
@@ -565,7 +537,7 @@ object DFVal extends DFValLP:
           dfType == value.dfType,
           s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
         )
-        DFVal.Const(value)
+        DFVal.Const(value, named = true)
   end TCLP
   object TC extends TCLP:
     export DFBoolOrBit.Val.TC.given
@@ -592,8 +564,8 @@ object DFVal extends DFValLP:
         DFC,
         ValueOf[Op],
         ValueOf[C]
-    ): DFValOf[DFBool] =
-      val dfValArg = conv(dfVal.dfType, arg)
+    ): DFValOf[DFBool] = trydf:
+      val dfValArg = conv(dfVal.dfType, arg)(using dfc.anonymize)
       func(dfVal, dfValArg)
   end Compare
   trait CompareLP:
@@ -641,7 +613,7 @@ object DFVal extends DFValLP:
           dfType == arg.dfType,
           s"Cannot compare DFHDL value type `${dfType.codeString}` with DFHDL value type `${arg.dfType.codeString}`."
         )
-        DFVal.Const(arg)
+        DFVal.Const(arg, named = true)
     end sameValAndTokenType
   end CompareLP
   object Compare extends CompareLP:

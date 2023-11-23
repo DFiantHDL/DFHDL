@@ -218,7 +218,7 @@ object DFTuple:
         def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)
-          DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
+          DFVal.Func(dfType, FuncOp.++, dfVals)
     end TC
 
     object Compare:
@@ -234,7 +234,7 @@ object DFTuple:
         def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)
-          DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
+          DFVal.Func(dfType, FuncOp.++, dfVals)
     end Compare
 
     object Ops:

@@ -70,7 +70,7 @@ def trydf[T <: DFTypeAny, M <: ModifierAny](
   try
     val ret = block
     import dfc.getSet
-    val retIR = dfc.getSet.set(ret.asIR)(_.setMeta(_ => dfc.getMeta))
+    val retIR = ret.asIR
     retIR.asVal[T, M]
   catch
     case e: Exception =>

@@ -98,7 +98,7 @@ object DFOpaque:
           DFC
       ): DFValOf[DFVector[A, Tuple1[Int]]] =
         val dfType = DFVector(dfVals.head.dfType, Tuple1(dfVals.size))
-        DFVal.Func(dfType, DFVal.Func.Op.++, dfVals.toList)(using dfc.anonymize)
+        DFVal.Func(dfType, DFVal.Func.Op.++, dfVals.toList)
       extension [A <: DFTypeAny](lhs: Iterable[DFValOf[A]])
         transparent inline def as[Comp <: AnyRef](
             tfeComp: Comp
@@ -144,13 +144,11 @@ object DFOpaque:
               '{
                 val tc = compiletime.summonInline[DFVal.TC[aType.Underlying, lhsType.Underlying]]
                 val ctx = compiletime.summonInline[tc.Ctx]
-                trydf {
-                  DFVal.Alias.AsIs(
-                    DFOpaque[tfeType.Underlying]($tfe),
-                    tc($aExpr, $lhsExpr)(using ctx),
-                    Token.forced[tfeType.Underlying]($tfe, _)
-                  )(using ctx)
-                }(using ctx)
+                DFVal.Alias.AsIs(
+                  DFOpaque[tfeType.Underlying]($tfe),
+                  tc($aExpr, $lhsExpr)(using ctx),
+                  Token.forced[tfeType.Underlying]($tfe, _)
+                )(using ctx)
               }
             else
               '{

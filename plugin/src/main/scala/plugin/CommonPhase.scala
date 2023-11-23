@@ -147,9 +147,7 @@ abstract class CommonPhase extends PluginPhase:
 
   extension (tree: Apply)(using Context)
     def isContextDelegate: Boolean =
-      tree.symbol.annotations.exists(
-        _.symbol.name.toString == "metaContextDelegate"
-      )
+      tree.symbol.hasAnnotation(requiredClass("dfhdl.internals.metaContextDelegate"))
 
   extension (tree: ValOrDefDef)(using Context)
     def ident: Tree =
