@@ -25,6 +25,6 @@ object Modifier:
 end Modifier
 
 final type VAL = Modifier[Any, Any, Any]
-sealed trait RET
+sealed trait DFRET
 
 val OPEN = Exact(ir.OpenConnectTag)

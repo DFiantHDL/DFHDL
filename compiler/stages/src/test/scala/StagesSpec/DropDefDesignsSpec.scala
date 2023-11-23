@@ -14,7 +14,7 @@ class DropDefDesignsSpec extends StageSpec:
         * @param arg
         * @return
         */
-      def test(arg: UInt[32] <> VAL): UInt[32] <> RET =
+      def test(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
         arg + arg
       o := test(data + 1)
       val x = test(data)

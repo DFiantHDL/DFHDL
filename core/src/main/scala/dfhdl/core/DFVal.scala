@@ -46,7 +46,7 @@ sealed trait TOKEN
 type <>[T <: DFType.Supported | Int, M] = T match
   case DFType.Supported =>
     M match
-      case RET   => DFC ?=> DFValOf[DFType.Of[T]]
+      case DFRET => DFC ?=> DFValOf[DFType.Of[T]]
       case VAL   => DFValOf[DFType.Of[T]]
       case TOKEN => DFToken[DFType.Of[T]]
   // Int is also special cased by the compiler plugin

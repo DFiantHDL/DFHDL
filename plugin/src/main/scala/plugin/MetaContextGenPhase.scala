@@ -398,7 +398,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           !sym.isAnonymousFunction && !(sym is Exported) && tree.dfValTpeOpt.nonEmpty && dfValArgs.nonEmpty
         )
           report.error(
-            "Must use a `<> RET` modifier for a DFHDL function return type.",
+            "Must use a `<> DFRET` modifier for a DFHDL function return type.",
             tree.tpt.srcPos
           )
         tree

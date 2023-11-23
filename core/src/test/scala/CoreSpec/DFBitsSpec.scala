@@ -144,7 +144,7 @@ class DFBitsSpec extends DFSpec:
       val t7: Bits[w.type] <> VAL = b"11"
       val t8: Bits[8] <> VAL = (b"100", 1, h"9")
       val t9: Bits[Int] <> VAL = (b"100", 1, h"9")
-      def twice(value: Bits[Int] <> VAL): Bits[Int] <> RET = (value, value)
+      def twice(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
       val t10 = twice(t1)
       assert(t10.width == 16)
     }

@@ -4,7 +4,7 @@ import dfhdl.*
 import core.asValOf
 import internals.IntInfo
 
-def prioEncRecur(value: Bits[Int] <> VAL): Bits[Int] <> RET =
+def prioEncRecur(value: Bits[Int] <> VAL): Bits[Int] <> DFRET =
   val width = value.width
   if (width == 1) value
   else
@@ -15,6 +15,6 @@ def prioEncRecur(value: Bits[Int] <> VAL): Bits[Int] <> RET =
 
 @inline def prioEnc[W <: Int](value: Bits[W] <> VAL)(using
     info: IntInfo[W]
-): Bits[info.OutW] <> RET =
+): Bits[info.OutW] <> DFRET =
   val ret = prioEncRecur(value)
   ret.asValOf[Bits[info.OutW]]

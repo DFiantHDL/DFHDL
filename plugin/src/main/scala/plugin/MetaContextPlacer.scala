@@ -121,7 +121,7 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
         case _ => super.transformMoreCases(tree)
 
   object IntConnVAL:
-    private val acceptedModifiers = Set("VAL", "RET")
+    private val acceptedModifiers = Set("VAL", "DFRET")
     def unapply(tree: InfixOp)(using Context): Option[InfixOp] =
       tree match
         case InfixOp(Ident(intName), c @ Ident(connName), v @ Ident(valName))

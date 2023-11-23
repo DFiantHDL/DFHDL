@@ -17,7 +17,7 @@ extension [ET <: DFType, RN <: Int with Singleton, CT <: Column[ET, RN]](
   def colType: CT = col.opaqueType
   def rowNum: RN = colType.rowNum
   def elemType: ET = colType.elemType
-  @inline def mapElements(f: ET <> VAL => ET <> VAL): CT <> RET = col.actual.elements.as(colType)
+  @inline def mapElements(f: ET <> VAL => ET <> VAL): CT <> DFRET = col.actual.elements.as(colType)
 
 abstract class Matrix[
     CN <: Int with Singleton,
@@ -41,13 +41,13 @@ extension [
   @targetName("matRowNum")
   def rowNum: RN = colType.rowNum
   def colNum: CN = matType.colNum
-  @inline def apply(colIdx: Int): CT <> RET = matrix.actual(colIdx)
-  @inline def apply(rowIdx: Int, colIdx: Int): ET <> RET = matrix.actual(colIdx).actual(rowIdx)
-  @inline def mapElementsViaIndexes(f: (Int, Int) => ET <> VAL): MT <> RET =
+  @inline def apply(colIdx: Int): CT <> DFRET = matrix.actual(colIdx)
+  @inline def apply(rowIdx: Int, colIdx: Int): ET <> DFRET = matrix.actual(colIdx).actual(rowIdx)
+  @inline def mapElementsViaIndexes(f: (Int, Int) => ET <> VAL): MT <> DFRET =
     Vector
       .tabulate(colNum, rowNum)(f)
       .map(_.as(colType)).as(matType)
-  @inline def mapColumnsViaIndex(f: Int => Vector[ET <> VAL]): MT <> RET =
+  @inline def mapColumnsViaIndex(f: Int => Vector[ET <> VAL]): MT <> DFRET =
     Vector
       .tabulate(colNum)(x => f(x).as(colType))
       .as(matType)

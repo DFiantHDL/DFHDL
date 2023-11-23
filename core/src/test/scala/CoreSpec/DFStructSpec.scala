@@ -13,7 +13,7 @@ class DFStructSpec extends DFSpec:
   ) extends Struct
   val cc = new CCs(8)
   import cc.{XY, XYZ}
-  @inline def test(t: XY <> VAL): XY <> RET =
+  @inline def test(t: XY <> VAL): XY <> DFRET =
     t match
       case XY(all(0), y) if y == 22 => t
       case o: XY                    => t

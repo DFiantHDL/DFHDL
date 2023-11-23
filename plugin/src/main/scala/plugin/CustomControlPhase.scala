@@ -286,7 +286,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           Some(dfType)
         case AppliedType(t, List(arg, mod))
             if t.typeSymbol.name.toString == "<>" &&
-              (mod <:< requiredClassRef("dfhdl.VAL") || mod <:< requiredClassRef("dfhdl.RET")) =>
+              (mod <:< requiredClassRef("dfhdl.VAL") || mod <:< requiredClassRef("dfhdl.DFRET")) =>
           arg match
             case dfType @ DFType(_, _)      => Some(dfType)
             case DFTupleVal(DFVal(dfType))  => Some(dfType)

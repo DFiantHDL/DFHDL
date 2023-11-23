@@ -100,9 +100,6 @@ object __For_Plugin:
     }
     dfc.mutableDB.OwnershipContext.saveDefInputs(inputs)
     val ret = func
-    // TODO: examine context generation rules to if this anonymization is
-    // supposed to exist
-    ret.anonymize
     val retMeta = ret.asIR.meta
     val output = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setMeta(retMeta.setName("o")))
     output.connect(ret)(using dfc.setMeta(retMeta.anonymize))
