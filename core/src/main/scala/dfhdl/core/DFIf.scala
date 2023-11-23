@@ -37,33 +37,48 @@ object DFIf:
   )(using DFC): R = try
     val header = Header(NoType)
     val dfcAnon = summon[DFC].anonymize
+    var branchTypes = List.empty[ir.DFType]
     // creating a hook to save the return value for the first branch run
     var firstIfRet: Option[R] = None
     val firstIfRun: () => R = () =>
       firstIfRet = Some(branches.head._2())
       firstIfRet.get
     val firstIf = singleBranch(Some(branches.head._1), header, firstIfRun)
-    val midIfs =
-      branches.drop(1).foldLeft(firstIf) { case ((prevDFType, prevBlock), branch) =>
+    branchTypes = firstIf._1.asIR :: branchTypes
+    val midIfsBlock =
+      branches.drop(1).foldLeft(firstIf._2) { case (prevBlock, branch) =>
         val (dfType, block) =
           singleBranch(Some(branch._1), prevBlock, branch._2)(using dfcAnon)
-        val commonDFType =
-          if (dfType.asIR == prevDFType.asIR) prevDFType else NoType
-        (commonDFType, block)
+        branchTypes = dfType.asIR :: branchTypes
+        block
       }
-    val retDFType = elseOption
-      .map { e =>
-        val (dfType, _) = singleBranch(None, midIfs._2, e)(using dfcAnon)
-        if (dfType.asIR == midIfs._1.asIR) midIfs._1 else NoType
-      }
-      .getOrElse(midIfs._1)
-    retDFType match
-      case NoType => firstIfRet.get
-      case _ =>
-        val DFVal(headerIR: DFIfHeader) = header: @unchecked
-        val headerUpdate = headerIR.copy(dfType = retDFType.asIR)
-        // updating the type of the if header
-        headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
+    elseOption.foreach { e =>
+      val (dfType, _) = singleBranch(None, midIfsBlock, e)(using dfcAnon)
+      branchTypes = dfType.asIR :: branchTypes
+    }
+    val hasNoType = branchTypes.contains(ir.NoType)
+    // if one branch has NoType, the return type is NoType.
+    // otherwise, all types must be the same.
+    if (hasNoType || branchTypes.allElementsAreEqual)
+      val retDFType = if (hasNoType) ir.NoType else branchTypes.head
+      val DFVal(headerIR: DFIfHeader) = header: @unchecked
+      val headerUpdate = headerIR.copy(dfType = retDFType)
+      // updating the type of the if header
+      headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
+    else // violation
+      given printer: Printer = DefaultPrinter(using dfc.getSet)
+      val err = DFError.Basic(
+        "if",
+        new IllegalArgumentException(
+          s"""|This DFHDL `if` expression has different return types for branches.
+              |These are its branch types in order:
+              |${branchTypes.view.reverse.map(t => printer.csDFType(t)).mkString("\n")}
+              |""".stripMargin
+        )
+      )
+      dfc.logError(err)
+      err.asVal[DFTypeAny, ModifierAny].asInstanceOf[R]
+    end if
   catch case e: DFError => DFVal(DFError.Derived(e)).asInstanceOf[R]
   end fromBranches
 

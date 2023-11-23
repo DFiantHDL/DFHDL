@@ -172,4 +172,17 @@ class DFIfSpec extends DFSpec:
         (if (i) i else i) || rs0
     }
   }
+  test("Different return widths error") {
+    assertRuntimeError(
+      """|This DFHDL `if` expression has different return types for branches.
+         |These are its branch types in order:
+         |Bits(2)
+         |Bits(3)
+         |""".stripMargin
+    ) {
+      val res: Bits[Int] <> VAL =
+        if (i) b"11"
+        else b"111"
+    }
+  }
 end DFIfSpec
