@@ -100,7 +100,15 @@ abstract class CommonPhase extends PluginPhase:
         case tr: TermRef        => tr.underlying.dealias
         case ann: AnnotatedType => ann.parent.simple
         case _                  => tpe.dealias
-
+    @tailrec private def flattenConsTuple(pastArgs: List[Type]): Type = tpe.stripAnnots match
+      case emptyTuple if emptyTuple.typeSymbol == defn.EmptyTupleModule =>
+        AppliedType(requiredClassRef(s"scala.Tuple${pastArgs.length}"), pastArgs.reverse)
+      case AppliedType(tycon, head :: next :: Nil) if tycon.typeSymbol == defn.PairClass =>
+        next.flattenConsTuple(head :: pastArgs)
+      case _ =>
+        tpe
+    def flattenConsTuple: Type = tpe.flattenConsTuple(Nil)
+  end extension
   extension (tp: Type)(using Context)
     def dfcFuncTpeOptRecur: Option[Type] =
       tp.dealias match

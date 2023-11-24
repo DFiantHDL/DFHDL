@@ -350,7 +350,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           report.error(e.getMessage, tuple.srcPos)
           None
     def unapply(arg: Type)(using Context): Option[Type] =
-      arg.simple match
+      arg.simple.flattenConsTuple match
         case AppliedType(tpl, args) if tpl <:< defn.TupleTypeRef && args.nonEmpty =>
           val argsConv = args.map {
             case v @ DFVal(_)   => Some(v)
@@ -650,6 +650,12 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                 }
                 .toList
             FromCore.patternStruct("", dfPatterns)
+          case DFStruct(x) if x <:< defn.TupleTypeRef =>
+            report.error(
+              s"Found a Scala match/extractor with a DFHDL tuple value selector.\nApply `.toScalaTuple` on the selector to resolve this error.",
+              patternTree.srcPos
+            )
+            EmptyTree
           case _ =>
             report.error(
               s"Found a tuple pattern but the match selector is not a tuple.",
