@@ -254,6 +254,10 @@ object DFTuple:
           .SelectField(t, s"_${i + 1}")
           .asIR
           .asVal[OT, M]
+        def toScalaTuple(using dfc: DFC, size: ValueOf[Tuple.Size[T]]): T =
+          given DFC = dfc.anonymize
+          val elements = Array.tabulate(size)(applyForced)
+          Tuple.fromArray(elements).asInstanceOf[T]
       end extension
 //      extension [T1 <: DFTypeAny, M <: ModifierAny](
 //          t: DFVal[DFTuple[Tuple1[DFValOf[T1]]], M]
