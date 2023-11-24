@@ -77,6 +77,9 @@ class PluginSpec extends DFSpec:
   val bar_vec2 = Vector.fill(3)(new Bar)
   assertLastNames("bar_vec2", "bar_vec2", "bar_vec2")
 
+  val (barTuple1, barTuple2, barTuple3) = (new Bar, new Bar, new Bar)
+  assertLastNames("barTuple1", "barTuple2", "barTuple3")
+
   inline def wrapper(inline block: DFC ?=> Bar)(using dfc: DFC): Bar =
     block(using dfc)
 

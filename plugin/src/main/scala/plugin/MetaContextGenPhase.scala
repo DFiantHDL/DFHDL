@@ -418,13 +418,43 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)
     ctx
 
+  // This is requires for situations like:
+  // val (a, b) = (foo(using DFC), foo(using DFC))
+  // It is desugared into:
+  // val $num$ = (foo(using DFC), foo(using DFC))
+  // val a = $num$._1
+  // val b = $num$._2
+  // Since we need the `a` and `b` trees to be the name owners,
+  // we go over the desugared Stats and run `nameValOrDef` accordingly.
+  override def prepareForStats(trees: List[Tree])(using Context): Context =
+    var tupleArgs: List[Tree] = Nil
+    var idx = 0
+    def isSyntheticTuple(sym: Symbol) =
+      val symName = sym.name.toString
+      symName.startsWith("$") && symName.endsWith("$")
+
+    trees.foreach {
+      case vd @ ValDef(_, _, Apply(_: TypeApply, args))
+          if vd.tpe <:< defn.TupleTypeRef && isSyntheticTuple(vd.symbol) =>
+        tupleArgs = args
+      case vd @ ValDef(_, _, Select(x, sel))
+          if tupleArgs.nonEmpty && x.tpe <:< defn.TupleTypeRef &&
+            isSyntheticTuple(x.symbol) && sel.toString.startsWith("_") =>
+        nameValOrDef(tupleArgs(idx), vd, vd.tpt.tpe.simple, None)
+        idx = idx + 1
+        if (idx == tupleArgs.length) tupleArgs = Nil
+      case _ =>
+    }
+    ctx
+  end prepareForStats
+
   private val inlinedName = "(.*)_this".r
   override def prepareForValDef(tree: ValDef)(using Context): Context =
     tree.name.toString match
-      case n if n.contains("$proxy") => // do nothing
-      case _ if tree.mods.is(Param)  => // do nothing
-      case _ if tree.rhs.isEmpty     => // do nothing
-      case _                         =>
+      case n if n.contains("$")     => // do nothing
+      case _ if tree.mods.is(Param) => // do nothing
+      case _ if tree.rhs.isEmpty    => // do nothing
+      case _                        =>
         // debug("================================================")
         // debug(s"prepareForValDef: ${tree.name}")
         nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)
@@ -445,4 +475,5 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     contextDefs.clear()
     inlinedOwnerStack.clear()
     ctx
+  end prepareForUnit
 end MetaContextGenPhase
