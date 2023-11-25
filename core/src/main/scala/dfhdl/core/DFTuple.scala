@@ -239,7 +239,7 @@ object DFTuple:
 
     object Ops:
       import DFBits.BitIndex
-      extension [T <: NonEmptyTuple, M <: ModifierAny](t: DFVal[DFTuple[T], M])
+      extension [T <: NonEmptyTuple, M <: ModifierAny](dfTupleVal: DFVal[DFTuple[T], M])
         def apply[I <: Int](i: Inlined[I])(using
             dfc: DFC,
             check: BitIndex.Check[I, Tuple.Size[T]],
@@ -251,14 +251,40 @@ object DFTuple:
         private[core] def applyForced[OT <: DFTypeAny](i: Int)(using
             dfc: DFC
         ): DFVal[OT, M] = DFVal.Alias
-          .SelectField(t, s"_${i + 1}")
+          .SelectField(dfTupleVal, s"_${i + 1}")
           .asIR
           .asVal[OT, M]
         def toScalaTuple(using dfc: DFC, size: ValueOf[Tuple.Size[T]]): T =
           given DFC = dfc.anonymize
           val elements = Array.tabulate(size)(applyForced)
           Tuple.fromArray(elements).asInstanceOf[T]
+        transparent inline def asScalaTuple(using dfc: DFC): NonEmptyTuple =
+          ${ asScalaTupleMacro('dfTupleVal, 'dfc) }
       end extension
+
+      protected[core] def asScalaTupleMacro[T <: NonEmptyTuple, M <: ModifierAny](using
+          Quotes,
+          Type[T],
+          Type[M]
+      )(
+          dfTupleVal: Expr[DFVal[DFTuple[T], M]],
+          dfc: Expr[DFC]
+      ): Expr[NonEmptyTuple] =
+        import quotes.reflect.*
+        val tTpe = TypeRepr.of[T]
+        val tplTypeArgs = tTpe.dealias.getTupleArgs
+        val tplApply = Symbol.requiredMethod(s"scala.Tuple${tplTypeArgs.length}.apply")
+        def applyForcedTerm(idx: Int): Term =
+          tplTypeArgs(idx).asTypeOf[Any] match
+            case '[DFValOf[t]] =>
+              '{ ${ dfTupleVal }.applyForced[t](${ Expr(idx) })(using $dfc) }.asTerm
+        val tplTermArgs = List.tabulate(tplTypeArgs.length)(applyForcedTerm)
+        Ref(tplApply)
+          .appliedToTypes(tplTypeArgs)
+          .appliedToArgs(tplTermArgs)
+          .asExprOf[NonEmptyTuple]
+      end asScalaTupleMacro
+
 //      extension [T1 <: DFTypeAny, M <: ModifierAny](
 //          t: DFVal[DFTuple[Tuple1[DFValOf[T1]]], M]
 //      )

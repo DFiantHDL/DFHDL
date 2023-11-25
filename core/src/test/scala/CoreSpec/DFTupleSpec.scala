@@ -31,6 +31,8 @@ class DFTupleSpec extends DFSpec:
        |val t13 = (d"8'8", 1)
        |val t14 = t1._1
        |val t15 = t2._1
+       |val t16 = t13._1
+       |val t17 = t13._2
        |""".stripMargin
   ) {
     val t1: (UInt[8], Bit, Bits[3]) <> VAL =
@@ -56,6 +58,7 @@ class DFTupleSpec extends DFSpec:
     val t12: UInt[8] <> VAL = t9(0)
     val t13: (UInt[8], Bit) <> VAL = (8, 1)
     val (t14, t15) = (t1(0), t2._1)
+    val (t16, t17) = t13.asScalaTuple
     // TODO: this needs to work
     // val t14: (Bits[Int], Bit) <> VAL = (all(0), 1)
   }
