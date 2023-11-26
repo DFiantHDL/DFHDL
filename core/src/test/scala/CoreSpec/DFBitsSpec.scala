@@ -205,6 +205,15 @@ class DFBitsSpec extends DFSpec:
     ) {
       b8 := v12
     }
+    assertDSLErrorLog(
+      """|The argument width (12) is different than the receiver width (8).
+         |Consider applying `.resize` to resolve this issue.""".stripMargin
+    )(
+      """val conv8: Bits[8] <> VAL = h"123""""
+    ) {
+      val w = 8
+      val conv8: Bits[w.type] <> VAL = h"123"
+    }
   }
   test("DFVal Selection") {
     val b8 = Bits(8) <> VAR

@@ -91,14 +91,18 @@ def DFValConversionMacro[T <: DFTypeAny, R](
     val tc = compiletime.summonInline[DFVal.TC[T, fromExactType.Underlying]]
     val dfc = compiletime.summonInline[DFC]
     val dfType = compiletime.summonInline[T]
-    tc(dfType, $fromExactExpr)(using dfc)
+    trydf {
+      tc(dfType, $fromExactExpr)(using dfc)
+    }(using dfc, compiletime.summonInline[CTName])
   }
   Type.of[T] match
     case '[DFBits[Int]] =>
       '{
         val ic = compiletime.summonInline[DFBits.Val.Candidate[fromExactType.Underlying]]
         val dfc = compiletime.summonInline[DFC]
-        ic($fromExactExpr)(using dfc).asValOf[T]
+        trydf {
+          ic($fromExactExpr)(using dfc).asValOf[T]
+        }(using dfc, compiletime.summonInline[CTName])
       }
     case _ => withTC
   end match

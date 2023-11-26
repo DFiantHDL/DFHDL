@@ -33,4 +33,8 @@ trait MetaContext:
     nameOpt.getOrElse(s"anon${this.hashString}")
 end MetaContext
 
+//annotating a function with `metaContextForward` causes the plugin to try
+//and apply a named ownership to its argument as defined by the
+//index  `argIdx` (considering flattened arguments blocks)
+class metaContextForward(argIdx: Int) extends scala.annotation.StaticAnnotation
 class metaContextDelegate extends scala.annotation.StaticAnnotation

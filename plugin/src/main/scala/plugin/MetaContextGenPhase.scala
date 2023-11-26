@@ -34,6 +34,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var designFromDefSym: Symbol = _
   var designFromDefGetInputSym: Symbol = _
   var inlineAnnotSym: Symbol = _
+  var metaContextForwardAnnotSym: ClassSymbol = _
   val treeOwnerMap = mutable.Map.empty[Apply, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   var clsStack = List.empty[TypeDef]
@@ -205,6 +206,17 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     // debug("<---------------->")
     treeOwnerMap += (apply -> ownerTree)
 
+  object ApplyArgForward:
+    def unapply(tree: Apply)(using Context): Option[Tree] =
+      // checking for meta forwarding
+      tree.fun.symbol.getAnnotation(metaContextForwardAnnotSym).flatMap { annot =>
+        annot.tree match
+          case Apply(_, List(Literal(Constant(argIdx: Int)))) =>
+            val ApplyFunArgs(_, args) = tree: @unchecked
+            Some(args.flatten.toList(argIdx))
+          case _ => None
+      }
+
   @tailrec private def nameValOrDef(
       tree: Tree,
       ownerTree: Tree,
@@ -225,6 +237,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case Apply(_, List(Block(List(defdef: DefDef), _: Closure))) =>
         // debug("Map/For")
         nameValOrDef(defdef.rhs, ownerTree, defdef.rhs.tpe.simple)
+      case ApplyArgForward(tree) =>
+        nameValOrDef(tree, ownerTree, typeFocus)
       case apply: Apply =>
         // debug("Apply done!")
         // ignoring anonymous method unless it has a context argument
@@ -329,21 +343,18 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 //    debug("pos--->  ", tree.srcPos.show)
 //    debug(tree.show)
     tree match
+      case ApplyArgForward(tree) => inlinePos(tree, inlinedTree)
       case apply: Apply =>
         if (!inlinedOwnerMap.contains(apply) && !inlinedTree.call.isEmpty)
           // debug("INLINE:")
           // debug("from", apply.srcPos.show)
           // debug("to  ", inlinedTree.srcPos.show)
           inlinedOwnerMap += (apply -> inlinedTree)
-      case Typed(tree, _) =>
-        inlinePos(tree, inlinedTree)
-      case TypeApply(Select(tree, _), _) =>
-        inlinePos(tree, inlinedTree)
-      case Inlined(_, _, tree) =>
-        inlinePos(tree, inlinedTree)
-      case block: Block =>
-        inlinePos(block.expr, inlinedTree)
-      case _ =>
+      case Typed(tree, _)                => inlinePos(tree, inlinedTree)
+      case TypeApply(Select(tree, _), _) => inlinePos(tree, inlinedTree)
+      case Inlined(_, _, tree)           => inlinePos(tree, inlinedTree)
+      case block: Block                  => inlinePos(block.expr, inlinedTree)
+      case _                             =>
     end match
   end inlinePos
 
@@ -483,6 +494,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     designFromDefGetInputSym = requiredMethod("dfhdl.core.__For_Plugin.designFromDefGetInput")
     dfValSym = requiredClass("dfhdl.core.DFVal")
     dfTokenSym = requiredClass("dfhdl.core.DFToken")
+    metaContextForwardAnnotSym = requiredClass("dfhdl.internals.metaContextForward")
     inlineAnnotSym = requiredClass("scala.inline")
     treeOwnerMap.clear()
     contextDefs.clear()

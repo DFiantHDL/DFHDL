@@ -88,6 +88,12 @@ class PluginSpec extends DFSpec:
   }
   assertLastNames("wrappedName")
 
+  @metaContextForward(0)
+  def forwardContext(block: => Bar)(using DFC) = block
+  val fb = forwardContext(new Bar)
+  assert(fb.nameOpt == Some("fb"))
+  clearNameStack()
+
   val tryName =
     try new Bar
     catch case _ => ???

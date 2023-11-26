@@ -64,6 +64,7 @@ class Logger:
 //    case e: DFError                  => e.asTokenOf[T]
 
 @targetName("tryDFVal")
+@metaContextForward(0)
 def trydf[T <: DFTypeAny, M <: ModifierAny](
     block: => DFVal[T, M]
 )(using dfc: DFC, ctName: CTName): DFVal[T, M] =
@@ -81,6 +82,7 @@ def trydf[T <: DFTypeAny, M <: ModifierAny](
       dfErr.asVal[T, M]
 
 @targetName("tryDFNet")
+@metaContextForward(0)
 def trydf(block: => Unit)(using dfc: DFC, ctName: CTName): Unit =
   try block
   catch
