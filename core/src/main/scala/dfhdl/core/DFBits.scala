@@ -721,7 +721,7 @@ object DFBits:
 
     // this was defined separately from `Ops` to avoid collision with `.bits` used in `Ops`
     object TupleOps:
-      // explicit conversion of a tuple to bits (conctatenation)
+      // explicit conversion of a tuple to bits (concatenation)
       extension (inline tpl: NonEmptyTuple)
         transparent inline def toBits: Any = ${ bitsMacro('tpl) }
       private def bitsMacro(tpl: Expr[NonEmptyTuple])(using Quotes): Expr[Any] =
@@ -733,7 +733,6 @@ object DFBits:
         '{
           Val.Candidate
             .valueToBits($tpl)(using compiletime.summonInline[DFC])
-            .asIR
             .asValOf[DFBits[wType.Underlying]]
         }
     end TupleOps

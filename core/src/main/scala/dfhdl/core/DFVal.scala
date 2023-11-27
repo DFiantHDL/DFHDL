@@ -201,8 +201,7 @@ object DFVal extends DFValLP:
 
   given __refined_dfVal[T <: FieldsOrTuple, A, I](using
       r: DFStruct.Val.Refiner[T, A, I]
-  ): Conversion[DFVal[DFStruct[T], Modifier[A, Any, I]], r.Out] =
-    dfVal => dfVal.asInstanceOf[r.Out]
+  ): Conversion[DFVal[DFStruct[T], Modifier[A, Any, I]], r.Out] = _.asInstanceOf[r.Out]
 
   trait InitCheck[I]
   given [I](using

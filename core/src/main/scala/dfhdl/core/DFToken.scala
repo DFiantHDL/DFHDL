@@ -79,7 +79,7 @@ object DFToken:
 
   given __refined_token[T <: FieldsOrTuple](using
       r: DFStruct.Token.Refiner[T]
-  ): Conversion[DFToken[DFStruct[T]], r.Out] = token => token.asInstanceOf[r.Out]
+  ): Conversion[DFToken[DFStruct[T]], r.Out] = _.asInstanceOf[r.Out]
 
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
     ir.DFToken.bubble(dfType.asIR).asTokenOf[T]
