@@ -132,7 +132,8 @@ class DFBitsSpec extends DFSpec:
          |val t7 = Bits(2) const b"11"
          |val t8 = (b"100", b"1", h"9").toBits
          |val t9 = (b"100", b"1", h"9").toBits
-         |val t10 = twice(t1)
+         |val t10 = (b"100", b"1", h"9").toBits
+         |val t11 = twice(t1)
          |""".stripMargin
     } {
       val t1: Bits[8] <> VAL = all(false)
@@ -144,9 +145,10 @@ class DFBitsSpec extends DFSpec:
       val t7: Bits[w.type] <> VAL = b"11"
       val t8: Bits[8] <> VAL = (b"100", 1, h"9")
       val t9: Bits[Int] <> VAL = (b"100", 1, h"9")
+      val t10 = (b"100", 1, h"9").toBits
       def twice(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
-      val t10 = twice(t1)
-      assert(t10.width == 16)
+      val t11 = twice(t1)
+      assert(t11.width == 16)
     }
   }
   test("Assignment") {

@@ -171,7 +171,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
               // do nothing
               tree
             case _ => // Anonymous
-              tree.replaceArg(argTree, argTree.setMeta(None, srcPos, None, Nil))
+              if (tree.fun.symbol.name.toString.contains("$")) tree
+              else tree.replaceArg(argTree, argTree.setMeta(None, srcPos, None, Nil))
           end match
         case _ => tree
     else tree
@@ -198,12 +199,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     tree
 
   private def addToTreeOwnerMap(apply: Apply, ownerTree: Tree)(using Context): Unit =
-    // debug("<---------------->")
-    // debug("<---   apply  --->")
-    // debug(apply.show)
-    // debug("<--- owned by --->")
+    // debug("~~~~~~~~~~~~~~~~~~~~")
+    // debug(s"Adding: ${apply.show}")
     // debug(ownerTree.show)
-    // debug("<---------------->")
     treeOwnerMap += (apply -> ownerTree)
 
   object ApplyArgForward:
@@ -263,8 +261,13 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case TypeApply(Select(tree, _), _) =>
         // debug("TypeApply")
         nameValOrDef(tree, ownerTree, typeFocus)
-      case inlined @ Inlined(_, _, tree) =>
+      case inlined @ Inlined(_, bindings, tree) =>
         // debug("Inlined")
+        bindings.view.reverse.collectFirst {
+          case vd @ ValDef(_, _, apply: Apply)
+              if vd.dfValTpeOpt.nonEmpty && !vd.symbol.owner.is(Method) =>
+            addToTreeOwnerMap(apply, ownerTree)
+        }
         nameValOrDef(tree, ownerTree, typeFocus)
       case Block((cls @ TypeDef(_, template: Template)) :: _, _) if cls.symbol.isAnonymousClass =>
         // debug("Block done!")
@@ -352,9 +355,15 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           inlinedOwnerMap += (apply -> inlinedTree)
       case Typed(tree, _)                => inlinePos(tree, inlinedTree)
       case TypeApply(Select(tree, _), _) => inlinePos(tree, inlinedTree)
-      case Inlined(_, _, tree)           => inlinePos(tree, inlinedTree)
-      case block: Block                  => inlinePos(block.expr, inlinedTree)
-      case _                             =>
+      case Inlined(_, bindings, tree) =>
+        bindings.view.reverse.collectFirst {
+          case vd @ ValDef(_, _, apply: Apply) if vd.dfValTpeOpt.nonEmpty =>
+            if (!inlinedOwnerMap.contains(apply) && !inlinedTree.call.isEmpty)
+              inlinedOwnerMap += (apply -> inlinedTree)
+        }
+        inlinePos(tree, inlinedTree)
+      case block: Block => inlinePos(block.expr, inlinedTree)
+      case _            =>
     end match
   end inlinePos
 
