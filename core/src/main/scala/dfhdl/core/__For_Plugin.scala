@@ -4,6 +4,7 @@ import DFVal.Func.Op as FuncOp
 import ir.DFConditional.DFCaseBlock.Pattern
 
 import collection.immutable.ListMap
+import dfhdl.internals.metaContextIgnore
 object __For_Plugin:
   def toFunc1[R](block: => R): () => R = () => block
   def toTuple2[T1, T2](t1: T1, t2: T2): (T1, T2) = (t1, t2)
@@ -79,9 +80,10 @@ object __For_Plugin:
       DFC
   ): Pattern =
     Pattern.BindSI(op, parts, bindVals.map(_.asIR.ref))
-
+  @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =
     dfc.mutableDB.OwnershipContext.getDefInputs(idx).asInstanceOf[V]
+  @metaContextIgnore
   def designFromDef[V <: DFValAny](
       args: List[(DFValAny, ir.Meta)],
       dclMeta: ir.Meta
@@ -110,8 +112,9 @@ object __For_Plugin:
       connectInputs()
       DFUnitVal().asInstanceOf[V]
     else
+      val retIdent = DFVal.Alias.AsIs.ident(ret)(using dfc.setMeta(retMeta).anonymize)
       val output = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setMeta(retMeta.setName("o")))
-      output.connect(ret)(using dfc.setMeta(retMeta.anonymize))
+      output.connect(retIdent)(using dfc.setMeta(retMeta.anonymize))
       dfc.exitOwner()
       connectInputs()
       output.asInstanceOf[V]

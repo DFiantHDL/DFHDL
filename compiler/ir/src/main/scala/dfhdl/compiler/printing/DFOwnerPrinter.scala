@@ -23,7 +23,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // so we need to check if it has an output port that is referenced later
         case design: DFDesignBlock if design.instMode == InstMode.Def && design.isAnonymous =>
           design.members(MemberView.Folded).view.reverse.collectFirst { case port @ DclOut() =>
-            // no read dependencies means we need to print it now
+            // no dependencies means the output is not read (referenced later),
+            // so we need to print now
             port.getReadDeps.isEmpty
           }
             // no output port means a Unit return that cannot be referenced,
@@ -48,6 +49,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       .map(_.codeString)
       .filter(_.nonEmpty)
       .emptyOr(_.mkString("\n"))
+  end csDFMembers
   final def csDFOwnerLateBody(owner: DFOwner): String =
     owner.getOwner
       .members(MemberView.Folded)
@@ -155,14 +157,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case net: DFNet if outNetOpt.contains(net) => false
       case _                                     => true
     }
-    val membersCS = csDFMembers(defMembers)
-    val body = retValOpt match
-      case Some(retVal) =>
-        val retValCS =
-          if (retVal.isAnonymous) retVal.codeString
-          else retVal.getName
-        s"${membersCS.emptyOr(_ + "\n")}$retValCS"
-      case None => membersCS
+    val body = csDFMembers(defMembers)
     val localDcls = printer.csLocalTypeDcls(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val defArgList = designMembers.collect { case port @ DclIn() =>

@@ -38,7 +38,7 @@ extension (value: Int) def bitsWidth(signed: Boolean): Int = BigInt(value).bitsW
 class CustomControlPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-  val phaseName = "CustomControlPhase"
+  val phaseName = "CustomControl"
   //  override val debugFilter: String => Boolean =
   //    _.contains("DFMatchSpec.scala")
   override val runsAfter = Set(transform.Pickler.name)

@@ -9,23 +9,31 @@ case object DropDesignDefs extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    val patchList = designDB.designMemberList.collect {
+    val patchList = designDB.designMemberList.flatMap {
       // only going after design definitions
-      case (d @ DFDesignBlock(DomainType.DF, _, InstMode.Def, _, _, _), members) =>
-        // design definitions may be anonymous, so we name them
+      case (design @ DFDesignBlock(DomainType.DF, _, InstMode.Def, _, _, _), members) =>
+        var outPortOpt: Option[DFVal.Dcl] = None
+        // we remove redundant ident that is wrapped around the return value
+        val identRemovePatch = members.view.reverse.collectFirst {
+          case DFNet.Connection(port @ DclOut(), ident @ Ident(retVal), _) =>
+            outPortOpt = Some(port)
+            ident -> Patch.Replace(retVal, Patch.Replace.Config.ChangeRefAndRemove)
+        }.toList
         val updatedName =
-          if (d.isAnonymous)
+          // design definitions may be anonymous, so we name them
+          if (design.isAnonymous)
             // the output port is connected and used in the function and from that
             // we know the target name using `suggestName`
-            val outPort = members.view.reverse.collectFirst {
-              case port @ PortOfDesignDef(DFVal.Modifier.OUT, _) => port
-            }
-            outPort.flatMap(_.suggestName.map(x => x + "_")).getOrElse("") + s"${d.dclName}_inst"
-          else d.getName
-        d -> Patch.Replace(
-          d.copy(instMode = InstMode.Normal).setName(updatedName),
+            outPortOpt
+              .flatMap(_.suggestName.map(x => x + "_"))
+              .getOrElse("") + s"${design.dclName}_inst"
+          else design.getName
+
+        design -> Patch.Replace(
+          design.copy(instMode = InstMode.Normal).setName(updatedName),
           Patch.Replace.Config.FullReplacement
-        )
+        ) :: identRemovePatch
+      case _ => None
     }
     designDB.patch(patchList)
   end transform

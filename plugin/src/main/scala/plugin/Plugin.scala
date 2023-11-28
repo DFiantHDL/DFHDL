@@ -9,10 +9,10 @@ class Plugin extends StandardPlugin:
   def init(options: List[String]): List[PluginPhase] =
     val setting = new Setting(options.headOption)
     MetaContextPlacer(setting) ::
-      // DFCOverridePhase(setting) ::
+      CustomControlPhase(setting) ::
+      DesignDefsPhase(setting) ::
       MetaContextDelegatePhase(setting) ::
       MetaContextGenPhase(setting) ::
-      CustomControlPhase(setting) ::
       OnCreateEventsPhase(setting) ::
       FixInterpDFValPhase(setting) ::
       Nil

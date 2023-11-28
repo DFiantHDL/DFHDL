@@ -29,12 +29,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override val runsBefore = Set("MetaContextDelegate")
   var setMetaSym: Symbol = _
   var dfTokenSym: Symbol = _
-  var dfValSym: Symbol = _
-  var metaGenSym: Symbol = _
-  var designFromDefSym: Symbol = _
-  var designFromDefGetInputSym: Symbol = _
-  var inlineAnnotSym: Symbol = _
   var metaContextForwardAnnotSym: ClassSymbol = _
+  var metaContextIgnoreAnnotSym: ClassSymbol = _
   val treeOwnerMap = mutable.Map.empty[Apply, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   var clsStack = List.empty[TypeDef]
@@ -43,9 +39,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var applyStack = List.empty[Apply]
 
   extension (tree: ValOrDefDef)(using Context)
-    def isInline: Boolean =
-      val sym = tree.symbol
-      (sym is Inline) || sym.hasAnnotation(inlineAnnotSym)
     def needsNewContext: Boolean =
       tree match
         case _: ValDef => true // valdefs always generate new context
@@ -76,48 +69,11 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     end setMeta
   end extension
 
-  extension (tpe: Type)(using Context)
-    def dfValTpeOpt: Option[Type] =
-      tpe.dealias match
-        case res if res.dealias.typeSymbol == dfValSym => Some(res)
-        case _                                         => None
-
-  extension (tree: ValOrDefDef)(using Context)
-    def dfValTpeOpt: Option[Type] =
-      tree.tpt.tpe.dfValTpeOpt
-    def genMeta: Tree =
-      val nameOptTree = mkOptionString(Some(tree.name.toString.nameCheck(tree)))
-      val positionTree = tree.srcPos.positionTree
-      val docOptTree = mkOptionString(tree.symbol.docString)
-      val annotTree = mkList(tree.symbol.annotations.map(_.tree))
-      ref(metaGenSym).appliedToArgs(
-        nameOptTree :: positionTree :: docOptTree :: annotTree :: Nil
-      )
-  end extension
-
   extension (sym: Symbol)
     def fixedFullName(using Context): String =
       sym.fullName.toString.replace("._$", ".")
-
-  extension (name: String)
-    def nameCheck(posTree: Tree)(using Context): String =
-      val finalName =
-        posTree.symbol.getAnnotation(defn.TargetNameAnnot)
-          .flatMap(_.argumentConstantString(0))
-          .getOrElse(name)
-      if (
-        !finalName.matches("^[a-zA-Z0-9_]*$") && !posTree.symbol.flags.is(
-          Flags.Synthetic
-        )
-      )
-        report.error(
-          s"""Unsupported DFHDL member name $finalName.
-           |Only alphanumric or underscore characters are supported.
-           |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin,
-          posTree.srcPos
-        )
-      finalName
-
+    def ignoreMetaContext(using Context): Boolean =
+      sym.hasAnnotation(metaContextIgnoreAnnotSym)
   private def ignoreValDef(tree: ValDef)(using Context): Boolean =
     tree.name.toString match
       case inlinedName(prefix) =>
@@ -132,7 +88,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     val origApply = applyStack.head
     applyPosStack = applyPosStack.drop(1)
     applyStack = applyStack.drop(1)
-    if (tree.tpe.isParameterless)
+    if (tree.tpe.isParameterless && !tree.fun.symbol.ignoreMetaContext)
       tree match
         case ContextArg(argTree) =>
           val sym = argTree.symbol
@@ -268,8 +224,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case inlined @ Inlined(_, bindings, tree) =>
         // debug("Inlined")
         bindings.view.reverse.collectFirst {
-          case vd @ ValDef(_, _, apply: Apply)
-              if vd.dfValTpeOpt.nonEmpty && !vd.symbol.owner.is(Method) =>
+          case vd @ ValDef(_, _, apply: Apply) if !vd.symbol.owner.is(Method) =>
             addToTreeOwnerMap(apply, ownerTree)
         }
         nameValOrDef(tree, ownerTree, typeFocus)
@@ -361,7 +316,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case TypeApply(Select(tree, _), _) => inlinePos(tree, inlinedTree)
       case Inlined(_, bindings, tree) =>
         bindings.view.reverse.collectFirst {
-          case vd @ ValDef(_, _, apply: Apply) if vd.dfValTpeOpt.nonEmpty =>
+          case vd @ ValDef(_, _, apply: Apply) if !vd.symbol.owner.is(Method) =>
             if (!inlinedOwnerMap.contains(apply) && !inlinedTree.call.isEmpty)
               inlinedOwnerMap += (apply -> inlinedTree)
         }
@@ -370,72 +325,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _            =>
     end match
   end inlinePos
-
-  // DFHDL design construction from definitions transformation.
-  // Such transformation rely on code like `def foo(arg: Bit <> VAL): Bit <> VAL`
-  // The `Bit <> VAL` type is a match type that is manifests as `DFC ?=> DFValOf[Bit]`.
-  override def transformDefDef(tree: DefDef)(using Context): tpd.Tree =
-    val sym = tree.symbol
-    lazy val dfValArgs = tree.paramss.view.flatten.collect {
-      case vd: ValDef if vd.dfValTpeOpt.nonEmpty => vd
-    }.toList
-    tree.rhs match
-      case Block(List(anonDef: DefDef), closure: Closure)
-          if (
-            // We ignore inline method, since these should not be transformed into
-            // design hierarchies.
-            // We also ignore exported methods, to prevent transforming a method that
-            // was already transformed at its origin.
-            !tree.isInline && !(sym is Exported) &&
-              // transform only methods that return a DFHDL value and
-              // have at least one DFHDL parameter and
-              // have a context argument
-              anonDef.dfValTpeOpt.nonEmpty && dfValArgs.nonEmpty
-          ) =>
-        debug("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        debug(tree.show)
-        val dfc = ContextArg.at(anonDef).get
-
-        // replacing the old arg references according to the argument map
-        def replaceArgs(expr: Tree, argMap: Map[Symbol, Tree]): Tree =
-          val replacer = new TreeMap():
-            override def transform(tree: Tree)(using Context): Tree =
-              tree match
-                case id @ Ident(_) if argMap.contains(id.symbol) =>
-                  argMap(id.symbol)
-                case _ => super.transform(tree)
-          replacer.transform(expr)
-
-        val updatedAnonRHS: Tree =
-          // list of tuples of the old arguments and their meta data
-          val args = mkList(dfValArgs.map(a => mkTuple(List(a.ident, a.genMeta))))
-          // input map to replace old arg references with new input references
-          val inputMap = dfValArgs.view.zipWithIndex.map((a, i) =>
-            a.symbol -> ref(designFromDefGetInputSym)
-              .appliedToType(a.dfValTpeOpt.get.widen)
-              .appliedTo(Literal(Constant(i)))
-              .appliedTo(dfc)
-          ).toMap
-          // calling the runtime method that constructs the design from the definition
-          ref(designFromDefSym)
-            .appliedToType(anonDef.dfValTpeOpt.get.widen)
-            .appliedToArgs(List(args, tree.genMeta)) // meta represents the transformed tree
-            .appliedTo(replaceArgs(anonDef.rhs, inputMap))
-            .appliedTo(dfc)
-        end updatedAnonRHS
-        val updatedAnonDef = cpy.DefDef(anonDef)(rhs = updatedAnonRHS)
-        val updatedRHS = Block(List(updatedAnonDef), closure)
-        cpy.DefDef(tree)(rhs = updatedRHS)
-      case _ =>
-        if (!sym.isAnonymousFunction && !(sym is Exported) && !sym.isConstructor)
-          if ((tree.dfValTpeOpt.nonEmpty || tree.tpt.tpe =:= defn.UnitType) && dfValArgs.nonEmpty)
-            report.error(
-              "Must use a `<> DFRET` modifier for a DFHDL function return type.",
-              tree.tpt.srcPos
-            )
-        tree
-    end match
-  end transformDefDef
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
     if (
@@ -486,12 +375,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   private val inlinedName = "(.*)_this".r
   override def prepareForValDef(tree: ValDef)(using Context): Context =
-    if (tree.tpt.tpe.dfcFuncTpeOpt.flatMap(_.dfValTpeOpt).nonEmpty)
-      report.error(
-        "A DFHDL value/argument must have a `<> VAL` modifier.",
-        tree.tpt.srcPos
-      )
-
     tree.name.toString match
       case n if n.contains("$")     => // do nothing
       case _ if tree.mods.is(Param) => // do nothing
@@ -507,13 +390,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     setMetaSym = metaContextCls.requiredMethod("setMeta")
-    metaGenSym = requiredMethod("dfhdl.compiler.ir.Meta.gen")
-    designFromDefSym = requiredMethod("dfhdl.core.__For_Plugin.designFromDef")
-    designFromDefGetInputSym = requiredMethod("dfhdl.core.__For_Plugin.designFromDefGetInput")
-    dfValSym = requiredClass("dfhdl.core.DFVal")
     dfTokenSym = requiredClass("dfhdl.core.DFToken")
     metaContextForwardAnnotSym = requiredClass("dfhdl.internals.metaContextForward")
-    inlineAnnotSym = requiredClass("scala.inline")
+    metaContextIgnoreAnnotSym = requiredClass("dfhdl.internals.metaContextIgnore")
     treeOwnerMap.clear()
     contextDefs.clear()
     inlinedOwnerMap.clear()

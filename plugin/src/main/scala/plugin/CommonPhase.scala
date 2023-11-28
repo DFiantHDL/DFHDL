@@ -65,6 +65,9 @@ abstract class CommonPhase extends PluginPhase:
   var positionCls: ClassSymbol = _
   var contextFunctionSym: Symbol = _
   var hasDFCTpe: TypeRef = _
+  var inlineAnnotSym: Symbol = _
+  var dfValSym: Symbol = _
+
   extension (sym: Symbol)
     def inherits(parentFullName: String)(using Context): Boolean =
       if (sym.isClass)
@@ -93,6 +96,30 @@ abstract class CommonPhase extends PluginPhase:
         case a if a.tree.tpe <:< defn.StaticAnnotationClass.typeRef => a
       }
   end extension
+
+  extension (name: String)
+    def nameCheck(posTree: Tree)(using Context): String =
+      val finalName =
+        posTree.symbol.getAnnotation(defn.TargetNameAnnot)
+          .flatMap(_.argumentConstantString(0))
+          .getOrElse(name)
+      if (
+        !finalName.matches("^[a-zA-Z0-9_]*$") && !posTree.symbol.flags.is(
+          Flags.Synthetic
+        )
+      )
+        report.error(
+          s"""Unsupported DFHDL member name $finalName.
+           |Only alphanumric or underscore characters are supported.
+           |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin,
+          posTree.srcPos
+        )
+      finalName
+
+  extension (tree: ValOrDefDef)(using Context)
+    def isInline: Boolean =
+      val sym = tree.symbol
+      (sym is Inline) || sym.hasAnnotation(inlineAnnotSym)
 
   extension (tpe: Type)(using Context)
     def simple: Type =
@@ -187,15 +214,17 @@ abstract class CommonPhase extends PluginPhase:
 
   extension (srcPos: util.SrcPos)(using Context)
     def positionTree: Tree =
-      val fileNameTree = Literal(Constant(srcPos.startPos.source.path))
-      val lineStartTree = Literal(Constant(srcPos.startPos.line + 1))
-      val columnStartTree = Literal(Constant(srcPos.startPos.column + 1))
-      val lineEndTree = Literal(Constant(srcPos.endPos.line + 1))
-      val columnEndTree = Literal(Constant(srcPos.endPos.column + 1))
-      New(
-        positionCls.typeRef,
-        fileNameTree :: lineStartTree :: columnStartTree :: lineEndTree :: columnEndTree :: Nil
-      )
+      if (srcPos.span == util.Spans.NoSpan) ref(requiredMethod("dfhdl.internals.Position.unknown"))
+      else
+        val fileNameTree = Literal(Constant(srcPos.startPos.source.path))
+        val lineStartTree = Literal(Constant(srcPos.startPos.line + 1))
+        val columnStartTree = Literal(Constant(srcPos.startPos.column + 1))
+        val lineEndTree = Literal(Constant(srcPos.endPos.line + 1))
+        val columnEndTree = Literal(Constant(srcPos.endPos.column + 1))
+        New(
+          positionCls.typeRef,
+          fileNameTree :: lineStartTree :: columnStartTree :: lineEndTree :: columnEndTree :: Nil
+        )
   end extension
 
   object ApplyFunArgs:
@@ -214,10 +243,12 @@ abstract class CommonPhase extends PluginPhase:
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     pluginDebugSource = tree.source.path.toString
+    dfValSym = requiredClass("dfhdl.core.DFVal")
     metaContextTpe = requiredClassRef("dfhdl.internals.MetaContext")
     metaContextCls = requiredClass("dfhdl.internals.MetaContext")
     positionCls = requiredClass("dfhdl.internals.Position")
     hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
+    inlineAnnotSym = requiredClass("scala.inline")
     contextFunctionSym = defn.FunctionSymbol(1, isContextual = true)
     if (debugFilter(tree.source.path.toString))
       println(

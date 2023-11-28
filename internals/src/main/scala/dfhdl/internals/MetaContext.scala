@@ -37,4 +37,7 @@ end MetaContext
 //and apply a named ownership to its argument as defined by the
 //index  `argIdx` (considering flattened arguments blocks)
 class metaContextForward(argIdx: Int) extends scala.annotation.StaticAnnotation
+//annotating a function or a class with `metaContextIgnore` causes the
+//plugin to ignore and not apply meta information on the given context
+class metaContextIgnore extends scala.annotation.StaticAnnotation
 class metaContextDelegate extends scala.annotation.StaticAnnotation
