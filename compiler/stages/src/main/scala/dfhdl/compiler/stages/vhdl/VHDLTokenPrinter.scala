@@ -6,6 +6,7 @@ import dfhdl.internals.*
 import DFVal.*
 
 protected trait VHDLTokenPrinter extends AbstractTokenPrinter:
+  type TPrinter <: VHDLPrinter
   val allowBitsBinModeInHex: Boolean = false
   val allowBitsExplicitWidth: Boolean = true
   def csDFBitBubbleChar: Char = '-'
@@ -49,4 +50,5 @@ protected trait VHDLTokenPrinter extends AbstractTokenPrinter:
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
+  def csDFUnitData(dfType: DFUnit, data: Unit): String = printer.unsupported
 end VHDLTokenPrinter

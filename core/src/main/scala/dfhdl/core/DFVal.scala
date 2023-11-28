@@ -149,6 +149,9 @@ sealed protected trait DFValLP:
       tc: DFVal.TC[DFBool, R],
       dfc: DFC
   ): Conversion[R, DFBool <> VAL] = from => tc(DFBool, from)
+  given DFUnitValConversion[R <: DFValAny | Unit | NonEmptyTuple | Bubble](using
+      dfc: DFC
+  ): Conversion[R, Unit <> VAL] = from => DFUnitVal()
 end DFValLP
 object DFVal extends DFValLP:
   final class Final[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)

@@ -76,11 +76,15 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     end setMeta
   end extension
 
-  extension (tree: ValOrDefDef)(using Context)
+  extension (tpe: Type)(using Context)
     def dfValTpeOpt: Option[Type] =
-      tree.tpt.tpe.dealias match
+      tpe.dealias match
         case res if res.dealias.typeSymbol == dfValSym => Some(res)
         case _                                         => None
+
+  extension (tree: ValOrDefDef)(using Context)
+    def dfValTpeOpt: Option[Type] =
+      tree.tpt.tpe.dfValTpeOpt
     def genMeta: Tree =
       val nameOptTree = mkOptionString(Some(tree.name.toString.nameCheck(tree)))
       val positionTree = tree.srcPos.positionTree
@@ -423,13 +427,12 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         val updatedRHS = Block(List(updatedAnonDef), closure)
         cpy.DefDef(tree)(rhs = updatedRHS)
       case _ =>
-        if (
-          !sym.isAnonymousFunction && !(sym is Exported) && tree.dfValTpeOpt.nonEmpty && dfValArgs.nonEmpty
-        )
-          report.error(
-            "Must use a `<> DFRET` modifier for a DFHDL function return type.",
-            tree.tpt.srcPos
-          )
+        if (!sym.isAnonymousFunction && !(sym is Exported) && !sym.isConstructor)
+          if ((tree.dfValTpeOpt.nonEmpty || tree.tpt.tpe =:= defn.UnitType) && dfValArgs.nonEmpty)
+            report.error(
+              "Must use a `<> DFRET` modifier for a DFHDL function return type.",
+              tree.tpt.srcPos
+            )
         tree
     end match
   end transformDefDef
@@ -483,6 +486,12 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   private val inlinedName = "(.*)_this".r
   override def prepareForValDef(tree: ValDef)(using Context): Context =
+    if (tree.tpt.tpe.dfcFuncTpeOpt.flatMap(_.dfValTpeOpt).nonEmpty)
+      report.error(
+        "A DFHDL value/argument must have a `<> VAL` modifier.",
+        tree.tpt.srcPos
+      )
+
     tree.name.toString match
       case n if n.contains("$")     => // do nothing
       case _ if tree.mods.is(Param) => // do nothing

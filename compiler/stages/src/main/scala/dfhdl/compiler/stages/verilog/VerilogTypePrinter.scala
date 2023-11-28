@@ -5,6 +5,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 
 protected trait VerilogTypePrinter extends AbstractTypePrinter:
+  type TPrinter <: VerilogPrinter
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = "logic"
   def csDFBits(dfType: DFBits, typeCS: Boolean): String =
     s"logic [${dfType.width - 1}:0]"
@@ -49,6 +50,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     if (dfType.getName.isEmpty)
       csDFTuple(dfType.fieldMap.values.toList, typeCS)
     else dfType.getName
+  def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = printer.unsupported
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
 end VerilogTypePrinter

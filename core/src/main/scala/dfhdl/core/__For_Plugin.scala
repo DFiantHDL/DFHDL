@@ -101,13 +101,20 @@ object __For_Plugin:
     dfc.mutableDB.OwnershipContext.saveDefInputs(inputs)
     val ret = func
     val retMeta = ret.asIR.meta
-    val output = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setMeta(retMeta.setName("o")))
-    output.connect(ret)(using dfc.setMeta(retMeta.anonymize))
-    dfc.exitOwner()
-    inputs.lazyZip(args).foreach { case (input, (arg, _)) =>
-      input.connect(arg)(using dfc.anonymize)
-    }
-    output.asInstanceOf[V]
+    def connectInputs() =
+      inputs.lazyZip(args).foreach { case (input, (arg, _)) =>
+        input.connect(arg)(using dfc.anonymize)
+      }
+    if (ret.dfType.asIR == ir.DFUnit)
+      dfc.exitOwner()
+      connectInputs()
+      DFUnitVal().asInstanceOf[V]
+    else
+      val output = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setMeta(retMeta.setName("o")))
+      output.connect(ret)(using dfc.setMeta(retMeta.anonymize))
+      dfc.exitOwner()
+      connectInputs()
+      output.asInstanceOf[V]
   end designFromDef
 
 end __For_Plugin

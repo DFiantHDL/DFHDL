@@ -364,7 +364,7 @@ final case class DB(
     val anonErrorMemberPositions: Set[Position] = members.drop(1).view.collect {
       case dcl: DFVal.Dcl if dcl.meta.isAnonymous =>
         dcl.meta.position
-      // definition design are allowed to be anonymous
+      // design definitions are allowed to be anonymous
       case dsn: DFDesignBlock if dsn.meta.isAnonymous && dsn.instMode != InstMode.Def =>
         dsn.meta.position
     }.toSet

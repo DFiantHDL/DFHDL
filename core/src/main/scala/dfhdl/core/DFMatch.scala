@@ -33,7 +33,7 @@ object DFMatch:
   )(using DFC): R = try
     val dfcAnon = summon[DFC].anonymize
     val header =
-      Header(NoType, selector)(using if (forceAnonymous) dfcAnon else dfc)
+      Header(DFUnit, selector)(using if (forceAnonymous) dfcAnon else dfc)
     // creating a hook to save the return value for the first branch run
     var firstCaseRet: Option[R] = None
     val firstCaseRun: () => R = () =>
@@ -46,11 +46,11 @@ object DFMatch:
         val (dfType, block) =
           singleCase(curCase._1, curCase._2, prevBlock, curCase._3)(using dfcAnon)
         val commonDFType =
-          if (dfType.asIR == prevDFType.asIR) prevDFType else NoType
+          if (dfType.asIR == prevDFType.asIR) prevDFType else DFUnit
         (commonDFType, block)
       }
     retDFType match
-      case NoType => firstCaseRet.get
+      case DFUnit => firstCaseRet.get
       case _ =>
         val DFVal(headerIR: DFMatchHeader) = header: @unchecked
         val headerUpdate = headerIR.copy(dfType = retDFType.asIR)

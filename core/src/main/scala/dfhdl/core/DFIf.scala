@@ -12,7 +12,7 @@ protected[core] def analyzeControlRet(ret: Any)(using DFC): DFTypeAny = Exact.st
     DFVal.Alias.AsIs.ident(v)(using dfc.anonymize)
     v.dfType
   case _ =>
-    NoType
+    DFUnit
 
 object DFIf:
   def singleBranch[R](
@@ -35,7 +35,7 @@ object DFIf:
       branches: List[(DFValOf[DFBool], () => R)],
       elseOption: Option[() => R]
   )(using DFC): R = try
-    val header = Header(NoType)
+    val header = Header(DFUnit)
     val dfcAnon = summon[DFC].anonymize
     var branchTypes = List.empty[ir.DFType]
     // creating a hook to save the return value for the first branch run
@@ -56,11 +56,11 @@ object DFIf:
       val (dfType, _) = singleBranch(None, midIfsBlock, e)(using dfcAnon)
       branchTypes = dfType.asIR :: branchTypes
     }
-    val hasNoType = branchTypes.contains(ir.NoType)
-    // if one branch has NoType, the return type is NoType.
+    val hasNoType = branchTypes.contains(ir.DFUnit)
+    // if one branch has DFUnit, the return type is DFUnit.
     // otherwise, all types must be the same.
     if (hasNoType || branchTypes.allElementsAreEqual)
-      val retDFType = if (hasNoType) ir.NoType else branchTypes.head
+      val retDFType = if (hasNoType) ir.DFUnit else branchTypes.head
       val DFVal(headerIR: DFIfHeader) = header: @unchecked
       val headerUpdate = headerIR.copy(dfType = retDFType)
       // updating the type of the if header

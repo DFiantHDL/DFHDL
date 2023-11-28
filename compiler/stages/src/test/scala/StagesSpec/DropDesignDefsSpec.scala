@@ -1,10 +1,10 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.dropDefDesigns
+import dfhdl.compiler.stages.dropDesignDefs
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class DropDefDesignsSpec extends StageSpec:
+class DropDesignDefsSpec extends StageSpec:
   test("Design def") {
     class IDWithDesignDef extends DFDesign:
       val data = UInt(32) <> IN
@@ -19,7 +19,7 @@ class DropDefDesignsSpec extends StageSpec:
       o := test(data + 1)
       val x = test(data)
       o := x
-    val id = (new IDWithDesignDef).dropDefDesigns
+    val id = (new IDWithDesignDef).dropDesignDefs
     assertCodeString(
       id,
       """|/** This is my test
@@ -45,4 +45,30 @@ class DropDefDesignsSpec extends StageSpec:
          |""".stripMargin
     )
   }
-end DropDefDesignsSpec
+  test("Design def no return") {
+    class IDWithDesignDef extends DFDesign:
+      val data = UInt(32) <> IN
+      val o    = UInt(32) <> OUT
+
+      def test(arg: UInt[32] <> VAL): Unit <> DFRET =
+        arg + arg
+      test(data + 1)
+      o := data
+    val id = (new IDWithDesignDef).dropDesignDefs
+    assertCodeString(
+      id,
+      """|class test extends DFDesign:
+         |  val arg = UInt(32) <> IN
+         |end test
+         |
+         |class IDWithDesignDef extends DFDesign:
+         |  val data = UInt(32) <> IN
+         |  val o = UInt(32) <> OUT
+         |  val test_inst = test()
+         |  test_inst.arg <> data + d"32'1"
+         |  o := data
+         |end IDWithDesignDef
+         |""".stripMargin
+    )
+  }
+end DropDesignDefsSpec

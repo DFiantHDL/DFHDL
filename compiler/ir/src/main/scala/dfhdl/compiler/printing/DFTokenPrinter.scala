@@ -115,6 +115,7 @@ trait AbstractTokenPrinter extends AbstractPrinter:
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String
   def csDFStructData(dfType: DFStruct, data: List[Any]): String
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String
+  def csDFUnitData(dfType: DFUnit, data: Unit): String
   final def csDFToken(token: DFTokenAny): String = token match
     case DFBits.Token(dt, data)      => csDFBitsData(dt, data)
     case DFBoolOrBit.Token(dt, data) => csDFBoolOrBitData(dt, data)
@@ -123,6 +124,7 @@ trait AbstractTokenPrinter extends AbstractPrinter:
     case DFVector.Token(dt, data)    => csDFVectorData(dt, data)
     case DFOpaque.Token(dt, data)    => csDFOpaqueData(dt, data)
     case DFStruct.Token(dt, data)    => csDFStructData(dt, data)
+    case DFUnit.Token(dt, data)      => csDFUnitData(dt, data)
     case x =>
       throw new IllegalArgumentException(
         s"Unexpected token found: $x"
@@ -180,4 +182,5 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
+  def csDFUnitData(dfType: DFUnit, data: Unit): String = "()"
 end DFTokenPrinter

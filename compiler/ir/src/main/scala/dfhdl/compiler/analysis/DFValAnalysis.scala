@@ -84,7 +84,7 @@ object DclOut:
     case Modifier.OUT => true
     case _            => false
 
-object PortOfDefDesign:
+object PortOfDesignDef:
   def unapply(dcl: DFVal.Dcl)(using
       MemberGetSet
   ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignBlock)] =

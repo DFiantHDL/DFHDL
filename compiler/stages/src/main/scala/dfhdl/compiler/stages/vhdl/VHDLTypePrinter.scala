@@ -5,6 +5,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 
 protected trait VHDLTypePrinter extends AbstractTypePrinter:
+  type TPrinter <: VHDLPrinter
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = dfType match
     case DFBool => "boolean"
     case DFBit  => "std_logic"
@@ -45,6 +46,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     if (dfType.getName.isEmpty)
       csDFTuple(dfType.fieldMap.values.toList, typeCS)
     else dfType.getName
+  def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = printer.unsupported
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
 end VHDLTypePrinter

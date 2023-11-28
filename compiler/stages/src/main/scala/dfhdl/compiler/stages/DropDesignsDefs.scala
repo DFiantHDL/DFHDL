@@ -5,22 +5,22 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.compiler.ir.DFDesignBlock.InstMode
 import dfhdl.options.CompilerOptions
-case object DropDefDesigns extends Stage:
+case object DropDesignDefs extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.designMemberList.collect {
-      // only going after definition designs
+      // only going after design definitions
       case (d @ DFDesignBlock(DomainType.DF, _, InstMode.Def, _, _, _), members) =>
-        // definitions designs may be anonymous, so we name them
+        // design definitions may be anonymous, so we name them
         val updatedName =
           if (d.isAnonymous)
             // the output port is connected and used in the function and from that
             // we know the target name using `suggestName`
             val outPort = members.view.reverse.collectFirst {
-              case port @ PortOfDefDesign(DFVal.Modifier.OUT, _) => port
-            }.get
-            outPort.suggestName.map(x => x + "_").getOrElse("") + s"${d.dclName}_inst"
+              case port @ PortOfDesignDef(DFVal.Modifier.OUT, _) => port
+            }
+            outPort.flatMap(_.suggestName.map(x => x + "_")).getOrElse("") + s"${d.dclName}_inst"
           else d.getName
         d -> Patch.Replace(
           d.copy(instMode = InstMode.Normal).setName(updatedName),
@@ -29,10 +29,10 @@ case object DropDefDesigns extends Stage:
     }
     designDB.patch(patchList)
   end transform
-end DropDefDesigns
+end DropDesignDefs
 
-//turns definitions designs into normal designs, and set their instance names
+//turns design definitions into normal designs, and set their instance names
 //if non exist
 extension [T: HasDB](t: T)
-  def dropDefDesigns(using CompilerOptions): DB =
-    StageRunner.run(DropDefDesigns)(t.db)
+  def dropDesignDefs(using CompilerOptions): DB =
+    StageRunner.run(DropDesignDefs)(t.db)

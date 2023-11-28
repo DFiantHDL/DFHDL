@@ -33,7 +33,8 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
             TypeRepr.of[t].showTuple(_.showType).mkStringBrackets
           case _ =>
             Type.show[t]
-      case _ => "DFType"
+      case '[DFUnit] => "Unit"
+      case _         => "DFType"
     end match
   end showDFType
 

@@ -19,17 +19,27 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case Bind(_) => false
         // an ident placeholder (can be anonymous)
         case Ident(_) => true
+        // a def design that is anonymous may not be referenced later,
+        // so we need to check if it has an output port that is referenced later
+        case design: DFDesignBlock if design.instMode == InstMode.Def && design.isAnonymous =>
+          design.members(MemberView.Folded).view.reverse.collectFirst { case port @ DclOut() =>
+            // no read dependencies means we need to print it now
+            port.getReadDeps.isEmpty
+          }
+            // no output port means a Unit return that cannot be referenced,
+            // so we need to print it now
+            .getOrElse(true)
         // named members
         case m: DFMember.Named if !m.isAnonymous => true
         // excluding late (via) connections
         case net: DFNet if net.isViaConnection => false
-        // excluding nets that are inputs to a definition design
-        case DFNet.Connection(PortOfDefDesign(Modifier.IN, _), _, _) =>
+        // excluding nets that are inputs to a design definition
+        case DFNet.Connection(PortOfDesignDef(Modifier.IN, _), _, _) =>
           false
         // include the rest of the nets
         case net: DFNet => true
         // including only conditional statements (no type) headers
-        case ch: DFConditional.Header => ch.dfType == NoType
+        case ch: DFConditional.Header => ch.dfType == DFUnit
         // process blocks
         case pb: ProcessBlock => true
         // the rest are not directly viewable
@@ -133,19 +143,26 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter = DFPrinter
   def csDFDesignDefDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
-    val (outNet, outPort, retVal) = designMembers.view.reverse.collectFirst {
-      case outNet @ DFNet.Connection(outPort @ DclOut(), retVal: DFVal, _) =>
-        (outNet, outPort, retVal)
-    }.get
-    val defMembers = designMembers.filter {
-      case port: DFVal if port.isPort  => false
-      case net: DFNet if net == outNet => false
-      case _                           => true
+    // if no output net, then this def has a Unit return
+    var retValOpt: Option[DFVal] = None
+    val outNetOpt = designMembers.view.reverse.collectFirst {
+      case outNet @ DFNet.Connection(DclOut(), rv: DFVal, _) =>
+        retValOpt = Some(rv)
+        outNet
     }
-    val retValCS =
-      if (retVal.isAnonymous) retVal.codeString
-      else retVal.getName
-    val body = s"${csDFMembers(defMembers).emptyOr(_ + "\n")}$retValCS"
+    val defMembers = designMembers.filter {
+      case port: DFVal if port.isPort            => false
+      case net: DFNet if outNetOpt.contains(net) => false
+      case _                                     => true
+    }
+    val membersCS = csDFMembers(defMembers)
+    val body = retValOpt match
+      case Some(retVal) =>
+        val retValCS =
+          if (retVal.isAnonymous) retVal.codeString
+          else retVal.getName
+        s"${membersCS.emptyOr(_ + "\n")}$retValCS"
+      case None => membersCS
     val localDcls = printer.csLocalTypeDcls(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val defArgList = designMembers.collect { case port @ DclIn() =>
@@ -155,9 +172,10 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       if (defArgList.length <= 2) defArgList.mkString(", ")
       else defArgList.mkString("\n", ",\n", "\n").hindent(2)
 
-    val retType = s": ${printer.csDFType(retVal.dfType, typeCS = true)} <> DFRET"
+    val retDFType = retValOpt.map(_.dfType).getOrElse(DFUnit)
+    val retTypeCS = s": ${printer.csDFType(retDFType, typeCS = true)} <> DFRET"
     val dcl =
-      s"def ${design.dclName}($defArgsCS)$retType =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
+      s"def ${design.dclName}($defArgsCS)$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     s"${printer.csAnnotations(design.dclMeta)}$dcl\n"
   end csDFDesignDefDcl
   def csDFDesignDefInst(design: DFDesignBlock): String =

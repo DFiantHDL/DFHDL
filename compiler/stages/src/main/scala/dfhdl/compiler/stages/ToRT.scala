@@ -7,7 +7,7 @@ import dfhdl.options.CompilerOptions
 import DFVal.Alias.History.Op as HistoryOp
 import dfhdl.compiler.ir.DFDesignBlock.InstMode
 case object ToRT extends Stage:
-  def dependencies: List[Stage] = List(DropDefDesigns)
+  def dependencies: List[Stage] = List(DropDesignDefs)
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.collect {

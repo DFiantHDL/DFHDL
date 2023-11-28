@@ -96,7 +96,7 @@ object NamedAliases:
             if !lhs.hasVerilogName && carryOps.contains(op) && func.width > lhs.width =>
           List(lhs)
         // anonymous conditional expressions
-        case ch: DFConditional.Header if ch.isAnonymous && ch.dfType != NoType => List(ch)
+        case ch: DFConditional.Header if ch.isAnonymous && ch.dfType != DFUnit => List(ch)
         case _                                                                 => Nil
       }
     end NamedSelection

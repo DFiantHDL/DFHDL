@@ -53,8 +53,8 @@ case object ExplicitNamedVars extends Stage:
           case ch: DFConditional.Header =>
             // removing name and type from header
             val updatedCH = ch match
-              case mh: DFConditional.DFMatchHeader => mh.copy(dfType = NoType).anonymize
-              case ih: DFConditional.DFIfHeader    => ih.copy(dfType = NoType).anonymize
+              case mh: DFConditional.DFMatchHeader => mh.copy(dfType = DFUnit).anonymize
+              case ih: DFConditional.DFIfHeader    => ih.copy(dfType = DFUnit).anonymize
             // this variable will replace the header as a value
             val dsn = new MetaDesign():
               final val plantedNewVar = ch.asValAny.genNewVar(using dfc.setName(ch.getName))

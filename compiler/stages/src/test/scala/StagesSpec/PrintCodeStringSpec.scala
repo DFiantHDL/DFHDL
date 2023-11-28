@@ -230,7 +230,7 @@ class PrintCodeStringSpec extends StageSpec:
          |  val o = UInt(32) <> OUT
          |  val o_part = data + d"32'1"
          |  o := o_part + o_part
-         |end IDMultiRef      
+         |end IDMultiRef
          |""".stripMargin
     )
   }
@@ -245,6 +245,7 @@ class PrintCodeStringSpec extends StageSpec:
         */
       def test(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
         arg + arg
+      test(data - 1)
       o := test(data + 1)
       val x = test(data)
       o := x
@@ -262,10 +263,36 @@ class PrintCodeStringSpec extends StageSpec:
          |class IDWithDesignDef extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
+         |  test(data - d"32'1")
          |  o := test(data + d"32'1")
          |  val x = test(data)
          |  o := x
          |end IDWithDesignDef
+         |""".stripMargin
+    )
+  }
+  test("Design def Unit return") {
+    class UnitDesignDef extends DFDesign:
+      val data = UInt(32) <> IN
+      val o    = UInt(32) <> OUT
+
+      def test(arg: UInt[32] <> VAL): Unit <> DFRET =
+        val x = arg + arg
+      test(data)
+      o := data
+    val id = (new UnitDesignDef).getCodeString
+    assertNoDiff(
+      id,
+      """|def test(arg: UInt[32] <> VAL): Unit <> DFRET =
+         |  val x = arg + arg
+         |end test
+         |
+         |class UnitDesignDef extends DFDesign:
+         |  val data = UInt(32) <> IN
+         |  val o = UInt(32) <> OUT
+         |  test(data)
+         |  o := data
+         |end UnitDesignDef
          |""".stripMargin
     )
   }

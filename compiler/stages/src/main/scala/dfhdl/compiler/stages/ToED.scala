@@ -75,14 +75,14 @@ case object ToED extends Stage:
               case net: DFNet if net.isConnection || removedNets.contains(net) => None
               case net: DFNet =>
                 getDeps(List(net), Set())
-              case ch: DFConditional.Header if ch.dfType == NoType =>
+              case ch: DFConditional.Header if ch.dfType == DFUnit =>
                 getDeps(List(ch), Set())
               case _ => None
             }.toSet
             // println(processBlockAllMembersSet.mkString("\n"))
             val processBlockAllMembers = members.flatMap {
               case dcl: DFVal.Dcl => None
-              case cb: DFConditional.Block if cb.getHeaderCB.dfType == NoType =>
+              case cb: DFConditional.Block if cb.getHeaderCB.dfType == DFUnit =>
                 cb :: designDB.blockMemberTable(cb)
               case dsn: DFOwnerNamed                          => None
               case history: DFVal.Alias.History               => None
@@ -107,7 +107,7 @@ case object ToED extends Stage:
                 val cond = active match
                   case RstCfg.Active.High => rst == 1
                   case RstCfg.Active.Low  => rst == 0
-                DFIf.singleBranch(Some(cond), DFIf.Header(dfhdl.core.NoType), regInitBlock)
+                DFIf.singleBranch(Some(cond), DFIf.Header(dfhdl.core.DFUnit), regInitBlock)
               def ifRstActiveElseRegSaveBlock(): Unit =
                 val (_, rstBranch) = ifRstActive
                 DFIf.singleBranch(None, rstBranch, regSaveBlock)
@@ -118,7 +118,7 @@ case object ToED extends Stage:
                   case ClkCfg.Edge.Falling => clk.falling
                 DFIf.singleBranch(
                   Some(cond),
-                  ifRstOption.getOrElse(DFIf.Header(dfhdl.core.NoType)),
+                  ifRstOption.getOrElse(DFIf.Header(dfhdl.core.DFUnit)),
                   block
                 )
 

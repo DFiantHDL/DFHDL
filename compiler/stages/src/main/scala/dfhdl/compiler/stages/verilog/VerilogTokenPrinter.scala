@@ -59,4 +59,5 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))
       .mkStringBrackets
+  def csDFUnitData(dfType: DFUnit, data: Unit): String = printer.unsupported
 end VerilogTokenPrinter

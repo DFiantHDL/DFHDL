@@ -257,20 +257,21 @@ object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
-// NoType
+// DFUnit
 // ------
 // This meant to be just a DFType placeholder where no type is actually
 // useful. E.g., the return value of an IfElse block that has no valid
 // DFHDL return value.
 /////////////////////////////////////////////////////////////////////////////
-case object NoType extends DFType:
-  type Data = Nothing
+sealed trait DFUnit extends DFType:
+  type Data = Unit
   final val width = 0
   def noTypeErr = throw new IllegalArgumentException(
-    "Unexpected access to `NoType`"
+    "Unexpected access to `DFUnit`"
   )
   def createBubbleData: Data = noTypeErr
   def isDataBubble(data: Data): Boolean = noTypeErr
   def dataToBitsData(data: Data): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector)): Data = noTypeErr
+case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
 /////////////////////////////////////////////////////////////////////////////

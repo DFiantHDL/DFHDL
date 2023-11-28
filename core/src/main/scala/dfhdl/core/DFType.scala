@@ -18,7 +18,6 @@ sealed trait Args3[T1, T2, T3] extends Args
 final class DFType[+T <: ir.DFType, +A <: Args](val value: T | DFError) extends AnyVal:
   override def toString: String = value.toString
 type DFTypeAny = DFType[ir.DFType, Args]
-val NoType = new DFType[ir.NoType.type, NoArgs](ir.NoType)
 
 object DFType:
   val Empty = new DFType(DFError.EmptyDFType).asInstanceOf[DFType[Nothing, Nothing]]
@@ -29,6 +28,7 @@ object DFType:
     case Boolean   => DFBool
     case DFOpaqueA => DFOpaque[T]
     case Product   => FromProduct[T]
+    case Unit      => DFUnit
 
   type FromProduct[T <: Product] <: DFTypeAny = T match
     case DFEncoding      => DFEnum[T]
@@ -79,7 +79,7 @@ object DFType:
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
-  type Supported = DFTypeAny | DFEncoding | DFOpaqueA | Byte | Long | Boolean | AnyRef
+  type Supported = DFTypeAny | DFEncoding | DFOpaqueA | Byte | Long | Boolean | AnyRef | Unit
   object Ops:
     extension [D <: Int with Singleton](cellDim: D)
       def <>[M <: ModifierAny](
