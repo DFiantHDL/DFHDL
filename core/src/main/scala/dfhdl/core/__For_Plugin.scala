@@ -82,7 +82,7 @@ object __For_Plugin:
     Pattern.BindSI(op, parts, bindVals.map(_.asIR.ref))
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =
-    dfc.mutableDB.OwnershipContext.getDefInputs(idx).asInstanceOf[V]
+    dfc.mutableDB.OwnershipContext.getDefInput(idx).asInstanceOf[V]
   @metaContextIgnore
   def designFromDef[V <: DFValAny](
       args: List[(DFValAny, ir.Meta)],

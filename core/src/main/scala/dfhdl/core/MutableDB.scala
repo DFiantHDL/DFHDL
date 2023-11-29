@@ -38,19 +38,26 @@ class MutableDB(val duringTest: Boolean = false):
 //      println(s"enter ${owner}")
       stack = owner :: stack
       lateStack = false :: lateStack
-      defInputsStack = Nil :: defInputsStack
+      owner match
+        case design: DFDesignBlock =>
+          defInputsStack = Nil :: defInputsStack
+        case _ =>
     def exit(): Unit =
-//      println(s"exit ${owner}")
+      // println(s"exit ${owner}")
+      owner match
+        case design: DFDesignBlock =>
+          defInputsStack = defInputsStack.drop(1)
+        case _ =>
       stack = stack.drop(1)
       lateStack = lateStack.drop(1)
-      defInputsStack = defInputsStack.drop(1)
     def enterLate(): Unit =
       lateStack = true :: lateStack
     def exitLate(): Unit =
       lateStack = lateStack.drop(1)
     def saveDefInputs(inputs: List[DFValAny]): Unit =
       defInputsStack = inputs :: defInputsStack.drop(1)
-    def getDefInputs: List[DFValAny] = defInputsStack.head
+    def getDefInput(idx: Int): DFValAny =
+      defInputsStack.head(idx)
     def owner: DFOwner = stack.head
     def lateConstruction: Boolean = lateStack.headOption.getOrElse(false)
     def replaceOwner(originalOwner: DFOwner, newOwner: DFOwner): Unit =
