@@ -22,7 +22,7 @@ import annotation.tailrec
 class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-  // override val debugFilter: String => Boolean = _.contains("DFOpaqueSpec.scala")
+  // override val debugFilter: String => Boolean = _.contains("Example.scala")
   val phaseName = "MetaContextGen"
 
   override val runsAfter = Set(transform.Pickler.name)
@@ -177,7 +177,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   @tailrec private def nameValOrDef(
       tree: Tree,
-      ownerTree: Tree,
+      ownerTree: ValOrDefDef,
       typeFocus: Type
   )(using Context): Unit =
     // debug("------------------------------")
@@ -224,7 +224,10 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case inlined @ Inlined(_, bindings, tree) =>
         // debug("Inlined")
         bindings.view.reverse.collectFirst {
-          case vd @ ValDef(_, _, apply: Apply) if !vd.symbol.owner.is(Method) =>
+          case vd @ ValDef(_, _, apply: Apply)
+              // if the binding owner is a method, we don't want to add these redundant bindings, but
+              // if the ownerTree is inline, we add to ignore it later on during transformApply
+              if (!vd.symbol.owner.is(Method) || ownerTree.isInline) =>
             addToTreeOwnerMap(apply, ownerTree)
         }
         nameValOrDef(tree, ownerTree, typeFocus)
@@ -327,13 +330,20 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   end inlinePos
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
-    if (
-      !tree.symbol.isClassConstructor && !tree.symbol.isAnonymousFunction &&
-      !tree.name.toString.contains("$proxy") && !(tree.symbol is Exported)
-    )
-      addContextDef(tree)
-      nameValOrDef(tree.rhs, tree, tree.tpe.simple)
+    tree.rhs match
+      // for inline defs that result from a context function, we forward to
+      // the anonDef's RHS, just for the purpose of ignoring the Apply later on
+      case Block(List(anonDef: DefDef), closure: Closure) if tree.isInline =>
+        nameValOrDef(anonDef.rhs, tree, tree.tpe.simple)
+      case _ =>
+        if (
+          !tree.symbol.isClassConstructor && !tree.symbol.isAnonymousFunction &&
+          !tree.name.toString.contains("$proxy") && !(tree.symbol is Exported)
+        )
+          addContextDef(tree)
+          nameValOrDef(tree.rhs, tree, tree.tpe.simple)
     ctx
+  end prepareForDefDef
 
   // This is requires for situations like:
   // val (a, b) = (foo(using DFC), foo(using DFC))

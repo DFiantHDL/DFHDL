@@ -16,5 +16,4 @@ def prioEncRecur(value: Bits[Int] <> VAL): Bits[Int] <> DFRET =
 @inline def prioEnc[W <: Int](value: Bits[W] <> VAL)(using
     info: IntInfo[W]
 ): Bits[info.OutW] <> DFRET =
-  val ret = prioEncRecur(value)
-  ret.asValOf[Bits[info.OutW]]
+  prioEncRecur(value).asValOf[Bits[info.OutW]]
