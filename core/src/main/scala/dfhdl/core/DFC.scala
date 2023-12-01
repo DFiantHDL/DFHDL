@@ -85,5 +85,5 @@ end DFC
 def dfc(using DFC): DFC = summon[DFC]
 
 trait HasDFC:
-  val dfc: DFC
+  lazy val dfc: DFC
   protected given DFC = dfc
