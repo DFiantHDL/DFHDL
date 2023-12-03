@@ -8,13 +8,15 @@ import scala.annotation.{Annotation, implicitNotFound}
 import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
 
-private[dfhdl] abstract class Design(using DFC) extends Container, HasNamePos:
+private[dfhdl] abstract class Design extends Container, HasNamePos:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
   private[core] def mkInstMode(args: ListMap[String, Any]): InstMode = InstMode.Normal
   final private[core] def initOwner: TOwner =
-    Design.Block(__domainType, ir.Meta(Some("???"), Position.unknown, None, Nil), InstMode.Normal)
+    Design.Block(__domainType, ir.Meta(Some("???"), Position.unknown, None, Nil), InstMode.Normal)(
+      using dfc
+    )
   final protected def setClsNamePos(
       name: String,
       position: Position,
@@ -106,15 +108,12 @@ object Design:
 
 end Design
 
-abstract class DFDesign(using dfc: DFC = DFC.empty) extends Design:
+abstract class DFDesign extends Design:
   private[core] type TDomain = DFC.Domain.DF
   final protected given TDomain = DFC.Domain.DF
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
 
-abstract class RTDesign(
-    cfg: ir.RTDomainCfg = ir.DerivedCfg
-)(using dfc: DFC = DFC.empty)
-    extends Design:
+abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends Design:
   private[core] type TDomain = DFC.Domain.RT
   final protected given TDomain = DFC.Domain.RT
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(cfg)
@@ -149,12 +148,12 @@ abstract class RTDesign(
 //    case _                                => // do nothing
 end RTDesign
 
-abstract class EDDesign(using dfc: DFC = DFC.empty) extends Design:
+abstract class EDDesign extends Design:
   private[core] type TDomain = DFC.Domain.ED
   final protected given TDomain = DFC.Domain.ED
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED
 
-abstract class EDBlackBox(verilogSrc: EDBlackBox.Source, vhdlSrc: EDBlackBox.Source)(using DFC)
+abstract class EDBlackBox(verilogSrc: EDBlackBox.Source, vhdlSrc: EDBlackBox.Source)
     extends EDDesign:
   override private[core] def mkInstMode(args: ListMap[String, Any]): InstMode =
     InstMode.BlackBox(args, verilogSrc, vhdlSrc)

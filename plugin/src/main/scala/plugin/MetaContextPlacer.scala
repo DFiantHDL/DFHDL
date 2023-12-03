@@ -147,7 +147,7 @@ class MetaContextPlacer(setting: Setting) extends PluginPhase:
     val parsed = super.runOn(units)
     parsed.foreach { cu =>
       // debugFlag = cu.source.file.path.contains("Example.scala")
-      cu.untpdTree = addDFCTreeMap.transform(cu.untpdTree)
+      // cu.untpdTree = addDFCTreeMap.transform(cu.untpdTree)
       cu.untpdTree = fixIntValModifierTreeMap.transform(cu.untpdTree)
     }
     parsed

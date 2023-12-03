@@ -6,7 +6,7 @@ import scala.annotation.unchecked.uncheckedVariance
 
 type MetaDesignAny = MetaDesign[DFC.Domain]
 abstract class MetaDesign[+D <: DFC.Domain](domainType: D = DFC.Domain.DF)
-    extends Design(using DFC.empty)
+    extends Design
     with reflect.Selectable:
   final type TDomain = D @uncheckedVariance
   final protected given TDomain = domainType

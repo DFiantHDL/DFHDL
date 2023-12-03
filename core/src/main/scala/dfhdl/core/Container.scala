@@ -2,10 +2,10 @@ package dfhdl.core
 import dfhdl.internals.*
 import dfhdl.compiler.ir
 
-private abstract class Container(using DFC) extends OnCreateEvents, HasDFC:
+private abstract class Container extends OnCreateEvents, HasDFC:
   type This <: Container
-  final lazy val dfc: DFC = summon[DFC]
-  protected def __dfc: DFC = summon[DFC]
+  final lazy val dfc: DFC = __dfc
+  protected def __dfc: DFC = DFC.empty
   private[core] type TScope <: DFC.Scope
   private[core] type TDomain <: DFC.Domain
   private[core] type TOwner <: DFOwnerAny

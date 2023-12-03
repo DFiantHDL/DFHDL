@@ -31,7 +31,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var dfTokenSym: Symbol = _
   var metaContextForwardAnnotSym: ClassSymbol = _
   val treeOwnerApplyMap = mutable.Map.empty[Apply, (Tree, util.SrcPos)]
-  val treeOwnerOverrideMap = mutable.Map.empty[DefDef, Tree]
+  val treeOwnerOverrideMap = mutable.Map.empty[DefDef, (Tree, util.SrcPos)]
   val contextDefs = mutable.Map.empty[String, Tree]
   var clsStack = List.empty[TypeDef]
   var applyStack = List.empty[Apply]
@@ -158,10 +158,37 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     else tree
   end transformApply
 
+  override def prepareForBlock(tree: Block)(using Context): Context =
+    tree.stats match
+      case _ :+ (cls @ TypeDef(_, template: Template)) if cls.symbol.isAnonymousClass =>
+        template.parents.collectFirst { case p: Apply =>
+          template.body.collectFirst {
+            case dd: DefDef
+                if dd.symbol.is(Override) && dd.symbol.name.toString == "__dfc" &&
+                  dd.tpt.tpe <:< metaContextTpe =>
+              if (!treeOwnerOverrideMap.contains(dd))
+                treeOwnerOverrideMap += (dd -> (EmptyTree, p.srcPos))
+          }
+        }
+      case _ =>
+    ctx
+  end prepareForBlock
+
   override def transformDefDef(tree: DefDef)(using Context): tpd.Tree =
     val sym = tree.symbol
-    if (sym.is(Override) && sym.name.toString == "__dfc" && tree.tpt.tpe <:< metaContextTpe) {}
-    tree
+    if (sym.is(Override) && sym.name.toString == "__dfc" && tree.tpt.tpe <:< metaContextTpe)
+      treeOwnerOverrideMap.get(tree) match
+        case Some(ownerTree, srcPos) =>
+          getMetaInfo(ownerTree, srcPos) match
+            case Some(metaInfo) =>
+              cpy.DefDef(tree)(rhs = tree.rhs.setMeta(metaInfo))
+            case None =>
+              if (ownerTree.isEmpty)
+                cpy.DefDef(tree)(rhs = tree.rhs.setMeta(None, srcPos, None, Nil))
+              else tree
+        case None => tree
+    else tree
+  end transformDefDef
 
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     tree.rhs match
@@ -183,14 +210,22 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _ =>
     tree
 
-  private def addToTreeOwnerMap(apply: Apply, ownerTree: Tree, inlinedSrcPos: Option[util.SrcPos])(
-      using Context
+  private def addToTreeOwnerMap(
+      apply: Apply,
+      ownerTree: Tree,
+      inlinedSrcPos: Option[util.SrcPos],
+      dfcOverrideDef: Option[DefDef] = None
+  )(using
+      Context
   ): Unit =
     // debug("~~~~~~~~~~~~~~~~~~~~")
     // debug(s"Adding: ${apply.show}")
     // debug(ownerTree.show)
     val srcPos = inlinedSrcPos.getOrElse(apply.srcPos)
     treeOwnerApplyMap += (apply -> (ownerTree, srcPos))
+    dfcOverrideDef.foreach: dd =>
+      treeOwnerOverrideMap += (dd -> (ownerTree, srcPos))
+  end addToTreeOwnerMap
 
   object ApplyArgForward:
     def unapply(tree: Apply)(using Context): Option[Tree] =
@@ -269,11 +304,17 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case Block(_ :+ (cls @ TypeDef(_, template: Template)), _) if cls.symbol.isAnonymousClass =>
         // debug("Block done!")
         var named = false
-        template.parents.foreach {
-          case p: Apply =>
-            addToTreeOwnerMap(p, ownerTree, inlinedSrcPos)
-            named = true
-          case _ =>
+        template.parents.collectFirst { case p: Apply =>
+          val dfcOverrideDef = template.body.collectFirst {
+            case dd: DefDef
+                if dd.symbol.is(
+                  Override
+                ) && dd.symbol.name.toString == "__dfc" && dd.tpt.tpe <:< metaContextTpe =>
+              dd
+          }
+          debug(dfcOverrideDef.map(_.show))
+          addToTreeOwnerMap(p, ownerTree, inlinedSrcPos, dfcOverrideDef)
+          named = true
         }
         named
       case block: Block =>
@@ -407,6 +448,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     dfTokenSym = requiredClass("dfhdl.core.DFToken")
     metaContextForwardAnnotSym = requiredClass("dfhdl.internals.metaContextForward")
     treeOwnerApplyMap.clear()
+    treeOwnerOverrideMap.clear()
     contextDefs.clear()
     ctx
   end prepareForUnit
