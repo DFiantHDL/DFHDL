@@ -46,8 +46,7 @@ class PluginSpec extends DFSpec:
   assertLastNames("", "", "", "", "pls3")
   val pls3Pos = getLastPos
   val min3 = new Bar - new Bar - new Bar
-  // TODO: stopped working, but not clear as to why, but it does not seem to matter to DFHDL core/stages tests
-  // assertLastNames("", "", "", "", "min3")
+  assertLastNames("", "", "", "", "min3")
   val min3Names = getLastNames
   val min3Pos = getLastPos
   assertEquals(

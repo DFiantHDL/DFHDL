@@ -30,12 +30,10 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var setMetaSym: Symbol = _
   var dfTokenSym: Symbol = _
   var metaContextForwardAnnotSym: ClassSymbol = _
-  var metaContextIgnoreAnnotSym: ClassSymbol = _
-  val treeOwnerMap = mutable.Map.empty[Apply, Tree]
+  val treeOwnerApplyMap = mutable.Map.empty[Apply, (Tree, util.SrcPos)]
+  val treeOwnerOverrideMap = mutable.Map.empty[DefDef, Tree]
   val contextDefs = mutable.Map.empty[String, Tree]
   var clsStack = List.empty[TypeDef]
-  val inlinedOwnerMap = mutable.Map.empty[Apply, Inlined]
-  var applyPosStack = List.empty[util.SrcPos]
   var applyStack = List.empty[Apply]
 
   extension (tree: ValOrDefDef)(using Context)
@@ -49,7 +47,16 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           // should not have context, anyways)
           !tree.isInline && !tree.symbol.is(Synthetic)
 
+  class MetaInfo(
+      val nameOpt: Option[String],
+      val srcPos: util.SrcPos,
+      val docOpt: Option[String],
+      val annotations: List[Annotations.Annotation]
+  )
   extension (tree: Tree)(using Context)
+    def setMeta(metaInfo: MetaInfo): Tree =
+      import metaInfo.*
+      setMeta(nameOpt, srcPos, docOpt, annotations)
     def setMeta(
         nameOpt: Option[String],
         srcPos: util.SrcPos,
@@ -72,8 +79,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   extension (sym: Symbol)
     def fixedFullName(using Context): String =
       sym.fullName.toString.replace("._$", ".")
-    def ignoreMetaContext(using Context): Boolean =
-      sym.hasAnnotation(metaContextIgnoreAnnotSym)
   private def ignoreValDef(tree: ValDef)(using Context): Boolean =
     tree.name.toString match
       case inlinedName(prefix) =>
@@ -83,67 +88,87 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
             x.parents.exists(_.typeSymbol.name.toString == prefix)
           case _ => false
       case _ => false
+
+  def getMetaInfo(ownerTree: Tree, srcPos: util.SrcPos)(using Context): Option[MetaInfo] =
+    ownerTree match
+      case t: ValOrDefDef if t.needsNewContext =>
+        if (t.symbol.flags.is(Flags.Mutable))
+          report.warning(
+            "Scala `var` modifier for DFHDL values/classes is highly discouraged!\nConsider changing to `val`.",
+            t.srcPos
+          )
+        val (nameOpt, docOpt, annots) =
+          t match
+            case vd: ValDef if (ignoreValDef(vd)) => (None, None, Nil)
+            case dd: DefDef                       => (None, None, Nil)
+            case _ =>
+              (
+                Some(t.name.toString.nameCheck(t)),
+                t.symbol.docString,
+                t.symbol.staticAnnotations
+              )
+        Some(MetaInfo(nameOpt, srcPos, docOpt, annots))
+      case t: TypeDef if t.name.toString.endsWith("$") =>
+        Some(
+          MetaInfo(
+            Some(t.name.toString.dropRight(1).nameCheck(t)),
+            srcPos,
+            t.symbol.docString,
+            t.symbol.staticAnnotations
+          )
+        )
+      case _ =>
+        // no meta information
+        None
+    end match
+  end getMetaInfo
+
   override def transformApply(tree: Apply)(using Context): Tree =
-    val srcPos = applyPosStack.head
     val origApply = applyStack.head
-    applyPosStack = applyPosStack.drop(1)
     applyStack = applyStack.drop(1)
     if (tree.tpe.isParameterless && !tree.fun.symbol.ignoreMetaContext)
       tree match
+        // found a context argument
         case ContextArg(argTree) =>
-          val sym = argTree.symbol
-          treeOwnerMap.get(origApply) match
-            case Some(t: ValOrDefDef) if t.needsNewContext =>
-              if (t.symbol.flags.is(Flags.Mutable))
-                report.warning(
-                  "Scala `var` modifier for DFHDL values/classes is highly discouraged!\nConsider changing to `val`.",
-                  t.srcPos
-                )
-              val (nameOpt, docOpt, annots) =
-                t match
-                  case vd: ValDef if (ignoreValDef(vd)) => (None, None, Nil)
-                  case dd: DefDef                       => (None, None, Nil)
-                  case _ =>
-                    (
-                      Some(t.name.toString.nameCheck(t)),
-                      t.symbol.docString,
-                      t.symbol.staticAnnotations
-                    )
-              tree.replaceArg(argTree, argTree.setMeta(nameOpt, srcPos, docOpt, annots))
-            case Some(t: TypeDef) if t.name.toString.endsWith("$") =>
-              tree.replaceArg(
-                argTree,
-                argTree.setMeta(
-                  Some(t.name.toString.dropRight(1).nameCheck(t)),
-                  srcPos,
-                  t.symbol.docString,
-                  t.symbol.staticAnnotations
-                )
-              )
-            case Some(t) => // Def or Class
-              contextDefs.get(sym.fixedFullName) match
-                case Some(ct) if !(ct sameTree t) =>
-                  report.error(
-                    s"${t.symbol} is missing an implicit Context parameter",
-                    t.symbol
-                  )
-                case _ =>
-              // do nothing
-              tree
-            case _ => // Anonymous
+          treeOwnerApplyMap.get(origApply) match
+            case Some(ownerTree, srcPos) =>
+              getMetaInfo(ownerTree, srcPos) match
+                case Some(metaInfo) =>
+                  tree.replaceArg(argTree, argTree.setMeta(metaInfo))
+                case None =>
+                  val sym = argTree.symbol
+                  contextDefs.get(sym.fixedFullName) match
+                    case Some(ct) if !(ct sameTree ownerTree) =>
+                      report.error(
+                        s"${ownerTree.symbol} is missing an implicit Context parameter",
+                        ownerTree.symbol
+                      )
+                    case _ =>
+                  // do nothing
+                  tree
+            // No owner tree found, so it's anonymous. Yet we may want to apply no new context
+            // at all and just keep the propagated context.
+            case None =>
+              // keeping the propagated context
               if (tree.fun.symbol.name.toString.contains("$")) tree
-              else tree.replaceArg(argTree, argTree.setMeta(None, srcPos, None, Nil))
+              // generating a new anonymous context
+              else tree.replaceArg(argTree, argTree.setMeta(None, origApply.srcPos, None, Nil))
           end match
         case _ => tree
     else tree
   end transformApply
+
+  override def transformDefDef(tree: DefDef)(using Context): tpd.Tree =
+    val sym = tree.symbol
+    if (sym.is(Override) && sym.name.toString == "__dfc" && tree.tpt.tpe <:< metaContextTpe) {}
+    tree
 
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     tree.rhs match
       case template: Template =>
         if (!tree.symbol.isAnonymousClass)
           template.parents.foreach {
-            case p: Apply => addToTreeOwnerMap(p, tree)
+            case p: Apply => addToTreeOwnerMap(p, tree, None)
             case _        =>
           }
           addContextDef(tree)
@@ -158,11 +183,14 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _ =>
     tree
 
-  private def addToTreeOwnerMap(apply: Apply, ownerTree: Tree)(using Context): Unit =
+  private def addToTreeOwnerMap(apply: Apply, ownerTree: Tree, inlinedSrcPos: Option[util.SrcPos])(
+      using Context
+  ): Unit =
     // debug("~~~~~~~~~~~~~~~~~~~~")
     // debug(s"Adding: ${apply.show}")
     // debug(ownerTree.show)
-    treeOwnerMap += (apply -> ownerTree)
+    val srcPos = inlinedSrcPos.getOrElse(apply.srcPos)
+    treeOwnerApplyMap += (apply -> (ownerTree, srcPos))
 
   object ApplyArgForward:
     def unapply(tree: Apply)(using Context): Option[Tree] =
@@ -175,11 +203,12 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           case _ => None
       }
 
-  @tailrec private def nameValOrDef(
+  private def nameValOrDef(
       tree: Tree,
       ownerTree: ValOrDefDef,
-      typeFocus: Type
-  )(using Context): Unit =
+      typeFocus: Type,
+      inlinedSrcPos: Option[util.SrcPos]
+  )(using Context): Boolean =
     // debug("------------------------------")
     // debug("pos--->  ", tree.srcPos.show)
     // debug(tree.showSummary(10))
@@ -194,9 +223,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       // any `map` or `for` would yield a block of anonymous function and closure
       case Apply(_, List(Block(List(defdef: DefDef), _: Closure))) =>
         // debug("Map/For")
-        nameValOrDef(defdef.rhs, ownerTree, defdef.rhs.tpe.simple)
+        nameValOrDef(defdef.rhs, ownerTree, defdef.rhs.tpe.simple, inlinedSrcPos)
       case ApplyArgForward(tree) =>
-        nameValOrDef(tree, ownerTree, typeFocus)
+        nameValOrDef(tree, ownerTree, typeFocus, inlinedSrcPos)
       case apply: Apply =>
         // debug("Apply done!")
         // ignoring anonymous method unless it has a context argument
@@ -212,38 +241,48 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
             apply.args.collectFirst {
               case termArg if termArg.tpe <:< typeArg => termArg
             } match
-              case Some(termArg) => nameValOrDef(termArg, ownerTree, typeArg)
-              case None          =>
-          case _ => addToTreeOwnerMap(apply, ownerTree)
+              case Some(termArg) => nameValOrDef(termArg, ownerTree, typeArg, inlinedSrcPos)
+              case None          => false
+          case _ =>
+            addToTreeOwnerMap(apply, ownerTree, inlinedSrcPos)
+            true
+        else false
       case Typed(tree, _) =>
         // debug("Typed")
-        nameValOrDef(tree, ownerTree, typeFocus)
+        nameValOrDef(tree, ownerTree, typeFocus, inlinedSrcPos)
       case TypeApply(Select(tree, _), _) =>
         // debug("TypeApply")
-        nameValOrDef(tree, ownerTree, typeFocus)
+        nameValOrDef(tree, ownerTree, typeFocus, inlinedSrcPos)
       case inlined @ Inlined(_, bindings, tree) =>
         // debug("Inlined")
-        bindings.view.reverse.collectFirst {
-          case vd @ ValDef(_, _, apply: Apply)
-              // if the binding owner is a method, we don't want to add these redundant bindings, but
-              // if the ownerTree is inline, we add to ignore it later on during transformApply
-              if (!vd.symbol.owner.is(Method) || ownerTree.isInline) =>
-            addToTreeOwnerMap(apply, ownerTree)
-        }
-        nameValOrDef(tree, ownerTree, typeFocus)
-      case Block((cls @ TypeDef(_, template: Template)) :: _, _) if cls.symbol.isAnonymousClass =>
+        val updatedInlineSrcPos = inlinedSrcPos orElse Some(inlined.srcPos)
+        if (!nameValOrDef(tree, ownerTree, typeFocus, updatedInlineSrcPos))
+          bindings.view.reverse.collectFirst {
+            case vd @ ValDef(_, _, apply: Apply)
+                // if the binding owner is a method, we don't want to add these redundant bindings, but
+                // if the ownerTree is inline, we add to ignore it later on during transformApply
+                if !vd.symbol.owner.is(Method) || ownerTree.isInline =>
+              addToTreeOwnerMap(apply, ownerTree, updatedInlineSrcPos)
+              true
+          }.getOrElse(false)
+        else true
+      case Block(_ :+ (cls @ TypeDef(_, template: Template)), _) if cls.symbol.isAnonymousClass =>
         // debug("Block done!")
+        var named = false
         template.parents.foreach {
-          case p: Apply => addToTreeOwnerMap(p, ownerTree)
-          case _        =>
+          case p: Apply =>
+            addToTreeOwnerMap(p, ownerTree, inlinedSrcPos)
+            named = true
+          case _ =>
         }
+        named
       case block: Block =>
         // debug("Block expr")
-        nameValOrDef(block.expr, ownerTree, typeFocus)
+        nameValOrDef(block.expr, ownerTree, typeFocus, inlinedSrcPos)
       case tryBlock: Try =>
         // debug("Try block")
-        nameValOrDef(tryBlock.expr, ownerTree, typeFocus)
-      case _ =>
+        nameValOrDef(tryBlock.expr, ownerTree, typeFocus, inlinedSrcPos)
+      case _ => false
     end match
   end nameValOrDef
 
@@ -286,62 +325,27 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _ =>
 
   override def prepareForApply(tree: Apply)(using Context): Context =
-    val srcPos = inlinedOwnerMap.get(tree) match
-      case Some(inlined) =>
-        inlinedOwnerMap.remove(tree)
-        inlined.srcPos
-      case _ => tree.srcPos
+    val srcPos = treeOwnerApplyMap.get(tree) match
+      case Some(_, srcPos) => srcPos
+      case _               => tree.srcPos
 
     rejectBadPrimitiveOps(tree, srcPos)
-    applyPosStack = srcPos :: applyPosStack
     applyStack = tree :: applyStack
     ctx
-
-  override def prepareForInlined(inlined: Inlined)(using Context): Context =
-    inlinePos(inlined.expansion, inlined)
-    ctx
-
-  @tailrec private def inlinePos(
-      tree: Tree,
-      inlinedTree: Inlined
-  )(using Context): Unit =
-//    debug("pos--->  ", tree.srcPos.show)
-//    debug(tree.show)
-    tree match
-      case ApplyArgForward(tree) => inlinePos(tree, inlinedTree)
-      case apply: Apply =>
-        if (!inlinedOwnerMap.contains(apply) && !inlinedTree.call.isEmpty)
-          // debug("INLINE:")
-          // debug("from", apply.srcPos.show)
-          // debug("to  ", inlinedTree.srcPos.show)
-          inlinedOwnerMap += (apply -> inlinedTree)
-      case Typed(tree, _)                => inlinePos(tree, inlinedTree)
-      case TypeApply(Select(tree, _), _) => inlinePos(tree, inlinedTree)
-      case Inlined(_, bindings, tree) =>
-        bindings.view.reverse.collectFirst {
-          case vd @ ValDef(_, _, apply: Apply) if !vd.symbol.owner.is(Method) =>
-            if (!inlinedOwnerMap.contains(apply) && !inlinedTree.call.isEmpty)
-              inlinedOwnerMap += (apply -> inlinedTree)
-        }
-        inlinePos(tree, inlinedTree)
-      case block: Block => inlinePos(block.expr, inlinedTree)
-      case _            =>
-    end match
-  end inlinePos
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
     tree.rhs match
       // for inline defs that result from a context function, we forward to
       // the anonDef's RHS, just for the purpose of ignoring the Apply later on
       case Block(List(anonDef: DefDef), closure: Closure) if tree.isInline =>
-        nameValOrDef(anonDef.rhs, tree, tree.tpe.simple)
+        nameValOrDef(anonDef.rhs, tree, tree.tpe.simple, None)
       case _ =>
         if (
           !tree.symbol.isClassConstructor && !tree.symbol.isAnonymousFunction &&
           !tree.name.toString.contains("$proxy") && !(tree.symbol is Exported)
         )
           addContextDef(tree)
-          nameValOrDef(tree.rhs, tree, tree.tpe.simple)
+          nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)
     ctx
   end prepareForDefDef
 
@@ -373,7 +377,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case vd @ ValDef(_, _, Select(x, sel))
           if tupleArgs.nonEmpty && x.tpe <:< defn.TupleTypeRef &&
             isSyntheticTuple(x.symbol) && sel.toString.startsWith("_") =>
-        nameValOrDef(tupleArgs(idx), vd, vd.tpt.tpe.simple)
+        nameValOrDef(tupleArgs(idx), vd, vd.tpt.tpe.simple, None)
         idx = idx + 1
         if (idx == tupleArgs.length)
           idx = 0
@@ -392,7 +396,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _                        =>
         // debug("================================================")
         // debug(s"prepareForValDef: ${tree.name}")
-        nameValOrDef(tree.rhs, tree, tree.tpe.simple)
+        nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)
     end match
     ctx
   end prepareForValDef
@@ -402,10 +406,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     dfTokenSym = requiredClass("dfhdl.core.DFToken")
     metaContextForwardAnnotSym = requiredClass("dfhdl.internals.metaContextForward")
-    metaContextIgnoreAnnotSym = requiredClass("dfhdl.internals.metaContextIgnore")
-    treeOwnerMap.clear()
+    treeOwnerApplyMap.clear()
     contextDefs.clear()
-    inlinedOwnerMap.clear()
     ctx
   end prepareForUnit
 end MetaContextGenPhase

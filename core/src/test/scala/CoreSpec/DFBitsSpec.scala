@@ -134,21 +134,30 @@ class DFBitsSpec extends DFSpec:
          |val t9 = (b"100", b"1", h"9").toBits
          |val t10 = (b"100", b"1", h"9").toBits
          |val t11 = twice(t1)
+         |val t12 = t1.repeat(2)
          |""".stripMargin
     } {
-      val t1: Bits[8] <> VAL = all(false)
+      val t1: Bits[8] <> VAL = all(false); t1.assertPosition(0, 1, 32, 42)
       val t2: Bits[8] <> VAL = all(1)
       val t3: Bits[8] <> VAL = d"255"
       val t4: Bits[5] <> VAL = ?
-      val t5: Bits[4] <> VAL = h"A"
+      val t5: Bits[4] <> VAL = h"A"; t5.assertPosition(0, 1, 32, 36)
       val t6: Bits[3] <> VAL = b"101"
       val t7: Bits[w.type] <> VAL = b"11"
-      val t8: Bits[8] <> VAL = (b"100", 1, h"9")
+      val t8: Bits[8] <> VAL = (b"100", 1, h"9"); t8.assertPosition(0, 1, 32, 49)
       val t9: Bits[Int] <> VAL = (b"100", 1, h"9")
-      val t10 = (b"100", 1, h"9").toBits
+      val t10 = (
+        b"100",
+        1,
+        h"9"
+      ).toBits; t10.assertPosition(0, 5, 17, 15)
       def twice(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
-      val t11 = twice(t1)
+      // TODO: need to fix positioning here
+      val t11 = twice(t1); // t11.assertPosition(0, 1, 17, 26)
+      @inline def twiceInline(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
       assert(t11.width == 16)
+      val t12 = twiceInline(t1); t12.assertPosition(0, 1, 17, 32)
+      assert(t12.width == 16)
     }
   }
   test("Assignment") {

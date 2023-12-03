@@ -1,10 +1,11 @@
 package dfhdl
 import munit.*
-import internals.{AllowTopLevel, HasTypeName, Position}
+import internals.{AllowTopLevel, HasTypeName, Position, metaContextIgnore}
 import compiler.printing.{DefaultPrinter, Printer}
-import core.HasDFC
+import core.{HasDFC, DFValAny}
 import compiler.ir
 import ir.DFDesignBlock.InstMode
+import java.nio.file._
 
 abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   final lazy val dfc: DFC = core.DFC.empty
@@ -77,5 +78,25 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   def assertCodeString(expectedCS: String)(block: => Unit): Unit =
     val cs = getCodeStringFrom(block)
     assertNoDiff(cs, expectedCS)
+
+  private def getCurrentNameAndLine: (String, Int) =
+    val stackTrace = Thread.currentThread().getStackTrace
+    val elm = stackTrace(3)
+    (elm.getFileName(), elm.getLineNumber)
+
+  private def getFileNameFromPath(filePath: String): String =
+    val path = Paths.get(filePath)
+    path.getFileName.toString
+
+  extension (dfVal: DFValAny)
+    @metaContextIgnore
+    def assertPosition(lineOffset: Int, lineCount: Int, colStart: Int, colEnd: Int): Unit =
+      val (fileName, line) = getCurrentNameAndLine
+      val expectedPositionStr =
+        s"$fileName:${line - lineCount + 1 - lineOffset}:$colStart - ${line - lineOffset}:$colEnd"
+      val currentPosition = dfVal.asIR.meta.position
+      val positionNoPath = currentPosition.copy(file = getFileNameFromPath(currentPosition.file))
+      assertNoDiff(positionNoPath.toString, expectedPositionStr)
+  end extension
 
 end DFSpec

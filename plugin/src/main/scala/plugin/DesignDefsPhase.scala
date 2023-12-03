@@ -113,7 +113,10 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
         cpy.DefDef(tree)(rhs = updatedRHS)
       case _ =>
         if (!sym.isAnonymousFunction && !(sym is Exported) && !sym.isConstructor)
-          if ((tree.dfValTpeOpt.nonEmpty || tree.tpt.tpe =:= defn.UnitType) && dfValArgs.nonEmpty)
+          if (
+            (tree.dfValTpeOpt.nonEmpty || tree.tpt.tpe =:= defn.UnitType) && dfValArgs.nonEmpty &&
+            !sym.ignoreMetaContext
+          )
             report.error(
               "Must use a `<> DFRET` modifier for a DFHDL function return type.",
               tree.tpt.srcPos
