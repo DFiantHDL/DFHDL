@@ -27,10 +27,10 @@ import dotty.tools.dotc.ast.Trees.Alternative
   class instance with the override, otherwise all is required is to add the
   additional override to an existing anonymous DFHDL class instance.
  */
-class MetaContextPlacer2Phase(setting: Setting) extends CommonPhase:
+class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-  val phaseName = "MetaContextPlacer2"
+  val phaseName = "MetaContextPlacer"
 
   override val runsAfter = Set("typer")
   override val runsBefore = Set("FixInterpDFValPhase")
@@ -129,20 +129,10 @@ class MetaContextPlacer2Phase(setting: Setting) extends CommonPhase:
             List(td @ TypeDef(tn, template: Template)),
             Typed(apply @ Apply(fun, _), _)
           ) if tree.tpe.typeConstructor <:< hasDFCTpe =>
-        // debug(template.parents.head)
         val hasDFCOverride = template.body.exists {
           case dd: DefDef if dd.name.toString == "__dfc" => true
           case _                                         => false
         }
-        new TreeMap:
-          override def transform(tree: Tree)(using Context): Tree = tree match
-            case a: Ident =>
-              if (a.symbol.name.toString.contains("$proxy"))
-                debug(a.symbol.owner.owner)
-              // debug(a.symbol.owner)
-              super.transform(tree)
-            case _ => super.transform(tree)
-        .transform(template.parents.head)
         if (hasDFCOverride) tree
         else
           val od = dfcOverrideDef(td.symbol)
@@ -151,9 +141,6 @@ class MetaContextPlacer2Phase(setting: Setting) extends CommonPhase:
           cpy.Block(tree)(stats = List(updatedTypeDef), expr = tree.expr)
       case _ =>
         tree
-  // override def prepareForValDef(tree: ValDef)(using Context): Context =
-  //   debug(tree.rhs)
-  //   ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
@@ -162,4 +149,4 @@ class MetaContextPlacer2Phase(setting: Setting) extends CommonPhase:
     dfSpecTpe = requiredClassRef("dfhdl.DFSpec")
     dfcSymStack = Nil
     ctx
-end MetaContextPlacer2Phase
+end MetaContextPlacerPhase
