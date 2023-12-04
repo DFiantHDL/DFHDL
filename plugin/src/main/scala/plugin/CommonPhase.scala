@@ -63,6 +63,7 @@ abstract class CommonPhase extends PluginPhase:
   var metaContextTpe: TypeRef = _
   var metaContextCls: ClassSymbol = _
   var metaContextIgnoreAnnotSym: ClassSymbol = _
+  var metaContextForwardAnnotSym: ClassSymbol = _
   var positionCls: ClassSymbol = _
   var contextFunctionSym: Symbol = _
   var hasDFCTpe: TypeRef = _
@@ -72,6 +73,8 @@ abstract class CommonPhase extends PluginPhase:
   extension (sym: Symbol)
     def ignoreMetaContext(using Context): Boolean =
       sym.hasAnnotation(metaContextIgnoreAnnotSym)
+    def forwardMetaContext(using Context): Boolean =
+      sym.hasAnnotation(metaContextForwardAnnotSym)
     def inherits(parentFullName: String)(using Context): Boolean =
       if (sym.isClass)
         sym.asClass.parentSyms.exists(ps =>
@@ -250,6 +253,7 @@ abstract class CommonPhase extends PluginPhase:
     metaContextTpe = requiredClassRef("dfhdl.internals.MetaContext")
     metaContextCls = requiredClass("dfhdl.internals.MetaContext")
     metaContextIgnoreAnnotSym = requiredClass("dfhdl.internals.metaContextIgnore")
+    metaContextForwardAnnotSym = requiredClass("dfhdl.internals.metaContextForward")
     positionCls = requiredClass("dfhdl.internals.Position")
     hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
     inlineAnnotSym = requiredClass("scala.inline")

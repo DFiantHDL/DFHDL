@@ -79,24 +79,42 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
     val cs = getCodeStringFrom(block)
     assertNoDiff(cs, expectedCS)
 
-  private def getCurrentNameAndLine: (String, Int) =
+  private def getCurrentNameAndLine(idx: Int): (String, Int) =
     val stackTrace = Thread.currentThread().getStackTrace
-    val elm = stackTrace(3)
+    val elm = stackTrace(idx)
     (elm.getFileName(), elm.getLineNumber)
 
   private def getFileNameFromPath(filePath: String): String =
     val path = Paths.get(filePath)
     path.getFileName.toString
 
+  def getLastDesignInst: ir.DFDesignBlock =
+    dfc.mutableDB.getMembers.view.reverse.collectFirst { case d: ir.DFDesignBlock =>
+      d
+    }.get
+
+  def assertLatestDesignDclPosition(
+      lineOffset: Int,
+      lineCount: Int,
+      colStart: Int,
+      colEnd: Int
+  ): Unit =
+    getLastDesignInst.dclMeta.assertPosition(lineOffset, lineCount, colStart, colEnd)
+
+  extension (meta: compiler.ir.Meta)
+    def assertPosition(lineOffset: Int, lineCount: Int, colStart: Int, colEnd: Int): Unit =
+      val (fileName, line) = getCurrentNameAndLine(4)
+      val expectedPositionStr =
+        s"$fileName:${line - lineCount + 1 - lineOffset}:$colStart - ${line - lineOffset}:$colEnd"
+      val currentPosition = meta.position
+      val positionNoPath = currentPosition.copy(file = getFileNameFromPath(currentPosition.file))
+      assertNoDiff(positionNoPath.toString, expectedPositionStr)
+  end extension
+
   extension (dfVal: DFValAny)
     @metaContextIgnore
     def assertPosition(lineOffset: Int, lineCount: Int, colStart: Int, colEnd: Int): Unit =
-      val (fileName, line) = getCurrentNameAndLine
-      val expectedPositionStr =
-        s"$fileName:${line - lineCount + 1 - lineOffset}:$colStart - ${line - lineOffset}:$colEnd"
-      val currentPosition = dfVal.asIR.meta.position
-      val positionNoPath = currentPosition.copy(file = getFileNameFromPath(currentPosition.file))
-      assertNoDiff(positionNoPath.toString, expectedPositionStr)
+      dfVal.asIR.meta.assertPosition(lineOffset, lineCount, colStart, colEnd)
   end extension
 
 end DFSpec

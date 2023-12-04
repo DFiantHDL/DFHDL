@@ -152,8 +152,8 @@ class DFBitsSpec extends DFSpec:
         h"9"
       ).toBits; t10.assertPosition(0, 5, 17, 15)
       def twice(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
-      // TODO: need to fix positioning here
-      val t11 = twice(t1); // t11.assertPosition(0, 1, 17, 26)
+      val t11 = twice(t1); t11.assertPosition(0, 1, 17, 26)
+      assertLatestDesignDclPosition(2, 1, 7, 78)
       @inline def twiceInline(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
       assert(t11.width == 16)
       val t12 = twiceInline(t1); t12.assertPosition(0, 1, 17, 32)

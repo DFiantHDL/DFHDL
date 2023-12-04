@@ -146,7 +146,7 @@ class MutableDB(val duringTest: Boolean = false):
     ref
   end newRefFor
 
-  def getMembers: Iterator[DFMember] = members.view.map(e => e._1).iterator
+  def getMembers: List[DFMember] = members.view.map(e => e._1).toList
   def getMembersSize: Int = members.size
   def getMembers(from: Int, until: Int): List[DFMember] =
     members.view.slice(from, until).filterNot(e => e._3).map(e => e._1).toList

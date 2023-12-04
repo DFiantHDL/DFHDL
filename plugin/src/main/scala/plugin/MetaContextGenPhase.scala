@@ -29,7 +29,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override val runsBefore = Set("MetaContextDelegate")
   var setMetaSym: Symbol = _
   var dfTokenSym: Symbol = _
-  var metaContextForwardAnnotSym: ClassSymbol = _
   val treeOwnerApplyMap = mutable.Map.empty[Apply, (Tree, util.SrcPos)]
   val treeOwnerOverrideMap = mutable.Map.empty[DefDef, (Tree, util.SrcPos)]
   val contextDefs = mutable.Map.empty[String, Tree]
@@ -126,7 +125,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override def transformApply(tree: Apply)(using Context): Tree =
     val origApply = applyStack.head
     applyStack = applyStack.drop(1)
-    if (tree.tpe.isParameterless && !tree.fun.symbol.ignoreMetaContext)
+    if (
+      tree.tpe.isParameterless && !tree.fun.symbol.ignoreMetaContext && !tree.fun.symbol.forwardMetaContext
+    )
       tree match
         // found a context argument
         case ContextArg(argTree) =>
@@ -279,8 +280,11 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
               case Some(termArg) => nameValOrDef(termArg, ownerTree, typeArg, inlinedSrcPos)
               case None          => false
           case _ =>
-            addToTreeOwnerMap(apply, ownerTree, inlinedSrcPos)
-            true
+            apply match
+              case ContextArg(_) =>
+                addToTreeOwnerMap(apply, ownerTree, inlinedSrcPos)
+                true
+              case _ => false
         else false
       case Typed(tree, _) =>
         // debug("Typed")
@@ -292,15 +296,23 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         // debug("Inlined")
         val updatedInlineSrcPos = inlinedSrcPos orElse Some(inlined.srcPos)
         if (!nameValOrDef(tree, ownerTree, typeFocus, updatedInlineSrcPos))
+          val ownerTreeSym = ownerTree.symbol
           bindings.view.reverse.collectFirst {
             case vd @ ValDef(_, _, apply: Apply)
-                // if the binding owner is a method, we don't want to add these redundant bindings, but
-                // if the ownerTree is inline, we add to ignore it later on during transformApply
-                if !vd.symbol.owner.is(Method) || ownerTree.isInline =>
-              addToTreeOwnerMap(apply, ownerTree, updatedInlineSrcPos)
-              true
+                // we ignore the binding if the owner (tree) is a method.
+                // this looks like:
+                // ```
+                // def apply(arg: Int)(using $x1: DFC): ...
+                //    val some$proxy1 = foo(arg)($x1)
+                //     some$proxy1.asInstanceOf
+                // ```
+                if !(vd.symbol.owner == ownerTreeSym && ownerTreeSym.is(Method)) =>
+              nameValOrDef(apply, ownerTree, typeFocus, updatedInlineSrcPos)
           }.getOrElse(false)
         else true
+        end if
+      case Block(List(anonDef: DefDef), _: Closure) if anonDef.symbol.isAnonymousFunction =>
+        nameValOrDef(anonDef.rhs, ownerTree, typeFocus, inlinedSrcPos)
       case Block(_ :+ (cls @ TypeDef(_, template: Template)), _) if cls.symbol.isAnonymousClass =>
         // debug("Block done!")
         var named = false
@@ -312,7 +324,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                 ) && dd.symbol.name.toString == "__dfc" && dd.tpt.tpe <:< metaContextTpe =>
               dd
           }
-          debug(dfcOverrideDef.map(_.show))
           addToTreeOwnerMap(p, ownerTree, inlinedSrcPos, dfcOverrideDef)
           named = true
         }
@@ -446,7 +457,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     dfTokenSym = requiredClass("dfhdl.core.DFToken")
-    metaContextForwardAnnotSym = requiredClass("dfhdl.internals.metaContextForward")
     treeOwnerApplyMap.clear()
     treeOwnerOverrideMap.clear()
     contextDefs.clear()
