@@ -275,3 +275,21 @@ sealed trait DFUnit extends DFType:
   def bitsDataToData(data: (BitVector, BitVector)): Data = noTypeErr
 case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
 /////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFNothing
+// ------
+// This is for a temporary placeholder where no actual value is available.
+/////////////////////////////////////////////////////////////////////////////
+sealed trait DFNothing extends DFType:
+  type Data = Nothing
+  final val width = 0
+  def noTypeErr = throw new IllegalArgumentException(
+    "Unexpected access to `DFNothing`"
+  )
+  def createBubbleData: Data = noTypeErr
+  def isDataBubble(data: Data): Boolean = noTypeErr
+  def dataToBitsData(data: Data): (BitVector, BitVector) = noTypeErr
+  def bitsDataToData(data: (BitVector, BitVector)): Data = noTypeErr
+case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing
+/////////////////////////////////////////////////////////////////////////////

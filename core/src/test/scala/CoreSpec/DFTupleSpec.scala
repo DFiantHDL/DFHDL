@@ -33,6 +33,7 @@ class DFTupleSpec extends DFSpec:
        |val t15 = t2._1
        |val t16 = t13._1
        |val t17 = t13._2
+       |val t18 = (h"8", 1)
        |""".stripMargin
   ) {
     val t1: (UInt[8], Bit, Bits[3]) <> VAL =
@@ -59,8 +60,9 @@ class DFTupleSpec extends DFSpec:
     val t13: (UInt[8], Bit) <> VAL = (8, 1)
     val (t14, t15) = (t1(0), t2._1)
     val (t16, t17) = t13.asScalaTuple
-    // TODO: this needs to work
-    // val t14: (Bits[Int], Bit) <> VAL = (all(0), 1)
+    val t18: (Bits[Int], Bit) <> VAL = (h"8", 1)
+    // TODO: fix so width just works for the tuple
+    assert((t18: core.DFValAny).width == 5)
   }
 
   test("Inlined width") {

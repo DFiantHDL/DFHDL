@@ -174,7 +174,7 @@ object Width:
           dfTpe.dealias match
             case ConstantType(IntConstant(v)) if (v == 1 || v == 0) =>
               ConstantType(IntConstant(1))
-            case ref: TermRef =>
+            case ref: TermRef if ref.termSymbol.name != "<none>" =>
               ref.widen.calcValWidth(onlyTokens)
             case x =>
               report.errorAndAbort(

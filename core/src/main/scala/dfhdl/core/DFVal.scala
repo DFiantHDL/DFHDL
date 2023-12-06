@@ -88,8 +88,11 @@ def DFValConversionMacro[T <: DFTypeAny, R](
   val fromExactTerm = from.asTerm.exactTerm
   val fromExactType = fromExactTerm.tpe.asTypeOf[Any]
   val fromExactExpr = fromExactTerm.asExpr
-  def withTC = '{
+  '{
     import DFStruct.apply
+    given bitsNoType: DFBits[Int] = DFNothing.asInstanceOf[DFBits[Int]]
+    given uintNoType: DFUInt[Int] = DFNothing.asInstanceOf[DFUInt[Int]]
+    given sintNoType: DFSInt[Int] = DFNothing.asInstanceOf[DFSInt[Int]]
     val tc = compiletime.summonInline[DFVal.TC[T, fromExactType.Underlying]]
     val dfc = compiletime.summonInline[DFC]
     val dfType = compiletime.summonInline[T]
@@ -97,17 +100,6 @@ def DFValConversionMacro[T <: DFTypeAny, R](
       tc(dfType, $fromExactExpr)(using dfc)
     }(using dfc, compiletime.summonInline[CTName])
   }
-  Type.of[T] match
-    case '[DFBits[Int]] =>
-      '{
-        val ic = compiletime.summonInline[DFBits.Val.Candidate[fromExactType.Underlying]]
-        val dfc = compiletime.summonInline[DFC]
-        trydf {
-          ic($fromExactExpr)(using dfc).asValOf[T]
-        }(using dfc, compiletime.summonInline[CTName])
-      }
-    case _ => withTC
-  end match
 end DFValConversionMacro
 
 sealed protected trait DFValLP:

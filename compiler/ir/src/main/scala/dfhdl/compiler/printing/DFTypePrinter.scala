@@ -39,6 +39,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
     case dt: DFOpaque    => csDFOpaque(dt, typeCS)
     case dt: DFStruct    => csDFStruct(dt, typeCS)
     case dt: DFUnit      => csDFUnit(dt, typeCS)
+    case dt: DFNothing   => ???
 end AbstractTypePrinter
 
 protected trait DFTypePrinter extends AbstractTypePrinter:

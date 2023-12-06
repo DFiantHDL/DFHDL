@@ -218,7 +218,9 @@ object DFTuple:
         def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)
-          DFVal.Func(dfType, FuncOp.++, dfVals)
+          // reconstructing the Tuple DFType, in case fields could be DFNothing from conversions
+          val fixedDFType = DFTuple(dfVals.map(_.dfType))
+          DFVal.Func(fixedDFType, FuncOp.++, dfVals)
     end TC
 
     object Compare:

@@ -29,7 +29,6 @@ object DFError:
           |Message:   ${dfMsg}""".stripMargin
   end Basic
   object FakeEnum extends DFError("This value of enum is no meant to be accessed.")
-  object EmptyDFType extends DFError("Unexpected empty DFType found.")
   final class Derived(from: DFError) extends DFError(from.dfMsg)
 
   extension (dfErr: DFError)

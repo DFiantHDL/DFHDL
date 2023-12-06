@@ -171,6 +171,8 @@ class DFDecimalSpec extends DFSpec:
          |val b6 = Bits(6) const h"6'00"
          |val s32 = SInt(32) <> VAR init sd"32'0"
          |val s64 = SInt(64) <> VAR init sd"64'0"
+         |val cu = UInt(1) const d"1'1"
+         |val cs = SInt(2) const sd"2'-1"
          |u8 := d"8'0"
          |u8 := d"8'255"
          |u8 := d"8'0"
@@ -200,6 +202,8 @@ class DFDecimalSpec extends DFSpec:
       val b6 = Bits(6) const all(0)
       val s32: Int <> VAL = Int <> VAR init 0
       val s64: Long <> VAL = Long <> VAR init 0
+      val cu: UInt[Int] <> VAL = 1
+      val cs: SInt[Int] <> VAL = -1
       u8 := 0
       u8 := 255
       u8 := d"0"
@@ -270,6 +274,14 @@ class DFDecimalSpec extends DFSpec:
       )(
         """s8 := -u8"""
       )
+    }
+    assertDSLErrorLog(
+      "Cannot apply a signed value to an unsigned variable."
+    )(
+      """val cu: UInt[Int] <> VAL = -1"""
+    ) {
+      val value = -1
+      val cu: UInt[Int] <> VAL = value
     }
   }
   test("Comparison") {

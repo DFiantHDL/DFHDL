@@ -20,7 +20,6 @@ final class DFType[+T <: ir.DFType, +A <: Args](val value: T | DFError) extends 
 type DFTypeAny = DFType[ir.DFType, Args]
 
 object DFType:
-  val Empty = new DFType(DFError.EmptyDFType).asInstanceOf[DFType[Nothing, Nothing]]
   type Of[T <: Supported] <: DFTypeAny = T match
     case DFTypeAny => T <:! DFTypeAny
     case Long      => DFSInt[64]

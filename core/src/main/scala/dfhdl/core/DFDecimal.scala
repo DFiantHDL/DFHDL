@@ -907,26 +907,34 @@ object DFXInt:
       given [LS <: Boolean, LW <: Int, R](using
           ic: Candidate[R]
       )(using
-          check: TCCheck[LS, LW, ic.OutS, ic.OutW]
+          check: TCCheck[LS, LW, ic.OutS, ic.OutW],
+          lsigned: ValueOf[LS]
       ): TC[DFXInt[LS, LW], R] with
         def conv(dfType: DFXInt[LS, LW], value: R)(using dfc: Ctx): Out =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           val rhs = ic(value)
-          if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhs.dfType.signed)
-            check(dfType.signed, dfType.width, rhs.dfType.signed, rhs.width)
-          val dfValIR =
-            val rhsSignFix: DFValOf[DFSInt[Int]] =
-              if (dfType.signed != rhs.dfType.signed)
-                rhs.anonymize.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
-              else rhs.asValOf[DFSInt[Int]]
-            if (
-              dfType.width > rhsSignFix.width ||
-              rhs.hasTag[DFVal.TruncateTag] && dfType.width < rhsSignFix.width
-            )
-              rhsSignFix.anonymize.resize(dfType.width).asIR
-            else rhsSignFix.asIR
-          dfValIR.asValOf[DFXInt[LS, LW]]
+          (dfType.asIR: ir.DFType) match
+            case ir.DFNothing =>
+              val signCheck = summon[`LS >= RS`.Check[Boolean, Boolean]]
+              signCheck(lsigned.value, rhs.dfType.signed)
+              rhs.asValOf[DFXInt[LS, LW]]
+            case _ =>
+              if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhs.dfType.signed)
+                check(dfType.signed, dfType.width, rhs.dfType.signed, rhs.width)
+              val dfValIR =
+                val rhsSignFix: DFValOf[DFSInt[Int]] =
+                  if (dfType.signed != rhs.dfType.signed)
+                    rhs.anonymize.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
+                  else rhs.asValOf[DFSInt[Int]]
+                if (
+                  dfType.width > rhsSignFix.width ||
+                  rhs.hasTag[DFVal.TruncateTag] && dfType.width < rhsSignFix.width
+                )
+                  rhsSignFix.anonymize.resize(dfType.width).asIR
+                else rhsSignFix.asIR
+              dfValIR.asValOf[DFXInt[LS, LW]]
+          end match
         end conv
       end given
     end TC

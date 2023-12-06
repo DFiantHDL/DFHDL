@@ -677,13 +677,18 @@ object DFBits:
         def conv(dfType: DFBits[LW], value: V)(using dfc: Ctx): DFValOf[DFBits[LW]] =
           import Ops.resizeBits
           val dfVal = ic(value)
-          if (dfVal.hasTag[DFVal.TruncateTag] && dfType.width < dfVal.width)
-            dfVal.anonymize.resizeBits(dfType.width)
-          else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.width > dfVal.width)
-            dfVal.anonymize.resizeBits(dfType.width)
-          else
-            check(dfType.width, dfVal.width)
-            dfVal.asValOf[DFBits[LW]]
+          (dfType.asIR: ir.DFType) match
+            case ir.DFNothing =>
+              dfVal.asValOf[DFBits[LW]]
+            case _ =>
+              if (dfVal.hasTag[DFVal.TruncateTag] && dfType.width < dfVal.width)
+                dfVal.anonymize.resizeBits(dfType.width)
+              else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.width > dfVal.width)
+                dfVal.anonymize.resizeBits(dfType.width)
+              else
+                check(dfType.width, dfVal.width)
+                dfVal.asValOf[DFBits[LW]]
+        end conv
       end DFBitsFromCandidate
       given DFBitsFromSEV[LW <: Int, T <: BitOrBool, V <: SameElementsVector[T]]: TC[DFBits[LW], V]
       with
