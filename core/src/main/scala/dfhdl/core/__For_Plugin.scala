@@ -90,7 +90,7 @@ object __For_Plugin:
       dclMeta: ir.Meta
   )(
       func: => V
-  )(using DFC): V =
+  )(using DFC): V = trydf:
     val designBlock =
       Design.Block.apply(
         domain = ir.DomainType.DF,

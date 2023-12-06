@@ -64,21 +64,21 @@ class Logger:
 
 @targetName("tryDFVal")
 @metaContextForward(0)
-def trydf[T <: DFTypeAny, M <: ModifierAny](
-    block: => DFVal[T, M]
-)(using dfc: DFC, ctName: CTName): DFVal[T, M] =
+def trydf[V <: DFValAny](
+    block: => V
+)(using dfc: DFC, ctName: CTName): V =
   try
     val ret = block
     import dfc.getSet
     val retIR = ret.asIR
-    retIR.asVal[T, M]
+    retIR.asVal[DFTypeAny, ModifierAny].asInstanceOf[V]
   catch
     case e: Exception =>
       val dfErr = e match
         case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
         case e: DFError                  => e
       dfc.logError(dfErr)
-      dfErr.asVal[T, M]
+      dfErr.asVal[DFTypeAny, ModifierAny].asInstanceOf[V]
 
 @targetName("tryDFNet")
 @metaContextForward(0)
