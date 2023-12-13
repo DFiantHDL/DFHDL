@@ -1,5 +1,4 @@
-package StagesSpec
-
+package dfhdl
 import dfhdl.compiler.ir.DB
 import dfhdl.compiler.printing.DefaultPrinter
 import dfhdl.internals.AllowTopLevel
