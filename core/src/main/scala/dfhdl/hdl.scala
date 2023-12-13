@@ -86,6 +86,12 @@ protected object hdl:
         DFC
     ): Boolean =
       ???
+  extension (dfVal: core.DFValAny)
+    inline def asValOf[T <: core.DFType.Supported]: T <> VAL =
+      dfVal.asInstanceOf[T <> VAL]
+  extension (dfVal: compiler.ir.DFVal)
+    inline def asValOf[T <: core.DFType.Supported]: T <> VAL =
+      core.DFVal(dfVal).asInstanceOf[T <> VAL]
 
   import java.util.Properties
 

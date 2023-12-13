@@ -78,7 +78,7 @@ object DFType:
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
-  type Supported = DFTypeAny | DFEncoding | DFOpaqueA | Byte | Long | Boolean | AnyRef | Unit
+  type Supported = DFTypeAny | DFEncoding | DFOpaqueA | Byte | Int | Long | Boolean | AnyRef | Unit
   object Ops:
     extension [D <: Int with Singleton](cellDim: D)
       def <>[M <: ModifierAny](
