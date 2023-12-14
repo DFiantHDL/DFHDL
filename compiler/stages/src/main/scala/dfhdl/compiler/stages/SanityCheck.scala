@@ -16,6 +16,9 @@ case object SanityCheck extends Stage:
     val refTable = getSet.designDB.refTable
     val memberTable = getSet.designDB.memberTable
     var hasViolations: Boolean = false
+    def reportViolation(msg: String): Unit =
+      hasViolations = true
+      println(msg)
     getSet.designDB.members.foreach { m =>
       if (
         m.getRefs.exists {
@@ -23,16 +26,14 @@ case object SanityCheck extends Stage:
           case r              => !refTable.contains(r)
         }
       )
-        hasViolations = true
-        println(s"Missing ref for the member: $m")
+        reportViolation(s"Missing ref for the member: $m")
       if (
         m.getRefs.collect { case tf: DFRef.TwoWayAny => tf.originRef }.exists {
           case _: DFRef.Empty => false
           case r              => !refTable.contains(r)
         }
       )
-        hasViolations = true
-        println(s"Missing origin ref to the member: $m")
+        reportViolation(s"Missing origin ref to the member: $m")
       var originRef: DFRefAny | Null = null
       var missingRef: DFRefAny | Null = null
       if (
@@ -47,17 +48,19 @@ case object SanityCheck extends Stage:
               !refTable.contains(o)
           }
       )
-        hasViolations = true
-        println(s"Ref $missingRef missing origin ref $originRef to the member: $m")
+        reportViolation(s"Ref $missingRef missing origin ref $originRef to the member: $m")
       if (m.originRefs.exists(_.get == m))
-        hasViolations = true
-        println(s"Circular reference for the member: $m")
+        reportViolation(s"Circular reference for the member: $m")
       m match
         case m: DFDesignBlock if !m.isTop =>
           if (!refTable.contains(m.ownerRef))
-            hasViolations = true
-            println(s"Missing owner ref for the member: $m")
+            reportViolation(s"Missing owner ref for the member: $m")
         case _ =>
+    }
+    val memberSet = getSet.designDB.members.toSet
+    refTable.foreach { (r, m) =>
+      if (m != DFMember.Empty && !memberSet.contains(m))
+        reportViolation(s"Ref $r exists for a removed member: $m")
     }
     require(!hasViolations, "Failed reference check!")
   end refCheck
