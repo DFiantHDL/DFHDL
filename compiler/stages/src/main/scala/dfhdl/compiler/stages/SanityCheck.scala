@@ -49,6 +49,9 @@ case object SanityCheck extends Stage:
       )
         hasViolations = true
         println(s"Ref $missingRef missing origin ref $originRef to the member: $m")
+      if (m.originRefs.exists(_.get == m))
+        hasViolations = true
+        println(s"Circular reference for the member: $m")
       m match
         case m: DFDesignBlock if !m.isTop =>
           if (!refTable.contains(m.ownerRef))

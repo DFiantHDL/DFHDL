@@ -106,10 +106,12 @@ private val nonConsumingRefs: Set[ClassTag[_]] = Set(
   classTag[DFConditional.DFCaseBlock]
 )
 
-extension (dfVal: DFVal)
+extension (member: DFMember)
   def originRefs(using MemberGetSet): Set[DFRefAny] =
     getSet.designDB.memberTable
-      .getOrElse(dfVal, Set.empty).collect { case r: DFRef.TwoWayAny => r.originRef }
+      .getOrElse(member, Set.empty).collect { case r: DFRef.TwoWayAny => r.originRef }
+
+extension (dfVal: DFVal)
   def getPartialAliases(using MemberGetSet): Set[DFVal.Alias.Partial] =
     dfVal.originRefs.flatMap {
       case r if r.refType equals aliasPartClassTag =>
