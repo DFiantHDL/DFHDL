@@ -298,9 +298,9 @@ extension (db: DB)
     // Patching reference table
     val patchedRefTable = patchList
       .foldLeft(ReplacementContext.fromRefTable(refTable)) {
-        case (rc, (origMember, Patch.Replace(repMember, _, refFilter)))
+        case (rc, (origMember, Patch.Replace(repMember, config, refFilter)))
             if (origMember != repMember) =>
-          val ret = rc.replaceMember(origMember, repMember, refFilter)
+          val ret = rc.replaceMember(origMember, repMember, config, refFilter)
           patchDebug {
             println("rc.refTable:")
             println(ret.refTable.mkString("\n"))
@@ -319,15 +319,20 @@ extension (db: DB)
           // updating the patched DB reference table members with the newest members kept by the replacement context
           val updatedPatchRefTable = rc.getUpdatedRefTable(dbPatched.refTable)
           val repRT = config match
-            case Patch.Add.Config.ReplaceWithFirst(_, refFilter) =>
+            case Patch.Add.Config.ReplaceWithFirst(repConfig, refFilter) =>
               val repMember = db.members(1) // At index 0 we have the Top. We don't want that.
-              rc.replaceMember(origMember, repMember, refFilter)
-            case Patch.Add.Config.ReplaceWithLast(_, refFilter) =>
+              rc.replaceMember(origMember, repMember, repConfig, refFilter)
+            case Patch.Add.Config.ReplaceWithLast(repConfig, refFilter) =>
               val repMember = db.members.last
-              rc.replaceMember(origMember, repMember, refFilter)
+              rc.replaceMember(origMember, repMember, repConfig, refFilter)
             case Patch.Add.Config.Via =>
               val repMember = db.members.last // The last member is used for Via addition.
-              rc.replaceMember(origMember, repMember, Patch.Replace.RefFilter.All)
+              rc.replaceMember(
+                origMember,
+                repMember,
+                Patch.Replace.Config.FullReplacement,
+                Patch.Replace.RefFilter.All
+              )
             case _ => rc
           //          patchDebug {
           //            println("repRT.refTable:")
