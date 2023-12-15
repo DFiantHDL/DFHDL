@@ -219,3 +219,17 @@ extension (refTW: DFRef.TwoWayAny)
       case net: DFNet if net.isViaConnection =>
         refTW.get.getOwner.isSameOwnerDesignAs(net)
       case _ => false
+
+extension (net: DFNet)
+  private def collectRelMembersRecur(dfVal: DFVal)(using MemberGetSet): List[DFVal] =
+    if (dfVal.isAnonymous)
+      dfVal :: dfVal.getRefs.view.map(_.get).flatMap {
+        case dfVal: DFVal => collectRelMembersRecur(dfVal)
+        case _            => Nil
+      }.toList
+    else Nil
+  def collectRelMembers(using MemberGetSet): List[DFVal] =
+    net match
+      case DFNet(DFRef(lhs: DFVal), _, DFRef(rhs: DFVal), _, _, _) =>
+        collectRelMembersRecur(lhs).reverse ++ collectRelMembersRecur(rhs).reverse
+      case _ => Nil
