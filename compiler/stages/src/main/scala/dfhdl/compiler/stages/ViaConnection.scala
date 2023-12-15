@@ -7,7 +7,7 @@ import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
 
 case object ViaConnection extends Stage:
-  def dependencies: List[Stage] = List()
+  def dependencies: List[Stage] = List(DropDesignDefs, ExplicitNamedVars)
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
@@ -43,6 +43,18 @@ case object ViaConnection extends Stage:
           val portsToVars: List[(DFVal, DFVal)] = ports.map { p =>
             p -> p.asValAny.genNewVar(using dfc.setName(s"${ib.getName}_${p.getName}")).asIR
           }
+        def collectRelMembersRecur(dfVal: DFVal): List[DFVal] =
+          if (dfVal.isAnonymous)
+            dfVal :: dfVal.getRefs.view.map(_.get).flatMap {
+              case dfVal: DFVal => collectRelMembersRecur(dfVal)
+              case _            => Nil
+            }.toList
+          else Nil
+        def collectRelMembers(net: DFNet): List[DFVal] =
+          net match
+            case DFNet(DFRef(lhs: DFVal), _, DFRef(rhs: DFVal), _, _, _) =>
+              collectRelMembersRecur(lhs).reverse ++ collectRelMembersRecur(rhs).reverse
+            case _ => Nil
         // Meta design for connections between ports and the added variables
         val connectDsn = new MetaDesign():
           dfc.enterLate()
@@ -60,10 +72,19 @@ case object ViaConnection extends Stage:
               )
             )
           }
-          val movedNets: List[(DFMember, Patch)] = nets.map { n =>
-            // planet the net as via net
+          val movedNets: List[(DFMember, Patch)] = nets.flatMap { n =>
+            // plant the net as via net
             val viaNet = plantMember(n.copy(op = DFNet.Op.ViaConnection))
-            n -> Patch.Replace(viaNet, Patch.Replace.Config.ChangeRefAndRemove)
+            val changeToViaPatch =
+              n -> Patch.Replace(viaNet, Patch.Replace.Config.ChangeRefAndRemove)
+            val relMembers = collectRelMembers(n)
+            // relevant members must move alongside the net
+            if (relMembers.nonEmpty)
+              List(
+                changeToViaPatch,
+                viaNet -> Patch.Move(relMembers, n.getOwnerDesign, Patch.Move.Config.Before)
+              )
+            else List(changeToViaPatch)
           }
         (ib -> Patch.Add(addVarsDsn, Patch.Add.Config.Before)) ::
           (ib -> Patch.Add(
