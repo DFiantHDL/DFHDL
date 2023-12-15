@@ -342,6 +342,7 @@ object DFVal:
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+      override def getRefs: List[DFRefAny] = List(relIdx, relValRef)
     end ApplyIdx
     object ApplyIdx:
       object Const:
