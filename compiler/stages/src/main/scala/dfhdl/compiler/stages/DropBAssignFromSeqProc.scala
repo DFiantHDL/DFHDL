@@ -22,13 +22,20 @@ case object DropBAssignFromSeqProc extends Stage:
           case net @ DFNet.BAssignment(toVal: DFVal.Dcl, fromVal: DFVal)
               if latestSeqProc.map(proc => net.isInsideOwner(proc)).getOrElse(false) &&
                 toVal.getAssignmentsTo.size == 1 =>
-            val dsn = new MetaDesign(Domain.ED):
-              toVal.asVarAny <> fromVal.asValAny
+            // blocking assignment changed to connection (to be moved outside a process)
+            val connNet = net.copy(op = DFNet.Op.Connection)
+            val changeToConnPatch =
+              net -> Patch.Replace(connNet, Patch.Replace.Config.ChangeRefAndRemove)
+            val movedMembers = net.collectRelMembers :+ connNet
+            // relevant members must move alongside the net
             List(
-              // patch to copy the assignments to be before the process as DFHDL connection
-              latestSeqProc.get -> Patch.Add(dsn, Patch.Add.Config.Before),
-              // and patch to remove the old blocking assignments from the process
-              net -> Patch.Remove
+              changeToConnPatch,
+              // patch to move the assignments to be before the process as DFHDL connection
+              latestSeqProc.get -> Patch.Move(
+                movedMembers,
+                net.getOwnerBlock,
+                Patch.Move.Config.Before
+              )
             )
           case _ => None
         .toList
