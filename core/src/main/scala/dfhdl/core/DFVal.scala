@@ -257,7 +257,7 @@ object DFVal extends DFValLP:
 
     def init(
         tokenValues: DFToken.Value[T]*
-    )(using InitCheck[I], DFC): DFVal[T, Modifier[A, C, Modifier.Initialized]] = trydf {
+    )(using DFC, InitCheck[I]): DFVal[T, Modifier[A, C, Modifier.Initialized]] = trydf {
       val tvList = tokenValues.view.filter(_.enable).map(tv => tv(dfVal.dfType).asIR).toList
       if (tvList.isEmpty) dfVal.asVal[T, Modifier[A, C, Modifier.Initialized]]
       else initForced(tvList)
@@ -266,7 +266,7 @@ object DFVal extends DFValLP:
   extension [T <: NonEmptyTuple, A, C, I](dfVal: DFVal[DFTuple[T], Modifier[A, C, I]])
     def init(
         tokenValues: DFToken.TupleValues[T]
-    )(using InitCheck[I], DFC): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]] = trydf {
+    )(using DFC, InitCheck[I]): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]] = trydf {
       if (tokenValues.enable) dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
       else dfVal.asVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]]
     }
