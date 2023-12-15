@@ -19,7 +19,9 @@ case object SanityCheck extends Stage:
     def reportViolation(msg: String): Unit =
       hasViolations = true
       println(msg)
+    // checks for all members
     getSet.designDB.members.foreach { m =>
+      // check for missing references
       if (
         m.getRefs.exists {
           case _: DFRef.Empty => false
@@ -27,6 +29,7 @@ case object SanityCheck extends Stage:
         }
       )
         reportViolation(s"Missing ref for the member: $m")
+      // check for missing origin references
       if (
         m.getRefs.collect { case tf: DFRef.TwoWayAny => tf.originRef }.exists {
           case _: DFRef.Empty => false
@@ -49,8 +52,10 @@ case object SanityCheck extends Stage:
           }
       )
         reportViolation(s"Ref $missingRef missing origin ref $originRef to the member: $m")
+      // check for circular references
       if (m.originRefs.exists(_.get == m))
         reportViolation(s"Circular reference for the member: $m")
+      // check for missing owner references
       m match
         case m: DFDesignBlock if !m.isTop =>
           if (!refTable.contains(m.ownerRef))
@@ -58,6 +63,7 @@ case object SanityCheck extends Stage:
         case _ =>
     }
     val memberSet = getSet.designDB.members.toSet
+    // checks for all references
     refTable.foreach { (r, m) =>
       if (m != DFMember.Empty && !memberSet.contains(m))
         reportViolation(s"Ref $r exists for a removed member: $m")
