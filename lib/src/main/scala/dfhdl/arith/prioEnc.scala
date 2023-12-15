@@ -17,4 +17,9 @@ def prioEncRecur(value: Bits[Int] <> VAL): (Bit, Bits[Int]) <> DFRET =
 
 @inline def prioEnc[W <: Int](value: Bits[W] <> VAL)(using
     info: IntInfo[W - 1]
-): (Bit, Bits[info.OutW]) <> DFRET = prioEncRecur(value).asValOf[(Bit, Bits[info.OutW])]
+): (Bit, Bits[info.OutW]) <> DFRET =
+  require(
+    value.width > 1,
+    s"Priority encoded value width must be larger than 1. Found: ${value.width}"
+  )
+  prioEncRecur(value).asValOf[(Bit, Bits[info.OutW])]
