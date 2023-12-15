@@ -136,7 +136,7 @@ case object SanityCheck extends Stage:
       m.getRefs.foreach {
         case r @ DFRef(rm) if !discoveredMembers.contains(rm) =>
           println(
-            s"The member ${m.hashString}:\n$m\nHas reference $r\n Pointing to a later member ${rm.hashString}:\n${rm}"
+            s"The member ${m.hashString}:\n$m\nHas reference $r\nPointing to a later member ${rm.hashString}:\n${rm}"
           )
           hasViolations = true
           require(!hasViolations, "Failed member order check!")
