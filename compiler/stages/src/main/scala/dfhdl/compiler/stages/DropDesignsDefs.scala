@@ -17,7 +17,7 @@ case object DropDesignDefs extends Stage:
         val identRemovePatch = members.view.reverse.collectFirst {
           case DFNet.Connection(port @ DclOut(), ident @ Ident(retVal), _) =>
             outPortOpt = Some(port)
-            ident -> Patch.Replace(retVal, Patch.Replace.Config.ChangeRefAndRemove)
+            ident -> Patch.Replace(retVal, Patch.Replace.Config.FullReplacement)
         }.toList
         val updatedName =
           // design definitions may be anonymous, so we name them
