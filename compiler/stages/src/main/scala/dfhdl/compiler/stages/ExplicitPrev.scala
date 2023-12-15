@@ -172,7 +172,7 @@ case object ExplicitPrev extends Stage:
       case e if e.tags.hasTagOf[ExternalInit] =>
         e -> Patch.Add(
           new MetaDesign():
-            e.asVarAny := e.asVarAny.asInitialized.prev
+            e.asVarAny := e.asValAny.asInitialized.prev
           ,
           Patch.Add.Config.After
         )
@@ -182,7 +182,7 @@ case object ExplicitPrev extends Stage:
           new MetaDesign():
             val withInit = e.tag(ExternalInit(List(DFToken.bubble(e.dfType))))
             plantMember(withInit)
-            e.asVarAny := withInit.asVarAny.asInitialized.prev
+            withInit.asVarAny := withInit.asValAny.asInitialized.prev
           ,
           Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
         )
