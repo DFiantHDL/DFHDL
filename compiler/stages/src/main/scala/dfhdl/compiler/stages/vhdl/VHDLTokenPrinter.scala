@@ -37,18 +37,12 @@ protected trait VHDLTokenPrinter extends AbstractTokenPrinter:
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.getName})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
-    if (dfType.getName.isEmpty)
-      csDFTupleData(dfType.fieldMap.values.toList, data)
-    else
-      dfType.getName + dfType.fieldMap
-        .lazyZip(data)
-        .map { case ((n, t), d) =>
-          s"$n = ${csDFToken(DFToken.forced(t, d))}"
-        }
-        .mkStringBrackets
-  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
-    (dfTypes lazyZip data)
-      .map((t, d) => csDFToken(DFToken.forced(t, d)))
+    dfType.getName + dfType.fieldMap
+      .lazyZip(data)
+      .map { case ((n, t), d) =>
+        s"$n = ${csDFToken(DFToken.forced(t, d))}"
+      }
       .mkStringBrackets
+  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = printer.unsupported
   def csDFUnitData(dfType: DFUnit, data: Unit): String = printer.unsupported
 end VHDLTokenPrinter

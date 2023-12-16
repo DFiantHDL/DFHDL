@@ -14,6 +14,7 @@ protected trait AbstractPrinter:
   given printer: TPrinter
   given getSet: MemberGetSet
   given printerOptions: PrinterOptions
+  val tupleSupportEnable: Boolean
 
 trait Printer
     extends AbstractTypePrinter,
@@ -231,6 +232,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
       DFOwnerPrinter:
   type TPrinter = DFPrinter
   given printer: TPrinter = this
+  val tupleSupportEnable: Boolean = true
   def csViaConnectionSep: String = ""
   def csAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr := $rhsStr"

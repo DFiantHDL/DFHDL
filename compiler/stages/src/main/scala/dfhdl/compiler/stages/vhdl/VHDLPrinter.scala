@@ -16,6 +16,7 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
   def unsupported: Nothing = throw new IllegalArgumentException(
     "Unsupported member for this RTPrinter."
   )
+  val tupleSupportEnable: Boolean = false
   def csViaConnectionSep: String = ","
   def csAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr := $rhsStr;"

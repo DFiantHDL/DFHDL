@@ -46,18 +46,12 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     csDFToken(DFToken.forced(dfType.actualType, data))
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
-    if (dfType.getName.isEmpty)
-      csDFTupleData(dfType.fieldMap.values.toList, data)
-    else
-      dfType.fieldMap
-        .lazyZip(data)
-        .map { case ((n, t), d) =>
-          s"$n: ${csDFToken(DFToken.forced(t, d))}"
-        }
-        .mkString("'{", ", ", "}")
-  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
-    (dfTypes lazyZip data)
-      .map((t, d) => csDFToken(DFToken.forced(t, d)))
-      .mkStringBrackets
+    dfType.fieldMap
+      .lazyZip(data)
+      .map { case ((n, t), d) =>
+        s"$n: ${csDFToken(DFToken.forced(t, d))}"
+      }
+      .mkString("'{", ", ", "}")
+  def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = printer.unsupported
   def csDFUnitData(dfType: DFUnit, data: Unit): String = printer.unsupported
 end VerilogTokenPrinter

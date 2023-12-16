@@ -37,9 +37,11 @@ trait AbstractTypePrinter extends AbstractPrinter:
     case dt: DFEnum      => csDFEnum(dt, typeCS)
     case dt: DFVector    => csDFVector(dt, typeCS)
     case dt: DFOpaque    => csDFOpaque(dt, typeCS)
-    case dt: DFStruct    => csDFStruct(dt, typeCS)
-    case dt: DFUnit      => csDFUnit(dt, typeCS)
-    case dt: DFNothing   => ???
+    case dt: DFStruct if dt.isTuple && tupleSupportEnable =>
+      csDFTuple(dt.fieldMap.values.toList, typeCS)
+    case dt: DFStruct  => csDFStruct(dt, typeCS)
+    case dt: DFUnit    => csDFUnit(dt, typeCS)
+    case dt: DFNothing => ???
 end AbstractTypePrinter
 
 protected trait DFTypePrinter extends AbstractTypePrinter:
@@ -83,9 +85,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
       .hindent(2)
     s"final case class ${dfType.getName}(\n$fields\n) extends Struct"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
-    if (dfType.getName.isEmpty)
-      csDFTuple(dfType.fieldMap.values.toList, typeCS)
-    else dfType.getName
+    dfType.getName
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = "Unit"
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets

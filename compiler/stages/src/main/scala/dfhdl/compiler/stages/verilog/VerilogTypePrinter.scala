@@ -47,10 +47,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
       .hindent
     s"typedef struct packed {\n$fields\n} ${dfType.getName};"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
-    if (dfType.getName.isEmpty)
-      csDFTuple(dfType.fieldMap.values.toList, typeCS)
-    else dfType.getName
+    dfType.getName
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = printer.unsupported
-  def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
-    fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
+  def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String = printer.unsupported
 end VerilogTypePrinter

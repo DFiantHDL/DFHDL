@@ -16,6 +16,7 @@ class VerilogPrinter(using val getSet: MemberGetSet, val printerOptions: Printer
   def unsupported: Nothing = throw new IllegalArgumentException(
     "Unsupported member for this VerilogPrinter."
   )
+  val tupleSupportEnable: Boolean = false
   def csViaConnectionSep: String = ","
   def csAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr = $rhsStr;"

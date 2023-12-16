@@ -123,8 +123,10 @@ trait AbstractTokenPrinter extends AbstractPrinter:
     case DFEnum.Token(dt, data)      => csDFEnumData(dt, data)
     case DFVector.Token(dt, data)    => csDFVectorData(dt, data)
     case DFOpaque.Token(dt, data)    => csDFOpaqueData(dt, data)
-    case DFStruct.Token(dt, data)    => csDFStructData(dt, data)
-    case DFUnit.Token(dt, data)      => csDFUnitData(dt, data)
+    case DFStruct.Token(dt, data) if dt.isTuple && tupleSupportEnable =>
+      csDFTupleData(dt.fieldMap.values.toList, data)
+    case DFStruct.Token(dt, data) => csDFStructData(dt, data)
+    case DFUnit.Token(dt, data)   => csDFUnitData(dt, data)
     case x =>
       throw new IllegalArgumentException(
         s"Unexpected token found: $x"
@@ -169,15 +171,12 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.getName})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
-    if (dfType.getName.isEmpty)
-      csDFTupleData(dfType.fieldMap.values.toList, data)
-    else
-      dfType.getName + dfType.fieldMap
-        .lazyZip(data)
-        .map { case ((n, t), d) =>
-          s"$n = ${csDFToken(DFToken.forced(t, d))}"
-        }
-        .mkStringBrackets
+    dfType.getName + dfType.fieldMap
+      .lazyZip(data)
+      .map { case ((n, t), d) =>
+        s"$n = ${csDFToken(DFToken.forced(t, d))}"
+      }
+      .mkStringBrackets
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
     (dfTypes lazyZip data)
       .map((t, d) => csDFToken(DFToken.forced(t, d)))

@@ -117,14 +117,15 @@ protected trait DFValPrinter extends AbstractValPrinter:
             def argsInBrackets = args.map(_.refCodeString).mkStringBrackets
             dfVal.dfType match
               case structType @ DFStruct(structName, fieldMap) =>
-                if (structName.isEmpty) argsInBrackets
+                if (structType.isTuple) argsInBrackets
                 else
-                  structType.getName + fieldMap
-                    .lazyZip(args)
-                    .map { case ((n, _), r) =>
-                      s"$n = ${r.refCodeString}"
-                    }
-                    .mkStringBrackets
+                  structType.getName +
+                    fieldMap
+                      .lazyZip(args)
+                      .map { case ((n, _), r) =>
+                        s"$n = ${r.refCodeString}"
+                      }
+                      .mkStringBrackets
               case DFVector(_, _) =>
                 val csArgs = args.map(_.refCodeString)
                 if (csArgs.allElementsAreEqual) s"all(${csArgs.head})"
@@ -189,9 +190,9 @@ protected trait DFValPrinter extends AbstractValPrinter:
   // field selections changes from `dv._${idx+1}` to `dv($idx)`
   val TUPLE_MIN_INDEXING = 3
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String =
-    val DFStruct(structName, fieldMap) = dfVal.relValRef.get.dfType: @unchecked
+    val dfType @ DFStruct(structName, fieldMap) = dfVal.relValRef.get.dfType: @unchecked
     val fieldSel =
-      if (structName.isEmpty)
+      if (dfType.isTuple)
         if (fieldMap.size > TUPLE_MIN_INDEXING)
           s"(${dfVal.fieldName.drop(1).toInt - 1})"
         else s".${dfVal.fieldName}"

@@ -253,7 +253,13 @@ final case class DFStruct(
 end DFStruct
 
 object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
-  extension (dfType: DFStruct) def isTuple: Boolean = dfType.name.isEmpty
+  extension (dfType: DFStruct) def isTuple: Boolean = dfType.name.startsWith("DFTuple")
+object DFTuple:
+  def apply(fieldList: List[DFType]): DFStruct =
+    DFStruct(
+      s"DFTuple${fieldList.length}",
+      ListMap.from(fieldList.view.zipWithIndex.map((f, i) => (s"_${i + 1}", f)))
+    )
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

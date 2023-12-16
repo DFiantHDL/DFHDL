@@ -43,10 +43,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       .hindent(2)
     s"final case class ${dfType.getName}(\n$fields\n) extends Struct"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
-    if (dfType.getName.isEmpty)
-      csDFTuple(dfType.fieldMap.values.toList, typeCS)
-    else dfType.getName
+    dfType.getName
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = printer.unsupported
-  def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
-    fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
+  def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String = printer.unsupported
 end VHDLTypePrinter
