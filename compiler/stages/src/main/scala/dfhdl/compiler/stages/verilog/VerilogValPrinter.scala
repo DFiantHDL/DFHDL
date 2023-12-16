@@ -11,7 +11,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValConstDcl(dfVal: Const): String =
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
-    s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")} ${dfVal.getName}${arrRange} = ${printer.csDFToken(dfVal.token)};"
+    s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = ${printer.csDFToken(dfVal.token)};"
   private def wireOrLogic: String = if (supportLogicType) "logic" else "wire"
   private def regOrLogic: String = if (supportLogicType) "logic" else "reg"
   def csDFValDcl(dfVal: Dcl): String =

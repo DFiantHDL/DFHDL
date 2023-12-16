@@ -47,8 +47,7 @@ object NamedDFTypes:
             case Flatten(dfTypes) => dfTypes
             case _                => Nil
           })
-          if (dt.isTuple) Some(subNamedDFTypes)
-          else Some(subNamedDFTypes + dt)
+          Some(subNamedDFTypes + dt)
         case dt: DFOpaque =>
           dt.actualType match
             case Flatten(dfTypes) => Some(dfTypes + dt)

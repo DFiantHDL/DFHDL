@@ -155,7 +155,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [15:0]     y
          |);
          |  logic [15:0] z;
-         |  parameter logic [15:0]  c = 16'h0000;
+         |  parameter logic [15:0] c = 16'h0000;
          |  logic [15:0] my_var;
          |  always @(posedge clk, posedge rst)
          |  begin
@@ -192,6 +192,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       val c12 = SInt(49) const sd"49'-239794508230343"
       val c13 = UInt(8) const ?
       val c14 = SInt(8) const ?
+      val c15 = (Bits(3), Bit) const (all(0), 1)
     end Top
     val top = (new Top).getVerilogCode
     assertNoDiff(
@@ -207,20 +208,25 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Top_defs.sv"
          |
          |module Top;
-         |  parameter logic  c01 = 1'b0;
-         |  parameter logic  c02 = 1'b1;
-         |  parameter logic  c03 = 1'bx;
-         |  parameter logic  c04 = 0;
-         |  parameter logic  c05 = 1;
-         |  parameter logic [7:0]  c06 = 8'h22;
-         |  parameter logic [6:0]  c07 = 7'h22;
-         |  parameter logic [2:0]  c08 = 3'h5;
-         |  parameter logic [2:0]  c09 = 3'd7;
-         |  parameter logic [47:0]  c10 = 48'd239794508230343;
-         |  parameter logic signed [3:0]  c11 = -4'sd8;
-         |  parameter logic signed [48:0]  c12 = -49'sd239794508230343;
-         |  parameter logic [7:0]  c13 = 8'hxx;
-         |  parameter logic signed [7:0]  c14 = $signed(8'hxx);
+         |  typedef struct packed {
+         |    logic [2:0] _1;
+         |    logic _2;
+         |  } DFTuple2;
+         |  parameter logic c01 = 1'b0;
+         |  parameter logic c02 = 1'b1;
+         |  parameter logic c03 = 1'bx;
+         |  parameter logic c04 = 0;
+         |  parameter logic c05 = 1;
+         |  parameter logic [7:0] c06 = 8'h22;
+         |  parameter logic [6:0] c07 = 7'h22;
+         |  parameter logic [2:0] c08 = 3'h5;
+         |  parameter logic [2:0] c09 = 3'd7;
+         |  parameter logic [47:0] c10 = 48'd239794508230343;
+         |  parameter logic signed [3:0] c11 = -4'sd8;
+         |  parameter logic signed [48:0] c12 = -49'sd239794508230343;
+         |  parameter logic [7:0] c13 = 8'hxx;
+         |  parameter logic signed [7:0] c14 = $signed(8'hxx);
+         |  parameter DFTuple2 c15 = '{_1: 3'h0, _2: 1'b1};
          |
          |endmodule
          |""".stripMargin
