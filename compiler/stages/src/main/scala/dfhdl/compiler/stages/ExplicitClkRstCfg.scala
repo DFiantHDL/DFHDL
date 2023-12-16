@@ -19,17 +19,17 @@ case object ExplicitClkRstCfg extends Stage:
       def usesClk: Boolean = owner.members(MemberView.Folded).exists {
         case reg: DFVal.Alias.History => true
         case domain: DFDesignBlock =>
-          domainMap(domain) match
-            case RTDomainCfg.Explicit(_, _: ClkCfg.Explicit, _) => true
-            case _                                              => false
+          domainMap.get(domain) match
+            case Some(RTDomainCfg.Explicit(_, _: ClkCfg.Explicit, _)) => true
+            case _                                                    => false
         case _ => false
       }
       def usesRst: Boolean = owner.members(MemberView.Folded).exists {
         case reg: DFVal.Alias.History => true
         case domain: DFDesignBlock =>
-          domainMap(domain) match
-            case RTDomainCfg.Explicit(_, _, _: RstCfg.Explicit) => true
-            case _                                              => false
+          domainMap.get(domain) match
+            case Some(RTDomainCfg.Explicit(_, _, _: RstCfg.Explicit)) => true
+            case _                                                    => false
         case _ => false
       }
     end extension
