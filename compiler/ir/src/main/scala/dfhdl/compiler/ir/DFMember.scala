@@ -687,6 +687,9 @@ object DFDesignBlock:
     def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = !block.isTop
 end DFDesignBlock
 
+type DFDesignInst = DFDesignBlock
+val DFDesignInst = DFDesignBlock
+
 final case class DomainBlock(
     domainType: DomainType,
     ownerRef: DFOwner.Ref,
