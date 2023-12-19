@@ -128,7 +128,7 @@ abstract class CommonPhase extends PluginPhase:
     def unapply(tp: Type)(using Context): Option[(List[Type], Type)] =
       defn.asContextFunctionType(tp) match
         case tp1 if tp1.exists =>
-          val args = tp1.functionArgInfos
+          val args = tp1.dropDependentRefinement.argInfos
           Some((args.init, args.last))
         case _ => None
 
