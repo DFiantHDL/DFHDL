@@ -7,11 +7,11 @@ export dfhdl.apply
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //TODO: fix if https://github.com/lampepfl/dotty/issues/17036 is resolved
 
-abstract class Column[ET <: DFType, RN <: Int with Singleton](
+abstract class Column[ET <: DFType, RN <: Int & Singleton](
     val elemType: ET,
     val rowNum: RN
 ) extends Opaque[ET X RN](elemType X rowNum)
-extension [ET <: DFType, RN <: Int with Singleton, CT <: Column[ET, RN]](
+extension [ET <: DFType, RN <: Int & Singleton, CT <: Column[ET, RN]](
     col: CT <> VAL
 )
   def colType: CT = col.opaqueType
@@ -20,18 +20,18 @@ extension [ET <: DFType, RN <: Int with Singleton, CT <: Column[ET, RN]](
   @inline def mapElements(f: ET <> VAL => ET <> VAL): CT <> DFRET = col.actual.elements.as(colType)
 
 abstract class Matrix[
-    CN <: Int with Singleton,
+    CN <: Int & Singleton,
     ET <: DFType,
-    RN <: Int with Singleton,
+    RN <: Int & Singleton,
     CT <: Column[ET, RN]
 ](
     val colType: CT,
     val colNum: CN
 ) extends Opaque[CT X CN](colType X colNum)
 extension [
-    CN <: Int with Singleton,
+    CN <: Int & Singleton,
     ET <: DFType,
-    RN <: Int with Singleton,
+    RN <: Int & Singleton,
     CT <: Column[ET, RN],
     MT <: Matrix[CN, ET, RN, CT]
 ](matrix: MT <> VAL)

@@ -20,12 +20,12 @@ type ITE[I <: Boolean, T, E] <: T | E = I match
 
 import scala.annotation.targetName
 
-type XInt = Int with Singleton
-type XLong = Long with Singleton
-type XFloat = Float with Singleton
-type XDouble = Double with Singleton
-type XString = String with Singleton
-type XBoolean = Boolean with Singleton
+type XInt = Int & Singleton
+type XLong = Long & Singleton
+type XFloat = Float & Singleton
+type XDouble = Double & Singleton
+type XString = String & Singleton
+type XBoolean = Boolean & Singleton
 
 given canEqualNothingL: CanEqual[Nothing, Any] = CanEqual.derived
 given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
