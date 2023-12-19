@@ -48,7 +48,7 @@ object DFVector:
   object Ops:
     extension [T <: DFType.Supported, D <: Int](t: T)(using tc: DFType.TC[T])
       // transparent inline def X(inline cellDim: Int*): DFType =
-      //   x(dfType, cellDim: _*)
+      //   x(dfType, cellDim*)
       inline def X(
           cellDim: Inlined[D]
       ): DFVector[tc.Type, Tuple1[D]] =

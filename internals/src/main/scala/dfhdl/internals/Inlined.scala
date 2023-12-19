@@ -147,8 +147,8 @@ def requireMacro(cond: Expr[Boolean], msg: Expr[String])(using
         l.stripMargin(r).toConstantExpr
       case '{
             StringContext
-              .apply(${ Varargs(xargs) }: _*)
-              .s(${ Varargs(yargs) }: _*)
+              .apply(${ Varargs(xargs) }*)
+              .s(${ Varargs(yargs) }*)
           } =>
         var skip = false
         val xArgsStr = xargs.map {
@@ -164,7 +164,7 @@ def requireMacro(cond: Expr[Boolean], msg: Expr[String])(using
             ""
         }
         if (skip) expr
-        else StringContext.apply(xArgsStr: _*).s(yArgsStr: _*).toConstantExpr
+        else StringContext.apply(xArgsStr*).s(yArgsStr*).toConstantExpr
       case _ => expr
 
   cond match

@@ -150,7 +150,7 @@ final case class DB(
 
     // holds a hash table that lists members of each owner. The member list order is maintained.
   lazy val ownerMemberTable: Map[DFOwner, List[DFMember]] =
-    Map(ownerMemberList: _*)
+    Map(ownerMemberList*)
 
   // holds the topological order of named owner block dependency
   lazy val namedOwnerMemberList: List[(DFOwnerNamed, List[DFMember])] =
@@ -162,7 +162,7 @@ final case class DB(
 
       // holds a hash table that lists members of each named owner. The member list order is maintained.
   lazy val namedOwnerMemberTable: Map[DFOwnerNamed, List[DFMember]] =
-    Map(namedOwnerMemberList: _*)
+    Map(namedOwnerMemberList*)
 
     // holds the topological order of owner block dependency
   lazy val blockMemberList: List[(DFBlock, List[DFMember])] =
@@ -174,7 +174,7 @@ final case class DB(
 
       // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val blockMemberTable: Map[DFBlock, List[DFMember]] =
-    Map(blockMemberList: _*)
+    Map(blockMemberList*)
 
   // holds the topological order of design block dependency
   lazy val designMemberList: List[(DFDesignBlock, List[DFMember])] =
@@ -186,7 +186,7 @@ final case class DB(
 
       // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
-    Map(designMemberList: _*)
+    Map(designMemberList*)
 
   private def conditionalChainGen: Map[DFConditional.Header, List[DFConditional.Block]] =
     val handled = mutable.Set.empty[DFConditional.Block]

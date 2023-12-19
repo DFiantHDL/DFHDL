@@ -79,7 +79,7 @@ object DFEnum:
     val entryPairs = fieldsAsPairs.zipWithIndex.map { case ((name, entry), idx) =>
       (name, entry.bigIntValue)
     }
-    ir.DFEnum(name, width, ListMap(entryPairs: _*)).asFE[DFEnum[E]]
+    ir.DFEnum(name, width, ListMap(entryPairs*)).asFE[DFEnum[E]]
   end apply
 
   inline given [E <: DFEncoding]: DFEnum[E] = ${ dfTypeMacro[E] }
