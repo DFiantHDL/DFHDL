@@ -37,7 +37,7 @@ object Width:
           TypeRepr.of[Int]
         case _ =>
           TypeRepr.of[scala.compiletime.ops.int.`*`].appliedTo(List(dfTpe, rhs))
-    def max(rhs: quotes.reflect.TypeRepr): quotes.reflect.TypeRepr =
+    infix def max(rhs: quotes.reflect.TypeRepr): quotes.reflect.TypeRepr =
       import quotes.reflect.*
       (dfTpe, rhs) match
         case (ConstantType(IntConstant(l)), ConstantType(IntConstant(r))) =>

@@ -72,7 +72,7 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
             // design hierarchies.
             // We also ignore exported methods, to prevent transforming a method that
             // was already transformed at its origin.
-            !tree.isInline && !(sym is Exported) &&
+            !tree.isInline && !sym.is(Exported) &&
               // transform only methods that return a DFHDL value and
               // have at least one DFHDL parameter and
               // have a context argument
@@ -113,7 +113,7 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
         val updatedRHS = Block(List(updatedAnonDef), closure)
         cpy.DefDef(tree)(rhs = updatedRHS)
       case _ =>
-        if (!sym.isAnonymousFunction && !(sym is Exported) && !sym.isConstructor)
+        if (!sym.isAnonymousFunction && !sym.is(Exported) && !sym.isConstructor)
           if (
             (tree.dfValTpeOpt.nonEmpty || tree.tpt.tpe =:= defn.UnitType) && dfValArgs.nonEmpty &&
             !sym.ignoreMetaContext

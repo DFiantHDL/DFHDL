@@ -43,7 +43,7 @@ type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier[Modifier.Assignable, Any, Any]
 type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Port]
 
 sealed trait TOKEN
-type <>[T <: DFType.Supported, M] = T match
+infix type <>[T <: DFType.Supported, M] = T match
   case Int => // Int can be a const literal or just "Int" representing SInt[32]
     IsConst[T] match
       case true  => DFVector.ComposedModifier[T, M]
@@ -54,7 +54,7 @@ type <>[T <: DFType.Supported, M] = T match
       case VAL   => DFValOf[DFType.Of[T]]
       case TOKEN => DFToken[DFType.Of[T]]
 
-type X[T <: DFType.Supported, M] = M match
+infix type X[T <: DFType.Supported, M] = M match
   case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]
   case Int & Singleton                 => DFVector[DFType.Of[T], Tuple1[M]]
 type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
@@ -209,7 +209,7 @@ object DFVal extends DFValLP:
   ): InitCheck[I] with {}
 
   extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
-    def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
+    infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
         dfc: DFC
     ): DFVal[T, M] =
       import dfc.getSet
@@ -217,13 +217,13 @@ object DFVal extends DFValLP:
         .setTags(_.tag(customTag))
         .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
         .asVal[T, M]
-    def tag[CT <: ir.DFTag: ClassTag](condCustomTag: Conditional[CT])(using
+    infix def tag[CT <: ir.DFTag: ClassTag](condCustomTag: Conditional[CT])(using
         dfc: DFC
     ): DFVal[T, M] = if (condCustomTag.isActive) dfVal.tag(condCustomTag.getArg) else dfVal
     def hasTag[CT <: ir.DFTag: ClassTag](using dfc: DFC): Boolean =
       import dfc.getSet
       dfVal.asIR.tags.hasTagOf[CT]
-    def setName(name: String)(using dfc: DFC): DFVal[T, M] =
+    infix def setName(name: String)(using dfc: DFC): DFVal[T, M] =
       import dfc.getSet
       dfVal.asIR
         .setMeta(m =>
@@ -255,7 +255,7 @@ object DFVal extends DFValLP:
       )
       dfVal.tag(ir.ExternalInit(tokens)).asVal[T, Modifier[A, C, Modifier.Initialized]]
 
-    def init(
+    infix def init(
         tokenValues: DFToken.Value[T]*
     )(using DFC, InitCheck[I]): DFVal[T, Modifier[A, C, Modifier.Initialized]] = trydf {
       val tvList = tokenValues.view.filter(_.enable).map(tv => tv(dfVal.dfType).asIR).toList
@@ -264,7 +264,7 @@ object DFVal extends DFValLP:
     }
   end extension
   extension [T <: NonEmptyTuple, A, C, I](dfVal: DFVal[DFTuple[T], Modifier[A, C, I]])
-    def init(
+    infix def init(
         tokenValues: DFToken.TupleValues[T]
     )(using DFC, InitCheck[I]): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]] = trydf {
       if (tokenValues.enable) dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))

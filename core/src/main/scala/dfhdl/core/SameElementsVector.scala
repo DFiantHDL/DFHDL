@@ -16,7 +16,7 @@ import scala.annotation.targetName
   */
 final class SameElementsVector[T](val value: T) derives CanEqual:
   override def equals(that: Any): Boolean = that match
-    case sev: SameElementsVector[_] => value equals sev.value
+    case sev: SameElementsVector[?] => value equals sev.value
     case _                          => false
   override def hashCode(): Int = value.hashCode()
 end SameElementsVector

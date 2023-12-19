@@ -161,7 +161,7 @@ object DFBits:
               .reduce((l, r) => (l ++ r).asTokenOf[DFBits[Int]])
           case i: Int =>
             Token(1, BitVector.bit(i > 0), BitVector.zero)
-          case token: DFToken[_] =>
+          case token: DFToken[?] =>
             val tokenIR = token.asIR
             val tokenOut = tokenIR.dfType match
               case _: ir.DFBits => tokenIR.asTokenOf[DFBits[Int]]
@@ -621,13 +621,13 @@ object DFBits:
             x.toList.map(x => valueToBits(x)(using dfcAnon)).concatBits
           case i: Int =>
             DFVal.Const(Token(1, BitVector.bit(i > 0), BitVector.zero), named = true)
-          case token: DFToken[_] =>
+          case token: DFToken[?] =>
             val tokenIR = token.asIR
             val tokenOut = tokenIR.dfType match
               case _: ir.DFBits => tokenIR.asTokenOf[DFBits[Int]]
               case _            => tokenIR.bits.asTokenOf[DFBits[Int]]
             DFVal.Const(tokenOut, named = true)
-          case dfVal: DFVal[_, _] =>
+          case dfVal: DFVal[?, ?] =>
             import DFVal.Ops.bits
             val dfValIR = dfVal.asIR
             dfValIR.dfType match

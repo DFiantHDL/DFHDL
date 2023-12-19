@@ -42,7 +42,7 @@ object DFType:
     t match
       case dfType: DFTypeAny         => dfType
       case tuple: NonEmptyTuple      => DFTuple(tuple)
-      case tfe: DFOpaque.Frontend[_] => DFOpaque(tfe)
+      case tfe: DFOpaque.Frontend[?] => DFOpaque(tfe)
       case fields: DFStruct.Fields   => DFStruct(fields)
       case _: Byte.type              => DFBits(8)
       case _: Boolean.type           => DFBool
@@ -81,28 +81,28 @@ object DFType:
   type Supported = DFTypeAny | DFEncoding | DFOpaqueA | Byte | Int | Long | Boolean | AnyRef | Unit
   object Ops:
     extension [D <: Int & Singleton](cellDim: D)
-      def <>[M <: ModifierAny](
+      infix def <>[M <: ModifierAny](
           modifier: M
       ): DFVector.ComposedModifier[D, M] =
         new DFVector.ComposedModifier[D, M](cellDim, modifier)
     extension (cellDim: Int)
       @targetName("composeMod")
-      def <>[M <: ModifierAny](
+      infix def <>[M <: ModifierAny](
           modifier: M
       ): DFVector.ComposedModifier[Int, M] =
         new DFVector.ComposedModifier[Int, M](cellDim, modifier)
     extension [T <: Supported](t: T)
-      def <>[A, C, I](modifier: Modifier[A, C, I])(using
+      infix def <>[A, C, I](modifier: Modifier[A, C, I])(using
           tc: DFType.TC[T],
           ck: DFC.Scope,
           dt: DFC.Domain,
           dfc: DFC
       ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I]] =
         DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I]])
-      def token[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
+      infix def token[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
           tokenTC: DFToken.TC[tc.Type, V]
       ): tokenTC.Out = tokenTC(tc(t), tokenValue)
-      def const[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
+      infix def const[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
           DFToken.TC[tc.Type, V]
       )(using DFC): DFValOf[tc.Type] =
         DFVal.Const(token(tokenValue), named = true)

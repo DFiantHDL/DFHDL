@@ -135,7 +135,7 @@ abstract class CommonPhase extends PluginPhase:
   extension (tree: ValOrDefDef)(using Context)
     def isInline: Boolean =
       val sym = tree.symbol
-      (sym is Inline) || sym.hasAnnotation(inlineAnnotSym)
+      sym.is(Inline) || sym.hasAnnotation(inlineAnnotSym)
 
   extension (tpe: Type)(using Context)
     def simple: Type =

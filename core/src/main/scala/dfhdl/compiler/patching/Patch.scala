@@ -373,7 +373,7 @@ extension (db: DB)
 
   def patchSingle(singlePatch: (DFMember, Patch), debug: Boolean = false): DB =
     db.patch(List(singlePatch), debug)
-  def concat(that: DB): DB = DB(
+  infix def concat(that: DB): DB = DB(
     db.members ++ that.members.drop(1),
     db.refTable ++ that.refTable,
     db.globalTags ++ that.globalTags,

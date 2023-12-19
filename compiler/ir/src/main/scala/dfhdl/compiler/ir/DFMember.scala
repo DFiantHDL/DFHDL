@@ -49,22 +49,22 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getThisOrOwnerNamed(using MemberGetSet): DFOwnerNamed = this match
     case d: DFOwnerNamed => d
     case x               => x.getOwnerNamed
-  final def isMemberOf(that: DFOwnerNamed)(using MemberGetSet): Boolean =
+  final infix def isMemberOf(that: DFOwnerNamed)(using MemberGetSet): Boolean =
     this match
       case DFDesignBlock.Top() => false
       case _                   => getOwnerNamed == that
-  final def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
+  final infix def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
     (this, that) match
       case (DFDesignBlock.Top(), DFDesignBlock.Top()) => this == that
       case (DFDesignBlock.Top(), _)                   => false
       case (_, DFDesignBlock.Top())                   => false
       case _                                          => getOwnerDesign == that.getOwnerDesign
-  final def isOneLevelBelow(that: DFMember)(using MemberGetSet): Boolean =
+  final infix def isOneLevelBelow(that: DFMember)(using MemberGetSet): Boolean =
     this match
       case DFDesignBlock.Top() => false
       case _                   => getOwnerDesign isSameOwnerDesignAs that
   // true if and only if the member is outside the design at any level
-  final def isOutsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
+  final infix def isOutsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
     !isInsideOwner(that)
   @tailrec private def isInsideOwner(thisMember: DFMember, thatOwner: DFOwner)(using
       MemberGetSet
@@ -76,7 +76,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
           case (a, b) if a == b => true
           case (od, _)          => isInsideOwner(od, thatOwner)
   // true if and only if the member is inside the design at any level
-  final def isInsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
+  final infix def isInsideOwner(that: DFOwner)(using MemberGetSet): Boolean =
     isInsideOwner(this, that)
   final def getOwnerChain(using MemberGetSet): List[DFBlock] =
     this match

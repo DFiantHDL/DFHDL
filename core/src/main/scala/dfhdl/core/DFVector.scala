@@ -49,12 +49,12 @@ object DFVector:
     extension [T <: DFType.Supported, D <: Int](t: T)(using tc: DFType.TC[T])
       // transparent inline def X(inline cellDim: Int*): DFType =
       //   x(dfType, cellDim*)
-      inline def X(
+      inline infix def X(
           cellDim: Inlined[D]
       ): DFVector[tc.Type, Tuple1[D]] =
         DFVector(tc(t), Tuple1(cellDim))
     extension [T <: DFType.Supported, D <: Int, M <: ModifierAny](t: T)(using tc: DFType.TC[T])
-      def X(
+      infix def X(
           composedModifier: ComposedModifier[D, M]
       )(using DFC): DFVal[DFVector[tc.Type, Tuple1[D]], M] =
         DFVal.Dcl(DFVector(tc(t), Tuple1(composedModifier.cellDim)), composedModifier.modifier)

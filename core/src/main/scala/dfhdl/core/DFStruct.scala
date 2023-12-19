@@ -150,7 +150,7 @@ object DFStruct:
   type Token[+F <: FieldsOrTuple] = DFToken[DFStruct[F]]
   object Token:
     def apply[F <: FieldsOrTuple](dfType: DFStruct[F], value: Fields): Token[F] =
-      val data = value.productIterator.map { case dfVal: DFVal[_, _] =>
+      val data = value.productIterator.map { case dfVal: DFVal[?, ?] =>
         dfVal.asIR match
           case ir.DFVal.Const(token, _, _, _) => token.data
           case v =>
@@ -247,7 +247,7 @@ object DFStruct:
       ](using sf: SameFields[F, RF]): TC[DFStruct[F], RF] with
         def conv(dfType: DFStruct[F], value: RF)(using Ctx): Out =
           sf.check(dfType, DFStruct(value))
-          val dfVals = value.productIterator.map { case dfVal: DFVal[_, _] =>
+          val dfVals = value.productIterator.map { case dfVal: DFVal[?, ?] =>
             dfVal
           }.toList
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
@@ -270,7 +270,7 @@ object DFStruct:
       ](using sf: SameFields[F, RF]): Compare[DFStruct[F], RF, Op, C] with
         def conv(dfType: DFStruct[F], value: RF)(using Ctx): Out =
           sf.check(dfType, DFStruct(value))
-          val dfVals = value.productIterator.map { case dfVal: DFVal[_, _] =>
+          val dfVals = value.productIterator.map { case dfVal: DFVal[?, ?] =>
             dfVal
           }.toList
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)

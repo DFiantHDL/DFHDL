@@ -123,7 +123,7 @@ object DFOpaque:
             }
             (tfe, tfeTpe)
         val tfeType = tfeTpe.asTypeOf[Abstract]
-        tfeTpe.baseType(TypeRepr.of[Frontend[_ <: DFTypeAny]].typeSymbol) match
+        tfeTpe.baseType(TypeRepr.of[Frontend[? <: DFTypeAny]].typeSymbol) match
           case AppliedType(_, aTpe :: _) =>
             val aType = aTpe.asTypeOf[DFTypeAny]
             val lhsTerm = lhs.asTerm.exactTerm

@@ -77,9 +77,9 @@ object Inlined extends LP:
       forced[any.==[T, R]](lhs.value == rhs.value)
     inline def !=[R <: Int](rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
-    inline def max[R <: Int](rhs: Inlined[R]) =
+    inline infix def max[R <: Int](rhs: Inlined[R]) =
       forced[int.Max[T, R]](math.max(lhs.value, rhs.value))
-    inline def min[R <: Int](rhs: Inlined[R]) =
+    inline infix def min[R <: Int](rhs: Inlined[R]) =
       forced[int.Min[T, R]](math.min(lhs.value, rhs.value))
   end extension
 

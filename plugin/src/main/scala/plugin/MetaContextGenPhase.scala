@@ -140,7 +140,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                 case None =>
                   val sym = argTree.symbol
                   contextDefs.get(sym.fixedFullName) match
-                    case Some(ct) if !(ct sameTree ownerTree) =>
+                    case Some(ct) if !(ct.sameTree(ownerTree)) =>
                       report.error(
                         s"${ownerTree.symbol} is missing an implicit Context parameter",
                         ownerTree.symbol
@@ -395,7 +395,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _ =>
         if (
           !tree.symbol.isClassConstructor && !tree.symbol.isAnonymousFunction &&
-          !tree.name.toString.contains("$proxy") && !(tree.symbol is Exported)
+          !tree.name.toString.contains("$proxy") && !tree.symbol.is(Exported)
         )
           addContextDef(tree)
           nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)

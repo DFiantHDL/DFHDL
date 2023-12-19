@@ -23,7 +23,7 @@ object LHSBiggerThanRHS
         ") is NOT bigger than the RHS argument (" + rhs + ")."
     ]
 extension [L <: Int](lhs: L)
-  def biggerThan[R <: Int](rhs: R)(using
+  infix def biggerThan[R <: Int](rhs: R)(using
       check: LHSBiggerThanRHS.Check[lhs.type, rhs.type]
   ): Unit =
     check(lhs, rhs)
