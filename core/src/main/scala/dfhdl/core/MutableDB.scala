@@ -30,6 +30,9 @@ class MutableDB(val duringTest: Boolean = false):
     case x => throw new IllegalArgumentException(s"Unexpected member head, $x")
   private[MutableDB] val memberTable: mutable.Map[DFMember, Int] = mutable.Map()
   private[MutableDB] val refTable: mutable.Map[DFRefAny, DFMember] = mutable.Map()
+  // meta programming external MemberGetSet DB access
+  private[MutableDB] var metaGetSetOpt: Option[MemberGetSet] = None
+  def setMetaGetSet(metaGetSet: MemberGetSet): Unit = metaGetSetOpt = Some(metaGetSet)
   object OwnershipContext:
     private var stack: List[DFOwner] = Nil
     private var lateStack: List[Boolean] = Nil
@@ -172,7 +175,8 @@ class MutableDB(val duringTest: Boolean = false):
 
   def getMember[M <: DFMember, M0 <: M](
       ref: DFRef[M]
-  ): M0 = refTable(ref).asInstanceOf[M0]
+  ): M0 = refTable.getOrElse(ref, metaGetSetOpt.get(ref)).asInstanceOf[M0]
+
 
   def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
     dirtyDB()

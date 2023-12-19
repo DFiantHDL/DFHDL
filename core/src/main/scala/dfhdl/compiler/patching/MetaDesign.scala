@@ -5,9 +5,11 @@ import dfhdl.compiler.ir
 import scala.annotation.unchecked.uncheckedVariance
 
 type MetaDesignAny = MetaDesign[DFC.Domain]
-abstract class MetaDesign[+D <: DFC.Domain](domainType: D = DFC.Domain.DF)
-    extends Design
+abstract class MetaDesign[+D <: DFC.Domain](domainType: D = DFC.Domain.DF)(using
+    getSet: ir.MemberGetSet
+) extends Design
     with reflect.Selectable:
+  dfc.mutableDB.setMetaGetSet(getSet)
   final type TDomain = D @uncheckedVariance
   final protected given TDomain = domainType
   // we don't really care about the IR domain type of a meta design, since it is removed.

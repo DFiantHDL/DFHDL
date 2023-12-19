@@ -51,11 +51,12 @@ object Patch:
   final case class Add private[patching] (db: DB, config: Add.Config) extends Patch
   object Add:
     def apply(design: MetaDesignAny, config: Config): Add = Add(design.getDB, config)
-    def apply(addedMembers: List[DFMember], config: Config): Add =
+    def apply(addedMembers: List[DFMember], config: Config)(using MemberGetSet): Add =
       val dsn = new MetaDesign():
         addedMembers.foreach(m => plantMember(m))
       Add(dsn, config)
-    def apply(addedMember: DFMember, config: Config): Add = Add(List(addedMember), config)
+    def apply(addedMember: DFMember, config: Config)(using MemberGetSet): Add =
+      Add(List(addedMember), config)
 
     sealed trait Config extends Product with Serializable derives CanEqual:
       def ==(moveConfig: Move.Config): Boolean = (this, moveConfig) match
