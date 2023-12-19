@@ -3,6 +3,7 @@ import dfhdl.internals.*
 import dfhdl.compiler.ir
 import scala.quoted.*
 import annotation.targetName
+import scala.annotation.nowarn
 
 trait Width[T]:
   type Out <: Int
@@ -104,14 +105,21 @@ object Width:
         case '[DFStruct.Fields] =>
           dfTpe.asTypeOf[Any] match
             case '[NonEmptyTuple] =>
-              dfTpe.getTupleArgs
+              // TODO: revisit why there is a warning.
+              // See: https://github.com/lampepfl/dotty/issues/18507
+              @nowarn("msg=Unreachable case")
+              val ret = dfTpe.getTupleArgs
                 .map(_.asTypeOf[AnyKind])
                 .collect { case '[DFValOf[t]] =>
                   TypeRepr.of[t].calcWidth
                 }
                 .reduce(_ + _)
+              ret
             case _ =>
               val clsSym = dfTpe.classSymbol.get
+              // TODO: revisit why there is a warning.
+              // See: https://github.com/lampepfl/dotty/issues/18507
+              @nowarn("msg=Unreachable case")
               val widths =
                 clsSym.fieldMembers.view
                   .map(m => dfTpe.memberType(m).asTypeOf[AnyKind])
