@@ -124,15 +124,15 @@ class MutableDB(val duringTest: Boolean = false):
     memberTable += (member -> members.length)
     members += MemberEntry(member, Set(), false)
     // caching ports for quick by-name access
-    member match
-      case design: DFDesignInst =>
-        portsByName += design -> Map()
-      case port: DFVal.Dcl if port.isPort =>
-        val design = member.getOwnerDesign
-        val namePathMap = portsByName(design)
-        val namePath = port.getRelativeName(design)
-        portsByName += design -> namePathMap.updated(namePath, port)
-      case _ =>
+    // member match
+    //   case design: DFDesignInst =>
+    //     portsByName += design -> Map()
+    //   case port: DFVal.Dcl if port.isPort =>
+    //     val design = member.getOwnerDesign
+    //     val namePathMap = portsByName(design)
+    //     val namePath = port.getRelativeName(design)
+    //     portsByName += design -> namePathMap.updated(namePath, port)
+    //   case _ =>
     member
   end addMember
 
@@ -218,19 +218,19 @@ class MutableDB(val duringTest: Boolean = false):
     // update the member in the member position array
     members.update(idx, memberEntry.copy(irValue = newMember))
     // update design ports cache
-    originalMember match
-      case origDesign: DFDesignInst =>
-        val namePathMap = portsByName(origDesign)
-        val newDesign = newMember.asInstanceOf[DFDesignInst]
-        portsByName -= origDesign
-        portsByName += newDesign -> namePathMap
-      case origPort: DFVal.Dcl if origPort.isPort =>
-        val newPort = newMember.asInstanceOf[DFVal.Dcl]
-        val design = newPort.getOwnerDesign
-        val namePathMap = portsByName(design)
-        val namePath = newPort.getRelativeName(design)
-        portsByName += design -> namePathMap.updated(namePath, newPort)
-      case _ =>
+    // originalMember match
+    //   case origDesign: DFDesignInst =>
+    //     val namePathMap = portsByName(origDesign)
+    //     val newDesign = newMember.asInstanceOf[DFDesignInst]
+    //     portsByName -= origDesign
+    //     portsByName += newDesign -> namePathMap
+    //   case origPort: DFVal.Dcl if origPort.isPort =>
+    //     val newPort = newMember.asInstanceOf[DFVal.Dcl]
+    //     val design = newPort.getOwnerDesign
+    //     val namePathMap = portsByName(design)
+    //     val namePath = newPort.getRelativeName(design)
+    //     portsByName += design -> namePathMap.updated(namePath, newPort)
+    //   case _ =>
     newMember
   end setMember
 

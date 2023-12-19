@@ -3,12 +3,24 @@ import dfhdl.core.*
 import dfhdl.compiler.ir
 
 import scala.annotation.unchecked.uncheckedVariance
+import dfhdl.compiler.ir.DFDesignBlock
 
 type MetaDesignAny = MetaDesign[DFC.Domain]
-abstract class MetaDesign[+D <: DFC.Domain](domainType: D = DFC.Domain.DF)(using
+abstract class MetaDesign[+D <: DFC.Domain](
+    injectedOwner: ir.DFOwner,
+    domainType: D = DFC.Domain.DF
+)(using
     getSet: ir.MemberGetSet
 ) extends Design
     with reflect.Selectable:
+  final override private[dfhdl] def initOwner: Design.Block =
+    dfc.mutableDB.addMember(injectedOwner)
+    injectedOwner.getThisOrOwnerDesign.asFE
+  injectedOwner match
+    case design: DFDesignBlock => // do nothing
+    case _ =>
+      dfc.enterOwner(injectedOwner.asFE)
+
   dfc.mutableDB.setMetaGetSet(getSet)
   final type TDomain = D @uncheckedVariance
   final protected given TDomain = domainType
@@ -22,7 +34,7 @@ abstract class MetaDesign[+D <: DFC.Domain](domainType: D = DFC.Domain.DF)(using
     dfc.mutableDB.OwnershipContext.enter(owner)
     block
     dfc.mutableDB.OwnershipContext.exit()
-  // meta designs may be intermediate errornous designs
+  // meta designs may be intermediate erroneous designs
   final override private[dfhdl] def skipChecks: Boolean = true
 
   export dfhdl.hdl.{RTDomainCfg => _, ClkCfg => _, RstCfg => _, *}

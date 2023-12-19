@@ -51,12 +51,6 @@ object Patch:
   final case class Add private[patching] (db: DB, config: Add.Config) extends Patch
   object Add:
     def apply(design: MetaDesignAny, config: Config): Add = Add(design.getDB, config)
-    def apply(addedMembers: List[DFMember], config: Config)(using MemberGetSet): Add =
-      val dsn = new MetaDesign():
-        addedMembers.foreach(m => plantMember(m))
-      Add(dsn, config)
-    def apply(addedMember: DFMember, config: Config)(using MemberGetSet): Add =
-      Add(List(addedMember), config)
 
     sealed trait Config extends Product with Serializable derives CanEqual:
       def ==(moveConfig: Move.Config): Boolean = (this, moveConfig) match
@@ -308,17 +302,8 @@ extension (db: DB)
           }
           ret
         case (rc, (origMember, Patch.Add(db, config))) =>
-          val newOwner = config match
-            case Patch.Add.Config.InsideFirst => origMember
-            case Patch.Add.Config.InsideLast  => origMember
-            case _                            => origMember.getOwnerBlock
-          val actualNewOwner = rc.getLatestRepOf(newOwner) // owner may have been replaced before
-          val dbPatched =
-            db.patchSingle(
-              db.top -> Patch.Replace(actualNewOwner, Patch.Replace.Config.ChangeRefOnly)
-            )
           // updating the patched DB reference table members with the newest members kept by the replacement context
-          val updatedPatchRefTable = rc.getUpdatedRefTable(dbPatched.refTable)
+          val updatedPatchRefTable = rc.getUpdatedRefTable(db.refTable)
           val repRT = config match
             case Patch.Add.Config.ReplaceWithFirst(repConfig, refFilter) =>
               val repMember = db.members(1) // At index 0 we have the Top. We don't want that.

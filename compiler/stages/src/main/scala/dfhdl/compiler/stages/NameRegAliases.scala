@@ -89,13 +89,12 @@ case object NameRegAliases extends Stage:
 
         // assumes we ordered the members so the declarations come first.
         // if there are no declarations, we set the owner as position
-        // var lastDcl: DFMember | Null = null
         val lastDclOpt: Option[DFMember] = members.view.takeWhile {
           case _: DFVal.Dcl => true
           case _            => false
         }.lastOption
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
-        val regDsn = new MetaDesign(dfhdl.core.DFC.Domain.RT):
+        val regDsn = new MetaDesign(domainOwner, domainType = dfhdl.core.DFC.Domain.RT):
           def addRegs(
               alias: DFVal.Alias.History,
               namePrefix: String,
@@ -113,7 +112,7 @@ case object NameRegAliases extends Stage:
               alias.dfType.asFE[DFTypeAny] <> VAR setName regName
             val regsIR = regs.map(_.asIR).toList
             val relVal = alias.getNonRegAliasRelVal
-            val regDinDsn = new MetaDesign(dfhdl.core.DFC.Domain.RT):
+            val regDinDsn = new MetaDesign(domainOwner, domainType = dfhdl.core.DFC.Domain.RT):
               (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
                 curr.asVarAny := prev.asValAny.reg(1, init = alias.initOption.get.asTokenAny)
               }

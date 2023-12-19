@@ -47,7 +47,7 @@ case object ConnectClkRst extends Stage:
             val addClk = requiresClk && existingClk.isEmpty
             val addRst = requiresRst && existingRst.isEmpty
             if (addClk || addRst)
-              val dsn = new MetaDesign():
+              val dsn = new MetaDesign(owner):
                 lazy val clk = Bit <> IN setName "clk"
                 if (addClk) clk // touch lazy clk to create
                 lazy val rst = Bit <> IN setName "rst"

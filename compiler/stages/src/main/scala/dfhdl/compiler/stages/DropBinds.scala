@@ -81,7 +81,7 @@ case object DropBinds extends Stage:
             // then the rest of the binds are removed and reference the bind variable we created.
             if (hasPrevAlias)
               val relValIR = headBind.relValRef.get
-              val dsn = new MetaDesign():
+              val dsn = new MetaDesign(headBind.getOwner):
                 val bindVar = headBind.asValAny.genNewVar(using dfc.setName(headBind.getName))
                 val bindVarIR = bindVar.asIR
                 bindVar := relValIR.asValAny

@@ -89,7 +89,7 @@ case object ToED extends Stage:
               case m if processBlockAllMembersSet.contains(m) => Some(m)
               case _                                          => None
             }
-            val processBlocksDsn = new MetaDesign(DFC.Domain.ED):
+            val processBlocksDsn = new MetaDesign(updatedOwner, domainType = DFC.Domain.ED):
               lazy val clk = clkRstOpt.clkOpt.get.asValOf[Bit]
               lazy val rst = clkRstOpt.rstOpt.get.asValOf[Bit]
 

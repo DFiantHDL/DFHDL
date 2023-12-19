@@ -13,7 +13,7 @@ private[dfhdl] abstract class Design extends Container, HasNamePos:
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
   private[core] def mkInstMode(args: ListMap[String, Any]): InstMode = InstMode.Normal
-  final private[core] def initOwner: TOwner =
+  private[dfhdl] def initOwner: TOwner =
     Design.Block(__domainType, ir.Meta(Some("???"), Position.unknown, None, Nil), InstMode.Normal)(
       using dfc
     )

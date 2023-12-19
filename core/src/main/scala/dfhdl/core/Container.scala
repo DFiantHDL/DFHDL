@@ -14,7 +14,7 @@ private abstract class Container extends OnCreateEvents, HasDFC:
   final private[core] def setOwner(owner: TOwner): this.type =
     ownerOpt = Some(owner)
     this
-  private[core] def initOwner: TOwner
+  private[dfhdl] def initOwner: TOwner
   final private[core] def owner: TOwner =
     ownerOpt match
       case Some(owner) => owner
