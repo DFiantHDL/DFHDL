@@ -142,6 +142,11 @@ lazy val compilerOptions = Seq(
   "-language:implicitConversions",
   "-language:experimental",
   "-deprecation",
+  //TODO: remove when fixed scalac issues:
+  //https://github.com/lampepfl/dotty/issues/19299
+  "-Wconf:msg=or backticked identifier `equals`:s",
+  //https://github.com/lampepfl/dotty/issues/19301
+  "-Wconf:msg=not declared infix:s"
 )
 
 lazy val pluginUseSettings = Seq(
