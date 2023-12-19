@@ -123,6 +123,15 @@ abstract class CommonPhase extends PluginPhase:
         )
       finalName
 
+  // custom replacement for compiler defn.ContextFunctionType
+  object ContextFunctionType:
+    def unapply(tp: Type)(using Context): Option[(List[Type], Type)] =
+      defn.asContextFunctionType(tp) match
+        case tp1 if tp1.exists =>
+          val args = tp1.functionArgInfos
+          Some((args.init, args.last))
+        case _ => None
+
   extension (tree: ValOrDefDef)(using Context)
     def isInline: Boolean =
       val sym = tree.symbol
@@ -146,7 +155,7 @@ abstract class CommonPhase extends PluginPhase:
   extension (tp: Type)(using Context)
     def dfcFuncTpeOptRecur: Option[Type] =
       tp.dealias match
-        case defn.ContextFunctionType(ctx, res, _) if ctx.head <:< metaContextTpe => Some(res)
+        case ContextFunctionType(ctx, res) if ctx.head <:< metaContextTpe => Some(res)
         case AppliedType(tycon, args) =>
           var requiresUpdate = false
           val updatedArgs = args.map { tp =>
@@ -161,7 +170,7 @@ abstract class CommonPhase extends PluginPhase:
         case _ => None
     def dfcFuncTpeOpt: Option[Type] =
       tp.dealias match
-        case defn.ContextFunctionType(ctx, res, _) if ctx.head <:< metaContextTpe =>
+        case ContextFunctionType(ctx, res) if ctx.head <:< metaContextTpe =>
           Some(res)
         case _ => None
   end extension
