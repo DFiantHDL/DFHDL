@@ -22,7 +22,7 @@ final case class DB(
     def apply[M <: DFMember, M0 <: M](designRef: DFRef.ByName[M, ?], namePath: String): M0 =
       val designInst = refTable(designRef).asInstanceOf[DFDesignInst]
       // currently only ports are assumed to be referenced by name
-      portsByName((designInst, namePath)).asInstanceOf[M0]
+      portsByName(designInst)(namePath).asInstanceOf[M0]
     def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M =
       newMemberFunc(originalMember)
     def replace[M <: DFMember](originalMember: M)(newMember: M): M = newMember
@@ -44,13 +44,13 @@ final case class DB(
       globalTags.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
   end getSet
 
-  lazy val portsByName: Map[(DFDesignInst, String), DFVal.Dcl] =
-    members.view.collect {
-      case m: DFVal.Dcl if m.isPort =>
-        val design = m.getOwnerDesign
-        val namePath = m.getRelativeName(design)
-        (design, namePath) -> m
-    }.toMap
+  lazy val portsByName: Map[DFDesignInst, Map[String, DFVal.Dcl]] =
+    members.view
+      .collect { case m: DFVal.Dcl if m.isPort => m }
+      .groupBy(_.getOwnerDesign)
+      .map { case (design, dcls) =>
+        design -> dcls.map(m => m.getRelativeName(design) -> m).toMap
+      }.toMap
 
   lazy val top: DFDesignBlock = members.head match
     case m: DFDesignBlock => m
