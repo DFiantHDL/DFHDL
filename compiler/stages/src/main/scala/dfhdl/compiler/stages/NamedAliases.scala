@@ -107,7 +107,7 @@ object NamedAliases:
         case _ => Nil
       }
     object NamedAnonMultiref extends Criteria:
-      private val cbTags: Set[ClassTag[_]] =
+      private val cbTags: Set[ClassTag[?]] =
         Set(classTag[DFConditional.DFMatchHeader], classTag[DFConditional.DFIfHeader])
       def apply()(using MemberGetSet): DFVal => List[DFVal] = {
         case dfVal if !dfVal.isAnonymous => Nil

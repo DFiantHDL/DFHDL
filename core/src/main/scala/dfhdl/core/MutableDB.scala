@@ -76,7 +76,7 @@ class MutableDB(val duringTest: Boolean = false):
   end OwnershipContext
 
   object global_tags:
-    private[MutableDB] val tagMap: mutable.Map[(Any, ClassTag[_]), DFTag] =
+    private[MutableDB] val tagMap: mutable.Map[(Any, ClassTag[?]), DFTag] =
       mutable.Map()
     def set[CT <: DFTag: ClassTag](
         taggedElement: Any,

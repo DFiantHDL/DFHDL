@@ -100,7 +100,7 @@ extension (dcl: DFVal.Dcl)
 
 private val netClassTag = classTag[DFNet]
 private val aliasPartClassTag = classTag[DFVal.Alias.Partial]
-private val nonConsumingRefs: Set[ClassTag[_]] = Set(
+private val nonConsumingRefs: Set[ClassTag[?]] = Set(
   aliasPartClassTag,
   classTag[DFConditional.DFIfElseBlock],
   classTag[DFConditional.DFCaseBlock]

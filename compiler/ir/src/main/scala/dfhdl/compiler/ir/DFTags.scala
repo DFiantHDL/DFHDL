@@ -4,7 +4,7 @@ import scala.reflect.{ClassTag, classTag}
 sealed trait DFTag extends Product with Serializable
 trait DFTagOf[-T <: DFMember] extends DFTag
 
-opaque type DFTags = Map[ClassTag[_], DFTag]
+opaque type DFTags = Map[ClassTag[?], DFTag]
 object DFTags:
   given CanEqual[DFTags, DFTags] = CanEqual.derived
   def empty: DFTags = Map()

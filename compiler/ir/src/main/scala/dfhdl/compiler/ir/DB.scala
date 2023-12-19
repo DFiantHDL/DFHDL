@@ -11,7 +11,7 @@ import DFDesignBlock.InstMode
 final case class DB(
     members: List[DFMember],
     refTable: Map[DFRefAny, DFMember],
-    globalTags: Map[(Any, ClassTag[_]), DFTag],
+    globalTags: Map[(Any, ClassTag[?]), DFTag],
     srcFiles: List[SourceFile]
 ):
   private val self = this
