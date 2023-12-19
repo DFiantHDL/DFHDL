@@ -19,6 +19,10 @@ final case class DB(
     def designDB: DB = self
     def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0 =
       refTable(ref).asInstanceOf[M0]
+    def apply[M <: DFMember, M0 <: M](designRef: DFRef.ByName[M, ?], namePath: String): M0 =
+      val designInst = refTable(designRef).asInstanceOf[DFDesignInst]
+      // currently only ports are assumed to be referenced by name
+      portsByName((designInst, namePath)).asInstanceOf[M0]
     def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M =
       newMemberFunc(originalMember)
     def replace[M <: DFMember](originalMember: M)(newMember: M): M = newMember
@@ -39,6 +43,14 @@ final case class DB(
     def getGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any): Option[CT] =
       globalTags.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
   end getSet
+
+  lazy val portsByName: Map[(DFDesignInst, String), DFVal.Dcl] =
+    members.view.collect {
+      case m: DFVal.Dcl if m.isPort =>
+        val design = m.getOwnerDesign
+        val namePath = m.getRelativeName(design)
+        (design, namePath) -> m
+    }.toMap
 
   lazy val top: DFDesignBlock = members.head match
     case m: DFDesignBlock => m
@@ -446,6 +458,7 @@ enum MemberView derives CanEqual:
 trait MemberGetSet:
   def designDB: DB
   def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0
+  def apply[M <: DFMember, M0 <: M](ref: DFRef.ByName[M, ?], namePath: String): M0
   def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M
   def replace[M <: DFMember](originalMember: M)(newMember: M): M
   def remove[M <: DFMember](member: M): M
