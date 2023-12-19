@@ -16,7 +16,7 @@ object DFBits:
     check(width)
     ir.DFBits(width).asFE[DFBits[W]]
   @targetName("applyNoArg")
-  def apply[W <: Int with Singleton](using ValueOf[W])(using
+  def apply[W <: Int & Singleton](using ValueOf[W])(using
       Arg.Width.Check[W]
   ): DFBits[W] =
     DFBits[W](Inlined.forced[W](valueOf[W]))

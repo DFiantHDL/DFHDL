@@ -21,7 +21,7 @@ object DFEncoding:
       (entryCount - 1).bitsWidth(false)
     final def encode(idx: Int): BigInt = BigInt(idx ^ (idx >>> 1))
 
-  abstract class StartAt[V <: Int with Singleton](value: V) extends Auto:
+  abstract class StartAt[V <: Int & Singleton](value: V) extends Auto:
     final def calcWidth(entryCount: Int): Int =
       (entryCount - 1 + value).bitsWidth(false)
     final def encode(idx: Int): BigInt = BigInt(idx + value)
@@ -30,7 +30,7 @@ object DFEncoding:
     final def calcWidth(entryCount: Int): Int = entryCount
     final def encode(idx: Int): BigInt = BigInt(1) << idx
 
-  abstract class Manual[W <: Int with Singleton](val width: W) extends DFEncoding:
+  abstract class Manual[W <: Int & Singleton](val width: W) extends DFEncoding:
     val value: DFToken[DFUInt[W]]
     final def bigIntValue: BigInt =
       value.data.getOrElse(

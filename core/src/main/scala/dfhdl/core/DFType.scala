@@ -80,7 +80,7 @@ object DFType:
 
   type Supported = DFTypeAny | DFEncoding | DFOpaqueA | Byte | Int | Long | Boolean | AnyRef | Unit
   object Ops:
-    extension [D <: Int with Singleton](cellDim: D)
+    extension [D <: Int & Singleton](cellDim: D)
       def <>[M <: ModifierAny](
           modifier: M
       ): DFVector.ComposedModifier[D, M] =
