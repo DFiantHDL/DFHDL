@@ -89,59 +89,61 @@ case object ToED extends Stage:
               case m if processBlockAllMembersSet.contains(m) => Some(m)
               case _                                          => None
             }
-            val processBlocksDsn = new MetaDesign(updatedOwner, domainType = DFC.Domain.ED):
-              lazy val clk = clkRstOpt.clkOpt.get.asValOf[Bit]
-              lazy val rst = clkRstOpt.rstOpt.get.asValOf[Bit]
 
-              // create a combinational process if needed
-              if (processBlockAllMembers.nonEmpty)
-                process(all) {}
-              def regInitBlock() = regNets.foreach:
-                case rn if rn.initOption.nonEmpty && !rn.initOption.get.isBubble =>
-                  rn.regVar.asVarAny :== dfhdl.core.DFVal.Const(rn.initOption.get.asTokenAny)
-                case _ =>
-              def regSaveBlock() = regNets.foreach: rn =>
-                rn.regVar.asVarAny :== rn.relVal.asValAny
-              def ifRstActive =
-                val RstCfg.Explicit(_, active: RstCfg.Active) = rstCfg: @unchecked
-                val cond = active match
-                  case RstCfg.Active.High => rst == 1
-                  case RstCfg.Active.Low  => rst == 0
-                DFIf.singleBranch(Some(cond), DFIf.Header(dfhdl.core.DFUnit), regInitBlock)
-              def ifRstActiveElseRegSaveBlock(): Unit =
-                val (_, rstBranch) = ifRstActive
-                DFIf.singleBranch(None, rstBranch, regSaveBlock)
-              def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
-                val ClkCfg.Explicit(edge: ClkCfg.Edge) = clkCfg: @unchecked
-                val cond = edge match
-                  case ClkCfg.Edge.Rising  => clk.rising
-                  case ClkCfg.Edge.Falling => clk.falling
-                DFIf.singleBranch(
-                  Some(cond),
-                  ifRstOption.getOrElse(DFIf.Header(dfhdl.core.DFUnit)),
-                  block
-                )
+            val processBlocksDsn =
+              new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = DFC.Domain.ED):
+                lazy val clk = clkRstOpt.clkOpt.get.asValOf[Bit]
+                lazy val rst = clkRstOpt.rstOpt.get.asValOf[Bit]
 
-              if (clkCfg != None && regNets.nonEmpty)
-                if (
-                  rstCfg != None && regNets.exists(rn =>
-                    rn.initOption.nonEmpty && !rn.initOption.get.isBubble
+                // create a combinational process if needed
+                if (processBlockAllMembers.nonEmpty)
+                  process(all) {}
+                def regInitBlock() = regNets.foreach:
+                  case rn if rn.initOption.nonEmpty && !rn.initOption.get.isBubble =>
+                    rn.regVar.asVarAny :== dfhdl.core.DFVal.Const(rn.initOption.get.asTokenAny)
+                  case _ =>
+                def regSaveBlock() = regNets.foreach: rn =>
+                  rn.regVar.asVarAny :== rn.relVal.asValAny
+                def ifRstActive =
+                  val RstCfg.Explicit(_, active: RstCfg.Active) = rstCfg: @unchecked
+                  val cond = active match
+                    case RstCfg.Active.High => rst == 1
+                    case RstCfg.Active.Low  => rst == 0
+                  DFIf.singleBranch(Some(cond), DFIf.Header(dfhdl.core.DFUnit), regInitBlock)
+                def ifRstActiveElseRegSaveBlock(): Unit =
+                  val (_, rstBranch) = ifRstActive
+                  DFIf.singleBranch(None, rstBranch, regSaveBlock)
+                def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
+                  val ClkCfg.Explicit(edge: ClkCfg.Edge) = clkCfg: @unchecked
+                  val cond = edge match
+                    case ClkCfg.Edge.Rising  => clk.rising
+                    case ClkCfg.Edge.Falling => clk.falling
+                  DFIf.singleBranch(
+                    Some(cond),
+                    ifRstOption.getOrElse(DFIf.Header(dfhdl.core.DFUnit)),
+                    block
                   )
-                )
-                  val RstCfg.Explicit(mode: RstCfg.Mode, _) = rstCfg: @unchecked
-                  mode match
-                    case RstCfg.Mode.Sync =>
-                      process(clk) {
-                        ifClkEdge(None, ifRstActiveElseRegSaveBlock)
-                      }
-                    case RstCfg.Mode.Async =>
-                      process(clk, rst) {
-                        val (_, rstBranch) = ifRstActive
-                        ifClkEdge(Some(rstBranch))
-                      }
-                else process(clk) { ifClkEdge(None) }
+
+                if (clkCfg != None && regNets.nonEmpty)
+                  if (
+                    rstCfg != None && regNets.exists(rn =>
+                      rn.initOption.nonEmpty && !rn.initOption.get.isBubble
+                    )
+                  )
+                    val RstCfg.Explicit(mode: RstCfg.Mode, _) = rstCfg: @unchecked
+                    mode match
+                      case RstCfg.Mode.Sync =>
+                        process(clk) {
+                          ifClkEdge(None, ifRstActiveElseRegSaveBlock)
+                        }
+                      case RstCfg.Mode.Async =>
+                        process(clk, rst) {
+                          val (_, rstBranch) = ifRstActive
+                          ifClkEdge(Some(rstBranch))
+                        }
+                  else process(clk) { ifClkEdge(None) }
+                  end if
                 end if
-              end if
 
             val processBlockAllMembersPatchOption = if (processBlockAllMembers.nonEmpty)
               val pbAllOwner = processBlocksDsn.getDB.members.collectFirst {
@@ -156,11 +158,9 @@ case object ToED extends Stage:
                 )
               )
             else None
-            val processBlocksPatch =
-              owner -> Patch.Add(processBlocksDsn, Patch.Add.Config.InsideLast)
             List(
               Some(ownerDomainPatch),
-              Some(processBlocksPatch),
+              Some(owner -> Patch.Add(processBlocksDsn, Patch.Add.Config.InsideLast)),
               processBlockAllMembersPatchOption,
               regAliasRemovalPatches
             ).flatten

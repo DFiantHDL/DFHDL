@@ -1,23 +1,30 @@
 package dfhdl.compiler.patching
 import dfhdl.core.*
 import dfhdl.compiler.ir
-
+import Patch.Add.Config as AddCfg
 import scala.annotation.unchecked.uncheckedVariance
-import dfhdl.compiler.ir.DFDesignBlock
 
 type MetaDesignAny = MetaDesign[DFC.Domain]
 abstract class MetaDesign[+D <: DFC.Domain](
-    injectedOwner: ir.DFOwner,
+    positionMember: ir.DFMember,
+    addCfg: AddCfg,
     domainType: D = DFC.Domain.DF
 )(using
     getSet: ir.MemberGetSet
 ) extends Design
     with reflect.Selectable:
+  lazy val patch = positionMember -> Patch.Add(this, addCfg)
+  lazy val injectedOwner: ir.DFOwner = addCfg match
+    case AddCfg.InsideFirst | AddCfg.InsideLast =>
+      positionMember match
+        case positionOwner: ir.DFOwner => positionOwner
+        case _ => throw new IllegalArgumentException("Expecting owner member for AddInside config.")
+    case _ => positionMember.getOwner
   final override private[dfhdl] def initOwner: Design.Block =
     dfc.mutableDB.addMember(injectedOwner)
     injectedOwner.getThisOrOwnerDesign.asFE
   injectedOwner match
-    case design: DFDesignBlock => // do nothing
+    case design: ir.DFDesignBlock => // do nothing
     case _ =>
       dfc.enterOwner(injectedOwner.asFE)
 

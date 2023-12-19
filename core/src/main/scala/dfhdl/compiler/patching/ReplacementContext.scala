@@ -9,12 +9,12 @@ private final case class ReplacementContext(
     //        println("changeRef", origRef, updateMember)
     copy(refTable = refTable.updated(origRef, updateMember))
 
-  def getLatestRepOf(member: DFMember): DFMember =
+  def getLatestRepOf[M <: DFMember](member: M): M =
     memberRepTable.get(member) match
       case Some((repMember, refFilter) :: _) =>
         assert(refFilter == Patch.Replace.RefFilter.All)
-        repMember
-      case _ => member
+        repMember.asInstanceOf[M]
+      case _ => member.asInstanceOf[M]
 
   def getUpdatedRefTable(refTable: Map[DFRefAny, DFMember]): Map[DFRefAny, DFMember] =
     refTable.map {

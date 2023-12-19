@@ -81,7 +81,10 @@ case object DropBinds extends Stage:
             // then the rest of the binds are removed and reference the bind variable we created.
             if (hasPrevAlias)
               val relValIR = headBind.relValRef.get
-              val dsn = new MetaDesign(headBind.getOwner):
+              val dsn = new MetaDesign(
+                headBind,
+                Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
+              ):
                 val bindVar = headBind.asValAny.genNewVar(using dfc.setName(headBind.getName))
                 val bindVarIR = bindVar.asIR
                 bindVar := relValIR.asValAny
@@ -89,10 +92,7 @@ case object DropBinds extends Stage:
               val coveredCases = bg.map(bindCaseMap(_)).toSet
               val missingCases = cases.filterNot(coveredCases.contains)
               missingCases.foreach(c => stalled += c -> (bindVarIR :: stalled(c)))
-              headBind -> Patch.Add(
-                dsn,
-                Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)
-              ) :: otherBinds.map(b =>
+              dsn.patch :: otherBinds.map(b =>
                 b -> Patch.Replace(bindVarIR, Patch.Replace.Config.ChangeRefAndRemove)
               )
             // In case the group has no prev alias, then all we need is to strip the bind tag from its alias.

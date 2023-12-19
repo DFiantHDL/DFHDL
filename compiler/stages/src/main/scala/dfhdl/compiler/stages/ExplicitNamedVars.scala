@@ -28,14 +28,12 @@ case object ExplicitNamedVars extends Stage:
         case Ident(underlying: DFConditional.Header) =>
           underlying.patchChains(headerVar)
         case m @ Ident(underlying) =>
-          val assignDsn = new MetaDesign(m.getOwner):
+          val assignDsn = new MetaDesign(
+            m,
+            Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove)
+          ):
             headerVar.asVarAny := underlying.asValAny
-          Some(
-            m -> Patch.Add(
-              assignDsn,
-              Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove)
-            )
-          )
+          Some(assignDsn.patch)
         case _ => ??? // not possible
       }
 
@@ -56,16 +54,16 @@ case object ExplicitNamedVars extends Stage:
               case mh: DFConditional.DFMatchHeader => mh.copy(dfType = DFUnit).anonymize
               case ih: DFConditional.DFIfHeader    => ih.copy(dfType = DFUnit).anonymize
             // this variable will replace the header as a value
-            val dsn = new MetaDesign(ch.getOwner):
+            val dsn = new MetaDesign(
+              ch,
+              Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement, WhenHeader)
+            ):
               final val plantedNewVar = ch.asValAny.genNewVar(using dfc.setName(ch.getName))
               val newVarIR = plantedNewVar.asIR
               plantMember(updatedCH)
             val chPatchList = List(
               // replacing all the references of header as a conditional header
-              ch -> Patch.Add(
-                dsn,
-                Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement, WhenHeader)
-              ),
+              dsn.patch,
               // replacing all the references of header as a value
               ch -> Patch.Replace(
                 dsn.newVarIR,
@@ -77,10 +75,10 @@ case object ExplicitNamedVars extends Stage:
           // all other named values
           case named =>
             val anonIR = named.anonymize
-            val dsn = new MetaDesign(named.getOwner):
+            val dsn = new MetaDesign(named, Patch.Add.Config.ReplaceWithFirst()):
               final val plantedNewVar = named.asValAny.genNewVar(using dfc.setMeta(named.meta))
               plantedNewVar := plantMember(anonIR).asValAny
-            List(named -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithFirst()))
+            List(dsn.patch)
         }
         .toList
     designDB.patch(patchList)

@@ -51,7 +51,6 @@ object Patch:
   final case class Add private[patching] (db: DB, config: Add.Config) extends Patch
   object Add:
     def apply(design: MetaDesignAny, config: Config): Add = Add(design.getDB, config)
-
     sealed trait Config extends Product with Serializable derives CanEqual:
       def ==(moveConfig: Move.Config): Boolean = (this, moveConfig) match
         case (Config.Before, Move.Config.Before)           => true
@@ -132,6 +131,91 @@ extension (db: DB)
       case _ => None
     }.toMap
     def patchDebug(block: => Unit): Unit = if (debug) block
+    // Patching reference table
+    val rc = patchList
+      .foldLeft(ReplacementContext.fromRefTable(refTable)) {
+        case (rc, (origMember, Patch.Replace(repMember, config, refFilter)))
+            if (origMember != repMember) =>
+          val ret = rc.replaceMember(origMember, repMember, config, refFilter)
+          patchDebug {
+            println("rc.refTable:")
+            println(ret.refTable.mkString("\n"))
+          }
+          ret
+        case (rc, (origMember, Patch.Add(db, config))) =>
+          // updating the patched DB reference table members with the newest members kept by the replacement context
+          val updatedPatchRefTable = rc.getUpdatedRefTable(db.refTable)
+          val repRT = config match
+            case Patch.Add.Config.ReplaceWithFirst(repConfig, refFilter) =>
+              val repMember = db.members(1) // At index 0 we have the Top. We don't want that.
+              rc.replaceMember(origMember, repMember, repConfig, refFilter)
+            case Patch.Add.Config.ReplaceWithLast(repConfig, refFilter) =>
+              val repMember = db.members.last
+              rc.replaceMember(origMember, repMember, repConfig, refFilter)
+            case Patch.Add.Config.Via =>
+              val repMember = db.members.last // The last member is used for Via addition.
+              rc.replaceMember(
+                origMember,
+                repMember,
+                Patch.Replace.Config.FullReplacement,
+                Patch.Replace.RefFilter.All
+              )
+            case _ => rc
+          //          patchDebug {
+          //            println("repRT.refTable:")
+          //            println(repRT.refTable.mkString("\n"))
+          //          }
+          //          patchDebug {
+          //            println("dbPatched.refTable:")
+          //            println(dbPatched.refTable.mkString("\n"))
+          //          }
+          //          patchDebug {
+          //            println("updatedPatchRefTable:")
+          //            println(updatedPatchRefTable.mkString("\n"))
+          //          }
+          val ret = repRT.copy(refTable = repRT.refTable ++ updatedPatchRefTable)
+          //          patchDebug {
+          //            println("rc.refTable:")
+          //            println(ret.refTable.mkString("\n"))
+          //          }
+          ret
+        // skip over empty move
+        case (rc, (origMember, Patch.Move(Nil, _, config))) => rc
+        case (rc, (origMember, Patch.Move(movedMembers, origOwner, config))) =>
+          val newOwner = config match
+            case Patch.Move.Config.InsideFirst => origMember
+            case Patch.Move.Config.InsideLast  => origMember
+            case _                             => origMember.getOwnerBlock
+          val actualNewOwner = rc.getLatestRepOf(newOwner) // owner may have been replaced before
+          val actualOrigOwner = rc.getLatestRepOf(origOwner) // owner may have been replaced before
+          // replace all owner references that point to the original owner
+          movedMembers.foldLeft(rc) {
+            case (rc, m) if rc.getLatestRepOf(m.getOwner) == actualOrigOwner =>
+              rc.changeRef(m.ownerRef, actualNewOwner)
+            case (rc, _) => rc
+          }
+        case (rc, (origMember, Patch.Remove)) =>
+          memberTable.get(origMember) match
+            case Some(refs) =>
+              // total references to be removed are both
+              // * refs - directly referencing the member
+              // * originRefs - the member is referencing other members with a two-way
+              //                reference that points back to it.
+              val totalRefs = refs ++ origMember.getRefs
+              rc.copy(refTable = totalRefs.foldLeft(rc.refTable)((rt2, r) => rt2 - r))
+            case None => rc
+        case (rc, (origMember, Patch.ChangeRef(refFunc, updatedRefMember))) =>
+          val ref = refFunc(origMember)
+          rc.copy(refTable = rc.refTable + (ref -> updatedRefMember))
+        case (rc, _) => rc
+      }
+    val patchedRefTable = rc.refTable
+    patchDebug {
+      println("----------------------------------------------------------------------------")
+      println("patchedRefTable:")
+      println(patchedRefTable.mkString("\n"))
+      println("----------------------------------------------------------------------------")
+    }
     val patchTable = patchList
       .flatMap {
         // Replacement of reference only does not require patching the member list, so we remove this from the table
@@ -288,91 +372,6 @@ extension (db: DB)
       println("----------------------------------------------------------------------------")
       println("patchedMembers:")
       println(patchedMembers.map(m => s"${m.hashString}: $m").mkString("\n"))
-      println("----------------------------------------------------------------------------")
-    }
-    // Patching reference table
-    val patchedRefTable = patchList
-      .foldLeft(ReplacementContext.fromRefTable(refTable)) {
-        case (rc, (origMember, Patch.Replace(repMember, config, refFilter)))
-            if (origMember != repMember) =>
-          val ret = rc.replaceMember(origMember, repMember, config, refFilter)
-          patchDebug {
-            println("rc.refTable:")
-            println(ret.refTable.mkString("\n"))
-          }
-          ret
-        case (rc, (origMember, Patch.Add(db, config))) =>
-          // updating the patched DB reference table members with the newest members kept by the replacement context
-          val updatedPatchRefTable = rc.getUpdatedRefTable(db.refTable)
-          val repRT = config match
-            case Patch.Add.Config.ReplaceWithFirst(repConfig, refFilter) =>
-              val repMember = db.members(1) // At index 0 we have the Top. We don't want that.
-              rc.replaceMember(origMember, repMember, repConfig, refFilter)
-            case Patch.Add.Config.ReplaceWithLast(repConfig, refFilter) =>
-              val repMember = db.members.last
-              rc.replaceMember(origMember, repMember, repConfig, refFilter)
-            case Patch.Add.Config.Via =>
-              val repMember = db.members.last // The last member is used for Via addition.
-              rc.replaceMember(
-                origMember,
-                repMember,
-                Patch.Replace.Config.FullReplacement,
-                Patch.Replace.RefFilter.All
-              )
-            case _ => rc
-          //          patchDebug {
-          //            println("repRT.refTable:")
-          //            println(repRT.refTable.mkString("\n"))
-          //          }
-          //          patchDebug {
-          //            println("dbPatched.refTable:")
-          //            println(dbPatched.refTable.mkString("\n"))
-          //          }
-          //          patchDebug {
-          //            println("updatedPatchRefTable:")
-          //            println(updatedPatchRefTable.mkString("\n"))
-          //          }
-          val ret = repRT.copy(refTable = repRT.refTable ++ updatedPatchRefTable)
-          //          patchDebug {
-          //            println("rc.refTable:")
-          //            println(ret.refTable.mkString("\n"))
-          //          }
-          ret
-        // skip over empty move
-        case (rc, (origMember, Patch.Move(Nil, _, config))) => rc
-        case (rc, (origMember, Patch.Move(movedMembers, origOwner, config))) =>
-          val newOwner = config match
-            case Patch.Move.Config.InsideFirst => origMember
-            case Patch.Move.Config.InsideLast  => origMember
-            case _                             => origMember.getOwnerBlock
-          val actualNewOwner = rc.getLatestRepOf(newOwner) // owner may have been replaced before
-          val actualOrigOwner = rc.getLatestRepOf(origOwner) // owner may have been replaced before
-          // replace all owner references that point to the original owner
-          movedMembers.foldLeft(rc) {
-            case (rc, m) if rc.getLatestRepOf(m.getOwner) == actualOrigOwner =>
-              rc.changeRef(m.ownerRef, actualNewOwner)
-            case (rc, _) => rc
-          }
-        case (rc, (origMember, Patch.Remove)) =>
-          memberTable.get(origMember) match
-            case Some(refs) =>
-              // total references to be removed are both
-              // * refs - directly referencing the member
-              // * originRefs - the member is referencing other members with a two-way
-              //                reference that points back to it.
-              val totalRefs = refs ++ origMember.getRefs
-              rc.copy(refTable = totalRefs.foldLeft(rc.refTable)((rt2, r) => rt2 - r))
-            case None => rc
-        case (rc, (origMember, Patch.ChangeRef(refFunc, updatedRefMember))) =>
-          val ref = refFunc(origMember)
-          rc.copy(refTable = rc.refTable + (ref -> updatedRefMember))
-        case (rc, _) => rc
-      }
-      .refTable
-    patchDebug {
-      println("----------------------------------------------------------------------------")
-      println("patchedRefTable:")
-      println(patchedRefTable.mkString("\n"))
       println("----------------------------------------------------------------------------")
     }
     DB(patchedMembers, patchedRefTable, globalTags, srcFiles)

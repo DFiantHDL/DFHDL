@@ -39,12 +39,12 @@ case object ViaConnection extends Stage:
             case (_, x) => x
           }
         // Meta design to construct the variables to be connected to the ports
-        val addVarsDsn = new MetaDesign(ib.getOwner):
+        val addVarsDsn = new MetaDesign(ib, Patch.Add.Config.Before):
           val portsToVars: List[(DFVal, DFVal)] = ports.map { p =>
             p -> p.asValAny.genNewVar(using dfc.setName(s"${ib.getName}_${p.getName}")).asIR
           }
         // Meta design for connections between ports and the added variables
-        val connectDsn = new MetaDesign(ib.getOwner):
+        val connectDsn = new MetaDesign(ib, Patch.Add.Config.After):
           dfc.enterLate()
           val refPatches: List[(DFMember, Patch)] = addVarsDsn.portsToVars.map { case (p, v) =>
             p match
@@ -74,11 +74,7 @@ case object ViaConnection extends Stage:
               )
             else List(changeToViaPatch)
           }
-        (ib -> Patch.Add(addVarsDsn, Patch.Add.Config.Before)) ::
-          (ib -> Patch.Add(
-            connectDsn,
-            Patch.Add.Config.After
-          )) :: connectDsn.refPatches ++ connectDsn.movedNets
+        addVarsDsn.patch :: connectDsn.patch :: connectDsn.refPatches ++ connectDsn.movedNets
       case _ => Nil
     }
     designDB.patch(patchList)

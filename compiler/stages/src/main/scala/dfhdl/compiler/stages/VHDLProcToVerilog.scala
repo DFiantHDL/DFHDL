@@ -35,7 +35,11 @@ case object VHDLProcToVerilog extends Stage:
           case ifBlock :: Nil if stVals.size == 1 =>
             ifBlock.guardRef.get match
               case clkEdge @ ClkEdge(clk, edge) if stVals.contains(clk) =>
-                val dsn = new MetaDesign(pb.getOwner, domainType = dfhdl.core.DFC.Domain.ED):
+                val dsn = new MetaDesign(
+                  pb,
+                  Patch.Add.Config.ReplaceWithLast(),
+                  domainType = dfhdl.core.DFC.Domain.ED
+                ):
                   val clkEdgeSig = edge match
                     case ClkCfg.Edge.Rising  => clk.asValOf[Bit].rising
                     case ClkCfg.Edge.Falling => clk.asValOf[Bit].falling
@@ -44,7 +48,7 @@ case object VHDLProcToVerilog extends Stage:
                 List(
                   clkEdge -> Patch.Remove,
                   ifBlock.prevBlockOrHeaderRef.get -> Patch.Remove,
-                  pb -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast()),
+                  dsn.patch,
                   ifBlock -> Patch.Replace(dsn.newPB, Patch.Replace.Config.ChangeRefAndRemove)
                 )
               case _ => None
@@ -52,7 +56,11 @@ case object VHDLProcToVerilog extends Stage:
             (ifBlock.guardRef.get, elseBlock.guardRef.get) match
               case (rstActive @ RstActive(rst, active), clkEdge @ ClkEdge(clk, edge))
                   if stVals == Set(clk, rst) =>
-                val dsn = new MetaDesign(pb.getOwner, domainType = dfhdl.DFC.Domain.ED):
+                val dsn = new MetaDesign(
+                  pb,
+                  Patch.Add.Config.ReplaceWithLast(),
+                  domainType = dfhdl.DFC.Domain.ED
+                ):
                   val clkEdgeSig = edge match
                     case ClkCfg.Edge.Rising  => clk.asValOf[Bit].rising
                     case ClkCfg.Edge.Falling => clk.asValOf[Bit].falling
@@ -65,7 +73,7 @@ case object VHDLProcToVerilog extends Stage:
                     ).asIR
                 List(
                   clkEdge -> Patch.Replace(DFMember.Empty, Patch.Replace.Config.ChangeRefAndRemove),
-                  pb -> Patch.Add(dsn, Patch.Add.Config.ReplaceWithLast())
+                  dsn.patch
                 )
               case _ => None
           case _ => None

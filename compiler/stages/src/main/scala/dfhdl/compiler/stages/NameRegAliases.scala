@@ -89,12 +89,14 @@ case object NameRegAliases extends Stage:
 
         // assumes we ordered the members so the declarations come first.
         // if there are no declarations, we set the owner as position
-        val lastDclOpt: Option[DFMember] = members.view.takeWhile {
+        val (posMember, addCfg): (DFMember, Patch.Add.Config) = members.view.takeWhile {
           case _: DFVal.Dcl => true
           case _            => false
-        }.lastOption
+        }.lastOption match
+          case Some(lastDcl) => (lastDcl, Patch.Add.Config.After)
+          case None          => (domainOwner, Patch.Add.Config.InsideFirst)
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
-        val regDsn = new MetaDesign(domainOwner, domainType = dfhdl.core.DFC.Domain.RT):
+        val regDsn = new MetaDesign(posMember, addCfg, domainType = dfhdl.core.DFC.Domain.RT):
           def addRegs(
               alias: DFVal.Alias.History,
               namePrefix: String,
@@ -112,18 +114,14 @@ case object NameRegAliases extends Stage:
               alias.dfType.asFE[DFTypeAny] <> VAR setName regName
             val regsIR = regs.map(_.asIR).toList
             val relVal = alias.getNonRegAliasRelVal
-            val regDinDsn = new MetaDesign(domainOwner, domainType = dfhdl.core.DFC.Domain.RT):
-              (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
-                curr.asVarAny := prev.asValAny.reg(1, init = alias.initOption.get.asTokenAny)
-              }
-            if (unique)
-              regPatches += alias -> Patch.Add(regDinDsn, Patch.Add.Config.Before)
-            else
-              lastDclOpt match
-                case Some(lastDcl) =>
-                  regPatches += lastDcl -> Patch.Add(regDinDsn, Patch.Add.Config.After)
-                case None =>
-                  regPatches += domainOwner -> Patch.Add(regDinDsn, Patch.Add.Config.InsideFirst)
+            def regDinPatch(posMember: DFMember, addCfg: Patch.Add.Config) =
+              new MetaDesign(posMember, addCfg, domainType = dfhdl.core.DFC.Domain.RT):
+                (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
+                  curr.asVarAny := prev.asValAny.reg(1, init = alias.initOption.get.asTokenAny)
+                }
+              .patch
+            if (unique) regPatches += regDinPatch(alias, Patch.Add.Config.Before)
+            else regPatches += regDinPatch(posMember, addCfg)
             regsIR
           end addRegs
 
@@ -154,13 +152,8 @@ case object NameRegAliases extends Stage:
                 )
               }
           }
-        val regDclPatch = lastDclOpt match
-          case Some(lastDcl) =>
-            lastDcl -> Patch.Add(regDsn, Patch.Add.Config.After)
-          case None =>
-            domainOwner -> Patch.Add(regDsn, Patch.Add.Config.InsideFirst)
         List(
-          Some(regDclPatch),
+          Some(regDsn.patch),
           regPatches
         ).flatten
       case _ => None
