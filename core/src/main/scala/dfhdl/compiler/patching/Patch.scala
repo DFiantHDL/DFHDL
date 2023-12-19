@@ -137,10 +137,10 @@ extension (db: DB)
         case (rc, (origMember, Patch.Replace(repMember, config, refFilter)))
             if (origMember != repMember) =>
           val ret = rc.replaceMember(origMember, repMember, config, refFilter)
-          patchDebug {
-            println("rc.refTable:")
-            println(ret.refTable.mkString("\n"))
-          }
+          // patchDebug {
+          //   println("rc.refTable:")
+          //   println(ret.refTable.mkString("\n"))
+          // }
           ret
         case (rc, (origMember, Patch.Add(db, config))) =>
           // updating the patched DB reference table members with the newest members kept by the replacement context
@@ -210,12 +210,6 @@ extension (db: DB)
         case (rc, _) => rc
       }
     val patchedRefTable = rc.refTable
-    patchDebug {
-      println("----------------------------------------------------------------------------")
-      println("patchedRefTable:")
-      println(patchedRefTable.mkString("\n"))
-      println("----------------------------------------------------------------------------")
-    }
     val patchTable = patchList
       .flatMap {
         // Replacement of reference only does not require patching the member list, so we remove this from the table
@@ -306,15 +300,6 @@ extension (db: DB)
               )
         case (tbl, pair) => tbl + pair
       }
-
-    patchDebug {
-      println("patchList:")
-      println(patchList.mkString("\n"))
-      println("----------------------------------------------------------------------------")
-      println("patchTable:")
-      println(patchTable.mkString("\n"))
-      println("----------------------------------------------------------------------------")
-    }
     // Patching member list
     @tailrec def patchMembers(
         waiting: List[DFMember],
@@ -364,6 +349,12 @@ extension (db: DB)
     val patchedMembers = patchMembers(members, patchTable, Nil)
     patchDebug {
       println("----------------------------------------------------------------------------")
+      println("patchList:")
+      println(patchList.mkString("\n"))
+      println("----------------------------------------------------------------------------")
+      println("patchTable:")
+      println(patchTable.mkString("\n"))
+      println("----------------------------------------------------------------------------")
       println("members:")
       println(members.map(m => s"${m.hashString}: $m").mkString("\n"))
       println("----------------------------------------------------------------------------")
@@ -372,6 +363,9 @@ extension (db: DB)
       println("----------------------------------------------------------------------------")
       println("patchedMembers:")
       println(patchedMembers.map(m => s"${m.hashString}: $m").mkString("\n"))
+      println("----------------------------------------------------------------------------")
+      println("patchedRefTable:")
+      println(patchedRefTable.mkString("\n"))
       println("----------------------------------------------------------------------------")
     }
     DB(patchedMembers, patchedRefTable, globalTags, srcFiles)
