@@ -17,6 +17,7 @@ import Constants.Constant
 import dotty.tools.dotc.ast.tpd.Tree
 import annotation.tailrec
 import scala.language.implicitConversions
+import scala.compiletime.uninitialized
 
 given canEqualNothingL: CanEqual[Nothing, Any] = CanEqual.derived
 given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
@@ -60,15 +61,15 @@ abstract class CommonPhase extends PluginPhase:
       .appliedToTypes(trees.map(_.tpe.widen))
       .appliedToArgs(trees)
 
-  var metaContextTpe: TypeRef = _
-  var metaContextCls: ClassSymbol = _
-  var metaContextIgnoreAnnotSym: ClassSymbol = _
-  var metaContextForwardAnnotSym: ClassSymbol = _
-  var positionCls: ClassSymbol = _
-  var contextFunctionSym: Symbol = _
-  var hasDFCTpe: TypeRef = _
-  var inlineAnnotSym: Symbol = _
-  var dfValSym: Symbol = _
+  var metaContextTpe: TypeRef = uninitialized
+  var metaContextCls: ClassSymbol = uninitialized
+  var metaContextIgnoreAnnotSym: ClassSymbol = uninitialized
+  var metaContextForwardAnnotSym: ClassSymbol = uninitialized
+  var positionCls: ClassSymbol = uninitialized
+  var contextFunctionSym: Symbol = uninitialized
+  var hasDFCTpe: TypeRef = uninitialized
+  var inlineAnnotSym: Symbol = uninitialized
+  var dfValSym: Symbol = uninitialized
 
   extension (sym: Symbol)
     def ignoreMetaContext(using Context): Boolean =

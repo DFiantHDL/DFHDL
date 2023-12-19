@@ -16,6 +16,7 @@ import Constants.Constant
 import Types.*
 
 import scala.language.implicitConversions
+import scala.compiletime.uninitialized
 import collection.mutable
 import annotation.tailrec
 
@@ -32,7 +33,7 @@ class FixInterpDFValPhase(setting: Setting) extends CommonPhase:
   override val runsBefore = Set("inlinedPositions")
 //  override val debugFilter: String => Boolean =
 //    _.contains("DFMatchSpec.scala")
-  var dfValTpe: Type = _
+  var dfValTpe: Type = uninitialized
 
   object StripAndString:
     def unapply(tpe: Type)(using Context): Option[Type] =

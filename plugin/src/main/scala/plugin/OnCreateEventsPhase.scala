@@ -17,6 +17,7 @@ import Constants.Constant
 
 import annotation.tailrec
 import scala.language.implicitConversions
+import scala.compiletime.uninitialized
 import collection.mutable
 
 class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
@@ -29,8 +30,8 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
   override val runsBefore = Set(transform.FirstTransform.name)
 
   val ignore = mutable.Set.empty[Tree]
-  var onCreateEventsTpe: TypeRef = _
-  var hasNamePosTpe: TypeRef = _
+  var onCreateEventsTpe: TypeRef = uninitialized
+  var hasNamePosTpe: TypeRef = uninitialized
   var clsStack = List.empty[TypeDef]
   var dfcClsStack = List.empty[TypeDef]
 

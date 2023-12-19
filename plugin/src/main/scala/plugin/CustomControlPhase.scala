@@ -21,6 +21,7 @@ import dotty.tools.dotc.semanticdb.ConstantMessage.SealedValue.{
 }
 
 import scala.language.implicitConversions
+import scala.compiletime.uninitialized
 import collection.{mutable, immutable}
 import annotation.tailrec
 import scala.util.boundary, boundary.break
@@ -45,13 +46,13 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   override val runsBefore = Set("MetaContextGen")
   val ignoreIfs = mutable.Set.empty[String]
   val replaceIfs = mutable.Set.empty[String]
-  var fromBooleanSym: Symbol = _
-  var toFunc1Sym: Symbol = _
-  var fromBranchesSym: Symbol = _
-  var fromCasesSym: Symbol = _
-  var dfValClsRef: TypeRef = _
-  var dfEncodingRef: TypeRef = _
-  var enumHackedUnapply: Symbol = _
+  var fromBooleanSym: Symbol = uninitialized
+  var toFunc1Sym: Symbol = uninitialized
+  var fromBranchesSym: Symbol = uninitialized
+  var fromCasesSym: Symbol = uninitialized
+  var dfValClsRef: TypeRef = uninitialized
+  var dfEncodingRef: TypeRef = uninitialized
+  var enumHackedUnapply: Symbol = uninitialized
   var dfcStack: List[Tree] = Nil
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =

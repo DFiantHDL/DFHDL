@@ -16,6 +16,7 @@ import Constants.Constant
 import Types.*
 
 import scala.language.implicitConversions
+import scala.compiletime.uninitialized
 import collection.mutable
 import annotation.tailrec
 
@@ -27,8 +28,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextDelegate")
-  var setMetaSym: Symbol = _
-  var dfTokenSym: Symbol = _
+  var setMetaSym: Symbol = uninitialized
+  var dfTokenSym: Symbol = uninitialized
   val treeOwnerApplyMap = mutable.Map.empty[Apply, (Tree, util.SrcPos)]
   val treeOwnerOverrideMap = mutable.Map.empty[DefDef, (Tree, util.SrcPos)]
   val contextDefs = mutable.Map.empty[String, Tree]

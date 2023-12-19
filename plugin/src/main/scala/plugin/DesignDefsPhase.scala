@@ -18,6 +18,7 @@ import Names._
 import Constants.Constant
 import Types._
 import scala.language.implicitConversions
+import scala.compiletime.uninitialized
 import collection.mutable
 import annotation.tailrec
 import Comments.CommentsContext
@@ -31,9 +32,9 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
 
-  var designFromDefSym: Symbol = _
-  var designFromDefGetInputSym: Symbol = _
-  var metaGenSym: Symbol = _
+  var designFromDefSym: Symbol = uninitialized
+  var designFromDefGetInputSym: Symbol = uninitialized
+  var metaGenSym: Symbol = uninitialized
 
   extension (tpe: Type)(using Context)
     def dfValTpeOpt: Option[Type] =

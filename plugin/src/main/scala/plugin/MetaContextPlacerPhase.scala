@@ -16,6 +16,7 @@ import Constants.Constant
 import Types.*
 
 import scala.language.implicitConversions
+import scala.compiletime.uninitialized
 import collection.mutable
 import annotation.tailrec
 import dotty.tools.dotc.ast.Trees.Alternative
@@ -36,9 +37,9 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   override val runsBefore = Set("FixInterpDFValPhase")
   // override val debugFilter: String => Boolean = _.contains("PrioEncSpec.scala")
   var dfcSymStack = List.empty[Tree]
-  var emptyDFCSym: TermSymbol = _
-  var dfcTpe: Type = _
-  var dfSpecTpe: Type = _
+  var emptyDFCSym: TermSymbol = uninitialized
+  var dfcTpe: Type = uninitialized
+  var dfSpecTpe: Type = uninitialized
 
   extension (tree: TypeDef)
     def hasDFC(using Context): Boolean =
