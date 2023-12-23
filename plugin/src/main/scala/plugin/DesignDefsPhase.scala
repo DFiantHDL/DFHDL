@@ -21,7 +21,6 @@ import scala.language.implicitConversions
 import scala.compiletime.uninitialized
 import collection.mutable
 import annotation.tailrec
-import Comments.CommentsContext
 
 class DesignDefsPhase(setting: Setting) extends CommonPhase:
   import tpd._

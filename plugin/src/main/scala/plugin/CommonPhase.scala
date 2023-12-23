@@ -83,7 +83,8 @@ abstract class CommonPhase extends PluginPhase:
         )
       else false
     def docString(using Context): Option[String] =
-      import Comments.CommentsContext
+      extension (c: Context)
+        def docCtx: Option[Comments.ContextDocstrings] = c.property(Comments.ContextDoc)
       def removeLastLineWhitespace(input: String): String =
         val lines = input.split("\n")
         if (lines.length <= 1) input
