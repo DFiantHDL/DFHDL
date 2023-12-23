@@ -35,7 +35,7 @@ object DFType:
     case DFStruct.Fields => DFStruct[T]
 
   type FromDFVal[T] <: DFTypeAny = T match
-    case DFValOf[t] => t
+    case DFVal[t, ?] => t
 
   def of[T <: Supported](t: T): Of[T] = DFType(t).asInstanceOf[Of[T]]
   private[core] def apply(t: Any): DFTypeAny =
