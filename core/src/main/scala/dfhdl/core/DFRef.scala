@@ -15,15 +15,19 @@ extension [M <: ir.DFMember](member: M)
     lazy val newOriginRef = originMember.ref
     member match
       // referencing a port from another design causes by-name referencing
-      // case port: ir.DFVal
-      //     if port.isPort && port.getOwnerDesign != dfc.owner.asIR.getThisOrOwnerDesign =>
-      //   // name path accounts for domains within the design that can contain the port
-      //   val namePath = port.getRelativeName(port.getOwnerDesign)
-      //   val newRef = new ir.DFRef.ByName[M, O](namePath):
-      //     lazy val refType = classTag[M]
-      //     lazy val originRef = newOriginRef
-      //   // in by-name referencing the reference points to the port's design instance
-      //   dfc.mutableDB.newRefFor(newRef, port.getOwnerDesign)
+      case port: ir.DFVal.Dcl
+          if port.isPort && port.getOwnerDesign != dfc.owner.asIR.getThisOrOwnerDesign =>
+        // name path accounts for domains within the design that can contain the port
+        val namePath = port.getRelativeName(port.getOwnerDesign)
+        lazy val portSelect: ir.DFVal.PortByNameSelect = ir.DFVal.PortByNameSelect(
+          port.dfType,
+          port.getOwnerDesign.refTW(portSelect),
+          namePath,
+          dfc.owner.ref,
+          dfc.getMeta.anonymize,
+          ir.DFTags.empty
+        )
+        portSelect.addMember.refTW(originMember).asInstanceOf[ir.DFRef.TwoWay[M, O]]
       // any other kind of reference
       case _ =>
         val newRef = new ir.DFRef.TwoWay[M, O]:

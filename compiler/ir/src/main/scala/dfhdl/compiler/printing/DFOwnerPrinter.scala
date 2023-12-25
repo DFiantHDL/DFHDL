@@ -48,24 +48,26 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       }
       .map(_.codeString)
       .filter(_.nonEmpty)
+      .toList
       .emptyOr(_.mkString("\n"))
   end csDFMembers
-  final def csDFOwnerLateBody(owner: DFOwner): String =
-    owner.getOwner
+  final def csDFDesignLateBody(design: DFDesignBlock): String =
+    design.getOwner
       .members(MemberView.Folded)
       .view
       // selecting viewable members:
       .filter {
         // late construction nets
-        case net: DFNet if net.isViaConnection =>
-          // getting the nets that belong to this owner
-          net.lhsRef.get.isInsideOwner(owner) || net.rhsRef.get.isInsideOwner(owner)
+        case net @ DFNet.Connection(toVal, fromVal, _) if net.isViaConnection =>
+          // getting the nets that belong to this design
+          toVal.isInsideOwner(design) || fromVal.isInsideOwner(design)
         // the rest are not directly viewable
         case _ => false
       }
       .map(_.codeString)
-      .filter(_.nonEmpty).++(printer.csOpenPorts(owner))
+      .filter(_.nonEmpty).toList.++(printer.csOpenPorts(design))
       .mkString(s"${printer.csViaConnectionSep}\n")
+  end csDFDesignLateBody
   def csDFDesignBlockDcl(design: DFDesignBlock): String
   def csDFDesignBlockInst(design: DFDesignBlock): String
   def csDFDesignDefDcl(design: DFDesignBlock): String
@@ -200,7 +202,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     s"${printer.csAnnotations(design.dclMeta)}$dclWithBody\n"
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
-    val body = csDFOwnerLateBody(design)
+    val body = csDFDesignLateBody(design)
     val inst =
       if (body.isEmpty) s"${design.dclName}()" else s"new ${design.dclName}:\n${body.hindent}"
     s"val ${design.getName} = ${inst}"

@@ -269,9 +269,9 @@ extension [K, V](m: ListMap[K, V])
       acc + (v -> (acc.getOrElse(v, ListSet()) + k))
     }
 
-extension [T](iter: Iterable[T])
-  def emptyOr(f: Iterable[T] => String): String =
-    if (iter.isEmpty) "" else f(iter)
+extension [T](list: List[T])
+  def emptyOr(f: List[T] => String): String =
+    if (list.isEmpty) "" else f(list)
 
 extension (str: String)
   def emptyOr(f: String => String): String =

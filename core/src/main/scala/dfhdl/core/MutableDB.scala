@@ -36,7 +36,6 @@ class MutableDB(val duringTest: Boolean = false):
   private[MutableDB] var metaGetSetOpt: Option[MemberGetSet] = None
   def setMetaGetSet(metaGetSet: MemberGetSet): Unit =
     metaGetSetOpt = Some(metaGetSet)
-    portsByName ++= metaGetSet.designDB.portsByName
   object OwnershipContext:
     private var stack: List[DFOwner] = Nil
     private var lateStack: List[Boolean] = Nil
@@ -125,16 +124,6 @@ class MutableDB(val duringTest: Boolean = false):
     //        println(f"""${"addMember"}%-20s ${s"${member.name} : ${member.typeName}"}%-30s ${member.getOwner.nameAndType}""")
     memberTable += (member -> members.length)
     members += MemberEntry(member, Set(), false)
-    // caching ports for quick by-name access
-    member match
-      case design: DFDesignInst =>
-        portsByName += design -> Map()
-      case port: DFVal.Dcl if port.isPort =>
-        val design = member.getOwnerDesign
-        val namePathMap = portsByName(design)
-        val namePath = port.getRelativeName(design)
-        portsByName += design -> namePathMap.updated(namePath, port)
-      case _ =>
     member
   end addMember
 
@@ -192,14 +181,6 @@ class MutableDB(val duringTest: Boolean = false):
       ref: DFRef[M]
   ): M0 = refTable.getOrElse(ref, metaGetSetOpt.get(ref)).asInstanceOf[M0]
 
-  val portsByName = mutable.Map.empty[DFDesignInst, Map[String, DFVal.Dcl]]
-  def getMemberByName[M <: DFMember, M0 <: M](
-      designRef: DFRef.ByName[M, ?],
-      namePath: String
-  ): M0 =
-    val designInst = getMember(designRef).asInstanceOf[DFDesignInst]
-    portsByName(designInst)(namePath).asInstanceOf[M0]
-
   def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
     dirtyDB()
     val idx = memberTable(originalMember)
@@ -219,20 +200,6 @@ class MutableDB(val duringTest: Boolean = false):
     memberTable.update(newMember, idx)
     // update the member in the member position array
     members.update(idx, memberEntry.copy(irValue = newMember))
-    // update design ports cache
-    originalMember match
-      case origDesign: DFDesignInst =>
-        val namePathMap = portsByName(origDesign)
-        val newDesign = newMember.asInstanceOf[DFDesignInst]
-        portsByName -= origDesign
-        portsByName += newDesign -> namePathMap
-      case origPort: DFVal.Dcl if origPort.isPort =>
-        val newPort = newMember.asInstanceOf[DFVal.Dcl]
-        val design = newPort.getOwnerDesign
-        val namePathMap = portsByName(design)
-        val namePath = newPort.getRelativeName(design)
-        portsByName += design -> namePathMap.updated(namePath, newPort)
-      case _ =>
     newMember
   end setMember
 
@@ -282,8 +249,6 @@ class MutableDB(val duringTest: Boolean = false):
     def apply[M <: DFMember, M0 <: M](
         ref: DFRef[M]
     ): M0 = getMember(ref)
-    def apply[M <: DFMember, M0 <: M](designRef: DFRef.ByName[M, ?], namePath: String): M0 =
-      getMemberByName(designRef, namePath)
     def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M =
       setMember(originalMember, newMemberFunc)
     def replace[M <: DFMember](originalMember: M)(newMember: M): M =

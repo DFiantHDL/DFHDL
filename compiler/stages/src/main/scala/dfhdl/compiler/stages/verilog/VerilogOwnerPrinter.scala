@@ -38,6 +38,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           case c: DFVal.Const if !c.isAnonymous => c
         }
         .map(printer.csDFMember)
+        .toList
         .emptyOr(_.mkString("\n"))
     val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
@@ -55,7 +56,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
        |${csModuleDcl(design)}
        |""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
-    val body = csDFOwnerLateBody(design)
+    val body = csDFDesignLateBody(design)
     val inst = s"${moduleName(design)} ${design.getName}"
     if (body.isEmpty) s"$inst" else s"$inst(\n${body.hindent}\n);"
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported

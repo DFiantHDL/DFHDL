@@ -142,9 +142,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csDFValAliasHistory(dfVal: Alias.History): String = printer.unsupported
   def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
-    dfVal match
+    dfVal.stripPortSel match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
       case c: DFVal.Const        => csDFValConstDcl(c)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)
+      case _                     => ???
   end csDFValNamed
 end VerilogValPrinter

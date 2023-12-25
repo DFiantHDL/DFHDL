@@ -121,6 +121,10 @@ object DFMember:
         s"${memberChain.drop(samePath).map(_.getName).mkString(".")}.$getName"
     end getRelativeName
   end Named
+  extension (member: Named)
+    def stripPortSel(using MemberGetSet): Named = member match
+      case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
+      case _                               => member
 end DFMember
 
 sealed trait DFVal extends DFMember.Named:
@@ -146,14 +150,17 @@ object DFVal:
           case _            => false
       case _ => false
     @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl] = dfVal match
-      case dcl: DFVal.Dcl     => Some(dcl)
-      case alias: DFVal.Alias => alias.relValRef.get.dealias
-      case _                  => None
+      case dcl: DFVal.Dcl                           => Some(dcl)
+      case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)
+      case alias: DFVal.Alias                       => alias.relValRef.get.dealias
+      case _                                        => None
     @tailrec private def departial(range: Range)(using MemberGetSet): (DFVal, Range) =
       extension (range: Range)
         def offset(delta: Int) =
           Range(range.start + delta, range.end + delta)
       dfVal match
+        case portByNameSelect: DFVal.PortByNameSelect =>
+          portByNameSelect.getPortDcl.departial(range)
         case partial: DFVal.Alias.Partial =>
           val relVal = partial.relValRef.get
           partial match
@@ -183,6 +190,9 @@ object DFVal:
       departial match
         case (dcl: DFVal.Dcl, range) => Some(dcl, range)
         case _                       => None
+    def stripPortSel(using MemberGetSet): DFVal = dfVal match
+      case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
+      case _                               => dfVal
   end extension
 
   // can be an expression
@@ -249,6 +259,34 @@ object DFVal:
       case >>, <<, ror, rol, reverse
       case unary_-, unary_~, unary_!
       case rising, falling
+
+  final case class PortByNameSelect(
+      dfType: DFType,
+      designInstRef: PortByNameSelect.Ref,
+      portNamePath: String,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends DFVal:
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: PortByNameSelect =>
+        this.dfType == that.dfType && this.designInstRef =~ that.designInstRef &&
+        this.portNamePath == that.portNamePath &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+    def getRefs: List[DFRefAny] = List(designInstRef)
+  end PortByNameSelect
+  object PortByNameSelect:
+    type Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
+    object Of:
+      def unapply(portByNameSelect: PortByNameSelect)(using MemberGetSet): Option[DFVal.Dcl] =
+        Some(portByNameSelect.getPortDcl)
+    extension (portByNameSelect: PortByNameSelect)
+      def getPortDcl(using MemberGetSet): DFVal.Dcl =
+        val designInst = portByNameSelect.designInstRef.get
+        getSet.designDB.portsByName(designInst)(portByNameSelect.portNamePath)
 
   sealed trait Alias extends CanBeExpr:
     val relValRef: Alias.Ref
@@ -435,8 +473,8 @@ object DFNet:
       if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>
           val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)
-          if (toLeft) Some(lhsVal.dealias.get, rhsVal, false)
-          else Some(rhsVal.dealias.get, lhsVal, true)
+          if (toLeft) Some(lhsVal.dealias.get, rhsVal.stripPortSel, false)
+          else Some(rhsVal.dealias.get, lhsVal.stripPortSel, true)
         case (lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner) =>
           Some(lhsIfc, rhsIfc, false)
         case _ => ??? // not possible

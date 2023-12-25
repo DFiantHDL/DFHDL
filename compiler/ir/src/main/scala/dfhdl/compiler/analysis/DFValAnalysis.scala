@@ -100,6 +100,7 @@ extension (dcl: DFVal.Dcl)
 
 private val netClassTag = classTag[DFNet]
 private val aliasPartClassTag = classTag[DFVal.Alias.Partial]
+private val portByNameSelectClassTag = classTag[DFVal.PortByNameSelect]
 private val nonConsumingRefs: Set[ClassTag[?]] = Set(
   aliasPartClassTag,
   classTag[DFConditional.DFIfElseBlock],
@@ -141,17 +142,29 @@ extension (dfVal: DFVal)
     getSet.designDB.assignmentsTableInverted.getOrElse(dfVal, Set())
   def getReadDeps(using MemberGetSet): Set[DFNet | DFVal] =
     val refs = dfVal.originRefs
-    refs.flatMap { r =>
+    val fromRefs: Set[DFNet | DFVal] = refs.flatMap { r =>
       r.get match
         case net: DFNet =>
           net match
-            // ignoring
+            // ignoring receiver
             case DFNet.Connection(toVal: DFVal, _, _) if toVal == dfVal => None
-            case DFNet.Assignment(toVal, _) if toVal == dfVal           => None
-            case _                                                      => Some(net)
+            // ignoring receiver
+            case DFNet.Assignment(toVal, _) if toVal == dfVal => None
+            case _                                            => Some(net)
         case dfVal: DFVal => Some(dfVal)
         case _            => None
     }
+    dfVal match
+      // for ports we need to also account for by-name referencing
+      case port: DFVal.Dcl if port.isPort =>
+        val designInst = port.getOwnerDesign
+        designInst.originRefs.view
+          .filter(_.refType equals portByNameSelectClassTag)
+          .map(_.get)
+          .collect { case ps @ DFVal.PortByNameSelect.Of(p) if p == port => ps.getReadDeps }
+          .flatten
+          .toSet ++ fromRefs
+      case _ => fromRefs
   end getReadDeps
 
   @tailrec private def flatName(member: DFVal, suffix: String)(using MemberGetSet): String =
@@ -213,11 +226,11 @@ extension (dfVal: DFVal)
   def suggestName(using MemberGetSet): Option[String] = suggestName(dfVal)
 end extension
 
-extension (refTW: DFRef.TwoWayAny)
+extension (refTW: DFNet.Ref)
   def isViaRef(using MemberGetSet): Boolean =
     refTW.originRef.get match
       case net: DFNet if net.isViaConnection =>
-        refTW.get.getOwner.isSameOwnerDesignAs(net)
+        refTW.get.stripPortSel.getOwner.isSameOwnerDesignAs(net)
       case _ => false
 
 extension (net: DFNet)

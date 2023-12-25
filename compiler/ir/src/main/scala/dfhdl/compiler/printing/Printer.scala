@@ -30,33 +30,39 @@ trait Printer
   def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   final def csDFNet(net: DFNet): String =
-    // True if the net needs to be shown in a swapped order.
-    // Normalized late connections always have the internal port on the LHS.
-    // Normalized connections always have the receiver port on the LHS.
-    val swapLR = net match
-      // swapped if the net is a late construction and the RHS is the internal port
-      case _ if net.isViaConnection =>
-        normalizeViaConnection && net.rhsRef.get.getOwner.isSameOwnerDesignAs(net)
-      // swapped if the net is a regular connection and the RHS is receiver
-      case DFNet.Connection(_, _, swapped) =>
-        swapped && normalizeConnection
-      case _ => false
-    val directionStr =
-      net.lhsRef.get match
-        case dfIfc: DFInterfaceOwner => "<->"
-        case dfVal: DFVal =>
-          if (dfVal.getConnectionTo.contains(net) ^ swapLR) "<--"
-          else "-->"
-    val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
-    val lhsStr = if (lhsRef.isViaRef) lhsRef.get.getName else lhsRef.refCodeString
-    val rhsStr = if (rhsRef.isViaRef) rhsRef.get.getName else rhsRef.refCodeString
-    net.op match
-      case DFNet.Op.Assignment     => csAssignment(lhsStr, rhsStr)
-      case DFNet.Op.NBAssignment   => csNBAssignment(lhsStr, rhsStr)
-      case DFNet.Op.Connection     => csConnection(lhsStr, rhsStr, directionStr)
-      case DFNet.Op.ViaConnection  => csViaConnection(lhsStr, rhsStr, directionStr)
-      case DFNet.Op.LazyConnection => csLazyConnection(lhsStr, rhsStr, directionStr)
-    end match
+    net match
+      case DFNet.Connection(lhsVal, rhsVal, swapped) =>
+        val (lhsOrig, rhsOrig) = if (swapped) (rhsVal, lhsVal) else (lhsVal, rhsVal)
+        // True if the net needs to be shown in a swapped order.
+        // Normalized via connections always have the internal port on the LHS.
+        // Normalized connections always have the receiver port on the LHS.
+        val swapLR =
+          // swapped if the net is a via and the RHS is the internal port
+          if (net.isViaConnection)
+            normalizeViaConnection && rhsOrig.getOwner.isSameOwnerDesignAs(net)
+          // swapped if the net is a regular connection and the RHS is receiver
+          else swapped && normalizeConnection
+        val directionStr =
+          lhsOrig match
+            case dfIfc: DFInterfaceOwner => "<->"
+            case dfVal: DFVal =>
+              if (dfVal.getConnectionTo.contains(net) ^ swapLR) "<--"
+              else "-->"
+        val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
+        val lhsStr = if (lhsRef.isViaRef) lhsRef.get.stripPortSel.getName else lhsRef.refCodeString
+        val rhsStr = if (rhsRef.isViaRef) rhsRef.get.stripPortSel.getName else rhsRef.refCodeString
+        (net.op: @unchecked) match
+          case DFNet.Op.Connection     => csConnection(lhsStr, rhsStr, directionStr)
+          case DFNet.Op.ViaConnection  => csViaConnection(lhsStr, rhsStr, directionStr)
+          case DFNet.Op.LazyConnection => csLazyConnection(lhsStr, rhsStr, directionStr)
+        end match
+      case _ =>
+        val lhsStr = net.lhsRef.refCodeString
+        val rhsStr = net.rhsRef.refCodeString
+        (net.op: @unchecked) match
+          case DFNet.Op.Assignment   => csAssignment(lhsStr, rhsStr)
+          case DFNet.Op.NBAssignment => csNBAssignment(lhsStr, rhsStr)
+        end match
   end csDFNet
   def csOpenKeyWord: String
   final def csOpenPorts(owner: DFOwner): List[String] =

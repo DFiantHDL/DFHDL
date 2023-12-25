@@ -61,12 +61,12 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dv: Timer.IsActive       => csTimerIsActive(dv)
   def csDFValNamed(dfVal: DFVal): String
   final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner): String =
-    dfVal match
+    dfVal.stripPortSel match
       case expr: CanBeExpr if expr.isAnonymous => csDFValExpr(expr)
       case PortOfDesignDef(Modifier.OUT, design) =>
         if (design.isAnonymous) printer.csDFDesignDefInst(design)
         else design.getName
-      case _ => dfVal.getRelativeName(fromOwner)
+      case dfVal => dfVal.getRelativeName(fromOwner)
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:
@@ -217,10 +217,11 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case dv: DFConditional.Header if dv.dfType != DFUnit => printer.csDFValType(dfVal.dfType)
       case _                                               => ""
     def valDef = s"val ${dfVal.getName}$typeAnnot ="
-    val rhs = dfVal match
+    val rhs = dfVal.stripPortSel match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
       case c: DFVal.Const        => csDFValConstDcl(c)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)
+      case _                     => ??? // unexpected
     val indentRHS =
       if (rhs.contains("\n")) s"\n${rhs.hindent}"
       else s" ${rhs}"

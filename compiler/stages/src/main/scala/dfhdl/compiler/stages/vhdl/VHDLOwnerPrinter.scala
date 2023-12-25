@@ -31,7 +31,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       .members(MemberView.Folded)
       .view
       .collect {
-        case p: DFVal.Dcl if p.isPort => printer.csDFValNamed(p)
+        case p: DFVal.Dcl if p.isPort => printer.csDFValDcl(p)
       }
       .mkString(";\n")
     val portBlock = ports.emptyOr(v => s"""
@@ -45,12 +45,11 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val localTypeDcls = printer.csLocalTypeDcls(design)
     val designMembers = design.members(MemberView.Folded)
     val dfValDcls =
-      designMembers.view
+      designMembers
         .collect {
-          case p: DFVal.Dcl if p.isVar          => p
-          case c: DFVal.Const if !c.isAnonymous => c
+          case p: DFVal.Dcl if p.isVar          => printer.csDFValDcl(p)
+          case c: DFVal.Const if !c.isAnonymous => printer.csDFValConstDcl(c)
         }
-        .map(printer.csDFValNamed)
         .emptyOr(_.mkString("\n"))
     val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
@@ -71,7 +70,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
        |${csArchitectureDcl(design)}
        |""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
-    val body = csDFOwnerLateBody(design)
+    val body = csDFDesignLateBody(design)
     val inst = s"${design.getName} : entity work.${entityName(design)}(${archName(design)})"
     if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.hindent}\n);"
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
