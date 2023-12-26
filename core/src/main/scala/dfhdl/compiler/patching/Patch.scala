@@ -8,12 +8,15 @@ import dfhdl.internals.hashString
 
 sealed trait Patch extends Product with Serializable derives CanEqual
 object Patch:
-  case object Remove extends Patch
+  case object Remove extends Patch:
+    override def toString(): String = "\nRemove"
   final case class Replace(
       updatedMember: DFMember,
       config: Replace.Config,
       refFilter: Replace.RefFilter = Replace.RefFilter.All
-  ) extends Patch
+  ) extends Patch:
+    override def toString(): String =
+      s"""\nReplace $config, Member: $updatedMember"""
   object Replace:
     sealed trait Config extends Product with Serializable derives CanEqual
     object Config:
@@ -48,7 +51,9 @@ object Patch:
           refs.collect { case r: DFRef.TwoWayAny if r.originRef.get.isInsideOwner(block) => r }
     end RefFilter
   end Replace
-  final case class Add private[patching] (db: DB, config: Add.Config) extends Patch
+  final case class Add private[patching] (db: DB, config: Add.Config) extends Patch:
+    override def toString(): String =
+      s"""\nAdd $config, Members: ${db.members.mkString("\n    ", ",\n    ", "")}"""
   object Add:
     def apply(design: MetaDesignAny, config: Config): Add = Add(design.getDB, config)
     sealed trait Config extends Product with Serializable derives CanEqual:
@@ -89,7 +94,13 @@ object Patch:
   // movedMembers: members to move
   // origOwner: the original owner of the top members
   final case class Move(movedMembers: List[DFMember], origOwner: DFOwner, config: Move.Config)
-      extends Patch
+      extends Patch:
+    override def toString(): String =
+      s"""\nMove $config, OrigOwner: ${origOwner}, Members: ${movedMembers.mkString(
+          "\n    ",
+          ",\n    ",
+          ""
+        )}"""
   object Move:
     def apply(owner: DFOwner, config: Config)(using MemberGetSet): Move =
       Move(owner.members(MemberView.Flattened), owner, config)
