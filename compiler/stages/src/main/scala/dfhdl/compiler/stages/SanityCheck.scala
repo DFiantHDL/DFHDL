@@ -55,12 +55,26 @@ case object SanityCheck extends Stage:
       // check for circular references
       if (m.originRefs.exists(_.get == m))
         reportViolation(s"Circular reference for the member: $m")
-      // check for missing owner references
       m match
+        // check for missing owner references
         case m: DFDesignBlock if !m.isTop =>
           if (!refTable.contains(m.ownerRef))
             reportViolation(s"Missing owner ref for the member: $m")
+        // check by-name selectors
+        case pbns: DFVal.PortByNameSelect =>
+          val design = pbns.designInstRef.get
+          // check port existence
+          getSet.designDB.portsByName(design).get(pbns.portNamePath) match
+            case None =>
+              reportViolation(
+                s"Missing port ${pbns.portNamePath} for by-name port selection: ${pbns}"
+              )
+            case _ =>
+          // check usage
+          if (pbns.originRefs.isEmpty)
+            reportViolation(s"No references to the by-name port selection: ${pbns}")
         case _ =>
+      end match
     }
     val memberSet = getSet.designDB.members.toSet
     // checks for all references
