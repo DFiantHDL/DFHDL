@@ -13,8 +13,8 @@ case object ViaConnection extends Stage:
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
       case (ib, members) if !ib.isTop =>
         // getting only ports that are not already connected to variables
-        val (ports, nets): (List[DFVal], List[DFNet]) =
-          members.foldRight((List.empty[DFVal], List.empty[DFNet])) {
+        val (ports, nets): (List[DFVal.Dcl], List[DFNet]) =
+          members.foldRight((List.empty[DFVal.Dcl], List.empty[DFNet])) {
             case (p @ DclOut(), (ports, nets)) =>
               val conns = p.getConnectionsFrom
               conns.headOption match
@@ -40,24 +40,21 @@ case object ViaConnection extends Stage:
           }
         // Meta design to construct the variables to be connected to the ports
         val addVarsDsn = new MetaDesign(ib, Patch.Add.Config.Before):
-          val portsToVars: List[(DFVal, DFVal)] = ports.map { p =>
+          val portsToVars: List[(DFVal.Dcl, DFVal)] = ports.map { p =>
             p -> p.asValAny.genNewVar(using dfc.setName(s"${ib.getName}_${p.getName}")).asIR
           }
         // Meta design for connections between ports and the added variables
         val connectDsn = new MetaDesign(ib, Patch.Add.Config.After):
           dfc.enterLate()
-          val refPatches: List[(DFMember, Patch)] = addVarsDsn.portsToVars.map { case (p, v) =>
+          val refPatches: List[(DFMember, Patch)] = addVarsDsn.portsToVars.flatMap { case (p, v) =>
             p match
               case _ @DclOut() => v.asVarAny.<>(p.asValAny)
               case _ @DclIn()  => p.asVarAny.<>(v.asValAny)
               case _           => ???
-            (
-              p,
-              Patch.Replace(
-                v,
-                Patch.Replace.Config.ChangeRefOnly,
-                Patch.Replace.RefFilter.Outside(ib)
-              )
+            // the old external by-name port selector needs to be removed
+            // and its references set to the new design "wiring" variables
+            p.getPortsByNameSelectors.map(
+              _ -> Patch.Replace(v, Patch.Replace.Config.ChangeRefAndRemove)
             )
           }
           val movedNets: List[(DFMember, Patch)] = nets.flatMap { n =>

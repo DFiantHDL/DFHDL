@@ -48,6 +48,15 @@ final case class DB(
         design -> dcls.map(m => m.getRelativeName(design) -> m).toMap
       }.toMap
 
+  // map of all ports and their by-name selectors
+  lazy val portsByNameSelectors: Map[DFVal.Dcl, List[DFVal.PortByNameSelect]] =
+    members.view
+      .collect { case m: DFVal.PortByNameSelect => m }
+      .groupBy(_.getPortDcl)
+      .view
+      .mapValues(_.toList)
+      .toMap
+
   lazy val top: DFDesignBlock = members.head match
     case m: DFDesignBlock => m
     case _                => throw new IllegalArgumentException("Unexpected member as Top.")
