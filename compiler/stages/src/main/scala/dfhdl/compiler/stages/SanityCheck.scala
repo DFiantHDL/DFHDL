@@ -73,7 +73,20 @@ case object SanityCheck extends Stage:
           // check usage
           if (pbns.originRefs.isEmpty)
             reportViolation(s"No references to the by-name port selection: ${pbns}")
-        case _ =>
+        // check references always refer to internal design instance ports via
+        // by name selections and never directly
+        case m =>
+          m.getRefs.foreach { r =>
+            r.get match
+              case port: DFVal.Dcl if port.isPort =>
+                if (!m.isSameOwnerDesignAs(port))
+                  reportViolation(
+                    s"""|Direct internal port referencing instead of by-name selection found.
+                        |Referencing member: $m
+                        |Referenced port: $port""".stripMargin
+                  )
+              case _ =>
+          }
       end match
     }
     val memberSet = getSet.designDB.members.toSet
