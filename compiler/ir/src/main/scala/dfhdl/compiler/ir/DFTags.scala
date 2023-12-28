@@ -21,6 +21,9 @@ object DFTags:
 final case class ExternalInit(tokenSeq: List[DFTokenAny]) extends DFTagOf[DFVal]
 final case class NameTag(name: String) extends DFTag
 
+case object Duplicate extends DFTagOf[DFDesignBlock]
+type Duplicate = Duplicate.type
+
 case object OpenConnectTag extends DFTagOf[DFVal]
 type OpenConnectTag = OpenConnectTag.type
 

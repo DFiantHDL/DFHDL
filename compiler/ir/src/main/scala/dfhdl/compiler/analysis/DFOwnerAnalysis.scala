@@ -2,7 +2,6 @@ package dfhdl.compiler
 package analysis
 import dfhdl.internals.*
 import ir.*
-import scala.reflect.ClassTag
 
 extension (owner: DFOwner)
   def members(memberView: MemberView)(using MemberGetSet): List[DFMember] =
@@ -21,10 +20,3 @@ extension (owner: DFOwner)
           case x    => x // return the very last member
       case x => x
 end extension
-
-extension (member: DFMember)
-  def getTagOf[CT <: DFTag: ClassTag]: Option[CT] =
-    member.tags.getTagOf[CT]
-  // does not work?
-  def contains[CT <: DFTag: ClassTag]: Boolean =
-    member.tags.hasTagOf[CT]

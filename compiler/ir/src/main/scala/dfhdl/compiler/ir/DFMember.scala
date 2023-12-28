@@ -4,6 +4,7 @@ import dfhdl.internals.*
 
 import annotation.tailrec
 import scala.collection.immutable.ListMap
+import scala.reflect.ClassTag
 
 trait HasRefCompare[T <: HasRefCompare[T]]:
   private var cachedCompare: Option[(T, Boolean)] = None
@@ -87,6 +88,13 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
 end DFMember
 
 object DFMember:
+  extension (member: DFMember)
+    def getTagOf[CT <: DFTag: ClassTag]: Option[CT] =
+      member.tags.getTagOf[CT]
+    // does not work?
+    def hasTagOf[CT <: DFTag: ClassTag]: Boolean =
+      member.tags.hasTagOf[CT]
+
   type Empty = Empty.type
   case object Empty extends DFMember:
     val ownerRef: DFOwner.Ref = DFRef.OneWay.Empty
@@ -717,7 +725,9 @@ object DFDesignBlock:
         case File(path: String)
         case Library(libName: String, nameSpace: String)
 
-  extension (dsn: DFDesignBlock) def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
+  extension (dsn: DFDesignBlock)
+    def isDuplicate: Boolean = dsn.hasTagOf[Duplicate]
+    def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
 
   object Top:
     def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = block.isTop

@@ -153,7 +153,6 @@ trait Printer
     s"${csDocString(design.dclMeta)}$designDcl"
   final def printedDB: DB =
     val designDB = getSet.designDB
-    val uniqueDesigns = mutable.Set.empty[String]
     val globalSourceFile =
       SourceFile(
         SourceOrigin.Compiled,
@@ -161,9 +160,8 @@ trait Printer
         globalFileName,
         formatCode(csGlobalFileContent)
       )
-    val compiledFiles = globalSourceFile :: designDB.designMemberList.collect {
-      case (block: DFDesignBlock, _) if !uniqueDesigns.contains(block.dclName) =>
-        uniqueDesigns += block.dclName
+    val compiledFiles = globalSourceFile :: designDB.uniqueDesignMemberList.map {
+      case (block: DFDesignBlock, _) =>
         val sourceType = block.instMode match
           case _: DFDesignBlock.InstMode.BlackBox => SourceType.Design.BlackBox
           case _                                  => SourceType.Design.Regular
@@ -184,11 +182,8 @@ trait Printer
 
   final def csDB: String =
     val designDB = getSet.designDB
-    val uniqueDesigns = mutable.Set.empty[String]
-    val csFileList = designDB.designMemberList.collect {
-      case (block: DFDesignBlock, members) if !uniqueDesigns.contains(block.dclName) =>
-        uniqueDesigns += block.dclName
-        formatCode(csFile(block))
+    val csFileList = designDB.uniqueDesignMemberList.map { case (block: DFDesignBlock, _) =>
+      formatCode(csFile(block))
     }
     s"${formatCode(csGlobalFileContent).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
   end csDB
