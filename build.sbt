@@ -112,11 +112,11 @@ lazy val lib = project
 
 lazy val dependencies =
   new {
-    private val scodecV = "1.1.34"
-    private val munitV = "0.7.29"
-    private val scalafmtV = "3.3.1"
-    private val airframelogV = "22.7.3"
-    private val oslibV = "0.9.1"
+    private val scodecV = "1.1.38"
+    private val munitV = "1.0.0-M10"
+    private val scalafmtV = "3.7.17"
+    private val airframelogV = "23.12.1"
+    private val oslibV = "0.9.2"
     val scodec = "org.scodec" %% "scodec-bits" % scodecV
     val munit = "org.scalameta" %% "munit" % munitV % Test
     val scalafmt = ("org.scalameta" %% "scalafmt-dynamic" % scalafmtV).cross(CrossVersion.for3Use2_13)

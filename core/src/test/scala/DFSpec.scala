@@ -13,7 +13,7 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   given TScope = core.DFC.Scope.Design
   type TDomain = core.DFC.Domain.DF
   given TDomain = core.DFC.Domain.DF
-  given printer: Printer = DefaultPrinter(using dfc.getSet)
+  given dfPrinter: Printer = DefaultPrinter(using dfc.getSet)
   private final val owner: core.Design.Block =
     core.Design.Block(
       ir.DomainType.DF,
@@ -70,7 +70,7 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
       dfc.mutableDB
         .getMembers(startIdx, endIdx)
         .filter(_.getOwner == dfc.owner.asIR)
-    printer.csDFMembers(members)
+    dfPrinter.csDFMembers(members)
 
   def printCodeString(block: => Unit): Unit =
     println(getCodeStringFrom(block))
