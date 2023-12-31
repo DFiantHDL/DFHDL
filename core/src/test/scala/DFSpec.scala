@@ -63,11 +63,11 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
 
   def getCodeStringFrom(block: => Unit): String =
     import dfc.getSet
-    val startIdx = dfc.mutableDB.getMembersSize
+    val startIdx = dfc.mutableDB.DesignContext.getMembersNum
     block
-    val endIdx = dfc.mutableDB.getMembersSize
+    val endIdx = dfc.mutableDB.DesignContext.getMembersNum
     val members =
-      dfc.mutableDB
+      dfc.mutableDB.DesignContext
         .getMembers(startIdx, endIdx)
         .filter(_.getOwner == dfc.owner.asIR)
     dfPrinter.csDFMembers(members)
@@ -88,18 +88,18 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
     val path = Paths.get(filePath)
     path.getFileName.toString
 
-  def getLastDesignInst: ir.DFDesignBlock =
-    dfc.mutableDB.getMembers.view.reverse.collectFirst { case d: ir.DFDesignBlock =>
-      d
-    }.get
-
   def assertLatestDesignDclPosition(
       lineOffset: Int,
       lineCount: Int,
       colStart: Int,
       colEnd: Int
   ): Unit =
-    getLastDesignInst.dclMeta.assertPosition(lineOffset, lineCount, colStart, colEnd)
+    dfc.mutableDB.DesignContext.getLastDesignInst.dclMeta.assertPosition(
+      lineOffset,
+      lineCount,
+      colStart,
+      colEnd
+    )
 
   extension (meta: compiler.ir.Meta)
     def assertPosition(lineOffset: Int, lineCount: Int, colStart: Int, colEnd: Int): Unit =

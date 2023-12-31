@@ -47,7 +47,6 @@ private[dfhdl] abstract class Design extends Container, HasNamePos:
     else
       dfc.exitOwner()
     import dfc.getSet
-//    thisOwner.foreach(_.dfc.injectDFC(dfc))
     // At the end of the top-level instance we check for errors
     if (owner.asIR.isTop && thisOwner.isEmpty)
       val errors = dfc.getErrors

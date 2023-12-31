@@ -5,7 +5,7 @@ import ir.*
 
 extension (owner: DFOwner)
   def members(memberView: MemberView)(using MemberGetSet): List[DFMember] =
-    getSet.getMembersOf(owner, memberView)
+    getSet.designDB.getMembersOf(owner, memberView)
   def getVeryLastMember(using getSet: MemberGetSet): Option[DFMember] =
     import getSet.designDB
     val last = owner match

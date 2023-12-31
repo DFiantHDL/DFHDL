@@ -83,7 +83,7 @@ object __For_Plugin:
     Pattern.BindSI(op, parts, bindVals.map(_.asIR.ref))
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =
-    dfc.mutableDB.OwnershipContext.getDefInput(idx).asInstanceOf[V]
+    dfc.mutableDB.DesignContext.getDefInput(idx).asInstanceOf[V]
   @metaContextForward(2)
   def designFromDef[V <: DFValAny](
       args: List[(DFValAny, ir.Meta)],
@@ -101,7 +101,7 @@ object __For_Plugin:
     val inputs = args.map { (arg, argMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
     }
-    dfc.mutableDB.OwnershipContext.saveDefInputs(inputs)
+    dfc.mutableDB.DesignContext.saveDefInputs(inputs)
     val ret = func
     val retMeta = ret.asIR.meta
     def connectInputs() =

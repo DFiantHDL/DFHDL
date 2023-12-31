@@ -23,15 +23,6 @@ final case class DB(
       newMemberFunc(originalMember)
     def replace[M <: DFMember](originalMember: M)(newMember: M): M = newMember
     def remove[M <: DFMember](member: M): M = member
-    def getMembersOf(owner: DFOwner, memberView: MemberView): List[DFMember] =
-      memberView match
-        case MemberView.Folded =>
-          ownerMemberTable(owner)
-        case MemberView.Flattened =>
-          owner match
-            case d: DFDesignBlock => designMemberTable(d)
-            case b: DFBlock       => blockMemberTable(b)
-            case _                => ownerMemberTable(owner)
     def setGlobalTag[CT <: DFTag: ClassTag](
         taggedElement: Any,
         tag: CT
@@ -135,11 +126,8 @@ final case class DB(
 
   // holds the topological order of owner owner dependency
   lazy val ownerMemberList: List[(DFOwner, List[DFMember])] =
-    OMLGen[DFOwner](_.getOwner)(
-      List(),
-      members.drop(1),
-      List(top -> List())
-    ).reverse // head will always be the TOP owner
+    // head will always be the TOP owner
+    OMLGen[DFOwner](_.getOwner)(List(), members.drop(1), List(top -> List())).reverse
 //  def printOwnerMemberList(implicit printConfig: CSPrinter.Config): DB = {
 //    implicit val printer: CSPrinter = new CSPrinter {
 //      val getSet: MemberGetSet = __getset
@@ -152,48 +140,48 @@ final case class DB(
 //    )
 //    this
 //  }
+  def getMembersOf(owner: DFOwner, memberView: MemberView)(using MemberGetSet): List[DFMember] =
+    memberView match
+      case MemberView.Folded =>
+        ownerMemberTable(owner)
+      case MemberView.Flattened =>
+        owner match
+          case d: DFDesignBlock => designMemberTable(d)
+          case b: DFBlock       => blockMemberTable(b)
+          case _                => ownerMemberTable(owner)
 
-    // holds a hash table that lists members of each owner. The member list order is maintained.
+  // holds a hash table that lists members of each owner. The member list order is maintained.
   lazy val ownerMemberTable: Map[DFOwner, List[DFMember]] =
     Map(ownerMemberList*)
 
   // holds the topological order of named owner block dependency
   lazy val namedOwnerMemberList: List[(DFOwnerNamed, List[DFMember])] =
-    OMLGen[DFOwnerNamed](_.getOwnerNamed)(
-      List(),
-      members.drop(1),
-      List(top -> List())
-    ).reverse // head will always be the TOP owner
+    // head will always be the TOP owner
+    OMLGen[DFOwnerNamed](_.getOwnerNamed)(List(), members.drop(1), List(top -> List())).reverse
 
-      // holds a hash table that lists members of each named owner. The member list order is maintained.
+  // holds a hash table that lists members of each named owner. The member list order is maintained.
   lazy val namedOwnerMemberTable: Map[DFOwnerNamed, List[DFMember]] =
     Map(namedOwnerMemberList*)
 
   // holds the topological order of owner block dependency
   lazy val blockMemberList: List[(DFBlock, List[DFMember])] =
-    OMLGen[DFBlock](_.getOwnerBlock)(
-      List(),
-      members.drop(1),
-      List(top -> List())
-    ).reverse // head will always be the TOP block
+    // head will always be the TOP owner
+    OMLGen[DFBlock](_.getOwnerBlock)(List(), members.drop(1), List(top -> List())).reverse
 
-      // holds a hash table that lists members of each owner block. The member list order is maintained.
+  // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val blockMemberTable: Map[DFBlock, List[DFMember]] =
     Map(blockMemberList*)
 
   // holds the topological order of design block dependency
   lazy val designMemberList: List[(DFDesignBlock, List[DFMember])] =
-    OMLGen[DFDesignBlock](_.getOwnerDesign)(
-      List(),
-      members.drop(1),
-      List(top -> List())
-    ).reverse // head will always be the TOP block
+    // head will always be the TOP block
+    OMLGen[DFDesignBlock](_.getOwnerDesign)(List(), members.drop(1), List(top -> List())).reverse
 
-    // holds the topological order of unique design block dependency
+  // holds the topological order of unique design block dependency
   lazy val uniqueDesignMemberList: List[(DFDesignBlock, List[DFMember])] =
     designMemberList.filterNot(_._1.isDuplicate)
 
-    // holds a hash table that lists members of each owner block. The member list order is maintained.
+  // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val designMemberTable: Map[DFDesignBlock, List[DFMember]] =
     Map(designMemberList*)
 
@@ -271,8 +259,8 @@ final case class DB(
           FlatNet(lhsIfc, rhsIfc, net)
         case _ => ???
     def apply(lhsIfc: DFInterfaceOwner, rhsIfc: DFInterfaceOwner, net: DFNet): List[FlatNet] =
-      val lhsMembers = getSet.getMembersOf(lhsIfc, MemberView.Folded)
-      val rhsMembers = getSet.getMembersOf(rhsIfc, MemberView.Folded)
+      val lhsMembers = getMembersOf(lhsIfc, MemberView.Folded)
+      val rhsMembers = getMembersOf(rhsIfc, MemberView.Folded)
       assert(lhsMembers.length == rhsMembers.length)
       lhsMembers.lazyZip(rhsMembers).flatMap {
         case (lhsVal: DFVal, rhsVal: DFVal) =>
@@ -470,7 +458,6 @@ trait MemberGetSet:
   def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M
   def replace[M <: DFMember](originalMember: M)(newMember: M): M
   def remove[M <: DFMember](member: M): M
-  def getMembersOf(owner: DFOwner, memberView: MemberView): List[DFMember]
   def setGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any, tag: CT): Unit
   def getGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any): Option[CT]
 
