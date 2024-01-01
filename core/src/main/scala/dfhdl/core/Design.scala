@@ -8,7 +8,7 @@ import scala.annotation.{Annotation, implicitNotFound}
 import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
 
-private[dfhdl] abstract class Design extends Container, HasNamePos:
+private[dfhdl] abstract class Design extends Container, HasClsMetaArgs:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design

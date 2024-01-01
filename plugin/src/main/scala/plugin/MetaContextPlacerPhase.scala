@@ -35,11 +35,13 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
 
   override val runsAfter = Set("typer")
   override val runsBefore = Set("FixInterpDFValPhase")
-  // override val debugFilter: String => Boolean = _.contains("PrioEncSpec.scala")
+  // override val debugFilter: String => Boolean = _.contains("PluginSpec.scala")
   var dfcArgStack = List.empty[Tree]
   var emptyDFCSym: TermSymbol = uninitialized
   var dfcTpe: Type = uninitialized
   var dfSpecTpe: Type = uninitialized
+  var hasClsMetaArgsTpe: TypeRef = uninitialized
+  var clsMetaArgsTpe: TypeRef = uninitialized
 
   extension (tree: TypeDef)
     def hasDFC(using Context): Boolean =
@@ -54,13 +56,87 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
       case _ =>
     ctx
 
+  private def clsMetaArgsOverrideDef(owner: Symbol, clsMetaArgsTree: Tree)(using Context): Tree =
+    val sym =
+      newSymbol(
+        owner,
+        "__clsMetaArgs".toTermName,
+        Override | Protected | Method | Touched,
+        clsMetaArgsTpe
+      )
+    DefDef(
+      sym,
+      clsMetaArgsTree
+    )
+  end clsMetaArgsOverrideDef
+
+  private def clsMetaArgsOverrideDef(owner: Symbol)(using Context): Tree =
+    clsMetaArgsOverrideDef(owner, ref(requiredMethod("dfhdl.internals.ClsMetaArgs.empty")))
+
   override def transformTypeDef(tree: TypeDef)(using Context): TypeDef =
     val sym = tree.symbol
     tree.rhs match
-      case template: Template if tree.hasDFC =>
-        dfcArgStack = dfcArgStack.drop(1)
+      case template: Template =>
+        if (tree.hasDFC)
+          dfcArgStack = dfcArgStack.drop(1)
+        val clsTpe = tree.tpe
+        val clsSym = clsTpe.classSymbol.asClass
+        if (clsTpe <:< hasClsMetaArgsTpe && !clsSym.isAnonymousClass)
+          val args =
+            template.constr.paramss.flatten.collect { case v: ValDef =>
+              mkTuple(
+                List(Literal(Constant(v.name.toString)), ref(v.symbol))
+              )
+            }
+
+          val listMapTree =
+            if (args.isEmpty)
+              ref(requiredMethod("scala.collection.immutable.ListMap.empty"))
+                .appliedToTypes(List(defn.StringType, defn.AnyType))
+            else
+              ref(requiredModule("scala.collection.immutable.ListMap")).select(nme.apply)
+                .appliedToTypes(List(defn.StringType, defn.AnyType))
+                .appliedToVarargs(
+                  args,
+                  TypeTree(
+                    AppliedType(
+                      requiredClassRef("scala.Tuple2"),
+                      List(defn.StringType, defn.AnyType)
+                    )
+                  )
+                )
+          // TODO: can we use this instead of mutation via setClsNamePosTree?
+          // val clsMetaArgsTree = New(
+          //   clsMetaArgsTpe,
+          //   List(
+          //     Literal(Constant(tree.name.toString)),
+          //     tree.positionTree,
+          //     mkOptionString(clsSym.docString),
+          //     mkList(clsSym.staticAnnotations.map(_.tree)),
+          //     listMapTree
+          //   )
+          // )
+          // val clsMetaArgsDefTree = clsMetaArgsOverrideDef(clsSym, clsMetaArgsTree)
+          val setClsNamePosTree =
+            This(clsSym.asClass)
+              .select("setClsNamePos".toTermName)
+              .appliedToArgs(
+                List(
+                  Literal(Constant(tree.name.toString)),
+                  tree.positionTree,
+                  mkOptionString(clsSym.docString),
+                  mkList(clsSym.staticAnnotations.map(_.tree)),
+                  listMapTree
+                )
+              )
+          val newTemplate = cpy.Template(template)(body = setClsNamePosTree :: template.body)
+          cpy.TypeDef(tree)(rhs = newTemplate)
+        else tree
+        end if
       case _ =>
-    tree
+        tree
+    end match
+  end transformTypeDef
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
     tree match
@@ -148,6 +224,8 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     emptyDFCSym = requiredMethod("dfhdl.core.DFC.empty")
     dfcTpe = requiredClassRef("dfhdl.core.DFC")
     dfSpecTpe = requiredClassRef("dfhdl.DFSpec")
+    hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
+    clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
     dfcArgStack = Nil
     ctx
 end MetaContextPlacerPhase

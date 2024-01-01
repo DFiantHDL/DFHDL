@@ -108,7 +108,7 @@ class PluginSpec extends DFSpec:
   }
   assertLastNames("wrappedTryName")
 
-  trait HasNamePosWithVars extends internals.HasNamePos:
+  trait HasNamePosWithVars extends internals.HasClsMetaArgs:
     private var _clsName: String = ""
     private var _clsPosition: Position = Position.unknown
     private var _clsDocOpt: Option[String] = None

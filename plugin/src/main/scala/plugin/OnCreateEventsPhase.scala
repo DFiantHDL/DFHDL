@@ -24,14 +24,13 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "OnCreateEvents"
-//  override val debugFilter: String => Boolean = _.contains("DFDesignSpec.scala")
+  // override val debugFilter: String => Boolean = _.contains("PluginSpec.scala")
 
   override val runsAfter = Set("CustomControl")
   override val runsBefore = Set(transform.FirstTransform.name)
 
   val ignore = mutable.Set.empty[Tree]
   var onCreateEventsTpe: TypeRef = uninitialized
-  var hasNamePosTpe: TypeRef = uninitialized
   var clsStack = List.empty[TypeDef]
   var dfcClsStack = List.empty[TypeDef]
 
@@ -52,52 +51,7 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
         clsStack = clsStack.drop(1)
         val clsTpe = tree.tpe
         val clsSym = clsTpe.typeSymbol
-        if (clsTpe <:< hasNamePosTpe && !clsSym.isAnonymousClass)
-          val args =
-            template.constr.paramss.flatten.collect { case v: ValDef =>
-              mkTuple(
-                List(Literal(Constant(v.name.toString)), untpd.Ident(v.name).withType(v.tpe))
-              )
-            }
-
-          val listMapTree =
-            if (args.isEmpty)
-              ref(requiredMethod("scala.collection.immutable.ListMap.empty"))
-                .appliedToTypes(List(defn.StringType, defn.AnyType))
-            else
-              ref(requiredModule("scala.collection.immutable.ListMap")).select(nme.apply)
-                .appliedToTypes(List(defn.StringType, defn.AnyType))
-                .appliedToVarargs(
-                  args,
-                  TypeTree(
-                    AppliedType(
-                      requiredClassRef("scala.Tuple2"),
-                      List(defn.StringType, defn.AnyType)
-                    )
-                  )
-                )
-
-          val setClsNamePosTree =
-            This(clsSym.asClass)
-              .select("setClsNamePos".toTermName)
-              .appliedToArgs(
-                List(
-                  Literal(Constant(tree.name.toString)),
-                  tree.positionTree,
-                  mkOptionString(clsSym.docString),
-                  mkList(clsSym.staticAnnotations.map(_.tree)),
-                  listMapTree
-                )
-              )
-          val newTemplate = cpy.Template(template)(
-            template.constr,
-            template.parents,
-            template.derived,
-            template.self,
-            setClsNamePosTree :: template.body
-          )
-          cpy.TypeDef(tree)(tree.name, newTemplate)
-        else if (clsTpe <:< onCreateEventsTpe && clsSym.isAnonymousClass)
+        if (clsTpe <:< onCreateEventsTpe && clsSym.isAnonymousClass)
           val onCreateStartLateTree =
             This(clsSym.asClass)
               .select("onCreateStartLate".toTermName)
@@ -167,7 +121,6 @@ class OnCreateEventsPhase(setting: Setting) extends CommonPhase:
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     onCreateEventsTpe = requiredClassRef("dfhdl.internals.OnCreateEvents")
-    hasNamePosTpe = requiredClassRef("dfhdl.internals.HasNamePos")
     ignore.clear()
     dfcClsStack = Nil
     clsStack = Nil
