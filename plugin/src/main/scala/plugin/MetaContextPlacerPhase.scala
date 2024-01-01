@@ -36,7 +36,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   override val runsAfter = Set("typer")
   override val runsBefore = Set("FixInterpDFValPhase")
   // override val debugFilter: String => Boolean = _.contains("PrioEncSpec.scala")
-  var dfcSymStack = List.empty[Tree]
+  var dfcArgStack = List.empty[Tree]
   var emptyDFCSym: TermSymbol = uninitialized
   var dfcTpe: Type = uninitialized
   var dfSpecTpe: Type = uninitialized
@@ -50,7 +50,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
       case template: Template if tree.hasDFC =>
         if (sym.is(Final) && !sym.isAnonymousClass)
           report.error("DFHDL classes cannot be final.", tree.srcPos)
-        dfcSymStack = This(sym.asClass).select("dfc".toTermName) :: dfcSymStack
+        dfcArgStack = This(sym.asClass).select("dfc".toTermName) :: dfcArgStack
       case _ =>
     ctx
 
@@ -58,29 +58,29 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     val sym = tree.symbol
     tree.rhs match
       case template: Template if tree.hasDFC =>
-        dfcSymStack = dfcSymStack.drop(1)
+        dfcArgStack = dfcArgStack.drop(1)
       case _ =>
     tree
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
     tree match
       case ContextArg(arg) =>
-        dfcSymStack = arg :: dfcSymStack
+        dfcArgStack = arg :: dfcArgStack
       case _ =>
     ctx
 
   override def transformDefDef(tree: DefDef)(using Context): DefDef =
     tree match
       case ContextArg(arg) =>
-        dfcSymStack = dfcSymStack.drop(1)
+        dfcArgStack = dfcArgStack.drop(1)
       case _ =>
     tree
 
   private def dfcOverrideDef(owner: Symbol)(using Context): Tree =
     val sym =
       newSymbol(owner, "__dfc".toTermName, Override | Protected | Method | Touched, dfcTpe)
-    val dfcSym = dfcSymStack.headOption.getOrElse(ref(emptyDFCSym))
-    DefDef(sym, dfcSym)
+    val dfcArg = dfcArgStack.headOption.getOrElse(ref(emptyDFCSym))
+    DefDef(sym, dfcArg)
 
   override def transformApply(tree: Apply)(using Context): Tree =
     val tpe = tree.tpe
@@ -148,6 +148,6 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     emptyDFCSym = requiredMethod("dfhdl.core.DFC.empty")
     dfcTpe = requiredClassRef("dfhdl.core.DFC")
     dfSpecTpe = requiredClassRef("dfhdl.DFSpec")
-    dfcSymStack = Nil
+    dfcArgStack = Nil
     ctx
 end MetaContextPlacerPhase
