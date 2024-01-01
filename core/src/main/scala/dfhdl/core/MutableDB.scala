@@ -35,9 +35,6 @@ final class MutableDB():
   def setMetaGetSet(metaGetSet: MemberGetSet): Unit =
     metaGetSetOpt = Some(metaGetSet)
 
-  private val designMembers: mutable.LinkedHashMap[DFDesignBlock, List[DFMember]] =
-    mutable.LinkedHashMap()
-
   class DesignContext:
     val members: mutable.ArrayBuffer[MemberEntry] = mutable.ArrayBuffer()
     val memberTable: mutable.Map[DFMember, Int] = mutable.Map()
@@ -126,9 +123,13 @@ final class MutableDB():
         }
     end touchLazyRefs
 
+    def getMemberList: List[DFMember] =
+      members.view.filterNot(e => e.ignore).map(e => e.irValue).toList
+    def getRefTable: Map[DFRefAny, DFMember] = refTable.toMap
+
     def injectDC(injected: DesignContext): Unit =
       injected.touchLazyRefs()
-      // The injected ref table may reference existing members due to port connections across hierarchies.
+      // The injected ref table may reference existing members due to references across hierarchies.
       // In this case we first update the existing member entries with the additional references.
       // Additionally, we add the injected reference to the reference table in any case.
       injected.refTable.foreach:
@@ -151,10 +152,14 @@ final class MutableDB():
   object DesignContext:
     var current: DesignContext = new DesignContext
     var stack: List[DesignContext] = Nil
+    val designMembers: mutable.Map[DFDesignBlock, List[DFMember]] = mutable.Map()
+    val designRefTable: mutable.Map[DFDesignBlock, Map[DFRefAny, DFMember]] = mutable.Map()
     def startDesign(design: DFDesignBlock): Unit =
       stack = current :: stack
       current = new DesignContext
     def endDesign(design: DFDesignBlock): Unit =
+      designMembers += design -> current.getMemberList
+      designRefTable += design -> current.getRefTable
       stack.head.injectDC(current)
       current = stack.head
       stack = stack.drop(1)
@@ -191,6 +196,10 @@ final class MutableDB():
         case _ =>
       stack = stack.drop(1)
       lateStack = lateStack.drop(1)
+    def exitLastDesign(): Unit =
+      stack match
+        case (design: DFDesignBlock) :: Nil => exit()
+        case _                              =>
     def enterLate(): Unit =
       lateStack = true :: lateStack
     def exitLate(): Unit =
@@ -271,9 +280,11 @@ final class MutableDB():
   private var memoizedDB: Option[DB] = None
 
   def immutable: DB = memoizedDB.getOrElse {
+    // meta programming designs are not automatically exited
+    if (metaGetSetOpt.nonEmpty)
+      OwnershipContext.exitLastDesign()
     DesignContext.current.touchLazyRefs()
-    val members =
-      DesignContext.current.members.iterator.filterNot(e => e.ignore).map(e => e.irValue).toList
+    val members = DesignContext.current.getMemberList
     val refTable = DesignContext.current.refTable.toMap
     val globalTags = GlobalTagContext.tagMap.toMap
     val db = DB(members, refTable, globalTags, Nil)
