@@ -22,7 +22,7 @@ import annotation.tailrec
 import dotty.tools.dotc.ast.Trees.Alternative
 
 /*
-  This phase override the `__dfc` def of DFHDL classes to propagate the DFC
+  This phase overrides the `__dfc` def of DFHDL classes to propagate the DFC
   from an encapsulating class or def to its DFHDL class instance. If a class
   is instantiated regularly the instance is transformed into an anonymous
   class instance with the override, otherwise all is required is to add the
