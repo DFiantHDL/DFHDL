@@ -140,12 +140,12 @@ final class MutableDB():
           refTable += rec
         case rec =>
           refTable += rec
-      val offset = members.length
-      // Add the injected member table while taking into account the offset from the existing
-      // member entries.
-      memberTable ++= injected.memberTable.view.mapValues(_ + offset)
-      // Add the injected member entries
-      members ++= injected.members
+      // val offset = members.length
+      // // Add the injected member table while taking into account the offset from the existing
+      // // member entries.
+      // memberTable ++= injected.memberTable.view.mapValues(_ + offset)
+      // // Add the injected member entries
+      // members ++= injected.members
     end injectDC
   end DesignContext
 
@@ -153,14 +153,14 @@ final class MutableDB():
     var current: DesignContext = new DesignContext
     var stack: List[DesignContext] = Nil
     val designMembers: mutable.Map[DFDesignBlock, List[DFMember]] = mutable.Map()
-    val designRefTable: mutable.Map[DFDesignBlock, Map[DFRefAny, DFMember]] = mutable.Map()
     def startDesign(design: DFDesignBlock): Unit =
       stack = current :: stack
       current = new DesignContext
     def endDesign(design: DFDesignBlock): Unit =
-      designMembers += design -> current.getMemberList
-      designRefTable += design -> current.getRefTable
+      designMembers += design -> current.getMemberList.drop(1)
       stack.head.injectDC(current)
+      stack.head.addMember(design)
+      // stack.head.refTable += design.ownerRef -> current.refTable(design.ownerRef)
       current = stack.head
       stack = stack.drop(1)
     def saveDefInputs(inputs: List[DFValAny]): Unit =
@@ -279,12 +279,26 @@ final class MutableDB():
   private def dirtyDB(): Unit = memoizedDB = None
   private var memoizedDB: Option[DB] = None
 
+  def getFlattenedMemberList(topMemberList: List[DFMember]): List[DFMember] =
+    def flattenMembers(owner: DFMember): List[DFMember] = owner match
+      case o: DFDesignBlock =>
+        o :: DesignContext.designMembers.getOrElse(o, Nil).flatMap(flattenMembers)
+      case member => List(member)
+
+    topMemberList.flatMap(flattenMembers)
+
   def immutable: DB = memoizedDB.getOrElse {
     // meta programming designs are not automatically exited
-    if (metaGetSetOpt.nonEmpty)
-      OwnershipContext.exitLastDesign()
-    DesignContext.current.touchLazyRefs()
-    val members = DesignContext.current.getMemberList
+    // if (metaGetSetOpt.nonEmpty)
+    //   OwnershipContext.exitLastDesign()
+    // println(DesignContext.designMembers.map { case (d, m) =>
+    //   s"""${d}:${m.mkString("\n  ", "\n  ", "\n")}"""
+    // }.mkString("\n"))
+    val members =
+      if (metaGetSetOpt.nonEmpty)
+        DesignContext.current.touchLazyRefs()
+        DesignContext.current.getMemberList
+      else getFlattenedMemberList(DesignContext.current.getMemberList)
     val refTable = DesignContext.current.refTable.toMap
     val globalTags = GlobalTagContext.tagMap.toMap
     val db = DB(members, refTable, globalTags, Nil)
