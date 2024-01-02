@@ -151,8 +151,8 @@ extension (dfVal: DFVal)
       r.get match
         case net: DFNet =>
           net match
-            // ignoring receiver
-            case DFNet.Connection(toVal: DFVal, _, _) if toVal == dfVal => None
+            // ignoring receiver or if connecting to an OPEN
+            case DFNet.Connection(toVal: DFVal, _, _) if toVal.isOpen || toVal == dfVal => None
             // ignoring receiver
             case DFNet.Assignment(toVal, _) if toVal == dfVal => None
             case _                                            => Some(net)

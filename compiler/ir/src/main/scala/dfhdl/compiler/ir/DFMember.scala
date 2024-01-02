@@ -98,7 +98,7 @@ object DFMember:
   type Empty = Empty.type
   case object Empty extends DFMember:
     val ownerRef: DFOwner.Ref = DFRef.OneWay.Empty
-    val meta: Meta = Meta(Some("Empty"), Position.unknown, None, Nil)
+    val meta: Meta = Meta(None, Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case Empty => true
@@ -111,7 +111,7 @@ object DFMember:
     final def getName(using MemberGetSet): String = this match
       case o: DFDesignBlock if o.isTop => o.dclName
       case _                           => meta.name
-    final val isAnonymous: Boolean = meta.isAnonymous
+    final lazy val isAnonymous: Boolean = meta.isAnonymous
     final def getFullName(using MemberGetSet): String = this match
       case o: DFDesignBlock if o.isTop => getName
       case _                           => s"${getOwnerNamed.getFullName}.${getName}"
@@ -157,9 +157,13 @@ object DFVal:
           case Modifier.VAR => true
           case _            => false
       case _ => false
-    @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl] = dfVal match
+    def isOpen: Boolean = dfVal match
+      case _: Open => true
+      case _       => false
+    @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.Open] = dfVal match
       case dcl: DFVal.Dcl                           => Some(dcl)
       case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)
+      case open: DFVal.Open                         => Some(open)
       case alias: DFVal.Alias                       => alias.relValRef.get.dealias
       case _                                        => None
     @tailrec private def departial(range: Range)(using MemberGetSet): (DFVal, Range) =
@@ -223,6 +227,19 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     def getRefs: List[DFRefAny] = Nil
   end Const
+
+  final case class Open(
+      dfType: DFType,
+      ownerRef: DFOwner.Ref
+  ) extends DFVal:
+    val meta: Meta = Meta(None, Position.unknown, None, Nil)
+    val tags: DFTags = DFTags.empty
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case _: Open => true
+      case _       => false
+    protected def setMeta(meta: Meta): this.type = this
+    protected def setTags(tags: DFTags): this.type = this
+    def getRefs: List[DFRefAny] = Nil
 
   final case class Dcl(
       dfType: DFType,
@@ -477,7 +494,7 @@ object DFNet:
     def unapply(net: DFNet)(using
         MemberGetSet
         //             toVal                      fromVal              Swapped
-    ): Option[(DFVal.Dcl | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
+    ): Option[(DFVal.Dcl | DFVal.Open | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
       if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>
           val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)

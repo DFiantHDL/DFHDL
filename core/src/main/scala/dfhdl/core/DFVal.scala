@@ -302,6 +302,13 @@ object DFVal extends DFValLP:
         .addMember
         .asValOf[T]
 
+  object Open:
+    def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
+      ir.DFVal
+        .Open(dfType.asIR, dfc.owner.ref)
+        .addMember
+        .asValOf[T]
+
   object Dcl:
     def apply[T <: DFTypeAny, M <: ModifierAny](dfType: T, modifier: M)(using
         DFC
@@ -498,8 +505,8 @@ object DFVal extends DFValLP:
 
   trait TCLP:
     // Accept OPEN in compile-time, but throw exception where it should not be used
-    given fromOPEN[T <: DFTypeAny]: TC[T, ir.OpenConnectTag] with
-      def conv(dfType: T, value: ir.OpenConnectTag)(using Ctx): DFValOf[T] =
+    given fromOPEN[T <: DFTypeAny]: TC[T, __OPEN.type] with
+      def conv(dfType: T, value: __OPEN.type)(using Ctx): DFValOf[T] =
         throw new IllegalArgumentException("OPEN cannot be used here")
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble](using
@@ -910,6 +917,6 @@ object DFPortOps:
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): Unit =
-      if (rhs.value equals ir.OpenConnectTag) dfPort.tag(ir.OpenConnectTag)
+      if (rhs.value equals __OPEN) dfPort.connect(DFVal.Open(dfPort.dfType))
       else trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
 end DFPortOps

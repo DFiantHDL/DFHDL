@@ -66,7 +66,8 @@ trait AbstractValPrinter extends AbstractPrinter:
       case PortOfDesignDef(Modifier.OUT, design) =>
         if (design.isAnonymous) printer.csDFDesignDefInst(design)
         else design.getName
-      case dfVal => dfVal.getRelativeName(fromOwner)
+      case open: DFVal.Open => printer.csOpenKeyWord
+      case dfVal            => dfVal.getRelativeName(fromOwner)
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:

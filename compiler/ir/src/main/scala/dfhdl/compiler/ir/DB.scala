@@ -241,7 +241,8 @@ final case class DB(
             else Unknown
           // illegal connection
           case _ => Error
-      case _ => Read
+      case _: DFVal.Open => Unknown
+      case _             => Read
     end match
   end getValAccess
   private def getValAccess(dfVal: DFVal, net: DFNet)(
@@ -316,12 +317,17 @@ final case class DB(
             newError(s"Unknown access pattern with ${rhsVal.relValString}.")
             None
           case _ => None
+        var hasOpenConn = false
         val toDclAndRangeOption: Option[(DFVal.Dcl, Range)] = toValOption.flatMap(v =>
-          v.departialDcl match
-            case None =>
-              newError(s"Unexpected write access to the immutable value ${v.relValString}.")
-              None
-            case x => x
+          if (v.isOpen)
+            hasOpenConn = true
+            None
+          else
+            v.departialDcl match
+              case None =>
+                newError(s"Unexpected write access to the immutable value ${v.relValString}.")
+                None
+              case x => x
         )
         toDclAndRangeOption match
           // found target variable or port declaration for the given connection/assignment
@@ -344,6 +350,9 @@ final case class DB(
             // to save all the previous assignment nets).
             else
               getConnToDcls(otherNets, pendingNets, connToDcls, newErrors)
+          // has open connection, so we can skip to the next net as no further checks are needed
+          case None if hasOpenConn =>
+            getConnToDcls(otherNets, pendingNets, connToDcls, newErrors)
           // unable to determine net directionality, so move net to pending
           case None =>
             getConnToDcls(otherNets, flatNet :: pendingNets, connToDcls, newErrors)

@@ -24,9 +24,6 @@ final case class NameTag(name: String) extends DFTag
 case object Duplicate extends DFTagOf[DFDesignBlock]
 type Duplicate = Duplicate.type
 
-case object OpenConnectTag extends DFTagOf[DFVal]
-type OpenConnectTag = OpenConnectTag.type
-
 enum Unused extends DFTagOf[DFVal]:
   /** Quiet just suppresses the unused warning for the tagged value.
     */

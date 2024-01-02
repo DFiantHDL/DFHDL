@@ -22,7 +22,8 @@ extension (designDB: DB)
   end getUnusedBitsValues
   def getOpenOutPorts: List[DFVal] =
     import designDB.getSet
-    designDB.members.flatMap:
-      case outPort @ DclOut() if outPort.tags.hasTagOf[OpenConnectTag] => Some(outPort)
-      case _                                                           => None
+    // TODO: revisit for interfaces later on
+    designDB.members.collect { case DFNet.Connection(_: DFVal.Open, from: DFVal, _) =>
+      from
+    }
 end extension

@@ -65,12 +65,6 @@ trait Printer
         end match
   end csDFNet
   def csOpenKeyWord: String
-  final def csOpenPorts(owner: DFOwner): List[String] =
-    owner
-      .members(MemberView.Folded).view.collect {
-        case p @ DclOut() if p.tags.hasTagOf[OpenConnectTag] =>
-          csViaConnection(p.getName, csOpenKeyWord, "-->")
-      }.toList
   def csTimeUnit(time: Time): String = s"${time.usec}.us"
   def csFreqUnit(freq: Freq): String = s"${freq.hertz}.Hz"
   def csRatioUnit(ratio: Ratio): String = s"${ratio.value}"
