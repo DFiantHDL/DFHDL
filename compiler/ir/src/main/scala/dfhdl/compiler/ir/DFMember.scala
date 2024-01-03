@@ -743,7 +743,7 @@ object DFDesignBlock:
         case Library(libName: String, nameSpace: String)
 
   extension (dsn: DFDesignBlock)
-    def isDuplicate: Boolean = dsn.hasTagOf[Duplicate]
+    def isDuplicate: Boolean = dsn.hasTagOf[DuplicateTag]
     def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
 
   object Top:

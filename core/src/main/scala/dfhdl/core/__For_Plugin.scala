@@ -101,24 +101,29 @@ object __For_Plugin:
     val inputs = args.map { (arg, argMeta) =>
       DFVal.Dcl(arg.dfType, Modifier.IN)(using dfc.setMeta(argMeta))
     }
-    dfc.mutableDB.DesignContext.saveDefInputs(inputs)
-    val ret = func
-    val retMeta = ret.asIR.meta
-    def connectInputs() =
+    val (isDuplicate, ret): (Boolean, V) =
+      dfc.mutableDB.DesignContext.runFuncWithInputs(func, inputs)
+    def exitAndConnectInputs() =
+      dfc.exitOwner()
       inputs.lazyZip(args).foreach { case (input, (arg, _)) =>
         input.connect(arg)(using dfc.anonymize)
       }
+    def genOutPort = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setName("o"))
     if (ret.dfType.asIR == ir.DFUnit)
-      dfc.exitOwner()
-      connectInputs()
+      exitAndConnectInputs()
       DFUnitVal().asInstanceOf[V]
-    else
-      val retIdent = DFVal.Alias.AsIs.ident(ret)(using dfc.setMeta(retMeta).anonymize)
-      val output = DFVal.Dcl(ret.dfType, Modifier.OUT)(using dfc.setName("o"))
-      output.connect(retIdent)(using dfc.setMeta(retMeta.anonymize))
-      dfc.exitOwner()
-      connectInputs()
+    else if (isDuplicate)
+      val output = genOutPort
+      exitAndConnectInputs()
       output.asInstanceOf[V]
+    else
+      val retMeta = ret.asIR.meta
+      val retIdent = DFVal.Alias.AsIs.ident(ret)(using dfc.setMeta(retMeta).anonymize)
+      val output = genOutPort
+      output.connect(retIdent)(using dfc.setMeta(retMeta.anonymize))
+      exitAndConnectInputs()
+      output.asInstanceOf[V]
+    end if
   end designFromDef
 
 end __For_Plugin

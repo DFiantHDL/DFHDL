@@ -6,7 +6,7 @@ import dfhdl.options.{CompilerOptions, PrinterOptions}
 
 case object PrintCodeString extends Stage:
   def dependencies: List[Stage] =
-    List(DropUnreferencedAnons, NamedAnonMultiref, UniqueDesigns, DFHDLUniqueNames)
+    List(DropUnreferencedAnons, NamedAnonMultiref, DFHDLUniqueNames)
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB = designDB
 end PrintCodeString

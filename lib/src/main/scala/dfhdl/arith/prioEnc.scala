@@ -3,6 +3,7 @@ package dfhdl.lib.arith
 import dfhdl.*
 import internals.{IntInfo, -}
 
+@hw.pure
 def prioEncRecur(value: Bits[Int] <> VAL): (Bit, Bits[Int]) <> DFRET =
   val width = value.width
   if (width == 2) (value(1) || value(0), value(1, 1))

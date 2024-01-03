@@ -6,7 +6,7 @@ import dfhdl.compiler.patching.*
 import dfhdl.compiler.ir.DFDesignBlock.InstMode
 import dfhdl.options.CompilerOptions
 case object DropDesignDefs extends Stage:
-  def dependencies: List[Stage] = List(UniqueDesigns)
+  def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.designMemberList.flatMap {

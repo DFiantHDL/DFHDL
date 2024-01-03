@@ -11,7 +11,7 @@ import scala.reflect.classTag
 //see `uniqueNames` for additional information
 private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Boolean)
     extends Stage:
-  def dependencies: List[Stage] = List(UniqueDesigns)
+  def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     // conditionally lower cases the name according to the case sensitivity as

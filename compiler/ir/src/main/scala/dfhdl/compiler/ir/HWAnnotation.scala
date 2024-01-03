@@ -5,8 +5,8 @@ import scala.annotation.StaticAnnotation
 import dfhdl.internals.HasTypeName
 import scala.annotation.Annotation
 
-abstract class HWAnnotation(when: Boolean) extends StaticAnnotation with HasTypeName:
-  def isActive: Boolean = when
+abstract class HWAnnotation extends StaticAnnotation, HasTypeName, Product, Serializable:
+  val isActive: Boolean
   def codeString(using Printer): String = this.typeName
 
 given CanEqual[HWAnnotation, HWAnnotation] = CanEqual.derived

@@ -11,10 +11,12 @@ class PrioEncSpec extends DesignSpec:
       res._2.width.verifyInlined(5)
 
     PrioTest().assertCodeString(
-      """|def prioEncRecur_0(value: Bits[2] <> VAL): (Bit, Bits[1]) <> DFRET =
+      """|@hw.pure
+         |def prioEncRecur_0(value: Bits[2] <> VAL): (Bit, Bits[1]) <> DFRET =
          |  (value(1) || value(0), value(1, 1))
          |end prioEncRecur_0
          |
+         |@hw.pure
          |def prioEncRecur_1(value: Bits[4] <> VAL): (Bit, Bits[2]) <> DFRET =
          |  val lsPrio = prioEncRecur_0(value(1, 0))
          |  val msPrio = prioEncRecur_0(value(3, 2))
@@ -24,6 +26,7 @@ class PrioEncSpec extends DesignSpec:
          |  (msPrio._1 || lsPrio._1, (msPrio._1.bits, selPrio).toBits)
          |end prioEncRecur_1
          |
+         |@hw.pure
          |def prioEncRecur_2(value: Bits[8] <> VAL): (Bit, Bits[3]) <> DFRET =
          |  val lsPrio = prioEncRecur_1(value(3, 0))
          |  val msPrio = prioEncRecur_1(value(7, 4))
@@ -33,6 +36,7 @@ class PrioEncSpec extends DesignSpec:
          |  (msPrio._1 || lsPrio._1, (msPrio._1.bits, selPrio).toBits)
          |end prioEncRecur_2
          |
+         |@hw.pure
          |def prioEncRecur_3(value: Bits[16] <> VAL): (Bit, Bits[4]) <> DFRET =
          |  val lsPrio = prioEncRecur_2(value(7, 0))
          |  val msPrio = prioEncRecur_2(value(15, 8))
@@ -42,6 +46,7 @@ class PrioEncSpec extends DesignSpec:
          |  (msPrio._1 || lsPrio._1, (msPrio._1.bits, selPrio).toBits)
          |end prioEncRecur_3
          |
+         |@hw.pure
          |def prioEncRecur_4(value: Bits[32] <> VAL): (Bit, Bits[5]) <> DFRET =
          |  val lsPrio = prioEncRecur_3(value(15, 0))
          |  val msPrio = prioEncRecur_3(value(31, 16))
@@ -64,10 +69,12 @@ class PrioEncSpec extends DesignSpec:
       res._2.width.verifyInlined(5)
 
     PrioTest().assertCodeString(
-      """|def prioEncRecur_0(value: Bits[2] <> VAL): (Bit, Bits[1]) <> DFRET =
+      """|@hw.pure
+         |def prioEncRecur_0(value: Bits[2] <> VAL): (Bit, Bits[1]) <> DFRET =
          |  (value(1) || value(0), value(1, 1))
          |end prioEncRecur_0
          |
+         |@hw.pure
          |def prioEncRecur_1(value: Bits[4] <> VAL): (Bit, Bits[2]) <> DFRET =
          |  val lsPrio = prioEncRecur_0(value(1, 0))
          |  val msPrio = prioEncRecur_0(value(3, 2))
@@ -77,6 +84,7 @@ class PrioEncSpec extends DesignSpec:
          |  (msPrio._1 || lsPrio._1, (msPrio._1.bits, selPrio).toBits)
          |end prioEncRecur_1
          |
+         |@hw.pure
          |def prioEncRecur_2(value: Bits[8] <> VAL): (Bit, Bits[3]) <> DFRET =
          |  val lsPrio = prioEncRecur_1(value(3, 0))
          |  val msPrio = prioEncRecur_1(value(7, 4))
@@ -86,6 +94,7 @@ class PrioEncSpec extends DesignSpec:
          |  (msPrio._1 || lsPrio._1, (msPrio._1.bits, selPrio).toBits)
          |end prioEncRecur_2
          |
+         |@hw.pure
          |def prioEncRecur_3(value: Bits[16] <> VAL): (Bit, Bits[4]) <> DFRET =
          |  val lsPrio = prioEncRecur_2(value(7, 0))
          |  val msPrio = prioEncRecur_2(value(15, 8))
@@ -95,6 +104,7 @@ class PrioEncSpec extends DesignSpec:
          |  (msPrio._1 || lsPrio._1, (msPrio._1.bits, selPrio).toBits)
          |end prioEncRecur_3
          |
+         |@hw.pure
          |def prioEncRecur_4(value: Bits[31] <> VAL): (Bit, Bits[5]) <> DFRET =
          |  val lsPrio = prioEncRecur_3(value(14, 0).resize(16))
          |  val msPrio = prioEncRecur_3(value(30, 15))
