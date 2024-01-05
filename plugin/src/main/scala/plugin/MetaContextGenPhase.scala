@@ -29,6 +29,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextDelegate")
   var setMetaSym: Symbol = uninitialized
+  var setMetaAnonSym: Symbol = uninitialized
   var dfTokenSym: Symbol = uninitialized
   val treeOwnerApplyMap = mutable.Map.empty[Apply, (Tree, util.SrcPos)]
   val treeOwnerOverrideMap = mutable.Map.empty[DefDef, (Tree, util.SrcPos)]
@@ -63,16 +64,23 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         docOpt: Option[String],
         annotations: List[Annotations.Annotation]
     ): Tree =
-      val nameOptTree = mkOptionString(nameOpt)
-      val positionTree = srcPos.positionTree
-      val docOptTree = mkOptionString(docOpt)
-      val annotTree = mkList(annotations.map(_.tree))
-      tree
-        .select(setMetaSym)
-        .appliedToArgs(
-          nameOptTree :: positionTree :: docOptTree :: annotTree :: Nil
-        )
-        .withType(TermRef(tree.tpe, setMetaSym))
+      if (nameOpt.nonEmpty)
+        val nameOptTree = mkOptionString(nameOpt)
+        val positionTree = srcPos.positionTree
+        val docOptTree = mkOptionString(docOpt)
+        val annotTree = mkList(annotations.map(_.tree))
+        tree
+          .select(setMetaSym)
+          .appliedToArgs(
+            nameOptTree :: positionTree :: docOptTree :: annotTree :: Nil
+          )
+          .withType(TermRef(tree.tpe, setMetaSym))
+      else
+        val positionTree = srcPos.positionTree
+        tree
+          .select(setMetaAnonSym)
+          .appliedTo(positionTree)
+          .withType(TermRef(tree.tpe, setMetaAnonSym))
     end setMeta
   end extension
 
@@ -457,6 +465,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     setMetaSym = metaContextCls.requiredMethod("setMeta")
+    setMetaAnonSym = metaContextCls.requiredMethod("setMetaAnon")
     dfTokenSym = requiredClass("dfhdl.core.DFToken")
     treeOwnerApplyMap.clear()
     treeOwnerOverrideMap.clear()

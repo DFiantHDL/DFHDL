@@ -22,6 +22,10 @@ trait MetaContext:
       annotations: List[Annotation]
   ): this.type
 
+  def setMetaAnon(
+      position: Position
+  ): this.type = setMeta(None, position, None, Nil)
+
   def setName(name: String): this.type
 
   def anonymize: this.type
