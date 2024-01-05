@@ -37,11 +37,14 @@ trait DFVal[+T <: DFTypeAny, +M <: ModifierAny] extends Any with DFMember[ir.DFV
 end DFVal
 
 type DFValAny = DFVal[DFTypeAny, ModifierAny]
-type DFVarAny = DFVal[DFTypeAny, Modifier[Modifier.Assignable, Modifier.Connectable, Any]]
+type DFVarAny = DFVal[DFTypeAny, Modifier.Mutable]
+type DFDclAny = DFVal[DFTypeAny, Modifier.Dcl]
 type DFValOf[+T <: DFTypeAny] = DFVal[T, ModifierAny]
+type DFConstOf[+T <: DFTypeAny] = DFVal[T, Modifier.CONST]
 type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier[Modifier.Assignable, Any, Any]]
 
 sealed trait TOKEN
+sealed trait CONST
 infix type <>[T <: DFType.Supported, M] = T match
   case Int => // Int can be a const literal or just "Int" representing SInt[32]
     IsConst[T] match
@@ -51,6 +54,7 @@ infix type <>[T <: DFType.Supported, M] = T match
     M match
       case DFRET => DFC ?=> DFValOf[DFType.Of[T]]
       case VAL   => DFValOf[DFType.Of[T]]
+      case CONST => DFConstOf[DFType.Of[T]]
       case TOKEN => DFToken[DFType.Of[T]]
 
 infix type X[T <: DFType.Supported, M] = M match
@@ -69,6 +73,11 @@ extension (dfVal: ir.DFVal)
     DFVal[T, Modifier.Mutable](dfVal)
   inline def asVarAny: DFVarAny =
     DFVal[DFTypeAny, Modifier.Mutable](dfVal)
+  inline def asDclAny: DFDclAny =
+    DFVal[DFTypeAny, Modifier.Dcl](dfVal)
+  inline def asConstOf[T <: DFTypeAny]: DFConstOf[T] =
+    DFVal[T, Modifier.CONST](dfVal)
+end extension
 
 extension (dfVal: DFValAny)
   inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] =
@@ -79,6 +88,10 @@ extension (dfVal: DFValAny)
     dfVal.asInstanceOf[DFVal[T, Modifier.Mutable]]
   inline def asVarAny: DFVarAny =
     dfVal.asInstanceOf[DFVal[DFTypeAny, Modifier.Mutable]]
+  inline def asDclAny: DFDclAny =
+    dfVal.asInstanceOf[DFVal[DFTypeAny, Modifier.Dcl]]
+  inline def asConstOf[T <: DFTypeAny]: DFConstOf[T] =
+    dfVal.asInstanceOf[DFVal[T, Modifier.CONST]]
 
 def DFValConversionMacro[T <: DFTypeAny, R](
     from: Expr[R]

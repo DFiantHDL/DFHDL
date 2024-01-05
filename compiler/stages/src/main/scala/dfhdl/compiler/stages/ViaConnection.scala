@@ -51,8 +51,8 @@ case object ViaConnection extends Stage:
           dfc.enterLate()
           val refPatches: List[(DFMember, Patch)] = addVarsDsn.portsToVars.flatMap { case (p, v) =>
             p match
-              case _ @DclOut() => v.asVarAny.<>(p.asValAny)
-              case _ @DclIn()  => p.asVarAny.<>(v.asValAny)
+              case _ @DclOut() => v.asDclAny.<>(p.asValAny)
+              case _ @DclIn()  => p.asDclAny.<>(v.asValAny)
               case _           => ???
             // the old external by-name port selector needs to be removed
             // and its references set to the new design "wiring" variables

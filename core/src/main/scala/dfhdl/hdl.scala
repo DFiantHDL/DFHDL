@@ -60,8 +60,10 @@ protected object hdl:
   val OUT = core.Modifier.OUT
   val INOUT = core.Modifier.INOUT
   val VAR = core.Modifier.VAR
+  val CONST = core.Modifier.CONST
   type VAL = core.VAL
   type TOKEN = core.TOKEN
+  type CONST = core.CONST
   type DFRET = core.DFRET
   export core.<>
   export core.X
