@@ -40,7 +40,6 @@ type DFValAny = DFVal[DFTypeAny, ModifierAny]
 type DFVarAny = DFVal[DFTypeAny, Modifier[Modifier.Assignable, Modifier.Connectable, Any]]
 type DFValOf[+T <: DFTypeAny] = DFVal[T, ModifierAny]
 type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier[Modifier.Assignable, Any, Any]]
-type DFPortOf[+T <: DFTypeAny] = DFVal[T, Modifier.Port]
 
 sealed trait TOKEN
 infix type <>[T <: DFType.Supported, M] = T match
@@ -67,9 +66,9 @@ extension (dfVal: ir.DFVal)
   inline def asValAny: DFValAny =
     DFVal[DFTypeAny, ModifierAny](dfVal)
   inline def asVarOf[T <: DFTypeAny]: DFVarOf[T] =
-    DFVal[T, Modifier.VAR](dfVal)
+    DFVal[T, Modifier.Mutable](dfVal)
   inline def asVarAny: DFVarAny =
-    DFVal[DFTypeAny, Modifier.VAR](dfVal)
+    DFVal[DFTypeAny, Modifier.Mutable](dfVal)
 
 extension (dfVal: DFValAny)
   inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] =
@@ -77,9 +76,9 @@ extension (dfVal: DFValAny)
   inline def asValOf[T <: DFTypeAny]: DFValOf[T] =
     dfVal.asInstanceOf[DFVal[T, ModifierAny]]
   inline def asVarOf[T <: DFTypeAny]: DFVarOf[T] =
-    dfVal.asInstanceOf[DFVal[T, Modifier.VAR]]
+    dfVal.asInstanceOf[DFVal[T, Modifier.Mutable]]
   inline def asVarAny: DFVarAny =
-    dfVal.asInstanceOf[DFVal[DFTypeAny, Modifier.VAR]]
+    dfVal.asInstanceOf[DFVal[DFTypeAny, Modifier.Mutable]]
 
 def DFValConversionMacro[T <: DFTypeAny, R](
     from: Expr[R]
@@ -778,10 +777,6 @@ object DFVarOps:
   protected type VarOnly[A] = AssertGiven[
     A <:< Modifier.Assignable,
     "Cannot assign to an immutable value."
-  ]
-  protected type RegOnly[A] = AssertGiven[
-    A <:< Modifier.RegRef,
-    "Can only reference `din` of a register. This value is not a register."
   ]
   protected type LocalOrNonED[A] = AssertGiven[
     (A <:< DFC.Scope.Process) | util.NotGiven[A <:< DFC.Domain.ED],

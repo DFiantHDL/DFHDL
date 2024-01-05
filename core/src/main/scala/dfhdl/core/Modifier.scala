@@ -11,15 +11,11 @@ object Modifier:
   sealed trait Connectable
   sealed trait Initializable
   sealed trait Initialized
-  sealed trait RegRef
-  sealed trait VarRef
-  sealed trait WireRef
-  type VAR = Modifier[Assignable & VarRef, Connectable & VarRef, Initializable]
-  final val VAR = new VAR(ir.DFVal.Modifier.VAR)
-  type Port = Modifier[Assignable, Connectable, Initializable]
-  final val IN = new Port(ir.DFVal.Modifier.IN)
-  final val OUT = new Port(ir.DFVal.Modifier.OUT)
-  final val INOUT = new Port(ir.DFVal.Modifier.INOUT)
+  type Mutable = Modifier[Assignable, Connectable, Initializable]
+  final val VAR = new Mutable(ir.DFVal.Modifier.VAR)
+  final val IN = new Mutable(ir.DFVal.Modifier.IN)
+  final val OUT = new Mutable(ir.DFVal.Modifier.OUT)
+  final val INOUT = new Mutable(ir.DFVal.Modifier.INOUT)
 
   extension (modifier: ModifierAny) def asIR: ir.DFVal.Modifier = modifier.value
 end Modifier

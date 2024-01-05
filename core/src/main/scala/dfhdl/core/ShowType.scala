@@ -41,8 +41,8 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def showModifier: String =
     import quotes.reflect.*
     tpe.asTypeOf[ModifierAny] match
-      case '[Modifier.VAR] => "VAR"
-      case _               => "VAL"
+      case '[Modifier.Mutable] => "VAR"
+      case _                   => "VAL"
 
   def showDFVal: String =
     import quotes.reflect.*
