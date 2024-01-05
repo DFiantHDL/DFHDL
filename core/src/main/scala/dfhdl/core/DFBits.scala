@@ -820,8 +820,8 @@ object DFBits:
         }
       end extension
 
-      extension [W <: Int, A, C, I](
-          lhs: DFVal[DFBits[W], Modifier[A, C, I]]
+      extension [W <: Int, A, C, I, P](
+          lhs: DFVal[DFBits[W], Modifier[A, C, I, P]]
       )
         def as[AT <: DFType.Supported](
             aliasType: AT
@@ -841,7 +841,7 @@ object DFBits:
         )(using
             c: DFUInt.Val.UBArg[W, Idx],
             dfc: DFC
-        ): DFVal[DFBit, Modifier[A, Any, Any]] = trydf {
+        ): DFVal[DFBit, Modifier[A, Any, Any, Any]] = trydf {
           DFVal.Alias.ApplyIdx(DFBit, lhs, c(lhs.width, relIdx)(using dfc.anonymize))
         }
         def apply[H <: Int, L <: Int](
@@ -852,7 +852,7 @@ object DFBits:
             checkLow: BitIndex.Check[L, W],
             checkHiLo: BitsHiLo.Check[H, L],
             dfc: DFC
-        ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any]] = trydf {
+        ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any, Any]] = trydf {
           checkHigh(relBitHigh, lhs.width)
           checkLow(relBitLow, lhs.width)
           checkHiLo(relBitHigh, relBitLow)
@@ -861,9 +861,9 @@ object DFBits:
         def unary_~(using DFC): DFValOf[DFBits[W]] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         }
-        def msbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any]] =
+        def msbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, Any]] =
           lhs.apply(lhs.width - 1)
-        def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any]] =
+        def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, Any]] =
           lhs.apply(0)
         def msbits[RW <: Int](updatedWidth: Inlined[RW])(using
             check: `LW >= RW`.Check[W, RW],

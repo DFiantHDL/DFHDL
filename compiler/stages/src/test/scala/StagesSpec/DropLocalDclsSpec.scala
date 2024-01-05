@@ -16,7 +16,7 @@ class DropLocalDclsSpec extends StageSpec:
         x match
           case 2 =>
             val zzz = SInt(16) <> VAR init 0
-            val c   = SInt(16) const 1
+            val c   = SInt(16) CONST 1
             zzz := zzz.prev(1) + c
           case _ =>
         zz := x
@@ -33,7 +33,7 @@ class DropLocalDclsSpec extends StageSpec:
          |  z := x
          |  val zz = SInt(16) <> VAR
          |  val zzz = SInt(16) <> VAR init sd"16'0"
-         |  val c = SInt(16) const sd"16'1"
+         |  val c = SInt(16) CONST sd"16'1"
          |  if (x > sd"16'5")
          |    x match
          |      case sd"16'2" => zzz := zzz.prev + c
@@ -58,7 +58,7 @@ class DropLocalDclsSpec extends StageSpec:
           x match
             case 2 =>
               val zzz = SInt(16) <> VAR init 0
-              val c   = SInt(16) const 1
+              val c   = SInt(16) CONST 1
               zzz := x + c
             case _ =>
           zz := x
@@ -74,7 +74,7 @@ class DropLocalDclsSpec extends StageSpec:
          |  val z = SInt(16) <> VAR
          |  val zz = SInt(16) <> VAR
          |  val zzz = SInt(16) <> VAR init sd"16'0"
-         |  val c = SInt(16) const sd"16'1"
+         |  val c = SInt(16) CONST sd"16'1"
          |  process(all):
          |    if (x > sd"16'5")
          |      x match
@@ -99,7 +99,7 @@ class DropLocalDclsSpec extends StageSpec:
           x match
             case 2 =>
               val zzz = SInt(16) <> VAR init 0
-              val c   = SInt(16) const 1
+              val c   = SInt(16) CONST 1
               zzz := x + c
             case _ =>
           zz := x
@@ -116,7 +116,7 @@ class DropLocalDclsSpec extends StageSpec:
          |  process(all):
          |    val zz = SInt(16) <> VAR
          |    val zzz = SInt(16) <> VAR init sd"16'0"
-         |    val c = SInt(16) const sd"16'1"
+         |    val c = SInt(16) CONST sd"16'1"
          |    if (x > sd"16'5")
          |      x match
          |        case sd"16'2" => zzz := x + c

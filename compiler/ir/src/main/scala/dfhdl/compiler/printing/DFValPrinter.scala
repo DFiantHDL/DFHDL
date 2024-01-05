@@ -75,7 +75,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String =
     s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
   def csDFValConstDcl(dfVal: Const): String =
-    s"${printer.csDFType(dfVal.dfType)} const ${printer.csDFToken(dfVal.token)}"
+    s"${printer.csDFType(dfVal.dfType)} CONST ${printer.csDFToken(dfVal.token)}"
   def csDFValDclModifier(modifier: Modifier): String = modifier.toString
 
   def csDFValDcl(dfVal: Dcl): String =

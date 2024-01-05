@@ -123,13 +123,13 @@ class DFBitsSpec extends DFSpec:
   test("DFVal Conversion") {
     val w = 2
     assertCodeString {
-      """|val t1 = Bits(8) const h"00"
-         |val t2 = Bits(8) const h"ff"
-         |val t3 = Bits(8) const h"ff"
-         |val t4 = Bits(5) const h"5'??"
-         |val t5 = Bits(4) const h"a"
-         |val t6 = Bits(3) const b"101"
-         |val t7 = Bits(2) const b"11"
+      """|val t1 = Bits(8) CONST h"00"
+         |val t2 = Bits(8) CONST h"ff"
+         |val t3 = Bits(8) CONST h"ff"
+         |val t4 = Bits(5) CONST h"5'??"
+         |val t5 = Bits(4) CONST h"a"
+         |val t6 = Bits(3) CONST b"101"
+         |val t7 = Bits(2) CONST b"11"
          |val t8 = (b"100", b"1", h"9").toBits
          |val t9 = (b"100", b"1", h"9").toBits
          |val t10 = (b"100", b"1", h"9").toBits

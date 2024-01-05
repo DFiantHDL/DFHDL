@@ -92,17 +92,17 @@ object DFType:
       ): DFVector.ComposedModifier[Int, M] =
         new DFVector.ComposedModifier[Int, M](cellDim, modifier)
     extension [T <: Supported](t: T)
-      infix def <>[A, C, I](modifier: Modifier[A, C, I])(using
+      infix def <>[A, C, I, P](modifier: Modifier[A, C, I, Any])(using
           tc: DFType.TC[T],
           ck: DFC.Scope,
           dt: DFC.Domain,
           dfc: DFC
-      ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I]] =
-        DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I]])
+      ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, Any]] =
+        DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, Any]])
       infix def token[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
           tokenTC: DFToken.TC[tc.Type, V]
       ): tokenTC.Out = tokenTC(tc(t), tokenValue)
-      infix def const[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
+      infix def CONST[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
           DFToken.TC[tc.Type, V]
       )(using DFC): DFValOf[tc.Type] =
         DFVal.Const(token(tokenValue), named = true)

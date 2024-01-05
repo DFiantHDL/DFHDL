@@ -142,7 +142,7 @@ sealed trait DFVal extends DFMember.Named:
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
   enum Modifier derives CanEqual:
-    case VAR, IN, OUT, INOUT, CONST
+    case VAR, IN, OUT, INOUT
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match

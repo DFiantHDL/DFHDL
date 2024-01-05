@@ -115,7 +115,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       val y   = Bits(16) <> OUT
       val z   = Bits(16) <> VAR
       process(clk, rst) {
-        val c = Bits(16) const all(0)
+        val c = Bits(16) CONST all(0)
         if (rst)
           y :== c
         else if (clk.rising)
@@ -175,20 +175,20 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
   test("literals") {
     class Top extends EDDesign:
-      val c01 = Bit const 0
-      val c02 = Bit const 1
-      val c03 = Bit const ?
-      val c04 = Boolean const 0
-      val c05 = Boolean const 1
-      val c06 = Bits(8) const h"22"
-      val c07 = Bits(7) const h"7'22"
-      val c08 = Bits(3) const b"101"
-      val c09 = UInt(3) const 7
-      val c10 = UInt(48) const d"48'239794508230343"
-      val c11 = SInt(4) const -8
-      val c12 = SInt(49) const sd"49'-239794508230343"
-      val c13 = UInt(8) const ?
-      val c14 = SInt(8) const ?
+      val c01 = Bit CONST 0
+      val c02 = Bit CONST 1
+      val c03 = Bit CONST ?
+      val c04 = Boolean CONST 0
+      val c05 = Boolean CONST 1
+      val c06 = Bits(8) CONST h"22"
+      val c07 = Bits(7) CONST h"7'22"
+      val c08 = Bits(3) CONST b"101"
+      val c09 = UInt(3) CONST 7
+      val c10 = UInt(48) CONST d"48'239794508230343"
+      val c11 = SInt(4) CONST -8
+      val c12 = SInt(49) CONST sd"49'-239794508230343"
+      val c13 = UInt(8) CONST ?
+      val c14 = SInt(8) CONST ?
 
     end Top
     val top = (new Top).getVHDLCode

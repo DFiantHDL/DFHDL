@@ -41,12 +41,13 @@ type DFVarAny = DFVal[DFTypeAny, Modifier.Mutable]
 type DFDclAny = DFVal[DFTypeAny, Modifier.Dcl]
 type DFValOf[+T <: DFTypeAny] = DFVal[T, ModifierAny]
 type DFConstOf[+T <: DFTypeAny] = DFVal[T, Modifier.CONST]
-type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier[Modifier.Assignable, Any, Any]]
+type DFValTP[+T <: DFTypeAny, +P] = DFVal[T, Modifier[Any, Any, Any, P]]
+type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier[Modifier.Assignable, Any, Any, Any]]
 
 sealed trait TOKEN
 sealed trait CONST
 infix type <>[T <: DFType.Supported, M] = T match
-  case Int => // Int can be a const literal or just "Int" representing SInt[32]
+  case Int => // Int can be a constant literal or just "Int" representing SInt[32]
     IsConst[T] match
       case true  => DFVector.ComposedModifier[T, M]
       case false => DFSInt[32] <> M
@@ -67,6 +68,8 @@ extension (dfVal: ir.DFVal)
     DFVal[T, M](dfVal)
   inline def asValOf[T <: DFTypeAny]: DFValOf[T] =
     DFVal[T, ModifierAny](dfVal)
+  inline def asValTP[T <: DFTypeAny, P]: DFValTP[T, P] =
+    DFVal[T, Modifier[Any, Any, Any, P]](dfVal)
   inline def asValAny: DFValAny =
     DFVal[DFTypeAny, ModifierAny](dfVal)
   inline def asVarOf[T <: DFTypeAny]: DFVarOf[T] =
@@ -84,6 +87,8 @@ extension (dfVal: DFValAny)
     dfVal.asInstanceOf[DFVal[T, M]]
   inline def asValOf[T <: DFTypeAny]: DFValOf[T] =
     dfVal.asInstanceOf[DFVal[T, ModifierAny]]
+  inline def asValTP[T <: DFTypeAny, P]: DFValTP[T, P] =
+    dfVal.asInstanceOf[DFVal[T, Modifier[Any, Any, Any, P]]]
   inline def asVarOf[T <: DFTypeAny]: DFVarOf[T] =
     dfVal.asInstanceOf[DFVal[T, Modifier.Mutable]]
   inline def asVarAny: DFVarAny =
@@ -92,6 +97,7 @@ extension (dfVal: DFValAny)
     dfVal.asInstanceOf[DFVal[DFTypeAny, Modifier.Dcl]]
   inline def asConstOf[T <: DFTypeAny]: DFConstOf[T] =
     dfVal.asInstanceOf[DFVal[T, Modifier.CONST]]
+end extension
 
 def DFValConversionMacro[T <: DFTypeAny, R](
     from: Expr[R]
@@ -208,9 +214,9 @@ object DFVal extends DFValLP:
   given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[Tuple, DFVal[T, M]] =
     CanEqual.derived
 
-  given __refined_dfVal[T <: FieldsOrTuple, A, I](using
-      r: DFStruct.Val.Refiner[T, A, I]
-  ): Conversion[DFVal[DFStruct[T], Modifier[A, Any, I]], r.Out] = _.asInstanceOf[r.Out]
+  given __refined_dfVal[T <: FieldsOrTuple, A, I, P](using
+      r: DFStruct.Val.Refiner[T, A, I, P]
+  ): Conversion[DFVal[DFStruct[T], Modifier[A, Any, I, P]], r.Out] = _.asInstanceOf[r.Out]
 
   trait InitCheck[I]
   given [I](using
@@ -256,32 +262,33 @@ object DFVal extends DFValLP:
   case object TruncateTag extends ir.DFTagOf[ir.DFVal]
   type TruncateTag = TruncateTag.type
 
-  extension [T <: DFTypeAny, A, C, I, R](dfVal: DFVal[T, Modifier[A, C, I]])
+  extension [T <: DFTypeAny, A, C, I, R](dfVal: DFVal[T, Modifier[A, C, I, Any]])
     private[core] def initForced(tokens: List[ir.DFTokenAny])(using
         dfc: DFC
-    ): DFVal[T, Modifier[A, C, Modifier.Initialized]] =
+    ): DFVal[T, Modifier[A, C, Modifier.Initialized, Any]] =
       import dfc.getSet
       require(
         dfVal.asIR.isAnonymous,
         s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
       )
-      dfVal.tag(ir.ExternalInit(tokens)).asVal[T, Modifier[A, C, Modifier.Initialized]]
+      dfVal.tag(ir.ExternalInit(tokens)).asVal[T, Modifier[A, C, Modifier.Initialized, Any]]
 
     infix def init(
         tokenValues: DFToken.Value[T]*
-    )(using DFC, InitCheck[I]): DFVal[T, Modifier[A, C, Modifier.Initialized]] = trydf {
+    )(using DFC, InitCheck[I]): DFVal[T, Modifier[A, C, Modifier.Initialized, Any]] = trydf {
       val tvList = tokenValues.view.filter(_.enable).map(tv => tv(dfVal.dfType).asIR).toList
-      if (tvList.isEmpty) dfVal.asVal[T, Modifier[A, C, Modifier.Initialized]]
+      if (tvList.isEmpty) dfVal.asVal[T, Modifier[A, C, Modifier.Initialized, Any]]
       else initForced(tvList)
     }
   end extension
-  extension [T <: NonEmptyTuple, A, C, I](dfVal: DFVal[DFTuple[T], Modifier[A, C, I]])
+  extension [T <: NonEmptyTuple, A, C, I](dfVal: DFVal[DFTuple[T], Modifier[A, C, I, Any]])
     infix def init(
         tokenValues: DFToken.TupleValues[T]
-    )(using DFC, InitCheck[I]): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]] = trydf {
-      if (tokenValues.enable) dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
-      else dfVal.asVal[DFTuple[T], Modifier[A, C, Modifier.Initialized]]
-    }
+    )(using DFC, InitCheck[I]): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized, Any]] =
+      trydf {
+        if (tokenValues.enable) dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
+        else dfVal.asVal[DFTuple[T], Modifier[A, C, Modifier.Initialized, Any]]
+      }
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
     ???
@@ -307,12 +314,12 @@ object DFVal extends DFValLP:
   object Const:
     def apply[T <: DFTypeAny](token: DFToken[T], named: Boolean = false)(using
         DFC
-    ): DFValOf[T] =
+    ): DFConstOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
       ir.DFVal
         .Const(token.asIR, dfc.owner.ref, meta, ir.DFTags.empty)
         .addMember
-        .asValOf[T]
+        .asConstOf[T]
 
   object Open:
     def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
@@ -681,7 +688,7 @@ object DFVal extends DFValLP:
   object Ops:
     // TODO: change to step Inlined[S] for all operations after https://github.com/lampepfl/dotty/issues/14451
     // is resolved.
-    extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I]])
+    extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I, Any]])
       def prev(step: Inlined[S], init: Exact[V])(using
           dfc: DFC,
           dfOnly: DFDomainOnly,
@@ -736,7 +743,7 @@ object DFVal extends DFValLP:
       inline def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
     end extension
 
-    extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
+    extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I, Any]])
       def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] = trydf {
         import DFToken.Ops.{bits => bitsDFToken}
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
@@ -807,7 +814,7 @@ object DFVarOps:
     DFC.Scope.Process | util.NotGiven[A <:< DFC.Domain.ED],
     "Assignments `:=`/`:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
-  extension [T <: DFTypeAny, A, C, I](dfVar: DFVal[T, Modifier[A, C, I]])
+  extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
     def :=[R](rhs: Exact[R])(using
         varOnly: VarOnly[A],
 //        localOrNonED: LocalOrNonED[A],
@@ -916,7 +923,7 @@ object DFVarOps:
 end DFVarOps
 
 object DFPortOps:
-  extension [T <: DFTypeAny, A, C, I](dfPort: DFVal[T, Modifier[A, C, I]])
+  extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
     def <>[R](rhs: Exact[R])(using
         connectableOnly: AssertGiven[
           C <:< Modifier.Connectable,

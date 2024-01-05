@@ -147,13 +147,13 @@ class DFDecimalSpec extends DFSpec:
   }
   test("DFVal Conversion") {
     assertCodeString {
-      """|val t0 = Bits(6) const h"6'00"
+      """|val t0 = Bits(6) CONST h"6'00"
          |val t1 = t0.uint.resize(8)
          |val t2 = UInt(8) <> VAR
          |t2 := t1
          |""".stripMargin
     } {
-      val t0 = Bits(6) const all(0)
+      val t0 = Bits(6) CONST all(0)
       val t1: UInt[8] <> VAL = t0
       val t2 = UInt(8) <> VAR
       // val t3: UInt[Int] <> VAL = t0
@@ -168,11 +168,11 @@ class DFDecimalSpec extends DFSpec:
          |val s8 = SInt(8) <> VAR init ?
          |val u6 = UInt(6) <> IN
          |val s6 = SInt(6) <> IN
-         |val b6 = Bits(6) const h"6'00"
+         |val b6 = Bits(6) CONST h"6'00"
          |val s32 = SInt(32) <> VAR init sd"32'0"
          |val s64 = SInt(64) <> VAR init sd"64'0"
-         |val cu = UInt(1) const d"1'1"
-         |val cs = SInt(2) const sd"2'-1"
+         |val cu = UInt(1) CONST d"1'1"
+         |val cs = SInt(2) CONST sd"2'-1"
          |u8 := d"8'0"
          |u8 := d"8'255"
          |u8 := d"8'0"
@@ -199,7 +199,7 @@ class DFDecimalSpec extends DFSpec:
       val s8 = SInt(8) <> VAR init ?
       val u6 = UInt(6) <> IN
       val s6 = SInt(6) <> IN
-      val b6 = Bits(6) const all(0)
+      val b6 = Bits(6) CONST all(0)
       val s32: Int <> VAL = Int <> VAR init 0
       val s64: Long <> VAL = Long <> VAR init 0
       val cu: UInt[Int] <> VAL = 1

@@ -46,7 +46,7 @@ abstract class MetaDesign[+D <: DFC.Domain](
 
   export dfhdl.hdl.{RTDomainCfg => _, ClkCfg => _, RstCfg => _, *}
   export dfhdl.core.{asValAny, asVarAny, asDclAny, asTokenAny, asTokenOf}
-  extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I]])
-    def asInitialized: DFVal[T, Modifier[A, C, Modifier.Initialized]] =
-      dfVal.asInstanceOf[DFVal[T, Modifier[A, C, Modifier.Initialized]]]
+  extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
+    def asInitialized: DFVal[T, Modifier[A, C, Modifier.Initialized, P]] =
+      dfVal.asInstanceOf[DFVal[T, Modifier[A, C, Modifier.Initialized, P]]]
 end MetaDesign

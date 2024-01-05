@@ -162,11 +162,11 @@ object DFOpaque:
         end match
       end asMacro
 
-      extension [AT <: DFTypeAny, TFE <: Frontend[AT], A, C, I](
-          lhs: DFVal[DFOpaque[TFE], Modifier[A, C, I]]
+      extension [AT <: DFTypeAny, TFE <: Frontend[AT], A](
+          lhs: DFVal[DFOpaque[TFE], Modifier[A, Any, Any, Any]]
       )
         def opaqueType: TFE = lhs.dfType.asIR.id.asInstanceOf[TFE]
-        def actual(using DFC): DFVal[AT, Modifier[A, Any, Any]] = // trydf {
+        def actual(using DFC): DFVal[AT, Modifier[A, Any, Any, Any]] = // trydf {
           import Token.Ops.{actual => actualToken}
           DFVal.Alias.AsIs(lhs.dfType.actualType, lhs, _.actualToken)
 //        }
