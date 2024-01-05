@@ -138,6 +138,16 @@ end DFMember
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
   def width: Int = dfType.width
+  protected def protIsConst(using MemberGetSet): Boolean
+  // using just an integer to escape redundant boxing Option[Boolean] would have achieved
+  private var cachedIsConst: Int = -1
+  final def isConst(using MemberGetSet): Boolean =
+    if (cachedIsConst == -1)
+      val localIsConst = protIsConst
+      cachedIsConst = if (localIsConst) 1 else 0
+      localIsConst
+    else if (cachedIsConst > 0) true
+    else false
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
@@ -217,6 +227,7 @@ object DFVal:
       tags: DFTags
   ) extends CanBeExpr:
     val dfType = token.dfType
+    protected def protIsConst(using MemberGetSet): Boolean = true
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
         given CanEqual[Any, Any] = CanEqual.derived
@@ -234,6 +245,7 @@ object DFVal:
   ) extends DFVal:
     val meta: Meta = Meta(None, Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
+    protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case _: Open => true
       case _       => false
@@ -248,6 +260,7 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends DFVal:
+    protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
         this.dfType == that.dfType && this.modifier == that.modifier &&
@@ -266,6 +279,8 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends CanBeExpr:
+    protected def protIsConst(using MemberGetSet): Boolean =
+      args.forall(_.get.isConst)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
         this.dfType == that.dfType && this.op == that.op && (this.args
@@ -293,6 +308,7 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends DFVal:
+    protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: PortByNameSelect =>
         this.dfType == that.dfType && this.designInstRef =~ that.designInstRef &&
@@ -338,6 +354,7 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
+      protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: AsIs =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -357,6 +374,7 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Consumer:
+      protected def protIsConst(using MemberGetSet): Boolean = false
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: History =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -379,6 +397,7 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
+      protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
       val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
@@ -397,6 +416,8 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
+      protected def protIsConst(using MemberGetSet): Boolean =
+        relValRef.get.isConst && relIdx.get.isConst
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyIdx =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -422,6 +443,7 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
+      protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: SelectField =>
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
@@ -589,6 +611,9 @@ object DFConditional:
       tags: DFTags
   ) extends Header:
     type TBlock = DFCaseBlock
+    // TODO: if all returned expressions in all blocks and the selector is constant, then
+    // the returned result is a constant
+    protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFMatchHeader =>
         this.dfType == that.dfType && this.selectorRef =~ that.selectorRef &&
@@ -677,6 +702,9 @@ object DFConditional:
       tags: DFTags
   ) extends Header:
     type TBlock = DFIfElseBlock
+    // TODO: if all returned expressions in all blocks and the selector is constant, then
+    // the returned result is a constant
+    protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFIfHeader =>
         this.dfType == that.dfType &&
@@ -836,6 +864,7 @@ object Timer:
       tags: DFTags
   ) extends DFVal.CanBeExpr:
     val dfType: DFType = DFBool
+    protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: IsActive =>
         this.timerRef =~ that.timerRef &&
