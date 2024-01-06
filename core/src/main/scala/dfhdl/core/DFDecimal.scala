@@ -866,6 +866,7 @@ object DFXInt:
     trait Candidate[R]:
       type OutS <: Boolean
       type OutW <: Int
+      type OutP
       type IsScalaInt <: Boolean
       def apply(arg: R)(using DFC): DFValOf[DFXInt[OutS, OutW]]
     trait CandidateLP:
@@ -904,12 +905,13 @@ object DFXInt:
 
     object TC:
       import DFVal.TC
-      given [LS <: Boolean, LW <: Int, R](using
-          ic: Candidate[R]
+      given [LS <: Boolean, LW <: Int, R, IC <: Candidate[R]](using
+          ic: IC
       )(using
           check: TCCheck[LS, LW, ic.OutS, ic.OutW],
           lsigned: ValueOf[LS]
       ): TC[DFXInt[LS, LW], R] with
+        type OutP = ic.OutP
         def conv(dfType: DFXInt[LS, LW], value: R)(using dfc: Ctx): Out =
           import Ops.resize
           import DFUInt.Val.Ops.signed
@@ -918,7 +920,7 @@ object DFXInt:
             case ir.DFNothing =>
               val signCheck = summon[`LS >= RS`.Check[Boolean, Boolean]]
               signCheck(lsigned.value, rhs.dfType.signed)
-              rhs.asValOf[DFXInt[LS, LW]]
+              rhs.asValTP[DFXInt[LS, LW], ic.OutP]
             case _ =>
               if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhs.dfType.signed)
                 check(dfType.signed, dfType.width, rhs.dfType.signed, rhs.width)
@@ -933,7 +935,7 @@ object DFXInt:
                 )
                   rhsSignFix.anonymize.resize(dfType.width).asIR
                 else rhsSignFix.asIR
-              dfValIR.asValOf[DFXInt[LS, LW]]
+              dfValIR.asValTP[DFXInt[LS, LW], ic.OutP]
           end match
         end conv
       end given

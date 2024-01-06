@@ -84,10 +84,12 @@ object DFOpaque:
       given DFOpaqueValFromDFOpaqueVal[
           TFE <: Abstract,
           RT <: Abstract,
-          V <: DFValOf[DFOpaque[RT]]
+          RP,
+          V <: DFValTP[DFOpaque[RT], RP]
       ](using RT <:< TFE): TC[DFOpaque[TFE], V] with
+        type OutP = RP
         def conv(dfType: DFOpaque[TFE], value: V)(using Ctx): Out =
-          value.asValOf[DFOpaque[TFE]]
+          value.asValTP[DFOpaque[TFE], RP]
 
     object Ops:
       extension [L](inline lhs: L)

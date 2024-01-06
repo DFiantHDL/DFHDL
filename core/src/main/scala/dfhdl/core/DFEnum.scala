@@ -120,7 +120,8 @@ object DFEnum:
     object TC:
       import DFVal.TC
       given DFEnumFromEntry[E <: DFEncoding, RE <: E]: TC[DFEnum[E], RE] with
-        def conv(dfType: DFEnum[E], value: RE)(using Ctx): DFValOf[DFEnum[E]] =
+        type OutP = CONST
+        def conv(dfType: DFEnum[E], value: RE)(using Ctx): Out =
           DFVal.Const(Token[E, RE](dfType, value))
     object Compare:
       import DFVal.Compare

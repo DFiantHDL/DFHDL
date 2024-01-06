@@ -156,21 +156,25 @@ object DFVector:
           T <: DFTypeAny,
           D1 <: Int,
           RD1 <: Int,
-          R <: DFValOf[DFVector[T, Tuple1[RD1]]]
+          RP,
+          R <: DFValTP[DFVector[T, Tuple1[RD1]], RP]
       ](using
           check: `LL == RL`.Check[D1, RD1]
       ): TC[DFVector[T, Tuple1[D1]], R] with
+        type OutP = RP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           check(dfType.asIR.cellDims.head, arg.dfType.asIR.cellDims.head)
-          arg.asValOf[DFVector[T, Tuple1[D1]]]
+          arg.asValTP[DFVector[T, Tuple1[D1]], RP]
       given DFVectorValFromDFValVector[
           T <: DFTypeAny,
           D1 <: Int,
           E,
-          R <: Iterable[E]
+          R <: Iterable[E],
+          TCE <: TC[T, E]
       ](using
-          tc: TC[T, E]
+          tc: TCE
       ): TC[DFVector[T, Tuple1[D1]], R] with
+        type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
           DFVal.Func(dfType, FuncOp.++, dfVals)
@@ -178,10 +182,12 @@ object DFVector:
           T <: DFTypeAny,
           D1 <: Int,
           E,
-          R <: SameElementsVector[E]
+          R <: SameElementsVector[E],
+          TCE <: TC[T, E]
       ](using
-          tc: TC[T, E]
+          tc: TCE
       ): TC[DFVector[T, Tuple1[D1]], R] with
+        type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           val dfVals =
             List.fill(dfType.cellDims.head)(tc.conv(dfType.cellType, arg.value))

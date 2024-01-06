@@ -11,18 +11,18 @@ object Modifier:
   sealed trait Connectable
   sealed trait Initializable
   sealed trait Initialized
-  sealed trait Constant
   type Mutable = Modifier[Assignable, Any, Any, Any]
   type Dcl = Modifier[Assignable, Connectable, Initializable, Any]
   final val VAR = new Dcl(IRModifier.VAR)
   final val IN = new Dcl(IRModifier.IN)
   final val OUT = new Dcl(IRModifier.OUT)
   final val INOUT = new Dcl(IRModifier.INOUT)
-  type CONST = Modifier[Any, Any, Any, Constant]
+  type CONST = Modifier[Any, Any, Any, dfhdl.core.CONST]
   extension (modifier: ModifierAny) def asIR: IRModifier = modifier.value
 end Modifier
 
 final type VAL = Modifier[Any, Any, Any, Any]
+sealed trait CONST
 sealed trait DFRET
 
 object __OPEN

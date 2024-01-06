@@ -245,6 +245,7 @@ object DFStruct:
           F <: Fields,
           RF <: Fields
       ](using sf: SameFields[F, RF]): TC[DFStruct[F], RF] with
+        type OutP = Any
         def conv(dfType: DFStruct[F], value: RF)(using Ctx): Out =
           sf.check(dfType, DFStruct(value))
           val dfVals = value.productIterator.map { case dfVal: DFVal[?, ?] =>
@@ -254,11 +255,13 @@ object DFStruct:
       given DFStructValFromStruct[
           F <: Fields,
           RF <: Fields,
-          V <: DFValOf[DFStruct[RF]]
+          RP,
+          V <: DFValTP[DFStruct[RF], RP]
       ](using sf: SameFields[F, RF]): TC[DFStruct[F], V] with
+        type OutP = RP
         def conv(dfType: DFStruct[F], value: V)(using Ctx): Out =
           sf.check(dfType, value.dfType)
-          value.asValOf[DFStruct[F]]
+          value.asValTP[DFStruct[F], RP]
     end TC
     object Compare:
       import DFVal.Compare

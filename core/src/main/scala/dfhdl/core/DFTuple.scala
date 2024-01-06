@@ -214,6 +214,7 @@ object DFTuple:
       ](using
           zipper: TCZipper[T, R, DFValAny, TC]
       ): TC[DFTuple[T], R] with
+        type OutP = Any // TODO
         def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)

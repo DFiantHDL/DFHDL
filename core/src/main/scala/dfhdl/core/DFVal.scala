@@ -45,7 +45,6 @@ type DFValTP[+T <: DFTypeAny, +P] = DFVal[T, Modifier[Any, Any, Any, P]]
 type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier[Modifier.Assignable, Any, Any, Any]]
 
 sealed trait TOKEN
-sealed trait CONST
 infix type <>[T <: DFType.Supported, M] = T match
   case Int => // Int can be a constant literal or just "Int" representing SInt[32]
     IsConst[T] match
@@ -99,9 +98,9 @@ extension (dfVal: DFValAny)
     dfVal.asInstanceOf[DFVal[T, Modifier.CONST]]
 end extension
 
-def DFValConversionMacro[T <: DFTypeAny, R](
+def DFValConversionMacro[T <: DFTypeAny, P, R](
     from: Expr[R]
-)(using Quotes, Type[T], Type[R]): Expr[DFValOf[T]] =
+)(using Quotes, Type[T], Type[P], Type[R]): Expr[DFValTP[T, P]] =
   import quotes.reflect.*
   val fromExactTerm = from.asTerm.exactTerm
   val fromExactType = fromExactTerm.tpe.asTypeOf[Any]
@@ -112,10 +111,11 @@ def DFValConversionMacro[T <: DFTypeAny, R](
     given uintNoType: DFUInt[Int] = DFNothing.asInstanceOf[DFUInt[Int]]
     given sintNoType: DFSInt[Int] = DFNothing.asInstanceOf[DFSInt[Int]]
     val tc = compiletime.summonInline[DFVal.TC[T, fromExactType.Underlying]]
+    val convConstCheck = compiletime.summonInline[DFVal.ConvConstCheck[P, tc.OutP]]
     val dfc = compiletime.summonInline[DFC]
     val dfType = compiletime.summonInline[T]
     trydf {
-      tc(dfType, $fromExactExpr)(using dfc)
+      tc(dfType, $fromExactExpr)(using dfc).asValTP[T, P]
     }(using dfc, compiletime.summonInline[CTName])
   }
 end DFValConversionMacro
@@ -123,36 +123,41 @@ end DFValConversionMacro
 sealed protected trait DFValLP:
   implicit transparent inline def DFBitsValConversion[
       W <: Int,
+      P,
       R <: DFValAny | DFTokenAny | SameElementsVector[?] | NonEmptyTuple | Bubble
   ](
       inline from: R
-  ): DFValOf[DFBits[W]] = ${ DFValConversionMacro[DFBits[W], R]('from) }
+  ): DFValTP[DFBits[W], P] = ${ DFValConversionMacro[DFBits[W], P, R]('from) }
   // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
   implicit transparent inline def DFXIntValConversion[
       S <: Boolean,
       W <: Int,
+      P,
       R <: DFValAny | DFTokenAny | Int | Bubble
   ](
       inline from: R
-  ): DFValOf[DFXInt[S, W]] = ${ DFValConversionMacro[DFXInt[S, W], R]('from) }
+  ): DFValTP[DFXInt[S, W], P] = ${ DFValConversionMacro[DFXInt[S, W], P, R]('from) }
   implicit transparent inline def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,
+      P,
       R <: DFValAny | DFTokenAny | Bubble
   ](
       inline from: R
-  ): DFValOf[DFOpaque[TFE]] = ${ DFValConversionMacro[DFOpaque[TFE], R]('from) }
+  ): DFValTP[DFOpaque[TFE], P] = ${ DFValConversionMacro[DFOpaque[TFE], P, R]('from) }
   implicit transparent inline def DFStructValConversion[
       F <: DFStruct.Fields,
+      P,
       R <: DFValAny | DFTokenAny | DFStruct.Fields | Bubble
   ](
       inline from: R
-  ): DFValOf[DFStruct[F]] = ${ DFValConversionMacro[DFStruct[F], R]('from) }
+  ): DFValTP[DFStruct[F], P] = ${ DFValConversionMacro[DFStruct[F], P, R]('from) }
   implicit transparent inline def DFTupleValConversion[
       T <: NonEmptyTuple,
+      P,
       R <: DFValAny | DFTokenAny | NonEmptyTuple | Bubble
   ](
       inline from: R
-  ): DFValOf[DFTuple[T]] = ${ DFValConversionMacro[DFTuple[T], R]('from) }
+  ): DFValTP[DFTuple[T], P] = ${ DFValConversionMacro[DFTuple[T], P, R]('from) }
   given DFBitValConversion[R <: BitOrBool](using
       tc: DFVal.TC[DFBit, R],
       dfc: DFC
@@ -164,6 +169,10 @@ sealed protected trait DFValLP:
   given DFUnitValConversion[R <: DFValAny | Unit | NonEmptyTuple | Bubble](using
       dfc: DFC
   ): Conversion[R, Unit <> VAL] = from => DFUnitVal()
+  implicit transparent inline def NonConstToConstReject[T <: DFTypeAny, P](
+      from: DFValTP[T, P]
+  )(using util.NotGiven[P =:= CONST]): DFValTP[T, CONST] =
+    compiletime.error(DFVal.ConstOnlyMsg)
 end DFValLP
 object DFVal extends DFValLP:
   final class Final[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
@@ -346,17 +355,17 @@ object DFVal extends DFValLP:
 
   object Func:
     export ir.DFVal.Func.Op
-    def apply[T <: DFTypeAny](
+    def apply[T <: DFTypeAny, P](
         dfType: T,
         op: FuncOp,
-        args: List[DFValAny]
-    )(using DFC): DFValOf[T] = apply(dfType, op, args.map(_.asIR))
+        args: List[DFValTP[?, P]]
+    )(using DFC): DFValTP[T, P] = apply(dfType, op, args.map(_.asIR))
     @targetName("applyFromIR")
-    def apply[T <: DFTypeAny](
+    def apply[T <: DFTypeAny, P](
         dfType: T,
         op: FuncOp,
         args: List[ir.DFVal]
-    )(using DFC): DFValOf[T] =
+    )(using DFC): DFValTP[T, P] =
       lazy val func: ir.DFVal = ir.DFVal.Func(
         dfType.asIR,
         op,
@@ -365,7 +374,7 @@ object DFVal extends DFValLP:
         dfc.getMeta,
         ir.DFTags.empty
       )
-      func.addMember.asValOf[T]
+      func.addMember.asValTP[T, P]
     end apply
   end Func
 
@@ -517,7 +526,8 @@ object DFVal extends DFValLP:
   end Alias
 
   trait TC[T <: DFTypeAny, R] extends TCConv[T, R, DFValAny]:
-    type Out = DFValOf[T]
+    type OutP
+    type Out = DFValTP[T, OutP]
     type Ctx = DFC
     final def apply(dfType: T, value: R)(using DFC): Out = trydf:
       conv(dfType, value)
@@ -525,13 +535,14 @@ object DFVal extends DFValLP:
   trait TCLP:
     // Accept OPEN in compile-time, but throw exception where it should not be used
     given fromOPEN[T <: DFTypeAny]: TC[T, __OPEN.type] with
-      def conv(dfType: T, value: __OPEN.type)(using Ctx): DFValOf[T] =
+      def conv(dfType: T, value: __OPEN.type)(using Ctx): Out =
         throw new IllegalArgumentException("OPEN cannot be used here")
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble](using
         tokenTC: DFToken.TC[T, V]
     ): TC[T, V] with
-      def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
+      type OutP = CONST
+      def conv(dfType: T, value: V)(using Ctx): Out =
         Const(tokenTC(dfType, value), named = true)
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
@@ -546,8 +557,9 @@ object DFVal extends DFValLP:
             "`."
         )
       ]
-    given sameValType[T <: DFTypeAny, V <: DFValOf[T]]: TC[T, V] with
-      def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
+    given sameValType[T <: DFTypeAny, P, V <: DFValTP[T, P]]: TC[T, V] with
+      type OutP = P
+      def conv(dfType: T, value: V)(using Ctx): DFValTP[T, P] =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
         require(
@@ -556,7 +568,8 @@ object DFVal extends DFValLP:
         )
         value
     given sameValAndTokenType[T <: DFTypeAny, V <: T <> TOKEN]: TC[T, V] with
-      def conv(dfType: T, value: V)(using Ctx): DFValOf[T] =
+      type OutP = CONST
+      def conv(dfType: T, value: V)(using Ctx): Out =
         given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
         require(
@@ -656,6 +669,19 @@ object DFVal extends DFValLP:
 //    implicit transparent inline def fromArg[T <: DFTypeAny, R](
 //        inline arg: R
 //    ): DFValOf[T] = ${ fromArgMacro[T]('arg) }
+  final val ConstOnlyMsg = "Applied argument is not a constant."
+  trait ConstOnly[P]
+  given [P](using
+      AssertGiven[P =:= CONST, ConstOnlyMsg.type]
+  ): ConstOnly[P] with {}
+
+  trait ConvConstCheck[LP, RP]
+  given [LP, RP](using
+      AssertGiven[
+        util.NotGiven[LP =:= CONST] | (RP =:= CONST),
+        ConstOnlyMsg.type
+      ]
+  ): ConvConstCheck[LP, RP] with {}
 
   trait DFDomainOnly
   given (using domain: DFC.Domain)(using
@@ -743,8 +769,8 @@ object DFVal extends DFValLP:
       inline def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
     end extension
 
-    extension [T <: DFTypeAny, A, C, I](dfVal: DFVal[T, Modifier[A, C, I, Any]])
-      def bits(using w: Width[T])(using DFC): DFValOf[DFBits[w.Out]] = trydf {
+    extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
+      def bits(using w: Width[T])(using DFC): DFValTP[DFBits[w.Out], P] = trydf {
         import DFToken.Ops.{bits => bitsDFToken}
         DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
       }
