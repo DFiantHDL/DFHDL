@@ -112,7 +112,10 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
         val updatedRHS = Block(List(updatedAnonDef), closure)
         cpy.DefDef(tree)(rhs = updatedRHS)
       case _ =>
-        if (!sym.isAnonymousFunction && !sym.is(Exported) && !sym.isConstructor)
+        if (
+          !sym.isAnonymousFunction && !sym.is(Exported) &&
+          !sym.isConstructor && !sym.owner.isAnonymousClass
+        )
           if (
             (tree.dfValTpeOpt.nonEmpty || tree.tpt.tpe =:= defn.UnitType) && dfValArgs.nonEmpty &&
             !sym.ignoreMetaContext

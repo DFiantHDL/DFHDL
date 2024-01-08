@@ -208,7 +208,7 @@ object DFTuple:
       else None
     object TC:
       import DFVal.TC
-      given DFTupleArg[
+      given DFTupleFromTuple[
           T <: NonEmptyTuple,
           R <: NonEmptyTuple
       ](using
@@ -221,6 +221,19 @@ object DFTuple:
           // reconstructing the Tuple DFType, in case fields could be DFNothing from conversions
           val fixedDFType = DFTuple(dfVals.map(_.dfType))
           DFVal.Func(fixedDFType, FuncOp.++, dfVals)
+      given DFTupleFromDFTuple[
+          T <: NonEmptyTuple,
+          RT <: NonEmptyTuple,
+          RP,
+          R <: DFValTP[DFTuple[RT], RP]
+      ](using
+          zipper: TCZipper[T, RT, DFValAny, TC]
+      ): TC[DFTuple[T], R] with
+        type OutP = RP
+        def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
+          assert(dfType == value.dfType, "Tuple fields do not match.")
+          value.asValTP[DFTuple[T], RP]
+      end DFTupleFromDFTuple
     end TC
 
     object Compare:

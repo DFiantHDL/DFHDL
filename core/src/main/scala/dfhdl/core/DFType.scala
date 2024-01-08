@@ -92,13 +92,13 @@ object DFType:
       ): DFVector.ComposedModifier[Int, M] =
         new DFVector.ComposedModifier[Int, M](cellDim, modifier)
     extension [T <: Supported](t: T)
-      infix def <>[A, C, I, P](modifier: Modifier[A, C, I, Any])(using
+      infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
           tc: DFType.TC[T],
           ck: DFC.Scope,
           dt: DFC.Domain,
           dfc: DFC
-      ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, Any]] =
-        DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, Any]])
+      ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
+        DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, P]])
       infix def token[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
           tokenTC: DFToken.TC[tc.Type, V]
       ): tokenTC.Out = tokenTC(tc(t), tokenValue)
@@ -217,7 +217,7 @@ object DFType:
         .map(_.tpe.asTypeOf[Any] match
           case '[TC[t] { type Type = z }] => TypeRepr.of[z]
         )
-        .map(t => TypeRepr.of[DFValOf].appliedTo(t))
+        .map(t => TypeRepr.of[DFNotConstOf].appliedTo(t))
       def applyExpr(t: Expr[T]): Expr[List[DFTypeAny]] =
         '{
           val tList = $t.toList.asInstanceOf[List[Any]]

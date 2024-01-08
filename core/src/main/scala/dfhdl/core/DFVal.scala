@@ -41,8 +41,9 @@ type DFVarAny = DFVal[DFTypeAny, Modifier.Mutable]
 type DFDclAny = DFVal[DFTypeAny, Modifier.Dcl]
 type DFValOf[+T <: DFTypeAny] = DFVal[T, ModifierAny]
 type DFConstOf[+T <: DFTypeAny] = DFVal[T, Modifier.CONST]
+type DFNotConstOf[+T <: DFTypeAny] = DFVal[T, Modifier.NOTCONST]
 type DFValTP[+T <: DFTypeAny, +P] = DFVal[T, Modifier[Any, Any, Any, P]]
-type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier[Modifier.Assignable, Any, Any, Any]]
+type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier.Mutable]
 
 sealed trait TOKEN
 infix type <>[T <: DFType.Supported, M] = T match
@@ -52,8 +53,8 @@ infix type <>[T <: DFType.Supported, M] = T match
       case false => DFSInt[32] <> M
   case _ =>
     M match
-      case DFRET => DFC ?=> DFValOf[DFType.Of[T]]
-      case VAL   => DFValOf[DFType.Of[T]]
+      case DFRET => DFC ?=> DFNotConstOf[DFType.Of[T]]
+      case VAL   => DFNotConstOf[DFType.Of[T]]
       case CONST => DFConstOf[DFType.Of[T]]
       case TOKEN => DFToken[DFType.Of[T]]
 
@@ -110,12 +111,11 @@ def DFValConversionMacro[T <: DFTypeAny, P, R](
     given bitsNoType: DFBits[Int] = DFNothing.asInstanceOf[DFBits[Int]]
     given uintNoType: DFUInt[Int] = DFNothing.asInstanceOf[DFUInt[Int]]
     given sintNoType: DFSInt[Int] = DFNothing.asInstanceOf[DFSInt[Int]]
-    val tc = compiletime.summonInline[DFVal.TC[T, fromExactType.Underlying]]
-    val convConstCheck = compiletime.summonInline[DFVal.ConvConstCheck[P, tc.OutP]]
+    val conv = compiletime.summonInline[DFVal.Conv[T, P, fromExactType.Underlying]]
     val dfc = compiletime.summonInline[DFC]
     val dfType = compiletime.summonInline[T]
     trydf {
-      tc(dfType, $fromExactExpr)(using dfc).asValTP[T, P]
+      conv(dfType, $fromExactExpr)(using dfc)
     }(using dfc, compiletime.summonInline[CTName])
   }
 end DFValConversionMacro
@@ -123,56 +123,69 @@ end DFValConversionMacro
 sealed protected trait DFValLP:
   implicit transparent inline def DFBitsValConversion[
       W <: Int,
-      P,
+      P <: Boolean,
       R <: DFValAny | DFTokenAny | SameElementsVector[?] | NonEmptyTuple | Bubble
   ](
       inline from: R
-  ): DFValTP[DFBits[W], P] = ${ DFValConversionMacro[DFBits[W], P, R]('from) }
+  ): DFValTP[DFBits[W], ISCONST[P]] = ${
+    DFValConversionMacro[DFBits[W], ISCONST[P], R]('from)
+  }
   // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
   implicit transparent inline def DFXIntValConversion[
       S <: Boolean,
       W <: Int,
-      P,
+      P <: Boolean,
       R <: DFValAny | DFTokenAny | Int | Bubble
   ](
       inline from: R
-  ): DFValTP[DFXInt[S, W], P] = ${ DFValConversionMacro[DFXInt[S, W], P, R]('from) }
+  ): DFValTP[DFXInt[S, W], ISCONST[P]] = ${
+    DFValConversionMacro[DFXInt[S, W], ISCONST[P], R]('from)
+  }
   implicit transparent inline def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,
-      P,
+      P <: Boolean,
       R <: DFValAny | DFTokenAny | Bubble
   ](
       inline from: R
-  ): DFValTP[DFOpaque[TFE], P] = ${ DFValConversionMacro[DFOpaque[TFE], P, R]('from) }
+  ): DFValTP[DFOpaque[TFE], ISCONST[P]] = ${
+    DFValConversionMacro[DFOpaque[TFE], ISCONST[P], R]('from)
+  }
   implicit transparent inline def DFStructValConversion[
       F <: DFStruct.Fields,
-      P,
+      P <: Boolean,
       R <: DFValAny | DFTokenAny | DFStruct.Fields | Bubble
   ](
       inline from: R
-  ): DFValTP[DFStruct[F], P] = ${ DFValConversionMacro[DFStruct[F], P, R]('from) }
+  ): DFValTP[DFStruct[F], ISCONST[P]] = ${
+    DFValConversionMacro[DFStruct[F], ISCONST[P], R]('from)
+  }
   implicit transparent inline def DFTupleValConversion[
       T <: NonEmptyTuple,
-      P,
+      P <: Boolean,
       R <: DFValAny | DFTokenAny | NonEmptyTuple | Bubble
   ](
       inline from: R
-  ): DFValTP[DFTuple[T], P] = ${ DFValConversionMacro[DFTuple[T], P, R]('from) }
+  ): DFValTP[DFTuple[T], ISCONST[P]] = ${
+    DFValConversionMacro[DFTuple[T], ISCONST[P], R]('from)
+  }
   given DFBitValConversion[R <: BitOrBool](using
       tc: DFVal.TC[DFBit, R],
       dfc: DFC
-  ): Conversion[R, DFBit <> VAL] = from => tc(DFBit, from)
+  ): Conversion[R, DFNotConstOf[DFBit]] = from => tc(DFBit, from).asInstanceOf[DFNotConstOf[DFBit]]
   given DFBoolValConversion[R <: BitOrBool](using
       tc: DFVal.TC[DFBool, R],
       dfc: DFC
-  ): Conversion[R, DFBool <> VAL] = from => tc(DFBool, from)
+  ): Conversion[R, DFNotConstOf[DFBool]] = from =>
+    tc(DFBool, from).asInstanceOf[DFNotConstOf[DFBool]]
   given DFUnitValConversion[R <: DFValAny | Unit | NonEmptyTuple | Bubble](using
       dfc: DFC
-  ): Conversion[R, Unit <> VAL] = from => DFUnitVal()
-  implicit transparent inline def NonConstToConstReject[T <: DFTypeAny, P](
-      from: DFValTP[T, P]
-  )(using util.NotGiven[P =:= CONST]): DFValTP[T, CONST] =
-    compiletime.error(DFVal.ConstOnlyMsg)
+  ): Conversion[R, DFNotConstOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFNotConstOf[DFUnit]]
+  given ConstToNonConstAccept[T <: DFTypeAny, P]: Conversion[DFValTP[T, P], DFValTP[T, NOTCONST]] =
+    from => from.asValTP[T, NOTCONST]
+  // implicit transparent inline def NonConstToConstReject[T <: DFTypeAny, P](
+  //     from: DFValTP[T, P]
+  // )(using util.NotGiven[P =:= CONST]): DFValTP[T, CONST] =
+  //   compiletime.error(DFVal.ConstOnlyMsg)
 end DFValLP
 object DFVal extends DFValLP:
   final class Final[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
@@ -271,32 +284,32 @@ object DFVal extends DFValLP:
   case object TruncateTag extends ir.DFTagOf[ir.DFVal]
   type TruncateTag = TruncateTag.type
 
-  extension [T <: DFTypeAny, A, C, I, R](dfVal: DFVal[T, Modifier[A, C, I, Any]])
+  extension [T <: DFTypeAny, A, C, I, P, R](dfVal: DFVal[T, Modifier[A, C, I, P]])
     private[core] def initForced(tokens: List[ir.DFTokenAny])(using
         dfc: DFC
-    ): DFVal[T, Modifier[A, C, Modifier.Initialized, Any]] =
+    ): DFVal[T, Modifier[A, C, Modifier.Initialized, P]] =
       import dfc.getSet
       require(
         dfVal.asIR.isAnonymous,
         s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
       )
-      dfVal.tag(ir.ExternalInit(tokens)).asVal[T, Modifier[A, C, Modifier.Initialized, Any]]
+      dfVal.tag(ir.ExternalInit(tokens)).asVal[T, Modifier[A, C, Modifier.Initialized, P]]
 
     infix def init(
         tokenValues: DFToken.Value[T]*
-    )(using DFC, InitCheck[I]): DFVal[T, Modifier[A, C, Modifier.Initialized, Any]] = trydf {
+    )(using DFC, InitCheck[I]): DFVal[T, Modifier[A, C, Modifier.Initialized, P]] = trydf {
       val tvList = tokenValues.view.filter(_.enable).map(tv => tv(dfVal.dfType).asIR).toList
-      if (tvList.isEmpty) dfVal.asVal[T, Modifier[A, C, Modifier.Initialized, Any]]
+      if (tvList.isEmpty) dfVal.asVal[T, Modifier[A, C, Modifier.Initialized, P]]
       else initForced(tvList)
     }
   end extension
-  extension [T <: NonEmptyTuple, A, C, I](dfVal: DFVal[DFTuple[T], Modifier[A, C, I, Any]])
+  extension [T <: NonEmptyTuple, A, C, I, P](dfVal: DFVal[DFTuple[T], Modifier[A, C, I, P]])
     infix def init(
         tokenValues: DFToken.TupleValues[T]
-    )(using DFC, InitCheck[I]): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized, Any]] =
+    )(using DFC, InitCheck[I]): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized, P]] =
       trydf {
         if (tokenValues.enable) dfVal.initForced(tokenValues(dfVal.dfType).map(_.asIR))
-        else dfVal.asVal[DFTuple[T], Modifier[A, C, Modifier.Initialized, Any]]
+        else dfVal.asVal[DFTuple[T], Modifier[A, C, Modifier.Initialized, P]]
       }
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
@@ -529,6 +542,7 @@ object DFVal extends DFValLP:
     type OutP
     type Out = DFValTP[T, OutP]
     type Ctx = DFC
+    @metaContextIgnore
     final def apply(dfType: T, value: R)(using DFC): Out = trydf:
       conv(dfType, value)
 
@@ -588,6 +602,18 @@ object DFVal extends DFValLP:
     export DFStruct.Val.TC.given
     export DFOpaque.Val.TC.given
   end TC
+
+  trait Conv[T <: DFTypeAny, P, R]:
+    def apply(dfType: T, value: R)(using DFC): DFValTP[T, P]
+  object Conv:
+    transparent inline given [T <: DFTypeAny, P, R](using tc: TC[T, R]): Conv[T, P, R] =
+      compiletime.summonInline[AssertGiven[
+        util.NotGiven[P =:= CONST] | (tc.OutP =:= CONST),
+        "Applied argument is not a constant."
+      ]]
+      new Conv[T, P, R]:
+        def apply(dfType: T, value: R)(using DFC): DFValTP[T, P] =
+          tc(dfType, value).asValTP[T, P]
 
   trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
     type Out = DFValOf[T]
@@ -672,7 +698,7 @@ object DFVal extends DFValLP:
   final val ConstOnlyMsg = "Applied argument is not a constant."
   trait ConstOnly[P]
   given [P](using
-      AssertGiven[P =:= CONST, ConstOnlyMsg.type]
+      AssertGiven[P =:= CONST, "Applied argument is not a constant."]
   ): ConstOnly[P] with {}
 
   trait ConvConstCheck[LP, RP]
@@ -792,9 +818,9 @@ extension [T <: DFTypeAny](lhs: DFValOf[T])
     val op = if (dfc.lateConstruction) DFNet.Op.ViaConnection else DFNet.Op.Connection
     DFNet(lhs.asIR, op, rhs.asIR)
 
-protected trait VarsTuple[T <: NonEmptyTuple]:
+trait VarsTuple[T <: NonEmptyTuple]:
   type Width <: Int
-protected object VarsTuple:
+object VarsTuple:
   transparent inline given [T <: NonEmptyTuple]: VarsTuple[T] = ${ evMacro[T] }
   def evMacro[T <: NonEmptyTuple](using Quotes, Type[T]): Expr[VarsTuple[T]] =
     import quotes.reflect.*
@@ -803,9 +829,9 @@ protected object VarsTuple:
       tpe.asTypeOf[Any] match
         case '[DFVarOf[t]] => None
         case '[NonEmptyTuple] =>
-          val AppliedType(_, tArgs) = tpe: @unchecked
-          tArgs.view.map(varsCheck).collectFirst { case Some(v) => v }
+          tpe.getTupleArgs.view.map(varsCheck).collectFirst { case Some(v) => v }
         case _ =>
+          println(tpe.widen.dealias.show)
           Some(s"All tuple elements must be mutable but found an immutable type `${tpe.showType}`")
     varsCheck(tTpe) match
       case Some(err) => '{ compiletime.error(${ Expr(err) }) }

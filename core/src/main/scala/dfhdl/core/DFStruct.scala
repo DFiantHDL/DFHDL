@@ -47,9 +47,10 @@ object DFStruct:
     val fTpe = TypeRepr.of[F]
     val (structName, fields) = fTpe.asTypeOf[Any] match
       case '[NonEmptyTuple] =>
+        val args = fTpe.getTupleArgs
         (
-          "",
-          fTpe.getTupleArgs.zipWithIndex.map((t, i) => (s"_${i + 1}", t.asTypeOf[Any]))
+          ir.DFTuple.structName(args.length),
+          args.zipWithIndex.map((t, i) => (ir.DFTuple.fieldName(i), t.asTypeOf[Any]))
         )
       case _ =>
         val clsSym = fTpe.classSymbol.get

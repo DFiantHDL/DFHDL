@@ -604,6 +604,14 @@ object DFBits:
           if (value.hasTag[DFVal.TruncateTag]) value.bits.tag(DFVal.TruncateTag)
           else if (value.hasTag[DFVal.ExtendTag]) value.bits.tag(DFVal.ExtendTag)
           else value.bits
+      given fromDFTuple[T <: NonEmptyTuple, P, R <: DFValTP[DFTuple[T], P], W <: Width[DFTuple[T]]](
+          using w: W
+      ): Candidate[R] with
+        type OutW = w.Out
+        type OutP = P
+        def apply(value: R)(using DFC): Out =
+          import DFVal.Ops.bits
+          value.bits
       inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
           "Cannot apply an enum entry value to a bits variable."
@@ -671,10 +679,11 @@ object DFBits:
           '{
             new Candidate[R]:
               type OutW = wType.Underlying
-              type OutP = Any
+              type OutP = NOTCONST
               def apply(value: R)(using DFC): Out =
-                valueToBits(value).asValTP[DFBits[OutW], Any]
+                valueToBits(value).asValTP[DFBits[OutW], NOTCONST]
           }
+        end if
       end DFBitsMacro
     end Candidate
 
@@ -699,7 +708,7 @@ object DFBits:
           check: `LW == RW`.Check[LW, ic.OutW]
       ): TC[DFBits[LW], V] with
         type OutP = ic.OutP
-        def conv(dfType: DFBits[LW], value: V)(using dfc: Ctx) =
+        def conv(dfType: DFBits[LW], value: V)(using dfc: Ctx): Out =
           import Ops.resizeBits
           val dfVal = ic(value)
           (dfType.asIR: ir.DFType) match
@@ -718,7 +727,7 @@ object DFBits:
       given DFBitsFromSEV[LW <: Int, T <: BitOrBool, V <: SameElementsVector[T]]: TC[DFBits[LW], V]
       with
         type OutP = CONST
-        def conv(dfType: DFBits[LW], value: V)(using Ctx) =
+        def conv(dfType: DFBits[LW], value: V)(using Ctx): Out =
           DFVal.Const(Token(dfType.width, value), named = true)
     end TC
 

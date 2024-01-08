@@ -73,11 +73,7 @@ object Width:
             case '[DFOpaque[t]] =>
               TypeRepr.of[t].calcWidth
             case '[DFTuple[t]] =>
-              val AppliedType(tplSym, args) = TypeRepr.of[t]: @unchecked
-              AppliedType(
-                tplSym,
-                args.collect { case AppliedType(_, dfTpe :: _) => dfTpe }
-              ).calcWidth
+              TypeRepr.of[t].getTupleArgs.map(_.calcValWidth(false)).reduce(_ + _)
             case '[DFStruct[p]] =>
               TypeRepr.of[p].calcWidth
             // TODO: figure out why this is needed and DFVector case is not taken

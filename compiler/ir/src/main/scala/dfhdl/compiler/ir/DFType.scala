@@ -254,10 +254,12 @@ end DFStruct
 object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
   extension (dfType: DFStruct) def isTuple: Boolean = dfType.name.startsWith("DFTuple")
 object DFTuple:
+  def structName(length: Int): String = s"DFTuple$length"
+  def fieldName(idx: Int): String = s"_${idx + 1}"
   def apply(fieldList: List[DFType]): DFStruct =
     DFStruct(
-      s"DFTuple${fieldList.length}",
-      ListMap.from(fieldList.view.zipWithIndex.map((f, i) => (s"_${i + 1}", f)))
+      structName(fieldList.length),
+      ListMap.from(fieldList.view.zipWithIndex.map((f, i) => (fieldName(i), f)))
     )
 /////////////////////////////////////////////////////////////////////////////
 
