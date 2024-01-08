@@ -27,7 +27,7 @@ case object ExplicitRegInits extends Stage:
           List(
             regPatch,
             dcl -> Patch.Replace(
-              dcl.removeTagOf[ExternalInit],
+              dcl.copy(externalInit = None),
               Patch.Replace.Config.FullReplacement
             )
           )

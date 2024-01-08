@@ -80,10 +80,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
 
   def csDFValDcl(dfVal: Dcl): String =
     val noInit = s"${printer.csDFType(dfVal.dfType)} <> ${csDFValDclModifier(dfVal.modifier)}"
-    dfVal.getTagOf[ExternalInit] match
-      case Some(ExternalInit(initSeq)) if initSeq.size > 1 =>
+    dfVal.externalInit match
+      case Some(initSeq) if initSeq.size > 1 =>
         s"$noInit init ${printer.csDFTokenSeq(initSeq)}"
-      case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
+      case Some(initSeq) if initSeq.size == 1 =>
         s"$noInit init ${printer.csDFToken(initSeq.head)}"
       case _ => noInit
   def csDFValFuncExpr(dfVal: Func): String =

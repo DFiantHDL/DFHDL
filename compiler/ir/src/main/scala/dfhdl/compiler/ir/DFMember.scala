@@ -256,6 +256,7 @@ object DFVal:
   final case class Dcl(
       dfType: DFType,
       modifier: Modifier,
+      externalInit: Option[List[DFTokenAny]],
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags

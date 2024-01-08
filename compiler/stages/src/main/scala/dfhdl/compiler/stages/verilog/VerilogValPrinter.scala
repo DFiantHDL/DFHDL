@@ -30,9 +30,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     val endChar = if (dfVal.isPort) "" else ";"
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
     val noInit = s"$modifier${dfTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
-    dfVal.getTagOf[ExternalInit] match
-      case Some(ExternalInit(initSeq)) if initSeq.size > 1 => printer.unsupported
-      case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
+    dfVal.externalInit match
+      case Some(initSeq) if initSeq.size > 1 => printer.unsupported
+      case Some(initSeq) if initSeq.size == 1 =>
         s"$noInit = ${printer.csDFToken(initSeq.head)}$endChar"
       case _ => s"$noInit$endChar"
   end csDFValDcl

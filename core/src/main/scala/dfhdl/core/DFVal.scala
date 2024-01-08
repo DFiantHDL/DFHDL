@@ -302,7 +302,9 @@ object DFVal extends DFValLP:
         dfVal.asIR.isAnonymous,
         s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
       )
-      dfVal.tag(ir.ExternalInit(tokens)).asVal[T, Modifier[A, C, Modifier.Initialized, P]]
+      val updateDcl =
+        dfVal.asIR.asInstanceOf[ir.DFVal.Dcl].copy(externalInit = Some(tokens), meta = dfc.getMeta)
+      dfc.getSet.replace(dfVal.asIR)(updateDcl).asVal[T, Modifier[A, C, Modifier.Initialized, P]]
 
     infix def init(
         tokenValues: DFToken.Value[T]*
@@ -367,6 +369,7 @@ object DFVal extends DFValLP:
         .Dcl(
           dfType.asIR,
           modifier.asIR,
+          None,
           dfc.owner.ref,
           dfc.getMeta,
           ir.DFTags.empty

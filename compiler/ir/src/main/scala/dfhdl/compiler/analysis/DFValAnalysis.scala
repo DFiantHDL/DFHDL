@@ -95,9 +95,6 @@ object PortOfDesignDef:
         else None
       case _ => None
 
-extension (dcl: DFVal.Dcl)
-  def externalInit: Option[List[DFTokenAny]] = dcl.getTagOf[ExternalInit].map(_.tokenSeq)
-
 private val netClassTag = classTag[DFNet]
 private val aliasPartClassTag = classTag[DFVal.Alias.Partial]
 private val portByNameSelectClassTag = classTag[DFVal.PortByNameSelect]

@@ -20,9 +20,9 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case _                  => "variable"
         s"$sigOrVar ${dfVal.getName} : $dfTypeStr"
     val endChar = if (dfVal.isPort) "" else ";"
-    dfVal.getTagOf[ExternalInit] match
-      case Some(ExternalInit(initSeq)) if initSeq.size > 1 => printer.unsupported
-      case Some(ExternalInit(initSeq)) if initSeq.size == 1 =>
+    dfVal.externalInit match
+      case Some(initSeq) if initSeq.size > 1 => printer.unsupported
+      case Some(initSeq) if initSeq.size == 1 =>
         s"$noInit := ${printer.csDFToken(initSeq.head)}$endChar"
       case _ => s"$noInit$endChar"
   end csDFValDcl

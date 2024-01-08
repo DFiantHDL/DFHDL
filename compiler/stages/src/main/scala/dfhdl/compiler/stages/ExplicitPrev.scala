@@ -167,16 +167,16 @@ case object ExplicitPrev extends Stage:
 //    println(explicitPrevSet)
 //    println("defaultSet")
 //    println(defaultsSet)
-    val patchList = explicitPrevSet.map {
+    val patchList = explicitPrevSet.collect {
       // for initialized ports and variables we just add an explicit prev self-assignment
-      case e if e.tags.hasTagOf[ExternalInit] =>
+      case e: DFVal.Dcl if e.externalInit.nonEmpty =>
         new MetaDesign(e, Patch.Add.Config.After):
           e.asVarAny := e.asValAny.asInitialized.prev
         .patch
       // if not initialized we also need to add bubble tagging to the initialization
-      case e =>
+      case e: DFVal.Dcl =>
         new MetaDesign(e, Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)):
-          val withInit = e.tag(ExternalInit(List(DFToken.bubble(e.dfType))))
+          val withInit = e.copy(externalInit = Some(List(DFToken.bubble(e.dfType))))
           plantMember(withInit)
           withInit.asVarAny := withInit.asValAny.asInitialized.prev
         .patch
