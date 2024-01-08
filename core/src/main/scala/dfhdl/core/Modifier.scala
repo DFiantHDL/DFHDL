@@ -25,7 +25,7 @@ end Modifier
 sealed trait VAL
 sealed trait ISCONST[T <: Boolean]
 type CONST = ISCONST[true]
-type NOTCONST = ISCONST[false]
+type NOTCONST = Any
 sealed trait DFRET
 
 object __OPEN

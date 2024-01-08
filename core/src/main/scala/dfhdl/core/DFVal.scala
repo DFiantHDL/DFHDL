@@ -41,7 +41,6 @@ type DFVarAny = DFVal[DFTypeAny, Modifier.Mutable]
 type DFDclAny = DFVal[DFTypeAny, Modifier.Dcl]
 type DFValOf[+T <: DFTypeAny] = DFVal[T, ModifierAny]
 type DFConstOf[+T <: DFTypeAny] = DFVal[T, Modifier.CONST]
-type DFNotConstOf[+T <: DFTypeAny] = DFVal[T, Modifier.NOTCONST]
 type DFValTP[+T <: DFTypeAny, +P] = DFVal[T, Modifier[Any, Any, Any, P]]
 type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier.Mutable]
 
@@ -53,8 +52,8 @@ infix type <>[T <: DFType.Supported, M] = T match
       case false => DFSInt[32] <> M
   case _ =>
     M match
-      case DFRET => DFC ?=> DFNotConstOf[DFType.Of[T]]
-      case VAL   => DFNotConstOf[DFType.Of[T]]
+      case DFRET => DFC ?=> DFValOf[DFType.Of[T]]
+      case VAL   => DFValOf[DFType.Of[T]]
       case CONST => DFConstOf[DFType.Of[T]]
       case TOKEN => DFToken[DFType.Of[T]]
 
@@ -121,6 +120,17 @@ def DFValConversionMacro[T <: DFTypeAny, P, R](
 end DFValConversionMacro
 
 sealed protected trait DFValLP:
+  /* TODO: IMPORTANT IMPLICIT CONVERSION ISSUE
+     -----------------------------------------
+    Currently, the following issue affects the implicit conversion mechanism:
+    https://github.com/lampepfl/dotty/issues/19388
+    Because of this, we need to explicitly have a solid return type on the conversion definition
+    to prevent returning `Nothing`. We have `CONST=:=ISCONST[true]` and `NOTCONST=:=Any`.
+    For `NOTCONST`, what actually is happening is that the implicit conversion mechanism
+    returns `ISCONST[Boolean]` and therefore we can detect it is not a constant. Because the
+    modifier `M` of `DFVal[+T, +M]` is covariant, the compiler accepts
+    `DFVal[T, NOTCONST] <:< DFVal[T, ISCONST[Boolean]]` and all is well.
+   */
   implicit transparent inline def DFBitsValConversion[
       W <: Int,
       P <: Boolean,
@@ -171,15 +181,14 @@ sealed protected trait DFValLP:
   given DFBitValConversion[R <: BitOrBool](using
       tc: DFVal.TC[DFBit, R],
       dfc: DFC
-  ): Conversion[R, DFNotConstOf[DFBit]] = from => tc(DFBit, from).asInstanceOf[DFNotConstOf[DFBit]]
+  ): Conversion[R, DFValOf[DFBit]] = from => tc(DFBit, from).asInstanceOf[DFValOf[DFBit]]
   given DFBoolValConversion[R <: BitOrBool](using
       tc: DFVal.TC[DFBool, R],
       dfc: DFC
-  ): Conversion[R, DFNotConstOf[DFBool]] = from =>
-    tc(DFBool, from).asInstanceOf[DFNotConstOf[DFBool]]
+  ): Conversion[R, DFValOf[DFBool]] = from => tc(DFBool, from).asInstanceOf[DFValOf[DFBool]]
   given DFUnitValConversion[R <: DFValAny | Unit | NonEmptyTuple | Bubble](using
       dfc: DFC
-  ): Conversion[R, DFNotConstOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFNotConstOf[DFUnit]]
+  ): Conversion[R, DFValOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFValOf[DFUnit]]
   given ConstToNonConstAccept[T <: DFTypeAny, P]: Conversion[DFValTP[T, P], DFValTP[T, NOTCONST]] =
     from => from.asValTP[T, NOTCONST]
   // implicit transparent inline def NonConstToConstReject[T <: DFTypeAny, P](
@@ -607,7 +616,7 @@ object DFVal extends DFValLP:
     def apply(dfType: T, value: R)(using DFC): DFValTP[T, P]
   object Conv:
     transparent inline given [T <: DFTypeAny, P, R](using tc: TC[T, R]): Conv[T, P, R] =
-      compiletime.summonInline[AssertGiven[
+      val constCheck = compiletime.summonInline[AssertGiven[
         util.NotGiven[P =:= CONST] | (tc.OutP =:= CONST),
         "Applied argument is not a constant."
       ]]

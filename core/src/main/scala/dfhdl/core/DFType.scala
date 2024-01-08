@@ -217,7 +217,7 @@ object DFType:
         .map(_.tpe.asTypeOf[Any] match
           case '[TC[t] { type Type = z }] => TypeRepr.of[z]
         )
-        .map(t => TypeRepr.of[DFNotConstOf].appliedTo(t))
+        .map(t => TypeRepr.of[DFValOf].appliedTo(t))
       def applyExpr(t: Expr[T]): Expr[List[DFTypeAny]] =
         '{
           val tList = $t.toList.asInstanceOf[List[Any]]
