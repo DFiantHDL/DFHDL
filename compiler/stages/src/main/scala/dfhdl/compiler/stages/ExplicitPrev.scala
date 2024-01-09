@@ -167,19 +167,31 @@ case object ExplicitPrev extends Stage:
 //    println(explicitPrevSet)
 //    println("defaultSet")
 //    println(defaultsSet)
-    val patchList = explicitPrevSet.collect {
+    val patchList = explicitPrevSet.flatMap {
       // for initialized ports and variables we just add an explicit prev self-assignment
-      case e: DFVal.Dcl if e.externalInit.nonEmpty =>
-        new MetaDesign(e, Patch.Add.Config.After):
-          e.asVarAny := e.asValAny.asInitialized.prev
-        .patch
+      case e: DFVal.Dcl if e.initRefsOption.nonEmpty =>
+        Some(
+          new MetaDesign(e, Patch.Add.Config.After):
+            e.asVarAny := e.asValAny.asInitialized.prev
+          .patch
+        )
       // if not initialized we also need to add bubble tagging to the initialization
       case e: DFVal.Dcl =>
-        new MetaDesign(e, Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.FullReplacement)):
-          val withInit = e.copy(externalInit = Some(List(DFToken.bubble(e.dfType))))
-          plantMember(withInit)
-          withInit.asVarAny := withInit.asValAny.asInitialized.prev
-        .patch
+        val explicitPrevAssignDsn = new MetaDesign(e, Patch.Add.Config.After):
+          val modifier = dfhdl.core.Modifier(e.modifier)
+          val dfType = new dfhdl.core.DFType(e.dfType)
+          val bubble = dfhdl.core.DFVal.Const(dfhdl.core.Bubble(dfType))
+          val dclWithInit =
+            dfhdl.core.DFVal.Dcl(dfType, modifier, Some(List(bubble)))(using
+              dfc.setMeta(e.meta)
+            ).asVarAny.asInitialized
+          dclWithInit := dclWithInit.prev
+        val dclPatch = e -> Patch.Replace(
+          explicitPrevAssignDsn.dclWithInit.asIR,
+          Patch.Replace.Config.ChangeRefAndRemove
+        )
+        List(dclPatch, explicitPrevAssignDsn.patch)
+      case _ => None
     }.toList
     designDB.patch(patchList)
   end transform

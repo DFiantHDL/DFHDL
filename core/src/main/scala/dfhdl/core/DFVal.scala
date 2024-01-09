@@ -77,6 +77,8 @@ extension (dfVal: ir.DFVal)
     DFVal[DFTypeAny, Modifier.Mutable](dfVal)
   inline def asDclAny: DFDclAny =
     DFVal[DFTypeAny, Modifier.Dcl](dfVal)
+  inline def asConstAny[T <: DFTypeAny]: DFConstOf[DFTypeAny] =
+    DFVal[DFTypeAny, Modifier.CONST](dfVal)
   inline def asConstOf[T <: DFTypeAny]: DFConstOf[T] =
     DFVal[T, Modifier.CONST](dfVal)
 end extension
@@ -258,6 +260,7 @@ object DFVal extends DFValLP:
   ): InitCheck[I] with {}
 
   extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
+    @metaContextForward(0)
     infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using
         dfc: DFC
     ): DFVal[T, M] =
@@ -266,12 +269,14 @@ object DFVal extends DFValLP:
         .setTags(_.tag(customTag))
         .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
         .asVal[T, M]
+    @metaContextForward(0)
     infix def tag[CT <: ir.DFTag: ClassTag](condCustomTag: Conditional[CT])(using
         dfc: DFC
     ): DFVal[T, M] = if (condCustomTag.isActive) dfVal.tag(condCustomTag.getArg) else dfVal
     def hasTag[CT <: ir.DFTag: ClassTag](using dfc: DFC): Boolean =
       import dfc.getSet
       dfVal.asIR.tags.hasTagOf[CT]
+    @metaContextForward(0)
     infix def setName(name: String)(using dfc: DFC): DFVal[T, M] =
       import dfc.getSet
       dfVal.asIR
@@ -302,9 +307,13 @@ object DFVal extends DFValLP:
         dfVal.asIR.isAnonymous,
         s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
       )
-      val updateDcl =
-        dfVal.asIR.asInstanceOf[ir.DFVal.Dcl].copy(externalInit = Some(tokens), meta = dfc.getMeta)
-      dfc.getSet.replace(dfVal.asIR)(updateDcl).asVal[T, Modifier[A, C, Modifier.Initialized, P]]
+      val consts = tokens.map(t => DFVal.Const(t.asTokenOf[T]))
+      val modifier = Modifier[A, C, I, P](dfVal.asIR.asInstanceOf[ir.DFVal.Dcl].modifier)
+      // We do not need to replace the original Dcl, because it was anonymous and not added to the
+      // mutable DB. Also see comment in `DFVal.Dcl`.
+      DFVal.Dcl(dfVal.dfType, modifier, Some(consts))
+        .asVal[T, Modifier[A, C, Modifier.Initialized, P]]
+    end initForced
 
     infix def init(
         tokenValues: DFToken.Value[T]*
@@ -362,20 +371,37 @@ object DFVal extends DFValLP:
         .asValOf[T]
 
   object Dcl:
-    def apply[T <: DFTypeAny, M <: ModifierAny](dfType: T, modifier: M)(using
+    def apply[T <: DFTypeAny, M <: ModifierAny](
+        dfType: T,
+        modifier: M,
+        initOption: Option[List[DFConstOf[T]]] = None
+    )(using
         DFC
     ): DFVal[T, M] =
-      ir.DFVal
-        .Dcl(
+      // Anonymous Dcls are only supposed to be followed by an `init` that will construct the
+      // fully initialized Dcl. The reason for this behavior is that we do not want to add the
+      // Dcl to the mutable DB and only after add its initialization value to the DB, thereby
+      // violating the reference order rule (we can only reference values that appear before).
+      if (dfc.isAnonymous && initOption.isEmpty)
+        ir.DFVal.Dcl(
           dfType.asIR,
           modifier.asIR,
           None,
+          ir.DFRef.OneWay.Empty,
+          dfc.getMeta,
+          ir.DFTags.empty
+        ).asVal[T, M]
+      else
+        lazy val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
+          dfType.asIR,
+          modifier.asIR,
+          initOption.map(_.map(_.asIR.refTW(dcl))),
           dfc.owner.ref,
           dfc.getMeta,
           ir.DFTags.empty
         )
-        .addMember
-        .asVal[T, M]
+        dcl.addMember.asVal[T, M]
+    end apply
   end Dcl
 
   object Func:
@@ -448,7 +474,7 @@ object DFVal extends DFValLP:
           relVal: DFValOf[T],
           step: Int,
           op: HistoryOp,
-          initOption: Option[DFToken[T]]
+          initOption: Option[DFConstOf[T]]
       )(using DFC): DFValOf[T] =
         lazy val alias: ir.DFVal.Alias.History =
           ir.DFVal.Alias.History(
@@ -456,7 +482,7 @@ object DFVal extends DFValLP:
             relVal.asIR.refTW(alias),
             step,
             op,
-            initOption.map(_.asIR),
+            initOption.map(_.asIR.refTW(alias)),
             dfc.owner.ref,
             dfc.getMeta,
             ir.DFTags.empty
@@ -626,6 +652,7 @@ object DFVal extends DFValLP:
       new Conv[T, P, R]:
         def apply(dfType: T, value: R)(using DFC): DFValTP[T, P] =
           tc(dfType, value).asValTP[T, P]
+  type TCConst[T <: DFTypeAny, R] = Conv[T, CONST, R]
 
   trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
     type Out = DFValOf[T]
@@ -760,7 +787,7 @@ object DFVal extends DFValLP:
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        val initOpt = Some(tokenTC(dfVal.dfType, init))
+        val initOpt = Some(Const(tokenTC(dfVal.dfType, init)))
         DFVal.Alias.History(dfVal, step, HistoryOp.Prev, initOpt)
       }
       def prev(step: Inlined[S])(using
@@ -781,7 +808,7 @@ object DFVal extends DFValLP:
           dfVal,
           step,
           HistoryOp.Pipe,
-          Some(DFToken.bubble(dfVal.dfType)) // pipe always has a bubble for initialization
+          Some(Const(DFToken.bubble(dfVal.dfType))) // pipe always has a bubble for initialization
         )
       }
       inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
@@ -797,11 +824,11 @@ object DFVal extends DFValLP:
       def reg(step: Inlined[S], init: Exact[V])(using
           dfc: DFC,
           rtOnly: RTDomainOnly,
-          tokenTC: DFToken.TC[T, V],
+          tc: DFVal.TCConst[T, V],
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        val initOpt = Some(tokenTC(dfVal.dfType, init))
+        val initOpt = Some(tc(dfVal.dfType, init).anonymize)
         DFVal.Alias.History(dfVal, step, HistoryOp.Reg, initOpt)
       }
       inline def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)

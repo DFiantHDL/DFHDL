@@ -10,23 +10,19 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValConstDcl(dfVal: Const): String =
     s"constant ${dfVal.getName} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)};"
-  def csDFValDcl(dfVal: Dcl): String =
+  def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
-    val noInit =
-      if (dfVal.isPort) s"${dfVal.getName} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
-      else
-        val sigOrVar = dfVal.getOwnerNamed match
-          case dsn: DFDesignBlock => "signal"
-          case _                  => "variable"
-        s"$sigOrVar ${dfVal.getName} : $dfTypeStr"
-    val endChar = if (dfVal.isPort) "" else ";"
-    dfVal.externalInit match
-      case Some(initSeq) if initSeq.size > 1 => printer.unsupported
-      case Some(initSeq) if initSeq.size == 1 =>
-        s"$noInit := ${printer.csDFToken(initSeq.head)}$endChar"
-      case _ => s"$noInit$endChar"
-  end csDFValDcl
-
+    if (dfVal.isPort) s"${dfVal.getName} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
+    else
+      val sigOrVar = dfVal.getOwnerNamed match
+        case dsn: DFDesignBlock => "signal"
+        case _                  => "variable"
+      s"$sigOrVar ${dfVal.getName} : $dfTypeStr"
+  end csDFValDclWithoutInit
+  def csInitKeyword: String = ":="
+  def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
+  def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
+  def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
   def csDFValFuncExpr(dfVal: Func): String =
     dfVal.args match
       // infix func

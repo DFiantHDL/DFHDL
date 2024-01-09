@@ -78,7 +78,7 @@ case object SanityCheck extends Stage:
         case m =>
           m.getRefs.foreach { r =>
             r.get match
-              case port: DFVal.Dcl if port.isPort =>
+              case port @ DclPort() =>
                 if (!m.isSameOwnerDesignAs(port))
                   reportViolation(
                     s"""|Direct internal port referencing instead of by-name selection found.
@@ -88,6 +88,18 @@ case object SanityCheck extends Stage:
               case _ =>
           }
       end match
+      // TODO: think if this check should be enabled
+      // check that anonymous values are referenced only once
+      // m match
+      //   case dfVal: DFVal if dfVal.isAnonymous =>
+      //     val deps = dfVal.getReadDeps
+      //     if (deps.size > 1)
+      //       reportViolation(
+      //         s"""|An anonymous value has more than one reference.
+      //             |Referenced value: $dfVal
+      //             |Referencing members: ${deps.mkString("\n\t", "\n\t", "")}""".stripMargin
+      //       )
+      //   case _ =>
     }
     val memberSet = getSet.designDB.members.toSet
     // checks for all references

@@ -88,11 +88,14 @@ case object NameRegAliases extends Stage:
             .groupByOrdered(_.getNameGroup)
 
         // assumes we ordered the members so the declarations come first.
-        // if there are no declarations, we set the owner as position
-        val (posMember, addCfg): (DFMember, Patch.Add.Config) = members.view.takeWhile {
-          case _: DFVal.Dcl => true
-          case _            => false
-        }.lastOption match
+        // if there are no declarations, we set the owner as position.
+        // we keep in mind that the declaration may have anonymous value
+        // representing the initialized values among them, before the declarations,
+        // so we go from the bottom to the top searching for the first declaration.
+        val (posMember, addCfg): (DFMember, Patch.Add.Config) = members.view.reverse.dropWhile {
+          case dcl: DFVal.Dcl if dcl.getOwnerDomain == domainOwner => false
+          case _                                                   => true
+        }.headOption match
           case Some(lastDcl) => (lastDcl, Patch.Add.Config.After)
           case None          => (domainOwner, Patch.Add.Config.InsideFirst)
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
@@ -110,14 +113,21 @@ case object NameRegAliases extends Stage:
               val regName =
                 if (i == maxRegs && !alias.isAnonymous) alias.getName
                 else namePrefix + nameSuffix
-              import dfhdl.core.{DFTypeAny, asFE, asTokenOf}
-              alias.dfType.asFE[DFTypeAny] <> VAR setName regName
+              alias.asValAny.genNewVar(using dfc.setName(regName))
             val regsIR = regs.map(_.asIR).toList
             val relVal = alias.getNonRegAliasRelVal
             def regDinPatch(posMember: DFMember, addCfg: Patch.Add.Config) =
-              new MetaDesign(posMember, addCfg, domainType = dfhdl.core.DFC.Domain.RT):
+              new MetaDesign(posMember, addCfg, domainType = dfhdl.core.DFC.Domain.RT)(using
+                dfc.getSet
+              ):
                 (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
-                  curr.asVarAny := prev.asValAny.reg(1, init = alias.initOption.get.asTokenAny)
+                  val reg = dfhdl.core.DFVal.Alias.History(
+                    prev.asValAny,
+                    1,
+                    HistoryOp.Reg,
+                    alias.initOption.map(_.asConstAny)
+                  )
+                  curr.asVarAny := reg
                 }
               .patch
             if (unique) regPatches += regDinPatch(alias, Patch.Add.Config.Before)
@@ -158,7 +168,6 @@ case object NameRegAliases extends Stage:
         ).flatten
       case _ => None
     }
-
     designDB.patch(patchList)
   end transform
 end NameRegAliases

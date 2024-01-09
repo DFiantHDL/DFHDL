@@ -14,7 +14,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = ${printer.csDFToken(dfVal.token)};"
   private def wireOrLogic: String = if (supportLogicType) "logic" else "wire"
   private def regOrLogic: String = if (supportLogicType) "logic" else "reg"
-  def csDFValDcl(dfVal: Dcl): String =
+  def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val modifier = dfVal.modifier match
       case Modifier.IN =>
@@ -27,16 +27,13 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
 //        dfVal.dfType match
 //          case _: DFEnum => ""
 //          case _         => "logic"
-    val endChar = if (dfVal.isPort) "" else ";"
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
-    val noInit = s"$modifier${dfTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
-    dfVal.externalInit match
-      case Some(initSeq) if initSeq.size > 1 => printer.unsupported
-      case Some(initSeq) if initSeq.size == 1 =>
-        s"$noInit = ${printer.csDFToken(initSeq.head)}$endChar"
-      case _ => s"$noInit$endChar"
-  end csDFValDcl
-
+    s"$modifier${dfTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
+  end csDFValDclWithoutInit
+  def csInitKeyword: String = "="
+  def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
+  def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
+  def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
   def csDFValFuncExpr(dfVal: Func): String =
     dfVal.args match
       // infix func

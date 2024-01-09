@@ -59,9 +59,9 @@ case object AddClkRst extends Stage:
                 val addRst = requiresRst && existingRst.isEmpty
                 if (addClk || addRst)
                   val dsn = new MetaDesign(owner, Patch.Add.Config.InsideFirst):
-                    lazy val clk = Bit <> IN setName "clk"
+                    lazy val clk = (Bit <> IN)(using dfc.setName("clk"))
                     if (addClk) clk // touch lazy clk to create
-                    lazy val rst = Bit <> IN setName "rst"
+                    lazy val rst = (Bit <> IN)(using dfc.setName("rst"))
                     if (addRst) rst // touch lazy rst to create
                   // the ports are added as first members
                   Some(dsn.patch)

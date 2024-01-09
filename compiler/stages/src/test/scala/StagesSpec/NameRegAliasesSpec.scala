@@ -19,9 +19,9 @@ class NameRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign:
-         |  val x1 = SInt(16) <> IN
+         |  val x1 = SInt(16) <> IN init sd"16'0"
          |  val y1 = SInt(16) <> OUT
-         |  val x2 = SInt(16) <> IN
+         |  val x2 = SInt(16) <> IN init sd"16'0"
          |  val y2 = SInt(16) <> OUT
          |  val x1_reg = SInt(16) <> VAR
          |  val x2_reg1 = SInt(16) <> VAR
@@ -48,8 +48,8 @@ class NameRegAliasesSpec extends StageSpec:
       id,
       """|class Cnt extends RTDesign:
          |  val o1 = UInt(16) <> OUT
-         |  val o2 = UInt(16) <> OUT
-         |  val c = UInt(16) <> VAR
+         |  val o2 = UInt(16) <> OUT init d"16'0"
+         |  val c = UInt(16) <> VAR init d"16'0"
          |  val c_reg = UInt(16) <> VAR
          |  val o2_reg = UInt(16) <> VAR
          |  c_reg := c.reg(1, d"16'0")
@@ -114,7 +114,7 @@ class NameRegAliasesSpec extends StageSpec:
          |  val y1 = SInt(16) <> OUT
          |  val x2 = SInt(16) <> IN
          |  val y2 = SInt(16) <> OUT
-         |  val v = SInt(16) <> VAR
+         |  val v = SInt(16) <> VAR init sd"16'0"
          |  val v_ver1_reg = SInt(16) <> VAR
          |  val v_ver2_reg = SInt(16) <> VAR
          |  val v_ver3_reg1 = SInt(16) <> VAR
@@ -145,7 +145,7 @@ class NameRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign:
-         |  val x1 = SInt(16) <> IN
+         |  val x1 = SInt(16) <> IN init sd"16'0"
          |  val y1 = SInt(16) <> OUT
          |  val v = SInt(16) <> VAR
          |  val x1_reg = SInt(16) <> VAR

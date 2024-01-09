@@ -34,15 +34,20 @@ object OrderMembers:
   object Order:
     object Simple extends Order:
       def apply()(using MemberGetSet): DFMember => Int = {
-        case dcl: DFVal.Dcl if dcl.isPort => 1
-        case _: DFVal.Dcl                 => 2
-        case _: DFDesignBlock             => 3
-//        case DFNet.Connection(_, dcl: DFVal.Dcl, _) if dcl.modifier == DFVal.Modifier.IN => 4
-//        case DFNet.Connection(toVal : DFVal.Dcl, fromVal : DFVal.Dcl, _) if toVal.isVar && fromVal.isVar =>
-//          4
-//        case DFNet.Connection(dcl: DFVal.Dcl, _, _) => 6
+        // anonymous members that are referenced by declarations come first
+        case dfVal: DFVal
+            if dfVal.isAnonymous && dfVal.originRefs.exists(_.get.isInstanceOf[DFVal.Dcl]) =>
+          1
+        // second to come are ports
+        case DclPort() => 2
+        // third are variables
+        case _: DFVal.Dcl => 3
+        // fourth are design blocks instances
+        case _: DFDesignBlock => 4
+        // then the rest
         case _ => 5
       }
+    end Simple
 //    val GuardedLast: Order = new Order:
 //      def apply()(using MemberGetSet): DFMember => Int = {
 //        case DFAny.Port.In() | DFAny.Port.Out() => 1

@@ -10,6 +10,7 @@ import scala.annotation.tailrec
 import scala.reflect.{ClassTag, classTag}
 import DFDesignBlock.InstMode
 import scala.util.boundary, boundary.break
+import scala.annotation.targetName
 
 object Ident:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
@@ -69,6 +70,13 @@ object DclVar:
   ): Boolean = dcl.modifier match
     case Modifier.VAR => true
     case _            => false
+
+object DclPort:
+  def unapply(dcl: DFVal.Dcl)(using
+      MemberGetSet
+  ): Boolean = dcl.modifier match
+    case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
+    case _                                           => false
 
 object DclIn:
   def unapply(dcl: DFVal.Dcl)(using
@@ -139,7 +147,7 @@ extension (dfVal: DFVal)
     getSet.designDB.assignmentsTableInverted.getOrElse(dfVal, Set())
   def getPortsByNameSelectors(using MemberGetSet): List[DFVal.PortByNameSelect] =
     dfVal match
-      case dcl: DFVal.Dcl if dcl.isPort =>
+      case dcl @ DclPort() =>
         getSet.designDB.portsByNameSelectors.getOrElse(dcl, Nil)
       case _ => Nil
   def getReadDeps(using MemberGetSet): Set[DFNet | DFVal] =
@@ -158,7 +166,7 @@ extension (dfVal: DFVal)
     }
     dfVal match
       // for ports we need to also account for by-name referencing
-      case port: DFVal.Dcl if port.isPort =>
+      case port @ DclPort() =>
         val designInst = port.getOwnerDesign
         designInst.originRefs.view
           .filter(_.refType equals portByNameSelectClassTag)
@@ -226,6 +234,11 @@ extension (dfVal: DFVal)
       case _ => None
   end suggestName
   def suggestName(using MemberGetSet): Option[String] = suggestName(dfVal)
+  def isBubble(using MemberGetSet): Boolean =
+    dfVal match
+      case c: DFVal.Const => c.token.isBubble
+      case f: DFVal.Func  => f.args.exists(_.get.isBubble)
+      case _              => false
 end extension
 
 extension (refTW: DFNet.Ref)
@@ -235,16 +248,22 @@ extension (refTW: DFNet.Ref)
         refTW.get.stripPortSel.getOwner.isSameOwnerDesignAs(net)
       case _ => false
 
-extension (net: DFNet)
-  private def collectRelMembersRecur(dfVal: DFVal)(using MemberGetSet): List[DFVal] =
-    if (dfVal.isAnonymous)
-      dfVal :: dfVal.getRefs.view.map(_.get).flatMap {
-        case dfVal: DFVal => collectRelMembersRecur(dfVal)
+extension (origVal: DFVal)
+  private def collectRelMembersRecur(includeOrigVal: Boolean)(using MemberGetSet): List[DFVal] =
+    if (origVal.isAnonymous || includeOrigVal)
+      origVal :: origVal.getRefs.view.map(_.get).flatMap {
+        case dfVal: DFVal => dfVal.collectRelMembersRecur(false)
         case _            => Nil
       }.toList
     else Nil
+  @targetName("collectRelMembersDFVal")
+  def collectRelMembers(includeOrigVal: Boolean)(using MemberGetSet): List[DFVal] =
+    origVal.collectRelMembersRecur(includeOrigVal).reverse
+
+extension (net: DFNet)
+  @targetName("collectRelMembersDFNet")
   def collectRelMembers(using MemberGetSet): List[DFVal] =
     net match
       case DFNet(DFRef(lhs: DFVal), _, DFRef(rhs: DFVal), _, _, _) =>
-        collectRelMembersRecur(lhs).reverse ++ collectRelMembersRecur(rhs).reverse
+        lhs.collectRelMembers(false) ++ rhs.collectRelMembers(false)
       case _ => Nil

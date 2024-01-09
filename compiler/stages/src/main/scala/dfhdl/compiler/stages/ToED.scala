@@ -17,7 +17,7 @@ case object ToED extends Stage:
       regVar: DFVal.Dcl,
       regAlias: DFVal.Alias.History,
       relVal: DFVal,
-      initOption: Option[DFTokenAny]
+      initOption: Option[DFVal]
   )
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val domainAnalysis = new DomainAnalysis(designDB)
@@ -45,13 +45,13 @@ case object ToED extends Stage:
                       DFRef(relVal),
                       _,
                       HistoryOp.Reg,
-                      initOption,
+                      _,
                       _,
                       _,
                       _
                     )
                   ) =>
-                RegNet(net, regVar, regAlias, relVal, initOption)
+                RegNet(net, regVar, regAlias, relVal, regAlias.initOption)
             val removedNets = regNets.view.map(rn => rn.net).toSet
             val regAliasRemovalPatches = regNets.flatMap(rn =>
               List(
@@ -100,7 +100,7 @@ case object ToED extends Stage:
                   process(all) {}
                 def regInitBlock() = regNets.foreach:
                   case rn if rn.initOption.nonEmpty && !rn.initOption.get.isBubble =>
-                    rn.regVar.asVarAny :== dfhdl.core.DFVal.Const(rn.initOption.get.asTokenAny)
+                    rn.regVar.asVarAny :== rn.initOption.get.asValAny
                   case _ =>
                 def regSaveBlock() = regNets.foreach: rn =>
                   rn.regVar.asVarAny :== rn.relVal.asValAny

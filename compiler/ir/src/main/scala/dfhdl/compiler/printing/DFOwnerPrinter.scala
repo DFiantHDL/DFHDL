@@ -155,7 +155,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
         outNet
     }
     val defMembers = designMembers.filter {
-      case port: DFVal if port.isPort            => false
+      case port @ DclPort()                      => false
       case net: DFNet if outNetOpt.contains(net) => false
       case _                                     => true
     }

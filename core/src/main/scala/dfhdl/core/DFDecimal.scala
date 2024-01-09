@@ -867,21 +867,26 @@ object DFXInt:
       type OutS <: Boolean
       type OutW <: Int
       type OutP
+      type Out = DFValTP[DFXInt[OutS, OutW], OutP]
       type IsScalaInt <: Boolean
-      def apply(arg: R)(using DFC): DFValOf[DFXInt[OutS, OutW]]
+      def apply(arg: R)(using DFC): Out
     trait CandidateLP:
       given fromDFBitsValCandidate[R, IC <: DFBits.Val.Candidate[R]](using
           ic: IC
       ): Candidate[R] with
         type OutS = false
         type OutW = ic.OutW
+        type OutP = ic.OutP
         type IsScalaInt = false
-        def apply(arg: R)(using dfc: DFC): DFValOf[DFXInt[false, ic.OutW]] =
+        def apply(arg: R)(using dfc: DFC): Out =
           import DFBits.Val.Ops.uint
           val dfVal = ic(arg)(using dfc.anonymize)
-          if (dfVal.hasTag[DFVal.TruncateTag]) dfVal.uint.tag(DFVal.TruncateTag)
-          else if (dfVal.hasTag[DFVal.ExtendTag]) dfVal.uint.tag(DFVal.ExtendTag)
-          else dfVal.uint
+          if (dfVal.hasTag[DFVal.TruncateTag])
+            dfVal.uint.tag(DFVal.TruncateTag).asValTP[DFXInt[OutS, OutW], OutP]
+          else if (dfVal.hasTag[DFVal.ExtendTag])
+            dfVal.uint.tag(DFVal.ExtendTag).asValTP[DFXInt[OutS, OutW], OutP]
+          else dfVal.uint.asValTP[DFXInt[OutS, OutW], OutP]
+      end fromDFBitsValCandidate
     end CandidateLP
     object Candidate extends CandidateLP:
       given fromTokenCandidate[R, IC <: Token.Candidate[R]](using
@@ -889,14 +894,17 @@ object DFXInt:
       ): Candidate[R] with
         type OutS = ic.OutS
         type OutW = ic.OutW
+        type OutP = CONST
         type IsScalaInt = ic.IsScalaInt
-        def apply(arg: R)(using dfc: DFC): DFValOf[DFXInt[OutS, OutW]] =
+        def apply(arg: R)(using dfc: DFC): Out =
           DFVal.Const(ic(arg), named = true)
-      given fromDFXIntVal[S <: Boolean, W <: Int, R <: DFValOf[DFXInt[S, W]]]: Candidate[R] with
+      given fromDFXIntVal[S <: Boolean, W <: Int, P, R <: DFValTP[DFXInt[S, W], P]]: Candidate[R]
+      with
         type OutS = S
         type OutW = W
+        type OutP = P
         type IsScalaInt = false
-        def apply(arg: R)(using DFC): DFValOf[DFXInt[S, W]] = arg
+        def apply(arg: R)(using DFC): DFValTP[DFXInt[S, W], P] = arg
       inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
           "Cannot apply an enum entry value to a DFHDL decimal variable."

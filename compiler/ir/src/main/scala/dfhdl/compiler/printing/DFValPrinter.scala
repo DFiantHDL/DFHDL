@@ -38,7 +38,19 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValConstDcl(dfVal: Const): String
   final def csDFValConstExpr(dfVal: Const): String =
     printer.csDFToken(dfVal.token)
-  def csDFValDcl(dfVal: Dcl): String
+  def csDFValDclWithoutInit(dfVal: Dcl): String
+  def csInitKeyword: String
+  def csInitSingle(ref: Dcl.InitRef): String
+  def csInitSeq(refs: List[Dcl.InitRef]): String
+  def csDFValDclEnd(dfVal: Dcl): String
+  final def csDFValDcl(dfVal: Dcl): String =
+    val noInit = csDFValDclWithoutInit(dfVal)
+    val init = dfVal.initRefsOption match
+      case Some(ref :: Nil) => s" $csInitKeyword ${csInitSingle(ref)}"
+      case Some(refs)       => s" $csInitKeyword ${csInitSeq(refs)}"
+      case _                => ""
+    val end = csDFValDclEnd(dfVal)
+    s"$noInit$init$end"
   def csDFValFuncExpr(dfVal: Func): String
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String
@@ -77,15 +89,12 @@ protected trait DFValPrinter extends AbstractValPrinter:
   def csDFValConstDcl(dfVal: Const): String =
     s"${printer.csDFType(dfVal.dfType)} CONST ${printer.csDFToken(dfVal.token)}"
   def csDFValDclModifier(modifier: Modifier): String = modifier.toString
-
-  def csDFValDcl(dfVal: Dcl): String =
-    val noInit = s"${printer.csDFType(dfVal.dfType)} <> ${csDFValDclModifier(dfVal.modifier)}"
-    dfVal.externalInit match
-      case Some(initSeq) if initSeq.size > 1 =>
-        s"$noInit init ${printer.csDFTokenSeq(initSeq)}"
-      case Some(initSeq) if initSeq.size == 1 =>
-        s"$noInit init ${printer.csDFToken(initSeq.head)}"
-      case _ => noInit
+  def csDFValDclWithoutInit(dfVal: Dcl): String =
+    s"${printer.csDFType(dfVal.dfType)} <> ${csDFValDclModifier(dfVal.modifier)}"
+  def csInitKeyword: String = "init"
+  def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
+  def csInitSeq(refs: List[Dcl.InitRef]): String = refs.view.map(_.refCodeString).mkStringBrackets
+  def csDFValDclEnd(dfVal: Dcl): String = ""
   def csDFValFuncExpr(dfVal: Func): String =
     dfVal.args match
       // infix func
@@ -205,8 +214,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case Alias.History.Op.Pipe => ".pipe"
       case Alias.History.Op.Reg  => ".reg"
     val appliedStr =
-      dfVal.initOption match
-        case Some(init)           => s"$opStr(${dfVal.step}, ${printer.csDFToken(init)})"
+      dfVal.initRefOption match
+        case Some(ref)            => s"$opStr(${dfVal.step}, ${ref.refCodeString})"
         case _ if dfVal.step == 1 => opStr
         case _                    => s"$opStr(${dfVal.step})"
     s"${dfVal.relValCodeString}$appliedStr"

@@ -256,7 +256,7 @@ object DFVal:
   final case class Dcl(
       dfType: DFType,
       modifier: Modifier,
-      externalInit: Option[List[DFTokenAny]],
+      initRefsOption: Option[List[Dcl.InitRef]],
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
@@ -264,13 +264,20 @@ object DFVal:
     protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
-        this.dfType == that.dfType && this.modifier == that.modifier &&
+        val sameInit = (this.initRefsOption, that.initRefsOption) match
+          case (Some(l), Some(r)) if l.length == r.length => l.lazyZip(r).forall(_ =~ _)
+          case (None, None)                               => true
+          case _                                          => false
+        this.dfType == that.dfType && this.modifier == that.modifier && sameInit &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
+    def initOption(using MemberGetSet): Option[List[DFVal]] = initRefsOption.map(_.map(_.get))
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = Nil
+    def getRefs: List[DFRefAny] = initRefsOption.getOrElse(Nil)
   end Dcl
+  object Dcl:
+    type InitRef = DFRef.TwoWay[DFVal, Dcl]
 
   final case class Func(
       dfType: DFType,
@@ -370,7 +377,7 @@ object DFVal:
         relValRef: ConsumerRef,
         step: Int,
         op: History.Op,
-        initOption: Option[DFTokenAny],
+        initRefOption: Option[History.InitRef],
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
@@ -378,15 +385,22 @@ object DFVal:
       protected def protIsConst(using MemberGetSet): Boolean = false
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: History =>
+          val sameInit = (this.initRefOption, that.initRefOption) match
+            case (Some(l), Some(r)) => l =~ r
+            case (None, None)       => true
+            case _                  => false
           this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
-          this.step == that.step && this.op == that.op && this.initOption == that.initOption
+          this.step == that.step && this.op == that.op && sameInit &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      def initOption(using MemberGetSet): Option[DFVal] = initRefOption.map(_.get)
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+      override def getRefs: List[DFRefAny] = List(relValRef) ++ initRefOption
     end History
 
     object History:
+      type InitRef = DFRef.TwoWay[DFVal, History]
       enum Op derives CanEqual:
         case Prev, Pipe, Reg
 

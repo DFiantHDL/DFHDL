@@ -93,10 +93,10 @@ object DFType:
         new DFVector.ComposedModifier[Int, M](cellDim, modifier)
     extension [T <: Supported](t: T)
       infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
+          dfc: DFC,
           tc: DFType.TC[T],
           ck: DFC.Scope,
-          dt: DFC.Domain,
-          dfc: DFC
+          dt: DFC.Domain
       ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
         DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, P]])
       infix def token[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using

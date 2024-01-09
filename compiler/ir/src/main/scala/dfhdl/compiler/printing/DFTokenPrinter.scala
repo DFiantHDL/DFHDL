@@ -131,8 +131,6 @@ trait AbstractTokenPrinter extends AbstractPrinter:
       throw new IllegalArgumentException(
         s"Unexpected token found: $x"
       )
-  final def csDFTokenSeq(tokenSeq: Seq[DFTokenAny]): String =
-    tokenSeq.map(csDFToken).mkStringBrackets
 end AbstractTokenPrinter
 
 protected trait DFTokenPrinter extends AbstractTokenPrinter:

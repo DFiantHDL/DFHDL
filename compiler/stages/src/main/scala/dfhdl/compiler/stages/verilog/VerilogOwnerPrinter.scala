@@ -22,8 +22,8 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val ports = design
       .members(MemberView.Folded)
       .view
-      .collect {
-        case p: DFVal.Dcl if p.isPort => printer.csDFMember(p)
+      .collect { case p @ DclPort() =>
+        printer.csDFMember(p)
       }
       .mkString(",\n")
     val portBlock = ports.emptyOr(v => s"""(

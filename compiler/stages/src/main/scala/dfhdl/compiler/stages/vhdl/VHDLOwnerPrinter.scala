@@ -30,8 +30,8 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val ports = design
       .members(MemberView.Folded)
       .view
-      .collect {
-        case p: DFVal.Dcl if p.isPort => printer.csDFValDcl(p)
+      .collect { case p @ DclPort() =>
+        printer.csDFValDcl(p)
       }
       .mkString(";\n")
     val portBlock = ports.emptyOr(v => s"""

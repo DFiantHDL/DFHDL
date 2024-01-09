@@ -11,10 +11,12 @@ abstract class DropLocalDcls(keepProcessDcls: Boolean) extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] =
       designDB.members.view
-        // only var declarations
-        .collect {
-          case m @ DclVar()                     => m
-          case c: DFVal.Const if !c.isAnonymous => c
+        // only var declarations or named constants,
+        // and we also require their anonymous dependencies
+        .flatMap {
+          case m @ DclVar()                     => m.collectRelMembers(true)
+          case c: DFVal.Const if !c.isAnonymous => Some(c)
+          case _                                => None
         }
         .map(m => (m, m.getOwnerBlock))
         .flatMap {
