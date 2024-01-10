@@ -236,9 +236,11 @@ extension (dfVal: DFVal)
   def suggestName(using MemberGetSet): Option[String] = suggestName(dfVal)
   def isBubble(using MemberGetSet): Boolean =
     dfVal match
-      case c: DFVal.Const => c.token.isBubble
-      case f: DFVal.Func  => f.args.exists(_.get.isBubble)
-      case _              => false
+      case c: DFVal.Const          => c.token.isBubble
+      case f: DFVal.Func           => f.args.exists(_.get.isBubble)
+      case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
+      case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
+      case _                       => false
 end extension
 
 extension (refTW: DFNet.Ref)
