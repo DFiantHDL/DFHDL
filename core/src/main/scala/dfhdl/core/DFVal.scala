@@ -291,6 +291,9 @@ object DFVal extends DFValLP:
         case dfValIR: (ir.DFVal.Alias | ir.DFVal.Const | ir.DFVal.Func) =>
           dfValIR.setMeta(m => m.anonymize).asVal[T, M]
         case _ => dfVal
+    def inDFCPosition(using DFC): Boolean = dfVal.asIR.meta.position == dfc.getMeta.position
+    def anonymizeInDFCPosition(using DFC): DFVal[T, M] =
+      if (inDFCPosition) dfVal.anonymize else dfVal
   end extension
 
   case object ExtendTag extends ir.DFTagOf[ir.DFVal]
@@ -440,13 +443,18 @@ object DFVal extends DFValLP:
         relVal.asIR match
           // anonymous constant are replace by a different constant
           // after its token value was converted according to the alias
-          case const: ir.DFVal.Const if const.isAnonymous && !forceNewAlias =>
-            val updatedToken = tokenFunc(const.token.asTokenOf[VT])
-            Const(updatedToken).asVal[AT, M]
+          case const: ir.DFVal.Const
+              if (const.isAnonymous || relVal.inDFCPosition) && !forceNewAlias =>
+            if (const.isAnonymous && !dfc.isAnonymous && relVal.inDFCPosition)
+              throw new IllegalArgumentException("shit")
+            dfc.mutableDB.setMember(
+              const,
+              _.copy(token = tokenFunc(const.token.asTokenOf[VT]).asIR)
+            ).asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
-            forced(aliasType.asIR, relVal.asIR).asVal[AT, M]
+            forced(aliasType.asIR, relVal.anonymizeInDFCPosition.asIR).asVal[AT, M]
       end apply
       def forced(aliasType: ir.DFType, relVal: ir.DFVal)(using DFC): ir.DFVal =
         lazy val alias: ir.DFVal.Alias.AsIs =
@@ -828,7 +836,7 @@ object DFVal extends DFValLP:
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        val initOpt = Some(tc(dfVal.dfType, init).anonymize)
+        val initOpt = Some(tc(dfVal.dfType, init)(using dfc.anonymize))
         DFVal.Alias.History(dfVal, step, HistoryOp.Reg, initOpt)
       }
       inline def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)

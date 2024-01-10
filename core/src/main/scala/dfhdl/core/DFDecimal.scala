@@ -935,13 +935,13 @@ object DFXInt:
               val dfValIR =
                 val rhsSignFix: DFValOf[DFSInt[Int]] =
                   if (dfType.signed != rhs.dfType.signed)
-                    rhs.anonymize.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
+                    rhs.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
                   else rhs.asValOf[DFSInt[Int]]
                 if (
                   dfType.width > rhsSignFix.width ||
                   rhs.hasTag[DFVal.TruncateTag] && dfType.width < rhsSignFix.width
                 )
-                  rhsSignFix.anonymize.resize(dfType.width).asIR
+                  rhsSignFix.resize(dfType.width).asIR
                 else rhsSignFix.asIR
               dfValIR.asValTP[DFXInt[LS, LW], ic.OutP]
           end match

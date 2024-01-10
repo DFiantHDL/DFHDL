@@ -64,6 +64,13 @@ object RstActive:
         case _              => None
 end RstActive
 
+//not only `DFVal.Const` but all non-anonymous values that
+//are known to be constant from their dependencies.
+object DclConst:
+  def unapply(dfVal: DFVal)(using
+      MemberGetSet
+  ): Boolean = !dfVal.isAnonymous && dfVal.isConst
+
 object DclVar:
   def unapply(dcl: DFVal.Dcl)(using
       MemberGetSet

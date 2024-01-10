@@ -716,9 +716,9 @@ object DFBits:
               dfVal.asValTP[DFBits[LW], ic.OutP]
             case _ =>
               if (dfVal.hasTag[DFVal.TruncateTag] && dfType.width < dfVal.width)
-                dfVal.anonymize.resizeBits(dfType.width).asValTP[DFBits[LW], ic.OutP]
+                dfVal.resizeBits(dfType.width).asValTP[DFBits[LW], ic.OutP]
               else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.width > dfVal.width)
-                dfVal.anonymize.resizeBits(dfType.width).asValTP[DFBits[LW], ic.OutP]
+                dfVal.resizeBits(dfType.width).asValTP[DFBits[LW], ic.OutP]
               else
                 check(dfType.width, dfVal.width)
                 dfVal.asValTP[DFBits[LW], ic.OutP]

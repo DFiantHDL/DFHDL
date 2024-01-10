@@ -7,10 +7,12 @@ import dfhdl.compiler.stages.explicitNamedVars
 class ExplicitNamedVarsSpec extends StageSpec:
   test("Basic named variable") {
     class ID extends DFDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
-      val z = x + 1
-      y := z
+      val x                    = SInt(16) <> IN
+      val y                    = SInt(16) <> OUT
+      val z                    = x + 1
+      val c: SInt[16] <> CONST = 11
+      val f                    = c + c
+      y := z + f
     val id = (new ID).explicitNamedVars
     assertCodeString(
       id,
@@ -19,7 +21,9 @@ class ExplicitNamedVarsSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val z = SInt(16) <> VAR
          |  z := x + sd"16'1"
-         |  y := z
+         |  val c = SInt(16) CONST sd"16'11"
+         |  val f = c + c
+         |  y := z + f
          |end ID
          |""".stripMargin
     )

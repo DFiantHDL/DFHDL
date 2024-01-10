@@ -18,7 +18,6 @@ object Modifier:
   final val OUT = new Dcl(IRModifier.OUT)
   final val INOUT = new Dcl(IRModifier.INOUT)
   type CONST = Modifier[Any, Any, Any, dfhdl.core.CONST]
-  type NOTCONST = Modifier[Any, Any, Any, dfhdl.core.NOTCONST]
   extension (modifier: ModifierAny) def asIR: IRModifier = modifier.value
 end Modifier
 

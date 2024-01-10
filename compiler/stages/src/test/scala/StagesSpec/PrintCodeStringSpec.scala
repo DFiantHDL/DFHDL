@@ -153,19 +153,22 @@ class PrintCodeStringSpec extends StageSpec:
 
   test("Basic RTDesign") {
     class ID extends RTDesign:
+      val c: SInt[16] <> CONST = 5
+
       val x    = SInt(16) <> IN init 0
       val y    = SInt(16) <> OUT
       val flag = Bit      <> IN
-      y := x.reg.reg(2, init = 0) - x
+      y := x.reg.reg(2, init = c) - x
     end ID
     val id = (new ID).getCodeString
     assertNoDiff(
       id,
       """|class ID extends RTDesign:
+         |  val c = SInt(16) CONST sd"16'5"
          |  val x = SInt(16) <> IN init sd"16'0"
          |  val y = SInt(16) <> OUT
          |  val flag = Bit <> IN
-         |  y := x.reg.reg(2, sd"16'0") - x
+         |  y := x.reg.reg(2, c) - x
          |end ID
          |""".stripMargin
     )

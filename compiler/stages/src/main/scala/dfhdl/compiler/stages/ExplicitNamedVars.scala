@@ -43,10 +43,10 @@ case object ExplicitNamedVars extends Stage:
         // just named values
         .collect { case dv: DFVal if !dv.isAnonymous => dv }
         .flatMap {
-          // ignoring ports and variables
+          // ignoring port and variable declarations
           case _: DFVal.Dcl => None
-          // ignoring constants
-          case _: DFVal.Const => None // named constants remain as they are
+          // ignoring constant declarations (named constants or derived constants)
+          case DclConst() => None
           // named if / match expressions will be changed to statements
           case ch: DFConditional.Header =>
             // removing name and type from header
