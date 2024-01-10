@@ -1,3 +1,6 @@
+import sbt._
+import Keys._
+
 // format: off
 val projectName = "dfhdl"
 val compilerVersion = "3.3.0"
@@ -172,3 +175,18 @@ lazy val pluginTestUseSettings = Seq(
 lazy val commonSettings = Seq(
   scalacOptions ++= compilerOptions
 )
+
+root / commands += Command.command("quickTestSetup") { state =>
+  // Set up the tasks and settings you want to execute
+  val extracted = Project.extract(state)
+  val newState = extracted.appendWithSession(Seq(
+    // Example: Setting the Test / sources for a specific module
+    (internals / Test / sources) := Nil,
+    (core / Test / sources) := Nil,
+    (compiler_stages / Test / sources) := Nil,
+    (lib / Test / sources) := ((LocalProject("lib") / Test / sources).value.filter(_.toString.contains("Example.scala")))
+  ), state)
+  // Return the modified state
+  newState
+}
+
