@@ -117,15 +117,14 @@ case object NameRegAliases extends Stage:
             val regsIR = regs.map(_.asIR).toList
             val relVal = alias.getNonRegAliasRelVal
             def regDinPatch(posMember: DFMember, addCfg: Patch.Add.Config) =
-              new MetaDesign(posMember, addCfg, domainType = dfhdl.core.DFC.Domain.RT)(using
-                dfc.getSet
-              ):
+              new MetaDesign(posMember, addCfg, domainType = dfhdl.core.DFC.Domain.RT):
                 (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
+                  val clonedInitOpt = alias.initOption.map(_.cloneAnonValueAndDepsHere.asConstAny)
                   val reg = dfhdl.core.DFVal.Alias.History(
                     prev.asValAny,
                     1,
                     HistoryOp.Reg,
-                    alias.initOption.map(_.asConstAny)
+                    clonedInitOpt
                   )
                   curr.asVarAny := reg
                 }

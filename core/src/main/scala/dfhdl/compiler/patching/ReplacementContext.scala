@@ -38,7 +38,8 @@ private final case class ReplacementContext(
       origMember: DFMember,
       repMember: DFMember,
       config: Patch.Replace.Config,
-      refFilter: Patch.Replace.RefFilter
+      refFilter: Patch.Replace.RefFilter,
+      keepRefs: List[DFRefAny]
   ): ReplacementContext =
     if (origMember == repMember) this // nothing to do if the member is replacing itself
     else
@@ -53,9 +54,8 @@ private final case class ReplacementContext(
           // when replacing a member, the original member refs are redundant unless
           // it's being replaced by a copy of itself that has the same references
           val droppedOrigRefsTable = config match
-            case Patch.Replace.Config.FullReplacement =>
-              refTable -- refFilter(origMember.getRefs.toSet -- repMember.getRefs)
-            case _ => refTable
+            case Patch.Replace.Config.ChangeRefOnly => refTable
+            case _ => refTable -- refFilter(origMember.getRefs.toSet -- keepRefs)
           val updatedRefTable: Map[DFRefAny, DFMember] =
             replacementHistory.foldRight(droppedOrigRefsTable) { case ((rm, rf), rt) =>
               rf(refs).foldLeft(rt)((rt2, r) => rt2.updated(r, rm))

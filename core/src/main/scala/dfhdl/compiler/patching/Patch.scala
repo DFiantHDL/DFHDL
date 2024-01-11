@@ -147,7 +147,8 @@ extension (db: DB)
       .foldLeft(ReplacementContext.fromRefTable(refTable)) {
         case (rc, (origMember, Patch.Replace(repMember, config, refFilter)))
             if (origMember != repMember) =>
-          val ret = rc.replaceMember(origMember, repMember, config, refFilter)
+          val ret =
+            rc.replaceMember(origMember, repMember, config, refFilter, repMember.getRefs)
           // patchDebug {
           //   println("rc.refTable:")
           //   println(ret.refTable.mkString("\n"))
@@ -156,20 +157,22 @@ extension (db: DB)
         case (rc, (origMember, Patch.Add(db, config))) =>
           // updating the patched DB reference table members with the newest members kept by the replacement context
           val updatedPatchRefTable = rc.getUpdatedRefTable(db.refTable)
+          val keepRefList = db.members.flatMap(_.getRefs)
           val repRT = config match
             case Patch.Add.Config.ReplaceWithFirst(repConfig, refFilter) =>
               val repMember = db.members(1) // At index 0 we have the Top. We don't want that.
-              rc.replaceMember(origMember, repMember, repConfig, refFilter)
+              rc.replaceMember(origMember, repMember, repConfig, refFilter, keepRefList)
             case Patch.Add.Config.ReplaceWithLast(repConfig, refFilter) =>
               val repMember = db.members.last
-              rc.replaceMember(origMember, repMember, repConfig, refFilter)
+              rc.replaceMember(origMember, repMember, repConfig, refFilter, keepRefList)
             case Patch.Add.Config.Via =>
               val repMember = db.members.last // The last member is used for Via addition.
               rc.replaceMember(
                 origMember,
                 repMember,
                 Patch.Replace.Config.FullReplacement,
-                Patch.Replace.RefFilter.All
+                Patch.Replace.RefFilter.All,
+                keepRefList
               )
             case _ => rc
           //          patchDebug {
