@@ -35,7 +35,7 @@ trait AbstractValPrinter extends AbstractPrinter:
     catch case _: Throwable => "<BAD_REF>"
   final def csRelVal(alias: Alias): String =
     alias.relValRef.refCodeString.applyBrackets()
-  def csDFValConstDcl(dfVal: Const): String
+  def csDFValDclConst(dfVal: DFVal.CanBeExpr): String
   final def csDFValConstExpr(dfVal: Const): String =
     printer.csDFToken(dfVal.token)
   def csDFValDclWithoutInit(dfVal: Dcl): String
@@ -86,8 +86,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
   type TPrinter <: DFPrinter
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String =
     s"(${csExp.applyBrackets()}: ${printer.csDFType(ch.dfType, typeCS = true)} <> VAL)"
-  def csDFValConstDcl(dfVal: Const): String =
-    s"${printer.csDFType(dfVal.dfType)} CONST ${printer.csDFToken(dfVal.token)}"
+  def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
+    s"${csDFValExpr(dfVal)}"
   def csDFValDclModifier(modifier: Modifier): String = modifier.toString
   def csDFValDclWithoutInit(dfVal: Dcl): String =
     s"${printer.csDFType(dfVal.dfType)} <> ${csDFValDclModifier(dfVal.modifier)}"
@@ -225,11 +225,12 @@ protected trait DFValPrinter extends AbstractValPrinter:
   def csDFValNamed(dfVal: DFVal): String =
     def typeAnnot = dfVal match
       case dv: DFConditional.Header if dv.dfType != DFUnit => printer.csDFValType(dfVal.dfType)
+      case const @ DclConst()                              => printer.csDFValConstType(dfVal.dfType)
       case _                                               => ""
     def valDef = s"val ${dfVal.getName}$typeAnnot ="
     val rhs = dfVal.stripPortSel match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
-      case c: DFVal.Const        => csDFValConstDcl(c)
+      case const @ DclConst()    => csDFValDclConst(const)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)
       case _                     => ??? // unexpected
     val indentRHS =

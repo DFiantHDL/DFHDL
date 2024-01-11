@@ -102,10 +102,6 @@ object DFType:
       infix def token[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
           tokenTC: DFToken.TC[tc.Type, V]
       ): tokenTC.Out = tokenTC(tc(t), tokenValue)
-      infix def CONST[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
-          DFToken.TC[tc.Type, V]
-      )(using DFC): DFConstOf[tc.Type] =
-        DFVal.Const(token(tokenValue), named = true)
     end extension
   end Ops
 

@@ -67,7 +67,7 @@ end RstActive
 //not only `DFVal.Const` but all non-anonymous values that
 //are known to be constant from their dependencies.
 object DclConst:
-  def unapply(dfVal: DFVal)(using
+  def unapply(dfVal: DFVal.CanBeExpr)(using
       MemberGetSet
   ): Boolean = !dfVal.isAnonymous && dfVal.isConst
 

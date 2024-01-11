@@ -119,6 +119,14 @@ class DFBoolOrBitSpec extends DFSpec:
          |val t6 = bl || bt.bool
          |val t7 = (bl ^ false) || bt.bool
          |val t8 = (bl && bt.bool) ^ (bt || bl.bit).bool
+         |val t9: Bit <> CONST = 1
+         |val t10: Bit <> CONST = 0
+         |val t11: Bit <> CONST = 1
+         |val t12: Bit <> CONST = 0
+         |val t13: Boolean <> CONST = true
+         |val t14: Boolean <> CONST = false
+         |val t15: Boolean <> CONST = true
+         |val t16: Boolean <> CONST = false
          |""".stripMargin
     ) {
       val t1 = bt && bl
@@ -129,8 +137,6 @@ class DFBoolOrBitSpec extends DFSpec:
       val t6 = bl || bt
       val t7 = bl ^ 0 || bt
       val t8 = (bl && bt) ^ (bt || bl)
-      // TODO: why are these not printing?
-      // Could be that Conversion does not propagate the name to const?
       val t9: Bit <> VAL = 1
       val t10: Bit <> VAL = 0
       val t11: Bit <> VAL = true
@@ -140,6 +146,5 @@ class DFBoolOrBitSpec extends DFSpec:
       val t15: Boolean <> VAL = true
       val t16: Boolean <> VAL = false
     }
-
   }
 end DFBoolOrBitSpec

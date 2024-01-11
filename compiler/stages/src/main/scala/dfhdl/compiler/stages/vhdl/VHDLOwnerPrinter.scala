@@ -48,7 +48,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       designMembers
         .collect {
           case p: DFVal.Dcl if p.isVar          => printer.csDFValDcl(p)
-          case c: DFVal.Const if !c.isAnonymous => printer.csDFValConstDcl(c)
+          case c: DFVal.Const if !c.isAnonymous => printer.csDFValDclConst(c)
         }
         .emptyOr(_.mkString("\n"))
     val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")

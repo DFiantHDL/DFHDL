@@ -153,7 +153,7 @@ object DFBoolOrBit:
       given fromTokenCandidate[R, IC <: Token.Candidate[R]](using ic: IC): Candidate[R] with
         type OutT = ic.OutT
         type OutP = CONST
-        def apply(arg: R)(using DFC): DFValOf[OutT] = DFVal.Const(ic(arg))
+        def apply(arg: R)(using DFC): DFValOf[OutT] = DFVal.Const(ic(arg), named = true)
       given fromDFBoolOrBitVal[T <: DFBoolOrBit, R <: DFValOf[T]]: Candidate[R] with
         type OutT = T
         def apply(arg: R)(using DFC): DFValOf[T] = arg
@@ -162,12 +162,11 @@ object DFBoolOrBit:
         ic: Candidate[R],
         dfc: DFC
     ): DFValTP[T, ic.OutP] =
-      val dfcAnon = dfc.anonymize
       import Ops.{bit, bool}
-      val dfValArg = ic(arg)(using dfcAnon)
+      val dfValArg = ic(arg)
       val dfValOut = (dfType, dfValArg.dfType) match
-        case (DFBit, DFBool) => dfValArg.asValOf[DFBool].bit(using dfcAnon)
-        case (DFBool, DFBit) => dfValArg.asValOf[DFBit].bool(using dfcAnon)
+        case (DFBit, DFBool) => dfValArg.asValOf[DFBool].bit
+        case (DFBool, DFBit) => dfValArg.asValOf[DFBit].bool
         case _               => dfValArg
       dfValOut.asValTP[T, ic.OutP]
 

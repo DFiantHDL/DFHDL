@@ -49,7 +49,7 @@ extension (lhs: AESByte <> VAL)
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
   def sbox: AESByte <> DFRET =
-    val lookup = AESByte X sboxLookupTable.length CONST sboxLookupTable
+    val lookup: AESByte X 256 <> CONST = sboxLookupTable
     lookup(lhs.actual)
 end extension
 

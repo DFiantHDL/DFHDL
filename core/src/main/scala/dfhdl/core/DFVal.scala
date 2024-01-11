@@ -180,23 +180,37 @@ sealed protected trait DFValLP:
   ): DFValTP[DFTuple[T], ISCONST[P]] = ${
     DFValConversionMacro[DFTuple[T], ISCONST[P], R]('from)
   }
-  given DFBitValConversion[R <: BitOrBool](using
-      tc: DFVal.TC[DFBit, R],
-      dfc: DFC
-  ): Conversion[R, DFValOf[DFBit]] = from => tc(DFBit, from).asInstanceOf[DFValOf[DFBit]]
-  given DFBoolValConversion[R <: BitOrBool](using
-      tc: DFVal.TC[DFBool, R],
-      dfc: DFC
-  ): Conversion[R, DFValOf[DFBool]] = from => tc(DFBool, from).asInstanceOf[DFValOf[DFBool]]
+  implicit transparent inline def DFVectorValConversion[
+      T <: DFTypeAny,
+      D <: Int,
+      P <: Boolean,
+      R <: DFValAny | DFTokenAny | Iterable[?] | Bubble
+  ](
+      inline from: R
+  ): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
+    DFValConversionMacro[DFVector[T, Tuple1[D]], ISCONST[P], R]('from)
+  }
+  implicit transparent inline def DFBitValConversion[
+      P <: Boolean,
+      R <: DFValAny | DFTokenAny | Int | Boolean | Bubble
+  ](
+      inline from: R
+  ): DFValTP[DFBit, ISCONST[P]] = ${
+    DFValConversionMacro[DFBit, ISCONST[P], R]('from)
+  }
+  implicit transparent inline def DFBoolValConversion[
+      P <: Boolean,
+      R <: DFValAny | DFTokenAny | Int | Boolean | Bubble
+  ](
+      inline from: R
+  ): DFValTP[DFBool, ISCONST[P]] = ${
+    DFValConversionMacro[DFBool, ISCONST[P], R]('from)
+  }
   given DFUnitValConversion[R <: DFValAny | Unit | NonEmptyTuple | Bubble](using
       dfc: DFC
   ): Conversion[R, DFValOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFValOf[DFUnit]]
   given ConstToNonConstAccept[T <: DFTypeAny, P]: Conversion[DFValTP[T, P], DFValTP[T, NOTCONST]] =
     from => from.asValTP[T, NOTCONST]
-  // implicit transparent inline def NonConstToConstReject[T <: DFTypeAny, P](
-  //     from: DFValTP[T, P]
-  // )(using util.NotGiven[P =:= CONST]): DFValTP[T, CONST] =
-  //   compiletime.error(DFVal.ConstOnlyMsg)
 end DFValLP
 object DFVal extends DFValLP:
   final class Final[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
@@ -413,7 +427,9 @@ object DFVal extends DFValLP:
         dfType: T,
         op: FuncOp,
         args: List[DFValTP[?, P]]
-    )(using DFC): DFValTP[T, P] = apply(dfType, op, args.map(_.asIR))
+    )(using DFC): DFValTP[T, P] =
+      args.foreach(_.anonymizeInDFCPosition)
+      apply(dfType, op, args.map(_.asIR))
     @targetName("applyFromIR")
     def apply[T <: DFTypeAny, P](
         dfType: T,

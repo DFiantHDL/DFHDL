@@ -21,8 +21,8 @@ class ExplicitNamedVarsSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val z = SInt(16) <> VAR
          |  z := x + sd"16'1"
-         |  val c = SInt(16) CONST sd"16'11"
-         |  val f = c + c
+         |  val c: SInt[16] <> CONST = sd"16'11"
+         |  val f: SInt[16] <> CONST = c + c
          |  y := z + f
          |end ID
          |""".stripMargin

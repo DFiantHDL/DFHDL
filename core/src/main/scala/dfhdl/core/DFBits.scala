@@ -658,32 +658,14 @@ object DFBits:
         import Width.*
         val rTpe = TypeRepr.of[R]
         val wType = rTpe.calcValWidth(false).asTypeOf[Int]
-        def isConst(tpe: TypeRepr): Boolean =
-          val ret = tpe.asType match
-            case '[DFConstOf[t]] => true
-            case '[DFToken[t]]   => true
-            case '[Int]          => true
-            case '[NonEmptyTuple] =>
-              tpe.getTupleArgs.forall(isConst)
-            case _ => false
-          ret
-        if (isConst(rTpe))
-          '{
-            new Candidate[R]:
-              type OutW = wType.Underlying
-              type OutP = CONST
-              def apply(value: R)(using DFC): Out =
-                valueToBits(value).asValTP[DFBits[OutW], CONST]
-          }
-        else
-          '{
-            new Candidate[R]:
-              type OutW = wType.Underlying
-              type OutP = NOTCONST
-              def apply(value: R)(using DFC): Out =
-                valueToBits(value).asValTP[DFBits[OutW], NOTCONST]
-          }
-        end if
+        val pType = rTpe.isConstTpe.asTypeOf[Any]
+        '{
+          new Candidate[R]:
+            type OutW = wType.Underlying
+            type OutP = pType.Underlying
+            def apply(value: R)(using DFC): Out =
+              valueToBits(value).asValTP[DFBits[OutW], pType.Underlying]
+        }
       end DFBitsMacro
     end Candidate
 

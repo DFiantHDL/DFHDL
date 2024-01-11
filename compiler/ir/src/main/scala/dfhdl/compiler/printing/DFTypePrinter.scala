@@ -100,4 +100,6 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
   def csDFValType(dfType: DFType): String =
     s": ${printer.csDFType(dfType, typeCS = true)} <> VAL"
+  def csDFValConstType(dfType: DFType): String =
+    s": ${printer.csDFType(dfType, typeCS = true)} <> CONST"
 end DFTypePrinter

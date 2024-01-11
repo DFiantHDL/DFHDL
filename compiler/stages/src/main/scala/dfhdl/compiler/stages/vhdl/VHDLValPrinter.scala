@@ -8,8 +8,8 @@ import DFVal.*
 protected trait VHDLValPrinter extends AbstractValPrinter:
   type TPrinter <: VHDLPrinter
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
-  def csDFValConstDcl(dfVal: Const): String =
-    s"constant ${dfVal.getName} : ${printer.csDFType(dfVal.dfType)} := ${printer.csDFToken(dfVal.token)};"
+  def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
+    s"constant ${dfVal.getName} : ${printer.csDFType(dfVal.dfType)} := ${csDFValExpr(dfVal)};"
   def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     if (dfVal.isPort) s"${dfVal.getName} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
@@ -134,7 +134,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csDFValNamed(dfVal: DFVal): String =
     dfVal.stripPortSel match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)
-      case c: DFVal.Const        => csDFValConstDcl(c)
+      case const @ DclConst()    => csDFValDclConst(const)
       case expr: DFVal.CanBeExpr => csDFValExpr(expr)
       case _                     => ???
   end csDFValNamed

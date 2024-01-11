@@ -119,7 +119,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       val y   = Bits(16) <> OUT
       val z   = Bits(16) <> VAR
       process(clk, rst) {
-        val c = Bits(16) CONST all(0)
+        val c: Bits[16] <> CONST = all(0)
         if (rst)
           y :== c
         else if (clk.rising)
@@ -178,21 +178,21 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
   test("literals") {
     class Top extends EDDesign:
-      val c01 = Bit CONST 0
-      val c02 = Bit CONST 1
-      val c03 = Bit CONST ?
-      val c04 = Boolean CONST 0
-      val c05 = Boolean CONST 1
-      val c06 = Bits(8) CONST h"22"
-      val c07 = Bits(7) CONST h"7'22"
-      val c08 = Bits(3) CONST b"101"
-      val c09 = UInt(3) CONST 7
-      val c10 = UInt(48) CONST d"48'239794508230343"
-      val c11 = SInt(4) CONST -8
-      val c12 = SInt(49) CONST sd"49'-239794508230343"
-      val c13 = UInt(8) CONST ?
-      val c14 = SInt(8) CONST ?
-      val c15 = (Bits(3), Bit) CONST (all(0), 1)
+      val c01: Bit <> CONST            = 0
+      val c02: Bit <> CONST            = 1
+      val c03: Bit <> CONST            = ?
+      val c04: Boolean <> CONST        = false
+      val c05: Boolean <> CONST        = true
+      val c06: Bits[8] <> CONST        = h"22"
+      val c07: Bits[7] <> CONST        = h"7'22"
+      val c08: Bits[3] <> CONST        = b"101"
+      val c09: UInt[3] <> CONST        = 7
+      val c10: UInt[48] <> CONST       = d"48'239794508230343"
+      val c11: SInt[4] <> CONST        = -8
+      val c12: SInt[49] <> CONST       = sd"49'-239794508230343"
+      val c13: UInt[8] <> CONST        = ?
+      val c14: SInt[8] <> CONST        = ?
+      val c15: (Bits[3], Bit) <> CONST = (all(0), 1)
     end Top
     val top = (new Top).getVerilogCode
     assertNoDiff(
@@ -226,8 +226,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter logic signed [48:0] c12 = -49'sd239794508230343;
          |  parameter logic [7:0] c13 = 8'hxx;
          |  parameter logic signed [7:0] c14 = $signed(8'hxx);
-         |  parameter DFTuple2 c15 = '{_1: 3'h0, _2: 1'b1};
-         |
+         |  parameter DFTuple2 c15 = '{3'h0, 1'b1};
          |endmodule
          |""".stripMargin
     )

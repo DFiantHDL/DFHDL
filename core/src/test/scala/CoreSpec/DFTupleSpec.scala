@@ -28,12 +28,12 @@ class DFTupleSpec extends DFSpec:
        |val t10 = t1._1
        |val t11 = !t2._1._2
        |val t12 = t9(0)
-       |val t13 = (d"8'8", 1)
+       |val t13: (UInt[8], Bit) <> CONST = (d"8'8", 1)
        |val t14 = t1._1
        |val t15 = t2._1
-       |val t16 = t13._1
-       |val t17 = t13._2
-       |val t18 = (h"8", 1)
+       |val t16: UInt[8] <> CONST = t13._1
+       |val t17: Bit <> CONST = t13._2
+       |val t18: (Bits[4], Bit) <> CONST = (h"8", 1)
        |""".stripMargin
   ) {
     val t1: (UInt[8], Bit, Bits[3]) <> VAL =
@@ -60,7 +60,7 @@ class DFTupleSpec extends DFSpec:
     val t13: (UInt[8], Bit) <> VAL = (8, 1)
     val (t14, t15) = (t1(0), t2._1)
     val (t16, t17) = t13.asScalaTuple
-    val t18: (Bits[Int], Bit) <> VAL = (h"8", 1)
+    val t18: (Bits[Int], Bit) <> CONST = (h"8", 1)
     assert(t18.width == 5)
   }
 

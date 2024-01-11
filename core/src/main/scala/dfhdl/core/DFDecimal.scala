@@ -928,7 +928,9 @@ object DFXInt:
             case ir.DFNothing =>
               val signCheck = summon[`LS >= RS`.Check[Boolean, Boolean]]
               signCheck(lsigned.value, rhs.dfType.signed)
-              rhs.asValTP[DFXInt[LS, LW], ic.OutP]
+              if (lsigned.value != rhs.dfType.signed.value)
+                rhs.asValOf[DFUInt[Int]].signed.asValTP[DFXInt[LS, LW], ic.OutP]
+              else rhs.asValTP[DFXInt[LS, LW], ic.OutP]
             case _ =>
               if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhs.dfType.signed)
                 check(dfType.signed, dfType.width, rhs.dfType.signed, rhs.width)

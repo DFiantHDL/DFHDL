@@ -6,6 +6,19 @@ import dfhdl.internals.*
 import scala.annotation.targetName
 import scala.annotation.unchecked.uncheckedVariance
 import scala.quoted.*
+import scala.NonEmptyTuple
+
+extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
+  def isConstTpe: quotes.reflect.TypeRepr =
+    import quotes.reflect.*
+    def isConstBool(tpe: TypeRepr): Boolean = tpe.asType match
+      case '[DFConstOf[t]] => true
+      case '[DFValOf[t]]   => false
+      case '[NonEmptyTuple] =>
+        tpe.getTupleArgs.forall(isConstBool)
+      case _ => true
+    if (isConstBool(tpe)) TypeRepr.of[CONST]
+    else TypeRepr.of[NOTCONST]
 
 type DFTuple[+T <: NonEmptyTuple] = DFStruct[T @uncheckedVariance]
 object DFTuple:
@@ -35,6 +48,7 @@ object DFTuple:
       O,
       TC[T <: DFTypeAny, V] <: TCConv[T, V, O]
   ]:
+    type OutP
     def apply(
         fieldList: List[DFTypeAny],
         tokenTupleValues: List[Any]
@@ -70,15 +84,14 @@ object DFTuple:
         if (tArgs.length == vArgs.length)
           val exprs =
             tArgs.zipWithIndex.lazyZip(vArgs).map { case ((t, i), v) =>
-              val vTpe = v.asTypeOf[Any]
+              val vType = v.asTypeOf[Any]
               val dfTypeTpe: Type[DFTypeAny] = t.asTypeOf[Any] match
                 case '[DFValOf[t]] => TypeRepr.of[t].asTypeOf[DFTypeAny]
               val iExpr = Literal(IntConstant(i)).asExprOf[Int]
               '{
-                val tc = compiletime
-                  .summonInline[
-                    TC[dfTypeTpe.Underlying, vTpe.Underlying]
-                  ]
+                val tc = compiletime.summonInline[
+                  TC[dfTypeTpe.Underlying, vType.Underlying]
+                ]
                 val dfType =
                   $fieldListExpr
                     .apply($iExpr)
@@ -86,7 +99,7 @@ object DFTuple:
                 val value =
                   $tokenTupleValuesExpr
                     .apply($iExpr)
-                    .asInstanceOf[vTpe.Underlying]
+                    .asInstanceOf[vType.Underlying]
                 tc.conv(dfType, value)(using compiletime.summonInline[tc.Ctx])
               }
             }
@@ -98,8 +111,10 @@ object DFTuple:
         end if
       end applyExpr
       import quotes.reflect.*
+      val pType = TypeRepr.of[V].isConstTpe.asTypeOf[Any]
       '{
         new TCZipper[T, V, O, TC]:
+          type OutP = pType.Underlying
           def apply(
               fieldList: List[DFTypeAny],
               tokenTupleValues: List[Any]
@@ -210,17 +225,21 @@ object DFTuple:
       import DFVal.TC
       given DFTupleFromTuple[
           T <: NonEmptyTuple,
-          R <: NonEmptyTuple
+          R <: NonEmptyTuple,
+          Z <: TCZipper[T, R, DFValAny, TC]
       ](using
-          zipper: TCZipper[T, R, DFValAny, TC]
+          zipper: Z
       ): TC[DFTuple[T], R] with
-        type OutP = Any // TODO
+        type OutP = zipper.OutP
         def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)
           // reconstructing the Tuple DFType, in case fields could be DFNothing from conversions
           val fixedDFType = DFTuple(dfVals.map(_.dfType))
-          DFVal.Func(fixedDFType, FuncOp.++, dfVals)
+          // normally would have used `.asValTP`, but this triggers a compiler crash
+          // https://github.com/lampepfl/dotty/issues/17326
+          DFVal.Func(fixedDFType, FuncOp.++, dfVals).asInstanceOf[Out]
+      end DFTupleFromTuple
       given DFTupleFromDFTuple[
           T <: NonEmptyTuple,
           RT <: NonEmptyTuple,
