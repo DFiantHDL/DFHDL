@@ -137,6 +137,7 @@ class DFBitsSpec extends DFSpec:
          |val t12: Bits[16] <> CONST = t1.repeat(2)
          |val t13: Bits[8] <> CONST = (h"9", h"2").toBits
          |val t14: Bits[16] <> CONST = t13.repeat(2)
+         |val u8v = Bits(8) <> VAR
          |""".stripMargin
     } {
       val t1: Bits[8] <> VAL = all(false); t1.assertPosition(0, 1, 32, 42)
@@ -162,9 +163,10 @@ class DFBitsSpec extends DFSpec:
       assert(t12.width == 16)
       val t13: Bits[8] <> CONST = (b"1001", h"2")
       val t14: Bits[16] <> CONST = (t13, t13)
+      val u8v = Bits(8) <> VAR
       assertCompileError {
-        "Applied argument is not a constant."
-      }("val t15: Bits[16] <> CONST = (t8, t13)")
+        "Applied argument must be a constant."
+      }("val t15: Bits[16] <> CONST = (u8v, t13)")
     }
   }
   test("Assignment") {

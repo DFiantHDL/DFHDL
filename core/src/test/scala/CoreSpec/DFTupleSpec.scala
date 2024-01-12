@@ -23,7 +23,7 @@ class DFTupleSpec extends DFSpec:
        |val t6 = t3 == ((d"8'22", 1), b"101")
        |val b3 = Bits(3) <> VAR
        |val t7 = t3 == ((d"8'11", 1), b3)
-       |val t8 = (UInt(8), Bit, Bits(3)) <> VAR init (d"8'22", 0, b"100")
+       |val t8 = (UInt(8), Bit, Bits(3)) <> VAR init (d"8'22", 0, (b"1", b"0", b"0").toBits)
        |val t9 = (UInt(8), Bit, Bits(3), Boolean) <> VAR
        |val t10 = t1._1
        |val t11 = !t2._1._2

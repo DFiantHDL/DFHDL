@@ -252,7 +252,7 @@ object DFStruct:
           val dfVals = value.productIterator.map { case dfVal: DFVal[?, ?] =>
             dfVal
           }.toList
-          DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
+          DFVal.Func(dfType, FuncOp.++, dfVals)
       given DFStructValFromStruct[
           F <: Fields,
           RF <: Fields,

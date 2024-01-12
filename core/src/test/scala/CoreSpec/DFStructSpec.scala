@@ -88,9 +88,11 @@ class DFStructSpec extends DFSpec:
          |xy.y := b"000"
          |xy := XY(x = d"8'22", y = b"000")
          |xy := XY(x = d"8'22", y = b"000")
+         |val xyc: XY <> CONST = XY(x = d"8'0", y = b"101")
          |val xyz = XYZ <> VAR
          |xyz.xy := xy
          |xyz.xy.x := d"8'55"
+         |val xyzc: XYZ <> CONST = XYZ(xy = XY(x = d"8'0", y = b"101"), z = 0)
          |val result: XY <> VAL =
          |  if (xyz.z) xyz.xy
          |  else xy
@@ -107,15 +109,30 @@ class DFStructSpec extends DFSpec:
       xy := XY(x = 22, y = all(0))
       // assign the whole struct, as unnamed fields
       xy := XY(22, all(0))
+      // constant
+      val xyc: XY <> CONST = XY(x = d"8'0", y = b"101")
       // easily composing structs
       case class XYZ(xy: XY <> VAL, z: Bit <> VAL) extends Struct
       val xyz = XYZ <> VAR
       // field assignments of a whole struct
       xyz.xy := xy
       xyz.xy.x := 55
+      // composed struct constant
+      val xyzc: XYZ <> CONST = XYZ(XY(x = d"8'0", y = b"101"), 0)
       // structures can also be muxed using an if expression
       val result: XY <> VAL =
         if (xyz.z) xyz.xy else xy
     }
+  }
+  test("ConstantErrors") {
+    case class XY(x: UInt[8] <> VAL, y: Bits[3] <> VAL) extends Struct
+    case class XYZ(xy: XY <> VAL, z: Bit <> VAL) extends Struct
+    val u8v = UInt(8) <> VAR
+    assertCompileError("Applied argument must be a constant.")(
+      """val xyzc: XYZ <> CONST = XYZ(XY(x = u8v, y = b"101"), 0)"""
+    )
+    assertCompileError("Init value must be a constant.")(
+      """val xyz = XYZ <> VAR init XYZ(XY(x = u8v, y = b"101"), 0)"""
+    )
   }
 end DFStructSpec

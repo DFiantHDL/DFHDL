@@ -20,6 +20,36 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
     if (isConstBool(tpe)) TypeRepr.of[CONST]
     else TypeRepr.of[NOTCONST]
 
+extension (using quotes: Quotes)(term: quotes.reflect.Term)
+  def checkConst: Boolean =
+    import quotes.reflect.*
+    def warn: Boolean =
+      report.warning("Not a constant", term.pos)
+      false
+    val uterm = term.underlying
+    uterm.tpe.asType match
+      case '[DFStruct.Fields | NonEmptyTuple] =>
+        uterm match
+          case Apply(_, args) => args.forall(_.checkConst)
+          case _              => warn
+      case '[DFConstOf[t]] => true
+      case '[DFValOf[t]] =>
+        uterm match
+          case Block(_, expr) => expr.checkConst
+          case Apply(Apply(trydf, tryArg :: _), _)
+              if trydf.symbol.fullName == "dfhdl.core.DFError$package$.trydf" =>
+            tryArg.checkConst
+          case Apply(Apply(tc, _ :: tcValue :: Nil), _)
+              if tc.symbol.fullName == "dfhdl.core.DFVal$.TC.apply" =>
+            tcValue.checkConst
+          case TypeApply(Apply(asValTP, arg :: Nil), _)
+              if asValTP.symbol.fullName == "dfhdl.core.DFVal$package$.asValTP" =>
+            arg.checkConst
+          case _ =>
+            warn
+      case _ => true
+    end match
+
 type DFTuple[+T <: NonEmptyTuple] = DFStruct[T @uncheckedVariance]
 object DFTuple:
   private[core] def apply[T <: NonEmptyTuple](t: NonEmptyTuple): DFTuple[T] =
