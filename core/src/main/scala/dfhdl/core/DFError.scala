@@ -77,6 +77,7 @@ def trydf[V <: DFValAny](
       val dfErr = e match
         case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
         case e: DFError                  => e
+        case e                           => throw e
       dfc.logError(dfErr)
       dfErr.asVal[DFTypeAny, ModifierAny].asInstanceOf[V]
 
@@ -89,6 +90,7 @@ def trydf(block: => Unit)(using dfc: DFC, ctName: CTName): Unit =
       val dfErr = e match
         case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
         case e: DFError                  => e
+        case e                           => throw e
       dfc.logError(dfErr)
 
 def exitWithError(msg: String): Unit =
