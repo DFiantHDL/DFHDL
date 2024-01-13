@@ -33,19 +33,25 @@ object OrderMembers:
     def apply()(using MemberGetSet): DFMember => Int
   object Order:
     object Simple extends Order:
+      extension (dfVal: DFVal)
+        def isReferencedByAnyDcl(using MemberGetSet): Boolean =
+          dfVal.originRefs.view.map(_.get).collectFirst {
+            case _: DFVal.Dcl => true
+            case DclConst()   => true
+          }.nonEmpty
       def apply()(using MemberGetSet): DFMember => Int = {
         // anonymous members that are referenced by declarations come first
-        case dfVal: DFVal
-            if dfVal.isAnonymous && dfVal.originRefs.exists(_.get.isInstanceOf[DFVal.Dcl]) =>
-          1
-        // second to come are ports
-        case DclPort() => 2
-        // third are variables
-        case _: DFVal.Dcl => 3
-        // fourth are design blocks instances
-        case _: DFDesignBlock => 4
+        case dfVal: DFVal if dfVal.isAnonymous && dfVal.isReferencedByAnyDcl => 1
+        // second to come are constant declarations that may be referenced by ports
+        case DclConst() => 2
+        // third are ports
+        case DclPort() => 3
+        // fourth are variables
+        case DclVar() => 4
+        // fifth are design blocks instances
+        case _: DFDesignBlock => 5
         // then the rest
-        case _ => 5
+        case _ => 6
       }
     end Simple
 //    val GuardedLast: Order = new Order:
