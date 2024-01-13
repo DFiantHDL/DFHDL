@@ -45,6 +45,8 @@ final case class DFC(
   def lateConstruction: Boolean = mutableDB.OwnershipContext.lateConstruction
   def ownerOption: Option[DFOwnerAny] =
     mutableDB.OwnershipContext.ownerOption.map(_.asFE)
+  def ownerOrEmptyRef: ir.DFOwner.Ref =
+    ownerOption.map(_.asIR.ref(using this)).getOrElse(ir.DFMember.Empty.ref(using this))
   def setName(name: String): this.type =
     copy(nameOpt = Some(name)).asInstanceOf[this.type]
   def setAnnotations(annotations: List[HWAnnotation]): this.type =

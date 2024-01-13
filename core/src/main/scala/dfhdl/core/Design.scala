@@ -70,13 +70,11 @@ object Design:
   type Block = DFOwner[ir.DFDesignBlock]
   object Block:
     def apply(domain: ir.DomainType, dclMeta: ir.Meta, instMode: InstMode)(using DFC): Block =
-      val ownerRef: ir.DFOwner.Ref =
-        dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFMember.Empty.ref)
       ir.DFDesignBlock(
         domain,
         dclMeta,
         instMode,
-        ownerRef,
+        dfc.ownerOrEmptyRef,
         dfc.getMeta,
         ir.DFTags.empty
       )

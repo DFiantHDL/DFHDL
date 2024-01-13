@@ -4,13 +4,13 @@ import dfhdl.compiler.ir
 import scala.annotation.targetName
 import scala.reflect.{ClassTag, classTag}
 extension [M <: ir.DFMember](member: M)
-  def ref(using ClassTag[M], DFC): ir.DFRef.OneWay[M] =
+  def ref(using DFC, ClassTag[M]): ir.DFRef.OneWay[M] =
     val newRef = new ir.DFRef.OneWay[M]:
       lazy val refType = classTag[M]
     dfc.mutableDB.newRefFor(newRef, member)
   def refTW[O <: ir.DFMember](
       originMember: => O
-  )(using m: ClassTag[M], o: ClassTag[O], dfc: DFC): ir.DFRef.TwoWay[M, O] =
+  )(using dfc: DFC, m: ClassTag[M], o: ClassTag[O]): ir.DFRef.TwoWay[M, O] =
     import dfc.getSet
     lazy val newOriginRef = originMember.ref
     member match
