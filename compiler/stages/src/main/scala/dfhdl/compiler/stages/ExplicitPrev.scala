@@ -169,7 +169,7 @@ case object ExplicitPrev extends Stage:
 //    println(defaultsSet)
     val patchList = explicitPrevSet.flatMap {
       // for initialized ports and variables we just add an explicit prev self-assignment
-      case e: DFVal.Dcl if e.initRefsOption.nonEmpty =>
+      case e: DFVal.Dcl if e.initRefList.nonEmpty =>
         Some(
           new MetaDesign(e, Patch.Add.Config.After):
             e.asVarAny := e.asValAny.asInitialized.prev
@@ -182,7 +182,7 @@ case object ExplicitPrev extends Stage:
           val dfType = new dfhdl.core.DFType(e.dfType)
           val bubble = dfhdl.core.DFVal.Const(dfhdl.core.Bubble(dfType))
           val dclWithInit =
-            dfhdl.core.DFVal.Dcl(dfType, modifier, Some(List(bubble)))(using
+            dfhdl.core.DFVal.Dcl(dfType, modifier, List(bubble))(using
               dfc.setMeta(e.meta)
             ).asVarAny.asInitialized
           dclWithInit := dclWithInit.prev

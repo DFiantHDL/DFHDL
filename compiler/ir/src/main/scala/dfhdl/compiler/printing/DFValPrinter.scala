@@ -45,10 +45,10 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValDclEnd(dfVal: Dcl): String
   final def csDFValDcl(dfVal: Dcl): String =
     val noInit = csDFValDclWithoutInit(dfVal)
-    val init = dfVal.initRefsOption match
-      case Some(ref :: Nil) => s" $csInitKeyword ${csInitSingle(ref)}"
-      case Some(refs)       => s" $csInitKeyword ${csInitSeq(refs)}"
-      case _                => ""
+    val init = dfVal.initRefList match
+      case ref :: Nil => s" $csInitKeyword ${csInitSingle(ref)}"
+      case Nil        => ""
+      case refs       => s" $csInitKeyword ${csInitSeq(refs)}"
     val end = csDFValDclEnd(dfVal)
     s"$noInit$init$end"
   def csDFValFuncExpr(dfVal: Func): String

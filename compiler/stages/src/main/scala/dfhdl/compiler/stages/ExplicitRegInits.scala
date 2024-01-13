@@ -21,7 +21,7 @@ case object ExplicitRegInits extends Stage:
       case ra @ DFVal.Alias.History(_, DFRef(dcl: DFVal.Dcl), _, HistoryOp.Reg, None, _, _, _) =>
         // patch to add an init from the Dcl onto the register construct
         new MetaDesign(ra, AddCfg.ReplaceWithLast(ReplaceCfg.FullReplacement)):
-          val clonedInit = dcl.initOption.get.head.cloneAnonValueAndDepsHere.asConstAny
+          val clonedInit = dcl.initList.head.cloneAnonValueAndDepsHere.asConstAny
           dfhdl.core.DFVal.Alias.History(
             dcl.asValAny,
             ra.step,

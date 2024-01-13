@@ -428,7 +428,7 @@ object DFVal extends DFValLP:
   end InitTupleValues
 
   extension [T <: DFTypeAny, A, C, I, P, R](dfVal: DFVal[T, Modifier[A, C, I, P]])
-    private[core] def initForced(initValuesOpt: Option[List[DFConstOf[T]]])(using
+    private[core] def initForced(initValues: List[DFConstOf[T]])(using
         dfc: DFC
     ): DFVal[T, Modifier[A, C, Modifier.Initialized, P]] =
       import dfc.getSet
@@ -439,7 +439,7 @@ object DFVal extends DFValLP:
       val modifier = Modifier[A, C, I, P](dfVal.asIR.asInstanceOf[ir.DFVal.Dcl].modifier)
       // We do not need to replace the original Dcl, because it was anonymous and not added to the
       // mutable DB. Also see comment in `DFVal.Dcl`.
-      DFVal.Dcl(dfVal.dfType, modifier, initValuesOpt)
+      DFVal.Dcl(dfVal.dfType, modifier, initValues)
         .asVal[T, Modifier[A, C, Modifier.Initialized, P]]
     end initForced
 
@@ -448,8 +448,7 @@ object DFVal extends DFValLP:
     )(using DFC, InitCheck[I]): DFVal[T, Modifier[A, C, Modifier.Initialized, P]] = trydf {
       val tvList =
         initValues.view.filter(_.enable).map(tv => tv(dfVal.dfType)(using dfc.anonymize)).toList
-      if (tvList.isEmpty) initForced(None)
-      else dfVal.initForced(Some(tvList))
+      dfVal.initForced(tvList)
     }
   end extension
   extension [T <: NonEmptyTuple, A, C, I, P](dfVal: DFVal[DFTuple[T], Modifier[A, C, I, P]])
@@ -458,8 +457,8 @@ object DFVal extends DFValLP:
     )(using DFC, InitCheck[I]): DFVal[DFTuple[T], Modifier[A, C, Modifier.Initialized, P]] =
       trydf {
         if (initValues.enable)
-          dfVal.initForced(Some(initValues(dfVal.dfType)(using dfc.anonymize)))
-        else dfVal.initForced(None)
+          dfVal.initForced(initValues(dfVal.dfType)(using dfc.anonymize))
+        else dfVal.initForced(Nil)
       }
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
@@ -504,7 +503,7 @@ object DFVal extends DFValLP:
     def apply[T <: DFTypeAny, M <: ModifierAny](
         dfType: T,
         modifier: M,
-        initOption: Option[List[DFConstOf[T]]] = None
+        initValues: List[DFConstOf[T]] = Nil
     )(using
         DFC
     ): DFVal[T, M] =
@@ -512,11 +511,11 @@ object DFVal extends DFValLP:
       // fully initialized Dcl. The reason for this behavior is that we do not want to add the
       // Dcl to the mutable DB and only after add its initialization value to the DB, thereby
       // violating the reference order rule (we can only reference values that appear before).
-      if (dfc.isAnonymous && initOption.isEmpty)
+      if (dfc.isAnonymous && initValues.isEmpty)
         ir.DFVal.Dcl(
           dfType.asIR,
           modifier.asIR,
-          None,
+          Nil,
           ir.DFRef.OneWay.Empty,
           dfc.getMeta,
           ir.DFTags.empty
@@ -525,7 +524,7 @@ object DFVal extends DFValLP:
         lazy val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
           dfType.asIR,
           modifier.asIR,
-          initOption.map(_.map(_.asIR.refTW(dcl))),
+          initValues.map(_.asIR.refTW(dcl)),
           dfc.owner.ref,
           dfc.getMeta,
           ir.DFTags.empty

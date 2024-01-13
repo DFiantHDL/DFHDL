@@ -9,7 +9,7 @@ case object DropUnreferencedVars extends Stage:
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.collect {
-      case m @ DclVar() if !designDB.memberTable.contains(m) && m.initRefsOption.isEmpty =>
+      case m @ DclVar() if !designDB.memberTable.contains(m) && m.initRefList.isEmpty =>
         m -> Patch.Remove
     }
     designDB.patch(patchList)

@@ -256,7 +256,7 @@ object DFVal:
   final case class Dcl(
       dfType: DFType,
       modifier: Modifier,
-      initRefsOption: Option[List[Dcl.InitRef]],
+      initRefList: List[Dcl.InitRef],
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
@@ -264,17 +264,17 @@ object DFVal:
     protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
-        val sameInit = (this.initRefsOption, that.initRefsOption) match
-          case (Some(l), Some(r)) if l.length == r.length => l.lazyZip(r).forall(_ =~ _)
-          case (None, None)                               => true
-          case _                                          => false
+        val sameInit =
+          if (this.initRefList.length == that.initRefList.length)
+            this.initRefList.lazyZip(that.initRefList).forall(_ =~ _)
+          else false
         this.dfType == that.dfType && this.modifier == that.modifier && sameInit &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
-    def initOption(using MemberGetSet): Option[List[DFVal]] = initRefsOption.map(_.map(_.get))
+    def initList(using MemberGetSet): List[DFVal] = initRefList.map(_.get)
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = initRefsOption.getOrElse(Nil)
+    def getRefs: List[DFRefAny] = initRefList
   end Dcl
   object Dcl:
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
