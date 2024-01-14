@@ -569,12 +569,10 @@ object DFVal extends DFValLP:
           forceNewAlias: Boolean = false
       )(using DFC): DFVal[AT, M] =
         relVal.asIR match
-          // anonymous constant are replace by a different constant
+          // anonymous constant are replaced by a different constant
           // after its token value was converted according to the alias
           case const: ir.DFVal.Const
               if (const.isAnonymous || relVal.inDFCPosition) && !forceNewAlias =>
-            if (const.isAnonymous && !dfc.isAnonymous && relVal.inDFCPosition)
-              throw new IllegalArgumentException("shit")
             dfc.mutableDB.setMember(
               const,
               _.copy(token = tokenFunc(const.token.asTokenOf[VT]).asIR)
@@ -776,19 +774,6 @@ object DFVal extends DFValLP:
     export DFOpaque.Val.TC.given
   end TC
 
-  trait Conv[T <: DFTypeAny, P, R]:
-    def apply(dfType: T, value: R)(using DFC): DFValTP[T, P]
-  object Conv:
-    transparent inline given [T <: DFTypeAny, P, R](using tc: TC[T, R]): Conv[T, P, R] =
-      val constCheck = compiletime.summonInline[AssertGiven[
-        util.NotGiven[P =:= CONST] | (tc.OutP =:= CONST),
-        "Applied argument must be a constant."
-      ]]
-      new Conv[T, P, R]:
-        def apply(dfType: T, value: R)(using DFC): DFValTP[T, P] =
-          tc(dfType, value).asValTP[T, P]
-  type TCConst[T <: DFTypeAny, R] = Conv[T, CONST, R]
-
   trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
     type Out = DFValOf[T]
     type Ctx = DFC
@@ -894,17 +879,14 @@ object DFVal extends DFValLP:
       ]
   ): RegInitCheck[I] with {}
   object Ops:
-    // TODO: change to step Inlined[S] for all operations after https://github.com/lampepfl/dotty/issues/14451
-    // is resolved.
     extension [T <: DFTypeAny, A, C, I, S <: Int, V](dfVal: DFVal[T, Modifier[A, C, I, Any]])
-      def prev(step: Inlined[S], init: Exact[V])(using
+      def prev(step: Inlined[S], init: InitValue[T])(using
           dfc: DFC,
           dfOnly: DFDomainOnly,
-          tokenTC: DFToken.TC[T, V],
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        val initOpt = Some(Const(tokenTC(dfVal.dfType, init)))
+        val initOpt = Some(init(dfVal.dfType)(using dfc.anonymize))
         DFVal.Alias.History(dfVal, step, HistoryOp.Prev, initOpt)
       }
       def prev(step: Inlined[S])(using
@@ -938,14 +920,13 @@ object DFVal extends DFValLP:
         check(step)
         DFVal.Alias.History(dfVal, step, HistoryOp.Reg, None)
       }
-      def reg(step: Inlined[S], init: Exact[V])(using
+      def reg(step: Inlined[S], init: InitValue[T])(using
           dfc: DFC,
           rtOnly: RTDomainOnly,
-          tc: DFVal.TCConst[T, V],
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        val initOpt = Some(tc(dfVal.dfType, init)(using dfc.anonymize))
+        val initOpt = Some(init(dfVal.dfType)(using dfc.anonymize))
         DFVal.Alias.History(dfVal, step, HistoryOp.Reg, initOpt)
       }
       inline def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
