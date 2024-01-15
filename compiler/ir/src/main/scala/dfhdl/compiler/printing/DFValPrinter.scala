@@ -21,9 +21,12 @@ trait AbstractValPrinter extends AbstractPrinter:
   final def csRef(ref: DFRef.TwoWayAny): String =
     try
       val member = ref.get
-      val callOwner = ref.originRef.get.getOwner
       member match
+        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
+          if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
+          else dfVal.getName
         case dfVal: DFVal =>
+          val callOwner = ref.originRef.get.getOwner
           val cs = printer.csDFValRef(dfVal, callOwner)
           dfVal match
             case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
@@ -78,8 +81,9 @@ trait AbstractValPrinter extends AbstractPrinter:
       case PortOfDesignDef(Modifier.OUT, design) =>
         if (design.isAnonymous) printer.csDFDesignDefInst(design)
         else design.getName
-      case open: DFVal.Open => printer.csOpenKeyWord
-      case dfVal            => dfVal.getRelativeName(fromOwner)
+      case open: DFVal.Open        => printer.csOpenKeyWord
+      case dfVal if dfVal.isGlobal => dfVal.getName
+      case dfVal                   => dfVal.getRelativeName(fromOwner)
 end AbstractValPrinter
 
 protected trait DFValPrinter extends AbstractValPrinter:

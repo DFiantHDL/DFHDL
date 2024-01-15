@@ -58,7 +58,7 @@ final case class DFC(
   def clearErrors(): Unit = mutableDB.logger.clearErrors()
 end DFC
 object DFC:
-  given (using TopLevel): DFC = empty
+  given DFC = empty
   def empty: DFC =
     DFC(None, Position.unknown, None)
   sealed trait Scope

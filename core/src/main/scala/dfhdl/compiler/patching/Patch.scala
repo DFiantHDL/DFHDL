@@ -136,7 +136,7 @@ extension (db: DB)
     // in some conditions. currently this is done only for `getVeryLastMember`
     lazy val addedOwnersGetSets = patchList.flatMap {
       case (_, Patch.Add(db, _)) =>
-        db.members.drop(1).collect { case owner: DFOwner =>
+        db.membersNoGlobals.drop(1).collect { case owner: DFOwner =>
           (owner, db.getSet)
         }
       case _ => None

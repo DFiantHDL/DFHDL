@@ -128,7 +128,8 @@ trait Printer
     s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta)}$cs"
   def designFileName(designName: String): String
   def globalFileName: String
-  def csGlobalFileContent: String = csGlobalTypeDcls
+  def csGlobalFileContent: String =
+    csGlobalTypeDcls + csGlobalConstDcls
   val alignEnable = printerOptions.align
   def alignCode(cs: String): String
   val colorEnable = printerOptions.color
@@ -291,8 +292,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     Set("class", "def", "end", "enum", "extends", "new", "object", "val", "if", "else", "match",
       "case", "final")
   val dfhdlKW: Set[String] =
-    Set("VAR", "IN", "OUT", "INOUT", "VAL", "DFRET", "DFDesign", "RTDesign", "EDDesign", "DFDomain",
-      "RTDomain", "EDDomain", "process", "forever", "all")
+    Set("VAR", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign", "EDDesign",
+      "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init")
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] =
     Set("Bit", "Boolean", "UInt", "SInt", "Bits", "X", "Encode", "Struct", "Opaque", "StartAt",

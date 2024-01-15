@@ -12,6 +12,8 @@ trait AbstractTypePrinter extends AbstractPrinter:
       case dt: DFEnum   => csDFEnumDcl(dt, global)
       case dt: DFOpaque => csDFOpaqueDcl(dt)
       case dt: DFStruct => csDFStructDcl(dt)
+  final def csGlobalConstDcls: String =
+    printer.csDFMembers(getSet.designDB.membersGlobals)
   final def csGlobalTypeDcls: String =
     getSet.designDB.getGlobalNamedDFTypes.view
       .filter {

@@ -48,7 +48,16 @@ final case class DB(
       .mapValues(_.toList)
       .toMap
 
-  lazy val top: DFDesignBlock = members.head match
+  lazy val membersNoGlobals: List[DFMember] = members.filter {
+    case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => false
+    case _                                          => true
+  }
+
+  lazy val membersGlobals: List[DFVal.CanBeGlobal] = members.collect {
+    case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => dfVal
+  }
+
+  lazy val top: DFDesignBlock = membersNoGlobals.head match
     case m: DFDesignBlock => m
     case _                => throw new IllegalArgumentException("Unexpected member as Top.")
 
@@ -127,7 +136,7 @@ final case class DB(
   // holds the topological order of owner owner dependency
   lazy val ownerMemberList: List[(DFOwner, List[DFMember])] =
     // head will always be the TOP owner
-    OMLGen[DFOwner](_.getOwner)(List(), members.drop(1), List(top -> List())).reverse
+    OMLGen[DFOwner](_.getOwner)(List(), membersNoGlobals.drop(1), List(top -> List())).reverse
 //  def printOwnerMemberList(implicit printConfig: CSPrinter.Config): DB = {
 //    implicit val printer: CSPrinter = new CSPrinter {
 //      val getSet: MemberGetSet = __getset
@@ -157,7 +166,11 @@ final case class DB(
   // holds the topological order of named owner block dependency
   lazy val namedOwnerMemberList: List[(DFOwnerNamed, List[DFMember])] =
     // head will always be the TOP owner
-    OMLGen[DFOwnerNamed](_.getOwnerNamed)(List(), members.drop(1), List(top -> List())).reverse
+    OMLGen[DFOwnerNamed](_.getOwnerNamed)(
+      List(),
+      membersNoGlobals.drop(1),
+      List(top -> List())
+    ).reverse
 
   // holds a hash table that lists members of each named owner. The member list order is maintained.
   lazy val namedOwnerMemberTable: Map[DFOwnerNamed, List[DFMember]] =
@@ -166,7 +179,7 @@ final case class DB(
   // holds the topological order of owner block dependency
   lazy val blockMemberList: List[(DFBlock, List[DFMember])] =
     // head will always be the TOP owner
-    OMLGen[DFBlock](_.getOwnerBlock)(List(), members.drop(1), List(top -> List())).reverse
+    OMLGen[DFBlock](_.getOwnerBlock)(List(), membersNoGlobals.drop(1), List(top -> List())).reverse
 
   // holds a hash table that lists members of each owner block. The member list order is maintained.
   lazy val blockMemberTable: Map[DFBlock, List[DFMember]] =
@@ -175,7 +188,11 @@ final case class DB(
   // holds the topological order of design block dependency
   lazy val designMemberList: List[(DFDesignBlock, List[DFMember])] =
     // head will always be the TOP block
-    OMLGen[DFDesignBlock](_.getOwnerDesign)(List(), members.drop(1), List(top -> List())).reverse
+    OMLGen[DFDesignBlock](_.getOwnerDesign)(
+      List(),
+      membersNoGlobals.drop(1),
+      List(top -> List())
+    ).reverse
 
   // holds the topological order of unique design block dependency
   lazy val uniqueDesignMemberList: List[(DFDesignBlock, List[DFMember])] =
@@ -217,9 +234,11 @@ final case class DB(
       connToDcls: ConnectToMap
   ): Access =
     def isExternalConn =
-      dfVal.getOwnerDesign isSameOwnerDesignAs net
+      if (dfVal.isGlobal) true
+      else dfVal.getOwnerDesign isSameOwnerDesignAs net
     def isInternalConn =
-      dfVal isSameOwnerDesignAs net
+      if (dfVal.isGlobal) false
+      else dfVal isSameOwnerDesignAs net
     dfVal match
       case dcl: DFVal.Dcl =>
         dcl.modifier match
@@ -379,7 +398,7 @@ final case class DB(
   def nameCheck(): Unit =
     // We use a Set since meta programming is usually the cause and can result in
     // multiple anonymous members with the same position. The top can be anonymous.
-    val anonErrorMemberPositions: Set[Position] = members.drop(1).view.collect {
+    val anonErrorMemberPositions: Set[Position] = membersNoGlobals.drop(1).view.collect {
       case dcl: DFVal.Dcl if dcl.meta.isAnonymous =>
         dcl.meta.position
       // design definitions are allowed to be anonymous

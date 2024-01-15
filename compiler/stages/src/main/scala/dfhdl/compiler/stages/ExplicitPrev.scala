@@ -159,7 +159,7 @@ case object ExplicitPrev extends Stage:
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val (currentSet, scopeMap) =
-      getImplicitPrevVars(designDB.members.drop(1), designDB.top, Map(), Set())
+      getImplicitPrevVars(designDB.membersNoGlobals.drop(1), designDB.top, Map(), Set())
 //    println("scopeMap:")
 //    println(scopeMap.mkString("\n"))
     val (explicitPrevSet, defaultsSet) = currentSet.partition(p => scopeMap(p).hasAssignments)

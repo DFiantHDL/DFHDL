@@ -62,25 +62,25 @@ infix type X[T <: DFType.Supported, M] = M match
   case Int & Singleton                 => DFVector[DFType.Of[T], Tuple1[M]]
 type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
 
-extension (dfVal: ir.DFVal)
+extension [V <: ir.DFVal](dfVal: V)
   inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] =
-    DFVal[T, M](dfVal)
+    DFVal[T, M, V](dfVal)
   inline def asValOf[T <: DFTypeAny]: DFValOf[T] =
-    DFVal[T, ModifierAny](dfVal)
+    DFVal[T, ModifierAny, V](dfVal)
   inline def asValTP[T <: DFTypeAny, P]: DFValTP[T, P] =
-    DFVal[T, Modifier[Any, Any, Any, P]](dfVal)
+    DFVal[T, Modifier[Any, Any, Any, P], V](dfVal)
   inline def asValAny: DFValAny =
-    DFVal[DFTypeAny, ModifierAny](dfVal)
+    DFVal[DFTypeAny, ModifierAny, V](dfVal)
   inline def asVarOf[T <: DFTypeAny]: DFVarOf[T] =
-    DFVal[T, Modifier.Mutable](dfVal)
+    DFVal[T, Modifier.Mutable, V](dfVal)
   inline def asVarAny: DFVarAny =
-    DFVal[DFTypeAny, Modifier.Mutable](dfVal)
+    DFVal[DFTypeAny, Modifier.Mutable, V](dfVal)
   inline def asDclAny: DFDclAny =
-    DFVal[DFTypeAny, Modifier.Dcl](dfVal)
+    DFVal[DFTypeAny, Modifier.Dcl, V](dfVal)
   inline def asConstAny[T <: DFTypeAny]: DFConstOf[DFTypeAny] =
-    DFVal[DFTypeAny, Modifier.CONST](dfVal)
+    DFVal[DFTypeAny, Modifier.CONST, V](dfVal)
   inline def asConstOf[T <: DFTypeAny]: DFConstOf[T] =
-    DFVal[T, Modifier.CONST](dfVal)
+    DFVal[T, Modifier.CONST, V](dfVal)
 end extension
 
 extension (dfVal: DFValAny)
@@ -219,7 +219,20 @@ object DFVal extends DFValLP:
   final class Final[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
       extends AnyVal
       with DFVal[T, M]
-  def apply[T <: DFTypeAny, M <: ModifierAny](irValue: ir.DFVal | DFError): DFVal[T, M] =
+  // constructing a front-end DFVal value class object. if it's a global value, then
+  // we need to save the DFC, instead of the actual member IR object
+  inline def apply[T <: DFTypeAny, M <: ModifierAny, IR <: ir.DFVal | DFError](
+      irValue: IR
+  ): DFVal[T, M] =
+    inline irValue match
+      case dfVal: ir.DFVal.CanBeGlobal =>
+        if (dfVal.isGlobal)
+          dfVal.globalDFC = compiletime.summonInline[DFC]
+      case member => // this still could be a global in runtime
+        (member: @unchecked) match
+          case dfVal: ir.DFVal.CanBeGlobal if dfVal.isGlobal =>
+            dfVal.globalDFC = compiletime.summonInline[DFC]
+          case _ =>
     new Final[T, M](irValue)
   inline def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.asIR)
   object OrTupleOrStruct:
@@ -488,7 +501,7 @@ object DFVal extends DFValLP:
     ): DFConstOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
       ir.DFVal
-        .Const(token.asIR, dfc.owner.ref, meta, ir.DFTags.empty)
+        .Const(token.asIR, dfc.ownerOrEmptyRef, meta, ir.DFTags.empty)
         .addMember
         .asConstOf[T]
 
@@ -552,7 +565,7 @@ object DFVal extends DFValLP:
         dfType.asIR,
         op,
         args.map(_.refTW(func)),
-        dfc.owner.ref,
+        dfc.ownerOrEmptyRef,
         dfc.getMeta,
         ir.DFTags.empty
       )
@@ -587,7 +600,7 @@ object DFVal extends DFValLP:
           ir.DFVal.Alias.AsIs(
             aliasType,
             relVal.refTW(alias),
-            dfc.owner.ref,
+            dfc.ownerOrEmptyRef,
             dfc.getMeta,
             ir.DFTags.empty
           )
@@ -652,7 +665,7 @@ object DFVal extends DFValLP:
                 relVal.refTW(alias),
                 relBitHigh,
                 relBitLow,
-                dfc.owner.ref,
+                dfc.ownerOrEmptyRef,
                 dfc.getMeta,
                 ir.DFTags.empty
               )
@@ -670,7 +683,7 @@ object DFVal extends DFValLP:
             dfType.asIR,
             relVal.asIR.refTW(alias),
             relIdx.asIR.refTW(alias),
-            dfc.owner.ref,
+            dfc.ownerOrEmptyRef,
             dfc.getMeta,
             ir.DFTags.empty
           )

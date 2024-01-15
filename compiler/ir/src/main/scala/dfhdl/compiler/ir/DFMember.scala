@@ -4,7 +4,7 @@ import dfhdl.internals.*
 
 import annotation.tailrec
 import scala.collection.immutable.ListMap
-import scala.reflect.ClassTag
+import scala.reflect.{ClassTag, classTag}
 
 trait HasRefCompare[T <: HasRefCompare[T]]:
   private var cachedCompare: Option[(T, Boolean)] = None
@@ -138,6 +138,7 @@ end DFMember
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
   def width: Int = dfType.width
+  def isGlobal: Boolean = false
   protected def protIsConst(using MemberGetSet): Boolean
   // using just an integer to escape redundant boxing Option[Boolean] would have achieved
   private var cachedIsConst: Int = -1
@@ -148,6 +149,7 @@ sealed trait DFVal extends DFMember.Named:
       localIsConst
     else if (cachedIsConst > 0) true
     else false
+end DFVal
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
@@ -220,12 +222,18 @@ object DFVal:
   // can be an expression
   sealed trait CanBeExpr extends DFVal
 
+  // can be a global value
+  sealed trait CanBeGlobal extends CanBeExpr:
+    private[dfhdl] var globalDFC: dfhdl.internals.MetaContext = compiletime.uninitialized
+    final override def isGlobal: Boolean = ownerRef.refType equals classTag[DFMember.Empty]
+
   final case class Const(
       token: DFTokenAny,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends CanBeExpr:
+  ) extends CanBeExpr,
+        CanBeGlobal:
     val dfType = token.dfType
     protected def protIsConst(using MemberGetSet): Boolean = true
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -252,6 +260,7 @@ object DFVal:
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
     def getRefs: List[DFRefAny] = Nil
+  end Open
 
   final case class Dcl(
       dfType: DFType,
@@ -286,7 +295,8 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends CanBeExpr:
+  ) extends CanBeExpr,
+        CanBeGlobal:
     protected def protIsConst(using MemberGetSet): Boolean =
       args.forall(_.get.isConst)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -351,7 +361,7 @@ object DFVal:
 
     // This is a partial alias that can propagate its modifier.
     // E.g., a mutable variable `x` that we select its bit `x(1)` is also mutable.
-    sealed trait Partial extends Alias:
+    sealed trait Partial extends Alias, CanBeGlobal:
       val relValRef: PartialRef
     type PartialRef = DFRef.TwoWay[DFVal, Partial]
 

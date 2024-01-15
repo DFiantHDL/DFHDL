@@ -28,6 +28,108 @@ private case class MemberEntry(
     ignore: Boolean
 )
 
+class DesignContext:
+  val members = mutable.ArrayBuffer.empty[MemberEntry]
+  val memberTable = mutable.Map.empty[DFMember, Int]
+  val refTable = mutable.Map.empty[DFRefAny, DFMember]
+  var defInputs = List.empty[DFValAny]
+  var isDuplicate = false
+
+  def addMember[M <: DFMember](member: M): M =
+    memberTable += (member -> members.length)
+    members += MemberEntry(member, Set(), false)
+    member
+  end addMember
+
+  // same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
+  def plantMember[M <: DFMember](owner: DFOwner, member: M): M =
+    newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
+      member.ownerRef,
+      owner
+    ) // now this reference will refer to meta design owner
+    addMember(member)
+  end plantMember
+
+  def newRefFor[M <: DFMember, R <: DFRef[M]](ref: R, member: M): R =
+    memberTable.get(member) match
+      // The member already exists, but it might have been updated
+      case Some(idx) =>
+        // get the newest member at index
+        val memberEntry = members(idx)
+        members.update(idx, memberEntry.copy(refSet = memberEntry.refSet + ref))
+        refTable += (ref -> memberEntry.irValue)
+      // In case where we do meta programming and planting one design into another,
+      // we may not have the member available at the table. This is OK.
+      // So we only add the reference here.
+      case _ =>
+        refTable += (ref -> member)
+    ref
+  end newRefFor
+
+  def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
+    val idx = memberTable(originalMember)
+    // get the most updated member currently positioned at the index of the original member
+    val originalMemberUpdated = members(idx)._1.asInstanceOf[M]
+    // apply function to get the new member
+    val newMember = newMemberFunc(originalMemberUpdated)
+    val memberEntry = members(idx)
+    // update all references to the new member
+    memberEntry.refSet.foreach(r => refTable.update(r, newMember))
+    // add the member to the table with the position index
+    // (we don't remove the old member since it might still be used as a user-reference in a mutable DB)
+    memberTable.update(newMember, idx)
+    // update the member in the member position array
+    members.update(idx, memberEntry.copy(irValue = newMember))
+    newMember
+  end setMember
+
+  def replaceMember[M <: DFMember](originalMember: M, newMember: M): M =
+    if (originalMember == newMember) return newMember // nothing to do
+    // marking the newMember slot as 'ignore' in case it exists
+    ignoreMember(newMember)
+    // replace the member by setting a new one at its position
+    setMember[M](originalMember, _ => newMember)
+    newMember
+  end replaceMember
+
+  def ignoreMember[M <: DFMember](
+      member: M
+  ): M = // ignoring it means removing it for the immutable DB
+    memberTable.get(member).foreach { idx =>
+      members.update(idx, members(idx).copy(irValue = member, ignore = true))
+    }
+    member
+  end ignoreMember
+
+  def touchLazyRefs(): Unit =
+    var size = -1
+    // Touching all lazy origin refs to force their addition.
+    // During this procedure it is possible that new reference are added. If so, we re-iterate
+    while (refTable.size != size) do
+      size = refTable.size
+      refTable.keys.foreach {
+        case or: DFRef.TwoWayAny => or.originRef
+        case _                   => // do nothing
+      }
+  end touchLazyRefs
+
+  def getLatestMember: DFMember =
+    members.view.filterNot(e => e.ignore).map(e => e.irValue).head
+
+  def inject(sourceCtx: DesignContext): Unit =
+    sourceCtx.touchLazyRefs()
+    sourceCtx.getMemberList.foreach { m =>
+      if (!memberTable.contains(m))
+        addMember(m)
+    }
+    refTable ++= sourceCtx.refTable
+  end inject
+
+  def getMemberList: List[DFMember] =
+    members.view.filterNot(e => e.ignore).map(e => e.irValue).toList
+  def getRefTable: Map[DFRefAny, DFMember] = refTable.toMap
+end DesignContext
+
 final class MutableDB():
   private val self = this
 
@@ -39,102 +141,9 @@ final class MutableDB():
   def setMetaGetSet(metaGetSet: MemberGetSet): Unit =
     metaGetSetOpt = Some(metaGetSet)
 
-  class DesignContext:
-    val members = mutable.ArrayBuffer.empty[MemberEntry]
-    val memberTable = mutable.Map.empty[DFMember, Int]
-    val refTable = mutable.Map.empty[DFRefAny, DFMember]
-    var defInputs = List.empty[DFValAny]
-    var isDuplicate = false
-
-    def addMember[M <: DFMember](member: M): M =
-      memberTable += (member -> members.length)
-      members += MemberEntry(member, Set(), false)
-      member
-    end addMember
-
-    // same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
-    def plantMember[M <: DFMember](owner: DFOwner, member: M): M =
-      newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
-        member.ownerRef,
-        owner
-      ) // now this reference will refer to meta design owner
-      addMember(member)
-    end plantMember
-
-    def newRefFor[M <: DFMember, R <: DFRef[M]](ref: R, member: M): R =
-      memberTable.get(member) match
-        // The member already exists, but it might have been updated
-        case Some(idx) =>
-          // get the newest member at index
-          val memberEntry = members(idx)
-          members.update(idx, memberEntry.copy(refSet = memberEntry.refSet + ref))
-          refTable += (ref -> memberEntry.irValue)
-        // In case where we do meta programming and planting one design into another,
-        // we may not have the member available at the table. This is OK.
-        // So we only add the reference here.
-        case _ =>
-          refTable += (ref -> member)
-      ref
-    end newRefFor
-
-    def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
-      val idx = memberTable(originalMember)
-      // get the most updated member currently positioned at the index of the original member
-      val originalMemberUpdated = members(idx)._1.asInstanceOf[M]
-      // apply function to get the new member
-      val newMember = newMemberFunc(originalMemberUpdated)
-      // in case the member is an owner, we check the owner stack to replace it
-      (originalMember, newMember) match
-        case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
-        case _                        =>
-      val memberEntry = members(idx)
-      // update all references to the new member
-      memberEntry.refSet.foreach(r => refTable.update(r, newMember))
-      // add the member to the table with the position index
-      // (we don't remove the old member since it might still be used as a user-reference in a mutable DB)
-      memberTable.update(newMember, idx)
-      // update the member in the member position array
-      members.update(idx, memberEntry.copy(irValue = newMember))
-      newMember
-    end setMember
-
-    def replaceMember[M <: DFMember](originalMember: M, newMember: M): M =
-      if (originalMember == newMember) return newMember // nothing to do
-      // marking the newMember slot as 'ignore' in case it exists
-      ignoreMember(newMember)
-      // replace the member by setting a new one at its position
-      setMember[M](originalMember, _ => newMember)
-      newMember
-    end replaceMember
-
-    def ignoreMember[M <: DFMember](
-        member: M
-    ): M = // ignoring it means removing it for the immutable DB
-      memberTable.get(member).foreach { idx =>
-        members.update(idx, members(idx).copy(irValue = member, ignore = true))
-      }
-      member
-    end ignoreMember
-
-    def touchLazyRefs(): Unit =
-      var size = -1
-      // Touching all lazy origin refs to force their addition.
-      // During this procedure it is possible that new reference are added. If so, we re-iterate
-      while (refTable.size != size) do
-        size = refTable.size
-        refTable.keys.foreach {
-          case or: DFRef.TwoWayAny => or.originRef
-          case _                   => // do nothing
-        }
-    end touchLazyRefs
-
-    def getMemberList: List[DFMember] =
-      members.view.filterNot(e => e.ignore).map(e => e.irValue).toList
-    def getRefTable: Map[DFRefAny, DFMember] = refTable.toMap
-  end DesignContext
-
   object DesignContext:
-    var current: DesignContext = new DesignContext
+    val global: DesignContext = new DesignContext
+    var current: DesignContext = global
     var stack = List.empty[DesignContext]
     val designMembers = mutable.Map.empty[DFDesignBlock, List[DFMember]]
     val uniqueDesigns = mutable.Map.empty[String, List[List[DFDesignBlock]]]
@@ -217,6 +226,13 @@ final class MutableDB():
         d
       }.get
   end DesignContext
+
+  val injectedCtx = mutable.Set.empty[DesignContext]
+  def injectGlobals(from: MutableDB): Unit =
+    val sourceCtx = from.DesignContext.global
+    if (!injectedCtx.contains(sourceCtx))
+      injectedCtx += sourceCtx
+      DesignContext.global.inject(sourceCtx)
 
   object OwnershipContext:
     private var stack: List[DFOwner] = Nil
@@ -306,11 +322,21 @@ final class MutableDB():
 
   def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
     dirtyDB()
-    DesignContext.current.setMember(originalMember, newMemberFunc)
+    val newMember = DesignContext.current.setMember(originalMember, newMemberFunc)
+    // in case the member is an owner, we check the owner stack to replace it
+    (originalMember, newMember) match
+      case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
+      case _                        =>
+    newMember
 
   def replaceMember[M <: DFMember](originalMember: M, newMember: M): M =
     dirtyDB()
     DesignContext.current.replaceMember(originalMember, newMember)
+    // in case the member is an owner, we check the owner stack to replace it
+    (originalMember, newMember) match
+      case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
+      case _                        =>
+    newMember
 
   def ignoreMember[M <: DFMember](
       member: M
@@ -326,7 +352,6 @@ final class MutableDB():
       case o: DFDesignBlock =>
         o :: DesignContext.designMembers.getOrElse(o, Nil).flatMap(flattenMembers)
       case member => List(member)
-
     topMemberList.flatMap(flattenMembers)
 
   def immutable: DB = memoizedDB.getOrElse {
