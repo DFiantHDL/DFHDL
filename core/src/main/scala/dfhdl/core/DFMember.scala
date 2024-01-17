@@ -11,15 +11,8 @@ type DFMemberAny = DFMember[ir.DFMember]
 object DFMember:
   extension [T <: ir.DFMember](member: DFMember[T])
     inline def asIR: T = (member.irValue: @unchecked) match
-      case memberIR: T @unchecked =>
-        (memberIR: @unchecked) match
-          case dfVal: ir.DFVal.CanBeGlobal if dfVal.isGlobal =>
-            compiletime.summonInline[DFC].mutableDB.injectGlobals(
-              dfVal.globalDFC.asInstanceOf[DFC].mutableDB
-            )
-          case _ =>
-        memberIR
-      case err: DFError => throw DFError.Derived(err)
+      case memberIR: T @unchecked => memberIR
+      case err: DFError           => throw DFError.Derived(err)
 end DFMember
 
 extension [M <: ir.DFMember](member: M)

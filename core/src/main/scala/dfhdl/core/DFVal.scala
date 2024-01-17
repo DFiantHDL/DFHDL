@@ -223,17 +223,7 @@ object DFVal extends DFValLP:
   // we need to save the DFC, instead of the actual member IR object
   inline def apply[T <: DFTypeAny, M <: ModifierAny, IR <: ir.DFVal | DFError](
       irValue: IR
-  ): DFVal[T, M] =
-    inline irValue match
-      case dfVal: ir.DFVal.CanBeGlobal =>
-        if (dfVal.isGlobal)
-          dfVal.globalDFC = compiletime.summonInline[DFC]
-      case member => // this still could be a global in runtime
-        (member: @unchecked) match
-          case dfVal: ir.DFVal.CanBeGlobal if dfVal.isGlobal =>
-            dfVal.globalDFC = compiletime.summonInline[DFC]
-          case _ =>
-    new Final[T, M](irValue)
+  ): DFVal[T, M] = new Final[T, M](irValue)
   inline def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.asIR)
   object OrTupleOrStruct:
     def unapply(arg: Any)(using DFC): Option[DFValAny] =

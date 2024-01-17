@@ -228,8 +228,7 @@ final class MutableDB():
   end DesignContext
 
   val injectedCtx = mutable.Set.empty[DesignContext]
-  def injectGlobals(from: MutableDB): Unit =
-    val sourceCtx = from.DesignContext.global
+  def injectGlobals(sourceCtx: DesignContext): Unit =
     if (!injectedCtx.contains(sourceCtx))
       injectedCtx += sourceCtx
       DesignContext.global.inject(sourceCtx)
@@ -289,6 +288,8 @@ final class MutableDB():
   def addMember[M <: DFMember](member: M): M =
     dirtyDB()
     member match
+      case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
+        dfVal.globalCtx = DesignContext.global
       case design: DFDesignBlock =>
         DesignContext.startDesign(design)
       case _ =>
@@ -320,17 +321,29 @@ final class MutableDB():
     member.asInstanceOf[M0]
   end getMember
 
+  private def globalMemberCtxCopy(originalMember: DFMember, newMember: DFMember): Unit =
+    newMember match
+      case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
+        dfVal.globalCtx = originalMember.asInstanceOf[DFVal.CanBeGlobal].globalCtx
+      case _ =>
+
   def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
     dirtyDB()
     val newMember = DesignContext.current.setMember(originalMember, newMemberFunc)
+    globalMemberCtxCopy(originalMember, newMember)
     // in case the member is an owner, we check the owner stack to replace it
     (originalMember, newMember) match
       case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
       case _                        =>
+    newMember match
+      case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
+        dfVal.globalCtx = originalMember.asInstanceOf[DFVal.CanBeGlobal].globalCtx
+      case _ =>
     newMember
 
   def replaceMember[M <: DFMember](originalMember: M, newMember: M): M =
     dirtyDB()
+    globalMemberCtxCopy(originalMember, newMember)
     DesignContext.current.replaceMember(originalMember, newMember)
     // in case the member is an owner, we check the owner stack to replace it
     (originalMember, newMember) match

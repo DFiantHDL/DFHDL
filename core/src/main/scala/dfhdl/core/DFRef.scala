@@ -4,7 +4,15 @@ import dfhdl.compiler.ir
 import scala.annotation.targetName
 import scala.reflect.{ClassTag, classTag}
 extension [M <: ir.DFMember](member: M)
+  private def injectGlobalCtx()(using DFC): Unit =
+    member match
+      case dfVal: ir.DFVal.CanBeGlobal if dfVal.isGlobal =>
+        dfc.mutableDB.injectGlobals(
+          dfVal.globalCtx.asInstanceOf[DesignContext]
+        )
+      case _ =>
   def ref(using DFC, ClassTag[M]): ir.DFRef.OneWay[M] =
+    injectGlobalCtx()
     val newRef = new ir.DFRef.OneWay[M]:
       lazy val refType = classTag[M]
     dfc.mutableDB.newRefFor(newRef, member)
@@ -12,6 +20,7 @@ extension [M <: ir.DFMember](member: M)
       originMember: => O
   )(using dfc: DFC, m: ClassTag[M], o: ClassTag[O]): ir.DFRef.TwoWay[M, O] =
     import dfc.getSet
+    injectGlobalCtx()
     lazy val newOriginRef = originMember.ref
     member match
       // referencing a port from another design causes by-name referencing

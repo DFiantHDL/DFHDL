@@ -224,7 +224,7 @@ object DFVal:
 
   // can be a global value
   sealed trait CanBeGlobal extends CanBeExpr:
-    private[dfhdl] var globalDFC: dfhdl.internals.MetaContext = compiletime.uninitialized
+    private[dfhdl] var globalCtx: Any = compiletime.uninitialized
     final override def isGlobal: Boolean = ownerRef.refType equals classTag[DFMember.Empty]
 
   final case class Const(
