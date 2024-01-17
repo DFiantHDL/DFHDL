@@ -5,8 +5,13 @@ import munit.*
 class DFOpaqueSpec extends DFSpec:
   case class o1u8() extends core.DFOpaque.Frontend(UInt(8))
   case class o2u8() extends Opaque(UInt(8))
+  val c: UInt[8] <> CONST = 11
+  val v = UInt(8) <> VAR
   val o1 = o1u8 <> VAR init 1.as(o1u8)
-  val o2 = o2u8 <> VAR
+  val o2 = o2u8 <> VAR init c.as(o2u8)
+  assertCompileError("Init value must be a constant.")(
+    """val o3 = o2u8 <> VAR init v.as(o2u8)"""
+  )
   case class gogo() extends Opaque((UInt(8), Bit))
   abstract class arrAbs extends Opaque(UInt(8) X 4)
   case class arr() extends arrAbs

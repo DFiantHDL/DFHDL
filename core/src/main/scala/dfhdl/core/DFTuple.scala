@@ -23,32 +23,30 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
 extension (using quotes: Quotes)(term: quotes.reflect.Term)
   def checkConst: Boolean =
     import quotes.reflect.*
-    def warn: Boolean =
-      report.warning("Not a constant", term.pos)
-      false
-    val uterm = term.underlying
-    uterm.tpe.asType match
-      case '[DFStruct.Fields | NonEmptyTuple] =>
-        uterm match
-          case Apply(_, args) => args.forall(_.checkConst)
-          case _              => warn
-      case '[DFConstOf[t]] => true
-      case '[DFValOf[t]] =>
-        uterm match
-          case Block(_, expr) => expr.checkConst
-          case Apply(Apply(trydf, tryArg :: _), _)
-              if trydf.symbol.fullName == "dfhdl.core.DFError$package$.trydf" =>
-            tryArg.checkConst
-          case Apply(Apply(tc, _ :: tcValue :: Nil), _)
-              if tc.symbol.fullName == "dfhdl.core.DFVal$.TC.apply" =>
-            tcValue.checkConst
-          case TypeApply(Apply(asValTP, arg :: Nil), _)
-              if asValTP.symbol.fullName == "dfhdl.core.DFVal$package$.asValTP" =>
-            arg.checkConst
+    extension (term: Term)
+      def warn: Boolean =
+        report.warning("Not a constant", term.pos)
+        false
+      def explore: Boolean =
+        import quotes.reflect.*
+        term match
+          case Apply(fun, args)    => fun.explore && args.forall(_.explore)
+          case NamedArg(_, expr)   => expr.explore
+          case Inlined(_, _, expr) => expr.explore
+          case Block(_, expr)      => expr.explore
+          case TypeApply(expr, _)  => expr.explore
+          case Typed(expr, _)      => expr.explore
           case _ =>
-            warn
-      case _ => true
-    end match
+            term.tpe.asType match
+              case '[DFConstOf[?]] => true
+              case '[DFValOf[?]]   => term.warn
+              case _               => true
+        end match
+      end explore
+    end extension
+    term.explore
+  end checkConst
+end extension
 
 type DFTuple[+T <: NonEmptyTuple] = DFStruct[T @uncheckedVariance]
 object DFTuple:

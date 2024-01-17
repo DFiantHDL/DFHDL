@@ -165,7 +165,9 @@ class DFDecimalSpec extends DFSpec:
   }
   test("Assignment") {
     assertCodeString {
-      """|val b8 = Bits(8) <> VAR
+      """|val c: UInt[8] <> CONST = d"8'1"
+         |val v = UInt(8) <> VAR init c + d"8'1"
+         |val b8 = Bits(8) <> VAR
          |val u8 = UInt(8) <> VAR init d"8'255"
          |val s8 = SInt(8) <> VAR init ?
          |val u6 = UInt(6) <> IN
@@ -196,6 +198,13 @@ class DFDecimalSpec extends DFSpec:
          |s6 := s8.resize(6)
          |""".stripMargin
     } {
+      val c: UInt[8] <> CONST = 1
+      val v = UInt(8) <> VAR init c + 1
+      assertCompileError(
+        "Init value must be a constant."
+      )(
+        """val v2 = UInt(8) <> VAR init v + 1"""
+      )
       val b8 = Bits(8) <> VAR
       val u8 = UInt(8) <> VAR init 255
       val s8 = SInt(8) <> VAR init ?
