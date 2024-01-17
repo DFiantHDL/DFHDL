@@ -115,7 +115,7 @@ object DFMember:
     final def getFullName(using MemberGetSet): String = this match
       case o: DFDesignBlock if o.isTop => getName
       case _                           => s"${getOwnerNamed.getFullName}.${getName}"
-    final def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
+    def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
       val namedOwner = callOwner.getThisOrOwnerNamed
       if (this isMemberOf namedOwner) getName
       else if (getOwnerNamed isOneLevelBelow namedOwner) s"${getOwnerNamed.getName}.$getName"
@@ -226,6 +226,9 @@ object DFVal:
   sealed trait CanBeGlobal extends CanBeExpr:
     private[dfhdl] var globalCtx: Any = compiletime.uninitialized
     final override def isGlobal: Boolean = ownerRef.refType equals classTag[DFMember.Empty]
+    final override def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
+      if (isGlobal) this.getName
+      else super.getRelativeName(callOwner)
 
   final case class Const(
       token: DFTokenAny,
