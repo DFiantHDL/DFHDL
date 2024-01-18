@@ -437,9 +437,55 @@ final case class DB(
       )
   end nameCheck
 
+  // checks for direct references across designs
+  def directRefCheck(): Unit =
+    import DFVal.PortByNameSelect
+    val problemReferences: List[(DFMember, DFMember)] =
+      membersNoGlobals.view.drop(1).flatMap {
+        case _: PortByNameSelect => None
+        case m =>
+          m.getRefs.view.map(_.get).flatMap {
+            // global values are ok to be referenced
+            case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => None
+            // skip empty
+            case empty: DFMember.Empty => None
+            // port referencing is done by name, and supported for
+            // internal designs, but not external ones
+            case PortByNameSelect.Of(refMember) =>
+              if (refMember.isOutsideOwner(m.getOwnerDesign))
+                Some(refMember)
+              else None
+            // the rest must be in the same design
+            case refMember if !refMember.isSameOwnerDesignAs(m) =>
+              Some(refMember)
+            case _ => None
+          }.map(m -> _)
+      }.toList
+    val errorMessages = problemReferences.map { (from, to) =>
+      val toName = to match
+        case named: DFMember.Named => s"`${named.getName}` "
+        case _                     => ""
+      s"""|The DFHDL code at:
+          |    Position:  ${from.meta.position}
+          |    Hierarchy: ${from.getOwnerDesign.getFullName}
+          |is directly referencing the member ${toName}at:
+          |    Position:  ${to.meta.position}
+          |    Hierarchy: ${to.getOwnerDesign.getFullName}""".stripMargin
+    }
+    if (errorMessages.nonEmpty)
+      throw new IllegalArgumentException(
+        s"""DFiant HDL direct reference errors!
+           |${errorMessages.mkString("\n")}
+           |To Fix:
+           |Use ports and connections to transfer values across design hierarchies.
+           |""".stripMargin
+      )
+  end directRefCheck
+
   def check(): Unit =
     nameCheck()
     connectionTable // causes connectivity checks
+    directRefCheck()
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)
