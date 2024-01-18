@@ -153,7 +153,7 @@ object DFStruct:
     def apply[F <: FieldsOrTuple](dfType: DFStruct[F], value: Fields): Token[F] =
       val data = value.productIterator.map { case dfVal: DFVal[?, ?] =>
         dfVal.asIR match
-          case ir.DFVal.Const(token, _, _, _) => token.data
+          case ir.DFVal.Const(token, _, _, _, _) => token.data
           case v =>
             throw new IllegalArgumentException(
               s"Tokens must only be constant but found the value: ${v}"

@@ -486,19 +486,22 @@ object DFVal extends DFValLP:
     from.asInstanceOf[DFValOf[DFOpaque[T]]]
 
   object Const:
-    def apply[T <: DFTypeAny](token: DFToken[T], named: Boolean = false)(using
+    import ir.DFVal.Const.Kind
+    def apply[T <: DFTypeAny](
+        token: DFToken[T],
+        named: Boolean = false,
+        kind: Kind = Kind.LocalValue
+    )(using
         DFC
     ): DFConstOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
-      ir.DFVal
-        .Const(token.asIR, dfc.ownerOrEmptyRef, meta, ir.DFTags.empty)
+      ir.DFVal.Const(token.asIR, kind, dfc.ownerOrEmptyRef, meta, ir.DFTags.empty)
         .addMember
         .asConstOf[T]
 
   object Open:
     def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
-      ir.DFVal
-        .Open(dfType.asIR, dfc.owner.ref)
+      ir.DFVal.Open(dfType.asIR, dfc.owner.ref)
         .addMember
         .asValOf[T]
 
