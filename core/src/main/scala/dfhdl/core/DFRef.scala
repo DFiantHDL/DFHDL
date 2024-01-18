@@ -12,7 +12,6 @@ extension [M <: ir.DFMember](member: M)
         )
       case _ =>
   def ref(using DFC, ClassTag[M]): ir.DFRef.OneWay[M] =
-    injectGlobalCtx()
     val newRef = new ir.DFRef.OneWay[M]:
       lazy val refType = classTag[M]
     dfc.mutableDB.newRefFor(newRef, member)

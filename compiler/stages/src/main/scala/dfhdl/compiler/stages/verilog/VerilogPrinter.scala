@@ -46,8 +46,7 @@ class VerilogPrinter(using val getSet: MemberGetSet, val printerOptions: Printer
     val defName = printer.defsName.toUpperCase
     s"""`ifndef $defName
        |`define $defName
-       |
-       |$csGlobalTypeDcls
+       |${super.csGlobalFileContent}
        |`endif
        |""".stripMargin
 

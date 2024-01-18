@@ -152,6 +152,7 @@ class PrintCodeStringSpec extends StageSpec:
   }
 
   test("Basic RTDesign") {
+    val gp: Bit <> CONST     = 1 // won't be printed, because it's not used
     val i: SInt[16] <> CONST = 0
     val i2                   = i + 5
     class ID extends RTDesign:

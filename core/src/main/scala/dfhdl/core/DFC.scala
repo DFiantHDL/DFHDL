@@ -58,7 +58,8 @@ final case class DFC(
   def clearErrors(): Unit = mutableDB.logger.clearErrors()
 end DFC
 object DFC:
-  given DFC = empty
+  // DFC given must be inline to force new DFC is generated for every missing DFC summon.
+  inline given DFC = empty
   def empty: DFC =
     DFC(None, Position.unknown, None)
   sealed trait Scope

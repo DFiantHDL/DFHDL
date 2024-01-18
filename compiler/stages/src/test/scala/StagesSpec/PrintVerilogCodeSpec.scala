@@ -2,7 +2,7 @@ package StagesSpec
 
 import dfhdl.*
 import dfhdl.compiler.stages.verilog.{getVerilogCode}
-// scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}, {code = ":=="}]}
+// scalafmt: { align.tokens = [{code = ":"}, {code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}, {code = ":=="}]}
 
 class PrintVerilogCodeSpec extends StageSpec:
   class ID extends EDDesign:
@@ -40,7 +40,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|`ifndef ID_DEFS
          |`define ID_DEFS
          |
-         |
          |`endif
          |
          |`default_nettype none
@@ -65,7 +64,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef IDTOP_DEFS
          |`define IDTOP_DEFS
-         |
          |
          |`endif
          |
@@ -116,56 +114,30 @@ class PrintVerilogCodeSpec extends StageSpec:
     val gp: Bit <> CONST = 1
     class ParamTest(dp: Bit <> CONST) extends RTDesign:
       val lp: Bit <> CONST = 1
-      val x                = Bit <> IN
-      val y                = Bit <> OUT
+      val x = Bit <> IN
+      val y = Bit <> OUT
       y := x || gp || dp || lp
     val top = ParamTest(1).getVerilogCode
     assertNoDiff(
       top,
-      """|`ifndef IDTOP_DEFS
-         |`define IDTOP_DEFS
-         |
-         |
+      """|`ifndef PARAMTEST_DEFS
+         |`define PARAMTEST_DEFS
+         |parameter logic gp = 1'b1;
          |`endif
          |
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "IDTop_defs.sv"
+         |`include "ParamTest_defs.sv"
          |
-         |module ID(
-         |  input wire logic signed [15:0] x,
-         |  output logic signed [15:0] y,
-         |  output logic signed [15:0] y2
+         |module ParamTest(
+         |  input wire logic x,
+         |  output logic y
          |);
-         |  assign y = x;
-         |  assign y2 = x;
-         |endmodule
-         |
-         |`default_nettype none
-         |`timescale 1ns/1ps
-         |`include "IDTop_defs.sv"
-         |
-         |module IDTop(
-         |  input wire logic signed [15:0] x,
-         |  output logic signed [15:0] y
-         |);
-         |  logic signed [15:0] id1_x;
-         |  logic signed [15:0] id1_y;
-         |  logic signed [15:0] id2_x;
-         |  logic signed [15:0] id2_y;
-         |  ID id1(
-         |    .x /*<--*/ (id1_x),
-         |    .y /*-->*/ (id1_y),
-         |    .y2 /*-->*/ (/*open*/)
-         |  );
-         |  ID id2(
-         |    .x /*<--*/ (id2_x),
-         |    .y /*-->*/ (id2_y),
-         |    .y2 /*-->*/ (/*open*/)
-         |  );
-         |  assign id1_x = x;
-         |  assign id2_x = id1_y;
-         |  assign y = id2_y;
+         |  parameter logic lp = 1'b1;
+         |  always @(*)
+         |  begin
+         |    y = ((x | gp) | 1'b1) | lp;
+         |  end
          |endmodule
          |""".stripMargin
     )
@@ -200,7 +172,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef TOP_DEFS
          |`define TOP_DEFS
-         |
          |
          |`endif
          |
@@ -260,7 +231,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|`ifndef TOP_DEFS
          |`define TOP_DEFS
          |
-         |
          |`endif
          |
          |`default_nettype none
@@ -313,7 +283,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef HASDOCS_DEFS
          |`define HASDOCS_DEFS
-         |
          |
          |`endif
          |
