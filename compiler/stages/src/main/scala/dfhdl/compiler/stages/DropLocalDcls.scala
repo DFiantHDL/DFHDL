@@ -14,9 +14,9 @@ abstract class DropLocalDcls(keepProcessDcls: Boolean) extends Stage:
         // only var or constant declarations ,
         // and we also require their anonymous dependencies
         .flatMap {
-          case m @ DclVar()   => m.collectRelMembers(includeOrigVal = true)
-          case m @ DclConst() => m.collectRelMembers(includeOrigVal = true)
-          case _              => None
+          case m @ DclVar()                  => m.collectRelMembers(includeOrigVal = true)
+          case m @ DclConst() if !m.isGlobal => m.collectRelMembers(includeOrigVal = true)
+          case _                             => None
         }
         .map(m => (m, m.getOwnerBlock))
         .flatMap {

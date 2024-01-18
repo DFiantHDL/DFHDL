@@ -4,7 +4,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
-
+import DFVal.Const.Kind as ConstKind
 import scala.annotation.tailrec
 
 private abstract class OrderMembers(order: OrderMembers.Order) extends Stage:
@@ -24,7 +24,7 @@ private abstract class OrderMembers(order: OrderMembers.Order) extends Stage:
     case Nil        => retList.reverse
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    designDB.copy(members = orderMembers(List(designDB.top), List()))
+    designDB.copy(members = designDB.membersGlobals ++ orderMembers(List(designDB.top), List()))
 
 end OrderMembers
 
@@ -40,18 +40,21 @@ object OrderMembers:
             case DclConst()   => true
           }.nonEmpty
       def apply()(using MemberGetSet): DFMember => Int = {
-        // anonymous members that are referenced by declarations come first
-        case dfVal: DFVal if dfVal.isAnonymous && dfVal.isReferencedByAnyDcl => 1
-        // second to come are constant declarations that may be referenced by ports
-        case DclConst() => 2
-        // third are ports
-        case DclPort() => 3
-        // fourth are variables
-        case DclVar() => 4
-        // fifth are design blocks instances
-        case _: DFDesignBlock => 5
+        // design parameters come first as they are dependent only on external
+        // initialization and everything else can depend on them
+        case DFVal.Const(_, ConstKind.DesignParam, _, _, _) => 1
+        // anonymous members that are referenced by declarations come second
+        case dfVal: DFVal if dfVal.isAnonymous && dfVal.isReferencedByAnyDcl => 2
+        // third to come are constant declarations that may be referenced by ports
+        case DclConst() => 3
+        // fourth are ports
+        case DclPort() => 4
+        // fifth are variables
+        case DclVar() => 5
+        // sixth are design blocks instances
+        case _: DFDesignBlock => 6
         // then the rest
-        case _ => 6
+        case _ => 7
       }
     end Simple
 //    val GuardedLast: Order = new Order:
