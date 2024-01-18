@@ -751,8 +751,8 @@ object DFVal extends DFValLP:
     given sameValType[T <: DFTypeAny, P, V <: DFValTP[T, P]]: TC[T, V] with
       type OutP = P
       def conv(dfType: T, value: V)(using Ctx): DFValTP[T, P] =
-        given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
+        given Printer = DefaultPrinter
         require(
           dfType == value.dfType,
           s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
@@ -761,8 +761,8 @@ object DFVal extends DFValLP:
     given sameValAndTokenType[T <: DFTypeAny, V <: T <> TOKEN]: TC[T, V] with
       type OutP = CONST
       def conv(dfType: T, value: V)(using Ctx): Out =
-        given Printer = DefaultPrinter
         given MemberGetSet = dfc.getSet
+        given Printer = DefaultPrinter
         require(
           dfType == value.dfType,
           s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
