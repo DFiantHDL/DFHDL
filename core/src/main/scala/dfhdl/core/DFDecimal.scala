@@ -1,7 +1,7 @@
 package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.internals.*
-import ir.DFVal.Func.Op as FuncOp
+import ir.DFVal.Func.{Op => FuncOp}
 
 import scala.quoted.*
 import scala.annotation.targetName
@@ -1420,7 +1420,7 @@ object DFUInt:
           widthCheck(ubInfo.width(fixme), argVal.width)
           // for constant value we apply an explicit check for the bound
           argVal.asIR match
-            case ir.DFVal.Const(ir.DFDecimal.Token(dfType, data), _, _, _, _) =>
+            case ir.DFVal.Const(ir.DFDecimal.Token(dfType, data), _, _, _) =>
               data match
                 case Some(value) =>
                   summon[`UB > R`.Check[UB, Int]](ub, value.toInt)

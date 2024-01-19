@@ -232,7 +232,6 @@ object DFVal:
 
   final case class Const(
       token: DFTokenAny,
-      kind: Const.Kind,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
@@ -250,9 +249,7 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     def getRefs: List[DFRefAny] = Nil
   end Const
-  object Const:
-    enum Kind derives CanEqual:
-      case LocalValue, DesignParam
+
   final case class Open(
       dfType: DFType,
       ownerRef: DFOwner.Ref
@@ -463,8 +460,8 @@ object DFVal:
       object Const:
         def unapply(applyIdx: ApplyIdx)(using MemberGetSet): Option[Int] =
           applyIdx.relIdx.get match
-            case DFVal.Const(DFDecimal.Token(DFUInt(_), data), _, _, _, _) => data.map(_.toInt)
-            case _                                                         => None
+            case DFVal.Const(DFDecimal.Token(DFUInt(_), data), _, _, _) => data.map(_.toInt)
+            case _                                                      => None
 
     final case class SelectField(
         dfType: DFType,
