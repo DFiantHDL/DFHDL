@@ -154,8 +154,9 @@ object DFBoolOrBit:
         type OutT = ic.OutT
         type OutP = CONST
         def apply(arg: R)(using DFC): DFValOf[OutT] = DFVal.Const(ic(arg), named = true)
-      given fromDFBoolOrBitVal[T <: DFBoolOrBit, R <: DFValOf[T]]: Candidate[R] with
+      given fromDFBoolOrBitVal[T <: DFBoolOrBit, P, R <: DFValTP[T, P]]: Candidate[R] with
         type OutT = T
+        type OutP = P
         def apply(arg: R)(using DFC): DFValOf[T] = arg
 
     private def b2b[T <: DFBoolOrBit, R](dfType: T, arg: R)(using
