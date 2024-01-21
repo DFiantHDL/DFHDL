@@ -43,6 +43,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   var hasClsMetaArgsTpe: TypeRef = uninitialized
   var clsMetaArgsTpe: TypeRef = uninitialized
   var genDesignParamSym: TermSymbol = uninitialized
+  var constModTpe: Type = uninitialized
 
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     val sym = tree.symbol
@@ -93,6 +94,21 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
             inContext(ctx.withOwner(clsSym.primaryConstructor)) {
               paramBody.collect {
                 case v: ValDef if v.dfValTpeOpt.nonEmpty && dfcArgOpt.nonEmpty =>
+                  // check and report error if the user did not apply a constant modifier
+                  // on a design parameter
+                  val constModifier = v.tpt.tpe.widenDealias match
+                    case AppliedType(_, _ :: modifierTpe :: Nil) =>
+                      modifierTpe.dealias match
+                        case AppliedType(_, _ :: _ :: _ :: pTpe :: Nil) =>
+                          pTpe =:= constModTpe
+                        case _ => false
+                    case _ =>
+                      false
+                  if (!constModifier)
+                    report.error(
+                      "DFHDL design parameters must be constant values (use a `<> CONST` modifier).",
+                      v.tpt
+                    )
                   val meta = v.genMeta
                   val paramGen =
                     ref(genDesignParamSym)
@@ -127,10 +143,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
                 .appliedToVarargs(
                   simpleArgs,
                   TypeTree(
-                    AppliedType(
-                      requiredClassRef("scala.Tuple2"),
-                      List(defn.StringType, defn.AnyType)
-                    )
+                    defn.Tuple2.typeRef.appliedTo(defn.StringType, defn.AnyType)
                   )
                 )
           // TODO: The override does not seem to be actually used by the runtime,
@@ -261,6 +274,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
     clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
     genDesignParamSym = requiredMethod("dfhdl.core.__For_Plugin.genDesignParam")
+    constModTpe = requiredClassRef("dfhdl.core.ISCONST").appliedTo(ConstantType(Constant(true)))
     dfcArgStack = Nil
     ctx
 end MetaContextPlacerPhase
