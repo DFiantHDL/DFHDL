@@ -16,10 +16,13 @@ object DFError:
   )(using dfc: DFC)
       extends DFError(iae.getMessage):
     import dfc.getSet
-    val designName = dfc.owner.asIR.getThisOrOwnerDesign.getFullName
+    val designName = dfc.ownerOption match
+      case Some(owner) => owner.asIR.getThisOrOwnerDesign.getFullName
+      case None        => ""
     val fullName =
       if (dfc.isAnonymous) designName
-      else s"$designName.${dfc.name}"
+      else if (designName.nonEmpty) s"$designName.${dfc.name}"
+      else dfc.name
     val position = dfc.position
     override def toString: String =
       s"""|DFiant HDL elaboration error!
@@ -78,6 +81,8 @@ def trydf[V <: DFValAny](
         case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
         case e: DFError                  => e
         case e                           => throw e
+      if (dfc.ownerOption.isEmpty)
+        exitWithError(dfErr.toString())
       dfc.logError(dfErr)
       dfErr.asVal[DFTypeAny, ModifierAny].asInstanceOf[V]
 

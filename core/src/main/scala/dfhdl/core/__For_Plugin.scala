@@ -83,10 +83,11 @@ object __For_Plugin:
     Pattern.BindSI(op, parts, bindVals.map(_.asIR.ref))
   @metaContextIgnore
   def genDesignParam[V <: DFValAny](paramValue: DFValAny, paramMeta: ir.Meta)(using dfc: DFC): V =
-    import ir.DFVal.Alias.DesignParamTag
-    given DFC = dfc.setMeta(paramMeta)
-    DFVal.Alias.AsIs(paramValue.dfType, paramValue, x => x, forceNewAlias = true)
-      .tag(DesignParamTag).asInstanceOf[V]
+    trydf:
+      import ir.DFVal.Alias.DesignParamTag
+      given DFC = dfc.setMeta(paramMeta)
+      DFVal.Alias.AsIs(paramValue.dfType, paramValue, x => x, forceNewAlias = true)
+        .tag(DesignParamTag).asInstanceOf[V]
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =
     dfc.mutableDB.DesignContext.getDefInput(idx).asInstanceOf[V]
