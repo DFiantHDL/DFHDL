@@ -107,8 +107,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           )
         val (nameOpt, docOpt, annots) =
           t match
-            case vd: ValDef if (ignoreValDef(vd)) => (None, None, Nil)
-            case dd: DefDef                       => (None, None, Nil)
+            case vd: ValDef if vd.isEmpty || ignoreValDef(vd) => (None, None, Nil)
+            case dd: DefDef                                   => (None, None, Nil)
             case _ =>
               (
                 Some(t.name.toString.nameCheck(t)),
@@ -231,10 +231,11 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     // debug("~~~~~~~~~~~~~~~~~~~~")
     // debug(s"Adding: ${apply.show}")
     // debug(ownerTree.show)
-    val srcPos = inlinedSrcPos.getOrElse(apply.srcPos)
-    treeOwnerApplyMap += (apply -> (ownerTree, srcPos))
-    dfcOverrideDef.foreach: dd =>
-      treeOwnerOverrideMap += (dd -> (ownerTree, srcPos))
+    if (!treeOwnerApplyMap.contains(apply))
+      val srcPos = inlinedSrcPos.getOrElse(apply.srcPos)
+      treeOwnerApplyMap += (apply -> (ownerTree, srcPos))
+      dfcOverrideDef.foreach: dd =>
+        treeOwnerOverrideMap += (dd -> (ownerTree, srcPos))
   end addToTreeOwnerMap
 
   object ApplyArgForward:
@@ -409,6 +410,10 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)
     ctx
   end prepareForDefDef
+
+  override def prepareForInlined(tree: Inlined)(using Context): Context =
+    nameValOrDef(tree.expansion, EmptyValDef, tree.expansion.tpe, Some(tree.srcPos))
+    ctx
 
   // This is requires for situations like:
   // val (a, b) = (foo(using DFC), foo(using DFC))

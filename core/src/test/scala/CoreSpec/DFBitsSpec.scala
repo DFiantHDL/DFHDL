@@ -140,6 +140,9 @@ class DFBitsSpec extends DFSpec:
          |val u8v = Bits(8) <> VAR
          |""".stripMargin
     } {
+      @inline def foo(arg: Bits[4] <> CONST): Unit <> DFRET =
+        arg.assertPosition(-1, 1, 11, 17)
+      foo(all(0))
       val t1: Bits[8] <> VAL = all(false); t1.assertPosition(0, 1, 32, 42)
       val t2: Bits[8] <> VAL = all(1)
       val t3: Bits[8] <> VAL = d"255"
