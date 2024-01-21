@@ -6,6 +6,7 @@ import ir.DFConditional.DFCaseBlock.Pattern
 import collection.immutable.ListMap
 import dfhdl.internals.metaContextIgnore
 import dfhdl.internals.metaContextForward
+import dfhdl.compiler.ir.DFConditional
 object __For_Plugin:
   def toFunc1[R](block: => R): () => R = () => block
   def toTuple2[T1, T2](t1: T1, t2: T2): (T1, T2) = (t1, t2)
@@ -76,11 +77,11 @@ object __For_Plugin:
     DFVal.Alias.AsIs.bind(rangeAlias, bindName).asInstanceOf[V]
   end bindValRange
   def patternBind(bindVal: DFValAny, pattern: Pattern)(using DFC): Pattern =
-    Pattern.Bind(bindVal.asIR.ref, pattern)
+    Pattern.Bind(bindVal.asIR.refTW[DFConditional.DFCaseBlock], pattern)
   def patternBindSI(op: String, parts: List[String], bindVals: List[DFValAny])(using
       DFC
   ): Pattern =
-    Pattern.BindSI(op, parts, bindVals.map(_.asIR.ref))
+    Pattern.BindSI(op, parts, bindVals.map(_.asIR.refTW[DFConditional.DFCaseBlock]))
   @metaContextIgnore
   def genDesignParam[V <: DFValAny](paramValue: DFValAny, paramMeta: ir.Meta)(using dfc: DFC): V =
     trydf:

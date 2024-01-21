@@ -524,10 +524,10 @@ object DFVal extends DFValLP:
           ir.DFTags.empty
         ).asVal[T, M]
       else
-        lazy val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
+        val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
           dfType.asIR,
           modifier.asIR,
-          initValues.map(_.asIR.refTW(dcl)),
+          initValues.map(_.asIR.refTW[ir.DFVal.Dcl]),
           dfc.owner.ref,
           dfc.getMeta,
           ir.DFTags.empty
@@ -551,10 +551,10 @@ object DFVal extends DFValLP:
         op: FuncOp,
         args: List[ir.DFVal]
     )(using DFC): DFValTP[T, P] =
-      lazy val func: ir.DFVal = ir.DFVal.Func(
+      val func: ir.DFVal = ir.DFVal.Func(
         dfType.asIR,
         op,
-        args.map(_.refTW(func)),
+        args.map(_.refTW[ir.DFVal]),
         dfc.ownerOrEmptyRef,
         dfc.getMeta,
         ir.DFTags.empty
@@ -586,10 +586,10 @@ object DFVal extends DFValLP:
             forced(aliasType.asIR, relVal.anonymizeInDFCPosition.asIR).asVal[AT, M]
       end apply
       def forced(aliasType: ir.DFType, relVal: ir.DFVal)(using DFC): ir.DFVal =
-        lazy val alias: ir.DFVal.Alias.AsIs =
+        val alias: ir.DFVal.Alias.AsIs =
           ir.DFVal.Alias.AsIs(
             aliasType,
-            relVal.refTW(alias),
+            relVal.refTW[ir.DFVal.Alias.AsIs],
             dfc.ownerOrEmptyRef,
             dfc.getMeta,
             ir.DFTags.empty
@@ -613,13 +613,13 @@ object DFVal extends DFValLP:
           op: HistoryOp,
           initOption: Option[DFConstOf[T]]
       )(using DFC): DFValOf[T] =
-        lazy val alias: ir.DFVal.Alias.History =
+        val alias: ir.DFVal.Alias.History =
           ir.DFVal.Alias.History(
             relVal.dfType.asIR,
-            relVal.asIR.refTW(alias),
+            relVal.asIR.refTW[ir.DFVal.Alias.History],
             step,
             op,
-            initOption.map(_.asIR.refTW(alias)),
+            initOption.map(_.asIR.refTW[ir.DFVal.Alias.History]),
             dfc.owner.ref,
             dfc.getMeta,
             ir.DFTags.empty
@@ -650,9 +650,9 @@ object DFVal extends DFValLP:
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
-            lazy val alias: ir.DFVal.Alias.ApplyRange =
+            val alias: ir.DFVal.Alias.ApplyRange =
               ir.DFVal.Alias.ApplyRange(
-                relVal.refTW(alias),
+                relVal.refTW[ir.DFVal.Alias.ApplyRange],
                 relBitHigh,
                 relBitLow,
                 dfc.ownerOrEmptyRef,
@@ -668,11 +668,11 @@ object DFVal extends DFValLP:
           relVal: DFVal[DFTypeAny, M],
           relIdx: DFValOf[DFUInt[IW]]
       )(using DFC): DFVal[T, M] =
-        lazy val alias: ir.DFVal.Alias.ApplyIdx =
+        val alias: ir.DFVal.Alias.ApplyIdx =
           ir.DFVal.Alias.ApplyIdx(
             dfType.asIR,
-            relVal.asIR.refTW(alias),
-            relIdx.asIR.refTW(alias),
+            relVal.asIR.refTW[ir.DFVal.Alias.ApplyIdx],
+            relIdx.asIR.refTW[ir.DFVal.Alias.ApplyIdx],
             dfc.ownerOrEmptyRef,
             dfc.getMeta,
             ir.DFTags.empty
@@ -698,10 +698,10 @@ object DFVal extends DFValLP:
             args(idx).get.asVal[T, M]
           // for all other case create a selector
           case _ =>
-            lazy val alias: ir.DFVal.Alias.SelectField =
+            val alias: ir.DFVal.Alias.SelectField =
               ir.DFVal.Alias.SelectField(
                 dfTypeIR,
-                relValIR.refTW(alias),
+                relValIR.refTW[ir.DFVal.Alias.SelectField],
                 fieldName,
                 dfc.owner.ref,
                 dfc.getMeta,

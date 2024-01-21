@@ -29,31 +29,8 @@ case object SanityCheck extends Stage:
         }
       )
         reportViolation(s"Missing ref for the member: $m")
-      // check for missing origin references
-      if (
-        m.getRefs.collect { case tf: DFRef.TwoWayAny => tf.originRef }.exists {
-          case _: DFRef.Empty => false
-          case r              => !refTable.contains(r)
-        }
-      )
-        reportViolation(s"Missing origin ref to the member: $m")
-      var originRef: DFRefAny | Null = null
-      var missingRef: DFRefAny | Null = null
-      if (
-        memberTable.getOrElse(m, Set.empty).collect { case r: DFRef.TwoWayAny =>
-          (r, r.originRef)
-        }
-          .exists {
-            case (_, _: DFRef.Empty) => false
-            case (r, o) =>
-              missingRef = r
-              originRef = o
-              !refTable.contains(o)
-          }
-      )
-        reportViolation(s"Ref $missingRef missing origin ref $originRef to the member: $m")
       // check for circular references
-      if (m.originRefs.exists(_.get == m))
+      if (m.originMembers.exists(_ == m))
         reportViolation(s"Circular reference for the member: $m")
       m match
         // check for missing owner references
@@ -71,7 +48,7 @@ case object SanityCheck extends Stage:
               )
             case _ =>
           // check usage
-          if (pbns.originRefs.isEmpty)
+          if (pbns.originMembers.isEmpty)
             reportViolation(s"No references to the by-name port selection: ${pbns}")
         // check references always refer to internal design instance ports via
         // by name selections and never directly

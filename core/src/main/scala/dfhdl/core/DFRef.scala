@@ -14,14 +14,15 @@ extension [M <: ir.DFMember](member: M)
       case _ =>
   def ref(using DFC, ClassTag[M]): ir.DFRef.OneWay[M] =
     val newRef = new ir.DFRef.OneWay[M]:
-      lazy val refType = classTag[M]
+      val refType = classTag[M]
     dfc.mutableDB.newRefFor(newRef, member)
-  def refTW[O <: ir.DFMember](
-      originMember: => O
-  )(using dfc: DFC, m: ClassTag[M], o: ClassTag[O]): ir.DFRef.TwoWay[M, O] =
+  def refTW[O <: ir.DFMember](using
+      dfc: DFC,
+      m: ClassTag[M],
+      o: ClassTag[O]
+  ): ir.DFRef.TwoWay[M, O] =
     import dfc.getSet
     injectGlobalCtx()
-    lazy val newOriginRef = originMember.ref
     member match
       // referencing a port from another design causes by-name referencing.
       // in meta-programming we can end up with a modified copy of the design that should
@@ -32,20 +33,20 @@ extension [M <: ir.DFMember](member: M)
           if port.getOwnerDesign.ownerRef != dfc.owner.asIR.getThisOrOwnerDesign.ownerRef =>
         // name path accounts for domains within the design that can contain the port
         val namePath = port.getRelativeName(port.getOwnerDesign)
-        lazy val portSelect: ir.DFVal.PortByNameSelect = ir.DFVal.PortByNameSelect(
+        val portSelect: ir.DFVal.PortByNameSelect = ir.DFVal.PortByNameSelect(
           port.dfType,
-          port.getOwnerDesign.refTW(portSelect),
+          port.getOwnerDesign.refTW[ir.DFVal.PortByNameSelect],
           namePath,
           dfc.owner.ref,
           dfc.getMeta.anonymize,
           ir.DFTags.empty
         )
-        portSelect.addMember.refTW(originMember).asInstanceOf[ir.DFRef.TwoWay[M, O]]
+        portSelect.addMember.refTW[O].asInstanceOf[ir.DFRef.TwoWay[M, O]]
       // any other kind of reference
       case _ =>
         val newRef = new ir.DFRef.TwoWay[M, O]:
-          lazy val refType = classTag[M]
-          lazy val originRef = newOriginRef
+          val refType = classTag[M]
+          val originRefType = classTag[O]
         dfc.mutableDB.newRefFor(newRef, member)
     end match
   end refTW

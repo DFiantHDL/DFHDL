@@ -16,7 +16,7 @@ trait HasRefCompare[T <: HasRefCompare[T]]:
         cachedCompare = Some(that, res)
         res
   protected def `prot_=~`(that: T)(using MemberGetSet): Boolean
-  def getRefs: List[DFRefAny]
+  def getRefs: List[DFRef.TwoWayAny]
 
 sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] derives CanEqual:
   val ownerRef: DFOwner.Ref
@@ -104,7 +104,7 @@ object DFMember:
       case _     => false
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
-    def getRefs: List[DFRefAny] = Nil
+    def getRefs: List[DFRef.TwoWayAny] = Nil
 
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
@@ -252,7 +252,7 @@ object DFVal:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = Nil
+    def getRefs: List[DFRef.TwoWayAny] = Nil
   end Const
 
   final case class Open(
@@ -267,7 +267,7 @@ object DFVal:
       case _       => false
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
-    def getRefs: List[DFRefAny] = Nil
+    def getRefs: List[DFRef.TwoWayAny] = Nil
   end Open
 
   final case class Dcl(
@@ -291,7 +291,7 @@ object DFVal:
     def initList(using MemberGetSet): List[DFVal] = initRefList.map(_.get)
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = initRefList
+    def getRefs: List[DFRef.TwoWayAny] = initRefList
   end Dcl
   object Dcl:
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
@@ -316,7 +316,7 @@ object DFVal:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = args
+    def getRefs: List[DFRef.TwoWayAny] = args
   end Func
 
   object Func:
@@ -343,7 +343,7 @@ object DFVal:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = List(designInstRef)
+    def getRefs: List[DFRef.TwoWayAny] = List(designInstRef)
   end PortByNameSelect
   object PortByNameSelect:
     type Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
@@ -357,7 +357,7 @@ object DFVal:
 
   sealed trait Alias extends CanBeExpr:
     val relValRef: Alias.Ref
-    def getRefs: List[DFRefAny] = List(relValRef)
+    def getRefs: List[DFRef.TwoWayAny] = List(relValRef)
 
   object Alias:
     case object IdentTag extends DFTagOf[DFVal]
@@ -421,7 +421,7 @@ object DFVal:
       def initOption(using MemberGetSet): Option[DFVal] = initRefOption.map(_.get)
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-      override def getRefs: List[DFRefAny] = List(relValRef) ++ initRefOption
+      override def getRefs: List[DFRef.TwoWayAny] = List(relValRef) ++ initRefOption
     end History
 
     object History:
@@ -466,7 +466,7 @@ object DFVal:
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-      override def getRefs: List[DFRefAny] = List(relIdx, relValRef)
+      override def getRefs: List[DFRef.TwoWayAny] = List(relIdx, relValRef)
     end ApplyIdx
     object ApplyIdx:
       object Const:
@@ -511,7 +511,7 @@ final case class DFNet(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRefAny] = List(lhsRef, rhsRef)
+  def getRefs: List[DFRef.TwoWayAny] = List(lhsRef, rhsRef)
 end DFNet
 
 object DFNet:
@@ -595,7 +595,7 @@ final case class DFInterfaceOwner(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRefAny] = Nil
+  def getRefs: List[DFRef.TwoWayAny] = Nil
 end DFInterfaceOwner
 
 sealed trait DFBlock extends DFOwner
@@ -614,7 +614,7 @@ final case class ProcessBlock(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRefAny] = sensitivity.getRefs
+  def getRefs: List[DFRef.TwoWayAny] = sensitivity.getRefs
 end ProcessBlock
 object ProcessBlock:
   sealed trait Sensitivity extends HasRefCompare[Sensitivity], Product, Serializable
@@ -624,12 +624,12 @@ object ProcessBlock:
       protected def `prot_=~`(that: Sensitivity)(using MemberGetSet): Boolean = that match
         case All => true
         case _   => false
-      def getRefs: scala.List[DFRefAny] = Nil
+      def getRefs: scala.List[DFRef.TwoWayAny] = Nil
     final case class List(refs: scala.List[DFVal.Ref]) extends Sensitivity:
       protected def `prot_=~`(that: Sensitivity)(using MemberGetSet): Boolean = that match
         case that: List => this.refs.lazyZip(that.refs).forall(_ =~ _)
         case _          => false
-      def getRefs: scala.List[DFRefAny] = Nil
+      def getRefs: scala.List[DFRef.TwoWayAny] = refs
 
 object DFConditional:
   sealed trait Block extends DFBlock:
@@ -661,7 +661,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = List(selectorRef)
+    def getRefs: List[DFRef.TwoWayAny] = List(selectorRef)
   end DFMatchHeader
 
   final case class DFCaseBlock(
@@ -681,7 +681,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = List(guardRef, prevBlockOrHeaderRef) ++ pattern.getRefs
+    def getRefs: List[DFRef.TwoWayAny] = List(guardRef, prevBlockOrHeaderRef) ++ pattern.getRefs
   end DFCaseBlock
   object DFCaseBlock:
     type Ref = DFRef.TwoWay[DFCaseBlock | DFMatchHeader, Block]
@@ -689,17 +689,17 @@ object DFConditional:
     object Pattern:
       case object CatchAll extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean = this == that
-        def getRefs: List[DFRefAny] = Nil
+        def getRefs: List[DFRef.TwoWayAny] = Nil
       final case class Singleton(token: DFTokenAny) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean = this == that
-        def getRefs: List[DFRefAny] = Nil
+        def getRefs: List[DFRef.TwoWayAny] = Nil
       final case class Alternative(list: List[Pattern]) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
             case that: Alternative =>
               this.list.lazyZip(that.list).forall(_ =~ _)
             case _ => false
-        def getRefs: List[DFRefAny] = list.flatMap(_.getRefs)
+        def getRefs: List[DFRef.TwoWayAny] = list.flatMap(_.getRefs)
       final case class Struct(name: String, fieldPatterns: List[Pattern]) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
@@ -708,16 +708,16 @@ object DFConditional:
                 .lazyZip(that.fieldPatterns)
                 .forall(_ =~ _)
             case _ => false
-        def getRefs: List[DFRefAny] = fieldPatterns.flatMap(_.getRefs)
+        def getRefs: List[DFRef.TwoWayAny] = fieldPatterns.flatMap(_.getRefs)
       final case class Bind(ref: Bind.Ref, pattern: Pattern) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
             case that: Bind =>
               this.ref =~ that.ref && this.pattern =~ that.pattern
             case _ => false
-        def getRefs: List[DFRefAny] = ref :: pattern.getRefs
+        def getRefs: List[DFRef.TwoWayAny] = ref :: pattern.getRefs
       object Bind:
-        type Ref = DFRef.OneWay[DFVal]
+        type Ref = DFRef.TwoWay[DFVal, DFCaseBlock]
         case object Tag extends DFTagOf[DFVal]
       final case class BindSI(
           op: String,
@@ -731,7 +731,7 @@ object DFConditional:
                 .lazyZip(that.refs)
                 .forall(_ =~ _)
             case _ => false
-        def getRefs: List[DFRefAny] = refs
+        def getRefs: List[DFRef.TwoWayAny] = refs
     end Pattern
   end DFCaseBlock
 
@@ -752,7 +752,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = Nil
+    def getRefs: List[DFRef.TwoWayAny] = Nil
   end DFIfHeader
 
   final case class DFIfElseBlock(
@@ -770,7 +770,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = List(guardRef, prevBlockOrHeaderRef)
+    def getRefs: List[DFRef.TwoWayAny] = List(guardRef, prevBlockOrHeaderRef)
   end DFIfElseBlock
   object DFIfElseBlock:
     type Ref = DFRef.TwoWay[DFIfElseBlock | DFIfHeader, Block]
@@ -795,7 +795,7 @@ final case class DFDesignBlock(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRefAny] = Nil
+  def getRefs: List[DFRef.TwoWayAny] = Nil
 end DFDesignBlock
 
 object DFDesignBlock:
@@ -837,7 +837,7 @@ final case class DomainBlock(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRefAny] = Nil
+  def getRefs: List[DFRef.TwoWayAny] = Nil
 end DomainBlock
 
 sealed trait DFSimMember extends DFMember
@@ -853,7 +853,7 @@ object DFSimMember:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = Nil
+    def getRefs: List[DFRef.TwoWayAny] = Nil
 
 sealed trait Timer extends DFMember.Named
 object Timer:
@@ -873,7 +873,7 @@ object Timer:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = List(triggerRef)
+    def getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
   end Periodic
 
   final case class Func(
@@ -891,7 +891,7 @@ object Timer:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = List(sourceRef)
+    def getRefs: List[DFRef.TwoWayAny] = List(sourceRef)
   end Func
   object Func:
     enum Op derives CanEqual:
@@ -912,7 +912,7 @@ object Timer:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = List(timerRef)
+    def getRefs: List[DFRef.TwoWayAny] = List(timerRef)
   end IsActive
 end Timer
 
@@ -931,7 +931,7 @@ object Wait:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = Nil
+    def getRefs: List[DFRef.TwoWayAny] = Nil
 
   type TriggerRef = DFRef.TwoWay[DFVal, DFMember]
   final case class Until(
@@ -947,5 +947,5 @@ object Wait:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRefAny] = List(triggerRef)
+    def getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
 end Wait

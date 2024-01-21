@@ -6,8 +6,8 @@ object Process:
   type Block = DFOwner[ir.ProcessBlock]
   object Block:
     def list(dfVals: List[DFValAny])(using DFC): Block =
-      lazy val sl = ir.ProcessBlock.Sensitivity.List(dfVals.map(_.asIR.refTW(block)))
-      lazy val block: ir.ProcessBlock =
+      val sl = ir.ProcessBlock.Sensitivity.List(dfVals.map(_.asIR.refTW[ir.ProcessBlock]))
+      val block: ir.ProcessBlock =
         ir.ProcessBlock(
           sl,
           dfc.owner.ref,

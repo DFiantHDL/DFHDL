@@ -61,9 +61,9 @@ object DFMatch:
 
   object Header:
     def apply(dfType: DFTypeAny, selector: DFValAny)(using DFC): DFValAny =
-      lazy val header: ir.DFVal = DFMatchHeader(
+      val header: ir.DFVal = DFMatchHeader(
         dfType.asIR,
-        selector.asIR.refTW(header),
+        selector.asIR.refTW[ir.DFVal],
         dfc.owner.ref,
         dfc.getMeta,
         ir.DFTags.empty
@@ -84,15 +84,15 @@ object DFMatch:
     )(using
         DFC
     ): DFOwnerAny =
-      lazy val guardRef: DFConditional.Block.GuardRef = guardOption match
-        case Some(cond) => cond.asIR.refTW(block)
+      val guardRef: DFConditional.Block.GuardRef = guardOption match
+        case Some(cond) => cond.asIR.refTW[DFCaseBlock]
         case None       => ir.DFRef.TwoWay.Empty
-      lazy val prevBlockOrHeaderRef: DFCaseBlock.Ref = prevBlockOrHeader match
+      val prevBlockOrHeaderRef: DFCaseBlock.Ref = prevBlockOrHeader match
         case prevBlock: DFOwnerAny =>
-          prevBlock.asIR.asInstanceOf[DFCaseBlock].refTW(block)
+          prevBlock.asIR.asInstanceOf[DFCaseBlock].refTW[DFCaseBlock]
         case header: DFValAny =>
-          header.asIR.asInstanceOf[DFMatchHeader].refTW(block)
-      lazy val block: DFCaseBlock =
+          header.asIR.asInstanceOf[DFMatchHeader].refTW[DFCaseBlock]
+      val block: DFCaseBlock =
         DFCaseBlock(
           pattern,
           guardRef,

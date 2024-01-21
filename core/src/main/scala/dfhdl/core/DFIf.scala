@@ -99,15 +99,15 @@ object DFIf:
     )(using
         DFC
     ): DFOwnerAny =
-      lazy val guardRef: DFConditional.Block.GuardRef = guardOption match
-        case Some(cond) => cond.asIR.refTW(block)
+      val guardRef: DFConditional.Block.GuardRef = guardOption match
+        case Some(cond) => cond.asIR.refTW[DFIfElseBlock]
         case None       => ir.DFRef.TwoWay.Empty
-      lazy val prevBlockOrHeaderRef: DFIfElseBlock.Ref = prevBlockOrHeader match
+      val prevBlockOrHeaderRef: DFIfElseBlock.Ref = prevBlockOrHeader match
         case prevBlock: DFOwnerAny =>
-          prevBlock.asIR.asInstanceOf[DFIfElseBlock].refTW(block)
+          prevBlock.asIR.asInstanceOf[DFIfElseBlock].refTW[DFIfElseBlock]
         case header: DFValAny =>
-          header.asIR.asInstanceOf[DFIfHeader].refTW(block)
-      lazy val block: DFIfElseBlock =
+          header.asIR.asInstanceOf[DFIfHeader].refTW[DFIfElseBlock]
+      val block: DFIfElseBlock =
         DFIfElseBlock(
           guardRef,
           prevBlockOrHeaderRef,

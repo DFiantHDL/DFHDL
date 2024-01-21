@@ -34,10 +34,11 @@ object OrderMembers:
     object Simple extends Order:
       extension (dfVal: DFVal)
         def isReferencedByAnyDcl(using MemberGetSet): Boolean =
-          dfVal.originRefs.view.map(_.get).collectFirst {
+          dfVal.originMembers.view.exists {
             case _: DFVal.Dcl => true
             case DclConst()   => true
-          }.nonEmpty
+            case _            => false
+          }
       def apply()(using MemberGetSet): DFMember => Int = {
         // design parameters come first as they are dependent only on external
         // initialization and everything else can depend on them

@@ -54,10 +54,10 @@ object Timer:
 
   object Periodic:
     def apply(trigger: Option[DFValOf[DFBit]], periodOpt: Option[Time])(using DFC): Timer =
-      lazy val triggerRef: ir.Timer.TriggerRef = trigger match
-        case Some(value) => value.asIR.refTW(timer)
+      val triggerRef: ir.Timer.TriggerRef = trigger match
+        case Some(value) => value.asIR.refTW[ir.Timer]
         case None        => ir.DFRef.TwoWay.Empty
-      lazy val timer: ir.Timer = ir.Timer
+      val timer: ir.Timer = ir.Timer
         .Periodic(
           triggerRef,
           periodOpt,
@@ -70,9 +70,9 @@ object Timer:
   end Periodic
   object Func:
     def apply(source: Timer, op: FuncOp, arg: Time | Ratio)(using DFC): Timer =
-      lazy val timer: ir.Timer = ir.Timer
+      val timer: ir.Timer = ir.Timer
         .Func(
-          source.asIR.refTW(timer),
+          source.asIR.refTW[ir.Timer],
           op,
           arg,
           dfc.owner.ref,
@@ -84,9 +84,9 @@ object Timer:
 
   object IsActive:
     def apply(timer: Timer)(using DFC): DFValOf[DFBool] =
-      lazy val dfVal: ir.DFVal = ir.Timer
+      val dfVal: ir.DFVal = ir.Timer
         .IsActive(
-          timer.asIR.refTW(dfVal),
+          timer.asIR.refTW[ir.DFVal],
           dfc.owner.ref,
           dfc.getMeta,
           ir.DFTags.empty

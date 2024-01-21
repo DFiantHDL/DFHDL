@@ -63,6 +63,23 @@ final case class DB(
 
   lazy val memberTable: Map[DFMember, Set[DFRefAny]] = refTable.invert
 
+  lazy val originRefTable: Map[DFRef.TwoWayAny, DFMember] =
+    members.view.flatMap(origMember => origMember.getRefs.map(_ -> origMember)).toMap
+
+  //                                to         From
+  lazy val originMemberTable: Map[DFMember, Set[DFMember]] =
+    val tbl = mutable.Map.empty[DFMember, Set[DFMember]]
+    members.foreach(origMember =>
+      origMember.getRefs.foreach {
+        case _: DFRef.Empty =>
+        case r =>
+          tbl.updateWith(refTable(r)) {
+            case Some(set) => Some(set + origMember)
+            case None      => Some(Set(origMember))
+          }
+      }
+    )
+    tbl.toMap
   // Map of all named types in the design with their design block owners.
   // If the named type is global (used in IO or more than one design block),
   // then its owner is set to None.

@@ -156,29 +156,27 @@ private val nonConsumingRefs: Set[ClassTag[?]] = Set(
   classTag[DFConditional.DFCaseBlock]
 )
 
+extension (ref: DFRef.TwoWayAny)
+  def originMember(using MemberGetSet): DFMember =
+    getSet.designDB.originRefTable(ref)
+
 extension (member: DFMember)
-  def originRefs(using MemberGetSet): Set[DFRefAny] =
-    getSet.designDB.memberTable
-      .getOrElse(member, Set.empty).collect { case r: DFRef.TwoWayAny => r.originRef }
+  def originMembers(using MemberGetSet): Set[DFMember] =
+    getSet.designDB.originMemberTable.getOrElse(member, Set())
 
 extension (dfVal: DFVal)
   def getPartialAliases(using MemberGetSet): Set[DFVal.Alias.Partial] =
-    dfVal.originRefs.flatMap {
-      case r if r.refType equals aliasPartClassTag =>
-        r.get match
-          case alias: DFVal.Alias.Partial => Some(alias)
-          case _                          => None
-      case _ => None
+    dfVal.originMembers.flatMap {
+      case alias: DFVal.Alias.Partial => Some(alias)
+      case _                          => None
     }
   def hasPrevAlias(using MemberGetSet): Boolean =
-    val refs = dfVal.originRefs
-    refs.exists { r =>
-      r.get match
-        case history: DFVal.Alias.History if (history.op == DFVal.Alias.History.Op.Prev) =>
-          true
-        case alias: DFVal.Alias =>
-          alias.hasPrevAlias
-        case _ => false
+    dfVal.originMembers.exists {
+      case history: DFVal.Alias.History if (history.op == DFVal.Alias.History.Op.Prev) =>
+        true
+      case alias: DFVal.Alias =>
+        alias.hasPrevAlias
+      case _ => false
     }
   end hasPrevAlias
   def getConnectionTo(using MemberGetSet): Option[DFNet] =
@@ -197,30 +195,26 @@ extension (dfVal: DFVal)
   // search composed value read dependencies (without nets) if there is a value
   // that fits the given condition
   def existsInComposedReadDeps(cond: DFVal => Boolean)(using MemberGetSet): Boolean =
-    dfVal.originRefs.view.map(_.get)
+    dfVal.originMembers.view
       .collect { case dfVal: DFVal => dfVal }
       .exists(dfVal => cond(dfVal) || dfVal.existsInComposedReadDeps(cond))
   def getReadDeps(using MemberGetSet): Set[DFNet | DFVal] =
-    val refs = dfVal.originRefs
-    val fromRefs: Set[DFNet | DFVal] = refs.flatMap { r =>
-      r.get match
-        case net: DFNet =>
-          net match
-            // ignoring receiver or if connecting to an OPEN
-            case DFNet.Connection(toVal: DFVal, _, _) if toVal.isOpen || toVal == dfVal => None
-            // ignoring receiver
-            case DFNet.Assignment(toVal, _) if toVal == dfVal => None
-            case _                                            => Some(net)
-        case dfVal: DFVal => Some(dfVal)
-        case _            => None
+    val fromRefs: Set[DFNet | DFVal] = dfVal.originMembers.flatMap {
+      case net: DFNet =>
+        net match
+          // ignoring receiver or if connecting to an OPEN
+          case DFNet.Connection(toVal: DFVal, _, _) if toVal.isOpen || toVal == dfVal => None
+          // ignoring receiver
+          case DFNet.Assignment(toVal, _) if toVal == dfVal => None
+          case _                                            => Some(net)
+      case dfVal: DFVal => Some(dfVal)
+      case _            => None
     }
     dfVal match
       // for ports we need to also account for by-name referencing
       case port @ DclPort() =>
         val designInst = port.getOwnerDesign
-        designInst.originRefs.view
-          .filter(_.refType equals portByNameSelectClassTag)
-          .map(_.get)
+        designInst.originMembers.view
           .collect { case ps @ DFVal.PortByNameSelect.Of(p) if p == port => ps.getReadDeps }
           .flatten
           .toSet ++ fromRefs
@@ -259,18 +253,21 @@ extension (dfVal: DFVal)
       member: DFVal,
       prevMember: Option[DFVal] = None
   )(using MemberGetSet): Option[String] =
-    val refs = member.originRefs
+    val origins = member.originMembers
 
-    val refOwner: Option[DFMember] = refs
+    val refOwner: Option[DFMember] =
       // search consuming references first
-      .collectFirst { case r if !nonConsumingRefs.contains(r.refType) => r.get }
-      // search aliasing references, as long as we don't go back to previous member
-      // (aliasing can be used for both producing and consuming)
-      .orElse {
-        refs.collectFirst {
-          case r if prevMember.isEmpty || prevMember.get != r.get => r.get
+      origins.filter {
+        case _: (DFVal.Alias.Partial | DFConditional.Block) => false
+        case _                                              => true
+      }.headOption
+        // search aliasing references, as long as we don't go back to previous member
+        // (aliasing can be used for both producing and consuming)
+        .orElse {
+          origins.collectFirst {
+            case m if prevMember.isEmpty || prevMember.get != m => m
+          }
         }
-      }
     refOwner match
       // name from assignment destination
       case Some(DFNet.Assignment(toVal, _)) => Some(partName(toVal))
@@ -295,7 +292,7 @@ end extension
 
 extension (refTW: DFNet.Ref)
   def isViaRef(using MemberGetSet): Boolean =
-    refTW.originRef.get match
+    refTW.originMember match
       case net: DFNet if net.isViaConnection =>
         refTW.get.stripPortSel.getOwner.isSameOwnerDesignAs(net)
       case _ => false

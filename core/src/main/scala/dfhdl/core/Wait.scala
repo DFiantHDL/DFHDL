@@ -10,7 +10,7 @@ object Wait:
 //  extension (wait: ir.Wait) private def asFE: Wait = new Wait(wait)
   object Duration:
     def apply(timeOpt: Option[Time])(using DFC): Unit =
-      lazy val wait: ir.Wait = ir.Wait
+      val wait: ir.Wait = ir.Wait
         .Duration(
           timeOpt,
           dfc.owner.ref,
@@ -18,18 +18,16 @@ object Wait:
           ir.DFTags.empty
         )
         .addMember
-      wait // .asFE
   object Until:
     def apply(trigger: DFValOf[DFBit])(using DFC): Unit =
-      lazy val wait: ir.Wait = ir.Wait
+      val wait: ir.Wait = ir.Wait
         .Until(
-          trigger.asIR.refTW(wait),
+          trigger.asIR.refTW[ir.Wait],
           dfc.owner.ref,
           dfc.getMeta,
           ir.DFTags.empty
         )
         .addMember
-      wait // .asFE
   object Ops:
     def wait(time: Time)(using DFC): Unit = trydf { Duration(Some(time)) }
     def waitForever(using DFC): Unit = trydf { Duration(None) }

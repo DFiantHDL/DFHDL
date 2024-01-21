@@ -26,7 +26,7 @@ trait AbstractValPrinter extends AbstractPrinter:
           if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
           else dfVal.getName
         case dfVal: DFVal =>
-          val callOwner = ref.originRef.get.getOwner
+          val callOwner = ref.originMember.getOwner
           val cs = printer.csDFValRef(dfVal, callOwner)
           dfVal match
             case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
@@ -162,7 +162,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case (t, f) if t == f => // ident
         // an ident is used as a placeholder and therefore does not require
         // applying brackets
-        val callOwner = dfVal.relValRef.originRef.get.getOwner
+        val callOwner = dfVal.getOwner
         printer.csDFValRef(relVal, callOwner)
       case (DFSInt(tWidth), DFUInt(fWidth)) =>
         assert(tWidth == fWidth + 1)

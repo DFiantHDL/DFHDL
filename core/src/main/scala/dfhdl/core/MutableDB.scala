@@ -102,23 +102,10 @@ class DesignContext:
     member
   end ignoreMember
 
-  def touchLazyRefs(): Unit =
-    var size = -1
-    // Touching all lazy origin refs to force their addition.
-    // During this procedure it is possible that new reference are added. If so, we re-iterate
-    while (refTable.size != size) do
-      size = refTable.size
-      refTable.keys.foreach {
-        case or: DFRef.TwoWayAny => or.originRef
-        case _                   => // do nothing
-      }
-  end touchLazyRefs
-
   def getLatestMember: DFMember =
     members.view.filterNot(e => e.ignore).map(e => e.irValue).head
 
   def inject(sourceCtx: DesignContext): Unit =
-    sourceCtx.touchLazyRefs()
     sourceCtx.getMemberList.foreach { m =>
       if (!memberTable.contains(m))
         addMember(m)
@@ -200,7 +187,6 @@ final class MutableDB():
         )
         stack.head.refTable ++= transferredRefs
       else
-        current.touchLazyRefs()
         designMembers += design -> currentMembers
         stack.head.refTable ++= current.refTable
       end if
@@ -379,42 +365,42 @@ final class MutableDB():
   def immutable: DB = memoizedDB.getOrElse {
     // if in meta-programming (indicated by the existence of an external context),
     // then we need to just get the current hierarchy members and refTable
-    val (members, refTable) = if (metaGetSetOpt.nonEmpty)
-      DesignContext.current.touchLazyRefs()
-      (DesignContext.current.getMemberList, DesignContext.current.refTable.toMap)
-    // otherwise we first flatten the hierarchy and then make sure all design
-    // declarations are unique and tag duplicate instances accordingly.
-    else
-      val members =
-        getFlattenedMemberList(DesignContext.current.getMemberList)
-      val refTable = DesignContext.current.refTable.toMap
-      val duplicateDesignRepMap = DesignContext.uniqueDesigns.view.flatMap {
-        case (designType, groupList) =>
-          groupList.view.reverse.zipWithIndex.flatMap {
-            case (group, i) if group.length > 1 || groupList.length > 1 =>
-              val updatedDclName =
-                if (groupList.length > 1) s"${designType}_${i.toPaddedString(groupList.length)}"
-                else designType
-              var first = true
-              group.view.map(design =>
-                val tags =
-                  if (first)
-                    first = false
-                    design.tags
-                  else design.tags.tag(DuplicateTag)
-                design -> design.copy(
-                  dclMeta = design.dclMeta.copy(nameOpt = Some(updatedDclName)),
-                  tags = tags
-                ),
-              )
-            case _ => Nil
-          }
-      }.toMap
-      val replaceDesignFunc: DFMember => DFMember = {
-        case design: DFDesignBlock => duplicateDesignRepMap.getOrElse(design, design)
-        case m                     => m
-      }
-      (members.map(replaceDesignFunc), refTable.view.mapValues(replaceDesignFunc).toMap)
+    val (members, refTable) =
+      if (metaGetSetOpt.nonEmpty)
+        (DesignContext.current.getMemberList, DesignContext.current.refTable.toMap)
+      // otherwise we first flatten the hierarchy and then make sure all design
+      // declarations are unique and tag duplicate instances accordingly.
+      else
+        val members =
+          getFlattenedMemberList(DesignContext.current.getMemberList)
+        val refTable = DesignContext.current.refTable.toMap
+        val duplicateDesignRepMap = DesignContext.uniqueDesigns.view.flatMap {
+          case (designType, groupList) =>
+            groupList.view.reverse.zipWithIndex.flatMap {
+              case (group, i) if group.length > 1 || groupList.length > 1 =>
+                val updatedDclName =
+                  if (groupList.length > 1) s"${designType}_${i.toPaddedString(groupList.length)}"
+                  else designType
+                var first = true
+                group.view.map(design =>
+                  val tags =
+                    if (first)
+                      first = false
+                      design.tags
+                    else design.tags.tag(DuplicateTag)
+                  design -> design.copy(
+                    dclMeta = design.dclMeta.copy(nameOpt = Some(updatedDclName)),
+                    tags = tags
+                  ),
+                )
+              case _ => Nil
+            }
+        }.toMap
+        val replaceDesignFunc: DFMember => DFMember = {
+          case design: DFDesignBlock => duplicateDesignRepMap.getOrElse(design, design)
+          case m                     => m
+        }
+        (members.map(replaceDesignFunc), refTable.view.mapValues(replaceDesignFunc).toMap)
     val globalTags = GlobalTagContext.tagMap.toMap
     val db = DB(members, refTable, globalTags, Nil)
     memoizedDB = Some(db)

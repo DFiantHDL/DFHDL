@@ -44,11 +44,11 @@ object Patch:
       // Only references from outside the given owner are replaced
       final case class Outside(block: DFOwner) extends RefFilter:
         def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
-          refs.collect { case r: DFRef.TwoWayAny if r.originRef.get.isOutsideOwner(block) => r }
+          refs.collect { case r: DFRef.TwoWayAny if r.originMember.isOutsideOwner(block) => r }
       // Only references from inside the given owner are replaced
       final case class Inside(block: DFOwner) extends RefFilter:
         def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
-          refs.collect { case r: DFRef.TwoWayAny if r.originRef.get.isInsideOwner(block) => r }
+          refs.collect { case r: DFRef.TwoWayAny if r.originMember.isInsideOwner(block) => r }
     end RefFilter
   end Replace
   final case class Add private[patching] (db: DB, config: Add.Config) extends Patch:

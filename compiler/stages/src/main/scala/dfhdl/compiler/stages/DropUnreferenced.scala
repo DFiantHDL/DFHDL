@@ -21,7 +21,9 @@ case object DropUnreferencedAnons extends Stage:
     val patchList = designDB.members.flatMap {
       // skipping over conditional headers that can be considered values as well.
       case _: DFConditional.Header => None
-      case m: DFVal if m.isAnonymous && designDB.memberTable.getOrElse(m, Set()).isEmpty =>
+      // idents are always kept
+      case Ident(_) => None
+      case m: DFVal if m.isAnonymous && m.originMembers.isEmpty =>
         Some(m -> Patch.Remove)
       case _ => None
     }

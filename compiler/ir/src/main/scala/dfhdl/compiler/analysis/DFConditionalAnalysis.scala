@@ -18,14 +18,8 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
     case _: DFConditional.Header => true
     case _                       => false
   def getNextCB: Option[CB] =
-    val refs = getSet.designDB.memberTable.getOrElse(cb, Set())
     // the conditional block is last if there is no reference to it as a previous block
-    val cbTags: Set[ClassTag[?]] =
-      Set(classTag[DFConditional.DFCaseBlock], classTag[DFConditional.DFIfElseBlock])
-    refs.view
-      .collectFirst {
-        case r @ DFRef.TwoWay(originRef) if cbTags.contains(r.refType) => originRef.get
-      }
+    cb.originMembers.view
       .collectFirst { case cb: DFConditional.Block => cb.asInstanceOf[CB] }
   def getPrevCB: Option[CB] = cb.prevBlockOrHeaderRef.get match
     case cb: DFConditional.Block => Some(cb.asInstanceOf[CB])
@@ -112,14 +106,7 @@ extension (patterns: Iterable[Pattern])
 
 extension [CH <: DFConditional.Header](ch: CH)(using MemberGetSet)
   def getLastCB: ch.TBlock =
-    val refs = getSet.designDB.memberTable.getOrElse(ch, Set())
-    // the conditional block is last if there is no reference to it as a previous block
-    val cbTags: Set[ClassTag[?]] =
-      Set(classTag[DFConditional.DFIfHeader], classTag[DFConditional.DFMatchHeader])
-    refs.view
-      .collect {
-        case r @ DFRef.TwoWay(originRef) if cbTags.contains(r.refType) => originRef.get
-      }
+    ch.originMembers
       .collectFirst { case cb: DFConditional.Block if cb.isLastCB => cb.asInstanceOf[ch.TBlock] }
       .get
 
