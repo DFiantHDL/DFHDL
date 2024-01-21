@@ -147,15 +147,6 @@ object PortOfDesignDef:
         else None
       case _ => None
 
-private val netClassTag = classTag[DFNet]
-private val aliasPartClassTag = classTag[DFVal.Alias.Partial]
-private val portByNameSelectClassTag = classTag[DFVal.PortByNameSelect]
-private val nonConsumingRefs: Set[ClassTag[?]] = Set(
-  aliasPartClassTag,
-  classTag[DFConditional.DFIfElseBlock],
-  classTag[DFConditional.DFCaseBlock]
-)
-
 extension (ref: DFRef.TwoWayAny)
   def originMember(using MemberGetSet): DFMember =
     getSet.designDB.originRefTable(ref)
