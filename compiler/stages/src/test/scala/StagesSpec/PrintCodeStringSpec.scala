@@ -5,7 +5,7 @@ import dfhdl.compiler.stages.{getCodeString, sanityCheck}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class PrintCodeStringSpec extends StageSpec:
-  class ID extends DFDesign:
+  class ID(arg: Bit <> CONST = 1) extends DFDesign:
     val x = SInt(16) <> IN
     val y = SInt(16) <> OUT
     y := x
@@ -15,16 +15,16 @@ class PrintCodeStringSpec extends StageSpec:
     val y = dfType <> OUT
     y := x
 
-  class IDTop extends DFDesign:
+  class IDTop(argTop: Bit <> CONST = 1) extends DFDesign:
     val x   = SInt(16) <> IN
     val y   = SInt(16) <> OUT
-    val id1 = new ID
-    val id2 = new ID
+    val id1 = ID(0)
+    val id2 = ID(argTop)
     id1.x <> x
     id1.y <> id2.x
     id2.y <> y
 
-  class IDTopVia extends DFDesign:
+  class IDTopVia(argTop: Bit <> CONST = 1) extends DFDesign:
     self =>
     val x     = SInt(16) <> IN
     val y     = SInt(16) <> OUT
@@ -32,10 +32,10 @@ class PrintCodeStringSpec extends StageSpec:
     val id1_y = SInt(16) <> VAR
     val id2_x = SInt(16) <> VAR
     val id2_y = SInt(16) <> VAR
-    val id1 = new ID:
+    val id1 = new ID(argTop):
       this.x <> id1_x
       this.y <> id1_y
-    val id2 = new ID:
+    val id2 = new ID():
       this.x <> id2_x
       this.y <> id2_y
     x     <> id1_x
@@ -47,7 +47,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new ID).getCodeString
     assertNoDiff(
       id,
-      """|class ID extends DFDesign:
+      """|class ID(arg: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
@@ -81,17 +81,17 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDTop).getCodeString
     assertNoDiff(
       id,
-      """|class ID extends DFDesign:
+      """|class ID(arg: Bit <> CONST) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
          |end ID
          |
-         |class IDTop extends DFDesign:
+         |class IDTop(argTop: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  val id1 = ID()
-         |  val id2 = ID()
+         |  val id1 = ID(arg = 0)
+         |  val id2 = ID(arg = argTop)
          |  id1.x <> x
          |  id2.x <> id1.y
          |  y <> id2.y
@@ -103,23 +103,23 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDTopVia).getCodeString
     assertNoDiff(
       id,
-      """|class ID extends DFDesign:
+      """|class ID(arg: Bit <> CONST) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
          |end ID
          |
-         |class IDTopVia extends DFDesign:
+         |class IDTopVia(argTop: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val id1_x = SInt(16) <> VAR
          |  val id1_y = SInt(16) <> VAR
          |  val id2_x = SInt(16) <> VAR
          |  val id2_y = SInt(16) <> VAR
-         |  val id1 = new ID:
+         |  val id1 = new ID(arg = argTop):
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y
-         |  val id2 = new ID:
+         |  val id2 = new ID(arg = 1):
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
          |  id1_x <> x
@@ -151,30 +151,40 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
 
-  test("Basic RTDesign") {
-    val gp: Bit <> CONST     = 1 // won't be printed, because it's not used
+  test("RTDesign with class extension and parameters") {
+    val gp: Bit <> CONST     = 1
     val i: SInt[16] <> CONST = 0
     val i2                   = i + 5
-    class ID extends RTDesign:
+    class ID(dp: Bit <> CONST) extends RTDesign:
       val c: SInt[16] <> CONST = 3
       val x                    = SInt(16) <> IN init i2
       val y                    = SInt(16) <> OUT
-      val flag                 = Bit      <> IN
+      val flag                 = Bit      <> IN init dp || gp
       y := x.reg.reg(2, init = c - i) - x
     end ID
-    val id = (new ID).getCodeString
+    class IDExt(dpNew: Bit <> CONST) extends ID(gp && dpNew):
+      val z = Bit <> OUT
+      z := dpNew
+
+    val id = (new IDExt(gp)).getCodeString
     assertNoDiff(
       id,
-      """|val i: SInt[16] <> CONST = sd"16'0"
-         |val i2: SInt[16] <> CONST = i + sd"16'5"
-         |class ID extends RTDesign:
-         |  val c: SInt[16] <> CONST = sd"16'3"
-         |  val x = SInt(16) <> IN init i2
-         |  val y = SInt(16) <> OUT
-         |  val flag = Bit <> IN
-         |  y := x.reg.reg(2, c - i) - x
-         |end ID
-         |""".stripMargin
+      """|val gp: Bit <> CONST = 1
+       |val i: SInt[16] <> CONST = sd"16'0"
+       |val i2: SInt[16] <> CONST = i + sd"16'5"
+       |class IDExt(
+       |    dp: Bit <> CONST = gp && gp,
+       |    dpNew: Bit <> CONST = gp
+       |) extends RTDesign:
+       |  val c: SInt[16] <> CONST = sd"16'3"
+       |  val x = SInt(16) <> IN init i2
+       |  val y = SInt(16) <> OUT
+       |  val flag = Bit <> IN init dp || gp
+       |  y := x.reg.reg(2, c - i) - x
+       |  val z = Bit <> OUT
+       |  z := dpNew
+       |end IDExt
+       |""".stripMargin
     )
   }
   test("Basic EDDesign") {

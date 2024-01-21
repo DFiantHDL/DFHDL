@@ -14,9 +14,46 @@ import scala.annotation.targetName
 
 object Ident:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
-    if (alias.getTagOf[DFVal.Alias.IdentTag.type].isDefined)
+    if (alias.hasTagOf[DFVal.Alias.IdentTag.type])
       Some(alias.relValRef.get)
     else None
+
+//A design parameter is an as-is alias that:
+//1. has `DesignParamTag` tag
+//TODO: This is not yet working. more complicated than initially thought.
+//      Could be the best method is to remove the tag in the plugin.
+//2. its values is not from another `DesignParamTag`-tagged value that has
+//   belongs to the same design.
+//
+//Here is an example:
+//```
+//class Foo(arg: Bit <> CONST) extends DFDesign:
+//  val x = Bit <> IN init arg
+//class Bar(newArg: Bit <> CONST) extends Foo(arg)
+//val barTop = Bar(1)
+//```
+//In this example we have both `arg` and `newArg` tagged with `DesignParamTag`.
+//However, we only treat `newArg` as a design parameter and consider `arg`
+//to be a local constant parameter.
+//If we print `barTop` after elaboration we get the following:
+//```
+//class Bar(newArg: Bit <> CONST) extends DFDesign:
+//  val arg: Bit <> CONST = newArg
+//  val x = Bit <> IN init arg
+//```
+object DesignParam:
+  def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
+    if (alias.hasTagOf[DFVal.Alias.DesignParamTag.type])
+      val relVal = alias.relValRef.get
+      // if (
+      //   relVal.existsInComposedReadDeps { dep =>
+      //     dep.hasTagOf[DFVal.Alias.DesignParamTag.type] &&
+      //     dep.isSameOwnerDesignAs(alias)
+      //   }
+      // ) None
+      Some(relVal)
+    else None
+end DesignParam
 
 object OpaqueActual:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
@@ -157,6 +194,12 @@ extension (dfVal: DFVal)
       case dcl @ DclPort() =>
         getSet.designDB.portsByNameSelectors.getOrElse(dcl, Nil)
       case _ => Nil
+  // search composed value read dependencies (without nets) if there is a value
+  // that fits the given condition
+  def existsInComposedReadDeps(cond: DFVal => Boolean)(using MemberGetSet): Boolean =
+    dfVal.originRefs.view.map(_.get)
+      .collect { case dfVal: DFVal => dfVal }
+      .exists(dfVal => cond(dfVal) || dfVal.existsInComposedReadDeps(cond))
   def getReadDeps(using MemberGetSet): Set[DFNet | DFVal] =
     val refs = dfVal.originRefs
     val fromRefs: Set[DFNet | DFVal] = refs.flatMap { r =>
@@ -259,7 +302,7 @@ extension (refTW: DFNet.Ref)
 
 extension (origVal: DFVal)
   private def collectRelMembersRecur(includeOrigVal: Boolean)(using MemberGetSet): List[DFVal] =
-    if (origVal.isAnonymous || includeOrigVal)
+    if (origVal.isAnonymous && !origVal.isGlobal || includeOrigVal)
       origVal :: origVal.getRefs.view.map(_.get).flatMap {
         case dfVal: DFVal => dfVal.collectRelMembersRecur(false)
         case _            => Nil

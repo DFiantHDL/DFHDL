@@ -54,7 +54,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
     this match
       case DFDesignBlock.Top() => false
       case _                   => getOwnerNamed == that
-  final infix def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
+  infix def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
     (this, that) match
       case (DFDesignBlock.Top(), DFDesignBlock.Top()) => this == that
       case (DFDesignBlock.Top(), _)                   => false
@@ -91,7 +91,6 @@ object DFMember:
   extension (member: DFMember)
     def getTagOf[CT <: DFTag: ClassTag]: Option[CT] =
       member.tags.getTagOf[CT]
-    // does not work?
     def hasTagOf[CT <: DFTag: ClassTag]: Boolean =
       member.tags.hasTagOf[CT]
 
@@ -229,6 +228,12 @@ object DFVal:
     final override def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
       if (isGlobal) this.getName
       else super.getRelativeName(callOwner)
+    final override infix def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
+      if (this.isGlobal) false
+      else
+        that match
+          case thatDFVal: DFVal if thatDFVal.isGlobal => false
+          case _                                      => super.isSameOwnerDesignAs(that)
 
   final case class Const(
       token: DFTokenAny,
@@ -356,6 +361,7 @@ object DFVal:
 
   object Alias:
     case object IdentTag extends DFTagOf[DFVal]
+    case object DesignParamTag extends DFTagOf[DFVal]
     type Ref = DFRef.TwoWay[DFVal, Alias]
     // This is complete alias that consumes its relative val
     sealed trait Consumer extends Alias:
@@ -378,7 +384,13 @@ object DFVal:
       protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: AsIs =>
-          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
+          // design parameters are considered to be the same even if they are referencing
+          // a different member (this should be quite common), because that member is
+          // external to the design.
+          val sameRelVal =
+            if (this.hasTagOf[DesignParamTag.type]) true
+            else this.relValRef =~ that.relValRef
+          this.dfType == that.dfType && sameRelVal &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]

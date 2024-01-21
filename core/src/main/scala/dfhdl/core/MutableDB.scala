@@ -17,6 +17,7 @@ import dfhdl.compiler.ir.{
   SourceFile,
   MemberView
 }
+import dfhdl.compiler.analysis.{DclPort, DesignParam}
 
 import scala.reflect.{ClassTag, classTag}
 import collection.mutable
@@ -184,17 +185,25 @@ final class MutableDB():
       // of a `hw.pure` annotation), then we can skip this extra step since the design context is
       // already minimized to the named members.
       if (isDuplicate && !current.isDuplicate)
-        val byNameMembers = currentMembers.collect {
-          case p: DFVal.Dcl if p.isPort => p
-          case dmn: DomainBlock         => dmn
+        // public members are ports, design design parameters, and
+        // design domains. these members are interacted with outside the
+        // design, so they are kept as duplicates in the design instances
+        val publicMembers = currentMembers.collect {
+          case p @ DclPort()       => p
+          case dp @ DesignParam(_) => dp
+          case dmn: DomainBlock    => dmn
         }
-        designMembers += design -> byNameMembers
-        val ownerRefs = byNameMembers.view.map(m => m.ownerRef -> current.refTable(m.ownerRef))
-        stack.head.refTable ++= ownerRefs
+        designMembers += design -> publicMembers
+        val transferredRefs = publicMembers.view.flatMap(m =>
+          (m.ownerRef -> current.refTable(m.ownerRef)) ::
+            m.getRefs.map(r => r -> current.refTable(r))
+        )
+        stack.head.refTable ++= transferredRefs
       else
         current.touchLazyRefs()
         designMembers += design -> currentMembers
         stack.head.refTable ++= current.refTable
+      end if
 
       stack.head.addMember(design)
       current = stack.head

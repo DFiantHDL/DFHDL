@@ -33,28 +33,6 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
 
   var designFromDefSym: Symbol = uninitialized
   var designFromDefGetInputSym: Symbol = uninitialized
-  var metaGenSym: Symbol = uninitialized
-
-  extension (tpe: Type)(using Context)
-    def dfValTpeOpt: Option[Type] =
-      tpe.dealias match
-        case res if res.dealias.typeSymbol == dfValSym => Some(res)
-        case _                                         => None
-
-  extension (tree: ValOrDefDef)(using Context)
-    def dfValTpeOpt: Option[Type] =
-      tree.tpt.tpe.dfValTpeOpt
-
-  extension (tree: ValOrDefDef)(using Context)
-    def genMeta: Tree =
-      val nameOptTree = mkOptionString(Some(tree.name.toString.nameCheck(tree)))
-      val positionTree = tree.srcPos.positionTree
-      val docOptTree = mkOptionString(tree.symbol.docString)
-      val annotTree = mkList(tree.symbol.annotations.map(_.tree))
-      ref(metaGenSym).appliedToArgs(
-        nameOptTree :: positionTree :: docOptTree :: annotTree :: Nil
-      )
-  end extension
 
   // DFHDL design construction from definitions transformation.
   // Such transformation rely on code like `def foo(arg: Bit <> VAL): Bit <> VAL`
@@ -80,16 +58,6 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
         debug("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         debug(tree.show)
         val dfc = ContextArg.at(anonDef).get
-
-        // replacing the old arg references according to the argument map
-        def replaceArgs(expr: Tree, argMap: Map[Symbol, Tree]): Tree =
-          val replacer = new TreeMap():
-            override def transform(tree: Tree)(using Context): Tree =
-              tree match
-                case id @ Ident(_) if argMap.contains(id.symbol) =>
-                  argMap(id.symbol)
-                case _ => super.transform(tree)
-          replacer.transform(expr)
 
         val updatedAnonRHS: Tree =
           // list of tuples of the old arguments and their meta data
@@ -137,7 +105,6 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
     ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
-    metaGenSym = requiredMethod("dfhdl.compiler.ir.Meta.gen")
     designFromDefSym = requiredMethod("dfhdl.core.__For_Plugin.designFromDef")
     designFromDefGetInputSym = requiredMethod("dfhdl.core.__For_Plugin.designFromDefGetInput")
     super.prepareForUnit(tree)

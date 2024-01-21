@@ -46,7 +46,15 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       case _: DFVal.Const => false
       case _              => true
     })
-    s"""module ${moduleName(design)}$portBlock;$declarations
+    val designParamList = designMembers.collect { case param @ DesignParam(_) =>
+      val defaultValue = if (design.isTop) s" = ${param.relValRef.refCodeString}" else ""
+      s"parameter ${printer.csDFType(param.dfType)} ${param.getName}$defaultValue"
+    }
+    val designParamCS =
+      if (designParamList.length == 0) ""
+      else if (designParamList.length == 1) designParamList.mkString("#(", ", ", ")")
+      else "#(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
+    s"""module ${moduleName(design)}$designParamCS$portBlock;$declarations
        |${statements.hindent}
        |endmodule""".stripMargin
   end csModuleDcl

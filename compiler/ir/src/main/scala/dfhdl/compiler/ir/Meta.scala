@@ -26,6 +26,7 @@ final case class Meta(
 end Meta
 
 object Meta:
+  def empty: Meta = Meta(None, Position.unknown, None, Nil)
   def gen(
       nameOpt: Option[String],
       position: Position,

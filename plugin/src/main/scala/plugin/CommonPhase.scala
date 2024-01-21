@@ -18,6 +18,7 @@ import dotty.tools.dotc.ast.tpd.Tree
 import annotation.tailrec
 import scala.language.implicitConversions
 import scala.compiletime.uninitialized
+import scala.annotation.targetName
 
 given canEqualNothingL: CanEqual[Nothing, Any] = CanEqual.derived
 given canEqualNothingR: CanEqual[Any, Nothing] = CanEqual.derived
@@ -65,11 +66,49 @@ abstract class CommonPhase extends PluginPhase:
   var metaContextCls: ClassSymbol = uninitialized
   var metaContextIgnoreAnnotSym: ClassSymbol = uninitialized
   var metaContextForwardAnnotSym: ClassSymbol = uninitialized
+  var metaGenSym: Symbol = uninitialized
   var positionCls: ClassSymbol = uninitialized
   var contextFunctionSym: Symbol = uninitialized
   var hasDFCTpe: TypeRef = uninitialized
   var inlineAnnotSym: Symbol = uninitialized
   var dfValSym: Symbol = uninitialized
+
+  extension (tree: TypeDef)
+    def hasDFC(using Context): Boolean =
+      (tree.tpe <:< hasDFCTpe) // && (dfSpecTpe == NoType || !(tree.tpe <:< dfSpecTpe))
+
+  // replacing the old arg references according to the argument map
+  def replaceArgs(expr: Tree, argMap: Map[Symbol, Tree])(using Context): Tree =
+    val replacer = new TreeMap():
+      override def transform(tree: Tree)(using Context): Tree =
+        tree match
+          case id: (Select | Ident) if argMap.contains(id.symbol) =>
+            argMap(id.symbol)
+          case _ =>
+            super.transform(tree)
+    replacer.transform(expr)
+  end replaceArgs
+
+  extension (tpe: Type)(using Context)
+    def dfValTpeOpt: Option[Type] =
+      tpe.dealias match
+        case res if res.dealias.typeSymbol == dfValSym => Some(res)
+        case _                                         => None
+
+  extension (tree: ValOrDefDef)(using Context)
+    def dfValTpeOpt: Option[Type] =
+      tree.tpt.tpe.dfValTpeOpt
+
+  extension (tree: ValOrDefDef)(using Context)
+    def genMeta: Tree =
+      val nameOptTree = mkOptionString(Some(tree.name.toString.nameCheck(tree)))
+      val positionTree = tree.srcPos.positionTree
+      val docOptTree = mkOptionString(tree.symbol.docString)
+      val annotTree = mkList(tree.symbol.annotations.map(_.tree))
+      ref(metaGenSym).appliedToArgs(
+        nameOptTree :: positionTree :: docOptTree :: annotTree :: Nil
+      )
+  end extension
 
   extension (sym: Symbol)
     def ignoreMetaContext(using Context): Boolean =
@@ -265,6 +304,7 @@ abstract class CommonPhase extends PluginPhase:
     metaContextCls = requiredClass("dfhdl.internals.MetaContext")
     metaContextIgnoreAnnotSym = requiredClass("dfhdl.internals.metaContextIgnore")
     metaContextForwardAnnotSym = requiredClass("dfhdl.internals.metaContextForward")
+    metaGenSym = requiredMethod("dfhdl.compiler.ir.Meta.gen")
     positionCls = requiredClass("dfhdl.internals.Position")
     hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
     inlineAnnotSym = requiredClass("scala.inline")
@@ -276,7 +316,7 @@ abstract class CommonPhase extends PluginPhase:
            |===============================================================
            |""".stripMargin
       )
-      println(tree.showSummary(14))
+      println(tree.show)
 
     ctx
   end prepareForUnit
@@ -290,6 +330,6 @@ abstract class CommonPhase extends PluginPhase:
            |===============================================================
            |""".stripMargin
       )
-      println(tree.showSummary(10))
+      println(tree.show)
     tree
 end CommonPhase

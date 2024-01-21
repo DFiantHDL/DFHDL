@@ -4,7 +4,6 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
-import DFVal.Const.Kind as ConstKind
 import scala.annotation.tailrec
 
 private abstract class OrderMembers(order: OrderMembers.Order) extends Stage:
@@ -42,7 +41,7 @@ object OrderMembers:
       def apply()(using MemberGetSet): DFMember => Int = {
         // design parameters come first as they are dependent only on external
         // initialization and everything else can depend on them
-        case DFVal.Const(_, ConstKind.DesignParam, _, _, _) => 1
+        case DesignParam(_) => 1
         // anonymous members that are referenced by declarations come second
         case dfVal: DFVal if dfVal.isAnonymous && dfVal.isReferencedByAnyDcl => 2
         // third to come are constant declarations that may be referenced by ports

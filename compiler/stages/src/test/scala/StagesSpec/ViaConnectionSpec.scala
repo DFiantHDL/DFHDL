@@ -46,12 +46,12 @@ class ViaConnectionSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val id1_x = SInt(16) <> VAR
          |  val id1_y = SInt(16) <> VAR
-         |  val id1 = new ID:
+         |  val id1 = new ID():
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y
          |  val id2_x = SInt(16) <> VAR
          |  val id2_y = SInt(16) <> VAR
-         |  val id2 = new ID:
+         |  val id2 = new ID():
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
          |  id1_x <> x
@@ -72,7 +72,7 @@ class ViaConnectionSpec extends StageSpec:
     class IDTop extends DFDesign:
       val x  = SInt(16) <> IN
       val y  = SInt(16) <> OUT
-      val id = new IDExtra
+      val id = new IDExtra()
       id.x  <> x
       id.y  <> y
       id.y2 <> OPEN
@@ -93,7 +93,7 @@ class ViaConnectionSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val id_x = SInt(16) <> VAR
          |  val id_y = SInt(16) <> VAR
-         |  val id = new IDExtra:
+         |  val id = new IDExtra():
          |    this.x <>/*<--*/ id_x
          |    this.y <>/*-->*/ id_y
          |    this.y2 <>/*-->*/ OPEN
@@ -112,10 +112,10 @@ class ViaConnectionSpec extends StageSpec:
       val id1_y = SInt(16) <> VAR
       val id2_x = SInt(16) <> VAR
       val id2_y = SInt(16) <> VAR
-      val id1 = new ID:
+      val id1 = new ID():
         this.x <> id1_x
         this.y <> id1_y
-      val id2 = new ID:
+      val id2 = new ID():
         this.x <> id2_x
         this.y <> id2_y
       x     <> id1_x
@@ -139,10 +139,10 @@ class ViaConnectionSpec extends StageSpec:
          |  val id1_y = SInt(16) <> VAR
          |  val id2_x = SInt(16) <> VAR
          |  val id2_y = SInt(16) <> VAR
-         |  val id1 = new ID:
+         |  val id1 = new ID():
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y
-         |  val id2 = new ID:
+         |  val id2 = new ID():
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
          |  id1_x <> x
@@ -179,11 +179,11 @@ class ViaConnectionSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val internal = SInt(16) <> VAR
          |  val id1_x = SInt(16) <> VAR
-         |  val id1 = new ID:
+         |  val id1 = new ID():
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ internal
          |  val id2_y = SInt(16) <> VAR
-         |  val id2 = new ID:
+         |  val id2 = new ID():
          |    this.y <>/*-->*/ id2_y
          |    this.x <>/*<--*/ internal
          |  id1_x <> x
@@ -223,12 +223,12 @@ class ViaConnectionSpec extends StageSpec:
          |  val y = Bits(16) <> OUT
          |  val id1_x = Bits(8) <> VAR
          |  val id1_y = Bits(8) <> VAR
-         |  val id1 = new ID:
+         |  val id1 = new ID():
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ id1_y
          |  val id2_x = Bits(8) <> VAR
          |  val id2_y = Bits(8) <> VAR
-         |  val id2 = new ID:
+         |  val id2 = new ID():
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ id2_y
          |  id1_x <> x(7, 0)
@@ -275,11 +275,11 @@ class ViaConnectionSpec extends StageSpec:
          |  val y = Bits(3) <> OUT
          |  val v = Bits(3) X 2 <> VAR
          |  val id1_x = Bits(3) <> VAR
-         |  val id1 = new ID:
+         |  val id1 = new ID():
          |    this.x <>/*<--*/ id1_x
          |    this.y <>/*-->*/ v(0)
          |  val id2_x = Bits(3) <> VAR
-         |  val id2 = new ID:
+         |  val id2 = new ID():
          |    this.x <>/*<--*/ id2_x
          |    this.y <>/*-->*/ v(1)
          |  id1_x <> x

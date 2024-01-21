@@ -444,6 +444,7 @@ final case class DB(
       membersNoGlobals.view.drop(1).flatMap {
         case _: PortByNameSelect => None
         case m =>
+          val isDesignParam = m.hasTagOf[DFVal.Alias.DesignParamTag.type]
           m.getRefs.view.map(_.get).flatMap {
             // global values are ok to be referenced
             case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => None
@@ -455,6 +456,10 @@ final case class DB(
               if (refMember.isOutsideOwner(m.getOwnerDesign))
                 Some(refMember)
               else None
+            // design parameters are expected to reference values from their parent design
+            case refMember if isDesignParam =>
+              if (m.isOneLevelBelow(refMember)) None
+              else Some(refMember)
             // the rest must be in the same design
             case refMember if !refMember.isSameOwnerDesignAs(m) =>
               Some(refMember)

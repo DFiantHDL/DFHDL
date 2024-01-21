@@ -129,14 +129,14 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`timescale 1ns/1ps
          |`include "ParamTest_defs.sv"
          |
-         |module ParamTest(
+         |module ParamTest#(parameter logic dp = 1'b1)(
          |  input wire logic x,
          |  output logic y
          |);
          |  parameter logic lp = 1'b1;
          |  always @(*)
          |  begin
-         |    y = ((x | gp) | 1'b1) | lp;
+         |    y = ((x | gp) | dp) | lp;
          |  end
          |endmodule
          |""".stripMargin

@@ -17,6 +17,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       .filter {
         // excluding binds
         case Bind(_) => false
+        // excluding design params
+        case DesignParam(_) => false
         // an ident placeholder (can be anonymous)
         case Ident(_) => true
         // a def design that is anonymous may not be referenced later,
@@ -196,15 +198,30 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
           case _                  => s"(${printer.csRTDomainCfg(rt.cfg)})"
         s"""RTDesign$cfgStr""".stripMargin
       case _ => "EDDesign"
-    val dcl = s"class ${design.dclName} extends $dsnCls"
+    val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
+      val defaultValue = if (design.isTop) s" = ${param.relValRef.refCodeString}" else ""
+      s"${param.getName}${printer.csDFValConstType(param.dfType)}$defaultValue"
+    }
+    val designParamCS =
+      if (designParamList.length == 0) ""
+      else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
+      else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
+    val dcl = s"class ${design.dclName}$designParamCS extends $dsnCls"
     val dclWithBody =
       if (bodyWithDcls.isEmpty) dcl else s"$dcl:\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     s"${printer.csAnnotations(design.dclMeta)}$dclWithBody\n"
   end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFDesignLateBody(design)
+    val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
+      s"${param.getName} = ${param.relValRef.refCodeString}"
+    }
+    val designParamCS =
+      if (designParamList.length <= 1) designParamList.mkString("(", ", ", ")")
+      else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     val inst =
-      if (body.isEmpty) s"${design.dclName}()" else s"new ${design.dclName}:\n${body.hindent}"
+      if (body.isEmpty) s"${design.dclName}$designParamCS"
+      else s"new ${design.dclName}$designParamCS:\n${body.hindent}"
     s"val ${design.getName} = ${inst}"
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
