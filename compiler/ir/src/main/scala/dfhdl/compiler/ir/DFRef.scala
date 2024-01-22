@@ -27,3 +27,14 @@ object DFRef:
 
   def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
 end DFRef
+
+type IntParamRef = DFRef.TwoWay[DFVal, DFVal] | Int
+extension (intParamRef: IntParamRef)
+  def int = intParamRef.asInstanceOf[Int]
+  def intOpt: Option[Int] = intParamRef match
+    case int: Int => Some(int)
+    case _        => None
+  def ref: DFRef.TwoWay[DFVal, DFVal] = intParamRef.asInstanceOf[DFRef.TwoWay[DFVal, DFVal]]
+  def refOpt: Option[DFRef.TwoWay[DFVal, DFVal]] = intParamRef match
+    case ref: DFRef.TwoWay[DFVal, DFVal] => Some(ref)
+    case _                               => None
