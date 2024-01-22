@@ -14,7 +14,7 @@ case class AESByte() extends Opaque(Byte)
 
 //Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
 //routine to perform a one-for-one substitution of a byte value.
-val sboxLookupTable: Vector[AESByte <> TOKEN] = Vector(
+val sboxLookupTable: Vector[Byte <> TOKEN] = Vector(
   "63", "7c", "77", "7b", "f2", "6b", "6f", "c5", "30", "01", "67", "2b", "fe", "d7", "ab", "76",
   "ca", "82", "c9", "7d", "fa", "59", "47", "f0", "ad", "d4", "a2", "af", "9c", "a4", "72", "c0",
   "b7", "fd", "93", "26", "36", "3f", "f7", "cc", "34", "a5", "e5", "f1", "71", "d8", "31", "15",
@@ -31,7 +31,7 @@ val sboxLookupTable: Vector[AESByte <> TOKEN] = Vector(
   "70", "3e", "b5", "66", "48", "03", "f6", "0e", "61", "35", "57", "b9", "86", "c1", "1d", "9e",
   "e1", "f8", "98", "11", "69", "d9", "8e", "94", "9b", "1e", "87", "e9", "ce", "55", "28", "df",
   "8c", "a1", "89", "0d", "bf", "e6", "42", "68", "41", "99", "2d", "0f", "b0", "54", "bb", "16"
-).map(byte => h"$byte".as(AESByte))
+).map(byte => h"$byte")
 
 extension (lhs: AESByte <> VAL)
   // The addition of two elements in a finite field is achieved by “adding” the coefficients for the
@@ -49,8 +49,8 @@ extension (lhs: AESByte <> VAL)
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
   def sbox: AESByte <> DFRET =
-    val lookup: AESByte X 256 <> CONST = sboxLookupTable
-    lookup(lhs.actual)
+    val lookup: Byte X 256 <> CONST = sboxLookupTable
+    lookup(lhs.actual).as(AESByte)
 end extension
 
 extension (lhs: Byte <> TOKEN)
