@@ -23,7 +23,7 @@ end extension
 
 final class Exact[T](val value: T) extends AnyVal
 object Exact:
-  def apply[T](value_ : T): Exact[T] = new Exact(value_)
+  inline def apply[T](value: T): Exact[T] = new Exact(value)
   def strip(value: Any): Any =
     value match
       case exact: Exact[?] => strip(exact.value)
