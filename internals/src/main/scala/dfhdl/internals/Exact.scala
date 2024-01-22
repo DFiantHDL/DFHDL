@@ -8,7 +8,7 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
   def exactTerm: quotes.reflect.Term =
     import quotes.reflect.*
     term match
-      case Inlined(_, _, term) => term.exactTerm
+      case Inlined(a, b, term) => Inlined(a, b, term.exactTerm)
       case Literal(const)      => term
       case t @ Apply(TypeApply(fun, _), tupleArgs) if t.tpe <:< TypeRepr.of[NonEmptyTuple] =>
         val terms = tupleArgs.map(t => t.exactTerm)

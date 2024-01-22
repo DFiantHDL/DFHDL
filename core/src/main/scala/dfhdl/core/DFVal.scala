@@ -337,7 +337,7 @@ object DFVal extends DFValLP:
         case '{ Conditional.Ops.@@[t]($x)($y) } => (x, y)
         case _                                  => (value, '{ true })
       if (argExpr.asTerm.checkConst)
-        val term = argExpr.asTerm.underlyingArgument.exactTerm
+        val term = argExpr.asTerm.exactTerm
         val tpe = term.tpe.asTypeOf[Any]
         '{
           val tc = compiletime.summonInline[DFVal.TC[T, tpe.Underlying]]
