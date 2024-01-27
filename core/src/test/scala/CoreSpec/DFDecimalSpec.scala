@@ -201,12 +201,6 @@ class DFDecimalSpec extends DFSpec:
     val u7 = UInt(7) <> VAR
     val s8 = SInt(8) <> VAR
     val b8 = Bits(8) <> VAR
-    assertEquals(d"22" == d"22", Boolean.token(true))
-    assertEquals(d"22" != d"22", Boolean.token(false))
-    assertEquals(d"22" < 23, Boolean.token(true))
-    assertEquals(24 > d"18", Boolean.token(true))
-    assertEquals(d"22" <= 21, Boolean.token(false))
-    assertEquals(24 >= d"24", Boolean.token(true))
     assertCodeString {
       """|val t1 = u8 == u8
          |val t2 = u8 != d"8'0"

@@ -99,9 +99,6 @@ object DFType:
           dt: DFC.Domain
       ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
         DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, P]])
-      infix def token[V](tokenValue: Exact[V])(using tc: DFType.TC[T])(using
-          tokenTC: DFToken.TC[tc.Type, V]
-      ): tokenTC.Out = tokenTC(tc(t), tokenValue)
     end extension
   end Ops
 
