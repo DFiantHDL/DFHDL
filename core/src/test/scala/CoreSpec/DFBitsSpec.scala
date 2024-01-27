@@ -17,109 +17,6 @@ class DFBitsSpec extends DFSpec:
     val b8 = Bits(8)
     b8.width.verifyInlined(8)
   }
-  test("Token Construction") {
-    val t1 = (Bits(8) token all(0)).verifyTokenOf[Bits[8]]
-    val t1b = (Bits(8) token all(true)).verifyTokenOf[Bits[8]]
-    val t2 = h"12".verifyTokenOf[Bits[8]]
-    val t3 = h"10'12".verifyTokenOf[Bits[10]]
-    val t4 = b"11".verifyTokenOf[Bits[2]]
-    val t5 = h"1{00}1".verifyTokenOf[Bits[10]]
-    assertCompileError("Missing closing braces of binary mode")("""h"1{001"""")
-    assertCompileError("Found invalid hex character: x")("""h"1x"""")
-    assertCompileError(
-      "Explicit given width (2) is smaller than the actual width (4)"
-    )("""h"2'F"""")
-    assertCompileError("Found invalid binary character in binary mode: 2")(
-      """h"12{12}""""
-    )
-    assertCompileError("Found invalid binary character: x")("""b"1x"""")
-    assertCompileError(
-      "Explicit given width (2) is smaller than the actual width (3)"
-    )("""b"2'111"""")
-
-    val t6 = (Bits(3) token ?).verifyTokenOf[Bits[3]]
-    val t7 = (Bits(8) token t2).verifyTokenOf[Bits[8]]
-    assertCompileError(
-      "The token width (8) is different than the DFType width (3)."
-    )("""Bits(3) token t7""")
-    assert(t7.asIR equals t2.asIR)
-    val t8: Bits[8] <> TOKEN = all(0)
-    val t9: Bits[8] <> TOKEN = h"22"
-    assertDSLError(
-      "The token width (4) is different than the DFType width (8)."
-    )(
-      """val t10: Bits[8] <> TOKEN = h"2""""
-    ) {
-      val eight = 8
-      val t10: Bits[eight.type] <> TOKEN = h"2"
-    }
-    val t10 = (Bits(8) token (h"A", h"7")).verifyTokenOf[Bits[8]]
-    assertEquals(t10, h"A7")
-//    val t11: Bits[8] <> TOKEN = (h"A", h"7")
-  }
-  test("Token Resize") {
-    assertEquals(h"F0".resize(6), h"6'30")
-    assertEquals(h"F0".resize(1), b"0")
-    assertEquals(h"F1".resize(1), b"1")
-    assertEquals(b"1".resize(1), b"1")
-    assertEquals(b"1".resize(8), h"01")
-    assertEquals(b"0".resize(8), h"00")
-    val zero = 0
-    assertDSLError(
-      "Width must be positive, but found: 0"
-    )(
-      """h"F1".resize(0)"""
-    ) {
-      h"F1".resize(zero)
-    }
-  }
-  test("Token Bits Selection") {
-    val t1 = b"10"
-    val t2 = b"1?"
-    assertEquals(t1(0), Bit.token(0))
-    assertEquals(t1(1), Bit.token(1))
-    assertEquals(b"10".lsbit, Bit.token(0))
-    assertEquals(b"10".msbit, Bit.token(1))
-    assertEquals(t2(0), Bit.token(?))
-    assertNotEquals(b"10".msbit.asIR, Bit.token(0).asIR)
-    val four = 4
-    assertDSLError(
-      "Index 4 is out of range of width/length 2"
-    )(
-      """t1(4)"""
-    ) {
-      t1(four)
-    }
-    val t3 = b"1010"
-    assertEquals(t3(3, 2), b"10")
-    assertEquals(t3(1, 0), b"10")
-    assertEquals(t3(2, 1), b"01")
-    assertEquals(t3(2, 2), b"0")
-
-    assertDSLError(
-      "Index 4 is out of range of width/length 4"
-    )(
-      """t3(4, 2)"""
-    ) {
-      t3(four, 2)
-    }
-    val negOne = -1
-    assertDSLError(
-      "Index -1 is out of range of width/length 4"
-    )(
-      """t3(3, -1)"""
-    ) {
-      t3(3, negOne)
-    }
-    val three = 3
-    assertDSLError(
-      "Low index 3 is bigger than High bit index 2"
-    )(
-      """t3(2, 3)"""
-    ) {
-      t3(2, three)
-    }
-  }
   test("DFVal Conversion") {
     val w = 2
     assertCodeString {
@@ -312,13 +209,13 @@ class DFBitsSpec extends DFSpec:
     }
     assertCompileError {
       """An integer value cannot be a candidate for a Bits type.
-        |Try explicitly using a decimal token via the `d"<width>'<number>"` string interpolation.
+        |Try explicitly using a decimal constant via the `d"<width>'<number>"` string interpolation.
         |""".stripMargin
     }("b8 == 25")
     val num = 25
     assertCompileError {
       """An integer value cannot be a candidate for a Bits type.
-        |Try explicitly using a decimal token via the `d"<width>'<number>"` string interpolation.
+        |Try explicitly using a decimal constant via the `d"<width>'<number>"` string interpolation.
         |""".stripMargin
     }("b8 == num")
   }

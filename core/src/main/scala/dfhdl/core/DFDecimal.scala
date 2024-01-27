@@ -607,28 +607,7 @@ object DFXInt:
           lhs: Token[LS, LW],
           rhs: Token[RS, RW]
       ): Token[OS, OW] =
-        val dataOut = (lhs.data, rhs.data) match
-          case (Some(l), Some(r)) =>
-            val dataNoTrunc = op match
-              case FuncOp.+ => l + r
-              case FuncOp.- => l - r
-              case FuncOp.* => l * r
-              case FuncOp./ => l / r
-              case FuncOp.% => l % r
-              case _        => ???
-            val widthNoTrunc = dataNoTrunc.bitsWidth(dfType.signed)
-            val dataTrunc =
-              if (widthNoTrunc > dfType.width)
-                dataNoTrunc.toBitVector(dfType.width).toBigInt(dfType.signed)
-              else dataNoTrunc
-            val dataFixSign =
-              if (dataTrunc < 0 && !dfType.signed)
-                dataTrunc.asUnsigned(dfType.width)
-              else dataTrunc
-            Some(dataFixSign)
-          case _ => None
-        Token(dfType.signed, dfType.width, dataOut)
-      end arithOp
+        ir.DFXInt.Ops.arithOp(dfType.asIR, op, lhs.asIR, rhs.asIR).asTokenOf[DFXInt[OS, OW]]
       extension [L <: DFTokenAny](lhs: L)(using icL: Candidate[L])
         def <[R](rhs: Exact[R])(using
             op: DFToken.Compare[DFXInt[icL.OutS, icL.OutW], R, FuncOp.<.type, false]
@@ -717,30 +696,8 @@ object DFXInt:
         def resize[RW <: Int](
             updatedWidth: Inlined[RW]
         )(using check: Width.Check[S, RW]): Token[S, RW] =
-          val updatedTokenIR =
-            // no change in width
-            if (updatedWidth == lhs.width) lhs.asIR
-            else
-              val signed = lhs.dfType.signed
-              check(signed, updatedWidth)
-              // updated width is larger or the data is bubble
-              // TODO:Wrong run error workaround by changing to `updatedWidth.value` and `lhs.width.value`
-              if (updatedWidth.value > lhs.width.value || lhs.asIR.isBubble)
-                DFXInt.Token(signed, updatedWidth, lhs.data).asIR
-              else // updated width is smaller
-                import DFToken.Ops.bits
-                import DFBits.Token.Ops.{resize => resizeDFBits, *}
-                if (signed)
-                  val tokenBits = lhs.bits
-                  (tokenBits.msbit.bits ++
-                    tokenBits(updatedWidth.value - 2, 0)).sint.asIR
-                else // unsigned
-                  lhs.bits
-                    .resizeDFBits(updatedWidth)
-                    .uint
-                    .asIR
-              end if
-          updatedTokenIR.asTokenOf[DFXInt[S, RW]]
+          check(lhs.dfType.signed, updatedWidth)
+          ir.DFXInt.Ops.resize(lhs.asIR)(updatedWidth).asTokenOf[DFXInt[S, RW]]
         end resize
       end extension
       extension [L](lhs: L)

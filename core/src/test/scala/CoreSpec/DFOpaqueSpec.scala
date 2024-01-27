@@ -58,13 +58,6 @@ class DFOpaqueSpec extends DFSpec:
     y.width.verifyInlined(9)
   }
 
-  test("Token Construction") {
-    val t1: o1u8 <> TOKEN = 1.as(o1u8)
-    val t2: o2u8 <> TOKEN = d"22".as(o2u8)
-    t1 == t1
-    assert(t1.actual == 1)
-    assert(t2.actual == d"8'22")
-  }
   test("Comparison") {
     assertCompileError(
       "Cannot compare DFHDL value of type `DFOpaqueSpec.this.o1u8` with value of type `DFOpaqueSpec.this.o2u8 <> VAR`."

@@ -31,15 +31,23 @@ object DFEncoding:
     final def encode(idx: Int): BigInt = BigInt(1) << idx
 
   abstract class Manual[W <: Int & Singleton](val width: W) extends DFEncoding:
-    val value: DFToken[DFUInt[W]]
+    val value: DFConstOf[DFUInt[W]]
     final def bigIntValue: BigInt =
-      value.data.getOrElse(
-        throw new IllegalArgumentException(
-          "Bubbles are not accepted as enumeration values."
-        )
-      )
+      value.asIR match
+        case ir.DFVal.Const(token: ir.DFToken[ir.DFDecimal] @unchecked, _, _, _) =>
+          token.data.getOrElse(
+            throw new IllegalArgumentException(
+              "Bubbles are not accepted as enumeration values."
+            )
+          )
+        case _ =>
+          throw new IllegalArgumentException(
+            "An enumeration value must be a literal constant."
+          )
+
     final def calcWidth(entryCount: Int): Int = width
     final def encode(idx: Int): BigInt = bigIntValue
+  end Manual
 end DFEncoding
 
 type DFEnum[E <: DFEncoding] = DFType[ir.DFEnum, Args1[E]]

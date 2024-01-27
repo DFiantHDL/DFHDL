@@ -133,7 +133,7 @@ object DFBits:
       def apply(arg: R): Token[OutW]
     object Candidate:
       protected[DFBits] inline val intErrMsg =
-        "An integer value cannot be a candidate for a Bits type.\nTry explicitly using a decimal token via the `d\"<width>'<number>\"` string interpolation."
+        "An integer value cannot be a candidate for a Bits type.\nTry explicitly using a decimal constant via the `d\"<width>'<number>\"` string interpolation."
       inline given errorOnInt[V <: Int]: Candidate[V] =
         compiletime.error(intErrMsg)
       type Aux[R, W <: Int] = Candidate[R] { type OutW = W }
@@ -486,30 +486,24 @@ object DFBits:
           val dfType = tc(aliasType).asIR
           check(dfType.width, lhs.width)
           lhs.asIR
-            .asInstanceOf[ir.DFBits.Token]
             .as(dfType)
             .asTokenOf[tc.Type]
-        def uint: DFUInt.Token[LW] = as(DFUInt(lhs.width))
-        def sint: DFSInt.Token[LW] = as(DFSInt(lhs.width))
+        def uint: DFUInt.Token[LW] = ir.DFBits.Ops.uint(lhs.asIR).asTokenOf[DFUInt[LW]]
+        def sint: DFSInt.Token[LW] = ir.DFBits.Ops.sint(lhs.asIR).asTokenOf[DFSInt[LW]]
         def repeat[N <: Int](num: Inlined[N])(using
             check: Arg.Positive.Check[N]
         ): DFToken[DFBits[LW * N]] =
           check(num)
-          Token(
-            lhs.width * num,
-            BitVector.concat(List.fill(num)(lhs.data._1)),
-            BitVector.concat(List.fill(num)(lhs.data._2))
-          )
+          ir.DFBits.Ops.repeat(lhs.asIR)(num).asTokenOf[DFBits[LW * N]]
         def apply[I <: Int](
             relIdx: Inlined[I]
         )(using check: BitIndex.Check[I, LW]): DFBoolOrBit.Token =
           check(relIdx, lhs.width)
-          val value = lhs.valueBits.bit(relIdx.toLong)
-          val bubble = lhs.bubbleBits.bit(relIdx.toLong)
-          val tokenData = if (bubble) None else Some(value)
-          DFBoolOrBit.Token(DFBit, tokenData)
-        def msbit: DFBoolOrBit.Token = apply(lhs.width - 1)
-        def lsbit: DFBoolOrBit.Token = apply(0)
+          ir.DFBits.Ops.sel(lhs.asIR)(relIdx).asTokenOf[DFBit]
+        def msbit: DFBoolOrBit.Token =
+          ir.DFBits.Ops.msbit(lhs.asIR).asTokenOf[DFBit]
+        def lsbit: DFBoolOrBit.Token =
+          ir.DFBits.Ops.lsbit(lhs.asIR).asTokenOf[DFBit]
 
         def apply[H <: Int, L <: Int](
             relBitHigh: Inlined[H],
@@ -522,57 +516,19 @@ object DFBits:
           checkHigh(relBitHigh, lhs.width)
           checkLow(relBitLow, lhs.width)
           checkHiLo(relBitHigh, relBitLow)
-          val valueBits =
-            lhs.valueBits.bits(relBitHigh.toLong, relBitLow.toLong)
-          val bubbleBits =
-            lhs.bubbleBits.bits(relBitHigh.toLong, relBitLow.toLong)
-          val width = relBitHigh - relBitLow + 1
-          DFBits.Token(width, valueBits, bubbleBits)
+          ir.DFBits.Ops.sel(lhs.asIR)(relBitHigh, relBitLow).asTokenOf[DFBits[H - L + 1]]
         end apply
 
         @targetName("bitsResize")
         def resize[RW <: Int](updatedWidth: Inlined[RW])(using
             check: Arg.Width.Check[RW]
         ): Token[RW] =
-          if (updatedWidth == lhs.width) lhs.asTokenOf[DFBits[RW]]
-          else
-            check(updatedWidth)
-            val data = lhs.data
-            import dfhdl.internals.{resize => resizeBV}
-            Token(
-              updatedWidth,
-              data._1.resizeBV(updatedWidth),
-              data._2.resizeBV(updatedWidth)
-            )
+          check(updatedWidth)
+          ir.DFBits.Ops.resize(lhs.asIR)(updatedWidth).asTokenOf[DFBits[RW]]
 
         @targetName("concat")
         def ++[RW <: Int](rhs: DFBits.Token[RW]): DFBits.Token[LW + RW] =
-          val width = lhs.width + rhs.width
-          val valueBits = lhs.valueBits ++ rhs.valueBits
-          val bubbleBits = lhs.bubbleBits ++ rhs.bubbleBits
-          Token(width, valueBits, bubbleBits)
-
-        @targetName("bitwiseAnd")
-        def &[RW <: Int](rhs: DFBits.Token[RW])(using
-            bb: Bubble.Behaviour
-        ): DFBits.Token[LW] =
-          require(lhs.width == rhs.width)
-          val width = lhs.width
-          bb match
-            case Bubble.Behaviour.Stall =>
-              Token(
-                width,
-                lhs.valueBits & rhs.valueBits,
-                lhs.bubbleBits | rhs.bubbleBits
-              )
-            case Bubble.Behaviour.DontCare =>
-              val valueBits =
-                (lhs.valueBits | lhs.bubbleBits) & (rhs.valueBits | rhs.bubbleBits)
-              val bubbleBits =
-                (lhs.bubbleBits & rhs.bubbleBits) | (lhs.bubbleBits & rhs.valueBits) |
-                  (rhs.bubbleBits & lhs.valueBits)
-              Token(width, valueBits, bubbleBits)
-        end &
+          ir.DFBits.Ops.++(lhs.asIR)(rhs.asIR).asTokenOf[DFBits[LW + RW]]
       end extension
     end Ops
   end Token
@@ -845,20 +801,20 @@ object DFBits:
         )(using tc: DFType.TC[AT])(using
             aW: Width[tc.Type],
             dfc: DFC
-        )(using check: `AW == TW`.Check[aW.Out, W]): DFValOf[tc.Type] = trydf {
+        )(using check: `AW == TW`.Check[aW.Out, W]): DFValTP[tc.Type, P] = trydf {
           import Token.Ops.{as => asToken}
           val aliasDFType = tc(aliasType)
           check.apply(aliasDFType.asIR.width, lhs.width)
           DFVal.Alias.AsIs(aliasDFType, lhs, _.asToken(aliasType))
         }
-        def uint(using DFC): DFValOf[DFUInt[W]] = trydf { as(DFUInt(lhs.width)) }
-        def sint(using DFC): DFValOf[DFSInt[W]] = trydf { as(DFSInt(lhs.width)) }
+        def uint(using DFC): DFValTP[DFUInt[W], P] = trydf { as(DFUInt(lhs.width)) }
+        def sint(using DFC): DFValTP[DFSInt[W], P] = trydf { as(DFSInt(lhs.width)) }
         def apply[Idx](
             relIdx: Exact[Idx]
         )(using
             c: DFUInt.Val.UBArg[W, Idx],
             dfc: DFC
-        ): DFVal[DFBit, Modifier[A, Any, Any, Any]] = trydf {
+        ): DFVal[DFBit, Modifier[A, Any, Any, P]] = trydf {
           DFVal.Alias.ApplyIdx(DFBit, lhs, c(lhs.width, relIdx)(using dfc.anonymize))
         }
         def apply[H <: Int, L <: Int](
@@ -869,34 +825,34 @@ object DFBits:
             checkLow: BitIndex.Check[L, W],
             checkHiLo: BitsHiLo.Check[H, L],
             dfc: DFC
-        ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any, Any]] = trydf {
+        ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any, P]] = trydf {
           checkHigh(relBitHigh, lhs.width)
           checkLow(relBitLow, lhs.width)
           checkHiLo(relBitHigh, relBitLow)
           DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
         }
-        def unary_~(using DFC): DFValOf[DFBits[W]] = trydf {
+        def unary_~(using DFC): DFValTP[DFBits[W], P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         }
-        def msbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, Any]] =
+        def msbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           lhs.apply(lhs.width - 1)
-        def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, Any]] =
+        def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           lhs.apply(0)
         def msbits[RW <: Int](updatedWidth: Inlined[RW])(using
             check: `LW >= RW`.Check[W, RW],
             dfc: DFC
-        ): DFValOf[DFBits[RW]] = trydf {
+        ): DFValTP[DFBits[RW], P] = trydf {
           check(lhs.width, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, lhs.width - 1, lhs.width - updatedWidth)
-            .asValOf[DFBits[RW]]
+            .asValTP[DFBits[RW], P]
         }
         def lsbits[RW <: Int](updatedWidth: Inlined[RW])(using
             check: `LW >= RW`.Check[W, RW],
             dfc: DFC
-        ): DFValOf[DFBits[RW]] = trydf {
+        ): DFValTP[DFBits[RW], P] = trydf {
           check(lhs.width, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0)
-            .asValOf[DFBits[RW]]
+            .asValTP[DFBits[RW], P]
         }
         @targetName("shiftRightDFBits")
         def >>[R](shift: Exact[R])(using

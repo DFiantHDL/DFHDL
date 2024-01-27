@@ -12,7 +12,7 @@ class DFEnumSpec extends DFSpec:
     case Foo, Bar, Baz
   enum MyEnum4 extends Encode.Grey:
     case Foo, Bar, Baz
-  enum MyEnum5(val value: UInt[8] <> TOKEN) extends Encode.Manual(8):
+  enum MyEnum5(val value: UInt[8] <> CONST) extends Encode.Manual(8):
     case Foo extends MyEnum5(200)
     case Bar extends MyEnum5(100)
     case Baz extends MyEnum5(0)
@@ -48,15 +48,6 @@ class DFEnumSpec extends DFSpec:
     )
   }
 
-  test("Token Construction") {
-    val t1: MyEnum1 <> TOKEN = MyEnum1 token MyEnum1.Bar
-    val t2: MyEnum2 <> TOKEN = MyEnum2 token MyEnum2.Bar
-    assertEquals(t1.bits, Bits(2) token b"01")
-    assertEquals(t2.bits, Bits(5) token h"5'15")
-  }
-  test("DFVal Conversion") {
-    val t1: MyEnum1 <> TOKEN = MyEnum1.Bar
-  }
   test("Assignment") {
     assertCodeString {
       """|val x = MyEnum1 <> VAR init MyEnum1.Bar
@@ -68,13 +59,7 @@ class DFEnumSpec extends DFSpec:
     }
   }
   test("Comparison") {
-    val t1Bar = MyEnum1 token MyEnum1.Bar
-    val t1Baz = MyEnum1 token MyEnum1.Baz
-    assertEquals(t1Bar == t1Bar, Boolean token true)
-    assertEquals(t1Bar != t1Baz, Boolean token true)
-    assertEquals(t1Bar != MyEnum1.Baz, Boolean token true)
     val t1 = MyEnum1 <> VAR
-    t1 == t1Bar
     t1 == MyEnum1.Bar
   }
 end DFEnumSpec

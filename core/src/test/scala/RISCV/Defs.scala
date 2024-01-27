@@ -4,7 +4,7 @@ import dfhdl.*
 
 //https://five-embeddev.com/riscv-isa-manual/latest/opcode-map.html
 enum Opcode extends Encode.Manual(7):
-  val value: UInt[7] <> TOKEN = (d"5'$ordinal", b"11")
+  val value: UInt[7] <> CONST = (d"5'$ordinal", b"11").toBits
   // scalafmt: { align.tokens = [{code = ","}]}
   case LOAD,   LOAD_FP,  custom_0, MISC_MEM, OP_IMM, AUIPC, OP_IMM_32, _48b
   case STORE,  STORE_FP, custom_1, AMO,      OP,     LUI,   OP_32,     _64b

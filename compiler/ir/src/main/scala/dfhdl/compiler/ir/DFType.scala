@@ -89,7 +89,7 @@ final case class DFBits(width: Int) extends DFType:
   def dataToBitsData(data: Data): (BitVector, BitVector) = data
   def bitsDataToData(data: (BitVector, BitVector)): Data = data
 
-object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]
+object DFBits extends DFBitsCompanion
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -119,7 +119,13 @@ final case class DFDecimal(
     else None
 end DFDecimal
 
-object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]
+object DFDecimal extends DFDecimalCompanion
+
+object DFXInt extends DFXIntCompanion:
+  def apply(signed: Boolean, width: Int): DFDecimal = DFDecimal(signed, width, 0)
+  object Token:
+    def apply(signed: Boolean, width: Int, data: Option[BigInt]): DFDecimal.Token =
+      DFDecimal.Token(DFXInt(signed, width), data)
 
 object DFUInt:
   def apply(width: Int): DFDecimal = DFDecimal(false, width, 0)

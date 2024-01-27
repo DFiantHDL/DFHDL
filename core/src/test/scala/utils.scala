@@ -3,7 +3,6 @@ import internals.Inlined
 
 extension [T](t: T)
   def verifyTypeOf[R](using T <:< R): T = t
-  def verifyTokenOf[R <: DFType](using T <:< core.DFToken[R]): T = t
   def verifyValOf[R <: DFType](using T <:< core.DFValOf[R]): T = t
 
 extension [T](t: Inlined[T])

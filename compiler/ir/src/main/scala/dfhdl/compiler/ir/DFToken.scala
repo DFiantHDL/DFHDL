@@ -27,7 +27,7 @@ object DFToken:
   end extension
 
   extension (token: DFBits.Token)
-    def as(dfType: DFType): DFTokenAny =
+    def as[T <: DFType](dfType: T): DFToken[T] =
       DFToken.forced(dfType, dfType.bitsDataToData(token.data))
 end DFToken
 

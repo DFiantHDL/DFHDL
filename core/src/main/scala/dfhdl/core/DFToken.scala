@@ -83,9 +83,9 @@ object DFToken:
 
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
     ir.DFToken.bubble(dfType.asIR).asTokenOf[T]
-  extension (token: DFTokenAny)
-    def asIR: ir.DFTokenAny = token.value match
-      case tokenIR: ir.DFTokenAny => tokenIR
+  extension [T <: ir.DFType, A <: Args](token: DFToken[DFType[T, A]])
+    def asIR: ir.DFToken[T] = (token.value: @unchecked) match
+      case tokenIR: ir.DFToken[T] => tokenIR
       case err: DFError           => throw DFError.Derived(err)
     def codeString(using printer: Printer)(using DFC): String =
       printer.csDFToken(asIR)
