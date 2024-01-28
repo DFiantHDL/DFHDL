@@ -330,10 +330,6 @@ final class MutableDB():
     (originalMember, newMember) match
       case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
       case _                        =>
-    newMember match
-      case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
-        dfVal.globalCtx = originalMember.asInstanceOf[DFVal.CanBeGlobal].globalCtx
-      case _ =>
     newMember
 
   def replaceMember[M <: DFMember](originalMember: M, newMember: M): M =
