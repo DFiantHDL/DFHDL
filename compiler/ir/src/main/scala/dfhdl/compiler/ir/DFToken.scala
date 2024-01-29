@@ -26,9 +26,43 @@ object DFToken:
       token.dfType.isDataBubble(token.data)
   end extension
 
-  extension (token: DFBits.Token)
+  extension (token: DFToken[?])
     def as[T <: DFType](dfType: T): DFToken[T] =
-      DFToken.forced(dfType, dfType.bitsDataToData(token.data))
+      val fromType = token.dfType
+      val toType = dfType
+      val ret = (toType, fromType) match
+        // no casting needed
+        case (t, f) if t == f => token
+        // unsigned to signed conversion
+        case (DFSInt(tWidth), DFUInt(fWidth)) =>
+          assert(tWidth == fWidth + 1)
+          import DFUInt.Ops.signed
+          token.asInstanceOf[DFDecimal.Token].signed
+        // Bits resize
+        case (DFBits(tWidth), DFBits(_)) =>
+          import DFBits.Ops.resize
+          token.asInstanceOf[DFBits.Token].resize(tWidth)
+        // UInt resize
+        case (DFUInt(tWidth), DFUInt(_)) =>
+          import DFXInt.Ops.resize
+          token.asInstanceOf[DFDecimal.Token].resize(tWidth)
+        // SInt resize
+        case (DFSInt(tWidth), DFSInt(_)) =>
+          import DFXInt.Ops.resize
+          token.asInstanceOf[DFDecimal.Token].resize(tWidth)
+        // Casting from any token to Bits
+        case (DFBits(tWidth), _) =>
+          assert(tWidth == fromType.width)
+          token.bits
+        // Casting from Bits to any token
+        case (_, DFBits(fWidth)) =>
+          assert(fWidth == toType.width)
+          DFToken.forced(dfType, dfType.bitsDataToData(token.asInstanceOf[DFBits.Token].data))
+        // Casting from any token to any token
+        case _ =>
+          assert(fromType.width == toType.width)
+          DFToken.forced(dfType, dfType.bitsDataToData(token.bits.data))
+      ret.asInstanceOf[DFToken[T]]
 end DFToken
 
 type DFTokenAny = DFToken[DFType]

@@ -8,46 +8,6 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.quoted.*
 import scala.NonEmptyTuple
 
-extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
-  def isConstTpe: quotes.reflect.TypeRepr =
-    import quotes.reflect.*
-    def isConstBool(tpe: TypeRepr): Boolean = tpe.asType match
-      case '[DFConstOf[t]] => true
-      case '[DFValOf[t]]   => false
-      case '[NonEmptyTuple] =>
-        tpe.getTupleArgs.forall(isConstBool)
-      case _ => true
-    if (isConstBool(tpe)) TypeRepr.of[CONST]
-    else TypeRepr.of[NOTCONST]
-
-extension (using quotes: Quotes)(term: quotes.reflect.Term)
-  def checkConst: Boolean =
-    import quotes.reflect.*
-    extension (term: Term)
-      def warn: Boolean =
-        report.warning("Not a constant", term.pos)
-        false
-      def explore: Boolean =
-        import quotes.reflect.*
-        term match
-          case Apply(fun, args)    => fun.explore && args.forall(_.explore)
-          case NamedArg(_, expr)   => expr.explore
-          case Inlined(_, _, expr) => expr.explore
-          case Block(_, expr)      => expr.explore
-          case TypeApply(expr, _)  => expr.explore
-          case Typed(expr, _)      => expr.explore
-          case _ =>
-            term.tpe.asType match
-              case '[DFConstOf[?]] => true
-              case '[DFValOf[?]]   => term.warn
-              case _               => true
-        end match
-      end explore
-    end extension
-    term.explore
-  end checkConst
-end extension
-
 type DFTuple[+T <: NonEmptyTuple] = DFStruct[T @uncheckedVariance]
 object DFTuple:
   private[core] def apply[T <: NonEmptyTuple](t: NonEmptyTuple): DFTuple[T] =
@@ -289,14 +249,16 @@ object DFTuple:
           T <: NonEmptyTuple,
           R <: NonEmptyTuple,
           Op <: FuncOp,
-          C <: Boolean
+          C <: Boolean,
+          Z <: TCZipper[T, R, DFValAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]]
       ](using
-          zipper: TCZipper[T, R, DFValAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]]
+          zipper: Z
       ): Compare[DFTuple[T], R, Op, C] with
+        type OutP = zipper.OutP
         def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)
-          DFVal.Func(dfType, FuncOp.++, dfVals)
+          DFVal.Func(dfType, FuncOp.++, dfVals).asInstanceOf[Out]
     end Compare
 
     object Ops:

@@ -39,10 +39,11 @@ case object DropBinds extends Stage:
             }
           val tokenStr = parts.coalesce(bubbles).mkString
           import dfhdl.core.DFBits.Token.StrInterp.{b, h}
-          val token = op match
+          val dfVal = op match
             case "b" => b"${tokenStr}"
             case "h" => h"${tokenStr}"
-          Some(Pattern.Singleton(token.asIR), refs.map(_.get))
+          val (DFVal.Const(token, _, _, _)) = dfVal.asIR: @unchecked
+          Some(Pattern.Singleton(token), refs.map(_.get))
         case _ => None
   end ReplacePattern
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =

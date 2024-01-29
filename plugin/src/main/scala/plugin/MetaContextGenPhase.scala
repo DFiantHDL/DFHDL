@@ -31,7 +31,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   var setMetaSym: Symbol = uninitialized
   var setMetaAnonSym: Symbol = uninitialized
   var dfTokenSym: Symbol = uninitialized
-  val treeOwnerApplyMap = mutable.Map.empty[Apply, (Tree, util.SrcPos)]
+  val treeOwnerApplyMap = mutable.Map.empty[Apply, (MemberDef, util.SrcPos)]
   val treeOwnerOverrideMap = mutable.Map.empty[DefDef, (Tree, util.SrcPos)]
   val contextDefs = mutable.Map.empty[String, Tree]
   var clsStack = List.empty[TypeDef]
@@ -222,15 +222,14 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   private def addToTreeOwnerMap(
       apply: Apply,
-      ownerTree: Tree,
+      ownerTree: MemberDef,
       inlinedSrcPos: Option[util.SrcPos],
       dfcOverrideDef: Option[DefDef] = None
   )(using
       Context
   ): Unit =
     // debug("~~~~~~~~~~~~~~~~~~~~")
-    // debug(s"Adding: ${apply.show}")
-    // debug(ownerTree.show)
+    // debug(s"Adding under ${ownerTree.name}, ${inlinedSrcPos.map(_.show)}:\n${apply.show}")
     if (!treeOwnerApplyMap.contains(apply))
       val srcPos = inlinedSrcPos.getOrElse(apply.srcPos)
       treeOwnerApplyMap += (apply -> (ownerTree, srcPos))
@@ -412,7 +411,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   end prepareForDefDef
 
   override def prepareForInlined(tree: Inlined)(using Context): Context =
-    nameValOrDef(tree.expansion, EmptyValDef, tree.expansion.tpe, Some(tree.srcPos))
+    // skipping over redundant inlines that should not be used for positioning
+    if (!tree.call.symbol.is(Permanent))
+      nameValOrDef(tree.expansion, EmptyValDef, tree.expansion.tpe, Some(tree.srcPos))
     ctx
 
   // This is requires for situations like:

@@ -182,15 +182,20 @@ object DFBoolOrBit:
 
     object Compare:
       import DFVal.Compare
-      given DFBoolOrBitCompare[T <: DFBoolOrBit, R, Op <: FuncOp, C <: Boolean](using
-          Candidate[R],
-          ValueOf[Op],
-          ValueOf[C]
+      given DFBoolOrBitCompare[T <: DFBoolOrBit, R, IC <: Candidate[R], Op <: FuncOp, C <: Boolean](
+          using
+          ic: IC,
+          op: ValueOf[Op],
+          castling: ValueOf[C]
       ): Compare[T, R, Op, C] with
-        def conv(dfType: T, arg: R)(using Ctx): DFValOf[T] =
+        type OutP = ic.OutP
+        def conv(dfType: T, arg: R)(using Ctx): Out =
           b2b(dfType, arg)
 
     object Ops:
+      extension [P](lhs: DFValTP[DFBoolOrBit, P])
+        def toScalaBoolean(using DFVal.ConstCheck[P]): Boolean = true
+        def toScalaBitNum(using DFVal.ConstCheck[P]): BitNum = ???
       extension [P](lhs: DFValTP[DFBit, P])
         def rising(using DFC): DFValOf[DFBool] = trydf {
           DFVal.Func(DFBool, FuncOp.rising, List(lhs))
@@ -199,8 +204,7 @@ object DFBoolOrBit:
           DFVal.Func(DFBool, FuncOp.falling, List(lhs))
         }
         def bool(using DFC): DFValTP[DFBool, P] = trydf {
-          import Token.Ops.{bool => boolToken}
-          DFVal.Alias.AsIs(DFBool, lhs, _.boolToken)
+          DFVal.Alias.AsIs(DFBool, lhs)
         }
         @targetName("notOfDFBit")
         def unary_!(using DFC): DFValTP[DFBit, P] = trydf {
@@ -209,8 +213,7 @@ object DFBoolOrBit:
       end extension
       extension [P](lhs: DFValTP[DFBool, P])
         def bit(using DFC): DFValTP[DFBit, P] = trydf {
-          import Token.Ops.{bit => bitToken}
-          DFVal.Alias.AsIs(DFBit, lhs, _.bitToken)
+          DFVal.Alias.AsIs(DFBit, lhs)
         }
         @targetName("notOfDFBool")
         def unary_!(using DFC): DFValTP[DFBool, P] = trydf {

@@ -87,7 +87,7 @@ object __For_Plugin:
     trydf:
       import ir.DFVal.Alias.DesignParamTag
       given DFC = dfc.setMeta(paramMeta)
-      DFVal.Alias.AsIs(paramValue.dfType, paramValue, x => x, forceNewAlias = true)
+      DFVal.Alias.AsIs(paramValue.dfType, paramValue, forceNewAlias = true)
         .tag(DesignParamTag).asInstanceOf[V]
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =

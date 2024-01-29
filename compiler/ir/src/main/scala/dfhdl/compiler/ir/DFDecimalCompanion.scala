@@ -56,7 +56,7 @@ abstract class DFXIntCompanion:
   end Ops
 end DFXIntCompanion
 
-abstract class DFSIntCompanion:
+abstract class DFUIntCompanion:
   object Ops:
     extension (lhs: DFDecimal.Token)
       def signed: DFDecimal.Token =

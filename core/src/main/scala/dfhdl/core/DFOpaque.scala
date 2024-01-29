@@ -27,9 +27,7 @@ object DFOpaque:
       val tfeTpe = compTpe.getCompanionClassTpe
       val tfeType = tfeTpe.asTypeOf[TFE]
       '{
-        compiletime
-          .summonInline[ClassEv[tfeType.Underlying]]
-          .value
+        compiletime.summonInline[ClassEv[tfeType.Underlying]].value
       }
   end Abstract
 
@@ -58,24 +56,6 @@ object DFOpaque:
         token: DFTokenAny
     ): Token[TFE] =
       ir.DFToken(DFOpaque(tfe).asIR)(token.asIR.data).asTokenOf[DFOpaque[TFE]]
-
-    object TC:
-      import DFToken.TC
-      given DFOpaqueTokenFromDFOpaqueToken[
-          TFE <: Abstract,
-          RT <: Abstract,
-          V <: DFOpaque[RT] <> TOKEN
-      ](using RT <:< TFE): TC[DFOpaque[TFE], V] with
-        def conv(dfType: DFOpaque[TFE], value: V)(using Ctx): Out =
-          value.asTokenOf[DFOpaque[TFE]]
-
-    object Ops:
-      extension [A <: DFTypeAny, TFE <: Frontend[A]](
-          lhs: DFOpaque[TFE] <> TOKEN
-      )
-        def actual: A <> TOKEN =
-          val lhsIR = lhs.asIR.asInstanceOf[ir.DFToken[ir.DFOpaque]]
-          ir.DFToken.forced(lhsIR.dfType.actualType, lhsIR.data).asTokenOf[A]
   end Token
 
   object Val:
@@ -134,45 +114,31 @@ object DFOpaque:
             // println(lhsExpr.show)
             // println(lhsTpe.show)
             val lhsType = lhsTpe.asTypeOf[Any]
+            val pType = lhsTpe.isConstTpe.asTypeOf[Any]
             val aExpr = '{ $tfe.actualType.asInstanceOf[aType.Underlying] }
-            def hasDFVal(tpe: TypeRepr): Boolean =
-              tpe.asTypeOf[Any] match
-                case '[DFValAny] => true
-                case '[NonEmptyTuple] =>
-                  tpe.getTupleArgs.exists(hasDFVal)
-                case '[Iterable[t]] => hasDFVal(TypeRepr.of[t])
-                case _              => false
-            if (hasDFVal(lhsTpe))
-              '{
-                val tc = compiletime.summonInline[DFVal.TC[aType.Underlying, lhsType.Underlying]]
-                val ctx = compiletime.summonInline[tc.Ctx]
-                DFVal.Alias.AsIs(
-                  DFOpaque[tfeType.Underlying]($tfe),
-                  tc($aExpr, $lhsExpr)(using ctx),
-                  Token.forced[tfeType.Underlying]($tfe, _)
-                )(using ctx)
-              }
-            else
-              '{
-                val tc =
-                  compiletime.summonInline[DFToken.TC[aType.Underlying, lhsType.Underlying]]
-                Token.forced[tfeType.Underlying]($tfe, tc($aExpr, $lhsExpr))
-              }
-            end if
+            '{
+              val tc = compiletime.summonInline[DFVal.TC[aType.Underlying, lhsType.Underlying]]
+              val ctx = compiletime.summonInline[tc.Ctx]
+              DFVal.Alias.AsIs(
+                DFOpaque[tfeType.Underlying]($tfe),
+                tc($aExpr, $lhsExpr)(using ctx)
+              )(using ctx)
+                // TODO: `P` should be automatically derived from tc.OutP, but there is issue
+                // https://github.com/lampepfl/dotty/issues/19554
+                .asValTP[DFOpaque[tfeType.Underlying], pType.Underlying]
+            }
           case _ =>
             report.errorAndAbort("Not a valid opaque type companion.")
         end match
       end asMacro
 
-      extension [AT <: DFTypeAny, TFE <: Frontend[AT], A](
-          lhs: DFVal[DFOpaque[TFE], Modifier[A, Any, Any, Any]]
+      extension [AT <: DFTypeAny, TFE <: Frontend[AT], A, P](
+          lhs: DFVal[DFOpaque[TFE], Modifier[A, Any, Any, P]]
       )
         def opaqueType: TFE = lhs.dfType.asIR.id.asInstanceOf[TFE]
-        def actual(using DFC): DFVal[AT, Modifier[A, Any, Any, Any]] = // trydf {
-          import Token.Ops.{actual => actualToken}
-          DFVal.Alias.AsIs(lhs.dfType.actualType, lhs, _.actualToken)
-//        }
-        // TODO: what to do with the token function?
+        def actual(using DFC): DFVal[AT, Modifier[A, Any, Any, P]] = trydf {
+          DFVal.Alias.AsIs(lhs.dfType.actualType, lhs)
+        }
         // TODO: there is strange result when applying `lhs.actualMap: lhs =>` with the same name
         //       could be a scala compiler bug or a plugin bug (simple examples seem to work fine)
         //       see https://scastie.scala-lang.org/PPXZD3rORxaxQ3PTmin6wg
@@ -182,8 +148,7 @@ object DFOpaque:
         )(using dfc: DFC, ce: ClassEv[TFE]): DFValOf[DFOpaque[TFE]] =
           DFVal.Alias.AsIs(
             DFOpaque[TFE](ce.value),
-            f(lhs.actual),
-            x => ???
+            f(lhs.actual)
           )
       end extension
     end Ops

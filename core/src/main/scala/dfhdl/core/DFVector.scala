@@ -202,12 +202,14 @@ object DFVector:
           E,
           R <: Iterable[E],
           Op <: FuncOp,
-          C <: Boolean
+          C <: Boolean,
+          TC <: Compare[T, E, Op, C]
       ](using
-          tc: Compare[T, E, Op, C],
+          tc: TC,
           op: ValueOf[Op],
           castle: ValueOf[C]
       ): Compare[DFVector[T, Tuple1[D1]], R, Op, C] with
+        type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
@@ -231,7 +233,7 @@ object DFVector:
           import DFDecimal.Token.StrInterp.d
           val elementType = lhs.dfType.cellType
           Vector.tabulate(lhs.dfType.cellDims.head)(i =>
-            val idxVal = DFVal.Const(d"$i".asTokenOf[DFUInt[Int]], false)
+            val idxVal = d"$i".asConstOf[DFUInt[Int]]
             DFVal.Alias.ApplyIdx(elementType, lhs, idxVal)(using dfc.anonymize)
           )
       end extension

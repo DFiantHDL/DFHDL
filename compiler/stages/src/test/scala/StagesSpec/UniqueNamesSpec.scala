@@ -66,12 +66,12 @@ class UniqueNamesSpec extends StageSpec:
     val top = (new SomeEnums).uniqueNames(Set(), true)
     assertCodeString(
       top,
-      """|enum MyEnumGlbl(val value: UInt[1] <> TOKEN) extends Encode.Manual(1):
+      """|enum MyEnumGlbl(val value: UInt[1] <> CONST) extends Encode.Manual(1):
          |  case Bar extends MyEnumGlbl(d"1'0")
          |  case Baz extends MyEnumGlbl(d"1'1")
          |
          |class SomeEnums extends DFDesign:
-         |  enum MyEnumLcl_0(val value: UInt[1] <> TOKEN) extends Encode.Manual(1):
+         |  enum MyEnumLcl_0(val value: UInt[1] <> CONST) extends Encode.Manual(1):
          |    case Bar extends MyEnumLcl_0(d"1'0")
          |    case Baz extends MyEnumLcl_0(d"1'1")
          |  final case class Pixel(
@@ -79,7 +79,7 @@ class UniqueNamesSpec extends StageSpec:
          |      y: UInt[8] <> VAL
          |  ) extends Struct
          |  case class MyByte() extends Opaque(Bits(8))
-         |  enum MyEnumLcl_1(val value: UInt[1] <> TOKEN) extends Encode.Manual(1):
+         |  enum MyEnumLcl_1(val value: UInt[1] <> CONST) extends Encode.Manual(1):
          |    case Baz extends MyEnumLcl_1(d"1'0")
          |    case Bar extends MyEnumLcl_1(d"1'1")
          |

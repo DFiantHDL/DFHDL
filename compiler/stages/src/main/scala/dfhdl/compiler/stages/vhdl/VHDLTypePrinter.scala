@@ -28,7 +28,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         )
         .mkString("\n")
         .hindent
-    s"enum ${enumName}(val value: UInt[${dfType.width}] <> TOKEN) extends Encode.Manual(${dfType.width}):\n$entries"
+    s"enum ${enumName}(val value: UInt[${dfType.width}] <> CONST) extends Encode.Manual(${dfType.width}):\n$entries"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*

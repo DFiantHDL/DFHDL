@@ -118,13 +118,6 @@ object DFBits:
       def valueBits: BitVector = token.data._1
       def bubbleBits: BitVector = token.data._2
 
-    object Conversions:
-      given DFBitsTokenConversionSing[W <: Int & Singleton, V](using
-          tc: DFToken.TC[DFBits[W], V],
-          w: ValueOf[W]
-      ): Conversion[V, DFBits[W] <> TOKEN] = value => tc(DFBits(valueOf[W]), value)
-    end Conversions
-
     @implicitNotFound(
       "Argument of type ${R} is not a proper candidate for a Bits token."
     )
@@ -140,18 +133,6 @@ object DFBits:
       given fromDFBitsToken[W <: Int, R <: Token[W]]: Candidate[R] with
         type OutW = W
         def apply(arg: R): Token[OutW] = arg
-      given fromDFUIntToken[W <: Int, R <: DFUInt.Token[W]]: Candidate[R] with
-        type OutW = W
-        def apply(arg: R): Token[OutW] =
-          import DFToken.Ops.bits
-          arg.bits
-      given fromDFBitCandidate[R, T <: DFBoolOrBit](using
-          ic: DFBoolOrBit.Token.Candidate.Aux[R, T]
-      )(using T =:= DFBit): Candidate[R] with
-        type OutW = 1
-        def apply(arg: R): Token[1] =
-          import DFToken.Ops.bits
-          ic(arg).bits
       private def valueToBits(value: Any): DFBits[Int] <> TOKEN =
         import DFBits.Token.Ops.++
         value match
@@ -369,13 +350,13 @@ object DFBits:
       private def applyMacro[P <: Tuple](opExpr: Expr[String])(
           scParts: Expr[P],
           args: Expr[Seq[Any]]
-      )(using Quotes, Type[P]): Expr[DFTokenAny] =
+      )(using Quotes, Type[P]): Expr[DFConstAny] =
         scParts.scPartsWithArgs(args).interpolate(opExpr)
 
       extension (using Quotes)(fullTerm: quotes.reflect.Term)
         private def interpolate(
             opExpr: Expr[String]
-        ): Expr[DFTokenAny] =
+        ): Expr[DFConstAny] =
           import quotes.reflect.*
           val opStr = opExpr.value.get
           val widthTpe: TypeRepr = fullTerm match
@@ -398,7 +379,11 @@ object DFBits:
             val width =
               dfhdl.internals.Inlined
                 .forced[widthType.Underlying](valueBits.length.toInt)
-            Token[widthType.Underlying](width, valueBits, bubbleBits)
+            val dfc = compiletime.summonInline[DFC]
+            DFVal.Const(
+              Token[widthType.Underlying](width, valueBits, bubbleBits),
+              named = true
+            )(using dfc)
           }
       private def unapplySeqMacro[P <: Tuple, T <: DFTypeAny](
           opForcedExpr: Expr[String]
@@ -428,21 +413,20 @@ object DFBits:
             Some(Seq(${ vArgs }*))
           }
         else
-          val token =
+          val dfVal =
             SIParts
               .tupleToExprs(scParts)
               .head
               .asTerm
               .interpolate(opForcedExpr)
-          val tokenType = token.asTerm.tpe.asTypeOf[DFTokenAny]
+          val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
           '{
-            val tc = compiletime
-              .summonInline[
-                DFVal.Compare[T, tokenType.Underlying, FuncOp.===.type, false]
-              ]
+            val tc = compiletime.summonInline[
+              DFVal.Compare[T, dfValType.Underlying, FuncOp.===.type, false]
+            ]
             Some(
               Seq(
-                tc.conv(${ arg }.dfType, $token)(using compiletime.summonInline[tc.Ctx])
+                tc.conv(${ arg }.dfType, $dfVal)(using compiletime.summonInline[tc.Ctx])
               )
             )
           }
@@ -651,7 +635,7 @@ object DFBits:
           val dfVal = ic(value)
           (dfType.asIR: ir.DFType) match
             case ir.DFNothing =>
-              dfVal.asValTP[DFBits[LW], ic.OutP]
+              dfVal.nameInDFCPosition.asValTP[DFBits[LW], ic.OutP]
             case _ =>
               if (dfVal.hasTag[DFVal.TruncateTag] && dfType.width < dfVal.width)
                 dfVal.resizeBits(dfType.width).asValTP[DFBits[LW], ic.OutP]
@@ -659,7 +643,7 @@ object DFBits:
                 dfVal.resizeBits(dfType.width).asValTP[DFBits[LW], ic.OutP]
               else
                 check(dfType.width, dfVal.width)
-                dfVal.asValTP[DFBits[LW], ic.OutP]
+                dfVal.nameInDFCPosition.asValTP[DFBits[LW], ic.OutP]
         end conv
       end DFBitsFromCandidate
       given DFBitsFromSEV[LW <: Int, T <: BitOrBool, V <: SameElementsVector[T]]: TC[DFBits[LW], V]
@@ -671,17 +655,18 @@ object DFBits:
 
     object Compare:
       import DFVal.Compare
-      given DFBitsCompareCandidate[LW <: Int, R, Op <: FuncOp, C <: Boolean](using
-          ic: Candidate[R]
+      given DFBitsCompareCandidate[LW <: Int, R, IC <: Candidate[R], Op <: FuncOp, C <: Boolean](
+          using ic: IC
       )(using
           check: CompareCheck[LW, ic.OutW, C],
           op: ValueOf[Op],
           castling: ValueOf[C]
       ): Compare[DFBits[LW], R, Op, C] with
-        def conv(dfType: DFBits[LW], arg: R)(using Ctx): DFValOf[DFBits[LW]] =
+        type OutP = ic.OutP
+        def conv(dfType: DFBits[LW], arg: R)(using Ctx): Out =
           val dfValArg = ic(arg)
           check(dfType.width, dfValArg.dfType.width)
-          dfValArg.asValOf[DFBits[LW]]
+          dfValArg.asValTP[DFBits[LW], ic.OutP]
       given DFBitsCompareSEV[
           LW <: Int,
           Op <: FuncOp,
@@ -692,7 +677,8 @@ object DFBits:
           ValueOf[Op],
           ValueOf[C]
       ): Compare[DFBits[LW], V, Op, C] with
-        def conv(dfType: DFBits[LW], arg: V)(using Ctx): DFValOf[DFBits[LW]] =
+        type OutP = CONST
+        def conv(dfType: DFBits[LW], arg: V)(using Ctx): Out =
           DFVal.Const(Token(dfType.width, arg), named = true)
       end DFBitsCompareSEV
     end Compare
@@ -723,15 +709,10 @@ object DFBits:
             Arg.Width.Check[RW],
             DFC
         ): DFValTP[DFBits[RW], P] =
-          import Token.Ops.{resize => resizeToken}
           // TODO: why this causes anonymous references?
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFBits[RW]]
 //          else
-          DFVal.Alias.AsIs(
-            DFBits(updatedWidth),
-            lhs,
-            _.resizeToken(updatedWidth)
-          )
+          DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
       end extension
       extension [T <: Int, P](iter: Iterable[DFValTP[DFBits[T], P]])
         protected[core] def concatBits(using DFC): DFValTP[DFBits[Int], P] =
@@ -802,10 +783,9 @@ object DFBits:
             aW: Width[tc.Type],
             dfc: DFC
         )(using check: `AW == TW`.Check[aW.Out, W]): DFValTP[tc.Type, P] = trydf {
-          import Token.Ops.{as => asToken}
           val aliasDFType = tc(aliasType)
           check.apply(aliasDFType.asIR.width, lhs.width)
-          DFVal.Alias.AsIs(aliasDFType, lhs, _.asToken(aliasType))
+          DFVal.Alias.AsIs(aliasDFType, lhs)
         }
         def uint(using DFC): DFValTP[DFUInt[W], P] = trydf { as(DFUInt(lhs.width)) }
         def sint(using DFC): DFValTP[DFSInt[W], P] = trydf { as(DFSInt(lhs.width)) }

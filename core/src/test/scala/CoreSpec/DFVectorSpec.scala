@@ -24,7 +24,7 @@ class DFVectorSpec extends DFSpec:
          |v3 := v3
          |""".stripMargin
     ) {
-      val v1 = UInt(8) X 5 <> VAR init Vector.tabulate(5)(d"8'22" + _)
+      val v1 = UInt(8) X 5 <> VAR init Vector.tabulate(5)(22 + _)
       val v2 = UInt(8) X 6 <> VAR init all(d"8'55")
       val x = UInt(8) <> VAR
       v1 := Vector.fill(5)(d"8'22")

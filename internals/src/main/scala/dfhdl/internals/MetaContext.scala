@@ -10,6 +10,7 @@ final case class Position(
     columnEnd: Int
 ) derives CanEqual:
   override def toString: String = s"$file:$lineStart:$columnStart - $lineEnd:$columnEnd"
+  def isUnknown: Boolean = this == Position.unknown
 
 object Position:
   val unknown = Position("", 0, 0, 0, 0)

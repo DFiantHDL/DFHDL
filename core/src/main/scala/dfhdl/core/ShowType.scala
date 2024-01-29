@@ -51,18 +51,11 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFVal[t, m]] =>
         s"${TypeRepr.of[t].showDFType} <> ${TypeRepr.of[m].showModifier}"
 
-  def showDFToken: String =
-    import quotes.reflect.*
-    tpe.asTypeOf[DFTokenAny] match
-      case '[DFToken[t]] =>
-        s"${TypeRepr.of[t].showDFType} <> TOKEN"
-
   def showType: String =
     import quotes.reflect.*
     tpe.asTypeOf[Any] match
-      case '[DFValAny]   => tpe.showDFVal
-      case '[DFTokenAny] => tpe.showDFToken
-      case '[DFTypeAny]  => tpe.showDFType
+      case '[DFValAny]  => tpe.showDFVal
+      case '[DFTypeAny] => tpe.showDFType
       case '[Tuple] =>
         tpe.showTuple(_.showType).mkStringBrackets
       case '[ContextFunction1[DFC, t]]   => TypeRepr.of[t].showType

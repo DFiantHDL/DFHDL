@@ -2,21 +2,14 @@ package dfhdl
 protected object hdl:
   class dsn extends scala.annotation.StaticAnnotation
   export core.DFType.Ops.*
-  export core.DFToken.Ops.*
-  export core.DFBoolOrBit.Token.Ops.*
   export core.DFBoolOrBit.Val.Ops.*
-  export core.DFBits.Token.Ops.*
   export core.DFBits.Token.StrInterp.{h, b}
   export core.DFBits.Val.Ops.*
   export core.DFBits.Val.TupleOps.*
   export core.DFDecimal.Token.StrInterp.{d, sd}
-  export core.DFDecimal.Token.Ops.*
   export core.DFDecimal.Val.Ops.*
-  export core.DFVector.Token.Ops.*
   export core.DFVector.Val.Ops.*
-  export core.DFOpaque.Token.Ops.*
   export core.DFOpaque.Val.Ops.*
-  export core.DFTuple.Token.Ops.*
   export core.DFTuple.Val.Ops.*
   export core.DFVector.Ops.*
   export core.DFVal.Ops.*

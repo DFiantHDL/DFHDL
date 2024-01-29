@@ -127,7 +127,7 @@ object DFXInt extends DFXIntCompanion:
     def apply(signed: Boolean, width: Int, data: Option[BigInt]): DFDecimal.Token =
       DFDecimal.Token(DFXInt(signed, width), data)
 
-object DFUInt:
+object DFUInt extends DFUIntCompanion:
   def apply(width: Int): DFDecimal = DFDecimal(false, width, 0)
   def unapply(arg: DFDecimal): Option[Int] =
     arg match

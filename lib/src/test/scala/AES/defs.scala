@@ -14,7 +14,7 @@ case class AESByte() extends Opaque(Byte)
 
 //Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
 //routine to perform a one-for-one substitution of a byte value.
-val sboxLookupTable: Vector[Byte <> TOKEN] = Vector(
+val sboxLookupTable = Vector(
   "63", "7c", "77", "7b", "f2", "6b", "6f", "c5", "30", "01", "67", "2b", "fe", "d7", "ab", "76",
   "ca", "82", "c9", "7d", "fa", "59", "47", "f0", "ad", "d4", "a2", "af", "9c", "a4", "72", "c0",
   "b7", "fd", "93", "26", "36", "3f", "f7", "cc", "34", "a5", "e5", "f1", "71", "d8", "31", "15",
@@ -53,7 +53,7 @@ extension (lhs: AESByte <> VAL)
     lookup(lhs.actual).as(AESByte)
 end extension
 
-extension (lhs: Byte <> TOKEN)
+extension (lhs: Byte <> CONST)
   // In the polynomial representation, multiplication in GF(2^8) corresponds with the multiplication of
   // polynomials modulo an irreducible polynomial of degree 8. A polynomial is irreducible if its only
   // divisors are one and itself. For the AES algorithm, this irreducible polynomial is
@@ -62,8 +62,8 @@ extension (lhs: Byte <> TOKEN)
   def *(rhs: AESByte <> VAL): AESByte <> DFRET =
     val a = LazyList.iterate(rhs)(_.xtime)
     (0 until 8).foldLeft[AESByte <> VAL](all(0).as(AESByte)):
-      case (p, i) if lhs.bits(i) => p + a(i)
-      case (p, _)                => p
+      case (p, i) if lhs.bits(i).toScalaBoolean => p + a(i)
+      case (p, _)                               => p
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Word

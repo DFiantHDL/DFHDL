@@ -26,23 +26,64 @@ trait DFVal[+T <: DFTypeAny, +M <: ModifierAny] extends Any with DFMember[ir.DFV
 
   transparent inline def ==[R](
       inline that: R
-  )(using DFC): DFValOf[DFBool] = ${
-    DFVal.equalityMacro[T, R, FuncOp.===.type]('this, 'that)
+  )(using DFC): DFValTP[DFBool, Any] = ${
+    DFVal.equalityMacro[T, M, R, FuncOp.===.type]('this, 'that)
   }
   transparent inline def !=[R](
       inline that: R
-  )(using DFC): DFValOf[DFBool] = ${
-    DFVal.equalityMacro[T, R, FuncOp.=!=.type]('this, 'that)
+  )(using DFC): DFValTP[DFBool, Any] = ${
+    DFVal.equalityMacro[T, M, R, FuncOp.=!=.type]('this, 'that)
   }
 end DFVal
 
 type DFValAny = DFVal[DFTypeAny, ModifierAny]
 type DFVarAny = DFVal[DFTypeAny, Modifier.Mutable]
 type DFDclAny = DFVal[DFTypeAny, Modifier.Dcl]
+type DFConstAny = DFVal[DFTypeAny, Modifier.CONST]
 type DFValOf[+T <: DFTypeAny] = DFVal[T, ModifierAny]
 type DFConstOf[+T <: DFTypeAny] = DFVal[T, Modifier.CONST]
 type DFValTP[+T <: DFTypeAny, +P] = DFVal[T, Modifier[Any, Any, Any, P]]
 type DFVarOf[+T <: DFTypeAny] = DFVal[T, Modifier.Mutable]
+
+extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
+  def isConstTpe: quotes.reflect.TypeRepr =
+    import quotes.reflect.*
+    def isConstBool(tpe: TypeRepr): Boolean = tpe.asType match
+      case '[DFConstOf[t]] => true
+      case '[DFValOf[t]]   => false
+      case '[NonEmptyTuple] =>
+        tpe.getTupleArgs.forall(isConstBool)
+      case _ => true
+    if (isConstBool(tpe)) TypeRepr.of[CONST]
+    else TypeRepr.of[NOTCONST]
+
+extension (using quotes: Quotes)(term: quotes.reflect.Term)
+  def checkConst: Boolean =
+    import quotes.reflect.*
+    extension (term: Term)
+      def warn: Boolean =
+        report.warning("Not a constant", term.pos)
+        false
+      def explore: Boolean =
+        import quotes.reflect.*
+        term match
+          case Apply(fun, args)    => fun.explore && args.forall(_.explore)
+          case NamedArg(_, expr)   => expr.explore
+          case Inlined(_, _, expr) => expr.explore
+          case Block(_, expr)      => expr.explore
+          case TypeApply(expr, _)  => expr.explore
+          case Typed(expr, _)      => expr.explore
+          case _ =>
+            term.tpe.asType match
+              case '[DFConstOf[?]] => true
+              case '[DFValOf[?]]   => term.warn
+              case _               => true
+        end match
+      end explore
+    end extension
+    term.explore
+  end checkConst
+end extension
 
 sealed trait TOKEN
 infix type <>[T <: DFType.Supported, M] = T match
@@ -233,10 +274,10 @@ object DFVal extends DFValLP:
         case DFStruct.Val(dfVal) => Some(dfVal)
         case _                   => None
 
-  def equalityMacro[T <: DFTypeAny, R, Op <: FuncOp](
-      dfVal: Expr[DFValOf[T]],
+  def equalityMacro[T <: DFTypeAny, M <: ModifierAny, R, Op <: FuncOp](
+      dfVal: Expr[DFVal[T, M]],
       arg: Expr[R]
-  )(using Quotes, Type[T], Type[R], Type[Op]): Expr[DFValOf[DFBool]] =
+  )(using Quotes, Type[T], Type[M], Type[R], Type[Op]): Expr[DFValTP[DFBool, Any]] =
     import quotes.reflect.*
     if (TypeRepr.of[T].typeSymbol equals defn.NothingClass) return '{
       compiletime.error("This is fake")
@@ -244,6 +285,8 @@ object DFVal extends DFValLP:
     val exact = arg.asTerm.exactTerm
     val exactExpr = exact.asExpr
     val exactType = exact.tpe.asTypeOf[Any]
+    val lpType = dfVal.asTerm.tpe.isConstTpe.asTypeOf[Any]
+    val rpType = exact.tpe.isConstTpe.asTypeOf[Any]
     '{
       val c = compiletime.summonInline[
         DFVal.Compare[T, exactType.Underlying, Op, false]
@@ -254,6 +297,9 @@ object DFVal extends DFValLP:
         compiletime.summonInline[ValueOf[Op]],
         new ValueOf[false](false)
       )
+        // TODO: May not be need if this issue is solved:
+        // https://github.com/lampepfl/dotty/issues/19554
+        .asValTP[DFBool, lpType.Underlying | rpType.Underlying]
     }
   end equalityMacro
 
@@ -270,6 +316,14 @@ object DFVal extends DFValLP:
   given __refined_dfVal[T <: FieldsOrTuple, A, I, P](using
       r: DFStruct.Val.Refiner[T, A, I, P]
   ): Conversion[DFVal[DFStruct[T], Modifier[A, Any, I, P]], r.Out] = _.asInstanceOf[r.Out]
+
+  trait ConstCheck[P]
+  given [P](using
+      AssertGiven[
+        P =:= CONST,
+        "Only a DFHDL constant is convertible to a Scala value, but this DFHDL value is not a constant."
+      ]
+  ): ConstCheck[P] with {}
 
   trait InitCheck[I]
   given [I](using
@@ -314,6 +368,13 @@ object DFVal extends DFValLP:
     def inDFCPosition(using DFC): Boolean = dfVal.asIR.meta.position == dfc.getMeta.position
     def anonymizeInDFCPosition(using DFC): DFVal[T, M] =
       if (inDFCPosition) dfVal.anonymize else dfVal
+    @metaContextForward(0)
+    def nameInDFCPosition(using dfc: DFC): DFVal[T, M] =
+      import dfc.getSet
+      val dfValIR = dfVal.asIR
+      if (inDFCPosition && dfValIR.isAnonymous && !dfc.isAnonymous)
+        dfValIR.setMeta(_ => dfc.getMeta).asVal[T, M]
+      else dfVal
   end extension
 
   case object ExtendTag extends ir.DFTagOf[ir.DFVal]
@@ -568,7 +629,6 @@ object DFVal extends DFValLP:
       def apply[AT <: DFTypeAny, VT <: DFTypeAny, M <: ModifierAny](
           aliasType: AT,
           relVal: DFVal[VT, M],
-          tokenFunc: DFToken[VT] => DFToken[AT],
           forceNewAlias: Boolean = false
       )(using DFC): DFVal[AT, M] =
         relVal.asIR match
@@ -578,7 +638,7 @@ object DFVal extends DFValLP:
               if (const.isAnonymous || relVal.inDFCPosition) && !forceNewAlias =>
             dfc.mutableDB.setMember(
               const,
-              _.copy(token = tokenFunc(const.token.asTokenOf[VT]).asIR)
+              _.copy(token = const.token.as(aliasType.asIR), meta = dfc.getMeta)
             ).asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
@@ -599,7 +659,7 @@ object DFVal extends DFValLP:
           DFC
       ): DFVal[T, M] =
         import ir.DFVal.Alias.IdentTag
-        apply(relVal.dfType, relVal, x => x, forceNewAlias = true).tag(IdentTag)
+        apply(relVal.dfType, relVal, forceNewAlias = true).tag(IdentTag)
       def bind[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M], bindName: String)(using
           DFC
       ): DFVal[T, M] =
@@ -726,12 +786,10 @@ object DFVal extends DFValLP:
       def conv(dfType: T, value: __OPEN.type)(using Ctx): Out =
         throw new IllegalArgumentException("OPEN cannot be used here")
     // Accept any bubble value
-    given fromBubble[T <: DFTypeAny, V <: Bubble](using
-        tokenTC: DFToken.TC[T, V]
-    ): TC[T, V] with
+    given fromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] with
       type OutP = CONST
       def conv(dfType: T, value: V)(using Ctx): Out =
-        Const(tokenTC(dfType, value), named = true)
+        Const(Bubble(dfType), named = true)
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
         r: ShowType[R]
@@ -755,16 +813,6 @@ object DFVal extends DFValLP:
           s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
         )
         value
-    given sameValAndTokenType[T <: DFTypeAny, V <: T <> TOKEN]: TC[T, V] with
-      type OutP = CONST
-      def conv(dfType: T, value: V)(using Ctx): Out =
-        given MemberGetSet = dfc.getSet
-        given Printer = DefaultPrinter
-        require(
-          dfType == value.dfType,
-          s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
-        )
-        DFVal.Const(value, named = true)
   end TCLP
   object TC extends TCLP:
     export DFBoolOrBit.Val.TC.given
@@ -778,20 +826,21 @@ object DFVal extends DFValLP:
   end TC
 
   trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
-    type Out = DFValOf[T]
+    type OutP
+    type Out = DFValTP[T, OutP]
     type Ctx = DFC
-    final protected def func(arg1: DFValAny, arg2: DFValAny)(using
+    final protected def func[P1, P2](arg1: DFValTP[?, P1], arg2: DFValTP[?, P2])(using
         DFC,
         ValueOf[Op],
         ValueOf[C]
-    ): DFValOf[DFBool] =
+    ): DFValTP[DFBool, P1 | P2] =
       val list = if (valueOf[C]) List(arg2, arg1) else List(arg1, arg2)
       DFVal.Func(DFBool, valueOf[Op], list)
-    def apply(dfVal: DFValOf[T], arg: V)(using
+    def apply[P](dfVal: DFValTP[T, P], arg: V)(using
         DFC,
         ValueOf[Op],
         ValueOf[C]
-    ): DFValOf[DFBool] = trydf:
+    ): DFValTP[DFBool, P | OutP] = trydf:
       val dfValArg = conv(dfVal.dfType, arg)(using dfc.anonymize)
       func(dfVal, dfValArg)
   end Compare
@@ -814,34 +863,18 @@ object DFVal extends DFValLP:
             "`."
         )
       ]
-    given sameValType[T <: DFTypeAny, R <: DFValOf[T], Op <: FuncOp, C <: Boolean](using
+    given sameValType[T <: DFTypeAny, P, R <: DFValTP[T, P], Op <: FuncOp, C <: Boolean](using
         ValueOf[Op],
         ValueOf[C]
     ): Compare[T, R, Op, C] with
-      def conv(dfType: T, arg: R)(using Ctx): DFValOf[T] =
+      type OutP = P
+      def conv(dfType: T, arg: R)(using Ctx): Out =
         given Printer = DefaultPrinter(using dfc.getSet)
         require(
           dfType == arg.dfType,
           s"Cannot compare DFHDL value type `${dfType.codeString}` with DFHDL value type `${arg.dfType.codeString}`."
         )
         arg
-    given sameValAndTokenType[
-        T <: DFTypeAny,
-        R <: T <> TOKEN,
-        Op <: FuncOp,
-        C <: Boolean
-    ](using
-        ValueOf[Op],
-        ValueOf[C]
-    ): Compare[T, R, Op, C] with
-      def conv(dfType: T, arg: R)(using Ctx): DFValOf[T] =
-        given Printer = DefaultPrinter(using dfc.getSet)
-        require(
-          dfType == arg.dfType,
-          s"Cannot compare DFHDL value type `${dfType.codeString}` with DFHDL value type `${arg.dfType.codeString}`."
-        )
-        DFVal.Const(arg, named = true)
-    end sameValAndTokenType
   end CompareLP
   object Compare extends CompareLP:
     export DFBoolOrBit.Val.Compare.given
@@ -937,8 +970,7 @@ object DFVal extends DFValLP:
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
       def bits(using w: Width[T])(using DFC): DFValTP[DFBits[w.Out], P] = trydf {
-        import DFToken.Ops.{bits => bitsDFToken}
-        DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal, _.bitsDFToken)
+        DFVal.Alias.AsIs(DFBits(dfVal.width), dfVal)
       }
       def genNewVar(using DFC): DFVarOf[T] = trydf {
         DFVal.Dcl(dfVal.dfType, Modifier.VAR)

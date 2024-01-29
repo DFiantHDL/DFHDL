@@ -63,7 +63,7 @@ abstract class MetaDesign[+D <: DFC.Domain](
               val clonedRelVal = clonedRelValIR.asValAny
               alias match
                 case alias: ir.DFVal.Alias.AsIs =>
-                  DFVal.Alias.AsIs(dfType, clonedRelVal, _ => ???, forceNewAlias = true)
+                  DFVal.Alias.AsIs(dfType, clonedRelVal, forceNewAlias = true)
                 case alias: ir.DFVal.Alias.ApplyRange =>
                   DFVal.Alias.ApplyRange(
                     clonedRelVal.asValOf[Bits[Int]],

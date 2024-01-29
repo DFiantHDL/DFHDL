@@ -312,7 +312,7 @@ class DFDecimalSpec extends DFSpec:
     )
     assertEquals(d"8'22" + 200, d"8'222")
     assertEquals(sd"8'-1" + 1, sd"8'0")
-    assertDSLError(
+    assertDSLErrorLog(
       "The applied RHS value width (9) is larger than the LHS variable width (8)."
     )(
       """sd"8'22" + 200"""
@@ -320,7 +320,7 @@ class DFDecimalSpec extends DFSpec:
       val value = 200
       sd"8'22" + value
     }
-    assertDSLError(
+    assertDSLErrorLog(
       """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
          |An explicit conversion must be applied.
          |""".stripMargin
@@ -371,7 +371,7 @@ class DFDecimalSpec extends DFSpec:
     )
     assertEquals(d"8'22" - 200, d"8'78")
     assertEquals(sd"9'22" - 200, sd"9'-178")
-    assertDSLError(
+    assertDSLErrorLog(
       "The applied RHS value width (9) is larger than the LHS variable width (8)."
     )(
       """sd"8'22" - 200"""
@@ -379,7 +379,7 @@ class DFDecimalSpec extends DFSpec:
       val value = 200
       sd"8'22" - value
     }
-    assertDSLError(
+    assertDSLErrorLog(
       """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
          |An explicit conversion must be applied.
          |""".stripMargin
