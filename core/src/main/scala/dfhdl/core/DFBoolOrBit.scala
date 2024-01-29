@@ -17,128 +17,19 @@ object DFBoolOrBit:
     protected[core] def apply[T <: DFBoolOrBit](
         dfType: T,
         data: Option[Boolean]
-    ): T <> TOKEN =
-      ir.DFToken(dfType.asIR)(data).asTokenOf[T]
+    ): DFToken[T] = ir.DFToken(dfType.asIR)(data).asTokenOf[T]
     protected[core] def apply[T <: DFBoolOrBit](
         dfType: T,
         value: Boolean
-    ): T <> TOKEN =
-      Token(dfType, Some(value))
+    ): DFToken[T] = Token(dfType, Some(value))
     protected[core] def apply[T <: DFBoolOrBit](
         dfType: T,
         value: BitNum
-    ): T <> TOKEN =
-      Token(dfType, value > 0)
+    ): DFToken[T] = Token(dfType, value > 0)
     protected[core] def apply[T <: DFBoolOrBit](
         dfType: T,
         value: Bubble
-    ): T <> TOKEN =
-      Token(dfType, None)
-
-    @implicitNotFound(
-      "Argument of type ${R} is not a proper candidate for a DFBool or DFBit token."
-    )
-    trait Candidate[R]:
-      type OutT <: DFBoolOrBit
-      def apply(arg: R): DFToken[OutT]
-    object Candidate:
-      type Aux[R, T <: DFBoolOrBit] = Candidate[R] { type OutT = T }
-      given fromBoolean[R <: Boolean]: Candidate[R] with
-        type OutT = DFBool
-        def apply(arg: R): DFToken[DFBool] = Token(DFBool, arg)
-      given fromBit[R <: BitNum]: Candidate[R] with
-        type OutT = DFBit
-        def apply(arg: R): DFToken[DFBit] = Token(DFBit, arg)
-      given fromDFBoolOrBitToken[T <: DFBoolOrBit, R <: DFToken[T]]: Candidate[R] with
-        type OutT = T
-        def apply(arg: R): DFToken[T] = arg
-    end Candidate
-
-    object TC:
-      import DFToken.TC
-      given DFBoolTokenFromCandidate[T <: DFBoolOrBit, R](using
-          ic: Candidate[R]
-      ): TC[T, R] with
-        def conv(dfType: T, arg: R)(using Ctx): Out =
-          val tokenArg = ic(arg)
-          val tokenOut = (dfType, tokenArg.dfType) match
-            case (DFBit, DFBool) => Token(DFBit, tokenArg.data)
-            case (DFBool, DFBit) => Token(DFBool, tokenArg.data)
-            case _               => tokenArg
-          tokenOut.asTokenOf[T]
-    end TC
-
-    private def logicOp[O <: DFBoolOrBit, T <: DFBoolOrBit](
-        dfType: O,
-        token: DFToken[T],
-        tokenArg: DFToken[DFBoolOrBit],
-        op: FuncOp
-    ): DFToken[O] =
-      val dataOut = (token.data, tokenArg.data) match
-        case (Some(l), Some(r)) =>
-          op match
-            case FuncOp.=== => Some(l == r)
-            case FuncOp.=!= => Some(l != r)
-            case FuncOp.|   => Some(l || r)
-            case FuncOp.&   => Some(l && r)
-            case FuncOp.^   => Some(l ^ r)
-            case _          => throw new IllegalArgumentException("Unsupported Op")
-        case _ => None
-      Token(dfType, dataOut)
-    end logicOp
-
-    private def logicOp[T <: DFBoolOrBit](
-        token: DFToken[T],
-        tokenArg: DFToken[DFBoolOrBit],
-        op: FuncOp
-    ): DFToken[T] = logicOp[T, T](token.dfType, token, tokenArg, op)
-
-    object Compare:
-      import DFToken.Compare
-      given DFBoolOrBitCompare[T <: DFBoolOrBit, R, Op <: FuncOp, C <: Boolean](using
-          ic: Candidate[R],
-          op: ValueOf[Op],
-          castle: ValueOf[C]
-      ): Compare[T, R, Op, C] with
-        def conv(dfType: T, arg: R)(using Ctx): DFToken[T] =
-          val tokenArg = ic(arg)
-          Token(dfType, tokenArg.data)
-    end Compare
-
-    object Ops:
-      extension (lhs: DFBit <> TOKEN)
-        def bool: DFBool <> TOKEN = Token(DFBool, lhs.data)
-        @targetName("notOfDFBit")
-        def unary_! : DFBit <> TOKEN = Token(DFBit, lhs.data.map(!_))
-      extension (lhs: DFBool <> TOKEN)
-        def bit: DFBit <> TOKEN = Token(DFBit, lhs.data)
-        @targetName("notOfDFBool")
-        def unary_! : DFBool <> TOKEN = Token(DFBool, lhs.data.map(!_))
-      extension [T <: DFBoolOrBit](lhs: T <> TOKEN)
-        def ||[R](rhs: Exact[R])(using ic: Candidate[R]): T <> TOKEN =
-          logicOp(lhs, ic(rhs), FuncOp.|)
-        def &&[R](rhs: Exact[R])(using ic: Candidate[R]): T <> TOKEN =
-          logicOp(lhs, ic(rhs), FuncOp.&)
-        def ^[R](rhs: Exact[R])(using ic: Candidate[R]): T <> TOKEN =
-          logicOp(lhs, ic(rhs), FuncOp.^)
-      extension [L](lhs: L)
-        def ||[RT <: DFBoolOrBit](
-            rhs: DFToken[RT]
-        )(using es: Exact.Summon[L, lhs.type])(using
-            ic: Candidate[es.Out]
-        ): RT <> TOKEN = logicOp(rhs, ic(es(lhs)), FuncOp.|)
-        def &&[RT <: DFBoolOrBit](
-            rhs: DFToken[RT]
-        )(using es: Exact.Summon[L, lhs.type])(using
-            ic: Candidate[es.Out]
-        ): RT <> TOKEN = logicOp(rhs, ic(es(lhs)), FuncOp.&)
-        def ^[RT <: DFBoolOrBit](
-            rhs: DFToken[RT]
-        )(using es: Exact.Summon[L, lhs.type])(using
-            ic: Candidate[es.Out]
-        ): RT <> TOKEN = logicOp(rhs, ic(es(lhs)), FuncOp.^)
-      end extension
-    end Ops
+    ): DFToken[T] = Token(dfType, None)
   end Token
 
   object Val:
@@ -148,16 +39,24 @@ object DFBoolOrBit:
     trait Candidate[R]:
       type OutT <: DFBoolOrBit
       type OutP
-      def apply(arg: R)(using DFC): DFValOf[OutT]
+      type Out = DFValTP[OutT, OutP]
+      def apply(arg: R)(using DFC): Out
     object Candidate:
-      given fromTokenCandidate[R, IC <: Token.Candidate[R]](using ic: IC): Candidate[R] with
-        type OutT = ic.OutT
+      given fromBoolean[R <: Boolean]: Candidate[R] with
+        type OutT = DFBool
         type OutP = CONST
-        def apply(arg: R)(using DFC): DFValOf[OutT] = DFVal.Const(ic(arg), named = true)
+        def apply(arg: R)(using DFC): Out =
+          DFVal.Const(Token(DFBool, arg), named = true)
+      given fromBit[R <: BitNum]: Candidate[R] with
+        type OutT = DFBit
+        type OutP = CONST
+        def apply(arg: R)(using DFC): Out =
+          DFVal.Const(Token(DFBit, arg), named = true)
       given fromDFBoolOrBitVal[T <: DFBoolOrBit, P, R <: DFValTP[T, P]]: Candidate[R] with
         type OutT = T
         type OutP = P
-        def apply(arg: R)(using DFC): DFValOf[T] = arg
+        def apply(arg: R)(using DFC): Out = arg
+    end Candidate
 
     private def b2b[T <: DFBoolOrBit, R](dfType: T, arg: R)(using
         ic: Candidate[R],
@@ -177,7 +76,7 @@ object DFBoolOrBit:
           ic: IC
       ): TC[T, R] with
         type OutP = ic.OutP
-        def conv(dfType: T, arg: R)(using Ctx): Out = b2b(dfType, arg)
+        def conv(dfType: T, arg: R)(using DFC): Out = b2b(dfType, arg)
     end TC
 
     object Compare:
@@ -189,7 +88,7 @@ object DFBoolOrBit:
           castling: ValueOf[C]
       ): Compare[T, R, Op, C] with
         type OutP = ic.OutP
-        def conv(dfType: T, arg: R)(using Ctx): Out =
+        def conv(dfType: T, arg: R)(using DFC): Out =
           b2b(dfType, arg)
 
     object Ops:

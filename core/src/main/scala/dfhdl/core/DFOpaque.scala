@@ -48,7 +48,7 @@ object DFOpaque:
   object Token:
     def apply[A <: DFTypeAny, TFE <: Frontend[A]](
         tfe: TFE,
-        token: A <> TOKEN
+        token: DFToken[A]
     ): Token[TFE] =
       ir.DFToken(DFOpaque(tfe).asIR)(token.asIR.data).asTokenOf[DFOpaque[TFE]]
     def forced[TFE <: Abstract](
@@ -68,7 +68,7 @@ object DFOpaque:
           V <: DFValTP[DFOpaque[RT], RP]
       ](using RT <:< TFE): TC[DFOpaque[TFE], V] with
         type OutP = RP
-        def conv(dfType: DFOpaque[TFE], value: V)(using Ctx): Out =
+        def conv(dfType: DFOpaque[TFE], value: V)(using DFC): Out =
           value.asValTP[DFOpaque[TFE], RP]
 
     object Ops:
@@ -118,11 +118,11 @@ object DFOpaque:
             val aExpr = '{ $tfe.actualType.asInstanceOf[aType.Underlying] }
             '{
               val tc = compiletime.summonInline[DFVal.TC[aType.Underlying, lhsType.Underlying]]
-              val ctx = compiletime.summonInline[tc.Ctx]
+              val dfc = compiletime.summonInline[DFC]
               DFVal.Alias.AsIs(
                 DFOpaque[tfeType.Underlying]($tfe),
-                tc($aExpr, $lhsExpr)(using ctx)
-              )(using ctx)
+                tc($aExpr, $lhsExpr)(using dfc)
+              )(using dfc)
                 // TODO: `P` should be automatically derived from tc.OutP, but there is issue
                 // https://github.com/lampepfl/dotty/issues/19554
                 .asValTP[DFOpaque[tfeType.Underlying], pType.Underlying]

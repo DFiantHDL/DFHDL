@@ -89,63 +89,27 @@ object DFVector:
       )
       ir.DFVector.Token(dfType.asIR, data).asTokenOf[DFVector[T, D]]
 
-    object TC:
-      import DFToken.TC
-      given DFVectorTokenFromVector[T <: DFTypeAny, D1 <: Int, E, R <: Iterable[E]](using
-          tc: TC[T, E]
-      ): TC[DFVector[T, Tuple1[D1]], R] with
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
-          Token(dfType, arg.map(tc(dfType.cellType, _).asIR.data).toVector)
-      given DFVectorTokenFromSEV[T <: DFTypeAny, D1 <: Int, E, R <: SameElementsVector[E]](using
-          tc: TC[T, E]
-      ): TC[DFVector[T, Tuple1[D1]], R] with
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
-          Token(
-            dfType,
-            Vector.fill(dfType.cellDims.head)(
-              tc(dfType.cellType, arg.value).asIR.data
-            )
-          )
-    end TC
-
-    object Compare:
-      import DFToken.Compare
-      given DFVectorCompare[
-          T <: DFTypeAny,
-          D1 <: Int,
-          E,
-          R <: Iterable[E],
-          Op <: FuncOp,
-          C <: Boolean
-      ](using
-          tc: Compare[T, E, Op, C],
-          op: ValueOf[Op],
-          castle: ValueOf[C]
-      ): Compare[DFVector[T, Tuple1[D1]], R, Op, C] with
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
-          Token(dfType, arg.map(tc.conv(dfType.cellType, _).asIR.data).toVector)
-    end Compare
-    object Ops:
-      extension [T <: DFTypeAny, D1 <: Int](lhs: Token[T, Tuple1[D1]])
-        @targetName("applyDFVector")
-        def apply[I <: Int](
-            idx: Inlined[I]
-        )(using
-            check: BitIndex.Check[I, D1]
-        ): DFToken[T] =
-          check(idx, lhs.dfType.cellDims.head)
-          ir.DFToken
-            .forced(lhs.dfType.asIR.cellType, lhs.data(idx))
-            .asTokenOf[T]
-        def elements: Vector[DFToken[T]] =
-          val elementType = lhs.dfType.asIR.cellType
-          Vector.tabulate(lhs.dfType.cellDims.head)(i =>
-            ir.DFToken
-              .forced(elementType, lhs.data(i))
-              .asTokenOf[T]
-          )
-      end extension
-    end Ops
+    // object Ops:
+    //   extension [T <: DFTypeAny, D1 <: Int](lhs: Token[T, Tuple1[D1]])
+    //     @targetName("applyDFVector")
+    //     def apply[I <: Int](
+    //         idx: Inlined[I]
+    //     )(using
+    //         check: BitIndex.Check[I, D1]
+    //     ): DFToken[T] =
+    //       check(idx, lhs.dfType.cellDims.head)
+    //       ir.DFToken
+    //         .forced(lhs.dfType.asIR.cellType, lhs.data(idx))
+    //         .asTokenOf[T]
+    //     def elements: Vector[DFToken[T]] =
+    //       val elementType = lhs.dfType.asIR.cellType
+    //       Vector.tabulate(lhs.dfType.cellDims.head)(i =>
+    //         ir.DFToken
+    //           .forced(elementType, lhs.data(i))
+    //           .asTokenOf[T]
+    //       )
+    //   end extension
+    // end Ops
 
   end Token
 
@@ -162,7 +126,7 @@ object DFVector:
           check: `LL == RL`.Check[D1, RD1]
       ): TC[DFVector[T, Tuple1[D1]], R] with
         type OutP = RP
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           check(dfType.asIR.cellDims.head, arg.dfType.asIR.cellDims.head)
           arg.asValTP[DFVector[T, Tuple1[D1]], RP]
       given DFVectorValFromDFValVector[
@@ -175,7 +139,7 @@ object DFVector:
           tc: TCE
       ): TC[DFVector[T, Tuple1[D1]], R] with
         type OutP = tc.OutP
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
           DFVal.Func(dfType, FuncOp.++, dfVals)
       given DFVectorValFromSEV[
@@ -188,7 +152,7 @@ object DFVector:
           tc: TCE
       ): TC[DFVector[T, Tuple1[D1]], R] with
         type OutP = tc.OutP
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           val dfVals =
             List.fill(dfType.cellDims.head)(tc.conv(dfType.cellType, arg.value))
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
@@ -210,7 +174,7 @@ object DFVector:
           castle: ValueOf[C]
       ): Compare[DFVector[T, Tuple1[D1]], R, Op, C] with
         type OutP = tc.OutP
-        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using Ctx): Out =
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
           DFVal.Func(dfType, FuncOp.++, dfVals)(using dfc.anonymize)
       end DFVectorCompareDFValVector

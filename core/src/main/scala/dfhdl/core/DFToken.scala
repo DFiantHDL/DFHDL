@@ -33,32 +33,4 @@ object DFToken:
   protected[core] def bubble[T <: DFTypeAny](dfType: T): DFToken[T] =
     ir.DFToken.bubble(dfType.asIR).asTokenOf[T]
 
-  @implicitNotFound("Unsupported token value ${V} for DFHDL type ${T}")
-  trait TC[T <: DFTypeAny, V] extends TCConv[T, V, DFTokenAny]:
-    type Out = DFToken[T]
-    type Ctx = DummyImplicit
-    final def apply(dfType: T, value: V): Out = conv(dfType, value)
-
-  object TC
-
-  @implicitNotFound("Cannot compare token of ${T} with value of ${V}")
-  trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFTokenAny]:
-    type Out = DFToken[T]
-    type Ctx = DummyImplicit
-    def apply(token: DFToken[T], arg: V)(using
-        op: ValueOf[Op],
-        castling: ValueOf[C]
-    ): DFToken[DFBool] =
-      given CanEqual[Any, Any] = CanEqual.derived
-      val tokenArg = conv(token.dfType, arg)
-      require(token.dfType == tokenArg.dfType)
-      val dataOut = op.value match
-        case FuncOp.=== => token.asIR.data == tokenArg.asIR.data
-        case FuncOp.=!= => token.asIR.data != tokenArg.asIR.data
-        case _          => throw new IllegalArgumentException("Unsupported Op")
-      DFBoolOrBit.Token(DFBool, dataOut)
-  end Compare
-
-  object Compare
-
 end DFToken

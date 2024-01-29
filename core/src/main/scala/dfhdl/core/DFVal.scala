@@ -85,7 +85,6 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
   end checkConst
 end extension
 
-sealed trait TOKEN
 infix type <>[T <: DFType.Supported, M] = T match
   case Int => // Int can be a constant literal or just "Int" representing SInt[32]
     IsConst[T] match
@@ -96,7 +95,6 @@ infix type <>[T <: DFType.Supported, M] = T match
       case DFRET => DFC ?=> DFValOf[DFType.Of[T]]
       case VAL   => DFValOf[DFType.Of[T]]
       case CONST => DFConstOf[DFType.Of[T]]
-      case TOKEN => DFToken[DFType.Of[T]]
 
 infix type X[T <: DFType.Supported, M] = M match
   case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]
@@ -180,7 +178,7 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFBitsValConversion[
       W <: Int,
       P <: Boolean,
-      R <: DFValAny | DFTokenAny | SameElementsVector[?] | NonEmptyTuple | Bubble
+      R <: DFValAny | SameElementsVector[?] | NonEmptyTuple | Bubble
   ](
       inline from: R
   ): DFValTP[DFBits[W], ISCONST[P]] = ${
@@ -191,7 +189,7 @@ sealed protected trait DFValLP:
       S <: Boolean,
       W <: Int,
       P <: Boolean,
-      R <: DFValAny | DFTokenAny | Int | Bubble
+      R <: DFValAny | Int | Bubble
   ](
       inline from: R
   ): DFValTP[DFXInt[S, W], ISCONST[P]] = ${
@@ -200,7 +198,7 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,
       P <: Boolean,
-      R <: DFValAny | DFTokenAny | Bubble
+      R <: DFValAny | Bubble
   ](
       inline from: R
   ): DFValTP[DFOpaque[TFE], ISCONST[P]] = ${
@@ -209,7 +207,7 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFStructValConversion[
       F <: DFStruct.Fields,
       P <: Boolean,
-      R <: DFValAny | DFTokenAny | DFStruct.Fields | Bubble
+      R <: DFValAny | DFStruct.Fields | Bubble
   ](
       inline from: R
   ): DFValTP[DFStruct[F], ISCONST[P]] = ${
@@ -218,7 +216,7 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFTupleValConversion[
       T <: NonEmptyTuple,
       P <: Boolean,
-      R <: DFValAny | DFTokenAny | NonEmptyTuple | Bubble
+      R <: DFValAny | NonEmptyTuple | Bubble
   ](
       inline from: R
   ): DFValTP[DFTuple[T], ISCONST[P]] = ${
@@ -228,7 +226,7 @@ sealed protected trait DFValLP:
       T <: DFTypeAny,
       D <: Int,
       P <: Boolean,
-      R <: DFValAny | DFTokenAny | Iterable[?] | Bubble
+      R <: DFValAny | Iterable[?] | Bubble
   ](
       inline from: R
   ): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
@@ -236,7 +234,7 @@ sealed protected trait DFValLP:
   }
   implicit transparent inline def DFBitValConversion[
       P <: Boolean,
-      R <: DFValAny | DFTokenAny | Int | Boolean | Bubble
+      R <: DFValAny | Int | Boolean | Bubble
   ](
       inline from: R
   ): DFValTP[DFBit, ISCONST[P]] = ${
@@ -244,7 +242,7 @@ sealed protected trait DFValLP:
   }
   implicit transparent inline def DFBoolValConversion[
       P <: Boolean,
-      R <: DFValAny | DFTokenAny | Int | Boolean | Bubble
+      R <: DFValAny | Int | Boolean | Bubble
   ](
       inline from: R
   ): DFValTP[DFBool, ISCONST[P]] = ${
@@ -704,8 +702,9 @@ object DFVal extends DFValLP:
           // anonymous constant are replace by a different constant
           // after its token value was converted according to the alias
           case const: ir.DFVal.Const if const.isAnonymous =>
-            import DFBits.Token.Ops.apply
-            val updatedToken = const.token.asTokenOf[DFBits[Int]](relBitHigh, relBitLow)
+            import ir.DFBits.Ops.sel
+            val updatedToken =
+              const.token.asInstanceOf[ir.DFBits.Token].sel(relBitHigh, relBitLow).asTokenAny
             Const(updatedToken).asIR
           // named constants or other non-constant values are referenced
           // in a new alias construct
@@ -776,19 +775,18 @@ object DFVal extends DFValLP:
   trait TC[T <: DFTypeAny, R] extends TCConv[T, R, DFValAny]:
     type OutP
     type Out = DFValTP[T, OutP]
-    type Ctx = DFC
     final def apply(dfType: T, value: R)(using DFC): Out = trydf:
       conv(dfType, value)
 
   trait TCLP:
     // Accept OPEN in compile-time, but throw exception where it should not be used
     given fromOPEN[T <: DFTypeAny]: TC[T, __OPEN.type] with
-      def conv(dfType: T, value: __OPEN.type)(using Ctx): Out =
+      def conv(dfType: T, value: __OPEN.type)(using DFC): Out =
         throw new IllegalArgumentException("OPEN cannot be used here")
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] with
       type OutP = CONST
-      def conv(dfType: T, value: V)(using Ctx): Out =
+      def conv(dfType: T, value: V)(using DFC): Out =
         Const(Bubble(dfType), named = true)
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
@@ -805,7 +803,7 @@ object DFVal extends DFValLP:
       ]
     given sameValType[T <: DFTypeAny, P, V <: DFValTP[T, P]]: TC[T, V] with
       type OutP = P
-      def conv(dfType: T, value: V)(using Ctx): DFValTP[T, P] =
+      def conv(dfType: T, value: V)(using DFC): DFValTP[T, P] =
         given MemberGetSet = dfc.getSet
         given Printer = DefaultPrinter
         require(
@@ -828,7 +826,6 @@ object DFVal extends DFValLP:
   trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
     type OutP
     type Out = DFValTP[T, OutP]
-    type Ctx = DFC
     final protected def func[P1, P2](arg1: DFValTP[?, P1], arg2: DFValTP[?, P2])(using
         DFC,
         ValueOf[Op],
@@ -868,7 +865,7 @@ object DFVal extends DFValLP:
         ValueOf[C]
     ): Compare[T, R, Op, C] with
       type OutP = P
-      def conv(dfType: T, arg: R)(using Ctx): Out =
+      def conv(dfType: T, arg: R)(using DFC): Out =
         given Printer = DefaultPrinter(using dfc.getSet)
         require(
           dfType == arg.dfType,

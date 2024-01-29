@@ -431,7 +431,7 @@ object DFDecimal:
             ]
             Some(
               Seq(
-                tc.conv(${ arg }.dfType, $dfVal)(using compiletime.summonInline[tc.Ctx])
+                tc.conv(${ arg }.dfType, $dfVal)(using compiletime.summonInline[DFC])
               )
             )
           }
@@ -479,7 +479,9 @@ object DFXInt:
       def apply(arg: R): Token[OutS, OutW]
     object Candidate:
       // change to `given fromInt[R <: Int, I <: IntInfo[R]](using info: I): Candidate[R] with` after
-      // https://github.com/lampepfl/dotty/issues/18509 is resolved
+      // https://github.com/lampepfl/dotty/issues/18509 is resolved,
+      // or better yet, move this to the DFVal Candidate. Without this separation there are currently
+      // many compilation errors in the tests.
       transparent inline given fromInt[R <: Int](using
           info: IntInfo[R]
       ): Candidate[R] = new Candidate[R]:
@@ -488,72 +490,7 @@ object DFXInt:
         type IsScalaInt = true
         def apply(arg: R): Token[OutS, OutW] =
           Token(info.signed(arg), info.width(arg), Some(arg))
-      transparent inline given fromInlinedInt[R <: Int](using
-          info: IntInfo[R]
-      ): Candidate[Inlined[R]] = new Candidate[Inlined[R]]:
-        type OutS = info.OutS
-        type OutW = info.OutW
-        type IsScalaInt = true
-        def apply(arg: Inlined[R]): Token[OutS, OutW] =
-          Token(info.signed(arg), info.width(arg), Some(arg.value))
-      given fromDFXIntToken[W <: Int, S <: Boolean, R <: Token[S, W]]: Candidate[R] with
-        type OutS = S
-        type OutW = W
-        type IsScalaInt = false
-        def apply(arg: R): Token[S, W] = arg
-      given fromDFBitsTokenCandidate[R, IC <: DFBits.Token.Candidate[R]](using ic: IC): Candidate[R]
-      with
-        type OutS = false
-        type OutW = ic.OutW
-        type IsScalaInt = false
-        def apply(arg: R): Token[false, ic.OutW] =
-          import DFBits.Token.Ops.uint
-          ic(arg).uint
     end Candidate
-
-    object Compare:
-      import DFToken.Compare
-      given [LS <: Boolean, LW <: Int, R, Op <: FuncOp, C <: Boolean, IC <: Candidate[R]](using
-          ic: IC
-      )(using
-          check: CompareCheck[LS, LW, ic.OutS, ic.OutW, ic.IsScalaInt, C],
-          op: ValueOf[Op],
-          castling: ValueOf[C]
-      ): Compare[DFXInt[LS, LW], R, Op, C] with
-        override def apply(token: Token[LS, LW], arg: R)(using
-            op: ValueOf[Op],
-            castling: ValueOf[C]
-        ): DFBool <> TOKEN =
-          val tokenArg = conv(token.dfType, arg)
-          val (lhsData, rhsData) =
-            if (castling) (tokenArg.data, token.data)
-            else (token.data, tokenArg.data)
-          val outData = (lhsData, rhsData) match
-            case (Some(l), Some(r)) =>
-              import DFVal.Func.Op
-              op.value match
-                case Op.=== => Some(l == r)
-                case Op.=!= => Some(l != r)
-                case Op.<   => Some(l < r)
-                case Op.>   => Some(l > r)
-                case Op.<=  => Some(l <= r)
-                case Op.>=  => Some(l >= r)
-                case _      => throw new IllegalArgumentException("Unsupported Op")
-            case _ => None
-          DFBoolOrBit.Token(DFBool, outData)
-        end apply
-        def conv(dfType: DFXInt[LS, LW], arg: R)(using Ctx): DFXInt[LS, LW] <> TOKEN =
-          val tokenArg = ic(arg)
-          check(
-            dfType.signed,
-            dfType.width,
-            tokenArg.dfType.signed,
-            tokenArg.dfType.width
-          )
-          tokenArg.asTokenOf[DFXInt[LS, LW]]
-      end given
-    end Compare
-
   end Token
 
   object Val:
@@ -583,6 +520,15 @@ object DFXInt:
       end fromDFBitsValCandidate
     end CandidateLP
     object Candidate extends CandidateLP:
+      given fromInlinedInt[R <: Int, I <: IntInfo[R]](using
+          info: I
+      ): Candidate[Inlined[R]] with
+        type OutS = info.OutS
+        type OutW = info.OutW
+        type OutP = CONST
+        type IsScalaInt = true
+        def apply(arg: Inlined[R])(using DFC): Out =
+          DFVal.Const(Token(info.signed(arg), info.width(arg), Some(arg.value)), named = true)
       given fromTokenCandidate[R, IC <: Token.Candidate[R]](using
           ic: IC
       ): Candidate[R] with
@@ -622,7 +568,7 @@ object DFXInt:
           lsigned: ValueOf[LS]
       ): TC[DFXInt[LS, LW], R] with
         type OutP = ic.OutP
-        def conv(dfType: DFXInt[LS, LW], value: R)(using dfc: Ctx): Out =
+        def conv(dfType: DFXInt[LS, LW], value: R)(using DFC): Out =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           val rhs = ic(value)
@@ -670,7 +616,7 @@ object DFXInt:
           castling: ValueOf[C]
       ): Compare[DFXInt[LS, LW], R, Op, C] with
         type OutP = ic.OutP
-        def conv(dfType: DFXInt[LS, LW], arg: R)(using dfc: Ctx): Out =
+        def conv(dfType: DFXInt[LS, LW], arg: R)(using dfc: DFC): Out =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           given dfcAnon: DFC = dfc.anonymize
@@ -1140,12 +1086,7 @@ object DFSInt:
   def apply[W <: Int](using dfType: DFSInt[W]): DFSInt[W] = dfType
 
   type Token[W <: Int] = DFDecimal.Token[true, W, 0]
-  object Token:
-    object Ops:
-      extension [W <: Int](lhs: Token[W])
-        @targetName("negateDFSIntToken")
-        def unary_- : Token[W] =
-          DFXInt.Token(true, lhs.width, lhs.data.map(-_))
+  object Token
   object Val:
     object Ops:
       extension [W <: Int, P](lhs: DFValTP[DFSInt[W], P])

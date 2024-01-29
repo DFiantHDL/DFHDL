@@ -160,74 +160,6 @@ object DFStruct:
             )
       }.toList
       ir.DFToken.forced(dfType.asIR, data).asTokenOf[DFStruct[F]]
-    object TC:
-      import DFToken.TC
-      given DFStructTokenFromCC[
-          F <: Fields,
-          RF <: Fields
-      ](using sf: SameFields[F, RF]): TC[DFStruct[F], RF] with
-        def conv(dfType: DFStruct[F], value: RF)(using Ctx): Out =
-          sf.check(dfType, DFStruct(value))
-          Token(dfType, value)
-      given DFStructTokenFromStruct[
-          F <: Fields,
-          RF <: Fields,
-          V <: Token[RF]
-      ](using sf: SameFields[F, RF]): TC[DFStruct[F], V] with
-        def conv(dfType: DFStruct[F], value: V)(using Ctx): Out =
-          sf.check(dfType, value.dfType)
-          value.asTokenOf[DFStruct[F]]
-    end TC
-
-    object Compare:
-      import DFToken.Compare
-      given DFStructTokenFromCC[
-          F <: Fields,
-          RF <: Fields,
-          Op <: FuncOp,
-          C <: Boolean
-      ](using sf: SameFields[F, RF]): Compare[DFStruct[F], RF, Op, C] with
-        def conv(dfType: DFStruct[F], value: RF)(using Ctx): Out =
-          sf.check(dfType, DFStruct(value))
-          Token(dfType, value)
-      given DFStructTokenFromStruct[
-          F <: Fields,
-          RF <: Fields,
-          R <: Token[RF],
-          Op <: FuncOp,
-          C <: Boolean
-      ](using sf: SameFields[F, RF]): Compare[DFStruct[F], R, Op, C] with
-        def conv(dfType: DFStruct[F], value: R)(using Ctx): Out =
-          sf.check(dfType, value.dfType)
-          value.asTokenOf[DFStruct[F]]
-    end Compare
-
-    trait Refiner[T <: FieldsOrTuple]:
-      type Out <: DFToken[DFStruct[T]]
-    object Refiner:
-      transparent inline given [T <: FieldsOrTuple]: Refiner[T] = ${ refineMacro[T] }
-      def refineMacro[T <: FieldsOrTuple](using Quotes, Type[T]): Expr[Refiner[T]] =
-        import quotes.reflect.*
-        val tokenTpe = TypeRepr.of[DFToken[DFStruct[T]]]
-        val tTpe = TypeRepr.of[T]
-        val fields: List[(String, TypeRepr)] = tTpe.asTypeOf[Any] match
-          case '[NonEmptyTuple] =>
-            tTpe.getTupleArgs.zipWithIndex.map((f, i) =>
-              f.asTypeOf[Any] match
-                case '[DFValOf[t]] =>
-                  (s"_${i + 1}", TypeRepr.of[DFToken[t]])
-            )
-          case _ => ???
-
-        val refined = fields.foldLeft(tokenTpe) { case (r, (n, t)) => Refinement(r, n, t) }
-        val refinedType = refined.asTypeOf[DFToken[DFStruct[T]]]
-        '{
-          new Refiner[T]:
-            type Out = refinedType.Underlying
-        }
-      end refineMacro
-    end Refiner
-  end Token
 
   object Val:
     private[core] def unapply(
@@ -247,7 +179,7 @@ object DFStruct:
           RF <: Fields
       ](using sf: SameFields[F, RF]): TC[DFStruct[F], RF] with
         type OutP = Any
-        def conv(dfType: DFStruct[F], value: RF)(using Ctx): Out =
+        def conv(dfType: DFStruct[F], value: RF)(using DFC): Out =
           sf.check(dfType, DFStruct(value))
           val dfVals = value.productIterator.map { case dfVal: DFVal[?, ?] =>
             dfVal
@@ -260,7 +192,7 @@ object DFStruct:
           V <: DFValTP[DFStruct[RF], RP]
       ](using sf: SameFields[F, RF]): TC[DFStruct[F], V] with
         type OutP = RP
-        def conv(dfType: DFStruct[F], value: V)(using Ctx): Out =
+        def conv(dfType: DFStruct[F], value: V)(using DFC): Out =
           sf.check(dfType, value.dfType)
           value.asValTP[DFStruct[F], RP]
     end TC
@@ -273,7 +205,7 @@ object DFStruct:
           C <: Boolean
       ](using sf: SameFields[F, RF]): Compare[DFStruct[F], RF, Op, C] with
         type OutP = Any
-        def conv(dfType: DFStruct[F], value: RF)(using Ctx): Out =
+        def conv(dfType: DFStruct[F], value: RF)(using DFC): Out =
           sf.check(dfType, DFStruct(value))
           val dfVals = value.productIterator.map { case dfVal: DFVal[?, ?] =>
             dfVal
@@ -288,7 +220,7 @@ object DFStruct:
           C <: Boolean
       ](using sf: SameFields[F, RF]): Compare[DFStruct[F], R, Op, C] with
         type OutP = RP
-        def conv(dfType: DFStruct[F], value: R)(using Ctx): Out =
+        def conv(dfType: DFStruct[F], value: R)(using DFC): Out =
           sf.check(dfType, value.dfType)
           value.asValTP[DFStruct[F], RP]
     end Compare

@@ -88,7 +88,7 @@ object DFTuple:
                   $tokenTupleValuesExpr
                     .apply($iExpr)
                     .asInstanceOf[vType.Underlying]
-                tc.conv(dfType, value)(using compiletime.summonInline[tc.Ctx])
+                tc.conv(dfType, value)(using compiletime.summonInline[DFC])
               }
             }
           '{ List(${ Varargs(exprs) }*) }
@@ -121,82 +121,6 @@ object DFTuple:
     ): Token[T] =
       ir.DFToken(dfType.asIR)(data).asTokenOf[DFTuple[T]]
 
-    object TC:
-      import DFToken.TC
-      given DFTupleTokenFromTuple[
-          T <: NonEmptyTuple,
-          V <: NonEmptyTuple
-      ](using
-          zipper: TCZipper[T, V, DFTokenAny, TC]
-      ): TC[DFTuple[T], V] with
-        def conv(dfType: DFTuple[T], value: V)(using Ctx): Out =
-          DFTuple.Token[T](
-            dfType,
-            zipper(dfType.fieldList, value.toList).map(_.asIR.data)
-          )
-    end TC
-
-    object Compare:
-      import DFToken.Compare
-      given DFTupleTokenFromTuple[
-          T <: NonEmptyTuple,
-          V <: NonEmptyTuple,
-          Op <: FuncOp,
-          C <: Boolean
-      ](using
-          zipper: TCZipper[T, V, DFTokenAny, [T <: DFTypeAny, R] =>> Compare[T, R, Op, C]]
-      ): Compare[DFTuple[T], V, Op, C] with
-        def conv(dfType: DFTuple[T], value: V)(using Ctx): Out =
-          DFTuple.Token[T](
-            dfType,
-            zipper(dfType.fieldList, value.toList).map(_.asIR.data)
-          )
-    end Compare
-
-    object Ops:
-      import DFBits.BitIndex
-      extension [T <: NonEmptyTuple](t: DFToken[DFTuple[T]])
-        def apply[I <: Int](i: Inlined[I])(using
-            check: BitIndex.Check[I, Tuple.Size[T]],
-            size: ValueOf[Tuple.Size[T]]
-        ): DFToken[DFType.FromDFVal[Tuple.Elem[T, I]]] =
-          check(i, size)
-          selectRuntime[DFType.FromDFVal[Tuple.Elem[T, I]]](t.wide, i)
-      private def selectRuntime[T <: DFTypeAny](
-          token: Token[NonEmptyTuple],
-          idx: Int
-      ): DFToken[T] =
-        val dfType = token.dfType.fieldList(idx).asIR
-        val data = token.data(idx)
-        ir.DFToken.forced(dfType, data).asTokenOf[T]
-      extension [T <: NonEmptyTuple](t: DFToken[DFTuple[T]])
-        // TODO: workaround compiler issue that inline does not obey covariance
-        private def wide: Token[NonEmptyTuple] =
-          t.asInstanceOf[Token[NonEmptyTuple]]
-
-//      extension [T1 <: DFTypeAny](t: Token[Tuple1[DFValOf[T1]]])
-//        inline def _1: DFToken[T1] =
-//          selectRuntime[T1](t.wide, 0)
-//      extension [T1 <: DFTypeAny, T2 <: DFTypeAny](
-//          t: Token[(DFValOf[T1], DFValOf[T2])]
-//      )
-//        inline def _1: DFToken[T1] =
-//          selectRuntime[T1](t.wide, 0)
-//        inline def _2: DFToken[T2] =
-//          selectRuntime[T2](t.wide, 1)
-//      extension [T1 <: DFTypeAny, T2 <: DFTypeAny, T3 <: DFTypeAny](
-//          t: Token[(DFValOf[T1], DFValOf[T2], DFValOf[T3])]
-//      )
-//        inline def _1: DFToken[T1] =
-//          selectRuntime[T1](t.wide, 0)
-//        inline def _2: DFToken[T2] =
-//          selectRuntime[T2](t.wide, 1)
-//        inline def _3: DFToken[T3] =
-//          selectRuntime[T3](t.wide, 2)
-    end Ops
-
-  end Token
-
   object Val:
     private[core] def unapply(
         tuple: Tuple
@@ -219,7 +143,7 @@ object DFTuple:
           zipper: Z
       ): TC[DFTuple[T], R] with
         type OutP = zipper.OutP
-        def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
+        def conv(dfType: DFTuple[T], value: R)(using DFC): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)
           // reconstructing the Tuple DFType, in case fields could be DFNothing from conversions
@@ -237,7 +161,7 @@ object DFTuple:
           zipper: TCZipper[T, RT, DFValAny, TC]
       ): TC[DFTuple[T], R] with
         type OutP = RP
-        def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
+        def conv(dfType: DFTuple[T], value: R)(using DFC): Out =
           assert(dfType == value.dfType, "Tuple fields do not match.")
           value.asValTP[DFTuple[T], RP]
       end DFTupleFromDFTuple
@@ -255,7 +179,7 @@ object DFTuple:
           zipper: Z
       ): Compare[DFTuple[T], R, Op, C] with
         type OutP = zipper.OutP
-        def conv(dfType: DFTuple[T], value: R)(using Ctx): Out =
+        def conv(dfType: DFTuple[T], value: R)(using DFC): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)
           DFVal.Func(dfType, FuncOp.++, dfVals).asInstanceOf[Out]

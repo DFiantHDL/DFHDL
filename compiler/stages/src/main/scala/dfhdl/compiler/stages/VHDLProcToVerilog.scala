@@ -59,7 +59,7 @@ case object VHDLProcToVerilog extends Stage:
                 val dsn = new MetaDesign(
                   pb,
                   Patch.Add.Config.ReplaceWithLast(),
-                  domainType = dfhdl.DFC.Domain.ED
+                  domainType = dfhdl.core.DFC.Domain.ED
                 ):
                   val clkEdgeSig = edge match
                     case ClkCfg.Edge.Rising  => clk.asValOf[Bit].rising
