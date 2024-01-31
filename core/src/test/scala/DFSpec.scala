@@ -51,9 +51,8 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
       catch case e: IllegalArgumentException => e.getMessage
     assertNoDiff(err, expectedErr)
 
-  // TODO: need to fetch the constant Boolean value from result and check it
   def assertEquals[T <: DFType, L <: DFConstOf[T], R <: DFConstOf[T]](l: L, r: R): Unit =
-    val result = (l == r).toScalaBoolean
+    assert((l == r).toScalaBoolean)
 
   transparent inline def assertDSLErrorLog(expectedErr: String)(
       inline compileTimeCode: String

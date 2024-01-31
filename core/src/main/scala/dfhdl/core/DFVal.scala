@@ -323,6 +323,14 @@ object DFVal extends DFValLP:
       ]
   ): ConstCheck[P] with {}
 
+  extension [D, T <: ir.DFType, P](lhs: DFValTP[DFType[ir.DFType.Aux[T, Option[D]], ?], P])
+    protected[core] def toScalaValue(using dfc: DFC, check: ConstCheck[P]): D =
+      import dfc.getSet
+      import dfhdl.compiler.analysis.getParamToken
+      lhs.asIR.getParamToken.flatMap(_.data.asInstanceOf[Option[D]]) match
+        case Some(value) => value
+        case _           => ???
+
   trait InitCheck[I]
   given [I](using
       initializableOnly: AssertGiven[

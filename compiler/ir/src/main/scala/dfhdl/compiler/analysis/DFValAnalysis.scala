@@ -307,3 +307,33 @@ extension (net: DFNet)
       case DFNet(DFRef(lhs: DFVal), _, DFRef(rhs: DFVal), _, _, _) =>
         lhs.collectRelMembers(false) ++ rhs.collectRelMembers(false)
       case _ => Nil
+
+extension (dfVal: DFVal)
+  def getParamToken(using MemberGetSet): Option[DFTokenAny] =
+    import DFToken.calcFuncOp
+    import DFBits.Ops.sel
+    dfVal match
+      case const: DFVal.Const => Some(const.token)
+      case func: DFVal.Func =>
+        val args = func.args.flatMap(_.get.getParamToken)
+        if (args.length != func.args.length) None
+        else Some(calcFuncOp(func.op, args))
+      case alias: DFVal.Alias =>
+        alias.relValRef.get.getParamToken match
+          case Some(relToken) =>
+            alias match
+              case alias: DFVal.Alias.AsIs => Some(relToken.as(alias.dfType))
+              case alias: DFVal.Alias.ApplyRange =>
+                Some(relToken.asInstanceOf[DFBits.Token].sel(alias.relBitHigh, alias.relBitLow))
+              case alias: DFVal.Alias.ApplyIdx =>
+                alias.relIdx.get.getParamToken match
+                  case Some(relIdxToken) =>
+                    (relToken.dfType: @unchecked) match
+                      case _: DFVector => ???
+                      case _: DFBits   => ???
+                  case None => None
+              case alias: DFVal.Alias.History     => None
+              case alias: DFVal.Alias.SelectField => ???
+          case None => None
+      case _ => None
+    end match

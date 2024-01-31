@@ -1,4 +1,5 @@
 package dfhdl.compiler.ir
+import DFVal.Func.Op as FuncOp
 
 final case class DFToken[+T <: DFType](dfType: T)(
     val data: dfType.Data
@@ -25,6 +26,15 @@ object DFToken:
     def isBubble: Boolean =
       token.dfType.isDataBubble(token.data)
   end extension
+
+  def calcFuncOp(op: FuncOp, args: List[DFTokenAny]): DFTokenAny = ???
+  // (op, args) match
+  //   case (FuncOp.===, lhs :: rhs :: Nil) if !lhs.isBubble && !rhs.isBubble =>
+  //     DFToken(DFBool)(Some(lhs.data equals rhs.data))
+  //   case (FuncOp.=!=, lhs :: rhs :: Nil) if !lhs.isBubble && !rhs.isBubble =>
+  //     DFToken(DFBool)(Some(!(lhs.data equals rhs.data)))
+  //   case (FuncOp.+, (lhs @ DFDecimal.Token(_, _)) :: (rhs @ DFDecimal.Token(_, _)) :: Nil) =>
+  //     ???
 
   extension (token: DFToken[?])
     def as[T <: DFType](dfType: T): DFToken[T] =
