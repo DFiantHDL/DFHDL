@@ -83,6 +83,37 @@ case object SanityCheck extends Stage:
       if (m != DFMember.Empty && !memberSet.contains(m))
         reportViolation(s"Ref $r exists for a removed member: $m")
     }
+    // check a reference is only used by a single member
+    val originRefTable = mutable.Map.empty[DFRefAny, DFMember]
+    memberSet.foreach { m =>
+      m.getRefs.foreach {
+        case _: DFRef.Empty => // skip empty referenced
+        case r =>
+          originRefTable.get(r).foreach { prevMember =>
+            reportViolation(
+              s"""|Ref $r has more than one origin member.
+                  |Target member:   ${r.get}
+                  |Origin member 1: $prevMember
+                  |Origin member 2: $m""".stripMargin
+            )
+          }
+          originRefTable += r -> m
+      }
+    }
+    // check a global member reference is anonymous only if the referencing member is global
+    originRefTable.foreach { (r, originMember) =>
+      r.get match
+        case targetVal: DFVal if targetVal.isAnonymous && targetVal.isGlobal =>
+          originMember match
+            case originVal: DFVal if originVal.isGlobal =>
+            case _ =>
+              reportViolation(
+                s"""|A global anonymous member is referenced by a non-global member.
+                    |Target member: ${targetVal}
+                    |Origin member: ${originMember}""".stripMargin
+              )
+        case _ =>
+    }
     require(!hasViolations, "Failed reference check!")
   end refCheck
   private def memberExistenceCheck()(using MemberGetSet): Unit =
