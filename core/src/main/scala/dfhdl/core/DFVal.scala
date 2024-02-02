@@ -553,19 +553,28 @@ object DFVal extends DFValLP:
     from.asInstanceOf[DFValOf[DFOpaque[T]]]
 
   object Const:
-    def apply[T <: DFTypeAny](token: DFToken[T], named: Boolean = false)(using
+    def apply[IRT <: ir.DFType, D, T <: DFType[ir.DFType.Aux[IRT, D], ?]](
+        dfType: T,
+        data: D,
+        named: Boolean = false
+    )(using
         DFC
-    ): DFConstOf[T] =
+    ): DFConstOf[T] = forced(dfType, data, named)
+    def forced[T <: DFTypeAny](
+        dfType: T,
+        data: Any,
+        named: Boolean = false
+    )(using DFC): DFConstOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
       ir.DFVal
-        .Const(token.asIR, dfc.ownerOrEmptyRef, meta, ir.DFTags.empty)
+        .Const(dfType.asIR, data, dfc.ownerOrEmptyRef, meta, ir.DFTags.empty)
         .addMember
         .asConstOf[T]
+  end Const
 
   object Open:
     def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
-      ir.DFVal
-        .Open(dfType.asIR, dfc.owner.ref)
+      ir.DFVal.Open(dfType.asIR, dfc.owner.ref)
         .addMember
         .asValOf[T]
 
@@ -642,9 +651,10 @@ object DFVal extends DFValLP:
           // after its token value was converted according to the alias
           case const: ir.DFVal.Const
               if (const.isAnonymous || relVal.inDFCPosition) && !forceNewAlias =>
+            val updatedToken = ir.DFToken.forced(const.dfType, const.data).as(aliasType.asIR)
             dfc.mutableDB.setMember(
               const,
-              _.copy(token = const.token.as(aliasType.asIR), meta = dfc.getMeta)
+              _.copy(dfType = updatedToken.dfType, data = updatedToken.data, meta = dfc.getMeta)
             ).asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
@@ -712,8 +722,11 @@ object DFVal extends DFValLP:
           case const: ir.DFVal.Const if const.isAnonymous =>
             import ir.DFBits.Ops.sel
             val updatedToken =
-              const.token.asInstanceOf[ir.DFBits.Token].sel(relBitHigh, relBitLow).asTokenAny
-            Const(updatedToken).asIR
+              ir.DFToken.forced(const.dfType, const.data).asInstanceOf[ir.DFBits.Token].sel(
+                relBitHigh,
+                relBitLow
+              )
+            Const.forced(updatedToken.dfType.asFE[DFTypeAny], updatedToken.data).asIR
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
@@ -794,8 +807,7 @@ object DFVal extends DFValLP:
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] with
       type OutP = CONST
-      def conv(dfType: T, value: V)(using DFC): Out =
-        Const(Bubble(dfType), named = true)
+      def conv(dfType: T, value: V)(using DFC): Out = Bubble.constValOf(dfType, named = true)
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
         r: ShowType[R]
@@ -948,7 +960,8 @@ object DFVal extends DFValLP:
           dfVal,
           step,
           HistoryOp.Pipe,
-          Some(Const(DFToken.bubble(dfVal.dfType))) // pipe always has a bubble for initialization
+          // pipe always has a bubble for initialization
+          Some(Bubble.constValOf(dfVal.dfType, named = false))
         )
       }
       inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)

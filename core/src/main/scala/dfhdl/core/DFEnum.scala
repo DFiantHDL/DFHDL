@@ -34,8 +34,8 @@ object DFEncoding:
     val value: DFConstOf[DFUInt[W]]
     final def bigIntValue: BigInt =
       value.asIR match
-        case ir.DFVal.Const(token: ir.DFToken[ir.DFDecimal] @unchecked, _, _, _) =>
-          token.data.getOrElse(
+        case ir.DFVal.Const(_: ir.DFDecimal, data: Option[BigInt] @unchecked, _, _, _) =>
+          data.getOrElse(
             throw new IllegalArgumentException(
               "Bubbles are not accepted as enumeration values."
             )
@@ -97,21 +97,13 @@ object DFEnum:
     val companionIdent = Ref(companionSym).asExprOf[AnyRef]
     '{ DFEnum[E]($companionIdent) }
 
-  type Token[E <: DFEncoding] = DFToken[DFEnum[E]]
-  object Token:
-    def apply[E <: DFEncoding, RE <: E](
-        dfType: DFEnum[E],
-        entry: RE
-    ): Token[E] =
-      ir.DFToken(dfType.asIR)(Some(entry.bigIntValue)).asTokenOf[DFEnum[E]]
-
   object Val:
     object TC:
       import DFVal.TC
       given DFEnumFromEntry[E <: DFEncoding, RE <: E]: TC[DFEnum[E], RE] with
         type OutP = CONST
         def conv(dfType: DFEnum[E], value: RE)(using DFC): Out =
-          DFVal.Const(Token[E, RE](dfType, value))
+          DFVal.Const(dfType, Some(value.bigIntValue))
     object Compare:
       import DFVal.Compare
       given DFEnumCompareEntry[
@@ -122,6 +114,6 @@ object DFEnum:
       ]: Compare[DFEnum[E], RE, Op, C] with
         type OutP = CONST
         def conv(dfType: DFEnum[E], arg: RE)(using DFC): Out =
-          DFVal.Const(Token[E, RE](dfType, arg))
+          DFVal.Const(dfType, Some(arg.bigIntValue))
   end Val
 end DFEnum

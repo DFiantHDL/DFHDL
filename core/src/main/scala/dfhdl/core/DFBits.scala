@@ -15,6 +15,10 @@ object DFBits:
   ): DFBits[W] =
     check(width)
     ir.DFBits(width).asFE[DFBits[W]]
+  def forced[W <: Int](width: Int): DFBits[W] =
+    val check = summon[Arg.Width.Check[Int]]
+    check(width)
+    ir.DFBits(width).asFE[DFBits[W]]
   @targetName("applyNoArg")
   def apply[W <: Int & Singleton](using ValueOf[W])(using
       Arg.Width.Check[W]
@@ -80,44 +84,7 @@ object DFBits:
     end given
   end CompareCheck
 
-  type Token[W <: Int] = DFToken[DFBits[W]]
-  object Token:
-    protected[core] def apply[W <: Int](
-        dfType: DFBits[W],
-        data: (BitVector, BitVector)
-    ): Token[W] =
-      ir.DFToken(dfType.asIR)(data).asTokenOf[DFBits[W]]
-    protected[core] def apply[W <: Int](
-        width: Inlined[W],
-        valueBits: BitVector,
-        bubbleBits: BitVector
-    ): Token[W] =
-      Token(DFBits(width), (valueBits, bubbleBits))
-    protected[core] def apply[W <: Int](
-        width: Inlined[W],
-        value: Bubble
-    ): Token[W] =
-      Token(
-        width,
-        BitVector.low(width.value),
-        BitVector.high(width.value)
-      )
-    protected[core] def apply[W <: Int, T <: BitOrBool](
-        width: Inlined[W],
-        sev: SameElementsVector[T]
-    ): Token[W] =
-      val boolVal = sev.value match
-        case b: Boolean => b
-        case i: Int     => i > 0
-      Token(
-        width,
-        BitVector.fill(width.value)(boolVal),
-        BitVector.low(width.value)
-      )
-    extension [W <: Int](token: DFBits.Token[W])
-      def valueBits: BitVector = token.data._1
-      def bubbleBits: BitVector = token.data._2
-
+  object StrInterp:
     private val widthExp = "([0-9]+)'(.*)".r
     def fromBinString(
         bin: String
@@ -189,174 +156,170 @@ object DFBits:
             Right((valueBits.resize(width), bubbleBits.resize(width)))
           case None => Right((valueBits, bubbleBits))
     }
+    class BParts[P <: Tuple](parts: P):
+      transparent inline def apply(inline args: Any*): Any =
+        ${ applyMacro('{ "b" })('parts, 'args) }
+      transparent inline def unapplySeq[T <: DFTypeAny](
+          inline arg: DFValOf[T]
+      )(using DFC): Option[Seq[Any]] =
+        ${ unapplySeqMacro('{ "b" })('parts, 'arg) }
 
-    object StrInterp:
-      class BParts[P <: Tuple](parts: P):
-        transparent inline def apply(inline args: Any*): Any =
-          ${ applyMacro('{ "b" })('parts, 'args) }
-        transparent inline def unapplySeq[T <: DFTypeAny](
-            inline arg: DFValOf[T]
-        )(using DFC): Option[Seq[Any]] =
-          ${ unapplySeqMacro('{ "b" })('parts, 'arg) }
+    class HParts[P <: Tuple](parts: P):
+      transparent inline def apply(inline args: Any*): Any =
+        ${ applyMacro('{ "h" })('parts, 'args) }
+      transparent inline def unapplySeq[T <: DFTypeAny](
+          inline arg: DFValOf[T]
+      )(using DFC): Option[Seq[Any]] =
+        ${ unapplySeqMacro('{ "h" })('parts, 'arg) }
 
-      class HParts[P <: Tuple](parts: P):
-        transparent inline def apply(inline args: Any*): Any =
-          ${ applyMacro('{ "h" })('parts, 'args) }
-        transparent inline def unapplySeq[T <: DFTypeAny](
-            inline arg: DFValOf[T]
-        )(using DFC): Option[Seq[Any]] =
-          ${ unapplySeqMacro('{ "h" })('parts, 'arg) }
+    extension (inline sc: StringContext)
+      /** Binary Bits Vector Token String Interpolator
+        *
+        * Interpolator Syntax: {{{b"width'bin"}}}
+        *   - `bin` is a char sequence of '0', '1', and '?' (to indicate a bit bubble).
+        *   - `bin` also allows separators of space ' ' or underscore '_' that are ignored.
+        *   - `width` (with the following tag char `'`) is optional. If it's not specified, the
+        *     width is determined by the length of the char sequence. Otherwise, the width is set as
+        *     required. If the required width is longer than the char sequence length, then zeros
+        *     are added as the MSBits. If the required width is shorter then the char sequence, it
+        *     is accepted only if the MSBits it is truncating are zeros. Otherwise, a compilation
+        *     error is generated.
+        * @example
+        *   {{{
+        *   b"1"        //value = 1
+        *   b"1000"     //value = 1000
+        *   b"8'1000"   //value = 00001000
+        *   b"3'0100"   //value = 100
+        *   b"3'1100"   //error
+        *   b"1?11"     //value = 1?11 (? is a bubble bit)
+        *   b"11_00"    //value = 1100
+        *   }}}
+        * @note
+        *   The string interpolator currently does not accept external arguments with `\${arg}`
+        * @return
+        *   Bits vector token.
+        */
+      transparent inline def b: Any = ${ SIParts.scMacro[BParts]('sc) }
 
-      extension (inline sc: StringContext)
-        /** Binary Bits Vector Token String Interpolator
-          *
-          * Interpolator Syntax: {{{b"width'bin"}}}
-          *   - `bin` is a char sequence of '0', '1', and '?' (to indicate a bit bubble).
-          *   - `bin` also allows separators of space ' ' or underscore '_' that are ignored.
-          *   - `width` (with the following tag char `'`) is optional. If it's not specified, the
-          *     width is determined by the length of the char sequence. Otherwise, the width is set
-          *     as required. If the required width is longer than the char sequence length, then
-          *     zeros are added as the MSBits. If the required width is shorter then the char
-          *     sequence, it is accepted only if the MSBits it is truncating are zeros. Otherwise, a
-          *     compilation error is generated.
-          * @example
-          *   {{{
-          *   b"1"        //value = 1
-          *   b"1000"     //value = 1000
-          *   b"8'1000"   //value = 00001000
-          *   b"3'0100"   //value = 100
-          *   b"3'1100"   //error
-          *   b"1?11"     //value = 1?11 (? is a bubble bit)
-          *   b"11_00"    //value = 1100
-          *   }}}
-          * @note
-          *   The string interpolator currently does not accept external arguments with `\${arg}`
-          * @return
-          *   Bits vector token.
-          */
-        transparent inline def b: Any = ${ SIParts.scMacro[BParts]('sc) }
+      /** Hexadecimal Bits Vector Token String Interpolator
+        *
+        * Interpolator Syntax: {{{b"width'hex"}}}
+        *   - `hex` is a char sequence of '0'-'9','A'-'F','a'-'f','?' (to indicate a 4-bit bubble).
+        *     Each character is equivalent to a 4-bits nibble.
+        *   - `hex` also allows separators of space ' ' or underscore '_' that are ignored.
+        *   - `hex` also supports a binary mode within `{bin}`, where bin is equivalent to the char
+        *     sequence of the binary string interpolator (see [[b]]). So between 4-bit hex nibbles,
+        *     it is possible to insert a binary bit sequence of any length that is not necessarily
+        *     dividable by 4.
+        *   - `width` (with the following tag char `'`) is optional. If it's not specified, the
+        *     width is determined by the length of the char sequence. Otherwise, the width is set as
+        *     required. If the required width is longer than the char sequence length, then zeros
+        *     are added as the MSBits. If the required width is shorter then the char sequence, it
+        *     is accepted only if the MSBits it is truncating are zeros. Otherwise, a compilation
+        *     error is generated.
+        * @example
+        *   {{{
+        *   h"1"        //value = 0001
+        *   h"27"       //value = 00100111
+        *   h"6'27"     //value = 100111
+        *   h"5'27"     //error
+        *   h"2?"       //value = 0010????
+        *   h"F{00}F"   //value = 1111001111
+        *   h"3_3"      //value = 00110011
+        *   }}}
+        * @note
+        *   The string interpolator currently does not accept external arguments with `\${arg}`
+        * @return
+        *   Bits vector token.
+        */
+      transparent inline def h: Any = ${ SIParts.scMacro[HParts]('sc) }
+    end extension
 
-        /** Hexadecimal Bits Vector Token String Interpolator
-          *
-          * Interpolator Syntax: {{{b"width'hex"}}}
-          *   - `hex` is a char sequence of '0'-'9','A'-'F','a'-'f','?' (to indicate a 4-bit
-          *     bubble). Each character is equivalent to a 4-bits nibble.
-          *   - `hex` also allows separators of space ' ' or underscore '_' that are ignored.
-          *   - `hex` also supports a binary mode within `{bin}`, where bin is equivalent to the
-          *     char sequence of the binary string interpolator (see [[b]]). So between 4-bit hex
-          *     nibbles, it is possible to insert a binary bit sequence of any length that is not
-          *     necessarily dividable by 4.
-          *   - `width` (with the following tag char `'`) is optional. If it's not specified, the
-          *     width is determined by the length of the char sequence. Otherwise, the width is set
-          *     as required. If the required width is longer than the char sequence length, then
-          *     zeros are added as the MSBits. If the required width is shorter then the char
-          *     sequence, it is accepted only if the MSBits it is truncating are zeros. Otherwise, a
-          *     compilation error is generated.
-          * @example
-          *   {{{
-          *   h"1"        //value = 0001
-          *   h"27"       //value = 00100111
-          *   h"6'27"     //value = 100111
-          *   h"5'27"     //error
-          *   h"2?"       //value = 0010????
-          *   h"F{00}F"   //value = 1111001111
-          *   h"3_3"      //value = 00110011
-          *   }}}
-          * @note
-          *   The string interpolator currently does not accept external arguments with `\${arg}`
-          * @return
-          *   Bits vector token.
-          */
-        transparent inline def h: Any = ${ SIParts.scMacro[HParts]('sc) }
-      end extension
+    private def applyMacro[P <: Tuple](opExpr: Expr[String])(
+        scParts: Expr[P],
+        args: Expr[Seq[Any]]
+    )(using Quotes, Type[P]): Expr[DFConstAny] =
+      scParts.scPartsWithArgs(args).interpolate(opExpr)
 
-      private def applyMacro[P <: Tuple](opExpr: Expr[String])(
-          scParts: Expr[P],
-          args: Expr[Seq[Any]]
-      )(using Quotes, Type[P]): Expr[DFConstAny] =
-        scParts.scPartsWithArgs(args).interpolate(opExpr)
-
-      extension (using Quotes)(fullTerm: quotes.reflect.Term)
-        private def interpolate(
-            opExpr: Expr[String]
-        ): Expr[DFConstAny] =
-          import quotes.reflect.*
-          val opStr = opExpr.value.get
-          val widthTpe: TypeRepr = fullTerm match
-            case Literal(StringConstant(t)) =>
-              val res = opStr match
-                case "b" => fromBinString(t)
-                case "h" => fromHexString(t)
-              res match
-                case Right((valueBits, bubbleBits)) =>
-                  ConstantType(IntConstant(valueBits.length.toInt))
-                case Left(msg) =>
-                  report.errorAndAbort(msg)
-            case _ => TypeRepr.of[Int]
-          val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
-          val fullExpr = opStr match
-            case "b" => '{ fromBinString(${ fullTerm.asExprOf[String] }) }
-            case "h" => '{ fromHexString(${ fullTerm.asExprOf[String] }) }
-          '{
-            val (valueBits, bubbleBits) = ${ fullExpr }.toOption.get
-            val width =
-              dfhdl.internals.Inlined
-                .forced[widthType.Underlying](valueBits.length.toInt)
-            val dfc = compiletime.summonInline[DFC]
-            DFVal.Const(
-              Token[widthType.Underlying](width, valueBits, bubbleBits),
-              named = true
-            )(using dfc)
-          }
-      private def unapplySeqMacro[P <: Tuple, T <: DFTypeAny](
-          opForcedExpr: Expr[String]
-      )(
-          scParts: Expr[P],
-          arg: Expr[DFValOf[T]]
-      )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[Any]]] =
+    extension (using Quotes)(fullTerm: quotes.reflect.Term)
+      private def interpolate(
+          opExpr: Expr[String]
+      ): Expr[DFConstAny] =
         import quotes.reflect.*
-        val parts = TypeRepr.of[P].getTupleArgs
-        val op = opForcedExpr.value.get
-        if (TypeRepr.of[P].getTupleArgs.length > 1)
-          val vArgs = Varargs(opForcedExpr :: parts.map {
-            case ConstantType(StringConstant(part: String)) =>
-              val partFiltered = part.filter {
-                case '_' | ' ' | '?'        => false
-                case isHex() if op == "h"   => true
-                case '0' | '1' if op == "b" => true
-                case x =>
-                  report.errorAndAbort(
-                    s"""Found invalid character: ${x}. 
+        val opStr = opExpr.value.get
+        val widthTpe: TypeRepr = fullTerm match
+          case Literal(StringConstant(t)) =>
+            val res = opStr match
+              case "b" => fromBinString(t)
+              case "h" => fromHexString(t)
+            res match
+              case Right((valueBits, bubbleBits)) =>
+                ConstantType(IntConstant(valueBits.length.toInt))
+              case Left(msg) =>
+                report.errorAndAbort(msg)
+          case _ => TypeRepr.of[Int]
+        val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
+        val fullExpr = opStr match
+          case "b" => '{ fromBinString(${ fullTerm.asExprOf[String] }) }
+          case "h" => '{ fromHexString(${ fullTerm.asExprOf[String] }) }
+        '{
+          val (valueBits, bubbleBits) = ${ fullExpr }.toOption.get
+          val width = valueBits.length.toInt
+          val dfc = compiletime.summonInline[DFC]
+          DFVal.Const(
+            DFBits.forced[widthType.Underlying](width),
+            (valueBits, bubbleBits),
+            named = true
+          )(using dfc)
+        }
+    private def unapplySeqMacro[P <: Tuple, T <: DFTypeAny](
+        opForcedExpr: Expr[String]
+    )(
+        scParts: Expr[P],
+        arg: Expr[DFValOf[T]]
+    )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[Any]]] =
+      import quotes.reflect.*
+      val parts = TypeRepr.of[P].getTupleArgs
+      val op = opForcedExpr.value.get
+      if (TypeRepr.of[P].getTupleArgs.length > 1)
+        val vArgs = Varargs(opForcedExpr :: parts.map {
+          case ConstantType(StringConstant(part: String)) =>
+            val partFiltered = part.filter {
+              case '_' | ' ' | '?'        => false
+              case isHex() if op == "h"   => true
+              case '0' | '1' if op == "b" => true
+              case x =>
+                report.errorAndAbort(
+                  s"""Found invalid character: ${x}. 
                       |Note: string interpolation with value extraction does not support the `[w']` width extension syntax.""".stripMargin
-                  )
-              }
-              Literal(StringConstant(partFiltered)).asExprOf[String]
-          })
-          '{
-            Some(Seq(${ vArgs }*))
-          }
-        else
-          val dfVal =
-            SIParts
-              .tupleToExprs(scParts)
-              .head
-              .asTerm
-              .interpolate(opForcedExpr)
-          val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
-          '{
-            val tc = compiletime.summonInline[
-              DFVal.Compare[T, dfValType.Underlying, FuncOp.===.type, false]
-            ]
-            Some(
-              Seq(
-                tc.conv(${ arg }.dfType, $dfVal)(using compiletime.summonInline[DFC])
-              )
+                )
+            }
+            Literal(StringConstant(partFiltered)).asExprOf[String]
+        })
+        '{
+          Some(Seq(${ vArgs }*))
+        }
+      else
+        val dfVal =
+          SIParts
+            .tupleToExprs(scParts)
+            .head
+            .asTerm
+            .interpolate(opForcedExpr)
+        val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
+        '{
+          val tc = compiletime.summonInline[
+            DFVal.Compare[T, dfValType.Underlying, FuncOp.===.type, false]
+          ]
+          Some(
+            Seq(
+              tc.conv(${ arg }.dfType, $dfVal)(using compiletime.summonInline[DFC])
             )
-          }
-        end if
-      end unapplySeqMacro
-    end StrInterp
-  end Token
+          )
+        }
+      end if
+    end unapplySeqMacro
+  end StrInterp
 
   object Val:
     trait Candidate[R]:
@@ -411,13 +374,7 @@ object DFBits:
           case x: NonEmptyTuple =>
             x.toList.map(x => valueToBits(x)(using dfcAnon)).concatBits
           case i: Int =>
-            DFVal.Const(Token(1, BitVector.bit(i > 0), BitVector.zero), named = true)
-          case token: DFToken[?] =>
-            val tokenIR = token.asIR
-            val tokenOut = tokenIR.dfType match
-              case _: ir.DFBits => tokenIR.asTokenOf[DFBits[Int]]
-              case _            => tokenIR.bits.asTokenOf[DFBits[Int]]
-            DFVal.Const(tokenOut, named = true)
+            DFVal.Const(DFBits(1), (BitVector.bit(i > 0), BitVector.zero), named = true)
           case dfVal: DFVal[?, ?] =>
             import DFVal.Ops.bits
             val dfValIR = dfVal.asIR
@@ -488,7 +445,7 @@ object DFBits:
       with
         type OutP = CONST
         def conv(dfType: DFBits[LW], value: V)(using DFC): Out =
-          DFVal.Const(Token(dfType.width, value), named = true)
+          SameElementsVector.bitsValOf(dfType.width, value, named = true)
     end TC
 
     object Compare:
@@ -517,7 +474,7 @@ object DFBits:
       ): Compare[DFBits[LW], V, Op, C] with
         type OutP = CONST
         def conv(dfType: DFBits[LW], arg: V)(using DFC): Out =
-          DFVal.Const(Token(dfType.width, arg), named = true)
+          SameElementsVector.bitsValOf(dfType.width, arg, named = true)
       end DFBitsCompareSEV
     end Compare
 

@@ -17,6 +17,14 @@ object DFDecimal:
   )(using check: Width.Check[S, W]): DFDecimal[S, W, F] =
     check(signed, width)
     ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
+  protected[core] def forced[S <: Boolean, W <: Int, F <: Int](
+      signed: Boolean,
+      width: Int,
+      fractionWidth: Int
+  ): DFDecimal[S, W, F] =
+    val check = summon[Width.Check[Boolean, Int]]
+    check(signed, width)
+    ir.DFDecimal(signed, width, fractionWidth).asFE[DFDecimal[S, W, F]]
 
   given [S <: Boolean, W <: Int, F <: Int](using
       ValueOf[S],
@@ -264,31 +272,7 @@ object DFDecimal:
     end given
   end Constraints
 
-  type Token[S <: Boolean, W <: Int, F <: Int] = DFToken[DFDecimal[S, W, F]]
-  object Token:
-    protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
-        dfType: DFDecimal[S, W, F],
-        data: Option[BigInt]
-    ): Token[S, W, F] =
-      ir.DFToken(dfType.asIR)(data).asTokenOf[DFDecimal[S, W, F]]
-    protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
-        signed: Inlined[S],
-        width: Inlined[W],
-        fractionWidth: Inlined[F],
-        value: BigInt
-    ): Token[S, W, F] =
-      require(
-        value.bitsWidth(signed) <= width,
-        s"\nThe init value $value width must be smaller or equal to $width"
-      )
-      Token(DFDecimal(signed, width, fractionWidth), Some(value))
-    protected[core] def apply[S <: Boolean, W <: Int, F <: Int](
-        signed: Inlined[S],
-        width: Inlined[W],
-        fractionWidth: Inlined[F],
-        value: Int
-    ): Token[S, W, F] = Token(signed, width, fractionWidth, BigInt(value))
-
+  object StrInterp:
     private val widthIntExp = "(\\d+)'(-?\\d+)".r
     private val widthFixedExp = "(\\d+)\\.(\\d+)'(-?\\d+)\\.?(\\d*)".r
     private val intExp = "(-?\\d+)".r
@@ -329,116 +313,107 @@ object DFDecimal:
       end match
     end fromDecString
 
-    object StrInterp:
-      class DParts[P <: Tuple](parts: P):
-        transparent inline def apply(inline args: Any*): Any =
-          ${ applyMacro('{ false })('parts, 'args) }
-        transparent inline def unapplySeq[T <: DFTypeAny](
-            inline arg: DFValOf[T]
-        )(using DFC): Option[Seq[DFValOf[T]]] =
-          ${ unapplySeqMacro('{ false })('parts, 'arg) }
+    class DParts[P <: Tuple](parts: P):
+      transparent inline def apply(inline args: Any*): Any =
+        ${ applyMacro('{ false })('parts, 'args) }
+      transparent inline def unapplySeq[T <: DFTypeAny](
+          inline arg: DFValOf[T]
+      )(using DFC): Option[Seq[DFValOf[T]]] =
+        ${ unapplySeqMacro('{ false })('parts, 'arg) }
 
-      class SDParts[P <: Tuple](parts: P):
-        transparent inline def apply(inline args: Any*): Any =
-          ${ applyMacro('{ true })('parts, 'args) }
-        transparent inline def unapplySeq[T <: DFTypeAny](
-            inline arg: DFValOf[T]
-        )(using DFC): Option[Seq[DFValOf[T]]] =
-          ${ unapplySeqMacro('{ true })('parts, 'arg) }
+    class SDParts[P <: Tuple](parts: P):
+      transparent inline def apply(inline args: Any*): Any =
+        ${ applyMacro('{ true })('parts, 'args) }
+      transparent inline def unapplySeq[T <: DFTypeAny](
+          inline arg: DFValOf[T]
+      )(using DFC): Option[Seq[DFValOf[T]]] =
+        ${ unapplySeqMacro('{ true })('parts, 'arg) }
 
-      extension (inline sc: StringContext)
-        transparent inline def d: Any = ${ SIParts.scMacro[DParts]('sc) }
-        transparent inline def sd: Any = ${ SIParts.scMacro[SDParts]('sc) }
+    extension (inline sc: StringContext)
+      transparent inline def d: Any = ${ SIParts.scMacro[DParts]('sc) }
+      transparent inline def sd: Any = ${ SIParts.scMacro[SDParts]('sc) }
 
-      private def applyMacro[P <: Tuple](signedForcedExpr: Expr[Boolean])(
-          scParts: Expr[P],
-          args: Expr[Seq[Any]]
-      )(using Quotes, Type[P]): Expr[DFConstAny] =
-        scParts.scPartsWithArgs(args).interpolate(signedForcedExpr)
+    private def applyMacro[P <: Tuple](signedForcedExpr: Expr[Boolean])(
+        scParts: Expr[P],
+        args: Expr[Seq[Any]]
+    )(using Quotes, Type[P]): Expr[DFConstAny] =
+      scParts.scPartsWithArgs(args).interpolate(signedForcedExpr)
 
-      extension (using Quotes)(fullTerm: quotes.reflect.Term)
-        private def interpolate(
-            signedForcedExpr: Expr[Boolean]
-        ): Expr[DFConstAny] =
-          import quotes.reflect.*
-          val signedForced = signedForcedExpr.value.get
-          val (signedTpe, widthTpe, fractionWidthTpe): (TypeRepr, TypeRepr, TypeRepr) =
-            fullTerm match
-              case Literal(StringConstant(t)) =>
-                fromDecString(t, signedForced) match
-                  case Right((signed, width, fractionWidth, _)) =>
-                    (
-                      ConstantType(BooleanConstant(signed)),
-                      ConstantType(IntConstant(width)),
-                      ConstantType(IntConstant(fractionWidth))
-                    )
-                  case Left(msg) =>
-                    report.errorAndAbort(msg)
-              case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
-          val signedType = signedTpe.asTypeOf[Boolean]
-          val widthType = widthTpe.asTypeOf[Int]
-          val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
-          val fullExpr = fullTerm.asExprOf[String]
-          '{
-            import dfhdl.internals.Inlined
-            val (signed, width, fractionWidth, value) =
-              fromDecString($fullExpr, $signedForcedExpr).toOption.get
-            val signedInlined =
-              Inlined.forced[signedType.Underlying](signed)
-            val widthInlined =
-              Inlined.forced[widthType.Underlying](width)
-            val fractionWidthInlined =
-              Inlined.forced[fractionWidthType.Underlying](fractionWidth)
-            val dfc = compiletime.summonInline[DFC]
-            DFVal.Const(
-              Token[
-                signedType.Underlying,
-                widthType.Underlying,
-                fractionWidthType.Underlying
-              ](signedInlined, widthInlined, fractionWidthInlined, value),
-              named = true
-            )(using dfc)
-          }
-        end interpolate
-      end extension
-
-      private def unapplySeqMacro[P <: Tuple, T <: DFTypeAny](
+    extension (using Quotes)(fullTerm: quotes.reflect.Term)
+      private def interpolate(
           signedForcedExpr: Expr[Boolean]
-      )(
-          scParts: Expr[P],
-          arg: Expr[DFValOf[T]]
-      )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[DFValOf[T]]]] =
+      ): Expr[DFConstAny] =
         import quotes.reflect.*
-        val parts = TypeRepr.of[P].getTupleArgs
-        if (TypeRepr.of[P].getTupleArgs.length > 1)
-          '{
-            compiletime.error(
-              "Extractors for decimal token string interpolation are not allowed."
+        val signedForced = signedForcedExpr.value.get
+        val (signedTpe, widthTpe, fractionWidthTpe): (TypeRepr, TypeRepr, TypeRepr) =
+          fullTerm match
+            case Literal(StringConstant(t)) =>
+              fromDecString(t, signedForced) match
+                case Right((signed, width, fractionWidth, _)) =>
+                  (
+                    ConstantType(BooleanConstant(signed)),
+                    ConstantType(IntConstant(width)),
+                    ConstantType(IntConstant(fractionWidth))
+                  )
+                case Left(msg) =>
+                  report.errorAndAbort(msg)
+            case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
+        val signedType = signedTpe.asTypeOf[Boolean]
+        val widthType = widthTpe.asTypeOf[Int]
+        val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
+        val fullExpr = fullTerm.asExprOf[String]
+        '{
+          import dfhdl.internals.Inlined
+          val (signed, width, fractionWidth, value) =
+            fromDecString($fullExpr, $signedForcedExpr).toOption.get
+          val dfc = compiletime.summonInline[DFC]
+          val dfType =
+            DFDecimal.forced[
+              signedType.Underlying,
+              widthType.Underlying,
+              fractionWidthType.Underlying
+            ](signed, width, fractionWidth)
+          DFVal.Const(dfType, Some(value), named = true)(using dfc)
+        }
+      end interpolate
+    end extension
+
+    private def unapplySeqMacro[P <: Tuple, T <: DFTypeAny](
+        signedForcedExpr: Expr[Boolean]
+    )(
+        scParts: Expr[P],
+        arg: Expr[DFValOf[T]]
+    )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[DFValOf[T]]]] =
+      import quotes.reflect.*
+      val parts = TypeRepr.of[P].getTupleArgs
+      if (TypeRepr.of[P].getTupleArgs.length > 1)
+        '{
+          compiletime.error(
+            "Extractors for decimal token string interpolation are not allowed."
+          )
+          Some(Seq())
+        }
+      else
+        val dfVal =
+          SIParts
+            .tupleToExprs(scParts)
+            .head
+            .asTerm
+            .interpolate(signedForcedExpr)
+        val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
+        '{
+          val tc = compiletime.summonInline[
+            DFVal.Compare[T, dfValType.Underlying, FuncOp.===.type, false]
+          ]
+          Some(
+            Seq(
+              tc.conv(${ arg }.dfType, $dfVal)(using compiletime.summonInline[DFC])
             )
-            Some(Seq())
-          }
-        else
-          val dfVal =
-            SIParts
-              .tupleToExprs(scParts)
-              .head
-              .asTerm
-              .interpolate(signedForcedExpr)
-          val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
-          '{
-            val tc = compiletime.summonInline[
-              DFVal.Compare[T, dfValType.Underlying, FuncOp.===.type, false]
-            ]
-            Some(
-              Seq(
-                tc.conv(${ arg }.dfType, $dfVal)(using compiletime.summonInline[DFC])
-              )
-            )
-          }
-        end if
-      end unapplySeqMacro
-    end StrInterp
-  end Token
+          )
+        }
+      end if
+    end unapplySeqMacro
+  end StrInterp
 
   object Val:
     object TC:
@@ -463,35 +438,6 @@ object DFXInt:
   def apply[S <: Boolean, W <: Int](signed: Inlined[S], width: Inlined[W])(using
       Width.Check[S, W]
   ): DFXInt[S, W] = DFDecimal(signed, width, 0)
-
-  type Token[S <: Boolean, W <: Int] = DFDecimal.Token[S, W, 0]
-  object Token:
-    protected[core] def apply[S <: Boolean, W <: Int](
-        signed: Inlined[S],
-        width: Inlined[W],
-        data: Option[BigInt]
-    ): Token[S, W] = DFDecimal.Token(DFXInt(signed, width), data)
-
-    trait Candidate[R]:
-      type OutS <: Boolean
-      type OutW <: Int
-      type IsScalaInt <: Boolean
-      def apply(arg: R): Token[OutS, OutW]
-    object Candidate:
-      // change to `given fromInt[R <: Int, I <: IntInfo[R]](using info: I): Candidate[R] with` after
-      // https://github.com/lampepfl/dotty/issues/18509 is resolved,
-      // or better yet, move this to the DFVal Candidate. Without this separation there are currently
-      // many compilation errors in the tests.
-      transparent inline given fromInt[R <: Int](using
-          info: IntInfo[R]
-      ): Candidate[R] = new Candidate[R]:
-        type OutS = info.OutS
-        type OutW = info.OutW
-        type IsScalaInt = true
-        def apply(arg: R): Token[OutS, OutW] =
-          Token(info.signed(arg), info.width(arg), Some(arg))
-    end Candidate
-  end Token
 
   object Val:
     trait Candidate[R]:
@@ -528,16 +474,22 @@ object DFXInt:
         type OutP = CONST
         type IsScalaInt = true
         def apply(arg: Inlined[R])(using DFC): Out =
-          DFVal.Const(Token(info.signed(arg), info.width(arg), Some(arg.value)), named = true)
-      given fromTokenCandidate[R, IC <: Token.Candidate[R]](using
-          ic: IC
+          val dfType = DFXInt(info.signed(arg), info.width(arg))
+          DFVal.Const(dfType, Some(arg.value), named = true)
+      type IntInfoAux[R <: Int, OS <: Boolean, OW <: Int] =
+        IntInfo[R]:
+          type OutS = OS
+          type OutW = OW
+      given fromInt[R <: Int, OS <: Boolean, OW <: Int](using
+          info: IntInfoAux[R, OS, OW]
       ): Candidate[R] with
-        type OutS = ic.OutS
-        type OutW = ic.OutW
+        type OutS = OS
+        type OutW = OW
         type OutP = CONST
-        type IsScalaInt = ic.IsScalaInt
+        type IsScalaInt = true
         def apply(arg: R)(using dfc: DFC): Out =
-          DFVal.Const(ic(arg), named = true)
+          val dfType = DFXInt(info.signed(arg), info.width(arg))
+          DFVal.Const(dfType, Some(BigInt(arg)), named = true)
       given fromDFBitsVal[W <: Int, P, R <: DFValTP[DFBits[W], P]]: Candidate[R] with
         type OutS = false
         type OutW = W
@@ -999,9 +951,6 @@ object DFUInt:
         [UBW <: Int, RW <: Int] =>> "Expected argument width " + UBW + " but found: " + RW
       ]
 
-  type Token[W <: Int] = DFDecimal.Token[false, W, 0]
-  object Token
-
   object Val:
     trait UBArg[UB <: Int, R]:
       type OutW <: Int
@@ -1033,9 +982,7 @@ object DFUInt:
           // TODO: https://github.com/lampepfl/dotty/issues/15798
           val fixme = (ub - 1).asInstanceOf[Inlined[Int]].value
           ubCheck(ub, arg)
-          val token =
-            DFXInt.Token(false, ubInfo.width(fixme), Some(BigInt(arg)))
-          DFVal.Const(token)
+          DFVal.Const(DFUInt(ubInfo.width(fixme)), Some(BigInt(arg)))
       end fromInt
       given fromR[UB <: Int, R, IC <: DFXInt.Val.Candidate[R], I <: IntInfo[UB - 1]](using
           ic: IC,
@@ -1054,7 +1001,7 @@ object DFUInt:
           widthCheck(ubInfo.width(fixme), argVal.width)
           // for constant value we apply an explicit check for the bound
           argVal.asIR match
-            case ir.DFVal.Const(ir.DFDecimal.Token(dfType, data), _, _, _) =>
+            case ir.DFVal.Const(dfType: ir.DFDecimal, data: Option[BigInt] @unchecked, _, _, _) =>
               data match
                 case Some(value) =>
                   summon[`UB > R`.Check[UB, Int]](ub, value.toInt)
@@ -1085,8 +1032,6 @@ object DFSInt:
   ): DFSInt[W] = DFXInt(true, width)
   def apply[W <: Int](using dfType: DFSInt[W]): DFSInt[W] = dfType
 
-  type Token[W <: Int] = DFDecimal.Token[true, W, 0]
-  object Token
   object Val:
     object Ops:
       extension [W <: Int, P](lhs: DFValTP[DFSInt[W], P])

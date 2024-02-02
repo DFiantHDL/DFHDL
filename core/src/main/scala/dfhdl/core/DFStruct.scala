@@ -148,19 +148,6 @@ object DFStruct:
       '{ compiletime.error(${ Expr(msg) }) }
   end sfMacro
 
-  type Token[+F <: FieldsOrTuple] = DFToken[DFStruct[F]]
-  object Token:
-    def apply[F <: FieldsOrTuple](dfType: DFStruct[F], value: Fields): Token[F] =
-      val data = value.productIterator.map { case dfVal: DFVal[?, ?] =>
-        dfVal.asIR match
-          case ir.DFVal.Const(token, _, _, _) => token.data
-          case v =>
-            throw new IllegalArgumentException(
-              s"Tokens must only be constant but found the value: ${v}"
-            )
-      }.toList
-      ir.DFToken.forced(dfType.asIR, data).asTokenOf[DFStruct[F]]
-
   object Val:
     private[core] def unapply(
         fields: FieldsOrTuple

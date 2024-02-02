@@ -45,7 +45,7 @@ abstract class MetaDesign[+D <: DFC.Domain](
   final override private[dfhdl] def skipChecks: Boolean = true
 
   export dfhdl.hdl.{RTDomainCfg => _, ClkCfg => _, RstCfg => _, *}
-  export dfhdl.core.{asValAny, asVarAny, asDclAny, asTokenAny, asTokenOf, asConstAny}
+  export dfhdl.core.{asValAny, asVarAny, asDclAny, asConstAny}
   extension (dfVal: ir.DFVal)
     def cloneAnonValueAndDepsHere: ir.DFVal =
       if (dfVal.isAnonymous)
@@ -54,7 +54,8 @@ abstract class MetaDesign[+D <: DFC.Domain](
         val cloned = locally {
           given DFC = dfcForClone
           dfVal match
-            case const: ir.DFVal.Const => DFVal.Const(const.token.asTokenAny)
+            case const: ir.DFVal.Const =>
+              DFVal.Const.forced(const.dfType.asFE[DFTypeAny], const.data)
             case func: ir.DFVal.Func =>
               val clonedArgs = func.args.map(_.get.cloneAnonValueAndDepsHere)
               DFVal.Func(func.dfType.asFE[DFTypeAny], func.op, clonedArgs)

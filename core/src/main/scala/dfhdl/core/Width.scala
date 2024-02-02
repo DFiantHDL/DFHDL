@@ -168,8 +168,6 @@ object Width:
       dfTpe.asType match
         case '[DFVal[t, m]] if !onlyTokens =>
           TypeRepr.of[t].calcWidth
-        case '[DFToken[t]] =>
-          TypeRepr.of[t].calcWidth
         case '[NonEmptyTuple] =>
           val args = dfTpe.getTupleArgs
           val widths = args.map(a => a.calcValWidth(onlyTokens))
@@ -202,11 +200,6 @@ extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValWidth")
   def width(using w: Width[T]): Inlined[w.Out] =
     Inlined.forced[w.Out](dfVal.asIR.dfType.width)
-
-extension [T <: DFTypeAny](token: DFToken[T])
-  @targetName("tokenWidth")
-  def width(using w: Width[T]): Inlined[w.Out] =
-    Inlined.forced[w.Out](token.asIR.width)
 
 extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tWidth")

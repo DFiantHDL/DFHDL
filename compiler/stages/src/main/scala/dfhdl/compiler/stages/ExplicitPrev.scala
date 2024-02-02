@@ -180,7 +180,7 @@ case object ExplicitPrev extends Stage:
         val explicitPrevAssignDsn = new MetaDesign(e, Patch.Add.Config.After):
           val modifier = dfhdl.core.Modifier(e.modifier)
           val dfType = new dfhdl.core.DFType(e.dfType)
-          val bubble = dfhdl.core.DFVal.Const(dfhdl.core.Bubble(dfType))
+          val bubble = dfhdl.core.Bubble.constValOf(dfType, named = false)
           val dclWithInit =
             dfhdl.core.DFVal.Dcl(dfType, modifier, List(bubble))(using
               dfc.setMeta(e.meta)

@@ -87,7 +87,7 @@ object RstActive:
                 case (dcl: DFVal.Dcl, const: DFVal.Const) if const.dfType == DFBit => (dcl, const)
                 case (const: DFVal.Const, dcl: DFVal.Dcl) if const.dfType == DFBit => (dcl, const)
                 case _                                                             => break(None)
-              val DFBoolOrBit.Token(_, Some(value: Boolean)) = const.token: @unchecked
+              val value = const.data.asInstanceOf[Option[Boolean]].get
               val actualValue = func.op match
                 case FuncOp.=== => value
                 case _          => !value
@@ -274,7 +274,7 @@ extension (dfVal: DFVal)
   def suggestName(using MemberGetSet): Option[String] = suggestName(dfVal)
   def isBubble(using MemberGetSet): Boolean =
     dfVal match
-      case c: DFVal.Const          => c.token.isBubble
+      case c: DFVal.Const          => c.dfType.isDataBubble(c.data.asInstanceOf[c.dfType.Data])
       case f: DFVal.Func           => f.args.exists(_.get.isBubble)
       case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
       case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
@@ -313,7 +313,7 @@ extension (dfVal: DFVal)
     import DFToken.calcFuncOp
     import DFBits.Ops.sel
     dfVal match
-      case const: DFVal.Const => Some(const.token)
+      case const: DFVal.Const => Some(DFToken.forced(const.dfType, const.data))
       case func: DFVal.Func =>
         val args = func.args.flatMap(_.get.getParamToken)
         if (args.length != func.args.length) None

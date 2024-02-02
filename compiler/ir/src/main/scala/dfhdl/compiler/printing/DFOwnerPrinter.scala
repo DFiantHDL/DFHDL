@@ -95,8 +95,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFCasePatternBind(pattern: Pattern.Bind): String
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String
   def csDFCasePattern(pattern: Pattern): String = pattern match
-    case Pattern.CatchAll         => csDFCasePatternCatchAll
-    case Pattern.Singleton(token) => printer.csDFToken(token)
+    case Pattern.CatchAll            => csDFCasePatternCatchAll
+    case Pattern.Singleton(valueRef) => valueRef.refCodeString
     case Pattern.Alternative(list) =>
       list.map(csDFCasePattern).mkString(csDFCasePatternAlternativeToken)
     case pattern: Pattern.Struct => csDFCasePatternStruct(pattern)

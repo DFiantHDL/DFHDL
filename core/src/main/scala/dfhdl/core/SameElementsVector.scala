@@ -28,6 +28,21 @@ object SameElementsVector:
   def unapply[T, R](arg: SameElementsVector[T]): Option[R] = Some(
     arg.value.asInstanceOf[R]
   )
+  protected[core] def bitsValOf[W <: Int, T <: BitOrBool](
+      width: Inlined[W],
+      sev: SameElementsVector[T],
+      named: Boolean = false
+  )(using DFC): DFConstOf[DFBits[W]] =
+    val boolVal = sev.value match
+      case b: Boolean => b
+      case i: Int     => i > 0
+    DFVal.Const(
+      DFBits(width),
+      (BitVector.fill(width.value)(boolVal), BitVector.low(width.value)),
+      named
+    )
+  end bitsValOf
+
   given eqBit[W <: Int, T <: BitOrBool]: CanEqual[SameElementsVector[T], DFValOf[DFBits[W]]] =
     CanEqual.derived
   given eqVec[DFT <: DFTypeAny, D <: NonEmptyTuple, T]

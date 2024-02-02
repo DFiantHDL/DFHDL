@@ -116,17 +116,17 @@ trait AbstractTokenPrinter extends AbstractPrinter:
   def csDFStructData(dfType: DFStruct, data: List[Any]): String
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String
   def csDFUnitData(dfType: DFUnit, data: Unit): String
-  final def csDFToken(token: DFTokenAny): String = token match
-    case DFBits.Token(dt, data)      => csDFBitsData(dt, data)
-    case DFBoolOrBit.Token(dt, data) => csDFBoolOrBitData(dt, data)
-    case DFDecimal.Token(dt, data)   => csDFDecimalData(dt, data)
-    case DFEnum.Token(dt, data)      => csDFEnumData(dt, data)
-    case DFVector.Token(dt, data)    => csDFVectorData(dt, data)
-    case DFOpaque.Token(dt, data)    => csDFOpaqueData(dt, data)
-    case DFStruct.Token(dt, data) if dt.isTuple && tupleSupportEnable =>
+  final def csConstData(dfType: DFType, data: Any): String = (dfType, data) match
+    case DFBits.Data(dt, data)      => csDFBitsData(dt, data)
+    case DFBoolOrBit.Data(dt, data) => csDFBoolOrBitData(dt, data)
+    case DFDecimal.Data(dt, data)   => csDFDecimalData(dt, data)
+    case DFEnum.Data(dt, data)      => csDFEnumData(dt, data)
+    case DFVector.Data(dt, data)    => csDFVectorData(dt, data)
+    case DFOpaque.Data(dt, data)    => csDFOpaqueData(dt, data)
+    case DFStruct.Data(dt, data) if dt.isTuple && tupleSupportEnable =>
       csDFTupleData(dt.fieldMap.values.toList, data)
-    case DFStruct.Token(dt, data) => csDFStructData(dt, data)
-    case DFUnit.Token(dt, data)   => csDFUnitData(dt, data)
+    case DFStruct.Data(dt, data) => csDFStructData(dt, data)
+    case DFUnit.Data(dt, data)   => csDFUnitData(dt, data)
     case x =>
       throw new IllegalArgumentException(
         s"Unexpected token found: $x"
@@ -161,23 +161,23 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     given CanEqual[Any, Any] = CanEqual.derived
     if (data.allElementsAreEqual)
-      s"all(${csDFToken(DFToken.forced(dfType.cellType, data.head))})"
+      s"all(${csConstData(dfType.cellType, data.head)})"
     else if (data.length > maxVectorDisplay)
       "<vector data length over max `maxVectorDisplay` in printer>"
     else
-      s"Vector${data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkStringBrackets}"
+      s"Vector${data.map(x => csConstData(dfType.cellType, x)).mkStringBrackets}"
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
-    s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.getName})"
+    s"${csConstData(dfType.actualType, data).applyBrackets()}.as(${dfType.getName})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
     dfType.getName + dfType.fieldMap
       .lazyZip(data)
       .map { case ((n, t), d) =>
-        s"$n = ${csDFToken(DFToken.forced(t, d))}"
+        s"$n = ${csConstData(t, d)}"
       }
       .mkStringBrackets
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String =
     (dfTypes lazyZip data)
-      .map((t, d) => csDFToken(DFToken.forced(t, d)))
+      .map((t, d) => csConstData(t, d))
       .mkStringBrackets
   def csDFUnitData(dfType: DFUnit, data: Unit): String = "()"
 end DFTokenPrinter

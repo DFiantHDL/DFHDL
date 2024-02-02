@@ -59,11 +59,12 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
       // Just checking singleton token patterns.
       // If we stumble upon more complex patterns, we return None to
       var complexPattern = false
-      lazy val tokenSet = cases.view
+      lazy val constSet = cases.view
         .map(_.pattern)
         .flattenPatterns // getting rid of the pattern alternative
         .flatMap {
-          case Pattern.Singleton(token) => Some(token)
+          case Pattern.Singleton(DFRef(const: DFVal.Const)) =>
+            Some(const)
           case _ =>
             complexPattern = true
             None
@@ -72,18 +73,18 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
       selectorVal.dfType match
         case _ if complexPattern => None
         case DFBits(width) =>
-          if (tokenSet.exists(_.isBubble)) None // currently not checking don't-care patterns
-          else Some((1 << width) == tokenSet.size)
+          if (constSet.exists(_.isBubble)) None // currently not checking don't-care patterns
+          else Some((1 << width) == constSet.size)
         case dec: DFDecimal =>
           // A decimal is considered covered when all its values are covered.
           // All the possible values are determined by the width of the decimal.
-          Some((1 << dec.width) == tokenSet.size)
+          Some((1 << dec.width) == constSet.size)
         case DFEnum(name, width, entries) =>
           // An enum is considered covered when all its entries are covered.
           // Since both token set and entries set are unique and type checking
           // already confirmed, then we can safely assume that everything is
           // covered when both set sizes are the same.
-          Some(entries.size == tokenSet.size)
+          Some(entries.size == constSet.size)
         case _ => None
       end match
     case _ => Some(false)

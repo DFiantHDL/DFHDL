@@ -232,10 +232,6 @@ extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tcDFType")
   def dfType: tc.Type = tc(t)
 
-extension [T <: DFTypeAny](token: DFToken[T])
-  @targetName("tokenDFType")
-  def dfType: T = token.asIR.dfType.asFE[T]
-
 extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValDFType")
   def dfType: T = dfVal.asIR.dfType.asFE[T]

@@ -44,20 +44,6 @@ object DFOpaque:
     def actualType: A = dfType.asIR.actualType.asFE[A]
     def opaqueType: TFE = dfType.asIR.id.asInstanceOf[TFE]
 
-  type Token[TFE <: Abstract] = DFToken[DFOpaque[TFE]]
-  object Token:
-    def apply[A <: DFTypeAny, TFE <: Frontend[A]](
-        tfe: TFE,
-        token: DFToken[A]
-    ): Token[TFE] =
-      ir.DFToken(DFOpaque(tfe).asIR)(token.asIR.data).asTokenOf[DFOpaque[TFE]]
-    def forced[TFE <: Abstract](
-        tfe: TFE,
-        token: DFTokenAny
-    ): Token[TFE] =
-      ir.DFToken(DFOpaque(tfe).asIR)(token.asIR.data).asTokenOf[DFOpaque[TFE]]
-  end Token
-
   object Val:
     object TC:
       import DFVal.TC

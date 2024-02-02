@@ -3,10 +3,10 @@ protected object hdl:
   class dsn extends scala.annotation.StaticAnnotation
   export core.DFType.Ops.*
   export core.DFBoolOrBit.Val.Ops.*
-  export core.DFBits.Token.StrInterp.{h, b}
+  export core.DFBits.StrInterp.{h, b}
   export core.DFBits.Val.Ops.*
   export core.DFBits.Val.TupleOps.*
-  export core.DFDecimal.Token.StrInterp.{d, sd}
+  export core.DFDecimal.StrInterp.{d, sd}
   export core.DFDecimal.Val.Ops.*
   export core.DFVector.Val.Ops.*
   export core.DFOpaque.Val.Ops.*

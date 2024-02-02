@@ -40,8 +40,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomControl"
-  //  override val debugFilter: String => Boolean =
-  //    _.contains("DFMatchSpec.scala")
+  // override val debugFilter: String => Boolean = _.contains("Example.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignoreIfs = mutable.Set.empty[String]
@@ -156,7 +155,6 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
 
   override def transformIf(tree: If)(using Context): Tree =
     if (replaceIfs.contains(tree.srcPos.show))
-      errorWhenToken(tree)
       // debug("=======================")
       val dfcTree = dfcStack.head
       var exactWrapper = false
@@ -521,7 +519,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     ): Tree =
       patternSingleton(selector, Literal(constPat))
     def patternSingleton(selector: Tree, constTree: Tree)(using Context): Tree =
-      selectMethod("patternSingleton").appliedToArgs(List(selector, constTree))
+      selectMethod("patternSingleton")
+        .appliedToArgs(List(selector, constTree))
+        .appliedTo(dfcStack.head)
     def patternBind(bindValTree: Tree, patternTree: Tree)(using Context): Tree =
       selectMethod("patternBind")
         .appliedToArgs(List(bindValTree, patternTree))
@@ -544,7 +544,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         .appliedTo(argTree)
         .appliedTo(dfcStack.head)
     def patternSingletonSI(siTree: Tree)(using Context): Tree =
-      selectMethod("patternSingletonSI").appliedTo(siTree)
+      selectMethod("patternSingletonSI")
+        .appliedTo(siTree)
+        .appliedTo(dfcStack.head)
     def patternCatchAll(using Context): Tree = selectMethod("patternCatchAll")
     def patternAlternative(patternTrees: List[Tree])(using Context): Tree =
       selectMethod("patternAlternative").appliedTo(mkList(patternTrees))
@@ -839,22 +841,6 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     mkTuple(List(patternTree, guardTree, blockTree))
   end transformDFCase
 
-  private def errorWhenToken(tree: Tree)(using Context): Unit =
-    val control = tree match
-      case _: If    => "if"
-      case _: Match => "match"
-    tree.tpe.simple match
-      case AppliedType(tycon, _)
-          if tycon <:< requiredClassRef(
-            "dfhdl.core.DFToken"
-          ) =>
-        report.error(
-          s"This DFHDL `$control` is missing an explicit type annotation.",
-          tree.srcPos
-        )
-      case _ =>
-  end errorWhenToken
-
   // skipping trivial tuple match replacement that should cause the match
   // to be discarded by scalac. one example is a foldLeft (see relevant under DFMatchSpec).
   private def skipTrivialTupleMatch(tree: Match)(using Context): Boolean =
@@ -896,7 +882,6 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             FromCore.dfMatchFromCases(defn.UnitType, newSelector, cases, true)
           Block(valDefGen.getValDefs :+ dfMatch, tupleRet)
         else
-          errorWhenToken(tree)
           val cases =
             tree.cases.map(c => transformDFCase(newSelector, c, tree.tpe))
           val dfMatch =

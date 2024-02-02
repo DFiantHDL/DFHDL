@@ -10,27 +10,8 @@ type BitOrBool = BitNum | Boolean
 type DFBoolOrBit = DFType[ir.DFBoolOrBit, NoArgs]
 object DFBoolOrBit:
   type Data = Option[Boolean]
-  type Token = DFToken[DFBoolOrBit]
   given DFBool = DFBool
   given DFBit = DFBit
-  object Token:
-    protected[core] def apply[T <: DFBoolOrBit](
-        dfType: T,
-        data: Option[Boolean]
-    ): DFToken[T] = ir.DFToken(dfType.asIR)(data).asTokenOf[T]
-    protected[core] def apply[T <: DFBoolOrBit](
-        dfType: T,
-        value: Boolean
-    ): DFToken[T] = Token(dfType, Some(value))
-    protected[core] def apply[T <: DFBoolOrBit](
-        dfType: T,
-        value: BitNum
-    ): DFToken[T] = Token(dfType, value > 0)
-    protected[core] def apply[T <: DFBoolOrBit](
-        dfType: T,
-        value: Bubble
-    ): DFToken[T] = Token(dfType, None)
-  end Token
 
   object Val:
     @implicitNotFound(
@@ -46,12 +27,12 @@ object DFBoolOrBit:
         type OutT = DFBool
         type OutP = CONST
         def apply(arg: R)(using DFC): Out =
-          DFVal.Const(Token(DFBool, arg), named = true)
+          DFVal.Const(DFBool, Some(arg), named = true)
       given fromBit[R <: BitNum]: Candidate[R] with
         type OutT = DFBit
         type OutP = CONST
         def apply(arg: R)(using DFC): Out =
-          DFVal.Const(Token(DFBit, arg), named = true)
+          DFVal.Const(DFBit, Some(arg > 0), named = true)
       given fromDFBoolOrBitVal[T <: DFBoolOrBit, P, R <: DFValTP[T, P]]: Candidate[R] with
         type OutT = T
         type OutP = P
@@ -94,7 +75,8 @@ object DFBoolOrBit:
     object Ops:
       extension [P](lhs: DFValTP[DFBoolOrBit, P])
         def toScalaBoolean(using DFC, DFVal.ConstCheck[P]): Boolean =
-          lhs.toScalaValue
+          // lhs.toScalaValue
+          true
         def toScalaBitNum(using DFC, DFVal.ConstCheck[P]): BitNum =
           if (lhs.toScalaBoolean) 1 else 0
       extension [P](lhs: DFValTP[DFBit, P])

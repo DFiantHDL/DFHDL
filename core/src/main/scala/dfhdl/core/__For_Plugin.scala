@@ -12,7 +12,7 @@ object __For_Plugin:
   def toTuple2[T1, T2](t1: T1, t2: T2): (T1, T2) = (t1, t2)
   def toTuple3[T1, T2, T3](t1: T1, t2: T2, t3: T3): (T1, T2, T3) = (t1, t2, t3)
   def fromBoolean(value: Boolean)(using DFC): DFValOf[DFBool] =
-    DFVal.Const(DFBoolOrBit.Token(DFBool, value))
+    DFVal.Const(DFBool, Some(value), named = false)
   // tuple of DFVals "concatenated" to be a DFVal of type tuple
   def structToDFVal[V <: DFValAny](product: FieldsOrTuple)(using DFC): V =
     DFVal.OrTupleOrStruct.unapply(product).get.asInstanceOf[V]
@@ -22,26 +22,26 @@ object __For_Plugin:
     DFVal.Alias
       .SelectField(dfVal, fieldName)(using dfc.anonymize)
       .asInstanceOf[V]
-  def patternSingleton(selector: DFValAny, value: Any): Pattern =
-    val tokenIR = (selector.dfType.asIR, value) match
+  def patternSingleton(selector: DFValAny, value: Any)(using DFC): Pattern =
+    val const = (selector.dfType.asIR, value) match
       case (dt: ir.DFBoolOrBit, v: Int) if v == 0 | v == 1 =>
-        ir.DFBoolOrBit.Token(dt, Some(v > 0))
+        DFVal.Const(dt.asFE[DFBoolOrBit], Some(v > 0))
       case (dt: ir.DFBoolOrBit, v: Boolean) =>
-        ir.DFBoolOrBit.Token(dt, Some(v))
+        DFVal.Const(dt.asFE[DFBoolOrBit], Some(v))
       case (dt: ir.DFBits, allBit: BitOrBool) =>
-        DFBits.Token(dt.width, SameElementsVector(allBit)).asIR
+        SameElementsVector.bitsValOf(dt.width, SameElementsVector(allBit))
       case (dt: ir.DFDecimal, v: Int) =>
-        ir.DFDecimal.Token(dt, Some(BigInt(v)))
+        DFVal.Const(dt.asFE[DFSInt[Int]], Some(BigInt(v)))
       case (dt: ir.DFEnum, v: DFEncoding) =>
-        ir.DFEnum.Token(dt, Some(v.bigIntValue))
+        DFVal.Const(dt.asFE[DFEnum[DFEncoding]], Some(v.bigIntValue))
       case (dt: ir.DFStruct, v) => ???
       case _                    => ???
-    Pattern.Singleton(tokenIR)
+    DFMatch.Pattern.Singleton(const)
   end patternSingleton
-  def patternSingletonSI(si: Any): Pattern =
+  def patternSingletonSI(si: Any)(using DFC): Pattern =
     si match
-      case Some(Seq(DFVal(const: ir.DFVal.Const))) =>
-        Pattern.Singleton(const.token)
+      case Some(Seq(value)) =>
+        DFMatch.Pattern.Singleton(value.asInstanceOf[DFValAny])
       case _ => println(si); ???
   def patternAlternative(list: List[Pattern]): Pattern =
     Pattern.Alternative(list)
@@ -53,7 +53,7 @@ object __For_Plugin:
   ): V =
     val dcl =
       DFVal.Dcl(selector.dfType, Modifier.VAR)(using dfc.setName(extractName))
-    dcl.assign(DFVal.Const(Bubble(selector.dfType)))
+    dcl.assign(Bubble.constValOf(selector.dfType, named = true))
     dcl.asInstanceOf[V]
   def forcedAssign(toVal: DFValAny, fromVal: DFValAny)(using DFC): Unit =
     toVal.asInstanceOf[DFVarOf[DFTypeAny]].assign(fromVal)

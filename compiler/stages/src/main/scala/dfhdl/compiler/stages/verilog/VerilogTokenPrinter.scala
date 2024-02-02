@@ -35,21 +35,20 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
   val maxTokensPerLine = 64
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     given CanEqual[Any, Any] = CanEqual.derived
-    if (data.allElementsAreEqual)
-      s"'{${data.length}{${csDFToken(DFToken.forced(dfType.cellType, data.head))}}}"
+    if (data.allElementsAreEqual) s"'{${data.length}{${csConstData(dfType.cellType, data.head)}}}"
     else
       val allTokens = data.view.grouped(maxTokensPerLine).map(line =>
-        line.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkString(", ")
+        line.map(x => csConstData(dfType.cellType, x)).mkString(", ")
       ).mkString(",\n")
       if (allTokens.contains("\n")) s"'{\n${allTokens.hindent}\n}"
       else s"'{$allTokens}"
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
-    csDFToken(DFToken.forced(dfType.actualType, data))
+    csConstData(dfType.actualType, data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
     dfType.fieldMap
       .lazyZip(data)
       .map { case ((n, t), d) =>
-        s"$n: ${csDFToken(DFToken.forced(t, d))}"
+        s"$n: ${csConstData(t, d)}"
       }
       .mkString("'{", ", ", "}")
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = printer.unsupported

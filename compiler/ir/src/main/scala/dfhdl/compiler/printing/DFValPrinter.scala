@@ -15,8 +15,8 @@ extension (alias: Alias)
 trait AbstractValPrinter extends AbstractPrinter:
   final def csSimpleRef(ref: DFRef.TwoWayAny): String =
     ref.get match
-      case DFVal.Const(DFDecimal.Token(_, Some(i)), _, _, _) => i.toString
-      case _                                                 => ref.refCodeString
+      case DFVal.Const(_: DFDecimal, Some(i), _, _, _) => i.toString
+      case _                                           => ref.refCodeString
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String
   final def csRef(ref: DFRef.TwoWayAny): String =
     try
@@ -40,7 +40,7 @@ trait AbstractValPrinter extends AbstractPrinter:
     alias.relValRef.refCodeString.applyBrackets()
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String
   final def csDFValConstExpr(dfVal: Const): String =
-    printer.csDFToken(dfVal.token)
+    printer.csConstData(dfVal.dfType, dfVal.data)
   def csDFValDclWithoutInit(dfVal: Dcl): String
   def csInitKeyword: String
   def csInitSingle(ref: Dcl.InitRef): String

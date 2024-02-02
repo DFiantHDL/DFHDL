@@ -113,14 +113,6 @@ object DFTuple:
     end zipperMacro
   end TCZipper
 
-  type Token[+T <: NonEmptyTuple] = DFToken[DFTuple[T]]
-  object Token:
-    protected[core] def apply[T <: NonEmptyTuple](
-        dfType: DFTuple[T],
-        data: List[Any]
-    ): Token[T] =
-      ir.DFToken(dfType.asIR)(data).asTokenOf[DFTuple[T]]
-
   object Val:
     private[core] def unapply(
         tuple: Tuple

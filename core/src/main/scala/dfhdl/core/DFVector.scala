@@ -76,42 +76,27 @@ object DFVector:
     end extension
   end Ops
 
-  type Token[+T <: DFTypeAny, +D <: NonEmptyTuple] = DFToken[DFVector[T, D]]
-  object Token:
-    def apply[T <: DFTypeAny, D <: NonEmptyTuple](
-        dfType: DFVector[T, D],
-        data: Vector[Any]
-    ): Token[T, D] =
-      val dim = dfType.asIR.cellDims.head
-      require(
-        data.length == dim,
-        s"The length of the Scala vector (${data.length}) does not match the DFHDL vector dimension ($dim)"
-      )
-      ir.DFVector.Token(dfType.asIR, data).asTokenOf[DFVector[T, D]]
-
-    // object Ops:
-    //   extension [T <: DFTypeAny, D1 <: Int](lhs: Token[T, Tuple1[D1]])
-    //     @targetName("applyDFVector")
-    //     def apply[I <: Int](
-    //         idx: Inlined[I]
-    //     )(using
-    //         check: BitIndex.Check[I, D1]
-    //     ): DFToken[T] =
-    //       check(idx, lhs.dfType.cellDims.head)
-    //       ir.DFToken
-    //         .forced(lhs.dfType.asIR.cellType, lhs.data(idx))
-    //         .asTokenOf[T]
-    //     def elements: Vector[DFToken[T]] =
-    //       val elementType = lhs.dfType.asIR.cellType
-    //       Vector.tabulate(lhs.dfType.cellDims.head)(i =>
-    //         ir.DFToken
-    //           .forced(elementType, lhs.data(i))
-    //           .asTokenOf[T]
-    //       )
-    //   end extension
-    // end Ops
-
-  end Token
+  // object Ops:
+  //   extension [T <: DFTypeAny, D1 <: Int](lhs: Token[T, Tuple1[D1]])
+  //     @targetName("applyDFVector")
+  //     def apply[I <: Int](
+  //         idx: Inlined[I]
+  //     )(using
+  //         check: BitIndex.Check[I, D1]
+  //     ): DFToken[T] =
+  //       check(idx, lhs.dfType.cellDims.head)
+  //       ir.DFToken
+  //         .forced(lhs.dfType.asIR.cellType, lhs.data(idx))
+  //         .asTokenOf[T]
+  //     def elements: Vector[DFToken[T]] =
+  //       val elementType = lhs.dfType.asIR.cellType
+  //       Vector.tabulate(lhs.dfType.cellDims.head)(i =>
+  //         ir.DFToken
+  //           .forced(elementType, lhs.data(i))
+  //           .asTokenOf[T]
+  //       )
+  //   end extension
+  // end Ops
 
   object Val:
     object TC:
@@ -194,7 +179,7 @@ object DFVector:
           DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idxVal)
         }
         def elements(using DFC): Vector[DFValOf[T]] =
-          import DFDecimal.Token.StrInterp.d
+          import DFDecimal.StrInterp.d
           val elementType = lhs.dfType.cellType
           Vector.tabulate(lhs.dfType.cellDims.head)(i =>
             val idxVal = d"$i".asConstOf[DFUInt[Int]]

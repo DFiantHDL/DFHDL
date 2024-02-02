@@ -18,6 +18,12 @@ object DFType:
 
   protected[ir] abstract class Companion[T <: DFType, D](using ClassTag[T]):
     type Token = DFToken[T]
+    object Data:
+      def unapply(dfTypeAndData: (DFType, Any)): Option[(T, D)] =
+        dfTypeAndData match
+          case (dt: T, data: D @unchecked) =>
+            Some(dt, data)
+          case _ => None
     object Token:
       type Data = D
       def apply(dfType: T, data: D): DFToken[T] =

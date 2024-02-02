@@ -314,7 +314,7 @@ extension (dfType: DFType)(using printer: DFTypePrinter)
     printer.csDFType(dfType)
 extension (token: DFTokenAny)(using printer: DFTokenPrinter)
   def codeString: String =
-    printer.csDFToken(token)
+    printer.csConstData(token.dfType, token.data)
 
 def DefaultPrinter(using MemberGetSet): Printer =
   given PrinterOptions.Align = false

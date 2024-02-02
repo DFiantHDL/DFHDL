@@ -236,18 +236,18 @@ object DFVal:
           case _                                      => super.isSameOwnerDesignAs(that)
 
   final case class Const(
-      token: DFTokenAny,
+      dfType: DFType,
+      data: Any,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
   ) extends CanBeExpr,
         CanBeGlobal:
-    val dfType = token.dfType
     protected def protIsConst(using MemberGetSet): Boolean = true
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
         given CanEqual[Any, Any] = CanEqual.derived
-        this.token == that.token &&
+        this.dfType == that.dfType && this.data == that.data &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -472,8 +472,9 @@ object DFVal:
       object Const:
         def unapply(applyIdx: ApplyIdx)(using MemberGetSet): Option[Int] =
           applyIdx.relIdx.get match
-            case DFVal.Const(DFDecimal.Token(DFUInt(_), data), _, _, _) => data.map(_.toInt)
-            case _                                                      => None
+            case DFVal.Const(DFUInt(_), data: Option[BigInt] @unchecked, _, _, _) =>
+              data.map(_.toInt)
+            case _ => None
 
     final case class SelectField(
         dfType: DFType,
@@ -690,9 +691,13 @@ object DFConditional:
       case object CatchAll extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean = this == that
         def getRefs: List[DFRef.TwoWayAny] = Nil
-      final case class Singleton(token: DFTokenAny) extends Pattern:
-        protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean = this == that
-        def getRefs: List[DFRef.TwoWayAny] = Nil
+      final case class Singleton(valueRef: DFVal.Ref) extends Pattern:
+        protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
+          that match
+            case that: Singleton =>
+              this.valueRef =~ that.valueRef
+            case _ => false
+        def getRefs: List[DFRef.TwoWayAny] = List(valueRef)
       final case class Alternative(list: List[Pattern]) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match

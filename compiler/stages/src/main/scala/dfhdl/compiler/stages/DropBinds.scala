@@ -14,7 +14,9 @@ case object DropBinds extends Stage:
   def nullifies: Set[Stage] = Set()
   // this unapply matches on bind patterns, strip them of their binds, and returns the binds as a list
   private object ReplacePattern:
-    def unapply(pattern: Pattern)(using MemberGetSet): Option[(Pattern, List[DFVal])] =
+    def unapply(
+        pattern: Pattern
+    )(using MemberGetSet, dfhdl.core.DFC): Option[(Pattern, List[DFVal])] =
       pattern match
         case Pattern.Struct(name, fieldPatterns) =>
           var bindVals = List.empty[DFVal]
@@ -38,12 +40,11 @@ case object DropBinds extends Stage:
                 case "h" => s"{$qmarks}" // using binary mode for hex
             }
           val tokenStr = parts.coalesce(bubbles).mkString
-          import dfhdl.core.DFBits.Token.StrInterp.{b, h}
+          import dfhdl.core.DFBits.StrInterp.{b, h}
           val dfVal = op match
             case "b" => b"${tokenStr}"
             case "h" => h"${tokenStr}"
-          val (DFVal.Const(token, _, _, _)) = dfVal.asIR: @unchecked
-          Some(Pattern.Singleton(token), refs.map(_.get))
+          Some(dfhdl.core.DFMatch.Pattern.Singleton(dfVal), refs.map(_.get))
         case _ => None
   end ReplacePattern
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
@@ -51,18 +52,23 @@ case object DropBinds extends Stage:
     val patchList = designDB.conditionalChainTable.toList.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>
         val bindCaseMap = mutable.Map.empty[DFVal, DFConditional.DFCaseBlock]
+        // TODO: casesPatchList is not used!!!!!
+        val casesPatchList = mutable.ListBuffer.empty[(DFMember, Patch)]
         // go through all cases, set a patch to replace bind patterns, and memoize the binds and their cases
-        val casesPatchList: List[(DFMember, Patch)] = cases.flatMap(c =>
-          c.pattern match
-            case ReplacePattern(pattern, binds) =>
-              // memoize binds and their cases
-              binds.foreach(b => bindCaseMap += (b -> c))
-              // bind-less pattern
-              Some(
-                c -> Patch.Replace(c.copy(pattern = pattern), Patch.Replace.Config.FullReplacement)
-              )
-            case _ => None
-        )
+        val singletonPatternConstsPatch = new MetaDesign(mh, Patch.Add.Config.Before):
+          cases.foreach(c =>
+            c.pattern match
+              case ReplacePattern(pattern, binds) =>
+                // memoize binds and their cases
+                binds.foreach(b => bindCaseMap += (b -> c))
+                // bind-less pattern
+                casesPatchList += c -> Patch.Replace(
+                  c.copy(pattern = pattern),
+                  Patch.Replace.Config.FullReplacement
+                )
+              case _ => // do nothing
+          )
+        .patch
         // group similar binds together
         val bindGroups = bindCaseMap.keys.groupByCompare((l, r) => l =~ r, _.getName.hashCode())
         // will memoize the stalled bind variables required to be added in cases where those binds
@@ -101,10 +107,12 @@ case object DropBinds extends Stage:
             // reference the first bind that is stripped from its alias.
             else
               val aliasIR = headBind.removeTagOf[Pattern.Bind.Tag.type]
-              (headBind -> Patch.Replace(
-                aliasIR,
-                Patch.Replace.Config.FullReplacement
-              )) :: otherBinds.map(b =>
+              singletonPatternConstsPatch :: (
+                headBind -> Patch.Replace(
+                  aliasIR,
+                  Patch.Replace.Config.FullReplacement
+                )
+              ) :: otherBinds.map(b =>
                 b -> Patch.Replace(aliasIR, Patch.Replace.Config.ChangeRefAndRemove)
               )
             end if

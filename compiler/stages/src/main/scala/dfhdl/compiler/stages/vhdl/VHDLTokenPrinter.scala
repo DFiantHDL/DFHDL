@@ -33,14 +33,14 @@ protected trait VHDLTokenPrinter extends AbstractTokenPrinter:
         s"${dfType.getName}.${entryName}"
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
-    s"Vector${data.map(x => csDFToken(DFToken.forced(dfType.cellType, x))).mkStringBrackets}"
+    s"Vector${data.map(x => csConstData(dfType.cellType, x)).mkStringBrackets}"
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
-    s"${csDFToken(DFToken.forced(dfType.actualType, data)).applyBrackets()}.as(${dfType.getName})"
+    s"${csConstData(dfType.actualType, data).applyBrackets()}.as(${dfType.getName})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
     dfType.getName + dfType.fieldMap
       .lazyZip(data)
       .map { case ((n, t), d) =>
-        s"$n = ${csDFToken(DFToken.forced(t, d))}"
+        s"$n = ${csConstData(t, d)}"
       }
       .mkStringBrackets
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = printer.unsupported

@@ -74,8 +74,8 @@ object DFMatch:
   object Pattern:
     export DFCaseBlock.Pattern.CatchAll
     object Singleton:
-      def apply(token: DFTokenAny): DFCaseBlock.Pattern =
-        DFCaseBlock.Pattern.Singleton(token.asIR)
+      def apply(value: DFValAny)(using DFC): DFCaseBlock.Pattern =
+        DFCaseBlock.Pattern.Singleton(value.asIR.refTW[DFCaseBlock])
   object Block:
     def apply(
         pattern: Pattern,
