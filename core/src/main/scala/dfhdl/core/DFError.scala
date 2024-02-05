@@ -57,12 +57,6 @@ class Logger:
 //    case e: IllegalArgumentException => DFError.Basic(e).asFE[T]
 //    case e: DFError                  => e.asFE[T]
 //
-//@targetName("tryDFToken")
-//def trydf[T <: DFTypeAny](block: => DFToken[T]): DFToken[T] =
-//  try block
-//  catch
-//    case e: IllegalArgumentException => DFError.Basic(e).asTokenOf[T]
-//    case e: DFError                  => e.asTokenOf[T]
 
 @targetName("tryDFVal")
 @metaContextForward(0)

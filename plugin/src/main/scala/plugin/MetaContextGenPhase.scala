@@ -30,7 +30,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override val runsBefore = Set("MetaContextDelegate")
   var setMetaSym: Symbol = uninitialized
   var setMetaAnonSym: Symbol = uninitialized
-  var dfTokenSym: Symbol = uninitialized
   val treeOwnerApplyMap = mutable.Map.empty[Apply, (MemberDef, util.SrcPos)]
   val treeOwnerOverrideMap = mutable.Map.empty[DefDef, (Tree, util.SrcPos)]
   val contextDefs = mutable.Map.empty[String, Tree]
@@ -367,9 +366,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           if (fun == nme.EQ || fun == nme.NE) &&
             (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType || lhs.tpe <:< defn.TupleTypeRef) =>
         val rhsSym = rhs.tpe.dealias.typeSymbol
-        if (rhsSym == dfValSym || rhsSym == dfTokenSym)
+        if (rhsSym == dfValSym)
           report.error(
-            s"Unsupported Scala primitive at the LHS of `$fun` with a DFHDL value or token.\nConsider switching positions of the arguments.",
+            s"Unsupported Scala primitive at the LHS of `$fun` with a DFHDL value.\nConsider switching positions of the arguments.",
             pos
           )
       case Apply(Select(lhs, fun), List(Apply(Apply(Ident(hackName), _), _)))
@@ -472,7 +471,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     setMetaAnonSym = metaContextCls.requiredMethod("setMetaAnon")
-    dfTokenSym = requiredClass("dfhdl.core.DFToken")
     treeOwnerApplyMap.clear()
     treeOwnerOverrideMap.clear()
     contextDefs.clear()
