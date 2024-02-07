@@ -39,7 +39,7 @@ object DFTuple:
     type OutP
     def apply(
         fieldList: List[DFTypeAny],
-        tokenTupleValues: List[Any]
+        tupleValues: List[Any]
     ): List[O]
   object TCZipper:
     transparent inline given [
@@ -64,7 +64,7 @@ object DFTuple:
     ): Expr[TCZipper[T, V, O, TC]] =
       def applyExpr[T <: NonEmptyTuple, V <: NonEmptyTuple](
           fieldListExpr: Expr[List[DFTypeAny]],
-          tokenTupleValuesExpr: Expr[List[Any]]
+          tupleValuesExpr: Expr[List[Any]]
       )(using Quotes, Type[T], Type[V], Type[O], Type[TC]): Expr[List[O]] =
         import quotes.reflect.*
         val tArgs = TypeRepr.of[T].getTupleArgs
@@ -85,7 +85,7 @@ object DFTuple:
                     .apply($iExpr)
                     .asInstanceOf[dfTypeTpe.Underlying]
                 val value =
-                  $tokenTupleValuesExpr
+                  $tupleValuesExpr
                     .apply($iExpr)
                     .asInstanceOf[vType.Underlying]
                 tc.conv(dfType, value)(using compiletime.summonInline[DFC])
@@ -105,9 +105,9 @@ object DFTuple:
           type OutP = pType.Underlying
           def apply(
               fieldList: List[DFTypeAny],
-              tokenTupleValues: List[Any]
+              tupleValues: List[Any]
           ): List[O] = ${
-            applyExpr[T, V]('fieldList, 'tokenTupleValues)
+            applyExpr[T, V]('fieldList, 'tupleValues)
           }
       }
     end zipperMacro

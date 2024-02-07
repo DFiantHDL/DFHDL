@@ -73,7 +73,7 @@ object Width:
             case '[DFOpaque[t]] =>
               TypeRepr.of[t].calcWidth
             case '[DFTuple[t]] =>
-              TypeRepr.of[t].getTupleArgs.map(_.calcValWidth(false)).reduce(_ + _)
+              TypeRepr.of[t].getTupleArgs.map(_.calcValWidth).reduce(_ + _)
             case '[DFStruct[p]] =>
               TypeRepr.of[p].calcWidth
             // TODO: figure out why this is needed and DFVector case is not taken
@@ -163,21 +163,21 @@ object Width:
           end match
       end match
     end calcWidth
-    def calcValWidth(onlyTokens: Boolean): quotes.reflect.TypeRepr =
+    def calcValWidth: quotes.reflect.TypeRepr =
       import quotes.reflect.*
       dfTpe.asType match
-        case '[DFVal[t, m]] if !onlyTokens =>
+        case '[DFVal[t, m]] =>
           TypeRepr.of[t].calcWidth
         case '[NonEmptyTuple] =>
           val args = dfTpe.getTupleArgs
-          val widths = args.map(a => a.calcValWidth(onlyTokens))
+          val widths = args.map(a => a.calcValWidth)
           widths.reduce(_ + _)
         case _ =>
           dfTpe.dealias match
             case ConstantType(IntConstant(v)) if (v == 1 || v == 0) =>
               ConstantType(IntConstant(1))
             case ref: TermRef if ref.termSymbol.name != "<none>" =>
-              ref.widen.calcValWidth(onlyTokens)
+              ref.widen.calcValWidth
             case x =>
               report.errorAndAbort(
                 s"Unsupported argument value ${x.showType} for DFHDL receiver type DFBits"

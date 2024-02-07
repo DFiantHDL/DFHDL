@@ -17,21 +17,11 @@ object DFType:
   type Aux[T <: DFType, Data0] = DFType { type Data = Data0 }
 
   protected[ir] abstract class Companion[T <: DFType, D](using ClassTag[T]):
-    type Token = DFToken[T]
     object Data:
       def unapply(dfTypeAndData: (DFType, Any)): Option[(T, D)] =
         dfTypeAndData match
           case (dt: T, data: D @unchecked) =>
             Some(dt, data)
-          case _ => None
-    object Token:
-      type Data = D
-      def apply(dfType: T, data: D): DFToken[T] =
-        DFToken.forced(dfType, data)
-      def unapply(token: DFTokenAny): Option[(T, D)] =
-        token.dfType match
-          case dt: T =>
-            Some((dt, token.data.asInstanceOf[D]))
           case _ => None
     object Val:
       def unapply(arg: DFVal): Option[T] =
@@ -95,7 +85,7 @@ final case class DFBits(width: Int) extends DFType:
   def dataToBitsData(data: Data): (BitVector, BitVector) = data
   def bitsDataToData(data: (BitVector, BitVector)): Data = data
 
-object DFBits extends DFBitsCompanion
+object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -125,15 +115,15 @@ final case class DFDecimal(
     else None
 end DFDecimal
 
-object DFDecimal extends DFDecimalCompanion
+object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]
 
-object DFXInt extends DFXIntCompanion:
+object DFXInt:
   def apply(signed: Boolean, width: Int): DFDecimal = DFDecimal(signed, width, 0)
-  object Token:
-    def apply(signed: Boolean, width: Int, data: Option[BigInt]): DFDecimal.Token =
-      DFDecimal.Token(DFXInt(signed, width), data)
+  def unapply(dfType: DFDecimal): Option[(Boolean, Int)] = dfType match
+    case DFDecimal(signed, width, 0) => Some(signed, width)
+    case _                           => None
 
-object DFUInt extends DFUIntCompanion:
+object DFUInt:
   def apply(width: Int): DFDecimal = DFDecimal(false, width, 0)
   def unapply(arg: DFDecimal): Option[Int] =
     arg match

@@ -84,7 +84,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csIfBlockEmpty: String = ""
   def csDFCaseBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "others"
-  def csDFCasePatternAlternativeToken: String = " | "
+  def csDFCasePatternAlternativeData: String = " | "
   def csDFCasePatternStruct(pattern: Pattern.Struct): String = printer.unsupported
   def csDFCasePatternBind(pattern: Pattern.Bind): String = printer.unsupported
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String = printer.unsupported

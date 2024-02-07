@@ -690,7 +690,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
             arg.srcPos
           )
           EmptyTree
-      // token string interpolation
+      // constant string interpolation
       case Pattern.SI(block, binds, rhs) =>
         dfTypeTpe match
           case DFBits(_) | DFXInt(_, _) => // ok

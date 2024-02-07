@@ -90,7 +90,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csIfBlockEmpty: String
   def csDFCaseBlockEmpty: String
   def csDFCasePatternCatchAll: String
-  def csDFCasePatternAlternativeToken: String
+  def csDFCasePatternAlternativeData: String
   def csDFCasePatternStruct(pattern: Pattern.Struct): String
   def csDFCasePatternBind(pattern: Pattern.Bind): String
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String
@@ -98,7 +98,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     case Pattern.CatchAll            => csDFCasePatternCatchAll
     case Pattern.Singleton(valueRef) => valueRef.refCodeString
     case Pattern.Alternative(list) =>
-      list.map(csDFCasePattern).mkString(csDFCasePatternAlternativeToken)
+      list.map(csDFCasePattern).mkString(csDFCasePatternAlternativeData)
     case pattern: Pattern.Struct => csDFCasePatternStruct(pattern)
     case pattern: Pattern.Bind   => csDFCasePatternBind(pattern)
     case pattern: Pattern.BindSI => csDFCasePatternBindSI(pattern)
@@ -247,7 +247,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csIfBlockEmpty: String = " {}"
   def csDFCaseBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "_"
-  def csDFCasePatternAlternativeToken: String = " | "
+  def csDFCasePatternAlternativeData: String = " | "
   def csDFCasePatternStruct(pattern: Pattern.Struct): String =
     pattern.name + pattern.fieldPatterns.map(csDFCasePattern).mkStringBrackets
   def csDFCasePatternBind(pattern: Pattern.Bind): String =

@@ -78,7 +78,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csIfBlockEmpty: String = ""
   def csDFCaseBlockEmpty: String = "begin end"
   def csDFCasePatternCatchAll: String = "default"
-  def csDFCasePatternAlternativeToken: String = " | "
+  def csDFCasePatternAlternativeData: String = " | "
   def csDFCasePatternStruct(pattern: Pattern.Struct): String = printer.unsupported
   def csDFCasePatternBind(pattern: Pattern.Bind): String = printer.unsupported
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String = printer.unsupported

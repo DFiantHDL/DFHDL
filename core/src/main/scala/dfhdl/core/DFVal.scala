@@ -326,10 +326,18 @@ object DFVal extends DFValLP:
   extension [D, T <: ir.DFType, P](lhs: DFValTP[DFType[ir.DFType.Aux[T, Option[D]], ?], P])
     protected[core] def toScalaValue(using dfc: DFC, check: ConstCheck[P]): D =
       import dfc.getSet
-      import dfhdl.compiler.analysis.getParamToken
-      lhs.asIR.getParamToken.flatMap(_.data.asInstanceOf[Option[D]]) match
-        case Some(value) => value
-        case _           => ???
+      import dfhdl.compiler.analysis.getParamData
+      val lhsIR = lhs.asIR
+      def error(errMsg: String): Nothing =
+        exitWithError(
+          s"""|Scala value access error!
+              |Position:  ${lhsIR.meta.position}
+              |Hierarchy: ${lhsIR.getOwnerDesign.getFullName}
+              |Message:   ${errMsg}""".stripMargin
+        )
+      lhsIR.getParamData.asInstanceOf[Option[Option[D]]]
+        .getOrElse(error("Cannot fetch a Scala value from a non-constant DFHDL value."))
+        .getOrElse(error("Cannot fetch a Scala value from a bubble (invalid) DFHDL value."))
 
   trait InitCheck[I]
   given [I](using
@@ -480,7 +488,7 @@ object DFVal extends DFValLP:
               def apply(dfType: DFTuple[T])(using dfc: DFC): List[DFConstOf[DFTuple[T]]] =
                 List(${ Expr.ofList(inits('dfType, 'dfc)) }*)
           }
-        // otherwise the entire tuple is considered the token candidate.
+        // otherwise the entire tuple is considered as a candidate.
         else
           val vTerm = term.exactTerm
           val vType = vTerm.tpe.asTypeOf[Any]
@@ -648,13 +656,15 @@ object DFVal extends DFValLP:
       )(using DFC): DFVal[AT, M] =
         relVal.asIR match
           // anonymous constant are replaced by a different constant
-          // after its token value was converted according to the alias
+          // after its data value was converted according to the alias
           case const: ir.DFVal.Const
               if (const.isAnonymous || relVal.inDFCPosition) && !forceNewAlias =>
-            val updatedToken = ir.DFToken.forced(const.dfType, const.data).as(aliasType.asIR)
+            val updatedData = ir.dataConversion(aliasType.asIR, const.dfType)(
+              const.data.asInstanceOf[const.dfType.Data]
+            )
             dfc.mutableDB.setMember(
               const,
-              _.copy(dfType = updatedToken.dfType, data = updatedToken.data, meta = dfc.getMeta)
+              _.copy(dfType = aliasType.asIR, data = updatedData, meta = dfc.getMeta)
             ).asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
@@ -718,15 +728,15 @@ object DFVal extends DFValLP:
       )(using DFC): ir.DFVal =
         relVal match
           // anonymous constant are replace by a different constant
-          // after its token value was converted according to the alias
+          // after its data value was converted according to the alias
           case const: ir.DFVal.Const if const.isAnonymous =>
-            import ir.DFBits.Ops.sel
-            val updatedToken =
-              ir.DFToken.forced(const.dfType, const.data).asInstanceOf[ir.DFBits.Token].sel(
+            val updatedData =
+              ir.selBitRangeData(
+                const.data.asInstanceOf[(BitVector, BitVector)],
                 relBitHigh,
                 relBitLow
               )
-            Const.forced(updatedToken.dfType.asFE[DFTypeAny], updatedToken.data).asIR
+            Const.forced(DFBits(relBitHigh - relBitLow + 1), updatedData).asIR
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
@@ -1027,7 +1037,7 @@ object VarsTuple:
       case Some(err) => '{ compiletime.error(${ Expr(err) }) }
       case None =>
         import Width.calcValWidth
-        val widthType = tTpe.calcValWidth(false).asTypeOf[Int]
+        val widthType = tTpe.calcValWidth.asTypeOf[Int]
         '{
           new VarsTuple[T]:
             type Width = widthType.Underlying

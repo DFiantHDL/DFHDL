@@ -8,7 +8,7 @@ import dfhdl.options.PrinterOptions
 class VerilogPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptions)
     extends Printer,
       VerilogTypePrinter,
-      VerilogTokenPrinter,
+      VerilogDataPrinter,
       VerilogValPrinter,
       VerilogOwnerPrinter:
   type TPrinter = VerilogPrinter

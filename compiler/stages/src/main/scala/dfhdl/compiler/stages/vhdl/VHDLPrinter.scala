@@ -8,7 +8,7 @@ import dfhdl.options.PrinterOptions
 class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptions)
     extends Printer,
       VHDLTypePrinter,
-      VHDLTokenPrinter,
+      VHDLDataPrinter,
       VHDLValPrinter,
       VHDLOwnerPrinter:
   type TPrinter = VHDLPrinter

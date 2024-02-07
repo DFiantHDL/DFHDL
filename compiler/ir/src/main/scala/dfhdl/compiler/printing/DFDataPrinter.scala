@@ -3,7 +3,7 @@ package printing
 import ir.*
 import dfhdl.internals.*
 
-trait AbstractTokenPrinter extends AbstractPrinter:
+trait AbstractDataPrinter extends AbstractPrinter:
   val allowBitsBinModeInHex: Boolean
   val allowBitsExplicitWidth: Boolean
   def csDFBitBubbleChar: Char
@@ -80,8 +80,8 @@ trait AbstractTokenPrinter extends AbstractPrinter:
   def csDFSIntFormatBig(value: BigInt, width: Int): String
   def csDFUIntFormatSmall(value: BigInt, width: Int): String
   def csDFSIntFormatSmall(value: BigInt, width: Int): String
-  def csDFUIntTokenFromBits(csBits: String): String
-  def csDFSIntTokenFromBits(csBits: String): String
+  def csDFUIntDataFromBits(csBits: String): String
+  def csDFSIntDataFromBits(csBits: String): String
   def csDFUIntBubble(width: Int): String
   def csDFSIntBubble(width: Int): String
   final protected def bubbleBits(width: Int): String =
@@ -101,9 +101,9 @@ trait AbstractTokenPrinter extends AbstractPrinter:
           // for big integers
           else if (dfType.signed)
             if (value.bitsWidth(true) < 31) csDFSIntFormatSmall(value, width)
-            else csDFSIntTokenFromBits(csBits)
+            else csDFSIntDataFromBits(csBits)
           else if (value.bitsWidth(false) < 31) csDFUIntFormatSmall(value, width)
-          else csDFUIntTokenFromBits(csBits)
+          else csDFUIntDataFromBits(csBits)
         else ??? // DFXFix
       case None =>
         if (dfType.signed) csDFSIntBubble(width = width)
@@ -129,11 +129,11 @@ trait AbstractTokenPrinter extends AbstractPrinter:
     case DFUnit.Data(dt, data)   => csDFUnitData(dt, data)
     case x =>
       throw new IllegalArgumentException(
-        s"Unexpected token found: $x"
+        s"Unexpected data found: $x"
       )
-end AbstractTokenPrinter
+end AbstractDataPrinter
 
-protected trait DFTokenPrinter extends AbstractTokenPrinter:
+protected trait DFDataPrinter extends AbstractDataPrinter:
   val allowBitsBinModeInHex: Boolean = true
   val allowBitsExplicitWidth: Boolean = true
   def csDFBitBubbleChar: Char = '?'
@@ -147,8 +147,8 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
   def csDFSIntFormatBig(value: BigInt, width: Int): String = s"""sd"$width'$value""""
   def csDFUIntFormatSmall(value: BigInt, width: Int): String = value.toString
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = value.toString
-  def csDFUIntTokenFromBits(csBits: String): String = s"$csBits.uint"
-  def csDFSIntTokenFromBits(csBits: String): String = s"$csBits.sint"
+  def csDFUIntDataFromBits(csBits: String): String = s"$csBits.uint"
+  def csDFSIntDataFromBits(csBits: String): String = s"$csBits.sint"
   def csDFUIntBubble(width: Int): String = "?"
   def csDFSIntBubble(width: Int): String = "?"
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
@@ -180,4 +180,4 @@ protected trait DFTokenPrinter extends AbstractTokenPrinter:
       .map((t, d) => csConstData(t, d))
       .mkStringBrackets
   def csDFUnitData(dfType: DFUnit, data: Unit): String = "()"
-end DFTokenPrinter
+end DFDataPrinter

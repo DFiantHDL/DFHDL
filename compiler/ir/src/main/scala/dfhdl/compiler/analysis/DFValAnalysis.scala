@@ -309,31 +309,55 @@ extension (net: DFNet)
       case _ => Nil
 
 extension (dfVal: DFVal)
-  def getParamToken(using MemberGetSet): Option[DFTokenAny] =
-    import DFToken.calcFuncOp
-    import DFBits.Ops.sel
+  def getParamData(using MemberGetSet): Option[Any] =
     dfVal match
-      case const: DFVal.Const => Some(DFToken.forced(const.dfType, const.data))
+      case const: DFVal.Const => Some(const.data)
       case func: DFVal.Func =>
-        val args = func.args.flatMap(_.get.getParamToken)
-        if (args.length != func.args.length) None
-        else Some(calcFuncOp(func.op, args))
+        val args = func.args.map(_.get)
+        val argData = args.flatMap(_.getParamData)
+        val argTypes = args.map(_.dfType)
+        if (argData.length != func.args.length) None
+        else Some(calcFuncData(func.dfType, func.op, argTypes, argData))
       case alias: DFVal.Alias =>
-        alias.relValRef.get.getParamToken match
-          case Some(relToken) =>
+        val relVal = alias.relValRef.get
+        relVal.getParamData match
+          case Some(relValData) =>
             alias match
-              case alias: DFVal.Alias.AsIs => Some(relToken.as(alias.dfType))
+              case alias: DFVal.Alias.AsIs =>
+                Some(
+                  dataConversion(alias.dfType, relVal.dfType)(
+                    relValData.asInstanceOf[relVal.dfType.Data]
+                  )
+                )
               case alias: DFVal.Alias.ApplyRange =>
-                Some(relToken.asInstanceOf[DFBits.Token].sel(alias.relBitHigh, alias.relBitLow))
+                Some(
+                  selBitRangeData(
+                    relValData.asInstanceOf[(BitVector, BitVector)],
+                    alias.relBitHigh,
+                    alias.relBitLow
+                  )
+                )
               case alias: DFVal.Alias.ApplyIdx =>
-                alias.relIdx.get.getParamToken match
-                  case Some(relIdxToken) =>
-                    (relToken.dfType: @unchecked) match
-                      case _: DFVector => ???
-                      case _: DFBits   => ???
-                  case None => None
-              case alias: DFVal.Alias.History     => None
-              case alias: DFVal.Alias.SelectField => ???
+                val relIdx = alias.relIdx.get
+                relIdx.getParamData match
+                  case Some(Some(idx: BigInt)) =>
+                    val idxInt = idx.toInt
+                    val outData = relVal.dfType match
+                      case DFBits(_) =>
+                        val data = relValData.asInstanceOf[(BitVector, BitVector)]
+                        if (data._2.bit(idxInt)) None
+                        else Some(data._1.bit(idxInt))
+                      case DFVector(_, _) =>
+                        Some(relValData.asInstanceOf[Vector[?]](idxInt))
+                      case _ => ???
+                    Some(outData)
+                  case Some(_: None.type) => Some(None)
+                  case _                  => None
+              case alias: DFVal.Alias.History => None
+              case alias: DFVal.Alias.SelectField =>
+                val idx = relVal.dfType.asInstanceOf[DFStruct].fieldPosMap(alias.fieldName)
+                Some(relValData.asInstanceOf[List[?]](idx))
           case None => None
+        end match
       case _ => None
     end match

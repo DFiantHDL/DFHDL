@@ -76,28 +76,6 @@ object DFVector:
     end extension
   end Ops
 
-  // object Ops:
-  //   extension [T <: DFTypeAny, D1 <: Int](lhs: Token[T, Tuple1[D1]])
-  //     @targetName("applyDFVector")
-  //     def apply[I <: Int](
-  //         idx: Inlined[I]
-  //     )(using
-  //         check: BitIndex.Check[I, D1]
-  //     ): DFToken[T] =
-  //       check(idx, lhs.dfType.cellDims.head)
-  //       ir.DFToken
-  //         .forced(lhs.dfType.asIR.cellType, lhs.data(idx))
-  //         .asTokenOf[T]
-  //     def elements: Vector[DFToken[T]] =
-  //       val elementType = lhs.dfType.asIR.cellType
-  //       Vector.tabulate(lhs.dfType.cellDims.head)(i =>
-  //         ir.DFToken
-  //           .forced(elementType, lhs.data(i))
-  //           .asTokenOf[T]
-  //       )
-  //   end extension
-  // end Ops
-
   object Val:
     object TC:
       import DFVal.TC

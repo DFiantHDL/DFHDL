@@ -173,7 +173,7 @@ object DFBits:
         ${ unapplySeqMacro('{ "h" })('parts, 'arg) }
 
     extension (inline sc: StringContext)
-      /** Binary Bits Vector Token String Interpolator
+      /** Binary Bits Vector String Interpolator
         *
         * Interpolator Syntax: {{{b"width'bin"}}}
         *   - `bin` is a char sequence of '0', '1', and '?' (to indicate a bit bubble).
@@ -197,11 +197,11 @@ object DFBits:
         * @note
         *   The string interpolator currently does not accept external arguments with `\${arg}`
         * @return
-        *   Bits vector token.
+        *   DFHDL Bits vector.
         */
       transparent inline def b: Any = ${ SIParts.scMacro[BParts]('sc) }
 
-      /** Hexadecimal Bits Vector Token String Interpolator
+      /** Hexadecimal Bits Vector String Interpolator
         *
         * Interpolator Syntax: {{{b"width'hex"}}}
         *   - `hex` is a char sequence of '0'-'9','A'-'F','a'-'f','?' (to indicate a 4-bit bubble).
@@ -230,7 +230,7 @@ object DFBits:
         * @note
         *   The string interpolator currently does not accept external arguments with `\${arg}`
         * @return
-        *   Bits vector token.
+        *   DFHDL Bits vector.
         */
       transparent inline def h: Any = ${ SIParts.scMacro[HParts]('sc) }
     end extension
@@ -392,7 +392,7 @@ object DFBits:
         import quotes.reflect.*
         import Width.*
         val rTpe = TypeRepr.of[R]
-        val wType = rTpe.calcValWidth(false).asTypeOf[Int]
+        val wType = rTpe.calcValWidth.asTypeOf[Int]
         val pType = rTpe.isConstTpe.asTypeOf[Any]
         '{
           new Candidate[R]:
@@ -488,7 +488,7 @@ object DFBits:
         val tplTerm = tpl.asTerm.exactTerm
         import Width.*
         val rTpe = tplTerm.tpe
-        val wType = rTpe.calcValWidth(false).asTypeOf[Int]
+        val wType = rTpe.calcValWidth.asTypeOf[Int]
         '{
           Val.Candidate
             .valueToBits($tpl)(using compiletime.summonInline[DFC])

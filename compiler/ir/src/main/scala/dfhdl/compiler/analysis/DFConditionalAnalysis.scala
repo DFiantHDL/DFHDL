@@ -56,7 +56,7 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
       val header = x.getHeaderCB.asInstanceOf[DFConditional.DFMatchHeader]
       val selectorVal = header.selectorRef.get
       val cases = getLeadingChain.asInstanceOf[List[DFConditional.DFCaseBlock]]
-      // Just checking singleton token patterns.
+      // Just checking singleton constant patterns.
       // If we stumble upon more complex patterns, we return None to
       var complexPattern = false
       lazy val constSet = cases.view
@@ -81,7 +81,7 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
           Some((1 << dec.width) == constSet.size)
         case DFEnum(name, width, entries) =>
           // An enum is considered covered when all its entries are covered.
-          // Since both token set and entries set are unique and type checking
+          // Since both constant set and entries set are unique and type checking
           // already confirmed, then we can safely assume that everything is
           // covered when both set sizes are the same.
           Some(entries.size == constSet.size)

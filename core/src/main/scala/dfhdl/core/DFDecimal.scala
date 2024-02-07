@@ -389,7 +389,7 @@ object DFDecimal:
       if (TypeRepr.of[P].getTupleArgs.length > 1)
         '{
           compiletime.error(
-            "Extractors for decimal token string interpolation are not allowed."
+            "Extractors for decimal string interpolation are not allowed."
           )
           Some(Seq())
         }

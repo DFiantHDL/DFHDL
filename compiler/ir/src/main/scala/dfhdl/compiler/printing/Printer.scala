@@ -18,7 +18,7 @@ protected trait AbstractPrinter:
 
 trait Printer
     extends AbstractTypePrinter,
-      AbstractTokenPrinter,
+      AbstractDataPrinter,
       AbstractValPrinter,
       AbstractOwnerPrinter:
   def csViaConnectionSep: String
@@ -223,7 +223,7 @@ end Printer
 class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptions)
     extends Printer,
       DFTypePrinter,
-      DFTokenPrinter,
+      DFDataPrinter,
       DFValPrinter,
       DFOwnerPrinter:
   type TPrinter = DFPrinter
@@ -312,9 +312,6 @@ extension (member: DFMember)(using printer: Printer)
 extension (dfType: DFType)(using printer: DFTypePrinter)
   def codeString: String =
     printer.csDFType(dfType)
-extension (token: DFTokenAny)(using printer: DFTokenPrinter)
-  def codeString: String =
-    printer.csConstData(token.dfType, token.data)
 
 def DefaultPrinter(using MemberGetSet): Printer =
   given PrinterOptions.Align = false

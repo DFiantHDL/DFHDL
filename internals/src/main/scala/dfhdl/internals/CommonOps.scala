@@ -16,9 +16,15 @@ object CommonOps:
       else vec.resize(width)
     def asUnsigned(ofWidth: Int): BigInt =
       if (value >= 0) value
-      else
-        BigInt(2).pow(ofWidth) + value
+      else (BigInt(1) << ofWidth) + value
+    def asSigned(ofWidth: Int): BigInt =
+      val isNegative = value.testBit(ofWidth - 1)
+      if (isNegative) value - (BigInt(1) << ofWidth)
+      else value
     def asUnsigned: BigInt = asUnsigned(bitsWidth(false))
+    def truncateAsUnsigned(width: Int): BigInt =
+      val mask = (BigInt(1) << width) - 1
+      value & mask
   end extension
 
   extension (value: Int) def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)

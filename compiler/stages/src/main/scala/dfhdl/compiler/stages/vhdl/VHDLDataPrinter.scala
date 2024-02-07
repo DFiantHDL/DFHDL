@@ -5,7 +5,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 import DFVal.*
 
-protected trait VHDLTokenPrinter extends AbstractTokenPrinter:
+protected trait VHDLDataPrinter extends AbstractDataPrinter:
   type TPrinter <: VHDLPrinter
   val allowBitsBinModeInHex: Boolean = false
   val allowBitsExplicitWidth: Boolean = true
@@ -22,10 +22,10 @@ protected trait VHDLTokenPrinter extends AbstractTokenPrinter:
     else s"""-${width}d"${-value}""""
   def csDFUIntFormatSmall(value: BigInt, width: Int): String = s"to_unsigned($value, $width)"
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = s"to_signed($value, $width)"
-  def csDFUIntTokenFromBits(csBits: String): String = s"""unsigned'($csBits)"""
-  def csDFSIntTokenFromBits(csBits: String): String = s"""signed'($csBits)"""
-  def csDFUIntBubble(width: Int): String = csDFUIntTokenFromBits(bubbleBits(width))
-  def csDFSIntBubble(width: Int): String = csDFSIntTokenFromBits(bubbleBits(width))
+  def csDFUIntDataFromBits(csBits: String): String = s"""unsigned'($csBits)"""
+  def csDFSIntDataFromBits(csBits: String): String = s"""signed'($csBits)"""
+  def csDFUIntBubble(width: Int): String = csDFUIntDataFromBits(bubbleBits(width))
+  def csDFSIntBubble(width: Int): String = csDFSIntDataFromBits(bubbleBits(width))
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
       case Some(value) =>
@@ -45,4 +45,4 @@ protected trait VHDLTokenPrinter extends AbstractTokenPrinter:
       .mkStringBrackets
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = printer.unsupported
   def csDFUnitData(dfType: DFUnit, data: Unit): String = printer.unsupported
-end VHDLTokenPrinter
+end VHDLDataPrinter

@@ -75,8 +75,7 @@ object DFBoolOrBit:
     object Ops:
       extension [P](lhs: DFValTP[DFBoolOrBit, P])
         def toScalaBoolean(using DFC, DFVal.ConstCheck[P]): Boolean =
-          // lhs.toScalaValue
-          true
+          lhs.toScalaValue
         def toScalaBitNum(using DFC, DFVal.ConstCheck[P]): BitNum =
           if (lhs.toScalaBoolean) 1 else 0
       extension [P](lhs: DFValTP[DFBit, P])

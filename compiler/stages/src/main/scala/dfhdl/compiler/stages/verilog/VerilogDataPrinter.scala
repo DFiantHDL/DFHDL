@@ -5,7 +5,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 import DFVal.*
 
-protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
+protected trait VerilogDataPrinter extends AbstractDataPrinter:
   type TPrinter <: VerilogPrinter
   val allowBitsBinModeInHex: Boolean = false
   val allowBitsExplicitWidth: Boolean = true
@@ -22,26 +22,26 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
     else s"""-$width'sd${-value}"""
   def csDFUIntFormatSmall(value: BigInt, width: Int): String = csDFUIntFormatBig(value, width)
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = csDFSIntFormatBig(value, width)
-  def csDFUIntTokenFromBits(csBits: String): String = s"""$$unsigned($csBits)"""
-  def csDFSIntTokenFromBits(csBits: String): String = s"""$$signed($csBits)"""
+  def csDFUIntDataFromBits(csBits: String): String = s"""$$unsigned($csBits)"""
+  def csDFSIntDataFromBits(csBits: String): String = s"""$$signed($csBits)"""
   def csDFUIntBubble(width: Int): String = bubbleBits(width)
-  def csDFSIntBubble(width: Int): String = csDFSIntTokenFromBits(bubbleBits(width))
+  def csDFSIntBubble(width: Int): String = csDFSIntDataFromBits(bubbleBits(width))
   def csDFEnumData(dfType: DFEnum, data: Option[BigInt]): String =
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
         s"${dfType.getName}_${entryName}"
       case None => "?"
-  val maxTokensPerLine = 64
+  val maxElementsPerLine = 64
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     given CanEqual[Any, Any] = CanEqual.derived
     if (data.allElementsAreEqual) s"'{${data.length}{${csConstData(dfType.cellType, data.head)}}}"
     else
-      val allTokens = data.view.grouped(maxTokensPerLine).map(line =>
+      val allElements = data.view.grouped(maxElementsPerLine).map(line =>
         line.map(x => csConstData(dfType.cellType, x)).mkString(", ")
       ).mkString(",\n")
-      if (allTokens.contains("\n")) s"'{\n${allTokens.hindent}\n}"
-      else s"'{$allTokens}"
+      if (allElements.contains("\n")) s"'{\n${allElements.hindent}\n}"
+      else s"'{$allElements}"
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     csConstData(dfType.actualType, data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
@@ -53,4 +53,4 @@ protected trait VerilogTokenPrinter extends AbstractTokenPrinter:
       .mkString("'{", ", ", "}")
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = printer.unsupported
   def csDFUnitData(dfType: DFUnit, data: Unit): String = printer.unsupported
-end VerilogTokenPrinter
+end VerilogDataPrinter

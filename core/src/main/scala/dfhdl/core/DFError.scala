@@ -91,6 +91,6 @@ def trydf(block: => Unit)(using dfc: DFC, ctName: CTName): Unit =
         case e                           => throw e
       dfc.logError(dfErr)
 
-def exitWithError(msg: String): Unit =
+def exitWithError(msg: String): Nothing =
   System.err.println(msg)
   sys.exit(1)
