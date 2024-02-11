@@ -5,7 +5,7 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
 import dfhdl.internals.*
-
+import scala.collection.mutable
 import scala.reflect.classTag
 
 //see `uniqueNames` for additional information
@@ -35,21 +35,44 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
           }
         case _ => Nil
       }
+    // the existing design names
     val designNames = designDB.members.collect { case block: DFDesignBlock => block.dclName }
+    // the existing global member names
+    val globalNamedMembers = designDB.membersGlobals.filterNot(_.isAnonymous)
+    // reserved names in lower case (if case-insensitive)
     val reservedNamesLC = lowerCases(reservedNames)
+    // global type tagging for unique renamed names
     val globalTagList = renamer(designDB.getGlobalNamedDFTypes, reservedNamesLC)(
       _.getName,
       (e, n) => (e, classTag[NameTag]) -> NameTag(n)
     )
-    val globalNames: Set[String] =
+    // the global reserved type names, after unique global type renaming
+    val globalReservedTypeNames: Set[String] =
       (designDB.getGlobalNamedDFTypes.map(e => e.getName) ++ globalTagList.map(e =>
         e._2.name
       ) ++ designNames ++ reservedNames)
-    val globalNamesLC = lowerCases(globalNames)
-    val patchesAndTags = designDB.blockMemberList.map { case (block, members) =>
+    val globalReservedTypeNamesLC = lowerCases(globalReservedTypeNames)
+
+    val localReservedNamesLCMutable = mutable.Set.from[String](reservedNamesLC)
+    // global named member patching
+    val globalNamedMemberPatchList = renamer(
+      globalNamedMembers,
+      globalReservedTypeNamesLC
+    )(
+      _.getName,
+      (m, n) =>
+        localReservedNamesLCMutable += lowerCase(n)
+        m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
+    ).toList
+    // the reserved names for local (design) values will be the given reservedNames
+    // and the now additional global member names after renaming
+    val localReservedNamesLC = localReservedNamesLCMutable.toSet
+
+    // going through all blocks with their own scope for unique names
+    val blockPatchesAndTags = designDB.blockMemberList.map { case (block, members) =>
       val localTagList = block match
         case design: DFDesignBlock =>
-          renamer(designDB.getLocalNamedDFTypes(design), globalNamesLC)(
+          renamer(designDB.getLocalNamedDFTypes(design), globalReservedTypeNamesLC)(
             _.getName,
             (e, n) => (e, classTag[NameTag]) -> NameTag(n)
           )
@@ -62,15 +85,15 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
           case m: DFMember.Named if !m.isAnonymous => Some(m)
           case _                                   => None
         },
-        reservedNamesLC
+        localReservedNamesLC
       )(
         _.getName,
         (m, n) => m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
       )
       (patchList, localTagList)
     }.unzip
-    val patchList = patchesAndTags._1.flatten
-    val tagList = patchesAndTags._2.flatten ++ globalTagList
+    val patchList = globalNamedMemberPatchList ++ blockPatchesAndTags._1.flatten
+    val tagList = blockPatchesAndTags._2.flatten ++ globalTagList
     designDB.patch(patchList).setGlobalTags(tagList)
   end transform
 end UniqueNames

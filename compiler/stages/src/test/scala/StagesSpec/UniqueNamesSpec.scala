@@ -5,10 +5,13 @@ import dfhdl.compiler.stages.uniqueNames
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class UniqueNamesSpec extends StageSpec:
+  val gv = Vector("01", "02").map(x => h"$x")
   class ID extends DFDesign:
-    val x = SInt(16) <> IN
-    val y = SInt(16) <> OUT
-    val z = Bits(8)  <> IN
+    val x    = SInt(16)    <> IN
+    val y    = SInt(16)    <> OUT
+    val z    = Bits(8)     <> IN
+    val bv   = Bits(8) X 2 <> VAR init gv
+    val GV_1 = Bit         <> VAR
     y := x
     object Temp:
       val x = Bit     <> VAR init 1
@@ -19,10 +22,14 @@ class UniqueNamesSpec extends StageSpec:
     val id = (new ID).uniqueNames(Set("z"), true)
     assertCodeString(
       id,
-      """|class ID extends DFDesign:
+      """|val gv_0: Bits[8] <> CONST = h"01"
+         |val gv_1: Bits[8] <> CONST = h"02"
+         |class ID extends DFDesign:
          |  val x_0 = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val z_0 = Bits(8) <> IN
+         |  val bv = Bits(8) X 2 <> VAR init Vector(gv_0, gv_1)
+         |  val GV_1 = Bit <> VAR
          |  y := x_0
          |  val x_1 = Bit <> VAR init 1
          |  val Y = Boolean <> VAR init false
@@ -34,10 +41,14 @@ class UniqueNamesSpec extends StageSpec:
     val id = (new ID).uniqueNames(Set(), false)
     assertCodeString(
       id,
-      """|class ID extends DFDesign:
+      """|val gv_0: Bits[8] <> CONST = h"01"
+         |val gv_1: Bits[8] <> CONST = h"02"
+         |class ID extends DFDesign:
          |  val x_0 = SInt(16) <> IN
          |  val y_0 = SInt(16) <> OUT
          |  val z = Bits(8) <> IN
+         |  val bv = Bits(8) X 2 <> VAR init Vector(gv_0, gv_1)
+         |  val GV_1_0 = Bit <> VAR
          |  y_0 := x_0
          |  val x_1 = Bit <> VAR init 1
          |  val Y_1 = Boolean <> VAR init false
