@@ -8,7 +8,9 @@ object TopLevel:
   def evMacro(using Quotes): Expr[TopLevel] =
     import quotes.reflect.*
     @tailrec def getTopOwner(owner: Symbol): Symbol =
-      if (owner.owner.isPackageDef) owner
+      // stop at method as owner, unless the method is anonymous
+      if (owner.flags.is(Flags.Method) && !owner.name.startsWith("$") || owner.owner.isPackageDef)
+        owner
       else getTopOwner(owner.owner)
     val topOwner = getTopOwner(Symbol.spliceOwner)
     val appSymbol = (TypeRepr.of[App]).typeSymbol
@@ -16,12 +18,11 @@ object TopLevel:
     val isTop =
       topOwner.name.contains("$package$") ||
         topOwner.isClassDef &&
-        TypeRepr
-          .of[Any]
-          .memberType(topOwner)
-          .baseClasses
-          .contains(appSymbol) || // Top owner is the main object
+        topOwner.typeRef.baseClasses.contains(appSymbol) || // Top owner is the main object
         Symbol.spliceOwner.owner.annotations.exists(a => a.tpe <:< mainTpe) ||
+        topOwner.typeRef.baseClasses.contains(
+          Symbol.requiredClass("dfhdl.core.DFEncoding")
+        ) || // a DFHDL enum
         topOwner.name.endsWith("$_") || // scala-cli top
         topOwner.name == "$read" || // Top owner is REPL console
         topOwner.fullName.startsWith("ammonite.") // ammonite console
