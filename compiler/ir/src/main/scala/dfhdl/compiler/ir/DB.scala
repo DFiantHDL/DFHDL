@@ -81,7 +81,7 @@ final case class DB(
     )
     tbl.toMap
   // Map of all named types in the design with their design block owners.
-  // If the named type is global (used in IO or more than one design block),
+  // If the named type is global (used in IO, by a global member, or more than one design block),
   // then its owner is set to None.
   private lazy val namedDFTypes: ListMap[NamedDFType, Option[DFDesignBlock]] =
     members.foldLeft(ListMap.empty[NamedDFType, Option[DFDesignBlock]]) {
@@ -97,10 +97,13 @@ final case class DB(
                 else
                   namedDFTypeMap + (dfType -> None) // used in more than one block -> global named type
               case Some(None) => namedDFTypeMap // known to be a global type
+              // found new named type
               case None =>
-                namedDFTypeMap + (dfType -> Some(
-                  namedDFTypeMember.getOwnerDesign
-                )) // found new named type
+                // if referenced by a global member -> global named type
+                if (namedDFTypeMember.isGlobal)
+                  namedDFTypeMap + (dfType -> None)
+                else
+                  namedDFTypeMap + (dfType -> Some(namedDFTypeMember.getOwnerDesign))
           }
       case (namedDFTypeMap, _) => namedDFTypeMap // not a named type member
     }

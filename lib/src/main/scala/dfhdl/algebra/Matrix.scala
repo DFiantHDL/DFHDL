@@ -17,7 +17,8 @@ extension [ET <: DFType, RN <: Int & Singleton, CT <: Column[ET, RN]](
   def colType: CT = col.opaqueType
   def rowNum: RN = colType.rowNum
   def elemType: ET = colType.elemType
-  @inline def mapElements(f: ET <> VAL => ET <> VAL): CT <> DFRET = col.actual.elements.as(colType)
+  @inline def mapElements(f: ET <> VAL => ET <> VAL): CT <> DFRET =
+    col.actual.elements.map(f).as(colType)
 
 abstract class Matrix[
     CN <: Int & Singleton,

@@ -138,7 +138,7 @@ end extension
 // AES Key
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // The round constant word array.
-private val Rcon = Vector(
+private val Rcon: AESWord X 11 <> CONST = Vector(
   "00000000", "01000000", "02000000", "04000000", "08000000", "10000000", "20000000", "40000000",
   "80000000", "1B000000", "36000000"
 ).map(word => h"$word".as(AESWord))
