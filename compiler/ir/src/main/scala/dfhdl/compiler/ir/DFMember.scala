@@ -6,18 +6,6 @@ import annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.reflect.{ClassTag, classTag}
 
-trait HasRefCompare[T <: HasRefCompare[T]]:
-  private var cachedCompare: Option[(T, Boolean)] = None
-  final def =~(that: T)(using MemberGetSet): Boolean =
-    cachedCompare match
-      case Some(prevCompare, result) if prevCompare eq that => result
-      case _ =>
-        val res = this `prot_=~` that
-        cachedCompare = Some(that, res)
-        res
-  protected def `prot_=~`(that: T)(using MemberGetSet): Boolean
-  def getRefs: List[DFRef.TwoWayAny]
-
 sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] derives CanEqual:
   val ownerRef: DFOwner.Ref
   val meta: Meta
@@ -247,7 +235,7 @@ object DFVal:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
         given CanEqual[Any, Any] = CanEqual.derived
-        this.dfType == that.dfType && this.data == that.data &&
+        this.dfType =~ that.dfType && this.data == that.data &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -285,7 +273,7 @@ object DFVal:
           if (this.initRefList.length == that.initRefList.length)
             this.initRefList.lazyZip(that.initRefList).forall(_ =~ _)
           else false
-        this.dfType == that.dfType && this.modifier == that.modifier && sameInit &&
+        this.dfType =~ that.dfType && this.modifier == that.modifier && sameInit &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     def initList(using MemberGetSet): List[DFVal] = initRefList.map(_.get)
@@ -309,7 +297,7 @@ object DFVal:
       args.forall(_.get.isConst)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
-        this.dfType == that.dfType && this.op == that.op && (this.args
+        this.dfType =~ that.dfType && this.op == that.op && (this.args
           .lazyZip(that.args)
           .forall((l, r) => l =~ r)) &&
         this.meta =~ that.meta && this.tags =~ that.tags
@@ -337,7 +325,7 @@ object DFVal:
     protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: PortByNameSelect =>
-        this.dfType == that.dfType && this.designInstRef =~ that.designInstRef &&
+        this.dfType =~ that.dfType && this.designInstRef =~ that.designInstRef &&
         this.portNamePath == that.portNamePath &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
@@ -390,7 +378,7 @@ object DFVal:
           val sameRelVal =
             if (this.hasTagOf[DesignParamTag.type]) true
             else this.relValRef =~ that.relValRef
-          this.dfType == that.dfType && sameRelVal &&
+          this.dfType =~ that.dfType && sameRelVal &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -414,7 +402,7 @@ object DFVal:
             case (Some(l), Some(r)) => l =~ r
             case (None, None)       => true
             case _                  => false
-          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
+          this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
           this.step == that.step && this.op == that.op && sameInit &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
@@ -460,7 +448,7 @@ object DFVal:
         relValRef.get.isConst && relIdx.get.isConst
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyIdx =>
-          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
+          this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
           this.relIdx =~ that.relIdx &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
@@ -487,7 +475,7 @@ object DFVal:
       protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: SelectField =>
-          this.dfType == that.dfType && this.relValRef =~ that.relValRef &&
+          this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
           this.fieldName == that.fieldName &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
@@ -657,7 +645,7 @@ object DFConditional:
     protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFMatchHeader =>
-        this.dfType == that.dfType && this.selectorRef =~ that.selectorRef &&
+        this.dfType =~ that.dfType && this.selectorRef =~ that.selectorRef &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -752,7 +740,7 @@ object DFConditional:
     protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFIfHeader =>
-        this.dfType == that.dfType &&
+        this.dfType =~ that.dfType &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]

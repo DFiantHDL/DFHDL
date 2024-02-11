@@ -42,7 +42,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // include the rest of the nets
         case net: DFNet => true
         // including only conditional statements (no type) headers
-        case ch: DFConditional.Header => ch.dfType == DFUnit
+        case ch: DFConditional.Header => ch.dfType =~ DFUnit
         // process blocks
         case pb: ProcessBlock => true
         // the rest are not directly viewable

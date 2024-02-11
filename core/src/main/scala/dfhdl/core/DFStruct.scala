@@ -92,7 +92,7 @@ object DFStruct:
   end dfTypeMacro
 
   protected trait SameFields[T <: Fields, RF <: Fields]:
-    def check(dfType: DFStruct[T], argType: DFStruct[RF]): Unit =
+    def check(dfType: DFStruct[T], argType: DFStruct[RF])(using DFC): Unit =
       if (dfType != argType)
         throw new IllegalArgumentException(
           s"""Mismatch in structure fields.

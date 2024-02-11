@@ -59,8 +59,8 @@ object OpaqueActual:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
     val relVal = alias.relValRef.get
     relVal.dfType match
-      case dfType: DFOpaque if dfType.actualType == alias.dfType => Some(relVal)
-      case _                                                     => None
+      case dfType: DFOpaque if dfType.actualType equals alias.dfType => Some(relVal)
+      case _                                                         => None
 
 object Bind:
   def unapply(alias: DFVal.Alias)(using MemberGetSet): Option[DFVal] =
@@ -84,9 +84,11 @@ object RstActive:
             case FuncOp.=== | FuncOp.=!= =>
               val List(lhsRef, rhsRef) = func.args
               val (dcl, const) = (lhsRef.get, rhsRef.get) match
-                case (dcl: DFVal.Dcl, const: DFVal.Const) if const.dfType == DFBit => (dcl, const)
-                case (const: DFVal.Const, dcl: DFVal.Dcl) if const.dfType == DFBit => (dcl, const)
-                case _                                                             => break(None)
+                case (dcl: DFVal.Dcl, const: DFVal.Const) if const.dfType equals DFBit =>
+                  (dcl, const)
+                case (const: DFVal.Const, dcl: DFVal.Dcl) if const.dfType equals DFBit =>
+                  (dcl, const)
+                case _ => break(None)
               val value = const.data.asInstanceOf[Option[Boolean]].get
               val actualValue = func.op match
                 case FuncOp.=== => value

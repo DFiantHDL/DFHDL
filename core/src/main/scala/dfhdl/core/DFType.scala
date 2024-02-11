@@ -16,6 +16,12 @@ sealed trait Args2[T1, T2] extends Args
 sealed trait Args3[T1, T2, T3] extends Args
 
 final class DFType[+T <: ir.DFType, +A <: Args](val value: T | DFError) extends AnyVal:
+  def == (that: DFTypeAny)(using dfc: DFC): Boolean = 
+    import dfc.getSet
+    this.asIR =~ that.asIR 
+  def != (that: DFTypeAny)(using dfc: DFC): Boolean = 
+    import dfc.getSet
+    !(this.asIR =~ that.asIR)
   override def toString: String = value.toString
 type DFTypeAny = DFType[ir.DFType, Args]
 

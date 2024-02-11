@@ -4,10 +4,10 @@ import dfhdl.internals.*
 
 def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
     fromData: fromType.Data
-): toType.Data =
+)(using MemberGetSet): toType.Data =
   val ret = (toType, fromType) match
     // no casting needed
-    case (t, f) if t == f => fromData
+    case (t, f) if t =~ f => fromData
     // unsigned to signed conversion
     case (DFSInt(tWidth), DFUInt(fWidth)) =>
       assert(tWidth == fWidth + 1)

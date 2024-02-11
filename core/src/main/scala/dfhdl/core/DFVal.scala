@@ -653,7 +653,7 @@ object DFVal extends DFValLP:
           aliasType: AT,
           relVal: DFVal[VT, M],
           forceNewAlias: Boolean = false
-      )(using DFC): DFVal[AT, M] =
+      )(using dfc: DFC): DFVal[AT, M] =
         relVal.asIR match
           // anonymous constant are replaced by a different constant
           // after its data value was converted according to the alias
@@ -661,7 +661,7 @@ object DFVal extends DFValLP:
               if (const.isAnonymous || relVal.inDFCPosition) && !forceNewAlias =>
             val updatedData = ir.dataConversion(aliasType.asIR, const.dfType)(
               const.data.asInstanceOf[const.dfType.Data]
-            )
+            )(using dfc.getSet)
             dfc.mutableDB.setMember(
               const,
               _.copy(dfType = aliasType.asIR, data = updatedData, meta = dfc.getMeta)
@@ -833,8 +833,8 @@ object DFVal extends DFValLP:
       ]
     given sameValType[T <: DFTypeAny, P, V <: DFValTP[T, P]]: TC[T, V] with
       type OutP = P
-      def conv(dfType: T, value: V)(using DFC): DFValTP[T, P] =
-        given MemberGetSet = dfc.getSet
+      def conv(dfType: T, value: V)(using dfc: DFC): DFValTP[T, P] =
+        import dfc.getSet
         given Printer = DefaultPrinter
         require(
           dfType == value.dfType,
@@ -895,8 +895,9 @@ object DFVal extends DFValLP:
         ValueOf[C]
     ): Compare[T, R, Op, C] with
       type OutP = P
-      def conv(dfType: T, arg: R)(using DFC): Out =
-        given Printer = DefaultPrinter(using dfc.getSet)
+      def conv(dfType: T, arg: R)(using dfc: DFC): Out =
+        import dfc.getSet
+        given Printer = DefaultPrinter
         require(
           dfType == arg.dfType,
           s"Cannot compare DFHDL value type `${dfType.codeString}` with DFHDL value type `${arg.dfType.codeString}`."
