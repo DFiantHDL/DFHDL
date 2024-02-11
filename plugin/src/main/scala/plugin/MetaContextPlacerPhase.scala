@@ -42,8 +42,6 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   var dfSpecTpe: Type = uninitialized
   var hasClsMetaArgsTpe: TypeRef = uninitialized
   var clsMetaArgsTpe: TypeRef = uninitialized
-  var genDesignParamSym: TermSymbol = uninitialized
-  var constModTpe: Type = uninitialized
 
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     val sym = tree.symbol
@@ -73,7 +71,25 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
 
   private def clsMetaArgsOverrideDef(owner: Symbol)(using Context): Tree =
     clsMetaArgsOverrideDef(owner, ref(requiredMethod("dfhdl.internals.ClsMetaArgs.empty")))
-
+  private def genDesignBodyParams(body: List[Tree], paramList: List[Tree], dfcTree: Tree)(using
+      Context
+  ): (List[Tree], List[ValDef]) =
+    val designParamMap = mutable.Map.empty[Symbol, Tree]
+    val designParamGenValDefs: List[ValDef] = paramList.collect {
+      case v: ValDef if v.dfValTpeOpt.nonEmpty =>
+        // check and report error if the user did not apply a constant modifier
+        // on a design parameter
+        if (!v.tpt.tpe.isDFConst)
+          report.error(
+            "DFHDL design parameters must be constant values (use a `<> CONST` modifier).",
+            v.tpt
+          )
+        val valDef = v.genDesignParamValDef(dfcTree)
+        designParamMap += v.symbol -> ref(valDef.symbol)
+        valDef
+    }
+    (body.map(b => replaceArgs(b, designParamMap.toMap)), designParamGenValDefs)
+  end genDesignBodyParams
   override def transformTypeDef(tree: TypeDef)(using Context): TypeDef =
     tree.rhs match
       case template: Template =>
@@ -89,44 +105,13 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
             case x: ValDef if x.rhs.isEmpty => true
             case _                          => false
           }
-          val designParamMap = mutable.Map.empty[Symbol, Tree]
-          val designParamGenValDefs: List[ValDef] =
-            inContext(ctx.withOwner(clsSym.primaryConstructor)) {
-              paramBody.collect {
-                case v: ValDef if v.dfValTpeOpt.nonEmpty && dfcArgOpt.nonEmpty =>
-                  // check and report error if the user did not apply a constant modifier
-                  // on a design parameter
-                  val constModifier = v.tpt.tpe.widenDealias match
-                    case AppliedType(_, _ :: modifierTpe :: Nil) =>
-                      modifierTpe.dealias match
-                        case AppliedType(_, _ :: _ :: _ :: pTpe :: Nil) =>
-                          pTpe =:= constModTpe
-                        case _ => false
-                    case _ =>
-                      false
-                  if (!constModifier)
-                    report.error(
-                      "DFHDL design parameters must be constant values (use a `<> CONST` modifier).",
-                      v.tpt
-                    )
-                  val meta = v.genMeta
-                  val paramGen =
-                    ref(genDesignParamSym)
-                      .appliedToType(v.tpt.tpe)
-                      .appliedToArgs(List(ref(v.symbol), meta))
-                      .appliedTo(dfcArgOpt.get)
-                  val uniqueName = NameKinds.UniqueName.fresh(s"${v.name}_plugin".toTermName)
-                  val valDef =
-                    SyntheticValDef(uniqueName, paramGen, Private)
-                  designParamMap += v.symbol -> ref(valDef.symbol)
-                  valDef
-              }
-            }
           val nonParamBody = template.body.drop(paramBody.length)
-          val updatedBody =
-            inContext(ctx.withOwner(clsSym.primaryConstructor)) {
-              nonParamBody.map(b => replaceArgs(b, designParamMap.toMap))
-            }
+          val (updatedBody, designParamGenValDefs) = dfcArgOpt match
+            case Some(dfcTree) =>
+              genDesignBodyParams(nonParamBody, paramBody, dfcTree)(using
+                ctx.withOwner(clsSym.primaryConstructor)
+              )
+            case None => (nonParamBody, Nil)
           val simpleArgs = paramBody.collect {
             case v: ValDef if v.dfValTpeOpt.isEmpty =>
               mkTuple(
@@ -273,8 +258,6 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     dfSpecTpe = requiredClassRef("dfhdl.DFSpec")
     hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
     clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
-    genDesignParamSym = requiredMethod("dfhdl.core.__For_Plugin.genDesignParam")
-    constModTpe = requiredClassRef("dfhdl.core.ISCONST").appliedTo(ConstantType(Constant(true)))
     dfcArgStack = Nil
     ctx
 end MetaContextPlacerPhase

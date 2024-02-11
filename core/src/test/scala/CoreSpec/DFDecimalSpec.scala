@@ -100,6 +100,7 @@ class DFDecimalSpec extends DFSpec:
          |""".stripMargin
     } {
       val c: UInt[8] <> CONST = 1
+      assert(c.toScalaInt == 1)
       val v = UInt(8) <> VAR init c + 1
       assertCompileError(
         "Init value must be a constant."

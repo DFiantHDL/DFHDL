@@ -62,14 +62,32 @@ class DFBoolOrBitSpec extends DFSpec:
       val t6 = bl || bt
       val t7 = bl ^ 0 || bt
       val t8 = (bl && bt) ^ (bt || bl)
-      val t9: Bit <> VAL = 1
-      val t10: Bit <> VAL = 0
-      val t11: Bit <> VAL = true
-      val t12: Bit <> VAL = false
-      val t13: Boolean <> VAL = 1
-      val t14: Boolean <> VAL = 0
-      val t15: Boolean <> VAL = true
-      val t16: Boolean <> VAL = false
+      val t9: Bit <> CONST = 1
+      val t10: Bit <> CONST = 0
+      val t11: Bit <> CONST = true
+      val t12: Bit <> CONST = false
+      val t13: Boolean <> CONST = 1
+      val t14: Boolean <> CONST = 0
+      val t15: Boolean <> CONST = true
+      val t16: Boolean <> CONST = false
+      assert(t9.toScalaBitNum == 1)
+      assert(t10.toScalaBitNum == 0)
+      assert(t11.toScalaBitNum == 1)
+      assert(t12.toScalaBitNum == 0)
+      assert(t13.toScalaBoolean == true)
+      assert(t14.toScalaBoolean == false)
+      assert(t15.toScalaBoolean == true)
+      assert(t16.toScalaBoolean == false)
+      assertCompileError(
+        "Only a DFHDL constant is convertible to a Scala value, but this DFHDL value is not a constant."
+      )(
+        """t1.toScalaBitNum"""
+      )
+      assertCompileError(
+        "Only a DFHDL constant is convertible to a Scala value, but this DFHDL value is not a constant."
+      )(
+        """t1.toScalaBoolean"""
+      )
     }
   }
 end DFBoolOrBitSpec

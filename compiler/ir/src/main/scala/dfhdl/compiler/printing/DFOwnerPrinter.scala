@@ -170,11 +170,17 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val defArgsCS =
       if (defArgList.length <= 2) defArgList.mkString(", ")
       else defArgList.mkString("\n", ",\n", "\n").hindent(2)
-
+    val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
+      s"${param.getName}${printer.csDFValConstType(param.dfType)}"
+    }
+    val designParamCS =
+      if (designParamList.length == 0) ""
+      else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
+      else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     val retDFType = retValOpt.map(_.dfType).getOrElse(DFUnit)
     val retTypeCS = s": ${printer.csDFType(retDFType, typeCS = true)} <> DFRET"
     val dcl =
-      s"def ${design.dclName}($defArgsCS)$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
+      s"def ${design.dclName}$designParamCS($defArgsCS)$retTypeCS =\n${bodyWithDcls.hindent}\nend ${design.dclName}"
     s"${printer.csAnnotations(design.dclMeta)}$dcl\n"
   end csDFDesignDefDcl
   def csDFDesignDefInst(design: DFDesignBlock): String =
@@ -182,9 +188,17 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       val DFNet.Connection(_, from: DFVal, _) = port.getConnectionTo.get: @unchecked
       printer.csDFValRef(from, design.getOwner)
     }.mkString(", ")
-    val dcl = s"${design.dclName}($ports)"
+    val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
+      s"${param.getName} = ${param.relValRef.refCodeString}"
+    }
+    val designParamCS =
+      if (designParamList.length == 0) ""
+      else if (designParamList.length == 1) designParamList.mkString("(", ", ", ")")
+      else "(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
+    val dcl = s"${design.dclName}$designParamCS($ports)"
     if (design.isAnonymous) dcl
     else s"val ${design.getName} = $dcl"
+  end csDFDesignDefInst
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
     import design.instMode
     val localDcls = printer.csLocalTypeDcls(design)

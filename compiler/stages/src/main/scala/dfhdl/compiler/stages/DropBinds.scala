@@ -39,11 +39,11 @@ case object DropBinds extends Stage:
                 case "b" => qmarks
                 case "h" => s"{$qmarks}" // using binary mode for hex
             }
-          val tokenStr = parts.coalesce(bubbles).mkString
+          val constStr = parts.coalesce(bubbles).mkString
           import dfhdl.core.DFBits.StrInterp.{b, h}
           val dfVal = op match
-            case "b" => b"${tokenStr}"
-            case "h" => h"${tokenStr}"
+            case "b" => b"${constStr}"
+            case "h" => h"${constStr}"
           Some(dfhdl.core.DFMatch.Pattern.Singleton(dfVal), refs.map(_.get))
         case _ => None
   end ReplacePattern
@@ -123,7 +123,7 @@ case object DropBinds extends Stage:
 //        val stallsPatchList: List[(DFMember, Patch)] = stalled.collect {
 //          case (c, varsIR) if varsIR.nonEmpty =>
 //            val dsn = new MetaDesign():
-//              varsIR.view.reverse.foreach(v => v.asVarAny := v.asVarAny.asInitialized.prev)
+//              varsIR.view.reverse.forconstStr> v.asVarAny := v.asVarAny.asInitialized.prev)
 //            c -> Patch.Add(dsn, Patch.Add.Config.InsideLast)
 //        }.toList
         casesPatchList ++ bindsPatchList // ++ stallsPatchList

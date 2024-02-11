@@ -36,11 +36,14 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
 
   // DFHDL design construction from definitions transformation.
   // Such transformation rely on code like `def foo(arg: Bit <> VAL): Bit <> VAL`
-  // The `Bit <> VAL` type is a match type that is manifests as `DFC ?=> DFValOf[Bit]`.
+  // The `Bit <> VAL` type is a match type that manifests as `DFC ?=> DFValOf[Bit]`.
   override def transformDefDef(tree: DefDef)(using Context): tpd.Tree =
     val sym = tree.symbol
     lazy val dfValArgs = tree.paramss.view.flatten.collect {
-      case vd: ValDef if vd.dfValTpeOpt.nonEmpty => vd
+      case vd: ValDef if vd.dfValTpeOpt.nonEmpty && !vd.tpt.tpe.isDFConst => vd
+    }.toList
+    lazy val dfConstValArgs = tree.paramss.view.flatten.collect {
+      case vd: ValDef if vd.dfValTpeOpt.nonEmpty && vd.tpt.tpe.isDFConst => vd
     }.toList
     tree.rhs match
       case Block(List(anonDef: DefDef), closure: Closure)
@@ -63,17 +66,31 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
           // list of tuples of the old arguments and their meta data
           val args = mkList(dfValArgs.map(a => mkTuple(List(a.ident, a.genMeta))))
           // input map to replace old arg references with new input references
-          val inputMap = dfValArgs.view.zipWithIndex.map((a, i) =>
-            a.symbol -> ref(designFromDefGetInputSym)
-              .appliedToType(a.dfValTpeOpt.get.widen)
-              .appliedTo(Literal(Constant(i)))
-              .appliedTo(dfc)
-          ).toMap
+          val inputMap = mutable.Map.empty[Symbol, Tree]
+          dfValArgs.view.zipWithIndex.foreach((a, i) =>
+            inputMap +=
+              a.symbol -> ref(designFromDefGetInputSym)
+                .appliedToType(a.dfValTpeOpt.get.widen)
+                .appliedTo(Literal(Constant(i)))
+                .appliedTo(dfc)
+          )
+          // constant parameter generation
+          val designParamGenValDefs: List[ValDef] = inContext(ctx.withOwner(anonDef.symbol)) {
+            dfConstValArgs.map { v =>
+              val valDef = v.genDesignParamValDef(dfc)
+              inputMap += v.symbol -> ref(valDef.symbol)
+              valDef
+            }
+          }
+          // updated body with the extra design parameter definition after replacing parameter references
+          val updatedBody = replaceArgs(anonDef.rhs, inputMap.toMap) match
+            case Block(stats, expr) => Block(designParamGenValDefs ++ stats, expr)
+            case simpleTree         => Block(designParamGenValDefs, simpleTree)
           // calling the runtime method that constructs the design from the definition
           ref(designFromDefSym)
             .appliedToType(anonDef.dfValTpeOpt.get.widen)
             .appliedToArgs(List(args, tree.genMeta)) // meta represents the transformed tree
-            .appliedTo(replaceArgs(anonDef.rhs, inputMap))
+            .appliedTo(updatedBody)
             .appliedTo(dfc)
         end updatedAnonRHS
         val updatedAnonDef = cpy.DefDef(anonDef)(rhs = updatedAnonRHS)

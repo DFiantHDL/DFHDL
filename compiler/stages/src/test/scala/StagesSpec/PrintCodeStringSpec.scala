@@ -236,9 +236,9 @@ class PrintCodeStringSpec extends StageSpec:
     class IDMultiRef extends DFDesign:
       val data = UInt(32) <> IN
       val o    = UInt(32) <> OUT
-      @inline def test(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
-        arg + arg
-      o := test(data + 1)
+      @inline def test(constArg: UInt[32] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+        arg + arg - constArg
+      o := test(5)(data + 1)
     val id = (new IDMultiRef).getCodeString
     assertNoDiff(
       id,
@@ -246,7 +246,7 @@ class PrintCodeStringSpec extends StageSpec:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  val o_part = data + d"32'1"
-         |  o := o_part + o_part
+         |  o := (o_part + o_part) - d"32'5"
          |end IDMultiRef
          |""".stripMargin
     )
@@ -260,13 +260,13 @@ class PrintCodeStringSpec extends StageSpec:
         * @param arg
         * @return
         */
-      def test(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
-        test2(arg + arg)
+      def test(constArg: UInt[32] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+        test2(arg + arg) - constArg
       def test2(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
         arg
-      test(data - 1)
-      o := test(data + 1)
-      val x = test(data)
+      test(5)(data - 1)
+      o := test(7)(data + 1)
+      val x = test(10)(data)
       o := x
     end IDWithDesignDef
     val id = (new IDWithDesignDef).getCodeString
@@ -280,16 +280,16 @@ class PrintCodeStringSpec extends StageSpec:
          |  * @param arg
          |  * @return
          |  **/
-         |def test(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
-         |  test2(arg + arg)
+         |def test(constArg: UInt[32] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+         |  test2(arg + arg) - constArg
          |end test
          |
          |class IDWithDesignDef extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
-         |  test(data - d"32'1")
-         |  o := test(data + d"32'1")
-         |  val x = test(data)
+         |  test(constArg = d"32'5")(data - d"32'1")
+         |  o := test(constArg = d"32'7")(data + d"32'1")
+         |  val x = test(constArg = d"32'10")(data)
          |  o := x
          |end IDWithDesignDef
          |""".stripMargin
@@ -323,6 +323,35 @@ class PrintCodeStringSpec extends StageSpec:
          |  test(data)
          |  o := data
          |end UnitDesignDef
+         |""".stripMargin
+    )
+  }
+  test("Design def with toScalaValue effects") {
+    class DesignDefCont extends DFDesign:
+      val data = UInt(32) <> IN
+      val o    = UInt(32) <> OUT
+
+      def test(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+        arg + const.toScalaInt
+      o := test(1)(data)
+      o := test(10)(data)
+    val id = (new DesignDefCont).getCodeString
+    assertNoDiff(
+      id,
+      """|def test_0(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+         |  arg + d"32'1"
+         |end test_0
+         |
+         |def test_1(const: UInt[8] <> CONST)(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
+         |  arg + d"32'10"
+         |end test_1
+         |
+         |class DesignDefCont extends DFDesign:
+         |  val data = UInt(32) <> IN
+         |  val o = UInt(32) <> OUT
+         |  o := test_0(const = d"8'1")(data)
+         |  o := test_1(const = d"8'10")(data)
+         |end DesignDefCont
          |""".stripMargin
     )
   }

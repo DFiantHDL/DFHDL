@@ -72,6 +72,8 @@ abstract class CommonPhase extends PluginPhase:
   var hasDFCTpe: TypeRef = uninitialized
   var inlineAnnotSym: Symbol = uninitialized
   var dfValSym: Symbol = uninitialized
+  var constModTpe: Type = uninitialized
+  var genDesignParamSym: TermSymbol = uninitialized
 
   extension (tree: TypeDef)
     def hasDFC(using Context): Boolean =
@@ -94,6 +96,16 @@ abstract class CommonPhase extends PluginPhase:
       tpe.dealias match
         case res if res.dealias.typeSymbol == dfValSym => Some(res)
         case _                                         => None
+    def isDFConst: Boolean =
+      tpe.widenDealias match
+        case AppliedType(_, _ :: modifierTpe :: Nil) =>
+          modifierTpe.dealias match
+            case AppliedType(_, _ :: _ :: _ :: pTpe :: Nil) =>
+              pTpe =:= constModTpe
+            case _ => false
+        case _ =>
+          false
+  end extension
 
   extension (tree: ValOrDefDef)(using Context)
     def dfValTpeOpt: Option[Type] =
@@ -109,6 +121,18 @@ abstract class CommonPhase extends PluginPhase:
         nameOptTree :: positionTree :: docOptTree :: annotTree :: Nil
       )
   end extension
+
+  extension (v: ValDef)(using Context)
+    def genDesignParamValDef(dfcTree: Tree): ValDef =
+      val meta = v.genMeta
+      val paramGen =
+        ref(genDesignParamSym)
+          .appliedToType(v.tpt.tpe)
+          .appliedToArgs(List(ref(v.symbol), meta))
+          .appliedTo(dfcTree)
+      val uniqueName = NameKinds.UniqueName.fresh(s"${v.name}_plugin".toTermName)
+      val flags: FlagSet = if (ctx.owner.isConstructor) Private else EmptyFlags
+      SyntheticValDef(uniqueName, paramGen, flags)
 
   extension (sym: Symbol)
     def ignoreMetaContext(using Context): Boolean =
@@ -308,7 +332,9 @@ abstract class CommonPhase extends PluginPhase:
     positionCls = requiredClass("dfhdl.internals.Position")
     hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
     inlineAnnotSym = requiredClass("scala.inline")
+    constModTpe = requiredClassRef("dfhdl.core.ISCONST").appliedTo(ConstantType(Constant(true)))
     contextFunctionSym = defn.FunctionSymbol(1, isContextual = true)
+    genDesignParamSym = requiredMethod("dfhdl.core.__For_Plugin.genDesignParam")
     if (debugFilter(tree.source.path.toString))
       println(
         s"""===============================================================

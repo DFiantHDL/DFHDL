@@ -125,10 +125,6 @@ object DFOpaque:
         def actual(using DFC): DFVal[AT, Modifier[A, Any, Any, P]] = trydf {
           DFVal.Alias.AsIs(lhs.dfType.actualType, lhs)
         }
-        // TODO: there is strange result when applying `lhs.actualMap: lhs =>` with the same name
-        //       could be a scala compiler bug or a plugin bug (simple examples seem to work fine)
-        //       see https://scastie.scala-lang.org/PPXZD3rORxaxQ3PTmin6wg
-        @scala.annotation.experimental
         def actualMap(
             f: DFValOf[AT] => DFValOf[AT]
         )(using dfc: DFC, ce: ClassEv[TFE]): DFValOf[DFOpaque[TFE]] =

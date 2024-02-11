@@ -14,7 +14,7 @@ case class AESByte() extends Opaque(Byte)
 
 //Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
 //routine to perform a one-for-one substitution of a byte value.
-val sboxLookupTable = Vector(
+val sboxLookupTable: Byte X 256 <> CONST = Vector(
   "63", "7c", "77", "7b", "f2", "6b", "6f", "c5", "30", "01", "67", "2b", "fe", "d7", "ab", "76",
   "ca", "82", "c9", "7d", "fa", "59", "47", "f0", "ad", "d4", "a2", "af", "9c", "a4", "72", "c0",
   "b7", "fd", "93", "26", "36", "3f", "f7", "cc", "34", "a5", "e5", "f1", "71", "d8", "31", "15",
@@ -41,16 +41,14 @@ extension (lhs: AESByte <> VAL)
   @inline def +(rhs: AESByte <> VAL): AESByte <> DFRET =
     (lhs.actual ^ rhs.actual).as(AESByte)
 
-  private def xtime: AESByte <> DFRET =
-    val shifted = lhs.actual << 1
-    if (lhs.actual(7)) (shifted ^ h"1b").as(AESByte)
-    else shifted.as(AESByte)
+  private def xtime: AESByte <> DFRET = lhs.actualMap: lhs =>
+    val shifted = lhs << 1
+    if (lhs(7)) shifted ^ h"1b"
+    else shifted
 
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
-  def sbox: AESByte <> DFRET =
-    val lookup: Byte X 256 <> CONST = sboxLookupTable
-    lookup(lhs.actual).as(AESByte)
+  def sbox: AESByte <> DFRET = lhs.actualMap(sboxLookupTable(_))
 end extension
 
 extension (lhs: Byte <> CONST)
@@ -80,9 +78,9 @@ extension (lhs: AESWord <> VAL)
   def subWord: AESWord <> DFRET = lhs.mapElements(_.sbox)
 
   // Function used in the Key Expansion routine that takes a four-byte word and performs a cyclic permutation.
-  def rotWord: AESWord <> DFRET =
-    val elms = lhs.actual.elements
-    (elms.drop(1) :+ elms.head).as(AESWord)
+  def rotWord: AESWord <> DFRET = lhs.actualMap: lhs =>
+    val elms = lhs.elements
+    (elms.drop(1) :+ elms.head)
 end extension
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////

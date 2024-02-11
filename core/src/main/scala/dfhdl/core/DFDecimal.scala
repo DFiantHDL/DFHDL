@@ -594,6 +594,11 @@ object DFXInt:
     object Ops:
       export DFUInt.Val.Ops.*
       export DFSInt.Val.Ops.*
+      extension [P, S <: Boolean, W <: Int](lhs: DFValTP[DFXInt[S, W], P])
+        def toScalaInt(using DFC, DFVal.ConstCheck[P]): Int =
+          lhs.toScalaValue.toInt
+        def toScalaBigInt(using DFC, DFVal.ConstCheck[P]): BigInt =
+          lhs.toScalaValue
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
         def <[R](rhs: Exact[R])(using
             dfc: DFC,
