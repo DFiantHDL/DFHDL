@@ -409,7 +409,7 @@ object DFBits:
       def apply(
           dfType: DFBits[Int],
           dfVal: DFValOf[DFBits[Int]]
-      ): DFValOf[DFBits[Int]] =
+      )(using DFC): DFValOf[DFBits[Int]] =
         `LW == RW`(dfType.width, dfVal.width)
         dfVal
       protected object `LW == RW`
@@ -578,6 +578,7 @@ object DFBits:
             aW: Width[tc.Type],
             dfc: DFC
         )(using check: `AW == TW`.Check[aW.Out, W]): DFValTP[tc.Type, P] = trydf {
+          import dfc.getSet
           val aliasDFType = tc(aliasType)
           check.apply(aliasDFType.asIR.width, lhs.width)
           DFVal.Alias.AsIs(aliasDFType, lhs)

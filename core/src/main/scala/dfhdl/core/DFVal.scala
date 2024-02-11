@@ -1092,6 +1092,7 @@ object DFVarOps:
     def :=[R](rhs: Exact[R])(using
         vt: VarsTuple[T]
     )(using tc: DFVal.TC[DFBits[vt.Width], R], dfc: DFC): Unit = trydf:
+      import dfc.getSet
       given dfcAnon: DFC = dfc.anonymize
       def flattenDFValTuple(tpl: Tuple): List[ir.DFVal] =
         tpl.toList.flatMap {

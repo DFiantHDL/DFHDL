@@ -190,7 +190,7 @@ object DFDecimal:
       def apply(
           dfValDFType: DFXInt[ValS, ValW],
           argDFType: DFXInt[ArgS, ArgW]
-      ): Unit
+      )(using DFC): Unit
     given [
         ValS <: Boolean,
         ValW <: Int,
@@ -217,7 +217,8 @@ object DFDecimal:
       def apply(
           dfValDFType: DFXInt[ValS, ValW],
           argDFType: DFXInt[ArgS, ArgW]
-      ): Unit =
+      )(using dfc: DFC): Unit =
+        import dfc.getSet
         val skipSignChecks: Boolean =
           argIsInt.value && !castle && (dfValDFType.signed || !argDFType.signed)
         val argWFix: Int =
@@ -421,7 +422,7 @@ object DFDecimal:
       def apply(
           dfType: DFDecimal[Boolean, Int, Int],
           dfVal: DFValOf[DFDecimal[Boolean, Int, Int]]
-      ): DFValOf[DFDecimal[Boolean, Int, Int]] =
+      )(using DFC): DFValOf[DFDecimal[Boolean, Int, Int]] =
         `LW >= RW`(dfType.width, dfVal.width)
         `LS >= RS`(dfType.signed, dfVal.dfType.signed)
         dfVal
@@ -569,6 +570,7 @@ object DFXInt:
       ): Compare[DFXInt[LS, LW], R, Op, C] with
         type OutP = ic.OutP
         def conv(dfType: DFXInt[LS, LW], arg: R)(using dfc: DFC): Out =
+          import dfc.getSet
           import Ops.resize
           import DFUInt.Val.Ops.signed
           given dfcAnon: DFC = dfc.anonymize

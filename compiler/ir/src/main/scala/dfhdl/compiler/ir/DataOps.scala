@@ -61,7 +61,7 @@ def calcFuncData[OT <: DFType](
     op: FuncOp,
     argTypes: List[DFType],
     argData: List[Any]
-): outType.Data =
+)(using MemberGetSet): outType.Data =
   outType match
     // bits operations are handled specially, because bubble is bit-accurate
     case _: DFBits =>

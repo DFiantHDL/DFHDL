@@ -22,7 +22,8 @@ object __For_Plugin:
     DFVal.Alias
       .SelectField(dfVal, fieldName)(using dfc.anonymize)
       .asInstanceOf[V]
-  def patternSingleton(selector: DFValAny, value: Any)(using DFC): Pattern =
+  def patternSingleton(selector: DFValAny, value: Any)(using dfc: DFC): Pattern =
+    import dfc.getSet
     val const = (selector.dfType.asIR, value) match
       case (dt: ir.DFBoolOrBit, v: Int) if v == 0 | v == 1 =>
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v > 0))

@@ -7,11 +7,11 @@ import scala.reflect.ClassTag
 
 sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives CanEqual:
   type Data
-  val width: Int
-  def createBubbleData: Data
+  def width(using MemberGetSet): Int
+  def createBubbleData(using MemberGetSet): Data
   def isDataBubble(data: Data): Boolean
-  def dataToBitsData(data: Data): (BitVector, BitVector)
-  def bitsDataToData(data: (BitVector, BitVector)): Data
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector)
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data
 
 object DFType:
   type Aux[T <: DFType, Data0] = DFType { type Data = Data0 }
@@ -59,13 +59,13 @@ end NamedDFTypes
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFBoolOrBit extends DFType:
   type Data = Option[Boolean]
-  final val width = 1
-  def createBubbleData: Data = None
+  def width(using MemberGetSet): Int = 1
+  def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
-  def dataToBitsData(data: Data): (BitVector, BitVector) = data match
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data match
     case Some(value) => (BitVector.bit(value), BitVector.low(1))
     case None        => (BitVector.low(1), BitVector.high(1))
-  def bitsDataToData(data: (BitVector, BitVector)): Data =
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data =
     if (data._2.isZeros) Some(!data._1.isZeros)
     else None
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
@@ -80,12 +80,13 @@ case object DFBit extends DFBoolOrBit
 /////////////////////////////////////////////////////////////////////////////
 // DFBits
 /////////////////////////////////////////////////////////////////////////////
-final case class DFBits(width: Int) extends DFType:
+final case class DFBits(widthParam: Int) extends DFType:
   type Data = (BitVector, BitVector)
-  def createBubbleData: Data = (BitVector.low(width), BitVector.high(width))
+  def width(using MemberGetSet): Int = widthParam
+  def createBubbleData(using MemberGetSet): Data = (BitVector.low(width), BitVector.high(width))
   def isDataBubble(data: Data): Boolean = !data._2.isZeros
-  def dataToBitsData(data: Data): (BitVector, BitVector) = data
-  def bitsDataToData(data: (BitVector, BitVector)): Data = data
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = data
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
   def getRefs: List[DFRef.TwoWayAny] = Nil
 
@@ -97,17 +98,18 @@ object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]
 /////////////////////////////////////////////////////////////////////////////
 final case class DFDecimal(
     signed: Boolean,
-    width: Int,
+    widthParam: Int,
     fractionWidth: Int
 ) extends DFType:
   type Data = Option[BigInt]
-  val magnitudeWidth: Int = width - fractionWidth
-  def createBubbleData: Data = None
+  def width(using MemberGetSet): Int = widthParam
+  def magnitudeWidth(using MemberGetSet): Int = width - fractionWidth
+  def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
-  def dataToBitsData(data: Data): (BitVector, BitVector) = data match
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data match
     case Some(value) => (value.toBitVector(width), BitVector.low(width))
     case None        => (BitVector.low(width), BitVector.high(width))
-  def bitsDataToData(data: (BitVector, BitVector)): Data =
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data =
     if (data._2.isZeros)
       (signed, fractionWidth) match
         // DFUInt
@@ -149,16 +151,17 @@ object DFSInt:
 /////////////////////////////////////////////////////////////////////////////
 final case class DFEnum(
     protected val name: String,
-    width: Int,
+    widthParam: Int,
     entries: ListMap[String, BigInt]
 ) extends NamedDFType:
   type Data = Option[BigInt]
-  def createBubbleData: Data = None
+  def width(using MemberGetSet): Int = widthParam
+  def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
-  def dataToBitsData(data: Data): (BitVector, BitVector) = data match
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data match
     case Some(value) => (value.toBitVector(width), BitVector.low(width))
     case None        => (BitVector.low(width), BitVector.high(width))
-  def bitsDataToData(data: (BitVector, BitVector)): Data =
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data =
     if (data._2.isZeros) Some(data._1.toBigInt(false))
     else None
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
@@ -176,21 +179,22 @@ final case class DFVector(
     cellDims: List[Int]
 ) extends DFType:
   type Data = Vector[Any]
-  val width: Int = cellType.width * cellDims.product
-  def createBubbleData: Data = Vector.fill(cellDims.head)(
+  def width(using MemberGetSet): Int = cellType.width * cellDims.product
+  def createBubbleData(using MemberGetSet): Data = Vector.fill(cellDims.head)(
     cellType.createBubbleData
   )
   def isDataBubble(data: Data): Boolean =
     data.exists(x => cellType.isDataBubble(x.asInstanceOf[cellType.Data]))
-  def dataToBitsData(data: Data): (BitVector, BitVector) =
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) =
     val vecs = data
       .map(d => cellType.dataToBitsData(d.asInstanceOf[cellType.Data]))
       .unzip
     (vecs._1.reduce(_ ++ _), vecs._2.reduce(_ ++ _))
-  def bitsDataToData(data: (BitVector, BitVector)): Data =
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data =
     val cellWidth = cellType.width
     val seq =
-      for (i <- 1 to width / cellWidth)
+      val bound = width / cellWidth
+      for (i <- 1 to bound)
         yield cellType.bitsDataToData(
           data._1.bitsWL(cellWidth, width - i * cellWidth),
           data._2.bitsWL(cellWidth, width - i * cellWidth)
@@ -209,13 +213,13 @@ object DFVector extends DFType.Companion[DFVector, Vector[Any]]
 final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualType: DFType)
     extends NamedDFType:
   type Data = Any
-  final val width: Int = actualType.width
-  def createBubbleData: Data = actualType.createBubbleData
+  def width(using MemberGetSet): Int = actualType.width
+  def createBubbleData(using MemberGetSet): Data = actualType.createBubbleData
   def isDataBubble(data: Data): Boolean =
     actualType.isDataBubble(data.asInstanceOf[actualType.Data])
-  def dataToBitsData(data: Data): (BitVector, BitVector) =
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) =
     actualType.dataToBitsData(data.asInstanceOf[actualType.Data])
-  def bitsDataToData(data: (BitVector, BitVector)): Data =
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data =
     actualType.bitsDataToData(data)
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
   def getRefs: List[DFRef.TwoWayAny] = Nil
@@ -234,15 +238,15 @@ final case class DFStruct(
 ) extends NamedDFType:
   type Data = List[Any]
   def getNameForced: String = name
-  val width: Int = fieldMap.values.map(_.width).sum
-  def createBubbleData: Data = fieldMap.values.map(_.createBubbleData).toList
+  def width(using MemberGetSet): Int = fieldMap.values.map(_.width).sum
+  def createBubbleData(using MemberGetSet): Data = fieldMap.values.map(_.createBubbleData).toList
   def isDataBubble(data: Data): Boolean =
     (fieldMap.values lazyZip data).exists((ft, fd) => ft.isDataBubble(fd.asInstanceOf[ft.Data]))
-  def dataToBitsData(data: Data): (BitVector, BitVector) =
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) =
     (fieldMap.values lazyZip data)
       .map((ft, fd) => ft.dataToBitsData(fd.asInstanceOf[ft.Data]))
       .bitsConcat
-  def bitsDataToData(data: (BitVector, BitVector)): Data =
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data =
     var relBitHigh: Int = width - 1
     fieldMap.values
       .map(fieldType =>
@@ -254,16 +258,17 @@ final case class DFStruct(
         fieldType.bitsDataToData((valueBits, bubbleBits))
       )
       .toList
-  lazy val fieldPosMap: Map[String, Int] =
-    var relBitHigh: Int = width - 1
-    fieldMap
-      .map((fieldName, fieldType) =>
+  private var fieldPosMap: Map[String, Int] = Map()
+  def fieldRelBitLow(fieldName: String)(using MemberGetSet): Int =
+    if (fieldPosMap.isEmpty)
+      var relBitHigh: Int = width - 1
+      fieldPosMap = fieldMap.map((fieldName, fieldType) =>
         val relWidth = fieldType.width
         val relBitLow = relBitHigh - relWidth + 1
         relBitHigh = relBitLow - 1
         (fieldName, relBitLow)
       )
-  def fieldRelBitLow(fieldName: String): Int = fieldPosMap(fieldName)
+    fieldPosMap(fieldName)
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
   def getRefs: List[DFRef.TwoWayAny] = Nil
 end DFStruct
@@ -289,14 +294,14 @@ object DFTuple:
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFUnit extends DFType:
   type Data = Unit
-  final val width = 0
+  def width(using MemberGetSet): Int = 0
   def noTypeErr = throw new IllegalArgumentException(
     "Unexpected access to `DFUnit`"
   )
-  def createBubbleData: Data = noTypeErr
+  def createBubbleData(using MemberGetSet): Data = noTypeErr
   def isDataBubble(data: Data): Boolean = noTypeErr
-  def dataToBitsData(data: Data): (BitVector, BitVector) = noTypeErr
-  def bitsDataToData(data: (BitVector, BitVector)): Data = noTypeErr
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
   def getRefs: List[DFRef.TwoWayAny] = Nil
 case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
@@ -309,14 +314,14 @@ case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFNothing extends DFType:
   type Data = Nothing
-  final val width = 0
+  def width(using MemberGetSet): Int = 0
   def noTypeErr = throw new IllegalArgumentException(
     "Unexpected access to `DFNothing`"
   )
-  def createBubbleData: Data = noTypeErr
+  def createBubbleData(using MemberGetSet): Data = noTypeErr
   def isDataBubble(data: Data): Boolean = noTypeErr
-  def dataToBitsData(data: Data): (BitVector, BitVector) = noTypeErr
-  def bitsDataToData(data: (BitVector, BitVector)): Data = noTypeErr
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
   def getRefs: List[DFRef.TwoWayAny] = Nil
 case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing

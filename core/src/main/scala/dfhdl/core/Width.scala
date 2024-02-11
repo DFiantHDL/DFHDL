@@ -198,10 +198,12 @@ end Width
 
 extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValWidth")
-  def width(using w: Width[T]): Inlined[w.Out] =
+  def width(using dfc: DFC, w: Width[T]): Inlined[w.Out] =
+    import dfc.getSet
     Inlined.forced[w.Out](dfVal.asIR.dfType.width)
 
 extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tWidth")
-  def width(using w: Width[tc.Type]): Inlined[w.Out] =
+  def width(using dfc: DFC, w: Width[tc.Type]): Inlined[w.Out] =
+    import dfc.getSet
     Inlined.forced[w.Out](tc(t).asIR.width)

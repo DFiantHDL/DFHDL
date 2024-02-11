@@ -357,7 +357,7 @@ extension (dfVal: DFVal)
                   case _                  => None
               case alias: DFVal.Alias.History => None
               case alias: DFVal.Alias.SelectField =>
-                val idx = relVal.dfType.asInstanceOf[DFStruct].fieldPosMap(alias.fieldName)
+                val idx = relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(alias.fieldName)
                 Some(relValData.asInstanceOf[List[?]](idx))
           case None => None
         end match

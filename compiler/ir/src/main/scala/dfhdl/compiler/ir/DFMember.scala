@@ -124,7 +124,7 @@ end DFMember
 
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
-  def width: Int = dfType.width
+  def width(using MemberGetSet): Int = dfType.width
   def isGlobal: Boolean = false
   protected def protIsConst(using MemberGetSet): Boolean
   // using just an integer to escape redundant boxing Option[Boolean] would have achieved
