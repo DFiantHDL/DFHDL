@@ -6,8 +6,12 @@ import DFVal.*
 import analysis.*
 
 extension (ref: DFRef.TwoWayAny)
-  def refCodeString(using printer: AbstractValPrinter): String = printer.csRef(ref)
   def simpleRefCodeString(using printer: AbstractValPrinter): String = printer.csSimpleRef(ref)
+
+extension (intParamRef: Int | DFRef.TwoWayAny)
+  def refCodeString(using printer: AbstractValPrinter): String = intParamRef match
+    case ref: DFRef.TwoWayAny => printer.csRef(ref)
+    case int: Int             => int.toString
 
 extension (alias: Alias)
   def relValCodeString(using printer: AbstractValPrinter): String = printer.csRelVal(alias)
@@ -164,24 +168,24 @@ protected trait DFValPrinter extends AbstractValPrinter:
         // applying brackets
         val callOwner = dfVal.getOwner
         printer.csDFValRef(relVal, callOwner)
-      case (DFSInt(tWidth), DFUInt(fWidth)) =>
+      case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
         assert(tWidth == fWidth + 1)
         s"${relValStr}.signed"
-      case (DFUInt(tWidth), DFBits(fWidth)) =>
+      case (DFUInt(Int(tWidth)), DFBits(Int(fWidth))) =>
         assert(tWidth == fWidth)
         s"${relValStr}.uint"
-      case (DFSInt(tWidth), DFBits(fWidth)) =>
+      case (DFSInt(Int(tWidth)), DFBits(Int(fWidth))) =>
         assert(tWidth == fWidth)
         s"${relValStr}.sint"
-      case (DFBits(tWidth), DFBits(_)) =>
-        s"${relValStr}.resize($tWidth)"
-      case (DFBits(tWidth), _) =>
+      case (DFBits(tWidthParamRef), DFBits(_)) =>
+        s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
+      case (DFBits(Int(tWidth)), _) =>
         assert(tWidth == fromType.width)
         s"${relValStr}.bits"
-      case (DFUInt(tWidth), DFUInt(_)) =>
-        s"${relValStr}.resize($tWidth)"
-      case (DFSInt(tWidth), DFSInt(_)) =>
-        s"${relValStr}.resize($tWidth)"
+      case (DFUInt(tWidthParamRef), DFUInt(_)) =>
+        s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
+      case (DFSInt(tWidthParamRef), DFSInt(_)) =>
+        s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
       case (DFBit, DFBool) =>
         s"${relValStr}.bit"
       case (DFBool, DFBit) =>

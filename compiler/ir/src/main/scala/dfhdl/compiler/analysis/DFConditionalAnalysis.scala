@@ -72,7 +72,7 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
         .toSet
       selectorVal.dfType match
         case _ if complexPattern => None
-        case DFBits(width) =>
+        case DFBits(Int(width)) =>
           if (constSet.exists(_.isBubble)) None // currently not checking don't-care patterns
           else Some((1 << width) == constSet.size)
         case dec: DFDecimal =>

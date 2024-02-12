@@ -326,7 +326,6 @@ object DFVal extends DFValLP:
   extension [D, T <: ir.DFType, P](lhs: DFValTP[DFType[ir.DFType.Aux[T, Option[D]], ?], P])
     protected[core] def toScalaValue(using dfc: DFC, check: ConstCheck[P]): D =
       import dfc.getSet
-      import dfhdl.compiler.analysis.getParamData
       val lhsIR = lhs.asIR
       def error(errMsg: String): Nothing =
         exitWithError(

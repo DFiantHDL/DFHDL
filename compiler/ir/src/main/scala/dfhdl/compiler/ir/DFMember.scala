@@ -204,8 +204,60 @@ object DFVal:
     def stripPortSel(using MemberGetSet): DFVal = dfVal match
       case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
       case _                               => dfVal
+    def getParamData(using MemberGetSet): Option[Any] =
+      dfVal match
+        case const: DFVal.Const => Some(const.data)
+        case func: DFVal.Func =>
+          val args = func.args.map(_.get)
+          val argData = args.flatMap(_.getParamData)
+          val argTypes = args.map(_.dfType)
+          if (argData.length != func.args.length) None
+          else Some(calcFuncData(func.dfType, func.op, argTypes, argData))
+        case alias: DFVal.Alias =>
+          val relVal = alias.relValRef.get
+          relVal.getParamData match
+            case Some(relValData) =>
+              alias match
+                case alias: DFVal.Alias.AsIs =>
+                  Some(
+                    dataConversion(alias.dfType, relVal.dfType)(
+                      relValData.asInstanceOf[relVal.dfType.Data]
+                    )
+                  )
+                case alias: DFVal.Alias.ApplyRange =>
+                  Some(
+                    selBitRangeData(
+                      relValData.asInstanceOf[(BitVector, BitVector)],
+                      alias.relBitHigh,
+                      alias.relBitLow
+                    )
+                  )
+                case alias: DFVal.Alias.ApplyIdx =>
+                  val relIdx = alias.relIdx.get
+                  relIdx.getParamData match
+                    case Some(Some(idx: BigInt)) =>
+                      val idxInt = idx.toInt
+                      val outData = relVal.dfType match
+                        case DFBits(_) =>
+                          val data = relValData.asInstanceOf[(BitVector, BitVector)]
+                          if (data._2.bit(idxInt)) None
+                          else Some(data._1.bit(idxInt))
+                        case DFVector(_, _) =>
+                          Some(relValData.asInstanceOf[Vector[?]](idxInt))
+                        case _ => ???
+                      Some(outData)
+                    case Some(_: None.type) => Some(None)
+                    case _                  => None
+                case alias: DFVal.Alias.History => None
+                case alias: DFVal.Alias.SelectField =>
+                  val idx = relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(alias.fieldName)
+                  Some(relValData.asInstanceOf[List[?]](idx))
+            case None => None
+          end match
+        case _ => None
+      end match
+    end getParamData
   end extension
-
   // can be an expression
   sealed trait CanBeExpr extends DFVal
 

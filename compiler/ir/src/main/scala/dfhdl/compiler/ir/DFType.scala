@@ -80,15 +80,18 @@ case object DFBit extends DFBoolOrBit
 /////////////////////////////////////////////////////////////////////////////
 // DFBits
 /////////////////////////////////////////////////////////////////////////////
-final case class DFBits(widthParam: Int) extends DFType:
+final case class DFBits(widthParamRef: IntParamRef) extends DFType:
   type Data = (BitVector, BitVector)
-  def width(using MemberGetSet): Int = widthParam
+  def width(using MemberGetSet): Int = widthParamRef.getInt
   def createBubbleData(using MemberGetSet): Data = (BitVector.low(width), BitVector.high(width))
   def isDataBubble(data: Data): Boolean = !data._2.isZeros
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = data
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFBits =>
+      this.widthParamRef =~ that.widthParamRef
+    case _ => false
+  def getRefs: List[DFRef.TwoWayAny] = widthParamRef.refOpt.toList
 
 object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]
 /////////////////////////////////////////////////////////////////////////////
@@ -98,11 +101,11 @@ object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]
 /////////////////////////////////////////////////////////////////////////////
 final case class DFDecimal(
     signed: Boolean,
-    widthParam: Int,
+    widthParamRef: IntParamRef,
     fractionWidth: Int
 ) extends DFType:
   type Data = Option[BigInt]
-  def width(using MemberGetSet): Int = widthParam
+  def width(using MemberGetSet): Int = widthParamRef.getInt
   def magnitudeWidth(using MemberGetSet): Int = width - fractionWidth
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
@@ -126,21 +129,21 @@ end DFDecimal
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]
 
 object DFXInt:
-  def apply(signed: Boolean, width: Int): DFDecimal = DFDecimal(signed, width, 0)
-  def unapply(dfType: DFDecimal): Option[(Boolean, Int)] = dfType match
+  def apply(signed: Boolean, width: IntParamRef): DFDecimal = DFDecimal(signed, width, 0)
+  def unapply(dfType: DFDecimal): Option[(Boolean, IntParamRef)] = dfType match
     case DFDecimal(signed, width, 0) => Some(signed, width)
     case _                           => None
 
 object DFUInt:
-  def apply(width: Int): DFDecimal = DFDecimal(false, width, 0)
-  def unapply(arg: DFDecimal): Option[Int] =
+  def apply(width: IntParamRef): DFDecimal = DFDecimal(false, width, 0)
+  def unapply(arg: DFDecimal): Option[IntParamRef] =
     arg match
       case DFDecimal(false, width, 0) => Some(width)
       case _                          => None
 
 object DFSInt:
-  def apply(width: Int): DFDecimal = DFDecimal(true, width, 0)
-  def unapply(arg: DFDecimal): Option[Int] =
+  def apply(width: IntParamRef): DFDecimal = DFDecimal(true, width, 0)
+  def unapply(arg: DFDecimal): Option[IntParamRef] =
     arg match
       case DFDecimal(true, width, 0) => Some(width)
       case _                         => None

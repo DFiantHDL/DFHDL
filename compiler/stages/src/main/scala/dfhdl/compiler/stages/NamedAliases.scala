@@ -75,11 +75,11 @@ object NamedAliases:
           case alias: DFVal.Alias.AsIs =>
             val relVal = alias.relValRef.get
             val transparentConversion = (alias.dfType, relVal.dfType) match
-              case (DFUInt(toWidth), DFBits(fromWidth)) => toWidth == fromWidth
-              case (DFBits(toWidth), DFUInt(fromWidth)) => toWidth == fromWidth
-              case (DFBit, DFBool)                      => true
-              case (DFBool, DFBit)                      => true
-              case _                                    => false
+              case (DFUInt(Int(toWidth)), DFBits(Int(fromWidth))) => toWidth == fromWidth
+              case (DFBits(Int(toWidth)), DFUInt(Int(fromWidth))) => toWidth == fromWidth
+              case (DFBit, DFBool)                                => true
+              case (DFBool, DFBit)                                => true
+              case _                                              => false
             if (transparentConversion) relVal.hasVerilogName
             else false
           case _ => false

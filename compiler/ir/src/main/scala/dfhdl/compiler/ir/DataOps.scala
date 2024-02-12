@@ -9,30 +9,30 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
     // no casting needed
     case (t, f) if t =~ f => fromData
     // unsigned to signed conversion
-    case (DFSInt(tWidth), DFUInt(fWidth)) =>
+    case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
       assert(tWidth == fWidth + 1)
       fromData
     // Bits resize
-    case (DFBits(tWidth), DFBits(_)) =>
+    case (DFBits(Int(tWidth)), DFBits(_)) =>
       import dfhdl.internals.{resize => resizeBV}
       val data = fromData.asInstanceOf[(BitVector, BitVector)]
       (data._1.resizeBV(tWidth), data._2.resizeBV(tWidth))
     // UInt resize
-    case (DFUInt(tWidth), DFUInt(fWidth)) =>
+    case (DFUInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
       if (tWidth > fWidth) fromData
       else
         fromData.asInstanceOf[Option[BigInt]].map(_.truncateAsUnsigned(tWidth))
     // SInt resize
-    case (DFSInt(tWidth), DFSInt(fWidth)) =>
+    case (DFSInt(Int(tWidth)), DFSInt(Int(fWidth))) =>
       if (tWidth > fWidth) fromData
       else
         fromData.asInstanceOf[Option[BigInt]].map(_.truncateAsUnsigned(tWidth).asSigned(tWidth))
     // Casting from any data to Bits
-    case (DFBits(tWidth), _) =>
+    case (DFBits(Int(tWidth)), _) =>
       assert(tWidth == fromType.width)
       fromType.dataToBitsData(fromData)
     // Casting from Bits to any data
-    case (_, DFBits(fWidth)) =>
+    case (_, DFBits(Int(fWidth))) =>
       assert(fWidth == toType.width)
       toType.bitsDataToData(fromData.asInstanceOf[(BitVector, BitVector)])
     // Casting from any data to any data

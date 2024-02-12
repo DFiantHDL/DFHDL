@@ -30,11 +30,22 @@ end DFRef
 
 type IntParamRef = DFRef.TwoWay[DFVal, DFVal] | Int
 extension (intParamRef: IntParamRef)
-  def int = intParamRef.asInstanceOf[Int]
-  def intOpt: Option[Int] = intParamRef match
-    case int: Int => Some(int)
-    case _        => None
+  def getInt(using MemberGetSet): Int = (intParamRef: @unchecked) match
+    case Int(int) => int
   def ref: DFRef.TwoWay[DFVal, DFVal] = intParamRef.asInstanceOf[DFRef.TwoWay[DFVal, DFVal]]
   def refOpt: Option[DFRef.TwoWay[DFVal, DFVal]] = intParamRef match
     case ref: DFRef.TwoWay[DFVal, DFVal] => Some(ref)
     case _                               => None
+  def =~(that: IntParamRef)(using MemberGetSet): Boolean =
+    (intParamRef, that) match
+      case (thisRef: DFRef.TwoWay[DFVal, DFVal], thatRef: DFRef.TwoWay[DFVal, DFVal]) =>
+        thisRef =~ thatRef
+      case (thisInt: Int, thatInt: Int) => thisInt == thatInt
+      case _                            => false
+end extension
+extension (intCompanion: Int.type)
+  def unapply(intParamRef: IntParamRef)(using MemberGetSet): Option[Int] =
+    (intParamRef: @unchecked) match
+      case int: Int => Some(int)
+      case DFRef(dfVal: DFVal) =>
+        dfVal.getParamData.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)

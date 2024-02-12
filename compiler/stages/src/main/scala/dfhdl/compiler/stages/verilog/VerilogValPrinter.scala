@@ -83,35 +83,35 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     (toType, fromType) match
       case (t, f) if t == f =>
         relValStr
-      case (DFSInt(tWidth), DFUInt(fWidth)) =>
+      case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
         assert(tWidth == fWidth + 1)
         s"$$signed({1'b0, $relValStr})"
-      case (DFUInt(tWidth), DFBits(fWidth)) =>
+      case (DFUInt(Int(tWidth)), DFBits(Int(fWidth))) =>
         assert(tWidth == fWidth)
         relValStr
-      case (DFBits(tWidth), DFUInt(fWidth)) =>
+      case (DFBits(Int(tWidth)), DFUInt(Int(fWidth))) =>
         assert(tWidth == fWidth)
         relValStr
-      case (DFSInt(tWidth), DFBits(fWidth)) =>
+      case (DFSInt(Int(tWidth)), DFBits(Int(fWidth))) =>
         assert(tWidth == fWidth)
         s"$$signed($relValStr)"
-      case (DFBits(tWidth), DFBits(fWidth)) =>
+      case (DFBits(tr @ Int(tWidth)), DFBits(fr @ Int(fWidth))) =>
         if (tWidth == fWidth) relValStr
-        else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tWidth - 1}:0]"
-        else s"{${tWidth - fWidth}'b0, $relValStr}"
-      case (t, DFOpaque(_, _, ot)) if ot == t =>
+        else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tr.refCodeString}-1:0]"
+        else s"{(${tr.refCodeString}-${fr.refCodeString})'b0, $relValStr}"
+      case (t, DFOpaque(_, _, ot)) if ot =~ t =>
         relValStr
       case (DFOpaque(_, _, _), _) =>
         relValStr
-      case (DFBits(tWidth), _) =>
+      case (DFBits(Int(tWidth)), _) =>
         assert(tWidth == fromType.width)
         s"{$relValStr}"
-      case (DFUInt(tWidth), DFUInt(fWidth)) =>
+      case (DFUInt(tr @ Int(tWidth)), DFUInt(fr @ Int(fWidth))) =>
         if (tWidth == fWidth) relValStr
-        else if (tWidth < fWidth) s"$relValStr[${tWidth - 1}:0]"
-        else s"{${tWidth - fWidth}'b0, $relValStr}"
-      case (DFSInt(tWidth), DFSInt(_)) =>
-        s"$tWidth'($relValStr)"
+        else if (tWidth < fWidth) s"$relValStr[${tr.refCodeString}-1:0]"
+        else s"{(${tr.refCodeString}-${fr.refCodeString})'b0, $relValStr}"
+      case (DFSInt(tWidthParamRef), DFSInt(_)) =>
+        s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
       case (DFBit, DFBool) => relValStr
       case (DFBool, DFBit) => relValStr
       case (toStruct: DFStruct, _: DFBits) =>
