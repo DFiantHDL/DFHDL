@@ -331,8 +331,73 @@ object DFDecimal:
         ${ unapplySeqMacro('{ true })('parts, 'arg) }
 
     extension (inline sc: StringContext)
+      /** Decimal Integer String Interpolator
+        *
+        * @syntax
+        *   `d"width'dec"`
+        *   - `dec` is a sequence of decimal characters ('0'-'9') with an optional prefix `-` for
+        *     negative values.
+        *   - Separators `_` (underscore) and `,` (comma) within `dec` are ignored.
+        *   - `width`, followed by a `'`, is optional and specifies the minimum width of the
+        *     integer's bit representation. If omitted, the width is inferred from the value's size.
+        *     If specified, the output is padded with zeros or extended for signed numbers using
+        *     two's complement representation to match the `width`.
+        *   - The output type is `UInt[W]` for unsigned numbers and `SInt[W]` for signed numbers,
+        *     where `W` is the width in bits.
+        *   - If the specified `width` is less than the required number of bits to represent the
+        *     value, an error occurs.
+        *
+        * @example
+        *   {{{
+        *   d"0"      // UInt[1], value = 0
+        *   d"-1"     // SInt[2], value = -1
+        *   d"8'-1"   // SInt[8], value = -1
+        *   d"255"    // UInt[8], value = 255
+        *   d"1,023"  // UInt[10], value = 1023
+        *   }}}
+        *
+        * @note
+        *   This interpolator does not accept external arguments through `${arg}` and currently
+        *   supports only integer values.
+        * @return
+        *   A decimal type representing an unsigned (`UInt`) or signed (`SInt`) integer, encoded in
+        *   two's complement.
+        */
       transparent inline def d: Any = ${ SIParts.scMacro[DParts]('sc) }
+
+      /** Signed Decimal Integer String Interpolator
+        *
+        * @syntax
+        *   `sd"width'dec"`
+        *   - `dec` is a sequence of decimal characters ('0'-'9') with an optional prefix `-` for
+        *     negative values.
+        *   - Separators `_` (underscore) and `,` (comma) within `dec` are ignored.
+        *   - `width`, followed by a `'`, is optional and specifies the minimum width of the
+        *     integer's bit representation, which is always at least 2 bits to accommodate the sign
+        *     bit.
+        *   - The output is always a signed integer type `SInt[W]`, regardless of whether the `dec`
+        *     value is signed or unsigned, where `W` is the width in bits.
+        *   - If the specified `width` is less than the required number of bits to represent the
+        *     value including the sign bit, an error occurs.
+        *
+        * @example
+        *   {{{
+        *   sd"0"     // SInt[2], value = 0 (unsigned number represented as a signed type)
+        *   sd"-1"    // SInt[2], value = -1
+        *   sd"255"   // SInt[9], value = 255 (unsigned number represented as a signed type)
+        *   sd"8'255" // Error: width is too small to represent the value including the sign bit
+        *   }}}
+        *
+        * @note
+        *   This interpolator does not accept external arguments through `${arg}` and currently
+        *   supports only integer values. It ensures that the output is always treated as a signed
+        *   integer, providing an explicit way to work with signed numbers.
+        * @return
+        *   A decimal type representing a signed integer (`SInt`) value, encoded in two's
+        *   complement.
+        */
       transparent inline def sd: Any = ${ SIParts.scMacro[SDParts]('sc) }
+    end extension
 
     private def applyMacro[P <: Tuple](signedForcedExpr: Expr[Boolean])(
         scParts: Expr[P],

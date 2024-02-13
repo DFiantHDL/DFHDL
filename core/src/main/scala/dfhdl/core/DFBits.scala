@@ -175,62 +175,64 @@ object DFBits:
     extension (inline sc: StringContext)
       /** Binary Bits Vector String Interpolator
         *
-        * Interpolator Syntax: {{{b"width'bin"}}}
-        *   - `bin` is a char sequence of '0', '1', and '?' (to indicate a bit bubble).
-        *   - `bin` also allows separators of space ' ' or underscore '_' that are ignored.
-        *   - `width` (with the following tag char `'`) is optional. If it's not specified, the
-        *     width is determined by the length of the char sequence. Otherwise, the width is set as
-        *     required. If the required width is longer than the char sequence length, then zeros
-        *     are added as the MSBits. If the required width is shorter then the char sequence, it
-        *     is accepted only if the MSBits it is truncating are zeros. Otherwise, a compilation
-        *     error is generated.
+        * @syntax
+        *   `b"width'bin"`
+        *   - `bin` is a sequence of '0', '1', and '?' characters, indicating a bit bubble.
+        *   - Separators ' ' (space) or '_' (underscore) within `bin` are ignored.
+        *   - `width`, followed by a `'`, is optional and specifies the bit vector's width. If
+        *     omitted, the width is inferred from the sequence length. If specified, leading zeros
+        *     are added or the sequence is truncated based on the `width`. Truncation only occurs if
+        *     the most significant bits being removed are zeros; otherwise, it triggers a
+        *     compilation error.
+        *
         * @example
         *   {{{
-        *   b"1"        //value = 1
-        *   b"1000"     //value = 1000
-        *   b"8'1000"   //value = 00001000
-        *   b"3'0100"   //value = 100
-        *   b"3'1100"   //error
-        *   b"1?11"     //value = 1?11 (? is a bubble bit)
-        *   b"11_00"    //value = 1100
+        *   b"1"        // Value = 1
+        *   b"1000"     // Value = 1000
+        *   b"8'1000"   // Value = 00001000
+        *   b"3'0100"   // Value = 100
+        *   b"3'1100"   // Compilation error
+        *   b"1?11"     // Value = 1?11 (? indicates a bit bubble)
+        *   b"11_00"    // Value = 1100
         *   }}}
+        *
         * @note
-        *   The string interpolator currently does not accept external arguments with `\${arg}`
+        *   This interpolator does not accept external arguments through `${arg}`.
         * @return
-        *   DFHDL Bits vector.
+        *   A DFHDL Bits vector.
         */
       transparent inline def b: Any = ${ SIParts.scMacro[BParts]('sc) }
 
       /** Hexadecimal Bits Vector String Interpolator
         *
-        * Interpolator Syntax: {{{b"width'hex"}}}
-        *   - `hex` is a char sequence of '0'-'9','A'-'F','a'-'f','?' (to indicate a 4-bit bubble).
-        *     Each character is equivalent to a 4-bits nibble.
-        *   - `hex` also allows separators of space ' ' or underscore '_' that are ignored.
-        *   - `hex` also supports a binary mode within `{bin}`, where bin is equivalent to the char
-        *     sequence of the binary string interpolator (see [[b]]). So between 4-bit hex nibbles,
-        *     it is possible to insert a binary bit sequence of any length that is not necessarily
-        *     dividable by 4.
-        *   - `width` (with the following tag char `'`) is optional. If it's not specified, the
-        *     width is determined by the length of the char sequence. Otherwise, the width is set as
-        *     required. If the required width is longer than the char sequence length, then zeros
-        *     are added as the MSBits. If the required width is shorter then the char sequence, it
-        *     is accepted only if the MSBits it is truncating are zeros. Otherwise, a compilation
-        *     error is generated.
+        * @syntax
+        *   `b"width'hex"`
+        *   - `hex` is a sequence of hexadecimal characters ('0'-'9', 'A'-'F', 'a'-'f', and '?')
+        *     where '?' indicates a 4-bit bubble. Each character represents a 4-bit nibble.
+        *   - Separators ' ' (space) or '_' (underscore) within `hex` are ignored.
+        *   - Binary sequences can be embedded within `{bin}` tags, allowing integration of binary
+        *     bit sequences of any length, not necessarily divisible by 4, between hex nibbles.
+        *   - `width`, followed by a `'`, is optional and specifies the bit vector's width. If
+        *     omitted, the width is inferred from the sequence length. If specified, leading zeros
+        *     are added or the sequence is truncated based on the `width`. Truncation only occurs if
+        *     the most significant bits being removed are zeros; otherwise, it triggers a
+        *     compilation error.
+        *
         * @example
         *   {{{
-        *   h"1"        //value = 0001
-        *   h"27"       //value = 00100111
-        *   h"6'27"     //value = 100111
-        *   h"5'27"     //error
-        *   h"2?"       //value = 0010????
-        *   h"F{00}F"   //value = 1111001111
-        *   h"3_3"      //value = 00110011
+        *   h"1"        // Value = 0001
+        *   h"27"       // Value = 00100111
+        *   h"6'27"     // Value = 100111
+        *   h"5'27"     // Compilation error
+        *   h"2?"       // Value = 0010????
+        *   h"F{00}F"   // Value = 1111001111
+        *   h"3_3"      // Value = 00110011
         *   }}}
+        *
         * @note
-        *   The string interpolator currently does not accept external arguments with `\${arg}`
+        *   This interpolator does not accept external arguments through `${arg}`.
         * @return
-        *   DFHDL Bits vector.
+        *   A DFHDL Bits vector.
         */
       transparent inline def h: Any = ${ SIParts.scMacro[HParts]('sc) }
     end extension
