@@ -292,7 +292,7 @@ object DFVal:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = Nil
+    def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
   end Const
 
   final case class Open(
@@ -307,7 +307,7 @@ object DFVal:
       case _       => false
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
-    def getRefs: List[DFRef.TwoWayAny] = Nil
+    def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
   end Open
 
   final case class Dcl(
@@ -331,7 +331,7 @@ object DFVal:
     def initList(using MemberGetSet): List[DFVal] = initRefList.map(_.get)
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = initRefList
+    def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ initRefList
   end Dcl
   object Dcl:
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
@@ -356,7 +356,7 @@ object DFVal:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = args
+    def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ args
   end Func
 
   object Func:
@@ -365,6 +365,7 @@ object DFVal:
       case >>, <<, ror, rol, reverse
       case unary_-, unary_~, unary_!
       case rising, falling
+      case clog2
 
   final case class PortByNameSelect(
       dfType: DFType,
@@ -383,7 +384,7 @@ object DFVal:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = List(designInstRef)
+    def getRefs: List[DFRef.TwoWayAny] = designInstRef :: dfType.getRefs
   end PortByNameSelect
   object PortByNameSelect:
     type Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
@@ -397,7 +398,7 @@ object DFVal:
 
   sealed trait Alias extends CanBeExpr:
     val relValRef: Alias.Ref
-    def getRefs: List[DFRef.TwoWayAny] = List(relValRef)
+    def getRefs: List[DFRef.TwoWayAny] = relValRef :: dfType.getRefs
 
   object Alias:
     case object IdentTag extends DFTagOf[DFVal]
@@ -461,7 +462,7 @@ object DFVal:
       def initOption(using MemberGetSet): Option[DFVal] = initRefOption.map(_.get)
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-      override def getRefs: List[DFRef.TwoWayAny] = List(relValRef) ++ initRefOption
+      override def getRefs: List[DFRef.TwoWayAny] = relValRef :: dfType.getRefs ++ initRefOption
     end History
 
     object History:
@@ -506,7 +507,7 @@ object DFVal:
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-      override def getRefs: List[DFRef.TwoWayAny] = List(relIdx, relValRef)
+      override def getRefs: List[DFRef.TwoWayAny] = relIdx :: relValRef :: dfType.getRefs
     end ApplyIdx
     object ApplyIdx:
       object Const:
@@ -702,7 +703,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = List(selectorRef)
+    def getRefs: List[DFRef.TwoWayAny] = selectorRef :: dfType.getRefs
   end DFMatchHeader
 
   final case class DFCaseBlock(
@@ -797,7 +798,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = Nil
+    def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
   end DFIfHeader
 
   final case class DFIfElseBlock(

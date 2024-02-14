@@ -51,7 +51,7 @@ object DFVector:
       //   x(dfType, cellDim*)
       inline infix def X(
           cellDim: Inlined[D]
-      ): DFVector[tc.Type, Tuple1[D]] =
+      )(using DFC): DFVector[tc.Type, Tuple1[D]] =
         DFVector(tc(t), Tuple1(cellDim))
     extension [T <: DFType.Supported, D <: Int, M <: ModifierAny](t: T)(using tc: DFType.TC[T])
       infix def X(

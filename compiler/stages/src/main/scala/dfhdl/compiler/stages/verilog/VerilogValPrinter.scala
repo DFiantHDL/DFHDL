@@ -97,7 +97,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"$$signed($relValStr)"
       case (DFBits(tr @ Int(tWidth)), DFBits(fr @ Int(fWidth))) =>
         if (tWidth == fWidth) relValStr
-        else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tr.refCodeString}-1:0]"
+        else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tr.uboundCS}:0]"
         else s"{(${tr.refCodeString}-${fr.refCodeString})'b0, $relValStr}"
       case (t, DFOpaque(_, _, ot)) if ot =~ t =>
         relValStr
@@ -108,7 +108,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"{$relValStr}"
       case (DFUInt(tr @ Int(tWidth)), DFUInt(fr @ Int(fWidth))) =>
         if (tWidth == fWidth) relValStr
-        else if (tWidth < fWidth) s"$relValStr[${tr.refCodeString}-1:0]"
+        else if (tWidth < fWidth) s"$relValStr[${tr.uboundCS}:0]"
         else s"{(${tr.refCodeString}-${fr.refCodeString})'b0, $relValStr}"
       case (DFSInt(tWidthParamRef), DFSInt(_)) =>
         s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"

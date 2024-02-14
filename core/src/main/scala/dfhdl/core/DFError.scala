@@ -50,24 +50,29 @@ class Logger:
   def getErrors: List[DFError] = errors.reverse
   def clearErrors(): Unit = errors = Nil
 
-//@targetName("tryDFType")
-//def trydf[T <: DFTypeAny](block: => T): T =
-//  try block
-//  catch
-//    case e: IllegalArgumentException => DFError.Basic(e).asFE[T]
-//    case e: DFError                  => e.asFE[T]
-//
+@targetName("tryDFType")
+@metaContextForward(0)
+def trydf[T <: DFTypeAny](
+    block: => T
+)(using dfc: DFC, ctName: CTName): T =
+  try block
+  catch
+    case e: Exception =>
+      val dfErr = e match
+        case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
+        case e: DFError                  => e
+        case e                           => throw e
+      if (dfc.ownerOption.isEmpty)
+        exitWithError(dfErr.toString())
+      dfc.logError(dfErr)
+      new DFTypeAny(dfErr).asInstanceOf[T]
 
 @targetName("tryDFVal")
 @metaContextForward(0)
 def trydf[V <: DFValAny](
     block: => V
 )(using dfc: DFC, ctName: CTName): V =
-  try
-    val ret = block
-    import dfc.getSet
-    val retIR = ret.asIR
-    retIR.asVal[DFTypeAny, ModifierAny].asInstanceOf[V]
+  try block
   catch
     case e: Exception =>
       val dfErr = e match
@@ -89,6 +94,8 @@ def trydf(block: => Unit)(using dfc: DFC, ctName: CTName): Unit =
         case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
         case e: DFError                  => e
         case e                           => throw e
+      if (dfc.ownerOption.isEmpty)
+        exitWithError(dfErr.toString())
       dfc.logError(dfErr)
 
 def exitWithError(msg: String): Nothing =

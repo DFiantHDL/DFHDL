@@ -10,12 +10,12 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     case DFBool => "boolean"
     case DFBit  => "std_logic"
   def csDFBits(dfType: DFBits, typeCS: Boolean): String =
-    s"std_logic_vector(${dfType.width - 1} downto 0)"
+    s"std_logic_vector(${dfType.widthParamRef.uboundCS} downto 0)"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
     (signed, fractionWidth) match
-      case (false, 0) => s"unsigned(${width - 1} downto 0)"
-      case (true, 0)  => s"signed(${width - 1} downto 0)"
+      case (false, 0) => s"unsigned(${widthParamRef.uboundCS} downto 0)"
+      case (true, 0)  => s"signed(${widthParamRef.uboundCS} downto 0)"
       case (false, _) => ???
       case (true, _)  => ???
 

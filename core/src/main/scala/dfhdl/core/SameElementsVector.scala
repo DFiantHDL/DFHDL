@@ -37,7 +37,7 @@ object SameElementsVector:
       case b: Boolean => b
       case i: Int     => i > 0
     DFVal.Const(
-      DFBits(width),
+      DFBits.fromInlined(width),
       (BitVector.fill(width.value)(boolVal), BitVector.low(width.value)),
       named
     )

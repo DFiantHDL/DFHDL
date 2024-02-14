@@ -149,6 +149,14 @@ def calcFuncData[OT <: DFType](
               Some(data: BigInt) :: Nil
             ) =>
           Some(-data)
+        // Arithmetic CLog2
+        case (
+              DFXInt(_, _),
+              FuncOp.clog2,
+              DFXInt(_, _) :: Nil,
+              Some(data: BigInt) :: Nil
+            ) if data.isValidInt =>
+          Some(BigInt(clog2(data.toInt)))
         // DFXInt comparisons
         case (
               DFBool,

@@ -6,12 +6,16 @@ import DFVal.*
 import analysis.*
 
 extension (ref: DFRef.TwoWayAny)
+  def refCodeString(using printer: AbstractValPrinter): String = printer.csRef(ref)
   def simpleRefCodeString(using printer: AbstractValPrinter): String = printer.csSimpleRef(ref)
 
-extension (intParamRef: Int | DFRef.TwoWayAny)
+extension (intParamRef: IntParamRef)
   def refCodeString(using printer: AbstractValPrinter): String = intParamRef match
     case ref: DFRef.TwoWayAny => printer.csRef(ref)
     case int: Int             => int.toString
+  def uboundCS(using printer: AbstractValPrinter): String = intParamRef match
+    case ref: DFRef.TwoWayAny => s"${printer.csRef(ref)}-1"
+    case int: Int             => (int - 1).toString
 
 extension (alias: Alias)
   def relValCodeString(using printer: AbstractValPrinter): String = printer.csRelVal(alias)
@@ -23,23 +27,22 @@ trait AbstractValPrinter extends AbstractPrinter:
       case _                                           => ref.refCodeString
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String
   final def csRef(ref: DFRef.TwoWayAny): String =
-    try
-      val member = ref.get
-      member match
-        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
-          if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
-          else dfVal.getName
-        case dfVal: DFVal =>
-          val callOwner = ref.originMember.getOwner
-          val cs = printer.csDFValRef(dfVal, callOwner)
-          dfVal match
-            case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
-            case _                                          => cs
-        case named: DFMember.Named =>
-          named.getName
-        case _ =>
-          throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
-    catch case _: Throwable => "<BAD_REF>"
+    val member = ref.get
+    member match
+      case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
+        if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
+        else dfVal.getName
+      case dfVal: DFVal =>
+        val callOwner = ref.originMember.getOwner
+        val cs = printer.csDFValRef(dfVal, callOwner)
+        dfVal match
+          case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
+          case _                                          => cs
+      case named: DFMember.Named =>
+        named.getName
+      case _ =>
+        throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
+  end csRef
   final def csRelVal(alias: Alias): String =
     alias.relValRef.refCodeString.applyBrackets()
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String
@@ -124,9 +127,12 @@ protected trait DFValPrinter extends AbstractValPrinter:
       // unary/postfix func
       case arg :: Nil =>
         val opStr = dfVal.op.toString
-        val argStr = arg.refCodeString.applyBrackets()
-        if (opStr.startsWith("unary_")) s"${opStr.last}$argStr"
-        else s"${argStr}.${opStr}"
+        dfVal.op match
+          case Func.Op.unary_! | Func.Op.unary_- | Func.Op.unary_! =>
+            s"${opStr.last}${arg.refCodeString.applyBrackets()}"
+          case Func.Op.clog2 =>
+            s"${opStr}${arg.refCodeString.applyBrackets(onlyIfRequired = false)}"
+          case _ => s"${arg.refCodeString.applyBrackets()}.${opStr}"
       // multiarg func
       case args =>
         dfVal.op match

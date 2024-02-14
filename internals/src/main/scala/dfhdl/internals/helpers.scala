@@ -7,6 +7,7 @@ extension [T](t: T)
   def debugPrint: T =
     println(t)
     t
+def clog2(int: Int): Int = 32 - Integer.numberOfLeadingZeros(int - 1)
 
 extension (t: Any) def hashString: String = t.hashCode().toHexString
 

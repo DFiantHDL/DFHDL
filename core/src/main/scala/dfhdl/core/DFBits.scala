@@ -10,9 +10,16 @@ type DFBits[W <: Int] = DFType[ir.DFBits, Args1[W]]
 import DFDecimal.Constraints.`LW == RW`
 
 object DFBits:
-  def apply[W <: Int](width: Inlined[W])(using
+  def apply[W <: Int](width: IntParam[W])(using
+      dfc: DFC,
       check: Arg.Width.Check[W]
-  ): DFBits[W] =
+  ): DFBits[W] = trydf:
+    check(width)
+    ir.DFBits(width.ref).asFE[DFBits[W]]
+  def fromInlined[W <: Int](width: Inlined[W])(using
+      dfc: DFC,
+      check: Arg.Width.Check[W]
+  ): DFBits[W] = trydf:
     check(width)
     ir.DFBits(width).asFE[DFBits[W]]
   def forced[W <: Int](width: Int): DFBits[W] =
@@ -20,14 +27,11 @@ object DFBits:
     check(width)
     ir.DFBits(width).asFE[DFBits[W]]
   @targetName("applyNoArg")
-  def apply[W <: Int & Singleton](using ValueOf[W])(using
-      Arg.Width.Check[W]
-  ): DFBits[W] =
-    DFBits[W](Inlined.forced[W](valueOf[W]))
+  def apply[W <: Int & Singleton](using ValueOf[W])(using DFC, Arg.Width.Check[W]): DFBits[W] =
+    DFBits.fromInlined[W](Inlined.forced[W](valueOf[W]))
 
-  given bitsDFType[W <: Int](using ValueOf[W])(using
-      Arg.Width.Check[W]
-  ): DFBits[W] = DFBits[W](Inlined.forced[W](valueOf[W]))
+  given bitsDFType[W <: Int](using ValueOf[W])(using DFC, Arg.Width.Check[W]): DFBits[W] =
+    DFBits.fromInlined[W](Inlined.forced[W](valueOf[W]))
 
   protected object `AW == TW`
       extends Check2[
@@ -175,8 +179,7 @@ object DFBits:
     extension (inline sc: StringContext)
       /** Binary Bits Vector String Interpolator
         *
-        * @syntax
-        *   `b"width'bin"`
+        * Syntax: {{{b"width'bin"}}}
         *   - `bin` is a sequence of '0', '1', and '?' characters, indicating a bit bubble.
         *   - Separators ' ' (space) or '_' (underscore) within `bin` are ignored.
         *   - `width`, followed by a `'`, is optional and specifies the bit vector's width. If
@@ -205,8 +208,7 @@ object DFBits:
 
       /** Hexadecimal Bits Vector String Interpolator
         *
-        * @syntax
-        *   `b"width'hex"`
+        * Syntax: {{{h"width'hex"}}}
         *   - `hex` is a sequence of hexadecimal characters ('0'-'9', 'A'-'F', 'a'-'f', and '?')
         *     where '?' indicates a 4-bit bubble. Each character represents a 4-bit nibble.
         *   - Separators ' ' (space) or '_' (underscore) within `hex` are ignored.
@@ -509,12 +511,12 @@ object DFBits:
           // TODO: why this causes anonymous references?
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFBits[RW]]
 //          else
-          DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
+          DFVal.Alias.AsIs(DFBits.fromInlined(updatedWidth), lhs)
       end extension
       extension [T <: Int, P](iter: Iterable[DFValTP[DFBits[T], P]])
         protected[core] def concatBits(using DFC): DFValTP[DFBits[Int], P] =
           val width = Inlined.forced[Int](iter.map(_.width.value).sum)
-          DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
+          DFVal.Func(DFBits.fromInlined(width), FuncOp.++, iter.toList)
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
         def extend(using DFC): DFValTP[DFBits[Int], icL.OutP] =
           icL(lhs).tag(DFVal.ExtendTag).asValTP[DFBits[Int], icL.OutP]
@@ -556,7 +558,7 @@ object DFBits:
           val lhsVal = icL(lhs)
           check(num)
           DFVal.Func(
-            DFBits(lhsVal.dfType.width * num),
+            DFBits.fromInlined(lhsVal.dfType.width * num),
             FuncOp.++,
             List.fill(num)(lhsVal)
           )
@@ -567,7 +569,7 @@ object DFBits:
           val lhsVal = icL(lhs)
           val rhsVal = icR(rhs)
           val width = lhsVal.width + rhsVal.width
-          DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhsVal))
+          DFVal.Func(DFBits.fromInlined(width), FuncOp.++, List(lhsVal, rhsVal))
         }
       end extension
 
@@ -658,7 +660,7 @@ object DFBits:
         ): DFValOf[DFBits[c.OutW + RW]] = trydf {
           val lhsVal = c(es(lhs))
           val width = lhsVal.width + rhs.width
-          DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhs))
+          DFVal.Func(DFBits.fromInlined(width), FuncOp.++, List(lhsVal, rhs))
         }
         def &[RW <: Int](
             rhs: DFValOf[DFBits[RW]]

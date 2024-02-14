@@ -8,12 +8,12 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   type TPrinter <: VerilogPrinter
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = "logic"
   def csDFBits(dfType: DFBits, typeCS: Boolean): String =
-    s"logic [${dfType.width - 1}:0]"
+    s"logic [${dfType.widthParamRef.uboundCS}:0]"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
     (signed, fractionWidth) match
-      case (false, 0) => s"logic [${dfType.width - 1}:0]"
-      case (true, 0)  => s"logic signed [${dfType.width - 1}:0]"
+      case (false, 0) => s"logic [${dfType.widthParamRef.uboundCS}:0]"
+      case (true, 0)  => s"logic signed [${dfType.widthParamRef.uboundCS}:0]"
       case (false, _) => ???
       case (true, _)  => ???
 

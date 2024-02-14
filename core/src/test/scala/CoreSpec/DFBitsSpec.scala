@@ -5,7 +5,7 @@ import munit.*
 class DFBitsSpec extends DFSpec:
   test("Type Construction") {
     val zero = 0
-    assertDSLError(
+    assertDSLErrorLog(
       "Width must be positive, but found: 0"
     )(
       """Bits(0)"""

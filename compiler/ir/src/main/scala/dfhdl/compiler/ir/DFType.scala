@@ -91,9 +91,10 @@ final case class DFBits(widthParamRef: IntParamRef) extends DFType:
     case that: DFBits =>
       this.widthParamRef =~ that.widthParamRef
     case _ => false
-  def getRefs: List[DFRef.TwoWayAny] = widthParamRef.refOpt.toList
+  def getRefs: List[DFRef.TwoWayAny] = widthParamRef.getRef.toList
 
-object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]
+object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
+  def apply(width: Int): DFBits = DFBits(IntParamRef(width))
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -126,7 +127,9 @@ final case class DFDecimal(
   def getRefs: List[DFRef.TwoWayAny] = Nil
 end DFDecimal
 
-object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]
+object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
+  def apply(signed: Boolean, width: Int, fractionWidth: Int): DFDecimal =
+    DFDecimal(signed, IntParamRef(width), fractionWidth)
 
 object DFXInt:
   def apply(signed: Boolean, width: IntParamRef): DFDecimal = DFDecimal(signed, width, 0)
@@ -136,6 +139,7 @@ object DFXInt:
 
 object DFUInt:
   def apply(width: IntParamRef): DFDecimal = DFDecimal(false, width, 0)
+  def apply(width: Int): DFDecimal = DFDecimal(false, width, 0)
   def unapply(arg: DFDecimal): Option[IntParamRef] =
     arg match
       case DFDecimal(false, width, 0) => Some(width)
@@ -143,6 +147,7 @@ object DFUInt:
 
 object DFSInt:
   def apply(width: IntParamRef): DFDecimal = DFDecimal(true, width, 0)
+  def apply(width: Int): DFDecimal = DFDecimal(true, width, 0)
   def unapply(arg: DFDecimal): Option[IntParamRef] =
     arg match
       case DFDecimal(true, width, 0) => Some(width)

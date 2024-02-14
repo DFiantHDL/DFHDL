@@ -333,8 +333,7 @@ object DFDecimal:
     extension (inline sc: StringContext)
       /** Decimal Integer String Interpolator
         *
-        * @syntax
-        *   `d"width'dec"`
+        * Syntax: {{{d"width'dec"}}}
         *   - `dec` is a sequence of decimal characters ('0'-'9') with an optional prefix `-` for
         *     negative values.
         *   - Separators `_` (underscore) and `,` (comma) within `dec` are ignored.
@@ -342,7 +341,7 @@ object DFDecimal:
         *     integer's bit representation. If omitted, the width is inferred from the value's size.
         *     If specified, the output is padded with zeros or extended for signed numbers using
         *     two's complement representation to match the `width`.
-        *   - The output type is `UInt[W]` for unsigned numbers and `SInt[W]` for signed numbers,
+        *   - The output type is `UInt[W]` for natural numbers and `SInt[W]` for negative numbers,
         *     where `W` is the width in bits.
         *   - If the specified `width` is less than the required number of bits to represent the
         *     value, an error occurs.
@@ -367,8 +366,7 @@ object DFDecimal:
 
       /** Signed Decimal Integer String Interpolator
         *
-        * @syntax
-        *   `sd"width'dec"`
+        * Syntax: {{{sd"width'dec"}}}
         *   - `dec` is a sequence of decimal characters ('0'-'9') with an optional prefix `-` for
         *     negative values.
         *   - Separators `_` (underscore) and `,` (comma) within `dec` are ignored.
@@ -376,7 +374,7 @@ object DFDecimal:
         *     integer's bit representation, which is always at least 2 bits to accommodate the sign
         *     bit.
         *   - The output is always a signed integer type `SInt[W]`, regardless of whether the `dec`
-        *     value is signed or unsigned, where `W` is the width in bits.
+        *     value is negative or natural, where `W` is the width in bits.
         *   - If the specified `width` is less than the required number of bits to represent the
         *     value including the sign bit, an error occurs.
         *
@@ -661,6 +659,11 @@ object DFXInt:
     object Ops:
       export DFUInt.Val.Ops.*
       export DFSInt.Val.Ops.*
+      def clog2[P, S <: Boolean, W <: Int](dfVal: DFValTP[DFXInt[S, W], P])(using
+          DFC,
+          DFVal.ConstCheck[P]
+      ): DFValTP[DFXInt[S, W], P] =
+        DFVal.Func(dfVal.dfType, FuncOp.clog2, List(dfVal))
       extension [P, S <: Boolean, W <: Int](lhs: DFValTP[DFXInt[S, W], P])
         def toScalaInt(using DFC, DFVal.ConstCheck[P]): Int =
           lhs.toScalaValue.toInt

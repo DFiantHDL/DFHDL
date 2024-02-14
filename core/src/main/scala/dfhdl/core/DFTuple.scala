@@ -10,7 +10,7 @@ import scala.NonEmptyTuple
 
 type DFTuple[+T <: NonEmptyTuple] = DFStruct[T @uncheckedVariance]
 object DFTuple:
-  private[core] def apply[T <: NonEmptyTuple](t: NonEmptyTuple): DFTuple[T] =
+  private[core] def apply[T <: NonEmptyTuple](t: NonEmptyTuple)(using DFC): DFTuple[T] =
     val tList = t.toList
     val fieldList: List[DFTypeAny] = tList.map(x => DFType(x))
     apply[T](fieldList)

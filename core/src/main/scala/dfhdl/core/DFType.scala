@@ -16,10 +16,10 @@ sealed trait Args2[T1, T2] extends Args
 sealed trait Args3[T1, T2, T3] extends Args
 
 final class DFType[+T <: ir.DFType, +A <: Args](val value: T | DFError) extends AnyVal:
-  def == (that: DFTypeAny)(using dfc: DFC): Boolean = 
+  def ==(that: DFTypeAny)(using dfc: DFC): Boolean =
     import dfc.getSet
-    this.asIR =~ that.asIR 
-  def != (that: DFTypeAny)(using dfc: DFC): Boolean = 
+    this.asIR =~ that.asIR
+  def !=(that: DFTypeAny)(using dfc: DFC): Boolean =
     import dfc.getSet
     !(this.asIR =~ that.asIR)
   override def toString: String = value.toString
@@ -43,8 +43,8 @@ object DFType:
   type FromDFVal[T] <: DFTypeAny = T match
     case DFVal[t, ?] => t
 
-  def of[T <: Supported](t: T): Of[T] = DFType(t).asInstanceOf[Of[T]]
-  private[core] def apply(t: Any): DFTypeAny =
+  def of[T <: Supported](t: T)(using DFC): Of[T] = DFType(t).asInstanceOf[Of[T]]
+  private[core] def apply(t: Any)(using DFC): DFTypeAny =
     t match
       case dfType: DFTypeAny         => dfType
       case tuple: NonEmptyTuple      => DFTuple(tuple)
@@ -73,6 +73,7 @@ object DFType:
   extension (dfType: ir.DFType) def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]
   extension (dfType: DFTypeAny) def asFE[T <: DFTypeAny]: T = dfType.asInstanceOf[T]
   transparent inline implicit def conv[T <: Supported](inline t: T)(implicit
+      dfc: DFC,
       tc: TC[T]
   ): DFTypeAny = tc(t)
   export DFDecimal.Extensions.*
@@ -110,7 +111,7 @@ object DFType:
 
   trait TC[T]:
     type Type <: DFTypeAny
-    def apply(t: T): Type
+    def apply(t: T)(using DFC): Type
   trait TCLP:
     transparent inline given errorDMZ[T](using t: ShowType[T]): TC[T] =
       Error.call[
@@ -123,27 +124,27 @@ object DFType:
   object TC extends TCLP:
     given ofDFType[T <: DFTypeAny]: TC[T] with
       type Type = T
-      def apply(t: T): Type = t
+      def apply(t: T)(using DFC): Type = t
 
     given ofBooleanCompanion: TC[Boolean.type] with
       type Type = DFBool
-      def apply(t: Boolean.type): Type = DFBool
+      def apply(t: Boolean.type)(using DFC): Type = DFBool
 
     given ofByteCompanion: TC[Byte.type] with
       type Type = DFBits[8]
-      def apply(t: Byte.type): Type = DFBits(8)
+      def apply(t: Byte.type)(using DFC): Type = DFBits(8)
 
     given ofIntCompanion: TC[Int.type] with
       type Type = DFSInt[32]
-      def apply(t: Int.type): Type = DFSInt(32)
+      def apply(t: Int.type)(using DFC): Type = DFSInt(32)
 
     given ofLongCompanion: TC[Long.type] with
       type Type = DFSInt[64]
-      def apply(t: Long.type): Type = DFSInt(64)
+      def apply(t: Long.type)(using DFC): Type = DFSInt(64)
 
     given ofOpaque[T <: DFTypeAny, TFE <: DFOpaque.Frontend[T]]: TC[TFE] with
       type Type = DFOpaque[TFE]
-      def apply(t: TFE): Type = DFOpaque(t)
+      def apply(t: TFE)(using DFC): Type = DFOpaque(t)
 
     transparent inline given ofProductCompanion[T <: AnyRef]: TC[T] = ${ productMacro[T] }
     def productMacro[T <: AnyRef](using Quotes, Type[T]): Expr[TC[T]] =
@@ -164,20 +165,20 @@ object DFType:
           '{
             new TC[T]:
               type Type = DFEnum[t & DFEncoding]
-              def apply(t: T): Type = summonInline[DFEnum[t & DFEncoding]]
+              def apply(t: T)(using DFC): Type = summonInline[DFEnum[t & DFEncoding]]
           }
         case '[t & DFStruct.Fields] =>
           '{
             new TC[T]:
               type Type = DFStruct[t & DFStruct.Fields]
-              def apply(t: T): Type =
+              def apply(t: T)(using DFC): Type =
                 summonInline[DFStruct[t & DFStruct.Fields]]
           }
         case '[t & DFOpaque.Abstract] =>
           '{
             new TC[T]:
               type Type = DFOpaque[t & DFOpaque.Abstract]
-              def apply(t: T): Type =
+              def apply(t: T)(using DFC): Type =
                 summonInline[DFOpaque[t & DFOpaque.Abstract]]
           }
         case _ =>
@@ -187,12 +188,7 @@ object DFType:
               s"Type `$badTypeStr` is not a supported DFHDL type constructor.\nHint: Are you missing an argument in your DFHDL type constructor?"
             else
               s"Type `$badTypeStr` is not a supported product companion.\nHint: Did you forget to extends `Struct` or `Encode`?"
-          '{
-            compiletime.error(${ Expr(msg) })
-            new TC[T]:
-              type Type = DFTypeAny
-              def apply(t: T): Type = ???
-          }
+          '{ compiletime.error(${ Expr(msg) }) }
       end match
     end productMacro
 
@@ -217,18 +213,18 @@ object DFType:
           case '[TC[t] { type Type = z }] => TypeRepr.of[z]
         )
         .map(t => TypeRepr.of[DFValOf].appliedTo(t))
-      def applyExpr(t: Expr[T]): Expr[List[DFTypeAny]] =
+      def applyExpr(t: Expr[T])(dfc: Expr[DFC]): Expr[List[DFTypeAny]] =
         '{
           val tList = $t.toList.asInstanceOf[List[Any]]
-          $tcList.lazyZip(tList).map((tc, t) => tc(t)).toList
+          $tcList.lazyZip(tList).map((tc, t) => tc(t)(using $dfc)).toList
         }
       val tplTpe = fun.appliedTo(tpes)
       val tplType = tplTpe.asTypeOf[NonEmptyTuple]
       '{
         new TC[T]:
           type Type = DFTuple[tplType.Underlying]
-          def apply(t: T): Type =
-            DFTuple[tplType.Underlying](${ applyExpr('t) })
+          def apply(t: T)(using dfc: DFC): Type =
+            DFTuple[tplType.Underlying](${ applyExpr('t)('dfc) })
       }
     end ofTupleMacro
   end TC
@@ -236,7 +232,7 @@ end DFType
 
 extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tcDFType")
-  def dfType: tc.Type = tc(t)
+  def dfType(using DFC): tc.Type = tc(t)
 
 extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValDFType")
