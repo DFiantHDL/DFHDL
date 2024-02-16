@@ -92,14 +92,16 @@ object DFStruct:
   end dfTypeMacro
 
   protected trait SameFields[T <: Fields, RF <: Fields]:
-    def check(dfType: DFStruct[T], argType: DFStruct[RF])(using DFC): Unit =
+    def check(dfType: DFStruct[T], argType: DFStruct[RF])(using dfc: DFC): Unit =
+      import dfhdl.compiler.printing.{DefaultPrinter, Printer}
+      given printer: Printer = DefaultPrinter(using dfc.getSet)
       if (dfType != argType)
         throw new IllegalArgumentException(
           s"""Mismatch in structure fields.
              |The applied value type is:
-             |$argType
+             |${printer.csDFStructDcl(argType.asIR)}
              |The receiver type is:
-             |$dfType""".stripMargin
+             |${printer.csDFStructDcl(dfType.asIR)}""".stripMargin
         )
   inline given [L <: Fields, R <: Fields]: SameFields[L, R] = ${ sfMacro[L, R] }
   protected def sfMacro[L <: Fields: Type, R <: Fields: Type](using

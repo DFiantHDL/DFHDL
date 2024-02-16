@@ -66,9 +66,15 @@ class DFStructSpec extends DFSpec:
     assertRuntimeError(
       """|Mismatch in structure fields.
          |The applied value type is:
-         |DFStruct(XY,ListMap(x -> DFBits(9), y -> DFDecimal(false,9,0)))
+         |final case class XY(
+         |    x: Bits[9] <> VAL
+         |    y: UInt[9] <> VAL
+         |) extends Struct
          |The receiver type is:
-         |DFStruct(XY,ListMap(x -> DFBits(8), y -> DFDecimal(false,8,0)))
+         |final case class XY(
+         |    x: Bits[8] <> VAL
+         |    y: UInt[8] <> VAL
+         |) extends Struct
          |""".stripMargin
     ) {
       t1 := t5
