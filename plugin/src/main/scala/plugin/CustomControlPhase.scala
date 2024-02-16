@@ -214,8 +214,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   object DFDecimal:
     def unapply(arg: Type)(using Context): Option[(Type, Type, Type)] =
       arg match
-        case DFType("DFDecimal", s :: w :: f :: Nil) => Some(s, w, f)
-        case _                                       => None
+        // ignoring the fourth native argument, since it's not needed for matching
+        case DFType("DFDecimal", s :: w :: f :: _ :: Nil) => Some(s, w, f)
+        case _                                            => None
   object DFXInt:
     def unapply(arg: Type)(using Context): Option[(Boolean, Type)] =
       arg match

@@ -15,7 +15,9 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     import dfType.*
     (signed, fractionWidth) match
       case (false, 0) => s"unsigned(${widthParamRef.uboundCS} downto 0)"
-      case (true, 0)  => s"signed(${widthParamRef.uboundCS} downto 0)"
+      case (true, 0) =>
+        if (dfType.isDFInt32) "integer"
+        else s"signed(${widthParamRef.uboundCS} downto 0)"
       case (false, _) => ???
       case (true, _)  => ???
 

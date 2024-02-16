@@ -3,6 +3,7 @@ import dfhdl.compiler.ir
 import dfhdl.internals.*
 import ir.DFVal.Func.Op as FuncOp
 import ir.DFVal.Alias.History.Op as HistoryOp
+import ir.DFDecimal.NativeType
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.annotation.{implicitNotFound, targetName}
@@ -89,7 +90,7 @@ infix type <>[T <: DFType.Supported, M] = T match
   case Int => // Int can be a constant literal or just "Int" representing SInt[32]
     IsConst[T] match
       case true  => DFVector.ComposedModifier[T, M]
-      case false => DFSInt[32] <> M
+      case false => DFInt32 <> M
   case _ =>
     M match
       case DFRET => DFC ?=> DFValOf[DFType.Of[T]]
@@ -188,12 +189,13 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFXIntValConversion[
       S <: Boolean,
       W <: Int,
+      N <: NativeType,
       P <: Boolean,
       R <: DFValAny | Int | Bubble
   ](
       inline from: R
-  ): DFValTP[DFXInt[S, W], ISCONST[P]] = ${
-    DFValConversionMacro[DFXInt[S, W], ISCONST[P], R]('from)
+  ): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
+    DFValConversionMacro[DFXInt[S, W, N], ISCONST[P], R]('from)
   }
   implicit transparent inline def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,

@@ -122,10 +122,11 @@ object DFStruct:
         case ('[Boolean], '[Boolean])         => true
         case ('[DFBoolOrBit], '[DFBoolOrBit]) => true
         case ('[DFBits[lw]], '[DFBits[rw]])   => sameTypes(TypeRepr.of[lw], TypeRepr.of[rw])
-        case ('[DFDecimal[ls, lw, lf]], '[DFDecimal[rs, rw, rf]]) =>
+        case ('[DFDecimal[ls, lw, lf, ln]], '[DFDecimal[rs, rw, rf, rn]]) =>
           sameTypes(TypeRepr.of[ls], TypeRepr.of[rs]) &&
           sameTypes(TypeRepr.of[lw], TypeRepr.of[rw]) &&
-          sameTypes(TypeRepr.of[lf], TypeRepr.of[rf])
+          sameTypes(TypeRepr.of[lf], TypeRepr.of[rf]) &&
+          sameTypes(TypeRepr.of[ln], TypeRepr.of[rn])
         case ('[DFEnum[le]], '[DFEnum[re]]) => sameTypes(TypeRepr.of[le], TypeRepr.of[re])
         case ('[DFVector[lt, ld]], '[DFVector[rt, rd]]) =>
           sameTypes(TypeRepr.of[lt], TypeRepr.of[rt]) &&

@@ -74,7 +74,7 @@ class DFDecimalSpec extends DFSpec:
          |val u6 = UInt(6) <> IN
          |val s6 = SInt(6) <> IN
          |val b6: Bits[6] <> CONST = h"6'00"
-         |val s32 = SInt(32) <> VAR init sd"32'0"
+         |val s32 = Int <> VAR init sd"32'0"
          |val s64 = SInt(64) <> VAR init sd"64'0"
          |val cu: UInt[1] <> CONST = d"1'1"
          |val cs: SInt[2] <> CONST = sd"2'-1"

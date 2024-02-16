@@ -67,7 +67,9 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     val (ob, cb) = if (typeCS) ("[", "]") else ("(", ")")
     (signed, fractionWidth) match
       case (false, 0) => s"UInt$ob$width$cb"
-      case (true, 0)  => s"SInt$ob$width$cb"
+      case (true, 0) =>
+        if (dfType.isDFInt32) "Int"
+        else s"SInt$ob$width$cb"
       case (false, _) => s"UFix$ob$magnitudeWidth, $fractionWidth$cb"
       case (true, _)  => s"SFix$ob$magnitudeWidth, $fractionWidth$cb"
 

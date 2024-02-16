@@ -13,7 +13,9 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     import dfType.*
     (signed, fractionWidth) match
       case (false, 0) => s"logic [${dfType.widthParamRef.uboundCS}:0]"
-      case (true, 0)  => s"logic signed [${dfType.widthParamRef.uboundCS}:0]"
+      case (true, 0) =>
+        if (dfType.isDFInt32) "int"
+        else s"logic signed [${dfType.widthParamRef.uboundCS}:0]"
       case (false, _) => ???
       case (true, _)  => ???
 

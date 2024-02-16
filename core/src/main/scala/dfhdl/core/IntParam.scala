@@ -1,12 +1,13 @@
 package dfhdl.core
 import dfhdl.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
+import ir.DFDecimal.NativeType
 import compiletime.ops.int.*
 import compiletime.{constValueOpt, constValue}
 import scala.annotation.targetName
 type CLog2[T <: Int] = 32 - NumberOfLeadingZeros[T - 1]
 
-opaque type IntParam[V <: Int] = V | DFConstOf[DFSInt[32]]
+opaque type IntParam[V <: Int] = V | DFConstOf[DFInt32]
 protected sealed trait IntParamLP:
   given [T <: Int]: Conversion[IntParam[T], IntParam[Int]] = value =>
     value.asInstanceOf[IntParam[Int]]
@@ -29,24 +30,24 @@ object IntParam extends IntParamLP:
   @targetName("fromValueWide")
   inline implicit def fromValue[Wide <: Int](value: Wide): IntParam[Wide] = value
   @targetName("fromValueDFConst")
-  inline implicit def fromValue[S <: Boolean, W <: Int, P, R <: DFValTP[DFXInt[S, W], P]](
+  inline implicit def fromValue[S <: Boolean, W <: Int, N <: NativeType, P, R <: DFValTP[DFXInt[S, W, N], P]](
       value: R
-  )(using tc: DFVal.TC[DFSInt[32], R], dfc: DFC, const: DFVal.ConstCheck[P]): IntParam[Int] =
-    tc(DFSInt(32), value).asInstanceOf[IntParam[Int]]
+  )(using tc: DFVal.TC[DFInt32, R], dfc: DFC, const: DFVal.ConstCheck[P]): IntParam[Int] =
+    tc(DFInt32, value).asInstanceOf[IntParam[Int]]
 
   extension [L <: Int](lhs: IntParam[L])(using dfc: DFC)
-    def toDFConst: DFConstOf[DFSInt[32]] =
+    def toDFConst: DFConstOf[DFInt32] =
       lhs match
-        case int: Int => DFVal.Const(DFSInt(32), Some(BigInt(int)), named = true)
-        case const: DFConstOf[DFSInt[32]] => const
+        case int: Int => DFVal.Const(DFInt32, Some(BigInt(int)), named = true)
+        case const: DFConstOf[DFInt32] => const
     def toScalaInt: Int =
       lhs match
         case int: Int                     => int
-        case const: DFConstOf[DFSInt[32]] => DFXInt.Val.Ops.toScalaInt(const)
+        case const: DFConstOf[DFInt32] => DFXInt.Val.Ops.toScalaInt(const)
     def ref: ir.IntParamRef =
       lhs match
         case int: Int => ir.IntParamRef(int)
-        case const: DFConstOf[DFSInt[32]] =>
+        case const: DFConstOf[DFInt32] =>
           ir.IntParamRef(const.asInstanceOf[DFValAny].asIR.refTW[ir.DFVal])
   end extension
 end IntParam

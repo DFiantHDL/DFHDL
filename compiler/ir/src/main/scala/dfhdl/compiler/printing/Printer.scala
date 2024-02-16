@@ -296,8 +296,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
       "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init")
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] =
-    Set("Bit", "Boolean", "UInt", "SInt", "Bits", "X", "Encode", "Struct", "Opaque", "StartAt",
-      "OneHot", "Grey")
+    Set("Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encode", "Struct", "Opaque",
+      "StartAt", "OneHot", "Grey")
   def colorCode(cs: String): String =
     cs
       .colorWords(scalaKW, keywordColor)

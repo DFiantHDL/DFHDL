@@ -103,11 +103,15 @@ object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
 final case class DFDecimal(
     signed: Boolean,
     widthParamRef: IntParamRef,
-    fractionWidth: Int
+    fractionWidth: Int,
+    // currently nativeType only applies when width is 32-bit and is indicating
+    // an `Int` in DFHDL, an `integer` in VHDL, and `int` in Verilog
+    nativeType: DFDecimal.NativeType = DFDecimal.NativeType.BitAccurate
 ) extends DFType:
   type Data = Option[BigInt]
   def width(using MemberGetSet): Int = widthParamRef.getInt
   def magnitudeWidth(using MemberGetSet): Int = width - fractionWidth
+  def isDFInt32: Boolean = this == DFInt32
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data match
@@ -128,30 +132,43 @@ final case class DFDecimal(
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
-  def apply(signed: Boolean, width: Int, fractionWidth: Int): DFDecimal =
-    DFDecimal(signed, IntParamRef(width), fractionWidth)
-
+  enum NativeType derives CanEqual:
+    case BitAccurate, Int32
+  object NativeType:
+    type BitAccurate = BitAccurate.type
+    type Int32 = Int32.type
+    given ValueOf[BitAccurate] = ValueOf(BitAccurate)
+    given ValueOf[Int32] = ValueOf(Int32)
+  def apply(signed: Boolean, width: Int, fractionWidth: Int, nativeType: NativeType): DFDecimal =
+    DFDecimal(signed, IntParamRef(width), fractionWidth, nativeType)
+  def unapply(dfType: DFDecimal): Option[(Boolean, IntParamRef, Int)] =
+    import dfType.*
+    Some(signed, widthParamRef, fractionWidth)
+end DFDecimal
 object DFXInt:
   def apply(signed: Boolean, width: IntParamRef): DFDecimal = DFDecimal(signed, width, 0)
   def unapply(dfType: DFDecimal): Option[(Boolean, IntParamRef)] = dfType match
     case DFDecimal(signed, width, 0) => Some(signed, width)
     case _                           => None
 
+import DFDecimal.NativeType.*
 object DFUInt:
-  def apply(width: IntParamRef): DFDecimal = DFDecimal(false, width, 0)
-  def apply(width: Int): DFDecimal = DFDecimal(false, width, 0)
+  def apply(width: IntParamRef): DFDecimal = DFDecimal(false, width, 0, BitAccurate)
+  def apply(width: Int): DFDecimal = DFDecimal(false, width, 0, BitAccurate)
   def unapply(arg: DFDecimal): Option[IntParamRef] =
     arg match
       case DFDecimal(false, width, 0) => Some(width)
       case _                          => None
 
 object DFSInt:
-  def apply(width: IntParamRef): DFDecimal = DFDecimal(true, width, 0)
-  def apply(width: Int): DFDecimal = DFDecimal(true, width, 0)
+  def apply(width: IntParamRef): DFDecimal = DFDecimal(true, width, 0, BitAccurate)
+  def apply(width: Int): DFDecimal = DFDecimal(true, width, 0, BitAccurate)
   def unapply(arg: DFDecimal): Option[IntParamRef] =
     arg match
       case DFDecimal(true, width, 0) => Some(width)
       case _                         => None
+
+final val DFInt32 = ir.DFDecimal(true, ir.IntParamRef(32), 0, Int32)
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

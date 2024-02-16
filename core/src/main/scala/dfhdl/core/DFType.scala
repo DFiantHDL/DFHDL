@@ -14,6 +14,7 @@ sealed trait NoArgs extends Args
 sealed trait Args1[T1] extends Args
 sealed trait Args2[T1, T2] extends Args
 sealed trait Args3[T1, T2, T3] extends Args
+sealed trait Args4[T1, T2, T3, T4] extends Args
 
 final class DFType[+T <: ir.DFType, +A <: Args](val value: T | DFError) extends AnyVal:
   def ==(that: DFTypeAny)(using dfc: DFC): Boolean =
@@ -52,7 +53,7 @@ object DFType:
       case fields: DFStruct.Fields   => DFStruct(fields)
       case _: Byte.type              => DFBits(8)
       case _: Boolean.type           => DFBool
-      case _: Int.type               => DFSInt(32)
+      case _: Int.type               => DFInt32
       case _: Long.type              => DFSInt(64)
       // TODO: need to add proper upper-bound if fixed in Scalac
       // see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
@@ -135,8 +136,8 @@ object DFType:
       def apply(t: Byte.type)(using DFC): Type = DFBits(8)
 
     given ofIntCompanion: TC[Int.type] with
-      type Type = DFSInt[32]
-      def apply(t: Int.type)(using DFC): Type = DFSInt(32)
+      type Type = DFInt32
+      def apply(t: Int.type)(using DFC): Type = DFInt32
 
     given ofLongCompanion: TC[Long.type] with
       type Type = DFSInt[64]

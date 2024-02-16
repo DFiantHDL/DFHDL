@@ -84,7 +84,7 @@ class VerilogPrinter(using val getSet: MemberGetSet, val printerOptions: Printer
       "define")
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] =
-    Set("wire", "reg", "logic", "wire", "signed")
+    Set("wire", "reg", "logic", "wire", "signed", "int")
   def colorCode(cs: String): String =
     cs
       .colorWords(verilogKW, keywordColor)

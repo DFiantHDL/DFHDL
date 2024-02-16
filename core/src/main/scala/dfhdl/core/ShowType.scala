@@ -20,6 +20,7 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFBool]    => "Boolean"
       case '[DFBits[w]] => s"Bits[${Type.show[w]}]"
       case '[DFUInt[w]] => s"UInt[${Type.show[w]}]"
+      case '[DFInt32]   => "Int"
       case '[DFSInt[w]] => s"SInt[${Type.show[w]}]"
       case '[DFEnum[t]] => Type.show[t]
       case '[DFVector[t, d]] =>
