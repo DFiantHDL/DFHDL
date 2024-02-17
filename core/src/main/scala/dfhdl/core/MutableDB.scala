@@ -216,6 +216,8 @@ final class MutableDB():
     def getMembersNum: Int = current.members.size
     def getMembers(from: Int, until: Int): List[DFMember] =
       current.members.view.slice(from, until).filterNot(e => e._3).map(e => e._1).toList
+    def getLastMembers(cnt: Int): List[DFMember] =
+      current.members.view.reverse.filterNot(e => e._3).map(e => e._1).take(cnt).toList.reverse
     def getLastDesignInst: DFDesignBlock =
       current.members.view.reverse.collectFirst { case MemberEntry(d: DFDesignBlock, _, _) =>
         d

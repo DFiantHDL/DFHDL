@@ -71,6 +71,18 @@ object DFDecimal:
           [LW <: Int, RW <: Int] =>> "The applied RHS value width (" + RW +
             ") is larger than the LHS variable width (" + LW + ")."
         ]
+    object `W <= 32`
+        extends Check1[
+          Int,
+          [W <: Int] =>> W <= 32,
+          [W <: Int] =>> "Width must be no larger than 32, but found: " + W
+        ]
+    object `W <= 31`
+        extends Check1[
+          Int,
+          [W <: Int] =>> W <= 31,
+          [W <: Int] =>> "Width must be no larger than 31, but found: " + W
+        ]
     object `LW == RW`
         extends Check2[
           Int,
@@ -609,34 +621,53 @@ object DFXInt:
           ic: IC
       )(using
           check: TCCheck[LS, LW, ic.OutS, ic.OutW],
-          lsigned: ValueOf[LS]
+          lsigned: OptionalGiven[ValueOf[LS]]
       ): TC[DFXInt[LS, LW, LN], R] with
         type OutP = ic.OutP
-        def conv(dfType: DFXInt[LS, LW, LN], value: R)(using DFC): Out =
+        def conv(dfType: DFXInt[LS, LW, LN], value: R)(using dfc: DFC): Out =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           val rhs = ic(value)
           (dfType.asIR: ir.DFType) match
             case ir.DFNothing =>
               val signCheck = summon[`LS >= RS`.Check[Boolean, Boolean]]
-              signCheck(lsigned.value, rhs.dfType.signed)
-              if (lsigned.value != rhs.dfType.signed.value)
+              signCheck(lsigned.get.value, rhs.dfType.signed)
+              if (lsigned.get.value != rhs.dfType.signed.value)
                 rhs.asValOf[DFUInt[Int]].signed.asValTP[DFXInt[LS, LW, LN], ic.OutP]
               else rhs.asValTP[DFXInt[LS, LW, LN], ic.OutP]
             case _ =>
-              if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhs.dfType.signed)
-                check(dfType.signed, dfType.width, rhs.dfType.signed, rhs.width)
+              val rhsInt32Data: Option[Int] =
+                if (rhs.dfType.asIR.isDFInt32)
+                  import dfc.getSet
+                  rhs.asIR.getParamData match
+                    case Some(Some(n: BigInt)) => Some(n.toInt)
+                    case _                     => None
+                else None
+              val (rhsSigned, rhsWidth): (Boolean, Int) = rhsInt32Data match
+                case Some(int) => (int < 0, IntInfo.calcWidth(int))
+                case None      => (rhs.dfType.signed.value, rhs.dfType.width.value)
+              if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhsSigned)
+                check(dfType.signed, dfType.width, rhsSigned, rhsWidth)
               val dfValIR =
                 val rhsSignFix: DFValOf[DFSInt[Int]] =
                   if (dfType.signed != rhs.dfType.signed)
                     rhs.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
                   else rhs.asValOf[DFSInt[Int]]
-                if (
+                val nativeTypeChanged = dfType.nativeType != rhs.dfType.nativeType
+                if (nativeTypeChanged)
+                  dfType.asIR.nativeType match
+                    case Int32 =>
+                      import DFSInt.Val.Ops.toInt
+                      rhsSignFix.toInt.asIR
+                    case BitAccurate =>
+                      rhsSignFix.resize(dfType.width).asIR
+                else if (
                   dfType.width > rhsSignFix.width ||
                   rhs.hasTag[DFVal.TruncateTag] && dfType.width < rhsSignFix.width
                 )
                   rhsSignFix.resize(dfType.width).asIR
                 else rhsSignFix.asIR
+              end dfValIR
               dfValIR.asValTP[DFXInt[LS, LW, LN], ic.OutP]
           end match
         end conv
@@ -1185,6 +1216,16 @@ object DFUInt:
           import DFSInt.Val.Ops.unary_- as negate
           lhs.signed.negate
         }
+        @targetName("toIntDFUInt")
+        def toInt(using
+            dfc: DFC,
+            check: `W <= 31`.Check[W]
+        ): DFValTP[DFInt32, P] = trydf {
+          check(lhs.width)
+          DFVal.Alias.AsIs(DFInt32, lhs.signed)
+        }
+      end extension
+    end Ops
   end Val
 
 end DFUInt
@@ -1198,14 +1239,30 @@ object DFSInt:
 
   object Val:
     object Ops:
-      extension [W <: Int, N <: NativeType, P](lhs: DFValTP[DFXInt[true, W, N], P])
+      extension [W <: Int, P](lhs: DFValTP[DFSInt[W], P])
         @targetName("negateDFSInt")
-        def unary_-(using DFC): DFValTP[DFXInt[true, W, N], P] = trydf {
+        def unary_-(using DFC): DFValTP[DFSInt[W], P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_-, List(lhs))
         }
+      extension [P](lhs: DFValTP[DFInt32, P])
+        @targetName("negateDFInt32")
+        def unary_-(using DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(lhs.dfType, FuncOp.unary_-, List(lhs))
+        }
+      extension [W <: Int, P](lhs: DFValTP[DFSInt[W], P])
+        @targetName("toIntDFSInt")
+        def toInt(using
+            dfc: DFC,
+            check: `W <= 32`.Check[W]
+        ): DFValTP[DFInt32, P] = trydf {
+          check(lhs.width)
+          DFVal.Alias.AsIs(DFInt32, lhs)
+        }
+    end Ops
+  end Val
 end DFSInt
 
 //a native Int32 decimal has no explicit Scala compile-time width, since the
 //actual value determines its width
-type DFInt32 = DFDecimal[true, Int, 0, Int32]
+type DFInt32 = DFDecimal[Boolean, Int, 0, Int32]
 final val DFInt32 = ir.DFInt32.asFE[DFInt32]

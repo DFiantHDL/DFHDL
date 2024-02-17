@@ -190,7 +190,9 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.bits"
       case (DFUInt(tWidthParamRef), DFUInt(_)) =>
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
-      case (DFSInt(tWidthParamRef), DFSInt(_)) =>
+      case (DFInt32, DFSInt(_)) =>
+        s"${relValStr}.toInt"
+      case (DFSInt(tWidthParamRef), DFSInt(_) | DFInt32) =>
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
       case (DFBit, DFBool) =>
         s"${relValStr}.bit"

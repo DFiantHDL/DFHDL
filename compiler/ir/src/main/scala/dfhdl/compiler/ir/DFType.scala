@@ -141,32 +141,32 @@ object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
     given ValueOf[Int32] = ValueOf(Int32)
   def apply(signed: Boolean, width: Int, fractionWidth: Int, nativeType: NativeType): DFDecimal =
     DFDecimal(signed, IntParamRef(width), fractionWidth, nativeType)
-  def unapply(dfType: DFDecimal): Option[(Boolean, IntParamRef, Int)] =
-    import dfType.*
-    Some(signed, widthParamRef, fractionWidth)
 end DFDecimal
-object DFXInt:
-  def apply(signed: Boolean, width: IntParamRef): DFDecimal = DFDecimal(signed, width, 0)
-  def unapply(dfType: DFDecimal): Option[(Boolean, IntParamRef)] = dfType match
-    case DFDecimal(signed, width, 0) => Some(signed, width)
-    case _                           => None
 
-import DFDecimal.NativeType.*
+import DFDecimal.NativeType
+import NativeType.*
+object DFXInt:
+  def apply(signed: Boolean, width: IntParamRef, nativeType: NativeType): DFDecimal =
+    DFDecimal(signed, width, 0, nativeType)
+  def unapply(dfType: DFDecimal): Option[(Boolean, IntParamRef, NativeType)] = dfType match
+    case DFDecimal(signed, width, 0, nativeType) => Some(signed, width, nativeType)
+    case _                                       => None
+
 object DFUInt:
   def apply(width: IntParamRef): DFDecimal = DFDecimal(false, width, 0, BitAccurate)
   def apply(width: Int): DFDecimal = DFDecimal(false, width, 0, BitAccurate)
   def unapply(arg: DFDecimal): Option[IntParamRef] =
     arg match
-      case DFDecimal(false, width, 0) => Some(width)
-      case _                          => None
+      case DFDecimal(false, width, 0, BitAccurate) => Some(width)
+      case _                                       => None
 
 object DFSInt:
   def apply(width: IntParamRef): DFDecimal = DFDecimal(true, width, 0, BitAccurate)
   def apply(width: Int): DFDecimal = DFDecimal(true, width, 0, BitAccurate)
   def unapply(arg: DFDecimal): Option[IntParamRef] =
     arg match
-      case DFDecimal(true, width, 0) => Some(width)
-      case _                         => None
+      case DFDecimal(true, width, 0, BitAccurate) => Some(width)
+      case _                                      => None
 
 final val DFInt32 = ir.DFDecimal(true, ir.IntParamRef(32), 0, Int32)
 /////////////////////////////////////////////////////////////////////////////

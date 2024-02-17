@@ -22,8 +22,8 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
       if (tWidth > fWidth) fromData
       else
         fromData.asInstanceOf[Option[BigInt]].map(_.truncateAsUnsigned(tWidth))
-    // SInt resize
-    case (DFSInt(Int(tWidth)), DFSInt(Int(fWidth))) =>
+    // SInt resize or conversion to/from DFInt32
+    case (DFXInt(true, Int(tWidth), _), DFXInt(true, Int(fWidth), _)) =>
       if (tWidth > fWidth) fromData
       else
         fromData.asInstanceOf[Option[BigInt]].map(_.truncateAsUnsigned(tWidth).asSigned(tWidth))
@@ -36,9 +36,11 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
       assert(fWidth == toType.width)
       toType.bitsDataToData(fromData.asInstanceOf[(BitVector, BitVector)])
     // Casting from any data to any data
-    case _ =>
-      assert(fromType.width == toType.width)
+    case _ if fromType.width == toType.width =>
       toType.bitsDataToData(fromType.dataToBitsData(fromData))
+    case x =>
+      println(x)
+      throw new IllegalArgumentException("Unsupported data conversion")
   ret.asInstanceOf[toType.Data]
 end dataConversion
 
@@ -118,9 +120,9 @@ def calcFuncData[OT <: DFType](
           Some(if (op == FuncOp.===) equals else !equals)
         // DFXInt arithmetic operations and shifting
         case (
-              outType @ DFXInt(_, _),
+              outType @ DFXInt(_, _, _),
               op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./ | FuncOp.% | FuncOp.<< | FuncOp.>>),
-              DFXInt(_, _) :: DFXInt(_, _) :: Nil,
+              DFXInt(_, _, _) :: DFXInt(_, _, _) :: Nil,
               Some(lhs: BigInt) :: Some(rhs: BigInt) :: Nil
             ) =>
           val dataNoTrunc = op match
@@ -151,9 +153,9 @@ def calcFuncData[OT <: DFType](
           Some(-data)
         // Arithmetic CLog2
         case (
-              DFXInt(_, _),
+              DFXInt(_, _, _),
               FuncOp.clog2,
-              DFXInt(_, _) :: Nil,
+              DFXInt(_, _, _) :: Nil,
               Some(data: BigInt) :: Nil
             ) if data.isValidInt =>
           Some(BigInt(clog2(data.toInt)))
@@ -161,7 +163,7 @@ def calcFuncData[OT <: DFType](
         case (
               DFBool,
               op @ (FuncOp.< | FuncOp.> | FuncOp.<= | FuncOp.>=),
-              DFXInt(_, _) :: DFXInt(_, _) :: Nil,
+              DFXInt(_, _, _) :: DFXInt(_, _, _) :: Nil,
               Some(lhs: BigInt) :: Some(rhs: BigInt) :: Nil
             ) =>
           val data = op match

@@ -112,11 +112,15 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         else s"{(${tr.refCodeString}-${fr.refCodeString})'b0, $relValStr}"
       case (DFSInt(tWidthParamRef), DFSInt(_)) =>
         s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
-      case (DFBit, DFBool) => relValStr
-      case (DFBool, DFBit) => relValStr
+      case (DFInt32, DFSInt(_)) => relValStr
+      case (DFSInt(_), DFInt32) => relValStr
+      case (DFBit, DFBool)      => relValStr
+      case (DFBool, DFBit)      => relValStr
       case (toStruct: DFStruct, _: DFBits) =>
         s"${toStruct.getName}'($relValStr)"
-      case _ => printer.unsupported
+      case x =>
+        println(x)
+        printer.unsupported
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =

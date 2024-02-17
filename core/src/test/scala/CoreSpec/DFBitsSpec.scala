@@ -34,7 +34,7 @@ class DFBitsSpec extends DFSpec:
          |val t12: Bits[16] <> CONST = t1.repeat(2)
          |val t13: Bits[8] <> CONST = (h"9", h"2").toBits
          |val t14: Bits[16] <> CONST = t13.repeat(2)
-         |val u8v = Bits(8) <> VAR
+         |val u8v = Bits(8) <> VAR init (h"aa", h"bb", (h"c", h"d").toBits)
          |""".stripMargin
     } {
       @inline def foo(arg: Bits[4] <> CONST): Unit <> DFRET =
@@ -63,7 +63,13 @@ class DFBitsSpec extends DFSpec:
       assert(t12.width == 16)
       val t13: Bits[8] <> CONST = (b"1001", h"2")
       val t14: Bits[16] <> CONST = (t13, t13)
-      val u8v = Bits(8) <> VAR
+      val u8v = Bits(8) <> VAR init (h"aa", h"bb", (h"c", h"d"))
+      val lastConsts = dfc.mutableDB.DesignContext.getLastMembers(6)
+      lastConsts(0).assertPosition(2, 1, 38, 43)
+      lastConsts(1).assertPosition(3, 1, 45, 50)
+      // lastConsts(2).assertPosition(4, 1, 53, 57) TODO: needs to fix positioning (currently 52-64)
+      // lastConsts(3).assertPosition(5, 1, 59, 63) TODO: needs to fix positioning (currently 52-64)
+      lastConsts(4).assertPosition(6, 1, 52, 64)
       assertCompileError {
         "Applied argument must be a constant."
       }("val t15: Bits[16] <> CONST = (u8v, t13)")

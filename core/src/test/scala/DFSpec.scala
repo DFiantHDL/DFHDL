@@ -114,6 +114,11 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
       assertNoDiff(positionNoPath.toString, expectedPositionStr)
   end extension
 
+  extension (dfVal: ir.DFMember)
+    @metaContextIgnore
+    def assertPosition(lineOffset: Int, lineCount: Int, colStart: Int, colEnd: Int): Unit =
+      dfVal.meta.assertPosition(lineOffset, lineCount, colStart, colEnd)
+  end extension
   extension (dfVal: DFValAny)
     @metaContextIgnore
     def assertPosition(lineOffset: Int, lineCount: Int, colStart: Int, colEnd: Int): Unit =

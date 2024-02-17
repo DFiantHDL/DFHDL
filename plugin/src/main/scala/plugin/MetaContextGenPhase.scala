@@ -323,19 +323,24 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         nameValOrDef(anonDef.rhs, ownerTree, typeFocus, inlinedSrcPos)
       case Block(_ :+ (cls @ TypeDef(_, template: Template)), _) if cls.symbol.isAnonymousClass =>
         // debug("Block done!")
-        var named = false
-        template.parents.collectFirst { case p: Apply =>
-          val dfcOverrideDef = template.body.collectFirst {
-            case dd: DefDef
-                if dd.symbol.is(
-                  Override
-                ) && dd.symbol.name.toString == "__dfc" && dd.tpt.tpe <:< metaContextTpe =>
-              dd
-          }
-          addToTreeOwnerMap(p, ownerTree, inlinedSrcPos, dfcOverrideDef)
-          named = true
-        }
-        named
+        template.body.lastOption match
+          case Some(defDef: DefDef) if template.parents.exists(_.symbol.forwardMetaContext) =>
+            nameValOrDef(defDef.rhs, ownerTree, typeFocus, inlinedSrcPos)
+          case _ =>
+            var named = false
+            template.parents.collectFirst { case p: Apply =>
+              val dfcOverrideDef = template.body.collectFirst {
+                case dd: DefDef
+                    if dd.symbol.is(
+                      Override
+                    ) && dd.symbol.name.toString == "__dfc" && dd.tpt.tpe <:< metaContextTpe =>
+                  dd
+              }
+              addToTreeOwnerMap(p, ownerTree, inlinedSrcPos, dfcOverrideDef)
+              named = true
+            }
+            named
+        end match
       case block: Block =>
         // debug("Block expr")
         nameValOrDef(block.expr, ownerTree, typeFocus, inlinedSrcPos)

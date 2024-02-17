@@ -397,6 +397,7 @@ object DFVal extends DFValLP:
   case object TruncateTag extends ir.DFTagOf[ir.DFVal]
   type TruncateTag = TruncateTag.type
 
+  @metaContextForward(0)
   trait InitValue[T <: DFTypeAny]:
     def enable: Boolean
     def apply(dfType: T)(using dfc: DFC): DFConstOf[T]
@@ -426,6 +427,7 @@ object DFVal extends DFValLP:
     end fromValueMacro
   end InitValue
 
+  @metaContextForward(0)
   trait InitTupleValues[T <: NonEmptyTuple]:
     def enable: Boolean
     def apply(dfType: DFTuple[T])(using dfc: DFC): List[DFConstOf[DFTuple[T]]]

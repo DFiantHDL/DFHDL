@@ -254,6 +254,17 @@ object AssertGiven:
   end macroImpl
 end AssertGiven
 
+trait OptionalGiven[T]:
+  val value: Option[T]
+  def get: T = value.get
+  def getOrElse(default: => T): T = value.getOrElse(default)
+protected trait OptionalGivenLP:
+  given fromNone[T]: OptionalGiven[T] with
+    val value: Option[T] = None
+object OptionalGiven extends OptionalGivenLP:
+  given fromValue[T](using t: T): OptionalGiven[T] with
+    val value: Option[T] = Some(t)
+
 //from Map[K,V] to Map[V,Set[K]], traverse the input only once
 //From: https://stackoverflow.com/a/51356499/3845175
 extension [K, V](m: Map[K, V])
