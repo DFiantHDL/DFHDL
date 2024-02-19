@@ -4,6 +4,7 @@ import ir.DFVal.Func.Op as FuncOp
 import ir.DFDecimal.NativeType
 import compiletime.ops.int.*
 import compiletime.{constValueOpt, constValue}
+import dfhdl.internals.Inlined
 import scala.annotation.targetName
 type CLog2[T <: Int] = 32 - NumberOfLeadingZeros[T - 1]
 
@@ -39,6 +40,8 @@ object IntParam extends IntParamLP:
     tc(DFInt32, value).asInstanceOf[IntParam[Int]]
   def apply(value: Int): IntParam[Int] = value
   def apply(value: DFConstOf[DFInt32]): IntParam[Int] = value
+  @targetName("applyInlined")
+  def apply[V <: Int](value: Inlined[V]): IntParam[V] = value.asInstanceOf[IntParam[V]]
   def calc[O <: Int](op: FuncOp, argL: IntParam[Int], argR: IntParam[Int])(
       opInt: (Int, Int) => Int
   )(using dfc: DFC): IntParam[O] =
@@ -63,8 +66,10 @@ object IntParam extends IntParamLP:
       lhs match
         case int: Int => ir.IntParamRef(int)
         case const: DFConstOf[DFInt32] =>
+          val constIR = const.asInstanceOf[DFValAny].asIR
+          constIR.injectGlobalCtx()
           val newRef = new ir.DFRef.TypeRef {}
-          ir.IntParamRef(dfc.mutableDB.newRefFor(newRef, const.asInstanceOf[DFValAny].asIR))
+          ir.IntParamRef(dfc.mutableDB.newRefFor(newRef, constIR))
     def +[R <: Int](rhs: IntParam[R]): IntParam[L + R] =
       calc(FuncOp.+, lhs, rhs)(_ + _)
     def *[R <: Int](rhs: IntParam[R]): IntParam[L * R] =

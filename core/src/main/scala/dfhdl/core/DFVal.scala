@@ -845,7 +845,10 @@ object DFVal extends DFValLP:
               case (_: ir.DFBits, _: ir.DFBits) =>
                 DFBits.Val.TC(dfType.asFE[DFBits[Int]], value.asValOf[DFBits[Int]])
               case (ir.DFXInt(_, _, _), ir.DFXInt(_, _, _)) =>
-                ???
+                DFXInt.Val.TC(
+                  dfType.asFE[DFXInt[Boolean, Int, NativeType]],
+                  value.asValOf[DFXInt[Boolean, Int, NativeType]]
+                )
               case _ =>
                 throw new IllegalArgumentException(
                   s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."

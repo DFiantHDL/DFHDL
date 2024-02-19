@@ -5,7 +5,7 @@ import munit.*
 class DFDecimalSpec extends DFSpec:
   test("Type Construction") {
     val zero = 0
-    assertDSLError(
+    assertDSLErrorLog(
       "Unsigned value width must be positive, but found: 0"
     )(
       """UInt(0)"""
@@ -13,7 +13,7 @@ class DFDecimalSpec extends DFSpec:
       UInt(zero)
     }
     val one = 1
-    assertDSLError(
+    assertDSLErrorLog(
       "Signed value width must be larger than 1, but found: 1"
     )(
       """SInt(1)"""

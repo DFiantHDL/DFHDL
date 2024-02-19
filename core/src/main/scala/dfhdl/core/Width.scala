@@ -215,6 +215,7 @@ extension [T](t: T)(using tc: DFType.TC[T])
     import dfc.getSet
     val dfType = tc(t)
     val intParam: IntParam[Int] = dfType.asIR match
-      case dfType: ir.DFBits => dfType.widthParamRef.get
-      case _                 => IntParam(dfType.asIR.width)
+      case ir.DFBits(width)       => width.get
+      case ir.DFXInt(_, width, _) => width.get
+      case _                      => IntParam(dfType.asIR.width)
     intParam.asInstanceOf[IntParam[w.Out]]

@@ -323,7 +323,9 @@ final class MutableDB():
           .collectFirst { case Some(member) => member }
           // finally, if still no member is available, then we check the
           // external injected meta-programming context
-          .getOrElse(metaGetSetOpt.get(ref))
+          .getOrElse(
+            metaGetSetOpt.getOrElse(throw new IllegalArgumentException(s"Missing ref $ref"))(ref)
+          )
     member.asInstanceOf[M0]
   end getMember
 
@@ -340,7 +342,9 @@ final class MutableDB():
           .collectFirst { case Some(member) => member }
           // finally, if still no member is available, then we check the
           // external injected meta-programming context
-          .getOrElse(metaGetSetOpt.get.getOrigin(ref))
+          .getOrElse(
+            metaGetSetOpt.getOrElse(throw new IllegalArgumentException(s"Missing ref $ref"))(ref)
+          )
     member
   end getOriginMember
 

@@ -14,21 +14,22 @@ type DFDecimal[S <: Boolean, W <: Int, F <: Int, N <: NativeType] =
 object DFDecimal:
   protected[core] def apply[S <: Boolean, W <: Int, F <: Int, N <: NativeType](
       signed: Inlined[S],
-      width: Inlined[W],
+      width: IntParam[W],
       fractionWidth: Inlined[F],
       nativeType: N
-  )(using check: Width.Check[S, W]): DFDecimal[S, W, F, N] =
+  )(using dfc: DFC, check: Width.Check[S, W]): DFDecimal[S, W, F, N] = trydf:
     check(signed, width)
-    ir.DFDecimal(signed, width, fractionWidth, nativeType).asFE[DFDecimal[S, W, F, N]]
+    ir.DFDecimal(signed, width.ref, fractionWidth, nativeType).asFE[DFDecimal[S, W, F, N]]
   protected[core] def forced[S <: Boolean, W <: Int, F <: Int, N <: NativeType](
       signed: Boolean,
       width: Int,
       fractionWidth: Int,
       nativeType: NativeType
-  ): DFDecimal[S, W, F, N] =
+  )(using DFC): DFDecimal[S, W, F, N] =
     val check = summon[Width.Check[Boolean, Int]]
     check(signed, width)
-    ir.DFDecimal(signed, width, fractionWidth, nativeType).asFE[DFDecimal[S, W, F, N]]
+    ir.DFDecimal(signed, ir.IntParamRef(width), fractionWidth, nativeType)
+      .asFE[DFDecimal[S, W, F, N]]
 
   given DFInt32 = DFInt32
   given [S <: Boolean, W <: Int, F <: Int, N <: NativeType](using
@@ -36,8 +37,8 @@ object DFDecimal:
       ValueOf[W],
       ValueOf[F],
       ValueOf[N]
-  )(using Width.Check[S, W]): DFDecimal[S, W, F, N] =
-    DFDecimal(valueOf[S], valueOf[W], valueOf[F], valueOf[N])
+  )(using DFC, Width.Check[S, W]): DFDecimal[S, W, F, N] =
+    DFDecimal(valueOf[S], IntParam.fromValue[W](valueOf[W]), valueOf[F], valueOf[N])
   object Extensions:
     extension [S <: Boolean, W <: Int, F <: Int, N <: NativeType](dfType: DFDecimal[S, W, F, N])
       def signed: Inlined[S] = Inlined.forced[S](dfType.asIR.signed)
@@ -464,7 +465,7 @@ object DFDecimal:
               widthType.Underlying,
               fractionWidthType.Underlying,
               BitAccurate
-            ](signed, width, fractionWidth, BitAccurate)
+            ](signed, width, fractionWidth, BitAccurate)(using dfc)
           DFVal.Const(dfType, Some(value), named = true)(using dfc)
         }
       end interpolate
@@ -529,11 +530,15 @@ type DFXInt[S <: Boolean, W <: Int, N <: NativeType] = DFDecimal[S, W, 0, N]
 object DFXInt:
   def apply[S <: Boolean, W <: Int, N <: NativeType & Singleton](
       signed: Inlined[S],
+      width: IntParam[W],
+      nativeType: N
+  )(using DFC, Width.Check[S, W]): DFXInt[S, W, N] = DFDecimal(signed, width, 0, nativeType)
+  def fromInlined[S <: Boolean, W <: Int, N <: NativeType & Singleton](
+      signed: Inlined[S],
       width: Inlined[W],
       nativeType: N
-  )(using
-      Width.Check[S, W]
-  ): DFXInt[S, W, N] = DFDecimal(signed, width, 0, nativeType)
+  )(using DFC, Width.Check[S, W]): DFXInt[S, W, N] =
+    DFDecimal(signed, IntParam(width), 0, nativeType)
 
   object Val:
     trait Candidate[R]:
@@ -577,7 +582,7 @@ object DFXInt:
         type OutP = CONST
         type IsScalaInt = true
         def apply(arg: Inlined[R])(using DFC): Out =
-          val dfType = DFXInt(info.signed(arg), info.width(arg), BitAccurate)
+          val dfType = DFXInt(info.signed(arg), IntParam(info.width(arg)), BitAccurate)
           DFVal.Const(dfType, Some(arg.value), named = true)
       type IntInfoAux[R <: Int, OS <: Boolean, OW <: Int] =
         IntInfo[R]:
@@ -592,7 +597,7 @@ object DFXInt:
         type OutP = CONST
         type IsScalaInt = true
         def apply(arg: R)(using dfc: DFC): Out =
-          val dfType = DFXInt(info.signed(arg), info.width(arg), BitAccurate)
+          val dfType = DFXInt.fromInlined(info.signed(arg), info.width(arg), BitAccurate)
           DFVal.Const(dfType, Some(BigInt(arg)), named = true)
       given fromDFBitsVal[W <: Int, P, R <: DFValTP[DFBits[W], P]]: Candidate[R] with
         type OutS = false
@@ -643,6 +648,13 @@ object DFXInt:
           case None      => (dfVal.dfType.signed.value, dfVal.dfType.width.value)
 
     object TC:
+      def apply(
+          dfType: DFXInt[Boolean, Int, NativeType],
+          dfVal: DFValOf[DFXInt[Boolean, Int, NativeType]]
+      )(using DFC): DFValOf[DFXInt[Boolean, Int, NativeType]] =
+        val check = summon[TCCheck[Boolean, Int, Boolean, Int]]
+        check(dfType.signed, dfType.width, dfVal.dfType.signed, dfVal.dfType.width)
+        dfVal
       import DFVal.TC
       given [LS <: Boolean, LW <: Int, LN <: NativeType, R, IC <: Candidate[R]](using
           ic: IC
@@ -784,7 +796,7 @@ object DFXInt:
           // TODO: why this causes anonymous references?
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFXInt[S, RW, BitAccurate]]
 //          else
-          DFVal.Alias.AsIs(DFXInt(signed, updatedWidth, BitAccurate), lhs)
+          DFVal.Alias.AsIs(DFXInt.fromInlined(signed, updatedWidth, BitAccurate), lhs)
         }
         end resize
         @targetName("shiftRightDFXInt")
@@ -970,7 +982,7 @@ object DFXInt:
             val width = Inlined.forced[Max[icL.OutW, icR.OutW] + 1](
               (lhsVal.dfType.width.value max rhsVal.dfType.width) + 1
             )
-            val dfType = DFXInt(lhsVal.dfType.signed, width, BitAccurate)
+            val dfType = DFXInt.fromInlined(lhsVal.dfType.signed, width, BitAccurate)
             arithOp(dfType, FuncOp.+, lhsVal, rhsVal)
           }
         def -^[R](rhs: Exact[R])(using icR: Candidate[R])(using
@@ -988,7 +1000,7 @@ object DFXInt:
             val width = Inlined.forced[Max[icL.OutW, icR.OutW] + 1](
               (lhsVal.dfType.width.value max rhsVal.dfType.width) + 1
             )
-            val dfType = DFXInt(lhsVal.dfType.signed, width, BitAccurate)
+            val dfType = DFXInt.fromInlined(lhsVal.dfType.signed, width, BitAccurate)
             arithOp(dfType, FuncOp.-, lhsVal, rhsVal)
           }
         def *^[R](rhs: Exact[R])(using icR: Candidate[R])(using
@@ -1005,7 +1017,7 @@ object DFXInt:
           val width = Inlined.forced[icL.OutW + icR.OutW](
             lhsVal.dfType.width.value + rhsVal.dfType.width
           )
-          val dfType = DFXInt(lhsVal.dfType.signed, width, BitAccurate)
+          val dfType = DFXInt.fromInlined(lhsVal.dfType.signed, width, BitAccurate)
           arithOp(dfType, FuncOp.`*`, lhsVal, rhsVal)
         }
       end extension
@@ -1094,7 +1106,7 @@ object DFXInt:
           val width = Inlined.forced[Max[icL.OutW, RW] + 1](
             (lhsVal.dfType.width.value max rhs.dfType.width) + 1
           )
-          val dfType = DFXInt(lhsVal.dfType.signed, width, BitAccurate)
+          val dfType = DFXInt.fromInlined(lhsVal.dfType.signed, width, BitAccurate)
           DFVal.Func(dfType, FuncOp.+, List(lhsVal, rhs))
         }
         def -^[RS <: Boolean, RW <: Int, RN <: NativeType, RP](
@@ -1110,7 +1122,7 @@ object DFXInt:
           val width = Inlined.forced[Max[icL.OutW, RW] + 1](
             (lhsVal.dfType.width.value max rhs.dfType.width) + 1
           )
-          val dfType = DFXInt(lhsVal.dfType.signed, width, BitAccurate)
+          val dfType = DFXInt.fromInlined(lhsVal.dfType.signed, width, BitAccurate)
           DFVal.Func(dfType, FuncOp.-, List(lhsVal, rhs))
         }
         end -^
@@ -1127,7 +1139,7 @@ object DFXInt:
           val width = Inlined.forced[icL.OutW + RW](
             lhsVal.dfType.width.value + rhs.dfType.width
           )
-          val dfType = DFXInt(lhsVal.dfType.signed, width, BitAccurate)
+          val dfType = DFXInt.fromInlined(lhsVal.dfType.signed, width, BitAccurate)
           DFVal.Func(dfType, FuncOp.`*`, List(lhsVal, rhs))
         }
         end *^
@@ -1138,22 +1150,25 @@ end DFXInt
 
 type DFUInt[W <: Int] = DFXInt[false, W, BitAccurate]
 object DFUInt:
-  def apply[W <: Int](width: Inlined[W])(using
-      Width.Check[false, W]
-  ): DFUInt[W] = DFXInt(false, width, BitAccurate)
+  def apply[W <: Int](width: IntParam[W])(using DFC, Width.Check[false, W]): DFUInt[W] =
+    DFXInt(false, width, BitAccurate)
+  def fromInlined[W <: Int](width: Inlined[W])(using DFC, Width.Check[false, W]): DFUInt[W] =
+    DFXInt.fromInlined(false, width, BitAccurate)
   def apply[W <: Int](using dfType: DFUInt[W]): DFUInt[W] = dfType
   def until[V <: Int](sup: Inlined[V])(using
+      dfc: DFC,
       check: Arg.LargerThan1.Check[V],
       info: IntInfo[V - 1]
   ): DFUInt[info.OutW] =
     check(sup)
-    DFXInt(false, info.width(sup - 1), BitAccurate)
+    DFXInt.fromInlined(false, info.width(sup - 1), BitAccurate)
   def max[V <: Int](max: Inlined[V])(using
+      dfc: DFC,
       check: Arg.Positive.Check[V],
       info: IntInfo[V]
   ): DFUInt[info.OutW] =
     check(max)
-    DFXInt(false, info.width(max), BitAccurate)
+    DFXInt.fromInlined(false, info.width(max), BitAccurate)
 
   protected object Unsigned
       extends Check1[
@@ -1208,7 +1223,7 @@ object DFUInt:
           // TODO: https://github.com/lampepfl/dotty/issues/15798
           val fixme = (ub - 1).asInstanceOf[Inlined[Int]].value
           ubCheck(ub, arg)
-          DFVal.Const(DFUInt(ubInfo.width(fixme)), Some(BigInt(arg)))
+          DFVal.Const(DFUInt.fromInlined(ubInfo.width(fixme)), Some(BigInt(arg)))
       end fromInt
       given fromR[UB <: Int, R, IC <: DFXInt.Val.Candidate[R], I <: IntInfo[UB - 1]](using
           ic: IC,
@@ -1240,7 +1255,7 @@ object DFUInt:
     object Ops:
       extension [W <: Int, P](lhs: DFValTP[DFUInt[W], P])
         def signed(using DFC): DFValTP[DFSInt[W + 1], P] = trydf {
-          DFVal.Alias.AsIs(DFSInt(lhs.width + 1), lhs)
+          DFVal.Alias.AsIs(DFSInt.fromInlined(lhs.width + 1), lhs)
         }
         @targetName("negateDFUInt")
         def unary_-(using DFC): DFValTP[DFSInt[W + 1], P] = trydf {
@@ -1263,10 +1278,11 @@ end DFUInt
 
 type DFSInt[W <: Int] = DFXInt[true, W, BitAccurate]
 object DFSInt:
-  def apply[W <: Int](width: Inlined[W])(using
-      Width.Check[true, W]
-  ): DFSInt[W] = DFXInt(true, width, BitAccurate)
-  def apply[W <: Int](using dfType: DFSInt[W]): DFSInt[W] = dfType
+  def apply[W <: Int](width: IntParam[W])(using DFC, Width.Check[true, W]): DFSInt[W] =
+    DFXInt(true, width, BitAccurate)
+  def fromInlined[W <: Int](width: Inlined[W])(using DFC, Width.Check[true, W]): DFSInt[W] =
+    DFXInt.fromInlined(true, width, BitAccurate)
+  def apply[W <: Int](using dfc: DFC, dfType: DFSInt[W]): DFSInt[W] = dfType
 
   object Val:
     object Ops:

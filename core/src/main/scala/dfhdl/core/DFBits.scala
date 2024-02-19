@@ -582,8 +582,8 @@ object DFBits:
           check.apply(aliasDFType.asIR.width, lhs.width)
           DFVal.Alias.AsIs(aliasDFType, lhs)
         }
-        def uint(using DFC): DFValTP[DFUInt[W], P] = trydf { as(DFUInt(lhs.width)) }
-        def sint(using DFC): DFValTP[DFSInt[W], P] = trydf { as(DFSInt(lhs.width)) }
+        def uint(using DFC): DFValTP[DFUInt[W], P] = trydf { as(DFUInt(lhs.widthIntParam)) }
+        def sint(using DFC): DFValTP[DFSInt[W], P] = trydf { as(DFSInt(lhs.widthIntParam)) }
         def apply[Idx](
             relIdx: Exact[Idx]
         )(using
