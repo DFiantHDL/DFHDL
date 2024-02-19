@@ -37,6 +37,7 @@ object OrderMembers:
           dfVal.originMembers.view.exists {
             case _: DFVal.Dcl => true
             case DclConst()   => true
+            case dfVal: DFVal => dfVal.isReferencedByAnyDcl
             case _            => false
           }
       def apply()(using MemberGetSet): DFMember => Int = {
