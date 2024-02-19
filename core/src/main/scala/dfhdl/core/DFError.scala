@@ -55,48 +55,54 @@ class Logger:
 def trydf[T <: DFTypeAny](
     block: => T
 )(using dfc: DFC, ctName: CTName): T =
-  try block
-  catch
-    case e: Exception =>
-      val dfErr = e match
-        case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
-        case e: DFError                  => e
-        case e                           => throw e
-      if (dfc.ownerOption.isEmpty)
-        exitWithError(dfErr.toString())
-      dfc.logError(dfErr)
-      new DFTypeAny(dfErr).asInstanceOf[T]
+  if (dfc.inMetaProgramming) block
+  else
+    try block
+    catch
+      case e: Exception =>
+        val dfErr = e match
+          case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
+          case e: DFError                  => e
+          case e                           => throw e
+        if (dfc.ownerOption.isEmpty)
+          exitWithError(dfErr.toString())
+        dfc.logError(dfErr)
+        new DFTypeAny(dfErr).asInstanceOf[T]
 
 @targetName("tryDFVal")
 @metaContextForward(0)
 def trydf[V <: DFValAny](
     block: => V
 )(using dfc: DFC, ctName: CTName): V =
-  try block
-  catch
-    case e: Exception =>
-      val dfErr = e match
-        case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
-        case e: DFError                  => e
-        case e                           => throw e
-      if (dfc.ownerOption.isEmpty)
-        exitWithError(dfErr.toString())
-      dfc.logError(dfErr)
-      dfErr.asVal[DFTypeAny, ModifierAny].asInstanceOf[V]
+  if (dfc.inMetaProgramming) block
+  else
+    try block
+    catch
+      case e: Exception =>
+        val dfErr = e match
+          case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
+          case e: DFError                  => e
+          case e                           => throw e
+        if (dfc.ownerOption.isEmpty)
+          exitWithError(dfErr.toString())
+        dfc.logError(dfErr)
+        dfErr.asVal[DFTypeAny, ModifierAny].asInstanceOf[V]
 
 @targetName("tryDFNet")
 @metaContextForward(0)
 def trydf(block: => Unit)(using dfc: DFC, ctName: CTName): Unit =
-  try block
-  catch
-    case e: Exception =>
-      val dfErr = e match
-        case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
-        case e: DFError                  => e
-        case e                           => throw e
-      if (dfc.ownerOption.isEmpty)
-        exitWithError(dfErr.toString())
-      dfc.logError(dfErr)
+  if (dfc.inMetaProgramming) block
+  else
+    try block
+    catch
+      case e: Exception =>
+        val dfErr = e match
+          case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
+          case e: DFError                  => e
+          case e                           => throw e
+        if (dfc.ownerOption.isEmpty)
+          exitWithError(dfErr.toString())
+        dfc.logError(dfErr)
 
 def exitWithError(msg: String): Nothing =
   System.err.println(msg)

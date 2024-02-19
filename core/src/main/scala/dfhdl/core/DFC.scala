@@ -55,6 +55,7 @@ final case class DFC(
   def <>(that: Int): this.type = copy(defaultDir = that).asInstanceOf[this.type]
   def logError(err: DFError): Unit = mutableDB.logger.logError(err)
   def getErrors: List[DFError] = mutableDB.logger.getErrors
+  def inMetaProgramming: Boolean = mutableDB.inMetaProgramming
   def clearErrors(): Unit = mutableDB.logger.clearErrors()
 end DFC
 object DFC:

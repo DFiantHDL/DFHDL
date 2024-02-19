@@ -151,7 +151,7 @@ object PortOfDesignDef:
 
 extension (ref: DFRef.TwoWayAny)
   def originMember(using MemberGetSet): DFMember =
-    getSet.designDB.originRefTable(ref)
+    getSet.getOrigin(ref)
 
 extension (member: DFMember)
   def originMembers(using MemberGetSet): Set[DFMember] =

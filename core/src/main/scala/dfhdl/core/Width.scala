@@ -202,9 +202,19 @@ extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   def width(using dfc: DFC, w: Width[T]): Inlined[w.Out] =
     import dfc.getSet
     Inlined.forced[w.Out](dfVal.asIR.dfType.width)
+  def widthIntParam(using dfc: DFC, w: Width[T]): IntParam[w.Out] =
+    import dfc.getSet
+    dfVal.dfType.widthIntParam
 
 extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tWidth")
   def width(using dfc: DFC, w: Width[tc.Type]): Inlined[w.Out] =
     import dfc.getSet
     Inlined.forced[w.Out](tc(t).asIR.width)
+  def widthIntParam(using dfc: DFC, w: Width[tc.Type]): IntParam[w.Out] =
+    import dfc.getSet
+    val dfType = tc(t)
+    val intParam: IntParam[Int] = dfType.asIR match
+      case dfType: ir.DFBits => dfType.widthParamRef.get
+      case _                 => IntParam(dfType.asIR.width)
+    intParam.asInstanceOf[IntParam[w.Out]]

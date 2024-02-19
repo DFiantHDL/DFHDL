@@ -29,18 +29,26 @@ object SameElementsVector:
     arg.value.asInstanceOf[R]
   )
   protected[core] def bitsValOf[W <: Int, T <: BitOrBool](
-      width: Inlined[W],
+      width: IntParam[W],
       sev: SameElementsVector[T],
       named: Boolean = false
   )(using DFC): DFConstOf[DFBits[W]] =
     val boolVal = sev.value match
       case b: Boolean => b
       case i: Int     => i > 0
-    DFVal.Const(
-      DFBits.fromInlined(width),
-      (BitVector.fill(width.value)(boolVal), BitVector.low(width.value)),
-      named
-    )
+    def constVec[W <: Int](width: Int, named: Boolean): DFConstOf[DFBits[W]] =
+      DFVal.Const(
+        DFBits.forced[W](width),
+        (BitVector.fill(width)(boolVal), BitVector.low(width)),
+        named
+      )
+    width match
+      case width: Int => constVec[W](width, named)
+      case width: DFConstOf[DFInt32] @unchecked =>
+        val singleBit = constVec[1](1, named = false)
+        import DFBits.Val.Ops.repeat
+        val dfcArg = if (named) dfc else dfc.anonymize
+        singleBit.repeat(width)(using dfcArg).asConstOf[DFBits[W]]
   end bitsValOf
 
   given eqBit[W <: Int, T <: BitOrBool]: CanEqual[SameElementsVector[T], DFValOf[DFBits[W]]] =

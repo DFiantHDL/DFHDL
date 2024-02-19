@@ -36,6 +36,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
   def csDFValFuncExpr(dfVal: Func): String =
     dfVal.args match
+      // repeat func
+      case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
+        s"{${argR.refCodeString.applyBrackets()}{${argL.refCodeString}}}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val opStr = dfVal.op match

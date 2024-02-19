@@ -3,6 +3,7 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.analysis.*
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.reflect.ClassTag
 import dfhdl.internals.hashString
 
@@ -131,7 +132,20 @@ extension (db: DB)
   def patch(patchList: List[(DFMember, Patch)], debug: Boolean = false): DB =
     import db.getSet
     import db.{members, refTable, memberTable, globalTags, srcFiles}
+
     if (patchList.isEmpty) return db
+    // save the number of occurrences of type references
+    val typeRefOccurrences = mutable.Map.from(
+      members.view.flatMap(_.getRefs)
+        .collect { case r: DFRef.TypeRef => r }
+        .groupBy(identity).view.mapValues(_.size)
+    )
+    def dropRef(r: DFRefAny): Boolean =
+      r match
+        case r: DFRef.TypeRef =>
+          typeRefOccurrences.updateWith(r)(c => Some(c.get - 1)).get == 0
+        case _ => true
+
     // added owners have their own getSet context which we may need to use
     // in some conditions. currently this is done only for `getVeryLastMember`
     lazy val addedOwnersGetSets = patchList.flatMap {
@@ -215,7 +229,7 @@ extension (db: DB)
               // * refs - directly referencing the member
               // * originRefs - the member is referencing other members with a two-way
               //                reference that points back to it.
-              val totalRefs = refs ++ origMember.getRefs
+              val totalRefs = refs ++ origMember.getRefs.filter(dropRef)
               rc.copy(refTable = totalRefs.foldLeft(rc.refTable)((rt2, r) => rt2 - r))
             case None => rc
         case (rc, (origMember, Patch.ChangeRef(refFunc, updatedRefMember))) =>

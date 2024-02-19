@@ -265,6 +265,18 @@ object OptionalGiven extends OptionalGivenLP:
   given fromValue[T](using t: T): OptionalGiven[T] with
     val value: Option[T] = Some(t)
 
+trait IsGiven[T]:
+  type Out <: Boolean
+  val value: Out
+protected trait IsGivenLP:
+  given not[T]: IsGiven[T] with
+    type Out = false
+    val value: false = false
+object IsGiven extends IsGivenLP:
+  given is[T](using t: T): IsGiven[T] with
+    type Out = true
+    val value: true = true
+
 //from Map[K,V] to Map[V,Set[K]], traverse the input only once
 //From: https://stackoverflow.com/a/51356499/3845175
 extension [K, V](m: Map[K, V])

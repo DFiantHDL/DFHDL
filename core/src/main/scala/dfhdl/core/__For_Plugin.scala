@@ -30,7 +30,7 @@ object __For_Plugin:
       case (dt: ir.DFBoolOrBit, v: Boolean) =>
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v))
       case (dt: ir.DFBits, allBit: BitOrBool) =>
-        SameElementsVector.bitsValOf(dt.width, SameElementsVector(allBit))
+        SameElementsVector.bitsValOf(dt.asFE[DFBits[Int]].widthIntParam, SameElementsVector(allBit))
       case (dt: ir.DFDecimal, v: Int) =>
         DFVal.Const(dt.asFE[DFSInt[Int]], Some(BigInt(v)))
       case (dt: ir.DFEnum, v: DFEncoding) =>

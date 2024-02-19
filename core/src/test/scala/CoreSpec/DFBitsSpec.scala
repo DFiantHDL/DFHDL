@@ -19,6 +19,7 @@ class DFBitsSpec extends DFSpec:
   }
   test("DFVal Conversion") {
     val w = 2
+    val param: Int <> CONST = 5
     assertCodeString {
       """|val t1: Bits[8] <> CONST = h"00"
          |val t2: Bits[8] <> CONST = h"ff"
@@ -35,6 +36,7 @@ class DFBitsSpec extends DFSpec:
          |val t13: Bits[8] <> CONST = (h"9", h"2").toBits
          |val t14: Bits[16] <> CONST = t13.repeat(2)
          |val u8v = Bits(8) <> VAR init (h"aa", h"bb", (h"c", h"d").toBits)
+         |val t15 = Bits(param) <> VAR init b"0".repeat(param)
          |""".stripMargin
     } {
       @inline def foo(arg: Bits[4] <> CONST): Unit <> DFRET =
@@ -73,6 +75,7 @@ class DFBitsSpec extends DFSpec:
       assertCompileError {
         "Applied argument must be a constant."
       }("val t15: Bits[16] <> CONST = (u8v, t13)")
+      val t15 = Bits(param) <> VAR init all(0)
     }
   }
   test("Assignment") {

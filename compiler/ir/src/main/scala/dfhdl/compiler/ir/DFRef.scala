@@ -25,22 +25,26 @@ object DFRef:
     object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty:
       val originRefType = classTag[DFMember.Empty]
 
+  trait TypeRef extends TwoWay[DFVal, DFVal]:
+    val refType = classTag[DFVal]
+    val originRefType = classTag[DFVal]
+
   def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
 end DFRef
 
-opaque type IntParamRef = DFRef.TwoWay[DFVal, DFVal] | Int
+opaque type IntParamRef = DFRef.TypeRef | Int
 object IntParamRef:
   def apply(int: Int): IntParamRef = int
-  def apply(ref: DFRef.TwoWay[DFVal, DFVal]): IntParamRef = ref
+  def apply(ref: DFRef.TypeRef): IntParamRef = ref
   extension (intParamRef: IntParamRef)
     def getInt(using MemberGetSet): Int = (intParamRef: @unchecked) match
       case Int(int) => int
-    def getRef: Option[DFRef.TwoWay[DFVal, DFVal]] = intParamRef match
-      case ref: DFRef.TwoWay[DFVal, DFVal] => Some(ref)
-      case _                               => None
+    def getRef: Option[DFRef.TypeRef] = intParamRef match
+      case ref: DFRef.TypeRef => Some(ref)
+      case _                  => None
     def =~(that: IntParamRef)(using MemberGetSet): Boolean =
       (intParamRef, that) match
-        case (thisRef: DFRef.TwoWay[DFVal, DFVal], thatRef: DFRef.TwoWay[DFVal, DFVal]) =>
+        case (thisRef: DFRef.TypeRef, thatRef: DFRef.TypeRef) =>
           thisRef =~ thatRef
         case (thisInt: Int, thatInt: Int) => thisInt == thatInt
         case _                            => false

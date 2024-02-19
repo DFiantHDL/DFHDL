@@ -16,22 +16,15 @@ object DFBits:
   ): DFBits[W] = trydf:
     check(width)
     ir.DFBits(width.ref).asFE[DFBits[W]]
-  def fromInlined[W <: Int](width: Inlined[W])(using
-      dfc: DFC,
-      check: Arg.Width.Check[W]
-  ): DFBits[W] = trydf:
-    check(width)
-    ir.DFBits(width).asFE[DFBits[W]]
   def forced[W <: Int](width: Int): DFBits[W] =
     val check = summon[Arg.Width.Check[Int]]
     check(width)
     ir.DFBits(width).asFE[DFBits[W]]
   @targetName("applyNoArg")
   def apply[W <: Int & Singleton](using ValueOf[W])(using DFC, Arg.Width.Check[W]): DFBits[W] =
-    DFBits.fromInlined[W](Inlined.forced[W](valueOf[W]))
-
+    DFBits[W](IntParam.fromValue[W](valueOf[W]))
   given bitsDFType[W <: Int](using ValueOf[W])(using DFC, Arg.Width.Check[W]): DFBits[W] =
-    DFBits.fromInlined[W](Inlined.forced[W](valueOf[W]))
+    DFBits[W](IntParam.fromValue[W](valueOf[W]))
 
   protected object `AW == TW`
       extends Check2[
@@ -437,9 +430,9 @@ object DFBits:
               dfVal.nameInDFCPosition.asValTP[DFBits[LW], ic.OutP]
             case _ =>
               if (dfVal.hasTag[DFVal.TruncateTag] && dfType.width < dfVal.width)
-                dfVal.resizeBits(dfType.width).asValTP[DFBits[LW], ic.OutP]
+                dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], ic.OutP]
               else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.width > dfVal.width)
-                dfVal.resizeBits(dfType.width).asValTP[DFBits[LW], ic.OutP]
+                dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], ic.OutP]
               else
                 check(dfType.width, dfVal.width)
                 dfVal.nameInDFCPosition.asValTP[DFBits[LW], ic.OutP]
@@ -449,7 +442,7 @@ object DFBits:
       with
         type OutP = CONST
         def conv(dfType: DFBits[LW], value: V)(using DFC): Out =
-          SameElementsVector.bitsValOf(dfType.width, value, named = true)
+          SameElementsVector.bitsValOf(dfType.widthIntParam, value, named = true)
     end TC
 
     object Compare:
@@ -478,7 +471,7 @@ object DFBits:
       ): Compare[DFBits[LW], V, Op, C] with
         type OutP = CONST
         def conv(dfType: DFBits[LW], arg: V)(using DFC): Out =
-          SameElementsVector.bitsValOf(dfType.width, arg, named = true)
+          SameElementsVector.bitsValOf(dfType.widthIntParam, arg, named = true)
       end DFBitsCompareSEV
     end Compare
 
@@ -504,23 +497,24 @@ object DFBits:
       extension [W <: Int, P](lhs: DFValTP[DFBits[W], P])
         def truncate(using DFC): DFValTP[DFBits[Int], P] =
           lhs.tag(DFVal.TruncateTag).asValTP[DFBits[Int], P]
-        private[DFBits] def resizeBits[RW <: Int](updatedWidth: Inlined[RW])(using
+        private[DFBits] def resizeBits[RW <: Int](updatedWidth: IntParam[RW])(using
             Arg.Width.Check[RW],
             DFC
         ): DFValTP[DFBits[RW], P] =
           // TODO: why this causes anonymous references?
 //          if (lhs.width == updatedWidth) lhs.asValOf[DFBits[RW]]
 //          else
-          DFVal.Alias.AsIs(DFBits.fromInlined(updatedWidth), lhs)
+          DFVal.Alias.AsIs(DFBits(updatedWidth), lhs)
       end extension
       extension [T <: Int, P](iter: Iterable[DFValTP[DFBits[T], P]])
         protected[core] def concatBits(using DFC): DFValTP[DFBits[Int], P] =
-          val width = Inlined.forced[Int](iter.map(_.width.value).sum)
-          DFVal.Func(DFBits.fromInlined(width), FuncOp.++, iter.toList)
+          val width =
+            iter.map(_.widthIntParam.asInstanceOf[IntParam[Int]]).reduce(_ + _)
+          DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
         def extend(using DFC): DFValTP[DFBits[Int], icL.OutP] =
           icL(lhs).tag(DFVal.ExtendTag).asValTP[DFBits[Int], icL.OutP]
-        def resize[RW <: Int](updatedWidth: Inlined[RW])(using
+        def resize[RW <: Int](updatedWidth: IntParam[RW])(using
             Arg.Width.Check[RW],
             DFC
         ): DFValTP[DFBits[RW], icL.OutP] = trydf { icL(lhs).resizeBits(updatedWidth) }
@@ -551,25 +545,26 @@ object DFBits:
           check(lhsVal.width, rhsVal.width)
           DFVal.Func(lhsVal.dfType, FuncOp.^, List(lhsVal, rhsVal))
         }
-        def repeat[N <: Int](num: Inlined[N])(using
-            check: Arg.Positive.Check[N],
-            dfc: DFC
-        ): DFValOf[DFBits[icL.OutW * N]] = trydf {
+        def repeat[N <: Int](num: IntParam[N])(using
+            dfc: DFC,
+            check: Arg.Positive.Check[N]
+        ): DFValTP[DFBits[icL.OutW * N], icL.OutP | CONST] = trydf {
           val lhsVal = icL(lhs)
           check(num)
+          val width = lhsVal.widthIntParam * num
           DFVal.Func(
-            DFBits.fromInlined(lhsVal.dfType.width * num),
-            FuncOp.++,
-            List.fill(num)(lhsVal)
+            DFBits(width),
+            FuncOp.repeat,
+            List(lhsVal, num.toDFConst)
           )
         }
         def ++[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC
-        ): DFValOf[DFBits[icL.OutW + icR.OutW]] = trydf {
+        ): DFValTP[DFBits[icL.OutW + icR.OutW], icL.OutP | icR.OutP] = trydf {
           val lhsVal = icL(lhs)
           val rhsVal = icR(rhs)
-          val width = lhsVal.width + rhsVal.width
-          DFVal.Func(DFBits.fromInlined(width), FuncOp.++, List(lhsVal, rhsVal))
+          val width = lhsVal.widthIntParam + rhsVal.widthIntParam
+          DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhsVal))
         }
       end extension
 
@@ -652,42 +647,42 @@ object DFBits:
         }
       end extension
       extension [L](lhs: L)
-        def ++[RW <: Int](
-            rhs: DFValOf[DFBits[RW]]
+        def ++[RW <: Int, RP](
+            rhs: DFValTP[DFBits[RW], RP]
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             c: Candidate[es.Out]
-        ): DFValOf[DFBits[c.OutW + RW]] = trydf {
+        ): DFValTP[DFBits[c.OutW + RW], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
-          val width = lhsVal.width + rhs.width
-          DFVal.Func(DFBits.fromInlined(width), FuncOp.++, List(lhsVal, rhs))
+          val width = lhsVal.widthIntParam + rhs.widthIntParam
+          DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhs))
         }
-        def &[RW <: Int](
-            rhs: DFValOf[DFBits[RW]]
+        def &[RW <: Int, RP](
+            rhs: DFValTP[DFBits[RW], RP]
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             c: Candidate[es.Out]
-        )(using check: `LW == RW`.Check[c.OutW, RW]): DFValOf[DFBits[RW]] = trydf {
+        )(using check: `LW == RW`.Check[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
           check(lhsVal.width, rhs.width)
           DFVal.Func(rhs.dfType, FuncOp.&, List(lhsVal, rhs))
         }
-        def |[RW <: Int](
-            rhs: DFValOf[DFBits[RW]]
+        def |[RW <: Int, RP](
+            rhs: DFValTP[DFBits[RW], RP]
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             c: Candidate[es.Out]
-        )(using check: `LW == RW`.Check[c.OutW, RW]): DFValOf[DFBits[RW]] = trydf {
+        )(using check: `LW == RW`.Check[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
           check(lhsVal.width, rhs.width)
           DFVal.Func(rhs.dfType, FuncOp.|, List(lhsVal, rhs))
         }
-        def ^[RW <: Int](
-            rhs: DFValOf[DFBits[RW]]
+        def ^[RW <: Int, RP](
+            rhs: DFValTP[DFBits[RW], RP]
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             c: Candidate[es.Out]
-        )(using check: `LW == RW`.Check[c.OutW, RW]): DFValOf[DFBits[RW]] = trydf {
+        )(using check: `LW == RW`.Check[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
           check(lhsVal.width, rhs.width)
           DFVal.Func(rhs.dfType, FuncOp.^, List(lhsVal, rhs))

@@ -90,22 +90,29 @@ case object SanityCheck extends Stage:
         case _: DFRef.Empty => // skip empty referenced
         case r =>
           originRefTable.get(r).foreach { prevMember =>
-            reportViolation(
-              s"""|Ref $r has more than one origin member.
+            def originViolation(addedText: String) = reportViolation(
+              s"""|Ref $r has more than one origin member$addedText.
                   |Target member:   ${r.get}
                   |Origin member 1: $prevMember
                   |Origin member 2: $m""".stripMargin
             )
+            r match
+              case _: DFRef.TypeRef =>
+                if (!(prevMember isSameOwnerDesignAs m))
+                  originViolation(" from a different design")
+              case _ => originViolation("")
           }
           originRefTable += r -> m
       }
     }
     // check a global member reference is anonymous only if the referencing member is global
+    // or the referencing member is a design parameter
     originRefTable.foreach { (r, originMember) =>
       r.get match
         case targetVal: DFVal if targetVal.isAnonymous && targetVal.isGlobal =>
           originMember match
             case originVal: DFVal if originVal.isGlobal =>
+            case DesignParam(_)                         =>
             case _ =>
               reportViolation(
                 s"""|A global anonymous member is referenced by a non-global member.

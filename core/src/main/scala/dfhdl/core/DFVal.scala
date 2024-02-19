@@ -839,11 +839,21 @@ object DFVal extends DFValLP:
       def conv(dfType: T, value: V)(using dfc: DFC): DFValTP[T, P] =
         import dfc.getSet
         given Printer = DefaultPrinter
-        require(
-          dfType == value.dfType,
-          s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
-        )
-        value
+        val ret: DFValAny =
+          if (dfType != value.dfType)
+            (dfType.asIR, value.dfType.asIR) match
+              case (_: ir.DFBits, _: ir.DFBits) =>
+                DFBits.Val.TC(dfType.asFE[DFBits[Int]], value.asValOf[DFBits[Int]])
+              case (ir.DFXInt(_, _, _), ir.DFXInt(_, _, _)) =>
+                ???
+              case _ =>
+                throw new IllegalArgumentException(
+                  s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
+                )
+          else value
+        ret.asValTP[T, P]
+      end conv
+    end sameValType
   end TCLP
   object TC extends TCLP:
     export DFBoolOrBit.Val.TC.given
@@ -1002,7 +1012,7 @@ object DFVal extends DFValLP:
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
       def bits(using w: Width[T])(using DFC): DFValTP[DFBits[w.Out], P] = trydf {
-        DFVal.Alias.AsIs(DFBits.fromInlined(dfVal.width), dfVal)
+        DFVal.Alias.AsIs(DFBits(dfVal.widthIntParam), dfVal)
       }
       def genNewVar(using DFC): DFVarOf[T] = trydf {
         DFVal.Dcl(dfVal.dfType, Modifier.VAR)
@@ -1169,8 +1179,9 @@ object DFVarOps:
             end if
           case Nil => // done!
       val dfVarsIR = flattenDFValTuple(dfVarTuple)
-      val width = Inlined.forced[vt.Width](dfVarsIR.map(_.dfType.width).sum)
-      val argsIR = flattenConcatArgs(tc(DFBits.fromInlined(width), rhs).asIR)
+      val width =
+        dfVarsIR.map(_.asValAny.widthIntParam).reduce(_ + _).asInstanceOf[IntParam[vt.Width]]
+      val argsIR = flattenConcatArgs(tc(DFBits(width), rhs).asIR)
       val argsBitsIR = argsIR.map { arg =>
         arg.dfType match
           case _: ir.DFBits => arg

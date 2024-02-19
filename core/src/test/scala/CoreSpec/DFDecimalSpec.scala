@@ -67,14 +67,20 @@ class DFDecimalSpec extends DFSpec:
   test("Assignment") {
     assertCodeString {
       """|val c: UInt[8] <> CONST = d"8'1"
+         |val i: Int <> CONST = 100
+         |val ni: Int <> CONST = -100
          |val v = UInt(8) <> VAR init c + d"8'1"
          |val b8 = Bits(8) <> VAR
          |val u8 = UInt(8) <> VAR init d"8'255"
          |val s8 = SInt(8) <> VAR init ?
+         |val u8b = UInt(8) <> VAR init i.resize(8)
          |val u6 = UInt(6) <> IN
          |val s6 = SInt(6) <> IN
+         |u8 := i.resize(8)
          |val b6: Bits[6] <> CONST = h"6'00"
-         |val s32 = Int <> VAR init sd"32'0"
+         |val s32 = Int <> VAR init 0
+         |val s32b = Int <> VAR
+         |s32b := i
          |val s64 = SInt(64) <> VAR init sd"64'0"
          |val cu: UInt[1] <> CONST = d"1'1"
          |val cs: SInt[2] <> CONST = sd"2'-1"
@@ -100,6 +106,8 @@ class DFDecimalSpec extends DFSpec:
          |""".stripMargin
     } {
       val c: UInt[8] <> CONST = 1
+      val i: Int <> CONST = 100
+      val ni: Int <> CONST = -100
       assert(c.toScalaInt == 1)
       val v = UInt(8) <> VAR init c + 1
       assertCompileError(
@@ -110,10 +118,30 @@ class DFDecimalSpec extends DFSpec:
       val b8 = Bits(8) <> VAR
       val u8 = UInt(8) <> VAR init 255
       val s8 = SInt(8) <> VAR init ?
+      val u8b = UInt(8) <> VAR init i
       val u6 = UInt(6) <> IN
       val s6 = SInt(6) <> IN
+      u8 := i
+      assertDSLErrorLog(
+        "Cannot apply a signed value to an unsigned variable."
+      )("") {
+        u8 := ni
+      }
+      assertDSLErrorLog(
+        "The applied RHS value width (8) is larger than the LHS variable width (6)."
+      )("") {
+        s6 := ni
+      }
       val b6: Bits[6] <> CONST = all(0)
       val s32: Int <> VAL = Int <> VAR init 0
+      assertCompileError(
+        "Cannot apply a signed value to an unsigned variable."
+      )("u8 := s32")
+      assertCompileError(
+        "The applied RHS value width (32) is larger than the LHS variable width (6)."
+      )("s6 := s32")
+      val s32b = Int <> VAR
+      s32b := i
       val s64: Long <> VAL = Long <> VAR init 0
       val cu: UInt[Int] <> VAL = 1
       val cs: SInt[Int] <> VAL = -1

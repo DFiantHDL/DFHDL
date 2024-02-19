@@ -93,8 +93,10 @@ trait AbstractDataPrinter extends AbstractPrinter:
       case Some(value) =>
         def csBits = csDFBitsData(DFBits(width), (value.toBitVector(width), BitVector.low(width)))
         if (dfType.fractionWidth == 0) // DFXInt
+          // native integers are printed as they are (this assumes in all backends integers are printed the same)
+          if (dfType.isDFInt32) value.toString()
           // if the language supports big integers (with explicit widths) we can simply display the values
-          if (allowDecimalBigInt)
+          else if (allowDecimalBigInt)
             if (dfType.signed) csDFSIntFormatBig(value, width)
             else csDFUIntFormatBig(value, width)
           // otherwise, we need to reply on small value representation or cast a bits representation

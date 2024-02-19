@@ -57,7 +57,10 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   transparent inline def assertDSLErrorLog(expectedErr: String)(
       inline compileTimeCode: String
   )(runTimeCode: => Unit)(using DFC): Unit =
-    assertCompileError(expectedErr)(compileTimeCode)
+    val ignore =
+      inline if (compileTimeCode != "")
+        assertCompileError(expectedErr)(compileTimeCode)
+      else ()
     dfc.clearErrors()
     runTimeCode
     val err = dfc.getErrors.headOption.map(_.dfMsg).getOrElse(noErrMsg)

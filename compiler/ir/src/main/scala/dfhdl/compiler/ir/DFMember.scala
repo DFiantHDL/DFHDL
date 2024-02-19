@@ -362,7 +362,7 @@ object DFVal:
   object Func:
     enum Op derives CanEqual:
       case +, -, *, /, ===, =!=, <, >, <=, >=, &, |, ^, %, ++
-      case >>, <<, ror, rol, reverse
+      case >>, <<, ror, rol, reverse, repeat
       case unary_-, unary_~, unary_!
       case rising, falling
       case clog2

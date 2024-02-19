@@ -33,12 +33,17 @@ class DesignContext:
   val members = mutable.ArrayBuffer.empty[MemberEntry]
   val memberTable = mutable.Map.empty[DFMember, Int]
   val refTable = mutable.Map.empty[DFRefAny, DFMember]
+  val originRefTable = mutable.Map.empty[DFRef.TwoWayAny, DFMember]
   var defInputs = List.empty[DFValAny]
   var isDuplicate = false
+
+  def setOriginRefs(member: DFMember): Unit =
+    member.getRefs.foreach { r => originRefTable += r -> member }
 
   def addMember[M <: DFMember](member: M): M =
     memberTable += (member -> members.length)
     members += MemberEntry(member, Set(), false)
+    setOriginRefs(member)
     member
   end addMember
 
@@ -81,6 +86,8 @@ class DesignContext:
     memberTable.update(newMember, idx)
     // update the member in the member position array
     members.update(idx, memberEntry.copy(irValue = newMember))
+    // update the origin references to the new member
+    setOriginRefs(newMember)
     newMember
   end setMember
 
@@ -111,6 +118,7 @@ class DesignContext:
         addMember(m)
     }
     refTable ++= sourceCtx.refTable
+    originRefTable ++= sourceCtx.originRefTable
   end inject
 
   def getMemberList: List[DFMember] =
@@ -126,6 +134,7 @@ final class MutableDB():
 
   // meta programming external MemberGetSet DB access
   private[MutableDB] var metaGetSetOpt: Option[MemberGetSet] = None
+  def inMetaProgramming: Boolean = metaGetSetOpt.nonEmpty
   def setMetaGetSet(metaGetSet: MemberGetSet): Unit =
     metaGetSetOpt = Some(metaGetSet)
 
@@ -318,6 +327,23 @@ final class MutableDB():
     member.asInstanceOf[M0]
   end getMember
 
+  def getOriginMember(
+      ref: DFRef.TwoWayAny
+  ): DFMember =
+    // by default the current design context is searched
+    val member = DesignContext.current.originRefTable.get(ref) match
+      case Some(member) => member
+      // if we didn't find it, then we go up the design context stack
+      case None =>
+        DesignContext.stack.view
+          .map(_.originRefTable.get(ref))
+          .collectFirst { case Some(member) => member }
+          // finally, if still no member is available, then we check the
+          // external injected meta-programming context
+          .getOrElse(metaGetSetOpt.get.getOrigin(ref))
+    member
+  end getOriginMember
+
   private def globalMemberCtxCopy(originalMember: DFMember, newMember: DFMember): Unit =
     newMember match
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
@@ -417,6 +443,7 @@ final class MutableDB():
     def apply[M <: DFMember, M0 <: M](
         ref: DFRef[M]
     ): M0 = getMember(ref)
+    def getOrigin(ref: DFRef.TwoWayAny): DFMember = getOriginMember(ref)
     def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M =
       setMember(originalMember, newMemberFunc)
     def replace[M <: DFMember](originalMember: M)(newMember: M): M =
