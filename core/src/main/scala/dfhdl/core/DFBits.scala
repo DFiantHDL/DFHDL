@@ -325,6 +325,7 @@ object DFBits:
       type Out = DFValTP[DFBits[OutW], OutP]
       def apply(value: R)(using DFC): Out
     object Candidate:
+      type Aux[R, W <: Int, P] = Candidate[R] { type OutW = W; type OutP = P }
       inline given errorOnInt[V <: Int]: Candidate[V] =
         compiletime.error(
           "An integer value cannot be a candidate for a Bits type.\nTry explicitly using a decimal constant via the `d\"<width>'<number>\"` string interpolation."
@@ -485,11 +486,12 @@ object DFBits:
         val tplTerm = tpl.asTerm.exactTerm
         import Width.*
         val rTpe = tplTerm.tpe
+        val pType = rTpe.isConstTpe.asTypeOf[Any]
         val wType = rTpe.calcValWidth.asTypeOf[Int]
         '{
           Val.Candidate
             .valueToBits($tpl)(using compiletime.summonInline[DFC])
-            .asValOf[DFBits[wType.Underlying]]
+            .asValTP[DFBits[wType.Underlying], pType.Underlying]
         }
     end TupleOps
 

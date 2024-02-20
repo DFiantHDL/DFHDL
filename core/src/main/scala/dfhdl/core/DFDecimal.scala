@@ -552,13 +552,13 @@ object DFXInt:
       extension (dfVal: DFValAny) def asOut: Out = dfVal.asValTP[DFXInt[OutS, OutW, OutN], OutP]
       def apply(arg: R)(using DFC): Out
     trait CandidateLP:
-      given fromDFBitsValCandidate[R, IC <: DFBits.Val.Candidate[R]](using
-          ic: IC
+      given fromDFBitsValCandidate[R, W <: Int, P](using
+          ic: DFBits.Val.Candidate.Aux[R, W, P]
       ): Candidate[R] with
         type OutS = false
-        type OutW = ic.OutW
+        type OutW = W
         type OutN = BitAccurate
-        type OutP = ic.OutP
+        type OutP = P
         type IsScalaInt = false
         def apply(arg: R)(using dfc: DFC): Out =
           import DFBits.Val.Ops.uint
@@ -573,17 +573,6 @@ object DFXInt:
       end fromDFBitsValCandidate
     end CandidateLP
     object Candidate extends CandidateLP:
-      given fromInlinedInt[R <: Int, I <: IntInfo[R]](using
-          info: I
-      ): Candidate[Inlined[R]] with
-        type OutS = info.OutS
-        type OutW = info.OutW
-        type OutN = BitAccurate
-        type OutP = CONST
-        type IsScalaInt = true
-        def apply(arg: Inlined[R])(using DFC): Out =
-          val dfType = DFXInt(info.signed(arg), IntParam(info.width(arg)), BitAccurate)
-          DFVal.Const(dfType, Some(arg.value), named = true)
       type IntInfoAux[R <: Int, OS <: Boolean, OW <: Int] =
         IntInfo[R]:
           type OutS = OS
@@ -599,15 +588,6 @@ object DFXInt:
         def apply(arg: R)(using dfc: DFC): Out =
           val dfType = DFXInt.fromInlined(info.signed(arg), info.width(arg), BitAccurate)
           DFVal.Const(dfType, Some(BigInt(arg)), named = true)
-      given fromDFBitsVal[W <: Int, P, R <: DFValTP[DFBits[W], P]]: Candidate[R] with
-        type OutS = false
-        type OutW = W
-        type OutN = BitAccurate
-        type OutP = P
-        type IsScalaInt = false
-        def apply(arg: R)(using DFC): Out =
-          import DFBits.Val.Ops.uint
-          arg.uint
       // when the candidate is a DFInt32 constant, then we remove the signed and width tags
       // from the type to allow for elaboration (runtime) check that considers the actual
       // signed and width properties of the constant value.
