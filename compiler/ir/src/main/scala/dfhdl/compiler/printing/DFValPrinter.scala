@@ -29,6 +29,7 @@ trait AbstractValPrinter extends AbstractPrinter:
   final def csRef(ref: DFRef.TwoWayAny): String =
     val member = ref.get
     member match
+      case dfVal @ DesignParam(_) => dfVal.getName
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
         if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
         else dfVal.getName
@@ -42,6 +43,7 @@ trait AbstractValPrinter extends AbstractPrinter:
         named.getName
       case _ =>
         throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
+    end match
   end csRef
   final def csRelVal(alias: Alias): String =
     alias.relValRef.refCodeString.applyBrackets()

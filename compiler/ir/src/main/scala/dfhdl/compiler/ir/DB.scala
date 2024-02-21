@@ -16,7 +16,7 @@ final case class DB(
 ):
   private val self = this
   given getSet: MemberGetSet with
-    def designDB: DB = self
+    val designDB: DB = self
     def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0 =
       refTable(ref).asInstanceOf[M0]
     def getOrigin(ref: DFRef.TwoWayAny): DFMember = originRefTable(ref)

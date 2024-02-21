@@ -22,13 +22,12 @@ case object SanityCheck extends Stage:
     // checks for all members
     getSet.designDB.members.foreach { m =>
       // check for missing references
-      if (
-        m.getRefs.exists {
-          case _: DFRef.Empty => false
-          case r              => !refTable.contains(r)
-        }
-      )
-        reportViolation(s"Missing ref for the member: $m")
+      m.getRefs.foreach {
+        case _: DFRef.Empty => // do nothing
+        case r if !refTable.contains(r) =>
+          reportViolation(s"Missing ref $r for the member: $m")
+        case _ => // do nothing
+      }
       // check for circular references
       if (m.originMembers.exists(_ == m))
         reportViolation(s"Circular reference for the member: $m")
