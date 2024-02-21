@@ -72,6 +72,7 @@ case object ToED extends Stage:
                     case _ => getDeps(last, handledMembers)
                 case Nil => handledMembers
             val processBlockAllMembersSet = members.view.flatMap {
+              case DesignParam(_)                                              => None
               case net: DFNet if net.isConnection || removedNets.contains(net) => None
               case net: DFNet =>
                 getDeps(List(net), Set())
@@ -82,6 +83,7 @@ case object ToED extends Stage:
             // println(processBlockAllMembersSet.mkString("\n"))
             val processBlockAllMembers = members.flatMap {
               case dcl: DFVal.Dcl => None
+              case DesignParam(_) => None
               case cb: DFConditional.Block if cb.getHeaderCB.dfType == DFUnit =>
                 cb :: designDB.blockMemberTable(cb)
               case dsn: DFOwnerNamed                          => None

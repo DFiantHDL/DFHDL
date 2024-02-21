@@ -170,4 +170,31 @@ class ToEDSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Basic Counter") {
+    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
+    val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
+    val cfg    = RTDomainCfg(clkCfg, rstCfg)
+    class Counter(width: Int <> CONST = 8) extends RTDesign(cfg):
+      val cnt = Bits(width) <> OUT init all(0)
+      cnt := cnt.reg + 1
+
+    val top = Counter().toED
+    assertCodeString(
+      top,
+      """|class Counter(width: Int <> CONST = 8) extends EDDesign:
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
+         |  val cnt = Bits(width) <> OUT init b"0".repeat(width)
+         |  val cnt_reg = Bits(width) <> VAR
+         |  process(all):
+         |    cnt := (cnt_reg.uint + d"8'1").bits
+         |  process(clk):
+         |    if (clk.rising)
+         |      if (rst == 1) cnt_reg :== b"0".repeat(width)
+         |      else cnt_reg :== cnt
+         |    end if
+         |end Counter
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

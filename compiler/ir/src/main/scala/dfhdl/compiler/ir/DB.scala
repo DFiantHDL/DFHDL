@@ -67,12 +67,13 @@ final case class DB(
   lazy val originRefTable: Map[DFRef.TwoWayAny, DFMember] =
     members.view.flatMap(origMember => origMember.getRefs.map(_ -> origMember)).toMap
 
-  //                                to         From
-  lazy val originMemberTable: Map[DFMember, Set[DFMember]] =
+  //                                                             to         From
+  private def _originMemberTable(excludeTypeRef: Boolean): Map[DFMember, Set[DFMember]] =
     val tbl = mutable.Map.empty[DFMember, Set[DFMember]]
     members.foreach(origMember =>
       origMember.getRefs.foreach {
-        case _: DFRef.Empty =>
+        case _: DFRef.Empty                     =>
+        case _: DFRef.TypeRef if excludeTypeRef =>
         case r =>
           tbl.updateWith(refTable(r)) {
             case Some(set) => Some(set + origMember)
@@ -81,6 +82,10 @@ final case class DB(
       }
     )
     tbl.toMap
+
+  lazy val originMemberTable: Map[DFMember, Set[DFMember]] = _originMemberTable(false)
+  lazy val originMemberTableNoTypeRef: Map[DFMember, Set[DFMember]] = _originMemberTable(true)
+
   // Map of all named types in the design with their design block owners.
   // If the named type is global (used in IO, by a global member, or more than one design block),
   // then its owner is set to None.

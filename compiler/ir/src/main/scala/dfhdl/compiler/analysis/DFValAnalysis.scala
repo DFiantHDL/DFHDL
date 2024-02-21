@@ -156,6 +156,8 @@ extension (ref: DFRef.TwoWayAny)
 extension (member: DFMember)
   def originMembers(using MemberGetSet): Set[DFMember] =
     getSet.designDB.originMemberTable.getOrElse(member, Set())
+  def originMembersNoTypeRef(using MemberGetSet): Set[DFMember] =
+    getSet.designDB.originMemberTableNoTypeRef.getOrElse(member, Set())
 
 extension (dfVal: DFVal)
   def getPartialAliases(using MemberGetSet): Set[DFVal.Alias.Partial] =
@@ -192,7 +194,7 @@ extension (dfVal: DFVal)
       .collect { case dfVal: DFVal => dfVal }
       .exists(dfVal => cond(dfVal) || dfVal.existsInComposedReadDeps(cond))
   def getReadDeps(using MemberGetSet): Set[DFNet | DFVal] =
-    val fromRefs: Set[DFNet | DFVal] = dfVal.originMembers.flatMap {
+    val fromRefs: Set[DFNet | DFVal] = dfVal.originMembersNoTypeRef.flatMap {
       case net: DFNet =>
         net match
           // ignoring receiver or if connecting to an OPEN
