@@ -1293,3 +1293,4 @@ end DFSInt
 //actual value determines its width
 type DFInt32 = DFDecimal[true, 32, 0, Int32]
 final val DFInt32 = ir.DFInt32.asFE[DFInt32]
+type DFConstInt32 = DFConstOf[DFInt32]

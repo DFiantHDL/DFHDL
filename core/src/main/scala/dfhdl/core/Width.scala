@@ -14,8 +14,10 @@ object Width:
     type Out = 1
   given fromBooleanCompanion: Width[Boolean.type] with
     type Out = 1
-  given fromDFBits[W <: Int]: Width[DFBits[W]] with
-    type Out = W
+  given fromDFBits[W <: IntP]: Width[DFBits[W]] with
+    type Out = IntP.ToInt[W]
+  // given fromDFBits[W <: IntP, WI <: Int](using UBound.Aux[Int, W, WI]): Width[DFBits[W]] with
+  //   type Out = WI
   given fromDFDecimal[S <: Boolean, W <: Int, F <: Int, N <: ir.DFDecimal.NativeType]
       : Width[DFDecimal[S, W, F, N]] with
     type Out = W
@@ -61,7 +63,10 @@ object Width:
             case '[DFBoolOrBit] =>
               ConstantType(IntConstant(1))
             case '[DFBits[w]] =>
-              TypeRepr.of[w].calcWidth
+              Type.of[w] match
+                case '[DFValAny] => TypeRepr.of[Int]
+                case _ =>
+                  TypeRepr.of[w].calcWidth
             case '[DFDecimal[s, w, f, n]] =>
               TypeRepr.of[w].calcWidth
             case '[DFEnum[e]] =>

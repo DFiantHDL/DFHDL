@@ -44,7 +44,7 @@ object SameElementsVector:
       )
     width match
       case width: Int => constVec[W](width, named)
-      case width: DFConstOf[DFInt32] @unchecked =>
+      case width: DFConstInt32 @unchecked =>
         val singleBit = constVec[1](1, named = false)
         import DFBits.Val.Ops.repeat
         val dfcArg = if (named) dfc else dfc.anonymize

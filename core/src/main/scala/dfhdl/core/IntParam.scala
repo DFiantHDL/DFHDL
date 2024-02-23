@@ -2,13 +2,29 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
 import ir.DFDecimal.NativeType
-import compiletime.ops.int.*
+import compiletime.ops.int
+import int.*
 import compiletime.{constValueOpt, constValue}
 import dfhdl.internals.Inlined
+import dfhdl.internals.<:!
 import scala.annotation.targetName
 type CLog2[T <: Int] = 32 - NumberOfLeadingZeros[T - 1]
 
-opaque type IntParam[V <: Int] = V | DFConstOf[DFInt32]
+type IntP = Int | DFConstInt32
+object IntP:
+  trait ToInt2[T <: IntP]:
+    type Out <: Int
+  type ToInt[V <: IntP] <: Int = V match
+    case Int          => V <:! Int
+    case DFConstInt32 => Int
+  type +[L <: IntP, R <: IntP] <: Int = (L, R) match
+    case (Int, Int) => int.+[L, R]
+    case _          => Int
+  type *[L <: IntP, R <: IntP] <: Int = (L, R) match
+    case (Int, Int) => int.*[L, R]
+    case _          => Int
+
+opaque type IntParam[V <: Int] = IntP
 protected sealed trait IntParamLP:
   given [T <: Int]: Conversion[IntParam[T], IntParam[Int]] = value =>
     value.asInstanceOf[IntParam[Int]]
@@ -20,7 +36,7 @@ object IntParam extends IntParamLP:
 
   transparent inline implicit def getValue[T <: Int](
       intParam: IntParam[T]
-  ): T =
+  )(using util.NotGiven[T =:= Nothing]): T =
     inline constValueOpt[T] match
       case Some(_) => constValue[T]
       case None =>
@@ -38,8 +54,8 @@ object IntParam extends IntParamLP:
       value: R
   )(using tc: DFVal.TC[DFInt32, R], dfc: DFC, const: DFVal.ConstCheck[P]): IntParam[Int] =
     tc(DFInt32, value).asInstanceOf[IntParam[Int]]
-  def apply(value: Int): IntParam[Int] = value
-  def apply(value: DFConstOf[DFInt32]): IntParam[Int] = value
+  def apply(value: IntP): IntParam[Int] = value
+  def forced[V <: Int](value: IntP): IntParam[V] = value.asInstanceOf[IntParam[V]]
   @targetName("applyInlined")
   def apply[V <: Int](value: Inlined[V]): IntParam[V] = value.asInstanceOf[IntParam[V]]
   def calc[O <: Int](op: FuncOp, argL: IntParam[Int], argR: IntParam[Int])(
@@ -54,18 +70,18 @@ object IntParam extends IntParamLP:
         IntParam(DFVal.Func(DFInt32, op, List(constL, constR)))
     ret.asInstanceOf[IntParam[O]]
   extension [L <: Int](lhs: IntParam[L])(using dfc: DFC)
-    def toDFConst: DFConstOf[DFInt32] =
+    def toDFConst: DFConstInt32 =
       lhs match
-        case int: Int                  => DFVal.Const(DFInt32, Some(BigInt(int)), named = true)
-        case const: DFConstOf[DFInt32] => const
+        case int: Int            => DFVal.Const(DFInt32, Some(BigInt(int)), named = true)
+        case const: DFConstInt32 => const
     def toScalaInt: Int =
       lhs match
-        case int: Int                  => int
-        case const: DFConstOf[DFInt32] => DFXInt.Val.Ops.toScalaInt(const)
+        case int: Int            => int
+        case const: DFConstInt32 => DFXInt.Val.Ops.toScalaInt(const)
     def ref: ir.IntParamRef =
       lhs match
         case int: Int => ir.IntParamRef(int)
-        case const: DFConstOf[DFInt32] =>
+        case const: DFConstInt32 =>
           val constIR = const.asInstanceOf[DFValAny].asIR
           constIR.injectGlobalCtx()
           val newRef = new ir.DFRef.TypeRef {}
@@ -83,4 +99,4 @@ extension (intParamRef: ir.IntParamRef)
       case int: Int => IntParam(int)
       case ref: ir.DFRef.TypeRef =>
         import dfc.getSet
-        IntParam(ref.get.asConstOf[DFInt32])
+        IntParam.forced[Int](ref.get.asConstOf[DFInt32])

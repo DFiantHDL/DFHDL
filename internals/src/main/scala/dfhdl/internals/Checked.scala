@@ -130,14 +130,45 @@ trait Check1[
     Cond[T <: Wide] <: Boolean,
     Msg[T <: Wide] <: String
 ]:
-  type Check[T <: Wide] =
-    Check1.Check[Wide, T, Cond, Msg, Cond[T], Msg[T], false]
-  type Warn[T <: Wide] =
-    Check1.Check[Wide, T, Cond, Msg, Cond[T], Msg[T], true]
-  inline def apply(arg: Wide): Unit =
-    compiletime.summonInline[Check[Wide]]
+  type Check[T <: Wide] = Check1.Check[Wide, T, Cond, Msg, Cond[T], Msg[T], false]
+  type CheckNUB[T] = Check1.CheckNUB[Wide, T, Cond, Msg, false]
+  type Warn[T <: Wide] = Check1.Check[Wide, T, Cond, Msg, Cond[T], Msg[T], true]
+  type WarnNUB[T] = Check1.CheckNUB[Wide, T, Cond, Msg, true]
+  inline def apply(arg: Wide): Unit = compiletime.summonInline[Check[Wide]]
+end Check1
+
+trait UBound[UB, T]:
+  type Out <: UB
+protected sealed trait UBoundLP:
+  given [UB, C]: UBound[UB, C] with
+    type Out = UB
+object UBound extends UBoundLP:
+  type Aux[UB, T, O <: UB] = UBound[UB, T] { type Out = O }
+  given [UB, T <: UB]: UBound[UB, T] with
+    type Out = T
 
 object Check1:
+  trait CheckNUB[
+      Wide,
+      T,
+      Cond[T <: Wide] <: Boolean,
+      Msg[T <: Wide] <: String,
+      Warn <: Boolean
+  ]:
+    def apply(arg: Wide): Unit
+  inline given [
+      Wide,
+      T,
+      TUB <: Wide,
+      Cond[T <: Wide] <: Boolean,
+      Msg[T <: Wide] <: String,
+      Warn <: Boolean
+  ](using
+      ub: UBound.Aux[Wide, T, TUB],
+      check: Check[Wide, TUB, Cond, Msg, Cond[TUB], Msg[TUB], Warn]
+  ): CheckNUB[Wide, T, Cond, Msg, Warn] with
+    def apply(arg: Wide): Unit = check(arg)
+
   trait Check[
       Wide,
       T <: Wide,
@@ -201,34 +232,46 @@ trait Check2[
     Msg[T1 <: Wide1, T2 <: Wide2] <: String
 ]:
   type Check[T1 <: Wide1, T2 <: Wide2] =
-    Check2.Check[
-      Wide1,
-      Wide2,
-      T1,
-      T2,
-      Cond,
-      Msg,
-      Cond[T1, T2],
-      Msg[T1, T2],
-      false
-    ]
+    Check2.Check[Wide1, Wide2, T1, T2, Cond, Msg, Cond[T1, T2], Msg[T1, T2], false]
+  type CheckNUB[T1, T2] =
+    Check2.CheckNUB[Wide1, Wide2, T1, T2, Cond, Msg, false]
   type Warn[T1 <: Wide1, T2 <: Wide2] =
-    Check2.Check[
-      Wide1,
-      Wide2,
-      T1,
-      T2,
-      Cond,
-      Msg,
-      Cond[T1, T2],
-      Msg[T1, T2],
-      true
-    ]
+    Check2.Check[Wide1, Wide2, T1, T2, Cond, Msg, Cond[T1, T2], Msg[T1, T2], true]
+  type WarnNUB[T1, T2] =
+    Check2.CheckNUB[Wide1, Wide2, T1, T2, Cond, Msg, true]
   inline def apply(arg1: Wide1, arg2: Wide2): Unit =
     compiletime.summonInline[Check[Wide1, Wide2]]
 end Check2
 
 object Check2:
+  trait CheckNUB[
+      Wide1,
+      Wide2,
+      T1,
+      T2,
+      Cond[T1 <: Wide1, T2 <: Wide2] <: Boolean,
+      Msg[T1 <: Wide1, T2 <: Wide2] <: String,
+      Warn <: Boolean
+  ]:
+    def apply(arg1: Wide1, arg2: Wide2): Unit
+  inline given [
+      Wide1,
+      Wide2,
+      T1,
+      T2,
+      TUB1 <: Wide1,
+      TUB2 <: Wide2,
+      Cond[T1 <: Wide1, T2 <: Wide2] <: Boolean,
+      Msg[T1 <: Wide1, T2 <: Wide2] <: String,
+      Warn <: Boolean
+  ](using
+      ub1: UBound.Aux[Wide1, T1, TUB1],
+      ub2: UBound.Aux[Wide2, T2, TUB2],
+      check: Check[Wide1, Wide2, TUB1, TUB2, Cond, Msg, Cond[TUB1, TUB2], Msg[TUB1, TUB2], Warn]
+  ): CheckNUB[Wide1, Wide2, T1, T2, Cond, Msg, Warn] with
+    def apply(arg1: Wide1, arg2: Wide2): Unit = check(arg1, arg2)
+  end given
+
   trait Check[
       Wide1,
       Wide2,

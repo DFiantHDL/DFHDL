@@ -177,7 +177,7 @@ sealed protected trait DFValLP:
     `DFVal[T, NOTCONST] <:< DFVal[T, ISCONST[Boolean]]` and all is well.
    */
   implicit transparent inline def DFBitsValConversion[
-      W <: Int,
+      W <: IntP,
       P <: Boolean,
       R <: DFValAny | SameElementsVector[?] | NonEmptyTuple | Bubble
   ](

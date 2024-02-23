@@ -47,7 +47,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new ID).getCodeString
     assertNoDiff(
       id,
-      """|class ID(arg: Bit <> CONST = 1) extends DFDesign:
+      """|class ID(val arg: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
@@ -81,13 +81,13 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDTop).getCodeString
     assertNoDiff(
       id,
-      """|class ID(arg: Bit <> CONST) extends DFDesign:
+      """|class ID(val arg: Bit <> CONST) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
          |end ID
          |
-         |class IDTop(argTop: Bit <> CONST = 1) extends DFDesign:
+         |class IDTop(val argTop: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val id1 = ID(arg = 0)
@@ -103,13 +103,13 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDTopVia).getCodeString
     assertNoDiff(
       id,
-      """|class ID(arg: Bit <> CONST) extends DFDesign:
+      """|class ID(val arg: Bit <> CONST) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
          |end ID
          |
-         |class IDTopVia(argTop: Bit <> CONST = 1) extends DFDesign:
+         |class IDTopVia(val argTop: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val id1_x = SInt(16) <> VAR
@@ -170,21 +170,21 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       id,
       """|val gp: Bit <> CONST = 1
-       |val i: SInt[16] <> CONST = sd"16'0"
-       |val i2: SInt[16] <> CONST = i + sd"16'5"
-       |class IDExt(
-       |    dp: Bit <> CONST = gp && gp,
-       |    dpNew: Bit <> CONST = gp
-       |) extends RTDesign:
-       |  val c: SInt[16] <> CONST = sd"16'3"
-       |  val x = SInt(16) <> IN init i2
-       |  val y = SInt(16) <> OUT
-       |  val flag = Bit <> IN init dp || gp
-       |  y := x.reg.reg(2, c - i) - x
-       |  val z = Bit <> OUT
-       |  z := dpNew
-       |end IDExt
-       |""".stripMargin
+         |val i: SInt[16] <> CONST = sd"16'0"
+         |val i2: SInt[16] <> CONST = i + sd"16'5"
+         |class IDExt(
+         |    val dp: Bit <> CONST = gp && gp,
+         |    val dpNew: Bit <> CONST = gp
+         |) extends RTDesign:
+         |  val c: SInt[16] <> CONST = sd"16'3"
+         |  val x = SInt(16) <> IN init i2
+         |  val y = SInt(16) <> OUT
+         |  val flag = Bit <> IN init dp || gp
+         |  y := x.reg.reg(2, c - i) - x
+         |  val z = Bit <> OUT
+         |  z := dpNew
+         |end IDExt
+         |""".stripMargin
     )
   }
   test("Basic EDDesign") {

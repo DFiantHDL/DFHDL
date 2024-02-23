@@ -1,6 +1,7 @@
 package dfhdl
 protected object hdl:
   class dsn extends scala.annotation.StaticAnnotation
+  import core.IntP
   export core.DFType.Ops.*
   export core.DFBoolOrBit.Val.Ops.*
   export core.DFBits.StrInterp.{h, b}
@@ -30,7 +31,7 @@ protected object hdl:
   type DFType = core.DFTypeAny
   lazy val Bit = core.DFBit
   type Bit = core.DFBit
-  type Bits[W <: Int] = core.DFBits[W]
+  type Bits[W <: IntP] = core.DFBits[W]
   val Bits = core.DFBits
   type UInt[W <: Int] = core.DFUInt[W]
   val UInt = core.DFUInt

@@ -70,8 +70,9 @@ object ShowType:
   transparent inline given [T]: ShowType[T] = ${ macroImpl[T] }
   def macroImpl[T](using Quotes, Type[T]): Expr[ShowType[T]] =
     import quotes.reflect.*
+    val typeStr = TypeRepr.of[T].showType
     val shown =
-      ConstantType(StringConstant(TypeRepr.of[T].showType)).asTypeOf[String]
+      ConstantType(StringConstant(typeStr)).asTypeOf[String]
     '{
       new ShowType[T]:
         type Out = shown.Underlying

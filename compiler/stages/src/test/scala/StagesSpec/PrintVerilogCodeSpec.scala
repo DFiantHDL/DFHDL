@@ -341,4 +341,38 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule
          |""".stripMargin
     )
+  test("UInt counter example"):
+    class Counter(width: Int <> CONST) extends RTDesign:
+      val cnt = UInt(width) <> OUT init 0
+      cnt := cnt.reg + 1
+    val top = (new Counter(8)).getVerilogCode
+    assertNoDiff(
+      top,
+      """|`ifndef COUNTER_DEFS
+         |`define COUNTER_DEFS
+         |
+         |`endif
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Counter_defs.sv"
+         |
+         |module Counter#(parameter int width = 8)(
+         |  input wire logic clk,
+         |  input wire logic rst,
+         |  output logic [width-1:0] cnt = 8'd0
+         |);
+         |  logic [width-1:0] cnt_reg;
+         |  always @(*)
+         |  begin
+         |    cnt = cnt_reg + 8'd1;
+         |  end
+         |  always @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) cnt_reg <= 8'd0;
+         |    else cnt_reg <= cnt;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
 end PrintVerilogCodeSpec

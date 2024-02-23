@@ -170,7 +170,7 @@ class ToEDSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("Basic Counter") {
+  test("Basic Bits Counter") {
     val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
     val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
     val cfg    = RTDomainCfg(clkCfg, rstCfg)
@@ -181,7 +181,7 @@ class ToEDSpec extends StageSpec:
     val top = Counter().toED
     assertCodeString(
       top,
-      """|class Counter(width: Int <> CONST = 8) extends EDDesign:
+      """|class Counter(val width: Int <> CONST = 8) extends EDDesign:
          |  val clk = Bit <> IN
          |  val rst = Bit <> IN
          |  val cnt = Bits(width) <> OUT init b"0".repeat(width)
@@ -193,6 +193,31 @@ class ToEDSpec extends StageSpec:
          |      if (rst == 1) cnt_reg :== b"0".repeat(width)
          |      else cnt_reg :== cnt
          |    end if
+         |end Counter
+         |""".stripMargin
+    )
+  }
+  test("Basic UInt Counter") {
+    val clkCfg = ClkCfg(ClkCfg.Edge.Falling)
+    val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
+    val cfg    = RTDomainCfg(clkCfg, rstCfg)
+    class Counter(width: Int <> CONST = 8) extends RTDesign(cfg):
+      val cnt = UInt(width) <> OUT init 0
+      cnt := cnt.reg + 1
+
+    val top = Counter().toED
+    assertCodeString(
+      top,
+      """|class Counter(val width: Int <> CONST = 8) extends EDDesign:
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
+         |  val cnt = UInt(8) <> OUT init d"8'0"
+         |  val cnt_reg = UInt(8) <> VAR
+         |  process(all):
+         |    cnt := cnt_reg + d"8'1"
+         |  process(clk, rst):
+         |    if (rst == 0) cnt_reg :== d"8'0"
+         |    else if (clk.falling) cnt_reg :== cnt
          |end Counter
          |""".stripMargin
     )

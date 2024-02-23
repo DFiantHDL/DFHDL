@@ -37,6 +37,7 @@ class DFBitsSpec extends DFSpec:
          |val t14: Bits[16] <> CONST = t13.repeat(2)
          |val u8v = Bits(8) <> VAR init (h"aa", h"bb", (h"c", h"d").toBits)
          |val t15 = Bits(param) <> VAR init b"0".repeat(param)
+         |val t16 = Bits(param) <> VAR init b"1".repeat(param)
          |""".stripMargin
     } {
       @inline def foo(arg: Bits[4] <> CONST): Unit <> DFRET =
@@ -76,6 +77,7 @@ class DFBitsSpec extends DFSpec:
         "Applied argument must be a constant."
       }("val t15: Bits[16] <> CONST = (u8v, t13)")
       val t15 = Bits(param) <> VAR init all(0)
+      val t16 = Bits[param.type] <> VAR init all(1)
     }
   }
   test("Assignment") {
