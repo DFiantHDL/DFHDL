@@ -157,7 +157,7 @@ object DFVector:
           DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idxVal)
         }
         def elements(using DFC): Vector[DFValOf[T]] =
-          import DFDecimal.StrInterp.d
+          import DFDecimal.StrInterpOps.d
           val elementType = lhs.dfType.cellType
           Vector.tabulate(lhs.dfType.cellDims.head)(i =>
             val idxVal = d"$i".asConstOf[DFUInt[Int]]

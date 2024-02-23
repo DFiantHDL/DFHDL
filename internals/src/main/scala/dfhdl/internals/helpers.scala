@@ -128,22 +128,23 @@ extension (using quotes: Quotes)(partsExprs: Seq[Expr[Any]])
     }
 
 extension (using quotes: Quotes)(sc: Expr[StringContext])
+  def funcName: String =
+    import quotes.reflect.*
+    sc.asTerm.underlying match
+      case TypeApply(Select(Apply(func, _), _), _) => func.symbol.name
+      case _ => report.errorAndAbort("Could not detect interpolation function name.")
+  def parts: Seq[Expr[String]] =
+    import quotes.reflect.*
+    val interp = sc.asTerm.underlying match
+      case TypeApply(Select(Apply(func, List(interp)), _), _) => interp
+      case interp                                             => interp
+    val '{ StringContext(${ Varargs(partsExprs) }*) } = interp.asExpr: @unchecked
+    partsExprs
   def scPartsWithArgs(args: Expr[Seq[Any]]): quotes.reflect.Term =
     import quotes.reflect.*
-    val argsExprs = args match
-      case Varargs(argsExprs) => argsExprs
-    val '{ StringContext.apply($parts*) } = sc: @unchecked
-    val partsExprs = parts match
-      case Varargs(argsExprs) => argsExprs
-    partsExprs.scPartsWithArgs(argsExprs)
-
-extension [P <: Tuple](using quotes: Quotes, p: Type[P])(partsTpl: Expr[P])
-  def scPartsWithArgs(args: Expr[Seq[Any]]): quotes.reflect.Term =
-    import quotes.reflect.*
-    val argsExprs = args match
-      case Varargs(argsExprs) => argsExprs
-    val partsExprs = SIParts.tupleToExprs(partsTpl)
-    partsExprs.scPartsWithArgs(argsExprs)
+    val Varargs(argsExprs) = args: @unchecked
+    sc.parts.scPartsWithArgs(argsExprs)
+end extension
 
 inline implicit def fromValueOf[T](v: ValueOf[T]): T = v.value
 

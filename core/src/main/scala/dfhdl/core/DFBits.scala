@@ -10,6 +10,7 @@ import DFDecimal.Constraints.`LW == RW`
 
 type DFBits[W <: IntP] = DFType[ir.DFBits, Args1[W]]
 object DFBits:
+  // TODO: IntP
   def apply[W <: Int](width: IntParam[W])(using
       dfc: DFC,
       check: Arg.Width.Check[W]
@@ -119,7 +120,7 @@ object DFBits:
           Right((valueBits.resize(width), bubbleBits.resize(width)))
         case None => Right((valueBits, bubbleBits))
     }
-    private val isHex = "[0-9a-fA-F]".r
+    private[DFBits] val isHex = "[0-9a-fA-F]".r
     def fromHexString(
         hex: String
     ): Either[String, (BitVector, BitVector)] = boundary {
@@ -162,23 +163,57 @@ object DFBits:
             Right((valueBits.resize(width), bubbleBits.resize(width)))
           case None => Right((valueBits, bubbleBits))
     }
-    class BParts[P <: Tuple](parts: P):
-      transparent inline def apply(inline args: Any*): Any =
-        ${ applyMacro('{ "b" })('parts, 'args) }
-      transparent inline def unapplySeq[T <: DFTypeAny](
-          inline arg: DFValOf[T]
-      )(using DFC): Option[Seq[Any]] =
-        ${ unapplySeqMacro('{ "b" })('parts, 'arg) }
 
-    class HParts[P <: Tuple](parts: P):
-      transparent inline def apply(inline args: Any*): Any =
-        ${ applyMacro('{ "h" })('parts, 'args) }
-      transparent inline def unapplySeq[T <: DFTypeAny](
-          inline arg: DFValOf[T]
-      )(using DFC): Option[Seq[Any]] =
-        ${ unapplySeqMacro('{ "h" })('parts, 'arg) }
+    extension (using Quotes)(fullTerm: quotes.reflect.Term)
+      private[DFBits] def interpolate(
+          opExpr: Expr[String]
+      ): Expr[DFConstAny] =
+        import quotes.reflect.*
+        val opStr = opExpr.value.get
+        val widthTpe: TypeRepr = fullTerm match
+          case Literal(StringConstant(t)) =>
+            val res = opStr match
+              case "b" => fromBinString(t)
+              case "h" => fromHexString(t)
+            res match
+              case Right((valueBits, bubbleBits)) =>
+                ConstantType(IntConstant(valueBits.length.toInt))
+              case Left(msg) =>
+                report.errorAndAbort(msg)
+          case _ => TypeRepr.of[Int]
+        val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
+        val fullExpr = opStr match
+          case "b" => '{ fromBinString(${ fullTerm.asExprOf[String] }) }
+          case "h" => '{ fromHexString(${ fullTerm.asExprOf[String] }) }
+        '{
+          val bitsData = ${ fullExpr }.toOption.get
+          val valueBits = bitsData._1
+          val bubbleBits = bitsData._2
+          val width = valueBits.length.toInt
+          val dfc = compiletime.summonInline[DFC]
+          DFVal.Const(
+            DFBits.forced[widthType.Underlying](width),
+            (valueBits, bubbleBits),
+            named = true
+          )(using dfc)
+        }
 
-    extension (inline sc: StringContext)
+  end StrInterp
+
+  // Unclear why, but the compiler crashes if we do not separate these definitions from StrInterp
+  object StrInterpOps:
+    import StrInterp.{fromBinString, fromHexString, interpolate, isHex}
+    opaque type BinStrCtx <: StringContext = StringContext
+    object BinStrCtx:
+      extension (inline sc: BinStrCtx)
+        transparent inline def apply(inline args: Any*): Any =
+          ${ applyMacro('sc, 'args) }
+        transparent inline def unapplySeq[T <: DFTypeAny](
+            inline arg: DFValOf[T]
+        )(using DFC): Option[Seq[Any]] =
+          ${ unapplySeqMacro('sc, 'arg) }
+
+    extension (sc: StringContext)
       /** Binary Bits Vector String Interpolator
         *
         * Syntax: {{{b"width'bin"}}}
@@ -206,7 +241,7 @@ object DFBits:
         * @return
         *   A DFHDL Bits vector.
         */
-      transparent inline def b: Any = ${ SIParts.scMacro[BParts]('sc) }
+      def b: BinStrCtx = sc
 
       /** Hexadecimal Bits Vector String Interpolator
         *
@@ -238,80 +273,41 @@ object DFBits:
         * @return
         *   A DFHDL Bits vector.
         */
-      transparent inline def h: Any = ${ SIParts.scMacro[HParts]('sc) }
+      def h: BinStrCtx = sc
     end extension
 
-    private def applyMacro[P <: Tuple](opExpr: Expr[String])(
-        scParts: Expr[P],
+    private def applyMacro(
+        sc: Expr[BinStrCtx],
         args: Expr[Seq[Any]]
-    )(using Quotes, Type[P]): Expr[DFConstAny] =
-      scParts.scPartsWithArgs(args).interpolate(opExpr)
+    )(using Quotes): Expr[DFConstAny] =
+      sc.scPartsWithArgs(args).interpolate(Expr(sc.funcName))
 
-    extension (using Quotes)(fullTerm: quotes.reflect.Term)
-      private def interpolate(
-          opExpr: Expr[String]
-      ): Expr[DFConstAny] =
-        import quotes.reflect.*
-        val opStr = opExpr.value.get
-        val widthTpe: TypeRepr = fullTerm match
-          case Literal(StringConstant(t)) =>
-            val res = opStr match
-              case "b" => fromBinString(t)
-              case "h" => fromHexString(t)
-            res match
-              case Right((valueBits, bubbleBits)) =>
-                ConstantType(IntConstant(valueBits.length.toInt))
-              case Left(msg) =>
-                report.errorAndAbort(msg)
-          case _ => TypeRepr.of[Int]
-        val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
-        val fullExpr = opStr match
-          case "b" => '{ fromBinString(${ fullTerm.asExprOf[String] }) }
-          case "h" => '{ fromHexString(${ fullTerm.asExprOf[String] }) }
-        '{
-          val (valueBits, bubbleBits) = ${ fullExpr }.toOption.get
-          val width = valueBits.length.toInt
-          val dfc = compiletime.summonInline[DFC]
-          DFVal.Const(
-            DFBits.forced[widthType.Underlying](width),
-            (valueBits, bubbleBits),
-            named = true
-          )(using dfc)
-        }
-    private def unapplySeqMacro[P <: Tuple, T <: DFTypeAny](
-        opForcedExpr: Expr[String]
-    )(
-        scParts: Expr[P],
+    private def unapplySeqMacro[T <: DFTypeAny](
+        sc: Expr[BinStrCtx],
         arg: Expr[DFValOf[T]]
-    )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[Any]]] =
+    )(using Quotes, Type[T]): Expr[Option[Seq[Any]]] =
       import quotes.reflect.*
-      val parts = TypeRepr.of[P].getTupleArgs
-      val op = opForcedExpr.value.get
-      if (TypeRepr.of[P].getTupleArgs.length > 1)
-        val vArgs = Varargs(opForcedExpr :: parts.map {
-          case ConstantType(StringConstant(part: String)) =>
-            val partFiltered = part.filter {
-              case '_' | ' ' | '?'        => false
-              case isHex() if op == "h"   => true
-              case '0' | '1' if op == "b" => true
-              case x =>
-                report.errorAndAbort(
-                  s"""Found invalid character: ${x}. 
+      val parts = sc.parts.map(_.asTerm).toList
+      val op = sc.funcName
+      if (parts.length > 1)
+        val vArgs = Varargs(Expr(op) :: parts.map { case Literal(StringConstant(part: String)) =>
+          val partFiltered = part.filter {
+            case '_' | ' ' | '?'        => false
+            case isHex() if op == "h"   => true
+            case '0' | '1' if op == "b" => true
+            case x =>
+              report.errorAndAbort(
+                s"""Found invalid character: ${x}.
                       |Note: string interpolation with value extraction does not support the `[w']` width extension syntax.""".stripMargin
-                )
-            }
-            Literal(StringConstant(partFiltered)).asExprOf[String]
+              )
+          }
+          Literal(StringConstant(partFiltered)).asExprOf[String]
         })
         '{
           Some(Seq(${ vArgs }*))
         }
       else
-        val dfVal =
-          SIParts
-            .tupleToExprs(scParts)
-            .head
-            .asTerm
-            .interpolate(opForcedExpr)
+        val dfVal = parts.head.interpolate(Expr(op))
         val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
         '{
           val tc = compiletime.summonInline[
@@ -325,7 +321,7 @@ object DFBits:
         }
       end if
     end unapplySeqMacro
-  end StrInterp
+  end StrInterpOps
 
   object Val:
     trait Candidate[R]:

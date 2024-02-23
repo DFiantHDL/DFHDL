@@ -342,23 +342,61 @@ object DFDecimal:
       end match
     end fromDecString
 
-    class DParts[P <: Tuple](parts: P):
-      transparent inline def apply(inline args: Any*): Any =
-        ${ applyMacro('{ false })('parts, 'args) }
-      transparent inline def unapplySeq[T <: DFTypeAny](
-          inline arg: DFValOf[T]
-      )(using DFC): Option[Seq[DFValOf[T]]] =
-        ${ unapplySeqMacro('{ false })('parts, 'arg) }
+    extension (using Quotes)(fullTerm: quotes.reflect.Term)
+      private[DFDecimal] def interpolate(
+          opExpr: Expr[String]
+      ): Expr[DFConstAny] =
+        import quotes.reflect.*
+        val signedForced = opExpr.value.get == "sd"
+        val (signedTpe, widthTpe, fractionWidthTpe): (TypeRepr, TypeRepr, TypeRepr) =
+          fullTerm match
+            case Literal(StringConstant(t)) =>
+              fromDecString(t, signedForced) match
+                case Right((signed, width, fractionWidth, _)) =>
+                  (
+                    ConstantType(BooleanConstant(signed)),
+                    ConstantType(IntConstant(width)),
+                    ConstantType(IntConstant(fractionWidth))
+                  )
+                case Left(msg) =>
+                  report.errorAndAbort(msg)
+            case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
+        val signedType = signedTpe.asTypeOf[Boolean]
+        val widthType = widthTpe.asTypeOf[Int]
+        val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
+        val fullExpr = fullTerm.asExprOf[String]
+        '{
+          import dfhdl.internals.Inlined
+          val (signed, width, fractionWidth, value) =
+            fromDecString($fullExpr, ${ Expr(signedForced) }).toOption.get
+          val dfc = compiletime.summonInline[DFC]
+          val dfType =
+            DFDecimal.forced[
+              signedType.Underlying,
+              widthType.Underlying,
+              fractionWidthType.Underlying,
+              BitAccurate
+            ](signed, width, fractionWidth, BitAccurate)(using dfc)
+          DFVal.Const(dfType, Some(value), named = true)(using dfc)
+        }
+      end interpolate
+    end extension
+  end StrInterp
 
-    class SDParts[P <: Tuple](parts: P):
-      transparent inline def apply(inline args: Any*): Any =
-        ${ applyMacro('{ true })('parts, 'args) }
-      transparent inline def unapplySeq[T <: DFTypeAny](
-          inline arg: DFValOf[T]
-      )(using DFC): Option[Seq[DFValOf[T]]] =
-        ${ unapplySeqMacro('{ true })('parts, 'arg) }
+  // Unclear why, but the compiler crashes if we do not separate these definitions from StrInterp
+  object StrInterpOps:
+    import StrInterp.{fromDecString, interpolate}
+    opaque type DecStrCtx <: StringContext = StringContext
+    object DecStrCtx:
+      extension (inline sc: DecStrCtx)
+        transparent inline def apply(inline args: Any*): Any =
+          ${ applyMacro('sc, 'args) }
+        transparent inline def unapplySeq[T <: DFTypeAny](
+            inline arg: DFValOf[T]
+        )(using DFC): Option[Seq[Any]] =
+          ${ unapplySeqMacro('sc, 'arg) }
 
-    extension (inline sc: StringContext)
+    extension (sc: StringContext)
       /** Decimal Integer String Interpolator
         *
         * Syntax: {{{d"width'dec"}}}
@@ -390,7 +428,7 @@ object DFDecimal:
         *   A decimal type representing an unsigned (`UInt`) or signed (`SInt`) integer, encoded in
         *   two's complement.
         */
-      transparent inline def d: Any = ${ SIParts.scMacro[DParts]('sc) }
+      def d: DecStrCtx = sc
 
       /** Signed Decimal Integer String Interpolator
         *
@@ -422,64 +460,23 @@ object DFDecimal:
         *   A decimal type representing a signed integer (`SInt`) value, encoded in two's
         *   complement.
         */
-      transparent inline def sd: Any = ${ SIParts.scMacro[SDParts]('sc) }
+      def sd: DecStrCtx = sc
     end extension
 
-    private def applyMacro[P <: Tuple](signedForcedExpr: Expr[Boolean])(
-        scParts: Expr[P],
+    private def applyMacro(
+        sc: Expr[DecStrCtx],
         args: Expr[Seq[Any]]
-    )(using Quotes, Type[P]): Expr[DFConstAny] =
-      scParts.scPartsWithArgs(args).interpolate(signedForcedExpr)
+    )(using Quotes): Expr[DFConstAny] =
+      sc.scPartsWithArgs(args).interpolate(Expr(sc.funcName))
 
-    extension (using Quotes)(fullTerm: quotes.reflect.Term)
-      private def interpolate(
-          signedForcedExpr: Expr[Boolean]
-      ): Expr[DFConstAny] =
-        import quotes.reflect.*
-        val signedForced = signedForcedExpr.value.get
-        val (signedTpe, widthTpe, fractionWidthTpe): (TypeRepr, TypeRepr, TypeRepr) =
-          fullTerm match
-            case Literal(StringConstant(t)) =>
-              fromDecString(t, signedForced) match
-                case Right((signed, width, fractionWidth, _)) =>
-                  (
-                    ConstantType(BooleanConstant(signed)),
-                    ConstantType(IntConstant(width)),
-                    ConstantType(IntConstant(fractionWidth))
-                  )
-                case Left(msg) =>
-                  report.errorAndAbort(msg)
-            case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
-        val signedType = signedTpe.asTypeOf[Boolean]
-        val widthType = widthTpe.asTypeOf[Int]
-        val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
-        val fullExpr = fullTerm.asExprOf[String]
-        '{
-          import dfhdl.internals.Inlined
-          val (signed, width, fractionWidth, value) =
-            fromDecString($fullExpr, $signedForcedExpr).toOption.get
-          val dfc = compiletime.summonInline[DFC]
-          val dfType =
-            DFDecimal.forced[
-              signedType.Underlying,
-              widthType.Underlying,
-              fractionWidthType.Underlying,
-              BitAccurate
-            ](signed, width, fractionWidth, BitAccurate)(using dfc)
-          DFVal.Const(dfType, Some(value), named = true)(using dfc)
-        }
-      end interpolate
-    end extension
-
-    private def unapplySeqMacro[P <: Tuple, T <: DFTypeAny](
-        signedForcedExpr: Expr[Boolean]
-    )(
-        scParts: Expr[P],
+    private def unapplySeqMacro[T <: DFTypeAny](
+        sc: Expr[DecStrCtx],
         arg: Expr[DFValOf[T]]
-    )(using Quotes, Type[P], Type[T]): Expr[Option[Seq[DFValOf[T]]]] =
+    )(using Quotes, Type[T]): Expr[Option[Seq[DFValOf[T]]]] =
       import quotes.reflect.*
-      val parts = TypeRepr.of[P].getTupleArgs
-      if (TypeRepr.of[P].getTupleArgs.length > 1)
+      val parts = sc.parts.map(_.asTerm).toList
+      val op = sc.funcName
+      if (parts.length > 1)
         '{
           compiletime.error(
             "Extractors for decimal string interpolation are not allowed."
@@ -487,12 +484,7 @@ object DFDecimal:
           Some(Seq())
         }
       else
-        val dfVal =
-          SIParts
-            .tupleToExprs(scParts)
-            .head
-            .asTerm
-            .interpolate(signedForcedExpr)
+        val dfVal = parts.head.interpolate(Expr(op))
         val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
         '{
           val tc = compiletime.summonInline[
@@ -506,7 +498,7 @@ object DFDecimal:
         }
       end if
     end unapplySeqMacro
-  end StrInterp
+  end StrInterpOps
 
   object Val:
     object TC:

@@ -4,10 +4,10 @@ protected object hdl:
   import core.IntP
   export core.DFType.Ops.*
   export core.DFBoolOrBit.Val.Ops.*
-  export core.DFBits.StrInterp.{h, b}
+  export core.DFBits.StrInterpOps.{h, b}
   export core.DFBits.Val.Ops.*
   export core.DFBits.Val.TupleOps.*
-  export core.DFDecimal.StrInterp.{d, sd}
+  export core.DFDecimal.StrInterpOps.{d, sd}
   export core.DFDecimal.Val.Ops.*
   export core.DFVector.Val.Ops.*
   export core.DFOpaque.Val.Ops.*
