@@ -174,7 +174,7 @@ class ToEDSpec extends StageSpec:
     val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
     val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
     val cfg    = RTDomainCfg(clkCfg, rstCfg)
-    class Counter(width: Int <> CONST = 8) extends RTDesign(cfg):
+    class Counter(val width: Int <> CONST = 8) extends RTDesign(cfg):
       val cnt = Bits(width) <> OUT init all(0)
       cnt := cnt.reg + 1
 
@@ -201,7 +201,7 @@ class ToEDSpec extends StageSpec:
     val clkCfg = ClkCfg(ClkCfg.Edge.Falling)
     val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
     val cfg    = RTDomainCfg(clkCfg, rstCfg)
-    class Counter(width: Int <> CONST = 8) extends RTDesign(cfg):
+    class Counter(val width: Int <> CONST = 8) extends RTDesign(cfg):
       val cnt = UInt(width) <> OUT init 0
       cnt := cnt.reg + 1
 

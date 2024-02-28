@@ -188,7 +188,7 @@ sealed protected trait DFValLP:
   // TODO: candidate should be fixed to cause UInt[?]->SInt[Int] conversion
   implicit transparent inline def DFXIntValConversion[
       S <: Boolean,
-      W <: Int,
+      W <: IntP,
       N <: NativeType,
       P <: Boolean,
       R <: DFValAny | Int | Bubble
@@ -717,7 +717,7 @@ object DFVal extends DFValLP:
       end apply
     end History
     object ApplyRange:
-      def apply[W <: Int, M <: ModifierAny, H <: Int, L <: Int](
+      def apply[W <: IntP, M <: ModifierAny, H <: Int, L <: Int](
           relVal: DFVal[DFBits[W], M],
           relBitHigh: Inlined[H],
           relBitLow: Inlined[L]
@@ -756,7 +756,7 @@ object DFVal extends DFValLP:
       end forced
     end ApplyRange
     object ApplyIdx:
-      def apply[T <: DFTypeAny, W <: Int, M <: ModifierAny, IW <: Int](
+      def apply[T <: DFTypeAny, W <: IntP, M <: ModifierAny, IW <: Int](
           dfType: T,
           relVal: DFVal[DFTypeAny, M],
           relIdx: DFValOf[DFUInt[IW]]

@@ -6,21 +6,27 @@ import annotation.targetName
 import scala.annotation.nowarn
 
 trait Width[T]:
-  type Out <: Int
+  type Out <: IntP
+  type OutI <: Int
 object Width:
   val wide: Width[DFTypeAny] = new Width[DFTypeAny]:
     type Out = Int
+    type OutI = Int
   given fromDFBoolOrBit[T <: DFBoolOrBit]: Width[T] with
     type Out = 1
+    type OutI = 1
   given fromBooleanCompanion: Width[Boolean.type] with
     type Out = 1
+    type OutI = 1
   given fromDFBits[W <: IntP]: Width[DFBits[W]] with
-    type Out = IntP.ToInt[W]
+    type Out = W
+    type OutI = IntP.ToInt[Out]
   // given fromDFBits[W <: IntP, WI <: Int](using UBound.Aux[Int, W, WI]): Width[DFBits[W]] with
   //   type Out = WI
-  given fromDFDecimal[S <: Boolean, W <: Int, F <: Int, N <: ir.DFDecimal.NativeType]
+  given fromDFDecimal[S <: Boolean, W <: IntP, F <: Int, N <: ir.DFDecimal.NativeType]
       : Width[DFDecimal[S, W, F, N]] with
     type Out = W
+    type OutI = IntP.ToInt[Out]
   transparent inline given [T]: Width[T] = ${ getWidthMacro[T] }
   extension (using quotes: Quotes)(dfTpe: quotes.reflect.TypeRepr)
     def +(rhs: quotes.reflect.TypeRepr): quotes.reflect.TypeRepr =
@@ -68,7 +74,10 @@ object Width:
                 case _ =>
                   TypeRepr.of[w].calcWidth
             case '[DFDecimal[s, w, f, n]] =>
-              TypeRepr.of[w].calcWidth
+              Type.of[w] match
+                case '[DFValAny] => TypeRepr.of[Int]
+                case _ =>
+                  TypeRepr.of[w].calcWidth
             case '[DFEnum[e]] =>
               TypeRepr.of[e].calcWidth
             case '[DFVector[t, d]] =>
@@ -199,23 +208,24 @@ object Width:
     '{
       new Width[T]:
         type Out = widthTpe.Underlying
+        type OutI = widthTpe.Underlying
     }
 end Width
 
 extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValWidth")
-  def width(using dfc: DFC, w: Width[T]): Inlined[w.Out] =
+  def width(using dfc: DFC, w: Width[T]): Inlined[w.OutI] =
     import dfc.getSet
-    Inlined.forced[w.Out](dfVal.asIR.dfType.width)
+    Inlined.forced[w.OutI](dfVal.asIR.dfType.width)
   def widthIntParam(using dfc: DFC, w: Width[T]): IntParam[w.Out] =
     import dfc.getSet
     dfVal.dfType.widthIntParam
 
 extension [T](t: T)(using tc: DFType.TC[T])
   @targetName("tWidth")
-  def width(using dfc: DFC, w: Width[tc.Type]): Inlined[w.Out] =
+  def width(using dfc: DFC, w: Width[tc.Type]): Inlined[w.OutI] =
     import dfc.getSet
-    Inlined.forced[w.Out](tc(t).asIR.width)
+    Inlined.forced[w.OutI](tc(t).asIR.width)
   def widthIntParam(using dfc: DFC, w: Width[tc.Type]): IntParam[w.Out] =
     import dfc.getSet
     val dfType = tc(t)

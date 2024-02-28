@@ -9,28 +9,24 @@ trait AbstractDataPrinter extends AbstractPrinter:
   def csDFBitBubbleChar: Char
   def csDFBitsBinFormat(binRep: String): String
   def csDFBitsHexFormat(hexRep: String): String
-  def csDFBitsHexFormat(hexRep: String, width: Int): String
+  def csDFBitsHexFormat(hexRep: String, width: IntParamRef): String
   final def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String =
     val valueBits: BitVector = data._1
     val bubbleBits: BitVector = data._2
-    val width = dfType.width
+    import dfType.{width, widthParamRef}
+
     def binZip(v: BitVector, b: BitVector): String =
-      v.toBin
-        .zip(b.toBin)
+      v.toBin.zip(b.toBin)
         .map {
           case (_, '1')       => csDFBitBubbleChar
           case (zeroOrOne, _) => zeroOrOne
         }
         .mkString
     end binZip
-    def hexZip(
-        v: BitVector,
-        b: BitVector
-    ): Option[String] =
+    def hexZip(v: BitVector, b: BitVector): Option[String] =
       var err = false
       val ret = Some(
-        v.toHex
-          .zip(b.toHex)
+        v.toHex.zip(b.toHex)
           .flatMap {
             case (_, 'F' | 'f')                  => s"$csDFBitBubbleChar"
             case (h, '0')                        => s"$h"
@@ -56,15 +52,26 @@ trait AbstractDataPrinter extends AbstractPrinter:
         val theRestOption = hexZip(theRestValue, theRestBubble)
         for (h <- headOption; tr <- theRestOption) yield h + tr
     end toHexString
-    val binRep = csDFBitsBinFormat(toBinString)
-    val hexRepOption = toHexString match
-      case Some(v) if width % 4 == 0         => Some(csDFBitsHexFormat(v))
-      case Some(v) if allowBitsExplicitWidth => Some(csDFBitsHexFormat(v, width))
-      case _                                 => None
-    // choosing the shorter representation for readability
-    hexRepOption match
-      case Some(hr) if hr.length < binRep.length => hr
-      case _                                     => binRep
+    widthParamRef match
+      case _: DFRefAny =>
+        // use minimal hex value representation
+        val actualWidth = valueBits.lengthOfValue.toInt
+        val rem = actualWidth % 4
+        val actualWidthDiv4 = if (rem == 0) actualWidth else actualWidth + (4 - rem)
+        val hexStr =
+          hexZip(valueBits.resize(actualWidthDiv4), bubbleBits.resize(actualWidthDiv4)).get
+        csDFBitsHexFormat(hexStr, widthParamRef)
+      case _ =>
+        val binRep = csDFBitsBinFormat(toBinString)
+        val hexRepOption = toHexString match
+          case Some(v) if width % 4 == 0         => Some(csDFBitsHexFormat(v))
+          case Some(v) if allowBitsExplicitWidth => Some(csDFBitsHexFormat(v, widthParamRef))
+          case _                                 => None
+        // choosing the shorter representation for readability
+        hexRepOption match
+          case Some(hr) if hr.length < binRep.length => hr
+          case _                                     => binRep
+    end match
   end csDFBitsData
   def csDFBitFormat(bitRep: String): String
   def csDFBoolFormat(value: Boolean): String
@@ -141,7 +148,8 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
   def csDFBitBubbleChar: Char = '?'
   def csDFBitsBinFormat(binRep: String): String = s"""b"$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""h"$hexRep""""
-  def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""h"$width'$hexRep""""
+  def csDFBitsHexFormat(hexRep: String, width: IntParamRef): String =
+    s"""h"${width.refCodeString.applyBrackets()}'$hexRep""""
   def csDFBoolFormat(value: Boolean): String = value.toString()
   def csDFBitFormat(bitRep: String): String = bitRep
   val allowDecimalBigInt: Boolean = true

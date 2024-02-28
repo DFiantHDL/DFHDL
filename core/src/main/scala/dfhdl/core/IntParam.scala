@@ -8,7 +8,6 @@ import compiletime.{constValueOpt, constValue}
 import dfhdl.internals.Inlined
 import dfhdl.internals.<:!
 import scala.annotation.targetName
-type CLog2[T <: Int] = 32 - NumberOfLeadingZeros[T - 1]
 
 type IntP = Int | DFConstInt32
 object IntP:
@@ -17,48 +16,57 @@ object IntP:
   type ToInt[V <: IntP] <: Int = V match
     case Int          => V <:! Int
     case DFConstInt32 => Int
-  type +[L <: IntP, R <: IntP] <: Int = (L, R) match
+  type +[L <: IntP, R <: IntP] <: IntP = (L, R) match
     case (Int, Int) => int.+[L, R]
-    case _          => Int
-  type *[L <: IntP, R <: IntP] <: Int = (L, R) match
+  type -[L <: IntP, R <: IntP] <: IntP = (L, R) match
+    case (Int, Int) => int.-[L, R]
+  type *[L <: IntP, R <: IntP] <: IntP = (L, R) match
     case (Int, Int) => int.*[L, R]
-    case _          => Int
+  type /[L <: IntP, R <: IntP] <: IntP = (L, R) match
+    case (Int, Int) => int./[L, R]
+  type %[L <: IntP, R <: IntP] <: IntP = (L, R) match
+    case (Int, Int) => int.%[L, R]
+  type Max[L <: IntP, R <: IntP] <: IntP = (L, R) match
+    case (Int, Int) => int.Max[L, R]
+  type Min[L <: IntP, R <: IntP] <: IntP = (L, R) match
+    case (Int, Int) => int.Min[L, R]
+  type CLog2[T <: IntP] <: IntP = T match
+    case Int => 32 - NumberOfLeadingZeros[T - 1]
+end IntP
 
-opaque type IntParam[V <: Int] = IntP
+opaque type IntParam[V <: IntP] = IntP
 protected sealed trait IntParamLP:
-  given [T <: Int]: Conversion[IntParam[T], IntParam[Int]] = value =>
+  given [T <: IntP]: Conversion[IntParam[T], IntParam[Int]] = value =>
     value.asInstanceOf[IntParam[Int]]
 object IntParam extends IntParamLP:
-  given [L <: Int, R <: Int](using CanEqual[L, R]): CanEqual[IntParam[L], IntParam[R]] =
+  given [L <: IntP, R <: IntP](using CanEqual[L, R]): CanEqual[IntParam[L], IntParam[R]] =
     CanEqual.derived
-  given [T <: Int]: CanEqual[IntParam[T], Int] = CanEqual.derived
-  given [T <: Int]: CanEqual[Int, IntParam[T]] = CanEqual.derived
+  given [T <: IntP]: CanEqual[IntParam[T], Int] = CanEqual.derived
+  given [T <: IntP]: CanEqual[Int, IntParam[T]] = CanEqual.derived
 
-  transparent inline implicit def getValue[T <: Int](
-      intParam: IntParam[T]
-  )(using util.NotGiven[T =:= Nothing]): T =
-    inline constValueOpt[T] match
-      case Some(_) => constValue[T]
-      case None =>
-        val dfc = compiletime.summonInline[DFC]
-        toScalaInt(intParam)(using dfc).asInstanceOf[T]
+  inline implicit def getValue[T <: IntP](intParam: IntParam[T])(using DFC): Int =
+    intParam.toScalaInt
 
-  inline implicit def fromValue[T <: Int & Singleton](value: T): IntParam[T] = value
+  inline implicit def fromValue[T <: IntP & Singleton](value: T): IntParam[T] = value
   @targetName("fromValueWide")
-  inline implicit def fromValue[Wide <: Int](value: Wide): IntParam[Wide] = value
-  @targetName("fromValueDFConst")
-  inline implicit def fromValue[S <: Boolean, W <: Int, N <: NativeType, P, R <: DFValTP[
-    DFXInt[S, W, N],
-    P
-  ]](
-      value: R
-  )(using tc: DFVal.TC[DFInt32, R], dfc: DFC, const: DFVal.ConstCheck[P]): IntParam[Int] =
-    tc(DFInt32, value).asInstanceOf[IntParam[Int]]
+  inline implicit def fromValue[Wide <: IntP](value: Wide): IntParam[Wide] = value
+  @targetName("fromValueInlined")
+  inline implicit def fromValue[T <: Int](value: Inlined[T]): IntParam[T] =
+    value.asInstanceOf[IntParam[T]]
+  @targetName("fromValueWide")
   def apply(value: IntP): IntParam[Int] = value
-  def forced[V <: Int](value: IntP): IntParam[V] = value.asInstanceOf[IntParam[V]]
+  def forced[V <: IntP](value: IntP): IntParam[V] = value.asInstanceOf[IntParam[V]]
   @targetName("applyInlined")
   def apply[V <: Int](value: Inlined[V]): IntParam[V] = value.asInstanceOf[IntParam[V]]
-  def calc[O <: Int](op: FuncOp, argL: IntParam[Int], argR: IntParam[Int])(
+  def calc[O <: IntP](op: FuncOp, arg: IntParam[Int])(
+      opInt: Int => Int
+  )(using dfc: DFC): IntParam[O] =
+    given DFC = dfc.anonymize
+    val ret: IntParam[Int] = arg match
+      case int: Int            => IntParam(opInt(int))
+      case const: DFConstInt32 => IntParam(DFVal.Func(DFInt32, op, List(const)))
+    ret.asInstanceOf[IntParam[O]]
+  def calc[O <: IntP](op: FuncOp, argL: IntParam[Int], argR: IntParam[Int])(
       opInt: (Int, Int) => Int
   )(using dfc: DFC): IntParam[O] =
     given DFC = dfc.anonymize
@@ -69,7 +77,7 @@ object IntParam extends IntParamLP:
         val constR = argR.toDFConst
         IntParam(DFVal.Func(DFInt32, op, List(constL, constR)))
     ret.asInstanceOf[IntParam[O]]
-  extension [L <: Int](lhs: IntParam[L])(using dfc: DFC)
+  extension [L <: IntP](lhs: IntParam[L])(using dfc: DFC)
     def toDFConst: DFConstInt32 =
       lhs match
         case int: Int            => DFVal.Const(DFInt32, Some(BigInt(int)), named = true)
@@ -86,10 +94,24 @@ object IntParam extends IntParamLP:
           constIR.injectGlobalCtx()
           val newRef = new ir.DFRef.TypeRef {}
           ir.IntParamRef(dfc.mutableDB.newRefFor(newRef, constIR))
-    def +[R <: Int](rhs: IntParam[R]): IntParam[L + R] =
+    def +[R <: IntP](rhs: IntParam[R]): IntParam[IntP.+[L, R]] =
       calc(FuncOp.+, lhs, rhs)(_ + _)
-    def *[R <: Int](rhs: IntParam[R]): IntParam[L * R] =
+    def -[R <: IntP](rhs: IntParam[R]): IntParam[IntP.-[L, R]] =
+      calc(FuncOp.-, lhs, rhs)(_ - _)
+    def *[R <: IntP](rhs: IntParam[R]): IntParam[IntP.*[L, R]] =
       calc(FuncOp.`*`, lhs, rhs)(_ * _)
+    def /[R <: IntP](rhs: IntParam[R]): IntParam[IntP./[L, R]] =
+      calc(FuncOp./, lhs, rhs)(_ / _)
+    def %[R <: IntP](rhs: IntParam[R]): IntParam[IntP.%[L, R]] =
+      calc(FuncOp.%, lhs, rhs)(_ % _)
+    def max[R <: IntP](rhs: IntParam[R]): IntParam[IntP.Max[L, R]] =
+      import scala.runtime.RichInt
+      calc(FuncOp.max, lhs, rhs)((x, y) => RichInt(x) max y)
+    def min[R <: IntP](rhs: IntParam[R]): IntParam[IntP.Min[L, R]] =
+      import scala.runtime.RichInt
+      calc(FuncOp.min, lhs, rhs)((x, y) => RichInt(x) min y)
+    def clog2: IntParam[IntP.CLog2[L]] =
+      calc(FuncOp.clog2, lhs)(dfhdl.internals.clog2)
   end extension
 end IntParam
 

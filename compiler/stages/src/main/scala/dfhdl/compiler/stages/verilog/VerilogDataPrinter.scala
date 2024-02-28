@@ -12,7 +12,8 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
   def csDFBitBubbleChar: Char = 'x'
   def csDFBitsBinFormat(binRep: String): String = s"""${binRep.length}'b$binRep"""
   def csDFBitsHexFormat(hexRep: String): String = s"""${hexRep.length * 4}'h$hexRep"""
-  def csDFBitsHexFormat(hexRep: String, width: Int): String = s"""${width}'h$hexRep"""
+  def csDFBitsHexFormat(hexRep: String, width: IntParamRef): String =
+    s"""${width.refCodeString.applyBrackets()}'h$hexRep"""
   def csDFBoolFormat(value: Boolean): String = if (value) "1" else "0"
   def csDFBitFormat(bitRep: String): String = csDFBitsBinFormat(bitRep)
   val allowDecimalBigInt: Boolean = true

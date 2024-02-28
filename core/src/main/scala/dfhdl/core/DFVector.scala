@@ -153,7 +153,7 @@ object DFVector:
             c: DFUInt.Val.UBArg[D1, I],
             dfc: DFC
         ): DFVal[T, M] = trydf {
-          val idxVal = c(Inlined.forced[D1](lhs.dfType.cellDims.head), idx)(using dfc.anonymize)
+          val idxVal = c(IntParam.forced[D1](lhs.dfType.cellDims.head), idx)(using dfc.anonymize)
           DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idxVal)
         }
         def elements(using DFC): Vector[DFValOf[T]] =

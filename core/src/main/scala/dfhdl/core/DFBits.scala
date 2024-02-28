@@ -11,13 +11,13 @@ import DFDecimal.Constraints.`LW == RW`
 type DFBits[W <: IntP] = DFType[ir.DFBits, Args1[W]]
 object DFBits:
   // TODO: IntP
-  def apply[W <: Int](width: IntParam[W])(using
+  def apply[W <: IntP](width: IntParam[W])(using
       dfc: DFC,
-      check: Arg.Width.Check[W]
+      check: Arg.Width.CheckNUB[W]
   ): DFBits[W] = trydf:
     check(width)
     ir.DFBits(width.ref).asFE[DFBits[W]]
-  def forced[W <: Int](width: Int): DFBits[W] =
+  def forced[W <: IntP](width: Int): DFBits[W] =
     val check = summon[Arg.Width.Check[Int]]
     check(width)
     ir.DFBits(width).asFE[DFBits[W]]
@@ -92,15 +92,12 @@ object DFBits:
   end CompareCheck
 
   object StrInterp:
-    private val widthExp = "([0-9]+)'(.*)".r
+    private[DFBits] val widthExp = "([0-9]+)'(.*)".r
     def fromBinString(
         bin: String
     ): Either[String, (BitVector, BitVector)] = boundary {
-      val (explicitWidth, word) = bin match
-        case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
-        case _                           => (None, bin)
       val (valueBits, bubbleBits) =
-        word.foldLeft((BitVector.empty, BitVector.empty)) {
+        bin.foldLeft((BitVector.empty, BitVector.empty)) {
           case (t, '_' | ' ') => t // ignoring underscore or space
           case ((v, b), c) =>
             c match // bin mode
@@ -110,25 +107,14 @@ object DFBits:
               case x =>
                 break(Left(s"Found invalid binary character: $x"))
         }
-      val actualWidth = valueBits.lengthOfValue.toInt
-      explicitWidth match
-        case Some(width) if width < actualWidth =>
-          Left(
-            s"Explicit given width ($width) is smaller than the actual width ($actualWidth)"
-          )
-        case Some(width) =>
-          Right((valueBits.resize(width), bubbleBits.resize(width)))
-        case None => Right((valueBits, bubbleBits))
+      Right((valueBits, bubbleBits))
     }
     private[DFBits] val isHex = "[0-9a-fA-F]".r
     def fromHexString(
         hex: String
     ): Either[String, (BitVector, BitVector)] = boundary {
-      val (explicitWidth, word) = hex match
-        case widthExp(widthStr, wordStr) => (Some(widthStr.toInt), wordStr)
-        case _                           => (None, hex)
       val (valueBits, bubbleBits, binMode) =
-        word.foldLeft((BitVector.empty, BitVector.empty, false)) {
+        hex.foldLeft((BitVector.empty, BitVector.empty, false)) {
           case (t, '_' | ' ') => t // ignoring underscore or space
           case ((v, b, false), c) =>
             c match // hex mode
@@ -152,49 +138,62 @@ object DFBits:
                 break(Left(s"Found invalid binary character in binary mode: $x"))
         }
       if (binMode) Left(s"Missing closing braces of binary mode")
-      else
-        val actualWidth = valueBits.lengthOfValue.toInt
-        explicitWidth match
-          case Some(width) if width < actualWidth =>
-            Left(
-              s"Explicit given width ($width) is smaller than the actual width ($actualWidth)"
-            )
-          case Some(width) =>
-            Right((valueBits.resize(width), bubbleBits.resize(width)))
-          case None => Right((valueBits, bubbleBits))
+      else Right((valueBits, bubbleBits))
     }
+
+    extension (fullTerm: String)
+      private[DFBits] def interpolate[W <: IntP](
+          op: String,
+          explicitWidthOption: Option[IntP]
+      )(using DFC): DFConstOf[DFBits[W]] =
+        val fromString = op match
+          case "b" => fromBinString(fullTerm)
+          case "h" => fromHexString(fullTerm)
+        var (valueBits, bubbleBits) = fromString.toOption.get
+        explicitWidthOption.foreach(ew =>
+          val updatedWidth = IntParam.forced(ew).toScalaInt
+          valueBits = valueBits.resize(updatedWidth)
+          bubbleBits = bubbleBits.resize(updatedWidth)
+        )
+        val width = IntParam.forced[W](explicitWidthOption.getOrElse(valueBits.length.toInt))
+        DFVal.Const(DFBits(width), (valueBits, bubbleBits), named = true)
 
     extension (using Quotes)(fullTerm: quotes.reflect.Term)
       private[DFBits] def interpolate(
-          opExpr: Expr[String]
+          opExpr: Expr[String],
+          explicitWidthOptionExpr: Expr[Option[IntP]]
       ): Expr[DFConstAny] =
         import quotes.reflect.*
-        val opStr = opExpr.value.get
-        val widthTpe: TypeRepr = fullTerm match
+        val explicitWidthTpeOption: Option[TypeRepr] = explicitWidthOptionExpr match
+          case '{ Some($expr) } => Some(expr.asTerm.tpe)
+          case _                => None
+        val interpWidthTpe: TypeRepr = fullTerm match
           case Literal(StringConstant(t)) =>
+            val opStr = opExpr.value.get
             val res = opStr match
               case "b" => fromBinString(t)
               case "h" => fromHexString(t)
             res match
               case Right((valueBits, bubbleBits)) =>
+                explicitWidthTpeOption match
+                  case Some(ConstantType(IntConstant(explicitWidth))) =>
+                    val actualWidth = valueBits.lengthOfValue.toInt
+                    if (explicitWidth < actualWidth)
+                      report.errorAndAbort(
+                        s"Explicit given width ($explicitWidth) is smaller than the actual width ($actualWidth)."
+                      )
+                  case _ =>
                 ConstantType(IntConstant(valueBits.length.toInt))
               case Left(msg) =>
                 report.errorAndAbort(msg)
           case _ => TypeRepr.of[Int]
-        val widthType = widthTpe.asType.asInstanceOf[Type[Int]]
-        val fullExpr = opStr match
-          case "b" => '{ fromBinString(${ fullTerm.asExprOf[String] }) }
-          case "h" => '{ fromHexString(${ fullTerm.asExprOf[String] }) }
+        val widthTpe: TypeRepr = explicitWidthTpeOption.getOrElse(interpWidthTpe)
+        val widthType = widthTpe.asTypeOf[Int]
         '{
-          val bitsData = ${ fullExpr }.toOption.get
-          val valueBits = bitsData._1
-          val bubbleBits = bitsData._2
-          val width = valueBits.length.toInt
           val dfc = compiletime.summonInline[DFC]
-          DFVal.Const(
-            DFBits.forced[widthType.Underlying](width),
-            (valueBits, bubbleBits),
-            named = true
+          ${ fullTerm.asExprOf[String] }.interpolate[widthType.Underlying](
+            $opExpr,
+            $explicitWidthOptionExpr
           )(using dfc)
         }
 
@@ -202,7 +201,7 @@ object DFBits:
 
   // Unclear why, but the compiler crashes if we do not separate these definitions from StrInterp
   object StrInterpOps:
-    import StrInterp.{fromBinString, fromHexString, interpolate, isHex}
+    import StrInterp.{fromBinString, fromHexString, interpolate, isHex, widthExp}
     opaque type BinStrCtx <: StringContext = StringContext
     object BinStrCtx:
       extension (inline sc: BinStrCtx)
@@ -280,17 +279,55 @@ object DFBits:
         sc: Expr[BinStrCtx],
         args: Expr[Seq[Any]]
     )(using Quotes): Expr[DFConstAny] =
-      sc.scPartsWithArgs(args).interpolate(Expr(sc.funcName))
+      import quotes.reflect.*
+      var Varargs(argsExprs) = args: @unchecked
+
+      var parts = sc.parts.map(_.value.get).toList
+      var explicitWidthOption: Expr[Option[IntP]] = '{ None }
+      parts match
+        case "" :: p :: _ if p.startsWith("'") =>
+          argsExprs.headOption.map(_.asTerm) match
+            case Some(t) =>
+              t.tpe.asType match
+                case '[IntP] =>
+                  argsExprs = argsExprs.drop(1)
+                  parts = p.drop(1) :: parts.drop(2)
+                  explicitWidthOption = '{ Some(${ t.asExprOf[IntP] }) }
+                case '[DFValAny] =>
+                  report.errorAndAbort(
+                    s"Expecting a constant DFHDL Int value but found: `${t.tpe.showType}`",
+                    t.pos
+                  )
+                case _ =>
+                  report.errorAndAbort(
+                    s"Unsupported type as the width interpolation argument. Found: `${t.tpe.showType}`",
+                    t.pos
+                  )
+
+            case _ =>
+        case widthExp(widthStr, wordStr) :: rest =>
+          parts = wordStr :: rest
+          explicitWidthOption = '{ Some(${ Expr(widthStr.toInt) }) }
+        case _ =>
+      end match
+      // println(widthParamOption.map(_.show))
+      parts.map(Expr(_)).scPartsWithArgs(argsExprs).interpolate(
+        Expr(sc.funcName),
+        explicitWidthOption
+      )
+    end applyMacro
 
     private def unapplySeqMacro[T <: DFTypeAny](
         sc: Expr[BinStrCtx],
         arg: Expr[DFValOf[T]]
     )(using Quotes, Type[T]): Expr[Option[Seq[Any]]] =
       import quotes.reflect.*
-      val parts = sc.parts.map(_.asTerm).toList
+      val parts = sc.parts
+      val partsStr = parts.map(_.value.get).toList
       val op = sc.funcName
-      if (parts.length > 1)
-        val vArgs = Varargs(Expr(op) :: parts.map { case Literal(StringConstant(part: String)) =>
+      val opExpr = Expr(op)
+      if (partsStr.length > 1)
+        val vArgs = Varargs(opExpr :: partsStr.map { part =>
           val partFiltered = part.filter {
             case '_' | ' ' | '?'        => false
             case isHex() if op == "h"   => true
@@ -301,13 +338,21 @@ object DFBits:
                       |Note: string interpolation with value extraction does not support the `[w']` width extension syntax.""".stripMargin
               )
           }
-          Literal(StringConstant(partFiltered)).asExprOf[String]
+          Expr(partFiltered)
         })
         '{
           Some(Seq(${ vArgs }*))
         }
       else
-        val dfVal = parts.head.interpolate(Expr(op))
+        def noSepLength = partsStr.head.filterNot(x => x == ' ' || x == '_').length
+        val dfVal = partsStr.head match
+          case widthExp(widthStr, wordStr) =>
+            Literal(StringConstant(wordStr)).interpolate(
+              opExpr,
+              '{ Some(${ Expr(widthStr.toInt) }) }
+            )
+          case _ => parts.head.asTerm.interpolate(opExpr, '{ None })
+
         val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
         '{
           val tc = compiletime.summonInline[
@@ -326,7 +371,6 @@ object DFBits:
   object Val:
     trait Candidate[R]:
       type OutW <: IntP
-      type OutWI = IntP.ToInt[OutW]
       type OutP
       type Out = DFValTP[DFBits[OutW], OutP]
       def apply(value: R)(using DFC): Out
@@ -346,8 +390,7 @@ object DFBits:
         def apply(value: R)(using DFC): Out =
           import DFVal.Ops.bits
           value.bits
-      // TODO: IntP
-      given fromDFUInt[W <: Int, P, R <: DFValTP[DFUInt[W], P]]: Candidate[R] with
+      given fromDFUInt[W <: IntP, P, R <: DFValTP[DFUInt[W], P]]: Candidate[R] with
         type OutW = W
         type OutP = P
         def apply(value: R)(using DFC): Out =
@@ -368,7 +411,7 @@ object DFBits:
           "Cannot apply an enum entry value to a bits variable."
         )
       // TODO: IntP
-      inline given errDFSInt[W <: Int, R <: DFValOf[DFSInt[W]]]: Candidate[R] =
+      inline given errDFSInt[W <: IntP, R <: DFValOf[DFSInt[W]]]: Candidate[R] =
         compiletime.error(
           "Cannot apply a signed value to a bits variable.\nConsider applying `.bits` conversion to resolve this issue."
         )
@@ -510,8 +553,7 @@ object DFBits:
         def truncate(using DFC): DFValTP[DFBits[Int], P] =
           lhs.tag(DFVal.TruncateTag).asValTP[DFBits[Int], P]
         // TODO: IntP
-        private[DFBits] def resizeBits[RW <: Int](updatedWidth: IntParam[RW])(using
-            Arg.Width.Check[RW],
+        private[DFBits] def resizeBits[RW <: IntP](updatedWidth: IntParam[RW])(using
             DFC
         ): DFValTP[DFBits[RW], P] =
           // TODO: why this causes anonymous references?
@@ -527,10 +569,13 @@ object DFBits:
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
         def extend(using DFC): DFValTP[DFBits[Int], icL.OutP] =
           icL(lhs).tag(DFVal.ExtendTag).asValTP[DFBits[Int], icL.OutP]
-        def resize[RW <: Int](updatedWidth: IntParam[RW])(using
-            Arg.Width.Check[RW],
-            DFC
-        ): DFValTP[DFBits[RW], icL.OutP] = trydf { icL(lhs).resizeBits(updatedWidth) }
+        def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
+            check: Arg.Width.CheckNUB[RW],
+            dfc: DFC
+        ): DFValTP[DFBits[RW], icL.OutP] = trydf {
+          check(updatedWidth)
+          icL(lhs).resizeBits(updatedWidth)
+        }
         def &[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: `LW == RW`.CheckNUB[icL.OutW, icR.OutW]
@@ -561,13 +606,13 @@ object DFBits:
         def repeat[N <: Int](num: IntParam[N])(using
             dfc: DFC,
             check: Arg.Positive.Check[N]
-        ): DFValTP[DFBits[icL.OutWI * N], icL.OutP | CONST] = trydf {
+        ): DFValTP[DFBits[IntP.*[icL.OutW, N]], icL.OutP | CONST] = trydf {
           val lhsVal = icL(lhs)
           check(num)
           val lhsWidth = lhsVal.widthIntParam
           val width =
             // simplifying the representation of the argument is a single bit
-            if (lhsWidth.toScalaInt == 1) num.asInstanceOf[IntParam[icL.OutWI * N]]
+            if (lhsWidth.toScalaInt == 1) num.asInstanceOf[IntParam[IntP.*[icL.OutW, N]]]
             else lhsWidth * num
           DFVal.Func(
             DFBits(width),
@@ -577,7 +622,7 @@ object DFBits:
         }
         def ++[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC
-        ): DFValTP[DFBits[icL.OutWI + icR.OutWI], icL.OutP | icR.OutP] = trydf {
+        ): DFValTP[DFBits[IntP.+[icL.OutW, icR.OutW]], icL.OutP | icR.OutP] = trydf {
           val lhsVal = icL(lhs)
           val rhsVal = icR(rhs)
           val width = lhsVal.widthIntParam + rhsVal.widthIntParam
@@ -586,7 +631,7 @@ object DFBits:
       end extension
 
       // TODO: IntP
-      extension [W <: Int, A, C, I, P](
+      extension [W <: IntP, A, C, I, P](
           lhs: DFVal[DFBits[W], Modifier[A, C, I, P]]
       )
         def as[AT <: DFType.Supported](
@@ -594,10 +639,10 @@ object DFBits:
         )(using tc: DFType.TC[AT])(using
             aW: Width[tc.Type],
             dfc: DFC
-        )(using check: `AW == TW`.Check[aW.Out, W]): DFValTP[tc.Type, P] = trydf {
+        )(using check: `AW == TW`.CheckNUB[aW.Out, W]): DFValTP[tc.Type, P] = trydf {
           import dfc.getSet
           val aliasDFType = tc(aliasType)
-          check.apply(aliasDFType.asIR.width, lhs.width)
+          check(aliasDFType.asIR.width, lhs.width)
           DFVal.Alias.AsIs(aliasDFType, lhs)
         }
         def uint(using DFC): DFValTP[DFUInt[W], P] = trydf { as(DFUInt(lhs.widthIntParam)) }
@@ -608,14 +653,14 @@ object DFBits:
             c: DFUInt.Val.UBArg[W, Idx],
             dfc: DFC
         ): DFVal[DFBit, Modifier[A, Any, Any, P]] = trydf {
-          DFVal.Alias.ApplyIdx(DFBit, lhs, c(lhs.width, relIdx)(using dfc.anonymize))
+          DFVal.Alias.ApplyIdx(DFBit, lhs, c(lhs.widthIntParam, relIdx)(using dfc.anonymize))
         }
         def apply[H <: Int, L <: Int](
             relBitHigh: Inlined[H],
             relBitLow: Inlined[L]
         )(using
-            checkHigh: BitIndex.Check[H, W],
-            checkLow: BitIndex.Check[L, W],
+            checkHigh: BitIndex.CheckNUB[H, W],
+            checkLow: BitIndex.CheckNUB[L, W],
             checkHiLo: BitsHiLo.Check[H, L],
             dfc: DFC
         ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any, P]] = trydf {
@@ -631,16 +676,18 @@ object DFBits:
           lhs.apply(lhs.width.value - 1)
         def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           lhs.apply(0)
+        // TODO: IntP
         def msbits[RW <: Int](updatedWidth: Inlined[RW])(using
-            check: `LW >= RW`.Check[W, RW],
+            check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFC
         ): DFValTP[DFBits[RW], P] = trydf {
           check(lhs.width, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, lhs.width - 1, lhs.width - updatedWidth)
             .asValTP[DFBits[RW], P]
         }
+        // TODO: IntP
         def lsbits[RW <: Int](updatedWidth: Inlined[RW])(using
-            check: `LW >= RW`.Check[W, RW],
+            check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFC
         ): DFValTP[DFBits[RW], P] = trydf {
           check(lhs.width, updatedWidth)
@@ -652,7 +699,7 @@ object DFBits:
             c: DFUInt.Val.UBArg[W, R],
             dfc: DFC
         ): DFValOf[DFBits[W]] = trydf {
-          val shiftVal = c(lhs.width, shift)(using dfc.anonymize)
+          val shiftVal = c(lhs.widthIntParam, shift)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shiftVal))
         }
         @targetName("shiftLeftDFBits")
@@ -660,22 +707,22 @@ object DFBits:
             c: DFUInt.Val.UBArg[W, R],
             dfc: DFC
         ): DFValOf[DFBits[W]] = trydf {
-          val shiftVal = c(lhs.width, shift)(using dfc.anonymize)
+          val shiftVal = c(lhs.widthIntParam, shift)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
         }
       end extension
       extension [L](lhs: L)
-        def ++[RW <: Int, RP](
+        def ++[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
             c: Candidate[es.Out]
-        ): DFValTP[DFBits[c.OutWI + RW], c.OutP | RP] = trydf {
+        ): DFValTP[DFBits[IntP.+[c.OutW, RW]], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
           val width = lhsVal.widthIntParam + rhs.widthIntParam
           DFVal.Func(DFBits(width), FuncOp.++, List(lhsVal, rhs))
         }
-        def &[RW <: Int, RP](
+        def &[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
@@ -685,7 +732,7 @@ object DFBits:
           check(lhsVal.width, rhs.width)
           DFVal.Func(rhs.dfType, FuncOp.&, List(lhsVal, rhs))
         }
-        def |[RW <: Int, RP](
+        def |[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,
@@ -695,7 +742,7 @@ object DFBits:
           check(lhsVal.width, rhs.width)
           DFVal.Func(rhs.dfType, FuncOp.|, List(lhsVal, rhs))
         }
-        def ^[RW <: Int, RP](
+        def ^[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
         )(using es: Exact.Summon[L, lhs.type])(using
             dfc: DFC,

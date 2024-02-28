@@ -33,9 +33,9 @@ protected object hdl:
   type Bit = core.DFBit
   type Bits[W <: IntP] = core.DFBits[W]
   val Bits = core.DFBits
-  type UInt[W <: Int] = core.DFUInt[W]
+  type UInt[W <: IntP] = core.DFUInt[W]
   val UInt = core.DFUInt
-  type SInt[W <: Int] = core.DFSInt[W]
+  type SInt[W <: IntP] = core.DFSInt[W]
   val SInt = core.DFSInt
   type Encode = core.DFEncoding.Default
   val Encode = core.DFEncoding

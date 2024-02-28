@@ -365,7 +365,7 @@ object DFVal:
       case >>, <<, ror, rol, reverse, repeat
       case unary_-, unary_~, unary_!
       case rising, falling
-      case clog2
+      case clog2, max, min
 
   final case class PortByNameSelect(
       dfType: DFType,

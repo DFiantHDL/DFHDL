@@ -129,18 +129,21 @@ def calcFuncData[OT <: DFType](
         // DFXInt arithmetic operations and shifting
         case (
               outType @ DFXInt(_, _, _),
-              op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./ | FuncOp.% | FuncOp.<< | FuncOp.>>),
+              op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./ | FuncOp.% | FuncOp.<< | FuncOp.>> |
+              FuncOp.max | FuncOp.min),
               DFXInt(_, _, _) :: DFXInt(_, _, _) :: Nil,
               Some(lhs: BigInt) :: Some(rhs: BigInt) :: Nil
             ) =>
           val dataNoTrunc = op match
-            case FuncOp.+  => lhs + rhs
-            case FuncOp.-  => lhs - rhs
-            case FuncOp.*  => lhs * rhs
-            case FuncOp./  => lhs / rhs
-            case FuncOp.%  => lhs % rhs
-            case FuncOp.<< => lhs << rhs.toInt
-            case FuncOp.>> => lhs >> rhs.toInt
+            case FuncOp.+   => lhs + rhs
+            case FuncOp.-   => lhs - rhs
+            case FuncOp.*   => lhs * rhs
+            case FuncOp./   => lhs / rhs
+            case FuncOp.%   => lhs % rhs
+            case FuncOp.<<  => lhs << rhs.toInt
+            case FuncOp.>>  => lhs >> rhs.toInt
+            case FuncOp.max => lhs max rhs
+            case FuncOp.min => lhs min rhs
           val widthNoTrunc = dataNoTrunc.bitsWidth(outType.signed)
           val dataTrunc =
             if (widthNoTrunc > outType.width)

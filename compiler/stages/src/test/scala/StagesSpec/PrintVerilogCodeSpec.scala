@@ -308,7 +308,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   test("Bits counter example"):
-    class Counter(width: Int <> CONST) extends RTDesign:
+    class Counter(val width: Int <> CONST) extends RTDesign:
       val cnt = Bits(width) <> OUT init all(0)
       cnt := cnt.reg + 1
     val top = (new Counter(8)).getVerilogCode
@@ -342,7 +342,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   test("UInt counter example"):
-    class Counter(width: Int <> CONST) extends RTDesign:
+    class Counter(val width: Int <> CONST) extends RTDesign:
       val cnt = UInt(width) <> OUT init 0
       cnt := cnt.reg + 1
     val top = (new Counter(8)).getVerilogCode
