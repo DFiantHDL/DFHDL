@@ -60,16 +60,18 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     case DFBool => "Boolean"
     case DFBit  => "Bit"
   def csDFBits(dfType: DFBits, typeCS: Boolean): String =
-    if (typeCS) s"Bits[${dfType.widthParamRef.refCodeString}]"
-    else s"Bits(${dfType.widthParamRef.refCodeString})"
+    val csWidth = dfType.widthParamRef.refCodeString(typeCS)
+    if (typeCS) s"Bits[$csWidth]"
+    else s"Bits($csWidth)"
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
+    val csWidth = dfType.widthParamRef.refCodeString(typeCS)
     val (ob, cb) = if (typeCS) ("[", "]") else ("(", ")")
     (signed, fractionWidth) match
-      case (false, 0) => s"UInt$ob$width$cb"
+      case (false, 0) => s"UInt$ob$csWidth$cb"
       case (true, 0) =>
         if (dfType.isDFInt32) "Int"
-        else s"SInt$ob$width$cb"
+        else s"SInt$ob$csWidth$cb"
       case (false, _) => s"UFix$ob$magnitudeWidth, $fractionWidth$cb"
       case (true, _)  => s"SFix$ob$magnitudeWidth, $fractionWidth$cb"
 

@@ -6,15 +6,18 @@ import DFVal.*
 import analysis.*
 
 extension (ref: DFRef.TwoWayAny)
-  def refCodeString(using printer: AbstractValPrinter): String = printer.csRef(ref)
+  def refCodeString(using printer: AbstractValPrinter): String = printer.csRef(ref, false)
+  def refCodeString(typeCS: Boolean)(using printer: AbstractValPrinter): String =
+    printer.csRef(ref, typeCS)
   def simpleRefCodeString(using printer: AbstractValPrinter): String = printer.csSimpleRef(ref)
 
 extension (intParamRef: IntParamRef)
-  def refCodeString(using printer: AbstractValPrinter): String = intParamRef match
-    case ref: DFRef.TwoWayAny => printer.csRef(ref)
+  def refCodeString(typeCS: Boolean)(using printer: AbstractValPrinter): String = intParamRef match
+    case ref: DFRef.TwoWayAny => printer.csRef(ref, typeCS)
     case int: Int             => int.toString
+  def refCodeString(using printer: AbstractValPrinter): String = intParamRef.refCodeString(false)
   def uboundCS(using printer: AbstractValPrinter): String = intParamRef match
-    case ref: DFRef.TwoWayAny => s"${printer.csRef(ref)}-1"
+    case ref: DFRef.TwoWayAny => s"${printer.csRef(ref, false)}-1"
     case int: Int             => (int - 1).toString
 
 extension (alias: Alias)
@@ -26,13 +29,15 @@ trait AbstractValPrinter extends AbstractPrinter:
       case DFVal.Const(_: DFDecimal, Some(i), _, _, _) => i.toString
       case _                                           => ref.refCodeString
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String
-  final def csRef(ref: DFRef.TwoWayAny): String =
+  final def csRef(ref: DFRef.TwoWayAny, typeCS: Boolean): String =
     val member = ref.get
+    extension (named: DFMember.Named)
+      def nameCS: String = if (typeCS) s"${named.getName}.type" else named.getName
     member match
-      case dfVal @ DesignParam(_) => dfVal.getName
+      case dfVal @ DesignParam(_) => dfVal.nameCS
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
         if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
-        else dfVal.getName
+        else dfVal.nameCS
       case dfVal: DFVal =>
         val callOwner = ref.originMember.getOwner
         val cs = printer.csDFValRef(dfVal, callOwner)
@@ -40,7 +45,7 @@ trait AbstractValPrinter extends AbstractPrinter:
           case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
           case _                                          => cs
       case named: DFMember.Named =>
-        named.getName
+        named.nameCS
       case _ =>
         throw new IllegalArgumentException("Fetching refCodeString from irrelevant member.")
     end match
@@ -63,7 +68,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       case refs       => s" $csInitKeyword ${csInitSeq(refs)}"
     val end = csDFValDclEnd(dfVal)
     s"$noInit$init$end"
-  def csDFValFuncExpr(dfVal: Func): String
+  def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String
@@ -76,10 +81,10 @@ trait AbstractValPrinter extends AbstractPrinter:
     case dv: Alias.ApplyRange  => csDFValAliasApplyRange(dv)
     case dv: Alias.ApplyIdx    => csDFValAliasApplyIdx(dv)
     case dv: Alias.SelectField => csDFValAliasSelectField(dv)
-  final def csDFValExpr(dfValExpr: DFVal.CanBeExpr): String =
+  final def csDFValExpr(dfValExpr: DFVal.CanBeExpr, typeCS: Boolean = false): String =
     dfValExpr match
       case dv: Const                => csDFValConstExpr(dv)
-      case dv: Func                 => csDFValFuncExpr(dv)
+      case dv: Func                 => csDFValFuncExpr(dv, typeCS)
       case dv: Alias                => csDFValAliasExpr(dv)
       case dv: DFConditional.Header => printer.csDFConditional(dv)
       case dv: Timer.IsActive       => csTimerIsActive(dv)
@@ -107,13 +112,17 @@ protected trait DFValPrinter extends AbstractValPrinter:
   def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
   def csInitSeq(refs: List[Dcl.InitRef]): String = refs.view.map(_.refCodeString).mkStringBrackets
   def csDFValDclEnd(dfVal: Dcl): String = ""
-  def csDFValFuncExpr(dfVal: Func): String =
+  def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     dfVal.args match
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
-        s"${argL.refCodeString.applyBrackets()}.repeat${argR.refCodeString.applyBrackets(onlyIfRequired = false)}"
+        val csArgL = argL.refCodeString(typeCS)
+        val csArgR = argR.refCodeString(typeCS)
+        s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
+        val csArgL = argL.refCodeString(typeCS)
+        val csArgR = argR.refCodeString(typeCS)
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
           case Func.Op.=!= => "!="
@@ -127,47 +136,49 @@ protected trait DFValPrinter extends AbstractValPrinter:
           case op => op.toString
         val rhsStr = dfVal.op match
           case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
-          case _                       => argR.refCodeString
-        s"${argL.refCodeString.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
+          case _                       => csArgR
+        s"${csArgL.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
       // unary/postfix func
       case arg :: Nil =>
+        val csArg = arg.refCodeString(typeCS)
         val opStr = dfVal.op.toString
         dfVal.op match
           case Func.Op.unary_! | Func.Op.unary_- | Func.Op.unary_! =>
-            s"${opStr.last}${arg.refCodeString.applyBrackets()}"
+            s"${opStr.last}${csArg.applyBrackets()}"
           case Func.Op.clog2 =>
-            s"${opStr}${arg.refCodeString.applyBrackets(onlyIfRequired = false)}"
-          case _ => s"${arg.refCodeString.applyBrackets()}.${opStr}"
+            s"${opStr}${csArg.applyBrackets(onlyIfRequired = false)}"
+          case _ => s"${csArg.applyBrackets()}.${opStr}"
       // multiarg func
       case args =>
+        val csArgs = args.map(_.refCodeString)
         dfVal.op match
           case DFVal.Func.Op.++ =>
-            def argsInBrackets = args.map(_.refCodeString).mkStringBrackets
+            def argsInBrackets = csArgs.mkStringBrackets
             dfVal.dfType match
               case structType @ DFStruct(structName, fieldMap) =>
                 if (structType.isTuple) argsInBrackets
                 else
                   structType.getName +
                     fieldMap
-                      .lazyZip(args)
+                      .lazyZip(csArgs)
                       .map { case ((n, _), r) =>
-                        s"$n = ${r.refCodeString}"
+                        s"$n = $r"
                       }
                       .mkStringBrackets
               case DFVector(_, _) =>
-                val csArgs = args.map(_.refCodeString)
                 if (csArgs.allElementsAreEqual) s"all(${csArgs.head})"
                 else s"Vector${csArgs.mkStringBrackets}"
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
-                s"${(args.head.refCodeString).applyBrackets()}.repeat(${args.length})"
+                s"${(csArgs.head).applyBrackets()}.repeat(${args.length})"
               // regular concatenation function
               case _ => s"$argsInBrackets.toBits"
             end match
           case _ =>
-            args
-              .map(_.refCodeString.applyBrackets())
+            csArgs
+              .map(_.applyBrackets())
               .mkString(s" ${dfVal.op} ")
+        end match
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String =
     val relVal = dfVal.relValRef.get
     val relValStr = dfVal.relValCodeString

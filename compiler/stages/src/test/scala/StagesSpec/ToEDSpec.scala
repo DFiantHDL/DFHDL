@@ -211,8 +211,8 @@ class ToEDSpec extends StageSpec:
       """|class Counter(val width: Int <> CONST = 8) extends EDDesign:
          |  val clk = Bit <> IN
          |  val rst = Bit <> IN
-         |  val cnt = UInt(8) <> OUT init d"8'0"
-         |  val cnt_reg = UInt(8) <> VAR
+         |  val cnt = UInt(width) <> OUT init d"8'0"
+         |  val cnt_reg = UInt(width) <> VAR
          |  process(all):
          |    cnt := cnt_reg + d"8'1"
          |  process(clk, rst):

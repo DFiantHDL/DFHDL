@@ -34,7 +34,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
   def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
   def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
-  def csDFValFuncExpr(dfVal: Func): String =
+  def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     dfVal.args match
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>

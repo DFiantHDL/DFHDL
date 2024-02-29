@@ -18,20 +18,28 @@ object IntP:
     case DFConstInt32 => Int
   type +[L <: IntP, R <: IntP] <: IntP = (L, R) match
     case (Int, Int) => int.+[L, R]
+    case _          => Int
   type -[L <: IntP, R <: IntP] <: IntP = (L, R) match
     case (Int, Int) => int.-[L, R]
+    case _          => Int
   type *[L <: IntP, R <: IntP] <: IntP = (L, R) match
     case (Int, Int) => int.*[L, R]
+    case _          => Int
   type /[L <: IntP, R <: IntP] <: IntP = (L, R) match
     case (Int, Int) => int./[L, R]
+    case _          => Int
   type %[L <: IntP, R <: IntP] <: IntP = (L, R) match
     case (Int, Int) => int.%[L, R]
+    case _          => Int
   type Max[L <: IntP, R <: IntP] <: IntP = (L, R) match
     case (Int, Int) => int.Max[L, R]
+    case _          => Int
   type Min[L <: IntP, R <: IntP] <: IntP = (L, R) match
     case (Int, Int) => int.Min[L, R]
+    case _          => Int
   type CLog2[T <: IntP] <: IntP = T match
     case Int => 32 - NumberOfLeadingZeros[T - 1]
+    case _   => Int
 end IntP
 
 opaque type IntParam[V <: IntP] = IntP
@@ -48,13 +56,12 @@ object IntParam extends IntParamLP:
     intParam.toScalaInt
 
   inline implicit def fromValue[T <: IntP & Singleton](value: T): IntParam[T] = value
-  @targetName("fromValueWide")
-  inline implicit def fromValue[Wide <: IntP](value: Wide): IntParam[Wide] = value
   @targetName("fromValueInlined")
   inline implicit def fromValue[T <: Int](value: Inlined[T]): IntParam[T] =
     value.asInstanceOf[IntParam[T]]
   @targetName("fromValueWide")
-  def apply(value: IntP): IntParam[Int] = value
+  inline implicit def fromValue[Wide <: IntP](value: Wide): IntParam[Wide] = value
+  def apply[T <: IntP](value: T): IntParam[T] = value
   def forced[V <: IntP](value: IntP): IntParam[V] = value.asInstanceOf[IntParam[V]]
   @targetName("applyInlined")
   def apply[V <: Int](value: Inlined[V]): IntParam[V] = value.asInstanceOf[IntParam[V]]
