@@ -1,9 +1,7 @@
 package AES
 
-import dfhdl.{apply => _, *}
-// export dfhdl.apply
+import dfhdl.*
 import dfhdl.lib.algebra.*
-export dfhdl.lib.algebra.apply
 
 import scala.annotation.targetName
 import scala.collection.mutable.ArrayBuffer

@@ -1,6 +1,8 @@
 package dfhdl.lib.algebra
-import dfhdl.{apply => _, *}
+import dfhdl.*
 import scala.annotation.targetName
+//because we define our own `apply` here and still use the dfhdl.apply, we need to export it here
+//to prevent ambiguities. See: https://contributors.scala-lang.org/t/relaxed-extension-methods-sip-54-are-not-relaxed-enough/6585
 export dfhdl.apply
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 // AES Matrix Data Structure
