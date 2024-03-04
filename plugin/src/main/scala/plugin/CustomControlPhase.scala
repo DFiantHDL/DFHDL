@@ -718,7 +718,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                 .flatMap(_.zipWithIndex)
                 .sortBy(_._2)
                 .map(_._1)
-            var relBitHigh: Int = selectorWidth
+            var relBitHigh: Int = selectorWidth - 1
             var bindSelTrees: List[Tree] = Nil
             fullSI.foreach {
               case Literal(Constant(e: String)) =>
@@ -757,9 +757,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
                     break(EmptyTree)
 
             }
-            if (relBitHigh != 0)
+            if (relBitHigh != -1)
               report.error(
-                s"""Cannot compare a value of ${selectorWidth} bits width (LHS) to a value of ${selectorWidth - relBitHigh} bits width (RHS).
+                s"""Cannot compare a value of ${selectorWidth} bits width (LHS) to a value of ${selectorWidth - relBitHigh - 1} bits width (RHS).
                    |An explicit conversion must be applied.""".stripMargin,
                 patternTree.srcPos
               )
