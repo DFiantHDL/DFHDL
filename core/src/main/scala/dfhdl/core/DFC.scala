@@ -60,7 +60,7 @@ final case class DFC(
 end DFC
 object DFC:
   // DFC given must be inline to force new DFC is generated for every missing DFC summon.
-  inline given dfc(using TopLevel): DFC = empty
+  inline given dfc: DFC = empty // (using TopLevel)
   def empty: DFC =
     DFC(None, Position.unknown, None)
   sealed trait Scope

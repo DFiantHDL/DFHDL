@@ -43,19 +43,19 @@ class DropBindsSpec extends StageSpec:
          |  val x = Bits(16) <> IN
          |  val y = Packet <> IN
          |  val z = Bits(8) <> OUT
-         |  val hi = x(12, 9)
-         |  val hi = x(8, 5)
+         |  val hi = x(11, 8)
+         |  val hi = x(7, 4)
          |  x match
          |    case h"8?88" => z := hi.resize(8)
          |    case h"fb?e" =>
          |  end match
-         |  val same = x(12, 9)
+         |  val same = x(11, 8)
          |  x match
          |    case h"8?88" =>
          |    case h"f?be" =>
          |  end match
-         |  val hi = x(8, 5)
-         |  val there = y.header(6, 3)
+         |  val hi = x(7, 4)
+         |  val there = y.header(5, 2)
          |  (x, y) match
          |    case (h"fb?e", Packet(b"10????01", d"8'55")) if hi == there =>
          |    case _ =>
