@@ -112,13 +112,16 @@ object NamedAliases:
       def apply()(using MemberGetSet): DFVal => List[DFVal] = {
         case dfVal if !dfVal.isAnonymous => Nil
         case dfVal                       =>
-          // referenced more than once (excluding else/case blocks referencing their headers)
-          val refs = getSet.designDB.memberTable.getOrElse(dfVal, Set()).view.collect {
-            case r: DFRef.TwoWayAny if !cbTags.contains(r.refType) => r
+          // referenced more than once (excluding else/case blocks referencing their headers & type refs)
+          val refs = getSet.designDB.memberTable.getOrElse(dfVal, Set()).view.flatMap {
+            case _: DFRef.TypeRef                                  => None
+            case r: DFRef.TwoWayAny if !cbTags.contains(r.refType) => Some(r)
+            case _                                                 => None
           }
           if (refs.size > 1) List(dfVal)
           else Nil
       }
+    end NamedAnonMultiref
   end Criteria
 end NamedAliases
 
