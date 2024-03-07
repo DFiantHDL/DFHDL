@@ -26,7 +26,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     val entries =
       dfType.entries.view
         .map((n, v) =>
-          s"case $n extends $enumName(${printer.csDFDecimalData(DFUInt(dfType.width), Some(v))})"
+          s"case $n extends $enumName(${printer.csDFDecimalData(DFUInt(IntParamRef(dfType.width)), Some(v))})"
         )
         .mkString("\n")
         .hindent

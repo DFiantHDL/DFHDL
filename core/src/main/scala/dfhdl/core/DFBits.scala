@@ -10,7 +10,6 @@ import DFDecimal.Constraints.`LW == RW`
 
 type DFBits[W <: IntP] = DFType[ir.DFBits, Args1[W]]
 object DFBits:
-  // TODO: IntP
   def apply[W <: IntP](width: IntParam[W])(using
       dfc: DFC,
       check: Arg.Width.CheckNUB[W]
@@ -188,10 +187,11 @@ object DFBits:
                 report.errorAndAbort(msg)
           case _ => TypeRepr.of[Int]
         val widthTpe: TypeRepr = explicitWidthTpeOption.getOrElse(interpWidthTpe)
-        val widthType = widthTpe.asTypeOf[Int]
+        val widthType = widthTpe.asTypeOf[IntP]
+        val fullExpr = fullTerm.asExprOf[String]
         '{
           val dfc = compiletime.summonInline[DFC]
-          ${ fullTerm.asExprOf[String] }.interpolate[widthType.Underlying](
+          $fullExpr.interpolate[widthType.Underlying](
             $opExpr,
             $explicitWidthOptionExpr
           )(using dfc)
@@ -334,8 +334,8 @@ object DFBits:
             case '0' | '1' if op == "b" => true
             case x =>
               report.errorAndAbort(
-                s"""Found invalid character: ${x}.
-                      |Note: string interpolation with value extraction does not support the `[w']` width extension syntax.""".stripMargin
+                s"""|Found invalid character: ${x}.
+                    |Note: string interpolation with value extraction does not support the `[w']` width extension syntax.""".stripMargin
               )
           }
           Expr(partFiltered)
@@ -344,7 +344,6 @@ object DFBits:
           Some(Seq(${ vArgs }*))
         }
       else
-        def noSepLength = partsStr.head.filterNot(x => x == ' ' || x == '_').length
         val dfVal = partsStr.head match
           case widthExp(widthStr, wordStr) =>
             Literal(StringConstant(wordStr)).interpolate(

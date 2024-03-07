@@ -331,7 +331,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  logic [width-1:0] cnt_reg;
          |  always @(*)
          |  begin
-         |    cnt = cnt_reg + 8'd1;
+         |    cnt = cnt_reg + width'd1;
          |  end
          |  always @(posedge clk)
          |  begin
@@ -360,16 +360,16 @@ class PrintVerilogCodeSpec extends StageSpec:
          |module Counter#(parameter int width = 8)(
          |  input wire logic clk,
          |  input wire logic rst,
-         |  output logic [width-1:0] cnt = 8'd0
+         |  output logic [width-1:0] cnt = width'd0
          |);
          |  logic [width-1:0] cnt_reg;
          |  always @(*)
          |  begin
-         |    cnt = cnt_reg + 8'd1;
+         |    cnt = cnt_reg + width'd1;
          |  end
          |  always @(posedge clk)
          |  begin
-         |    if (rst == 1'b1) cnt_reg <= 8'd0;
+         |    if (rst == 1'b1) cnt_reg <= width'd0;
          |    else cnt_reg <= cnt;
          |  end
          |endmodule

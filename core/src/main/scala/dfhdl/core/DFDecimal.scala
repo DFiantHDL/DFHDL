@@ -312,57 +312,67 @@ object DFDecimal:
   end Constraints
 
   object StrInterp:
-    private val widthIntExp = "(\\d+)'(-?\\d+)".r
-    private val widthFixedExp = "(\\d+)\\.(\\d+)'(-?\\d+)\\.?(\\d*)".r
+    private[DFDecimal] val widthIntExp = "(\\d+)'(-?\\d+)".r
+    private[DFDecimal] val widthFixedExp = "(\\d+)\\.(\\d+)'(-?\\d+)\\.?(\\d*)".r
     private val intExp = "(-?\\d+)".r
+    private[DFDecimal] def fromIntDecString(
+        numStr: String,
+        signedForced: Boolean
+    ): (Boolean, Int, Int, BigInt) =
+      val value = BigInt(numStr)
+      val signed = value < 0 | signedForced
+      val actualWidth = value.bitsWidth(signed)
+      (signed, actualWidth, 0, value)
     private def fromDecString(
         dec: String,
         signedForced: Boolean
     ): Either[String, (Boolean, Int, Int, BigInt)] =
-      def fromValidString(numStr: String): (Boolean, Int, Int, BigInt) =
-        val value = BigInt(numStr)
-        val signed = value < 0 | signedForced
-        val actualWidth = value.bitsWidth(signed)
-        (signed, actualWidth, 0, value)
       dec.replace(",", "").replace("_", "") match
-        case widthFixedExp(
-              magnitudeWidthStr,
-              fractionWidthStr,
-              magnitudeStr,
-              fractionStr
-            ) =>
-          val explicitMagnitudeWidth = magnitudeWidthStr.toInt
-          val explicitFractionWidth = fractionWidthStr.toInt
-          val magnitude = BigInt(magnitudeStr)
-          val fraction =
-            if (fractionStr.isEmpty) BigInt(0) else BigInt(fractionStr)
-          Left("Fixed-point decimal literals are not yet supported")
-        case widthIntExp(widthStr, numStr) =>
-          val explicitWidth = widthStr.toInt
-          val (signed, width, fractionWidth, value) = fromValidString(numStr)
-          if (explicitWidth < width)
-            Left(
-              s"Explicit given width ($explicitWidth) is smaller than the actual width ($width)"
-            )
-          else
-            Right((signed, explicitWidth, fractionWidth, value))
-        case intExp(numStr) => Right(fromValidString(numStr))
+        case intExp(numStr) => Right(fromIntDecString(numStr, signedForced))
         case _ =>
           Left(s"Invalid decimal pattern found: $dec")
       end match
     end fromDecString
 
+    extension (fullTerm: String)
+      private[DFDecimal] def interpolate[S <: Boolean, W <: IntP, F <: Int](
+          op: String,
+          explicitWidthOption: Option[IntP]
+      )(using DFC): DFConstOf[DFDecimal[S, W, F, BitAccurate]] =
+        val (interpSigned, interpWidth, interpFractionWidth, interpValue) =
+          fromDecString(fullTerm, op == "sd").toOption.get
+        val signed = Inlined.forced[S](interpSigned)
+        val width = IntParam.forced[W](explicitWidthOption.getOrElse(interpWidth))
+        val fractionWidth = Inlined.forced[F](interpFractionWidth)
+        DFVal.Const(
+          DFDecimal(signed, width, fractionWidth, BitAccurate),
+          Some(interpValue),
+          named = true
+        )
+
     extension (using Quotes)(fullTerm: quotes.reflect.Term)
       private[DFDecimal] def interpolate(
-          opExpr: Expr[String]
+          opExpr: Expr[String],
+          explicitWidthOptionExpr: Expr[Option[IntP]]
       ): Expr[DFConstAny] =
         import quotes.reflect.*
+        val explicitWidthTpeOption: Option[TypeRepr] = explicitWidthOptionExpr match
+          case '{ Some($expr) } => Some(expr.asTerm.tpe)
+          case _                => None
         val signedForced = opExpr.value.get == "sd"
-        val (signedTpe, widthTpe, fractionWidthTpe): (TypeRepr, TypeRepr, TypeRepr) =
+        val (signedTpe, interpWidthTpe, fractionWidthTpe): (TypeRepr, TypeRepr, TypeRepr) =
           fullTerm match
             case Literal(StringConstant(t)) =>
               fromDecString(t, signedForced) match
                 case Right((signed, width, fractionWidth, _)) =>
+                  explicitWidthTpeOption match
+                    case Some(ConstantType(IntConstant(explicitWidth))) =>
+                      val actualWidth = fromIntDecString(t, signedForced)._2
+                      if (explicitWidth < actualWidth)
+                        report.errorAndAbort(
+                          s"Explicit given width ($explicitWidth) is smaller than the actual width ($actualWidth)."
+                        )
+                    case _ =>
                   (
                     ConstantType(BooleanConstant(signed)),
                     ConstantType(IntConstant(width)),
@@ -371,23 +381,21 @@ object DFDecimal:
                 case Left(msg) =>
                   report.errorAndAbort(msg)
             case _ => (TypeRepr.of[Boolean], TypeRepr.of[Int], TypeRepr.of[Int])
+        val widthTpe: TypeRepr = explicitWidthTpeOption.getOrElse(interpWidthTpe)
         val signedType = signedTpe.asTypeOf[Boolean]
-        val widthType = widthTpe.asTypeOf[Int]
+        val widthType = widthTpe.asTypeOf[IntP]
         val fractionWidthType = fractionWidthTpe.asTypeOf[Int]
         val fullExpr = fullTerm.asExprOf[String]
         '{
-          import dfhdl.internals.Inlined
-          val (signed, width, fractionWidth, value) =
-            fromDecString($fullExpr, ${ Expr(signedForced) }).toOption.get
           val dfc = compiletime.summonInline[DFC]
-          val dfType =
-            DFDecimal.forced[
-              signedType.Underlying,
-              widthType.Underlying,
-              fractionWidthType.Underlying,
-              BitAccurate
-            ](signed, width, fractionWidth, BitAccurate)(using dfc)
-          DFVal.Const(dfType, Some(value), named = true)(using dfc)
+          $fullExpr.interpolate[
+            signedType.Underlying,
+            widthType.Underlying,
+            fractionWidthType.Underlying
+          ](
+            $opExpr,
+            $explicitWidthOptionExpr
+          )(using dfc)
         }
       end interpolate
     end extension
@@ -395,7 +403,7 @@ object DFDecimal:
 
   // Unclear why, but the compiler crashes if we do not separate these definitions from StrInterp
   object StrInterpOps:
-    import StrInterp.{fromDecString, interpolate}
+    import StrInterp.{fromDecString, interpolate, widthIntExp}
     opaque type DecStrCtx <: StringContext = StringContext
     object DecStrCtx:
       extension (inline sc: DecStrCtx)
@@ -413,12 +421,12 @@ object DFDecimal:
         *   - `dec` is a sequence of decimal characters ('0'-'9') with an optional prefix `-` for
         *     negative values.
         *   - Separators `_` (underscore) and `,` (comma) within `dec` are ignored.
-        *   - `width`, followed by a `'`, is optional and specifies the minimum width of the
-        *     integer's bit representation. If omitted, the width is inferred from the value's size.
-        *     If specified, the output is padded with zeros or extended for signed numbers using
-        *     two's complement representation to match the `width`.
-        *   - The output type is `UInt[W]` for natural numbers and `SInt[W]` for negative numbers,
-        *     where `W` is the width in bits.
+        *   - `width`, followed by a `'`, is optional and specifies the exact width of the integer's
+        *     bit representation. If omitted, the width is inferred from the value's size. If
+        *     specified, the output is padded with zeros or extended for signed numbers using two's
+        *     complement representation to match the `width`.
+        *   - The output type is unsigned `UInt[W]` for natural numbers and signed `SInt[W]` for
+        *     negative numbers, where `W` is the width in bits.
         *   - If the specified `width` is less than the required number of bits to represent the
         *     value, an error occurs.
         *
@@ -446,9 +454,8 @@ object DFDecimal:
         *   - `dec` is a sequence of decimal characters ('0'-'9') with an optional prefix `-` for
         *     negative values.
         *   - Separators `_` (underscore) and `,` (comma) within `dec` are ignored.
-        *   - `width`, followed by a `'`, is optional and specifies the minimum width of the
-        *     integer's bit representation, which is always at least 2 bits to accommodate the sign
-        *     bit.
+        *   - `width`, followed by a `'`, is optional and specifies the exact width of the integer's
+        *     bit representation, which is always at least 2 bits to accommodate the sign bit.
         *   - The output is always a signed integer type `SInt[W]`, regardless of whether the `dec`
         *     value is negative or natural, where `W` is the width in bits.
         *   - If the specified `width` is less than the required number of bits to represent the
@@ -456,9 +463,9 @@ object DFDecimal:
         *
         * @example
         *   {{{
-        *   sd"0"     // SInt[2], value = 0 (unsigned number represented as a signed type)
+        *   sd"0"     // SInt[2], value = 0 (natural number represented as a signed type)
         *   sd"-1"    // SInt[2], value = -1
-        *   sd"255"   // SInt[9], value = 255 (unsigned number represented as a signed type)
+        *   sd"255"   // SInt[9], value = 255 (natural number represented as a signed type)
         *   sd"8'255" // Error: width is too small to represent the value including the sign bit
         *   }}}
         *
@@ -477,15 +484,53 @@ object DFDecimal:
         sc: Expr[DecStrCtx],
         args: Expr[Seq[Any]]
     )(using Quotes): Expr[DFConstAny] =
-      sc.scPartsWithArgs(args).interpolate(Expr(sc.funcName))
+      import quotes.reflect.*
+      var Varargs(argsExprs) = args: @unchecked
+
+      var parts = sc.parts.map(_.value.get).toList
+      var explicitWidthOption: Expr[Option[IntP]] = '{ None }
+      parts match
+        case "" :: p :: _ if p.startsWith("'") =>
+          argsExprs.headOption.map(_.asTerm) match
+            case Some(t) =>
+              t.tpe.asType match
+                case '[IntP] =>
+                  argsExprs = argsExprs.drop(1)
+                  parts = p.drop(1) :: parts.drop(2)
+                  explicitWidthOption = '{ Some(${ t.asExprOf[IntP] }) }
+                case '[DFValAny] =>
+                  report.errorAndAbort(
+                    s"Expecting a constant DFHDL Int value but found: `${t.tpe.showType}`",
+                    t.pos
+                  )
+                case _ =>
+                  report.errorAndAbort(
+                    s"Unsupported type as the width interpolation argument. Found: `${t.tpe.showType}`",
+                    t.pos
+                  )
+
+            case _ =>
+        case widthIntExp(widthStr, wordStr) :: rest =>
+          parts = wordStr :: rest
+          explicitWidthOption = '{ Some(${ Expr(widthStr.toInt) }) }
+        case _ =>
+      end match
+      // println(widthParamOption.map(_.show))
+      parts.map(Expr(_)).scPartsWithArgs(argsExprs).interpolate(
+        Expr(sc.funcName),
+        explicitWidthOption
+      )
+    end applyMacro
 
     private def unapplySeqMacro[T <: DFTypeAny](
         sc: Expr[DecStrCtx],
         arg: Expr[DFValOf[T]]
     )(using Quotes, Type[T]): Expr[Option[Seq[DFValOf[T]]]] =
       import quotes.reflect.*
-      val parts = sc.parts.map(_.asTerm).toList
+      val parts = sc.parts
+      val partsStr = parts.map(_.value.get).toList
       val op = sc.funcName
+      val opExpr = Expr(op)
       if (parts.length > 1)
         '{
           compiletime.error(
@@ -494,7 +539,13 @@ object DFDecimal:
           Some(Seq())
         }
       else
-        val dfVal = parts.head.interpolate(Expr(op))
+        val dfVal = partsStr.head match
+          case widthIntExp(widthStr, wordStr) =>
+            Literal(StringConstant(wordStr)).interpolate(
+              opExpr,
+              '{ Some(${ Expr(widthStr.toInt) }) }
+            )
+          case _ => parts.head.asTerm.interpolate(opExpr, '{ None })
         val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
         '{
           val tc = compiletime.summonInline[
@@ -599,7 +650,7 @@ object DFXInt:
         type OutSMask = Boolean
         type OutWMask = Int
         type IsScalaInt = false
-        def apply(arg: R)(using DFC): Out = arg.asValTP[DFXInt[Boolean, Int, Int32], CONST]
+        def apply(arg: R)(using DFC): Out = arg
       given fromDFXIntVal[S <: Boolean, W <: IntP, N <: NativeType, P, R <: DFValTP[
         DFXInt[S, W, N],
         P
@@ -676,12 +727,12 @@ object DFXInt:
                         import DFSInt.Val.Ops.toInt
                         rhsSignFix.toInt.asIR
                       case BitAccurate =>
-                        rhsSignFix.resize(dfType.width).asIR
+                        rhsSignFix.resize(dfType.widthIntParam).asIR
                   else if (
                     dfType.width > rhsSignFix.width ||
                     rhs.hasTag[DFVal.TruncateTag] && dfType.width < rhsSignFix.width
                   )
-                    rhsSignFix.resize(dfType.width).asIR
+                    rhsSignFix.resize(dfType.widthIntParam).asIR
                   else rhsSignFix.asIR
               end dfValIR
               dfValIR.asValTP[DFXInt[LS, LW, LN], ic.OutP]
@@ -725,7 +776,7 @@ object DFXInt:
             else dfValArg
           val dfValArgResized =
             if (dfValArgSigned.width < dfType.width)
-              dfValArgSigned.asValOf[DFXInt[Boolean, Int, NativeType]].resize(dfType.width)
+              dfValArgSigned.asValOf[DFXInt[Boolean, Int, NativeType]].resize(dfType.widthIntParam)
             else dfValArgSigned
           dfValArgResized.asValTP[DFXInt[LS, LW, LN], ic.OutP]
         end conv
@@ -852,7 +903,7 @@ object DFXInt:
             rhs.asValTP[DFUInt[Int], RP].signed(using dfcAnon)
           else rhs
         val rhsFixSize =
-          rhsFixSign.asValTP[DFSInt[Int], RP].resize(lhs.width)(using dfcAnon)
+          rhsFixSign.asValTP[DFSInt[Int], RP].resize(lhs.widthIntParam)(using dfcAnon)
         DFVal.Func(dfType, op, List(lhs, rhsFixSize))
       end arithOp
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
@@ -1188,7 +1239,7 @@ type DFUInt[W <: IntP] = DFXInt[false, W, BitAccurate]
 object DFUInt:
   def apply[W <: IntP](width: IntParam[W])(using DFC, Width.CheckNUB[false, W]): DFUInt[W] =
     DFXInt(false, width, BitAccurate)
-  def apply[W <: Int](using dfc: DFC, dfType: => DFUInt[W]): DFUInt[W] = trydf { dfType }
+  def apply[W <: IntP](using dfc: DFC, dfType: => DFUInt[W]): DFUInt[W] = trydf { dfType }
   def until[V <: Int](sup: Inlined[V])(using
       dfc: DFC,
       check: Arg.LargerThan1.Check[V],

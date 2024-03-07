@@ -17,12 +17,16 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
   def csDFBoolFormat(value: Boolean): String = if (value) "1" else "0"
   def csDFBitFormat(bitRep: String): String = csDFBitsBinFormat(bitRep)
   val allowDecimalBigInt: Boolean = true
-  def csDFUIntFormatBig(value: BigInt, width: Int): String = s"""${width}'d$value"""
-  def csDFSIntFormatBig(value: BigInt, width: Int): String =
-    if (value >= 0) s"""$width'sd$value"""
-    else s"""-$width'sd${-value}"""
-  def csDFUIntFormatSmall(value: BigInt, width: Int): String = csDFUIntFormatBig(value, width)
-  def csDFSIntFormatSmall(value: BigInt, width: Int): String = csDFSIntFormatBig(value, width)
+  def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String =
+    s"""${width.refCodeString.applyBrackets()}'d$value"""
+  def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String =
+    val csWidth = width.refCodeString.applyBrackets()
+    if (value >= 0) s"""$csWidth'sd$value"""
+    else s"""-$csWidth'sd${-value}"""
+  def csDFUIntFormatSmall(value: BigInt, width: Int): String =
+    csDFUIntFormatBig(value, IntParamRef(width))
+  def csDFSIntFormatSmall(value: BigInt, width: Int): String =
+    csDFSIntFormatBig(value, IntParamRef(width))
   def csDFUIntDataFromBits(csBits: String): String = s"""$$unsigned($csBits)"""
   def csDFSIntDataFromBits(csBits: String): String = s"""$$signed($csBits)"""
   def csDFUIntBubble(width: Int): String = bubbleBits(width)

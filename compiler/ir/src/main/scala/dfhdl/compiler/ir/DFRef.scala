@@ -37,8 +37,14 @@ object IntParamRef:
   def apply(int: Int): IntParamRef = int
   def apply(ref: DFRef.TypeRef): IntParamRef = ref
   extension (intParamRef: IntParamRef)
+    def isInt: Boolean = intParamRef match
+      case int: Int => true
+      case _        => false
     def getInt(using MemberGetSet): Int = (intParamRef: @unchecked) match
       case Int(int) => int
+    def isRef: Boolean = intParamRef match
+      case ref: DFRef.TypeRef => true
+      case _                  => false
     def getRef: Option[DFRef.TypeRef] = intParamRef match
       case ref: DFRef.TypeRef => Some(ref)
       case _                  => None

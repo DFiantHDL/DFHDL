@@ -106,7 +106,7 @@ final case class DFDecimal(
     fractionWidth: Int,
     // currently nativeType only applies when width is 32-bit and is indicating
     // an `Int` in DFHDL, an `integer` in VHDL, and `int` in Verilog
-    nativeType: DFDecimal.NativeType = DFDecimal.NativeType.BitAccurate
+    nativeType: DFDecimal.NativeType
 ) extends DFType:
   type Data = Option[BigInt]
   def width(using MemberGetSet): Int = widthParamRef.getInt
@@ -128,7 +128,7 @@ final case class DFDecimal(
         case _ => ??? // not supported yet
     else None
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  def getRefs: List[DFRef.TwoWayAny] = widthParamRef.getRef.toList
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
@@ -137,10 +137,6 @@ object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
   object NativeType:
     type BitAccurate = BitAccurate.type
     type Int32 = Int32.type
-    given ValueOf[BitAccurate] = ValueOf(BitAccurate)
-    given ValueOf[Int32] = ValueOf(Int32)
-  def apply(signed: Boolean, width: Int, fractionWidth: Int, nativeType: NativeType): DFDecimal =
-    DFDecimal(signed, IntParamRef(width), fractionWidth, nativeType)
 end DFDecimal
 
 import DFDecimal.NativeType
@@ -154,7 +150,6 @@ object DFXInt:
 
 object DFUInt:
   def apply(width: IntParamRef): DFDecimal = DFDecimal(false, width, 0, BitAccurate)
-  def apply(width: Int): DFDecimal = DFDecimal(false, width, 0, BitAccurate)
   def unapply(arg: DFDecimal): Option[IntParamRef] =
     arg match
       case DFDecimal(false, width, 0, BitAccurate) => Some(width)
@@ -162,7 +157,6 @@ object DFUInt:
 
 object DFSInt:
   def apply(width: IntParamRef): DFDecimal = DFDecimal(true, width, 0, BitAccurate)
-  def apply(width: Int): DFDecimal = DFDecimal(true, width, 0, BitAccurate)
   def unapply(arg: DFDecimal): Option[IntParamRef] =
     arg match
       case DFDecimal(true, width, 0, BitAccurate) => Some(width)

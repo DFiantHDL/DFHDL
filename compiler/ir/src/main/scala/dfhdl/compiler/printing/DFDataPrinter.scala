@@ -83,8 +83,8 @@ trait AbstractDataPrinter extends AbstractPrinter:
           case DFBit  => csDFBitFormat(if (value) "1" else "0")
       case None => csDFBitFormat(s"${csDFBitBubbleChar}")
   val allowDecimalBigInt: Boolean
-  def csDFUIntFormatBig(value: BigInt, width: Int): String
-  def csDFSIntFormatBig(value: BigInt, width: Int): String
+  def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String
+  def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String
   def csDFUIntFormatSmall(value: BigInt, width: Int): String
   def csDFSIntFormatSmall(value: BigInt, width: Int): String
   def csDFUIntDataFromBits(csBits: String): String
@@ -95,7 +95,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
     csDFBitsData(DFBits(width), (BitVector.low(width), BitVector.high(width)))
 
   final def csDFDecimalData(dfType: DFDecimal, data: Option[BigInt]): String =
-    import dfType.width
+    import dfType.{width, widthParamRef}
     data match
       case Some(value) =>
         def csBits = csDFBitsData(DFBits(width), (value.toBitVector(width), BitVector.low(width)))
@@ -103,9 +103,9 @@ trait AbstractDataPrinter extends AbstractPrinter:
           // native integers are printed as they are (this assumes in all backends integers are printed the same)
           if (dfType.isDFInt32) value.toString()
           // if the language supports big integers (with explicit widths) we can simply display the values
-          else if (allowDecimalBigInt)
-            if (dfType.signed) csDFSIntFormatBig(value, width)
-            else csDFUIntFormatBig(value, width)
+          else if (allowDecimalBigInt || widthParamRef.isRef)
+            if (dfType.signed) csDFSIntFormatBig(value, widthParamRef)
+            else csDFUIntFormatBig(value, widthParamRef)
           // otherwise, we need to reply on small value representation or cast a bits representation
           // for big integers
           else if (dfType.signed)
@@ -148,13 +148,18 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
   def csDFBitBubbleChar: Char = '?'
   def csDFBitsBinFormat(binRep: String): String = s"""b"$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""h"$hexRep""""
+  def csWidthInterp(width: IntParamRef): String = width match
+    case int: Int => int.toString
+    case _        => s"$${${width.refCodeString}}"
   def csDFBitsHexFormat(hexRep: String, width: IntParamRef): String =
-    s"""h"${width.refCodeString.applyBrackets()}'$hexRep""""
+    s"""h"${csWidthInterp(width)}'$hexRep""""
   def csDFBoolFormat(value: Boolean): String = value.toString()
   def csDFBitFormat(bitRep: String): String = bitRep
   val allowDecimalBigInt: Boolean = true
-  def csDFUIntFormatBig(value: BigInt, width: Int): String = s"""d"$width'$value""""
-  def csDFSIntFormatBig(value: BigInt, width: Int): String = s"""sd"$width'$value""""
+  def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String =
+    s"""d"${csWidthInterp(width)}'$value""""
+  def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String =
+    s"""sd"${csWidthInterp(width)}'$value""""
   def csDFUIntFormatSmall(value: BigInt, width: Int): String = value.toString
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = value.toString
   def csDFUIntDataFromBits(csBits: String): String = s"$csBits.uint"

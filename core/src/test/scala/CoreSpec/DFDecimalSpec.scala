@@ -69,6 +69,7 @@ class DFDecimalSpec extends DFSpec:
       """|val c: UInt[8] <> CONST = d"8'1"
          |val i: Int <> CONST = 100
          |val ni: Int <> CONST = -100
+         |val param: Int <> CONST = 8
          |val v = UInt(8) <> VAR init c + d"8'1"
          |val b8 = Bits(8) <> VAR
          |val u8 = UInt(8) <> VAR init d"8'255"
@@ -76,6 +77,8 @@ class DFDecimalSpec extends DFSpec:
          |val u8b = UInt(8) <> VAR init i.resize(8)
          |val u6 = UInt(6) <> IN
          |val s6 = SInt(6) <> IN
+         |val u8p = UInt(param) <> VAR init d"${param}'0"
+         |val s8p = SInt(param) <> VAR init sd"${param}'-1"
          |u8 := i.resize(8)
          |val b6: Bits[6] <> CONST = h"6'00"
          |val s32 = Int <> VAR init 0
@@ -108,6 +111,7 @@ class DFDecimalSpec extends DFSpec:
       val c: UInt[8] <> CONST = 1
       val i: Int <> CONST = 100
       val ni: Int <> CONST = -100
+      val param: Int <> CONST = 8
       assert(c.toScalaInt == 1)
       val v = UInt(8) <> VAR init c + 1
       assertCompileError(
@@ -121,6 +125,8 @@ class DFDecimalSpec extends DFSpec:
       val u8b = UInt(8) <> VAR init i
       val u6 = UInt(6) <> IN
       val s6 = SInt(6) <> IN
+      val u8p = UInt[param.type] <> VAR init 0
+      val s8p = SInt[param.type] <> VAR init -1
       u8 := i
       assertDSLErrorLog(
         "Cannot apply a signed value to an unsigned variable."

@@ -187,7 +187,7 @@ class ToEDSpec extends StageSpec:
          |  val cnt = Bits(width) <> OUT init b"0".repeat(width)
          |  val cnt_reg = Bits(width) <> VAR
          |  process(all):
-         |    cnt := (cnt_reg.uint + d"8'1").bits
+         |    cnt := (cnt_reg.uint + d"${width}'1").bits
          |  process(clk):
          |    if (clk.rising)
          |      if (rst == 1) cnt_reg :== b"0".repeat(width)
@@ -211,12 +211,12 @@ class ToEDSpec extends StageSpec:
       """|class Counter(val width: Int <> CONST = 8) extends EDDesign:
          |  val clk = Bit <> IN
          |  val rst = Bit <> IN
-         |  val cnt = UInt(width) <> OUT init d"8'0"
+         |  val cnt = UInt(width) <> OUT init d"${width}'0"
          |  val cnt_reg = UInt(width) <> VAR
          |  process(all):
-         |    cnt := cnt_reg + d"8'1"
+         |    cnt := cnt_reg + d"${width}'1"
          |  process(clk, rst):
-         |    if (rst == 0) cnt_reg :== d"8'0"
+         |    if (rst == 0) cnt_reg :== d"${width}'0"
          |    else if (clk.falling) cnt_reg :== cnt
          |end Counter
          |""".stripMargin

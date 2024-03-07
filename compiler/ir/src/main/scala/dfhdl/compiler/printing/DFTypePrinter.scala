@@ -80,11 +80,11 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     val entries =
       dfType.entries.view
         .map((n, v) =>
-          s"case $n extends $enumName(${printer.csDFDecimalData(DFUInt(dfType.width), Some(v))})"
+          s"case $n extends $enumName(${printer.csDFDecimalData(DFUInt(IntParamRef(dfType.width)), Some(v))})"
         )
         .mkString("\n")
         .hindent
-    s"enum ${enumName}(val value: ${csDFDecimal(DFUInt(dfType.width), true)} <> CONST) extends Encode.Manual(${dfType.width}):\n$entries"
+    s"enum ${enumName}(val value: ${csDFDecimal(DFUInt(IntParamRef(dfType.width)), true)} <> CONST) extends Encode.Manual(${dfType.width}):\n$entries"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*

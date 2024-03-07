@@ -17,10 +17,12 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
   def csDFBoolFormat(value: Boolean): String = value.toString()
   def csDFBitFormat(bitRep: String): String = s"'$bitRep'"
   val allowDecimalBigInt: Boolean = true
-  def csDFUIntFormatBig(value: BigInt, width: Int): String = s"""${width}d"$value""""
-  def csDFSIntFormatBig(value: BigInt, width: Int): String =
-    if (value >= 0) s"""${width}d"$value""""
-    else s"""-${width}d"${-value}""""
+  def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String =
+    s"""${width.refCodeString.applyBrackets()}d"$value""""
+  def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String =
+    val csWidth = width.refCodeString.applyBrackets()
+    if (value >= 0) s"""${csWidth}d"$value""""
+    else s"""-${csWidth}d"${-value}""""
   def csDFUIntFormatSmall(value: BigInt, width: Int): String = s"to_unsigned($value, $width)"
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = s"to_signed($value, $width)"
   def csDFUIntDataFromBits(csBits: String): String = s"""unsigned'($csBits)"""
