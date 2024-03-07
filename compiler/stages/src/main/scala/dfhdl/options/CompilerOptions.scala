@@ -47,9 +47,9 @@ object CompilerOptions:
 
   opaque type DefaultClkCfg <: ClkCfg = ClkCfg
   given Conversion[ClkCfg, DefaultClkCfg] = x => x
-  given Conversion[None.type, DefaultClkCfg] = x => x
+  given Conversion[None.type, DefaultClkCfg] = x => x.asInstanceOf[DefaultClkCfg]
 
   opaque type DefaultRstCfg <: RstCfg = RstCfg
   given Conversion[RstCfg, DefaultRstCfg] = x => x
-  given Conversion[None.type, DefaultRstCfg] = x => x
+  given Conversion[None.type, DefaultRstCfg] = x => x.asInstanceOf[DefaultRstCfg]
 end CompilerOptions
