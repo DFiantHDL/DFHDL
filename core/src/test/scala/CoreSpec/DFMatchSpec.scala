@@ -69,6 +69,15 @@ class DFMatchSpec extends DFSpec:
          |  y match
          |    case h"DEAD${t13: B[32]}BEEF" => t13
          |  end match
+         |val t14 = Bits(16) <> VAR
+         |t14 := h"????"
+         |val t15 = Bits(16) <> VAR
+         |t15 := h"????"
+         |y match
+         |  case h"DE${_t14: B[16]}ADBE${_t15: B[16]}EF" =>
+         |    t14 := _t14
+         |    t15 := _t15
+         |end match
          |""".stripMargin
     ) {
       x match
@@ -112,7 +121,7 @@ class DFMatchSpec extends DFSpec:
 
       val h"DEAD${t13: B[32]}BEEF" = y: @unchecked
 
-      // val h"DE${t14: B[16]}ADBE${t15: B[16]}EF" = y: @unchecked
+      val h"DE${t14: B[16]}ADBE${t15: B[16]}EF" = y: @unchecked
     }
   }
 

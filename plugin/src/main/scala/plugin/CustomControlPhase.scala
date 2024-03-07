@@ -444,6 +444,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     def getValDefs: List[ValDef] = valDefs.reverse
     def clearBinds(): Unit =
       bindMap = immutable.ListMap()
+    def empty(): Unit =
+      bindMap = immutable.ListMap()
+      valDefs = Nil
   end ValDefGen
 
   private def transformDFCaseGuard(guardTree: Tree)(using
@@ -855,44 +858,79 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       case _ => false
     else false
 
+  extension (tree: Match)
+    def isExtractor(using Context): Boolean =
+      tree.tpe <:< defn.TupleTypeRef && tree.cases.length == 1 && tree.cases.head.guard.isEmpty
+
   override def transformMatch(tree: Match)(using Context): Tree =
     given valDefGen: ValDefGen = new ValDefGen
     tree.selector match
-      case DFVal(newSelector) if !skipTrivialTupleMatch(tree) =>
-        debug("Found DFMatch")
-        val extractorMatch =
-          tree.tpe <:< defn.TupleTypeRef && tree.cases.length == 1 && tree.cases.head.guard.isEmpty
-        if (extractorMatch)
-          val patternTree =
-            transformDFCasePattern(newSelector, tree.cases.head.pat, "_")
-          val guardTree = mkNone
-          val assignmentTrees = valDefGen.getBinds.map { (n, sel) =>
-            val dcl = valDefGen.bind(n, FromCore.extractValDcl(sel, n.toString))
-            FromCore.forcedAssign(dcl, sel)
-          }.toList
-          val blockTree =
-            transformDFCaseBlock(
-              Block(assignmentTrees, Literal(Constant(()))),
-              defn.UnitType
-            )
-          val cases = List(
-            mkTuple(List(patternTree, guardTree, blockTree))
-          )
-          val tupleRet = valDefGen.replaceBinds(tree.cases.head.body)
-          val dfMatch =
-            FromCore.dfMatchFromCases(defn.UnitType, newSelector, cases, true)
-          Block(valDefGen.getValDefs :+ dfMatch, tupleRet)
-        else
-          val cases =
-            tree.cases.map(c => transformDFCase(newSelector, c, tree.tpe))
-          val dfMatch =
-            FromCore.dfMatchFromCases(tree.tpe, newSelector, cases, false)
-          Block(valDefGen.getValDefs, dfMatch)
-        end if
+      case DFVal(newSelector) if !skipTrivialTupleMatch(tree) && !tree.isExtractor =>
+        val cases =
+          tree.cases.map(c => transformDFCase(newSelector, c, tree.tpe))
+        val dfMatch =
+          FromCore.dfMatchFromCases(tree.tpe, newSelector, cases, false)
+        Block(valDefGen.getValDefs, dfMatch)
       case _ =>
         tree
     end match
   end transformMatch
+
+  // This is done for extractor match transformation
+  // Code looks like this:
+  // val $1$ = x match .... case (t1, t2) => (t1, t2)
+  // val t1 = $1$._1
+  // val t2 = $1$._2
+  // Will be transformed into this:
+  // dfMatch generator code
+  // val t1 = <replaced bind for t1>
+  // val t2 = <replaced bind for t2>
+  override def transformStats(trees: List[Tree])(using Context): List[Tree] =
+    given valDefGen: ValDefGen = new ValDefGen
+    // var is populated once a match extractor is found
+    var tplBinds = List.empty[Tree]
+    val retTrees: List[Tree] = trees.foldLeft(List.empty[Tree]) {
+      // replacing binds
+      case (retTrees, vd: ValDef) if tplBinds.nonEmpty =>
+        val tplValElem = tplBinds.head
+        val updatedVD = cpy.ValDef(vd)(rhs = tplBinds.head)
+        tplBinds = tplBinds.drop(1)
+        updatedVD :: retTrees
+      // generating DFMatch to replace Scala match
+      case (retTrees, vd @ ValDef(_, _, tree: Match)) =>
+        tree.selector match
+          case DFVal(newSelector) if !skipTrivialTupleMatch(tree) && tree.isExtractor =>
+            val patternTree =
+              transformDFCasePattern(newSelector, tree.cases.head.pat, "_")
+            val guardTree = mkNone
+            val assignmentTrees = valDefGen.getBinds.map { (n, sel) =>
+              val dcl = valDefGen.bind(n, FromCore.extractValDcl(sel, n.toString))
+              FromCore.forcedAssign(dcl, sel)
+            }.toList
+            val blockTree =
+              transformDFCaseBlock(
+                Block(assignmentTrees, Literal(Constant(()))),
+                defn.UnitType
+              )
+            val cases = List(
+              mkTuple(List(patternTree, guardTree, blockTree))
+            )
+            val dfMatch =
+              FromCore.dfMatchFromCases(defn.UnitType, newSelector, cases, true)
+            val tupleRet = valDefGen.replaceBinds(tree.cases.head.body)(using
+              ctx.withOwner(vd.symbol)
+            )
+            val updatedVD = cpy.ValDef(vd)(rhs = tupleRet)
+            tplBinds = valDefGen.getBinds.values.toList
+            val valDefs = valDefGen.getValDefs.reverse
+            valDefGen.empty()
+            (dfMatch :: valDefs) ++ retTrees
+          case _ => vd :: retTrees
+      // all other statements left as they are
+      case (retTrees, tree) => tree :: retTrees
+    }
+    retTrees.reverse
+  end transformStats
 
   override def prepareForApply(tree: Apply)(using Context): Context =
     /*
