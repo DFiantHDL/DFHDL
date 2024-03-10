@@ -255,7 +255,7 @@ object DFDecimal:
         import dfc.getSet
         import DFXInt.Val.getActualSignedWidth
         val dfValSigned = dfVal.dfType.signed
-        val dfValWidth = dfVal.dfType.width
+        val dfValWidth = dfVal.dfType.widthInt
         val (argSigned, argWidth) = arg.getActualSignedWidth
         val skipSignChecks: Boolean =
           argIsInt.value && !castle && (dfValSigned || !argSigned)
@@ -568,7 +568,7 @@ object DFDecimal:
           dfType: DFDecimal[Boolean, Int, Int, NativeType],
           dfVal: DFValOf[DFDecimal[Boolean, Int, Int, NativeType]]
       )(using DFC): DFValOf[DFDecimal[Boolean, Int, Int, NativeType]] =
-        `LW >= RW`(dfType.width, dfVal.width)
+        `LW >= RW`(dfType.widthInt, dfVal.widthInt)
         `LS >= RS`(dfType.signed, dfVal.dfType.signed)
         dfVal
     end TC
@@ -680,7 +680,7 @@ object DFXInt:
           else None
         int32Data match
           case Some(int) => (int < 0, IntInfo.calcWidth(int))
-          case None      => (dfVal.dfType.signed.value, dfVal.dfType.width.value)
+          case None      => (dfVal.dfType.signed.value, dfVal.dfType.widthInt.value)
 
     object TC:
       def apply(
@@ -688,7 +688,7 @@ object DFXInt:
           dfVal: DFValOf[DFXInt[Boolean, Int, NativeType]]
       )(using DFC): DFValOf[DFXInt[Boolean, Int, NativeType]] =
         val check = summon[TCCheck[Boolean, Int, Boolean, Int]]
-        check(dfType.signed, dfType.width, dfVal.dfType.signed, dfVal.dfType.width)
+        check(dfType.signed, dfType.widthInt, dfVal.dfType.signed, dfVal.dfType.widthInt)
         dfVal
       import DFVal.TC
       given [LS <: Boolean, LW <: IntP, LN <: NativeType, R, IC <: Candidate[R]](using
@@ -712,7 +712,7 @@ object DFXInt:
             case _ =>
               val (rhsSigned, rhsWidth) = rhs.getActualSignedWidth
               if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhsSigned)
-                check(dfType.signed, dfType.width, rhsSigned, rhsWidth)
+                check(dfType.signed, dfType.widthInt, rhsSigned, rhsWidth)
               DFXInt.Val.Ops.toDFXIntOf(rhs)(dfType).asValTP[DFXInt[LS, LW, LN], ic.OutP]
           end match
         end conv
@@ -745,9 +745,9 @@ object DFXInt:
           val dfValArg = ic(arg)
           check(
             dfType.signed,
-            dfType.width,
+            dfType.widthInt,
             dfValArg.dfType.signed,
-            dfValArg.dfType.width
+            dfValArg.dfType.widthInt
           )
           DFXInt.Val.Ops.toDFXIntOf(dfValArg)(dfType).asValTP[DFXInt[LS, LW, LN], ic.OutP]
         end conv
@@ -1231,21 +1231,17 @@ object DFUInt:
   def apply[W <: IntP](width: IntParam[W])(using DFC, Width.CheckNUB[false, W]): DFUInt[W] =
     DFXInt(false, width, BitAccurate)
   def apply[W <: IntP](using dfc: DFC, dfType: => DFUInt[W]): DFUInt[W] = trydf { dfType }
-  def until[V <: Int](sup: Inlined[V])(using
+  def until[V <: IntP](sup: IntParam[V])(using
       dfc: DFC,
-      check: Arg.LargerThan1.Check[V],
-      info: IntInfo[V - 1]
-  ): DFUInt[info.OutW] =
-    check(sup)
-    DFXInt(false, info.width(sup - 1), BitAccurate)
-  // TODO: change max to "to"
-  def max[V <: Int](max: Inlined[V])(using
+      check: Arg.LargerThan1.CheckNUB[V]
+  ): DFUInt[IntP.CLog2[V]] =
+    DFXInt(false, sup.clog2, BitAccurate)
+  def to[V <: IntP](max: IntParam[V])(using
       dfc: DFC,
-      check: Arg.Positive.Check[V],
-      info: IntInfo[V]
-  ): DFUInt[info.OutW] =
+      check: Arg.Positive.CheckNUB[V]
+  ): DFUInt[IntP.CLog2[IntP.+[V, 1]]] =
     check(max)
-    DFXInt(false, info.width(max), BitAccurate)
+    DFXInt(false, (max + 1).clog2, BitAccurate)
 
   protected object Unsigned
       extends Check1[
@@ -1309,7 +1305,7 @@ object DFUInt:
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
           val argVal = ic(arg)
           unsignedCheck(argVal.dfType.signed)
-          widthCheck(ub.clog2, argVal.width)
+          widthCheck(ub.clog2, argVal.widthInt)
           // for constant value we apply an explicit check for the bound
           argVal.asIR match
             case ir.DFVal.Const(dfType: ir.DFDecimal, data: Option[BigInt] @unchecked, _, _, _) =>
@@ -1337,7 +1333,7 @@ object DFUInt:
             dfc: DFC,
             check: `W <= 31`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
-          check(lhs.width)
+          check(lhs.widthInt)
           DFVal.Alias.AsIs(DFInt32, lhs.signed)
         }
       end extension
@@ -1370,7 +1366,7 @@ object DFSInt:
             dfc: DFC,
             check: `W <= 32`.CheckNUB[W]
         ): DFValTP[DFInt32, P] = trydf {
-          check(lhs.width)
+          check(lhs.widthInt)
           DFVal.Alias.AsIs(DFInt32, lhs)
         }
     end Ops

@@ -68,7 +68,11 @@ case object ToED extends Stage:
                   head match
                     case dcl: DFVal.Dcl => getDeps(last, handledMembers)
                     case _ if !handledMembers.contains(head) =>
-                      getDeps(last ++ head.getRefs.map(_.get), handledMembers + head)
+                      val moreMembers = head.getRefs.view.flatMap {
+                        case _: DFRef.TypeRef => None
+                        case r                => Some(r.get)
+                      }
+                      getDeps(last ++ moreMembers, handledMembers + head)
                     case _ => getDeps(last, handledMembers)
                 case Nil => handledMembers
             val processBlockAllMembersSet = members.view.flatMap {

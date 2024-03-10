@@ -31,30 +31,18 @@ class DFTypeSpec extends DFSpec:
   case class MyOpaque() extends Opaque(u7)
 
   test("Inlined width") {
-    val a: Inlined[8] = b8.width
-    assert(b8.width.value == 8)
-    val b: Inlined[1] = bit.width
-    assert(bit.width.value == 1)
-    val c: Inlined[1] = bool.width
-    assert(bool.width.value == 1)
-    val d: Inlined[10] = tpl.width
-    assert(tpl.width.value == 10)
-    val e: Inlined[80] = vec_b8x10.width
-    assert(vec_b8x10.width.value == 80)
-    val f: Inlined[2] = MyEnum1.width
-    assert(MyEnum1.width.value == 2)
-    val g: Inlined[5] = MyEnum2.width
-    assert(MyEnum2.width.value == 5)
-    val h: Inlined[3] = MyEnum3.width
-    assert(MyEnum3.width.value == 3)
-    val i: Inlined[2] = MyEnum4.width
-    assert(MyEnum4.width.value == 2)
-    val j: Inlined[8] = MyEnum5.width
-    assert(MyEnum5.width.value == 8)
-    val k: Inlined[9] = MyStruct.width
-    assert(MyStruct.width.value == 9)
-    val l: Inlined[7] = MyOpaque.width
-    assert(MyOpaque.width.value == 7)
+    b8.verifyWidth(8)
+    bit.verifyWidth(1)
+    bool.verifyWidth(1)
+    tpl.verifyWidth(10)
+    vec_b8x10.verifyWidth(80)
+    MyEnum1.verifyWidth(2)
+    MyEnum2.verifyWidth(5)
+    MyEnum3.verifyWidth(3)
+    MyEnum4.verifyWidth(2)
+    MyEnum5.verifyWidth(8)
+    MyStruct.verifyWidth(9)
+    MyOpaque.verifyWidth(7)
   }
 
   given Printer = DefaultPrinter(using dfc.getSet)

@@ -54,8 +54,8 @@ class DFOpaqueSpec extends DFSpec:
   }
   test("Inlined width") {
     case class y() extends Opaque((o1u8, Bit))
-    o1u8.width.verifyInlined(8)
-    y.width.verifyInlined(9)
+    o1u8.verifyWidth(8)
+    y.verifyWidth(9)
   }
 
   test("Comparison") {

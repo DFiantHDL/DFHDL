@@ -341,10 +341,12 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule
          |""".stripMargin
     )
-  test("Bits operations"):
+  test("Various operations"):
     class Test(val width: Int <> CONST) extends RTDesign:
-      val x = Bits(width) <> OUT
-      val y = Bit         <> OUT
+      val x = Bits(width)       <> OUT
+      val y = Bit               <> OUT
+      val z = UInt.until(width) <> OUT
+      val w = UInt.to(width)    <> OUT
       x := b"${width}'11"
       x := h"${width}'3"
       x := b"11".resize(width)
@@ -352,6 +354,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       y := x.&
       y := x.|
       y := x.^
+      z := 0
+      w := 0
     val top = (new Test(10)).getVerilogCode
     assertNoDiff(
       top,
@@ -366,7 +370,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module Test#(parameter int width = 10)(
          |  output logic [width-1:0] x,
-         |  output logic y
+         |  output logic y,
+         |  output logic [$clog2(width)-1:0] z,
+         |  output logic [$clog2(width + 1)-1:0] w
          |);
          |  always @(*)
          |  begin
@@ -377,6 +383,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    y = &x;
          |    y = |x;
          |    y = ^x;
+         |    z = $clog2(width)'(0);
+         |    w = $clog2(width + 1)'(0);
          |  end
          |endmodule
          |""".stripMargin

@@ -4,8 +4,8 @@ import munit.*
 
 class DFBoolOrBitSpec extends DFSpec:
   test("Inlined width") {
-    Bit.width.verifyInlined(1)
-    Boolean.width.verifyInlined(1)
+    Bit.verifyWidth(1)
+    Boolean.verifyWidth(1)
   }
 
   test("Assignment") {

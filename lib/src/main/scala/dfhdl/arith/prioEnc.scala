@@ -4,12 +4,9 @@ import dfhdl.*
 import internals.{IntInfo, -}
 import scala.runtime.RichInt
 
-//TODO: remove the need for `.value` with full constant propagation.
-//width will be a DFHDL value instead of `Inlined[]`?
-
 @hw.pure
 def prioEncRecur(value: Bits[Int] <> VAL): (Bit, Bits[Int]) <> DFRET =
-  val width = value.width.value
+  val width = value.widthInt
   if (width == 2) (value(1) || value(0), value(1, 1))
   else
     val lsHalf = width / 2
@@ -24,7 +21,7 @@ def prioEncRecur(value: Bits[Int] <> VAL): (Bit, Bits[Int]) <> DFRET =
     info: IntInfo[W - 1]
 ): (Bit, Bits[info.OutW]) <> DFRET =
   require(
-    value.width.value > 1,
-    s"Priority encoded value width must be larger than 1. Found: ${value.width}"
+    value.widthInt > 1,
+    s"Priority encoded value width must be larger than 1. Found: ${value.widthInt}"
   )
   prioEncRecur(value).asValOf[(Bit, Bits[info.OutW])]

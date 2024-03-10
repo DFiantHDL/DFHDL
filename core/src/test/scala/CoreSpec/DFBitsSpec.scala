@@ -15,7 +15,7 @@ class DFBitsSpec extends DFSpec:
   }
   test("Inlined width") {
     val b8 = Bits(8)
-    b8.width.verifyInlined(8)
+    b8.verifyWidth(8)
   }
   test("DFVal Conversion") {
     val w = 2
@@ -60,10 +60,10 @@ class DFBitsSpec extends DFSpec:
       def twice(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
       val t11 = twice(t1); t11.assertPosition(0, 1, 17, 26)
       assertLatestDesignDclPosition(2, 1, 7, 78)
-      assert(t11.width == 16)
+      assert(t11.widthInt == 16)
       @inline def twiceInline(value: Bits[Int] <> VAL): Bits[Int] <> DFRET = (value, value)
       val t12 = twiceInline(t1); t12.assertPosition(0, 1, 17, 32)
-      assert(t12.width == 16)
+      assert(t12.widthInt == 16)
       val t13: Bits[8] <> CONST = (b"1001", h"2")
       val t14: Bits[16] <> CONST = (t13, t13)
       val u8v = Bits(8) <> VAR init (h"aa", h"bb", (h"c", h"d"))

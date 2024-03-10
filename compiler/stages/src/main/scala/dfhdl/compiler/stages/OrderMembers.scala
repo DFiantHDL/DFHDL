@@ -32,14 +32,6 @@ object OrderMembers:
     def apply()(using MemberGetSet): DFMember => Int
   object Order:
     object Simple extends Order:
-      extension (dfVal: DFVal)
-        def isReferencedByAnyDcl(using MemberGetSet): Boolean =
-          dfVal.originMembers.view.exists {
-            case _: DFVal.Dcl => true
-            case DclConst()   => true
-            case dfVal: DFVal => dfVal.isReferencedByAnyDcl
-            case _            => false
-          }
       def apply()(using MemberGetSet): DFMember => Int = {
         // design parameters come first as they are dependent only on external
         // initialization and everything else can depend on them

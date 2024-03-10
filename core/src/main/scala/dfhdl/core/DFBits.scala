@@ -458,7 +458,7 @@ object DFBits:
           dfType: DFBits[Int],
           dfVal: DFValOf[DFBits[Int]]
       )(using DFC): DFValOf[DFBits[Int]] =
-        `LW == RW`(dfType.width, dfVal.width)
+        `LW == RW`(dfType.widthInt, dfVal.widthInt)
         dfVal
       protected object `LW == RW`
           extends Check2[
@@ -480,12 +480,12 @@ object DFBits:
             case ir.DFNothing =>
               dfVal.nameInDFCPosition.asValTP[DFBits[LW], ic.OutP]
             case _ =>
-              if (dfVal.hasTag[DFVal.TruncateTag] && dfType.width < dfVal.width)
+              if (dfVal.hasTag[DFVal.TruncateTag] && dfType.widthInt < dfVal.widthInt)
                 dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], ic.OutP]
-              else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.width > dfVal.width)
+              else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.widthInt > dfVal.widthInt)
                 dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], ic.OutP]
               else
-                check(dfType.width, dfVal.width)
+                check(dfType.widthInt, dfVal.widthInt)
                 dfVal.nameInDFCPosition.asValTP[DFBits[LW], ic.OutP]
         end conv
       end DFBitsFromCandidate
@@ -509,7 +509,7 @@ object DFBits:
         type OutP = ic.OutP
         def conv(dfType: DFBits[LW], arg: R)(using DFC): Out =
           val dfValArg = ic(arg)
-          check(dfType.width, dfValArg.dfType.width)
+          check(dfType.widthInt, dfValArg.dfType.widthInt)
           dfValArg.asValTP[DFBits[LW], ic.OutP]
       given DFBitsCompareSEV[
           LW <: IntP,
@@ -581,7 +581,7 @@ object DFBits:
         ): DFValTP[DFBits[icL.OutW], icL.OutP | icR.OutP] = trydf {
           val lhsVal = icL(lhs)
           val rhsVal = icR(rhs)
-          check(lhsVal.width, rhsVal.width)
+          check(lhsVal.widthInt, rhsVal.widthInt)
           DFVal.Func(lhsVal.dfType, FuncOp.&, List(lhsVal, rhsVal))
         }
         def |[R](rhs: Exact[R])(using icR: Candidate[R])(using
@@ -590,7 +590,7 @@ object DFBits:
         ): DFValOf[DFBits[icL.OutW]] = trydf {
           val lhsVal = icL(lhs)
           val rhsVal = icR(rhs)
-          check(lhsVal.width, rhsVal.width)
+          check(lhsVal.widthInt, rhsVal.widthInt)
           DFVal.Func(lhsVal.dfType, FuncOp.|, List(lhsVal, rhsVal))
         }
         def ^[R](rhs: Exact[R])(using icR: Candidate[R])(using
@@ -599,7 +599,7 @@ object DFBits:
         ): DFValOf[DFBits[icL.OutW]] = trydf {
           val lhsVal = icL(lhs)
           val rhsVal = icR(rhs)
-          check(lhsVal.width, rhsVal.width)
+          check(lhsVal.widthInt, rhsVal.widthInt)
           DFVal.Func(lhsVal.dfType, FuncOp.^, List(lhsVal, rhsVal))
         }
         // reduction AND of all bits
@@ -649,7 +649,7 @@ object DFBits:
         )(using check: `AW == TW`.CheckNUB[aW.Out, W]): DFValTP[tc.Type, P] = trydf {
           import dfc.getSet
           val aliasDFType = tc(aliasType)
-          check(aliasDFType.asIR.width, lhs.width)
+          check(aliasDFType.asIR.width, lhs.widthInt)
           DFVal.Alias.AsIs(aliasDFType, lhs)
         }
         def uint(using DFC): DFValTP[DFUInt[W], P] = trydf { as(DFUInt(lhs.widthIntParam)) }
@@ -671,8 +671,8 @@ object DFBits:
             checkHiLo: BitsHiLo.Check[H, L],
             dfc: DFC
         ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any, P]] = trydf {
-          checkHigh(relBitHigh, lhs.width)
-          checkLow(relBitLow, lhs.width)
+          checkHigh(relBitHigh, lhs.widthInt)
+          checkLow(relBitLow, lhs.widthInt)
           checkHiLo(relBitHigh, relBitLow)
           DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
         }
@@ -680,7 +680,7 @@ object DFBits:
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
         }
         def msbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
-          lhs.apply(lhs.width.value - 1)
+          lhs.apply(lhs.widthInt.value - 1)
         def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           lhs.apply(0)
         // TODO: IntP
@@ -688,8 +688,8 @@ object DFBits:
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFC
         ): DFValTP[DFBits[RW], P] = trydf {
-          check(lhs.width, updatedWidth)
-          DFVal.Alias.ApplyRange(lhs, lhs.width - 1, lhs.width - updatedWidth)
+          check(lhs.widthInt, updatedWidth)
+          DFVal.Alias.ApplyRange(lhs, lhs.widthInt - 1, lhs.widthInt - updatedWidth)
             .asValTP[DFBits[RW], P]
         }
         // TODO: IntP
@@ -697,7 +697,7 @@ object DFBits:
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFC
         ): DFValTP[DFBits[RW], P] = trydf {
-          check(lhs.width, updatedWidth)
+          check(lhs.widthInt, updatedWidth)
           DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0)
             .asValTP[DFBits[RW], P]
         }
@@ -736,7 +736,7 @@ object DFBits:
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
-          check(lhsVal.width, rhs.width)
+          check(lhsVal.widthInt, rhs.widthInt)
           DFVal.Func(rhs.dfType, FuncOp.&, List(lhsVal, rhs))
         }
         def |[RW <: IntP, RP](
@@ -746,7 +746,7 @@ object DFBits:
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
-          check(lhsVal.width, rhs.width)
+          check(lhsVal.widthInt, rhs.widthInt)
           DFVal.Func(rhs.dfType, FuncOp.|, List(lhsVal, rhs))
         }
         def ^[RW <: IntP, RP](
@@ -756,7 +756,7 @@ object DFBits:
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
           val lhsVal = c(es(lhs))
-          check(lhsVal.width, rhs.width)
+          check(lhsVal.widthInt, rhs.widthInt)
           DFVal.Func(rhs.dfType, FuncOp.^, List(lhsVal, rhs))
         }
       end extension

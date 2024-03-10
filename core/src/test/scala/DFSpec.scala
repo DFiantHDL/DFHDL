@@ -2,10 +2,24 @@ package dfhdl
 import munit.*
 import internals.{AllowTopLevel, HasTypeName, Position, metaContextIgnore}
 import compiler.printing.{DefaultPrinter, Printer}
-import core.{HasDFC, DFValAny, DFConstOf}
+import core.{HasDFC, DFValOf, DFValAny, DFConstOf, IntParam, IntP, Width, widthIntParam}
 import compiler.ir
 import ir.DFDesignBlock.InstMode
 import java.nio.file._
+
+extension [T](t: T)(using tc: core.DFType.TC[T])
+  @metaContextIgnore
+  def verifyWidth[R <: IntP](
+      r: IntParam[R]
+  )(using dfc: DFC, w: Width[tc.Type])(using w.Out =:= R): Unit =
+    assert(t.widthIntParam.toScalaInt == r.toScalaInt)
+
+extension [T <: DFType](t: DFValOf[T])(using dfc: DFC, w: Width[T])
+  @metaContextIgnore
+  def verifyWidth[R <: IntP](
+      r: IntParam[R]
+  )(using w.Out =:= R): Unit =
+    assert(t.widthIntParam.toScalaInt == r.toScalaInt)
 
 abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   final lazy val dfc: DFC = core.DFC.empty

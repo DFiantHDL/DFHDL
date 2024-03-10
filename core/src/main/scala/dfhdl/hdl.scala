@@ -18,7 +18,7 @@ protected object hdl:
   export core.DFPortOps.*
   export core.Conditional.Ops.*
   export internals.CommonOps.*
-  export core.{width, dfType}
+  export core.{dfType}
   export core.Timer.Ops.*
   export core.Wait.Ops.*
   type Timer = core.Timer

@@ -222,4 +222,23 @@ class ToEDSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Declaration with type operation") {
+    val clkCfg = ClkCfg(ClkCfg.Edge.Falling)
+    val rstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
+    val cfg    = RTDomainCfg(clkCfg, rstCfg)
+    class Test(val width: Int <> CONST) extends DFDesign:
+      val z = UInt.until(width) <> OUT
+      z := 0
+
+    val top = Test(8).toED
+    assertCodeString(
+      top,
+      """|class Test(val width: Int <> CONST = 8) extends EDDesign:
+         |  val z = UInt(clog2(width)) <> OUT
+         |  process(all):
+         |    z := d"${clog2(width)}'0"
+         |end Test
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

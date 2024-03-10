@@ -81,25 +81,24 @@ object IntParam extends IntParamLP:
   def forced[V <: IntP](value: IntP): IntParam[V] = value.asInstanceOf[IntParam[V]]
   @targetName("applyInlined")
   def apply[V <: Int](value: Inlined[V]): IntParam[V] = value.asInstanceOf[IntParam[V]]
-  def calc[O <: IntP](op: FuncOp, arg: IntParam[Int])(
+  def calc[O <: IntP, V <: IntP](op: FuncOp, arg: IntParam[V])(
       opInt: Int => Int
   )(using dfc: DFC): IntParam[O] =
     given DFC = dfc.anonymize
-    val ret: IntParam[Int] = arg match
-      case int: Int            => IntParam(opInt(int))
-      case const: DFConstInt32 => IntParam(DFVal.Func(DFInt32, op, List(const)))
-    ret.asInstanceOf[IntParam[O]]
-  def calc[O <: IntP](op: FuncOp, argL: IntParam[Int], argR: IntParam[Int])(
+    arg match
+      case int: Int => IntParam(opInt(int)).asInstanceOf[IntParam[O]]
+      case const: DFConstInt32 =>
+        IntParam(DFVal.Func(DFInt32, op, List(const))).asInstanceOf[IntParam[O]]
+  def calc[O <: IntP, L <: IntP, R <: IntP](op: FuncOp, argL: IntParam[L], argR: IntParam[R])(
       opInt: (Int, Int) => Int
   )(using dfc: DFC): IntParam[O] =
     given DFC = dfc.anonymize
-    val ret: IntParam[Int] = (argL, argR) match
-      case (intL: Int, intR: Int) => IntParam(opInt(intL, intR))
+    (argL, argR) match
+      case (intL: Int, intR: Int) => IntParam(opInt(intL, intR)).asInstanceOf[IntParam[O]]
       case _ =>
         val constL = argL.toDFConst
         val constR = argR.toDFConst
-        IntParam(DFVal.Func(DFInt32, op, List(constL, constR)))
-    ret.asInstanceOf[IntParam[O]]
+        IntParam(DFVal.Func(DFInt32, op, List(constL, constR))).asInstanceOf[IntParam[O]]
   extension [L <: IntP](lhs: IntParam[L])(using dfc: DFC)
     def toDFConst: DFConstInt32 =
       lhs match

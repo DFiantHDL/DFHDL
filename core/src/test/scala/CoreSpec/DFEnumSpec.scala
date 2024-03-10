@@ -19,11 +19,11 @@ class DFEnumSpec extends DFSpec:
 
   test("Type Construction") {}
   test("Inlined width") {
-    MyEnum1.width.verifyInlined(2)
-    MyEnum2.width.verifyInlined(5)
-    MyEnum3.width.verifyInlined(3)
-    MyEnum4.width.verifyInlined(2)
-    MyEnum5.width.verifyInlined(8)
+    MyEnum1.verifyWidth(2)
+    MyEnum2.verifyWidth(5)
+    MyEnum3.verifyWidth(3)
+    MyEnum4.verifyWidth(2)
+    MyEnum5.verifyWidth(8)
   }
   test("Enumeration Entries") {
     assertEquals(

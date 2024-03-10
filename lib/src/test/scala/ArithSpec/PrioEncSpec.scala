@@ -8,7 +8,7 @@ class PrioEncSpec extends DesignSpec:
     class PrioTest extends DFDesign:
       val b32 = Bits(32) <> VAR
       val res = prioEnc(b32)
-      res._2.width.verifyInlined(5)
+      res._2.verifyWidth(5)
 
     PrioTest().assertCodeString(
       """|@hw.pure
@@ -66,7 +66,7 @@ class PrioEncSpec extends DesignSpec:
     class PrioTest extends DFDesign:
       val b31 = Bits(31) <> VAR
       val res = prioEnc(b31)
-      res._2.width.verifyInlined(5)
+      res._2.verifyWidth(5)
 
     PrioTest().assertCodeString(
       """|@hw.pure

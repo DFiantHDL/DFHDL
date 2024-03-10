@@ -51,16 +51,18 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"${argL.refCodeString.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
       // unary/postfix func
       case arg :: Nil =>
-        val argStr = arg.refCodeString.applyBrackets()
+        val argStr = arg.refCodeString
+        val argStrB = argStr.applyBrackets()
         dfVal.op match
-          case Func.Op.rising  => s"posedge $argStr"
-          case Func.Op.falling => s"negedge $argStr"
-          case Func.Op.unary_- => s"-$argStr"
-          case Func.Op.unary_! => s"!$argStr"
-          case Func.Op.unary_~ => s"~$argStr"
-          case Func.Op.&       => s"&$argStr"
-          case Func.Op.|       => s"|$argStr"
-          case Func.Op.^       => s"^$argStr"
+          case Func.Op.rising  => s"posedge $argStrB"
+          case Func.Op.falling => s"negedge $argStrB"
+          case Func.Op.unary_- => s"-$argStrB"
+          case Func.Op.unary_! => s"!$argStrB"
+          case Func.Op.unary_~ => s"~$argStrB"
+          case Func.Op.&       => s"&$argStrB"
+          case Func.Op.|       => s"|$argStrB"
+          case Func.Op.^       => s"^$argStrB"
+          case Func.Op.clog2   => s"$$clog2($argStr)"
           case _               => printer.unsupported
       // multiarg func
       case args =>

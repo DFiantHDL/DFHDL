@@ -215,6 +215,13 @@ extension (dfVal: DFVal)
           .toSet ++ fromRefs
       case _ => fromRefs
   end getReadDeps
+  def isReferencedByAnyDcl(using MemberGetSet): Boolean =
+    dfVal.originMembers.view.exists {
+      case _: DFVal.Dcl => true
+      case DclConst()   => true
+      case dfVal: DFVal => dfVal.isReferencedByAnyDcl
+      case _            => false
+    }
 
   @tailrec private def flatName(member: DFVal, suffix: String)(using MemberGetSet): String =
     member match
