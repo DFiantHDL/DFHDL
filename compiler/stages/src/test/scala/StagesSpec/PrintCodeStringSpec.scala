@@ -187,6 +187,25 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("DFInt32 parameter propagation") {
+    class ID(val width: Int <> CONST) extends DFDesign:
+      val x = SInt(width + 1) <> IN init 0
+      val y = SInt(width + 2) <> OUT
+      y := x
+
+    val id = (new ID(8)).getCodeString
+    assertNoDiff(
+      id,
+      """|class ID(val width: Int <> CONST = 8) extends DFDesign:
+         |  val x = SInt(width + 1) <> IN init sd"${width + 1}'0"
+         |  val y = SInt(width + 2) <> OUT
+         |  y := x.resize(width + 2)
+         |end ID
+         |""".stripMargin
+    )
+  }
+
   test("Basic EDDesign") {
     class ID extends EDDesign:
       val x    = SInt(16) <> IN

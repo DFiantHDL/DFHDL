@@ -713,29 +713,7 @@ object DFXInt:
               val (rhsSigned, rhsWidth) = rhs.getActualSignedWidth
               if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhsSigned)
                 check(dfType.signed, dfType.width, rhsSigned, rhsWidth)
-              val dfValIR =
-                if (dfType.asIR.isDFInt32 && rhs.dfType.asIR.isDFInt32) rhs.asIR
-                else
-                  val rhsSignFix: DFValOf[DFSInt[Int]] =
-                    if (dfType.signed != rhsSigned)
-                      rhs.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
-                    else rhs.asValOf[DFSInt[Int]]
-                  val nativeTypeChanged = dfType.nativeType != rhs.dfType.nativeType
-                  if (nativeTypeChanged)
-                    dfType.asIR.nativeType match
-                      case Int32 =>
-                        import DFSInt.Val.Ops.toInt
-                        rhsSignFix.toInt.asIR
-                      case BitAccurate =>
-                        rhsSignFix.resize(dfType.widthIntParam).asIR
-                  else if (
-                    dfType.width > rhsSignFix.width ||
-                    rhs.hasTag[DFVal.TruncateTag] && dfType.width < rhsSignFix.width
-                  )
-                    rhsSignFix.resize(dfType.widthIntParam).asIR
-                  else rhsSignFix.asIR
-              end dfValIR
-              dfValIR.asValTP[DFXInt[LS, LW, LN], ic.OutP]
+              DFXInt.Val.Ops.toDFXIntOf(rhs)(dfType).asValTP[DFXInt[LS, LW, LN], ic.OutP]
           end match
         end conv
       end given
@@ -771,14 +749,7 @@ object DFXInt:
             dfValArg.dfType.signed,
             dfValArg.dfType.width
           )
-          val dfValArgSigned =
-            if (dfType.signed && !dfValArg.dfType.signed) dfValArg.asValOf[DFUInt[Int]].signed
-            else dfValArg
-          val dfValArgResized =
-            if (dfValArgSigned.width < dfType.width)
-              dfValArgSigned.asValOf[DFXInt[Boolean, Int, NativeType]].resize(dfType.widthIntParam)
-            else dfValArgSigned
-          dfValArgResized.asValTP[DFXInt[LS, LW, LN], ic.OutP]
+          DFXInt.Val.Ops.toDFXIntOf(dfValArg)(dfType).asValTP[DFXInt[LS, LW, LN], ic.OutP]
         end conv
       end DFXIntCompare
     end Compare
@@ -793,10 +764,37 @@ object DFXInt:
       ): DFValTP[DFXInt[S, W, N], P] =
         DFVal.Func(dfVal.dfType, FuncOp.clog2, List(dfVal))
       extension [P, S <: Boolean, W <: IntP, N <: NativeType](lhs: DFValTP[DFXInt[S, W, N], P])
+        protected[core] def toDFXIntOf[RS <: Boolean, RW <: IntP, RN <: NativeType](
+            dfType: DFXInt[RS, RW, RN]
+        )(using dfc: DFC): DFValTP[DFXInt[RS, RW, RN], P] =
+          import dfc.getSet
+          val dfValIR =
+            val (lhsSigned, lhsWidth) = lhs.getActualSignedWidth
+            if (dfType.asIR.isDFInt32 && lhs.dfType.asIR.isDFInt32) lhs.asIR
+            else
+              val lhsSignFix: DFValOf[DFSInt[Int]] =
+                if (dfType.signed != lhsSigned)
+                  lhs.asValOf[DFUInt[Int]].signed.asValOf[DFSInt[Int]]
+                else lhs.asValOf[DFSInt[Int]]
+              val nativeTypeChanged = dfType.nativeType != lhs.dfType.nativeType
+              if (nativeTypeChanged)
+                dfType.asIR.nativeType match
+                  case Int32 =>
+                    lhsSignFix.toInt.asIR
+                  case BitAccurate =>
+                    lhsSignFix.resize(dfType.widthIntParam).asIR
+              else if (!(dfType.asIR.widthParamRef =~ lhsSignFix.dfType.asIR.widthParamRef))
+                lhsSignFix.resize(dfType.widthIntParam).asIR
+              else lhsSignFix.asIR
+            end if
+          end dfValIR
+          dfValIR.asValTP[DFXInt[RS, RW, RN], P]
+        end toDFXIntOf
         def toScalaInt(using DFC, DFVal.ConstCheck[P]): Int =
           lhs.toScalaValue.toInt
         def toScalaBigInt(using DFC, DFVal.ConstCheck[P]): BigInt =
           lhs.toScalaValue
+      end extension
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
         def <[R](rhs: Exact[R])(using
             dfc: DFC,
@@ -896,15 +894,8 @@ object DFXInt:
           lhs: DFValTP[DFXInt[LS, LW, LN], LP],
           rhs: DFValTP[DFXInt[RS, RW, RN], RP]
       )(using dfc: DFC): DFValTP[DFXInt[OS, OW, ON], LP | RP] =
-        val dfcAnon = dfc.anonymize
-        // TODO: maybe do fixing in a separate stage?
-        val rhsFixSign =
-          if (lhs.dfType.signed && !rhs.dfType.signed)
-            rhs.asValTP[DFUInt[Int], RP].signed(using dfcAnon)
-          else rhs
-        val rhsFixSize =
-          rhsFixSign.asValTP[DFSInt[Int], RP].resize(lhs.widthIntParam)(using dfcAnon)
-        DFVal.Func(dfType, op, List(lhs, rhsFixSize))
+        val rhsFix = rhs.toDFXIntOf(lhs.dfType)(using dfc.anonymize)
+        DFVal.Func(dfType, op, List(lhs, rhsFix))
       end arithOp
       extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
         def +[R](rhs: Exact[R])(using icR: Candidate[R])(using

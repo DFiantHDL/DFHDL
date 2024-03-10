@@ -331,7 +331,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  logic [width-1:0] cnt_reg;
          |  always @(*)
          |  begin
-         |    cnt = cnt_reg + width'd1;
+         |    cnt = cnt_reg + width'(1);
          |  end
          |  always @(posedge clk)
          |  begin
@@ -341,9 +341,41 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule
          |""".stripMargin
     )
+  test("Bits interpolated width parameter resize"):
+    class Test(val width: Int <> CONST) extends RTDesign:
+      val x = Bits(width) <> OUT
+      x := b"${width}'11"
+      x := h"${width}'3"
+      x := b"11".resize(width)
+      x := h"2'3".resize(width)
+    val top = (new Test(10)).getVerilogCode
+    assertNoDiff(
+      top,
+      """|`ifndef TEST_DEFS
+         |`define TEST_DEFS
+         |
+         |`endif
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Test_defs.sv"
+         |
+         |module Test#(parameter int width = 10)(
+         |  output logic [width-1:0] x
+         |);
+         |  always @(*)
+         |  begin
+         |    x = {{(width-2){1'b0}}, 2'h3};
+         |    x = {{(width-2){1'b0}}, 2'h3};
+         |    x = {{(width-2){1'b0}}, 2'h3};
+         |    x = {{(width-2){1'b0}}, 2'h3};
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
   test("UInt counter example"):
     class Counter(val width: Int <> CONST) extends RTDesign:
-      val cnt = UInt(width) <> OUT init 0
+      val cnt = UInt(width) <> OUT init d"8'0"
       cnt := cnt.reg + 1
     val top = (new Counter(8)).getVerilogCode
     assertNoDiff(
@@ -360,16 +392,16 @@ class PrintVerilogCodeSpec extends StageSpec:
          |module Counter#(parameter int width = 8)(
          |  input wire logic clk,
          |  input wire logic rst,
-         |  output logic [width-1:0] cnt = width'd0
+         |  output logic [width-1:0] cnt = width'(0)
          |);
          |  logic [width-1:0] cnt_reg;
          |  always @(*)
          |  begin
-         |    cnt = cnt_reg + width'd1;
+         |    cnt = cnt_reg + width'(1);
          |  end
          |  always @(posedge clk)
          |  begin
-         |    if (rst == 1'b1) cnt_reg <= width'd0;
+         |    if (rst == 1'b1) cnt_reg <= width'(0);
          |    else cnt_reg <= cnt;
          |  end
          |endmodule

@@ -9,7 +9,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
   def csDFBitBubbleChar: Char
   def csDFBitsBinFormat(binRep: String): String
   def csDFBitsHexFormat(hexRep: String): String
-  def csDFBitsHexFormat(hexRep: String, width: IntParamRef): String
+  def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String
   final def csDFBitsData(dfType: DFBits, data: (BitVector, BitVector)): String =
     val valueBits: BitVector = data._1
     val bubbleBits: BitVector = data._2
@@ -60,13 +60,14 @@ trait AbstractDataPrinter extends AbstractPrinter:
         val actualWidthDiv4 = if (rem == 0) actualWidth else actualWidth + (4 - rem)
         val hexStr =
           hexZip(valueBits.resize(actualWidthDiv4), bubbleBits.resize(actualWidthDiv4)).get
-        csDFBitsHexFormat(hexStr, widthParamRef)
+        csDFBitsHexFormat(hexStr, actualWidth, widthParamRef)
       case _ =>
         val binRep = csDFBitsBinFormat(toBinString)
         val hexRepOption = toHexString match
-          case Some(v) if width % 4 == 0         => Some(csDFBitsHexFormat(v))
-          case Some(v) if allowBitsExplicitWidth => Some(csDFBitsHexFormat(v, widthParamRef))
-          case _                                 => None
+          case Some(v) if width % 4 == 0 => Some(csDFBitsHexFormat(v))
+          case Some(v) if allowBitsExplicitWidth =>
+            Some(csDFBitsHexFormat(v, binRep.length, widthParamRef))
+          case _ => None
         // choosing the shorter representation for readability
         hexRepOption match
           case Some(hr) if hr.length < binRep.length => hr
@@ -151,7 +152,7 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
   def csWidthInterp(width: IntParamRef): String = width match
     case int: Int => int.toString
     case _        => s"$${${width.refCodeString}}"
-  def csDFBitsHexFormat(hexRep: String, width: IntParamRef): String =
+  def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String =
     s"""h"${csWidthInterp(width)}'$hexRep""""
   def csDFBoolFormat(value: Boolean): String = value.toString()
   def csDFBitFormat(bitRep: String): String = bitRep

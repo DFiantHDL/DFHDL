@@ -12,7 +12,7 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
   def csDFBitBubbleChar: Char = '-'
   def csDFBitsBinFormat(binRep: String): String = s""""$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""x"$hexRep""""
-  def csDFBitsHexFormat(hexRep: String, width: IntParamRef): String =
+  def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String =
     s"""${width.refCodeString.applyBrackets()}x"$hexRep""""
   def csDFBoolFormat(value: Boolean): String = value.toString()
   def csDFBitFormat(bitRep: String): String = s"'$bitRep'"

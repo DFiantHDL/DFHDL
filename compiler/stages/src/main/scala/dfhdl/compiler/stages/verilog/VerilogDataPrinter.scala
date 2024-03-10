@@ -12,16 +12,31 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
   def csDFBitBubbleChar: Char = 'x'
   def csDFBitsBinFormat(binRep: String): String = s"""${binRep.length}'b$binRep"""
   def csDFBitsHexFormat(hexRep: String): String = s"""${hexRep.length * 4}'h$hexRep"""
-  def csDFBitsHexFormat(hexRep: String, width: IntParamRef): String =
-    s"""${width.refCodeString.applyBrackets()}'h$hexRep"""
+  def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String =
+    val csWidth = width.refCodeString.applyBrackets()
+    if (width.isRef)
+      s"{{(${csWidth}-${actualWidth}){1'b0}}, ${actualWidth}'h$hexRep}"
+    else s"""${csWidth}'h$hexRep"""
   def csDFBoolFormat(value: Boolean): String = if (value) "1" else "0"
   def csDFBitFormat(bitRep: String): String = csDFBitsBinFormat(bitRep)
   val allowDecimalBigInt: Boolean = true
   def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String =
-    s"""${width.refCodeString.applyBrackets()}'d$value"""
+    val csWidth = width.refCodeString.applyBrackets()
+    if (width.isRef)
+      if (value.isValidInt) s"""${csWidth}'($value)"""
+      else
+        val actualWidth = value.bitsWidth(false)
+        s"""${csWidth}'(${actualWidth}'d$value)"""
+    else s"""${csWidth}'d$value"""
   def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String =
     val csWidth = width.refCodeString.applyBrackets()
-    if (value >= 0) s"""$csWidth'sd$value"""
+    if (width.isRef)
+      if (value.isValidInt) s"""${csWidth}'($value)"""
+      else
+        val actualWidth = value.bitsWidth(true)
+        if (value >= 0) s"""${csWidth}'($actualWidth'sd$value)"""
+        else s"""${csWidth}'(-$actualWidth'sd${-value})"""
+    else if (value >= 0) s"""$csWidth'sd$value"""
     else s"""-$csWidth'sd${-value}"""
   def csDFUIntFormatSmall(value: BigInt, width: Int): String =
     csDFUIntFormatBig(value, IntParamRef(width))
