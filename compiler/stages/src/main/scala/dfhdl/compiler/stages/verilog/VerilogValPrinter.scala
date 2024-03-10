@@ -58,6 +58,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case Func.Op.unary_- => s"-$argStr"
           case Func.Op.unary_! => s"!$argStr"
           case Func.Op.unary_~ => s"~$argStr"
+          case Func.Op.&       => s"&$argStr"
+          case Func.Op.|       => s"|$argStr"
+          case Func.Op.^       => s"^$argStr"
           case _               => printer.unsupported
       // multiarg func
       case args =>

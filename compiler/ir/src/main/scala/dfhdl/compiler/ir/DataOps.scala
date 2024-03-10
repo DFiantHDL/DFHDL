@@ -102,9 +102,9 @@ def calcFuncData[OT <: DFType](
             ) =>
           // bubble bits are always or-ed
           op match
-            case FuncOp.^ => (lhs._1 ^ rhs._1, lhs._2 | rhs._2)
             case FuncOp.& => (lhs._1 & rhs._1, lhs._2 | rhs._2)
             case FuncOp.| => (lhs._1 | rhs._1, lhs._2 | rhs._2)
+            case FuncOp.^ => (lhs._1 ^ rhs._1, lhs._2 | rhs._2)
         case (
               FuncOp.unary_~,
               DFBits(_) :: Nil,
@@ -154,6 +154,19 @@ def calcFuncData[OT <: DFType](
               dataTrunc.asUnsigned(outType.width)
             else dataTrunc
           Some(dataFixSign)
+        // bits reduction operations
+        case (
+              DFBit,
+              op @ (FuncOp.^ | FuncOp.& | FuncOp.|),
+              DFBits(_) :: Nil,
+              (valueBits: BitVector, _: BitVector) :: Nil
+            ) =>
+          // bubble bits are always or-ed
+          val data = op match
+            case FuncOp.& => valueBits.toIndexedSeq.forall(identity)
+            case FuncOp.| => valueBits.toIndexedSeq.exists(identity)
+            case FuncOp.^ => valueBits.populationCount % 2L != 0
+          Some(data)
         // Arithmetic Negation
         case (
               _: DFDecimal,

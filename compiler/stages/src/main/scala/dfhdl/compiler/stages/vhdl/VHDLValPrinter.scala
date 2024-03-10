@@ -60,6 +60,9 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case Func.Op.unary_- => s"-$argStr"
           case Func.Op.unary_! => s"not $argStr"
           case Func.Op.unary_~ => s"not $argStr"
+          case Func.Op.&       => s"and reduce $argStr"
+          case Func.Op.|       => s"or reduce $argStr"
+          case Func.Op.^       => s"xor reduce $argStr"
           case _               => printer.unsupported
       // multiarg func
       case args =>

@@ -230,4 +230,15 @@ class DFBitsSpec extends DFSpec:
         |""".stripMargin
     }("b8 == num")
   }
+  test("Bit reduction operations") {
+    val x = b"1001"
+    val y = b"0001"
+    val z = b"1000"
+    val w = b"1111"
+    assert(x.|.toScalaBoolean == true)
+    assert(x.&.toScalaBoolean == false)
+    assert(x.^.toScalaBoolean == false)
+    assert(w.&.toScalaBoolean == true)
+    assert((x ^ y ^ z).|.toScalaBoolean == false)
+  }
 end DFBitsSpec

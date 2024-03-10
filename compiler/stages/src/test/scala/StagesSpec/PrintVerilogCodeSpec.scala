@@ -341,13 +341,17 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule
          |""".stripMargin
     )
-  test("Bits interpolated width parameter resize"):
+  test("Bits operations"):
     class Test(val width: Int <> CONST) extends RTDesign:
       val x = Bits(width) <> OUT
+      val y = Bit         <> OUT
       x := b"${width}'11"
       x := h"${width}'3"
       x := b"11".resize(width)
       x := h"2'3".resize(width)
+      y := x.&
+      y := x.|
+      y := x.^
     val top = (new Test(10)).getVerilogCode
     assertNoDiff(
       top,
@@ -361,7 +365,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Test_defs.sv"
          |
          |module Test#(parameter int width = 10)(
-         |  output logic [width-1:0] x
+         |  output logic [width-1:0] x,
+         |  output logic y
          |);
          |  always @(*)
          |  begin
@@ -369,6 +374,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    x = {{(width-2){1'b0}}, 2'h3};
          |    x = {{(width-2){1'b0}}, 2'h3};
          |    x = {{(width-2){1'b0}}, 2'h3};
+         |    y = &x;
+         |    y = |x;
+         |    y = ^x;
          |  end
          |endmodule
          |""".stripMargin

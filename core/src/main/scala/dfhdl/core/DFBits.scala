@@ -602,6 +602,18 @@ object DFBits:
           check(lhsVal.width, rhsVal.width)
           DFVal.Func(lhsVal.dfType, FuncOp.^, List(lhsVal, rhsVal))
         }
+        // reduction AND of all bits
+        def &(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+          DFVal.Func(DFBit, FuncOp.&, List(icL(lhs)))
+        }
+        // reduction OR of all bits
+        def |(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+          DFVal.Func(DFBit, FuncOp.|, List(icL(lhs)))
+        }
+        // reduction XOR of all bits
+        def ^(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+          DFVal.Func(DFBit, FuncOp.^, List(icL(lhs)))
+        }
         def repeat[N <: Int](num: IntParam[N])(using
             dfc: DFC,
             check: Arg.Positive.Check[N]
@@ -613,11 +625,7 @@ object DFBits:
             // simplifying the representation of the argument is a single bit
             if (lhsWidth.toScalaInt == 1) num.asInstanceOf[IntParam[IntP.*[icL.OutW, N]]]
             else lhsWidth * num
-          DFVal.Func(
-            DFBits(width),
-            FuncOp.repeat,
-            List(lhsVal, num.toDFConst)
-          )
+          DFVal.Func(DFBits(width), FuncOp.repeat, List(lhsVal, num.toDFConst))
         }
         def ++[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC
