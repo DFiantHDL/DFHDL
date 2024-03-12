@@ -41,14 +41,22 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"{${argR.refCodeString.applyBrackets()}{${argL.refCodeString}}}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
+        val isInfix = dfVal.op match
+          case Func.Op.max | Func.Op.min => false
+          case _                         => true
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
           case Func.Op.=!= => "!="
+          case Func.Op.max => "`MAX"
+          case Func.Op.min => "`MIN"
           case op          => op.toString
         val rhsStr = dfVal.op match
           case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
           case _                       => argR.refCodeString
-        s"${argL.refCodeString.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
+        if (isInfix)
+          s"${argL.refCodeString.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
+        else
+          s"$opStr(${argL.refCodeString}, ${rhsStr})"
       // unary/postfix func
       case arg :: Nil =>
         val argStr = arg.refCodeString

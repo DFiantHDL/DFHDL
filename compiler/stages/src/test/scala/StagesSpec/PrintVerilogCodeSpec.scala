@@ -39,6 +39,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       id,
       """|`ifndef ID_DEFS
          |`define ID_DEFS
+         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
+         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
          |
          |`endif
          |
@@ -64,6 +66,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef IDTOP_DEFS
          |`define IDTOP_DEFS
+         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
+         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
          |
          |`endif
          |
@@ -122,6 +126,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef PARAMTEST_DEFS
          |`define PARAMTEST_DEFS
+         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
+         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
          |parameter logic gp = 1'b1;
          |`endif
          |
@@ -172,6 +178,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef TOP_DEFS
          |`define TOP_DEFS
+         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
+         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
          |
          |`endif
          |
@@ -230,6 +238,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef TOP_DEFS
          |`define TOP_DEFS
+         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
+         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
          |
          |`endif
          |
@@ -283,6 +293,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef HASDOCS_DEFS
          |`define HASDOCS_DEFS
+         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
+         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
          |
          |`endif
          |
@@ -316,6 +328,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef COUNTER_DEFS
          |`define COUNTER_DEFS
+         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
+         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
          |
          |`endif
          |
@@ -326,9 +340,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |module Counter#(parameter int width = 8)(
          |  input wire logic clk,
          |  input wire logic rst,
-         |  output logic [width-1:0] cnt = {width{1'b0}}
+         |  output logic [width - 1:0] cnt = {width{1'b0}}
          |);
-         |  logic [width-1:0] cnt_reg;
+         |  logic [width - 1:0] cnt_reg;
          |  always @(*)
          |  begin
          |    cnt = cnt_reg + width'(1);
@@ -361,6 +375,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef TEST_DEFS
          |`define TEST_DEFS
+         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
+         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
          |
          |`endif
          |
@@ -369,10 +385,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Test_defs.sv"
          |
          |module Test#(parameter int width = 10)(
-         |  output logic [width-1:0] x,
+         |  output logic [width - 1:0] x,
          |  output logic y,
-         |  output logic [$clog2(width)-1:0] z,
-         |  output logic [$clog2(width + 1)-1:0] w
+         |  output logic [$clog2(width) - 1:0] z,
+         |  output logic [$clog2(width + 1) - 1:0] w
          |);
          |  always @(*)
          |  begin
@@ -398,6 +414,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`ifndef COUNTER_DEFS
          |`define COUNTER_DEFS
+         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
+         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
          |
          |`endif
          |
@@ -408,9 +426,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |module Counter#(parameter int width = 8)(
          |  input wire logic clk,
          |  input wire logic rst,
-         |  output logic [width-1:0] cnt = width'(0)
+         |  output logic [width - 1:0] cnt = width'(0)
          |);
-         |  logic [width-1:0] cnt_reg;
+         |  logic [width - 1:0] cnt_reg;
          |  always @(*)
          |  begin
          |    cnt = cnt_reg + width'(1);

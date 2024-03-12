@@ -81,7 +81,7 @@ object IntParam extends IntParamLP:
   def forced[V <: IntP](value: IntP): IntParam[V] = value.asInstanceOf[IntParam[V]]
   @targetName("applyInlined")
   def apply[V <: Int](value: Inlined[V]): IntParam[V] = value.asInstanceOf[IntParam[V]]
-  def calc[O <: IntP, V <: IntP](op: FuncOp, arg: IntParam[V])(
+  private def calc[O <: IntP, V <: IntP](op: FuncOp, arg: IntParam[V])(
       opInt: Int => Int
   )(using dfc: DFC): IntParam[O] =
     given DFC = dfc.anonymize
@@ -89,7 +89,11 @@ object IntParam extends IntParamLP:
       case int: Int => IntParam(opInt(int)).asInstanceOf[IntParam[O]]
       case const: DFConstInt32 =>
         IntParam(DFVal.Func(DFInt32, op, List(const))).asInstanceOf[IntParam[O]]
-  def calc[O <: IntP, L <: IntP, R <: IntP](op: FuncOp, argL: IntParam[L], argR: IntParam[R])(
+  private def calc[O <: IntP, L <: IntP, R <: IntP](
+      op: FuncOp,
+      argL: IntParam[L],
+      argR: IntParam[R]
+  )(
       opInt: (Int, Int) => Int
   )(using dfc: DFC): IntParam[O] =
     given DFC = dfc.anonymize
@@ -98,7 +102,44 @@ object IntParam extends IntParamLP:
       case _ =>
         val constL = argL.toDFConst
         val constR = argR.toDFConst
-        IntParam(DFVal.Func(DFInt32, op, List(constL, constR))).asInstanceOf[IntParam[O]]
+        import dfc.getSet
+        def func = IntParam(DFVal.Func(DFInt32, op, List(constL, constR))).asInstanceOf[IntParam[O]]
+        op match
+          // special casing max/min to remove the need for max and min if the same value is used
+          case FuncOp.max | FuncOp.min if constL.asIR =~ constR.asIR =>
+            constL.asInstanceOf[IntParam[O]]
+          // special casing +/- operations and applying common associative reductions
+          case FuncOp.+ | FuncOp.- =>
+            (constL.asIR, argR) match
+              case (
+                    ir.DFVal.Func(
+                      _,
+                      opL @ (FuncOp.+ | FuncOp.-),
+                      List(ir.DFRef(argLL), ir.DFRef(constLR: ir.DFVal.Const)),
+                      _,
+                      _,
+                      _
+                    ),
+                    intLR: Int
+                  ) =>
+                val intLL = constLR.data.asInstanceOf[Option[BigInt]].get.toInt
+                val constL = argLL.asConstOf[DFInt32]
+                val intR = opL match
+                  case FuncOp.+ => opInt(intLL, intLR)
+                  case FuncOp.- =>
+                    (op: @unchecked) match
+                      case FuncOp.+ => intLR - intLL
+                      case FuncOp.- => intLL + intLR
+                if (intR == 0) constL.asInstanceOf[IntParam[O]]
+                else
+                  val constR = DFVal.Const(DFInt32, Some(BigInt(intR)), named = false)
+                  IntParam(DFVal.Func(DFInt32, opL, List(constL, constR))).asInstanceOf[IntParam[O]]
+              case _ => func
+          case _ => func
+        end match
+    end match
+
+  end calc
   extension [L <: IntP](lhs: IntParam[L])(using dfc: DFC)
     def toDFConst: DFConstInt32 =
       lhs match

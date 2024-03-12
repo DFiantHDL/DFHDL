@@ -17,8 +17,26 @@ extension (intParamRef: IntParamRef)
     case int: Int             => int.toString
   def refCodeString(using printer: AbstractValPrinter): String = intParamRef.refCodeString(false)
   def uboundCS(using printer: AbstractValPrinter): String = intParamRef match
-    case ref: DFRef.TwoWayAny => s"${printer.csRef(ref, false)}-1"
-    case int: Int             => (int - 1).toString
+    case ref: DFRef.TwoWayAny =>
+      // TODO: consider implementing an associative int operation reduction
+      // import printer.getSet
+      // ref.get match
+      //   case func @ ir.DFVal.Func(
+      //         ir.DFInt32,
+      //         op @ (Func.Op.+ | Func.Op.-),
+      //         List(argRef, ir.DFRef(const: ir.DFVal.Const)),
+      //         _,
+      //         _,
+      //         _
+      //       ) =>
+      //     val int = const.data.asInstanceOf[Option[BigInt]].get.toInt
+      //     val csArg = printer.csRef(argRef, false)
+      //     if (int == 1) csArg
+      //     else s"$csArg $op ${int - 1}"
+      //   case _ =>
+      s"${printer.csRef(ref, false)} - 1"
+    case int: Int => (int - 1).toString
+end extension
 
 extension (alias: Alias)
   def relValCodeString(using printer: AbstractValPrinter): String = printer.csRelVal(alias)
