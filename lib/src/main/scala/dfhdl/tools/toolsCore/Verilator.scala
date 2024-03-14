@@ -10,7 +10,7 @@ import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
 
-object Verilator extends Linter:
+object Verilator extends VerilogLinter:
   def binExec: String =
     val osName: String = sys.props("os.name").toLowerCase
     if (osName.contains("windows")) "verilator_bin" else "verilator"

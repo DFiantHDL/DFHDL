@@ -2,7 +2,8 @@ package dfhdl.tools
 import toolsCore.*
 
 object linters:
-  given verilator: Linter = Verilator
+  val verilator: VerilogLinter = Verilator
+  val ghdl: VHDLLinter = GHDL
 
 object builders:
-  given vivado: Builder = Vivado
+  val vivado: Builder = Vivado

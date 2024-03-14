@@ -26,9 +26,14 @@ end Tool
 
 trait Linter extends Tool:
   def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions): CompiledDesign[D]
-object Linter:
-  // default linter will be verilator
-  given Linter = dfhdl.tools.linters.verilator
+trait VerilogLinter extends Linter
+object VerilogLinter:
+  // default verilog linter will be verilator
+  given VerilogLinter = dfhdl.tools.linters.verilator
+trait VHDLLinter extends Linter
+object VHDLLinter:
+  // default vhdl linter will be ghdl
+  given VHDLLinter = dfhdl.tools.linters.ghdl
 
 trait Builder extends Tool:
   def build[D <: Design](cd: CompiledDesign[D])(using CompilerOptions): CompiledDesign[D]

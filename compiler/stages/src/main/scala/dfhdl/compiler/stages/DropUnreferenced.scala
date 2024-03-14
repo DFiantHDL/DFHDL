@@ -10,7 +10,7 @@ case object DropUnreferencedVars extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.collect {
       case m @ DclVar() if !designDB.memberTable.contains(m) && m.initRefList.isEmpty =>
-        m -> Patch.Remove
+        m -> Patch.Remove()
     }
     designDB.patch(patchList)
 
@@ -24,7 +24,7 @@ case object DropUnreferencedAnons extends Stage:
       // idents are always kept
       case Ident(_) => None
       case m: DFVal if m.isAnonymous && m.originMembers.isEmpty =>
-        Some(m -> Patch.Remove)
+        Some(m -> Patch.Remove())
       case _ => None
     }
     if (patchList.isEmpty) designDB

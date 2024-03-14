@@ -1024,7 +1024,8 @@ object DFVal extends DFValLP:
         DFVal.Alias.AsIs(DFBits(dfVal.widthIntParam), dfVal)
       }
       def genNewVar(using DFC): DFVarOf[T] = trydf {
-        DFVal.Dcl(dfVal.dfType, Modifier.VAR)
+        val meta = dfVal.asIR.meta.copy(nameOpt = dfc.nameOpt)
+        DFVal.Dcl(dfVal.dfType, Modifier.VAR)(using dfc.setMeta(meta))
       }
     end extension
   end Ops

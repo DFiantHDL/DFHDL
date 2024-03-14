@@ -19,9 +19,13 @@ private val reservedKeywords: Set[String] = Set(
   "wait", "when", "while", "with", "xnor", "xor"
 )
 
+enum VHDLDialect derives CanEqual:
+  case v93, v2008, v2019
+
 private case object VHDLUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = false)
 case object VHDLBackend extends Stage:
-  def dependencies: List[Stage] = List(ToED, VHDLUniqueNames)
+  def dependencies: List[Stage] =
+    List(DropUnreferencedAnons, NamedAnonMultiref, ToED, VHDLUniqueNames)
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB = designDB
 end VHDLBackend

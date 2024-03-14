@@ -46,8 +46,8 @@ case object VHDLProcToVerilog extends Stage:
                   val newPB =
                     dfhdl.core.Process.Block.list(List(clkEdgeSig))(using dfc.setMeta(pb.meta)).asIR
                 List(
-                  clkEdge -> Patch.Remove,
-                  ifBlock.prevBlockOrHeaderRef.get -> Patch.Remove,
+                  clkEdge -> Patch.Remove(),
+                  ifBlock.prevBlockOrHeaderRef.get -> Patch.Remove(),
                   dsn.patch,
                   ifBlock -> Patch.Replace(dsn.newPB, Patch.Replace.Config.ChangeRefAndRemove)
                 )

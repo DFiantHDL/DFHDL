@@ -10,7 +10,7 @@ import java.io.File.separatorChar
 final case class CompilerOptions(
     commitFolder: CommitFolder,
     newFolderForTop: NewFolderForTop,
-    backend: BackendCompiler,
+    backend: Backend,
     logLevel: CompilerLogLevel,
     defaultClkCfg: DefaultClkCfg,
     defaultRstCfg: DefaultRstCfg
@@ -19,7 +19,7 @@ object CompilerOptions:
   given default(using
       commitFolder: CommitFolder = "sandbox",
       newFolderForTop: NewFolderForTop = true,
-      backend: BackendCompiler,
+      backend: Backend = dfhdl.backends.verilog.sv2005,
       logLevel: CompilerLogLevel = LogLevel.WARN,
       defaultClkCfg: DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising),
       defaultRstCfg: DefaultRstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
@@ -41,6 +41,9 @@ object CompilerOptions:
 
   opaque type NewFolderForTop <: Boolean = Boolean
   given Conversion[Boolean, NewFolderForTop] = x => x
+
+  opaque type Backend <: BackendCompiler = BackendCompiler
+  given Conversion[BackendCompiler, Backend] = x => x
 
   opaque type CompilerLogLevel <: LogLevel = LogLevel
   given Conversion[LogLevel, CompilerLogLevel] = x => x

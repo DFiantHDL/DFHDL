@@ -27,19 +27,26 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     else default
   def entityName(design: DFDesignBlock): String = design.dclName
   def csEntityDcl(design: DFDesignBlock): String =
-    val ports = design
-      .members(MemberView.Folded)
-      .view
+    val designMembers = design.members(MemberView.Folded)
+    val ports = designMembers.view
       .collect { case p @ DclPort() =>
         printer.csDFValDcl(p)
       }
       .mkString(";\n")
+    val designParamList = designMembers.collect { case param @ DesignParam(_) =>
+      val defaultValue = if (design.isTop) s" := ${param.relValRef.refCodeString}" else ""
+      s"${param.getName} : ${printer.csDFType(param.dfType)}$defaultValue"
+    }
+    val genericBlock =
+      if (designParamList.length == 0) ""
+      else "\ngeneric (" + designParamList.mkString("\n", ";\n", "\n").hindent(2) + ");"
     val portBlock = ports.emptyOr(v => s"""
          |port (
          |${ports.hindent}
          |);""".stripMargin)
-    s"""entity ${entityName(design)} is$portBlock
+    s"""entity ${entityName(design)} is$genericBlock$portBlock
        |end ${entityName(design)};""".stripMargin
+  end csEntityDcl
   def archName(design: DFDesignBlock): String = s"${design.dclName}_arch"
   def csArchitectureDcl(design: DFDesignBlock): String =
     val localTypeDcls = printer.csLocalTypeDcls(design)
@@ -75,8 +82,8 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.hindent}\n);"
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
   def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported
-  def csBlockBegin: String = "begin"
-  def csBlockEnd: String = "end"
+  def csBlockBegin: String = ""
+  def csBlockEnd: String = ""
   def csDFIfStatement(csCond: String): String = s"if $csCond then"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"

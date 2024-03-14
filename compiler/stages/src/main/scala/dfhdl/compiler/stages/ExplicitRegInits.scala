@@ -27,7 +27,7 @@ case object ExplicitRegInits extends Stage:
             ra.step,
             HistoryOp.Reg,
             Some(clonedInit)
-          )
+          )(using dfc.setMeta(ra.meta))
         .patch
     }
     designDB.patch(patchList)

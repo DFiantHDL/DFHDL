@@ -101,11 +101,12 @@ case object NameRegAliases extends Stage:
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
         val regDsn = new MetaDesign(posMember, addCfg, domainType = dfhdl.core.DFC.Domain.RT):
           def addRegs(
-              alias: DFVal.Alias.History,
+              aliases: List[DFVal.Alias.History],
               namePrefix: String,
               maxRegs: Int,
               unique: Boolean
           ): List[DFVal] =
+            val alias = aliases.head
             val regs = for (i <- 1 to maxRegs) yield
               val nameSuffix =
                 if (maxRegs == 1) "_reg"
@@ -116,10 +117,12 @@ case object NameRegAliases extends Stage:
               alias.asValAny.genNewVar(using dfc.setName(regName))
             val regsIR = regs.map(_.asIR).toList
             val relVal = alias.getNonRegAliasRelVal
+            var initOptions = aliases.flatMap(a => List.fill(a.step)(a.initOption))
             def regDinPatch(posMember: DFMember, addCfg: Patch.Add.Config) =
               new MetaDesign(posMember, addCfg, domainType = dfhdl.core.DFC.Domain.RT):
                 (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
-                  val clonedInitOpt = alias.initOption.map(_.cloneAnonValueAndDepsHere.asConstAny)
+                  val clonedInitOpt = initOptions.head.map(_.cloneAnonValueAndDepsHere.asConstAny)
+                  initOptions = initOptions.drop(1)
                   val reg = dfhdl.core.DFVal.Alias.History(
                     prev.asValAny,
                     1,
@@ -141,7 +144,7 @@ case object NameRegAliases extends Stage:
                   val namePrefix =
                     if (groupNamedAliases.size == 1) groupName
                     else s"$groupName${(gnaIdx + 1).toPaddedString(groupNamedAliases.size)}"
-                  val regsIR = addRegs(alias, namePrefix, alias.step, true)
+                  val regsIR = addRegs(List(alias), namePrefix, alias.step, true)
                   regPatches += alias -> Patch.Replace(
                     regsIR.last,
                     Patch.Replace.Config.ChangeRefAndRemove
@@ -149,7 +152,7 @@ case object NameRegAliases extends Stage:
                 }
             case (NameGroup(groupName, false), groupNamedAliases) =>
               val regsIR = addRegs(
-                groupNamedAliases.head,
+                groupNamedAliases,
                 groupName,
                 groupNamedAliases.map(_.getTotalSteps).max,
                 false

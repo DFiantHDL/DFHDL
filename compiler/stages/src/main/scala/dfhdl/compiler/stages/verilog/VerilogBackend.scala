@@ -23,6 +23,9 @@ private val reservedKeywords: Set[String] = Set(
   "else", "if", "notif1", "rnmos", "tranif0", "xor"
 )
 
+enum VerilogDialect derives CanEqual:
+  case v2001, sv2005, sv2012, sv2017
+
 private case object VerilogUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = true)
 case object VerilogBackend extends Stage:
   def dependencies: List[Stage] =

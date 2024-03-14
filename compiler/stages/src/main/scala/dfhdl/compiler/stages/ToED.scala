@@ -19,7 +19,7 @@ case object ToED extends Stage:
       relVal: DFVal,
       initOption: Option[DFVal]
   )
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     val domainAnalysis = new DomainAnalysis(designDB)
     val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
       // for all domain owners that are also blocks (RTDesign, RTDomain)
@@ -55,8 +55,8 @@ case object ToED extends Stage:
             val removedNets = regNets.view.map(rn => rn.net).toSet
             val regAliasRemovalPatches = regNets.flatMap(rn =>
               List(
-                rn.net -> Patch.Remove,
-                rn.regAlias -> Patch.Remove
+                rn.net -> Patch.Remove(),
+                rn.regAlias -> Patch.Remove()
               )
             )
             @tailrec def getDeps(
@@ -103,7 +103,18 @@ case object ToED extends Stage:
 
                 // create a combinational process if needed
                 if (processBlockAllMembers.nonEmpty)
-                  process(all) {}
+                  process(all) {
+                    co.backend match
+                      case _: dfhdl.backends.vhdl =>
+                        processBlockAllMembers.foreach {
+                          case net: DFNet =>
+                            plantMember(net.copy(op = DFNet.Op.NBAssignment))
+                          case m =>
+                            plantMember(m)
+                        }
+                      case _ =>
+                        processBlockAllMembers.foreach { plantMember(_) }
+                  }
                 def regInitBlock() = regNets.foreach:
                   case rn if rn.initOption.nonEmpty && !rn.initOption.get.isBubble =>
                     rn.regVar.asVarAny :== rn.initOption.get.asValAny
@@ -151,23 +162,13 @@ case object ToED extends Stage:
                   end if
                 end if
 
-            val processBlockAllMembersPatchOption = if (processBlockAllMembers.nonEmpty)
-              val pbAllOwner = processBlocksDsn.getDB.members.collectFirst {
-                case pb: ProcessBlock =>
-                  pb
-              }.get
-              Some(
-                pbAllOwner -> Patch.Move(
-                  processBlockAllMembers,
-                  owner,
-                  Patch.Move.Config.InsideLast
-                )
-              )
-            else None
+            val movedMembersRemovalPatches = processBlockAllMembers.map { m =>
+              m -> Patch.Remove(isMoved = true)
+            }
             List(
               Some(ownerDomainPatch),
               Some(owner -> Patch.Add(processBlocksDsn, Patch.Add.Config.InsideLast)),
-              processBlockAllMembersPatchOption,
+              movedMembersRemovalPatches,
               regAliasRemovalPatches
             ).flatten
           // other domains

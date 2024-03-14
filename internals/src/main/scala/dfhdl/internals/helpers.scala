@@ -305,7 +305,7 @@ extension (str: String)
   def forceWindowsToLinuxPath: String = str.replaceAll("""\\""", "/")
 
 extension [T](seq: Iterable[T])
-  def groupByOrdered[P](f: T => P): Seq[(P, Iterable[T])] =
+  def groupByOrdered[P](f: T => P): List[(P, List[T])] =
     @tailrec
     def accumulator(
         seq: Iterable[T],
@@ -317,4 +317,4 @@ extension [T](seq: Iterable[T])
         val key = f(h)
         val subseq = seq.takeWhile(f(_) equals key)
         accumulator(seq.drop(subseq.size), f, (key -> subseq) :: res)
-    accumulator(seq, f, Nil)
+    accumulator(seq, f, Nil).view.map(e => (e._1, e._2.toList)).toList

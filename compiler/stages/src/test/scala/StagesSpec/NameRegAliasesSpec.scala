@@ -132,6 +132,50 @@ class NameRegAliasesSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Reg aliases with param init") {
+    val gp: Bit <> CONST      = 1
+    val i: SInt[16] <> CONST  = sd"16'0"
+    val i2: SInt[16] <> CONST = i + sd"16'5"
+    class IDExt(
+        val dp: Bit <> CONST    = gp,
+        val dpNew: Bit <> CONST = 1
+    ) extends RTDesign:
+      val c: SInt[16] <> CONST = sd"16'3"
+      val x                    = SInt(16) <> IN init i2
+      val y                    = SInt(16) <> OUT
+      val flag                 = Bit      <> IN init dp || gp
+      val z                    = Bit      <> OUT
+      y := x.reg(1, i2).reg(2, c - i) - x
+      z := dpNew
+    end IDExt
+
+    val id = IDExt().nameRegAliases
+    assertCodeString(
+      id,
+      """|val gp: Bit <> CONST = 1
+         |val i: SInt[16] <> CONST = sd"16'0"
+         |val i2: SInt[16] <> CONST = i + sd"16'5"
+         |class IDExt(
+         |    val dp: Bit <> CONST = gp,
+         |    val dpNew: Bit <> CONST = 1
+         |) extends RTDesign:
+         |  val c: SInt[16] <> CONST = sd"16'3"
+         |  val x = SInt(16) <> IN init i2
+         |  val y = SInt(16) <> OUT
+         |  val flag = Bit <> IN init dp || gp
+         |  val z = Bit <> OUT
+         |  val x_reg1 = SInt(16) <> VAR
+         |  val x_reg2 = SInt(16) <> VAR
+         |  val x_reg3 = SInt(16) <> VAR
+         |  x_reg1 := x.reg(1, i2)
+         |  x_reg2 := x_reg1.reg(1, c - i)
+         |  x_reg3 := x_reg2.reg(1, c - i)
+         |  y := x_reg3 - x
+         |  z := dpNew
+         |end IDExt
+         |""".stripMargin
+    )
+  }
   test("Reg alias inside conditionals") {
     class ID extends RTDesign:
       val x1 = SInt(16) <> IN init 0

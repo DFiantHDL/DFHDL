@@ -180,7 +180,7 @@ trait Printer
     val csFileList = designDB.uniqueDesignMemberList.map { case (block: DFDesignBlock, _) =>
       formatCode(csFile(block))
     }
-    s"${formatCode(csGlobalFileContent).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
+    s"${formatCode(csGlobalTypeDcls + csGlobalConstDcls).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
   end csDB
 end Printer
 

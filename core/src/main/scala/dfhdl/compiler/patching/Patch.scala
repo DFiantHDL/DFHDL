@@ -9,8 +9,9 @@ import dfhdl.internals.hashString
 
 sealed trait Patch extends Product with Serializable derives CanEqual
 object Patch:
-  case object Remove extends Patch:
-    override def toString(): String = "\nRemove"
+  // isMoved should be true if the member is planted somewhere, which will keep all references
+  final case class Remove(isMoved: Boolean = false) extends Patch:
+    override def toString(): String = s"\nRemove($isMoved)"
   final case class Replace(
       updatedMember: DFMember,
       config: Replace.Config,
@@ -222,7 +223,7 @@ extension (db: DB)
               rc.changeRef(m.ownerRef, actualNewOwner)
             case (rc, _) => rc
           }
-        case (rc, (origMember, Patch.Remove)) =>
+        case (rc, (origMember, Patch.Remove(false))) =>
           memberTable.get(origMember) match
             case Some(refs) =>
               // total references to be removed are both
@@ -246,12 +247,12 @@ extension (db: DB)
         case (m, Patch.Replace(m2, _, _)) if (m == m2) => None
         // On change ref and remove replacement we setup the original member for removal here
         case (m, Patch.Replace(_, Patch.Replace.Config.ChangeRefAndRemove, _)) =>
-          Some((m, Patch.Remove))
+          Some((m, Patch.Remove()))
         // If we attempt to replace with an existing member, then we convert the patch to remove
         // the old member just for the member list (references are replaced).
         case (m, Patch.Replace(r, Patch.Replace.Config.FullReplacement, _))
             if memberTable.contains(r) =>
-          Some((m, Patch.Remove))
+          Some((m, Patch.Remove()))
         // If we add insideFirst in an owner, we need to actually place after the owner head
         case (owner: DFOwner, Patch.Add(db, Patch.Add.Config.InsideFirst)) =>
           Some((owner, Patch.Add(db, Patch.Add.Config.After)))
@@ -282,7 +283,7 @@ extension (db: DB)
                 case None => (owner, Patch.Move(movedMembers, origOwner, Patch.Move.Config.After))
             case (m, Patch.Move.Config.Before) => (m, Patch.Move(movedMembers, origOwner, config))
             case _                             => ???
-          modMove :: movedMembers.map((_, Patch.Remove))
+          modMove :: movedMembers.map((_, Patch.Remove()))
         case x => Some(x)
       }
       .foldLeft(Map.empty[DFMember, Patch]) {
@@ -306,10 +307,10 @@ extension (db: DB)
                 if (addConfig == moveConfig) =>
               tbl + (m -> Patch.Move(movedMembers ++ db.members.drop(1), origOwner, moveConfig))
             // removed followed an add replacement is allowed via a tandem patch execution
-            case (Patch.Remove, add: Patch.Add) =>
+            case (Patch.Remove(_), add: Patch.Add) =>
               tbl + (m -> Patch.Add(add.db, Patch.Add.Config.ReplaceWithLast()))
             // add followed by a replacement is allowed via a tandem patch execution
-            case (add: Patch.Add, Patch.Remove) =>
+            case (add: Patch.Add, Patch.Remove(_)) =>
               tbl + (m -> Patch.Add(add.db, Patch.Add.Config.ReplaceWithFirst()))
             // replacement followed by an add via a tandem patch execution
             case (replace: Patch.Replace, add: Patch.Add) if add.config == Patch.Add.Config.After =>
@@ -318,7 +319,8 @@ extension (db: DB)
                 Patch.Add.Config.ReplaceWithFirst()
               ))
             // allow the same member to be removed more than once by getting rid of the redundant removals
-            case (Patch.Remove, Patch.Remove) => tbl + (m -> Patch.Remove)
+            case (Patch.Remove(isMovedL), Patch.Remove(isMovedR)) =>
+              tbl + (m -> Patch.Remove(isMovedL || isMovedR))
             // don't allow using the same member for patching if it's not an addition of the same configuration
             case (l, r) =>
               println(l)
@@ -369,7 +371,7 @@ extension (db: DB)
                   ??? // Not possible since we replaced it to an `After`
                 case Patch.Move.Config.InsideLast =>
                   ??? // Not possible since we replaced it to an `After`
-            case Some(Patch.Remove)       => Nil
+            case Some(Patch.Remove(_))    => Nil
             case Some(_: Patch.ChangeRef) => List(m)
             case None => List(m) // not in the patch table, therefore remain as-is
           patchMembers(added ++ rest, patchTable - m, outgoing.reverse ++ patchedMembers)

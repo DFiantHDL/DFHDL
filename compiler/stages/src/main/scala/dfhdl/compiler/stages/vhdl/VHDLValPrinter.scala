@@ -25,8 +25,9 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     dfVal.args match
-      // infix func
+      // infix/regular func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
+        var infix = true
         val opStr = dfVal.op match
           case Func.Op.=== => "="
           case Func.Op.=!= => "/="
@@ -44,13 +45,19 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               case _         => "srl"
           // if the result width for +/-/* ops is larger than the left argument width
           // then we have a carry-inclusive operation
-          case Func.Op.+ | Func.Op.- | Func.Op.`*` if dfVal.dfType.width > argL.get.dfType.width =>
-            printer.unsupported
+          case op @ (Func.Op.+ | Func.Op.- | Func.Op.`*`)
+              if dfVal.dfType.width > argL.get.dfType.width =>
+            infix = false
+            op match
+              case Func.Op.+   => "cadd"
+              case Func.Op.-   => "csub"
+              case Func.Op.`*` => "cmul"
           case op => op.toString
         val rhsStr = dfVal.op match
           case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
           case _                       => argR.refCodeString
-        s"${argL.refCodeString.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
+        if (infix) s"${argL.refCodeString.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
+        else s"${opStr}(${argL.refCodeString}, ${argR.refCodeString})"
       // unary/postfix func
       case arg :: Nil =>
         val argStr = arg.refCodeString.applyBrackets()

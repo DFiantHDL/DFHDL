@@ -37,14 +37,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val id = (new ID).getVerilogCode
     assertNoDiff(
       id,
-      """|`ifndef ID_DEFS
-         |`define ID_DEFS
-         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
-         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
-         |
-         |`endif
-         |
-         |`default_nettype none
+      """|`default_nettype none
          |`timescale 1ns/1ps
          |`include "ID_defs.sv"
          |
@@ -64,14 +57,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new IDTop).getVerilogCode
     assertNoDiff(
       top,
-      """|`ifndef IDTOP_DEFS
-         |`define IDTOP_DEFS
-         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
-         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
-         |
-         |`endif
-         |
-         |`default_nettype none
+      """|`default_nettype none
          |`timescale 1ns/1ps
          |`include "IDTop_defs.sv"
          |
@@ -124,13 +110,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = ParamTest(1).getVerilogCode
     assertNoDiff(
       top,
-      """|`ifndef PARAMTEST_DEFS
-         |`define PARAMTEST_DEFS
-         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
-         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
-         |parameter logic gp = 1'b1;
-         |`endif
-         |
+      """|parameter logic gp = 1'b1;
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "ParamTest_defs.sv"
@@ -176,14 +156,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Top).getVerilogCode(align = true)
     assertNoDiff(
       top,
-      """|`ifndef TOP_DEFS
-         |`define TOP_DEFS
-         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
-         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
-         |
-         |`endif
-         |
-         |`default_nettype none
+      """|`default_nettype none
          |`timescale 1ns/1ps
          |`include "Top_defs.sv"
          |
@@ -236,14 +209,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Top).getVerilogCode
     assertNoDiff(
       top,
-      """|`ifndef TOP_DEFS
-         |`define TOP_DEFS
-         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
-         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
-         |
-         |`endif
-         |
-         |`default_nettype none
+      """|`default_nettype none
          |`timescale 1ns/1ps
          |`include "Top_defs.sv"
          |
@@ -291,14 +257,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new HasDocs).getVerilogCode
     assertNoDiff(
       top,
-      """|`ifndef HASDOCS_DEFS
-         |`define HASDOCS_DEFS
-         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
-         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
-         |
-         |`endif
-         |
-         |/* HasDocs has docs */
+      """|/* HasDocs has docs */
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "HasDocs_defs.sv"
@@ -326,14 +285,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Counter(8)).getVerilogCode
     assertNoDiff(
       top,
-      """|`ifndef COUNTER_DEFS
-         |`define COUNTER_DEFS
-         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
-         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
-         |
-         |`endif
-         |
-         |`default_nettype none
+      """|`default_nettype none
          |`timescale 1ns/1ps
          |`include "Counter_defs.sv"
          |
@@ -373,14 +325,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Test(10)).getVerilogCode
     assertNoDiff(
       top,
-      """|`ifndef TEST_DEFS
-         |`define TEST_DEFS
-         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
-         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
-         |
-         |`endif
-         |
-         |`default_nettype none
+      """|`default_nettype none
          |`timescale 1ns/1ps
          |`include "Test_defs.sv"
          |
@@ -412,14 +357,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Counter(8)).getVerilogCode
     assertNoDiff(
       top,
-      """|`ifndef COUNTER_DEFS
-         |`define COUNTER_DEFS
-         |`define MAX(a,b) ((a) > (b) ? (a) : (b))
-         |`define MIN(a,b) ((a) < (b) ? (a) : (b))
-         |
-         |`endif
-         |
-         |`default_nettype none
+      """|`default_nettype none
          |`timescale 1ns/1ps
          |`include "Counter_defs.sv"
          |
