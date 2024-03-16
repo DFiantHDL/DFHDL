@@ -19,6 +19,8 @@ extension [T: HasDB](t: T)
     val printer = new DFPrinter(using designDB.getSet)
     printer.csDB
   def getCodeString(using CompilerOptions): String = getCodeString(align = false)
+  def getCompiledCodeString(using po: PrinterOptions, co: CompilerOptions): String =
+    co.backend.printer(t.db).csDB
   def printCodeString(using po: PrinterOptions, co: CompilerOptions): T =
     val designDB = StageRunner.run(PrintCodeString)(t.db)
     val printer = new DFPrinter(using designDB.getSet)

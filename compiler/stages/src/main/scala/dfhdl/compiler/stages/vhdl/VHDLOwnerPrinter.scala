@@ -39,7 +39,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     }
     val genericBlock =
       if (designParamList.length == 0) ""
-      else "\ngeneric (" + designParamList.mkString("\n", ";\n", "\n").hindent(2) + ");"
+      else "\ngeneric (" + designParamList.mkString("\n", ";\n", "\n").hindent(1) + ");"
     val portBlock = ports.emptyOr(v => s"""
          |port (
          |${ports.hindent}
@@ -78,8 +78,15 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
        |""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFDesignLateBody(design)
-    val inst = s"${design.getName} : entity work.${entityName(design)}(${archName(design)})"
-    if (body.isEmpty) s"$inst" else s"$inst port map (\n${body.hindent}\n);"
+    val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
+      s"${param.getName} => ${param.relValRef.refCodeString}"
+    }
+    val designParamCS =
+      if (designParamList.isEmpty) ""
+      else " generic map (" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
+    val inst =
+      s"${design.getName} : entity work.${entityName(design)}(${archName(design)})${designParamCS}"
+    if (body.isEmpty) s"$inst;" else s"$inst port map (\n${body.hindent}\n);"
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
   def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported
   def csBlockBegin: String = ""

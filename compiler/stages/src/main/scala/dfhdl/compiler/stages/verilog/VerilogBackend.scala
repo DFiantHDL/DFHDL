@@ -35,14 +35,3 @@ case object VerilogBackend extends Stage:
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB = designDB
 end VerilogBackend
-
-extension [T: HasDB](t: T)
-  def getVerilogCode(align: Boolean)(using CompilerOptions): String =
-    val designDB =
-      StageRunner.run(VerilogBackend)(t.db)
-    given PrinterOptions.Align = align
-    val printer = new VerilogPrinter(using designDB.getSet)
-    printer.csDB
-  end getVerilogCode
-  def getVerilogCode(using CompilerOptions): String = getVerilogCode(align = false)
-end extension

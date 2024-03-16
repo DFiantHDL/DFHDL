@@ -127,7 +127,11 @@ final case class DFDecimal(
         // DFUFix/DFSFix
         case _ => ??? // not supported yet
     else None
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFDecimal =>
+      this.signed == that.signed && this.widthParamRef =~ that.widthParamRef &&
+      this.fractionWidth == that.fractionWidth && this.nativeType == that.nativeType
+    case _ => false
   def getRefs: List[DFRef.TwoWayAny] = widthParamRef.getRef.toList
 end DFDecimal
 

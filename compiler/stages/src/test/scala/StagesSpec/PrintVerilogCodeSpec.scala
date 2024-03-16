@@ -1,10 +1,12 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.verilog.{getVerilogCode}
+import dfhdl.compiler.stages.getCompiledCodeString
 // scalafmt: { align.tokens = [{code = ":"}, {code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}, {code = ":=="}]}
 
 class PrintVerilogCodeSpec extends StageSpec:
+  given options.CompilerOptions.Backend = backends.verilog.sv2005
+  given options.PrinterOptions.Align    = false
   class ID extends EDDesign:
     val x  = SInt(16) <> IN
     val y  = SInt(16) <> OUT
@@ -34,7 +36,7 @@ class PrintVerilogCodeSpec extends StageSpec:
   end IDTop
 
   test("Basic ID design") {
-    val id = (new ID).getVerilogCode
+    val id = (new ID).getCompiledCodeString
     assertNoDiff(
       id,
       """|`default_nettype none
@@ -54,7 +56,7 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
 
   test("Basic hierarchy design") {
-    val top = (new IDTop).getVerilogCode
+    val top = (new IDTop).getCompiledCodeString
     assertNoDiff(
       top,
       """|`default_nettype none
@@ -107,7 +109,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       val x = Bit <> IN
       val y = Bit <> OUT
       y := x || gp || dp || lp
-    val top = ParamTest(1).getVerilogCode
+    val top = ParamTest(1).getCompiledCodeString
     assertNoDiff(
       top,
       """|parameter logic gp = 1'b1;
@@ -130,6 +132,7 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
 
   test("process block") {
+    given options.PrinterOptions.Align = true
     class Top extends EDDesign:
       val clk = Bit      <> IN
       val rst = Bit      <> IN
@@ -153,7 +156,7 @@ class PrintVerilogCodeSpec extends StageSpec:
         y :== z
       }
     end Top
-    val top = (new Top).getVerilogCode(align = true)
+    val top = (new Top).getCompiledCodeString
     assertNoDiff(
       top,
       """|`default_nettype none
@@ -206,7 +209,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       val c14: SInt[8] <> CONST        = ?
       val c15: (Bits[3], Bit) <> CONST = (all(0), 1)
     end Top
-    val top = (new Top).getVerilogCode
+    val top = (new Top).getCompiledCodeString
     assertNoDiff(
       top,
       """|`default_nettype none
@@ -254,7 +257,7 @@ class PrintVerilogCodeSpec extends StageSpec:
         */
       val z = Bit <> VAR
 
-    val top = (new HasDocs).getVerilogCode
+    val top = (new HasDocs).getCompiledCodeString
     assertNoDiff(
       top,
       """|/* HasDocs has docs */
@@ -282,7 +285,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     class Counter(val width: Int <> CONST) extends RTDesign:
       val cnt = Bits(width) <> OUT init all(0)
       cnt := cnt.reg + 1
-    val top = (new Counter(8)).getVerilogCode
+    val top = (new Counter(8)).getCompiledCodeString
     assertNoDiff(
       top,
       """|`default_nettype none
@@ -322,7 +325,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       y := x.^
       z := 0
       w := 0
-    val top = (new Test(10)).getVerilogCode
+    val top = (new Test(10)).getCompiledCodeString
     assertNoDiff(
       top,
       """|`default_nettype none
@@ -354,7 +357,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     class Counter(val width: Int <> CONST) extends RTDesign:
       val cnt = UInt(width) <> OUT init d"8'0"
       cnt := cnt.reg + 1
-    val top = (new Counter(8)).getVerilogCode
+    val top = (new Counter(8)).getCompiledCodeString
     assertNoDiff(
       top,
       """|`default_nettype none

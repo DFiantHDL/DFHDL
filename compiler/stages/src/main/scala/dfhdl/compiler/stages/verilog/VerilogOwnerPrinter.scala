@@ -65,7 +65,13 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
        |""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFDesignLateBody(design)
-    val inst = s"${moduleName(design)} ${design.getName}"
+    val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
+      s".${param.getName} (${param.relValRef.refCodeString})"
+    }
+    val designParamCS =
+      if (designParamList.isEmpty) ""
+      else " #(" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
+    val inst = s"${moduleName(design)}$designParamCS ${design.getName}"
     if (body.isEmpty) s"$inst" else s"$inst(\n${body.hindent}\n);"
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
   def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported

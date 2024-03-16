@@ -587,7 +587,7 @@ object DFBits:
         def |[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: `LW == RW`.CheckNUB[icL.OutW, icR.OutW]
-        ): DFValOf[DFBits[icL.OutW]] = trydf {
+        ): DFValTP[DFBits[icL.OutW], icL.OutP | icR.OutP] = trydf {
           val lhsVal = icL(lhs)
           val rhsVal = icR(rhs)
           check(lhsVal.widthInt, rhsVal.widthInt)
@@ -596,7 +596,7 @@ object DFBits:
         def ^[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: `LW == RW`.CheckNUB[icL.OutW, icR.OutW]
-        ): DFValOf[DFBits[icL.OutW]] = trydf {
+        ): DFValTP[DFBits[icL.OutW], icL.OutP | icR.OutP] = trydf {
           val lhsVal = icL(lhs)
           val rhsVal = icR(rhs)
           check(lhsVal.widthInt, rhsVal.widthInt)
@@ -637,7 +637,6 @@ object DFBits:
         }
       end extension
 
-      // TODO: IntP
       extension [W <: IntP, A, C, I, P](
           lhs: DFVal[DFBits[W], Modifier[A, C, I, P]]
       )

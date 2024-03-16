@@ -25,16 +25,8 @@ enum VHDLDialect derives CanEqual:
 private case object VHDLUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = false)
 case object VHDLBackend extends Stage:
   def dependencies: List[Stage] =
-    List(DropUnreferencedAnons, NamedAnonMultiref, ToED, VHDLUniqueNames)
+    List(DropUnreferencedAnons, NamedAnonMultiref, ToED, ExplicitNamedVars, DropCondDcls,
+      SimpleOrderMembers, VHDLUniqueNames, ViaConnection)
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB = designDB
 end VHDLBackend
-
-extension [T: HasDB](t: T)
-  def getVHDLCode(align: Boolean)(using CompilerOptions): String =
-    val designDB = StageRunner.run(VHDLBackend)(t.db)
-    given PrinterOptions.Align = align
-    val printer = new VHDLPrinter(using designDB.getSet)
-    printer.csDB
-  def getVHDLCode(using CompilerOptions): String = getVHDLCode(align = false)
-end extension

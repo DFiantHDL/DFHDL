@@ -1,10 +1,12 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.vhdl.getVHDLCode
+import dfhdl.compiler.stages.getCompiledCodeString
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}, {code = ":=="}]}
 
 class PrintVHDLCodeSpec extends StageSpec:
+  given options.CompilerOptions.Backend = backends.vhdl.v2008
+  given options.PrinterOptions.Align    = false
   class ID extends EDDesign:
     val x = SInt(16) <> IN
     val y = SInt(16) <> OUT
@@ -30,7 +32,7 @@ class PrintVHDLCodeSpec extends StageSpec:
   end IDTop
 
   test("Basic ID design") {
-    val id = (new ID).getVHDLCode
+    val id = (new ID).getCompiledCodeString
     assertNoDiff(
       id,
       """|library ieee;
@@ -54,7 +56,7 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
 
   test("Basic hierarchy design") {
-    val top = (new IDTop).getVHDLCode
+    val top = (new IDTop).getCompiledCodeString
     assertNoDiff(
       top,
       """|library ieee;
@@ -107,7 +109,88 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Basic hierarchy design with parameters") {
+    class ID(val width: Int <> CONST) extends DFDesign:
+      val x = SInt(width) <> IN
+      val y = SInt(width) <> OUT
+      y := x
+
+    class IDTop(val width: Int <> CONST) extends DFDesign:
+      val x   = SInt(width) <> IN
+      val y   = SInt(width) <> OUT
+      val id1 = ID(width)
+      val id2 = ID(width)
+      id1.x <> x
+      id1.y <> id2.x
+      id2.y <> y
+    val top = (new IDTop(16)).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.IDTop_pkg.all;
+         |
+         |entity ID is
+         |generic (
+         |  width : integer
+         |);
+         |port (
+         |  x : in signed(width - 1 downto 0);
+         |  y : out signed(width - 1 downto 0)
+         |);
+         |end ID;
+         |
+         |architecture ID_arch of ID is
+         |begin
+         |  process (all)
+         |  begin
+         |    y <= x;
+         |  end process;
+         |end ID_arch;
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.IDTop_pkg.all;
+         |
+         |entity IDTop is
+         |generic (
+         |  width : integer := 16
+         |);
+         |port (
+         |  x : in signed(width - 1 downto 0);
+         |  y : out signed(width - 1 downto 0)
+         |);
+         |end IDTop;
+         |
+         |architecture IDTop_arch of IDTop is
+         |  signal id1_x : signed(width - 1 downto 0);
+         |  signal id1_y : signed(width - 1 downto 0);
+         |  signal id2_x : signed(width - 1 downto 0);
+         |  signal id2_y : signed(width - 1 downto 0);
+         |begin
+         |  id1 : entity work.ID(ID_arch) generic map (
+         |    width => width
+         |  ) port map (
+         |    x => id1_x,
+         |    y => id1_y
+         |  );
+         |  id2 : entity work.ID(ID_arch) generic map (
+         |    width => width
+         |  ) port map (
+         |    x => id2_x,
+         |    y => id2_y
+         |  );
+         |  id1_x <= x;
+         |  id2_x <= id1_y;
+         |  y <= id2_y;
+         |end IDTop_arch;
+         |""".stripMargin
+    )
+  }
   test("process block") {
+    given options.PrinterOptions.Align = true
     class Top extends EDDesign:
       val clk = Bit      <> IN
       val rst = Bit      <> IN
@@ -131,7 +214,7 @@ class PrintVHDLCodeSpec extends StageSpec:
         y :== z
       }
     end Top
-    val top = (new Top).getVHDLCode(align = true)
+    val top = (new Top).getCompiledCodeString
     assertNoDiff(
       top,
       """|library ieee;
@@ -191,7 +274,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       val c14: SInt[8] <> CONST  = ?
       // val c15: (Bits[3], Bit) <> CONST = (all(0), 1)
     end Top
-    val top = (new Top).getVHDLCode
+    val top = (new Top).getCompiledCodeString
     assertNoDiff(
       top,
       """|library ieee;
