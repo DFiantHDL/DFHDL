@@ -565,16 +565,12 @@ object DFBits:
           val width =
             iter.map(_.widthIntParam.asInstanceOf[IntParam[Int]]).reduce(_ + _)
           DFVal.Func(DFBits(width), FuncOp.++, iter.toList)
-      extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
-        def extend(using DFC): DFValTP[DFBits[Int], icL.OutP] =
-          icL(lhs).tag(DFVal.ExtendTag).asValTP[DFBits[Int], icL.OutP]
-        def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
-            check: Arg.Width.CheckNUB[RW],
-            dfc: DFC
-        ): DFValTP[DFBits[RW], icL.OutP] = trydf {
-          check(updatedWidth)
-          icL(lhs).resizeBits(updatedWidth)
-        }
+      // only Bits and UInt as expected candidates
+      extension [W0 <: IntP, L <: DFValOf[DFBits[W0]] | DFValOf[DFUInt[W0]], LW <: IntP, LP](
+          lhs: L
+      )(using
+          icL: Candidate[L]
+      )
         def &[R](rhs: Exact[R])(using icR: Candidate[R])(using
             dfc: DFC,
             check: `LW == RW`.CheckNUB[icL.OutW, icR.OutW]
@@ -614,6 +610,17 @@ object DFBits:
         def ^(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
           DFVal.Func(DFBit, FuncOp.^, List(icL(lhs)))
         }
+      end extension
+      extension [L <: DFValAny, LW <: IntP, LP](lhs: L)(using icL: Candidate.Aux[L, LW, LP])
+        def extend(using DFC): DFValTP[DFBits[Int], icL.OutP] =
+          icL(lhs).tag(DFVal.ExtendTag).asValTP[DFBits[Int], icL.OutP]
+        def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
+            check: Arg.Width.CheckNUB[RW],
+            dfc: DFC
+        ): DFValTP[DFBits[RW], icL.OutP] = trydf {
+          check(updatedWidth)
+          icL(lhs).resizeBits(updatedWidth)
+        }
         def repeat[N <: Int](num: IntParam[N])(using
             dfc: DFC,
             check: Arg.Positive.Check[N]
@@ -622,7 +629,7 @@ object DFBits:
           check(num)
           val lhsWidth = lhsVal.widthIntParam
           val width =
-            // simplifying the representation of the argument is a single bit
+            // simplifying the representation if the argument is a single bit
             if (lhsWidth.toScalaInt == 1) num.asInstanceOf[IntParam[IntP.*[icL.OutW, N]]]
             else lhsWidth * num
           DFVal.Func(DFBits(width), FuncOp.repeat, List(lhsVal, num.toDFConst))
