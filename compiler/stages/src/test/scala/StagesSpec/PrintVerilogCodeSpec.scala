@@ -102,6 +102,69 @@ class PrintVerilogCodeSpec extends StageSpec:
     )
   }
 
+  test("Basic hierarchy design with parameters") {
+    class ID(val width: Int <> CONST) extends DFDesign:
+      val x = SInt(width) <> IN
+      val y = SInt(width) <> OUT
+      y := x
+
+    class IDTop(val width: Int <> CONST) extends DFDesign:
+      val x   = SInt(width) <> IN
+      val y   = SInt(width) <> OUT
+      val id1 = ID(width)
+      val id2 = ID(width)
+      id1.x <> x
+      id1.y <> id2.x
+      id2.y <> y
+    val top = (new IDTop(16)).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "IDTop_defs.sv"
+         |
+         |module ID#(parameter int width)(
+         |  input wire logic signed [width - 1:0] x,
+         |  output logic signed [width - 1:0] y
+         |);
+         |  always @(*)
+         |  begin
+         |    y = x;
+         |  end
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "IDTop_defs.sv"
+         |
+         |module IDTop#(parameter int width = 16)(
+         |  input wire logic signed [width - 1:0] x,
+         |  output logic signed [width - 1:0] y
+         |);
+         |  logic signed [width - 1:0] id1_x;
+         |  logic signed [width - 1:0] id1_y;
+         |  logic signed [width - 1:0] id2_x;
+         |  logic signed [width - 1:0] id2_y;
+         |  ID #(
+         |    .width (width)
+         |  ) id1(
+         |    .x /*<--*/ (id1_x),
+         |    .y /*-->*/ (id1_y)
+         |  );
+         |  ID #(
+         |    .width (width)
+         |  ) id2(
+         |    .x /*<--*/ (id2_x),
+         |    .y /*-->*/ (id2_y)
+         |  );
+         |  assign id1_x = x;
+         |  assign id2_x = id1_y;
+         |  assign y = id2_y;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
   test("Global, design, and local parameters") {
     val gp: Bit <> CONST = 1
     class ParamTest(dp: Bit <> CONST) extends RTDesign:

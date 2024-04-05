@@ -88,6 +88,15 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
             args
               .map(_.refCodeString.applyBrackets())
               .mkString(s" ${dfVal.op} ")
+  def csBitsToType(toType: DFType, csArg: String): String = toType match
+    case DFBits(_)        => csArg
+    case DFBool           => s"to_bool($csArg)"
+    case DFBit            => s"to_sl($csArg)"
+    case DFUInt(_)        => s"unsigned($csArg)"
+    case DFSInt(_)        => s"signed($csArg)"
+    case dfType: DFStruct => s"to_${dfType.getName}($csArg)"
+    case dfType: DFOpaque => csBitsToType(dfType.actualType, csArg)
+    case _                => printer.unsupported
 
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String =
     val relVal = dfVal.relValRef.get
@@ -99,22 +108,22 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
         assert(tWidth == fWidth + 1)
         s"signed($relValStr)"
-      case (DFUInt(Int(tWidth)), DFBits(Int(fWidth))) =>
-        assert(tWidth == fWidth)
-        s"unsigned($relValStr)"
-      case (DFSInt(Int(tWidth)), DFBits(Int(fWidth))) =>
-        assert(tWidth == fWidth)
-        s"signed($relValStr)"
       case (DFBits(tWidthParamRef), DFBits(_)) =>
         s"resize($relValStr, ${tWidthParamRef.refCodeString})"
-      case (DFBits(Int(tWidth)), _) =>
+      case (toType: DFType, fromType: DFBits) =>
+        assert(toType.width == fromType.width)
+        csBitsToType(toType, relValStr)
+      case (DFBits(Int(tWidth)), fromType: DFType) =>
         assert(tWidth == fromType.width)
-        fromType match
-          case _ => s"to_slv($relValStr)"
+        s"to_slv($relValStr)"
       case (DFUInt(tWidthParamRef), DFUInt(_)) =>
         s"resize($relValStr, ${tWidthParamRef.refCodeString})"
       case (DFSInt(tWidthParamRef), DFSInt(_)) =>
         s"resize($relValStr, ${tWidthParamRef.refCodeString})"
+      case (t, DFOpaque(_, _, ot)) if ot =~ t =>
+        relValStr
+      case (DFOpaque(_, _, _), _) =>
+        relValStr
       case (DFBit, DFBool) =>
         s"to_sl($relValStr)"
       case (DFBool, DFBit) =>
@@ -123,7 +132,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
-    s"${dfVal.relValCodeString}(${dfVal.relBitHigh}, ${dfVal.relBitLow})"
+    s"${dfVal.relValCodeString}(${dfVal.relBitHigh} downto ${dfVal.relBitLow})"
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
     val relIdxStr = dfVal.relIdx.simpleRefCodeString
     s"${dfVal.relValCodeString}($relIdxStr)"

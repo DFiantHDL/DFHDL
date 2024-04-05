@@ -44,19 +44,31 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
   def globalFileName: String = s"${printer.packageName}.vhd"
   def designFileName(designName: String): String = s"$designName.vhd"
   override def csGlobalFileContent: String =
+    val structConvFuncsDcl =
+      getSet.designDB.getGlobalNamedDFTypes.view
+        .collect { case dfType: DFStruct => printer.csDFStructConvFuncsDcl(dfType) }
+        .mkString("\n").emptyOr(x => s"$x\n")
+    val structConvFuncsBody =
+      getSet.designDB.getGlobalNamedDFTypes.view
+        .collect { case dfType: DFStruct => printer.csDFStructConvFuncsBody(dfType) }
+        .mkString("\n").emptyOr(x => s"$x\n")
     s"""library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
        |
        |package ${printer.packageName} is
-       |${super.csGlobalFileContent}
+       |${super.csGlobalFileContent + structConvFuncsDcl}
        |function cadd(A, B : unsigned) return unsigned;
        |function cadd(A, B : signed) return signed;
        |function csub(A, B : unsigned) return unsigned;
        |function csub(A, B : signed) return signed;
+       |function clog2(n : natural) return natural;
+       |function to_slv(A : unsigned) return std_logic_vector;
+       |function to_slv(A : signed) return std_logic_vector;
        |end package ${printer.packageName};
        |
        |package body ${printer.packageName} is
+       |$structConvFuncsBody
        |function cadd(A, B : unsigned) return unsigned is
        |begin
        |    return unsigned('0' & A) + unsigned('0' & B);
@@ -73,8 +85,27 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |begin
        |    return signed(A(A'left) & A) - signed(B(B'left) & B);
        |end function;
+       |function clog2(n : natural) return natural is
+       |  variable result : natural := 0;
+       |  variable val : natural := n - 1; 
+       |begin
+       |  while val > 0 loop
+       |    val := val / 2;
+       |    result := result + 1;
+       |  end loop;
+       |  return result;
+       |end function;
+       |function to_slv(A : unsigned) return std_logic_vector is
+       |begin
+       |  return std_logic_vector(A);
+       |end;
+       |function to_slv(A : signed) return std_logic_vector is
+       |begin
+       |  return std_logic_vector(A);
+       |end;
        |end package body ${printer.packageName};
        |""".stripMargin
+  end csGlobalFileContent
   def alignCode(cs: String): String =
     cs
       .align(".*", ":", "[ ]*(?:in|out|inout) .*")
