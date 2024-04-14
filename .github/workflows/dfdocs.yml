@@ -30,6 +30,7 @@ jobs:
           pip install mkdocs-material
           pip install pymdown-extensions
           pip install mkdocs-redirects
+          pip install mkdocs-glightbox
           mkdocs build --verbose --clean #--strict
       - name: Deploy
         if: ${{ github.event_name == 'push' }}

@@ -16,8 +16,17 @@ copyright: Copyright &copy; 2021 <a href="https://www.dfiant.works">DFiant Inc.<
 theme:
     name: 'material'
     palette:
-        primary: 'indigo'
-        accent: 'indigo'
+      # Palette toggle for light mode
+      - scheme: default
+        toggle:
+          icon: material/brightness-7 
+          name: Switch to dark mode
+
+      # Palette toggle for dark mode
+      - scheme: slate
+        toggle:
+          icon: material/brightness-4
+          name: Switch to light mode
     font:
         text: 'Roboto'
         code: 'Roboto Mono'    
@@ -77,6 +86,7 @@ markdown_extensions:
         # See https://github.com/facelessuser/pymdown-extensions/issues/609
         permalink: "\U0001F517"
     - abbr
+    - attr_list    
     - admonition
     - pymdownx.snippets:
         check_paths: true
@@ -113,6 +123,7 @@ extra_css:
 
 plugins:
     - search
+    - glightbox
     - redirects:
         redirect_maps:
             'LEGaTO/index.md': 'index.md'
