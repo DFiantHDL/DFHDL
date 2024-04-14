@@ -83,8 +83,8 @@ extra_javascript:
 
 markdown_extensions:
     - toc:
-        # See https://github.com/facelessuser/pymdown-extensions/issues/609
-        permalink: "\U0001F517"
+        # https://github.com/squidfunk/mkdocs-material/discussions/3535
+        permalink: ''
     - abbr
     - attr_list    
     - admonition
@@ -116,7 +116,7 @@ markdown_extensions:
 extra_css:
     - css/scastie.css
     - css/vs.css
-    - css/extra.css
+    - css/lhs-permalink.css
     - css/dfiant-admonition.css
     - css/rtl-admonition.css
 
