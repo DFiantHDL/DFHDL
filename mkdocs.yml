@@ -53,13 +53,14 @@ extra:
 nav:
   - Introduction:
     - DFDocs: index.md
-    - 'DFiant: First Look': intro/first-look/index.md
+    - 'DFHDL: First Look': intro/first-look/index.md
     - Motivation (Why Another HDL): intro/motivation/index.md
     - A Dataflow Hardware Description Abstraction: intro/dataflow-abstraction/index.md
   - Getting Started:
     - Initial Setup: getting-started/initial-setup/index.md
     - Hello Hardware World: getting-started/hello-world.md
   - User Guide:
+    - Design Domains: user-guide/design-domains/index.md
     - Type System: user-guide/type-system/index.md
     - State (Memory): user-guide/state/index.md
     - Connectivity: user-guide/connectivity/index.md
@@ -68,6 +69,9 @@ nav:
     - Simulation: user-guide/simulation/index.md
     - Synthesis: user-guide/synthesis/index.md
     - Errors: user-guide/errors/index.md
+  - Transitioning:
+    - From Verilog: transitioning/from-verilog/index.md
+    # - From VHDL: transitioning/from-vhdl/index.md
   - About:
     - Release Notes: about/release-notes.md
     - Contributing: about/contributing.md
