@@ -148,7 +148,9 @@ lazy val compilerOptions = Seq(
   //https://github.com/lampepfl/dotty/issues/19299
   "-Wconf:msg=or backticked identifier `equals`:s",
   //https://github.com/lampepfl/dotty/issues/19301
-  "-Wconf:msg=not declared infix:s"
+  "-Wconf:msg=not declared infix:s",
+  //ignore warning given by the plugin Jdummy dependency trick
+  "-Wconf:msg=bad option '-Jdummy:s"
 )
 
 lazy val pluginUseSettings = Seq(
