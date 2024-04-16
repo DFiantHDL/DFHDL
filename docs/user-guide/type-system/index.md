@@ -4,12 +4,110 @@ typora-copy-images-to: ./
 
 # Type System
 
-DFiant is a Scala library, hence it inherently supports type safe and rich language constructs. DFiant brings type driven development concepts to hardware design, by creating an extensible dataflow class hierarchy, with the trait `DFAny` at its head (similar concept to Scala's Unified Types hierarchy). `DFAny` contains all fields that are common to every dataflow variable (e.g., `.width` represents the number of bits contained by the variable). Fig. 1 illustrates a simplified inheritance diagram of DFiant's dataflow types. Further explanation is given in the [next section](#mutable-dataflow-variables-and-immutable-dataflow-values). 
+DFHDL is a Scala library and thus inherently supports type safe and rich language constructs. This chapter covers the rules and API of this type system. 
 
-<p align="center">
-  <img src="../type-system/type-system.png"><br>
-  <b>Fig. 1: DFiant dataflow types: simplified inheritance diagram</b><br>
-</p>
+## Benefits
+Here are the key benefits of the DFHDL type system:
+<div class="grid cards" markdown>
+
+- :mechanical_arm:{ .lg .middle } __Strongly-typed__
+
+    ---
+
+    Most type checking is done statically and enforces strict rules that prevent ambiguity.
+
+    ```scala linenums="0"
+    val u8 = UInt(8) <> IN
+    val u2 = UInt(2) <> IN
+    val y1 = u8 - u2 //ok
+    //error prevents ambiguous 
+    //behavior when a wider num is 
+    //subtracted from a narrow num
+    val y2 = u2 - u8 //error
+    ```
+    ![strongly-typed-example](strongly-typed-example.png)
+  
+
+-   :material-bullseye-arrow:{ .lg .middle } __Bit-accurate__
+
+    ---
+
+    Each DFHDL value has known bit-width which is used to enforce various rules to prevent data loss.
+
+    ```scala linenums="0"
+    val u8 = UInt(8) <> IN
+    val s8 = SInt(8) <> OUT
+    //error prevents data loss when
+    //u8 is converted to a 9-bit signed
+    //to be assigned to s8 which is
+    //only 8-bits wide
+    s8 := u8 //error
+    ```
+    ![bit-accurate-example](bit-accurate-example.png)
+
+-   :simple-googlecloudcomposer:{ .lg .middle } __Composable__
+
+    ---
+
+    Types can be composed through [structs](#struct-dfhdl-values) or [tuples](#tuple-dfhdl-values) to form new types.
+
+    ```scala linenums="0"
+    //new Pixel type as a structure
+    //of two unsigned 8-bit numbers
+    case class Pixel(
+      x: UInt[8] <> VAL,
+      y: UInt[8] <> VAL
+    ) extends Struct
+    
+    val pixel = Pixel <> VAR
+    //select and assign fields
+    pixel.x := pixel.y
+    ```
+
+-   :material-expand-all:{ .lg .middle } __Expandable__
+
+    ---
+
+    New types can be defined, and methods can be added for new or existing types.
+
+    ```scala linenums="0"
+    //new AESByte type of unsigned 8-bit num
+    case class AESByte() 
+      extends Opaque(UInt(8))
+    //define addition between two AESByte
+    //values as a xor operation
+    extension (lhs: AESByte <> VAL)
+      def +(rhs: AESByte <> VAL): AESByte <> DFRET =
+        (lhs.actual ^ rhs.actual).as(AESByte)
+    val x, y = AESByte <> VAR
+    val z = x + y //actually XOR
+    ```
+
+  </div>
+
+Each DFHDL value is simply a Scala object that has two critical fields:
+
+* **(Shape) Type, aka DFType** - Determines the bit-width and bit-structure of the value. Currently the supported types are: 
+	* `Bit` ,`Boolean` 
+	* `Bits`
+	* `UInt`,`SInt`, `Int`
+	* Enumerations
+	*  `Vector` (of DFTypes)
+	*  `Tuple` (of DFTypes)
+	* `Struct` (of DFTypes)
+	* `Opaque` (of a DFType)
+* **(Access) Modifier** - Determines what kind of access the user has on the value. While underneath the hood this mechanism can be quite complex, for the user the only explicit modifiers are very simple and are limited to: `VAR`, `IN`, `OUT`, `INOUT`, `VAL` and `CONST`.
+
+
+
+??? dfiant "Internal Type-System Hierarchy (For Advanced Users)"
+	DFHDL brings type driven development concepts to hardware design, by creating an extensible type class hierarchy. Any DFHDL value is a Scala object instance of the class `DFVal[T <: DFTypeAny, M <: ModifierAny]`, where `T` is the type (shape) of value and `M` is a modifier that sets additional characteristics of the DFHDL value, like if its assignable, connectable, initializable, etc. 
+
+	![type-system](type-system-light.png#only-light)
+	![type-system](type-system-dark.png#only-dark)
+	
+	For example for a port `x` set like `#!scala val x = Boolean <> IN`
+
 
 ## Mutable Dataflow Variables and Immutable Dataflow Values
 
@@ -47,26 +145,18 @@ Fig.~\ref`fig:Aliasing` demonstrates aliasing code and its effect on the content
   8. Modifies a byte of `bits128`.
 
 
+## `Bit`, `Boolean` DFHDL Values
 
-## Basic Types
+## `Bits` DFHDL Values
 
-DFiant pays
+## `UInt`, `SInt`, `Int` DFHDL Values
 
-### DFBits
+## Enumeration DFHDL Values
 
+## Vector DFHDL Values
 
+## Struct DFHDL Values
 
-### DFBool
+## Tuple DFHDL Values
 
-
-
-### DFUInt
-
-
-
-### DFSInt
-
-
-
-### DFEnum
-
+## Opauqe DFHDL Values
