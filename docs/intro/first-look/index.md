@@ -6,7 +6,7 @@ Your first encounter with the DFHDL syntax, semantics and language features
 
 ---
 
-In this section we provide simple examples to demonstrate various DFHDL syntax, semantics and languages features. If you wish to understand how to run these examples yourself, please refer to the [Getting Started](/getting-started/) chapter of this documentation. 
+In this section we provide simple examples to demonstrate various DFHDL syntax, semantics and languages features. If you wish to understand how to run these examples yourself, please refer to the [Getting Started][getting-started] chapter of this documentation. 
 
 ## Main Feature Overview
 
@@ -64,7 +64,7 @@ Let's begin with a basic example. The dataflow design `ID` has a signed 16-bit i
 </p>
 
 
-The Scala code in Fig. 1b describes our ID design as a Scala class. To compile this further to RTL or simulate it we need to create a program that instantiates the class and invokes additional commands. See the [getting started](/getting-started/) guide for further details. 
+The Scala code in Fig. 1b describes our ID design as a Scala class. To compile this further to RTL or simulate it we need to create a program that instantiates the class and invokes additional commands. See the [getting started][getting-started] guide for further details. 
 
 !!! summary "Defining a new dataflow design"
 
@@ -77,7 +77,7 @@ The Scala code in Fig. 1b describes our ID design as a Scala class. To compile t
 
 	* **Lines 3-7**: The `ID` Scala `#!scala class` is extended from the `DFDesign` (abstract) class and therefore declares it as a dataflow design. Note: in these example we use braceless syntax of Scala 3. You can use braces instead if you choose to.   
 	
-		* **Lines 4-5**: Here we construct the input port `x` and output port `y`. Both were set as a 16-bit signed integer dataflow variable via the `SInt(width)` constructor, where `width` is any positive integer. DFHDL also support various types such as `Bits`, `UInt`, and `Boolean`. All these dataflow variable construction options and more are discussed [later](/user-guide/type-system) in this documentation. <br />The syntax `#!scala val _name_ = _dftype_ <> _modifier_` is used to construct a hardware port/variable and give it a named Scala reference. The Scala reference name will affect the name of this port when compiled to the required backend representation. 
+		* **Lines 4-5**: Here we construct the input port `x` and output port `y`. Both were set as a 16-bit signed integer dataflow variable via the `SInt(width)` constructor, where `width` is any positive integer. DFHDL also support various types such as `Bits`, `UInt`, and `Boolean`. All these dataflow variable construction options and more are discussed [later][type-system] in this documentation. <br />The syntax `#!scala val _name_ = _dftype_ <> _modifier_` is used to construct a hardware port/variable and give it a named Scala reference. The Scala reference name will affect the name of this port when compiled to the required backend representation. 
 	
 		* **Line 6**: The assignment operator `:=` sets the dataflow output port to consume all input port tokens as they are.
 
@@ -133,7 +133,7 @@ One of the most qualifying characteristics of hardware design is the composition
 		2. **Number of Applications**: A connection to any bit can be made only once, while assignments are unlimited. Also, a bit cannot receive both a connection and an assignment.
 		3. **Initialization**: A connection propagates initialization from the producer to the consumer if the consumer is not explicitly initialized (via `init`). Assignments have no effect over initialization.
 	* Notice that connections can be made between sibling design ports as well as between parent ports to child ports.
-	* For more information access the [connectivity section](/user-guide/connectivity).
+	* For more information access the [connectivity section][connectivity].
 
 ??? rtl "IDTop RTL files observations"
 
@@ -198,7 +198,7 @@ $$\begin{aligned}
 
 ??? dfiant "Conc.scala observations"
 	* **Lines 6-7**: 
-	* For more information access the [state section](/user-guide/state).
+	* For more information access the [state section][state].
 
 ??? rtl "Conc RTL files observations"
 	* Bla Bla
@@ -267,8 +267,8 @@ As can be seen from the formula, we need 3 state elements to match the maximum `
 	* **Line 9**: The `sum/4` division result keeps the LHS 18-bit width. To assign this value to the output `y` which is 16-bit wide, we must resize it first, via `.resize`. DFHDL has strong bit-accurate type-safety, and it does not allow assigning a wider value to a narrower value without explicit resizing. In the following animated figure we show what happens if we did not resize the value.   
 	![SMA_DS_error](SMA_DS_error.gif)<br/>
 	The Scala presentation compiler is able to interact with the editor and a custom message is presented due to the DFHDL type-safe checks.
-	* The various dataflow type inference and operator safety rules are discussed at the [type-system section](/user-guide/type-system).
-	* For more information on state and initialization access the [this section](/user-guide/state).
+	* The various dataflow type inference and operator safety rules are discussed at the [type-system section][type-system].
+	* For more information on state and initialization access the [this section][state].
 
 ??? rtl "SMA_DS RTL files observations"
 
@@ -291,7 +291,7 @@ s_{2,k} &=& x_{k-2}+x_{k-3} = \left.\left (x_t+x_{t-1}  \right )\right|_{t=k-2} 
 y_k &=& \left(s_{0,k}+s_{2,k}\right)/4~~~~x_{i<0}=0
 \end{eqnarray}$$
 
-Instead of relying only on the history of `x`, we can utilize the history of `s0` to produce `s2`. DFHDL has [*time invariant*](/user-guide/state#time-invariance) history access through basic operators like addition, so `(x +^ x.prev).prev(2)` is equivalent to `x.prev(2) +^ x.prev(3)`. 
+Instead of relying only on the history of `x`, we can utilize the history of `s0` to produce `s2`. DFHDL has [*time invariant*][time-invariance] history access through basic operators like addition, so `(x +^ x.prev).prev(2)` is equivalent to `x.prev(2) +^ x.prev(3)`. 
 
 
 <p align="center">
@@ -321,7 +321,7 @@ Instead of relying only on the history of `x`, we can utilize the history of `s0
 
 ??? dfiant "SMA_DS2.scala observations"
 	* **Lines 6-7**: 
-	* For more information access the [state section](/user-guide/state).
+	* For more information access the [state section][state].
 
 ??? rtl "SMA_DS2 RTL files observations"
 	* Bla Bla

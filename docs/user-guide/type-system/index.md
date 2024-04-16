@@ -1,89 +1,89 @@
 ---
 typora-copy-images-to: ./
 ---
-
+[](){#user-guide}
 # Type System
 
 DFHDL is a Scala library and thus inherently supports type safe and rich language constructs. This chapter covers the rules and API of this type system. 
 
-## Benefits
-Here are the key benefits of the DFHDL type system:
-<div class="grid cards" markdown>
+??? info "Checkout the benefits of the DFHDL type system"
 
-- :mechanical_arm:{ .lg .middle } __Strongly-typed__
-
-    ---
-
-    Most type checking is done statically and enforces strict rules that prevent ambiguity.
-
-    ```scala linenums="0"
-    val u8 = UInt(8) <> IN
-    val u2 = UInt(2) <> IN
-    val y1 = u8 - u2 //ok
-    //error prevents ambiguous 
-    //behavior when a wider num is 
-    //subtracted from a narrow num
-    val y2 = u2 - u8 //error
-    ```
-    ![strongly-typed-example](strongly-typed-example.png)
-  
-
--   :material-bullseye-arrow:{ .lg .middle } __Bit-accurate__
-
-    ---
-
-    Each DFHDL value has known bit-width which is used to enforce various rules to prevent data loss.
-
-    ```scala linenums="0"
-    val u8 = UInt(8) <> IN
-    val s8 = SInt(8) <> OUT
-    //error prevents data loss when
-    //u8 is converted to a 9-bit signed
-    //to be assigned to s8 which is
-    //only 8-bits wide
-    s8 := u8 //error
-    ```
-    ![bit-accurate-example](bit-accurate-example.png)
-
--   :simple-googlecloudcomposer:{ .lg .middle } __Composable__
-
-    ---
-
-    Types can be composed through [structs](#struct-dfhdl-values) or [tuples](#tuple-dfhdl-values) to form new types.
-
-    ```scala linenums="0"
-    //new Pixel type as a structure
-    //of two unsigned 8-bit numbers
-    case class Pixel(
-      x: UInt[8] <> VAL,
-      y: UInt[8] <> VAL
-    ) extends Struct
+    <div class="grid cards" markdown>
     
-    val pixel = Pixel <> VAR
-    //select and assign fields
-    pixel.x := pixel.y
-    ```
+    - :mechanical_arm:{ .lg .middle } __Strongly-typed__
+    
+        ---
+    
+        Most type checking is done statically and enforces strict rules that prevent ambiguity.
+    
+        ```scala linenums="0"
+        val u8 = UInt(8) <> IN
+        val u2 = UInt(2) <> IN
+        val y1 = u8 - u2 //ok
+        //error prevents ambiguous 
+        //behavior when a wider num is 
+        //subtracted from a narrow num
+        val y2 = u2 - u8 //error
+        ```
+        ![strongly-typed-example](strongly-typed-example.png)
 
--   :material-expand-all:{ .lg .middle } __Expandable__
 
-    ---
-
-    New types can be defined, and methods can be added for new or existing types.
-
-    ```scala linenums="0"
-    //new AESByte type of unsigned 8-bit num
-    case class AESByte() 
-      extends Opaque(UInt(8))
-    //define addition between two AESByte
-    //values as a xor operation
-    extension (lhs: AESByte <> VAL)
-      def +(rhs: AESByte <> VAL): AESByte <> DFRET =
-        (lhs.actual ^ rhs.actual).as(AESByte)
-    val x, y = AESByte <> VAR
-    val z = x + y //actually XOR
-    ```
-
-  </div>
+    -   :material-bullseye-arrow:{ .lg .middle } __Bit-accurate__
+    
+        ---
+    
+        Each DFHDL value has known bit-width which is used to enforce various rules to prevent data loss.
+    
+        ```scala linenums="0"
+        val u8 = UInt(8) <> IN
+        val s8 = SInt(8) <> OUT
+        //error prevents data loss when
+        //u8 is converted to a 9-bit signed
+        //to be assigned to s8 which is
+        //only 8-bits wide
+        s8 := u8 //error
+        ```
+        ![bit-accurate-example](bit-accurate-example.png)
+    
+    -   :simple-googlecloudcomposer:{ .lg .middle } __Composable__
+    
+        ---
+    
+        Types can be composed through [structs](#struct-dfhdl-values) or [tuples](#tuple-dfhdl-values) to form new types.
+    
+        ```scala linenums="0"
+        //new Pixel type as a structure
+        //of two unsigned 8-bit numbers
+        case class Pixel(
+          x: UInt[8] <> VAL,
+          y: UInt[8] <> VAL
+        ) extends Struct
+    
+        val pixel = Pixel <> VAR
+        //select and assign fields
+        pixel.x := pixel.y
+        ```
+    
+    -   :material-expand-all:{ .lg .middle } __Expandable__
+    
+        ---
+    
+        New types can be defined, and methods can be added for new or existing types.
+    
+        ```scala linenums="0"
+        //new AESByte type of unsigned 8-bit num
+        case class AESByte() 
+          extends Opaque(UInt(8))
+        //define addition between two AESByte
+        //values as a xor operation
+        extension (lhs: AESByte <> VAL)
+          def +(rhs: AESByte <> VAL): AESByte <> DFRET =
+            (lhs.actual ^ rhs.actual).as(AESByte)
+        val x, y = AESByte <> VAR
+        val z = x + y //actually XOR
+        ```
+    
+      </div>
 
 Each DFHDL value is simply a Scala object that has two critical fields:
 
@@ -93,8 +93,8 @@ Each DFHDL value is simply a Scala object that has two critical fields:
 	* `UInt`,`SInt`, `Int`
 	* Enumerations
 	*  `Vector` (of DFTypes)
-	*  `Tuple` (of DFTypes)
-	* `Struct` (of DFTypes)
+	*  `Struct` (of DFTypes)
+	* `Tuple` (of DFTypes)
 	* `Opaque` (of a DFType)
 * **(Access) Modifier** - Determines what kind of access the user has on the value. While underneath the hood this mechanism can be quite complex, for the user the only explicit modifiers are very simple and are limited to: `VAR`, `IN`, `OUT`, `INOUT`, `VAL` and `CONST`.
 

@@ -131,6 +131,7 @@ extra_css:
 
 plugins:
     - search
+    - autorefs
     - glightbox
     - redirects:
         redirect_maps:

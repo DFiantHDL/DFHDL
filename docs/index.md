@@ -14,13 +14,13 @@ DFiant is a dataflow HDL and is embedded as a library in the [Scala programming 
 
 By this point you may already have some questions: 
 
-* [Why do we need yet another HDL?](intro/motivation) 
-* [Why are high-level synthesis (HLS) tools not enough?](intro/motivation)
-* [What is a dataflow HDL?](intro/dataflow-abstraction)
+* [Why do we need yet another HDL?](intro/motivation/index.md) 
+* [Why are high-level synthesis (HLS) tools not enough?](intro/motivation/index.md)
+* [What is a dataflow HDL?](intro/dataflow-abstraction/index.md)
 
 Answers to these questions await you at the linked sections.
 
-**But**, if you're curious about the DFiant language, [checkout our first-look section](intro/first-look) first.
+**But**, if you're curious about the DFiant language, [checkout our first-look section](intro/first-look/index.md) first.
 
 
 
