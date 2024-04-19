@@ -60,10 +60,18 @@ nav:
     - Initial Setup: getting-started/initial-setup/index.md
     - Hello Hardware World: getting-started/hello-world.md
   - User Guide:
-    - Design Domains: user-guide/design-domains/index.md
+    - Domain Abstractions: user-guide/design-domains/index.md
+    - Designs & Hierarchies: user-guide/designs/index.md
     - Type System: user-guide/type-system/index.md
-    - State (Memory): user-guide/state/index.md
+    - Functions/Methods: user-guide/methods/index.md
     - Connectivity: user-guide/connectivity/index.md
+    - State/Registers/Memory: user-guide/state/index.md
+    - Conditionals: user-guide/conditionals/index.md
+    - Processes: user-guide/processes/index.md
+    - Interfaces [WIP]: user-guide/interfaces/index.md
+    - Domains [WIP]: user-guide/domains/index.md
+    - Scopes [WIP]: user-guide/scopes/index.md
+    - Naming: user-guide/naming/index.md
     - Meta Hardware Description: user-guide/meta/index.md
     - Compilation: user-guide/compilation/index.md
     - Simulation: user-guide/simulation/index.md
@@ -120,18 +128,18 @@ markdown_extensions:
     - pymdownx.emoji:
         emoji_index: !!python/name:material.extensions.emoji.twemoji
         emoji_generator: !!python/name:material.extensions.emoji.to_svg
-
 extra_css:
     - css/scastie.css
     - css/vs.css
     - css/lhs-permalink.css
-    - css/dfiant-admonition.css
+    - css/dfhdl-admonition.css
     - css/rtl-admonition.css
 
 
 plugins:
     - search
     - autorefs
+    - d2
     - glightbox
     - redirects:
         redirect_maps:

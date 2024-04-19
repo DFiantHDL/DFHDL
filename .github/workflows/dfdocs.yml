@@ -32,6 +32,8 @@ jobs:
           pip install mkdocs-redirects
           pip install mkdocs-glightbox
           pip install mkdocs-autorefs
+          pip install mkdocs-d2-plugin
+          curl -fsSL https://d2lang.com/install.sh | sh
           mkdocs build --verbose --clean #--strict
       - name: Deploy
         if: ${{ github.event_name == 'push' }}
