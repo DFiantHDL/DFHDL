@@ -24,11 +24,11 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function updateScastieTheme() {
-      var scastieDiv = document.querySelector('.scastie.embedded');
+      var scastieDivs = document.querySelectorAll('.scastie.embedded');
       // if scastie is already embedded, then we need to remove the DOM
-      if (scastieDiv) {
-          scastieDiv.remove(); 
-      }
+      scastieDivs.forEach(function(div) {
+          div.remove();
+      });
       var settings = {
           theme: getScastieTheme(),
           isWorksheetMode: false,

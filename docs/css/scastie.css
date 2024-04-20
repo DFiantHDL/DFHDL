@@ -1,8 +1,5 @@
-div.output-console * {
-  color: white
-}
-
-html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset details.dfiant div.scastie.embedded {
+/* fix position of the scastie panel to fit the admonition */
+details.dfhdl div.scastie.embedded {
   margin-left: -0.6rem;
   margin-right: 0px;
   margin-top: 0px;
@@ -12,4 +9,98 @@ html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.m
   padding-right: 0px;
   padding-top: 0px;
   padding-bottom: 0px;
+}
+
+
+/* fix code coloring to match superfences code highlighting */
+details.dfhdl div.scastie.embedded * div.main-panel div.content div.editor-container.inner-container {
+  div.console-container.console-open div.console {
+    background-color: var(--md-code-bg-color);
+  }
+  div.editor-wrapper.cm-s-solarized.cm-s-light *, div.editor-wrapper.cm-s-solarized.cm-s-dark * {
+    background-color: var(--md-code-bg-color);
+    font-family: var(--md-code-font-family);
+  }
+  div.cm-indent-markers.cm-line {
+    span.number {
+      color: var(--md-code-hl-number-color);
+    }
+    span.boolean {
+      color: var(--md-code-hl-number-color);
+    }
+    span.string {
+      color: var(--md-code-hl-string-color);
+    }
+    span.variable {
+      color: var(--md-code-hl-name-color);
+    }
+    span.operator {
+      color: var(--md-code-hl-operator-color);
+    }
+    span.property {
+      color: var(--md-code-hl-name-color)!important;
+    }
+    span.property span.method-call {
+      color: var(--md-code-hl-name-color)!important;
+    }
+    span.function-call span.type span.constructor {
+      color: var(--md-code-hl-function-color)!important;
+    }
+  }  
+  div.cm-line {
+    span.keyword {
+      color: var(--md-code-hl-keyword-color);
+    }
+    span.include {
+      color: var(--md-code-hl-keyword-color);
+    } 
+    span.namespace {
+      color: var(--md-code-hl-function-color);
+    }
+    span.type {
+      color: var(--md-code-hl-function-color);
+    }
+    span.punctuation-delimiter {
+      color: var(--md-code-hl-punctuation-color);
+    }
+  }
+  span.comment span.spell {
+    color: var(--md-code-hl-comment-color);
+  }
+}
+/* Fix dark panel coloring to match admonition */
+details.dfhdl div.scastie.embedded div.app.dark div.main-panel div.content div.editor-container.inner-container div.console-container {
+  div.switcher-show {
+    div.console-label {
+      color: var(--md-admonition-fg-color);
+    }
+    background:#222c3f;
+  }
+  div.switcher-hide {
+    div.console-label {
+      color: var(--md-admonition-fg-color);
+    }
+    background:#222c3f;
+  }
+  div.console div.handler {
+    background: #3f7ee7;
+  }
+}
+/* Fix light panel coloring to match admonition */
+details.dfhdl div.scastie.embedded div.app.light div.main-panel div.content div.editor-container.inner-container div.console-container {
+  div.switcher-show {
+    div.console-label {
+      color: var(--md-admonition-fg-color);
+    }
+    background:#ecf3ff;
+  }
+  div.switcher-hide {
+    div.console-label {
+      color: var(--md-admonition-fg-color);
+    }
+    background:#ecf3ff;
+  }
+  div.console div.handler {
+    background: #5a97fd;
+  }
 }

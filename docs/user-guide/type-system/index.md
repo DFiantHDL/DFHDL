@@ -138,7 +138,7 @@ DFHDL is a Scala library and thus inherently supports type safe and rich languag
 ## Variable and Port Declarations {#Dcl}
 Ports are DFHDL values that define the inputs and outputs of a design. Variables are DFHDL values that
 
-#### Syntax {#dcl-syntax}
+### Syntax {#dcl-syntax}
 
 ```scala linenums="0" title="Port & variable declaration syntax"
 val _name_ = _dftype_ <> _modifier_ [init _const_]
@@ -168,19 +168,65 @@ val o = Bit         <> OUT init (0, 1, 0)
 //variable named 'v' with no init
 val v = Bits(8) X 5 <> VAR
 ```
-#### Rules {#dcl-rules}
+### Rules {#dcl-rules}
 
-* __Connection__: After ([or during][via-connections]) a design instantiation, its ports need to be connected to other ports or values of the same DFType. Variables can also be connected and used as intermediate wiring between ports. Output ports can be directly referenced (read) without being connected to an intermediate variable. For more rules about design and port connectivity, read the [relevant section][connectivity].
-* __Assignment__: Both output ports and variables can be assigned (only within the scope of the design they belong to). Input ports cannot be assigned. The possible assignment is according to the [hi][hi].
-[](){#hi}
-* __Domain Semantics__: 
-* __Scope__: 
-    * Variables can be declared in any scope, except global scope, meaning within DFHDL designs, domains, interfaces, methods, processes, and conditional blocks.
-    * Ports can only be declared at the scopes of DFHDL designs, domains, and interfaces. Other scopes are not allowed.
-* __Statement Order & Referencing__: Ports and variables must be declared before they can be referenced in code. Additionally, if the declaration references a constant value (e.g., a bit-vector width), that value must be declared before the port or variable declaration. Other than this (pretty intuitive) limitation, no other limitations exists and ports and variables may be freely distributed within their approved scope space. During the [compilation process][compilation], you can notice that the compiler orders the port declarations so that they always come second to [constant declarations][DFConst], and variables right after.
-* __`INOUT` Port Limitation__: `INOUT` (bidirectional) ports are generally used to reduce IO pins from top-level device connectivity (e.g., protocols like [I<sup>2</sup>C](https://en.wikipedia.org/wiki/I%C2%B2C) benefit from such ability). They are not meant for inter-device wiring reduction, and thus should be used scarcely within their designed purpose. Throughout the years they were also used to workaround HDL limitations like reading from output ports in VHDL'93, or lack of [interfaces][interfaces]. Since DFHDL has none of these limitation, we encourage you to use `INOUT` for their intended purpose only, as synthesis tools for FPGAs and even ASICs will not cooperate. Although, theoretically, in DF domain we can enable bidirectional communication that can later be compiled into two separate ports, there is no real value behind this.
-* __Grouping__: Ports can also be grouped together in a dedicated [interface [wip]][interfaces].
+#### Connections
+After ([or during][via-connections]) a design instantiation, its ports need to be connected to other ports or values of the same DFType. Variables can also be connected and used as intermediate wiring between ports. Output ports can be directly referenced (read) without being connected to an intermediate variable. For more rules about design and port connectivity, read the [relevant section][connectivity].
+```scala title="Successful port/variable connection example"
+class ID extends DFDesign:
+  val x = UInt(8) <> IN
+  val y = UInt(8) <> OUT
+  //internal connection between ports
+  y <> x 
 
+class IDTop extends DFDesign:
+  val x  = UInt(8) <> IN
+  val y  = UInt(8) <> OUT
+  val yv = UInt(8) <> VAR
+  val id = ID()
+  //direct connection between
+  //parent and child design ports
+  id.x <> x 
+  //connecting through an intermediate 
+  //variable
+  id.y <> yv
+  y <> yv
+```
+
+```scala title="Failed port/variable connection example"
+class Foo extends DFDesign:
+  val x  = UInt(8) <> IN
+  val y1 = Bit     <> OUT
+  val y2 = UInt(8) <> OUT
+  y1 <> x //DFType mismatch error
+  y2 <> x
+  //Connection error (cannot connect 
+  //to the same port more than once)
+  y2 <> x 
+```
+
+#### Assignments
+Both output ports and variables can be assigned with the value of the same DFType and only within the scope of the design they belong to. Input ports cannot be assigned. Unlike
+See the [connectivity section][connectivity] for more rules about mixing connections and assignments.
+
+
+#### Domain Semantics 
+Bla Bla
+
+#### Scope 
+* Variables can be declared in any scope, except global scope, meaning within DFHDL designs, domains, interfaces, methods, processes, and conditional blocks.
+* Ports can only be declared at the scopes of DFHDL designs, domains, and interfaces. Other scopes are not allowed.
+
+#### Statement Order & Referencing
+Ports and variables must be declared before they can be referenced in code. Additionally, if the declaration references a constant value (e.g., a bit-vector width), that value must be declared before the port or variable declaration. Other than this (pretty intuitive) limitation, no other limitations exists and ports and variables may be freely distributed within their approved scope space. During the [compilation process][compilation], you can notice that the compiler orders the port declarations so that they always come second to [constant declarations][DFConst], and variables right after.
+
+#### `INOUT` Port Limitation
+`INOUT` (bidirectional) ports are generally used to reduce IO pins from top-level device connectivity (e.g., protocols like [I<sup>2</sup>C](https://en.wikipedia.org/wiki/I%C2%B2C) benefit from such ability). They are not meant for inter-device wiring reduction, and thus should be used scarcely within their designed purpose. Throughout the years they were also used to workaround HDL limitations like reading from output ports in VHDL'93, or lack of [interfaces][interfaces]. Since DFHDL has none of these limitation, we encourage you to use `INOUT` for their intended purpose only, as synthesis tools for FPGAs and even ASICs will not cooperate. Although, theoretically, in DF domain we can enable bidirectional communication that can later be compiled into two separate ports, there is no real value behind this.
+
+#### Grouping
+Ports can also be grouped together in a dedicated [interface [wip]][interfaces].
+
+### Transitioning {#Dcl-transitioning}
 ??? rtl "Differences from Verilog"
     Hi there
 
