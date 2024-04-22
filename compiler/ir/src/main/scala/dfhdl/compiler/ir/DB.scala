@@ -341,7 +341,16 @@ final case class DB(
         import flatNet.{lhsVal, rhsVal, net}
         val (lhsAccess, rhsAccess) = net.op match
           // assignment is always from right to left
-          case Assignment | NBAssignment => (Write, Read)
+          case Assignment | NBAssignment =>
+            lhsVal.dealias match
+              case Some(dcl: DFVal.Dcl) if dcl.modifier == IN =>
+                newError("Cannot assign to an input port.")
+                (Unknown, Unknown)
+              case Some(dcl: DFVal.Dcl) if !(dcl.isSameOwnerDesignAs(net)) =>
+                newError("Ports and variables can only be assigned at their own design scope.")
+                (Unknown, Unknown)
+              case _ =>
+                (Write, Read)
           // connections are analyzed according to the context of the net
           case _ => (getValAccess(lhsVal, net)(connToDcls), getValAccess(rhsVal, net)(connToDcls))
         val toValOption = (lhsAccess, rhsAccess) match
