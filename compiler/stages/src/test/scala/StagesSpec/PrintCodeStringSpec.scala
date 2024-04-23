@@ -206,6 +206,31 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
 
+  // TODO: need to fix param propagation from internal design upwards
+  // test("DFInt32 hierarchy parameter propagation") {
+  //   class StaticY() extends DFDesign:
+  //     val width: Int <> CONST = 8
+  //     val y                   = SInt(width) <> OUT
+  //     y := 11
+
+  //   class Top() extends DFDesign:
+  //     val y     = SInt(8) <> OUT
+  //     val st    = StaticY()
+  //     val styp1 = st.y + 1
+  //     y := styp1
+
+  //   val id = Top().getCodeString
+  //   assertNoDiff(
+  //     id,
+  //     """|class ID(val width: Int <> CONST = 8) extends DFDesign:
+  //        |  val x = SInt(width + 1) <> IN init sd"${width + 1}'0"
+  //        |  val y = SInt(width + 2) <> OUT
+  //        |  y := x.resize(width + 2)
+  //        |end ID
+  //        |""".stripMargin
+  //   )
+  // }
+
   test("Basic EDDesign") {
     class ID extends EDDesign:
       val x    = SInt(16) <> IN

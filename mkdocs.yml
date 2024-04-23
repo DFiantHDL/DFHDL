@@ -134,6 +134,7 @@ extra_css:
     - css/lhs-permalink.css
     - css/dfhdl-admonition.css
     - css/rtl-admonition.css
+    - css/d2.css
 
 
 plugins:

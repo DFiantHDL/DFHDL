@@ -175,6 +175,40 @@ $$\begin{aligned}
   <img src="../first-look/Conc.svg"><br>
   <b>Fig. 4a: Functional drawing of the dataflow design 'Conc' with an input port 'x' and an output port 'y'</b><br>
 </p>
+
+<p align="center">
+```d2 pad="10" scale="0.5" layout="elk"
+--8<-- "docs/include/d2_defaults.yml"
+
+Conc: {
+  IN.i -> +5 -> OUT.a: {class: conn}
+  +5 -> '*3' -> OUT.b: {class: conn}
+  IN.i -> -1 -> OUT.d: {class: conn}
+  '*3' -> +: {class: conn}
+  +5 -> + -> OUT.c: {class: conn}
+  IN.j -> /4 -> OUT.e: {class: conn}
+
+  IN: {
+    style: {
+      opacity: 1
+    }
+    i.class: IN
+    j.class: IN
+  }
+  OUT: {
+    style: {
+      opacity: 1
+    }
+    a.class: OUT
+    b.class: OUT
+    c.class: OUT
+    d.class: OUT
+    e.class: OUT
+  }
+}
+```
+</p>
+
 === "Conc.scala"
 
     ``` scala

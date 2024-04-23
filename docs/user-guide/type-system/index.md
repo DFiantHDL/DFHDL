@@ -4,9 +4,9 @@ typora-copy-images-to: ./
 [](){#user-guide}
 # Type System
 
-DFHDL is a Scala library and thus inherently supports type safe and rich language constructs. This chapter covers the rules and API of this type system. 
+DFHDL is a Scala library and thus inherently supports type-safe and modern language constructs. This chapter covers the rules and API of this type system. 
 
-??? info "Checkout the benefits of the DFHDL type system"
+??? info "Check out the benefits of the DFHDL type system"
 
     <div class="grid cards" markdown>
     
@@ -20,9 +20,9 @@ DFHDL is a Scala library and thus inherently supports type safe and rich languag
         val u8 = UInt(8) <> IN
         val u2 = UInt(2) <> IN
         val y1 = u8 - u2 //ok
-        //error prevents ambiguous 
-        //behavior when a wider num is 
-        //subtracted from a narrow num
+        // Error prevents ambiguous behavior 
+        // when a wider num is subtracted from 
+        // a narrow num.
         val y2 = u2 - u8 //error
         ```
         ![strongly-typed-example](strongly-typed-example.png)
@@ -32,15 +32,15 @@ DFHDL is a Scala library and thus inherently supports type safe and rich languag
     
         ---
     
-        Each DFHDL value has known bit-width which is used to enforce various rules to prevent data loss.
+        Each DFHDL value has known bit-width, which is used to enforce various rules to prevent data loss.
     
         ```scala linenums="0"
         val u8 = UInt(8) <> IN
         val s8 = SInt(8) <> OUT
-        //error prevents data loss when
-        //u8 is converted to a 9-bit signed
-        //to be assigned to s8 which is
-        //only 8-bits wide
+        // Error prevents data loss when u8 is 
+        // converted to a 9-bit signed to be 
+        // assigned to s8, which is only 8-bits 
+        // wide.
         s8 := u8 //error
         ```
         ![bit-accurate-example](bit-accurate-example.png)
@@ -121,18 +121,18 @@ DFHDL is a Scala library and thus inherently supports type safe and rich languag
         * [Method Param: `VAL`][DesignDef]
         * [Method Return: `DFRET`/`RTRET`/`EDRET`][DesignDef]
 
-        While underneath the hood this mechanism can be quite complex, for the user the only explicit modifiers are very simple.
+        Although this mechanism can be quite complex under the hood, the explicit modifiers available to the user are straightforward.
         
     </div>
 
 
 ??? dfhdl "Internal Type-System Hierarchy (For Advanced Users)"
-	DFHDL brings type driven development concepts to hardware design, by creating an extensible type class hierarchy. Any DFHDL value is a Scala object instance of the class `DFVal[T <: DFTypeAny, M <: ModifierAny]`, where `T` is the type (shape) of value and `M` is a modifier that sets additional characteristics of the DFHDL value, like if its assignable, connectable, initializable, etc. 
+	DFHDL brings type-driven development concepts to hardware design, by creating an extensible type class hierarchy. Any DFHDL value is a Scala object instance of the class `DFVal[T <: DFTypeAny, M <: ModifierAny]`, where `T` is the type (shape) of value and `M` is a modifier that sets additional characteristics of the DFHDL value, like if its assignable, connectable, initializable, etc. 
 
 	![type-system](type-system-light.png#only-light)
 	![type-system](type-system-dark.png#only-dark)
 	
-	For example, the scala value `x` which references a port declared like `#!scala val x = Boolean <> IN` has the type `DFVal[DFBool, Modifier.Dcl]`.
+	For example, the Scala value `x` which references a port declared like `#!scala val x = Boolean <> IN` has the type `DFVal[DFBool, Modifier.Dcl]`.
 
 
 ## Variable and Port Declarations {#Dcl}
@@ -156,8 +156,8 @@ val _name_ = _dftype_ <> _modifier_ [init _const_]
 * __`_name_`__ is the Scala value name reference for the DFHDL variable/port you constructed. The DFHDL compiler preserves this name and uses it in error messages and the final generated artifacts (e.g., Verilog module or VHDL entity port names). More information is available under the [naming][naming] section.
 
 ```scala title="Port & variable declaration examples"
-//8-bit unsigned integer input port named 'i' 
-//with 27 value init
+//8-bit unsigned integer input port named 'i', 
+//initialized with the value 27.
 val i = UInt(8)     <> IN  init 27
 
 //single bit output port named 'o' 
@@ -171,7 +171,7 @@ val v = Bits(8) X 5 <> VAR
 ### Rules {#dcl-rules}
 
 #### Connections
-After ([or during][via-connections]) a design instantiation, its ports need to be connected to other ports or values of the same DFType. Variables can also be connected and used as intermediate wiring between ports. Output ports can be directly referenced (read) without being connected to an intermediate variable. For more rules about design and port connectivity, read the [relevant section][connectivity].
+After ([or during][via-connections]) a design instantiation, its ports need to be connected to other ports or values of the same DFType by applying the `<>` operator. Variables can also be connected and used as intermediate wiring between ports. Output ports can be directly referenced (read) without being connected to an intermediate variable. For more rules about design and port connectivity, see the [relevant section][connectivity].
 ```scala title="Successful port/variable connection example"
 class ID extends DFDesign:
   val x = UInt(8) <> IN
@@ -200,18 +200,40 @@ class Foo extends DFDesign:
   val y2 = UInt(8) <> OUT
   y1 <> x //DFType mismatch error
   y2 <> x
-  //Connection error (cannot connect 
+  //connection error (cannot connect 
   //to the same port more than once)
   y2 <> x 
 ```
 
 #### Assignments
-Both output ports and variables can be assigned with the value of the same DFType and only within the scope of the design they belong to. Input ports cannot be assigned. Unlike
+Both output ports and variables are [mutable][mutability] and can be assigned with values of the same DFType and only within the scope of the design they belong to. Input ports cannot be directly assigned, and require an intermediate variable connected to them to modify their value. Generally assignments to DFHDL values are applied through the `:=` operator. In [processes][processes] under ED domains there are two kind of assignments: blocking assignments via `:=`, and non-blocking assignments via `:==`. Other domains support only blocking assignments via `:=`. Read more on domain semantics in the [next section][domain-semantics].
 See the [connectivity section][connectivity] for more rules about mixing connections and assignments.
+
+```scala title="Successful port/variable connection example"
+class Shift extends DFDesign:
+  val x = Bits(8) <> IN
+  val y = Bits(8) <> OUT
+  //assigning `x` left-shifted by 1 
+  //to `y`
+  y := x << 1
+
+class IDTop extends DFDesign:
+  val x  = UInt(8) <> IN
+  val y  = UInt(8) <> OUT
+  val yv = UInt(8) <> VAR
+  val id = ID()
+  //direct connection between
+  //parent and child design ports
+  id.x <> x 
+  //connecting through an intermediate 
+  //variable
+  id.y <> yv
+  y <> yv
+```
 
 
 #### Domain Semantics 
-Bla Bla
+TBD.
 
 #### Scope 
 * Variables can be declared in any scope, except global scope, meaning within DFHDL designs, domains, interfaces, methods, processes, and conditional blocks.
@@ -228,7 +250,9 @@ Ports can also be grouped together in a dedicated [interface [wip]][interfaces].
 
 ### Transitioning {#Dcl-transitioning}
 ??? rtl "Differences from Verilog"
-    Hi there
+    * DFHDL supports more abstraction domains, and not just ED abstraction like Verilog does.
+    * The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
+
 
 ??? rtl "Differences from VHDL"
     Hi there
@@ -249,7 +273,7 @@ val _name_: _dftype_ <> CONST = _value_
 
 #### Rules {#const-rules}
 
-## Mutable Dataflow Variables and Immutable Dataflow Values
+## DFHDL Value Mutation {#mutability}
 
 DFiant supports dataflow variables mutability via the `:=` operator. Do not confuse with Scala-level mutability which is enabled by using `#!scala var` instead of `#!scala val`. Each dataflow class has two variations: an immutable class, which inherits from `DFAny.Val` and a mutable class, which inherits from `DFAny.Var` and accepts `:=`. The difference between the types enforces an immutable right-hand-side (RHS), where required, and a mutable variable creation. 
 

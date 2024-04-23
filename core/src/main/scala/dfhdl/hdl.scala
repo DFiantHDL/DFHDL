@@ -27,7 +27,6 @@ protected object hdl:
   val DFC = core.DFC
   export core.dfc
   export internals.Inlined
-  export core.hw
   type DFType = core.DFTypeAny
   lazy val Bit = core.DFBit
   type Bit = core.DFBit
