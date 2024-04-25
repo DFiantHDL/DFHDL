@@ -103,6 +103,8 @@ markdown_extensions:
     - admonition
     - pymdownx.snippets:
         check_paths: true
+        auto_append:
+          - docs/include/abbr.md
     - pymdownx.arithmatex:
         generic: true
     - pymdownx.superfences:
@@ -135,6 +137,7 @@ extra_css:
     - css/dfhdl-admonition.css
     - css/rtl-admonition.css
     - css/d2.css
+    - css/operation-tables.css
 
 
 plugins:

@@ -1,3 +1,6 @@
+*[ED]: Event-Driven
+*[DF]: Dataflow
+*[RT]: Register-Transfer
 *[DSL]: Domain Specific Language
 *[HDL]: Hardware Description Language
 *[HLS]: High-Level Synthesis

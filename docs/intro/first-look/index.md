@@ -1,5 +1,3 @@
---8<-- "docs/include/abbr.md"
-
 # DFHDL: First Look
 
 Your first encounter with the DFHDL syntax, semantics and language features

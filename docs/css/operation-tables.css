@@ -1,0 +1,9 @@
+/* Operation column */
+div.md-typeset__table * th:nth-child(1), div.md-typeset__table * td:nth-child(1) {
+  min-width: 120px; 
+} 
+
+/* Description column */
+div.md-typeset__table * th:nth-child(2), div.md-typeset__table * td:nth-child(2) {
+  min-width: 200px; 
+} 

@@ -17,8 +17,10 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
         Most type checking is done statically and enforces strict rules that prevent ambiguity.
     
         ```scala linenums="0"
-        val u8 = UInt(8) <> IN
-        val u2 = UInt(2) <> IN
+        //8-bit unsigned input
+        val u8 = UInt(8) <> IN 
+        //2-bit unsigned input
+        val u2 = UInt(2) <> IN 
         val y1 = u8 - u2 //ok
         // Error prevents ambiguous behavior 
         // when a wider num is subtracted from 
@@ -35,8 +37,10 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
         Each DFHDL value has known bit-width, which is used to enforce various rules to prevent data loss.
     
         ```scala linenums="0"
-        val u8 = UInt(8) <> IN
-        val s8 = SInt(8) <> OUT
+        //8-bit unsigned input
+        val u8 = UInt(8) <> IN  
+        //8-bit signed output
+        val s8 = SInt(8) <> OUT 
         // Error prevents data loss when u8 is 
         // converted to a 9-bit signed to be 
         // assigned to s8, which is only 8-bits 
@@ -273,6 +277,69 @@ val _name_: _dftype_ <> CONST = _value_
 
 #### Rules {#const-rules}
 
+## DFHDL Value Candidates
+
+!!! info "Operation supported values for an argument of DFType `T`"
+    ```d2 pad="10" 
+    direction: right
+    classes: {
+      is!: {
+        label: ". is! ."
+        style: {
+          fill: black
+          font-color:white
+          bold: true
+        }
+      }
+      is?: {
+        label: ". is? ."
+        style: {
+          fill: black
+          font-color:white
+          bold: true
+        }
+      }
+    }
+    TCand -> TVal: {class: is!}
+    Any -> TCand: {class: is?} 
+    TCand -> OpCand: {class: is?} 
+    OpCand -> TVal: {class: is!}
+    Any -> OpCand: {class: is?} 
+    Any: {
+      label: Any\nValue
+    }
+    TCand: {
+      label: `T`\nCandidate
+    }
+    OpCand: {
+      label: `T`\nOperation\nCandidate
+    }
+    TVal: {
+      label: `T`\nValue
+    }
+    ```
+
+```scala title="Bits assignment and concatenation operation candidates example"
+val b8 = Bits(8) <> VAR //8-bits variable
+val b9 = Bits(9) <> VAR //9-bits variable
+
+//Assignment operations to b8 accept either
+//Bits candidates that are 8-bit wide or
+//a same-element-vector (SEV) of 
+//0/1/true/false, via `all(elem)`.
+b8 := h"FF"  //ok: 8-bits constant
+b8 := all(0) //ok: SEV of 0
+b8 := 5      //fails `Bits` candidate
+b8 := b9     //fails `:=` candidate
+
+//Bits `++` concatenation operation with b8
+//only accepts Bits candidate, while SEV
+//is not a Bits candidate.
+val x = b8 ++ h"FF"  //ok
+val y = b8 ++ all(0) //error
+```
+
+
 ## DFHDL Value Mutation {#mutability}
 
 DFiant supports dataflow variables mutability via the `:=` operator. Do not confuse with Scala-level mutability which is enabled by using `#!scala var` instead of `#!scala val`. Each dataflow class has two variations: an immutable class, which inherits from `DFAny.Val` and a mutable class, which inherits from `DFAny.Var` and accepts `:=`. The difference between the types enforces an immutable right-hand-side (RHS), where required, and a mutable variable creation. 
@@ -309,9 +376,133 @@ Fig.~\ref`fig:Aliasing` demonstrates aliasing code and its effect on the content
   8. Modifies a byte of `bits128`.
 
 
-## `Bit`, `Boolean` DFHDL Values {#DFBitOrBool}
+## `Bit`/`Boolean` DFHDL Values {#DFBitOrBool}
+
+`Bit` DFHDL values are meant to represent `1` or `0` values, whereas `Boolean` DFHDL values represent `true` or `false` values, respectively. The `Bit` and `Boolean` DFHDL values are generally interchangeable, and automatically converted between one and the other. 
+
+!!! info "Should I use `Bit` or `Boolean` DFTypes?"
+    
+    Although they are interchangeable, it's generally recommended to use `Boolean` DFHDL values with conditional `if` statements, guards, or expressions, and `Bit` DFHDL values for everything else. There could be constant parameters that are better defined as a `true` or `false` `Boolean` values rather than `0` or `1` `Bit` values.
+
+??? info "Why have both `Bit` and `Boolean` DFTypes?"
+    
+    The main reason to differentiate between the `Bit` and `Boolean` is that VHDL has both `std_logic` and `boolean` types, respectively. Verilog has only a single `logic` or `wire` to represent both. Indeed VHDL'2008 has relaxed some of the type constraints, but not enough. And nevertheless, DFHDL aims to support various HDL dialects, and thus enables simple implicit or explicit conversion between these two DFType values.
+
+### DFType Constructors
+
+Use the `Bit` or `Boolean` objects/types to construct `Bit` or `Boolean` DFHDL values, respectively.
+
+```scala
+val bit   = Bit     <> VAR
+val bool  = Boolean <> VAR
+val c_bit:  Bit     <> CONST = 1
+val c_bool: Boolean <> CONST = false
+```
+
+### Candidates
+
+  * `Bit` DFHDL values
+  * `Boolean` DFHDL values
+  * `1` or `0` literal Scala values. A regular Scala `Int` is not accepted.
+  * `Boolean` Scala values
+
+```scala
+val bit  = Bit     <> VAR
+val bool = Boolean <> VAR
+
+//`bool` is implicitly converted to a 
+//Bit DFHDL value.
+bit := bool 
+
+//`1` is implicitly converted to a DFHDL
+//Bit constant value.
+bit := 1
+
+//`false` is implicitly converted to a 
+//DFHDL Boolean constant, and then
+//converted to a Bit constant value.
+bit := false
+
+val one: Int = 1
+//error (only 1/0 literals are ok)
+bit := one 
+
+//`bit` is implicitly converted to a
+//DFHDL Boolean
+bool := bit 
+
+//`true` is implicitly converted to a 
+//DFHDL Boolean constant value.
+bool := true
+
+//`0` is implicitly converted to a 
+//DFHDL Bit constant, and then
+//converted to a Boolean constant value.
+bool := 0
+
+val TrueVal: Boolean = 1
+//`TrueVal` is implicitly converted to
+//a DFHDL Boolean value.
+bool := TrueVal 
+```
+
+### Operations
+
+#### Explicit Casting Operations
+
+These operations propagate constant modifiers, meaning that if the casted argument is a constant, the returned value is also a constant.
+
+| Operation   | Description                     | LHS Constraints       | Returns               |
+| ----------- | --------------------------------|-----------------------|-----------------------|
+| `lhs.bool`  | Cast to a DFHDL `Boolean` value | `Bit` DFHDL value     | `Boolean` DFHDL value |
+| `lhs.bit`   | Cast to a DFHDL `Bit` value     | `Boolean` DFHDL value | `Bit` DFHDL value     |
+
+```scala
+val bt1  = Bit <> VAR
+val bl1  = bt1.bool
+val bl2  = Boolean <> VAR
+val bt2  = bl2.bit
+val bt3: Bit     <> CONST = 0
+val bl3: Boolean <> CONST = bt3.bool
+val bl4: Boolean <> CONST = true
+val bt4: Bit     <> CONST = bt4.bit
+```
+
+#### Bit History Operations
+
+Currently these operations are only supported under ED domains. However, in upcoming DFHDL updates, support will be added across all domain abstractions.
+
+| Operation    | Description                     | LHS Constraints       | Returns               |
+| ------------ | --------------------------------|-----------------------|-----------------------|
+| `lhs.rising` | True when a value changes from `0` to `1` | `Bit` DFHDL value     | `Boolean` DFHDL value |
+| `lhs.falling` | True when a value changes from `1` to `0` | `Bit` DFHDL value     | `Boolean` DFHDL value |
+
+```scala
+class Foo extends EDDesign:
+  val clk  = Bit <> IN
+
+  /* vhdl-style */
+  process(clk):
+    if (clk.rising) 
+      //some sequential logic
+
+  /* verilog-style */
+  process(clk.rising):
+    //some sequential logic
+```
+
+For more information see either the [design domains][design-domains] or [processes][processes] sections.
+
 
 ## `Bits` DFHDL Values {#DFBits}
+
+### Candidates
+  * `Bits` DFHDL value
+  * `Bit` or `Boolean` DFHDL value
+  * `UInt` DFHDL value
+  * `Tuple` DFHDL value
+  * Scala `Tuple` of any type of DFHDL values or `1`/`0` values
+
 
 ## `UInt`, `SInt`, `Int` DFHDL Values {#DFDecimal}
 
