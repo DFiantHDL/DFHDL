@@ -1,5 +1,5 @@
 /* fix position of the scastie panel to fit the admonition */
-details.dfhdl div.scastie.embedded {
+details.dfhdl div.scastie.embedded, div.admonition.dfhdl div.scastie.embedded {
   margin-left: -0.6rem;
   margin-right: 0px;
   margin-top: 0px;
@@ -11,9 +11,8 @@ details.dfhdl div.scastie.embedded {
   padding-bottom: 0px;
 }
 
-
 /* fix code coloring to match superfences code highlighting */
-details.dfhdl div.scastie.embedded * div.main-panel div.content div.editor-container.inner-container {
+div.scastie.embedded * div.main-panel div.content div.editor-container.inner-container {
   div.console-container.console-open div.console {
     background-color: var(--md-code-bg-color);
   }
@@ -69,7 +68,7 @@ details.dfhdl div.scastie.embedded * div.main-panel div.content div.editor-conta
   }
 }
 /* Fix dark panel coloring to match admonition */
-details.dfhdl div.scastie.embedded div.app.dark div.main-panel div.content div.editor-container.inner-container div.console-container {
+div.scastie.embedded div.app.dark div.main-panel div.content div.editor-container.inner-container div.console-container {
   div.switcher-show {
     div.console-label {
       color: var(--md-admonition-fg-color);
@@ -87,7 +86,7 @@ details.dfhdl div.scastie.embedded div.app.dark div.main-panel div.content div.e
   }
 }
 /* Fix light panel coloring to match admonition */
-details.dfhdl div.scastie.embedded div.app.light div.main-panel div.content div.editor-container.inner-container div.console-container {
+div.scastie.embedded div.app.light div.main-panel div.content div.editor-container.inner-container div.console-container {
   div.switcher-show {
     div.console-label {
       color: var(--md-admonition-fg-color);

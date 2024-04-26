@@ -401,10 +401,10 @@ val c_bool: Boolean <> CONST = false
 
 ### Candidates
 
-  * `Bit` DFHDL values
-  * `Boolean` DFHDL values
-  * `1` or `0` literal Scala values. A regular Scala `Int` is not accepted.
-  * `Boolean` Scala values
+  * `Bit` DFHDL values. The candidate produces a constant DFHDL value if the candidate argument is a constant.
+  * `Boolean` DFHDL values. The candidate produces a constant DFHDL value if the candidate argument is a constant.
+  * `1` or `0` literal Scala values. A regular Scala `Int` is not accepted. This candidate always produces a constant DFHDL value.
+  * `Boolean` Scala values. This candidate always produces a constant DFHDL value.
 
 ```scala
 val bit  = Bit     <> VAR
@@ -490,7 +490,7 @@ class Foo extends EDDesign:
 ```
 
 ??? rtl "Transitioning from Verilog"
-    Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the Verilog `posedge(x)` and `negedge(x)`, respectively. 
+    Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the Verilog `posedge x` and `negedge x`, respectively. 
     In future releases these operations will have an expanded functionality under the other design domains.
 
 ??? rtl "Transitioning from VHDL"
@@ -540,13 +540,61 @@ val e3 = 0 ^ true
 //Boolean values.
 val sc: Boolean = true && true
 ```
+
 ??? rtl "Transitioning from Verilog"
-    Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the Verilog `posedge(x)` and `negedge(x)`, respectively. 
-    In future releases these operations will have an expanded functionality under the other design domains.
+    Under the ED domain, the following operations are equivalent:
+    
+    | DFHDL Operation | Verilog Operation |
+    |-----------------|-------------------|
+    | `lhs && rhs`    | `lhs & rhs`       |
+    | `lhs || rhs`    | `lhs | rhs`       |
+    | `lhs ^ rhs`     | `lhs ^ rhs`       |
+    | `!lhs`          | `!lhs`            |
 
 ??? rtl "Transitioning from VHDL"
-    Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the VHDL `rising_edge(x)` and `falling_edge(x)`, respectively.
-    In future releases these operations will have an expanded functionality under the other design domains.
+    Under the ED domain, the following operations are equivalent:
+    
+    | DFHDL Operation | VHDL Operation    |
+    |-----------------|-------------------|
+    | `lhs && rhs`    | `lhs and rhs`     |
+    | `lhs || rhs`    | `lhs or rhs`      |
+    | `lhs ^ rhs`     | `lhs xor rhs`     |
+    | `!lhs`          | `not lhs`         |
+
+#### Constant Meta Operations
+
+These operations are activated during the [elaboration stage][elaboration] of the DFHDL compilation, and are only available for constant `Bit`/`Boolean` DFHDL values. 
+Their use case is for meta-programming purposes, to control the generated code without the knowledge of the DFHDL compiler (could be considered as pre-processing steps).
+
+/// html | div.operations
+| Operation    | Description | LHS Constraints | Returns |
+| ------------ | ----------- | ------------------- | ------- |
+| `lhs.toScalaBitNum` | Extracts the known elaboration Scala `BitNum`(`1 | 0`) value from a constant DFHDL `Bit`/`Boolean` value | Constant `Bit`/`Boolean` DFHDL value | Scala `BitNum` value |
+| `lhs.toScalaBoolean` | Extracts the known elaboration Scala `Boolean` value from a constant DFHDL `Bit`/`Boolean` value | Constant `Bit`/`Boolean` DFHDL value | Scala `Boolean` value |
+///
+
+The following runnable example demonstrates how the constant `Boolean` argument `arg` of a design `Foo` is used twice within the design: 
+first, in an `if` condition directly, and second, in an `if` condition after the Scala value extraction. 
+When referenced directly, the `if` is elaborated as-is., but when the `if` is applied on the extracted Scala value, 
+the `if` is completely removed and either the block inside the `if` is elaborated when the argument is true or completely removed if false.
+
+!!! dfhdl ""
+    ```scastie
+    import dfhdl.*
+
+    class Foo(
+        arg: Boolean <> CONST
+    ) extends DFDesign:
+      val o = Bit <> OUT
+      if (!arg) o := 1 
+      if (arg.toScalaBoolean) o := 0
+
+    @main def main = 
+      println("Foo(true) Elaboration:")
+      Foo(true).printCodeString
+      println("Foo(false) Elaboration:")
+      Foo(false).printCodeString
+    ```
 
 ## `Bits` DFHDL Values {#DFBits}
 
