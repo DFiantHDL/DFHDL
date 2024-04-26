@@ -25,14 +25,7 @@ jobs:
       - name: Build
         run: |
           python -m pip install --upgrade pip 
-          pip install pygments
-          pip install mkdocs
-          pip install mkdocs-material
-          pip install pymdown-extensions
-          pip install mkdocs-redirects
-          pip install mkdocs-glightbox
-          pip install mkdocs-autorefs
-          pip install mkdocs-d2-plugin
+          pip install pygments mkdocs mkdocs-material pymdown-extensions mkdocs-redirects mkdocs-glightbox mkdocs-autorefs mkdocs-d2-plugin
           curl -fsSL https://d2lang.com/install.sh | sh
           mkdocs build --verbose --clean #--strict
       - name: Deploy

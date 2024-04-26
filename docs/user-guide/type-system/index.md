@@ -409,37 +409,29 @@ val c_bool: Boolean <> CONST = false
 ```scala
 val bit  = Bit     <> VAR
 val bool = Boolean <> VAR
-
 //`bool` is implicitly converted to a 
 //Bit DFHDL value.
 bit := bool 
-
 //`1` is implicitly converted to a DFHDL
 //Bit constant value.
 bit := 1
-
 //`false` is implicitly converted to a 
 //DFHDL Boolean constant, and then
 //converted to a Bit constant value.
 bit := false
-
 val one: Int = 1
 //error (only 1/0 literals are ok)
 bit := one 
-
 //`bit` is implicitly converted to a
 //DFHDL Boolean
 bool := bit 
-
 //`true` is implicitly converted to a 
 //DFHDL Boolean constant value.
 bool := true
-
 //`0` is implicitly converted to a 
 //DFHDL Bit constant, and then
 //converted to a Boolean constant value.
 bool := 0
-
 val TrueVal: Boolean = 1
 //`TrueVal` is implicitly converted to
 //a DFHDL Boolean value.
@@ -452,47 +444,109 @@ bool := TrueVal
 
 These operations propagate constant modifiers, meaning that if the casted argument is a constant, the returned value is also a constant.
 
+/// html | div.operations
 | Operation   | Description                     | LHS Constraints       | Returns               |
 | ----------- | --------------------------------|-----------------------|-----------------------|
 | `lhs.bool`  | Cast to a DFHDL `Boolean` value | `Bit` DFHDL value     | `Boolean` DFHDL value |
 | `lhs.bit`   | Cast to a DFHDL `Bit` value     | `Boolean` DFHDL value | `Bit` DFHDL value     |
+///
 
 ```scala
-val bt1  = Bit <> VAR
-val bl1  = bt1.bool
-val bl2  = Boolean <> VAR
-val bt2  = bl2.bit
+val bt1 = Bit <> VAR
+val bl1 = bt1.bool
+val bl2 = Boolean <> VAR
+val bt2 = bl2.bit
 val bt3: Bit     <> CONST = 0
 val bl3: Boolean <> CONST = bt3.bool
 val bl4: Boolean <> CONST = true
 val bt4: Bit     <> CONST = bt4.bit
+// error: bt1 is not a constant
+val err: Bit     <> CONST = bt1
 ```
 
 #### Bit History Operations
 
 Currently these operations are only supported under ED domains. However, in upcoming DFHDL updates, support will be added across all domain abstractions.
 
+/// html | div.operations
 | Operation    | Description                     | LHS Constraints       | Returns               |
 | ------------ | --------------------------------|-----------------------|-----------------------|
 | `lhs.rising` | True when a value changes from `0` to `1` | `Bit` DFHDL value     | `Boolean` DFHDL value |
 | `lhs.falling` | True when a value changes from `1` to `0` | `Bit` DFHDL value     | `Boolean` DFHDL value |
+///
 
 ```scala
 class Foo extends EDDesign:
   val clk  = Bit <> IN
 
-  /* vhdl-style */
+  /* VHDL-style */
   process(clk):
     if (clk.rising) 
       //some sequential logic
 
-  /* verilog-style */
+  /* Verilog-style */
   process(clk.rising):
     //some sequential logic
 ```
 
+??? rtl "Transitioning from Verilog"
+    Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the Verilog `posedge(x)` and `negedge(x)`, respectively. 
+    In future releases these operations will have an expanded functionality under the other design domains.
+
+??? rtl "Transitioning from VHDL"
+    Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the VHDL `rising_edge(x)` and `falling_edge(x)`, respectively.
+    In future releases these operations will have an expanded functionality under the other design domains.
+
 For more information see either the [design domains][design-domains] or [processes][processes] sections.
 
+#### Logical Operations
+
+Logical operations' return type always match the LHS argument's type.
+These operations propagate constant modifiers, meaning that if all arguments are constant, the returned value is also a constant.
+
+/// html | div.operations
+| Operation    | Description | LHS/RHS Constraints | Returns |
+| ------------ | ----------- | ------------------- | ------- |
+| `lhs && rhs` | Logical AND | The LHS argument must be a `Bit`/`Boolean` DFHDL value. The RHS must be a `Bit`/`Boolean` candidate. | LHS-Type DFHDL value |
+| `lhs || rhs` | Logical OR  | The LHS argument must be a `Bit`/`Boolean` DFHDL value. The RHS must be a `Bit`/`Boolean` candidate. | LHS-Type DFHDL value |
+| `lhs ^ rhs`  | Logical XOR | The LHS argument must be a `Bit`/`Boolean` DFHDL value. The RHS must be a `Bit`/`Boolean` candidate. | LHS-Type DFHDL value |
+| `!lhs`       | Logical NOT | The argument must be a `Bit`/`Boolean` DFHDL value. | LHS-Type DFHDL value |
+///
+
+```scala
+val bt = Bit     <> VAR
+val bl = Boolean <> VAR
+val t1 = bt && bl    //result type: Bit
+val t2 = bt ^ 1      //result type: Bit
+val t3 = bl || false //result type: Boolean
+val t4 = bt && true  //result type: Bit
+val t5 = bl || bt    //result type: Boolean
+val t6 = bl ^ 0 || !bt
+//`t7` after the candidate implicit
+//conversions, looks like so:
+//(bl && bt.bool) ^ (!(bt || bl.bit)).bool
+val t7 = (bl && bt) ^ !(bt || bl)
+//error: swap argument positions to have
+//the DFHDL value on the LHS.
+val e1 = 0 ^ bt      
+//error: swap argument positions to have
+//the DFHDL value on the LHS.
+val e2 = false ^ bt
+//not supported since both arguments
+//are just candidates
+val e3 = 0 ^ true
+//This just yields a Scala Boolean, 
+//as a basic operation between Scala
+//Boolean values.
+val sc: Boolean = true && true
+```
+??? rtl "Transitioning from Verilog"
+    Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the Verilog `posedge(x)` and `negedge(x)`, respectively. 
+    In future releases these operations will have an expanded functionality under the other design domains.
+
+??? rtl "Transitioning from VHDL"
+    Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the VHDL `rising_edge(x)` and `falling_edge(x)`, respectively.
+    In future releases these operations will have an expanded functionality under the other design domains.
 
 ## `Bits` DFHDL Values {#DFBits}
 
