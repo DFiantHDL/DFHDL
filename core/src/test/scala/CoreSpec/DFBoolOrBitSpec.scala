@@ -39,7 +39,6 @@ class DFBoolOrBitSpec extends DFSpec:
       """|val t1 = bt && bl.bit
          |val t2 = bt ^ 1
          |val t3 = bl || false
-         |val t4 = 0 ^ bt
          |val t5 = bt && 1
          |val t6 = bl || bt.bool
          |val t7 = (bl ^ false) || bt.bool
@@ -57,7 +56,27 @@ class DFBoolOrBitSpec extends DFSpec:
       val t1 = bt && bl
       val t2 = bt ^ 1
       val t3 = bl || false
-      val t4 = 0 ^ bt
+      assertCompileError(
+        """|Unsupported Scala BitNum/Boolean primitive at the LHS of `^` with a DFHDL value.
+           |Consider switching positions of the arguments.
+           |""".stripMargin
+      )(
+        """val t4 = 0 ^ bt"""
+      )
+      assertCompileError(
+        """|Unsupported Scala BitNum/Boolean primitive at the LHS of `||` with a DFHDL value.
+           |Consider switching positions of the arguments.
+           |""".stripMargin
+      )(
+        """val t4 = 1 || bl"""
+      )
+      assertCompileError(
+        """|Unsupported Scala BitNum/Boolean primitive at the LHS of `&&` with a DFHDL value.
+           |Consider switching positions of the arguments.
+           |""".stripMargin
+      )(
+        """val t4 = 0 && bt"""
+      )
       val t5 = bt && true
       val t6 = bl || bt
       val t7 = bl ^ 0 || bt

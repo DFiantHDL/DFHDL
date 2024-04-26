@@ -119,30 +119,24 @@ object DFBoolOrBit:
         def ^[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): DFValTP[T, P | ic.OutP] =
           trydf { logicOp[T, P, R](lhs, rhs, FuncOp.^, false) }
       extension [L](lhs: L)
-        def ||[RT <: DFBoolOrBit, RP](
+        inline def ||[RT <: DFBoolOrBit, RP](
             rhs: DFValTP[RT, RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
-            dfc: DFC,
-            ic: Candidate[es.Out]
-        ): DFValTP[RT, RP | ic.OutP] = trydf {
-          logicOp(rhs, ic(es(lhs)), FuncOp.|, true).asValTP[RT, RP | ic.OutP]
-        }
-        def &&[RT <: DFBoolOrBit, RP](
+        )(using es: Exact.Summon[L, lhs.type])(using Candidate[es.Out]): Nothing =
+          compiletime.error(
+            "Unsupported Scala BitNum/Boolean primitive at the LHS of `||` with a DFHDL value.\nConsider switching positions of the arguments."
+          )
+        inline def &&[RT <: DFBoolOrBit, RP](
             rhs: DFValTP[RT, RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
-            dfc: DFC,
-            ic: Candidate[es.Out]
-        ): DFValTP[RT, RP | ic.OutP] = trydf {
-          logicOp(rhs, ic(es(lhs)), FuncOp.&, true).asValTP[RT, RP | ic.OutP]
-        }
-        def ^[RT <: DFBoolOrBit, RP](
+        )(using es: Exact.Summon[L, lhs.type])(using Candidate[es.Out]): Nothing =
+          compiletime.error(
+            "Unsupported Scala BitNum/Boolean primitive at the LHS of `&&` with a DFHDL value.\nConsider switching positions of the arguments."
+          )
+        inline def ^[RT <: DFBoolOrBit, RP](
             rhs: DFValTP[RT, RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
-            dfc: DFC,
-            ic: Candidate[es.Out]
-        ): DFValTP[RT, RP | ic.OutP] = trydf {
-          logicOp(rhs, ic(es(lhs)), FuncOp.^, true).asValTP[RT, RP | ic.OutP]
-        }
+        )(using es: Exact.Summon[L, lhs.type])(using Candidate[es.Out]): Nothing =
+          compiletime.error(
+            "Unsupported Scala BitNum/Boolean primitive at the LHS of `^` with a DFHDL value.\nConsider switching positions of the arguments."
+          )
       end extension
     end Ops
   end Val
