@@ -1,0 +1,7 @@
+.schemdraw-svg * {
+  background-color: var(--md-code-bg-color) !important;
+  stroke: var(--md-code-fg-color) !important;
+  display: block;
+  margin: auto;  /* Centers the block element horizontally */
+  text-align: center;  /* Centers the content inside it */
+}
