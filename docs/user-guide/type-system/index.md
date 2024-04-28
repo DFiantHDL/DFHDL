@@ -278,6 +278,8 @@ val _name_: _dftype_ <> CONST = _value_
 #### Rules {#const-rules}
 
 ## DFHDL Value Candidates
+TODO: requires explanation
+The candidate produces a constant DFHDL value if the candidate argument is a constant.
 
 !!! info "Operation supported values for an argument of DFType `T`"
     ```d2 pad="10" 
@@ -375,18 +377,22 @@ Fig.~\ref`fig:Aliasing` demonstrates aliasing code and its effect on the content
   7. Assigns `dbl` to the least significant 64 bits of `bits128` through casting. All the bits of `dbl` are selected because `.bits()` is invoked without index parameters.
   8. Modifies a byte of `bits128`.
 
+## Bubble Values {#bubble}
+
+* RT and ED - Don't Care / Unknown
+* DF - Stall
 
 ## `Bit`/`Boolean` DFHDL Values {#DFBitOrBool}
 
-`Bit` DFHDL values are meant to represent `1` or `0` values, whereas `Boolean` DFHDL values represent `true` or `false` values, respectively. The `Bit` and `Boolean` DFHDL values are generally interchangeable, and automatically converted between one and the other. 
+`Bit` DFHDL values represent binary `1` or `0` values, whereas `Boolean` DFHDL values represent `true` or `false` values, respectively. The `Bit` and `Boolean` DFHDL values are generally interchangeable, and automatically converted between one and the other. 
 
 !!! info "Should I use `Bit` or `Boolean` DFTypes?"
     
     Although they are interchangeable, it's generally recommended to use `Boolean` DFHDL values with conditional `if` statements, guards, or expressions, and `Bit` DFHDL values for everything else. There could be constant parameters that are better defined as a `true` or `false` `Boolean` values rather than `0` or `1` `Bit` values.
 
-??? info "Why have both `Bit` and `Boolean` DFTypes?"
+??? note "Why have both `Bit` and `Boolean` DFTypes?"
     
-    The main reason to differentiate between the `Bit` and `Boolean` is that VHDL has both `std_logic` and `boolean` types, respectively. Verilog has only a single `logic` or `wire` to represent both. Indeed VHDL'2008 has relaxed some of the type constraints, but not enough. And nevertheless, DFHDL aims to support various HDL dialects, and thus enables simple implicit or explicit conversion between these two DFType values.
+    The main reason to differentiate between `Bit` and `Boolean` is that VHDL has both `std_logic` and `boolean` types, respectively. Verilog has only a single `logic` or `wire` to represent both. Indeed VHDL'2008 has relaxed some of the type constraints, but not enough. And nevertheless, DFHDL aims to support various HDL dialects, and thus enables simple implicit or explicit conversion between these two DFType values.
 
 ### DFType Constructors
 
@@ -401,10 +407,10 @@ val c_bool: Boolean <> CONST = false
 
 ### Candidates
 
-  * `Bit` DFHDL values. The candidate produces a constant DFHDL value if the candidate argument is a constant.
-  * `Boolean` DFHDL values. The candidate produces a constant DFHDL value if the candidate argument is a constant.
-  * `1` or `0` literal Scala values. A regular Scala `Int` is not accepted. This candidate always produces a constant DFHDL value.
-  * `Boolean` Scala values. This candidate always produces a constant DFHDL value.
+  * DFHDL `Bit` values.
+  * DFHDL `Boolean` values. 
+  * Scala `1` or `0` literal values. A regular Scala `Int` is not accepted. This candidate always produces a constant DFHDL value.
+  * Scala `Boolean` values. This candidate always produces a constant DFHDL value.
 
 ```scala
 val bit  = Bit     <> VAR
@@ -573,17 +579,50 @@ Their use case is for meta-programming purposes, to control the generated code w
 | `lhs.toScalaBoolean` | Extracts the known elaboration Scala `Boolean` value from a constant DFHDL `Bit`/`Boolean` value | Constant `Bit`/`Boolean` DFHDL value | Scala `Boolean` value |
 ///
 
-The following runnable example demonstrates how the constant `Boolean` argument `arg` of a design `Foo` is used twice within the design: 
-first, in an `if` condition directly, and second, in an `if` condition after the Scala value extraction. 
-When referenced directly, the `if` is elaborated as-is., but when the `if` is applied on the extracted Scala value, 
+The following runnable example demonstrates how such meta operation affect the elaborated design. 
+The `Boolean` argument `arg` of a design `Foo` is used twice within the design: 
+first, in an `if` condition directly; and second, in an `if` condition after a Scala value extraction. 
+When referenced directly, the `if` is elaborated as-is, but when the `if` is applied on the extracted Scala value, 
 the `if` is completely removed and either the block inside the `if` is elaborated when the argument is true or completely removed if false.
 
-!!! dfhdl ""
+=== "`Foo`"
+
+    ```scala
+    class Foo(
+        val arg: Boolean <> CONST
+    ) extends DFDesign:
+      val o = Bit <> OUT
+      if (!arg) o := 1 
+      if (arg.toScalaBoolean) o := 0
+    ```
+
+=== "`Foo(true)`"
+
+    ```scala
+    class Foo(
+        val arg: Boolean <> CONST
+    ) extends DFDesign:
+      val o = Bit <> OUT
+      if (!arg) o := 1 
+      o := 0
+    ```
+
+=== "`Foo(false)`"
+
+    ```scala
+    class Foo(
+        val arg: Boolean <> CONST
+    ) extends DFDesign:
+      val o = Bit <> OUT
+      if (!arg) o := 1 
+    ```
+
+??? dfhdl "Runnable example"
     ```scastie
     import dfhdl.*
 
     class Foo(
-        arg: Boolean <> CONST
+        val arg: Boolean <> CONST
     ) extends DFDesign:
       val o = Bit <> OUT
       if (!arg) o := 1 
@@ -598,15 +637,213 @@ the `if` is completely removed and either the block inside the `if` is elaborate
 
 ## `Bits` DFHDL Values {#DFBits}
 
+`Bits` DFHDL values represent vectors of DFHDL `Bit` values as elements. 
+The vector bits width (length) is a positive constant number (nilable [zero-width] vectors will be supported in the future).
+
+!!! note "Differences between DFHDL `Bits` and DFHDL Vector of `Bit`"
+    In addition to `Bits`, DFHDL also supports [generic vectors of any DFHDL values][DFVector]. 
+    One could therefore construct a generic vector with `Bit` as the element DFType. 
+    This vector has a different type than `Bits`, since `Bits` is a special case, both internally 
+    in their implementations and externally in their API. Where applicable, both `Bits` and generic
+    vector of `Bits` have overlapping equivalent APIs. 
+
+### DFType Constructors
+
+/// html | div.operations
+| Constructor  | Description | Arg Constraints     | Returns |
+| ------------ | ----------- | ------------------- | ------- |
+| `Bits(width)`| Construct a `Bits` DFType with the given `width` as number of bits. | `width` is a positive Scala `Int` or constant DFHDL `Int` value. | `Bits[width.type]` DFType  |
+| `Bits.until(sup)`| Construct a `Bits` DFType with the given `sup` supremum number the vector is expected to reach. The number of bits is set as `clog2(sup)`. | `sup` is a Scala `Int` or constant DFHDL `Int` value larger than 1. | `Bits[CLog2[width.type]]` DFType  |
+| `Bits.to(max)`| Construct a `Bits` DFType with the given `max` maximum number the vector is expected to reach. The number of bits is set as `clog2(max+1)`. | `max` is a positive Scala `Int` or constant DFHDL `Int` value. | `Bits[CLog2[width.type+1]]` DFType  |
+| `Bits[W]`    | Construct a `Bits` DFType with the given `W` width as Scala type argument (for advanced users). | `width` is a positive Scala `Int` or constant DFHDL `Int` Singleton type. | `Bits[W]` DFType  |
+///
+
+
+
+```scala
+val b8 = Bits(8)       <> VAR
+val b3 = Bits.until(8) <> VAR
+val b4 = Bits.to(8)    <> VAR
+val b9 = Bits[9]       <> VAR
+val w: Int <> CONST = 7
+val b7 = Bits(w)       <> VAR
+val b6: Bits[6] <> CONST = all(0)
+```
+
+??? rtl "Transitioning from Verilog"
+    * __Specifying a width instead of an index range:__ In Verilog bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `[width-1:0]` sized vector (for [generic vectors][DFVector] the element order the opposite).
+    * __Additional constructors:__ DFHDL provides additional constructs to simplify some common Verilog bit vector declaration. For example, instead of declaring `reg [$clog2(DEPTH)-1:0] addr` in Verilog, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
+
+??? rtl "Transitioning from VHDL"
+    * __Specifying a width instead of an index range:__ In VHDL bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `(width-1 downto 0)` sized vector (for [generic vectors][DFVector] the element order the opposite).
+    * __Additional constructors:__ DFHDL provides additional constructs to simplify some common VHDL bit vector declaration. For example, instead of declaring `signal addr: std_logic_vector(clog2(DEPTH)-1 downto 0)` in VHDL, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
+
+### Constant Generation
+
+Constant DFHDL `Bits` value generation is carried out through [binary][b-interp] and [hexadecimal][h-interp] string interpolation, a core [Scala feature](https://docs.scala-lang.org/scala3/book/string-interpolation.html) that was customized for DFHDL's exact use-case. There are also bit-accurate [decimal][d-interp] and [signed decimal][sd-interp] interpolations available that produce `UInt` and `SInt` DFHDL values. If needed, those values can be cast to `Bits`. No octal interpolation is currently available or planned.
+
+#### Binary Bits String-Interpolator {#b-interp}
+
+```scala linenums="0" title="Binary Bits string-interpolation syntax"
+b"width'bin"
+```
+
+- __bin__ is a sequence of `0`, `1`, and `?` characters, each representing a single bit.  `?` indicates a bit [bubble][bubble]. 
+  The leftest (first) character is the most-significant bit (MSB), and the rightest (last) character is 
+  the least-significant bit (LSB). 
+- Separators `' '` (space) or `_` (underscore) within `bin` are ignored.
+- `bin` can also contain interpolated Scala `String` arguments through `${arg}`.
+- __width__, followed by a __`'`__ (apostrophe), is optional and specifies the bit vector's width. If
+  omitted, the width is inferred from the sequence length. If specified, leading zeros
+  are added at the left of the sequence or the sequence is truncated based on the `width`. 
+  Truncation only occurs if the MSBits being removed are zeros; otherwise, it triggers a
+  compilation error.
+- `width` can be an interpolated argument of either Scala `Int` or a [Constant DFHDL `Int`][DFDecimal] value.
+- Returns: A constant DFHDL `Bits` value with the inferred or set width.
+
+```scala title="Binary Bits string-interpolation examples"
+b"1"        // Value = 1
+b"1000"     // Value = 1000
+b"8'1000"   // Value = 00001000
+b"3'0100"   // Value = 100
+b"3'1100"   // Compilation error
+b"1?11"     // Value = 1?11 (? indicates a bit bubble)
+b"11_00"    // Value = 1100
+val value = "100"
+val width = 10
+b"$width'1${value}1" //Value = 0000011001
+val p: Int <> CONST = 10
+b"$p'0" // Value = 0....0 (p-bits wide)
+```
+
+??? rtl "Transitioning from Verilog"
+    This interpolation covers the Verilog binary literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
+
+??? rtl "Transitioning from VHDL"
+    This interpolation covers the VHDL binary literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
+
+
+#### Hexadecimal Bits String-Interpolator {#h-interp}
+
+```scala linenums="0" title="Hexadecimal Bits string-interpolation syntax"
+h"width'hex"
+```
+
+- __hex__ is a sequence of hexadecimal characters (`0`-`9`, `A`-`F`, `a`-`f`, and `?`)
+  where `?` indicates a 4-bit [bubble][bubble]. Each character represents a 4-bit nibble, 
+  encoded such that the leftest bit is the most-significant bit.   
+  The leftest (first) character is the most-significant nibble, and the rightest (last) character is 
+  the least-significant nibble. 
+- Separators `' '` (space) or `_` (underscore) within `hex` are ignored.
+- `hex` can also contain interpolated Scala `String` arguments through `${arg}`.
+- Binary sequences can be embedded within `{bin}` tags, allowing integration of [binary
+  bit sequences][b-interp] of any length, not necessarily divisible by 4, between hex nibbles.
+- __width__, followed by a __`'`__, is optional and specifies the bit vector's width. If
+  omitted, the width is inferred from the sequence length. If specified, leading zeros
+  are added or the sequence is truncated based on the `width`. Truncation only occurs if
+  the most significant bits being removed are zeros or bubbles; otherwise, it triggers a
+  compilation error.
+- `width` can be an interpolated argument of either Scala `Int` or a [Constant DFHDL `Int`][DFDecimal] value.
+- Returns: A constant DFHDL `Bits` value with the inferred or set width.
+
+```scala title="Hexadecimal Bits string-interpolation examples"
+h"1"        // Value = 0001
+h"27"       // Value = 00100111
+h"6'27"     // Value = 100111
+h"5'27"     // Compilation error
+h"2?"       // Value = 0010????
+h"F{00}F"   // Value = 1111001111
+h"3_3"      // Value = 00110011
+val value = "FF"
+val width = 10
+h"$width'${value}" //Value = 0011111111
+```
+
+??? rtl "Transitioning from Verilog"
+    This interpolation covers the Verilog hexadecimal literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
+
+??? rtl "Transitioning from VHDL"
+    This interpolation covers the VHDL hexadecimal literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
+
+
 ### Candidates
-  * `Bits` DFHDL value
-  * `Bit` or `Boolean` DFHDL value
-  * `UInt` DFHDL value
-  * `Tuple` DFHDL value
-  * Scala `Tuple` of any type of DFHDL values or `1`/`0` values
+  * DFHDL `Bits` values
+  * DFHDL `Bit` or `Boolean` values. This candidate produces a single bit `Bits[1]` vector. 
+  * DFHDL `UInt` values
+  * Scala `Tuple` combination of any DFHDL values and `1`/`0` literal values. This candidate performs bit concatenation of all values, according their order in the tuple, encoded from the most-significant value position down to the least-significant value position.
+  * Application-only candidate - Same-Element Vector (`all(elem)`).  
+
+```scala
+val b8   = Bits(8) <> VAR
+val b1   = Bits(1) <> VAR
+//`bit` is implicitly converted to a 
+//Bits[1] DFHDL value.
+val bit  = Bit     <> VAR
+b1 := bit
+//`bool` is implicitly converted to a 
+//Bits[1] DFHDL value.
+val bool = Boolean <> VAR
+bool := bit
+//`u8` is implicitly converted to a 
+//Bits[8] DFHDL value.
+val u8   = UInt(8) <> VAR
+b8 := u8
+val s4   = SInt(4) <> VAR
+//the tuple is implicitly converted
+//to a Bits[8] DFHDL value.
+b8 := (1, s4, b1, b"10")
+```
+
+### Concatenated Assignment
+DFHDL supports a special-case assignment of concatenated DFHDL Bits variables, using a Scala `Tuple` syntax on LHS of the assignment operator. Both LHS and RHS bits width must be the same. This assignment is just syntactic sugar for multiple separate assignments and carried out during the design [elaboration][elaboration]. The assignment ordering is from the first value at most-significant position down to the last value at least-significant position.
+
+=== "`Foo Declaration`"
+
+    ```scala
+    class Foo extends DFDesign:
+      val i4 = Bits(4) <> IN
+      val b2 = Bits(2) <> OUT
+      val b3 = Bits(3) <> OUT
+      val b5 = Bits(5) <> OUT
+      (b2, b5, b3) := (b"101", i4, b"111")
+    ```
+
+=== "`Foo Elaboration`"
+
+    ```scala
+    class Foo extends DFDesign:
+      val i4 = Bits(4) <> IN
+      val b2 = Bits(2) <> OUT
+      val b3 = Bits(3) <> OUT
+      val b5 = Bits(5) <> OUT
+      b2 := b"10"
+      b5 := (b"1", i4).toBits
+      b3 := b"111"
+    ```
+
+??? dfhdl "Runnable example"
+    ```scastie
+    import dfhdl.*
+
+    class Foo extends DFDesign:
+      val i4 = Bits(4) <> IN
+      val b2 = Bits(2) <> OUT
+      val b3 = Bits(3) <> OUT
+      val b5 = Bits(5) <> OUT
+      (b2, b5, b3) := (b"101", i4, b"111")
+
+    @main def main = 
+      Foo().printCodeString
+    ```
 
 
-## `UInt`, `SInt`, `Int` DFHDL Values {#DFDecimal}
+## `UInt`/`SInt`/`Int` DFHDL Values {#DFDecimal}
+
+### Constant Generation
+
+#### Decimal String-Interpolator {#d-interp}
+
+#### Signed Decimal String-Interpolator {#sd-interp}
 
 ## Enumeration DFHDL Values {#DFEnum}
 
