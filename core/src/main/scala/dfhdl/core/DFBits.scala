@@ -21,6 +21,18 @@ object DFBits:
     check(width)
     ir.DFBits(width).asFE[DFBits[W]]
   def apply[W <: IntP](using dfc: DFC, dfType: => DFBits[W]): DFBits[W] = trydf { dfType }
+  def until[V <: IntP](sup: IntParam[V])(using
+      dfc: DFC,
+      check: Arg.LargerThan1.CheckNUB[V]
+  ): DFBits[IntP.CLog2[V]] = trydf:
+    check(sup)
+    ir.DFBits(sup.clog2.ref).asFE[DFBits[IntP.CLog2[V]]]
+  def to[V <: IntP](max: IntParam[V])(using
+      dfc: DFC,
+      check: Arg.Positive.CheckNUB[V]
+  ): DFBits[IntP.CLog2[IntP.+[V, 1]]] = trydf:
+    check(max)
+    ir.DFBits((max + 1).clog2.ref).asFE[DFBits[IntP.CLog2[IntP.+[V, 1]]]]
 
   given [W <: IntP & Singleton](using
       dfc: DFC,
@@ -397,14 +409,6 @@ object DFBits:
           if (value.hasTag[DFVal.TruncateTag]) value.bits.tag(DFVal.TruncateTag)
           else if (value.hasTag[DFVal.ExtendTag]) value.bits.tag(DFVal.ExtendTag)
           else value.bits
-      given fromDFTuple[T <: NonEmptyTuple, P, R <: DFValTP[DFTuple[T], P], W <: Width[DFTuple[T]]](
-          using w: W
-      ): Candidate[R] with
-        type OutW = w.Out
-        type OutP = P
-        def apply(value: R)(using DFC): Out =
-          import DFVal.Ops.bits
-          value.bits
       inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
           "Cannot apply an enum entry value to a bits variable."
