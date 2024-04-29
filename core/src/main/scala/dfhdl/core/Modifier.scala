@@ -14,7 +14,7 @@ object Modifier:
   type Mutable = Modifier[Assignable, Any, Any, dfhdl.core.NOTCONST]
   type Dcl = Modifier[Assignable, Connectable, Initializable, dfhdl.core.NOTCONST]
   final val VAR = new Dcl(IRModifier.VAR)
-  final val IN = new Dcl(IRModifier.IN)
+  final val IN = new Modifier[Any, Connectable, Initializable, dfhdl.core.NOTCONST](IRModifier.IN)
   final val OUT = new Dcl(IRModifier.OUT)
   final val INOUT = new Dcl(IRModifier.INOUT)
   type CONST = Modifier[Any, Any, Any, dfhdl.core.CONST]
