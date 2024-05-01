@@ -140,7 +140,7 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
 
 
 ## Variable and Port Declarations {#Dcl}
-Ports are DFHDL values that define the inputs and outputs of a design. Variables are DFHDL values that
+Ports are DFHDL values that define the inputs and outputs of a design. Variables are DFHDL values that represent internal design wiring, logic, or state.
 
 ### Syntax {#dcl-syntax}
 
@@ -694,7 +694,7 @@ b"width'bin"
 - Separators `' '` (space) or `_` (underscore) within `bin` are ignored.
 - `bin` can also contain interpolated Scala `String` arguments through `${arg}`.
 - __width__, followed by a __`'`__ (apostrophe), is optional and specifies the bit vector's width. If
-  omitted, the width is inferred from the sequence length. If specified, leading zeros
+  omitted, the minimal width is inferred from the sequence length. If specified, leading zeros
   are added at the left of the sequence or the sequence is truncated based on the `width`. 
   Truncation only occurs if the MSBits being removed are zeros; otherwise, it triggers a
   compilation error.
@@ -739,7 +739,7 @@ h"width'hex"
 - Binary sequences can be embedded within `{bin}` tags, allowing integration of [binary
   bit sequences][b-interp] of any length, not necessarily divisible by 4, between hex nibbles.
 - __width__, followed by a __`'`__, is optional and specifies the bit vector's width. If
-  omitted, the width is inferred from the sequence length. If specified, leading zeros
+  omitted, the minimal width is inferred from the sequence length. If specified, leading zeros
   are added or the sequence is truncated based on the `width`. Truncation only occurs if
   the most significant bits being removed are zeros or bubbles; otherwise, it triggers a
   compilation error.

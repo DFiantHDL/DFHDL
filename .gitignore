@@ -25,3 +25,4 @@ sandbox/
 /project/.bloop/**
 /.vscode/**
 project/metals.sbt
+**/__pycache__/**

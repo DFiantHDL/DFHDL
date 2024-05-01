@@ -86,13 +86,6 @@ nav:
     - License: about/LICENSE.md
     - Acknowledgements: about/acknowledgements.md
 
-extra_javascript:
-  - javascripts/config.js 
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
-  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js
-  - https://scastie.scala-lang.org/embedded.js
-  - javascripts/scastie.js
-
 markdown_extensions:
     - toc:
         # https://github.com/squidfunk/mkdocs-material/discussions/3535
@@ -131,25 +124,38 @@ markdown_extensions:
     - pymdownx.emoji:
         emoji_index: !!python/name:material.extensions.emoji.twemoji
         emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra_javascript:
+  - javascripts/config.js 
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js
+  - https://scastie.scala-lang.org/embedded.js
+  - javascripts/scastie.js
+  - javascripts/d3.js
+  - javascripts/elk.bundled.js
+  - javascripts/d3-hwschematic.js
+  - javascripts/d3-hwschematic-embed.js
+
 extra_css:
-    - css/scastie.css
-    - css/vs.css
-    - css/lhs-permalink.css
-    - css/dfhdl-admonition.css
-    - css/rtl-admonition.css
-    - css/d2.css
-    - css/schemdraw.css
-    - css/operation-tables.css
+  - css/scastie.css
+  - css/vs.css
+  - css/lhs-permalink.css
+  - css/dfhdl-admonition.css
+  - css/rtl-admonition.css
+  - css/d2.css
+  - css/schemdraw.css
+  - css/operation-tables.css
+  - css/d3-hwschematic.css
 
 hooks:
   - docs/include/schemdraw_hook.py
 
 plugins:
-    - search
-    - autorefs
-    - d2
-    - glightbox
-    - redirects:
-        redirect_maps:
-            'LEGaTO/index.md': 'index.md'
+  - search
+  - autorefs
+  - d2
+  # - glightbox
+  - redirects:
+      redirect_maps:
+          'LEGaTO/index.md': 'index.md'
 
