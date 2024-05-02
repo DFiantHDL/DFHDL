@@ -154,27 +154,121 @@ val _name_ = _dftype_ <> _modifier_ [init _const_]
     * `OUT` - to construct an output port
     * `INOUT` - to construct an input-output port
 * __`_dftype_`__ is set according to the shape type (DFType) of the DFHDL value. Each of the supported DFTypes have their own constructors. See relevant sections for the DFHDL DFType you wish to construct.
-* __`<>`__ is the operator applied between a `_dftype_` and a `_modifier_` to construct the Scala value that represents a DFHDL variable or port accordingly. Note: the same `<>` operator is used as a language construct for declaring [connections][connectivity]. Thanks to Scala method overloading, `<>` can be shared for both use-cases with no issues (due to the Scala argument type difference). 
+* __`<>`__ is the operator applied between a `_dftype_` and a `_modifier_` to construct the Scala value that represents a DFHDL variable or port accordingly. Note: the same `<>` operator is used as a language construct for declaring [connections][connection]. Thanks to Scala method overloading, `<>` can be shared for both use-cases with no issues (due to the Scala argument type difference). 
 * __`init`__ is an optional construct to initialize the DFHDL variable/port declaration history with the applied `_const_` value.
 * __`_const_`__ is the [state history][state] initialization value or sequence of initialization values as a [Scala Tuple](https://docs.scala-lang.org/tour/tuples.html). This value must be a [constant][DFConst] that is supported by the DFType `_dftype_`.
 * __`_name_`__ is the Scala value name reference for the DFHDL variable/port you constructed. The DFHDL compiler preserves this name and uses it in error messages and the final generated artifacts (e.g., Verilog module or VHDL entity port names). More information is available under the [naming][naming] section.
 
 ```scala title="Port & variable declaration examples"
-//8-bit unsigned integer input port named 'i', 
-//initialized with the value 27.
-val i = UInt(8)     <> IN  init 27
+class Foo extends DFDesign:
+  //8-bit unsigned integer input port named 'i', 
+  //initialized with the value 27.
+  val i = UInt(8)     <> IN  init 27
 
-//single bit output port named 'o' 
-//with a sequence history (0, 1, 0) init
-val o = Bit         <> OUT init (0, 1, 0)
+  //single bit output port named 'o' 
+  //with a sequence history (0, 1, 0) init
+  val o = Bit         <> OUT init (0, 1, 0)
 
-//5 element vector of 8-bit vector cells 
-//variable named 'v' with no init
-val v = Bits(8) X 5 <> VAR
+  //5 element vector of 8-bit vector cells 
+  //variable named 'v' with no init
+  val v = Bits(8) X 5 <> VAR
 ```
 ### Rules {#dcl-rules}
 
-#### Connections
+#### Scope 
+* Variables can be declared in any DFHDL scope, except global scope, meaning within DFHDL designs, domains, interfaces, methods, processes, and conditional blocks.
+```scala
+//error: global variables are not 
+//allowed
+val x = Bit <> VAR 
+class Foo extends DFDesign:
+  val o = Bit <> OUT
+```
+
+* Ports can only be declared at the scopes of DFHDL designs, domains, and interfaces. Other scopes are not allowed.
+```scala
+class Foo extends DFDesign:
+  val i = Boolean <> IN
+  if (i)
+    //error: cannot create a port in a 
+    //DFHDL condition
+    val o = Bit <> OUT 
+    o := 0
+```
+
+#### Naming
+Ports and variables must always be named, and cannot be anonymous. 
+
+```scala
+class Foo extends DFDesign:
+  //error: constructed an anonymous 
+  //output port
+  Bit <> OUT 
+```
+
+As you'll read later on, constants and other values can be anonymous.
+
+#### Connectable
+Ports and variables are connectable, meaning they can be the receiving (drain/consumer) end of a [connection][connection] `<>` operation. 
+For input ports this occurs outside their design scope, while connecting to an external value. 
+For output ports and variables this occurs only within their design scope, while connecting to an internal value.
+
+#### Assignable (Mutable)
+Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). 
+
+#### Not Constant
+Ports and variables are never considered to be constant (even when connected/assigned only once and to a constant value) for elaboration. Later compilation stages can apply further constant propagation steps that reduce logic utilization.
+
+#### `INOUT` Port Limitation
+`INOUT` (bidirectional) ports are generally used to reduce IO pins from top-level device connectivity (e.g., protocols like [I<sup>2</sup>C](https://en.wikipedia.org/wiki/I%C2%B2C) benefit from such ability). They are not meant for inter-device wiring reduction, and thus should be used scarcely within their designed purpose. Throughout the years they were also used to workaround HDL limitations like reading from output ports in VHDL'93, or lack of [interfaces][interfaces]. Since DFHDL has none of these limitation, we encourage you to use `INOUT` for their intended purpose only, as synthesis tools for FPGAs and even ASICs will not cooperate. Although, theoretically, in DF domain we can enable bidirectional communication that can later be compiled into two separate ports, there is no real value behind this.
+
+#### Grouping
+Ports can also be grouped together in a dedicated [interface [wip]][interfaces].
+
+### Transitioning {#Dcl-transitioning}
+??? rtl "Differences from Verilog"
+    * DFHDL supports more abstraction domains, and not just ED abstraction like Verilog does.
+    * The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
+
+
+??? rtl "Differences from VHDL"
+    Hi there
+
+??? dfhdl "Differences from Scala parameters/fields"
+    Data validity
+
+    Number of outputs
+
+
+## Constant/Literal Values {#DFConst}
+
+In DFHDL there are three methods to construct constant DFHDL values:
+
+1. __Literal value generators:__ These language constructs directly generate constant DFHDL values. Currently, these are:
+    * [Binary `Bits` string interpolator][b-interp]
+    * [Hexadecimal `Bits` string interpolator][h-interp]
+    * [Decimal string interpolator][d-interp]
+    * [Signed Decimal string interpolator][sd-interp]
+2. __Constant candidates:__ Various Scala values can become DFHDL values, as.
+```scala linenums="0" title="Constant declaration syntax"
+val _name_: _dftype_ <> CONST = _value_
+```
+3. __Constant value propagation:__ Cleaners
+
+### Syntax {#const-syntax}
+
+### Rules {#const-rules}
+
+#### Unconnectable
+Constant values are not connectable, and can never be the receiving (drain/consumer) end of a [connection][connection] `<>` operation.
+
+#### Unassignable (Immutable)
+Constant values are immutable and cannot be assigned, meaning they can never be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation.
+
+## DFHDL Value Statement Order & Referencing
+Any DFHDL value must be declared before it can be referenced in code. Other than this (pretty intuitive) limitation, no other limitations exists and ports, variables, constants, and other values may be freely distributed within their approved scope space. During the [compilation process][compilation], you can notice that the compiler reorders the port declarations so that they always come second to [constant declarations][DFConst], and variables right after.
+
+## DFHDL Value Connections {#connection}
 After ([or during][via-connections]) a design instantiation, its ports need to be connected to other ports or values of the same DFType by applying the `<>` operator. Variables can also be connected and used as intermediate wiring between ports. Output ports can be directly referenced (read) without being connected to an intermediate variable. For more rules about design and port connectivity, see the [relevant section][connectivity].
 ```scala title="Successful port/variable connection example"
 class ID extends DFDesign:
@@ -209,7 +303,7 @@ class Foo extends DFDesign:
   y2 <> x 
 ```
 
-#### Assignments
+## DFHDL Value Assignment (Mutation) {#assignment}
 Both output ports and variables are [mutable][mutability] and can be assigned with values of the same DFType and only within the scope of the design they belong to. Input ports cannot be directly assigned, and require an intermediate variable connected to them to modify their value. Generally assignments to DFHDL values are applied through the `:=` operator. In [processes][processes] under ED domains there are two kind of assignments: blocking assignments via `:=`, and non-blocking assignments via `:==`. Other domains support only blocking assignments via `:=`. Read more on domain semantics in the [next section][domain-semantics].
 See the [connectivity section][connectivity] for more rules about mixing connections and assignments.
 
@@ -235,47 +329,46 @@ class IDTop extends DFDesign:
   y <> yv
 ```
 
+## DFHDL Value Mutation {#mutability}
 
-#### Domain Semantics 
-TBD.
+DFiant supports dataflow variables mutability via the `:=` operator. Do not confuse with Scala-level mutability which is enabled by using `#!scala var` instead of `#!scala val`. Each dataflow class has two variations: an immutable class, which inherits from `DFAny.Val` and a mutable class, which inherits from `DFAny.Var` and accepts `:=`. The difference between the types enforces an immutable right-hand-side (RHS), where required, and a mutable variable creation. 
 
-#### Scope 
-* Variables can be declared in any scope, except global scope, meaning within DFHDL designs, domains, interfaces, methods, processes, and conditional blocks.
-* Ports can only be declared at the scopes of DFHDL designs, domains, and interfaces. Other scopes are not allowed.
+Consider, for instance, the DFiant implementation of `g` in Table \ref`tbl:StateExDefImpl`: `a` is immutable because it is a RHS addition between the dataflow variable `i` and a literal value `5`. Contrarily, `c` is mutable, since it is a dataflow variable constructor (`.init` constructs a new initialized variable, while preserving the mutability trait). 
 
-#### Statement Order & Referencing
-Ports and variables must be declared before they can be referenced in code. Additionally, if the declaration references a constant value (e.g., a bit-vector width), that value must be declared before the port or variable declaration. Other than this (pretty intuitive) limitation, no other limitations exists and ports and variables may be freely distributed within their approved scope space. During the [compilation process][compilation], you can notice that the compiler orders the port declarations so that they always come second to [constant declarations][DFConst], and variables right after.
+Fig. 1 demonstrates a dual class definition for every type  (immutable and mutable). The naming convention helps to reason about the mutability. For example, `DFBits` and `DFBits.Var` are immutable and mutable classes, respectively. Constructing a new variable via `DFBits` (e.g, `#!scala val a = DFBits[5]`) returns the mutable `DFBits.Var[5]`. Usually, we either receive or return an immutable type, hence we do not require annotating a type with its mutable variation. In cases where we want to return a mutable type, we annotate it as an output port (see Section~\ref`sec:io_ports`).
 
-#### `INOUT` Port Limitation
-`INOUT` (bidirectional) ports are generally used to reduce IO pins from top-level device connectivity (e.g., protocols like [I<sup>2</sup>C](https://en.wikipedia.org/wiki/I%C2%B2C) benefit from such ability). They are not meant for inter-device wiring reduction, and thus should be used scarcely within their designed purpose. Throughout the years they were also used to workaround HDL limitations like reading from output ports in VHDL'93, or lack of [interfaces][interfaces]. Since DFHDL has none of these limitation, we encourage you to use `INOUT` for their intended purpose only, as synthesis tools for FPGAs and even ASICs will not cooperate. Although, theoretically, in DF domain we can enable bidirectional communication that can later be compiled into two separate ports, there is no real value behind this.
-
-#### Grouping
-Ports can also be grouped together in a dedicated [interface [wip]][interfaces].
-
-### Transitioning {#Dcl-transitioning}
-??? rtl "Differences from Verilog"
-    * DFHDL supports more abstraction domains, and not just ED abstraction like Verilog does.
-    * The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
+!!! warning "Don't use `var` with DFHDL values/variables"
+	Because the semantics may get confusing, we enforced a compiler error if a dataflow variable is constructed and fed into a Scala `#!scala var` reference. For example `#!scala var a = DFUInt(8)` will generate a Scala compiler error. 
 
 
-??? rtl "Differences from VHDL"
-    Hi there
+## Bit-Accurate Operations, Type Inference, and Data Structures
 
-??? dfhdl "Differences from Scala parameters/fields"
-    Data validity
+All DFiant's dataflow types are bit-accurate and structurally static, with their bit-width set upon construction (e.g., `DFBits[5]` is a 5-bit vector). Operations between dataflow variables produce a bit-accurate result with the proper type inference. For example, an addition between an unsigned 5-bit variable (`DFUInt[5]`) and a signed 10-bit variable (`DFSInt[10]`) produces an adder that can be implicitly converted to a 10-bit signed variable, if carry is not required, or an 11-bit signed variable by explicitly invoking `.wc` from the addition.
 
-    Number of outputs
+DFiant also allows operations between dataflow types and their corresponding Scala numeric types, by treating the Scala numeric types as constants (e.g., addition between `DFSInt` and `Integer` variables). A constant in the dataflow graph is a node that can produce infinite tokens of the same value.   
+
+## Bit Aliasing and Casting
+
+Aliasing in DFiant enables referencing a part of a dataflow variable, by invoking `.bits(hiIdx, loIdx)`, which creates a bits vector alias that references the original variable at the given index parameters. Every change of a dataflow variable affects its alias and vice versa (similar to VHDL's signal aliasing). Since this function also casts the variable as `DFBits`, this feature is used as a raw-data cast between different dataflow types. Aliasing of an alias is also possible, while maintaining relative bits indexing. Aliasing preserves the mutability trait: an alias of an immutable value is immutable, while an alias of a mutable variable is mutable. 
+
+Fig.~\ref`fig:Aliasing` demonstrates aliasing code and its effect on the contents of a dataflow variable (`bits128`). Each line code does as follows:
 
 
-## Constant Declarations {#DFConst}
 
-```scala linenums="0" title="Constant declaration syntax"
-val _name_: _dftype_ <> CONST = _value_
-```
+  1. Constructs a new 128-bit vector, `bits128`, and clears it.
+  2. Creates a new alias, `alias64`, which references the most significant 64 bits of `bits128`. Since `bits128` is a `DFBits` variable, there is no need to invoke `.bits()`, and we can apply the required indexes directly.
+  3. Creates a new alias, `alias32`, which references the least significant 32 bits of `alias64`, which reference bits 64 to 95 of `bits128`.
+  4. Constructs a new double precision floating point dataflow variable, `dbl`, and initialize its value as `1.0` (hexadecimal value of `0x3FF00...0`).
+  5. Modifies the least significant byte of `dbl`.
+  6. Sets the most significant bit of `bits128`.
+  7. Assigns `dbl` to the least significant 64 bits of `bits128` through casting. All the bits of `dbl` are selected because `.bits()` is invoked without index parameters.
+  8. Modifies a byte of `bits128`.
 
-#### Syntax {#const-syntax}
+## Bubble Values {#bubble}
 
-#### Rules {#const-rules}
+* RT and ED - Don't Care / Unknown
+* DF - Stall
+
 
 ## DFHDL Value Candidates
 TODO: requires explanation
@@ -340,47 +433,6 @@ b8 := b9     //fails `:=` candidate
 val x = b8 ++ h"FF"  //ok
 val y = b8 ++ all(0) //error
 ```
-
-
-## DFHDL Value Mutation {#mutability}
-
-DFiant supports dataflow variables mutability via the `:=` operator. Do not confuse with Scala-level mutability which is enabled by using `#!scala var` instead of `#!scala val`. Each dataflow class has two variations: an immutable class, which inherits from `DFAny.Val` and a mutable class, which inherits from `DFAny.Var` and accepts `:=`. The difference between the types enforces an immutable right-hand-side (RHS), where required, and a mutable variable creation. 
-
-Consider, for instance, the DFiant implementation of `g` in Table \ref`tbl:StateExDefImpl`: `a` is immutable because it is a RHS addition between the dataflow variable `i` and a literal value `5`. Contrarily, `c` is mutable, since it is a dataflow variable constructor (`.init` constructs a new initialized variable, while preserving the mutability trait). 
-
-Fig. 1 demonstrates a dual class definition for every type  (immutable and mutable). The naming convention helps to reason about the mutability. For example, `DFBits` and `DFBits.Var` are immutable and mutable classes, respectively. Constructing a new variable via `DFBits` (e.g, `#!scala val a = DFBits[5]`) returns the mutable `DFBits.Var[5]`. Usually, we either receive or return an immutable type, hence we do not require annotating a type with its mutable variation. In cases where we want to return a mutable type, we annotate it as an output port (see Section~\ref`sec:io_ports`).
-
-!!! warning "Don't use `var` with DFHDL values/variables"
-	Because the semantics may get confusing, we enforced a compiler error if a dataflow variable is constructed and fed into a Scala `#!scala var` reference. For example `#!scala var a = DFUInt(8)` will generate a Scala compiler error. 
-
-
-## Bit-Accurate Operations, Type Inference, and Data Structures
-
-All DFiant's dataflow types are bit-accurate and structurally static, with their bit-width set upon construction (e.g., `DFBits[5]` is a 5-bit vector). Operations between dataflow variables produce a bit-accurate result with the proper type inference. For example, an addition between an unsigned 5-bit variable (`DFUInt[5]`) and a signed 10-bit variable (`DFSInt[10]`) produces an adder that can be implicitly converted to a 10-bit signed variable, if carry is not required, or an 11-bit signed variable by explicitly invoking `.wc` from the addition.
-
-DFiant also allows operations between dataflow types and their corresponding Scala numeric types, by treating the Scala numeric types as constants (e.g., addition between `DFSInt` and `Integer` variables). A constant in the dataflow graph is a node that can produce infinite tokens of the same value.   
-
-## Bit Aliasing and Casting
-
-Aliasing in DFiant enables referencing a part of a dataflow variable, by invoking `.bits(hiIdx, loIdx)`, which creates a bits vector alias that references the original variable at the given index parameters. Every change of a dataflow variable affects its alias and vice versa (similar to VHDL's signal aliasing). Since this function also casts the variable as `DFBits`, this feature is used as a raw-data cast between different dataflow types. Aliasing of an alias is also possible, while maintaining relative bits indexing. Aliasing preserves the mutability trait: an alias of an immutable value is immutable, while an alias of a mutable variable is mutable. 
-
-Fig.~\ref`fig:Aliasing` demonstrates aliasing code and its effect on the contents of a dataflow variable (`bits128`). Each line code does as follows:
-
-
-
-  1. Constructs a new 128-bit vector, `bits128`, and clears it.
-  2. Creates a new alias, `alias64`, which references the most significant 64 bits of `bits128`. Since `bits128` is a `DFBits` variable, there is no need to invoke `.bits()`, and we can apply the required indexes directly.
-  3. Creates a new alias, `alias32`, which references the least significant 32 bits of `alias64`, which reference bits 64 to 95 of `bits128`.
-  4. Constructs a new double precision floating point dataflow variable, `dbl`, and initialize its value as `1.0` (hexadecimal value of `0x3FF00...0`).
-  5. Modifies the least significant byte of `dbl`.
-  6. Sets the most significant bit of `bits128`.
-  7. Assigns `dbl` to the least significant 64 bits of `bits128` through casting. All the bits of `dbl` are selected because `.bits()` is invoked without index parameters.
-  8. Modifies a byte of `bits128`.
-
-## Bubble Values {#bubble}
-
-* RT and ED - Don't Care / Unknown
-* DF - Stall
 
 ## `Bit`/`Boolean` DFHDL Values {#DFBitOrBool}
 
@@ -678,9 +730,9 @@ val b6: Bits[6] <> CONST = all(0)
     * __Specifying a width instead of an index range:__ In VHDL bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `(width-1 downto 0)` sized vector (for [generic vectors][DFVector] the element order the opposite).
     * __Additional constructors:__ DFHDL provides additional constructs to simplify some common VHDL bit vector declaration. For example, instead of declaring `signal addr: std_logic_vector(clog2(DEPTH)-1 downto 0)` in VHDL, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
 
-### Constant Generation
+### Literal (Constant) Value Generation
 
-Constant DFHDL `Bits` value generation is carried out through [binary][b-interp] and [hexadecimal][h-interp] string interpolation, a core [Scala feature](https://docs.scala-lang.org/scala3/book/string-interpolation.html) that was customized for DFHDL's exact use-case. There are also bit-accurate [decimal][d-interp] and [signed decimal][sd-interp] interpolations available that produce `UInt` and `SInt` DFHDL values. If needed, those values can be cast to `Bits`. No octal interpolation is currently available or planned.
+Literal (constant) DFHDL `Bits` value generation is carried out through [binary][b-interp] and [hexadecimal][h-interp] string interpolation, a core [Scala feature](https://docs.scala-lang.org/scala3/book/string-interpolation.html) that was customized for DFHDL's exact use-case. There are also bit-accurate [decimal][d-interp] and [signed decimal][sd-interp] interpolations available that produce `UInt` and `SInt` DFHDL values. If needed, those values can be cast to `Bits`. No octal interpolation is currently available or planned.
 
 #### Binary Bits String-Interpolator {#b-interp}
 

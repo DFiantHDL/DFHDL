@@ -1,13 +1,13 @@
 # Project information
-site_name: DFDocs
+site_name: DFiant HDL (DFHDL)
 site_dir: site
 site_url: https://dfianthdl.github.io/
 site_description: DFiant Hardware Description Language (DFHDL) Documentation
 site_author: Oron Port
 
 # Repository
-repo_name: 'DFiantHDL/DFiant'
-repo_url: 'https://github.com/DFiantHDL/DFiant'
+repo_name: 'DFiantHDL/DFHDL'
+repo_url: 'https://github.com/DFiantHDL/DFHDL'
 
 # Copyright
 copyright: Copyright &copy; 2021 <a href="https://www.dfiant.works">DFiant Inc.</a>
@@ -59,6 +59,12 @@ nav:
   - Getting Started:
     - Initial Setup: getting-started/initial-setup/index.md
     - Hello Hardware World: getting-started/hello-world.md
+  - Run In Browser: 
+    - 1-Bit Full Adder: in-browser/1-bit-full-adder/index.md
+    - N-Bit Full Adder: in-browser/n-bit-full-adder/index.md
+    - Counter: in-browser/counter/index.md
+    - LFSR: in-browser/lfsr/index.md
+    - ALU: in-browser/alu/index.md
   - User Guide:
     - Domain Abstractions: user-guide/design-domains/index.md
     - Designs & Hierarchies: user-guide/designs/index.md
@@ -149,6 +155,7 @@ extra_css:
 
 hooks:
   - docs/include/schemdraw_hook.py
+  - docs/include/scastie_hook.py
 
 plugins:
   - search
