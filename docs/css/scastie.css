@@ -16,8 +16,21 @@ div.scastie.embedded * div.main-panel div.content div.editor-container.inner-con
   div.console-container.console-open div.console {
     background-color: var(--md-code-bg-color);
   }
-  div.editor-wrapper.cm-s-solarized.cm-s-light *, div.editor-wrapper.cm-s-solarized.cm-s-dark * {
+  
+  div.editor-wrapper.cm-s-solarized.cm-s-light * {
     background-color: var(--md-code-bg-color);
+    ::selection {
+      background-color: #0078D7!important;
+      color: white;
+    }
+    font-family: var(--md-code-font-family);
+  }
+  
+  div.editor-wrapper.cm-s-solarized.cm-s-dark * {
+    background-color: var(--md-code-bg-color);
+    ::selection {
+      background-color: rgb(27, 97, 115)!important;
+    }
     font-family: var(--md-code-font-family);
   }
   div.cm-indent-markers.cm-line {
@@ -103,3 +116,5 @@ div.scastie.embedded div.app.light div.main-panel div.content div.editor-contain
     background: #5a97fd;
   }
 }
+
+
