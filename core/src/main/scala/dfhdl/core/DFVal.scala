@@ -1209,7 +1209,8 @@ object DFPortOps:
         ],
         tc: DFVal.TC[T, R],
         dfc: DFC
-    ): Unit =
+    ): ConnectPlaceholder =
       if (rhs.value equals __OPEN) dfPort.connect(DFVal.Open(dfPort.dfType))
       else trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
+      ConnectPlaceholder
 end DFPortOps

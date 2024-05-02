@@ -16,6 +16,7 @@ protected object hdl:
   export core.DFVal.Ops.*
   export core.DFVarOps.*
   export core.DFPortOps.*
+  export core.ConnectPlaceholder.Ops.*
   export core.Conditional.Ops.*
   export internals.CommonOps.*
   export core.{dfType}
