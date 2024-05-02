@@ -16,23 +16,17 @@ div.scastie.embedded * div.main-panel div.content div.editor-container.inner-con
   div.console-container.console-open div.console {
     background-color: var(--md-code-bg-color);
   }
-  
-  div.editor-wrapper.cm-s-solarized.cm-s-light * {
+
+  div.cm-scroller, div.cm-scroller div.cm-gutters {
     background-color: var(--md-code-bg-color);
-    ::selection {
-      background-color: #0078D7!important;
-      color: white;
-    }
     font-family: var(--md-code-font-family);
   }
   
-  div.editor-wrapper.cm-s-solarized.cm-s-dark * {
+  div.cm-scroller, div.cm-scroller div.cm-gutters {
     background-color: var(--md-code-bg-color);
-    ::selection {
-      background-color: rgb(27, 97, 115)!important;
-    }
     font-family: var(--md-code-font-family);
   }
+  
   div.cm-indent-markers.cm-line {
     span.number {
       color: var(--md-code-hl-number-color);
