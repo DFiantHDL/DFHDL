@@ -26,7 +26,6 @@ div.scastie.embedded * div.main-panel div.content div.editor-container.inner-con
     background-color: var(--md-code-bg-color);
     font-family: var(--md-code-font-family);
   }
-  
   div.cm-indent-markers.cm-line {
     span.number {
       color: var(--md-code-hl-number-color);
@@ -47,6 +46,9 @@ div.scastie.embedded * div.main-panel div.content div.editor-container.inner-con
       color: var(--md-code-hl-name-color)!important;
     }
     span.property span.method-call {
+      color: var(--md-code-hl-name-color)!important;
+    }
+    span.function-call {
       color: var(--md-code-hl-name-color)!important;
     }
     span.function-call span.type span.constructor {

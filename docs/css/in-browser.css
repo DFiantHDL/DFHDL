@@ -17,7 +17,7 @@ div.scastie.embedded {
   padding-bottom: 0px;
   /* No need for console limitation, since the page vertical scroll will do */
   div.output-console {
-    height: auto;
+    height: auto!important;
   }
 }
 
