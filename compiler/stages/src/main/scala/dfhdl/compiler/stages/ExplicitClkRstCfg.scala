@@ -17,6 +17,7 @@ case object ExplicitClkRstCfg extends Stage:
     val domainMap = mutable.Map.empty[DFDomainOwner, RTDomainCfg.Explicit]
     extension (owner: DFDomainOwner)
       def usesClk: Boolean = designDB.domainOwnerMemberTable(owner).exists {
+        case dcl: DFVal.Dcl           => dcl.modifier.reg
         case reg: DFVal.Alias.History => true
         case domain: DFDesignBlock =>
           domainMap.get(domain) match
@@ -25,6 +26,7 @@ case object ExplicitClkRstCfg extends Stage:
         case _ => false
       }
       def usesRst: Boolean = designDB.domainOwnerMemberTable(owner).exists {
+        case dcl: DFVal.Dcl           => dcl.modifier.reg
         case reg: DFVal.Alias.History => true
         case domain: DFDesignBlock =>
           domainMap.get(domain) match
