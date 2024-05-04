@@ -1069,7 +1069,24 @@ object VarsTuple:
   end evMacro
 end VarsTuple
 
+final class REG_DIN[T <: DFTypeAny](val irValue: DFError.REG_DIN[T]) extends AnyVal with DFVarOf[T]:
+  def :=[R](rhs: Exact[R])(using
+      tc: DFVal.TC[T, R],
+      dfc: DFC
+  ): Unit = trydf {
+    val dfVar = irValue.dfVar
+    dfVar.assign(tc(dfVar.dfType, rhs))
+  }
+
 object DFVarOps:
+  protected type NotREG[A] = AssertGiven[
+    util.NotGiven[A <:< Modifier.AssignableREG],
+    "Cannot assign to a register output; it is immutable.\nTo assign to the register's input, apply `.din` on the LHS argument of the assignment."
+  ]
+  protected type IsREG[A] = AssertGiven[
+    A <:< Modifier.AssignableREG,
+    "This is not an assignable register."
+  ]
   protected type VarOnly[A] = AssertGiven[
     A <:< Modifier.Assignable,
     "Cannot assign to an immutable value."
@@ -1092,6 +1109,7 @@ object DFVarOps:
   ]
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
     def :=[R](rhs: Exact[R])(using
+        notREG: NotREG[A],
         varOnly: VarOnly[A],
 //        localOrNonED: LocalOrNonED[A],
         insideProcess: InsideProcess[A],
@@ -1110,6 +1128,7 @@ object DFVarOps:
     ): Unit = trydf {
       dfVar.nbassign(tc(dfVar.dfType, rhs))
     }
+    def din(using IsREG[A], DFC): REG_DIN[T] = new REG_DIN[T](DFError.REG_DIN(dfVar.asVarOf[T]))
   end extension
   extension [T <: NonEmptyTuple](dfVarTuple: T)
     def :=[R](rhs: Exact[R])(using

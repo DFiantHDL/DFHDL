@@ -68,7 +68,10 @@ object DFType:
   extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
     def asIR: T = dfType.value match
       case dfTypeIR: T @unchecked => dfTypeIR
-      case err: DFError           => throw DFError.Derived(err)
+      case err: DFError.REG_DIN[?] if err.firstTime =>
+        err.firstTime = false
+        throw err
+      case err: DFError => throw DFError.Derived(err)
     def codeString(using printer: Printer)(using DFC): String =
       printer.csDFType(asIR)
   extension (dfType: ir.DFType) def asFE[T <: DFTypeAny]: T = new DFType(dfType).asInstanceOf[T]

@@ -10,7 +10,7 @@ sealed abstract class DFError(
     derives CanEqual
 
 object DFError:
-  final class Basic(
+  class Basic(
       val opName: String,
       val iae: IllegalArgumentException
   )(using dfc: DFC)
@@ -33,6 +33,18 @@ object DFError:
   end Basic
   object FakeEnum extends DFError("This value of enum is no meant to be accessed.")
   final class Derived(from: DFError) extends DFError(from.dfMsg)
+  final class REG_DIN[T <: DFTypeAny](val dfVar: DFVarOf[T])(using dfc: DFC)
+      extends Basic(
+        "Read access",
+        new IllegalArgumentException(
+          """|Cannot read from DIN of a register.
+             |If you are committing a partial assignment through range or field selection, make sure you apply `.din` after the selection. E.g.:
+             |* Instead of `x.din(5, 0)` write `x(5, 0).din`.
+             |* Instead of `pixel.din.x` write `pixel.x.din`.
+          """.stripMargin
+        )
+      ):
+    var firstTime: Boolean = true
 
   extension (dfErr: DFError)
     inline def asNet: DFNet = new DFNet(dfErr)

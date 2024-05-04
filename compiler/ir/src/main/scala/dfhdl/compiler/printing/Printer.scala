@@ -57,7 +57,10 @@ trait Printer
           case DFNet.Op.LazyConnection => csLazyConnection(lhsStr, rhsStr, directionStr)
         end match
       case _ =>
-        val lhsStr = net.lhsRef.refCodeString
+        val lhsDin = net.lhsRef.get match
+          case dfVal: DFVal if dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.reg => ".din"
+          case _                                                                      => ""
+        val lhsStr = net.lhsRef.refCodeString + lhsDin
         val rhsStr = net.rhsRef.refCodeString
         (net.op: @unchecked) match
           case DFNet.Op.Assignment   => csAssignment(lhsStr, rhsStr)
@@ -292,8 +295,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     Set("class", "def", "end", "enum", "extends", "new", "object", "val", "if", "else", "match",
       "case", "final")
   val dfhdlKW: Set[String] =
-    Set("VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign", "EDDesign",
-      "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init")
+    Set("VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
+      "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init")
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] =
     Set("Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encode", "Struct", "Opaque",
