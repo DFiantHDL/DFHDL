@@ -1109,7 +1109,7 @@ object DFVarOps:
   ]
   protected type RTDomainOnly[A] = AssertGiven[
     A <:< DFC.Domain.RT,
-    "`.din` selection is only allowed under register-transfer RT domains."
+    "`.din` selection is only allowed under register-transfer (RT) domains."
   ]
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
     def :=[R](rhs: Exact[R])(using

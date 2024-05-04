@@ -17,7 +17,7 @@ object Modifier:
   type DclREG = Modifier[AssignableREG, Any, Initializable, dfhdl.core.NOTCONST]
   protected type RTDomainOnly[A] = AssertGiven[
     A <:< DFC.Domain.RT,
-    "`.REG` declaration modifier is only allowed under RT domains."
+    "`.REG` declaration modifier is only allowed under register-transfer (RT) domains."
   ]
   object VAR extends Dcl(IRModifier(IRModifier.VAR, false)):
     protected object pREG extends DclREG(IRModifier(IRModifier.VAR, true))
