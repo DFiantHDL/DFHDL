@@ -1107,6 +1107,10 @@ object DFVarOps:
     DFC.Scope.Process | util.NotGiven[A <:< DFC.Domain.ED],
     "Assignments `:=`/`:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
+  protected type RTDomainOnly[A] = AssertGiven[
+    A <:< DFC.Domain.RT,
+    "`.din` selection is only allowed under register-transfer RT domains."
+  ]
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
     def :=[R](rhs: Exact[R])(using
         notREG: NotREG[A],
@@ -1128,7 +1132,8 @@ object DFVarOps:
     ): Unit = trydf {
       dfVar.nbassign(tc(dfVar.dfType, rhs))
     }
-    def din(using IsREG[A], DFC): REG_DIN[T] = new REG_DIN[T](DFError.REG_DIN(dfVar.asVarOf[T]))
+    def din(using dt: DFC.Domain)(using IsREG[A], RTDomainOnly[dt.type], DFC): REG_DIN[T] =
+      new REG_DIN[T](DFError.REG_DIN(dfVar.asVarOf[T]))
   end extension
   extension [T <: NonEmptyTuple](dfVarTuple: T)
     def :=[R](rhs: Exact[R])(using
