@@ -16,7 +16,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   private def regOrLogic: String = if (supportLogicType) "logic" else "reg"
   def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
-    val modifier = dfVal.modifier match
+    val modifier = dfVal.modifier.dir match
       case Modifier.IN =>
         dfVal.dfType match
           case _: DFStruct => "input "

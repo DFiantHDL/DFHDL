@@ -56,7 +56,7 @@ final class DomainAnalysis(designDB: DB):
                 case clk: DFVal.Dcl if clk.getName == "clk" =>
                   // if clk is an output then this is an output domain.
                   // if the design is not a top-level, then the design owner is the receiver of this domain.
-                  if (clk.modifier == DFVal.Modifier.OUT && !design.isTop)
+                  if (clk.modifier.dir == DFVal.Modifier.OUT && !design.isTop)
                     collectedDesignDomains.addClk((design.getOwnerDesign, cfg), clk)
                   collectedDesignDomains.addClk((design, cfg), clk)
               }
@@ -64,7 +64,7 @@ final class DomainAnalysis(designDB: DB):
                 case rst: DFVal.Dcl if rst.getName == "rst" =>
                   // if rst is an output then this is an output domain.
                   // if the design is not a top-level, then the design owner is the receiver of this domain.
-                  if (rst.modifier == DFVal.Modifier.OUT && !design.isTop)
+                  if (rst.modifier.dir == DFVal.Modifier.OUT && !design.isTop)
                     collectedDesignDomains.addRst((design.getOwnerDesign, cfg), rst)
                   collectedDesignDomains.addRst((design, cfg), rst)
               }

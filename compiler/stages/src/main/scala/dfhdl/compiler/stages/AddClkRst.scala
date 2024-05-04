@@ -47,7 +47,7 @@ case object AddClkRst extends Stage:
                   case clk: DFVal.Dcl if clk.getName == "clk" =>
                     // if clk is an output then this is an output domain.
                     // if the design is not a top-level, then the design owner is the receiver of this domain.
-                    if (clk.modifier == DFVal.Modifier.OUT && !design.isTop)
+                    if (clk.modifier.dir == DFVal.Modifier.OUT && !design.isTop)
                       designDomainOut += Tuple2(design.getOwnerDesign, cfg)
                     clk
                 }

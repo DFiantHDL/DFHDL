@@ -280,7 +280,7 @@ final case class DB(
       else dfVal isSameOwnerDesignAs net
     dfVal match
       case dcl: DFVal.Dcl =>
-        dcl.modifier match
+        dcl.modifier.dir match
           // external connection to an input port
           case IN if isExternalConn => Write
           // internal connection to an output port
@@ -356,7 +356,7 @@ final case class DB(
           // assignment is always from right to left
           case Assignment | NBAssignment =>
             lhsVal.dealias match
-              case Some(dcl: DFVal.Dcl) if dcl.modifier == IN =>
+              case Some(dcl: DFVal.Dcl) if dcl.modifier.dir == IN =>
                 newError("Cannot assign to an input port.")
                 (Unknown, Unknown)
               case Some(dcl: DFVal.Dcl) if !(dcl.isSameOwnerDesignAs(net)) =>

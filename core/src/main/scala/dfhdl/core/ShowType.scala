@@ -2,7 +2,6 @@ package dfhdl.core
 import dfhdl.internals.*
 import scala.quoted.*
 import dfhdl.compiler.ir
-import Modifier.*
 
 extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def showTuple(showf: quotes.reflect.TypeRepr => String): List[String] =

@@ -13,10 +13,16 @@ object Modifier:
   sealed trait Initialized
   type Mutable = Modifier[Assignable, Any, Any, dfhdl.core.NOTCONST]
   type Dcl = Modifier[Assignable, Connectable, Initializable, dfhdl.core.NOTCONST]
-  final val VAR = new Dcl(IRModifier.VAR)
-  final val IN = new Modifier[Any, Connectable, Initializable, dfhdl.core.NOTCONST](IRModifier.IN)
-  final val OUT = new Dcl(IRModifier.OUT)
-  final val INOUT = new Dcl(IRModifier.INOUT)
+  object VAR extends Dcl(IRModifier(IRModifier.VAR, false)):
+    object REG extends Dcl(IRModifier(IRModifier.VAR, true))
+  object IN
+      extends Modifier[Any, Connectable, Initializable, dfhdl.core.NOTCONST](
+        IRModifier(IRModifier.IN, false)
+      )
+  object OUT extends Dcl(IRModifier(IRModifier.OUT, false)):
+    object REG extends Dcl(IRModifier(IRModifier.OUT, true))
+  object INOUT extends Dcl(IRModifier(IRModifier.INOUT, false)):
+    object REG extends Dcl(IRModifier(IRModifier.INOUT, true))
   type CONST = Modifier[Any, Any, Any, dfhdl.core.CONST]
   extension (modifier: ModifierAny) def asIR: IRModifier = modifier.value
 end Modifier

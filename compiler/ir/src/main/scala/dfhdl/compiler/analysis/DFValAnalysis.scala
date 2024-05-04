@@ -113,28 +113,28 @@ object DclConst:
 object DclVar:
   def unapply(dcl: DFVal.Dcl)(using
       MemberGetSet
-  ): Boolean = dcl.modifier match
+  ): Boolean = dcl.modifier.dir match
     case Modifier.VAR => true
     case _            => false
 
 object DclPort:
   def unapply(dcl: DFVal.Dcl)(using
       MemberGetSet
-  ): Boolean = dcl.modifier match
+  ): Boolean = dcl.modifier.dir match
     case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
     case _                                           => false
 
 object DclIn:
   def unapply(dcl: DFVal.Dcl)(using
       MemberGetSet
-  ): Boolean = dcl.modifier match
+  ): Boolean = dcl.modifier.dir match
     case Modifier.IN => true
     case _           => false
 
 object DclOut:
   def unapply(dcl: DFVal.Dcl)(using
       MemberGetSet
-  ): Boolean = dcl.modifier match
+  ): Boolean = dcl.modifier.dir match
     case Modifier.OUT => true
     case _            => false
 
@@ -142,7 +142,7 @@ object PortOfDesignDef:
   def unapply(dcl: DFVal.Dcl)(using
       MemberGetSet
   ): Option[(Modifier.IN.type | Modifier.OUT.type, DFDesignBlock)] =
-    dcl.modifier match
+    dcl.modifier.dir match
       case mod: (Modifier.IN.type | Modifier.OUT.type) =>
         val design = dcl.getOwnerDesign
         if (design.instMode == InstMode.Def) Some(mod, design)
