@@ -35,6 +35,9 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getThisOrOwnerDesign(using MemberGetSet): DFDesignBlock = this match
     case d: DFDesignBlock => d
     case x                => x.getOwnerDesign
+  final def getThisOrOwnerDomain(using MemberGetSet): DFDomainOwner = this match
+    case d: DFDomainOwner => d
+    case x                => x.getOwnerDomain
   final def getThisOrOwnerNamed(using MemberGetSet): DFOwnerNamed = this match
     case d: DFOwnerNamed => d
     case x               => x.getOwnerNamed
@@ -468,7 +471,8 @@ object DFVal:
     object History:
       type InitRef = DFRef.TwoWay[DFVal, History]
       enum Op derives CanEqual:
-        case Prev, Pipe, Reg
+        case State // represents either `prev` in DF domain or `reg` in RT domain
+        case Pipe // pipe only represents a pipe constraint under DF domain
 
     final case class ApplyRange(
         relValRef: PartialRef,

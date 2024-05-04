@@ -1,10 +1,10 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.explicitPrev
+import dfhdl.compiler.stages.explicitState
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class ExplicitPrevSpec extends StageSpec:
+class ExplicitStateSpec extends StageSpec:
   test("Basic explicit prev") {
     class ID extends DFDesign:
       val x = SInt(16) <> IN
@@ -13,7 +13,7 @@ class ExplicitPrevSpec extends StageSpec:
       val y2 = SInt(16) <> OUT init 0
       y := 1
       y := y + 1
-    val id = (new ID).explicitPrev
+    val id = (new ID).explicitState
     assertCodeString(
       id,
       """|class ID extends DFDesign:
@@ -41,7 +41,7 @@ class ExplicitPrevSpec extends StageSpec:
       else
         y2 := 2
       y2   := y2 + 1
-    val id = (new ID).explicitPrev
+    val id = (new ID).explicitState
     assertCodeString(
       id,
       """|class ID extends DFDesign:
@@ -69,7 +69,7 @@ class ExplicitPrevSpec extends StageSpec:
       if (x > 0)
         v := 123
         y := v
-    val id = (new ID).explicitPrev
+    val id = (new ID).explicitState
     assertCodeString(
       id,
       """|class ID extends DFDesign:
@@ -96,7 +96,7 @@ class ExplicitPrevSpec extends StageSpec:
       y2(7, 0)  := all(0)
       y2(15, 8) := all(0)
       y2        := y2 << 1
-    val id = (new ID).explicitPrev
+    val id = (new ID).explicitState
     assertCodeString(
       id,
       """|class ID extends DFDesign:
@@ -135,7 +135,7 @@ class ExplicitPrevSpec extends StageSpec:
         case _         => y3 := 1
       y3 := y3 + 1
     end ID
-    val id = (new ID).explicitPrev
+    val id = (new ID).explicitState
     assertCodeString(
       id,
       """|class ID extends DFDesign:
@@ -188,7 +188,7 @@ class ExplicitPrevSpec extends StageSpec:
         case b"?0?" => y3 := 1
       y3 := y3 + 1
     end ID
-    val id = (new ID).explicitPrev
+    val id = (new ID).explicitState
     assertCodeString(
       id,
       """|class ID extends DFDesign:
@@ -235,7 +235,7 @@ class ExplicitPrevSpec extends StageSpec:
         case Bar       => y2 := 1
       y2 := y2 + 1
     end ID
-    val id = (new ID).explicitPrev
+    val id = (new ID).explicitState
     assertCodeString(
       id,
       """|enum MyEnum(val value: UInt[2] <> CONST) extends Encode.Manual(2):
@@ -261,4 +261,21 @@ class ExplicitPrevSpec extends StageSpec:
          |""".stripMargin
     )
   }
-end ExplicitPrevSpec
+  test("ED domain remains unaffected") {
+    class ID extends EDDesign:
+      val y = UInt(8) <> OUT init 0
+      process(all):
+        y := y + 1
+    end ID
+    val id = (new ID).explicitState
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val y = UInt(8) <> OUT init d"8'0"
+         |  process(all):
+         |    y := y + d"8'1"
+         |end ID
+         |""".stripMargin
+    )
+  }
+end ExplicitStateSpec

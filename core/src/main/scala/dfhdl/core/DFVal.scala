@@ -971,7 +971,7 @@ object DFVal extends DFValLP:
       ): DFValOf[T] = trydf {
         check(step)
         val initOpt = Some(init(dfVal.dfType)(using dfc.anonymize))
-        DFVal.Alias.History(dfVal, step, HistoryOp.Prev, initOpt)
+        DFVal.Alias.History(dfVal, step, HistoryOp.State, initOpt)
       }
       def prev(step: Inlined[S])(using
           dfc: DFC,
@@ -980,7 +980,7 @@ object DFVal extends DFValLP:
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        DFVal.Alias.History(dfVal, step, HistoryOp.Prev, None)
+        DFVal.Alias.History(dfVal, step, HistoryOp.State, None)
       }
       inline def prev(using DFDomainOnly, PrevInitCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
       def pipe(
@@ -1003,7 +1003,7 @@ object DFVal extends DFValLP:
           check: Arg.Positive.Check[S]
       ): DFValOf[T] = trydf {
         check(step)
-        DFVal.Alias.History(dfVal, step, HistoryOp.Reg, None)
+        DFVal.Alias.History(dfVal, step, HistoryOp.State, None)
       }
       def reg(step: Inlined[S], init: InitValue[T])(using
           dfc: DFC,
@@ -1012,7 +1012,7 @@ object DFVal extends DFValLP:
       ): DFValOf[T] = trydf {
         check(step)
         val initOpt = Some(init(dfVal.dfType)(using dfc.anonymize))
-        DFVal.Alias.History(dfVal, step, HistoryOp.Reg, initOpt)
+        DFVal.Alias.History(dfVal, step, HistoryOp.State, initOpt)
       }
       inline def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
       def width(using DFC): DFConstInt32 = dfVal.widthIntParam.toDFConst

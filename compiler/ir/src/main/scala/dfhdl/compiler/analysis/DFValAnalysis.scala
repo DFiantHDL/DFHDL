@@ -165,15 +165,15 @@ extension (dfVal: DFVal)
       case alias: DFVal.Alias.Partial => Some(alias)
       case _                          => None
     }
-  def hasPrevAlias(using MemberGetSet): Boolean =
-    dfVal.originMembers.exists {
-      case history: DFVal.Alias.History if (history.op == DFVal.Alias.History.Op.Prev) =>
-        true
-      case alias: DFVal.Alias =>
-        alias.hasPrevAlias
-      case _ => false
-    }
-  end hasPrevAlias
+  // def hasPrevAlias(using MemberGetSet): Boolean =
+  //   dfVal.originMembers.exists {
+  //     case history: DFVal.Alias.History if history.op == DFVal.Alias.History.Op.State =>
+  //       ??? //TODO: if we need this, should this be `hasStateAlias?
+  //     case alias: DFVal.Alias =>
+  //       alias.hasPrevAlias
+  //     case _ => false
+  //   }
+  // end hasPrevAlias
   def getConnectionTo(using MemberGetSet): Option[DFNet] =
     getSet.designDB.connectionTable.getNets(dfVal).headOption
   def getConnectionsFrom(using MemberGetSet): Set[DFNet] =
@@ -193,8 +193,8 @@ extension (dfVal: DFVal)
     dfVal.originMembers.view
       .collect { case dfVal: DFVal => dfVal }
       .exists(dfVal => cond(dfVal) || dfVal.existsInComposedReadDeps(cond))
-  def getReadDeps(using MemberGetSet): Set[DFNet | DFVal] =
-    val fromRefs: Set[DFNet | DFVal] = dfVal.originMembersNoTypeRef.flatMap {
+  def getReadDeps(using MemberGetSet): Set[DFNet | DFVal | DFConditional.Block] =
+    val fromRefs: Set[DFNet | DFVal | DFConditional.Block] = dfVal.originMembersNoTypeRef.flatMap {
       case net: DFNet =>
         net match
           // ignoring receiver or if connecting to an OPEN
@@ -202,8 +202,9 @@ extension (dfVal: DFVal)
           // ignoring receiver
           case DFNet.Assignment(toVal, _) if toVal == dfVal => None
           case _                                            => Some(net)
-      case dfVal: DFVal => Some(dfVal)
-      case _            => None
+      case dfVal: DFVal                                                        => Some(dfVal)
+      case guardBlock: DFConditional.Block if guardBlock.guardRef.get == dfVal => Some(guardBlock)
+      case _                                                                   => None
     }
     dfVal match
       // for ports we need to also account for by-name referencing

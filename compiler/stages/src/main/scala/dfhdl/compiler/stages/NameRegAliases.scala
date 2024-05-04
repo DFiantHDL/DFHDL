@@ -74,14 +74,14 @@ case object NameRegAliases extends Stage:
         val ignoredAliases = members.view.collect {
           case DFNet.Assignment(
                 dcl @ DclVar(),
-                regAlias @ DFVal.Alias.History(_, _, 1, HistoryOp.Reg, _, _, _, _)
+                regAlias @ DFVal.Alias.History(_, _, 1, HistoryOp.State, _, _, _, _)
               ) if dcl.getAssignmentsTo.size == 1 =>
             regAlias
         }.toSet
         val nameGroupRegMap =
           members.view
             .collect {
-              case regAlias @ DFVal.Alias.History(_, _, _, HistoryOp.Reg, _, _, _, _)
+              case regAlias @ DFVal.Alias.History(_, _, _, HistoryOp.State, _, _, _, _)
                   if !ignoredAliases.contains(regAlias) =>
                 regAlias
             }
@@ -126,7 +126,7 @@ case object NameRegAliases extends Stage:
                   val reg = dfhdl.core.DFVal.Alias.History(
                     prev.asValAny,
                     1,
-                    HistoryOp.Reg,
+                    HistoryOp.State,
                     clonedInitOpt
                   )
                   curr.asVarAny := reg
@@ -137,6 +137,10 @@ case object NameRegAliases extends Stage:
             regsIR
           end addRegs
 
+          def patchRemoveHistoryInit(alias: DFVal.Alias.History): Unit =
+            alias.initRefOption.foreach(_.get.collectRelMembers(false).foreach {
+              regPatches += _ -> Patch.Remove()
+            })
           nameGroupRegMap.foreach {
             case (NameGroup(groupName, true), groupNamedAliases) =>
               groupNamedAliases.zipWithIndex
@@ -149,6 +153,7 @@ case object NameRegAliases extends Stage:
                     regsIR.last,
                     Patch.Replace.Config.ChangeRefAndRemove
                   )
+                  patchRemoveHistoryInit(alias)
                 }
             case (NameGroup(groupName, false), groupNamedAliases) =>
               val regsIR = addRegs(
@@ -162,6 +167,7 @@ case object NameRegAliases extends Stage:
                   regsIR(alias.getTotalSteps - 1),
                   Patch.Replace.Config.ChangeRefAndRemove
                 )
+                patchRemoveHistoryInit(alias)
               }
           }
         List(

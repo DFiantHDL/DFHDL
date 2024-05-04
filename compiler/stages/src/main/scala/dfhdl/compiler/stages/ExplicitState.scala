@@ -9,8 +9,8 @@ import dfhdl.options.CompilerOptions
 import scala.annotation.tailrec
 import scala.collection.immutable
 
-case object ExplicitPrev extends Stage:
-  def dependencies: List[Stage] = List(ExplicitNamedVars, DropLocalDcls)
+case object ExplicitState extends Stage:
+  def dependencies: List[Stage] = List(ExplicitNamedVars, DropCondDcls)
   def nullifies: Set[Stage] = Set()
 
   @tailrec private def consumeFrom(
@@ -45,7 +45,7 @@ case object ExplicitPrev extends Stage:
             consumeFrom(fromVal, relWidth, relBitLow, assignMap, currentSet)
           case _ =>
             val scope = assignMap(value)
-            if (scope.isConsumingPrevAt(access)) currentSet union Set(value) else currentSet
+            if (scope.isConsumingStateAt(access)) currentSet union Set(value) else currentSet
       case _ => currentSet
     end match
   end consumeFrom
@@ -85,7 +85,7 @@ case object ExplicitPrev extends Stage:
 
   // retrieves a list of variables that are consumed as their implicit previous value.
   // the assignment stack map is pushed on every conditional block entry and popped on the block exit
-  @tailrec private def getImplicitPrevVars(
+  @tailrec private def getImplicitStateVars(
       remaining: List[DFMember],
       currentBlock: DFBlock,
       scopeMap: AssignMap,
@@ -102,8 +102,9 @@ case object ExplicitPrev extends Stage:
             (currentSet, scopeMap.branchEntry(cb.isFirstCB))
           case _ =>
             (currentSet, scopeMap)
-        getImplicitPrevVars(rs, nextBlock, updatedScopeMap, updatedSet)
-      case r :: rs if r.getOwnerBlock == currentBlock => // checking member consumers
+        getImplicitStateVars(rs, nextBlock, updatedScopeMap, updatedSet)
+      case r :: rs
+          if r.getOwnerBlock == currentBlock && currentBlock.getThisOrOwnerDomain.domainType == DomainType.DF => // checking member consumers
         val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = r match
           case net @ DFNet.Assignment(toVal, fromVal) =>
             (consumeFrom(fromVal, scopeMap, currentSet), assignTo(toVal, scopeMap))
@@ -128,7 +129,7 @@ case object ExplicitPrev extends Stage:
             (currentSet, scopeMap + (anyVar -> AssignedScope.empty))
           case _ =>
             (currentSet, scopeMap)
-        getImplicitPrevVars(rs, currentBlock, updatedScopeMap, updatedSet)
+        getImplicitStateVars(rs, currentBlock, updatedScopeMap, updatedSet)
       case _ => // exiting child block or no more members
         val updatedSet = currentBlock match
           case d: DFDesignBlock if remaining.isEmpty =>
@@ -154,30 +155,30 @@ case object ExplicitPrev extends Stage:
             //                println(s"${if (scopeMap.nonEmpty) scopeMap.head._2.toString else "<>"} => ${if (ret.nonEmpty) ret.head._2.toString else "<>"}")
             //                ret
             case _ => scopeMap
-          getImplicitPrevVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet)
+          getImplicitStateVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet)
         else (updatedSet, scopeMap)
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val (currentSet, scopeMap) =
-      getImplicitPrevVars(designDB.membersNoGlobals.drop(1), designDB.top, Map(), Set())
+      getImplicitStateVars(designDB.membersNoGlobals.drop(1), designDB.top, Map(), Set())
 //    println("scopeMap:")
 //    println(scopeMap.mkString("\n"))
-    val (explicitPrevSet, defaultsSet) = currentSet.partition(p => scopeMap(p).hasAssignments)
-//    println("explicitPrevSet")
-//    println(explicitPrevSet)
+    val (explicitStateSet, defaultsSet) = currentSet.partition(p => scopeMap(p).hasAssignments)
+//    println("explicitStateSet")
+//    println(explicitStateSet)
 //    println("defaultSet")
 //    println(defaultsSet)
-    val patchList = explicitPrevSet.flatMap {
+    val patchList = explicitStateSet.flatMap {
       // for initialized ports and variables we just add an explicit prev self-assignment
       case e: DFVal.Dcl if e.initRefList.nonEmpty =>
         Some(
           new MetaDesign(e, Patch.Add.Config.After):
-            e.asVarAny := e.asValAny.asInitialized.prev
+            e.asVarAny := e.asValAny.asInitialized.prev // .prev works the same as .reg for meta programming in RT domain
           .patch
         )
       // if not initialized we also need to add bubble tagging to the initialization
       case e: DFVal.Dcl =>
-        val explicitPrevAssignDsn = new MetaDesign(e, Patch.Add.Config.After):
+        val explicitStateAssignDsn = new MetaDesign(e, Patch.Add.Config.After):
           val modifier = dfhdl.core.Modifier(e.modifier)
           val dfType = new dfhdl.core.DFType(e.dfType)
           val bubble = dfhdl.core.Bubble.constValOf(dfType, named = false)
@@ -185,17 +186,17 @@ case object ExplicitPrev extends Stage:
             dfhdl.core.DFVal.Dcl(dfType, modifier, List(bubble))(using
               dfc.setMeta(e.meta)
             ).asVarAny.asInitialized
-          dclWithInit := dclWithInit.prev
+          dclWithInit := dclWithInit.prev // .prev works the same as .reg for meta programming in RT domain
         val dclPatch = e -> Patch.Replace(
-          explicitPrevAssignDsn.dclWithInit.asIR,
+          explicitStateAssignDsn.dclWithInit.asIR,
           Patch.Replace.Config.ChangeRefAndRemove
         )
-        List(dclPatch, explicitPrevAssignDsn.patch)
+        List(dclPatch, explicitStateAssignDsn.patch)
       case _ => None
     }.toList
     designDB.patch(patchList)
   end transform
-end ExplicitPrev
+end ExplicitState
 
 private type AssignMap = Map[DFVal, AssignedScope]
 
@@ -221,7 +222,7 @@ private final case class AssignedScope(
       case Some(s) => getLatest(latest | s.latest, s.parentScopeOption)
       case None    => latest
   def getLatest: immutable.BitSet = getLatest(latest, parentScopeOption)
-  def isConsumingPrevAt(consumeBitSet: immutable.BitSet): Boolean =
+  def isConsumingStateAt(consumeBitSet: immutable.BitSet): Boolean =
     (consumeBitSet &~ getLatest).nonEmpty
   def assign(assignBitSet: immutable.BitSet): AssignedScope =
     copy(latest = latest | assignBitSet, hasAssignments = true)
@@ -255,5 +256,5 @@ private object AssignedScope:
   val empty: AssignedScope = AssignedScope(immutable.BitSet(), None, None, hasAssignments = false)
 
 extension [T: HasDB](t: T)
-  def explicitPrev(using CompilerOptions): DB =
-    StageRunner.run(ExplicitPrev)(t.db)
+  def explicitState(using CompilerOptions): DB =
+    StageRunner.run(ExplicitState)(t.db)

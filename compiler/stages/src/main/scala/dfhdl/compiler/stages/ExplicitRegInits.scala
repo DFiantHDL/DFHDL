@@ -18,14 +18,14 @@ case object ExplicitRegInits extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val handledDcls = mutable.Set.empty[DFVal.Dcl]
     val patchList = designDB.members.collect {
-      case ra @ DFVal.Alias.History(_, DFRef(dcl: DFVal.Dcl), _, HistoryOp.Reg, None, _, _, _) =>
+      case ra @ DFVal.Alias.History(_, DFRef(dcl: DFVal.Dcl), _, HistoryOp.State, None, _, _, _) =>
         // patch to add an init from the Dcl onto the register construct
         new MetaDesign(ra, AddCfg.ReplaceWithLast(ReplaceCfg.FullReplacement)):
           val clonedInit = dcl.initList.head.cloneAnonValueAndDepsHere.asConstAny
           dfhdl.core.DFVal.Alias.History(
             dcl.asValAny,
             ra.step,
-            HistoryOp.Reg,
+            HistoryOp.State,
             Some(clonedInit)
           )(using dfc.setMeta(ra.meta))
         .patch

@@ -241,4 +241,31 @@ class ToEDSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Inside conditional") {
+    class Test() extends RTDesign:
+      val c = Boolean <> IN
+      val z = UInt(8) <> OUT init 0
+      if (c)
+        z := z.reg + 1
+
+    val top = Test().toED
+    assertCodeString(
+      top,
+      """|class Test extends EDDesign:
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
+         |  val c = Boolean <> IN
+         |  val z = UInt(8) <> OUT init d"8'0"
+         |  val z_reg = UInt(8) <> VAR
+         |  process(all):
+         |    if (c) z := z_reg + d"8'1"
+         |  process(clk):
+         |    if (clk.rising)
+         |      if (rst == 1) z_reg :== d"8'0"
+         |      else z_reg :== z
+         |    end if
+         |end Test
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

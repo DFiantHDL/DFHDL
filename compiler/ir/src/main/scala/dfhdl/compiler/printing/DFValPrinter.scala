@@ -259,9 +259,12 @@ protected trait DFValPrinter extends AbstractValPrinter:
     s"${dfVal.relValCodeString}$fieldSel"
   def csDFValAliasHistory(dfVal: Alias.History): String =
     val opStr = dfVal.op match
-      case Alias.History.Op.Prev => ".prev"
+      case Alias.History.Op.State =>
+        dfVal.relValRef.get.getOwnerDomain.domainType match
+          case DomainType.DF    => ".prev"
+          case DomainType.RT(_) => ".reg"
+          case DomainType.ED    => ??? // impossible!
       case Alias.History.Op.Pipe => ".pipe"
-      case Alias.History.Op.Reg  => ".reg"
     val appliedStr =
       dfVal.initRefOption match
         case Some(ref)            => s"$opStr(${dfVal.step}, ${ref.refCodeString})"

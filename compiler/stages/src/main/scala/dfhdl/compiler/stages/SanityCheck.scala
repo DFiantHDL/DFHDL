@@ -64,7 +64,7 @@ case object SanityCheck extends Stage:
               case _ =>
           }
       end match
-      // check that anonymous values are referenced only once
+      // check that anonymous values are referenced exactly once
       m match
         case dfVal: DFVal if dfVal.isAnonymous =>
           val deps = dfVal.getReadDeps
@@ -74,7 +74,17 @@ case object SanityCheck extends Stage:
                   |Referenced value: $dfVal
                   |Referencing members: ${deps.mkString("\n\t", "\n\t", "")}""".stripMargin
             )
+        // TODO: need to return this test and properly purge anonymous orphans
+        // if (deps.size == 0)
+        //   dfVal match
+        //     case ch: DFConditional.Header if ch.dfType == DFUnit =>
+        //     case _ =>
+        //       reportViolation(
+        //         s"""|An anonymous value has no references.
+        //             |Referenced value: $dfVal""".stripMargin
+        //       )
         case _ =>
+      end match
     }
     val memberSet = getSet.designDB.members.toSet
     // checks for all references
@@ -162,8 +172,6 @@ case object SanityCheck extends Stage:
         m match // still in current owner
           case o: DFOwner => ownershipCheck(o, nextMembers) // entering new owner
           case _          => ownershipCheck(currentOwner, nextMembers) // new non-member found
-      case (_: DFVal.Const) :: nextMembers => // we do not care about constant ownership
-        ownershipCheck(currentOwner, nextMembers)
       case Nil => // Done! All is OK
       case m :: _ => // not in current owner
         if (currentOwner.isTop)

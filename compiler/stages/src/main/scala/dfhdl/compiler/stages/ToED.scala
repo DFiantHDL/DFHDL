@@ -37,14 +37,14 @@ case object ToED extends Stage:
             val ownerDomainPatch =
               owner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
 
-            val regNets = members.collect:
+            val regNets = designDB.designMemberTable(owner.getThisOrOwnerDesign).collect:
               case net @ DFNet.Assignment(
                     regVar @ DclVar(),
                     regAlias @ DFVal.Alias.History(
                       _,
                       DFRef(relVal),
                       _,
-                      HistoryOp.Reg,
+                      HistoryOp.State,
                       _,
                       _,
                       _,
@@ -75,26 +75,33 @@ case object ToED extends Stage:
                       getDeps(last ++ moreMembers, handledMembers + head)
                     case _ => getDeps(last, handledMembers)
                 case Nil => handledMembers
-            val processBlockAllMembersSet = members.view.flatMap {
-              case DesignParam(_)                                              => None
-              case net: DFNet if net.isConnection || removedNets.contains(net) => None
-              case net: DFNet =>
-                getDeps(List(net), Set())
-              case ch: DFConditional.Header if ch.dfType == DFUnit =>
-                getDeps(List(ch), Set())
-              case _ => None
-            }.toSet
-            // println(processBlockAllMembersSet.mkString("\n"))
-            val processBlockAllMembers = members.flatMap {
-              case dcl: DFVal.Dcl => None
-              case DesignParam(_) => None
-              case cb: DFConditional.Block if cb.getHeaderCB.dfType == DFUnit =>
-                cb :: designDB.blockMemberTable(cb)
-              case dsn: DFOwnerNamed                          => None
-              case history: DFVal.Alias.History               => None
-              case m if processBlockAllMembersSet.contains(m) => Some(m)
-              case _                                          => None
-            }
+
+            def processMembers(list: List[DFMember]): List[DFMember] =
+              val processBlockAllMembersSet = list.view.flatMap {
+                case DesignParam(_)                 => None
+                case net: DFNet if net.isConnection => None
+                case net @ DFNet.Assignment(_, fromVal) if removedNets.contains(net) =>
+                  getDeps(List(fromVal), Set())
+                case net: DFNet =>
+                  getDeps(List(net), Set())
+                case ch: DFConditional.Header if ch.dfType == DFUnit =>
+                  getDeps(List(ch), Set())
+                case _ => None
+              }.toSet
+
+              list.flatMap {
+                case dcl: DFVal.Dcl => None
+                case DesignParam(_) => None
+                case cb: DFConditional.Block if cb.getHeaderCB.dfType == DFUnit =>
+                  cb :: processMembers(designDB.blockMemberTable(cb))
+                case dsn: DFOwnerNamed                          => None
+                case history: DFVal.Alias.History               => None
+                case m if processBlockAllMembersSet.contains(m) => Some(m)
+                case _                                          => None
+              }
+            end processMembers
+            val processBlockAllMembers = processMembers(members)
+            // println(processBlockAllMembers.mkString("\n"))
 
             val processBlocksDsn =
               new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = DFC.Domain.ED):
@@ -102,7 +109,11 @@ case object ToED extends Stage:
                 lazy val rst = clkRstOpt.rstOpt.get.asValOf[Bit]
 
                 // create a combinational process if needed
-                if (processBlockAllMembers.nonEmpty)
+                val hasProcessAll = processBlockAllMembers.exists {
+                  case net: DFNet => true
+                  case _          => false
+                }
+                if (hasProcessAll)
                   process(all) {
                     co.backend match
                       case _: dfhdl.backends.vhdl =>
@@ -117,7 +128,7 @@ case object ToED extends Stage:
                   }
                 def regInitBlock() = regNets.foreach:
                   case rn if rn.initOption.nonEmpty && !rn.initOption.get.isBubble =>
-                    rn.regVar.asVarAny :== rn.initOption.get.asValAny
+                    rn.regVar.asVarAny :== rn.initOption.get.cloneAnonValueAndDepsHere.asValAny
                   case _ =>
                 def regSaveBlock() = regNets.foreach: rn =>
                   rn.regVar.asVarAny :== rn.relVal.asValAny
