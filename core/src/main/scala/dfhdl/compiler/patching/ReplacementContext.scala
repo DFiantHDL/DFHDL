@@ -1,8 +1,9 @@
 package dfhdl.compiler.patching
 import dfhdl.compiler.ir.*
-
+import dfhdl.internals.invert
 private final case class ReplacementContext(
     refTable: Map[DFRefAny, DFMember],
+    memberTable: Map[DFMember, Set[DFRefAny]],
     memberRepTable: Map[DFMember, List[(DFMember, Patch.Replace.RefFilter)]]
 )(using getSet: MemberGetSet):
   def changeRef(origRef: DFRefAny, updateMember: DFMember): ReplacementContext =
@@ -43,7 +44,7 @@ private final case class ReplacementContext(
   ): ReplacementContext =
     if (origMember == repMember) this // nothing to do if the member is replacing itself
     else
-      getSet.designDB.memberTable.get(origMember) match
+      memberTable.get(origMember) match
         // the member exists, so we need to update its references to point to the new member
         // by updating the reference table
         case Some(refs) =>
@@ -67,7 +68,9 @@ private final case class ReplacementContext(
                 memberRepTable + (origMember -> List((repMember, refFilter)))
               case _ =>
                 memberRepTable + (origMember -> replacementHistory)
-          ReplacementContext(updatedRefTable, updatedMemberRepTable)
+          // add another entry for the replacing member, but still keep the old one
+          val updatedMemberTable = memberTable + (repMember -> refs)
+          ReplacementContext(updatedRefTable, updatedMemberTable, updatedMemberRepTable)
         // nothing to do if the member does not exist anymore
         case None => this
 
@@ -75,4 +78,4 @@ end ReplacementContext
 
 private object ReplacementContext:
   def fromRefTable(refTable: Map[DFRefAny, DFMember])(using MemberGetSet): ReplacementContext =
-    ReplacementContext(refTable, Map())
+    ReplacementContext(refTable, refTable.invert, Map())
