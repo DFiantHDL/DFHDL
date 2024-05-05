@@ -21,7 +21,7 @@ jobs:
       - name: Setup Scala
         uses: coursier/setup-action@v1
         with:
-          jvm: adopt:16
+          jvm: adopt:17
           apps: sbt bloop
       - name: Run tests
         run: sbt test
