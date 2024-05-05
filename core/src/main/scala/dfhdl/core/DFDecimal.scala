@@ -738,16 +738,14 @@ object DFXInt:
       ): Compare[DFXInt[LS, LW, LN], R, Op, C] with
         type OutP = ic.OutP
         def conv(dfType: DFXInt[LS, LW, LN], arg: R)(using dfc: DFC): Out =
-          import dfc.getSet
-          import Ops.resize
-          import DFUInt.Val.Ops.signed
           given dfcAnon: DFC = dfc.anonymize
           val dfValArg = ic(arg)
+          val (rhsSigned, rhsWidth) = dfValArg.getActualSignedWidth
           check(
             dfType.signed,
             dfType.widthInt,
-            dfValArg.dfType.signed,
-            dfValArg.dfType.widthInt
+            rhsSigned,
+            rhsWidth
           )
           DFXInt.Val.Ops.toDFXIntOf(dfValArg)(dfType).asValTP[DFXInt[LS, LW, LN], ic.OutP]
         end conv

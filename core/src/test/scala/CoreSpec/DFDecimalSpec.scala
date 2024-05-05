@@ -236,6 +236,9 @@ class DFDecimalSpec extends DFSpec:
     val u7 = UInt(7) <> VAR
     val s8 = SInt(8) <> VAR
     val b8 = Bits(8) <> VAR
+    val one: Int <> CONST = 1
+    val negOne: Int <> CONST = -1
+    val big: Int <> CONST = 1000
     assertCodeString {
       """|val t1 = u8 == u8
          |val t2 = u8 != d"8'0"
@@ -253,6 +256,13 @@ class DFDecimalSpec extends DFSpec:
       val t5 = u8 != h"FF"
       val t6 = u8 <= b8
       val t7 = u8.resize(4) >= b8.resize(4)
+      // TODO: comparisons with Int are not showing up
+      val t8 = u8 == one
+      val t9 = s8 == one
+      val t10 = s8 == negOne
+      val t11 = u8 < one
+      val t12 = s8 >= one
+      val t13 = s8 <= negOne
     }
 
     assertDSLErrorLog(
@@ -296,6 +306,28 @@ class DFDecimalSpec extends DFSpec:
       val value = 1000
       u8 > value
     }
+    assertRuntimeError(
+      """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    ) {
+      u8 == negOne
+    }
+    assertRuntimeError(
+      """|Cannot apply this operation between a value of 8 bits width (LHS) to a value of 10 bits width (RHS).
+         |An explicit conversion must be applied.
+         |""".stripMargin
+    ) {
+      u8 == big
+    }
+    // TODO: this fails with the wrong message (sign mismatch)
+    // assertRuntimeError(
+    //   """|Cannot apply this operation between a value of 8 bits width (LHS) to a value of 10 bits width (RHS).
+    //      |An explicit conversion must be applied.
+    //      |""".stripMargin
+    // ) {
+    //   s8 == big
+    // }
   }
   test("Arithmetic") {
     assertEquals(d"8'22" + d"8'22", d"8'44")
