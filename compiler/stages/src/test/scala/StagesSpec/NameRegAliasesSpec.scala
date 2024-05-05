@@ -26,9 +26,9 @@ class NameRegAliasesSpec extends StageSpec:
          |  val x1_reg = SInt(16) <> VAR
          |  val x2_reg1 = SInt(16) <> VAR
          |  val x2_reg2 = SInt(16) <> VAR
-         |  x1_reg := x1.reg(1, sd"16'0")
-         |  x2_reg1 := x2.reg(1, sd"16'0")
-         |  x2_reg2 := x2_reg1.reg(1, sd"16'0")
+         |  x1_reg := x1.reg(1, init = sd"16'0")
+         |  x2_reg1 := x2.reg(1, init = sd"16'0")
+         |  x2_reg2 := x2_reg1.reg(1, init = sd"16'0")
          |  y1 := x1_reg
          |  y2 := x2_reg2 + x2_reg2
          |end ID
@@ -52,8 +52,8 @@ class NameRegAliasesSpec extends StageSpec:
          |  val c = UInt(16) <> VAR init d"16'0"
          |  val c_reg = UInt(16) <> VAR
          |  val o2_reg = UInt(16) <> VAR
-         |  c_reg := c.reg(1, d"16'0")
-         |  o2_reg := o2.reg(1, d"16'0")
+         |  c_reg := c.reg(1, init = d"16'0")
+         |  o2_reg := o2.reg(1, init = d"16'0")
          |  o1 := c
          |  c := c_reg + d"16'1"
          |  o2 := o2_reg + d"16'1"
@@ -83,12 +83,12 @@ class NameRegAliasesSpec extends StageSpec:
          |  val y2_part1_reg = Bits(8) <> VAR
          |  val y2_part2_reg1 = Bits(16) <> VAR
          |  val y2_part2_reg2 = Bits(16) <> VAR
-         |  y1_part_reg := (x1 + sd"16'1").reg(1, ?)
+         |  y1_part_reg := (x1 + sd"16'1").reg(1, init = ?)
          |  y1 := y1_part_reg
-         |  z := (x2 << 1).reg(1, h"????")
-         |  y2_part1_reg := x2(7, 0).reg(1, h"??")
-         |  y2_part2_reg1 := y2_part1_reg.resize(16).reg(1, h"????")
-         |  y2_part2_reg2 := y2_part2_reg1.reg(1, h"????")
+         |  z := (x2 << 1).reg(1, init = h"????")
+         |  y2_part1_reg := x2(7, 0).reg(1, init = h"??")
+         |  y2_part2_reg1 := y2_part1_reg.resize(16).reg(1, init = h"????")
+         |  y2_part2_reg2 := y2_part2_reg1.reg(1, init = h"????")
          |  y2 := y2_part2_reg2 | z
          |end ID
          |""".stripMargin
@@ -120,13 +120,13 @@ class NameRegAliasesSpec extends StageSpec:
          |  val v_ver3_reg1 = SInt(16) <> VAR
          |  val v_ver3_reg2 = SInt(16) <> VAR
          |  v := x1
-         |  v_ver1_reg := v.reg(1, sd"16'0")
+         |  v_ver1_reg := v.reg(1, init = sd"16'0")
          |  y1 := v_ver1_reg
          |  v := x2
-         |  v_ver2_reg := v.reg(1, sd"16'0")
+         |  v_ver2_reg := v.reg(1, init = sd"16'0")
          |  v := v_ver2_reg
-         |  v_ver3_reg1 := v.reg(1, sd"16'0")
-         |  v_ver3_reg2 := v_ver3_reg1.reg(1, sd"16'0")
+         |  v_ver3_reg1 := v.reg(1, init = sd"16'0")
+         |  v_ver3_reg2 := v_ver3_reg1.reg(1, init = sd"16'0")
          |  y2 := v_ver3_reg2
          |end ID
          |""".stripMargin
@@ -167,9 +167,9 @@ class NameRegAliasesSpec extends StageSpec:
          |  val x_reg1 = SInt(16) <> VAR
          |  val x_reg2 = SInt(16) <> VAR
          |  val x_reg3 = SInt(16) <> VAR
-         |  x_reg1 := x.reg(1, i2)
-         |  x_reg2 := x_reg1.reg(1, c - i)
-         |  x_reg3 := x_reg2.reg(1, c - i)
+         |  x_reg1 := x.reg(1, init = i2)
+         |  x_reg2 := x_reg1.reg(1, init = c - i)
+         |  x_reg3 := x_reg2.reg(1, init = c - i)
          |  y := x_reg3 - x
          |  z := dpNew
          |end IDExt
@@ -193,7 +193,7 @@ class NameRegAliasesSpec extends StageSpec:
          |  val y1 = SInt(16) <> OUT
          |  val v = SInt(16) <> VAR
          |  val x1_reg = SInt(16) <> VAR
-         |  x1_reg := x1.reg(1, sd"16'0")
+         |  x1_reg := x1.reg(1, init = sd"16'0")
          |  if (x1 > sd"16'0") y1 := x1_reg
          |  else y1 := x1_reg + sd"16'1"
          |end ID

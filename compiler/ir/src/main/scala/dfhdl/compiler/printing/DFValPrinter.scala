@@ -267,7 +267,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case Alias.History.Op.Pipe => ".pipe"
     val appliedStr =
       dfVal.initRefOption match
-        case Some(ref)            => s"$opStr(${dfVal.step}, ${ref.refCodeString})"
+        case Some(ref)            => s"$opStr(${dfVal.step}, init = ${ref.refCodeString})"
         case _ if dfVal.step == 1 => opStr
         case _                    => s"$opStr(${dfVal.step})"
     s"${dfVal.relValCodeString}$appliedStr"

@@ -180,7 +180,7 @@ class PrintCodeStringSpec extends StageSpec:
          |  val x = SInt(16) <> IN init i2
          |  val y = SInt(16) <> OUT
          |  val flag = Bit <> IN init dp || gp
-         |  y := x.reg.reg(2, c - i) - x
+         |  y := x.reg.reg(2, init = c - i) - x
          |  val z = Bit <> OUT
          |  z := dpNew
          |end IDExt

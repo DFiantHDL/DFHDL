@@ -60,7 +60,7 @@ class AddClkRstSpec extends StageSpec:
          |  val rst = Bit <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  y := x.reg(1, ?)
+         |  y := x.reg(1, init = ?)
          |end ID
          |
          |class IDTop extends RTDesign(cfg):
