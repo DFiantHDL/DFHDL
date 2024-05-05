@@ -291,6 +291,16 @@ extension (dfVal: DFVal)
       case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
       case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
       case _                       => false
+  def getDomainType(using MemberGetSet): DomainType = dfVal.getOwnerDomain.domainType
+  def isDFDomain(using MemberGetSet): Boolean = dfVal.getDomainType match
+    case DomainType.DF => true
+    case _             => false
+  def isRTDomain(using MemberGetSet): Boolean = dfVal.getDomainType match
+    case DomainType.RT(_) => true
+    case _                => false
+  def isEDDomain(using MemberGetSet): Boolean = dfVal.getDomainType match
+    case DomainType.ED => true
+    case _             => false
 end extension
 
 extension (refTW: DFNet.Ref)

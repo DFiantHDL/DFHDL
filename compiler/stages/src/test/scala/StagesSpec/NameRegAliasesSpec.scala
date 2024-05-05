@@ -19,9 +19,9 @@ class NameRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign:
-         |  val x1 = SInt(16) <> IN init sd"16'0"
+         |  val x1 = SInt(16) <> IN
          |  val y1 = SInt(16) <> OUT
-         |  val x2 = SInt(16) <> IN init sd"16'0"
+         |  val x2 = SInt(16) <> IN
          |  val y2 = SInt(16) <> OUT
          |  val x1_reg = SInt(16) <> VAR
          |  val x2_reg1 = SInt(16) <> VAR
@@ -48,8 +48,8 @@ class NameRegAliasesSpec extends StageSpec:
       id,
       """|class Cnt extends RTDesign:
          |  val o1 = UInt(16) <> OUT
-         |  val o2 = UInt(16) <> OUT init d"16'0"
-         |  val c = UInt(16) <> VAR init d"16'0"
+         |  val o2 = UInt(16) <> OUT
+         |  val c = UInt(16) <> VAR
          |  val c_reg = UInt(16) <> VAR
          |  val o2_reg = UInt(16) <> VAR
          |  c_reg := c.reg(1, init = d"16'0")
@@ -114,7 +114,7 @@ class NameRegAliasesSpec extends StageSpec:
          |  val y1 = SInt(16) <> OUT
          |  val x2 = SInt(16) <> IN
          |  val y2 = SInt(16) <> OUT
-         |  val v = SInt(16) <> VAR init sd"16'0"
+         |  val v = SInt(16) <> VAR
          |  val v_ver1_reg = SInt(16) <> VAR
          |  val v_ver2_reg = SInt(16) <> VAR
          |  val v_ver3_reg1 = SInt(16) <> VAR
@@ -160,9 +160,9 @@ class NameRegAliasesSpec extends StageSpec:
          |    val dpNew: Bit <> CONST = 1
          |) extends RTDesign:
          |  val c: SInt[16] <> CONST = sd"16'3"
-         |  val x = SInt(16) <> IN init i2
+         |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  val flag = Bit <> IN init dp || gp
+         |  val flag = Bit <> IN
          |  val z = Bit <> OUT
          |  val x_reg1 = SInt(16) <> VAR
          |  val x_reg2 = SInt(16) <> VAR
@@ -189,7 +189,7 @@ class NameRegAliasesSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign:
-         |  val x1 = SInt(16) <> IN init sd"16'0"
+         |  val x1 = SInt(16) <> IN
          |  val y1 = SInt(16) <> OUT
          |  val v = SInt(16) <> VAR
          |  val x1_reg = SInt(16) <> VAR

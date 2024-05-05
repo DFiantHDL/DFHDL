@@ -10,20 +10,24 @@ import Patch.Add.Config as AddCfg
 import Patch.Replace.Config as ReplaceCfg
 import collection.mutable
 
-/** This stage propagates initialization values to the reg alias init value.
+/** This stage propagates initialization values to the reg alias init value, and removes all
+  * declaration initializations.
   */
 case object ExplicitRegInits extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    val handledDcls = mutable.Set.empty[DFVal.Dcl]
+    def updatedDcl(dcl: DFVal.Dcl): DFVal.Dcl = dcl.copy(initRefList = Nil)
     val patchList = designDB.members.collect {
-      case ra @ DFVal.Alias.History(_, DFRef(dcl: DFVal.Dcl), _, HistoryOp.State, None, _, _, _) =>
+      case dcl: DFVal.Dcl if dcl.initRefList.nonEmpty && !dcl.modifier.reg && dcl.isRTDomain =>
+        dcl -> Patch.Replace(updatedDcl(dcl), Patch.Replace.Config.FullReplacement)
+      case ra @ DFVal.Alias.History(_, DFRef(dcl: DFVal.Dcl), _, HistoryOp.State, None, _, _, _)
+          if ra.isRTDomain =>
         // patch to add an init from the Dcl onto the register construct
         new MetaDesign(ra, AddCfg.ReplaceWithLast(ReplaceCfg.FullReplacement)):
           val clonedInit = dcl.initList.head.cloneAnonValueAndDepsHere.asConstAny
           dfhdl.core.DFVal.Alias.History(
-            dcl.asValAny,
+            updatedDcl(dcl).asValAny,
             ra.step,
             HistoryOp.State,
             Some(clonedInit)

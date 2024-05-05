@@ -19,9 +19,9 @@ class ExplicitRegInitsSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign:
-         |  val x1 = SInt(16) <> IN init sd"16'0"
+         |  val x1 = SInt(16) <> IN
          |  val y1 = SInt(16) <> OUT
-         |  val x2 = SInt(16) <> IN init sd"16'5"
+         |  val x2 = SInt(16) <> IN
          |  val y2 = SInt(16) <> OUT
          |  y1 := x1.reg(1, init = sd"16'0")
          |  y2 := x2.reg(2, init = sd"16'5") + x2.reg(2, init = sd"16'5")
@@ -42,9 +42,9 @@ class ExplicitRegInitsSpec extends StageSpec:
     assertCodeString(
       id,
       """|class ID extends RTDesign:
-         |  val x1 = SInt(16) <> IN init sd"16'0"
+         |  val x1 = SInt(16) <> IN
          |  val y1 = SInt(16) <> OUT
-         |  val x2 = Bits(16) <> IN init h"ffff"
+         |  val x2 = Bits(16) <> IN
          |  val y2 = Bits(16) <> OUT
          |  y1 := (x1 + sd"16'1").reg(1, init = ?)
          |  val z = (x2 << 1).reg(1, init = h"????")
