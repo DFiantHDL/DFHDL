@@ -814,8 +814,8 @@ object DFVal extends DFValLP:
 
   trait TCLP:
     // Accept OPEN in compile-time, but throw exception where it should not be used
-    given fromOPEN[T <: DFTypeAny]: TC[T, __OPEN.type] with
-      def conv(dfType: T, value: __OPEN.type)(using DFC): Out =
+    given fromOPEN[T <: DFTypeAny]: TC[T, r__OPEN.type] with
+      def conv(dfType: T, value: r__OPEN.type)(using DFC): Out =
         throw new IllegalArgumentException("OPEN cannot be used here")
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] with
@@ -1234,7 +1234,7 @@ object DFPortOps:
         tc: DFVal.TC[T, R],
         dfc: DFC
     ): ConnectPlaceholder =
-      if (rhs.value equals __OPEN) dfPort.connect(DFVal.Open(dfPort.dfType))
+      if (rhs.value equals r__OPEN) dfPort.connect(DFVal.Open(dfPort.dfType))
       else trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
       ConnectPlaceholder
 end DFPortOps
