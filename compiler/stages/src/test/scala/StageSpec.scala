@@ -6,7 +6,7 @@ import dfhdl.internals.AllowTopLevel
 import munit.*
 
 abstract class StageSpec extends FunSuite, AllowTopLevel:
-  def assertCodeString(db: DB, cs: String): Unit =
+  inline def assertCodeString(db: DB, cs: String): Unit =
     import db.getSet
     db.sanityCheck
     assertNoDiff(DefaultPrinter.csDB, cs)
