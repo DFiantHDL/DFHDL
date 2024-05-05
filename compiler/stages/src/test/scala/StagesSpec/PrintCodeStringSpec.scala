@@ -399,6 +399,45 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Named parameter should not be broken for IntP associative reductions") {
+    // This tests checks for the issue that `maxCnt` is not reduced because of
+    // -1 and +1 within the `UInt.to` which translates into `UInt(clog2(maxCnt+1))`
+    class Blinker(
+        val CLK_FREQ_KHz: Int <> CONST,
+        val LED_FREQ_Hz: Int <> CONST
+    ) extends RTDesign:
+      /** Maximum half-count of the toggle for 50% duty cycle */
+      val maxCnt = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2) - 1
+
+      /** LED output */
+      val led = Bit             <> OUT.REG init 1
+      val cnt = UInt.to(maxCnt) <> VAR.REG init 0
+      if (cnt == 5000000)
+        cnt.din := 0
+        led.din := !led
+      else cnt.din := cnt + 1
+    end Blinker
+    val id = (new Blinker(50000, 1)).getCodeString
+    assertNoDiff(
+      id,
+      """|class Blinker(
+         |    val CLK_FREQ_KHz: Int <> CONST = 50000,
+         |    val LED_FREQ_Hz: Int <> CONST = 1
+         |) extends RTDesign:
+         |  /** Maximum half-count of the toggle for 50% duty cycle */
+         |  val maxCnt: Int <> CONST = ((CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2)) - 1
+         |  /** LED output */
+         |  val led = Bit <> OUT.REG init 1
+         |  val cnt = UInt(clog2(maxCnt + 1)) <> VAR.REG init d"${clog2(maxCnt + 1)}'0"
+         |  if (cnt == d"${clog2(maxCnt + 1)}'5000000")
+         |    cnt.din := d"${clog2(maxCnt + 1)}'0"
+         |    led.din := !led
+         |  else cnt.din := cnt + d"${clog2(maxCnt + 1)}'1"
+         |  end if
+         |end Blinker
+         |""".stripMargin
+    )
+  }
   test("Domains") {
     class IDWithDomains extends DFDesign:
       val y = SInt(16) <> OUT

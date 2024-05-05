@@ -112,7 +112,7 @@ object IntParam extends IntParamLP:
           case FuncOp.+ | FuncOp.- =>
             (constL.asIR, argR) match
               case (
-                    ir.DFVal.Func(
+                    f @ ir.DFVal.Func(
                       _,
                       opL @ (FuncOp.+ | FuncOp.-),
                       List(ir.DFRef(argLL), ir.DFRef(constLR: ir.DFVal.Const)),
@@ -121,7 +121,7 @@ object IntParam extends IntParamLP:
                       _
                     ),
                     intLR: Int
-                  ) =>
+                  ) if f.isAnonymous =>
                 val intLL = constLR.data.asInstanceOf[Option[BigInt]].get.toInt
                 val constL = argLL.asConstOf[DFInt32]
                 val intR = opL match
