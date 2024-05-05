@@ -39,7 +39,7 @@ lazy val root = (project in file("."))
     plugin,
     compiler_ir,
     core,
-	compiler_stages,
+	  compiler_stages,
     lib
   )
 
