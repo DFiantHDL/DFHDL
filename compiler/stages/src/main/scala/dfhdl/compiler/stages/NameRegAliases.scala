@@ -58,7 +58,9 @@ case object NameRegAliases extends Stage:
     private def getTotalSteps: Int = regAlias.getTotalSteps(0)
     private def getNameGroup: NameGroup =
       regAlias.getNonRegAliasRelVal match
-        case dcl: DFVal.Dcl if dcl.getAssignmentsTo.size > 1 =>
+        // has reg alias versioning if assigned more than once and is not a REG declaration,
+        // since REG dcl assignments are "non-blocking".
+        case dcl: DFVal.Dcl if dcl.getAssignmentsTo.size > 1 && !dcl.modifier.reg =>
           NameGroup(s"${dcl.getName}_ver", true)
         case dfVal: DFVal if dfVal.isAnonymous =>
           dfVal.suggestName.map(NameGroup(_, true)).getOrElse(NameGroup(dfVal.getName, false))

@@ -200,6 +200,50 @@ class NameRegAliasesSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Reg alias of a REG value has no versions") {
+    class ID extends RTDesign:
+      val c  = Boolean  <> IN
+      val y1 = SInt(16) <> OUT.REG init 0
+      y1.din := y1.reg + 1
+      y1.din := y1.reg + 1
+    val id = (new ID).nameRegAliases
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val c = Boolean <> IN
+         |  val y1 = SInt(16) <> OUT.REG init sd"16'0"
+         |  val y1_reg = SInt(16) <> VAR
+         |  y1_reg := y1.reg(1, init = sd"16'0")
+         |  y1.din := y1_reg + sd"16'1"
+         |  y1.din := y1_reg + sd"16'1"
+         |end ID
+         |""".stripMargin
+    )
+  }
+  // TODO: versioning is all wrong!
+  // test("Reg alias inside conditionals with feedback") {
+  //   class ID extends RTDesign:
+  //     val c  = Boolean  <> IN
+  //     val y1 = SInt(16) <> OUT init 0
+  //     y1 := y1.reg + 1
+  //     y1 := y1.reg + 1
+  //     // if (c) y1 := y1.reg + 1
+  //     // else y1   := y1.reg - 1
+  //   val id = (new ID).nameRegAliases
+  //   assertCodeString(
+  //     id,
+  //     """|class ID extends RTDesign:
+  //        |  val x1 = SInt(16) <> IN
+  //        |  val y1 = SInt(16) <> OUT
+  //        |  val v = SInt(16) <> VAR
+  //        |  val x1_reg = SInt(16) <> VAR
+  //        |  x1_reg := x1.reg(1, init = sd"16'0")
+  //        |  if (x1 > sd"16'0") y1 := x1_reg
+  //        |  else y1 := x1_reg + sd"16'1"
+  //        |end ID
+  //        |""".stripMargin
+  //   )
+  // }
   // test("Reg alias of a reg variable (fibonacci)") {
   //   class Fib extends RTDesign:
   //     val f = UInt(32) <> VAR init 1
