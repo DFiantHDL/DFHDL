@@ -35,6 +35,6 @@ jobs:
         with:
           ACCESS_TOKEN: ${{ secrets.DFDOCS_TOKEN }}
           REPOSITORY_NAME: DFiantHDL/DFiantHDL.github.io
-          BRANCH: main
+          BRANCH: master
           FOLDER: site 
           CLEAN: true # Automatically remove deleted files from the deploy branch
