@@ -122,8 +122,8 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
     ctx
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
-    designFromDefSym = requiredMethod("dfhdl.core.__For_Plugin.designFromDef")
-    designFromDefGetInputSym = requiredMethod("dfhdl.core.__For_Plugin.designFromDefGetInput")
+    designFromDefSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDef")
+    designFromDefGetInputSym = requiredMethod("dfhdl.core.r__For_Plugin.designFromDefGetInput")
     super.prepareForUnit(tree)
     ctx
 end DesignDefsPhase

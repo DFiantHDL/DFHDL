@@ -465,7 +465,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         mkNone
 
   object FromCore:
-    private val fullPath = "dfhdl.core.__For_Plugin"
+    private val fullPath = "dfhdl.core.r__For_Plugin"
     def selectMethod(methodName: String)(using Context): Tree =
       ref(requiredMethod(s"$fullPath.$methodName"))
     def structToDFVal(retTpe: Type, productTree: Tree)(using Context): Tree =
@@ -961,8 +961,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     ignoreIfs.clear()
     replaceIfs.clear()
-    fromBooleanSym = requiredMethod("dfhdl.core.__For_Plugin.fromBoolean")
-    toFunc1Sym = requiredMethod("dfhdl.core.__For_Plugin.toFunc1")
+    fromBooleanSym = requiredMethod("dfhdl.core.r__For_Plugin.fromBoolean")
+    toFunc1Sym = requiredMethod("dfhdl.core.r__For_Plugin.toFunc1")
     fromBranchesSym = requiredMethod("dfhdl.core.DFIf.fromBranches")
     fromCasesSym = requiredMethod("dfhdl.core.DFMatch.fromCases")
     dfValClsRef = requiredClassRef("dfhdl.core.DFVal")

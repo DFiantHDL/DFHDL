@@ -334,7 +334,7 @@ abstract class CommonPhase extends PluginPhase:
     inlineAnnotSym = requiredClass("scala.inline")
     constModTpe = requiredClassRef("dfhdl.core.ISCONST").appliedTo(ConstantType(Constant(true)))
     contextFunctionSym = defn.FunctionSymbol(1, isContextual = true)
-    genDesignParamSym = requiredMethod("dfhdl.core.__For_Plugin.genDesignParam")
+    genDesignParamSym = requiredMethod("dfhdl.core.r__For_Plugin.genDesignParam")
     if (debugFilter(tree.source.path.toString))
       println(
         s"""===============================================================
