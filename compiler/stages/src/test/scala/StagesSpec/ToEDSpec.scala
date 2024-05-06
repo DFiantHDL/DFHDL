@@ -268,4 +268,49 @@ class ToEDSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("REG declarations") {
+    class Test() extends RTDesign:
+      val c = Boolean <> IN
+      val z = UInt(8) <> OUT.REG init 0
+      val y = Bits(8) <> OUT.REG init all(0)
+      y(0).din := 1
+      if (c)
+        z.din       := z + 1
+        y(7, 4).din := all(1)
+      else y.din := all(0)
+
+    val top = Test().toED
+    assertCodeString(
+      top,
+      """|class Test extends EDDesign:
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
+         |  val c = Boolean <> IN
+         |  val z = UInt(8) <> OUT
+         |  val y = Bits(8) <> OUT
+         |  val z_din = UInt(8) <> VAR
+         |  val y_din = Bits(8) <> VAR
+         |  process(all):
+         |    z_din := z
+         |    y_din := y
+         |    y_din(0) := 1
+         |    if (c)
+         |      z_din := z + d"8'1"
+         |      y_din(7, 4) := h"f"
+         |    else y_din := h"00"
+         |    end if
+         |  process(clk):
+         |    if (clk.rising)
+         |      if (rst == 1)
+         |        z :== d"8'0"
+         |        y :== h"00"
+         |      else
+         |        z :== z_din
+         |        y :== y_din
+         |      end if
+         |    end if
+         |end Test
+         |""".stripMargin
+    )
+  }
 end ToEDSpec
