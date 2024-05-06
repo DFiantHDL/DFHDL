@@ -3,12 +3,12 @@ name: Build
 on:
   push:
     branches:
-      - master
+      - main
       - dev
       - scala_opencb
   pull_request:
     branches: 
-      - master
+      - main
       - dev
       - scala_opencb
 
@@ -21,7 +21,7 @@ jobs:
       - name: Setup Scala
         uses: coursier/setup-action@v1
         with:
-          jvm: adopt:17
+          jvm: adopt:16
           apps: sbt bloop
       - name: Run tests
         run: sbt test

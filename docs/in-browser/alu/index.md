@@ -37,6 +37,14 @@ class ALU extends DFDesign:
 end ALU
 
 @main def main = 
-  ALU().printCodeString
+  // Uncomment to select vhdl compilation (default is verilog):
+  // given options.CompilerOptions.Backend = backends.vhdl
+
+  // instantiate the design as top-level
+  ALU()
+    .printCodeString // print design after elaboration in DFHDL syntax
+    .compile // compile according to the selected backend dialect
+    .printCodeString // print design after compilation in DFHDL syntax
+    .printGenFiles // print generated backend files
 ```
 

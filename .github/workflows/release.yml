@@ -1,7 +1,7 @@
 name: Release
 on:
   push:
-    branches: [master, milestone]
+    branches: [main, milestone]
     tags: ["*"]
 jobs:
   publish:
@@ -12,7 +12,7 @@ jobs:
           fetch-depth: 0
       - uses: coursier/setup-action@v1
         with:
-          jvm: adopt:17
+          jvm: adopt:16
           apps: sbt bloop
       - run: sbt ci-release
         env:

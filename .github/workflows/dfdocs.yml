@@ -3,11 +3,11 @@ name: DFDocs
 on:
   push:
     branches:
-      - master
+      - main
       - dev
   pull_request:
     branches: 
-      - master
+      - main
       - dev
 
 jobs:
@@ -35,6 +35,6 @@ jobs:
         with:
           ACCESS_TOKEN: ${{ secrets.DFDOCS_TOKEN }}
           REPOSITORY_NAME: DFiantHDL/DFiantHDL.github.io
-          BRANCH: master
+          BRANCH: main
           FOLDER: site 
           CLEAN: true # Automatically remove deleted files from the deploy branch

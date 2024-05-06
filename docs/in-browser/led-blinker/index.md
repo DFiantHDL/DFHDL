@@ -3,33 +3,27 @@ hide:
   - toc
 ---
 
-# N-Bit Full Adder
+# LED Blinker
 
 ```scastie 
-import dfhdl.*
+import dfhdl.* //import all the DFHDL goodness
 
-class FullAdder1 extends EDDesign:
-  val a, b, c_in = Bit <> IN
-  val sum, c_out = Bit <> OUT
+/** This is a led blinker */
+class Blinker(
+    val CLK_FREQ_KHz: Int <> CONST,
+    val LED_FREQ_Hz:  Int <> CONST
+) extends RTDesign:
+  /** Half-count of the toggle for 50% duty cycle */
+  val HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2)
 
-  sum   <> (a ^ b ^ c_in)
-  c_out <> (a && b || b && c_in || c_in && a)
-
-class FullAdderN(val n: Int) extends EDDesign:
-  val a, b  = Bits(n) <> IN
-  val c_in  = Bit     <> IN
-  val sum   = Bits(n) <> OUT
-  val c_out = Bit     <> OUT
-
-  val adder = List.fill(n)(FullAdder1())
-  for (i <- 0 until n)
-    adder(i).a   <> a(i)
-    adder(i).b   <> b(i)
-    adder(i).sum <> sum(i)
-    if (i < n - 1)
-      adder(i).c_out <> adder(i + 1).c_in
-  adder.head.c_in  <> c_in
-  adder.last.c_out <> c_out
+  /** LED output */
+  val led = Bit                     <> OUT.REG init 1
+  val cnt = UInt.until(HALF_PERIOD) <> VAR.REG init 0
+  if (cnt == HALF_PERIOD - 1)
+    cnt.din := 0
+    led.din := !led
+  else cnt.din := cnt + 1
+end Blinker
 
 //The entry point to your compilation program starts here
 @main def main =
@@ -40,8 +34,8 @@ class FullAdderN(val n: Int) extends EDDesign:
   // given options.CompilerOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
   // given options.CompilerOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
 
-  // instantiate the design as top-level 4-bit full adder
-  FullAdderN(4)
+  // instantiate the design as top-level with 50MHz clock and 1Hz led toggle defaults
+  Blinker(CLK_FREQ_KHz = 50000, LED_FREQ_Hz = 1)
     .printCodeString // print design after elaboration in DFHDL syntax
     .compile // compile according to the selected backend dialect
     .printCodeString // print design after compilation in DFHDL syntax

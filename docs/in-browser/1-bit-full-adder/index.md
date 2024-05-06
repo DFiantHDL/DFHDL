@@ -15,7 +15,15 @@ class FullAdder1 extends EDDesign:
   sum <> (a ^ b ^ c_in)
   c_out <> (a && b || b && c_in || c_in && a)
 
-@main def main = 
-  FullAdder1().printCodeString
+//The entry point to your compilation program starts here
+@main def main =
+  // Uncomment to select vhdl compilation (default is verilog):
+  // given options.CompilerOptions.Backend = backends.vhdl
+
+  // instantiate the design as top-level
+  FullAdder1()
+    .printCodeString // print design after elaboration in DFHDL syntax
+    .compile // compile according to the selected backend dialect
+    .printGenFiles // print generated backend files
 ```
 

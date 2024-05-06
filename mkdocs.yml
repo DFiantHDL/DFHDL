@@ -59,11 +59,12 @@ nav:
     - A Dataflow Hardware Description Abstraction: intro/dataflow-abstraction/index.md
   - Getting Started:
     - Initial Setup: getting-started/initial-setup/index.md
-    - Hello Hardware World: getting-started/hello-world.md
+    - Hello Hardware World: getting-started/hello-world/index.md
   - Run In Browser: 
     - 1-Bit Full Adder: in-browser/1-bit-full-adder/index.md
     - N-Bit Full Adder: in-browser/n-bit-full-adder/index.md
     - Counter: in-browser/counter/index.md
+    - LED Blinker: in-browser/led-blinker/index.md
     - LFSR: in-browser/lfsr/index.md
     - ALU: in-browser/alu/index.md
   - User Guide:
