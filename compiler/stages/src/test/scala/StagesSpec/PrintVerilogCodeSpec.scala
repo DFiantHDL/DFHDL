@@ -299,6 +299,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter logic [7:0] c13 = 8'hxx;
          |  parameter logic signed [7:0] c14 = $signed(8'hxx);
          |  parameter DFTuple2 c15 = '{3'h0, 1'b1};
+         |
          |endmodule
          |""".stripMargin
     )
@@ -441,6 +442,70 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  begin
          |    if (rst == 1'b1) cnt_reg <= width'(0);
          |    else cnt_reg <= cnt;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  test("Blinker example"):
+
+    /** This is a led blinker */
+    class Blinker(
+        val CLK_FREQ_KHz: Int <> CONST,
+        val LED_FREQ_Hz:  Int <> CONST
+    ) extends RTDesign:
+      /** Half-count of the toggle for 50% duty cycle */
+      val HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2)
+
+      /** LED output */
+      val led = Bit                     <> OUT.REG init 1
+      val cnt = UInt.until(HALF_PERIOD) <> VAR.REG init 0
+      if (cnt == HALF_PERIOD - 1)
+        cnt.din := 0
+        led.din := !led
+      else cnt.din := cnt + 1
+    end Blinker
+    val top = (Blinker(50000, 1)).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|/* This is a led blinker */
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Blinker_defs.sv"
+         |
+         |module Blinker#(
+         |    parameter int CLK_FREQ_KHz = 50000,
+         |    parameter int LED_FREQ_Hz = 1
+         |)(
+         |  input wire logic clk,
+         |  input wire logic rst,
+         |  /* LED output */
+         |  output logic led
+         |);
+         |  /* Half-count of the toggle for 50% duty cycle */
+         |  parameter int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
+         |  logic [$clog2(HALF_PERIOD) - 1:0] cnt;
+         |  logic led_din;
+         |  logic [$clog2(HALF_PERIOD) - 1:0] cnt_din;
+         |  always @(*)
+         |  begin
+         |    led_din = led;
+         |    cnt_din = cnt;
+         |    if (cnt == $clog2(HALF_PERIOD)'(HALF_PERIOD - 1)) begin
+         |      cnt_din = $clog2(HALF_PERIOD)'(0);
+         |      led_din = !led;
+         |    end
+         |    else cnt_din = cnt + $clog2(HALF_PERIOD)'(1);
+         |  end
+         |  always @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) begin
+         |      led <= 1'b1;
+         |      cnt <= $clog2(HALF_PERIOD)'(0);
+         |    end
+         |    else begin
+         |      led <= led_din;
+         |      cnt <= cnt_din;
+         |    end
          |  end
          |endmodule
          |""".stripMargin

@@ -30,7 +30,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val designMembers = design.members(MemberView.Folded)
     val ports = designMembers.view
       .collect { case p @ DclPort() =>
-        printer.csDFValDcl(p)
+        printer.csDFMember(p)
       }
       .mkString(";\n")
     val designParamList = designMembers.collect { case param @ DesignParam(_) =>
@@ -52,17 +52,21 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val localTypeDcls = printer.csLocalTypeDcls(design)
     val designMembers = design.members(MemberView.Folded)
     val dfValDcls =
-      designMembers
-        .collect {
-          case p: DFVal.Dcl if p.isVar          => printer.csDFValDcl(p)
-          case c: DFVal.Const if !c.isAnonymous => printer.csDFValDclConst(c)
+      designMembers.view
+        .flatMap {
+          case p: DFVal.Dcl if p.isVar => Some(p)
+          case DesignParam(_)          => None
+          case c @ DclConst()          => Some(c)
+          case _                       => None
         }
+        .map(printer.csDFMember)
+        .toList
         .emptyOr(_.mkString("\n"))
     val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
-      case _: DFVal.Dcl   => false
-      case _: DFVal.Const => false
-      case _              => true
+      case _: DFVal.Dcl => false
+      case DclConst()   => false
+      case _            => true
     })
     s"""architecture ${archName(design)} of ${design.dclName} is$declarations
        |begin

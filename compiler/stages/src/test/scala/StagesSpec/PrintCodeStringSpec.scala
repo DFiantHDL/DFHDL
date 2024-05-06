@@ -503,4 +503,44 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
 
+  test("Blinker example"):
+
+    /** This is a led blinker */
+    class Blinker(
+        val CLK_FREQ_KHz: Int <> CONST,
+        val LED_FREQ_Hz: Int <> CONST
+    ) extends RTDesign:
+      /** Half-count of the toggle for 50% duty cycle */
+      val HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2)
+
+      /** LED output */
+      val led = Bit                     <> OUT.REG init 1
+      val cnt = UInt.until(HALF_PERIOD) <> VAR.REG init 0
+      if (cnt == HALF_PERIOD - 1)
+        cnt.din := 0
+        led.din := !led
+      else cnt.din := cnt + 1
+    end Blinker
+    val top = (Blinker(50000, 1)).getCodeString
+    assertNoDiff(
+      top,
+      """|/** This is a led blinker */
+         |class Blinker(
+         |    val CLK_FREQ_KHz: Int <> CONST = 50000,
+         |    val LED_FREQ_Hz: Int <> CONST = 1
+         |) extends RTDesign:
+         |  /** Half-count of the toggle for 50% duty cycle */
+         |  val HALF_PERIOD: Int <> CONST = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2)
+         |  /** LED output */
+         |  val led = Bit <> OUT.REG init 1
+         |  val cnt = UInt(clog2(HALF_PERIOD)) <> VAR.REG init d"${clog2(HALF_PERIOD)}'0"
+         |  if (cnt == d"${clog2(HALF_PERIOD)}'${(HALF_PERIOD - 1)}")
+         |    cnt.din := d"${clog2(HALF_PERIOD)}'0"
+         |    led.din := !led
+         |  else cnt.din := cnt + d"${clog2(HALF_PERIOD)}'1"
+         |  end if
+         |end Blinker
+         |""".stripMargin
+    )
+
 end PrintCodeStringSpec

@@ -18,11 +18,16 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
   def csDFBitFormat(bitRep: String): String = s"'$bitRep'"
   val allowDecimalBigInt: Boolean = true
   def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String =
-    s"""${width.refCodeString.applyBrackets()}d"$value""""
+    if (width.isRef)
+      s"""resize(d"$value", ${width.refCodeString})"""
+    else
+      s"""${width.refCodeString.applyBrackets()}d"$value""""
   def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String =
-    val csWidth = width.refCodeString.applyBrackets()
-    if (value >= 0) s"""${csWidth}d"$value""""
-    else s"""-${csWidth}d"${-value}""""
+    if (width.isRef) s"""resize(d"$value", ${width.refCodeString})"""
+    else
+      val csWidth = width.refCodeString.applyBrackets()
+      if (value >= 0) s"""${csWidth}d"$value""""
+      else s"""-${csWidth}d"${-value}""""
   def csDFUIntFormatSmall(value: BigInt, width: Int): String = s"to_unsigned($value, $width)"
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = s"to_signed($value, $width)"
   def csDFUIntDataFromBits(csBits: String): String = s"""unsigned'($csBits)"""

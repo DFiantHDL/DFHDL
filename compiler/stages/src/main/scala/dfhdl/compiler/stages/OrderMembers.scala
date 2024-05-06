@@ -37,7 +37,7 @@ object OrderMembers:
         // initialization and everything else can depend on them
         case DesignParam(_) => 1
         // anonymous members that are referenced by declarations come second
-        case dfVal: DFVal if dfVal.isAnonymous && dfVal.isReferencedByAnyDcl => 2
+        case dfVal: DFVal if dfVal.isReferencedByAnyDcl => 2
         // third to come are constant declarations that may be referenced by ports
         case DclConst() => 3
         // fourth are ports

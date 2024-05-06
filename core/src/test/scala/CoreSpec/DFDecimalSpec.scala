@@ -74,12 +74,12 @@ class DFDecimalSpec extends DFSpec:
          |val b8 = Bits(8) <> VAR
          |val u8 = UInt(8) <> VAR init d"8'255"
          |val s8 = SInt(8) <> VAR init ?
-         |val u8b = UInt(8) <> VAR init i.resize(8)
+         |val u8b = UInt(8) <> VAR init d"8'${i}"
          |val u6 = UInt(6) <> OUT
          |val s6 = SInt(6) <> OUT
          |val u8p = UInt(param) <> VAR init d"${param}'0"
          |val s8p = SInt(param) <> VAR init sd"${param}'-1"
-         |u8 := i.resize(8)
+         |u8 := d"8'${i}"
          |val b6: Bits[6] <> CONST = h"6'00"
          |val s32 = Int <> VAR init 0
          |val s32b = Int <> VAR

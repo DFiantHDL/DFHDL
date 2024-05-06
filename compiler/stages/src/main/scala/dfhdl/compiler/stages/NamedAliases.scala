@@ -89,7 +89,9 @@ object NamedAliases:
         case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>
           List(alias.relValRef.get)
         case alias: DFVal.Alias.AsIs if alias.width < alias.relValRef.get.width =>
-          List(alias.relValRef.get)
+          if (alias.relValRef.get.dfType == DFInt32)
+            Nil // conversion from DFInt32 is not a bit selection, so no need to break the expression
+          else List(alias.relValRef.get)
         case alias: DFVal.Alias.ApplyIdx =>
           List(alias.relValRef.get)
         case func @ DFVal.Func(_, op, DFRef(lhs) :: _ :: Nil, _, _, _)

@@ -33,18 +33,20 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val designMembers = design.members(MemberView.Folded)
     val dfValDcls =
       designMembers.view
-        .collect {
-          case p: DFVal.Dcl if p.isVar          => p
-          case c: DFVal.Const if !c.isAnonymous => c
+        .flatMap {
+          case p: DFVal.Dcl if p.isVar => Some(p)
+          case DesignParam(_)          => None
+          case c @ DclConst()          => Some(c)
+          case _                       => None
         }
         .map(printer.csDFMember)
         .toList
         .emptyOr(_.mkString("\n"))
     val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
-      case _: DFVal.Dcl   => false
-      case _: DFVal.Const => false
-      case _              => true
+      case _: DFVal.Dcl => false
+      case DclConst()   => false
+      case _            => true
     })
     val designParamList = designMembers.collect { case param @ DesignParam(_) =>
       val defaultValue = if (design.isTop) s" = ${param.relValRef.refCodeString}" else ""

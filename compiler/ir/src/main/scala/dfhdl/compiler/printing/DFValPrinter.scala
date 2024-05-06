@@ -226,7 +226,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
       case (DFInt32, DFSInt(_)) =>
         s"${relValStr}.toInt"
-      case (DFSInt(tWidthParamRef), DFSInt(_) | DFInt32) =>
+      case (DFSInt(tWidthParamRef), DFSInt(_)) =>
         s"${relValStr}.resize(${tWidthParamRef.refCodeString})"
       case (DFBit, DFBool) =>
         s"${relValStr}.bit"
@@ -236,6 +236,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.actual"
       case (_, DFBits(_)) | (DFOpaque(_, _, _), _) =>
         s"${relValStr}.as(${printer.csDFType(toType)})"
+      case (DFUInt(tWidthParamRef), DFInt32) =>
+        s"""d"${printer.csWidthInterp(tWidthParamRef)}'$${${relValStr}}""""
+      case (DFSInt(tWidthParamRef), DFInt32) =>
+        s"""sd"${printer.csWidthInterp(tWidthParamRef)}'$${${relValStr}}""""
       case _ =>
         throw new IllegalArgumentException("Unsupported alias/conversion")
     end match

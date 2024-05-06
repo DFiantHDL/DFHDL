@@ -60,16 +60,18 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         else s"${opStr}(${argL.refCodeString}, ${argR.refCodeString})"
       // unary/postfix func
       case arg :: Nil =>
-        val argStr = arg.refCodeString.applyBrackets()
+        val argStr = arg.refCodeString
+        val argStrB = argStr.applyBrackets()
         dfVal.op match
           case Func.Op.rising  => s"rising_edge($argStr)"
           case Func.Op.falling => s"falling_edge($argStr)"
-          case Func.Op.unary_- => s"-$argStr"
-          case Func.Op.unary_! => s"not $argStr"
-          case Func.Op.unary_~ => s"not $argStr"
-          case Func.Op.&       => s"and reduce $argStr"
-          case Func.Op.|       => s"or reduce $argStr"
-          case Func.Op.^       => s"xor reduce $argStr"
+          case Func.Op.unary_- => s"-$argStrB"
+          case Func.Op.unary_! => s"not $argStrB"
+          case Func.Op.unary_~ => s"not $argStrB"
+          case Func.Op.&       => s"and reduce $argStrB"
+          case Func.Op.|       => s"or reduce $argStrB"
+          case Func.Op.^       => s"xor reduce $argStrB"
+          case Func.Op.clog2   => s"clog2($argStr)"
           case _               => printer.unsupported
       // multiarg func
       case args =>
@@ -104,7 +106,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     val fromType = relVal.dfType
     val toType = dfVal.dfType
     (toType, fromType) match
-      case (t, f) if t == f => printer.unsupported
+      case (t, f) if t == f => relValStr
       case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
         assert(tWidth == fWidth + 1)
         s"signed($relValStr)"
@@ -128,6 +130,10 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         s"to_sl($relValStr)"
       case (DFBool, DFBit) =>
         s"to_bool($relValStr)"
+      case (DFUInt(tWidthParamRef), DFInt32) =>
+        s"to_unsigned($relValStr, ${tWidthParamRef.refCodeString})"
+      case (DFSInt(tWidthParamRef), DFInt32) =>
+        s"to_signed($relValStr, ${tWidthParamRef.refCodeString})"
       case _ => printer.unsupported
     end match
   end csDFValAliasAsIs

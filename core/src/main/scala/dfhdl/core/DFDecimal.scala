@@ -780,7 +780,7 @@ object DFXInt:
                   case Int32 =>
                     lhsSignFix.toInt.asIR
                   case BitAccurate =>
-                    lhsSignFix.resize(dfType.widthIntParam).asIR
+                    DFVal.Alias.AsIs(dfType, lhsSignFix).asIR
               else if (!(dfType.asIR.widthParamRef =~ lhsSignFix.dfType.asIR.widthParamRef))
                 lhsSignFix.resize(dfType.widthIntParam).asIR
               else lhsSignFix.asIR
