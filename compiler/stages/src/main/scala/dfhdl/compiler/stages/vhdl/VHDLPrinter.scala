@@ -65,6 +65,11 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |function clog2(n : natural) return natural;
        |function to_slv(A : unsigned) return std_logic_vector;
        |function to_slv(A : signed) return std_logic_vector;
+       |function to_slv(A : boolean) return std_logic_vector;
+       |function resize(A : std_logic_vector; new_length : integer) return std_logic_vector;
+       |function slv_sll(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector;
+       |function slv_srl(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector;
+       |function signed_sra(A : signed; num_shifts : unsigned) return signed;
        |end package ${printer.packageName};
        |
        |package body ${printer.packageName} is
@@ -102,6 +107,36 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |function to_slv(A : signed) return std_logic_vector is
        |begin
        |  return std_logic_vector(A);
+       |end;
+       |function to_slv(A : boolean) return std_logic_vector is
+       |begin
+       |  if A then 
+       |    return "1";
+       |  else
+       |    return "0";
+       |  end if;
+       |end;
+       |function resize(A : std_logic_vector; new_length : integer) return std_logic_vector is
+       |begin
+       |  if new_length > A'length then
+       |    return (new_length - A'length - 1 downto 0 => '0') & A(A'length - 1 downto 0);
+       |  elsif new_length < A'length then
+       |    return A(A'length - 1 downto A'length - new_length);
+       |  else
+       |    return A;
+       |  end if;
+       |end;
+       |function slv_sll(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector is
+       |begin
+       |    return to_slv(unsigned(slv) sll to_integer(num_shifts));
+       |end;
+       |function slv_srl(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector is
+       |begin
+       |    return to_slv(unsigned(slv) sla to_integer(num_shifts));
+       |end;
+       |function signed_sra(A : signed; num_shifts : unsigned) return signed is
+       |begin
+       |    return signed(unsigned(A) sra to_integer(num_shifts));
        |end;
        |end package body ${printer.packageName};
        |""".stripMargin

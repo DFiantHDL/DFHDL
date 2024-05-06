@@ -26,12 +26,10 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     val enumName = dfType.getName
     val entries =
       dfType.entries.view
-        .map((n, v) =>
-          s"case $n extends $enumName(${printer.csDFDecimalData(DFUInt(IntParamRef(dfType.width)), Some(v))})"
-        )
-        .mkString("\n")
+        .map((n, v) => s"${enumName}_$n")
+        .mkString(", ")
         .hindent
-    s"enum ${enumName}(val value: UInt[${dfType.width}] <> CONST) extends Encode.Manual(${dfType.width}):\n$entries"
+    s"type ${enumName} is (\n$entries\n);"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
   private val vectorTypeIdx = mutable.Map.empty[DFVector, Int]
   def csDFVectorDclName(dfType: DFVector): String =

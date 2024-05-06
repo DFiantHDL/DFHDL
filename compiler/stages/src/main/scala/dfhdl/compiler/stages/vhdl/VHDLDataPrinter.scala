@@ -38,7 +38,7 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
-        s"${dfType.getName}.${entryName}"
+        s"${dfType.getName}_${entryName}"
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     s"Vector${data.map(x => csConstData(dfType.cellType, x)).mkStringBrackets}"

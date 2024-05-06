@@ -38,11 +38,19 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case Func.Op.<< =>
             argL.get.dfType match
               case DFSInt(_) => "sla"
-              case _         => "sll"
+              case DFUInt(_) => "sll"
+              case _ =>
+                infix = false
+                "slv_sll"
           case Func.Op.>> =>
             argL.get.dfType match
-              case DFSInt(_) => "sra"
-              case _         => "srl"
+              case DFSInt(_) =>
+                infix = false
+                "signed_sra"
+              case DFUInt(_) => "srl"
+              case _ =>
+                infix = false
+                "slv_srl"
           // if the result width for +/-/* ops is larger than the left argument width
           // then we have a carry-inclusive operation
           case op @ (Func.Op.+ | Func.Op.- | Func.Op.`*`)
