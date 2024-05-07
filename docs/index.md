@@ -10,18 +10,19 @@ The Official DFiant Hardware Description Language (DFHDL) Documentation
 
 Welcome to the DFiant hardware description language (DFHDL) documentation! 
 
-DFHDL is a dataflow HDL and is embedded as a library in the [Scala programming language](https://www.scala-lang.org/){target="_blank"}. DFiant enables  timing-agnostic and device-agnostic hardware description by using dataflow firing rules as logical constructs, coupled with modern software language features (e.g., inheritance, polymorphism) and classic HDL features (e.g., bit-accuracy, input/output ports).
+DFHDL is a dataflow HDL and is embedded as a library in the [Scala programming language](https://www.scala-lang.org/){target="_blank"}. DFiant enables timing-agnostic and device-agnostic hardware description by using dataflow firing rules as logical constructs, coupled with modern software language features (e.g., inheritance, polymorphism, pattern matching) and classic HDL features (e.g., bit-accuracy, input/output ports). Additionally, DFHDL integrates two additional levels of hardware description abstractions: register-transfer (RT), which is equivalent to languages like Chisel and Amaranth; and event-driven (ED), which is equivalent to Verilog and VHDL. 
 
-By this point you may already have some questions: 
+:octicons-arrow-right-24: [Get started][getting-started]
 
-* [Why do we need yet another HDL?](intro/motivation/index.md) 
-* [Why are high-level synthesis (HLS) tools not enough?](intro/motivation/index.md)
-* [What is a dataflow HDL?](intro/dataflow-abstraction/index.md)
+:octicons-arrow-right-24: [Read more about the technology][technology]
 
-Answers to these questions await you at the linked sections.
 
-**But**, if you're curious about the DFiant language, [checkout our first-look section](intro/first-look/index.md) first.
+## Documentation Status
 
+We are actively working on a comprehensive user guide. We hope to be releasing it in the coming days.
+
+In the meanwhile, checkout our [getting-started][getting-started] guide, to setup your system and try out a basic example.
+Additionally, we placed several examples under the [Run In Browser][run-in-browser] section of the documentation, where you can try them right now.
 
 
 ## Required Knowledge
@@ -31,8 +32,4 @@ Answers to these questions await you at the linked sections.
 <u>You are ***not*** required to be an FPGA/ASIC expert</u>, yet you are expected to understand fundamental hardware description concepts found in languages such as Verilog and VHDL.  
 
 <u>You ***are*** required to keep an open mind</u>. Some of these concepts may seem strange at first, but they were set after careful thought and planning. However, we are not infallible so feel free to [file an issue](https://github.com/DFiantHDL/DFiant/issues){target="_blank"} with questions and/or suggestions of different approaches we can take.
-
-
-
-## First release and more info coming soon...
 

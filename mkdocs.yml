@@ -54,9 +54,8 @@ extra:
 nav:
   - Introduction:
     - DFDocs: index.md
-    - 'DFHDL: First Look': intro/first-look/index.md
-    - Motivation (Why Another HDL): intro/motivation/index.md
-    - A Dataflow Hardware Description Abstraction: intro/dataflow-abstraction/index.md
+    # - 'DFHDL: First Look': intro/first-look/index.md
+    - Technology: intro/technology/index.md
   - Getting Started:
     - Initial Setup: getting-started/initial-setup/index.md
     - Hello Hardware World: getting-started/hello-world/index.md
