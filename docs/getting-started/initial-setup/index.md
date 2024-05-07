@@ -2,6 +2,8 @@
 
 DFHDL is a domain specific language (DSL) library written in the [Scala programming language](https://www.scala-lang.org){target="_blank"} (Scala 3.4), and as such it lets you utilize the entire Scala ecosystem, including IDEs, various tools, and other libraries. 
 
+Is your system already fit for Scala development? [Jump to the DFHDL hello-world section][hello-world]
+
 ## Installing Scala and Other Dependencies
 
 We recommend installing Scala via [Coursier](https://get-coursier.io/){target="_blank"}:

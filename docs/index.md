@@ -16,6 +16,8 @@ DFHDL is a dataflow HDL and is embedded as a library in the [Scala programming l
 
 :octicons-arrow-right-24: [Read more about the technology][technology]
 
+:octicons-arrow-right-24: [Run examples in your browser][run-in-browser]
+
 
 ## Documentation Status
 
