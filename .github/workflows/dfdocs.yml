@@ -33,8 +33,8 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          ACCESS_TOKEN: ${{ secrets.DFDOCS_TOKEN }}
-          REPOSITORY_NAME: DFiantHDL/DFiantHDL.github.io
-          BRANCH: master
-          FOLDER: site 
-          CLEAN: true # Automatically remove deleted files from the deploy branch
+          token: ${{ secrets.DFDOCS_TOKEN }}
+          repository-name: DFiantHDL/DFiantHDL.github.io
+          branch: master
+          folder: site 
+          clean: true # Automatically remove deleted files from the deploy branch
