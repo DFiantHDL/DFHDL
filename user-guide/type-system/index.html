@@ -1,0 +1,2724 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="DFiant Hardware Description Language (DFHDL) Documentation">
+      
+      
+        <meta name="author" content="Oron Port">
+      
+      
+        <link rel="canonical" href="https://dfianthdl.github.io/user-guide/type-system/">
+      
+      
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.21">
+    
+    
+      
+        <title>Index - DFiant HDL (DFHDL)</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.66ac8b77.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/scastie.css">
+    
+      <link rel="stylesheet" href="../../css/vs.css">
+    
+      <link rel="stylesheet" href="../../css/lhs-permalink.css">
+    
+      <link rel="stylesheet" href="../../css/dfhdl-admonition.css">
+    
+      <link rel="stylesheet" href="../../css/rtl-admonition.css">
+    
+      <link rel="stylesheet" href="../../css/d2.css">
+    
+      <link rel="stylesheet" href="../../css/schemdraw.css">
+    
+      <link rel="stylesheet" href="../../css/operation-tables.css">
+    
+      <link rel="stylesheet" href="../../css/d3-hwschematic.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#type-system" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="DFiant HDL (DFHDL)" class="md-header__button md-logo" aria-label="DFiant HDL (DFHDL)" data-md-component="logo">
+      
+  <img src="../../images/DF-logo-dark.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DFiant HDL (DFHDL)
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Index
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/DFiantHDL/DFHDL" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    DFiantHDL/DFHDL
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../.." class="md-tabs__link">
+          
+  
+  Introduction
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/initial-setup/" class="md-tabs__link">
+          
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../in-browser/1-bit-full-adder/" class="md-tabs__link">
+          
+  
+  Run In Browser
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../about/contributing/" class="md-tabs__link">
+          
+  
+  About
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="DFiant HDL (DFHDL)" class="md-nav__button md-logo" aria-label="DFiant HDL (DFHDL)" data-md-component="logo">
+      
+  <img src="../../images/DF-logo-dark.png" alt="logo">
+
+    </a>
+    DFiant HDL (DFHDL)
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/DFiantHDL/DFHDL" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    DFiantHDL/DFHDL
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Introduction
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    DFDocs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../intro/technology/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Technology
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Getting Started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/initial-setup/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Initial Setup
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/hello-world/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Hello Hardware World
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Run In Browser
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Run In Browser
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../in-browser/1-bit-full-adder/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    1-Bit Full Adder
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../in-browser/n-bit-full-adder/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    N-Bit Full Adder
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../in-browser/counter/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Counter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../in-browser/led-blinker/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LED Blinker
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../in-browser/alu/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ALU
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    About
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            About
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/contributing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Contributing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/LICENSE/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    License
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about/acknowledgements/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Acknowledgements
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#Dcl" class="md-nav__link">
+    <span class="md-ellipsis">
+      Variable and Port Declarations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Variable and Port Declarations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dcl-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      Syntax
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dcl-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rules
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scope
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naming" class="md-nav__link">
+    <span class="md-ellipsis">
+      Naming
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connectable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Connectable
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#assignable-mutable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Assignable (Mutable)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#not-constant" class="md-nav__link">
+    <span class="md-ellipsis">
+      Not Constant
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inout-port-limitation" class="md-nav__link">
+    <span class="md-ellipsis">
+      INOUT Port Limitation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grouping" class="md-nav__link">
+    <span class="md-ellipsis">
+      Grouping
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#Dcl-transitioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Transitioning
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#DFConst" class="md-nav__link">
+    <span class="md-ellipsis">
+      Constant/Literal Values
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Constant/Literal Values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#const-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      Syntax
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#const-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Rules
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unconnectable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unconnectable
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unassignable-immutable" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unassignable (Immutable)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dfhdl-value-statement-order-referencing" class="md-nav__link">
+    <span class="md-ellipsis">
+      DFHDL Value Statement Order &amp; Referencing
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      DFHDL Value Connections
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      DFHDL Value Assignment (Mutation)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mutability" class="md-nav__link">
+    <span class="md-ellipsis">
+      DFHDL Value Mutation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bit-accurate-operations-type-inference-and-data-structures" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bit-Accurate Operations, Type Inference, and Data Structures
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bit-aliasing-and-casting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bit Aliasing and Casting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bubble" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bubble Values
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dfhdl-value-candidates" class="md-nav__link">
+    <span class="md-ellipsis">
+      DFHDL Value Candidates
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#DFBitOrBool" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bit/Boolean DFHDL Values
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bit/Boolean DFHDL Values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dftype-constructors" class="md-nav__link">
+    <span class="md-ellipsis">
+      DFType Constructors
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#candidates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Candidates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Operations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#explicit-casting-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Explicit Casting Operations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bit-history-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bit History Operations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logical-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Logical Operations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constant-meta-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Constant Meta Operations
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#DFBits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Bits DFHDL Values
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bits DFHDL Values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dftype-constructors_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      DFType Constructors
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#literal-constant-value-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Literal (Constant) Value Generation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Literal (Constant) Value Generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#b-interp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Binary Bits String-Interpolator
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h-interp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Hexadecimal Bits String-Interpolator
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#candidates_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Candidates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concatenated-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      Concatenated Assignment
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#DFDecimal" class="md-nav__link">
+    <span class="md-ellipsis">
+      UInt/SInt/Int DFHDL Values
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="UInt/SInt/Int DFHDL Values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#constant-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Constant Generation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Constant Generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#d-interp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Decimal String-Interpolator
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sd-interp" class="md-nav__link">
+    <span class="md-ellipsis">
+      Signed Decimal String-Interpolator
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#DFEnum" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enumeration DFHDL Values
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#DFVector" class="md-nav__link">
+    <span class="md-ellipsis">
+      Vector DFHDL Values
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#DFStruct" class="md-nav__link">
+    <span class="md-ellipsis">
+      Struct DFHDL Values
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#DFTuple" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tuple DFHDL Values
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#DFOpaque" class="md-nav__link">
+    <span class="md-ellipsis">
+      Opaque DFHDL Values
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#DFUnit" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unit (Void) DFHDL Values
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<p><a href="" id="user-guide"></a></p>
+<h1 id="type-system">Type System<a class="headerlink" href="#type-system" title="Permanent link"></a></h1>
+<p>DFHDL is a Scala library and thus inherently supports type-safe and modern language constructs. This chapter covers the rules and API of this type system. </p>
+<details class="info">
+<summary>Check out the benefits of the DFHDL type system</summary>
+<div class="grid cards" markdown>
+<ul>
+<li>
+<p><img alt="🦾" class="twemoji lg middle" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/1f9be.svg" title=":mechanical_arm:" /> <strong>Strongly-typed</strong></p>
+<hr />
+<p>Most type checking is done statically and enforces strict rules that prevent ambiguity.</p>
+<p><div class="highlight"><pre><span></span><code><span class="c1">//8-bit unsigned input</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span><span class="w"> </span>
+<span class="c1">//2-bit unsigned input</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">u2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span><span class="w"> </span>
+<span class="kd">val</span><span class="w"> </span><span class="n">y1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">u8</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">u2</span><span class="w"> </span><span class="c1">//ok</span>
+<span class="c1">// Error prevents ambiguous behavior </span>
+<span class="c1">// when a wider num is subtracted from </span>
+<span class="c1">// a narrow num.</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">y2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">u2</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">u8</span><span class="w"> </span><span class="c1">//error</span>
+</code></pre></div>
+<img alt="strongly-typed-example" src="strongly-typed-example.png" /></p>
+</li>
+<li>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10c0-1.16-.21-2.31-.61-3.39l-1.6 1.6c.14.59.21 1.19.21 1.79a8 8 0 0 1-8 8 8 8 0 0 1-8-8 8 8 0 0 1 8-8c.6 0 1.2.07 1.79.21L15.4 2.6C14.31 2.21 13.16 2 12 2m7 0-4 4v1.5l-2.55 2.55C12.3 10 12.15 10 12 10a2 2 0 0 0-2 2 2 2 0 0 0 2 2 2 2 0 0 0 2-2c0-.15 0-.3-.05-.45L16.5 9H18l4-4h-3V2m-7 4a6 6 0 0 0-6 6 6 6 0 0 0 6 6 6 6 0 0 0 6-6h-2a4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4V6Z"/></svg></span> <strong>Bit-accurate</strong></p>
+<hr />
+<p>Each DFHDL value has known bit-width, which is used to enforce various rules to prevent data loss.</p>
+<p><div class="highlight"><pre><span></span><code><span class="c1">//8-bit unsigned input</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span><span class="w">  </span>
+<span class="c1">//8-bit signed output</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">s8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">SInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span><span class="w"> </span>
+<span class="c1">// Error prevents data loss when u8 is </span>
+<span class="c1">// converted to a 9-bit signed to be </span>
+<span class="c1">// assigned to s8, which is only 8-bits </span>
+<span class="c1">// wide.</span>
+<span class="n">s8</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">u8</span><span class="w"> </span><span class="c1">//error</span>
+</code></pre></div>
+<img alt="bit-accurate-example" src="bit-accurate-example.png" /></p>
+</li>
+<li>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.636 4.752h-6.42V0h17.556v4.728h-6.36v6.396H9.636V4.752zm-6.42 1.692h4.74v6.36h6.408V24H9.636v-6.42h-6.42V6.444zm12.84-.012h4.728V24h-4.728V6.432zM7.92 24H3.216v-4.728H7.92V24z"/></svg></span> <strong>Composable</strong></p>
+<hr />
+<p>Types can be composed through <a href="#DFStruct">structs</a> or <a href="#DFTuple">tuples</a> to form new types.</p>
+<div class="highlight"><pre><span></span><code><span class="c1">//new Pixel type as a structure</span>
+<span class="c1">//of two unsigned 8-bit numbers</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Pixel</span><span class="p">(</span>
+<span class="w">  </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">UInt</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAL</span><span class="p">,</span>
+<span class="w">  </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">UInt</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAL</span>
+<span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Struct</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">pixel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Pixel</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="c1">//select and assign fields</span>
+<span class="n">pixel</span><span class="p">.</span><span class="n">x</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">pixel</span><span class="p">.</span><span class="n">y</span>
+</code></pre></div>
+</li>
+<li>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 8H8v10H6V8a2 2 0 0 1 2-2h10v2m-4-6H4a2 2 0 0 0-2 2v10h2V4h10V2m8 10v8a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2m-2 3h-3v-3h-2v3h-3v2h3v3h2v-3h3v-2Z"/></svg></span> <strong>Expandable</strong></p>
+<hr />
+<p>New types can be defined, and methods can be added for new or existing types.</p>
+<div class="highlight"><pre><span></span><code><span class="c1">//new AESByte type of unsigned 8-bit num</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">AESByte</span><span class="p">()</span><span class="w"> </span>
+<span class="w">  </span><span class="k">extends</span><span class="w"> </span><span class="nc">Opaque</span><span class="p">(</span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">))</span>
+<span class="c1">//define addition between two AESByte</span>
+<span class="c1">//values as a xor operation</span>
+<span class="k">extension</span><span class="w"> </span><span class="p">(</span><span class="n">lhs</span><span class="p">:</span><span class="w"> </span><span class="nc">AESByte</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAL</span><span class="p">)</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">+</span><span class="p">(</span><span class="n">rhs</span><span class="p">:</span><span class="w"> </span><span class="nc">AESByte</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAL</span><span class="p">):</span><span class="w"> </span><span class="nc">AESByte</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">DFRET</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="p">(</span><span class="n">lhs</span><span class="p">.</span><span class="n">actual</span><span class="w"> </span><span class="n">^</span><span class="w"> </span><span class="n">rhs</span><span class="p">.</span><span class="n">actual</span><span class="p">).</span><span class="n">as</span><span class="p">(</span><span class="nc">AESByte</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">AESByte</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">z</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="c1">//actually XOR</span>
+</code></pre></div>
+</li>
+</ul>
+</div>
+</details>
+<div class="admonition abstract">
+<p class="admonition-title">DFHDL Values</p>
+<p>Each DFHDL value is simply a Scala object that has two critical fields:</p>
+<div class="grid cards" markdown>
+<ul>
+<li>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 2h9v9H2V2m15.5 0C20 2 22 4 22 6.5S20 11 17.5 11 13 9 13 6.5 15 2 17.5 2m-11 12 4.5 8H2l4.5-8M19 17h3v2h-3v3h-2v-3h-3v-2h3v-3h2v3Z"/></svg></span> <strong>(Shape) Type, aka DFType</strong></p>
+<hr />
+<p>Determines the bit-width and bit-structure of the value. Currently the supported types are: </p>
+<ul>
+<li><a class="autorefs autorefs-internal" href="#DFBitOrBool">DFHDL Bit/Boolean: <code>Bit</code>/<code>Boolean</code></a> </li>
+<li><a class="autorefs autorefs-internal" href="#DFBits">DFHDL Bit Vector: <code>Bits</code></a></li>
+<li><a class="autorefs autorefs-internal" href="#DFDecimal">DFHDL Integer: <code>UInt</code>/<code>SInt</code>/<code>Int</code></a></li>
+<li>
+<blockquote>
+<p>DFHDL Fix-Point (future work)</p>
+</blockquote>
+</li>
+<li>
+<blockquote>
+<p>DFHDL Flt-Point (future work)</p>
+</blockquote>
+</li>
+<li>
+<blockquote>
+<p>DFHDL String (future work)</p>
+</blockquote>
+</li>
+<li><a class="autorefs autorefs-internal" href="#DFEnum">DFHDL Enumeration: <code>... extends Encoding</code></a></li>
+<li><a class="autorefs autorefs-internal" href="#DFVector">DFHDL Vector: <code>[CellType] X [Dim]</code></a></li>
+<li><a class="autorefs autorefs-internal" href="#DFStruct">DFHDL Structure: <code>... extends Struct</code></a></li>
+<li><a class="autorefs autorefs-internal" href="#DFTuple">DFHDL Tuple: <code>(T1, T2, ..., Tn)</code></a></li>
+<li><a class="autorefs autorefs-internal" href="#DFOpaque">DFHDL Opaque: <code>... extends Opaque</code></a></li>
+<li><a class="autorefs autorefs-internal" href="#DFUnit">DFHDL Unit (Void): <code>Unit</code></a></li>
+</ul>
+</li>
+<li>
+<p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18.971 13.486a7.56 7.56 0 0 0-.54-1.043V6.415a6.375 6.375 0 0 0-1.88-4.535A6.374 6.374 0 0 0 12.017 0h-.002a6.374 6.374 0 0 0-4.536 1.878 6.375 6.375 0 0 0-1.88 4.537v.877h2.57v-.877c0-1.026.4-1.992 1.127-2.72a3.822 3.822 0 0 1 2.72-1.125 3.852 3.852 0 0 1 3.847 3.845v3.508A7.52 7.52 0 0 0 12 8.865a7.54 7.54 0 0 0-5.35 2.216 7.54 7.54 0 0 0-2.216 5.35 7.54 7.54 0 0 0 2.215 5.35A7.54 7.54 0 0 0 12 24a7.54 7.54 0 0 0 5.35-2.216 7.54 7.54 0 0 0 2.216-5.35c0-1.021-.2-2.012-.595-2.946zM12 21.428a5.003 5.003 0 0 1-4.997-4.996A5.003 5.003 0 0 1 12 11.435a5.002 5.002 0 0 1 4.997 4.997A5.002 5.002 0 0 1 12 21.428zm2.145-4.973a2.12 2.12 0 1 1-4.24 0 2.12 2.12 0 0 1 4.24 0z"/></svg></span> <strong>(Access) Modifier</strong></p>
+<hr />
+<p>Determines what kind of access the user has on the value. User explicit modifiers:</p>
+<ul>
+<li><a class="autorefs autorefs-internal" href="#Dcl">Variable: <code>VAR</code></a></li>
+<li><a class="autorefs autorefs-internal" href="#Dcl">Port: <code>IN</code>/<code>OUT</code>/<code>INOUT</code></a></li>
+<li><a class="autorefs autorefs-internal" href="#DFConst">Constant: <code>CONST</code></a></li>
+<li><a class="autorefs autorefs-internal" href="#DFStruct">Struct Field: <code>VAL</code></a></li>
+<li><a class="autorefs autorefs-internal" href="../methods/#DesignDef">Method Param: <code>VAL</code></a></li>
+<li><a class="autorefs autorefs-internal" href="../methods/#DesignDef">Method Return: <code>DFRET</code>/<code>RTRET</code>/<code>EDRET</code></a></li>
+</ul>
+<p>Although this mechanism can be quite complex under the hood, the explicit modifiers available to the user are straightforward.</p>
+</li>
+</ul>
+</div>
+</div>
+<details class="dfhdl">
+<summary>Internal Type-System Hierarchy (For Advanced Users)</summary>
+<p>DFHDL brings type-driven development concepts to hardware design, by creating an extensible type class hierarchy. Any DFHDL value is a Scala object instance of the class <code>DFVal[T &lt;: DFTypeAny, M &lt;: ModifierAny]</code>, where <code>T</code> is the type (shape) of value and <code>M</code> is a modifier that sets additional characteristics of the DFHDL value, like if its assignable, connectable, initializable, etc. </p>
+<p><img alt="type-system" src="type-system-light.png#only-light" />
+<img alt="type-system" src="type-system-dark.png#only-dark" /></p>
+<p>For example, the Scala value <code>x</code> which references a port declared like <code class="highlight"><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span></code> has the type <code>DFVal[DFBool, Modifier.Dcl]</code>.</p>
+</details>
+<h2 id="Dcl">Variable and Port Declarations<a class="headerlink" href="#Dcl" title="Permanent link"></a></h2>
+<p>Ports are DFHDL values that define the inputs and outputs of a design. Variables are DFHDL values that represent internal design wiring, logic, or state.</p>
+<h3 id="dcl-syntax">Syntax<a class="headerlink" href="#dcl-syntax" title="Permanent link"></a></h3>
+<div class="highlight"><span class="filename">Port & variable declaration syntax</span><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="n">_name_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_dftype_</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">_modifier_</span><span class="w"> </span><span class="p">[</span><span class="n">init</span><span class="w"> </span><span class="n">_const_</span><span class="p">]</span>
+</code></pre></div>
+<ul>
+<li><strong><code>_modifier_</code></strong> is set with one of the following: <ul>
+<li><code>VAR</code> - to construct a variable</li>
+<li><code>IN</code> - to construct an input port</li>
+<li><code>OUT</code> - to construct an output port</li>
+<li><code>INOUT</code> - to construct an input-output port</li>
+</ul>
+</li>
+<li><strong><code>_dftype_</code></strong> is set according to the shape type (DFType) of the DFHDL value. Each of the supported DFTypes have their own constructors. See relevant sections for the DFHDL DFType you wish to construct.</li>
+<li><strong><code>&lt;&gt;</code></strong> is the operator applied between a <code>_dftype_</code> and a <code>_modifier_</code> to construct the Scala value that represents a DFHDL variable or port accordingly. Note: the same <code>&lt;&gt;</code> operator is used as a language construct for declaring <a class="autorefs autorefs-internal" href="#connection">connections</a>. Thanks to Scala method overloading, <code>&lt;&gt;</code> can be shared for both use-cases with no issues (due to the Scala argument type difference). </li>
+<li><strong><code>init</code></strong> is an optional construct to initialize the DFHDL variable/port declaration history with the applied <code>_const_</code> value.</li>
+<li><strong><code>_const_</code></strong> is the <a class="autorefs autorefs-internal" href="../state/#state-initialization">state history</a> initialization value or sequence of initialization values as a <a href="https://docs.scala-lang.org/tour/tuples.html" target="_blank">Scala Tuple</a>. This value must be a <a class="autorefs autorefs-internal" href="#DFConst">constant</a> that is supported by the DFType <code>_dftype_</code>.</li>
+<li><strong><code>_name_</code></strong> is the Scala value name reference for the DFHDL variable/port you constructed. The DFHDL compiler preserves this name and uses it in error messages and the final generated artifacts (e.g., Verilog module or VHDL entity port names). More information is available under the <a class="autorefs autorefs-internal" href="#naming">naming</a> section.</li>
+</ul>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">Port & variable declaration examples</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="c1">//8-bit unsigned integer input port named &#39;i&#39;, </span>
+<span class="w">  </span><span class="c1">//initialized with the value 27.</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w">     </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span><span class="w">  </span><span class="n">init</span><span class="w"> </span><span class="mi">27</span>
+
+<span class="w">  </span><span class="c1">//single bit output port named &#39;o&#39; </span>
+<span class="w">  </span><span class="c1">//with a sequence history (0, 1, 0) init</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w">         </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span><span class="w"> </span><span class="n">init</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+
+<span class="w">  </span><span class="c1">//5 element vector of 8-bit vector cells </span>
+<span class="w">  </span><span class="c1">//variable named &#39;v&#39; with no init</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="nc">X</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="dcl-rules">Rules<a class="headerlink" href="#dcl-rules" title="Permanent link"></a></h3>
+<h4 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link"></a></h4>
+<ul>
+<li>
+<p>Variables can be declared in any DFHDL scope, except global scope, meaning within DFHDL designs, domains, interfaces, methods, processes, and conditional blocks.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="c1">//error: global variables are not </span>
+<span class="c1">//allowed</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span><span class="w"> </span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+</code></pre></div></td></tr></table></div></p>
+</li>
+<li>
+<p>Ports can only be declared at the scopes of DFHDL designs, domains, and interfaces. Other scopes are not allowed.
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+<span class="w">    </span><span class="c1">//error: cannot create a port in a </span>
+<span class="w">    </span><span class="c1">//DFHDL condition</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span><span class="w"> </span>
+<span class="w">    </span><span class="n">o</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+</code></pre></div></td></tr></table></div></p>
+</li>
+</ul>
+<h4 id="naming">Naming<a class="headerlink" href="#naming" title="Permanent link"></a></h4>
+<p>Ports and variables must always be named, and cannot be anonymous. </p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="c1">//error: constructed an anonymous </span>
+<span class="w">  </span><span class="c1">//output port</span>
+<span class="w">  </span><span class="nc">Bit</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span><span class="w"> </span>
+</code></pre></div></td></tr></table></div>
+<p>As you'll read later on, constants and other values can be anonymous.</p>
+<h4 id="connectable">Connectable<a class="headerlink" href="#connectable" title="Permanent link"></a></h4>
+<p>Ports and variables are connectable, meaning they can be the receiving (drain/consumer) end of a <a class="autorefs autorefs-internal" href="#connection">connection</a> <code>&lt;&gt;</code> operation. 
+For input ports this occurs outside their design scope, while connecting to an external value. 
+For output ports and variables this occurs only within their design scope, while connecting to an internal value.</p>
+<h4 id="assignable-mutable">Assignable (Mutable)<a class="headerlink" href="#assignable-mutable" title="Permanent link"></a></h4>
+<p>Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an <a class="autorefs autorefs-internal" href="#assignment">assignment</a> <code>:=</code>/<code>:==</code> operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). </p>
+<h4 id="not-constant">Not Constant<a class="headerlink" href="#not-constant" title="Permanent link"></a></h4>
+<p>Ports and variables are never considered to be constant (even when connected/assigned only once and to a constant value) for elaboration. Later compilation stages can apply further constant propagation steps that reduce logic utilization.</p>
+<h4 id="inout-port-limitation"><code>INOUT</code> Port Limitation<a class="headerlink" href="#inout-port-limitation" title="Permanent link"></a></h4>
+<p><code>INOUT</code> (bidirectional) ports are generally used to reduce <abbr title="Input/Output">IO</abbr> pins from top-level device connectivity (e.g., protocols like <a href="https://en.wikipedia.org/wiki/I%C2%B2C" target="_blank">I<sup>2</sup>C</a> benefit from such ability). They are not meant for inter-device wiring reduction, and thus should be used scarcely within their designed purpose. Throughout the years they were also used to workaround <abbr title="Hardware Description Language">HDL</abbr> limitations like reading from output ports in VHDL'93, or lack of <a class="autorefs autorefs-internal" href="../interfaces/#interfaces">interfaces</a>. Since DFHDL has none of these limitation, we encourage you to use <code>INOUT</code> for their intended purpose only, as synthesis tools for FPGAs and even ASICs will not cooperate. Although, theoretically, in <abbr title="Dataflow">DF</abbr> domain we can enable bidirectional communication that can later be compiled into two separate ports, there is no real value behind this.</p>
+<h4 id="grouping">Grouping<a class="headerlink" href="#grouping" title="Permanent link"></a></h4>
+<p>Ports can also be grouped together in a dedicated <a class="autorefs autorefs-internal" href="../interfaces/#interfaces">interface [wip]</a>.</p>
+<h3 id="Dcl-transitioning">Transitioning<a class="headerlink" href="#Dcl-transitioning" title="Permanent link"></a></h3>
+<details class="rtl">
+<summary>Differences from Verilog</summary>
+<ul>
+<li>DFHDL supports more abstraction domains, and not just <abbr title="Event-Driven">ED</abbr> abstraction like Verilog does.</li>
+<li>The non-blocking assignment operator in DFHDL is <code>:==</code> instead of <code>&lt;=</code> in Verilog.</li>
+</ul>
+</details>
+<details class="rtl">
+<summary>Differences from VHDL</summary>
+<p>Hi there</p>
+</details>
+<details class="dfhdl">
+<summary>Differences from Scala parameters/fields</summary>
+<p>Data validity</p>
+<p>Number of outputs</p>
+</details>
+<h2 id="DFConst">Constant/Literal Values<a class="headerlink" href="#DFConst" title="Permanent link"></a></h2>
+<p>In DFHDL there are three methods to construct constant DFHDL values:</p>
+<ol>
+<li><strong>Literal value generators:</strong> These language constructs directly generate constant DFHDL values. Currently, these are:<ul>
+<li><a class="autorefs autorefs-internal" href="#b-interp">Binary <code>Bits</code> string interpolator</a></li>
+<li><a class="autorefs autorefs-internal" href="#h-interp">Hexadecimal <code>Bits</code> string interpolator</a></li>
+<li><a class="autorefs autorefs-internal" href="#d-interp">Decimal string interpolator</a></li>
+<li><a class="autorefs autorefs-internal" href="#sd-interp">Signed Decimal string interpolator</a></li>
+</ul>
+</li>
+<li><strong>Constant candidates:</strong> Various Scala values can become DFHDL values, as.
+<div class="highlight"><span class="filename">Constant declaration syntax</span><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="n">_name_:</span><span class="w"> </span><span class="n">_dftype_</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">_value_</span>
+</code></pre></div></li>
+<li><strong>Constant value propagation:</strong> Cleaners</li>
+</ol>
+<h3 id="const-syntax">Syntax<a class="headerlink" href="#const-syntax" title="Permanent link"></a></h3>
+<h3 id="const-rules">Rules<a class="headerlink" href="#const-rules" title="Permanent link"></a></h3>
+<h4 id="unconnectable">Unconnectable<a class="headerlink" href="#unconnectable" title="Permanent link"></a></h4>
+<p>Constant values are not connectable, and can never be the receiving (drain/consumer) end of a <a class="autorefs autorefs-internal" href="#connection">connection</a> <code>&lt;&gt;</code> operation.</p>
+<h4 id="unassignable-immutable">Unassignable (Immutable)<a class="headerlink" href="#unassignable-immutable" title="Permanent link"></a></h4>
+<p>Constant values are immutable and cannot be assigned, meaning they can never be the receiving (drain/consumer) end of an <a class="autorefs autorefs-internal" href="#assignment">assignment</a> <code>:=</code>/<code>:==</code> operation.</p>
+<h2 id="dfhdl-value-statement-order-referencing">DFHDL Value Statement Order &amp; Referencing<a class="headerlink" href="#dfhdl-value-statement-order-referencing" title="Permanent link"></a></h2>
+<p>Any DFHDL value must be declared before it can be referenced in code. Other than this (pretty intuitive) limitation, no other limitations exists and ports, variables, constants, and other values may be freely distributed within their approved scope space. During the <a class="autorefs autorefs-internal" href="../compilation/#compilation">compilation process</a>, you can notice that the compiler reorders the port declarations so that they always come second to <a class="autorefs autorefs-internal" href="#DFConst">constant declarations</a>, and variables right after.</p>
+<h2 id="connection">DFHDL Value Connections<a class="headerlink" href="#connection" title="Permanent link"></a></h2>
+<p>After (<a class="autorefs autorefs-internal" href="../connectivity/#via-connections">or during</a>) a design instantiation, its ports need to be connected to other ports or values of the same DFType by applying the <code>&lt;&gt;</code> operator. Variables can also be connected and used as intermediate wiring between ports. Output ports can be directly referenced (read) without being connected to an intermediate variable. For more rules about design and port connectivity, see the <a class="autorefs autorefs-internal" href="../connectivity/#dataflow-ports-connectivity">relevant section</a>.
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">Successful port/variable connection example</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ID</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="c1">//internal connection between ports</span>
+<span class="w">  </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">IDTop</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">yv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">ID</span><span class="p">()</span>
+<span class="w">  </span><span class="c1">//direct connection between</span>
+<span class="w">  </span><span class="c1">//parent and child design ports</span>
+<span class="w">  </span><span class="n">id</span><span class="p">.</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span>
+<span class="w">  </span><span class="c1">//connecting through an intermediate </span>
+<span class="w">  </span><span class="c1">//variable</span>
+<span class="w">  </span><span class="n">id</span><span class="p">.</span><span class="n">y</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">yv</span>
+<span class="w">  </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">yv</span>
+</code></pre></div></td></tr></table></div></p>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">Failed port/variable connection example</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span>
+<span class="normal">9</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">y1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w">     </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">y2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="n">y1</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="c1">//DFType mismatch error</span>
+<span class="w">  </span><span class="n">y2</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="c1">//connection error (cannot connect </span>
+<span class="w">  </span><span class="c1">//to the same port more than once)</span>
+<span class="w">  </span><span class="n">y2</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span>
+</code></pre></div></td></tr></table></div>
+<h2 id="assignment">DFHDL Value Assignment (Mutation)<a class="headerlink" href="#assignment" title="Permanent link"></a></h2>
+<p>Both output ports and variables are <a class="autorefs autorefs-internal" href="#mutability">mutable</a> and can be assigned with values of the same DFType and only within the scope of the design they belong to. Input ports cannot be directly assigned, and require an intermediate variable connected to them to modify their value. Generally assignments to DFHDL values are applied through the <code>:=</code> operator. In <a class="autorefs autorefs-internal" href="../processes/#processes">processes</a> under <abbr title="Event-Driven">ED</abbr> domains there are two kind of assignments: blocking assignments via <code>:=</code>, and non-blocking assignments via <code>:==</code>. Other domains support only blocking assignments via <code>:=</code>. Read more on domain semantics in the [next section][domain-semantics].
+See the <a class="autorefs autorefs-internal" href="../connectivity/#dataflow-ports-connectivity">connectivity section</a> for more rules about mixing connections and assignments.</p>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">Successful port/variable connection example</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Shift</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="c1">//assigning `x` left-shifted by 1 </span>
+<span class="w">  </span><span class="c1">//to `y`</span>
+<span class="w">  </span><span class="n">y</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">1</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">IDTop</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">yv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">ID</span><span class="p">()</span>
+<span class="w">  </span><span class="c1">//direct connection between</span>
+<span class="w">  </span><span class="c1">//parent and child design ports</span>
+<span class="w">  </span><span class="n">id</span><span class="p">.</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span>
+<span class="w">  </span><span class="c1">//connecting through an intermediate </span>
+<span class="w">  </span><span class="c1">//variable</span>
+<span class="w">  </span><span class="n">id</span><span class="p">.</span><span class="n">y</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">yv</span>
+<span class="w">  </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">yv</span>
+</code></pre></div></td></tr></table></div>
+<h2 id="mutability">DFHDL Value Mutation<a class="headerlink" href="#mutability" title="Permanent link"></a></h2>
+<p>DFiant supports dataflow variables mutability via the <code>:=</code> operator. Do not confuse with Scala-level mutability which is enabled by using <code class="highlight"><span class="kd">var</span></code> instead of <code class="highlight"><span class="kd">val</span></code>. Each dataflow class has two variations: an immutable class, which inherits from <code>DFAny.Val</code> and a mutable class, which inherits from <code>DFAny.Var</code> and accepts <code>:=</code>. The difference between the types enforces an immutable right-hand-side (<abbr title="Right-hand Side">RHS</abbr>), where required, and a mutable variable creation. </p>
+<p>Consider, for instance, the DFiant implementation of <code>g</code> in Table \ref<code>tbl:StateExDefImpl</code>: <code>a</code> is immutable because it is a <abbr title="Right-hand Side">RHS</abbr> addition between the dataflow variable <code>i</code> and a literal value <code>5</code>. Contrarily, <code>c</code> is mutable, since it is a dataflow variable constructor (<code>.init</code> constructs a new initialized variable, while preserving the mutability trait). </p>
+<p>Fig. 1 demonstrates a dual class definition for every type  (immutable and mutable). The naming convention helps to reason about the mutability. For example, <code>DFBits</code> and <code>DFBits.Var</code> are immutable and mutable classes, respectively. Constructing a new variable via <code>DFBits</code> (e.g, <code class="highlight"><span class="kd">val</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">DFBits</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span></code>) returns the mutable <code>DFBits.Var[5]</code>. Usually, we either receive or return an immutable type, hence we do not require annotating a type with its mutable variation. In cases where we want to return a mutable type, we annotate it as an output port (see Section~\ref<code>sec:io_ports</code>).</p>
+<div class="admonition warning">
+<p class="admonition-title">Don't use <code>var</code> with DFHDL values/variables</p>
+<p>Because the semantics may get confusing, we enforced a compiler error if a dataflow variable is constructed and fed into a Scala <code class="highlight"><span class="kd">var</span></code> reference. For example <code class="highlight"><span class="kd">var</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">DFUInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span></code> will generate a Scala compiler error. </p>
+</div>
+<h2 id="bit-accurate-operations-type-inference-and-data-structures">Bit-Accurate Operations, Type Inference, and Data Structures<a class="headerlink" href="#bit-accurate-operations-type-inference-and-data-structures" title="Permanent link"></a></h2>
+<p>All DFiant's dataflow types are bit-accurate and structurally static, with their bit-width set upon construction (e.g., <code>DFBits[5]</code> is a 5-bit vector). Operations between dataflow variables produce a bit-accurate result with the proper type inference. For example, an addition between an unsigned 5-bit variable (<code>DFUInt[5]</code>) and a signed 10-bit variable (<code>DFSInt[10]</code>) produces an adder that can be implicitly converted to a 10-bit signed variable, if carry is not required, or an 11-bit signed variable by explicitly invoking <code>.wc</code> from the addition.</p>
+<p>DFiant also allows operations between dataflow types and their corresponding Scala numeric types, by treating the Scala numeric types as constants (e.g., addition between <code>DFSInt</code> and <code>Integer</code> variables). A constant in the dataflow graph is a node that can produce infinite tokens of the same value.   </p>
+<h2 id="bit-aliasing-and-casting">Bit Aliasing and Casting<a class="headerlink" href="#bit-aliasing-and-casting" title="Permanent link"></a></h2>
+<p>Aliasing in DFiant enables referencing a part of a dataflow variable, by invoking <code>.bits(hiIdx, loIdx)</code>, which creates a bits vector alias that references the original variable at the given index parameters. Every change of a dataflow variable affects its alias and vice versa (similar to VHDL's signal aliasing). Since this function also casts the variable as <code>DFBits</code>, this feature is used as a raw-data cast between different dataflow types. Aliasing of an alias is also possible, while maintaining relative bits indexing. Aliasing preserves the mutability trait: an alias of an immutable value is immutable, while an alias of a mutable variable is mutable. </p>
+<p>Fig.~\ref<code>fig:Aliasing</code> demonstrates aliasing code and its effect on the contents of a dataflow variable (<code>bits128</code>). Each line code does as follows:</p>
+<ol>
+<li>Constructs a new 128-bit vector, <code>bits128</code>, and clears it.</li>
+<li>Creates a new alias, <code>alias64</code>, which references the most significant 64 bits of <code>bits128</code>. Since <code>bits128</code> is a <code>DFBits</code> variable, there is no need to invoke <code>.bits()</code>, and we can apply the required indexes directly.</li>
+<li>Creates a new alias, <code>alias32</code>, which references the least significant 32 bits of <code>alias64</code>, which reference bits 64 to 95 of <code>bits128</code>.</li>
+<li>Constructs a new double precision floating point dataflow variable, <code>dbl</code>, and initialize its value as <code>1.0</code> (hexadecimal value of <code>0x3FF00...0</code>).</li>
+<li>Modifies the least significant byte of <code>dbl</code>.</li>
+<li>Sets the most significant bit of <code>bits128</code>.</li>
+<li>Assigns <code>dbl</code> to the least significant 64 bits of <code>bits128</code> through casting. All the bits of <code>dbl</code> are selected because <code>.bits()</code> is invoked without index parameters.</li>
+<li>Modifies a byte of <code>bits128</code>.</li>
+</ol>
+<h2 id="bubble">Bubble Values<a class="headerlink" href="#bubble" title="Permanent link"></a></h2>
+<ul>
+<li><abbr title="Register-Transfer">RT</abbr> and <abbr title="Event-Driven">ED</abbr> - Don't Care / Unknown</li>
+<li><abbr title="Dataflow">DF</abbr> - Stall</li>
+</ul>
+<h2 id="dfhdl-value-candidates">DFHDL Value Candidates<a class="headerlink" href="#dfhdl-value-candidates" title="Permanent link"></a></h2>
+<p>TODO: requires explanation
+The candidate produces a constant DFHDL value if the candidate argument is a constant.</p>
+<div class="admonition info">
+<p class="admonition-title">Operation supported values for an argument of DFType <code>T</code></p>
+<div><style>svg>a:hover { text-decoration: underline }</style><?xml version="1.0" encoding="utf-8"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" d2Version="v0.6.5" preserveAspectRatio="xMinYMin meet" viewBox="0 0 831 208"><svg id="d2-svg" class="d2-1595818198" width="831" height="208" viewBox="-11 -11 831 208"><rect x="-11.000000" y="-11.000000" width="831.000000" height="208.000000" rx="0.000000" class=" fill-N7" stroke-width="0" /><style type="text/css"><![CDATA[
+.d2-1595818198 .text-bold {
+	font-family: "d2-1595818198-font-bold";
+}
+@font-face {
+	font-family: d2-1595818198-font-bold;
+	src: url("data:application/font-woff;base64,d09GRgABAAAAAAwEAAoAAAAAEoQAAguFAAAAAAAAAAAAAAAAAAAAAAAAAABPUy8yAAAA9AAAAGAAAABgXxHXrmNtYXAAAAFUAAAAnwAAANwDnQTxZ2x5ZgAAAfQAAAWoAAAHMPineZNoZWFkAAAHnAAAADYAAAA2G38e1GhoZWEAAAfUAAAAJAAAACQKfwXaaG10eAAAB/gAAABsAAAAbC7EAzdsb2NhAAAIZAAAADgAAAA4GUQbNG1heHAAAAicAAAAIAAAACAAMwD3bmFtZQAACLwAAAMoAAAIKgjwVkFwb3N0AAAL5AAAAB0AAAAg/9EAMgADAioCvAAFAAACigJYAAAASwKKAlgAAAFeADIBKQAAAgsHAwMEAwICBGAAAvcAAAADAAAAAAAAAABBREJPACAAIP//Au7/BgAAA9gBESAAAZ8AAAAAAfAClAAAACAAA3ichM07SgNhAEbRM87ve3y/2hGs3YKIC7ARawUtBBERLNyKoCKItRZiqzuws06TFaT/QqYPufWBi0qtQqP4w55WUbR27Ttw6MixE6fOnLt05dqtew8JY9RFp27cjVR6GaSf//zmJ1/5zEe+8563vOYlz3nKY/efXGXLpm1TasW0GTtmzZm3YFFjybIVq9as22AIAAD//wEAAP//xe4ucwB4nIxUTWwbaRl+v2/smcaZxBmPZ8Z24t+xZ2wncRJPZmadOHEdp0nTOk7jkB/Y/LBmVZakSVetq4ZqxV4aJHZTIZRs1XaX5cJKgNhDVYGgUouEQAU1Qkht6QkBAsGRCCwEleNBY6dNgAuHmdv3vM/f+4IVzgHgEt4FAprADg7gABQmyEQUWRYpXdF1USB0GTHUOeyoffJtOWaJxSzxwC3/tZUVNLmMdw8uvD5ZKv1jZXCw9vGP79duoMv3AbDxAgDn8DY0AQPAUoosSbJIkgSrsKIsUn9ue9/e0t5iod0v9u7ufRR9FEVn0um+DaV/vbaFtw/KH34IAIAgYVRwL74F7QDWkCSp/ZqmJHmBkiQxRJKck1eSmi6QaKn43szsjWLmzWDBrYtdE51zp6MZV6FI5z9Yv3B7WgktC97k8sibb4fdi58HXMf9Cr4F9v9C5jknScpJTe03B3BOHs0tbJ09u7XQ+OcKhVyuUKCLt1fXPpiaurm6erv4brlU2tgolcomXzcAZvE2UKaPohrkRGbvHnpxD7e9887Bfl2T8S8ArOBtaAFQCIXleUHRNJ1ViIc//6hgF+yWVlfr5M2f4e3ar9XzmnZeRb0HZcAQNyroKaqCG0QAIWRS1us+UHKdO8eIpsd6UtPVujcPR89d38FizH8yrPasDayc37RZ/OMn3BG2kPbT85nCgj0ou7g3vOGNS7U/KR3iJYGdt3V6XQIAYJCNCqriB8BC4OW8uvmyqhybJB0a9bfFi4Mr/bHX3OTOps3iGcMu2cF2OkWth37/y9NXhjtc+e8e5Po84qbT/djRmhufOAUYwkYF/QFVwQX+/8mBCvK8ktQFkiSUehzIP35pJHdhcHypx4Jrz21jfarWJy3fuSd3hTR6uFycLmcya6NspElTgp/1+NBATO0BAMMAHQB+i59gCVwAQIEb3qv3K2tUkAM/AHtDIaMwLytF/iI/uMM0WSnSQUfo189i8eC54EBo3UqZ70yDUBWcZs6KGWAjAKZOlGKymzZLYDI5PbHjDXREXWg/4+teW6rtoaAWdQu1u9DQjilU/T86yGcujo5ezGQ2Rkc3Mt2JRHeiu5seulKcKQ8NlWeKV4auTp7M5vPZk5MmbtY4jXlUBRZ8AMIROydJiiFJFjjWxBZDFMfzJk/vhPy5t9IrWiDtsU5J2lxn3Bn9Ef5On0f82uXZzUy7e+obKDyW/2r3Y0crNLSjr6MqOI5rP1zJhvL2vMR12Fwt7raOISfan0/2Wa3vWiyxZO33gIAzKuhbqApy3XNZN1M2xUpyAqv9R2Cckxd8mHOST/q+KI2EMv6gz5vw+AajX5pNzftHPP2eVEoKDMXeoiX/ortdYBmetdHhVOzUnOxacPKyy93aLKYSuaXGLWGMCtrAZRDqbquqqOq6wimc+OqMkAgWp0bzzLWrV0Uv7bYJrE6vzv1ynbx+/fKjeIS0rJF0AyttVNA/0b6Z/3/0hjlcjd9MT+z4Ah0Sv7PZTPjP0GtLqL/2OzXm8aLTtbZTkS5AQBvD6ADtm+kf+aDrhCIcngRdIVrxJh+0eyjHiUjURv1kd7zZYbOcYJrSN74vvDb1U9LyNrKGvR70x2ehsYg4Lj6rNQ/Pxhsch4wK/BU+heaX29sowU1JUSRJUWhVjqpqVFbNzkwbFUTgj8Fq3mudkBWKoI69ucZZd61c7+HLv6Dk1lbtV39/BYAhZlTQJ/h74AEJQJeGiUZ5Dy8TzzlbCeE44B2Sl+PeiK+j0zktlga02aSvK+6xZKVksj4hllW7O3l/wOM8E0uG84ORVG+PHj6aaO70PE6jzxADQIEH8dDQnAWAp2gfiHo3mewO2q+1ATI+xSmYwU9ML5hjNCKJRCSSSOBUXBTj5mfe5yxOwzAxYGIQsi7YfvCFOzj9zTd+CP8GAAD//wEAAP//jn2ElgABAAAAAguFAPZp3V8PPPUAAQPoAAAAANhdoIQAAAAA3WYvNv43/sQIbQPxAAEAAwACAAAAAAAAAAEAAAPY/u8AAAiY/jf+NwhtAAEAAAAAAAAAAAAAAAAAAAAbArIAUADIAAACPf/6AkYALgKsAC4CLAAZAiz/+QIPACoCPQAnAgYAJAEUADcBHgBBAjwAQQIrACQCPQBBAY4AQQG7ABUBfwARAjgAPAIJAAwBLAA9AVQAUQHPACkCKwBXARQAQQAA/60AAP9BAAAALAAsAFAAfACoALoA1gEOAUABdAGAAZwBvgHqAhoCOgJ2ApwCvgLuAwQDJANeA2gDdAOKA5gAAQAAABsAkAAMAGMABwABAAAAAAAAAAAAAAAAAAQAA3icnJTPbhtVFMZ/TmzTCsECRVW6ie6CRZHo2FRJ1TYrh9SKRRQHjwtCQkgTz/iPMp4ZeSYO4QlY8xa8RVc8BM+BWKP5fOzYBdEmipJ8d+75851zvnOBHf5mm0r1IfBHPTFcYa9+bniLB/UTw9u061uGqzyp/Wm4RlibG67zea1n+CPeVn8z/ID96k+GH7JbbRv+mGfVHcOfbDv+Mvwp+7xd4Aq84FfDFXbJDG+xw4+Gt3mExaxUeUTTcI3P2DNcZw/oM6EgZkLCCMeQCSOumBGR4xMxY8KQiBBHhxYxhb4mBEKO0X9+DfApmBEo4pgCR4xPTEDO2CL+Iq+Uc2Uc6jSzuxYFYwIu5HFJQIIjZURKQsSl4hQUZLyiQYOcgfhmFOR45EyI8UiZMaJBlzan9BkzIcfRVqSSmU/KkIJrAuV3ZlF2ZkBEQm6srkgIxdOJXyTvDqc4umSyXY98uhHhSxzfybvklsr2Kzz9ujVmm3mXbALm6mesrsS6udYEx7ot87b4VrjgFe5e/dlk8v4ehfpfKPIFV5p/qEklYpLg3C4tfCnId49xHOncwVdHvqdDnxO6vKGvc4sePVqc0afDa/l26eH4mi5nHMujI7y4a0sxZ/yA4xs6siljR9afxcQifiYzdefiOFMdUzL1vGTuqdZIFd59wuUOpRvqyOUz0B6Vlk7zS7RnASNTRSaGU/VyqY3c+heaIqaqpZzt7X25DXPbveUW35Bqh0u1LjiVk1swet9UvXc0c60fj4CQlAtZDEiZ0qDgRrzPCbgixnGs7p1oSwpaK58yz41UEjEVgw6J4szI9Dcw3fjGfbChe2dvSSj/kunlqqr7ZHHq1e2M3qh7yzvfuhytTaBhU03X1DQQ18S0H2mn1vn78s31uqU85YiUmPBfL8AzPJrsc8AhY2UY6GZur0NTL0STlxyq+ksiWQ2l58giHODxnAMOeMnzd/q4ZOKMi1txWc/d4pgjuhx+UBUL+y5HvF59+/+sv4tpU7U4nq5OL+49xSd3UOsX2rPb97KniZWTmFu02604I2BacnG76zW5x3j/AAAA//8BAAD///S3T1F4nGJgZgCD/+cYjBiwAAAAAAD//wEAAP//LwECAwAAAA==");
+}]]></style><style type="text/css"><![CDATA[.shape {
+  shape-rendering: geometricPrecision;
+  stroke-linejoin: round;
+}
+.connection {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.blend {
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+		.d2-1595818198 .fill-N1{fill:#0A0F25;}
+		.d2-1595818198 .fill-N2{fill:#676C7E;}
+		.d2-1595818198 .fill-N3{fill:#9499AB;}
+		.d2-1595818198 .fill-N4{fill:#CFD2DD;}
+		.d2-1595818198 .fill-N5{fill:#DEE1EB;}
+		.d2-1595818198 .fill-N6{fill:#EEF1F8;}
+		.d2-1595818198 .fill-N7{fill:#FFFFFF;}
+		.d2-1595818198 .fill-B1{fill:#0D32B2;}
+		.d2-1595818198 .fill-B2{fill:#0D32B2;}
+		.d2-1595818198 .fill-B3{fill:#E3E9FD;}
+		.d2-1595818198 .fill-B4{fill:#E3E9FD;}
+		.d2-1595818198 .fill-B5{fill:#EDF0FD;}
+		.d2-1595818198 .fill-B6{fill:#F7F8FE;}
+		.d2-1595818198 .fill-AA2{fill:#4A6FF3;}
+		.d2-1595818198 .fill-AA4{fill:#EDF0FD;}
+		.d2-1595818198 .fill-AA5{fill:#F7F8FE;}
+		.d2-1595818198 .fill-AB4{fill:#EDF0FD;}
+		.d2-1595818198 .fill-AB5{fill:#F7F8FE;}
+		.d2-1595818198 .stroke-N1{stroke:#0A0F25;}
+		.d2-1595818198 .stroke-N2{stroke:#676C7E;}
+		.d2-1595818198 .stroke-N3{stroke:#9499AB;}
+		.d2-1595818198 .stroke-N4{stroke:#CFD2DD;}
+		.d2-1595818198 .stroke-N5{stroke:#DEE1EB;}
+		.d2-1595818198 .stroke-N6{stroke:#EEF1F8;}
+		.d2-1595818198 .stroke-N7{stroke:#FFFFFF;}
+		.d2-1595818198 .stroke-B1{stroke:#0D32B2;}
+		.d2-1595818198 .stroke-B2{stroke:#0D32B2;}
+		.d2-1595818198 .stroke-B3{stroke:#E3E9FD;}
+		.d2-1595818198 .stroke-B4{stroke:#E3E9FD;}
+		.d2-1595818198 .stroke-B5{stroke:#EDF0FD;}
+		.d2-1595818198 .stroke-B6{stroke:#F7F8FE;}
+		.d2-1595818198 .stroke-AA2{stroke:#4A6FF3;}
+		.d2-1595818198 .stroke-AA4{stroke:#EDF0FD;}
+		.d2-1595818198 .stroke-AA5{stroke:#F7F8FE;}
+		.d2-1595818198 .stroke-AB4{stroke:#EDF0FD;}
+		.d2-1595818198 .stroke-AB5{stroke:#F7F8FE;}
+		.d2-1595818198 .background-color-N1{background-color:#0A0F25;}
+		.d2-1595818198 .background-color-N2{background-color:#676C7E;}
+		.d2-1595818198 .background-color-N3{background-color:#9499AB;}
+		.d2-1595818198 .background-color-N4{background-color:#CFD2DD;}
+		.d2-1595818198 .background-color-N5{background-color:#DEE1EB;}
+		.d2-1595818198 .background-color-N6{background-color:#EEF1F8;}
+		.d2-1595818198 .background-color-N7{background-color:#FFFFFF;}
+		.d2-1595818198 .background-color-B1{background-color:#0D32B2;}
+		.d2-1595818198 .background-color-B2{background-color:#0D32B2;}
+		.d2-1595818198 .background-color-B3{background-color:#E3E9FD;}
+		.d2-1595818198 .background-color-B4{background-color:#E3E9FD;}
+		.d2-1595818198 .background-color-B5{background-color:#EDF0FD;}
+		.d2-1595818198 .background-color-B6{background-color:#F7F8FE;}
+		.d2-1595818198 .background-color-AA2{background-color:#4A6FF3;}
+		.d2-1595818198 .background-color-AA4{background-color:#EDF0FD;}
+		.d2-1595818198 .background-color-AA5{background-color:#F7F8FE;}
+		.d2-1595818198 .background-color-AB4{background-color:#EDF0FD;}
+		.d2-1595818198 .background-color-AB5{background-color:#F7F8FE;}
+		.d2-1595818198 .color-N1{color:#0A0F25;}
+		.d2-1595818198 .color-N2{color:#676C7E;}
+		.d2-1595818198 .color-N3{color:#9499AB;}
+		.d2-1595818198 .color-N4{color:#CFD2DD;}
+		.d2-1595818198 .color-N5{color:#DEE1EB;}
+		.d2-1595818198 .color-N6{color:#EEF1F8;}
+		.d2-1595818198 .color-N7{color:#FFFFFF;}
+		.d2-1595818198 .color-B1{color:#0D32B2;}
+		.d2-1595818198 .color-B2{color:#0D32B2;}
+		.d2-1595818198 .color-B3{color:#E3E9FD;}
+		.d2-1595818198 .color-B4{color:#E3E9FD;}
+		.d2-1595818198 .color-B5{color:#EDF0FD;}
+		.d2-1595818198 .color-B6{color:#F7F8FE;}
+		.d2-1595818198 .color-AA2{color:#4A6FF3;}
+		.d2-1595818198 .color-AA4{color:#EDF0FD;}
+		.d2-1595818198 .color-AA5{color:#F7F8FE;}
+		.d2-1595818198 .color-AB4{color:#EDF0FD;}
+		.d2-1595818198 .color-AB5{color:#F7F8FE;}.appendix text.text{fill:#0A0F25}.md{--color-fg-default:#0A0F25;--color-fg-muted:#676C7E;--color-fg-subtle:#9499AB;--color-canvas-default:#FFFFFF;--color-canvas-subtle:#EEF1F8;--color-border-default:#0D32B2;--color-border-muted:#0D32B2;--color-neutral-muted:#EEF1F8;--color-accent-fg:#0D32B2;--color-accent-emphasis:#0D32B2;--color-attention-subtle:#676C7E;--color-danger-fg:red;}.sketch-overlay-B1{fill:url(#streaks-darker);mix-blend-mode:lighten}.sketch-overlay-B2{fill:url(#streaks-darker);mix-blend-mode:lighten}.sketch-overlay-B3{fill:url(#streaks-bright);mix-blend-mode:darken}.sketch-overlay-B4{fill:url(#streaks-bright);mix-blend-mode:darken}.sketch-overlay-B5{fill:url(#streaks-bright);mix-blend-mode:darken}.sketch-overlay-B6{fill:url(#streaks-bright);mix-blend-mode:darken}.sketch-overlay-AA2{fill:url(#streaks-dark);mix-blend-mode:overlay}.sketch-overlay-AA4{fill:url(#streaks-bright);mix-blend-mode:darken}.sketch-overlay-AA5{fill:url(#streaks-bright);mix-blend-mode:darken}.sketch-overlay-AB4{fill:url(#streaks-bright);mix-blend-mode:darken}.sketch-overlay-AB5{fill:url(#streaks-bright);mix-blend-mode:darken}.sketch-overlay-N1{fill:url(#streaks-darker);mix-blend-mode:lighten}.sketch-overlay-N2{fill:url(#streaks-dark);mix-blend-mode:overlay}.sketch-overlay-N3{fill:url(#streaks-normal);mix-blend-mode:color-burn}.sketch-overlay-N4{fill:url(#streaks-normal);mix-blend-mode:color-burn}.sketch-overlay-N5{fill:url(#streaks-bright);mix-blend-mode:darken}.sketch-overlay-N6{fill:url(#streaks-bright);mix-blend-mode:darken}.sketch-overlay-N7{fill:url(#streaks-bright);mix-blend-mode:darken}.light-code{display: block}.dark-code{display: none}]]></style><g id="TCand"><g class="shape" ><rect x="220.000000" y="0.000000" width="118.000000" height="82.000000" class=" stroke-B1 fill-B6" style="stroke-width:2;" /></g><text x="279.000000" y="38.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px"><tspan x="279.000000" dy="0.000000">`T`</tspan><tspan x="279.000000" dy="18.500000">Candidate</tspan></text></g><g id="TVal"><g class="shape" ><rect x="724.000000" y="46.000000" width="85.000000" height="82.000000" class=" stroke-B1 fill-B6" style="stroke-width:2;" /></g><text x="766.500000" y="84.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px"><tspan x="766.500000" dy="0.000000">`T`</tspan><tspan x="766.500000" dy="18.500000">Value</tspan></text></g><g id="Any"><g class="shape" ><rect x="0.000000" y="46.000000" width="85.000000" height="82.000000" class=" stroke-B1 fill-B6" style="stroke-width:2;" /></g><text x="42.500000" y="84.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px"><tspan x="42.500000" dy="0.000000">Any</tspan><tspan x="42.500000" dy="18.500000">Value</tspan></text></g><g id="OpCand"><g class="shape" ><rect x="473.000000" y="88.000000" width="118.000000" height="98.000000" class=" stroke-B1 fill-B6" style="stroke-width:2;" /></g><text x="532.000000" y="126.500000" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px"><tspan x="532.000000" dy="0.000000">`T`</tspan><tspan x="532.000000" dy="17.666667">Operation</tspan><tspan x="532.000000" dy="17.666667">Candidate</tspan></text></g><g id="(TCand -&gt; TVal)[0]" class="is!"><marker id="mk-3488378134" markerWidth="10.000000" markerHeight="12.000000" refX="7.000000" refY="6.000000" viewBox="0.000000 0.000000 10.000000 12.000000" orient="auto" markerUnits="userSpaceOnUse"> <polygon points="0.000000,0.000000 10.000000,6.000000 0.000000,12.000000" class="connection fill-B1" stroke-width="2" /> </marker><path d="M 339.486301 33.516317 C 391.899994 27.350000 430.799988 25.750000 468.750000 25.750000 C 506.700012 25.750000 670.900024 33.150002 720.998452 60.816309" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-3488378134)" mask="url(#d2-1595818198)" /><rect x="518.000000" y="17.000000" width="33.000000" height="21.000000" fill="black" /><text x="534.500000" y="33.000000" fill="white" class="text-bold" style="text-anchor:middle;font-size:16px">. is! .</text></g><g id="(Any -&gt; TCand)[0]" class="is?"><path d="M 86.349344 68.238471 C 138.899994 46.598999 166.100006 41.000000 216.500000 41.000000" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-3488378134)" mask="url(#d2-1595818198)" /><rect x="133.000000" y="34.000000" width="35.000000" height="21.000000" fill="black" /><text x="150.500000" y="50.000000" fill="white" class="text-bold" style="text-anchor:middle;font-size:16px">. is? .</text></g><g id="(TCand -&gt; OpCand)[0]" class="is?"><path d="M 339.358833 64.488066 C 391.899994 85.349998 419.100006 95.550003 469.728039 113.418720" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-3488378134)" mask="url(#d2-1595818198)" /><rect x="388.000000" y="80.000000" width="35.000000" height="21.000000" fill="black" /><text x="405.500000" y="96.000000" fill="white" class="text-bold" style="text-anchor:middle;font-size:16px">. is? .</text></g><g id="(OpCand -&gt; TVal)[0]" class="is!"><path d="M 592.500000 136.500000 C 644.099976 136.500000 670.900024 130.500000 720.849262 108.134660" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-3488378134)" mask="url(#d2-1595818198)" /><rect x="644.000000" y="122.000000" width="33.000000" height="21.000000" fill="black" /><text x="660.500000" y="138.000000" fill="white" class="text-bold" style="text-anchor:middle;font-size:16px">. is! .</text></g><g id="(Any -&gt; OpCand)[0]" class="is?"><path d="M 86.223868 112.764040 C 138.899994 143.750000 177.800003 151.750000 215.750000 151.750000 C 253.699997 151.750000 419.100006 150.149994 469.527398 144.217365" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-3488378134)" mask="url(#d2-1595818198)" /><rect x="257.000000" y="141.000000" width="35.000000" height="21.000000" fill="black" /><text x="274.500000" y="157.000000" fill="white" class="text-bold" style="text-anchor:middle;font-size:16px">. is? .</text></g><mask id="d2-1595818198" maskUnits="userSpaceOnUse" x="-11" y="-11" width="831" height="208">
+<rect x="-11" y="-11" width="831" height="208" fill="white"></rect>
+<rect x="242.500000" y="22.500000" width="73" height="37" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="746.500000" y="68.500000" width="40" height="37" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="22.500000" y="68.500000" width="40" height="37" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="495.500000" y="110.500000" width="73" height="53" fill="rgba(0,0,0,0.75)"></rect>
+<rect x="518.000000" y="17.000000" width="33" height="21" fill="black"></rect>
+<rect x="133.000000" y="34.000000" width="35" height="21" fill="black"></rect>
+<rect x="388.000000" y="80.000000" width="35" height="21" fill="black"></rect>
+<rect x="644.000000" y="122.000000" width="33" height="21" fill="black"></rect>
+<rect x="257.000000" y="141.000000" width="35" height="21" fill="black"></rect>
+</mask></svg></svg></div>
+</div>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">Bits assignment and concatenation operation candidates example</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="n">b8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span><span class="w"> </span><span class="c1">//8-bits variable</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">b9</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">9</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span><span class="w"> </span><span class="c1">//9-bits variable</span>
+
+<span class="c1">//Assignment operations to b8 accept either</span>
+<span class="c1">//Bits candidates that are 8-bit wide or</span>
+<span class="c1">//a same-element-vector (SEV) of </span>
+<span class="c1">//0/1/true/false, via `all(elem)`.</span>
+<span class="n">b8</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">h</span><span class="s">&quot;FF&quot;</span><span class="w">  </span><span class="c1">//ok: 8-bits constant</span>
+<span class="n">b8</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">all</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="c1">//ok: SEV of 0</span>
+<span class="n">b8</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">5</span><span class="w">      </span><span class="c1">//fails `Bits` candidate</span>
+<span class="n">b8</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">b9</span><span class="w">     </span><span class="c1">//fails `:=` candidate</span>
+
+<span class="c1">//Bits `++` concatenation operation with b8</span>
+<span class="c1">//only accepts Bits candidate, while SEV</span>
+<span class="c1">//is not a Bits candidate.</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b8</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="n">h</span><span class="s">&quot;FF&quot;</span><span class="w">  </span><span class="c1">//ok</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b8</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="n">all</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="c1">//error</span>
+</code></pre></div></td></tr></table></div>
+<h2 id="DFBitOrBool"><code>Bit</code>/<code>Boolean</code> DFHDL Values<a class="headerlink" href="#DFBitOrBool" title="Permanent link"></a></h2>
+<p><code>Bit</code> DFHDL values represent binary <code>1</code> or <code>0</code> values, whereas <code>Boolean</code> DFHDL values represent <code>true</code> or <code>false</code> values, respectively. The <code>Bit</code> and <code>Boolean</code> DFHDL values are generally interchangeable, and automatically converted between one and the other. </p>
+<div class="admonition info">
+<p class="admonition-title">Should I use <code>Bit</code> or <code>Boolean</code> DFTypes?</p>
+<p>Although they are interchangeable, it's generally recommended to use <code>Boolean</code> DFHDL values with conditional <code>if</code> statements, guards, or expressions, and <code>Bit</code> DFHDL values for everything else. There could be constant parameters that are better defined as a <code>true</code> or <code>false</code> <code>Boolean</code> values rather than <code>0</code> or <code>1</code> <code>Bit</code> values.</p>
+</div>
+<details class="note">
+<summary>Why have both <code>Bit</code> and <code>Boolean</code> DFTypes?</summary>
+<p>The main reason to differentiate between <code>Bit</code> and <code>Boolean</code> is that VHDL has both <code>std_logic</code> and <code>boolean</code> types, respectively. Verilog has only a single <code>logic</code> or <code>wire</code> to represent both. Indeed VHDL'2008 has relaxed some of the type constraints, but not enough. And nevertheless, DFHDL aims to support various <abbr title="Hardware Description Language">HDL</abbr> dialects, and thus enables simple implicit or explicit conversion between these two DFType values.</p>
+</details>
+<h3 id="dftype-constructors">DFType Constructors<a class="headerlink" href="#dftype-constructors" title="Permanent link"></a></h3>
+<p>Use the <code>Bit</code> or <code>Boolean</code> objects/types to construct <code>Bit</code> or <code>Boolean</code> DFHDL values, respectively.</p>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="n">bit</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w">     </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bool</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">c_bit</span><span class="p">:</span><span class="w">  </span><span class="nc">Bit</span><span class="w">     </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">c_bool</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="candidates">Candidates<a class="headerlink" href="#candidates" title="Permanent link"></a></h3>
+<ul>
+<li>DFHDL <code>Bit</code> values.</li>
+<li>DFHDL <code>Boolean</code> values. </li>
+<li>Scala <code>1</code> or <code>0</code> literal values. A regular Scala <code>Int</code> is not accepted. This candidate always produces a constant DFHDL value.</li>
+<li>Scala <code>Boolean</code> values. This candidate always produces a constant DFHDL value.</li>
+</ul>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="n">bit</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w">     </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="c1">//`bool` is implicitly converted to a </span>
+<span class="c1">//Bit DFHDL value.</span>
+<span class="n">bit</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">bool</span><span class="w"> </span>
+<span class="c1">//`1` is implicitly converted to a DFHDL</span>
+<span class="c1">//Bit constant value.</span>
+<span class="n">bit</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">1</span>
+<span class="c1">//`false` is implicitly converted to a </span>
+<span class="c1">//DFHDL Boolean constant, and then</span>
+<span class="c1">//converted to a Bit constant value.</span>
+<span class="n">bit</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">false</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">one</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+<span class="c1">//error (only 1/0 literals are ok)</span>
+<span class="n">bit</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">one</span><span class="w"> </span>
+<span class="c1">//`bit` is implicitly converted to a</span>
+<span class="c1">//DFHDL Boolean</span>
+<span class="n">bool</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">bit</span><span class="w"> </span>
+<span class="c1">//`true` is implicitly converted to a </span>
+<span class="c1">//DFHDL Boolean constant value.</span>
+<span class="n">bool</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="kc">true</span>
+<span class="c1">//`0` is implicitly converted to a </span>
+<span class="c1">//DFHDL Bit constant, and then</span>
+<span class="c1">//converted to a Boolean constant value.</span>
+<span class="n">bool</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+<span class="kd">val</span><span class="w"> </span><span class="nc">TrueVal</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+<span class="c1">//`TrueVal` is implicitly converted to</span>
+<span class="c1">//a DFHDL Boolean value.</span>
+<span class="n">bool</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nc">TrueVal</span><span class="w"> </span>
+</code></pre></div></td></tr></table></div>
+<h3 id="operations">Operations<a class="headerlink" href="#operations" title="Permanent link"></a></h3>
+<h4 id="explicit-casting-operations">Explicit Casting Operations<a class="headerlink" href="#explicit-casting-operations" title="Permanent link"></a></h4>
+<p>These operations propagate constant modifiers, meaning that if the casted argument is a constant, the returned value is also a constant.</p>
+<div class="operations">
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Description</th>
+<th><abbr title="Left-hand Side">LHS</abbr> Constraints</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lhs.bool</code></td>
+<td>Cast to a DFHDL <code>Boolean</code> value</td>
+<td><code>Bit</code> DFHDL value</td>
+<td><code>Boolean</code> DFHDL value</td>
+</tr>
+<tr>
+<td><code>lhs.bit</code></td>
+<td>Cast to a DFHDL <code>Bit</code> value</td>
+<td><code>Boolean</code> DFHDL value</td>
+<td><code>Bit</code> DFHDL value</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="n">bt1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bl1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bt1</span><span class="p">.</span><span class="n">bool</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bl2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bt2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bl2</span><span class="p">.</span><span class="n">bit</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bt3</span><span class="p">:</span><span class="w"> </span><span class="nc">Bit</span><span class="w">     </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bl3</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bt3</span><span class="p">.</span><span class="n">bool</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bl4</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bt4</span><span class="p">:</span><span class="w"> </span><span class="nc">Bit</span><span class="w">     </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bt4</span><span class="p">.</span><span class="n">bit</span>
+<span class="c1">// error: bt1 is not a constant</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">err</span><span class="p">:</span><span class="w"> </span><span class="nc">Bit</span><span class="w">     </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bt1</span>
+</code></pre></div></td></tr></table></div>
+<h4 id="bit-history-operations">Bit History Operations<a class="headerlink" href="#bit-history-operations" title="Permanent link"></a></h4>
+<p>Currently these operations are only supported under <abbr title="Event-Driven">ED</abbr> domains. However, in upcoming DFHDL updates, support will be added across all domain abstractions.</p>
+<div class="operations">
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Description</th>
+<th><abbr title="Left-hand Side">LHS</abbr> Constraints</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lhs.rising</code></td>
+<td>True when a value changes from <code>0</code> to <code>1</code></td>
+<td><code>Bit</code> DFHDL value</td>
+<td><code>Boolean</code> DFHDL value</td>
+</tr>
+<tr>
+<td><code>lhs.falling</code></td>
+<td>True when a value changes from <code>1</code> to <code>0</code></td>
+<td><code>Bit</code> DFHDL value</td>
+<td><code>Boolean</code> DFHDL value</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">EDDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">clk</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span>
+
+<span class="w">  </span><span class="cm">/* VHDL-style */</span>
+<span class="w">  </span><span class="n">process</span><span class="p">(</span><span class="n">clk</span><span class="p">):</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">clk</span><span class="p">.</span><span class="n">rising</span><span class="p">)</span><span class="w"> </span>
+<span class="w">      </span><span class="c1">//some sequential logic</span>
+
+<span class="w">  </span><span class="cm">/* Verilog-style */</span>
+<span class="w">  </span><span class="n">process</span><span class="p">(</span><span class="n">clk</span><span class="p">.</span><span class="n">rising</span><span class="p">):</span>
+<span class="w">    </span><span class="c1">//some sequential logic</span>
+</code></pre></div></td></tr></table></div>
+<details class="rtl">
+<summary>Transitioning from Verilog</summary>
+<p>Under the <abbr title="Event-Driven">ED</abbr> domain, the <code>x.rising</code> and <code>x.falling</code> operations are equivalent to the Verilog <code>posedge x</code> and <code>negedge x</code>, respectively. 
+In future releases these operations will have an expanded functionality under the other design domains.</p>
+</details>
+<details class="rtl">
+<summary>Transitioning from VHDL</summary>
+<p>Under the <abbr title="Event-Driven">ED</abbr> domain, the <code>x.rising</code> and <code>x.falling</code> operations are equivalent to the VHDL <code>rising_edge(x)</code> and <code>falling_edge(x)</code>, respectively.
+In future releases these operations will have an expanded functionality under the other design domains.</p>
+</details>
+<p>For more information see either the <a class="autorefs autorefs-internal" href="../design-domains/#design-domains">design domains</a> or <a class="autorefs autorefs-internal" href="../processes/#processes">processes</a> sections.</p>
+<h4 id="logical-operations">Logical Operations<a class="headerlink" href="#logical-operations" title="Permanent link"></a></h4>
+<p>Logical operations' return type always match the <abbr title="Left-hand Side">LHS</abbr> argument's type.
+These operations propagate constant modifiers, meaning that if all arguments are constant, the returned value is also a constant.</p>
+<div class="operations">
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Description</th>
+<th><abbr title="Left-hand Side">LHS</abbr>/<abbr title="Right-hand Side">RHS</abbr> Constraints</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lhs &amp;&amp; rhs</code></td>
+<td>Logical AND</td>
+<td>The <abbr title="Left-hand Side">LHS</abbr> argument must be a <code>Bit</code>/<code>Boolean</code> DFHDL value. The <abbr title="Right-hand Side">RHS</abbr> must be a <code>Bit</code>/<code>Boolean</code> candidate.</td>
+<td><abbr title="Left-hand Side">LHS</abbr>-Type DFHDL value</td>
+</tr>
+<tr>
+<td><code>lhs || rhs</code></td>
+<td>Logical OR</td>
+<td>The <abbr title="Left-hand Side">LHS</abbr> argument must be a <code>Bit</code>/<code>Boolean</code> DFHDL value. The <abbr title="Right-hand Side">RHS</abbr> must be a <code>Bit</code>/<code>Boolean</code> candidate.</td>
+<td><abbr title="Left-hand Side">LHS</abbr>-Type DFHDL value</td>
+</tr>
+<tr>
+<td><code>lhs ^ rhs</code></td>
+<td>Logical XOR</td>
+<td>The <abbr title="Left-hand Side">LHS</abbr> argument must be a <code>Bit</code>/<code>Boolean</code> DFHDL value. The <abbr title="Right-hand Side">RHS</abbr> must be a <code>Bit</code>/<code>Boolean</code> candidate.</td>
+<td><abbr title="Left-hand Side">LHS</abbr>-Type DFHDL value</td>
+</tr>
+<tr>
+<td><code>!lhs</code></td>
+<td>Logical NOT</td>
+<td>The argument must be a <code>Bit</code>/<code>Boolean</code> DFHDL value.</td>
+<td><abbr title="Left-hand Side">LHS</abbr>-Type DFHDL value</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="n">bt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w">     </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">t1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bt</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">bl</span><span class="w">    </span><span class="c1">//result type: Bit</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">t2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bt</span><span class="w"> </span><span class="n">^</span><span class="w"> </span><span class="mi">1</span><span class="w">      </span><span class="c1">//result type: Bit</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">t3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bl</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="c1">//result type: Boolean</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">t4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bt</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="kc">true</span><span class="w">  </span><span class="c1">//result type: Bit</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">t5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bl</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">bt</span><span class="w">    </span><span class="c1">//result type: Boolean</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">t6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bl</span><span class="w"> </span><span class="n">^</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="n">bt</span>
+<span class="c1">//`t7` after the candidate implicit</span>
+<span class="c1">//conversions, looks like so:</span>
+<span class="c1">//(bl &amp;&amp; bt.bool) ^ (!(bt || bl.bit)).bool</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">t7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">bl</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">bt</span><span class="p">)</span><span class="w"> </span><span class="n">^</span><span class="w"> </span><span class="o">!</span><span class="p">(</span><span class="n">bt</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">bl</span><span class="p">)</span>
+<span class="c1">//error: swap argument positions to have</span>
+<span class="c1">//the DFHDL value on the LHS.</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">e1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="n">^</span><span class="w"> </span><span class="n">bt</span><span class="w">      </span>
+<span class="c1">//error: swap argument positions to have</span>
+<span class="c1">//the DFHDL value on the LHS.</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">e2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="n">^</span><span class="w"> </span><span class="n">bt</span>
+<span class="c1">//not supported since both arguments</span>
+<span class="c1">//are just candidates</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">e3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="n">^</span><span class="w"> </span><span class="kc">true</span>
+<span class="c1">//This just yields a Scala Boolean, </span>
+<span class="c1">//as a basic operation between Scala</span>
+<span class="c1">//Boolean values.</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">sc</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="kc">true</span>
+</code></pre></div></td></tr></table></div>
+<details class="rtl">
+<summary>Transitioning from Verilog</summary>
+<p>Under the <abbr title="Event-Driven">ED</abbr> domain, the following operations are equivalent:</p>
+<table>
+<thead>
+<tr>
+<th>DFHDL Operation</th>
+<th>Verilog Operation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lhs &amp;&amp; rhs</code></td>
+<td><code>lhs &amp; rhs</code></td>
+</tr>
+<tr>
+<td><code>lhs || rhs</code></td>
+<td><code>lhs | rhs</code></td>
+</tr>
+<tr>
+<td><code>lhs ^ rhs</code></td>
+<td><code>lhs ^ rhs</code></td>
+</tr>
+<tr>
+<td><code>!lhs</code></td>
+<td><code>!lhs</code></td>
+</tr>
+</tbody>
+</table>
+</details>
+<details class="rtl">
+<summary>Transitioning from VHDL</summary>
+<p>Under the <abbr title="Event-Driven">ED</abbr> domain, the following operations are equivalent:</p>
+<table>
+<thead>
+<tr>
+<th>DFHDL Operation</th>
+<th>VHDL Operation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lhs &amp;&amp; rhs</code></td>
+<td><code>lhs and rhs</code></td>
+</tr>
+<tr>
+<td><code>lhs || rhs</code></td>
+<td><code>lhs or rhs</code></td>
+</tr>
+<tr>
+<td><code>lhs ^ rhs</code></td>
+<td><code>lhs xor rhs</code></td>
+</tr>
+<tr>
+<td><code>!lhs</code></td>
+<td><code>not lhs</code></td>
+</tr>
+</tbody>
+</table>
+</details>
+<h4 id="constant-meta-operations">Constant Meta Operations<a class="headerlink" href="#constant-meta-operations" title="Permanent link"></a></h4>
+<p>These operations are activated during the <a class="autorefs autorefs-internal" href="../compilation/#elaboration">elaboration stage</a> of the DFHDL compilation, and are only available for constant <code>Bit</code>/<code>Boolean</code> DFHDL values. 
+Their use case is for meta-programming purposes, to control the generated code without the knowledge of the DFHDL compiler (could be considered as pre-processing steps).</p>
+<div class="operations">
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Description</th>
+<th><abbr title="Left-hand Side">LHS</abbr> Constraints</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lhs.toScalaBitNum</code></td>
+<td>Extracts the known elaboration Scala <code>BitNum</code>(<code>1 | 0</code>) value from a constant DFHDL <code>Bit</code>/<code>Boolean</code> value</td>
+<td>Constant <code>Bit</code>/<code>Boolean</code> DFHDL value</td>
+<td>Scala <code>BitNum</code> value</td>
+</tr>
+<tr>
+<td><code>lhs.toScalaBoolean</code></td>
+<td>Extracts the known elaboration Scala <code>Boolean</code> value from a constant DFHDL <code>Bit</code>/<code>Boolean</code> value</td>
+<td>Constant <code>Bit</code>/<code>Boolean</code> DFHDL value</td>
+<td>Scala <code>Boolean</code> value</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The following runnable example demonstrates how such meta operation affect the elaborated design. 
+The <code>Boolean</code> argument <code>arg</code> of a design <code>Foo</code> is used twice within the design: 
+first, in an <code>if</code> condition directly; and second, in an <code>if</code> condition after a Scala value extraction. 
+When referenced directly, the <code>if</code> is elaborated as-is, but when the <code>if</code> is applied on the extracted Scala value, 
+the <code>if</code> is completely removed and either the block inside the <code>if</code> is elaborated when the argument is true or completely removed if false.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1"><code>Foo</code></label><label for="__tabbed_1_2"><code>Foo(true)</code></label><label for="__tabbed_1_3"><code>Foo(false)</code></label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="p">(</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">arg</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span>
+<span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">arg</span><span class="p">.</span><span class="n">toScalaBoolean</span><span class="p">)</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+</code></pre></div></td></tr></table></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="p">(</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">arg</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span>
+<span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span>
+<span class="w">  </span><span class="n">o</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">0</span>
+</code></pre></div></td></tr></table></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="p">(</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">arg</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span>
+<span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span>
+</code></pre></div></td></tr></table></div>
+</div>
+</div>
+</div>
+<details class="dfhdl">
+<summary>Runnable example</summary>
+<pre class="scastie"><code>import dfhdl.*
+
+class Foo(
+    val arg: Boolean &lt;&gt; CONST
+) extends DFDesign:
+  val o = Bit &lt;&gt; OUT
+  if (!arg) o := 1 
+  if (arg.toScalaBoolean) o := 0
+
+@main def main = 
+  println("Foo(true) Elaboration:")
+  Foo(true).printCodeString
+  println("Foo(false) Elaboration:")
+  Foo(false).printCodeString</code></pre>
+</details>
+<h2 id="DFBits"><code>Bits</code> DFHDL Values<a class="headerlink" href="#DFBits" title="Permanent link"></a></h2>
+<p><code>Bits</code> DFHDL values represent vectors of DFHDL <code>Bit</code> values as elements. 
+The vector bits width (length) is a positive constant number (nilable [zero-width] vectors will be supported in the future).</p>
+<div class="admonition note">
+<p class="admonition-title">Differences between DFHDL <code>Bits</code> and DFHDL Vector of <code>Bit</code></p>
+<p>In addition to <code>Bits</code>, DFHDL also supports <a class="autorefs autorefs-internal" href="#DFVector">generic vectors of any DFHDL values</a>. 
+One could therefore construct a generic vector with <code>Bit</code> as the element DFType. 
+This vector has a different type than <code>Bits</code>, since <code>Bits</code> is a special case, both internally 
+in their implementations and externally in their API. Where applicable, both <code>Bits</code> and generic
+vector of <code>Bits</code> have overlapping equivalent APIs. </p>
+</div>
+<h3 id="dftype-constructors_1">DFType Constructors<a class="headerlink" href="#dftype-constructors_1" title="Permanent link"></a></h3>
+<div class="operations">
+<table>
+<thead>
+<tr>
+<th>Constructor</th>
+<th>Description</th>
+<th>Arg Constraints</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Bits(width)</code></td>
+<td>Construct a <code>Bits</code> DFType with the given <code>width</code> as number of bits.</td>
+<td><code>width</code> is a positive Scala <code>Int</code> or constant DFHDL <code>Int</code> value.</td>
+<td><code>Bits[width.type]</code> DFType</td>
+</tr>
+<tr>
+<td><code>Bits.until(sup)</code></td>
+<td>Construct a <code>Bits</code> DFType with the given <code>sup</code> supremum number the vector is expected to reach. The number of bits is set as <code>clog2(sup)</code>.</td>
+<td><code>sup</code> is a Scala <code>Int</code> or constant DFHDL <code>Int</code> value larger than 1.</td>
+<td><code>Bits[CLog2[width.type]]</code> DFType</td>
+</tr>
+<tr>
+<td><code>Bits.to(max)</code></td>
+<td>Construct a <code>Bits</code> DFType with the given <code>max</code> maximum number the vector is expected to reach. The number of bits is set as <code>clog2(max+1)</code>.</td>
+<td><code>max</code> is a positive Scala <code>Int</code> or constant DFHDL <code>Int</code> value.</td>
+<td><code>Bits[CLog2[width.type+1]]</code> DFType</td>
+</tr>
+<tr>
+<td><code>Bits[W]</code></td>
+<td>Construct a <code>Bits</code> DFType with the given <code>W</code> width as Scala type argument (for advanced users).</td>
+<td><code>width</code> is a positive Scala <code>Int</code> or constant DFHDL <code>Int</code> Singleton type.</td>
+<td><code>Bits[W]</code> DFType</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="n">b8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w">       </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">b3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">.</span><span class="n">until</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">b4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">.</span><span class="n">to</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w">    </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">b9</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">[</span><span class="mi">9</span><span class="p">]</span><span class="w">       </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">w</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">b7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="n">w</span><span class="p">)</span><span class="w">       </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">b6</span><span class="p">:</span><span class="w"> </span><span class="nc">Bits</span><span class="p">[</span><span class="mi">6</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">all</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<details class="rtl">
+<summary>Transitioning from Verilog</summary>
+<ul>
+<li><strong>Specifying a width instead of an index range:</strong> In Verilog bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a <code>[width-1:0]</code> sized vector (for <a class="autorefs autorefs-internal" href="#DFVector">generic vectors</a> the element order the opposite).</li>
+<li><strong>Additional constructors:</strong> DFHDL provides additional constructs to simplify some common Verilog bit vector declaration. For example, instead of declaring <code>reg [$clog2(DEPTH)-1:0] addr</code> in Verilog, in DFHDL simply declare <code>val addr = Bits.until(DEPTH) &lt;&gt; VAR</code>.</li>
+</ul>
+</details>
+<details class="rtl">
+<summary>Transitioning from VHDL</summary>
+<ul>
+<li><strong>Specifying a width instead of an index range:</strong> In VHDL bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a <code>(width-1 downto 0)</code> sized vector (for <a class="autorefs autorefs-internal" href="#DFVector">generic vectors</a> the element order the opposite).</li>
+<li><strong>Additional constructors:</strong> DFHDL provides additional constructs to simplify some common VHDL bit vector declaration. For example, instead of declaring <code>signal addr: std_logic_vector(clog2(DEPTH)-1 downto 0)</code> in VHDL, in DFHDL simply declare <code>val addr = Bits.until(DEPTH) &lt;&gt; VAR</code>.</li>
+</ul>
+</details>
+<h3 id="literal-constant-value-generation">Literal (Constant) Value Generation<a class="headerlink" href="#literal-constant-value-generation" title="Permanent link"></a></h3>
+<p>Literal (constant) DFHDL <code>Bits</code> value generation is carried out through <a class="autorefs autorefs-internal" href="#b-interp">binary</a> and <a class="autorefs autorefs-internal" href="#h-interp">hexadecimal</a> string interpolation, a core <a href="https://docs.scala-lang.org/scala3/book/string-interpolation.html" target="_blank">Scala feature</a> that was customized for DFHDL's exact use-case. There are also bit-accurate <a class="autorefs autorefs-internal" href="#d-interp">decimal</a> and <a class="autorefs autorefs-internal" href="#sd-interp">signed decimal</a> interpolations available that produce <code>UInt</code> and <code>SInt</code> DFHDL values. If needed, those values can be cast to <code>Bits</code>. No octal interpolation is currently available or planned.</p>
+<h4 id="b-interp">Binary Bits String-Interpolator<a class="headerlink" href="#b-interp" title="Permanent link"></a></h4>
+<div class="highlight"><span class="filename">Binary Bits string-interpolation syntax</span><pre><span></span><code><span class="n">b</span><span class="s">&quot;width&#39;bin&quot;</span>
+</code></pre></div>
+<ul>
+<li><strong>bin</strong> is a sequence of <code>0</code>, <code>1</code>, and <code>?</code> characters, each representing a single bit.  <code>?</code> indicates a bit <a class="autorefs autorefs-internal" href="#bubble">bubble</a>. 
+  The leftest (first) character is the most-significant bit (MSB), and the rightest (last) character is 
+  the least-significant bit (LSB). </li>
+<li>Separators <code>' '</code> (space) or <code>_</code> (underscore) within <code>bin</code> are ignored.</li>
+<li><code>bin</code> can also contain interpolated Scala <code>String</code> arguments through <code>${arg}</code>.</li>
+<li><strong>width</strong>, followed by a <strong><code>'</code></strong> (apostrophe), is optional and specifies the bit vector's width. If
+  omitted, the minimal width is inferred from the sequence length. If specified, leading zeros
+  are added at the left of the sequence or the sequence is truncated based on the <code>width</code>. 
+  Truncation only occurs if the MSBits being removed are zeros; otherwise, it triggers a
+  compilation error.</li>
+<li><code>width</code> can be an interpolated argument of either Scala <code>Int</code> or a <a class="autorefs autorefs-internal" href="#DFDecimal">Constant DFHDL <code>Int</code></a> value.</li>
+<li>Returns: A constant DFHDL <code>Bits</code> value with the inferred or set width.</li>
+</ul>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">Binary Bits string-interpolation examples</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">b</span><span class="s">&quot;1&quot;</span><span class="w">        </span><span class="c1">// Value = 1</span>
+<span class="n">b</span><span class="s">&quot;1000&quot;</span><span class="w">     </span><span class="c1">// Value = 1000</span>
+<span class="n">b</span><span class="s">&quot;8&#39;1000&quot;</span><span class="w">   </span><span class="c1">// Value = 00001000</span>
+<span class="n">b</span><span class="s">&quot;3&#39;0100&quot;</span><span class="w">   </span><span class="c1">// Value = 100</span>
+<span class="n">b</span><span class="s">&quot;3&#39;1100&quot;</span><span class="w">   </span><span class="c1">// Compilation error</span>
+<span class="n">b</span><span class="s">&quot;1?11&quot;</span><span class="w">     </span><span class="c1">// Value = 1?11 (? indicates a bit bubble)</span>
+<span class="n">b</span><span class="s">&quot;11_00&quot;</span><span class="w">    </span><span class="c1">// Value = 1100</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;100&quot;</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
+<span class="n">b</span><span class="s">&quot;$width&#39;1${value}1&quot;</span><span class="w"> </span><span class="c1">//Value = 0000011001</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">CONST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
+<span class="n">b</span><span class="s">&quot;$p&#39;0&quot;</span><span class="w"> </span><span class="c1">// Value = 0....0 (p-bits wide)</span>
+</code></pre></div></td></tr></table></div>
+<details class="rtl">
+<summary>Transitioning from Verilog</summary>
+<p>This interpolation covers the Verilog binary literal use-cases, but also adds the ability for parametric <code>width</code> to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.</p>
+</details>
+<details class="rtl">
+<summary>Transitioning from VHDL</summary>
+<p>This interpolation covers the VHDL binary literal use-cases, but also adds the ability for parametric <code>width</code> to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.</p>
+</details>
+<h4 id="h-interp">Hexadecimal Bits String-Interpolator<a class="headerlink" href="#h-interp" title="Permanent link"></a></h4>
+<div class="highlight"><span class="filename">Hexadecimal Bits string-interpolation syntax</span><pre><span></span><code><span class="n">h</span><span class="s">&quot;width&#39;hex&quot;</span>
+</code></pre></div>
+<ul>
+<li><strong>hex</strong> is a sequence of hexadecimal characters (<code>0</code>-<code>9</code>, <code>A</code>-<code>F</code>, <code>a</code>-<code>f</code>, and <code>?</code>)
+  where <code>?</code> indicates a 4-bit <a class="autorefs autorefs-internal" href="#bubble">bubble</a>. Each character represents a 4-bit nibble, 
+  encoded such that the leftest bit is the most-significant bit. <br />
+  The leftest (first) character is the most-significant nibble, and the rightest (last) character is 
+  the least-significant nibble. </li>
+<li>Separators <code>' '</code> (space) or <code>_</code> (underscore) within <code>hex</code> are ignored.</li>
+<li><code>hex</code> can also contain interpolated Scala <code>String</code> arguments through <code>${arg}</code>.</li>
+<li>Binary sequences can be embedded within <code>{bin}</code> tags, allowing integration of <a class="autorefs autorefs-internal" href="#b-interp">binary
+  bit sequences</a> of any length, not necessarily divisible by 4, between hex nibbles.</li>
+<li><strong>width</strong>, followed by a <strong><code>'</code></strong>, is optional and specifies the bit vector's width. If
+  omitted, the minimal width is inferred from the sequence length. If specified, leading zeros
+  are added or the sequence is truncated based on the <code>width</code>. Truncation only occurs if
+  the most significant bits being removed are zeros or bubbles; otherwise, it triggers a
+  compilation error.</li>
+<li><code>width</code> can be an interpolated argument of either Scala <code>Int</code> or a <a class="autorefs autorefs-internal" href="#DFDecimal">Constant DFHDL <code>Int</code></a> value.</li>
+<li>Returns: A constant DFHDL <code>Bits</code> value with the inferred or set width.</li>
+</ul>
+<div class="highlight"><table class="highlighttable"><tr><th colspan="2" class="filename"><span class="filename">Hexadecimal Bits string-interpolation examples</span></th></tr><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="n">h</span><span class="s">&quot;1&quot;</span><span class="w">        </span><span class="c1">// Value = 0001</span>
+<span class="n">h</span><span class="s">&quot;27&quot;</span><span class="w">       </span><span class="c1">// Value = 00100111</span>
+<span class="n">h</span><span class="s">&quot;6&#39;27&quot;</span><span class="w">     </span><span class="c1">// Value = 100111</span>
+<span class="n">h</span><span class="s">&quot;5&#39;27&quot;</span><span class="w">     </span><span class="c1">// Compilation error</span>
+<span class="n">h</span><span class="s">&quot;2?&quot;</span><span class="w">       </span><span class="c1">// Value = 0010????</span>
+<span class="n">h</span><span class="s">&quot;F{00}F&quot;</span><span class="w">   </span><span class="c1">// Value = 1111001111</span>
+<span class="n">h</span><span class="s">&quot;3_3&quot;</span><span class="w">      </span><span class="c1">// Value = 00110011</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;FF&quot;</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
+<span class="n">h</span><span class="s">&quot;$width&#39;${value}&quot;</span><span class="w"> </span><span class="c1">//Value = 0011111111</span>
+</code></pre></div></td></tr></table></div>
+<details class="rtl">
+<summary>Transitioning from Verilog</summary>
+<p>This interpolation covers the Verilog hexadecimal literal use-cases, but also adds the ability for parametric <code>width</code> to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.</p>
+</details>
+<details class="rtl">
+<summary>Transitioning from VHDL</summary>
+<p>This interpolation covers the VHDL hexadecimal literal use-cases, but also adds the ability for parametric <code>width</code> to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.</p>
+</details>
+<h3 id="candidates_1">Candidates<a class="headerlink" href="#candidates_1" title="Permanent link"></a></h3>
+<ul>
+<li>DFHDL <code>Bits</code> values</li>
+<li>DFHDL <code>Bit</code> or <code>Boolean</code> values. This candidate produces a single bit <code>Bits[1]</code> vector. </li>
+<li>DFHDL <code>UInt</code> values</li>
+<li>Scala <code>Tuple</code> combination of any DFHDL values and <code>1</code>/<code>0</code> literal values. This candidate performs bit concatenation of all values, according their order in the tuple, encoded from the most-significant value position down to the least-significant value position.</li>
+<li>Application-only candidate - Same-Element Vector (<code>all(elem)</code>).  </li>
+</ul>
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 1</span>
+<span class="normal"> 2</span>
+<span class="normal"> 3</span>
+<span class="normal"> 4</span>
+<span class="normal"> 5</span>
+<span class="normal"> 6</span>
+<span class="normal"> 7</span>
+<span class="normal"> 8</span>
+<span class="normal"> 9</span>
+<span class="normal">10</span>
+<span class="normal">11</span>
+<span class="normal">12</span>
+<span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="kd">val</span><span class="w"> </span><span class="n">b8</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">b1</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="c1">//`bit` is implicitly converted to a </span>
+<span class="c1">//Bits[1] DFHDL value.</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bit</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nc">Bit</span><span class="w">     </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="n">b1</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">bit</span>
+<span class="c1">//`bool` is implicitly converted to a </span>
+<span class="c1">//Bits[1] DFHDL value.</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">bool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="n">bool</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">bit</span>
+<span class="c1">//`u8` is implicitly converted to a </span>
+<span class="c1">//Bits[8] DFHDL value.</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">u8</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="nc">UInt</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="n">b8</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">u8</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">s4</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="nc">SInt</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">VAR</span>
+<span class="c1">//the tuple is implicitly converted</span>
+<span class="c1">//to a Bits[8] DFHDL value.</span>
+<span class="n">b8</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">s4</span><span class="p">,</span><span class="w"> </span><span class="n">b1</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="s">&quot;10&quot;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+<h3 id="concatenated-assignment">Concatenated Assignment<a class="headerlink" href="#concatenated-assignment" title="Permanent link"></a></h3>
+<p>DFHDL supports a special-case assignment of concatenated DFHDL Bits variables, using a Scala <code>Tuple</code> syntax on <abbr title="Left-hand Side">LHS</abbr> of the assignment operator. Both <abbr title="Left-hand Side">LHS</abbr> and <abbr title="Right-hand Side">RHS</abbr> bits width must be the same. This assignment is just syntactic sugar for multiple separate assignments and carried out during the design <a class="autorefs autorefs-internal" href="../compilation/#elaboration">elaboration</a>. The assignment ordering is from the first value at most-significant position down to the last value at least-significant position.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1"><code>Foo Declaration</code></label><label for="__tabbed_2_2"><code>Foo Elaboration</code></label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">i4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">b2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">b3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">b5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="p">(</span><span class="n">b2</span><span class="p">,</span><span class="w"> </span><span class="n">b5</span><span class="p">,</span><span class="w"> </span><span class="n">b3</span><span class="p">)</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">(</span><span class="n">b</span><span class="s">&quot;101&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">i4</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="s">&quot;111&quot;</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1</span>
+<span class="normal">2</span>
+<span class="normal">3</span>
+<span class="normal">4</span>
+<span class="normal">5</span>
+<span class="normal">6</span>
+<span class="normal">7</span>
+<span class="normal">8</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">DFDesign</span><span class="p">:</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">i4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">IN</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">b2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">b3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">b5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Bits</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="nc">OUT</span>
+<span class="w">  </span><span class="n">b2</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">b</span><span class="s">&quot;10&quot;</span>
+<span class="w">  </span><span class="n">b5</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="p">(</span><span class="n">b</span><span class="s">&quot;1&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">i4</span><span class="p">).</span><span class="n">toBits</span>
+<span class="w">  </span><span class="n">b3</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="n">b</span><span class="s">&quot;111&quot;</span>
+</code></pre></div></td></tr></table></div>
+</div>
+</div>
+</div>
+<details class="dfhdl">
+<summary>Runnable example</summary>
+<pre class="scastie"><code>import dfhdl.*
+
+class Foo extends DFDesign:
+  val i4 = Bits(4) &lt;&gt; IN
+  val b2 = Bits(2) &lt;&gt; OUT
+  val b3 = Bits(3) &lt;&gt; OUT
+  val b5 = Bits(5) &lt;&gt; OUT
+  (b2, b5, b3) := (b"101", i4, b"111")
+
+@main def main = 
+  Foo().printCodeString</code></pre>
+</details>
+<h2 id="DFDecimal"><code>UInt</code>/<code>SInt</code>/<code>Int</code> DFHDL Values<a class="headerlink" href="#DFDecimal" title="Permanent link"></a></h2>
+<h3 id="constant-generation">Constant Generation<a class="headerlink" href="#constant-generation" title="Permanent link"></a></h3>
+<h4 id="d-interp">Decimal String-Interpolator<a class="headerlink" href="#d-interp" title="Permanent link"></a></h4>
+<h4 id="sd-interp">Signed Decimal String-Interpolator<a class="headerlink" href="#sd-interp" title="Permanent link"></a></h4>
+<h2 id="DFEnum">Enumeration DFHDL Values<a class="headerlink" href="#DFEnum" title="Permanent link"></a></h2>
+<h2 id="DFVector">Vector DFHDL Values<a class="headerlink" href="#DFVector" title="Permanent link"></a></h2>
+<h2 id="DFStruct">Struct DFHDL Values<a class="headerlink" href="#DFStruct" title="Permanent link"></a></h2>
+<h2 id="DFTuple">Tuple DFHDL Values<a class="headerlink" href="#DFTuple" title="Permanent link"></a></h2>
+<h2 id="DFOpaque">Opaque DFHDL Values<a class="headerlink" href="#DFOpaque" title="Permanent link"></a></h2>
+<h2 id="DFUnit">Unit (Void) DFHDL Values<a class="headerlink" href="#DFUnit" title="Permanent link"></a></h2>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2021 <a href="https://www.dfiant.works">DFiant Inc.</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.github.com/DFiantWorks/" target="_blank" rel="noopener" title="www.github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M186.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1zM480 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2zm-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3zm-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://linkedin.com/company/dfiant" target="_blank" rel="noopener" title="linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://twitter.com/DFiantWorks" target="_blank" rel="noopener" title="twitter.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a7c05c9e.min.js"></script>
+      
+        <script src="../../javascripts/config.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+      
+        <script src="https://scastie.scala-lang.org/embedded.js"></script>
+      
+        <script src="../../javascripts/scastie.js"></script>
+      
+        <script src="../../javascripts/d3.js"></script>
+      
+        <script src="../../javascripts/elk.bundled.js"></script>
+      
+        <script src="../../javascripts/d3-hwschematic.js"></script>
+      
+        <script src="../../javascripts/d3-hwschematic-embed.js"></script>
+      
+    
+  </body>
+</html>

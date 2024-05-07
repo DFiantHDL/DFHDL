@@ -1,0 +1,29 @@
+direction: right
+classes: {
+  IN: {
+    shape: hexagon
+    style: {
+      fill: "#4DD0E1"
+      stroke: "#00838F"
+    }
+  }
+  OUT: {
+    shape: hexagon
+    style: {
+      fill: "#4DD0E1"
+      stroke: "#00838F"
+    }
+  }
+  conn: {
+    shape: queue
+    style: {
+      stroke: "#7B5E13"
+    }
+  }
+  green_connection: {
+    shape: queue
+    style: {
+      stroke: "#AB47BC"
+    }
+  }
+}
