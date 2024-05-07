@@ -247,9 +247,9 @@ Conc: {
 
 ## State Abstraction
 
-So far, all the examples were [pure (stateless) functions](https://en.wikipedia.org/wiki/Pure_function), whereas frequently in hardware we need to express a *state*. A state is needed when a design must access (previous) values that are no longer (or never were) available on its input. DFHDL assumes every dataflow variable is a token stream and provides constructs to initialize the token history via the `init` construct, reuse tokens via the `.prev` construct, and update the state via the assignment `:=` construct. 
+So far, all the examples were [pure (stateless) functions](https://en.wikipedia.org/wiki/Pure_function){target="_blank"}, whereas frequently in hardware we need to express a *state*. A state is needed when a design must access (previous) values that are no longer (or never were) available on its input. DFHDL assumes every dataflow variable is a token stream and provides constructs to initialize the token history via the `init` construct, reuse tokens via the `.prev` construct, and update the state via the assignment `:=` construct. 
 
-Here we provide various implementations of a [simple moving average](https://en.wikipedia.org/wiki/Moving_average) (SMA); all have a 4-tap average window of a 16-bit integer input and output a 16-bit integer average. With regards to overflow avoidance and precision loss, DFHDL is no different than any other HDL, and we took those into account when we selected our operators and declared the variable widths. Via the SMA examples we can differentiate between two kinds of state: a *derived state*, and a *commit state*. 
+Here we provide various implementations of a [simple moving average](https://en.wikipedia.org/wiki/Moving_average){target="_blank"} (SMA); all have a 4-tap average window of a 16-bit integer input and output a 16-bit integer average. With regards to overflow avoidance and precision loss, DFHDL is no different than any other HDL, and we took those into account when we selected our operators and declared the variable widths. Via the SMA examples we can differentiate between two kinds of state: a *derived state*, and a *commit state*. 
 
 ### Derived State SMA
 
@@ -369,7 +369,7 @@ Instead of relying only on the history of `x`, we can utilize the history of `s0
 ### Commit State SMA
 
 !!! info "Commit State"
-    A commit (feedback) state is a state whose current output value is *dependent* on its previous state value. For example, a [cumulative sum](https://en.wikipedia.org/wiki/Prefix_sum) function output value is dependent on its previous sum output value. 
+    A commit (feedback) state is a state whose current output value is *dependent* on its previous state value. For example, a [cumulative sum](https://en.wikipedia.org/wiki/Prefix_sum){target="_blank"} function output value is dependent on its previous sum output value. 
 
 $$\begin{eqnarray} 
 a_0 &=& 0 \\
