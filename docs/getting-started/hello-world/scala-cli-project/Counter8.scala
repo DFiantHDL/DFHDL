@@ -1,40 +1,9 @@
----
-hide:
-  - toc
----
-
-# ALU
-
-```scastie 
 import dfhdl.* //import all the DFHDL goodness
 
-enum ALUSel extends Encode:
-  case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
-
-class ALU extends DFDesign:
-  val op1 = Bits(32) <> IN
-  val op2 = Bits(32) <> IN
-  val aluSel = ALUSel <> IN
-  val aluOut = Bits(32) <> OUT
-
-  private val shamt = op2(4, 0)
-
-  import ALUSel.*
-  val outCalc: Bits[32] <> VAL = aluSel match
-    case ADD   => op1 + op2
-    case SUB   => op1 - op2
-    case AND   => op1 & op2
-    case OR    => op1 | op2
-    case XOR   => op1 ^ op2
-    case SLT   => (op1.sint < op2.sint).extend
-    case SLTU  => (op1 < op2).extend
-    case SLL   => op1 << shamt
-    case SRL   => op1 >> shamt
-    case SRA   => (op1.sint >> shamt).bits
-    case COPY1 => op1
-    case _     => ?
-  aluOut := outCalc
-end ALU
+/** Generates an 8-bit overlapping count */
+class Counter8 extends RTDesign:
+  val cnt = UInt(8) <> OUT.REG init 0
+  cnt.din := cnt + 1
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // DFHDL Compiler Options:                                                                    //
@@ -47,9 +16,10 @@ given options.CompilerOptions.PrintGenFiles = true
 // given options.CompilerOptions.PrintDesignCodeBefore = true
 // Uncomment to enable printing design code after compilation:
 // given options.CompilerOptions.PrintDesignCodeAfter = true
+// Uncomment to set different clock and reset configurations:
+// given options.CompilerOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
+// given options.CompilerOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 //The entry point to your compilation program starts here
-@main def main = ALU().compile
-```
-
+@main def main = Counter8().compile.commit

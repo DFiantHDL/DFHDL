@@ -1,10 +1,10 @@
 # Initial Setup {#getting-started}
 
-DFHDL is a domain specific language (DSL) library written in the [Scala programming language](https://www.scala-lang.org) (Scala 3.4), and as such it lets you utilize the entire Scala ecosystem, including IDEs, various tools, and other libraries. 
+DFHDL is a domain specific language (DSL) library written in the [Scala programming language](https://www.scala-lang.org){target="_blank"} (Scala 3.4), and as such it lets you utilize the entire Scala ecosystem, including IDEs, various tools, and other libraries. 
 
 ## Installing Scala and Other Dependencies
 
-We recommend installing Scala via [Coursier](https://get-coursier.io/):
+We recommend installing Scala via [Coursier](https://get-coursier.io/){target="_blank"}:
 
 <div class="grid cards" markdown>
 
@@ -70,7 +70,7 @@ We recommend installing Scala via [Coursier](https://get-coursier.io/):
 
     === "Other linux"
 
-        [:octicons-arrow-right-24: Goto Coursier's website](https://get-coursier.io/docs/cli-installation)
+        [:octicons-arrow-right-24: Goto Coursier's website](https://get-coursier.io/docs/cli-installation){target="_blank"}
 
 
 -   :fontawesome-brands-apple:{ .lg .middle } __macOS Instructions__
@@ -112,14 +112,14 @@ We recommend installing Scala via [Coursier](https://get-coursier.io/):
 
     For other OS or instructions please consult the Coursier website.
 
-    [:octicons-arrow-right-24: Goto Coursier's website](https://get-coursier.io/docs/cli-installation)
+    [:octicons-arrow-right-24: Goto Coursier's website](https://get-coursier.io/docs/cli-installation){target="_blank"}
 
 </div>
 
 
 ## IDE Setup
 
-Many IDEs support Scala development. The most popular are [VS Code](https://code.visualstudio.com) and [IntelliJ IDEA](https://www.jetbrains.com/idea). We recommend VS Code with the [Metals](https://scalameta.org/metals/) plugin.
+Many IDEs support Scala development. The most popular are [VS Code](https://code.visualstudio.com){target="_blank"} and [IntelliJ IDEA](https://www.jetbrains.com/idea){target="_blank"}. We recommend VS Code with the [Metals](https://scalameta.org/metals/){target="_blank"} plugin.
 
 Here is a summary of relevant IDEs:
 
@@ -129,48 +129,48 @@ Here is a summary of relevant IDEs:
 
     ---
 
-    [:octicons-arrow-right-24: Download VS Code](https://code.visualstudio.com/download)
+    [:octicons-arrow-right-24: Download VS Code](https://code.visualstudio.com/download){target="_blank"}
 
-    [:octicons-arrow-right-24: Scala Development Guide via Metals](https://scalameta.org/metals/docs/editors/vscode#installation)
+    [:octicons-arrow-right-24: Scala Development Guide via Metals](https://scalameta.org/metals/docs/editors/vscode#installation){target="_blank"}
     
 
 -   :simple-intellijidea:{ .lg .middle } __IntelliJ IDEA__
 
     ---
 
-    [:octicons-arrow-right-24: Download IntelliJ via ToolBox](https://www.jetbrains.com/toolbox-app)
+    [:octicons-arrow-right-24: Download IntelliJ via ToolBox](https://www.jetbrains.com/toolbox-app){target="_blank"}
 
-    [:octicons-arrow-right-24: Scala Development Guide](https://www.jetbrains.com/help/idea/get-started-with-scala.html)
+    [:octicons-arrow-right-24: Scala Development Guide](https://www.jetbrains.com/help/idea/get-started-with-scala.html){target="_blank"}
 
 -   :simple-vim:{ .lg .middle } __Vim__
 
     ---
 
-    [:octicons-arrow-right-24: Download Vim](https://www.vim.org/download.php)
+    [:octicons-arrow-right-24: Download Vim](https://www.vim.org/download.php){target="_blank"}
 
-    [:octicons-arrow-right-24: Scala Development Guide via Metals](https://scalameta.org/metals/docs/editors/vim#nvim-metals)
+    [:octicons-arrow-right-24: Scala Development Guide via Metals](https://scalameta.org/metals/docs/editors/vim#nvim-metals){target="_blank"}
 
 -   :simple-sublimetext:{ .lg .middle } __Sublime Text__
 
     ---
 
-    [:octicons-arrow-right-24: Download Sublime Text](https://www.sublimetext.com/download)
+    [:octicons-arrow-right-24: Download Sublime Text](https://www.sublimetext.com/download){target="_blank"}
 
-    [:octicons-arrow-right-24: Scala Development Guide via Metals](https://scalameta.org/metals/docs/editors/sublime#installing-the-plugins)
+    [:octicons-arrow-right-24: Scala Development Guide via Metals](https://scalameta.org/metals/docs/editors/sublime#installing-the-plugins){target="_blank"}
 
 -   :simple-gnuemacs:{ .lg .middle } __Emacs__
 
     ---
 
-    [:octicons-arrow-right-24: Download Emacs](https://www.gnu.org/software/emacs/download.html)
+    [:octicons-arrow-right-24: Download Emacs](https://www.gnu.org/software/emacs/download.html){target="_blank"}
 
-    [:octicons-arrow-right-24: Scala Development Guide via Metals](https://scalameta.org/metals/docs/editors/emacs#installation)
+    [:octicons-arrow-right-24: Scala Development Guide via Metals](https://scalameta.org/metals/docs/editors/emacs#installation){target="_blank"}
 
 -   ![](https://scalameta.org/metals/img/scalameta-logo.png){.lg .middle width=25} __Other IDE/Instructions__
 
     ---
 
-    [:octicons-arrow-right-24: For other OS or instructions please consult the Metals website.](https://scalameta.org/metals/docs/)
+    [:octicons-arrow-right-24: For other OS or instructions please consult the Metals website.](https://scalameta.org/metals/docs/){target="_blank"}
 
 </div>
 

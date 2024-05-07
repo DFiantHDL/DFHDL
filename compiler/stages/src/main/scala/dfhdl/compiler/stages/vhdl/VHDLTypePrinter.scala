@@ -5,6 +5,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 
 import scala.collection.mutable
+import scala.collection.immutable.{ListSet, ListMap}
 protected trait VHDLTypePrinter extends AbstractTypePrinter:
   type TPrinter <: VHDLPrinter
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = dfType match
@@ -31,6 +32,42 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         .hindent
     s"type ${enumName} is (\n$entries\n);"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
+  private lazy val vectorCellTypes: ListMap[DFType, Option[DFDesignBlock]] =
+    def flatten(dfType: DFType): ListSet[DFType] =
+      dfType match
+        case dt: DFStruct =>
+          ListSet.from(dt.fieldMap.values.flatMap(flatten))
+        case dt: DFOpaque =>
+          flatten(dt.actualType)
+        case dt: DFVector =>
+          flatten(dt.cellType) + dt.cellType
+        case _ => ListSet.empty
+    getSet.designDB.members.foldLeft(ListMap.empty[DFType, Option[DFDesignBlock]]) {
+      case (vectorCellTypeMap, dfVal: DFVal) =>
+        val dfTypes = flatten(dfVal.dfType)
+        if (dfTypes.isEmpty) vectorCellTypeMap
+        else if (dfVal.isPort)
+          vectorCellTypeMap ++ dfTypes.map(t => (t -> None)) // IO means a global vector type
+        else
+          dfTypes.foldLeft(vectorCellTypeMap) { case (vectorCellTypeMap, dfType) =>
+            vectorCellTypeMap.get(dfType) match
+              case Some(Some(owner)) => // named type already found
+                if (owner == dfVal.getOwnerDesign)
+                  vectorCellTypeMap // same design block -> nothing to do
+                else
+                  vectorCellTypeMap + (dfType -> None) // used in more than one block -> global named type
+              case Some(None) => vectorCellTypeMap // known to be a global type
+              // found new named type
+              case None =>
+                // if referenced by a global member -> global named type
+                if (dfVal.isGlobal)
+                  vectorCellTypeMap + (dfType -> None)
+                else
+                  vectorCellTypeMap + (dfType -> Some(dfVal.getOwnerDesign))
+          }
+      case (vectorCellTypeMap, _) => vectorCellTypeMap // not a value
+    }
+  end vectorCellTypes
   private val vectorTypeIdx = mutable.Map.empty[DFVector, Int]
   def csDFVectorDclName(dfType: DFVector): String =
     s"t_array_elem${vectorTypeIdx(dfType)}"

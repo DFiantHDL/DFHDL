@@ -6,25 +6,31 @@ hide:
 # Counter
 
 ```scastie 
-import dfhdl.*
+import dfhdl.* //import all the DFHDL goodness
 
 class Counter(val width: Int <> CONST) extends RTDesign:
+  val en  = Bit         <> IN
   val cnt = UInt(width) <> OUT.REG init 0
-  cnt.din := cnt + 1
+  if (en)
+    cnt.din := cnt + 1
 
-@main def main = 
-  // Uncomment to select vhdl compilation (default is verilog):
-  // given options.CompilerOptions.Backend = backends.vhdl
+////////////////////////////////////////////////////////////////////////////////////////////////
+// DFHDL Compiler Options:                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////
+// Enables printing the generated chosen backend code:
+given options.CompilerOptions.PrintGenFiles = true
+// Uncomment to select vhdl compilation (default is verilog):
+// given options.CompilerOptions.Backend = backends.vhdl
+// Uncomment to enable printing design code before compilation (after elaboration):
+// given options.CompilerOptions.PrintDesignCodeBefore = true
+// Uncomment to enable printing design code after compilation:
+// given options.CompilerOptions.PrintDesignCodeAfter = true
+// Uncomment to set different clock and reset configurations:
+// given options.CompilerOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
+// given options.CompilerOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
+////////////////////////////////////////////////////////////////////////////////////////////////
 
-  // Uncomment to set different clock and reset configurations:
-  // given options.CompilerOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
-  // given options.CompilerOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
-
-  // instantiate the design as top-level 8-bit counter
-  Counter(8)
-    .printCodeString // print design after elaboration in DFHDL syntax
-    .compile // compile according to the selected backend dialect
-    .printCodeString // print design after compilation in DFHDL syntax
-    .printGenFiles // print generated backend files
+//The entry point to your compilation program starts here
+@main def main = Counter(8).compile
 ```
 

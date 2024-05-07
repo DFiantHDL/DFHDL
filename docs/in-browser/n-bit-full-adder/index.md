@@ -6,7 +6,7 @@ hide:
 # N-Bit Full Adder
 
 ```scastie 
-import dfhdl.*
+import dfhdl.* //import all the DFHDL goodness
 
 class FullAdder1 extends EDDesign:
   val a, b, c_in = Bit <> IN
@@ -31,20 +31,20 @@ class FullAdderN(val n: Int) extends EDDesign:
   adder.head.c_in  <> c_in
   adder.last.c_out <> c_out
 
+////////////////////////////////////////////////////////////////////////////////////////////////
+// DFHDL Compiler Options:                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////
+// Enables printing the generated chosen backend code:
+given options.CompilerOptions.PrintGenFiles = true
+// Uncomment to select vhdl compilation (default is verilog):
+// given options.CompilerOptions.Backend = backends.vhdl
+// Uncomment to enable printing design code before compilation (after elaboration):
+// given options.CompilerOptions.PrintDesignCodeBefore = true
+// Uncomment to enable printing design code after compilation:
+// given options.CompilerOptions.PrintDesignCodeAfter = true
+////////////////////////////////////////////////////////////////////////////////////////////////
+
 //The entry point to your compilation program starts here
-@main def main =
-  // Uncomment to select vhdl compilation (default is verilog):
-  // given options.CompilerOptions.Backend = backends.vhdl
-
-  // Uncomment to set different clock and reset configurations:
-  // given options.CompilerOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
-  // given options.CompilerOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
-
-  // instantiate the design as top-level 4-bit full adder
-  FullAdderN(4)
-    .printCodeString // print design after elaboration in DFHDL syntax
-    .compile // compile according to the selected backend dialect
-    .printCodeString // print design after compilation in DFHDL syntax
-    .printGenFiles // print generated backend files
+@main def main = FullAdderN(4).compile
 ```
 

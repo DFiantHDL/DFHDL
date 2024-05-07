@@ -65,31 +65,31 @@ nav:
     - N-Bit Full Adder: in-browser/n-bit-full-adder/index.md
     - Counter: in-browser/counter/index.md
     - LED Blinker: in-browser/led-blinker/index.md
-    - LFSR: in-browser/lfsr/index.md
+    # - LFSR: in-browser/lfsr/index.md
     - ALU: in-browser/alu/index.md
-  - User Guide:
-    - Domain Abstractions: user-guide/design-domains/index.md
-    - Designs & Hierarchies: user-guide/designs/index.md
-    - Type System: user-guide/type-system/index.md
-    - Functions/Methods: user-guide/methods/index.md
-    - Connectivity: user-guide/connectivity/index.md
-    - State/Registers/Memory: user-guide/state/index.md
-    - Conditionals: user-guide/conditionals/index.md
-    - Processes: user-guide/processes/index.md
-    - Interfaces [WIP]: user-guide/interfaces/index.md
-    - Domains [WIP]: user-guide/domains/index.md
-    - Scopes [WIP]: user-guide/scopes/index.md
-    - Naming: user-guide/naming/index.md
-    - Meta Hardware Description: user-guide/meta/index.md
-    - Compilation: user-guide/compilation/index.md
-    - Simulation: user-guide/simulation/index.md
-    - Synthesis: user-guide/synthesis/index.md
-    - Errors: user-guide/errors/index.md
-  - Transitioning:
-    - From Verilog: transitioning/from-verilog/index.md
+  # - User Guide:
+  #   - Domain Abstractions: user-guide/design-domains/index.md
+  #   - Designs & Hierarchies: user-guide/designs/index.md
+  #   - Type System: user-guide/type-system/index.md
+  #   - Functions/Methods: user-guide/methods/index.md
+  #   - Connectivity: user-guide/connectivity/index.md
+  #   - State/Registers/Memory: user-guide/state/index.md
+  #   - Conditionals: user-guide/conditionals/index.md
+  #   - Processes: user-guide/processes/index.md
+  #   - Interfaces [WIP]: user-guide/interfaces/index.md
+  #   - Domains [WIP]: user-guide/domains/index.md
+  #   - Scopes [WIP]: user-guide/scopes/index.md
+  #   - Naming: user-guide/naming/index.md
+  #   - Meta Hardware Description: user-guide/meta/index.md
+  #   - Compilation: user-guide/compilation/index.md
+  #   - Simulation: user-guide/simulation/index.md
+  #   - Synthesis: user-guide/synthesis/index.md
+  #   - Errors: user-guide/errors/index.md
+  # - Transitioning:
+  #   - From Verilog: transitioning/from-verilog/index.md
     # - From VHDL: transitioning/from-vhdl/index.md
   - About:
-    - Release Notes: about/release-notes.md
+    # - Release Notes: about/release-notes.md
     - Contributing: about/contributing.md
     - License: about/LICENSE.md
     - Acknowledgements: about/acknowledgements.md
