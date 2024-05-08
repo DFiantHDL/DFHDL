@@ -35,22 +35,22 @@ You have several options to run Scala programs on your system:
 
 ### Scala-cli Single File
 
-!!!scala "scala-cli single file example"
+???dfhdl "View the scala-cli single file example"
 
     ```{.scala .copy title="Counter8.scala"}
     --8<-- "docs/getting-started/hello-world/scala-cli-single-file/Counter8.scala"
     ```
 
-    ```{.console .copy linenums="0" title="Download and run in your terminal"}
-    curl -o Counter8.scala https://dfianthdl.github.io/getting-started/hello-world/scala-cli-single-file/Counter8.scala
-    scala-cli run ./Counter8.scala
-    ```
+```{.console .copy linenums="0" title="Download and run in your terminal"}
+curl -o Counter8.scala https://dfianthdl.github.io/getting-started/hello-world/scala-cli-single-file/Counter8.scala
+scala-cli run ./Counter8.scala
+```
 
 For more information, please consult the [scala-cli documentation](https://scala-cli.virtuslab.org/docs/overview){target="_blank"}.
 
 ### Scala-cli Project
 
-!!!scala "Scala-cli project example"
+???dfhdl "View the scala-cli project files example"
 
     ```{.scala .copy title="projectFolder/project.scala"}
     --8<-- "docs/getting-started/hello-world/scala-cli-project/project.scala"
@@ -60,11 +60,11 @@ For more information, please consult the [scala-cli documentation](https://scala
     --8<-- "docs/getting-started/hello-world/scala-cli-project/Counter8.scala"
     ```
 
-    ```{.console .copy linenums="0" title="Download and run in your terminal"}
-    curl -o project.scala https://dfianthdl.github.io/getting-started/hello-world/scala-cli-project/project.scala
-    curl -o Counter8.scala https://dfianthdl.github.io/getting-started/hello-world/scala-cli-project/Counter8.scala
-    scala-cli run .
-    ```
+```{.console .copy linenums="0" title="Download and run in your terminal"}
+curl -o project.scala https://dfianthdl.github.io/getting-started/hello-world/scala-cli-project/project.scala
+curl -o Counter8.scala https://dfianthdl.github.io/getting-started/hello-world/scala-cli-project/Counter8.scala
+scala-cli run .
+```
 
 For more information, please consult the [scala-cli documentation](https://scala-cli.virtuslab.org/docs/overview){target="_blank"}.
 
@@ -86,14 +86,14 @@ For more information, please consult the [sbt documentation](https://www.scala-s
 
 We recommend to actively use [Scalafmt](https://scalameta.org/scalafmt/){target="_blank"}, a code formatter for Scala that integrates well with your toolchain. The following setting is recommended for DFHDL designs:
 
-!!!scala "Scalafmt recommended configuration"
+???dfhdl "View the Scalafmt recommended configuration file"
   
     ```{.toml .copy title="projectFolder/.scalafmt.conf"}
     --8<-- "docs/getting-started/hello-world/scala-cli-project/.scalafmt.conf"
     ```
 
-    ```{.console .copy linenums="0" title="Download it via your terminal"}
-    curl -o .scalafmt.conf https://dfianthdl.github.io/getting-started/hello-world/scala-cli-project/.scalafmt.conf
-    ```
+```{.console .copy linenums="0" title="Download it via your terminal"}
+curl -o .scalafmt.conf https://dfianthdl.github.io/getting-started/hello-world/scala-cli-project/.scalafmt.conf
+```
 
 For more information, please consult the [Scalafmt documentation](https://scalameta.org/scalafmt/docs/configuration.html){target="_blank"}.
