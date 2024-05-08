@@ -1,3 +1,8 @@
+---
+hide:
+  - navigation
+---
+
 # DFiant HDL (DFHDL) Docs
 
 The Official DFiant Hardware Description Language (DFHDL) Documentation

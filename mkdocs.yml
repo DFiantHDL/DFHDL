@@ -52,8 +52,9 @@ extra:
         
 
 nav:
+  - Home: index.md
   - Introduction:
-    - DFDocs: index.md
+    # - DFDocs: index.md
     # - 'DFHDL: First Look': intro/first-look/index.md
     - Technology: intro/technology/index.md
   - Getting Started:

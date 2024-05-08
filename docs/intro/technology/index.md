@@ -13,6 +13,24 @@ DFiant attempts to introduce an optimal middle ground, which covers key HDL tech
 
 At the heart of DFiant's innovation is the dataflow hardware description abstraction, a paradigm shift from the traditional RTL model. Instead of relying on wires and registers, dataflow abstraction employs streams of data tokens. This fundamental difference explains why RTL is inherently tied to device specifications and timing constraints, whereas dataflow abstraction remains neutral to such parameters.
 
+<style>
+@media (min-width: 768px) {  
+  article.md-content__inner.md-typeset p {
+    img {
+      max-width: 70%;
+    }
+  }
+
+  .md-content__inner > p:nth-child(9) {
+    text-align: center;
+  }
+
+  .md-content__inner > p:nth-child(14) {
+    text-align: center;
+  }
+}
+</style>
+
 ![dataflow-abstraction](dataflow-light.png#only-light)
 ![dataflow-abstraction](dataflow-dark.png#only-dark)
 
