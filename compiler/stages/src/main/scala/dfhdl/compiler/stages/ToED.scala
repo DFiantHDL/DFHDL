@@ -65,33 +65,21 @@ case object ToED extends Stage:
                 rn.regAlias -> Patch.Remove()
               )
             )
-            @tailrec def getDeps(
-                leftMembers: List[DFMember],
-                handledMembers: Set[DFMember]
-            ): Set[DFMember] =
-              leftMembers match
-                case head :: last =>
-                  head match
-                    case dcl: DFVal.Dcl => getDeps(last, handledMembers)
-                    case _ if !handledMembers.contains(head) =>
-                      val moreMembers = head.getRefs.view.flatMap {
-                        case _: DFRef.TypeRef => None
-                        case r                => Some(r.get)
-                      }
-                      getDeps(last ++ moreMembers, handledMembers + head)
-                    case _ => getDeps(last, handledMembers)
-                case Nil => handledMembers
 
             def processMembers(list: List[DFMember]): List[DFMember] =
-              val processBlockAllMembersSet = list.view.flatMap {
+              val processBlockAllMembersSet: Set[DFMember] = list.view.flatMap {
                 case DesignParam(_)                 => None
                 case net: DFNet if net.isConnection => None
                 case net @ DFNet.Assignment(_, fromVal) if removedNets.contains(net) =>
-                  getDeps(List(fromVal), Set())
+                  fromVal.collectRelMembers(false)
                 case net: DFNet =>
-                  getDeps(List(net), Set())
+                  net :: net.collectRelMembers
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
-                  getDeps(List(ch), Set())
+                  ch.collectRelMembers(false)
+                case cb: DFConditional.Block =>
+                  cb.guardRef.get match
+                    case dfVal: DFVal => cb :: dfVal.collectRelMembers(false)
+                    case _            => List(cb)
                 case _ => None
               }.toSet
 

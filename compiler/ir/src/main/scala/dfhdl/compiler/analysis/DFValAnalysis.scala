@@ -311,16 +311,24 @@ extension (refTW: DFNet.Ref)
       case _ => false
 
 extension (origVal: DFVal)
-  private def collectRelMembersRecur(includeOrigVal: Boolean)(using MemberGetSet): List[DFVal] =
-    if (origVal.isAnonymous && !origVal.isGlobal || includeOrigVal)
-      origVal :: origVal.getRefs.view.map(_.get).flatMap {
-        case dfVal: DFVal => dfVal.collectRelMembersRecur(false)
-        case _            => Nil
-      }.toList
+  private def collectRelMembersRecur(
+      forceIncludeOrigVal: Boolean
+  )(using MemberGetSet): List[DFVal] =
+    if (origVal.isAnonymous && !origVal.isGlobal || forceIncludeOrigVal)
+      origVal :: origVal.getRefs.view
+        .flatMap {
+          case _: DFRef.TypeRef => None
+          case r                => Some(r.get)
+        }
+        .flatMap {
+          case dfVal: DFVal => dfVal.collectRelMembersRecur(false)
+          case _            => Nil
+        }.toList
     else Nil
   @targetName("collectRelMembersDFVal")
   def collectRelMembers(includeOrigVal: Boolean)(using MemberGetSet): List[DFVal] =
     origVal.collectRelMembersRecur(includeOrigVal).reverse
+end extension
 
 extension (net: DFNet)
   @targetName("collectRelMembersDFNet")
