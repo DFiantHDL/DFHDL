@@ -2,7 +2,7 @@ commands += DFHDLCommands.quickTestSetup
 
 // format: off
 val projectName = "dfhdl"
-val compilerVersion = "3.4.0"
+val compilerVersion = "3.4.1"
 
 inThisBuild(
   List(
