@@ -23,5 +23,9 @@ jobs:
         with:
           jvm: adopt:16
           apps: sbt bloop
+      - name: Setup Simulation Tools
+        run: |
+          apt-get install verilator
+          apt-get install ghdl
       - name: Run tests
         run: sbt test
