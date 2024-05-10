@@ -313,4 +313,48 @@ class ToEDSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("DFMatch test case 1") {
+    class Test extends RTDesign:
+      val status = UInt(8) <> VAR
+      status match
+        case 0 =>
+
+    val top = Test().toED
+    assertCodeString(
+      top,
+      """|class Test extends EDDesign:
+         |  val status = UInt(8) <> VAR
+         |  process(all):
+         |    status match
+         |      case d"8'0" =>
+         |    end match
+         |end Test
+         |""".stripMargin
+    )
+  }
+  test("DFMatch test case 2") {
+    class Test extends RTDesign:
+      val status = UInt(8) <> VAR.REG
+      status match
+        case 0 =>
+
+    val top = Test().toED
+    assertCodeString(
+      top,
+      """|class Test extends EDDesign:
+         |  val clk = Bit <> IN
+         |  val rst = Bit <> IN
+         |  val status = UInt(8) <> VAR
+         |  val status_din = UInt(8) <> VAR
+         |  process(all):
+         |    status_din := status
+         |    status match
+         |      case d"8'0" =>
+         |    end match
+         |  process(clk):
+         |    if (clk.rising) status :== status_din
+         |end Test
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

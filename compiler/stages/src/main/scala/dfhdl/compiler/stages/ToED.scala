@@ -101,16 +101,15 @@ case object ToED extends Stage:
               new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = DFC.Domain.ED):
                 // create a combinational process if needed
                 val hasProcessAll = dclREGList.nonEmpty || processBlockAllMembers.exists {
-                  case net: DFNet => true
-                  case _          => false
+                  case net: DFNet               => true
+                  case ch: DFConditional.Header => true
+                  case _                        => false
                 }
                 val dcl_din_vars =
                   for (orig <- dclREGList)
                     yield orig.asValAny.genNewVar(using
                       dfc.setMeta(orig.meta.setName(s"${orig.getName}_din"))
                     ).asIR
-                val dclChangeList = dclREGList.lazyZip(dcl_din_vars).toList
-                val newRefs = mutable.Map.empty[DFVal.Dcl, Set[DFRefAny]]
                 if (hasProcessAll)
                   process(all) {
                     val inVHDL = co.backend match
@@ -120,26 +119,34 @@ case object ToED extends Stage:
                       if (inVHDL) dcl_din.asVarAny :== dclREG.asValAny
                       else dcl_din.asVarAny := dclREG.asValAny
                     }
-                    processBlockAllMembers.foreach {
-                      case net: DFNet =>
-                        @tailrec def addDinRef(ref: DFRefAny): Unit =
-                          ref.get match
-                            case dcl: DFVal.Dcl if dcl.modifier.reg =>
-                              newRefs += dcl -> (newRefs.getOrElse(dcl, Set()) + ref)
-                            case partial: DFVal.Alias.Partial =>
-                              addDinRef(partial.relValRef)
-                            case _ => // do nothing
-                        addDinRef(net.lhsRef)
-                        if (inVHDL) plantMember(net.copy(op = DFNet.Op.NBAssignment))
-                        else plantMember(net)
-                      case m =>
-                        plantMember(m)
-                    }
+                    if (inVHDL)
+                      processBlockAllMembers.foreach {
+                        case net: DFNet => plantMember(net.copy(op = DFNet.Op.NBAssignment))
+                        case m          => plantMember(m)
+                      }
+                    else processBlockAllMembers.foreach(plantMember(_))
                   }
+                val dclChangeList = dclREGList.lazyZip(dcl_din_vars).toList
+                // create map of all reg dcls references that are used to assign to the registers,
+                // or partial selection of the registers
+                val dclChangeRefMap = mutable.Map.empty[DFVal.Dcl, Set[DFRefAny]]
+                processBlockAllMembers.foreach {
+                  case net: DFNet =>
+                    @tailrec def addDinRef(ref: DFRefAny): Unit =
+                      ref.get match
+                        case dcl: DFVal.Dcl if dcl.modifier.reg =>
+                          dclChangeRefMap += dcl -> (dclChangeRefMap.getOrElse(dcl, Set()) + ref)
+                        case partial: DFVal.Alias.Partial =>
+                          addDinRef(partial.relValRef)
+                        case _ => // do nothing
+                    addDinRef(net.lhsRef)
+                  case _ => // do nothing
+                }
                 val dclChangePatch = dclChangeList.map((from, to) =>
+                  val changeRefs = dclChangeRefMap.getOrElse(from, Set()).toSet
                   val refFilter = new Patch.Replace.RefFilter:
                     def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
-                      newRefs(from).toSet
+                      changeRefs
                   from -> Patch.Replace(
                     to,
                     Patch.Replace.Config.ChangeRefOnly,
