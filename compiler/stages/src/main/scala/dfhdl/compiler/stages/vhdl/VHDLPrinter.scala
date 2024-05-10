@@ -150,7 +150,7 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |end;
        |function slv_srl(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector is
        |begin
-       |    return to_slv(unsigned(slv) sla to_integer(num_shifts));
+       |    return to_slv(unsigned(slv) srl to_integer(num_shifts));
        |end;
        |function signed_sra(A : signed; num_shifts : unsigned) return signed is
        |begin
