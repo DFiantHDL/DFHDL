@@ -125,7 +125,12 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           case ifBlock: DFConditional.DFIfElseBlock => csDFIfEnd(ifBlock)
       else ""
     val indentBody =
-      if (body.contains("\n"))
+      if (
+        // indented body if its multiline
+        body.contains("\n") ||
+        // indented body if starts with an `if`
+        body.startsWith("if")
+      )
         s"${csBlockBegin.emptyOr(" " + _)}\n${body.hindent}${csBlockEnd.emptyOr("\n" + _)}"
       else s" $body"
     if (body.isEmpty) cb match

@@ -20,7 +20,9 @@ trait Tool:
   ): CompiledDesign[D] =
     import scala.sys.process.*
     val pwd = new java.io.File(co.topCommitPath(cd.stagedDB))
-    Process(cmd, pwd).!
+    val errCode = Process(cmd, pwd).!
+    if (errCode != 0)
+      sys.exit(errCode)
     cd
 end Tool
 
