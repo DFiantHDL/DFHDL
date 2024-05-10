@@ -154,7 +154,7 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |end;
        |function signed_sra(A : signed; num_shifts : unsigned) return signed is
        |begin
-       |    return signed(unsigned(A) sra to_integer(num_shifts));
+       |    return shift_right(A, to_integer(num_shifts));
        |end;
        |end package body ${printer.packageName};
        |""".stripMargin
