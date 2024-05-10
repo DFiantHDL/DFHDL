@@ -25,7 +25,7 @@ jobs:
           apps: sbt bloop
       - name: Setup Simulation Tools
         run: |
-          apt-get install verilator
-          apt-get install ghdl
+          sudo apt-get install verilator
+          sudo apt-get install ghdl
       - name: Run tests
         run: sbt test
