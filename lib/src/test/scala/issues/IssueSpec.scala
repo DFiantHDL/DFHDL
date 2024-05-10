@@ -12,3 +12,6 @@ class IssuesSpec extends FunSuite:
   test("i126 compiles and passes VHDL linting"):
     given options.CompilerOptions.Backend = backends.vhdl
     i126.TypeConvertIssue().compile.lint
+  test("i129 compiles and passes VHDL linting"):
+    given options.CompilerOptions.Backend = backends.vhdl
+    i129.StdLogicConvIssue().compile.lint
