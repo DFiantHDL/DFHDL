@@ -19,6 +19,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
       case (false, _) => ???
       case (true, _)  => ???
 
+  def csDFEnumTypeName(dfType: DFEnum): String = s"t_enum_${dfType.getName}"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.getName
     val entries =
@@ -30,8 +31,8 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     // in such a case (change to a vector and list of constants) and then remove the special case handling
     // here.
     val explicitWidth = if (global) s" [${dfType.width - 1}:0]" else ""
-    s"typedef enum$explicitWidth {\n${entries.hindent}\n} ${enumName};"
-  def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
+    s"typedef enum$explicitWidth {\n${entries.hindent}\n} ${csDFEnumTypeName(dfType)};"
+  def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = csDFEnumTypeName(dfType)
   def csDFVectorRanges(dfType: DFType): String =
     dfType match
       case vec: DFVector => s" [0:${vec.cellDims.head - 1}]${csDFVectorRanges(vec.cellType)}"
@@ -39,17 +40,18 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
     s"${csDFType(cellType, typeCS)}"
+  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"t_opaque_${dfType.getName}"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
-    s"typedef ${csDFType(dfType.actualType, typeCS = true)} ${dfType.getName}${csDFVectorRanges(dfType.actualType)};"
-  def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
+    s"typedef ${csDFType(dfType.actualType, typeCS = true)} ${csDFOpaqueTypeName(dfType)}${csDFVectorRanges(dfType.actualType)};"
+  def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = csDFOpaqueTypeName(dfType)
+  def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.getName}"
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${csDFType(t, typeCS = true)} $n${csDFVectorRanges(t)};")
       .mkString("\n")
       .hindent
-    s"typedef struct packed {\n$fields\n} ${dfType.getName};"
-  def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
-    dfType.getName
+    s"typedef struct packed {\n$fields\n} ${csDFStructTypeName(dfType)};"
+  def csDFStruct(dfType: DFStruct, typeCS: Boolean): String = csDFStructTypeName(dfType)
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = printer.unsupported
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String = printer.unsupported
 end VerilogTypePrinter

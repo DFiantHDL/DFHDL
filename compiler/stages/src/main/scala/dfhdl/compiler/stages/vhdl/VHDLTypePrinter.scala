@@ -23,6 +23,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       case (false, _) => ???
       case (true, _)  => ???
 
+  def csDFEnumTypeName(dfType: DFEnum): String = s"t_enum_${dfType.getName}"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.getName
     val entries =
@@ -30,8 +31,8 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         .map((n, v) => s"${enumName}_$n")
         .mkString(", ")
         .hindent
-    s"type ${enumName} is (\n$entries\n);"
-  def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
+    s"type ${csDFEnumTypeName(dfType)} is (\n$entries\n);"
+  def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = csDFEnumTypeName(dfType)
   private lazy val vectorCellTypes: ListMap[DFType, Option[DFDesignBlock]] =
     def flatten(dfType: DFType): ListSet[DFType] =
       dfType match
@@ -82,22 +83,25 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         vectorTypeIdx += dfType -> idx
         idx
     s"${csDFVectorDclName(dfType)}(0 to ${cellDims.head} - 1)"
+  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"t_opaque_${dfType.getName}"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
-    s"subtype ${dfType.getName} is ${csDFType(dfType.actualType)};"
-  def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
+    s"subtype ${csDFOpaqueTypeName(dfType)} is ${csDFType(dfType.actualType)};"
+  def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = csDFOpaqueTypeName(dfType)
+  def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.getName}"
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${n} : ${csDFType(t)};")
       .mkString("\n")
       .hindent(1)
-    s"type ${dfType.getName} is record\n$fields\nend record;"
-  def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
-    dfType.getName
+    s"type ${csDFStructTypeName(dfType)} is record\n$fields\nend record;"
+  def csDFStruct(dfType: DFStruct, typeCS: Boolean): String = csDFStructTypeName(dfType)
   def csDFStructConvFuncsDcl(dfType: DFStruct): String =
-    s"""|function get_length(A: ${dfType.getName}) return integer;
-        |function to_slv(A: ${dfType.getName}) return std_logic_vector;
-        |function to_${dfType.getName}(A: std_logic_vector) return ${dfType.getName};""".stripMargin
+    val typeName = csDFStructTypeName(dfType)
+    s"""|function get_length(A: ${typeName}) return integer;
+        |function to_slv(A: ${typeName}) return std_logic_vector;
+        |function to_${typeName}(A: std_logic_vector) return ${typeName};""".stripMargin
   def csDFStructConvFuncsBody(dfType: DFStruct): String =
+    val typeName = csDFStructTypeName(dfType)
     def getLengthFunc(dfType: DFType, csArg: String): String = dfType match
       case DFBits(_) | DFUInt(_) | DFSInt(_) => s"$csArg'length"
       case _: DFBoolOrBit                    => "1"
@@ -118,14 +122,14 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     val fieldAssignments = dfType.fieldMap.map { (n, t) =>
       s"lo := hi + 1; hi := lo + ${getLengthFunc(t, s"ret.$n")} - 1; ret.$n := ${printer.csBitsToType(t, "A(hi downto lo)")};"
     }.mkString("\n  ")
-    s"""|function get_length(A: ${dfType.getName}) return integer is
+    s"""|function get_length(A: ${typeName}) return integer is
         |  variable len : integer;
         |begin
         |  len := 0;
         |  ${fieldLengths}
         |  return len;
         |end;
-        |function to_slv(A: ${dfType.getName}) return std_logic_vector is
+        |function to_slv(A: ${typeName}) return std_logic_vector is
         |  variable hi : integer;
         |  variable lo : integer;
         |  variable ret : std_logic_vector(get_length(A) - 1 downto 0);
@@ -134,10 +138,10 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |  ${vecAssignments}
         |  return ret;
         |end;
-        |function to_${dfType.getName}(A: std_logic_vector) return ${dfType.getName} is
+        |function to_${typeName}(A: std_logic_vector) return ${typeName} is
         |  variable hi : integer;
         |  variable lo : integer;
-        |  variable ret : ${dfType.getName};
+        |  variable ret : ${typeName};
         |begin
         |  hi := -1;
         |  ${fieldAssignments}

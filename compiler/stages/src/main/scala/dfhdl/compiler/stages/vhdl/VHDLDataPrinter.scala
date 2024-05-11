@@ -45,7 +45,7 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csConstData(dfType.actualType, data).applyBrackets()}.as(${dfType.getName})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
-    dfType.getName + dfType.fieldMap
+    printer.csDFStructTypeName(dfType) + dfType.fieldMap
       .lazyZip(data)
       .map { case ((n, t), d) =>
         s"$n = ${csConstData(t, d)}"

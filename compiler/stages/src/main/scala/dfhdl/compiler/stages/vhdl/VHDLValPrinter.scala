@@ -86,7 +86,12 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         dfVal.op match
           case DFVal.Func.Op.++ =>
             dfVal.dfType match
-              case DFStruct(_, _) => printer.unsupported
+              case dfType @ DFStruct(_, _) =>
+                printer.csDFStructTypeName(dfType) + dfType.fieldMap
+                  .lazyZip(args.map(_.refCodeString))
+                  .map { case ((n, _), d) => s"$n = $d" }
+                  .mkStringBrackets
+
               case DFVector(_, _) => printer.unsupported
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>

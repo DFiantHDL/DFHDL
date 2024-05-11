@@ -258,21 +258,21 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
   test("literals") {
     class Top extends EDDesign:
-      val c01: Bit <> CONST      = 0
-      val c02: Bit <> CONST      = 1
-      val c03: Bit <> CONST      = ?
-      val c04: Boolean <> CONST  = false
-      val c05: Boolean <> CONST  = true
-      val c06: Bits[8] <> CONST  = h"22"
-      val c07: Bits[7] <> CONST  = h"7'22"
-      val c08: Bits[3] <> CONST  = b"101"
-      val c09: UInt[3] <> CONST  = 7
-      val c10: UInt[48] <> CONST = d"48'239794508230343"
-      val c11: SInt[4] <> CONST  = -8
-      val c12: SInt[49] <> CONST = sd"49'-239794508230343"
-      val c13: UInt[8] <> CONST  = ?
-      val c14: SInt[8] <> CONST  = ?
-      // val c15: (Bits[3], Bit) <> CONST = (all(0), 1)
+      val c01: Bit <> CONST            = 0
+      val c02: Bit <> CONST            = 1
+      val c03: Bit <> CONST            = ?
+      val c04: Boolean <> CONST        = false
+      val c05: Boolean <> CONST        = true
+      val c06: Bits[8] <> CONST        = h"22"
+      val c07: Bits[7] <> CONST        = h"7'22"
+      val c08: Bits[3] <> CONST        = b"101"
+      val c09: UInt[3] <> CONST        = 7
+      val c10: UInt[48] <> CONST       = d"48'239794508230343"
+      val c11: SInt[4] <> CONST        = -8
+      val c12: SInt[49] <> CONST       = sd"49'-239794508230343"
+      val c13: UInt[8] <> CONST        = ?
+      val c14: SInt[8] <> CONST        = ?
+      val c15: (Bits[3], Bit) <> CONST = (all(0), 1)
     end Top
     val top = (new Top).getCompiledCodeString
     assertNoDiff(
@@ -286,6 +286,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Top;
          |
          |architecture Top_arch of Top is
+         |  type t_struct_DFTuple2 is record
+         |    _1 : std_logic_vector(2 downto 0);
+         |    _2 : std_logic;
+         |  end record;
          |  constant c01 : std_logic := '0';
          |  constant c02 : std_logic := '1';
          |  constant c03 : std_logic := '-';
@@ -300,6 +304,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant c12 : signed(48 downto 0) := -49d"239794508230343";
          |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
          |  constant c14 : signed(7 downto 0) := signed'(x"--");
+         |  constant c15 : t_struct_DFTuple2 := t_struct_DFTuple2(_1 = "000", _2 = '1');
          |begin
          |
          |end Top_arch;
