@@ -94,6 +94,6 @@ given options.CompilerOptions.PrintGenFiles = true
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 //The entry point to your compilation program starts here
-@main def hello = UART_Tx(50000, 115200).compile.lint
+@main def hello = UART_Tx(50000, 115200).compile
 ```
 
