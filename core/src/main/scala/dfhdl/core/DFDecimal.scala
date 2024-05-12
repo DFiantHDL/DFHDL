@@ -1285,12 +1285,13 @@ object DFUInt:
           unsignedCheck: Unsigned.Check[R < 0],
           ubCheck: `UB > R`.CheckNUB[UB, R]
       ): UBArg[UB, R] with
-        type OutW = IntP.CLog2[UB]
+        type OutW = IntP.Max[IntP.CLog2[UB], 1]
         type OutP = CONST
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
           unsignedCheck(arg < 0)
           ubCheck(ub, arg)
-          DFVal.Const(DFUInt(ub.clog2), Some(BigInt(arg)))
+          val width = ub.clog2.max(1)
+          DFVal.Const(DFUInt(width), Some(BigInt(arg)))
       end fromInt
       given fromR[UB <: IntP, R, IC <: DFXInt.Val.Candidate[R]](using
           ic: IC
