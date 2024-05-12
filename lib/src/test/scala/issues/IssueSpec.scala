@@ -17,3 +17,6 @@ class IssuesSpec extends FunSuite:
     i129.StdLogicConvIssue().compile.lint
   test("i131 compiles with no exception"):
     i131.DictControl(fetch_count = 2).compile
+  test("i133 compiles with no exception"):
+    i133.Width0Issue(1).compile
+end IssuesSpec
