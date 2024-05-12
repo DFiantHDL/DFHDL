@@ -357,4 +357,22 @@ class ToEDSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("If + param test case") {
+    class Test(val width: Int <> CONST) extends RTDesign():
+      val c = Boolean     <> IN
+      val v = Bits(width) <> VAR
+      if (c) v(0) := 1
+
+    val top = Test(2).toED
+    assertCodeString(
+      top,
+      """|class Test(val width: Int <> CONST = 2) extends EDDesign:
+         |  val c = Boolean <> IN
+         |  val v = Bits(width) <> VAR
+         |  process(all):
+         |    if (c) v(0) := 1
+         |end Test
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

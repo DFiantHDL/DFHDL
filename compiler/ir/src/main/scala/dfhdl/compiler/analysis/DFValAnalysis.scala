@@ -315,11 +315,7 @@ extension (origVal: DFVal)
       forceIncludeOrigVal: Boolean
   )(using MemberGetSet): List[DFVal] =
     if (origVal.isAnonymous && !origVal.isGlobal || forceIncludeOrigVal)
-      origVal :: origVal.getRefs.view
-        .flatMap {
-          case _: DFRef.TypeRef => None
-          case r                => Some(r.get)
-        }
+      origVal :: origVal.getRefs.map(_.get).view
         .flatMap {
           case dfVal: DFVal => dfVal.collectRelMembersRecur(false)
           case _            => Nil

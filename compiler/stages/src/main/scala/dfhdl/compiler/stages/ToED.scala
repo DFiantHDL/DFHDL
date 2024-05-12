@@ -88,10 +88,13 @@ case object ToED extends Stage:
                 case DesignParam(_) => None
                 case cb: DFConditional.Block if cb.getHeaderCB.dfType == DFUnit =>
                   cb :: processMembers(designDB.blockMemberTable(cb))
-                case dsn: DFOwnerNamed                          => None
-                case history: DFVal.Alias.History               => None
-                case m if processBlockAllMembersSet.contains(m) => Some(m)
-                case _                                          => None
+                case dsn: DFOwnerNamed            => None
+                case history: DFVal.Alias.History => None
+                case m if processBlockAllMembersSet.contains(m) =>
+                  m match
+                    case dfVal: DFVal if dfVal.isReferencedByAnyDcl => None
+                    case _                                          => Some(m)
+                case _ => None
               }
             end processMembers
             val processBlockAllMembers = processMembers(members)
