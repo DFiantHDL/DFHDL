@@ -62,7 +62,8 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         .map(printer.csDFMember)
         .toList
         .emptyOr(_.mkString("\n"))
-    val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
+    val declarations =
+      s"${localTypeDcls.emptyOr(x => s"$x\n")}$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl => false
       case DclConst()   => false

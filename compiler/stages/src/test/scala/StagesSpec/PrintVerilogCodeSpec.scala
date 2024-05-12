@@ -283,7 +283,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  typedef struct packed {
          |    logic [2:0] _1;
          |    logic _2;
-         |  } DFTuple2;
+         |  } t_struct_DFTuple2;
          |  parameter logic c01 = 1'b0;
          |  parameter logic c02 = 1'b1;
          |  parameter logic c03 = 1'bx;
@@ -298,7 +298,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter logic signed [48:0] c12 = -49'sd239794508230343;
          |  parameter logic [7:0] c13 = 8'hxx;
          |  parameter logic signed [7:0] c14 = $signed(8'hxx);
-         |  parameter DFTuple2 c15 = '{3'h0, 1'b1};
+         |  parameter t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
          |
          |endmodule
          |""".stripMargin
