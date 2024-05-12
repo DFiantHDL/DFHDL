@@ -135,4 +135,12 @@ class DFStructSpec extends DFSpec:
       """val xyz = XYZ <> VAR init XYZ(XY(x = u8v, y = b"101"), 0)"""
     )
   }
+  test("Big Endian Packed Order") {
+    case class XYZW(x: Bits[8] <> VAL, y: Bits[8] <> VAL, z: Bits[8] <> VAL, w: Bits[8] <> VAL)
+        extends Struct
+    val v: XYZW <> CONST = XYZW(h"12", h"34", h"56", h"78")
+    val b = h"12345678"
+    assert((b == v.bits).toScalaBoolean)
+    assert((b.as(XYZW) == v).toScalaBoolean)
+  }
 end DFStructSpec
