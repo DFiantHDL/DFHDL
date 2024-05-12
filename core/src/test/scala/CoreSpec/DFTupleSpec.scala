@@ -56,4 +56,11 @@ class DFTupleSpec extends DFSpec:
     tplA.verifyWidth(12)
     tplB.verifyWidth(12)
   }
+
+  test("Big Endian Packed Order") {
+    val v: (Bits[8], Bits[8], Bits[8], Bits[8]) <> CONST = (h"12", h"34", h"56", h"78")
+    val b = h"12345678"
+    assert((b == v.bits).toScalaBoolean)
+    assert((b.as((Bits[8], Bits[8], Bits[8], Bits[8])) == v).toScalaBoolean)
+  }
 end DFTupleSpec

@@ -59,4 +59,10 @@ class DFVectorSpec extends DFSpec:
       v3 := t
     }
   }
+  test("Big Endian Packed Order") {
+    val v: (Bits[8] X 4) <> CONST = Vector(h"12", h"34", h"56", h"78")
+    val b = h"12345678"
+    assert((b == v.bits).toScalaBoolean)
+    assert((b.as(Bits[8] X 4) == v).toScalaBoolean)
+  }
 end DFVectorSpec
