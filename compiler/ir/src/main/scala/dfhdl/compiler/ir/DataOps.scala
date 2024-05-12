@@ -115,7 +115,18 @@ def calcFuncData[OT <: DFType](
           println(x)
           ???
       ret.asInstanceOf[outType.Data]
-
+    case _: DFVector =>
+      op match
+        case FuncOp.++ => argData.toVector.asInstanceOf[outType.Data]
+        case x =>
+          println(x)
+          ???
+    case _: DFStruct =>
+      op match
+        case FuncOp.++ => argData.asInstanceOf[outType.Data]
+        case x =>
+          println(x)
+          ???
     // the rest bubble args cause a bubble output
     case _ if argTypes.lazyZip(argData).exists((t, d) => t.isDataBubble(d.asInstanceOf[t.Data])) =>
       outType.createBubbleData

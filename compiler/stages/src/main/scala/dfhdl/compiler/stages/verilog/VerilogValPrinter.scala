@@ -49,7 +49,11 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case Func.Op.=!= => "!="
           case Func.Op.max => "`MAX"
           case Func.Op.min => "`MIN"
-          case op          => op.toString
+          case Func.Op.>> =>
+            argL.get.dfType match
+              case DFSInt(_) => ">>>"
+              case _         => ">>"
+          case op => op.toString
         val rhsStr = dfVal.op match
           case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
           case _                       => argR.refCodeString
