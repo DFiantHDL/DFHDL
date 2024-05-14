@@ -49,7 +49,14 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   end csEntityDcl
   def archName(design: DFDesignBlock): String = s"${design.dclName}_arch"
   def csArchitectureDcl(design: DFDesignBlock): String =
-    val localTypeDcls = printer.csLocalTypeDcls(design)
+    val localTypeDcls = printer.csLocalTypeDcls(design).emptyOr(x => s"$x\n")
+    val vectorTypeDcls =
+      printer.getLocalVectorTypes(design).view.map(printer.csDFVectorDclsLocal)
+        .mkString("\n").emptyOr(x => s"$x\n")
+    val structConvFuncs =
+      getSet.designDB.getLocalNamedDFTypes(design).view
+        .collect { case dfType: DFStruct => printer.csDFStructConvFuncsBody(dfType) }
+        .mkString("\n").emptyOr(x => s"$x\n")
     val designMembers = design.members(MemberView.Folded)
     val dfValDcls =
       designMembers.view
@@ -63,7 +70,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         .toList
         .emptyOr(_.mkString("\n"))
     val declarations =
-      s"${localTypeDcls.emptyOr(x => s"$x\n")}$dfValDcls".emptyOr(v => s"\n${v.hindent}")
+      s"$localTypeDcls$vectorTypeDcls$structConvFuncs$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl => false
       case DclConst()   => false

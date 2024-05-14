@@ -44,6 +44,9 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
   def globalFileName: String = s"${printer.packageName}.vhd"
   def designFileName(designName: String): String = s"$designName.vhd"
   override def csGlobalFileContent: String =
+    val vectorTypeDcls =
+      printer.globalVectorTypes.view.map(printer.csDFVectorDclsGlobal)
+        .mkString("\n").emptyOr(x => s"$x\n")
     val structConvFuncsDcl =
       getSet.designDB.getGlobalNamedDFTypes.view
         .collect { case dfType: DFStruct => printer.csDFStructConvFuncsDcl(dfType) }
@@ -57,7 +60,7 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |use ieee.numeric_std.all;
        |
        |package ${printer.packageName} is
-       |${super.csGlobalFileContent + structConvFuncsDcl}
+       |${super.csGlobalFileContent + vectorTypeDcls + structConvFuncsDcl}
        |function cadd(A, B : unsigned) return unsigned;
        |function cadd(A, B : signed) return signed;
        |function csub(A, B : unsigned) return unsigned;

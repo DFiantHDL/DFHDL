@@ -92,10 +92,12 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                   .map { case ((n, _), d) => s"$n = $d" }
                   .mkStringBrackets
 
-              case DFVector(_, _) => printer.unsupported
               // all args are the same ==> repeat function
-              case _ if args.view.map(_.get).allElementsAreEqual =>
-                s"repeat(${args.head.refCodeString},${args.length})"
+              case _ if args.view.map(_.get).forall(_ =~ args.head.get) =>
+                s"(0 to ${args.length}-1 => ${args.head.refCodeString.applyBrackets()})"
+
+              case DFVector(_, _) =>
+                args.map(_.refCodeString).mkStringBrackets
               // regular concatenation function
               case _ => args.map(_.refCodeString).mkString(" & ")
             end match
