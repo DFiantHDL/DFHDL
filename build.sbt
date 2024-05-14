@@ -107,6 +107,7 @@ lazy val lib = project
   )
   .dependsOn(
     core % "test->test;compile->compile",
+    internals % "test->test;compile->compile",
     compiler_stages
   )
 
@@ -174,5 +175,6 @@ lazy val pluginTestUseSettings = Seq(
 )
 
 lazy val commonSettings = Seq(
-  scalacOptions ++= compilerOptions
+  scalacOptions ++= compilerOptions,
+  Test / run / fork := true
 )

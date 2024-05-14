@@ -4,7 +4,7 @@ import munit.*
 import dfhdl.*
 import dfhdl.compiler.stages.getCompiledCodeString
 
-class IssuesSpec extends FunSuite:
+class IssuesSpec extends ExitTrapSuite:
   test("i116 compiles with no exception"):
     i116.GlobCounter(64).compile
   test("i118 compiles and passes VHDL linting"):
