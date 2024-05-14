@@ -294,12 +294,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  type t_vecX1_std_logic_vector is array (natural range <>) of std_logic_vector;
          |  type t_vecX2_std_logic_vector is array (natural range <>) of t_vecX1_std_logic_vector;
          |  function bitWidth(A : t_struct_DFTuple2) return integer is
-         |    variable len : integer;
+         |    variable width : integer;
          |  begin
-         |    len := 0;
-         |    len := len + A._1'length;
-         |    len := len + 1;
-         |    return len;
+         |    width := 0;
+         |    width := width + A._1'length;
+         |    width := width + 1;
+         |    return width;
          |  end;
          |  function to_slv(A : t_struct_DFTuple2) return std_logic_vector is
          |    variable hi : integer;
@@ -316,7 +316,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    variable lo : integer;
          |    variable ret : t_struct_DFTuple2;
          |  begin
-         |    lo := bitWidth(A);
+         |    lo := A'length;
          |    hi := lo - 1; lo := hi - ret._1'length + 1; ret._1 := A(hi downto lo);
          |    hi := lo - 1; lo := hi - 1 + 1; ret._2 := to_sl(A(hi downto lo));
          |    return ret;

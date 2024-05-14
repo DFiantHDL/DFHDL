@@ -70,8 +70,10 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |function to_slv(A : signed) return std_logic_vector;
        |function to_slv(A : boolean) return std_logic_vector;
        |function to_slv(A : std_logic) return std_logic_vector;
-       |function to_sl(b : boolean) return std_logic;
-       |function to_bool(sl : std_logic) return boolean;
+       |function to_sl(A : boolean) return std_logic;
+       |function to_sl(A : std_logic_vector(0 downto 0)) return std_logic;
+       |function to_bool(A : std_logic) return boolean;
+       |function to_bool(A : std_logic_vector(0 downto 0)) return boolean;
        |function resize(A : std_logic_vector; new_length : integer) return std_logic_vector;
        |function slv_sll(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector;
        |function slv_srl(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector;
@@ -130,17 +132,33 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |    return "0";
        |  end if;
        |end;
-       |function to_sl(b : boolean) return std_logic is
+       |function to_sl(A : boolean) return std_logic is
        |begin
-       |  if (b) then
+       |  if (A) then
        |    return '1';
        |  else
        |    return '0';
        |  end if;
        |end;
-       |function to_bool(sl : std_logic) return boolean is
+       |function to_sl(A : std_logic_vector(0 downto 0)) return std_logic is
        |begin
-       |  if (sl = '1') then
+       |  if (A = "1") then
+       |    return '1';
+       |  else
+       |    return '0';
+       |  end if;
+       |end;
+       |function to_bool(A : std_logic) return boolean is
+       |begin
+       |  if (A = '1') then
+       |    return true;
+       |  else
+       |    return false;
+       |  end if;
+       |end;
+       |function to_bool(A : std_logic_vector(0 downto 0)) return boolean is
+       |begin
+       |  if (A = "1") then
        |    return true;
        |  else
        |    return false;

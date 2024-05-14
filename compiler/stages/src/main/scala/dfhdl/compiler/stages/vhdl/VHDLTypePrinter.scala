@@ -147,7 +147,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       case DFBits(_) => csArg
       case _         => s"to_slv($csArg)"
     val fieldLengths = dfType.fieldMap.map { (n, t) =>
-      s"len := len + ${bitWidthFunc(t, s"A.$n")};"
+      s"width := width + ${bitWidthFunc(t, s"A.$n")};"
     }.mkString("\n  ")
     val vecAssignments = dfType.fieldMap.map { (n, t) =>
       s"hi := lo - 1; lo := hi - ${bitWidthFunc(t, s"A.$n")} + 1; ret(hi downto lo) := ${to_slv(t, s"A.$n")};"
@@ -156,11 +156,11 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       s"hi := lo - 1; lo := hi - ${bitWidthFunc(t, s"ret.$n")} + 1; ret.$n := ${printer.csBitsToType(t, "A(hi downto lo)")};"
     }.mkString("\n  ")
     s"""|function bitWidth(A : ${typeName}) return integer is
-        |  variable len : integer;
+        |  variable width : integer;
         |begin
-        |  len := 0;
+        |  width := 0;
         |  ${fieldLengths}
-        |  return len;
+        |  return width;
         |end;
         |function to_slv(A : ${typeName}) return std_logic_vector is
         |  variable hi : integer;
@@ -176,7 +176,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |  variable lo : integer;
         |  variable ret : ${typeName};
         |begin
-        |  lo := bitWidth(A);
+        |  lo := A'length;
         |  ${fieldAssignments}
         |  return ret;
         |end;""".stripMargin
