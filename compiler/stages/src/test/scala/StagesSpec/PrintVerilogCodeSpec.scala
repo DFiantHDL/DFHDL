@@ -256,21 +256,22 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
   test("literals") {
     class Top extends EDDesign:
-      val c01: Bit <> CONST            = 0
-      val c02: Bit <> CONST            = 1
-      val c03: Bit <> CONST            = ?
-      val c04: Boolean <> CONST        = false
-      val c05: Boolean <> CONST        = true
-      val c06: Bits[8] <> CONST        = h"22"
-      val c07: Bits[7] <> CONST        = h"7'22"
-      val c08: Bits[3] <> CONST        = b"101"
-      val c09: UInt[3] <> CONST        = 7
-      val c10: UInt[48] <> CONST       = d"48'239794508230343"
-      val c11: SInt[4] <> CONST        = -8
-      val c12: SInt[49] <> CONST       = sd"49'-239794508230343"
-      val c13: UInt[8] <> CONST        = ?
-      val c14: SInt[8] <> CONST        = ?
-      val c15: (Bits[3], Bit) <> CONST = (all(0), 1)
+      val c01: Bit <> CONST             = 0
+      val c02: Bit <> CONST             = 1
+      val c03: Bit <> CONST             = ?
+      val c04: Boolean <> CONST         = false
+      val c05: Boolean <> CONST         = true
+      val c06: Bits[8] <> CONST         = h"22"
+      val c07: Bits[7] <> CONST         = h"7'22"
+      val c08: Bits[3] <> CONST         = b"101"
+      val c09: UInt[3] <> CONST         = 7
+      val c10: UInt[48] <> CONST        = d"48'239794508230343"
+      val c11: SInt[4] <> CONST         = -8
+      val c12: SInt[49] <> CONST        = sd"49'-239794508230343"
+      val c13: UInt[8] <> CONST         = ?
+      val c14: SInt[8] <> CONST         = ?
+      val c15: (Bits[3], Bit) <> CONST  = (all(0), 1)
+      val c16: Bits[8] X 5 X 7 <> CONST = Vector.fill(7)(Vector.tabulate(5)(i => h"8'$i$i"))
     end Top
     val top = (new Top).getCompiledCodeString
     assertNoDiff(
@@ -299,6 +300,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter logic [7:0] c13 = 8'hxx;
          |  parameter logic signed [7:0] c14 = $signed(8'hxx);
          |  parameter t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
+         |  parameter logic [7:0] c16 [0:6] [0:4] = {{8'h00, 8'h11, 8'h22, 8'h33, 8'h44}, {8'h00, 8'h11, 8'h22, 8'h33, 8'h44}, {8'h00, 8'h11, 8'h22, 8'h33, 8'h44}, {8'h00, 8'h11, 8'h22, 8'h33, 8'h44}, {8'h00, 8'h11, 8'h22, 8'h33, 8'h44}, {8'h00, 8'h11, 8'h22, 8'h33, 8'h44}, {8'h00, 8'h11, 8'h22, 8'h33, 8'h44}};
          |
          |endmodule
          |""".stripMargin

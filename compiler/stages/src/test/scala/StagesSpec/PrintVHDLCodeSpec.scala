@@ -258,21 +258,22 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
   test("literals") {
     class Top extends EDDesign:
-      val c01: Bit <> CONST            = 0
-      val c02: Bit <> CONST            = 1
-      val c03: Bit <> CONST            = ?
-      val c04: Boolean <> CONST        = false
-      val c05: Boolean <> CONST        = true
-      val c06: Bits[8] <> CONST        = h"22"
-      val c07: Bits[7] <> CONST        = h"7'22"
-      val c08: Bits[3] <> CONST        = b"101"
-      val c09: UInt[3] <> CONST        = 7
-      val c10: UInt[48] <> CONST       = d"48'239794508230343"
-      val c11: SInt[4] <> CONST        = -8
-      val c12: SInt[49] <> CONST       = sd"49'-239794508230343"
-      val c13: UInt[8] <> CONST        = ?
-      val c14: SInt[8] <> CONST        = ?
-      val c15: (Bits[3], Bit) <> CONST = (all(0), 1)
+      val c01: Bit <> CONST             = 0
+      val c02: Bit <> CONST             = 1
+      val c03: Bit <> CONST             = ?
+      val c04: Boolean <> CONST         = false
+      val c05: Boolean <> CONST         = true
+      val c06: Bits[8] <> CONST         = h"22"
+      val c07: Bits[7] <> CONST         = h"7'22"
+      val c08: Bits[3] <> CONST         = b"101"
+      val c09: UInt[3] <> CONST         = 7
+      val c10: UInt[48] <> CONST        = d"48'239794508230343"
+      val c11: SInt[4] <> CONST         = -8
+      val c12: SInt[49] <> CONST        = sd"49'-239794508230343"
+      val c13: UInt[8] <> CONST         = ?
+      val c14: SInt[8] <> CONST         = ?
+      val c15: (Bits[3], Bit) <> CONST  = (all(0), 1)
+      val c16: Bits[8] X 5 X 7 <> CONST = Vector.fill(7)(Vector.tabulate(5)(i => h"8'$i$i"))
     end Top
     val top = (new Top).getCompiledCodeString
     assertNoDiff(
@@ -290,6 +291,36 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    _1 : std_logic_vector(2 downto 0);
          |    _2 : std_logic;
          |  end record;
+         |  type t_vecX1_std_logic_vector is array (natural range <>) of std_logic_vector;
+         |  type t_vecX2_std_logic_vector is array (natural range <>) of t_vecX1_std_logic_vector;
+         |  function bitWidth(A : t_struct_DFTuple2) return integer is
+         |    variable len : integer;
+         |  begin
+         |    len := 0;
+         |    len := len + A._1'length;
+         |    len := len + 1;
+         |    return len;
+         |  end;
+         |  function to_slv(A : t_struct_DFTuple2) return std_logic_vector is
+         |    variable hi : integer;
+         |    variable lo : integer;
+         |    variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |  begin
+         |    lo := bitWidth(A);
+         |    hi := lo - 1; lo := hi - A._1'length + 1; ret(hi downto lo) := A._1;
+         |    hi := lo - 1; lo := hi - 1 + 1; ret(hi downto lo) := to_slv(A._2);
+         |    return ret;
+         |  end;
+         |  function to_t_struct_DFTuple2(A : std_logic_vector) return t_struct_DFTuple2 is
+         |    variable hi : integer;
+         |    variable lo : integer;
+         |    variable ret : t_struct_DFTuple2;
+         |  begin
+         |    lo := bitWidth(A);
+         |    hi := lo - 1; lo := hi - ret._1'length + 1; ret._1 := A(hi downto lo);
+         |    hi := lo - 1; lo := hi - 1 + 1; ret._2 := to_sl(A(hi downto lo));
+         |    return ret;
+         |  end;
          |  constant c01 : std_logic := '0';
          |  constant c02 : std_logic := '1';
          |  constant c03 : std_logic := '-';
@@ -305,6 +336,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
          |  constant c14 : signed(7 downto 0) := signed'(x"--");
          |  constant c15 : t_struct_DFTuple2 := t_struct_DFTuple2(_1 = "000", _2 = '1');
+         |  constant c16 : t_vecX2_std_logic_vector(0 to 7 - 1)(0 to 5 - 1)(7 downto 0) := (0 to 7-1 => (x"00", x"11", x"22", x"33", x"44"));
          |begin
          |
          |end Top_arch;
