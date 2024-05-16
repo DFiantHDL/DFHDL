@@ -71,4 +71,7 @@ class IssuesSpec extends FunSuite:
          |endmodule
          |""".stripMargin
     )
+  test("i142 compiles and passes VHDL linting"):
+    given options.CompilerOptions.Backend = backends.vhdl
+    i142.IntegerIndexingIssue().compile.lint
 end IssuesSpec

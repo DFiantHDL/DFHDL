@@ -756,10 +756,17 @@ object DFVal extends DFValLP:
       end forced
     end ApplyRange
     object ApplyIdx:
-      def apply[T <: DFTypeAny, W <: IntP, M <: ModifierAny, IW <: Int](
+      def apply[
+          T <: DFTypeAny,
+          W <: IntP,
+          M <: ModifierAny,
+          IS <: Boolean,
+          IW <: Int,
+          IN <: NativeType
+      ](
           dfType: T,
           relVal: DFVal[DFTypeAny, M],
-          relIdx: DFValOf[DFUInt[IW]]
+          relIdx: DFValOf[DFXInt[IS, IW, IN]]
       )(using DFC): DFVal[T, M] =
         val alias: ir.DFVal.Alias.ApplyIdx =
           ir.DFVal.Alias.ApplyIdx(

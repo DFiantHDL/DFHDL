@@ -75,9 +75,9 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |function to_bool(A : std_logic) return boolean;
        |function to_bool(A : std_logic_vector(0 downto 0)) return boolean;
        |function resize(A : std_logic_vector; new_length : integer) return std_logic_vector;
-       |function slv_sll(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector;
-       |function slv_srl(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector;
-       |function signed_sra(A : signed; num_shifts : unsigned) return signed;
+       |function slv_sll(slv : std_logic_vector; num_shifts : integer) return std_logic_vector;
+       |function slv_srl(slv : std_logic_vector; num_shifts : integer) return std_logic_vector;
+       |function signed_sra(A : signed; num_shifts : integer) return signed;
        |end package ${printer.packageName};
        |
        |package body ${printer.packageName} is
@@ -174,17 +174,17 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |    return A;
        |  end if;
        |end;
-       |function slv_sll(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector is
+       |function slv_sll(slv : std_logic_vector; num_shifts : integer) return std_logic_vector is
        |begin
-       |    return to_slv(unsigned(slv) sll to_integer(num_shifts));
+       |    return to_slv(unsigned(slv) sll num_shifts);
        |end;
-       |function slv_srl(slv : std_logic_vector; num_shifts : unsigned) return std_logic_vector is
+       |function slv_srl(slv : std_logic_vector; num_shifts : integer) return std_logic_vector is
        |begin
-       |    return to_slv(unsigned(slv) srl to_integer(num_shifts));
+       |    return to_slv(unsigned(slv) srl num_shifts);
        |end;
-       |function signed_sra(A : signed; num_shifts : unsigned) return signed is
+       |function signed_sra(A : signed; num_shifts : integer) return signed is
        |begin
-       |    return shift_right(A, to_integer(num_shifts));
+       |    return shift_right(A, num_shifts);
        |end;
        |end package body ${printer.packageName};
        |""".stripMargin

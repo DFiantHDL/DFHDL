@@ -160,7 +160,7 @@ object DFVector:
           import DFDecimal.StrInterpOps.d
           val elementType = lhs.dfType.cellType
           Vector.tabulate(lhs.dfType.cellDims.head)(i =>
-            val idxVal = d"$i".asConstOf[DFUInt[Int]]
+            val idxVal = DFVal.Const(DFInt32, Some(BigInt(i)))
             DFVal.Alias.ApplyIdx(elementType, lhs, idxVal)(using dfc.anonymize)
           )
       end extension

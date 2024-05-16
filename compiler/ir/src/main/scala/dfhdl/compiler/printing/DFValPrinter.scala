@@ -9,7 +9,6 @@ extension (ref: DFRef.TwoWayAny)
   def refCodeString(using printer: AbstractValPrinter): String = printer.csRef(ref, false)
   def refCodeString(typeCS: Boolean)(using printer: AbstractValPrinter): String =
     printer.csRef(ref, typeCS)
-  def simpleRefCodeString(using printer: AbstractValPrinter): String = printer.csSimpleRef(ref)
 
 extension (intParamRef: IntParamRef)
   def refCodeString(typeCS: Boolean)(using printer: AbstractValPrinter): String = intParamRef match
@@ -152,10 +151,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
           case Func.Op.+ | Func.Op.- | Func.Op.`*` if dfVal.dfType.width > argL.get.dfType.width =>
             s"${dfVal.op}^"
           case op => op.toString
-        val rhsStr = dfVal.op match
-          case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
-          case _                       => csArgR
-        s"${csArgL.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
+        s"${csArgL.applyBrackets()} $opStr ${csArgR.applyBrackets()}"
       // unary/postfix func
       case arg :: Nil =>
         val csArg = arg.refCodeString(typeCS)
@@ -240,6 +236,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"""d"${printer.csWidthInterp(tWidthParamRef)}'$${${relValStr}}""""
       case (DFSInt(tWidthParamRef), DFInt32) =>
         s"""sd"${printer.csWidthInterp(tWidthParamRef)}'$${${relValStr}}""""
+      case (DFInt32, DFUInt(_) | DFSInt(_)) =>
+        s"${relValStr}.toInt"
       case _ =>
         throw new IllegalArgumentException("Unsupported alias/conversion")
     end match
@@ -247,7 +245,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     s"${dfVal.relValCodeString}(${dfVal.relBitHigh}, ${dfVal.relBitLow})"
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
-    val relIdxStr = dfVal.relIdx.simpleRefCodeString
+    val relIdxStr = dfVal.relIdx.refCodeString
     s"${dfVal.relValCodeString}($relIdxStr)"
   // when the tuple field number exceeds this number, the tuple
   // field selections changes from `dv._${idx+1}` to `dv($idx)`

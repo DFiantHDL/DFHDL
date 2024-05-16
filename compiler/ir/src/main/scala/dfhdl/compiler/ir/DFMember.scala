@@ -521,7 +521,7 @@ object DFVal:
       object Const:
         def unapply(applyIdx: ApplyIdx)(using MemberGetSet): Option[Int] =
           applyIdx.relIdx.get match
-            case DFVal.Const(DFUInt(_), data: Option[BigInt] @unchecked, _, _, _) =>
+            case DFVal.Const(DFInt32, data: Option[BigInt] @unchecked, _, _, _) =>
               data.map(_.toInt)
             case _ => None
 
