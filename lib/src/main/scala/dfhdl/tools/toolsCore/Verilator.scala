@@ -9,13 +9,16 @@ import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
+import dfhdl.options.VerilatorOptions
 
 object Verilator extends VerilogLinter:
+  type LO = VerilatorOptions
+  val toolName: String = "Verilator"
   def binExec: String =
     val osName: String = sys.props("os.name").toLowerCase
     if (osName.contains("windows")) "verilator_bin" else "verilator"
 
-  def commonFlags: String = "-Wall"
+  def commonFlags(using lo: LO): String = s"-Wall${lo.warnAsError.toFlag("--Werror")} "
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
     // We use `forceWindowsToLinuxPath` fit the verilator needs
     val designsInCmd = cd.stagedDB.srcFiles.view.collect {
@@ -45,7 +48,7 @@ object Verilator extends VerilogLinter:
       CompilerOptions
   ): CompiledDesign[D] =
     addSourceFiles(cd, List(new VerilatorConfigPrinter(using cd.stagedDB.getSet).getSourceFile))
-  def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions): CompiledDesign[D] =
+  def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, LO): CompiledDesign[D] =
     exec(
       cd,
       s"$binExec --lint-only $commonFlags ${filesCmdPart(cd)}"

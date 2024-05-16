@@ -11,8 +11,11 @@ import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
+import dfhdl.options.GHDLOptions
 
 object GHDL extends VHDLLinter:
+  type LO = GHDLOptions
+  val toolName: String = "GHDL"
   def binExec: String = "ghdl"
 
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
@@ -34,7 +37,9 @@ object GHDL extends VHDLLinter:
     // config files must be placed before the design sources
     s"$globalPackage $designsInCmd"
   end filesCmdPart
-  def lint[D <: Design](cd: CompiledDesign[D])(using co: CompilerOptions): CompiledDesign[D] =
+  def lint[D <: Design](
+      cd: CompiledDesign[D]
+  )(using co: CompilerOptions, lo: LO): CompiledDesign[D] =
     val std = co.backend match
       case be: backends.vhdl =>
         be.dialect match
@@ -47,7 +52,7 @@ object GHDL extends VHDLLinter:
         )
     exec(
       cd,
-      s"$binExec -a --std=$std ${filesCmdPart(cd)}"
+      s"$binExec -a${lo.warnAsError.toFlag("--warn-error")} --std=$std ${filesCmdPart(cd)}"
     )
   end lint
 end GHDL
