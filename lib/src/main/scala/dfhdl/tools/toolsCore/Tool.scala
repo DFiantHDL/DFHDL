@@ -30,9 +30,10 @@ trait Tool:
     val errCode = Process(cmd, pwd).!
     if (errCode != 0)
       val msg = s"${toolName} exited with the error code ${errCode}."
-      to.onError match
+      // TODO: there is a false exhaustivity warning here in 3.4.2 or later
+      (to.onError: @unchecked) match
         case OnError.Exit =>
-          println("msg")
+          println(msg)
           sys.exit(errCode)
         case OnError.Exception => sys.error(msg)
     cd
