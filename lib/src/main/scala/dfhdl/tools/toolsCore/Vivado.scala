@@ -8,8 +8,12 @@ import dfhdl.options.{PrinterOptions, CompilerOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
+import dfhdl.options.BuilderOptions
 
+trait VivadoOptions extends BuilderOptions
 object Vivado extends Builder:
+  type BO = VivadoOptions
+  val toolName: String = "Vivado"
   def binExec: String = "vivado"
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String = ???
   override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
@@ -19,7 +23,7 @@ object Vivado extends Builder:
       cd,
       List(new VivadoProjectTclConfigPrinter(using cd.stagedDB.getSet).getSourceFile)
     )
-  def build[D <: Design](cd: CompiledDesign[D])(using CompilerOptions): CompiledDesign[D] =
+  def build[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, BO): CompiledDesign[D] =
     exec(
       cd,
       s"$binExec -mode batch -source ${cd.stagedDB.top.dclName}.tcl"

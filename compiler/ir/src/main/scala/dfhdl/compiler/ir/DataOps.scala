@@ -83,7 +83,7 @@ def calcFuncData[OT <: DFType](
         // bits shifting
         case (
               op @ (FuncOp.<< | FuncOp.>>),
-              DFBits(_) :: DFUInt(_) :: Nil,
+              DFBits(_) :: DFInt32 :: Nil,
               (vec: (BitVector, BitVector) @unchecked) :: Some(shift: BigInt) :: Nil
             ) =>
           op match

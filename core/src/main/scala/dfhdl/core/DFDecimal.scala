@@ -1265,9 +1265,8 @@ object DFUInt:
 
   object Val:
     trait UBArg[UB <: IntP, R]:
-      type OutW <: IntP
       type OutP
-      type Out = DFValTP[DFUInt[OutW], OutP]
+      type Out = DFValTP[DFInt32, OutP]
       def apply(ub: IntParam[UB], arg: R)(using DFC): Out
     trait UBArgLP:
       transparent inline given errorDMZ[UB <: Int, R](using
@@ -1285,13 +1284,11 @@ object DFUInt:
           unsignedCheck: Unsigned.Check[R < 0],
           ubCheck: `UB > R`.CheckNUB[UB, R]
       ): UBArg[UB, R] with
-        type OutW = IntP.Max[IntP.CLog2[UB], 1]
         type OutP = CONST
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
           unsignedCheck(arg < 0)
           ubCheck(ub, arg)
-          val width = ub.clog2.max(1)
-          DFVal.Const(DFUInt(width), Some(BigInt(arg)))
+          DFVal.Const(DFInt32, Some(BigInt(arg)))
       end fromInt
       given fromR[UB <: IntP, R, IC <: DFXInt.Val.Candidate[R]](using
           ic: IC
@@ -1299,7 +1296,6 @@ object DFUInt:
           unsignedCheck: Unsigned.Check[ic.OutS],
           widthCheck: `UBW == RW`.CheckNUB[IntP.CLog2[UB], ic.OutW]
       ): UBArg[UB, R] with
-        type OutW = IntP.CLog2[UB]
         type OutP = ic.OutP
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
           val argVal = ic(arg)
@@ -1313,7 +1309,7 @@ object DFUInt:
                   summon[`UB > R`.CheckNUB[UB, Int]](ub, value.toInt)
                 case _ => // no check
             case _ => // no check
-          argVal.asValTP[DFUInt[OutW], ic.OutP]
+          DFVal.Alias.AsIs(DFInt32, argVal)
         end apply
       end fromR
     end UBArg

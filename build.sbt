@@ -50,12 +50,26 @@ lazy val internals = project
     libraryDependencies ++= commonDependencies
   )
 
+def additionalSources(scalaVersion: String, base: File): Seq[File] = {
+  CrossVersion.partialVersion(scalaVersion) match {
+    case Some((3, minor)) if minor <= 4 =>
+      Seq(base / "src" / "main" / "scala-3.4-")
+    case Some((3, minor)) if minor >= 5 =>
+      Seq(base / "src" / "main" / "scala-3.5+")
+    case _ =>
+      Seq.empty
+  }
+} 
 lazy val plugin = project
   .settings(
     name := s"$projectName-plugin",
     settings,
     crossTarget := target.value / s"scala-${scalaVersion.value}", // workaround for https://github.com/sbt/sbt/issues/5097
     crossVersion := CrossVersion.full,
+    Compile / unmanagedSourceDirectories ++= {
+      val base = baseDirectory.value
+      additionalSources(scalaVersion.value, base)
+    },
     libraryDependencies += "org.scala-lang" %% "scala3-compiler" % compilerVersion % "provided"
   ).dependsOn(internals)
 

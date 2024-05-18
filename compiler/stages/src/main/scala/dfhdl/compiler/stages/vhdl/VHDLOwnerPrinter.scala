@@ -6,7 +6,8 @@ import dfhdl.internals.*
 import DFVal.*
 import dfhdl.compiler.ir.ProcessBlock.Sensitivity
 import dfhdl.compiler.ir.DFConditional.DFCaseBlock.Pattern
-
+import scala.collection.mutable
+import scala.collection.immutable.ListSet
 protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter <: VHDLPrinter
   val useStdSimLibrary: Boolean = true
@@ -49,15 +50,60 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   end csEntityDcl
   def archName(design: DFDesignBlock): String = s"${design.dclName}_arch"
   def csArchitectureDcl(design: DFDesignBlock): String =
-    val localTypeDcls = printer.csLocalTypeDcls(design).emptyOr(x => s"$x\n")
-    val vectorTypeDcls =
-      printer.getLocalVectorTypes(design).view.map(printer.csDFVectorDclsLocal)
-        .mkString("\n").emptyOr(x => s"$x\n")
-    val structConvFuncs =
-      getSet.designDB.getLocalNamedDFTypes(design).view
-        .collect { case dfType: DFStruct => printer.csDFStructConvFuncsBody(dfType) }
-        .mkString("\n").emptyOr(x => s"$x\n")
     val designMembers = design.members(MemberView.Folded)
+    // collecting all the vhdl named types that are used in conversion to/from bits
+    val vhdlNamedConvDFTypes = design.members(MemberView.Flattened).view.flatMap {
+      case alias: DFVal.Alias.AsIs =>
+        val pf: PartialFunction[DFType, (DFVector | NamedDFType)] = {
+          case dt: (DFVector | NamedDFType) => dt
+        }
+        (alias.dfType, alias.relValRef.get.dfType) match
+          case (DFBits(_), fromDFType: (NamedDFType | ComposedDFType)) =>
+            fromDFType.decompose(pf)
+          case (toDFType: (NamedDFType | ComposedDFType), DFBits(_)) =>
+            toDFType.decompose(pf)
+          case _ => None
+      case _ => None
+    }.toSet
+    // the vectors requiring conversion to/from bits
+    val vectorsConvUsed = vhdlNamedConvDFTypes.collect { case dfType: DFVector =>
+      printer.getVecDepthAndCellTypeName(dfType)._1
+    }
+    // In VHDL the vectors need to be named, and put in dependency order of other named types.
+    // So first we prepare the vector type declarations in a mutable map and later we remove
+    // entries that were already placed in the final type printing.
+    val vectorTypeDcls =
+      mutable.Map.from(printer.getLocalVectorTypes(design).view.map { (tpName, depth) =>
+        val dclScope =
+          if (vectorsConvUsed.contains(tpName)) DclScope.ArchBody else DclScope.TypeOnly
+        tpName -> printer.csDFVectorDclsLocal(dclScope)(tpName, depth)
+      })
+    // collect the local named types, including vectors
+    val namedDFTypes = ListSet.from(getSet.designDB.designMemberTable(design).view.collect {
+      case localVar @ DclVar()     => localVar.dfType
+      case localConst @ DclConst() => localConst.dfType
+    }.flatMap(_.decompose { case dt: (DFVector | NamedDFType) => dt }))
+    // declarations of the types and relevant functions
+    val namedTypeConvFuncsDcl = namedDFTypes.view
+      .flatMap {
+        // vector types can have different dimensions, but we only need the declaration once
+        case dfType: DFVector =>
+          val tpName = printer.getVecDepthAndCellTypeName(dfType)._1
+          vectorTypeDcls.get(tpName) match
+            case Some(desc) =>
+              vectorTypeDcls -= tpName
+              Some(desc)
+            case None => None
+        case dfType: NamedDFType =>
+          if (vhdlNamedConvDFTypes.contains(dfType))
+            List(
+              printer.csNamedDFTypeDcl(dfType, global = false),
+              printer.csNamedDFTypeConvFuncsBody(dfType)
+            )
+          else Some(printer.csNamedDFTypeDcl(dfType, global = false))
+      }
+      .mkString("\n").emptyOr(x => s"$x\n")
+
     val dfValDcls =
       designMembers.view
         .flatMap {
@@ -70,7 +116,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         .toList
         .emptyOr(_.mkString("\n"))
     val declarations =
-      s"$localTypeDcls$vectorTypeDcls$structConvFuncs$dfValDcls".emptyOr(v => s"\n${v.hindent}")
+      s"$namedTypeConvFuncsDcl$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl => false
       case DclConst()   => false

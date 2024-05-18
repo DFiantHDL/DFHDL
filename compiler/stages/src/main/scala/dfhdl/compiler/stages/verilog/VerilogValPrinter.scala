@@ -54,13 +54,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               case DFSInt(_) => ">>>"
               case _         => ">>"
           case op => op.toString
-        val rhsStr = dfVal.op match
-          case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
-          case _                       => argR.refCodeString
         if (isInfix)
-          s"${argL.refCodeString.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
+          s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"
         else
-          s"$opStr(${argL.refCodeString}, ${rhsStr})"
+          s"$opStr(${argL.refCodeString}, ${argR.refCodeString})"
       // unary/postfix func
       case arg :: Nil =>
         val argStr = arg.refCodeString
@@ -134,9 +131,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
       case (DFSInt(tWidthParamRef), DFSInt(_) | DFInt32) =>
         s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
-      case (DFInt32, DFSInt(_)) => relValStr
-      case (DFBit, DFBool)      => relValStr
-      case (DFBool, DFBit)      => relValStr
+      case (DFInt32, DFUInt(_) | DFSInt(_)) => relValStr
+      case (DFBit, DFBool)                  => relValStr
+      case (DFBool, DFBit)                  => relValStr
       case (toStruct: DFStruct, _: DFBits) =>
         s"${toStruct.getName}'($relValStr)"
       case _ => printer.unsupported
@@ -145,7 +142,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     s"${dfVal.relValCodeString}[${dfVal.relBitHigh}:${dfVal.relBitLow}]"
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
-    val relIdxStr = dfVal.relIdx.simpleRefCodeString
+    val relIdxStr = dfVal.relIdx.refCodeString
     s"${dfVal.relValCodeString}[$relIdxStr]"
   // when the tuple field number exceeds this number, the tuple
   // field selections changes from `dv._${idx+1}` to `dv($idx)`

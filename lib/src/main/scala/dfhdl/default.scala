@@ -11,9 +11,9 @@ extension [D <: Design](cd: CompiledDesign[D])
       verilogLinter: VerilogLinter,
       vhdlLinter: VHDLLinter,
       co: CompilerOptions
-  ): CompiledDesign[D] =
+  )(using verilogLinter.LO, vhdlLinter.LO): CompiledDesign[D] =
     co.backend match
       case _: backends.verilog => verilogLinter.lint(verilogLinter.preprocess(cd))
       case _: backends.vhdl    => vhdlLinter.lint(vhdlLinter.preprocess(cd))
-  def build(using builder: Builder, co: CompilerOptions): CompiledDesign[D] =
+  def build(using builder: Builder)(using CompilerOptions, builder.BO): CompiledDesign[D] =
     builder.build(builder.preprocess(cd))

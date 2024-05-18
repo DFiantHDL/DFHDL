@@ -61,10 +61,8 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               case Func.Op.-   => "csub"
               case Func.Op.`*` => "cmul"
           case op => op.toString
-        val rhsStr = dfVal.op match
-          case Func.Op.>> | Func.Op.<< => argR.simpleRefCodeString
-          case _                       => argR.refCodeString
-        if (infix) s"${argL.refCodeString.applyBrackets()} $opStr ${rhsStr.applyBrackets()}"
+        if (infix)
+          s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"
         else s"${opStr}(${argL.refCodeString}, ${argR.refCodeString})"
       // unary/postfix func
       case arg :: Nil =>
@@ -106,12 +104,30 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               .map(_.refCodeString.applyBrackets())
               .mkString(s" ${dfVal.op} ")
   def csBitsToType(toType: DFType, csArg: String): String = toType match
-    case DFBits(_)        => csArg
-    case DFBool           => s"to_bool($csArg)"
-    case DFBit            => s"to_sl($csArg)"
-    case DFUInt(_)        => s"unsigned($csArg)"
-    case DFSInt(_)        => s"signed($csArg)"
-    case dfType: DFStruct => s"to_${dfType.getName}($csArg)"
+    case DFBits(_) => csArg
+    case DFBool    => s"to_bool($csArg)"
+    case DFBit     => s"to_sl($csArg)"
+    case DFUInt(_) => s"unsigned($csArg)"
+    case DFSInt(_) => s"signed($csArg)"
+    case dfType: DFVector =>
+      var loopType: DFType = dfType
+      var desc: String = s"to_${printer.csDFVectorDclName(dfType)}($csArg"
+      var inVector: Boolean = true
+      while (inVector)
+        loopType match
+          case dfType: DFVector =>
+            desc = s"$desc, ${dfType.cellDims.head}"
+            loopType = dfType.cellType
+          case cellType =>
+            val finale = cellType match
+              case DFBits(width) => s", ${width.refCodeString}"
+              case DFUInt(width) => s", ${width.refCodeString}"
+              case DFSInt(width) => s", ${width.refCodeString}"
+              case _             => ""
+            desc = desc + finale
+            inVector = false
+      s"$desc)"
+    case dfType: DFStruct => s"to_${printer.csDFStructTypeName(dfType)}($csArg)"
     case dfType: DFOpaque => csBitsToType(dfType.actualType, csArg)
     case _                => printer.unsupported
 
@@ -149,13 +165,15 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         s"to_unsigned($relValStr, ${tWidthParamRef.refCodeString})"
       case (DFSInt(tWidthParamRef), DFInt32) =>
         s"to_signed($relValStr, ${tWidthParamRef.refCodeString})"
+      case (DFInt32, DFUInt(_) | DFSInt(_)) =>
+        s"to_integer($relValStr)"
       case _ => printer.unsupported
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     s"${dfVal.relValCodeString}(${dfVal.relBitHigh} downto ${dfVal.relBitLow})"
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
-    val relIdxStr = dfVal.relIdx.simpleRefCodeString
+    val relIdxStr = dfVal.relIdx.refCodeString
     s"${dfVal.relValCodeString}($relIdxStr)"
   // when the tuple field number exceeds this number, the tuple
   // field selections changes from `dv._${idx+1}` to `dv($idx)`
