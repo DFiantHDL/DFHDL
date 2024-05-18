@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
-  let dfhdlVersion = "0.4.6";
-  let scalaVersion = "3.4.0";
+  let dfhdlVersion = "0.4.7";
+  let scalaVersion = "3.4.2";
 
   let sbtConfig = `
   val dfhdlVersion = "${dfhdlVersion}"
