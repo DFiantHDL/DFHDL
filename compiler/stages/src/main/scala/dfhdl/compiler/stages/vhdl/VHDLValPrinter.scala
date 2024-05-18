@@ -104,12 +104,30 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               .map(_.refCodeString.applyBrackets())
               .mkString(s" ${dfVal.op} ")
   def csBitsToType(toType: DFType, csArg: String): String = toType match
-    case DFBits(_)        => csArg
-    case DFBool           => s"to_bool($csArg)"
-    case DFBit            => s"to_sl($csArg)"
-    case DFUInt(_)        => s"unsigned($csArg)"
-    case DFSInt(_)        => s"signed($csArg)"
-    case dfType: DFStruct => s"to_${dfType.getName}($csArg)"
+    case DFBits(_) => csArg
+    case DFBool    => s"to_bool($csArg)"
+    case DFBit     => s"to_sl($csArg)"
+    case DFUInt(_) => s"unsigned($csArg)"
+    case DFSInt(_) => s"signed($csArg)"
+    case dfType: DFVector =>
+      var loopType: DFType = dfType
+      var desc: String = s"to_${printer.csDFVectorDclName(dfType)}($csArg"
+      var inVector: Boolean = true
+      while (inVector)
+        loopType match
+          case dfType: DFVector =>
+            desc = s"$desc, ${dfType.cellDims.head}"
+            loopType = dfType.cellType
+          case cellType =>
+            val finale = cellType match
+              case DFBits(width) => s", ${width.refCodeString}"
+              case DFUInt(width) => s", ${width.refCodeString}"
+              case DFSInt(width) => s", ${width.refCodeString}"
+              case _             => ""
+            desc = desc + finale
+            inVector = false
+      s"$desc)"
+    case dfType: DFStruct => s"to_${printer.csDFStructTypeName(dfType)}($csArg)"
     case dfType: DFOpaque => csBitsToType(dfType.actualType, csArg)
     case _                => printer.unsupported
 

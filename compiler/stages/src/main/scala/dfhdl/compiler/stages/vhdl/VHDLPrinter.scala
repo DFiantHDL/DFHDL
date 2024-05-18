@@ -4,7 +4,8 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 import dfhdl.options.PrinterOptions
-
+import scala.collection.mutable
+import scala.collection.immutable.ListSet
 class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptions)
     extends Printer,
       VHDLTypePrinter,
@@ -44,23 +45,51 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
   def globalFileName: String = s"${printer.packageName}.vhd"
   def designFileName(designName: String): String = s"$designName.vhd"
   override def csGlobalFileContent: String =
-    val vectorTypeDcls =
-      printer.globalVectorTypes.view.map(printer.csDFVectorDclsGlobal)
+    // In VHDL the vectors need to be named, and put in dependency order of other named types.
+    // So first we prepare the vector type declarations in a mutable map and later we remove
+    // entries that were already placed in the final type printing.
+    val vectorTypeDcls = mutable.Map.from(
+      printer.globalVectorTypes.view.map((tpName, depth) =>
+        tpName -> printer.csDFVectorDclsGlobal(DclScope.Pkg)(tpName, depth)
+      )
+    )
+    // The body declarations can be in any order, as long as it's consistent between compilations.
+    val vectorTypeDclsBody =
+      printer.globalVectorTypes.view.map(printer.csDFVectorDclsGlobal(DclScope.PkgBody))
         .mkString("\n").emptyOr(x => s"$x\n")
-    val structConvFuncsDcl =
+    // collect the global named types, including vectors
+    val namedDFTypes = ListSet.from(getSet.designDB.members.view.collect {
+      case port @ DclPort()                     => port.dfType
+      case const @ DclConst() if const.isGlobal => const.dfType
+    }.flatMap(_.decompose { case dt: (DFVector | NamedDFType) => dt }))
+    // declarations of the types and relevant functions
+    val namedTypeConvFuncsDcl = namedDFTypes.view
+      .flatMap {
+        // vector types can have different dimensions, but we only need the declaration once
+        case dfType: DFVector =>
+          val tpName = printer.getVecDepthAndCellTypeName(dfType)._1
+          vectorTypeDcls.get(tpName) match
+            case Some(desc) =>
+              vectorTypeDcls -= tpName
+              Some(desc)
+            case None => None
+        case dfType: NamedDFType =>
+          List(
+            printer.csNamedDFTypeDcl(dfType, global = true),
+            printer.csNamedDFTypeConvFuncsDcl(dfType)
+          )
+      }
+      .mkString("\n").emptyOr(x => s"$x\n")
+    val namedTypeConvFuncsBody =
       getSet.designDB.getGlobalNamedDFTypes.view
-        .collect { case dfType: DFStruct => printer.csDFStructConvFuncsDcl(dfType) }
-        .mkString("\n").emptyOr(x => s"$x\n")
-    val structConvFuncsBody =
-      getSet.designDB.getGlobalNamedDFTypes.view
-        .collect { case dfType: DFStruct => printer.csDFStructConvFuncsBody(dfType) }
+        .collect { case dfType: NamedDFType => printer.csNamedDFTypeConvFuncsBody(dfType) }
         .mkString("\n").emptyOr(x => s"$x\n")
     s"""library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
        |
        |package ${printer.packageName} is
-       |${super.csGlobalFileContent + vectorTypeDcls + structConvFuncsDcl}
+       |${csGlobalConstDcls + namedTypeConvFuncsDcl}
        |function cadd(A, B : unsigned) return unsigned;
        |function cadd(A, B : signed) return signed;
        |function csub(A, B : unsigned) return unsigned;
@@ -68,12 +97,19 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |function clog2(n : natural) return natural;
        |function to_slv(A : unsigned) return std_logic_vector;
        |function to_slv(A : signed) return std_logic_vector;
+       |function to_slv(A : integer) return std_logic_vector;
        |function to_slv(A : boolean) return std_logic_vector;
        |function to_slv(A : std_logic) return std_logic_vector;
        |function to_sl(A : boolean) return std_logic;
        |function to_sl(A : std_logic_vector(0 downto 0)) return std_logic;
        |function to_bool(A : std_logic) return boolean;
        |function to_bool(A : std_logic_vector(0 downto 0)) return boolean;
+       |function bitWidth(A : std_logic_vector) return integer;
+       |function bitWidth(A : unsigned) return integer;
+       |function bitWidth(A : signed) return integer;
+       |function bitWidth(A : integer) return integer;
+       |function bitWidth(A : boolean) return integer;
+       |function bitWidth(A : std_logic) return integer;
        |function resize(A : std_logic_vector; new_length : integer) return std_logic_vector;
        |function slv_sll(slv : std_logic_vector; num_shifts : integer) return std_logic_vector;
        |function slv_srl(slv : std_logic_vector; num_shifts : integer) return std_logic_vector;
@@ -81,7 +117,7 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |end package ${printer.packageName};
        |
        |package body ${printer.packageName} is
-       |$structConvFuncsBody
+       |${namedTypeConvFuncsBody + vectorTypeDclsBody}
        |function cadd(A, B : unsigned) return unsigned is
        |begin
        |    return unsigned('0' & A) + unsigned('0' & B);
@@ -115,6 +151,10 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |function to_slv(A : signed) return std_logic_vector is
        |begin
        |  return std_logic_vector(A);
+       |end;
+       |function to_slv(A : integer) return std_logic_vector is
+       |begin
+       |  return std_logic_vector(to_signed(A, 32));
        |end;
        |function to_slv(A : boolean) return std_logic_vector is
        |begin
@@ -163,6 +203,30 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
        |  else
        |    return false;
        |  end if;
+       |end;
+       |function bitWidth(A : std_logic_vector) return integer is
+       |begin
+       |  return A'length;
+       |end;
+       |function bitWidth(A : unsigned) return integer is
+       |begin
+       |  return A'length;
+       |end;
+       |function bitWidth(A : signed) return integer is
+       |begin
+       |  return A'length;
+       |end;
+       |function bitWidth(A : integer) return integer is
+       |begin
+       |  return 32;
+       |end;
+       |function bitWidth(A : boolean) return integer is
+       |begin
+       |  return 1;
+       |end;
+       |function bitWidth(A : std_logic) return integer is
+       |begin
+       |  return 1;
        |end;
        |function resize(A : std_logic_vector; new_length : integer) return std_logic_vector is
        |begin

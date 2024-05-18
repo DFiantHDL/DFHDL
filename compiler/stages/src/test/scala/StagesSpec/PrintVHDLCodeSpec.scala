@@ -293,34 +293,6 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  end record;
          |  type t_vecX1_std_logic_vector is array (natural range <>) of std_logic_vector;
          |  type t_vecX2_std_logic_vector is array (natural range <>) of t_vecX1_std_logic_vector;
-         |  function bitWidth(A : t_struct_DFTuple2) return integer is
-         |    variable width : integer;
-         |  begin
-         |    width := 0;
-         |    width := width + A._1'length;
-         |    width := width + 1;
-         |    return width;
-         |  end;
-         |  function to_slv(A : t_struct_DFTuple2) return std_logic_vector is
-         |    variable hi : integer;
-         |    variable lo : integer;
-         |    variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
-         |  begin
-         |    lo := bitWidth(A);
-         |    hi := lo - 1; lo := hi - A._1'length + 1; ret(hi downto lo) := A._1;
-         |    hi := lo - 1; lo := hi - 1 + 1; ret(hi downto lo) := to_slv(A._2);
-         |    return ret;
-         |  end;
-         |  function to_t_struct_DFTuple2(A : std_logic_vector) return t_struct_DFTuple2 is
-         |    variable hi : integer;
-         |    variable lo : integer;
-         |    variable ret : t_struct_DFTuple2;
-         |  begin
-         |    lo := A'length;
-         |    hi := lo - 1; lo := hi - ret._1'length + 1; ret._1 := A(hi downto lo);
-         |    hi := lo - 1; lo := hi - 1 + 1; ret._2 := to_sl(A(hi downto lo));
-         |    return ret;
-         |  end;
          |  constant c01 : std_logic := '0';
          |  constant c02 : std_logic := '1';
          |  constant c03 : std_logic := '-';
@@ -413,6 +385,204 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end if;
          |  end process;
          |end Blinker_arch;""".stripMargin
+    )
+  }
+  test("Opaque and vector local example") {
+    case class Foo() extends Opaque(Bits(12) X 16 X 10)
+    class Example() extends RTDesign:
+      val x = Bits(1920) <> IN
+      val v = Foo        <> VAR.REG init all(all(all(0))).as(Foo)
+      val y = Bits(1920) <> OUT
+      v.din := x.as(Foo)
+      y     := v.bits
+
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.Example_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  x : in std_logic_vector(1919 downto 0);
+         |  y : out std_logic_vector(1919 downto 0)
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |  type t_vecX1_std_logic_vector is array (natural range <>) of std_logic_vector;
+         |  function bitWidth(A : t_vecX1_std_logic_vector) return integer is
+         |  begin
+         |    return A'length * bitWidth(A(0));
+         |  end;
+         |  function to_slv(A : t_vecX1_std_logic_vector) return std_logic_vector is
+         |    variable hi : integer;
+         |    variable lo : integer;
+         |    variable cellBitWidth: integer;
+         |    variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |  begin
+         |    cellBitWidth := bitWidth(A(0));
+         |    lo := bitWidth(A);
+         |    for i in 0 to A'length-1 loop
+         |      hi := lo - 1; lo := hi - cellBitWidth + 1;
+         |      ret(hi downto lo) := A(i);
+         |    end loop;
+         |    return ret;
+         |  end;
+         |  function to_t_vecX1_std_logic_vector(A : std_logic_vector; D1 : integer; D0 : integer) return t_vecX1_std_logic_vector is
+         |    variable hi : integer;
+         |    variable lo : integer;
+         |    variable cellBitWidth: integer := D0;
+         |    variable ret : t_vecX1_std_logic_vector(0 to D1 - 1)(D0 - 1 downto 0);
+         |  begin
+         |    lo := A'length;
+         |    for i in 0 to D1-1 loop
+         |      hi := lo - 1; lo := hi - cellBitWidth + 1;
+         |      ret(i) := A(hi downto lo);
+         |    end loop;
+         |    return ret;
+         |  end;
+         |  type t_vecX2_std_logic_vector is array (natural range <>) of t_vecX1_std_logic_vector;
+         |  function bitWidth(A : t_vecX2_std_logic_vector) return integer is
+         |  begin
+         |    return A'length * bitWidth(A(0));
+         |  end;
+         |  function to_slv(A : t_vecX2_std_logic_vector) return std_logic_vector is
+         |    variable hi : integer;
+         |    variable lo : integer;
+         |    variable cellBitWidth: integer;
+         |    variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+         |  begin
+         |    cellBitWidth := bitWidth(A(0));
+         |    lo := bitWidth(A);
+         |    for i in 0 to A'length-1 loop
+         |      hi := lo - 1; lo := hi - cellBitWidth + 1;
+         |      ret(hi downto lo) := to_slv(A(i));
+         |    end loop;
+         |    return ret;
+         |  end;
+         |  function to_t_vecX2_std_logic_vector(A : std_logic_vector; D2 : integer; D1 : integer; D0 : integer) return t_vecX2_std_logic_vector is
+         |    variable hi : integer;
+         |    variable lo : integer;
+         |    variable cellBitWidth: integer := D1 * D0;
+         |    variable ret : t_vecX2_std_logic_vector(0 to D2 - 1)(0 to D1 - 1)(D0 - 1 downto 0);
+         |  begin
+         |    lo := A'length;
+         |    for i in 0 to D2-1 loop
+         |      hi := lo - 1; lo := hi - cellBitWidth + 1;
+         |      ret(i) := to_t_vecX1_std_logic_vector(A(hi downto lo), D1, D0);
+         |    end loop;
+         |    return ret;
+         |  end;
+         |  subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 10 - 1)(0 to 16 - 1)(11 downto 0);
+         |  function to_t_opaque_Foo(A : std_logic_vector) return t_opaque_Foo is
+         |  begin
+         |    return to_t_vecX2_std_logic_vector(A, 10, 16, 12);
+         |  end;
+         |  signal v : t_opaque_Foo;
+         |  signal v_din : t_opaque_Foo;
+         |begin
+         |  process (all)
+         |  begin
+         |    v_din <= v;
+         |    v_din <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
+         |    y <= to_slv(v);
+         |  end process;
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then v <= (0 to 10-1 => (0 to 16-1 => x"000"));
+         |      else v <= v_din;
+         |      end if;
+         |    end if;
+         |  end process;
+         |end Example_arch;""".stripMargin
+    )
+  }
+  test("Vector local no conversion example") {
+    class Example() extends RTDesign:
+      val v = Bits(12) X 16 X 10 <> OUT
+      v := all(all(all(0)))
+
+    val top = (Example()).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.Example_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  v : out t_vecX2_std_logic_vector(0 to 10 - 1)(0 to 16 - 1)(11 downto 0)
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |begin
+         |  process (all)
+         |  begin
+         |    v <= (0 to 10-1 => (0 to 16-1 => x"000"));
+         |  end process;
+         |end Example_arch;
+         |""".stripMargin
+    )
+  }
+  test("Opaque and vector global example") {
+    case class Foo() extends Opaque(Bits(12) X 16 X 10)
+    class Example() extends RTDesign:
+      val x = Bits(1920) <> IN
+      val y = Foo        <> OUT.REG init all(all(all(0))).as(Foo)
+      y.din := x.as(Foo)
+
+    val top = (Example()).getCompiledCodeString
+    // TODO: consider if we want to leave the t_opaque_Foo under `getCompiledCodeString`
+    assertNoDiff(
+      top,
+      """|subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 10 - 1)(0 to 16 - 1)(11 downto 0);
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.Example_pkg.all;
+         |
+         |entity Example is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  x : in std_logic_vector(1919 downto 0);
+         |  y : out t_opaque_Foo
+         |);
+         |end Example;
+         |
+         |architecture Example_arch of Example is
+         |
+         |  subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 10 - 1)(0 to 16 - 1)(11 downto 0);
+         |  function to_t_opaque_Foo(A : std_logic_vector) return t_opaque_Foo is
+         |  begin
+         |    return to_t_vecX2_std_logic_vector(A, 10, 16, 12);
+         |  end;
+         |  signal y_din : t_opaque_Foo;
+         |begin
+         |  process (all)
+         |  begin
+         |    y_din <= y;
+         |    y_din <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
+         |  end process;
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then y <= (0 to 10-1 => (0 to 16-1 => x"000"));
+         |      else y <= y_din;
+         |      end if;
+         |    end if;
+         |  end process;
+         |end Example_arch;
+         |""".stripMargin
     )
   }
 end PrintVHDLCodeSpec

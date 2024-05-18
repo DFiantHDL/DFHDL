@@ -7,6 +7,9 @@ import dfhdl.internals.*
 import scala.collection.mutable
 import scala.collection.immutable.{ListSet, ListMap}
 import scala.annotation.tailrec
+
+enum DclScope derives CanEqual:
+  case TypeOnly, Pkg, PkgBody, ArchBody
 protected trait VHDLTypePrinter extends AbstractTypePrinter:
   type TPrinter <: VHDLPrinter
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String =
@@ -29,6 +32,24 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       case (false, _) => ???
       case (true, _)  => ???
 
+  def csNamedDFTypeConvFuncsDcl(dfType: NamedDFType): String =
+    val typeName = dfType match
+      case dt: DFEnum   => csDFEnumTypeName(dt)
+      case dt: DFStruct => csDFStructTypeName(dt)
+      case dt: DFOpaque => csDFOpaqueTypeName(dt)
+    val bitWidth = s"function bitWidth(A: ${typeName}) return integer;"
+    val to_slv = s"function to_slv(A: ${typeName}) return std_logic_vector;"
+    val to_typeName = s"function to_${typeName}(A: std_logic_vector) return ${typeName};"
+    dfType match
+      // since working on a VHDL subtype, opaques require only `to_typeName` function,
+      // and `bitWidth` and `to_slv` of the actual type are applicable
+      case dt: DFOpaque => to_typeName
+      case _            => s"$bitWidth\n$to_slv\n$to_typeName"
+  def csNamedDFTypeConvFuncsBody(dfType: NamedDFType): String =
+    dfType match
+      case dt: DFEnum   => ""
+      case dt: DFStruct => csDFStructConvFuncsBody(dt)
+      case dt: DFOpaque => csDFOpaqueConvFuncsBody(dt)
   def csDFEnumTypeName(dfType: DFEnum): String = s"t_enum_${dfType.getName}"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.getName
@@ -40,17 +61,8 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     s"type ${csDFEnumTypeName(dfType)} is (\n$entries\n);"
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = csDFEnumTypeName(dfType)
   def getVectorTypes(dcls: Iterable[DFVal]): ListMap[String, Int] =
-    def flatten(dfType: DFType): List[DFVector] =
-      dfType match
-        case dt: DFStruct =>
-          dt.fieldMap.values.flatMap(flatten).toList
-        case dt: DFOpaque =>
-          flatten(dt.actualType)
-        case dt: DFVector =>
-          dt :: flatten(dt.cellType)
-        case _ => Nil
     ListMap.from(
-      dcls.flatMap(dcl => flatten(dcl.dfType).reverse)
+      dcls.view.flatMap(dcl => dcl.dfType.decompose { case dt: DFVector => dt })
         .map(getVecDepthAndCellTypeName)
         .foldLeft(ListMap.empty[String, Int]) { case (listMap, (cellTypeName, depth)) =>
           listMap.updatedWith(cellTypeName)(prevDepthOpt =>
@@ -85,16 +97,87 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
   def csDFVectorDclName(dfType: DFVector): String =
     val (cellTypeName, depth) = getVecDepthAndCellTypeName(dfType)
     csDFVectorDclName(cellTypeName, depth)
-  def csDFVectorDcl(cellTypeName: String, depth: Int): String =
+  def csDFVectorDcl(dclScope: DclScope)(cellTypeName: String, depth: Int): String =
     val ofTypeName = if (depth == 1) cellTypeName else csDFVectorDclName(cellTypeName, depth - 1)
-    s"type ${csDFVectorDclName(cellTypeName, depth)} is array (natural range <>) of $ofTypeName;"
-  def csDFVectorDcls(cellTypeName: String, depth: Int, start: Int): String =
-    (for (i <- start to depth) yield csDFVectorDcl(cellTypeName, i))
+    val typeName = csDFVectorDclName(cellTypeName, depth)
+    val typeDcl =
+      s"type $typeName is array (natural range <>) of $ofTypeName;"
+    val dimArgs = (depth to 1 by -1).map(i => s"D$i : integer").mkString("; ", "; ", "")
+    val cellDimArg = cellTypeName match
+      case "std_logic_vector" | "unsigned" | "signed" => "; D0 : integer"
+      case _                                          => ""
+    val funcDcl =
+      s"""|function bitWidth(A: ${typeName}) return integer;
+          |function to_slv(A: ${typeName}) return std_logic_vector;
+          |function to_${typeName}(A: std_logic_vector$dimArgs$cellDimArg) return ${typeName};""".stripMargin
+    val toSLV = ofTypeName match
+      case "std_logic_vector" => "A(i)"
+      case _                  => s"to_slv(A(i))"
+    val dims = (depth to 1 by -1).map(i => s"(0 to D$i - 1)").mkString
+    val cellDim = cellDimArg.emptyOr(_ => "(D0 - 1 downto 0)")
+    val argSel = "A(hi downto lo)"
+    val toCellConv =
+      if (depth == 1)
+        cellTypeName match
+          case "std_logic_vector"    => argSel
+          case "std_logic"           => s"to_sl($argSel)"
+          case "boolean"             => s"to_bool($argSel)"
+          case "unsigned" | "signed" => s"$cellTypeName($argSel)"
+          case _                     => s"to_${cellTypeName}($argSel)"
+      else
+        val dimArgsApply = (depth - 1 to 1 by -1).map(i => s"D$i").mkString(", ", ", ", "")
+        val cellDimArgApply = cellDimArg.emptyOr(_ => ", D0")
+        s"to_${csDFVectorDclName(cellTypeName, depth - 1)}($argSel$dimArgsApply$cellDimArgApply)"
+    val cellBitWidth =
+      val dims = (depth - 1 to 1 by -1).map(i => s"D$i")
+      val cellDim = if (cellDimArg.isEmpty) s"bitWidth($ofTypeName)" else "D0"
+      (dims :+ cellDim).mkString(" * ")
+    val funcBody =
+      s"""|function bitWidth(A : ${typeName}) return integer is
+          |begin
+          |  return A'length * bitWidth(A(0));
+          |end;
+          |function to_slv(A : ${typeName}) return std_logic_vector is
+          |  variable hi : integer;
+          |  variable lo : integer;
+          |  variable cellBitWidth: integer;
+          |  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
+          |begin
+          |  cellBitWidth := bitWidth(A(0));
+          |  lo := bitWidth(A);
+          |  for i in 0 to A'length-1 loop
+          |    hi := lo - 1; lo := hi - cellBitWidth + 1;
+          |    ret(hi downto lo) := $toSLV;
+          |  end loop;
+          |  return ret;
+          |end;
+          |function to_${typeName}(A : std_logic_vector$dimArgs$cellDimArg) return ${typeName} is
+          |  variable hi : integer;
+          |  variable lo : integer;
+          |  variable cellBitWidth: integer := $cellBitWidth;
+          |  variable ret : ${typeName}$dims$cellDim;
+          |begin
+          |  lo := A'length;
+          |  for i in 0 to D${depth}-1 loop
+          |    hi := lo - 1; lo := hi - cellBitWidth + 1;
+          |    ret(i) := $toCellConv;
+          |  end loop;
+          |  return ret;
+          |end;""".stripMargin
+    dclScope match
+      case DclScope.TypeOnly => typeDcl
+      case DclScope.Pkg      => s"$typeDcl\n$funcDcl"
+      case DclScope.PkgBody  => funcBody
+      case DclScope.ArchBody => s"$typeDcl\n$funcBody"
+  end csDFVectorDcl
+
+  def csDFVectorDcls(dclScope: DclScope)(cellTypeName: String, depth: Int, start: Int): String =
+    (for (i <- start to depth) yield csDFVectorDcl(dclScope)(cellTypeName, i))
       .mkString("\n")
-  def csDFVectorDclsGlobal(cellTypeName: String, depth: Int): String =
-    csDFVectorDcls(cellTypeName, depth, 1)
-  def csDFVectorDclsLocal(cellTypeName: String, depth: Int): String =
-    csDFVectorDcls(cellTypeName, depth, globalVectorTypes.getOrElse(cellTypeName, 0) + 1)
+  def csDFVectorDclsGlobal(dclScope: DclScope)(cellTypeName: String, depth: Int): String =
+    csDFVectorDcls(dclScope)(cellTypeName, depth, 1)
+  def csDFVectorDclsLocal(dclScope: DclScope)(cellTypeName: String, depth: Int): String =
+    csDFVectorDcls(dclScope)(cellTypeName, depth, globalVectorTypes.getOrElse(cellTypeName, 0) + 1)
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     if (typeCS) csDFVectorDclName(dfType)
     else
@@ -120,6 +203,12 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     s"subtype ${csDFOpaqueTypeName(dfType)} is ${csDFType(dfType.actualType)};"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = csDFOpaqueTypeName(dfType)
+  def csDFOpaqueConvFuncsBody(dfType: DFOpaque): String =
+    val typeName = csDFOpaqueTypeName(dfType)
+    s"""|function to_${typeName}(A : std_logic_vector) return ${typeName} is
+        |begin
+        |  return ${printer.csBitsToType(dfType.actualType, "A")};
+        |end;""".stripMargin
   def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.getName}"
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
@@ -128,32 +217,19 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       .hindent(1)
     s"type ${csDFStructTypeName(dfType)} is record\n$fields\nend record;"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String = csDFStructTypeName(dfType)
-  def csDFStructConvFuncsDcl(dfType: DFStruct): String =
-    val typeName = csDFStructTypeName(dfType)
-    s"""|function bitWidth(A: ${typeName}) return integer;
-        |function to_slv(A: ${typeName}) return std_logic_vector;
-        |function to_${typeName}(A: std_logic_vector) return ${typeName};""".stripMargin
   def csDFStructConvFuncsBody(dfType: DFStruct): String =
     val typeName = csDFStructTypeName(dfType)
-    def bitWidthFunc(dfType: DFType, csArg: String): String = dfType match
-      case DFBits(_) | DFUInt(_) | DFSInt(_) => s"$csArg'length"
-      case _: DFBoolOrBit                    => "1"
-      case DFVector(cellType, cellDims) =>
-        s"${cellDims.head} * ${bitWidthFunc(cellType, s"$csArg(0)")}"
-      case dfType: DFStruct => s"bitWidth($csArg)"
-      case dfType: DFOpaque => bitWidthFunc(dfType.actualType, csArg)
-      case _                => printer.unsupported
     def to_slv(fromType: DFType, csArg: String): String = fromType match
       case DFBits(_) => csArg
       case _         => s"to_slv($csArg)"
     val fieldLengths = dfType.fieldMap.map { (n, t) =>
-      s"width := width + ${bitWidthFunc(t, s"A.$n")};"
+      s"width := width + bitWidth(A.$n);"
     }.mkString("\n  ")
     val vecAssignments = dfType.fieldMap.map { (n, t) =>
-      s"hi := lo - 1; lo := hi - ${bitWidthFunc(t, s"A.$n")} + 1; ret(hi downto lo) := ${to_slv(t, s"A.$n")};"
+      s"hi := lo - 1; lo := hi - bitWidth(A.$n) + 1; ret(hi downto lo) := ${to_slv(t, s"A.$n")};"
     }.mkString("\n  ")
     val fieldAssignments = dfType.fieldMap.map { (n, t) =>
-      s"hi := lo - 1; lo := hi - ${bitWidthFunc(t, s"ret.$n")} + 1; ret.$n := ${printer.csBitsToType(t, "A(hi downto lo)")};"
+      s"hi := lo - 1; lo := hi - bitWidth(ret.$n) + 1; ret.$n := ${printer.csBitsToType(t, "A(hi downto lo)")};"
     }.mkString("\n  ")
     s"""|function bitWidth(A : ${typeName}) return integer is
         |  variable width : integer;

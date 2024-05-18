@@ -29,8 +29,24 @@ object DFType:
           case dt: T => Some(dt)
           case _     => None
   end Companion
+
+  extension (dfType: DFType)
+    def decompose[B <: DFType](pf: PartialFunction[DFType, B] = a => a)(using
+        MemberGetSet
+    ): ListSet[B] =
+      val deps: Iterable[DFType] = dfType match
+        case dt: DFStruct =>
+          dt.fieldMap.values.flatMap(_.decompose(pf))
+        case dt: DFOpaque =>
+          dt.actualType.decompose(pf)
+        case dt: DFVector =>
+          dt.cellType.decompose(pf)
+        case _ => Nil
+      ListSet.from(deps.collect(pf) ++ List(dfType).collect(pf))
+
 end DFType
 
+sealed trait ComposedDFType extends DFType
 sealed trait NamedDFType extends DFType, NamedGlobal
 object NamedDFTypes:
   def unapply(dfVal: DFVal)(using MemberGetSet): Option[ListSet[NamedDFType]] =
@@ -200,7 +216,7 @@ object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
 final case class DFVector(
     cellType: DFType,
     cellDims: List[Int]
-) extends DFType:
+) extends ComposedDFType:
   type Data = Vector[Any]
   def width(using MemberGetSet): Int = cellType.width * cellDims.product
   def createBubbleData(using MemberGetSet): Data = Vector.fill(cellDims.head)(
@@ -234,7 +250,8 @@ object DFVector extends DFType.Companion[DFVector, Vector[Any]]
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
 final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualType: DFType)
-    extends NamedDFType:
+    extends NamedDFType,
+      ComposedDFType:
   type Data = Any
   def width(using MemberGetSet): Int = actualType.width
   def createBubbleData(using MemberGetSet): Data = actualType.createBubbleData
@@ -258,7 +275,8 @@ object DFOpaque extends DFType.Companion[DFOpaque, Any]:
 final case class DFStruct(
     protected val name: String,
     fieldMap: ListMap[String, DFType]
-) extends NamedDFType:
+) extends NamedDFType,
+      ComposedDFType:
   type Data = List[Any]
   def getNameForced: String = name
   def width(using MemberGetSet): Int = fieldMap.values.map(_.width).sum
