@@ -78,11 +78,15 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
           if (vectorsConvUsed.contains(tpName)) DclScope.ArchBody else DclScope.TypeOnly
         tpName -> printer.csDFVectorDclsLocal(dclScope)(tpName, depth)
       })
+    val globalNamedDFTypes = getSet.designDB.getGlobalNamedDFTypes
     // collect the local named types, including vectors
     val namedDFTypes = ListSet.from(getSet.designDB.designMemberTable(design).view.collect {
       case localVar @ DclVar()     => localVar.dfType
       case localConst @ DclConst() => localConst.dfType
-    }.flatMap(_.decompose { case dt: (DFVector | NamedDFType) => dt }))
+    }.flatMap(_.decompose[DFVector | NamedDFType] {
+      case dt: DFVector                                        => dt
+      case dt: NamedDFType if !globalNamedDFTypes.contains(dt) => dt
+    }))
     // declarations of the types and relevant functions
     val namedTypeConvFuncsDcl = namedDFTypes.view
       .flatMap {
