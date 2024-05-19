@@ -560,12 +560,6 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Example;
          |
          |architecture Example_arch of Example is
-         |
-         |  subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 10 - 1)(0 to 16 - 1)(11 downto 0);
-         |  function to_t_opaque_Foo(A : std_logic_vector) return t_opaque_Foo is
-         |  begin
-         |    return to_t_vecX2_std_logic_vector(A, 10, 16, 12);
-         |  end;
          |  signal y_din : t_opaque_Foo;
          |begin
          |  process (all)

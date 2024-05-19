@@ -79,4 +79,7 @@ class IssuesSpec extends FunSuite:
   test("i142 compiles and passes VHDL linting"):
     given options.CompilerOptions.Backend = backends.vhdl
     i142.IntegerIndexingIssue().compile.lint
+  test("i146 compiles and passes VHDL linting"):
+    given options.CompilerOptions.Backend = backends.vhdl.v2008
+    i146.DoubleStructDecl().compile.lint
 end IssuesSpec
