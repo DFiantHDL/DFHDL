@@ -7,7 +7,7 @@ private abstract class Container extends OnCreateEvents, HasDFC:
   final lazy val dfc: DFC = __dfc
   protected def __dfc: DFC = DFC.empty
   private[core] type TScope <: DFC.Scope
-  private[core] type TDomain <: DFC.Domain
+  private[core] type TDomain <: DomainType
   private[core] type TOwner <: DFOwnerAny
   private[core] lazy val __domainType: ir.DomainType
   private var ownerOpt: Option[TOwner] = None

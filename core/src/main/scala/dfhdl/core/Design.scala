@@ -106,13 +106,13 @@ object Design:
 end Design
 
 abstract class DFDesign extends Design:
-  private[core] type TDomain = DFC.Domain.DF
-  final protected given TDomain = DFC.Domain.DF
+  private[core] type TDomain = DomainType.DF
+  final protected given TDomain = DomainType.DF
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
 
 abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends Design:
-  private[core] type TDomain = DFC.Domain.RT
-  final protected given TDomain = DFC.Domain.RT
+  private[core] type TDomain = DomainType.RT
+  final protected given TDomain = DomainType.RT(cfg)
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(cfg)
   private lazy val derivedCfg: ir.RTDomainCfg =
     import dfc.getSet
@@ -177,8 +177,8 @@ object RTDesign:
   protected[core] final case class Rst_main() extends Rst
 
 abstract class EDDesign extends Design:
-  private[core] type TDomain = DFC.Domain.ED
-  final protected given TDomain = DFC.Domain.ED
+  private[core] type TDomain = DomainType.ED
+  final protected given TDomain = DomainType.ED
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED
 
 abstract class EDBlackBox(verilogSrc: EDBlackBox.Source, vhdlSrc: EDBlackBox.Source)

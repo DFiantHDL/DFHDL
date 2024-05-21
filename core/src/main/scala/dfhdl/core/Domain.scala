@@ -28,16 +28,16 @@ object Domain:
 end Domain
 
 abstract class DFDomain extends Domain:
-  private[core] type TDomain = DFC.Domain.DF
-  final protected given TDomain = DFC.Domain.DF
+  private[core] type TDomain = DomainType.DF
+  final protected given TDomain = DomainType.DF
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
 
 abstract class RTDomain(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends Domain:
-  private[core] type TDomain = DFC.Domain.RT
-  final protected given TDomain = DFC.Domain.RT
+  private[core] type TDomain = DomainType.RT
+  final protected given TDomain = DomainType.RT(cfg)
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(cfg)
 
 abstract class EDDomain extends Domain:
-  private[core] type TDomain = DFC.Domain.ED
-  final protected given TDomain = DFC.Domain.ED
+  private[core] type TDomain = DomainType.ED
+  final protected given TDomain = DomainType.ED
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED

@@ -107,7 +107,7 @@ object DFType:
           dfc: DFC,
           tc: DFType.TC[T],
           ck: DFC.Scope,
-          dt: DFC.Domain
+          dt: DomainType
       ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
         DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, P]])
     end extension
