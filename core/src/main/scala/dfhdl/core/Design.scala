@@ -8,7 +8,7 @@ import scala.annotation.{Annotation, implicitNotFound}
 import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
 
-private[dfhdl] abstract class Design extends Container, HasClsMetaArgs:
+private[dfhdl] trait Design extends Container, HasClsMetaArgs:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
@@ -105,70 +105,9 @@ object Design:
 
 end Design
 
-abstract class DFDesign extends Design:
-  private[core] type TDomain = DomainType.DF
-  final protected given TDomain = DomainType.DF
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
+abstract class DFDesign extends DomainContainer(DomainType.DF), Design
 
-abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends Design:
-  private[core] type TDomain = DomainType.RT
-  final protected given TDomain = DomainType.RT(cfg)
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(cfg)
-  private lazy val derivedCfg: ir.RTDomainCfg =
-    import dfc.getSet
-    var derivedCfg: ir.RTDomainCfg = cfg
-    var owner: ir.DFDomainOwner = dfc.owner.asIR.getThisOrOwnerDomain
-    while (derivedCfg == ir.DerivedCfg && !owner.isTop)
-      owner = owner.getOwnerDomain
-      owner.domainType match
-        case ir.DomainType.RT(cfg: ir.RTDomainCfg.Explicit) => derivedCfg = cfg
-        case _                                              =>
-    derivedCfg
-  protected lazy val Clk: DFOpaque[RTDesign.Clk] =
-    case class Clk(cfgName: String) extends RTDesign.Clk:
-      override lazy val typeName: String = s"Clk_${cfgName}"
-    val clkTFE = derivedCfg match
-      case ir.DerivedCfg => RTDesign.Clk_main()
-      case cfg: ir.RTDomainCfg.Explicit =>
-        dfc.mutableDB.RTDomainCfgContext.getClkOpaque(cfg, Clk(cfg.name))
-    DFOpaque(clkTFE)
-  protected lazy val Rst: DFOpaque[RTDesign.Rst] =
-    case class Rst(cfgName: String) extends RTDesign.Rst:
-      override lazy val typeName: String = s"Rst_${cfgName}"
-    val clkTFE = derivedCfg match
-      case ir.DerivedCfg => RTDesign.Rst_main()
-      case cfg: ir.RTDomainCfg.Explicit =>
-        dfc.mutableDB.RTDomainCfgContext.getRstOpaque(cfg, Rst(cfg.name))
-    DFOpaque(clkTFE)
-  //  /** This is a reference to the clock used. `clkCfg` must be explicitly defined with a name before
-//    * using this value.
-//    */
-//  final lazy val clk = clkCfg match
-//    case ClkCfg.Explicit(name: String, _) =>
-//      DFVal.Dcl(DFBit, Modifier.IN)(using dfc.setName(name))
-//    case _ =>
-//      throw new IllegalArgumentException(
-//        "Tried to access `clk` but `clkCfg` has no explicit clock name."
-//      )
-//  // forcing the clock to be added if the name is explicitly defined
-//  clkCfg match
-//    case ClkCfg.Explicit(_: String, _) => clk // touching lazy value
-//    case _                             => // do nothing
-//  /** This is a reference to the reset used. `rstCfg` must be explicitly defined with a name before
-//    * using this value.
-//    */
-//  lazy val rst = rstCfg match
-//    case RstCfg.Explicit(name: String, _, _) =>
-//      DFVal.Dcl(DFBit, Modifier.IN)(using dfc.setName(name))
-//    case _ =>
-//      throw new IllegalArgumentException(
-//        "Tried to access `rst` but `rstCfg` has no explicit reset name."
-//      )
-//  // forcing the reset to be added if the name is explicitly defined
-//  rstCfg match
-//    case RstCfg.Explicit(_: String, _, _) => rst
-//    case _                                => // do nothing
-end RTDesign
+abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends RTDomainContainer(cfg), Design
 
 object RTDesign:
   protected[core] abstract class Clk extends DFOpaque.Frontend[DFBit](DFBit), ir.DFOpaque.Clk
@@ -176,10 +115,7 @@ object RTDesign:
   protected[core] abstract class Rst extends DFOpaque.Frontend[DFBit](DFBit), ir.DFOpaque.Rst
   protected[core] final case class Rst_main() extends Rst
 
-abstract class EDDesign extends Design:
-  private[core] type TDomain = DomainType.ED
-  final protected given TDomain = DomainType.ED
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED
+abstract class EDDesign extends DomainContainer(DomainType.ED), Design
 
 abstract class EDBlackBox(verilogSrc: EDBlackBox.Source, vhdlSrc: EDBlackBox.Source)
     extends EDDesign:
