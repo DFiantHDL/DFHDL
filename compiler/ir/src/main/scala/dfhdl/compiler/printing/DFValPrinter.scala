@@ -124,7 +124,13 @@ protected trait DFValPrinter extends AbstractValPrinter:
     s"${csDFValExpr(dfVal)}"
   def csDFValDclModifier(modifier: Modifier): String = modifier.toString
   def csDFValDclWithoutInit(dfVal: Dcl): String =
-    s"${printer.csDFType(dfVal.dfType)} <> ${csDFValDclModifier(dfVal.modifier)}"
+    val modifier = csDFValDclModifier(dfVal.modifier)
+    if (dfVal.isClkDcl)
+      s"Clk <> $modifier"
+    else if (dfVal.isRstDcl)
+      s"Rst <> $modifier"
+    else
+      s"${printer.csDFType(dfVal.dfType)} <> $modifier"
   def csInitKeyword: String = "init"
   def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
   def csInitSeq(refs: List[Dcl.InitRef]): String = refs.view.map(_.refCodeString).mkStringBrackets

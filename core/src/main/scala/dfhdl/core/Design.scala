@@ -114,7 +114,32 @@ abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends Design:
   private[core] type TDomain = DFC.Domain.RT
   final protected given TDomain = DFC.Domain.RT
   final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(cfg)
-
+  private lazy val derivedCfg: ir.RTDomainCfg =
+    import dfc.getSet
+    var derivedCfg: ir.RTDomainCfg = cfg
+    var owner: ir.DFDomainOwner = dfc.owner.asIR.getThisOrOwnerDomain
+    while (derivedCfg == ir.DerivedCfg && !owner.isTop)
+      owner = owner.getOwnerDomain
+      owner.domainType match
+        case ir.DomainType.RT(cfg: ir.RTDomainCfg.Explicit) => derivedCfg = cfg
+        case _                                              =>
+    derivedCfg
+  protected lazy val Clk: DFOpaque[RTDesign.Clk] =
+    case class Clk(cfgName: String) extends RTDesign.Clk:
+      override lazy val typeName: String = s"Clk_${cfgName}"
+    val clkTFE = derivedCfg match
+      case ir.DerivedCfg => RTDesign.Clk_main()
+      case cfg: ir.RTDomainCfg.Explicit =>
+        dfc.mutableDB.RTDomainCfgContext.getClkOpaque(cfg, Clk(cfg.name))
+    DFOpaque(clkTFE)
+  protected lazy val Rst: DFOpaque[RTDesign.Rst] =
+    case class Rst(cfgName: String) extends RTDesign.Rst:
+      override lazy val typeName: String = s"Rst_${cfgName}"
+    val clkTFE = derivedCfg match
+      case ir.DerivedCfg => RTDesign.Rst_main()
+      case cfg: ir.RTDomainCfg.Explicit =>
+        dfc.mutableDB.RTDomainCfgContext.getRstOpaque(cfg, Rst(cfg.name))
+    DFOpaque(clkTFE)
   //  /** This is a reference to the clock used. `clkCfg` must be explicitly defined with a name before
 //    * using this value.
 //    */
@@ -144,6 +169,12 @@ abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends Design:
 //    case RstCfg.Explicit(_: String, _, _) => rst
 //    case _                                => // do nothing
 end RTDesign
+
+object RTDesign:
+  protected[core] abstract class Clk extends DFOpaque.Frontend[DFBit](DFBit), ir.DFOpaque.Clk
+  protected[core] final case class Clk_main() extends Clk
+  protected[core] abstract class Rst extends DFOpaque.Frontend[DFBit](DFBit), ir.DFOpaque.Rst
+  protected[core] final case class Rst_main() extends Rst
 
 abstract class EDDesign extends Design:
   private[core] type TDomain = DFC.Domain.ED

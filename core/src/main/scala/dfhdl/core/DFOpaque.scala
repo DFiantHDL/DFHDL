@@ -10,7 +10,7 @@ import scala.annotation.targetName
 type DFOpaque[+TFE <: DFOpaque.Abstract] =
   DFType[ir.DFOpaque, Args1[TFE @uncheckedVariance]]
 object DFOpaque:
-  protected[core] sealed trait Abstract extends HasTypeName, ir.DFOpaque.CustomId:
+  protected[core] sealed trait Abstract extends HasTypeName, ir.DFOpaque.Id:
     type ActualType <: DFTypeAny
     protected[core] val actualType: ActualType
   object Abstract:

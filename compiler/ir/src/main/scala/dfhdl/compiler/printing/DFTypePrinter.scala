@@ -19,7 +19,9 @@ trait AbstractTypePrinter extends AbstractPrinter:
       .filter {
         // show tuple structures only if tuple support is disabled
         case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
-        case _                                                        => true
+        // disable printing of Clk/Rst opaque types
+        case DFOpaque(_, id: (DFOpaque.Clk | DFOpaque.Rst), _) => false
+        case _                                                 => true
       }
       .map(x => printer.csNamedDFTypeDcl(x, global = true))
       .mkString("\n").emptyOr(x => s"$x\n")
