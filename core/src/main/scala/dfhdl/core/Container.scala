@@ -42,8 +42,8 @@ abstract class RTDomainContainer(cfg: ir.RTDomainCfg) extends DomainContainer(Do
         case _                                              =>
     derivedCfg
 
-  protected lazy val Clk: DFOpaque[RTDesign.Clk] =
-    case class Clk(cfgName: String) extends RTDesign.Clk:
+  protected lazy val Clk: DFOpaque[DFOpaque.Clk] =
+    case class Clk(cfgName: String) extends DFOpaque.Clk:
       override lazy val typeName: String = s"Clk_${cfgName}"
     val clkTFE = derivedCfg match
       case ir.DerivedCfg => RTDesign.Clk_main()
@@ -51,8 +51,8 @@ abstract class RTDomainContainer(cfg: ir.RTDomainCfg) extends DomainContainer(Do
         dfc.mutableDB.RTDomainCfgContext.getClkOpaque(cfg, Clk(cfg.name))
     DFOpaque(clkTFE)
 
-  protected lazy val Rst: DFOpaque[RTDesign.Rst] =
-    case class Rst(cfgName: String) extends RTDesign.Rst:
+  protected lazy val Rst: DFOpaque[DFOpaque.Rst] =
+    case class Rst(cfgName: String) extends DFOpaque.Rst:
       override lazy val typeName: String = s"Rst_${cfgName}"
     val clkTFE = derivedCfg match
       case ir.DerivedCfg => RTDesign.Rst_main()

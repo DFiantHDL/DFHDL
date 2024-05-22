@@ -285,16 +285,16 @@ final class MutableDB():
   end OwnershipContext
 
   object RTDomainCfgContext:
-    private val clkTFEs = mutable.Map.empty[RTDomainCfg.Explicit, RTDesign.Clk]
-    private val rstTFEs = mutable.Map.empty[RTDomainCfg.Explicit, RTDesign.Rst]
+    private val clkTFEs = mutable.Map.empty[RTDomainCfg.Explicit, DFOpaque.Clk]
+    private val rstTFEs = mutable.Map.empty[RTDomainCfg.Explicit, DFOpaque.Rst]
     def getClkOpaque(
         cfg: RTDomainCfg.Explicit,
-        opaqueTFE: => RTDesign.Clk
-    ): RTDesign.Clk = clkTFEs.getOrElseUpdate(cfg, opaqueTFE)
+        opaqueTFE: => DFOpaque.Clk
+    ): DFOpaque.Clk = clkTFEs.getOrElseUpdate(cfg, opaqueTFE)
     def getRstOpaque(
         cfg: RTDomainCfg.Explicit,
-        opaqueTFE: => RTDesign.Rst
-    ): RTDesign.Rst = rstTFEs.getOrElseUpdate(cfg, opaqueTFE)
+        opaqueTFE: => DFOpaque.Rst
+    ): DFOpaque.Rst = rstTFEs.getOrElseUpdate(cfg, opaqueTFE)
   end RTDomainCfgContext
 
   object GlobalTagContext:

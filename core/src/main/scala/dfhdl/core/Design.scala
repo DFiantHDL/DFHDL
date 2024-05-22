@@ -110,10 +110,8 @@ abstract class DFDesign extends DomainContainer(DomainType.DF), Design
 abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends RTDomainContainer(cfg), Design
 
 object RTDesign:
-  protected[core] abstract class Clk extends DFOpaque.Frontend[DFBit](DFBit), ir.DFOpaque.Clk
-  protected[core] final case class Clk_main() extends Clk
-  protected[core] abstract class Rst extends DFOpaque.Frontend[DFBit](DFBit), ir.DFOpaque.Rst
-  protected[core] final case class Rst_main() extends Rst
+  protected[core] final case class Clk_main() extends DFOpaque.Clk
+  protected[core] final case class Rst_main() extends DFOpaque.Rst
 
 abstract class EDDesign extends DomainContainer(DomainType.ED), Design
 

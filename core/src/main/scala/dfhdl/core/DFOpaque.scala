@@ -34,6 +34,12 @@ object DFOpaque:
   abstract class Frontend[A <: DFTypeAny](final protected[core] val actualType: A) extends Abstract:
     type ActualType = A
 
+  abstract class Magnet[A <: DFTypeAny](actualType: A)
+      extends Frontend[A](actualType),
+        ir.DFOpaque.MagnetId
+  abstract class Clk extends Magnet[DFBit](DFBit), ir.DFOpaque.Clk
+  abstract class Rst extends Magnet[DFBit](DFBit), ir.DFOpaque.Rst
+
   given [TFE <: Abstract](using ce: ClassEv[TFE]): DFOpaque[TFE] = DFOpaque(ce.value)
 
   def apply[TFE <: Abstract](

@@ -19,9 +19,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
       .filter {
         // show tuple structures only if tuple support is disabled
         case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
-        // disable printing of Clk/Rst opaque types
-        case DFOpaque(_, id: (DFOpaque.Clk | DFOpaque.Rst), _) => false
-        case _                                                 => true
+        case _                                                        => true
       }
       .map(x => printer.csNamedDFTypeDcl(x, global = true))
       .mkString("\n").emptyOr(x => s"$x\n")
@@ -93,7 +91,13 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     val dimStr = if (cellDims.size == 1) cellDims.head.toString else cellDims.mkStringBrackets
     s"${csDFType(cellType, typeCS)} X $dimStr"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
-    s"case class ${dfType.getName}() extends Opaque(${csDFType(dfType.actualType)})"
+    val csActualType = csDFType(dfType.actualType)
+    val extendee = dfType.id match
+      case _: DFOpaque.Clk      => s"Clk"
+      case _: DFOpaque.Rst      => s"Rst"
+      case _: DFOpaque.MagnetId => s"Magnet($csActualType)"
+      case _                    => s"Opaque($csActualType)"
+    s"case class ${dfType.getName}() extends $extendee"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
