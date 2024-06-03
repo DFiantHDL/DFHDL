@@ -3,7 +3,7 @@ import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.compiler.printing.*
 
-private[dfhdl] abstract class Domain extends Container with scala.reflect.Selectable:
+private[dfhdl] trait Domain extends Container with scala.reflect.Selectable:
   private[core] type TScope = DFC.Scope.Domain
   private[core] type TOwner = Domain.Block
   final protected given TScope = DFC.Scope.Domain
@@ -27,17 +27,8 @@ object Domain:
         .asFE
 end Domain
 
-abstract class DFDomain extends Domain:
-  private[core] type TDomain = DFC.Domain.DF
-  final protected given TDomain = DFC.Domain.DF
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
+abstract class DFDomain extends DomainContainer(DomainType.DF), Domain
 
-abstract class RTDomain(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends Domain:
-  private[core] type TDomain = DFC.Domain.RT
-  final protected given TDomain = DFC.Domain.RT
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(cfg)
+abstract class RTDomain(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends RTDomainContainer(cfg), Domain
 
-abstract class EDDomain extends Domain:
-  private[core] type TDomain = DFC.Domain.ED
-  final protected given TDomain = DFC.Domain.ED
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED
+abstract class EDDomain extends DomainContainer(DomainType.ED), Domain

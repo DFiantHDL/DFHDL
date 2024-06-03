@@ -4,11 +4,11 @@ import dfhdl.compiler.ir
 import Patch.Add.Config as AddCfg
 import scala.annotation.unchecked.uncheckedVariance
 
-type MetaDesignAny = MetaDesign[DFC.Domain]
-abstract class MetaDesign[+D <: DFC.Domain](
+type MetaDesignAny = MetaDesign[DomainType]
+abstract class MetaDesign[+D <: DomainType](
     positionMember: ir.DFMember,
     addCfg: AddCfg,
-    domainType: D = DFC.Domain.DF
+    domainType: D = DomainType.DF
 )(using
     getSet: ir.MemberGetSet
 ) extends Design

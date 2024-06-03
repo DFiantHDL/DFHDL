@@ -25,8 +25,8 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   final lazy val dfc: DFC = core.DFC.empty
   type TScope = core.DFC.Scope.Design
   given TScope = core.DFC.Scope.Design
-  type TDomain = core.DFC.Domain.DF
-  given TDomain = core.DFC.Domain.DF
+  type TDomain = core.DomainType.DF
+  given TDomain = core.DomainType.DF
   given dfPrinter: Printer = DefaultPrinter(using dfc.getSet)
   private final val owner: core.Design.Block =
     core.Design.Block(

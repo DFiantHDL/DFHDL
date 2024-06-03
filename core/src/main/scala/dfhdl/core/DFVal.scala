@@ -938,16 +938,16 @@ object DFVal extends DFValLP:
   end Compare
 
   trait DFDomainOnly
-  given (using domain: DFC.Domain)(using
+  given (using domain: DomainType)(using
       AssertGiven[
-        domain.type <:< DFC.Domain.DF,
+        domain.type <:< DomainType.DF,
         "This construct is only available in a dataflow domain."
       ]
   ): DFDomainOnly with {}
   trait RTDomainOnly
-  given (using domain: DFC.Domain)(using
+  given (using domain: DomainType)(using
       AssertGiven[
-        domain.type <:< DFC.Domain.RT,
+        domain.type <:< DomainType.RT,
         "This construct is only available in a register-transfer domain."
       ]
   ): RTDomainOnly with {}
@@ -1099,7 +1099,7 @@ object DFVarOps:
     "Cannot assign to an immutable value."
   ]
   protected type LocalOrNonED[A] = AssertGiven[
-    (A <:< DFC.Scope.Process) | util.NotGiven[A <:< DFC.Domain.ED],
+    (A <:< DFC.Scope.Process) | util.NotGiven[A <:< DomainType.ED],
     "Blocking assignment `:=` is not allowed for a non-local variable in this domain.\nChange the assignment to a non-blocking assignment `:==` or the position of the defined variable."
   ]
   protected type NotLocalVar[A] = AssertGiven[
@@ -1107,15 +1107,15 @@ object DFVarOps:
     "Non-blocking assignment `:==` is not allowed for a local variable (defined inside the process block).\nChange the assignment to a blocking assignment `:=` or the position of the defined variable."
   ]
   protected type EDDomainOnly[A] = AssertGiven[
-    A <:< DFC.Domain.ED,
+    A <:< DomainType.ED,
     "Non-blocking assignment `:==` is allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
   ]
   protected type InsideProcess[A] = AssertGiven[
-    DFC.Scope.Process | util.NotGiven[A <:< DFC.Domain.ED],
+    DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED],
     "Assignments `:=`/`:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   protected type RTDomainOnly[A] = AssertGiven[
-    A <:< DFC.Domain.RT,
+    A <:< DomainType.RT,
     "`.din` selection is only allowed under register-transfer (RT) domains."
   ]
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
@@ -1129,7 +1129,7 @@ object DFVarOps:
     ): Unit = trydf {
       dfVar.assign(tc(dfVar.dfType, rhs))
     }
-    def :==[R](rhs: Exact[R])(using dt: DFC.Domain)(using
+    def :==[R](rhs: Exact[R])(using dt: DomainType)(using
         varOnly: VarOnly[A],
         edDomainOnly: EDDomainOnly[dt.type],
 //        notLocalVar: NotLocalVar[A],
@@ -1139,7 +1139,7 @@ object DFVarOps:
     ): Unit = trydf {
       dfVar.nbassign(tc(dfVar.dfType, rhs))
     }
-    def din(using dt: DFC.Domain)(using IsREG[A], RTDomainOnly[dt.type], DFC): REG_DIN[T] =
+    def din(using dt: DomainType)(using IsREG[A], RTDomainOnly[dt.type], DFC): REG_DIN[T] =
       new REG_DIN[T](DFError.REG_DIN(dfVar.asVarOf[T]))
   end extension
   extension [T <: NonEmptyTuple](dfVarTuple: T)

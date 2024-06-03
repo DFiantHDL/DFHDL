@@ -265,8 +265,11 @@ final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualTyp
   def getRefs: List[DFRef.TwoWayAny] = Nil
 
 object DFOpaque extends DFType.Companion[DFOpaque, Any]:
-  sealed trait Id extends Product, Serializable derives CanEqual
-  trait CustomId extends Id
+  trait Id extends Product, Serializable derives CanEqual
+  // for types to auto-connected, like Clk and Rst
+  trait MagnetId extends Id
+  trait Clk extends MagnetId
+  trait Rst extends MagnetId
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

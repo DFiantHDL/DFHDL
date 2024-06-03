@@ -23,6 +23,7 @@ object ConfigD:
     def apply(x: T): ConfigD[T] = x
   given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigD[T1], ConfigD[T2]] = CanEqual.derived
   given [T]: CanEqual[ConfigD[T], DerivedCfg.type] = CanEqual.derived
+  given [T]: CanEqual[DerivedCfg.type, ConfigD[T]] = CanEqual.derived
   given [L, R]: CanEqual[ConfigD[L], ConfigD[R]] = CanEqual.derived
 
 opaque type ConfigN[T] = T | None.type

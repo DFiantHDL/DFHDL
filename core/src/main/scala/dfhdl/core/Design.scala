@@ -8,7 +8,7 @@ import scala.annotation.{Annotation, implicitNotFound}
 import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
 
-private[dfhdl] abstract class Design extends Container, HasClsMetaArgs:
+private[dfhdl] trait Design extends Container, HasClsMetaArgs:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
@@ -105,50 +105,15 @@ object Design:
 
 end Design
 
-abstract class DFDesign extends Design:
-  private[core] type TDomain = DFC.Domain.DF
-  final protected given TDomain = DFC.Domain.DF
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.DF
+abstract class DFDesign extends DomainContainer(DomainType.DF), Design
 
-abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends Design:
-  private[core] type TDomain = DFC.Domain.RT
-  final protected given TDomain = DFC.Domain.RT
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.RT(cfg)
+abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends RTDomainContainer(cfg), Design
 
-  //  /** This is a reference to the clock used. `clkCfg` must be explicitly defined with a name before
-//    * using this value.
-//    */
-//  final lazy val clk = clkCfg match
-//    case ClkCfg.Explicit(name: String, _) =>
-//      DFVal.Dcl(DFBit, Modifier.IN)(using dfc.setName(name))
-//    case _ =>
-//      throw new IllegalArgumentException(
-//        "Tried to access `clk` but `clkCfg` has no explicit clock name."
-//      )
-//  // forcing the clock to be added if the name is explicitly defined
-//  clkCfg match
-//    case ClkCfg.Explicit(_: String, _) => clk // touching lazy value
-//    case _                             => // do nothing
-//  /** This is a reference to the reset used. `rstCfg` must be explicitly defined with a name before
-//    * using this value.
-//    */
-//  lazy val rst = rstCfg match
-//    case RstCfg.Explicit(name: String, _, _) =>
-//      DFVal.Dcl(DFBit, Modifier.IN)(using dfc.setName(name))
-//    case _ =>
-//      throw new IllegalArgumentException(
-//        "Tried to access `rst` but `rstCfg` has no explicit reset name."
-//      )
-//  // forcing the reset to be added if the name is explicitly defined
-//  rstCfg match
-//    case RstCfg.Explicit(_: String, _, _) => rst
-//    case _                                => // do nothing
-end RTDesign
+object RTDesign:
+  protected[core] final case class Clk_main() extends DFOpaque.Clk
+  protected[core] final case class Rst_main() extends DFOpaque.Rst
 
-abstract class EDDesign extends Design:
-  private[core] type TDomain = DFC.Domain.ED
-  final protected given TDomain = DFC.Domain.ED
-  final private[core] lazy val __domainType: ir.DomainType = ir.DomainType.ED
+abstract class EDDesign extends DomainContainer(DomainType.ED), Design
 
 abstract class EDBlackBox(verilogSrc: EDBlackBox.Source, vhdlSrc: EDBlackBox.Source)
     extends EDDesign:

@@ -301,6 +301,12 @@ extension (dfVal: DFVal)
   def isEDDomain(using MemberGetSet): Boolean = dfVal.getDomainType match
     case DomainType.ED => true
     case _             => false
+  def isClkDcl(using MemberGetSet): Boolean = dfVal.dfType match
+    case DFOpaque(_, id: DFOpaque.Clk, _) => true
+    case _                                => false
+  def isRstDcl(using MemberGetSet): Boolean = dfVal.dfType match
+    case DFOpaque(_, id: DFOpaque.Rst, _) => true
+    case _                                => false
 end extension
 
 extension (refTW: DFNet.Ref)

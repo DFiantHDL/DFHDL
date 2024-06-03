@@ -6,7 +6,8 @@ import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
 import DFVal.Alias.History.Op as HistoryOp
 import DFVal.Modifier
-import dfhdl.core.{DFC, DFIf, DFOwnerAny}
+import dfhdl.core.{DFIf, DFOwnerAny}
+import dfhdl.core.DomainType.ED
 import scala.annotation.tailrec
 import scala.collection.mutable
 
@@ -101,7 +102,7 @@ case object ToED extends Stage:
             // println(processBlockAllMembers.mkString("\n"))
 
             val processAllDsn =
-              new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = DFC.Domain.ED):
+              new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = ED):
                 // create a combinational process if needed
                 val hasProcessAll = dclREGList.nonEmpty || processBlockAllMembers.exists {
                   case net: DFNet               => true
@@ -158,7 +159,7 @@ case object ToED extends Stage:
                 )
 
             val processSeqDsn =
-              new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = DFC.Domain.ED):
+              new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = ED):
                 lazy val clk = clkRstOpt.clkOpt.get.asValOf[Bit]
                 lazy val rst = clkRstOpt.rstOpt.get.asValOf[Bit]
 

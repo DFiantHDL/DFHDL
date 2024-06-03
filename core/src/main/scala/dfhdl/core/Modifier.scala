@@ -16,22 +16,22 @@ object Modifier:
   type Dcl = Modifier[Assignable, Connectable, Initializable, dfhdl.core.NOTCONST]
   type DclREG = Modifier[AssignableREG, Any, Initializable, dfhdl.core.NOTCONST]
   protected type RTDomainOnly[A] = AssertGiven[
-    A <:< DFC.Domain.RT,
+    A <:< DomainType.RT,
     "`.REG` declaration modifier is only allowed under register-transfer (RT) domains."
   ]
   object VAR extends Dcl(IRModifier(IRModifier.VAR, false)):
     protected object pREG extends DclREG(IRModifier(IRModifier.VAR, true))
-    inline def REG(using dt: DFC.Domain)(using RTDomainOnly[dt.type]) = pREG
+    inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type]) = pREG
   object IN
       extends Modifier[Any, Connectable, Initializable, dfhdl.core.NOTCONST](
         IRModifier(IRModifier.IN, false)
       )
   object OUT extends Dcl(IRModifier(IRModifier.OUT, false)):
     protected object pREG extends DclREG(IRModifier(IRModifier.OUT, true))
-    inline def REG(using dt: DFC.Domain)(using RTDomainOnly[dt.type]) = pREG
+    inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type]) = pREG
   object INOUT extends Dcl(IRModifier(IRModifier.INOUT, false)):
     protected object pREG extends DclREG(IRModifier(IRModifier.INOUT, true))
-    inline def REG(using dt: DFC.Domain)(using RTDomainOnly[dt.type]) = pREG
+    inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type]) = pREG
   type CONST = Modifier[Any, Any, Any, dfhdl.core.CONST]
   extension (modifier: ModifierAny) def asIR: IRModifier = modifier.value
 end Modifier

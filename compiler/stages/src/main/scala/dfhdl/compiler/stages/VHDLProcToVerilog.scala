@@ -7,6 +7,7 @@ import dfhdl.options.CompilerOptions
 import DFConditional.{DFIfElseBlock, DFIfHeader}
 import DFVal.Func.Op as FuncOp
 import ProcessBlock.Sensitivity
+import dfhdl.core.DomainType.ED
 
 /** This stage transforms a sequential process from a VHDL style to Verilog style. E.g.,
   * {{{
@@ -35,11 +36,7 @@ case object VHDLProcToVerilog extends Stage:
           case ifBlock :: Nil if stVals.size == 1 =>
             ifBlock.guardRef.get match
               case clkEdge @ ClkEdge(clk, edge) if stVals.contains(clk) =>
-                val dsn = new MetaDesign(
-                  pb,
-                  Patch.Add.Config.ReplaceWithLast(),
-                  domainType = dfhdl.core.DFC.Domain.ED
-                ):
+                val dsn = new MetaDesign(pb, Patch.Add.Config.ReplaceWithLast(), domainType = ED):
                   val clkEdgeSig = edge match
                     case ClkCfg.Edge.Rising  => clk.asValOf[Bit].rising
                     case ClkCfg.Edge.Falling => clk.asValOf[Bit].falling
@@ -56,11 +53,7 @@ case object VHDLProcToVerilog extends Stage:
             (ifBlock.guardRef.get, elseBlock.guardRef.get) match
               case (rstActive @ RstActive(rst, active), clkEdge @ ClkEdge(clk, edge))
                   if stVals == Set(clk, rst) =>
-                val dsn = new MetaDesign(
-                  pb,
-                  Patch.Add.Config.ReplaceWithLast(),
-                  domainType = dfhdl.core.DFC.Domain.ED
-                ):
+                val dsn = new MetaDesign(pb, Patch.Add.Config.ReplaceWithLast(), domainType = ED):
                   val clkEdgeSig = edge match
                     case ClkCfg.Edge.Rising  => clk.asValOf[Bit].rising
                     case ClkCfg.Edge.Falling => clk.asValOf[Bit].falling

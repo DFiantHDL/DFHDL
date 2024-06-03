@@ -16,7 +16,8 @@ import dfhdl.compiler.ir.{
   DomainBlock,
   MemberGetSet,
   SourceFile,
-  MemberView
+  MemberView,
+  RTDomainCfg
 }
 import dfhdl.compiler.analysis.{DclPort, DesignParam}
 
@@ -282,6 +283,19 @@ final class MutableDB():
       }
     def ownerOption: Option[DFOwner] = stack.headOption
   end OwnershipContext
+
+  object RTDomainCfgContext:
+    private val clkTFEs = mutable.Map.empty[RTDomainCfg.Explicit, DFOpaque.Clk]
+    private val rstTFEs = mutable.Map.empty[RTDomainCfg.Explicit, DFOpaque.Rst]
+    def getClkOpaque(
+        cfg: RTDomainCfg.Explicit,
+        opaqueTFE: => DFOpaque.Clk
+    ): DFOpaque.Clk = clkTFEs.getOrElseUpdate(cfg, opaqueTFE)
+    def getRstOpaque(
+        cfg: RTDomainCfg.Explicit,
+        opaqueTFE: => DFOpaque.Rst
+    ): DFOpaque.Rst = rstTFEs.getOrElseUpdate(cfg, opaqueTFE)
+  end RTDomainCfgContext
 
   object GlobalTagContext:
     private[MutableDB] val tagMap: mutable.Map[(Any, ClassTag[?]), DFTag] =

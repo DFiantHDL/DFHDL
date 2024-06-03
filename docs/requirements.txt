@@ -1,6 +1,6 @@
 pygments==2.17.2
 mkdocs==1.6.0
-mkdocs-material==9.5.23
+mkdocs-material==9.5.25
 pymdown-extensions==10.8.1
 mkdocs-redirects==1.2.1
 mkdocs-glightbox==0.3.7

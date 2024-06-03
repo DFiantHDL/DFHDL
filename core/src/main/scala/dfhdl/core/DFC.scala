@@ -74,15 +74,6 @@ object DFC:
     object Process extends Process
     sealed trait Interface extends Scope
     object Interface extends Interface
-  sealed trait Domain
-  object Domain:
-    sealed trait DF extends Domain
-    object DF extends DF
-    given DF = DF
-    sealed trait RT extends Domain
-    object RT extends RT
-    sealed trait ED extends Domain
-    object ED extends ED
 end DFC
 
 def dfc(using DFC): DFC = summon[DFC]

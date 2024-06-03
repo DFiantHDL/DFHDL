@@ -41,6 +41,7 @@ protected object hdl:
   val Encode = core.DFEncoding
   export core.DFStruct.Fields as Struct
   export core.DFOpaque.Frontend as Opaque
+  export core.DFOpaque.{Magnet, Clk, Rst}
   type DFDesign = core.DFDesign
   type RTDesign = core.RTDesign
   type EDDesign = core.EDDesign
