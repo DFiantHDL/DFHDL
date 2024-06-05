@@ -23,14 +23,19 @@ class AddClkRstSpec extends StageSpec:
     val id = (new ID).addClkRst
     assertCodeString(
       id,
-      """|class ID extends RTDesign(cfg):
-         |  val clk = Bit <> IN
-         |  val rst = Bit <> IN
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |case class Clk_cfgI() extends Clk
+         |case class Rst_cfgI() extends Rst
+         |
+         |class ID extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val internal = new RTDomain(cfgI):
-         |    val clk = Bit <> IN
-         |    val rst = Bit <> IN
+         |    val clk = Clk_cfgI <> IN
+         |    val rst = Rst_cfgI <> IN
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
@@ -55,17 +60,20 @@ class AddClkRstSpec extends StageSpec:
     val id = (new IDTop).addClkRst.addClkRst
     assertCodeString(
       id,
-      """|class ID extends RTDesign(cfg):
-         |  val clk = Bit <> IN
-         |  val rst = Bit <> IN
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x.reg(1, init = ?)
          |end ID
          |
          |class IDTop extends RTDesign(cfg):
-         |  val clk = Bit <> IN
-         |  val rst = Bit <> IN
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val id = ID()
@@ -77,13 +85,13 @@ class AddClkRstSpec extends StageSpec:
   }
   test("Clk and rst already exist") {
     class ID extends RTDesign(cfg):
-      val clk = Bit      <> IN
-      val rst = Bit      <> IN
+      val clk = Clk      <> IN
+      val rst = Rst      <> IN
       val x   = SInt(16) <> IN
       val y   = SInt(16) <> OUT
       val internal = new RTDomain(cfgI):
-        val clk = Bit      <> IN
-        val rst = Bit      <> IN
+        val clk = Clk      <> IN
+        val rst = Rst      <> IN
         val x   = SInt(16) <> IN
         val y   = SInt(16) <> OUT
         x <> y
@@ -91,14 +99,19 @@ class AddClkRstSpec extends StageSpec:
     val id = (new ID).addClkRst
     assertCodeString(
       id,
-      """|class ID extends RTDesign(cfg):
-         |  val clk = Bit <> IN
-         |  val rst = Bit <> IN
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |case class Clk_cfgI() extends Clk
+         |case class Rst_cfgI() extends Rst
+         |
+         |class ID extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val internal = new RTDomain(cfgI):
-         |    val clk = Bit <> IN
-         |    val rst = Bit <> IN
+         |    val clk = Clk_cfgI <> IN
+         |    val rst = Rst_cfgI <> IN
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
@@ -119,12 +132,15 @@ class AddClkRstSpec extends StageSpec:
     val id = (new ID).addClkRst
     assertCodeString(
       id,
-      """|class ID extends RTDesign(cfgNoRst):
-         |  val clk = Bit <> IN
+      """|case class Clk_cfgNoRst() extends Clk
+         |case class Clk_cfgNoRstI() extends Clk
+         |
+         |class ID extends RTDesign(cfgNoRst):
+         |  val clk = Clk_cfgNoRst <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val internal = new RTDomain(cfgNoRstI):
-         |    val clk = Bit <> IN
+         |    val clk = Clk_cfgNoRstI <> IN
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
@@ -145,11 +161,13 @@ class AddClkRstSpec extends StageSpec:
     val id = (new ID).addClkRst
     assertCodeString(
       id,
-      """|class ID extends RTDesign(NoClockCfg):
+      """|case class Clk_cfgNoRstI() extends Clk
+         |
+         |class ID extends RTDesign(NoClockCfg):
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val internal = new RTDomain(cfgNoRstI):
-         |    val clk = Bit <> IN
+         |    val clk = Clk_cfgNoRstI <> IN
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
@@ -170,9 +188,12 @@ class AddClkRstSpec extends StageSpec:
     val id = (new ID).addClkRst
     assertCodeString(
       id,
-      """|class ID extends RTDesign(cfg):
-         |  val clk = Bit <> IN
-         |  val rst = Bit <> IN
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val internal = new RTDomain(cfg):
@@ -201,14 +222,19 @@ class AddClkRstSpec extends StageSpec:
     val id = (new ID).addClkRst
     assertCodeString(
       id,
-      """|class ID extends RTDesign(cfg):
-         |  val clk = Bit <> IN
-         |  val rst = Bit <> IN
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |case class Clk_cfgI() extends Clk
+         |case class Rst_cfgI() extends Rst
+         |
+         |class ID extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val internal1 = new RTDomain(cfgI):
-         |    val clk = Bit <> IN
-         |    val rst = Bit <> IN
+         |    val clk = Clk_cfgI <> IN
+         |    val rst = Rst_cfgI <> IN
          |    val ii = new RTDomain(cfgI):
          |      val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
@@ -227,8 +253,8 @@ class AddClkRstSpec extends StageSpec:
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT
       val internal = new RTDomain(cfg):
-        val clk = Bit      <> IN
-        val rst = Bit      <> IN
+        val clk = Clk      <> IN
+        val rst = Rst      <> IN
         val x   = SInt(16) <> IN
         val y   = SInt(16) <> OUT
         x <> y
@@ -236,14 +262,17 @@ class AddClkRstSpec extends StageSpec:
     val id = (new ID).addClkRst
     assertCodeString(
       id,
-      """|class ID extends RTDesign(cfg):
-         |  val clk = Bit <> IN
-         |  val rst = Bit <> IN
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val internal = new RTDomain(cfg):
-         |    val clk = Bit <> IN
-         |    val rst = Bit <> IN
+         |    val clk = Clk_cfg <> IN
+         |    val rst = Rst_cfg <> IN
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
@@ -256,11 +285,11 @@ class AddClkRstSpec extends StageSpec:
     val genCfg = RTDomainCfg(clkCfg, rstCfg)
     class ClkGen(srcCfg: RTDomainCfg, genCfg: RTDomainCfg) extends EDDesign:
       val src = new RTDomain(srcCfg):
-        val clk = Bit <> IN
-        val rst = Bit <> IN
+        val clk = Clk <> IN
+        val rst = Rst <> IN
       val gen = new RTDomain(genCfg):
-        val clk = Bit <> OUT
-        val rst = Bit <> OUT
+        val clk = Clk <> OUT
+        val rst = Rst <> OUT
       gen.clk <> src.clk
       gen.rst <> src.rst
     class ID extends RTDesign(cfg):
@@ -275,20 +304,25 @@ class AddClkRstSpec extends StageSpec:
     val id = (new ID).addClkRst
     assertCodeString(
       id,
-      """|class ClkGen extends EDDesign:
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |case class Clk_genCfg() extends Clk
+         |case class Rst_genCfg() extends Rst
+         |
+         |class ClkGen extends EDDesign:
          |  val src = new RTDomain(cfg):
-         |    val clk = Bit <> IN
-         |    val rst = Bit <> IN
+         |    val clk = Clk_cfg <> IN
+         |    val rst = Rst_cfg <> IN
          |  val gen = new RTDomain(genCfg):
-         |    val clk = Bit <> OUT
-         |    val rst = Bit <> OUT
+         |    val clk = Clk_genCfg <> OUT
+         |    val rst = Rst_genCfg <> OUT
          |  gen.clk <> src.clk
          |  gen.rst <> src.rst
          |end ClkGen
          |
          |class ID extends RTDesign(cfg):
-         |  val clk = Bit <> IN
-         |  val rst = Bit <> IN
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val clkGen = ClkGen()

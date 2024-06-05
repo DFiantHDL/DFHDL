@@ -48,10 +48,11 @@ private final case class ReplacementContext(
         // the member exists, so we need to update its references to point to the new member
         // by updating the reference table
         case Some(refs) =>
+          val latestRepMember = getLatestRepOf(repMember)
           // in case the replacement member already was replaced in the past, then we used the previous replacement
           // as the most updated member
           val replacementHistory =
-            (repMember, refFilter) :: this.memberRepTable.getOrElse(repMember, List())
+            (latestRepMember, refFilter) :: this.memberRepTable.getOrElse(repMember, List())
           // when replacing a member, the original member refs are redundant unless
           // it's being replaced by a copy of itself that has the same references
           val droppedOrigRefsTable = config match
@@ -65,15 +66,17 @@ private final case class ReplacementContext(
             refFilter match
               // An all inclusive filter is purging all other replacement histories, so we only save it alone
               case Patch.Replace.RefFilter.All =>
-                memberRepTable + (origMember -> List((repMember, refFilter)))
+                memberRepTable + (origMember -> List((latestRepMember, refFilter)))
               case _ =>
                 memberRepTable + (origMember -> replacementHistory)
           // add another entry for the replacing member, but still keep the old one
-          val updatedMemberTable = memberTable + (repMember -> refs)
+          val updatedMemberTable = memberTable + (latestRepMember -> refs)
           ReplacementContext(updatedRefTable, updatedMemberTable, updatedMemberRepTable)
         // nothing to do if the member does not exist anymore
         case None => this
-
+      end match
+    end if
+  end replaceMember
 end ReplacementContext
 
 private object ReplacementContext:

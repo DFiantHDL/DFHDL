@@ -22,7 +22,7 @@ import dfhdl.core.DomainType.ED
   * }}}
   */
 case object VHDLProcToVerilog extends Stage:
-  def dependencies: List[Stage] = List()
+  def dependencies: List[Stage] = List(DropMagnets)
 
   def nullifies: Set[Stage] = Set()
 
