@@ -443,6 +443,156 @@ final case class DB(
     end match
   end getConnToDcls
 
+  //                                     To        From
+  lazy val magnetConnectionTable: Map[DFVal.Dcl, DFVal.Dcl] =
+    var errors = List.empty[String]
+    def newError(errMsg: String): Option[DFVal.Dcl] =
+      errors = errMsg :: errors
+      None
+    // TODO: what to do with missing clk/rst definitions in RTDomains when they are not declared?
+    // Option 1: create a dedicated check for clk/rst
+    // Option 2: always add clk/rst in RTDomains in elaboration using injection, if the user did not construct them.
+    //           this will remove the need for AddClkRst stage.
+    // Option 3: apply AddClkRst stage after elaboration and before elaboration checks. this is interesting since we could
+    //           use this mechanism to apply various design fixes from elaboration meta-programming.
+    def missingSourceError(targetPort: DFVal.Dcl) =
+      // newError(
+      //   s"""|Missing magnet source for target port ${targetPort.getName}
+      //       |Position:  ${targetPort.meta.position}
+      //       |Hierarchy: ${targetPort.getOwnerNamed.getFullName}""".stripMargin
+      // )
+      None
+    // count the hierarchy distance from inside to outside
+    def distance(inside: DFDesignBlock, outside: DFDesignBlock): Int =
+      var distance = 0
+      var dsn = inside
+      while (dsn != outside)
+        distance = distance + 1
+        dsn = dsn.getOwnerDesign
+      return distance
+    def getOwnerChain(dsn: DFDesignBlock): List[DFDesignBlock] =
+      var chain = List(dsn)
+      while (!chain.head.isTop)
+        chain = chain.head.getOwnerDesign :: chain
+      chain
+    def getCommonDesign(dsn1: DFDesignBlock, dsn2: DFDesignBlock): DFDesignBlock =
+      var chain1 = getOwnerChain(dsn1)
+      var chain2 = getOwnerChain(dsn2)
+      while (chain1.drop(1).headOption == chain2.drop(1).headOption)
+        chain1 = chain1.drop(1)
+        chain2 = chain2.drop(2)
+      chain1.head
+    // group magnet ports according to the magnet type
+    val magnetDclGroups =
+      members.view
+        .collect {
+          case dcl @ DFVal.Dcl(dfType: DFOpaque, _, _, _, _, _) if dcl.isPort && dfType.isMagnet =>
+            (dcl, dfType)
+        }
+        .groupMap(_._2)(_._1).values.map(_.toSet).toList
+    // println(magnetDclGroups.map(_.mkString("\n").hindent).mkString("G\n", "G\n", ""))
+    // set of magnet ports that are explicitly connected/assigned
+    val alreadyConnectedOrAssigned =
+      assignmentsTable.keys.flatMap(_.dealias).collect {
+        case dcl @ DFVal.Dcl(dfType: DFOpaque, _, _, _, _, _) if dcl.isPort && dfType.isMagnet =>
+          dcl
+      }.toSet ++ connectionTable.dcls.collect {
+        case dcl @ DFVal.Dcl(dfType: DFOpaque, _, _, _, _, _) if dcl.isPort && dfType.isMagnet =>
+          dcl
+      }
+    // flatten connection map for all magnet groups
+    val ret = magnetDclGroups.flatMap { dclGrp =>
+      dclGrp.view
+        // first rejecting inviable magnet targets
+        .filterNot { dcl =>
+          val dclOwnerDesign = dcl.getOwnerDesign
+          // rejecting top level inputs
+          (dcl.isPortIn && dclOwnerDesign.isTop) ||
+          // rejecting blackbox and duplicated design outputs
+          (dcl.isPortOut && (dclOwnerDesign.isBlackBox || dclOwnerDesign.isDuplicate)) ||
+          // rejecting explicitly connected/assigned ports
+          alreadyConnectedOrAssigned.contains(dcl)
+        }
+        // finding the magnet source port for each target port
+        .flatMap { targetPort =>
+          val targetDsn = targetPort.getOwnerDesign
+          val sourcePort: Option[DFVal.Dcl] =
+            if (targetPort.isPortIn)
+              // sorted source in port candidates according to the distance
+              val sourceInCandidates = dclGrp.filter { port =>
+                port.isPortIn && !port.isSameOwnerDesignAs(targetPort) &&
+                targetPort.isInsideOwner(port.getOwnerDesign)
+              }.map { port =>
+                (port, distance(targetDsn, port.getOwnerDesign))
+              }.toList.sortBy(_._2)
+              // sorted source out port candidates according to the distance
+              val sourceOutCandidates = dclGrp.filter(_.isPortOut)
+                .map { port =>
+                  val portDsn = port.getOwnerDesign
+                  val commonDesign = getCommonDesign(targetDsn, portDsn)
+                  (port, distance(targetDsn, commonDesign), distance(portDsn, commonDesign))
+                }.toList.sortBy(_._3).sortBy(_._2)
+              (sourceInCandidates, sourceOutCandidates) match
+                case (Nil, Nil) =>
+                  missingSourceError(targetPort)
+                case (Nil, (src, _, _) :: _) =>
+                  Some(src)
+                case ((src, _) :: _, Nil) =>
+                  Some(src)
+                case ((srcIn, distIn) :: _, (srcOut, distOut, _) :: _) =>
+                  if (distIn < distOut) Some(srcIn)
+                  else
+                    newError(
+                      s"""|Found two possible magnet sources for a target magnet.
+                          |Target Position:  ${targetPort.meta.position}
+                          |Target Path:      ${targetPort.getFullName}
+                          |Source1 Position: ${srcIn.meta.position} 
+                          |Source1 Path:     ${srcIn.getFullName}
+                          |Source2 Position: ${srcOut.meta.position} 
+                          |Source2 Path:     ${srcOut.getFullName}""".stripMargin
+                    )
+              end match
+            // target is an output
+            else
+              // sorted source candidates according to the distance
+              val sourceOutCandidates = dclGrp.filter { port =>
+                port.isPortOut && !port.isSameOwnerDesignAs(targetPort) &&
+                port.isInsideOwner(targetDsn)
+              }.map { port =>
+                (port, distance(port.getOwnerDesign, targetDsn))
+              }.toList.sortBy(_._2)
+              sourceOutCandidates match
+                case Nil =>
+                  missingSourceError(targetPort)
+                case (src, ld) :: otherCandidates =>
+                  var lastDistance: Int = ld
+                  var lastSrc: DFVal.Dcl = src
+                  otherCandidates.foreach { case (src, distance) =>
+                    if (distance == lastDistance)
+                      newError(
+                        s"""|Found two possible magnet sources for a target magnet.
+                            |Target Position:  ${targetPort.meta.position}
+                            |Target Path:      ${targetPort.getFullName}
+                            |Source1 Position: ${lastSrc.meta.position} 
+                            |Source1 Path:     ${lastSrc.getFullName}
+                            |Source2 Position: ${src.meta.position} 
+                            |Source2 Path:     ${src.getFullName}""".stripMargin
+                      )
+                    lastDistance = distance
+                    lastSrc = src
+                  }
+                  Some(src)
+              end match
+          sourcePort.map(targetPort -> _)
+        }
+    }.toMap
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(
+        errors.view.reverse.mkString("\n\n")
+      )
+    ret
+  end magnetConnectionTable
+
   def nameCheck(): Unit =
     // We use a Set since meta programming is usually the cause and can result in
     // multiple anonymous members with the same position. The top can be anonymous.
@@ -538,6 +688,7 @@ final case class DB(
   def check(): Unit =
     nameCheck()
     connectionTable // causes connectivity checks
+    magnetConnectionTable // causes magnet connectivity checks
     directRefCheck()
 
   // There can only be a single connection to a value in a given range

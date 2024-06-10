@@ -158,6 +158,18 @@ object DFVal:
           case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
           case _                                           => false
       case _ => false
+    def isPortOut: Boolean = dfVal match
+      case dcl: DFVal.Dcl =>
+        dcl.modifier.dir match
+          case Modifier.OUT => true
+          case _            => false
+      case _ => false
+    def isPortIn: Boolean = dfVal match
+      case dcl: DFVal.Dcl =>
+        dcl.modifier.dir match
+          case Modifier.IN => true
+          case _           => false
+      case _ => false
     def isVar: Boolean = dfVal match
       case dcl: DFVal.Dcl =>
         dcl.modifier.dir match
@@ -879,6 +891,7 @@ object DFDesignBlock:
 
   extension (dsn: DFDesignBlock)
     def isDuplicate: Boolean = dsn.hasTagOf[DuplicateTag]
+    def isBlackBox: Boolean = dsn.instMode.isInstanceOf[InstMode.BlackBox]
     def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
 
   object Top:
