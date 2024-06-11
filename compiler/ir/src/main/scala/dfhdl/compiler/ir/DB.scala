@@ -470,18 +470,6 @@ final case class DB(
         distance = distance + 1
         dsn = dsn.getOwnerDesign
       return distance
-    def getOwnerChain(dsn: DFDesignBlock): List[DFDesignBlock] =
-      var chain = List(dsn)
-      while (!chain.head.isTop)
-        chain = chain.head.getOwnerDesign :: chain
-      chain
-    def getCommonDesign(dsn1: DFDesignBlock, dsn2: DFDesignBlock): DFDesignBlock =
-      var chain1 = getOwnerChain(dsn1)
-      var chain2 = getOwnerChain(dsn2)
-      while (chain1.drop(1).headOption == chain2.drop(1).headOption)
-        chain1 = chain1.drop(1)
-        chain2 = chain2.drop(2)
-      chain1.head
     // group magnet ports according to the magnet type
     val magnetDclGroups =
       members.view
@@ -529,7 +517,7 @@ final case class DB(
               val sourceOutCandidates = dclGrp.filter(_.isPortOut)
                 .map { port =>
                   val portDsn = port.getOwnerDesign
-                  val commonDesign = getCommonDesign(targetDsn, portDsn)
+                  val commonDesign = targetDsn.getCommonDesignWith(portDsn)
                   (port, distance(targetDsn, commonDesign), distance(portDsn, commonDesign))
                 }.toList.sortBy(_._3).sortBy(_._2)
               (sourceInCandidates, sourceOutCandidates) match

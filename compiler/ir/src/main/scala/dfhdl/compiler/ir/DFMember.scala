@@ -893,6 +893,19 @@ object DFDesignBlock:
     def isDuplicate: Boolean = dsn.hasTagOf[DuplicateTag]
     def isBlackBox: Boolean = dsn.instMode.isInstanceOf[InstMode.BlackBox]
     def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
+    def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
+      def getOwnerDesignChain(dsn: DFDesignBlock): List[DFDesignBlock] =
+        var chain = List(dsn)
+        while (!chain.head.isTop)
+          chain = chain.head.getOwnerDesign :: chain
+        chain
+      var chain1 = getOwnerDesignChain(dsn)
+      var chain2 = getOwnerDesignChain(dsn2)
+      while (chain1.drop(1).headOption == chain2.drop(1).headOption)
+        chain1 = chain1.drop(1)
+        chain2 = chain2.drop(2)
+      chain1.head
+  end extension
 
   object Top:
     def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = block.isTop
