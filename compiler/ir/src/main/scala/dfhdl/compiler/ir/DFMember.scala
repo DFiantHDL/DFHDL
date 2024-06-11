@@ -139,6 +139,7 @@ sealed trait DFVal extends DFMember.Named:
       localIsConst
     else if (cachedIsConst > 0) true
     else false
+  def updateDFType(dfType: DFType): this.type
 end DFVal
 
 object DFVal:
@@ -156,6 +157,18 @@ object DFVal:
         dcl.modifier.dir match
           case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
           case _                                           => false
+      case _ => false
+    def isPortOut: Boolean = dfVal match
+      case dcl: DFVal.Dcl =>
+        dcl.modifier.dir match
+          case Modifier.OUT => true
+          case _            => false
+      case _ => false
+    def isPortIn: Boolean = dfVal match
+      case dcl: DFVal.Dcl =>
+        dcl.modifier.dir match
+          case Modifier.IN => true
+          case _           => false
       case _ => false
     def isVar: Boolean = dfVal match
       case dcl: DFVal.Dcl =>
@@ -300,6 +313,7 @@ object DFVal:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end Const
 
   final case class Open(
@@ -315,6 +329,7 @@ object DFVal:
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
     def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end Open
 
   final case class Dcl(
@@ -339,6 +354,7 @@ object DFVal:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ initRefList
+    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end Dcl
   object Dcl:
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
@@ -364,6 +380,7 @@ object DFVal:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ args
+    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end Func
 
   object Func:
@@ -392,6 +409,7 @@ object DFVal:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     def getRefs: List[DFRef.TwoWayAny] = designInstRef :: dfType.getRefs
+    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end PortByNameSelect
   object PortByNameSelect:
     type Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
@@ -443,6 +461,7 @@ object DFVal:
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+      def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     end AsIs
 
     final case class History(
@@ -470,6 +489,7 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       override def getRefs: List[DFRef.TwoWayAny] = relValRef :: dfType.getRefs ++ initRefOption
+      def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     end History
 
     object History:
@@ -496,6 +516,7 @@ object DFVal:
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+      def updateDFType(dfType: DFType): this.type = this
     end ApplyRange
     final case class ApplyIdx(
         dfType: DFType,
@@ -516,6 +537,7 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       override def getRefs: List[DFRef.TwoWayAny] = relIdx :: relValRef :: dfType.getRefs
+      def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     end ApplyIdx
     object ApplyIdx:
       object Const:
@@ -542,6 +564,7 @@ object DFVal:
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+      def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     end SelectField
   end Alias
 end DFVal
@@ -712,6 +735,7 @@ object DFConditional:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     def getRefs: List[DFRef.TwoWayAny] = selectorRef :: dfType.getRefs
+    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end DFMatchHeader
 
   final case class DFCaseBlock(
@@ -807,6 +831,7 @@ object DFConditional:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end DFIfHeader
 
   final case class DFIfElseBlock(
@@ -866,7 +891,21 @@ object DFDesignBlock:
 
   extension (dsn: DFDesignBlock)
     def isDuplicate: Boolean = dsn.hasTagOf[DuplicateTag]
+    def isBlackBox: Boolean = dsn.instMode.isInstanceOf[InstMode.BlackBox]
     def inSimulation: Boolean = dsn.instMode == InstMode.Simulation
+    def getCommonDesignWith(dsn2: DFDesignBlock)(using MemberGetSet): DFDesignBlock =
+      def getOwnerDesignChain(dsn: DFDesignBlock): List[DFDesignBlock] =
+        var chain = List(dsn)
+        while (!chain.head.isTop)
+          chain = chain.head.getOwnerDesign :: chain
+        chain
+      var chain1 = getOwnerDesignChain(dsn)
+      var chain2 = getOwnerDesignChain(dsn2)
+      while (chain1.drop(1).headOption == chain2.drop(1).headOption)
+        chain1 = chain1.drop(1)
+        chain2 = chain2.drop(2)
+      chain1.head
+  end extension
 
   object Top:
     def unapply(block: DFDesignBlock)(using MemberGetSet): Boolean = block.isTop
@@ -967,6 +1006,7 @@ object Timer:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     def getRefs: List[DFRef.TwoWayAny] = List(timerRef)
+    def updateDFType(dfType: DFType): this.type = this
   end IsActive
 end Timer
 

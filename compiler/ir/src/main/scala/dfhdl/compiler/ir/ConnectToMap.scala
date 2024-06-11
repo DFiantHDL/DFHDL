@@ -5,6 +5,7 @@ opaque type ConnectToMap = Map[DFVal.Dcl, Vector[Option[DFNet]]]
 object ConnectToMap:
   def empty: ConnectToMap = Map()
   extension (ctm: ConnectToMap)(using MemberGetSet)
+    def dcls: Set[DFVal.Dcl] = ctm.keySet
     def getNets(dcl: DFVal.Dcl, range: Range): Set[DFNet] =
       val vector = ctm.getOrElse(dcl, Vector.fill(dcl.width)(None))
       range.flatMap(vector(_)).toSet

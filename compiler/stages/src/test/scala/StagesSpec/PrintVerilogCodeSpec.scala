@@ -232,8 +232,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input wire logic [15:0] x,
          |  output logic [15:0]     y
          |);
-         |  logic [15:0] z;
          |  parameter logic [15:0] c = 16'h0000;
+         |  logic [15:0] z;
          |  logic [15:0] my_var;
          |  always @(posedge clk, posedge rst)
          |  begin

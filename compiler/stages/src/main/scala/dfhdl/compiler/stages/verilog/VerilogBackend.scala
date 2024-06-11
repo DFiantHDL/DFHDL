@@ -29,8 +29,8 @@ enum VerilogDialect derives CanEqual:
 private case object VerilogUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = true)
 case object VerilogBackend extends Stage:
   def dependencies: List[Stage] =
-    List(DropUnreferencedAnons, NamedAnonMultiref, ToED, VHDLProcToVerilog, NamedSelection,
-      ExplicitNamedVars, DropLocalDcls, DropBAssignFromSeqProc, SimpleOrderMembers,
+    List(DropUnreferencedAnons, NamedAnonMultiref, ToED, DropMagnets, VHDLProcToVerilog,
+      NamedSelection, ExplicitNamedVars, DropLocalDcls, DropBAssignFromSeqProc, SimpleOrderMembers,
       VerilogUniqueNames, ViaConnection)
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB = designDB

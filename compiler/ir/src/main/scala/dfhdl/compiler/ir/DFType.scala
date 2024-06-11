@@ -254,6 +254,9 @@ final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualTyp
       ComposedDFType:
   type Data = Any
   def width(using MemberGetSet): Int = actualType.width
+  def isMagnet: Boolean = id match
+    case _: DFOpaque.MagnetId => true
+    case _                    => false
   def createBubbleData(using MemberGetSet): Data = actualType.createBubbleData
   def isDataBubble(data: Data): Boolean =
     actualType.isDataBubble(data.asInstanceOf[actualType.Data])
@@ -263,6 +266,7 @@ final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualTyp
     actualType.bitsDataToData(data)
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
   def getRefs: List[DFRef.TwoWayAny] = Nil
+end DFOpaque
 
 object DFOpaque extends DFType.Companion[DFOpaque, Any]:
   trait Id extends Product, Serializable derives CanEqual

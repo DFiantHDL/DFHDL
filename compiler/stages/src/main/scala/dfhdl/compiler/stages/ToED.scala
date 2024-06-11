@@ -6,11 +6,10 @@ import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
 import DFVal.Alias.History.Op as HistoryOp
 import DFVal.Modifier
-import dfhdl.core.{DFIf, DFOwnerAny}
+import dfhdl.core.{DFIf, DFOwnerAny, DFOpaque}
 import dfhdl.core.DomainType.ED
 import scala.annotation.tailrec
 import scala.collection.mutable
-
 case object ToED extends Stage:
   def dependencies: List[Stage] =
     List(ToRT, NameRegAliases, ExplicitNamedVars, AddClkRst, SimpleOrderMembers)
@@ -160,8 +159,8 @@ case object ToED extends Stage:
 
             val processSeqDsn =
               new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = ED):
-                lazy val clk = clkRstOpt.clkOpt.get.asValOf[Bit]
-                lazy val rst = clkRstOpt.rstOpt.get.asValOf[Bit]
+                lazy val clk = clkRstOpt.clkOpt.get.asValOf[DFOpaque[DFOpaque.Clk]]
+                lazy val rst = clkRstOpt.rstOpt.get.asValOf[DFOpaque[DFOpaque.Rst]]
 
                 import processAllDsn.dclChangeList
 
@@ -183,8 +182,8 @@ case object ToED extends Stage:
                 def ifRstActive =
                   val RstCfg.Explicit(_, active: RstCfg.Active) = rstCfg: @unchecked
                   val cond = active match
-                    case RstCfg.Active.High => rst == 1
-                    case RstCfg.Active.Low  => rst == 0
+                    case RstCfg.Active.High => rst.actual == 1
+                    case RstCfg.Active.Low  => rst.actual == 0
                   DFIf.singleBranch(Some(cond), DFIf.Header(dfhdl.core.DFUnit), regInitBlock)
                 def ifRstActiveElseRegSaveBlock(): Unit =
                   val (_, rstBranch) = ifRstActive
@@ -192,8 +191,8 @@ case object ToED extends Stage:
                 def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
                   val ClkCfg.Explicit(edge: ClkCfg.Edge) = clkCfg: @unchecked
                   val cond = edge match
-                    case ClkCfg.Edge.Rising  => clk.rising
-                    case ClkCfg.Edge.Falling => clk.falling
+                    case ClkCfg.Edge.Rising  => clk.actual.rising
+                    case ClkCfg.Edge.Falling => clk.actual.falling
                   DFIf.singleBranch(
                     Some(cond),
                     ifRstOption.getOrElse(DFIf.Header(dfhdl.core.DFUnit)),
