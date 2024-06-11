@@ -50,8 +50,7 @@ case object DropMagnets
       case DFOpaque(_, _: DFOpaque.MagnetId, _) => true
       case _                                    => false
     }):
-  // TODO: add ConnectMagnetPorts as a dependency
-  override def dependencies: List[Stage] = List()
+  override def dependencies: List[Stage] = List(ConnectMagnets)
 
 extension [T: HasDB](t: T)
   def dropMagnets(using CompilerOptions): DB =
