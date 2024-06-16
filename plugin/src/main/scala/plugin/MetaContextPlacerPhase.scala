@@ -151,10 +151,8 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
               .select("setClsNamePos".toTermName)
               .appliedToArgs(
                 List(
-                  Literal(Constant(tree.name.toString)),
-                  tree.positionTree,
-                  mkOptionString(clsSym.docString),
-                  mkList(clsSym.staticAnnotations.map(_.tree)),
+                  Literal(Constant(tree.name.toString)), tree.positionTree,
+                  mkOptionString(clsSym.docString), mkList(clsSym.staticAnnotations.map(_.tree)),
                   simpleArgsListMapTree
                 )
               )

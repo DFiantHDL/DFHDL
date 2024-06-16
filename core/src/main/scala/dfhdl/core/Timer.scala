@@ -59,11 +59,7 @@ object Timer:
         case None        => ir.DFRef.TwoWay.Empty
       val timer: ir.Timer = ir.Timer
         .Periodic(
-          triggerRef,
-          periodOpt,
-          dfc.owner.ref,
-          dfc.getMeta,
-          ir.DFTags.empty
+          triggerRef, periodOpt, dfc.owner.ref, dfc.getMeta, ir.DFTags.empty
         )
         .addMember
       timer.asFE

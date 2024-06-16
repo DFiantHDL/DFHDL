@@ -6,8 +6,7 @@ import scala.annotation.targetName
 
 sealed abstract class DFError(
     val dfMsg: String
-) extends Exception(dfMsg)
-    derives CanEqual
+) extends Exception(dfMsg) derives CanEqual
 
 object DFError:
   class Basic(

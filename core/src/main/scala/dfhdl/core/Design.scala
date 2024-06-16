@@ -71,12 +71,7 @@ object Design:
   object Block:
     def apply(domain: ir.DomainType, dclMeta: ir.Meta, instMode: InstMode)(using DFC): Block =
       ir.DFDesignBlock(
-        domain,
-        dclMeta,
-        instMode,
-        dfc.ownerOrEmptyRef,
-        dfc.getMeta,
-        ir.DFTags.empty
+        domain, dclMeta, instMode, dfc.ownerOrEmptyRef, dfc.getMeta, ir.DFTags.empty
       )
         .addMember
         .asFE

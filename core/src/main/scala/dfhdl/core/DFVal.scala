@@ -603,12 +603,7 @@ object DFVal extends DFValLP:
       // violating the reference order rule (we can only reference values that appear before).
       if (dfc.isAnonymous && initValues.isEmpty)
         ir.DFVal.Dcl(
-          dfType.asIR,
-          modifier.asIR,
-          Nil,
-          ir.DFRef.OneWay.Empty,
-          dfc.getMeta,
-          ir.DFTags.empty
+          dfType.asIR, modifier.asIR, Nil, ir.DFRef.OneWay.Empty, dfc.getMeta, ir.DFTags.empty
         ).asVal[T, M]
       else
         val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
