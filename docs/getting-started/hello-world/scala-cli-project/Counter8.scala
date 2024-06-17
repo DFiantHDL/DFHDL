@@ -6,6 +6,12 @@ class Counter8 extends RTDesign:
   cnt.din := cnt + 1
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
+// DFHDL Elaboration Options:                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////
+// Uncomment to set different clock and reset configurations:
+// given options.ElaborationOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
+// given options.ElaborationOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
+////////////////////////////////////////////////////////////////////////////////////////////////
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Enables printing the generated chosen backend code:
@@ -16,9 +22,6 @@ given options.CompilerOptions.PrintGenFiles = true
 // given options.CompilerOptions.PrintDesignCodeBefore = true
 // Uncomment to enable printing design code after compilation:
 // given options.CompilerOptions.PrintDesignCodeAfter = true
-// Uncomment to set different clock and reset configurations:
-// given options.CompilerOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
-// given options.CompilerOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 //The entry point to your compilation program starts here

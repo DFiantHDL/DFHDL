@@ -8,7 +8,7 @@ trait BuilderOptions extends ToolOptions:
 //defaults common for all linting tools
 object BuilderOptions:
   opaque type OnError <: dfhdl.options.ToolOptions.OnError = dfhdl.options.ToolOptions.OnError
-  given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
   object OnError:
     given (using onError: dfhdl.options.ToolOptions.OnError): OnError = onError
+    given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
     export dfhdl.options.OnError.*

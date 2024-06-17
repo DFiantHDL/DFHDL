@@ -51,16 +51,42 @@ abstract class CommonPhase extends PluginPhase:
   protected def mkNone(using Context): Tree =
     ref(defn.NoneModule.termRef)
 
-  protected def mkList(tree: List[Tree])(using Context): Tree =
+  protected def mkOption(optTree: Option[Tree])(using Context): Tree =
+    optTree.map(mkSome).getOrElse(mkNone)
+
+  protected def mkList(tree: List[Tree], tpeOpt: Option[Type] = None)(using Context): Tree =
     if (tree.isEmpty) ref(defn.NilModule)
     else
-      val tpe = tree.view.map(_.tpe).reduce(_ | _).widenUnion
+      val tpe = tpeOpt.getOrElse(tree.view.map(_.tpe).reduce(_ | _).widenUnion)
       tpd.mkList(tree, TypeTree(tpe))
 
   protected def mkTuple(trees: List[Tree])(using Context): Tree =
     ref(requiredMethod(s"scala.Tuple${trees.length}.apply"))
       .appliedToTypes(trees.map(_.tpe.widen))
       .appliedToArgs(trees)
+
+  private val dropProxiesTreeMap = new TreeMap:
+    override def transform(tree: tpd.Tree)(using Context): tpd.Tree =
+      super.transform(tree) match
+        case block: Block =>
+          val proxyMap = block.stats.collect {
+            case vd: ValDef if vd.symbol.is(Synthetic) => vd.name -> vd.rhs
+          }.toMap
+          block.expr match
+            case Apply(fun, proxies) =>
+              Apply(
+                fun,
+                proxies.map {
+                  case Ident(n)              => proxyMap(n.toTermName)
+                  case NamedArg(x, Ident(n)) => NamedArg(x, proxyMap(n.toTermName))
+                  case x                     => x
+                }
+              )
+            case tree => tree
+        case tree => tree
+
+  protected def dropProxies(tree: Tree)(using Context): Tree =
+    dropProxiesTreeMap.transform(tree)
 
   var metaContextTpe: TypeRef = uninitialized
   var metaContextCls: ClassSymbol = uninitialized
@@ -160,8 +186,18 @@ abstract class CommonPhase extends PluginPhase:
         val extractedText = pattern.findFirstMatchIn(input).map(_.group(1)).getOrElse("")
         removeLastLineWhitespace(extractedText).stripMargin('*')
       end extract
-      ctx.docCtx.flatMap(_.docstring(sym)).map(_.raw).map(extract)
+      def extractParamDescription(docstring: String, paramName: String): Option[String] =
+        val pattern = (s"@param\\s+$paramName\\s+([^@]*)").r
+        pattern.findFirstMatchIn(docstring) match
+          case Some(m) => Some(m.group(1).trim)
+          case None    => None
+      if (sym.is(Param))
+        sym.owner.docString.flatMap(d => extractParamDescription(d, sym.name.toString))
+      else if (sym.isConstructor)
+        sym.owner.docString
+      else ctx.docCtx.flatMap(_.docstring(sym)).map(_.raw).map(extract)
     end docString
+
     def staticAnnotations(using Context): List[Annotations.Annotation] =
       sym.annotations.collect {
         case a if a.tree.tpe <:< defn.StaticAnnotationClass.typeRef => a

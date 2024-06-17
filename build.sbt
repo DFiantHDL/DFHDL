@@ -133,17 +133,20 @@ lazy val dependencies =
     private val scalafmtV = "3.8.1"
     private val airframelogV = "24.5.2"
     private val oslibV = "0.9.2"
+    private val scoptV = "4.1.0"
     val scodec = "org.scodec" %% "scodec-bits" % scodecV
     val munit = "org.scalameta" %% "munit" % munitV % Test
     val scalafmt = ("org.scalameta" %% "scalafmt-dynamic" % scalafmtV).cross(CrossVersion.for3Use2_13)
     val airframelog = "org.wvlet.airframe" %% "airframe-log" % airframelogV
     val oslib = "com.lihaoyi" %% "os-lib" % oslibV
+    val scopt = "com.github.scopt" %% "scopt" % scoptV
   }
 
 lazy val commonDependencies = Seq(
   dependencies.scodec,
   dependencies.munit,
-  dependencies.airframelog
+  dependencies.airframelog,
+  dependencies.scopt
 )
 
 // SETTINGS

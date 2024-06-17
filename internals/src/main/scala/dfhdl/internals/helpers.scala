@@ -318,3 +318,31 @@ extension [T](seq: Iterable[T])
         val subseq = seq.takeWhile(f(_) equals key)
         accumulator(seq.drop(subseq.size), f, (key -> subseq) :: res)
     accumulator(seq, f, Nil).view.map(e => (e._1, e._2.toList)).toList
+
+def getShellCommand: Option[String] =
+  import scala.io.Source
+  import scala.util.{Try, Success, Failure}
+  import sys.process.*
+  val osName = System.getProperty("os.name").toLowerCase
+  val pid = Try(java.lang.management.ManagementFactory.getRuntimeMXBean.getName.split("@")(0))
+
+  pid match
+    case Success(id) =>
+      val command =
+        if osName.contains("linux") then
+          Try(Source.fromFile(s"/proc/$id/cmdline").mkString.replace("\u0000", " "))
+        else if osName.contains("mac") then Try(s"ps -p $id -o command=".!!.trim)
+        else if osName.contains("win") then
+          Try(
+            s"wmic process where processid=$id get commandline".!!
+              .split("\n").drop(1).mkString.trim
+          )
+        else Failure(new UnsupportedOperationException("Unsupported OS"))
+
+      command match
+        case Success(cmd) => Some(cmd)
+        case Failure(_)   => None
+
+    case Failure(_) => None
+  end match
+end getShellCommand

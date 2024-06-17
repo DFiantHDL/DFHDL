@@ -8,5 +8,5 @@ class Cipher extends DFDesign:
   o := cipher(data, key)
 
 @main def main: Unit =
-  given options.CompilerOptions.CompilerLogLevel = options.LogLevel.INFO
+  given options.CompilerOptions.LogLevel = options.LogLevel.INFO
   Cipher().printCodeString

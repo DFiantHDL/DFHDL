@@ -33,7 +33,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
 
   val phaseName = "MetaContextPlacer"
 
-  override val runsAfter = Set("typer")
+  override val runsAfter = Set("TopAnnot")
   override val runsBefore = Set("FixInterpDFValPhase")
   // override val debugFilter: String => Boolean = _.contains("Example.scala")
   var dfcArgStack = List.empty[Tree]
@@ -99,6 +99,12 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           dfcArgStack = dfcArgStack.drop(1)
         val clsTpe = tree.tpe
         val clsSym = clsTpe.classSymbol.asClass
+
+        // debug(tree.show)
+        // if (clsSym.companionClass.hasAnnotation(topAnnotSym) && false)
+        //   val newTemplate = cpy.Template(template)(body = genMainDef(clsSym) :: template.body)
+        //   cpy.TypeDef(tree)(rhs = newTemplate)
+        // else
         if (clsTpe <:< hasClsMetaArgsTpe && !clsSym.isAnonymousClass)
           val paramBody = template.body.takeWhile {
             case x: TypeDef                 => true
@@ -154,7 +160,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
                   Literal(Constant(tree.name.toString)),
                   tree.positionTree,
                   mkOptionString(clsSym.docString),
-                  mkList(clsSym.staticAnnotations.map(_.tree)),
+                  mkList(clsSym.staticAnnotations.map(a => dropProxies(a.tree))),
                   simpleArgsListMapTree
                 )
               )
