@@ -3,7 +3,7 @@ package issues.i118
 
 import dfhdl.*
 
-class ShiftIssue() extends RTDesign:  
+@top(false) class ShiftIssue() extends RTDesign:  
     val bitvec = Bits(10) <> VAR
     val bitvec2 = Bits(10) <> OUT
     val bitvec3 = Bits(10) <> VAR

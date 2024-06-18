@@ -8,7 +8,7 @@ case class InStruct (
     b : Bit <> VAL
 ) extends Struct
 
-class DoubleStructDecl() extends RTDesign():
+@top(false) class DoubleStructDecl() extends RTDesign():
     val sin = InStruct <> IN
     val svar = InStruct <> VAR
     svar := sin

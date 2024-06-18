@@ -23,6 +23,8 @@ abstract class MetaDesign[+D <: DomainType](
   final override private[dfhdl] def initOwner: Design.Block =
     dfc.mutableDB.addMember(injectedOwner)
     injectedOwner.getThisOrOwnerDesign.asFE
+  final override protected def __dfc: DFC = DFC.empty
+
   injectedOwner match
     case design: ir.DFDesignBlock => // do nothing
     case _ =>

@@ -3,7 +3,7 @@ package issues.i126
 
 import dfhdl.*
 
-class TypeConvertIssue() extends RTDesign:
+@top(false) class TypeConvertIssue() extends RTDesign:
     val a = Bit <> IN
     val b = Bit <> IN
     val c = UInt(8) <> IN

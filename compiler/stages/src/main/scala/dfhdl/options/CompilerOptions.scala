@@ -11,8 +11,6 @@ final case class CompilerOptions(
     newFolderForTop: NewFolderForTop,
     backend: Backend,
     logLevel: LogLevel,
-    defaultClkCfg: DefaultClkCfg,
-    defaultRstCfg: DefaultRstCfg,
     printDesignCodeBefore: PrintDesignCodeBefore,
     printDesignCodeAfter: PrintDesignCodeAfter,
     printGenFiles: PrintGenFiles
@@ -23,17 +21,14 @@ object CompilerOptions:
       newFolderForTop: NewFolderForTop,
       backend: Backend,
       logLevel: LogLevel,
-      defaultClkCfg: DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising),
-      defaultRstCfg: DefaultRstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High),
       printDesignCodeBefore: PrintDesignCodeBefore,
       printDesignCodeAfter: PrintDesignCodeAfter,
       printGenFiles: PrintGenFiles
   ): CompilerOptions =
     CompilerOptions(
       commitFolder = commitFolder, newFolderForTop = newFolderForTop, backend = backend,
-      logLevel = logLevel, defaultClkCfg = defaultClkCfg, defaultRstCfg = defaultRstCfg,
-      printDesignCodeBefore = printDesignCodeBefore, printDesignCodeAfter = printDesignCodeAfter,
-      printGenFiles = printGenFiles
+      logLevel = logLevel, printDesignCodeBefore = printDesignCodeBefore,
+      printDesignCodeAfter = printDesignCodeAfter, printGenFiles = printGenFiles
     )
 
   extension (co: CompilerOptions)
@@ -64,14 +59,6 @@ object CompilerOptions:
   object LogLevel:
     given (using logLevel: dfhdl.options.LogLevel): LogLevel = logLevel
     export dfhdl.options.LogLevel.*
-
-  opaque type DefaultClkCfg <: ClkCfg = ClkCfg
-  given Conversion[ClkCfg, DefaultClkCfg] = identity
-  given Conversion[None.type, DefaultClkCfg] = x => x.asInstanceOf[DefaultClkCfg]
-
-  opaque type DefaultRstCfg <: RstCfg = RstCfg
-  given Conversion[RstCfg, DefaultRstCfg] = identity
-  given Conversion[None.type, DefaultRstCfg] = x => x.asInstanceOf[DefaultRstCfg]
 
   opaque type PrintDesignCodeBefore <: Boolean = Boolean
   object PrintDesignCodeBefore:

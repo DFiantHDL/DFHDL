@@ -3,7 +3,7 @@ package issues.i129
 
 import dfhdl.*
 
-class StdLogicConvIssue() extends RTDesign:
+@top(false) class StdLogicConvIssue() extends RTDesign:
     val a = Bits(10) <> IN
     val e = Bits(10) <> OUT
 

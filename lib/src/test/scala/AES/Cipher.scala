@@ -1,7 +1,7 @@
 package AES
 import dfhdl.*
 
-class Cipher extends DFDesign:
+@top(false) class Cipher extends DFDesign:
   val key = AESKey <> IN
   val data = AESData <> IN
   val o = AESData <> OUT

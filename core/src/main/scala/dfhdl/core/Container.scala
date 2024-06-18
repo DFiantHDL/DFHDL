@@ -5,7 +5,9 @@ import dfhdl.compiler.ir
 private trait Container extends OnCreateEvents, HasDFC:
   type This <: Container
   final lazy val dfc: DFC = __dfc
-  protected def __dfc: DFC = DFC.empty
+  protected def __dfc: DFC =
+    println("Severe error: missing DFHDL context!\nMake sure you enable the DFHDL compiler plugin.")
+    sys.exit(1)
   private[core] type TScope <: DFC.Scope
   private[core] type TDomain <: DomainType
   private[core] type TOwner <: DFOwnerAny

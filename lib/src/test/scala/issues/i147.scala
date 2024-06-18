@@ -14,7 +14,7 @@ class INV() extends RTDesign:
     c.din := a
     b := !a && c
     
-class ClockRstConnection() extends RTDesign(rtcfg):
+@top(false) class ClockRstConnection() extends RTDesign(rtcfg):
     val a = Bit <> IN
     val b = Bit <> OUT
     

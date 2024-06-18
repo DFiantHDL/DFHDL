@@ -92,7 +92,10 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                   vd.tpt.tpe.argType match
                     case Some(value) => Literal(Constant(value))
                     case _ =>
-                      report.error("Unsupported top-level type", vd.srcPos)
+                      report.error(
+                        "Unsupported argument's type for top-level design with a default app entry point.\nEither use a supported type or disable the app entry point generation with `@top(false)`.",
+                        vd.srcPos
+                      )
                       EmptyTree
                 })
                 val defaultMap = mutable.Map.empty[Int, Tree]
@@ -112,7 +115,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                         case Some(value) => value
                         case None =>
                           report.error(
-                            "Missing default value for top-level design argument.",
+                            "Missing argument's default value for top-level design with a default app entry point.\nEither add a default value or disable the app entry point generation with `@top(false)`.",
                             vd.srcPos
                           )
                           EmptyTree

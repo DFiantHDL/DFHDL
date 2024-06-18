@@ -13,7 +13,7 @@ import scala.collection.mutable
 case object ExplicitClkRstCfg extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
+  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val domainMap = mutable.Map.empty[DFDomainOwner, RTDomainCfg.Explicit]
     extension (owner: DFDomainOwner)
       def usesClk: Boolean = designDB.domainOwnerMemberTable(owner).exists {
@@ -44,7 +44,7 @@ case object ExplicitClkRstCfg extends Stage:
             case None =>
               val cfg =
                 if (currentOwner.isTop)
-                  RTDomainCfg.Explicit("main", co.defaultClkCfg, co.defaultRstCfg)
+                  currentOwner.getTagOf[RTDomainCfg.Explicit].get
                 else getExplicitCfg(currentOwner.getOwnerDomain)
               val updatedClkCfg: ClkCfg = if (currentOwner.usesClk) cfg.clkCfg else None
               val updatedRstCfg: RstCfg = if (currentOwner.usesRst) cfg.rstCfg else None

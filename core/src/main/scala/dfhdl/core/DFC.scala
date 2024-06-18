@@ -1,6 +1,7 @@
 package dfhdl.core
 import dfhdl.internals.*
 import dfhdl.compiler.ir
+import dfhdl.options.ElaborationOptions
 import ir.{HWAnnotation, getActiveHWAnnotations}
 
 import scala.annotation.Annotation
@@ -11,7 +12,7 @@ final case class DFC(
     docOpt: Option[String],
     annotations: List[HWAnnotation] = Nil, // TODO: removing default causes stale symbol crash
     mutableDB: MutableDB = new MutableDB(),
-    defaultDir: Int = 0
+    elaborationOptions: ElaborationOptions = ElaborationOptions.default
 ) extends MetaContext:
   def setMeta(
       nameOpt: Option[String] = nameOpt,
@@ -52,7 +53,6 @@ final case class DFC(
   def setAnnotations(annotations: List[HWAnnotation]): this.type =
     copy(annotations = annotations).asInstanceOf[this.type]
   def anonymize: this.type = copy(nameOpt = None).asInstanceOf[this.type]
-  def <>(that: Int): this.type = copy(defaultDir = that).asInstanceOf[this.type]
   def logError(err: DFError): Unit = mutableDB.logger.logError(err)
   def getErrors: List[DFError] = mutableDB.logger.getErrors
   def inMetaProgramming: Boolean = mutableDB.inMetaProgramming
@@ -60,9 +60,10 @@ final case class DFC(
 end DFC
 object DFC:
   // DFC given must be inline to force new DFC is generated for every missing DFC summon.
-  inline given dfc: DFC = empty // (using TopLevel)
-  def empty: DFC =
-    DFC(None, Position.unknown, None)
+  inline given dfc(using ElaborationOptions): DFC = empty // (using TopLevel)
+  def empty(using eo: ElaborationOptions): DFC =
+    DFC(None, Position.unknown, None, elaborationOptions = eo)
+  def emptyNoEO: DFC = DFC(None, Position.unknown, None)
   sealed trait Scope
   object Scope:
     sealed trait Design extends Scope

@@ -3,7 +3,7 @@ package issues.i131
 
 import dfhdl.*
 
-class DictControl(
+@top(false) class DictControl(
     val fetch_count : Int <> CONST,  // set to 2
     val dict_entry_size : Int = 20
 ) extends RTDesign:
