@@ -59,17 +59,13 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   private def clsMetaArgsOverrideDef(owner: Symbol, clsMetaArgsTree: Tree)(using
       Context
   ): Tree =
-    val sym =
-      newSymbol(
-        owner,
-        "__clsMetaArgs".toTermName,
-        Override | Protected | Method | Touched,
-        clsMetaArgsTpe
-      )
-    DefDef(
-      sym,
-      clsMetaArgsTree
+    val sym = newSymbol(
+      owner,
+      "__clsMetaArgs".toTermName,
+      Override | Protected | Method | Touched,
+      clsMetaArgsTpe
     )
+    DefDef(sym, clsMetaArgsTree)
   end clsMetaArgsOverrideDef
 
   private def clsMetaArgsOverrideDef(owner: Symbol)(using Context): Tree =
@@ -103,11 +99,6 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
         val clsTpe = tree.tpe
         val clsSym = clsTpe.classSymbol.asClass
 
-        // debug(tree.show)
-        // if (clsSym.companionClass.hasAnnotation(topAnnotSym) && false)
-        //   val newTemplate = cpy.Template(template)(body = genMainDef(clsSym) :: template.body)
-        //   cpy.TypeDef(tree)(rhs = newTemplate)
-        // else
         if (clsTpe <:< hasClsMetaArgsTpe && !clsSym.isAnonymousClass)
           val paramBody = template.body.takeWhile {
             case x: TypeDef                 => true
