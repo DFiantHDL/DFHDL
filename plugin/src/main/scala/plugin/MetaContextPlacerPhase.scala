@@ -44,6 +44,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   var hasClsMetaArgsTpe: TypeRef = uninitialized
   var clsMetaArgsTpe: TypeRef = uninitialized
   var topAnnotSym: ClassSymbol = uninitialized
+  var appTpe: TypeRef = uninitialized
 
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     val sym = tree.symbol
@@ -200,7 +201,15 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     val dfcArg = dfcArgStack.headOption.getOrElse {
       owner.getAnnotation(topAnnotSym).map(a => dropProxies(a.tree)) match
         // found top annotation
-        case Some(Apply(Apply(_, _), elaborationOptionsTree :: _)) =>
+        case Some(Apply(Apply(_, _), topElaborationOptionsTree :: _)) =>
+          @tailrec def getDFAppModuleCls(owner: Symbol): Option[ClassSymbol] =
+            if (owner.isRoot) None
+            else if (owner.isClass && owner.thisType <:< appTpe) Some(owner.asClass)
+            else if (owner.isClass) None
+            else getDFAppModuleCls(owner.owner)
+          val elaborationOptionsTree = getDFAppModuleCls(owner.owner) match
+            case Some(cls) => This(cls).select("getElaborationOptions".toTermName)
+            case None      => topElaborationOptionsTree
           ref(emptyDFCSym).appliedTo(elaborationOptionsTree)
         // no top, but maybe this is just a stage test, so generating new context with
         // default elaboration options
@@ -236,7 +245,6 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
         )
         cls.addAnnotations(tpe.typeSymbol.annotations)
         val constr = newConstructor(cls, Synthetic, Nil, Nil).entered
-        val encClass = ctx.owner.enclosingClass
         var valDefs: List[ValDef] = Nil
         // naming the arguments before extending the tree as as parent because
         // otherwise ownership and references need to change.
@@ -289,6 +297,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
     clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
     topAnnotSym = requiredClass("dfhdl.top")
+    appTpe = requiredClassRef("dfhdl.DFApp")
     dfcArgStack = Nil
     ctx
 end MetaContextPlacerPhase

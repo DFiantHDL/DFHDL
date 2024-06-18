@@ -48,8 +48,13 @@ trait DFApp:
   private var linterOptions: options.LinterOptions = null
   private var dsn: () => core.Design = null
   private var mode = "commit"
+  // used by the plugin to get the updated design arguments that could be changed by the
+  // command-line options
   final protected def getDsnArg(name: String): Any =
     designArgs(name).value
+  // used by the plugin to get the updated elaboration options that could be changed by the
+  // command-line options
+  final protected def getElaborationOptions: options.ElaborationOptions = elaborationOptions
   final protected def setInitials(
       _designName: String,
       _topScalaPath: String,
@@ -73,6 +78,7 @@ trait DFApp:
   final protected def setDsn(d: => core.Design): Unit = dsn = () => d
   private def elaborate: core.Design =
     logger.info("Elaborating design...")
+    // the elaboration options are set in the compiler plugin using getElaborationOptions
     dsn()
 
   private def programName: String =
@@ -147,7 +153,7 @@ trait DFApp:
       .children(optLinter)
 
   private def listDesignArgs: Unit =
-    logger.info("Design arguments:")
+    println("Design arguments:")
     val titles = f"${"Name"}%-20s${"Type"}%-20s${"Default"}%-20sDescription"
     println(titles)
     println("-" * titles.length)
@@ -156,7 +162,6 @@ trait DFApp:
     )
 
   def main(args: Array[String]): Unit =
-    given options.ElaborationOptions = elaborationOptions
     given options.CompilerOptions = compilerOptions
     given options.PrinterOptions = printerOptions
     if (parser.parse(args, ()).isDefined)
