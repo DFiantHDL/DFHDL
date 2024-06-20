@@ -14,8 +14,10 @@ import dfhdl.compiler.printing.{DefaultPrinter, Printer}
 import scala.annotation.tailrec
 
 import scala.reflect.ClassTag
-
-trait DFVal[+T <: DFTypeAny, +M <: ModifierAny] extends Any with DFMember[ir.DFVal] with Selectable:
+final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
+    extends AnyVal
+    with DFMember[ir.DFVal]
+    with Selectable:
 
   def selectDynamic(name: String)(using DFC): Any = trydf {
     val ir.DFStruct(structName, fieldMap) = this.asIR.dfType: @unchecked
@@ -259,14 +261,11 @@ sealed protected trait DFValLP:
     from => from.asValTP[T, NOTCONST]
 end DFValLP
 object DFVal extends DFValLP:
-  final class Final[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
-      extends AnyVal
-      with DFVal[T, M]
   // constructing a front-end DFVal value class object. if it's a global value, then
   // we need to save the DFC, instead of the actual member IR object
   inline def apply[T <: DFTypeAny, M <: ModifierAny, IR <: ir.DFVal | DFError](
       irValue: IR
-  ): DFVal[T, M] = new Final[T, M](irValue)
+  ): DFVal[T, M] = new DFVal[T, M](irValue)
   inline def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.asIR)
   object OrTupleOrStruct:
     def unapply(arg: Any)(using DFC): Option[DFValAny] =
@@ -1080,7 +1079,7 @@ object VarsTuple:
   end evMacro
 end VarsTuple
 
-final class REG_DIN[T <: DFTypeAny](val irValue: DFError.REG_DIN[T]) extends AnyVal with DFVarOf[T]:
+final class REG_DIN[T <: DFTypeAny](val irValue: DFError.REG_DIN[T]) extends AnyVal:
   def :=[R](rhs: Exact[R])(using
       tc: DFVal.TC[T, R],
       dfc: DFC
