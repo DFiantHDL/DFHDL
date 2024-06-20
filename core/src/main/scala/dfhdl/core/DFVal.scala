@@ -14,6 +14,7 @@ import dfhdl.compiler.printing.{DefaultPrinter, Printer}
 import scala.annotation.tailrec
 
 import scala.reflect.ClassTag
+
 trait DFVal[+T <: DFTypeAny, +M <: ModifierAny] extends Any with DFMember[ir.DFVal] with Selectable:
 
   def selectDynamic(name: String)(using DFC): Any = trydf {
@@ -312,6 +313,8 @@ object DFVal extends DFValLP:
   given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[Boolean, DFVal[T, M]] =
     CanEqual.derived
   given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[Tuple, DFVal[T, M]] =
+    CanEqual.derived
+  given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[DFEncoding, DFVal[T, M]] =
     CanEqual.derived
 
   given __refined_dfVal[T <: FieldsOrTuple, A, I, P](using
