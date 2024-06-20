@@ -1,12 +1,12 @@
 //> using scala 3.4.2
-//> using dep io.github.dfianthdl::dfhdl::0.4.9
-//> using plugin io.github.dfianthdl:::dfhdl-plugin:0.4.9
+//> using dep io.github.dfianthdl::dfhdl::0.5.0
+//> using plugin io.github.dfianthdl:::dfhdl-plugin:0.5.0
 //> using option -deprecation -language:implicitConversions
 
 import dfhdl.* //import all the DFHDL goodness
 
 /** Generates an 8-bit overlapping count */
-class Counter8 extends RTDesign:
+@top class Counter8 extends RTDesign:
   val cnt = UInt(8) <> OUT.REG init 0
   cnt.din := cnt + 1
 
@@ -28,6 +28,3 @@ given options.CompilerOptions.PrintGenFiles = true
 // Uncomment to enable printing design code after compilation:
 // given options.CompilerOptions.PrintDesignCodeAfter = true
 ////////////////////////////////////////////////////////////////////////////////////////////////
-
-//The entry point to your compilation program starts here
-@main def main = Counter8().compile.commit

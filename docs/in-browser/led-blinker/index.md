@@ -9,9 +9,9 @@ hide:
 import dfhdl.* //import all the DFHDL goodness
 
 /** This is a led blinker */
-class Blinker(
-    val CLK_FREQ_KHz: Int <> CONST,
-    val LED_FREQ_Hz:  Int <> CONST
+@top class Blinker(
+    val CLK_FREQ_KHz: Int <> CONST = 50000,
+    val LED_FREQ_Hz:  Int <> CONST = 1
 ) extends RTDesign:
   /** Half-count of the toggle for 50% duty cycle */
   val HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2)
@@ -26,6 +26,12 @@ class Blinker(
 end Blinker
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
+// DFHDL Elaboration Options:                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////
+// Uncomment to set different clock and reset configurations:
+// given options.ElaborationOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
+// given options.ElaborationOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
+////////////////////////////////////////////////////////////////////////////////////////////////
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Enables printing the generated chosen backend code:
@@ -36,12 +42,6 @@ given options.CompilerOptions.PrintGenFiles = true
 // given options.CompilerOptions.PrintDesignCodeBefore = true
 // Uncomment to enable printing design code after compilation:
 // given options.CompilerOptions.PrintDesignCodeAfter = true
-// Uncomment to set different clock and reset configurations:
-// given options.CompilerOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
-// given options.CompilerOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
 ////////////////////////////////////////////////////////////////////////////////////////////////
-
-//The entry point to your compilation program starts here
-@main def main = Blinker(CLK_FREQ_KHz = 50000, LED_FREQ_Hz = 1).compile
 ```
 

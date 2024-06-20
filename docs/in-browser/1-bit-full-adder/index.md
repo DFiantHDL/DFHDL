@@ -8,7 +8,7 @@ hide:
 ```scastie 
 import dfhdl.* //import all the DFHDL goodness
 
-class FullAdder1 extends EDDesign:
+@top class FullAdder1 extends EDDesign:
   val a, b, c_in = Bit <> IN
   val sum, c_out = Bit <> OUT
 
@@ -27,8 +27,5 @@ given options.CompilerOptions.PrintGenFiles = true
 // Uncomment to enable printing design code after compilation:
 // given options.CompilerOptions.PrintDesignCodeAfter = true
 ////////////////////////////////////////////////////////////////////////////////////////////////
-
-//The entry point to your compilation program starts here
-@main def main = FullAdder1().compile 
 ```
 

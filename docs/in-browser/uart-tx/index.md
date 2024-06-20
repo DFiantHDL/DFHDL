@@ -8,9 +8,9 @@ hide:
 ```scastie 
 import dfhdl.* //import all the DFHDL goodness
 
-class UART_Tx(
-    val CLK_FREQ_KHz: Int <> CONST,
-    val BAUD_RATE_BPS: Int <> CONST
+@top class UART_Tx(
+    val CLK_FREQ_KHz: Int <> CONST = 50000,
+    val BAUD_RATE_BPS: Int <> CONST = 115200
 ) extends RTDesign:
   val data_en    = Bit             <> IN
   val DATA_BITS  = 8
@@ -78,6 +78,12 @@ class UART_Tx(
 end UART_Tx
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
+// DFHDL Elaboration Options:                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////
+// Uncomment to set different clock and reset configurations:
+// given options.ElaborationOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
+// given options.ElaborationOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
+////////////////////////////////////////////////////////////////////////////////////////////////
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Enables printing the generated chosen backend code:
@@ -88,12 +94,6 @@ given options.CompilerOptions.PrintGenFiles = true
 // given options.CompilerOptions.PrintDesignCodeBefore = true
 // Uncomment to enable printing design code after compilation:
 // given options.CompilerOptions.PrintDesignCodeAfter = true
-// Uncomment to set different clock and reset configurations:
-// given options.CompilerOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
-// given options.CompilerOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
 ////////////////////////////////////////////////////////////////////////////////////////////////
-
-//The entry point to your compilation program starts here
-@main def hello = UART_Tx(50000, 115200).compile
 ```
 

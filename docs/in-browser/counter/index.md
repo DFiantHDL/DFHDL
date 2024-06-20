@@ -8,12 +8,18 @@ hide:
 ```scastie 
 import dfhdl.* //import all the DFHDL goodness
 
-class Counter(val width: Int <> CONST) extends RTDesign:
+@top class Counter(val width: Int <> CONST = 8) extends RTDesign:
   val en  = Bit         <> IN
   val cnt = UInt(width) <> OUT.REG init 0
   if (en)
     cnt.din := cnt + 1
 
+////////////////////////////////////////////////////////////////////////////////////////////////
+// DFHDL Elaboration Options:                                                                 //
+////////////////////////////////////////////////////////////////////////////////////////////////
+// Uncomment to set different clock and reset configurations:
+// given options.ElaborationOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
+// given options.ElaborationOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,12 +31,6 @@ given options.CompilerOptions.PrintGenFiles = true
 // given options.CompilerOptions.PrintDesignCodeBefore = true
 // Uncomment to enable printing design code after compilation:
 // given options.CompilerOptions.PrintDesignCodeAfter = true
-// Uncomment to set different clock and reset configurations:
-// given options.CompilerOptions.DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
-// given options.CompilerOptions.DefaultRstCfg = RstCfg(RstCfg.Mode.Async, RstCfg.Active.Low)
 ////////////////////////////////////////////////////////////////////////////////////////////////
-
-//The entry point to your compilation program starts here
-@main def main = Counter(8).compile
 ```
 
