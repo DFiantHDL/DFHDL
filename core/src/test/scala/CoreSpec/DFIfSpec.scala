@@ -173,7 +173,7 @@ class DFIfSpec extends DFSpec:
     }
   }
   test("Different return widths error") {
-    assertRuntimeError(
+    assertRuntimeErrorLog(
       """|This DFHDL `if` expression has different return types for branches.
          |These are its branch types in order:
          |Bits(2)

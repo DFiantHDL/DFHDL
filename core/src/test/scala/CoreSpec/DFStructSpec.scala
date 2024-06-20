@@ -63,7 +63,7 @@ class DFStructSpec extends DFSpec:
     val nine = 9
     val cc5 = new CCs(nine)
     val t5 = cc5.XY <> VAR
-    assertRuntimeError(
+    assertRuntimeErrorLog(
       """|Mismatch in structure fields.
          |The applied value type is:
          |final case class XY(
