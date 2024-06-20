@@ -64,7 +64,7 @@ class DFVectorSpec extends DFSpec:
       v3 := t
       val len: Int <> CONST = 3
       val v4 = UInt(8) X len <> VAR init all(0)
-      val v5: (UInt[4] X len.type) <> CONST = all(0)
+      val v5: UInt[4] X len.type <> CONST = all(0)
       val v6 = UInt(4) X len <> VAR init v5
       v6 := all(0)
     }
