@@ -11,22 +11,21 @@ type DFVector[+T <: DFTypeAny, +D <: NonEmptyTuple] =
   DFType[ir.DFVector, Args2[T @uncheckedVariance, D @uncheckedVariance]]
 
 object DFVector:
-  def apply[T <: DFTypeAny, D <: NonEmptyTuple](
+  protected[core] def apply[T <: DFTypeAny, D <: NonEmptyTuple](
       cellType: T,
       cellDims: List[IntParam[Int]]
   )(using DFC): DFVector[T, D] =
     ir.DFVector(cellType.asIR, cellDims.map(_.ref))
       .asFE[DFVector[T, D]]
-  @targetName("givenApply")
-  given apply[T <: DFTypeAny, D <: NonEmptyTuple](using
+  given [T <: DFTypeAny, D <: IntP](using
       dfc: DFC,
       cellType: T,
-      cellDims: ValueOfTuple[D]
-  ): DFVector[T, D] =
-    DFVector(
-      cellType,
-      cellDims.value.toList.asInstanceOf[List[IntP]].map(x => IntParam.fromValue(x))
-    )
+      d: ValueOf[D],
+      check: VectorLength.CheckNUB[D]
+  ): DFVector[T, Tuple1[D]] =
+    val cellDim = IntParam.fromValue(d)
+    check(cellDim)
+    DFVector(cellType, List(cellDim))
 
   extension [T <: DFTypeAny, D <: NonEmptyTuple](dfType: DFVector[T, D])
     def cellType: T = dfType.asIR.cellType.asFE[T]
@@ -36,6 +35,13 @@ object DFVector:
       dfType.asIR.cellDimParamRefs.head.getInt
     def lengthIntParam(using dfc: DFC): IntParam[D1] =
       dfType.asIR.cellDimParamRefs.head.get.asInstanceOf[IntParam[D1]]
+
+  protected[core] object VectorLength
+      extends Check1[
+        Int,
+        [L <: Int] =>> L > 0,
+        [L <: Int] =>> "The vector length must be positive but found: " + L
+      ]
 
   protected[core] object IndexWidth
       extends Check2[
@@ -61,14 +67,15 @@ object DFVector:
       //   x(dfType, cellDim*)
       inline infix def X(
           cellDim: IntParam[D]
-      )(using DFC): DFVector[tc.Type, Tuple1[D]] =
+      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] =
+        check(cellDim)
         DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim))
     extension [T <: DFType.Supported, D <: IntP, M <: ModifierAny](t: T)(using tc: DFType.TC[T])
       infix def X(
           composedModifier: ComposedModifier[D, M]
       )(using DFC): DFVal[DFVector[tc.Type, Tuple1[D]], M] =
         DFVal.Dcl(
-          DFVector(tc(t), List(IntParam.fromValue(composedModifier.cellDim))),
+          DFVector[tc.Type, Tuple1[D]](tc(t), List(IntParam.fromValue(composedModifier.cellDim))),
           composedModifier.modifier
         )
 //      inline def X(

@@ -71,7 +71,7 @@ object DFOpaque:
       private def asDFVector[A <: DFTypeAny](dfVals: Iterable[DFValOf[A]])(using
           DFC
       ): DFValOf[DFVector[A, Tuple1[Int]]] =
-        val dfType = DFVector(dfVals.head.dfType, List(dfVals.size))
+        val dfType = DFVector[A, Tuple1[Int]](dfVals.head.dfType, List(dfVals.size))
         DFVal.Func(dfType, DFVal.Func.Op.++, dfVals.toList)
       extension [A <: DFTypeAny](lhs: Iterable[DFValOf[A]])
         transparent inline def as[Comp <: AnyRef](
