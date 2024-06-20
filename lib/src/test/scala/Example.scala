@@ -3,7 +3,7 @@ import dfhdl.*
 enum ALUSel extends Encode:
   case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
 
-class ALU extends EDDesign:
+@top(false) class ALU extends EDDesign:
   // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
   val op1    = Bits(32) <> IN
   val op2    = Bits(32) <> IN

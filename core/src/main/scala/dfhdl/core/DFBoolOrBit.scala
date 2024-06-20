@@ -147,3 +147,6 @@ final lazy val DFBool = ir.DFBool.asFE[DFBool]
 type DFBit = DFType[ir.DFBit.type, NoArgs]
 final lazy val DFBit = ir.DFBit.asFE[DFBit]
 given CanEqual[DFBoolOrBit, DFBoolOrBit] = CanEqual.derived
+
+type DFConstBool = DFConstOf[DFBool]
+type DFConstBit = DFConstOf[DFBit]

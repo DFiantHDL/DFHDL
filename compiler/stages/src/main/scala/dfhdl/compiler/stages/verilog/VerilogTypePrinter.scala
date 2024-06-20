@@ -35,8 +35,9 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = csDFEnumTypeName(dfType)
   def csDFVectorRanges(dfType: DFType): String =
     dfType match
-      case vec: DFVector => s" [0:${vec.cellDims.head - 1}]${csDFVectorRanges(vec.cellType)}"
-      case _             => ""
+      case vec: DFVector =>
+        s" [0:${vec.cellDimParamRefs.head.uboundCS}]${csDFVectorRanges(vec.cellType)}"
+      case _ => ""
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
     s"${csDFType(cellType, typeCS)}"

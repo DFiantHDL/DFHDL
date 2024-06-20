@@ -306,14 +306,14 @@ class DFDecimalSpec extends DFSpec:
       val value = 1000
       u8 > value
     }
-    assertRuntimeError(
+    assertRuntimeErrorLog(
       """|Cannot apply this operation between an unsigned value (LHS) and a signed value (RHS).
          |An explicit conversion must be applied.
          |""".stripMargin
     ) {
       u8 == negOne
     }
-    assertRuntimeError(
+    assertRuntimeErrorLog(
       """|Cannot apply this operation between a value of 8 bits width (LHS) to a value of 10 bits width (RHS).
          |An explicit conversion must be applied.
          |""".stripMargin
@@ -321,7 +321,7 @@ class DFDecimalSpec extends DFSpec:
       u8 == big
     }
     // TODO: this fails with the wrong message (sign mismatch)
-    // assertRuntimeError(
+    // assertRuntimeErrorLog(
     //   """|Cannot apply this operation between a value of 8 bits width (LHS) to a value of 10 bits width (RHS).
     //      |An explicit conversion must be applied.
     //      |""".stripMargin

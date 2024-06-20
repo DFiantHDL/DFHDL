@@ -49,6 +49,14 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
   end assertCompileError
 
   inline def assertRuntimeError(expectedErr: String)(runTimeCode: => Unit): Unit =
+    val err =
+      try
+        runTimeCode
+        noErrMsg
+      catch case e: IllegalArgumentException => e.getMessage
+    assertNoDiff(err, expectedErr)
+
+  inline def assertRuntimeErrorLog(expectedErr: String)(runTimeCode: => Unit): Unit =
     dfc.clearErrors()
     runTimeCode
     val err = dfc.getErrors.headOption.map(_.dfMsg).getOrElse(noErrMsg)
@@ -58,12 +66,7 @@ abstract class DFSpec extends FunSuite, AllowTopLevel, HasTypeName, HasDFC:
       inline compileTimeCode: String
   )(runTimeCode: => Unit): Unit =
     assertCompileError(expectedErr)(compileTimeCode)
-    val err =
-      try
-        runTimeCode
-        noErrMsg
-      catch case e: IllegalArgumentException => e.getMessage
-    assertNoDiff(err, expectedErr)
+    assertRuntimeError(expectedErr)(runTimeCode)
 
   def assertEquals[T <: DFType, L <: DFConstOf[T], R <: DFConstOf[T]](l: L, r: R): Unit =
     assert((l == r).toScalaBoolean)

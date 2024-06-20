@@ -2,7 +2,7 @@
 package issues.i135
 
 import dfhdl._
-class VerilogSRA() extends RTDesign:
+@top(false) class VerilogSRA() extends RTDesign:
     val a = SInt(10) <> IN
     val b = SInt(10) <> VAR
     

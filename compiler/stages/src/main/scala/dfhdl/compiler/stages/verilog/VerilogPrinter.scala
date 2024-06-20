@@ -56,7 +56,7 @@ class VerilogPrinter(using val getSet: MemberGetSet, val printerOptions: Printer
   def alignCode(cs: String): String =
     cs
       // align after port modifiers
-      .align("[ ]*(?:input|output|inout).*", " ", ".*")
+      .align("[ ]*(?:input|output|inout)", " ", ".*")
       // align after wire/reg/logic words
       .align(
         "\\s*(?:logic(?: signed)?\\s*\\[\\d+:\\d+]|[\\w]+)",

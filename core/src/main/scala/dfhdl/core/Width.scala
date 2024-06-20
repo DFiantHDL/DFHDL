@@ -82,7 +82,11 @@ object Width:
               TypeRepr.of[e].calcWidth
             case '[DFVector[t, d]] =>
               val cellWidth = TypeRepr.of[t].calcWidth
-              val cellDims = TypeRepr.of[d].getTupleArgs
+              val cellDims = TypeRepr.of[d].getTupleArgs.map { t =>
+                t.asTypeOf[Any] match
+                  case '[DFValAny] => TypeRepr.of[Int]
+                  case _           => t.calcWidth
+              }
               val widths = cellWidth :: cellDims
               widths.reduce(_ * _)
             case '[DFOpaque[t]] =>
@@ -94,7 +98,11 @@ object Width:
             // TODO: figure out why this is needed and DFVector case is not taken
             case '[DFType[ir.DFVector, Args2[t, d]]] =>
               val cellWidth = TypeRepr.of[t].calcWidth
-              val cellDims = TypeRepr.of[d].getTupleArgs
+              val cellDims = TypeRepr.of[d].getTupleArgs.map { t =>
+                t.asTypeOf[Any] match
+                  case '[DFValAny] => TypeRepr.of[Int]
+                  case _           => t.calcWidth
+              }
               val widths = cellWidth :: cellDims
               widths.reduce(_ * _)
             case _ =>
@@ -228,9 +236,13 @@ extension [T](t: T)(using tc: DFType.TC[T])
     Inlined.forced[w.OutI](tc(t).asIR.width)
   def widthIntParam(using dfc: DFC, w: Width[tc.Type]): IntParam[w.Out] =
     import dfc.getSet
-    val dfType = tc(t)
-    val intParam: IntParam[Int] = dfType.asIR match
+    def intParam(dfTypeIR: ir.DFType): IntParam[Int] = dfTypeIR match
       case ir.DFBits(width)       => width.get
       case ir.DFXInt(_, width, _) => width.get
-      case _                      => IntParam(dfType.asIR.width)
-    intParam.asInstanceOf[IntParam[w.Out]]
+      case ir.DFVector(cellType, cellDimParamRefs) =>
+        intParam(cellType) * cellDimParamRefs.map(_.get).asInstanceOf[List[IntParam[Int]]].reduce(
+          (l, r) => (l * r).asInstanceOf[IntParam[Int]]
+        )
+      case _ => IntParam(dfTypeIR.width)
+    intParam(tc(t).asIR).asInstanceOf[IntParam[w.Out]]
+end extension

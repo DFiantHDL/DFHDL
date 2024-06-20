@@ -89,19 +89,22 @@ object DFType:
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
-  type Supported = DFTypeAny | DFEncoding | DFOpaqueA | Byte | Int | Long | Boolean | AnyRef | Unit
+  type Supported = DFTypeAny | NonEmptyTuple | DFStruct.Fields | DFEncoding | DFOpaqueA | Byte |
+    Int | Long | Boolean | Object | Unit
   object Ops:
     extension [D <: Int & Singleton](cellDim: D)
       infix def <>[M <: ModifierAny](
           modifier: M
-      ): DFVector.ComposedModifier[D, M] =
+      )(using dfc: DFC, check: DFVector.VectorLength.Check[D]): DFVector.ComposedModifier[D, M] =
+        check(cellDim)
         new DFVector.ComposedModifier[D, M](cellDim, modifier)
-    extension (cellDim: Int)
+    extension [D <: IntP](cellDim: D)
       @targetName("composeMod")
       infix def <>[M <: ModifierAny](
           modifier: M
-      ): DFVector.ComposedModifier[Int, M] =
-        new DFVector.ComposedModifier[Int, M](cellDim, modifier)
+      )(using dfc: DFC, check: DFVector.VectorLength.CheckNUB[D]): DFVector.ComposedModifier[D, M] =
+        check(IntParam.fromValue(cellDim))
+        new DFVector.ComposedModifier[D, M](cellDim, modifier)
     extension [T <: Supported](t: T)
       infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
           dfc: DFC,

@@ -187,7 +187,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       while (inVector)
         loopType match
           case dfType: DFVector =>
-            desc = desc + s"(0 to ${dfType.cellDims.head} - 1)"
+            desc = desc + s"(0 to ${dfType.cellDimParamRefs.head.uboundCS})"
             loopType = dfType.cellType
           case cellType =>
             val finale = cellType match

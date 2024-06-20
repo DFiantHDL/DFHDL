@@ -3,6 +3,7 @@ import dfhdl.compiler.ir
 import ir.{Time, Freq, Ratio}
 import ir.Timer.Func.Op as FuncOp
 import dfhdl.internals.*
+import scala.annotation.targetName
 
 sealed class Timer private (val irValue: ir.Timer | DFError) extends DFMember[ir.Timer]
 object Timer:
@@ -14,6 +15,7 @@ object Timer:
       case f: Freq => f.period
 
   def apply()(using DFC): Timer = Periodic(None, None)
+  @targetName("applyPeriod")
   def apply(period: Period)(using DFC): Timer = Periodic(None, Some(period.time))
   def apply(trigger: DFValOf[DFBit])(using DFC): Timer = Periodic(Some(trigger), None)
   def apply(trigger: DFValOf[DFBit], period: Period)(using DFC): Timer =

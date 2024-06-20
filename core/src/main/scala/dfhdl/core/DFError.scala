@@ -3,6 +3,7 @@ import dfhdl.compiler.ir
 import dfhdl.internals.*
 
 import scala.annotation.targetName
+import dfhdl.options.OnError
 
 sealed abstract class DFError(
     val dfMsg: String
@@ -116,6 +117,10 @@ def trydf(block: => Unit)(using dfc: DFC, ctName: CTName): Unit =
           exitWithError(dfErr.toString())
         dfc.logError(dfErr)
 
-def exitWithError(msg: String): Nothing =
+def exitWithError(msg: String)(using DFC): Nothing =
   System.err.println(msg)
-  sys.exit(1)
+  dfc.elaborationOptions.onError match
+    case OnError.Exit =>
+      sys.exit(1)
+    case _ =>
+      throw new IllegalArgumentException("Elaboration errors found!")

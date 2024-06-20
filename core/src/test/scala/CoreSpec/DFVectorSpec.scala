@@ -22,6 +22,12 @@ class DFVectorSpec extends DFSpec:
          |v3 := all(all(d"8'0"))
          |v3(3)(1) := d"8'25"
          |v3 := v3
+         |val len: Int <> CONST = 3
+         |val v4 = UInt(8) X len <> VAR init all(d"8'0")
+         |val v5: UInt[4] X len <> CONST = all(d"4'0")
+         |val v6 = UInt(4) X len <> VAR init v5
+         |v6 := all(d"4'0")
+         |val zeroP: Int <> CONST = 0
          |""".stripMargin
     ) {
       val v1 = UInt(8) X 5 <> VAR init Vector.tabulate(5)(22 + _)
@@ -57,6 +63,50 @@ class DFVectorSpec extends DFSpec:
       v3(3)(1) := 25
       val t: UInt[8] X 4 X 4 <> VAL = v3
       v3 := t
+      val len: Int <> CONST = 3
+      val v4 = UInt(8) X len <> VAR init all(0)
+      val v5: UInt[4] X len.type <> CONST = all(0)
+      val v6 = UInt(4) X len <> VAR init v5
+      v6 := all(0)
+      val zero = 0
+      assertDSLError(
+        "The vector length must be positive but found: 0"
+      )(
+        """val v7 = UInt(4) X 0 <> VAR"""
+      ) {
+        val v7 = UInt(4) X zero <> VAR
+      }
+      assertDSLError(
+        "The vector length must be positive but found: 0"
+      )(
+        """val v7 = UInt(4) X 0 X 5 <> VAR"""
+      ) {
+        val v7 = UInt(4) X zero X 5 <> VAR
+      }
+      assertCompileError(
+        "The vector length must be positive but found: 0"
+      )(
+        """val v7: UInt[4] X 0 <> CONST = all(0)"""
+      )
+      // TODO: does not compile, since (zero.type <> CONST) is not considered for vector composition.
+      // Attempts to fix it resulted in match type failure to reduce. Maybe in the future this can be
+      // resolved.
+      // assertRuntimeError(
+      //   "The vector length must be positive but found: 0"
+      // ){
+      //   val v7: UInt[4] X zero.type <> CONST = all(0)
+      // }
+      val zeroP: Int <> CONST = 0
+      assertRuntimeError(
+        "The vector length must be positive but found: 0"
+      ) {
+        val v7: UInt[4] X zeroP.type <> CONST = all(0)
+      }
+      assertRuntimeError(
+        "The vector length must be positive but found: 0"
+      ) {
+        val v7: UInt[4] X zeroP.type X 5 <> CONST = all(all(0))
+      }
     }
   }
   test("Big Endian Packed Order") {

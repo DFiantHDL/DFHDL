@@ -5,8 +5,7 @@ import scala.quoted.*
 import collection.immutable.ListMap
 import ir.DFVal.Func.Op as FuncOp
 
-sealed abstract class DFEncoding extends DFVal[Nothing, Nothing], scala.reflect.Enum:
-  val irValue: ir.DFVal | DFError = DFError.FakeEnum
+sealed abstract class DFEncoding extends scala.reflect.Enum:
   def calcWidth(entryCount: Int): Int
   def encode(idx: Int): BigInt
   def bigIntValue: BigInt

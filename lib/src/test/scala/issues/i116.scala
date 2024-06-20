@@ -8,7 +8,7 @@ case class Test (
   b : Bit <> VAL
 ) extends Struct
 
-class GlobCounter (val width: Int <> CONST) extends RTDesign:
+@top(false) class GlobCounter (val width: Int <> CONST) extends RTDesign:
   val req = Bit <> IN
   val req2 = Bit <> IN
   val t = Test <> IN

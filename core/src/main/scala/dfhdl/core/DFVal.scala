@@ -14,7 +14,10 @@ import dfhdl.compiler.printing.{DefaultPrinter, Printer}
 import scala.annotation.tailrec
 
 import scala.reflect.ClassTag
-trait DFVal[+T <: DFTypeAny, +M <: ModifierAny] extends Any with DFMember[ir.DFVal] with Selectable:
+final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
+    extends AnyVal
+    with DFMember[ir.DFVal]
+    with Selectable:
 
   def selectDynamic(name: String)(using DFC): Any = trydf {
     val ir.DFStruct(structName, fieldMap) = this.asIR.dfType: @unchecked
@@ -54,7 +57,8 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFValOf[t]]   => false
       case '[NonEmptyTuple] =>
         tpe.getTupleArgs.forall(isConstBool)
-      case _ => true
+      case '[SameElementsVector[t]] => isConstBool(TypeRepr.of[t])
+      case _                        => true
     if (isConstBool(tpe)) TypeRepr.of[CONST]
     else TypeRepr.of[NOTCONST]
 
@@ -86,21 +90,31 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
   end checkConst
 end extension
 
-infix type <>[T <: DFType.Supported, M] = T match
+infix type <>[T, M] = T match
   case Int => // Int can be a constant literal or just "Int" representing SInt[32]
     IsConst[T] match
       case true  => DFVector.ComposedModifier[T, M]
       case false => DFInt32 <> M
+  // This case handles a vector declaration where operator precedence puts an embedded parameter
+  // as type for `<>`. E.g.:
+  // val len: Int <> CONST = 20
+  // val vec1: UInt[4] X len.type <> VAR = all(0)
+  // val vec2: UInt[4] X (len.type + 1) <> VAR = all(0)
+  // In both cases above the `<>` priority over `X` priority creates a type composition like:
+  // `UInt[4] X (len.type <> VAR)`
+  // So in this case we construct DFVector.ComposedModifier[T, M] to later used in `X`
+  // to properly construct the vector type.
+  case DFConstInt32 | IntP.Sig => DFVector.ComposedModifier[T, M]
   case _ =>
     M match
       case DFRET => DFC ?=> DFValOf[DFType.Of[T]]
       case VAL   => DFValOf[DFType.Of[T]]
       case CONST => DFConstOf[DFType.Of[T]]
 
-infix type X[T <: DFType.Supported, M] = M match
+infix type X[T, M] = M match
   case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]
-  case Int & Singleton                 => DFVector[DFType.Of[T], Tuple1[M]]
-type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
+  case _                               => DFVector[DFType.Of[T], Tuple1[M]]
+type JUSTVAL[T] = <>[T, VAL]
 
 extension [V <: ir.DFVal](dfVal: V)
   inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] =
@@ -226,9 +240,9 @@ sealed protected trait DFValLP:
   }
   implicit transparent inline def DFVectorValConversion[
       T <: DFTypeAny,
-      D <: Int,
+      D <: IntP,
       P <: Boolean,
-      R <: DFValAny | Iterable[?] | Bubble
+      R <: DFValAny | Iterable[?] | SameElementsVector[?] | Bubble
   ](
       inline from: R
   ): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
@@ -257,14 +271,11 @@ sealed protected trait DFValLP:
     from => from.asValTP[T, NOTCONST]
 end DFValLP
 object DFVal extends DFValLP:
-  final class Final[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DFError)
-      extends AnyVal
-      with DFVal[T, M]
   // constructing a front-end DFVal value class object. if it's a global value, then
   // we need to save the DFC, instead of the actual member IR object
   inline def apply[T <: DFTypeAny, M <: ModifierAny, IR <: ir.DFVal | DFError](
       irValue: IR
-  ): DFVal[T, M] = new Final[T, M](irValue)
+  ): DFVal[T, M] = new DFVal[T, M](irValue)
   inline def unapply(arg: DFValAny): Option[ir.DFVal] = Some(arg.asIR)
   object OrTupleOrStruct:
     def unapply(arg: Any)(using DFC): Option[DFValAny] =
@@ -311,6 +322,9 @@ object DFVal extends DFValLP:
   given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[Boolean, DFVal[T, M]] =
     CanEqual.derived
   given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[Tuple, DFVal[T, M]] =
+    CanEqual.derived
+  // Enabling encoding comparison
+  given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[DFEncoding, DFVal[T, M]] =
     CanEqual.derived
 
   given __refined_dfVal[T <: FieldsOrTuple, A, I, P](using
@@ -1076,7 +1090,7 @@ object VarsTuple:
   end evMacro
 end VarsTuple
 
-final class REG_DIN[T <: DFTypeAny](val irValue: DFError.REG_DIN[T]) extends AnyVal with DFVarOf[T]:
+final class REG_DIN[T <: DFTypeAny](val irValue: DFError.REG_DIN[T]) extends AnyVal:
   def :=[R](rhs: Exact[R])(using
       tc: DFVal.TC[T, R],
       dfc: DFC

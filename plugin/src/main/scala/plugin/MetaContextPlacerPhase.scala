@@ -33,15 +33,18 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
 
   val phaseName = "MetaContextPlacer"
 
-  override val runsAfter = Set("typer")
+  override val runsAfter = Set("TopAnnot")
   override val runsBefore = Set("FixInterpDFValPhase")
   // override val debugFilter: String => Boolean = _.contains("Example.scala")
   var dfcArgStack = List.empty[Tree]
   var emptyDFCSym: TermSymbol = uninitialized
+  var emptyNoEODFCSym: TermSymbol = uninitialized
   var dfcTpe: Type = uninitialized
   var dfSpecTpe: Type = uninitialized
   var hasClsMetaArgsTpe: TypeRef = uninitialized
   var clsMetaArgsTpe: TypeRef = uninitialized
+  var topAnnotSym: ClassSymbol = uninitialized
+  var appTpe: TypeRef = uninitialized
 
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     val sym = tree.symbol
@@ -56,17 +59,13 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   private def clsMetaArgsOverrideDef(owner: Symbol, clsMetaArgsTree: Tree)(using
       Context
   ): Tree =
-    val sym =
-      newSymbol(
-        owner,
-        "__clsMetaArgs".toTermName,
-        Override | Protected | Method | Touched,
-        clsMetaArgsTpe
-      )
-    DefDef(
-      sym,
-      clsMetaArgsTree
+    val sym = newSymbol(
+      owner,
+      "__clsMetaArgs".toTermName,
+      Override | Protected | Method | Touched,
+      clsMetaArgsTpe
     )
+    DefDef(sym, clsMetaArgsTree)
   end clsMetaArgsOverrideDef
 
   private def clsMetaArgsOverrideDef(owner: Symbol)(using Context): Tree =
@@ -99,6 +98,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           dfcArgStack = dfcArgStack.drop(1)
         val clsTpe = tree.tpe
         val clsSym = clsTpe.classSymbol.asClass
+
         if (clsTpe <:< hasClsMetaArgsTpe && !clsSym.isAnonymousClass)
           val paramBody = template.body.takeWhile {
             case x: TypeDef                 => true
@@ -154,7 +154,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
                   Literal(Constant(tree.name.toString)),
                   tree.positionTree,
                   mkOptionString(clsSym.docString),
-                  mkList(clsSym.staticAnnotations.map(_.tree)),
+                  mkList(clsSym.staticAnnotations.map(a => dropProxies(a.tree))),
                   simpleArgsListMapTree
                 )
               )
@@ -184,11 +184,39 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
       case _ =>
     tree
 
-  private def dfcOverrideDef(owner: Symbol)(using Context): Tree =
+  private def dfcOverrideDef(owner: Symbol, treeSrcPos: util.SrcPos)(using Context): Tree =
     val sym =
       newSymbol(owner, "__dfc".toTermName, Override | Protected | Method | Touched, dfcTpe)
-    val dfcArg = dfcArgStack.headOption.getOrElse(ref(emptyDFCSym))
+    // getting DFC context from the stack or need to generate an empty one
+    // with elaboration options found in the @top annotation
+    val dfcArg = dfcArgStack.headOption.getOrElse {
+      owner.getAnnotation(topAnnotSym).map(a => dropProxies(a.tree)) match
+        // found top annotation
+        case Some(Apply(Apply(_, _), topElaborationOptionsTree :: _)) =>
+          @tailrec def getDFAppModuleCls(owner: Symbol): Option[ClassSymbol] =
+            if (owner.isRoot) None
+            else if (owner.isClass && owner.thisType <:< appTpe) Some(owner.asClass)
+            else if (owner.isClass) None
+            else getDFAppModuleCls(owner.owner)
+          val elaborationOptionsTree = getDFAppModuleCls(owner.owner) match
+            case Some(cls) => This(cls).select("getElaborationOptions".toTermName)
+            case None      => topElaborationOptionsTree
+          ref(emptyDFCSym).appliedTo(elaborationOptionsTree)
+        // no top, but maybe this is just a stage test, so generating new context with
+        // default elaboration options
+        case _ if owner.fullName.toString().startsWith("StagesSpec") =>
+          ref(emptyNoEODFCSym)
+        // no top, so show an error
+        case _ =>
+          debug(owner.getAnnotation(topAnnotSym))
+          report.error(
+            "Missing `@top` annotation for this design to be instantiated as a top-level design.",
+            treeSrcPos
+          )
+          EmptyTree
+    }
     DefDef(sym, dfcArg)
+  end dfcOverrideDef
 
   override def transformApply(tree: Apply)(using Context): Tree =
     val tpe = tree.tpe
@@ -206,8 +234,8 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           List(tpe),
           coord = tree.symbol.coord
         )
+        cls.addAnnotations(tpe.typeSymbol.annotations)
         val constr = newConstructor(cls, Synthetic, Nil, Nil).entered
-        val encClass = ctx.owner.enclosingClass
         var valDefs: List[ValDef] = Nil
         // naming the arguments before extending the tree as as parent because
         // otherwise ownership and references need to change.
@@ -223,7 +251,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
               Apply(nameArgs(fun), updatedArgs)
             case _ => tree
         val parent = nameArgs(tree)
-        val od = dfcOverrideDef(cls)
+        val od = dfcOverrideDef(cls, tree.srcPos)
         val cdef = ClassDefWithParents(cls, DefDef(constr), List(parent), List(od))
         Block(
           valDefs.reverse :+ cdef,
@@ -244,7 +272,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
         }
         if (hasDFCOverride) tree
         else
-          val od = dfcOverrideDef(td.symbol)
+          val od = dfcOverrideDef(td.symbol, tree.srcPos)
           val updatedTemplate = cpy.Template(template)(body = od :: template.body)
           val updatedTypeDef = cpy.TypeDef(td)(rhs = updatedTemplate)
           cpy.Block(tree)(stats = List(updatedTypeDef), expr = tree.expr)
@@ -254,10 +282,13 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     emptyDFCSym = requiredMethod("dfhdl.core.DFC.empty")
+    emptyNoEODFCSym = requiredMethod("dfhdl.core.DFC.emptyNoEO")
     dfcTpe = requiredClassRef("dfhdl.core.DFC")
     dfSpecTpe = requiredClassRef("dfhdl.DFSpec")
     hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
     clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
+    topAnnotSym = requiredClass("dfhdl.top")
+    appTpe = requiredClassRef("dfhdl.DFApp")
     dfcArgStack = Nil
     ctx
 end MetaContextPlacerPhase

@@ -3,7 +3,7 @@ package issues.i128
 
 import dfhdl.*
 
-class ArrayIssue() extends RTDesign:
+@top(false) class ArrayIssue() extends RTDesign:
     val a = Bit <> IN
     val b = Bit X 6 <> VAR
     val c = Bit X 5 X 4 <> VAR

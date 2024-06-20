@@ -308,7 +308,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
          |  constant c14 : signed(7 downto 0) := signed'(x"--");
          |  constant c15 : t_struct_DFTuple2 := t_struct_DFTuple2(_1 = "000", _2 = '1');
-         |  constant c16 : t_vecX2_std_logic_vector(0 to 7 - 1)(0 to 5 - 1)(7 downto 0) := (0 to 7-1 => (x"00", x"11", x"22", x"33", x"44"));
+         |  constant c16 : t_vecX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (0 to 6 => (x"00", x"11", x"22", x"33", x"44"));
          |begin
          |
          |end Top_arch;
@@ -478,7 +478,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end loop;
          |    return ret;
          |  end;
-         |  subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 10 - 1)(0 to 16 - 1)(11 downto 0);
+         |  subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
          |  function to_t_opaque_Foo(A : std_logic_vector) return t_opaque_Foo is
          |  begin
          |    return to_t_vecX2_std_logic_vector(A, 10, 16, 12);
@@ -495,7 +495,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  process (clk)
          |  begin
          |    if rising_edge(clk) then
-         |      if rst = '1' then v <= (0 to 10-1 => (0 to 16-1 => x"000"));
+         |      if rst = '1' then v <= (0 to 9 => (0 to 15 => x"000"));
          |      else v <= v_din;
          |      end if;
          |    end if;
@@ -518,7 +518,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Example is
          |port (
-         |  v : out t_vecX2_std_logic_vector(0 to 10 - 1)(0 to 16 - 1)(11 downto 0)
+         |  v : out t_vecX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0)
          |);
          |end Example;
          |
@@ -526,7 +526,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |begin
          |  process (all)
          |  begin
-         |    v <= (0 to 10-1 => (0 to 16-1 => x"000"));
+         |    v <= (0 to 9 => (0 to 15 => x"000"));
          |  end process;
          |end Example_arch;
          |""".stripMargin
@@ -543,7 +543,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     // TODO: consider if we want to leave the t_opaque_Foo under `getCompiledCodeString`
     assertNoDiff(
       top,
-      """|subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 10 - 1)(0 to 16 - 1)(11 downto 0);
+      """|subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
          |
          |library ieee;
          |use ieee.std_logic_1164.all;
@@ -570,7 +570,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  process (clk)
          |  begin
          |    if rising_edge(clk) then
-         |      if rst = '1' then y <= (0 to 10-1 => (0 to 16-1 => x"000"));
+         |      if rst = '1' then y <= (0 to 9 => (0 to 15 => x"000"));
          |      else y <= y_din;
          |      end if;
          |    end if;

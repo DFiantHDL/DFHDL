@@ -70,13 +70,19 @@ object Design:
   type Block = DFOwner[ir.DFDesignBlock]
   object Block:
     def apply(domain: ir.DomainType, dclMeta: ir.Meta, instMode: InstMode)(using DFC): Block =
+      // top level is tagged with the default RT Domain configuration
+      // (the top level may be an ED or DF design, so it cannot save the default RT configuration as part
+      // of the domain type, but this could be needed later for compilation stages)
+      val tags =
+        if (dfc.ownerOption.isEmpty) ir.DFTags.empty.tag(dfc.elaborationOptions.defaultRTDomainCfg)
+        else ir.DFTags.empty
       ir.DFDesignBlock(
         domain,
         dclMeta,
         instMode,
         dfc.ownerOrEmptyRef,
         dfc.getMeta,
-        ir.DFTags.empty
+        tags
       )
         .addMember
         .asFE

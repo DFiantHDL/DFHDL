@@ -12,6 +12,7 @@ class DropDesignDefsSpec extends StageSpec:
 
       /** This is my test
         * @param arg
+        *   is a nice param
         * @return
         */
       def test(arg: UInt[32] <> VAL): UInt[32] <> DFRET =
@@ -24,9 +25,11 @@ class DropDesignDefsSpec extends StageSpec:
       id,
       """|/** This is my test
          |  * @param arg
+         |  *   is a nice param
          |  * @return
          |  **/
          |class test extends DFDesign:
+         |  /**is a nice param*/
          |  val arg = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
          |  o <> arg + arg

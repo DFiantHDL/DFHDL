@@ -7,7 +7,7 @@ case class EmbeddedArray (
     a : Bits[8]X(3) <> VAL
 ) extends Struct
     
-class StructArrayIssue() extends RTDesign:
+@top(false) class StructArrayIssue() extends RTDesign:
     val a = Bit <> IN
     val e = EmbeddedArray <> VAR
     e.a(0)(0) := a

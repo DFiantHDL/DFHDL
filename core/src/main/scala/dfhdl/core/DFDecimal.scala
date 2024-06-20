@@ -1080,7 +1080,7 @@ object DFXInt:
           arithOp(dfType, FuncOp.`*`, lhsVal, rhsVal)
         }
       end extension
-      extension [L](lhs: L)
+      extension [L <: Int](lhs: L)
         def +[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
             rhs: DFValTP[DFXInt[RS, RW, RN], RP]
         )(using sL: Exact.Summon[L, lhs.type])(using

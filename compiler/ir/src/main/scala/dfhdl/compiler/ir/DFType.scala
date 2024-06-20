@@ -215,11 +215,13 @@ object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
 /////////////////////////////////////////////////////////////////////////////
 final case class DFVector(
     cellType: DFType,
-    cellDims: List[Int]
+    cellDimParamRefs: List[IntParamRef]
 ) extends ComposedDFType:
   type Data = Vector[Any]
-  def width(using MemberGetSet): Int = cellType.width * cellDims.product
-  def createBubbleData(using MemberGetSet): Data = Vector.fill(cellDims.head)(
+  def width(using MemberGetSet): Int = cellType.width * cellDimParamRefs.map(_.getInt).product
+  // TODO: change for multidimensional arrays
+  def length(using MemberGetSet): Int = cellDimParamRefs.head.getInt
+  def createBubbleData(using MemberGetSet): Data = Vector.fill(length)(
     cellType.createBubbleData
   )
   def isDataBubble(data: Data): Boolean =
@@ -240,7 +242,7 @@ final case class DFVector(
         )
     seq.toVector
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  def getRefs: List[DFRef.TwoWayAny] = cellDimParamRefs.flatMap(_.getRef)
 end DFVector
 
 object DFVector extends DFType.Companion[DFVector, Vector[Any]]
