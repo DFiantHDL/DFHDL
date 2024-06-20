@@ -54,7 +54,8 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFValOf[t]]   => false
       case '[NonEmptyTuple] =>
         tpe.getTupleArgs.forall(isConstBool)
-      case _ => true
+      case '[SameElementsVector[t]] => isConstBool(TypeRepr.of[t])
+      case _                        => true
     if (isConstBool(tpe)) TypeRepr.of[CONST]
     else TypeRepr.of[NOTCONST]
 
@@ -99,7 +100,7 @@ infix type <>[T <: DFType.Supported, M] = T match
 
 infix type X[T <: DFType.Supported, M] = M match
   case DFVector.ComposedModifier[d, m] => <>[DFVector[DFType.Of[T], Tuple1[d]], m]
-  case Int & Singleton                 => DFVector[DFType.Of[T], Tuple1[M]]
+  case _                               => DFVector[DFType.Of[T], Tuple1[M]]
 type JUSTVAL[T <: DFType.Supported] = <>[T, VAL]
 
 extension [V <: ir.DFVal](dfVal: V)
@@ -226,9 +227,9 @@ sealed protected trait DFValLP:
   }
   implicit transparent inline def DFVectorValConversion[
       T <: DFTypeAny,
-      D <: Int,
+      D <: IntP,
       P <: Boolean,
-      R <: DFValAny | Iterable[?] | Bubble
+      R <: DFValAny | Iterable[?] | SameElementsVector[?] | Bubble
   ](
       inline from: R
   ): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${

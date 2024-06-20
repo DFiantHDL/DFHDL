@@ -92,7 +92,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
 
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).forall(_ =~ args.head.get) =>
-                s"(0 to ${args.length}-1 => ${args.head.refCodeString.applyBrackets()})"
+                s"(0 to ${args.length - 1} => ${args.head.refCodeString.applyBrackets()})"
 
               case DFVector(_, _) =>
                 args.map(_.refCodeString).mkStringBrackets
@@ -116,7 +116,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       while (inVector)
         loopType match
           case dfType: DFVector =>
-            desc = s"$desc, ${dfType.cellDims.head}"
+            desc = s"$desc, ${dfType.cellDimParamRefs.head.refCodeString}"
             loopType = dfType.cellType
           case cellType =>
             val finale = cellType match

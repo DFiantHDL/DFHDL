@@ -96,12 +96,12 @@ object DFType:
           modifier: M
       ): DFVector.ComposedModifier[D, M] =
         new DFVector.ComposedModifier[D, M](cellDim, modifier)
-    extension (cellDim: Int)
+    extension [D <: IntP](cellDim: D)
       @targetName("composeMod")
       infix def <>[M <: ModifierAny](
           modifier: M
-      ): DFVector.ComposedModifier[Int, M] =
-        new DFVector.ComposedModifier[Int, M](cellDim, modifier)
+      ): DFVector.ComposedModifier[D, M] =
+        new DFVector.ComposedModifier[D, M](cellDim, modifier)
     extension [T <: Supported](t: T)
       infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
           dfc: DFC,

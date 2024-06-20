@@ -235,7 +235,7 @@ extension (dfVal: DFVal)
             applyIdx match
               case DFVal.Alias.ApplyIdx.Const(i) =>
                 val maxValue = relVal.dfType match
-                  case vector: DFVector => vector.cellDims.head - 1
+                  case vector: DFVector => vector.length - 1
                   case bits: DFBits     => bits.width - 1
                   case _                => ???
                 s"_${i.toPaddedString(maxValue)}"

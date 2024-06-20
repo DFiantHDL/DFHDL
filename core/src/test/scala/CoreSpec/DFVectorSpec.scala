@@ -22,6 +22,11 @@ class DFVectorSpec extends DFSpec:
          |v3 := all(all(d"8'0"))
          |v3(3)(1) := d"8'25"
          |v3 := v3
+         |val len: Int <> CONST = 3
+         |val v4 = UInt(8) X len <> VAR init all(d"8'0")
+         |val v5: UInt[4] X len <> CONST = all(d"4'0")
+         |val v6 = UInt(4) X len <> VAR init v5
+         |v6 := all(d"4'0")
          |""".stripMargin
     ) {
       val v1 = UInt(8) X 5 <> VAR init Vector.tabulate(5)(22 + _)
@@ -57,6 +62,11 @@ class DFVectorSpec extends DFSpec:
       v3(3)(1) := 25
       val t: UInt[8] X 4 X 4 <> VAL = v3
       v3 := t
+      val len: Int <> CONST = 3
+      val v4 = UInt(8) X len <> VAR init all(0)
+      val v5: (UInt[4] X len.type) <> CONST = all(0)
+      val v6 = UInt(4) X len <> VAR init v5
+      v6 := all(0)
     }
   }
   test("Big Endian Packed Order") {
