@@ -3,6 +3,7 @@ import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.options.ElaborationOptions
 import ir.{HWAnnotation, getActiveHWAnnotations}
+import scala.reflect.ClassTag
 
 import scala.annotation.Annotation
 
@@ -35,6 +36,7 @@ final case class DFC(
     annotations = meta.annotations
   ).asInstanceOf[this.type]
   def setTags(tags: ir.DFTags) = copy(tags = tags)
+  def tag[CT <: ir.DFTag: ClassTag](customTag: CT) = setTags(tags.tag(customTag))
   given getSet: ir.MemberGetSet = mutableDB.getSet
   def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations)
   def enterOwner(owner: DFOwnerAny): Unit =

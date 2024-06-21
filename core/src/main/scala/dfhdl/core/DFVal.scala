@@ -694,15 +694,15 @@ object DFVal extends DFValLP:
           )
         alias.addMember
       def ident[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
-          DFC
+          dfc: DFC
       ): DFVal[T, M] =
         import ir.DFVal.Alias.IdentTag
-        apply(relVal.dfType, relVal, forceNewAlias = true).tag(IdentTag)
+        apply(relVal.dfType, relVal, forceNewAlias = true)(using dfc.tag(IdentTag))
       def bind[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M], bindName: String)(using
-          DFC
+          dfc: DFC
       ): DFVal[T, M] =
         import ir.DFConditional.DFCaseBlock.Pattern
-        ident(relVal)(using dfc.setName(bindName)).tag(Pattern.Bind.Tag)
+        ident(relVal)(using dfc.setName(bindName).tag(Pattern.Bind.Tag))
     end AsIs
     object History:
       def apply[T <: DFTypeAny](
