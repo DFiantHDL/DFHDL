@@ -12,6 +12,7 @@ final case class DFC(
     docOpt: Option[String],
     annotations: List[HWAnnotation] = Nil, // TODO: removing default causes stale symbol crash
     mutableDB: MutableDB = new MutableDB(),
+    tags: ir.DFTags = ir.DFTags.empty,
     elaborationOptions: ElaborationOptions = ElaborationOptions.default
 ) extends MetaContext:
   def setMeta(
@@ -33,6 +34,7 @@ final case class DFC(
     docOpt = meta.docOpt,
     annotations = meta.annotations
   ).asInstanceOf[this.type]
+  def setTags(tags: ir.DFTags) = copy(tags = tags)
   given getSet: ir.MemberGetSet = mutableDB.getSet
   def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations)
   def enterOwner(owner: DFOwnerAny): Unit =

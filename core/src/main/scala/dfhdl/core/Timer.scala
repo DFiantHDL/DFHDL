@@ -61,11 +61,7 @@ object Timer:
         case None        => ir.DFRef.TwoWay.Empty
       val timer: ir.Timer = ir.Timer
         .Periodic(
-          triggerRef,
-          periodOpt,
-          dfc.owner.ref,
-          dfc.getMeta,
-          ir.DFTags.empty
+          triggerRef, periodOpt, dfc.owner.ref, dfc.getMeta, dfc.tags
         )
         .addMember
       timer.asFE
@@ -79,7 +75,7 @@ object Timer:
           arg,
           dfc.owner.ref,
           dfc.getMeta,
-          ir.DFTags.empty
+          dfc.tags
         )
         .addMember
       timer.asFE
@@ -91,7 +87,7 @@ object Timer:
           timer.asIR.refTW[ir.DFVal],
           dfc.owner.ref,
           dfc.getMeta,
-          ir.DFTags.empty
+          dfc.tags
         )
         .addMember
       dfVal.asValOf[DFBool]

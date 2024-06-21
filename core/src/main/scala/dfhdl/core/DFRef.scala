@@ -39,7 +39,7 @@ extension [M <: ir.DFMember](member: M)
           namePath,
           dfc.owner.ref,
           dfc.getMeta.anonymize,
-          ir.DFTags.empty
+          dfc.tags
         )
         portSelect.addMember.refTW[O].asInstanceOf[ir.DFRef.TwoWay[M, O]]
       // any other kind of reference

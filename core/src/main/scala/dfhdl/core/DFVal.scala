@@ -592,7 +592,7 @@ object DFVal extends DFValLP:
     )(using DFC): DFConstOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
       ir.DFVal
-        .Const(dfType.asIR, data, dfc.ownerOrEmptyRef, meta, ir.DFTags.empty)
+        .Const(dfType.asIR, data, dfc.ownerOrEmptyRef, meta, dfc.tags)
         .addMember
         .asConstOf[T]
   end Const
@@ -617,12 +617,7 @@ object DFVal extends DFValLP:
       // violating the reference order rule (we can only reference values that appear before).
       if (dfc.isAnonymous && initValues.isEmpty)
         ir.DFVal.Dcl(
-          dfType.asIR,
-          modifier.asIR,
-          Nil,
-          ir.DFRef.OneWay.Empty,
-          dfc.getMeta,
-          ir.DFTags.empty
+          dfType.asIR, modifier.asIR, Nil, ir.DFRef.OneWay.Empty, dfc.getMeta, dfc.tags
         ).asVal[T, M]
       else
         val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
@@ -631,7 +626,7 @@ object DFVal extends DFValLP:
           initValues.map(_.asIR.refTW[ir.DFVal.Dcl]),
           dfc.owner.ref,
           dfc.getMeta,
-          ir.DFTags.empty
+          dfc.tags
         )
         dcl.addMember.asVal[T, M]
     end apply
@@ -658,7 +653,7 @@ object DFVal extends DFValLP:
         args.map(_.refTW[ir.DFVal]),
         dfc.ownerOrEmptyRef,
         dfc.getMeta,
-        ir.DFTags.empty
+        dfc.tags
       )
       func.addMember.asValTP[T, P]
     end apply
@@ -695,7 +690,7 @@ object DFVal extends DFValLP:
             relVal.refTW[ir.DFVal.Alias.AsIs],
             dfc.ownerOrEmptyRef,
             dfc.getMeta,
-            ir.DFTags.empty
+            dfc.tags
           )
         alias.addMember
       def ident[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
@@ -725,7 +720,7 @@ object DFVal extends DFValLP:
             initOption.map(_.asIR.refTW[ir.DFVal.Alias.History]),
             dfc.owner.ref,
             dfc.getMeta,
-            ir.DFTags.empty
+            dfc.tags
           )
         alias.addMember.asValOf[T]
       end apply
@@ -764,7 +759,7 @@ object DFVal extends DFValLP:
                 relBitLow,
                 dfc.ownerOrEmptyRef,
                 dfc.getMeta,
-                ir.DFTags.empty
+                dfc.tags
               )
             alias.addMember
       end forced
@@ -789,7 +784,7 @@ object DFVal extends DFValLP:
             relIdx.asIR.refTW[ir.DFVal.Alias.ApplyIdx],
             dfc.ownerOrEmptyRef,
             dfc.getMeta,
-            ir.DFTags.empty
+            dfc.tags
           )
         alias.addMember.asVal[T, M]
       end apply
@@ -819,7 +814,7 @@ object DFVal extends DFValLP:
                 fieldName,
                 dfc.owner.ref,
                 dfc.getMeta,
-                ir.DFTags.empty
+                dfc.tags
               )
             alias.addMember.asVal[T, M]
         end match

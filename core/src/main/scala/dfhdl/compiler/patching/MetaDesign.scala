@@ -51,7 +51,7 @@ abstract class MetaDesign[+D <: DomainType](
   extension (dfVal: ir.DFVal)
     def cloneAnonValueAndDepsHere: ir.DFVal =
       if (dfVal.isAnonymous)
-        val dfcForClone = dfc.setMeta(dfVal.meta)
+        val dfcForClone = dfc.setMeta(dfVal.meta).setTags(dfVal.tags)
         val dfType = dfVal.dfType.asFE[DFTypeAny]
         val cloned = locally {
           given DFC = dfcForClone
@@ -81,7 +81,7 @@ abstract class MetaDesign[+D <: DomainType](
             case _ => throw new IllegalArgumentException(s"Unsupported cloning for: $dfVal")
           end match
         }
-        cloned.asIR.setTags(_ => dfVal.tags)
+        cloned.asIR
       else dfVal
   extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
     def asInitialized: DFVal[T, Modifier[A, C, Modifier.Initialized, P]] =

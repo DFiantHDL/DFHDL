@@ -74,15 +74,10 @@ object Design:
       // (the top level may be an ED or DF design, so it cannot save the default RT configuration as part
       // of the domain type, but this could be needed later for compilation stages)
       val tags =
-        if (dfc.ownerOption.isEmpty) ir.DFTags.empty.tag(dfc.elaborationOptions.defaultRTDomainCfg)
-        else ir.DFTags.empty
+        if (dfc.ownerOption.isEmpty) dfc.tags.tag(dfc.elaborationOptions.defaultRTDomainCfg)
+        else dfc.tags
       ir.DFDesignBlock(
-        domain,
-        dclMeta,
-        instMode,
-        dfc.ownerOrEmptyRef,
-        dfc.getMeta,
-        tags
+        domain, dclMeta, instMode, dfc.ownerOrEmptyRef, dfc.getMeta, tags
       )
         .addMember
         .asFE

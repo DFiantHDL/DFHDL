@@ -88,7 +88,7 @@ object DFIf:
         dfType.asIR,
         dfc.owner.ref,
         dfc.getMeta,
-        ir.DFTags.empty
+        dfc.tags
       ).addMember.asValAny
   end Header
 
@@ -109,11 +109,7 @@ object DFIf:
           header.asIR.asInstanceOf[DFIfHeader].refTW[DFIfElseBlock]
       val block: DFIfElseBlock =
         DFIfElseBlock(
-          guardRef,
-          prevBlockOrHeaderRef,
-          dfc.owner.ref,
-          dfc.getMeta,
-          ir.DFTags.empty
+          guardRef, prevBlockOrHeaderRef, dfc.owner.ref, dfc.getMeta, dfc.tags
         ).addMember
       block.asFE
     end apply

@@ -22,7 +22,7 @@ object Domain:
         domainType,
         ownerRef,
         dfc.getMeta,
-        ir.DFTags.empty
+        dfc.tags
       ).addMember
         .asFE
 end Domain
