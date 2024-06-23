@@ -37,6 +37,7 @@ final case class DFC(
   ).asInstanceOf[this.type]
   def setTags(tags: ir.DFTags) = copy(tags = tags)
   def tag[CT <: ir.DFTag: ClassTag](customTag: CT) = setTags(tags.tag(customTag))
+  def emptyTags = setTags(ir.DFTags.empty)
   given getSet: ir.MemberGetSet = mutableDB.getSet
   def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations)
   def enterOwner(owner: DFOwnerAny): Unit =

@@ -703,6 +703,11 @@ object DFVal extends DFValLP:
       ): DFVal[T, M] =
         import ir.DFConditional.DFCaseBlock.Pattern
         ident(relVal)(using dfc.setName(bindName).tag(Pattern.Bind.Tag))
+      def designParam[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
+          DFC
+      ): DFVal[T, M] =
+        import ir.DFVal.Alias.DesignParamTag
+        forced(relVal.dfType.asIR, relVal.asIR)(using dfc.tag(DesignParamTag)).asVal[T, M]
     end AsIs
     object History:
       def apply[T <: DFTypeAny](
@@ -768,14 +773,11 @@ object DFVal extends DFValLP:
       def apply[
           T <: DFTypeAny,
           W <: IntP,
-          M <: ModifierAny,
-          IS <: Boolean,
-          IW <: Int,
-          IN <: NativeType
+          M <: ModifierAny
       ](
           dfType: T,
           relVal: DFVal[DFTypeAny, M],
-          relIdx: DFValOf[DFXInt[IS, IW, IN]]
+          relIdx: DFValOf[DFInt32]
       )(using DFC): DFVal[T, M] =
         val alias: ir.DFVal.Alias.ApplyIdx =
           ir.DFVal.Alias.ApplyIdx(
@@ -1254,3 +1256,37 @@ object DFPortOps:
       else trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
       ConnectPlaceholder
 end DFPortOps
+
+extension [V <: ir.DFVal](dfVal: V)
+  protected[dfhdl] def cloneAnonValueAndDepsHere(using dfc: DFC): V =
+    import dfc.getSet
+    if (dfVal.isAnonymous)
+      val dfcForClone = dfc.setMeta(dfVal.meta).setTags(dfVal.tags)
+      val dfType = dfVal.dfType.asFE[DFTypeAny]
+      val cloned = dfVal match
+        case const: ir.DFVal.Const =>
+          DFVal.Const.forced(const.dfType.asFE[DFTypeAny], const.data)(using dfcForClone)
+        case func: ir.DFVal.Func =>
+          val clonedArgs = func.args.map(_.get.cloneAnonValueAndDepsHere)
+          DFVal.Func(func.dfType.asFE[DFTypeAny], func.op, clonedArgs)(using dfcForClone)
+        case alias: ir.DFVal.Alias.Partial =>
+          val clonedRelValIR = alias.relValRef.get.cloneAnonValueAndDepsHere
+          val clonedRelVal = clonedRelValIR.asValAny
+          alias match
+            case alias: ir.DFVal.Alias.AsIs =>
+              DFVal.Alias.AsIs(dfType, clonedRelVal, forceNewAlias = true)(using dfcForClone)
+            case alias: ir.DFVal.Alias.ApplyRange =>
+              DFVal.Alias.ApplyRange(
+                clonedRelVal.asValOf[DFBits[Int]],
+                alias.relBitHigh,
+                alias.relBitLow
+              )(using dfcForClone)
+            case alias: ir.DFVal.Alias.ApplyIdx =>
+              val clonedIdx = alias.relIdx.get.cloneAnonValueAndDepsHere.asValOf[DFInt32]
+              DFVal.Alias.ApplyIdx(dfType, clonedRelVal, clonedIdx)(using dfcForClone)
+            case alias: ir.DFVal.Alias.SelectField =>
+              DFVal.Alias.SelectField(clonedRelVal, alias.fieldName)(using dfcForClone)
+        case _ => throw new IllegalArgumentException(s"Unsupported cloning for: $dfVal")
+      cloned.asIR.asInstanceOf[V]
+    else dfVal
+    end if

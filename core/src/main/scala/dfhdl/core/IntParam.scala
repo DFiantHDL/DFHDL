@@ -155,8 +155,9 @@ object IntParam extends IntParamLP:
         case const: DFConstInt32 =>
           val constIR = const.asInstanceOf[DFValAny].asIR
           constIR.injectGlobalCtx()
+          val reachable = constIR.getReachableMember
           val newRef = new ir.DFRef.TypeRef {}
-          ir.IntParamRef(dfc.mutableDB.newRefFor(newRef, constIR))
+          ir.IntParamRef(dfc.mutableDB.newRefFor(newRef, reachable))
     def +[R <: IntP](rhs: IntParam[R]): IntParam[IntP.+[L, R]] =
       calc(FuncOp.+, lhs, rhs)(_ + _)
     def -[R <: IntP](rhs: IntParam[R]): IntParam[IntP.-[L, R]] =
