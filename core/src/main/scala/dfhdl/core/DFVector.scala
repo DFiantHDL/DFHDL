@@ -124,7 +124,10 @@ object DFVector:
         type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
+          val check = summon[`LL == RL`.Check[Int, Int]]
+          check(dfType.lengthInt, dfVals.length)
           DFVal.Func(dfType, FuncOp.++, dfVals)
+      end DFVectorValFromDFValVector
       given DFVectorValFromSEV[
           T <: DFTypeAny,
           D1 <: IntP,
@@ -159,6 +162,8 @@ object DFVector:
         type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
+          val check = summon[`LL == RL`.Check[Int, Int]]
+          check(dfType.lengthInt, dfVals.length)
           DFVal.Func(dfType, FuncOp.++, dfVals)
       end DFVectorCompareDFValVector
     end Compare

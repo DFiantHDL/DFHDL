@@ -11,7 +11,7 @@ class DFVectorSpec extends DFSpec:
          |v1 := all(d"8'22")
          |v1 := all(x)
          |v2 := all(d"8'55")
-         |v2 := Vector(v1(0), v1(1), v1(2), v1(3), v1(4))
+         |v2 := Vector(v1(0), v1(1), v1(2), v1(3), v1(4), v2(0))
          |val t1 = v1 == all(d"8'22")
          |val t2 = v1 != all(x)
          |val t3 = v1(3)
@@ -36,7 +36,17 @@ class DFVectorSpec extends DFSpec:
       v1 := Vector.fill(5)(d"8'22")
       v1 := List.fill(5)(x)
       v2 := all(d"8'55")
-      v2 := v1.elements
+      assertRuntimeErrorLog(
+        "The argument vector length (5) is different than the receiver vector length (6)."
+      ) {
+        v2 := v1.elements
+      }
+      v2 := v1.elements.appended(v2(0))
+      assertRuntimeErrorLog(
+        "The argument vector length (5) is different than the receiver vector length (6)."
+      ) {
+        val comp = v2 == v1.elements
+      }
       val t1 = v1 == List.fill(5)(d"8'22")
       val t2 = v1 != Vector.fill(5)(x)
       val t3 = v1(3)
