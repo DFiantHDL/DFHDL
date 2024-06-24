@@ -241,8 +241,12 @@ final case class DFVector(
           data._2.bitsWL(cellWidth, width - i * cellWidth)
         )
     seq.toVector
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = cellDimParamRefs.flatMap(_.getRef)
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFVector =>
+      this.cellType =~ that.cellType &&
+      this.cellDimParamRefs.lazyZip(that.cellDimParamRefs).forall(_ =~ _)
+    case _ => false
+  def getRefs: List[DFRef.TwoWayAny] = cellType.getRefs ++ cellDimParamRefs.flatMap(_.getRef)
 end DFVector
 
 object DFVector extends DFType.Companion[DFVector, Vector[Any]]
@@ -266,8 +270,12 @@ final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualTyp
     actualType.dataToBitsData(data.asInstanceOf[actualType.Data])
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data =
     actualType.bitsDataToData(data)
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFOpaque =>
+      this.getName == that.getName && this.id == that.id &&
+      this.actualType =~ that.actualType
+    case _ => false
+  def getRefs: List[DFRef.TwoWayAny] = actualType.getRefs
 end DFOpaque
 
 object DFOpaque extends DFType.Companion[DFOpaque, Any]:
@@ -319,8 +327,14 @@ final case class DFStruct(
         (fieldName, relBitLow)
       )
     fieldPosMap(fieldName)
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFStruct =>
+      this.getName == that.getName &&
+      this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
+        fnL == fnR && ftL =~ ftR
+      }
+    case _ => false
+  def getRefs: List[DFRef.TwoWayAny] = fieldMap.values.flatMap(_.getRefs).toList
 end DFStruct
 
 object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
