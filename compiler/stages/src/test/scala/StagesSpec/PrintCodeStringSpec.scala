@@ -543,4 +543,63 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
 
+  class BigXor(values: Vector[Bits[Int] <> CONST]) extends DFDesign:
+    val sum = values.head.dfType <> OUT
+    sum := values.reduce(_ ^ _)
+  test("Unreachable anonymous global values"):
+    val top = BigXor(Vector.tabulate(8)(i => h"4'$i")).getCodeString
+    assertNoDiff(
+      top,
+      """|class BigXor extends DFDesign:
+        |  val sum = Bits(4) <> OUT
+        |  sum := ((((((h"0" ^ h"1") ^ h"2") ^ h"3") ^ h"4") ^ h"5") ^ h"6") ^ h"7"
+        |end BigXor
+        |""".stripMargin
+    )
+  test("Unreachable local values"):
+    class BigXorContainer extends DFDesign:
+      val sum = Bits(4) <> OUT
+      val c   = h"4'7"
+      val bx  = BigXor(Vector.tabulate(8)(i => c | h"4'$i"))
+      sum <> bx.sum
+    val top = BigXorContainer().getCodeString
+    assertNoDiff(
+      top,
+      """|class BigXor(val c: Bits[4] <> CONST) extends DFDesign:
+         |  val sum = Bits(4) <> OUT
+         |  sum := (((((((c | h"0") ^ (c | h"1")) ^ (c | h"2")) ^ (c | h"3")) ^ (c | h"4")) ^ (c | h"5")) ^ (c | h"6")) ^ (c | h"7")
+         |end BigXor
+         |
+         |class BigXorContainer extends DFDesign:
+         |  val sum = Bits(4) <> OUT
+         |  val c: Bits[4] <> CONST = h"7"
+         |  val bx = BigXor(c = c)
+         |  sum <> bx.sum
+         |end BigXorContainer
+         |""".stripMargin
+    )
+  // TODO: need to fix unreachable type reference
+  // test("Unreachable local values"):
+  //   class BigXorContainer extends DFDesign:
+  //     val w: Int <> CONST = 4
+  //     val sum             = Bits(w) <> OUT
+  //     val c               = h"$w'7"
+  //     val bx              = BigXor(Vector.tabulate(8)(i => c | h"$w'$i"))
+  //     sum <> bx.sum
+  //   val top = BigXorContainer().getCodeString
+  //   assertNoDiff(
+  //     top,
+  //     """|class BigXor(val c: Bits[4] <> CONST) extends DFDesign:
+  //        |  val sum = Bits(4) <> OUT
+  //        |  sum := (((((((c | h"0") ^ (c | h"1")) ^ (c | h"2")) ^ (c | h"3")) ^ (c | h"4")) ^ (c | h"5")) ^ (c | h"6")) ^ (c | h"7")
+  //        |end BigXor
+  //        |
+  //        |class BigXorContainer extends DFDesign:
+  //        |  val sum = Bits(4) <> OUT
+  //        |  val c: Bits[4] <> CONST = h"7"
+  //        |  val bx = BigXor(c = c)
+  //        |  sum <> bx.sum
+  //        |end BigXorContainer
+  //        |""".stripMargin
+  //   )
 end PrintCodeStringSpec
