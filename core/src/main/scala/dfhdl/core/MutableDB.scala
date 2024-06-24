@@ -134,9 +134,7 @@ class DesignContext:
   def getRefTable: Map[DFRefAny, DFMember] = refTable.toMap
 
   def getReachableNamedValue(dfVal: DFVal, cf: => DFVal): DFVal =
-    val x = unreachableNamedValues.getOrElseUpdate(dfVal, cf)
-    println(s"$dfVal -> $x")
-    x
+    unreachableNamedValues.getOrElseUpdate(dfVal, cf)
 end DesignContext
 
 final class MutableDB():

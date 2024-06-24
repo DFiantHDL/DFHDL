@@ -1257,18 +1257,18 @@ object DFPortOps:
       ConnectPlaceholder
 end DFPortOps
 
-extension [V <: ir.DFVal](dfVal: V)
-  protected[dfhdl] def cloneAnonValueAndDepsHere(using dfc: DFC): V =
+extension (dfVal: ir.DFVal)
+  protected[dfhdl] def cloneAnonValueAndDepsHere(using dfc: DFC): ir.DFVal =
     import dfc.getSet
     if (dfVal.isAnonymous)
       val dfcForClone = dfc.setMeta(dfVal.meta).setTags(dfVal.tags)
       val dfType = dfVal.dfType.asFE[DFTypeAny]
       val cloned = dfVal match
         case const: ir.DFVal.Const =>
-          DFVal.Const.forced(const.dfType.asFE[DFTypeAny], const.data)(using dfcForClone)
+          DFVal.Const.forced(dfType, const.data)(using dfcForClone)
         case func: ir.DFVal.Func =>
           val clonedArgs = func.args.map(_.get.cloneAnonValueAndDepsHere)
-          DFVal.Func(func.dfType.asFE[DFTypeAny], func.op, clonedArgs)(using dfcForClone)
+          DFVal.Func(dfType, func.op, clonedArgs)(using dfcForClone)
         case alias: ir.DFVal.Alias.Partial =>
           val clonedRelValIR = alias.relValRef.get.cloneAnonValueAndDepsHere
           val clonedRelVal = clonedRelValIR.asValAny
@@ -1287,6 +1287,6 @@ extension [V <: ir.DFVal](dfVal: V)
             case alias: ir.DFVal.Alias.SelectField =>
               DFVal.Alias.SelectField(clonedRelVal, alias.fieldName)(using dfcForClone)
         case _ => throw new IllegalArgumentException(s"Unsupported cloning for: $dfVal")
-      cloned.asIR.asInstanceOf[V]
+      cloned.asIR
     else dfVal
     end if

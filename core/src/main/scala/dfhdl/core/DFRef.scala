@@ -15,7 +15,7 @@ extension [M <: ir.DFMember](member: M)
   // due to user meta-programming, it's possible that the user attempts to reference "unreachable"
   // values within a certain design. this method attempts to create reachable members instead of
   // limiting the user capabilities during elaboration.
-  private[core] def getReachableMember(using dfc: DFC): M =
+  private[core] def getReachableMember(using dfc: DFC): ir.DFMember =
     import dfc.getSet
     member match
       // only unreachable members are values, and we disable this mechanism during compiler stage
@@ -44,7 +44,7 @@ extension [M <: ir.DFMember](member: M)
                   DFVal.Alias.AsIs.designParam(dfVal.asValAny)(using
                     dfc.setMeta(dfVal.meta).emptyTags
                   ).asIR
-                ).asInstanceOf[M]
+                )
             else member
           case _ => member
       case _ => member
