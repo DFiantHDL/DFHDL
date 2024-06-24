@@ -9,7 +9,9 @@ class PrintCodeStringSpec extends StageSpec:
     val x = SInt(16) <> IN
     val y = SInt(16) <> OUT
     y := x
-
+  object ID:
+    def apply()(using DFC): ID =
+      new ID(0)
   class IDGen[T <: DFType](dfType: T) extends DFDesign:
     val x = dfType <> IN
     val y = dfType <> OUT
@@ -18,8 +20,8 @@ class PrintCodeStringSpec extends StageSpec:
   class IDTop(argTop: Bit <> CONST = 1) extends DFDesign:
     val x   = SInt(16) <> IN
     val y   = SInt(16) <> OUT
-    val id1 = ID(0)
-    val id2 = ID(argTop)
+    val id1 = new ID(0)
+    val id2 = new ID(argTop)
     id1.x <> x
     id1.y <> id2.x
     id2.y <> y
@@ -48,6 +50,18 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       id,
       """|class ID(val arg: Bit <> CONST = 1) extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Basic ID design through companion constructor") {
+    val id = (ID()).getCodeString
+    assertNoDiff(
+      id,
+      """|class ID(val arg: Bit <> CONST = 0) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
