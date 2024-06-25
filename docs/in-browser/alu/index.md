@@ -39,10 +39,10 @@ end ALU
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
+// Select backend compiler:
+given options.CompilerOptions.Backend = backends.verilog
 // Enables printing the generated chosen backend code:
 given options.CompilerOptions.PrintGenFiles = true
-// Uncomment to select vhdl compilation (default is verilog):
-// given options.CompilerOptions.Backend = backends.vhdl
 // Uncomment to enable printing design code before compilation (after elaboration):
 // given options.CompilerOptions.PrintDesignCodeBefore = true
 // Uncomment to enable printing design code after compilation:
