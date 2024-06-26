@@ -307,6 +307,12 @@ extension (dfVal: DFVal)
   def isRstDcl(using MemberGetSet): Boolean = dfVal.dfType match
     case DFOpaque(_, id: DFOpaque.Rst, _) => true
     case _                                => false
+  // true if this is a variable that is never assigned/connected to
+  def isConstVAR(using MemberGetSet): Boolean =
+    dfVal match
+      case dcl @ DclVar() =>
+        dcl.getAssignmentsTo.isEmpty && dcl.getConnectionTo.isEmpty
+      case _ => false
 end extension
 
 extension (refTW: DFNet.Ref)

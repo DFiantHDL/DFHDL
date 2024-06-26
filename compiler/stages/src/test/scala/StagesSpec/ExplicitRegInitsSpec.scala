@@ -53,4 +53,22 @@ class ExplicitRegInitsSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Constant variable") {
+    class ID extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val v = SInt(16) <> VAR init 44
+      y := x + v
+    val id = (new ID).explicitRegInits
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val v = SInt(16) <> VAR init sd"16'44"
+         |  y := x + v
+         |end ID
+         |""".stripMargin
+    )
+  }
 end ExplicitRegInitsSpec
