@@ -62,7 +62,7 @@ object DFMatch:
   object Header:
     def apply(dfType: DFTypeAny, selector: DFValAny)(using DFC): DFValAny =
       val header: ir.DFVal = DFMatchHeader(
-        dfType.asIR,
+        dfType.asIR.dropUnreachableRefs,
         selector.asIR.refTW[ir.DFVal],
         dfc.owner.ref,
         dfc.getMeta,

@@ -592,14 +592,14 @@ object DFVal extends DFValLP:
     )(using DFC): DFConstOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
       ir.DFVal
-        .Const(dfType.asIR, data, dfc.ownerOrEmptyRef, meta, dfc.tags)
+        .Const(dfType.asIR.dropUnreachableRefs, data, dfc.ownerOrEmptyRef, meta, dfc.tags)
         .addMember
         .asConstOf[T]
   end Const
 
   object Open:
     def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
-      ir.DFVal.Open(dfType.asIR, dfc.owner.ref)
+      ir.DFVal.Open(dfType.asIR.dropUnreachableRefs, dfc.owner.ref)
         .addMember
         .asValOf[T]
 
@@ -611,18 +611,20 @@ object DFVal extends DFValLP:
     )(using
         DFC
     ): DFVal[T, M] =
+      val modifierIR = modifier.asIR
+      val dfTypeIR = dfType.asIR.dropUnreachableRefs
       // Anonymous Dcls are only supposed to be followed by an `init` that will construct the
       // fully initialized Dcl. The reason for this behavior is that we do not want to add the
       // Dcl to the mutable DB and only after add its initialization value to the DB, thereby
       // violating the reference order rule (we can only reference values that appear before).
       if (dfc.isAnonymous && initValues.isEmpty)
         ir.DFVal.Dcl(
-          dfType.asIR, modifier.asIR, Nil, ir.DFRef.OneWay.Empty, dfc.getMeta, dfc.tags
+          dfTypeIR, modifierIR, Nil, ir.DFRef.OneWay.Empty, dfc.getMeta, dfc.tags
         ).asVal[T, M]
       else
         val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
-          dfType.asIR,
-          modifier.asIR,
+          dfTypeIR,
+          modifierIR,
           initValues.map(_.asIR.refTW[ir.DFVal.Dcl]),
           dfc.owner.ref,
           dfc.getMeta,
@@ -648,7 +650,7 @@ object DFVal extends DFValLP:
         args: List[ir.DFVal]
     )(using DFC): DFValTP[T, P] =
       val func: ir.DFVal = ir.DFVal.Func(
-        dfType.asIR,
+        dfType.asIR.dropUnreachableRefs,
         op,
         args.map(_.refTW[ir.DFVal]),
         dfc.ownerOrEmptyRef,
@@ -676,7 +678,11 @@ object DFVal extends DFValLP:
             )(using dfc.getSet)
             dfc.mutableDB.setMember(
               const,
-              _.copy(dfType = aliasType.asIR, data = updatedData, meta = dfc.getMeta)
+              _.copy(
+                dfType = aliasType.asIR.dropUnreachableRefs,
+                data = updatedData,
+                meta = dfc.getMeta
+              )
             ).asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
@@ -686,7 +692,7 @@ object DFVal extends DFValLP:
       def forced(aliasType: ir.DFType, relVal: ir.DFVal)(using DFC): ir.DFVal =
         val alias: ir.DFVal.Alias.AsIs =
           ir.DFVal.Alias.AsIs(
-            aliasType,
+            aliasType.dropUnreachableRefs,
             relVal.refTW[ir.DFVal.Alias.AsIs],
             dfc.ownerOrEmptyRef,
             dfc.getMeta,
@@ -718,7 +724,7 @@ object DFVal extends DFValLP:
       )(using DFC): DFValOf[T] =
         val alias: ir.DFVal.Alias.History =
           ir.DFVal.Alias.History(
-            relVal.dfType.asIR,
+            relVal.dfType.asIR.dropUnreachableRefs,
             relVal.asIR.refTW[ir.DFVal.Alias.History],
             step,
             op,
@@ -781,7 +787,7 @@ object DFVal extends DFValLP:
       )(using DFC): DFVal[T, M] =
         val alias: ir.DFVal.Alias.ApplyIdx =
           ir.DFVal.Alias.ApplyIdx(
-            dfType.asIR,
+            dfType.asIR.dropUnreachableRefs,
             relVal.asIR.refTW[ir.DFVal.Alias.ApplyIdx],
             relIdx.asIR.refTW[ir.DFVal.Alias.ApplyIdx],
             dfc.ownerOrEmptyRef,
@@ -798,7 +804,6 @@ object DFVal extends DFValLP:
       )(using dfc: DFC): DFVal[T, M] =
         val relValIR = relVal.asIR
         val ir.DFStruct(_, fieldMap) = relValIR.dfType: @unchecked
-        val dfTypeIR = fieldMap(fieldName)
         relValIR match
           // in case the referenced value is anonymous and concatenates fields
           // of values, then we just directly reference the relevant
@@ -809,6 +814,7 @@ object DFVal extends DFValLP:
             args(idx).get.asVal[T, M]
           // for all other case create a selector
           case _ =>
+            val dfTypeIR = fieldMap(fieldName).dropUnreachableRefs
             val alias: ir.DFVal.Alias.SelectField =
               ir.DFVal.Alias.SelectField(
                 dfTypeIR,

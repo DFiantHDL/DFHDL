@@ -85,7 +85,7 @@ object DFIf:
   object Header:
     def apply(dfType: DFTypeAny)(using DFC): DFValAny =
       DFIfHeader(
-        dfType.asIR,
+        dfType.asIR.dropUnreachableRefs,
         dfc.owner.ref,
         dfc.getMeta,
         dfc.tags

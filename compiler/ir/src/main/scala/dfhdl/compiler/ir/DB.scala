@@ -659,6 +659,7 @@ final case class DB(
       s"""|The DFHDL code at:
           |    Position:  ${from.meta.position}
           |    Hierarchy: ${from.getOwnerDesign.getFullName}
+          |    Structure: ${from}
           |is directly referencing the member ${toName}at:
           |    Position:  ${to.meta.position}
           |    Hierarchy: ${to.getOwnerDesign.getFullName}""".stripMargin

@@ -45,7 +45,11 @@ object DFOpaque:
   def apply[TFE <: Abstract](
       t: TFE
   ): DFOpaque[TFE] =
-    ir.DFOpaque(t.typeName, t, t.actualType.asIR).asFE[DFOpaque[TFE]]
+    ir.DFOpaque(
+      t.typeName,
+      t,
+      t.actualType.asIR.dropUnreachableRefs(allowDesignParamRefs = false)
+    ).asFE[DFOpaque[TFE]]
   extension [A <: DFTypeAny, TFE <: Frontend[A]](dfType: DFOpaque[TFE])
     def actualType: A = dfType.asIR.actualType.asFE[A]
     def opaqueType: TFE = dfType.asIR.id.asInstanceOf[TFE]

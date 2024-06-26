@@ -15,7 +15,10 @@ object DFStruct:
       name: String,
       fieldMap: ListMap[String, DFTypeAny]
   ): DFStruct[F] =
-    ir.DFStruct(name, fieldMap.map((n, t) => (n, t.asIR))).asFE[DFStruct[F]]
+    ir.DFStruct(
+      name,
+      fieldMap.map((n, t) => (n, t.asIR.dropUnreachableRefs(allowDesignParamRefs = false)))
+    ).asFE[DFStruct[F]]
   private[core] def apply[F <: FieldsOrTuple](
       name: String,
       fieldNames: List[String],

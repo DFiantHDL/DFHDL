@@ -113,6 +113,39 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Generic ID design hierarchy") {
+    class IDTopGen extends DFDesign:
+      val x               = SInt(16) <> IN
+      val y               = SInt(16) <> OUT
+      val w: Int <> CONST = 16
+      val id1             = new IDGen(SInt(w))
+      val id2             = new IDGen(SInt(w))
+      id1.x <> x
+      id1.y <> id2.x
+      id2.y <> y
+
+    val id = (new IDTopGen).getCodeString
+    assertNoDiff(
+      id,
+      """|class IDGen extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x
+         |end IDGen
+         |
+         |class IDTopGen extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val w: Int <> CONST = 16
+         |  val id1 = IDGen()
+         |  val id2 = IDGen()
+         |  id1.x <> x
+         |  id2.x <> id1.y
+         |  y <> id2.y
+         |end IDTopGen
+         |""".stripMargin
+    )
+  }
   test("Via-connection ID design hierarchy") {
     val id = (new IDTopVia).getCodeString
     assertNoDiff(
@@ -592,28 +625,28 @@ class PrintCodeStringSpec extends StageSpec:
          |end BigXorContainer
          |""".stripMargin
     )
-  // TODO: need to fix unreachable type reference
-  // test("Unreachable local values"):
-  //   class BigXorContainer extends DFDesign:
-  //     val w: Int <> CONST = 4
-  //     val sum             = Bits(w) <> OUT
-  //     val c               = h"$w'7"
-  //     val bx              = BigXor(Vector.tabulate(8)(i => c | h"$w'$i"))
-  //     sum <> bx.sum
-  //   val top = BigXorContainer().getCodeString
-  //   assertNoDiff(
-  //     top,
-  //     """|class BigXor(val c: Bits[4] <> CONST) extends DFDesign:
-  //        |  val sum = Bits(4) <> OUT
-  //        |  sum := (((((((c | h"0") ^ (c | h"1")) ^ (c | h"2")) ^ (c | h"3")) ^ (c | h"4")) ^ (c | h"5")) ^ (c | h"6")) ^ (c | h"7")
-  //        |end BigXor
-  //        |
-  //        |class BigXorContainer extends DFDesign:
-  //        |  val sum = Bits(4) <> OUT
-  //        |  val c: Bits[4] <> CONST = h"7"
-  //        |  val bx = BigXor(c = c)
-  //        |  sum <> bx.sum
-  //        |end BigXorContainer
-  //        |""".stripMargin
-  //   )
+  test("Unreachable local values & types"):
+    class BigXorContainer extends DFDesign:
+      val w: Int <> CONST = 4
+      val sum             = Bits(w) <> OUT
+      val c               = h"$w'7"
+      val bx              = BigXor(Vector.tabulate(8)(i => c | h"$w'$i"))
+      sum <> bx.sum
+    val top = BigXorContainer().getCodeString
+    assertNoDiff(
+      top,
+      """|class BigXor(val c: Bits[4] <> CONST) extends DFDesign:
+         |  val sum = Bits(4) <> OUT
+         |  sum := (((((((c | h"0") ^ (c | h"1")) ^ (c | h"2")) ^ (c | h"3")) ^ (c | h"4")) ^ (c | h"5")) ^ (c | h"6")) ^ (c | h"7")
+         |end BigXor
+         |
+         |class BigXorContainer extends DFDesign:
+         |  val w: Int <> CONST = 4
+         |  val sum = Bits(w) <> OUT
+         |  val c: Bits[w] <> CONST = h"${w}'7"
+         |  val bx = BigXor(c = c)
+         |  sum <> bx.sum
+         |end BigXorContainer
+         |""".stripMargin
+    )
 end PrintCodeStringSpec

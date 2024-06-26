@@ -244,3 +244,61 @@ extension [T](t: T)(using tc: DFType.TC[T])
 extension [T <: DFTypeAny, M <: ModifierAny](dfVal: DFVal[T, M])
   @targetName("dfValDFType")
   def dfType: T = dfVal.asIR.dfType.asFE[T]
+
+extension (intParamRef: ir.IntParamRef)
+  // currently unreachable type references are converted to literal integer parameters
+  def dropUnreachableRef(allowDesignParamRefs: Boolean)(using dfc: DFC): ir.IntParamRef =
+    import dfc.getSet
+    intParamRef.getRef match
+      case Some(ir.DFRef(dfVal)) =>
+        // globals are always accessible
+        if (dfVal.isGlobal) intParamRef
+        // TODO: consider improving referencing so internal design types that propagate upwards
+        // through ports conversion get special treatment (maybe referencing the original param at the owner design)
+        // else if (allowDesignParamRefs)
+        //   if (dfc.owner.asIR.getThisOrOwnerDesign == dfVal.getOwnerDesign) intParamRef
+        //   else IntParam(dfVal.asConstOf[DFInt32]).ref
+        else if (
+          // only accessible values are within the same design
+          allowDesignParamRefs && dfc.owner.asIR.getThisOrOwnerDesign == dfVal.getOwnerDesign
+        )
+          intParamRef
+        // inline reference value
+        else ir.IntParamRef(intParamRef.getInt)
+      case _ => intParamRef
+    end match
+  end dropUnreachableRef
+end extension
+
+extension (dfType: ir.DFType)
+  // drop unreachable type references for types that have type references.
+  // this is meant to work during user code elaboration, since due to meta-programming
+  // type referenced values may not always be directly accessible.
+  // see `dropUnreachableRef` on ir.IntParamRef for more details.
+  def dropUnreachableRefs(allowDesignParamRefs: Boolean)(using dfc: DFC): ir.DFType =
+    // in compiler stages meta-programming we need to skip this, since there could be
+    // temporarily unreachable references.
+    if (dfc.inMetaProgramming) dfType
+    else
+      dfType match
+        case ir.DFBits(widthParamRef) =>
+          ir.DFBits(widthParamRef.dropUnreachableRef(allowDesignParamRefs))
+        case ir.DFDecimal(signed, widthParamRef, fractionWidth, nativeType) =>
+          ir.DFDecimal(
+            signed,
+            widthParamRef.dropUnreachableRef(allowDesignParamRefs),
+            fractionWidth,
+            nativeType
+          )
+        case ir.DFVector(cellType, cellDimParamRefs) =>
+          ir.DFVector(
+            cellType.dropUnreachableRefs(allowDesignParamRefs),
+            cellDimParamRefs.map(_.dropUnreachableRef(allowDesignParamRefs))
+          )
+        // DFStruct/DFTuple/DFOpaque indeed contain other types, but at construction they are forced to have
+        // no local references at all, so we can skip them. Other types that have no references at all
+        // are trivially skipped.
+        case _ => dfType
+  end dropUnreachableRefs
+  def dropUnreachableRefs(using DFC): ir.DFType = dropUnreachableRefs(true)
+end extension

@@ -16,7 +16,9 @@ object DFTuple:
     apply[T](fieldList)
   private[core] def apply[T <: NonEmptyTuple](
       fieldList: List[DFTypeAny]
-  ): DFTuple[T] = ir.DFTuple(fieldList.map(_.asIR)).asFE[DFTuple[T]]
+  )(using DFC): DFTuple[T] = ir.DFTuple(
+    fieldList.map(_.asIR.dropUnreachableRefs(allowDesignParamRefs = false))
+  ).asFE[DFTuple[T]]
   private[core] def unapply(t: NonEmptyTuple): Option[DFTuple[NonEmptyTuple]] =
     val tList = t.toList
     val fieldList: List[DFTypeAny] = tList.flatMap {

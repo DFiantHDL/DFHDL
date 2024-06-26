@@ -12,6 +12,7 @@ sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives
   def isDataBubble(data: Data): Boolean
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector)
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data
+  def getRefs: List[DFRef.TypeRef]
 
 object DFType:
   type Aux[T <: DFType, Data0] = DFType { type Data = Data0 }
@@ -85,7 +86,7 @@ sealed trait DFBoolOrBit extends DFType:
     if (data._2.isZeros) Some(!data._1.isZeros)
     else None
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  def getRefs: List[DFRef.TypeRef] = Nil
 
 object DFBoolOrBit extends DFType.Companion[DFBoolOrBit, Option[Boolean]]
 
@@ -107,7 +108,7 @@ final case class DFBits(widthParamRef: IntParamRef) extends DFType:
     case that: DFBits =>
       this.widthParamRef =~ that.widthParamRef
     case _ => false
-  def getRefs: List[DFRef.TwoWayAny] = widthParamRef.getRef.toList
+  def getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
 
 object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
   def apply(width: Int): DFBits = DFBits(IntParamRef(width))
@@ -148,7 +149,7 @@ final case class DFDecimal(
       this.signed == that.signed && this.widthParamRef =~ that.widthParamRef &&
       this.fractionWidth == that.fractionWidth && this.nativeType == that.nativeType
     case _ => false
-  def getRefs: List[DFRef.TwoWayAny] = widthParamRef.getRef.toList
+  def getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
@@ -204,7 +205,7 @@ final case class DFEnum(
     if (data._2.isZeros) Some(data._1.toBigInt(false))
     else None
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  def getRefs: List[DFRef.TypeRef] = Nil
 end DFEnum
 
 object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
@@ -246,7 +247,7 @@ final case class DFVector(
       this.cellType =~ that.cellType &&
       this.cellDimParamRefs.lazyZip(that.cellDimParamRefs).forall(_ =~ _)
     case _ => false
-  def getRefs: List[DFRef.TwoWayAny] = cellType.getRefs ++ cellDimParamRefs.flatMap(_.getRef)
+  def getRefs: List[DFRef.TypeRef] = cellType.getRefs ++ cellDimParamRefs.flatMap(_.getRef)
 end DFVector
 
 object DFVector extends DFType.Companion[DFVector, Vector[Any]]
@@ -275,7 +276,7 @@ final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualTyp
       this.getName == that.getName && this.id == that.id &&
       this.actualType =~ that.actualType
     case _ => false
-  def getRefs: List[DFRef.TwoWayAny] = actualType.getRefs
+  def getRefs: List[DFRef.TypeRef] = actualType.getRefs
 end DFOpaque
 
 object DFOpaque extends DFType.Companion[DFOpaque, Any]:
@@ -334,7 +335,7 @@ final case class DFStruct(
         fnL == fnR && ftL =~ ftR
       }
     case _ => false
-  def getRefs: List[DFRef.TwoWayAny] = fieldMap.values.flatMap(_.getRefs).toList
+  def getRefs: List[DFRef.TypeRef] = fieldMap.values.flatMap(_.getRefs).toList
 end DFStruct
 
 object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
@@ -367,7 +368,7 @@ sealed trait DFUnit extends DFType:
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  def getRefs: List[DFRef.TypeRef] = Nil
 case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
 /////////////////////////////////////////////////////////////////////////////
 
@@ -387,6 +388,6 @@ sealed trait DFNothing extends DFType:
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  def getRefs: List[DFRef.TypeRef] = Nil
 case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing
 /////////////////////////////////////////////////////////////////////////////
