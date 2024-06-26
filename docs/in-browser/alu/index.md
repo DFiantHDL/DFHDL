@@ -12,9 +12,9 @@ enum ALUSel extends Encode:
   case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
 
 @top class ALU extends DFDesign:
-  val op1 = Bits(32) <> IN
-  val op2 = Bits(32) <> IN
-  val aluSel = ALUSel <> IN
+  val op1    = Bits(32) <> IN
+  val op2    = Bits(32) <> IN
+  val aluSel = ALUSel   <> IN
   val aluOut = Bits(32) <> OUT
 
   private val shamt = op2(4, 0)
