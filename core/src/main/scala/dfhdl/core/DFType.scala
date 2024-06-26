@@ -86,6 +86,7 @@ object DFType:
   export DFDecimal.given
   export DFEnum.given
   export DFVector.given
+  given [T <: DFTypeAny & Singleton](using ValueOf[T]): T = valueOf[T]
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
