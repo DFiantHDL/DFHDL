@@ -154,6 +154,17 @@ lazy val commonDependencies = Seq(
 lazy val settings =
   commonSettings
 
+def compilerOptionsVersionDependent(scalaVersion: String) = {
+  CrossVersion.partialVersion(scalaVersion) match {
+    case Some((3, minor)) if minor <= 4 =>
+      Seq.empty
+    case Some((3, minor)) if minor >= 5 =>
+      Seq("-source:3.6")
+    case _ =>
+      Seq.empty
+  }
+} 
+
 lazy val compilerOptions = Seq(
   "-unchecked",
   "-feature",
@@ -168,7 +179,7 @@ lazy val compilerOptions = Seq(
   "-Wconf:msg=not declared infix:s",
   //ignore warning given by the plugin Jdummy dependency trick
   "-Wconf:msg=bad option '-Jdummy:s"
-)
+) 
 
 lazy val pluginUseSettings = Seq(
   Compile / scalacOptions ++= {
@@ -191,5 +202,7 @@ lazy val pluginTestUseSettings = Seq(
 )
 
 lazy val commonSettings = Seq(
-  scalacOptions ++= compilerOptions
+  scalacOptions ++= {
+    compilerOptions ++ compilerOptionsVersionDependent(scalaVersion.value)
+  }
 )
