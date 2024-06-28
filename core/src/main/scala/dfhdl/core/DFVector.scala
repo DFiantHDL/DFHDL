@@ -97,6 +97,10 @@ object DFVector:
   end Ops
 
   object Val:
+    def conv[T <: DFTypeAny, P](cellType: T, cellDim: Int)(from: Iterable[DFValTP[T, P]])(using
+        DFC
+    ): DFValTP[DFVector[T, Tuple1[cellDim.type]], P] =
+      DFVal.Func(DFVector(cellType, List(cellDim)), FuncOp.++, from.toList)
     object TC:
       import DFVal.TC
       given DFVectorValFromDFVectorVal[
