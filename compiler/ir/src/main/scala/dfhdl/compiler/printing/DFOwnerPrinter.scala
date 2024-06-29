@@ -297,14 +297,19 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    val flattenModeStr = domain.flattenMode match
+      case FlattenMode.FlattenUnderscore => ""
+      case _                             => domain.flattenMode.toString()
+    val flattenModeStrBrackets = flattenModeStr.emptyOr(x => s"($x)")
     val domainStr = domain.domainType match
-      case DomainType.DF => "DFDomain"
+      case DomainType.DF => s"DFDomain$flattenModeStrBrackets"
       case rt: DomainType.RT =>
         val cfgStr = rt.cfg match
-          case _: DerivedCfg.type => ""
-          case _                  => s"(${printer.csRTDomainCfg(rt.cfg)})"
+          case _: DerivedCfg.type => flattenModeStrBrackets
+          case _ => s"(${printer.csRTDomainCfg(rt.cfg)}${flattenModeStr.emptyOr(x => s", $x")})"
         s"RTDomain$cfgStr".stripMargin
-      case DomainType.ED => "EDDomain"
+      case DomainType.ED => s"EDDomain$flattenModeStrBrackets"
     s"${named}new $domainStr:\n${body.hindent}"
+  end csDomainBlock
 
 end DFOwnerPrinter
