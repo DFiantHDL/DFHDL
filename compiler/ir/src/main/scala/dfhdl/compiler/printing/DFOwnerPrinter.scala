@@ -213,8 +213,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case DomainType.DF => "DFDesign"
       case rt: DomainType.RT =>
         val cfgStr = rt.cfg match
-          case _: DerivedCfg.type => ""
-          case _                  => s"(${printer.csRTDomainCfg(rt.cfg)})"
+          case RTDomainCfg.DerivedCfg => ""
+          case _                      => s"(${printer.csRTDomainCfg(rt.cfg)})"
         s"""RTDesign$cfgStr""".stripMargin
       case _ => "EDDesign"
     val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
@@ -304,10 +304,12 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val domainStr = domain.domainType match
       case DomainType.DF => s"DFDomain$flattenModeStrBrackets"
       case rt: DomainType.RT =>
-        val cfgStr = rt.cfg match
-          case _: DerivedCfg.type => flattenModeStrBrackets
-          case _ => s"(${printer.csRTDomainCfg(rt.cfg)}${flattenModeStr.emptyOr(x => s", $x")})"
-        s"RTDomain$cfgStr".stripMargin
+        rt.cfg match
+          case RTDomainCfg.RelatedCfg(relatedDomainRef) =>
+            s"${relatedDomainRef.get.getRelativeName(domain.getOwnerNamed)}.RelatedDomain${flattenModeStrBrackets}"
+          case RTDomainCfg.DerivedCfg => s"RTDomain$flattenModeStrBrackets"
+          case _ =>
+            s"RTDomain(${printer.csRTDomainCfg(rt.cfg)}${flattenModeStr.emptyOr(x => s", $x")})"
       case DomainType.ED => s"EDDomain$flattenModeStrBrackets"
     s"${named}new $domainStr:\n${body.hindent}"
   end csDomainBlock

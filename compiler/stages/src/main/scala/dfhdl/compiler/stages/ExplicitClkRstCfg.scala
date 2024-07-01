@@ -38,7 +38,7 @@ case object ExplicitClkRstCfg extends Stage:
     def getExplicitCfg(currentOwner: DFDomainOwner): RTDomainCfg.Explicit =
       currentOwner.domainType match
         case DomainType.RT(cfg: RTDomainCfg.Explicit) => cfg
-        case DomainType.RT(_: DerivedCfg.type) =>
+        case DomainType.RT(RTDomainCfg.DerivedCfg) =>
           domainMap.get(currentOwner) match
             case Some(cfg) => cfg
             case None =>
@@ -49,6 +49,7 @@ case object ExplicitClkRstCfg extends Stage:
               val updatedClkCfg: ClkCfg = if (currentOwner.usesClk) cfg.clkCfg else None
               val updatedRstCfg: RstCfg = if (currentOwner.usesRst) cfg.rstCfg else None
               val updateCfg = cfg.copy(clkCfg = updatedClkCfg, rstCfg = updatedRstCfg)
+                .asInstanceOf[RTDomainCfg.Explicit]
               domainMap += currentOwner -> updateCfg
               updateCfg
         case _ => getExplicitCfg(currentOwner.getOwnerDomain)
@@ -57,7 +58,7 @@ case object ExplicitClkRstCfg extends Stage:
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
       case (owner: (DFDomainOwner & DFBlock), members) =>
         owner.domainType match
-          case domainType @ DomainType.RT(_: DerivedCfg.type) =>
+          case domainType @ DomainType.RT(RTDomainCfg.DerivedCfg) =>
             val explicitCtg = getExplicitCfg(owner)
             val updatedOwner = owner match
               case design: DFDesignBlock => design.copy(domainType = DomainType.RT(explicitCtg))

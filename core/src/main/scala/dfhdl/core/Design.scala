@@ -108,7 +108,7 @@ end Design
 
 abstract class DFDesign extends DomainContainer(DomainType.DF), Design
 
-abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends RTDomainContainer(cfg), Design
+abstract class RTDesign(cfg: RTDomainCfg = DerivedCfg) extends RTDomainContainer(cfg), Design
 
 object RTDesign:
   protected[core] final case class Clk_main() extends DFOpaque.Clk

@@ -926,12 +926,12 @@ final case class DomainBlock(
       DFDomainOwner:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DomainBlock =>
-      this.domainType == that.domainType && this.flattenMode == that.flattenMode &&
+      this.domainType =~ that.domainType && this.flattenMode == that.flattenMode &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  def getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
 end DomainBlock
 
 /** Flattening Mode:

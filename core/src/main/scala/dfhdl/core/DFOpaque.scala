@@ -40,11 +40,11 @@ object DFOpaque:
   abstract class Clk extends Magnet[DFBit](DFBit), ir.DFOpaque.Clk
   abstract class Rst extends Magnet[DFBit](DFBit), ir.DFOpaque.Rst
 
-  given [TFE <: Abstract](using ce: ClassEv[TFE]): DFOpaque[TFE] = DFOpaque(ce.value)
+  given [TFE <: Abstract](using ce: ClassEv[TFE], dfc: DFC): DFOpaque[TFE] = DFOpaque(ce.value)
 
   def apply[TFE <: Abstract](
       t: TFE
-  ): DFOpaque[TFE] =
+  )(using DFC): DFOpaque[TFE] = trydf:
     ir.DFOpaque(
       t.typeName,
       t,

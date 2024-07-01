@@ -7,8 +7,7 @@ import dfhdl.options.OnError
 
 sealed abstract class DFError(
     val dfMsg: String
-) extends Exception(dfMsg)
-    derives CanEqual
+) extends Exception(dfMsg) derives CanEqual
 
 object DFError:
   class Basic(
@@ -63,11 +62,9 @@ class Logger:
   def getErrors: List[DFError] = errors.reverse
   def clearErrors(): Unit = errors = Nil
 
-@targetName("tryDFType")
-@metaContextForward(0)
-def trydf[T <: DFTypeAny](
+def trydfSpecific[T](
     block: => T
-)(using dfc: DFC, ctName: CTName): T =
+)(finale: DFError => T)(using dfc: DFC, ctName: CTName): T =
   if (dfc.inMetaProgramming) block
   else
     try block
@@ -80,42 +77,22 @@ def trydf[T <: DFTypeAny](
         if (dfc.ownerOption.isEmpty)
           exitWithError(dfErr.toString())
         dfc.logError(dfErr)
-        new DFTypeAny(dfErr).asInstanceOf[T]
+        finale(dfErr)
+
+@targetName("tryDFType")
+@metaContextForward(0)
+def trydf[T <: DFTypeAny](block: => T)(using DFC, CTName): T =
+  trydfSpecific(block)(dfErr => new DFTypeAny(dfErr).asInstanceOf[T])
 
 @targetName("tryDFVal")
 @metaContextForward(0)
-def trydf[V <: DFValAny](
-    block: => V
-)(using dfc: DFC, ctName: CTName): V =
-  if (dfc.inMetaProgramming) block
-  else
-    try block
-    catch
-      case e: Exception =>
-        val dfErr = e match
-          case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
-          case e: DFError                  => e
-          case e                           => throw e
-        if (dfc.ownerOption.isEmpty)
-          exitWithError(dfErr.toString())
-        dfc.logError(dfErr)
-        dfErr.asVal[DFTypeAny, ModifierAny].asInstanceOf[V]
+def trydf[V <: DFValAny](block: => V)(using DFC, CTName): V =
+  trydfSpecific(block)(_.asVal[DFTypeAny, ModifierAny].asInstanceOf[V])
 
 @targetName("tryDFNet")
 @metaContextForward(0)
-def trydf(block: => Unit)(using dfc: DFC, ctName: CTName): Unit =
-  if (dfc.inMetaProgramming) block
-  else
-    try block
-    catch
-      case e: Exception =>
-        val dfErr = e match
-          case e: IllegalArgumentException => DFError.Basic(ctName.value, e)
-          case e: DFError                  => e
-          case e                           => throw e
-        if (dfc.ownerOption.isEmpty)
-          exitWithError(dfErr.toString())
-        dfc.logError(dfErr)
+def trydf(block: => Unit)(using DFC, CTName): Unit =
+  trydfSpecific(block)(_ => ())
 
 def exitWithError(msg: String)(using DFC): Nothing =
   System.err.println(msg)

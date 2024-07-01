@@ -94,17 +94,11 @@ object DFType:
     Int | Long | Boolean | Object | Unit
   object Ops:
     extension [D <: Int & Singleton](cellDim: D)
-      infix def <>[M <: ModifierAny](
-          modifier: M
-      )(using dfc: DFC, check: DFVector.VectorLength.Check[D]): DFVector.ComposedModifier[D, M] =
-        check(cellDim)
+      infix def <>[M <: ModifierAny](modifier: M)(using DFC): DFVector.ComposedModifier[D, M] =
         new DFVector.ComposedModifier[D, M](cellDim, modifier)
     extension [D <: IntP](cellDim: D)
       @targetName("composeMod")
-      infix def <>[M <: ModifierAny](
-          modifier: M
-      )(using dfc: DFC, check: DFVector.VectorLength.CheckNUB[D]): DFVector.ComposedModifier[D, M] =
-        check(IntParam.fromValue(cellDim))
+      infix def <>[M <: ModifierAny](modifier: M)(using DFC): DFVector.ComposedModifier[D, M] =
         new DFVector.ComposedModifier[D, M](cellDim, modifier)
     extension [T <: Supported](t: T)
       infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
@@ -113,7 +107,8 @@ object DFType:
           ck: DFC.Scope,
           dt: DomainType
       ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
-        DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, P]])
+        trydf:
+          DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, P]])
     end extension
   end Ops
 

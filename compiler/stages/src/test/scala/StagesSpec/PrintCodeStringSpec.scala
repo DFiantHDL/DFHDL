@@ -492,11 +492,14 @@ class PrintCodeStringSpec extends StageSpec:
         val pr = SInt(16) <> VAR init 0
         val pw = SInt(16) <> VAR
         pr := pr.reg + 1
-      y := fast.pr
+      val related = new fast.RelatedDomain:
+        val x = SInt(16) <> VAR init 0
+      y := fast.pr + related.x
       val fastdf = new DFDomain:
         val p = SInt(16) <> VAR
         p := 1
       fast.pw := fastdf.p
+    end IDWithDomains
     val id = (new IDWithDomains).getCodeString
     assertNoDiff(
       id,
@@ -506,7 +509,9 @@ class PrintCodeStringSpec extends StageSpec:
          |    val pr = SInt(16) <> VAR init sd"16'0"
          |    val pw = SInt(16) <> VAR
          |    pr := pr.reg + sd"16'1"
-         |  y := fast.pr
+         |  val related = new fast.RelatedDomain:
+         |    val x = SInt(16) <> VAR init sd"16'0"
+         |  y := fast.pr + related.x
          |  val fastdf = new DFDomain:
          |    val p = SInt(16) <> VAR
          |    p := sd"16'1"

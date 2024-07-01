@@ -63,36 +63,19 @@ object DFVector:
   sealed class ComposedModifier[D <: IntP, M](val cellDim: D, val modifier: M)
   object Ops:
     extension [T <: DFType.Supported, D <: IntP](t: T)(using tc: DFType.TC[T])
-      // transparent inline def X(inline cellDim: Int*): DFType =
-      //   x(dfType, cellDim*)
-      inline infix def X(
+      infix def X(
           cellDim: IntParam[D]
-      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] =
+      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] = trydf:
         check(cellDim)
         DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim))
     extension [T <: DFType.Supported, D <: IntP, M <: ModifierAny](t: T)(using tc: DFType.TC[T])
       infix def X(
           composedModifier: ComposedModifier[D, M]
-      )(using DFC): DFVal[DFVector[tc.Type, Tuple1[D]], M] =
-        DFVal.Dcl(
-          DFVector[tc.Type, Tuple1[D]](tc(t), List(IntParam.fromValue(composedModifier.cellDim))),
-          composedModifier.modifier
-        )
-//      inline def X(
-//          inline cellDim0: Int,
-//          inline cellDim1: Int
-//      ): DFVector[tc.Type, Tuple2[cellDim0.type, cellDim1.type]] =
-//        DFVector(tc(t), Tuple2(cellDim0, cellDim1))
-//      inline def X(
-//          inline cellDim0: Int,
-//          inline cellDim1: Int,
-//          inline cellDim2: Int
-//      ): DFVector[tc.Type, Tuple3[
-//        cellDim0.type,
-//        cellDim1.type,
-//        cellDim2.type
-//      ]] =
-//        DFVector(tc(t), Tuple3(cellDim0, cellDim1, cellDim2))
+      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVal[DFVector[tc.Type, Tuple1[D]], M] =
+        trydf:
+          val cellDim = IntParam.fromValue(composedModifier.cellDim)
+          check(cellDim)
+          DFVal.Dcl(DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim)), composedModifier.modifier)
     end extension
   end Ops
 

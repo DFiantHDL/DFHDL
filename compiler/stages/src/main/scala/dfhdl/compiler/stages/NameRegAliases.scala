@@ -10,6 +10,7 @@ import DFVal.Alias.History.Op as HistoryOp
 import scala.annotation.tailrec
 import scala.collection.mutable
 import dfhdl.core.DomainType.RT
+import dfhdl.core.DerivedCfg
 
 /** This stage names register aliases (e.g., `x.reg`) and replaces them with explicit register
   * variables. The most complex mechanism about this stage is the naming conversion convention.

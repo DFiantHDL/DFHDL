@@ -2,7 +2,6 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.internals.*
 
-final val DerivedCfg = ir.DerivedCfg
 type ClkCfg = ir.ClkCfg
 object ClkCfg:
   type Edge = ir.ClkCfg.Edge
@@ -23,7 +22,16 @@ object RstCfg:
       active: Active = Active.High
   ): RstCfg = ir.RstCfg.Explicit(mode, active)
 
-type RTDomainCfg = ir.RTDomainCfg
+opaque type RTDomainCfg <: ir.RTDomainCfg = ir.RTDomainCfg
 object RTDomainCfg:
+  def forced(name: String, clkCfg: ClkCfg, rstCfg: RstCfg): RTDomainCfg =
+    ir.RTDomainCfg.Explicit(name, clkCfg, rstCfg)
   def apply(clkCfg: ClkCfg, rstCfg: RstCfg)(using ctName: CTName): RTDomainCfg =
-    ir.RTDomainCfg.Explicit(ctName.value, clkCfg, rstCfg)
+    forced(ctName.value, clkCfg, rstCfg)
+  extension (cfg: RTDomainCfg) def asIR: ir.RTDomainCfg = cfg
+  extension (cfg: ir.RTDomainCfg) def asFE: RTDomainCfg = cfg
+  protected[core] object RelatedCfg:
+    def apply(domain: RTDomain)(using DFC): RTDomainCfg =
+      ir.RTDomainCfg.RelatedCfg(domain.owner.asIR.refTW)
+
+final val DerivedCfg: RTDomainCfg = ir.RTDomainCfg.DerivedCfg

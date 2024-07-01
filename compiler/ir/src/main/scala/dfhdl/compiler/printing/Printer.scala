@@ -72,10 +72,6 @@ trait Printer
   def csFreqUnit(freq: Freq): String = s"${freq.hertz}.Hz"
   def csRatioUnit(ratio: Ratio): String = s"${ratio.value}"
   def csTimer(timer: Timer): String
-  def csNameCfg(nameCfg: NameCfg): String =
-    nameCfg match
-      case _: DerivedCfg.type => "DerivedCfg"
-      case name: String       => s""""$name""""
   def csClkEdgeCfg(edge: ClkCfg.Edge): String =
     edge match
       case ClkCfg.Edge.Rising  => "ClkCfg.Edge.Rising"
@@ -105,10 +101,11 @@ trait Printer
        |)""".stripMargin
   def csRTDomainCfg(cfg: RTDomainCfg): String =
     cfg match
-      case _: DerivedCfg.type => "DerivedCfg"
+      case RTDomainCfg.DerivedCfg => "DerivedCfg"
       case RTDomainCfg.Explicit(name, clkCfg, rstCfg) =>
         if (name.isEmpty) csRTDomainCfg(clkCfg, rstCfg)
         else name
+      case RTDomainCfg.RelatedCfg(_) => ??? // should not be printed
   def csCommentInline(comment: String): String
   def csCommentEOL(comment: String): String
   def csDocString(doc: String): String

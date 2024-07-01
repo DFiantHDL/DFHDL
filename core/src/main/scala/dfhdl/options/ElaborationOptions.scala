@@ -8,7 +8,7 @@ final case class ElaborationOptions(
     defaultClkCfg: DefaultClkCfg,
     defaultRstCfg: DefaultRstCfg
 ):
-  val defaultRTDomainCfg: RTDomainCfg.Explicit =
+  private[dfhdl] val defaultRTDomainCfg: RTDomainCfg.Explicit =
     RTDomainCfg.Explicit("main", defaultClkCfg, defaultRstCfg)
 object ElaborationOptions:
   given default(using

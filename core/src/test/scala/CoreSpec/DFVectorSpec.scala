@@ -79,14 +79,14 @@ class DFVectorSpec extends DFSpec:
       val v6 = UInt(4) X len <> VAR init v5
       v6 := all(0)
       val zero = 0
-      assertDSLError(
+      assertDSLErrorLog(
         "The vector length must be positive but found: 0"
       )(
         """val v7 = UInt(4) X 0 <> VAR"""
       ) {
         val v7 = UInt(4) X zero <> VAR
       }
-      assertDSLError(
+      assertDSLErrorLog(
         "The vector length must be positive but found: 0"
       )(
         """val v7 = UInt(4) X 0 X 5 <> VAR"""
