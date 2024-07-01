@@ -52,7 +52,12 @@ case object ExplicitClkRstCfg extends Stage:
                 .asInstanceOf[RTDomainCfg.Explicit]
               domainMap += currentOwner -> updateCfg
               updateCfg
-        case _ => getExplicitCfg(currentOwner.getOwnerDomain)
+        case DomainType.RT(RTDomainCfg.RelatedCfg(DFRef(relatedDomain))) =>
+          getExplicitCfg(relatedDomain)
+        case _ =>
+          if (currentOwner.isTop)
+            currentOwner.getTagOf[RTDomainCfg.Explicit].get
+          else getExplicitCfg(currentOwner.getOwnerDomain)
       end match
     end getExplicitCfg
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
