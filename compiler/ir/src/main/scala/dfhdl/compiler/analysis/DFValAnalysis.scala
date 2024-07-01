@@ -275,7 +275,8 @@ extension (dfVal: DFVal)
       // name from assignment destination
       case Some(DFNet.Assignment(toVal, _)) => Some(partName(toVal))
       // name from connection destination
-      case Some(DFNet.Connection(toVal: DFVal, _, _)) => Some(partName(toVal))
+      case Some(DFNet.Connection(toVal: DFVal, _, _)) =>
+        Some(toVal.getRelativeName(refOwner.get.getOwner).replace('.', '_'))
       // name from a named value which was referenced by an alias
       case Some(value: DFVal) if !value.isAnonymous => Some(partName(value))
       // found an (anonymous) value -> checking suggestion for it

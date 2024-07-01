@@ -90,6 +90,7 @@ case object ToED extends Stage:
                   cb :: processMembers(designDB.blockMemberTable(cb))
                 case dsn: DFOwnerNamed            => None
                 case history: DFVal.Alias.History => None
+                case _: DFVal.PortByNameSelect    => None
                 case m if processBlockAllMembersSet.contains(m) =>
                   m match
                     case dfVal: DFVal if dfVal.isReferencedByAnyDcl => None

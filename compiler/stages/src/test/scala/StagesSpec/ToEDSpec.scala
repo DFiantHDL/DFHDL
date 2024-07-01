@@ -404,4 +404,58 @@ class ToEDSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Basic hierarchy with regs on outputs") {
+    class ID extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      y := x
+
+    class IDTop extends RTDesign:
+      val x   = SInt(16) <> IN
+      val y   = SInt(16) <> OUT
+      val id1 = ID()
+      id1.x <> x.reg(1, init = 0)
+      val id2 = ID()
+      id2.x <> id1.y.reg(1, init = 0)
+      y     <> id2.y
+
+    val id = (new IDTop).toED
+    assertCodeString(
+      id,
+      """|case class Clk_main() extends Clk
+         |case class Rst_main() extends Rst
+         |
+         |class ID extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  process(all):
+         |    y := x
+         |end ID
+         |
+         |class IDTop extends EDDesign:
+         |  val clk = Clk_main <> IN
+         |  val rst = Rst_main <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val x_reg = SInt(16) <> VAR
+         |  val id2_x_reg = SInt(16) <> VAR
+         |  val id1 = ID()
+         |  val id2 = ID()
+         |  id1.x <> x_reg
+         |  id2.x <> id2_x_reg
+         |  y <> id2.y
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1)
+         |        x_reg :== sd"16'0"
+         |        id2_x_reg :== sd"16'0"
+         |      else
+         |        x_reg :== x
+         |        id2_x_reg :== id1.y
+         |      end if
+         |    end if
+         |end IDTop
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

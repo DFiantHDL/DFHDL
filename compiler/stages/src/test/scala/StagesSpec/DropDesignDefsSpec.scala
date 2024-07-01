@@ -38,9 +38,9 @@ class DropDesignDefsSpec extends StageSpec:
          |class IDWithDesignDef extends DFDesign:
          |  val data = UInt(32) <> IN
          |  val o = UInt(32) <> OUT
-         |  val o_part_test_inst = test()
-         |  o_part_test_inst.arg <> data + d"32'1"
-         |  o := o_part_test_inst.o
+         |  val o_test_inst = test()
+         |  o_test_inst.arg <> data + d"32'1"
+         |  o := o_test_inst.o
          |  val x = test()
          |  x.arg <> data
          |  o := x.o
