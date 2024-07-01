@@ -13,7 +13,7 @@ enum DomainType extends HasRefCompare[DomainType] derives CanEqual:
       case (RT(l), RT(r)) => l =~ r
       case _              => this == that
 
-  def getRefs: List[DFRef.TwoWayAny] = this match
+  lazy val getRefs: List[DFRef.TwoWayAny] = this match
     case RT(cfg) => cfg.getRefs
     case _       => Nil
 end DomainType

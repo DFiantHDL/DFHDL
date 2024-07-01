@@ -45,7 +45,7 @@ enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual:
       case (RelatedCfg(thisRef), RelatedCfg(thatRef)) => thisRef =~ thatRef
       case _                                          => this == that
 
-  def getRefs: List[DFRef.TwoWayAny] = this match
+  lazy val getRefs: List[DFRef.TwoWayAny] = this match
     case RelatedCfg(relatedDomainRef) => List(relatedDomainRef)
     case _                            => Nil
 end RTDomainCfg
