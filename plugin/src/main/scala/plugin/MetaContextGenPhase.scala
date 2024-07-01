@@ -39,13 +39,15 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   extension (tree: ValOrDefDef)(using Context)
     def needsNewContext: Boolean =
       tree match
-        case _: ValDef => true // valdefs always generate new context
-        case _         =>
+        case _: ValDef  => true // valdefs always generate new context
+        case dd: DefDef =>
           // defdefs generate new context if they are not inline
           // and when they are not synthetic, indicating that they
           // are actually constructor definitions (other synthetics
-          // should not have context, anyways)
-          !tree.isInline && !tree.symbol.is(Synthetic)
+          // should not have context, anyways), and when they don't
+          // have a context argument
+          !tree.isInline && !tree.symbol.is(Synthetic) &&
+          ContextArg.at(dd).isEmpty
 
   class MetaInfo(
       val nameOpt: Option[String],
@@ -369,7 +371,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     tree match
       case Apply(Select(lhs, fun), List(rhs))
           if (fun == nme.EQ || fun == nme.NE) &&
-            (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType || lhs.tpe <:< defn.TupleTypeRef) =>
+            (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType || lhs.tpe <:< defn
+              .TupleTypeRef) =>
         val rhsSym = rhs.tpe.dealias.typeSymbol
         if (rhsSym == dfValSym)
           report.error(

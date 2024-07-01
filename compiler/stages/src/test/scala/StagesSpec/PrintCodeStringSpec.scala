@@ -20,7 +20,7 @@ class PrintCodeStringSpec extends StageSpec:
   class IDTop(argTop: Bit <> CONST = 1) extends DFDesign:
     val x   = SInt(16) <> IN
     val y   = SInt(16) <> OUT
-    val id1 = new ID(0)
+    val id1 = ID()
     val id2 = new ID(argTop)
     id1.x <> x
     id1.y <> id2.x
