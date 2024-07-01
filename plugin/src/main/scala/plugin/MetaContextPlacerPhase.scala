@@ -223,7 +223,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
       case Apply(Select(New(Ident(n)), _), _) if n == StdNames.tpnme.ANON_CLASS => tree
       case _
           if (
-            tree.fun.symbol.isClassConstructor && tpe.isParameterless && !ctx.owner.owner.isAnonymousClass &&
+            tree.fun.symbol.isClassConstructor && tpe.isParameterless && !ctx.owner.isClassConstructor &&
               !ctx.owner.isClassConstructor && tpe.typeConstructor <:< hasDFCTpe
           ) =>
         val cls = newNormalizedClassSymbol(

@@ -520,6 +520,40 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Basic hierarchy with domains") {
+    class IDTop extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val dmn1 = new RTDomain:
+        val id = new ID(1)
+        id.x <> x
+      val dmn2 = new RTDomain:
+        val id = new ID(0)
+        id.x <> dmn1.id.y
+      y <> dmn2.id.y
+    val top = (new IDTop).getCodeString
+    assertNoDiff(
+      top,
+      """|class ID(val arg: Bit <> CONST) extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x
+         |end ID
+         |
+         |class IDTop extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val dmn1 = new RTDomain:
+         |    val id = ID(arg = 1)
+         |    dmn1.id.x <> x
+         |  val dmn2 = new RTDomain:
+         |    val id = ID(arg = 0)
+         |    dmn2.id.x <> dmn1.id.y
+         |  y <> id.y
+         |end IDTop
+         |""".stripMargin
+    )
+  }
   test("Docstrings"):
     /** HasDocs has docs */
     class HasDocs extends DFDesign:
