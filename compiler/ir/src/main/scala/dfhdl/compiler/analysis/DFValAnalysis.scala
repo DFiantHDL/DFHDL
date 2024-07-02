@@ -275,8 +275,7 @@ extension (dfVal: DFVal)
       // name from assignment destination
       case Some(DFNet.Assignment(toVal, _)) => Some(partName(toVal))
       // name from connection destination
-      case Some(DFNet.Connection(toVal: DFVal, _, _)) =>
-        Some(toVal.getRelativeName(refOwner.get.getOwner).replace('.', '_'))
+      case Some(DFNet.Connection(toVal: DFVal, _, _)) => Some(partName(toVal))
       // name from a named value which was referenced by an alias
       case Some(value: DFVal) if !value.isAnonymous => Some(partName(value))
       // found an (anonymous) value -> checking suggestion for it
@@ -284,7 +283,14 @@ extension (dfVal: DFVal)
       // no named source found
       case _ => None
   end suggestName
-  def suggestName(using MemberGetSet): Option[String] = suggestName(dfVal)
+  def suggestName(using MemberGetSet): Option[String] =
+    dfVal match
+      case pbns: DFVal.PortByNameSelect =>
+        Some(
+          s"${pbns.designInstRef.get.getRelativeName(pbns.getOwner)}_${pbns.portNamePath}"
+            .replace('.', '_')
+        )
+      case _ => suggestName(dfVal)
   def isBubble(using MemberGetSet): Boolean =
     dfVal match
       case c: DFVal.Const          => c.dfType.isDataBubble(c.data.asInstanceOf[c.dfType.Data])

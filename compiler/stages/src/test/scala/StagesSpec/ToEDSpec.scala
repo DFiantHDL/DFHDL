@@ -438,20 +438,20 @@ class ToEDSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val x_reg = SInt(16) <> VAR
-         |  val id2_x_reg = SInt(16) <> VAR
+         |  val id1_y_reg = SInt(16) <> VAR
          |  val id1 = ID()
          |  val id2 = ID()
          |  id1.x <> x_reg
-         |  id2.x <> id2_x_reg
+         |  id2.x <> id1_y_reg
          |  y <> id2.y
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1)
          |        x_reg :== sd"16'0"
-         |        id2_x_reg :== sd"16'0"
+         |        id1_y_reg :== sd"16'0"
          |      else
          |        x_reg :== x
-         |        id2_x_reg :== id1.y
+         |        id1_y_reg :== id1.y
          |      end if
          |    end if
          |end IDTop
