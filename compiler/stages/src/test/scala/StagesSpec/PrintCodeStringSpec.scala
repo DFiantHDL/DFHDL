@@ -545,10 +545,10 @@ class PrintCodeStringSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val dmn1 = new RTDomain:
          |    val id = ID(arg = 1)
-         |    dmn1.id.x <> x.reg(1, init = sd"16'0")
+         |    id.x <> x.reg(1, init = sd"16'0")
          |  val dmn2 = new RTDomain:
          |    val id = ID(arg = 0)
-         |    dmn2.id.x <> dmn1.id.y
+         |    id.x <> dmn1.id.y
          |  y <> id.y
          |end IDTop
          |""".stripMargin

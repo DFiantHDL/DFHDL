@@ -71,13 +71,13 @@ class ExplicitClkRstCfgSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val dmn1 = new RTDomain(main):
          |    val id = ID()
-         |    dmn1.id.x <> x
+         |    id.x <> x
          |  val dmn2 = new RTDomain(main):
          |    val id = ID()
-         |    dmn2.id.x <> dmn1.id.y
+         |    id.x <> dmn1.id.y
          |  val dmn3 = new dmn1.RelatedDomain:
          |    val id = ID()
-         |    dmn3.id.x <> dmn2.id.y
+         |    id.x <> dmn2.id.y
          |  y <> id.y
          |end IDTop
          |""".stripMargin

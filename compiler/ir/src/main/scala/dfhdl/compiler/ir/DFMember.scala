@@ -114,7 +114,7 @@ object DFMember:
         // more complex referencing just summons the two owner chains and compares them.
         // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
         val memberChain = this.getOwnerChain.collect { case o: DFOwnerNamed => o }
-        val ctxChain = namedOwner.getOwnerChain.collect { case o: DFOwnerNamed => o }
+        val ctxChain = namedOwner.getOwnerChain.collect { case o: DFOwnerNamed => o } :+ namedOwner
         val samePath = memberChain.lazyZip(ctxChain).count(_ == _)
         s"${memberChain.drop(samePath).map(_.getName).mkString(".")}.$getName"
     end getRelativeName
