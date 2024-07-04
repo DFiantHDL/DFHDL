@@ -646,6 +646,10 @@ final case class DB(
             case refMember if isDesignParam =>
               if (m.isOneLevelBelow(refMember)) None
               else Some(refMember)
+            // design referenced by its member (like in RelatedDomain)
+            case refMember: DFDesignBlock =>
+              if (m.isMemberOf(refMember)) None
+              else Some(refMember)
             // the rest must be in the same design
             case refMember if !refMember.isSameOwnerDesignAs(m) =>
               Some(refMember)

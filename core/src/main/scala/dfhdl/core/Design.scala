@@ -3,6 +3,7 @@ import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.compiler.printing.*
 import ir.DFDesignBlock.InstMode
+import ir.FlattenMode
 
 import scala.annotation.{Annotation, implicitNotFound}
 import scala.collection.immutable.ListMap
@@ -108,7 +109,10 @@ end Design
 
 abstract class DFDesign extends DomainContainer(DomainType.DF), Design
 
-abstract class RTDesign(cfg: RTDomainCfg = DerivedCfg) extends RTDomainContainer(cfg), Design
+abstract class RTDesign(cfg: RTDomainCfg = DerivedCfg) extends RTDomainContainer(cfg), Design:
+  related =>
+  abstract class RelatedDomain(flattenMode: FlattenMode = FlattenMode.FlattenUnderscore)
+      extends RTDomain(RTDomainCfg.RelatedCfg(related), flattenMode)
 
 object RTDesign:
   protected[core] final case class Clk_main() extends DFOpaque.Clk

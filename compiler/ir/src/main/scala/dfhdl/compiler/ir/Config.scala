@@ -51,4 +51,4 @@ enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual:
 end RTDomainCfg
 
 object RTDomainCfg:
-  type RelatedDomainRef = DFRef.TwoWay[DomainBlock, DomainBlock]
+  type RelatedDomainRef = DFRef.TwoWay[DomainBlock | DFDesignBlock, DomainBlock]

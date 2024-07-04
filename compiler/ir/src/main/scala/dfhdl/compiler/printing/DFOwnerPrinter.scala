@@ -306,7 +306,11 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case rt: DomainType.RT =>
         rt.cfg match
           case RTDomainCfg.RelatedCfg(relatedDomainRef) =>
-            s"${relatedDomainRef.get.getRelativeName(domain.getOwnerNamed)}.RelatedDomain${flattenModeStrBrackets}"
+            val relatedDomain = relatedDomainRef.get
+            if (domain.isMemberOf(relatedDomain))
+              s"RelatedDomain${flattenModeStrBrackets}"
+            else
+              s"${relatedDomain.getRelativeName(domain.getOwnerNamed)}.RelatedDomain${flattenModeStrBrackets}"
           case RTDomainCfg.DerivedCfg => s"RTDomain$flattenModeStrBrackets"
           case _ =>
             s"RTDomain(${printer.csRTDomainCfg(rt.cfg)}${flattenModeStr.emptyOr(x => s", $x")})"
