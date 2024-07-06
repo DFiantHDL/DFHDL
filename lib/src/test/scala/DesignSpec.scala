@@ -6,5 +6,15 @@ import munit.*
 
 abstract class DesignSpec extends FunSuite, AllowTopLevel:
   extension (dsn: core.Design)
-    def assertCodeString(cs: String): Unit =
+    inline def assertCodeString(cs: String): Unit =
       assertNoDiff(dsn.getCodeString, cs)
+
+  private val noErrMsg = "No error found"
+
+  inline def assertElaborationErrors(dsn: => core.Design)(expectedErr: String): Unit =
+    val err =
+      try
+        dsn
+        noErrMsg
+      catch case e: IllegalArgumentException => e.getMessage
+    assertNoDiff(err, expectedErr)

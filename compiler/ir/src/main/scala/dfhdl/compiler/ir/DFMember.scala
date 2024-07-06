@@ -179,6 +179,12 @@ object DFVal:
     def isOpen: Boolean = dfVal match
       case _: Open => true
       case _       => false
+    def isClkDcl(using MemberGetSet): Boolean = dfVal.dfType match
+      case DFOpaque(_, id: DFOpaque.Clk, _) => true
+      case _                                => false
+    def isRstDcl(using MemberGetSet): Boolean = dfVal.dfType match
+      case DFOpaque(_, id: DFOpaque.Rst, _) => true
+      case _                                => false
     @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.Open] = dfVal match
       case dcl: DFVal.Dcl                           => Some(dcl)
       case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)
@@ -629,7 +635,7 @@ object DFNet:
   object Connection:
     def unapply(net: DFNet)(using
         MemberGetSet
-        //             toVal                      fromVal              Swapped
+        //             toVal                                 fromVal              Swapped
     ): Option[(DFVal.Dcl | DFVal.Open | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
       if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>

@@ -95,9 +95,8 @@ def trydf(block: => Unit)(using DFC, CTName): Unit =
   trydfSpecific(block)(_ => ())
 
 def exitWithError(msg: String)(using DFC): Nothing =
-  System.err.println(msg)
   dfc.elaborationOptions.onError match
     case OnError.Exit =>
       sys.exit(1)
     case _ =>
-      throw new IllegalArgumentException("Elaboration errors found!")
+      throw new IllegalArgumentException(s"Elaboration errors found!\n$msg")
