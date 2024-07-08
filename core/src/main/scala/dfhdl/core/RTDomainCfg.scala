@@ -36,4 +36,5 @@ object RTDomainCfg:
     def apply(domain: RTDomain)(using DFC): RTDomainCfg =
       ir.RTDomainCfg.RelatedCfg(domain.owner.asIR.refTW)
 
+final val CombCfg: RTDomainCfg = RTDomainCfg.forced("comb", None, None)
 final val DerivedCfg: RTDomainCfg = ir.RTDomainCfg.DerivedCfg

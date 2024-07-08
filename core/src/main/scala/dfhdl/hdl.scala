@@ -65,6 +65,7 @@ protected object hdl:
   export core.Process.Ops.*
 
   val DerivedCfg = core.DerivedCfg
+  val CombCfg = core.CombCfg
   type ClkCfg = core.ClkCfg
   val ClkCfg = core.ClkCfg
   type RstCfg = core.RstCfg

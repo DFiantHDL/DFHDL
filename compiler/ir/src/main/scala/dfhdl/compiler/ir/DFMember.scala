@@ -670,12 +670,12 @@ final case class DFInterfaceOwner(
 ) extends DFDomainOwner:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFInterfaceOwner =>
-      this.domainType == that.domainType &&
+      this.domainType =~ that.domainType &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
 end DFInterfaceOwner
 
 sealed trait DFBlock extends DFOwner
@@ -875,14 +875,14 @@ final case class DFDesignBlock(
   val dclName: String = dclMeta.name
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
-      this.domainType == that.domainType &&
+      this.domainType =~ that.domainType &&
       this.dclMeta == that.dclMeta &&
       this.instMode == that.instMode &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
 end DFDesignBlock
 
 object DFDesignBlock:

@@ -9,8 +9,12 @@ import scala.collection.mutable
 import dfhdl.core.DFOpaque as coreDFOpaque
 import dfhdl.core.asFE
 
-/** This stage adds clock and reset ports across the entire design. For each design, clock and reset
-  * ports are added once per unique domain configuration.
+/** This stage adds clock and reset input ports across the entire design. This stage is run after
+  * ExplicitClkRstCfg, so no DerivedCfg is expected here. The rules are:
+  *   1. Explicit Clk/Rst configuration always causes Clk/Rst port inputs to be added, unless they
+  *      are already explicitly declared by the user or an internal design has outputs of Clk/Rst of
+  *      the same configuration.
+  *   1. Related Clk/Rst configuration does not add Clk/Rst ports.
   */
 case object AddClkRst extends Stage:
   def dependencies: List[Stage] = List(ToRT, ExplicitClkRstCfg)

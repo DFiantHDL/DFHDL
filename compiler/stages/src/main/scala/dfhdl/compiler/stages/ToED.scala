@@ -26,10 +26,17 @@ case object ToED extends Stage:
     val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
       // for all domain owners that are also blocks (RTDesign, RTDomain)
       case (domainOwner: (DFDomainOwner & DFBlock & DFMember.Named), members) =>
+        object Config:
+          def unapply(domainType: DomainType): Option[RTDomainCfg.Explicit] =
+            domainType match
+              case DomainType.RT(cfg: RTDomainCfg.Explicit)   => Some(cfg)
+              case DomainType.RT(RTDomainCfg.RelatedCfg(ref)) => unapply(ref.get.domainType)
+              case _                                          => None
         domainOwner.domainType match
           // only care about register-transfer domains.
           // those have wires and regs that we need to simplify.
-          case domainType @ DomainType.RT(cfg @ RTDomainCfg.Explicit(_, clkCfg, rstCfg)) =>
+          case domainType @ Config(cfg) =>
+            import cfg.{clkCfg, rstCfg}
             val clkRstOpt = domainAnalysis.designDomains((domainOwner.getThisOrOwnerDesign, cfg))
 
             val dclREGList = members.collect {
@@ -43,7 +50,7 @@ case object ToED extends Stage:
             val ownerDomainPatch =
               domainOwner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
 
-            val regNets = designDB.designMemberTable(domainOwner.getThisOrOwnerDesign).collect:
+            val regNets = designDB.domainOwnerMemberTable(domainOwner.getThisOrOwnerDomain).collect:
               case net @ DFNet.Assignment(
                     regVar @ DclVar(),
                     regAlias @ DFVal.Alias.History(
