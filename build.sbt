@@ -159,7 +159,7 @@ def compilerOptionsVersionDependent(scalaVersion: String) = {
     case Some((3, minor)) if minor <= 4 =>
       Seq.empty
     case Some((3, minor)) if minor >= 5 =>
-      Seq("-source:3.6")
+      Seq.empty
     case _ =>
       Seq.empty
   }
@@ -170,7 +170,6 @@ lazy val compilerOptions = Seq(
   "-feature",
   "-language:strictEquality",
   "-language:implicitConversions",
-  "-language:experimental",
   "-deprecation",
   //TODO: remove when fixed scalac issues:
   //https://github.com/lampepfl/dotty/issues/19299
