@@ -400,13 +400,19 @@ final case class DB(
           // found target variable or port declaration for the given connection/assignment
           case Some((toDcl, range)) =>
             val prevNets = connToDcls.getNets(toDcl, range)
+            prevNets.headOption.foreach: prevNet =>
+              if (prevNet.getOwnerDomain != net.getOwnerDomain)
+                newError(
+                  s"""|Multiple domain assignments to the same variable/port `${toDcl.getFullName}`
+                      |The previous write occurred at ${prevNet.meta.position}""".stripMargin
+                )
             // go through all previous nets and check for collisions
             prevNets.foreach: prevNet =>
               // multiple assignments are allowed in the same range, but not multiple
               // connections or a combination of an assignment and a connection
               if (prevNet.isConnection || prevNet.isAssignment && !net.isAssignment)
                 newError(
-                  s"""Multiple connections write to the same variable/port ${toDcl.getFullName}.
+                  s"""Multiple connections write to the same variable/port `${toDcl.getFullName}`
                      |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                 )
             // if no previous connection in this range, we add it to the range map

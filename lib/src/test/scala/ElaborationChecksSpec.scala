@@ -100,4 +100,22 @@ class ElaborationChecksSpec extends DesignSpec:
          |This would yield the same ports, but named "x_vec_10", "x_vec_11", etc.
          |""".stripMargin
     )
+  test("anonymous domains are forbidden"):
+    @top(false) class Top extends RTDesign:
+      val x = Bit <> OUT
+      val dmn1 = new RTDomain:
+        x := 1
+      val dmn2 = new RTDomain:
+        x := 0
+    assertElaborationErrors(Top())(
+      """|Elaboration errors found!
+         |DFiant HDL connectivity error!
+         |Position:  ElaborationChecksSpec.scala:109:9 - 109:15
+         |Hierarchy: Top
+         |LHS:       x
+         |RHS:       0
+         |Message:   Multiple domain assignments to the same variable/port `Top.x`
+         |The previous write occurred at ElaborationChecksSpec.scala:107:9 - 107:15
+         |""".stripMargin
+    )
 end ElaborationChecksSpec
