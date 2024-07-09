@@ -1,6 +1,7 @@
 package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.internals.*
+import Freq.Ops.*
 
 type ClkCfg = ir.ClkCfg
 object ClkCfg:
@@ -8,8 +9,9 @@ object ClkCfg:
   final val Edge = ir.ClkCfg.Edge
 
   def apply(
-      edge: Edge = Edge.Rising
-  ): ClkCfg = ir.ClkCfg.Explicit(edge)
+      edge: Edge = Edge.Rising,
+      rate: Rate = 50.MHz
+  ): ClkCfg = ir.ClkCfg.Explicit(edge, rate.asIR)
 
 type RstCfg = ir.RstCfg
 object RstCfg:

@@ -80,8 +80,8 @@ trait Printer
   def csClkCfg(clkCfg: ClkCfg): String =
     clkCfg match
       case _: None.type => "None"
-      case ClkCfg.Explicit(edge) =>
-        s"ClkCfg(${csClkEdgeCfg(edge)})"
+      case ClkCfg.Explicit(edge, rate) =>
+        s"ClkCfg(${csClkEdgeCfg(edge)}, ${csRateUnit(rate)})"
   def csRstModeCfg(mode: RstCfg.Mode): String =
     mode match
       case RstCfg.Mode.Sync  => "RstCfg.Mode.Sync"

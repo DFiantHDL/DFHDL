@@ -197,7 +197,7 @@ case object ToED extends Stage:
                   val (_, rstBranch) = ifRstActive
                   DFIf.singleBranch(None, rstBranch, regSaveBlock)
                 def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
-                  val ClkCfg.Explicit(edge: ClkCfg.Edge) = clkCfg: @unchecked
+                  val ClkCfg.Explicit(edge, _) = clkCfg: @unchecked
                   val cond = edge match
                     case ClkCfg.Edge.Rising  => clk.actual.rising
                     case ClkCfg.Edge.Falling => clk.actual.falling

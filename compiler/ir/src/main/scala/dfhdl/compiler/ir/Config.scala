@@ -16,7 +16,8 @@ object ClkCfg:
     case Rising, Falling
 
   final case class Explicit(
-      edge: Edge
+      edge: Edge,
+      rate: Rate
   ) derives CanEqual
 
 type RstCfg = ConfigN[RstCfg.Explicit]

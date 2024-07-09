@@ -15,10 +15,6 @@ object Timer:
   def apply(trigger: DFValOf[DFBit])(using DFC): Timer = Periodic(Some(trigger), None)
   def apply(trigger: DFValOf[DFBit], rate: Rate)(using DFC): Timer =
     Periodic(Some(trigger), Some(rate))
-  extension (bd: BigDecimal.type)
-    private def apply(arg: Int | Double): BigDecimal = arg match
-      case i: Int    => BigDecimal(i)
-      case d: Double => BigDecimal(d)
   object Ops:
     extension (timer: Timer)
       def *(ratio: Int | Double)(using DFC): Timer =
