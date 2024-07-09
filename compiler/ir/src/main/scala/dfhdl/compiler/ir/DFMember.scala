@@ -971,14 +971,14 @@ object Timer:
   type TriggerRef = DFRef.TwoWay[DFVal | DFMember.Empty, DFMember]
   final case class Periodic(
       triggerRef: TriggerRef,
-      periodOpt: Option[Time],
+      rateOpt: Option[Rate],
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
   ) extends Timer:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Periodic =>
-        this.triggerRef =~ that.triggerRef && this.periodOpt == that.periodOpt &&
+        this.triggerRef =~ that.triggerRef && this.rateOpt == that.rateOpt &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]

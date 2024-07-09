@@ -68,8 +68,9 @@ trait Printer
         end match
   end csDFNet
   def csOpenKeyWord: String
-  def csTimeUnit(time: Time): String = s"${time.usec}.us"
-  def csFreqUnit(freq: Freq): String = s"${freq.hertz}.Hz"
+  def csTimeUnit(time: Time): String = time.toString()
+  def csFreqUnit(freq: Freq): String = freq.toString()
+  def csRateUnit(rate: Rate): String = rate.toString()
   def csRatioUnit(ratio: Ratio): String = s"${ratio.value}"
   def csTimer(timer: Timer): String
   def csClkEdgeCfg(edge: ClkCfg.Edge): String =
@@ -258,13 +259,13 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   def csTimer(timer: Timer): String =
     val timerBody = timer match
       case p: Timer.Periodic =>
-        (p.triggerRef.get, p.periodOpt) match
-          case (DFMember.Empty, None)         => "Timer()"
-          case (DFMember.Empty, Some(period)) => s"Timer(${csTimeUnit(period)})"
+        (p.triggerRef.get, p.rateOpt) match
+          case (DFMember.Empty, None)       => "Timer()"
+          case (DFMember.Empty, Some(rate)) => s"Timer(${csRateUnit(rate)})"
           case (trigger: DFVal, None) =>
             s"Timer(${p.triggerRef.refCodeString})"
-          case (trigger: DFVal, Some(period)) =>
-            s"Timer(${p.triggerRef.refCodeString},${csTimeUnit(period)})"
+          case (trigger: DFVal, Some(rate)) =>
+            s"Timer(${p.triggerRef.refCodeString},${csRateUnit(rate)})"
           case _ => ??? // impossible
       case f: Timer.Func =>
         val argStr = f.arg match

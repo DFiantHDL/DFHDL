@@ -22,6 +22,8 @@ protected object hdl:
   export core.{dfType}
   export core.Timer.Ops.*
   export core.Wait.Ops.*
+  export core.Time.Ops.*
+  export core.Freq.Ops.*
   type Timer = core.Timer
   val Timer = core.Timer
   type DFC = core.DFC
