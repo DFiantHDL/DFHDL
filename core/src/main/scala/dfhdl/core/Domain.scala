@@ -3,6 +3,7 @@ import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.compiler.printing.*
 import ir.FlattenMode
+import scala.reflect.ClassTag
 private[dfhdl] trait Domain extends Container with scala.reflect.Selectable:
   private[core] type TScope = DFC.Scope.Domain
   private[core] type TOwner = Domain.Block
@@ -28,6 +29,26 @@ object Domain:
       ir.DomainBlock(
         domainType, flattenMode, ownerRef, dfc.getMeta, dfc.tags
       ).addMember.asFE
+  extension [D <: Domain](domain: D)
+    infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
+      import dfc.getSet
+      domain.setOwner(
+        domain.owner.asIR
+          .setTags(_.tag(customTag))
+          .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
+          .asFE
+      )
+    infix def setName(name: String)(using dfc: DFC): D =
+      import dfc.getSet
+      domain.setOwner(
+        domain.owner.asIR
+          .setMeta(m =>
+            if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta.setName(name)
+            else m.setName(name)
+          ).asFE
+      )
+  end extension
+
 end Domain
 
 abstract class DFDomain(flattenMode: FlattenMode = FlattenMode.FlattenUnderscore)

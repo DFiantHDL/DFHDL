@@ -668,12 +668,12 @@ final case class DB(
     // We use a Set since meta programming is usually the cause and can result in
     // multiple anonymous members with the same position. The top can be anonymous.
     val anonErrorMemberPositions: Set[Position] = membersNoGlobals.drop(1).view.collect {
-      case dcl: DFVal.Dcl if dcl.meta.isAnonymous =>
-        dcl.meta.position
-      // design definitions are allowed to be anonymous
-      case dsn: DFDesignBlock if dsn.meta.isAnonymous && dsn.instMode != InstMode.Def =>
-        dsn.meta.position
-    }.toSet
+      case dcl: DFVal.Dcl if dcl.isAnonymous => dcl
+      // designs cannot be anonymous, but design definitions are allowed to be anonymous
+      case dsn: DFDesignBlock if dsn.isAnonymous && dsn.instMode != InstMode.Def => dsn
+      // domains cannot be anonymous
+      case domain: DomainBlock if domain.isAnonymous => domain
+    }.map(_.meta.position).toSet
     if (anonErrorMemberPositions.nonEmpty)
       throw new IllegalArgumentException(
         s"""DFiant HDL name errors!

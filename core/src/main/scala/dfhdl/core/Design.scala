@@ -86,7 +86,7 @@ object Design:
   end Block
   extension [D <: Design](dsn: D)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
-    def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
+    infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
       import dfc.getSet
       dsn.setOwner(
         dsn.owner.asIR
@@ -94,7 +94,7 @@ object Design:
           .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
           .asFE
       )
-    def setName(name: String)(using dfc: DFC): D =
+    infix def setName(name: String)(using dfc: DFC): D =
       import dfc.getSet
       dsn.setOwner(
         dsn.owner.asIR
@@ -104,7 +104,6 @@ object Design:
           ).asFE
       )
   end extension
-
 end Design
 
 abstract class DFDesign extends DomainContainer(DomainType.DF), Design
