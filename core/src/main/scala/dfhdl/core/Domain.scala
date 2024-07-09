@@ -16,7 +16,13 @@ private[dfhdl] trait Domain extends Container with scala.reflect.Selectable:
 object Domain:
   type Block = DFOwner[ir.DomainBlock]
   object Block:
-    def apply(domainType: ir.DomainType, flattenMode: ir.FlattenMode)(using DFC): Block =
+    def apply(domainType: ir.DomainType, flattenMode: ir.FlattenMode)(using DFC): Block = trydf:
+      dfc.owner.asIR match
+        case _: ir.DFDomainOwner =>
+        case _ =>
+          throw new IllegalArgumentException(
+            "A domain can only be directly owned by a design, an interface, or another domain."
+          )
       val ownerRef: ir.DFOwner.Ref =
         dfc.ownerOption.map(_.asIR.ref).getOrElse(ir.DFMember.Empty.ref)
       ir.DomainBlock(

@@ -51,6 +51,7 @@ object DFError:
     inline def asFE[T <: DFTypeAny]: T = DFType(dfErr).asInstanceOf[T]
     inline def asValOf[T <: DFTypeAny]: DFValOf[T] = DFVal[T, ModifierAny, DFError](dfErr)
     inline def asVal[T <: DFTypeAny, M <: ModifierAny]: DFVal[T, M] = DFVal[T, M, DFError](dfErr)
+    inline def asOwner: DFOwnerAny = DFOwner[ir.DFOwner](dfErr)
 end DFError
 
 class Logger:
@@ -93,6 +94,11 @@ def trydf[V <: DFValAny](block: => V)(using DFC, CTName): V =
 @metaContextForward(0)
 def trydf(block: => Unit)(using DFC, CTName): Unit =
   trydfSpecific(block)(_ => ())
+
+@targetName("tryDFOwner")
+@metaContextForward(0)
+def trydf[V <: DFOwnerAny](block: => V)(using DFC, CTName): V =
+  trydfSpecific(block)(_.asOwner.asInstanceOf[V])
 
 def exitWithError(msg: String)(using DFC): Nothing =
   dfc.elaborationOptions.onError match

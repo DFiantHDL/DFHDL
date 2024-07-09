@@ -31,6 +31,7 @@ class ElaborationChecksSpec extends DesignSpec:
          |Either explicitly define a configuration for the domain or drive it from a single source domain.
          |""".stripMargin
     )
+
   test("cyclic RT dependency errors"):
     class Internal extends EDDesign:
       val dmn = new RTDomain:
@@ -47,6 +48,21 @@ class ElaborationChecksSpec extends DesignSpec:
          |Circular derived RT configuration detected. Involved in the cycle:
          |Top.internal1.dmn
          |Top.internal2.dmn
+         |""".stripMargin
+    )
+
+  test("domain creation in the wrong spot"):
+    @top(false) class Top extends RTDesign:
+      val x = Boolean <> IN
+      if (x)
+        val dmn = new RTDomain {}
+    assertElaborationErrors(Top())(
+      """|Elaboration errors found!
+         |DFiant HDL elaboration error!
+         |Position:  ElaborationChecksSpec.scala:58:23 - 58:31
+         |Hierarchy: Top.dmn
+         |Operation: `apply`
+         |Message:   A domain can only be directly owned by a design, an interface, or another domain.
          |""".stripMargin
     )
 end ElaborationChecksSpec
