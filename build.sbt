@@ -130,8 +130,8 @@ lazy val dependencies =
   new {
     private val scodecV = "1.2.0"
     private val munitV = "1.0.0"
-    private val scalafmtV = "3.8.1"
-    private val airframelogV = "24.5.2"
+    private val scalafmtV = "3.8.2"
+    private val airframelogV = "24.7.0"
     private val oslibV = "0.9.2"
     private val scoptV = "4.1.0"
     val scodec = "org.scodec" %% "scodec-bits" % scodecV
