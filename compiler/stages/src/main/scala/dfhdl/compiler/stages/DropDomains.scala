@@ -31,6 +31,8 @@ case object DropDomains extends Stage:
               currentDomain.flattenMode match
                 case FlattenMode.FlattenUnderscore =>
                   currentName = s"${currentDomain.getName}_$currentName"
+                case FlattenMode.FlattenSuffix =>
+                  currentName = s"${currentName}_${currentDomain.getName}"
                 case FlattenMode.FlattenConcat =>
                   currentName = s"${currentDomain.getName}$currentName"
                 case FlattenMode.FlattenTransparent => // no change

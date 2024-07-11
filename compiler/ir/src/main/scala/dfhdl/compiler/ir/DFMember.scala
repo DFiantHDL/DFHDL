@@ -944,11 +944,12 @@ end DomainBlock
 
 /** Flattening Mode:
   *   - FlattenUnderscore: $ownerName_$memberName
+  *   - FlattenSuffix: $memberName_$ownerName
   *   - FlattenConcat: $ownerName$memberName
   *   - FlattenTransparent: $memberName
   */
 enum FlattenMode derives CanEqual:
-  case FlattenUnderscore, FlattenConcat, FlattenTransparent
+  case FlattenUnderscore, FlattenSuffix, FlattenConcat, FlattenTransparent
 
 sealed trait DFSimMember extends DFMember
 object DFSimMember:

@@ -52,7 +52,12 @@ protected object hdl:
   type DFDomain = core.DFDomain
   type RTDomain = core.RTDomain
   type EDDomain = core.EDDomain
-  export compiler.ir.FlattenMode.{FlattenUnderscore, FlattenConcat, FlattenTransparent}
+  export compiler.ir.FlattenMode.{
+    FlattenUnderscore,
+    FlattenConcat,
+    FlattenTransparent,
+    FlattenSuffix
+  }
 
   val IN = core.Modifier.IN
   val OUT = core.Modifier.OUT
