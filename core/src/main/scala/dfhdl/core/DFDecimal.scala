@@ -848,7 +848,7 @@ object DFXInt:
         }
       end extension
 
-      extension [L](lhs: L)
+      extension [L <: Int](lhs: L)
         def <[RS <: Boolean, RW <: Int, RN <: NativeType](
             rhs: DFValOf[DFXInt[RS, RW, RN]]
         )(using es: Exact.Summon[L, lhs.type])(using
@@ -873,6 +873,15 @@ object DFXInt:
             dfc: DFC,
             op: DFVal.Compare[DFXInt[RS, RW, RN], es.Out, FuncOp.>=.type, true]
         ): DFValOf[DFBool] = trydf { op(rhs, es(lhs)) }
+        def <<[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.<<, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
+        }
+        def >>[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, CONST | P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.>>, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
+        }
+        def **[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.**, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
+        }
       end extension
       private def arithOp[
           OS <: Boolean,
@@ -1374,3 +1383,6 @@ type DFInt32 =
   DFType[ir.DFDecimal, Args4[true, 32, 0, Int32]] // This means: DFDecimal[true, 32, 0, Int32] (could not be defined this way because of type recursion)
 final val DFInt32 = ir.DFInt32.asFE[DFInt32]
 type DFConstInt32 = DFConstOf[DFInt32]
+object DFConstInt32:
+  def apply(int: Int)(using DFC): DFConstInt32 =
+    DFVal.Const(DFInt32, Some(BigInt(int)), named = true)

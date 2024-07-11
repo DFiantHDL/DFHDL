@@ -143,7 +143,7 @@ object IntParam extends IntParamLP:
   extension [L <: IntP](lhs: IntParam[L])(using dfc: DFC)
     def toDFConst: DFConstInt32 =
       lhs match
-        case int: Int            => DFVal.Const(DFInt32, Some(BigInt(int)), named = true)
+        case int: Int            => DFConstInt32(int)
         case const: DFConstInt32 => const
     def toScalaInt: Int =
       lhs match

@@ -141,7 +141,7 @@ def calcFuncData[OT <: DFType](
         case (
               outType @ DFXInt(_, _, _),
               op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./ | FuncOp.% | FuncOp.<< | FuncOp.>> |
-              FuncOp.max | FuncOp.min),
+              FuncOp.** | FuncOp.max | FuncOp.min),
               DFXInt(_, _, _) :: DFXInt(_, _, _) :: Nil,
               Some(lhs: BigInt) :: Some(rhs: BigInt) :: Nil
             ) =>
@@ -153,6 +153,7 @@ def calcFuncData[OT <: DFType](
             case FuncOp.%   => lhs % rhs
             case FuncOp.<<  => lhs << rhs.toInt
             case FuncOp.>>  => lhs >> rhs.toInt
+            case FuncOp.**  => lhs pow rhs.toInt
             case FuncOp.max => lhs max rhs
             case FuncOp.min => lhs min rhs
           val widthNoTrunc = dataNoTrunc.bitsWidth(outType.signed)
