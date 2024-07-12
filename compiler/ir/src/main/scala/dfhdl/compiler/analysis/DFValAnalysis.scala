@@ -250,7 +250,31 @@ extension (dfVal: DFVal)
   // suffixes to differential between partial field selection or index application
   def flatName(using MemberGetSet): String = flatName(dfVal, "")
 
-  private def partName(member: DFVal)(using MemberGetSet): String = s"${member.flatName}_part"
+  // the partial name is set to be either a specialized dimension name (length/width)
+  // or just the name of reference named member with a `_part` suffix
+  private def partName(anonMember: DFVal, namedMember: DFVal)(using MemberGetSet): String =
+    import DFRef.TypeRef
+    val specialStrOpt =
+      // only if the anonymous member has a constant value we do further checks
+      if (anonMember.isConst)
+        val originRefs = getSet.designDB.memberTable(anonMember)
+        originRefs.view.flatMap {
+          // found the member is referenced as a type
+          case r: TypeRef =>
+            // looking for what kind of type reference it is
+            r.originMember.asInstanceOf[DFVal].dfType match
+              case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r => Some("length")
+              case DFBits(widthRef: TypeRef) if widthRef == r                 => Some("width")
+              case DFDecimal(_, widthRef: TypeRef, _, _) if widthRef == r     => Some("width")
+              case _                                                          => None
+          case _ => None
+        }.headOption
+      else None
+    specialStrOpt match
+      // upper casing to make the newly formed parameter name more visible
+      case Some(specialStr) => s"${namedMember.flatName}_${specialStr}".toUpperCase()
+      case _                => s"${namedMember.flatName}_part"
+  end partName
 
   @tailrec private def suggestName(
       member: DFVal,
@@ -273,11 +297,11 @@ extension (dfVal: DFVal)
         }
     refOwner match
       // name from assignment destination
-      case Some(DFNet.Assignment(toVal, _)) => Some(partName(toVal))
+      case Some(DFNet.Assignment(toVal, _)) => Some(partName(member, toVal))
       // name from connection destination
-      case Some(DFNet.Connection(toVal: DFVal, _, _)) => Some(partName(toVal))
+      case Some(DFNet.Connection(toVal: DFVal, _, _)) => Some(partName(member, toVal))
       // name from a named value which was referenced by an alias
-      case Some(value: DFVal) if !value.isAnonymous => Some(partName(value))
+      case Some(value: DFVal) if !value.isAnonymous => Some(partName(member, value))
       // found an (anonymous) value -> checking suggestion for it
       case Some(value: DFVal) => suggestName(value, Some(value))
       // no named source found
@@ -298,7 +322,6 @@ extension (dfVal: DFVal)
       case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
       case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
       case _                       => false
-  def getDomainType(using MemberGetSet): DomainType = dfVal.getOwnerDomain.domainType
   def isDFDomain(using MemberGetSet): Boolean = dfVal.getDomainType match
     case DomainType.DF => true
     case _             => false
