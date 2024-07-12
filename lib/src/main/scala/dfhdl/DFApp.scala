@@ -109,7 +109,8 @@ trait DFApp:
                 case "Int" | "DFHDL Int"       => updatedValueStr.toIntOption.nonEmpty
                 case "Double" | "DFHDL Double" => updatedValueStr.toDoubleOption.nonEmpty
                 case "Boolean" | "Bit" | "DFHDL Boolean" | "DFHDL Bit" =>
-                  updatedValueStr.toBooleanOption.nonEmpty || updatedValueStr == "1" || updatedValueStr == "0"
+                  updatedValueStr.toBooleanOption
+                    .nonEmpty || updatedValueStr == "1" || updatedValueStr == "0"
                 case _ => false
             if (isValid) None
             else Some(argName)
@@ -172,6 +173,8 @@ trait DFApp:
           elaborate.compile
         case "commit" =>
           elaborate.compile.commit
+        case "lint" =>
+          elaborate.compile.commit.lint
         case "list-design-args" =>
           listDesignArgs
         case _ =>
