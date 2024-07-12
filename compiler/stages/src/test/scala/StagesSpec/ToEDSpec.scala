@@ -523,4 +523,27 @@ class ToEDSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("RT domain with basic combinational if-else") {
+    class IDTop extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val dmn1 = new RTDomain:
+        if (x < 0) y := 0
+        else y       := x
+
+    val id = (new IDTop).toED
+    assertCodeString(
+      id,
+      """|class IDTop extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val dmn1 = new EDDomain:
+         |    process(all):
+         |      if (x < sd"16'0") y := sd"16'0"
+         |      else y := x
+         |end IDTop
+         |""".stripMargin
+    )
+  }
 end ToEDSpec

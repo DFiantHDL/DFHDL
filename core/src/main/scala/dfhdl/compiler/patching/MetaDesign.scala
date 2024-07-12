@@ -39,6 +39,17 @@ abstract class MetaDesign[+D <: DomainType](
 
   final def plantMember[T <: ir.DFMember](member: T): T =
     dfc.mutableDB.plantMember(dfc.owner.asIR, member)
+  final def plantMembers(baseOwner: ir.DFOwner, members: Iterable[ir.DFMember]): Unit =
+    members.foreach { m =>
+      val owner = m.getOwner
+      var cond = false
+      val updatedOwner =
+        if (owner == baseOwner)
+          cond = true
+          dfc.owner.asIR
+        else owner
+      dfc.mutableDB.plantMember(updatedOwner, m, _ => cond)
+    }
   final def applyBlock(owner: ir.DFOwner)(block: => Unit): Unit =
     dfc.mutableDB.OwnershipContext.enter(owner)
     block

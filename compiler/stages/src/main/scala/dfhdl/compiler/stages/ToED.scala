@@ -131,11 +131,14 @@ case object ToED extends Stage:
                       else dcl_din.asVarAny := dclREG.asValAny
                     }
                     if (inVHDL)
-                      processBlockAllMembers.foreach {
-                        case net: DFNet => plantMember(net.copy(op = DFNet.Op.NBAssignment))
-                        case m          => plantMember(m)
-                      }
-                    else processBlockAllMembers.foreach(plantMember(_))
+                      plantMembers(
+                        domainOwner,
+                        processBlockAllMembers.view.map {
+                          case net: DFNet => net.copy(op = DFNet.Op.NBAssignment)
+                          case m          => m
+                        }
+                      )
+                    else plantMembers(domainOwner, processBlockAllMembers)
                   }
                 val dclChangeList = dclREGList.lazyZip(dcl_din_vars).toList
                 // create map of all reg dcls references that are used to assign to the registers,

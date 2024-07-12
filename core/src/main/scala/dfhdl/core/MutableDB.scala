@@ -52,15 +52,19 @@ class DesignContext:
 
   // same as addMember, but if the member is at design-level scope,
   // the ownerRef needs to be added, referring to the meta designer owner.
-  def plantMember[M <: DFMember](owner: DFOwner, member: M)(using MemberGetSet): M =
-    member.getOwner match
-      case _: DFDesignBlock =>
-        // now this reference will refer to meta design owner
-        newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
-          member.ownerRef,
-          owner
-        )
-      case _ => // do nothing
+  def plantMember[M <: DFMember](
+      owner: DFOwner,
+      member: M,
+      updateOwnerCond: DFOwner => Boolean = _.isInstanceOf[DFDesignBlock]
+  )(using
+      MemberGetSet
+  ): M =
+    if (updateOwnerCond(member.getOwner))
+      // now this reference will refer to meta design owner
+      newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
+        member.ownerRef,
+        owner
+      )
     addMember(member)
   end plantMember
 
@@ -328,9 +332,13 @@ final class MutableDB():
     DesignContext.current.addMember(member)
 
   // same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
-  def plantMember[M <: DFMember](owner: DFOwner, member: M): M =
+  def plantMember[M <: DFMember](
+      owner: DFOwner,
+      member: M,
+      updateOwnerCond: DFOwner => Boolean = _.isInstanceOf[DFDesignBlock]
+  ): M =
     dirtyDB()
-    DesignContext.current.plantMember(owner, member)(using metaGetSetOpt.get)
+    DesignContext.current.plantMember(owner, member, updateOwnerCond)(using metaGetSetOpt.get)
 
   def newRefFor[M <: DFMember, R <: DFRef[M]](ref: R, member: M): R =
     dirtyDB()
