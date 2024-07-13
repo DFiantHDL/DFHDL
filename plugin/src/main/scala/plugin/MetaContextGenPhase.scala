@@ -30,7 +30,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override val runsBefore = Set("MetaContextDelegate")
   var setMetaSym: Symbol = uninitialized
   var setMetaAnonSym: Symbol = uninitialized
-  val treeOwnerApplyMap = mutable.Map.empty[Apply, (MemberDef, util.SrcPos)]
+  var treeOwnerApplyMap = Map.empty[Apply, (MemberDef, util.SrcPos)]
+  var treeOwnerApplyMapStack = List.empty[Map[Apply, (MemberDef, util.SrcPos)]]
   val treeOwnerOverrideMap = mutable.Map.empty[DefDef, (Tree, util.SrcPos)]
   val contextDefs = mutable.Map.empty[String, Tree]
   var clsStack = List.empty[TypeDef]
@@ -233,7 +234,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     // debug(s"Adding under ${ownerTree.name}, ${inlinedSrcPos.map(_.show)}:\n${apply.show}")
     if (!treeOwnerApplyMap.contains(apply))
       val srcPos = inlinedSrcPos.getOrElse(apply.srcPos)
-      treeOwnerApplyMap += (apply -> (ownerTree, srcPos))
+      treeOwnerApplyMap = treeOwnerApplyMap + (apply -> (ownerTree, srcPos))
       dfcOverrideDef.foreach: dd =>
         treeOwnerOverrideMap += (dd -> (ownerTree, srcPos))
   end addToTreeOwnerMap
@@ -470,16 +471,28 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _                        =>
         // debug("================================================")
         // debug(s"prepareForValDef: ${tree.name}")
+        treeOwnerApplyMapStack = treeOwnerApplyMap :: treeOwnerApplyMapStack
         nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)
     end match
     ctx
   end prepareForValDef
 
+  override def transformValDef(tree: ValDef)(using Context): Tree =
+    tree.name.toString match
+      case n if n.contains("$")     => // do nothing
+      case _ if tree.mods.is(Param) => // do nothing
+      case _ if tree.rhs.isEmpty    => // do nothing
+      case _                        =>
+        // debug(s"transformValDef: ${tree.name}")
+        treeOwnerApplyMap = treeOwnerApplyMapStack.head
+        treeOwnerApplyMapStack = treeOwnerApplyMapStack.drop(1)
+    end match
+    tree
+
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     setMetaAnonSym = metaContextCls.requiredMethod("setMetaAnon")
-    treeOwnerApplyMap.clear()
     treeOwnerOverrideMap.clear()
     contextDefs.clear()
     ctx

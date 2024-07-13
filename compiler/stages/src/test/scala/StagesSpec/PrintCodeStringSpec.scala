@@ -688,4 +688,25 @@ class PrintCodeStringSpec extends StageSpec:
          |end BigXorContainer
          |""".stripMargin
     )
+  test("Cover case where same declaration domains are missing names"):
+    class IDWithDomains extends EDDesign:
+      val a, b = new EDDomain(FlattenSuffix):
+        val x = Bit <> IN
+        val y = Bit <> OUT
+        y <> x
+    val top = IDWithDomains().getCodeString
+    assertNoDiff(
+      top,
+      """|class IDWithDomains extends EDDesign:
+         |  val a = new EDDomain(FlattenSuffix):
+         |    val x = Bit <> IN
+         |    val y = Bit <> OUT
+         |    y <> x
+         |  val b = new EDDomain(FlattenSuffix):
+         |    val x = Bit <> IN
+         |    val y = Bit <> OUT
+         |    y <> x
+         |end IDWithDomains
+         |""".stripMargin
+    )
 end PrintCodeStringSpec
