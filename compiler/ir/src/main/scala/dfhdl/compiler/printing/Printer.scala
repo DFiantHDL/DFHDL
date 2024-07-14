@@ -58,8 +58,8 @@ trait Printer
         end match
       case _ =>
         val lhsDin = net.lhsRef.get match
-          case dfVal: DFVal if dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.reg => ".din"
-          case _                                                                      => ""
+          case dfVal: DFVal if dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.isReg => ".din"
+          case _                                                                        => ""
         val lhsStr = net.lhsRef.refCodeString + lhsDin
         val rhsStr = net.rhsRef.refCodeString
         (net.op: @unchecked) match

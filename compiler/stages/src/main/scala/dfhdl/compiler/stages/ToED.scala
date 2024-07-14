@@ -40,7 +40,7 @@ case object ToED extends Stage:
             val clkRstOpt = domainAnalysis.designDomains((domainOwner.getThisOrOwnerDesign, cfg))
 
             val dclREGList = members.collect {
-              case dcl: DFVal.Dcl if dcl.modifier.reg => dcl
+              case dcl: DFVal.Dcl if dcl.modifier.isReg => dcl
             }
 
             // changing the owner from RT domain to ED domain
@@ -148,7 +148,7 @@ case object ToED extends Stage:
                   case net: DFNet =>
                     @tailrec def addDinRef(ref: DFRefAny): Unit =
                       ref.get match
-                        case dcl: DFVal.Dcl if dcl.modifier.reg =>
+                        case dcl: DFVal.Dcl if dcl.modifier.isReg =>
                           dclChangeRefMap += dcl -> (dclChangeRefMap.getOrElse(dcl, Set()) + ref)
                         case partial: DFVal.Alias.Partial =>
                           addDinRef(partial.relValRef)
@@ -254,9 +254,9 @@ case object ToED extends Stage:
     locally {
       import firstPart.getSet
       val patchList = firstPart.members.collect {
-        case dcl: DFVal.Dcl if dcl.modifier.reg =>
+        case dcl: DFVal.Dcl if dcl.modifier.isReg =>
           val updatedDcl =
-            dcl.copy(initRefList = Nil, modifier = dcl.modifier.copy(reg = false))
+            dcl.copy(initRefList = Nil, modifier = dcl.modifier.copy(special = Modifier.Ordinary))
           dcl -> Patch.Replace(updatedDcl, Patch.Replace.Config.FullReplacement)
 
       }

@@ -65,13 +65,13 @@ case object ExplicitClkRstCfg extends Stage:
             (domainOwner.usesClk, domainOwner.usesRst)
           )
       def usesClk: Boolean = designDB.domainOwnerMemberTable(domainOwner).exists {
-        case dcl: DFVal.Dcl           => dcl.modifier.reg || dcl.isClkDcl
+        case dcl: DFVal.Dcl           => dcl.modifier.isReg || dcl.isClkDcl
         case reg: DFVal.Alias.History => true
         case internal: DFDesignBlock  => internal.usesClkRst._1
         case _                        => false
       } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1)
       def usesRst: Boolean = designDB.domainOwnerMemberTable(domainOwner).exists {
-        case dcl: DFVal.Dcl           => dcl.modifier.reg || dcl.isRstDcl
+        case dcl: DFVal.Dcl           => dcl.modifier.isReg || dcl.isRstDcl
         case reg: DFVal.Alias.History => true
         case internal: DFDesignBlock  => internal.usesClkRst._2
         case _                        => false

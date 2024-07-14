@@ -144,12 +144,21 @@ end DFVal
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
-  final case class Modifier(dir: Modifier.Dir, reg: Boolean) derives CanEqual:
-    override def toString(): String = if (reg) s"$dir.REG" else dir.toString()
+  final case class Modifier(dir: Modifier.Dir, special: Modifier.Special) derives CanEqual:
+    override def toString(): String =
+      special match
+        case Modifier.Special.Ordinary => dir.toString()
+        case _                         => s"$dir.$special"
   object Modifier:
+    extension (mod: Modifier)
+      def isReg: Boolean = mod.special == REG
+      def isShared: Boolean = mod.special == SHARED
     enum Dir derives CanEqual:
       case VAR, IN, OUT, INOUT
     export Dir.{VAR, IN, OUT, INOUT}
+    enum Special derives CanEqual:
+      case Ordinary, REG, SHARED
+    export Special.{Ordinary, REG, SHARED}
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match
