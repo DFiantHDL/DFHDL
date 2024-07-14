@@ -292,6 +292,7 @@ object DFVal:
         case _ => None
       end match
     end getParamData
+    def getDomainType(using MemberGetSet): DomainType = dfVal.getOwnerDomain.domainType
   end extension
   // can be an expression
   sealed trait CanBeExpr extends DFVal

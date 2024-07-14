@@ -401,20 +401,16 @@ final case class DB(
           case Some((toDcl, range)) =>
             val prevNets = connToDcls.getNets(toDcl, range)
             // checking multiple assignments from different domains, except for a condition
-            // where the declaration is a register and the domain actually is combinational.
-            // this is used to define a multi-controlled register which is against the RT model,
+            // where the declaration is a shared variable.
+            // this is used to define a shared variable which is against the RT model,
             // but is useful to described inferred memories like True Dual Port RAM.
-            val skipMultiDomainAssignmentCheck = toDcl.getOwnerDomain match
-              case domain: DomainBlock =>
-                domain.domainType match
-                  case DomainType.RT(RTDomainCfg.Explicit(_, None, _)) if toDcl.modifier.reg => true
-                  case _ => false
-              case _ => false
-            if (!skipMultiDomainAssignmentCheck)
+            if (!toDcl.modifier.isShared)
               prevNets.headOption.foreach: prevNet =>
                 if (prevNet.getOwnerDomain != net.getOwnerDomain)
                   newError(
-                    s"""|Multiple domain assignments to the same variable/port `${toDcl.getFullName}`
+                    s"""|Found multiple domain assignments to the same variable/port `${toDcl
+                         .getFullName}`
+                        |Only variables declared as `VAR.SHARED` under ED domain allow this.
                         |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                   )
             // go through all previous nets and check for collisions
@@ -423,7 +419,8 @@ final case class DB(
               // connections or a combination of an assignment and a connection
               if (prevNet.isConnection || prevNet.isAssignment && !net.isAssignment)
                 newError(
-                  s"""Multiple connections write to the same variable/port `${toDcl.getFullName}`
+                  s"""Found multiple connections write to the same variable/port `${toDcl
+                      .getFullName}`
                      |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                 )
             // if no previous connection in this range, we add it to the range map

@@ -100,22 +100,38 @@ class ElaborationChecksSpec extends DesignSpec:
          |This would yield the same ports, but named "x_vec_10", "x_vec_11", etc.
          |""".stripMargin
     )
-  test("anonymous domains are forbidden"):
-    @top(false) class Top extends RTDesign:
+  test("non-shared assign limitations"):
+    @top(false) class Top extends EDDesign:
       val x = Bit <> OUT
+      val y = Bit <> VAR
+      val ok = Bit <> VAR.SHARED
       val dmn1 = new RTDomain:
         x := 1
+        y := 1
+        ok := 1
       val dmn2 = new RTDomain:
         x := 0
+        y := 0
+        ok := 0
     assertElaborationErrors(Top())(
       """|Elaboration errors found!
          |DFiant HDL connectivity error!
-         |Position:  ElaborationChecksSpec.scala:109:9 - 109:15
+         |Position:  ElaborationChecksSpec.scala:113:9 - 113:15
          |Hierarchy: Top
          |LHS:       x
          |RHS:       0
-         |Message:   Multiple domain assignments to the same variable/port `Top.x`
-         |The previous write occurred at ElaborationChecksSpec.scala:107:9 - 107:15
+         |Message:   Found multiple domain assignments to the same variable/port `Top.x`
+         |Only variables declared as `VAR.SHARED` under ED domain allow this.
+         |The previous write occurred at ElaborationChecksSpec.scala:109:9 - 109:15
+         |
+         |DFiant HDL connectivity error!
+         |Position:  ElaborationChecksSpec.scala:114:9 - 114:15
+         |Hierarchy: Top
+         |LHS:       y
+         |RHS:       0
+         |Message:   Found multiple domain assignments to the same variable/port `Top.y`
+         |Only variables declared as `VAR.SHARED` under ED domain allow this.
+         |The previous write occurred at ElaborationChecksSpec.scala:110:9 - 110:15
          |""".stripMargin
     )
 end ElaborationChecksSpec
