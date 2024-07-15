@@ -218,7 +218,9 @@ object DFVal:
                   relVal.departial(range.offset(idx * partial.width))
                 // if not a constant index selection, then the entire value range is affected
                 case _ =>
-                  (relVal, range)
+                  relVal.dealias match
+                    case Some(dcl: DFVal.Dcl) => (dcl, range)
+                    case _                    => (relVal, range)
             case partial: DFVal.Alias.SelectField =>
               relVal.departial(
                 range.offset(
@@ -235,7 +237,9 @@ object DFVal:
     def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Range)] =
       departial match
         case (dcl: DFVal.Dcl, range) => Some(dcl, range)
-        case _                       => None
+        case x =>
+          println(x)
+          None
     def stripPortSel(using MemberGetSet): DFVal = dfVal match
       case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
       case _                               => dfVal
