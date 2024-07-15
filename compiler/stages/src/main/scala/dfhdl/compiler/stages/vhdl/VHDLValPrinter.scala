@@ -15,8 +15,10 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     if (dfVal.isPort) s"${dfVal.getName} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
     else
       val sigOrVar = dfVal.getOwnerNamed match
-        case dsn: DFDesignBlock => "signal"
-        case _                  => "variable"
+        case dsn: DFDesignBlock =>
+          if (dfVal.modifier.isShared) "shared variable"
+          else "signal"
+        case _ => "variable"
       s"$sigOrVar ${dfVal.getName} : $dfTypeStr"
   end csDFValDclWithoutInit
   def csInitKeyword: String = ":="
