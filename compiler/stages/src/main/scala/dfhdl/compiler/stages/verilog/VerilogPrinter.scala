@@ -18,8 +18,13 @@ class VerilogPrinter(using val getSet: MemberGetSet, val printerOptions: Printer
   )
   val tupleSupportEnable: Boolean = false
   def csViaConnectionSep: String = ","
-  def csAssignment(lhsStr: String, rhsStr: String): String =
-    s"$lhsStr = $rhsStr;"
+  def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String =
+    val cs = s"$lhsStr = $rhsStr;"
+    if (shared)
+      s"""|/* verilator lint_off BLKSEQ */
+         |$cs
+         |/* verilator lint_on BLKSEQ */""".stripMargin
+    else cs
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr <= $rhsStr;"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =

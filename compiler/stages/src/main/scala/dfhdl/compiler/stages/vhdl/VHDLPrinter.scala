@@ -19,7 +19,7 @@ class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOpt
   )
   val tupleSupportEnable: Boolean = false
   def csViaConnectionSep: String = ","
-  def csAssignment(lhsStr: String, rhsStr: String): String =
+  def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String =
     s"$lhsStr := $rhsStr;"
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr <= $rhsStr;"

@@ -24,7 +24,7 @@ trait Printer
   def csViaConnectionSep: String
   val normalizeViaConnection: Boolean
   val normalizeConnection: Boolean
-  def csAssignment(lhsStr: String, rhsStr: String): String
+  def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String
   def csNBAssignment(lhsStr: String, rhsStr: String): String
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String
@@ -60,10 +60,13 @@ trait Printer
         val lhsDin = net.lhsRef.get match
           case dfVal: DFVal if dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.isReg => ".din"
           case _                                                                        => ""
+        val lhsShared = net.lhsRef.get match
+          case dfVal: DFVal => dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.isShared
+          case _            => false
         val lhsStr = net.lhsRef.refCodeString + lhsDin
         val rhsStr = net.rhsRef.refCodeString
         (net.op: @unchecked) match
-          case DFNet.Op.Assignment   => csAssignment(lhsStr, rhsStr)
+          case DFNet.Op.Assignment   => csAssignment(lhsStr, rhsStr, lhsShared)
           case DFNet.Op.NBAssignment => csNBAssignment(lhsStr, rhsStr)
         end match
   end csDFNet
@@ -231,7 +234,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   given printer: TPrinter = this
   val tupleSupportEnable: Boolean = true
   def csViaConnectionSep: String = ""
-  def csAssignment(lhsStr: String, rhsStr: String): String =
+  def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String =
     s"$lhsStr := $rhsStr"
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr :== $rhsStr"
