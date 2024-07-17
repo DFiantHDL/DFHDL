@@ -690,7 +690,7 @@ class PrintCodeStringSpec extends StageSpec:
     )
   test("Cover case where same declaration domains are missing names"):
     class IDWithDomains extends EDDesign:
-      val a, b = new EDDomain(FlattenSuffix):
+      val a, b = new EDDomain(FlattenSuffix("_")):
         val x = Bit <> IN
         val y = Bit <> OUT
         y <> x
@@ -698,11 +698,11 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       top,
       """|class IDWithDomains extends EDDesign:
-         |  val a = new EDDomain(FlattenSuffix):
+         |  val a = new EDDomain(FlattenSuffix("_")):
          |    val x = Bit <> IN
          |    val y = Bit <> OUT
          |    y <> x
-         |  val b = new EDDomain(FlattenSuffix):
+         |  val b = new EDDomain(FlattenSuffix("_")):
          |    val x = Bit <> IN
          |    val y = Bit <> OUT
          |    y <> x

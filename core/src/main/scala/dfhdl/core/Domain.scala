@@ -51,22 +51,22 @@ object Domain:
 
 end Domain
 
-abstract class DFDomain(flattenMode: FlattenMode = FlattenMode.FlattenUnderscore)
+abstract class DFDomain(flattenMode: FlattenMode = FlattenMode.DefaultPrefixUnderscore)
     extends DomainContainer(DomainType.DF),
       Domain:
   final private[core] lazy val __flattenMode: FlattenMode = flattenMode
 
 abstract class RTDomain(
     cfg: RTDomainCfg = DerivedCfg,
-    flattenMode: FlattenMode = FlattenMode.FlattenUnderscore
+    flattenMode: FlattenMode = FlattenMode.DefaultPrefixUnderscore
 ) extends RTDomainContainer(cfg),
       Domain:
   related =>
   final private[core] lazy val __flattenMode: FlattenMode = flattenMode
-  abstract class RelatedDomain(flattenMode: FlattenMode = FlattenMode.FlattenUnderscore)
+  abstract class RelatedDomain(flattenMode: FlattenMode = FlattenMode.DefaultPrefixUnderscore)
       extends RTDomain(RTDomainCfg.RelatedCfg(related), flattenMode)
 
-abstract class EDDomain(flattenMode: FlattenMode = FlattenMode.FlattenUnderscore)
+abstract class EDDomain(flattenMode: FlattenMode = FlattenMode.DefaultPrefixUnderscore)
     extends DomainContainer(DomainType.ED),
       Domain:
   final private[core] lazy val __flattenMode: FlattenMode = flattenMode

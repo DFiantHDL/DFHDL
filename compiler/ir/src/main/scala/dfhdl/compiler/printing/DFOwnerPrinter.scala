@@ -298,8 +298,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val flattenModeStr = domain.flattenMode match
-      case FlattenMode.FlattenUnderscore => ""
-      case _                             => domain.flattenMode.toString()
+      case FlattenMode.DefaultPrefixUnderscore => ""
+      case _                                   => domain.flattenMode.toString()
     val flattenModeStrBrackets = flattenModeStr.emptyOr(x => s"($x)")
     val domainStr = domain.domainType match
       case DomainType.DF => s"DFDomain$flattenModeStrBrackets"

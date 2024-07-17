@@ -957,13 +957,21 @@ final case class DomainBlock(
 end DomainBlock
 
 /** Flattening Mode:
-  *   - FlattenUnderscore: $ownerName_$memberName
-  *   - FlattenSuffix: $memberName_$ownerName
-  *   - FlattenConcat: $ownerName$memberName
   *   - FlattenTransparent: $memberName
+  *   - FlattenPrefix: $ownerName$sep$memberName
+  *   - FlattenSuffix: $memberName$sep$ownerName
   */
 enum FlattenMode derives CanEqual:
-  case FlattenUnderscore, FlattenSuffix, FlattenConcat, FlattenTransparent
+  case FlattenTransparent
+  case FlattenPrefix(sep: String)
+  case FlattenSuffix(sep: String)
+  override def toString(): String =
+    this match
+      case FlattenTransparent => "FlattenTransparent"
+      case FlattenPrefix(sep) => s"""FlattenPrefix("$sep")"""
+      case FlattenSuffix(sep) => s"""FlattenSuffix("$sep")"""
+object FlattenMode:
+  val DefaultPrefixUnderscore = FlattenMode.FlattenPrefix("_")
 
 sealed trait DFSimMember extends DFMember
 object DFSimMember:

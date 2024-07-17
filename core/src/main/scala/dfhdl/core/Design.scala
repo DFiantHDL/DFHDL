@@ -110,7 +110,7 @@ abstract class DFDesign extends DomainContainer(DomainType.DF), Design
 
 abstract class RTDesign(cfg: RTDomainCfg = DerivedCfg) extends RTDomainContainer(cfg), Design:
   related =>
-  abstract class RelatedDomain(flattenMode: FlattenMode = FlattenMode.FlattenUnderscore)
+  abstract class RelatedDomain(flattenMode: FlattenMode = FlattenMode.DefaultPrefixUnderscore)
       extends RTDomain(RTDomainCfg.RelatedCfg(related), flattenMode)
 
 object RTDesign:
