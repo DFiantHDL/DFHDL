@@ -4,6 +4,7 @@ import dfhdl.internals.*
 import ir.DFVal.Func.{Op => FuncOp}
 import ir.DFDecimal.NativeType
 import NativeType.{valueOf => _, *}
+import scala.runtime.RichInt
 
 import scala.quoted.*
 import scala.annotation.targetName
@@ -1162,6 +1163,8 @@ object DFXInt:
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp.max, List(lhsVal, rhs))
         }
+        // to restore default max functionality that is overridden
+        def max(rhs: Int): Int = RichInt(lhs) max rhs
         def min[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
             rhs: DFValTP[DFXInt[RS, RW, RN], RP]
         )(using sL: Exact.Summon[L, lhs.type])(using
@@ -1174,6 +1177,8 @@ object DFXInt:
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp.min, List(lhsVal, rhs))
         }
+        // to restore default min functionality that is overridden
+        def min(rhs: Int): Int = RichInt(lhs) min rhs
         def +^[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
             rhs: DFValTP[DFXInt[RS, RW, RN], RP]
         )(using sL: Exact.Summon[L, lhs.type])(using
