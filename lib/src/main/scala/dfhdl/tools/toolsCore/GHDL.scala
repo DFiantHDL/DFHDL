@@ -52,7 +52,7 @@ object GHDL extends VHDLLinter:
         )
     exec(
       cd,
-      s"$binExec -a${lo.warnAsError.toFlag("--warn-error")} --std=$std ${filesCmdPart(cd)}"
+      s"$binExec -a${lo.warnAsError.toFlag("--warn-error")} --std=$std -frelaxed -Wno-shared ${filesCmdPart(cd)}"
     )
   end lint
 end GHDL
