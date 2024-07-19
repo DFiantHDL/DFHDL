@@ -6,8 +6,10 @@ import dfhdl.internals.*
 import dfhdl.options.PrinterOptions
 import scala.collection.mutable
 import scala.collection.immutable.ListSet
-class VHDLPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptions)
-    extends Printer,
+class VHDLPrinter(val dialect: VHDLDialect)(using
+    val getSet: MemberGetSet,
+    val printerOptions: PrinterOptions
+) extends Printer,
       VHDLTypePrinter,
       VHDLDataPrinter,
       VHDLValPrinter,

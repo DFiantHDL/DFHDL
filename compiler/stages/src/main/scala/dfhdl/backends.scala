@@ -13,7 +13,7 @@ object backends:
         designDB: DB
     )(using CompilerOptions, PrinterOptions): Printer =
       val compiledDB = StageRunner.run(VerilogBackend)(designDB)
-      new VerilogPrinter(using compiledDB.getSet)
+      new VerilogPrinter(dialect)(using compiledDB.getSet)
   object verilog extends verilog(VerilogDialect.sv2005):
     val v2001: verilog = new verilog(VerilogDialect.v2001)
     val sv2005: verilog = this
@@ -25,7 +25,7 @@ object backends:
         designDB: DB
     )(using CompilerOptions, PrinterOptions): Printer =
       val compiledDB = StageRunner.run(VHDLBackend)(designDB)
-      new VHDLPrinter(using compiledDB.getSet)
+      new VHDLPrinter(dialect)(using compiledDB.getSet)
   object vhdl extends vhdl(VHDLDialect.v2008):
     val v93: vhdl = new vhdl(VHDLDialect.v93)
     val v2008: vhdl = this
