@@ -60,7 +60,7 @@ class IssuesSpec extends FunSuite:
       i135.VerilogSRA().getCompiledCodeString,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "VerilogSRA_defs.sv"
+         |`include "VerilogSRA_defs.svh"
          |
          |module VerilogSRA(
          |  input wire logic signed [9:0] a

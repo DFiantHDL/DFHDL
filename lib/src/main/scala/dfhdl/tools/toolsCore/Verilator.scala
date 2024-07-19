@@ -96,7 +96,7 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
     designDB.getOpenOutPorts.map: dfVal =>
       lintOffCommand(
         rule = "PINCONNECTEMPTY",
-        file = s"${dfVal.getOwnerDesign.getOwnerDesign.dclName}.sv",
+        file = s"${dfVal.getOwnerDesign.getOwnerDesign.dclName}.*",
         matchWild = s"*: '${dfVal.getName}'*"
       )
     .distinct.mkString("\n")
@@ -104,7 +104,7 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
     designDB.getUnusedTaggedValues.map: dfVal =>
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
-        file = s"${dfVal.getOwnerDesign.dclName}.sv",
+        file = s"${dfVal.getOwnerDesign.dclName}.*",
         matchWild = s"*: '${dfVal.getName}'*"
       )
     .distinct.mkString("\n")
@@ -115,7 +115,7 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
         else s"$relBitHigh:$relBitLow"
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
-        file = s"${dfVal.getOwnerDesign.dclName}.sv",
+        file = s"${dfVal.getOwnerDesign.dclName}.*",
         matchWild = s"*Bits of signal are not used: '${dfVal.getName}'[$bitSel]*"
       )
     .distinct.mkString("\n")

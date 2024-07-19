@@ -48,7 +48,11 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/*", "\n  ", "*/")
   def csAnnotations(meta: Meta): String = ""
   def csTimer(timer: Timer): String = unsupported
-  def globalFileName: String = s"${printer.defsName}.sv"
+  def globalFileName: String =
+    val suffix = printer.dialect match
+      case VerilogDialect.v2001 => "v"
+      case _                    => "svh"
+    s"${printer.defsName}.$suffix"
   override def csGlobalFileContent: String =
     val defName = printer.defsName.toUpperCase
     s"""`ifndef $defName
@@ -59,7 +63,11 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
        |`endif
        |""".stripMargin
 
-  def designFileName(designName: String): String = s"$designName.sv"
+  def designFileName(designName: String): String =
+    val suffix = printer.dialect match
+      case VerilogDialect.v2001 => "v"
+      case _                    => "sv"
+    s"$designName.$suffix"
   def alignCode(cs: String): String =
     cs
       // align after port modifiers
