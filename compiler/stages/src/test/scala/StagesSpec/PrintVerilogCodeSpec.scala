@@ -127,7 +127,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input wire logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
-         |  always @(*)
+         |  always_comb
          |  begin
          |    y = x;
          |  end
@@ -185,7 +185,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic y
          |);
          |  parameter logic lp = 1'b1;
-         |  always @(*)
+         |  always_comb
          |  begin
          |    y = ((x | gp) | dp) | lp;
          |  end
@@ -235,12 +235,12 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter logic [15:0] c = 16'h0000;
          |  logic [15:0] z;
          |  logic [15:0] my_var;
-         |  always @(posedge clk, posedge rst)
+         |  always_ff @(posedge clk, posedge rst)
          |  begin
          |    if (rst) y <= c;
          |    else y <= x;
          |  end
-         |  myblock : always @(*)
+         |  myblock : always_comb
          |  begin
          |    my_var = x;
          |    y      <= my_var;
@@ -364,11 +364,11 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [width - 1:0] cnt
          |);
          |  logic [width - 1:0] cnt_reg;
-         |  always @(*)
+         |  always_comb
          |  begin
          |    cnt = cnt_reg + width'(1);
          |  end
-         |  always @(posedge clk)
+         |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) cnt_reg <= {width{1'b0}};
          |    else cnt_reg <= cnt;
@@ -404,7 +404,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [$clog2(width) - 1:0] z,
          |  output logic [$clog2(width + 1) - 1:0] w
          |);
-         |  always @(*)
+         |  always_comb
          |  begin
          |    x = {{(width-2){1'b0}}, 2'h3};
          |    x = {{(width-2){1'b0}}, 2'h3};
@@ -436,11 +436,11 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [width - 1:0] cnt
          |);
          |  logic [width - 1:0] cnt_reg;
-         |  always @(*)
+         |  always_comb
          |  begin
          |    cnt = cnt_reg + width'(1);
          |  end
-         |  always @(posedge clk)
+         |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) cnt_reg <= width'(0);
          |    else cnt_reg <= cnt;
@@ -488,7 +488,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  logic [$clog2(HALF_PERIOD) - 1:0] cnt;
          |  logic led_din;
          |  logic [$clog2(HALF_PERIOD) - 1:0] cnt_din;
-         |  always @(*)
+         |  always_comb
          |  begin
          |    led_din = led;
          |    cnt_din = cnt;
@@ -498,7 +498,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    end
          |    else cnt_din = cnt + $clog2(HALF_PERIOD)'(1);
          |  end
-         |  always @(posedge clk)
+         |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) begin
          |      led <= 1'b1;

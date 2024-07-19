@@ -6,6 +6,7 @@ import dfhdl.internals.*
 import DFVal.*
 import dfhdl.compiler.ir.ProcessBlock.Sensitivity
 import dfhdl.compiler.ir.DFConditional.DFCaseBlock.Pattern
+import DFVal.Func.Op as FuncOp
 
 protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter <: VerilogPrinter
@@ -108,11 +109,24 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       if (dcls.isEmpty) ""
       else s"${csDFMembers(dcls)}\n"
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
+    val alwaysKW = printer.dialect match
+      case VerilogDialect.v2001 => "always"
+      case _ =>
+        pb.sensitivity match
+          case Sensitivity.All => "always_comb"
+          case Sensitivity.List(refs) =>
+            refs match
+              case DFRef(DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _)) :: Nil =>
+                "always_ff"
+              case DFRef(DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _)) ::
+                  DFRef(DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _)) :: Nil =>
+                "always_ff"
+              case _ => "always"
     val senList = pb.sensitivity match
-      case Sensitivity.All => " @(*)"
+      case Sensitivity.All => if (alwaysKW == "always") " @(*)" else ""
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" @${refs.map(_.refCodeString).mkStringBrackets}"
-    s"$dcl${named}always$senList\nbegin\n${body.hindent}\nend"
+    s"$dcl${named}$alwaysKW$senList\nbegin\n${body.hindent}\nend"
   end csProcessBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VerilogOwnerPrinter
