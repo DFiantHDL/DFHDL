@@ -45,7 +45,7 @@ object GHDL extends VHDLLinter:
         be.dialect match
           case VHDLDialect.v93   => "93"
           case VHDLDialect.v2008 => "08"
-          case VHDLDialect.v2019 => "08" // uses 2008 standard until GHDL supports this dialect
+          case VHDLDialect.v2019 => "19"
       case _ =>
         throw new java.lang.IllegalArgumentException(
           "Current backend is not supported for GHDL linting."
