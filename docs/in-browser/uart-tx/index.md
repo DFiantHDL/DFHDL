@@ -6,6 +6,6 @@ hide:
 # UART Transmitter
 
 ```scastie 
---8<-- "lib/src/test/scala/docExamples/UART_Tx.scala:2"
+--8<-- "lib/src/test/scala/docExamples/UART_Tx.scala:3"
 ```
 

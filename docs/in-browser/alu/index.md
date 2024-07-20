@@ -6,6 +6,6 @@ hide:
 # ALU
 
 ```scastie 
---8<-- "lib/src/test/scala/docExamples/ALU.scala:2"
+--8<-- "lib/src/test/scala/docExamples/ALU.scala:3"
 ```
 

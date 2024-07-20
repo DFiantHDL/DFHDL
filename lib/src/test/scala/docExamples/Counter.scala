@@ -1,8 +1,9 @@
 package docExamples.counter
+// scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.* //import all the DFHDL goodness
 
 @top class Counter(val width: Int <> CONST = 8) extends RTDesign:
-  val en = Bit <> IN
+  val en  = Bit         <> IN
   val cnt = UInt(width) <> OUT.REG init 0
   if (en)
     cnt.din := cnt + 1

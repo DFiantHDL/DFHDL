@@ -6,6 +6,6 @@ hide:
 # 1-Bit Full Adder {#run-in-browser}
 
 ```scastie 
---8<-- "lib/src/test/scala/docExamples/FullAdder1.scala:2"
+--8<-- "lib/src/test/scala/docExamples/FullAdder1.scala:3"
 ```
 

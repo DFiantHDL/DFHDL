@@ -1,25 +1,26 @@
 package docExamples.uart_tx
+// scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.* //import all the DFHDL goodness
 
 @top class UART_Tx(
-    val CLK_FREQ_KHz: Int <> CONST = 50000,
+    val CLK_FREQ_KHz: Int <> CONST  = 50000,
     val BAUD_RATE_BPS: Int <> CONST = 115200
 ) extends RTDesign:
-  val data_en = Bit <> IN
-  val DATA_BITS = 8
-  val data = Bits(DATA_BITS) <> IN
-  val tx = Bit <> OUT.REG
-  val tx_en = Bit <> OUT.REG
-  val tx_done = Bit <> OUT.REG
+  val data_en    = Bit             <> IN
+  val DATA_BITS  = 8
+  val data       = Bits(DATA_BITS) <> IN
+  val tx         = Bit             <> OUT.REG
+  val tx_en      = Bit             <> OUT.REG
+  val tx_done    = Bit             <> OUT.REG
   val BIT_CLOCKS = CLK_FREQ_KHz * 1000 / BAUD_RATE_BPS
 
   enum Status extends Encode.OneHot:
     case Idle, StartBit, DataBits, StopBit, Finalize
   import Status.*
-  val status = Status <> VAR.REG init Idle
-  val bitClkCnt = UInt.until(BIT_CLOCKS) <> VAR.REG init 0
-  val dataBitCnt = UInt.until(DATA_BITS) <> VAR.REG init 0
-  val shiftData = Bits(DATA_BITS) <> VAR.REG
+  val status     = Status                 <> VAR.REG init Idle
+  val bitClkCnt  = UInt.until(BIT_CLOCKS) <> VAR.REG init 0
+  val dataBitCnt = UInt.until(DATA_BITS)  <> VAR.REG init 0
+  val shiftData  = Bits(DATA_BITS)        <> VAR.REG
 
   // To save on writing the "bit clock count wait" 3 times,
   // we use DFHDL's meta-programming capability.
@@ -32,18 +33,18 @@ import dfhdl.* //import all the DFHDL goodness
 
   status match
     case Idle =>
-      tx_en.din := 0
-      tx.din := 1
-      tx_done.din := 0
-      bitClkCnt.din := 0
+      tx_en.din      := 0
+      tx.din         := 1
+      tx_done.din    := 0
+      bitClkCnt.din  := 0
       dataBitCnt.din := 0
       if (data_en)
         shiftData.din := data
-        status.din := StartBit
+        status.din    := StartBit
 
     case StartBit =>
       tx_en.din := 1
-      tx.din := 0
+      tx.din    := 0
       waitBitAndThen { status.din := DataBits }
 
     case DataBits =>
@@ -52,7 +53,7 @@ import dfhdl.* //import all the DFHDL goodness
         shiftData.din := shiftData >> 1
         if (dataBitCnt == DATA_BITS - 1)
           dataBitCnt.din := 0
-          status.din := StopBit
+          status.din     := StopBit
         else dataBitCnt.din := dataBitCnt + 1
       }
 
@@ -60,13 +61,13 @@ import dfhdl.* //import all the DFHDL goodness
       tx.din := 1
       waitBitAndThen {
         tx_done.din := 1
-        status.din := Finalize
+        status.din  := Finalize
       }
 
     case Finalize =>
-      tx_en.din := 0
+      tx_en.din   := 0
       tx_done.din := 1
-      status.din := Idle
+      status.din  := Idle
   end match
 end UART_Tx
 
