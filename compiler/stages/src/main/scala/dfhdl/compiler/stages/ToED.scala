@@ -123,9 +123,7 @@ case object ToED extends Stage:
                     ).asIR
                 if (hasProcessAll)
                   process(all) {
-                    val inVHDL = co.backend match
-                      case _: dfhdl.backends.vhdl => true
-                      case _                      => false
+                    val inVHDL = co.backend.isVHDL
                     dclREGList.lazyZip(dcl_din_vars).foreach { (dclREG, dcl_din) =>
                       if (inVHDL) dcl_din.asVarAny :== dclREG.asValAny
                       else dcl_din.asVarAny := dclREG.asValAny

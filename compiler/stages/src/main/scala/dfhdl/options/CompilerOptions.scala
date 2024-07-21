@@ -52,6 +52,13 @@ object CompilerOptions:
   object Backend:
     given Backend = dfhdl.backends.verilog.sv2005
     given Conversion[BackendCompiler, Backend] = identity
+    extension (backend: Backend)
+      def isVHDL: Boolean = backend match
+        case _: dfhdl.backends.vhdl => true
+        case _                      => false
+      def isVerilog: Boolean = backend match
+        case _: dfhdl.backends.verilog => true
+        case _                         => false
     export dfhdl.backends.*
 
   opaque type LogLevel <: dfhdl.options.LogLevel = dfhdl.options.LogLevel

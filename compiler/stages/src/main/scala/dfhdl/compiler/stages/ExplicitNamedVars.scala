@@ -10,7 +10,7 @@ import scala.reflect.classTag
 
 case object ExplicitNamedVars extends Stage:
   def dependencies: List[Stage] = Nil
-  def nullifies: Set[Stage] = Set(DropLocalDcls, DropCondDcls)
+  def nullifies: Set[Stage] = Set(DropLocalDcls)
 
   object WhenHeader extends Patch.Replace.RefFilter:
     val ifHeaderTag = classTag[DFConditional.DFIfHeader]

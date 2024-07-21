@@ -7,6 +7,7 @@ import dfhdl.options.CompilerOptions
 case object DropBAssignFromSeqProc extends Stage:
   override def dependencies: List[Stage] = List(DropLocalDcls, ExplicitNamedVars)
   override def nullifies: Set[Stage] = Set()
+  override def runCondition(using co: CompilerOptions): Boolean = co.backend.isVerilog
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] =
       var latestSeqProc: Option[ProcessBlock] = None

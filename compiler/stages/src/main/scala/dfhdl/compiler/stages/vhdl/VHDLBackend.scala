@@ -23,10 +23,4 @@ enum VHDLDialect derives CanEqual:
   case v93, v2008, v2019
 
 private case object VHDLUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = false)
-case object VHDLBackend extends Stage:
-  def dependencies: List[Stage] =
-    List(DropUnreferencedAnons, NamedAnonMultiref, ToED, DropDomains, DropMagnets,
-      ExplicitNamedVars, DropCondDcls, SimpleOrderMembers, VHDLUniqueNames, ViaConnection)
-  def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB = designDB
-end VHDLBackend
+case object VHDLBackend extends BundleStage(BackendPrepStage, VHDLUniqueNames)

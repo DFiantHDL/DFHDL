@@ -1,7 +1,7 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.{dropLocalDcls, dropCondDcls}
+import dfhdl.compiler.stages.dropLocalDcls
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class DropLocalDclsSpec extends StageSpec:
@@ -88,7 +88,8 @@ class DropLocalDclsSpec extends StageSpec:
          |end ID
          |""".stripMargin
     )
-  test("Process keeps local dcls"):
+  test("Process keeps local dcls under VHDL"):
+    given options.CompilerOptions.Backend = backends.vhdl
     class ID extends EDDesign:
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT
@@ -106,7 +107,7 @@ class DropLocalDclsSpec extends StageSpec:
           z  := zz
         y := z
     end ID
-    val id = (new ID).dropCondDcls
+    val id = (new ID).dropLocalDcls
     assertCodeString(
       id,
       """|class ID extends EDDesign:

@@ -83,7 +83,7 @@ object NamedAliases:
             if (transparentConversion) relVal.hasVerilogName
             else false
           case _ => false
-    object NamedSelection extends Criteria:
+    object NamedVerilogSelection extends Criteria:
       def apply()(using MemberGetSet): DFVal => List[DFVal] = {
         case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName => Nil
         case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>
@@ -101,7 +101,7 @@ object NamedAliases:
         case ch: DFConditional.Header if ch.isAnonymous && ch.dfType != DFUnit => List(ch)
         case _                                                                 => Nil
       }
-    end NamedSelection
+    end NamedVerilogSelection
     object NamedPrev extends Criteria:
       def apply()(using MemberGetSet): DFVal => List[DFVal] = {
         case alias: DFVal.Alias.History if alias.relValRef.get.isAnonymous =>
@@ -130,10 +130,11 @@ end NamedAliases
 // For verilog simulation in verilator (and possibly other tools), bit selection from unnamed values is limited.
 // This compilation stage names the intermediate values. A future stage (UniqueNames) is responsible for
 // making sure the names will be unique.
-case object NamedSelection extends NamedAliases(NamedAliases.Criteria.NamedSelection)
+case object NamedVerilogSelection extends NamedAliases(NamedAliases.Criteria.NamedVerilogSelection):
+  override def runCondition(using co: CompilerOptions): Boolean = co.backend.isVerilog
 extension [T: HasDB](t: T)
-  def namedSelection(using CompilerOptions): DB =
-    StageRunner.run(NamedSelection)(t.db)
+  def verilogNamedSelection(using CompilerOptions): DB =
+    StageRunner.run(NamedVerilogSelection)(t.db)
 
 // Creating a previous values of a value requires that value to be names to avoid random anonymous names in the
 // the backend

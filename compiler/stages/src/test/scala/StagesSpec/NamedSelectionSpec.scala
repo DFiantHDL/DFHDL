@@ -1,7 +1,7 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.namedSelection
+import dfhdl.compiler.stages.verilogNamedSelection
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class NamedSelectionSpec extends StageSpec:
@@ -17,7 +17,7 @@ class NamedSelectionSpec extends StageSpec:
         case _      => i
       ): Byte <> VAL)
 
-    val id = (new Mux).namedSelection
+    val id = (new Mux).verilogNamedSelection
     assertCodeString(
       id,
       """|class Mux extends DFDesign:
@@ -53,7 +53,7 @@ class NamedSelectionSpec extends StageSpec:
       else
         y := (x + 2).bits(15, 8)
 
-    val id = (new ID).namedSelection
+    val id = (new ID).verilogNamedSelection
     assertCodeString(
       id,
       """|class ID extends DFDesign:
@@ -80,7 +80,7 @@ class NamedSelectionSpec extends StageSpec:
       val y = Bits(8) <> OUT
       y := x.actual(0).bits(7, 0)
 
-    val id = (new ID).namedSelection
+    val id = (new ID).verilogNamedSelection
     assertCodeString(
       id,
       """|case class Wrapper() extends Opaque(Bits(16) X 4)
