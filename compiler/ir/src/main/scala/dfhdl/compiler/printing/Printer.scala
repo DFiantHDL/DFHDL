@@ -189,8 +189,11 @@ trait Printer
 end Printer
 
 object Printer:
-  def printGenFiles(db: DB): Unit =
-    db.srcFiles.foreach {
+  def printGenFiles(db: DB)(using po: PrinterOptions): Unit =
+    val srcFiles =
+      if (po.showGlobals) db.srcFiles
+      else db.srcFiles.drop(1)
+    srcFiles.foreach {
       case srcFile @ SourceFile(
             SourceOrigin.Compiled | SourceOrigin.Committed,
             _,
@@ -205,6 +208,7 @@ object Printer:
         println("")
       case _ =>
     }
+  end printGenFiles
   def commit(db: DB, folderPathStr: String): DB =
     val folderPath = Paths.get(folderPathStr)
     if (!Files.exists(folderPath))
