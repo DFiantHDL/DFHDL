@@ -556,6 +556,22 @@ object DFVal extends DFValLP:
         else dfVal.initForced(Nil)
       }
 
+  extension [W <: IntP, D <: NonEmptyTuple, A, C, I, P](
+      dfVal: DFVal[DFVector[DFBits[W], D], Modifier[A, C, I, P]]
+  )
+    infix def initFile(
+        path: String,
+        format: ir.InitFileFormat = ir.InitFileFormat.Auto
+    )(using
+        DFC,
+        InitCheck[I]
+    ): DFVal[DFVector[DFBits[W], D], Modifier[A, C, Modifier.Initialized, P]] =
+      val initFileFunc =
+        DFVal.Func(DFNothing, DFVal.Func.Op.InitFile(format, path), List.empty[ir.DFVal])(using
+          dfc.anonymize
+        ).asConstOf[DFVector[DFBits[W], D]]
+      dfVal.initForced(List(initFileFunc))
+
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
     ???
 

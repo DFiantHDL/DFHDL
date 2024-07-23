@@ -4,6 +4,7 @@ import ir.*
 import dfhdl.internals.*
 import DFVal.*
 import analysis.*
+import Func.Op as FuncOp
 
 extension (ref: DFRef.TwoWayAny)
   def refCodeString(using printer: AbstractValPrinter): String = printer.csRef(ref, false)
@@ -80,6 +81,11 @@ trait AbstractValPrinter extends AbstractPrinter:
   final def csDFValDcl(dfVal: Dcl): String =
     val noInit = csDFValDclWithoutInit(dfVal)
     val init = dfVal.initRefList match
+      case DFRef(DFVal.Func(_, FuncOp.InitFile(format, path), _, _, _, _)) :: Nil =>
+        val csInitFile = format match
+          case InitFileFormat.Auto => s""""$path""""
+          case _                   => s"""("$path", InitFileFormat.$format)"""
+        s" initFile $csInitFile"
       case ref :: Nil => s" $csInitKeyword ${csInitSingle(ref)}"
       case Nil        => ""
       case refs       => s" $csInitKeyword ${csInitSeq(refs)}"

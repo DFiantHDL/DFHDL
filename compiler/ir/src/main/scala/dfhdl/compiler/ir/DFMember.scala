@@ -410,6 +410,8 @@ object DFVal:
       case unary_-, unary_~, unary_!
       case rising, falling
       case clog2, max, min
+      // special-case of initFile construct for vectors of bits
+      case InitFile(format: InitFileFormat, path: String)
 
   final case class PortByNameSelect(
       dfType: DFType,
