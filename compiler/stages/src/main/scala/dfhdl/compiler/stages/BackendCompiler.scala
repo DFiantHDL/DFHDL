@@ -9,13 +9,6 @@ trait BackendCompiler:
   final def compile[D <: Design](
       sd: StagedDesign[D]
   )(using co: CompilerOptions, po: PrinterOptions): CompiledDesign[D] =
-    if (co.printDesignCodeBefore)
-      println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           |The design code before compilation:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
-      )
-      sd.printCodeString
     val ret = CompiledDesign(sd.newStage(printer(sd.stagedDB).printedDB))
     if (co.printDesignCodeAfter)
       println(

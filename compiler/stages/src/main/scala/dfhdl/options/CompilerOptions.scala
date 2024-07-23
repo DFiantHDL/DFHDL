@@ -11,7 +11,6 @@ final case class CompilerOptions(
     newFolderForTop: NewFolderForTop,
     backend: Backend,
     logLevel: LogLevel,
-    printDesignCodeBefore: PrintDesignCodeBefore,
     printDesignCodeAfter: PrintDesignCodeAfter,
     printGenFiles: PrintGenFiles
 )
@@ -21,14 +20,13 @@ object CompilerOptions:
       newFolderForTop: NewFolderForTop,
       backend: Backend,
       logLevel: LogLevel,
-      printDesignCodeBefore: PrintDesignCodeBefore,
       printDesignCodeAfter: PrintDesignCodeAfter,
       printGenFiles: PrintGenFiles
   ): CompilerOptions =
     CompilerOptions(
       commitFolder = commitFolder, newFolderForTop = newFolderForTop, backend = backend,
-      logLevel = logLevel, printDesignCodeBefore = printDesignCodeBefore,
-      printDesignCodeAfter = printDesignCodeAfter, printGenFiles = printGenFiles
+      logLevel = logLevel, printDesignCodeAfter = printDesignCodeAfter,
+      printGenFiles = printGenFiles
     )
 
   extension (co: CompilerOptions)
@@ -66,11 +64,6 @@ object CompilerOptions:
   object LogLevel:
     given (using logLevel: dfhdl.options.LogLevel): LogLevel = logLevel
     export dfhdl.options.LogLevel.*
-
-  opaque type PrintDesignCodeBefore <: Boolean = Boolean
-  object PrintDesignCodeBefore:
-    given PrintDesignCodeBefore = false
-    given Conversion[Boolean, PrintDesignCodeBefore] = identity
 
   opaque type PrintDesignCodeAfter <: Boolean = Boolean
   object PrintDesignCodeAfter:

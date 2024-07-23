@@ -79,7 +79,15 @@ trait DFApp:
   private def elaborate: core.Design =
     logger.info("Elaborating design...")
     // the elaboration options are set in the compiler plugin using getElaborationOptions
-    dsn()
+    val elaborated = dsn()
+    if (elaborationOptions.printDesignCodeAfter)
+      println(
+        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+           |The design code after elaboration:
+           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+      )
+      elaborated.printCodeString
+    elaborated
 
   private def programName: String =
     dfhdl.internals.getShellCommand match
