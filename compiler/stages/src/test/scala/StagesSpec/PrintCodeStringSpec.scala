@@ -709,4 +709,58 @@ class PrintCodeStringSpec extends StageSpec:
          |end IDWithDomains
          |""".stripMargin
     )
+  test("EDTrueDPR printing"):
+    class TrueDPR(
+        val DATA_WIDTH: Int <> CONST = 4,
+        val ADDR_WIDTH: Int <> CONST = 4
+    ) extends EDDesign:
+      val ram = Bits(DATA_WIDTH) X (2 ** ADDR_WIDTH) <> VAR.SHARED initFile "test"
+
+      val a, b = new EDDomain:
+        val clk  = Bit              <> IN
+        val data = Bits(DATA_WIDTH) <> IN
+        val addr = Bits(ADDR_WIDTH) <> IN
+        val q    = Bits(DATA_WIDTH) <> OUT
+        val we   = Bit              <> IN
+
+        process(clk):
+          if (clk.rising)
+            if (we)
+              ram(addr) := data
+            q :== ram(addr)
+    end TrueDPR
+    val top = TrueDPR().getCodeString
+    assertNoDiff(
+      top,
+      """|class TrueDPR(
+         |    val DATA_WIDTH: Int <> CONST = 4,
+         |    val ADDR_WIDTH: Int <> CONST = 4
+         |) extends EDDesign:
+         |  val RAM_LENGTH: Int <> CONST = 2 ** ADDR_WIDTH
+         |  val ram = Bits(DATA_WIDTH) X RAM_LENGTH <> VAR.SHARED initFile "test"
+         |  val a = new EDDomain:
+         |    val clk = Bit <> IN
+         |    val data = Bits(DATA_WIDTH) <> IN
+         |    val addr = Bits(ADDR_WIDTH) <> IN
+         |    val q = Bits(DATA_WIDTH) <> OUT
+         |    val we = Bit <> IN
+         |    process(clk):
+         |      if (clk.rising)
+         |        if (we) ram(addr.uint.toInt) := data
+         |        q :== ram(addr.uint.toInt)
+         |      end if
+         |  val b = new EDDomain:
+         |    val clk = Bit <> IN
+         |    val data = Bits(DATA_WIDTH) <> IN
+         |    val addr = Bits(ADDR_WIDTH) <> IN
+         |    val q = Bits(DATA_WIDTH) <> OUT
+         |    val we = Bit <> IN
+         |    process(clk):
+         |      if (clk.rising)
+         |        if (we) ram(addr.uint.toInt) := data
+         |        q :== ram(addr.uint.toInt)
+         |      end if
+         |end TrueDPR
+         |""".stripMargin
+    )
 end PrintCodeStringSpec

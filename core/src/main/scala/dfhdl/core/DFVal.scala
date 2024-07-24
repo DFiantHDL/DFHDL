@@ -567,7 +567,7 @@ object DFVal extends DFValLP:
         InitCheck[I]
     ): DFVal[DFVector[DFBits[W], D], Modifier[A, C, Modifier.Initialized, P]] =
       val initFileFunc =
-        DFVal.Func(DFNothing, DFVal.Func.Op.InitFile(format, path), List.empty[ir.DFVal])(using
+        DFVal.Func(dfVal.dfType, DFVal.Func.Op.InitFile(format, path), List.empty[ir.DFVal])(using
           dfc.anonymize
         ).asConstOf[DFVector[DFBits[W], D]]
       dfVal.initForced(List(initFileFunc))

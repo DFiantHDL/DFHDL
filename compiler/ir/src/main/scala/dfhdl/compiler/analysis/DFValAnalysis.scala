@@ -283,18 +283,28 @@ extension (dfVal: DFVal)
     val origins = member.originMembers
 
     val refOwner: Option[DFMember] =
-      // search consuming references first
-      origins.filter {
-        case _: (DFVal.Alias.Partial | DFConditional.Block) => false
-        case _                                              => true
-      }.headOption
-        // search aliasing references, as long as we don't go back to previous member
-        // (aliasing can be used for both producing and consuming)
-        .orElse {
-          origins.collectFirst {
-            case m if prevMember.isEmpty || prevMember.get != m => m
-          }
+      // search type referencing as origin first
+      val first =
+        if (member.isConst) origins.collectFirst {
+          case dfVal: DFVal if !dfVal.isAnonymous && dfVal.dfType.getRefs.exists(_.get == member) =>
+            dfVal
         }
+        else None
+      // search consuming references second
+      val second = first.orElse {
+        origins.filter {
+          case _: (DFVal.Alias.Partial | DFConditional.Block) => false
+          case _                                              => true
+        }.headOption
+      }
+      // search aliasing references, as long as we don't go back to previous member
+      // (aliasing can be used for both producing and consuming)
+      second.orElse {
+        origins.collectFirst {
+          case m if prevMember.isEmpty || prevMember.get != m => m
+        }
+      }
+    end refOwner
     refOwner match
       // name from assignment destination
       case Some(DFNet.Assignment(toVal, _)) => Some(partName(member, toVal))
