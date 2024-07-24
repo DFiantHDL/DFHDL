@@ -129,6 +129,16 @@ sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
   def width(using MemberGetSet): Int = dfType.width
   def isGlobal: Boolean = false
+  protected def protIsFullyAnonymous(using MemberGetSet): Boolean
+  // using just an integer to escape redundant boxing Option[Boolean] would have achieved
+  private var cachedIsFullyAnonymous: Int = -1
+  final def isFullyAnonymous(using MemberGetSet): Boolean =
+    if (cachedIsFullyAnonymous == -1)
+      val localIsFullyAnonymous = protIsConst
+      cachedIsFullyAnonymous = if (localIsFullyAnonymous) 1 else 0
+      localIsFullyAnonymous
+    else if (cachedIsFullyAnonymous > 0) true
+    else false
   protected def protIsConst(using MemberGetSet): Boolean
   // using just an integer to escape redundant boxing Option[Boolean] would have achieved
   private var cachedIsConst: Int = -1
@@ -323,6 +333,7 @@ object DFVal:
       tags: DFTags
   ) extends CanBeExpr,
         CanBeGlobal:
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = this.isAnonymous
     protected def protIsConst(using MemberGetSet): Boolean = true
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
@@ -342,6 +353,7 @@ object DFVal:
   ) extends DFVal:
     val meta: Meta = Meta(None, Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
     protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case _: Open => true
@@ -360,6 +372,7 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends DFVal:
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
@@ -388,6 +401,8 @@ object DFVal:
       tags: DFTags
   ) extends CanBeExpr,
         CanBeGlobal:
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+      args.forall(_.get.isFullyAnonymous)
     protected def protIsConst(using MemberGetSet): Boolean =
       args.forall(_.get.isConst)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -421,6 +436,7 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends DFVal:
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: PortByNameSelect =>
@@ -469,6 +485,8 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous
       protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: AsIs =>
@@ -496,6 +514,8 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Consumer:
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous && initRefOption.map(_.get.isFullyAnonymous).getOrElse(true)
       protected def protIsConst(using MemberGetSet): Boolean = false
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: History =>
@@ -529,6 +549,8 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous
       protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
       val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -549,6 +571,8 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous && relIdx.get.isFullyAnonymous
       protected def protIsConst(using MemberGetSet): Boolean =
         relValRef.get.isConst && relIdx.get.isConst
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -578,6 +602,8 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous
       protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: SelectField =>
@@ -748,6 +774,9 @@ object DFConditional:
   ) extends Header:
     type TBlock = DFCaseBlock
     // TODO: if all returned expressions in all blocks and the selector is constant, then
+    // the returned result is a fully anonymous
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
+    // TODO: if all returned expressions in all blocks and the selector is constant, then
     // the returned result is a constant
     protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -844,6 +873,9 @@ object DFConditional:
       tags: DFTags
   ) extends Header:
     type TBlock = DFIfElseBlock
+    // TODO: if all returned expressions in all blocks and the selector is constant, then
+    // the returned result is a fully anonymous
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     // TODO: if all returned expressions in all blocks and the selector is constant, then
     // the returned result is a constant
     protected def protIsConst(using MemberGetSet): Boolean = false
@@ -1039,6 +1071,8 @@ object Timer:
       tags: DFTags
   ) extends DFVal.CanBeExpr:
     val dfType: DFType = DFBool
+    // TODO: revisit this in the future. can an active indication of a timer be fully anonymous?
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protIsConst(using MemberGetSet): Boolean = false
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: IsActive =>
