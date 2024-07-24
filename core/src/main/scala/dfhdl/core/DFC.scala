@@ -82,7 +82,7 @@ object DFC:
     object Interface extends Interface
 end DFC
 
-def dfc(using DFC): DFC = summon[DFC]
+transparent inline def dfc(using d: DFC): d.type = d
 
 trait HasDFC:
   lazy val dfc: DFC
