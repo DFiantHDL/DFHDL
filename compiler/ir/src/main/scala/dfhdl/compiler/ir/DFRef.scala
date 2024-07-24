@@ -61,4 +61,4 @@ extension (intCompanion: Int.type)
     (intParamRef: @unchecked) match
       case int: Int => Some(int)
       case DFRef(dfVal: DFVal) =>
-        dfVal.getParamData.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)
+        dfVal.getConstData.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)

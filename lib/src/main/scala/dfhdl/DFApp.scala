@@ -12,14 +12,14 @@ trait DFApp:
   logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
   private var designName: String = ""
   private var topScalaPath: String = ""
-  // this context is just for enabling `getParamData` to work.
+  // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
   val dfc: DFC = DFC.emptyNoEO
   case class Arg(name: String, typeName: String, value: Any, desc: String):
     def valueStr: String = value match
       case dfConst: DFValAny =>
         import dfc.getSet
-        dfConst.asIR.getParamData.asInstanceOf[Option[Option[Any]]].get.get.toString()
+        dfConst.asIR.getConstData.asInstanceOf[Option[Option[Any]]].get.get.toString()
       case _ => value.toString()
     def updateWithValueStr(updatedValueStr: String): Arg =
       val scalaTypeName = typeName.replaceFirst("DFHDL ", "")

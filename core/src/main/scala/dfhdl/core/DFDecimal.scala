@@ -675,7 +675,7 @@ object DFXInt:
         val int32Data: Option[Int] =
           if (dfVal.dfType.asIR.isDFInt32)
             import dfc.getSet
-            dfVal.asIR.getParamData match
+            dfVal.asIR.getConstData match
               case Some(Some(n: BigInt)) => Some(n.toInt)
               case _                     => None
           else None

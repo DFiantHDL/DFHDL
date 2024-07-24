@@ -134,21 +134,21 @@ sealed trait DFVal extends DFMember.Named:
   private var cachedIsFullyAnonymous: Int = -1
   final def isFullyAnonymous(using MemberGetSet): Boolean =
     if (cachedIsFullyAnonymous == -1)
-      val localIsFullyAnonymous = protIsConst
+      val localIsFullyAnonymous = protIsFullyAnonymous
       cachedIsFullyAnonymous = if (localIsFullyAnonymous) 1 else 0
       localIsFullyAnonymous
     else if (cachedIsFullyAnonymous > 0) true
     else false
-  protected def protIsConst(using MemberGetSet): Boolean
-  // using just an integer to escape redundant boxing Option[Boolean] would have achieved
-  private var cachedIsConst: Int = -1
-  final def isConst(using MemberGetSet): Boolean =
-    if (cachedIsConst == -1)
-      val localIsConst = protIsConst
-      cachedIsConst = if (localIsConst) 1 else 0
-      localIsConst
-    else if (cachedIsConst > 0) true
-    else false
+  final def isConst(using MemberGetSet): Boolean = getConstData.nonEmpty
+  protected def protGetConstData(using MemberGetSet): Option[Any]
+  private var cachedConstDataReady: Boolean = false
+  private var cachedConstData: Option[Any] = None
+  final def getConstData(using MemberGetSet): Option[Any] =
+    if (cachedConstDataReady) cachedConstData
+    else
+      cachedConstData = protGetConstData
+      cachedConstDataReady = true
+      cachedConstData
   def updateDFType(dfType: DFType): this.type
 end DFVal
 
@@ -253,59 +253,6 @@ object DFVal:
     def stripPortSel(using MemberGetSet): DFVal = dfVal match
       case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
       case _                               => dfVal
-    def getParamData(using MemberGetSet): Option[Any] =
-      dfVal match
-        case const: DFVal.Const => Some(const.data)
-        case func: DFVal.Func =>
-          val args = func.args.map(_.get)
-          val argData = args.flatMap(_.getParamData)
-          val argTypes = args.map(_.dfType)
-          if (argData.length != func.args.length) None
-          else Some(calcFuncData(func.dfType, func.op, argTypes, argData))
-        case alias: DFVal.Alias =>
-          val relVal = alias.relValRef.get
-          relVal.getParamData match
-            case Some(relValData) =>
-              alias match
-                case alias: DFVal.Alias.AsIs =>
-                  Some(
-                    dataConversion(alias.dfType, relVal.dfType)(
-                      relValData.asInstanceOf[relVal.dfType.Data]
-                    )
-                  )
-                case alias: DFVal.Alias.ApplyRange =>
-                  Some(
-                    selBitRangeData(
-                      relValData.asInstanceOf[(BitVector, BitVector)],
-                      alias.relBitHigh,
-                      alias.relBitLow
-                    )
-                  )
-                case alias: DFVal.Alias.ApplyIdx =>
-                  val relIdx = alias.relIdx.get
-                  relIdx.getParamData match
-                    case Some(Some(idx: BigInt)) =>
-                      val idxInt = idx.toInt
-                      val outData = relVal.dfType match
-                        case DFBits(_) =>
-                          val data = relValData.asInstanceOf[(BitVector, BitVector)]
-                          if (data._2.bit(idxInt)) None
-                          else Some(data._1.bit(idxInt))
-                        case DFVector(_, _) =>
-                          Some(relValData.asInstanceOf[Vector[?]](idxInt))
-                        case _ => ???
-                      Some(outData)
-                    case Some(_: None.type) => Some(None)
-                    case _                  => None
-                case alias: DFVal.Alias.History => None
-                case alias: DFVal.Alias.SelectField =>
-                  val idx = relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(alias.fieldName)
-                  Some(relValData.asInstanceOf[List[?]](idx))
-            case None => None
-          end match
-        case _ => None
-      end match
-    end getParamData
     def getDomainType(using MemberGetSet): DomainType = dfVal.getOwnerDomain.domainType
   end extension
   // can be an expression
@@ -334,7 +281,7 @@ object DFVal:
   ) extends CanBeExpr,
         CanBeGlobal:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = this.isAnonymous
-    protected def protIsConst(using MemberGetSet): Boolean = true
+    protected def protGetConstData(using MemberGetSet): Option[Any] = Some(data)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
         given CanEqual[Any, Any] = CanEqual.derived
@@ -354,7 +301,7 @@ object DFVal:
     val meta: Meta = Meta(None, Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case _: Open => true
       case _       => false
@@ -373,7 +320,7 @@ object DFVal:
       tags: DFTags
   ) extends DFVal:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
         val sameInit =
@@ -403,8 +350,12 @@ object DFVal:
         CanBeGlobal:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
       args.forall(_.get.isFullyAnonymous)
-    protected def protIsConst(using MemberGetSet): Boolean =
-      args.forall(_.get.isConst)
+    protected def protGetConstData(using MemberGetSet): Option[Any] =
+      val args = this.args.map(_.get)
+      val argData = args.flatMap(_.getConstData)
+      val argTypes = args.map(_.dfType)
+      if (argData.length != this.args.length) None
+      else Some(calcFuncData(dfType, op, argTypes, argData))
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
         this.dfType =~ that.dfType && this.op == that.op && (this.args
@@ -437,7 +388,7 @@ object DFVal:
       tags: DFTags
   ) extends DFVal:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: PortByNameSelect =>
         this.dfType =~ that.dfType && this.designInstRef =~ that.designInstRef &&
@@ -487,7 +438,11 @@ object DFVal:
     ) extends Partial:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
-      protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
+      protected def protGetConstData(using MemberGetSet): Option[Any] =
+        val relVal = relValRef.get
+        relVal.getConstData.map(relValData =>
+          dataConversion(dfType, relVal.dfType)(relValData.asInstanceOf[relVal.dfType.Data])
+        )
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: AsIs =>
           // design parameters are considered to be the same even if they are referencing
@@ -516,7 +471,7 @@ object DFVal:
     ) extends Consumer:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous && initRefOption.map(_.get.isFullyAnonymous).getOrElse(true)
-      protected def protIsConst(using MemberGetSet): Boolean = false
+      protected def protGetConstData(using MemberGetSet): Option[Any] = None
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: History =>
           val sameInit = (this.initRefOption, that.initRefOption) match
@@ -551,7 +506,11 @@ object DFVal:
     ) extends Partial:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
-      protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
+      protected def protGetConstData(using MemberGetSet): Option[Any] =
+        val relVal = relValRef.get
+        relVal.getConstData.map(relValData =>
+          selBitRangeData(relValData.asInstanceOf[(BitVector, BitVector)], relBitHigh, relBitLow)
+        )
       val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
@@ -573,8 +532,26 @@ object DFVal:
     ) extends Partial:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous && relIdx.get.isFullyAnonymous
-      protected def protIsConst(using MemberGetSet): Boolean =
-        relValRef.get.isConst && relIdx.get.isConst
+      protected def protGetConstData(using MemberGetSet): Option[Any] =
+        val relVal = relValRef.get
+        relVal.getConstData.flatMap(relValData =>
+          val relIdx = this.relIdx.get
+          relIdx.getConstData match
+            case Some(Some(idx: BigInt)) =>
+              val idxInt = idx.toInt
+              val outData = relVal.dfType match
+                case DFBits(_) =>
+                  val data = relValData.asInstanceOf[(BitVector, BitVector)]
+                  if (data._2.bit(idxInt)) None
+                  else Some(data._1.bit(idxInt))
+                case DFVector(_, _) =>
+                  Some(relValData.asInstanceOf[Vector[?]](idxInt))
+                case _ => ???
+              Some(outData)
+            case Some(_: None.type) => Some(None)
+            case _                  => None
+        )
+      end protGetConstData
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyIdx =>
           this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
@@ -604,7 +581,12 @@ object DFVal:
     ) extends Partial:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
-      protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
+      protected def protGetConstData(using MemberGetSet): Option[Any] =
+        val relVal = relValRef.get
+        relVal.getConstData.map(relValData =>
+          val idx = relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(fieldName)
+          relValData.asInstanceOf[List[?]](idx)
+        )
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: SelectField =>
           this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
@@ -778,7 +760,7 @@ object DFConditional:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     // TODO: if all returned expressions in all blocks and the selector is constant, then
     // the returned result is a constant
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFMatchHeader =>
         this.dfType =~ that.dfType && this.selectorRef =~ that.selectorRef &&
@@ -878,7 +860,7 @@ object DFConditional:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     // TODO: if all returned expressions in all blocks and the selector is constant, then
     // the returned result is a constant
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFIfHeader =>
         this.dfType =~ that.dfType &&
@@ -1073,7 +1055,7 @@ object Timer:
     val dfType: DFType = DFBool
     // TODO: revisit this in the future. can an active indication of a timer be fully anonymous?
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: IsActive =>
         this.timerRef =~ that.timerRef &&
