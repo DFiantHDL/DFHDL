@@ -682,7 +682,7 @@ class PrintCodeStringSpec extends StageSpec:
          |class BigXorContainer extends DFDesign:
          |  val w: Int <> CONST = 4
          |  val sum = Bits(w) <> OUT
-         |  val c: Bits[w] <> CONST = h"${w}'7"
+         |  val c: Bits[w.type] <> CONST = h"${w}'7"
          |  val bx = BigXor(c = c)
          |  sum <> bx.sum
          |end BigXorContainer

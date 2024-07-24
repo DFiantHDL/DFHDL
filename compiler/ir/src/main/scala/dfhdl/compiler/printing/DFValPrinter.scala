@@ -59,9 +59,11 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dfVal: DFVal =>
         val callOwner = ref.originMember.getOwner
         val cs = printer.csDFValRef(dfVal, callOwner)
-        dfVal match
+        val ret = dfVal match
           case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
           case _                                          => cs
+        if (dfVal.isAnonymous || !typeCS) ret
+        else s"$ret.type"
       case named: DFMember.Named =>
         named.nameCS
       case _ =>

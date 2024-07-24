@@ -93,7 +93,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                   .mkStringBrackets
 
               // all args are the same ==> repeat function
-              case _ if args.view.map(_.get).forall(_ =~ args.head.get) =>
+              case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"(0 to ${args.length - 1} => ${args.head.refCodeString.applyBrackets()})"
 
               case DFVector(_, _) =>

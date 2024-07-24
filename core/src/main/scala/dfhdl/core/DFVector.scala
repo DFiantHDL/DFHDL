@@ -80,10 +80,22 @@ object DFVector:
   end Ops
 
   object Val:
+    def apply[T <: DFTypeAny, D1 <: IntP, P](vectorType: DFVector[T, Tuple1[D1]])(
+        from: List[DFValTP[T, P]]
+    )(using DFC): DFValTP[DFVector[T, Tuple1[D1]], P] =
+      import dfc.getSet
+      val fromIR = from.map(_.asIR)
+      lazy val commonMeta = fromIR.head.meta
+      // a vector of fully anonymous constants that have the same meta information will become
+      // a constant vector to save on references
+      if (fromIR.forall(v => v.isConst && v.isFullyAnonymous && v.meta == commonMeta))
+        DFVal.Const.forced(vectorType, Vector.from(fromIR.map(_.getConstData.get)), named = true)
+          .asValTP[DFVector[T, Tuple1[D1]], P]
+      else DFVal.Func(vectorType, FuncOp.++, from)
     def conv[T <: DFTypeAny, P](cellType: T, cellDim: Int)(from: Iterable[DFValTP[T, P]])(using
         DFC
     ): DFValTP[DFVector[T, Tuple1[cellDim.type]], P] =
-      DFVal.Func(DFVector(cellType, List(cellDim)), FuncOp.++, from.toList)
+      Val(DFVector(cellType, List(cellDim)))(from.toList)
     object TC:
       import DFVal.TC
       given DFVectorValFromDFVectorVal[
@@ -110,10 +122,10 @@ object DFVector:
       ): TC[DFVector[T, Tuple1[D1]], R] with
         type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
-          val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
+          val dfVals = arg.view.map(tc.conv(dfType.cellType, _)(using dfc.anonymize)).toList
           val check = summon[`LL == RL`.Check[Int, Int]]
           check(dfType.lengthInt, dfVals.length)
-          DFVal.Func(dfType, FuncOp.++, dfVals)
+          Val(dfType)(dfVals)
       end DFVectorValFromDFValVector
       given DFVectorValFromSEV[
           T <: DFTypeAny,
@@ -127,8 +139,8 @@ object DFVector:
         type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
           val dfVals =
-            List.fill(dfType.lengthInt)(tc.conv(dfType.cellType, arg.value))
-          DFVal.Func(dfType, FuncOp.++, dfVals)
+            List.fill(dfType.lengthInt)(tc.conv(dfType.cellType, arg.value)(using dfc.anonymize))
+          Val(dfType)(dfVals)
       end DFVectorValFromSEV
     end TC
     object Compare:
@@ -148,10 +160,10 @@ object DFVector:
       ): Compare[DFVector[T, Tuple1[D1]], R, Op, C] with
         type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
-          val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
+          val dfVals = arg.view.map(tc.conv(dfType.cellType, _)(using dfc.anonymize)).toList
           val check = summon[`LL == RL`.Check[Int, Int]]
           check(dfType.lengthInt, dfVals.length)
-          DFVal.Func(dfType, FuncOp.++, dfVals)
+          Val(dfType)(dfVals)
       end DFVectorCompareDFValVector
     end Compare
     object Ops:

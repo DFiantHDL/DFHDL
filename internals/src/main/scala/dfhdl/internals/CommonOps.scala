@@ -57,8 +57,11 @@ object CommonOps:
 
   extension (value: Int)
     def toBitVector(width: Int): BitVector = BigInt(value).toBitVector(width)
+    def toPaddedString(maxValue: Int, padWithZeros: Boolean): String =
+      val pad = if (padWithZeros) "0" else ""
+      s"%$pad${maxValue.toString.length}d".format(value)
     def toPaddedString(maxValue: Int): String =
-      s"%0${maxValue.toString.length}d".format(value)
+      toPaddedString(maxValue, true)
 
   extension (value: Boolean) def toBitVector(width: Int): BitVector = BitVector.fill(width)(value)
 

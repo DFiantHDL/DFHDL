@@ -308,7 +308,13 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
          |  constant c14 : signed(7 downto 0) := signed'(x"--");
          |  constant c15 : t_struct_DFTuple2 := t_struct_DFTuple2(_1 = "000", _2 = '1');
-         |  constant c16 : t_vecX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (0 to 6 => (x"00", x"11", x"22", x"33", x"44"));
+         |  constant c16 : t_vecX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (0 to 6 => (
+         |    0 => x"00",
+         |    1 => x"11",
+         |    2 => x"22",
+         |    3 => x"33",
+         |    4 => x"44"
+         |  ));
          |begin
          |
          |end Top_arch;
