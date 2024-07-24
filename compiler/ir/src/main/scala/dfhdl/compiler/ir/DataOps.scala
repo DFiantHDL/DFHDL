@@ -75,7 +75,7 @@ def calcFuncData[OT <: DFType](
         // bits repeat
         case (
               FuncOp.repeat,
-              DFBits(_) :: DFUInt(_) :: Nil,
+              DFBits(_) :: DFInt32 :: Nil,
               (argData: (BitVector, BitVector) @unchecked) :: Some(cnt: BigInt) :: Nil
             ) =>
           val (values, bubbles) = List.fill(cnt.toInt)(argData).unzip
