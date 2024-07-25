@@ -545,7 +545,7 @@ object DFVal:
                   if (data._2.bit(idxInt)) None
                   else Some(data._1.bit(idxInt))
                 case DFVector(_, _) =>
-                  Some(relValData.asInstanceOf[Vector[?]](idxInt))
+                  relValData.asInstanceOf[Vector[?]](idxInt)
                 case _ => ???
               Some(outData)
             case Some(_: None.type) => Some(None)
