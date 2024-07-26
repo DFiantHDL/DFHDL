@@ -700,6 +700,11 @@ object DFVal extends DFValLP:
                 meta = dfc.getMeta
               )
             ).asVal[AT, M]
+          // remove redundant intermediate casting when the final result needs to be `.bits` anyways
+          case asIs: ir.DFVal.Alias.AsIs
+              if aliasType.asIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous && dfc.isAnonymous && !forceNewAlias =>
+            import dfc.getSet
+            asIs.relValRef.get.asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
