@@ -21,7 +21,10 @@ class StageRunner(using co: CompilerOptions) extends LogSupport:
     info(s"Running stage ${stage.typeName}....")
     val ret = stage.transform(designDB)(using designDB.getSet)
     info(s"Finished stage ${stage.typeName}")
-    if (logger.getLogLevel >= LogLevel.DEBUG && stage != SanityCheck)
+    if (
+      logger.getLogLevel >= LogLevel.DEBUG && stage != SanityCheck &&
+      !stage.isInstanceOf[NoCheckStage]
+    )
       ret.sanityCheck
     if (
       (logger.getLogLevel eq LogLevel.TRACE) && !ignoredTraceStages.contains(stage) &&

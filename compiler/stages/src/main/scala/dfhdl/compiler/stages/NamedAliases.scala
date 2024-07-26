@@ -118,7 +118,7 @@ extension [T: HasDB](t: T)
   def namedPrev(using CompilerOptions): DB = StageRunner.run(NamedPrev)(t.db)
 
 // Names an anonymous value which is referenced more than once
-case object NamedAnonMultiref extends NamedAliases:
+case object NamedAnonMultiref extends NamedAliases, NoCheckStage:
   private val cbTags: Set[ClassTag[?]] =
     Set(classTag[DFConditional.DFMatchHeader], classTag[DFConditional.DFIfHeader])
   def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match

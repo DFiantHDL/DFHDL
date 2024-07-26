@@ -53,5 +53,9 @@ case object DropMagnets
   override def dependencies: List[Stage] = List(ConnectMagnets)
 
 extension [T: HasDB](t: T)
+  def dropOpaques(using CompilerOptions): DB =
+    StageRunner.run(DropOpaquesAll)(t.db)
+
+extension [T: HasDB](t: T)
   def dropMagnets(using CompilerOptions): DB =
     StageRunner.run(DropMagnets)(t.db)

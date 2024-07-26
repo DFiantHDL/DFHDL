@@ -11,3 +11,6 @@ abstract class BundleStage(deps: Stage*) extends SpecialControlStage:
   override def dependencies: List[Stage] = deps.toList
   override def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB = designDB
+
+//special cased within StageRunner to disable sanity checks after theses changes under trace logging.
+trait NoCheckStage extends Stage

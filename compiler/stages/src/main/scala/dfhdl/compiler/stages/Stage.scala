@@ -4,7 +4,7 @@ import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import dfhdl.core.{Design}
 
-abstract class Stage extends Product, Serializable, HasTypeName derives CanEqual:
+trait Stage extends Product, Serializable, HasTypeName derives CanEqual:
   final lazy val depSet: Set[Stage] = dependencies.toSet
   def dependencies: List[Stage]
   def nullifies: Set[Stage]
