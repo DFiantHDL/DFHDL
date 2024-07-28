@@ -12,7 +12,8 @@ final case class CompilerOptions(
     backend: Backend,
     logLevel: LogLevel,
     printDesignCodeAfter: PrintDesignCodeAfter,
-    printGenFiles: PrintGenFiles
+    printGenFiles: PrintGenFiles,
+    dropUserOpaques: DropUserOpaques
 )
 object CompilerOptions:
   given default(using
@@ -21,12 +22,13 @@ object CompilerOptions:
       backend: Backend,
       logLevel: LogLevel,
       printDesignCodeAfter: PrintDesignCodeAfter,
-      printGenFiles: PrintGenFiles
+      printGenFiles: PrintGenFiles,
+      dropUserOpaques: DropUserOpaques
   ): CompilerOptions =
     CompilerOptions(
       commitFolder = commitFolder, newFolderForTop = newFolderForTop, backend = backend,
       logLevel = logLevel, printDesignCodeAfter = printDesignCodeAfter,
-      printGenFiles = printGenFiles
+      printGenFiles = printGenFiles, dropUserOpaques = dropUserOpaques
     )
 
   extension (co: CompilerOptions)
@@ -74,4 +76,9 @@ object CompilerOptions:
   object PrintGenFiles:
     given PrintGenFiles = false
     given Conversion[Boolean, PrintGenFiles] = identity
+
+  opaque type DropUserOpaques <: Boolean = Boolean
+  object DropUserOpaques:
+    given DropUserOpaques = false
+    given Conversion[Boolean, DropUserOpaques] = identity
 end CompilerOptions

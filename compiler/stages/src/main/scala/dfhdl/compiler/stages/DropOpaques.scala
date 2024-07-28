@@ -82,6 +82,13 @@ case object DropMagnets
     }):
   override def dependencies: List[Stage] = List(ConnectMagnets)
 
+case object DropUserOpaques
+    extends DropOpaques({
+      case DFOpaque(_, _: DFOpaque.MagnetId, _) => false
+      case _                                    => true
+    }):
+  override def runCondition(using co: CompilerOptions): Boolean = co.dropUserOpaques
+
 extension [T: HasDB](t: T)
   def dropOpaques(using CompilerOptions): DB =
     StageRunner.run(DropOpaquesAll)(t.db)
