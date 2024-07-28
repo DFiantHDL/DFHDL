@@ -16,7 +16,7 @@ extension (list: List[String])
     // Function to find the largest divisor less than or equal to the limit
     def findLargestDivisor(n: Int, limit: Int): Int =
       var maxDivisor = 1
-      for (i <- 1 to math.sqrt(n.min(limit)).toInt if n % i == 0)
+      for (i <- 1 to math.sqrt(n).toInt if n % i == 0)
         if (i <= limit) maxDivisor = math.max(maxDivisor, i)
         if (n / i <= limit) maxDivisor = math.max(maxDivisor, n / i)
       maxDivisor
