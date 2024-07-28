@@ -8,12 +8,12 @@ class DFVectorSpec extends DFSpec:
       """|val v1 = UInt(8) X 5 <> VAR init Vector(d"8'22", d"8'23", d"8'24", d"8'25", d"8'26")
          |val v2 = UInt(8) X 6 <> VAR init all(d"8'55")
          |val x = UInt(8) <> VAR
-         |v1 := all(d"8'22")
-         |v1 := all(x)
+         |v1 := Vector(d"8'22", d"8'22", d"8'22", d"8'22", d"8'22")
+         |v1 := Vector(x, x, x, x, x)
          |v2 := all(d"8'55")
          |v2 := Vector(v1(0), v1(1), v1(2), v1(3), v1(4), v2(0))
-         |val t1 = v1 == all(d"8'22")
-         |val t2 = v1 != all(x)
+         |val t1 = v1 == Vector(d"8'22", d"8'22", d"8'22", d"8'22", d"8'22")
+         |val t2 = v1 != Vector(x, x, x, x, x)
          |val t3 = v1(3)
          |val i = UInt(3) <> VAR
          |val i2 = UInt(4) <> VAR

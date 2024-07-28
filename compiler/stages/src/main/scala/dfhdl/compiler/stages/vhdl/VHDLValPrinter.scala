@@ -27,6 +27,13 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     dfVal.args match
+      case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
+        dfVal.dfType match
+          case dfType: DFVector =>
+            s"(0 to ${dfType.cellDimParamRefs.head.uboundCS} => ${argL.refCodeString})"
+          case _ =>
+            println(dfVal)
+            ???
       // infix/regular func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         var infix = true
@@ -94,7 +101,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
 
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
-                s"(0 to ${args.length - 1} => ${args.head.refCodeString.applyBrackets()})"
+                s"(0 to ${args.length - 1} => ${args.head.refCodeString})"
 
               case DFVector(_, _) =>
                 args.map(_.refCodeString).mkStringBrackets

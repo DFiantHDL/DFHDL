@@ -45,15 +45,11 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     given CanEqual[Any, Any] = CanEqual.derived
-    if (data.allElementsAreEqual)
-      s"(0 to ${dfType.cellDimParamRefs.head.uboundCS} => ${csConstData(dfType.cellType, data.head)})"
-    else
-      val csData =
-        data.view.zipWithIndex.map((x, i) =>
-          s"${i.toPaddedString(data.length - 1, padWithZeros = false)} => ${csConstData(dfType.cellType, x)}"
-        )
-          .mkString(",\n").hindent
-      s"(\n$csData\n)"
+    val csData =
+      data.view.zipWithIndex.map((x, i) =>
+        s"${i.toPaddedString(data.length - 1, padWithZeros = false)} => ${csConstData(dfType.cellType, x)}"
+      )
+    csData.toList.csList()
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     csConstData(dfType.actualType, data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =

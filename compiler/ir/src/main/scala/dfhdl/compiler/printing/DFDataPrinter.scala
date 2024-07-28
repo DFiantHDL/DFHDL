@@ -176,12 +176,12 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
   val maxVectorDisplay: Int = 64
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     given CanEqual[Any, Any] = CanEqual.derived
-    if (data.allElementsAreEqual)
-      s"all(${csConstData(dfType.cellType, data.head)})"
-    else if (data.length > maxVectorDisplay)
+    if (data.length > maxVectorDisplay)
       "<vector data length over max `maxVectorDisplay` in printer>"
     else
-      s"Vector${data.map(x => csConstData(dfType.cellType, x)).mkStringBrackets}"
+      data.view.map(csConstData(dfType.cellType, _)).toList.csList("Vector(", ",", ")")
+    end if
+  end csDFVectorData
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     s"${csConstData(dfType.actualType, data).applyBrackets()}.as(${dfType.getName})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =

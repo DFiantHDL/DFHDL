@@ -138,9 +138,10 @@ object DFVector:
       ): TC[DFVector[T, Tuple1[D1]], R] with
         type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
-          val dfVals =
-            List.fill(dfType.lengthInt)(tc.conv(dfType.cellType, arg.value)(using dfc.anonymize))
-          Val(dfType)(dfVals)
+          val elem = tc.conv(dfType.cellType, arg.value)(using dfc.anonymize)
+          val repeatCnt = dfType.lengthIntParam.toDFConst
+          DFVal.Func(dfType, FuncOp.repeat, List(elem, repeatCnt))
+            .asValTP[DFVector[T, Tuple1[D1]], OutP]
       end DFVectorValFromSEV
     end TC
     object Compare:

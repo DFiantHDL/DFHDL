@@ -300,7 +300,15 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter logic [7:0] c13 = 8'hxx;
          |  parameter logic signed [7:0] c14 = $signed(8'hxx);
          |  parameter t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
-         |  parameter logic [7:0] c16 [0:6] [0:4] = '{7{'{8'h00, 8'h11, 8'h22, 8'h33, 8'h44}}};
+         |  parameter logic [7:0] c16 [0:6] [0:4] = '{
+         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
+         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
+         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
+         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
+         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
+         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
+         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44}
+         |  };
          |
          |endmodule
          |""".stripMargin

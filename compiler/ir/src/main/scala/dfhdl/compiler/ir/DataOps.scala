@@ -118,6 +118,9 @@ def calcFuncData[OT <: DFType](
     case _: DFVector =>
       op match
         case FuncOp.++ => argData.toVector.asInstanceOf[outType.Data]
+        case FuncOp.repeat =>
+          val Some(cnt: BigInt) = argData(1): @unchecked
+          Vector.fill(cnt.toInt)(argData.head).asInstanceOf[outType.Data]
         case x =>
           println(x)
           ???

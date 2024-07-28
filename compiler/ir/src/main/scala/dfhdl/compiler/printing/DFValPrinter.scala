@@ -11,6 +11,25 @@ extension (ref: DFRef.TwoWayAny)
   def refCodeString(typeCS: Boolean)(using printer: AbstractValPrinter): String =
     printer.csRef(ref, typeCS)
 
+extension (list: List[String])
+  def csList(open: String = "(", sep: String = ",", close: String = ")"): String =
+    // Function to find the largest divisor less than or equal to the limit
+    def findLargestDivisor(n: Int, limit: Int): Int =
+      var maxDivisor = 1
+      for (i <- 1 to math.sqrt(n.min(limit)).toInt if n % i == 0)
+        if (i <= limit) maxDivisor = math.max(maxDivisor, i)
+        if (n / i <= limit) maxDivisor = math.max(maxDivisor, n / i)
+      maxDivisor
+    val maxVectorLineCharacters: Int = 120
+    val avgTextLength = list.view.map(_.length).sum / list.length
+    val maxColElems = (maxVectorLineCharacters / avgTextLength).max(1)
+    val colCnt = findLargestDivisor(list.length, maxColElems)
+    val rowCnt = (list.length - 1) / colCnt + 1
+    if (rowCnt == 1) list.mkString(open, sep + " ", close)
+    else
+      val csVecData = list.grouped(colCnt).map(_.mkString(sep + " ")).mkString(sep + "\n").hindent
+      s"$open\n${csVecData}\n$close"
+
 extension (intParamRef: IntParamRef)
   def refCodeString(typeCS: Boolean)(using printer: AbstractValPrinter): String = intParamRef match
     case ref: DFRef.TwoWayAny => printer.csRef(ref, typeCS)
@@ -141,9 +160,12 @@ protected trait DFValPrinter extends AbstractValPrinter:
     dfVal.args match
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
-        val csArgL = argL.refCodeString(typeCS)
-        val csArgR = argR.refCodeString(typeCS)
-        s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"
+        dfVal.dfType match
+          case _: DFVector => s"all(${argL.refCodeString})"
+          case _ =>
+            val csArgL = argL.refCodeString(typeCS)
+            val csArgR = argR.refCodeString(typeCS)
+            s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val csArgL = argL.refCodeString(typeCS)
@@ -187,9 +209,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
                         s"$n = $r"
                       }
                       .mkStringBrackets
-              case DFVector(_, _) =>
-                if (csArgs.allElementsAreEqual) s"all(${csArgs.head})"
-                else s"Vector${csArgs.mkStringBrackets}"
+              case DFVector(_, _) => s"Vector${csArgs.csList()}"
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"${(csArgs.head).applyBrackets()}.repeat(${args.length})"
