@@ -187,7 +187,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         val csArg = arg.refCodeString(typeCS)
         val opStr = dfVal.op.toString
         dfVal.op match
-          case Func.Op.unary_! | Func.Op.unary_- | Func.Op.unary_! =>
+          case Func.Op.unary_! | Func.Op.unary_- | Func.Op.unary_! | Func.Op.unary_~ =>
             s"${opStr.last}${csArg.applyBrackets()}"
           case Func.Op.clog2 =>
             s"${opStr}${csArg.applyBrackets(onlyIfRequired = false)}"
