@@ -44,39 +44,46 @@ private final case class ReplacementContext(
   ): ReplacementContext =
     if (origMember == repMember) this // nothing to do if the member is replacing itself
     else
-      memberTable.get(origMember) match
-        // the member exists, so we need to update its references to point to the new member
-        // by updating the reference table
-        case Some(refs) =>
-          val latestRepMember = getLatestRepOf(repMember)
-          // in case the replacement member already was replaced in the past, then we used the previous replacement
-          // as the most updated member
-          val replacementHistory =
-            (latestRepMember, refFilter) :: this.memberRepTable.getOrElse(repMember, List())
-          // when replacing a member, the original member refs are redundant unless
-          // it's being replaced by a copy of itself that has the same references
-          val droppedOrigRefsTable = config match
-            case Patch.Replace.Config.ChangeRefOnly => refTable
-            case _ => refTable -- refFilter(origMember.getRefs.toSet -- keepRefs)
-          val updatedRefTable: Map[DFRefAny, DFMember] =
-            replacementHistory.foldRight(droppedOrigRefsTable) { case ((rm, rf), rt) =>
-              rf(refs).foldLeft(rt)((rt2, r) => rt2.updated(r, rm))
-            }
-          val updatedMemberRepTable: Map[DFMember, List[(DFMember, Patch.Replace.RefFilter)]] =
-            refFilter match
-              // An all inclusive filter is purging all other replacement histories, so we only save it alone
-              case Patch.Replace.RefFilter.All =>
-                memberRepTable + (origMember -> List((latestRepMember, refFilter)))
-              case _ =>
-                memberRepTable + (origMember -> replacementHistory)
-          // add another entry for the replacing member, but still keep the old one
-          val updatedMemberTable = memberTable + (latestRepMember -> refs)
-          ReplacementContext(updatedRefTable, updatedMemberTable, updatedMemberRepTable)
-        // nothing to do if the member does not exist anymore
-        case None => this
-      end match
+      val refs = memberTable.getOrElse(origMember, Set())
+      val latestRepMember = getLatestRepOf(repMember)
+      // in case the replacement member already was replaced in the past, then we used the previous replacement
+      // as the most updated member
+      val replacementHistory =
+        (latestRepMember, refFilter) :: this.memberRepTable.getOrElse(repMember, List())
+      // when replacing a member, the original member refs are redundant unless
+      // it's being replaced by a copy of itself that has the same references
+      val droppedOrigRefsTable = config match
+        case Patch.Replace.Config.ChangeRefOnly => refTable
+        case _ => refTable -- refFilter(origMember.getRefs.toSet -- keepRefs)
+      val updatedRefTable: Map[DFRefAny, DFMember] =
+        replacementHistory.foldRight(droppedOrigRefsTable) { case ((rm, rf), rt) =>
+          rf(refs).foldLeft(rt)((rt2, r) => rt2.updated(r, rm))
+        }
+      val updatedMemberRepTable: Map[DFMember, List[(DFMember, Patch.Replace.RefFilter)]] =
+        refFilter match
+          // An all inclusive filter is purging all other replacement histories, so we only save it alone
+          case Patch.Replace.RefFilter.All =>
+            memberRepTable + (origMember -> List((latestRepMember, refFilter)))
+          case _ =>
+            memberRepTable + (origMember -> replacementHistory)
+      // add another entry for the replacing member, but still keep the old one
+      val updatedMemberTable = memberTable + (latestRepMember -> refs)
+      ReplacementContext(updatedRefTable, updatedMemberTable, updatedMemberRepTable)
     end if
   end replaceMember
+
+  def removeMember(origMember: DFMember): ReplacementContext =
+    // total references to be removed are both
+    // * refs - directly referencing the member
+    // * originRefs - the member is referencing other members with a two-way
+    //                reference that points back to it.
+    val totalRefs =
+      memberTable.getOrElse(origMember, Set()) ++ origMember.getRefs.filter {
+        case _: DFRef.TypeRef => false
+        case _                => true
+      }
+    this.copy(refTable = this.refTable -- totalRefs)
+
 end ReplacementContext
 
 private object ReplacementContext:

@@ -736,8 +736,7 @@ class PrintCodeStringSpec extends StageSpec:
          |    val DATA_WIDTH: Int <> CONST = 4,
          |    val ADDR_WIDTH: Int <> CONST = 4
          |) extends EDDesign:
-         |  val RAM_LENGTH: Int <> CONST = 2 ** ADDR_WIDTH
-         |  val ram = Bits(DATA_WIDTH) X RAM_LENGTH <> VAR.SHARED initFile "test"
+         |  val ram = Bits(DATA_WIDTH) X (2 ** ADDR_WIDTH) <> VAR.SHARED initFile "test"
          |  val a = new EDDomain:
          |    val clk = Bit <> IN
          |    val data = Bits(DATA_WIDTH) <> IN

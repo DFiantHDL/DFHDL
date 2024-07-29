@@ -135,16 +135,18 @@ extension (db: DB)
     import db.{members, refTable, memberTable, globalTags, srcFiles}
 
     if (patchList.isEmpty) return db
+    // TODO: need to think if this is needed, currently disabled,
+    // so redundant type references could remain
     // save the number of occurrences of type references
-    val typeRefOccurrences = mutable.Map.from(
-      members.view.flatMap(_.getRefs)
-        .collect { case r: DFRef.TypeRef => r }
-        .groupBy(identity).view.mapValues(_.size)
-    )
+    // val typeRefOccurrences = mutable.Map.from(
+    //   members.view.flatMap(_.getRefs)
+    //     .collect { case r: DFRef.TypeRef => r }
+    //     .groupBy(identity).view.mapValues(_.size)
+    // )
     def dropRef(r: DFRefAny): Boolean =
       r match
-        case r: DFRef.TypeRef =>
-          typeRefOccurrences.updateWith(r)(c => Some(c.get - 1)).get == 0
+        case r: DFRef.TypeRef => false
+        // typeRefOccurrences.updateWith(r)(c => Some(c.get - 1)).get == 0
         case _ => true
 
     // added owners have their own getSet context which we may need to use
@@ -183,11 +185,8 @@ extension (db: DB)
             case Patch.Add.Config.Via =>
               val repMember = db.members.last // The last member is used for Via addition.
               rc.replaceMember(
-                origMember,
-                repMember,
-                Patch.Replace.Config.FullReplacement,
-                Patch.Replace.RefFilter.All,
-                keepRefList
+                origMember, repMember, Patch.Replace.Config.FullReplacement,
+                Patch.Replace.RefFilter.All, keepRefList
               )
             case _ => rc
           //          patchDebug {
@@ -224,15 +223,7 @@ extension (db: DB)
             case (rc, _) => rc
           }
         case (rc, (origMember, Patch.Remove(false))) =>
-          memberTable.get(origMember) match
-            case Some(refs) =>
-              // total references to be removed are both
-              // * refs - directly referencing the member
-              // * originRefs - the member is referencing other members with a two-way
-              //                reference that points back to it.
-              val totalRefs = refs ++ origMember.getRefs.filter(dropRef)
-              rc.copy(refTable = totalRefs.foldLeft(rc.refTable)((rt2, r) => rt2 - r))
-            case None => rc
+          rc.removeMember(origMember)
         case (rc, (origMember, Patch.ChangeRef(refFunc, updatedRefMember))) =>
           val ref = refFunc(origMember)
           rc.copy(refTable = rc.refTable + (ref -> updatedRefMember))
