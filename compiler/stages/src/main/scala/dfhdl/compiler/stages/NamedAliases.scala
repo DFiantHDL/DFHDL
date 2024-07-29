@@ -19,7 +19,7 @@ private abstract class NamedAliases extends Stage:
     val patchList: List[(DFMember, Patch)] =
       designDB.members.view
         // just values
-        .collect { case dfVal: DFVal => dfVal }
+        .collect { case dfVal: DFVal if dfVal.isAnonymous => dfVal }
         // get all that meet the criteria
         .flatMap(criteria)
         // filter out the trivial cases (no need to name)
