@@ -9,6 +9,7 @@ object DFTags:
   given CanEqual[DFTags, DFTags] = CanEqual.derived
   def empty: DFTags = Map()
   extension (tags: DFTags)
+    def isEmpty: Boolean = tags.isEmpty
     def =~(that: DFTags): Boolean = tags == that
     def tag[CT <: DFTag: ClassTag](customTag: CT): DFTags =
       tags + (classTag[CT] -> customTag)
