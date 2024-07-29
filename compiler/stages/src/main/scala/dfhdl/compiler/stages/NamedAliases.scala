@@ -133,6 +133,17 @@ case object NamedAnonMultiref extends NamedAliases, NoCheckStage:
       if (refs.size > 1) List(dfVal)
       else Nil
 
+//Names anonymous conditional expressions, as long as they are not referenced by an ident which indicates that
+//they are themselves inside another conditional expression
+case object NamedAnonCondExpr extends NamedAliases:
+  def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
+    case dfVal: DFConditional.Header if dfVal.isAnonymous && dfVal.dfType != DFUnit =>
+      val isReferencedByIdent =
+        dfVal.getReadDeps.collectFirst { case Ident(_) => true }.getOrElse(false)
+      if (isReferencedByIdent) Nil
+      else List(dfVal)
+    case dfVal => Nil
+
 extension [T: HasDB](t: T)
   def namedAnonMultiref(using CompilerOptions): DB =
     StageRunner.run(NamedAnonMultiref)(t.db)

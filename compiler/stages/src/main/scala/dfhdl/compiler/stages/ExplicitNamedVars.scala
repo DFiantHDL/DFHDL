@@ -9,7 +9,7 @@ import dfhdl.options.CompilerOptions
 import scala.reflect.classTag
 
 case object ExplicitNamedVars extends Stage:
-  def dependencies: List[Stage] = Nil
+  def dependencies: List[Stage] = List(NamedAnonCondExpr)
   def nullifies: Set[Stage] = Set(DropLocalDcls)
 
   object WhenHeader extends Patch.Replace.RefFilter:
