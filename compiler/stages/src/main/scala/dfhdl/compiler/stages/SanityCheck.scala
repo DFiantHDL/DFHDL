@@ -87,18 +87,23 @@ case object SanityCheck extends Stage:
       end match
     }
     val memberSet = getSet.designDB.members.toSet
+    val originRefTable = getSet.designDB.originRefTable
     // checks for all references
     refTable.foreach { (r, m) =>
       if (m != DFMember.Empty && !memberSet.contains(m))
         reportViolation(s"Ref $r exists for a removed member: $m")
+      r match
+        case r: DFRef.TwoWayAny if !originRefTable.contains(r) =>
+          reportViolation(s"Missing origin member with the reference $r for the member: $m")
+        case _ => // do nothing
     }
     // check a reference is only used by a single member
-    val originRefTable = mutable.Map.empty[DFRefAny, DFMember]
+    val originRefTableMutable = mutable.Map.empty[DFRefAny, DFMember]
     memberSet.foreach { m =>
       m.getRefs.foreach {
         case _: DFRef.Empty => // skip empty referenced
         case r =>
-          originRefTable.get(r).foreach { prevMember =>
+          originRefTableMutable.get(r).foreach { prevMember =>
             def originViolation(addedText: String) = reportViolation(
               s"""|Ref $r has more than one origin member$addedText.
                   |Target member:   ${r.get}
@@ -111,12 +116,12 @@ case object SanityCheck extends Stage:
                   originViolation(" from a different design")
               case _ => originViolation("")
           }
-          originRefTable += r -> m
+          originRefTableMutable += r -> m
       }
     }
     // check a global member reference is anonymous only if the referencing member is global
     // or the referencing member is a design parameter
-    originRefTable.foreach { (r, originMember) =>
+    originRefTableMutable.foreach { (r, originMember) =>
       r.get match
         case targetVal: DFVal if targetVal.isAnonymous && targetVal.isGlobal =>
           originMember match
