@@ -6,6 +6,7 @@ import dfhdl.compiler.printing.*
 import ir.DFConditional.{DFCaseBlock, DFMatchHeader}
 import DFCaseBlock.Pattern
 import dfhdl.compiler.ir.DFConditional
+import dfhdl.compiler.ir.DFDecimal.NativeType
 
 object DFMatch:
   def singleCase[R](
@@ -76,6 +77,11 @@ object DFMatch:
     object Singleton:
       def apply(value: DFValAny)(using DFC): DFCaseBlock.Pattern =
         DFCaseBlock.Pattern.Singleton(value.asIR.refTW[DFCaseBlock])
+    object to:
+      infix def unapply[S <: Boolean, W <: IntP, N <: NativeType](
+          arg: DFValOf[DFXInt[S, W, N]]
+      ): Option[(Int, Int)] = ???
+
   object Block:
     def apply(
         pattern: Pattern,
