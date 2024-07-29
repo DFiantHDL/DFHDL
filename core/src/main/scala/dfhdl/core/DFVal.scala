@@ -702,7 +702,8 @@ object DFVal extends DFValLP:
             ).asVal[AT, M]
           // remove redundant intermediate casting when the final result needs to be `.bits` anyways
           case asIs: ir.DFVal.Alias.AsIs
-              if aliasType.asIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous && dfc.isAnonymous && !forceNewAlias =>
+              if aliasType.asIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous &&
+                dfc.isAnonymous && !forceNewAlias && asIs.tags.isEmpty =>
             import dfc.getSet
             asIs.relValRef.get.asVal[AT, M]
           // named constants or other non-constant values are referenced
