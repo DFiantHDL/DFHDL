@@ -77,12 +77,7 @@ object Design:
         if (dfc.ownerOption.isEmpty) ir.DFTags.empty.tag(dfc.elaborationOptions.defaultRTDomainCfg)
         else ir.DFTags.empty
       ir.DFDesignBlock(
-        domain,
-        dclMeta,
-        instMode,
-        dfc.ownerOrEmptyRef,
-        dfc.getMeta,
-        tags
+        domain, dclMeta, instMode, dfc.ownerOrEmptyRef, dfc.getMeta, tags
       )
         .addMember
         .asFE

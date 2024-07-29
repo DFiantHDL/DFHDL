@@ -104,7 +104,8 @@ case object ExplicitState extends Stage:
             (currentSet, scopeMap)
         getImplicitStateVars(rs, nextBlock, updatedScopeMap, updatedSet)
       case r :: rs
-          if r.getOwnerBlock == currentBlock && currentBlock.getThisOrOwnerDomain.domainType == DomainType.DF => // checking member consumers
+          if r.getOwnerBlock == currentBlock && currentBlock.getThisOrOwnerDomain
+            .domainType == DomainType.DF => // checking member consumers
         val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = r match
           case net @ DFNet.Assignment(toVal, fromVal) =>
             (consumeFrom(fromVal, scopeMap, currentSet), assignTo(toVal, scopeMap))

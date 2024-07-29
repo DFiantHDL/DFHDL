@@ -183,11 +183,8 @@ extension (db: DB)
             case Patch.Add.Config.Via =>
               val repMember = db.members.last // The last member is used for Via addition.
               rc.replaceMember(
-                origMember,
-                repMember,
-                Patch.Replace.Config.FullReplacement,
-                Patch.Replace.RefFilter.All,
-                keepRefList
+                origMember, repMember, Patch.Replace.Config.FullReplacement,
+                Patch.Replace.RefFilter.All, keepRefList
               )
             case _ => rc
           //          patchDebug {

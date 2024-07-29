@@ -94,12 +94,7 @@ object DFMatch:
           header.asIR.asInstanceOf[DFMatchHeader].refTW[DFCaseBlock]
       val block: DFCaseBlock =
         DFCaseBlock(
-          pattern,
-          guardRef,
-          prevBlockOrHeaderRef,
-          dfc.owner.ref,
-          dfc.getMeta,
-          ir.DFTags.empty
+          pattern, guardRef, prevBlockOrHeaderRef, dfc.owner.ref, dfc.getMeta, ir.DFTags.empty
         ).addMember
       block.asFE
     end apply

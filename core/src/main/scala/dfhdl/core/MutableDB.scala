@@ -446,7 +446,7 @@ final class MutableDB():
                   design -> design.copy(
                     dclMeta = design.dclMeta.copy(nameOpt = Some(updatedDclName)),
                     tags = tags
-                  ),
+                  )
                 )
               case _ => Nil
             }

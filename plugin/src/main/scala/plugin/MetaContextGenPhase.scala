@@ -369,7 +369,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     tree match
       case Apply(Select(lhs, fun), List(rhs))
           if (fun == nme.EQ || fun == nme.NE) &&
-            (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType || lhs.tpe <:< defn.TupleTypeRef) =>
+            (lhs.tpe <:< defn.IntType || lhs.tpe <:< defn.BooleanType || lhs.tpe <:< defn
+              .TupleTypeRef) =>
         val rhsSym = rhs.tpe.dealias.typeSymbol
         if (rhsSym == dfValSym)
           report.error(

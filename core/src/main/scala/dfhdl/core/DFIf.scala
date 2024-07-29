@@ -109,11 +109,7 @@ object DFIf:
           header.asIR.asInstanceOf[DFIfHeader].refTW[DFIfElseBlock]
       val block: DFIfElseBlock =
         DFIfElseBlock(
-          guardRef,
-          prevBlockOrHeaderRef,
-          dfc.owner.ref,
-          dfc.getMeta,
-          ir.DFTags.empty
+          guardRef, prevBlockOrHeaderRef, dfc.owner.ref, dfc.getMeta, ir.DFTags.empty
         ).addMember
       block.asFE
     end apply

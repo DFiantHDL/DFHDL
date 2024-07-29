@@ -59,7 +59,7 @@ def additionalSources(scalaVersion: String, base: File): Seq[File] = {
     case _ =>
       Seq.empty
   }
-} 
+}
 lazy val plugin = project
   .settings(
     name := s"$projectName-plugin",
