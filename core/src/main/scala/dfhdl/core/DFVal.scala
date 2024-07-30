@@ -1162,23 +1162,21 @@ object DFVarOps:
     "`.din` selection is only allowed under register-transfer (RT) domains."
   ]
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
-    def :=[R](rhs: Exact[R])(using dt: DomainType)(using
+    def :=[R](rhs: Exact[R])(using DFC)(using dt: DomainType)(using
         notREG: NotREG[A],
         varOnly: VarOnly[A],
 //        localOrNonED: LocalOrNonED[A],
         insideProcess: `InsideProcess:=`[dt.type, A],
-        tc: DFVal.TC[T, R],
-        dfc: DFC
+        tc: DFVal.TC[T, R]
     ): Unit = trydf {
       dfVar.assign(tc(dfVar.dfType, rhs))
     }
-    def :==[R](rhs: Exact[R])(using dt: DomainType)(using
+    def :==[R](rhs: Exact[R])(using DFC)(using dt: DomainType)(using
         varOnly: VarOnly[A],
         edDomainOnly: EDDomainOnly[dt.type],
 //        notLocalVar: NotLocalVar[A],
         insideProcess: `InsideProcess:==`[dt.type, A],
-        tc: DFVal.TC[T, R],
-        dfc: DFC
+        tc: DFVal.TC[T, R]
     ): Unit = trydf {
       dfVar.nbassign(tc(dfVar.dfType, rhs))
     }
