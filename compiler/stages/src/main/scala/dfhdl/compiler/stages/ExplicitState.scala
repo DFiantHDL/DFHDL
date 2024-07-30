@@ -22,8 +22,14 @@ case object ExplicitState extends Stage:
   )(using MemberGetSet): Set[DFVal] =
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
-      case DFVal.Alias.AsIs(_, relValRef, _, _, _) =>
-        consumeFrom(relValRef.get, relWidth, relBitLow, assignMap, currentSet)
+      case DFVal.Alias.AsIs(toType, relValRef, _, _, _) =>
+        val relVal = relValRef.get
+        if (toType.width == relVal.width)
+          // casting maintains relative bit consumption
+          consumeFrom(relVal, relWidth, relBitLow, assignMap, currentSet)
+        else
+          // conversion is treated like any function argument and restarts bit consumption
+          consumeFrom(relVal, relVal.width, 0, assignMap, currentSet)
       case DFVal.Alias.ApplyRange(relValRef, rbh, rbl, _, _, _) =>
         consumeFrom(relValRef.get, rbh - rbl + 1, relBitLow + rbl, assignMap, currentSet)
       case DFVal.Alias.ApplyIdx(_, relValRef, idxRef, _, _, _) =>

@@ -278,4 +278,32 @@ class ExplicitStateSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("ALU regression test") {
+    class ALU extends DFDesign:
+      val op     = Bits(32) <> IN
+      val aluOut = Bits(32) <> OUT
+      val shamt  = Bits(5)  <> VAR
+      shamt := op(4, 0)
+      val outCalc: Bits[32] <> VAL = op match
+        case _ => shamt.resize(32)
+      aluOut := outCalc
+    end ALU
+    val top = (new ALU).explicitState
+    assertCodeString(
+      top,
+      """|class ALU extends DFDesign:
+         |  val op = Bits(32) <> IN
+         |  val aluOut = Bits(32) <> OUT
+         |  val shamt = Bits(5) <> VAR
+         |  shamt := op(4, 0)
+         |  val outCalc = Bits(32) <> VAR
+         |  op match
+         |    case _ => outCalc := shamt.resize(32)
+         |  end match
+         |  aluOut := outCalc
+         |end ALU
+         |""".stripMargin
+    )
+  }
+
 end ExplicitStateSpec
