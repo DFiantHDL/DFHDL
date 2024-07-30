@@ -40,14 +40,15 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   extension (tree: ValOrDefDef)(using Context)
     def needsNewContext: Boolean =
       tree match
-        case _: ValDef  => true // valdefs always generate new context
+        case _: ValDef => true // valdefs always generate new context
         case dd: DefDef =>
+          val sym = tree.symbol
           // defdefs generate new context if they are not inline
           // and when they are not synthetic, indicating that they
           // are actually constructor definitions (other synthetics
-          // should not have context, anyways), and when they don't
-          // have a context argument
-          !tree.isInline && !tree.symbol.is(Synthetic) &&
+          // should not have context, anyways), when they are not exported,
+          // and when they don't have a context argument
+          !tree.isInline && !sym.is(Synthetic) && !sym.is(Exported) &&
           ContextArg.at(dd).isEmpty
 
   class MetaInfo(
@@ -411,7 +412,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case _ =>
         if (
           !tree.symbol.isClassConstructor && !tree.symbol.isAnonymousFunction &&
-          !tree.name.toString.contains("$proxy") && !tree.symbol.is(Exported)
+          !tree.name.toString.contains("$proxy")
         )
           addContextDef(tree)
           nameValOrDef(tree.rhs, tree, tree.tpe.simple, None)

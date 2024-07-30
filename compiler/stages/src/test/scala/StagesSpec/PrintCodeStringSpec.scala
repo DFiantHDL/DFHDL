@@ -762,4 +762,27 @@ class PrintCodeStringSpec extends StageSpec:
          |end TrueDPR
          |""".stripMargin
     )
+  test("Exported defs don't disrupt naming") {
+    object MyApply:
+      export dfhdl.apply
+    import MyApply.apply
+    class Exporting extends DFDesign:
+      val i  = Bits(2) <> IN
+      val o  = Bit     <> OUT
+      val x0 = i(0)
+      val x1 = i(1)
+      o := x0 ^ x1
+    val id = (new Exporting).getCodeString
+    assertNoDiff(
+      id,
+      """|class Exporting extends DFDesign:
+         |  val i = Bits(2) <> IN
+         |  val o = Bit <> OUT
+         |  val x0 = i(0)
+         |  val x1 = i(1)
+         |  o := x0 ^ x1
+         |end Exporting
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec
