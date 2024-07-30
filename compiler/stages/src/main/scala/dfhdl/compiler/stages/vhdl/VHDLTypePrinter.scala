@@ -47,7 +47,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       case _            => s"$bitWidth\n$to_slv\n$to_typeName"
   def csNamedDFTypeConvFuncsBody(dfType: NamedDFType): String =
     dfType match
-      case dt: DFEnum   => ""
+      case dt: DFEnum   => csDFEnumConvFuncsBody(dt)
       case dt: DFStruct => csDFStructConvFuncsBody(dt)
       case dt: DFOpaque => csDFOpaqueConvFuncsBody(dt)
   def csDFEnumTypeName(dfType: DFEnum): String = s"t_enum_${dfType.getName}"
@@ -59,6 +59,33 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         .mkString(", ")
         .hindent
     s"type ${csDFEnumTypeName(dfType)} is (\n$entries\n);"
+  def csDFEnumConvFuncsBody(dfType: DFEnum): String =
+    val enumName = dfType.getName
+    val typeName = csDFEnumTypeName(dfType)
+    val to_slv_cases = dfType.entries.map((e, v) => s"when ${enumName}_$e => int_val := $v;")
+    val from_slv_cases = dfType.entries.map((e, v) => s"when $v => return ${enumName}_$e;")
+    s"""|function bitWidth(A : ${typeName}) return integer is
+        |begin
+        |  return ${dfType.width};
+        |end;
+        |function to_slv(A : ${typeName}) return std_logic_vector is
+        |  variable int_val : integer;
+        |begin
+        |  case A is
+        |${to_slv_cases.mkString("\n").hindent(2)}
+        |  end case;
+        |  return resize(to_slv(int_val), ${dfType.width});
+        |end;
+        |function to_${typeName}(A : std_logic_vector) return ${typeName} is
+        |begin
+        |  case to_integer(unsigned(A)) is
+        |${from_slv_cases.mkString("\n").hindent(2)}
+        |    when others => 
+        |      assert false report "Unknown state detected!" severity error;
+        |      return ${enumName}_${dfType.entries.head._1};
+        |  end case;
+        |end;""".stripMargin
+  end csDFEnumConvFuncsBody
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = csDFEnumTypeName(dfType)
   def getVectorTypes(dcls: Iterable[DFVal]): ListMap[String, Int] =
     ListMap.from(
