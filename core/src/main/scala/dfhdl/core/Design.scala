@@ -9,7 +9,7 @@ import scala.annotation.{Annotation, implicitNotFound}
 import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
 
-private[dfhdl] trait Design extends Container, HasClsMetaArgs:
+trait Design extends Container, HasClsMetaArgs:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
