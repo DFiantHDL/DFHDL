@@ -32,7 +32,7 @@ case object ExplicitNamedVars extends Stage:
             m,
             Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove)
           ):
-            headerVar.asVarAny := underlying.asValAny
+            headerVar.asVarAny.:=(underlying.asValAny)(using dfc.setMetaAnon(m.meta.position))
           Some(assignDsn.patch)
         case _ => ??? // not possible
       }
@@ -77,7 +77,9 @@ case object ExplicitNamedVars extends Stage:
             val anonIR = named.anonymize
             val dsn = new MetaDesign(named, Patch.Add.Config.ReplaceWithFirst()):
               final val plantedNewVar = named.asValAny.genNewVar(using dfc.setMeta(named.meta))
-              plantedNewVar := plantMember(anonIR).asValAny
+              plantedNewVar.:=(plantMember(anonIR).asValAny)(using
+                dfc.setMetaAnon(named.meta.position)
+              )
             List(dsn.patch)
         }
         .toList
