@@ -66,7 +66,10 @@ case object SanityCheck extends Stage:
       end match
       // check that anonymous values are referenced exactly once
       m match
-        case dfVal: DFVal if dfVal.isAnonymous =>
+        case dfVal: DFVal if !dfVal.isAnonymous => // skip named
+        case _: DFVal.Alias.ApplyIdx            => // skip index selection
+        case _: DFVal.Alias.SelectField         => // skip field selection
+        case dfVal: DFVal =>
           val deps = dfVal.getReadDeps
           if (deps.size > 1)
             reportViolation(
