@@ -347,6 +347,15 @@ extension (dfVal: DFVal)
       case dcl @ DclVar() =>
         dcl.getAssignmentsTo.isEmpty && dcl.getConnectionTo.isEmpty
       case _ => false
+  def isAllowedMultipleReferences(using MemberGetSet): Boolean = dfVal match
+    case _ if !dfVal.isAnonymous    => true // allow named
+    case _: DFVal.Const             => true // allow anonymous constants
+    case _: DFVal.Alias.History     => true // history values get proper names a dedicated stage
+    case _: DFVal.Alias.ApplyIdx    => true // allow anonymous index selection
+    case _: DFVal.Alias.SelectField => true // allow anonymous field selection
+    case OpaqueActual(_)            => true // allow anonymous opaque actual selection
+    case _                          => false
+
 end extension
 
 extension (refTW: DFNet.Ref)
