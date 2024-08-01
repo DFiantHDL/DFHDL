@@ -353,6 +353,7 @@ extension (dfVal: DFVal)
     case _: DFVal.Alias.History     => true // history values get proper names a dedicated stage
     case _: DFVal.Alias.ApplyIdx    => true // allow anonymous index selection
     case _: DFVal.Alias.SelectField => true // allow anonymous field selection
+    case _: DFVal.PortByNameSelect  => true // allow anonymous port by name selection
     case OpaqueActual(_)            => true // allow anonymous opaque actual selection
     case _                          => false
 
