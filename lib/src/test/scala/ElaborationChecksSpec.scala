@@ -1,7 +1,8 @@
 import dfhdl.*
 import munit.*
-
+import java.io.File.separatorChar as S
 class ElaborationChecksSpec extends DesignSpec:
+  val currentFilePos = s"lib${S}src${S}test${S}scala${S}"
   test("ambiguous RT dependency errors"):
     class Internal1 extends EDDesign:
       val dmn1 = new RTDomain:
@@ -57,13 +58,13 @@ class ElaborationChecksSpec extends DesignSpec:
       if (x)
         val dmn = new RTDomain {}
     assertElaborationErrors(Top())(
-      """|Elaboration errors found!
-         |DFiant HDL elaboration error!
-         |Position:  ElaborationChecksSpec.scala:58:23 - 58:31
-         |Hierarchy: Top.dmn
-         |Operation: `apply`
-         |Message:   A domain can only be directly owned by a design, an interface, or another domain.
-         |""".stripMargin
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:59:23 - 59:31
+          |Hierarchy: Top.dmn
+          |Operation: `apply`
+          |Message:   A domain can only be directly owned by a design, an interface, or another domain.
+          |""".stripMargin
     )
 
   test("anonymous domains are forbidden"):
@@ -71,34 +72,34 @@ class ElaborationChecksSpec extends DesignSpec:
       new RTDomain {} setName ("someName")
       new RTDomain {}
     assertElaborationErrors(Top())(
-      """|Elaboration errors found!
-         |DFiant HDL name errors!
-         |Unable to determine names for the members declared at the following positions:
-         |ElaborationChecksSpec.scala:72:11 - 72:19
-         |
-         |Explanation:
-         |This can happen when utilizing the meta programming power of Scala in a way that
-         |DFHDL cannot infer the actual name of the member.
-         |
-         |Resolution:
-         |To resolve this issue use `setName` when declaring the member.
-         |
-         |Example 1:
-         |```
-         |  // Scala Vector holding 4 DFHDL ports
-         |  val x_vec = Vector.fill(4)(UInt(8) <> IN setName "x_vec")
-         |```
-         |In this example all the ports will be named "x_vec", and DFHDL will enumerate
-         |them automatically to "x_vec_0", "x_vec_1", etc.
-         |
-         |Example 2:
-         |If you wish to give the ports an explicit unique name, you can just use the power
-         |of Scala, as in the following example:
-         |```
-         |  val x_vec = Vector.tabulate(4)(i => UInt(8) <> IN setName s"x_vec_{i + 10}")
-         |```
-         |This would yield the same ports, but named "x_vec_10", "x_vec_11", etc.
-         |""".stripMargin
+      s"""|Elaboration errors found!
+          |DFiant HDL name errors!
+          |Unable to determine names for the members declared at the following positions:
+          |${currentFilePos}ElaborationChecksSpec.scala:73:11 - 73:19
+          |
+          |Explanation:
+          |This can happen when utilizing the meta programming power of Scala in a way that
+          |DFHDL cannot infer the actual name of the member.
+          |
+          |Resolution:
+          |To resolve this issue use `setName` when declaring the member.
+          |
+          |Example 1:
+          |```
+          |  // Scala Vector holding 4 DFHDL ports
+          |  val x_vec = Vector.fill(4)(UInt(8) <> IN setName "x_vec")
+          |```
+          |In this example all the ports will be named "x_vec", and DFHDL will enumerate
+          |them automatically to "x_vec_0", "x_vec_1", etc.
+          |
+          |Example 2:
+          |If you wish to give the ports an explicit unique name, you can just use the power
+          |of Scala, as in the following example:
+          |```
+          |  val x_vec = Vector.tabulate(4)(i => UInt(8) <> IN setName s"x_vec_{i + 10}")
+          |```
+          |This would yield the same ports, but named "x_vec_10", "x_vec_11", etc.
+          |""".stripMargin
     )
   test("non-shared assign limitations"):
     @top(false) class Top extends EDDesign:
@@ -114,24 +115,24 @@ class ElaborationChecksSpec extends DesignSpec:
         y := 0
         ok := 0
     assertElaborationErrors(Top())(
-      """|Elaboration errors found!
-         |DFiant HDL connectivity error!
-         |Position:  ElaborationChecksSpec.scala:113:9 - 113:15
-         |Hierarchy: Top
-         |LHS:       x
-         |RHS:       0
-         |Message:   Found multiple domain assignments to the same variable/port `Top.x`
-         |Only variables declared as `VAR.SHARED` under ED domain allow this.
-         |The previous write occurred at ElaborationChecksSpec.scala:109:9 - 109:15
-         |
-         |DFiant HDL connectivity error!
-         |Position:  ElaborationChecksSpec.scala:114:9 - 114:15
-         |Hierarchy: Top
-         |LHS:       y
-         |RHS:       0
-         |Message:   Found multiple domain assignments to the same variable/port `Top.y`
-         |Only variables declared as `VAR.SHARED` under ED domain allow this.
-         |The previous write occurred at ElaborationChecksSpec.scala:110:9 - 110:15
-         |""".stripMargin
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:114:9 - 114:15
+          |Hierarchy: Top
+          |LHS:       x
+          |RHS:       0
+          |Message:   Found multiple domain assignments to the same variable/port `Top.x`
+          |Only variables declared as `VAR.SHARED` under ED domain allow this.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:110:9 - 110:15
+          |
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:115:9 - 115:15
+          |Hierarchy: Top
+          |LHS:       y
+          |RHS:       0
+          |Message:   Found multiple domain assignments to the same variable/port `Top.y`
+          |Only variables declared as `VAR.SHARED` under ED domain allow this.
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:111:9 - 111:15
+          |""".stripMargin
     )
 end ElaborationChecksSpec
