@@ -46,6 +46,8 @@ trait DFApp:
   private var compilerOptions: options.CompilerOptions = null
   private var printerOptions: options.PrinterOptions = null
   private var linterOptions: options.LinterOptions = null
+  given options.CompilerOptions = compilerOptions
+  given options.PrinterOptions = printerOptions
   private var dsn: () => core.Design = null
   private var mode = "commit"
   // used by the plugin to get the updated design arguments that could be changed by the
@@ -171,8 +173,6 @@ trait DFApp:
     )
 
   def main(args: Array[String]): Unit =
-    given options.CompilerOptions = compilerOptions
-    given options.PrinterOptions = printerOptions
     if (parser.parse(args, ()).isDefined)
       mode match
         case "elaborate" =>

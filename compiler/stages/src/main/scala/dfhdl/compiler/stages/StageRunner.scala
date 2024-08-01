@@ -1,12 +1,12 @@
 package dfhdl.compiler.stages
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.CompilerOptions
+import dfhdl.options.{CompilerOptions, PrinterOptions}
 import wvlet.log.*
 
 import scala.collection.SortedSet
 import scala.annotation.tailrec
-class StageRunner(using co: CompilerOptions) extends LogSupport:
+class StageRunner(using co: CompilerOptions, po: PrinterOptions) extends LogSupport:
   logger.setFormatter(LogFormatter.BareFormatter)
   logger.setLogLevel(co.logLevel)
   private val ignoredTraceStages: Set[Stage] =
@@ -60,5 +60,5 @@ class StageRunner(using co: CompilerOptions) extends LogSupport:
 end StageRunner
 
 object StageRunner:
-  def run(stage: Stage)(designDB: DB)(using CompilerOptions): DB =
+  def run(stage: Stage)(designDB: DB)(using CompilerOptions, PrinterOptions): DB =
     new StageRunner().run(List(stage), Set())(designDB)
