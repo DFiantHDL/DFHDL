@@ -85,7 +85,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"{${args.length}{${args.head.refCodeString}}}"
               // regular concatenation function
-              case _ => args.map(_.refCodeString).mkString("{", ", ", "}")
+              case _ => args.map(_.refCodeString).csList("{", ",", "}")
             end match
           case _ =>
             args
@@ -136,7 +136,11 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFBool, DFBit)                  => relValStr
       case (toStruct: DFStruct, _: DFBits) =>
         s"${toStruct.getName}'($relValStr)"
-      case _ => printer.unsupported
+      case (toVect: DFVector, _: DFBits) =>
+        relValStr
+      case x =>
+        println(x)
+        printer.unsupported
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
