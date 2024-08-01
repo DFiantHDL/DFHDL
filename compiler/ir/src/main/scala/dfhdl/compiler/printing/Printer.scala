@@ -181,8 +181,9 @@ trait Printer
 
   final def csDB: String =
     val designDB = getSet.designDB
-    val csFileList = designDB.uniqueDesignMemberList.map { case (block: DFDesignBlock, _) =>
-      formatCode(csFile(block))
+    val csFileList = designDB.uniqueDesignMemberList.collect {
+      case (block: DFDesignBlock, _) if printerOptions.designPrintFilter(block) =>
+        formatCode(csFile(block))
     }
     s"${formatCode(csGlobalTypeDcls + csGlobalConstDcls).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
   end csDB

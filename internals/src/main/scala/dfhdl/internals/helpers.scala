@@ -3,6 +3,7 @@ import scala.quoted.*
 import scala.annotation.tailrec
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.collection.mutable
+import scala.util.matching.Regex
 extension [T](t: T)
   def debugPrint: T =
     println(t)
@@ -303,7 +304,15 @@ extension (str: String)
     if (str.isEmpty) str else f(str)
   // We translate the windows `\` to unix `/`
   def forceWindowsToLinuxPath: String = str.replaceAll("""\\""", "/")
-
+  def simplePattenToRegex: Regex =
+    val updatedPattern =
+      "^" + str
+        .replace(".", "\\.") // Escape dots to match literal dots
+        .replace("*", ".*") // Replace * with .*
+        .replace("?", ".") // Replace ? with .
+        + "$"
+    updatedPattern.r
+end extension
 extension [T](seq: Iterable[T])
   def groupByOrdered[P](f: T => P): List[(P, List[T])] =
     @tailrec

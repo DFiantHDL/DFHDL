@@ -1,10 +1,13 @@
 package dfhdl.options
+import dfhdl.compiler.ir
+import dfhdl.internals.simplePattenToRegex
 import dfhdl.options.PrinterOptions.*
 
 final case class PrinterOptions(
     align: Align,
     color: Color,
-    showGlobals: ShowGlobals
+    showGlobals: ShowGlobals,
+    designPrintFilter: DesignPrintFilter
 )
 object PrinterOptions:
 
@@ -16,12 +19,14 @@ object PrinterOptions:
   given default(using
       align: Align,
       color: Color,
-      showGlobals: ShowGlobals
+      showGlobals: ShowGlobals,
+      designPrintFilter: DesignPrintFilter
   ): PrinterOptions =
     PrinterOptions(
       align = align,
       color = color,
-      showGlobals = showGlobals
+      showGlobals = showGlobals,
+      designPrintFilter = designPrintFilter
     )
 
   opaque type Align <: Boolean = Boolean
@@ -38,4 +43,16 @@ object PrinterOptions:
   object ShowGlobals:
     given ShowGlobals = false
     given Conversion[Boolean, ShowGlobals] = identity
+
+  trait DesignPrintFilter:
+    def apply(design: ir.DFDesignBlock): Boolean
+
+  object DesignPrintFilter:
+    given DesignPrintFilter = All
+    object All extends DesignPrintFilter:
+      def apply(design: ir.DFDesignBlock): Boolean = true
+    class Named(dclNamePattern: String) extends DesignPrintFilter:
+      def apply(design: ir.DFDesignBlock): Boolean =
+        dclNamePattern.simplePattenToRegex.matches(design.dclName)
+
 end PrinterOptions
