@@ -120,9 +120,6 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         relValStr
       case (DFOpaque(_, _, _), _) =>
         relValStr
-      case (DFBits(Int(tWidth)), _) =>
-        assert(tWidth == fromType.width)
-        s"{$relValStr}"
       case (DFUInt(tr @ Int(tWidth)), DFUInt(fr @ Int(fWidth))) =>
         if (tWidth == fWidth) relValStr
         else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tr.uboundCS}:0]"
@@ -136,8 +133,43 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFBool, DFBit)                  => relValStr
       case (toStruct: DFStruct, _: DFBits) =>
         s"${toStruct.getName}'($relValStr)"
-      case (toVect: DFVector, _: DFBits) =>
-        relValStr
+      case (toVector: DFVector, _: DFBits) =>
+        def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =
+          val vecLength = vectorType.length
+          vectorType.cellType match
+            case cellType: DFVector =>
+              List.tabulate(vecLength)(i =>
+                to_vector_conv(cellType, relHighIdx - i * cellType.width)
+              ).csList("'{", ",", "}")
+            case cellType: DFBits =>
+              val cellWidth = cellType.width
+              List.tabulate(vecLength)(i =>
+                s"$relValStr[${relHighIdx - i * cellWidth}:${relHighIdx - (i + 1) * cellWidth + 1}]"
+              ).csList("'{", ",", "}")
+            case x =>
+              println(x)
+              printer.unsupported
+        end to_vector_conv
+        to_vector_conv(toVector, toVector.width - 1)
+      case (DFBits(Int(tWidth)), fromVector: DFVector) =>
+        def from_vector_conv(vectorType: DFVector, prevSelect: String): String =
+          val vecLength = vectorType.length
+          vectorType.cellType match
+            case cellType: DFVector =>
+              List.tabulate(vecLength)(i => from_vector_conv(cellType, s"[$i]"))
+                .csList("{", ",", "}")
+            case cellType: DFBits =>
+              val cellWidth = cellType.width
+              List.tabulate(vecLength)(i => s"$relValStr$prevSelect[$i]").csList("{", ",", "}")
+            case x =>
+              println(x)
+              printer.unsupported
+        end from_vector_conv
+        assert(tWidth == fromType.width)
+        from_vector_conv(fromVector, "")
+      case (DFBits(Int(tWidth)), _) =>
+        assert(tWidth == fromType.width)
+        s"{$relValStr}"
       case x =>
         println(x)
         printer.unsupported

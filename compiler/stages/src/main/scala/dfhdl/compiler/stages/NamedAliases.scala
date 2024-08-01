@@ -84,6 +84,11 @@ case object NamedVerilogSelection extends NamedAliases:
       if (alias.relValRef.get.dfType == DFInt32)
         Nil // conversion from DFInt32 is not a bit selection, so no need to break the expression
       else List(alias.relValRef.get)
+    // to/from vector conversion is used with selection
+    case DFVal.Alias.AsIs(DFVector(_, _), DFRef(relVal @ DFBits.Val(_)), _, _, _) =>
+      List(relVal)
+    case DFVal.Alias.AsIs(DFBits(_), DFRef(relVal @ DFVector.Val(_)), _, _, _) =>
+      List(relVal)
     case alias: DFVal.Alias.ApplyIdx =>
       List(alias.relValRef.get)
     case func @ DFVal.Func(_, op, DFRef(lhs) :: _ :: Nil, _, _, _)
