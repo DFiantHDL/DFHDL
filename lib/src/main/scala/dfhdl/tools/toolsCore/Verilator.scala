@@ -66,7 +66,8 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
        |$commands
        |""".stripMargin
   def commands: String =
-    lintOffBlackBoxes.emptyOr(_ + "\n") +
+    lintOffHidden.emptyOr(_ + "\n") +
+      lintOffBlackBoxes.emptyOr(_ + "\n") +
       lintOffOpenOutPorts.emptyOr(_ + "\n") +
       lintOffUnused.emptyOr(_ + "\n") +
       lintOffUnusedBits.emptyOr(_ + "\n")
@@ -81,6 +82,7 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
     val lineArg = lines.emptyOr(" -lines " + _)
     val matchWildArg = matchWild.emptyOr(m => s""" -match "$m"""")
     s"lint_off$ruleArg$fileArg$lineArg$matchWildArg"
+  def lintOffHidden: String = lintOffCommand("VARHIDDEN")
   def lintOffBlackBoxes: String =
     designDB.srcFiles.flatMap {
       case SourceFile(SourceOrigin.Committed, SourceType.Design.BlackBox, path, _) =>
