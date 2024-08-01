@@ -135,7 +135,7 @@ object DFOpaque:
         def actual(using DFC): DFVal[AT, Modifier[A, Any, Any, P]] = trydf {
           DFVal.Alias.AsIs(lhs.dfType.actualType, lhs)
         }
-        def actualMap(
+        def mapActual(
             f: DFValOf[AT] => DFValOf[AT]
         )(using dfc: DFC, ce: ClassEv[TFE]): DFValOf[DFOpaque[TFE]] =
           DFVal.Alias.AsIs(

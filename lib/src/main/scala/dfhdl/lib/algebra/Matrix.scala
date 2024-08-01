@@ -19,7 +19,7 @@ extension [ET <: DFType, RN <: Int & Singleton, CT <: Column[ET, RN]](
   def colType: CT = col.opaqueType
   def rowNum: RN = colType.rowNum
   def elemType: ET = colType.elemType
-  @inline def mapElements(f: ET <> VAL => ET <> VAL): CT <> DFRET =
+  @inline def mapElems(f: ET <> VAL => ET <> VAL): CT <> DFRET =
     col.actual.elements.map(f).as(colType)
 
 abstract class Matrix[
@@ -46,11 +46,22 @@ extension [
   def colNum: CN = matType.colNum
   @inline def apply(colIdx: Int): CT <> DFRET = matrix.actual(colIdx)
   @inline def apply(rowIdx: Int, colIdx: Int): ET <> DFRET = matrix.actual(colIdx).actual(rowIdx)
-  @inline def mapElementsViaIndexes(f: (Int, Int) => ET <> VAL): MT <> DFRET =
+end extension
+extension [
+    CN <: Int & Singleton,
+    ET <: DFType,
+    RN <: Int & Singleton,
+    CT <: Column[ET, RN],
+    MT <: Matrix[CN, ET, RN, CT]
+](matType: MT)
+  def colType: CT = matType.colType
+  def rowNum: RN = colType.rowNum
+  def colNum: CN = matType.colNum
+  @inline def tabulateElems(f: (Int, Int) => ET <> VAL): MT <> DFRET =
     Vector
-      .tabulate(colNum, rowNum)(f)
+      .tabulate(rowNum, colNum)(f)
       .map(_.as(colType)).as(matType)
-  @inline def mapColumnsViaIndex(f: Int => Vector[ET <> VAL]): MT <> DFRET =
+  @inline def tabulateCols(f: Int => Vector[ET <> VAL]): MT <> DFRET =
     Vector
       .tabulate(colNum)(x => f(x).as(colType))
       .as(matType)

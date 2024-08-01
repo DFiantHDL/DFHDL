@@ -39,14 +39,14 @@ extension (lhs: AESByte <> VAL)
   @inline def +(rhs: AESByte <> VAL): AESByte <> DFRET =
     (lhs.actual ^ rhs.actual).as(AESByte)
 
-  private def xtime: AESByte <> DFRET = lhs.actualMap: lhs =>
+  private def xtime: AESByte <> DFRET = lhs.mapActual: lhs =>
     val shifted = lhs << 1
     if (lhs(7)) shifted ^ h"1b"
     else shifted
 
   // Non-linear substitution table used in several byte substitution transformations and in the Key Expansion
   // routine to perform a one-for-one substitution of a byte value.
-  def sbox: AESByte <> DFRET = lhs.actualMap(sboxLookupTable(_))
+  def sbox: AESByte <> DFRET = lhs.mapActual(sboxLookupTable(_))
 end extension
 
 extension (lhs: Byte <> CONST)
@@ -73,10 +73,10 @@ extension (lhs: AESWord <> VAL)
 
   // Function used in the Key Expansion routine that takes a four-byte input word and applies
   // an S-box to each of the four bytes to produce an output word.
-  def subWord: AESWord <> DFRET = lhs.mapElements(_.sbox)
+  def subWord: AESWord <> DFRET = lhs.mapElems(_.sbox)
 
   // Function used in the Key Expansion routine that takes a four-byte word and performs a cyclic permutation.
-  def rotWord: AESWord <> DFRET = lhs.actualMap: lhs =>
+  def rotWord: AESWord <> DFRET = lhs.mapActual: lhs =>
     val elms = lhs.elements
     (elms.drop(1) :+ elms.head)
 end extension
@@ -104,19 +104,19 @@ extension (state: AESState <> VAL)
   // Transformation in the Cipher that processes the State using a non-linear byte substitution
   // table (S-box) that operates on each of the State bytes independently.
   def subBytes: AESState <> DFRET =
-    state.mapElementsViaIndexes((c, r) => state(r, c).sbox)
+    AESState.tabulateElems((r, c) => state(r, c).sbox)
 
   // Transformation in the Cipher that processes the State by cyclically shifting the last three rows of
   // the State by different offsets. Note: this algorithm only follows the AES spec, and assumes Nb=4. If
   // this were to change, instead of `c + r` to change it to `c + shift(r, Nb)` that sets the shift
   // according to the general Rijndael algorithm.
   def shiftRows: AESState <> DFRET =
-    state.mapElementsViaIndexes((c, r) => state(r, (c + r) % Nb))
+    AESState.tabulateElems((r, c) => state(r, (c + r) % Nb))
 
   // Transformation in the Cipher that takes all of the columns of the State and mixes their data
   // (independently of one another) to produce new columns.
   def mixColumns: AESState <> DFRET =
-    state.mapColumnsViaIndex(c =>
+    AESState.tabulateCols(c =>
       Vector(
         h"02" * state(0, c) + h"03" * state(1, c) + h"01" * state(2, c) + h"01" * state(3, c),
         h"01" * state(0, c) + h"02" * state(1, c) + h"03" * state(2, c) + h"01" * state(3, c),
