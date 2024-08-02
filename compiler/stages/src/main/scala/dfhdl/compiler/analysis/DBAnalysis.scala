@@ -11,6 +11,11 @@ extension (designDB: DB)
           Some(dfVal)
         else None
       case _ => None
+  // TODO: need to apply a more stable tag when converting from mutable to immutable
+  def getUnusedParamAnnotValues: List[DFVal] =
+    import designDB.getSet
+    designDB.members.collect:
+      case dfVal @ DesignParam(_) if dfVal.wasConstDataAccessed => dfVal
   def getUnusedBitsValues: List[(DFVal, Int, Int)] =
     import designDB.getSet
     designDB.members.flatMap:

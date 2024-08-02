@@ -143,6 +143,7 @@ sealed trait DFVal extends DFMember.Named:
   protected def protGetConstData(using MemberGetSet): Option[Any]
   private var cachedConstDataReady: Boolean = false
   private var cachedConstData: Option[Any] = None
+  final def wasConstDataAccessed: Boolean = cachedConstDataReady
   final def getConstData(using MemberGetSet): Option[Any] =
     if (cachedConstDataReady) cachedConstData
     else
