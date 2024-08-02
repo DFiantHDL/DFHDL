@@ -67,9 +67,13 @@ extension [
   def colType: CT = matType.colType
   def rowNum: RN = colType.rowNum
   def colNum: CN = matType.colNum
+  // tabulating with (row, col) index order, to match the apply method indexing
   @inline def tabulateElems(f: (Int, Int) => ET <> VAL): MT <> DFRET =
+    // the given tabulation function needs to be flipped for proper construction order
+    // of columns then rows
+    @inline def fixedF(colIdx: Int, rowIdx: Int): ET <> VAL = f(rowIdx, colIdx)
     Vector
-      .tabulate(rowNum, colNum)(f)
+      .tabulate(colNum, rowNum)(fixedF)
       .map(_.as(colType)).as(matType)
   @inline def tabulateCols(f: Int => Vector[ET <> VAL]): MT <> DFRET =
     Vector
