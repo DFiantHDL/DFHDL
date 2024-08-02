@@ -29,7 +29,7 @@ trait Tool:
     val pwd = new java.io.File(co.topCommitPath(cd.stagedDB))
     val errCode = Process(cmd, pwd).!
     if (errCode != 0)
-      val msg = s"${toolName} exited with the error code ${errCode}."
+      val msg = s"${toolName} exited with the error code ${errCode} with the command:\n$cmd"
       // TODO: there is a false exhaustivity warning here in 3.4.2 or later
       (to.onError: @unchecked) match
         case OnError.Exit =>
