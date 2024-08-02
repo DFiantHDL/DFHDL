@@ -3,7 +3,7 @@ import dfhdl.compiler.ir.*
 import dfhdl.core.DFVal.TruncateTag
 
 extension (designDB: DB)
-  def getUnusedTaggedValues: List[DFVal] =
+  def getUnusedAnnotValues: List[DFVal] =
     import designDB.getSet
     designDB.members.flatMap:
       case dfVal: DFVal if !dfVal.isAnonymous =>

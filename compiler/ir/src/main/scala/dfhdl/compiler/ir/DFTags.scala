@@ -24,15 +24,5 @@ final case class NameTag(name: String) extends DFTag
 case object DuplicateTag extends DFTagOf[DFDesignBlock]
 type DuplicateTag = DuplicateTag.type
 
-enum Unused extends DFTagOf[DFVal]:
-  /** Quiet just suppresses the unused warning for the tagged value.
-    */
-  case Quiet
-
-  /** Keep suppresses the unused warning, and also attempts to keep the tagged value.
-    */
-  case Keep
-
-  /** Prune removes all the redundant paths until and including the tagged value.
-    */
-  case Prune
+case object ToScalaValueAccess extends DFTagOf[DFVal]
+type ToScalaValueAccess = ToScalaValueAccess.type

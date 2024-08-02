@@ -103,7 +103,7 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
       )
     .distinct.mkString("\n")
   def lintOffUnused: String =
-    designDB.getUnusedTaggedValues.map: dfVal =>
+    designDB.getUnusedAnnotValues.map: dfVal =>
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
         file = s"${dfVal.getOwnerDesign.dclName}.*",
