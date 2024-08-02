@@ -19,8 +19,17 @@ extension [ET <: DFType, RN <: Int & Singleton, CT <: Column[ET, RN]](
   def colType: CT = col.opaqueType
   def rowNum: RN = colType.rowNum
   def elemType: ET = colType.elemType
+  @inline def apply(rowIdx: Int): ET <> DFRET = col.actual(rowIdx)
   @inline def mapElems(f: ET <> VAL => ET <> VAL): CT <> DFRET =
     col.actual.elements.map(f).as(colType)
+  @inline def zipMapElems(rhs: CT <> VAL)(f: (ET <> VAL, ET <> VAL) => ET <> VAL): CT <> DFRET =
+    col.actual.elements.lazyZip(rhs.actual.elements).map(f).as(colType)
+extension [ET <: DFType, RN <: Int & Singleton, CT <: Column[ET, RN]](
+    colType: CT
+)
+  def rowNum: RN = colType.rowNum
+  @inline def tabulateElems(f: Int => ET <> VAL): CT <> DFRET =
+    Vector.tabulate(rowNum)(x => f(x)).as(colType)
 
 abstract class Matrix[
     CN <: Int & Singleton,
@@ -44,6 +53,7 @@ extension [
   @targetName("matRowNum")
   def rowNum: RN = colType.rowNum
   def colNum: CN = matType.colNum
+  @targetName("matApply")
   @inline def apply(colIdx: Int): CT <> DFRET = matrix.actual(colIdx)
   @inline def apply(rowIdx: Int, colIdx: Int): ET <> DFRET = matrix.actual(colIdx).actual(rowIdx)
 end extension

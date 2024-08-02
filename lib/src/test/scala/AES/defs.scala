@@ -69,7 +69,7 @@ case class AESWord() extends Column(AESByte, 4)
 extension (lhs: AESWord <> VAL)
   @targetName("addWord")
   @inline def +(rhs: AESWord <> VAL): AESWord <> DFRET =
-    (lhs.bits ^ rhs.bits).as(AESWord)
+    lhs.zipMapElems(rhs)(_ + _)
 
   // Function used in the Key Expansion routine that takes a four-byte input word and applies
   // an S-box to each of the four bytes to produce an output word.
@@ -129,7 +129,7 @@ extension (state: AESState <> VAL)
   // operation. The length of a Round Key equals the size of the State (i.e., for Nb = 4, the Round Key length
   // equals 128 bits/16 bytes).
   def addRoundKey(key: AESRoundKey <> VAL): AESState <> DFRET =
-    (state.bits ^ key.bits).as(AESState)
+    AESState.tabulateElems((r, c) => state(r, c) + key(r, c))
 end extension
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
