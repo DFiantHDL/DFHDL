@@ -79,7 +79,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case DFVal.Func.Op.++ =>
             dfVal.dfType match
               case DFStruct(_, _) | DFVector(_, _) =>
-                args.map(_.refCodeString).csList("'{", ", ", "}")
+                args.map(_.refCodeString).csList("'{", ",", "}")
 //              case DFVector(_, _) => printer.unsupported
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
