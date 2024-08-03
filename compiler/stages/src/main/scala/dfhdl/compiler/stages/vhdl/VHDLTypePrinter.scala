@@ -155,10 +155,6 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         val dimArgsApply = (depth - 1 to 1 by -1).map(i => s"D$i").mkString(", ", ", ", "")
         val cellDimArgApply = cellDimArg.emptyOr(_ => ", D0")
         s"to_${csDFVectorDclName(cellTypeName, depth - 1)}($argSel$dimArgsApply$cellDimArgApply)"
-    val cellBitWidth =
-      val dims = (depth - 1 to 1 by -1).map(i => s"D$i")
-      val cellDim = if (cellDimArg.isEmpty) s"bitWidth($ofTypeName)" else "D0"
-      (dims :+ cellDim).mkString(" * ")
     val funcBody =
       s"""|function bitWidth(A : ${typeName}) return integer is
           |begin
@@ -181,9 +177,10 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
           |function to_${typeName}(A : std_logic_vector$dimArgs$cellDimArg) return ${typeName} is
           |  variable hi : integer;
           |  variable lo : integer;
-          |  variable cellBitWidth: integer := $cellBitWidth;
+          |  variable cellBitWidth: integer;
           |  variable ret : ${typeName}$dims$cellDim;
           |begin
+          |  cellBitWidth := bitWidth(ret(0));
           |  lo := A'length;
           |  for i in 0 to D${depth}-1 loop
           |    hi := lo - 1; lo := hi - cellBitWidth + 1;

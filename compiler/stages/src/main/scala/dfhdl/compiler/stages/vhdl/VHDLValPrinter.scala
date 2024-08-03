@@ -104,7 +104,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                 s"(0 to ${args.length - 1} => ${args.head.refCodeString})"
 
               case DFVector(_, _) =>
-                args.map(_.refCodeString).mkStringBrackets
+                args.map(_.refCodeString).csList()
               // regular concatenation function
               case _ => args.map(_.refCodeString).mkString(" & ")
             end match

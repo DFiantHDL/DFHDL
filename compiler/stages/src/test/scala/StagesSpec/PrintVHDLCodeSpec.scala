@@ -444,9 +444,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  function to_t_vecX1_std_logic_vector(A : std_logic_vector; D1 : integer; D0 : integer) return t_vecX1_std_logic_vector is
          |    variable hi : integer;
          |    variable lo : integer;
-         |    variable cellBitWidth: integer := D0;
+         |    variable cellBitWidth: integer;
          |    variable ret : t_vecX1_std_logic_vector(0 to D1 - 1)(D0 - 1 downto 0);
          |  begin
+         |    cellBitWidth := bitWidth(ret(0));
          |    lo := A'length;
          |    for i in 0 to D1-1 loop
          |      hi := lo - 1; lo := hi - cellBitWidth + 1;
@@ -476,9 +477,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  function to_t_vecX2_std_logic_vector(A : std_logic_vector; D2 : integer; D1 : integer; D0 : integer) return t_vecX2_std_logic_vector is
          |    variable hi : integer;
          |    variable lo : integer;
-         |    variable cellBitWidth: integer := D1 * D0;
+         |    variable cellBitWidth: integer;
          |    variable ret : t_vecX2_std_logic_vector(0 to D2 - 1)(0 to D1 - 1)(D0 - 1 downto 0);
          |  begin
+         |    cellBitWidth := bitWidth(ret(0));
          |    lo := A'length;
          |    for i in 0 to D2-1 loop
          |      hi := lo - 1; lo := hi - cellBitWidth + 1;

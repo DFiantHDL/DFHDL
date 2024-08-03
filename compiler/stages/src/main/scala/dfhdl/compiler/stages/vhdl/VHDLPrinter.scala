@@ -91,7 +91,7 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
        |use ieee.numeric_std.all;
        |
        |package ${printer.packageName} is
-       |${csGlobalConstDcls + namedTypeConvFuncsDcl}
+       |${namedTypeConvFuncsDcl.emptyOr(_ + "\n") + csGlobalConstDcls}
        |function cadd(A, B : unsigned) return unsigned;
        |function cadd(A, B : signed) return signed;
        |function csub(A, B : unsigned) return unsigned;
