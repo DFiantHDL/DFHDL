@@ -328,6 +328,8 @@ final case class DFStruct(
         (fieldName, relBitLow)
       )
     fieldPosMap(fieldName)
+  lazy val fieldIndexes: Map[String, Int] = fieldMap.keys.zipWithIndex.toMap
+  def fieldIndex(fieldName: String): Int = fieldIndexes(fieldName)
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFStruct =>
       this.getName == that.getName &&

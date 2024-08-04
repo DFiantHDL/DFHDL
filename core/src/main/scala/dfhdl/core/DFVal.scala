@@ -825,18 +825,17 @@ object DFVal extends DFValLP:
           fieldName: String
       )(using dfc: DFC): DFVal[T, M] =
         val relValIR = relVal.asIR
-        val ir.DFStruct(_, fieldMap) = relValIR.dfType: @unchecked
+        val dfStructType = relValIR.dfType.asInstanceOf[ir.DFStruct]
         relValIR match
           // in case the referenced value is anonymous and concatenates fields
           // of values, then we just directly reference the relevant
           // value.
           case ir.DFVal.Func(_, FuncOp.++, args, _, meta, _) if meta.isAnonymous =>
             import dfc.getSet
-            val idx = fieldMap.keys.toList.indexWhere(_ == fieldName)
-            args(idx).get.asVal[T, M]
+            args(dfStructType.fieldIndex(fieldName)).get.asVal[T, M]
           // for all other case create a selector
           case _ =>
-            val dfTypeIR = fieldMap(fieldName).dropUnreachableRefs
+            val dfTypeIR = dfStructType.fieldMap(fieldName).dropUnreachableRefs
             val alias: ir.DFVal.Alias.SelectField =
               ir.DFVal.Alias.SelectField(
                 dfTypeIR,

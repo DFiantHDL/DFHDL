@@ -232,8 +232,8 @@ extension (dfVal: DFVal)
         val newSuffix = alias match
           case _: DFVal.Alias.AsIs => suffix
           case applyIdx: DFVal.Alias.ApplyIdx =>
-            applyIdx match
-              case DFVal.Alias.ApplyIdx.Const(i) =>
+            applyIdx.relIdx.get match
+              case DFVal.Alias.ApplyIdx.ConstIdx(i) =>
                 val maxValue = relVal.dfType match
                   case vector: DFVector => vector.length - 1
                   case bits: DFBits     => bits.width - 1

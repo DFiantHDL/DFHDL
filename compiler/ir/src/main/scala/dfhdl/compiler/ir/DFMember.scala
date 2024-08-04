@@ -224,8 +224,8 @@ object DFVal:
             case partial: DFVal.Alias.ApplyRange =>
               relVal.departial(range.offset(partial.relBitLow))
             case partial: DFVal.Alias.ApplyIdx =>
-              partial match
-                case DFVal.Alias.ApplyIdx.Const(idx) =>
+              partial.relIdx.get match
+                case DFVal.Alias.ApplyIdx.ConstIdx(idx) =>
                   relVal.departial(range.offset(idx * partial.width))
                 // if not a constant index selection, then the entire value range is affected
                 case _ =>
@@ -565,9 +565,9 @@ object DFVal:
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     end ApplyIdx
     object ApplyIdx:
-      object Const:
-        def unapply(applyIdx: ApplyIdx)(using MemberGetSet): Option[Int] =
-          applyIdx.relIdx.get match
+      object ConstIdx:
+        def unapply(idx: DFVal.Const)(using MemberGetSet): Option[Int] =
+          idx match
             case DFVal.Const(DFInt32, data: Option[BigInt] @unchecked, _, _, _) =>
               data.map(_.toInt)
             case _ => None
