@@ -55,7 +55,7 @@ private abstract class NamedAliases extends Stage:
   end transform
 end NamedAliases
 
-// For verilog simulation in verilator (and possibly other tools), bit selection from unnamed values is limited.
+// For verilog bit selection from unnamed values is limited.
 // This compilation stage names the intermediate values. A future stage (UniqueNames) is responsible for
 // making sure the names will be unique.
 case object NamedVerilogSelection extends NamedAliases:

@@ -62,6 +62,13 @@ object OpaqueActual:
       case dfType: DFOpaque if dfType.actualType equals alias.dfType => Some(relVal)
       case _                                                         => None
 
+object AsOpaque:
+  def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
+    val relVal = alias.relValRef.get
+    alias.dfType match
+      case dfType: DFOpaque if dfType.actualType equals relVal.dfType => Some(relVal)
+      case _                                                          => None
+
 object Bind:
   def unapply(alias: DFVal.Alias)(using MemberGetSet): Option[DFVal] =
     if (alias.getTagOf[Pattern.Bind.Tag.type].isDefined)

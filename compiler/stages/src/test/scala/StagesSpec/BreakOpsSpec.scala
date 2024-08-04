@@ -1,11 +1,12 @@
 package StagesSpec
 
 import dfhdl.*
-import compiler.stages.breakOps
+import compiler.stages.breakOpsWithAssignments
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class BreakOpsSpec extends StageSpec:
   test("Break vector concatenations") {
+    case class Foo() extends Opaque(Bits(8) X 4 X 4)
     class ID extends DFDesign:
       val x = Bits(8)         <> IN
       val y = Bits(8)         <> OUT
@@ -13,11 +14,13 @@ class BreakOpsSpec extends StageSpec:
 
       @inline def anon(arg: Bits[8] X 4 X 4 <> VAL): Bits[8] X 4 X 4 <> DFRET = arg
       z := anon(Vector.fill(4)(Vector(h"11", h"22", x, h"44")))
-      y := anon(Vector.fill(4)(Vector(h"11", h"22", x, h"44")))(1)(3)
-    val id = (new ID).breakOps
+      y := anon(Vector.fill(4)(Vector(h"11", h"22", x, h"44"))).as(Foo).actual(1)(3)
+    val id = (new ID).breakOpsWithAssignments
     assertCodeString(
       id,
       """|class ID extends DFDesign:
+         |  case class Foo() extends Opaque(Bits(8) X 4 X 4)
+         |
          |  val x = Bits(8) <> IN
          |  val y = Bits(8) <> OUT
          |  val z = Bits(8) X 4 X 4 <> VAR
@@ -53,7 +56,7 @@ class BreakOpsSpec extends StageSpec:
       @inline def anon(arg: Bar <> VAL): Bar <> DFRET = arg
       z := anon(Bar(Foo(h"11", 1), Foo(h"22", 0)))
       y := anon(Bar(Foo(h"11", 1), Foo(x, 0))).foo2.arg1
-    val id = (new ID).breakOps
+    val id = (new ID).breakOpsWithAssignments
     assertCodeString(
       id,
       """|class ID extends DFDesign:
