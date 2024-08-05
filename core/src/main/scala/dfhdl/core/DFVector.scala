@@ -168,6 +168,12 @@ object DFVector:
       end DFVectorCompareDFValVector
     end Compare
     object Ops:
+      object DFVector:
+        def apply[T <: DFTypeAny, D1 <: IntP, P](vectorType: DFVector[T, Tuple1[D1]])(
+            elems: DFValTP[T, P]*
+        )(using DFC): DFValTP[DFVector[T, Tuple1[D1]], P] =
+          Val(vectorType)(elems.toList)
+
       extension [T <: DFTypeAny, D1 <: IntP, M <: ModifierAny](
           lhs: DFVal[DFVector[T, Tuple1[D1]], M]
       )

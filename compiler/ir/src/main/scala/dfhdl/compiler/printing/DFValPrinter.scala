@@ -209,7 +209,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
                         s"$n = $r"
                       }
                       .mkStringBrackets
-              case DFVector(_, _) => s"Vector${csArgs.csList()}"
+              case dfType @ DFVector(_, _) =>
+                s"DFVector(${printer.csDFVector(dfType, typeCS = false)})${csArgs.csList()}"
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"${(csArgs.head).applyBrackets()}.repeat(${args.length})"

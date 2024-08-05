@@ -179,7 +179,8 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
     if (data.length > maxVectorDisplay)
       "<vector data length over max `maxVectorDisplay` in printer>"
     else
-      data.view.map(csConstData(dfType.cellType, _)).toList.csList("Vector(", ",", ")")
+      data.view.map(csConstData(dfType.cellType, _)).toList
+        .csList(s"DFVector(${printer.csDFVector(dfType, typeCS = false)})(", ",", ")")
     end if
   end csDFVectorData
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =

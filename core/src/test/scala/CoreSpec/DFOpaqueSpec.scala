@@ -26,8 +26,8 @@ class DFOpaqueSpec extends DFSpec:
        |val q2 = o1 == d"8'1".as(o1u8)
        |o1 := d"8'1".as(o1u8)
        |val z = u8.as(o1u8)
-       |a := Vector(a.actual(0), a.actual(1), a.actual(2), a.actual(3)).as(arr)
-       |val ax = Vector(u8, u8, u8, u8).as(arr)
+       |a := DFVector(UInt(8) X 4)(a.actual(0), a.actual(1), a.actual(2), a.actual(3)).as(arr)
+       |val ax = DFVector(UInt(8) X 4)(u8, u8, u8, u8).as(arr)
        |val conv: o1u8 <> CONST = d"8'1".as(o1u8)
        |val zz = o1.actual
        |val zzz = o1.bits.as(o1u8).bits
