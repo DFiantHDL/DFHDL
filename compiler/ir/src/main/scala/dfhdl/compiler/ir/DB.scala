@@ -75,13 +75,21 @@ final case class DB(
         case _: DFRef.Empty                     =>
         case _: DFRef.TypeRef if excludeTypeRef =>
         case r =>
-          tbl.updateWith(refTable(r)) {
+          tbl.updateWith(
+            refTable.getOrElse(
+              r,
+              throw new NoSuchElementException(
+                s"Missing member of reference $r:\n$origMember\n${origMember.getOwnerNamed.getFullName}"
+              )
+            )
+          ) {
             case Some(set) => Some(set + origMember)
             case None      => Some(Set(origMember))
           }
       }
     )
     tbl.toMap
+  end _originMemberTable
 
   lazy val originMemberTable: Map[DFMember, Set[DFMember]] = _originMemberTable(false)
   lazy val originMemberTableNoTypeRef: Map[DFMember, Set[DFMember]] = _originMemberTable(true)
