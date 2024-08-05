@@ -109,7 +109,7 @@ case object DropBinds extends Stage:
               val aliasIR = headBind.removeTagOf[Pattern.Bind.Tag.type]
               val dropBindTagPatch =
                 headBind -> Patch.Replace(aliasIR, Patch.Replace.Config.FullReplacement)
-              dropBindTagPatch :: singletonPatternConstsPatch :: otherBinds.map(b =>
+              dropBindTagPatch :: otherBinds.map(b =>
                 b -> Patch.Replace(aliasIR, Patch.Replace.Config.ChangeRefAndRemove)
               )
             end if
@@ -123,7 +123,7 @@ case object DropBinds extends Stage:
 //              varsIR.view.reverse.forconstStr> v.asVarAny := v.asVarAny.asInitialized.prev)
 //            c -> Patch.Add(dsn, Patch.Add.Config.InsideLast)
 //        }.toList
-        bindsPatchList ++ casesPatchList // ++ stallsPatchList
+        singletonPatternConstsPatch :: bindsPatchList ++ casesPatchList // ++ stallsPatchList
       case _ => None
     }
     designDB.patch(patchList)
