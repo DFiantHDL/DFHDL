@@ -143,10 +143,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture ID_arch of ID is
          |begin
-         |  process (all)
-         |  begin
-         |    y <= x;
-         |  end process;
+         |  y <= x;
          |end ID_arch;
          |
          |library ieee;
@@ -500,7 +497,6 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  begin
          |    v_din <= v;
          |    v_din <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
-         |    y <= to_slv(v);
          |  end process;
          |  process (clk)
          |  begin
@@ -510,6 +506,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      end if;
          |    end if;
          |  end process;
+         |  y <= to_slv(v);
          |end Example_arch;""".stripMargin
     )
   }
@@ -534,10 +531,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture Example_arch of Example is
          |begin
-         |  process (all)
-         |  begin
-         |    v <= (0 to 9 => (0 to 15 => x"000"));
-         |  end process;
+         |  v <= (0 to 9 => (0 to 15 => x"000"));
          |end Example_arch;
          |""".stripMargin
     )

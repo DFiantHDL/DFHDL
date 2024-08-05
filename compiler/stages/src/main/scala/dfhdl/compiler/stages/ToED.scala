@@ -73,13 +73,19 @@ case object ToED extends Stage:
               )
             )
 
-            def processMembers(list: List[DFMember]): List[DFMember] =
+            val assignCnt = mutable.Map.empty[DFVal.Dcl, Int]
+            def anotherAssignCnt(toVal: DFVal): Unit =
+              toVal.departialDcl.foreach {
+                case (dcl: DFVal.Dcl, _) if !dcl.modifier.isReg =>
+                  assignCnt.update(dcl, assignCnt.getOrElse(dcl, 0) + 1)
+                case _ =>
+              }
+            def getProcessAllMembers(list: List[DFMember]): List[DFMember] =
               val processBlockAllMembersSet: Set[DFMember] = list.view.flatMap {
                 case DesignParam(_)                 => None
                 case net: DFNet if net.isConnection => None
-                case net @ DFNet.Assignment(_, fromVal) if removedNets.contains(net) =>
-                  fromVal.collectRelMembers(false)
-                case net: DFNet =>
+                case net @ DFNet.Assignment(toVal, _) if !removedNets.contains(net) =>
+                  anotherAssignCnt(toVal)
                   net :: net.collectRelMembers
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
                   ch.collectRelMembers(false)
@@ -94,7 +100,7 @@ case object ToED extends Stage:
                 case dcl: DFVal.Dcl => None
                 case DesignParam(_) => None
                 case cb: DFConditional.Block if cb.getHeaderCB.dfType == DFUnit =>
-                  cb :: processMembers(designDB.blockMemberTable(cb))
+                  cb :: getProcessAllMembers(designDB.blockMemberTable(cb))
                 case dsn: DFOwnerNamed            => None
                 case history: DFVal.Alias.History => None
                 case _: DFVal.PortByNameSelect    => None
@@ -104,10 +110,22 @@ case object ToED extends Stage:
                     case _                                          => Some(m)
                 case _ => None
               }
-            end processMembers
-            val processBlockAllMembers = processMembers(members)
-            // println(processBlockAllMembers.mkString("\n"))
-
+            end getProcessAllMembers
+            val combinationalMembers = getProcessAllMembers(members)
+            val singleAssignments = combinationalMembers.flatMap {
+              case net @ DFNet.Assignment(dcl: DFVal.Dcl, from)
+                  if assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
+                net.collectRelMembers :+ net
+              case _ => Nil
+            }
+            val singleAssignmentsSet = singleAssignments.toSet
+            val processBlockAllMembers =
+              combinationalMembers.filterNot(singleAssignmentsSet.contains)
+            // println("singleAssignments:")
+            // println(singleAssignments.mkString("\n"))
+            // println("processAllMembers:")
+            // println(processAllMembers.mkString("\n"))
+            // println("----")
             val processAllDsn =
               new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = ED):
                 // create a combinational process if needed
@@ -231,7 +249,16 @@ case object ToED extends Stage:
                   end if
                 end if
 
-            val movedMembersRemovalPatches = processBlockAllMembers.map { m =>
+                // adding single assignments at the bottom
+                plantMembers(
+                  domainOwner,
+                  singleAssignments.view.map {
+                    case net: DFNet => net.copy(op = DFNet.Op.Connection)
+                    case m          => m
+                  }
+                )
+
+            val movedMembersRemovalPatches = combinationalMembers.map { m =>
               m -> Patch.Remove(isMoved = true)
             }
             List(

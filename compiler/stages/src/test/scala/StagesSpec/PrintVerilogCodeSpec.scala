@@ -127,10 +127,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input wire logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
-         |  always_comb
-         |  begin
-         |    y = x;
-         |  end
+         |  assign y = x;
          |endmodule
          |
          |`default_nettype none
@@ -185,10 +182,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic y
          |);
          |  parameter logic lp = 1'b1;
-         |  always_comb
-         |  begin
-         |    y = ((x | gp) | dp) | lp;
-         |  end
+         |  assign y = ((x | gp) | dp) | lp;
          |endmodule
          |""".stripMargin
     )
@@ -372,15 +366,12 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [width - 1:0] cnt
          |);
          |  logic [width - 1:0] cnt_reg;
-         |  always_comb
-         |  begin
-         |    cnt = cnt_reg + width'(1);
-         |  end
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) cnt_reg <= {width{1'b0}};
          |    else cnt_reg <= cnt;
          |  end
+         |  assign cnt = cnt_reg + width'(1);
          |endmodule
          |""".stripMargin
     )
@@ -421,9 +412,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    y = &x;
          |    y = |x;
          |    y = ^x;
-         |    z = $clog2(width)'(0);
-         |    w = $clog2(width + 1)'(0);
          |  end
+         |  assign z = $clog2(width)'(0);
+         |  assign w = $clog2(width + 1)'(0);
          |endmodule
          |""".stripMargin
     )
@@ -444,15 +435,12 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [width - 1:0] cnt
          |);
          |  logic [width - 1:0] cnt_reg;
-         |  always_comb
-         |  begin
-         |    cnt = cnt_reg + width'(1);
-         |  end
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) cnt_reg <= width'(0);
          |    else cnt_reg <= cnt;
          |  end
+         |  assign cnt = cnt_reg + width'(1);
          |endmodule
          |""".stripMargin
     )

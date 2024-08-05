@@ -72,8 +72,7 @@ class DropDomainsSpec extends StageSpec:
          |class ID extends EDDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  process(all):
-         |    y := x
+         |  y <> x
          |end ID
          |
          |class IDTop extends EDDesign:

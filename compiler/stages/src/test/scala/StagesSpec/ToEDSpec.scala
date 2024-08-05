@@ -38,13 +38,13 @@ class ToEDSpec extends StageSpec:
          |  process(all):
          |    w1 := x
          |    w1 := w1 + sd"16'1"
-         |    w2 := x
-         |    y := w1 + r1
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1) r1 :== sd"16'0"
          |      else r1 :== w2
          |    end if
+         |  w2 <> x
+         |  y <> w1 + r1
          |end ID
          |""".stripMargin
     )
@@ -163,9 +163,9 @@ class ToEDSpec extends StageSpec:
          |  process(all):
          |    r := sd"16'1"
          |    r := x + r
-         |    y := r_ver_reg
          |  process(clk):
          |    if (clk.actual.rising) r_ver_reg :== r
+         |  y <> r_ver_reg
          |end ID
          |
          |class IDTop extends EDDesign:
@@ -179,7 +179,7 @@ class ToEDSpec extends StageSpec:
          |  process(all):
          |    temp := x
          |    if (x > sd"16'0") temp := temp + sd"16'1"
-         |    y := id.y
+         |  y <> id.y
          |end IDTop
          |""".stripMargin
     )
@@ -203,13 +203,12 @@ class ToEDSpec extends StageSpec:
          |  val rst = Rst_cfg <> IN
          |  val cnt = Bits(width) <> OUT
          |  val cnt_reg = Bits(width) <> VAR
-         |  process(all):
-         |    cnt := (cnt_reg.uint + d"${width}'1").bits
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1) cnt_reg :== b"0".repeat(width)
          |      else cnt_reg :== cnt
          |    end if
+         |  cnt <> (cnt_reg.uint + d"${width}'1").bits
          |end Counter
          |""".stripMargin
     )
@@ -233,11 +232,10 @@ class ToEDSpec extends StageSpec:
          |  val rst = Rst_cfg <> IN
          |  val cnt = UInt(width) <> OUT
          |  val cnt_reg = UInt(width) <> VAR
-         |  process(all):
-         |    cnt := cnt_reg + d"${width}'1"
          |  process(clk, rst):
          |    if (rst.actual == 0) cnt_reg :== d"${width}'0"
          |    else if (clk.actual.falling) cnt_reg :== cnt
+         |  cnt <> cnt_reg + d"${width}'1"
          |end Counter
          |""".stripMargin
     )
@@ -255,8 +253,7 @@ class ToEDSpec extends StageSpec:
       top,
       """|class Test(val width: Int <> CONST = 8) extends EDDesign:
          |  val z = UInt(clog2(width)) <> OUT
-         |  process(all):
-         |    z := d"${clog2(width)}'0"
+         |  z <> d"${clog2(width)}'0"
          |end Test
          |""".stripMargin
     )
@@ -428,8 +425,7 @@ class ToEDSpec extends StageSpec:
          |class ID extends EDDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  process(all):
-         |    y := x
+         |  y <> x
          |end ID
          |
          |class IDTop extends EDDesign:
@@ -488,8 +484,7 @@ class ToEDSpec extends StageSpec:
          |class ID extends EDDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  process(all):
-         |    y := x
+         |  y <> x
          |end ID
          |
          |class IDTop extends EDDesign:

@@ -32,7 +32,6 @@ class ALUSpec extends util.FullCompileSpec:
        |  logic [31:0] outCalc;
        |  always_comb
        |  begin
-       |    shamt  = op2[4:0];
        |    case (aluSel)
        |      ALUSel_ADD:    outCalc = op1 + op2;
        |      ALUSel_SUB:    outCalc = op1 - op2;
@@ -47,8 +46,9 @@ class ALUSpec extends util.FullCompileSpec:
        |      ALUSel_COPY1:  outCalc = op1;
        |      default:       outCalc = 32'hxxxxxxxx;
        |    endcase
-       |    aluOut = outCalc;
        |  end
+       |  assign shamt  = op2[4:0];
+       |  assign aluOut = outCalc;
        |endmodule""".stripMargin
 
   def expectedVHDLCS =
@@ -76,7 +76,6 @@ class ALUSpec extends util.FullCompileSpec:
        |begin
        |  process (all)
        |  begin
-       |    shamt  <= op2(4 downto 0);
        |    case aluSel is
        |      when ALUSel_ADD => outCalc <= to_slv(unsigned(op1) + unsigned(op2));
        |      when ALUSel_SUB => outCalc <= to_slv(unsigned(op1) - unsigned(op2));
@@ -91,7 +90,8 @@ class ALUSpec extends util.FullCompileSpec:
        |      when ALUSel_COPY1 => outCalc <= op1;
        |      when others => outCalc <= x"--------";
        |    end case;
-       |    aluOut <= outCalc;
        |  end process;
+       |  shamt  <= op2(4 downto 0);
+       |  aluOut <= outCalc;
        |end ALU_arch;""".stripMargin
 end ALUSpec

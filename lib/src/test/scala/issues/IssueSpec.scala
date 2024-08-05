@@ -66,10 +66,7 @@ class IssuesSpec extends FunSuite:
          |  input wire logic signed [9:0] a
          |);
          |  logic signed [9:0] b;
-         |  always_comb
-         |  begin
-         |    b = a >>> 1;
-         |  end
+         |  assign b = a >>> 1;
          |endmodule
          |""".stripMargin
     )
