@@ -247,7 +247,6 @@ class DFBitsSpec extends DFSpec:
     assert(x.&.toScalaBoolean == false)
     assert(x.^.toScalaBoolean == false)
     assert(w.&.toScalaBoolean == true)
-    // TODO: fix when https://github.com/scala/scala3/issues/20053 is resolved
-    // assert((x ^ y ^ z).|.toScalaBoolean == false)
+    assert((x ^ y ^ z).|.toScalaBoolean == false)
   }
 end DFBitsSpec

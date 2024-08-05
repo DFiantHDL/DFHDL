@@ -8,7 +8,8 @@ class Plugin extends StandardPlugin:
 
   def init(options: List[String]): List[PluginPhase] =
     val setting = new Setting(options.headOption)
-    TopAnnotPhase(setting) ::
+    PreTyperPhase(setting) ::
+      TopAnnotPhase(setting) ::
       MetaContextPlacerPhase(setting) ::
       CustomControlPhase(setting) ::
       DesignDefsPhase(setting) ::

@@ -100,13 +100,10 @@ class DFVectorSpec extends DFSpec:
       )(
         """val v7: UInt[4] X 0 <> CONST = all(0)"""
       )
-      // TODO: without braces it does not compile since (zero.type <> CONST) is not considered for
-      // vector composition. Attempts to fix it resulted in match type failure to reduce. Maybe in
-      // the future this can be resolved.
       assertRuntimeError(
         "The vector length must be positive but found: 0"
       ) {
-        val v7: (UInt[4] X zero.type) <> CONST = all(0)
+        val v7: UInt[4] X zero.type <> CONST = all(0)
       }
       val zeroP: Int <> CONST = 0
       assertRuntimeError(

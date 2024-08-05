@@ -785,4 +785,32 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Fixed precedence of connection RHS") {
+    class Precedence extends DFDesign:
+      val x1 = Bits(8) <> IN
+      val y1 = Bits(8) <> OUT
+      y1 <> x1 | x1 & x1
+      val x2 = Bits(8) <> IN
+      val y2 = Bits(8) <> OUT
+      y2 <> x2 ^ x2 ^ x2
+      val x3 = Bit <> IN
+      val y3 = Bit <> OUT
+      y3 <> x3 && x3 || x3
+    val id = (new Precedence).getCodeString
+    assertNoDiff(
+      id,
+      """|class Precedence extends DFDesign:
+         |  val x1 = Bits(8) <> IN
+         |  val y1 = Bits(8) <> OUT
+         |  y1 <> (x1 | (x1 & x1))
+         |  val x2 = Bits(8) <> IN
+         |  val y2 = Bits(8) <> OUT
+         |  y2 <> ((x2 ^ x2) ^ x2)
+         |  val x3 = Bit <> IN
+         |  val y3 = Bit <> OUT
+         |  y3 <> ((x3 && x3) || x3)
+         |end Precedence
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

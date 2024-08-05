@@ -3,7 +3,7 @@ import dfhdl.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
 import dfhdl.internals.*
 
-import scala.annotation.{implicitNotFound, targetName}
+import scala.annotation.{implicitNotFound, targetName, nowarn}
 import scala.quoted.*
 import scala.util.boundary, boundary.break
 import DFDecimal.Constraints.`LW == RW`
@@ -602,18 +602,25 @@ object DFBits:
           check(lhsVal.widthInt, rhsVal.widthInt)
           DFVal.Func(lhsVal.dfType, FuncOp.^, List(lhsVal, rhsVal))
         }
-        // reduction AND of all bits
-        def &(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+        ///////////////////////////////////////////////////////////////////////////////
+        // The `reduce?` is a workaround https://github.com/scala/scala3/issues/20053
+        // See PreTyperPhase of compiler plugin to see replacements `.?` with `.reduce?`
+        ///////////////////////////////////////////////////////////////////////////////
+        def `reduce&`(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
           DFVal.Func(DFBit, FuncOp.&, List(icL(lhs)))
         }
-        // reduction OR of all bits
-        def |(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+        def `reduce|`(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
           DFVal.Func(DFBit, FuncOp.|, List(icL(lhs)))
         }
-        // reduction XOR of all bits
-        def ^(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+        def `reduce^`(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
           DFVal.Func(DFBit, FuncOp.^, List(icL(lhs)))
         }
+        // reduction AND of all bits
+        private def &(using dfc: DFC): DFValTP[DFBit, icL.OutP] = `reduce&`
+        // reduction OR of all bits
+        private def |(using dfc: DFC): DFValTP[DFBit, icL.OutP] = `reduce|`
+        // reduction XOR of all bits
+        private def ^(using dfc: DFC): DFValTP[DFBit, icL.OutP] = `reduce^`
       end extension
       extension [L <: DFValAny, LW <: IntP, LP](lhs: L)(using icL: Candidate.Aux[L, LW, LP])
         def extend(using DFC): DFValTP[DFBits[Int], icL.OutP] =
