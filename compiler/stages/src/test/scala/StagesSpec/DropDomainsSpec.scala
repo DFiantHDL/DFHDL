@@ -32,7 +32,7 @@ class DropDomainsSpec extends StageSpec:
          |  val x_0 = SInt(16) <> IN
          |  val y_0 = SInt(16) <> OUT
          |  val dmn1_dmn2_v = SInt(16) <> VAR init sd"16'0"
-         |  y_0 <> x_0 + dmn1_dmn2_v
+         |  y_0 <> (x_0 + dmn1_dmn2_v)
          |  val dmn4x = SInt(16) <> IN
          |  val dmn4y = SInt(16) <> OUT
          |  dmn4y <> dmn4x

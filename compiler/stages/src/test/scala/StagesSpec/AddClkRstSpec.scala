@@ -242,7 +242,7 @@ class AddClkRstSpec extends StageSpec:
          |  val internal2 = new internal1.RelatedDomain:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
-         |    y <> internal1.ii.x + x
+         |    y <> (internal1.ii.x + x)
          |  y := x
          |end ID
          |""".stripMargin

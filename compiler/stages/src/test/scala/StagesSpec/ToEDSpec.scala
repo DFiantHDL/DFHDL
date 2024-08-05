@@ -44,7 +44,7 @@ class ToEDSpec extends StageSpec:
          |      else r1 :== w2
          |    end if
          |  w2 <> x
-         |  y <> w1 + r1
+         |  y <> (w1 + r1)
          |end ID
          |""".stripMargin
     )
@@ -235,7 +235,7 @@ class ToEDSpec extends StageSpec:
          |  process(clk, rst):
          |    if (rst.actual == 0) cnt_reg :== d"${width}'0"
          |    else if (clk.actual.falling) cnt_reg :== cnt
-         |  cnt <> cnt_reg + d"${width}'1"
+         |  cnt <> (cnt_reg + d"${width}'1")
          |end Counter
          |""".stripMargin
     )

@@ -244,11 +244,11 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr :== $rhsStr"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
-    s"$lhsStr <> $rhsStr"
+    s"$lhsStr <> ${rhsStr.applyBrackets()}"
   def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
-    s"this.$lhsStr <>/*$directionStr*/ $rhsStr"
+    s"this.$lhsStr <>/*$directionStr*/ ${rhsStr.applyBrackets()}"
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
-    s"$lhsStr `<LZ>`/*$directionStr*/ $rhsStr"
+    s"$lhsStr `<LZ>`/*$directionStr*/ ${rhsStr.applyBrackets()}"
   val normalizeViaConnection: Boolean = true
   val normalizeConnection: Boolean = true
   def csOpenKeyWord: String = "OPEN"
