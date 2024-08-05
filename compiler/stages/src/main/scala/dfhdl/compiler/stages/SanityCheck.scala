@@ -19,8 +19,13 @@ case object SanityCheck extends Stage:
     def reportViolation(msg: String): Unit =
       hasViolations = true
       println(msg)
+
+    val memberSet = mutable.Set.empty[DFMember]
     // checks for all members
     getSet.designDB.members.foreach { m =>
+      if (memberSet.contains(m))
+        reportViolation(s"More than one appearance of member in member list: $m")
+      else memberSet += m
       // check for missing references
       m.getRefs.foreach {
         case _: DFRef.Empty => // do nothing
@@ -87,7 +92,6 @@ case object SanityCheck extends Stage:
         case _ =>
       end match
     }
-    val memberSet = getSet.designDB.members.toSet
     val originRefTable = getSet.designDB.originRefTable
     // checks for all references
     refTable.foreach { (r, m) =>
@@ -202,7 +206,7 @@ case object SanityCheck extends Stage:
       m.getRefs.foreach {
         case r @ DFRef(rm) if !discoveredMembers.contains(rm) =>
           println(
-            s"The member ${m.hashString}:\n$m\nHas reference $r\nPointing to a later member ${rm.hashString}:\n${rm}"
+            s"The member ${m.hashString}:\n$m\nIn hierarchy:\n${m.getOwnerNamed.getFullName}\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
           )
           hasViolations = true
           require(!hasViolations, "Failed member order check!")
