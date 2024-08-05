@@ -80,6 +80,15 @@ case object ToED extends Stage:
                   assignCnt.update(dcl, assignCnt.getOrElse(dcl, 0) + 1)
                 case _ =>
               }
+            def collectFilter(member: DFMember): Boolean = member match
+              case _: DFVal.Dcl                               => false
+              case DesignParam(_)                             => false
+              case _: DFOwnerNamed                            => false
+              case _: DFVal.Alias.History                     => false
+              case _: DFVal.PortByNameSelect                  => false
+              case dfVal: DFVal if dfVal.isReferencedByAnyDcl => false
+              case _                                          => true
+
             def getProcessAllMembers(list: List[DFMember]): List[DFMember] =
               val processBlockAllMembersSet: Set[DFMember] = list.view.flatMap {
                 case DesignParam(_)                 => None
@@ -96,26 +105,18 @@ case object ToED extends Stage:
                 case _ => None
               }.toSet
 
-              list.flatMap {
-                case dcl: DFVal.Dcl => None
-                case DesignParam(_) => None
+              list.view.filter(collectFilter).flatMap {
                 case cb: DFConditional.Block if cb.getHeaderCB.dfType == DFUnit =>
                   cb :: getProcessAllMembers(designDB.blockMemberTable(cb))
-                case dsn: DFOwnerNamed            => None
-                case history: DFVal.Alias.History => None
-                case _: DFVal.PortByNameSelect    => None
-                case m if processBlockAllMembersSet.contains(m) =>
-                  m match
-                    case dfVal: DFVal if dfVal.isReferencedByAnyDcl => None
-                    case _                                          => Some(m)
-                case _ => None
-              }
+                case m if processBlockAllMembersSet.contains(m) => Some(m)
+                case _                                          => None
+              }.toList
             end getProcessAllMembers
             val combinationalMembers = getProcessAllMembers(members)
             val singleAssignments = combinationalMembers.flatMap {
               case net @ DFNet.Assignment(dcl: DFVal.Dcl, from)
                   if assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
-                net.collectRelMembers :+ net
+                net.collectRelMembers.filter(collectFilter) :+ net
               case _ => Nil
             }
             val singleAssignmentsSet = singleAssignments.toSet
@@ -123,8 +124,8 @@ case object ToED extends Stage:
               combinationalMembers.filterNot(singleAssignmentsSet.contains)
             // println("singleAssignments:")
             // println(singleAssignments.mkString("\n"))
-            // println("processAllMembers:")
-            // println(processAllMembers.mkString("\n"))
+            // println("processBlockAllMembers:")
+            // println(processBlockAllMembers.mkString("\n"))
             // println("----")
             val processAllDsn =
               new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = ED):
