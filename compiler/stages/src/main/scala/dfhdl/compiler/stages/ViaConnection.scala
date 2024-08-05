@@ -79,7 +79,7 @@ case object ViaConnection extends Stage:
         addVarsDsn.patch :: connectDsn.patch :: connectDsn.refPatches ++ connectDsn.movedNets
       case _ => Nil
     }
-    designDB.patch(patchList, debug = true)
+    designDB.patch(patchList)
   end transform
 end ViaConnection
 
