@@ -1273,13 +1273,12 @@ end DFVarOps
 
 object DFPortOps:
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
-    def <>[R](rhs: Exact[R])(using
+    def <>[R](rhs: Exact[R])(using DFC)(using
         connectableOnly: AssertGiven[
           C <:< Modifier.Connectable,
           "The LHS of a connection must be a connectable DFHDL value (var/port)."
         ],
-        tc: DFVal.TC[T, R],
-        dfc: DFC
+        tc: DFVal.TC[T, R]
     ): ConnectPlaceholder =
       if (rhs.value equals r__OPEN) dfPort.connect(DFVal.Open(dfPort.dfType))
       else trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }

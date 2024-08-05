@@ -50,13 +50,15 @@ case object ViaConnection extends Stage:
         val connectDsn = new MetaDesign(ib, Patch.Add.Config.After):
           dfc.enterLate()
           val refPatches: List[(DFMember, Patch)] = addVarsDsn.portsToVars.flatMap { case (p, v) =>
+            val pbns = p.getPortsByNameSelectors
+            val portMeta = pbns.head.meta
             p match
-              case _ @DclOut() => v.asDclAny.<>(p.asValAny)
-              case _ @DclIn()  => p.asDclAny.<>(v.asValAny)
+              case _ @DclOut() => v.asDclAny.<>(p.asValAny)(using dfc.setMeta(portMeta))
+              case _ @DclIn()  => p.asDclAny.<>(v.asValAny)(using dfc.setMeta(portMeta))
               case _           => ???
             // the old external by-name port selector needs to be removed
             // and its references set to the new design "wiring" variables
-            p.getPortsByNameSelectors.map(
+            pbns.map(
               _ -> Patch.Replace(v, Patch.Replace.Config.ChangeRefAndRemove)
             )
           }
@@ -77,7 +79,7 @@ case object ViaConnection extends Stage:
         addVarsDsn.patch :: connectDsn.patch :: connectDsn.refPatches ++ connectDsn.movedNets
       case _ => Nil
     }
-    designDB.patch(patchList)
+    designDB.patch(patchList, debug = true)
   end transform
 end ViaConnection
 
