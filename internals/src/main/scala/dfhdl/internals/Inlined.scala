@@ -39,65 +39,65 @@ object Inlined extends LP:
   given [T <: Int]: CanEqual[Inlined[T], Int] = CanEqual.derived
   given [T <: String]: CanEqual[Inlined[T], String] = CanEqual.derived
   given [T <: Boolean]: CanEqual[Inlined[T], Boolean] = CanEqual.derived
-  extension [T](inlined: Inlined[T]) def value: T = inlined
+  extension [T](inline inlined: Inlined[T]) inline def value: T = inlined
   transparent inline implicit def getValue[T](
-      inlined: Inlined[T]
+      inline inlined: Inlined[T]
   ): T =
     inline constValueOpt[T] match
       case Some(_) => constValue[T]
       case None    => inlined.asInstanceOf[T]
   // TODO: without @precise it's impossible to define a proper precise `Conversion`
   // as shown in https://github.com/lampepfl/dotty/pull/16499
-  inline implicit def fromValue[T <: Singleton](value: T): Inlined[T] = value
+  inline implicit def fromValue[T <: Singleton](inline value: T): Inlined[T] = value
   @targetName("fromValueWide")
-  inline implicit def fromValue[Wide](value: Wide): Inlined[Wide] = value
+  inline implicit def fromValue[Wide](inline value: Wide): Inlined[Wide] = value
 
-  inline def forced[T](value: Any): Inlined[T] = value.asInstanceOf[T]
-  inline def apply[T <: Singleton](value: T): Inlined[T] = value
+  inline def forced[T](inline value: Any): Inlined[T] = value.asInstanceOf[T]
+  inline def apply[T <: Singleton](inline value: T): Inlined[T] = value
 
-  extension [T <: Int](lhs: Inlined[T])
+  extension [T <: Int](inline lhs: Inlined[T])
     inline def widen: Inlined[Int] = forced[Int](lhs.value)
-    inline def +[R <: Int](rhs: Inlined[R]) =
+    inline def +[R <: Int](inline rhs: Inlined[R]) =
       forced[int.+[T, R]](lhs.value + rhs.value)
-    inline def -[R <: Int](rhs: Inlined[R]) =
+    inline def -[R <: Int](inline rhs: Inlined[R]) =
       forced[int.-[T, R]](lhs.value - rhs.value)
-    inline def *[R <: Int](rhs: Inlined[R]) =
+    inline def *[R <: Int](inline rhs: Inlined[R]) =
       forced[int.*[T, R]](lhs.value * rhs.value)
-    inline def /[R <: Int](rhs: Inlined[R]) =
+    inline def /[R <: Int](inline rhs: Inlined[R]) =
       forced[int./[T, R]](lhs.value / rhs.value)
-    inline def >[R <: Int](rhs: Inlined[R]) =
+    inline def >[R <: Int](inline rhs: Inlined[R]) =
       forced[int.>[T, R]](lhs.value > rhs.value)
-    inline def <[R <: Int](rhs: Inlined[R]) =
+    inline def <[R <: Int](inline rhs: Inlined[R]) =
       forced[int.<[T, R]](lhs.value < rhs.value)
-    inline def >=[R <: Int](rhs: Inlined[R]) =
+    inline def >=[R <: Int](inline rhs: Inlined[R]) =
       forced[int.>=[T, R]](lhs.value >= rhs.value)
-    inline def <=[R <: Int](rhs: Inlined[R]) =
+    inline def <=[R <: Int](inline rhs: Inlined[R]) =
       forced[int.<=[T, R]](lhs.value <= rhs.value)
-    inline def ==[R <: Int](rhs: Inlined[R]) =
+    inline def ==[R <: Int](inline rhs: Inlined[R]) =
       forced[any.==[T, R]](lhs.value == rhs.value)
-    inline def !=[R <: Int](rhs: Inlined[R]) =
+    inline def !=[R <: Int](inline rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
-    inline infix def max[R <: Int](rhs: Inlined[R]) =
+    inline infix def max[R <: Int](inline rhs: Inlined[R]) =
       forced[int.Max[T, R]](math.max(lhs.value, rhs.value))
-    inline infix def min[R <: Int](rhs: Inlined[R]) =
+    inline infix def min[R <: Int](inline rhs: Inlined[R]) =
       forced[int.Min[T, R]](math.min(lhs.value, rhs.value))
   end extension
 
-  extension [T <: String](lhs: Inlined[T])
+  extension [T <: String](inline lhs: Inlined[T])
     inline def widen: Inlined[String] = forced[String](lhs.value)
-    inline def +[R <: String](rhs: Inlined[R]) =
+    inline def +[R <: String](inline rhs: Inlined[R]) =
       forced[string.+[T, R]](lhs.value + rhs.value)
-    inline def ==[R <: String](rhs: Inlined[R]) =
+    inline def ==[R <: String](inline rhs: Inlined[R]) =
       forced[any.==[T, R]](lhs.value == rhs.value)
-    inline def !=[R <: String](rhs: Inlined[R]) =
+    inline def !=[R <: String](inline rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
   end extension
 
-  extension [T <: Boolean](lhs: Inlined[T])
+  extension [T <: Boolean](inline lhs: Inlined[T])
     inline def widen: Inlined[Boolean] = forced[Boolean](lhs.value)
-    inline def ==[R <: Boolean](rhs: Inlined[R]) =
+    inline def ==[R <: Boolean](inline rhs: Inlined[R]) =
       forced[any.==[T, R]](lhs.value == rhs.value)
-    inline def !=[R <: Boolean](rhs: Inlined[R]) =
+    inline def !=[R <: Boolean](inline rhs: Inlined[R]) =
       forced[any.!=[T, R]](lhs.value != rhs.value)
   end extension
 

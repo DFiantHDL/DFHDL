@@ -243,6 +243,6 @@ extension [T](t: T)(using tc: DFType.TC[T])
         intParam(cellType) * cellDimParamRefs.map(_.get).asInstanceOf[List[IntParam[Int]]].reduce(
           (l, r) => (l * r).asInstanceOf[IntParam[Int]]
         )
-      case _ => IntParam(dfTypeIR.width)
+      case _ => IntParam.forced[Int](dfTypeIR.width)
     intParam(tc(t).asIR).asInstanceOf[IntParam[w.Out]]
 end extension
