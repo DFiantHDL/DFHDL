@@ -957,38 +957,23 @@ val DFDesignInst = DFDesignBlock
 
 final case class DomainBlock(
     domainType: DomainType,
-    flattenMode: FlattenMode,
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
       DFDomainOwner:
+  def flattenMode: dfhdl.hw.flattenMode = meta.annotations.collectFirst {
+    case fm: dfhdl.hw.flattenMode => fm
+  }.getOrElse(dfhdl.hw.flattenMode.defaultPrefixUnderscore)
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DomainBlock =>
-      this.domainType =~ that.domainType && this.flattenMode == that.flattenMode &&
+      this.domainType =~ that.domainType &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
 end DomainBlock
-
-/** Flattening Mode:
-  *   - FlattenTransparent: $memberName
-  *   - FlattenPrefix: $ownerName$sep$memberName
-  *   - FlattenSuffix: $memberName$sep$ownerName
-  */
-enum FlattenMode derives CanEqual:
-  case FlattenTransparent
-  case FlattenPrefix(sep: String)
-  case FlattenSuffix(sep: String)
-  override def toString(): String =
-    this match
-      case FlattenTransparent => "FlattenTransparent"
-      case FlattenPrefix(sep) => s"""FlattenPrefix("$sep")"""
-      case FlattenSuffix(sep) => s"""FlattenSuffix("$sep")"""
-object FlattenMode:
-  val DefaultPrefixUnderscore = FlattenMode.FlattenPrefix("_")
 
 sealed trait DFSimMember extends DFMember
 object DFSimMember:

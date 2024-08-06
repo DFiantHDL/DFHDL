@@ -28,3 +28,21 @@ end unused
 
 final case class pure(isActive: Boolean) extends HWAnnotation:
   def this() = this(true)
+
+/** Flattening Mode:
+  *   - transparent: $memberName
+  *   - prefix: $ownerName$sep$memberName
+  *   - suffix: $memberName$sep$ownerName
+  */
+enum flattenMode extends HWAnnotation derives CanEqual:
+  case transparent()
+  case prefix(sep: String)
+  case suffix(sep: String)
+  val isActive: Boolean = true
+  override def codeString(using Printer): String =
+    this match
+      case transparent() => "flattenMode.transparent()"
+      case prefix(sep)   => s"""flattenMode.prefix("$sep")"""
+      case suffix(sep)   => s"""flattenMode.suffix("$sep")"""
+object flattenMode:
+  val defaultPrefixUnderscore = flattenMode.prefix("_")

@@ -12,14 +12,18 @@ class DropDomainsSpec extends StageSpec:
         val dmn2 = new EDDomain:
           val v = SInt(16) <> VAR init 0
           y <> x + v
-      val dmn3 = new EDDomain(FlattenTransparent):
-        val dmn4 = new EDDomain(FlattenPrefix("")):
+      @hw.flattenMode.transparent
+      val dmn3 = new EDDomain:
+        @hw.flattenMode.prefix("")
+        val dmn4 = new EDDomain:
           val x = SInt(16) <> IN
           val y = SInt(16) <> OUT
           y <> x
 
-      val dmn5 = new EDDomain(FlattenTransparent):
-        val dmn6 = new EDDomain(FlattenTransparent):
+      @hw.flattenMode.transparent
+      val dmn5 = new EDDomain:
+        @hw.flattenMode.transparent
+        val dmn6 = new EDDomain:
           val x = SInt(16) <> IN
           val y = SInt(16) <> OUT
           y <> x

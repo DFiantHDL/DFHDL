@@ -297,24 +297,20 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    val flattenModeStr = domain.flattenMode match
-      case FlattenMode.DefaultPrefixUnderscore => ""
-      case _                                   => domain.flattenMode.toString()
-    val flattenModeStrBrackets = flattenModeStr.emptyOr(x => s"($x)")
     val domainStr = domain.domainType match
-      case DomainType.DF => s"DFDomain$flattenModeStrBrackets"
+      case DomainType.DF => "DFDomain"
       case rt: DomainType.RT =>
         rt.cfg match
           case RTDomainCfg.RelatedCfg(relatedDomainRef) =>
             val relatedDomain = relatedDomainRef.get
             if (domain.isMemberOf(relatedDomain))
-              s"RelatedDomain${flattenModeStrBrackets}"
+              "RelatedDomain"
             else
-              s"${relatedDomain.getRelativeName(domain.getOwnerNamed)}.RelatedDomain${flattenModeStrBrackets}"
-          case RTDomainCfg.DerivedCfg => s"RTDomain$flattenModeStrBrackets"
+              s"${relatedDomain.getRelativeName(domain.getOwnerNamed)}.RelatedDomain"
+          case RTDomainCfg.DerivedCfg => "RTDomain"
           case _ =>
-            s"RTDomain(${printer.csRTDomainCfg(rt.cfg)}${flattenModeStr.emptyOr(x => s", $x")})"
-      case DomainType.ED => s"EDDomain$flattenModeStrBrackets"
+            s"RTDomain(${printer.csRTDomainCfg(rt.cfg)})"
+      case DomainType.ED => "EDDomain"
     s"${named}new $domainStr:\n${body.hindent}"
   end csDomainBlock
 

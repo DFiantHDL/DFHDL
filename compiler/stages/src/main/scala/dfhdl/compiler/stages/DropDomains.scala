@@ -29,10 +29,10 @@ case object DropDomains extends Stage:
             // looping through domain composition until reaching a non-domain and applying the name flattening
             while (inDomain)
               currentDomain.flattenMode match
-                case FlattenMode.FlattenTransparent => // no change
-                case FlattenMode.FlattenPrefix(sep) =>
+                case dfhdl.hw.flattenMode.transparent() => // no change
+                case dfhdl.hw.flattenMode.prefix(sep) =>
                   currentName = s"${currentDomain.getName}$sep$currentName"
-                case FlattenMode.FlattenSuffix(sep) =>
+                case dfhdl.hw.flattenMode.suffix(sep) =>
                   currentName = s"${currentName}$sep${currentDomain.getName}"
               currentDomain.getOwner match
                 case domain: DomainBlock => currentDomain = domain
