@@ -437,6 +437,10 @@ object DFBits:
         end match
       end valueToBits
       transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[R] = ${ DFBitsMacro[R] }
+      object TupleCandidate extends Candidate[Any]:
+        def apply(value: Any)(using DFC): Out =
+          valueToBits(value).asInstanceOf[Out]
+
       def DFBitsMacro[R](using
           Quotes,
           Type[R]
@@ -447,11 +451,12 @@ object DFBits:
         val wType = rTpe.calcValWidth.asTypeOf[Int]
         val pType = rTpe.isConstTpe.asTypeOf[Any]
         '{
-          new Candidate[R]:
-            type OutW = wType.Underlying
-            type OutP = pType.Underlying
-            def apply(value: R)(using DFC): Out =
-              valueToBits(value).asValTP[DFBits[OutW], pType.Underlying]
+          TupleCandidate.asInstanceOf[
+            Candidate[R] {
+              type OutW = wType.Underlying
+              type OutP = pType.Underlying
+            }
+          ]
         }
       end DFBitsMacro
     end Candidate

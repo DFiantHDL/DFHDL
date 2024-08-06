@@ -208,15 +208,19 @@ object Width:
       end match
     end calcValWidth
   end extension
+  object Success extends Width[Any]
   def getWidthMacro[T](using Quotes, Type[T]): Expr[Width[T]] =
     import quotes.reflect.*
     val tTpe = TypeRepr.of[T]
 //    println(tTpe.show)
     val widthTpe = tTpe.calcWidth.asTypeOf[Int]
     '{
-      new Width[T]:
-        type Out = widthTpe.Underlying
-        type OutI = widthTpe.Underlying
+      Success.asInstanceOf[
+        Width[T] {
+          type Out = widthTpe.Underlying
+          type OutI = widthTpe.Underlying
+        }
+      ]
     }
 end Width
 

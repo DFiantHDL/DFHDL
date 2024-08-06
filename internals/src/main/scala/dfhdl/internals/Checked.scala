@@ -165,7 +165,7 @@ object Check1:
     def apply(arg: Any): Unit = {}
 
   protected trait CheckNUBLP:
-    inline given [
+    given [
         Wide,
         T,
         TUB <: Wide,
@@ -288,7 +288,7 @@ object Check2:
     def apply(arg1: Any, arg2: Any): Unit = {}
 
   protected trait CheckNUBLP:
-    inline given [
+    given [
         Wide1,
         Wide2,
         T1,
