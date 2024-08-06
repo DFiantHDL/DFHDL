@@ -78,6 +78,10 @@ object Exact:
       def apply(t: R): Out = t
     transparent inline given fromExactTypes[R <: ExactTypes, T <: R]: Summon[R, T] =
       ${ summonMacro[R, T] }
+    object Success extends Summon[Any, Any]:
+      type Out = Any
+      def apply(t: Any): Out = t
+
     def summonMacro[R, T <: R](using
         Quotes,
         Type[R],
@@ -90,17 +94,9 @@ object Exact:
           val exact = arg.exactTerm
           val exactExpr = exact.asExpr
           val exactType = exact.tpe.asTypeOf[Any]
-          '{
-            new Summon[R, T]:
-              type Out = exactType.Underlying
-              def apply(t: R) = ${ exactExpr }
-          }
+          '{ Success.asInstanceOf[Summon[R, T] { type Out = exactType.Underlying }] }
         case _ =>
-          '{
-            new Summon[R, T]:
-              type Out = R
-              def apply(t: R): Out = t
-          }
+          '{ Success.asInstanceOf[Summon[R, T] { type Out = R }] }
       end match
     end summonMacro
   end Summon
