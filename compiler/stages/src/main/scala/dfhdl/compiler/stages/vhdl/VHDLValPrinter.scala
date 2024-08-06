@@ -29,6 +29,8 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     dfVal.args match
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match
+          case dfType: DFBits =>
+            s"(0 to ${dfType.widthParamRef.uboundCS} => ${argL.refCodeString})"
           case dfType: DFVector =>
             s"(0 to ${dfType.cellDimParamRefs.head.uboundCS} => ${argL.refCodeString})"
           case _ =>
