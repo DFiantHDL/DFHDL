@@ -233,6 +233,7 @@ trait AssertGiven[G, M <: String]
 object AssertGiven:
   transparent inline given [G, M <: String]: AssertGiven[G, M] =
     ${ macroImpl[G, M] }
+  object Success extends AssertGiven[Any, String]
   def macroImpl[G, M <: String](using
       Quotes,
       Type[G],
@@ -249,7 +250,7 @@ object AssertGiven:
             case '[x] =>
               Expr.summon[x].nonEmpty
 
-    if (recur(TypeRepr.of[G])) '{ new AssertGiven[G, M] {} }
+    if (recur(TypeRepr.of[G])) '{ Success.asInstanceOf[AssertGiven[G, M]] }
     else
       val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias: @unchecked
       '{ compiletime.error(${ Expr(msg) }) }
