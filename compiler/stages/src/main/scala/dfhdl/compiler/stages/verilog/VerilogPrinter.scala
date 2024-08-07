@@ -71,7 +71,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   def alignCode(cs: String): String =
     cs
       // align after port modifiers
-      .align("[ ]*(?:input|output|inout)", " ", ".*")
+      .align("[ ]*(?:input|output|inout).*", " ", "[a-zA-Z0-9_.]+,?")
       // align after wire/reg/logic words
       .align(
         "\\s*(?:logic(?: signed)?\\s*\\[\\d+:\\d+]|[\\w]+)",
@@ -84,13 +84,13 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       // align via connections
       .align(".*", "\\/\\*<--\\*\\/|\\/\\*-->\\*\\/", ".*")
       // align assignments
-      .align("[ ]*[a-zA-Z0-9_.\\[\\]\\:]+[ ]*", "=|<=", ".*")
+      .align("[ ]*[a-zA-Z0-9_.\\[\\]\\:]+[ ]*", "=|<=", ".*;")
       // align connections (verilog assignments)
-      .align("[ ]*assign [a-zA-Z0-9_.\\[\\]\\:]+[ ]*", "=", ".*")
+      .align("[ ]*assign [a-zA-Z0-9_.\\[\\]\\:]+[ ]*", "=", ".*;")
       // align parameters
-      .align("[ ]*parameter [a-zA-Z0-9_.]+[ ]*", "=", ".*")
+      .align("[ ]*parameter [a-zA-Z0-9_.]+[ ]*", "=", ".*;")
       // align enum constants
-      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*", "=", ".*")
+      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*", "=", "[ ]*[0-9]+,?")
       // align cases
       .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*:", "", ".*")
 

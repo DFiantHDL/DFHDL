@@ -16,7 +16,7 @@ class BlinkerSpec extends util.FullCompileSpec:
        |  input  wire logic clk,
        |  input  wire logic rst,
        |  /* LED output */
-       |  output logic led
+       |  output logic      led
        |);
        |  /* Half-count of the toggle for 50% duty cycle */
        |  parameter int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);

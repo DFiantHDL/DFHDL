@@ -44,7 +44,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "ID_defs.svh"
          |
          |module ID(
-         |  input wire logic signed [15:0] x,
+         |  input  wire logic signed [15:0] x,
          |  output logic signed [15:0] y,
          |  output logic signed [15:0] y2
          |);
@@ -64,7 +64,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.svh"
          |
          |module ID(
-         |  input wire logic signed [15:0] x,
+         |  input  wire logic signed [15:0] x,
          |  output logic signed [15:0] y,
          |  output logic signed [15:0] y2
          |);
@@ -77,7 +77,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.svh"
          |
          |module IDTop(
-         |  input wire logic signed [15:0] x,
+         |  input  wire logic signed [15:0] x,
          |  output logic signed [15:0] y
          |);
          |  logic signed [15:0] id1_x;
@@ -124,7 +124,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.svh"
          |
          |module ID#(parameter int width)(
-         |  input wire logic signed [width - 1:0] x,
+         |  input  wire logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
          |  assign y = x;
@@ -135,7 +135,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.svh"
          |
          |module IDTop#(parameter int width = 16)(
-         |  input wire logic signed [width - 1:0] x,
+         |  input  wire logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
          |  logic signed [width - 1:0] id1_x;
@@ -178,7 +178,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "ParamTest_defs.svh"
          |
          |module ParamTest#(parameter logic dp = 1'b1)(
-         |  input wire logic x,
+         |  input  wire logic x,
          |  output logic y
          |);
          |  parameter logic lp = 1'b1;
@@ -221,10 +221,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Top_defs.svh"
          |
          |module Top(
-         |  input  wire logic clk,
-         |  input  wire logic rst,
+         |  input  wire logic        clk,
+         |  input  wire logic        rst,
          |  input  wire logic [15:0] x,
-         |  output logic [15:0] y
+         |  output logic [15:0]      y
          |);
          |  parameter logic [15:0] c = 16'h0000;
          |  logic [15:0] z;
@@ -335,7 +335,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module HasDocs(
          |  /* My in */
-         |  input wire logic x,
+         |  input  wire logic x,
          |  /* My Out
          |    */
          |  output logic y
@@ -361,8 +361,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Counter_defs.svh"
          |
          |module Counter#(parameter int width = 8)(
-         |  input wire logic clk,
-         |  input wire logic rst,
+         |  input  wire logic clk,
+         |  input  wire logic rst,
          |  output logic [width - 1:0] cnt
          |);
          |  logic [width - 1:0] cnt_reg;
@@ -430,8 +430,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Counter_defs.svh"
          |
          |module Counter#(parameter int width = 8)(
-         |  input wire logic clk,
-         |  input wire logic rst,
+         |  input  wire logic clk,
+         |  input  wire logic rst,
          |  output logic [width - 1:0] cnt
          |);
          |  logic [width - 1:0] cnt_reg;
@@ -474,8 +474,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    parameter int CLK_FREQ_KHz = 50000,
          |    parameter int LED_FREQ_Hz = 1
          |)(
-         |  input wire logic clk,
-         |  input wire logic rst,
+         |  input  wire logic clk,
+         |  input  wire logic rst,
          |  /* LED output */
          |  output logic led
          |);

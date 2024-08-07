@@ -63,7 +63,7 @@ class IssuesSpec extends FunSuite:
          |`include "VerilogSRA_defs.svh"
          |
          |module VerilogSRA(
-         |  input wire logic signed [9:0] a
+         |  input  wire logic signed [9:0] a
          |);
          |  logic signed [9:0] b;
          |  assign b = a >>> 1;

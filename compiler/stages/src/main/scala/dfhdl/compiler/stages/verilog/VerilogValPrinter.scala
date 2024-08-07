@@ -19,8 +19,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     val modifier = dfVal.modifier.dir match
       case Modifier.IN =>
         dfVal.dfType match
-          case _: DFStruct => "input "
-          case _           => "input wire "
+          case _: DFStruct => "input  "
+          case _           => "input  wire "
       case Modifier.OUT   => "output "
       case Modifier.INOUT => "inout  "
       case Modifier.VAR   => ""

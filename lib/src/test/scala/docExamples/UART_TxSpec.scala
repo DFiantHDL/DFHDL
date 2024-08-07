@@ -12,20 +12,20 @@ class UART_TxSpec extends util.FullCompileSpec:
        |    parameter int CLK_FREQ_KHz = 50000,
        |    parameter int BAUD_RATE_BPS = 115200
        |)(
-       |  input  wire logic clk,
-       |  input  wire logic rst,
-       |  input  wire logic data_en,
+       |  input  wire logic       clk,
+       |  input  wire logic       rst,
+       |  input  wire logic       data_en,
        |  input  wire logic [7:0] data,
-       |  output logic tx,
-       |  output logic tx_en,
-       |  output logic tx_done
+       |  output logic            tx,
+       |  output logic            tx_en,
+       |  output logic            tx_done
        |);
        |  typedef enum {
-       |    Status_Idle            = 1,
-       |    Status_StartBit        = 2,
-       |    Status_DataBits        = 4,
-       |    Status_StopBit         = 8,
-       |    Status_Finalize        = 16
+       |    Status_Idle     = 1,
+       |    Status_StartBit = 2,
+       |    Status_DataBits = 4,
+       |    Status_StopBit  = 8,
+       |    Status_Finalize = 16
        |  } t_enum_Status;
        |  parameter int BIT_CLOCKS = (CLK_FREQ_KHz * 1000) / BAUD_RATE_BPS;
        |  t_enum_Status status;
