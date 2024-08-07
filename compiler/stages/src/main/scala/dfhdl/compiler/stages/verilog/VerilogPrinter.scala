@@ -84,9 +84,9 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       // align via connections
       .align(".*", "\\/\\*<--\\*\\/|\\/\\*-->\\*\\/", ".*")
       // align assignments
-      .align("[ ]*[a-zA-Z0-9_.]+[ ]*", "=|<=", ".*")
+      .align("[ ]*[a-zA-Z0-9_.\\[\\]\\:]+[ ]*", "=|<=", ".*")
       // align connections (verilog assignments)
-      .align("[ ]*assign [a-zA-Z0-9_.]+[ ]*", "=", ".*")
+      .align("[ ]*assign [a-zA-Z0-9_.\\[\\]\\:]+[ ]*", "=", ".*")
       // align parameters
       .align("[ ]*parameter [a-zA-Z0-9_.]+[ ]*", "=", ".*")
       // align enum constants

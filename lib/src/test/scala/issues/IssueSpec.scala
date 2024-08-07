@@ -41,8 +41,8 @@ class IssuesSpec extends FunSuite:
          |begin
          |  process (all)
          |  begin
-         |    b(0) <= a;
-         |    c(0)(0) <= a;
+         |    b(0)       <= a;
+         |    c(0)(0)    <= a;
          |    d(0)(0)(0) <= a;
          |  end process;
          |end ArrayIssue_arch;

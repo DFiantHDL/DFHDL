@@ -260,7 +260,8 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       .align(".*", ":", "[ ]*(?:in|out|inout) .*")
       .align(".*:[ ]*(?:in|out|inout)", " ", ".*")
       .align("[ ]*(?:signal|variable|constant) .*", ": ", ".*")
-      .align("[ ]*[a-zA-Z0-9_.]+[ ]*", ":=|<=", ".*")
+      .align("[ ]*[a-zA-Z0-9_.\\(\\)]+[ ]*", ":=|<=|=>", ".*")
+      .align("[ ]*when [a-zA-Z0-9_.]+[ ]*", "=>", ".*")
   val vhdlKW: Set[String] = reservedKeywords
   val vhdlOps: Set[String] = Set(":=", "<=")
   val vhdlTypes: Set[String] =
