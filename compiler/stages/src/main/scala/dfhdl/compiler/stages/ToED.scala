@@ -29,15 +29,15 @@ case object ToED extends Stage:
         object Config:
           def unapply(domainType: DomainType): Option[RTDomainCfg.Explicit] =
             domainType match
-              case DomainType.RT(cfg: RTDomainCfg.Explicit)   => Some(cfg)
-              case DomainType.RT(RTDomainCfg.RelatedCfg(ref)) => unapply(ref.get.domainType)
-              case _                                          => None
+              case DomainType.RT(cfg: RTDomainCfg.Explicit) => Some(cfg)
+              case DomainType.RT(RTDomainCfg.Related(ref))  => unapply(ref.get.domainType)
+              case _                                        => None
         domainOwner.domainType match
           // only care about register-transfer domains.
           // those have wires and regs that we need to simplify.
           case domainType @ Config(cfg) =>
             import cfg.{clkCfg, rstCfg}
-            val clkRstOpt = domainAnalysis.designDomains((domainOwner.getThisOrOwnerDesign, cfg))
+            val clkRstOpt = domainAnalysis.designDomains(domainOwner)
 
             val dclREGList = members.collect {
               case dcl: DFVal.Dcl if dcl.modifier.isReg => dcl
@@ -208,7 +208,7 @@ case object ToED extends Stage:
                     case (dclREG, dcl_din) =>
                       dclREG.asVarAny :== dcl_din.asValAny
                 def ifRstActive =
-                  val RstCfg.Explicit(_, active: RstCfg.Active) = rstCfg: @unchecked
+                  val RstCfg.Explicit(_, active: RstCfg.Active, _) = rstCfg: @unchecked
                   val cond = active match
                     case RstCfg.Active.High => rst.actual == 1
                     case RstCfg.Active.Low  => rst.actual == 0
@@ -217,7 +217,7 @@ case object ToED extends Stage:
                   val (_, rstBranch) = ifRstActive
                   DFIf.singleBranch(None, rstBranch, regSaveBlock)
                 def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
-                  val ClkCfg.Explicit(edge, _) = clkCfg: @unchecked
+                  val ClkCfg.Explicit(edge, _, _) = clkCfg: @unchecked
                   val cond = edge match
                     case ClkCfg.Edge.Rising  => clk.actual.rising
                     case ClkCfg.Edge.Falling => clk.actual.falling
@@ -235,7 +235,7 @@ case object ToED extends Stage:
                       d.initRefList.nonEmpty && !d.initRefList.head.get.isBubble
                     )
                   if (rstCfg != None && (dclREGsHaveRst || regAliasesHaveRst))
-                    val RstCfg.Explicit(mode: RstCfg.Mode, _) = rstCfg: @unchecked
+                    val RstCfg.Explicit(mode: RstCfg.Mode, _, _) = rstCfg: @unchecked
                     mode match
                       case RstCfg.Mode.Sync =>
                         process(clk) {

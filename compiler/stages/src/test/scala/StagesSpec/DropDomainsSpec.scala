@@ -70,8 +70,8 @@ class DropDomainsSpec extends StageSpec:
     val top = (new IDTop).dropDomains
     assertCodeString(
       top,
-      """|case class Clk_main() extends Clk
-         |case class Rst_main() extends Rst
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
          |
          |class ID extends EDDesign:
          |  val x = SInt(16) <> IN
@@ -82,16 +82,18 @@ class DropDomainsSpec extends StageSpec:
          |class IDTop extends EDDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  val dmn1_clk = Clk_main <> IN
-         |  val dmn1_rst = Rst_main <> IN
+         |  val dmn1_clk = Clk_default <> IN
+         |  val dmn1_rst = Rst_default <> IN
          |  val dmn1_id = ID()
          |  dmn1_id.x <> x
+         |  val dmn2_clk = Clk_default <> IN
+         |  val dmn2_rst = Rst_default <> IN
          |  val dmn2_dmn1_id_y_reg = SInt(16) <> VAR
          |  val dmn2_id = ID()
          |  dmn2_id.x <> dmn2_dmn1_id_y_reg
-         |  process(dmn1_clk):
-         |    if (dmn1_clk.actual.rising)
-         |      if (dmn1_rst.actual == 1) dmn2_dmn1_id_y_reg :== sd"16'0"
+         |  process(dmn2_clk):
+         |    if (dmn2_clk.actual.rising)
+         |      if (dmn2_rst.actual == 1) dmn2_dmn1_id_y_reg :== sd"16'0"
          |      else dmn2_dmn1_id_y_reg :== dmn1_id.y
          |    end if
          |  val dmn3_dmn2_id_y_reg = SInt(16) <> VAR

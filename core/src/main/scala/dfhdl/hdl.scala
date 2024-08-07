@@ -66,15 +66,12 @@ protected object hdl:
   export core.OPEN
   export core.Process.Ops.*
 
-  val DerivedCfg = core.DerivedCfg
-  val CombCfg = core.CombCfg
   type ClkCfg = core.ClkCfg
   val ClkCfg = core.ClkCfg
   type RstCfg = core.RstCfg
   val RstCfg = core.RstCfg
   type RTDomainCfg = core.RTDomainCfg
   val RTDomainCfg = core.RTDomainCfg
-  val NoClockCfg = RTDomainCfg(None, None)
 
   // shorthand for annotating a DFBits value (useful for string interpolation)
   type B[W <: Int] = core.DFValOf[Bits[W]]

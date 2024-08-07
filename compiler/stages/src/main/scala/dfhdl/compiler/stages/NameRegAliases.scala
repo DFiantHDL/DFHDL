@@ -10,7 +10,7 @@ import DFVal.Alias.History.Op as HistoryOp
 import scala.annotation.tailrec
 import scala.collection.mutable
 import dfhdl.core.DomainType.RT
-import dfhdl.core.DerivedCfg
+import dfhdl.core.RTDomainCfg.Derived
 
 /** This stage names register aliases (e.g., `x.reg`) and replaces them with explicit register
   * variables. The most complex mechanism about this stage is the naming conversion convention.
@@ -103,7 +103,7 @@ case object NameRegAliases extends Stage:
           case Some(lastDcl) => (lastDcl, Patch.Add.Config.After)
           case None          => (domainOwner, Patch.Add.Config.InsideFirst)
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
-        val regDsn = new MetaDesign(posMember, addCfg, domainType = RT(DerivedCfg)):
+        val regDsn = new MetaDesign(posMember, addCfg, domainType = RT(Derived)):
           def addRegs(
               aliases: List[DFVal.Alias.History],
               namePrefix: String,
@@ -123,7 +123,7 @@ case object NameRegAliases extends Stage:
             val relVal = alias.getNonRegAliasRelVal
             var initOptions = aliases.flatMap(a => List.fill(a.step)(a.initOption))
             def regDinPatch(posMember: DFMember, addCfg: Patch.Add.Config) =
-              new MetaDesign(posMember, addCfg, domainType = RT(DerivedCfg)):
+              new MetaDesign(posMember, addCfg, domainType = RT(Derived)):
                 (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
                   val clonedInitOpt = initOptions.head.map(_.cloneAnonValueAndDepsHere.asConstAny)
                   initOptions = initOptions.drop(1)

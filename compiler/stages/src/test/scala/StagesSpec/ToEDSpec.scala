@@ -268,12 +268,12 @@ class ToEDSpec extends StageSpec:
     val top = Test().toED
     assertCodeString(
       top,
-      """|case class Clk_main() extends Clk
-         |case class Rst_main() extends Rst
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
          |
          |class Test extends EDDesign:
-         |  val clk = Clk_main <> IN
-         |  val rst = Rst_main <> IN
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
          |  val c = Boolean <> IN
          |  val z = UInt(8) <> OUT
          |  val z_reg = UInt(8) <> VAR
@@ -302,12 +302,12 @@ class ToEDSpec extends StageSpec:
     val top = Test().toED
     assertCodeString(
       top,
-      """|case class Clk_main() extends Clk
-         |case class Rst_main() extends Rst
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
          |
          |class Test extends EDDesign:
-         |  val clk = Clk_main <> IN
-         |  val rst = Rst_main <> IN
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
          |  val c = Boolean <> IN
          |  val z = UInt(8) <> OUT
          |  val y = Bits(8) <> OUT
@@ -364,12 +364,10 @@ class ToEDSpec extends StageSpec:
     val top = Test().toED
     assertCodeString(
       top,
-      """|case class Clk_main() extends Clk
-         |case class Rst_main() extends Rst
+      """|case class Clk_default() extends Clk
          |
          |class Test extends EDDesign:
-         |  val clk = Clk_main <> IN
-         |  val rst = Rst_main <> IN
+         |  val clk = Clk_default <> IN
          |  val status = UInt(8) <> VAR
          |  val status_din = UInt(8) <> VAR
          |  process(all):
@@ -419,8 +417,8 @@ class ToEDSpec extends StageSpec:
     val id = (new IDTop).toED
     assertCodeString(
       id,
-      """|case class Clk_main() extends Clk
-         |case class Rst_main() extends Rst
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
          |
          |class ID extends EDDesign:
          |  val x = SInt(16) <> IN
@@ -429,8 +427,8 @@ class ToEDSpec extends StageSpec:
          |end ID
          |
          |class IDTop extends EDDesign:
-         |  val clk = Clk_main <> IN
-         |  val rst = Rst_main <> IN
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val x_reg = SInt(16) <> VAR
@@ -478,8 +476,8 @@ class ToEDSpec extends StageSpec:
     val id = (new IDTop).toED
     assertCodeString(
       id,
-      """|case class Clk_main() extends Clk
-         |case class Rst_main() extends Rst
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
          |
          |class ID extends EDDesign:
          |  val x = SInt(16) <> IN
@@ -491,17 +489,19 @@ class ToEDSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val dmn1 = new EDDomain:
-         |    val clk = Clk_main <> IN
-         |    val rst = Rst_main <> IN
+         |    val clk = Clk_default <> IN
+         |    val rst = Rst_default <> IN
          |    val id = ID()
          |    id.x <> x
          |  val dmn2 = new EDDomain:
+         |    val clk = Clk_default <> IN
+         |    val rst = Rst_default <> IN
          |    val dmn1_id_y_reg = SInt(16) <> VAR
          |    val id = ID()
          |    id.x <> dmn1_id_y_reg
-         |    process(dmn1.clk):
-         |      if (dmn1.clk.actual.rising)
-         |        if (dmn1.rst.actual == 1) dmn1_id_y_reg :== sd"16'0"
+         |    process(clk):
+         |      if (clk.actual.rising)
+         |        if (rst.actual == 1) dmn1_id_y_reg :== sd"16'0"
          |        else dmn1_id_y_reg :== dmn1.id.y
          |      end if
          |  val dmn3 = new EDDomain:

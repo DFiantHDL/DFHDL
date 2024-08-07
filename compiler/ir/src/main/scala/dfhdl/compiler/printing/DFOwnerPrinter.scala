@@ -213,8 +213,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case DomainType.DF => "DFDesign"
       case rt: DomainType.RT =>
         val cfgStr = rt.cfg match
-          case RTDomainCfg.DerivedCfg => ""
-          case _                      => s"(${printer.csRTDomainCfg(rt.cfg)})"
+          case RTDomainCfg.Derived => ""
+          case _                   => s"(${printer.csRTDomainCfg(rt.cfg)})"
         s"""RTDesign$cfgStr""".stripMargin
       case _ => "EDDesign"
     val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
@@ -301,13 +301,13 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case DomainType.DF => "DFDomain"
       case rt: DomainType.RT =>
         rt.cfg match
-          case RTDomainCfg.RelatedCfg(relatedDomainRef) =>
+          case RTDomainCfg.Related(relatedDomainRef) =>
             val relatedDomain = relatedDomainRef.get
             if (domain.isMemberOf(relatedDomain))
               "RelatedDomain"
             else
               s"${relatedDomain.getRelativeName(domain.getOwnerNamed)}.RelatedDomain"
-          case RTDomainCfg.DerivedCfg => "RTDomain"
+          case RTDomainCfg.Derived => "RTDomain"
           case _ =>
             s"RTDomain(${printer.csRTDomainCfg(rt.cfg)})"
       case DomainType.ED => "EDDomain"

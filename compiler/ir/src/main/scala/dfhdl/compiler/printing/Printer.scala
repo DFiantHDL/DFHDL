@@ -83,8 +83,8 @@ trait Printer
   def csClkCfg(clkCfg: ClkCfg): String =
     clkCfg match
       case _: None.type => "None"
-      case ClkCfg.Explicit(edge, rate) =>
-        s"ClkCfg(${csClkEdgeCfg(edge)}, ${csRateUnit(rate)})"
+      case ClkCfg.Explicit(edge, rate, portName) =>
+        s"ClkCfg(${csClkEdgeCfg(edge)}, ${csRateUnit(rate)}, $portName)"
   def csRstModeCfg(mode: RstCfg.Mode): String =
     mode match
       case RstCfg.Mode.Sync  => "RstCfg.Mode.Sync"
@@ -96,8 +96,8 @@ trait Printer
   def csRstCfg(rstCfg: RstCfg): String =
     rstCfg match
       case _: None.type => "None"
-      case RstCfg.Explicit(mode, active) =>
-        s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)})"
+      case RstCfg.Explicit(mode, active, portName) =>
+        s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)}, $portName)"
   def csRTDomainCfg(clkCfg: ClkCfg, rstCfg: RstCfg): String =
     s"""RTDomainCfg(
        |    clkCfg = ${printer.csClkCfg(clkCfg)},
@@ -105,11 +105,11 @@ trait Printer
        |)""".stripMargin
   def csRTDomainCfg(cfg: RTDomainCfg): String =
     cfg match
-      case RTDomainCfg.DerivedCfg => "DerivedCfg"
+      case RTDomainCfg.Derived => "Derived"
       case RTDomainCfg.Explicit(name, clkCfg, rstCfg) =>
         if (name.isEmpty) csRTDomainCfg(clkCfg, rstCfg)
         else name
-      case RTDomainCfg.RelatedCfg(_) => ??? // should not be printed
+      case RTDomainCfg.Related(_) => ??? // should not be printed
   def csCommentInline(comment: String): String
   def csCommentEOL(comment: String): String
   def csDocString(doc: String): String

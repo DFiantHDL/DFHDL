@@ -199,12 +199,6 @@ object DFVal:
     def isOpen: Boolean = dfVal match
       case _: Open => true
       case _       => false
-    def isClkDcl(using MemberGetSet): Boolean = dfVal.dfType match
-      case DFOpaque(_, id: DFOpaque.Clk, _) => true
-      case _                                => false
-    def isRstDcl(using MemberGetSet): Boolean = dfVal.dfType match
-      case DFOpaque(_, id: DFOpaque.Rst, _) => true
-      case _                                => false
     @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.Open] = dfVal match
       case dcl: DFVal.Dcl                           => Some(dcl)
       case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)
@@ -339,6 +333,13 @@ object DFVal:
   end Dcl
   object Dcl:
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
+    extension (dcl: Dcl)
+      def isClkDcl(using MemberGetSet): Boolean = dcl.dfType match
+        case DFOpaque(_, id: DFOpaque.Clk, _) => true
+        case _                                => false
+      def isRstDcl(using MemberGetSet): Boolean = dcl.dfType match
+        case DFOpaque(_, id: DFOpaque.Rst, _) => true
+        case _                                => false
 
   final case class Func(
       dfType: DFType,
@@ -940,9 +941,9 @@ object DFDesignBlock:
         chain
       var chain1 = getOwnerDesignChain(dsn)
       var chain2 = getOwnerDesignChain(dsn2)
-      while (chain1.drop(1).headOption == chain2.drop(1).headOption)
+      while (chain1.length > 1 && chain1.drop(1).headOption == chain2.drop(1).headOption)
         chain1 = chain1.drop(1)
-        chain2 = chain2.drop(2)
+        chain2 = chain2.drop(1)
       chain1.head
   end extension
 

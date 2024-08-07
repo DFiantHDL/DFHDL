@@ -18,7 +18,8 @@ object ClkCfg:
 
   final case class Explicit(
       edge: Edge,
-      rate: Rate
+      rate: Rate,
+      portName: String
   ) derives CanEqual
 
 type RstCfg = ConfigN[RstCfg.Explicit]
@@ -30,26 +31,36 @@ object RstCfg:
 
   final case class Explicit(
       mode: Mode,
-      active: Active
+      active: Active,
+      portName: String
   ) derives CanEqual
 end RstCfg
 
 enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual:
-  case DerivedCfg
-  case RelatedCfg(relatedDomainRef: RTDomainCfg.RelatedDomainRef) extends RTDomainCfg
+  case Derived
+  case Related(relatedDomainRef: RTDomainCfg.RelatedDomainRef) extends RTDomainCfg
   case Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg)
       extends RTDomainCfg,
       NamedGlobal,
       DFTagOf[DFDesignBlock]
 
+  def isDerivedNoRst: Boolean = this match
+    case cfg: Explicit if cfg.name.endsWith(".norst") => true
+    case _                                            => false
+
+  def norst: this.type = this match
+    case cfg: Explicit if cfg.rstCfg != None && !cfg.isDerivedNoRst =>
+      Explicit(s"${cfg.name}.norst", cfg.clkCfg, None).asInstanceOf[this.type]
+    case _ => this
+
   protected def `prot_=~`(that: RTDomainCfg)(using MemberGetSet): Boolean =
     (this, that) match
-      case (RelatedCfg(thisRef), RelatedCfg(thatRef)) => thisRef =~ thatRef
-      case _                                          => this == that
+      case (Related(thisRef), Related(thatRef)) => thisRef =~ thatRef
+      case _                                    => this == that
 
   lazy val getRefs: List[DFRef.TwoWayAny] = this match
-    case RelatedCfg(relatedDomainRef) => List(relatedDomainRef)
-    case _                            => Nil
+    case Related(relatedDomainRef) => List(relatedDomainRef)
+    case _                         => Nil
 end RTDomainCfg
 
 object RTDomainCfg:

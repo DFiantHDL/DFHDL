@@ -619,7 +619,7 @@ final case class DB(
           case DomainType.RT(cfg) =>
             cfg match
               // derived configuration dependency is set according to various factors:
-              case RTDomainCfg.DerivedCfg =>
+              case RTDomainCfg.Derived =>
                 domainOwner match
                   // for designs, the derived configuration is defined by the owner RT design, if such exists.
                   // if not, then there is no domain configuration dependency
@@ -651,9 +651,10 @@ final case class DB(
                             |""".stripMargin
                       )
                     else Some(domain -> inSourceDomains.head)
-                  case ifc: DFInterfaceOwner => ??? // TODO: decide what the rules are for
+                  case ifc: DFInterfaceOwner =>
+                    ??? // TODO: decide what are the rules are for interfaces
               // related configuration is just dependent on the its related domain
-              case RTDomainCfg.RelatedCfg(relatedDomainRef) =>
+              case RTDomainCfg.Related(relatedDomainRef) =>
                 Some(domainOwner -> relatedDomainRef.get)
               case _ => None
           case _ => None

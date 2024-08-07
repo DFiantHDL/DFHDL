@@ -10,7 +10,7 @@ final case class ElaborationOptions(
     printDesignCodeAfter: PrintDesignCodeAfter
 ):
   private[dfhdl] val defaultRTDomainCfg: RTDomainCfg.Explicit =
-    RTDomainCfg.Explicit("main", defaultClkCfg, defaultRstCfg)
+    RTDomainCfg.Explicit("RTDomainCfg.Default", defaultClkCfg, defaultRstCfg)
 object ElaborationOptions:
   given default(using
       logLevel: LogLevel,
@@ -38,14 +38,14 @@ object ElaborationOptions:
 
   opaque type DefaultClkCfg <: ClkCfg = ClkCfg
   object DefaultClkCfg:
-    given DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
+    given DefaultClkCfg = ClkCfg()
     given Conversion[ClkCfg, DefaultClkCfg] = identity
     given Conversion[None.type, DefaultClkCfg] = x => x.asInstanceOf[DefaultClkCfg]
     export ClkCfg.*
 
   opaque type DefaultRstCfg <: RstCfg = RstCfg
   object DefaultRstCfg:
-    given DefaultRstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
+    given DefaultRstCfg = RstCfg()
     given Conversion[RstCfg, DefaultRstCfg] = identity
     given Conversion[None.type, DefaultRstCfg] = x => x.asInstanceOf[DefaultRstCfg]
     export RstCfg.*

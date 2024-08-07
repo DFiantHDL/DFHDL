@@ -1,6 +1,7 @@
 package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.internals.*
+import dfhdl.options.ElaborationOptions
 import Freq.Ops.*
 
 type ClkCfg = ir.ClkCfg
@@ -10,8 +11,9 @@ object ClkCfg:
 
   def apply(
       edge: Edge = Edge.Rising,
-      rate: Rate = 50.MHz
-  ): ClkCfg = ir.ClkCfg.Explicit(edge, rate.asIR)
+      rate: Rate = 50.MHz,
+      portName: String = "clk"
+  ): ClkCfg = ir.ClkCfg.Explicit(edge, rate.asIR, portName)
 
 type RstCfg = ir.RstCfg
 object RstCfg:
@@ -21,8 +23,9 @@ object RstCfg:
   final val Active = ir.RstCfg.Active
   def apply(
       mode: Mode = Mode.Sync,
-      active: Active = Active.High
-  ): RstCfg = ir.RstCfg.Explicit(mode, active)
+      active: Active = Active.High,
+      portName: String = "rst"
+  ): RstCfg = ir.RstCfg.Explicit(mode, active, portName)
 
 opaque type RTDomainCfg <: ir.RTDomainCfg = ir.RTDomainCfg
 object RTDomainCfg:
@@ -30,13 +33,16 @@ object RTDomainCfg:
     ir.RTDomainCfg.Explicit(name, clkCfg, rstCfg)
   def apply(clkCfg: ClkCfg, rstCfg: RstCfg)(using ctName: CTName): RTDomainCfg =
     forced(ctName.value, clkCfg, rstCfg)
-  extension (cfg: RTDomainCfg) def asIR: ir.RTDomainCfg = cfg
+  val Comb: RTDomainCfg = RTDomainCfg.forced("RTDomainCfg.Comb", None, None)
+  def Default(using dfc: DFC): RTDomainCfg = dfc.elaborationOptions.defaultRTDomainCfg
+  val Derived: RTDomainCfg = ir.RTDomainCfg.Derived
+  extension (cfg: RTDomainCfg)
+    def asIR: ir.RTDomainCfg = cfg
+    def norst: RTDomainCfg = cfg.asIR.norst
   extension (cfg: ir.RTDomainCfg) def asFE: RTDomainCfg = cfg
-  protected[core] object RelatedCfg:
+  protected[core] object Related:
     def apply(design: RTDesign)(using DFC): RTDomainCfg =
-      ir.RTDomainCfg.RelatedCfg(design.owner.asIR.refTW)
+      ir.RTDomainCfg.Related(design.owner.asIR.refTW)
     def apply(domain: RTDomain)(using DFC): RTDomainCfg =
-      ir.RTDomainCfg.RelatedCfg(domain.owner.asIR.refTW)
-
-final val CombCfg: RTDomainCfg = RTDomainCfg.forced("comb", None, None)
-final val DerivedCfg: RTDomainCfg = ir.RTDomainCfg.DerivedCfg
+      ir.RTDomainCfg.Related(domain.owner.asIR.refTW)
+end RTDomainCfg

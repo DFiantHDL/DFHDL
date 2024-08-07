@@ -51,10 +51,10 @@ end Domain
 abstract class DFDomain extends DomainContainer(DomainType.DF), Domain
 
 abstract class RTDomain(
-    cfg: RTDomainCfg = DerivedCfg
+    cfg: RTDomainCfg = RTDomainCfg.Derived
 ) extends RTDomainContainer(cfg),
       Domain:
   related =>
-  abstract class RelatedDomain extends RTDomain(RTDomainCfg.RelatedCfg(related))
+  abstract class RelatedDomain extends RTDomain(RTDomainCfg.Related(related))
 
 abstract class EDDomain extends DomainContainer(DomainType.ED), Domain
