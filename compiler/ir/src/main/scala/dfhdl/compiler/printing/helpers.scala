@@ -68,12 +68,11 @@ extension (text: String)
       // Step 3: Calculate IQR
       val iqr = q3 - q1
 
-      // Step 4: Determine outlier boundaries
-      val lowerBound = q1 - 1.5 * iqr
-      val upperBound = q3 + 1.5 * iqr + 3
+      // Step 4: Determine outlier boundary
+      val upperBound = q3 + 1.5 * iqr + 3 // 3 spaces offset added
 
       // Step 5: Filter the data
-      val filteredData = sortedData.filter(x => x >= lowerBound && x <= upperBound)
+      val filteredData = sortedData.filter(_ <= upperBound)
 
       // Step 6: Return the maximum value of the filtered data
       filteredData match
