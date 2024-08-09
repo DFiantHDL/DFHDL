@@ -42,7 +42,7 @@ final class DomainAnalysis(designDB: DB):
 
   val designDomains: Map[DFDomainOwner, ClkRstOpt] =
     val collectedDesignDomains = mutable.Map.empty[DFDomainOwner, ClkRstOpt]
-    designDB.domainOwnerMemberList.foreach { case (owner, members) =>
+    def collectDomainClkRst(owner: DFDomainOwner, members: List[DFMember]): Unit =
       val design = owner.getThisOrOwnerDesign
       owner.domainType match
         // just register-transfer domains with new configuration
@@ -66,10 +66,16 @@ final class DomainAnalysis(designDB: DB):
               collectedDesignDomains.addRst(owner, rst)
           }
         case DomainType.RT(RTDomainCfg.Related(DFRef(relatedDomain))) =>
+          // we normally analyze domains bottom up, but a related domain that depends on its
+          // owner design first requires us to analyze the design
+          if (owner.isInsideOwner(relatedDomain))
+            collectDomainClkRst(relatedDomain, designDB.domainOwnerMemberTable(relatedDomain))
           collectedDesignDomains += owner -> collectedDesignDomains(relatedDomain)
         case _ => // do nothing
       end match
-    }
+    end collectDomainClkRst
+
+    designDB.domainOwnerMemberList.foreach { collectDomainClkRst }
     collectedDesignDomains.toMap
   end designDomains
 end DomainAnalysis
