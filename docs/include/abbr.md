@@ -1,5 +1,6 @@
 *[ED]: Event-Driven
 *[DF]: Dataflow
+*[DPR]: Dual-Port RAM
 *[RT]: Register-Transfer
 *[DSL]: Domain Specific Language
 *[HDL]: Hardware Description Language
