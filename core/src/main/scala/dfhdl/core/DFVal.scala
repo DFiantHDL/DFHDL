@@ -523,7 +523,7 @@ object DFVal extends DFValLP:
   end InitTupleValues
 
   extension [T <: DFTypeAny, A, C, I, P, R](dfVal: DFVal[T, Modifier[A, C, I, P]])
-    private[core] def initForced(initValues: List[DFConstOf[T]])(using
+    private[dfhdl] def initForced(initValues: List[DFConstOf[T]])(using
         dfc: DFC
     ): DFVal[T, Modifier[A, C, Modifier.Initialized, P]] =
       import dfc.getSet

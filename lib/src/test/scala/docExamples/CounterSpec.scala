@@ -14,16 +14,12 @@ class CounterSpec extends util.FullCompileSpec:
        |  input  wire logic en,
        |  output logic [width - 1:0] cnt
        |);
-       |  logic [width - 1:0] cnt_din;
-       |  always_comb
-       |  begin
-       |    cnt_din = cnt;
-       |    if (en) cnt_din = cnt + width'(1);
-       |  end
        |  always_ff @(posedge clk)
        |  begin
        |    if (rst == 1'b1) cnt <= width'(0);
-       |    else cnt <= cnt_din;
+       |    else begin
+       |      if (en) cnt <= cnt + width'(1);
+       |    end
        |  end
        |endmodule
        |""".stripMargin
@@ -47,19 +43,14 @@ class CounterSpec extends util.FullCompileSpec:
        |end Counter;
        |
        |architecture Counter_arch of Counter is
-       |  signal cnt_din : unsigned(width - 1 downto 0);
        |begin
-       |  process (all)
-       |  begin
-       |    cnt_din <= cnt;
-       |    if en then cnt_din <= cnt + resize(d"1", width);
-       |    end if;
-       |  end process;
        |  process (clk)
        |  begin
        |    if rising_edge(clk) then
        |      if rst = '1' then cnt <= resize(d"0", width);
-       |      else cnt <= cnt_din;
+       |      else
+       |        if en then cnt <= cnt + resize(d"1", width);
+       |        end if;
        |      end if;
        |    end if;
        |  end process;

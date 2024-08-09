@@ -76,9 +76,8 @@ case object ExplicitClkRstCfg extends Stage:
       } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1)
       def usesRst: Boolean = designDB.domainOwnerMemberTable(domainOwner).exists {
         case dcl: DFVal.Dcl =>
-          (dcl.modifier.isReg && !dcl.initRefList.headOption.map(_.get.isBubble).getOrElse(true))
-          || dcl.isRstDcl
-        case reg: DFVal.Alias.History => !reg.initRefOption.map(_.get.isBubble).getOrElse(true)
+          (dcl.modifier.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
+        case reg: DFVal.Alias.History => reg.hasNonBubbleInit
         case internal: DFDesignBlock  => internal.usesClkRst._2
         case _                        => false
       } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._2)

@@ -74,6 +74,14 @@ object Patch:
       case object InsideFirst extends Config
       // adds members inside the given block, at the end
       case object InsideLast extends Config
+      // adds members before and after the patched member, which will be replaced.
+      // The n-th (non-Top) member is considered the reference replacement member
+      // Replacement is done as specified by the scope argument
+      final case class ReplaceWithMemberN(
+          n: Int,
+          replacementConfig: Replace.Config = Replace.Config.ChangeRefAndRemove,
+          refFilter: Replace.RefFilter = Replace.RefFilter.All
+      ) extends Config
       // adds members after the patched member, which will be replaced.
       // The FIRST (non-Top) member is considered the reference replacement member
       // Replacement is done as specified by the scope argument
@@ -176,6 +184,9 @@ extension (db: DB)
           val updatedPatchRefTable = rc.getUpdatedRefTable(db.refTable)
           val keepRefList = db.members.flatMap(_.getRefs)
           val repRT = config match
+            case Patch.Add.Config.ReplaceWithMemberN(n, repConfig, refFilter) =>
+              val repMember = db.members(n + 1) // At index 0 we have the Top. We don't want that.
+              rc.replaceMember(origMember, repMember, repConfig, refFilter, keepRefList)
             case Patch.Add.Config.ReplaceWithFirst(repConfig, refFilter) =>
               val repMember = db.members(1) // At index 0 we have the Top. We don't want that.
               rc.replaceMember(origMember, repMember, repConfig, refFilter, keepRefList)
@@ -283,6 +294,12 @@ extension (db: DB)
             // concatenating additions with the same configuration
             case (Patch.Add(db1, config1), Patch.Add(db2, config2)) if (config1 == config2) =>
               tbl + (m -> Patch.Add(db1 concat db2, config1))
+            // concatenating additions with After and ReplaceWithLast configurations, respectively
+            case (
+                  Patch.Add(db1, Patch.Add.Config.After),
+                  Patch.Add(db2, config2: Patch.Add.Config.ReplaceWithLast)
+                ) =>
+              tbl + (m -> Patch.Add(db1 concat db2, config2))
             // concatenating moves with the same configuration
             // (the patch table does not care about original owner, so we ignore it.
             // only the patchList that has all the move patches uses the original owners
@@ -303,6 +320,12 @@ extension (db: DB)
             // add followed by a replacement is allowed via a tandem patch execution
             case (add: Patch.Add, Patch.Remove(_)) =>
               tbl + (m -> Patch.Add(add.db, Patch.Add.Config.ReplaceWithFirst()))
+            // add followed by a replacement is allowed via a tandem patch execution
+            case (add: Patch.Add, replace: Patch.Replace) if add.config == Patch.Add.Config.After =>
+              tbl + (m -> Patch.Add(
+                add.db.copy(add.db.members.head :: replace.updatedMember :: add.db.members.drop(1)),
+                Patch.Add.Config.ReplaceWithFirst()
+              ))
             // replacement followed by an add via a tandem patch execution
             case (replace: Patch.Replace, add: Patch.Add) if add.config == Patch.Add.Config.After =>
               tbl + (m -> Patch.Add(
@@ -342,13 +365,21 @@ extension (db: DB)
               added = config match
                 case Patch.Add.Config.After  => m :: notTop
                 case Patch.Add.Config.Before => notTop :+ m
+                case Patch.Add.Config.ReplaceWithMemberN(
+                      n,
+                      Patch.Replace.Config.ChangeRefOnly,
+                      _
+                    ) =>
+                  val (first, last) = notTop.splitAt(n)
+                  first ++ (m :: last)
                 case Patch.Add.Config.ReplaceWithFirst(Patch.Replace.Config.ChangeRefOnly, _) =>
                   m :: notTop
                 case Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefOnly, _) =>
                   notTop :+ m
-                case Patch.Add.Config.ReplaceWithFirst(_, _) => notTop
-                case Patch.Add.Config.ReplaceWithLast(_, _)  => notTop
-                case Patch.Add.Config.Via                    => m :: notTop
+                case Patch.Add.Config.ReplaceWithMemberN(_, _, _) => notTop
+                case Patch.Add.Config.ReplaceWithFirst(_, _)      => notTop
+                case Patch.Add.Config.ReplaceWithLast(_, _)       => notTop
+                case Patch.Add.Config.Via                         => m :: notTop
                 case Patch.Add.Config.InsideFirst =>
                   ??? // Not possible since we replaced it to an `After`
                 case Patch.Add.Config.InsideLast =>

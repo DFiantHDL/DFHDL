@@ -16,11 +16,17 @@ class ToEDSpec extends StageSpec:
       val w1 = SInt(16) <> VAR
       val w2 = SInt(16) <> VAR
       val r1 = SInt(16) <> VAR
+      val r2 = SInt(16) <> VAR.REG init 0
+      val r3 = Bits(16) <> VAR.REG init all(0)
       w1 := x
       w1 := w1 + 1
       w2 := x
       r1 := w2.reg(1, init = 0)
-      y  := w1 + r1
+      if (x > 0)
+        r2.din     := x
+      r3(7, 0).din := h"88"
+      y            := w1 + r1
+    end ID
     val id = (new ID).toED
     assertCodeString(
       id,
@@ -35,13 +41,30 @@ class ToEDSpec extends StageSpec:
          |  val w1 = SInt(16) <> VAR
          |  val w2 = SInt(16) <> VAR
          |  val r1 = SInt(16) <> VAR
+         |  val r2 = SInt(16) <> VAR
+         |  val r3 = Bits(16) <> VAR
+         |  val r1_din = SInt(16) <> VAR
+         |  val r2_din = SInt(16) <> VAR
+         |  val r3_din = Bits(16) <> VAR
          |  process(all):
+         |    r2_din := r2
+         |    r3_din := r3
          |    w1 := x
          |    w1 := w1 + sd"16'1"
+         |    r1_din := w2
+         |    if (x > sd"16'0") r2_din := x
+         |    r3_din(7, 0) := h"88"
          |  process(clk):
          |    if (clk.actual.rising)
-         |      if (rst.actual == 1) r1 :== sd"16'0"
-         |      else r1 :== w2
+         |      if (rst.actual == 1)
+         |        r1 :== sd"16'0"
+         |        r2 :== sd"16'0"
+         |        r3 :== h"0000"
+         |      else
+         |        r1 :== r1_din
+         |        r2 :== r2_din
+         |        r3 :== r3_din
+         |      end if
          |    end if
          |  w2 <> x
          |  y <> (w1 + r1)
@@ -159,13 +182,13 @@ class ToEDSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val r = SInt(16) <> VAR
-         |  val r_ver_reg = SInt(16) <> VAR
+         |  val y_din = SInt(16) <> VAR
          |  process(all):
          |    r := sd"16'1"
          |    r := x + r
+         |    y_din := r
          |  process(clk):
-         |    if (clk.actual.rising) r_ver_reg :== r
-         |  y <> r_ver_reg
+         |    if (clk.actual.rising) y :== y_din
          |end ID
          |
          |class IDTop extends EDDesign:
@@ -277,12 +300,14 @@ class ToEDSpec extends StageSpec:
          |  val c = Boolean <> IN
          |  val z = UInt(8) <> OUT
          |  val z_reg = UInt(8) <> VAR
+         |  val z_reg_din = UInt(8) <> VAR
          |  process(all):
+         |    z_reg_din := z
          |    if (c) z := z_reg + d"8'1"
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1) z_reg :== d"8'0"
-         |      else z_reg :== z
+         |      else z_reg :== z_reg_din
          |    end if
          |end Test
          |""".stripMargin
@@ -311,25 +336,18 @@ class ToEDSpec extends StageSpec:
          |  val c = Boolean <> IN
          |  val z = UInt(8) <> OUT
          |  val y = Bits(8) <> OUT
-         |  val z_din = UInt(8) <> VAR
-         |  val y_din = Bits(8) <> VAR
-         |  process(all):
-         |    z_din := z
-         |    y_din := y
-         |    y_din(0) := 1
-         |    if (c)
-         |      z_din := z + d"8'1"
-         |      y_din(7, 4) := h"f"
-         |    else y_din := h"00"
-         |    end if
          |  process(clk):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1)
          |        z :== d"8'0"
          |        y :== h"00"
          |      else
-         |        z :== z_din
-         |        y :== y_din
+         |        y(0) :== 1
+         |        if (c)
+         |          z :== z + d"8'1"
+         |          y(7, 4) :== h"f"
+         |        else y :== h"00"
+         |        end if
          |      end if
          |    end if
          |end Test
@@ -369,14 +387,12 @@ class ToEDSpec extends StageSpec:
          |class Test extends EDDesign:
          |  val clk = Clk_default <> IN
          |  val status = UInt(8) <> VAR
-         |  val status_din = UInt(8) <> VAR
-         |  process(all):
-         |    status_din := status
-         |    status match
-         |      case d"8'0" =>
-         |    end match
          |  process(clk):
-         |    if (clk.actual.rising) status :== status_din
+         |    if (clk.actual.rising)
+         |      status match
+         |        case d"8'0" =>
+         |      end match
+         |    end if
          |end Test
          |""".stripMargin
     )
@@ -537,6 +553,32 @@ class ToEDSpec extends StageSpec:
          |    process(all):
          |      if (x < sd"16'0") y := sd"16'0"
          |      else y := x
+         |end IDTop
+         |""".stripMargin
+    )
+  }
+
+  test("a single register with only init") {
+    class IDTop extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+
+    val id = (new IDTop).toED
+    assertCodeString(
+      id,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |class IDTop extends EDDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) y :== sd"16'0"
+         |      else {}
+         |    end if
          |end IDTop
          |""".stripMargin
     )

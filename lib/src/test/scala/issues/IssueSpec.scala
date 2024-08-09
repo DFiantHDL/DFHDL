@@ -76,6 +76,9 @@ class IssuesSpec extends FunSuite:
   test("i142 compiles and passes VHDL linting"):
     given options.CompilerOptions.Backend = backends.vhdl
     i142.IntegerIndexingIssue().compile.lint
+  // verilog wasn't part of the issue, but proved to be a good test to include
+  test("i142 compiles and passes Verilog linting"):
+    i142.IntegerIndexingIssue().compile.lint
   test("i146 compiles and passes VHDL linting"):
     given options.CompilerOptions.Backend = backends.vhdl.v2008
     i146.DoubleStructDecl().compile.lint

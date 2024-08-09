@@ -10,6 +10,7 @@ import DFVal.Alias.History.Op as HistoryOp
 import scala.annotation.tailrec
 import scala.collection.mutable
 import dfhdl.core.DomainType.RT
+import DFVal.Modifier as IRModifier
 import dfhdl.core.RTDomainCfg.Derived
 
 /** This stage names register aliases (e.g., `x.reg`) and replaces them with explicit register
@@ -72,21 +73,44 @@ case object NameRegAliases extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
       case (domainOwner: (DFDomainOwner & DFBlock), members) =>
+        val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
+        def patchRemoveHistoryInit(alias: DFVal.Alias.History): Unit =
+          alias.initRefOption.foreach(_.get.collectRelMembers(false).foreach {
+            regPatches += _ -> Patch.Remove()
+          })
         // A reg alias that is already properly named should be ignored.
         // A reg alias is properly named when there is single assignment to a
         // DFHDL variable from a single-step reg alias.
-        val ignoredAliases = members.view.collect {
+        val properAliasesPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
+        val properAliases = members.view.collect {
           case DFNet.Assignment(
-                dcl @ DclVar(),
-                regAlias @ DFVal.Alias.History(_, _, 1, HistoryOp.State, _, _, _, _)
-              ) if dcl.getAssignmentsTo.size == 1 =>
+                dcl: DFVal.Dcl,
+                regAlias @ DFVal.Alias.History(_, DFRef(relVal), 1, _, _, _, _, _)
+              ) if regAlias.isAnonymous && dcl.getAssignmentsTo.size == 1 =>
+            patchRemoveHistoryInit(regAlias)
+            val dsn = new MetaDesign(dcl, Patch.Add.Config.ReplaceWithLast(), RT(Derived)):
+              val modifierFE = dcl.modifier.dir match
+                case IRModifier.VAR   => VAR.REG
+                case IRModifier.OUT   => OUT.REG
+                case IRModifier.INOUT => INOUT.REG
+                case _                => ??? // impossible
+              val clonedInitList =
+                regAlias.initOption.map(_.cloneAnonValueAndDepsHere.asConstAny).toList
+              val regDcl = dcl.asValAny.dfType.<>(modifierFE).initForced(clonedInitList)(using
+                dfc.setMeta(dcl.meta)
+              )
+            properAliasesPatches += dsn.patch
+            properAliasesPatches += regAlias -> Patch.Replace(
+              relVal,
+              Patch.Replace.Config.ChangeRefAndRemove
+            )
             regAlias
         }.toSet
         val nameGroupRegMap =
           members.view
             .collect {
               case regAlias @ DFVal.Alias.History(_, _, _, HistoryOp.State, _, _, _, _)
-                  if !ignoredAliases.contains(regAlias) =>
+                  if !properAliases.contains(regAlias) =>
                 regAlias
             }
             .groupByOrdered(_.getNameGroup)
@@ -102,7 +126,6 @@ case object NameRegAliases extends Stage:
         }.headOption match
           case Some(lastDcl) => (lastDcl, Patch.Add.Config.After)
           case None          => (domainOwner, Patch.Add.Config.InsideFirst)
-        val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]
         val regDsn = new MetaDesign(posMember, addCfg, domainType = RT(Derived)):
           def addRegs(
               aliases: List[DFVal.Alias.History],
@@ -118,22 +141,18 @@ case object NameRegAliases extends Stage:
               val regName =
                 if (i == maxRegs && !alias.isAnonymous) alias.getName
                 else namePrefix + nameSuffix
-              alias.asValAny.genNewVar(using dfc.setName(regName))
+              val clonedInitList =
+                alias.initOption.map(_.cloneAnonValueAndDepsHere.asConstAny).toList
+              alias.asValAny.dfType.<>(VAR.REG).initForced(clonedInitList)(using
+                dfc.setMeta(alias.meta.setName(regName))
+              )
             val regsIR = regs.map(_.asIR).toList
             val relVal = alias.getNonRegAliasRelVal
             var initOptions = aliases.flatMap(a => List.fill(a.step)(a.initOption))
             def regDinPatch(posMember: DFMember, addCfg: Patch.Add.Config) =
               new MetaDesign(posMember, addCfg, domainType = RT(Derived)):
                 (relVal :: regsIR).lazyZip(regsIR).foreach { (prev, curr) =>
-                  val clonedInitOpt = initOptions.head.map(_.cloneAnonValueAndDepsHere.asConstAny)
-                  initOptions = initOptions.drop(1)
-                  val reg = dfhdl.core.DFVal.Alias.History(
-                    prev.asValAny,
-                    1,
-                    HistoryOp.State,
-                    clonedInitOpt
-                  )
-                  curr.asVarAny := reg
+                  curr.asVarAny.:=(prev.asValAny)(using dfc.setMetaAnon(alias.meta.position))
                 }
               .patch
             if (unique) regPatches += regDinPatch(alias, Patch.Add.Config.Before)
@@ -141,10 +160,6 @@ case object NameRegAliases extends Stage:
             regsIR
           end addRegs
 
-          def patchRemoveHistoryInit(alias: DFVal.Alias.History): Unit =
-            alias.initRefOption.foreach(_.get.collectRelMembers(false).foreach {
-              regPatches += _ -> Patch.Remove()
-            })
           nameGroupRegMap.foreach {
             case (NameGroup(groupName, true), groupNamedAliases) =>
               groupNamedAliases.zipWithIndex
@@ -176,7 +191,8 @@ case object NameRegAliases extends Stage:
           }
         List(
           Some(regDsn.patch),
-          regPatches
+          regPatches,
+          properAliasesPatches
         ).flatten
       case _ => None
     }

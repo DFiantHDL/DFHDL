@@ -366,6 +366,16 @@ extension (dfVal: DFVal)
 
 end extension
 
+extension (dcl: DFVal.Dcl)
+  def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefList match
+    case DFRef(dfVal) :: _ => !dfVal.isBubble
+    case _                 => false
+
+extension (dcl: DFVal.Alias.History)
+  def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefOption match
+    case Some(DFRef(dfVal)) => !dfVal.isBubble
+    case _                  => false
+
 extension (refTW: DFNet.Ref)
   def isViaRef(using MemberGetSet): Boolean =
     refTW.originMember match

@@ -4,7 +4,6 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
-import DFVal.Alias.History.Op as HistoryOp
 import DFVal.Modifier
 import dfhdl.core.{DFIf, DFOwnerAny, DFOpaque}
 import dfhdl.core.DomainType.ED
@@ -14,13 +13,6 @@ case object ToED extends Stage:
   def dependencies: List[Stage] =
     List(ToRT, NameRegAliases, ExplicitNamedVars, AddClkRst, SimpleOrderMembers)
   def nullifies: Set[Stage] = Set()
-  case class RegNet(
-      net: DFNet,
-      regVar: DFVal.Dcl,
-      regAlias: DFVal.Alias.History,
-      relVal: DFVal,
-      initOption: Option[DFVal]
-  )
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     val domainAnalysis = new DomainAnalysis(designDB)
     val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
@@ -42,6 +34,9 @@ case object ToED extends Stage:
             val dclREGList = members.collect {
               case dcl: DFVal.Dcl if dcl.modifier.isReg => dcl
             }
+            extension (dcl: DFVal.Dcl)
+              // checks if a REG Dcl requires a DIN helper variable
+              def dclREGRequiresDINVar: Boolean = true
 
             // changing the owner from RT domain to ED domain
             val updatedOwner = domainOwner match
@@ -49,29 +44,6 @@ case object ToED extends Stage:
               case domain: DomainBlock   => domain.copy(domainType = DomainType.ED)
             val ownerDomainPatch =
               domainOwner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
-
-            val regNets = designDB.domainOwnerMemberTable(domainOwner.getThisOrOwnerDomain).collect:
-              case net @ DFNet.Assignment(
-                    regVar @ DclVar(),
-                    regAlias @ DFVal.Alias.History(
-                      _,
-                      DFRef(relVal),
-                      _,
-                      HistoryOp.State,
-                      _,
-                      _,
-                      _,
-                      _
-                    )
-                  ) =>
-                RegNet(net, regVar, regAlias, relVal, regAlias.initOption)
-            val removedNets = regNets.view.map(rn => rn.net).toSet
-            val regAliasRemovalPatches = regNets.flatMap(rn =>
-              List(
-                rn.net -> Patch.Remove(),
-                rn.regAlias -> Patch.Remove()
-              )
-            )
 
             val assignCnt = mutable.Map.empty[DFVal.Dcl, Int]
             def anotherAssignCnt(toVal: DFVal): Unit =
@@ -84,7 +56,6 @@ case object ToED extends Stage:
               case _: DFVal.Dcl                               => false
               case DesignParam(_)                             => false
               case _: DFOwnerNamed                            => false
-              case _: DFVal.Alias.History                     => false
               case _: DFVal.PortByNameSelect                  => false
               case dfVal: DFVal if dfVal.isReferencedByAnyDcl => false
               case _                                          => true
@@ -93,7 +64,7 @@ case object ToED extends Stage:
               val processBlockAllMembersSet: Set[DFMember] = list.view.flatMap {
                 case DesignParam(_)                 => None
                 case net: DFNet if net.isConnection => None
-                case net @ DFNet.Assignment(toVal, _) if !removedNets.contains(net) =>
+                case net @ DFNet.Assignment(toVal, _) =>
                   anotherAssignCnt(toVal)
                   net :: net.collectRelMembers
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
@@ -122,6 +93,31 @@ case object ToED extends Stage:
             val singleAssignmentsSet = singleAssignments.toSet
             val processBlockAllMembers =
               combinationalMembers.filterNot(singleAssignmentsSet.contains)
+            // save REG Dcls that require a default assignment to their DIN variable
+            // (if they eventually require a DIN variable)
+            // currently, if guarded by a conditional, then we assume it is required.
+            // also, if it's partially assigned even once, then we assume it is required.
+            // TODO: it is possible to check for complete coverage test of assignment, to remove redundant
+            // default assignments in the future.
+            val dclREGRequiresDefaultSet = mutable.Set.empty[DFVal.Dcl]
+            // domain is purely sequential if the configuration is not combinational and
+            // all the remaining non-single assignment variables are either REGs or SHARED variables
+            var domainIsPureSequential = clkCfg != None // clock configuration -> not combinational
+            processBlockAllMembers.foreach {
+              case net @ DFNet.Assignment(dfVal: DFVal, _) =>
+                val (dcl, range) = dfVal.departialDcl.get
+                net.getOwnerBlock match
+                  // simple test: if guarded by a conditional -> requires a default
+                  case _: DFConditional.Block =>
+                    dclREGRequiresDefaultSet += dcl
+                  // simple test: partially assigned even once -> requires a default
+                  case _ if range.length != dcl.width =>
+                    dclREGRequiresDefaultSet += dcl
+                  case _ => // do nothing
+                if (!dcl.modifier.isReg && !dcl.modifier.isShared)
+                  domainIsPureSequential = false
+              case x =>
+            }
             // println("singleAssignments:")
             // println(singleAssignments.mkString("\n"))
             // println("processBlockAllMembers:")
@@ -129,23 +125,34 @@ case object ToED extends Stage:
             // println("----")
             val processAllDsn =
               new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = ED):
+                // variables to transfer combinational information from the combinational block
+                // to the sequential block, to be registered
+                val dcl_din_vars = dclREGList.map: orig =>
+                  if (domainIsPureSequential) None
+                  else
+                    Some(
+                      orig.asValAny.genNewVar(using
+                        dfc.setMeta(orig.meta.setName(s"${orig.getName}_din"))
+                      ).asIR
+                    )
+                val dclChangeList = dclREGList.lazyZip(dcl_din_vars).collect {
+                  case (dclREG, Some(dcl_din)) => (dclREG, dcl_din)
+                }.toList
                 // create a combinational process if needed
-                val hasProcessAll = dclREGList.nonEmpty || processBlockAllMembers.exists {
-                  case net: DFNet               => true
-                  case ch: DFConditional.Header => true
-                  case _                        => false
-                }
-                val dcl_din_vars =
-                  for (orig <- dclREGList)
-                    yield orig.asValAny.genNewVar(using
-                      dfc.setMeta(orig.meta.setName(s"${orig.getName}_din"))
-                    ).asIR
+                val hasProcessAll =
+                  !domainIsPureSequential && (dclChangeList.nonEmpty || processBlockAllMembers.exists {
+                    case net: DFNet               => true
+                    case ch: DFConditional.Header => true
+                    case _                        => false
+                  })
                 if (hasProcessAll)
                   process(all) {
                     val inVHDL = co.backend.isVHDL
-                    dclREGList.lazyZip(dcl_din_vars).foreach { (dclREG, dcl_din) =>
-                      if (inVHDL) dcl_din.asVarAny :== dclREG.asValAny
-                      else dcl_din.asVarAny := dclREG.asValAny
+                    dclChangeList.foreach {
+                      case (dclREG, dcl_din) if dclREGRequiresDefaultSet.contains(dclREG) =>
+                        if (inVHDL) dcl_din.asVarAny :== dclREG.asValAny
+                        else dcl_din.asVarAny := dclREG.asValAny
+                      case _ => // do nothing
                     }
                     if (inVHDL)
                       plantMembers(
@@ -157,7 +164,6 @@ case object ToED extends Stage:
                       )
                     else plantMembers(domainOwner, processBlockAllMembers)
                   }
-                val dclChangeList = dclREGList.lazyZip(dcl_din_vars).toList
                 // create map of all reg dcls references that are used to assign to the registers,
                 // or partial selection of the registers
                 val dclChangeRefMap = mutable.Map.empty[DFVal.Dcl, Set[DFRefAny]]
@@ -192,20 +198,23 @@ case object ToED extends Stage:
 
                 import processAllDsn.dclChangeList
 
-                def regInitBlock() =
-                  regNets.foreach:
-                    case rn if rn.initOption.nonEmpty && !rn.initOption.get.isBubble =>
-                      rn.regVar.asVarAny :== rn.initOption.get.cloneAnonValueAndDepsHere.asValAny
-                    case _ =>
-                  dclREGList.foreach:
-                    case dcl if dcl.initRefList.nonEmpty && !dcl.initRefList.head.get.isBubble =>
-                      dcl.asVarAny :== dcl.initRefList.head.get.cloneAnonValueAndDepsHere.asValAny
-                    case _ =>
+                def regInitBlock() = dclREGList.foreach:
+                  case dcl if dcl.hasNonBubbleInit =>
+                    dcl.asVarAny :== dcl.initRefList.head.get.cloneAnonValueAndDepsHere.asValAny
+                  case _ =>
                 def regSaveBlock() =
-                  regNets.foreach: rn =>
-                    rn.regVar.asVarAny :== rn.relVal.asValAny
-                  dclChangeList.foreach:
-                    case (dclREG, dcl_din) =>
+                  if (domainIsPureSequential)
+                    plantMembers(
+                      domainOwner,
+                      processBlockAllMembers.view.map {
+                        case net @ DFNet.Assignment(toVal, _)
+                            if !toVal.departialDcl.get._1.modifier.isShared =>
+                          net.copy(op = DFNet.Op.NBAssignment)
+                        case m => m
+                      }
+                    )
+                  else
+                    dclChangeList.foreach: (dclREG, dcl_din) =>
                       dclREG.asVarAny :== dcl_din.asValAny
                 def ifRstActive =
                   val RstCfg.Explicit(_, active: RstCfg.Active, _) = rstCfg: @unchecked
@@ -227,14 +236,9 @@ case object ToED extends Stage:
                     block
                   )
 
-                if (clkCfg != None && (regNets.nonEmpty || dclREGList.nonEmpty))
-                  val regAliasesHaveRst =
-                    regNets.exists(rn => rn.initOption.nonEmpty && !rn.initOption.get.isBubble)
-                  val dclREGsHaveRst =
-                    dclREGList.exists(d =>
-                      d.initRefList.nonEmpty && !d.initRefList.head.get.isBubble
-                    )
-                  if (rstCfg != None && (dclREGsHaveRst || regAliasesHaveRst))
+                if (clkCfg != None && dclREGList.nonEmpty)
+                  val dclREGsHaveRst = dclREGList.exists(_.hasNonBubbleInit)
+                  if (rstCfg != None && dclREGsHaveRst)
                     val RstCfg.Explicit(mode: RstCfg.Mode, _, _) = rstCfg: @unchecked
                     mode match
                       case RstCfg.Mode.Sync =>
@@ -267,8 +271,7 @@ case object ToED extends Stage:
               Some(domainOwner -> Patch.Add(processAllDsn, Patch.Add.Config.InsideLast)),
               processAllDsn.dclChangePatch,
               Some(domainOwner -> Patch.Add(processSeqDsn, Patch.Add.Config.InsideLast)),
-              movedMembersRemovalPatches,
-              regAliasRemovalPatches
+              movedMembersRemovalPatches
             ).flatten
           // other domains
           case _ => None

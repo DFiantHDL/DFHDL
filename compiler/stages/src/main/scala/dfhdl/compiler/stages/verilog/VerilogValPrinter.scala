@@ -38,7 +38,11 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     dfVal.args match
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
-        s"{${argR.refCodeString.applyBrackets()}{${argL.refCodeString}}}"
+        dfVal.dfType match
+          case _: DFVector =>
+            s"'{default: ${argL.refCodeString}}"
+          case _ =>
+            s"{${argR.refCodeString.applyBrackets()}{${argL.refCodeString}}}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val isInfix = dfVal.op match

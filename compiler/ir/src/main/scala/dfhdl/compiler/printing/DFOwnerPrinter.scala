@@ -135,7 +135,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       else s" $body"
     if (body.isEmpty) cb match
       case caseBlock: DFConditional.DFCaseBlock => s"$statement$csDFCaseBlockEmpty"
-      case ifBlock: DFConditional.DFIfElseBlock => s"$statement$csIfBlockEmpty"
+      case ifBlock: DFConditional.DFIfElseBlock => s"$statement $csIfBlockEmpty"
     else s"$statement$indentBody${end.emptyOr(e => s"\n$e")}"
   end csDFConditionalBlock
   final def csDFConditional(ch: DFConditional.Header): String =
@@ -263,7 +263,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     }
     if (lastCB.getLeadingChain.exists(isBigBlock)) "end if" else ""
   end csDFIfEnd
-  def csIfBlockEmpty: String = " {}"
+  def csIfBlockEmpty: String = "{}"
   def csDFCaseBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "_"
   def csDFCasePatternAlternativeData: String = " | "

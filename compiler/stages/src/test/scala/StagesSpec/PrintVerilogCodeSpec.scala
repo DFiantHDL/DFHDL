@@ -482,18 +482,6 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  /* Half-count of the toggle for 50% duty cycle */
          |  parameter int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
          |  logic [$clog2(HALF_PERIOD) - 1:0] cnt;
-         |  logic led_din;
-         |  logic [$clog2(HALF_PERIOD) - 1:0] cnt_din;
-         |  always_comb
-         |  begin
-         |    led_din = led;
-         |    cnt_din = cnt;
-         |    if (cnt == $clog2(HALF_PERIOD)'(HALF_PERIOD - 1)) begin
-         |      cnt_din = $clog2(HALF_PERIOD)'(0);
-         |      led_din = !led;
-         |    end
-         |    else cnt_din = cnt + $clog2(HALF_PERIOD)'(1);
-         |  end
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) begin
@@ -501,11 +489,42 @@ class PrintVerilogCodeSpec extends StageSpec:
          |      cnt <= $clog2(HALF_PERIOD)'(0);
          |    end
          |    else begin
-         |      led <= led_din;
-         |      cnt <= cnt_din;
+         |      if (cnt == $clog2(HALF_PERIOD)'(HALF_PERIOD - 1)) begin
+         |        cnt <= $clog2(HALF_PERIOD)'(0);
+         |        led <= !led;
+         |      end
+         |      else cnt <= cnt + $clog2(HALF_PERIOD)'(1);
          |    end
          |  end
          |endmodule
          |""".stripMargin
     )
+
+  test("a single register with only init") {
+    class IDTop extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+
+    val top = (new IDTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "IDTop_defs.svh"
+         |
+         |module IDTop(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  input  wire logic signed [15:0] x,
+         |  output logic signed [15:0] y
+         |);
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) y <= 16'sd0;
+         |    else begin end
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

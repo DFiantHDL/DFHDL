@@ -364,19 +364,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  -- Half-count of the toggle for 50% duty cycle 
          |  constant HALF_PERIOD : integer := (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
          |  signal cnt : unsigned(clog2(HALF_PERIOD) - 1 downto 0);
-         |  signal led_din : std_logic;
-         |  signal cnt_din : unsigned(clog2(HALF_PERIOD) - 1 downto 0);
          |begin
-         |  process (all)
-         |  begin
-         |    led_din <= led;
-         |    cnt_din <= cnt;
-         |    if cnt = to_unsigned(HALF_PERIOD - 1, clog2(HALF_PERIOD)) then
-         |      cnt_din <= resize(d"0", clog2(HALF_PERIOD));
-         |      led_din <= not led;
-         |    else cnt_din <= cnt + resize(d"1", clog2(HALF_PERIOD));
-         |    end if;
-         |  end process;
          |  process (clk)
          |  begin
          |    if rising_edge(clk) then
@@ -384,8 +372,11 @@ class PrintVHDLCodeSpec extends StageSpec:
          |        led <= '1';
          |        cnt <= resize(d"0", clog2(HALF_PERIOD));
          |      else
-         |        led <= led_din;
-         |        cnt <= cnt_din;
+         |        if cnt = to_unsigned(HALF_PERIOD - 1, clog2(HALF_PERIOD)) then
+         |          cnt <= resize(d"0", clog2(HALF_PERIOD));
+         |          led <= not led;
+         |        else cnt <= cnt + resize(d"1", clog2(HALF_PERIOD));
+         |        end if;
          |      end if;
          |    end if;
          |  end process;
@@ -491,18 +482,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    return to_t_vecX2_std_logic_vector(A, 10, 16, 12);
          |  end;
          |  signal v : t_opaque_Foo;
-         |  signal v_din : t_opaque_Foo;
          |begin
-         |  process (all)
-         |  begin
-         |    v_din <= v;
-         |    v_din <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
-         |  end process;
          |  process (clk)
          |  begin
          |    if rising_edge(clk) then
          |      if rst = '1' then v <= (0 to 9 => (0 to 15 => x"000"));
-         |      else v <= v_din;
+         |      else v <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
          |      end if;
          |    end if;
          |  end process;
@@ -564,22 +549,52 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Example;
          |
          |architecture Example_arch of Example is
-         |  signal y_din : t_opaque_Foo;
          |begin
-         |  process (all)
-         |  begin
-         |    y_din <= y;
-         |    y_din <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
-         |  end process;
          |  process (clk)
          |  begin
          |    if rising_edge(clk) then
          |      if rst = '1' then y <= (0 to 9 => (0 to 15 => x"000"));
-         |      else y <= y_din;
+         |      else y <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
          |      end if;
          |    end if;
          |  end process;
          |end Example_arch;
+         |""".stripMargin
+    )
+  }
+
+  test("a single register with only init") {
+    class IDTop extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+
+    val top = (new IDTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.IDTop_pkg.all;
+         |
+         |entity IDTop is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  x : in signed(15 downto 0);
+         |  y : out signed(15 downto 0)
+         |);
+         |end IDTop;
+         |
+         |architecture IDTop_arch of IDTop is
+         |begin
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then y <= 16d"0";
+         |      else end if;
+         |    end if;
+         |  end process;
+         |end IDTop_arch;
          |""".stripMargin
     )
   }
