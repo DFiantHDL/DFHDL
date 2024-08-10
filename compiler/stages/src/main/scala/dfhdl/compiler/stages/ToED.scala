@@ -22,9 +22,9 @@ case object ToED extends Stage:
     var handledDesign: DFDesignBlock = designDB.top
     // save handled REG dcls for a given design at any domain level
     val handledDesignREGDclSet = mutable.Set.empty[DFVal.Dcl]
-    val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
+    val patchList: List[(DFMember, Patch)] = designDB.domainOwnerMemberList.flatMap {
       // for all domain owners that are also blocks (RTDesign, RTDomain)
-      case (domainOwner: (DFDomainOwner & DFBlock & DFMember.Named), members) =>
+      case (domainOwner: (DFDomainOwner & DFBlock), members) =>
         val design = domainOwner.getThisOrOwnerDesign
         // clear handledDesignREGDclSet on design change (to keep the set small, since no need
         // to remember these Dcls across designs)
@@ -68,13 +68,11 @@ case object ToED extends Stage:
 
             def getProcessAllMembers(list: List[DFMember]): List[DFMember] =
               val processBlockAllMembersSet: Set[DFMember] = list.view.flatMap {
-                case DesignParam(_)                 => None
-                case net: DFNet if net.isConnection => None
                 case net @ DFNet.Assignment(toVal, _) =>
                   anotherAssignCnt(toVal)
                   net :: net.collectRelMembers
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
-                  ch.collectRelMembers(false)
+                  ch.collectRelMembers(true)
                 case cb: DFConditional.Block =>
                   cb.guardRef.get match
                     case dfVal: DFVal => cb :: dfVal.collectRelMembers(false)
@@ -83,8 +81,6 @@ case object ToED extends Stage:
               }.toSet
 
               list.view.filter(collectFilter).flatMap {
-                case cb: DFConditional.Block if cb.getHeaderCB.dfType == DFUnit =>
-                  cb :: getProcessAllMembers(designDB.blockMemberTable(cb))
                 case m if processBlockAllMembersSet.contains(m) => Some(m)
                 case _                                          => None
               }.toList
