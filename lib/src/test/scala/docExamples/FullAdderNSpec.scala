@@ -12,8 +12,8 @@ class FullAdderNSpec extends util.FullCompileSpec:
        |  input  wire logic a,
        |  input  wire logic b,
        |  input  wire logic c_in,
-       |  output logic      sum,
-       |  output logic      c_out
+       |  output      logic sum,
+       |  output      logic c_out
        |);
        |  assign sum   = (a ^ b) ^ c_in;
        |  assign c_out = ((a & b) | (b & c_in)) | (c_in & a);
@@ -27,8 +27,8 @@ class FullAdderNSpec extends util.FullCompileSpec:
        |  input  wire logic [3:0] a,
        |  input  wire logic [3:0] b,
        |  input  wire logic       c_in,
-       |  output logic [3:0]      sum,
-       |  output logic            c_out
+       |  output      logic [3:0] sum,
+       |  output      logic       c_out
        |);
        |  logic adder_0_a;
        |  logic adder_0_b;

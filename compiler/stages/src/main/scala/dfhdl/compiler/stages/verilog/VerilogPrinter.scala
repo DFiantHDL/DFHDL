@@ -70,7 +70,9 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     s"$designName.$suffix"
   def alignCode(cs: String): String =
     cs
-      // align after port modifiers
+      // align logic position after port direction
+      .align("[ ]*(?:input|output|inout).*", " logic ", ".*")
+      // align port names
       .align("[ ]*(?:input|output|inout).*", " ", "[a-zA-Z0-9_.]+,?")
       // align after wire/reg/logic words
       .align(

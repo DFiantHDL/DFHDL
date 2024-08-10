@@ -12,7 +12,7 @@ class CounterSpec extends util.FullCompileSpec:
        |  input  wire logic clk,
        |  input  wire logic rst,
        |  input  wire logic en,
-       |  output logic [width - 1:0] cnt
+       |  output      logic [width - 1:0] cnt
        |);
        |  always_ff @(posedge clk)
        |  begin

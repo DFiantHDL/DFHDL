@@ -15,12 +15,12 @@ class TrueDPRSpec extends util.FullCompileSpec:
        |  input  wire logic                    a_clk,
        |  input  wire logic [DATA_WIDTH - 1:0] a_data,
        |  input  wire logic [ADDR_WIDTH - 1:0] a_addr,
-       |  output logic [DATA_WIDTH - 1:0]      a_q,
+       |  output      logic [DATA_WIDTH - 1:0] a_q,
        |  input  wire logic                    a_we,
        |  input  wire logic                    b_clk,
        |  input  wire logic [DATA_WIDTH - 1:0] b_data,
        |  input  wire logic [ADDR_WIDTH - 1:0] b_addr,
-       |  output logic [DATA_WIDTH - 1:0]      b_q,
+       |  output      logic [DATA_WIDTH - 1:0] b_q,
        |  input  wire logic                    b_we
        |);
        |  logic [DATA_WIDTH - 1:0] ram [0:2 ** ADDR_WIDTH - 1];
