@@ -52,13 +52,13 @@ private final case class ReplacementContext(
         (latestRepMember, refFilter) :: this.memberRepTable.getOrElse(repMember, List())
       // when replacing a member, the original member refs are redundant unless
       // it's being replaced by a copy of itself that has the same references
-      val droppedOrigRefsTable = config match
-        case Patch.Replace.Config.ChangeRefOnly => refTable
-        case _ => refTable -- refFilter(origMember.getRefs.toSet -- keepRefs)
+      val purgedRefs = config match
+        case Patch.Replace.Config.ChangeRefOnly => Set()
+        case _                                  => refFilter(origMember.getRefs.toSet -- keepRefs)
       val updatedRefTable: Map[DFRefAny, DFMember] =
-        replacementHistory.foldRight(droppedOrigRefsTable) { case ((rm, rf), rt) =>
+        replacementHistory.foldRight(refTable) { case ((rm, rf), rt) =>
           rf(refs).foldLeft(rt)((rt2, r) => rt2.updated(r, rm))
-        }
+        } -- purgedRefs
       val updatedMemberRepTable: Map[DFMember, List[(DFMember, Patch.Replace.RefFilter)]] =
         refFilter match
           // An all inclusive filter is purging all other replacement histories, so we only save it alone
@@ -66,8 +66,10 @@ private final case class ReplacementContext(
             memberRepTable + (origMember -> List((latestRepMember, refFilter)))
           case _ =>
             memberRepTable + (origMember -> replacementHistory)
-      // add another entry for the replacing member, but still keep the old one
-      val updatedMemberTable = memberTable + (latestRepMember -> refs)
+      // add another entry for the replacing member, and still keep the old one, but without the purged references
+      val updatedMemberTable = purgedRefs.foldLeft(memberTable) { case (mt, r) =>
+        mt.updatedWith(r.get)(SomeRefs => Some(SomeRefs.get - r))
+      } + (latestRepMember -> refs)
       ReplacementContext(updatedRefTable, updatedMemberTable, updatedMemberRepTable)
     end if
   end replaceMember

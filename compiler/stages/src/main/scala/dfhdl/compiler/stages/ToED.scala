@@ -15,9 +15,22 @@ case object ToED extends Stage:
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     val domainAnalysis = new DomainAnalysis(designDB)
+    // the last handled design to know when a design is switched to clear
+    // the handledDesignDcls set (saving as top for initial since transforming bottom-up,
+    // and this guarantees to work at any case and not required if we only have a single design top
+    // with no hierarchies)
+    var handledDesign: DFDesignBlock = designDB.top
+    // save handled REG dcls for a given design at any domain level
+    val handledDesignREGDclSet = mutable.Set.empty[DFVal.Dcl]
     val patchList: List[(DFMember, Patch)] = designDB.ownerMemberList.flatMap {
       // for all domain owners that are also blocks (RTDesign, RTDomain)
       case (domainOwner: (DFDomainOwner & DFBlock & DFMember.Named), members) =>
+        val design = domainOwner.getThisOrOwnerDesign
+        // clear handledDesignREGDclSet on design change (to keep the set small, since no need
+        // to remember these Dcls across designs)
+        if (handledDesign != design)
+          handledDesign = design
+          handledDesignREGDclSet.clear()
         object Config:
           def unapply(domainType: DomainType): Option[RTDomainCfg.Explicit] =
             domainType match
@@ -30,13 +43,6 @@ case object ToED extends Stage:
           case domainType @ Config(cfg) =>
             import cfg.{clkCfg, rstCfg}
             val clkRstOpt = domainAnalysis.designDomains(domainOwner)
-
-            val dclREGList = members.collect {
-              case dcl: DFVal.Dcl if dcl.modifier.isReg => dcl
-            }
-            extension (dcl: DFVal.Dcl)
-              // checks if a REG Dcl requires a DIN helper variable
-              def dclREGRequiresDINVar: Boolean = true
 
             // changing the owner from RT domain to ED domain
             val updatedOwner = domainOwner match
@@ -86,13 +92,21 @@ case object ToED extends Stage:
             val combinationalMembers = getProcessAllMembers(members)
             val singleAssignments = combinationalMembers.flatMap {
               case net @ DFNet.Assignment(dcl: DFVal.Dcl, from)
-                  if assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
+                  if !dcl.modifier.isReg && assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
                 net.collectRelMembers.filter(collectFilter) :+ net
               case _ => Nil
             }
             val singleAssignmentsSet = singleAssignments.toSet
             val processBlockAllMembers =
               combinationalMembers.filterNot(singleAssignmentsSet.contains)
+            // saving REG Dcls that were not previous handled in the design (possibly) in another internal domains.
+            // we use a linked set for order consistency
+            val dclREGSet = mutable.LinkedHashSet.empty[DFVal.Dcl]
+            members.foreach {
+              case dcl: DFVal.Dcl if dcl.modifier.isReg && !handledDesignREGDclSet.contains(dcl) =>
+                dclREGSet += dcl
+              case _ =>
+            }
             // save REG Dcls that require a default assignment to their DIN variable
             // (if they eventually require a DIN variable)
             // currently, if guarded by a conditional, then we assume it is required.
@@ -106,6 +120,12 @@ case object ToED extends Stage:
             processBlockAllMembers.foreach {
               case net @ DFNet.Assignment(dfVal: DFVal, _) =>
                 val (dcl, range) = dfVal.departialDcl.get
+                if (dcl.modifier.isReg)
+                  // it could be that we are assigning to a Dcl outside the domain. this is fine,
+                  // as long as we mark it as handled. two different domains are guaranteed not to assign
+                  // to the same dcl.
+                  dclREGSet += dcl
+                  handledDesignREGDclSet += dcl
                 net.getOwnerBlock match
                   // simple test: if guarded by a conditional -> requires a default
                   case _: DFConditional.Block =>
@@ -118,6 +138,8 @@ case object ToED extends Stage:
                   domainIsPureSequential = false
               case x =>
             }
+            // the full list of handled REG Dcls in this domain
+            val dclREGList = dclREGSet.toList
             // println("singleAssignments:")
             // println(singleAssignments.mkString("\n"))
             // println("processBlockAllMembers:")

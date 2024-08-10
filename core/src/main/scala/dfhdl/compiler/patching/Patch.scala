@@ -300,6 +300,12 @@ extension (db: DB)
                   Patch.Add(db2, config2: Patch.Add.Config.ReplaceWithLast)
                 ) =>
               tbl + (m -> Patch.Add(db1 concat db2, config2))
+            // concatenating additions with ReplaceWithFirst and After configurations, respectively
+            case (
+                  Patch.Add(db1, config1: Patch.Add.Config.ReplaceWithFirst),
+                  Patch.Add(db2, Patch.Add.Config.After)
+                ) =>
+              tbl + (m -> Patch.Add(db1 concat db2, config1))
             // concatenating moves with the same configuration
             // (the patch table does not care about original owner, so we ignore it.
             // only the patchList that has all the move patches uses the original owners

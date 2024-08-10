@@ -583,4 +583,43 @@ class ToEDSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("related domain uses external REG Dcls") {
+    val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
+    val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
+    val cfg    = RTDomainCfg(clkCfg, rstCfg)
+    class ID extends RTDesign(cfg):
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+      val r = SInt(16) <> VAR.REG init 0
+      val foo = new RelatedDomain:
+        y.din := r
+      r.din := 1
+    end ID
+    val id = (new ID).toED
+    assertCodeString(
+      id,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends EDDesign:
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val r = SInt(16) <> VAR
+         |  val foo = new EDDomain:
+         |    process(clk):
+         |      if (clk.actual.rising)
+         |        if (rst.actual == 1) y :== sd"16'0"
+         |        else y :== r
+         |      end if
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) r :== sd"16'0"
+         |      else r :== sd"16'1"
+         |    end if
+         |end ID
+         |""".stripMargin
+    )
+  }
 end ToEDSpec
