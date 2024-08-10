@@ -4,7 +4,7 @@ import dfhdl.*
 import dfhdl.compiler.stages.verilogNamedSelection
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class NamedSelectionSpec extends StageSpec:
+class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Anonymous conditional expressions") {
     class Mux extends DFDesign:
       val c = Boolean <> IN

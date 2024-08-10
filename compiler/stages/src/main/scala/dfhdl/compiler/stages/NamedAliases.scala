@@ -12,7 +12,8 @@ import scala.reflect.{ClassTag, classTag}
 // The aliasing is limited according to the criteria provided
 private abstract class NamedAliases extends Stage:
   def dependencies: List[Stage] = Nil
-  def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropLocalDcls, ExplicitNamedVars)
+  def nullifies: Set[Stage] =
+    Set(DFHDLUniqueNames, DropLocalDcls, ExplicitNamedVars, DropUnreferencedAnons)
   def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal]
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
 

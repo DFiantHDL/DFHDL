@@ -4,7 +4,7 @@ import dfhdl.*
 import dfhdl.compiler.stages.{explicitClkRstCfg, namedAnonMultiref}
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class ExplicitClkRstCfgSpec extends StageSpec:
+class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Basic hierarchy, combinational") {
     class ID extends RTDesign:
       val x = SInt(16) <> IN

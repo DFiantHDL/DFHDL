@@ -15,7 +15,7 @@ import collection.mutable
   */
 case object ExplicitRegInits extends Stage:
   def dependencies: List[Stage] = List()
-  def nullifies: Set[Stage] = Set()
+  def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.collect {
       case dcl: DFVal.Dcl

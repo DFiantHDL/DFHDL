@@ -11,7 +11,7 @@ import scala.collection.mutable
 
 case object DropBinds extends Stage:
   def dependencies: List[Stage] = List()
-  def nullifies: Set[Stage] = Set()
+  def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   // this unapply matches on bind patterns, strip them of their binds, and returns the binds as a list
   private object ReplacePattern:
     def unapply(

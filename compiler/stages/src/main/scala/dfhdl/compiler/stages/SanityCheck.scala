@@ -80,15 +80,15 @@ case object SanityCheck extends Stage:
                   |Referenced value: $dfVal
                   |Referencing members: ${deps.mkString("\n\t", "\n\t", "")}""".stripMargin
             )
-        // TODO: need to return this test and properly purge anonymous orphans
-        // if (deps.size == 0)
-        //   dfVal match
-        //     case ch: DFConditional.Header if ch.dfType == DFUnit =>
-        //     case _ =>
-        //       reportViolation(
-        //         s"""|An anonymous value has no references.
-        //             |Referenced value: $dfVal""".stripMargin
-        //       )
+          if (dfVal.originMembers.isEmpty)
+            dfVal match
+              case ch: DFConditional.Header if ch.dfType == DFUnit =>
+              case Ident(_)                                        =>
+              case _ =>
+                reportViolation(
+                  s"""|An anonymous value has no references.
+                      |Referenced value: $dfVal""".stripMargin
+                )
         case _ =>
       end match
     }

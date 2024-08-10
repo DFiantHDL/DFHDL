@@ -11,8 +11,9 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 case object ToED extends Stage:
   def dependencies: List[Stage] =
-    List(ToRT, NameRegAliases, ExplicitNamedVars, AddClkRst, SimpleOrderMembers)
-  def nullifies: Set[Stage] = Set()
+    List(DropUnreferencedAnons, ToRT, NameRegAliases, ExplicitNamedVars, AddClkRst,
+      SimpleOrderMembers)
+  def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     val domainAnalysis = new DomainAnalysis(designDB)
     // the last handled design to know when a design is switched to clear

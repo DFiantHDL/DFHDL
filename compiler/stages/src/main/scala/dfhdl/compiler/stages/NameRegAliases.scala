@@ -46,7 +46,7 @@ case object NameRegAliases extends Stage:
   // so that the naming system will be more coherent. However, this stage also may cause naming
   // collisions in rare cases, so we also need to nullify the unique name stage.
   def dependencies: List[Stage] = List(DFHDLUniqueNames, SimpleOrderMembers, ExplicitRegInits)
-  def nullifies: Set[Stage] = Set(DFHDLUniqueNames)
+  def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropUnreferencedAnons)
   final case class NameGroup(name: String, unique: Boolean)
   extension (regAlias: DFVal.Alias.History)(using MemberGetSet)
     @tailrec private def getNonRegAliasRelVal: DFVal =

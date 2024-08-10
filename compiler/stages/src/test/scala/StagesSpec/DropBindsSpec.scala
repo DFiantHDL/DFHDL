@@ -4,7 +4,7 @@ import dfhdl.*
 import dfhdl.compiler.stages.dropBinds
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class DropBindsSpec extends StageSpec:
+class DropBindsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Drop binds") {
     class ID extends DFDesign:
       case class Packet(header: Bits[8] <> VAL, cnt: UInt[8] <> VAL) extends Struct

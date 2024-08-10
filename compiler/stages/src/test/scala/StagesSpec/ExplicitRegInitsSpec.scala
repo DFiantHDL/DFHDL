@@ -4,7 +4,7 @@ import dfhdl.*
 import dfhdl.compiler.stages.explicitRegInits
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class ExplicitRegInitsSpec extends StageSpec:
+class ExplicitRegInitsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Regs that require explicit init") {
     class ID extends RTDesign:
       val x1 = SInt(16) <> IN init 0

@@ -4,7 +4,7 @@ import dfhdl.*
 import dfhdl.compiler.stages.nameRegAliases
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class NameRegAliasesSpec extends StageSpec:
+class NameRegAliasesSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Basic reg alias + double application") {
     class ID extends RTDesign:
       val x1 = SInt(16) <> IN init 0

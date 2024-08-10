@@ -5,7 +5,7 @@ import dfhdl.compiler.stages.toED
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 //TODO: rethink blocking assignment in process(all) for VHDL vs. Verilog
 //TODO: rethink rising_edge for VHDL vs. Verilog
-class ToEDSpec extends StageSpec:
+class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Basic wires and reg") {
     val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
     val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
@@ -619,6 +619,60 @@ class ToEDSpec extends StageSpec:
          |      else r :== sd"16'1"
          |    end if
          |end ID
+         |""".stripMargin
+    )
+  }
+  test("register file example") {
+    class RegFile(
+        val DATA_WIDTH: Int <> CONST = 32,
+        val REG_NUM: Int <> CONST    = 32
+    ) extends RTDesign:
+      val regs = Bits(DATA_WIDTH) X REG_NUM <> VAR.REG
+
+      val rs1, rs2 = new RelatedDomain:
+        val addr = Bits.until(REG_NUM) <> IN
+        val data = Bits(DATA_WIDTH)    <> OUT.REG
+        data.din := regs(addr)
+
+      val rd = new RelatedDomain:
+        val addr = Bits.until(REG_NUM) <> IN
+        val data = Bits(DATA_WIDTH)    <> IN
+        val wren = Bit                 <> IN
+        if (wren) regs(addr).din := data
+        regs(0).din              := all(0)
+    end RegFile
+
+    val top = (new RegFile).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |
+         |class RegFile(
+         |    val DATA_WIDTH: Int <> CONST = 32,
+         |    val REG_NUM: Int <> CONST = 32
+         |) extends EDDesign:
+         |  val clk = Clk_default <> IN
+         |  val regs = Bits(DATA_WIDTH) X REG_NUM <> VAR
+         |  val rs1 = new EDDomain:
+         |    val addr = Bits(clog2(REG_NUM)) <> IN
+         |    val data = Bits(DATA_WIDTH) <> OUT
+         |    process(clk):
+         |      if (clk.actual.rising) data :== regs(addr.uint.toInt)
+         |  val rs2 = new EDDomain:
+         |    val addr = Bits(clog2(REG_NUM)) <> IN
+         |    val data = Bits(DATA_WIDTH) <> OUT
+         |    process(clk):
+         |      if (clk.actual.rising) data :== regs(addr.uint.toInt)
+         |  val rd = new EDDomain:
+         |    val addr = Bits(clog2(REG_NUM)) <> IN
+         |    val data = Bits(DATA_WIDTH) <> IN
+         |    val wren = Bit <> IN
+         |    process(clk):
+         |      if (clk.actual.rising)
+         |        if (wren) regs(addr.uint.toInt) :== data
+         |        regs(0) :== b"0".repeat(DATA_WIDTH)
+         |      end if
+         |end RegFile
          |""".stripMargin
     )
   }

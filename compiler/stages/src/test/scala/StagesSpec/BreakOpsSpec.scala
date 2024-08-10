@@ -4,7 +4,7 @@ import dfhdl.*
 import compiler.stages.breakOpsWithAssignments
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class BreakOpsSpec extends StageSpec:
+class BreakOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Break vector concatenations") {
     case class Foo() extends Opaque(Bits(8) X 4 X 4)
     class ID extends DFDesign:

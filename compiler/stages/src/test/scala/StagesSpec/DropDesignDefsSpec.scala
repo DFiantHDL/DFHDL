@@ -4,7 +4,7 @@ import dfhdl.*
 import dfhdl.compiler.stages.dropDesignDefs
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class DropDesignDefsSpec extends StageSpec:
+class DropDesignDefsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Design def") {
     class IDWithDesignDef extends DFDesign:
       val data = UInt(32) <> IN

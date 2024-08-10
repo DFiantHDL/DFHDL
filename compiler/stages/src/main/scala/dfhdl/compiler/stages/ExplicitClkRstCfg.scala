@@ -36,7 +36,7 @@ import dfhdl.core.{refTW, DFC}
   */
 case object ExplicitClkRstCfg extends Stage:
   def dependencies: List[Stage] = List(UniqueDesigns)
-  def nullifies: Set[Stage] = Set()
+  def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     // mapping designs and their uses of Clk/Rst
     // we use the design declaration name (after enforcing uniqueness) because designs
