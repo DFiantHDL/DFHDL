@@ -2,7 +2,6 @@ package docExamples.regfile
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.*
 
-given options.CompilerOptions.LogLevel = options.LogLevel.TRACE
 @top class RegFile(
     val DATA_WIDTH: Int <> CONST = 32,
     val REG_NUM: Int <> CONST    = 32
