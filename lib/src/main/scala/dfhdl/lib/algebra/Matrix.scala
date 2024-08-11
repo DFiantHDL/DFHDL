@@ -27,9 +27,8 @@ extension [ET <: DFType, RN <: Int & Singleton, CT <: Column[ET, RN]](
 extension [ET <: DFType, RN <: Int & Singleton, CT <: Column[ET, RN]](
     colType: CT
 )
-  def rowNum: RN = colType.rowNum
   @inline def tabulateElems(f: Int => ET <> VAL): CT <> DFRET =
-    Vector.tabulate(rowNum)(x => f(x)).as(colType)
+    Vector.tabulate(colType.rowNum)(x => f(x)).as(colType)
 
 abstract class Matrix[
     CN <: Int & Singleton,
@@ -64,19 +63,17 @@ extension [
     CT <: Column[ET, RN],
     MT <: Matrix[CN, ET, RN, CT]
 ](matType: MT)
-  def colType: CT = matType.colType
-  def rowNum: RN = colType.rowNum
-  def colNum: CN = matType.colNum
+  def rowNum: RN = matType.colType.rowNum
   // tabulating with (row, col) index order, to match the apply method indexing
   @inline def tabulateElems(f: (Int, Int) => ET <> VAL): MT <> DFRET =
     // the given tabulation function needs to be flipped for proper construction order
     // of columns then rows
     @inline def fixedF(colIdx: Int, rowIdx: Int): ET <> VAL = f(rowIdx, colIdx)
     Vector
-      .tabulate(colNum, rowNum)(fixedF)
-      .map(_.as(colType)).as(matType)
+      .tabulate(matType.colNum, rowNum)(fixedF)
+      .map(_.as(matType.colType)).as(matType)
   @inline def tabulateCols(f: Int => Vector[ET <> VAL]): MT <> DFRET =
     Vector
-      .tabulate(colNum)(x => f(x).as(colType))
+      .tabulate(matType.colNum)(x => f(x).as(matType.colType))
       .as(matType)
 end extension
