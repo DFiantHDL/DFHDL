@@ -11,6 +11,11 @@ import java.io.IOException
 
 trait Tool:
   val toolName: String
+  private def runExec: String =
+    val osName: String = sys.props("os.name").toLowerCase
+    if (osName.contains("windows")) windowsBinExec else binExec
+  protected def binExec: String
+  protected def windowsBinExec: String = s"$binExec.exe"
   protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
       CompilerOptions
   ): CompiledDesign[D] = cd
@@ -21,13 +26,22 @@ trait Tool:
     val stagedDB = cd.stagedDB
     cd.newStage(stagedDB.copy(srcFiles = stagedDB.srcFiles ++ sourceFiles)).commit
 
+  protected def versionCmd: String
+  protected def extractVersion(cmdRetStr: String): Option[String]
+
+  lazy val installedVersion: Option[String] =
+    import scala.sys.process.*
+    val getVersionFullCmd = s"$runExec $versionCmd"
+    try extractVersion(getVersionFullCmd.!!)
+    catch case e: IOException => None
+
   final protected def exec[D <: Design](cd: CompiledDesign[D], cmd: String)(using
       co: CompilerOptions,
       to: ToolOptions
   ): CompiledDesign[D] =
     import scala.sys.process.*
     val pwd = new java.io.File(co.topCommitPath(cd.stagedDB))
-    val errCode = Process(cmd, pwd).!
+    val errCode = Process(s"$runExec $cmd", pwd).!
     if (errCode != 0)
       val msg = s"${toolName} exited with the error code ${errCode} with the command:\n$cmd"
       // TODO: there is a false exhaustivity warning here in 3.4.2 or later

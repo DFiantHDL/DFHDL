@@ -16,7 +16,11 @@ import dfhdl.options.GHDLOptions
 object GHDL extends VHDLLinter:
   type LO = GHDLOptions
   val toolName: String = "GHDL"
-  def binExec: String = "ghdl"
+  protected def binExec: String = "ghdl"
+  protected def versionCmd: String = s"version"
+  protected def extractVersion(cmdRetStr: String): Option[String] =
+    val versionPattern = """GHDL\s+(\d+\.\d+\.\d+)""".r
+    versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
     val designsInCmd = cd.stagedDB.srcFiles.view.collect {
@@ -52,7 +56,7 @@ object GHDL extends VHDLLinter:
         )
     exec(
       cd,
-      s"$binExec -a${lo.warnAsError.toFlag("--warn-error")} --std=$std -frelaxed -Wno-shared ${filesCmdPart(cd)}"
+      s"-a${lo.warnAsError.toFlag("--warn-error")} --std=$std -frelaxed -Wno-shared ${filesCmdPart(cd)}"
     )
   end lint
 end GHDL

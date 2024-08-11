@@ -14,7 +14,13 @@ trait VivadoOptions extends BuilderOptions
 object Vivado extends Builder:
   type BO = VivadoOptions
   val toolName: String = "Vivado"
-  def binExec: String = "vivado"
+  protected def binExec: String = "vivado"
+  override protected def windowsBinExec: String = "vivado.bat"
+  protected def versionCmd: String = s"-version"
+  protected def extractVersion(cmdRetStr: String): Option[String] =
+    val versionPattern = """Vivado\s+v(\d+\.\d+)""".r
+    versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
+
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String = ???
   override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
       CompilerOptions
@@ -26,7 +32,7 @@ object Vivado extends Builder:
   def build[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, BO): CompiledDesign[D] =
     exec(
       cd,
-      s"$binExec -mode batch -source ${cd.stagedDB.top.dclName}.tcl"
+      s"-mode batch -source ${cd.stagedDB.top.dclName}.tcl"
     )
 end Vivado
 

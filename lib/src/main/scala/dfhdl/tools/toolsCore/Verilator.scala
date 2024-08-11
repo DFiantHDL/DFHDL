@@ -14,9 +14,12 @@ import dfhdl.options.VerilatorOptions
 object Verilator extends VerilogLinter:
   type LO = VerilatorOptions
   val toolName: String = "Verilator"
-  def binExec: String =
-    val osName: String = sys.props("os.name").toLowerCase
-    if (osName.contains("windows")) "verilator_bin" else "verilator"
+  protected def binExec: String = "verilator"
+  override protected def windowsBinExec: String = "verilator_bin.exe"
+  protected def versionCmd: String = "-version"
+  protected def extractVersion(cmdRetStr: String): Option[String] =
+    val versionPattern = """Verilator\s+(\d+\.\d+)""".r
+    versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   def commonFlags(using lo: LO): String = s"-Wall${lo.warnAsError.toFlag("--Werror")} "
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
@@ -51,7 +54,7 @@ object Verilator extends VerilogLinter:
   def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, LO): CompiledDesign[D] =
     exec(
       cd,
-      s"$binExec --lint-only $commonFlags ${filesCmdPart(cd)}"
+      s"--lint-only $commonFlags ${filesCmdPart(cd)}"
     )
   end lint
 end Verilator
