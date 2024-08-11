@@ -158,6 +158,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
   def csDFValDclEnd(dfVal: Dcl): String = ""
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     dfVal.args match
+      // boolean sel function
+      case cond :: onTrue :: onFalse :: Nil
+          if cond.get.dfType == DFBool && dfVal.op == Func.Op.sel =>
+        s"${cond.refCodeString.applyBrackets()}.sel(${onTrue.refCodeString}, ${onFalse.refCodeString})"
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match

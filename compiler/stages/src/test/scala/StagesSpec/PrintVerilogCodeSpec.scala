@@ -527,4 +527,45 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Boolean selection operation") {
+    class SelOp extends DFDesign:
+      val c  = Boolean <> IN
+      val x1 = Bits(8) <> IN
+      val x2 = Bits(8) <> IN
+      val y1 = Bits(8) <> OUT
+      val cp:  Boolean <> CONST = true
+      val up1: UInt[8] <> CONST = 11
+      val up2: UInt[8] <> CONST = 22
+      val up3: UInt[8] <> CONST = cp.sel(up1, up2)
+      y1 := c.sel(x1, x2)
+      y1 := c.sel(x1, all(0))
+      y1 := c.sel(Bits(8))(all(0), x2)
+    val id = (new SelOp).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "SelOp_defs.svh"
+         |
+         |module SelOp(
+         |  input  wire logic c,
+         |  input  wire logic [7:0] x1,
+         |  input  wire logic [7:0] x2,
+         |  output logic [7:0] y1
+         |);
+         |  parameter logic cp = 1;
+         |  parameter logic [7:0] up1 = 8'd11;
+         |  parameter logic [7:0] up2 = 8'd22;
+         |  parameter logic [7:0] up3 = cp ? up1 : up2;
+         |  always_comb
+         |  begin
+         |    y1 = c ? x1 : x2;
+         |    y1 = c ? x1 : 8'h00;
+         |    y1 = c ? 8'h00 : x2;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

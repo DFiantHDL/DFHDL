@@ -443,6 +443,14 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end loop;
          |    return ret;
          |  end;
+         |  function bool_sel(C : boolean; T : t_vecX1_std_logic_vector; F : t_vecX1_std_logic_vector) return t_vecX1_std_logic_vector is
+         |  begin
+         |    if C then
+         |      return T;
+         |    else
+         |      return F;
+         |    end if;
+         |  end;
          |  type t_vecX2_std_logic_vector is array (natural range <>) of t_vecX1_std_logic_vector;
          |  function bitWidth(A : t_vecX2_std_logic_vector) return integer is
          |  begin
@@ -475,6 +483,14 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      ret(i) := to_t_vecX1_std_logic_vector(A(hi downto lo), D1, D0);
          |    end loop;
          |    return ret;
+         |  end;
+         |  function bool_sel(C : boolean; T : t_vecX2_std_logic_vector; F : t_vecX2_std_logic_vector) return t_vecX2_std_logic_vector is
+         |  begin
+         |    if C then
+         |      return T;
+         |    else
+         |      return F;
+         |    end if;
          |  end;
          |  subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
          |  function to_t_opaque_Foo(A : std_logic_vector) return t_opaque_Foo is
@@ -595,6 +611,53 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end if;
          |  end process;
          |end IDTop_arch;
+         |""".stripMargin
+    )
+  }
+
+  test("Boolean selection operation") {
+    class SelOp extends DFDesign:
+      val c                     = Boolean <> IN
+      val x1                    = Bits(8) <> IN
+      val x2                    = Bits(8) <> IN
+      val y1                    = Bits(8) <> OUT
+      val cp: Boolean <> CONST  = true
+      val up1: UInt[8] <> CONST = 11
+      val up2: UInt[8] <> CONST = 22
+      val up3: UInt[8] <> CONST = cp.sel(up1, up2)
+      y1 := c.sel(x1, x2)
+      y1 := c.sel(x1, all(0))
+      y1 := c.sel(Bits(8))(all(0), x2)
+    val id = (new SelOp).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.SelOp_pkg.all;
+         |
+         |entity SelOp is
+         |port (
+         |  c : in boolean;
+         |  x1 : in std_logic_vector(7 downto 0);
+         |  x2 : in std_logic_vector(7 downto 0);
+         |  y1 : out std_logic_vector(7 downto 0)
+         |);
+         |end SelOp;
+         |
+         |architecture SelOp_arch of SelOp is
+         |  constant cp : boolean := true;
+         |  constant up1 : unsigned(7 downto 0) := 8d"11";
+         |  constant up2 : unsigned(7 downto 0) := 8d"22";
+         |  constant up3 : unsigned(7 downto 0) := bool_sel(cp, up1, up2);
+         |begin
+         |  process (all)
+         |  begin
+         |    y1 <= bool_sel(c, x1, x2);
+         |    y1 <= bool_sel(c, x1, x"00");
+         |    y1 <= bool_sel(c, x"00", x2);
+         |  end process;
+         |end SelOp_arch;
          |""".stripMargin
     )
   }

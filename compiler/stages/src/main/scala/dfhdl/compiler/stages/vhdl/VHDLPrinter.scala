@@ -116,6 +116,12 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
        |function slv_sll(slv : std_logic_vector; num_shifts : integer) return std_logic_vector;
        |function slv_srl(slv : std_logic_vector; num_shifts : integer) return std_logic_vector;
        |function signed_sra(A : signed; num_shifts : integer) return signed;
+       |function bool_sel(C : boolean; T : std_logic_vector; F : std_logic_vector) return std_logic_vector;
+       |function bool_sel(C : boolean; T : unsigned; F : unsigned) return unsigned;
+       |function bool_sel(C : boolean; T : signed; F : signed) return signed;
+       |function bool_sel(C : boolean; T : integer; F : integer) return integer;
+       |function bool_sel(C : boolean; T : boolean; F : boolean) return boolean;
+       |function bool_sel(C : boolean; T : std_logic; F : std_logic) return std_logic;
        |end package ${printer.packageName};
        |
        |package body ${printer.packageName} is
@@ -242,15 +248,63 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
        |end;
        |function slv_sll(slv : std_logic_vector; num_shifts : integer) return std_logic_vector is
        |begin
-       |    return to_slv(unsigned(slv) sll num_shifts);
+       |  return to_slv(unsigned(slv) sll num_shifts);
        |end;
        |function slv_srl(slv : std_logic_vector; num_shifts : integer) return std_logic_vector is
        |begin
-       |    return to_slv(unsigned(slv) srl num_shifts);
+       |  return to_slv(unsigned(slv) srl num_shifts);
        |end;
        |function signed_sra(A : signed; num_shifts : integer) return signed is
        |begin
-       |    return shift_right(A, num_shifts);
+       |  return shift_right(A, num_shifts);
+       |end;
+       |function bool_sel(C : boolean; T : std_logic_vector; F : std_logic_vector) return std_logic_vector is
+       |begin
+       |  if C then
+       |    return T;
+       |  else
+       |    return F;
+       |  end if;
+       |end;
+       |function bool_sel(C : boolean; T : unsigned; F : unsigned) return unsigned is
+       |begin
+       |  if C then
+       |    return T;
+       |  else
+       |    return F;
+       |  end if;
+       |end;
+       |function bool_sel(C : boolean; T : signed; F : signed) return signed is
+       |begin
+       |  if C then
+       |    return T;
+       |  else
+       |    return F;
+       |  end if;
+       |end;
+       |function bool_sel(C : boolean; T : integer; F : integer) return integer is
+       |begin
+       |  if C then
+       |    return T;
+       |  else
+       |    return F;
+       |  end if;
+       |end;
+       |function bool_sel(C : boolean; T : boolean; F : boolean) return boolean is
+       |begin
+       |  if C then
+       |    return T;
+       |  else
+       |    return F;
+       |  end if;
+       |end;
+       |function bool_sel(C : boolean; T : std_logic; F : std_logic) return std_logic is
+       |begin
+       |  if C then
+       |    return T;
+       |  else
+       |    return F;
+       |  end if;
        |end;
        |end package body ${printer.packageName};
        |""".stripMargin

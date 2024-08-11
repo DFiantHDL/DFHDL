@@ -904,6 +904,7 @@ object DFVal extends DFValLP:
     end sameValType
   end TCLP
   object TC extends TCLP:
+    type Aux[T <: DFTypeAny, R, OutP0] = TC[T, R] { type OutP = OutP0 }
     export DFBoolOrBit.Val.TC.given
     export DFBits.Val.TC.given
     export DFDecimal.Val.TC.given

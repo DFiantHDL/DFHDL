@@ -40,11 +40,14 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     val bitWidth = s"function bitWidth(A: ${typeName}) return integer;"
     val to_slv = s"function to_slv(A: ${typeName}) return std_logic_vector;"
     val to_typeName = s"function to_${typeName}(A: std_logic_vector) return ${typeName};"
+    val bool_sel =
+      s"function bool_sel(C : boolean; T : ${typeName}; F : ${typeName}) return ${typeName};"
     dfType match
       // since working on a VHDL subtype, opaques require only `to_typeName` function,
       // and `bitWidth` and `to_slv` of the actual type are applicable
       case dt: DFOpaque => to_typeName
-      case _            => s"$bitWidth\n$to_slv\n$to_typeName"
+      case _            => s"$bitWidth\n$to_slv\n$to_typeName\n$bool_sel"
+  end csNamedDFTypeConvFuncsDcl
   def csNamedDFTypeConvFuncsBody(dfType: NamedDFType): String =
     dfType match
       case dt: DFEnum   => csDFEnumConvFuncsBody(dt)
@@ -84,6 +87,14 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |      assert false report "Unknown state detected!" severity error;
         |      return ${enumName}_${dfType.entries.head._1};
         |  end case;
+        |end;
+        |function bool_sel(C : boolean; T : ${typeName}; F : ${typeName}) return ${typeName} is
+        |begin
+        |  if C then
+        |    return T;
+        |  else
+        |    return F;
+        |  end if;
         |end;""".stripMargin
   end csDFEnumConvFuncsBody
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = csDFEnumTypeName(dfType)
@@ -136,7 +147,8 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     val funcDcl =
       s"""|function bitWidth(A: ${typeName}) return integer;
           |function to_slv(A: ${typeName}) return std_logic_vector;
-          |function to_${typeName}(A: std_logic_vector$dimArgs$cellDimArg) return ${typeName};""".stripMargin
+          |function to_${typeName}(A: std_logic_vector$dimArgs$cellDimArg) return ${typeName};
+          |function bool_sel(C : boolean; T : ${typeName}; F : ${typeName}) return ${typeName};""".stripMargin
     val toSLV = ofTypeName match
       case "std_logic_vector" => "A(i)"
       case _                  => s"to_slv(A(i))"
@@ -187,6 +199,14 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
           |    ret(i) := $toCellConv;
           |  end loop;
           |  return ret;
+          |end;
+          |function bool_sel(C : boolean; T : ${typeName}; F : ${typeName}) return ${typeName} is
+          |begin
+          |  if C then
+          |    return T;
+          |  else
+          |    return F;
+          |  end if;
           |end;""".stripMargin
     dclScope match
       case DclScope.TypeOnly => typeDcl
@@ -279,6 +299,14 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |  lo := A'length;
         |  ${fieldAssignments}
         |  return ret;
+        |end;
+        |function bool_sel(C : boolean; T : ${typeName}; F : ${typeName}) return ${typeName} is
+        |begin
+        |  if C then
+        |    return T;
+        |  else
+        |    return F;
+        |  end if;
         |end;""".stripMargin
   end csDFStructConvFuncsBody
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = printer.unsupported

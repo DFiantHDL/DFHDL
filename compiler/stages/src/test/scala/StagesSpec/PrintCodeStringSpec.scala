@@ -816,4 +816,36 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Boolean selection operation") {
+    class SelOp extends DFDesign:
+      val c                     = Boolean <> IN
+      val x1                    = Bits(8) <> IN
+      val x2                    = Bits(8) <> IN
+      val y1                    = Bits(8) <> OUT
+      val cp: Boolean <> CONST  = true
+      val up1: UInt[8] <> CONST = 11
+      val up2: UInt[8] <> CONST = 22
+      val up3: UInt[8] <> CONST = cp.sel(up1, up2)
+      y1 := c.sel(x1, x2)
+      y1 := c.sel(x1, all(0))
+      y1 := c.sel(Bits(8))(all(0), x2)
+    val id = (new SelOp).getCodeString
+    assertNoDiff(
+      id,
+      """|class SelOp extends DFDesign:
+         |  val c = Boolean <> IN
+         |  val x1 = Bits(8) <> IN
+         |  val x2 = Bits(8) <> IN
+         |  val y1 = Bits(8) <> OUT
+         |  val cp: Boolean <> CONST = true
+         |  val up1: UInt[8] <> CONST = d"8'11"
+         |  val up2: UInt[8] <> CONST = d"8'22"
+         |  val up3: UInt[8] <> CONST = cp.sel(up1, up2)
+         |  y1 := c.sel(x1, x2)
+         |  y1 := c.sel(x1, h"00")
+         |  y1 := c.sel(h"00", x2)
+         |end SelOp
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec
