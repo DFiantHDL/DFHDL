@@ -26,6 +26,8 @@ jobs:
       - name: Setup Simulation Tools
         run: |
           sudo apt-get install verilator
+          verilator -version
           sudo apt-get install ghdl
+          ghdl version
       - name: Run tests
         run: sbt test
