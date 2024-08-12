@@ -24,10 +24,9 @@ jobs:
           jvm: adopt:16
           apps: sbt bloop
       - name: Setup Simulation Tools
+        uses: YosysHQ/setup-oss-cad-suite@v3
         run: |
-          sudo apt-get install verilator
           verilator -version
-          sudo apt-get install ghdl
           ghdl version
       - name: Run tests
         run: sbt test
