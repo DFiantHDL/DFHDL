@@ -17,7 +17,7 @@ trait Tool:
   protected def binExec: String
   protected def windowsBinExec: String = s"$binExec.exe"
   protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
-      CompilerOptions
+      CompilerOptions, ToolOptions
   ): CompiledDesign[D] = cd
   final protected def addSourceFiles[D <: Design](
       cd: CompiledDesign[D],
@@ -29,27 +29,41 @@ trait Tool:
   protected def versionCmd: String
   protected def extractVersion(cmdRetStr: String): Option[String]
 
-  lazy val installedVersion: Option[String] =
+  private lazy val installedVersion: Option[String] =
     import scala.sys.process.*
     val getVersionFullCmd = s"$runExec $versionCmd"
     try extractVersion(getVersionFullCmd.!!)
     catch case e: IOException => None
+  protected def getInstalledVersion(using to: ToolOptions): String = 
+    preCheck()
+    installedVersion.get
+  private var preCheckDone: Boolean = false
+  final protected def error(msg: String)(using to: ToolOptions): Unit =
+    // TODO: there is a false exhaustivity warning here in 3.4.2 or later
+    (to.onError: @unchecked) match
+      case OnError.Exit =>
+        println(msg)
+        sys.exit(1)
+      case OnError.Exception => sys.error(msg)
+
+  final protected def preCheck()(using to: ToolOptions): Unit = 
+    if (preCheckDone) {}
+    else
+      installedVersion.getOrElse {
+        error(s"${toolName} could not be found.")
+      } 
+      preCheckDone = true
 
   final protected def exec[D <: Design](cd: CompiledDesign[D], cmd: String)(using
       co: CompilerOptions,
       to: ToolOptions
   ): CompiledDesign[D] =
     import scala.sys.process.*
+    preCheck()
     val pwd = new java.io.File(co.topCommitPath(cd.stagedDB))
     val errCode = Process(s"$runExec $cmd", pwd).!
     if (errCode != 0)
-      val msg = s"${toolName} exited with the error code ${errCode} with the command:\n$cmd"
-      // TODO: there is a false exhaustivity warning here in 3.4.2 or later
-      (to.onError: @unchecked) match
-        case OnError.Exit =>
-          println(msg)
-          sys.exit(errCode)
-        case OnError.Exception => sys.error(msg)
+      error(s"${toolName} exited with the error code ${errCode} attempting to run:\n$cmd")
     cd
   end exec
 end Tool

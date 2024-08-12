@@ -3,13 +3,12 @@ import dfhdl.core.Design
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, VerilatorOptions, ToolOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
-import dfhdl.options.VerilatorOptions
 
 object Verilator extends VerilogLinter:
   type LO = VerilatorOptions
@@ -48,9 +47,9 @@ object Verilator extends VerilogLinter:
     s"-I$globalIncludeFolder $configsInCmd $designsInCmd"
   end filesCmdPart
   override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
-      CompilerOptions
+      CompilerOptions, ToolOptions
   ): CompiledDesign[D] =
-    addSourceFiles(cd, List(new VerilatorConfigPrinter(using cd.stagedDB.getSet).getSourceFile))
+    addSourceFiles(cd, List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile))
   def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, LO): CompiledDesign[D] =
     exec(
       cd,
@@ -61,8 +60,9 @@ end Verilator
 
 case object VerilatorConfig extends SourceType.ToolConfig
 
-class VerilatorConfigPrinter(using getSet: MemberGetSet):
+class VerilatorConfigPrinter(verilatorVersion: String)(using getSet: MemberGetSet):
   val designDB: DB = getSet.designDB
+  val verilatorVersionMajor: Int = verilatorVersion.split("\\.").head.toInt
   def configFileName: String = s"${designDB.top.dclName}.vlt"
   def contents: String =
     s"""`verilator_config
@@ -125,14 +125,16 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
         matchWild = s"*Bits of signal are not used: '${dfVal.getName}'[$bitSel]*"
       )
     .distinct.mkString("\n")
-  def lintOffUnusedParam: String =
-    designDB.getUnusedParamAnnotValues.map: dfVal =>
-      lintOffCommand(
-        rule = "UNUSEDPARAM",
-        file = s"${dfVal.getOwnerDesign.dclName}.*",
-        matchWild = s"*: '${dfVal.getName}'*"
-      )
-    .distinct.mkString("\n")
+  def lintOffUnusedParam: String = 
+    if (verilatorVersionMajor >= 5) //only supported from version 5 onwards
+      designDB.getUnusedParamAnnotValues.map: dfVal =>
+        lintOffCommand(
+          rule = "UNUSEDPARAM",
+          file = s"${dfVal.getOwnerDesign.dclName}.*",
+          matchWild = s"*: '${dfVal.getName}'*"
+        )
+      .distinct.mkString("\n")
+    else ""
   def getSourceFile: SourceFile =
     SourceFile(SourceOrigin.Compiled, VerilatorConfig, configFileName, contents)
 

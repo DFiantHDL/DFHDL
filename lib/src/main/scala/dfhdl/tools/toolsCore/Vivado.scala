@@ -4,11 +4,10 @@ import dfhdl.core.Design
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, BuilderOptions, ToolOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
-import dfhdl.options.BuilderOptions
 
 trait VivadoOptions extends BuilderOptions
 object Vivado extends Builder:
@@ -23,7 +22,7 @@ object Vivado extends Builder:
 
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String = ???
   override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
-      CompilerOptions
+      CompilerOptions, ToolOptions
   ): CompiledDesign[D] =
     addSourceFiles(
       cd,
