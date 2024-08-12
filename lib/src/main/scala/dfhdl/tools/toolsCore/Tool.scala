@@ -17,7 +17,8 @@ trait Tool:
   protected def binExec: String
   protected def windowsBinExec: String = s"$binExec.exe"
   protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
-      CompilerOptions, ToolOptions
+      CompilerOptions,
+      ToolOptions
   ): CompiledDesign[D] = cd
   final protected def addSourceFiles[D <: Design](
       cd: CompiledDesign[D],
@@ -34,7 +35,7 @@ trait Tool:
     val getVersionFullCmd = s"$runExec $versionCmd"
     try extractVersion(getVersionFullCmd.!!)
     catch case e: IOException => None
-  protected def getInstalledVersion(using to: ToolOptions): String = 
+  protected def getInstalledVersion(using to: ToolOptions): String =
     preCheck()
     installedVersion.get
   private var preCheckDone: Boolean = false
@@ -46,12 +47,11 @@ trait Tool:
         sys.exit(1)
       case OnError.Exception => sys.error(msg)
 
-  final protected def preCheck()(using to: ToolOptions): Unit = 
-    if (preCheckDone) {}
-    else
+  final protected def preCheck()(using to: ToolOptions): Unit =
+    if (preCheckDone) {} else
       installedVersion.getOrElse {
         error(s"${toolName} could not be found.")
-      } 
+      }
       preCheckDone = true
 
   final protected def exec[D <: Design](cd: CompiledDesign[D], cmd: String)(using
@@ -61,9 +61,10 @@ trait Tool:
     import scala.sys.process.*
     preCheck()
     val pwd = new java.io.File(co.topCommitPath(cd.stagedDB))
-    val errCode = Process(s"$runExec $cmd", pwd).!
+    val fullExec = s"$runExec $cmd"
+    val errCode = Process(fullExec, pwd).!
     if (errCode != 0)
-      error(s"${toolName} exited with the error code ${errCode} attempting to run:\n$cmd")
+      error(s"${toolName} exited with the error code ${errCode} attempting to run:\n$fullExec")
     cd
   end exec
 end Tool
