@@ -25,7 +25,7 @@ jobs:
           apps: sbt bloop
       - name: Setup Simulation Tools
         uses: YosysHQ/setup-oss-cad-suite@v3
-        run: |
+      - run: |
           verilator -version
           ghdl version
       - name: Run tests
