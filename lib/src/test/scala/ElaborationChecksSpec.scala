@@ -1,6 +1,7 @@
 import dfhdl.*
 import munit.*
 import java.io.File.separatorChar as S
+given options.ElaborationOptions.OnError = options.OnError.Exception
 class ElaborationChecksSpec extends DesignSpec:
   val currentFilePos = s"lib${S}src${S}test${S}scala${S}"
   test("ambiguous RT dependency errors"):
@@ -60,7 +61,7 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL elaboration error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:59:23 - 59:31
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:60:23 - 60:31
           |Hierarchy: Top.dmn
           |Operation: `apply`
           |Message:   A domain can only be directly owned by a design, an interface, or another domain.
@@ -75,7 +76,7 @@ class ElaborationChecksSpec extends DesignSpec:
       s"""|Elaboration errors found!
           |DFiant HDL name errors!
           |Unable to determine names for the members declared at the following positions:
-          |${currentFilePos}ElaborationChecksSpec.scala:73:11 - 73:19
+          |${currentFilePos}ElaborationChecksSpec.scala:74:11 - 74:19
           |
           |Explanation:
           |This can happen when utilizing the meta programming power of Scala in a way that
@@ -117,22 +118,22 @@ class ElaborationChecksSpec extends DesignSpec:
     assertElaborationErrors(Top())(
       s"""|Elaboration errors found!
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:114:9 - 114:15
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:115:9 - 115:15
           |Hierarchy: Top
           |LHS:       x
           |RHS:       0
           |Message:   Found multiple domain assignments to the same variable/port `Top.x`
           |Only variables declared as `VAR.SHARED` under ED domain allow this.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:110:9 - 110:15
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:111:9 - 111:15
           |
           |DFiant HDL connectivity error!
-          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:115:9 - 115:15
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:116:9 - 116:15
           |Hierarchy: Top
           |LHS:       y
           |RHS:       0
           |Message:   Found multiple domain assignments to the same variable/port `Top.y`
           |Only variables declared as `VAR.SHARED` under ED domain allow this.
-          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:111:9 - 111:15
+          |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:112:9 - 112:15
           |""".stripMargin
     )
 end ElaborationChecksSpec
