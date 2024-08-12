@@ -113,6 +113,7 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
        |function bitWidth(A : boolean) return integer;
        |function bitWidth(A : std_logic) return integer;
        |function resize(A : std_logic_vector; new_length : integer) return std_logic_vector;
+       |function repeat(pattern : std_logic_vector; num : integer) return std_logic_vector;
        |function slv_sll(slv : std_logic_vector; num_shifts : integer) return std_logic_vector;
        |function slv_srl(slv : std_logic_vector; num_shifts : integer) return std_logic_vector;
        |function signed_sra(A : signed; num_shifts : integer) return signed;
@@ -245,6 +246,14 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
        |  else
        |    return A;
        |  end if;
+       |end;
+       |function repeat(pattern : std_logic_vector; num : integer) return std_logic_vector is
+       |  variable result : std_logic_vector((pattern'length * num) - 1 downto 0);
+       |begin
+       |  for i in 0 to num - 1 loop
+       |    result(i * pattern'length + pattern'length - 1 downto i * pattern'length) := pattern;
+       |  end loop;
+       |  return result;
        |end;
        |function slv_sll(slv : std_logic_vector; num_shifts : integer) return std_logic_vector is
        |begin

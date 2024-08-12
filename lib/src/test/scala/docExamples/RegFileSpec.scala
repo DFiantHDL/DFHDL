@@ -79,7 +79,7 @@ class RegFileSpec extends util.FullCompileSpec:
        |    if rising_edge(clk) then
        |      if rd_wren then regs(to_integer(unsigned(rd_addr))) <= rd_data;
        |      end if;
-       |      regs(0) <= (0 to DATA_WIDTH - 1 => "0");
+       |      regs(0) <= repeat("0", DATA_WIDTH);
        |    end if;
        |  end process;
        |end RegFile_arch;""".stripMargin
