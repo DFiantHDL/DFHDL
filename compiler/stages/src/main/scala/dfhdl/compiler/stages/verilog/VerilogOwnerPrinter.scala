@@ -17,6 +17,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csLibrary(inSimulation: Boolean): String =
     s"""`default_nettype none
        |`timescale 1ns/1ps
+       |`include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"
        |`include "${printer.globalFileName}"""".stripMargin
   def moduleName(design: DFDesignBlock): String = design.dclName
   def csModuleDcl(design: DFDesignBlock): String =

@@ -6,6 +6,7 @@ class FullAdder1Spec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
+       |`include "dfhdl_defs.svh"
        |`include "FullAdder1_defs.svh"
        |
        |module FullAdder1(
@@ -24,6 +25,7 @@ class FullAdder1Spec extends util.FullCompileSpec:
     """|library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
+       |use work.dfhdl_pkg.all;
        |use work.FullAdder1_pkg.all;
        |
        |entity FullAdder1 is

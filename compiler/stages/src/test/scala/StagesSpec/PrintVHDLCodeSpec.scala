@@ -38,6 +38,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.ID_pkg.all;
          |
          |entity ID is
@@ -62,6 +63,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.IDTop_pkg.all;
          |
          |entity ID is
@@ -79,6 +81,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.IDTop_pkg.all;
          |
          |entity IDTop is
@@ -129,6 +132,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.IDTop_pkg.all;
          |
          |entity ID is
@@ -149,6 +153,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.IDTop_pkg.all;
          |
          |entity IDTop is
@@ -217,6 +222,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Top_pkg.all;
          |
          |entity Top is
@@ -278,6 +284,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Top_pkg.all;
          |
          |entity Top is
@@ -345,6 +352,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Blinker_pkg.all;
          |
          |entity Blinker is
@@ -398,6 +406,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Example_pkg.all;
          |
          |entity Example is
@@ -522,6 +531,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Example_pkg.all;
          |
          |entity Example is
@@ -553,6 +563,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Example_pkg.all;
          |
          |entity Example is
@@ -590,6 +601,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.IDTop_pkg.all;
          |
          |entity IDTop is
@@ -634,6 +646,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.SelOp_pkg.all;
          |
          |entity SelOp is

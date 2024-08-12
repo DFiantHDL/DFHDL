@@ -6,6 +6,7 @@ class CounterSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
+       |`include "dfhdl_defs.svh"
        |`include "Counter_defs.svh"
        |
        |module Counter#(parameter int width = 8)(
@@ -28,6 +29,7 @@ class CounterSpec extends util.FullCompileSpec:
     """|library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
+       |use work.dfhdl_pkg.all;
        |use work.Counter_pkg.all;
        |
        |entity Counter is

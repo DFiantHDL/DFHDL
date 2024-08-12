@@ -6,6 +6,7 @@ class FullAdderNSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
+       |`include "dfhdl_defs.svh"
        |`include "FullAdderN_defs.svh"
        |
        |module FullAdder1(
@@ -21,6 +22,7 @@ class FullAdderNSpec extends util.FullCompileSpec:
        |
        |`default_nettype none
        |`timescale 1ns/1ps
+       |`include "dfhdl_defs.svh"
        |`include "FullAdderN_defs.svh"
        |
        |module FullAdderN(
@@ -101,6 +103,7 @@ class FullAdderNSpec extends util.FullCompileSpec:
     """|library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
+       |use work.dfhdl_pkg.all;
        |use work.FullAdderN_pkg.all;
        |
        |entity FullAdder1 is
@@ -122,6 +125,7 @@ class FullAdderNSpec extends util.FullCompileSpec:
        |library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
+       |use work.dfhdl_pkg.all;
        |use work.FullAdderN_pkg.all;
        |
        |entity FullAdderN is

@@ -150,8 +150,21 @@ trait Printer
       case InstMode.Def => csDFDesignDefDcl(design)
       case _            => csDFDesignBlockDcl(design)
     s"${csDocString(design.dclMeta)}$designDcl"
+  def dfhdlDefsFileName: String
+  def dfhdlSourceContents: String
   final def printedDB: DB =
     val designDB = getSet.designDB
+    val dfhdlSourceFile: Option[SourceFile] =
+      if (dfhdlDefsFileName.nonEmpty)
+        Some(
+          SourceFile(
+            SourceOrigin.Compiled,
+            SourceType.Design.DFHDLDef,
+            dfhdlDefsFileName,
+            dfhdlSourceContents
+          )
+        )
+      else None
     val globalSourceFile =
       SourceFile(
         SourceOrigin.Compiled,
@@ -159,8 +172,10 @@ trait Printer
         globalFileName,
         formatCode(csGlobalFileContent)
       )
-    val compiledFiles = globalSourceFile :: designDB.uniqueDesignMemberList.map {
-      case (block: DFDesignBlock, _) =>
+    val compiledFiles = Iterable(
+      dfhdlSourceFile,
+      Some(globalSourceFile),
+      designDB.uniqueDesignMemberList.view.map { case (block: DFDesignBlock, _) =>
         val sourceType = block.instMode match
           case _: DFDesignBlock.InstMode.BlackBox => SourceType.Design.BlackBox
           case _                                  => SourceType.Design.Regular
@@ -170,7 +185,8 @@ trait Printer
           designFileName(block.dclName),
           formatCode(csFile(block))
         )
-    }
+      }
+    ).flatten
     // removing existing compiled/committed files and adding the newly compiled files
     val srcFiles = designDB.srcFiles.filter {
       case SourceFile(SourceOrigin.Compiled | SourceOrigin.Committed, _, _, _) => false
@@ -284,6 +300,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   end csTimer
   def globalFileName: String = s"${getSet.designDB.top.dclName}_globals.scala"
   def designFileName(designName: String): String = s"$designName.scala"
+  def dfhdlDefsFileName: String = "" // no need in DFHDL code generation
+  def dfhdlSourceContents: String = "" // no need in DFHDL code generation
   def alignCode(cs: String): String =
     cs
       .align("[ \\t]*val .*", "=", ".*<>.*")

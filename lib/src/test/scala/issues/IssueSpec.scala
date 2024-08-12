@@ -22,6 +22,7 @@ class IssuesSpec extends FunSuite:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.ArrayIssue_pkg.all;
          |
          |entity ArrayIssue is
@@ -60,6 +61,7 @@ class IssuesSpec extends FunSuite:
       i135.VerilogSRA().getCompiledCodeString,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "VerilogSRA_defs.svh"
          |
          |module VerilogSRA(

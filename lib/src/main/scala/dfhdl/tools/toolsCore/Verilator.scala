@@ -38,18 +38,30 @@ object Verilator extends VerilogLinter:
         path.forceWindowsToLinuxPath
     }.mkString(" ")
 
+    val dfhdlDefsIncludeFolder = cd.stagedDB.srcFiles.collectFirst {
+      case SourceFile(SourceOrigin.Committed, SourceType.Design.DFHDLDef, path, _) =>
+        Paths.get(path).getParent.toString.forceWindowsToLinuxPath
+    }.get
+
     val globalIncludeFolder = cd.stagedDB.srcFiles.collectFirst {
       case SourceFile(SourceOrigin.Committed, SourceType.Design.GlobalDef, path, _) =>
         Paths.get(path).getParent.toString.forceWindowsToLinuxPath
     }.get
 
+    val includes =
+      List(dfhdlDefsIncludeFolder, globalIncludeFolder).distinct.map(i => s"-I$i").mkString(" ")
+
     // config files must be placed before the design sources
-    s"-I$globalIncludeFolder $configsInCmd $designsInCmd"
+    s"$includes $configsInCmd $designsInCmd"
   end filesCmdPart
   override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
-      CompilerOptions, ToolOptions
+      CompilerOptions,
+      ToolOptions
   ): CompiledDesign[D] =
-    addSourceFiles(cd, List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile))
+    addSourceFiles(
+      cd,
+      List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
+    )
   def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, LO): CompiledDesign[D] =
     exec(
       cd,
@@ -125,8 +137,8 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using getSet: MemberGetSe
         matchWild = s"*Bits of signal are not used: '${dfVal.getName}'[$bitSel]*"
       )
     .distinct.mkString("\n")
-  def lintOffUnusedParam: String = 
-    if (verilatorVersionMajor >= 5) //only supported from version 5 onwards
+  def lintOffUnusedParam: String =
+    if (verilatorVersionMajor >= 5) // only supported from version 5 onwards
       designDB.getUnusedParamAnnotValues.map: dfVal =>
         lintOffCommand(
           rule = "UNUSEDPARAM",

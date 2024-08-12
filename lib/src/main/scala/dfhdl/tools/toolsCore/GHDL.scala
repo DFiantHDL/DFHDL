@@ -33,13 +33,18 @@ object GHDL extends VHDLLinter:
         path
     }.mkString(" ")
 
+    val dfhdlPackage = cd.stagedDB.srcFiles.collectFirst {
+      case SourceFile(SourceOrigin.Committed, SourceType.Design.DFHDLDef, path, _) =>
+        path
+    }.get
+
     val globalPackage = cd.stagedDB.srcFiles.collectFirst {
       case SourceFile(SourceOrigin.Committed, SourceType.Design.GlobalDef, path, _) =>
         path
     }.get
 
     // config files must be placed before the design sources
-    s"$globalPackage $designsInCmd"
+    s"$dfhdlPackage $globalPackage $designsInCmd"
   end filesCmdPart
   def lint[D <: Design](
       cd: CompiledDesign[D]

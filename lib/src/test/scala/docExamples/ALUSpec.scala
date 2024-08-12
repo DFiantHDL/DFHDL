@@ -20,6 +20,7 @@ class ALUSpec extends util.FullCompileSpec:
        |
        |`default_nettype none
        |`timescale 1ns/1ps
+       |`include "dfhdl_defs.svh"
        |`include "ALU_defs.svh"
        |
        |module ALU(
@@ -59,6 +60,7 @@ class ALUSpec extends util.FullCompileSpec:
        |library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
+       |use work.dfhdl_pkg.all;
        |use work.ALU_pkg.all;
        |
        |entity ALU is

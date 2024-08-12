@@ -41,6 +41,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       id,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "ID_defs.svh"
          |
          |module ID(
@@ -61,6 +62,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module ID(
@@ -74,6 +76,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module IDTop(
@@ -121,6 +124,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module ID#(parameter int width)(
@@ -132,6 +136,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module IDTop#(parameter int width = 16)(
@@ -175,6 +180,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|parameter logic gp = 1'b1;
          |`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "ParamTest_defs.svh"
          |
          |module ParamTest#(parameter logic dp = 1'b1)(
@@ -218,6 +224,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "Top_defs.svh"
          |
          |module Top(
@@ -272,6 +279,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "Top_defs.svh"
          |
          |module Top;
@@ -331,6 +339,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|/* HasDocs has docs */
          |`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "HasDocs_defs.svh"
          |
          |module HasDocs(
@@ -358,6 +367,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "Counter_defs.svh"
          |
          |module Counter#(parameter int width = 8)(
@@ -395,6 +405,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "Test_defs.svh"
          |
          |module Test#(parameter int width = 10)(
@@ -427,6 +438,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "Counter_defs.svh"
          |
          |module Counter#(parameter int width = 8)(
@@ -468,6 +480,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|/* This is a led blinker */
          |`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "Blinker_defs.svh"
          |
          |module Blinker#(
@@ -510,6 +523,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module IDTop(
@@ -546,6 +560,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       id,
       """|`default_nettype none
          |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
          |`include "SelOp_defs.svh"
          |
          |module SelOp(

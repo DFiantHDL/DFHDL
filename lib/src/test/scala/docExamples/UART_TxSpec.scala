@@ -6,6 +6,7 @@ class UART_TxSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
+       |`include "dfhdl_defs.svh"
        |`include "UART_Tx_defs.svh"
        |
        |module UART_Tx#(
@@ -97,6 +98,7 @@ class UART_TxSpec extends util.FullCompileSpec:
     """|library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
+       |use work.dfhdl_pkg.all;
        |use work.UART_Tx_pkg.all;
        |
        |entity UART_Tx is

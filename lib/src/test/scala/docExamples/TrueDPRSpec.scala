@@ -6,6 +6,7 @@ class TrueDPRSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
+       |`include "dfhdl_defs.svh"
        |`include "TrueDPR_defs.svh"
        |
        |module TrueDPR#(
@@ -48,6 +49,7 @@ class TrueDPRSpec extends util.FullCompileSpec:
     """|library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
+       |use work.dfhdl_pkg.all;
        |use work.TrueDPR_pkg.all;
        |
        |entity TrueDPR is

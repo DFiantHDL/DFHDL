@@ -6,6 +6,7 @@ class RegFileSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
+       |`include "dfhdl_defs.svh"
        |`include "RegFile_defs.svh"
        |
        |module RegFile#(
@@ -41,6 +42,7 @@ class RegFileSpec extends util.FullCompileSpec:
     """|library ieee;
        |use ieee.std_logic_1164.all;
        |use ieee.numeric_std.all;
+       |use work.dfhdl_pkg.all;
        |use work.RegFile_pkg.all;
        |
        |entity RegFile is

@@ -19,6 +19,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       s"""library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.$packageName.all;""".stripMargin
     if (useStdSimLibrary && inSimulation)
       s"""$default
