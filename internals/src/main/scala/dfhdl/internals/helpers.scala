@@ -341,16 +341,16 @@ def getShellCommand: Option[String] =
       val command =
         if osName.contains("linux") then
           Try(Source.fromFile(s"/proc/$id/cmdline").mkString.replace("\u0000", " "))
-        else if osName.contains("mac") then Try(s"ps -p $id -o command=".!!.trim)
+        else if osName.contains("mac") then Try(s"ps -p $id -o command=".!!)
         else if osName.contains("win") then
           Try(
             s"wmic process where processid=$id get commandline".!!
-              .split("\n").drop(1).mkString.trim
+              .split("\n").drop(1).mkString
           )
         else Failure(new UnsupportedOperationException("Unsupported OS"))
 
       command match
-        case Success(cmd) => Some(cmd)
+        case Success(cmd) => Some(cmd.trim)
         case Failure(_)   => None
 
     case Failure(_) => None
