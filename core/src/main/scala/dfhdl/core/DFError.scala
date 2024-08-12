@@ -103,6 +103,7 @@ def trydf[V <: DFOwnerAny](block: => V)(using DFC, CTName): V =
 def exitWithError(msg: String)(using DFC): Nothing =
   dfc.elaborationOptions.onError match
     case OnError.Exit =>
+      println(msg)
       sys.exit(1)
     case _ =>
       throw new IllegalArgumentException(s"Elaboration errors found!\n$msg")
