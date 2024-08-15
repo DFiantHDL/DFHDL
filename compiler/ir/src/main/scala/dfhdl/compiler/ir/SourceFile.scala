@@ -13,6 +13,7 @@ object SourceType:
     case Regular
     case BlackBox
     case GlobalDef
+    case DFHDLDef
   trait ToolConfig extends SourceType
 
 enum SourceOrigin derives CanEqual:

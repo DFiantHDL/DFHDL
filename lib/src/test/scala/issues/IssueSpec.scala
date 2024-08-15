@@ -22,6 +22,7 @@ class IssuesSpec extends FunSuite:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.ArrayIssue_pkg.all;
          |
          |entity ArrayIssue is
@@ -41,8 +42,8 @@ class IssuesSpec extends FunSuite:
          |begin
          |  process (all)
          |  begin
-         |    b(0) <= a;
-         |    c(0)(0) <= a;
+         |    b(0)       <= a;
+         |    c(0)(0)    <= a;
          |    d(0)(0)(0) <= a;
          |  end process;
          |end ArrayIssue_arch;
@@ -60,16 +61,14 @@ class IssuesSpec extends FunSuite:
       i135.VerilogSRA().getCompiledCodeString,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "VerilogSRA_defs.sv"
+         |`include "dfhdl_defs.svh"
+         |`include "VerilogSRA_defs.svh"
          |
          |module VerilogSRA(
-         |  input wire logic signed [9:0] a
+         |  input  wire logic signed [9:0] a
          |);
          |  logic signed [9:0] b;
-         |  always @(*)
-         |  begin
-         |    b = a >>> 1;
-         |  end
+         |  assign b = a >>> 1;
          |endmodule
          |""".stripMargin
     )
@@ -78,6 +77,9 @@ class IssuesSpec extends FunSuite:
     i141.StructArrayIssue().compile.lint
   test("i142 compiles and passes VHDL linting"):
     given options.CompilerOptions.Backend = backends.vhdl
+    i142.IntegerIndexingIssue().compile.lint
+  // verilog wasn't part of the issue, but proved to be a good test to include
+  test("i142 compiles and passes Verilog linting"):
     i142.IntegerIndexingIssue().compile.lint
   test("i146 compiles and passes VHDL linting"):
     given options.CompilerOptions.Backend = backends.vhdl.v2008

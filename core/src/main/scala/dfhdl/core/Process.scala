@@ -12,7 +12,7 @@ object Process:
           sl,
           dfc.owner.ref,
           dfc.getMeta,
-          ir.DFTags.empty
+          dfc.tags
         ).addMember
       block.asFE
     def all(using DFC): Block =
@@ -20,7 +20,7 @@ object Process:
         ir.ProcessBlock.Sensitivity.All,
         dfc.owner.ref,
         dfc.getMeta,
-        ir.DFTags.empty
+        dfc.tags
       ).addMember
         .asFE
   end Block

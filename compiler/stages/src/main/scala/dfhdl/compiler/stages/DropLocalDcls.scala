@@ -5,10 +5,16 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
 
-abstract class DropLocalDcls(keepProcessDcls: Boolean) extends Stage:
+/** This stage moves the local vars or named constants (at the conditional/process block level) to
+  * either the design level (in Verilog) or its owner level (in VHDL), where the owner can be a
+  * design or a process. Verilog does not support declarations inside an always block, so they must
+  * be moved to the design level. VHDL does support declarations at the process level.
+  */
+case object DropLocalDcls extends Stage:
   override def dependencies: List[Stage] = List(ExplicitNamedVars)
   override def nullifies: Set[Stage] = Set()
-  def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+  def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
+    val keepProcessDcls = co.backend.isVHDL
     val patchList: List[(DFMember, Patch)] =
       designDB.members.view
         // only var or constant declarations ,
@@ -39,18 +45,6 @@ abstract class DropLocalDcls(keepProcessDcls: Boolean) extends Stage:
   end transform
 end DropLocalDcls
 
-//This stage moves the local vars or named constants (at the conditional/process block level) to the design level.
-//Verilog does not support declarations inside an always block, so they must be moved to the design level.
-case object DropLocalDcls extends DropLocalDcls(keepProcessDcls = false)
-
-//This stage moves the local vars or named constants (at just the conditional block level) to its owner level.
-//The owner can be a design or a process.
-//VHDL does support declarations at the process level.
-case object DropCondDcls extends DropLocalDcls(keepProcessDcls = true)
-
 extension [T: HasDB](t: T)
-  def dropLocalDcls(using CompilerOptions): DB =
+  def dropLocalDcls(using co: CompilerOptions): DB =
     StageRunner.run(DropLocalDcls)(t.db)
-extension [T: HasDB](t: T)
-  def dropCondDcls(using CompilerOptions): DB =
-    StageRunner.run(DropCondDcls)(t.db)

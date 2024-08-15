@@ -9,7 +9,9 @@ class PrintCodeStringSpec extends StageSpec:
     val x = SInt(16) <> IN
     val y = SInt(16) <> OUT
     y := x
-
+  object ID:
+    def apply()(using DFC): ID =
+      new ID(0)
   class IDGen[T <: DFType](dfType: T) extends DFDesign:
     val x = dfType <> IN
     val y = dfType <> OUT
@@ -18,8 +20,8 @@ class PrintCodeStringSpec extends StageSpec:
   class IDTop(argTop: Bit <> CONST = 1) extends DFDesign:
     val x   = SInt(16) <> IN
     val y   = SInt(16) <> OUT
-    val id1 = ID(0)
-    val id2 = ID(argTop)
+    val id1 = ID()
+    val id2 = new ID(argTop)
     id1.x <> x
     id1.y <> id2.x
     id2.y <> y
@@ -48,6 +50,18 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       id,
       """|class ID(val arg: Bit <> CONST = 1) extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Basic ID design through companion constructor") {
+    val id = (ID()).getCodeString
+    assertNoDiff(
+      id,
+      """|class ID(val arg: Bit <> CONST = 0) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
@@ -96,6 +110,39 @@ class PrintCodeStringSpec extends StageSpec:
          |  id2.x <> id1.y
          |  y <> id2.y
          |end IDTop
+         |""".stripMargin
+    )
+  }
+  test("Generic ID design hierarchy") {
+    class IDTopGen extends DFDesign:
+      val x               = SInt(16) <> IN
+      val y               = SInt(16) <> OUT
+      val w: Int <> CONST = 16
+      val id1             = new IDGen(SInt(w))
+      val id2             = new IDGen(SInt(w))
+      id1.x <> x
+      id1.y <> id2.x
+      id2.y <> y
+
+    val id = (new IDTopGen).getCodeString
+    assertNoDiff(
+      id,
+      """|class IDGen extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x
+         |end IDGen
+         |
+         |class IDTopGen extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val w: Int <> CONST = 16
+         |  val id1 = IDGen()
+         |  val id2 = IDGen()
+         |  id1.x <> x
+         |  id2.x <> id1.y
+         |  y <> id2.y
+         |end IDTopGen
          |""".stripMargin
     )
   }
@@ -445,11 +492,14 @@ class PrintCodeStringSpec extends StageSpec:
         val pr = SInt(16) <> VAR init 0
         val pw = SInt(16) <> VAR
         pr := pr.reg + 1
-      y := fast.pr
+      val related = new fast.RelatedDomain:
+        val x = SInt(16) <> VAR init 0
+      y := fast.pr + related.x
       val fastdf = new DFDomain:
         val p = SInt(16) <> VAR
         p := 1
       fast.pw := fastdf.p
+    end IDWithDomains
     val id = (new IDWithDomains).getCodeString
     assertNoDiff(
       id,
@@ -459,12 +509,48 @@ class PrintCodeStringSpec extends StageSpec:
          |    val pr = SInt(16) <> VAR init sd"16'0"
          |    val pw = SInt(16) <> VAR
          |    pr := pr.reg + sd"16'1"
-         |  y := fast.pr
+         |  val related = new fast.RelatedDomain:
+         |    val x = SInt(16) <> VAR init sd"16'0"
+         |  y := fast.pr + related.x
          |  val fastdf = new DFDomain:
          |    val p = SInt(16) <> VAR
          |    p := sd"16'1"
          |  fast.pw := fastdf.p
          |end IDWithDomains
+         |""".stripMargin
+    )
+  }
+  test("Basic hierarchy with domains") {
+    class IDTop extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val dmn1 = new RTDomain:
+        val id = new ID(1)
+        id.x <> x.reg(1, init = 0)
+      val dmn2 = new RTDomain:
+        val id = new ID(0)
+        id.x <> dmn1.id.y
+      y <> dmn2.id.y
+    val top = (new IDTop).getCodeString
+    assertNoDiff(
+      top,
+      """|class ID(val arg: Bit <> CONST) extends DFDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x
+         |end ID
+         |
+         |class IDTop extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val dmn1 = new RTDomain:
+         |    val id = ID(arg = 1)
+         |    id.x <> x.reg(1, init = sd"16'0")
+         |  val dmn2 = new RTDomain:
+         |    val id = ID(arg = 0)
+         |    id.x <> dmn1.id.y
+         |  y <> id.y
+         |end IDTop
          |""".stripMargin
     )
   }
@@ -543,4 +629,223 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
 
+  class BigXor(values: Vector[Bits[Int] <> CONST]) extends DFDesign:
+    val sum = values.head.dfType <> OUT
+    sum := values.reduce(_ ^ _)
+  test("Unreachable anonymous global values"):
+    val top = BigXor(Vector.tabulate(8)(i => h"4'$i")).getCodeString
+    assertNoDiff(
+      top,
+      """|class BigXor extends DFDesign:
+        |  val sum = Bits(4) <> OUT
+        |  sum := ((((((h"0" ^ h"1") ^ h"2") ^ h"3") ^ h"4") ^ h"5") ^ h"6") ^ h"7"
+        |end BigXor
+        |""".stripMargin
+    )
+  test("Unreachable local values"):
+    class BigXorContainer extends DFDesign:
+      val sum = Bits(4) <> OUT
+      val c   = h"4'7"
+      val bx  = BigXor(Vector.tabulate(8)(i => c | h"4'$i"))
+      sum <> bx.sum
+    val top = BigXorContainer().getCodeString
+    assertNoDiff(
+      top,
+      """|class BigXor(val c: Bits[4] <> CONST) extends DFDesign:
+         |  val sum = Bits(4) <> OUT
+         |  sum := (((((((c | h"0") ^ (c | h"1")) ^ (c | h"2")) ^ (c | h"3")) ^ (c | h"4")) ^ (c | h"5")) ^ (c | h"6")) ^ (c | h"7")
+         |end BigXor
+         |
+         |class BigXorContainer extends DFDesign:
+         |  val sum = Bits(4) <> OUT
+         |  val c: Bits[4] <> CONST = h"7"
+         |  val bx = BigXor(c = c)
+         |  sum <> bx.sum
+         |end BigXorContainer
+         |""".stripMargin
+    )
+  test("Unreachable local values & types"):
+    class BigXorContainer extends DFDesign:
+      val w: Int <> CONST = 4
+      val sum             = Bits(w) <> OUT
+      val c               = h"$w'7"
+      val bx              = BigXor(Vector.tabulate(8)(i => c | h"$w'$i"))
+      sum <> bx.sum
+    val top = BigXorContainer().getCodeString
+    assertNoDiff(
+      top,
+      """|class BigXor(val c: Bits[4] <> CONST) extends DFDesign:
+         |  val sum = Bits(4) <> OUT
+         |  sum := (((((((c | h"0") ^ (c | h"1")) ^ (c | h"2")) ^ (c | h"3")) ^ (c | h"4")) ^ (c | h"5")) ^ (c | h"6")) ^ (c | h"7")
+         |end BigXor
+         |
+         |class BigXorContainer extends DFDesign:
+         |  val w: Int <> CONST = 4
+         |  val sum = Bits(w) <> OUT
+         |  val c: Bits[w.type] <> CONST = h"${w}'7"
+         |  val bx = BigXor(c = c)
+         |  sum <> bx.sum
+         |end BigXorContainer
+         |""".stripMargin
+    )
+  test("Cover case where same declaration domains are missing names"):
+    class IDWithDomains extends EDDesign:
+      @hw.flattenMode.suffix("_")
+      val a, b = new EDDomain:
+        val x = Bit <> IN
+        val y = Bit <> OUT
+        y <> x
+    val top = IDWithDomains().getCodeString
+    assertNoDiff(
+      top,
+      """|class IDWithDomains extends EDDesign:
+         |  @hw.flattenMode.suffix("_")
+         |  val a = new EDDomain:
+         |    val x = Bit <> IN
+         |    val y = Bit <> OUT
+         |    y <> x
+         |  @hw.flattenMode.suffix("_")
+         |  val b = new EDDomain:
+         |    val x = Bit <> IN
+         |    val y = Bit <> OUT
+         |    y <> x
+         |end IDWithDomains
+         |""".stripMargin
+    )
+  test("EDTrueDPR printing"):
+    class TrueDPR(
+        val DATA_WIDTH: Int <> CONST = 4,
+        val ADDR_WIDTH: Int <> CONST = 4
+    ) extends EDDesign:
+      val ram = Bits(DATA_WIDTH) X (2 ** ADDR_WIDTH) <> VAR.SHARED
+
+      val a, b = new EDDomain:
+        val clk  = Bit              <> IN
+        val data = Bits(DATA_WIDTH) <> IN
+        val addr = Bits(ADDR_WIDTH) <> IN
+        val q    = Bits(DATA_WIDTH) <> OUT
+        val we   = Bit              <> IN
+
+        process(clk):
+          if (clk.rising)
+            if (we)
+              ram(addr) := data
+            q :== ram(addr)
+    end TrueDPR
+    val top = TrueDPR().getCodeString
+    assertNoDiff(
+      top,
+      """|class TrueDPR(
+         |    val DATA_WIDTH: Int <> CONST = 4,
+         |    val ADDR_WIDTH: Int <> CONST = 4
+         |) extends EDDesign:
+         |  val ram = Bits(DATA_WIDTH) X (2 ** ADDR_WIDTH) <> VAR.SHARED
+         |  val a = new EDDomain:
+         |    val clk = Bit <> IN
+         |    val data = Bits(DATA_WIDTH) <> IN
+         |    val addr = Bits(ADDR_WIDTH) <> IN
+         |    val q = Bits(DATA_WIDTH) <> OUT
+         |    val we = Bit <> IN
+         |    process(clk):
+         |      if (clk.rising)
+         |        if (we) ram(addr.uint.toInt) := data
+         |        q :== ram(addr.uint.toInt)
+         |      end if
+         |  val b = new EDDomain:
+         |    val clk = Bit <> IN
+         |    val data = Bits(DATA_WIDTH) <> IN
+         |    val addr = Bits(ADDR_WIDTH) <> IN
+         |    val q = Bits(DATA_WIDTH) <> OUT
+         |    val we = Bit <> IN
+         |    process(clk):
+         |      if (clk.rising)
+         |        if (we) ram(addr.uint.toInt) := data
+         |        q :== ram(addr.uint.toInt)
+         |      end if
+         |end TrueDPR
+         |""".stripMargin
+    )
+  test("Exported defs don't disrupt naming") {
+    object MyApply:
+      export dfhdl.apply
+    import MyApply.apply
+    class Exporting extends DFDesign:
+      val i  = Bits(2) <> IN
+      val o  = Bit     <> OUT
+      val x0 = i(0)
+      val x1 = i(1)
+      o := x0 ^ x1
+    val id = (new Exporting).getCodeString
+    assertNoDiff(
+      id,
+      """|class Exporting extends DFDesign:
+         |  val i = Bits(2) <> IN
+         |  val o = Bit <> OUT
+         |  val x0 = i(0)
+         |  val x1 = i(1)
+         |  o := x0 ^ x1
+         |end Exporting
+         |""".stripMargin
+    )
+  }
+  test("Fixed precedence of connection RHS") {
+    class Precedence extends DFDesign:
+      val x1 = Bits(8) <> IN
+      val y1 = Bits(8) <> OUT
+      y1 <> x1 | x1 & x1
+      val x2 = Bits(8) <> IN
+      val y2 = Bits(8) <> OUT
+      y2 <> x2 ^ x2 ^ x2
+      val x3 = Bit <> IN
+      val y3 = Bit <> OUT
+      y3 <> x3 && x3 || x3
+    val id = (new Precedence).getCodeString
+    assertNoDiff(
+      id,
+      """|class Precedence extends DFDesign:
+         |  val x1 = Bits(8) <> IN
+         |  val y1 = Bits(8) <> OUT
+         |  y1 <> (x1 | (x1 & x1))
+         |  val x2 = Bits(8) <> IN
+         |  val y2 = Bits(8) <> OUT
+         |  y2 <> ((x2 ^ x2) ^ x2)
+         |  val x3 = Bit <> IN
+         |  val y3 = Bit <> OUT
+         |  y3 <> ((x3 && x3) || x3)
+         |end Precedence
+         |""".stripMargin
+    )
+  }
+  test("Boolean selection operation") {
+    class SelOp extends DFDesign:
+      val c                     = Boolean <> IN
+      val x1                    = Bits(8) <> IN
+      val x2                    = Bits(8) <> IN
+      val y1                    = Bits(8) <> OUT
+      val cp: Boolean <> CONST  = true
+      val up1: UInt[8] <> CONST = 11
+      val up2: UInt[8] <> CONST = 22
+      val up3: UInt[8] <> CONST = cp.sel(up1, up2)
+      y1 := c.sel(x1, x2)
+      y1 := c.sel(x1, all(0))
+      y1 := c.sel(Bits(8))(all(0), x2)
+    val id = (new SelOp).getCodeString
+    assertNoDiff(
+      id,
+      """|class SelOp extends DFDesign:
+         |  val c = Boolean <> IN
+         |  val x1 = Bits(8) <> IN
+         |  val x2 = Bits(8) <> IN
+         |  val y1 = Bits(8) <> OUT
+         |  val cp: Boolean <> CONST = true
+         |  val up1: UInt[8] <> CONST = d"8'11"
+         |  val up2: UInt[8] <> CONST = d"8'22"
+         |  val up3: UInt[8] <> CONST = cp.sel(up1, up2)
+         |  y1 := c.sel(x1, x2)
+         |  y1 := c.sel(x1, h"00")
+         |  y1 := c.sel(h"00", x2)
+         |end SelOp
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

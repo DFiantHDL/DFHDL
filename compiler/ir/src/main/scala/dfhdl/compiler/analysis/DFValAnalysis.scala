@@ -62,6 +62,13 @@ object OpaqueActual:
       case dfType: DFOpaque if dfType.actualType equals alias.dfType => Some(relVal)
       case _                                                         => None
 
+object AsOpaque:
+  def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
+    val relVal = alias.relValRef.get
+    alias.dfType match
+      case dfType: DFOpaque if dfType.actualType equals relVal.dfType => Some(relVal)
+      case _                                                          => None
+
 object Bind:
   def unapply(alias: DFVal.Alias)(using MemberGetSet): Option[DFVal] =
     if (alias.getTagOf[Pattern.Bind.Tag.type].isDefined)
@@ -232,8 +239,8 @@ extension (dfVal: DFVal)
         val newSuffix = alias match
           case _: DFVal.Alias.AsIs => suffix
           case applyIdx: DFVal.Alias.ApplyIdx =>
-            applyIdx match
-              case DFVal.Alias.ApplyIdx.Const(i) =>
+            applyIdx.relIdx.get match
+              case DFVal.Alias.ApplyIdx.ConstIdx(i) =>
                 val maxValue = relVal.dfType match
                   case vector: DFVector => vector.length - 1
                   case bits: DFBits     => bits.width - 1
@@ -250,7 +257,31 @@ extension (dfVal: DFVal)
   // suffixes to differential between partial field selection or index application
   def flatName(using MemberGetSet): String = flatName(dfVal, "")
 
-  private def partName(member: DFVal)(using MemberGetSet): String = s"${member.flatName}_part"
+  // the partial name is set to be either a specialized dimension name (length/width)
+  // or just the name of reference named member with a `_part` suffix
+  private def partName(anonMember: DFVal, namedMember: DFVal)(using MemberGetSet): String =
+    import DFRef.TypeRef
+    val specialStrOpt =
+      // only if the anonymous member has a constant value we do further checks
+      if (anonMember.isConst)
+        val originRefs = getSet.designDB.memberTable(anonMember)
+        originRefs.view.flatMap {
+          // found the member is referenced as a type
+          case r: TypeRef =>
+            // looking for what kind of type reference it is
+            r.originMember.asInstanceOf[DFVal].dfType match
+              case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r => Some("length")
+              case DFBits(widthRef: TypeRef) if widthRef == r                 => Some("width")
+              case DFDecimal(_, widthRef: TypeRef, _, _) if widthRef == r     => Some("width")
+              case _                                                          => None
+          case _ => None
+        }.headOption
+      else None
+    specialStrOpt match
+      // upper casing to make the newly formed parameter name more visible
+      case Some(specialStr) => s"${namedMember.flatName}_${specialStr}".toUpperCase()
+      case _                => s"${namedMember.flatName}_part"
+  end partName
 
   @tailrec private def suggestName(
       member: DFVal,
@@ -259,31 +290,48 @@ extension (dfVal: DFVal)
     val origins = member.originMembers
 
     val refOwner: Option[DFMember] =
-      // search consuming references first
-      origins.filter {
-        case _: (DFVal.Alias.Partial | DFConditional.Block) => false
-        case _                                              => true
-      }.headOption
-        // search aliasing references, as long as we don't go back to previous member
-        // (aliasing can be used for both producing and consuming)
-        .orElse {
-          origins.collectFirst {
-            case m if prevMember.isEmpty || prevMember.get != m => m
-          }
+      // search type referencing as origin first
+      val first =
+        if (member.isConst) origins.collectFirst {
+          case dfVal: DFVal if !dfVal.isAnonymous && dfVal.dfType.getRefs.exists(_.get == member) =>
+            dfVal
         }
+        else None
+      // search consuming references second
+      val second = first.orElse {
+        origins.filter {
+          case _: (DFVal.Alias.Partial | DFConditional.Block) => false
+          case _                                              => true
+        }.headOption
+      }
+      // search aliasing references, as long as we don't go back to previous member
+      // (aliasing can be used for both producing and consuming)
+      second.orElse {
+        origins.collectFirst {
+          case m if prevMember.isEmpty || prevMember.get != m => m
+        }
+      }
+    end refOwner
     refOwner match
       // name from assignment destination
-      case Some(DFNet.Assignment(toVal, _)) => Some(partName(toVal))
+      case Some(DFNet.Assignment(toVal, _)) => Some(partName(member, toVal))
       // name from connection destination
-      case Some(DFNet.Connection(toVal: DFVal, _, _)) => Some(partName(toVal))
+      case Some(DFNet.Connection(toVal: DFVal, _, _)) => Some(partName(member, toVal))
       // name from a named value which was referenced by an alias
-      case Some(value: DFVal) if !value.isAnonymous => Some(partName(value))
+      case Some(value: DFVal) if !value.isAnonymous => Some(partName(member, value))
       // found an (anonymous) value -> checking suggestion for it
       case Some(value: DFVal) => suggestName(value, Some(value))
       // no named source found
       case _ => None
   end suggestName
-  def suggestName(using MemberGetSet): Option[String] = suggestName(dfVal)
+  def suggestName(using MemberGetSet): Option[String] =
+    dfVal match
+      case pbns: DFVal.PortByNameSelect =>
+        Some(
+          s"${pbns.designInstRef.get.getRelativeName(pbns.getOwner)}_${pbns.portNamePath}"
+            .replace('.', '_')
+        )
+      case _ => suggestName(dfVal)
   def isBubble(using MemberGetSet): Boolean =
     dfVal match
       case c: DFVal.Const          => c.dfType.isDataBubble(c.data.asInstanceOf[c.dfType.Data])
@@ -291,7 +339,6 @@ extension (dfVal: DFVal)
       case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
       case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
       case _                       => false
-  def getDomainType(using MemberGetSet): DomainType = dfVal.getOwnerDomain.domainType
   def isDFDomain(using MemberGetSet): Boolean = dfVal.getDomainType match
     case DomainType.DF => true
     case _             => false
@@ -301,13 +348,33 @@ extension (dfVal: DFVal)
   def isEDDomain(using MemberGetSet): Boolean = dfVal.getDomainType match
     case DomainType.ED => true
     case _             => false
-  def isClkDcl(using MemberGetSet): Boolean = dfVal.dfType match
-    case DFOpaque(_, id: DFOpaque.Clk, _) => true
-    case _                                => false
-  def isRstDcl(using MemberGetSet): Boolean = dfVal.dfType match
-    case DFOpaque(_, id: DFOpaque.Rst, _) => true
-    case _                                => false
+  // true if this is a variable that is never assigned/connected to
+  def isConstVAR(using MemberGetSet): Boolean =
+    dfVal match
+      case dcl @ DclVar() =>
+        dcl.getAssignmentsTo.isEmpty && dcl.getConnectionTo.isEmpty
+      case _ => false
+  def isAllowedMultipleReferences(using MemberGetSet): Boolean = dfVal match
+    case _ if !dfVal.isAnonymous    => true // allow named
+    case _: DFVal.Const             => true // allow anonymous constants
+    case _: DFVal.Alias.History     => true // history values get proper names a dedicated stage
+    case _: DFVal.Alias.ApplyIdx    => true // allow anonymous index selection
+    case _: DFVal.Alias.SelectField => true // allow anonymous field selection
+    case _: DFVal.PortByNameSelect  => true // allow anonymous port by name selection
+    case OpaqueActual(_)            => true // allow anonymous opaque actual selection
+    case _                          => false
+
 end extension
+
+extension (dcl: DFVal.Dcl)
+  def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefList match
+    case DFRef(dfVal) :: _ => !dfVal.isBubble
+    case _                 => false
+
+extension (dcl: DFVal.Alias.History)
+  def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefOption match
+    case Some(DFRef(dfVal)) => !dfVal.isBubble
+    case _                  => false
 
 extension (refTW: DFNet.Ref)
   def isViaRef(using MemberGetSet): Boolean =

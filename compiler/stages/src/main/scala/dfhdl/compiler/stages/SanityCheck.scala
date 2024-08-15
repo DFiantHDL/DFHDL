@@ -19,8 +19,13 @@ case object SanityCheck extends Stage:
     def reportViolation(msg: String): Unit =
       hasViolations = true
       println(msg)
+
+    val memberSet = mutable.Set.empty[DFMember]
     // checks for all members
     getSet.designDB.members.foreach { m =>
+      if (memberSet.contains(m))
+        reportViolation(s"More than one appearance of member in member list: $m")
+      else memberSet += m
       // check for missing references
       m.getRefs.foreach {
         case _: DFRef.Empty => // do nothing
@@ -66,7 +71,8 @@ case object SanityCheck extends Stage:
       end match
       // check that anonymous values are referenced exactly once
       m match
-        case dfVal: DFVal if dfVal.isAnonymous =>
+        case dfVal: DFVal if dfVal.isAllowedMultipleReferences => // skip named
+        case dfVal: DFVal =>
           val deps = dfVal.getReadDeps
           if (deps.size > 1)
             reportViolation(
@@ -74,31 +80,35 @@ case object SanityCheck extends Stage:
                   |Referenced value: $dfVal
                   |Referencing members: ${deps.mkString("\n\t", "\n\t", "")}""".stripMargin
             )
-        // TODO: need to return this test and properly purge anonymous orphans
-        // if (deps.size == 0)
-        //   dfVal match
-        //     case ch: DFConditional.Header if ch.dfType == DFUnit =>
-        //     case _ =>
-        //       reportViolation(
-        //         s"""|An anonymous value has no references.
-        //             |Referenced value: $dfVal""".stripMargin
-        //       )
+          if (dfVal.originMembers.isEmpty)
+            dfVal match
+              case ch: DFConditional.Header if ch.dfType == DFUnit =>
+              case Ident(_)                                        =>
+              case _ =>
+                reportViolation(
+                  s"""|An anonymous value has no references.
+                      |Referenced value: $dfVal""".stripMargin
+                )
         case _ =>
       end match
     }
-    val memberSet = getSet.designDB.members.toSet
+    val originRefTable = getSet.designDB.originRefTable
     // checks for all references
     refTable.foreach { (r, m) =>
       if (m != DFMember.Empty && !memberSet.contains(m))
         reportViolation(s"Ref $r exists for a removed member: $m")
+      r match
+        case r: DFRef.TwoWayAny if !originRefTable.contains(r) =>
+          reportViolation(s"Missing origin member with the reference $r for the member: $m")
+        case _ => // do nothing
     }
     // check a reference is only used by a single member
-    val originRefTable = mutable.Map.empty[DFRefAny, DFMember]
+    val originRefTableMutable = mutable.Map.empty[DFRefAny, DFMember]
     memberSet.foreach { m =>
       m.getRefs.foreach {
         case _: DFRef.Empty => // skip empty referenced
         case r =>
-          originRefTable.get(r).foreach { prevMember =>
+          originRefTableMutable.get(r).foreach { prevMember =>
             def originViolation(addedText: String) = reportViolation(
               s"""|Ref $r has more than one origin member$addedText.
                   |Target member:   ${r.get}
@@ -111,12 +121,12 @@ case object SanityCheck extends Stage:
                   originViolation(" from a different design")
               case _ => originViolation("")
           }
-          originRefTable += r -> m
+          originRefTableMutable += r -> m
       }
     }
     // check a global member reference is anonymous only if the referencing member is global
     // or the referencing member is a design parameter
-    originRefTable.foreach { (r, originMember) =>
+    originRefTableMutable.foreach { (r, originMember) =>
       r.get match
         case targetVal: DFVal if targetVal.isAnonymous && targetVal.isGlobal =>
           originMember match
@@ -196,7 +206,7 @@ case object SanityCheck extends Stage:
       m.getRefs.foreach {
         case r @ DFRef(rm) if !discoveredMembers.contains(rm) =>
           println(
-            s"The member ${m.hashString}:\n$m\nHas reference $r\nPointing to a later member ${rm.hashString}:\n${rm}"
+            s"The member ${m.hashString}:\n$m\nIn hierarchy:\n${m.getOwnerNamed.getFullName}\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
           )
           hasViolations = true
           require(!hasViolations, "Failed member order check!")

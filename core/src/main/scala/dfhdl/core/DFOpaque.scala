@@ -40,12 +40,16 @@ object DFOpaque:
   abstract class Clk extends Magnet[DFBit](DFBit), ir.DFOpaque.Clk
   abstract class Rst extends Magnet[DFBit](DFBit), ir.DFOpaque.Rst
 
-  given [TFE <: Abstract](using ce: ClassEv[TFE]): DFOpaque[TFE] = DFOpaque(ce.value)
+  given [TFE <: Abstract](using ce: ClassEv[TFE], dfc: DFC): DFOpaque[TFE] = DFOpaque(ce.value)
 
   def apply[TFE <: Abstract](
       t: TFE
-  ): DFOpaque[TFE] =
-    ir.DFOpaque(t.typeName, t, t.actualType.asIR).asFE[DFOpaque[TFE]]
+  )(using DFC): DFOpaque[TFE] = trydf:
+    ir.DFOpaque(
+      t.typeName,
+      t,
+      t.actualType.asIR.dropUnreachableRefs(allowDesignParamRefs = false)
+    ).asFE[DFOpaque[TFE]]
   extension [A <: DFTypeAny, TFE <: Frontend[A]](dfType: DFOpaque[TFE])
     def actualType: A = dfType.asIR.actualType.asFE[A]
     def opaqueType: TFE = dfType.asIR.id.asInstanceOf[TFE]
@@ -131,7 +135,7 @@ object DFOpaque:
         def actual(using DFC): DFVal[AT, Modifier[A, Any, Any, P]] = trydf {
           DFVal.Alias.AsIs(lhs.dfType.actualType, lhs)
         }
-        def actualMap(
+        def mapActual(
             f: DFValOf[AT] => DFValOf[AT]
         )(using dfc: DFC, ce: ClassEv[TFE]): DFValOf[DFOpaque[TFE]] =
           DFVal.Alias.AsIs(

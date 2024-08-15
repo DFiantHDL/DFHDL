@@ -10,4 +10,4 @@ trait HasRefCompare[T <: HasRefCompare[T]]:
         cachedCompare = Some(that, res)
         res
   protected def `prot_=~`(that: T)(using MemberGetSet): Boolean
-  def getRefs: List[DFRef.TwoWayAny]
+  lazy val getRefs: List[DFRef.TwoWayAny]

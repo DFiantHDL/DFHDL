@@ -4,15 +4,41 @@ import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
+import scala.collection.immutable.ListMap
 
-/** This stage drops all opaque types that fit within the applied filter predicate. TODO: currently
-  * not handling opaques that are composed.
+/** This stage drops all opaque types that fit within the applied filter predicate.
   * @param filterPred
   */
 abstract class DropOpaques(filterPred: DFOpaque => Boolean) extends Stage:
   override def dependencies: List[Stage] = List()
   override def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    object ComposedOpaqueDFTypeReplacement:
+      def unapply(dfType: DFType): Option[DFType] = dfType match
+        case dt: DFStruct =>
+          val updatedMap = ListMap.from(dt.fieldMap.view.collect {
+            case (name, ComposedOpaqueDFTypeReplacement(dfType)) => (name, dfType)
+          })
+          if (updatedMap.nonEmpty) Some(dt.copy(fieldMap = updatedMap))
+          else None
+        case dt: DFOpaque =>
+          dt.actualType match
+            case ComposedOpaqueDFTypeReplacement(dfType) =>
+              if (filterPred(dt)) Some(dfType)
+              else Some(dt.copy(actualType = dfType))
+            case actualType if filterPred(dt) => Some(actualType)
+            case _                            => None
+        case dt: DFVector =>
+          dt.cellType match
+            case ComposedOpaqueDFTypeReplacement(dfType) => Some(dt.copy(cellType = dfType))
+            case _                                       => None
+        case _ => None
+      end unapply
+    end ComposedOpaqueDFTypeReplacement
+    object ComposedOpaqueDFValReplacement:
+      def unapply(dfVal: DFVal): Option[DFVal] = dfVal.dfType match
+        case ComposedOpaqueDFTypeReplacement(dfType) => Some(dfVal.updateDFType(dfType))
+        case _                                       => None
     val patchList: List[(DFMember, Patch)] =
       designDB.members.view
         .flatMap {
@@ -28,11 +54,15 @@ abstract class DropOpaques(filterPred: DFOpaque => Boolean) extends Stage:
               case (toType, fromType @ DFOpaque(_, _, at))
                   if at == toType && filterPred(fromType) =>
                 Some(dfVal -> Patch.Replace(relVal, Patch.Replace.Config.ChangeRefAndRemove))
-              case _ => None
+              // otherwise, the values should be checked for composed opaques and changed accordingly
+              case _ =>
+                dfVal match
+                  case dfVal @ ComposedOpaqueDFValReplacement(updatedDFVal) =>
+                    Some(dfVal -> Patch.Replace(updatedDFVal, Patch.Replace.Config.FullReplacement))
+                  case _ => None
+            end match
           // all other opaque values need to be changed to their actual types
-          case dfVal @ DFOpaque.Val(dfType) if filterPred(dfType) =>
-            import dfType.actualType
-            val updatedDFVal = dfVal.updateDFType(dfType = actualType)
+          case dfVal @ ComposedOpaqueDFValReplacement(updatedDFVal) =>
             Some(dfVal -> Patch.Replace(updatedDFVal, Patch.Replace.Config.FullReplacement))
           case _ => None
         }
@@ -51,6 +81,18 @@ case object DropMagnets
       case _                                    => false
     }):
   override def dependencies: List[Stage] = List(ConnectMagnets)
+
+case object DropUserOpaques
+    extends DropOpaques({
+      case DFOpaque(_, _: DFOpaque.MagnetId, _) => false
+      case _                                    => true
+    }),
+      NoCheckStage:
+  override def runCondition(using co: CompilerOptions): Boolean = co.dropUserOpaques
+
+extension [T: HasDB](t: T)
+  def dropOpaques(using CompilerOptions): DB =
+    StageRunner.run(DropOpaquesAll)(t.db)
 
 extension [T: HasDB](t: T)
   def dropMagnets(using CompilerOptions): DB =

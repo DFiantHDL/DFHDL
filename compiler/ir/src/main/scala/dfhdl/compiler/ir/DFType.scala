@@ -4,6 +4,7 @@ import dfhdl.internals.*
 
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.reflect.ClassTag
+import scala.util.boundary, boundary.break
 
 sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives CanEqual:
   type Data
@@ -12,6 +13,7 @@ sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives
   def isDataBubble(data: Data): Boolean
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector)
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data
+  lazy val getRefs: List[DFRef.TypeRef]
 
 object DFType:
   type Aux[T <: DFType, Data0] = DFType { type Data = Data0 }
@@ -85,7 +87,7 @@ sealed trait DFBoolOrBit extends DFType:
     if (data._2.isZeros) Some(!data._1.isZeros)
     else None
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val getRefs: List[DFRef.TypeRef] = Nil
 
 object DFBoolOrBit extends DFType.Companion[DFBoolOrBit, Option[Boolean]]
 
@@ -107,10 +109,59 @@ final case class DFBits(widthParamRef: IntParamRef) extends DFType:
     case that: DFBits =>
       this.widthParamRef =~ that.widthParamRef
     case _ => false
-  def getRefs: List[DFRef.TwoWayAny] = widthParamRef.getRef.toList
+  lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
 
 object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
   def apply(width: Int): DFBits = DFBits(IntParamRef(width))
+  def dataFromBinString(
+      bin: String
+  ): Either[String, (BitVector, BitVector)] = boundary {
+    val (valueBits, bubbleBits) =
+      bin.foldLeft((BitVector.empty, BitVector.empty)) {
+        case (t, '_' | ' ') => t // ignoring underscore or space
+        case ((v, b), c) =>
+          c match // bin mode
+            case '?' => (v :+ false, b :+ true)
+            case '0' => (v :+ false, b :+ false)
+            case '1' => (v :+ true, b :+ false)
+            case x =>
+              break(Left(s"Found invalid binary character: $x"))
+      }
+    Right((valueBits, bubbleBits))
+  }
+  private val isHex = "[0-9a-fA-F]".r
+  def dataFromHexString(
+      hex: String
+  ): Either[String, (BitVector, BitVector)] = boundary {
+    val (valueBits, bubbleBits, binMode) =
+      hex.foldLeft((BitVector.empty, BitVector.empty, false)) {
+        case (t, '_' | ' ') => t // ignoring underscore or space
+        case ((v, b, false), c) =>
+          c match // hex mode
+            case '{' => (v, b, true)
+            case '?' => (v ++ BitVector.low(4), b ++ BitVector.high(4), false)
+            case isHex() =>
+              (
+                v ++ BitVector.fromHex(c.toString).get,
+                b ++ BitVector.low(4),
+                false
+              )
+            case x =>
+              break(Left(s"Found invalid hex character: $x"))
+        case ((v, b, true), c) =>
+          c match // bin mode
+            case '}' => (v, b, false)
+            case '?' => (v :+ false, b :+ true, true)
+            case '0' => (v :+ false, b :+ false, true)
+            case '1' => (v :+ true, b :+ false, true)
+            case x =>
+              break(Left(s"Found invalid binary character in binary mode: $x"))
+      }
+    if (binMode) Left(s"Missing closing braces of binary mode")
+    else Right((valueBits, bubbleBits))
+  }
+end DFBits
+
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -148,7 +199,7 @@ final case class DFDecimal(
       this.signed == that.signed && this.widthParamRef =~ that.widthParamRef &&
       this.fractionWidth == that.fractionWidth && this.nativeType == that.nativeType
     case _ => false
-  def getRefs: List[DFRef.TwoWayAny] = widthParamRef.getRef.toList
+  lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
@@ -204,7 +255,7 @@ final case class DFEnum(
     if (data._2.isZeros) Some(data._1.toBigInt(false))
     else None
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val getRefs: List[DFRef.TypeRef] = Nil
 end DFEnum
 
 object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
@@ -241,8 +292,12 @@ final case class DFVector(
           data._2.bitsWL(cellWidth, width - i * cellWidth)
         )
     seq.toVector
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = cellDimParamRefs.flatMap(_.getRef)
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFVector =>
+      this.cellType =~ that.cellType &&
+      this.cellDimParamRefs.lazyZip(that.cellDimParamRefs).forall(_ =~ _)
+    case _ => false
+  lazy val getRefs: List[DFRef.TypeRef] = cellType.getRefs ++ cellDimParamRefs.flatMap(_.getRef)
 end DFVector
 
 object DFVector extends DFType.Companion[DFVector, Vector[Any]]
@@ -266,8 +321,12 @@ final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualTyp
     actualType.dataToBitsData(data.asInstanceOf[actualType.Data])
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data =
     actualType.bitsDataToData(data)
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFOpaque =>
+      this.getName == that.getName && this.id == that.id &&
+      this.actualType =~ that.actualType
+    case _ => false
+  lazy val getRefs: List[DFRef.TypeRef] = actualType.getRefs
 end DFOpaque
 
 object DFOpaque extends DFType.Companion[DFOpaque, Any]:
@@ -319,8 +378,16 @@ final case class DFStruct(
         (fieldName, relBitLow)
       )
     fieldPosMap(fieldName)
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val fieldIndexes: Map[String, Int] = fieldMap.keys.zipWithIndex.toMap
+  def fieldIndex(fieldName: String): Int = fieldIndexes(fieldName)
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFStruct =>
+      this.getName == that.getName &&
+      this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
+        fnL == fnR && ftL =~ ftR
+      }
+    case _ => false
+  lazy val getRefs: List[DFRef.TypeRef] = fieldMap.values.flatMap(_.getRefs).toList
 end DFStruct
 
 object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
@@ -353,7 +420,7 @@ sealed trait DFUnit extends DFType:
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val getRefs: List[DFRef.TypeRef] = Nil
 case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
 /////////////////////////////////////////////////////////////////////////////
 
@@ -373,6 +440,6 @@ sealed trait DFNothing extends DFType:
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val getRefs: List[DFRef.TypeRef] = Nil
 case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing
 /////////////////////////////////////////////////////////////////////////////

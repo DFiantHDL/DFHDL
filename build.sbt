@@ -154,12 +154,22 @@ lazy val commonDependencies = Seq(
 lazy val settings =
   commonSettings
 
+def compilerOptionsVersionDependent(scalaVersion: String) = {
+  CrossVersion.partialVersion(scalaVersion) match {
+    case Some((3, minor)) if minor <= 4 =>
+      Seq.empty
+    case Some((3, minor)) if minor >= 5 =>
+      Seq.empty
+    case _ =>
+      Seq.empty
+  }
+} 
+
 lazy val compilerOptions = Seq(
   "-unchecked",
   "-feature",
   "-language:strictEquality",
   "-language:implicitConversions",
-  "-language:experimental",
   "-deprecation",
   //TODO: remove when fixed scalac issues:
   //https://github.com/lampepfl/dotty/issues/19299
@@ -168,7 +178,7 @@ lazy val compilerOptions = Seq(
   "-Wconf:msg=not declared infix:s",
   //ignore warning given by the plugin Jdummy dependency trick
   "-Wconf:msg=bad option '-Jdummy:s"
-)
+) 
 
 lazy val pluginUseSettings = Seq(
   Compile / scalacOptions ++= {
@@ -191,5 +201,7 @@ lazy val pluginTestUseSettings = Seq(
 )
 
 lazy val commonSettings = Seq(
-  scalacOptions ++= compilerOptions
+  scalacOptions ++= {
+    compilerOptions ++ compilerOptionsVersionDependent(scalaVersion.value)
+  }
 )

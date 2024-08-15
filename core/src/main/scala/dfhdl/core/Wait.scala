@@ -15,7 +15,7 @@ object Wait:
           timeOpt,
           dfc.owner.ref,
           dfc.getMeta,
-          ir.DFTags.empty
+          dfc.tags
         )
         .addMember
   object Until:
@@ -25,7 +25,7 @@ object Wait:
           trigger.asIR.refTW[ir.Wait],
           dfc.owner.ref,
           dfc.getMeta,
-          ir.DFTags.empty
+          dfc.tags
         )
         .addMember
   object Ops:

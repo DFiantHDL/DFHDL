@@ -14,7 +14,7 @@ object DFNet:
       fromVal.refTW[ir.DFNet],
       dfc.owner.ref,
       dfc.getMeta,
-      ir.DFTags.empty
+      dfc.tags
     )
     net.addMember.asFE
 end DFNet

@@ -4,7 +4,7 @@ import dfhdl.*
 import dfhdl.compiler.stages.nameRegAliases
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class NameRegAliasesSpec extends StageSpec:
+class NameRegAliasesSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Basic reg alias + double application") {
     class ID extends RTDesign:
       val x1 = SInt(16) <> IN init 0
@@ -20,16 +20,14 @@ class NameRegAliasesSpec extends StageSpec:
       id,
       """|class ID extends RTDesign:
          |  val x1 = SInt(16) <> IN
-         |  val y1 = SInt(16) <> OUT
+         |  val y1 = SInt(16) <> OUT.REG init sd"16'0"
          |  val x2 = SInt(16) <> IN
          |  val y2 = SInt(16) <> OUT
-         |  val x1_reg = SInt(16) <> VAR
-         |  val x2_reg1 = SInt(16) <> VAR
-         |  val x2_reg2 = SInt(16) <> VAR
-         |  x1_reg := x1.reg(1, init = sd"16'0")
-         |  x2_reg1 := x2.reg(1, init = sd"16'0")
-         |  x2_reg2 := x2_reg1.reg(1, init = sd"16'0")
-         |  y1 := x1_reg
+         |  val x2_reg1 = SInt(16) <> VAR.REG init sd"16'0"
+         |  val x2_reg2 = SInt(16) <> VAR.REG init sd"16'0"
+         |  x2_reg1.din := x2
+         |  x2_reg2.din := x2_reg1
+         |  y1.din := x1
          |  y2 := x2_reg2 + x2_reg2
          |end ID
          |""".stripMargin
@@ -50,10 +48,10 @@ class NameRegAliasesSpec extends StageSpec:
          |  val o1 = UInt(16) <> OUT
          |  val o2 = UInt(16) <> OUT
          |  val c = UInt(16) <> VAR
-         |  val c_reg = UInt(16) <> VAR
-         |  val o2_reg = UInt(16) <> VAR
-         |  c_reg := c.reg(1, init = d"16'0")
-         |  o2_reg := o2.reg(1, init = d"16'0")
+         |  val c_reg = UInt(16) <> VAR.REG init d"16'0"
+         |  val o2_reg = UInt(16) <> VAR.REG init d"16'0"
+         |  c_reg.din := c
+         |  o2_reg.din := o2
          |  o1 := c
          |  c := c_reg + d"16'1"
          |  o2 := o2_reg + d"16'1"
@@ -75,20 +73,18 @@ class NameRegAliasesSpec extends StageSpec:
       id,
       """|class ID extends RTDesign:
          |  val x1 = SInt(16) <> IN
-         |  val y1 = SInt(16) <> OUT
+         |  val y1 = SInt(16) <> OUT.REG init ?
          |  val x2 = Bits(16) <> IN
          |  val y2 = Bits(16) <> OUT
-         |  val y1_part_reg = SInt(16) <> VAR
-         |  val z = Bits(16) <> VAR
-         |  val y2_part1_reg = Bits(8) <> VAR
-         |  val y2_part2_reg1 = Bits(16) <> VAR
-         |  val y2_part2_reg2 = Bits(16) <> VAR
-         |  y1_part_reg := (x1 + sd"16'1").reg(1, init = ?)
-         |  y1 := y1_part_reg
-         |  z := (x2 << 1).reg(1, init = h"????")
-         |  y2_part1_reg := x2(7, 0).reg(1, init = h"??")
-         |  y2_part2_reg1 := y2_part1_reg.resize(16).reg(1, init = h"????")
-         |  y2_part2_reg2 := y2_part2_reg1.reg(1, init = h"????")
+         |  val z = Bits(16) <> VAR.REG init h"????"
+         |  val y2_part1_reg = Bits(8) <> VAR.REG init h"??"
+         |  val y2_part2_reg1 = Bits(16) <> VAR.REG init h"????"
+         |  val y2_part2_reg2 = Bits(16) <> VAR.REG init h"????"
+         |  y1.din := x1 + sd"16'1"
+         |  z.din := x2 << 1
+         |  y2_part1_reg.din := x2(7, 0)
+         |  y2_part2_reg1.din := y2_part1_reg.resize(16)
+         |  y2_part2_reg2.din := y2_part2_reg1
          |  y2 := y2_part2_reg2 | z
          |end ID
          |""".stripMargin
@@ -111,23 +107,21 @@ class NameRegAliasesSpec extends StageSpec:
       id,
       """|class ID extends RTDesign:
          |  val x1 = SInt(16) <> IN
-         |  val y1 = SInt(16) <> OUT
+         |  val y1 = SInt(16) <> OUT.REG init sd"16'0"
          |  val x2 = SInt(16) <> IN
          |  val y2 = SInt(16) <> OUT
          |  val v = SInt(16) <> VAR
-         |  val v_ver1_reg = SInt(16) <> VAR
-         |  val v_ver2_reg = SInt(16) <> VAR
-         |  val v_ver3_reg1 = SInt(16) <> VAR
-         |  val v_ver3_reg2 = SInt(16) <> VAR
+         |  val v_ver1_reg = SInt(16) <> VAR.REG init sd"16'0"
+         |  val v_ver2_reg1 = SInt(16) <> VAR.REG init sd"16'0"
+         |  val v_ver2_reg2 = SInt(16) <> VAR.REG init sd"16'0"
          |  v := x1
-         |  v_ver1_reg := v.reg(1, init = sd"16'0")
-         |  y1 := v_ver1_reg
+         |  y1.din := v
          |  v := x2
-         |  v_ver2_reg := v.reg(1, init = sd"16'0")
-         |  v := v_ver2_reg
-         |  v_ver3_reg1 := v.reg(1, init = sd"16'0")
-         |  v_ver3_reg2 := v_ver3_reg1.reg(1, init = sd"16'0")
-         |  y2 := v_ver3_reg2
+         |  v_ver1_reg.din := v
+         |  v := v_ver1_reg
+         |  v_ver2_reg1.din := v
+         |  v_ver2_reg2.din := v_ver2_reg1
+         |  y2 := v_ver2_reg2
          |end ID
          |""".stripMargin
     )
@@ -164,12 +158,12 @@ class NameRegAliasesSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val flag = Bit <> IN
          |  val z = Bit <> OUT
-         |  val x_reg1 = SInt(16) <> VAR
-         |  val x_reg2 = SInt(16) <> VAR
-         |  val x_reg3 = SInt(16) <> VAR
-         |  x_reg1 := x.reg(1, init = i2)
-         |  x_reg2 := x_reg1.reg(1, init = c - i)
-         |  x_reg3 := x_reg2.reg(1, init = c - i)
+         |  val x_reg1 = SInt(16) <> VAR.REG init i2
+         |  val x_reg2 = SInt(16) <> VAR.REG init i2
+         |  val x_reg3 = SInt(16) <> VAR.REG init i2
+         |  x_reg1.din := x
+         |  x_reg2.din := x_reg1
+         |  x_reg3.din := x_reg2
          |  y := x_reg3 - x
          |  z := dpNew
          |end IDExt
@@ -192,8 +186,8 @@ class NameRegAliasesSpec extends StageSpec:
          |  val x1 = SInt(16) <> IN
          |  val y1 = SInt(16) <> OUT
          |  val v = SInt(16) <> VAR
-         |  val x1_reg = SInt(16) <> VAR
-         |  x1_reg := x1.reg(1, init = sd"16'0")
+         |  val x1_reg = SInt(16) <> VAR.REG init sd"16'0"
+         |  x1_reg.din := x1
          |  if (x1 > sd"16'0") y1 := x1_reg
          |  else y1 := x1_reg + sd"16'1"
          |end ID
@@ -212,10 +206,75 @@ class NameRegAliasesSpec extends StageSpec:
       """|class ID extends RTDesign:
          |  val c = Boolean <> IN
          |  val y1 = SInt(16) <> OUT.REG init sd"16'0"
-         |  val y1_reg = SInt(16) <> VAR
-         |  y1_reg := y1.reg(1, init = sd"16'0")
+         |  val y1_reg = SInt(16) <> VAR.REG init sd"16'0"
+         |  y1_reg.din := y1
          |  y1.din := y1_reg + sd"16'1"
          |  y1.din := y1_reg + sd"16'1"
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Reg alias inside domains") {
+    class ID extends EDDesign:
+      val dmn1 = new RTDomain:
+        val x = SInt(16) <> IN init 0
+        val y = SInt(16) <> OUT
+        y := x.reg
+      val dmn2 = new RTDomain:
+        val x = SInt(16) <> IN init 0
+        val y = SInt(16) <> OUT
+        y := x.reg(2) + x.reg(2)
+    val id = (new ID).nameRegAliases
+    assertCodeString(
+      id,
+      """|class ID extends EDDesign:
+         |  val dmn1 = new RTDomain:
+         |    val x = SInt(16) <> IN
+         |    val y = SInt(16) <> OUT.REG init sd"16'0"
+         |    y.din := x
+         |  val dmn2 = new RTDomain:
+         |    val x = SInt(16) <> IN
+         |    val y = SInt(16) <> OUT
+         |    val x_reg1 = SInt(16) <> VAR.REG init sd"16'0"
+         |    val x_reg2 = SInt(16) <> VAR.REG init sd"16'0"
+         |    x_reg1.din := x
+         |    x_reg2.din := x_reg1
+         |    y := x_reg2 + x_reg2
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Alias is already named") {
+    class ID extends RTDesign:
+      val x1 = SInt(16) <> IN init 0
+      val y1 = SInt(16) <> OUT
+      val x2 = SInt(16) <> IN init 0
+      val y2 = SInt(16) <> OUT
+      val r1 = SInt(16) <> VAR
+      val x3 = SInt(16) <> IN
+      val y3 = SInt(16) <> OUT
+      r1 := x1.reg
+      y1 := r1
+      val r2 = x2.reg
+      y2 := r2
+      y3 := r2.reg(1, init = 42)
+    val id = (new ID).nameRegAliases
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign:
+         |  val x1 = SInt(16) <> IN
+         |  val y1 = SInt(16) <> OUT
+         |  val x2 = SInt(16) <> IN
+         |  val y2 = SInt(16) <> OUT
+         |  val x3 = SInt(16) <> IN
+         |  val y3 = SInt(16) <> OUT.REG init sd"16'42"
+         |  val r2 = SInt(16) <> VAR.REG init sd"16'0"
+         |  r2.din := x2
+         |  val r1 = SInt(16) <> VAR.REG init sd"16'0"
+         |  r1.din := x1
+         |  y1 := r1
+         |  y2 := r2
+         |  y3.din := r2
          |end ID
          |""".stripMargin
     )

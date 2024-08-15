@@ -63,40 +63,39 @@ object DFVector:
   sealed class ComposedModifier[D <: IntP, M](val cellDim: D, val modifier: M)
   object Ops:
     extension [T <: DFType.Supported, D <: IntP](t: T)(using tc: DFType.TC[T])
-      // transparent inline def X(inline cellDim: Int*): DFType =
-      //   x(dfType, cellDim*)
-      inline infix def X(
+      infix def X(
           cellDim: IntParam[D]
-      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] =
+      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVector[tc.Type, Tuple1[D]] = trydf:
         check(cellDim)
         DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim))
     extension [T <: DFType.Supported, D <: IntP, M <: ModifierAny](t: T)(using tc: DFType.TC[T])
       infix def X(
           composedModifier: ComposedModifier[D, M]
-      )(using DFC): DFVal[DFVector[tc.Type, Tuple1[D]], M] =
-        DFVal.Dcl(
-          DFVector[tc.Type, Tuple1[D]](tc(t), List(IntParam.fromValue(composedModifier.cellDim))),
-          composedModifier.modifier
-        )
-//      inline def X(
-//          inline cellDim0: Int,
-//          inline cellDim1: Int
-//      ): DFVector[tc.Type, Tuple2[cellDim0.type, cellDim1.type]] =
-//        DFVector(tc(t), Tuple2(cellDim0, cellDim1))
-//      inline def X(
-//          inline cellDim0: Int,
-//          inline cellDim1: Int,
-//          inline cellDim2: Int
-//      ): DFVector[tc.Type, Tuple3[
-//        cellDim0.type,
-//        cellDim1.type,
-//        cellDim2.type
-//      ]] =
-//        DFVector(tc(t), Tuple3(cellDim0, cellDim1, cellDim2))
+      )(using dfc: DFC, check: VectorLength.CheckNUB[D]): DFVal[DFVector[tc.Type, Tuple1[D]], M] =
+        trydf:
+          val cellDim = IntParam.fromValue(composedModifier.cellDim)
+          check(cellDim)
+          DFVal.Dcl(DFVector[tc.Type, Tuple1[D]](tc(t), List(cellDim)), composedModifier.modifier)
     end extension
   end Ops
 
   object Val:
+    def apply[T <: DFTypeAny, D1 <: IntP, P](vectorType: DFVector[T, Tuple1[D1]])(
+        from: List[DFValTP[T, P]]
+    )(using DFC): DFValTP[DFVector[T, Tuple1[D1]], P] =
+      import dfc.getSet
+      val fromIR = from.map(_.asIR)
+      lazy val commonMeta = fromIR.head.meta
+      // a vector of fully anonymous constants that have the same meta information will become
+      // a constant vector to save on references
+      if (fromIR.forall(v => v.isConst && v.isFullyAnonymous && v.meta == commonMeta))
+        DFVal.Const.forced(vectorType, Vector.from(fromIR.map(_.getConstData.get)), named = true)
+          .asValTP[DFVector[T, Tuple1[D1]], P]
+      else DFVal.Func(vectorType, FuncOp.++, from)
+    def conv[T <: DFTypeAny, P](cellType: T, cellDim: Int)(from: Iterable[DFValTP[T, P]])(using
+        DFC
+    ): DFValTP[DFVector[T, Tuple1[cellDim.type]], P] =
+      Val(DFVector(cellType, List(cellDim)))(from.toList)
     object TC:
       import DFVal.TC
       given DFVectorValFromDFVectorVal[
@@ -123,8 +122,11 @@ object DFVector:
       ): TC[DFVector[T, Tuple1[D1]], R] with
         type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
-          val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
-          DFVal.Func(dfType, FuncOp.++, dfVals)
+          val dfVals = arg.view.map(tc.conv(dfType.cellType, _)(using dfc.anonymize)).toList
+          val check = summon[`LL == RL`.Check[Int, Int]]
+          check(dfType.lengthInt, dfVals.length)
+          Val(dfType)(dfVals)
+      end DFVectorValFromDFValVector
       given DFVectorValFromSEV[
           T <: DFTypeAny,
           D1 <: IntP,
@@ -136,9 +138,10 @@ object DFVector:
       ): TC[DFVector[T, Tuple1[D1]], R] with
         type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
-          val dfVals =
-            List.fill(dfType.lengthInt)(tc.conv(dfType.cellType, arg.value))
-          DFVal.Func(dfType, FuncOp.++, dfVals)
+          val elem = tc.conv(dfType.cellType, arg.value)(using dfc.anonymize)
+          val repeatCnt = dfType.lengthIntParam.toDFConst
+          DFVal.Func(dfType, FuncOp.repeat, List(elem, repeatCnt))
+            .asValTP[DFVector[T, Tuple1[D1]], OutP]
       end DFVectorValFromSEV
     end TC
     object Compare:
@@ -158,11 +161,19 @@ object DFVector:
       ): Compare[DFVector[T, Tuple1[D1]], R, Op, C] with
         type OutP = tc.OutP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
-          val dfVals = arg.view.map(tc.conv(dfType.cellType, _)).toList
-          DFVal.Func(dfType, FuncOp.++, dfVals)
+          val dfVals = arg.view.map(tc.conv(dfType.cellType, _)(using dfc.anonymize)).toList
+          val check = summon[`LL == RL`.Check[Int, Int]]
+          check(dfType.lengthInt, dfVals.length)
+          Val(dfType)(dfVals)
       end DFVectorCompareDFValVector
     end Compare
     object Ops:
+      object DFVector:
+        def apply[T <: DFTypeAny, D1 <: IntP, P](vectorType: DFVector[T, Tuple1[D1]])(
+            elems: DFValTP[T, P]*
+        )(using DFC): DFValTP[DFVector[T, Tuple1[D1]], P] =
+          DFVal.Func(vectorType, FuncOp.++, elems.toList)
+
       extension [T <: DFTypeAny, D1 <: IntP, M <: ModifierAny](
           lhs: DFVal[DFVector[T, Tuple1[D1]], M]
       )

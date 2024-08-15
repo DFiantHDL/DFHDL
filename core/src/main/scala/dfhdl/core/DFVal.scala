@@ -350,7 +350,7 @@ object DFVal extends DFValLP:
               |Hierarchy: ${lhsIR.getOwnerDesign.getFullName}
               |Message:   ${errMsg}""".stripMargin
         )
-      lhsIR.getParamData.asInstanceOf[Option[Option[D]]]
+      lhsIR.getConstData.asInstanceOf[Option[Option[D]]]
         .getOrElse(error("Cannot fetch a Scala value from a non-constant DFHDL value."))
         .getOrElse(error("Cannot fetch a Scala value from a bubble (invalid) DFHDL value."))
 
@@ -523,7 +523,7 @@ object DFVal extends DFValLP:
   end InitTupleValues
 
   extension [T <: DFTypeAny, A, C, I, P, R](dfVal: DFVal[T, Modifier[A, C, I, P]])
-    private[core] def initForced(initValues: List[DFConstOf[T]])(using
+    private[dfhdl] def initForced(initValues: List[DFConstOf[T]])(using
         dfc: DFC
     ): DFVal[T, Modifier[A, C, Modifier.Initialized, P]] =
       import dfc.getSet
@@ -555,6 +555,42 @@ object DFVal extends DFValLP:
           dfVal.initForced(initValues(dfVal.dfType)(using dfc.anonymize))
         else dfVal.initForced(Nil)
       }
+
+  extension [W <: IntP, D1 <: IntP, A, C, I, P](
+      dfVal: DFVal[DFVector[DFBits[W], Tuple1[D1]], Modifier[A, C, I, P]]
+  )
+    infix def initFile(
+        path: String,
+        format: ir.InitFileFormat = ir.InitFileFormat.Auto
+    )(using
+        DFC,
+        InitCheck[I]
+    ): DFVal[DFVector[DFBits[W], Tuple1[D1]], Modifier[A, C, Modifier.Initialized, P]] = trydf:
+      val vectorType = dfVal.dfType
+      import DFVector.{lengthInt, cellType}
+      val data = ir.InitFileFormat.readInitFile(
+        path,
+        format,
+        vectorType.lengthInt,
+        vectorType.cellType.widthInt
+      )
+      val initFileConst = DFVal.Const(vectorType, data)
+      dfVal.initForced(List(initFileConst))
+    // TODO: for now, we read the data immediately. In the future, incremental compilation will make
+    // it beneficial to wait for the backend last stages to do so.
+    // infix def initFile(
+    //     path: String,
+    //     format: ir.InitFileFormat = ir.InitFileFormat.Auto
+    // )(using
+    //     DFC,
+    //     InitCheck[I]
+    // ): DFVal[DFVector[DFBits[W], D], Modifier[A, C, Modifier.Initialized, P]] =
+    //   val initFileFunc =
+    //     DFVal.Func(dfVal.dfType, DFVal.Func.Op.InitFile(format, path), List.empty[ir.DFVal])(using
+    //       dfc.anonymize
+    //     ).asConstOf[DFVector[DFBits[W], D]]
+    //   dfVal.initForced(List(initFileFunc))
+  end extension
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
     ???
@@ -592,14 +628,14 @@ object DFVal extends DFValLP:
     )(using DFC): DFConstOf[T] =
       val meta = if (named) dfc.getMeta else dfc.getMeta.anonymize
       ir.DFVal
-        .Const(dfType.asIR, data, dfc.ownerOrEmptyRef, meta, ir.DFTags.empty)
+        .Const(dfType.asIR.dropUnreachableRefs, data, dfc.ownerOrEmptyRef, meta, dfc.tags)
         .addMember
         .asConstOf[T]
   end Const
 
   object Open:
     def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
-      ir.DFVal.Open(dfType.asIR, dfc.owner.ref)
+      ir.DFVal.Open(dfType.asIR.dropUnreachableRefs, dfc.owner.ref)
         .addMember
         .asValOf[T]
 
@@ -611,27 +647,24 @@ object DFVal extends DFValLP:
     )(using
         DFC
     ): DFVal[T, M] =
+      val modifierIR = modifier.asIR
+      val dfTypeIR = dfType.asIR.dropUnreachableRefs
       // Anonymous Dcls are only supposed to be followed by an `init` that will construct the
       // fully initialized Dcl. The reason for this behavior is that we do not want to add the
       // Dcl to the mutable DB and only after add its initialization value to the DB, thereby
       // violating the reference order rule (we can only reference values that appear before).
       if (dfc.isAnonymous && initValues.isEmpty)
         ir.DFVal.Dcl(
-          dfType.asIR,
-          modifier.asIR,
-          Nil,
-          ir.DFRef.OneWay.Empty,
-          dfc.getMeta,
-          ir.DFTags.empty
+          dfTypeIR, modifierIR, Nil, ir.DFRef.OneWay.Empty, dfc.getMeta, dfc.tags
         ).asVal[T, M]
       else
         val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
-          dfType.asIR,
-          modifier.asIR,
+          dfTypeIR,
+          modifierIR,
           initValues.map(_.asIR.refTW[ir.DFVal.Dcl]),
           dfc.owner.ref,
           dfc.getMeta,
-          ir.DFTags.empty
+          dfc.tags
         )
         dcl.addMember.asVal[T, M]
     end apply
@@ -653,12 +686,12 @@ object DFVal extends DFValLP:
         args: List[ir.DFVal]
     )(using DFC): DFValTP[T, P] =
       val func: ir.DFVal = ir.DFVal.Func(
-        dfType.asIR,
+        dfType.asIR.dropUnreachableRefs,
         op,
         args.map(_.refTW[ir.DFVal]),
         dfc.ownerOrEmptyRef,
         dfc.getMeta,
-        ir.DFTags.empty
+        dfc.tags
       )
       func.addMember.asValTP[T, P]
     end apply
@@ -681,8 +714,18 @@ object DFVal extends DFValLP:
             )(using dfc.getSet)
             dfc.mutableDB.setMember(
               const,
-              _.copy(dfType = aliasType.asIR, data = updatedData, meta = dfc.getMeta)
+              _.copy(
+                dfType = aliasType.asIR.dropUnreachableRefs,
+                data = updatedData,
+                meta = dfc.getMeta
+              )
             ).asVal[AT, M]
+          // remove redundant intermediate casting when the final result needs to be `.bits` anyways
+          case asIs: ir.DFVal.Alias.AsIs
+              if aliasType.asIR.isInstanceOf[ir.DFBits] && asIs.isAnonymous &&
+                dfc.isAnonymous && !forceNewAlias && asIs.tags.isEmpty =>
+            import dfc.getSet
+            asIs.relValRef.get.asVal[AT, M]
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
@@ -691,23 +734,28 @@ object DFVal extends DFValLP:
       def forced(aliasType: ir.DFType, relVal: ir.DFVal)(using DFC): ir.DFVal =
         val alias: ir.DFVal.Alias.AsIs =
           ir.DFVal.Alias.AsIs(
-            aliasType,
+            aliasType.dropUnreachableRefs,
             relVal.refTW[ir.DFVal.Alias.AsIs],
             dfc.ownerOrEmptyRef,
             dfc.getMeta,
-            ir.DFTags.empty
+            dfc.tags
           )
         alias.addMember
       def ident[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
-          DFC
+          dfc: DFC
       ): DFVal[T, M] =
         import ir.DFVal.Alias.IdentTag
-        apply(relVal.dfType, relVal, forceNewAlias = true).tag(IdentTag)
+        apply(relVal.dfType, relVal, forceNewAlias = true)(using dfc.tag(IdentTag))
       def bind[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M], bindName: String)(using
-          DFC
+          dfc: DFC
       ): DFVal[T, M] =
         import ir.DFConditional.DFCaseBlock.Pattern
-        ident(relVal)(using dfc.setName(bindName)).tag(Pattern.Bind.Tag)
+        ident(relVal)(using dfc.setName(bindName).tag(Pattern.Bind.Tag))
+      def designParam[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
+          DFC
+      ): DFVal[T, M] =
+        import ir.DFVal.Alias.DesignParamTag
+        forced(relVal.dfType.asIR, relVal.asIR)(using dfc.tag(DesignParamTag)).asVal[T, M]
     end AsIs
     object History:
       def apply[T <: DFTypeAny](
@@ -718,14 +766,14 @@ object DFVal extends DFValLP:
       )(using DFC): DFValOf[T] =
         val alias: ir.DFVal.Alias.History =
           ir.DFVal.Alias.History(
-            relVal.dfType.asIR,
+            relVal.dfType.asIR.dropUnreachableRefs,
             relVal.asIR.refTW[ir.DFVal.Alias.History],
             step,
             op,
             initOption.map(_.asIR.refTW[ir.DFVal.Alias.History]),
             dfc.owner.ref,
             dfc.getMeta,
-            ir.DFTags.empty
+            dfc.tags
           )
         alias.addMember.asValOf[T]
       end apply
@@ -764,7 +812,7 @@ object DFVal extends DFValLP:
                 relBitLow,
                 dfc.ownerOrEmptyRef,
                 dfc.getMeta,
-                ir.DFTags.empty
+                dfc.tags
               )
             alias.addMember
       end forced
@@ -773,23 +821,20 @@ object DFVal extends DFValLP:
       def apply[
           T <: DFTypeAny,
           W <: IntP,
-          M <: ModifierAny,
-          IS <: Boolean,
-          IW <: Int,
-          IN <: NativeType
+          M <: ModifierAny
       ](
           dfType: T,
           relVal: DFVal[DFTypeAny, M],
-          relIdx: DFValOf[DFXInt[IS, IW, IN]]
+          relIdx: DFValOf[DFInt32]
       )(using DFC): DFVal[T, M] =
         val alias: ir.DFVal.Alias.ApplyIdx =
           ir.DFVal.Alias.ApplyIdx(
-            dfType.asIR,
+            dfType.asIR.dropUnreachableRefs,
             relVal.asIR.refTW[ir.DFVal.Alias.ApplyIdx],
             relIdx.asIR.refTW[ir.DFVal.Alias.ApplyIdx],
             dfc.ownerOrEmptyRef,
             dfc.getMeta,
-            ir.DFTags.empty
+            dfc.tags
           )
         alias.addMember.asVal[T, M]
       end apply
@@ -800,18 +845,17 @@ object DFVal extends DFValLP:
           fieldName: String
       )(using dfc: DFC): DFVal[T, M] =
         val relValIR = relVal.asIR
-        val ir.DFStruct(_, fieldMap) = relValIR.dfType: @unchecked
-        val dfTypeIR = fieldMap(fieldName)
+        val dfStructType = relValIR.dfType.asInstanceOf[ir.DFStruct]
         relValIR match
           // in case the referenced value is anonymous and concatenates fields
           // of values, then we just directly reference the relevant
           // value.
           case ir.DFVal.Func(_, FuncOp.++, args, _, meta, _) if meta.isAnonymous =>
             import dfc.getSet
-            val idx = fieldMap.keys.toList.indexWhere(_ == fieldName)
-            args(idx).get.asVal[T, M]
+            args(dfStructType.fieldIndex(fieldName)).get.asVal[T, M]
           // for all other case create a selector
           case _ =>
+            val dfTypeIR = dfStructType.fieldMap(fieldName).dropUnreachableRefs
             val alias: ir.DFVal.Alias.SelectField =
               ir.DFVal.Alias.SelectField(
                 dfTypeIR,
@@ -819,7 +863,7 @@ object DFVal extends DFValLP:
                 fieldName,
                 dfc.owner.ref,
                 dfc.getMeta,
-                ir.DFTags.empty
+                dfc.tags
               )
             alias.addMember.asVal[T, M]
         end match
@@ -880,6 +924,7 @@ object DFVal extends DFValLP:
     end sameValType
   end TCLP
   object TC extends TCLP:
+    type Aux[T <: DFTypeAny, R, OutP0] = TC[T, R] { type OutP = OutP0 }
     export DFBoolOrBit.Val.TC.given
     export DFBits.Val.TC.given
     export DFDecimal.Val.TC.given
@@ -1124,32 +1169,34 @@ object DFVarOps:
     A <:< DomainType.ED,
     "Non-blocking assignment `:==` is allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
   ]
-  protected type InsideProcess[A] = AssertGiven[
+  protected type `InsideProcess:=`[D, A] = AssertGiven[
+    DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
+    "Blocking assignments `:=` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
+  ]
+  protected type `InsideProcess:==`[D, A] = AssertGiven[
     DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED],
-    "Assignments `:=`/`:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
+    "Non-blocking assignment `:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   protected type RTDomainOnly[A] = AssertGiven[
     A <:< DomainType.RT,
     "`.din` selection is only allowed under register-transfer (RT) domains."
   ]
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
-    def :=[R](rhs: Exact[R])(using
+    def :=[R](rhs: Exact[R])(using DFC)(using dt: DomainType)(using
         notREG: NotREG[A],
         varOnly: VarOnly[A],
 //        localOrNonED: LocalOrNonED[A],
-        insideProcess: InsideProcess[A],
-        tc: DFVal.TC[T, R],
-        dfc: DFC
+        insideProcess: `InsideProcess:=`[dt.type, A],
+        tc: DFVal.TC[T, R]
     ): Unit = trydf {
       dfVar.assign(tc(dfVar.dfType, rhs))
     }
-    def :==[R](rhs: Exact[R])(using dt: DomainType)(using
+    def :==[R](rhs: Exact[R])(using DFC)(using dt: DomainType)(using
         varOnly: VarOnly[A],
         edDomainOnly: EDDomainOnly[dt.type],
 //        notLocalVar: NotLocalVar[A],
-        insideProcess: InsideProcess[A],
-        tc: DFVal.TC[T, R],
-        dfc: DFC
+        insideProcess: `InsideProcess:==`[dt.type, A],
+        tc: DFVal.TC[T, R]
     ): Unit = trydf {
       dfVar.nbassign(tc(dfVar.dfType, rhs))
     }
@@ -1247,15 +1294,48 @@ end DFVarOps
 
 object DFPortOps:
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
-    def <>[R](rhs: Exact[R])(using
+    def <>[R](rhs: Exact[R])(using DFC)(using
         connectableOnly: AssertGiven[
           C <:< Modifier.Connectable,
           "The LHS of a connection must be a connectable DFHDL value (var/port)."
         ],
-        tc: DFVal.TC[T, R],
-        dfc: DFC
+        tc: DFVal.TC[T, R]
     ): ConnectPlaceholder =
       if (rhs.value equals r__OPEN) dfPort.connect(DFVal.Open(dfPort.dfType))
       else trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
       ConnectPlaceholder
 end DFPortOps
+
+extension (dfVal: ir.DFVal)
+  protected[dfhdl] def cloneAnonValueAndDepsHere(using dfc: DFC): ir.DFVal =
+    import dfc.getSet
+    if (dfVal.isAnonymous)
+      val dfcForClone = dfc.setMeta(dfVal.meta).setTags(dfVal.tags)
+      val dfType = dfVal.dfType.asFE[DFTypeAny]
+      val cloned = dfVal match
+        case const: ir.DFVal.Const =>
+          DFVal.Const.forced(dfType, const.data)(using dfcForClone)
+        case func: ir.DFVal.Func =>
+          val clonedArgs = func.args.map(_.get.cloneAnonValueAndDepsHere)
+          DFVal.Func(dfType, func.op, clonedArgs)(using dfcForClone)
+        case alias: ir.DFVal.Alias.Partial =>
+          val clonedRelValIR = alias.relValRef.get.cloneAnonValueAndDepsHere
+          val clonedRelVal = clonedRelValIR.asValAny
+          alias match
+            case alias: ir.DFVal.Alias.AsIs =>
+              DFVal.Alias.AsIs(dfType, clonedRelVal, forceNewAlias = true)(using dfcForClone)
+            case alias: ir.DFVal.Alias.ApplyRange =>
+              DFVal.Alias.ApplyRange(
+                clonedRelVal.asValOf[DFBits[Int]],
+                alias.relBitHigh,
+                alias.relBitLow
+              )(using dfcForClone)
+            case alias: ir.DFVal.Alias.ApplyIdx =>
+              val clonedIdx = alias.relIdx.get.cloneAnonValueAndDepsHere.asValOf[DFInt32]
+              DFVal.Alias.ApplyIdx(dfType, clonedRelVal, clonedIdx)(using dfcForClone)
+            case alias: ir.DFVal.Alias.SelectField =>
+              DFVal.Alias.SelectField(clonedRelVal, alias.fieldName)(using dfcForClone)
+        case _ => throw new IllegalArgumentException(s"Unsupported cloning for: $dfVal")
+      cloned.asIR
+    else dfVal
+    end if

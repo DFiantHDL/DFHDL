@@ -6,6 +6,7 @@ import dfhdl.compiler.printing.*
 import ir.DFConditional.{DFCaseBlock, DFMatchHeader}
 import DFCaseBlock.Pattern
 import dfhdl.compiler.ir.DFConditional
+import dfhdl.compiler.ir.DFDecimal.NativeType
 
 object DFMatch:
   def singleCase[R](
@@ -62,11 +63,11 @@ object DFMatch:
   object Header:
     def apply(dfType: DFTypeAny, selector: DFValAny)(using DFC): DFValAny =
       val header: ir.DFVal = DFMatchHeader(
-        dfType.asIR,
+        dfType.asIR.dropUnreachableRefs,
         selector.asIR.refTW[ir.DFVal],
         dfc.owner.ref,
         dfc.getMeta,
-        ir.DFTags.empty
+        dfc.tags
       ).addMember
       header.asValAny
   end Header
@@ -76,6 +77,11 @@ object DFMatch:
     object Singleton:
       def apply(value: DFValAny)(using DFC): DFCaseBlock.Pattern =
         DFCaseBlock.Pattern.Singleton(value.asIR.refTW[DFCaseBlock])
+    object to:
+      infix def unapply[S <: Boolean, W <: IntP, N <: NativeType](
+          arg: DFValOf[DFXInt[S, W, N]]
+      ): Option[(Int, Int)] = ???
+
   object Block:
     def apply(
         pattern: Pattern,
@@ -94,12 +100,7 @@ object DFMatch:
           header.asIR.asInstanceOf[DFMatchHeader].refTW[DFCaseBlock]
       val block: DFCaseBlock =
         DFCaseBlock(
-          pattern,
-          guardRef,
-          prevBlockOrHeaderRef,
-          dfc.owner.ref,
-          dfc.getMeta,
-          ir.DFTags.empty
+          pattern, guardRef, prevBlockOrHeaderRef, dfc.owner.ref, dfc.getMeta, dfc.tags
         ).addMember
       block.asFE
     end apply

@@ -75,13 +75,21 @@ final case class DB(
         case _: DFRef.Empty                     =>
         case _: DFRef.TypeRef if excludeTypeRef =>
         case r =>
-          tbl.updateWith(refTable(r)) {
+          tbl.updateWith(
+            refTable.getOrElse(
+              r,
+              throw new NoSuchElementException(
+                s"Missing member of reference $r:\n$origMember\n${origMember.getOwnerNamed.getFullName}"
+              )
+            )
+          ) {
             case Some(set) => Some(set + origMember)
             case None      => Some(Set(origMember))
           }
       }
     )
     tbl.toMap
+  end _originMemberTable
 
   lazy val originMemberTable: Map[DFMember, Set[DFMember]] = _originMemberTable(false)
   lazy val originMemberTableNoTypeRef: Map[DFMember, Set[DFMember]] = _originMemberTable(true)
@@ -400,13 +408,27 @@ final case class DB(
           // found target variable or port declaration for the given connection/assignment
           case Some((toDcl, range)) =>
             val prevNets = connToDcls.getNets(toDcl, range)
+            // checking multiple assignments from different domains, except for a condition
+            // where the declaration is a shared variable.
+            // this is used to define a shared variable which is against the RT model,
+            // but is useful to described inferred memories like True Dual Port RAM.
+            if (!toDcl.modifier.isShared)
+              prevNets.headOption.foreach: prevNet =>
+                if (prevNet.getOwnerDomain != net.getOwnerDomain)
+                  newError(
+                    s"""|Found multiple domain assignments to the same variable/port `${toDcl
+                         .getFullName}`
+                        |Only variables declared as `VAR.SHARED` under ED domain allow this.
+                        |The previous write occurred at ${prevNet.meta.position}""".stripMargin
+                  )
             // go through all previous nets and check for collisions
             prevNets.foreach: prevNet =>
               // multiple assignments are allowed in the same range, but not multiple
               // connections or a combination of an assignment and a connection
               if (prevNet.isConnection || prevNet.isAssignment && !net.isAssignment)
                 newError(
-                  s"""Multiple connections write to the same variable/port ${toDcl.getFullName}.
+                  s"""Found multiple connections write to the same variable/port `${toDcl
+                      .getFullName}`
                      |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                 )
             // if no previous connection in this range, we add it to the range map
@@ -581,16 +603,100 @@ final case class DB(
     ret
   end magnetConnectionTable
 
+  // holds for each RTDomain/RTDesign/RTInterface that its configuration on another domain,
+  // the domain it is dependent on
+  lazy val dependentRTDomainOwners: Map[DFDomainOwner, DFDomainOwner] =
+    extension (member: DFMember)
+      def getRTOwnerOption: Option[DFDomainOwner] =
+        val owner = member.getOwnerDomain
+        owner.domainType match
+          case _: DomainType.RT => Some(owner)
+          case _                => None
+    members.view.flatMap {
+      case domainOwner: DFDomainOwner =>
+        domainOwner.domainType match
+          // only RT domain owners are saved
+          case DomainType.RT(cfg) =>
+            cfg match
+              // derived configuration dependency is set according to various factors:
+              case RTDomainCfg.Derived =>
+                domainOwner match
+                  // for designs, the derived configuration is defined by the owner RT design, if such exists.
+                  // if not, then there is no domain configuration dependency
+                  case design: DFDesignBlock =>
+                    if (design.isTop) None
+                    else design.getRTOwnerOption.map(design -> _)
+                  // for domains, the derived configuration is defined according to the input ports source,
+                  // if such ports exist (ignoring Clk/Rst ports).
+                  // otherwise, the derived configuration is defined by the domain's owner.
+                  case domain: DomainBlock =>
+                    val domainMembers = domainOwnerMemberTable(domain)
+                    val inPorts = domainMembers.collect {
+                      case dcl: DFVal.Dcl if dcl.isPortIn && !dcl.isClkDcl && !dcl.isRstDcl => dcl
+                    }
+                    val inSourceDomains = inPorts.view.flatMap { port =>
+                      connectionTable.getNets(port).headOption match
+                        case Some(DFNet.Connection(_, from, _)) => from.getRTOwnerOption
+                        case _                                  => None
+                    }.toSet
+                    if (inSourceDomains.isEmpty) domain.getRTOwnerOption.map(domain -> _)
+                    else if (inSourceDomains.size > 1)
+                      throw new IllegalArgumentException(
+                        s"""|Found ambiguous source RT configurations for the domain:
+                            |${domain.getFullName}
+                            |Sources:
+                            |${inSourceDomains.map(_.getFullName).mkString("\n")}
+                            |Possible solution:
+                            |Either explicitly define a configuration for the domain or drive it from a single source domain.
+                            |""".stripMargin
+                      )
+                    else Some(domain -> inSourceDomains.head)
+                  case ifc: DFInterfaceOwner =>
+                    ??? // TODO: decide what are the rules are for interfaces
+              // related configuration is just dependent on the its related domain
+              case RTDomainCfg.Related(relatedDomainRef) =>
+                Some(domainOwner -> relatedDomainRef.get)
+              case _ => None
+          case _ => None
+      case _ => None
+    }
+      .toMap
+  end dependentRTDomainOwners
+
+  def circularDerivedDomainsCheck(): Unit =
+    // Helper function to perform DFS and detect cycles
+    @tailrec def dfs(
+        node: DFDomainOwner,
+        visited: Set[DFDomainOwner],
+        stack: Set[DFDomainOwner]
+    ): Unit =
+      if (stack.contains(node))
+        throw new IllegalArgumentException(
+          s"""|Circular derived RT configuration detected. Involved in the cycle:
+              |${stack.map(_.getFullName).mkString("\n")}
+              |""".stripMargin
+        )
+      if (!visited.contains(node))
+        val newVisited = visited + node
+        val newStack = stack + node
+        dependentRTDomainOwners.get(node) match
+          case Some(dependentNode) => dfs(dependentNode, newVisited, newStack)
+          case None                => // No dependency, end of this path
+    // Iterate over all nodes in the map and perform DFS
+    for (node <- dependentRTDomainOwners.keys)
+      dfs(node, Set.empty, Set.empty)
+  end circularDerivedDomainsCheck
+
   def nameCheck(): Unit =
     // We use a Set since meta programming is usually the cause and can result in
     // multiple anonymous members with the same position. The top can be anonymous.
     val anonErrorMemberPositions: Set[Position] = membersNoGlobals.drop(1).view.collect {
-      case dcl: DFVal.Dcl if dcl.meta.isAnonymous =>
-        dcl.meta.position
-      // design definitions are allowed to be anonymous
-      case dsn: DFDesignBlock if dsn.meta.isAnonymous && dsn.instMode != InstMode.Def =>
-        dsn.meta.position
-    }.toSet
+      case dcl: DFVal.Dcl if dcl.isAnonymous => dcl
+      // designs cannot be anonymous, but design definitions are allowed to be anonymous
+      case dsn: DFDesignBlock if dsn.isAnonymous && dsn.instMode != InstMode.Def => dsn
+      // domains cannot be anonymous
+      case domain: DomainBlock if domain.isAnonymous => domain
+    }.map(_.meta.position).toSet
     if (anonErrorMemberPositions.nonEmpty)
       throw new IllegalArgumentException(
         s"""DFiant HDL name errors!
@@ -646,6 +752,10 @@ final case class DB(
             case refMember if isDesignParam =>
               if (m.isOneLevelBelow(refMember)) None
               else Some(refMember)
+            // design referenced by its member (like in RelatedDomain)
+            case refMember: DFDesignBlock =>
+              if (m.isMemberOf(refMember)) None
+              else Some(refMember)
             // the rest must be in the same design
             case refMember if !refMember.isSameOwnerDesignAs(m) =>
               Some(refMember)
@@ -659,6 +769,7 @@ final case class DB(
       s"""|The DFHDL code at:
           |    Position:  ${from.meta.position}
           |    Hierarchy: ${from.getOwnerDesign.getFullName}
+          |    Structure: ${from}
           |is directly referencing the member ${toName}at:
           |    Position:  ${to.meta.position}
           |    Hierarchy: ${to.getOwnerDesign.getFullName}""".stripMargin
@@ -678,6 +789,7 @@ final case class DB(
     connectionTable // causes connectivity checks
     magnetConnectionTable // causes magnet connectivity checks
     directRefCheck()
+    circularDerivedDomainsCheck()
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)

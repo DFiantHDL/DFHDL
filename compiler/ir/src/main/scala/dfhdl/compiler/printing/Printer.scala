@@ -24,7 +24,7 @@ trait Printer
   def csViaConnectionSep: String
   val normalizeViaConnection: Boolean
   val normalizeConnection: Boolean
-  def csAssignment(lhsStr: String, rhsStr: String): String
+  def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String
   def csNBAssignment(lhsStr: String, rhsStr: String): String
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String
   def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String
@@ -58,24 +58,24 @@ trait Printer
         end match
       case _ =>
         val lhsDin = net.lhsRef.get match
-          case dfVal: DFVal if dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.reg => ".din"
-          case _                                                                      => ""
+          case dfVal: DFVal if dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.isReg => ".din"
+          case _                                                                        => ""
+        val lhsShared = net.lhsRef.get match
+          case dfVal: DFVal => dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.isShared
+          case _            => false
         val lhsStr = net.lhsRef.refCodeString + lhsDin
         val rhsStr = net.rhsRef.refCodeString
         (net.op: @unchecked) match
-          case DFNet.Op.Assignment   => csAssignment(lhsStr, rhsStr)
+          case DFNet.Op.Assignment   => csAssignment(lhsStr, rhsStr, lhsShared)
           case DFNet.Op.NBAssignment => csNBAssignment(lhsStr, rhsStr)
         end match
   end csDFNet
   def csOpenKeyWord: String
-  def csTimeUnit(time: Time): String = s"${time.usec}.us"
-  def csFreqUnit(freq: Freq): String = s"${freq.hertz}.Hz"
+  def csTimeUnit(time: Time): String = time.toString()
+  def csFreqUnit(freq: Freq): String = freq.toString()
+  def csRateUnit(rate: Rate): String = rate.toString()
   def csRatioUnit(ratio: Ratio): String = s"${ratio.value}"
   def csTimer(timer: Timer): String
-  def csNameCfg(nameCfg: NameCfg): String =
-    nameCfg match
-      case _: DerivedCfg.type => "DerivedCfg"
-      case name: String       => s""""$name""""
   def csClkEdgeCfg(edge: ClkCfg.Edge): String =
     edge match
       case ClkCfg.Edge.Rising  => "ClkCfg.Edge.Rising"
@@ -83,8 +83,8 @@ trait Printer
   def csClkCfg(clkCfg: ClkCfg): String =
     clkCfg match
       case _: None.type => "None"
-      case ClkCfg.Explicit(edge) =>
-        s"ClkCfg(${csClkEdgeCfg(edge)})"
+      case ClkCfg.Explicit(edge, rate, portName) =>
+        s"ClkCfg(${csClkEdgeCfg(edge)}, ${csRateUnit(rate)}, $portName)"
   def csRstModeCfg(mode: RstCfg.Mode): String =
     mode match
       case RstCfg.Mode.Sync  => "RstCfg.Mode.Sync"
@@ -96,8 +96,8 @@ trait Printer
   def csRstCfg(rstCfg: RstCfg): String =
     rstCfg match
       case _: None.type => "None"
-      case RstCfg.Explicit(mode, active) =>
-        s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)})"
+      case RstCfg.Explicit(mode, active, portName) =>
+        s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)}, $portName)"
   def csRTDomainCfg(clkCfg: ClkCfg, rstCfg: RstCfg): String =
     s"""RTDomainCfg(
        |    clkCfg = ${printer.csClkCfg(clkCfg)},
@@ -105,10 +105,11 @@ trait Printer
        |)""".stripMargin
   def csRTDomainCfg(cfg: RTDomainCfg): String =
     cfg match
-      case _: DerivedCfg.type => "DerivedCfg"
+      case RTDomainCfg.Derived => "Derived"
       case RTDomainCfg.Explicit(name, clkCfg, rstCfg) =>
         if (name.isEmpty) csRTDomainCfg(clkCfg, rstCfg)
         else name
+      case RTDomainCfg.Related(_) => ??? // should not be printed
   def csCommentInline(comment: String): String
   def csCommentEOL(comment: String): String
   def csDocString(doc: String): String
@@ -149,8 +150,21 @@ trait Printer
       case InstMode.Def => csDFDesignDefDcl(design)
       case _            => csDFDesignBlockDcl(design)
     s"${csDocString(design.dclMeta)}$designDcl"
+  def dfhdlDefsFileName: String
+  def dfhdlSourceContents: String
   final def printedDB: DB =
     val designDB = getSet.designDB
+    val dfhdlSourceFile: Option[SourceFile] =
+      if (dfhdlDefsFileName.nonEmpty)
+        Some(
+          SourceFile(
+            SourceOrigin.Compiled,
+            SourceType.Design.DFHDLDef,
+            dfhdlDefsFileName,
+            dfhdlSourceContents
+          )
+        )
+      else None
     val globalSourceFile =
       SourceFile(
         SourceOrigin.Compiled,
@@ -158,8 +172,10 @@ trait Printer
         globalFileName,
         formatCode(csGlobalFileContent)
       )
-    val compiledFiles = globalSourceFile :: designDB.uniqueDesignMemberList.map {
-      case (block: DFDesignBlock, _) =>
+    val compiledFiles = Iterable(
+      dfhdlSourceFile,
+      Some(globalSourceFile),
+      designDB.uniqueDesignMemberList.view.map { case (block: DFDesignBlock, _) =>
         val sourceType = block.instMode match
           case _: DFDesignBlock.InstMode.BlackBox => SourceType.Design.BlackBox
           case _                                  => SourceType.Design.Regular
@@ -169,7 +185,8 @@ trait Printer
           designFileName(block.dclName),
           formatCode(csFile(block))
         )
-    }
+      }
+    ).flatten
     // removing existing compiled/committed files and adding the newly compiled files
     val srcFiles = designDB.srcFiles.filter {
       case SourceFile(SourceOrigin.Compiled | SourceOrigin.Committed, _, _, _) => false
@@ -180,16 +197,20 @@ trait Printer
 
   final def csDB: String =
     val designDB = getSet.designDB
-    val csFileList = designDB.uniqueDesignMemberList.map { case (block: DFDesignBlock, _) =>
-      formatCode(csFile(block))
+    val csFileList = designDB.uniqueDesignMemberList.collect {
+      case (block: DFDesignBlock, _) if printerOptions.designPrintFilter(block) =>
+        formatCode(csFile(block))
     }
     s"${formatCode(csGlobalTypeDcls + csGlobalConstDcls).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
   end csDB
 end Printer
 
 object Printer:
-  def printGenFiles(db: DB): Unit =
-    db.srcFiles.foreach {
+  def printGenFiles(db: DB)(using po: PrinterOptions): Unit =
+    val srcFiles =
+      if (po.showGlobals) db.srcFiles
+      else db.srcFiles.drop(1)
+    srcFiles.foreach {
       case srcFile @ SourceFile(
             SourceOrigin.Compiled | SourceOrigin.Committed,
             _,
@@ -204,6 +225,7 @@ object Printer:
         println("")
       case _ =>
     }
+  end printGenFiles
   def commit(db: DB, folderPathStr: String): DB =
     val folderPath = Paths.get(folderPathStr)
     if (!Files.exists(folderPath))
@@ -233,16 +255,16 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   given printer: TPrinter = this
   val tupleSupportEnable: Boolean = true
   def csViaConnectionSep: String = ""
-  def csAssignment(lhsStr: String, rhsStr: String): String =
+  def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String =
     s"$lhsStr := $rhsStr"
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr :== $rhsStr"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
-    s"$lhsStr <> $rhsStr"
+    s"$lhsStr <> ${rhsStr.applyBrackets()}"
   def csViaConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
-    s"this.$lhsStr <>/*$directionStr*/ $rhsStr"
+    s"this.$lhsStr <>/*$directionStr*/ ${rhsStr.applyBrackets()}"
   def csLazyConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
-    s"$lhsStr `<LZ>`/*$directionStr*/ $rhsStr"
+    s"$lhsStr `<LZ>`/*$directionStr*/ ${rhsStr.applyBrackets()}"
   val normalizeViaConnection: Boolean = true
   val normalizeConnection: Boolean = true
   def csOpenKeyWord: String = "OPEN"
@@ -261,13 +283,13 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   def csTimer(timer: Timer): String =
     val timerBody = timer match
       case p: Timer.Periodic =>
-        (p.triggerRef.get, p.periodOpt) match
-          case (DFMember.Empty, None)         => "Timer()"
-          case (DFMember.Empty, Some(period)) => s"Timer(${csTimeUnit(period)})"
+        (p.triggerRef.get, p.rateOpt) match
+          case (DFMember.Empty, None)       => "Timer()"
+          case (DFMember.Empty, Some(rate)) => s"Timer(${csRateUnit(rate)})"
           case (trigger: DFVal, None) =>
             s"Timer(${p.triggerRef.refCodeString})"
-          case (trigger: DFVal, Some(period)) =>
-            s"Timer(${p.triggerRef.refCodeString},${csTimeUnit(period)})"
+          case (trigger: DFVal, Some(rate)) =>
+            s"Timer(${p.triggerRef.refCodeString},${csRateUnit(rate)})"
           case _ => ??? // impossible
       case f: Timer.Func =>
         val argStr = f.arg match
@@ -278,6 +300,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   end csTimer
   def globalFileName: String = s"${getSet.designDB.top.dclName}_globals.scala"
   def designFileName(designName: String): String = s"$designName.scala"
+  def dfhdlDefsFileName: String = "" // no need in DFHDL code generation
+  def dfhdlSourceContents: String = "" // no need in DFHDL code generation
   def alignCode(cs: String): String =
     cs
       .align("[ \\t]*val .*", "=", ".*<>.*")

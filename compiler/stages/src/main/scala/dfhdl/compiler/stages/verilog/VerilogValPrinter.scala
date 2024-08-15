@@ -19,8 +19,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     val modifier = dfVal.modifier.dir match
       case Modifier.IN =>
         dfVal.dfType match
-          case _: DFStruct => "input "
-          case _           => "input wire "
+          case _: DFStruct => "input  "
+          case _           => "input  wire "
       case Modifier.OUT   => "output "
       case Modifier.INOUT => "inout  "
       case Modifier.VAR   => ""
@@ -36,9 +36,17 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     dfVal.args match
+      // boolean sel function
+      case cond :: onTrue :: onFalse :: Nil
+          if cond.get.dfType == DFBool && dfVal.op == Func.Op.sel =>
+        s"${cond.refCodeString.applyBrackets()} ? ${onTrue.refCodeString.applyBrackets()} : ${onFalse.refCodeString.applyBrackets()}"
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
-        s"{${argR.refCodeString.applyBrackets()}{${argL.refCodeString}}}"
+        dfVal.dfType match
+          case _: DFVector =>
+            s"'{default: ${argL.refCodeString}}"
+          case _ =>
+            s"{${argR.refCodeString.applyBrackets()}{${argL.refCodeString}}}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val isInfix = dfVal.op match
@@ -78,14 +86,14 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         dfVal.op match
           case DFVal.Func.Op.++ =>
             dfVal.dfType match
-              case DFStruct(_, _) =>
-                args.map(_.refCodeString).mkString("'{", ", ", "}")
+              case DFStruct(_, _) | DFVector(_, _) =>
+                args.map(_.refCodeString).csList("'{", ",", "}")
 //              case DFVector(_, _) => printer.unsupported
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"{${args.length}{${args.head.refCodeString}}}"
               // regular concatenation function
-              case _ => args.map(_.refCodeString).mkString("{", ", ", "}")
+              case _ => args.map(_.refCodeString).csList("{", ",", "}")
             end match
           case _ =>
             args
@@ -120,9 +128,6 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         relValStr
       case (DFOpaque(_, _, _), _) =>
         relValStr
-      case (DFBits(Int(tWidth)), _) =>
-        assert(tWidth == fromType.width)
-        s"{$relValStr}"
       case (DFUInt(tr @ Int(tWidth)), DFUInt(fr @ Int(fWidth))) =>
         if (tWidth == fWidth) relValStr
         else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tr.uboundCS}:0]"
@@ -136,7 +141,46 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFBool, DFBit)                  => relValStr
       case (toStruct: DFStruct, _: DFBits) =>
         s"${toStruct.getName}'($relValStr)"
-      case _ => printer.unsupported
+      case (toVector: DFVector, _: DFBits) =>
+        def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =
+          val vecLength = vectorType.length
+          vectorType.cellType match
+            case cellType: DFVector =>
+              List.tabulate(vecLength)(i =>
+                to_vector_conv(cellType, relHighIdx - i * cellType.width)
+              ).csList("'{", ",", "}")
+            case cellType: DFBits =>
+              val cellWidth = cellType.width
+              List.tabulate(vecLength)(i =>
+                s"$relValStr[${relHighIdx - i * cellWidth}:${relHighIdx - (i + 1) * cellWidth + 1}]"
+              ).csList("'{", ",", "}")
+            case x =>
+              println(x)
+              printer.unsupported
+        end to_vector_conv
+        to_vector_conv(toVector, toVector.width - 1)
+      case (DFBits(Int(tWidth)), fromVector: DFVector) =>
+        def from_vector_conv(vectorType: DFVector, prevSelect: String): String =
+          val vecLength = vectorType.length
+          vectorType.cellType match
+            case cellType: DFVector =>
+              List.tabulate(vecLength)(i => from_vector_conv(cellType, s"[$i]"))
+                .csList("{", ",", "}")
+            case cellType: DFBits =>
+              val cellWidth = cellType.width
+              List.tabulate(vecLength)(i => s"$relValStr$prevSelect[$i]").csList("{", ",", "}")
+            case x =>
+              println(x)
+              printer.unsupported
+        end from_vector_conv
+        assert(tWidth == fromType.width)
+        from_vector_conv(fromVector, "")
+      case (DFBits(Int(tWidth)), _) =>
+        assert(tWidth == fromType.width)
+        s"{$relValStr}"
+      case x =>
+        println(x)
+        printer.unsupported
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =

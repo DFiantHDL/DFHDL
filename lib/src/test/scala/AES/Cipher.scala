@@ -6,7 +6,3 @@ import dfhdl.*
   val data = AESData <> IN
   val o = AESData <> OUT
   o := cipher(data, key)
-
-@main def main: Unit =
-  given options.CompilerOptions.LogLevel = options.LogLevel.INFO
-  Cipher().printCodeString

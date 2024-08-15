@@ -65,30 +65,31 @@ object IntParam extends IntParamLP:
   given [T <: IntP]: CanEqual[IntParam[T], Int] = CanEqual.derived
   given [T <: IntP]: CanEqual[Int, IntParam[T]] = CanEqual.derived
 
-  inline implicit def getValue[T <: IntP](intParam: IntParam[T])(using DFC): Int =
+  inline implicit def getValue[T <: IntP](inline intParam: IntParam[T])(using DFC): Int =
     intParam.toScalaInt
 
-  inline implicit def fromValue[T <: IntP & Singleton](value: T): IntParam[T] =
+  inline implicit def fromValue[T <: IntP & Singleton](inline value: T): IntParam[T] =
     value.asInstanceOf[IntParam[T]]
   @targetName("fromValueInlined")
-  inline implicit def fromValue[T <: Int](value: Inlined[T]): IntParam[T] =
+  inline implicit def fromValue[T <: Int](inline value: Inlined[T]): IntParam[T] =
     value.asInstanceOf[IntParam[T]]
   @targetName("fromValueWide")
-  inline implicit def fromValue[Wide <: IntP](value: Wide): IntParam[Wide] = value
-  def apply[T <: IntP](value: T): IntParam[T] = value match
+  inline implicit def fromValue[Wide <: IntP](inline value: Wide): IntParam[Wide] =
+    value.asInstanceOf[IntParam[Wide]]
+  inline def apply[T <: IntP](inline value: T): IntParam[T] = value match
     case sig: IntP.Sig => sig.value.asInstanceOf[IntParam[T]]
     case _             => value.asInstanceOf[IntParam[T]]
-  def forced[V <: IntP](value: IntP): IntParam[V] = value.asInstanceOf[IntParam[V]]
+  inline def forced[V <: IntP](inline value: IntP): IntParam[V] = value.asInstanceOf[IntParam[V]]
   @targetName("applyInlined")
-  def apply[V <: Int](value: Inlined[V]): IntParam[V] = value.asInstanceOf[IntParam[V]]
+  inline def apply[V <: Int](inline value: Inlined[V]): IntParam[V] =
+    value.asInstanceOf[IntParam[V]]
   private def calc[O <: IntP, V <: IntP](op: FuncOp, arg: IntParam[V])(
       opInt: Int => Int
   )(using dfc: DFC): IntParam[O] =
     given DFC = dfc.anonymize
     arg match
-      case int: Int => IntParam(opInt(int)).asInstanceOf[IntParam[O]]
-      case const: DFConstInt32 =>
-        IntParam(DFVal.Func(DFInt32, op, List(const))).asInstanceOf[IntParam[O]]
+      case int: Int            => forced[O](opInt(int))
+      case const: DFConstInt32 => forced[O](DFVal.Func(DFInt32, op, List(const)))
   private def calc[O <: IntP, L <: IntP, R <: IntP](
       op: FuncOp,
       argL: IntParam[L],
@@ -98,12 +99,12 @@ object IntParam extends IntParamLP:
   )(using dfc: DFC): IntParam[O] =
     given DFC = dfc.anonymize
     (argL, argR) match
-      case (intL: Int, intR: Int) => IntParam(opInt(intL, intR)).asInstanceOf[IntParam[O]]
+      case (intL: Int, intR: Int) => forced[O](opInt(intL, intR))
       case _ =>
         val constL = argL.toDFConst
         val constR = argR.toDFConst
         import dfc.getSet
-        def func = IntParam(DFVal.Func(DFInt32, op, List(constL, constR))).asInstanceOf[IntParam[O]]
+        def func = forced[O](DFVal.Func(DFInt32, op, List(constL, constR)))
         op match
           // special casing max/min to remove the need for max and min if the same value is used
           case FuncOp.max | FuncOp.min if constL.asIR =~ constR.asIR =>
@@ -133,7 +134,7 @@ object IntParam extends IntParamLP:
                 if (intR == 0) constL.asInstanceOf[IntParam[O]]
                 else
                   val constR = DFVal.Const(DFInt32, Some(BigInt(intR)), named = false)
-                  IntParam(DFVal.Func(DFInt32, opL, List(constL, constR))).asInstanceOf[IntParam[O]]
+                  forced[O](DFVal.Func(DFInt32, opL, List(constL, constR)))
               case _ => func
           case _ => func
         end match
@@ -143,7 +144,7 @@ object IntParam extends IntParamLP:
   extension [L <: IntP](lhs: IntParam[L])(using dfc: DFC)
     def toDFConst: DFConstInt32 =
       lhs match
-        case int: Int            => DFVal.Const(DFInt32, Some(BigInt(int)), named = true)
+        case int: Int            => DFConstInt32(int)
         case const: DFConstInt32 => const
     def toScalaInt: Int =
       lhs match
@@ -155,8 +156,9 @@ object IntParam extends IntParamLP:
         case const: DFConstInt32 =>
           val constIR = const.asInstanceOf[DFValAny].asIR
           constIR.injectGlobalCtx()
+          val reachable = constIR.getReachableMember
           val newRef = new ir.DFRef.TypeRef {}
-          ir.IntParamRef(dfc.mutableDB.newRefFor(newRef, constIR))
+          ir.IntParamRef(dfc.mutableDB.newRefFor(newRef, reachable))
     def +[R <: IntP](rhs: IntParam[R]): IntParam[IntP.+[L, R]] =
       calc(FuncOp.+, lhs, rhs)(_ + _)
     def -[R <: IntP](rhs: IntParam[R]): IntParam[IntP.-[L, R]] =
@@ -181,7 +183,7 @@ end IntParam
 extension (intParamRef: ir.IntParamRef)
   def get(using dfc: DFC): IntParam[Int] =
     intParamRef match
-      case int: Int => IntParam(int)
+      case int: Int => IntParam.forced[Int](int)
       case ref: ir.DFRef.TypeRef =>
         import dfc.getSet
         IntParam.forced[Int](ref.get.asConstOf[DFInt32])

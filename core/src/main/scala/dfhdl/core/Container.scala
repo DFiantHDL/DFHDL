@@ -32,33 +32,29 @@ abstract class DomainContainer[D <: DomainType](domainType: D) extends Container
   final protected given TDomain = domainType
   final private[core] lazy val __domainType: ir.DomainType = domainType.asIR
 
-abstract class RTDomainContainer(cfg: ir.RTDomainCfg) extends DomainContainer(DomainType.RT(cfg)):
-  private lazy val derivedCfg: ir.RTDomainCfg =
-    import dfc.getSet
-    var derivedCfg: ir.RTDomainCfg = cfg
-    var owner: ir.DFDomainOwner = dfc.owner.asIR.getThisOrOwnerDomain
-    while (derivedCfg == ir.DerivedCfg && !owner.isTop)
-      owner = owner.getOwnerDomain
-      owner.domainType match
-        case ir.DomainType.RT(cfg: ir.RTDomainCfg.Explicit) => derivedCfg = cfg
-        case _                                              =>
-    derivedCfg
+abstract class RTDomainContainer(cfg: RTDomainCfg) extends DomainContainer(DomainType.RT(cfg)):
 
   protected lazy val Clk: DFOpaque[DFOpaque.Clk] =
-    case class Clk(cfgName: String) extends DFOpaque.Clk:
-      override lazy val typeName: String = s"Clk_${cfgName}"
-    val clkTFE = derivedCfg match
-      case ir.DerivedCfg => RTDesign.Clk_main()
-      case cfg: ir.RTDomainCfg.Explicit =>
-        dfc.mutableDB.RTDomainCfgContext.getClkOpaque(cfg, Clk(cfg.name))
-    DFOpaque(clkTFE)
+    case class Clk() extends DFOpaque.Clk
+    cfg match
+      case ir.RTDomainCfg.Related(ref) =>
+        import dfc.getSet
+        throw new IllegalArgumentException(
+          s"Cannot create an explicit clock in a related domain.\nYou can create the clock in the primary domain `${ref.get.getName}` and reference it here instead."
+        )
+      case _ =>
+    DFOpaque(Clk())
+  end Clk
 
   protected lazy val Rst: DFOpaque[DFOpaque.Rst] =
-    case class Rst(cfgName: String) extends DFOpaque.Rst:
-      override lazy val typeName: String = s"Rst_${cfgName}"
-    val clkTFE = derivedCfg match
-      case ir.DerivedCfg => RTDesign.Rst_main()
-      case cfg: ir.RTDomainCfg.Explicit =>
-        dfc.mutableDB.RTDomainCfgContext.getRstOpaque(cfg, Rst(cfg.name))
-    DFOpaque(clkTFE)
+    case class Rst() extends DFOpaque.Rst
+    cfg match
+      case ir.RTDomainCfg.Related(ref) =>
+        import dfc.getSet
+        throw new IllegalArgumentException(
+          s"Cannot create an explicit reset in a related domain.\nYou can create the reset in the primary domain `${ref.get.getName}` and reference it here instead."
+        )
+      case _ =>
+    DFOpaque(Rst())
+  end Rst
 end RTDomainContainer

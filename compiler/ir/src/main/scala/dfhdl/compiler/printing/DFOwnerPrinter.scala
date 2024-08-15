@@ -135,7 +135,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       else s" $body"
     if (body.isEmpty) cb match
       case caseBlock: DFConditional.DFCaseBlock => s"$statement$csDFCaseBlockEmpty"
-      case ifBlock: DFConditional.DFIfElseBlock => s"$statement$csIfBlockEmpty"
+      case ifBlock: DFConditional.DFIfElseBlock => s"$statement $csIfBlockEmpty"
     else s"$statement$indentBody${end.emptyOr(e => s"\n$e")}"
   end csDFConditionalBlock
   final def csDFConditional(ch: DFConditional.Header): String =
@@ -213,8 +213,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case DomainType.DF => "DFDesign"
       case rt: DomainType.RT =>
         val cfgStr = rt.cfg match
-          case _: DerivedCfg.type => ""
-          case _                  => s"(${printer.csRTDomainCfg(rt.cfg)})"
+          case RTDomainCfg.Derived => ""
+          case _                   => s"(${printer.csRTDomainCfg(rt.cfg)})"
         s"""RTDesign$cfgStr""".stripMargin
       case _ => "EDDesign"
     val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
@@ -263,7 +263,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     }
     if (lastCB.getLeadingChain.exists(isBigBlock)) "end if" else ""
   end csDFIfEnd
-  def csIfBlockEmpty: String = " {}"
+  def csIfBlockEmpty: String = "{}"
   def csDFCaseBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "_"
   def csDFCasePatternAlternativeData: String = " | "
@@ -300,11 +300,18 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val domainStr = domain.domainType match
       case DomainType.DF => "DFDomain"
       case rt: DomainType.RT =>
-        val cfgStr = rt.cfg match
-          case _: DerivedCfg.type => ""
-          case _                  => s"(${printer.csRTDomainCfg(rt.cfg)})"
-        s"RTDomain$cfgStr".stripMargin
+        rt.cfg match
+          case RTDomainCfg.Related(relatedDomainRef) =>
+            val relatedDomain = relatedDomainRef.get
+            if (domain.isMemberOf(relatedDomain))
+              "RelatedDomain"
+            else
+              s"${relatedDomain.getRelativeName(domain.getOwnerNamed)}.RelatedDomain"
+          case RTDomainCfg.Derived => "RTDomain"
+          case _ =>
+            s"RTDomain(${printer.csRTDomainCfg(rt.cfg)})"
       case DomainType.ED => "EDDomain"
     s"${named}new $domainStr:\n${body.hindent}"
+  end csDomainBlock
 
 end DFOwnerPrinter

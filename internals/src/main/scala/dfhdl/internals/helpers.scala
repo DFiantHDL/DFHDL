@@ -3,6 +3,7 @@ import scala.quoted.*
 import scala.annotation.tailrec
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.collection.mutable
+import scala.util.matching.Regex
 extension [T](t: T)
   def debugPrint: T =
     println(t)
@@ -232,6 +233,7 @@ trait AssertGiven[G, M <: String]
 object AssertGiven:
   transparent inline given [G, M <: String]: AssertGiven[G, M] =
     ${ macroImpl[G, M] }
+  object Success extends AssertGiven[Any, String]
   def macroImpl[G, M <: String](using
       Quotes,
       Type[G],
@@ -248,7 +250,7 @@ object AssertGiven:
             case '[x] =>
               Expr.summon[x].nonEmpty
 
-    if (recur(TypeRepr.of[G])) '{ new AssertGiven[G, M] {} }
+    if (recur(TypeRepr.of[G])) '{ Success.asInstanceOf[AssertGiven[G, M]] }
     else
       val ConstantType(StringConstant(msg)) = TypeRepr.of[M].dealias: @unchecked
       '{ compiletime.error(${ Expr(msg) }) }
@@ -303,7 +305,15 @@ extension (str: String)
     if (str.isEmpty) str else f(str)
   // We translate the windows `\` to unix `/`
   def forceWindowsToLinuxPath: String = str.replaceAll("""\\""", "/")
-
+  def simplePattenToRegex: Regex =
+    val updatedPattern =
+      "^" + str
+        .replace(".", "\\.") // Escape dots to match literal dots
+        .replace("*", ".*") // Replace * with .*
+        .replace("?", ".") // Replace ? with .
+        + "$"
+    updatedPattern.r
+end extension
 extension [T](seq: Iterable[T])
   def groupByOrdered[P](f: T => P): List[(P, List[T])] =
     @tailrec
@@ -331,16 +341,16 @@ def getShellCommand: Option[String] =
       val command =
         if osName.contains("linux") then
           Try(Source.fromFile(s"/proc/$id/cmdline").mkString.replace("\u0000", " "))
-        else if osName.contains("mac") then Try(s"ps -p $id -o command=".!!.trim)
+        else if osName.contains("mac") then Try(s"ps -p $id -o command=".!!)
         else if osName.contains("win") then
           Try(
             s"wmic process where processid=$id get commandline".!!
-              .split("\n").drop(1).mkString.trim
+              .split("\n").drop(1).mkString
           )
         else Failure(new UnsupportedOperationException("Unsupported OS"))
 
       command match
-        case Success(cmd) => Some(cmd)
+        case Success(cmd) => Some(cmd.trim)
         case Failure(_)   => None
 
     case Failure(_) => None

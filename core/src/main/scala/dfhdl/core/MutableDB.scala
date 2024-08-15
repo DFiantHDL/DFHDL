@@ -36,6 +36,7 @@ class DesignContext:
   val memberTable = mutable.Map.empty[DFMember, Int]
   val refTable = mutable.Map.empty[DFRefAny, DFMember]
   val originRefTable = mutable.Map.empty[DFRef.TwoWayAny, DFMember]
+  val unreachableNamedValues = mutable.Map.empty[DFVal, DFVal]
   var defInputs = List.empty[DFValAny]
   var isDuplicate = false
 
@@ -51,15 +52,19 @@ class DesignContext:
 
   // same as addMember, but if the member is at design-level scope,
   // the ownerRef needs to be added, referring to the meta designer owner.
-  def plantMember[M <: DFMember](owner: DFOwner, member: M)(using MemberGetSet): M =
-    member.getOwner match
-      case _: DFDesignBlock =>
-        // now this reference will refer to meta design owner
-        newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
-          member.ownerRef,
-          owner
-        )
-      case _ => // do nothing
+  def plantMember[M <: DFMember](
+      owner: DFOwner,
+      member: M,
+      updateOwnerCond: DFOwner => Boolean = _.isInstanceOf[DFDesignBlock]
+  )(using
+      MemberGetSet
+  ): M =
+    if (updateOwnerCond(member.getOwner))
+      // now this reference will refer to meta design owner
+      newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
+        member.ownerRef,
+        owner
+      )
     addMember(member)
   end plantMember
 
@@ -131,6 +136,9 @@ class DesignContext:
   def getMemberList: List[DFMember] =
     members.view.filterNot(e => e.ignore).map(e => e.irValue).toList
   def getRefTable: Map[DFRefAny, DFMember] = refTable.toMap
+
+  def getReachableNamedValue(dfVal: DFVal, cf: => DFVal): DFVal =
+    unreachableNamedValues.getOrElseUpdate(dfVal, cf)
 end DesignContext
 
 final class MutableDB():
@@ -238,6 +246,8 @@ final class MutableDB():
       current.members.view.reverse.collectFirst { case MemberEntry(d: DFDesignBlock, _, _) =>
         d
       }.get
+    def getReachableNamedValue(dfVal: DFVal, cf: => DFVal): DFVal =
+      current.getReachableNamedValue(dfVal, cf)
   end DesignContext
 
   val injectedCtx = mutable.Set.empty[DesignContext]
@@ -284,19 +294,6 @@ final class MutableDB():
     def ownerOption: Option[DFOwner] = stack.headOption
   end OwnershipContext
 
-  object RTDomainCfgContext:
-    private val clkTFEs = mutable.Map.empty[RTDomainCfg.Explicit, DFOpaque.Clk]
-    private val rstTFEs = mutable.Map.empty[RTDomainCfg.Explicit, DFOpaque.Rst]
-    def getClkOpaque(
-        cfg: RTDomainCfg.Explicit,
-        opaqueTFE: => DFOpaque.Clk
-    ): DFOpaque.Clk = clkTFEs.getOrElseUpdate(cfg, opaqueTFE)
-    def getRstOpaque(
-        cfg: RTDomainCfg.Explicit,
-        opaqueTFE: => DFOpaque.Rst
-    ): DFOpaque.Rst = rstTFEs.getOrElseUpdate(cfg, opaqueTFE)
-  end RTDomainCfgContext
-
   object GlobalTagContext:
     private[MutableDB] val tagMap: mutable.Map[(Any, ClassTag[?]), DFTag] =
       mutable.Map()
@@ -322,9 +319,13 @@ final class MutableDB():
     DesignContext.current.addMember(member)
 
   // same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
-  def plantMember[M <: DFMember](owner: DFOwner, member: M): M =
+  def plantMember[M <: DFMember](
+      owner: DFOwner,
+      member: M,
+      updateOwnerCond: DFOwner => Boolean = _.isInstanceOf[DFDesignBlock]
+  ): M =
     dirtyDB()
-    DesignContext.current.plantMember(owner, member)(using metaGetSetOpt.get)
+    DesignContext.current.plantMember(owner, member, updateOwnerCond)(using metaGetSetOpt.get)
 
   def newRefFor[M <: DFMember, R <: DFRef[M]](ref: R, member: M): R =
     dirtyDB()
@@ -446,7 +447,7 @@ final class MutableDB():
                   design -> design.copy(
                     dclMeta = design.dclMeta.copy(nameOpt = Some(updatedDclName)),
                     tags = tags
-                  ),
+                  )
                 )
               case _ => Nil
             }

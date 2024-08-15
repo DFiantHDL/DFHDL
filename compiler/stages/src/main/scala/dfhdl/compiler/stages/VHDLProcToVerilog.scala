@@ -25,6 +25,7 @@ case object VHDLProcToVerilog extends Stage:
   def dependencies: List[Stage] = List(DropMagnets)
 
   def nullifies: Set[Stage] = Set()
+  override def runCondition(using co: CompilerOptions): Boolean = co.backend.isVerilog
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] = designDB.members.flatMap {

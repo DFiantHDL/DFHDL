@@ -95,7 +95,7 @@ object DFMember:
       case _     => false
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
-    def getRefs: List[DFRef.TwoWayAny] = Nil
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
 
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
@@ -114,7 +114,7 @@ object DFMember:
         // more complex referencing just summons the two owner chains and compares them.
         // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
         val memberChain = this.getOwnerChain.collect { case o: DFOwnerNamed => o }
-        val ctxChain = namedOwner.getOwnerChain.collect { case o: DFOwnerNamed => o }
+        val ctxChain = namedOwner.getOwnerChain.collect { case o: DFOwnerNamed => o } :+ namedOwner
         val samePath = memberChain.lazyZip(ctxChain).count(_ == _)
         s"${memberChain.drop(samePath).map(_.getName).mkString(".")}.$getName"
     end getRelativeName
@@ -129,27 +129,47 @@ sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
   def width(using MemberGetSet): Int = dfType.width
   def isGlobal: Boolean = false
-  protected def protIsConst(using MemberGetSet): Boolean
+  protected def protIsFullyAnonymous(using MemberGetSet): Boolean
   // using just an integer to escape redundant boxing Option[Boolean] would have achieved
-  private var cachedIsConst: Int = -1
-  final def isConst(using MemberGetSet): Boolean =
-    if (cachedIsConst == -1)
-      val localIsConst = protIsConst
-      cachedIsConst = if (localIsConst) 1 else 0
-      localIsConst
-    else if (cachedIsConst > 0) true
+  private var cachedIsFullyAnonymous: Int = -1
+  final def isFullyAnonymous(using MemberGetSet): Boolean =
+    if (cachedIsFullyAnonymous == -1)
+      val localIsFullyAnonymous = protIsFullyAnonymous
+      cachedIsFullyAnonymous = if (localIsFullyAnonymous) 1 else 0
+      localIsFullyAnonymous
+    else if (cachedIsFullyAnonymous > 0) true
     else false
+  final def isConst(using MemberGetSet): Boolean = getConstData.nonEmpty
+  protected def protGetConstData(using MemberGetSet): Option[Any]
+  private var cachedConstDataReady: Boolean = false
+  private var cachedConstData: Option[Any] = None
+  final def wasConstDataAccessed: Boolean = cachedConstDataReady
+  final def getConstData(using MemberGetSet): Option[Any] =
+    if (cachedConstDataReady) cachedConstData
+    else
+      cachedConstData = protGetConstData
+      cachedConstDataReady = true
+      cachedConstData
   def updateDFType(dfType: DFType): this.type
 end DFVal
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
-  final case class Modifier(dir: Modifier.Dir, reg: Boolean) derives CanEqual:
-    override def toString(): String = if (reg) s"$dir.REG" else dir.toString()
+  final case class Modifier(dir: Modifier.Dir, special: Modifier.Special) derives CanEqual:
+    override def toString(): String =
+      special match
+        case Modifier.Special.Ordinary => dir.toString()
+        case _                         => s"$dir.$special"
   object Modifier:
+    extension (mod: Modifier)
+      def isReg: Boolean = mod.special == REG
+      def isShared: Boolean = mod.special == SHARED
     enum Dir derives CanEqual:
       case VAR, IN, OUT, INOUT
     export Dir.{VAR, IN, OUT, INOUT}
+    enum Special derives CanEqual:
+      case Ordinary, REG, SHARED
+    export Special.{Ordinary, REG, SHARED}
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match
@@ -198,12 +218,14 @@ object DFVal:
             case partial: DFVal.Alias.ApplyRange =>
               relVal.departial(range.offset(partial.relBitLow))
             case partial: DFVal.Alias.ApplyIdx =>
-              partial match
-                case DFVal.Alias.ApplyIdx.Const(idx) =>
+              partial.relIdx.get match
+                case DFVal.Alias.ApplyIdx.ConstIdx(idx) =>
                   relVal.departial(range.offset(idx * partial.width))
                 // if not a constant index selection, then the entire value range is affected
                 case _ =>
-                  (relVal, range)
+                  relVal.dealias match
+                    case Some(dcl: DFVal.Dcl) => (dcl, range)
+                    case _                    => (relVal, range)
             case partial: DFVal.Alias.SelectField =>
               relVal.departial(
                 range.offset(
@@ -220,63 +242,13 @@ object DFVal:
     def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Range)] =
       departial match
         case (dcl: DFVal.Dcl, range) => Some(dcl, range)
-        case _                       => None
+        case x =>
+          println(x)
+          None
     def stripPortSel(using MemberGetSet): DFVal = dfVal match
       case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
       case _                               => dfVal
-    def getParamData(using MemberGetSet): Option[Any] =
-      dfVal match
-        case const: DFVal.Const => Some(const.data)
-        case func: DFVal.Func =>
-          val args = func.args.map(_.get)
-          val argData = args.flatMap(_.getParamData)
-          val argTypes = args.map(_.dfType)
-          if (argData.length != func.args.length) None
-          else Some(calcFuncData(func.dfType, func.op, argTypes, argData))
-        case alias: DFVal.Alias =>
-          val relVal = alias.relValRef.get
-          relVal.getParamData match
-            case Some(relValData) =>
-              alias match
-                case alias: DFVal.Alias.AsIs =>
-                  Some(
-                    dataConversion(alias.dfType, relVal.dfType)(
-                      relValData.asInstanceOf[relVal.dfType.Data]
-                    )
-                  )
-                case alias: DFVal.Alias.ApplyRange =>
-                  Some(
-                    selBitRangeData(
-                      relValData.asInstanceOf[(BitVector, BitVector)],
-                      alias.relBitHigh,
-                      alias.relBitLow
-                    )
-                  )
-                case alias: DFVal.Alias.ApplyIdx =>
-                  val relIdx = alias.relIdx.get
-                  relIdx.getParamData match
-                    case Some(Some(idx: BigInt)) =>
-                      val idxInt = idx.toInt
-                      val outData = relVal.dfType match
-                        case DFBits(_) =>
-                          val data = relValData.asInstanceOf[(BitVector, BitVector)]
-                          if (data._2.bit(idxInt)) None
-                          else Some(data._1.bit(idxInt))
-                        case DFVector(_, _) =>
-                          Some(relValData.asInstanceOf[Vector[?]](idxInt))
-                        case _ => ???
-                      Some(outData)
-                    case Some(_: None.type) => Some(None)
-                    case _                  => None
-                case alias: DFVal.Alias.History => None
-                case alias: DFVal.Alias.SelectField =>
-                  val idx = relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(alias.fieldName)
-                  Some(relValData.asInstanceOf[List[?]](idx))
-            case None => None
-          end match
-        case _ => None
-      end match
-    end getParamData
+    def getDomainType(using MemberGetSet): DomainType = dfVal.getOwnerDomain.domainType
   end extension
   // can be an expression
   sealed trait CanBeExpr extends DFVal
@@ -303,7 +275,8 @@ object DFVal:
       tags: DFTags
   ) extends CanBeExpr,
         CanBeGlobal:
-    protected def protIsConst(using MemberGetSet): Boolean = true
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = this.isAnonymous
+    protected def protGetConstData(using MemberGetSet): Option[Any] = Some(data)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
         given CanEqual[Any, Any] = CanEqual.derived
@@ -312,7 +285,7 @@ object DFVal:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end Const
 
@@ -322,13 +295,14 @@ object DFVal:
   ) extends DFVal:
     val meta: Meta = Meta(None, Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case _: Open => true
       case _       => false
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
-    def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end Open
 
@@ -340,7 +314,8 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends DFVal:
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Dcl =>
         val sameInit =
@@ -353,11 +328,18 @@ object DFVal:
     def initList(using MemberGetSet): List[DFVal] = initRefList.map(_.get)
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ initRefList
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ initRefList
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end Dcl
   object Dcl:
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
+    extension (dcl: Dcl)
+      def isClkDcl(using MemberGetSet): Boolean = dcl.dfType match
+        case DFOpaque(_, id: DFOpaque.Clk, _) => true
+        case _                                => false
+      def isRstDcl(using MemberGetSet): Boolean = dcl.dfType match
+        case DFOpaque(_, id: DFOpaque.Rst, _) => true
+        case _                                => false
 
   final case class Func(
       dfType: DFType,
@@ -368,8 +350,14 @@ object DFVal:
       tags: DFTags
   ) extends CanBeExpr,
         CanBeGlobal:
-    protected def protIsConst(using MemberGetSet): Boolean =
-      args.forall(_.get.isConst)
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+      args.forall(_.get.isFullyAnonymous)
+    protected def protGetConstData(using MemberGetSet): Option[Any] =
+      val args = this.args.map(_.get)
+      val argData = args.flatMap(_.getConstData)
+      val argTypes = args.map(_.dfType)
+      if (argData.length != this.args.length) None
+      else Some(calcFuncData(dfType, op, argTypes, argData))
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Func =>
         this.dfType =~ that.dfType && this.op == that.op && (this.args
@@ -379,17 +367,19 @@ object DFVal:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ args
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ args
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end Func
 
   object Func:
     enum Op derives CanEqual:
       case +, -, *, /, ===, =!=, <, >, <=, >=, &, |, ^, %, ++
-      case >>, <<, ror, rol, reverse, repeat
+      case >>, <<, **, ror, rol, reverse, repeat
       case unary_-, unary_~, unary_!
       case rising, falling
-      case clog2, max, min
+      case clog2, max, min, sel
+      // special-case of initFile construct for vectors of bits
+      case InitFile(format: InitFileFormat, path: String)
 
   final case class PortByNameSelect(
       dfType: DFType,
@@ -399,7 +389,8 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends DFVal:
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: PortByNameSelect =>
         this.dfType =~ that.dfType && this.designInstRef =~ that.designInstRef &&
@@ -408,7 +399,7 @@ object DFVal:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = designInstRef :: dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = designInstRef :: dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end PortByNameSelect
   object PortByNameSelect:
@@ -423,7 +414,7 @@ object DFVal:
 
   sealed trait Alias extends CanBeExpr:
     val relValRef: Alias.Ref
-    def getRefs: List[DFRef.TwoWayAny] = relValRef :: dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = relValRef :: dfType.getRefs
 
   object Alias:
     case object IdentTag extends DFTagOf[DFVal]
@@ -447,7 +438,13 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
-      protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous
+      protected def protGetConstData(using MemberGetSet): Option[Any] =
+        val relVal = relValRef.get
+        relVal.getConstData.map(relValData =>
+          dataConversion(dfType, relVal.dfType)(relValData.asInstanceOf[relVal.dfType.Data])
+        )
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: AsIs =>
           // design parameters are considered to be the same even if they are referencing
@@ -474,7 +471,9 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Consumer:
-      protected def protIsConst(using MemberGetSet): Boolean = false
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous && initRefOption.map(_.get.isFullyAnonymous).getOrElse(true)
+      protected def protGetConstData(using MemberGetSet): Option[Any] = None
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: History =>
           val sameInit = (this.initRefOption, that.initRefOption) match
@@ -488,7 +487,8 @@ object DFVal:
       def initOption(using MemberGetSet): Option[DFVal] = initRefOption.map(_.get)
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-      override def getRefs: List[DFRef.TwoWayAny] = relValRef :: dfType.getRefs ++ initRefOption
+      override lazy val getRefs: List[DFRef.TwoWayAny] =
+        relValRef :: dfType.getRefs ++ initRefOption
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     end History
 
@@ -506,7 +506,13 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
-      protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous
+      protected def protGetConstData(using MemberGetSet): Option[Any] =
+        val relVal = relValRef.get
+        relVal.getConstData.map(relValData =>
+          selBitRangeData(relValData.asInstanceOf[(BitVector, BitVector)], relBitHigh, relBitLow)
+        )
       val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
@@ -526,8 +532,28 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
-      protected def protIsConst(using MemberGetSet): Boolean =
-        relValRef.get.isConst && relIdx.get.isConst
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous && relIdx.get.isFullyAnonymous
+      protected def protGetConstData(using MemberGetSet): Option[Any] =
+        val relVal = relValRef.get
+        relVal.getConstData.flatMap(relValData =>
+          val relIdx = this.relIdx.get
+          relIdx.getConstData match
+            case Some(Some(idx: BigInt)) =>
+              val idxInt = idx.toInt
+              val outData = relVal.dfType match
+                case DFBits(_) =>
+                  val data = relValData.asInstanceOf[(BitVector, BitVector)]
+                  if (data._2.bit(idxInt)) None
+                  else Some(data._1.bit(idxInt))
+                case DFVector(_, _) =>
+                  relValData.asInstanceOf[Vector[?]](idxInt)
+                case _ => ???
+              Some(outData)
+            case Some(_: None.type) => Some(None)
+            case _                  => None
+        )
+      end protGetConstData
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyIdx =>
           this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
@@ -536,13 +562,13 @@ object DFVal:
         case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-      override def getRefs: List[DFRef.TwoWayAny] = relIdx :: relValRef :: dfType.getRefs
+      override lazy val getRefs: List[DFRef.TwoWayAny] = relIdx :: relValRef :: dfType.getRefs
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     end ApplyIdx
     object ApplyIdx:
-      object Const:
-        def unapply(applyIdx: ApplyIdx)(using MemberGetSet): Option[Int] =
-          applyIdx.relIdx.get match
+      object ConstIdx:
+        def unapply(idx: DFVal.Const)(using MemberGetSet): Option[Int] =
+          idx match
             case DFVal.Const(DFInt32, data: Option[BigInt] @unchecked, _, _, _) =>
               data.map(_.toInt)
             case _ => None
@@ -555,7 +581,14 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial:
-      protected def protIsConst(using MemberGetSet): Boolean = relValRef.get.isConst
+      protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
+        relValRef.get.isFullyAnonymous
+      protected def protGetConstData(using MemberGetSet): Option[Any] =
+        val relVal = relValRef.get
+        relVal.getConstData.map(relValData =>
+          val idx = relVal.dfType.asInstanceOf[DFStruct].fieldRelBitLow(fieldName)
+          relValData.asInstanceOf[List[?]](idx)
+        )
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: SelectField =>
           this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
@@ -584,7 +617,7 @@ final case class DFNet(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRef.TwoWayAny] = List(lhsRef, rhsRef)
+  lazy val getRefs: List[DFRef.TwoWayAny] = List(lhsRef, rhsRef)
 end DFNet
 
 object DFNet:
@@ -628,7 +661,7 @@ object DFNet:
   object Connection:
     def unapply(net: DFNet)(using
         MemberGetSet
-        //             toVal                      fromVal              Swapped
+        //             toVal                                 fromVal              Swapped
     ): Option[(DFVal.Dcl | DFVal.Open | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
       if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>
@@ -663,12 +696,12 @@ final case class DFInterfaceOwner(
 ) extends DFDomainOwner:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFInterfaceOwner =>
-      this.domainType == that.domainType &&
+      this.domainType =~ that.domainType &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
 end DFInterfaceOwner
 
 sealed trait DFBlock extends DFOwner
@@ -687,7 +720,7 @@ final case class ProcessBlock(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRef.TwoWayAny] = sensitivity.getRefs
+  lazy val getRefs: List[DFRef.TwoWayAny] = sensitivity.getRefs
 end ProcessBlock
 object ProcessBlock:
   sealed trait Sensitivity extends HasRefCompare[Sensitivity], Product, Serializable
@@ -697,12 +730,12 @@ object ProcessBlock:
       protected def `prot_=~`(that: Sensitivity)(using MemberGetSet): Boolean = that match
         case All => true
         case _   => false
-      def getRefs: scala.List[DFRef.TwoWayAny] = Nil
+      lazy val getRefs: scala.List[DFRef.TwoWayAny] = Nil
     final case class List(refs: scala.List[DFVal.Ref]) extends Sensitivity:
       protected def `prot_=~`(that: Sensitivity)(using MemberGetSet): Boolean = that match
         case that: List => this.refs.lazyZip(that.refs).forall(_ =~ _)
         case _          => false
-      def getRefs: scala.List[DFRef.TwoWayAny] = refs
+      lazy val getRefs: scala.List[DFRef.TwoWayAny] = refs
 
 object DFConditional:
   sealed trait Block extends DFBlock:
@@ -725,8 +758,11 @@ object DFConditional:
   ) extends Header:
     type TBlock = DFCaseBlock
     // TODO: if all returned expressions in all blocks and the selector is constant, then
+    // the returned result is a fully anonymous
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
+    // TODO: if all returned expressions in all blocks and the selector is constant, then
     // the returned result is a constant
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFMatchHeader =>
         this.dfType =~ that.dfType && this.selectorRef =~ that.selectorRef &&
@@ -734,7 +770,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = selectorRef :: dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = selectorRef :: dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end DFMatchHeader
 
@@ -755,7 +791,8 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = List(guardRef, prevBlockOrHeaderRef) ++ pattern.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] =
+      List(guardRef, prevBlockOrHeaderRef) ++ pattern.getRefs
   end DFCaseBlock
   object DFCaseBlock:
     type Ref = DFRef.TwoWay[DFCaseBlock | DFMatchHeader, Block]
@@ -763,21 +800,21 @@ object DFConditional:
     object Pattern:
       case object CatchAll extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean = this == that
-        def getRefs: List[DFRef.TwoWayAny] = Nil
+        lazy val getRefs: List[DFRef.TwoWayAny] = Nil
       final case class Singleton(valueRef: DFVal.Ref) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
             case that: Singleton =>
               this.valueRef =~ that.valueRef
             case _ => false
-        def getRefs: List[DFRef.TwoWayAny] = List(valueRef)
+        lazy val getRefs: List[DFRef.TwoWayAny] = List(valueRef)
       final case class Alternative(list: List[Pattern]) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
             case that: Alternative =>
               this.list.lazyZip(that.list).forall(_ =~ _)
             case _ => false
-        def getRefs: List[DFRef.TwoWayAny] = list.flatMap(_.getRefs)
+        lazy val getRefs: List[DFRef.TwoWayAny] = list.flatMap(_.getRefs)
       final case class Struct(name: String, fieldPatterns: List[Pattern]) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
@@ -786,14 +823,14 @@ object DFConditional:
                 .lazyZip(that.fieldPatterns)
                 .forall(_ =~ _)
             case _ => false
-        def getRefs: List[DFRef.TwoWayAny] = fieldPatterns.flatMap(_.getRefs)
+        lazy val getRefs: List[DFRef.TwoWayAny] = fieldPatterns.flatMap(_.getRefs)
       final case class Bind(ref: Bind.Ref, pattern: Pattern) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
             case that: Bind =>
               this.ref =~ that.ref && this.pattern =~ that.pattern
             case _ => false
-        def getRefs: List[DFRef.TwoWayAny] = ref :: pattern.getRefs
+        lazy val getRefs: List[DFRef.TwoWayAny] = ref :: pattern.getRefs
       object Bind:
         type Ref = DFRef.TwoWay[DFVal, DFCaseBlock]
         case object Tag extends DFTagOf[DFVal]
@@ -809,7 +846,7 @@ object DFConditional:
                 .lazyZip(that.refs)
                 .forall(_ =~ _)
             case _ => false
-        def getRefs: List[DFRef.TwoWayAny] = refs
+        lazy val getRefs: List[DFRef.TwoWayAny] = refs
     end Pattern
   end DFCaseBlock
 
@@ -821,8 +858,11 @@ object DFConditional:
   ) extends Header:
     type TBlock = DFIfElseBlock
     // TODO: if all returned expressions in all blocks and the selector is constant, then
+    // the returned result is a fully anonymous
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
+    // TODO: if all returned expressions in all blocks and the selector is constant, then
     // the returned result is a constant
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: DFIfHeader =>
         this.dfType =~ that.dfType &&
@@ -830,7 +870,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end DFIfHeader
 
@@ -849,7 +889,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = List(guardRef, prevBlockOrHeaderRef)
+    lazy val getRefs: List[DFRef.TwoWayAny] = List(guardRef, prevBlockOrHeaderRef)
   end DFIfElseBlock
   object DFIfElseBlock:
     type Ref = DFRef.TwoWay[DFIfElseBlock | DFIfHeader, Block]
@@ -867,14 +907,14 @@ final case class DFDesignBlock(
   val dclName: String = dclMeta.name
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
-      this.domainType == that.domainType &&
+      this.domainType =~ that.domainType &&
       this.dclMeta == that.dclMeta &&
       this.instMode == that.instMode &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
 end DFDesignBlock
 
 object DFDesignBlock:
@@ -901,9 +941,9 @@ object DFDesignBlock:
         chain
       var chain1 = getOwnerDesignChain(dsn)
       var chain2 = getOwnerDesignChain(dsn2)
-      while (chain1.drop(1).headOption == chain2.drop(1).headOption)
+      while (chain1.length > 1 && chain1.drop(1).headOption == chain2.drop(1).headOption)
         chain1 = chain1.drop(1)
-        chain2 = chain2.drop(2)
+        chain2 = chain2.drop(1)
       chain1.head
   end extension
 
@@ -923,14 +963,17 @@ final case class DomainBlock(
     tags: DFTags
 ) extends DFBlock,
       DFDomainOwner:
+  def flattenMode: dfhdl.hw.flattenMode = meta.annotations.collectFirst {
+    case fm: dfhdl.hw.flattenMode => fm
+  }.getOrElse(dfhdl.hw.flattenMode.defaultPrefixUnderscore)
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DomainBlock =>
-      this.domainType == that.domainType &&
+      this.domainType =~ that.domainType &&
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  def getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
 end DomainBlock
 
 sealed trait DFSimMember extends DFMember
@@ -946,7 +989,7 @@ object DFSimMember:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = Nil
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
 
 sealed trait Timer extends DFMember.Named
 object Timer:
@@ -954,19 +997,19 @@ object Timer:
   type TriggerRef = DFRef.TwoWay[DFVal | DFMember.Empty, DFMember]
   final case class Periodic(
       triggerRef: TriggerRef,
-      periodOpt: Option[Time],
+      rateOpt: Option[Rate],
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
   ) extends Timer:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Periodic =>
-        this.triggerRef =~ that.triggerRef && this.periodOpt == that.periodOpt &&
+        this.triggerRef =~ that.triggerRef && this.rateOpt == that.rateOpt &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
+    lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
   end Periodic
 
   final case class Func(
@@ -984,7 +1027,7 @@ object Timer:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = List(sourceRef)
+    lazy val getRefs: List[DFRef.TwoWayAny] = List(sourceRef)
   end Func
   object Func:
     enum Op derives CanEqual:
@@ -997,7 +1040,9 @@ object Timer:
       tags: DFTags
   ) extends DFVal.CanBeExpr:
     val dfType: DFType = DFBool
-    protected def protIsConst(using MemberGetSet): Boolean = false
+    // TODO: revisit this in the future. can an active indication of a timer be fully anonymous?
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: IsActive =>
         this.timerRef =~ that.timerRef &&
@@ -1005,7 +1050,7 @@ object Timer:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = List(timerRef)
+    lazy val getRefs: List[DFRef.TwoWayAny] = List(timerRef)
     def updateDFType(dfType: DFType): this.type = this
   end IsActive
 end Timer
@@ -1025,7 +1070,7 @@ object Wait:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = Nil
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
 
   type TriggerRef = DFRef.TwoWay[DFVal, DFMember]
   final case class Until(
@@ -1041,5 +1086,5 @@ object Wait:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    def getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
+    lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
 end Wait

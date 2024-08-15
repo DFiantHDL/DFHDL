@@ -11,7 +11,7 @@ import scala.collection.mutable
 
 case object DropBinds extends Stage:
   def dependencies: List[Stage] = List()
-  def nullifies: Set[Stage] = Set()
+  def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   // this unapply matches on bind patterns, strip them of their binds, and returns the binds as a list
   private object ReplacePattern:
     def unapply(
@@ -107,12 +107,9 @@ case object DropBinds extends Stage:
             // reference the first bind that is stripped from its alias.
             else
               val aliasIR = headBind.removeTagOf[Pattern.Bind.Tag.type]
-              singletonPatternConstsPatch :: (
-                headBind -> Patch.Replace(
-                  aliasIR,
-                  Patch.Replace.Config.FullReplacement
-                )
-              ) :: otherBinds.map(b =>
+              val dropBindTagPatch =
+                headBind -> Patch.Replace(aliasIR, Patch.Replace.Config.FullReplacement)
+              dropBindTagPatch :: otherBinds.map(b =>
                 b -> Patch.Replace(aliasIR, Patch.Replace.Config.ChangeRefAndRemove)
               )
             end if
@@ -126,7 +123,7 @@ case object DropBinds extends Stage:
 //              varsIR.view.reverse.forconstStr> v.asVarAny := v.asVarAny.asInitialized.prev)
 //            c -> Patch.Add(dsn, Patch.Add.Config.InsideLast)
 //        }.toList
-        casesPatchList ++ bindsPatchList // ++ stallsPatchList
+        singletonPatternConstsPatch :: bindsPatchList ++ casesPatchList // ++ stallsPatchList
       case _ => None
     }
     designDB.patch(patchList)

@@ -23,13 +23,15 @@ end extension
 
 final class Exact[T](val value: T) extends AnyVal
 object Exact:
-  inline def apply[T](value: T): Exact[T] = new Exact(value)
+  inline def apply[T](inline value: T): Exact[T] = new Exact(value)
   def strip(value: Any): Any =
     value match
       case exact: Exact[?] => strip(exact.value)
       case _               => value
   // We need this `fromRegularTypes` as a workaround for DFStruct where `v := XY(h"27", ...)`
-  implicit inline def fromValue[T](value: T)(using NotGiven[T <:< ExactTypes]): Exact[T] =
+  implicit inline def fromValue[T](value: T)(using
+      inline ng: NotGiven[T <:< ExactTypes]
+  ): Exact[T] =
     Exact[T](value)
   // TODO: remove when https://github.com/lampepfl/dotty/issues/12975 is resolved
   implicit transparent inline def fromExactTypes[T <: ExactTypes](
@@ -65,7 +67,7 @@ object Exact:
     '{ Exact[tpe.Underlying](${ valueTerm.asExpr }) }
   end fromValueMacro
 
-  implicit inline def toValue[T](exact: Exact[T]): T = exact.value
+  implicit inline def toValue[T](inline exact: Exact[T]): T = exact.value
 
   trait Summon[R, T <: R]:
     type Out
@@ -76,6 +78,10 @@ object Exact:
       def apply(t: R): Out = t
     transparent inline given fromExactTypes[R <: ExactTypes, T <: R]: Summon[R, T] =
       ${ summonMacro[R, T] }
+    object Success extends Summon[Any, Any]:
+      type Out = Any
+      def apply(t: Any): Out = t
+
     def summonMacro[R, T <: R](using
         Quotes,
         Type[R],
@@ -88,17 +94,9 @@ object Exact:
           val exact = arg.exactTerm
           val exactExpr = exact.asExpr
           val exactType = exact.tpe.asTypeOf[Any]
-          '{
-            new Summon[R, T]:
-              type Out = exactType.Underlying
-              def apply(t: R) = ${ exactExpr }
-          }
+          '{ Success.asInstanceOf[Summon[R, T] { type Out = exactType.Underlying }] }
         case _ =>
-          '{
-            new Summon[R, T]:
-              type Out = R
-              def apply(t: R): Out = t
-          }
+          '{ Success.asInstanceOf[Summon[R, T] { type Out = R }] }
       end match
     end summonMacro
   end Summon

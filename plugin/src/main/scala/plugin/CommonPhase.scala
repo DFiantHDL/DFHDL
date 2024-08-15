@@ -328,11 +328,17 @@ abstract class CommonPhase extends PluginPhase:
         case _ => None
   end ContextArg
 
+  def getRelativePath(absolutePathStr: String): String =
+    import java.nio.file.Paths
+    val absolutePath = Paths.get(absolutePathStr).toAbsolutePath()
+    val currentDir = Paths.get(System.getProperty("user.dir")).toAbsolutePath()
+    currentDir.relativize(absolutePath).toString
+
   extension (srcPos: util.SrcPos)(using Context)
     def positionTree: Tree =
       if (srcPos.span == util.Spans.NoSpan) ref(requiredMethod("dfhdl.internals.Position.unknown"))
       else
-        val fileNameTree = Literal(Constant(srcPos.startPos.source.path))
+        val fileNameTree = Literal(Constant(getRelativePath(srcPos.startPos.source.path)))
         val lineStartTree = Literal(Constant(srcPos.startPos.line + 1))
         val columnStartTree = Literal(Constant(srcPos.startPos.column + 1))
         val lineEndTree = Literal(Constant(srcPos.endPos.line + 1))

@@ -1,31 +1,5 @@
 package dfhdl.compiler.ir
 
-//The reason we use opaque types here and not just types is because scala
-//looses type refinement such as in `val clkCfg = ClkCfg(...)`
-opaque type ConfigDN[T] = T | DerivedCfg.type | None.type
-object ConfigDN:
-  given [T]: Conversion[DerivedCfg.type, ConfigDN[T]] with
-    def apply(x: DerivedCfg.type): ConfigDN[T] = x
-  given [T]: Conversion[None.type, ConfigDN[T]] with
-    def apply(x: None.type): ConfigDN[T] = x
-  given [T]: Conversion[T, ConfigDN[T]] with
-    def apply(x: T): ConfigDN[T] = x
-  given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigDN[T1], ConfigDN[T2]] = CanEqual.derived
-  given [T]: CanEqual[ConfigDN[T], DerivedCfg.type] = CanEqual.derived
-  given [T]: CanEqual[ConfigDN[T], None.type] = CanEqual.derived
-case object DerivedCfg derives CanEqual
-
-opaque type ConfigD[T] = T | DerivedCfg.type
-object ConfigD:
-  given [T]: Conversion[DerivedCfg.type, ConfigD[T]] with
-    def apply(x: DerivedCfg.type): ConfigD[T] = x
-  given [T]: Conversion[T, ConfigD[T]] with
-    def apply(x: T): ConfigD[T] = x
-  given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigD[T1], ConfigD[T2]] = CanEqual.derived
-  given [T]: CanEqual[ConfigD[T], DerivedCfg.type] = CanEqual.derived
-  given [T]: CanEqual[DerivedCfg.type, ConfigD[T]] = CanEqual.derived
-  given [L, R]: CanEqual[ConfigD[L], ConfigD[R]] = CanEqual.derived
-
 opaque type ConfigN[T] = T | None.type
 object ConfigN:
   given [T]: Conversion[None.type, ConfigN[T]] with
@@ -34,9 +8,8 @@ object ConfigN:
     def apply(x: T): ConfigN[T] = x
   given [T1, T2](using CanEqual[T1, T2]): CanEqual[ConfigN[T1], ConfigN[T2]] = CanEqual.derived
   given [T]: CanEqual[ConfigN[T], None.type] = CanEqual.derived
+  given [T]: CanEqual[None.type, ConfigN[T]] = CanEqual.derived
   given [L, R]: CanEqual[ConfigN[L], ConfigN[R]] = CanEqual.derived
-
-type NameCfg = ConfigD[String]
 
 type ClkCfg = ConfigN[ClkCfg.Explicit]
 object ClkCfg:
@@ -44,7 +17,9 @@ object ClkCfg:
     case Rising, Falling
 
   final case class Explicit(
-      edge: Edge
+      edge: Edge,
+      rate: Rate,
+      portName: String
   ) derives CanEqual
 
 type RstCfg = ConfigN[RstCfg.Explicit]
@@ -56,12 +31,37 @@ object RstCfg:
 
   final case class Explicit(
       mode: Mode,
-      active: Active
+      active: Active,
+      portName: String
   ) derives CanEqual
 end RstCfg
 
-type RTDomainCfg = ConfigD[RTDomainCfg.Explicit]
+enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual:
+  case Derived
+  case Related(relatedDomainRef: RTDomainCfg.RelatedDomainRef) extends RTDomainCfg
+  case Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg)
+      extends RTDomainCfg,
+      NamedGlobal,
+      DFTagOf[DFDesignBlock]
+
+  def isDerivedNoRst: Boolean = this match
+    case cfg: Explicit if cfg.name.endsWith(".norst") => true
+    case _                                            => false
+
+  def norst: this.type = this match
+    case cfg: Explicit if cfg.rstCfg != None && !cfg.isDerivedNoRst =>
+      Explicit(s"${cfg.name}.norst", cfg.clkCfg, None).asInstanceOf[this.type]
+    case _ => this
+
+  protected def `prot_=~`(that: RTDomainCfg)(using MemberGetSet): Boolean =
+    (this, that) match
+      case (Related(thisRef), Related(thatRef)) => thisRef =~ thatRef
+      case _                                    => this == that
+
+  lazy val getRefs: List[DFRef.TwoWayAny] = this match
+    case Related(relatedDomainRef) => List(relatedDomainRef)
+    case _                         => Nil
+end RTDomainCfg
+
 object RTDomainCfg:
-  final case class Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg)
-      extends NamedGlobal,
-        DFTagOf[DFDesignBlock] derives CanEqual
+  type RelatedDomainRef = DFRef.TwoWay[DomainBlock | DFDesignBlock, DomainBlock]

@@ -95,13 +95,17 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
           argsExpr.zipWithIndex.map { case (_, i) => lambda.param(i) }
         )
 
+  val condOpt: Option[Boolean] = condValueTpe.dealias match
+    case ConstantType(BooleanConstant(cond)) => Some(cond)
+    case _                                   => None
+
   def applyExpr(argsTerm: List[Term]): Expr[Unit] =
     def condExpr = lambdaTypeToTerm(argsTerm, condTpe)
       .asExprOf[Boolean]
     def msgExpr = lambdaTypeToTerm(argsTerm, msgTpe)
       .asExprOf[String]
-    condValueTpe.dealias match
-      case ConstantType(BooleanConstant(cond)) =>
+    condOpt match
+      case Some(cond) =>
         if (cond)
           '{} // the condition is satisfied, hence the apply method does nothing
         else
@@ -156,18 +160,36 @@ object Check1:
       Warn <: Boolean
   ]:
     def apply(arg: Wide): Unit
-  inline given [
-      Wide,
-      T,
-      TUB <: Wide,
-      Cond[T <: Wide] <: Boolean,
-      Msg[T <: Wide] <: String,
-      Warn <: Boolean
-  ](using
-      ub: UBound.Aux[Wide, T, TUB],
-      check: Check[Wide, TUB, Cond, Msg, Cond[TUB], Msg[TUB], Warn]
-  ): CheckNUB[Wide, T, Cond, Msg, Warn] with
-    def apply(arg: Wide): Unit = check(arg)
+
+  object CheckNubOK extends CheckNUB[Any, Any, Nothing, Nothing, Boolean]:
+    def apply(arg: Any): Unit = {}
+
+  protected trait CheckNUBLP:
+    given [
+        Wide,
+        T,
+        TUB <: Wide,
+        Cond[T <: Wide] <: Boolean,
+        Msg[T <: Wide] <: String,
+        Warn <: Boolean
+    ](using
+        ub: UBound.Aux[Wide, T, TUB],
+        check: Check[Wide, TUB, Cond, Msg, Cond[TUB], Msg[TUB], Warn]
+    ): CheckNUB[Wide, T, Cond, Msg, Warn] with
+      def apply(arg: Wide): Unit = check(arg)
+
+  object CheckNUB extends CheckNUBLP:
+    inline given ok[
+        Wide,
+        T,
+        TUB <: Wide,
+        Cond[T <: Wide] <: Boolean,
+        Msg[T <: Wide] <: String,
+        Warn <: Boolean
+    ](using inline ub: UBound.Aux[Wide, T, TUB])(using
+        inline check: Cond[TUB] =:= true
+    ): CheckNUB[Wide, T, Cond, Msg, Warn] =
+      CheckNubOK.asInstanceOf[CheckNUB[Wide, T, Cond, Msg, Warn]]
 
   trait Check[
       Wide,
@@ -179,6 +201,10 @@ object Check1:
       Warn <: Boolean
   ]:
     def apply(arg: Wide): Unit
+
+  object CheckOK extends Check[Any, Any, Nothing, Nothing, Boolean, String, Boolean]:
+    def apply(arg: Any): Unit = {}
+
   inline given [
       Wide,
       T <: Wide,
@@ -218,10 +244,13 @@ object Check1:
       new MacroClass[quotes.type](using quotes)(
         condTpe, msgTpe, condValueTpe, msgValueTpe, warn
       )
-    '{
-      new Check[Wide, T, Cond, Msg, CondValue, MsgValue, Warn]:
-        def apply(arg: Wide): Unit = ${ mc.applyExpr(List('arg.asTerm)) }
-    }
+    if (mc.condOpt == Some(true))
+      '{ CheckOK.asInstanceOf[Check[Wide, T, Cond, Msg, CondValue, MsgValue, Warn]] }
+    else
+      '{
+        new Check[Wide, T, Cond, Msg, CondValue, MsgValue, Warn]:
+          def apply(arg: Wide): Unit = ${ mc.applyExpr(List('arg.asTerm)) }
+      }
   end checkMacro
 end Check1
 
@@ -254,23 +283,46 @@ object Check2:
       Warn <: Boolean
   ]:
     def apply(arg1: Wide1, arg2: Wide2): Unit
-  inline given [
-      Wide1,
-      Wide2,
-      T1,
-      T2,
-      TUB1 <: Wide1,
-      TUB2 <: Wide2,
-      Cond[T1 <: Wide1, T2 <: Wide2] <: Boolean,
-      Msg[T1 <: Wide1, T2 <: Wide2] <: String,
-      Warn <: Boolean
-  ](using
-      ub1: UBound.Aux[Wide1, T1, TUB1],
-      ub2: UBound.Aux[Wide2, T2, TUB2],
-      check: Check[Wide1, Wide2, TUB1, TUB2, Cond, Msg, Cond[TUB1, TUB2], Msg[TUB1, TUB2], Warn]
-  ): CheckNUB[Wide1, Wide2, T1, T2, Cond, Msg, Warn] with
-    def apply(arg1: Wide1, arg2: Wide2): Unit = check(arg1, arg2)
-  end given
+
+  object CheckNUBOK extends CheckNUB[Any, Any, Any, Any, Nothing, Nothing, Boolean]:
+    def apply(arg1: Any, arg2: Any): Unit = {}
+
+  protected trait CheckNUBLP:
+    given [
+        Wide1,
+        Wide2,
+        T1,
+        T2,
+        TUB1 <: Wide1,
+        TUB2 <: Wide2,
+        Cond[T1 <: Wide1, T2 <: Wide2] <: Boolean,
+        Msg[T1 <: Wide1, T2 <: Wide2] <: String,
+        Warn <: Boolean
+    ](using
+        ub1: UBound.Aux[Wide1, T1, TUB1],
+        ub2: UBound.Aux[Wide2, T2, TUB2],
+        check: Check[Wide1, Wide2, TUB1, TUB2, Cond, Msg, Cond[TUB1, TUB2], Msg[TUB1, TUB2], Warn]
+    ): CheckNUB[Wide1, Wide2, T1, T2, Cond, Msg, Warn] with
+      def apply(arg1: Wide1, arg2: Wide2): Unit = check(arg1, arg2)
+    end given
+  end CheckNUBLP
+
+  object CheckNUB extends CheckNUBLP:
+    inline given ok[
+        Wide1,
+        Wide2,
+        T1,
+        T2,
+        TUB1 <: Wide1,
+        TUB2 <: Wide2,
+        Cond[T1 <: Wide1, T2 <: Wide2] <: Boolean,
+        Msg[T1 <: Wide1, T2 <: Wide2] <: String,
+        Warn <: Boolean
+    ](using inline ub1: UBound.Aux[Wide1, T1, TUB1], inline ub2: UBound.Aux[Wide2, T2, TUB2])(using
+        inline check: Cond[TUB1, TUB2] =:= true
+    ): CheckNUB[Wide1, Wide2, T1, T2, Cond, Msg, Warn] =
+      CheckNUBOK.asInstanceOf[CheckNUB[Wide1, Wide2, T1, T2, Cond, Msg, Warn]]
+  end CheckNUB
 
   trait Check[
       Wide1,
@@ -284,6 +336,10 @@ object Check2:
       Warn <: Boolean
   ]:
     def apply(arg1: Wide1, arg2: Wide2): Unit
+
+  object CheckOK extends Check[Any, Any, Any, Any, Nothing, Nothing, Boolean, String, Boolean]:
+    def apply(arg1: Any, arg2: Any): Unit = {}
+
   inline given [
       Wide1,
       Wide2,
@@ -329,11 +385,14 @@ object Check2:
       new MacroClass[quotes.type](using quotes)(
         condTpe, msgTpe, condValueTpe, msgValueTpe, warn
       )
-    '{
-      new Check[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue, Warn]:
-        def apply(arg1: Wide1, arg2: Wide2): Unit = ${
-          mc.applyExpr(List('arg1.asTerm, 'arg2.asTerm))
-        }
-    }
+    if (mc.condOpt == Some(true))
+      '{ CheckOK.asInstanceOf[Check[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue, Warn]] }
+    else
+      '{
+        new Check[Wide1, Wide2, T1, T2, Cond, Msg, CondValue, MsgValue, Warn]:
+          def apply(arg1: Wide1, arg2: Wide2): Unit = ${
+            mc.applyExpr(List('arg1.asTerm, 'arg2.asTerm))
+          }
+      }
   end checkMacro
 end Check2

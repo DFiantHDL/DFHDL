@@ -113,4 +113,31 @@ class ExplicitNamedVarsSpec extends StageSpec:
     )
   }
 
+  test("AES xtime example") {
+    class xtime extends DFDesign:
+      val lhs     = Bits(8) <> IN
+      val shifted = lhs << 1
+      val o       = Bits(8) <> OUT
+      o <> ((
+        if (lhs(7)) shifted ^ h"1b"
+        else shifted
+      ): Bits[8] <> VAL)
+    end xtime
+    val id = (new xtime).explicitNamedVars
+    assertCodeString(
+      id,
+      """|class xtime extends DFDesign:
+         |  val lhs = Bits(8) <> IN
+         |  val shifted = Bits(8) <> VAR
+         |  shifted := lhs << 1
+         |  val o = Bits(8) <> OUT
+         |  val o_part = Bits(8) <> VAR
+         |  if (lhs(7)) o_part := shifted ^ h"1b"
+         |  else o_part := shifted
+         |  o <> o_part
+         |end xtime
+         |""".stripMargin
+    )
+  }
+
 end ExplicitNamedVarsSpec

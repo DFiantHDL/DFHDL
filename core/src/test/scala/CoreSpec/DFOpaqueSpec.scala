@@ -26,10 +26,11 @@ class DFOpaqueSpec extends DFSpec:
        |val q2 = o1 == d"8'1".as(o1u8)
        |o1 := d"8'1".as(o1u8)
        |val z = u8.as(o1u8)
-       |a := Vector(a.actual(0), a.actual(1), a.actual(2), a.actual(3)).as(arr)
-       |val ax = all(u8).as(arr)
+       |a := DFVector(UInt(8) X 4)(a.actual(0), a.actual(1), a.actual(2), a.actual(3)).as(arr)
+       |val ax = DFVector(UInt(8) X 4)(u8, u8, u8, u8).as(arr)
        |val conv: o1u8 <> CONST = d"8'1".as(o1u8)
        |val zz = o1.actual
+       |val zzz = o1.bits.as(o1u8).bits
        |o2.actual := d"8'0"
        |zz := d"8'15"
        |""".stripMargin
@@ -49,6 +50,8 @@ class DFOpaqueSpec extends DFSpec:
     val ax = x.as(arr)
     val conv: o1u8 <> CONST = 1.as(o1u8)
     val zz = o1.actual
+    // TODO: still has redundant .as(o1u8).bits, so need to check why
+    val zzz = o1.bits.as(o1u8).bits.as(o1u8).bits.as(o1u8).bits
     o2.actual := 0
     zz := 15
   }

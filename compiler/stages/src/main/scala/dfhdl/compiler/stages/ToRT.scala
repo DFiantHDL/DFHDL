@@ -18,12 +18,12 @@ case object ToRT extends Stage:
         )
       case d @ DFDesignBlock(DomainType.DF, _, _, _, _, _) =>
         d -> Patch.Replace(
-          d.copy(domainType = new DomainType.RT(DerivedCfg)),
+          d.copy(domainType = new DomainType.RT(RTDomainCfg.Derived)),
           Patch.Replace.Config.FullReplacement
         )
       case i @ DFInterfaceOwner(DomainType.DF, _, _, _) =>
         i -> Patch.Replace(
-          i.copy(domainType = new DomainType.RT(DerivedCfg)),
+          i.copy(domainType = new DomainType.RT(RTDomainCfg.Derived)),
           Patch.Replace.Config.FullReplacement
         )
     }

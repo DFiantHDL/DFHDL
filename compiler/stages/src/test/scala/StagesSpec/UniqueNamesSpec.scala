@@ -28,7 +28,7 @@ class UniqueNamesSpec extends StageSpec:
          |  val x_0 = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val z_0 = Bits(8) <> IN
-         |  val bv = Bits(8) X 2 <> VAR init Vector(gv_0, gv_1)
+         |  val bv = Bits(8) X 2 <> VAR init DFVector(Bits(8) X 2)(gv_0, gv_1)
          |  val GV_1 = Bit <> VAR
          |  y := x_0
          |  val x_1 = Bit <> VAR init 1
@@ -47,7 +47,7 @@ class UniqueNamesSpec extends StageSpec:
          |  val x_0 = SInt(16) <> IN
          |  val y_0 = SInt(16) <> OUT
          |  val z = Bits(8) <> IN
-         |  val bv = Bits(8) X 2 <> VAR init Vector(gv_0, gv_1)
+         |  val bv = Bits(8) X 2 <> VAR init DFVector(Bits(8) X 2)(gv_0, gv_1)
          |  val GV_1_0 = Bit <> VAR
          |  y_0 := x_0
          |  val x_1 = Bit <> VAR init 1

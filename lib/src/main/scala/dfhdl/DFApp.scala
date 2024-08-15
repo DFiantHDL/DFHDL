@@ -12,14 +12,14 @@ trait DFApp:
   logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
   private var designName: String = ""
   private var topScalaPath: String = ""
-  // this context is just for enabling `getParamData` to work.
+  // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
   val dfc: DFC = DFC.emptyNoEO
   case class Arg(name: String, typeName: String, value: Any, desc: String):
     def valueStr: String = value match
       case dfConst: DFValAny =>
         import dfc.getSet
-        dfConst.asIR.getParamData.asInstanceOf[Option[Option[Any]]].get.get.toString()
+        dfConst.asIR.getConstData.asInstanceOf[Option[Option[Any]]].get.get.toString()
       case _ => value.toString()
     def updateWithValueStr(updatedValueStr: String): Arg =
       val scalaTypeName = typeName.replaceFirst("DFHDL ", "")
@@ -46,6 +46,8 @@ trait DFApp:
   private var compilerOptions: options.CompilerOptions = null
   private var printerOptions: options.PrinterOptions = null
   private var linterOptions: options.LinterOptions = null
+  given options.CompilerOptions = compilerOptions
+  given options.PrinterOptions = printerOptions
   private var dsn: () => core.Design = null
   private var mode = "commit"
   // used by the plugin to get the updated design arguments that could be changed by the
@@ -79,7 +81,15 @@ trait DFApp:
   private def elaborate: core.Design =
     logger.info("Elaborating design...")
     // the elaboration options are set in the compiler plugin using getElaborationOptions
-    dsn()
+    val elaborated = dsn()
+    if (elaborationOptions.printDesignCodeAfter)
+      println(
+        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+           |The design code after elaboration:
+           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+      )
+      elaborated.printCodeString
+    elaborated
 
   private def programName: String =
     dfhdl.internals.getShellCommand match
@@ -109,7 +119,8 @@ trait DFApp:
                 case "Int" | "DFHDL Int"       => updatedValueStr.toIntOption.nonEmpty
                 case "Double" | "DFHDL Double" => updatedValueStr.toDoubleOption.nonEmpty
                 case "Boolean" | "Bit" | "DFHDL Boolean" | "DFHDL Bit" =>
-                  updatedValueStr.toBooleanOption.nonEmpty || updatedValueStr == "1" || updatedValueStr == "0"
+                  updatedValueStr.toBooleanOption
+                    .nonEmpty || updatedValueStr == "1" || updatedValueStr == "0"
                 case _ => false
             if (isValid) None
             else Some(argName)
@@ -162,8 +173,6 @@ trait DFApp:
     )
 
   def main(args: Array[String]): Unit =
-    given options.CompilerOptions = compilerOptions
-    given options.PrinterOptions = printerOptions
     if (parser.parse(args, ()).isDefined)
       mode match
         case "elaborate" =>
@@ -172,6 +181,8 @@ trait DFApp:
           elaborate.compile
         case "commit" =>
           elaborate.compile.commit
+        case "lint" =>
+          elaborate.compile.commit.lint
         case "list-design-args" =>
           listDesignArgs
         case _ =>

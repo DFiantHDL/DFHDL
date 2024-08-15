@@ -15,10 +15,11 @@ import collection.mutable
   */
 case object ExplicitRegInits extends Stage:
   def dependencies: List[Stage] = List()
-  def nullifies: Set[Stage] = Set()
+  def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.collect {
-      case dcl: DFVal.Dcl if dcl.initRefList.nonEmpty && !dcl.modifier.reg && dcl.isRTDomain =>
+      case dcl: DFVal.Dcl
+          if dcl.initRefList.nonEmpty && !dcl.modifier.isReg && dcl.isRTDomain && !dcl.isConstVAR =>
         dcl -> Patch.Replace(dcl.copy(initRefList = Nil), Patch.Replace.Config.FullReplacement)
       case ra @ DFVal.Alias.History(_, DFRef(dcl: DFVal.Dcl), _, HistoryOp.State, None, _, _, _)
           if ra.isRTDomain =>

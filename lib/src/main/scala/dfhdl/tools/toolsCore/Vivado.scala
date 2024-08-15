@@ -4,20 +4,25 @@ import dfhdl.core.Design
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, BuilderOptions, ToolOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
-import dfhdl.options.BuilderOptions
 
 trait VivadoOptions extends BuilderOptions
 object Vivado extends Builder:
   type BO = VivadoOptions
   val toolName: String = "Vivado"
-  def binExec: String = "vivado"
+  protected def binExec: String = "vivado"
+  override protected def windowsBinExec: String = "vivado.bat"
+  protected def versionCmd: String = s"-version"
+  protected def extractVersion(cmdRetStr: String): Option[String] =
+    val versionPattern = """Vivado\s+v(\d+\.\d+)""".r
+    versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
+
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String = ???
   override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
-      CompilerOptions
+      CompilerOptions, ToolOptions
   ): CompiledDesign[D] =
     addSourceFiles(
       cd,
@@ -26,7 +31,7 @@ object Vivado extends Builder:
   def build[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, BO): CompiledDesign[D] =
     exec(
       cd,
-      s"$binExec -mode batch -source ${cd.stagedDB.top.dclName}.tcl"
+      s"-mode batch -source ${cd.stagedDB.top.dclName}.tcl"
     )
 end Vivado
 

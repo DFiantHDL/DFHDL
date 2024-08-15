@@ -150,7 +150,7 @@ class AddClkRstSpec extends StageSpec:
     )
   }
   test("No clk and rst") {
-    class ID extends RTDesign(NoClockCfg):
+    class ID extends RTDesign(RTDomainCfg.Comb):
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT
       val internal = new RTDomain(cfgNoRstI):
@@ -163,7 +163,7 @@ class AddClkRstSpec extends StageSpec:
       id,
       """|case class Clk_cfgNoRstI() extends Clk
          |
-         |class ID extends RTDesign(NoClockCfg):
+         |class ID extends RTDesign(RTDomainCfg.Comb):
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val internal = new RTDomain(cfgNoRstI):
@@ -176,11 +176,11 @@ class AddClkRstSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("Add once for the same domain config between design and internal domain") {
+  test("Add once for the same domain config between design and internal related domain") {
     class ID extends RTDesign(cfg):
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT
-      val internal = new RTDomain(cfg):
+      val internal = new RelatedDomain:
         val x = SInt(16) <> IN
         val y = SInt(16) <> OUT
         x <> y
@@ -196,7 +196,7 @@ class AddClkRstSpec extends StageSpec:
          |  val rst = Rst_cfg <> IN
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
-         |  val internal = new RTDomain(cfg):
+         |  val internal = new RelatedDomain:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
@@ -205,16 +205,16 @@ class AddClkRstSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("Add once for the same domain config between internal domains") {
+  test("Add once for the same domain config between internal related domains") {
     class ID extends RTDesign(cfg):
       val x = SInt(16) <> IN
       val y = SInt(16) <> OUT
       val internal1 = new RTDomain(cfgI):
-        val ii = new RTDomain(cfgI):
+        val ii = new RelatedDomain:
           val x = SInt(16) <> IN
         val y = SInt(16) <> OUT
         x <> y
-      val internal2 = new RTDomain(cfgI):
+      val internal2 = new internal1.RelatedDomain:
         val x = SInt(16) <> IN
         val y = SInt(16) <> OUT
         y <> internal1.ii.x + x
@@ -235,14 +235,14 @@ class AddClkRstSpec extends StageSpec:
          |  val internal1 = new RTDomain(cfgI):
          |    val clk = Clk_cfgI <> IN
          |    val rst = Rst_cfgI <> IN
-         |    val ii = new RTDomain(cfgI):
+         |    val ii = new RelatedDomain:
          |      val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x
-         |  val internal2 = new RTDomain(cfgI):
+         |  val internal2 = new internal1.RelatedDomain:
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
-         |    y <> internal1.ii.x + x
+         |    y <> (internal1.ii.x + x)
          |  y := x
          |end ID
          |""".stripMargin
@@ -327,6 +327,89 @@ class AddClkRstSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val clkGen = ClkGen()
          |  val internal = new RTDomain(genCfg):
+         |    val x = SInt(16) <> IN
+         |    val y = SInt(16) <> OUT
+         |    y <> x
+         |  y := x
+         |end ID
+         |""".stripMargin
+    )
+  }
+  test("Basic hierarchy with domains") {
+    class ID extends RTDesign(RTDomainCfg.Comb):
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      y := x
+
+    class IDTop extends EDDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val dmn1 = new RTDomain:
+        val id = ID()
+        id.x <> x
+      val dmn2 = new RTDomain:
+        val id = ID()
+        id.x <> dmn1.id.y.reg(1, init = 0)
+      val dmn3 = new dmn1.RelatedDomain:
+        val id = ID()
+        id.x <> dmn2.id.y.reg(1, init = 0)
+      y <> dmn3.id.y
+
+    val id = (new IDTop).addClkRst
+    assertCodeString(
+      id,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |class ID extends RTDesign(RTDomainCfg.Comb):
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x
+         |end ID
+         |
+         |class IDTop extends EDDesign:
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val dmn1 = new RTDomain(RTDomainCfg.Default):
+         |    val clk = Clk_default <> IN
+         |    val rst = Rst_default <> IN
+         |    val id = ID()
+         |    id.x <> x
+         |  val dmn2 = new RTDomain(RTDomainCfg.Default):
+         |    val clk = Clk_default <> IN
+         |    val rst = Rst_default <> IN
+         |    val id = ID()
+         |    id.x <> dmn1.id.y.reg(1, init = sd"16'0")
+         |  val dmn3 = new dmn1.RelatedDomain:
+         |    val id = ID()
+         |    id.x <> dmn2.id.y.reg(1, init = sd"16'0")
+         |  y <> id.y
+         |end IDTop
+         |""".stripMargin
+    )
+  }
+  test("Derive config with `.norst`") {
+    class ID extends RTDesign(cfg):
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT
+      val internal = new RTDomain(cfg.norst):
+        val x = SInt(16) <> IN
+        val y = SInt(16) <> OUT
+        x <> y
+      y := x
+    val id = (new ID).addClkRst
+    assertCodeString(
+      id,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class ID extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val internal = new RTDomain(cfg.norst):
+         |    val clk = Clk_cfg <> IN
          |    val x = SInt(16) <> IN
          |    val y = SInt(16) <> OUT
          |    y <> x

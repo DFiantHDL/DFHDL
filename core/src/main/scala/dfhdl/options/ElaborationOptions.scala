@@ -6,22 +6,22 @@ final case class ElaborationOptions(
     logLevel: LogLevel,
     onError: OnError,
     defaultClkCfg: DefaultClkCfg,
-    defaultRstCfg: DefaultRstCfg
+    defaultRstCfg: DefaultRstCfg,
+    printDesignCodeAfter: PrintDesignCodeAfter
 ):
-  val defaultRTDomainCfg: RTDomainCfg.Explicit =
-    RTDomainCfg.Explicit("main", defaultClkCfg, defaultRstCfg)
+  private[dfhdl] val defaultRTDomainCfg: RTDomainCfg.Explicit =
+    RTDomainCfg.Explicit("RTDomainCfg.Default", defaultClkCfg, defaultRstCfg)
 object ElaborationOptions:
   given default(using
       logLevel: LogLevel,
       onError: OnError,
       defaultClkCfg: DefaultClkCfg,
-      defaultRstCfg: DefaultRstCfg
+      defaultRstCfg: DefaultRstCfg,
+      printDesignCodeAfter: PrintDesignCodeAfter
   ): ElaborationOptions =
     ElaborationOptions(
-      logLevel = logLevel,
-      onError = onError,
-      defaultClkCfg = defaultClkCfg,
-      defaultRstCfg = defaultRstCfg
+      logLevel = logLevel, onError = onError, defaultClkCfg = defaultClkCfg,
+      defaultRstCfg = defaultRstCfg, printDesignCodeAfter = printDesignCodeAfter
     )
 
   opaque type LogLevel <: dfhdl.options.LogLevel = dfhdl.options.LogLevel
@@ -38,15 +38,21 @@ object ElaborationOptions:
 
   opaque type DefaultClkCfg <: ClkCfg = ClkCfg
   object DefaultClkCfg:
-    given DefaultClkCfg = ClkCfg(ClkCfg.Edge.Rising)
+    given DefaultClkCfg = ClkCfg()
     given Conversion[ClkCfg, DefaultClkCfg] = identity
     given Conversion[None.type, DefaultClkCfg] = x => x.asInstanceOf[DefaultClkCfg]
     export ClkCfg.*
 
   opaque type DefaultRstCfg <: RstCfg = RstCfg
   object DefaultRstCfg:
-    given DefaultRstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
+    given DefaultRstCfg = RstCfg()
     given Conversion[RstCfg, DefaultRstCfg] = identity
     given Conversion[None.type, DefaultRstCfg] = x => x.asInstanceOf[DefaultRstCfg]
     export RstCfg.*
+
+  opaque type PrintDesignCodeAfter <: Boolean = Boolean
+  object PrintDesignCodeAfter:
+    given PrintDesignCodeAfter = false
+    given Conversion[Boolean, PrintDesignCodeAfter] = identity
+
 end ElaborationOptions

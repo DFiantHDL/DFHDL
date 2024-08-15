@@ -22,6 +22,8 @@ protected object hdl:
   export core.{dfType}
   export core.Timer.Ops.*
   export core.Wait.Ops.*
+  export core.Time.Ops.*
+  export core.Freq.Ops.*
   type Timer = core.Timer
   val Timer = core.Timer
   type DFC = core.DFC
@@ -50,6 +52,7 @@ protected object hdl:
   type DFDomain = core.DFDomain
   type RTDomain = core.RTDomain
   type EDDomain = core.EDDomain
+  export compiler.ir.InitFileFormat
 
   val IN = core.Modifier.IN
   val OUT = core.Modifier.OUT
@@ -63,14 +66,12 @@ protected object hdl:
   export core.OPEN
   export core.Process.Ops.*
 
-  val DerivedCfg = core.DerivedCfg
   type ClkCfg = core.ClkCfg
   val ClkCfg = core.ClkCfg
   type RstCfg = core.RstCfg
   val RstCfg = core.RstCfg
   type RTDomainCfg = core.RTDomainCfg
   val RTDomainCfg = core.RTDomainCfg
-  val NoClockCfg = RTDomainCfg(None, None)
 
   // shorthand for annotating a DFBits value (useful for string interpolation)
   type B[W <: Int] = core.DFValOf[Bits[W]]

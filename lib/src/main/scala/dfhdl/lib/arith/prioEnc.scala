@@ -2,7 +2,6 @@ package dfhdl.lib.arith
 
 import dfhdl.*
 import internals.{IntInfo, -}
-import scala.runtime.RichInt
 
 @hw.pure
 def prioEncRecur(value: Bits[Int] <> VAL): (Bit, Bits[Int]) <> DFRET =
@@ -11,7 +10,7 @@ def prioEncRecur(value: Bits[Int] <> VAL): (Bit, Bits[Int]) <> DFRET =
   else
     val lsHalf = width / 2
     val msHalf = width - lsHalf
-    val half = RichInt(lsHalf) max msHalf
+    val half = lsHalf max msHalf
     val lsPrio = prioEncRecur(value.lsbits(lsHalf).resize(half))
     val msPrio = prioEncRecur(value.msbits(msHalf).resize(half))
     val selPrio = if (msPrio._1) msPrio._2 else lsPrio._2

@@ -10,7 +10,7 @@ import scala.annotation.tailrec
 import scala.collection.immutable
 
 case object ExplicitState extends Stage:
-  def dependencies: List[Stage] = List(ExplicitNamedVars, DropCondDcls)
+  def dependencies: List[Stage] = List(ExplicitNamedVars, DropLocalDcls)
   def nullifies: Set[Stage] = Set()
 
   @tailrec private def consumeFrom(
@@ -22,8 +22,14 @@ case object ExplicitState extends Stage:
   )(using MemberGetSet): Set[DFVal] =
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
-      case DFVal.Alias.AsIs(_, relValRef, _, _, _) =>
-        consumeFrom(relValRef.get, relWidth, relBitLow, assignMap, currentSet)
+      case DFVal.Alias.AsIs(toType, relValRef, _, _, _) =>
+        val relVal = relValRef.get
+        if (toType.width == relVal.width)
+          // casting maintains relative bit consumption
+          consumeFrom(relVal, relWidth, relBitLow, assignMap, currentSet)
+        else
+          // conversion is treated like any function argument and restarts bit consumption
+          consumeFrom(relVal, relVal.width, 0, assignMap, currentSet)
       case DFVal.Alias.ApplyRange(relValRef, rbh, rbl, _, _, _) =>
         consumeFrom(relValRef.get, rbh - rbl + 1, relBitLow + rbl, assignMap, currentSet)
       case DFVal.Alias.ApplyIdx(_, relValRef, idxRef, _, _, _) =>
@@ -104,7 +110,8 @@ case object ExplicitState extends Stage:
             (currentSet, scopeMap)
         getImplicitStateVars(rs, nextBlock, updatedScopeMap, updatedSet)
       case r :: rs
-          if r.getOwnerBlock == currentBlock && currentBlock.getThisOrOwnerDomain.domainType == DomainType.DF => // checking member consumers
+          if r.getOwnerBlock == currentBlock && currentBlock.getThisOrOwnerDomain
+            .domainType == DomainType.DF => // checking member consumers
         val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = r match
           case net @ DFNet.Assignment(toVal, fromVal) =>
             (consumeFrom(fromVal, scopeMap, currentSet), assignTo(toVal, scopeMap))

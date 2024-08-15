@@ -4,6 +4,7 @@ import dfhdl.internals.*
 import ir.DFVal.Func.{Op => FuncOp}
 import ir.DFDecimal.NativeType
 import NativeType.{valueOf => _, *}
+import scala.runtime.RichInt
 
 import scala.quoted.*
 import scala.annotation.targetName
@@ -674,7 +675,7 @@ object DFXInt:
         val int32Data: Option[Int] =
           if (dfVal.dfType.asIR.isDFInt32)
             import dfc.getSet
-            dfVal.asIR.getParamData match
+            dfVal.asIR.getConstData match
               case Some(Some(n: BigInt)) => Some(n.toInt)
               case _                     => None
           else None
@@ -848,7 +849,7 @@ object DFXInt:
         }
       end extension
 
-      extension [L](lhs: L)
+      extension [L <: Int](lhs: L)
         def <[RS <: Boolean, RW <: Int, RN <: NativeType](
             rhs: DFValOf[DFXInt[RS, RW, RN]]
         )(using es: Exact.Summon[L, lhs.type])(using
@@ -873,6 +874,15 @@ object DFXInt:
             dfc: DFC,
             op: DFVal.Compare[DFXInt[RS, RW, RN], es.Out, FuncOp.>=.type, true]
         ): DFValOf[DFBool] = trydf { op(rhs, es(lhs)) }
+        def <<[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.<<, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
+        }
+        def >>[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, CONST | P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.>>, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
+        }
+        def **[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.**, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
+        }
       end extension
       private def arithOp[
           OS <: Boolean,
@@ -1153,6 +1163,8 @@ object DFXInt:
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp.max, List(lhsVal, rhs))
         }
+        // to restore default max functionality that is overridden
+        def max(rhs: Int): Int = RichInt(lhs) max rhs
         def min[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
             rhs: DFValTP[DFXInt[RS, RW, RN], RP]
         )(using sL: Exact.Summon[L, lhs.type])(using
@@ -1165,6 +1177,8 @@ object DFXInt:
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp.min, List(lhsVal, rhs))
         }
+        // to restore default min functionality that is overridden
+        def min(rhs: Int): Int = RichInt(lhs) min rhs
         def +^[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
             rhs: DFValTP[DFXInt[RS, RW, RN], RP]
         )(using sL: Exact.Summon[L, lhs.type])(using
@@ -1374,3 +1388,6 @@ type DFInt32 =
   DFType[ir.DFDecimal, Args4[true, 32, 0, Int32]] // This means: DFDecimal[true, 32, 0, Int32] (could not be defined this way because of type recursion)
 final val DFInt32 = ir.DFInt32.asFE[DFInt32]
 type DFConstInt32 = DFConstOf[DFInt32]
+object DFConstInt32:
+  def apply(int: Int)(using DFC): DFConstInt32 =
+    DFVal.Const(DFInt32, Some(BigInt(int)), named = true)

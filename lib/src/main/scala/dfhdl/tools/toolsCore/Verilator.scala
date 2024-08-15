@@ -3,20 +3,22 @@ import dfhdl.core.Design
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, VerilatorOptions, ToolOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
-import dfhdl.options.VerilatorOptions
 
 object Verilator extends VerilogLinter:
   type LO = VerilatorOptions
   val toolName: String = "Verilator"
-  def binExec: String =
-    val osName: String = sys.props("os.name").toLowerCase
-    if (osName.contains("windows")) "verilator_bin" else "verilator"
+  protected def binExec: String = "verilator"
+  override protected def windowsBinExec: String = "verilator_bin.exe"
+  protected def versionCmd: String = "-version"
+  protected def extractVersion(cmdRetStr: String): Option[String] =
+    val versionPattern = """Verilator\s+(\d+\.\d+)""".r
+    versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   def commonFlags(using lo: LO): String = s"-Wall${lo.warnAsError.toFlag("--Werror")} "
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
@@ -36,40 +38,55 @@ object Verilator extends VerilogLinter:
         path.forceWindowsToLinuxPath
     }.mkString(" ")
 
+    val dfhdlDefsIncludeFolder = cd.stagedDB.srcFiles.collectFirst {
+      case SourceFile(SourceOrigin.Committed, SourceType.Design.DFHDLDef, path, _) =>
+        Paths.get(path).getParent.toString.forceWindowsToLinuxPath
+    }.get
+
     val globalIncludeFolder = cd.stagedDB.srcFiles.collectFirst {
       case SourceFile(SourceOrigin.Committed, SourceType.Design.GlobalDef, path, _) =>
         Paths.get(path).getParent.toString.forceWindowsToLinuxPath
     }.get
 
+    val includes =
+      List(dfhdlDefsIncludeFolder, globalIncludeFolder).distinct.map(i => s"-I$i").mkString(" ")
+
     // config files must be placed before the design sources
-    s"-I$globalIncludeFolder $configsInCmd $designsInCmd"
+    s"$includes $configsInCmd $designsInCmd"
   end filesCmdPart
   override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
-      CompilerOptions
+      CompilerOptions,
+      ToolOptions
   ): CompiledDesign[D] =
-    addSourceFiles(cd, List(new VerilatorConfigPrinter(using cd.stagedDB.getSet).getSourceFile))
+    addSourceFiles(
+      cd,
+      List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
+    )
   def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, LO): CompiledDesign[D] =
     exec(
       cd,
-      s"$binExec --lint-only $commonFlags ${filesCmdPart(cd)}"
+      s"--lint-only $commonFlags ${filesCmdPart(cd)}"
     )
   end lint
 end Verilator
 
 case object VerilatorConfig extends SourceType.ToolConfig
 
-class VerilatorConfigPrinter(using getSet: MemberGetSet):
+class VerilatorConfigPrinter(verilatorVersion: String)(using getSet: MemberGetSet):
   val designDB: DB = getSet.designDB
+  val verilatorVersionMajor: Int = verilatorVersion.split("\\.").head.toInt
   def configFileName: String = s"${designDB.top.dclName}.vlt"
   def contents: String =
     s"""`verilator_config
        |$commands
        |""".stripMargin
   def commands: String =
-    lintOffBlackBoxes.emptyOr(_ + "\n") +
+    lintOffHidden.emptyOr(_ + "\n") +
+      lintOffBlackBoxes.emptyOr(_ + "\n") +
       lintOffOpenOutPorts.emptyOr(_ + "\n") +
       lintOffUnused.emptyOr(_ + "\n") +
-      lintOffUnusedBits.emptyOr(_ + "\n")
+      lintOffUnusedBits.emptyOr(_ + "\n") +
+      lintOffUnusedParam.emptyOr(_ + "\n")
   def lintOffCommand(
       rule: String = "",
       file: String = "",
@@ -81,6 +98,7 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
     val lineArg = lines.emptyOr(" -lines " + _)
     val matchWildArg = matchWild.emptyOr(m => s""" -match "$m"""")
     s"lint_off$ruleArg$fileArg$lineArg$matchWildArg"
+  def lintOffHidden: String = lintOffCommand("VARHIDDEN")
   def lintOffBlackBoxes: String =
     designDB.srcFiles.flatMap {
       case SourceFile(SourceOrigin.Committed, SourceType.Design.BlackBox, path, _) =>
@@ -96,15 +114,15 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
     designDB.getOpenOutPorts.map: dfVal =>
       lintOffCommand(
         rule = "PINCONNECTEMPTY",
-        file = s"${dfVal.getOwnerDesign.getOwnerDesign.dclName}.sv",
+        file = s"${dfVal.getOwnerDesign.getOwnerDesign.dclName}.*",
         matchWild = s"*: '${dfVal.getName}'*"
       )
     .distinct.mkString("\n")
   def lintOffUnused: String =
-    designDB.getUnusedTaggedValues.map: dfVal =>
+    designDB.getUnusedAnnotValues.map: dfVal =>
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
-        file = s"${dfVal.getOwnerDesign.dclName}.sv",
+        file = s"${dfVal.getOwnerDesign.dclName}.*",
         matchWild = s"*: '${dfVal.getName}'*"
       )
     .distinct.mkString("\n")
@@ -115,10 +133,20 @@ class VerilatorConfigPrinter(using getSet: MemberGetSet):
         else s"$relBitHigh:$relBitLow"
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
-        file = s"${dfVal.getOwnerDesign.dclName}.sv",
+        file = s"${dfVal.getOwnerDesign.dclName}.*",
         matchWild = s"*Bits of signal are not used: '${dfVal.getName}'[$bitSel]*"
       )
     .distinct.mkString("\n")
+  def lintOffUnusedParam: String =
+    if (verilatorVersionMajor >= 5) // only supported from version 5 onwards
+      designDB.getUnusedParamAnnotValues.map: dfVal =>
+        lintOffCommand(
+          rule = "UNUSEDPARAM",
+          file = s"${dfVal.getOwnerDesign.dclName}.*",
+          matchWild = s"*: '${dfVal.getName}'*"
+        )
+      .distinct.mkString("\n")
+    else ""
   def getSourceFile: SourceFile =
     SourceFile(SourceOrigin.Compiled, VerilatorConfig, configFileName, contents)
 

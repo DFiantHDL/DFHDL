@@ -38,6 +38,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.ID_pkg.all;
          |
          |entity ID is
@@ -62,6 +63,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.IDTop_pkg.all;
          |
          |entity ID is
@@ -79,6 +81,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.IDTop_pkg.all;
          |
          |entity IDTop is
@@ -129,6 +132,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.IDTop_pkg.all;
          |
          |entity ID is
@@ -143,15 +147,13 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture ID_arch of ID is
          |begin
-         |  process (all)
-         |  begin
-         |    y <= x;
-         |  end process;
+         |  y <= x;
          |end ID_arch;
          |
          |library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.IDTop_pkg.all;
          |
          |entity IDTop is
@@ -220,6 +222,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Top_pkg.all;
          |
          |entity Top is
@@ -281,6 +284,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Top_pkg.all;
          |
          |entity Top is
@@ -308,7 +312,15 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
          |  constant c14 : signed(7 downto 0) := signed'(x"--");
          |  constant c15 : t_struct_DFTuple2 := t_struct_DFTuple2(_1 = "000", _2 = '1');
-         |  constant c16 : t_vecX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (0 to 6 => (x"00", x"11", x"22", x"33", x"44"));
+         |  constant c16 : t_vecX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (
+         |    0 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+         |    1 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+         |    2 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+         |    3 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+         |    4 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+         |    5 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+         |    6 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44")
+         |  );
          |begin
          |
          |end Top_arch;
@@ -340,6 +352,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Blinker_pkg.all;
          |
          |entity Blinker is
@@ -359,19 +372,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  -- Half-count of the toggle for 50% duty cycle 
          |  constant HALF_PERIOD : integer := (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
          |  signal cnt : unsigned(clog2(HALF_PERIOD) - 1 downto 0);
-         |  signal led_din : std_logic;
-         |  signal cnt_din : unsigned(clog2(HALF_PERIOD) - 1 downto 0);
          |begin
-         |  process (all)
-         |  begin
-         |    led_din <= led;
-         |    cnt_din <= cnt;
-         |    if cnt = to_unsigned(HALF_PERIOD - 1, clog2(HALF_PERIOD)) then
-         |      cnt_din <= resize(d"0", clog2(HALF_PERIOD));
-         |      led_din <= not led;
-         |    else cnt_din <= cnt + resize(d"1", clog2(HALF_PERIOD));
-         |    end if;
-         |  end process;
          |  process (clk)
          |  begin
          |    if rising_edge(clk) then
@@ -379,8 +380,11 @@ class PrintVHDLCodeSpec extends StageSpec:
          |        led <= '1';
          |        cnt <= resize(d"0", clog2(HALF_PERIOD));
          |      else
-         |        led <= led_din;
-         |        cnt <= cnt_din;
+         |        if cnt = to_unsigned(HALF_PERIOD - 1, clog2(HALF_PERIOD)) then
+         |          cnt <= resize(d"0", clog2(HALF_PERIOD));
+         |          led <= not led;
+         |        else cnt <= cnt + resize(d"1", clog2(HALF_PERIOD));
+         |        end if;
          |      end if;
          |    end if;
          |  end process;
@@ -402,6 +406,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Example_pkg.all;
          |
          |entity Example is
@@ -436,15 +441,24 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  function to_t_vecX1_std_logic_vector(A : std_logic_vector; D1 : integer; D0 : integer) return t_vecX1_std_logic_vector is
          |    variable hi : integer;
          |    variable lo : integer;
-         |    variable cellBitWidth: integer := D0;
+         |    variable cellBitWidth: integer;
          |    variable ret : t_vecX1_std_logic_vector(0 to D1 - 1)(D0 - 1 downto 0);
          |  begin
+         |    cellBitWidth := bitWidth(ret(0));
          |    lo := A'length;
          |    for i in 0 to D1-1 loop
          |      hi := lo - 1; lo := hi - cellBitWidth + 1;
          |      ret(i) := A(hi downto lo);
          |    end loop;
          |    return ret;
+         |  end;
+         |  function bool_sel(C : boolean; T : t_vecX1_std_logic_vector; F : t_vecX1_std_logic_vector) return t_vecX1_std_logic_vector is
+         |  begin
+         |    if C then
+         |      return T;
+         |    else
+         |      return F;
+         |    end if;
          |  end;
          |  type t_vecX2_std_logic_vector is array (natural range <>) of t_vecX1_std_logic_vector;
          |  function bitWidth(A : t_vecX2_std_logic_vector) return integer is
@@ -468,9 +482,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  function to_t_vecX2_std_logic_vector(A : std_logic_vector; D2 : integer; D1 : integer; D0 : integer) return t_vecX2_std_logic_vector is
          |    variable hi : integer;
          |    variable lo : integer;
-         |    variable cellBitWidth: integer := D1 * D0;
+         |    variable cellBitWidth: integer;
          |    variable ret : t_vecX2_std_logic_vector(0 to D2 - 1)(0 to D1 - 1)(D0 - 1 downto 0);
          |  begin
+         |    cellBitWidth := bitWidth(ret(0));
          |    lo := A'length;
          |    for i in 0 to D2-1 loop
          |      hi := lo - 1; lo := hi - cellBitWidth + 1;
@@ -478,28 +493,30 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end loop;
          |    return ret;
          |  end;
+         |  function bool_sel(C : boolean; T : t_vecX2_std_logic_vector; F : t_vecX2_std_logic_vector) return t_vecX2_std_logic_vector is
+         |  begin
+         |    if C then
+         |      return T;
+         |    else
+         |      return F;
+         |    end if;
+         |  end;
          |  subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
          |  function to_t_opaque_Foo(A : std_logic_vector) return t_opaque_Foo is
          |  begin
          |    return to_t_vecX2_std_logic_vector(A, 10, 16, 12);
          |  end;
          |  signal v : t_opaque_Foo;
-         |  signal v_din : t_opaque_Foo;
          |begin
-         |  process (all)
-         |  begin
-         |    v_din <= v;
-         |    v_din <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
-         |    y <= to_slv(v);
-         |  end process;
          |  process (clk)
          |  begin
          |    if rising_edge(clk) then
          |      if rst = '1' then v <= (0 to 9 => (0 to 15 => x"000"));
-         |      else v <= v_din;
+         |      else v <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
          |      end if;
          |    end if;
          |  end process;
+         |  y <= to_slv(v);
          |end Example_arch;""".stripMargin
     )
   }
@@ -514,6 +531,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Example_pkg.all;
          |
          |entity Example is
@@ -524,10 +542,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture Example_arch of Example is
          |begin
-         |  process (all)
-         |  begin
-         |    v <= (0 to 9 => (0 to 15 => x"000"));
-         |  end process;
+         |  v <= (0 to 9 => (0 to 15 => x"000"));
          |end Example_arch;
          |""".stripMargin
     )
@@ -548,6 +563,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.Example_pkg.all;
          |
          |entity Example is
@@ -560,22 +576,101 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Example;
          |
          |architecture Example_arch of Example is
-         |  signal y_din : t_opaque_Foo;
          |begin
-         |  process (all)
-         |  begin
-         |    y_din <= y;
-         |    y_din <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
-         |  end process;
          |  process (clk)
          |  begin
          |    if rising_edge(clk) then
          |      if rst = '1' then y <= (0 to 9 => (0 to 15 => x"000"));
-         |      else y <= y_din;
+         |      else y <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
          |      end if;
          |    end if;
          |  end process;
          |end Example_arch;
+         |""".stripMargin
+    )
+  }
+
+  test("a single register with only init") {
+    class IDTop extends RTDesign:
+      val x = SInt(16) <> IN
+      val y = SInt(16) <> OUT.REG init 0
+
+    val top = (new IDTop).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.IDTop_pkg.all;
+         |
+         |entity IDTop is
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  x : in signed(15 downto 0);
+         |  y : out signed(15 downto 0)
+         |);
+         |end IDTop;
+         |
+         |architecture IDTop_arch of IDTop is
+         |begin
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then y <= 16d"0";
+         |      else end if;
+         |    end if;
+         |  end process;
+         |end IDTop_arch;
+         |""".stripMargin
+    )
+  }
+
+  test("Boolean selection operation") {
+    class SelOp extends DFDesign:
+      val c                     = Boolean <> IN
+      val x1                    = Bits(8) <> IN
+      val x2                    = Bits(8) <> IN
+      val y1                    = Bits(8) <> OUT
+      val cp: Boolean <> CONST  = true
+      val up1: UInt[8] <> CONST = 11
+      val up2: UInt[8] <> CONST = 22
+      val up3: UInt[8] <> CONST = cp.sel(up1, up2)
+      y1 := c.sel(x1, x2)
+      y1 := c.sel(x1, all(0))
+      y1 := c.sel(Bits(8))(all(0), x2)
+    val id = (new SelOp).getCompiledCodeString
+    assertNoDiff(
+      id,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.SelOp_pkg.all;
+         |
+         |entity SelOp is
+         |port (
+         |  c : in boolean;
+         |  x1 : in std_logic_vector(7 downto 0);
+         |  x2 : in std_logic_vector(7 downto 0);
+         |  y1 : out std_logic_vector(7 downto 0)
+         |);
+         |end SelOp;
+         |
+         |architecture SelOp_arch of SelOp is
+         |  constant cp : boolean := true;
+         |  constant up1 : unsigned(7 downto 0) := 8d"11";
+         |  constant up2 : unsigned(7 downto 0) := 8d"22";
+         |  constant up3 : unsigned(7 downto 0) := bool_sel(cp, up1, up2);
+         |begin
+         |  process (all)
+         |  begin
+         |    y1 <= bool_sel(c, x1, x2);
+         |    y1 <= bool_sel(c, x1, x"00");
+         |    y1 <= bool_sel(c, x"00", x2);
+         |  end process;
+         |end SelOp_arch;
          |""".stripMargin
     )
   }

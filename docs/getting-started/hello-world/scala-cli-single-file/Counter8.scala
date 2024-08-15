@@ -23,8 +23,8 @@ import dfhdl.* //import all the DFHDL goodness
 given options.CompilerOptions.PrintGenFiles = true
 // Uncomment to select vhdl compilation (default is verilog):
 // given options.CompilerOptions.Backend = backends.vhdl
-// Uncomment to enable printing design code before compilation (after elaboration):
-// given options.CompilerOptions.PrintDesignCodeBefore = true
+// Uncomment to enable printing design code after elaboration (before compilation):
+// given options.ElaborationOptions.PrintDesignCodeAfter = true
 // Uncomment to enable printing design code after compilation:
 // given options.CompilerOptions.PrintDesignCodeAfter = true
 ////////////////////////////////////////////////////////////////////////////////////////////////

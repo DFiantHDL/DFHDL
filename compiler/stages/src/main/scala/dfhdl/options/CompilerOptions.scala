@@ -11,9 +11,9 @@ final case class CompilerOptions(
     newFolderForTop: NewFolderForTop,
     backend: Backend,
     logLevel: LogLevel,
-    printDesignCodeBefore: PrintDesignCodeBefore,
     printDesignCodeAfter: PrintDesignCodeAfter,
-    printGenFiles: PrintGenFiles
+    printGenFiles: PrintGenFiles,
+    dropUserOpaques: DropUserOpaques
 )
 object CompilerOptions:
   given default(using
@@ -21,14 +21,14 @@ object CompilerOptions:
       newFolderForTop: NewFolderForTop,
       backend: Backend,
       logLevel: LogLevel,
-      printDesignCodeBefore: PrintDesignCodeBefore,
       printDesignCodeAfter: PrintDesignCodeAfter,
-      printGenFiles: PrintGenFiles
+      printGenFiles: PrintGenFiles,
+      dropUserOpaques: DropUserOpaques
   ): CompilerOptions =
     CompilerOptions(
       commitFolder = commitFolder, newFolderForTop = newFolderForTop, backend = backend,
-      logLevel = logLevel, printDesignCodeBefore = printDesignCodeBefore,
-      printDesignCodeAfter = printDesignCodeAfter, printGenFiles = printGenFiles
+      logLevel = logLevel, printDesignCodeAfter = printDesignCodeAfter,
+      printGenFiles = printGenFiles, dropUserOpaques = dropUserOpaques
     )
 
   extension (co: CompilerOptions)
@@ -52,6 +52,13 @@ object CompilerOptions:
   object Backend:
     given Backend = dfhdl.backends.verilog.sv2005
     given Conversion[BackendCompiler, Backend] = identity
+    extension (backend: Backend)
+      def isVHDL: Boolean = backend match
+        case _: dfhdl.backends.vhdl => true
+        case _                      => false
+      def isVerilog: Boolean = backend match
+        case _: dfhdl.backends.verilog => true
+        case _                         => false
     export dfhdl.backends.*
 
   opaque type LogLevel <: dfhdl.options.LogLevel = dfhdl.options.LogLevel
@@ -59,11 +66,6 @@ object CompilerOptions:
   object LogLevel:
     given (using logLevel: dfhdl.options.LogLevel): LogLevel = logLevel
     export dfhdl.options.LogLevel.*
-
-  opaque type PrintDesignCodeBefore <: Boolean = Boolean
-  object PrintDesignCodeBefore:
-    given PrintDesignCodeBefore = false
-    given Conversion[Boolean, PrintDesignCodeBefore] = identity
 
   opaque type PrintDesignCodeAfter <: Boolean = Boolean
   object PrintDesignCodeAfter:
@@ -74,4 +76,9 @@ object CompilerOptions:
   object PrintGenFiles:
     given PrintGenFiles = false
     given Conversion[Boolean, PrintGenFiles] = identity
+
+  opaque type DropUserOpaques <: Boolean = Boolean
+  object DropUserOpaques:
+    given DropUserOpaques = false
+    given Conversion[Boolean, DropUserOpaques] = identity
 end CompilerOptions

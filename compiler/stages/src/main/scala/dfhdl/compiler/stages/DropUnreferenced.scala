@@ -14,7 +14,7 @@ case object DropUnreferencedVars extends Stage:
     }
     designDB.patch(patchList)
 
-case object DropUnreferencedAnons extends Stage:
+case object DropUnreferencedAnons extends Stage, NoCheckStage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =

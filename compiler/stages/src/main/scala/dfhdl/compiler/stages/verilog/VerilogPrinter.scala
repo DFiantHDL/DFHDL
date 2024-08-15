@@ -5,8 +5,10 @@ import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 import dfhdl.options.PrinterOptions
 
-class VerilogPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptions)
-    extends Printer,
+class VerilogPrinter(val dialect: VerilogDialect)(using
+    val getSet: MemberGetSet,
+    val printerOptions: PrinterOptions
+) extends Printer,
       VerilogTypePrinter,
       VerilogDataPrinter,
       VerilogValPrinter,
@@ -18,8 +20,13 @@ class VerilogPrinter(using val getSet: MemberGetSet, val printerOptions: Printer
   )
   val tupleSupportEnable: Boolean = false
   def csViaConnectionSep: String = ","
-  def csAssignment(lhsStr: String, rhsStr: String): String =
-    s"$lhsStr = $rhsStr;"
+  def csAssignment(lhsStr: String, rhsStr: String, shared: Boolean): String =
+    val cs = s"$lhsStr = $rhsStr;"
+    if (shared)
+      s"""|/* verilator lint_off BLKSEQ */
+         |$cs
+         |/* verilator lint_on BLKSEQ */""".stripMargin
+    else cs
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr <= $rhsStr;"
   def csConnection(lhsStr: String, rhsStr: String, directionStr: String): String =
@@ -41,22 +48,38 @@ class VerilogPrinter(using val getSet: MemberGetSet, val printerOptions: Printer
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/*", "\n  ", "*/")
   def csAnnotations(meta: Meta): String = ""
   def csTimer(timer: Timer): String = unsupported
-  def globalFileName: String = s"${printer.defsName}.sv"
+  def verilogFileHeaderSuffix: String =
+    printer.dialect match
+      case VerilogDialect.v2001 => "v"
+      case _                    => "svh"
+  def globalFileName: String =
+    s"${printer.defsName}.$verilogFileHeaderSuffix"
   override def csGlobalFileContent: String =
     val defName = printer.defsName.toUpperCase
     s"""`ifndef $defName
        |`define $defName
-       |`define MAX(a,b) ((a) > (b) ? (a) : (b))
-       |`define MIN(a,b) ((a) < (b) ? (a) : (b))
+       |`include "${printer.dfhdlDefsFileName}"
        |${super.csGlobalFileContent}
        |`endif
        |""".stripMargin
+  def dfhdlDefsFileName: String = s"dfhdl_defs.$verilogFileHeaderSuffix"
+  def dfhdlSourceContents: String =
+    // the actual resource file will always be named with a `.svh`, but the committed
+    // file to the generated project folder will have a suffix according to
+    // `verilogFileHeaderSuffix`
+    scala.io.Source.fromResource(s"dfhdl_defs.svh").getLines().mkString("\n")
 
-  def designFileName(designName: String): String = s"$designName.sv"
+  def designFileName(designName: String): String =
+    val suffix = printer.dialect match
+      case VerilogDialect.v2001 => "v"
+      case _                    => "sv"
+    s"$designName.$suffix"
   def alignCode(cs: String): String =
     cs
-      // align after port modifiers
-      .align("[ ]*(?:input|output|inout)", " ", ".*")
+      // align logic position after port direction
+      .align("[ ]*(?:input|output|inout).*", " logic ", ".*")
+      // align port names
+      .align("[ ]*(?:input|output|inout).*", " ", "[a-zA-Z0-9_.]+,?")
       // align after wire/reg/logic words
       .align(
         "\\s*(?:logic(?: signed)?\\s*\\[\\d+:\\d+]|[\\w]+)",
@@ -69,21 +92,21 @@ class VerilogPrinter(using val getSet: MemberGetSet, val printerOptions: Printer
       // align via connections
       .align(".*", "\\/\\*<--\\*\\/|\\/\\*-->\\*\\/", ".*")
       // align assignments
-      .align("[ ]*[a-zA-Z0-9_.]+[ ]*", "=|<=", ".*")
+      .align("[ ]*[a-zA-Z0-9_.\\[\\]\\:]+[ ]*", "=|<=", ".*;")
       // align connections (verilog assignments)
-      .align("[ ]*assign [a-zA-Z0-9_.]+[ ]*", "=", ".*")
+      .align("[ ]*assign [a-zA-Z0-9_.\\[\\]\\:]+[ ]*", "=", ".*;")
       // align parameters
-      .align("[ ]*parameter [a-zA-Z0-9_.]+[ ]*", "=", ".*")
+      .align("[ ]*parameter [a-zA-Z0-9_.]+[ ]*", "=", ".*;")
       // align enum constants
-      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*", "=", ".*")
+      .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*", "=", "[ ]*[0-9]+,?")
       // align cases
       .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*:", "", ".*")
 
   val verilogKW: Set[String] =
-    Set("module", "input", "output", "inout", "endmodule", "always", "begin", "end", "case",
-      "default", "endcase", "default_nettype", "include", "timescale", "if", "else", "typedef",
-      "enum", "posedge", "negedge", "assign", "parameter", "struct", "packed", "ifndef", "endif",
-      "define")
+    Set("module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
+      "begin", "end", "case", "default", "endcase", "default_nettype", "include", "timescale", "if",
+      "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter", "struct", "packed",
+      "ifndef", "endif", "define")
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] =
     Set("wire", "reg", "logic", "wire", "signed", "int")

@@ -9,6 +9,3 @@ import dfhdl._
     val c = Bits(12) <> OUT
     
     c := b(a)
-
-given options.CompilerOptions.PrintGenFiles = true
-given options.CompilerOptions.Backend = backends.vhdl.v2008

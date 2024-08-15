@@ -16,7 +16,11 @@ import dfhdl.options.GHDLOptions
 object GHDL extends VHDLLinter:
   type LO = GHDLOptions
   val toolName: String = "GHDL"
-  def binExec: String = "ghdl"
+  protected def binExec: String = "ghdl"
+  protected def versionCmd: String = s"version"
+  protected def extractVersion(cmdRetStr: String): Option[String] =
+    val versionPattern = """GHDL\s+(\d+\.\d+\.\d+)""".r
+    versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
     val designsInCmd = cd.stagedDB.srcFiles.view.collect {
@@ -29,13 +33,18 @@ object GHDL extends VHDLLinter:
         path
     }.mkString(" ")
 
+    val dfhdlPackage = cd.stagedDB.srcFiles.collectFirst {
+      case SourceFile(SourceOrigin.Committed, SourceType.Design.DFHDLDef, path, _) =>
+        path
+    }.get
+
     val globalPackage = cd.stagedDB.srcFiles.collectFirst {
       case SourceFile(SourceOrigin.Committed, SourceType.Design.GlobalDef, path, _) =>
         path
     }.get
 
     // config files must be placed before the design sources
-    s"$globalPackage $designsInCmd"
+    s"$dfhdlPackage $globalPackage $designsInCmd"
   end filesCmdPart
   def lint[D <: Design](
       cd: CompiledDesign[D]
@@ -45,14 +54,14 @@ object GHDL extends VHDLLinter:
         be.dialect match
           case VHDLDialect.v93   => "93"
           case VHDLDialect.v2008 => "08"
-          case VHDLDialect.v2019 => "08" // uses 2008 standard until GHDL supports this dialect
+          case VHDLDialect.v2019 => "19"
       case _ =>
         throw new java.lang.IllegalArgumentException(
           "Current backend is not supported for GHDL linting."
         )
     exec(
       cd,
-      s"$binExec -a${lo.warnAsError.toFlag("--warn-error")} --std=$std ${filesCmdPart(cd)}"
+      s"-a${lo.warnAsError.toFlag("--warn-error")} --std=$std -frelaxed -Wno-shared ${filesCmdPart(cd)}"
     )
   end lint
 end GHDL

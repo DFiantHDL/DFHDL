@@ -4,11 +4,31 @@ import ir.*
 import dfhdl.internals.*
 import DFVal.*
 import analysis.*
+import Func.Op as FuncOp
 
 extension (ref: DFRef.TwoWayAny)
   def refCodeString(using printer: AbstractValPrinter): String = printer.csRef(ref, false)
   def refCodeString(typeCS: Boolean)(using printer: AbstractValPrinter): String =
     printer.csRef(ref, typeCS)
+
+extension (list: List[String])
+  def csList(open: String = "(", sep: String = ",", close: String = ")"): String =
+    // Function to find the largest divisor less than or equal to the limit
+    def findLargestDivisor(n: Int, limit: Int): Int =
+      var maxDivisor = 1
+      for (i <- 1 to math.sqrt(n).toInt if n % i == 0)
+        if (i <= limit) maxDivisor = math.max(maxDivisor, i)
+        if (n / i <= limit) maxDivisor = math.max(maxDivisor, n / i)
+      maxDivisor
+    val maxVectorLineCharacters: Int = 120
+    val avgTextLength = list.view.map(_.length).sum / list.length
+    val maxColElems = (maxVectorLineCharacters / avgTextLength).max(1)
+    val colCnt = findLargestDivisor(list.length, maxColElems)
+    val rowCnt = (list.length - 1) / colCnt + 1
+    if (rowCnt == 1) list.mkString(open, sep + " ", close)
+    else
+      val csVecData = list.grouped(colCnt).map(_.mkString(sep + " ")).mkString(sep + "\n").hindent
+      s"$open\n${csVecData}\n$close"
 
 extension (intParamRef: IntParamRef)
   def refCodeString(typeCS: Boolean)(using printer: AbstractValPrinter): String = intParamRef match
@@ -58,9 +78,11 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dfVal: DFVal =>
         val callOwner = ref.originMember.getOwner
         val cs = printer.csDFValRef(dfVal, callOwner)
-        dfVal match
+        val ret = dfVal match
           case ch: DFConditional.Header if ch.isAnonymous => csConditionalExprRel(cs, ch)
           case _                                          => cs
+        if (dfVal.isAnonymous || !typeCS) ret
+        else s"$ret.type"
       case named: DFMember.Named =>
         named.nameCS
       case _ =>
@@ -80,6 +102,11 @@ trait AbstractValPrinter extends AbstractPrinter:
   final def csDFValDcl(dfVal: Dcl): String =
     val noInit = csDFValDclWithoutInit(dfVal)
     val init = dfVal.initRefList match
+      case DFRef(DFVal.Func(_, FuncOp.InitFile(format, path), _, _, _, _)) :: Nil =>
+        val csInitFile = format match
+          case InitFileFormat.Auto => s""""$path""""
+          case _                   => s"""("$path", InitFileFormat.$format)"""
+        s" initFile $csInitFile"
       case ref :: Nil => s" $csInitKeyword ${csInitSingle(ref)}"
       case Nil        => ""
       case refs       => s" $csInitKeyword ${csInitSeq(refs)}"
@@ -131,11 +158,18 @@ protected trait DFValPrinter extends AbstractValPrinter:
   def csDFValDclEnd(dfVal: Dcl): String = ""
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     dfVal.args match
+      // boolean sel function
+      case cond :: onTrue :: onFalse :: Nil
+          if cond.get.dfType == DFBool && dfVal.op == Func.Op.sel =>
+        s"${cond.refCodeString.applyBrackets()}.sel(${onTrue.refCodeString}, ${onFalse.refCodeString})"
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
-        val csArgL = argL.refCodeString(typeCS)
-        val csArgR = argR.refCodeString(typeCS)
-        s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"
+        dfVal.dfType match
+          case _: DFVector => s"all(${argL.refCodeString})"
+          case _ =>
+            val csArgL = argL.refCodeString(typeCS)
+            val csArgR = argR.refCodeString(typeCS)
+            s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val csArgL = argL.refCodeString(typeCS)
@@ -157,7 +191,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         val csArg = arg.refCodeString(typeCS)
         val opStr = dfVal.op.toString
         dfVal.op match
-          case Func.Op.unary_! | Func.Op.unary_- | Func.Op.unary_! =>
+          case Func.Op.unary_! | Func.Op.unary_- | Func.Op.unary_! | Func.Op.unary_~ =>
             s"${opStr.last}${csArg.applyBrackets()}"
           case Func.Op.clog2 =>
             s"${opStr}${csArg.applyBrackets(onlyIfRequired = false)}"
@@ -179,9 +213,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
                         s"$n = $r"
                       }
                       .mkStringBrackets
-              case DFVector(_, _) =>
-                if (csArgs.allElementsAreEqual) s"all(${csArgs.head})"
-                else s"Vector${csArgs.mkStringBrackets}"
+              case dfType @ DFVector(_, _) =>
+                s"DFVector(${printer.csDFVector(dfType, typeCS = false)})${csArgs.csList()}"
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"${(csArgs.head).applyBrackets()}.repeat(${args.length})"
@@ -262,7 +295,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
   def csDFValAliasHistory(dfVal: Alias.History): String =
     val opStr = dfVal.op match
       case Alias.History.Op.State =>
-        dfVal.relValRef.get.getOwnerDomain.domainType match
+        dfVal.getOwnerDomain.domainType match
           case DomainType.DF    => ".prev"
           case DomainType.RT(_) => ".reg"
           case DomainType.ED    => ??? // impossible!

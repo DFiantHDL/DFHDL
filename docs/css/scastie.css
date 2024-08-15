@@ -1,3 +1,9 @@
+
+#current-language {
+  font-size: 16px;
+  color: #FFFFFF; /* Adjust color for visibility */
+}
+
 /* fix position of the scastie panel to fit the admonition */
 details.dfhdl div.scastie.embedded, div.admonition.dfhdl div.scastie.embedded {
   margin-left: -0.6rem;

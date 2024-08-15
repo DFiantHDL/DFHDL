@@ -15,8 +15,10 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     if (dfVal.isPort) s"${dfVal.getName} : ${dfVal.modifier.toString.toLowerCase} $dfTypeStr"
     else
       val sigOrVar = dfVal.getOwnerNamed match
-        case dsn: DFDesignBlock => "signal"
-        case _                  => "variable"
+        case dsn: DFDesignBlock =>
+          if (dfVal.modifier.isShared) "shared variable"
+          else "signal"
+        case _ => "variable"
       s"$sigOrVar ${dfVal.getName} : $dfTypeStr"
   end csDFValDclWithoutInit
   def csInitKeyword: String = ":="
@@ -25,6 +27,20 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     dfVal.args match
+      // boolean sel function
+      case cond :: onTrue :: onFalse :: Nil
+          if cond.get.dfType == DFBool && dfVal.op == Func.Op.sel =>
+        s"bool_sel(${cond.refCodeString}, ${onTrue.refCodeString}, ${onFalse.refCodeString})"
+      // repeat func
+      case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
+        dfVal.dfType match
+          case dfType: DFBits =>
+            s"repeat(${argL.refCodeString}, ${dfType.widthParamRef.refCodeString})"
+          case dfType: DFVector =>
+            s"(0 to ${dfType.cellDimParamRefs.head.uboundCS} => ${argL.refCodeString})"
+          case _ =>
+            println(dfVal)
+            ???
       // infix/regular func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         var infix = true
@@ -91,11 +107,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                   .mkStringBrackets
 
               // all args are the same ==> repeat function
-              case _ if args.view.map(_.get).forall(_ =~ args.head.get) =>
-                s"(0 to ${args.length - 1} => ${args.head.refCodeString.applyBrackets()})"
+              case _ if args.view.map(_.get).allElementsAreEqual =>
+                s"(0 to ${args.length - 1} => ${args.head.refCodeString})"
 
               case DFVector(_, _) =>
-                args.map(_.refCodeString).mkStringBrackets
+                args.map(_.refCodeString).csList()
               // regular concatenation function
               case _ => args.map(_.refCodeString).mkString(" & ")
             end match

@@ -3,7 +3,7 @@ import dfhdl.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
 import dfhdl.internals.*
 
-import scala.annotation.{implicitNotFound, targetName}
+import scala.annotation.{implicitNotFound, targetName, nowarn}
 import scala.quoted.*
 import scala.util.boundary, boundary.break
 import DFDecimal.Constraints.`LW == RW`
@@ -104,62 +104,15 @@ object DFBits:
 
   object StrInterp:
     private[DFBits] val widthExp = "([0-9]+)'(.*)".r
-    def fromBinString(
-        bin: String
-    ): Either[String, (BitVector, BitVector)] = boundary {
-      val (valueBits, bubbleBits) =
-        bin.foldLeft((BitVector.empty, BitVector.empty)) {
-          case (t, '_' | ' ') => t // ignoring underscore or space
-          case ((v, b), c) =>
-            c match // bin mode
-              case '?' => (v :+ false, b :+ true)
-              case '0' => (v :+ false, b :+ false)
-              case '1' => (v :+ true, b :+ false)
-              case x =>
-                break(Left(s"Found invalid binary character: $x"))
-        }
-      Right((valueBits, bubbleBits))
-    }
     private[DFBits] val isHex = "[0-9a-fA-F]".r
-    def fromHexString(
-        hex: String
-    ): Either[String, (BitVector, BitVector)] = boundary {
-      val (valueBits, bubbleBits, binMode) =
-        hex.foldLeft((BitVector.empty, BitVector.empty, false)) {
-          case (t, '_' | ' ') => t // ignoring underscore or space
-          case ((v, b, false), c) =>
-            c match // hex mode
-              case '{' => (v, b, true)
-              case '?' => (v ++ BitVector.low(4), b ++ BitVector.high(4), false)
-              case isHex() =>
-                (
-                  v ++ BitVector.fromHex(c.toString).get,
-                  b ++ BitVector.low(4),
-                  false
-                )
-              case x =>
-                break(Left(s"Found invalid hex character: $x"))
-          case ((v, b, true), c) =>
-            c match // bin mode
-              case '}' => (v, b, false)
-              case '?' => (v :+ false, b :+ true, true)
-              case '0' => (v :+ false, b :+ false, true)
-              case '1' => (v :+ true, b :+ false, true)
-              case x =>
-                break(Left(s"Found invalid binary character in binary mode: $x"))
-        }
-      if (binMode) Left(s"Missing closing braces of binary mode")
-      else Right((valueBits, bubbleBits))
-    }
-
     extension (fullTerm: String)
       private[DFBits] def interpolate[W <: IntP](
           op: String,
           explicitWidthOption: Option[IntP]
       )(using DFC): DFConstOf[DFBits[W]] =
         val fromString = op match
-          case "b" => fromBinString(fullTerm)
-          case "h" => fromHexString(fullTerm)
+          case "b" => ir.DFBits.dataFromBinString(fullTerm)
+          case "h" => ir.DFBits.dataFromHexString(fullTerm)
         var (valueBits, bubbleBits) = fromString.toOption.get
         explicitWidthOption.foreach(ew =>
           val updatedWidth = IntParam.forced(ew).toScalaInt
@@ -182,8 +135,8 @@ object DFBits:
           case Literal(StringConstant(t)) =>
             val opStr = opExpr.value.get
             val res = opStr match
-              case "b" => fromBinString(t)
-              case "h" => fromHexString(t)
+              case "b" => ir.DFBits.dataFromBinString(t)
+              case "h" => ir.DFBits.dataFromHexString(t)
             res match
               case Right((valueBits, bubbleBits)) =>
                 explicitWidthTpeOption match
@@ -213,7 +166,7 @@ object DFBits:
 
   // Unclear why, but the compiler crashes if we do not separate these definitions from StrInterp
   object StrInterpOps:
-    import StrInterp.{fromBinString, fromHexString, interpolate, isHex, widthExp}
+    import StrInterp.{interpolate, isHex, widthExp}
     opaque type BinStrCtx <: StringContext = StringContext
     object BinStrCtx:
       extension (inline sc: BinStrCtx)
@@ -437,6 +390,10 @@ object DFBits:
         end match
       end valueToBits
       transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[R] = ${ DFBitsMacro[R] }
+      object TupleCandidate extends Candidate[Any]:
+        def apply(value: Any)(using DFC): Out =
+          valueToBits(value).asInstanceOf[Out]
+
       def DFBitsMacro[R](using
           Quotes,
           Type[R]
@@ -447,11 +404,12 @@ object DFBits:
         val wType = rTpe.calcValWidth.asTypeOf[Int]
         val pType = rTpe.isConstTpe.asTypeOf[Any]
         '{
-          new Candidate[R]:
-            type OutW = wType.Underlying
-            type OutP = pType.Underlying
-            def apply(value: R)(using DFC): Out =
-              valueToBits(value).asValTP[DFBits[OutW], pType.Underlying]
+          TupleCandidate.asInstanceOf[
+            Candidate[R] {
+              type OutW = wType.Underlying
+              type OutP = pType.Underlying
+            }
+          ]
         }
       end DFBitsMacro
     end Candidate
@@ -602,18 +560,25 @@ object DFBits:
           check(lhsVal.widthInt, rhsVal.widthInt)
           DFVal.Func(lhsVal.dfType, FuncOp.^, List(lhsVal, rhsVal))
         }
-        // reduction AND of all bits
-        def &(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+        ///////////////////////////////////////////////////////////////////////////////
+        // The `reduce?` is a workaround https://github.com/scala/scala3/issues/20053
+        // See PreTyperPhase of compiler plugin to see replacements `.?` with `.reduce?`
+        ///////////////////////////////////////////////////////////////////////////////
+        def `reduce&`(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
           DFVal.Func(DFBit, FuncOp.&, List(icL(lhs)))
         }
-        // reduction OR of all bits
-        def |(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+        def `reduce|`(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
           DFVal.Func(DFBit, FuncOp.|, List(icL(lhs)))
         }
-        // reduction XOR of all bits
-        def ^(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
+        def `reduce^`(using dfc: DFC): DFValTP[DFBit, icL.OutP] = trydf {
           DFVal.Func(DFBit, FuncOp.^, List(icL(lhs)))
         }
+        // reduction AND of all bits
+        private def &(using dfc: DFC): DFValTP[DFBit, icL.OutP] = `reduce&`
+        // reduction OR of all bits
+        private def |(using dfc: DFC): DFValTP[DFBit, icL.OutP] = `reduce|`
+        // reduction XOR of all bits
+        private def ^(using dfc: DFC): DFValTP[DFBit, icL.OutP] = `reduce^`
       end extension
       extension [L <: DFValAny, LW <: IntP, LP](lhs: L)(using icL: Candidate.Aux[L, LW, LP])
         def extend(using DFC): DFValTP[DFBits[Int], icL.OutP] =

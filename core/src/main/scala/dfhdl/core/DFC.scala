@@ -3,6 +3,7 @@ import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.options.ElaborationOptions
 import ir.{HWAnnotation, getActiveHWAnnotations}
+import scala.reflect.ClassTag
 
 import scala.annotation.Annotation
 
@@ -12,6 +13,7 @@ final case class DFC(
     docOpt: Option[String],
     annotations: List[HWAnnotation] = Nil, // TODO: removing default causes stale symbol crash
     mutableDB: MutableDB = new MutableDB(),
+    tags: ir.DFTags = ir.DFTags.empty,
     elaborationOptions: ElaborationOptions = ElaborationOptions.default
 ) extends MetaContext:
   def setMeta(
@@ -33,6 +35,9 @@ final case class DFC(
     docOpt = meta.docOpt,
     annotations = meta.annotations
   ).asInstanceOf[this.type]
+  def setTags(tags: ir.DFTags) = copy(tags = tags)
+  def tag[CT <: ir.DFTag: ClassTag](customTag: CT) = setTags(tags.tag(customTag))
+  def emptyTags = setTags(ir.DFTags.empty)
   given getSet: ir.MemberGetSet = mutableDB.getSet
   def getMeta: ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations)
   def enterOwner(owner: DFOwnerAny): Unit =
@@ -77,7 +82,7 @@ object DFC:
     object Interface extends Interface
 end DFC
 
-def dfc(using DFC): DFC = summon[DFC]
+transparent inline def dfc(using d: DFC): d.type = d
 
 trait HasDFC:
   lazy val dfc: DFC

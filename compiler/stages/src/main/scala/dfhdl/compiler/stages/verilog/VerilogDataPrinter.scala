@@ -54,14 +54,7 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
       case None => "?"
   val maxElementsPerLine = 64
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
-    given CanEqual[Any, Any] = CanEqual.derived
-    if (data.allElementsAreEqual) s"'{${data.length}{${csConstData(dfType.cellType, data.head)}}}"
-    else
-      val allElements = data.view.grouped(maxElementsPerLine).map(line =>
-        line.map(x => csConstData(dfType.cellType, x)).mkString(", ")
-      ).mkString(",\n")
-      if (allElements.contains("\n")) s"'{\n${allElements.hindent}\n}"
-      else s"'{$allElements}"
+    data.view.map(csConstData(dfType.cellType, _)).toList.csList("'{", ",", "}")
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     csConstData(dfType.actualType, data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =

@@ -8,7 +8,7 @@ import scala.annotation.{Annotation, implicitNotFound}
 import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
 
-private[dfhdl] trait Design extends Container, HasClsMetaArgs:
+trait Design extends Container, HasClsMetaArgs:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
@@ -74,15 +74,10 @@ object Design:
       // (the top level may be an ED or DF design, so it cannot save the default RT configuration as part
       // of the domain type, but this could be needed later for compilation stages)
       val tags =
-        if (dfc.ownerOption.isEmpty) ir.DFTags.empty.tag(dfc.elaborationOptions.defaultRTDomainCfg)
-        else ir.DFTags.empty
+        if (dfc.ownerOption.isEmpty) dfc.tags.tag(dfc.elaborationOptions.defaultRTDomainCfg)
+        else dfc.tags
       ir.DFDesignBlock(
-        domain,
-        dclMeta,
-        instMode,
-        dfc.ownerOrEmptyRef,
-        dfc.getMeta,
-        tags
+        domain, dclMeta, instMode, dfc.ownerOrEmptyRef, dfc.getMeta, tags
       )
         .addMember
         .asFE
@@ -90,7 +85,7 @@ object Design:
   end Block
   extension [D <: Design](dsn: D)
     def getDB: ir.DB = dsn.dfc.mutableDB.immutable
-    def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
+    infix def tag[CT <: ir.DFTag: ClassTag](customTag: CT)(using dfc: DFC): D =
       import dfc.getSet
       dsn.setOwner(
         dsn.owner.asIR
@@ -98,7 +93,7 @@ object Design:
           .setMeta(m => if (m.isAnonymous && !dfc.getMeta.isAnonymous) dfc.getMeta else m)
           .asFE
       )
-    def setName(name: String)(using dfc: DFC): D =
+    infix def setName(name: String)(using dfc: DFC): D =
       import dfc.getSet
       dsn.setOwner(
         dsn.owner.asIR
@@ -108,16 +103,15 @@ object Design:
           ).asFE
       )
   end extension
-
 end Design
 
 abstract class DFDesign extends DomainContainer(DomainType.DF), Design
 
-abstract class RTDesign(cfg: ir.RTDomainCfg = ir.DerivedCfg) extends RTDomainContainer(cfg), Design
-
-object RTDesign:
-  protected[core] final case class Clk_main() extends DFOpaque.Clk
-  protected[core] final case class Rst_main() extends DFOpaque.Rst
+abstract class RTDesign(cfg: RTDomainCfg = RTDomainCfg.Derived)
+    extends RTDomainContainer(cfg),
+      Design:
+  related =>
+  abstract class RelatedDomain extends RTDomain(RTDomainCfg.Related(related))
 
 abstract class EDDesign extends DomainContainer(DomainType.ED), Design
 

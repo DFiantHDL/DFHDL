@@ -171,15 +171,15 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   end transformTypeDef
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
-    tree match
-      case ContextArg(arg) =>
+    ContextArg.at(tree) match
+      case Some(arg) =>
         dfcArgStack = arg :: dfcArgStack
       case _ =>
     ctx
 
   override def transformDefDef(tree: DefDef)(using Context): DefDef =
-    tree match
-      case ContextArg(arg) =>
+    ContextArg.at(tree) match
+      case Some(arg) =>
         dfcArgStack = dfcArgStack.drop(1)
       case _ =>
     tree
@@ -208,7 +208,6 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           ref(emptyNoEODFCSym)
         // no top, so show an error
         case _ =>
-          debug(owner.getAnnotation(topAnnotSym))
           report.error(
             "Missing `@top` annotation for this design to be instantiated as a top-level design.",
             treeSrcPos
@@ -224,7 +223,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
       case Apply(Select(New(Ident(n)), _), _) if n == StdNames.tpnme.ANON_CLASS => tree
       case _
           if (
-            tree.fun.symbol.isClassConstructor && tpe.isParameterless && !ctx.owner.owner.isAnonymousClass &&
+            tree.fun.symbol.isClassConstructor && tpe.isParameterless && !ctx.owner.isClassConstructor &&
               !ctx.owner.isClassConstructor && tpe.typeConstructor <:< hasDFCTpe
           ) =>
         val cls = newNormalizedClassSymbol(

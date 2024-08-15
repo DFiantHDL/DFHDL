@@ -10,7 +10,7 @@ object DomainType:
 
   opaque type RT <: DomainType = DomainType
   object RT:
-    def apply(cfg: ir.RTDomainCfg): RT = ir.DomainType.RT(cfg)
+    def apply(cfg: RTDomainCfg): RT = ir.DomainType.RT(cfg.asIR)
 
   opaque type ED <: DomainType = DomainType
   val ED: ED = ir.DomainType.ED

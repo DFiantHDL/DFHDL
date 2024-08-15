@@ -9,7 +9,8 @@ class Plugin extends StandardPlugin:
 
   override def initialize(options: List[String])(using Context): List[PluginPhase] =
     val setting = new Setting(options.headOption)
-    TopAnnotPhase(setting) ::
+    PreTyperPhase(setting) ::
+      TopAnnotPhase(setting) ::
       MetaContextPlacerPhase(setting) ::
       CustomControlPhase(setting) ::
       DesignDefsPhase(setting) ::

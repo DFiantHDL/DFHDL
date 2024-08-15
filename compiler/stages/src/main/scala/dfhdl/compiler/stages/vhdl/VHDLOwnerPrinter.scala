@@ -19,6 +19,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       s"""library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
          |use work.$packageName.all;""".stripMargin
     if (useStdSimLibrary && inSimulation)
       s"""$default
@@ -157,7 +158,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"
   def csDFIfEnd(lastCB: DFConditional.DFIfElseBlock): String = "end if;"
-  def csIfBlockEmpty: String = ""
+  def csIfBlockEmpty: String = "end if;"
   def csDFCaseBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "others"
   def csDFCasePatternAlternativeData: String = " | "

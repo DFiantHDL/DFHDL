@@ -13,7 +13,10 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
   def csDFBitsBinFormat(binRep: String): String = s""""$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""x"$hexRep""""
   def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String =
-    s"""${width.refCodeString.applyBrackets()}x"$hexRep""""
+    if (width.isRef)
+      s"""resize(x"$hexRep", ${width.refCodeString})"""
+    else
+      s"""${width.refCodeString.applyBrackets()}x"$hexRep""""
   def csDFBoolFormat(value: Boolean): String = value.toString()
   def csDFBitFormat(bitRep: String): String = s"'$bitRep'"
   val allowDecimalBigInt: Boolean = true
@@ -41,9 +44,14 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
         s"${dfType.getName}_${entryName}"
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
-    s"Vector${data.map(x => csConstData(dfType.cellType, x)).mkStringBrackets}"
+    given CanEqual[Any, Any] = CanEqual.derived
+    val csData =
+      data.view.zipWithIndex.map((x, i) =>
+        s"${i.toPaddedString(data.length - 1, padWithZeros = false)} => ${csConstData(dfType.cellType, x)}"
+      )
+    csData.toList.csList()
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
-    s"${csConstData(dfType.actualType, data).applyBrackets()}.as(${dfType.getName})"
+    csConstData(dfType.actualType, data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
     printer.csDFStructTypeName(dfType) + dfType.fieldMap
       .lazyZip(data)

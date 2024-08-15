@@ -19,7 +19,11 @@ trait AbstractTypePrinter extends AbstractPrinter:
       .filter {
         // show tuple structures only if tuple support is disabled
         case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
-        case _                                                        => true
+        // skipping unknown clock and reset definitions (they are unknown because
+        // they lack additional name suffix that belongs to their configuration)
+        case DFOpaque("Clk", _: DFOpaque.Clk, _) => false
+        case DFOpaque("Rst", _: DFOpaque.Rst, _) => false
+        case _                                   => true
       }
       .map(x => printer.csNamedDFTypeDcl(x, global = true))
       .mkString("\n").emptyOr(x => s"$x\n")
@@ -89,8 +93,8 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
     val dimStr =
-      if (cellDimParamRefs.size == 1) cellDimParamRefs.head.refCodeString
-      else cellDimParamRefs.map(_.refCodeString).mkStringBrackets
+      if (cellDimParamRefs.size == 1) cellDimParamRefs.head.refCodeString(typeCS).applyBrackets()
+      else cellDimParamRefs.map(_.refCodeString(typeCS)).mkStringBrackets
     s"${csDFType(cellType, typeCS)} X $dimStr"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     val csActualType = csDFType(dfType.actualType)
