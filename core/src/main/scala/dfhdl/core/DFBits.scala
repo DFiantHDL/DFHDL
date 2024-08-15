@@ -104,62 +104,15 @@ object DFBits:
 
   object StrInterp:
     private[DFBits] val widthExp = "([0-9]+)'(.*)".r
-    def fromBinString(
-        bin: String
-    ): Either[String, (BitVector, BitVector)] = boundary {
-      val (valueBits, bubbleBits) =
-        bin.foldLeft((BitVector.empty, BitVector.empty)) {
-          case (t, '_' | ' ') => t // ignoring underscore or space
-          case ((v, b), c) =>
-            c match // bin mode
-              case '?' => (v :+ false, b :+ true)
-              case '0' => (v :+ false, b :+ false)
-              case '1' => (v :+ true, b :+ false)
-              case x =>
-                break(Left(s"Found invalid binary character: $x"))
-        }
-      Right((valueBits, bubbleBits))
-    }
     private[DFBits] val isHex = "[0-9a-fA-F]".r
-    def fromHexString(
-        hex: String
-    ): Either[String, (BitVector, BitVector)] = boundary {
-      val (valueBits, bubbleBits, binMode) =
-        hex.foldLeft((BitVector.empty, BitVector.empty, false)) {
-          case (t, '_' | ' ') => t // ignoring underscore or space
-          case ((v, b, false), c) =>
-            c match // hex mode
-              case '{' => (v, b, true)
-              case '?' => (v ++ BitVector.low(4), b ++ BitVector.high(4), false)
-              case isHex() =>
-                (
-                  v ++ BitVector.fromHex(c.toString).get,
-                  b ++ BitVector.low(4),
-                  false
-                )
-              case x =>
-                break(Left(s"Found invalid hex character: $x"))
-          case ((v, b, true), c) =>
-            c match // bin mode
-              case '}' => (v, b, false)
-              case '?' => (v :+ false, b :+ true, true)
-              case '0' => (v :+ false, b :+ false, true)
-              case '1' => (v :+ true, b :+ false, true)
-              case x =>
-                break(Left(s"Found invalid binary character in binary mode: $x"))
-        }
-      if (binMode) Left(s"Missing closing braces of binary mode")
-      else Right((valueBits, bubbleBits))
-    }
-
     extension (fullTerm: String)
       private[DFBits] def interpolate[W <: IntP](
           op: String,
           explicitWidthOption: Option[IntP]
       )(using DFC): DFConstOf[DFBits[W]] =
         val fromString = op match
-          case "b" => fromBinString(fullTerm)
-          case "h" => fromHexString(fullTerm)
+          case "b" => ir.DFBits.dataFromBinString(fullTerm)
+          case "h" => ir.DFBits.dataFromHexString(fullTerm)
         var (valueBits, bubbleBits) = fromString.toOption.get
         explicitWidthOption.foreach(ew =>
           val updatedWidth = IntParam.forced(ew).toScalaInt
@@ -182,8 +135,8 @@ object DFBits:
           case Literal(StringConstant(t)) =>
             val opStr = opExpr.value.get
             val res = opStr match
-              case "b" => fromBinString(t)
-              case "h" => fromHexString(t)
+              case "b" => ir.DFBits.dataFromBinString(t)
+              case "h" => ir.DFBits.dataFromHexString(t)
             res match
               case Right((valueBits, bubbleBits)) =>
                 explicitWidthTpeOption match
@@ -213,7 +166,7 @@ object DFBits:
 
   // Unclear why, but the compiler crashes if we do not separate these definitions from StrInterp
   object StrInterpOps:
-    import StrInterp.{fromBinString, fromHexString, interpolate, isHex, widthExp}
+    import StrInterp.{interpolate, isHex, widthExp}
     opaque type BinStrCtx <: StringContext = StringContext
     object BinStrCtx:
       extension (inline sc: BinStrCtx)

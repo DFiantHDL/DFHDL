@@ -556,8 +556,8 @@ object DFVal extends DFValLP:
         else dfVal.initForced(Nil)
       }
 
-  extension [W <: IntP, D <: NonEmptyTuple, A, C, I, P](
-      dfVal: DFVal[DFVector[DFBits[W], D], Modifier[A, C, I, P]]
+  extension [W <: IntP, D1 <: IntP, A, C, I, P](
+      dfVal: DFVal[DFVector[DFBits[W], Tuple1[D1]], Modifier[A, C, I, P]]
   )
     infix def initFile(
         path: String,
@@ -565,12 +565,32 @@ object DFVal extends DFValLP:
     )(using
         DFC,
         InitCheck[I]
-    ): DFVal[DFVector[DFBits[W], D], Modifier[A, C, Modifier.Initialized, P]] =
-      val initFileFunc =
-        DFVal.Func(dfVal.dfType, DFVal.Func.Op.InitFile(format, path), List.empty[ir.DFVal])(using
-          dfc.anonymize
-        ).asConstOf[DFVector[DFBits[W], D]]
-      dfVal.initForced(List(initFileFunc))
+    ): DFVal[DFVector[DFBits[W], Tuple1[D1]], Modifier[A, C, Modifier.Initialized, P]] = trydf:
+      val vectorType = dfVal.dfType
+      import DFVector.{lengthInt, cellType}
+      val data = ir.InitFileFormat.readInitFile(
+        path,
+        format,
+        vectorType.lengthInt,
+        vectorType.cellType.widthInt
+      )
+      val initFileConst = DFVal.Const(vectorType, data)
+      dfVal.initForced(List(initFileConst))
+    // TODO: for now, we read the data immediately. In the future, incremental compilation will make
+    // it beneficial to wait for the backend last stages to do so.
+    // infix def initFile(
+    //     path: String,
+    //     format: ir.InitFileFormat = ir.InitFileFormat.Auto
+    // )(using
+    //     DFC,
+    //     InitCheck[I]
+    // ): DFVal[DFVector[DFBits[W], D], Modifier[A, C, Modifier.Initialized, P]] =
+    //   val initFileFunc =
+    //     DFVal.Func(dfVal.dfType, DFVal.Func.Op.InitFile(format, path), List.empty[ir.DFVal])(using
+    //       dfc.anonymize
+    //     ).asConstOf[DFVector[DFBits[W], D]]
+    //   dfVal.initForced(List(initFileFunc))
+  end extension
 
   implicit def BooleanHack(from: DFValOf[DFBoolOrBit])(using DFC): Boolean =
     ???
