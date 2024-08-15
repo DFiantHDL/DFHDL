@@ -2,7 +2,7 @@ commands += DFHDLCommands.quickTestSetup
 
 // format: off
 val projectName = "dfhdl"
-val compilerVersion = "3.4.2"
+val compilerVersion = "3.4.3"
 
 inThisBuild(
   List(
@@ -59,7 +59,7 @@ def additionalSources(scalaVersion: String, base: File): Seq[File] = {
     case _ =>
       Seq.empty
   }
-} 
+}
 lazy val plugin = project
   .settings(
     name := s"$projectName-plugin",
@@ -163,7 +163,7 @@ def compilerOptionsVersionDependent(scalaVersion: String) = {
     case _ =>
       Seq.empty
   }
-} 
+}
 
 lazy val compilerOptions = Seq(
   "-unchecked",
@@ -178,7 +178,7 @@ lazy val compilerOptions = Seq(
   "-Wconf:msg=not declared infix:s",
   //ignore warning given by the plugin Jdummy dependency trick
   "-Wconf:msg=bad option '-Jdummy:s"
-) 
+)
 
 lazy val pluginUseSettings = Seq(
   Compile / scalacOptions ++= {
