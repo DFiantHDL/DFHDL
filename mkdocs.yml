@@ -68,8 +68,9 @@ nav:
     - LED Blinker: in-browser/led-blinker/index.md
     # - LFSR: in-browser/lfsr/index.md
     - ALU: in-browser/alu/index.md
+    - Register File: in-browser/reg-file/index.md
     - UART Transmitter: in-browser/uart-tx/index.md
-    - True DPR: in-browser/true-dpr/index.md
+    - True Dual-Port RAM: in-browser/true-dpr/index.md
   # - User Guide:
   #   - Domain Abstractions: user-guide/design-domains/index.md
   #   - Designs & Hierarchies: user-guide/designs/index.md
