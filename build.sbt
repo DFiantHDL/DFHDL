@@ -59,7 +59,7 @@ def additionalSources(scalaVersion: String, base: File): Seq[File] = {
     case _ =>
       Seq.empty
   }
-} 
+}
 lazy val plugin = project
   .settings(
     name := s"$projectName-plugin",
@@ -128,7 +128,7 @@ lazy val lib = project
 
 lazy val dependencies =
   new {
-    private val scodecV = "1.2.0"
+    private val scodecV = "1.2.1"
     private val munitV = "1.0.1"
     private val scalafmtV = "3.8.2"
     private val airframelogV = "24.7.1"
@@ -163,7 +163,7 @@ def compilerOptionsVersionDependent(scalaVersion: String) = {
     case _ =>
       Seq.empty
   }
-} 
+}
 
 lazy val compilerOptions = Seq(
   "-unchecked",
@@ -178,7 +178,7 @@ lazy val compilerOptions = Seq(
   "-Wconf:msg=not declared infix:s",
   //ignore warning given by the plugin Jdummy dependency trick
   "-Wconf:msg=bad option '-Jdummy:s"
-) 
+)
 
 lazy val pluginUseSettings = Seq(
   Compile / scalacOptions ++= {
