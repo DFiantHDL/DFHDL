@@ -6,6 +6,7 @@ import dfhdl.compiler.ir
 import wvlet.log.{Logger, LogFormatter}
 import scala.collection.mutable
 import scala.annotation.static
+import dfhdl.options.CompilerOptions
 trait DFApp:
   private val logger = Logger("DFHDL App")
   logger.setFormatter(LogFormatter.BareFormatter)
@@ -49,7 +50,8 @@ trait DFApp:
   given options.CompilerOptions = compilerOptions
   given options.PrinterOptions = printerOptions
   private var dsn: () => core.Design = null
-  private var mode = "commit"
+  private var mode: String = "commit"
+  private var helpMode: String = "usage"
   // used by the plugin to get the updated design arguments that could be changed by the
   // command-line options
   final protected def getDsnArg(name: String): Any =
@@ -141,12 +143,65 @@ trait DFApp:
         .text(s"linter tool: ${accepted.mkString(", ")}")
     head(s"Design Name: $designName")
     optDesignArg
+    def backendOption =
+      val defaultValue = compilerOptions.backend match
+        case backend: dfhdl.backends.verilog => s"verilog:${backend.dialect}"
+        case backend: dfhdl.backends.vhdl    => s"vhdl:${backend.dialect}"
+      def parseValue(value: String): Either[String, CompilerOptions.Backend] =
+        value.split(":").toList match
+          case lang :: Nil =>
+            lang match
+              case "verilog" => Right(dfhdl.backends.verilog)
+              case "vhdl"    => Right(dfhdl.backends.vhdl)
+              case _         => Left(s"Invalid backend language: $lang")
+          case lang :: dialect :: Nil =>
+            lang match
+              case "verilog" =>
+                dialect match
+                  case "v2001"  => Right(dfhdl.backends.verilog.v2001)
+                  case "sv2005" => Right(dfhdl.backends.verilog.sv2005)
+                  case "sv2012" => Right(dfhdl.backends.verilog.sv2012)
+                  case "sv2017" => Right(dfhdl.backends.verilog.sv2017)
+                  case _        => Left(s"Invalid Verilog/SystemVerilog backend dialect: $dialect")
+              case "vhdl" =>
+                dialect match
+                  case "v93"   => Right(dfhdl.backends.vhdl.v93)
+                  case "v2008" => Right(dfhdl.backends.vhdl.v2008)
+                  case "v2019" => Right(dfhdl.backends.vhdl.v2019)
+                  case _       => Left(s"Invalid VHDL backend dialect: $dialect")
+              case _ => Left(s"Invalid backend language: $lang")
+          case _ => Left("Invalid backend syntax. Found too many separator colons.")
+      opt[String]("backend")
+        .abbr("b")
+        .validate(x => parseValue(x).map(_ => ()))
+        .foreach(x => compilerOptions = compilerOptions.copy(backend = parseValue(x).toOption.get))
+        .valueName(s"<lang>[:<dialect>]  default=$defaultValue")
+        .text("backend selection (run `help backend` to get full list of languages and dialects)")
+    end backendOption
+    backendOption
+    opt[Unit]("print-elaborate")
+      .abbr("pe")
+      .foreach(_ => elaborationOptions = elaborationOptions.copy(printDesignCodeAfter = true))
+      .text("print the DFHDL design after elaboration")
+    opt[Unit]("print-compile")
+      .abbr("pc")
+      .foreach(_ => compilerOptions = compilerOptions.copy(printDesignCodeAfter = true))
+      .text("print the DFHDL design after compilation")
+    opt[Unit]("print-backend")
+      .abbr("pb")
+      .foreach(_ => compilerOptions = compilerOptions.copy(printGenFiles = true))
+      .text("print the backend design after compilation")
     cmd("help")
       .foreach(_ => mode = "help")
       .text("Display usage text")
-    cmd("list-design-args")
-      .foreach(_ => mode = "list-design-args")
-      .text("Mode: List all design arguments")
+      .children(
+        cmd("backend")
+          .foreach(_ => helpMode = "backend")
+          .text("List all backend languages and dialects"),
+        cmd("design-args")
+          .foreach(_ => helpMode = "design-args")
+          .text("List all design arguments")
+      )
     cmd("elaborate")
       .foreach(_ => mode = "elaborate")
       .text("Mode: Elaboration only (no compilation)")
@@ -160,7 +215,6 @@ trait DFApp:
       .foreach(_ => mode = "lint")
       .text("Mode: Linting (after elaboration, compilation, and committing to disk)")
       .children(optLinter)
-
   private def listDesignArgs: Unit =
     println("Design arguments:")
     val titles = f"${"Name"}%-20s${"Type"}%-20s${"Default"}%-20sDescription"
@@ -169,22 +223,37 @@ trait DFApp:
     designArgs.values.foreach(a =>
       println(f"${a.name}%-20s${a.typeName}%-20s${a.valueStr}%-20s${a.desc}")
     )
+  private def listBackends: Unit =
+    println(
+      s"""|Available languages (see their dialects below):
+          |verilog - Verilog or SystemVerilog
+          |vhdl    - VHDL
+          |
+          |Available Verilog/SystemVerilog dialects:
+          |v2001   - Verilog 2001
+          |sv2005  - SystemVerilog 2005 [default]
+          |sv2012  - SystemVerilog 2012
+          |sv2017  - SystemVerilog 2017
+          |
+          |Available VHDL dialects:
+          |v93     - VHDL 1993
+          |v2008   - VHDL 2008 [default]
+          |v2019   - VHDL 2019""".stripMargin
+    )
+  end listBackends
 
   def main(args: Array[String]): Unit =
     if (parser.parse(args, ()).isDefined)
       mode match
         case "help" =>
-          println(parser.usage)
-        case "elaborate" =>
-          elaborate
-        case "compile" =>
-          elaborate.compile
-        case "commit" =>
-          elaborate.compile.commit
-        case "lint" =>
-          elaborate.compile.commit.lint
-        case "list-design-args" =>
-          listDesignArgs
-        case _ =>
+          helpMode match
+            case "backend"     => listBackends
+            case "design-args" => listDesignArgs
+            case _             => println(parser.usage)
+        case "elaborate" => elaborate
+        case "compile"   => elaborate.compile
+        case "commit"    => elaborate.compile.commit
+        case "lint"      => elaborate.compile.commit.lint
+        case _           =>
   end main
 end DFApp
