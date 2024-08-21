@@ -207,9 +207,11 @@ end Printer
 
 object Printer:
   def printGenFiles(db: DB)(using po: PrinterOptions): Unit =
-    val srcFiles =
-      if (po.showGlobals) db.srcFiles
-      else db.srcFiles.drop(1)
+    val srcTypeFilter: SourceType => Boolean =
+      if (po.showGlobals)
+        srcType => srcType == SourceType.Design.Regular | srcType == SourceType.Design.GlobalDef
+      else srcType => srcType == SourceType.Design.Regular
+    val srcFiles = db.srcFiles.view.filter(srcFile => srcTypeFilter(srcFile.sourceType))
     srcFiles.foreach {
       case srcFile @ SourceFile(
             SourceOrigin.Compiled | SourceOrigin.Committed,
