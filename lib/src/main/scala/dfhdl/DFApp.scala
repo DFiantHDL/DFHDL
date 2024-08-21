@@ -139,12 +139,14 @@ trait DFApp:
           else failure(s"Acceptable values are: ${accepted.mkString(", ")}")
         )
         .text(s"linter tool: ${accepted.mkString(", ")}")
-    help("help").text("display usage text")
     head(s"Design Name: $designName")
     optDesignArg
+    cmd("help")
+      .foreach(_ => mode = "help")
+      .text("Display usage text")
     cmd("list-design-args")
-      .text("Mode: List all design arguments")
       .foreach(_ => mode = "list-design-args")
+      .text("Mode: List all design arguments")
     cmd("elaborate")
       .foreach(_ => mode = "elaborate")
       .text("Mode: Elaboration only (no compilation)")
@@ -171,6 +173,8 @@ trait DFApp:
   def main(args: Array[String]): Unit =
     if (parser.parse(args, ()).isDefined)
       mode match
+        case "help" =>
+          println(parser.usage)
         case "elaborate" =>
           elaborate
         case "compile" =>
