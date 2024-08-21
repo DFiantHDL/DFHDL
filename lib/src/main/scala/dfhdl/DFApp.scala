@@ -92,16 +92,12 @@ trait DFApp:
     elaborated
 
   private def programName: String =
-    dfhdl.internals.getShellCommand match
-      // sbt
-      case Some(cmd) if cmd.contains("xsbt.boot.Boot") =>
-        if (cmd.endsWith("xsbt.boot.Boot")) s"runMain $topScalaPath"
-        else s"""sbt "runMain $topScalaPath [options]""""
-      // scala-cli
-      case Some(cmd) if cmd.contains(".scala-build") =>
-        s"scala-cli run . -M $topScalaPath --"
-      case _ =>
-        "<your program>"
+    import dfhdl.internals.{sbtIsRunning, scala_cliIsRunning, sbtShellIsRunning}
+    if (scala_cliIsRunning) s"scala-cli run . -M $topScalaPath --"
+    else if (sbtIsRunning)
+      if (sbtShellIsRunning) s"runMain $topScalaPath"
+      else s"""sbt "runMain $topScalaPath [options]""""
+    else "<your program>"
   private lazy val parser = new scopt.OptionParser[Unit](programName):
     override def terminate(exitState: Either[String, Unit]): Unit = ()
     def optDesignArg = opt[Map[String, String]]("design-args")
