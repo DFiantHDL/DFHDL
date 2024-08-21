@@ -76,16 +76,17 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFDesignDefInst(design: DFDesignBlock): String
   def csBlockBegin: String
   def csBlockEnd: String
+  def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String = ifBlock.guardRef.refCodeString
   def csDFIfStatement(csCond: String): String
   def csDFElseStatement: String
   def csDFElseIfStatement(csCond: String): String
   final def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
     ifBlock.prevBlockOrHeaderRef.get match
-      case _: DFConditional.Header => csDFIfStatement(ifBlock.guardRef.refCodeString)
+      case _: DFConditional.Header => csDFIfStatement(csDFIfGuard(ifBlock))
       case _ =>
         ifBlock.guardRef.get match
           case DFMember.Empty => csDFElseStatement
-          case _              => csDFElseIfStatement(ifBlock.guardRef.refCodeString)
+          case _              => csDFElseIfStatement(csDFIfGuard(ifBlock))
   def csDFIfEnd(lastCB: DFConditional.DFIfElseBlock): String
   def csIfBlockEmpty: String
   def csDFCaseBlockEmpty: String

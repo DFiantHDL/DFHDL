@@ -16,6 +16,9 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       VHDLOwnerPrinter:
   type TPrinter = VHDLPrinter
   given printer: TPrinter = this
+  val inVHDL93: Boolean = dialect match
+    case VHDLDialect.v93 => true
+    case _               => false
   def unsupported: Nothing = throw new IllegalArgumentException(
     "Unsupported member for this RTPrinter."
   )
