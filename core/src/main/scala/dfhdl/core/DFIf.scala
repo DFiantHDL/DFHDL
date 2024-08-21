@@ -16,7 +16,7 @@ protected[core] def analyzeControlRet(ret: Any)(using DFC): DFTypeAny = Exact.st
 
 object DFIf:
   def singleBranch[R](
-      condOption: Option[DFValOf[DFBool]],
+      condOption: Option[DFValOf[DFBoolOrBit]],
       prevBlockOrHeader: DFOwnerAny | DFValAny,
       run: () => R
   )(using
@@ -32,7 +32,7 @@ object DFIf:
     (dfType, block)
   end singleBranch
   def fromBranches[R](
-      branches: List[(DFValOf[DFBool], () => R)],
+      branches: List[(DFValOf[DFBoolOrBit], () => R)],
       elseOption: Option[() => R]
   )(using DFC): R = try
     val header = Header(DFUnit)
@@ -94,7 +94,7 @@ object DFIf:
 
   object Block:
     def apply(
-        guardOption: Option[DFValOf[DFBool]],
+        guardOption: Option[DFValOf[DFBoolOrBit]],
         prevBlockOrHeader: DFOwnerAny | DFValAny
     )(using
         DFC
