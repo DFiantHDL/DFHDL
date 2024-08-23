@@ -369,3 +369,7 @@ lazy val sbtIsRunning: Boolean =
   getShellCommand.exists(cmd => cmd.contains("xsbt.boot.Boot") || cmd.contains("sbt-launch.jar"))
 
 lazy val scala_cliIsRunning: Boolean = getShellCommand.exists(_.contains(".scala-build"))
+
+// detecting if running in Scastie by checking the PWD
+lazy val scastieIsRunning: Boolean =
+  System.getProperty("user.dir").startsWith("/tmp/scastie")

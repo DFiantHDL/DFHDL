@@ -2,6 +2,7 @@ package dfhdl.options
 import dfhdl.compiler.ir
 import dfhdl.internals.simplePattenToRegex
 import dfhdl.options.PrinterOptions.*
+import dfhdl.internals.scastieIsRunning
 
 final case class PrinterOptions(
     align: Align,
@@ -10,10 +11,6 @@ final case class PrinterOptions(
     designPrintFilter: DesignPrintFilter
 )
 object PrinterOptions:
-
-  // detecting if running in Scastie by checking the PWD
-  private def inScastie: Boolean =
-    System.getProperty("user.dir").startsWith("/tmp/scastie")
 
   // disabling color if in Scastie because of https://github.com/scalacenter/scastie/issues/492
   given default(using
@@ -36,7 +33,7 @@ object PrinterOptions:
 
   opaque type Color <: Boolean = Boolean
   object Color:
-    given Color = !inScastie
+    given Color = !scastieIsRunning
     given Conversion[Boolean, Color] = identity
 
   opaque type ShowGlobals <: Boolean = Boolean
