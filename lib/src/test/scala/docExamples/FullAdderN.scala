@@ -6,8 +6,8 @@ class FullAdder1 extends EDDesign:
   val a, b, c_in = Bit <> IN
   val sum, c_out = Bit <> OUT
 
-  sum   <> (a ^ b ^ c_in)
-  c_out <> (a && b || b && c_in || c_in && a)
+  sum   <> a ^ b ^ c_in
+  c_out <> a && b || b && c_in || c_in && a
 
 @top class FullAdderN(val n: Int = 4) extends EDDesign:
   val a, b  = Bits(n) <> IN
