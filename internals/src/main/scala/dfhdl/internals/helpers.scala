@@ -329,7 +329,7 @@ extension [T](seq: Iterable[T])
         accumulator(seq.drop(subseq.size), f, (key -> subseq) :: res)
     accumulator(seq, f, Nil).view.map(e => (e._1, e._2.toList)).toList
 
-def getShellCommand: Option[String] =
+lazy val getShellCommand: Option[String] =
   import scala.io.Source
   import scala.util.{Try, Success, Failure}
   import sys.process.*
@@ -356,3 +356,26 @@ def getShellCommand: Option[String] =
     case Failure(_) => None
   end match
 end getShellCommand
+
+lazy val sbtShellIsRunning: Boolean =
+  getShellCommand.exists(cmd => cmd.endsWith("xsbt.boot.Boot") || cmd.endsWith("sbt-launch.jar"))
+
+lazy val sbtTestIsRunning: Boolean =
+  getShellCommand.exists(cmd =>
+    cmd.endsWith("xsbt.boot.Boot test") || cmd.endsWith("sbt-launch.jar test")
+  )
+
+lazy val sbtIsRunning: Boolean =
+  getShellCommand.exists(cmd => cmd.contains("xsbt.boot.Boot") || cmd.contains("sbt-launch.jar"))
+
+lazy val scala_cliIsRunning: Boolean = getShellCommand.exists(_.contains(".scala-build"))
+
+// detecting if running in Scastie by checking the PWD
+lazy val scastieIsRunning: Boolean =
+  System.getProperty("user.dir").startsWith("/tmp/scastie")
+
+def getRelativePath(absolutePathStr: String): String =
+  import java.nio.file.Paths
+  val absolutePath = Paths.get(absolutePathStr).toAbsolutePath()
+  val currentDir = Paths.get("").toAbsolutePath()
+  currentDir.relativize(absolutePath).toString

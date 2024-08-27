@@ -67,7 +67,6 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
         // only handling pure statements that begin as an infix
         case InfixOpChange(tree) => tree
         case tree =>
-          debug(tree)
           tree
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
@@ -88,12 +87,24 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
               if x.toString == "X" && conn.toString == "<>" =>
             Some(InfixOp(Parens(InfixOp(a, Ident(x), b)), Ident(conn), c))
           case _ => None
+    object FullSelectGivenName:
+      def unapply(tree: Select)(using Context): Option[String] =
+        tree match
+          case Select(Ident(options), name) if options.toString == "options" =>
+            Some(s"options_${name}")
+          case Select(FullSelectGivenName(prev), name) => Some(s"${prev}_$name")
+          case _                                       => None
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
         case tree @ ValDef(_, InfixOpChange(tpt), _) =>
           cpy.ValDef(tree)(tpt = tpt)
         case tree @ DefDef(_, _, InfixOpChange(tpt), _) =>
           cpy.DefDef(tree)(tpt = tpt)
+        // workaround https://github.com/scala/scala3/issues/21406
+        case tree @ ValDef(name, select: Select, _) if name.isEmpty && tree.mods.is(Given) =>
+          select match
+            case FullSelectGivenName(updateName) => cpy.ValDef(tree)(name = updateName.toTermName)
+            case _                               => tree
         // workaround https://github.com/scala/scala3/issues/20053
         case tree @ Select(t, name) =>
           val nameStr = name.toString()
@@ -105,7 +116,8 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
             )
             tree
           else tree
-        case t => t
+        case t =>
+          t
       end match
     end transform
 

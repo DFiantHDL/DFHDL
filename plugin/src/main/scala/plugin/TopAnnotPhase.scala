@@ -79,13 +79,11 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                 val dsnArgNames = mkList(paramVDs.map(vd => Literal(Constant(vd.name.toString))))
                 extension (vd: Type)
                   def argType: Option[String] =
-                    if (vd <:< defn.IntType) Some("Int")
+                    if (vd <:< defn.IntType || vd <:< dfConstInt32Tpe) Some("Int")
                     else if (vd <:< defn.StringType) Some("String")
                     else if (vd <:< defn.DoubleType) Some("Double")
-                    else if (vd <:< defn.BooleanType) Some("Boolean")
-                    else if (vd <:< dfConstInt32Tpe) Some("DFHDL Int")
-                    else if (vd <:< dfConstBoolTpe) Some("DFHDL Boolean")
-                    else if (vd <:< dfConstBitTpe) Some("DFHDL Bit")
+                    else if (vd <:< defn.BooleanType || vd <:< dfConstBoolTpe) Some("Boolean")
+                    else if (vd <:< dfConstBitTpe) Some("Bit")
                     else None
 
                 val dsnArgTypes = mkList(paramVDs.map { vd =>
@@ -156,7 +154,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
     topAnnotSym = requiredClass("dfhdl.top")
-    appTpe = requiredClassRef("dfhdl.DFApp")
+    appTpe = requiredClassRef("dfhdl.app.DFApp")
     dfConstBoolTpe = requiredClassRef("dfhdl.core.DFConstBool")
     dfConstBitTpe = requiredClassRef("dfhdl.core.DFConstBit")
     dfConstInt32Tpe = requiredClassRef("dfhdl.core.DFConstInt32")

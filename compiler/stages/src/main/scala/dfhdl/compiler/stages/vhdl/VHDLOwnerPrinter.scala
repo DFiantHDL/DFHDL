@@ -154,6 +154,15 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
+  override def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String =
+    val requiresBoolConv =
+      if (printer.inVHDL93)
+        ifBlock.guardRef.get.asInstanceOf[DFVal].dfType match
+          case DFBit => true
+          case _     => false
+      else false
+    if (requiresBoolConv) s"to_bool(${super.csDFIfGuard(ifBlock)})"
+    else super.csDFIfGuard(ifBlock)
   def csDFIfStatement(csCond: String): String = s"if $csCond then"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"

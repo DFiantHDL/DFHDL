@@ -287,7 +287,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     hasClsMetaArgsTpe = requiredClassRef("dfhdl.internals.HasClsMetaArgs")
     clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
     topAnnotSym = requiredClass("dfhdl.top")
-    appTpe = requiredClassRef("dfhdl.DFApp")
+    appTpe = requiredClassRef("dfhdl.app.DFApp")
     dfcArgStack = Nil
     ctx
 end MetaContextPlacerPhase

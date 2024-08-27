@@ -14,6 +14,13 @@ final case class Position(
 
 object Position:
   val unknown = Position("", 0, 0, 0, 0)
+  def fromAbsPath(
+      fileAbsPath: String,
+      lineStart: Int,
+      columnStart: Int,
+      lineEnd: Int,
+      columnEnd: Int
+  ): Position = Position(getRelativePath(fileAbsPath), lineStart, columnStart, lineEnd, columnEnd)
 
 trait MetaContext:
   def setMeta(
