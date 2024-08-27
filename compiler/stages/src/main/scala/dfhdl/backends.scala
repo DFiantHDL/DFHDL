@@ -14,6 +14,7 @@ object backends:
     )(using CompilerOptions, PrinterOptions): Printer =
       val compiledDB = StageRunner.run(VerilogBackend)(designDB)
       new VerilogPrinter(dialect)(using compiledDB.getSet)
+    override def toString(): String = s"verilog.$dialect"
   object verilog extends verilog(VerilogDialect.sv2005):
     val v2001: verilog = new verilog(VerilogDialect.v2001)
     val sv2005: verilog = this
@@ -26,6 +27,7 @@ object backends:
     )(using CompilerOptions, PrinterOptions): Printer =
       val compiledDB = StageRunner.run(VHDLBackend)(designDB)
       new VHDLPrinter(dialect)(using compiledDB.getSet)
+    override def toString(): String = s"vhdl.$dialect"
   object vhdl extends vhdl(VHDLDialect.v2008):
     val v93: vhdl = new vhdl(VHDLDialect.v93)
     val v2008: vhdl = this
