@@ -5,7 +5,7 @@
 Since DFHDL is a Scala library, were are creating a Scala program that takes DFHDL designs and compiles (transpiles) them into lower representations (e.g., VHDL or Verilog). As such, some of DFHDL's compilation process is done statically via the Scala compiler and the rest during the Scala runtime execution. The Scala code below describes a program that runs the DFHDL compiler on an 8-bit overlapping counter design, `Counter8`. 
 
 ```{.scala .copy}
---8<-- "docs/getting-started/hello-world/scala-cli-project/Counter8.scala"
+--8<-- "docs/getting-started/hello-world/scala-project/Counter8.scala"
 ```
 
 !!! summary "Writing a DFHDL compilation program – as easy as 01-10-11!"
@@ -18,7 +18,7 @@ Since DFHDL is a Scala library, were are creating a Scala program that takes DFH
 
 ???dfhdl "Run it here"
     ```scastie
-    --8<-- "docs/getting-started/hello-world/scala-cli-project/Counter8.scala"
+    --8<-- "docs/getting-started/hello-world/scala-project/Counter8.scala"
     ```
 
 For more examples that are available to run in your browser, see the [relevant section][run-in-browser].
@@ -29,44 +29,44 @@ To run this example on your system, make sure to first follow the [initial setup
 
 You have several options to run Scala programs on your system:
 
-* For this simple `Counter8` example, you can just use the simplest [scala-cli-single-file][scala-cli-single-file] approach. 
-* For common DFHDL projects, we recommend using the [scala-cli project][scala-cli-project] approach. 
-* For more complex, full-production DFHDL projects, we recommended using an [sbt project][sbt-project].
+* For this simple `Counter8` example, you can just use the simplest [scala-single-file][scala-single-file] approach. 
+* For common DFHDL projects, we recommend using the [scala project][scala-project] approach. 
+* For complex, full-production DFHDL projects, you may need to use an [sbt project][sbt-project], but this is usually not required.
 
-### Scala-cli Single File
+### Scala Single File
 
-???dfhdl "View the scala-cli single file example"
+???dfhdl "View the scala single file example"
 
     ```{.scala .copy title="Counter8.scala"}
-    --8<-- "docs/getting-started/hello-world/scala-cli-single-file/Counter8.scala"
+    --8<-- "docs/getting-started/hello-world/scala-single-file/Counter8.scala"
     ```
 
 ```{.console .copy linenums="0" title="Download and run in your terminal"}
-curl -o Counter8.scala https://dfianthdl.github.io/getting-started/hello-world/scala-cli-single-file/Counter8.scala
-scala-cli run ./Counter8.scala
+curl -o Counter8.scala https://dfianthdl.github.io/getting-started/hello-world/scala-single-file/Counter8.scala
+scala run ./Counter8.scala
 ```
 
-For more information, please consult the [scala-cli documentation](https://scala-cli.virtuslab.org/docs/overview){target="_blank"}.
+For more information, please run `scala run --help` or consult the [online documentation](https://scala-cli.virtuslab.org/docs/commands/run){target="_blank"}.
 
-### Scala-cli Project
+### Scala Project
 
-???dfhdl "View the scala-cli project files example"
+???dfhdl "View the scala project files example"
 
     ```{.scala .copy title="projectFolder/project.scala"}
-    --8<-- "docs/getting-started/hello-world/scala-cli-project/project.scala"
+    --8<-- "docs/getting-started/hello-world/scala-project/project.scala"
     ```
 
     ```{.scala .copy title="projectFolder/Counter8.scala"}
-    --8<-- "docs/getting-started/hello-world/scala-cli-project/Counter8.scala"
+    --8<-- "docs/getting-started/hello-world/scala-project/Counter8.scala"
     ```
 
 ```{.console .copy linenums="0" title="Download and run in your terminal"}
-curl -o project.scala https://dfianthdl.github.io/getting-started/hello-world/scala-cli-project/project.scala
-curl -o Counter8.scala https://dfianthdl.github.io/getting-started/hello-world/scala-cli-project/Counter8.scala
-scala-cli run .
+curl -o project.scala https://dfianthdl.github.io/getting-started/hello-world/scala-project/project.scala
+curl -o Counter8.scala https://dfianthdl.github.io/getting-started/hello-world/scala-project/Counter8.scala
+scala run .
 ```
 
-For more information, please consult the [scala-cli documentation](https://scala-cli.virtuslab.org/docs/overview){target="_blank"}.
+For more information, please run `scala run --help` or consult the [online documentation](https://scala-cli.virtuslab.org/docs/commands/run){target="_blank"}.
 
 
 ### sbt Project
@@ -89,11 +89,11 @@ We recommend to actively use [Scalafmt](https://scalameta.org/scalafmt/){target=
 ???dfhdl "View the Scalafmt recommended configuration file"
   
     ```{.toml .copy title="projectFolder/.scalafmt.conf"}
-    --8<-- "docs/getting-started/hello-world/scala-cli-project/.scalafmt.conf"
+    --8<-- "docs/getting-started/hello-world/scala-project/.scalafmt.conf"
     ```
 
 ```{.console .copy linenums="0" title="Download it via your terminal"}
-curl -o .scalafmt.conf https://dfianthdl.github.io/getting-started/hello-world/scala-cli-project/.scalafmt.conf
+curl -o .scalafmt.conf https://dfianthdl.github.io/getting-started/hello-world/scala-project/.scalafmt.conf
 ```
 
 For more information, please consult the [Scalafmt documentation](https://scalameta.org/scalafmt/docs/configuration.html){target="_blank"}.
