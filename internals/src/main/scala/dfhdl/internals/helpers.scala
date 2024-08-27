@@ -373,3 +373,9 @@ lazy val scala_cliIsRunning: Boolean = getShellCommand.exists(_.contains(".scala
 // detecting if running in Scastie by checking the PWD
 lazy val scastieIsRunning: Boolean =
   System.getProperty("user.dir").startsWith("/tmp/scastie")
+
+def getRelativePath(absolutePathStr: String): String =
+  import java.nio.file.Paths
+  val absolutePath = Paths.get(absolutePathStr).toAbsolutePath()
+  val currentDir = Paths.get("").toAbsolutePath()
+  currentDir.relativize(absolutePath).toString
