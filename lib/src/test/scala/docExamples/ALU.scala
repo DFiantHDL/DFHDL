@@ -35,6 +35,8 @@ end ALU
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Select backend compiler:
 given options.CompilerOptions.Backend = backends.verilog
+// Enables printing the generated chosen backend code:
+given options.CompilerOptions.PrintGenFiles = true
 // Uncomment to enable printing design code after elaboration (before compilation):
 // given options.ElaborationOptions.PrintDesignCodeAfter = true
 // Uncomment to enable printing design code after compilation:
