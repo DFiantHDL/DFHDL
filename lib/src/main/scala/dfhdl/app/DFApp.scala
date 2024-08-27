@@ -6,6 +6,7 @@ import scala.collection.mutable
 import dfhdl.options.CompilerOptions
 import org.rogach.scallop.*
 import dfhdl.internals.sbtShellIsRunning
+import scala.util.chaining.scalaUtilChainingOps
 
 trait DFApp:
   private val logger = Logger("DFHDL App")
@@ -64,6 +65,15 @@ trait DFApp:
       )
       elaborated.printCodeString
     elaborated
+
+  private inline def compile =
+    elaborate.tap(_ => logger.info("Compiling design...")).compile
+
+  private inline def commit =
+    compile.tap(_ => logger.info("Committing backend files to disk...")).commit
+
+  private inline def lint =
+    commit.tap(_ => logger.info("Running external linter...")).lint
 
   private def listBackends: Unit =
     println(
@@ -124,9 +134,9 @@ trait DFApp:
               case Some(HelpMode.backend) => listBackends
               case _                      => println(parsedCommandLine.getFullHelpString())
           case Mode.elaborate => elaborate
-          case Mode.compile   => elaborate.compile
-          case Mode.commit    => elaborate.compile.commit
-          case Mode.lint      => elaborate.compile.commit.lint
+          case Mode.compile   => compile
+          case Mode.commit    => commit
+          case Mode.lint      => lint
     end match
   end main
 end DFApp
