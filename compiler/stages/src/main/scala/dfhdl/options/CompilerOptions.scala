@@ -6,6 +6,7 @@ import dfhdl.core.{ClkCfg, RstCfg}
 import java.io.File.separatorChar
 
 import CompilerOptions.*
+import dfhdl.internals.scastieIsRunning
 final case class CompilerOptions(
     commitFolder: CommitFolder,
     newFolderForTop: NewFolderForTop,
@@ -74,7 +75,7 @@ object CompilerOptions:
 
   opaque type PrintGenFiles <: Boolean = Boolean
   object PrintGenFiles:
-    given PrintGenFiles = false
+    given PrintGenFiles = if (scastieIsRunning) true else false
     given Conversion[Boolean, PrintGenFiles] = identity
 
   opaque type DropUserOpaques <: Boolean = Boolean
