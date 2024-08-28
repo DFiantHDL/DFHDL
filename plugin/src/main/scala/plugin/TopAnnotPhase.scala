@@ -64,7 +64,9 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                   Touched,
                   Touched | NoInits,
                   List(defn.ObjectType, appTpe),
-                  Scopes.newScope
+                  Scopes.newScope,
+                  coord = topAnnotTree.span,
+                  compUnitInfo = clsSym.compUnitInfo
                 )
                 val moduleCls = dfApp.moduleClass.asClass
                 if (template.constr.paramss.length > 1)

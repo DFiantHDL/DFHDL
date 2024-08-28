@@ -583,4 +583,21 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Empty design") {
+    class Empty extends DFDesign
+    val top = (new Empty).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
+         |`include "Empty_defs.svh"
+         |
+         |module Empty;
+         |
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec
