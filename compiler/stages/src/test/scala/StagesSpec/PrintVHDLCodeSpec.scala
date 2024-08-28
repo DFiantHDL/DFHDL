@@ -674,4 +674,26 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Empty design") {
+    class Empty extends DFDesign
+    val top = (new Empty).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Empty_pkg.all;
+         |
+         |entity Empty is
+         |end Empty;
+         |
+         |architecture Empty_arch of Empty is
+         |begin
+         |
+         |end Empty_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec
