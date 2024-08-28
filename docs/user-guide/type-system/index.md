@@ -106,7 +106,7 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
         * > DFHDL Flt-Point (future work)
         * > DFHDL String (future work)
         * [DFHDL Enumeration: `... extends Encoding`][DFEnum]
-        * [DFHDL Vector: `[CellType] X [Dim]`][DFVector]
+        * [DFHDL Vector: `_CellType_ X _Dim_`][DFVector]
         * [DFHDL Structure: `... extends Struct`][DFStruct]
         * [DFHDL Tuple: `(T1, T2, ..., Tn)`][DFTuple]
         * [DFHDL Opaque: `... extends Opaque`][DFOpaque]
@@ -118,8 +118,8 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
 
         Determines what kind of access the user has on the value. User explicit modifiers:
         
-        * [Variable: `VAR`][Dcl]
-        * [Port: `IN`/`OUT`/`INOUT`][Dcl]
+        * [Variable: `VAR[.REG][.SHARED]`][Dcl]
+        * [Port: `IN`/`OUT[.REG]`/`INOUT[.REG]`][Dcl]
         * [Constant: `CONST`][DFConst]
         * [Struct Field: `VAL`][DFStruct]
         * [Method Param: `VAL`][DesignDef]
@@ -144,22 +144,24 @@ Ports are DFHDL values that define the inputs and outputs of a design. Variables
 
 ### Syntax {#dcl-syntax}
 
-```scala linenums="0" title="Port & variable declaration syntax"
+```scala linenums="0" title="Port/Variable declaration syntax"
 val _name_ = _dftype_ <> _modifier_ [init _const_]
 ```
 
+* __`_name_`__ is the Scala value name reference for the DFHDL port/variable you constructed. The DFHDL compiler preserves this name and uses it in error messages and the final generated artifacts (e.g., Verilog module or VHDL entity port names). More information is available under the [naming][naming] section.
+* __`_dftype_`__ is set according to the shape type (DFType) of the DFHDL value. Each of the supported DFTypes have their own constructors. See relevant sections for the DFHDL DFType you wish to construct.
+* __`<>`__ is the operator applied between a `_dftype_` and a `_modifier_` to construct the Scala value that represents a DFHDL variable or port accordingly. Note: the same `<>` operator is used as a language construct for declaring [connections][connection]. Thanks to Scala method overloading, `<>` can be shared for both use-cases with no issues (due to the Scala argument type difference). 
 * __`_modifier_`__ is set with one of the following: 
     * `VAR` - to construct a variable
     * `IN` - to construct an input port
     * `OUT` - to construct an output port
     * `INOUT` - to construct an input-output port
-* __`_dftype_`__ is set according to the shape type (DFType) of the DFHDL value. Each of the supported DFTypes have their own constructors. See relevant sections for the DFHDL DFType you wish to construct.
-* __`<>`__ is the operator applied between a `_dftype_` and a `_modifier_` to construct the Scala value that represents a DFHDL variable or port accordingly. Note: the same `<>` operator is used as a language construct for declaring [connections][connection]. Thanks to Scala method overloading, `<>` can be shared for both use-cases with no issues (due to the Scala argument type difference). 
+    * `VAR.REG` / `OUT.REG` / `INOUT.REG` - to construct a registered variable/port (available only in RT domains) 
+    * `VAR.SHARED` - to construct a shared variable that can be assigned in more than one domain (this feature is to be used scarcely, to model unique designs like [True Dual-Port RAM][true-dpr])
 * __`init`__ is an optional construct to initialize the DFHDL variable/port declaration history with the applied `_const_` value.
 * __`_const_`__ is the [state history][state] initialization value or sequence of initialization values as a [Scala Tuple](https://docs.scala-lang.org/tour/tuples.html){target="_blank"}. This value must be a [constant][DFConst] that is supported by the DFType `_dftype_`.
-* __`_name_`__ is the Scala value name reference for the DFHDL variable/port you constructed. The DFHDL compiler preserves this name and uses it in error messages and the final generated artifacts (e.g., Verilog module or VHDL entity port names). More information is available under the [naming][naming] section.
 
-```scala title="Port & variable declaration examples"
+```scala title="Port/Variable declaration examples"
 class Foo extends DFDesign:
   //8-bit unsigned integer input port named 'i', 
   //initialized with the value 27.
@@ -214,13 +216,13 @@ For input ports this occurs outside their design scope, while connecting to an e
 For output ports and variables this occurs only within their design scope, while connecting to an internal value.
 
 #### Assignable (Mutable)
-Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). 
+Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). Registered ports and variables are assignable only when referencing their registers' input via `.din` selection.
 
 #### Not Constant
 Ports and variables are never considered to be constant (even when connected/assigned only once and to a constant value) for elaboration. Later compilation stages can apply further constant propagation steps that reduce logic utilization.
 
 #### `INOUT` Port Limitation
-`INOUT` (bidirectional) ports are generally used to reduce IO pins from top-level device connectivity (e.g., protocols like [I<sup>2</sup>C](https://en.wikipedia.org/wiki/I%C2%B2C){target="_blank"} benefit from such ability). They are not meant for inter-device wiring reduction, and thus should be used scarcely within their designed purpose. Throughout the years they were also used to workaround HDL limitations like reading from output ports in VHDL'93, or lack of [interfaces][interfaces]. Since DFHDL has none of these limitation, we encourage you to use `INOUT` for their intended purpose only, as synthesis tools for FPGAs and even ASICs will not cooperate. Although, theoretically, in DF domain we can enable bidirectional communication that can later be compiled into two separate ports, there is no real value behind this.
+`INOUT` (bidirectional) ports are generally used to define IO pins of top-level device connectivity (e.g., protocols like [I<sup>2</sup>C](https://en.wikipedia.org/wiki/I%C2%B2C){target="_blank"} benefit from such ability). They are not meant for inter-device wiring reduction, and thus should be used scarcely within their intended purpose. Throughout the years they were also used to workaround HDL limitations like reading from output ports in VHDL'93, or lack of [interfaces][interfaces]. Since DFHDL has none of these limitation, we encourage you to use `INOUT` for their intended purpose only, as synthesis tools for FPGAs and even ASICs will not cooperate. Although, theoretically, in DF domain we can enable bidirectional communication that can later be compiled into two separate ports, there is no real value behind this.
 
 #### Grouping
 Ports can also be grouped together in a dedicated [interface [wip]][interfaces].
