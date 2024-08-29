@@ -1175,7 +1175,7 @@ object DFVarOps:
   ]
   protected type `InsideProcess:==`[D, A] = AssertGiven[
     DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED],
-    "Non-blocking assignment `:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
+    "Non-blocking assignments `:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   protected type RTDomainOnly[A] = AssertGiven[
     A <:< DomainType.RT,
