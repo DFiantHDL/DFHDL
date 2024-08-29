@@ -1159,15 +1159,15 @@ object DFVarOps:
   ]
   protected type LocalOrNonED[A] = AssertGiven[
     (A <:< DFC.Scope.Process) | util.NotGiven[A <:< DomainType.ED],
-    "Blocking assignment `:=` is not allowed for a non-local variable in this domain.\nChange the assignment to a non-blocking assignment `:==` or the position of the defined variable."
+    "Blocking assignments `:=` are not allowed for a non-local variable in this domain.\nChange the assignment to a non-blocking assignment `:==` or the position of the defined variable."
   ]
   protected type NotLocalVar[A] = AssertGiven[
     util.NotGiven[A <:< DFC.Scope.Process],
-    "Non-blocking assignment `:==` is not allowed for a local variable (defined inside the process block).\nChange the assignment to a blocking assignment `:=` or the position of the defined variable."
+    "Non-blocking assignments `:==` are not allowed for a local variable (defined inside the process block).\nChange the assignment to a blocking assignment `:=` or the position of the defined variable."
   ]
   protected type EDDomainOnly[A] = AssertGiven[
     A <:< DomainType.ED,
-    "Non-blocking assignment `:==` is allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
+    "Non-blocking assignments `:==` are allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
   ]
   protected type `InsideProcess:=`[D, A] = AssertGiven[
     DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
