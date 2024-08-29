@@ -92,6 +92,11 @@ object DFType:
 
   type Supported = DFTypeAny | NonEmptyTuple | DFStruct.Fields | DFEncoding | DFOpaqueA | Byte |
     Int | Long | Boolean | Object | Unit
+
+  protected type NotGlobalCheck[S] = AssertGiven[
+    util.NotGiven[S <:< DFC.Scope.Global],
+    "Port/Variable declarations cannot be global"
+  ]
   object Ops:
     extension [D <: Int & Singleton](cellDim: D)
       infix def <>[M <: ModifierAny](modifier: M)(using DFC): DFVector.ComposedModifier[D, M] =
@@ -106,7 +111,7 @@ object DFType:
           tc: DFType.TC[T],
           ck: DFC.Scope,
           dt: DomainType
-      ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
+      )(using NotGlobalCheck[ck.type]): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
         trydf:
           DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, P]])
     end extension
