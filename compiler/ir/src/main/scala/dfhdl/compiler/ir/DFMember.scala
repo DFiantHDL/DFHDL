@@ -164,6 +164,9 @@ object DFVal:
     extension (mod: Modifier)
       def isReg: Boolean = mod.special == REG
       def isShared: Boolean = mod.special == SHARED
+      def isPort: Boolean = mod.dir match
+        case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
+        case _                                           => false
     enum Dir derives CanEqual:
       case VAR, IN, OUT, INOUT
     export Dir.{VAR, IN, OUT, INOUT}
@@ -173,11 +176,8 @@ object DFVal:
 
   extension (dfVal: DFVal)
     def isPort: Boolean = dfVal match
-      case dcl: DFVal.Dcl =>
-        dcl.modifier.dir match
-          case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
-          case _                                           => false
-      case _ => false
+      case dcl: DFVal.Dcl => dcl.modifier.isPort
+      case _              => false
     def isPortOut: Boolean = dfVal match
       case dcl: DFVal.Dcl =>
         dcl.modifier.dir match

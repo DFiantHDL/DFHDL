@@ -113,6 +113,13 @@ object DFType:
           dt: DomainType
       )(using NotGlobalCheck[ck.type]): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
         trydf:
+          if (modifier.value.isPort)
+            dfc.owner.asIR match
+              case _: ir.DFDomainOwner =>
+              case _ =>
+                throw new IllegalArgumentException(
+                  "Ports can only be directly owned by a design, a domain or an interface."
+                )
           DFVal.Dcl(tc(t), modifier.asInstanceOf[Modifier[A & ck.type & dt.type, C, I, P]])
     end extension
   end Ops
