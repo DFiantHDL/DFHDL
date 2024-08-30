@@ -90,10 +90,9 @@ case object NameRegAliases extends Stage:
             patchRemoveHistoryInit(regAlias)
             val dsn = new MetaDesign(dcl, Patch.Add.Config.ReplaceWithLast(), RT(Derived)):
               val modifierFE = dcl.modifier.dir match
-                case IRModifier.VAR   => VAR.REG
-                case IRModifier.OUT   => OUT.REG
-                case IRModifier.INOUT => INOUT.REG
-                case _                => ??? // impossible
+                case IRModifier.VAR => VAR.REG
+                case IRModifier.OUT => OUT.REG
+                case _              => ??? // impossible
               val clonedInitList =
                 regAlias.initOption.map(_.cloneAnonValueAndDepsHere.asConstAny).toList
               val regDcl = dcl.asValAny.dfType.<>(modifierFE).initForced(clonedInitList)(using

@@ -37,9 +37,7 @@ object Modifier:
   object OUT extends Dcl(IRModifier(IRModifier.OUT, IRModifier.Ordinary)):
     protected object pREG extends DclREG(IRModifier(IRModifier.OUT, IRModifier.REG))
     inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type]) = pREG
-  object INOUT extends Dcl(IRModifier(IRModifier.INOUT, IRModifier.Ordinary)):
-    protected object pREG extends DclREG(IRModifier(IRModifier.INOUT, IRModifier.REG))
-    inline def REG(using dt: DomainType)(using RTDomainOnly[dt.type]) = pREG
+  object INOUT extends Dcl(IRModifier(IRModifier.INOUT, IRModifier.Ordinary))
   type CONST = Modifier[Any, Any, Any, dfhdl.core.CONST]
   extension (modifier: ModifierAny) def asIR: IRModifier = modifier.value
 end Modifier
