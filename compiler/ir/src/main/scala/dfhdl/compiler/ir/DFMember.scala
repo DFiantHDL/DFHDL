@@ -306,6 +306,23 @@ object DFVal:
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end OPEN
 
+  final case class NOTHING(
+      dfType: DFType,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends CanBeExpr:
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
+    protected def protGetConstData(using MemberGetSet): Option[Any] = None
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case _: NOTHING => true
+      case _          => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+  end NOTHING
+
   final case class Dcl(
       dfType: DFType,
       modifier: Modifier,

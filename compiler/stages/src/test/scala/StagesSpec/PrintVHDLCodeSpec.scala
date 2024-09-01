@@ -696,4 +696,39 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("HighZ assignment") {
+    class HighZ extends RTDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      if (x.|) y := x
+      else y     := NOTHING
+    val top = (new HighZ).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.HighZ_pkg.all;
+         |
+         |entity HighZ is
+         |port (
+         |  x : in std_logic_vector(7 downto 0);
+         |  y : out std_logic_vector(7 downto 0)
+         |);
+         |end HighZ;
+         |
+         |architecture HighZ_arch of HighZ is
+         |begin
+         |  process (all)
+         |  begin
+         |    if or reduce x then y <= x;
+         |    else y <= (others => 'Z');
+         |    end if;
+         |  end process;
+         |end HighZ_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

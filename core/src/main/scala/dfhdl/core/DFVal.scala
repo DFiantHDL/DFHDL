@@ -640,6 +640,13 @@ object DFVal extends DFValLP:
         .addMember
         .asValOf[T]
 
+  type NOTHING = NOTHING.type
+  object NOTHING:
+    protected[dfhdl] def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
+      ir.DFVal.NOTHING(dfType.asIR.dropUnreachableRefs, dfc.owner.ref, dfc.getMeta, dfc.tags)
+        .addMember
+        .asValOf[T]
+
   object Dcl:
     def apply[T <: DFTypeAny, M <: ModifierAny](
         dfType: T,
@@ -888,6 +895,15 @@ object DFVal extends DFValLP:
     given fromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] with
       type OutP = CONST
       def conv(dfType: T, value: V)(using DFC): Out = Bubble.constValOf(dfType, named = true)
+    // Accept NOTHING for any DFType, unless not in DF domain, and then we limit it to Bits or Bit type
+    given fromNOTHING[T <: DFTypeAny](using dt: DomainType)(using
+        AssertGiven[
+          dt.type <:< DomainType.DF | T <:< DFBit | T <:< DFType[ir.DFBits, Args],
+          "`NOTHING` can only be assigned to either `Bits` or `Bit` DFHDL values outside of a dataflow (DF) domain."
+        ]
+    ): TC[T, NOTHING] with
+      type OutP = NOTCONST
+      def conv(dfType: T, value: NOTHING)(using DFC): Out = NOTHING(dfType)
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
         r: ShowType[R]

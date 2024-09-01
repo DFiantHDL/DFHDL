@@ -205,6 +205,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     s"${dfVal.relValCodeString}$fieldSel"
   def csDFValAliasHistory(dfVal: Alias.History): String = printer.unsupported
   def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
+  def csNOTHING(dfVal: NOTHING): String =
+    dfVal.dfType match
+      case DFBit     => "'Z'"
+      case DFBits(_) => "(others => 'Z')"
+      case _         => printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
     dfVal.stripPortSel match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)

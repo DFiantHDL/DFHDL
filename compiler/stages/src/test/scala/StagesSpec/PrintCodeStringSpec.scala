@@ -848,4 +848,22 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("HighZ assignment") {
+    class HighZ extends RTDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      if (x.|) y := x
+      else y     := NOTHING
+    val top = (new HighZ).getCodeString
+    assertNoDiff(
+      top,
+      """|class HighZ extends RTDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  if (x.|) y := x
+         |  else y := NOTHING
+         |end HighZ
+         |""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

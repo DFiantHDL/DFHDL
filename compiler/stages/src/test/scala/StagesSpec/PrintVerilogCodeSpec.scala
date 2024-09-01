@@ -600,4 +600,32 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("HighZ assignment") {
+    class HighZ extends RTDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      if (x.|) y := x
+      else y     := NOTHING
+    val top = (new HighZ).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
+         |`include "HighZ_defs.svh"
+         |
+         |module HighZ(
+         |  input  wire logic [7:0] x,
+         |  output logic [7:0] y
+         |);
+         |  always_comb
+         |  begin
+         |    if (|x) y = x;
+         |    else y = 8'bz;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec
