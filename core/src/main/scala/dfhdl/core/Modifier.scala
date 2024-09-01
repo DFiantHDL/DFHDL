@@ -48,5 +48,5 @@ type CONST = ISCONST[true]
 type NOTCONST = Any
 sealed trait DFRET
 
-object r__OPEN
-val OPEN = Exact(r__OPEN)
+object OPEN
+type OPEN = OPEN.type

@@ -877,11 +877,12 @@ object DFVal extends DFValLP:
     final def apply(dfType: T, value: R)(using DFC): Out = trydf:
       conv(dfType, value)
 
-  trait TCLP:
-    // Accept OPEN in compile-time, but throw exception where it should not be used
-    given fromOPEN[T <: DFTypeAny]: TC[T, r__OPEN.type] with
-      def conv(dfType: T, value: r__OPEN.type)(using DFC): Out =
-        throw new IllegalArgumentException("OPEN cannot be used here")
+  trait TCLPLP:
+    // Reject OPEN with a dedicated message
+    transparent inline given fromOPEN[T <: DFTypeAny]: TC[T, OPEN] =
+      compiletime.error("OPEN cannot be used here")
+
+  trait TCLP extends TCLPLP:
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] with
       type OutP = CONST
@@ -1293,17 +1294,21 @@ object DFVarOps:
 end DFVarOps
 
 object DFPortOps:
+  protected type ConnectableOnly[C] = AssertGiven[
+    C <:< Modifier.Connectable,
+    "The LHS of a connection must be a connectable DFHDL value (var/port)."
+  ]
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
+    def <>[R](rhs: OPEN)(using DFC)(using ConnectableOnly[C]): ConnectPlaceholder =
+      dfPort.connect(DFVal.Open(dfPort.dfType))
+      ConnectPlaceholder
     def <>[R](rhs: Exact[R])(using DFC)(using
-        connectableOnly: AssertGiven[
-          C <:< Modifier.Connectable,
-          "The LHS of a connection must be a connectable DFHDL value (var/port)."
-        ],
+        connectableOnly: ConnectableOnly[C],
         tc: DFVal.TC[T, R]
     ): ConnectPlaceholder =
-      if (rhs.value equals r__OPEN) dfPort.connect(DFVal.Open(dfPort.dfType))
-      else trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
+      trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
       ConnectPlaceholder
+  end extension
 end DFPortOps
 
 extension (dfVal: ir.DFVal)
