@@ -28,9 +28,12 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     dfVal.args match
       // boolean sel function
-      case cond :: onTrue :: onFalse :: Nil
-          if cond.get.dfType == DFBool && dfVal.op == Func.Op.sel =>
-        s"bool_sel(${cond.refCodeString}, ${onTrue.refCodeString}, ${onFalse.refCodeString})"
+      case cond :: onTrue :: onFalse :: Nil if dfVal.op == Func.Op.sel =>
+        val csCond = cond.refCodeString
+        val csCondBool = cond.get.dfType match
+          case DFBit => s"to_bool($csCond)"
+          case _     => csCond
+        s"bool_sel($csCondBool, ${onTrue.refCodeString}, ${onFalse.refCodeString})"
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match

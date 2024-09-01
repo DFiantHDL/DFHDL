@@ -66,7 +66,7 @@ def calcFuncData[OT <: DFType](
 )(using MemberGetSet): outType.Data =
   if (op == FuncOp.sel)
     val ret = (argTypes.head, argData) match
-      case (DFBool, Some(cond: Boolean) :: onTrue :: onFalse :: Nil) =>
+      case (DFBool | DFBit, Some(cond: Boolean) :: onTrue :: onFalse :: Nil) =>
         if (cond) onTrue else onFalse
       case x =>
         println(x)

@@ -58,7 +58,10 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[NonEmptyTuple] =>
         tpe.getTupleArgs.forall(isConstBool)
       case '[SameElementsVector[t]] => isConstBool(TypeRepr.of[t])
-      case _                        => true
+      case '[BoolSelWrapper[sp, ot, of]] =>
+        List(TypeRepr.of[sp], TypeRepr.of[ot], TypeRepr.of[of]).forall(isConstBool)
+      case '[DFVal.NOTHING] => false
+      case _                => true
     if (isConstBool(tpe)) TypeRepr.of[CONST]
     else TypeRepr.of[NOTCONST]
 
@@ -80,9 +83,10 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
           case Typed(expr, _)      => expr.explore
           case _ =>
             term.tpe.asType match
-              case '[DFConstOf[?]] => true
-              case '[DFValOf[?]]   => term.warn
-              case _               => true
+              case '[DFConstOf[?]]  => true
+              case '[DFValOf[?]]    => term.warn
+              case '[DFVal.NOTHING] => false
+              case _                => true
         end match
       end explore
     end extension
@@ -190,10 +194,12 @@ sealed protected trait DFValLP:
     modifier `M` of `DFVal[+T, +M]` is covariant, the compiler accepts
     `DFVal[T, NOTCONST] <:< DFVal[T, ISCONST[Boolean]]` and all is well.
    */
+  type CommonR = DFValAny | Bubble | DFVal.NOTHING | BoolSelWrapper[?, ?, ?]
+
   implicit transparent inline def DFBitsValConversion[
       W <: IntP,
       P <: Boolean,
-      R <: DFValAny | SameElementsVector[?] | NonEmptyTuple | Bubble
+      R <: CommonR | SameElementsVector[?] | NonEmptyTuple
   ](
       inline from: R
   ): DFValTP[DFBits[W], ISCONST[P]] = ${
@@ -205,7 +211,7 @@ sealed protected trait DFValLP:
       W <: IntP,
       N <: NativeType,
       P <: Boolean,
-      R <: DFValAny | Int | Bubble
+      R <: CommonR | Int
   ](
       inline from: R
   ): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
@@ -214,7 +220,7 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,
       P <: Boolean,
-      R <: DFValAny | Bubble
+      R <: CommonR
   ](
       inline from: R
   ): DFValTP[DFOpaque[TFE], ISCONST[P]] = ${
@@ -223,7 +229,7 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFStructValConversion[
       F <: DFStruct.Fields,
       P <: Boolean,
-      R <: DFValAny | DFStruct.Fields | Bubble
+      R <: CommonR | DFStruct.Fields
   ](
       inline from: R
   ): DFValTP[DFStruct[F], ISCONST[P]] = ${
@@ -232,7 +238,7 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFTupleValConversion[
       T <: NonEmptyTuple,
       P <: Boolean,
-      R <: DFValAny | NonEmptyTuple | Bubble
+      R <: CommonR | NonEmptyTuple
   ](
       inline from: R
   ): DFValTP[DFTuple[T], ISCONST[P]] = ${
@@ -242,7 +248,7 @@ sealed protected trait DFValLP:
       T <: DFTypeAny,
       D <: IntP,
       P <: Boolean,
-      R <: DFValAny | Iterable[?] | SameElementsVector[?] | Bubble
+      R <: CommonR | Iterable[?] | SameElementsVector[?]
   ](
       inline from: R
   ): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
@@ -250,7 +256,7 @@ sealed protected trait DFValLP:
   }
   implicit transparent inline def DFBitValConversion[
       P <: Boolean,
-      R <: DFValAny | Int | Boolean | Bubble
+      R <: CommonR | Int | Boolean
   ](
       inline from: R
   ): DFValTP[DFBit, ISCONST[P]] = ${
@@ -258,13 +264,13 @@ sealed protected trait DFValLP:
   }
   implicit transparent inline def DFBoolValConversion[
       P <: Boolean,
-      R <: DFValAny | Int | Boolean | Bubble
+      R <: CommonR | Int | Boolean
   ](
       inline from: R
   ): DFValTP[DFBool, ISCONST[P]] = ${
     DFValConversionMacro[DFBool, ISCONST[P], R]('from)
   }
-  given DFUnitValConversion[R <: DFValAny | Unit | NonEmptyTuple | Bubble](using
+  given DFUnitValConversion[R <: CommonR | Unit | NonEmptyTuple](using
       dfc: DFC
   ): Conversion[R, DFValOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFValOf[DFUnit]]
   given ConstToNonConstAccept[T <: DFTypeAny, P]: Conversion[DFValTP[T, P], DFValTP[T, NOTCONST]] =
@@ -888,7 +894,7 @@ object DFVal extends DFValLP:
   trait TCLPLP:
     // Reject OPEN with a dedicated message
     transparent inline given fromOPEN[T <: DFTypeAny]: TC[T, OPEN] =
-      compiletime.error("OPEN cannot be used here")
+      compiletime.error("`OPEN` cannot be used here.")
 
   trait TCLP extends TCLPLP:
     // Accept any bubble value

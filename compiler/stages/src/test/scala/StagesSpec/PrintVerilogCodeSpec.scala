@@ -554,7 +554,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       val up3: UInt[8] <> CONST = cp.sel(up1, up2)
       y1 := c.sel(x1, x2)
       y1 := c.sel(x1, all(0))
-      y1 := c.sel(Bits(8))(all(0), x2)
+      y1 := c.sel(all(0), x2)
     val id = (new SelOp).getCompiledCodeString
     assertNoDiff(
       id,

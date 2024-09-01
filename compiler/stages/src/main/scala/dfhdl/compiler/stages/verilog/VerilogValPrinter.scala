@@ -37,8 +37,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     dfVal.args match
       // boolean sel function
-      case cond :: onTrue :: onFalse :: Nil
-          if cond.get.dfType == DFBool && dfVal.op == Func.Op.sel =>
+      case cond :: onTrue :: onFalse :: Nil if dfVal.op == Func.Op.sel =>
         s"${cond.refCodeString.applyBrackets()} ? ${onTrue.refCodeString.applyBrackets()} : ${onFalse.refCodeString.applyBrackets()}"
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>

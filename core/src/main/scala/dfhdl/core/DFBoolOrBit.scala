@@ -118,27 +118,9 @@ object DFBoolOrBit:
           trydf { logicOp[T, P, R](lhs, rhs, FuncOp.&, false) }
         def ^[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): DFValTP[T, P | ic.OutP] =
           trydf { logicOp[T, P, R](lhs, rhs, FuncOp.^, false) }
-        private def selForced[R <: DFTypeAny, OTP, OFP](
-            onTrue: DFValTP[R, OTP],
-            onFalse: DFValTP[R, OFP]
-        )(using dfc: DFC): DFValTP[R, P | OTP | OFP] =
-          val boolLHS = lhs.asIR.dfType match
-            case ir.DFBit => lhs.asValTP[DFBit, P].bool
-            case _        => lhs.asValTP[DFBool, P]
-          DFVal.Func(onTrue.dfType, FuncOp.sel, List(boolLHS, onTrue, onFalse))
-        def sel[R <: DFTypeAny, OTP, OF, OFP](onTrue: DFValTP[R, OTP], onFalse: Exact[OF])(using
-            dfc: DFC,
-            tcOF: DFVal.TC.Aux[R, OF, OFP]
-        ): DFValTP[R, P | OTP | OFP] =
-          trydf { selForced(onTrue, tcOF(onTrue.dfType, onFalse)) }
-        def sel[R <: DFTypeAny, OT, OF, OTP, OFP](
-            outType: R
-        )(onTrue: Exact[OT], onFalse: Exact[OF])(using
-            dfc: DFC,
-            tcOT: DFVal.TC.Aux[R, OT, OTP],
-            tcOF: DFVal.TC.Aux[R, OF, OFP]
-        ): DFValTP[R, P | OTP | OFP] =
-          trydf { selForced(tcOT(outType, onTrue), tcOF(outType, onFalse)) }
+        inline def sel[OT, OF](inline onTrue: OT, inline onFalse: OF)(using
+            dfc: DFC
+        ): BoolSelWrapper[P, OT, OF] = BoolSelWrapper[P, OT, OF](lhs, onTrue, onFalse)
 
       end extension
       extension [L](lhs: L)
