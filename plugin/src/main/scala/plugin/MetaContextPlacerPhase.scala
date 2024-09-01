@@ -45,6 +45,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   var clsMetaArgsTpe: TypeRef = uninitialized
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
+  var noTopAnnotIsRequired: TypeRef = uninitialized
 
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     val sym = tree.symbol
@@ -202,17 +203,20 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
             case Some(cls) => This(cls).select("getElaborationOptions".toTermName)
             case None      => topElaborationOptionsTree
           ref(emptyDFCSym).appliedTo(elaborationOptionsTree)
-        // no top, but maybe this is just a stage test, so generating new context with
-        // default elaboration options
-        case _ if owner.fullName.toString().startsWith("StagesSpec") =>
-          ref(emptyNoEODFCSym)
-        // no top, so show an error
+        // no top
         case _ =>
-          report.error(
-            "Missing `@top` annotation for this design to be instantiated as a top-level design.",
-            treeSrcPos
-          )
-          EmptyTree
+          var currentOwner = owner.owner
+          while (currentOwner != NoSymbol && !(currentOwner.typeRef <:< noTopAnnotIsRequired))
+            currentOwner = currentOwner.owner
+          // no top, but if has an owner that extends `NoTopAnnotIsRequired`,
+          // we generate new context with default elaboration options
+          if (currentOwner.typeRef <:< noTopAnnotIsRequired) ref(emptyNoEODFCSym)
+          else
+            report.error(
+              "Missing `@top` annotation for this design to be instantiated as a top-level design.",
+              treeSrcPos
+            )
+            EmptyTree
     }
     DefDef(sym, dfcArg)
   end dfcOverrideDef
@@ -288,6 +292,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     clsMetaArgsTpe = requiredClassRef("dfhdl.internals.ClsMetaArgs")
     topAnnotSym = requiredClass("dfhdl.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
+    noTopAnnotIsRequired = requiredClassRef("dfhdl.internals.NoTopAnnotIsRequired")
     dfcArgStack = Nil
     ctx
 end MetaContextPlacerPhase

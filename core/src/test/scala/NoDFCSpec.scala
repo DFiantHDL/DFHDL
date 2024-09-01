@@ -1,11 +1,11 @@
 package dfhdl
 import munit.*
-import internals.{Position, metaContextIgnore}
+import internals.{Position, metaContextIgnore, NoTopAnnotIsRequired}
 import core.{DFValAny, DFConstOf}
 import compiler.ir
 import java.nio.file._
 
-abstract class NoDFCSpec extends FunSuite:
+abstract class NoDFCSpec extends FunSuite, NoTopAnnotIsRequired:
   private val noErrMsg = "No error found"
   transparent inline def assertCompileError(expectedErr: String)(
       inline code: String
