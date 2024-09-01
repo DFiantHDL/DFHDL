@@ -197,12 +197,12 @@ object DFVal:
           case _            => false
       case _ => false
     def isOpen: Boolean = dfVal match
-      case _: Open => true
-      case _       => false
-    @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.Open] = dfVal match
+      case _: DFVal.OPEN => true
+      case _             => false
+    @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.OPEN] = dfVal match
       case dcl: DFVal.Dcl                           => Some(dcl)
       case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)
-      case open: DFVal.Open                         => Some(open)
+      case open: DFVal.OPEN                         => Some(open)
       case alias: DFVal.Alias                       => alias.relValRef.get.dealias
       case _                                        => None
     @tailrec private def departial(range: Range)(using MemberGetSet): (DFVal, Range) =
@@ -289,7 +289,7 @@ object DFVal:
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
   end Const
 
-  final case class Open(
+  final case class OPEN(
       dfType: DFType,
       ownerRef: DFOwner.Ref
   ) extends DFVal:
@@ -298,13 +298,13 @@ object DFVal:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
     protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case _: Open => true
+      case _: OPEN => true
       case _       => false
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-  end Open
+  end OPEN
 
   final case class Dcl(
       dfType: DFType,
@@ -662,7 +662,7 @@ object DFNet:
     def unapply(net: DFNet)(using
         MemberGetSet
         //             toVal                                 fromVal              Swapped
-    ): Option[(DFVal.Dcl | DFVal.Open | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
+    ): Option[(DFVal.Dcl | DFVal.OPEN | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
       if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>
           val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)

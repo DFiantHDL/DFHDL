@@ -633,9 +633,10 @@ object DFVal extends DFValLP:
         .asConstOf[T]
   end Const
 
-  object Open:
-    def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
-      ir.DFVal.Open(dfType.asIR.dropUnreachableRefs, dfc.owner.ref)
+  type OPEN = OPEN.type
+  object OPEN:
+    protected[dfhdl] def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
+      ir.DFVal.OPEN(dfType.asIR.dropUnreachableRefs, dfc.owner.ref)
         .addMember
         .asValOf[T]
 
@@ -1299,8 +1300,8 @@ object DFPortOps:
     "The LHS of a connection must be a connectable DFHDL value (var/port)."
   ]
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
-    def <>[R](rhs: OPEN)(using DFC)(using ConnectableOnly[C]): ConnectPlaceholder =
-      dfPort.connect(DFVal.Open(dfPort.dfType))
+    def <>[R](rhs: DFVal.OPEN)(using DFC)(using ConnectableOnly[C]): ConnectPlaceholder =
+      dfPort.connect(DFVal.OPEN(dfPort.dfType))
       ConnectPlaceholder
     def <>[R](rhs: Exact[R])(using DFC)(using
         connectableOnly: ConnectableOnly[C],

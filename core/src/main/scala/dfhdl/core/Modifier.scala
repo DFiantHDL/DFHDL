@@ -47,6 +47,3 @@ sealed trait ISCONST[T <: Boolean]
 type CONST = ISCONST[true]
 type NOTCONST = Any
 sealed trait DFRET
-
-object OPEN
-type OPEN = OPEN.type
