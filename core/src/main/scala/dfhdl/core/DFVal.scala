@@ -85,7 +85,7 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
             term.tpe.asType match
               case '[DFConstOf[?]]  => true
               case '[DFValOf[?]]    => term.warn
-              case '[DFVal.NOTHING] => false
+              case '[DFVal.NOTHING] => term.warn
               case _                => true
         end match
       end explore
