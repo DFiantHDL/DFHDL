@@ -379,3 +379,26 @@ def getRelativePath(absolutePathStr: String): String =
   val absolutePath = Paths.get(absolutePathStr).toAbsolutePath()
   val currentDir = Paths.get("").toAbsolutePath()
   currentDir.relativize(absolutePath).toString
+
+inline def compiletimeErrorPos(
+    inline msg: String,
+    inline start: Int,
+    inline end: Int
+): Nothing = ${
+  compiletimeErrorPosMacro('msg, 'start, 'end)
+}
+def compiletimeErrorPosMacro(msg: Expr[String], start: Expr[Int], end: Expr[Int])(using
+    Quotes
+): Expr[Nothing] =
+  import quotes.reflect.*
+  val updatedPos =
+    Position(Position.ofMacroExpansion.sourceFile, Expr.unapply(start).get, Expr.unapply(end).get)
+  report.errorAndAbort(Expr.unapply(msg).get, updatedPos)
+
+extension (using quotes: Quotes)(term: quotes.reflect.Term)
+  def compiletimeErrorPosExpr(msg: String): Expr[Nothing] =
+    val msgExpr = Expr(msg)
+    val start = Expr(term.pos.start)
+    val end = Expr(term.pos.end)
+    '{ compiletimeErrorPos($msgExpr, $start, $end) }
+
