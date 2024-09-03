@@ -2,7 +2,6 @@ package dfhdl.internals
 import scala.quoted.*
 import util.NotGiven
 import scala.annotation.unchecked.uncheckedVariance
-type ExactTypes = NonEmptyTuple | Int | String | Boolean
 
 extension (using quotes: Quotes)(term: quotes.reflect.Term)
   def exactTerm: quotes.reflect.Term =
@@ -28,13 +27,7 @@ object Exact:
     value match
       case exact: Exact[?] => strip(exact.value)
       case _               => value
-  // We need this `fromRegularTypes` as a workaround for DFStruct where `v := XY(h"27", ...)`
-  implicit inline def fromValue[T](value: T)(using
-      inline ng: NotGiven[T <:< ExactTypes]
-  ): Exact[T] =
-    Exact[T](value)
-  // TODO: remove when https://github.com/lampepfl/dotty/issues/12975 is resolved
-  implicit transparent inline def fromExactTypes[T <: ExactTypes](
+  implicit transparent inline def fromValue[T](
       inline value: T
   ): Exact[?] = ${ fromValueMacro[T]('value) }
   def fromValueMacro[T](
@@ -73,10 +66,7 @@ object Exact:
     type Out
     def apply(t: R): Out
   object Summon:
-    given fromRegularTypes[R, T <: R]: Summon[R, T] with
-      type Out = R
-      def apply(t: R): Out = t
-    transparent inline given fromExactTypes[R <: ExactTypes, T <: R]: Summon[R, T] =
+    transparent inline given [R, T <: R]: Summon[R, T] =
       ${ summonMacro[R, T] }
     object Success extends Summon[Any, Any]:
       type Out = Any
