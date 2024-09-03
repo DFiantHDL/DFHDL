@@ -31,7 +31,8 @@ extension [Q <: Quotes & Singleton](using quotes: Q)(term: quotes.reflect.Term)
   private def exactTerm: quotes.reflect.Term =
     import quotes.reflect.*
     term match
-      case Inlined(a, b, term) => Inlined(a, b, term.exactTerm)
+      case Inlined(a, b, term)     => Inlined(a, b, term.exactTerm)
+      case Literal(NullConstant()) => report.errorAndAbort("null is not allowed here")
       // For singleton integers we create a special macro that offers some protection from hex literals that
       // overflow into negative values. E.g., 0x80000000
       // This is no way close to a full protection from such incidents, but this is enough for most newbie cases
