@@ -1,10 +1,25 @@
 package dfhdl.internals
 import scala.quoted.*
 import util.NotGiven
-import scala.annotation.unchecked.uncheckedVariance
 
-extension (using quotes: Quotes)(term: quotes.reflect.Term)
-  def exactTerm: quotes.reflect.Term =
+final class ExactInfo[Q <: Quotes & Singleton](using val quotes: Q)(val term: quotes.reflect.Term):
+  import quotes.reflect.*
+  val exactTpe: quotes.reflect.TypeRepr = term.tpe
+  // term.tpe match
+  //   case c: ConstantType => c
+  //   case t               => t.widen
+  val exactType: Type[Any] = exactTpe.asTypeOf[Any]
+  val exactExpr: Expr[Any] = term.asExpr
+  type Underlying = exactType.Underlying
+extension [Q <: Quotes & Singleton](using quotes: Q)(exprOrTerm: Expr[Any] | quotes.reflect.Term)
+  def exactInfo: ExactInfo[Q] =
+    import quotes.reflect.*
+    val term = exprOrTerm match
+      case expr: Expr[Any]                      => expr.asTerm
+      case term: quotes.reflect.Term @unchecked => term
+    ExactInfo[Q](using quotes)(term.exactTerm)
+extension [Q <: Quotes & Singleton](using quotes: Q)(term: quotes.reflect.Term)
+  private def exactTerm: quotes.reflect.Term =
     import quotes.reflect.*
     term match
       case Inlined(a, b, term) => Inlined(a, b, term.exactTerm)

@@ -153,9 +153,7 @@ def DFValConversionMacro[T <: DFTypeAny, P, R](
     from: Expr[R]
 )(using Quotes, Type[T], Type[P], Type[R]): Expr[DFValTP[T, P]] =
   import quotes.reflect.*
-  val fromExactTerm = from.asTerm.exactTerm
-  val fromExactType = fromExactTerm.tpe.asTypeOf[Any]
-  val fromExactExpr = fromExactTerm.asExpr
+  val fromExactInfo = from.exactInfo
   lazy val nonConstTermOpt = from.asTerm.getNonConstTerm
   if (TypeRepr.of[P] =:= TypeRepr.of[CONST] && nonConstTermOpt.nonEmpty)
     nonConstTermOpt.get.compiletimeErrorPosExpr("Applied argument must be a constant.")
@@ -165,11 +163,11 @@ def DFValConversionMacro[T <: DFTypeAny, P, R](
       given bitsNoType: DFBits[Int] = DFNothing.asInstanceOf[DFBits[Int]]
       given uintNoType: DFUInt[Int] = DFNothing.asInstanceOf[DFUInt[Int]]
       given sintNoType: DFSInt[Int] = DFNothing.asInstanceOf[DFSInt[Int]]
-      val tc = compiletime.summonInline[DFVal.TC[T, fromExactType.Underlying]]
+      val tc = compiletime.summonInline[DFVal.TC[T, fromExactInfo.Underlying]]
       val dfc = compiletime.summonInline[DFC]
       val dfType = compiletime.summonInline[T]
       trydf {
-        tc(dfType, $fromExactExpr)(using dfc).asValTP[T, P]
+        tc(dfType, ${ fromExactInfo.exactExpr })(using dfc).asValTP[T, P]
       }(using dfc, compiletime.summonInline[CTName])
     }
   end if
@@ -292,17 +290,13 @@ object DFVal extends DFValLP:
     if (TypeRepr.of[T].typeSymbol equals defn.NothingClass) return '{
       compiletime.error("This is fake")
     }
-    val exact = arg.asTerm.exactTerm
-    val exactExpr = exact.asExpr
-    val exactType = exact.tpe.asTypeOf[Any]
+    val exactInfo = arg.exactInfo
     val lpType = dfVal.asTerm.tpe.isConstTpe.asTypeOf[Any]
-    val rpType = exact.tpe.isConstTpe.asTypeOf[Any]
+    val rpType = exactInfo.exactTpe.isConstTpe.asTypeOf[Any]
     '{
-      val c = compiletime.summonInline[
-        DFVal.Compare[T, exactType.Underlying, Op, false]
-      ]
+      val c = compiletime.summonInline[DFVal.Compare[T, exactInfo.Underlying, Op, false]]
       val dfc = compiletime.summonInline[DFC]
-      c($dfVal, $exactExpr)(using
+      c($dfVal, ${ exactInfo.exactExpr })(using
         dfc,
         compiletime.summonInline[ValueOf[Op]],
         new ValueOf[false](false)
@@ -429,14 +423,13 @@ object DFVal extends DFValLP:
       argExpr.asTerm.getNonConstTerm match
         case Some(term) => term.compiletimeErrorPosExpr("Init value must be a constant.")
         case None =>
-          val term = argExpr.asTerm.exactTerm
-          val tpe = term.tpe.asTypeOf[Any]
+          val exactInfo = argExpr.exactInfo
           '{
-            val tc = compiletime.summonInline[DFVal.TC[T, tpe.Underlying]]
+            val tc = compiletime.summonInline[DFVal.TC[T, exactInfo.Underlying]]
             new InitValue[T]:
               def enable: Boolean = $enableExpr
               def apply(dfType: T)(using dfc: DFC): DFConstOf[T] =
-                tc(dfType, ${ term.asExpr })(using dfc).asConstOf[T]
+                tc(dfType, ${ exactInfo.exactExpr })(using dfc).asConstOf[T]
           }
     end fromValueMacro
   end InitValue
@@ -494,11 +487,10 @@ object DFVal extends DFValLP:
             val Apply(_, vArgsTerm) = term: @unchecked
             def inits(dfType: Expr[DFTuple[T]], dfc: Expr[DFC]): List[Expr[DFConstOf[DFTuple[T]]]] =
               vArgsTerm.map { a =>
-                val aTerm = a.exactTerm
-                val aType = aTerm.tpe.asTypeOf[Any]
+                val aExactInfo = a.exactInfo
                 '{
-                  val tc = compiletime.summonInline[DFVal.TC[DFTuple[T], aType.Underlying]]
-                  tc($dfType, ${ aTerm.asExpr })(using $dfc).asConstOf[DFTuple[T]]
+                  val tc = compiletime.summonInline[DFVal.TC[DFTuple[T], aExactInfo.Underlying]]
+                  tc($dfType, ${ aExactInfo.exactExpr })(using $dfc).asConstOf[DFTuple[T]]
                 }
               }
             '{
@@ -509,14 +501,13 @@ object DFVal extends DFValLP:
             }
           // otherwise the entire tuple is considered as a candidate.
           else
-            val vTerm = term.exactTerm
-            val vType = vTerm.tpe.asTypeOf[Any]
+            val vExactInfo = term.exactInfo
             '{
-              val tc = compiletime.summonInline[DFVal.TC[DFTuple[T], vType.Underlying]]
+              val tc = compiletime.summonInline[DFVal.TC[DFTuple[T], vExactInfo.Underlying]]
               new InitTupleValues[T]:
                 def enable: Boolean = $enableExpr
                 def apply(dfType: DFTuple[T])(using dfc: DFC): List[DFConstOf[DFTuple[T]]] =
-                  List(tc(dfType, ${ vTerm.asExpr })(using dfc).asConstOf[DFTuple[T]])
+                  List(tc(dfType, ${ vExactInfo.exactExpr })(using dfc).asConstOf[DFTuple[T]])
             }
           end if
       end match

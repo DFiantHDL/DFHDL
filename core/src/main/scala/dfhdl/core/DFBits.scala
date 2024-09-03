@@ -497,9 +497,9 @@ object DFBits:
         transparent inline def toBits: Any = ${ bitsMacro('tpl) }
       private def bitsMacro(tpl: Expr[NonEmptyTuple])(using Quotes): Expr[Any] =
         import quotes.reflect.*
-        val tplTerm = tpl.asTerm.exactTerm
+        val exactInfo = tpl.exactInfo
         import Width.*
-        val rTpe = tplTerm.tpe
+        val rTpe = exactInfo.exactTpe
         val pType = rTpe.isConstTpe.asTypeOf[Any]
         val wType = rTpe.calcValWidth.asTypeOf[Int]
         '{
