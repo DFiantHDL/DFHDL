@@ -340,10 +340,13 @@ object DFBits:
       def apply(value: R)(using DFC): Out
     object Candidate:
       type Aux[R, W <: IntP, P] = Candidate[R] { type OutW = W; type OutP = P }
-      inline given errorOnInt[V <: Int]: Candidate[V] =
+      type Dud[V] = Candidate[V]:
+        type OutW = Int
+        type OutP = NOTCONST
+      transparent inline given errorOnInt[V <: Int]: Candidate[V] =
         compiletime.error(
           "An integer value cannot be a candidate for a Bits type.\nTry explicitly using a decimal constant via the `d\"<width>'<number>\"` string interpolation."
-        )
+        ).asInstanceOf[Dud[V]]
       given fromDFBits[W <: IntP, P, R <: DFValTP[DFBits[W], P]]: Candidate[R] with
         type OutW = W
         type OutP = P
@@ -362,15 +365,14 @@ object DFBits:
           if (value.hasTag[DFVal.TruncateTag]) value.bits.tag(DFVal.TruncateTag)
           else if (value.hasTag[DFVal.ExtendTag]) value.bits.tag(DFVal.ExtendTag)
           else value.bits
-      inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
+      transparent inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
           "Cannot apply an enum entry value to a bits variable."
-        )
-      // TODO: IntP
-      inline given errDFSInt[W <: IntP, R <: DFValOf[DFSInt[W]]]: Candidate[R] =
+        ).asInstanceOf[Dud[E]]
+      transparent inline given errDFSInt[W <: IntP, R <: DFValOf[DFSInt[W]]]: Candidate[R] =
         compiletime.error(
           "Cannot apply a signed value to a bits variable.\nConsider applying `.bits` conversion to resolve this issue."
-        )
+        ).asInstanceOf[Dud[R]]
 
       private[Val] def valueToBits(value: Any)(using dfc: DFC): DFValOf[DFBits[Int]] =
         import DFBits.Val.Ops.concatBits

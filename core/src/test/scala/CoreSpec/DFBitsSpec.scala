@@ -153,6 +153,11 @@ class DFBitsSpec extends DFSpec:
       val w = 8
       val conv8: Bits[w.type] <> VAL = h"123"
     }
+    assertCompileError {
+      """An integer value cannot be a candidate for a Bits type.
+        |Try explicitly using a decimal constant via the `d"<width>'<number>"` string interpolation.
+        |""".stripMargin
+    }("b8 := b8 | 2")
   }
   test("DFVal Selection") {
     val b8 = Bits(8) <> VAR
