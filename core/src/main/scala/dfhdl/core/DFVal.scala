@@ -954,6 +954,15 @@ object DFVal extends DFValLP:
     export DFOpaque.Val.TC.given
   end TC
 
+  trait TC_Or_OPEN[T <: DFTypeAny, R] extends TC[T, R]
+  object TC_Or_OPEN:
+    given fromOPEN[T <: DFTypeAny]: TC_Or_OPEN[T, OPEN] with
+      type OutP = NOTCONST
+      def conv(dfType: T, from: OPEN)(using DFC): Out = DFVal.OPEN(dfType)
+    given fromTC[T <: DFTypeAny, R, TC <: DFVal.TC[T, R]](using tc: TC): TC_Or_OPEN[T, R] with
+      type OutP = tc.OutP
+      def conv(dfType: T, from: R)(using DFC): Out = tc(dfType, from)
+
   trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
     type OutP
     type Out = DFValTP[T, OutP]
@@ -1317,12 +1326,9 @@ object DFPortOps:
     "The LHS of a connection must be a connectable DFHDL value (var/port)."
   ]
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
-    def <>[R](rhs: DFVal.OPEN)(using DFC)(using ConnectableOnly[C]): ConnectPlaceholder =
-      dfPort.connect(DFVal.OPEN(dfPort.dfType))
-      ConnectPlaceholder
     def <>[R](rhs: Exact[R])(using DFC)(using
         connectableOnly: ConnectableOnly[C],
-        tc: DFVal.TC[T, R]
+        tc: DFVal.TC_Or_OPEN[T, R]
     ): ConnectPlaceholder =
       trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
       ConnectPlaceholder
