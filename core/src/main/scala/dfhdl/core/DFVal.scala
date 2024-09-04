@@ -934,6 +934,7 @@ object DFVal extends DFValLP:
     end sameValType
   end TCLP
   object TC extends TCLP:
+    type Exact[T <: DFTypeAny] = Exact1[DFTypeAny, T, [t <: DFTypeAny] =>> t, DFC, TC]
     type Aux[T <: DFTypeAny, R, OutP0] = TC[T, R] { type OutP = OutP0 }
     export DFBoolOrBit.Val.TC.given
     export DFBits.Val.TC.given
@@ -947,6 +948,7 @@ object DFVal extends DFValLP:
 
   trait TC_Or_OPEN[T <: DFTypeAny, R] extends TC[T, R]
   object TC_Or_OPEN:
+    type Exact[T <: DFTypeAny] = Exact1[DFTypeAny, T, [t <: DFTypeAny] =>> t, DFC, TC_Or_OPEN]
     given fromOPEN[T <: DFTypeAny]: TC_Or_OPEN[T, OPEN] with
       type OutP = NOTCONST
       def conv(dfType: T, from: OPEN)(using DFC): Out = DFVal.OPEN(dfType)
@@ -1155,12 +1157,9 @@ object VarsTuple:
 end VarsTuple
 
 final class REG_DIN[T <: DFTypeAny](val irValue: DFError.REG_DIN[T]) extends AnyVal:
-  def :=[R](rhs: Exact[R])(using
-      tc: DFVal.TC[T, R],
-      dfc: DFC
-  ): Unit = trydf {
+  def :=(rhs: DFVal.TC.Exact[T])(using DFC): Unit = trydf {
     val dfVar = irValue.dfVar
-    dfVar.assign(tc(dfVar.dfType, rhs))
+    dfVar.assign(rhs(dfVar.dfType))
   }
 
 object DFVarOps:
@@ -1201,23 +1200,21 @@ object DFVarOps:
     "`.din` selection is only allowed under register-transfer (RT) domains."
   ]
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
-    def :=[R](rhs: Exact[R])(using DFC)(using dt: DomainType)(using
+    def :=(rhs: DFVal.TC.Exact[T])(using DFC)(using dt: DomainType)(using
         notREG: NotREG[A],
         varOnly: VarOnly[A],
 //        localOrNonED: LocalOrNonED[A],
-        insideProcess: `InsideProcess:=`[dt.type, A],
-        tc: DFVal.TC[T, R]
+        insideProcess: `InsideProcess:=`[dt.type, A]
     ): Unit = trydf {
-      dfVar.assign(tc(dfVar.dfType, rhs))
+      dfVar.assign(rhs(dfVar.dfType))
     }
-    def :==[R](rhs: Exact[R])(using DFC)(using dt: DomainType)(using
+    def :==(rhs: DFVal.TC.Exact[T])(using DFC)(using dt: DomainType)(using
         varOnly: VarOnly[A],
         edDomainOnly: EDDomainOnly[dt.type],
 //        notLocalVar: NotLocalVar[A],
-        insideProcess: `InsideProcess:==`[dt.type, A],
-        tc: DFVal.TC[T, R]
+        insideProcess: `InsideProcess:==`[dt.type, A]
     ): Unit = trydf {
-      dfVar.nbassign(tc(dfVar.dfType, rhs))
+      dfVar.nbassign(rhs(dfVar.dfType))
     }
     def din(using dt: DomainType)(using IsREG[A], RTDomainOnly[dt.type], DFC): REG_DIN[T] =
       new REG_DIN[T](DFError.REG_DIN(dfVar.asVarOf[T]))
@@ -1317,11 +1314,10 @@ object DFPortOps:
     "The LHS of a connection must be a connectable DFHDL value (var/port)."
   ]
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
-    def <>[R](rhs: Exact[R])(using DFC)(using
-        connectableOnly: ConnectableOnly[C],
-        tc: DFVal.TC_Or_OPEN[T, R]
+    def <>(rhs: DFVal.TC_Or_OPEN.Exact[T])(using DFC)(using
+        connectableOnly: ConnectableOnly[C]
     ): ConnectPlaceholder =
-      trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
+      trydf { dfPort.connect(rhs(dfPort.dfType)) }
       ConnectPlaceholder
   end extension
 end DFPortOps

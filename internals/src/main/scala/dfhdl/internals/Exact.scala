@@ -135,16 +135,27 @@ object Exact:
 end Exact
 
 trait Exact0[
-    From,
     Ctx,
     TC[From] <: Exact0.TC[From, Ctx]
 ]:
   type ExactFrom
-  type TCFinal <: TC[ExactFrom]
-  val tc: TCFinal
-  type Out = tc.Out
-  def apply()(using Ctx): Out = ???
+  type ExactTC <: TC[ExactFrom]
+  val tc: ExactTC
+  def apply()(using ctx: Ctx): tc.Out
 object Exact0:
+  def apply[From, Ctx, TC[From] <: Exact0.TC[From, Ctx]](
+      from: From,
+      tc0: TC[From]
+  ): Exact0[Ctx, TC] {
+    type ExactFrom = From
+    type ExactTC = tc0.type
+  } = new Exact0[Ctx, TC]:
+    type ExactFrom = From
+    type ExactTC = tc0.type
+    final val tc: ExactTC = tc0
+    final def apply()(using ctx: Ctx): tc.Out =
+      tc.conv(from)(using ctx)
+
   trait TC[From, Ctx]:
     type Out
     def conv(from: From)(using Ctx): Out
@@ -152,29 +163,21 @@ object Exact0:
       From,
       Ctx,
       TC[From] <: Exact0.TC[From, Ctx]
-  ](inline from: From): Exact0[From, Ctx, TC] = ${
+  ](inline from: From): Exact0[Ctx, TC] = ${
     convMacro[From, Ctx, TC]('from)
   }
   def convMacro[
       From: Type,
       Ctx: Type,
       TC[From] <: Exact0.TC[From, Ctx]: Type
-  ](from: Expr[From])(using Quotes): Expr[Exact0[From, Ctx, TC]] =
+  ](from: Expr[From])(using Quotes): Expr[Exact0[Ctx, TC]] =
     import quotes.reflect.*
-    val fromExactTerm = from.asTerm.exactTerm
-    val fromExactType = fromExactTerm.tpe.asTypeOf[Any]
-    val fromExactExpr = fromExactTerm.asExpr
-    // if (Position.ofMacroExpansion.sourceFile.path.endsWith("Example.scala"))
-    //   println("exact0")
-    //   println(from.show)
+    val fromExactInfo = from.exactInfo
     '{
-      val tcTop = compiletime.summonInline[TC[fromExactType.Underlying]]
-      new Exact0[From, Ctx, TC]:
-        type ExactFrom = fromExactType.Underlying
-        type TCFinal = tcTop.type
-        val tc: TCFinal = tcTop
-        // def apply()(using ctx: Ctx): Out =
-        //   tc.conv($fromExactExpr)(using ctx)
+      Exact0[fromExactInfo.Underlying, Ctx, TC](
+        ${ fromExactInfo.exactExpr },
+        compiletime.summonInline[TC[fromExactInfo.Underlying]]
+      )
     }
   end convMacro
 end Exact0
@@ -182,55 +185,63 @@ end Exact0
 trait Exact1[
     Arg1UB,
     Arg1 <: Arg1UB,
-    From,
+    FArg1[Arg1 <: Arg1UB],
     Ctx,
-    OutUB,
-    TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, From, Ctx]
+    TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, FArg1, From, Ctx]
 ]:
-  type ExactTC <: TC[Arg1, From]
+  type ExactFrom
+  type ExactTC <: TC[Arg1, ExactFrom]
   val tc: ExactTC
-  def apply(
-      arg1: Arg1
-  )(using ctx: Ctx): tc.Out
+  def apply(arg1: FArg1[Arg1])(using ctx: Ctx): tc.Out
 end Exact1
 object Exact1:
-  trait TC[Arg1UB, Arg1 <: Arg1UB, From, Ctx]:
+  def apply[
+      Arg1UB,
+      Arg1 <: Arg1UB,
+      FArg1[Arg1 <: Arg1UB],
+      From,
+      Ctx,
+      TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, FArg1, From, Ctx]
+  ](
+      from: From,
+      tc0: TC[Arg1, From]
+  ): Exact1[Arg1UB, Arg1, FArg1, Ctx, TC] {
+    type ExactFrom = From
+    type ExactTC = tc0.type
+  } = new Exact1[Arg1UB, Arg1, FArg1, Ctx, TC]:
+    type ExactFrom = From
+    type ExactTC = tc0.type
+    final val tc: ExactTC = tc0
+    final def apply(arg1: FArg1[Arg1])(using ctx: Ctx): tc.Out =
+      tc.conv(arg1, from)(using ctx)
+  trait TC[Arg1UB, Arg1 <: Arg1UB, FArg1[Arg1 <: Arg1UB], From, Ctx]:
     type Out
-    def conv(arg1: Arg1, from: From)(using Ctx): Out
+    def conv(arg1: FArg1[Arg1], from: From)(using Ctx): Out
   transparent inline implicit def conv[
       Arg1UB,
       Arg1 <: Arg1UB,
+      FArg1[Arg1 <: Arg1UB],
       From,
       Ctx,
-      OutUB,
-      TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, From, Ctx]
-  ](inline from: From): Exact1[Arg1UB, Arg1, ?, Ctx, OutUB, TC] = ${
-    convMacro[Arg1UB, Arg1, From, Ctx, OutUB, TC]('from)
+      TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, FArg1, From, Ctx]
+  ](inline from: From): Exact1[Arg1UB, Arg1, FArg1, Ctx, TC] = ${
+    convMacro[Arg1UB, Arg1, FArg1, From, Ctx, TC]('from)
   }
   def convMacro[
       Arg1UB: Type,
       Arg1 <: Arg1UB: Type,
+      FArg1[Arg1 <: Arg1UB]: Type,
       From: Type,
       Ctx: Type,
-      OutUB: Type,
-      TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, From, Ctx]: Type
-  ](from: Expr[From])(using Quotes): Expr[Exact1[Arg1UB, Arg1, ?, Ctx, OutUB, TC]] =
+      TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, FArg1, From, Ctx]: Type
+  ](from: Expr[From])(using Quotes): Expr[Exact1[Arg1UB, Arg1, FArg1, Ctx, TC]] =
     import quotes.reflect.*
-    val fromExactTerm = from.asTerm.exactTerm
-    val fromExactType = fromExactTerm.tpe.asTypeOf[Any]
-    val fromExactExpr = fromExactTerm.asExpr
-    // if (Position.ofMacroExpansion.sourceFile.path.endsWith("Example.scala"))
-    //   println("exact1")
-    val ret = '{
-      new Exact1[Arg1UB, Arg1, fromExactType.Underlying, Ctx, OutUB, TC]:
-        type ExactTC = TC[Arg1, fromExactType.Underlying]
-        val tc: ExactTC = compiletime.summonInline[ExactTC]
-        final def apply(
-            arg1: Arg1
-        )(using ctx: Ctx): tc.Out =
-          tc.conv(arg1, $fromExactExpr)(using ctx)
+    val fromExactInfo = from.exactInfo
+    '{
+      Exact1[Arg1UB, Arg1, FArg1, fromExactInfo.Underlying, Ctx, TC](
+        ${ fromExactInfo.exactExpr },
+        compiletime.summonInline[TC[Arg1, fromExactInfo.Underlying]]
+      )
     }
-    ret
-    // end if
   end convMacro
 end Exact1

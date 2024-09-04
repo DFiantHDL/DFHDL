@@ -1278,9 +1278,10 @@ object DFUInt:
       ]
 
   object Val:
-    trait UBArg[UB <: IntP, R]:
+    trait UBArg[UB <: IntP, R] extends Exact1.TC[IntP, UB, [ub <: IntP] =>> IntParam[ub], R, DFC]:
       type OutP
       type Out = DFValTP[DFInt32, OutP]
+      def conv(arg1: IntParam[UB], from: R)(using DFC): Out = apply(arg1, from)
       def apply(ub: IntParam[UB], arg: R)(using DFC): Out
     trait UBArgLP:
       transparent inline given errorDMZ[UB <: Int, R](using
@@ -1294,6 +1295,7 @@ object DFUInt:
           )
         ]
     object UBArg extends UBArgLP:
+      type Exact[UB <: IntP] = Exact1[IntP, UB, [ub <: IntP] =>> IntParam[ub], DFC, UBArg]
       given fromInt[UB <: IntP, R <: Int](using
           unsignedCheck: Unsigned.Check[R < 0],
           ubCheck: `UB > R`.CheckNUB[UB, R]
