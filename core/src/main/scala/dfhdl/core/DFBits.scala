@@ -682,14 +682,14 @@ object DFBits:
         @targetName("shiftRightDFBits")
         def >>(shift: DFUInt.Val.UBArg.Exact[W])(using
             dfc: DFC
-        ): DFValOf[DFBits[W]] = trydf {
+        ): DFValTP[DFBits[W], P | shift.tc.OutP] = trydf {
           val shiftVal = shift(lhs.widthIntParam)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shiftVal))
         }
         @targetName("shiftLeftDFBits")
         def <<(shift: DFUInt.Val.UBArg.Exact[W])(using
             dfc: DFC
-        ): DFValOf[DFBits[W]] = trydf {
+        ): DFValTP[DFBits[W], P | shift.tc.OutP] = trydf {
           val shiftVal = shift(lhs.widthIntParam)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
         }

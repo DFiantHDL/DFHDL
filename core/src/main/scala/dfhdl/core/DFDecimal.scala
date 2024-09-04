@@ -623,6 +623,12 @@ object DFXInt:
       end fromDFBitsValCandidate
     end CandidateLP
     object Candidate extends CandidateLP:
+      type Aux[R, S <: Boolean, W <: IntP, N <: NativeType, P] = Candidate[R] {
+        type OutS = S
+        type OutW = W
+        type OutN = N
+        type OutP = P
+      }
       type IntInfoAux[R <: Int, OS <: Boolean, OW <: Int] =
         IntInfo[R]:
           type OutS = OS
@@ -832,19 +838,17 @@ object DFXInt:
         }
         end resize
         @targetName("shiftRightDFXInt")
-        def >>[R](shift: Exact[R])(using
-            c: DFUInt.Val.UBArg[W, R],
+        def >>(shift: DFUInt.Val.UBArg.Exact[W])(using
             dfc: DFC
-        ): DFValTP[DFXInt[S, W, N], P | c.OutP] = trydf {
-          val shiftVal = c(lhs.widthIntParam, shift)(using dfc.anonymize)
+        ): DFValTP[DFXInt[S, W, N], P | shift.tc.OutP] = trydf {
+          val shiftVal = shift(lhs.widthIntParam)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.>>, List(lhs, shiftVal))
         }
         @targetName("shiftLeftDFXInt")
-        def <<[R](shift: Exact[R])(using
-            c: DFUInt.Val.UBArg[W, R],
+        def <<(shift: DFUInt.Val.UBArg.Exact[W])(using
             dfc: DFC
-        ): DFValTP[DFXInt[S, W, N], P | c.OutP] = trydf {
-          val shiftVal = c(lhs.widthIntParam, shift)(using dfc.anonymize)
+        ): DFValTP[DFXInt[S, W, N], P | shift.tc.OutP] = trydf {
+          val shiftVal = shift(lhs.widthIntParam)(using dfc.anonymize)
           DFVal.Func(lhs.dfType, FuncOp.<<, List(lhs, shiftVal))
         }
       end extension
@@ -1306,8 +1310,8 @@ object DFUInt:
           ubCheck(ub, arg)
           DFVal.Const(DFInt32, Some(BigInt(arg)))
       end fromInt
-      given fromR[UB <: IntP, R, IC <: DFXInt.Val.Candidate[R]](using
-          ic: IC
+      given fromR[UB <: IntP, R, S <: Boolean, W <: IntP, N <: NativeType, P](using
+          ic: DFXInt.Val.Candidate.Aux[R, S, W, N, P]
       )(using
           unsignedCheck: Unsigned.Check[ic.OutS],
           widthCheck: `UBW == RW`.CheckNUB[IntP.CLog2[UB], ic.OutW]

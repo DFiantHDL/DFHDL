@@ -42,6 +42,7 @@ class DFBitsSpec extends DFSpec:
          |val t18 = Bits(clog2(param)) <> VAR
          |val t19 = Bits(4) <> VAR
          |val t20 = Bits(clog2(param + 1)) <> VAR
+         |val t21: Bits[16] <> CONST = (t14 << t5.uint.toInt) | (t14 >> t5.uint.toInt)
          |""".stripMargin
     } {
       @inline def foo(arg: Bits[4] <> CONST): Unit <> DFRET =
@@ -86,6 +87,7 @@ class DFBitsSpec extends DFSpec:
       val t18 = Bits.until(param) <> VAR
       val t19 = Bits.to(8) <> VAR
       val t20 = Bits.to(param) <> VAR
+      val t21: Bits[16] <> CONST = t14 << t5 | t14 >> t5
     }
   }
   test("Assignment") {

@@ -178,13 +178,12 @@ object DFVector:
           lhs: DFVal[DFVector[T, Tuple1[D1]], M]
       )
         @targetName("applyDFVector")
-        def apply[I](
-            idx: Exact[I]
+        def apply(
+            idx: DFUInt.Val.UBArg.Exact[D1]
         )(using
-            c: DFUInt.Val.UBArg[D1, I],
             dfc: DFC
         ): DFVal[T, M] = trydf {
-          val idxVal = c(lhs.dfType.lengthIntParam, idx)(using dfc.anonymize)
+          val idxVal = idx(lhs.dfType.lengthIntParam)(using dfc.anonymize)
           DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idxVal)
         }
         def elements(using DFC): Vector[DFValOf[T]] =
