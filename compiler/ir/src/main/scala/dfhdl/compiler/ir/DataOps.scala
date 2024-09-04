@@ -27,6 +27,10 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
       if (tWidth > fWidth) fromData
       else
         fromData.asInstanceOf[Option[BigInt]].map(_.truncateAsUnsigned(tWidth).asSigned(tWidth))
+    // Casting from UInt to DFInt32
+    case (DFInt32, DFUInt(Int(fWidth))) =>
+      assert(fWidth <= 31)
+      fromData
     // Casting from any data to Bits
     case (DFBits(Int(tWidth)), _) =>
       assert(tWidth == fromType.width)
