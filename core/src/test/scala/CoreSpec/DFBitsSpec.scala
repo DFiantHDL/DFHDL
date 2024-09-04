@@ -47,15 +47,15 @@ class DFBitsSpec extends DFSpec:
       @inline def foo(arg: Bits[4] <> CONST): Unit <> DFRET =
         arg.assertPosition(-1, 1, 11, 17)
       foo(all(0))
-      val t1: Bits[8] <> VAL = all(false); t1.assertPosition(0, 1, 32, 42)
-      val t2: Bits[8] <> VAL = all(1)
-      val t3: Bits[8] <> VAL = d"255"
-      val t4: Bits[5] <> VAL = ?
-      val t5: Bits[4] <> VAL = h"A"; t5.assertPosition(0, 1, 32, 36)
-      val t6: Bits[3] <> VAL = b"101"
-      val t7: Bits[w.type] <> VAL = b"11"
-      val t8: Bits[8] <> VAL = (b"100", 1, h"9"); t8.assertPosition(0, 1, 32, 49)
-      val t9: Bits[Int] <> VAL = (b"100", 1, h"9")
+      val t1: Bits[8] <> CONST = all(false); t1.assertPosition(0, 1, 34, 44)
+      val t2: Bits[8] <> CONST = all(1)
+      val t3: Bits[8] <> CONST = d"255"
+      val t4: Bits[5] <> CONST = ?
+      val t5: Bits[4] <> CONST = h"A"; t5.assertPosition(0, 1, 34, 38)
+      val t6: Bits[3] <> CONST = b"101"
+      val t7: Bits[w.type] <> CONST = b"11"
+      val t8: Bits[8] <> CONST = (b"100", 1, h"9"); t8.assertPosition(0, 1, 34, 51)
+      val t9: Bits[Int] <> CONST = (b"100", 1, h"9")
       val t10 = (
         b"100",
         1,
