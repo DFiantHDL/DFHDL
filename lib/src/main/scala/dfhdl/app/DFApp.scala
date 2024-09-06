@@ -24,6 +24,7 @@ trait DFApp:
   private var printerOptions: options.PrinterOptions = null
   private var linterOptions: options.LinterOptions = null
   private var appOptions: options.AppOptions = null
+  inline given options.ElaborationOptions = elaborationOptions
   inline given options.CompilerOptions = compilerOptions
   inline given options.PrinterOptions = printerOptions
   inline given options.AppOptions = appOptions
