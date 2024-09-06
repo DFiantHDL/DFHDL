@@ -374,6 +374,16 @@ lazy val scala_cliIsRunning: Boolean = getShellCommand.exists(_.contains(".scala
 lazy val scastieIsRunning: Boolean =
   System.getProperty("user.dir").startsWith("/tmp/scastie")
 
+// detecting if running from Metals
+lazy val metalsIsRunning: Boolean =
+  getShellCommand.exists(cmd =>
+    cmd.contains("""\.metals\.tmp""") || cmd.contains("""/.metals/.tmp""")
+  )
+
+// detecting if running from IntelliJ IDEA
+lazy val ideaIsRunning: Boolean =
+  getShellCommand.exists(cmd => cmd.contains("idea_rt.jar="))
+
 def getRelativePath(absolutePathStr: String): String =
   import java.nio.file.Paths
   val absolutePath = Paths.get(absolutePathStr).toAbsolutePath()

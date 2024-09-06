@@ -11,7 +11,6 @@ import scala.util.chaining.scalaUtilChainingOps
 trait DFApp:
   private val logger = Logger("DFHDL App")
   logger.setFormatter(LogFormatter.BareFormatter)
-  logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
   private var designName: String = ""
   private var topScalaPath: String = ""
   // this context is just for enabling `getConstData` to work.
@@ -103,12 +102,22 @@ trait DFApp:
   end listBackends
 
   def main(commandArgs: Array[String]): Unit =
+    if (appOptions.clearConsole)
+      if (System.getProperty("os.name").toLowerCase.contains("win"))
+        new ProcessBuilder("cmd", "/c", "cls").inheritIO().start().waitFor()
+      else
+        new ProcessBuilder("clear").inheritIO().start().waitFor()
+    logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
     val parsedCommandLine = ParsedCommandLine(designName, topScalaPath, designArgs, commandArgs)
+    import parsedCommandLine.{Mode, HelpMode}
+    if (commandArgs.isEmpty && parsedCommandLine.mode != Mode.help)
+      logger.info(
+        "No command-line given; using defaults. Run with `help` argument to get usage text."
+      )
     parsedCommandLine.getExitCodeOption match
       case Some(code) =>
         if (!sbtShellIsRunning) sys.exit(code)
       case None =>
-        import parsedCommandLine.{Mode, HelpMode}
         given CanEqual[ScallopConfBase, ScallopConfBase] = CanEqual.derived
         // update design args from command line
         designArgs = parsedCommandLine.updatedDesignArgs
