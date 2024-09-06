@@ -59,9 +59,9 @@ trait DFApp:
     val elaborated = dsn()
     if (elaborationOptions.printDesignCodeAfter)
       println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
            |The design code after elaboration:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
       )
       elaborated.printCodeString
     elaborated

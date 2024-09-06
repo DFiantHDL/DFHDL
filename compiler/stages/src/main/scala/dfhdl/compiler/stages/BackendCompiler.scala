@@ -12,16 +12,16 @@ trait BackendCompiler:
     val ret = CompiledDesign(sd.newStage(printer(sd.stagedDB).printedDB))
     if (co.printDesignCodeAfter)
       println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
            |The design code after compilation:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
       )
       ret.printCodeString
     if (co.printGenFiles)
       println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
            |The generated backend code:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
       )
       ret.printGenFiles
     ret
