@@ -219,10 +219,10 @@ object Printer:
             path,
             contents
           ) =>
-        println("==========================================================")
+        println("=======================================")
         println(srcFile.sourceOrigin)
         println(path)
-        println("==========================================================")
+        println("=======================================")
         println(contents)
         println("")
       case _ =>
