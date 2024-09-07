@@ -112,7 +112,7 @@ class ParsedCommandLine(
   private var exitCodeOption: Option[Int] = None
   def getExitCodeOption: Option[Int] = exitCodeOption
   exitHandler = code => exitCodeOption = Some(code)
-  private val designArgOptionGroup = group("Design arguments:")
+  private lazy val designArgOptionGroup = group("Design arguments:")
   private val designArgOptions =
     for (designArg <- designArgs.values)
       yield
