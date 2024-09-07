@@ -102,11 +102,7 @@ trait DFApp:
   end listBackends
 
   def main(commandArgs: Array[String]): Unit =
-    if (appOptions.clearConsole)
-      if (System.getProperty("os.name").toLowerCase.contains("win"))
-        new ProcessBuilder("cmd", "/c", "cls").inheritIO().start().waitFor()
-      else
-        new ProcessBuilder("clear").inheritIO().start().waitFor()
+    if (appOptions.clearConsole) print("\u001bc")
     logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
     val parsedCommandLine = ParsedCommandLine(designName, topScalaPath, designArgs, commandArgs)
     import parsedCommandLine.{Mode, HelpMode}
