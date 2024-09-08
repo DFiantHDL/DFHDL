@@ -628,12 +628,15 @@ object DFXInt:
     end CandidateLP
     object Candidate extends CandidateLP:
       type Exact = Exact0[DFC, Candidate]
-      type Aux[R, S <: Boolean, W <: IntP, N <: NativeType, P] = Candidate[R] {
-        type OutS = S
-        type OutW = W
-        type OutN = N
-        type OutP = P
-      }
+      type Aux[R, S <: Boolean, W <: IntP, N <: NativeType, P, SMask <: Boolean, WMask <: IntP] =
+        Candidate[R] {
+          type OutS = S
+          type OutW = W
+          type OutN = N
+          type OutP = P
+          type OutSMask = SMask
+          type OutWMask = WMask
+        }
       type IntInfoAux[R <: Int, OS <: Boolean, OW <: Int] =
         IntInfo[R]:
           type OutS = OS
@@ -1315,11 +1318,20 @@ object DFUInt:
           ubCheck(ub, arg)
           DFVal.Const(DFInt32, Some(BigInt(arg)))
       end fromInt
-      given fromR[UB <: IntP, R, S <: Boolean, W <: IntP, N <: NativeType, P](using
-          ic: DFXInt.Val.Candidate.Aux[R, S, W, N, P]
+      given fromR[
+          UB <: IntP,
+          R,
+          S <: Boolean,
+          W <: IntP,
+          N <: NativeType,
+          P,
+          SMask <: Boolean,
+          WMask <: IntP
+      ](using
+          ic: DFXInt.Val.Candidate.Aux[R, S, W, N, P, SMask, WMask]
       )(using
-          unsignedCheck: Unsigned.Check[ic.OutS],
-          widthCheck: `UBW == RW`.CheckNUB[IntP.CLog2[UB], ic.OutW]
+          unsignedCheck: Unsigned.Check[SMask],
+          widthCheck: `UBW == RW`.CheckNUB[IntP.CLog2[UB], WMask]
       ): UBArg[UB, R] with
         type OutP = ic.OutP
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
