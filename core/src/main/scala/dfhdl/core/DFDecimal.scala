@@ -549,12 +549,15 @@ object DFDecimal:
           case _ => parts.head.asTerm.interpolate(opExpr, '{ None })
         val dfValType = dfVal.asTerm.tpe.asTypeOf[DFConstAny]
         '{
+          val dfc = compiletime.summonInline[DFC]
           val tc = compiletime.summonInline[
             DFVal.Compare[T, dfValType.Underlying, FuncOp.===.type, false]
           ]
           Some(
             Seq(
-              tc.conv(${ arg }.dfType, $dfVal)(using compiletime.summonInline[DFC])
+              trydf(
+                tc.conv(${ arg }.dfType, $dfVal)(using dfc)
+              )(using dfc, CTName($opExpr))
             )
           )
         }
