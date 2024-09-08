@@ -412,3 +412,54 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
     val end = Expr(term.pos.end)
     '{ compiletimeErrorPos($msgExpr, $start, $end) }
 
+// trait CompiletimeErrorPos[M <: String, S <: Int, E <: Int]
+// object CompiletimeErrorPos:
+//   inline given [M <: String, S <: Int, E <: Int]: CompiletimeErrorPos[M, S, E] =
+//     ${ ofMacro[M, S, E] }
+
+//   def ofMacro[M <: String: Type, S <: Int: Type, E <: Int: Type](using
+//       Quotes
+//   ): Expr[CompiletimeErrorPos[M, S, E]] =
+//     import quotes.reflect.*
+//     val ConstantType(StringConstant(msg)) = TypeRepr.of[M]: @unchecked
+//     val ConstantType(IntConstant(start)) = TypeRepr.of[S]: @unchecked
+//     val ConstantType(IntConstant(end)) = TypeRepr.of[E]: @unchecked
+//     val updatedPos = Position(Position.ofMacroExpansion.sourceFile, start, end)
+//     report.errorAndAbort(msg, updatedPos)
+
+// object CompiletimeErrorCache:
+//   var cachedError: String = ""
+//   transparent inline def cache(
+//       inline msg: String
+//   ): Unit = ${ cacheMacro('msg) }
+//   private def cacheMacro(msg: Expr[String])(using Quotes): Expr[Unit] =
+//     import quotes.reflect.*
+//     val msgStr = Expr.unapply(msg).get
+//     cachedError = msgStr
+//     println("caching")
+//     '{}
+//   transparent inline def clearCache(): Unit = ${ clearCacheMacro() }
+//   private def clearCacheMacro()(using Quotes): Expr[Unit] =
+//     import quotes.reflect.*
+//     println(s"clearing cache")
+//     cachedError = ""
+//     '{}
+//   transparent inline def reportCache(): Unit = ${ reportCacheMacro() }
+//   private def reportCacheMacro()(using Quotes): Expr[Unit] =
+//     import quotes.reflect.*
+//     println(s"reporting cache: $cachedError")
+//     val msgExpr = Expr(cachedError)
+//     if (cachedError.nonEmpty)
+//       '{ compiletime.error($msgExpr) }
+//     else
+//       '{}
+//   inline def report(
+//       inline msg: String
+//   ): Nothing = ${ reportMacro('msg) }
+//   private def reportMacro(msg: Expr[String])(using Quotes): Expr[Nothing] =
+//     import quotes.reflect.*
+//     val msgStr = Expr.unapply(msg).get
+//     cachedError = msgStr
+//     println("caching")
+//     quotes.reflect.report.errorAndAbort(msgStr)
+// end CompiletimeErrorCache

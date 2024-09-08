@@ -62,27 +62,27 @@ end extension
 
 final class Exact[T](val value: T) extends AnyVal
 object Exact:
-  private val cacheMap = TrieMap.empty[String, (Quotes, Expr[Any])]
-  def cacheErrorExpr(msg: String)(using Quotes): Expr[Nothing] =
-    import quotes.reflect.*
-    val sourceFile = Position.ofMacroExpansion.sourceFile
-    val cached = cacheMap(sourceFile.path)
-    println(s"get: ${Position.ofMacroExpansion}")
-    val (start, end) =
-      given Quotes = cached._1
-      import quotes.reflect.*
-      val term = cached._2.asTerm
-      (term.pos.start, term.pos.end)
-    println(s"actual: <$start..$end>")
-    val msgExpr = Expr(msg)
-    val startExpr = Expr(start)
-    val endExpr = Expr(end)
-    '{ compiletimeErrorPos($msgExpr, $startExpr, $endExpr) }
-  end cacheErrorExpr
+  // private val cacheMap = TrieMap.empty[String, (Quotes, Expr[Any])]
+  // def cacheErrorExpr(msg: String)(using Quotes): Expr[Nothing] =
+  //   import quotes.reflect.*
+  //   val sourceFile = Position.ofMacroExpansion.sourceFile
+  //   val cached = cacheMap(sourceFile.path)
+  //   println(s"get: ${Position.ofMacroExpansion}")
+  //   val (start, end) =
+  //     given Quotes = cached._1
+  //     import quotes.reflect.*
+  //     val term = cached._2.asTerm
+  //     (term.pos.start, term.pos.end)
+  //   println(s"actual: <$start..$end>")
+  //   val msgExpr = Expr(msg)
+  //   val startExpr = Expr(start)
+  //   val endExpr = Expr(end)
+  //   '{ compiletimeErrorPos($msgExpr, $startExpr, $endExpr) }
+  // end cacheErrorExpr
 
-  transparent inline def cacheError(msg: String): Nothing = ${ cacheErrorMacro('msg) }
-  def cacheErrorMacro(msg: Expr[String])(using Quotes): Expr[Nothing] =
-    cacheErrorExpr(msg.value.get)
+  // transparent inline def cacheError(msg: String): Nothing = ${ cacheErrorMacro('msg) }
+  // def cacheErrorMacro(msg: Expr[String])(using Quotes): Expr[Nothing] =
+  //   cacheErrorExpr(msg.value.get)
 
   inline def apply[T](inline value: T): Exact[T] = new Exact(value)
   def strip(value: Any): Any =
