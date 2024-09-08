@@ -10,20 +10,20 @@ trait BackendCompiler:
       sd: StagedDesign[D]
   )(using co: CompilerOptions, po: PrinterOptions): CompiledDesign[D] =
     val ret = CompiledDesign(sd.newStage(printer(sd.stagedDB).printedDB))
-    if (co.printDesignCodeAfter)
+    if (co.printDFHDLCode)
       println(
         """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
            |The design code after compilation:
            |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
       )
       ret.printCodeString
-    if (co.printGenFiles)
+    if (co.printBackendCode)
       println(
         """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
            |The generated backend code:
            |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
       )
-      ret.printGenFiles
+      ret.printBackendCode
     ret
   end compile
   def printer(

@@ -57,7 +57,7 @@ trait DFApp:
     logger.info("Elaborating design...")
     // the elaboration options are set in the compiler plugin using getElaborationOptions
     val elaborated = dsn()
-    if (elaborationOptions.printDesignCodeAfter)
+    if (elaborationOptions.printDFHDLCode)
       println(
         """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
            |The design code after elaboration:
@@ -121,7 +121,7 @@ trait DFApp:
         parsedCommandLine.mode match
           case mode: Mode.ElaborateMode =>
             elaborationOptions = elaborationOptions.copy(
-              printDesignCodeAfter = mode.`print-elaborate`.toOption.get
+              printDFHDLCode = mode.`print-elaborate`.toOption.get
             )
           case _ =>
         // update compiler options from command line
@@ -129,8 +129,8 @@ trait DFApp:
           case mode: Mode.CompileMode =>
             compilerOptions = compilerOptions.copy(
               backend = mode.backend.toOption.get,
-              printDesignCodeAfter = mode.`print-compile`.toOption.get,
-              printGenFiles = mode.`print-backend`.toOption.get
+              printDFHDLCode = mode.`print-compile`.toOption.get,
+              printBackendCode = mode.`print-backend`.toOption.get
             )
           case _ =>
         // execute command

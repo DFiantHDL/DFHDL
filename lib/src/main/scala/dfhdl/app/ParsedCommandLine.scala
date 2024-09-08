@@ -34,7 +34,7 @@ class ParsedCommandLine(
       private val hidden = modeOption != DefaultMode.elaborate
       val `print-elaborate` = opt[Boolean](
         descr = "print the DFHDL design after elaboration",
-        default = Some(eo.printDesignCodeAfter),
+        default = Some(eo.printDFHDLCode),
         noshort = true,
         hidden = hidden
       )
@@ -48,13 +48,13 @@ class ParsedCommandLine(
       )
       val `print-compile` = opt[Boolean](
         descr = "print the DFHDL design after compilation",
-        default = Some(co.printDesignCodeAfter),
+        default = Some(co.printDFHDLCode),
         hidden = hidden,
         noshort = true
       )
       val `print-backend` = opt[Boolean](
         descr = "print the backend design after compilation",
-        default = Some(co.printGenFiles),
+        default = Some(co.printBackendCode),
         hidden = hidden,
         noshort = true
       )

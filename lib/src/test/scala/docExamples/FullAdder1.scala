@@ -15,7 +15,7 @@ import dfhdl.* //import all the DFHDL goodness
 // Select backend compiler:
 given options.CompilerOptions.Backend = backends.vhdl
 // Uncomment to enable printing design code after elaboration (before compilation):
-// given options.ElaborationOptions.PrintDesignCodeAfter = true
+// given options.ElaborationOptions.PrintDFHDLCode = true
 // Uncomment to enable printing design code after compilation:
-// given options.CompilerOptions.PrintDesignCodeAfter = true
+// given options.CompilerOptions.PrintDFHDLCode = true
 ////////////////////////////////////////////////////////////////////////////////////////////////

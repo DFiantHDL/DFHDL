@@ -15,11 +15,11 @@ import dfhdl.* //import all the DFHDL goodness
 // DFHDL Compiler Options:                                                                    //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Enables printing the generated chosen backend code:
-given options.CompilerOptions.PrintGenFiles = true
+given options.CompilerOptions.PrintBackendCode = true
 // Uncomment to select vhdl compilation (default is verilog):
 // given options.CompilerOptions.Backend = backends.vhdl
 // Uncomment to enable printing design code after elaboration (before compilation):
-// given options.ElaborationOptions.PrintDesignCodeAfter = true
+// given options.ElaborationOptions.PrintDFHDLCode = true
 // Uncomment to enable printing design code after compilation:
-// given options.CompilerOptions.PrintDesignCodeAfter = true
+// given options.CompilerOptions.PrintDFHDLCode = true
 ////////////////////////////////////////////////////////////////////////////////////////////////

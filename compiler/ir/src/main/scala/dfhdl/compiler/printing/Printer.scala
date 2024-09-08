@@ -206,7 +206,7 @@ trait Printer
 end Printer
 
 object Printer:
-  def printGenFiles(db: DB)(using po: PrinterOptions): Unit =
+  def printBackendCode(db: DB)(using po: PrinterOptions): Unit =
     val srcTypeFilter: SourceType => Boolean =
       if (po.showGlobals)
         srcType => srcType == SourceType.Design.Regular | srcType == SourceType.Design.GlobalDef
@@ -227,7 +227,7 @@ object Printer:
         println("")
       case _ =>
     }
-  end printGenFiles
+  end printBackendCode
   def commit(db: DB, folderPathStr: String): DB =
     val folderPath = Paths.get(folderPathStr)
     if (!Files.exists(folderPath))

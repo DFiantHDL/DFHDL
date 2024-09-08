@@ -12,8 +12,8 @@ final case class CompilerOptions(
     newFolderForTop: NewFolderForTop,
     backend: Backend,
     logLevel: LogLevel,
-    printDesignCodeAfter: PrintDesignCodeAfter,
-    printGenFiles: PrintGenFiles,
+    printDFHDLCode: PrintDFHDLCode,
+    printBackendCode: PrintBackendCode,
     dropUserOpaques: DropUserOpaques
 )
 object CompilerOptions:
@@ -22,14 +22,14 @@ object CompilerOptions:
       newFolderForTop: NewFolderForTop,
       backend: Backend,
       logLevel: LogLevel,
-      printDesignCodeAfter: PrintDesignCodeAfter,
-      printGenFiles: PrintGenFiles,
+      printDFHDLCode: PrintDFHDLCode,
+      printBackendCode: PrintBackendCode,
       dropUserOpaques: DropUserOpaques
   ): CompilerOptions =
     CompilerOptions(
       commitFolder = commitFolder, newFolderForTop = newFolderForTop, backend = backend,
-      logLevel = logLevel, printDesignCodeAfter = printDesignCodeAfter,
-      printGenFiles = printGenFiles, dropUserOpaques = dropUserOpaques
+      logLevel = logLevel, printDFHDLCode = printDFHDLCode, printBackendCode = printBackendCode,
+      dropUserOpaques = dropUserOpaques
     )
 
   extension (co: CompilerOptions)
@@ -68,15 +68,15 @@ object CompilerOptions:
     given (using logLevel: dfhdl.options.LogLevel): LogLevel = logLevel
     export dfhdl.options.LogLevel.*
 
-  opaque type PrintDesignCodeAfter <: Boolean = Boolean
-  object PrintDesignCodeAfter:
-    given PrintDesignCodeAfter = false
-    given Conversion[Boolean, PrintDesignCodeAfter] = identity
+  opaque type PrintDFHDLCode <: Boolean = Boolean
+  object PrintDFHDLCode:
+    given PrintDFHDLCode = false
+    given Conversion[Boolean, PrintDFHDLCode] = identity
 
-  opaque type PrintGenFiles <: Boolean = Boolean
-  object PrintGenFiles:
-    given PrintGenFiles = if (scastieIsRunning) true else false
-    given Conversion[Boolean, PrintGenFiles] = identity
+  opaque type PrintBackendCode <: Boolean = Boolean
+  object PrintBackendCode:
+    given PrintBackendCode = if (scastieIsRunning) true else false
+    given Conversion[Boolean, PrintBackendCode] = identity
 
   opaque type DropUserOpaques <: Boolean = Boolean
   object DropUserOpaques:
