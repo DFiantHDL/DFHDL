@@ -24,6 +24,8 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
   def getPrevCB: Option[CB] = cb.prevBlockOrHeaderRef.get match
     case cb: DFConditional.Block => Some(cb.asInstanceOf[CB])
     case _                       => None
+  def getLastCB: CB =
+    cb.getNextCB.map(_.getLastCB).getOrElse(cb)
   def isLastCB: Boolean = getNextCB.isEmpty
 //  @tailrec private def getPatterns(
 //      casePattenBlock: DFConditional.CaseBlock,
@@ -106,10 +108,11 @@ extension (patterns: Iterable[Pattern])
   }
 
 extension [CH <: DFConditional.Header](ch: CH)(using MemberGetSet)
-  def getLastCB: ch.TBlock =
-    ch.originMembers
-      .collectFirst { case cb: DFConditional.Block if cb.isLastCB => cb.asInstanceOf[ch.TBlock] }
-      .get
+  def getFirstCB: ch.TBlock =
+    ch.originMembers.view
+      .collectFirst { case cb: DFConditional.Block => cb.asInstanceOf[ch.TBlock] }.get
+
+  def getLastCB: ch.TBlock = ch.getFirstCB.getLastCB
 
   def getCBList: List[ch.TBlock] = getLastCB.getLeadingChain
 end extension
