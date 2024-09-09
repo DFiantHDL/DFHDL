@@ -29,24 +29,19 @@ object CommonOps:
 
   extension (value: Int) def bitsWidth(signed: Boolean): Int = BigInt(value).bitsWidth(signed)
 
-  extension [T](list: Iterable[T])(using CanEqual[T, T])
-    @tailrec private def reduceTreeRecur(
-        recurList: Iterable[T],
-        f: (T, T) => T
-    ): T =
-      if (recurList.size <= 1) list.head
-      else
-        reduceTreeRecur(
-          recurList
-            .grouped(2)
-            .map {
-              case l :: r :: Nil => f(l, r)
-              case l :: Nil      => l
-            }
-            .to(Iterable),
-          f
-        )
-    def reduceTree(f: (T, T) => T): T = reduceTreeRecur(list, f)
+  extension [T](list: List[T])
+    def reduceTree(f: (T, T) => T): T =
+      require(list.nonEmpty, "Cannot reduce an empty list")
+
+      def reduceRecursive(list: List[T]): T = list match
+        case head :: Nil => head // Base case: if the list has one element, return it.
+        case _           =>
+          // Split the sequence into two halves
+          val (left, right) = list.splitAt(list.length / 2)
+          // Reduce the left and right halves and combine them using the function `f`
+          f(reduceRecursive(left), reduceRecursive(right))
+
+      reduceRecursive(list)
   end extension
 
   extension (value: BigInt.type)
