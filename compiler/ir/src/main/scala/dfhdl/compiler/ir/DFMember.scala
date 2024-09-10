@@ -242,9 +242,7 @@ object DFVal:
     def departialDcl(using MemberGetSet): Option[(DFVal.Dcl, Range)] =
       departial match
         case (dcl: DFVal.Dcl, range) => Some(dcl, range)
-        case x =>
-          println(x)
-          None
+        case _                       => None
     def stripPortSel(using MemberGetSet): DFVal = dfVal match
       case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
       case _                               => dfVal
