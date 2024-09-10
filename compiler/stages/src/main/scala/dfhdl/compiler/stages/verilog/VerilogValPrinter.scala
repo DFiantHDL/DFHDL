@@ -7,7 +7,9 @@ import DFVal.*
 
 protected trait VerilogValPrinter extends AbstractValPrinter:
   type TPrinter <: VerilogPrinter
-  val supportLogicType: Boolean = true
+  val supportLogicType: Boolean = printer.dialect match
+    case VerilogDialect.v2001 => false
+    case _                    => true
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
@@ -16,19 +18,15 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   private def regOrLogic: String = if (supportLogicType) "logic" else "reg"
   def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
-    val modifier = dfVal.modifier.dir match
-      case Modifier.IN =>
-        dfVal.dfType match
-          case _: DFStruct => "input  "
-          case _           => "input  wire "
-      case Modifier.OUT   => "output "
-      case Modifier.INOUT => "inout  "
-      case Modifier.VAR   => ""
-//        dfVal.dfType match
-//          case _: DFEnum => ""
-//          case _         => "logic"
+    val (modifier, regOrWireRep) = dfVal.modifier.dir match
+      case Modifier.IN    => ("input  ", "wire")
+      case Modifier.OUT   => ("output ", "reg")
+      case Modifier.INOUT => ("inout  ", "wire")
+      case Modifier.VAR   => ("", "reg")
+    val fixedDFTypeStr =
+      if (supportLogicType) dfTypeStr else dfTypeStr.replace("logic", regOrWireRep)
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
-    s"$modifier${dfTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
+    s"$modifier${fixedDFTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
   end csDFValDclWithoutInit
   def csInitKeyword: String = "="
   def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString

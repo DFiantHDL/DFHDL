@@ -24,10 +24,10 @@ class ALUSpec extends util.FullCompileSpec:
        |`include "ALU_defs.svh"
        |
        |module ALU(
-       |  input  wire logic [31:0]  op1,
-       |  input  wire logic [31:0]  op2,
-       |  input  wire t_enum_ALUSel aluSel,
-       |  output      logic [31:0]  aluOut
+       |  input  logic [31:0]  op1,
+       |  input  logic [31:0]  op2,
+       |  input  t_enum_ALUSel aluSel,
+       |  output logic [31:0]  aluOut
        |);
        |  logic [4:0]  shamt;
        |  logic [31:0] outCalc;
