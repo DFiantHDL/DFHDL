@@ -100,12 +100,13 @@ case object MatchToIf extends Stage:
                   end match
                 end getPatternCondOpt
                 val patternCondOpt = getPatternCondOpt(selector, c.pattern)
-                val guardRef: DFConditional.Block.GuardRef = (c.guardRef.get, patternCondOpt) match
-                  case (_, None)                    => c.guardRef
-                  case (DFMember.Empty, Some(cond)) => cond.asIR.refTW[DFIfElseBlock]
-                  case (guardVal: DFVal, Some(cond)) =>
-                    val combinedGuard = guardVal.asValOf[dfhdl.core.DFBool] && cond
-                    combinedGuard.asIR.refTW[DFIfElseBlock]
+                val guardRef: DFConditional.Block.GuardRef =
+                  (c.getGuardOption, patternCondOpt) match
+                    case (_, None)          => c.guardRef
+                    case (None, Some(cond)) => cond.asIR.refTW[DFIfElseBlock]
+                    case (Some(guardVal), Some(cond)) =>
+                      val combinedGuard = guardVal.asValOf[dfhdl.core.DFBool] && cond
+                      combinedGuard.asIR.refTW[DFIfElseBlock]
                 val ifBlock = DFIfElseBlock(
                   guardRef,
                   c.prevBlockOrHeaderRef.asInstanceOf[DFIfElseBlock.Ref],

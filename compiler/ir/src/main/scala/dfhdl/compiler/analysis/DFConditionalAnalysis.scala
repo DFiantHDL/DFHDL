@@ -100,6 +100,10 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
       case _                       => currentBlock.getHeaderCB.asInstanceOf[cb.THeader]
 
   def getTopConditionalHeader: cb.THeader = getTopConditionalHeader(cb)
+  def getGuardOption: Option[DFVal] =
+    cb.guardRef match
+      case DFRef(dfVal: DFVal) => Some(dfVal)
+      case _                   => None
 end extension
 
 extension (patterns: Iterable[Pattern])
