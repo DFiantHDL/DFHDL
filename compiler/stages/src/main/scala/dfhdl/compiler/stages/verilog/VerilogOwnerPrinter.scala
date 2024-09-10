@@ -95,7 +95,9 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCaseKeyword: String = ""
   def csDFCaseSeparator: String = ":"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
-  def csDFMatchStatement(csSelector: String): String = s"case ($csSelector)"
+  def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean): String =
+    val keyWord = if (wildcardSupport) "casez" else "case"
+    s"$keyWord ($csSelector)"
   def csDFMatchEnd: String = "endcase"
   def csProcessBlock(pb: ProcessBlock): String =
     val (statements, dcls) = pb

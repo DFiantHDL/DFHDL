@@ -45,7 +45,7 @@ class ALUSpec extends util.FullCompileSpec:
        |      ALUSel_SRL:   outCalc = op1 >> shamt;
        |      ALUSel_SRA:   outCalc = {$signed(op1) >>> shamt};
        |      ALUSel_COPY1: outCalc = op1;
-       |      default:      outCalc = 32'hxxxxxxxx;
+       |      default:      outCalc = 32'h????????;
        |    endcase
        |  end
        |  assign shamt  = op2[4:0];

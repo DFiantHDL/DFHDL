@@ -731,4 +731,42 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Wildcards and don't cares") {
+    class Foo extends RTDesign:
+      val num = 16
+      val x   = Bits(num) <> IN init all(0)
+      val y   = Bits(num) <> OUT
+      x match
+        case h"12??" => y := h"22??"
+        case _       => y := all(1)
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : in std_logic_vector(15 downto 0);
+         |  y : out std_logic_vector(15 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process (all)
+         |  begin
+         |    case x is
+         |      when x"12--" => y <= x"22--";
+         |      when others => y <= x"ffff";
+         |    end case;
+         |  end process;
+         |end Foo_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

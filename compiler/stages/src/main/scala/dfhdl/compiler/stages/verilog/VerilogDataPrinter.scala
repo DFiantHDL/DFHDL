@@ -9,7 +9,7 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
   type TPrinter <: VerilogPrinter
   val allowBitsBinModeInHex: Boolean = false
   val allowBitsExplicitWidth: Boolean = true
-  def csDFBitBubbleChar: Char = 'x'
+  def csDFBitBubbleChar: Char = '?'
   def csDFBitsBinFormat(binRep: String): String = s"""${binRep.length}'b$binRep"""
   def csDFBitsHexFormat(hexRep: String): String = s"""${hexRep.length * 4}'h$hexRep"""
   def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String =

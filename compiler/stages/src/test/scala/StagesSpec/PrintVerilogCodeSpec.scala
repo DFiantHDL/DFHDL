@@ -289,7 +289,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  } t_struct_DFTuple2;
          |  parameter logic c01 = 1'b0;
          |  parameter logic c02 = 1'b1;
-         |  parameter logic c03 = 1'bx;
+         |  parameter logic c03 = 1'b?;
          |  parameter logic c04 = 0;
          |  parameter logic c05 = 1;
          |  parameter logic [7:0] c06 = 8'h22;
@@ -299,8 +299,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter logic [47:0] c10 = 48'd239794508230343;
          |  parameter logic signed [3:0] c11 = -4'sd8;
          |  parameter logic signed [48:0] c12 = -49'sd239794508230343;
-         |  parameter logic [7:0] c13 = 8'hxx;
-         |  parameter logic signed [7:0] c14 = $signed(8'hxx);
+         |  parameter logic [7:0] c13 = 8'h??;
+         |  parameter logic signed [7:0] c14 = $signed(8'h??);
          |  parameter t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
          |  parameter logic [7:0] c16 [0:6] [0:4] = '{
          |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
@@ -623,6 +623,38 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  begin
          |    if (|x) y = x;
          |    else y = 8'bz;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Wildcards and don't cares") {
+    class Foo extends RTDesign:
+      val num = 16
+      val x   = Bits(num) <> IN init all(0)
+      val y   = Bits(num) <> OUT
+      x match
+        case h"12??" => y := h"22??"
+        case _       => y := all(1)
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
+         |`include "Foo_defs.svh"
+         |
+         |module Foo(
+         |  input  wire logic [15:0] x,
+         |  output logic [15:0] y
+         |);
+         |  always_comb
+         |  begin
+         |    casez (x)
+         |      16'h12??: y = 16'h22??;
+         |      default: y = 16'hffff;
+         |    endcase
          |  end
          |endmodule
          |""".stripMargin
