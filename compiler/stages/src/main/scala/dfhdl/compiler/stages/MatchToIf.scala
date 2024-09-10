@@ -10,6 +10,8 @@ import scala.collection.mutable
 import dfhdl.core.DFType.asFE
 import dfhdl.core.{DFValAny, refTW}
 import DFCaseBlock.Pattern
+import dfhdl.compiler.stages.verilog.VerilogDialect
+import dfhdl.compiler.stages.vhdl.VHDLDialect
 
 /** This stage transforms match statements/expressions to if statements/expressions
   */
@@ -17,13 +19,23 @@ case object MatchToIf extends Stage:
   override def dependencies: List[Stage] = List(DropBinds)
   override def nullifies: Set[Stage] = Set(DFHDLUniqueNames)
   def matchFilter(mh: DFMatchHeader)(using getSet: MemberGetSet, co: CompilerOptions): Boolean =
-    def isComposedPattern = mh.selectorRef.get.dfType match
+    def composedPatternRemoval = mh.selectorRef.get.dfType match
       case _: ComposedDFType => true
       case _                 => false
-    def hasGuards = mh.getCBList.exists { mc =>
+    def guardsRemoval = mh.getCBList.exists { mc =>
       mc.guardRef.get != DFMember.Empty
     }
-    isComposedPattern || hasGuards
+    def wildcardsSupported = co.backend match
+      case be: dfhdl.backends.verilog =>
+        be.dialect match
+          case VerilogDialect.v95 | VerilogDialect.v2001 => false
+          case _                                         => true
+      case be: dfhdl.backends.vhdl =>
+        be.dialect match
+          case VHDLDialect.v93 => false
+          case _               => true
+    def wildcardsRemoval = !wildcardsSupported && mh.hasWildcards
+    composedPatternRemoval || guardsRemoval || wildcardsRemoval
   end matchFilter
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] =
