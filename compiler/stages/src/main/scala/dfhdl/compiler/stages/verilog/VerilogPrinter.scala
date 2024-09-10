@@ -104,9 +104,9 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
 
   val verilogKW: Set[String] =
     Set("module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
-      "begin", "end", "case", "default", "endcase", "default_nettype", "include", "timescale", "if",
-      "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter", "struct", "packed",
-      "ifndef", "endif", "define")
+      "begin", "end", "case", "default", "endcase", "default_nettype", "include", "inside",
+      "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
+      "struct", "packed", "ifndef", "endif", "define")
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] =
     Set("wire", "reg", "logic", "wire", "signed", "int")

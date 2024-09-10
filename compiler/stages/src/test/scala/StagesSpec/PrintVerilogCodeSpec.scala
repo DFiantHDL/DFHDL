@@ -635,8 +635,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       val x   = Bits(num) <> IN init all(0)
       val y   = Bits(num) <> OUT
       x match
-        case h"12??" => y := h"22??"
-        case _       => y := all(1)
+        case h"12??" | h"345?" => y := h"22??"
+        case _                 => y := all(1)
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
@@ -651,8 +651,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |);
          |  always_comb
          |  begin
-         |    casez (x)
-         |      16'h12??: y = 16'h22??;
+         |    case (x) inside
+         |      16'h12??, 16'h345?: y = 16'h22??;
          |      default: y = 16'hffff;
          |    endcase
          |  end

@@ -88,7 +88,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csIfBlockEmpty: String = "begin end"
   def csDFCaseBlockEmpty: String = "begin end"
   def csDFCasePatternCatchAll: String = "default"
-  def csDFCasePatternAlternativeData: String = " | "
+  def csDFCasePatternAlternativeData: String = ", "
   def csDFCasePatternStruct(pattern: Pattern.Struct): String = printer.unsupported
   def csDFCasePatternBind(pattern: Pattern.Bind): String = printer.unsupported
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String = printer.unsupported
@@ -96,8 +96,12 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCaseSeparator: String = ":"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
   def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean): String =
-    val keyWord = if (wildcardSupport) "casez" else "case"
-    s"$keyWord ($csSelector)"
+    val insideSupport = printer.dialect match
+      case VerilogDialect.v2001 => false
+      case _                    => true
+    val keyWord = if (wildcardSupport && !insideSupport) "casez" else "case"
+    val insideStr = if (wildcardSupport && insideSupport) " inside" else ""
+    s"$keyWord ($csSelector)$insideStr"
   def csDFMatchEnd: String = "endcase"
   def csProcessBlock(pb: ProcessBlock): String =
     val (statements, dcls) = pb

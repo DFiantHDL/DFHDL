@@ -738,8 +738,8 @@ class PrintVHDLCodeSpec extends StageSpec:
       val x   = Bits(num) <> IN init all(0)
       val y   = Bits(num) <> OUT
       x match
-        case h"12??" => y := h"22??"
-        case _       => y := all(1)
+        case h"12??" | h"345?" => y := h"22??"
+        case _                 => y := all(1)
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
@@ -761,7 +761,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  process (all)
          |  begin
          |    case x is
-         |      when x"12--" => y <= x"22--";
+         |      when x"12--" | x"345-" => y <= x"22--";
          |      when others => y <= x"ffff";
          |    end case;
          |  end process;
