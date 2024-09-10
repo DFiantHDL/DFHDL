@@ -97,8 +97,8 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
   def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean): String =
     val insideSupport = printer.dialect match
-      case VerilogDialect.v2001 => false
-      case _                    => true
+      case VerilogDialect.v2001 | VerilogDialect.v95 => false
+      case _                                         => true
     val keyWord = if (wildcardSupport && !insideSupport) "casez" else "case"
     val insideStr = if (wildcardSupport && insideSupport) " inside" else ""
     s"$keyWord ($csSelector)$insideStr"
@@ -117,7 +117,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       else s"${csDFMembers(dcls)}\n"
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val alwaysKW = printer.dialect match
-      case VerilogDialect.v2001 => "always"
+      case VerilogDialect.v2001 | VerilogDialect.v95 => "always"
       case _ =>
         pb.sensitivity match
           case Sensitivity.All => "always_comb"

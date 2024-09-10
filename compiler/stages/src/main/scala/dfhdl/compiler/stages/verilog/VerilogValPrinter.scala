@@ -8,14 +8,12 @@ import DFVal.*
 protected trait VerilogValPrinter extends AbstractValPrinter:
   type TPrinter <: VerilogPrinter
   val supportLogicType: Boolean = printer.dialect match
-    case VerilogDialect.v2001 => false
-    case _                    => true
+    case VerilogDialect.v2001 | VerilogDialect.v95 => false
+    case _                                         => true
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
     s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = ${csDFValExpr(dfVal)};"
-  private def wireOrLogic: String = if (supportLogicType) "logic" else "wire"
-  private def regOrLogic: String = if (supportLogicType) "logic" else "reg"
   def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val (modifier, regOrWireRep) = dfVal.modifier.dir match

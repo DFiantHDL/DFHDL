@@ -89,6 +89,7 @@ trait DFApp:
           |vhdl    - VHDL
           |
           |Available Verilog/SystemVerilog dialects:
+          |v95     - Verilog 1995
           |v2001   - Verilog 2001
           |sv2005  - SystemVerilog 2005
           |sv2009  - SystemVerilog 2009 [default]

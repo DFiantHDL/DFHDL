@@ -50,8 +50,8 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   def csTimer(timer: Timer): String = unsupported
   def verilogFileHeaderSuffix: String =
     printer.dialect match
-      case VerilogDialect.v2001 => "v"
-      case _                    => "svh"
+      case VerilogDialect.v2001 | VerilogDialect.v95 => "v"
+      case _                                         => "svh"
   def globalFileName: String =
     s"${printer.defsName}.$verilogFileHeaderSuffix"
   override def csGlobalFileContent: String =
@@ -71,8 +71,8 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
 
   def designFileName(designName: String): String =
     val suffix = printer.dialect match
-      case VerilogDialect.v2001 => "v"
-      case _                    => "sv"
+      case VerilogDialect.v2001 | VerilogDialect.v95 => "v"
+      case _                                         => "sv"
     s"$designName.$suffix"
   def alignCode(cs: String): String =
     cs

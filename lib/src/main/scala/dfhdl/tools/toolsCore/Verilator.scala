@@ -26,7 +26,8 @@ object Verilator extends VerilogLinter:
     val language = co.backend match
       case be: backends.verilog =>
         be.dialect match
-          case VerilogDialect.v2001 => "1364-2001"
+          case VerilogDialect.v95    => "1364-1995"
+          case VerilogDialect.v2001  => "1364-2001"
           case VerilogDialect.sv2005 => "1800-2005"
           case VerilogDialect.sv2009 => "1800-2009"
           case VerilogDialect.sv2012 => "1800-2012"
@@ -36,6 +37,7 @@ object Verilator extends VerilogLinter:
           "Current backend is not supported for Verilator linting."
         )
     s"-Wall${lo.warnAsError.toFlag("--Werror")} --default-language $language "
+  end commonFlags
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
     // We use `forceWindowsToLinuxPath` fit the verilator needs
     val designsInCmd = cd.stagedDB.srcFiles.view.collect {
