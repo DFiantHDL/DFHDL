@@ -397,6 +397,8 @@ object DFVal:
       case clog2, max, min, sel
       // special-case of initFile construct for vectors of bits
       case InitFile(format: InitFileFormat, path: String)
+    object Op:
+      val associativeSet = Set(Op.+, Op.-, Op.`*`, Op.&, Op.|, Op.^, Op.++, Op.max, Op.min)
 
   final case class PortByNameSelect(
       dfType: DFType,

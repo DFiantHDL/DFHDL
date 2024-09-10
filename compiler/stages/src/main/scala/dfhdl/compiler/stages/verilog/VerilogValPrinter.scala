@@ -31,6 +31,11 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
   def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
+    def commonOpStr: String =
+      dfVal.op match
+        case Func.Op.max => "`MAX"
+        case Func.Op.min => "`MIN"
+        case op          => op.toString()
     dfVal.args match
       // boolean sel function
       case cond :: onTrue :: onFalse :: Nil if dfVal.op == Func.Op.sel =>
@@ -50,13 +55,11 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
           case Func.Op.=!= => "!="
-          case Func.Op.max => "`MAX"
-          case Func.Op.min => "`MIN"
           case Func.Op.>> =>
             argL.get.dfType match
               case DFSInt(_) => ">>>"
               case _         => ">>"
-          case op => op.toString
+          case _ => commonOpStr
         if (isInfix)
           s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"
         else
@@ -93,7 +96,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case _ =>
             args
               .map(_.refCodeString.applyBrackets())
-              .mkString(s" ${dfVal.op} ")
+              .mkString(s" ${commonOpStr} ")
+    end match
+  end csDFValFuncExpr
 
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String =
     val relVal = dfVal.relValRef.get

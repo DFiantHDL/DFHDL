@@ -48,7 +48,7 @@ class MatchToIfSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  if (x == sd"16'22") y := sd"16'0"
-         |  else if ((x == sd"16'11") || ((x == sd"16'33") || (x == sd"16'44"))) y := sd"16'1"
+         |  else if ((x == sd"16'11") || (x == sd"16'33") || (x == sd"16'44")) y := sd"16'1"
          |  else if (x == sd"16'55") y := sd"16'2"
          |  else y := sd"16'3"
          |end ID
@@ -74,7 +74,7 @@ class MatchToIfSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val match_sel = x + sd"16'1"
          |  if (match_sel == sd"16'22") y := sd"16'0"
-         |  else if ((match_sel == sd"16'11") || ((match_sel == sd"16'33") || (match_sel == sd"16'44"))) y := sd"16'1"
+         |  else if ((match_sel == sd"16'11") || (match_sel == sd"16'33") || (match_sel == sd"16'44")) y := sd"16'1"
          |  else if (x == sd"16'55") y := sd"16'2"
          |  else y := sd"16'3"
          |end ID

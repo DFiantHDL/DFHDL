@@ -109,15 +109,16 @@ def calcFuncData[OT <: DFType](
           // bits logic operations
           case (
                 op @ (FuncOp.^ | FuncOp.& | FuncOp.|),
-                DFBits(_) :: DFBits(_) :: Nil,
-                (lhs: (BitVector, BitVector) @unchecked) :: (rhs: (BitVector, BitVector) @unchecked)
-                :: Nil
+                DFBits(_) :: DFBits(_) :: maybeMoreTypes,
+                argData: List[(BitVector, BitVector)] @unchecked
               ) =>
+            val (values, bubbles) = argData.unzip
             // bubble bits are always or-ed
+            val outBubbles = bubbles.reduce(_ | _)
             op match
-              case FuncOp.& => (lhs._1 & rhs._1, lhs._2 | rhs._2)
-              case FuncOp.| => (lhs._1 | rhs._1, lhs._2 | rhs._2)
-              case FuncOp.^ => (lhs._1 ^ rhs._1, lhs._2 | rhs._2)
+              case FuncOp.& => (values.reduce(_ & _), outBubbles)
+              case FuncOp.| => (values.reduce(_ | _), outBubbles)
+              case FuncOp.^ => (values.reduce(_ ^ _), outBubbles)
           case (
                 FuncOp.unary_~,
                 DFBits(_) :: Nil,
@@ -159,20 +160,22 @@ def calcFuncData[OT <: DFType](
                 outType @ DFXInt(_, _, _),
                 op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./ | FuncOp.% | FuncOp.<< |
                 FuncOp.>> | FuncOp.** | FuncOp.max | FuncOp.min),
-                DFXInt(_, _, _) :: DFXInt(_, _, _) :: Nil,
-                Some(lhs: BigInt) :: Some(rhs: BigInt) :: Nil
+                DFXInt(_, _, _) :: DFXInt(_, _, _) :: maybeMoreTypes,
+                argData: List[Option[BigInt]] @unchecked
               ) =>
+            val lhs = argData(0).get
+            val rhs = argData(1).get
             val dataNoTrunc = op match
-              case FuncOp.+   => lhs + rhs
-              case FuncOp.-   => lhs - rhs
-              case FuncOp.*   => lhs * rhs
+              case FuncOp.+   => argData.map(_.get).reduce(_ + _)
+              case FuncOp.-   => argData.map(_.get).reduce(_ - _)
+              case FuncOp.*   => argData.map(_.get).reduce(_ * _)
               case FuncOp./   => lhs / rhs
               case FuncOp.%   => lhs % rhs
               case FuncOp.<<  => lhs << rhs.toInt
               case FuncOp.>>  => lhs >> rhs.toInt
               case FuncOp.**  => lhs pow rhs.toInt
-              case FuncOp.max => lhs max rhs
-              case FuncOp.min => lhs min rhs
+              case FuncOp.max => argData.map(_.get).reduce(_ max _)
+              case FuncOp.min => argData.map(_.get).reduce(_ min _)
             val widthNoTrunc = dataNoTrunc.bitsWidth(outType.signed)
             val dataTrunc =
               if (widthNoTrunc > outType.width)
@@ -229,13 +232,13 @@ def calcFuncData[OT <: DFType](
           case (
                 DFBool | DFBit,
                 op @ (FuncOp.^ | FuncOp.& | FuncOp.|),
-                (DFBool | DFBit) :: (DFBool | DFBit) :: Nil,
-                Some(lhs: Boolean) :: Some(rhs: Boolean) :: Nil
+                (DFBool | DFBit) :: (DFBool | DFBit) :: maybeMoreTypes,
+                argData: List[Option[Boolean]] @unchecked
               ) =>
             val data = op match
-              case FuncOp.^ => lhs ^ rhs
-              case FuncOp.& => lhs & rhs
-              case FuncOp.| => lhs | rhs
+              case FuncOp.& => argData.map(_.get).reduce(_ && _)
+              case FuncOp.| => argData.map(_.get).reduce(_ || _)
+              case FuncOp.^ => argData.map(_.get).reduce(_ ^ _)
             Some(data)
           // Boolean/Bit logical invert
           case (

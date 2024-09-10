@@ -12,6 +12,7 @@ import dfhdl.core.{DFValAny, refTW}
 import DFCaseBlock.Pattern
 import dfhdl.compiler.stages.verilog.VerilogDialect
 import dfhdl.compiler.stages.vhdl.VHDLDialect
+import DFVal.Func.Op as FuncOp
 
 /** This stage transforms match statements/expressions to if statements/expressions
   */
@@ -76,8 +77,11 @@ case object MatchToIf extends Stage:
                       Some(selector == valueRef.get.asValAny)
                     case Pattern.Alternative(list) =>
                       val condList = list.flatMap(getPatternCondOpt(selector, _))
-                      if (condList.nonEmpty) Some(condList.reduceTree(_ || _))
-                      else None
+                      condList match
+                        case cond :: Nil => Some(cond)
+                        case Nil         => None
+                        case _ =>
+                          Some(dfhdl.core.DFVal.Func(dfhdl.core.DFBool, FuncOp.|, condList))
                     case Pattern.Struct(name, fieldPatterns) =>
                       val fieldMap = selector.dfType.asIR.asInstanceOf[DFStruct].fieldMap
                       val condList = fieldMap.lazyZip(fieldPatterns).flatMap {
@@ -87,8 +91,11 @@ case object MatchToIf extends Stage:
                             dfhdl.core.DFVal.Alias.SelectField(selector, fieldName)
                           getPatternCondOpt(fieldSelector, fieldPattern)
                       }.toList
-                      if (condList.nonEmpty) Some(condList.reduceTree(_ && _))
-                      else None
+                      condList match
+                        case cond :: Nil => Some(cond)
+                        case Nil         => None
+                        case _ =>
+                          Some(dfhdl.core.DFVal.Func(dfhdl.core.DFBool, FuncOp.&, condList))
                     case _ => None
                   end match
                 end getPatternCondOpt

@@ -159,6 +159,12 @@ protected trait DFValPrinter extends AbstractValPrinter:
   def csInitSeq(refs: List[Dcl.InitRef]): String = refs.view.map(_.refCodeString).mkStringBrackets
   def csDFValDclEnd(dfVal: Dcl): String = ""
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
+    def commonOpStr: String = (dfVal.op, dfVal.dfType) match
+      case (Func.Op.===, _) => "=="
+      case (Func.Op.=!=, _) => "!="
+      // boolean logical operations
+      case (Func.Op.| | Func.Op.&, DFBit | DFBool) => s"${dfVal.op}${dfVal.op}"
+      case (op, _)                                 => op.toString
     dfVal.args match
       // boolean sel function
       case cond :: onTrue :: onFalse :: Nil if dfVal.op == Func.Op.sel =>
@@ -176,16 +182,11 @@ protected trait DFValPrinter extends AbstractValPrinter:
         val csArgL = argL.refCodeString(typeCS)
         val csArgR = argR.refCodeString(typeCS)
         val opStr = dfVal.op match
-          case Func.Op.=== => "=="
-          case Func.Op.=!= => "!="
-          // boolean logical operations
-          case Func.Op.| | Func.Op.& if argL.get.dfType.width == 1 =>
-            s"${dfVal.op}${dfVal.op}"
           // if the result width for +/-/* ops is larger than the left argument width
           // then we have a carry-inclusive operation
           case Func.Op.+ | Func.Op.- | Func.Op.`*` if dfVal.dfType.width > argL.get.dfType.width =>
             s"${dfVal.op}^"
-          case op => op.toString
+          case op => commonOpStr
         s"${csArgL.applyBrackets()} $opStr ${csArgR.applyBrackets()}"
       // unary/postfix func
       case arg :: Nil =>
@@ -225,8 +226,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
           case _ =>
             csArgs
               .map(_.applyBrackets())
-              .mkString(s" ${dfVal.op} ")
+              .mkString(s" ${commonOpStr} ")
         end match
+    end match
+  end csDFValFuncExpr
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String =
     val relVal = dfVal.relValRef.get
     val relValStr = dfVal.relValCodeString
