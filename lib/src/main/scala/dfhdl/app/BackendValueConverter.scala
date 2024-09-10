@@ -17,6 +17,7 @@ given SingleValueConverter[CompilerOptions.Backend] with
             dialect match
               case "v2001"  => Right(Some(dfhdl.backends.verilog.v2001))
               case "sv2005" => Right(Some(dfhdl.backends.verilog.sv2005))
+              case "sv2009" => Right(Some(dfhdl.backends.verilog.sv2009))
               case "sv2012" => Right(Some(dfhdl.backends.verilog.sv2012))
               case "sv2017" => Right(Some(dfhdl.backends.verilog.sv2017))
               case _        => Left(s"Invalid Verilog/SystemVerilog backend dialect: $dialect")

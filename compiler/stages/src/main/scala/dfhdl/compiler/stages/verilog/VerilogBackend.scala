@@ -24,7 +24,7 @@ private val reservedKeywords: Set[String] = Set(
 )
 
 enum VerilogDialect derives CanEqual:
-  case v2001, sv2005, sv2012, sv2017
+  case v2001, sv2005, sv2009, sv2012, sv2017
 
 private case object VerilogUniqueNames extends UniqueNames(reservedKeywords, caseSensitive = true)
 case object VerilogBackend extends BundleStage(BackendPrepStage, VerilogUniqueNames)

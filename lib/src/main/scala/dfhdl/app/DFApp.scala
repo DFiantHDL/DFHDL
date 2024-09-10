@@ -90,7 +90,8 @@ trait DFApp:
           |
           |Available Verilog/SystemVerilog dialects:
           |v2001   - Verilog 2001
-          |sv2005  - SystemVerilog 2005 [default]
+          |sv2005  - SystemVerilog 2005
+          |sv2009  - SystemVerilog 2009 [default]
           |sv2012  - SystemVerilog 2012
           |sv2017  - SystemVerilog 2017
           |

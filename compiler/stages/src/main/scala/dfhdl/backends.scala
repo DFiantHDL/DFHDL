@@ -15,9 +15,10 @@ object backends:
       val compiledDB = StageRunner.run(VerilogBackend)(designDB)
       new VerilogPrinter(dialect)(using compiledDB.getSet)
     override def toString(): String = s"verilog.$dialect"
-  object verilog extends verilog(VerilogDialect.sv2005):
+  object verilog extends verilog(VerilogDialect.sv2009):
     val v2001: verilog = new verilog(VerilogDialect.v2001)
-    val sv2005: verilog = this
+    val sv2005: verilog = new verilog(VerilogDialect.sv2005)
+    val sv2009: verilog = this
     val sv2012: verilog = new verilog(VerilogDialect.sv2012)
     val sv2017: verilog = new verilog(VerilogDialect.sv2017)
 

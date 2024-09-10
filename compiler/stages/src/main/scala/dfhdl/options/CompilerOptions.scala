@@ -51,7 +51,7 @@ object CompilerOptions:
 
   opaque type Backend <: BackendCompiler = BackendCompiler
   object Backend:
-    given Backend = dfhdl.backends.verilog.sv2005
+    given Backend = dfhdl.backends.verilog.sv2009
     given Conversion[BackendCompiler, Backend] = identity
     extension (backend: Backend)
       def isVHDL: Boolean = backend match
