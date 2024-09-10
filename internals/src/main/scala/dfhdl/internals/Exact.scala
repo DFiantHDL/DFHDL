@@ -110,6 +110,7 @@ object Exact:
     type Out
     def apply(t: R): Out
   object Summon:
+    type Aux[R, T <: R, Out0] = Summon[R, T] { type Out = Out0 }
     transparent inline given [R, T <: R]: Summon[R, T] =
       ${ summonMacro[R, T] }
     object Success extends Summon[Any, Any]:
@@ -139,10 +140,16 @@ trait Exact0[
     TC[From] <: Exact0.TC[From, Ctx]
 ]:
   type ExactFrom
+  val exactFrom: ExactFrom
   type ExactTC <: TC[ExactFrom]
   val tc: ExactTC
   def apply()(using ctx: Ctx): tc.Out
 object Exact0:
+  type Aux[Ctx, TC[From] <: Exact0.TC[From, Ctx], R] = Exact0[Ctx, TC] { type ExactFrom = R }
+  implicit inline def toValue[
+      Ctx,
+      TC[From] <: Exact0.TC[From, Ctx]
+  ](exact: Exact0[Ctx, TC]): exact.ExactFrom = exact.exactFrom
   def apply[From, Ctx, TC[From] <: Exact0.TC[From, Ctx]](
       from: From,
       tc0: TC[From]
@@ -151,6 +158,7 @@ object Exact0:
     type ExactTC = tc0.type
   } = new Exact0[Ctx, TC]:
     type ExactFrom = From
+    final val exactFrom: ExactFrom = from
     type ExactTC = tc0.type
     final val tc: ExactTC = tc0
     final def apply()(using ctx: Ctx): tc.Out =

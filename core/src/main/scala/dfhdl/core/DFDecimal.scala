@@ -599,8 +599,8 @@ object DFXInt:
       type OutP
       type OutSMask <: Boolean
       type OutWMask <: IntP
-      type Out = DFValTP[DFXInt[OutS, OutW, OutN], OutP]
       type IsScalaInt <: Boolean
+      type Out = DFValTP[DFXInt[OutS, OutW, OutN], OutP]
       def conv(from: R)(using DFC): Out = apply(from)
       def apply(arg: R)(using DFC): Out
     trait CandidateLP:
@@ -628,12 +628,16 @@ object DFXInt:
     end CandidateLP
     object Candidate extends CandidateLP:
       type Exact = Exact0[DFC, Candidate]
-      type Aux[R, S <: Boolean, W <: IntP, N <: NativeType, P, SMask <: Boolean, WMask <: IntP] =
+      type ExactAux[R] = Exact0.Aux[DFC, Candidate, R]
+      type Aux[R, S <: Boolean, W <: IntP, N <: NativeType, P] =
         Candidate[R] {
           type OutS = S
           type OutW = W
           type OutN = N
           type OutP = P
+        }
+      type AuxM[R, S <: Boolean, W <: IntP, N <: NativeType, P, SMask <: Boolean, WMask <: IntP] =
+        Aux[R, S, W, N, P] {
           type OutSMask = SMask
           type OutWMask = WMask
         }
@@ -917,184 +921,141 @@ object DFXInt:
         val rhsFix = rhs.toDFXIntOf(lhs.dfType)(using dfc.anonymize)
         DFVal.Func(dfType, op, List(lhs, rhsFix))
       end arithOp
-      extension [L <: DFValAny](lhs: L)(using icL: Candidate[L])
-        def +(rhs: Candidate.Exact)(using
+      extension [
+          L <: DFValAny,
+          LS <: Boolean,
+          LW <: IntP,
+          LN <: NativeType,
+          LP,
+          R,
+          RS <: Boolean,
+          RW <: IntP,
+          RN <: NativeType,
+          RP
+      ](lhs: L)(using icL: Candidate.Aux[L, LS, LW, LN, LP])
+        def +(rhs: Candidate.ExactAux[R])(using
             dfc: DFC,
-            check: ArithCheck[
-              icL.OutS,
-              icL.OutW,
-              icL.OutN,
-              rhs.tc.OutS,
-              rhs.tc.OutW,
-              rhs.tc.OutN,
-              rhs.tc.IsScalaInt,
-              false
-            ]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | rhs.tc.OutP] = trydf {
+            icR: Candidate.Aux[R, RS, RW, RN, RP]
+        )(using
+            check: ArithCheck[LS, LW, LN, RS, RW, RN, icR.IsScalaInt, false]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
-          val rhsVal = rhs()(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
           check(lhsVal, rhsVal)
           arithOp(lhsVal.dfType, FuncOp.+, lhsVal, rhsVal)
         }
-        def -(rhs: Candidate.Exact)(using
+        def -(rhs: Candidate.ExactAux[R])(using
             dfc: DFC,
-            check: ArithCheck[
-              icL.OutS,
-              icL.OutW,
-              icL.OutN,
-              rhs.tc.OutS,
-              rhs.tc.OutW,
-              rhs.tc.OutN,
-              rhs.tc.IsScalaInt,
-              false
-            ]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | rhs.tc.OutP] = trydf {
+            icR: Candidate.Aux[R, RS, RW, RN, RP]
+        )(using
+            check: ArithCheck[LS, LW, LN, RS, RW, RN, icR.IsScalaInt, false]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
-          val rhsVal = rhs()(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
           check(lhsVal, rhsVal)
           arithOp(lhsVal.dfType, FuncOp.-, lhsVal, rhsVal)
         }
-        def *(rhs: Candidate.Exact)(using
+        def *(rhs: Candidate.ExactAux[R])(using
             dfc: DFC,
-            check: ArithCheck[
-              icL.OutS,
-              icL.OutW,
-              icL.OutN,
-              rhs.tc.OutS,
-              rhs.tc.OutW,
-              rhs.tc.OutN,
-              rhs.tc.IsScalaInt,
-              false
-            ]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | rhs.tc.OutP] = trydf {
+            icR: Candidate.Aux[R, RS, RW, RN, RP]
+        )(using
+            check: ArithCheck[LS, LW, LN, RS, RW, RN, icR.IsScalaInt, false]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
-          val rhsVal = rhs()(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
           check(lhsVal, rhsVal)
           arithOp(lhsVal.dfType, FuncOp.`*`, lhsVal, rhsVal)
         }
-        def /(rhs: Candidate.Exact)(using
+        def /(rhs: Candidate.ExactAux[R])(using
             dfc: DFC,
-            check: ArithCheck[
-              icL.OutS,
-              icL.OutW,
-              icL.OutN,
-              rhs.tc.OutS,
-              rhs.tc.OutW,
-              rhs.tc.OutN,
-              rhs.tc.IsScalaInt,
-              false
-            ]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | rhs.tc.OutP] = trydf {
+            icR: Candidate.Aux[R, RS, RW, RN, RP]
+        )(using
+            check: ArithCheck[LS, LW, LN, RS, RW, RN, icR.IsScalaInt, false]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
-          val rhsVal = rhs()(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
           check(lhsVal, rhsVal)
           arithOp(lhsVal.dfType, FuncOp./, lhsVal, rhsVal)
         }
-        def %(rhs: Candidate.Exact)(using
+        def %(rhs: Candidate.ExactAux[R])(using
             dfc: DFC,
-            check: ArithCheck[
-              icL.OutS,
-              icL.OutW,
-              icL.OutN,
-              rhs.tc.OutS,
-              rhs.tc.OutW,
-              rhs.tc.OutN,
-              rhs.tc.IsScalaInt,
-              false
-            ]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | rhs.tc.OutP] = trydf {
+            icR: Candidate.Aux[R, RS, RW, RN, RP]
+        )(using
+            check: ArithCheck[LS, LW, LN, RS, RW, RN, icR.IsScalaInt, false]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
-          val rhsVal = rhs()(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
           check(lhsVal, rhsVal)
           arithOp(lhsVal.dfType, FuncOp.%, lhsVal, rhsVal)
         }
-        def max(rhs: Candidate.Exact)(using
+        def max(rhs: Candidate.ExactAux[R])(using
             dfc: DFC,
-            check: ArithCheck[
-              icL.OutS,
-              icL.OutW,
-              icL.OutN,
-              rhs.tc.OutS,
-              rhs.tc.OutW,
-              rhs.tc.OutN,
-              rhs.tc.IsScalaInt,
-              false
-            ]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | rhs.tc.OutP] = trydf {
+            icR: Candidate.Aux[R, RS, RW, RN, RP]
+        )(using
+            check: ArithCheck[LS, LW, LN, RS, RW, RN, icR.IsScalaInt, false]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
-          val rhsVal = rhs()(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
           check(lhsVal, rhsVal)
           arithOp(lhsVal.dfType, FuncOp.max, lhsVal, rhsVal)
         }
-        def min(rhs: Candidate.Exact)(using
+        def min(rhs: Candidate.ExactAux[R])(using
             dfc: DFC,
-            check: ArithCheck[
-              icL.OutS,
-              icL.OutW,
-              icL.OutN,
-              rhs.tc.OutS,
-              rhs.tc.OutW,
-              rhs.tc.OutN,
-              rhs.tc.IsScalaInt,
-              false
-            ]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | rhs.tc.OutP] = trydf {
+            icR: Candidate.Aux[R, RS, RW, RN, RP]
+        )(using
+            check: ArithCheck[LS, LW, LN, RS, RW, RN, icR.IsScalaInt, false]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
-          val rhsVal = rhs()(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
           check(lhsVal, rhsVal)
           arithOp(lhsVal.dfType, FuncOp.min, lhsVal, rhsVal)
         }
-        def +^(rhs: Candidate.Exact)(using
+        def +^(rhs: Candidate.ExactAux[R])(using
             dfc: DFC,
-            check: SignCheck[icL.OutS, rhs.tc.OutS, rhs.tc.IsScalaInt, false]
-        ): DFValTP[
-          DFXInt[icL.OutS, IntP.+[IntP.Max[icL.OutW, rhs.tc.OutW], 1], BitAccurate],
-          icL.OutP | rhs.tc.OutP
-        ] =
-          trydf {
-            val dfcAnon = dfc.anonymize
-            val lhsVal = icL(lhs)(using dfcAnon)
-            val rhsVal = rhs()(using dfcAnon)
-            check(lhsVal.dfType.signed, rhsVal.dfType.signed)
-            import IntParam.{+, max}
-            val width = lhsVal.widthIntParam.max(rhsVal.widthIntParam) + 1
-            val dfType = DFXInt(lhsVal.dfType.signed, width, BitAccurate)
-            arithOp(dfType, FuncOp.+, lhsVal, rhsVal)
-          }
-        def -^(rhs: Candidate.Exact)(using
-            dfc: DFC,
-            check: SignCheck[icL.OutS, rhs.tc.OutS, rhs.tc.IsScalaInt, false]
-        ): DFValTP[
-          DFXInt[icL.OutS, IntP.+[IntP.Max[icL.OutW, rhs.tc.OutW], 1], BitAccurate],
-          icL.OutP | rhs.tc.OutP
-        ] =
-          trydf {
-            val dfcAnon = dfc.anonymize
-            val lhsVal = icL(lhs)(using dfcAnon)
-            val rhsVal = rhs()(using dfcAnon)
-            check(lhsVal.dfType.signed, rhsVal.dfType.signed)
-            import IntParam.{+, max}
-            val width = lhsVal.widthIntParam.max(rhsVal.widthIntParam) + 1
-            val dfType = DFXInt(lhsVal.dfType.signed, width, BitAccurate)
-            arithOp(dfType, FuncOp.-, lhsVal, rhsVal)
-          }
-        def *^(rhs: Candidate.Exact)(using
-            dfc: DFC,
-            check: SignCheck[icL.OutS, rhs.tc.OutS, rhs.tc.IsScalaInt, false]
-        ): DFValTP[
-          DFXInt[icL.OutS, IntP.+[icL.OutW, rhs.tc.OutW], BitAccurate],
-          icL.OutP | rhs.tc.OutP
-        ] = trydf {
+            icR: Candidate.Aux[R, RS, RW, RN, RP]
+        )(using
+            check: SignCheck[LS, RS, icR.IsScalaInt, false]
+        ): DFValTP[DFXInt[LS, IntP.+[IntP.Max[LW, RW], 1], BitAccurate], LP | RP] = trydf {
           val dfcAnon = dfc.anonymize
           val lhsVal = icL(lhs)(using dfcAnon)
-          val rhsVal = rhs()(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
+          check(lhsVal.dfType.signed, rhsVal.dfType.signed)
+          import IntParam.{+, max}
+          val width = lhsVal.widthIntParam.max(rhsVal.widthIntParam) + 1
+          val dfType = DFXInt(lhsVal.dfType.signed, width, BitAccurate)
+          arithOp(dfType, FuncOp.+, lhsVal, rhsVal)
+        }
+        def -^(rhs: Candidate.ExactAux[R])(using
+            dfc: DFC,
+            icR: Candidate.Aux[R, RS, RW, RN, RP]
+        )(using
+            check: SignCheck[LS, RS, icR.IsScalaInt, false]
+        ): DFValTP[DFXInt[LS, IntP.+[IntP.Max[LW, RW], 1], BitAccurate], LP | RP] = trydf {
+          val dfcAnon = dfc.anonymize
+          val lhsVal = icL(lhs)(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
+          check(lhsVal.dfType.signed, rhsVal.dfType.signed)
+          import IntParam.{+, max}
+          val width = lhsVal.widthIntParam.max(rhsVal.widthIntParam) + 1
+          val dfType = DFXInt(lhsVal.dfType.signed, width, BitAccurate)
+          arithOp(dfType, FuncOp.-, lhsVal, rhsVal)
+        }
+        def *^(rhs: Candidate.ExactAux[R])(using
+            dfc: DFC,
+            icR: Candidate.Aux[R, RS, RW, RN, RP]
+        )(using
+            check: SignCheck[LS, RS, icR.IsScalaInt, false]
+        ): DFValTP[DFXInt[LS, IntP.+[LW, RW], BitAccurate], LP | RP] = trydf {
+          val dfcAnon = dfc.anonymize
+          val lhsVal = icL(lhs)(using dfcAnon)
+          val rhsVal = icR(rhs)(using dfcAnon)
           check(lhsVal.dfType.signed, rhsVal.dfType.signed)
           import IntParam.+
           val width = lhsVal.widthIntParam + rhsVal.widthIntParam
@@ -1102,95 +1063,108 @@ object DFXInt:
           arithOp(dfType, FuncOp.`*`, lhsVal, rhsVal)
         }
       end extension
-      extension [L <: Int](lhs: L)
-        def +[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
-            rhs: DFValTP[DFXInt[RS, RW, RN], RP]
-        )(using sL: Exact.Summon[L, lhs.type])(using
-            icL: Candidate[sL.Out]
-        )(using
+      extension [
+          L <: Int,
+          LE,
+          LS <: Boolean,
+          LW <: IntP,
+          LN <: NativeType,
+          LP,
+          RS <: Boolean,
+          RW <: IntP,
+          RN <: NativeType,
+          RP
+      ](lhs: L)
+        def +(rhs: DFValTP[DFXInt[RS, RW, RN], RP])(using
             dfc: DFC,
-            check: ArithCheck[RS, RW, RN, icL.OutS, icL.OutW, icL.OutN, icL.IsScalaInt, true]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | RP] = trydf {
+            sL: Exact.Summon.Aux[L, lhs.type, LE]
+        )(using
+            icL: Candidate.Aux[LE, LS, LW, LN, LP]
+        )(using
+            check: ArithCheck[RS, RW, RN, LS, LW, LN, icL.IsScalaInt, true]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val lhsVal = icL(sL(lhs))(using dfc.anonymize)
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp.+, List(lhsVal, rhs))
         }
-        def -[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
-            rhs: DFValTP[DFXInt[RS, RW, RN], RP]
-        )(using sL: Exact.Summon[L, lhs.type])(using
-            icL: Candidate[sL.Out]
-        )(using
+        def -(rhs: DFValTP[DFXInt[RS, RW, RN], RP])(using
             dfc: DFC,
-            check: ArithCheck[RS, RW, RN, icL.OutS, icL.OutW, icL.OutN, icL.IsScalaInt, true]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | RP] = trydf {
+            sL: Exact.Summon.Aux[L, lhs.type, LE]
+        )(using
+            icL: Candidate.Aux[LE, LS, LW, LN, LP]
+        )(using
+            check: ArithCheck[RS, RW, RN, LS, LW, LN, icL.IsScalaInt, true]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val lhsVal = icL(sL(lhs))(using dfc.anonymize)
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp.-, List(lhsVal, rhs))
         }
-        def *[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
-            rhs: DFValTP[DFXInt[RS, RW, RN], RP]
-        )(using sL: Exact.Summon[L, lhs.type])(using
-            icL: Candidate[sL.Out]
-        )(using
+        def *(rhs: DFValTP[DFXInt[RS, RW, RN], RP])(using
             dfc: DFC,
-            check: ArithCheck[RS, RW, RN, icL.OutS, icL.OutW, icL.OutN, icL.IsScalaInt, true]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | RP] = trydf {
+            sL: Exact.Summon.Aux[L, lhs.type, LE]
+        )(using
+            icL: Candidate.Aux[LE, LS, LW, LN, LP]
+        )(using
+            check: ArithCheck[RS, RW, RN, LS, LW, LN, icL.IsScalaInt, true]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val lhsVal = icL(sL(lhs))(using dfc.anonymize)
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp.`*`, List(lhsVal, rhs))
         }
-        def /[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
-            rhs: DFValTP[DFXInt[RS, RW, RN], RP]
-        )(using sL: Exact.Summon[L, lhs.type])(using
-            icL: Candidate[sL.Out]
-        )(using
+        def /(rhs: DFValTP[DFXInt[RS, RW, RN], RP])(using
             dfc: DFC,
-            check: ArithCheck[RS, RW, RN, icL.OutS, icL.OutW, icL.OutN, icL.IsScalaInt, true]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | RP] = trydf {
+            sL: Exact.Summon.Aux[L, lhs.type, LE]
+        )(using
+            icL: Candidate.Aux[LE, LS, LW, LN, LP]
+        )(using
+            check: ArithCheck[RS, RW, RN, LS, LW, LN, icL.IsScalaInt, true]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val lhsVal = icL(sL(lhs))(using dfc.anonymize)
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp./, List(lhsVal, rhs))
         }
-        def %[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
-            rhs: DFValTP[DFXInt[RS, RW, RN], RP]
-        )(using sL: Exact.Summon[L, lhs.type])(using
-            icL: Candidate[sL.Out]
-        )(using
+        def %(rhs: DFValTP[DFXInt[RS, RW, RN], RP])(using
             dfc: DFC,
-            check: ArithCheck[RS, RW, RN, icL.OutS, icL.OutW, icL.OutN, icL.IsScalaInt, true]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | RP] = trydf {
+            sL: Exact.Summon.Aux[L, lhs.type, LE]
+        )(using
+            icL: Candidate.Aux[LE, LS, LW, LN, LP]
+        )(using
+            check: ArithCheck[RS, RW, RN, LS, LW, LN, icL.IsScalaInt, true]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val lhsVal = icL(sL(lhs))(using dfc.anonymize)
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp.%, List(lhsVal, rhs))
         }
-        def max[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
-            rhs: DFValTP[DFXInt[RS, RW, RN], RP]
-        )(using sL: Exact.Summon[L, lhs.type])(using
-            icL: Candidate[sL.Out]
-        )(using
+        def max(rhs: DFValTP[DFXInt[RS, RW, RN], RP])(using
             dfc: DFC,
-            check: ArithCheck[RS, RW, RN, icL.OutS, icL.OutW, icL.OutN, icL.IsScalaInt, true]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | RP] = trydf {
+            sL: Exact.Summon.Aux[L, lhs.type, LE]
+        )(using
+            icL: Candidate.Aux[LE, LS, LW, LN, LP]
+        )(using
+            check: ArithCheck[RS, RW, RN, LS, LW, LN, icL.IsScalaInt, true]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val lhsVal = icL(sL(lhs))(using dfc.anonymize)
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp.max, List(lhsVal, rhs))
         }
         // to restore default max functionality that is overridden
         def max(rhs: Int): Int = RichInt(lhs) max rhs
-        def min[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
-            rhs: DFValTP[DFXInt[RS, RW, RN], RP]
-        )(using sL: Exact.Summon[L, lhs.type])(using
-            icL: Candidate[sL.Out]
-        )(using
+        def min(rhs: DFValTP[DFXInt[RS, RW, RN], RP])(using
             dfc: DFC,
-            check: ArithCheck[RS, RW, RN, icL.OutS, icL.OutW, icL.OutN, icL.IsScalaInt, true]
-        ): DFValTP[DFXInt[icL.OutS, icL.OutW, icL.OutN], icL.OutP | RP] = trydf {
+            sL: Exact.Summon.Aux[L, lhs.type, LE]
+        )(using
+            icL: Candidate.Aux[LE, LS, LW, LN, LP]
+        )(using
+            check: ArithCheck[RS, RW, RN, LS, LW, LN, icL.IsScalaInt, true]
+        ): DFValTP[DFXInt[LS, LW, LN], LP | RP] = trydf {
           val lhsVal = icL(sL(lhs))(using dfc.anonymize)
           check(rhs, lhsVal)
           DFVal.Func(lhsVal.dfType, FuncOp.min, List(lhsVal, rhs))
         }
         // to restore default min functionality that is overridden
         def min(rhs: Int): Int = RichInt(lhs) min rhs
+      end extension
+      extension [L <: Int](lhs: L)
         def +^[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
             rhs: DFValTP[DFXInt[RS, RW, RN], RP]
         )(using sL: Exact.Summon[L, lhs.type])(using
@@ -1328,7 +1302,7 @@ object DFUInt:
           SMask <: Boolean,
           WMask <: IntP
       ](using
-          ic: DFXInt.Val.Candidate.Aux[R, S, W, N, P, SMask, WMask]
+          ic: DFXInt.Val.Candidate.AuxM[R, S, W, N, P, SMask, WMask]
       )(using
           unsignedCheck: Unsigned.Check[SMask],
           widthCheck: `UBW == RW`.CheckNUB[IntP.CLog2[UB], WMask]
