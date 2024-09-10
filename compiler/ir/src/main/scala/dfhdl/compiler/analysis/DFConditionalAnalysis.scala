@@ -7,6 +7,7 @@ import DFVal.Modifier
 
 import scala.annotation.tailrec
 import scala.reflect.{ClassTag, classTag}
+import dfhdl.compiler.ir.DFConditional.DFMatchHeader
 
 extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
   @tailrec def getFirstCB: CB = cb.prevBlockOrHeaderRef.get match
@@ -116,3 +117,12 @@ extension [CH <: DFConditional.Header](ch: CH)(using MemberGetSet)
 
   def getCBList: List[ch.TBlock] = getLastCB.getLeadingChain
 end extension
+
+extension (pattern: Pattern)(using MemberGetSet)
+  def hasWildcards: Boolean = pattern match
+    case Pattern.Singleton(DFRef(dfVal)) if dfVal.isBubble => true
+    case Pattern.Alternative(list)                         => list.exists(_.hasWildcards)
+    case _                                                 => false
+
+extension (mh: DFMatchHeader)(using MemberGetSet)
+  def hasWildcards: Boolean = mh.getCBList.exists(_.pattern.hasWildcards)

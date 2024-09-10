@@ -145,12 +145,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        def hasWildCard(pattern: Pattern): Boolean = pattern match
-          case Pattern.Singleton(DFRef(dfVal)) if dfVal.isBubble => true
-          case Pattern.Alternative(list)                         => list.exists(hasWildCard)
-          case _                                                 => false
-        val wildcardSupport = mh.getCBList.exists(cb => hasWildCard(cb.pattern))
-        s"${csDFMatchStatement(csSelector, wildcardSupport)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(e => s"\n$e")}"
+        s"${csDFMatchStatement(csSelector, mh.hasWildcards)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(e => s"\n$e")}"
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
   def csDomainBlock(pb: DomainBlock): String
