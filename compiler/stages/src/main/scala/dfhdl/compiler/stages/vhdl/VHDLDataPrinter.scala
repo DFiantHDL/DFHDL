@@ -13,6 +13,11 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
       case VHDLDialect.v93 => false
       case _               => true
   val allowBitsExplicitWidth: Boolean = true
+  val allowDecimalBigInt: Boolean = true
+  val allowDecimalSyntax: Boolean =
+    printer.dialect match
+      case VHDLDialect.v93 => false
+      case _               => true
   def csDFBitBubbleChar: Char = '-'
   def csDFBitsBinFormat(binRep: String): String = s""""$binRep""""
   def csDFBitsHexFormat(hexRep: String): String = s"""x"$hexRep""""
@@ -23,18 +28,34 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
       s"""${width.refCodeString.applyBrackets()}x"$hexRep""""
   def csDFBoolFormat(value: Boolean): String = value.toString()
   def csDFBitFormat(bitRep: String): String = s"'$bitRep'"
-  val allowDecimalBigInt: Boolean = true
+  def csDecimalFormat(value: BigInt): String =
+    if (allowDecimalSyntax) s"""d"$value""""
+    else s"""x"${value.toString(16)}""""
   def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String =
-    if (width.isRef)
-      s"""resize(d"$value", ${width.refCodeString})"""
+    if (allowDecimalSyntax)
+      if (width.isRef)
+        s"""resize(d"$value", ${width.refCodeString})"""
+      else
+        s"""${width.refCodeString.applyBrackets()}d"$value""""
     else
-      s"""${width.refCodeString.applyBrackets()}d"$value""""
+      val intRepIsValid = value.bitsWidth(false) < 31
+      if (intRepIsValid) s"""to_unsigned($value, ${width.refCodeString})"""
+      else s"""unsigned'(resize(x"${value.toString(16)}", ${width.refCodeString}))"""
   def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String =
-    if (width.isRef) s"""resize(d"$value", ${width.refCodeString})"""
+    if (allowDecimalSyntax)
+      if (width.isRef) s"""resize(d"$value", ${width.refCodeString})"""
+      else
+        val csWidth = width.refCodeString.applyBrackets()
+        if (value >= 0) s"""${csWidth}d"$value""""
+        else s"""-${csWidth}d"${-value}""""
     else
-      val csWidth = width.refCodeString.applyBrackets()
-      if (value >= 0) s"""${csWidth}d"$value""""
-      else s"""-${csWidth}d"${-value}""""
+      val intRepIsValid = value.bitsWidth(true) < 31
+      if (intRepIsValid) s"""to_signed($value, ${width.refCodeString})"""
+      else if (value >= 0)
+        s"""signed'(resize(x"${value.toString(16)}", ${width.refCodeString}))"""
+      else
+        s"""-signed'(resize(x"${(-value).toString(16)}", ${width.refCodeString}))"""
+
   def csDFUIntFormatSmall(value: BigInt, width: Int): String = s"to_unsigned($value, $width)"
   def csDFSIntFormatSmall(value: BigInt, width: Int): String = s"to_signed($value, $width)"
   def csDFUIntDataFromBits(csBits: String): String = s"""unsigned'($csBits)"""
