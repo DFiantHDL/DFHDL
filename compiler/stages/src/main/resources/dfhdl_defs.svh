@@ -28,5 +28,19 @@
 `define DFHDL_DEFS
 `define MAX(a,b) ((a) > (b) ? (a) : (b))
 `define MIN(a,b) ((a) < (b) ? (a) : (b))
+// for verilog.v95 and verilog.v2001 only
+function integer clog2;
+input integer n;
+integer result;
+begin
+  result = 0;
+  n = n - 1;
+  while (n > 0) begin
+    n = n >> 1;
+    result = result + 1;
+  end
+  clog2 = result;
+end
+endfunction
 `endif
 

@@ -83,8 +83,13 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case Func.Op.&       => s"&$argStrB"
           case Func.Op.|       => s"|$argStrB"
           case Func.Op.^       => s"^$argStrB"
-          case Func.Op.clog2   => s"$$clog2($argStr)"
-          case _               => printer.unsupported
+          case Func.Op.clog2 =>
+            val internalLog = printer.dialect match
+              case VerilogDialect.v95 | VerilogDialect.v2001 => ""
+              case _                                         => "$"
+            s"${internalLog}clog2($argStr)"
+          case _ => printer.unsupported
+        end match
       // multiarg func
       case args =>
         dfVal.op match
@@ -139,9 +144,14 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tr.uboundCS}:0]"
         else s"{{(${tr.refCodeString}-${fr.refCodeString}){1'b0}}, $relValStr}"
       case (DFUInt(tWidthParamRef), DFInt32) =>
-        s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+        if (printer.allowWidthCastSyntax)
+          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+        else relValStr
       case (DFSInt(tWidthParamRef), DFSInt(_) | DFInt32) =>
-        s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+        if (printer.allowWidthCastSyntax)
+          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+        else
+          relValStr
       case (DFInt32, DFUInt(_) | DFSInt(_)) => relValStr
       case (DFBit, DFBool)                  => relValStr
       case (DFBool, DFBit)                  => relValStr
