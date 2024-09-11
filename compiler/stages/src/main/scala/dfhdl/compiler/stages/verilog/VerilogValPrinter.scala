@@ -20,7 +20,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case Modifier.IN    => ("input  ", "wire")
       case Modifier.OUT   => ("output ", "reg")
       case Modifier.INOUT => ("inout  ", "wire")
-      case Modifier.VAR   => ("", "reg")
+      case Modifier.VAR =>
+        if (dfVal.getConnectionTo.nonEmpty) ("", "wire")
+        else ("", "reg")
     val fixedDFTypeStr =
       if (supportLogicType) dfTypeStr else dfTypeStr.replace("logic", regOrWireRep)
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
