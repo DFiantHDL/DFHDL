@@ -25,7 +25,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
       case (true, 0) =>
         if (dfType.isDFInt32)
           if (intTypeIsSupported) "int"
-          else s"$signedKeyword[31:0]"
+          else ""
         else s"logic $signedKeyword[${dfType.widthParamRef.uboundCS}:0]"
       case (false, _) => ???
       case (true, _)  => ???
