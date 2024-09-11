@@ -50,7 +50,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   def csTimer(timer: Timer): String = unsupported
   def verilogFileHeaderSuffix: String =
     printer.dialect match
-      case VerilogDialect.v2001 | VerilogDialect.v95 => "v"
+      case VerilogDialect.v2001 | VerilogDialect.v95 => "vh"
       case _                                         => "svh"
   def globalFileName: String =
     s"${printer.defsName}.$verilogFileHeaderSuffix"
@@ -64,10 +64,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
        |""".stripMargin
   def dfhdlDefsFileName: String = s"dfhdl_defs.$verilogFileHeaderSuffix"
   def dfhdlSourceContents: String =
-    // the actual resource file will always be named with a `.svh`, but the committed
-    // file to the generated project folder will have a suffix according to
-    // `verilogFileHeaderSuffix`
-    scala.io.Source.fromResource(s"dfhdl_defs.svh").getLines().mkString("\n")
+    scala.io.Source.fromResource(dfhdlDefsFileName).getLines().mkString("\n")
 
   def designFileName(designName: String): String =
     val suffix = printer.dialect match

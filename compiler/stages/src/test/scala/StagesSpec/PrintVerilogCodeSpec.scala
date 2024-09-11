@@ -187,8 +187,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.v"
-         |`include "IDTop_defs.v"
+         |`include "dfhdl_defs.vh"
+         |`include "IDTop_defs.vh"
          |
          |module ID(
          |  x,
@@ -202,8 +202,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.v"
-         |`include "IDTop_defs.v"
+         |`include "dfhdl_defs.vh"
+         |`include "IDTop_defs.vh"
          |
          |module IDTop(
          |  x,
@@ -744,8 +744,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.v"
-         |`include "Foo_defs.v"
+         |`include "dfhdl_defs.vh"
+         |`include "Foo_defs.vh"
          |
          |module Foo(
          |  x,
