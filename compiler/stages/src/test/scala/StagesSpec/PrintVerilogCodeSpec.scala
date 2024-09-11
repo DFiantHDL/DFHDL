@@ -167,6 +167,75 @@ class PrintVerilogCodeSpec extends StageSpec:
     )
   }
 
+  test("Basic hierarchy design with parameters verilog.v95") {
+    given options.CompilerOptions.Backend = backends.verilog.v95
+    class ID(val width: Int <> CONST) extends DFDesign:
+      val x = SInt(width) <> IN
+      val y = SInt(width) <> OUT
+      y := x
+
+    class IDTop(val width: Int <> CONST) extends DFDesign:
+      val x   = SInt(width) <> IN
+      val y   = SInt(width) <> OUT
+      val id1 = ID(width)
+      val id2 = ID(width)
+      id1.x <> x
+      id1.y <> id2.x
+      id2.y <> y
+    val top = (new IDTop(16)).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.v"
+         |`include "IDTop_defs.v"
+         |
+         |module ID(
+         |  x,
+         |  y
+         |);
+         |  parameter [31:0] width = width;
+         |  input  wire [width - 1:0] x;
+         |  output reg [width - 1:0] y;
+         |  assign y = x;
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.v"
+         |`include "IDTop_defs.v"
+         |
+         |module IDTop(
+         |  x,
+         |  y
+         |);
+         |  parameter [31:0] width = 16;
+         |  input  wire [width - 1:0] x;
+         |  output reg [width - 1:0] y;
+         |  wire [width - 1:0] id1_x;
+         |  wire [width - 1:0] id1_y;
+         |  wire [width - 1:0] id2_x;
+         |  wire [width - 1:0] id2_y;
+         |  ID #(
+         |    .width (width)
+         |  ) id1(
+         |    .x /*<--*/ (id1_x),
+         |    .y /*-->*/ (id1_y)
+         |  );
+         |  ID #(
+         |    .width (width)
+         |  ) id2(
+         |    .x /*<--*/ (id2_x),
+         |    .y /*-->*/ (id2_y)
+         |  );
+         |  assign id1_x = x;
+         |  assign id2_x = id1_y;
+         |  assign y = id2_y;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
   test("Global, design, and local parameters") {
     val gp: Bit <> CONST = 1
     class ParamTest(dp: Bit <> CONST) extends RTDesign:
@@ -679,9 +748,11 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Foo_defs.v"
          |
          |module Foo(
-         |  input  wire [15:0] x,
-         |  output reg [15:0] y
+         |  x,
+         |  y
          |);
+         |  input  wire [15:0] x;
+         |  output reg [15:0] y;
          |  always @(x)
          |  begin
          |    if ((x[15:8] == 8'h12) | (x[15:4] == 12'h345)) y = 16'h22??;

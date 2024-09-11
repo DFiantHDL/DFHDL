@@ -20,42 +20,48 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
        |`include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"
        |`include "${printer.globalFileName}"""".stripMargin
   def moduleName(design: DFDesignBlock): String = design.dclName
+  val parameterizedModuleSupport: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 => false
+      case _                  => true
   def csModuleDcl(design: DFDesignBlock): String =
-    val ports = design
-      .members(MemberView.Folded)
-      .view
-      .collect { case p @ DclPort() =>
-        printer.csDFMember(p)
-      }
+    val designMembers = design.members(MemberView.Folded)
+    val ports = designMembers.view.collect { case p @ DclPort() =>
+      if (parameterizedModuleSupport) printer.csDFMember(p)
+      else p.getName
+    }
       .mkString(",\n")
     val portBlock = ports.emptyOr(v => s"""(
          |${ports.hindent}
          |)""".stripMargin)
     val localTypeDcls = printer.csLocalTypeDcls(design).emptyOr(x => s"$x\n")
-    val designMembers = design.members(MemberView.Folded)
     val dfValDcls =
       designMembers.view
         .flatMap {
-          case p: DFVal.Dcl if p.isVar => Some(p)
-          case DesignParam(_)          => None
-          case c @ DclConst()          => Some(c)
-          case _                       => None
+          case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport => Some(p)
+          case p @ DesignParam(_) =>
+            if (parameterizedModuleSupport) None
+            else Some(p)
+          case c @ DclConst() => Some(c)
+          case _              => None
         }
-        .map(printer.csDFMember)
+        .map(x => printer.csDFMember(x) + ";")
         .toList
         .emptyOr(_.mkString("\n"))
     val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
-    val statements = csDFMembers(designMembers.filter {
-      case _: DFVal.Dcl => false
-      case DclConst()   => false
-      case _            => true
-    })
+    val statements = csDFMembers(
+      designMembers.filter {
+        case _: DFVal.Dcl => false
+        case DclConst()   => false
+        case _            => true
+      }
+    )
     val designParamList = designMembers.collect { case param @ DesignParam(_) =>
       val defaultValue = if (design.isTop) s" = ${param.relValRef.refCodeString}" else ""
       s"parameter ${printer.csDFType(param.dfType)} ${param.getName}$defaultValue"
     }
     val designParamCS =
-      if (designParamList.length == 0) ""
+      if (designParamList.length == 0 || !parameterizedModuleSupport) ""
       else if (designParamList.length == 1) designParamList.mkString("#(", ", ", ")")
       else "#(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     s"""module ${moduleName(design)}$designParamCS$portBlock;$declarations
@@ -76,7 +82,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       if (designParamList.isEmpty) ""
       else " #(" + designParamList.mkString("\n", ",\n", "\n").hindent(1) + ")"
     val inst = s"${moduleName(design)}$designParamCS ${design.getName}"
-    if (body.isEmpty) s"$inst" else s"$inst(\n${body.hindent}\n);"
+    if (body.isEmpty) s"$inst;" else s"$inst(\n${body.hindent}\n);"
   def csDFDesignDefDcl(design: DFDesignBlock): String = printer.unsupported
   def csDFDesignDefInst(design: DFDesignBlock): String = printer.unsupported
   def csBlockBegin: String = "begin"

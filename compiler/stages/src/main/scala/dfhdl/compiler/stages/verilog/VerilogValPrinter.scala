@@ -13,7 +13,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
-    s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = ${csDFValExpr(dfVal)};"
+    val endOfStatement = if (dfVal.isGlobal) ";" else ""
+    s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = ${csDFValExpr(dfVal)}$endOfStatement"
   def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val (modifier, regOrWireRep) = dfVal.modifier.dir match
@@ -31,7 +32,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csInitKeyword: String = "="
   def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
   def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
-  def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
+  def csDFValDclEnd(dfVal: Dcl): String = ""
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     def commonOpStr: String =
       dfVal.op match
