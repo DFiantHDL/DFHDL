@@ -660,4 +660,35 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Wildcards and don't cares under verilog.v95") {
+    given options.CompilerOptions.Backend = backends.verilog.v95
+    class Foo extends RTDesign:
+      val num = 16
+      val x   = Bits(num) <> IN init all(0)
+      val y   = Bits(num) <> OUT
+      x match
+        case h"12??" | h"345?" => y := h"22??"
+        case _                 => y := all(1)
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.v"
+         |`include "Foo_defs.v"
+         |
+         |module Foo(
+         |  input  wire [15:0] x,
+         |  output reg [15:0] y
+         |);
+         |  always @(x)
+         |  begin
+         |    if ((x[15:8] == 8'h12) | (x[15:4] == 12'h345)) y = 16'h22??;
+         |    else y = 16'hffff;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

@@ -5,6 +5,7 @@ import dfhdl.internals.*
 
 trait AbstractDataPrinter extends AbstractPrinter:
   val allowBitsBinModeInHex: Boolean
+  val allowBitsBubbleInHex: Boolean
   val allowBitsExplicitWidth: Boolean
   def csDFBitBubbleChar: Char
   def csDFBitsBinFormat(binRep: String): String
@@ -41,7 +42,10 @@ trait AbstractDataPrinter extends AbstractPrinter:
     end hexZip
     def toBinString: String = binZip(valueBits, bubbleBits)
     def toHexString: Option[String] =
-      if (width % 4 == 0) hexZip(valueBits, bubbleBits)
+      // if bubbles in hex are not supported and the data has bubbles
+      // then there is no valid hex representation
+      if (!allowBitsBubbleInHex && !bubbleBits.isZeros) None
+      else if (width % 4 == 0) hexZip(valueBits, bubbleBits)
       else
         val headWidth = width % 4
         val (headValue, theRestValue) = valueBits.splitAt(headWidth)
@@ -145,6 +149,7 @@ end AbstractDataPrinter
 
 protected trait DFDataPrinter extends AbstractDataPrinter:
   val allowBitsBinModeInHex: Boolean = true
+  val allowBitsBubbleInHex: Boolean = true
   val allowBitsExplicitWidth: Boolean = true
   def csDFBitBubbleChar: Char = '?'
   def csDFBitsBinFormat(binRep: String): String = s"""b"$binRep""""

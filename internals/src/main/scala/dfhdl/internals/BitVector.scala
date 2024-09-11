@@ -42,6 +42,24 @@ extension (vec: BitVector)
     val len = vec.length
     val ext = extensionPad(1L, signed) ++ vec
     BigInt(ext.padToMulsOf(8, signed).toByteArray)
+  def width: Int = vec.length.toInt
+  def getFalseRanges: List[(Int, Int)] =
+    var ranges = List.empty[(Int, Int)]
+    var start = -1 // To track the start of a false range
+    for (i <- vec.width - 1 to 0 by -1)
+      if (!vec.bit(i))
+        if (start == -1)
+          // Start a new range
+          start = i
+      else if (start != -1)
+        // End the current range
+        ranges = ranges :+ (start, i + 1)
+        start = -1
+    // If the last range is still open, close it
+    if (start != -1)
+      ranges = ranges :+ (start, 0)
+    ranges
+  end getFalseRanges
 end extension
 
 extension (iter: Iterable[BitVector]) def bitsConcat: BitVector = iter.reduce(_ ++ _)

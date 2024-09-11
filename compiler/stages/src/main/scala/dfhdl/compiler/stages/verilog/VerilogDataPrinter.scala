@@ -8,6 +8,7 @@ import DFVal.*
 protected trait VerilogDataPrinter extends AbstractDataPrinter:
   type TPrinter <: VerilogPrinter
   val allowBitsBinModeInHex: Boolean = false
+  val allowBitsBubbleInHex: Boolean = true
   val allowBitsExplicitWidth: Boolean = true
   def csDFBitBubbleChar: Char = '?'
   def csDFBitsBinFormat(binRep: String): String = s"""${binRep.length}'b$binRep"""

@@ -8,6 +8,10 @@ import DFVal.*
 protected trait VHDLDataPrinter extends AbstractDataPrinter:
   type TPrinter <: VHDLPrinter
   val allowBitsBinModeInHex: Boolean = false
+  val allowBitsBubbleInHex: Boolean =
+    printer.dialect match
+      case VHDLDialect.v93 => false
+      case _               => true
   val allowBitsExplicitWidth: Boolean = true
   def csDFBitBubbleChar: Char = '-'
   def csDFBitsBinFormat(binRep: String): String = s""""$binRep""""

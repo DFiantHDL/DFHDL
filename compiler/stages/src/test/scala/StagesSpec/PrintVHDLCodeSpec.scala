@@ -769,4 +769,42 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Wildcards and don't cares under vhdl.v93") {
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    class Foo extends RTDesign:
+      val num = 16
+      val x   = Bits(num) <> IN init all(0)
+      val y   = Bits(num) <> OUT
+      x match
+        case h"12??" | h"345?" => y := h"22??"
+        case _                 => y := all(1)
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : in std_logic_vector(15 downto 0);
+         |  y : out std_logic_vector(15 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process (x)
+         |  begin
+         |    if (x(15 downto 8) = x"12") or (x(15 downto 4) = x"345") then y <= "00100010--------";
+         |    else y <= x"ffff";
+         |    end if;
+         |  end process;
+         |end Foo_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

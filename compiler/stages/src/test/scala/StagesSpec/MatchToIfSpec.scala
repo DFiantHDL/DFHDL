@@ -113,4 +113,27 @@ class MatchToIfSpec extends StageSpec:
          |end ID
          |""".stripMargin
     )
+
+  test("Bits pattern match with wildcards"):
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    class ID extends DFDesign:
+      val x = Bits(16) <> IN
+      val y = Bits(16) <> OUT
+      x match
+        case h"1234"           => y := all(0)
+        case h"12?3" | h"?56?" => y := all(1)
+        case _                 => y := x
+    end ID
+    val id = (new ID).matchToIf
+    assertCodeString(
+      id,
+      """|class ID extends DFDesign:
+         |  val x = Bits(16) <> IN
+         |  val y = Bits(16) <> OUT
+         |  if (x == h"1234") y := h"0000"
+         |  else if (((x(15, 8) == h"12") && (x(3, 0) == h"3")) || (x(11, 4) == h"56")) y := h"ffff"
+         |  else y := x
+         |end ID
+         |""".stripMargin
+    )
 end MatchToIfSpec

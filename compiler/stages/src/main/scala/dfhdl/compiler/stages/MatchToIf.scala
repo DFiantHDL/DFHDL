@@ -13,6 +13,7 @@ import DFCaseBlock.Pattern
 import dfhdl.compiler.stages.verilog.VerilogDialect
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import DFVal.Func.Op as FuncOp
+import dfhdl.internals.*
 
 /** This stage transforms match statements/expressions to if statements/expressions
   */
@@ -71,17 +72,33 @@ case object MatchToIf extends Stage:
                     selector: => DFValAny,
                     pattern: Pattern
                 ): Option[Boolean <> VAL] =
-                  given CanEqual[Boolean <> VAL, Boolean <> VAL] = CanEqual.derived
+                  def condListReduce(
+                      list: List[Boolean <> VAL],
+                      reductionOp: FuncOp
+                  ): Option[Boolean <> VAL] =
+                    list match
+                      case cond :: Nil => Some(cond)
+                      case Nil         => None
+                      case _ =>
+                        Some(dfhdl.core.DFVal.Func(dfhdl.core.DFBool, reductionOp, list))
                   pattern match
-                    case Pattern.Singleton(valueRef) =>
-                      Some(selector == valueRef.get.asValAny)
+                    case Pattern.Singleton(DFRef(const: DFVal.Const)) =>
+                      const.dfType match
+                        // need to split wildcard bit match pattern
+                        case DFBits(_) if const.isBubble =>
+                          val bubbleBits = const.data.asInstanceOf[(BitVector, BitVector)]._2
+                          val normalRanges = bubbleBits.getFalseRanges
+                          val bitsSelector = selector.asValOf[dfhdl.core.DFBits[Int]]
+                          val bitsWildcard = const.asValOf[dfhdl.core.DFBits[Int]]
+                          val condList = normalRanges.map(r =>
+                            bitsSelector.bits(r._1, r._2) == bitsWildcard.bits(r._1, r._2)
+                          )
+                          condListReduce(condList, FuncOp.&)
+                        // regular singleton equality pattern
+                        case _ => Some(selector == const.asValAny)
                     case Pattern.Alternative(list) =>
                       val condList = list.flatMap(getPatternCondOpt(selector, _))
-                      condList match
-                        case cond :: Nil => Some(cond)
-                        case Nil         => None
-                        case _ =>
-                          Some(dfhdl.core.DFVal.Func(dfhdl.core.DFBool, FuncOp.|, condList))
+                      condListReduce(condList, FuncOp.|)
                     case Pattern.Struct(name, fieldPatterns) =>
                       val fieldMap = selector.dfType.asIR.asInstanceOf[DFStruct].fieldMap
                       val condList = fieldMap.lazyZip(fieldPatterns).flatMap {
@@ -91,11 +108,7 @@ case object MatchToIf extends Stage:
                             dfhdl.core.DFVal.Alias.SelectField(selector, fieldName)
                           getPatternCondOpt(fieldSelector, fieldPattern)
                       }.toList
-                      condList match
-                        case cond :: Nil => Some(cond)
-                        case Nil         => None
-                        case _ =>
-                          Some(dfhdl.core.DFVal.Func(dfhdl.core.DFBool, FuncOp.&, condList))
+                      condListReduce(condList, FuncOp.&)
                     case _ => None
                   end match
                 end getPatternCondOpt
