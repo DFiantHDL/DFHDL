@@ -194,7 +194,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  x,
          |  y
          |);
-         |  parameter [31:0] width = width;
+         |  parameter width = width;
          |  input  wire [width - 1:0] x;
          |  output wire [width - 1:0] y;
          |  assign y = x;
@@ -209,7 +209,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  x,
          |  y
          |);
-         |  parameter [31:0] width = 16;
+         |  parameter width = 16;
          |  input  wire [width - 1:0] x;
          |  output wire [width - 1:0] y;
          |  wire [width - 1:0] id1_x;
