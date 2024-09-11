@@ -9,12 +9,18 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   def csDFBoolOrBit(dfType: DFBoolOrBit, typeCS: Boolean): String = "logic"
   def csDFBits(dfType: DFBits, typeCS: Boolean): String =
     s"logic [${dfType.widthParamRef.uboundCS}:0]"
+  val intTypeIsSupported: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
     (signed, fractionWidth) match
       case (false, 0) => s"logic [${dfType.widthParamRef.uboundCS}:0]"
       case (true, 0) =>
-        if (dfType.isDFInt32) "int"
+        if (dfType.isDFInt32)
+          if (intTypeIsSupported) "int"
+          else "signed [31:0]"
         else s"logic signed [${dfType.widthParamRef.uboundCS}:0]"
       case (false, _) => ???
       case (true, _)  => ???
