@@ -76,7 +76,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       // align logic position after port direction
       .align("[ ]*(?:input|output|inout).*", " logic ", ".*")
       // align port names
-      .align("[ ]*(?:input|output|inout).*", " ", "[a-zA-Z0-9_.]+,?")
+      .align("[ ]*(?:input|output|inout).*", " ", "[a-zA-Z0-9_.]+[,;]?")
       // align after wire/reg/logic words
       .align(
         "\\s*(?:logic(?: signed)?\\s*\\[\\d+:\\d+]|[\\w]+)",
