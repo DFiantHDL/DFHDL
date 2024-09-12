@@ -143,12 +143,12 @@ class ElaborationChecksSpec extends DesignSpec:
       if (x)
         val y = Bit <> IN
     assertElaborationErrors(Top())(
-      """|Elaboration errors found!
-         |DFiant HDL elaboration error!
-         |Position:  lib\src\test\scala\ElaborationChecksSpec.scala:144:17 - 144:26
-         |Hierarchy: Top.y
-         |Operation: ``
-         |Message:   Ports can only be directly owned by a design, a domain or an interface.
-         |""".stripMargin
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:144:17 - 144:26
+          |Hierarchy: Top.y
+          |Operation: ``
+          |Message:   Ports can only be directly owned by a design, a domain or an interface.
+          |""".stripMargin
     )
 end ElaborationChecksSpec
