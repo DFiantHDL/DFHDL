@@ -28,7 +28,7 @@ extension (designDB: DB)
   def getOpenOutPorts: List[DFVal] =
     import designDB.getSet
     // TODO: revisit for interfaces later on
-    designDB.members.collect { case DFNet.Connection(_: DFVal.Open, from: DFVal, _) =>
+    designDB.members.collect { case DFNet.Connection(_: DFVal.OPEN, from: DFVal, _) =>
       from
     }
 end extension

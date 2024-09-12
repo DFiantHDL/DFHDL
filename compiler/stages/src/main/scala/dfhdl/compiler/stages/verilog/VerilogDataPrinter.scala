@@ -8,8 +8,14 @@ import DFVal.*
 protected trait VerilogDataPrinter extends AbstractDataPrinter:
   type TPrinter <: VerilogPrinter
   val allowBitsBinModeInHex: Boolean = false
+  val allowBitsBubbleInHex: Boolean = true
   val allowBitsExplicitWidth: Boolean = true
-  def csDFBitBubbleChar: Char = 'x'
+  val allowDecimalBigInt: Boolean = true
+  val allowWidthCastSyntax: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
+  def csDFBitBubbleChar: Char = '?'
   def csDFBitsBinFormat(binRep: String): String = s"""${binRep.length}'b$binRep"""
   def csDFBitsHexFormat(hexRep: String): String = s"""${hexRep.length * 4}'h$hexRep"""
   def csDFBitsHexFormat(hexRep: String, actualWidth: Int, width: IntParamRef): String =
@@ -19,25 +25,33 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
     else s"""${csWidth}'h$hexRep"""
   def csDFBoolFormat(value: Boolean): String = if (value) "1" else "0"
   def csDFBitFormat(bitRep: String): String = csDFBitsBinFormat(bitRep)
-  val allowDecimalBigInt: Boolean = true
   def csDFUIntFormatBig(value: BigInt, width: IntParamRef): String =
     val csWidth = width.refCodeString.applyBrackets()
     if (width.isRef)
-      if (value.isValidInt) s"""${csWidth}'($value)"""
+      if (value.isValidInt && allowWidthCastSyntax) s"""${csWidth}'($value)"""
       else
         val actualWidth = value.bitsWidth(false)
-        s"""${csWidth}'(${actualWidth}'d$value)"""
+        if (allowWidthCastSyntax)
+          s"""${csWidth}'(${actualWidth}'d$value)"""
+        else
+          s"{{(${csWidth}-${actualWidth}){1'b0}}, ${actualWidth}'d$value}"
     else s"""${csWidth}'d$value"""
   def csDFSIntFormatBig(value: BigInt, width: IntParamRef): String =
     val csWidth = width.refCodeString.applyBrackets()
     if (width.isRef)
-      if (value.isValidInt) s"""${csWidth}'($value)"""
+      if (value.isValidInt && allowWidthCastSyntax) s"""${csWidth}'($value)"""
       else
         val actualWidth = value.bitsWidth(true)
-        if (value >= 0) s"""${csWidth}'($actualWidth'sd$value)"""
-        else s"""${csWidth}'(-$actualWidth'sd${-value})"""
+        if (allowWidthCastSyntax)
+          if (value >= 0) s"""${csWidth}'($actualWidth'sd$value)"""
+          else s"""${csWidth}'(-$actualWidth'sd${-value})"""
+        else if (value >= 0)
+          s"{{(${csWidth}-${actualWidth}){1'b0}}, ${actualWidth}'d$value}"
+        else
+          s"{{(${csWidth}-${actualWidth}){1'b1}}, -${actualWidth}'d${-value}}"
     else if (value >= 0) s"""$csWidth'sd$value"""
     else s"""-$csWidth'sd${-value}"""
+  end csDFSIntFormatBig
   def csDFUIntFormatSmall(value: BigInt, width: Int): String =
     csDFUIntFormatBig(value, IntParamRef(width))
   def csDFSIntFormatSmall(value: BigInt, width: Int): String =

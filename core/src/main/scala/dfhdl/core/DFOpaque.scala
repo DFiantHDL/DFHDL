@@ -104,20 +104,15 @@ object DFOpaque:
         tfeTpe.baseType(TypeRepr.of[Frontend[? <: DFTypeAny]].typeSymbol) match
           case AppliedType(_, aTpe :: _) =>
             val aType = aTpe.asTypeOf[DFTypeAny]
-            val lhsTerm = lhs.asTerm.exactTerm
-            val lhsTpe = lhsTerm.tpe
-            val lhsExpr = lhsTerm.asExpr
-            // println(lhsExpr.show)
-            // println(lhsTpe.show)
-            val lhsType = lhsTpe.asTypeOf[Any]
-            val pType = lhsTpe.isConstTpe.asTypeOf[Any]
+            val lhsExactInfo = lhs.exactInfo
+            val pType = lhsExactInfo.exactTpe.isConstTpe.asTypeOf[Any]
             val aExpr = '{ $tfe.actualType.asInstanceOf[aType.Underlying] }
             '{
-              val tc = compiletime.summonInline[DFVal.TC[aType.Underlying, lhsType.Underlying]]
+              val tc = compiletime.summonInline[DFVal.TC[aType.Underlying, lhsExactInfo.Underlying]]
               val dfc = compiletime.summonInline[DFC]
               DFVal.Alias.AsIs(
                 DFOpaque[tfeType.Underlying]($tfe),
-                tc($aExpr, $lhsExpr)(using dfc)
+                tc($aExpr, ${ lhsExactInfo.exactExpr })(using dfc)
               )(using dfc)
                 // TODO: `P` should be automatically derived from tc.OutP, but there is issue
                 // https://github.com/lampepfl/dotty/issues/19554

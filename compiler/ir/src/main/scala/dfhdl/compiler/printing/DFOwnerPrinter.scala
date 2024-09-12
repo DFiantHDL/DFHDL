@@ -112,7 +112,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case DFMember.Empty => ""
         case _              => csDFCaseGuard(caseBlock.guardRef)
     s"$csDFCaseKeyword${csDFCasePattern(caseBlock.pattern)}$csGuard$csDFCaseSeparator"
-  def csDFMatchStatement(csSelector: String): String
+  def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean): String
   def csDFMatchEnd: String
   final def csDFConditionalBlock(cb: DFConditional.Block): String =
     val body = csDFOwnerBody(cb)
@@ -145,7 +145,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"${csDFMatchStatement(csSelector)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(e => s"\n$e")}"
+        s"${csDFMatchStatement(csSelector, mh.hasWildcards)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(e => s"\n$e")}"
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
   def csDomainBlock(pb: DomainBlock): String
@@ -286,7 +286,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCaseKeyword: String = "case "
   def csDFCaseSeparator: String = " =>"
   def csDFMatchEnd: String = "end match"
-  def csDFMatchStatement(csSelector: String): String = s"$csSelector match"
+  def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean): String =
+    s"$csSelector match"
   def csProcessBlock(pb: ProcessBlock): String =
     val body = csDFOwnerBody(pb)
     val named = pb.meta.nameOpt.map(n => s"val $n = ").getOrElse("")

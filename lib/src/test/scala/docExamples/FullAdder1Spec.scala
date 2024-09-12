@@ -10,11 +10,11 @@ class FullAdder1Spec extends util.FullCompileSpec:
        |`include "FullAdder1_defs.svh"
        |
        |module FullAdder1(
-       |  input  wire logic a,
-       |  input  wire logic b,
-       |  input  wire logic c_in,
-       |  output      logic sum,
-       |  output      logic c_out
+       |  input  logic a,
+       |  input  logic b,
+       |  input  logic c_in,
+       |  output logic sum,
+       |  output logic c_out
        |);
        |  assign sum   = (a ^ b) ^ c_in;
        |  assign c_out = ((a & b) | (b & c_in)) | (c_in & a);

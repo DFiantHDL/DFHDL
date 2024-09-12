@@ -307,7 +307,7 @@ final case class DB(
             else Unknown
           // illegal connection
           case _ => Error
-      case _: DFVal.Open => Unknown
+      case _: DFVal.OPEN => Unknown
       case _             => Read
     end match
   end getValAccess

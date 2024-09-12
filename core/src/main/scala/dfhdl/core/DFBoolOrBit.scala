@@ -17,12 +17,14 @@ object DFBoolOrBit:
     @implicitNotFound(
       "Argument of type ${R} is not a proper candidate for a DFBool or DFBit DFHDL value."
     )
-    trait Candidate[R]:
+    trait Candidate[R] extends Exact0.TC[R, DFC]:
       type OutT <: DFBoolOrBit
       type OutP
       type Out = DFValTP[OutT, OutP]
+      def conv(from: R)(using DFC): Out = apply(from)
       def apply(arg: R)(using DFC): Out
     object Candidate:
+      type Exact = Exact0[DFC, Candidate]
       given fromBoolean[R <: Boolean]: Candidate[R] with
         type OutT = DFBool
         type OutP = CONST
@@ -39,17 +41,20 @@ object DFBoolOrBit:
         def apply(arg: R)(using DFC): Out = arg
     end Candidate
 
-    private def b2b[T <: DFBoolOrBit, R](dfType: T, arg: R)(using
-        ic: Candidate[R],
-        dfc: DFC
-    ): DFValTP[T, ic.OutP] =
+    private def b2b[T <: DFBoolOrBit, RP](
+        dfType: T,
+        dfValArg: DFValTP[DFBoolOrBit, RP]
+    )(using DFC): DFValTP[T, RP] =
       import Ops.{bit, bool}
-      val dfValArg = ic(arg)
       val dfValOut = (dfType, dfValArg.dfType) match
         case (DFBit, DFBool) => dfValArg.asValOf[DFBool].bit
         case (DFBool, DFBit) => dfValArg.asValOf[DFBit].bool
         case _               => dfValArg
-      dfValOut.asValTP[T, ic.OutP]
+      dfValOut.asValTP[T, RP]
+    private def b2b[T <: DFBoolOrBit, R](dfType: T, arg: R)(using
+        ic: Candidate[R],
+        dfc: DFC
+    ): DFValTP[T, ic.OutP] = b2b(dfType, ic(arg))
 
     object TC:
       import DFVal.TC
@@ -102,43 +107,25 @@ object DFBoolOrBit:
           DFVal.Func(DFBool, FuncOp.unary_!, List(lhs))
         }
 
-      private def logicOp[T <: DFBoolOrBit, P, R](
+      private def logicOp[T <: DFBoolOrBit, P, RP](
           dfVal: DFValTP[T, P],
-          arg: R,
+          arg: DFValTP[DFBoolOrBit, RP],
           op: FuncOp,
           castle: Boolean
-      )(using dfc: DFC, ic: Candidate[R]): DFValTP[T, P | ic.OutP] =
+      )(using DFC): DFValTP[T, P | RP] =
         val dfValArg = b2b(dfVal.dfType, arg)
         val (lhs, rhs) = if (castle) (dfValArg, dfVal) else (dfVal, dfValArg)
         DFVal.Func(lhs.dfType.asFE[T], op, List(lhs, rhs))
       extension [T <: DFBoolOrBit, P](lhs: DFValTP[T, P])
-        def ||[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): DFValTP[T, P | ic.OutP] =
-          trydf { logicOp[T, P, R](lhs, rhs, FuncOp.|, false) }
-        def &&[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): DFValTP[T, P | ic.OutP] =
-          trydf { logicOp[T, P, R](lhs, rhs, FuncOp.&, false) }
-        def ^[R](rhs: Exact[R])(using dfc: DFC, ic: Candidate[R]): DFValTP[T, P | ic.OutP] =
-          trydf { logicOp[T, P, R](lhs, rhs, FuncOp.^, false) }
-        private def selForced[R <: DFTypeAny, OTP, OFP](
-            onTrue: DFValTP[R, OTP],
-            onFalse: DFValTP[R, OFP]
-        )(using dfc: DFC): DFValTP[R, P | OTP | OFP] =
-          val boolLHS = lhs.asIR.dfType match
-            case ir.DFBit => lhs.asValTP[DFBit, P].bool
-            case _        => lhs.asValTP[DFBool, P]
-          DFVal.Func(onTrue.dfType, FuncOp.sel, List(boolLHS, onTrue, onFalse))
-        def sel[R <: DFTypeAny, OTP, OF, OFP](onTrue: DFValTP[R, OTP], onFalse: Exact[OF])(using
-            dfc: DFC,
-            tcOF: DFVal.TC.Aux[R, OF, OFP]
-        ): DFValTP[R, P | OTP | OFP] =
-          trydf { selForced(onTrue, tcOF(onTrue.dfType, onFalse)) }
-        def sel[R <: DFTypeAny, OT, OF, OTP, OFP](
-            outType: R
-        )(onTrue: Exact[OT], onFalse: Exact[OF])(using
-            dfc: DFC,
-            tcOT: DFVal.TC.Aux[R, OT, OTP],
-            tcOF: DFVal.TC.Aux[R, OF, OFP]
-        ): DFValTP[R, P | OTP | OFP] =
-          trydf { selForced(tcOT(outType, onTrue), tcOF(outType, onFalse)) }
+        def ||(rhs: Candidate.Exact)(using DFC): DFValTP[T, P | rhs.tc.OutP] =
+          trydf { logicOp(lhs, rhs(), FuncOp.|, false) }
+        def &&(rhs: Candidate.Exact)(using DFC): DFValTP[T, P | rhs.tc.OutP] =
+          trydf { logicOp(lhs, rhs(), FuncOp.&, false) }
+        def ^(rhs: Candidate.Exact)(using DFC): DFValTP[T, P | rhs.tc.OutP] =
+          trydf { logicOp(lhs, rhs(), FuncOp.^, false) }
+        inline def sel[OT, OF](inline onTrue: OT, inline onFalse: OF)(using
+            dfc: DFC
+        ): BoolSelWrapper[P, OT, OF] = BoolSelWrapper[P, OT, OF](lhs, onTrue, onFalse)
 
       end extension
       extension [L](lhs: L)

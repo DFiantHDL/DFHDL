@@ -136,4 +136,19 @@ class ElaborationChecksSpec extends DesignSpec:
           |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:112:9 - 112:15
           |""".stripMargin
     )
+
+  test("port declaration in the wrong spot"):
+    @top(false) class Top extends RTDesign:
+      val x = Boolean <> IN
+      if (x)
+        val y = Bit <> IN
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL elaboration error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:144:17 - 144:26
+          |Hierarchy: Top.y
+          |Operation: ``
+          |Message:   Ports can only be directly owned by a design, a domain or an interface.
+          |""".stripMargin
+    )
 end ElaborationChecksSpec

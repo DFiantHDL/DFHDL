@@ -1,5 +1,6 @@
 package dfhdl.tools.toolsCore
 import dfhdl.core.Design
+import dfhdl.backends
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
@@ -9,6 +10,7 @@ import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
+import dfhdl.compiler.stages.verilog.VerilogDialect
 
 object Verilator extends VerilogLinter:
   type LO = VerilatorOptions
@@ -20,7 +22,22 @@ object Verilator extends VerilogLinter:
     val versionPattern = """Verilator\s+(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
-  def commonFlags(using lo: LO): String = s"-Wall${lo.warnAsError.toFlag("--Werror")} "
+  def commonFlags(using co: CompilerOptions, lo: LO): String =
+    val language = co.backend match
+      case be: backends.verilog =>
+        be.dialect match
+          case VerilogDialect.v95    => "1364-1995"
+          case VerilogDialect.v2001  => "1364-2001"
+          case VerilogDialect.sv2005 => "1800-2005"
+          case VerilogDialect.sv2009 => "1800-2009"
+          case VerilogDialect.sv2012 => "1800-2012"
+          case VerilogDialect.sv2017 => "1800-2017"
+      case _ =>
+        throw new java.lang.IllegalArgumentException(
+          "Current backend is not supported for Verilator linting."
+        )
+    s"--quiet-stats -Wall${lo.warnAsError.toFlag("--Werror")} --default-language $language "
+  end commonFlags
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
     // We use `forceWindowsToLinuxPath` fit the verilator needs
     val designsInCmd = cd.stagedDB.srcFiles.view.collect {

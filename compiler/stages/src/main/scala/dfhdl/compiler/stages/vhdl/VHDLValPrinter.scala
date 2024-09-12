@@ -26,11 +26,20 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
   def csDFValDclEnd(dfVal: Dcl): String = if (dfVal.isPort) "" else ";"
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
+    def commonOpStr: String =
+      dfVal.op match
+        case Func.Op.| => "or"
+        case Func.Op.& => "and"
+        case Func.Op.^ => "xor"
+        case op        => op.toString()
     dfVal.args match
       // boolean sel function
-      case cond :: onTrue :: onFalse :: Nil
-          if cond.get.dfType == DFBool && dfVal.op == Func.Op.sel =>
-        s"bool_sel(${cond.refCodeString}, ${onTrue.refCodeString}, ${onFalse.refCodeString})"
+      case cond :: onTrue :: onFalse :: Nil if dfVal.op == Func.Op.sel =>
+        val csCond = cond.refCodeString
+        val csCondBool = cond.get.dfType match
+          case DFBit => s"to_bool($csCond)"
+          case _     => csCond
+        s"bool_sel($csCondBool, ${onTrue.refCodeString}, ${onFalse.refCodeString})"
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match
@@ -47,9 +56,6 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         val opStr = dfVal.op match
           case Func.Op.=== => "="
           case Func.Op.=!= => "/="
-          case Func.Op.|   => "or"
-          case Func.Op.&   => "and"
-          case Func.Op.^   => "xor"
           case Func.Op.>=  => "=>"
           case Func.Op.<< =>
             argL.get.dfType match
@@ -76,7 +82,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               case Func.Op.+   => "cadd"
               case Func.Op.-   => "csub"
               case Func.Op.`*` => "cmul"
-          case op => op.toString
+          case _ => commonOpStr
         if (infix)
           s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"
         else s"${opStr}(${argL.refCodeString}, ${argR.refCodeString})"
@@ -118,7 +124,9 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case _ =>
             args
               .map(_.refCodeString.applyBrackets())
-              .mkString(s" ${dfVal.op} ")
+              .mkString(s" ${commonOpStr} ")
+    end match
+  end csDFValFuncExpr
   def csBitsToType(toType: DFType, csArg: String): String = toType match
     case DFBits(_) => csArg
     case DFBool    => s"to_bool($csArg)"
@@ -205,6 +213,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     s"${dfVal.relValCodeString}$fieldSel"
   def csDFValAliasHistory(dfVal: Alias.History): String = printer.unsupported
   def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
+  def csNOTHING(dfVal: NOTHING): String =
+    dfVal.dfType match
+      case DFBit     => "'Z'"
+      case DFBits(_) => "(others => 'Z')"
+      case _         => printer.unsupported
   def csDFValNamed(dfVal: DFVal): String =
     dfVal.stripPortSel match
       case dcl: DFVal.Dcl        => csDFValDcl(dcl)

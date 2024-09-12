@@ -828,7 +828,7 @@ class PrintCodeStringSpec extends StageSpec:
       val up3: UInt[8] <> CONST = cp.sel(up1, up2)
       y1 := c.sel(x1, x2)
       y1 := c.sel(x1, all(0))
-      y1 := c.sel(Bits(8))(all(0), x2)
+      y1 := c.sel(all(0), x2)
     val id = (new SelOp).getCodeString
     assertNoDiff(
       id,
@@ -845,6 +845,24 @@ class PrintCodeStringSpec extends StageSpec:
          |  y1 := c.sel(x1, h"00")
          |  y1 := c.sel(h"00", x2)
          |end SelOp
+         |""".stripMargin
+    )
+  }
+  test("HighZ assignment") {
+    class HighZ extends RTDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      if (x.|) y := x
+      else y     := NOTHING
+    val top = (new HighZ).getCodeString
+    assertNoDiff(
+      top,
+      """|class HighZ extends RTDesign:
+         |  val x = Bits(8) <> IN
+         |  val y = Bits(8) <> OUT
+         |  if (x.|) y := x
+         |  else y := NOTHING
+         |end HighZ
          |""".stripMargin
     )
   }

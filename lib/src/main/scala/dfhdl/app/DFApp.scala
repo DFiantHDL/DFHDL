@@ -11,7 +11,6 @@ import scala.util.chaining.scalaUtilChainingOps
 trait DFApp:
   private val logger = Logger("DFHDL App")
   logger.setFormatter(LogFormatter.BareFormatter)
-  logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
   private var designName: String = ""
   private var topScalaPath: String = ""
   // this context is just for enabling `getConstData` to work.
@@ -24,6 +23,7 @@ trait DFApp:
   private var printerOptions: options.PrinterOptions = null
   private var linterOptions: options.LinterOptions = null
   private var appOptions: options.AppOptions = null
+  inline given options.ElaborationOptions = elaborationOptions
   inline given options.CompilerOptions = compilerOptions
   inline given options.PrinterOptions = printerOptions
   inline given options.AppOptions = appOptions
@@ -57,11 +57,11 @@ trait DFApp:
     logger.info("Elaborating design...")
     // the elaboration options are set in the compiler plugin using getElaborationOptions
     val elaborated = dsn()
-    if (elaborationOptions.printDesignCodeAfter)
+    if (elaborationOptions.printDFHDLCode)
       println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
            |The design code after elaboration:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
       )
       elaborated.printCodeString
     elaborated
@@ -89,8 +89,10 @@ trait DFApp:
           |vhdl    - VHDL
           |
           |Available Verilog/SystemVerilog dialects:
+          |v95     - Verilog 1995
           |v2001   - Verilog 2001
-          |sv2005  - SystemVerilog 2005 [default]
+          |sv2005  - SystemVerilog 2005
+          |sv2009  - SystemVerilog 2009 [default]
           |sv2012  - SystemVerilog 2012
           |sv2017  - SystemVerilog 2017
           |
@@ -102,12 +104,18 @@ trait DFApp:
   end listBackends
 
   def main(commandArgs: Array[String]): Unit =
+    if (appOptions.clearConsole) print("\u001bc")
+    logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
     val parsedCommandLine = ParsedCommandLine(designName, topScalaPath, designArgs, commandArgs)
+    import parsedCommandLine.{Mode, HelpMode}
+    if (commandArgs.isEmpty && parsedCommandLine.mode != Mode.help)
+      logger.info(
+        "No command-line given; using defaults. Run with `help` argument to get usage text."
+      )
     parsedCommandLine.getExitCodeOption match
       case Some(code) =>
         if (!sbtShellIsRunning) sys.exit(code)
       case None =>
-        import parsedCommandLine.{Mode, HelpMode}
         given CanEqual[ScallopConfBase, ScallopConfBase] = CanEqual.derived
         // update design args from command line
         designArgs = parsedCommandLine.updatedDesignArgs
@@ -115,7 +123,7 @@ trait DFApp:
         parsedCommandLine.mode match
           case mode: Mode.ElaborateMode =>
             elaborationOptions = elaborationOptions.copy(
-              printDesignCodeAfter = mode.`print-elaborate`.toOption.get
+              printDFHDLCode = mode.`print-elaborate`.toOption.get
             )
           case _ =>
         // update compiler options from command line
@@ -123,8 +131,8 @@ trait DFApp:
           case mode: Mode.CompileMode =>
             compilerOptions = compilerOptions.copy(
               backend = mode.backend.toOption.get,
-              printDesignCodeAfter = mode.`print-compile`.toOption.get,
-              printGenFiles = mode.`print-backend`.toOption.get
+              printDFHDLCode = mode.`print-compile`.toOption.get,
+              printBackendCode = mode.`print-backend`.toOption.get
             )
           case _ =>
         // execute command

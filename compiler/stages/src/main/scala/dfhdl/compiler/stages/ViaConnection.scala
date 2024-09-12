@@ -21,7 +21,7 @@ case object ViaConnection extends Stage:
                 case Some(n) if n.isViaConnection =>
                   (ports, nets) // already has via connections
                 // connected to OPEN, so we skip it from variable creation
-                case Some(n @ DFNet.Connection(_: DFVal.Open, _, _)) =>
+                case Some(n @ DFNet.Connection(_: DFVal.OPEN, _, _)) =>
                   (ports, n :: nets)
                 case Some(n @ DFNet.Connection(DclVar(), _, _)) if conns.size == 1 =>
                   (ports, n :: nets)

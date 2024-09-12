@@ -53,6 +53,8 @@ class DFDecimalSpec extends DFSpec:
          |val t2 = UInt(8) <> VAR
          |val t3: UInt[6] <> CONST = t0.uint
          |val t4: SInt[7] <> CONST = t0.uint.signed
+         |val t5: SInt[64] <> CONST = sd"64'0"
+         |val t6: Bits[64] <> CONST = (t5 >> t0.uint.toInt).bits | (t5 << t0.uint.toInt).bits
          |t2 := t1
          |""".stripMargin
     } {
@@ -61,6 +63,8 @@ class DFDecimalSpec extends DFSpec:
       val t2 = UInt(8) <> VAR
       val t3: UInt[Int] <> CONST = t0
       val t4: SInt[Int] <> CONST = t0
+      val t5: SInt[64] <> CONST = 0
+      val t6: Bits[64] <> CONST = (t5 >> t0).bits | (t5 << t0).bits
       t2 := t1
     }
   }

@@ -15,8 +15,8 @@ case class DesignArg(name: String, typeName: String, value: Any, desc: String)(u
       case _              => data
   def updateScalaValue(updatedScalaValue: Any): DesignArg =
     val updatedData = updatedScalaValue match
-      case int: Int => BigInt(int)
-      case _        => updatedScalaValue
+      case int: Int if value.isInstanceOf[DFValAny] => BigInt(int)
+      case _                                        => updatedScalaValue
     val updatedValue = value match
       case dfConst: DFValAny =>
         core.DFVal.Const.forced(dfConst.dfType, Some(updatedData))

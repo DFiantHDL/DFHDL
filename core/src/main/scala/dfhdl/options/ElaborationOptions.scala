@@ -7,7 +7,7 @@ final case class ElaborationOptions(
     onError: OnError,
     defaultClkCfg: DefaultClkCfg,
     defaultRstCfg: DefaultRstCfg,
-    printDesignCodeAfter: PrintDesignCodeAfter
+    printDFHDLCode: PrintDFHDLCode
 ):
   private[dfhdl] val defaultRTDomainCfg: RTDomainCfg.Explicit =
     RTDomainCfg.Explicit("RTDomainCfg.Default", defaultClkCfg, defaultRstCfg)
@@ -17,11 +17,11 @@ object ElaborationOptions:
       onError: OnError,
       defaultClkCfg: DefaultClkCfg,
       defaultRstCfg: DefaultRstCfg,
-      printDesignCodeAfter: PrintDesignCodeAfter
+      printDFHDLCode: PrintDFHDLCode
   ): ElaborationOptions =
     ElaborationOptions(
       logLevel = logLevel, onError = onError, defaultClkCfg = defaultClkCfg,
-      defaultRstCfg = defaultRstCfg, printDesignCodeAfter = printDesignCodeAfter
+      defaultRstCfg = defaultRstCfg, printDFHDLCode = printDFHDLCode
     )
 
   opaque type LogLevel <: dfhdl.options.LogLevel = dfhdl.options.LogLevel
@@ -50,9 +50,9 @@ object ElaborationOptions:
     given Conversion[None.type, DefaultRstCfg] = x => x.asInstanceOf[DefaultRstCfg]
     export RstCfg.*
 
-  opaque type PrintDesignCodeAfter <: Boolean = Boolean
-  object PrintDesignCodeAfter:
-    given PrintDesignCodeAfter = false
-    given Conversion[Boolean, PrintDesignCodeAfter] = identity
+  opaque type PrintDFHDLCode <: Boolean = Boolean
+  object PrintDFHDLCode:
+    given PrintDFHDLCode = false
+    given Conversion[Boolean, PrintDFHDLCode] = identity
 
 end ElaborationOptions

@@ -18,8 +18,8 @@ object CompiledDesign:
     def transform(transformDB: ir.DB => ir.DB): CompiledDesign[D] =
       import StagedDesign.transform as transform2
       CompiledDesign(staged.transform2(transformDB))
-    def printGenFiles(using PrinterOptions): CompiledDesign[D] =
-      Printer.printGenFiles(staged.stagedDB)
+    def printBackendCode(using PrinterOptions): CompiledDesign[D] =
+      Printer.printBackendCode(staged.stagedDB)
       cd
     def commit(using co: CompilerOptions): CompiledDesign[D] =
       cd.transform(designDB => Printer.commit(designDB, co.compilePath(designDB)))

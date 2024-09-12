@@ -58,36 +58,31 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[NonEmptyTuple] =>
         tpe.getTupleArgs.forall(isConstBool)
       case '[SameElementsVector[t]] => isConstBool(TypeRepr.of[t])
-      case _                        => true
+      case '[BoolSelWrapper[sp, ot, of]] =>
+        List(TypeRepr.of[sp], TypeRepr.of[ot], TypeRepr.of[of]).forall(isConstBool)
+      case '[DFVal.NOTHING] => false
+      case _                => true
     if (isConstBool(tpe)) TypeRepr.of[CONST]
     else TypeRepr.of[NOTCONST]
 
 extension (using quotes: Quotes)(term: quotes.reflect.Term)
-  def checkConst: Boolean =
+  def getNonConstTerm: Option[quotes.reflect.Term] =
     import quotes.reflect.*
-    extension (term: Term)
-      def warn: Boolean =
-        report.warning("Not a constant", term.pos)
-        false
-      def explore: Boolean =
-        import quotes.reflect.*
-        term match
-          case Apply(fun, args)    => fun.explore && args.forall(_.explore)
-          case NamedArg(_, expr)   => expr.explore
-          case Inlined(_, _, expr) => expr.explore
-          case Block(_, expr)      => expr.explore
-          case TypeApply(expr, _)  => expr.explore
-          case Typed(expr, _)      => expr.explore
-          case _ =>
-            term.tpe.asType match
-              case '[DFConstOf[?]] => true
-              case '[DFValOf[?]]   => term.warn
-              case _               => true
-        end match
-      end explore
-    end extension
-    term.explore
-  end checkConst
+    term match
+      case Apply(fun, args)    => (fun :: args).view.flatMap(_.getNonConstTerm).headOption
+      case NamedArg(_, expr)   => expr.getNonConstTerm
+      case Inlined(_, _, expr) => expr.getNonConstTerm
+      case Block(_, expr)      => expr.getNonConstTerm
+      case TypeApply(expr, _)  => expr.getNonConstTerm
+      case Typed(expr, _)      => expr.getNonConstTerm
+      case _ =>
+        term.tpe.asType match
+          case '[DFConstOf[?]]  => None
+          case '[DFValOf[?]]    => Some(term)
+          case '[DFVal.NOTHING] => Some(term)
+          case _                => None
+    end match
+  end getNonConstTerm
 end extension
 
 infix type <>[T, M] = T match
@@ -158,24 +153,24 @@ def DFValConversionMacro[T <: DFTypeAny, P, R](
     from: Expr[R]
 )(using Quotes, Type[T], Type[P], Type[R]): Expr[DFValTP[T, P]] =
   import quotes.reflect.*
-  val fromExactTerm = from.asTerm.exactTerm
-  val fromExactType = fromExactTerm.tpe.asTypeOf[Any]
-  val fromExactExpr = fromExactTerm.asExpr
-  if (TypeRepr.of[P] =:= TypeRepr.of[CONST] && !from.asTerm.checkConst)
-    '{ compiletime.error("Applied argument must be a constant.") }
+  val fromExactInfo = from.exactInfo
+  lazy val nonConstTermOpt = from.asTerm.getNonConstTerm
+  if (TypeRepr.of[P] =:= TypeRepr.of[CONST] && nonConstTermOpt.nonEmpty)
+    nonConstTermOpt.get.compiletimeErrorPosExpr("Applied argument must be a constant.")
   else
     '{
       import DFStruct.apply
       given bitsNoType: DFBits[Int] = DFNothing.asInstanceOf[DFBits[Int]]
       given uintNoType: DFUInt[Int] = DFNothing.asInstanceOf[DFUInt[Int]]
       given sintNoType: DFSInt[Int] = DFNothing.asInstanceOf[DFSInt[Int]]
-      val tc = compiletime.summonInline[DFVal.TC[T, fromExactType.Underlying]]
+      val tc = compiletime.summonInline[DFVal.TC[T, fromExactInfo.Underlying]]
       val dfc = compiletime.summonInline[DFC]
       val dfType = compiletime.summonInline[T]
       trydf {
-        tc(dfType, $fromExactExpr)(using dfc).asValTP[T, P]
+        tc(dfType, ${ fromExactInfo.exactExpr })(using dfc).asValTP[T, P]
       }(using dfc, compiletime.summonInline[CTName])
     }
+  end if
 end DFValConversionMacro
 
 sealed protected trait DFValLP:
@@ -190,10 +185,12 @@ sealed protected trait DFValLP:
     modifier `M` of `DFVal[+T, +M]` is covariant, the compiler accepts
     `DFVal[T, NOTCONST] <:< DFVal[T, ISCONST[Boolean]]` and all is well.
    */
+  type CommonR = DFValAny | Bubble | DFVal.NOTHING | BoolSelWrapper[?, ?, ?]
+
   implicit transparent inline def DFBitsValConversion[
       W <: IntP,
       P <: Boolean,
-      R <: DFValAny | SameElementsVector[?] | NonEmptyTuple | Bubble
+      R <: CommonR | SameElementsVector[?] | NonEmptyTuple
   ](
       inline from: R
   ): DFValTP[DFBits[W], ISCONST[P]] = ${
@@ -205,7 +202,7 @@ sealed protected trait DFValLP:
       W <: IntP,
       N <: NativeType,
       P <: Boolean,
-      R <: DFValAny | Int | Bubble
+      R <: CommonR | Int
   ](
       inline from: R
   ): DFValTP[DFXInt[S, W, N], ISCONST[P]] = ${
@@ -214,7 +211,7 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFOpaqueValConversion[
       TFE <: DFOpaque.Abstract,
       P <: Boolean,
-      R <: DFValAny | Bubble
+      R <: CommonR
   ](
       inline from: R
   ): DFValTP[DFOpaque[TFE], ISCONST[P]] = ${
@@ -223,7 +220,7 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFStructValConversion[
       F <: DFStruct.Fields,
       P <: Boolean,
-      R <: DFValAny | DFStruct.Fields | Bubble
+      R <: CommonR | DFStruct.Fields
   ](
       inline from: R
   ): DFValTP[DFStruct[F], ISCONST[P]] = ${
@@ -232,7 +229,7 @@ sealed protected trait DFValLP:
   implicit transparent inline def DFTupleValConversion[
       T <: NonEmptyTuple,
       P <: Boolean,
-      R <: DFValAny | NonEmptyTuple | Bubble
+      R <: CommonR | NonEmptyTuple
   ](
       inline from: R
   ): DFValTP[DFTuple[T], ISCONST[P]] = ${
@@ -242,7 +239,7 @@ sealed protected trait DFValLP:
       T <: DFTypeAny,
       D <: IntP,
       P <: Boolean,
-      R <: DFValAny | Iterable[?] | SameElementsVector[?] | Bubble
+      R <: CommonR | Iterable[?] | SameElementsVector[?]
   ](
       inline from: R
   ): DFValTP[DFVector[T, Tuple1[D]], ISCONST[P]] = ${
@@ -250,7 +247,7 @@ sealed protected trait DFValLP:
   }
   implicit transparent inline def DFBitValConversion[
       P <: Boolean,
-      R <: DFValAny | Int | Boolean | Bubble
+      R <: CommonR | Int | Boolean
   ](
       inline from: R
   ): DFValTP[DFBit, ISCONST[P]] = ${
@@ -258,13 +255,13 @@ sealed protected trait DFValLP:
   }
   implicit transparent inline def DFBoolValConversion[
       P <: Boolean,
-      R <: DFValAny | Int | Boolean | Bubble
+      R <: CommonR | Int | Boolean
   ](
       inline from: R
   ): DFValTP[DFBool, ISCONST[P]] = ${
     DFValConversionMacro[DFBool, ISCONST[P], R]('from)
   }
-  given DFUnitValConversion[R <: DFValAny | Unit | NonEmptyTuple | Bubble](using
+  given DFUnitValConversion[R <: CommonR | Unit | NonEmptyTuple](using
       dfc: DFC
   ): Conversion[R, DFValOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFValOf[DFUnit]]
   given ConstToNonConstAccept[T <: DFTypeAny, P]: Conversion[DFValTP[T, P], DFValTP[T, NOTCONST]] =
@@ -293,17 +290,13 @@ object DFVal extends DFValLP:
     if (TypeRepr.of[T].typeSymbol equals defn.NothingClass) return '{
       compiletime.error("This is fake")
     }
-    val exact = arg.asTerm.exactTerm
-    val exactExpr = exact.asExpr
-    val exactType = exact.tpe.asTypeOf[Any]
+    val exactInfo = arg.exactInfo
     val lpType = dfVal.asTerm.tpe.isConstTpe.asTypeOf[Any]
-    val rpType = exact.tpe.isConstTpe.asTypeOf[Any]
+    val rpType = exactInfo.exactTpe.isConstTpe.asTypeOf[Any]
     '{
-      val c = compiletime.summonInline[
-        DFVal.Compare[T, exactType.Underlying, Op, false]
-      ]
+      val c = compiletime.summonInline[DFVal.Compare[T, exactInfo.Underlying, Op, false]]
       val dfc = compiletime.summonInline[DFC]
-      c($dfVal, $exactExpr)(using
+      c($dfVal, ${ exactInfo.exactExpr })(using
         dfc,
         compiletime.summonInline[ValueOf[Op]],
         new ValueOf[false](false)
@@ -427,17 +420,17 @@ object DFVal extends DFValLP:
       val (argExpr, enableExpr) = value match
         case '{ Conditional.Ops.@@[t]($x)($y) } => (x, y)
         case _                                  => (value, '{ true })
-      if (argExpr.asTerm.checkConst)
-        val term = argExpr.asTerm.exactTerm
-        val tpe = term.tpe.asTypeOf[Any]
-        '{
-          val tc = compiletime.summonInline[DFVal.TC[T, tpe.Underlying]]
-          new InitValue[T]:
-            def enable: Boolean = $enableExpr
-            def apply(dfType: T)(using dfc: DFC): DFConstOf[T] =
-              tc(dfType, ${ term.asExpr })(using dfc).asConstOf[T]
-        }
-      else '{ compiletime.error("Init value must be a constant.") }
+      argExpr.asTerm.getNonConstTerm match
+        case Some(term) => term.compiletimeErrorPosExpr("Init value must be a constant.")
+        case None =>
+          val exactInfo = argExpr.exactInfo
+          '{
+            val tc = compiletime.summonInline[DFVal.TC[T, exactInfo.Underlying]]
+            new InitValue[T]:
+              def enable: Boolean = $enableExpr
+              def apply(dfType: T)(using dfc: DFC): DFConstOf[T] =
+                tc(dfType, ${ exactInfo.exactExpr })(using dfc).asConstOf[T]
+          }
     end fromValueMacro
   end InitValue
 
@@ -458,67 +451,66 @@ object DFVal extends DFValLP:
         case '{ Conditional.Ops.@@[t]($x)($y) } => (x, y)
         case _                                  => (value, '{ true })
       val term = argExpr.asTerm.underlyingArgument
-      if (term.checkConst)
-        val tTpe = TypeRepr.of[T]
-        extension (lhs: TypeRepr)
-          def tupleSigMatch(
-              rhs: TypeRepr,
-              tupleAndNonTupleMatch: Boolean
-          ): Boolean =
-            import quotes.reflect.*
-            (lhs.asType, rhs.asType) match
-              case ('[DFTuple[t]], '[Any]) =>
-                TypeRepr.of[t].tupleSigMatch(rhs, tupleAndNonTupleMatch)
-              case ('[Tuple], '[Tuple]) =>
-                val lArgs = lhs.getTupleArgs
-                val rArgs = rhs.getTupleArgs
-                if (lArgs.length != rArgs.length) false
-                else
-                  (lArgs lazyZip rArgs).forall((l, r) => l.tupleSigMatch(r, true))
-              case ('[Tuple], '[Any]) => tupleAndNonTupleMatch
-              case ('[Any], '[Tuple]) => tupleAndNonTupleMatch
-              case _                  => true
-          end tupleSigMatch
-        end extension
+      term.getNonConstTerm match
+        case Some(term) => term.compiletimeErrorPosExpr("Init value must be a constant.")
+        case _ =>
+          val tTpe = TypeRepr.of[T]
+          extension (lhs: TypeRepr)
+            def tupleSigMatch(
+                rhs: TypeRepr,
+                tupleAndNonTupleMatch: Boolean
+            ): Boolean =
+              import quotes.reflect.*
+              (lhs.asType, rhs.asType) match
+                case ('[DFTuple[t]], '[Any]) =>
+                  TypeRepr.of[t].tupleSigMatch(rhs, tupleAndNonTupleMatch)
+                case ('[Tuple], '[Tuple]) =>
+                  val lArgs = lhs.getTupleArgs
+                  val rArgs = rhs.getTupleArgs
+                  if (lArgs.length != rArgs.length) false
+                  else
+                    (lArgs lazyZip rArgs).forall((l, r) => l.tupleSigMatch(r, true))
+                case ('[Tuple], '[Any]) => tupleAndNonTupleMatch
+                case ('[Any], '[Tuple]) => tupleAndNonTupleMatch
+                case _                  => true
+            end tupleSigMatch
+          end extension
 
-        val vTpe = term.tpe
-        val multiElements = vTpe.asTypeOf[Any] match
-          case '[NonEmptyTuple] =>
-            vTpe.getTupleArgs.forall(va => tTpe.tupleSigMatch(va, false))
-          case _ => false
-        // In the case we have a multiple elements in the tuple value that match the signature
-        // of the DFHDL type, then each element is considered as a candidate
-        if (multiElements)
-          val Apply(_, vArgsTerm) = term: @unchecked
-          def inits(dfType: Expr[DFTuple[T]], dfc: Expr[DFC]): List[Expr[DFConstOf[DFTuple[T]]]] =
-            vArgsTerm.map { a =>
-              val aTerm = a.exactTerm
-              val aType = aTerm.tpe.asTypeOf[Any]
-              '{
-                val tc = compiletime.summonInline[DFVal.TC[DFTuple[T], aType.Underlying]]
-                tc($dfType, ${ aTerm.asExpr })(using $dfc).asConstOf[DFTuple[T]]
+          val vTpe = term.tpe
+          val multiElements = vTpe.asTypeOf[Any] match
+            case '[NonEmptyTuple] =>
+              vTpe.getTupleArgs.forall(va => tTpe.tupleSigMatch(va, false))
+            case _ => false
+          // In the case we have a multiple elements in the tuple value that match the signature
+          // of the DFHDL type, then each element is considered as a candidate
+          if (multiElements)
+            val Apply(_, vArgsTerm) = term: @unchecked
+            def inits(dfType: Expr[DFTuple[T]], dfc: Expr[DFC]): List[Expr[DFConstOf[DFTuple[T]]]] =
+              vArgsTerm.map { a =>
+                val aExactInfo = a.exactInfo
+                '{
+                  val tc = compiletime.summonInline[DFVal.TC[DFTuple[T], aExactInfo.Underlying]]
+                  tc($dfType, ${ aExactInfo.exactExpr })(using $dfc).asConstOf[DFTuple[T]]
+                }
               }
+            '{
+              new InitTupleValues[T]:
+                def enable: Boolean = $enableExpr
+                def apply(dfType: DFTuple[T])(using dfc: DFC): List[DFConstOf[DFTuple[T]]] =
+                  List(${ Expr.ofList(inits('dfType, 'dfc)) }*)
             }
-          '{
-            new InitTupleValues[T]:
-              def enable: Boolean = $enableExpr
-              def apply(dfType: DFTuple[T])(using dfc: DFC): List[DFConstOf[DFTuple[T]]] =
-                List(${ Expr.ofList(inits('dfType, 'dfc)) }*)
-          }
-        // otherwise the entire tuple is considered as a candidate.
-        else
-          val vTerm = term.exactTerm
-          val vType = vTerm.tpe.asTypeOf[Any]
-          '{
-            val tc = compiletime.summonInline[DFVal.TC[DFTuple[T], vType.Underlying]]
-            new InitTupleValues[T]:
-              def enable: Boolean = $enableExpr
-              def apply(dfType: DFTuple[T])(using dfc: DFC): List[DFConstOf[DFTuple[T]]] =
-                List(tc(dfType, ${ vTerm.asExpr })(using dfc).asConstOf[DFTuple[T]])
-          }
-        end if
-      else '{ compiletime.error("Init value must be a constant.") }
-      end if
+          // otherwise the entire tuple is considered as a candidate.
+          else
+            val vExactInfo = term.exactInfo
+            '{
+              val tc = compiletime.summonInline[DFVal.TC[DFTuple[T], vExactInfo.Underlying]]
+              new InitTupleValues[T]:
+                def enable: Boolean = $enableExpr
+                def apply(dfType: DFTuple[T])(using dfc: DFC): List[DFConstOf[DFTuple[T]]] =
+                  List(tc(dfType, ${ vExactInfo.exactExpr })(using dfc).asConstOf[DFTuple[T]])
+            }
+          end if
+      end match
     end fromValueMacro
   end InitTupleValues
 
@@ -633,9 +625,17 @@ object DFVal extends DFValLP:
         .asConstOf[T]
   end Const
 
-  object Open:
-    def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
-      ir.DFVal.Open(dfType.asIR.dropUnreachableRefs, dfc.owner.ref)
+  type OPEN = OPEN.type
+  object OPEN:
+    protected[dfhdl] def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
+      ir.DFVal.OPEN(dfType.asIR.dropUnreachableRefs, dfc.owner.ref)
+        .addMember
+        .asValOf[T]
+
+  type NOTHING = NOTHING.type
+  object NOTHING:
+    protected[dfhdl] def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
+      ir.DFVal.NOTHING(dfType.asIR.dropUnreachableRefs, dfc.owner.ref, dfc.getMeta, dfc.tags)
         .addMember
         .asValOf[T]
 
@@ -877,15 +877,25 @@ object DFVal extends DFValLP:
     final def apply(dfType: T, value: R)(using DFC): Out = trydf:
       conv(dfType, value)
 
-  trait TCLP:
-    // Accept OPEN in compile-time, but throw exception where it should not be used
-    given fromOPEN[T <: DFTypeAny]: TC[T, r__OPEN.type] with
-      def conv(dfType: T, value: r__OPEN.type)(using DFC): Out =
-        throw new IllegalArgumentException("OPEN cannot be used here")
+  trait TCLPLP:
+    // Reject OPEN with a dedicated message
+    transparent inline given fromOPEN[T <: DFTypeAny]: TC[T, OPEN] =
+      compiletime.error("`OPEN` cannot be used here.")
+
+  trait TCLP extends TCLPLP:
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] with
       type OutP = CONST
       def conv(dfType: T, value: V)(using DFC): Out = Bubble.constValOf(dfType, named = true)
+    // Accept NOTHING for any DFType, unless not in DF domain, and then we limit it to Bits or Bit type
+    given fromNOTHING[T <: DFTypeAny](using dt: DomainType)(using
+        AssertGiven[
+          dt.type <:< DomainType.DF | T <:< DFBit | T <:< DFType[ir.DFBits, Args],
+          "`NOTHING` can only be assigned to either `Bits` or `Bit` DFHDL values outside of a dataflow (DF) domain."
+        ]
+    ): TC[T, NOTHING] with
+      type OutP = NOTCONST
+      def conv(dfType: T, value: NOTHING)(using DFC): Out = NOTHING(dfType)
     transparent inline given errorDMZ[T <: DFTypeAny, R](using
         t: ShowType[T],
         r: ShowType[R]
@@ -924,6 +934,7 @@ object DFVal extends DFValLP:
     end sameValType
   end TCLP
   object TC extends TCLP:
+    type Exact[T <: DFTypeAny] = Exact1[DFTypeAny, T, [t <: DFTypeAny] =>> t, DFC, TC]
     type Aux[T <: DFTypeAny, R, OutP0] = TC[T, R] { type OutP = OutP0 }
     export DFBoolOrBit.Val.TC.given
     export DFBits.Val.TC.given
@@ -934,6 +945,16 @@ object DFVal extends DFValLP:
     export DFStruct.Val.TC.given
     export DFOpaque.Val.TC.given
   end TC
+
+  trait TC_Or_OPEN[T <: DFTypeAny, R] extends TC[T, R]
+  object TC_Or_OPEN:
+    type Exact[T <: DFTypeAny] = Exact1[DFTypeAny, T, [t <: DFTypeAny] =>> t, DFC, TC_Or_OPEN]
+    given fromOPEN[T <: DFTypeAny]: TC_Or_OPEN[T, OPEN] with
+      type OutP = NOTCONST
+      def conv(dfType: T, from: OPEN)(using DFC): Out = DFVal.OPEN(dfType)
+    given fromTC[T <: DFTypeAny, R, TC <: DFVal.TC[T, R]](using tc: TC): TC_Or_OPEN[T, R] with
+      type OutP = tc.OutP
+      def conv(dfType: T, from: R)(using DFC): Out = tc(dfType, from)
 
   trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
     type OutP
@@ -1136,12 +1157,9 @@ object VarsTuple:
 end VarsTuple
 
 final class REG_DIN[T <: DFTypeAny](val irValue: DFError.REG_DIN[T]) extends AnyVal:
-  def :=[R](rhs: Exact[R])(using
-      tc: DFVal.TC[T, R],
-      dfc: DFC
-  ): Unit = trydf {
+  def :=(rhs: DFVal.TC.Exact[T])(using DFC): Unit = trydf {
     val dfVar = irValue.dfVar
-    dfVar.assign(tc(dfVar.dfType, rhs))
+    dfVar.assign(rhs(dfVar.dfType))
   }
 
 object DFVarOps:
@@ -1159,15 +1177,15 @@ object DFVarOps:
   ]
   protected type LocalOrNonED[A] = AssertGiven[
     (A <:< DFC.Scope.Process) | util.NotGiven[A <:< DomainType.ED],
-    "Blocking assignment `:=` is not allowed for a non-local variable in this domain.\nChange the assignment to a non-blocking assignment `:==` or the position of the defined variable."
+    "Blocking assignments `:=` are not allowed for a non-local variable in this domain.\nChange the assignment to a non-blocking assignment `:==` or the position of the defined variable."
   ]
   protected type NotLocalVar[A] = AssertGiven[
     util.NotGiven[A <:< DFC.Scope.Process],
-    "Non-blocking assignment `:==` is not allowed for a local variable (defined inside the process block).\nChange the assignment to a blocking assignment `:=` or the position of the defined variable."
+    "Non-blocking assignments `:==` are not allowed for a local variable (defined inside the process block).\nChange the assignment to a blocking assignment `:=` or the position of the defined variable."
   ]
   protected type EDDomainOnly[A] = AssertGiven[
     A <:< DomainType.ED,
-    "Non-blocking assignment `:==` is allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
+    "Non-blocking assignments `:==` are allowed only inside an event-driven (ED) domain.\nChange the assignment to a regular assignment `:=` or the logic domain to ED."
   ]
   protected type `InsideProcess:=`[D, A] = AssertGiven[
     DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED] | D <:< DomainType.RT,
@@ -1175,30 +1193,28 @@ object DFVarOps:
   ]
   protected type `InsideProcess:==`[D, A] = AssertGiven[
     DFC.Scope.Process | util.NotGiven[A <:< DomainType.ED],
-    "Non-blocking assignment `:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
+    "Non-blocking assignments `:==` are only allowed inside a process under an event-driven (ED) domain.\nChange the assignment to a connection `<>` or place it in a process."
   ]
   protected type RTDomainOnly[A] = AssertGiven[
     A <:< DomainType.RT,
     "`.din` selection is only allowed under register-transfer (RT) domains."
   ]
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
-    def :=[R](rhs: Exact[R])(using DFC)(using dt: DomainType)(using
+    def :=(rhs: DFVal.TC.Exact[T])(using DFC)(using dt: DomainType)(using
         notREG: NotREG[A],
         varOnly: VarOnly[A],
 //        localOrNonED: LocalOrNonED[A],
-        insideProcess: `InsideProcess:=`[dt.type, A],
-        tc: DFVal.TC[T, R]
+        insideProcess: `InsideProcess:=`[dt.type, A]
     ): Unit = trydf {
-      dfVar.assign(tc(dfVar.dfType, rhs))
+      dfVar.assign(rhs(dfVar.dfType))
     }
-    def :==[R](rhs: Exact[R])(using DFC)(using dt: DomainType)(using
+    def :==(rhs: DFVal.TC.Exact[T])(using DFC)(using dt: DomainType)(using
         varOnly: VarOnly[A],
         edDomainOnly: EDDomainOnly[dt.type],
 //        notLocalVar: NotLocalVar[A],
-        insideProcess: `InsideProcess:==`[dt.type, A],
-        tc: DFVal.TC[T, R]
+        insideProcess: `InsideProcess:==`[dt.type, A]
     ): Unit = trydf {
-      dfVar.nbassign(tc(dfVar.dfType, rhs))
+      dfVar.nbassign(rhs(dfVar.dfType))
     }
     def din(using dt: DomainType)(using IsREG[A], RTDomainOnly[dt.type], DFC): REG_DIN[T] =
       new REG_DIN[T](DFError.REG_DIN(dfVar.asVarOf[T]))
@@ -1293,17 +1309,17 @@ object DFVarOps:
 end DFVarOps
 
 object DFPortOps:
+  protected type ConnectableOnly[C] = AssertGiven[
+    C <:< Modifier.Connectable,
+    "The LHS of a connection must be a connectable DFHDL value (var/port)."
+  ]
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
-    def <>[R](rhs: Exact[R])(using DFC)(using
-        connectableOnly: AssertGiven[
-          C <:< Modifier.Connectable,
-          "The LHS of a connection must be a connectable DFHDL value (var/port)."
-        ],
-        tc: DFVal.TC[T, R]
+    def <>(rhs: DFVal.TC_Or_OPEN.Exact[T])(using DFC)(using
+        connectableOnly: ConnectableOnly[C]
     ): ConnectPlaceholder =
-      if (rhs.value equals r__OPEN) dfPort.connect(DFVal.Open(dfPort.dfType))
-      else trydf { dfPort.connect(tc(dfPort.dfType, rhs)) }
+      trydf { dfPort.connect(rhs(dfPort.dfType)) }
       ConnectPlaceholder
+  end extension
 end DFPortOps
 
 extension (dfVal: ir.DFVal)

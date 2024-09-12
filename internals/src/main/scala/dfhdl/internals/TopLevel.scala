@@ -42,3 +42,5 @@ end TopLevel
 
 trait AllowTopLevel:
   given TopLevel with {}
+
+trait NoTopAnnotIsRequired

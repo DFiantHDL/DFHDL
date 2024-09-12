@@ -7,6 +7,7 @@ import DFVal.Modifier
 
 import scala.annotation.tailrec
 import scala.reflect.{ClassTag, classTag}
+import dfhdl.compiler.ir.DFConditional.DFMatchHeader
 
 extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
   @tailrec def getFirstCB: CB = cb.prevBlockOrHeaderRef.get match
@@ -24,6 +25,8 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
   def getPrevCB: Option[CB] = cb.prevBlockOrHeaderRef.get match
     case cb: DFConditional.Block => Some(cb.asInstanceOf[CB])
     case _                       => None
+  def getLastCB: CB =
+    cb.getNextCB.map(_.getLastCB).getOrElse(cb)
   def isLastCB: Boolean = getNextCB.isEmpty
 //  @tailrec private def getPatterns(
 //      casePattenBlock: DFConditional.CaseBlock,
@@ -97,6 +100,10 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
       case _                       => currentBlock.getHeaderCB.asInstanceOf[cb.THeader]
 
   def getTopConditionalHeader: cb.THeader = getTopConditionalHeader(cb)
+  def getGuardOption: Option[DFVal] =
+    cb.guardRef match
+      case DFRef(dfVal: DFVal) => Some(dfVal)
+      case _                   => None
 end extension
 
 extension (patterns: Iterable[Pattern])
@@ -106,10 +113,20 @@ extension (patterns: Iterable[Pattern])
   }
 
 extension [CH <: DFConditional.Header](ch: CH)(using MemberGetSet)
-  def getLastCB: ch.TBlock =
-    ch.originMembers
-      .collectFirst { case cb: DFConditional.Block if cb.isLastCB => cb.asInstanceOf[ch.TBlock] }
-      .get
+  def getFirstCB: ch.TBlock =
+    ch.originMembers.view
+      .collectFirst { case cb: DFConditional.Block => cb.asInstanceOf[ch.TBlock] }.get
+
+  def getLastCB: ch.TBlock = ch.getFirstCB.getLastCB
 
   def getCBList: List[ch.TBlock] = getLastCB.getLeadingChain
 end extension
+
+extension (pattern: Pattern)(using MemberGetSet)
+  def hasWildcards: Boolean = pattern match
+    case Pattern.Singleton(DFRef(dfVal)) if dfVal.isBubble => true
+    case Pattern.Alternative(list)                         => list.exists(_.hasWildcards)
+    case _                                                 => false
+
+extension (mh: DFMatchHeader)(using MemberGetSet)
+  def hasWildcards: Boolean = mh.getCBList.exists(_.pattern.hasWildcards)

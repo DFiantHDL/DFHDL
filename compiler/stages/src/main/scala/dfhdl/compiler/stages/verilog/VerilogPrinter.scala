@@ -50,8 +50,8 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   def csTimer(timer: Timer): String = unsupported
   def verilogFileHeaderSuffix: String =
     printer.dialect match
-      case VerilogDialect.v2001 => "v"
-      case _                    => "svh"
+      case VerilogDialect.v2001 | VerilogDialect.v95 => "vh"
+      case _                                         => "svh"
   def globalFileName: String =
     s"${printer.defsName}.$verilogFileHeaderSuffix"
   override def csGlobalFileContent: String =
@@ -64,22 +64,19 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
        |""".stripMargin
   def dfhdlDefsFileName: String = s"dfhdl_defs.$verilogFileHeaderSuffix"
   def dfhdlSourceContents: String =
-    // the actual resource file will always be named with a `.svh`, but the committed
-    // file to the generated project folder will have a suffix according to
-    // `verilogFileHeaderSuffix`
-    scala.io.Source.fromResource(s"dfhdl_defs.svh").getLines().mkString("\n")
+    scala.io.Source.fromResource(dfhdlDefsFileName).getLines().mkString("\n")
 
   def designFileName(designName: String): String =
     val suffix = printer.dialect match
-      case VerilogDialect.v2001 => "v"
-      case _                    => "sv"
+      case VerilogDialect.v2001 | VerilogDialect.v95 => "v"
+      case _                                         => "sv"
     s"$designName.$suffix"
   def alignCode(cs: String): String =
     cs
       // align logic position after port direction
       .align("[ ]*(?:input|output|inout).*", " logic ", ".*")
       // align port names
-      .align("[ ]*(?:input|output|inout).*", " ", "[a-zA-Z0-9_.]+,?")
+      .align("[ ]*(?:input|output|inout).*", " ", "[a-zA-Z0-9_.]+[,;]?")
       // align after wire/reg/logic words
       .align(
         "\\s*(?:logic(?: signed)?\\s*\\[\\d+:\\d+]|[\\w]+)",
@@ -104,12 +101,12 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
 
   val verilogKW: Set[String] =
     Set("module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
-      "begin", "end", "case", "default", "endcase", "default_nettype", "include", "timescale", "if",
-      "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter", "struct", "packed",
-      "ifndef", "endif", "define")
+      "begin", "end", "case", "default", "endcase", "default_nettype", "include", "inside",
+      "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
+      "struct", "packed", "ifndef", "endif", "define", "function", "endfunction")
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] =
-    Set("wire", "reg", "logic", "wire", "signed", "int")
+    Set("wire", "reg", "logic", "wire", "signed", "int", "integer")
   def colorCode(cs: String): String =
     cs
       .colorWords(verilogKW, keywordColor)

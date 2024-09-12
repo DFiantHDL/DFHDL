@@ -71,9 +71,11 @@ object DFC:
   def emptyNoEO: DFC = DFC(None, Position.unknown, None)
   sealed trait Scope
   object Scope:
+    sealed trait Global extends Scope
+    object Global extends Global
+    given Global = Global
     sealed trait Design extends Scope
     object Design extends Design
-    given Design = Design
     sealed trait Domain extends Scope
     object Domain extends Domain
     sealed trait Process extends Scope

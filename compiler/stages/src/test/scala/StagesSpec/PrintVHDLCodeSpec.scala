@@ -639,7 +639,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       val up3: UInt[8] <> CONST = cp.sel(up1, up2)
       y1 := c.sel(x1, x2)
       y1 := c.sel(x1, all(0))
-      y1 := c.sel(Bits(8))(all(0), x2)
+      y1 := c.sel(all(0), x2)
     val id = (new SelOp).getCompiledCodeString
     assertNoDiff(
       id,
@@ -693,6 +693,117 @@ class PrintVHDLCodeSpec extends StageSpec:
          |begin
          |
          |end Empty_arch;
+         |""".stripMargin
+    )
+  }
+
+  test("HighZ assignment") {
+    class HighZ extends RTDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      if (x.|) y := x
+      else y     := NOTHING
+    val top = (new HighZ).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.HighZ_pkg.all;
+         |
+         |entity HighZ is
+         |port (
+         |  x : in std_logic_vector(7 downto 0);
+         |  y : out std_logic_vector(7 downto 0)
+         |);
+         |end HighZ;
+         |
+         |architecture HighZ_arch of HighZ is
+         |begin
+         |  process (all)
+         |  begin
+         |    if or reduce x then y <= x;
+         |    else y <= (others => 'Z');
+         |    end if;
+         |  end process;
+         |end HighZ_arch;
+         |""".stripMargin
+    )
+  }
+
+  test("Wildcards and don't cares") {
+    class Foo extends RTDesign:
+      val num = 16
+      val x   = Bits(num) <> IN init all(0)
+      val y   = Bits(num) <> OUT
+      x match
+        case h"12??" | h"345?" => y := h"22??"
+        case _                 => y := all(1)
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : in std_logic_vector(15 downto 0);
+         |  y : out std_logic_vector(15 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process (all)
+         |  begin
+         |    case x is
+         |      when x"12--" | x"345-" => y <= x"22--";
+         |      when others => y <= x"ffff";
+         |    end case;
+         |  end process;
+         |end Foo_arch;
+         |""".stripMargin
+    )
+  }
+
+  test("Wildcards and don't cares under vhdl.v93") {
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    class Foo extends RTDesign:
+      val num = 16
+      val x   = Bits(num) <> IN init all(0)
+      val y   = Bits(num) <> OUT
+      x match
+        case h"12??" | h"345?" => y := h"22??"
+        case _                 => y := all(1)
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : in std_logic_vector(15 downto 0);
+         |  y : out std_logic_vector(15 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process (x)
+         |  begin
+         |    if (x(15 downto 8) = x"12") or (x(15 downto 4) = x"345") then y <= "00100010--------";
+         |    else y <= x"ffff";
+         |    end if;
+         |  end process;
+         |end Foo_arch;
          |""".stripMargin
     )
   }

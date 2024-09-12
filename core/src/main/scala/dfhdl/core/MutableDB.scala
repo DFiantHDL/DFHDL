@@ -376,20 +376,22 @@ final class MutableDB():
       case _ =>
 
   def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
-    dirtyDB()
-    // if the original member is global, then injects its context into
-    // the current context
-    originalMember match
-      case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
-        injectGlobals(dfVal.globalCtx.asInstanceOf[DesignContext])
-      case _ =>
-    val newMember = DesignContext.current.setMember(originalMember, newMemberFunc)
-    globalMemberCtxCopy(originalMember, newMember)
-    // in case the member is an owner, we check the owner stack to replace it
-    (originalMember, newMember) match
-      case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
-      case _                        =>
-    newMember
+    if (inMetaProgramming) newMemberFunc(originalMember)
+    else
+      dirtyDB()
+      // if the original member is global, then injects its context into
+      // the current context
+      originalMember match
+        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
+          injectGlobals(dfVal.globalCtx.asInstanceOf[DesignContext])
+        case _ =>
+      val newMember = DesignContext.current.setMember(originalMember, newMemberFunc)
+      globalMemberCtxCopy(originalMember, newMember)
+      // in case the member is an owner, we check the owner stack to replace it
+      (originalMember, newMember) match
+        case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
+        case _                        =>
+      newMember
   end setMember
 
   def replaceMember[M <: DFMember](originalMember: M, newMember: M): M =

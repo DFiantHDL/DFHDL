@@ -61,9 +61,10 @@ protected object hdl:
   type VAL = core.VAL
   type CONST = core.CONST
   type DFRET = core.DFRET
+  val OPEN = core.DFVal.OPEN
+  val NOTHING = core.DFVal.NOTHING
   export core.<>
   export core.X
-  export core.OPEN
   export core.Process.Ops.*
 
   type ClkCfg = core.ClkCfg

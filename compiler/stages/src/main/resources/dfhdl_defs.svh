@@ -1,4 +1,4 @@
-//  This file (dfhdl_defs.svh/dfhdl_defs.v) is free and unencumbered software 
+//  This file (dfhdl_defs.svh) is free and unencumbered software 
 //  released into the public domain.
 //
 //  Anyone is free to copy, modify, publish, use, compile, sell, or

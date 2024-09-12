@@ -45,7 +45,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "ID_defs.svh"
          |
          |module ID(
-         |  input  wire logic signed [15:0] x,
+         |  input  logic signed [15:0] x,
          |  output logic signed [15:0] y,
          |  output logic signed [15:0] y2
          |);
@@ -66,7 +66,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.svh"
          |
          |module ID(
-         |  input  wire logic signed [15:0] x,
+         |  input  logic signed [15:0] x,
          |  output logic signed [15:0] y,
          |  output logic signed [15:0] y2
          |);
@@ -80,7 +80,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.svh"
          |
          |module IDTop(
-         |  input  wire logic signed [15:0] x,
+         |  input  logic signed [15:0] x,
          |  output logic signed [15:0] y
          |);
          |  logic signed [15:0] id1_x;
@@ -128,7 +128,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.svh"
          |
          |module ID#(parameter int width)(
-         |  input  wire logic signed [width - 1:0] x,
+         |  input  logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
          |  assign y = x;
@@ -140,13 +140,82 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.svh"
          |
          |module IDTop#(parameter int width = 16)(
-         |  input  wire logic signed [width - 1:0] x,
+         |  input  logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
          |  logic signed [width - 1:0] id1_x;
          |  logic signed [width - 1:0] id1_y;
          |  logic signed [width - 1:0] id2_x;
          |  logic signed [width - 1:0] id2_y;
+         |  ID #(
+         |    .width (width)
+         |  ) id1(
+         |    .x /*<--*/ (id1_x),
+         |    .y /*-->*/ (id1_y)
+         |  );
+         |  ID #(
+         |    .width (width)
+         |  ) id2(
+         |    .x /*<--*/ (id2_x),
+         |    .y /*-->*/ (id2_y)
+         |  );
+         |  assign id1_x = x;
+         |  assign id2_x = id1_y;
+         |  assign y = id2_y;
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Basic hierarchy design with parameters verilog.v95") {
+    given options.CompilerOptions.Backend = backends.verilog.v95
+    class ID(val width: Int <> CONST) extends DFDesign:
+      val x = SInt(width) <> IN
+      val y = SInt(width) <> OUT
+      y := x
+
+    class IDTop(val width: Int <> CONST) extends DFDesign:
+      val x   = SInt(width) <> IN
+      val y   = SInt(width) <> OUT
+      val id1 = ID(width)
+      val id2 = ID(width)
+      id1.x <> x
+      id1.y <> id2.x
+      id2.y <> y
+    val top = (new IDTop(16)).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.vh"
+         |`include "IDTop_defs.vh"
+         |
+         |module ID(
+         |  x,
+         |  y
+         |);
+         |  parameter integer width = width;
+         |  input  wire [width - 1:0] x;
+         |  output wire [width - 1:0] y;
+         |  assign y = x;
+         |endmodule
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.vh"
+         |`include "IDTop_defs.vh"
+         |
+         |module IDTop(
+         |  x,
+         |  y
+         |);
+         |  parameter integer width = 16;
+         |  input  wire [width - 1:0] x;
+         |  output wire [width - 1:0] y;
+         |  wire [width - 1:0] id1_x;
+         |  wire [width - 1:0] id1_y;
+         |  wire [width - 1:0] id2_x;
+         |  wire [width - 1:0] id2_y;
          |  ID #(
          |    .width (width)
          |  ) id1(
@@ -184,7 +253,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "ParamTest_defs.svh"
          |
          |module ParamTest#(parameter logic dp = 1'b1)(
-         |  input  wire logic x,
+         |  input  logic x,
          |  output logic y
          |);
          |  parameter logic lp = 1'b1;
@@ -228,10 +297,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Top_defs.svh"
          |
          |module Top(
-         |  input  wire logic        clk,
-         |  input  wire logic        rst,
-         |  input  wire logic [15:0] x,
-         |  output      logic [15:0] y
+         |  input  logic        clk,
+         |  input  logic        rst,
+         |  input  logic [15:0] x,
+         |  output logic [15:0] y
          |);
          |  parameter logic [15:0] c = 16'h0000;
          |  logic [15:0] z;
@@ -289,7 +358,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  } t_struct_DFTuple2;
          |  parameter logic c01 = 1'b0;
          |  parameter logic c02 = 1'b1;
-         |  parameter logic c03 = 1'bx;
+         |  parameter logic c03 = 1'b?;
          |  parameter logic c04 = 0;
          |  parameter logic c05 = 1;
          |  parameter logic [7:0] c06 = 8'h22;
@@ -299,8 +368,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter logic [47:0] c10 = 48'd239794508230343;
          |  parameter logic signed [3:0] c11 = -4'sd8;
          |  parameter logic signed [48:0] c12 = -49'sd239794508230343;
-         |  parameter logic [7:0] c13 = 8'hxx;
-         |  parameter logic signed [7:0] c14 = $signed(8'hxx);
+         |  parameter logic [7:0] c13 = 8'h??;
+         |  parameter logic signed [7:0] c14 = $signed(8'h??);
          |  parameter t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
          |  parameter logic [7:0] c16 [0:6] [0:4] = '{
          |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
@@ -344,7 +413,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module HasDocs(
          |  /* My in */
-         |  input  wire logic x,
+         |  input  logic x,
          |  /* My Out
          |    */
          |  output logic y
@@ -371,8 +440,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Counter_defs.svh"
          |
          |module Counter#(parameter int width = 8)(
-         |  input  wire logic clk,
-         |  input  wire logic rst,
+         |  input  logic clk,
+         |  input  logic rst,
          |  output logic [width - 1:0] cnt
          |);
          |  logic [width - 1:0] cnt_reg;
@@ -442,8 +511,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Counter_defs.svh"
          |
          |module Counter#(parameter int width = 8)(
-         |  input  wire logic clk,
-         |  input  wire logic rst,
+         |  input  logic clk,
+         |  input  logic rst,
          |  output logic [width - 1:0] cnt
          |);
          |  logic [width - 1:0] cnt_reg;
@@ -487,8 +556,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    parameter int CLK_FREQ_KHz = 50000,
          |    parameter int LED_FREQ_Hz = 1
          |)(
-         |  input  wire logic clk,
-         |  input  wire logic rst,
+         |  input  logic clk,
+         |  input  logic rst,
          |  /* LED output */
          |  output logic led
          |);
@@ -527,9 +596,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "IDTop_defs.svh"
          |
          |module IDTop(
-         |  input  wire logic clk,
-         |  input  wire logic rst,
-         |  input  wire logic signed [15:0] x,
+         |  input  logic clk,
+         |  input  logic rst,
+         |  input  logic signed [15:0] x,
          |  output logic signed [15:0] y
          |);
          |  always_ff @(posedge clk)
@@ -554,7 +623,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       val up3: UInt[8] <> CONST = cp.sel(up1, up2)
       y1 := c.sel(x1, x2)
       y1 := c.sel(x1, all(0))
-      y1 := c.sel(Bits(8))(all(0), x2)
+      y1 := c.sel(all(0), x2)
     val id = (new SelOp).getCompiledCodeString
     assertNoDiff(
       id,
@@ -564,9 +633,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "SelOp_defs.svh"
          |
          |module SelOp(
-         |  input  wire logic c,
-         |  input  wire logic [7:0] x1,
-         |  input  wire logic [7:0] x2,
+         |  input  logic c,
+         |  input  logic [7:0] x1,
+         |  input  logic [7:0] x2,
          |  output logic [7:0] y1
          |);
          |  parameter logic cp = 1;
@@ -596,6 +665,99 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |module Empty;
          |
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("HighZ assignment") {
+    class HighZ extends RTDesign:
+      val x = Bits(8) <> IN
+      val y = Bits(8) <> OUT
+      if (x.|) y := x
+      else y     := NOTHING
+    val top = (new HighZ).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
+         |`include "HighZ_defs.svh"
+         |
+         |module HighZ(
+         |  input  logic [7:0] x,
+         |  output logic [7:0] y
+         |);
+         |  always_comb
+         |  begin
+         |    if (|x) y = x;
+         |    else y = 8'bz;
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Wildcards and don't cares") {
+    class Foo extends RTDesign:
+      val num = 16
+      val x   = Bits(num) <> IN init all(0)
+      val y   = Bits(num) <> OUT
+      x match
+        case h"12??" | h"345?" => y := h"22??"
+        case _                 => y := all(1)
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.svh"
+         |`include "Foo_defs.svh"
+         |
+         |module Foo(
+         |  input  logic [15:0] x,
+         |  output logic [15:0] y
+         |);
+         |  always_comb
+         |  begin
+         |    case (x) inside
+         |      16'h12??, 16'h345?: y = 16'h22??;
+         |      default: y = 16'hffff;
+         |    endcase
+         |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Wildcards and don't cares under verilog.v95") {
+    given options.CompilerOptions.Backend = backends.verilog.v95
+    class Foo extends RTDesign:
+      val num = 16
+      val x   = Bits(num) <> IN init all(0)
+      val y   = Bits(num) <> OUT
+      x match
+        case h"12??" | h"345?" => y := h"22??"
+        case _                 => y := all(1)
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "dfhdl_defs.vh"
+         |`include "Foo_defs.vh"
+         |
+         |module Foo(
+         |  x,
+         |  y
+         |);
+         |  input  wire [15:0] x;
+         |  output reg [15:0] y;
+         |  always @(x)
+         |  begin
+         |    if ((x[15:8] == 8'h12) | (x[15:4] == 12'h345)) y = 16'h22??;
+         |    else y = 16'hffff;
+         |  end
          |endmodule
          |""".stripMargin
     )

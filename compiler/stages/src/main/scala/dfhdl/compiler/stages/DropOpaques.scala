@@ -5,6 +5,7 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
 import scala.collection.immutable.ListMap
+import dfhdl.compiler.stages.verilog.VerilogDialect
 
 /** This stage drops all opaque types that fit within the applied filter predicate.
   * @param filterPred
@@ -88,7 +89,14 @@ case object DropUserOpaques
       case _                                    => true
     }),
       NoCheckStage:
-  override def runCondition(using co: CompilerOptions): Boolean = co.dropUserOpaques
+  override def runCondition(using co: CompilerOptions): Boolean =
+    val unsupportedInBackend = co.backend match
+      case be: dfhdl.backends.verilog =>
+        be.dialect match
+          case VerilogDialect.v95 | VerilogDialect.v2001 => true
+          case _                                         => false
+      case _ => false
+    co.dropUserOpaques || unsupportedInBackend
 
 extension [T: HasDB](t: T)
   def dropOpaques(using CompilerOptions): DB =

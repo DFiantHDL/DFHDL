@@ -119,7 +119,7 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
         Determines what kind of access the user has on the value. User explicit modifiers:
         
         * [Variable: `VAR[.REG][.SHARED]`][Dcl]
-        * [Port: `IN`/`OUT[.REG]`/`INOUT[.REG]`][Dcl]
+        * [Port: `IN`/`OUT[.REG]`/`INOUT`][Dcl]
         * [Constant: `CONST`][DFConst]
         * [Struct Field: `VAL`][DFStruct]
         * [Method Param: `VAL`][DesignDef]
@@ -155,8 +155,8 @@ val _name_ = _dftype_ <> _modifier_ [init _const_]
     * `VAR` - to construct a variable
     * `IN` - to construct an input port
     * `OUT` - to construct an output port
-    * `INOUT` - to construct an input-output port
-    * `VAR.REG` / `OUT.REG` / `INOUT.REG` - to construct a registered variable/port (available only in RT domains) 
+    * `INOUT` - to construct a bidirectional input-output port
+    * `VAR.REG` / `OUT.REG` - to construct a registered variable or output port (available only in RT domains) 
     * `VAR.SHARED` - to construct a shared variable that can be assigned in more than one domain (this feature is to be used scarcely, to model unique designs like [True Dual-Port RAM][true-dpr])
 * __`init`__ is an optional construct to initialize the DFHDL variable/port declaration history with the applied `_const_` value.
 * __`_const_`__ is the [state history][state] initialization value or sequence of initialization values as a [Scala Tuple](https://docs.scala-lang.org/tour/tuples.html){target="_blank"}. This value must be a [constant][DFConst] that is supported by the DFType `_dftype_`.
@@ -180,8 +180,7 @@ class Foo extends DFDesign:
 #### Scope 
 * Variables can be declared in any DFHDL scope, except global scope, meaning within DFHDL designs, domains, interfaces, methods, processes, and conditional blocks.
 ```scala
-//error: global variables are not 
-//allowed
+//error: Port/Variable declarations cannot be global
 val x = Bit <> VAR 
 class Foo extends DFDesign:
   val o = Bit <> OUT
@@ -192,8 +191,7 @@ class Foo extends DFDesign:
 class Foo extends DFDesign:
   val i = Boolean <> IN
   if (i)
-    //error: cannot create a port in a 
-    //DFHDL condition
+    //error: Ports can only be directly owned by a design, a domain or an interface.
     val o = Bit <> OUT 
     o := 0
 ```
@@ -214,18 +212,91 @@ As you'll read later on, constants and other values can be anonymous.
 Ports and variables are connectable, meaning they can be the receiving (drain/consumer) end of a [connection][connection] `<>` operation. 
 For input ports this occurs outside their design scope, while connecting to an external value. 
 For output ports and variables this occurs only within their design scope, while connecting to an internal value.
+```scala
+class ID extends DFDesign:
+  val x = Bit <> IN
+  val y = Bit <> OUT
+  y <> x //connecting x to y
+```
 
 #### Assignable (Mutable)
-Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). Registered ports and variables are assignable only when referencing their registers' input via `.din` selection.
+Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). Registered ports and variables are assignable only when referencing their registers' input via `.din` selection (referencing a register without `.din` is always considered to be its output, which is immutable). 
+
+Assignment semantics are a key difference between the different design domains DFHDL has to offer. Here are some basic examples:
+```scala
+class Foo1 extends DFDesign:
+  val x = Bit <> IN
+  val y = Bit <> OUT
+  //dataflow assignment of x to y
+  y := x
+
+class Foo2 extends RTDesign:
+  val x  = Bit <> IN
+  val y1 = Bit <> OUT
+  val y2 = Bit <> OUT.REG
+  //wire assignment of x to y1
+  y1     := x 
+  //registered assignment of x to y2
+  y2.din := x 
+
+class Foo3 extends EDDesign:
+  val clk = Bit <> IN
+  val x   = Bit <> IN
+  val y1  = Bit <> OUT
+  val y2  = Bit <> OUT
+  process(all):
+    //blocking assignment of x to y1
+    y1 := x 
+  process(clk):
+    if (clk.rising)
+      //non-blocking assignment of x to y2
+      y2 :== x 
+
+class Errors1 extends RTDesign:
+  val x  = Bit <> IN
+  val y1 = Bit <> OUT.REG
+  val y2 = Bit <> OUT
+  //error: Cannot assign to an immutable value.
+  x  := 1
+  //error: Cannot assign to a register output; it is immutable.
+  //To assign to the register's input, apply `.din` on the LHS argument of the assignment.
+  y1 := x
+  //error: Non-blocking assignments `:==` are allowed only inside an event-driven (ED) domain.
+  //Change the assignment to a regular assignment `:=` or the logic domain to ED.
+  y2 :== x
+
+class Errors2 extends EDDesign:
+  val x = Bit <> IN
+  val y = Bit <> OUT
+  //error: Blocking assignments `:=` are only allowed inside a process under an event-driven (ED) domain.
+  //Change the assignment to a connection `<>` or place it in a process.
+  y := x
+  //error: Non-blocking assignments `:==` are only allowed inside a process under an event-driven (ED) domain.
+  //Change the assignment to a connection `<>` or place it in a process.
+  y :== x
+```
+Be sure to read more on assignment rules and semantics in the [assignment][assignment] section.
 
 #### Not Constant
-Ports and variables are never considered to be constant (even when connected/assigned only once and to a constant value) for elaboration. Later compilation stages can apply further constant propagation steps that reduce logic utilization.
-
+Ports and variables are never considered to be [constant][DFConst] (even when connected/assigned only once and to a constant value) for elaboration. Later compilation stages can apply further constant propagation steps that reduce logic utilization.
+```scala
+class Errors extends DFDesign:
+  val x  = Bit <> VAR
+  x := 1
+  val c: Bit <> CONST = 1
+  // error: Not a constant
+  val e: Bit <> CONST = x
+```
 #### `INOUT` Port Limitation
-`INOUT` (bidirectional) ports are generally used to define IO pins of top-level device connectivity (e.g., protocols like [I<sup>2</sup>C](https://en.wikipedia.org/wiki/I%C2%B2C){target="_blank"} benefit from such ability). They are not meant for inter-device wiring reduction, and thus should be used scarcely within their intended purpose. Throughout the years they were also used to workaround HDL limitations like reading from output ports in VHDL'93, or lack of [interfaces][interfaces]. Since DFHDL has none of these limitation, we encourage you to use `INOUT` for their intended purpose only, as synthesis tools for FPGAs and even ASICs will not cooperate. Although, theoretically, in DF domain we can enable bidirectional communication that can later be compiled into two separate ports, there is no real value behind this.
+`INOUT` (bidirectional) ports are generally used to define IO pins of top-level device connectivity (e.g., protocols like [I<sup>2</sup>C](https://en.wikipedia.org/wiki/I%C2%B2C){target="_blank"} benefit from such ability). They are not meant for inter-device wiring reduction, and thus should be used scarcely within their intended purpose. Throughout the years they were also used to workaround HDL limitations like reading from output ports in VHDL'93, or lack of [interfaces][interfaces]. Since DFHDL has none of these limitations, we encourage you to use `INOUT` for their intended purpose only, as synthesis tools for FPGAs and even ASICs will not cooperate. Although, theoretically, in DF domain we can enable bidirectional communication that can later be compiled into two separate ports, there is no real value behind this.
+```scala
+class I2CCore extends EDDesign:
+  val scl = Bit <> INOUT
+  val sda = Bit <> INOUT
+```
 
 #### Grouping
-Ports can also be grouped together in a dedicated [interface [wip]][interfaces].
+Ports can be grouped together in dedicated [interfaces][interfaces].
 
 ### Transitioning {#Dcl-transitioning}
 ??? rtl "Differences from Verilog"
