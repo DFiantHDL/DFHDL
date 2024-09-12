@@ -36,7 +36,7 @@ object Verilator extends VerilogLinter:
         throw new java.lang.IllegalArgumentException(
           "Current backend is not supported for Verilator linting."
         )
-    s"-Wall${lo.warnAsError.toFlag("--Werror")} --default-language $language "
+    s"--quiet-stats -Wall${lo.warnAsError.toFlag("--Werror")} --default-language $language "
   end commonFlags
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
     // We use `forceWindowsToLinuxPath` fit the verilator needs
