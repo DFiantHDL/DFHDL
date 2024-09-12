@@ -36,12 +36,17 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
   def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
   def csDFValDclEnd(dfVal: Dcl): String = ""
+  val allowDoubleStarPowerSyntax: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 => false
+      case _                  => true
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     def commonOpStr: String =
       dfVal.op match
-        case Func.Op.max => "`MAX"
-        case Func.Op.min => "`MIN"
-        case op          => op.toString()
+        case Func.Op.max                               => "`MAX"
+        case Func.Op.min                               => "`MIN"
+        case Func.Op.** if !allowDoubleStarPowerSyntax => "power"
+        case op                                        => op.toString()
     dfVal.args match
       // boolean sel function
       case cond :: onTrue :: onFalse :: Nil if dfVal.op == Func.Op.sel =>
@@ -56,8 +61,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       // infix func
       case argL :: argR :: Nil if dfVal.op != Func.Op.++ =>
         val isInfix = dfVal.op match
-          case Func.Op.max | Func.Op.min => false
-          case _                         => true
+          case Func.Op.max | Func.Op.min                 => false
+          case Func.Op.** if !allowDoubleStarPowerSyntax => false
+          case _                                         => true
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
           case Func.Op.=!= => "!="
@@ -66,10 +72,26 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               case DFSInt(_) => ">>>"
               case _         => ">>"
           case _ => commonOpStr
-        if (isInfix)
-          s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"
-        else
-          s"$opStr(${argL.refCodeString}, ${argR.refCodeString})"
+        (argL.get.dfType, dfVal.op) match
+          case (
+                DFSInt(widthRef),
+                op @ (Func.Op.> | Func.Op.< | Func.Op.>= | Func.Op.<= | Func.Op.>>)
+              ) if !printer.allowSignedKeywordAndOps =>
+            val csWidth = widthRef.refCodeString
+            val csArgL = argL.refCodeString
+            val csArgR = argR.refCodeString
+            val opStr = op match
+              case Func.Op.>  => "SIGNED_GREATER_THAN"
+              case Func.Op.<  => "SIGNED_LESS_THAN"
+              case Func.Op.>= => "SIGNED_GREATER_EQUAL"
+              case Func.Op.<= => "SIGNED_LESS_EQUAL"
+              case Func.Op.>> => "SIGNED_SHIFT_RIGHT"
+            s"`$opStr($csArgL, $csArgR, $csWidth)"
+          case _ if (isInfix) =>
+            s"${argL.refCodeString.applyBrackets()} $opStr ${argR.refCodeString.applyBrackets()}"
+          case _ =>
+            s"$opStr(${argL.refCodeString}, ${argR.refCodeString})"
+        end match
       // unary/postfix func
       case arg :: Nil =>
         val argStr = arg.refCodeString
@@ -121,7 +143,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         relValStr
       case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
         assert(tWidth == fWidth + 1)
-        s"$$signed({1'b0, $relValStr})"
+        val extended = s"{1'b0, $relValStr}"
+        if (printer.allowSignedKeywordAndOps) s"$$signed($extended)"
+        else extended
       case (DFUInt(Int(tWidth)), DFBits(Int(fWidth))) =>
         assert(tWidth == fWidth)
         relValStr
@@ -130,7 +154,8 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         relValStr
       case (DFSInt(Int(tWidth)), DFBits(Int(fWidth))) =>
         assert(tWidth == fWidth)
-        s"$$signed($relValStr)"
+        if (printer.allowSignedKeywordAndOps) s"$$signed($relValStr)"
+        else relValStr
       case (DFBits(tr @ Int(tWidth)), DFBits(fr @ Int(fWidth))) =>
         if (tWidth == fWidth) relValStr
         else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tr.uboundCS}:0]"

@@ -28,6 +28,20 @@
 `define DFHDL_DEFS
 `define MAX(a,b) ((a) > (b) ? (a) : (b))
 `define MIN(a,b) ((a) < (b) ? (a) : (b))
+`define SIGNED_GREATER_THAN(a, b, width)  \
+    ((a[width-1] && !b[width-1]) ? 1'b0 : /* a is negative, b is positive */ \
+     (!a[width-1] && b[width-1]) ? 1'b1 : /* a is positive, b is negative */ \
+     (a > b))                          /* both are same sign */
+`define SIGNED_LESS_THAN(a, b, width)  \
+    ((a[width-1] && !b[width-1]) ? 1'b1 : /* a is negative, b is positive */ \
+     (!a[width-1] && b[width-1]) ? 1'b0 : /* a is positive, b is negative */ \
+     (a < b))                          /* both are same sign */
+`define SIGNED_GREATER_EQUAL(a, b, width) \
+     (`SIGNED_GREATER_THAN(a, b, width) || a != b)
+ `define SIGNED_LESS_EQUAL(a, b, width)   \
+    (`SIGNED_LESS_THAN(a, b, width) || a == b)
+`define SIGNED_SHIFT_RIGHT(data, shift, width) \
+    ((data[width-1] == 1'b1) ? ((data >> shift) | ({width{1'b1}} << (width - shift))) : (data >> shift))
 function integer clog2;
 input integer n;
 integer result;
@@ -39,6 +53,22 @@ begin
     result = result + 1;
   end
   clog2 = result;
+end
+endfunction
+// Function to perform base raised to the power of exp (base ** exp)
+function integer power;
+input integer base;
+input integer exp;
+integer i;  // Loop variable
+begin
+  if (exp == 0) begin
+    power = 1;
+  end else begin
+    power = 1;  
+    for (i = 0; i < exp; i = i + 1) begin
+      power = power * base;
+    end
+  end
 end
 endfunction
 `endif

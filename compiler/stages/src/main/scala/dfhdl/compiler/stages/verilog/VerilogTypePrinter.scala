@@ -13,13 +13,13 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
-  val signedKeywordIsSupported: Boolean =
+  val allowSignedKeywordAndOps: Boolean =
     printer.dialect match
       case VerilogDialect.v95 => false
       case _                  => true
   def csDFDecimal(dfType: DFDecimal, typeCS: Boolean): String =
     import dfType.*
-    val signedKeyword = if (signedKeywordIsSupported) "signed " else ""
+    val signedKeyword = if (allowSignedKeywordAndOps) "signed " else ""
     (signed, fractionWidth) match
       case (false, 0) => s"logic [${dfType.widthParamRef.uboundCS}:0]"
       case (true, 0) =>
