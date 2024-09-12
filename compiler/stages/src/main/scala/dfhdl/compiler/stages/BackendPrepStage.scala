@@ -4,6 +4,6 @@ case object BackendPrepStage
     extends BundleStage(
       DropUserOpaques, BreakOpsNoAssignments, DropUnreferencedAnons, NamedAnonMultiref,
       NamedVerilogSelection, ToED, MatchToIf, DropDomains, DropMagnets, VHDLProcToVerilog,
-      ExplicitNamedVars, DropLocalDcls, DropBAssignFromSeqProc, DropProcessAll, SimpleOrderMembers,
-      ViaConnection
+      ExplicitNamedVars, DropLocalDcls, DropOutportRead, DropBAssignFromSeqProc, DropProcessAll,
+      SimpleOrderMembers, ViaConnection
     )
