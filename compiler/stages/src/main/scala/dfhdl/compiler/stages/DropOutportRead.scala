@@ -20,26 +20,25 @@ case object DropOutportRead extends Stage:
           case _               => false
       case _ => false
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
-    val patchList: List[(DFMember, Patch)] =
-      designDB.members.view
-        .flatMap {
-          // go through all output ports that are read from within their design
-          case port @ DclOut() if port.getReadDeps.exists(_.isSameOwnerDesignAs(port)) =>
-            val dsn = new MetaDesign(
-              port,
-              Patch.Add.Config.ReplaceWithFirst(
-                Patch.Replace.Config.ChangeRefOnly,
-                Patch.Replace.RefFilter.Inside(port.getOwnerDesign)
-              )
-            ):
-              val port_sig = port.asDclAny.genNewVar(using
-                dfc.setMeta(port.meta.setName(s"${port.getName}_sig"))
-              )
-              port_sig.asDclAny <> port.asValAny
-            Some(dsn.patch)
-          case _ => None
-        }
-        .toList
+    val patchList: List[(DFMember, Patch)] = designDB.members.collect {
+      // go through all output ports that are read from within their design
+      case port @ DclOut() if port.getReadDeps.exists(_.isSameOwnerDesignAs(port)) =>
+        val dsn = new MetaDesign(
+          port,
+          // replacing the output port references only within the design
+          Patch.Add.Config.ReplaceWithFirst(
+            Patch.Replace.Config.ChangeRefOnly,
+            Patch.Replace.RefFilter.Inside(port.getOwnerDesign)
+          )
+        ):
+          // generate new intermediate variable
+          val port_sig = port.asDclAny.genNewVar(using
+            dfc.setMeta(port.meta.setName(s"${port.getName}_sig"))
+          )
+          // connect it
+          port_sig.asDclAny <> port.asValAny
+        dsn.patch
+    }
     designDB.patch(patchList)
   end transform
 end DropOutportRead
