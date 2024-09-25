@@ -100,18 +100,18 @@ class DFVectorSpec extends DFSpec:
       )(
         """val v7: UInt[4] X 0 <> CONST = all(0)"""
       )
-      assertRuntimeError(
+      assertRuntimeErrorLog(
         "The vector length must be positive but found: 0"
       ) {
         val v7: UInt[4] X zero.type <> CONST = all(0)
       }
       val zeroP: Int <> CONST = 0
-      assertRuntimeError(
+      assertRuntimeErrorLog(
         "The vector length must be positive but found: 0"
       ) {
         val v7: UInt[4] X zeroP.type <> CONST = all(0)
       }
-      assertRuntimeError(
+      assertRuntimeErrorLog(
         "The vector length must be positive but found: 0"
       ) {
         val v7: UInt[4] X zeroP.type X 5 <> CONST = all(all(0))

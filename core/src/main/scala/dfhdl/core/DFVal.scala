@@ -158,6 +158,7 @@ def DFValConversionMacro[T <: DFTypeAny, P, R](
   if (TypeRepr.of[P] =:= TypeRepr.of[CONST] && nonConstTermOpt.nonEmpty)
     nonConstTermOpt.get.compiletimeErrorPosExpr("Applied argument must be a constant.")
   else
+    val tStr = Expr(s"implicit conversion to type ${TypeRepr.of[T].showDFType}")
     '{
       import DFStruct.apply
       given bitsNoType: DFBits[Int] = DFNothing.asInstanceOf[DFBits[Int]]
@@ -165,10 +166,10 @@ def DFValConversionMacro[T <: DFTypeAny, P, R](
       given sintNoType: DFSInt[Int] = DFNothing.asInstanceOf[DFSInt[Int]]
       val tc = compiletime.summonInline[DFVal.TC[T, fromExactInfo.Underlying]]
       val dfc = compiletime.summonInline[DFC]
-      val dfType = compiletime.summonInline[T]
       trydf {
+        val dfType = compiletime.summonInline[T]
         tc(dfType, ${ fromExactInfo.exactExpr })(using dfc).asValTP[T, P]
-      }(using dfc, compiletime.summonInline[CTName])
+      }(using dfc, CTName($tStr))
     }
   end if
 end DFValConversionMacro
