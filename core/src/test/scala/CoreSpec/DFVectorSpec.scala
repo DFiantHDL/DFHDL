@@ -151,7 +151,7 @@ class DFVectorSpec extends DFSpec:
       }
       assertRuntimeErrorLog(
         """|Init file error detected in VerilogHex formatted bits8x4.bin:0
-           |Invalid data width detected (expected 8 but found 17): 00011000
+           |Invalid data width detected (expected 8 bits but found 17 bits): 00011000
            |""".stripMargin
       ) {
         val v1 = Bits(8) X 4 <> VAR initFile ("bits8x4.bin", InitFileFormat.VerilogHex)
