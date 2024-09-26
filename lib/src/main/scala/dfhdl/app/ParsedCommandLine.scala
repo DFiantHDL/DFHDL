@@ -1,7 +1,7 @@
 package dfhdl.app
 
 import org.rogach.scallop.*
-import dfhdl.options.{CompilerOptions, ElaborationOptions, AppOptions}
+import dfhdl.options.{CompilerOptions, ElaborationOptions, LinterOptions, AppOptions}
 import AppOptions.DefaultMode
 import dfhdl.internals.scastieIsRunning
 import dfhdl.internals.sbtShellIsRunning
@@ -14,6 +14,7 @@ class ParsedCommandLine(
 )(using
     eo: ElaborationOptions,
     co: CompilerOptions,
+    lo: LinterOptions,
     ao: AppOptions
 ) extends ScallopConf(commandArgs.toSeq):
   sealed abstract class Mode(val modeOption: DefaultMode, modeDesc: String)

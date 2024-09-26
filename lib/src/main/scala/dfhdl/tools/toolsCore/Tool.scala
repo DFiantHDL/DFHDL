@@ -70,20 +70,12 @@ trait Tool:
 end Tool
 
 trait Linter extends Tool:
-  type LO <: LinterOptions
-  def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, LO): CompiledDesign[D]
-trait VerilogLinterOptions extends LinterOptions
-trait VerilogLinter extends Linter:
-  type LO <: VerilogLinterOptions
-object VerilogLinter:
-  // default verilog linter will be verilator
-  export dfhdl.tools.linters.verilator
-trait VHDLLinterOptions extends LinterOptions
-trait VHDLLinter extends Linter:
-  type LO <: VHDLLinterOptions
-object VHDLLinter:
-  // default vhdl linter will be ghdl
-  export dfhdl.tools.linters.ghdl
+  def lint[D <: Design](
+      cd: CompiledDesign[D]
+  )(using CompilerOptions, LinterOptions): CompiledDesign[D]
+trait VerilogLinter extends Linter
+
+trait VHDLLinter extends Linter
 
 trait Builder extends Tool:
   type BO <: BuilderOptions

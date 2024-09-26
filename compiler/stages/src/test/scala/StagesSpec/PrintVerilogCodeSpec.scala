@@ -41,7 +41,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       id,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "ID_defs.svh"
          |
          |module ID(
@@ -49,6 +48,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic signed [15:0] y,
          |  output logic signed [15:0] y2
          |);
+         |  `include "dfhdl_defs.svh"
          |  assign y = x;
          |  assign y2 = x;
          |endmodule
@@ -62,7 +62,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module ID(
@@ -70,19 +69,20 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic signed [15:0] y,
          |  output logic signed [15:0] y2
          |);
+         |  `include "dfhdl_defs.svh"
          |  assign y = x;
          |  assign y2 = x;
          |endmodule
          |
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module IDTop(
          |  input  logic signed [15:0] x,
          |  output logic signed [15:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  logic signed [15:0] id1_x;
          |  logic signed [15:0] id1_y;
          |  logic signed [15:0] id2_x;
@@ -124,25 +124,25 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module ID#(parameter int width)(
          |  input  logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  assign y = x;
          |endmodule
          |
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module IDTop#(parameter int width = 16)(
          |  input  logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  logic signed [width - 1:0] id1_x;
          |  logic signed [width - 1:0] id1_y;
          |  logic signed [width - 1:0] id2_x;
@@ -187,13 +187,13 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.vh"
          |`include "IDTop_defs.vh"
          |
          |module ID(
          |  x,
          |  y
          |);
+         |  `include "dfhdl_defs.vh"
          |  parameter integer width = width;
          |  input  wire [width - 1:0] x;
          |  output wire [width - 1:0] y;
@@ -202,13 +202,13 @@ class PrintVerilogCodeSpec extends StageSpec:
          |
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.vh"
          |`include "IDTop_defs.vh"
          |
          |module IDTop(
          |  x,
          |  y
          |);
+         |  `include "dfhdl_defs.vh"
          |  parameter integer width = 16;
          |  input  wire [width - 1:0] x;
          |  output wire [width - 1:0] y;
@@ -249,13 +249,13 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|parameter logic gp = 1'b1;
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "ParamTest_defs.svh"
          |
          |module ParamTest#(parameter logic dp = 1'b1)(
          |  input  logic x,
          |  output logic y
          |);
+         |  `include "dfhdl_defs.svh"
          |  parameter logic lp = 1'b1;
          |  assign y = ((x | gp) | dp) | lp;
          |endmodule
@@ -293,7 +293,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Top_defs.svh"
          |
          |module Top(
@@ -302,6 +301,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input  logic [15:0] x,
          |  output logic [15:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  parameter logic [15:0] c = 16'h0000;
          |  logic [15:0] z;
          |  logic [15:0] my_var;
@@ -348,10 +348,10 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Top_defs.svh"
          |
          |module Top;
+         |  `include "dfhdl_defs.svh"
          |  typedef struct packed {
          |    logic [2:0] _1;
          |    logic _2;
@@ -408,7 +408,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|/* HasDocs has docs */
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "HasDocs_defs.svh"
          |
          |module HasDocs(
@@ -418,6 +417,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    */
          |  output logic y
          |);
+         |  `include "dfhdl_defs.svh"
          |  /* My very very very very very very very very very very very very very very very very very
          |     very very very very very very very very very very very very very very very very very very
          |     very very very very very very very very very very long doc
@@ -436,7 +436,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Counter_defs.svh"
          |
          |module Counter#(parameter int width = 8)(
@@ -444,6 +443,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input  logic rst,
          |  output logic [width - 1:0] cnt
          |);
+         |  `include "dfhdl_defs.svh"
          |  logic [width - 1:0] cnt_reg;
          |  always_ff @(posedge clk)
          |  begin
@@ -474,7 +474,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Test_defs.svh"
          |
          |module Test#(parameter int width = 10)(
@@ -483,6 +482,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [$clog2(width) - 1:0] z,
          |  output logic [$clog2(width + 1) - 1:0] w
          |);
+         |  `include "dfhdl_defs.svh"
          |  always_comb
          |  begin
          |    x = {{(width-2){1'b0}}, 2'h3};
@@ -507,7 +507,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Counter_defs.svh"
          |
          |module Counter#(parameter int width = 8)(
@@ -515,6 +514,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input  logic rst,
          |  output logic [width - 1:0] cnt
          |);
+         |  `include "dfhdl_defs.svh"
          |  logic [width - 1:0] cnt_reg;
          |  always_ff @(posedge clk)
          |  begin
@@ -549,7 +549,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|/* This is a led blinker */
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Blinker_defs.svh"
          |
          |module Blinker#(
@@ -561,6 +560,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  /* LED output */
          |  output logic led
          |);
+         |  `include "dfhdl_defs.svh"
          |  /* Half-count of the toggle for 50% duty cycle */
          |  parameter int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
          |  logic [$clog2(HALF_PERIOD) - 1:0] cnt;
@@ -592,7 +592,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module IDTop(
@@ -601,6 +600,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input  logic signed [15:0] x,
          |  output logic signed [15:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) y <= 16'sd0;
@@ -629,7 +629,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       id,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "SelOp_defs.svh"
          |
          |module SelOp(
@@ -638,6 +637,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  input  logic [7:0] x2,
          |  output logic [7:0] y1
          |);
+         |  `include "dfhdl_defs.svh"
          |  parameter logic cp = 1;
          |  parameter logic [7:0] up1 = 8'd11;
          |  parameter logic [7:0] up2 = 8'd22;
@@ -660,10 +660,10 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Empty_defs.svh"
          |
          |module Empty;
+         |  `include "dfhdl_defs.svh"
          |
          |endmodule
          |""".stripMargin
@@ -681,13 +681,13 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "HighZ_defs.svh"
          |
          |module HighZ(
          |  input  logic [7:0] x,
          |  output logic [7:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  always_comb
          |  begin
          |    if (|x) y = x;
@@ -711,13 +711,13 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Foo_defs.svh"
          |
          |module Foo(
          |  input  logic [15:0] x,
          |  output logic [15:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  always_comb
          |  begin
          |    case (x) inside
@@ -744,13 +744,13 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.vh"
          |`include "Foo_defs.vh"
          |
          |module Foo(
          |  x,
          |  y
          |);
+         |  `include "dfhdl_defs.vh"
          |  input  wire [15:0] x;
          |  output reg [15:0] y;
          |  always @(x)

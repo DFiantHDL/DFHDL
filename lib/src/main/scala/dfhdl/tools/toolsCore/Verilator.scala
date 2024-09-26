@@ -4,7 +4,7 @@ import dfhdl.backends
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, VerilatorOptions, ToolOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
@@ -13,7 +13,6 @@ import java.io.File.separatorChar
 import dfhdl.compiler.stages.verilog.VerilogDialect
 
 object Verilator extends VerilogLinter:
-  type LO = VerilatorOptions
   val toolName: String = "Verilator"
   protected def binExec: String = "verilator"
   override protected def windowsBinExec: String = "verilator_bin.exe"
@@ -22,7 +21,7 @@ object Verilator extends VerilogLinter:
     val versionPattern = """Verilator\s+(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
-  def commonFlags(using co: CompilerOptions, lo: LO): String =
+  def commonFlags(using co: CompilerOptions, lo: LinterOptions): String =
     val language = co.backend match
       case be: backends.verilog =>
         be.dialect match
@@ -79,7 +78,9 @@ object Verilator extends VerilogLinter:
       cd,
       List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
     )
-  def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, LO): CompiledDesign[D] =
+  def lint[D <: Design](
+      cd: CompiledDesign[D]
+  )(using CompilerOptions, LinterOptions): CompiledDesign[D] =
     exec(
       cd,
       s"--lint-only $commonFlags ${filesCmdPart(cd)}"

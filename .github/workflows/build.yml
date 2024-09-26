@@ -23,10 +23,16 @@ jobs:
         with:
           jvm: adopt:16
           apps: sbt bloop
-      - name: Setup Simulation Tools
+      - name: Setup All Simulation Tools but NVC
         uses: YosysHQ/setup-oss-cad-suite@v3
+      - name: Setup Homebrew (for NVC)
+        uses: Homebrew/actions/setup-homebrew@master
+      - name: Setup NVC
+        run: brew install nvc
       - run: |
           verilator -version
+          iverilog -V
           ghdl version
+          nvc --version
       - name: Run tests
         run: sbt test

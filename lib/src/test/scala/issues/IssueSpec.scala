@@ -61,12 +61,12 @@ class IssuesSpec extends FunSuite:
       i135.VerilogSRA().getCompiledCodeString,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "VerilogSRA_defs.svh"
          |
          |module VerilogSRA(
          |  input  logic signed [9:0] a
          |);
+         |  `include "dfhdl_defs.svh"
          |  logic signed [9:0] b;
          |  assign b = a >>> 1;
          |endmodule

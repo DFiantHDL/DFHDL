@@ -2,8 +2,10 @@ package dfhdl.tools
 import toolsCore.*
 
 object linters:
-  given verilator: Verilator.type = Verilator
-  given ghdl: GHDL.type = GHDL
+  val verilator = Verilator
+  val iverilog = IcarusVerilog
+  val ghdl = GHDL
+  val nvc = NVC
 
 object builders:
   val vivado: Builder = Vivado

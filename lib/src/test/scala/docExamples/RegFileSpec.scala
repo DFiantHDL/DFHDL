@@ -6,7 +6,6 @@ class RegFileSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.svh"
        |`include "RegFile_defs.svh"
        |
        |module RegFile#(
@@ -22,6 +21,7 @@ class RegFileSpec extends util.FullCompileSpec:
        |  input  logic [DATA_WIDTH - 1:0]      rd_data,
        |  input  logic                         rd_wren
        |);
+       |  `include "dfhdl_defs.svh"
        |  logic [DATA_WIDTH - 1:0] regs [0:REG_NUM - 1];
        |  always_ff @(posedge clk)
        |  begin

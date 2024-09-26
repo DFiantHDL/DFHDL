@@ -6,7 +6,6 @@ class TrueDPRSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.svh"
        |`include "TrueDPR_defs.svh"
        |
        |module TrueDPR#(
@@ -24,6 +23,7 @@ class TrueDPRSpec extends util.FullCompileSpec:
        |  output logic [DATA_WIDTH - 1:0] b_q,
        |  input  logic                    b_we
        |);
+       |  `include "dfhdl_defs.svh"
        |  logic [DATA_WIDTH - 1:0] ram [0:2 ** ADDR_WIDTH - 1];
        |  always_ff @(posedge a_clk)
        |  begin

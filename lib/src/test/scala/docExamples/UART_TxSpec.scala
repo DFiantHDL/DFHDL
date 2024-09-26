@@ -6,7 +6,6 @@ class UART_TxSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.svh"
        |`include "UART_Tx_defs.svh"
        |
        |module UART_Tx#(
@@ -21,6 +20,7 @@ class UART_TxSpec extends util.FullCompileSpec:
        |  output logic tx_en,
        |  output logic tx_done
        |);
+       |  `include "dfhdl_defs.svh"
        |  typedef enum {
        |    Status_Idle     = 1,
        |    Status_StartBit = 2,

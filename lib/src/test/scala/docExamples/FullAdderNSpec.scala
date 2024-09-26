@@ -6,7 +6,6 @@ class FullAdderNSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.svh"
        |`include "FullAdderN_defs.svh"
        |
        |module FullAdder1(
@@ -16,13 +15,13 @@ class FullAdderNSpec extends util.FullCompileSpec:
        |  output logic sum,
        |  output logic c_out
        |);
+       |  `include "dfhdl_defs.svh"
        |  assign sum   = (a ^ b) ^ c_in;
        |  assign c_out = ((a & b) | (b & c_in)) | (c_in & a);
        |endmodule
        |
        |`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.svh"
        |`include "FullAdderN_defs.svh"
        |
        |module FullAdderN(
@@ -32,6 +31,7 @@ class FullAdderNSpec extends util.FullCompileSpec:
        |  output logic [3:0] sum,
        |  output logic       c_out
        |);
+       |  `include "dfhdl_defs.svh"
        |  logic adder_0_a;
        |  logic adder_0_b;
        |  logic adder_0_c_in;

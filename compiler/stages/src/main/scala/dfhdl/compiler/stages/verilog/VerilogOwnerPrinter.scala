@@ -17,7 +17,6 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csLibrary(inSimulation: Boolean): String =
     s"""`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"
        |`include "${printer.globalFileName}"""".stripMargin
   def moduleName(design: DFDesignBlock): String = design.dclName
   val parameterizedModuleSupport: Boolean =
@@ -32,8 +31,8 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     }
       .mkString(",\n")
     val portBlock = ports.emptyOr(v => s"""(
-         |${ports.hindent}
-         |)""".stripMargin)
+                                          |${ports.hindent}
+                                          |)""".stripMargin)
     val localTypeDcls = printer.csLocalTypeDcls(design).emptyOr(x => s"$x\n")
     val dfValDcls =
       designMembers.view
@@ -64,7 +63,8 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       if (designParamList.length == 0 || !parameterizedModuleSupport) ""
       else if (designParamList.length == 1) designParamList.mkString("#(", ", ", ")")
       else "#(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
-    s"""module ${moduleName(design)}$designParamCS$portBlock;$declarations
+    s"""module ${moduleName(design)}$designParamCS$portBlock;
+       |  `include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"$declarations
        |${statements.hindent}
        |endmodule""".stripMargin
   end csModuleDcl

@@ -18,16 +18,17 @@ trait DFApp:
   val dfc: DFC = DFC.emptyNoEO
 
   private var designArgs: DesignArgs = DesignArgs.empty
-  private var elaborationOptions: options.ElaborationOptions = null
-  private var compilerOptions: options.CompilerOptions = null
-  private var printerOptions: options.PrinterOptions = null
-  private var linterOptions: options.LinterOptions = null
-  private var appOptions: options.AppOptions = null
+  private var elaborationOptions: options.ElaborationOptions = compiletime.uninitialized
+  private var compilerOptions: options.CompilerOptions = compiletime.uninitialized
+  private var printerOptions: options.PrinterOptions = compiletime.uninitialized
+  private var linterOptions: options.LinterOptions = compiletime.uninitialized
+  private var appOptions: options.AppOptions = compiletime.uninitialized
   inline given options.ElaborationOptions = elaborationOptions
   inline given options.CompilerOptions = compilerOptions
   inline given options.PrinterOptions = printerOptions
+  inline given options.LinterOptions = linterOptions
   inline given options.AppOptions = appOptions
-  private var dsn: () => core.Design = null
+  private var dsn: () => core.Design = compiletime.uninitialized
   // used by the plugin to get the updated design arguments that could be changed by the
   // command-line options
   final protected def getDsnArg(name: String): Any =
@@ -49,6 +50,7 @@ trait DFApp:
     elaborationOptions = top.elaborationOptions
     compilerOptions = top.compilerOptions
     printerOptions = top.printerOptions
+    linterOptions = top.linterOptions
     appOptions = top.appOptions
     designArgs = DesignArgs(argNames, argTypes, argValues, argDescs)
   end setInitials

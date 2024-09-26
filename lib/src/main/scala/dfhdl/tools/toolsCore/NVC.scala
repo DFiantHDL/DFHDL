@@ -12,12 +12,12 @@ import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
 
-object GHDL extends VHDLLinter:
-  val toolName: String = "GHDL"
-  protected def binExec: String = "ghdl"
-  protected def versionCmd: String = s"version"
+object NVC extends VHDLLinter:
+  val toolName: String = "NVC"
+  protected def binExec: String = "nvc"
+  protected def versionCmd: String = s"--version"
   protected def extractVersion(cmdRetStr: String): Option[String] =
-    val versionPattern = """GHDL\s+(\d+\.\d+\.\d+)""".r
+    val versionPattern = """nvc\s+(\d+\.\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
@@ -55,11 +55,11 @@ object GHDL extends VHDLLinter:
           case VHDLDialect.v2019 => "19"
       case _ =>
         throw new java.lang.IllegalArgumentException(
-          "Current backend is not supported for GHDL linting."
+          "Current backend is not supported for NVC linting."
         )
     exec(
       cd,
-      s"-a${lo.warnAsError.toFlag("--warn-error")} --std=$std -frelaxed -Wno-shared ${filesCmdPart(cd)}"
+      s"--std=$std -a --relaxed ${filesCmdPart(cd)}"
     )
   end lint
-end GHDL
+end NVC

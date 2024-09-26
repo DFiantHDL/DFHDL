@@ -7,7 +7,6 @@ class BlinkerSpec extends util.FullCompileSpec:
     """|/* This is a led blinker */
        |`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.svh"
        |`include "Blinker_defs.svh"
        |
        |module Blinker#(
@@ -19,6 +18,7 @@ class BlinkerSpec extends util.FullCompileSpec:
        |  /* LED output */
        |  output logic led
        |);
+       |  `include "dfhdl_defs.svh"
        |  /* Half-count of the toggle for 50% duty cycle */
        |  parameter int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
        |  logic [$clog2(HALF_PERIOD) - 1:0] cnt;
