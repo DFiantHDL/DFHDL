@@ -105,6 +105,35 @@ trait DFApp:
     )
   end listBackends
 
+  private def listLintTools(scan: Boolean): Unit =
+    def scanned(tool: dfhdl.tools.toolsCore.Tool): String =
+      if (scan)
+        tool.installedVersion match
+          case Some(version) => s"Found version $version"
+          case None          => "Not found on your system"
+      else ""
+    println(
+      s"""|Linter tool option pattern: -t [<verilogLinter>][/][<vhdlLinter>]
+          |<verilogLinter> - the selected Verilog/SystemVerilog linter
+          |<vhdlLinter>    - the selected VHDL linter
+          |You may specify both linters by separating with `/` or just the
+          |one you intend to run according to your chosen backend.
+          |Examples:
+          |-t verilator     - Set the Verilog linter to Verilator (VHDL linter remains default)
+          |-t nvc           - Set the VHDL linter to NVC (Verilog linter remains default)
+          |-t questa        - Set both Verilog and VHDL linters to QuestaSim/ModelSim
+          |-t iverilog/ghdl - Set both Verilog and VHDL linters
+          |
+          |Selectable Verilog/SystemVerilog linting tools:
+          |verilator - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
+          |iverilog  - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
+          |
+          |Selectable VHDL linting tools:
+          |ghdl      - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
+          |nvc       - NVC                 ${scanned(dfhdl.tools.linters.nvc)}""".stripMargin
+    )
+  end listLintTools
+
   def main(commandArgs: Array[String]): Unit =
     if (appOptions.clearConsole) print("\u001bc")
     logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
@@ -142,7 +171,9 @@ trait DFApp:
           case help @ Mode.help =>
             help.subcommand match
               case Some(HelpMode.backend) => listBackends
-              case _                      => println(parsedCommandLine.getFullHelpString())
+              case Some(lintTool: HelpMode.`lint-tool`.type) =>
+                listLintTools(lintTool.scan.toOption.get)
+              case _ => println(parsedCommandLine.getFullHelpString())
           case Mode.elaborate => elaborate
           case Mode.compile   => compile
           case Mode.commit    => commit

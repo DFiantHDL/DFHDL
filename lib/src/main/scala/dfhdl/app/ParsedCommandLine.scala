@@ -87,9 +87,17 @@ class ParsedCommandLine(
           "Linting (after elaboration, compilation, and committing to disk)"
         ),
           LintMode:
+      val tool = opt[(LinterOptions.VerilogLinter, LinterOptions.VHDLLinter)](
+        name = "tool",
+        short = 't',
+        descr = "tool selection (run `help lint-tool` to get full list of linting tools)",
+        default = Some((lo.verilogLinter, lo.vhdlLinter)),
+        argName = "[verilogLinter][/][vhdlLinter]"
+      )
       footer("      ~~including all commit command options~~")
     case object help extends Mode(DefaultMode.help, "Display usage text"):
       addSubcommand(HelpMode.backend)
+      addSubcommand(HelpMode.`lint-tool`)
   end Mode
 
   sealed abstract class HelpMode(cmdName: String) extends Subcommand(cmdName), Product, Serializable
@@ -98,6 +106,12 @@ class ParsedCommandLine(
   object HelpMode:
     case object backend extends HelpMode("backend"):
       descr("List all backend languages and dialects")
+    case object `lint-tool` extends HelpMode("lint-tool"):
+      descr("List all integrated linting tools")
+      val scan = opt[Boolean](
+        descr = "scan the system path for available tools to run",
+        default = Some(false)
+      )
 
   private val programName: String =
     import dfhdl.internals.{sbtIsRunning, scala_cliIsRunning, sbtShellIsRunning}

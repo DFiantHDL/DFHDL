@@ -30,7 +30,7 @@ trait Tool:
   protected def versionCmd: String
   protected def extractVersion(cmdRetStr: String): Option[String]
 
-  private lazy val installedVersion: Option[String] =
+  private[dfhdl] lazy val installedVersion: Option[String] =
     import scala.sys.process.*
     val getVersionFullCmd = s"$runExec $versionCmd"
     try extractVersion(getVersionFullCmd.!!)
