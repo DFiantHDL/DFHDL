@@ -109,6 +109,10 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val insideStr = if (wildcardSupport && insideSupport) " inside" else ""
     s"$keyWord ($csSelector)$insideStr"
   def csDFMatchEnd: String = "endcase"
+  val sensitivityListSep =
+    printer.dialect match
+      case VerilogDialect.v95 => " or "
+      case _                  => ", "
   def csProcessBlock(pb: ProcessBlock): String =
     val (statements, dcls) = pb
       .members(MemberView.Folded)
@@ -138,7 +142,8 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val senList = pb.sensitivity match
       case Sensitivity.All => if (alwaysKW == "always") " @(*)" else ""
       case Sensitivity.List(refs) =>
-        if (refs.isEmpty) "" else s" @${refs.map(_.refCodeString).mkStringBrackets}"
+        if (refs.isEmpty) ""
+        else s" @${refs.map(_.refCodeString).mkString("(", sensitivityListSep, ")")}"
     s"$dcl${named}$alwaysKW$senList\nbegin\n${body.hindent}\nend"
   end csProcessBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
