@@ -78,8 +78,9 @@ trait VerilogLinter extends Linter
 trait VHDLLinter extends Linter
 
 trait Builder extends Tool:
-  type BO <: BuilderOptions
-  def build[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, BO): CompiledDesign[D]
+  def build[D <: Design](
+      cd: CompiledDesign[D]
+  )(using CompilerOptions, BuilderOptions): CompiledDesign[D]
 object Builder:
   // default linter will be vivado
   given Builder = dfhdl.tools.builders.vivado
