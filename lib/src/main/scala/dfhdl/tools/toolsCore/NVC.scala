@@ -11,6 +11,8 @@ import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
+import scala.sys.process.*
+import scala.collection.mutable
 
 object NVC extends VHDLLinter:
   val toolName: String = "NVC"
@@ -57,9 +59,33 @@ object NVC extends VHDLLinter:
         throw new java.lang.IllegalArgumentException(
           "Current backend is not supported for NVC linting."
         )
+    // A mutable buffer to accumulate warning lines
+    val warningBuffer = mutable.ListBuffer[String]()
+    var insideWarning = false
+
+    // Create a process logger to suppress the shared variable warning
+    val warningSuppressLogger = ProcessLogger(
+      (out: String) => println(out), // stdout - print directly
+      (err: String) =>
+        if (err.startsWith("** Warning: shared variable RAM must have protected type"))
+          // Start accumulating lines that belong to the warning
+          insideWarning = true
+          warningBuffer += err
+        else if (insideWarning)
+          // Keep accumulating warning lines until we hit the end of the warning
+          warningBuffer += err
+          if (err.trim.endsWith("^"))
+            // End of the warning block
+            insideWarning = false
+            warningBuffer.clear() // Clear the buffer, effectively discarding the warning
+        else
+          // If it's not part of the warning, print the stderr line normally
+          println(err)
+    )
     exec(
       cd,
-      s"--std=$std -a --relaxed ${filesCmdPart(cd)}"
+      s"--std=$std -a --relaxed ${filesCmdPart(cd)}",
+      Some(warningSuppressLogger)
     )
   end lint
 end NVC

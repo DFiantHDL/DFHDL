@@ -8,6 +8,7 @@ import dfhdl.options.LinterOptions
 import dfhdl.options.BuilderOptions
 import dfhdl.options.OnError
 import java.io.IOException
+import scala.sys.process.*
 
 trait Tool:
   val toolName: String
@@ -55,15 +56,19 @@ trait Tool:
       }
       preCheckDone = true
 
-  final protected def exec[D <: Design](cd: CompiledDesign[D], cmd: String)(using
+  final protected def exec[D <: Design](
+      cd: CompiledDesign[D],
+      cmd: String,
+      logger: Option[ProcessLogger] = None
+  )(using
       co: CompilerOptions,
       to: ToolOptions
   ): CompiledDesign[D] =
-    import scala.sys.process.*
     preCheck()
     val pwd = new java.io.File(co.topCommitPath(cd.stagedDB))
     val fullExec = s"$runExec $cmd"
-    val errCode = Process(fullExec, pwd).!
+    val process = Process(fullExec, pwd)
+    val errCode = logger.map(process.!).getOrElse(process.!)
     if (errCode != 0)
       error(s"${toolName} exited with the error code ${errCode} attempting to run:\n$fullExec")
     cd
