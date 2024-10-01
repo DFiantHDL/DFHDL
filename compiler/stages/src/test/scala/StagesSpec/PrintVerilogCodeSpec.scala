@@ -485,10 +485,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `include "dfhdl_defs.svh"
          |  always_comb
          |  begin
-         |    x = {{(width-2){1'b0}}, 2'h3};
-         |    x = {{(width-2){1'b0}}, 2'h3};
-         |    x = {{(width-2){1'b0}}, 2'h3};
-         |    x = {{(width-2){1'b0}}, 2'h3};
+         |    x = `TO_VEC_HEX(3, 2, width);
+         |    x = `TO_VEC_HEX(3, 2, width);
+         |    x = `TO_VEC_HEX(3, 2, width);
+         |    x = `TO_VEC_HEX(3, 2, width);
          |    y = &x;
          |    y = |x;
          |    y = ^x;
