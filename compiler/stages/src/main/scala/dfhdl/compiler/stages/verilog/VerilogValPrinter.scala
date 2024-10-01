@@ -171,8 +171,12 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFUInt(tWidthParamRef), DFInt32) =>
         if (printer.allowWidthCastSyntax)
           s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
-        else s"{$relValStr}[${tWidthParamRef.refCodeString.applyBrackets()} - 1:0]"
-      case (DFSInt(tWidthParamRef), DFSInt(_) | DFInt32) =>
+        else relValStr
+      case (DFSInt(tWidthParamRef), DFInt32) =>
+        if (printer.allowWidthCastSyntax)
+          s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
+        else relValStr
+      case (DFSInt(tWidthParamRef), DFSInt(_)) =>
         if (printer.allowWidthCastSyntax)
           s"${tWidthParamRef.refCodeString.applyBrackets()}'($relValStr)"
         else s"{$relValStr}[${tWidthParamRef.refCodeString.applyBrackets()} - 1:0]"

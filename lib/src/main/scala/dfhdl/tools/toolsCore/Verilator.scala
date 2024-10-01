@@ -90,7 +90,10 @@ end Verilator
 
 case object VerilatorConfig extends SourceType.ToolConfig
 
-class VerilatorConfigPrinter(verilatorVersion: String)(using getSet: MemberGetSet):
+class VerilatorConfigPrinter(verilatorVersion: String)(using
+    getSet: MemberGetSet,
+    co: CompilerOptions
+):
   val designDB: DB = getSet.designDB
   val verilatorVersionMajor: Int = verilatorVersion.split("\\.").head.toInt
   def configFileName: String = s"${designDB.top.dclName}.vlt"
@@ -104,7 +107,8 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using getSet: MemberGetSe
       lintOffOpenOutPorts.emptyOr(_ + "\n") +
       lintOffUnused.emptyOr(_ + "\n") +
       lintOffUnusedBits.emptyOr(_ + "\n") +
-      lintOffUnusedParam.emptyOr(_ + "\n")
+      lintOffUnusedParam.emptyOr(_ + "\n") +
+      lintOffWidthExpand.emptyOr(_ + "\n")
   def lintOffCommand(
       rule: String = "",
       file: String = "",
@@ -165,6 +169,16 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using getSet: MemberGetSe
         )
       .distinct.mkString("\n")
     else ""
+  def lintOffWidthExpand: String =
+    co.backend.asInstanceOf[backends.verilog].dialect match
+      // only relevant for non-SystemVerilog dialects
+      case VerilogDialect.v95 | VerilogDialect.v2001 =>
+        lintOffCommand(
+          rule = "WIDTHEXPAND",
+          file = s"*.*",
+          matchWild = s"*expects 32 bits*"
+        )
+      case _ => ""
   def getSourceFile: SourceFile =
     SourceFile(SourceOrigin.Compiled, VerilatorConfig, configFileName, contents)
 

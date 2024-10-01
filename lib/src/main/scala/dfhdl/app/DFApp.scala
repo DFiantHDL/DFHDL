@@ -121,16 +121,17 @@ trait DFApp:
           |Examples:
           |-t verilator     - Set the Verilog linter to Verilator (VHDL linter remains default)
           |-t nvc           - Set the VHDL linter to NVC (Verilog linter remains default)
-          |-t questa        - Set both Verilog and VHDL linters to QuestaSim/ModelSim
           |-t iverilog/ghdl - Set both Verilog and VHDL linters
           |
           |Selectable Verilog/SystemVerilog linting tools:
           |verilator - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
           |iverilog  - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
+          |vlog      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
           |
           |Selectable VHDL linting tools:
           |ghdl      - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
-          |nvc       - NVC                 ${scanned(dfhdl.tools.linters.nvc)}""".stripMargin
+          |nvc       - NVC                 ${scanned(dfhdl.tools.linters.nvc)}
+          |vcom      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}""".stripMargin
     )
   end listLintTools
 

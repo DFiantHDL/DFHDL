@@ -35,6 +35,7 @@ trait Tool:
     val getVersionFullCmd = s"$runExec $versionCmd"
     try extractVersion(getVersionFullCmd.!!)
     catch case e: IOException => None
+  final def isAvailable: Boolean = installedVersion.nonEmpty
   protected def getInstalledVersion(using to: ToolOptions): String =
     preCheck()
     installedVersion.get

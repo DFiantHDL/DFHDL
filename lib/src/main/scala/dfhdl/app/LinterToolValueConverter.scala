@@ -11,8 +11,10 @@ given linterToolValue(using
       toolName match
         case "verilator" => Some(dfhdl.tools.linters.verilator)
         case "iverilog"  => Some(dfhdl.tools.linters.iverilog)
+        case "vlog"      => Some(dfhdl.tools.linters.vlog)
         case "ghdl"      => Some(dfhdl.tools.linters.ghdl)
         case "nvc"       => Some(dfhdl.tools.linters.nvc)
+        case "vcom"      => Some(dfhdl.tools.linters.vcom)
         case _           => None
     val toolNames = arg.split("\\/").toList
     toolNames.map(parseTool) match
