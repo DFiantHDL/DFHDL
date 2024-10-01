@@ -67,7 +67,7 @@ object NVC extends VHDLLinter:
     val warningSuppressLogger = ProcessLogger(
       (out: String) => println(out), // stdout - print directly
       (err: String) =>
-        if (err.startsWith("** Warning: shared variable RAM must have protected type"))
+        if (err.matches(".*Warning: shared variable .* must have protected type"))
           // Start accumulating lines that belong to the warning
           insideWarning = true
           warningBuffer += err
