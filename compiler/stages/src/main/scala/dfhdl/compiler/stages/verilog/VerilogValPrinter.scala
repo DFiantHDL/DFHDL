@@ -18,12 +18,12 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val modifier = dfVal.modifier.dir match
-      case Modifier.IN    => "input  "
+      case Modifier.IN    => "input  wire "
       case Modifier.OUT   => "output "
       case Modifier.INOUT => "inout  "
       case Modifier.VAR   => ""
     def regOrWireRep = dfVal.modifier.dir match
-      case Modifier.IN => "wire"
+      case Modifier.IN => ""
       case _ =>
         if (dfVal.getConnectionTo.nonEmpty) "wire"
         else "reg"

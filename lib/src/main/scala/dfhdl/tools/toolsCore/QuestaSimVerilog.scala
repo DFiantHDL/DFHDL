@@ -30,7 +30,7 @@ object QuestaSimVerilog extends VerilogLinter:
           case VerilogDialect.sv2009 => "-sv09compat"
           case VerilogDialect.sv2012 => "-sv12compat"
           case VerilogDialect.sv2017 => "-sv17compat"
-    s"-quiet -suppress 2892 -warning error $language"
+    s"-quiet -warning error $language"
   end commonFlags
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
     // We use `forceWindowsToLinuxPath` fit the verilator needs

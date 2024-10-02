@@ -13,10 +13,10 @@ class BlinkerSpec extends util.FullCompileSpec:
        |    parameter int CLK_FREQ_KHz = 50000,
        |    parameter int LED_FREQ_Hz = 1
        |)(
-       |  input  logic clk,
-       |  input  logic rst,
+       |  input  wire logic clk,
+       |  input  wire logic rst,
        |  /* LED output */
-       |  output logic led
+       |  output      logic led
        |);
        |  `include "dfhdl_defs.svh"
        |  /* Half-count of the toggle for 50% duty cycle */

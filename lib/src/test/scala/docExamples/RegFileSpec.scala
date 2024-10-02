@@ -12,14 +12,14 @@ class RegFileSpec extends util.FullCompileSpec:
        |    parameter int DATA_WIDTH = 32,
        |    parameter int REG_NUM = 32
        |)(
-       |  input  logic                         clk,
-       |  input  logic [$clog2(REG_NUM) - 1:0] rs1_addr,
-       |  output logic [DATA_WIDTH - 1:0]      rs1_data,
-       |  input  logic [$clog2(REG_NUM) - 1:0] rs2_addr,
-       |  output logic [DATA_WIDTH - 1:0]      rs2_data,
-       |  input  logic [$clog2(REG_NUM) - 1:0] rd_addr,
-       |  input  logic [DATA_WIDTH - 1:0]      rd_data,
-       |  input  logic                         rd_wren
+       |  input  wire logic                         clk,
+       |  input  wire logic [$clog2(REG_NUM) - 1:0] rs1_addr,
+       |  output      logic [DATA_WIDTH - 1:0]      rs1_data,
+       |  input  wire logic [$clog2(REG_NUM) - 1:0] rs2_addr,
+       |  output      logic [DATA_WIDTH - 1:0]      rs2_data,
+       |  input  wire logic [$clog2(REG_NUM) - 1:0] rd_addr,
+       |  input  wire logic [DATA_WIDTH - 1:0]      rd_data,
+       |  input  wire logic                         rd_wren
        |);
        |  `include "dfhdl_defs.svh"
        |  logic [DATA_WIDTH - 1:0] regs [0:REG_NUM - 1];
