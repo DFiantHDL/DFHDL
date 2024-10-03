@@ -22,7 +22,7 @@ object CompiledDesign:
       Printer.printBackendCode(staged.stagedDB)
       cd
     def commit(using co: CompilerOptions): CompiledDesign[D] =
-      cd.transform(designDB => Printer.commit(designDB, co.compilePath(designDB)))
+      cd.transform(designDB => Printer.commit(designDB, co.topCommitPath(designDB)))
     def addFiles(files: (Iterable[String] | String)*): CompiledDesign[D] =
       import StagedDesign.addFiles as addFiles2
       staged.addFiles2(files*)

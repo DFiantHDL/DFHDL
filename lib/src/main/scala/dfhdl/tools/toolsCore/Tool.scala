@@ -121,7 +121,9 @@ trait Tool:
     val errCode = logger.map(process.!).getOrElse(process.!)
     if (errCode != 0)
       error(
-        s"${toolName} exited with the error code ${errCode} while attempting to run:\n$fullExec"
+        s"""|${toolName} exited with the error code ${errCode}.
+            |Path: $execPath
+            |Command: $fullExec""".stripMargin
       )
   end exec
 end Tool
