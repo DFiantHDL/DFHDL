@@ -36,8 +36,8 @@ trait Tool:
   protected def extractVersion(cmdRetStr: String): Option[String]
 
   private[dfhdl] lazy val installedVersion: Option[String] =
-    import scala.sys.process.*
-    val getVersionFullCmd = s"$runExec $versionCmd"
+    val getVersionFullCmd =
+      Process(s"$runExec $versionCmd", new java.io.File(System.getProperty("java.io.tmpdir")))
     try extractVersion(getVersionFullCmd.!!)
     catch case e: IOException => None
   final def isAvailable: Boolean = installedVersion.nonEmpty
