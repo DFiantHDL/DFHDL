@@ -126,6 +126,7 @@ trait Tool:
             |Command: $fullExec""".stripMargin
       )
   end exec
+  override def toString(): String = binExec
 end Tool
 
 trait Linter extends Tool:

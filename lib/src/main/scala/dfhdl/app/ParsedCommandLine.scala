@@ -64,6 +64,13 @@ class ParsedCommandLine(
       this: ScallopConf & Mode =>
     trait LintMode extends CommitMode:
       this: ScallopConf & Mode =>
+      val tool = opt[LintToolSelection](
+        name = "tool",
+        short = 't',
+        descr = "tool selection (run `help lint-tool` to get full list of linting tools)",
+        default = Some(LintToolSelection(lo.verilogLinter, lo.vhdlLinter)),
+        argName = "[verilogLinter][/][vhdlLinter]"
+      )
     case object elaborate
         extends Mode(DefaultMode.elaborate, "Elaboration only (no compilation)"),
           ElaborateMode
@@ -87,14 +94,8 @@ class ParsedCommandLine(
           "Linting (after elaboration, compilation, and committing to disk)"
         ),
           LintMode:
-      val tool = opt[(LinterOptions.VerilogLinter, LinterOptions.VHDLLinter)](
-        name = "tool",
-        short = 't',
-        descr = "tool selection (run `help lint-tool` to get full list of linting tools)",
-        default = Some((lo.verilogLinter, lo.vhdlLinter)),
-        argName = "[verilogLinter][/][vhdlLinter]"
-      )
       footer("      ~~including all commit command options~~")
+    end lint
     case object help extends Mode(DefaultMode.help, "Display usage text"):
       addSubcommand(HelpMode.backend)
       addSubcommand(HelpMode.`lint-tool`)

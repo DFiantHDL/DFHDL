@@ -169,6 +169,15 @@ trait DFApp:
               printBackendCode = mode.`print-backend`.toOption.get
             )
           case _ =>
+        // update linter options from command line
+        parsedCommandLine.mode match
+          case mode: Mode.LintMode =>
+            val toolSelection = mode.tool.toOption.get
+            linterOptions = linterOptions.copy(
+              verilogLinter = toolSelection.verilogLinter,
+              vhdlLinter = toolSelection.vhdlLinter
+            )
+          case _ =>
         // execute command
         parsedCommandLine.mode match
           case help @ Mode.help =>
