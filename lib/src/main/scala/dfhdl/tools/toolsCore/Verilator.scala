@@ -21,55 +21,42 @@ object Verilator extends VerilogLinter:
     val versionPattern = """Verilator\s+(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
-  def commonFlags(using co: CompilerOptions, lo: LinterOptions): String =
-    val language = co.backend match
-      case be: backends.verilog =>
-        be.dialect match
-          case VerilogDialect.v95    => "1364-1995"
-          case VerilogDialect.v2001  => "1364-2001"
-          case VerilogDialect.sv2005 => "1800-2005"
-          case VerilogDialect.sv2009 => "1800-2009"
-          case VerilogDialect.sv2012 => "1800-2012"
-          case VerilogDialect.sv2017 => "1800-2017"
-      case _ =>
-        throw new java.lang.IllegalArgumentException(
-          "Current backend is not supported for Verilator linting."
-        )
-    s"--quiet-stats -Wall${lo.warnAsError.toFlag("--Werror")} --default-language $language "
-  end commonFlags
-  def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
-    // We use `forceWindowsToLinuxPath` fit the verilator needs
-    val designsInCmd = cd.stagedDB.srcFiles.view.collect {
-      case SourceFile(
-            SourceOrigin.Committed,
-            SourceType.Design.Regular | SourceType.Design.BlackBox,
-            path,
-            _
-          ) =>
-        path.forceWindowsToLinuxPath
-    }.mkString(" ")
+  override val convertWindowsToLinuxPaths: Boolean = true
+  protected def lintIncludeFolderFlag: String = "-I"
 
-    val configsInCmd = cd.stagedDB.srcFiles.view.collect {
+  override protected def toolFiles(using getSet: MemberGetSet): List[String] =
+    getSet.designDB.srcFiles.collect {
       case SourceFile(SourceOrigin.Committed, VerilatorConfig, path, _) =>
-        path.forceWindowsToLinuxPath
-    }.mkString(" ")
+        path.convertWindowsToLinuxPaths
+    }
 
-    val dfhdlDefsIncludeFolder = cd.stagedDB.srcFiles.collectFirst {
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.DFHDLDef, path, _) =>
-        Paths.get(path).getParent.toString.forceWindowsToLinuxPath
-    }.get
+  protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
+    val language = dialect match
+      case VerilogDialect.v95    => "1364-1995"
+      case VerilogDialect.v2001  => "1364-2001"
+      case VerilogDialect.sv2005 => "1800-2005"
+      case VerilogDialect.sv2009 => "1800-2009"
+      case VerilogDialect.sv2012 => "1800-2012"
+      case VerilogDialect.sv2017 => "1800-2017"
+    s"--default-language $language"
 
-    val globalIncludeFolder = cd.stagedDB.srcFiles.collectFirst {
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.GlobalDef, path, _) =>
-        Paths.get(path).getParent.toString.forceWindowsToLinuxPath
-    }.get
+  override protected def lintCmdPreLangFlags(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "--lint-only",
+    "--quiet-stats"
+  )
 
-    val includes =
-      List(dfhdlDefsIncludeFolder, globalIncludeFolder).distinct.map(i => s"-I$i").mkString(" ")
+  override protected def lintCmdPostLangFlags(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-Wall"
+  )
 
-    // config files must be placed before the design sources
-    s"$includes $configsInCmd $designsInCmd"
-  end filesCmdPart
   override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
       CompilerOptions,
       ToolOptions
@@ -78,14 +65,6 @@ object Verilator extends VerilogLinter:
       cd,
       List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
     )
-  def lint[D <: Design](
-      cd: CompiledDesign[D]
-  )(using CompilerOptions, LinterOptions): CompiledDesign[D] =
-    exec(
-      cd,
-      s"--lint-only $commonFlags ${filesCmdPart(cd)}"
-    )
-  end lint
 end Verilator
 
 case object VerilatorConfig extends SourceType.ToolConfig

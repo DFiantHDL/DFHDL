@@ -11,10 +11,11 @@ abstract class FullCompileSpec extends FunSuite:
   def expectedVerilogCS: String
   def expectedVHDLCS: String
   given options.OnError = options.OnError.Exception
+  given options.LinterOptions.WarnAsError = true
   private val verilogLinters: List[LinterOptions.VerilogLinter] =
-    List(verilator, iverilog, vlog)
+    List(verilator, iverilog, vlog, xvlog)
   private val vhdlLinters: List[LinterOptions.VHDLLinter] =
-    List(ghdl, nvc, vcom)
+    List(ghdl, nvc, vcom, xvhdl)
   extension [D <: core.Design](cd: CompiledDesign[D])
     private def lintVerilog(using CompilerOptions): CompiledDesign[D] =
       verilogLinters.foreach { linter =>

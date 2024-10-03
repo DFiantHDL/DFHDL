@@ -20,46 +20,28 @@ object GHDL extends VHDLLinter:
     val versionPattern = """GHDL\s+(\d+\.\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
-  def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
-    val designsInCmd = cd.stagedDB.srcFiles.view.collect {
-      case SourceFile(
-            SourceOrigin.Committed,
-            SourceType.Design.Regular | SourceType.Design.BlackBox,
-            path,
-            _
-          ) =>
-        path
-    }.mkString(" ")
+  protected def lintCmdLanguageFlag(dialect: VHDLDialect): String =
+    val std = dialect match
+      case VHDLDialect.v93   => "93"
+      case VHDLDialect.v2008 => "08"
+      case VHDLDialect.v2019 => "19"
+    s"--std=$std"
 
-    val dfhdlPackage = cd.stagedDB.srcFiles.collectFirst {
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.DFHDLDef, path, _) =>
-        path
-    }.get
+  override protected def lintCmdPreLangFlags(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-a",
+    summon[LinterOptions].warnAsError.toFlag("--warn-error")
+  )
 
-    val globalPackage = cd.stagedDB.srcFiles.collectFirst {
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.GlobalDef, path, _) =>
-        path
-    }.get
-
-    // config files must be placed before the design sources
-    s"$dfhdlPackage $globalPackage $designsInCmd"
-  end filesCmdPart
-  def lint[D <: Design](
-      cd: CompiledDesign[D]
-  )(using co: CompilerOptions, lo: LinterOptions): CompiledDesign[D] =
-    val std = co.backend match
-      case be: backends.vhdl =>
-        be.dialect match
-          case VHDLDialect.v93   => "93"
-          case VHDLDialect.v2008 => "08"
-          case VHDLDialect.v2019 => "19"
-      case _ =>
-        throw new java.lang.IllegalArgumentException(
-          "Current backend is not supported for GHDL linting."
-        )
-    exec(
-      cd,
-      s"-a${lo.warnAsError.toFlag("--warn-error")} --std=$std -frelaxed -Wno-shared ${filesCmdPart(cd)}"
-    )
-  end lint
+  override protected def lintCmdPostLangFlags(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-frelaxed",
+    "-Wno-shared"
+  )
 end GHDL

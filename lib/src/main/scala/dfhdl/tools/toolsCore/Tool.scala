@@ -1,7 +1,7 @@
 package dfhdl.tools.toolsCore
 import dfhdl.core.Design
 import dfhdl.compiler.stages.CompiledDesign
-import dfhdl.compiler.ir.SourceFile
+import dfhdl.compiler.ir.*
 import dfhdl.options.CompilerOptions
 import dfhdl.options.ToolOptions
 import dfhdl.options.LinterOptions
@@ -9,6 +9,10 @@ import dfhdl.options.BuilderOptions
 import dfhdl.options.OnError
 import java.io.IOException
 import scala.sys.process.*
+import dfhdl.internals.*
+import java.nio.file.Paths
+import dfhdl.compiler.stages.vhdl.VHDLDialect
+import dfhdl.compiler.stages.verilog.VerilogDialect
 
 trait Tool:
   val toolName: String
@@ -56,32 +60,110 @@ trait Tool:
       }
       preCheckDone = true
 
+  final protected def topName(using MemberGetSet): String =
+    getSet.designDB.top.dclName
+
+  final protected def execPath(using co: CompilerOptions, getSet: MemberGetSet): String =
+    co.topCommitPath(getSet.designDB)
+
+  protected val convertWindowsToLinuxPaths: Boolean = false
+  extension (path: String)
+    protected def convertWindowsToLinuxPaths: String =
+      if (this.convertWindowsToLinuxPaths) path.forceWindowsToLinuxPath else path
+
+  protected def designFiles(using getSet: MemberGetSet): List[String] =
+    getSet.designDB.srcFiles.collect {
+      case SourceFile(
+            SourceOrigin.Committed,
+            SourceType.Design.Regular | SourceType.Design.BlackBox,
+            path,
+            _
+          ) =>
+        path.convertWindowsToLinuxPaths
+    }
+
+  protected def toolFiles(using getSet: MemberGetSet): List[String] = Nil
+
+  protected def designDefFiles(using getSet: MemberGetSet): List[String] =
+    getSet.designDB.srcFiles.collect {
+      case SourceFile(
+            SourceOrigin.Committed,
+            SourceType.Design.DFHDLDef | SourceType.Design.GlobalDef,
+            path,
+            _
+          ) =>
+        path.convertWindowsToLinuxPaths
+    }
+
+  protected def designDefFolders(using getSet: MemberGetSet): List[String] =
+    getSet.designDB.srcFiles.collect {
+      case SourceFile(
+            SourceOrigin.Committed,
+            SourceType.Design.DFHDLDef | SourceType.Design.GlobalDef,
+            path,
+            _
+          ) =>
+        Paths.get(path).getParent.toString.convertWindowsToLinuxPaths
+    }.distinct
+
+  protected def constructCommand(args: String*): String =
+    args.filter(_.nonEmpty).mkString(" ")
+
   final protected def exec[D <: Design](
-      cd: CompiledDesign[D],
       cmd: String,
+      prepare: => Unit = (),
       logger: Option[ProcessLogger] = None
-  )(using
-      co: CompilerOptions,
-      to: ToolOptions
-  ): CompiledDesign[D] =
+  )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     preCheck()
-    val pwd = new java.io.File(co.topCommitPath(cd.stagedDB))
+    prepare
     val fullExec = s"$runExec $cmd"
-    val process = Process(fullExec, pwd)
+    val process = Process(fullExec, new java.io.File(execPath))
     val errCode = logger.map(process.!).getOrElse(process.!)
     if (errCode != 0)
-      error(s"${toolName} exited with the error code ${errCode} attempting to run:\n$fullExec")
-    cd
+      error(
+        s"${toolName} exited with the error code ${errCode} while attempting to run:\n$fullExec"
+      )
   end exec
 end Tool
 
 trait Linter extends Tool:
-  def lint[D <: Design](
+  final def lint[D <: Design](
       cd: CompiledDesign[D]
-  )(using CompilerOptions, LinterOptions): CompiledDesign[D]
-trait VerilogLinter extends Linter
+  )(using CompilerOptions, LinterOptions): CompiledDesign[D] =
+    given MemberGetSet = cd.stagedDB.getSet
+    exec(lintCmdFlags, lintPrepare(), lintLogger)
+    cd
+  protected def lintPrepare()(using CompilerOptions, LinterOptions, MemberGetSet): Unit = {}
+  protected def lintLogger(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): Option[ProcessLogger] = None
+  protected def lintCmdLanguageFlag(using co: CompilerOptions): String
+  protected def lintCmdSources(using CompilerOptions, LinterOptions, MemberGetSet): String
+  protected def lintCmdPreLangFlags(using CompilerOptions, LinterOptions, MemberGetSet): String = ""
+  protected def lintCmdPostLangFlags(using CompilerOptions, LinterOptions, MemberGetSet): String =
+    ""
+  final protected def lintCmdFlags(using CompilerOptions, LinterOptions, MemberGetSet): String =
+    constructCommand(lintCmdPreLangFlags, lintCmdLanguageFlag, lintCmdPostLangFlags, lintCmdSources)
+end Linter
+trait VerilogLinter extends Linter:
+  // Converts the selected compiler verilog dialect to the relevant lint flag
+  protected def lintCmdLanguageFlag(dialect: VerilogDialect): String
+  final protected def lintCmdLanguageFlag(using co: CompilerOptions): String =
+    lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.verilog].dialect)
+  // The include flag to be attached before each included folder
+  protected def lintIncludeFolderFlag: String
+  final protected def lintCmdSources(using CompilerOptions, LinterOptions, MemberGetSet): String =
+    (designDefFolders.map(lintIncludeFolderFlag + _) ++ toolFiles ++ designFiles).mkString(" ")
 
-trait VHDLLinter extends Linter
+trait VHDLLinter extends Linter:
+  // Converts the selected compiler vhdl dialect to the relevant lint flag
+  protected def lintCmdLanguageFlag(dialect: VHDLDialect): String
+  final protected def lintCmdSources(using CompilerOptions, LinterOptions, MemberGetSet): String =
+    (designDefFiles ++ toolFiles ++ designFiles).mkString(" ")
+  final protected def lintCmdLanguageFlag(using co: CompilerOptions): String =
+    lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Builder extends Tool:
   def build[D <: Design](

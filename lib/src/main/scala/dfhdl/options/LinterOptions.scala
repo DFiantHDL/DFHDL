@@ -37,13 +37,13 @@ object LinterOptions:
   opaque type VerilogLinter <: dfhdl.tools.toolsCore.VerilogLinter =
     dfhdl.tools.toolsCore.VerilogLinter
   object VerilogLinter:
-    export dfhdl.tools.linters.{verilator, iverilog, vlog}
+    export dfhdl.tools.linters.{verilator, iverilog, vlog, xvlog}
     given VerilogLinter = verilator
     given Conversion[dfhdl.tools.toolsCore.VerilogLinter, VerilogLinter] = identity
 
   opaque type VHDLLinter <: dfhdl.tools.toolsCore.VHDLLinter = dfhdl.tools.toolsCore.VHDLLinter
   object VHDLLinter:
-    export dfhdl.tools.linters.{ghdl, nvc, vcom}
+    export dfhdl.tools.linters.{ghdl, nvc, vcom, xvhdl}
     given VHDLLinter = ghdl
     given Conversion[dfhdl.tools.toolsCore.VHDLLinter, VHDLLinter] = identity
 

@@ -127,11 +127,13 @@ trait DFApp:
           |verilator - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
           |iverilog  - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
           |vlog      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
+          |xvlog     - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvlog)}
           |
           |Selectable VHDL linting tools:
           |ghdl      - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
           |nvc       - NVC                 ${scanned(dfhdl.tools.linters.nvc)}
-          |vcom      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}""".stripMargin
+          |vcom      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}
+          |xvhdl     - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvhdl)}""".stripMargin
     )
   end listLintTools
 

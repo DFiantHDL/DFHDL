@@ -30,10 +30,11 @@ object Vivado extends Builder:
   def build[D <: Design](
       cd: CompiledDesign[D]
   )(using CompilerOptions, BuilderOptions): CompiledDesign[D] =
+    given MemberGetSet = cd.stagedDB.getSet
     exec(
-      cd,
       s"-mode batch -source ${cd.stagedDB.top.dclName}.tcl"
     )
+    cd
 end Vivado
 
 case object VivadoProjectTclConfig extends SourceType.ToolConfig

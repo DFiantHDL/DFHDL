@@ -20,58 +20,34 @@ object IcarusVerilog extends VerilogLinter:
     val versionPattern = """Icarus Verilog version\s+(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
-  def commonFlags(using co: CompilerOptions, lo: LinterOptions): String =
-    val generation = co.backend match
-      case be: backends.verilog =>
-        be.dialect match
-          case VerilogDialect.v95    => "1995"
-          case VerilogDialect.v2001  => "2001"
-          case VerilogDialect.sv2005 => "2005"
-          case VerilogDialect.sv2009 => "2009"
-          case VerilogDialect.sv2012 => "2012"
-          case _ =>
-            throw new java.lang.IllegalArgumentException(
-              "Current dialect is not supported for Icarus Verilog linting."
-            )
+  protected def lintIncludeFolderFlag: String = "-I"
+
+  protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
+    val generation = dialect match
+      case VerilogDialect.v95    => "1995"
+      case VerilogDialect.v2001  => "2001"
+      case VerilogDialect.sv2005 => "2005"
+      case VerilogDialect.sv2009 => "2009"
+      case VerilogDialect.sv2012 => "2012"
       case _ =>
         throw new java.lang.IllegalArgumentException(
-          "Current backend is not supported for Icarus Verilog linting."
+          "Current dialect is not supported for Icarus Verilog linting."
         )
     s"-g$generation"
-  end commonFlags
-  def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
-    // We use `forceWindowsToLinuxPath` fit the verilator needs
-    val designsInCmd = cd.stagedDB.srcFiles.view.collect {
-      case SourceFile(
-            SourceOrigin.Committed,
-            SourceType.Design.Regular | SourceType.Design.BlackBox,
-            path,
-            _
-          ) =>
-        path.forceWindowsToLinuxPath
-    }.mkString(" ")
 
-    val dfhdlDefsIncludeFolder = cd.stagedDB.srcFiles.collectFirst {
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.DFHDLDef, path, _) =>
-        Paths.get(path).getParent.toString.forceWindowsToLinuxPath
-    }.get
+  override protected def lintCmdPreLangFlags(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    s"-o $topName"
+  )
 
-    val globalIncludeFolder = cd.stagedDB.srcFiles.collectFirst {
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.GlobalDef, path, _) =>
-        Paths.get(path).getParent.toString.forceWindowsToLinuxPath
-    }.get
-
-    val includes =
-      List(dfhdlDefsIncludeFolder, globalIncludeFolder).distinct.map(i => s"-I$i").mkString(" ")
-
-    s"$includes $designsInCmd"
-  end filesCmdPart
-  def lint[D <: Design](
-      cd: CompiledDesign[D]
-  )(using CompilerOptions, LinterOptions): CompiledDesign[D] =
-    exec(
-      cd,
-      s"$commonFlags -o ${cd.stagedDB.top.dclName} -Wall ${filesCmdPart(cd)}"
-    )
-  end lint
+  override protected def lintCmdPostLangFlags(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-Wall"
+  )
 end IcarusVerilog
