@@ -45,8 +45,11 @@ object NVC extends VHDLLinter:
           else if (insideWarning)
             // hit the end of the warning
             if (err.trim.endsWith("^")) insideWarning = false
-          else
-            // If it's not part of the warning, print the stderr line normally
+          // this is expected when mixing multiple simulators/linters all using "work" folder
+          else if (err == "** Warning: directory work already exists and is not an NVC library") {
+            // do nothing
+          } else
+            // not a suppressed part, print the stderr line normally
             println(err)
       )
     )
