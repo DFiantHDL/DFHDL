@@ -11,7 +11,7 @@ abstract class FullCompileSpec extends FunSuite:
   def expectedVerilogCS: String
   def expectedVHDLCS: String
   given options.OnError = options.OnError.Exception
-  given options.LinterOptions.WarnAsError = true
+  given options.LinterOptions.FatalWarnings = true
   private val verilogLinters: List[LinterOptions.VerilogLinter] =
     List(verilator, iverilog, vlog, xvlog)
   private val vhdlLinters: List[LinterOptions.VHDLLinter] =

@@ -4,7 +4,7 @@ import LinterOptions.*
 
 final case class LinterOptions(
     onError: OnError,
-    warnAsError: WarnAsError,
+    fatalWarnings: FatalWarnings,
     verilogLinter: VerilogLinter,
     vhdlLinter: VHDLLinter
 ) extends ToolOptions
@@ -13,12 +13,12 @@ final case class LinterOptions(
 object LinterOptions:
   given default(using
       onError: OnError,
-      warnAsError: WarnAsError,
+      fatalWarnings: FatalWarnings,
       verilogLinter: VerilogLinter,
       vhdlLinter: VHDLLinter
   ): LinterOptions = LinterOptions(
     onError = onError,
-    warnAsError = warnAsError,
+    fatalWarnings = fatalWarnings,
     verilogLinter = verilogLinter,
     vhdlLinter = vhdlLinter
   )
@@ -29,10 +29,10 @@ object LinterOptions:
     given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
     export dfhdl.options.OnError.*
 
-  opaque type WarnAsError <: Boolean = Boolean
-  object WarnAsError:
-    given WarnAsError = false
-    given Conversion[Boolean, WarnAsError] = identity
+  opaque type FatalWarnings <: Boolean = Boolean
+  object FatalWarnings:
+    given FatalWarnings = false
+    given Conversion[Boolean, FatalWarnings] = identity
 
   opaque type VerilogLinter <: dfhdl.tools.toolsCore.VerilogLinter =
     dfhdl.tools.toolsCore.VerilogLinter

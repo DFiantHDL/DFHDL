@@ -33,7 +33,7 @@ object GHDL extends VHDLLinter:
       MemberGetSet
   ): String = constructCommand(
     "-a",
-    summon[LinterOptions].warnAsError.toFlag("--warn-error")
+    summon[LinterOptions].fatalWarnings.toFlag("--warn-error")
   )
 
   override protected def lintCmdPostLangFlags(using

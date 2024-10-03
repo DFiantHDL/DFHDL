@@ -54,7 +54,8 @@ object Verilator extends VerilogLinter:
       LinterOptions,
       MemberGetSet
   ): String = constructCommand(
-    "-Wall"
+    "-Wall",
+    (!summon[LinterOptions].fatalWarnings).toFlag("-Wno-fatal")
   )
 
   override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
