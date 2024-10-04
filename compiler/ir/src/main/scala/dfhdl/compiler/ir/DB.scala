@@ -461,7 +461,8 @@ final case class DB(
                |Unable to determine directionality for the following nets:
                |${pendingNets.map(_.net.meta.position).mkString("\n")}""".stripMargin
           )
-      case Nil => connToDcls
+      case Nil =>
+        connToDcls
     end match
   end getConnToDcls
 
@@ -602,6 +603,24 @@ final case class DB(
       )
     ret
   end magnetConnectionTable
+
+  def checkDanglingInputs(): Unit =
+    // collect all input ports that are not connected directly or implicitly as magnets
+    val danglingInputs = members.collect {
+      case p: DFVal.Dcl
+          if p.isPortIn && !connectionTable.contains(p) &&
+            !p.getOwnerDesign.isTop && !magnetConnectionTable.contains(p) =>
+        val ownerDesign = p.getOwnerDesign
+        s"""|DFiant HDL connectivity error!
+            |Position:  ${ownerDesign.meta.position}
+            |Hierarchy: ${ownerDesign.getFullName}
+            |Message:   Found a dangling (unconnected) input port `${p.getName}`.""".stripMargin
+    }
+    if (danglingInputs.nonEmpty)
+      throw new IllegalArgumentException(
+        danglingInputs.mkString("\n")
+      )
+  end checkDanglingInputs
 
   // holds for each RTDomain/RTDesign/RTInterface that its configuration on another domain,
   // the domain it is dependent on
@@ -788,6 +807,7 @@ final case class DB(
     nameCheck()
     connectionTable // causes connectivity checks
     magnetConnectionTable // causes magnet connectivity checks
+    checkDanglingInputs()
     directRefCheck()
     circularDerivedDomainsCheck()
 

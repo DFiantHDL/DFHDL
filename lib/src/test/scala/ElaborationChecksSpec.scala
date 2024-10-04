@@ -151,4 +151,25 @@ class ElaborationChecksSpec extends DesignSpec:
           |Message:   Ports can only be directly owned by a design, a domain or an interface.
           |""".stripMargin
     )
+
+  test("dangling input"):
+    class ID extends EDDesign:
+      val x = Bits(10) <> IN
+      val y = Bits(10) <> OUT
+      y <> x
+
+    @top class IDTop extends EDDesign:
+      val x = Bits(10) <> IN
+      val y = Bits(10) <> OUT
+
+      val id = ID()
+      id.y <> y
+    assertElaborationErrors(IDTop())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:165:16 - 165:18
+          |Hierarchy: IDTop.id
+          |Message:   Found a dangling (unconnected) input port `x`.
+          |""".stripMargin
+    )
 end ElaborationChecksSpec
