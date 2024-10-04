@@ -71,6 +71,12 @@ class ParsedCommandLine(
         default = Some(LintToolSelection(lo.verilogLinter, lo.vhdlLinter)),
         argName = "[verilogLinter][/][vhdlLinter]"
       )
+      val fatalWarnings = opt[Boolean](
+        descr = "warnings are fatal and produce non-zero exit code",
+        default = Some(lo.fatalWarnings),
+        noshort = true
+      )
+
     case object elaborate
         extends Mode(DefaultMode.elaborate, "Elaboration only (no compilation)"),
           ElaborateMode

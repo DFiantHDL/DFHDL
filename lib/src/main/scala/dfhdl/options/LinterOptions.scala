@@ -29,10 +29,14 @@ object LinterOptions:
     given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
     export dfhdl.options.OnError.*
 
-  opaque type FatalWarnings <: Boolean = Boolean
+  opaque type FatalWarnings <: dfhdl.options.ToolOptions.FatalWarnings =
+    dfhdl.options.ToolOptions.FatalWarnings
   object FatalWarnings:
-    given FatalWarnings = false
-    given Conversion[Boolean, FatalWarnings] = identity
+    given (using fatalWarnings: dfhdl.options.ToolOptions.FatalWarnings): FatalWarnings =
+      fatalWarnings
+    given Conversion[Boolean, FatalWarnings] = x => x.asInstanceOf[FatalWarnings]
+    given Conversion[dfhdl.options.ToolOptions.FatalWarnings, FatalWarnings] =
+      x => x.asInstanceOf[FatalWarnings]
 
   opaque type VerilogLinter <: dfhdl.tools.toolsCore.VerilogLinter =
     dfhdl.tools.toolsCore.VerilogLinter

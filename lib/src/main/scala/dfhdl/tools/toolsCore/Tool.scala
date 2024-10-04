@@ -112,22 +112,42 @@ trait Tool:
   final protected def exec[D <: Design](
       cmd: String,
       prepare: => Unit = (),
-      logger: Option[ProcessLogger] = None
+      loggerOpt: Option[Tool.ProcessLogger] = None
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     preCheck()
     prepare
     val fullExec = s"$runExec $cmd"
     val process = Process(fullExec, new java.io.File(execPath))
-    val errCode = logger.map(process.!).getOrElse(process.!)
-    if (errCode != 0)
+    var hasWarnings: Boolean = false
+    val errCode = loggerOpt.map(logger =>
+      val errCode = process.!(logger)
+      hasWarnings = logger.hasWarnings
+      errCode
+    ).getOrElse(process.!)
+    if (errCode != 0 || hasWarnings && summon[ToolOptions].fatalWarnings)
+      val msg =
+        if (errCode != 0) s"${toolName} exited with the error code ${errCode}."
+        else s"${toolName} exited with warnings while `fatal warnings` is turned on."
       error(
-        s"""|${toolName} exited with the error code ${errCode}.
-            |Path: $execPath
+        s"""|$msg
+            |Path: ${Paths.get(execPath).toAbsolutePath()}
             |Command: $fullExec""".stripMargin
       )
   end exec
   override def toString(): String = binExec
 end Tool
+object Tool:
+  class ProcessLogger(lineIsWarning: String => Boolean, lineIsSuppressed: String => Boolean)
+      extends scala.sys.process.ProcessLogger:
+    private var _hasWarnings = false
+    final def hasWarnings: Boolean = _hasWarnings
+    private def useLine(line: String): Unit =
+      if (!lineIsSuppressed(line))
+        if (lineIsWarning(line)) _hasWarnings = true
+        println(line)
+    final def out(s: => String): Unit = useLine(s)
+    final def err(s: => String): Unit = useLine(s)
+    final def buffer[T](f: => T): T = f
 
 trait Linter extends Tool:
   final def lint[D <: Design](
@@ -141,7 +161,7 @@ trait Linter extends Tool:
       CompilerOptions,
       LinterOptions,
       MemberGetSet
-  ): Option[ProcessLogger] = None
+  ): Option[Tool.ProcessLogger] = None
   protected def lintCmdLanguageFlag(using co: CompilerOptions): String
   protected def lintCmdSources(using CompilerOptions, LinterOptions, MemberGetSet): String
   protected def lintCmdPreLangFlags(using CompilerOptions, LinterOptions, MemberGetSet): String = ""

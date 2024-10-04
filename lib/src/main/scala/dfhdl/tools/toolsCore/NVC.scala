@@ -32,25 +32,25 @@ object NVC extends VHDLLinter:
       CompilerOptions,
       LinterOptions,
       MemberGetSet
-  ): Option[ProcessLogger] =
+  ): Option[Tool.ProcessLogger] =
     var insideWarning = false
     // Create a process logger to suppress the shared variable warning
     Some(
-      ProcessLogger(
-        (out: String) => println(out), // stdout - print directly
-        (err: String) =>
-          if (err.matches(".*Warning: shared variable .* must have protected type"))
+      Tool.ProcessLogger(
+        lineIsWarning = (line: String) => line.startsWith("** Warning:"),
+        lineIsSuppressed = (line: String) =>
+          if (line.matches("\\*\\* Warning: shared variable .* must have protected type"))
             // Start suppressing lines
             insideWarning = true
+            true
           else if (insideWarning)
             // hit the end of the warning
-            if (err.trim.endsWith("^")) insideWarning = false
+            if (line.trim.endsWith("^")) insideWarning = false
+            true
           // this is expected when mixing multiple simulators/linters all using "work" folder
-          else if (err == "** Warning: directory work already exists and is not an NVC library") {
-            // do nothing
-          } else
-            // not a suppressed part, print the stderr line normally
-            println(err)
+          else if (line == "** Warning: directory work already exists and is not an NVC library")
+            true
+          else false
       )
     )
   end lintLogger

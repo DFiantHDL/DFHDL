@@ -26,10 +26,10 @@ trait VivadoSimCommon extends Linter:
       CompilerOptions,
       LinterOptions,
       MemberGetSet
-  ): Option[ProcessLogger] = Some(
-    ProcessLogger(
-      (out: String) => if (!suppressLine(out)) println(out),
-      (err: String) => println(err)
+  ): Option[Tool.ProcessLogger] = Some(
+    Tool.ProcessLogger(
+      lineIsWarning = (line: String) => line.startsWith("WARNING:"),
+      lineIsSuppressed = (line: String) => suppressLine(line)
     )
   )
 end VivadoSimCommon

@@ -50,4 +50,15 @@ object IcarusVerilog extends VerilogLinter:
   ): String = constructCommand(
     "-Wall"
   )
+
+  override protected def lintLogger(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): Option[Tool.ProcessLogger] = Some(
+    Tool.ProcessLogger(
+      lineIsWarning = (line: String) => line.contains("warning: "),
+      lineIsSuppressed = (line: String) => false
+    )
+  )
 end IcarusVerilog

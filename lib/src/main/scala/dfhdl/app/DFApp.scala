@@ -175,7 +175,8 @@ trait DFApp:
             val toolSelection = mode.tool.toOption.get
             linterOptions = linterOptions.copy(
               verilogLinter = toolSelection.verilogLinter,
-              vhdlLinter = toolSelection.vhdlLinter
+              vhdlLinter = toolSelection.vhdlLinter,
+              fatalWarnings = mode.fatalWarnings.toOption.get
             )
           case _ =>
         // execute command
