@@ -122,7 +122,7 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |LHS:       x
           |RHS:       0
-          |Message:   Found multiple domain assignments to the same variable/port `Top.x`
+          |Message:   Found multiple domain assignments to the same variable/port `Top.x`.
           |Only variables declared as `VAR.SHARED` under ED domain allow this.
           |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:111:9 - 111:15
           |
@@ -131,7 +131,7 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |LHS:       y
           |RHS:       0
-          |Message:   Found multiple domain assignments to the same variable/port `Top.y`
+          |Message:   Found multiple domain assignments to the same variable/port `Top.y`.
           |Only variables declared as `VAR.SHARED` under ED domain allow this.
           |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:112:9 - 112:15
           |""".stripMargin

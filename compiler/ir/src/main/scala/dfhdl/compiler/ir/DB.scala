@@ -417,7 +417,7 @@ final case class DB(
                 if (prevNet.getOwnerDomain != net.getOwnerDomain)
                   newError(
                     s"""|Found multiple domain assignments to the same variable/port `${toDcl
-                         .getFullName}`
+                         .getFullName}`.
                         |Only variables declared as `VAR.SHARED` under ED domain allow this.
                         |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                   )
@@ -428,7 +428,7 @@ final case class DB(
               if (prevNet.isConnection || prevNet.isAssignment && !net.isAssignment)
                 newError(
                   s"""Found multiple connections write to the same variable/port `${toDcl
-                      .getFullName}`
+                      .getFullName}`.
                      |The previous write occurred at ${prevNet.meta.position}""".stripMargin
                 )
             // if no previous connection in this range, we add it to the range map
