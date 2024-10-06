@@ -42,10 +42,10 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val genericBlock =
       if (designParamList.length == 0) ""
       else "\ngeneric (" + designParamList.mkString("\n", ";\n", "\n").hindent(1) + ");"
-    val portBlock = ports.emptyOr(v => s"""
-         |port (
-         |${ports.hindent}
-         |);""".stripMargin)
+    val portBlock = ports.emptyOr(v => s"""|
+                                           |port (
+                                           |${ports.hindent}
+                                           |);""".stripMargin)
     s"""entity ${entityName(design)} is$genericBlock$portBlock
        |end ${entityName(design)};""".stripMargin
   end csEntityDcl
@@ -74,10 +74,14 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     // So first we prepare the vector type declarations in a mutable map and later we remove
     // entries that were already placed in the final type printing.
     val vectorTypeDcls =
-      mutable.Map.from(printer.getLocalVectorTypes(design).view.map { (tpName, depth) =>
-        val dclScope =
-          if (vectorsConvUsed.contains(tpName)) DclScope.ArchBody else DclScope.TypeOnly
-        tpName -> printer.csDFVectorDclsLocal(dclScope)(tpName, depth)
+      mutable.Map.from(printer.getLocalVectorTypes(design).view.map {
+        case (tpName, (vecType, depth)) =>
+          val dclScope =
+            if (vectorsConvUsed.contains(tpName)) DclScope.ArchBody else DclScope.TypeOnly
+          if (printer.supportUnconstrainedArrays)
+            tpName -> printer.csDFVectorDclsLocal(dclScope)(tpName, depth)
+          else
+            tpName -> printer.csDFVectorDcl(dclScope)(tpName, vecType)
       })
     val globalNamedDFTypes = getSet.designDB.getGlobalNamedDFTypes
     // collect the local named types, including vectors

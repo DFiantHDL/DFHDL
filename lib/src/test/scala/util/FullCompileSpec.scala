@@ -49,7 +49,7 @@ abstract class FullCompileSpec extends FunSuite:
     given options.CompilerOptions.Backend = backends.vhdl
     assertNoDiff(dut.compile.lintVHDL.getCompiledCodeString, expectedVHDLCS)
 
-  // test("vhdl.v93 compilation with no error"):
-  //   given options.CompilerOptions.Backend = backends.vhdl.v93
-  //   dut.compile.lint
+  test("vhdl.v93 compilation with no error"):
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    dut.compile.lintVHDL
 end FullCompileSpec
