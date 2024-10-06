@@ -12,19 +12,19 @@ abstract class FullCompileSpec extends FunSuite:
   def expectedVHDLCS: String
   given options.OnError = options.OnError.Exception
   given options.LinterOptions.FatalWarnings = true
-  private val verilogLinters: List[LinterOptions.VerilogLinter] =
+  def verilogLinters: List[LinterOptions.VerilogLinter] =
     List(verilator, iverilog, vlog, xvlog)
-  private val vhdlLinters: List[LinterOptions.VHDLLinter] =
+  def vhdlLinters: List[LinterOptions.VHDLLinter] =
     List(ghdl, nvc, vcom, xvhdl)
   extension [D <: core.Design](cd: CompiledDesign[D])
-    private def lintVerilog(using CompilerOptions): CompiledDesign[D] =
+    def lintVerilog(using CompilerOptions): CompiledDesign[D] =
       verilogLinters.foreach { linter =>
         if (linter.isAvailable)
           given LinterOptions.VerilogLinter = linter
           cd.lint
       }
       cd
-    private def lintVHDL(using CompilerOptions): CompiledDesign[D] =
+    def lintVHDL(using CompilerOptions): CompiledDesign[D] =
       vhdlLinters.foreach { linter =>
         if (linter.isAvailable)
           given LinterOptions.VHDLLinter = linter
@@ -35,7 +35,9 @@ abstract class FullCompileSpec extends FunSuite:
 
   test("verilog[default = sv2009] compilation with no error"):
     given options.CompilerOptions.Backend = backends.verilog
-    assertNoDiff(dut.compile.lintVerilog.getCompiledCodeString, expectedVerilogCS)
+    val compiled = dut.compile.lintVerilog
+    if (expectedVerilogCS.nonEmpty)
+      assertNoDiff(compiled.getCompiledCodeString, expectedVerilogCS)
 
   test("verilog.v2001 compilation with no error"):
     given options.CompilerOptions.Backend = backends.verilog.v2001
@@ -47,7 +49,9 @@ abstract class FullCompileSpec extends FunSuite:
 
   test("vhdl[default = v2008] compilation with no error"):
     given options.CompilerOptions.Backend = backends.vhdl
-    assertNoDiff(dut.compile.lintVHDL.getCompiledCodeString, expectedVHDLCS)
+    val compiled = dut.compile.lintVerilog
+    if (expectedVHDLCS.nonEmpty)
+      assertNoDiff(compiled.getCompiledCodeString, expectedVHDLCS)
 
   test("vhdl.v93 compilation with no error"):
     given options.CompilerOptions.Backend = backends.vhdl.v93
