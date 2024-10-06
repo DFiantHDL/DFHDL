@@ -41,6 +41,9 @@ object VivadoSimVerilog extends VivadoSimCommon, VerilogLinter:
     dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => ""
       case _                                         => "--sv"
+  // suppress info messages and initial value omission
+  override protected def suppressLine(line: String): Boolean =
+    super.suppressLine(line) || line.matches("WARNING: \\[VRFC 10\\-3467\\].*")
 end VivadoSimVerilog
 
 object VivadoSimVHDL extends VivadoSimCommon, VHDLLinter:
