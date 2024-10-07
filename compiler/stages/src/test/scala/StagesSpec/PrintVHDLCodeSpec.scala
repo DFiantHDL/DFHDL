@@ -807,4 +807,50 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Global parameters under vhdl.v93") {
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    val width: Int <> CONST               = 8
+    val length: Int <> CONST              = 10
+    class Foo extends RTDesign:
+      val x1 = Bits(width) X length <> IN
+      val y1 = Bits(width) X length <> OUT
+      y1 <> x1
+      val x2 = Bits(width) X (length + 1) <> IN
+      val y2 = Bits(width) X (length + 1) <> OUT
+      y2 <> x2
+      val x3 = Bits(width) X 7 <> IN
+      val y3 = Bits(width) X 7 <> OUT
+      y3 <> x3
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|constant width : integer := 8;
+         |constant length : integer := 10;
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x1 : in t_vecXP1_slv8;
+         |  y1 : out t_vecXP1_slv8;
+         |  x2 : in t_vecXP2_slv8;
+         |  y2 : out t_vecXP2_slv8;
+         |  x3 : in t_vecX7_slv8;
+         |  y3 : out t_vecX7_slv8
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  y1 <= x1;
+         |  y2 <= x2;
+         |  y3 <= x3;
+         |end Foo_arch;
+         |""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

@@ -762,4 +762,50 @@ class PrintVerilogCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+
+  test("Global parameters under verilog.v95") {
+    given options.CompilerOptions.Backend = backends.verilog.v95
+    val width:  Int <> CONST = 8
+    val length: Int <> CONST = 10
+    class Foo extends RTDesign:
+      val x1 = Bits(width) X length <> IN
+      val y1 = Bits(width) X length <> OUT
+      y1 <> x1
+      val x2 = Bits(width) X (length + 1) <> IN
+      val y2 = Bits(width) X (length + 1) <> OUT
+      y2 <> x2
+      val x3 = Bits(width) X 7 <> IN
+      val y3 = Bits(width) X 7 <> OUT
+      y3 <> x3
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`define width 8
+         |`define length 10
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.vh"
+         |
+         |module Foo(
+         |  x1,
+         |  y1,
+         |  x2,
+         |  y2,
+         |  x3,
+         |  y3
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  input  wire  [`width - 1:0] x1 [0:`length - 1];
+         |  output wire [`width - 1:0] y1 [0:`length - 1];
+         |  input  wire  [`width - 1:0] x2 [0:`length + 1 - 1];
+         |  output wire [`width - 1:0] y2 [0:`length + 1 - 1];
+         |  input  wire  [`width - 1:0] x3 [0:6];
+         |  output wire [`width - 1:0] y3 [0:6];
+         |  assign y1 = x1;
+         |  assign y2 = x2;
+         |  assign y3 = x3;
+         |endmodule
+         |""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

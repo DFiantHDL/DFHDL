@@ -155,14 +155,37 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         case _                  => printer.unsupported
       (cellTypeName, (dfType, 1))
 
+  // Wrapper used to uniquely track parameter values and index them
+  class ParamWrapper(val dfVal: DFVal):
+    override def equals(that: Any): Boolean =
+      that.asInstanceOf[ParamWrapper].dfVal =~ dfVal
+    override def hashCode(): Int = dfVal.codeString.hashCode()
+  val paramIdxCache = mutable.Map.empty[ParamWrapper, Int]
+  var paramIdxLatest: Int = 0
   def csDFVectorDclName(cellTypeName: String, depth: Int): String =
     if (depth == 0) cellTypeName
     else s"t_vecX${depth}_${cellTypeName}"
   def csDFVectorDclName(dfType: DFVector): String =
     val (cellTypeName, (vecType, depth)) = getVecDepthAndCellTypeName(dfType)
-    if (supportUnconstrainedArrays)
-      csDFVectorDclName(cellTypeName, depth)
-    else s"t_vecX${dfType.length}_${cellTypeName}"
+    if (supportUnconstrainedArrays) csDFVectorDclName(cellTypeName, depth)
+    else
+      val cellDim = dfType.cellDimParamRefs.head
+      // literal length vector types are named according to their length
+      if (cellDim.isInt) s"t_vecX${dfType.length}_${cellTypeName}"
+      // parameterized vector types are named with a unique index for
+      // each unique parameter
+      else
+        val wrapper = ParamWrapper(cellDim.getRef.get.get)
+        val paramIdx = paramIdxCache.getOrElseUpdate(
+          wrapper, {
+            paramIdxLatest = paramIdxLatest + 1
+            paramIdxLatest
+          }
+        )
+        s"t_vecXP${paramIdx}_${cellTypeName}"
+    end if
+  end csDFVectorDclName
+
   def csDFVectorDcl(
       dclScope: DclScope
   )(cellTypeName: String, vecTypeOrDepth: DFVector | Int): String =

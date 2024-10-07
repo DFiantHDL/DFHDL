@@ -66,10 +66,12 @@ trait AbstractValPrinter extends AbstractPrinter:
       case DFVal.Const(_: DFDecimal, Some(i), _, _, _) => i.toString
       case _                                           => ref.refCodeString
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String
+  def csDFMemberName(named: DFMember.Named): String =
+    named.getName
   final def csRef(ref: DFRef.TwoWayAny, typeCS: Boolean): String =
     val member = ref.get
     extension (named: DFMember.Named)
-      def nameCS: String = if (typeCS) s"${named.getName}.type" else named.getName
+      def nameCS: String = if (typeCS) s"${csDFMemberName(named)}.type" else csDFMemberName(named)
     member match
       case dfVal @ DesignParam(_) => dfVal.nameCS
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>

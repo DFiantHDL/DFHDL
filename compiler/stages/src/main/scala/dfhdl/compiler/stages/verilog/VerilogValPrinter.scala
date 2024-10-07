@@ -10,11 +10,18 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   val supportLogicType: Boolean = printer.dialect match
     case VerilogDialect.v2001 | VerilogDialect.v95 => false
     case _                                         => true
+  val supportGlobalParameters: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
-    val arrRange = printer.csDFVectorRanges(dfVal.dfType)
-    val endOfStatement = if (dfVal.isGlobal) ";" else ""
-    s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = ${csDFValExpr(dfVal)}$endOfStatement"
+    if (supportGlobalParameters || !dfVal.isGlobal)
+      val arrRange = printer.csDFVectorRanges(dfVal.dfType)
+      val endOfStatement = if (dfVal.isGlobal) ";" else ""
+      s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = ${csDFValExpr(dfVal)}$endOfStatement"
+    else s"`define ${dfVal.getName} ${csDFValExpr(dfVal).replace("\n", " \\\n")}"
+
   def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
     val modifier = dfVal.modifier.dir match
@@ -40,6 +47,12 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     printer.dialect match
       case VerilogDialect.v95 => false
       case _                  => true
+  override def csDFMemberName(named: DFMember.Named): String =
+    if (printer.supportGlobalParameters) named.getName
+    else
+      named match
+        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => s"`${named.getName}"
+        case _                                          => named.getName
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     def commonOpStr: String =
       dfVal.op match
