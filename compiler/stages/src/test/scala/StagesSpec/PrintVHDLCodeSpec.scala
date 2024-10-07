@@ -295,8 +295,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    _1 : std_logic_vector(2 downto 0);
          |    _2 : std_logic;
          |  end record;
-         |  type t_vecX1_std_logic_vector is array (natural range <>) of std_logic_vector;
-         |  type t_vecX2_std_logic_vector is array (natural range <>) of t_vecX1_std_logic_vector;
+         |  type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
+         |  type t_arrX2_std_logic_vector is array (natural range <>) of t_arrX1_std_logic_vector;
          |  constant c01 : std_logic := '0';
          |  constant c02 : std_logic := '1';
          |  constant c03 : std_logic := '-';
@@ -312,7 +312,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
          |  constant c14 : signed(7 downto 0) := signed'(x"--");
          |  constant c15 : t_struct_DFTuple2 := t_struct_DFTuple2(_1 = "000", _2 = '1');
-         |  constant c16 : t_vecX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (
+         |  constant c16 : t_arrX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (
          |    0 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
          |    1 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
          |    2 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
@@ -419,12 +419,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Example;
          |
          |architecture Example_arch of Example is
-         |  type t_vecX1_std_logic_vector is array (natural range <>) of std_logic_vector;
-         |  function bitWidth(A : t_vecX1_std_logic_vector) return integer is
+         |  type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
+         |  function bitWidth(A : t_arrX1_std_logic_vector) return integer is
          |  begin
          |    return A'length * bitWidth(A(0));
          |  end;
-         |  function to_slv(A : t_vecX1_std_logic_vector) return std_logic_vector is
+         |  function to_slv(A : t_arrX1_std_logic_vector) return std_logic_vector is
          |    variable hi : integer;
          |    variable lo : integer;
          |    variable cellBitWidth: integer;
@@ -438,11 +438,11 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end loop;
          |    return ret;
          |  end;
-         |  function to_t_vecX1_std_logic_vector(A : std_logic_vector; D1 : integer; D0 : integer) return t_vecX1_std_logic_vector is
+         |  function to_t_arrX1_std_logic_vector(A : std_logic_vector; D1 : integer; D0 : integer) return t_arrX1_std_logic_vector is
          |    variable hi : integer;
          |    variable lo : integer;
          |    variable cellBitWidth: integer;
-         |    variable ret : t_vecX1_std_logic_vector(0 to D1 - 1)(D0 - 1 downto 0);
+         |    variable ret : t_arrX1_std_logic_vector(0 to D1 - 1)(D0 - 1 downto 0);
          |  begin
          |    cellBitWidth := bitWidth(ret(0));
          |    lo := A'length;
@@ -452,7 +452,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end loop;
          |    return ret;
          |  end;
-         |  function bool_sel(C : boolean; T : t_vecX1_std_logic_vector; F : t_vecX1_std_logic_vector) return t_vecX1_std_logic_vector is
+         |  function bool_sel(C : boolean; T : t_arrX1_std_logic_vector; F : t_arrX1_std_logic_vector) return t_arrX1_std_logic_vector is
          |  begin
          |    if C then
          |      return T;
@@ -460,12 +460,12 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      return F;
          |    end if;
          |  end;
-         |  type t_vecX2_std_logic_vector is array (natural range <>) of t_vecX1_std_logic_vector;
-         |  function bitWidth(A : t_vecX2_std_logic_vector) return integer is
+         |  type t_arrX2_std_logic_vector is array (natural range <>) of t_arrX1_std_logic_vector;
+         |  function bitWidth(A : t_arrX2_std_logic_vector) return integer is
          |  begin
          |    return A'length * bitWidth(A(0));
          |  end;
-         |  function to_slv(A : t_vecX2_std_logic_vector) return std_logic_vector is
+         |  function to_slv(A : t_arrX2_std_logic_vector) return std_logic_vector is
          |    variable hi : integer;
          |    variable lo : integer;
          |    variable cellBitWidth: integer;
@@ -479,21 +479,21 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end loop;
          |    return ret;
          |  end;
-         |  function to_t_vecX2_std_logic_vector(A : std_logic_vector; D2 : integer; D1 : integer; D0 : integer) return t_vecX2_std_logic_vector is
+         |  function to_t_arrX2_std_logic_vector(A : std_logic_vector; D2 : integer; D1 : integer; D0 : integer) return t_arrX2_std_logic_vector is
          |    variable hi : integer;
          |    variable lo : integer;
          |    variable cellBitWidth: integer;
-         |    variable ret : t_vecX2_std_logic_vector(0 to D2 - 1)(0 to D1 - 1)(D0 - 1 downto 0);
+         |    variable ret : t_arrX2_std_logic_vector(0 to D2 - 1)(0 to D1 - 1)(D0 - 1 downto 0);
          |  begin
          |    cellBitWidth := bitWidth(ret(0));
          |    lo := A'length;
          |    for i in 0 to ret'length - 1 loop
          |      hi := lo - 1; lo := hi - cellBitWidth + 1;
-         |      ret(i) := to_t_vecX1_std_logic_vector(A(hi downto lo), D1, D0);
+         |      ret(i) := to_t_arrX1_std_logic_vector(A(hi downto lo), D1, D0);
          |    end loop;
          |    return ret;
          |  end;
-         |  function bool_sel(C : boolean; T : t_vecX2_std_logic_vector; F : t_vecX2_std_logic_vector) return t_vecX2_std_logic_vector is
+         |  function bool_sel(C : boolean; T : t_arrX2_std_logic_vector; F : t_arrX2_std_logic_vector) return t_arrX2_std_logic_vector is
          |  begin
          |    if C then
          |      return T;
@@ -501,10 +501,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      return F;
          |    end if;
          |  end;
-         |  subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
+         |  subtype t_opaque_Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
          |  function to_t_opaque_Foo(A : std_logic_vector) return t_opaque_Foo is
          |  begin
-         |    return to_t_vecX2_std_logic_vector(A, 10, 16, 12);
+         |    return to_t_arrX2_std_logic_vector(A, 10, 16, 12);
          |  end;
          |  signal v : t_opaque_Foo;
          |begin
@@ -512,7 +512,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  begin
          |    if rising_edge(clk) then
          |      if rst = '1' then v <= (0 to 9 => (0 to 15 => x"000"));
-         |      else v <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
+         |      else v <= to_t_arrX2_std_logic_vector(x, 10, 16, 12);
          |      end if;
          |    end if;
          |  end process;
@@ -536,7 +536,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Example is
          |port (
-         |  v : out t_vecX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0)
+         |  v : out t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0)
          |);
          |end Example;
          |
@@ -558,7 +558,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     // TODO: consider if we want to leave the t_opaque_Foo under `getCompiledCodeString`
     assertNoDiff(
       top,
-      """|subtype t_opaque_Foo is t_vecX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
+      """|subtype t_opaque_Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
          |
          |library ieee;
          |use ieee.std_logic_1164.all;
@@ -581,7 +581,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  begin
          |    if rising_edge(clk) then
          |      if rst = '1' then y <= (0 to 9 => (0 to 15 => x"000"));
-         |      else y <= to_t_vecX2_std_logic_vector(x, 10, 16, 12);
+         |      else y <= to_t_arrX2_std_logic_vector(x, 10, 16, 12);
          |      end if;
          |    end if;
          |  end process;
@@ -822,6 +822,9 @@ class PrintVHDLCodeSpec extends StageSpec:
       val x3 = Bits(width) X 7 <> IN
       val y3 = Bits(width) X 7 <> OUT
       y3 <> x3
+      val x4 = Bits(width) X 7 X length <> IN
+      val y4 = Bits(width) X 7 X length <> OUT
+      y4 <> x4
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
@@ -835,12 +838,14 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Foo is
          |port (
-         |  x1 : in t_vecXP1_slv8;
-         |  y1 : out t_vecXP1_slv8;
-         |  x2 : in t_vecXP2_slv8;
-         |  y2 : out t_vecXP2_slv8;
-         |  x3 : in t_vecX7_slv8;
-         |  y3 : out t_vecX7_slv8
+         |  x1 : in t_arrXPlength_slvPwidth;
+         |  y1 : out t_arrXPlength_slvPwidth;
+         |  x2 : in t_arrXP1_slvPwidth;
+         |  y2 : out t_arrXP1_slvPwidth;
+         |  x3 : in t_arrX7_slvPwidth;
+         |  y3 : out t_arrX7_slvPwidth;
+         |  x4 : in t_arrXPlength_t_arrX7_slvPwidth;
+         |  y4 : out t_arrXPlength_t_arrX7_slvPwidth
          |);
          |end Foo;
          |
@@ -849,6 +854,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  y1 <= x1;
          |  y2 <= x2;
          |  y3 <= x3;
+         |  y4 <= x4;
          |end Foo_arch;
          |""".stripMargin
     )

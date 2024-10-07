@@ -142,47 +142,53 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       case cellType         => (csDFType(cellType, true), (dfType, depth))
   def getVecDepthAndCellTypeName(dfType: DFVector): (String, (DFVector, Int)) =
     if (supportUnconstrainedArrays) getVecDepthAndCellTypeName(dfType, 1)
-    else
-      val cellTypeName = dfType.cellType match
-        case DFBit              => "sl"
-        case DFBool             => "boolean"
-        case DFBits(Int(width)) => s"slv${width}"
-        case DFUInt(Int(width)) => s"unsigned${width}"
-        case DFSInt(Int(width)) => s"signed${width}"
-        case dt: DFOpaque       => csDFOpaqueTypeName(dt)
-        case dt: DFVector       => csDFVectorDclName(dt)
-        case dt: DFStruct       => csDFStructTypeName(dt)
-        case _                  => printer.unsupported
-      (cellTypeName, (dfType, 1))
+    else (csDFVectorDclName(dfType), (dfType, 1))
+
+  def getCellTypeName(dfType: DFVector): String =
+    dfType.cellType match
+      case DFBit                 => "sl"
+      case DFBool                => "boolean"
+      case DFBits(widthParamRef) => s"slv${csIntParamRef(widthParamRef)}"
+      case DFUInt(widthParamRef) => s"unsigned${csIntParamRef(widthParamRef)}"
+      case DFSInt(widthParamRef) => s"signed${csIntParamRef(widthParamRef)}"
+      case dt: DFOpaque          => csDFOpaqueTypeName(dt)
+      case dt: DFVector          => csDFVectorDclName(dt)
+      case dt: DFStruct          => csDFStructTypeName(dt)
+      case _                     => printer.unsupported
 
   // Wrapper used to uniquely track parameter values and index them
-  class ParamWrapper(val dfVal: DFVal):
+  private class ParamWrapper(val dfVal: DFVal):
     override def equals(that: Any): Boolean =
       that.asInstanceOf[ParamWrapper].dfVal =~ dfVal
     override def hashCode(): Int = dfVal.codeString.hashCode()
-  val paramIdxCache = mutable.Map.empty[ParamWrapper, Int]
-  var paramIdxLatest: Int = 0
+  private val paramIdxCache = mutable.Map.empty[ParamWrapper, Int]
+  private var paramIdxLatest: Int = 0
+  def getParamIdx(dfVal: DFVal): Int =
+    val wrapper = ParamWrapper(dfVal)
+    paramIdxCache.getOrElseUpdate(
+      wrapper, {
+        paramIdxLatest = paramIdxLatest + 1
+        paramIdxLatest
+      }
+    )
+  def csIntParamRef(intParamRef: IntParamRef): String =
+    intParamRef.getRef match
+      case Some(ref) =>
+        val param = ref.get
+        if (param.isAnonymous) s"P${getParamIdx(ref.get)}"
+        else s"P${param.getName}"
+      case None => intParamRef.getInt.toString()
+
   def csDFVectorDclName(cellTypeName: String, depth: Int): String =
     if (depth == 0) cellTypeName
-    else s"t_vecX${depth}_${cellTypeName}"
+    else s"t_arrX${depth}_${cellTypeName}"
   def csDFVectorDclName(dfType: DFVector): String =
-    val (cellTypeName, (vecType, depth)) = getVecDepthAndCellTypeName(dfType)
-    if (supportUnconstrainedArrays) csDFVectorDclName(cellTypeName, depth)
+    if (supportUnconstrainedArrays)
+      val (cellTypeName, (vecType, depth)) = getVecDepthAndCellTypeName(dfType)
+      csDFVectorDclName(cellTypeName, depth)
     else
       val cellDim = dfType.cellDimParamRefs.head
-      // literal length vector types are named according to their length
-      if (cellDim.isInt) s"t_vecX${dfType.length}_${cellTypeName}"
-      // parameterized vector types are named with a unique index for
-      // each unique parameter
-      else
-        val wrapper = ParamWrapper(cellDim.getRef.get.get)
-        val paramIdx = paramIdxCache.getOrElseUpdate(
-          wrapper, {
-            paramIdxLatest = paramIdxLatest + 1
-            paramIdxLatest
-          }
-        )
-        s"t_vecXP${paramIdx}_${cellTypeName}"
+      s"t_arrX${csIntParamRef(cellDim)}_${getCellTypeName(dfType)}"
     end if
   end csDFVectorDclName
 
@@ -202,7 +208,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       csDFVectorDclName(cellTypeName, _)
     )
     val arrRange = act(
-      vecType => s"0 to ${vecType.length - 1}",
+      vecType => s"0 to ${vecType.cellDimParamRefs.head.refCodeString} - 1",
       _ => "natural range <>"
     )
     val typeDcl = s"type $typeName is array ($arrRange) of $ofTypeName;"

@@ -32,13 +32,13 @@ class IssuesSpec extends FunSuite:
          |end ArrayIssue;
          |
          |architecture ArrayIssue_arch of ArrayIssue is
-         |  type t_vecX1_std_logic is array (natural range <>) of std_logic;
-         |  type t_vecX2_std_logic is array (natural range <>) of t_vecX1_std_logic;
-         |  type t_vecX1_std_logic_vector is array (natural range <>) of std_logic_vector;
-         |  type t_vecX2_std_logic_vector is array (natural range <>) of t_vecX1_std_logic_vector;
-         |  signal b : t_vecX1_std_logic(0 to 5);
-         |  signal c : t_vecX2_std_logic(0 to 3)(0 to 4);
-         |  signal d : t_vecX2_std_logic_vector(0 to 1)(0 to 2)(3 downto 0);
+         |  type t_arrX1_std_logic is array (natural range <>) of std_logic;
+         |  type t_arrX2_std_logic is array (natural range <>) of t_arrX1_std_logic;
+         |  type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
+         |  type t_arrX2_std_logic_vector is array (natural range <>) of t_arrX1_std_logic_vector;
+         |  signal b : t_arrX1_std_logic(0 to 5);
+         |  signal c : t_arrX2_std_logic(0 to 3)(0 to 4);
+         |  signal d : t_arrX2_std_logic_vector(0 to 1)(0 to 2)(3 downto 0);
          |begin
          |  process (all)
          |  begin

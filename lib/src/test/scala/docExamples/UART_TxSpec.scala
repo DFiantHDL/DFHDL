@@ -21,6 +21,7 @@ class UART_TxSpec extends util.FullCompileSpec:
        |  output      logic tx_done
        |);
        |  `include "dfhdl_defs.svh"
+       |  parameter int BIT_CLOCKS = (CLK_FREQ_KHz * 1000) / BAUD_RATE_BPS;
        |  typedef enum {
        |    Status_Idle     = 1,
        |    Status_StartBit = 2,
@@ -28,7 +29,6 @@ class UART_TxSpec extends util.FullCompileSpec:
        |    Status_StopBit  = 8,
        |    Status_Finalize = 16
        |  } t_enum_Status;
-       |  parameter int BIT_CLOCKS = (CLK_FREQ_KHz * 1000) / BAUD_RATE_BPS;
        |  t_enum_Status status;
        |  logic [$clog2(BIT_CLOCKS) - 1:0] bitClkCnt;
        |  logic [2:0]   dataBitCnt;
@@ -118,10 +118,10 @@ class UART_TxSpec extends util.FullCompileSpec:
        |end UART_Tx;
        |
        |architecture UART_Tx_arch of UART_Tx is
+       |  constant BIT_CLOCKS : integer := (CLK_FREQ_KHz * 1000) / BAUD_RATE_BPS;
        |  type t_enum_Status is (
        |    Status_Idle, Status_StartBit, Status_DataBits, Status_StopBit, Status_Finalize
        |  );
-       |  constant BIT_CLOCKS : integer := (CLK_FREQ_KHz * 1000) / BAUD_RATE_BPS;
        |  signal status       : t_enum_Status;
        |  signal bitClkCnt    : unsigned(clog2(BIT_CLOCKS) - 1 downto 0);
        |  signal dataBitCnt   : unsigned(2 downto 0);

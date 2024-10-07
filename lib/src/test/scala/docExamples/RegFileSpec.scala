@@ -63,8 +63,8 @@ class RegFileSpec extends util.FullCompileSpec:
        |end RegFile;
        |
        |architecture RegFile_arch of RegFile is
-       |  type t_vecX1_std_logic_vector is array (natural range <>) of std_logic_vector;
-       |  signal regs : t_vecX1_std_logic_vector(0 to REG_NUM - 1)(DATA_WIDTH - 1 downto 0);
+       |  type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
+       |  signal regs : t_arrX1_std_logic_vector(0 to REG_NUM - 1)(DATA_WIDTH - 1 downto 0);
        |begin
        |  process (clk)
        |  begin

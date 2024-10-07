@@ -133,7 +133,7 @@ trait Printer
   def designFileName(designName: String): String
   def globalFileName: String
   def csGlobalFileContent: String =
-    csGlobalTypeDcls + csGlobalConstDcls
+    csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls
   val alignEnable = printerOptions.align
   def alignCode(cs: String): String
   val colorEnable = printerOptions.color
@@ -201,7 +201,7 @@ trait Printer
       case (block: DFDesignBlock, _) if printerOptions.designPrintFilter(block) =>
         formatCode(csFile(block))
     }
-    s"${formatCode(csGlobalTypeDcls + csGlobalConstDcls).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
+    s"${formatCode(csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
   end csDB
 end Printer
 

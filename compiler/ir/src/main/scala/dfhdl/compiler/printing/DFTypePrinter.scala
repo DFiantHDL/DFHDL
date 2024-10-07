@@ -12,8 +12,17 @@ trait AbstractTypePrinter extends AbstractPrinter:
       case dt: DFEnum   => csDFEnumDcl(dt, global)
       case dt: DFOpaque => csDFOpaqueDcl(dt)
       case dt: DFStruct => csDFStructDcl(dt)
-  final def csGlobalConstDcls: String =
-    printer.csDFMembers(getSet.designDB.membersGlobals)
+  private def isInt32Val(member: DFMember): Boolean =
+    member match
+      case dfVal: DFVal =>
+        dfVal.dfType match
+          case DFInt32 => true
+          case _       => false
+      case _ => false
+  final def csGlobalConstIntDcls: String =
+    printer.csDFMembers(getSet.designDB.membersGlobals.filter(isInt32Val))
+  final def csGlobalConstNonIntDcls: String =
+    printer.csDFMembers(getSet.designDB.membersGlobals.filterNot(isInt32Val))
   final def csGlobalTypeDcls: String =
     getSet.designDB.getGlobalNamedDFTypes.view
       .filter {

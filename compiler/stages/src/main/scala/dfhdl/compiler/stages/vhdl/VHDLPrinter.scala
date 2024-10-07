@@ -105,7 +105,9 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
        |use work.dfhdl_pkg.all;
        |
        |package ${printer.packageName} is
-       |${namedTypeConvFuncsDcl.emptyOr(_ + "\n") + csGlobalConstDcls}
+       |${csGlobalConstIntDcls.emptyOr(_ + "\n") + namedTypeConvFuncsDcl.emptyOr(
+        _ + "\n"
+      ) + csGlobalConstNonIntDcls}
        |end package ${printer.packageName};
        |
        |package body ${printer.packageName} is

@@ -113,19 +113,35 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       }
       .mkString("\n").emptyOr(x => s"$x\n")
 
+    val constIntDcls =
+      designMembers.view
+        .flatMap {
+          case DesignParam(_) => None
+          case c @ DclConst() =>
+            c.dfType match
+              case DFInt32 => Some(c)
+              case _       => None
+          case _ => None
+        }
+        .map(printer.csDFMember)
+        .toList
+        .emptyOr(_.mkString("\n")).emptyOr(x => s"$x\n")
     val dfValDcls =
       designMembers.view
         .flatMap {
           case p: DFVal.Dcl if p.isVar => Some(p)
           case DesignParam(_)          => None
-          case c @ DclConst()          => Some(c)
-          case _                       => None
+          case c @ DclConst() =>
+            c.dfType match
+              case DFInt32 => None
+              case _       => Some(c)
+          case _ => None
         }
         .map(printer.csDFMember)
         .toList
         .emptyOr(_.mkString("\n"))
     val declarations =
-      s"$namedTypeConvFuncsDcl$dfValDcls".emptyOr(v => s"\n${v.hindent}")
+      s"$constIntDcls$namedTypeConvFuncsDcl$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl => false
       case DclConst()   => false

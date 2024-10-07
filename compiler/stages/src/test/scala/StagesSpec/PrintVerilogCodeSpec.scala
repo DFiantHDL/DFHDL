@@ -777,6 +777,9 @@ class PrintVerilogCodeSpec extends StageSpec:
       val x3 = Bits(width) X 7 <> IN
       val y3 = Bits(width) X 7 <> OUT
       y3 <> x3
+      val x4 = Bits(width) X 7 X length <> IN
+      val y4 = Bits(width) X 7 X length <> OUT
+      y4 <> x4
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
@@ -792,7 +795,9 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  x2,
          |  y2,
          |  x3,
-         |  y3
+         |  y3,
+         |  x4,
+         |  y4
          |);
          |  `include "dfhdl_defs.vh"
          |  input  wire  [`width - 1:0] x1 [0:`length - 1];
@@ -801,9 +806,12 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output wire [`width - 1:0] y2 [0:`length + 1 - 1];
          |  input  wire  [`width - 1:0] x3 [0:6];
          |  output wire [`width - 1:0] y3 [0:6];
+         |  input  wire  [`width - 1:0] x4 [0:`length - 1] [0:6];
+         |  output wire [`width - 1:0] y4 [0:`length - 1] [0:6];
          |  assign y1 = x1;
          |  assign y2 = x2;
          |  assign y3 = x3;
+         |  assign y4 = x4;
          |endmodule
          |""".stripMargin
     )

@@ -28,26 +28,41 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val ports = designMembers.view.collect { case p @ DclPort() =>
       if (parameterizedModuleSupport) printer.csDFMember(p)
       else p.getName
-    }
-      .mkString(",\n")
+    }.mkString(",\n")
     val portBlock = ports.emptyOr(v => s"""(
                                           |${ports.hindent}
                                           |)""".stripMargin)
     val localTypeDcls = printer.csLocalTypeDcls(design).emptyOr(x => s"$x\n")
+    val constIntDcls =
+      designMembers.view
+        .flatMap {
+          case p @ DesignParam(_) =>
+            if (parameterizedModuleSupport) None
+            else Some(p)
+          case c @ DclConst() =>
+            c.dfType match
+              case DFInt32 => Some(c)
+              case _       => None
+          case _ => None
+        }
+        .map(x => printer.csDFMember(x) + ";")
+        .toList
+        .emptyOr(_.mkString("\n")).emptyOr(x => s"$x\n")
     val dfValDcls =
       designMembers.view
         .flatMap {
           case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport => Some(p)
-          case p @ DesignParam(_) =>
-            if (parameterizedModuleSupport) None
-            else Some(p)
-          case c @ DclConst() => Some(c)
-          case _              => None
+          case DesignParam(_)                                         => None
+          case c @ DclConst() =>
+            c.dfType match
+              case DFInt32 => None
+              case _       => Some(c)
+          case _ => None
         }
         .map(x => printer.csDFMember(x) + ";")
         .toList
         .emptyOr(_.mkString("\n"))
-    val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
+    val declarations = s"$constIntDcls$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(
       designMembers.filter {
         case _: DFVal.Dcl => false
