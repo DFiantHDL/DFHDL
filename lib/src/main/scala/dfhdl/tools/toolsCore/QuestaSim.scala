@@ -65,8 +65,9 @@ object QuestaSimVHDL extends QuestaSimCommon, VHDLLinter:
       LinterOptions,
       MemberGetSet
   ): String = constructCommand(
-    "-pedantic",
     // suppressing shared variable warnings
-    "-suppress 1236"
+    "-suppress 1236",
+    // suppressing "Type of expression ... is ambiguous"
+    "-suppress 1320"
   )
 end QuestaSimVHDL
