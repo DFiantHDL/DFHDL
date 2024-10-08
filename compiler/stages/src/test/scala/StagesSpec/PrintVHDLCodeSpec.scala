@@ -475,7 +475,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    lo := bitWidth(A);
          |    for i in 0 to A'length-1 loop
          |      hi := lo - 1; lo := hi - cellBitWidth + 1;
-         |      ret(hi downto lo) := to_slv(A(i));
+         |      ret(hi downto lo) := A(i);
          |    end loop;
          |    return ret;
          |  end;
