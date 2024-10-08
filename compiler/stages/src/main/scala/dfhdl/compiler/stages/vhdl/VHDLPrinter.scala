@@ -58,19 +58,13 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
     // entries that were already placed in the final type printing.
     val vectorTypeDcls = mutable.Map.from(
       printer.globalVectorTypes.view.map { case (tpName, (vecType, depth)) =>
-        if (printer.supportUnconstrainedArrays)
-          tpName -> printer.csDFVectorDclsGlobal(DclScope.Pkg)(tpName, depth)
-        else
-          tpName -> printer.csDFVectorDcl(DclScope.Pkg)(tpName, vecType)
+        tpName -> printer.csDFVectorDclsGlobal(DclScope.Pkg)(tpName, vecType, depth)
       }
     )
     // The body declarations can be in any order, as long as it's consistent between compilations.
     val vectorTypeDclsBody =
       printer.globalVectorTypes.view.map { case (tpName, (vecType, depth)) =>
-        if (printer.supportUnconstrainedArrays)
-          printer.csDFVectorDclsGlobal(DclScope.PkgBody)(tpName, depth)
-        else
-          printer.csDFVectorDcl(DclScope.PkgBody)(tpName, vecType)
+        printer.csDFVectorDclsGlobal(DclScope.PkgBody)(tpName, vecType, depth)
       }.mkString("\n").emptyOr(x => s"$x\n")
     // collect the global named types, including vectors
     val namedDFTypes = ListSet.from(getSet.designDB.members.view.collect {

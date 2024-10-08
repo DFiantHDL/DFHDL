@@ -194,11 +194,9 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
 
   def csDFVectorDcl(
       dclScope: DclScope
-  )(cellTypeName: String, vecTypeOrDepth: DFVector | Int): String =
+  )(cellTypeName: String, vecType: DFVector, depth: Int): String =
     def act(vt: DFVector => String, d: Int => String): String =
-      vecTypeOrDepth match
-        case vecType: DFVector => vt(vecType)
-        case depth: Int        => d(depth)
+      if (supportUnconstrainedArrays) d(depth) else vt(vecType)
     val ofTypeName = act(
       vecType => csDFType(vecType.cellType),
       depth => csDFVectorDclName(cellTypeName, depth - 1)
@@ -224,7 +222,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
           |function to_slv(A : ${typeName}) return std_logic_vector;
           |function to_${typeName}(A : std_logic_vector$dimArgs$cellDimArg) return ${typeName};
           |function bool_sel(C : boolean; T : ${typeName}; F : ${typeName}) return ${typeName};""".stripMargin
-    val toSLV = if (ofTypeName.startsWith("std_logic_vector")) "A(i)" else "to_slv(A(i))"
+    val toSLV = printer.csToSLV(vecType.cellType, "A(i)")
     val dims = act(
       _ => "",
       depth => (depth to 1 by -1).map(i => s"(0 to D$i - 1)").mkString
@@ -239,7 +237,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
           case DFBool    => s"to_bool($argSel)"
           case DFUInt(_) => s"unsigned($argSel)"
           case DFSInt(_) => s"signed($argSel)"
-          case _         => s"to_${cellTypeName}($argSel)",
+          case _         => s"to_${getCellTypeName(vecType)}($argSel)",
       depth =>
         if (depth == 1)
           cellTypeName match
@@ -303,14 +301,19 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
 
   def csDFVectorDcls(
       dclScope: DclScope
-  )(cellTypeName: String, depth: Int, start: Int): String =
-    (for (i <- start to depth) yield csDFVectorDcl(dclScope)(cellTypeName, i))
+  )(cellTypeName: String, vecType: DFVector, depth: Int, start: Int): String =
+    (for (i <- start to depth) yield csDFVectorDcl(dclScope)(cellTypeName, vecType, i))
       .mkString("\n")
-  def csDFVectorDclsGlobal(dclScope: DclScope)(cellTypeName: String, depth: Int): String =
-    csDFVectorDcls(dclScope)(cellTypeName, depth, 1)
-  def csDFVectorDclsLocal(dclScope: DclScope)(cellTypeName: String, depth: Int): String =
+  def csDFVectorDclsGlobal(
+      dclScope: DclScope
+  )(cellTypeName: String, vecType: DFVector, depth: Int): String =
+    csDFVectorDcls(dclScope)(cellTypeName, vecType, depth, 1)
+  def csDFVectorDclsLocal(
+      dclScope: DclScope
+  )(cellTypeName: String, vecType: DFVector, depth: Int): String =
     csDFVectorDcls(dclScope)(
       cellTypeName,
+      vecType,
       depth,
       globalVectorTypes.get(cellTypeName).map(_._2).getOrElse(0) + 1
     )
