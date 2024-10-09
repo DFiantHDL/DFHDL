@@ -767,7 +767,10 @@ class PrintVerilogCodeSpec extends StageSpec:
     given options.CompilerOptions.Backend = backends.verilog.v95
     val width:  Int <> CONST = 8
     val length: Int <> CONST = 10
-    class Foo extends RTDesign:
+    class Foo(
+        val width5:  Int <> CONST = 8,
+        val length5: Int <> CONST = 10
+    ) extends RTDesign:
       val x1 = Bits(width) X length <> IN
       val y1 = Bits(width) X length <> OUT
       y1 <> x1
@@ -780,6 +783,10 @@ class PrintVerilogCodeSpec extends StageSpec:
       val x4 = Bits(width) X 7 X length <> IN
       val y4 = Bits(width) X 7 X length <> OUT
       y4 <> x4
+      val x5 = Bits(width5) X 7 X length5 <> IN
+      val y5 = Bits(width5) X 7 X length5 <> OUT
+      y5 <> x5
+    end Foo
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
@@ -797,9 +804,13 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  x3,
          |  y3,
          |  x4,
-         |  y4
+         |  y4,
+         |  x5,
+         |  y5
          |);
          |  `include "dfhdl_defs.vh"
+         |  parameter integer width5 = 8;
+         |  parameter integer length5 = 10;
          |  input  wire  [`width - 1:0] x1 [0:`length - 1];
          |  output wire [`width - 1:0] y1 [0:`length - 1];
          |  input  wire  [`width - 1:0] x2 [0:`length + 1 - 1];
@@ -808,10 +819,13 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output wire [`width - 1:0] y3 [0:6];
          |  input  wire  [`width - 1:0] x4 [0:`length - 1] [0:6];
          |  output wire [`width - 1:0] y4 [0:`length - 1] [0:6];
+         |  input  wire  [width5 - 1:0] x5 [0:length5 - 1] [0:6];
+         |  output wire [width5 - 1:0] y5 [0:length5 - 1] [0:6];
          |  assign y1 = x1;
          |  assign y2 = x2;
          |  assign y3 = x3;
          |  assign y4 = x4;
+         |  assign y5 = x5;
          |endmodule
          |""".stripMargin
     )
