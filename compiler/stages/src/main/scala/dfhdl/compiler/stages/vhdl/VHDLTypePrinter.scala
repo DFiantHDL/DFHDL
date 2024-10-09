@@ -222,7 +222,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
           |function to_slv(A : ${typeName}) return std_logic_vector;
           |function to_${typeName}(A : std_logic_vector$dimArgs$cellDimArg) return ${typeName};
           |function bool_sel(C : boolean; T : ${typeName}; F : ${typeName}) return ${typeName};""".stripMargin
-    val toSLV = printer.csToSLV(vecType.cellType, "A(i)")
+    val toSLV = if (depth == 1) printer.csToSLV(vecType.cellType, "A(i)") else "to_slv(A(i))"
     val dims = act(
       _ => "",
       depth => (depth to 1 by -1).map(i => s"(0 to D$i - 1)").mkString
