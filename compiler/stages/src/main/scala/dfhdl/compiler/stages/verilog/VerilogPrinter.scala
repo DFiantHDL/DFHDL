@@ -24,8 +24,8 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     val cs = s"$lhsStr = $rhsStr;"
     if (shared)
       s"""|/* verilator lint_off BLKSEQ */
-         |$cs
-         |/* verilator lint_on BLKSEQ */""".stripMargin
+          |$cs
+          |/* verilator lint_on BLKSEQ */""".stripMargin
     else cs
   def csNBAssignment(lhsStr: String, rhsStr: String): String =
     s"$lhsStr <= $rhsStr;"
@@ -58,7 +58,6 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     val defName = printer.defsName.toUpperCase
     s"""`ifndef $defName
        |`define $defName
-       |`include "${printer.dfhdlDefsFileName}"
        |${super.csGlobalFileContent}
        |`endif
        |""".stripMargin
