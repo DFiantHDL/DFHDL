@@ -5,16 +5,14 @@ import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, LinterOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
-import dfhdl.options.GHDLOptions
 
 object GHDL extends VHDLLinter:
-  type LO = GHDLOptions
   val toolName: String = "GHDL"
   protected def binExec: String = "ghdl"
   protected def versionCmd: String = s"version"
@@ -22,46 +20,28 @@ object GHDL extends VHDLLinter:
     val versionPattern = """GHDL\s+(\d+\.\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
-  def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String =
-    val designsInCmd = cd.stagedDB.srcFiles.view.collect {
-      case SourceFile(
-            SourceOrigin.Committed,
-            SourceType.Design.Regular | SourceType.Design.BlackBox,
-            path,
-            _
-          ) =>
-        path
-    }.mkString(" ")
+  protected def lintCmdLanguageFlag(dialect: VHDLDialect): String =
+    val std = dialect match
+      case VHDLDialect.v93   => "93"
+      case VHDLDialect.v2008 => "08"
+      case VHDLDialect.v2019 => "19"
+    s"--std=$std"
 
-    val dfhdlPackage = cd.stagedDB.srcFiles.collectFirst {
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.DFHDLDef, path, _) =>
-        path
-    }.get
+  override protected def lintCmdPreLangFlags(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-a",
+    summon[LinterOptions].fatalWarnings.toFlag("--warn-error")
+  )
 
-    val globalPackage = cd.stagedDB.srcFiles.collectFirst {
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.GlobalDef, path, _) =>
-        path
-    }.get
-
-    // config files must be placed before the design sources
-    s"$dfhdlPackage $globalPackage $designsInCmd"
-  end filesCmdPart
-  def lint[D <: Design](
-      cd: CompiledDesign[D]
-  )(using co: CompilerOptions, lo: LO): CompiledDesign[D] =
-    val std = co.backend match
-      case be: backends.vhdl =>
-        be.dialect match
-          case VHDLDialect.v93   => "93"
-          case VHDLDialect.v2008 => "08"
-          case VHDLDialect.v2019 => "19"
-      case _ =>
-        throw new java.lang.IllegalArgumentException(
-          "Current backend is not supported for GHDL linting."
-        )
-    exec(
-      cd,
-      s"-a${lo.warnAsError.toFlag("--warn-error")} --std=$std -frelaxed -Wno-shared ${filesCmdPart(cd)}"
-    )
-  end lint
+  override protected def lintCmdPostLangFlags(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-frelaxed",
+    "-Wno-shared"
+  )
 end GHDL
