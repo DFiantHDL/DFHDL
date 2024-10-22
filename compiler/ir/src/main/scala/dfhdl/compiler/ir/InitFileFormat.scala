@@ -138,7 +138,7 @@ object InitFileFormat:
             def invalidDataCharacterError() =
               throw new DataError(s"Invalid data character detected: $word", lineNum)
             def invalidDataWidthError(wordWidth: Int) = throw new DataError(
-              s"Invalid data width detected (expected $dataWidth but found $wordWidth): $word",
+              s"Invalid data width detected (expected $dataWidth bits but found $wordWidth bits): $word",
               lineNum
             )
             // address

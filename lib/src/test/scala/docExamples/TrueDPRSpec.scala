@@ -6,24 +6,24 @@ class TrueDPRSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.svh"
        |`include "TrueDPR_defs.svh"
        |
        |module TrueDPR#(
        |    parameter int DATA_WIDTH = 8,
        |    parameter int ADDR_WIDTH = 8
        |)(
-       |  input  logic                    a_clk,
-       |  input  logic [DATA_WIDTH - 1:0] a_data,
-       |  input  logic [ADDR_WIDTH - 1:0] a_addr,
-       |  output logic [DATA_WIDTH - 1:0] a_q,
-       |  input  logic                    a_we,
-       |  input  logic                    b_clk,
-       |  input  logic [DATA_WIDTH - 1:0] b_data,
-       |  input  logic [ADDR_WIDTH - 1:0] b_addr,
-       |  output logic [DATA_WIDTH - 1:0] b_q,
-       |  input  logic                    b_we
+       |  input  wire logic                    a_clk,
+       |  input  wire logic [DATA_WIDTH - 1:0] a_data,
+       |  input  wire logic [ADDR_WIDTH - 1:0] a_addr,
+       |  output      logic [DATA_WIDTH - 1:0] a_q,
+       |  input  wire logic                    a_we,
+       |  input  wire logic                    b_clk,
+       |  input  wire logic [DATA_WIDTH - 1:0] b_data,
+       |  input  wire logic [ADDR_WIDTH - 1:0] b_addr,
+       |  output      logic [DATA_WIDTH - 1:0] b_q,
+       |  input  wire logic                    b_we
        |);
+       |  `include "dfhdl_defs.svh"
        |  logic [DATA_WIDTH - 1:0] ram [0:2 ** ADDR_WIDTH - 1];
        |  always_ff @(posedge a_clk)
        |  begin
@@ -72,8 +72,8 @@ class TrueDPRSpec extends util.FullCompileSpec:
        |end TrueDPR;
        |
        |architecture TrueDPR_arch of TrueDPR is
-       |  type t_vecX1_std_logic_vector is array (natural range <>) of std_logic_vector;
-       |  shared variable ram : t_vecX1_std_logic_vector(0 to 2 ** ADDR_WIDTH - 1)(DATA_WIDTH - 1 downto 0);
+       |  type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
+       |  shared variable ram : t_arrX1_std_logic_vector(0 to 2 ** ADDR_WIDTH - 1)(DATA_WIDTH - 1 downto 0);
        |begin
        |  process (a_clk)
        |  begin

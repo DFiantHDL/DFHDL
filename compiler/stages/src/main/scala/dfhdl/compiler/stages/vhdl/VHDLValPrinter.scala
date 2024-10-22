@@ -136,7 +136,8 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     case dfType: DFVector =>
       var loopType: DFType = dfType
       var desc: String = s"to_${printer.csDFVectorDclName(dfType)}($csArg"
-      var inVector: Boolean = true
+      // starting the adding dimension only when unconstrained arrays are supported
+      var inVector: Boolean = printer.supportUnconstrainedArrays
       while (inVector)
         loopType match
           case dfType: DFVector =>
@@ -155,6 +156,12 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     case dfType: DFOpaque => csBitsToType(dfType.actualType, csArg)
     case _                => printer.unsupported
 
+  def csToSLV(fromType: DFType, arg: String): String =
+    fromType match
+      case dt: DFBits => arg
+      // opaques are subtypes, so they are transparent to `to_slv` operations
+      case dt: DFOpaque => csToSLV(dt.actualType, arg)
+      case _            => s"to_slv($arg)"
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String =
     val relVal = dfVal.relValRef.get
     val relValStr = dfVal.relValRef.refCodeString
@@ -172,7 +179,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         csBitsToType(toType, relValStr)
       case (DFBits(Int(tWidth)), fromType: DFType) =>
         assert(tWidth == fromType.width)
-        s"to_slv($relValStr)"
+        csToSLV(fromType, relValStr)
       case (DFUInt(tWidthParamRef), DFUInt(_)) =>
         s"resize($relValStr, ${tWidthParamRef.refCodeString})"
       case (DFSInt(tWidthParamRef), DFSInt(_)) =>

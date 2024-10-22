@@ -36,8 +36,6 @@ object CompilerOptions:
     def topCommitPath(stagedDB: ir.DB): String =
       if (co.newFolderForTop) s"${co.commitFolder}$separatorChar${stagedDB.top.dclName}"
       else co.commitFolder
-    def compilePath(stagedDB: ir.DB): String =
-      s"${co.topCommitPath(stagedDB)}${separatorChar}hdl"
 
   opaque type CommitFolder <: String = String
   object CommitFolder:
