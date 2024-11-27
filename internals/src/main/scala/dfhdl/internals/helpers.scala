@@ -173,6 +173,15 @@ object ValueOfTuple:
 end ValueOfTuple
 
 type <:![T <: UB, UB] = T & UB
+/*
+  TODO: not required when https://github.com/scala/scala3/issues/22036 is fixed
+ */
+import compiletime.ops.string.+ as ++
+protected type TupleNamesRecur[X <: Tuple, N <: Int, I <: Int] <: Tuple = I match
+  case 0    => X
+  case S[i] => ("_" ++ ToString[N - i]) *: TupleNamesRecur[X, N, i]
+protected type TupleNames[N <: Int] = TupleNamesRecur[EmptyTuple, N, N]
+type TupleToNamedTuple[T <: Tuple] = NamedTuple.NamedTuple[TupleNames[Tuple.Size[T]], T]
 
 //evidence of class T which has no arguments and no type arguments
 trait ClassEv[T]:
