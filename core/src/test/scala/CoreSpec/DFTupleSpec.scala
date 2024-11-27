@@ -5,6 +5,7 @@ import munit.*
 class DFTupleSpec extends DFSpec:
   val tplA = (UInt(8), Bit, Bits(3))
   val tplB = ((UInt(8), Bit), Bits(3))
+  // TODO: change test to include `t15` once https://github.com/scala/scala3/issues/22023 is fixed
   assertCodeString(
     """|val t1 = (UInt(8), Bit, Bits(3)) <> VAR init ((d"8'0", 1, b"000"), (d"8'22", 0, b"101"))
        |val t2 = ((UInt(8), Bit), Bits(3)) <> VAR init ((d"8'11", 1), b"010")
@@ -22,7 +23,6 @@ class DFTupleSpec extends DFSpec:
        |val t12 = t9(0)
        |val t13: (UInt[8], Bit) <> CONST = (d"8'8", 1)
        |val t14 = t1._1
-       |val t15 = t2._1
        |val t16: UInt[8] <> CONST = t13._1
        |val t17: Bit <> CONST = t13._2
        |val t18: (Bits[4], Bit) <> CONST = (h"8", 1)

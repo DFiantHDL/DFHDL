@@ -19,12 +19,13 @@ final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DF
     with DFMember[ir.DFVal]
     with Selectable:
   type Fields = DFVal.Fields[T @uncheckedVariance, M @uncheckedVariance]
-
-  def selectDynamic(name: String)(using DFC): Any = trydf {
+  // TODO: revert selectDynamic change once https://github.com/scala/scala3/issues/22023 is fixed
+  inline def selectDynamic(name: String): Any = trydf {
+    val dfc = compiletime.summonInline[DFC]
     val ir.DFStruct(structName, fieldMap) = this.asIR.dfType: @unchecked
     val dfType = fieldMap(name)
     DFVal.Alias
-      .SelectField(this, name)
+      .SelectField(this, name)(using dfc)
       .asIR
       .asVal[DFTypeAny, ModifierAny]
   }
