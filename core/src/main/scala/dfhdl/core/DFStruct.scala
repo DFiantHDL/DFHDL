@@ -6,7 +6,7 @@ import collection.immutable.ListMap
 import ir.DFVal.Func.Op as FuncOp
 import scala.annotation.unchecked.uncheckedVariance
 
-type FieldsOrTuple = DFStruct.Fields | NonEmptyTuple
+type FieldsOrTuple = DFStruct.Fields | NonEmptyTuple | NamedTuple.AnyNamedTuple
 type DFStruct[+F <: FieldsOrTuple] =
   DFType[ir.DFStruct, Args1[F @uncheckedVariance]]
 object DFStruct:
@@ -26,11 +26,10 @@ object DFStruct:
   ): DFStruct[F] =
     apply[F](name, ListMap(fieldNames.lazyZip(fieldTypes).toSeq*))
   private[core] def apply[F <: FieldsOrTuple](product: F): DFStruct[F] =
-    unapply(
-      product
-    ).get.asInstanceOf[DFStruct[F]]
+    // TODO: remove casting when https://github.com/scala/scala3/pull/22037 is merged
+    unapply(product.asInstanceOf[Product]).get.asInstanceOf[DFStruct[F]]
   private[core] def unapply(
-      product: FieldsOrTuple
+      product: Product
   ): Option[DFStruct[FieldsOrTuple]] =
     val fieldTypes = product.productIterator.flatMap {
       case dfVal: DFValAny => Some(dfVal.dfType)
@@ -156,7 +155,7 @@ object DFStruct:
 
   object Val:
     private[core] def unapply(
-        fields: FieldsOrTuple
+        fields: Product
     )(using DFC): Option[DFValOf[DFStruct[FieldsOrTuple]]] =
       fields match
         case DFStruct(dfType) =>
