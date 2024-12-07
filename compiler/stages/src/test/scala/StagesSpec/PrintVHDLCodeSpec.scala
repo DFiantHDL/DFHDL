@@ -835,7 +835,8 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
-      """|constant width : integer := 8;
+      """|constant Foo_length5 : integer := 10;
+         |constant width : integer := 8;
          |constant length : integer := 10;
          |library ieee;
          |use ieee.std_logic_1164.all;
@@ -845,8 +846,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Foo is
          |generic (
-         |  width5 : integer := 8;
-         |  length5 : integer := 10
+         |  width5 : integer := 8
          |);
          |port (
          |  x1 : in t_arrXPlength_slvPwidth;
@@ -857,8 +857,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  y3 : out t_arrX7_slvPwidth;
          |  x4 : in t_arrXPlength_t_arrX7_slvPwidth;
          |  y4 : out t_arrXPlength_t_arrX7_slvPwidth;
-         |  x5 : in t_arrX10_t_arrX7_slv8;
-         |  y5 : out t_arrX10_t_arrX7_slv8
+         |  x5 : in t_arrXPFoo_length5_t_arrX7_slvPwidth5;
+         |  y5 : out t_arrXPFoo_length5_t_arrX7_slvPwidth5
          |);
          |end Foo;
          |
