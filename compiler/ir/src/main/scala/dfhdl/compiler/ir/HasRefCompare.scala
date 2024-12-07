@@ -11,3 +11,4 @@ trait HasRefCompare[T <: HasRefCompare[T]]:
         res
   protected def `prot_=~`(that: T)(using MemberGetSet): Boolean
   lazy val getRefs: List[DFRef.TwoWayAny]
+  def copyWithNewRefs: this.type
