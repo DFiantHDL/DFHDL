@@ -41,14 +41,14 @@ class PrintVerilogCodeSpec extends StageSpec:
       id,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "ID_defs.svh"
          |
          |module ID(
-         |  input  logic signed [15:0] x,
+         |  input  wire logic signed [15:0] x,
          |  output logic signed [15:0] y,
          |  output logic signed [15:0] y2
          |);
+         |  `include "dfhdl_defs.svh"
          |  assign y = x;
          |  assign y2 = x;
          |endmodule
@@ -62,27 +62,27 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module ID(
-         |  input  logic signed [15:0] x,
+         |  input  wire logic signed [15:0] x,
          |  output logic signed [15:0] y,
          |  output logic signed [15:0] y2
          |);
+         |  `include "dfhdl_defs.svh"
          |  assign y = x;
          |  assign y2 = x;
          |endmodule
          |
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module IDTop(
-         |  input  logic signed [15:0] x,
+         |  input  wire logic signed [15:0] x,
          |  output logic signed [15:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  logic signed [15:0] id1_x;
          |  logic signed [15:0] id1_y;
          |  logic signed [15:0] id2_x;
@@ -124,25 +124,25 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module ID#(parameter int width)(
-         |  input  logic signed [width - 1:0] x,
+         |  input  wire logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  assign y = x;
          |endmodule
          |
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module IDTop#(parameter int width = 16)(
-         |  input  logic signed [width - 1:0] x,
+         |  input  wire logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  logic signed [width - 1:0] id1_x;
          |  logic signed [width - 1:0] id1_y;
          |  logic signed [width - 1:0] id2_x;
@@ -187,30 +187,30 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.vh"
          |`include "IDTop_defs.vh"
          |
          |module ID(
          |  x,
          |  y
          |);
+         |  `include "dfhdl_defs.vh"
          |  parameter integer width = width;
-         |  input  wire [width - 1:0] x;
+         |  input  wire  [width - 1:0] x;
          |  output wire [width - 1:0] y;
          |  assign y = x;
          |endmodule
          |
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.vh"
          |`include "IDTop_defs.vh"
          |
          |module IDTop(
          |  x,
          |  y
          |);
+         |  `include "dfhdl_defs.vh"
          |  parameter integer width = 16;
-         |  input  wire [width - 1:0] x;
+         |  input  wire  [width - 1:0] x;
          |  output wire [width - 1:0] y;
          |  wire [width - 1:0] id1_x;
          |  wire [width - 1:0] id1_y;
@@ -249,13 +249,13 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|parameter logic gp = 1'b1;
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "ParamTest_defs.svh"
          |
          |module ParamTest#(parameter logic dp = 1'b1)(
-         |  input  logic x,
+         |  input  wire logic x,
          |  output logic y
          |);
+         |  `include "dfhdl_defs.svh"
          |  parameter logic lp = 1'b1;
          |  assign y = ((x | gp) | dp) | lp;
          |endmodule
@@ -293,15 +293,15 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Top_defs.svh"
          |
          |module Top(
-         |  input  logic        clk,
-         |  input  logic        rst,
-         |  input  logic [15:0] x,
-         |  output logic [15:0] y
+         |  input  wire logic        clk,
+         |  input  wire logic        rst,
+         |  input  wire logic [15:0] x,
+         |  output      logic [15:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  parameter logic [15:0] c = 16'h0000;
          |  logic [15:0] z;
          |  logic [15:0] my_var;
@@ -348,10 +348,10 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Top_defs.svh"
          |
          |module Top;
+         |  `include "dfhdl_defs.svh"
          |  typedef struct packed {
          |    logic [2:0] _1;
          |    logic _2;
@@ -408,16 +408,16 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|/* HasDocs has docs */
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "HasDocs_defs.svh"
          |
          |module HasDocs(
          |  /* My in */
-         |  input  logic x,
+         |  input  wire logic x,
          |  /* My Out
          |    */
          |  output logic y
          |);
+         |  `include "dfhdl_defs.svh"
          |  /* My very very very very very very very very very very very very very very very very very
          |     very very very very very very very very very very very very very very very very very very
          |     very very very very very very very very very very long doc
@@ -436,14 +436,14 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Counter_defs.svh"
          |
          |module Counter#(parameter int width = 8)(
-         |  input  logic clk,
-         |  input  logic rst,
+         |  input  wire logic clk,
+         |  input  wire logic rst,
          |  output logic [width - 1:0] cnt
          |);
+         |  `include "dfhdl_defs.svh"
          |  logic [width - 1:0] cnt_reg;
          |  always_ff @(posedge clk)
          |  begin
@@ -474,7 +474,6 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Test_defs.svh"
          |
          |module Test#(parameter int width = 10)(
@@ -483,12 +482,13 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output logic [$clog2(width) - 1:0] z,
          |  output logic [$clog2(width + 1) - 1:0] w
          |);
+         |  `include "dfhdl_defs.svh"
          |  always_comb
          |  begin
-         |    x = {{(width-2){1'b0}}, 2'h3};
-         |    x = {{(width-2){1'b0}}, 2'h3};
-         |    x = {{(width-2){1'b0}}, 2'h3};
-         |    x = {{(width-2){1'b0}}, 2'h3};
+         |    x = `TO_VEC_HEX(3, 2, width);
+         |    x = `TO_VEC_HEX(3, 2, width);
+         |    x = `TO_VEC_HEX(3, 2, width);
+         |    x = `TO_VEC_HEX(3, 2, width);
          |    y = &x;
          |    y = |x;
          |    y = ^x;
@@ -507,14 +507,14 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Counter_defs.svh"
          |
          |module Counter#(parameter int width = 8)(
-         |  input  logic clk,
-         |  input  logic rst,
+         |  input  wire logic clk,
+         |  input  wire logic rst,
          |  output logic [width - 1:0] cnt
          |);
+         |  `include "dfhdl_defs.svh"
          |  logic [width - 1:0] cnt_reg;
          |  always_ff @(posedge clk)
          |  begin
@@ -549,18 +549,18 @@ class PrintVerilogCodeSpec extends StageSpec:
       """|/* This is a led blinker */
          |`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Blinker_defs.svh"
          |
          |module Blinker#(
          |    parameter int CLK_FREQ_KHz = 50000,
          |    parameter int LED_FREQ_Hz = 1
          |)(
-         |  input  logic clk,
-         |  input  logic rst,
+         |  input  wire logic clk,
+         |  input  wire logic rst,
          |  /* LED output */
          |  output logic led
          |);
+         |  `include "dfhdl_defs.svh"
          |  /* Half-count of the toggle for 50% duty cycle */
          |  parameter int HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
          |  logic [$clog2(HALF_PERIOD) - 1:0] cnt;
@@ -592,15 +592,15 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "IDTop_defs.svh"
          |
          |module IDTop(
-         |  input  logic clk,
-         |  input  logic rst,
-         |  input  logic signed [15:0] x,
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  input  wire logic signed [15:0] x,
          |  output logic signed [15:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  always_ff @(posedge clk)
          |  begin
          |    if (rst == 1'b1) y <= 16'sd0;
@@ -629,15 +629,15 @@ class PrintVerilogCodeSpec extends StageSpec:
       id,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "SelOp_defs.svh"
          |
          |module SelOp(
-         |  input  logic c,
-         |  input  logic [7:0] x1,
-         |  input  logic [7:0] x2,
+         |  input  wire logic c,
+         |  input  wire logic [7:0] x1,
+         |  input  wire logic [7:0] x2,
          |  output logic [7:0] y1
          |);
+         |  `include "dfhdl_defs.svh"
          |  parameter logic cp = 1;
          |  parameter logic [7:0] up1 = 8'd11;
          |  parameter logic [7:0] up2 = 8'd22;
@@ -660,10 +660,10 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Empty_defs.svh"
          |
          |module Empty;
+         |  `include "dfhdl_defs.svh"
          |
          |endmodule
          |""".stripMargin
@@ -681,13 +681,13 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "HighZ_defs.svh"
          |
          |module HighZ(
-         |  input  logic [7:0] x,
+         |  input  wire logic [7:0] x,
          |  output logic [7:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  always_comb
          |  begin
          |    if (|x) y = x;
@@ -711,13 +711,13 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.svh"
          |`include "Foo_defs.svh"
          |
          |module Foo(
-         |  input  logic [15:0] x,
+         |  input  wire logic [15:0] x,
          |  output logic [15:0] y
          |);
+         |  `include "dfhdl_defs.svh"
          |  always_comb
          |  begin
          |    case (x) inside
@@ -744,20 +744,88 @@ class PrintVerilogCodeSpec extends StageSpec:
       top,
       """|`default_nettype none
          |`timescale 1ns/1ps
-         |`include "dfhdl_defs.vh"
          |`include "Foo_defs.vh"
          |
          |module Foo(
          |  x,
          |  y
          |);
-         |  input  wire [15:0] x;
+         |  `include "dfhdl_defs.vh"
+         |  input  wire  [15:0] x;
          |  output reg [15:0] y;
          |  always @(x)
          |  begin
          |    if ((x[15:8] == 8'h12) | (x[15:4] == 12'h345)) y = 16'h22??;
          |    else y = 16'hffff;
          |  end
+         |endmodule
+         |""".stripMargin
+    )
+  }
+
+  test("Global parameters under verilog.v95") {
+    given options.CompilerOptions.Backend = backends.verilog.v95
+    val width:  Int <> CONST = 8
+    val length: Int <> CONST = 10
+    class Foo(
+        val width5:  Int <> CONST = 8,
+        val length5: Int <> CONST = 10
+    ) extends RTDesign:
+      val x1 = Bits(width) X length <> IN
+      val y1 = Bits(width) X length <> OUT
+      y1 <> x1
+      val x2 = Bits(width) X (length + 1) <> IN
+      val y2 = Bits(width) X (length + 1) <> OUT
+      y2 <> x2
+      val x3 = Bits(width) X 7 <> IN
+      val y3 = Bits(width) X 7 <> OUT
+      y3 <> x3
+      val x4 = Bits(width) X 7 X length <> IN
+      val y4 = Bits(width) X 7 X length <> OUT
+      y4 <> x4
+      val x5 = Bits(width5) X 7 X length5 <> IN
+      val y5 = Bits(width5) X 7 X length5 <> OUT
+      y5 <> x5
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`define width 8
+         |`define length 10
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.vh"
+         |
+         |module Foo(
+         |  x1,
+         |  y1,
+         |  x2,
+         |  y2,
+         |  x3,
+         |  y3,
+         |  x4,
+         |  y4,
+         |  x5,
+         |  y5
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  parameter integer width5 = 8;
+         |  parameter integer length5 = 10;
+         |  input  wire  [`width - 1:0] x1 [0:`length - 1];
+         |  output wire [`width - 1:0] y1 [0:`length - 1];
+         |  input  wire  [`width - 1:0] x2 [0:`length + 1 - 1];
+         |  output wire [`width - 1:0] y2 [0:`length + 1 - 1];
+         |  input  wire  [`width - 1:0] x3 [0:6];
+         |  output wire [`width - 1:0] y3 [0:6];
+         |  input  wire  [`width - 1:0] x4 [0:`length - 1] [0:6];
+         |  output wire [`width - 1:0] y4 [0:`length - 1] [0:6];
+         |  input  wire  [width5 - 1:0] x5 [0:length5 - 1] [0:6];
+         |  output wire [width5 - 1:0] y5 [0:length5 - 1] [0:6];
+         |  assign y1 = x1;
+         |  assign y2 = x2;
+         |  assign y3 = x3;
+         |  assign y4 = x4;
+         |  assign y5 = x5;
          |endmodule
          |""".stripMargin
     )

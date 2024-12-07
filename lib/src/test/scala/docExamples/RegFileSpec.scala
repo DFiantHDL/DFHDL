@@ -6,22 +6,22 @@ class RegFileSpec extends util.FullCompileSpec:
   def expectedVerilogCS =
     """|`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.svh"
        |`include "RegFile_defs.svh"
        |
        |module RegFile#(
        |    parameter int DATA_WIDTH = 32,
        |    parameter int REG_NUM = 32
        |)(
-       |  input  logic                         clk,
-       |  input  logic [$clog2(REG_NUM) - 1:0] rs1_addr,
-       |  output logic [DATA_WIDTH - 1:0]      rs1_data,
-       |  input  logic [$clog2(REG_NUM) - 1:0] rs2_addr,
-       |  output logic [DATA_WIDTH - 1:0]      rs2_data,
-       |  input  logic [$clog2(REG_NUM) - 1:0] rd_addr,
-       |  input  logic [DATA_WIDTH - 1:0]      rd_data,
-       |  input  logic                         rd_wren
+       |  input  wire logic                         clk,
+       |  input  wire logic [$clog2(REG_NUM) - 1:0] rs1_addr,
+       |  output      logic [DATA_WIDTH - 1:0]      rs1_data,
+       |  input  wire logic [$clog2(REG_NUM) - 1:0] rs2_addr,
+       |  output      logic [DATA_WIDTH - 1:0]      rs2_data,
+       |  input  wire logic [$clog2(REG_NUM) - 1:0] rd_addr,
+       |  input  wire logic [DATA_WIDTH - 1:0]      rd_data,
+       |  input  wire logic                         rd_wren
        |);
+       |  `include "dfhdl_defs.svh"
        |  logic [DATA_WIDTH - 1:0] regs [0:REG_NUM - 1];
        |  always_ff @(posedge clk)
        |  begin
@@ -63,8 +63,8 @@ class RegFileSpec extends util.FullCompileSpec:
        |end RegFile;
        |
        |architecture RegFile_arch of RegFile is
-       |  type t_vecX1_std_logic_vector is array (natural range <>) of std_logic_vector;
-       |  signal regs : t_vecX1_std_logic_vector(0 to REG_NUM - 1)(DATA_WIDTH - 1 downto 0);
+       |  type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
+       |  signal regs : t_arrX1_std_logic_vector(0 to REG_NUM - 1)(DATA_WIDTH - 1 downto 0);
        |begin
        |  process (clk)
        |  begin

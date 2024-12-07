@@ -28,6 +28,12 @@
 `define DFHDL_DEFS
 `define MAX(a,b) ((a) > (b) ? (a) : (b))
 `define MIN(a,b) ((a) < (b) ? (a) : (b))
+`define TO_VEC_HEX(hex, hw, vw) \
+    {{(vw - hw){1'b0}}, hw'h``hex}
+`define TO_UNSIGNED(n, nw, vw) \
+    {{(vw - nw){1'b0}}, nw'd``n}
+`define TO_SIGNED_NEG(n, nw, vw) \
+    {{(vw - nw){1'b1}}, -nw'd``n}
 `define SIGNED_GREATER_THAN(a, b, width)  \
     ((a[width-1] && !b[width-1]) ? 1'b0 : /* a is negative, b is positive */ \
      (!a[width-1] && b[width-1]) ? 1'b1 : /* a is positive, b is negative */ \
