@@ -1,6 +1,7 @@
 myenv/**
 out/
 .idea/
+.cache/
 /.bsp/
 project/project
 project/target

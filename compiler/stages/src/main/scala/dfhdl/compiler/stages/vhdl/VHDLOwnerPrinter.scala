@@ -42,10 +42,10 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val genericBlock =
       if (designParamList.length == 0) ""
       else "\ngeneric (" + designParamList.mkString("\n", ";\n", "\n").hindent(1) + ");"
-    val portBlock = ports.emptyOr(v => s"""
-         |port (
-         |${ports.hindent}
-         |);""".stripMargin)
+    val portBlock = ports.emptyOr(v => s"""|
+                                           |port (
+                                           |${ports.hindent}
+                                           |);""".stripMargin)
     s"""entity ${entityName(design)} is$genericBlock$portBlock
        |end ${entityName(design)};""".stripMargin
   end csEntityDcl
@@ -74,10 +74,11 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     // So first we prepare the vector type declarations in a mutable map and later we remove
     // entries that were already placed in the final type printing.
     val vectorTypeDcls =
-      mutable.Map.from(printer.getLocalVectorTypes(design).view.map { (tpName, depth) =>
-        val dclScope =
-          if (vectorsConvUsed.contains(tpName)) DclScope.ArchBody else DclScope.TypeOnly
-        tpName -> printer.csDFVectorDclsLocal(dclScope)(tpName, depth)
+      mutable.Map.from(printer.getLocalVectorTypes(design).view.map {
+        case (tpName, (vecType, depth)) =>
+          val dclScope =
+            if (vectorsConvUsed.contains(tpName)) DclScope.ArchBody else DclScope.TypeOnly
+          tpName -> printer.csDFVectorDclsLocal(dclScope)(tpName, vecType, depth)
       })
     val globalNamedDFTypes = getSet.designDB.getGlobalNamedDFTypes
     // collect the local named types, including vectors
@@ -109,19 +110,35 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       }
       .mkString("\n").emptyOr(x => s"$x\n")
 
+    val constIntDcls =
+      designMembers.view
+        .flatMap {
+          case DesignParam(_) => None
+          case c @ DclConst() =>
+            c.dfType match
+              case DFInt32 => Some(c)
+              case _       => None
+          case _ => None
+        }
+        .map(printer.csDFMember)
+        .toList
+        .emptyOr(_.mkString("\n")).emptyOr(x => s"$x\n")
     val dfValDcls =
       designMembers.view
         .flatMap {
           case p: DFVal.Dcl if p.isVar => Some(p)
           case DesignParam(_)          => None
-          case c @ DclConst()          => Some(c)
-          case _                       => None
+          case c @ DclConst() =>
+            c.dfType match
+              case DFInt32 => None
+              case _       => Some(c)
+          case _ => None
         }
         .map(printer.csDFMember)
         .toList
         .emptyOr(_.mkString("\n"))
     val declarations =
-      s"$namedTypeConvFuncsDcl$dfValDcls".emptyOr(v => s"\n${v.hindent}")
+      s"$constIntDcls$namedTypeConvFuncsDcl$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(designMembers.filter {
       case _: DFVal.Dcl => false
       case DclConst()   => false

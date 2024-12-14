@@ -3,6 +3,7 @@ import dfhdl.compiler.ir
 import dfhdl.internals.*
 import DFVal.Func.Op as FuncOp
 import dfhdl.core.DFBits.BitIndex
+import dfhdl.compiler.printing.{DefaultPrinter, Printer}
 
 import scala.annotation.targetName
 import scala.annotation.unchecked.uncheckedVariance
@@ -101,16 +102,28 @@ object DFVector:
       given DFVectorValFromDFVectorVal[
           T <: DFTypeAny,
           D1 <: IntP,
+          RT <: DFTypeAny,
           RD1 <: IntP,
           RP,
-          R <: DFValTP[DFVector[T, Tuple1[RD1]], RP]
+          R <: DFValTP[DFVector[RT, Tuple1[RD1]], RP]
       ](using
+          cellTC: TC[T, DFValOf[RT]],
           check: `LL == RL`.CheckNUB[D1, RD1]
       ): TC[DFVector[T, Tuple1[D1]], R] with
         type OutP = RP
         def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
+          import dfc.getSet
+          given Printer = DefaultPrinter
           check(dfType.lengthInt, arg.dfType.lengthInt)
-          arg.asValTP[DFVector[T, Tuple1[D1]], RP]
+          if (dfType.asIR =~ arg.dfType.asIR)
+            arg.asValTP[DFVector[T, Tuple1[D1]], RP]
+          else
+            throw new IllegalArgumentException(
+              s"""|Vector types must be the same when applying one vector onto another.
+                  |Expected type: ${dfType.codeString}
+                  |Found type:    ${arg.dfType.codeString}""".stripMargin
+            )
+      end DFVectorValFromDFVectorVal
       given DFVectorValFromDFValVector[
           T <: DFTypeAny,
           D1 <: IntP,

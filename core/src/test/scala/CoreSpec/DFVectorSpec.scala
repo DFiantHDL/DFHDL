@@ -30,6 +30,9 @@ class DFVectorSpec extends DFSpec:
          |val zeroP: Int <> CONST = 0
          |val w: Int <> CONST = 4
          |val v8: Bits[w.type] X len.type <> CONST = all(b"0".repeat(w))
+         |val v9 = UInt(5) X len <> VAR
+         |val v10 = UInt(4) X len <> VAR
+         |v10 := v6
          |""".stripMargin
     ) {
       val v1 = UInt(8) X 5 <> VAR init Vector.tabulate(5)(22 + _)
@@ -100,24 +103,36 @@ class DFVectorSpec extends DFSpec:
       )(
         """val v7: UInt[4] X 0 <> CONST = all(0)"""
       )
-      assertRuntimeError(
+      assertRuntimeErrorLog(
         "The vector length must be positive but found: 0"
       ) {
         val v7: UInt[4] X zero.type <> CONST = all(0)
       }
       val zeroP: Int <> CONST = 0
-      assertRuntimeError(
+      assertRuntimeErrorLog(
         "The vector length must be positive but found: 0"
       ) {
         val v7: UInt[4] X zeroP.type <> CONST = all(0)
       }
-      assertRuntimeError(
+      assertRuntimeErrorLog(
         "The vector length must be positive but found: 0"
       ) {
         val v7: UInt[4] X zeroP.type X 5 <> CONST = all(all(0))
       }
       val w: Int <> CONST = 4
       val v8: Bits[w.type] X len.type <> CONST = all(all(0))
+      val five = 5
+      val v9 = UInt(five) X len <> VAR
+      val v10 = UInt(five - 1) X len <> VAR
+      v10 := v6
+      assertRuntimeErrorLog(
+        """|Vector types must be the same when applying one vector onto another.
+           |Expected type: UInt(5) X len
+           |Found type:    UInt(4) X len
+           |""".stripMargin
+      ) {
+        v9 := v6
+      }
     }
   }
   test("Big Endian Packed Order") {
@@ -151,7 +166,7 @@ class DFVectorSpec extends DFSpec:
       }
       assertRuntimeErrorLog(
         """|Init file error detected in VerilogHex formatted bits8x4.bin:0
-           |Invalid data width detected (expected 8 but found 17): 00011000
+           |Invalid data width detected (expected 8 bits but found 17 bits): 00011000
            |""".stripMargin
       ) {
         val v1 = Bits(8) X 4 <> VAR initFile ("bits8x4.bin", InitFileFormat.VerilogHex)

@@ -122,7 +122,7 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |LHS:       x
           |RHS:       0
-          |Message:   Found multiple domain assignments to the same variable/port `Top.x`
+          |Message:   Found multiple domain assignments to the same variable/port `Top.x`.
           |Only variables declared as `VAR.SHARED` under ED domain allow this.
           |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:111:9 - 111:15
           |
@@ -131,7 +131,7 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |LHS:       y
           |RHS:       0
-          |Message:   Found multiple domain assignments to the same variable/port `Top.y`
+          |Message:   Found multiple domain assignments to the same variable/port `Top.y`.
           |Only variables declared as `VAR.SHARED` under ED domain allow this.
           |The previous write occurred at ${currentFilePos}ElaborationChecksSpec.scala:112:9 - 112:15
           |""".stripMargin
@@ -149,6 +149,27 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top.y
           |Operation: ``
           |Message:   Ports can only be directly owned by a design, a domain or an interface.
+          |""".stripMargin
+    )
+
+  test("dangling input"):
+    class ID extends EDDesign:
+      val x = Bits(10) <> IN
+      val y = Bits(10) <> OUT
+      y <> x
+
+    @top class IDTop extends EDDesign:
+      val x = Bits(10) <> IN
+      val y = Bits(10) <> OUT
+
+      val id = ID()
+      id.y <> y
+    assertElaborationErrors(IDTop())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:165:16 - 165:18
+          |Hierarchy: IDTop.id
+          |Message:   Found a dangling (unconnected) input port `x`.
           |""".stripMargin
     )
 end ElaborationChecksSpec

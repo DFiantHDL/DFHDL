@@ -8,18 +8,28 @@ sealed trait DFRef[+M <: DFMember] derives CanEqual:
   val refType: ClassTag[M @uncheckedVariance]
   final def =~(that: DFRefAny)(using MemberGetSet): Boolean = this.get =~ that.get
   def get(using getSet: MemberGetSet): M = getSet(this)
+  def copyAsNewRef: this.type
   override def toString: String = s"<${this.hashString}>"
 
 object DFRef:
   sealed trait Empty extends DFRef[DFMember.Empty]:
     val refType = classTag[DFMember.Empty]
     override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
-  trait OneWay[+M <: DFMember] extends DFRef[M]
+  trait OneWay[+M <: DFMember] extends DFRef[M]:
+    self =>
+    final def copyAsNewRef: this.type = new OneWay[M]:
+      val refType = self.refType
+    .asInstanceOf[this.type]
   object OneWay:
     object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
 
   trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
+    self =>
     val originRefType: ClassTag[O @uncheckedVariance]
+    final def copyAsNewRef: this.type = new TwoWay[M, O]:
+      val refType = self.refType
+      val originRefType = self.originRefType
+    .asInstanceOf[this.type]
   type TwoWayAny = TwoWay[DFMember, DFMember]
   object TwoWay:
     object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty:
@@ -54,6 +64,9 @@ object IntParamRef:
           thisRef =~ thatRef
         case (thisInt: Int, thatInt: Int) => thisInt == thatInt
         case _                            => false
+    def copyAsNewRef: IntParamRef = intParamRef match
+      case ref: DFRef.TypeRef => ref.copyAsNewRef
+      case _                  => intParamRef
   end extension
 end IntParamRef
 extension (intCompanion: Int.type)
