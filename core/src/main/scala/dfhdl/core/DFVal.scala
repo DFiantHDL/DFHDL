@@ -160,7 +160,6 @@ def DFValConversionMacro[T <: DFTypeAny, P, R](
   else
     val tStr = Expr(s"implicit conversion to type ${TypeRepr.of[T].showDFType}")
     '{
-      import DFStruct.apply
       given bitsNoType: DFBits[Int] = DFNothing.asInstanceOf[DFBits[Int]]
       given uintNoType: DFUInt[Int] = DFNothing.asInstanceOf[DFUInt[Int]]
       given sintNoType: DFSInt[Int] = DFNothing.asInstanceOf[DFSInt[Int]]
