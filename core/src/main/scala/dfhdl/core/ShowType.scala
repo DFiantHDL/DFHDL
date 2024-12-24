@@ -14,6 +14,10 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
 
   def showDFType: String =
     import quotes.reflect.*
+    extension (d: TypeRepr)
+      def showVecLength: String = d.asType match
+        case '[Tuple1[d]] => TypeRepr.of[d].showType
+        case _            => d.showType
     tpe.asTypeOf[DFTypeAny] match
       case '[DFBit]     => "Bit"
       case '[DFBool]    => "Boolean"
@@ -23,9 +27,9 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFSInt[w]] => s"SInt[${Type.show[w]}]"
       case '[DFEnum[t]] => Type.show[t]
       case '[DFVector[t, d]] =>
-        s"${TypeRepr.of[t].showDFType} X ${TypeRepr.of[d].showType}"
+        s"${TypeRepr.of[t].showDFType} X ${TypeRepr.of[d].showVecLength}"
       case '[DFType[ir.DFVector, Args2[t, d]]] =>
-        s"${TypeRepr.of[t].showDFType} X ${TypeRepr.of[d].showType}"
+        s"${TypeRepr.of[t].showDFType} X ${TypeRepr.of[d].showVecLength}"
       case '[DFOpaque[t]] => Type.show[t]
       case '[DFStruct[t]] =>
         Type.of[t] match
@@ -60,7 +64,10 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
         tpe.showTuple(_.showType).mkStringBrackets
       case '[ContextFunction1[DFC, t]]   => TypeRepr.of[t].showType
       case '[dfhdl.internals.Inlined[t]] => Type.show[t]
-      case _                             => tpe.show
+      case _ =>
+        tpe match
+          case _: TermRef => s"${tpe.show}.type"
+          case _          => tpe.show
 end extension
 
 trait ShowType[T]:
