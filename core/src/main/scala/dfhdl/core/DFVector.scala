@@ -23,7 +23,7 @@ object DFVector:
       cellType: T,
       d: ValueOf[D],
       check: VectorLength.CheckNUB[D]
-  ): DFVector[T, Tuple1[D]] =
+  ): DFVector[T, Tuple1[D]] = trydf:
     val cellDim = IntParam.fromValue(d)
     check(cellDim)
     DFVector(cellType, List(cellDim))

@@ -89,7 +89,6 @@ object DFType:
   // unlike the other types, this caused issues when defined in DFStruct and exported here.
   // there is some kind of Scala compiler bug (unreported) and this is a workaround.
   inline given fromFieldsOrTuple[F <: FieldsOrTuple]: DFStruct[F] = ${ DFStruct.dfTypeMacro[F] }
-  given [T <: DFTypeAny & Singleton](using ValueOf[T]): T = valueOf[T]
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 

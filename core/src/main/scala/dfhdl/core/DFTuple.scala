@@ -36,7 +36,7 @@ object DFTuple:
       T <: NonEmptyTuple,
       V <: NonEmptyTuple,
       O,
-      TC[T <: DFTypeAny, V] <: TCConv[T, V, O]
+      TC[T <: DFTypeAny, V] <: TCCommon[T, V, O]
   ]:
     type OutP
     def apply(
@@ -48,7 +48,7 @@ object DFTuple:
         T <: NonEmptyTuple,
         V <: NonEmptyTuple,
         O,
-        TC[T <: DFTypeAny, V] <: TCConv[T, V, O]
+        TC[T <: DFTypeAny, V] <: TCCommon[T, V, O]
     ]: TCZipper[T, V, O, TC] = ${
       zipperMacro[T, V, O, TC]
     }
@@ -56,7 +56,7 @@ object DFTuple:
         T <: NonEmptyTuple,
         V <: NonEmptyTuple,
         O,
-        TC[T <: DFTypeAny, V] <: TCConv[T, V, O]
+        TC[T <: DFTypeAny, V] <: TCCommon[T, V, O]
     ](using
         Quotes,
         Type[T],
@@ -140,11 +140,9 @@ object DFTuple:
         def conv(dfType: DFTuple[T], value: R)(using DFC): Out =
           val dfVals =
             zipper(dfType.fieldList, value.toList)
-          // reconstructing the Tuple DFType, in case fields could be DFNothing from conversions
-          val fixedDFType = DFTuple(dfVals.map(_.dfType))
           // normally would have used `.asValTP`, but this triggers a compiler crash
           // https://github.com/lampepfl/dotty/issues/17326
-          DFVal.Func(fixedDFType, FuncOp.++, dfVals).asInstanceOf[Out]
+          DFVal.Func(dfType, FuncOp.++, dfVals).asInstanceOf[Out]
       end DFTupleFromTuple
       given DFTupleFromDFTuple[
           T <: NonEmptyTuple,
@@ -160,6 +158,28 @@ object DFTuple:
           value.asValTP[DFTuple[T], RP]
       end DFTupleFromDFTuple
     end TC
+
+    object TCConv:
+      import DFVal.TCConv
+      given DFTupleFromTuple[
+          T <: NonEmptyTuple,
+          R <: NonEmptyTuple,
+          Z <: TCZipper[T, R, DFValAny, TCConv]
+      ](using
+          zipper: Z
+      ): TCConv[DFTuple[T], R] with
+        type OutP = zipper.OutP
+        def apply(value: R)(using DFC): Out =
+          val valueList = value.toList
+          val dfVals =
+            zipper(List.fill(valueList.length)(DFNothing), valueList)
+          // reconstructing the Tuple DFType, since we fed DFNothing to the zipper
+          val fixedDFType = DFTuple(dfVals.map(_.dfType))
+          // normally would have used `.asValTP`, but this triggers a compiler crash
+          // https://github.com/lampepfl/dotty/issues/17326
+          DFVal.Func(fixedDFType, FuncOp.++, dfVals).asInstanceOf[Out]
+      end DFTupleFromTuple
+    end TCConv
 
     object Compare:
       import DFVal.Compare
