@@ -26,7 +26,7 @@ object DFRef:
   trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
     self =>
     val originRefType: ClassTag[O @uncheckedVariance]
-    final def copyAsNewRef: this.type = new TwoWay[M, O]:
+    def copyAsNewRef: this.type = new TwoWay[M, O]:
       val refType = self.refType
       val originRefType = self.originRefType
     .asInstanceOf[this.type]
@@ -36,8 +36,10 @@ object DFRef:
       val originRefType = classTag[DFMember.Empty]
 
   trait TypeRef extends TwoWay[DFVal, DFVal]:
+    self =>
     val refType = classTag[DFVal]
     val originRefType = classTag[DFVal]
+    override def copyAsNewRef: this.type = new TypeRef {}.asInstanceOf[this.type]
 
   def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
 end DFRef
