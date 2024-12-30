@@ -104,25 +104,29 @@ case object SanityCheck extends Stage:
     }
     // check a reference is only used by a single member
     val originRefTableMutable = mutable.Map.empty[DFRefAny, DFMember]
-    memberSet.foreach { m =>
-      m.getRefs.foreach {
-        case _: DFRef.Empty => // skip empty referenced
-        case r =>
-          originRefTableMutable.get(r).foreach { prevMember =>
-            def originViolation(addedText: String) = reportViolation(
-              s"""|Ref $r has more than one origin member$addedText.
-                  |Target member:   ${r.get}
-                  |Origin member 1: $prevMember
-                  |Origin member 2: $m""".stripMargin
-            )
-            r match
-              case _: DFRef.TypeRef =>
-                if (!(prevMember isSameOwnerDesignAs m))
-                  originViolation(" from a different design")
-              case _ => originViolation("")
-          }
-          originRefTableMutable += r -> m
-      }
+    memberSet.foreach {
+      // ignore by-name selectors since they contain dftype that could have typerefs that are used
+      // more than once. this is considered to be ok.
+      case _: DFVal.PortByNameSelect =>
+      case m =>
+        m.getRefs.foreach {
+          case _: DFRef.Empty => // skip empty referenced
+          case r =>
+            originRefTableMutable.get(r).foreach { prevMember =>
+              def originViolation(addedText: String) = reportViolation(
+                s"""|Ref $r has more than one origin member$addedText.
+                    |Target member:   ${r.get}
+                    |Origin member 1: $prevMember
+                    |Origin member 2: $m""".stripMargin
+              )
+              r match
+                case _: DFRef.TypeRef =>
+                  if (!(prevMember isSameOwnerDesignAs m))
+                    originViolation(" from a different design")
+                case _ => originViolation("")
+            }
+            originRefTableMutable += r -> m
+        }
     }
     // check a global member reference is anonymous only if the referencing member is global
     // or the referencing member is a design parameter
