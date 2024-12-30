@@ -13,7 +13,7 @@ import dfhdl.core.{DFTypeAny, asFE}
   * vhdl.v93 that does not support arrays with unconstrained ranges.
   */
 case object GlobalizePortVectorParams extends Stage:
-  def dependencies: List[Stage] = List()
+  def dependencies: List[Stage] = List(UniqueDesigns)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   override def runCondition(using co: CompilerOptions): Boolean =
     co.backend match
@@ -50,6 +50,53 @@ case object GlobalizePortVectorParams extends Stage:
       case dcl @ DclPort() => checkVector(dcl.dfType)
       case _               =>
     }
+    val dupDesignSet = designParams.view.map(_.getOwnerDesign).toSet
+    // origin -> duplicates design map
+    val dupDesignMap = dupDesignSet.groupBy(_.dclName).values.map { grp =>
+      val (dups, orig) = grp.partition(_.isDuplicate)
+      assert(orig.size == 1)
+      orig.head -> dups.toList
+    }.toMap
+    val dupRefTable = mutable.Map.empty[DFRefAny, DFMember]
+    val dupDesignMembersMap = mutable.Map.empty[DFDesignBlock, List[DFMember]]
+    // go through all designs that require member duplication from their original design
+    dupDesignMap.foreach { (orig, dups) =>
+      val origMembers = designDB.designMemberTable(orig)
+      dups.foreach { dup =>
+        val dupPublicMembers = designDB.designMemberTable(dup)
+        // orig->dup replacement map memoization for reference mapping in `dupRefTable`
+        val origToDupMemberMap = mutable.Map.empty[DFMember, DFMember]
+        // add the designs to the replacement map
+        origToDupMemberMap += orig -> dup
+        // collect all public members (they are not necessarily at the top of the design)
+        val origPublicMembers = origMembers.filter(_.isPublicMember)
+        assert(origPublicMembers.length == dupPublicMembers.length)
+        // adding public members to the orig->dup member replacement map
+        origPublicMembers.lazyZip(dupPublicMembers).foreach(origToDupMemberMap += _)
+        // if the replacement map has a member, get its mapped replacement, otherwise the member
+        // remains as is for reference change
+        def getReplacement(member: DFMember): DFMember =
+          origToDupMemberMap.getOrElse(member, member)
+        val dupMembers = origMembers.map { origMember =>
+          // a public member already has an equivalent as a dup design member
+          if (origMember.isPublicMember) origToDupMemberMap(origMember)
+          // a non-public member needs to be duplicated with new references to be mapped accordingly
+          else
+            // duplicate member
+            val dupMember = origMember.copyWithNewRefs
+            // add to replacement map
+            origToDupMemberMap += origMember -> dupMember
+            // add duplicated member owner reference
+            dupRefTable += dupMember.ownerRef -> getReplacement(origMember.getOwner)
+            // add duplicated member relative references
+            origMember.getRefs.lazyZip(dupMember.getRefs).foreach { (origRef, dupRef) =>
+              dupRefTable += dupRef -> getReplacement(origRef.get)
+            }
+            dupMember
+        }
+        dupDesignMembersMap += dup -> dupMembers
+      }
+    }
     // an empty context to add the global parameters to
     val dfc = dfhdl.core.DFC.empty
     // adding global parameters to the context with the full name of the design parameters and their value
@@ -63,13 +110,38 @@ case object GlobalizePortVectorParams extends Stage:
     }
     val globalsDB = dfc.mutableDB.immutable
     val globalParams = globalsDB.members
-    val patchList = designParams.lazyZip(globalParams).map((dp, gp) =>
-      dp -> Patch.Replace(gp, Patch.Replace.Config.ChangeRefAndRemove)
-    ).toList
-    // manually adding the global members and then using patch for replacing
+
+    // manually adding the global members and the duplicated members and then using patch for replacing
     // the design parameters with global parameters
-    val updatedMembers = globalParams ++ designDB.members
-    val updatedRefTable = designDB.refTable ++ globalsDB.refTable
+    def populateWithDupMembers(members: List[DFMember]): List[DFMember] =
+      members.flatMap {
+        case design: DFDesignBlock =>
+          design :: populateWithDupMembers(
+            dupDesignMembersMap.getOrElse(design, designDB.designMemberTable(design))
+          )
+        case member => Some(member)
+      }
+    val updatedMembers =
+      globalParams ++ designDB.membersGlobals ++ populateWithDupMembers(List(designDB.top))
+    val updatedRefTable = designDB.refTable ++ dupRefTable ++ globalsDB.refTable
+
+    val patchList = Iterable(
+      designParams.lazyZip(globalParams).map((dp, gp) =>
+        dp -> Patch.Replace(gp, Patch.Replace.Config.ChangeRefAndRemove)
+      ),
+      dupDesignMap.view.flatMap {
+        case (orig, dups) if dups.length >= 1 =>
+          (orig :: dups).map { design =>
+            val updatedDclMeta =
+              design.dclMeta.setName(
+                s"${design.dclName}_${design.getFullName.replaceAll("\\.", "_")}"
+              )
+            val updatedDesign = design.removeTagOf[DuplicateTag].copy(dclMeta = updatedDclMeta)
+            design -> Patch.Replace(updatedDesign, Patch.Replace.Config.FullReplacement)
+          }
+        case _ => None
+      }
+    ).flatten.toList
     designDB.copy(updatedMembers, updatedRefTable).patch(patchList)
   end transform
 end GlobalizePortVectorParams

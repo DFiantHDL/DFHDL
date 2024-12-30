@@ -140,34 +140,68 @@ class GlobalizePortVectorParams extends StageSpec(stageCreatesUnrefAnons = true)
          |""".stripMargin
     )
   // TODO: needs to be fixed
-  // test("Hierarchy parameter globalization"):
-  //   class ID(
-  //       val width: Int <> CONST,
-  //       val length: Int <> CONST
-  //   ) extends RTDesign:
-  //     val x = Bits(width) X length <> IN
-  //     val y = Bits(width) X length <> OUT
-  //     val v = Bits(width) X length <> VAR
-  //     v <> x
-  //     y <> v
-  //   class IDTop(
-  //       val width: Int <> CONST  = 8,
-  //       val length: Int <> CONST = 10
-  //   ) extends RTDesign:
-  //     val x1  = Bits(width) X length <> IN
-  //     val y1  = Bits(width) X length <> OUT
-  //     val id1 = ID(width, length)
-  //     id1.x <> x1
-  //     y1    <> id1.y
-  //     val x2  = Bits(width) X length <> IN
-  //     val y2  = Bits(width) X length <> OUT
-  //     val id2 = ID(width, length)
-  //     id2.x <> x2
-  //     y2    <> id2.y
-  //   end IDTop
-  //   val top = (new IDTop()).globalizePortVectorParams
-  //   assertCodeString(
-  //     top,
-  //     """|""".stripMargin
-  //   )
+  test("Hierarchy parameter globalization"):
+    class ID(
+        val width: Int <> CONST,
+        val length: Int <> CONST
+    ) extends RTDesign:
+      val x = Bits(width) X length <> IN
+      val y = Bits(width) X length <> OUT
+      val v = Bits(width) X length <> VAR
+      v <> x
+      y <> v
+    class IDTop(
+        val widthTop: Int <> CONST  = 8,
+        val lengthTop: Int <> CONST = 10
+    ) extends RTDesign:
+      val x1  = Bits(widthTop) X lengthTop <> IN
+      val y1  = Bits(widthTop) X lengthTop <> OUT
+      val id1 = ID(widthTop, lengthTop)
+      id1.x <> x1
+      y1    <> id1.y
+      val x2  = Bits(widthTop) X lengthTop <> IN
+      val y2  = Bits(widthTop) X lengthTop <> OUT
+      val id2 = ID(widthTop, lengthTop)
+      id2.x <> x2
+      y2    <> id2.y
+    end IDTop
+    val top = (new IDTop()).globalizePortVectorParams
+    assertCodeString(
+      top,
+      """|val IDTop_lengthTop: Int <> CONST = 10
+         |val IDTop_widthTop: Int <> CONST = 8
+         |val IDTop_id1_length: Int <> CONST = 10
+         |val IDTop_id1_width: Int <> CONST = 8
+         |val IDTop_id2_length: Int <> CONST = 10
+         |val IDTop_id2_width: Int <> CONST = 8
+         |class ID_IDTop_id1 extends RTDesign:
+         |  val x = Bits(IDTop_id1_width) X IDTop_id1_length <> IN
+         |  val y = Bits(IDTop_id1_width) X IDTop_id1_length <> OUT
+         |  val v = Bits(IDTop_id1_width) X IDTop_id1_length <> VAR
+         |  v <> x
+         |  y <> v
+         |end ID_IDTop_id1
+         |
+         |class ID_IDTop_id2 extends RTDesign:
+         |  val x = Bits(IDTop_id2_width) X IDTop_id2_length <> IN
+         |  val y = Bits(IDTop_id2_width) X IDTop_id2_length <> OUT
+         |  val v = Bits(IDTop_id2_width) X IDTop_id2_length <> VAR
+         |  v <> x
+         |  y <> v
+         |end ID_IDTop_id2
+         |
+         |class IDTop extends RTDesign:
+         |  val x1 = Bits(IDTop_widthTop) X IDTop_lengthTop <> IN
+         |  val y1 = Bits(IDTop_widthTop) X IDTop_lengthTop <> OUT
+         |  val id1 = ID_IDTop_id1()
+         |  id1.x <> x1
+         |  y1 <> id1.y
+         |  val x2 = Bits(IDTop_widthTop) X IDTop_lengthTop <> IN
+         |  val y2 = Bits(IDTop_widthTop) X IDTop_lengthTop <> OUT
+         |  val id2 = ID_IDTop_id2()
+         |  id2.x <> x2
+         |  y2 <> id2.y
+         |end IDTop
+         |""".stripMargin
+    )
 end GlobalizePortVectorParams

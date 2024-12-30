@@ -141,6 +141,15 @@ sealed trait DFVal extends DFMember.Named:
     else if (cachedIsFullyAnonymous > 0) true
     else false
   final def isConst(using MemberGetSet): Boolean = getConstData.nonEmpty
+  // two expressions are considered to be similar if
+  final def isSimilarExpr(that: DFVal)(using MemberGetSet): Boolean =
+    def dealiasAsIs(dfVal: DFVal): DFVal = dfVal match
+      case DFVal.Alias.AsIs(dfType, DFRef(relVal), _, _, _) if dfType == relVal.dfType =>
+        dealiasAsIs(relVal)
+      case _ => dfVal
+    (dealiasAsIs(this), dealiasAsIs(that)) match
+      case (lhs: DFVal.CanBeExpr, rhs: DFVal.CanBeExpr) => lhs.protIsSimilarExpr(rhs)
+      case (lhs, rhs)                                   => lhs == rhs
   protected def protGetConstData(using MemberGetSet): Option[Any]
   private var cachedConstDataReady: Boolean = false
   private var cachedConstData: Option[Any] = None
@@ -250,7 +259,8 @@ object DFVal:
     def getDomainType(using MemberGetSet): DomainType = dfVal.getOwnerDomain.domainType
   end extension
   // can be an expression
-  sealed trait CanBeExpr extends DFVal
+  sealed trait CanBeExpr extends DFVal:
+    protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean
 
   // can be a global value
   sealed trait CanBeGlobal extends CanBeExpr:
@@ -278,10 +288,19 @@ object DFVal:
     protected def protGetConstData(using MemberGetSet): Option[Any] = Some(data)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
-        given CanEqual[Any, Any] = CanEqual.derived
-        this.dfType =~ that.dfType && this.data == that.data &&
+        this.dfType =~ that.dfType && this.data.equals(that.data) &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
+    protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+      that match
+        case that: Const =>
+          // if constants are named, then they must be the exact same constant instance to be considered similar expressions
+          if (!this.isAnonymous && !that.isAnonymous) this == that
+          // otherwise, they must both be anonymous and have the same type and data to be considered similar expressions
+          else if (this.isAnonymous && that.isAnonymous)
+            this.dfType =~ that.dfType && this.data.equals(that.data)
+          else false
+        case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
@@ -324,6 +343,8 @@ object DFVal:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case _: NOTHING => true
       case _          => false
+    protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+      this == that
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
@@ -398,6 +419,13 @@ object DFVal:
           .forall((l, r) => l =~ r)) &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
+    // TODO: consider algebraic equivalence be added here
+    protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+      that match
+        case that: Func =>
+          this.dfType =~ that.dfType && this.op == that.op &&
+          (this.args.lazyZip(that.args).forall((l, r) => l.get.isSimilarExpr(r.get)))
+        case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ args
@@ -501,6 +529,11 @@ object DFVal:
           this.dfType =~ that.dfType && sameRelVal &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+        that match
+          case that: AsIs =>
+            this.dfType =~ that.dfType && this.relValRef.get.isSimilarExpr(that.relValRef.get)
+          case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
@@ -534,6 +567,8 @@ object DFVal:
           this.step == that.step && this.op == that.op && sameInit &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+        false
       def initOption(using MemberGetSet): Option[DFVal] = initRefOption.map(_.get)
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -576,6 +611,12 @@ object DFVal:
           this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+        that match
+          case that: ApplyRange =>
+            this.relValRef.get.isSimilarExpr(that.relValRef.get) &&
+            this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow
+          case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = this
@@ -620,6 +661,13 @@ object DFVal:
           this.relIdx =~ that.relIdx &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+        that match
+          case that: ApplyIdx =>
+            this.dfType =~ that.dfType &&
+            this.relValRef.get.isSimilarExpr(that.relValRef.get) &&
+            this.relIdx.get.isSimilarExpr(that.relIdx.get)
+          case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       override lazy val getRefs: List[DFRef.TwoWayAny] = relIdx :: relValRef :: dfType.getRefs
@@ -661,6 +709,13 @@ object DFVal:
           this.fieldName == that.fieldName &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+        that match
+          case that: SelectField =>
+            this.dfType =~ that.dfType &&
+            this.relValRef.get.isSimilarExpr(that.relValRef.get) &&
+            this.fieldName == that.fieldName
+          case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
@@ -855,6 +910,8 @@ object DFConditional:
         this.dfType =~ that.dfType && this.selectorRef =~ that.selectorRef &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
+    protected[ir] def protIsSimilarExpr(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
+      false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = selectorRef :: dfType.getRefs
@@ -983,6 +1040,8 @@ object DFConditional:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    protected[ir] def protIsSimilarExpr(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
+      false
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     def copyWithNewRefs: this.type = copy(
       dfType = dfType.copyWithNewRefs,
@@ -1188,6 +1247,8 @@ object Timer:
         this.timerRef =~ that.timerRef &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
+    protected[ir] def protIsSimilarExpr(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
+      false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = List(timerRef)

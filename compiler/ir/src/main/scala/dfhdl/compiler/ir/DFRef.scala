@@ -35,10 +35,10 @@ object DFRef:
     object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty:
       val originRefType = classTag[DFMember.Empty]
 
-  trait TypeRef extends TwoWay[DFVal, DFVal]:
+  trait TypeRef extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
     self =>
-    val refType = classTag[DFVal]
-    val originRefType = classTag[DFVal]
+    val refType = classTag[DFVal.CanBeExpr]
+    val originRefType = classTag[DFVal.CanBeExpr]
     override def copyAsNewRef: this.type = new TypeRef {}.asInstanceOf[this.type]
 
   def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
@@ -63,7 +63,7 @@ object IntParamRef:
     def =~(that: IntParamRef)(using MemberGetSet): Boolean =
       (intParamRef, that) match
         case (thisRef: DFRef.TypeRef, thatRef: DFRef.TypeRef) =>
-          thisRef =~ thatRef
+          thisRef.get.isSimilarExpr(thatRef.get)
         case (thisInt: Int, thatInt: Int) => thisInt == thatInt
         case _                            => false
     def copyAsNewRef: IntParamRef = intParamRef match
