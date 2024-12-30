@@ -406,3 +406,11 @@ extension (net: DFNet)
       case DFNet(DFRef(lhs: DFVal), _, DFRef(rhs: DFVal), _, _, _) =>
         lhs.collectRelMembers(false) ++ rhs.collectRelMembers(false)
       case _ => Nil
+
+extension (member: DFMember)
+  def isPublicMember(using MemberGetSet): Boolean =
+    member match
+      case DclPort()      => true
+      case DesignParam(_) => true
+      case _: DomainBlock => true
+      case _              => false

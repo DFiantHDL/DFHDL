@@ -19,7 +19,7 @@ import dfhdl.compiler.ir.{
   MemberView,
   RTDomainCfg
 }
-import dfhdl.compiler.analysis.{DclPort, DesignParam}
+import dfhdl.compiler.analysis.isPublicMember
 
 import scala.reflect.{ClassTag, classTag}
 import collection.mutable
@@ -199,11 +199,7 @@ final class MutableDB():
         // public members are ports, design design parameters, and
         // design domains. these members are interacted with outside the
         // design, so they are kept as duplicates in the design instances
-        val publicMembers = currentMembers.collect {
-          case p @ DclPort()       => p
-          case dp @ DesignParam(_) => dp
-          case dmn: DomainBlock    => dmn
-        }
+        val publicMembers = currentMembers.filter(_.isPublicMember)
         designMembers += design -> publicMembers
         val transferredRefs = publicMembers.view.flatMap(m =>
           (m.ownerRef -> current.refTable(m.ownerRef)) ::
