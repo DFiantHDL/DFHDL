@@ -1,13 +1,18 @@
 package dfhdl.tools.toolsCore
 import dfhdl.core.Design
 import dfhdl.compiler.stages.CompiledDesign
-import dfhdl.compiler.ir.SourceFile
+import dfhdl.compiler.ir.*
 import dfhdl.options.CompilerOptions
 import dfhdl.options.ToolOptions
 import dfhdl.options.LinterOptions
 import dfhdl.options.BuilderOptions
 import dfhdl.options.OnError
 import java.io.IOException
+import scala.sys.process.*
+import dfhdl.internals.*
+import java.nio.file.Paths
+import dfhdl.compiler.stages.vhdl.VHDLDialect
+import dfhdl.compiler.stages.verilog.VerilogDialect
 
 trait Tool:
   val toolName: String
@@ -30,11 +35,12 @@ trait Tool:
   protected def versionCmd: String
   protected def extractVersion(cmdRetStr: String): Option[String]
 
-  private lazy val installedVersion: Option[String] =
-    import scala.sys.process.*
-    val getVersionFullCmd = s"$runExec $versionCmd"
+  private[dfhdl] lazy val installedVersion: Option[String] =
+    val getVersionFullCmd =
+      Process(s"$runExec $versionCmd", new java.io.File(System.getProperty("java.io.tmpdir")))
     try extractVersion(getVersionFullCmd.!!)
     catch case e: IOException => None
+  final def isAvailable: Boolean = installedVersion.nonEmpty
   protected def getInstalledVersion(using to: ToolOptions): String =
     preCheck()
     installedVersion.get
@@ -54,40 +60,138 @@ trait Tool:
       }
       preCheckDone = true
 
-  final protected def exec[D <: Design](cd: CompiledDesign[D], cmd: String)(using
-      co: CompilerOptions,
-      to: ToolOptions
-  ): CompiledDesign[D] =
-    import scala.sys.process.*
+  final protected def topName(using MemberGetSet): String =
+    getSet.designDB.top.dclName
+
+  final protected def execPath(using co: CompilerOptions, getSet: MemberGetSet): String =
+    co.topCommitPath(getSet.designDB)
+
+  protected val convertWindowsToLinuxPaths: Boolean = false
+  extension (path: String)
+    protected def convertWindowsToLinuxPaths: String =
+      if (this.convertWindowsToLinuxPaths) path.forceWindowsToLinuxPath else path
+
+  protected def designFiles(using getSet: MemberGetSet): List[String] =
+    getSet.designDB.srcFiles.collect {
+      case SourceFile(
+            SourceOrigin.Committed,
+            SourceType.Design.Regular | SourceType.Design.BlackBox,
+            path,
+            _
+          ) =>
+        path.convertWindowsToLinuxPaths
+    }
+
+  protected def toolFiles(using getSet: MemberGetSet): List[String] = Nil
+
+  protected def designDefFiles(using getSet: MemberGetSet): List[String] =
+    getSet.designDB.srcFiles.collect {
+      case SourceFile(
+            SourceOrigin.Committed,
+            SourceType.Design.DFHDLDef | SourceType.Design.GlobalDef,
+            path,
+            _
+          ) =>
+        path.convertWindowsToLinuxPaths
+    }
+
+  protected def designDefFolders(using getSet: MemberGetSet): List[String] =
+    getSet.designDB.srcFiles.collect {
+      case SourceFile(
+            SourceOrigin.Committed,
+            SourceType.Design.DFHDLDef | SourceType.Design.GlobalDef,
+            path,
+            _
+          ) =>
+        Paths.get(path).getParent.toString.convertWindowsToLinuxPaths
+    }.distinct
+
+  protected def constructCommand(args: String*): String =
+    args.filter(_.nonEmpty).mkString(" ")
+
+  final protected def exec[D <: Design](
+      cmd: String,
+      prepare: => Unit = (),
+      loggerOpt: Option[Tool.ProcessLogger] = None
+  )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     preCheck()
-    val pwd = new java.io.File(co.topCommitPath(cd.stagedDB))
+    prepare
     val fullExec = s"$runExec $cmd"
-    val errCode = Process(fullExec, pwd).!
-    if (errCode != 0)
-      error(s"${toolName} exited with the error code ${errCode} attempting to run:\n$fullExec")
-    cd
+    val process = Process(fullExec, new java.io.File(execPath))
+    var hasWarnings: Boolean = false
+    val errCode = loggerOpt.map(logger =>
+      val errCode = process.!(logger)
+      hasWarnings = logger.hasWarnings
+      errCode
+    ).getOrElse(process.!)
+    if (errCode != 0 || hasWarnings && summon[ToolOptions].fatalWarnings)
+      val msg =
+        if (errCode != 0) s"${toolName} exited with the error code ${errCode}."
+        else s"${toolName} exited with warnings while `fatal warnings` is turned on."
+      error(
+        s"""|$msg
+            |Path: ${Paths.get(execPath).toAbsolutePath()}
+            |Command: $fullExec""".stripMargin
+      )
   end exec
+  override def toString(): String = binExec
 end Tool
+object Tool:
+  class ProcessLogger(lineIsWarning: String => Boolean, lineIsSuppressed: String => Boolean)
+      extends scala.sys.process.ProcessLogger:
+    private var _hasWarnings = false
+    final def hasWarnings: Boolean = _hasWarnings
+    private def useLine(line: String): Unit =
+      if (!lineIsSuppressed(line))
+        if (lineIsWarning(line)) _hasWarnings = true
+        println(line)
+    final def out(s: => String): Unit = useLine(s)
+    final def err(s: => String): Unit = useLine(s)
+    final def buffer[T](f: => T): T = f
 
 trait Linter extends Tool:
-  type LO <: LinterOptions
-  def lint[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, LO): CompiledDesign[D]
-trait VerilogLinterOptions extends LinterOptions
+  final def lint[D <: Design](
+      cd: CompiledDesign[D]
+  )(using CompilerOptions, LinterOptions): CompiledDesign[D] =
+    given MemberGetSet = cd.stagedDB.getSet
+    exec(lintCmdFlags, lintPrepare(), lintLogger)
+    cd
+  protected def lintPrepare()(using CompilerOptions, LinterOptions, MemberGetSet): Unit = {}
+  protected def lintLogger(using
+      CompilerOptions,
+      LinterOptions,
+      MemberGetSet
+  ): Option[Tool.ProcessLogger] = None
+  protected def lintCmdLanguageFlag(using co: CompilerOptions): String
+  protected def lintCmdSources(using CompilerOptions, LinterOptions, MemberGetSet): String
+  protected def lintCmdPreLangFlags(using CompilerOptions, LinterOptions, MemberGetSet): String = ""
+  protected def lintCmdPostLangFlags(using CompilerOptions, LinterOptions, MemberGetSet): String =
+    ""
+  final protected def lintCmdFlags(using CompilerOptions, LinterOptions, MemberGetSet): String =
+    constructCommand(lintCmdPreLangFlags, lintCmdLanguageFlag, lintCmdPostLangFlags, lintCmdSources)
+end Linter
 trait VerilogLinter extends Linter:
-  type LO <: VerilogLinterOptions
-object VerilogLinter:
-  // default verilog linter will be verilator
-  export dfhdl.tools.linters.verilator
-trait VHDLLinterOptions extends LinterOptions
+  // Converts the selected compiler verilog dialect to the relevant lint flag
+  protected def lintCmdLanguageFlag(dialect: VerilogDialect): String
+  final protected def lintCmdLanguageFlag(using co: CompilerOptions): String =
+    lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.verilog].dialect)
+  // The include flag to be attached before each included folder
+  protected def lintIncludeFolderFlag: String
+  final protected def lintCmdSources(using CompilerOptions, LinterOptions, MemberGetSet): String =
+    (designDefFolders.map(lintIncludeFolderFlag + _) ++ toolFiles ++ designFiles).mkString(" ")
+
 trait VHDLLinter extends Linter:
-  type LO <: VHDLLinterOptions
-object VHDLLinter:
-  // default vhdl linter will be ghdl
-  export dfhdl.tools.linters.ghdl
+  // Converts the selected compiler vhdl dialect to the relevant lint flag
+  protected def lintCmdLanguageFlag(dialect: VHDLDialect): String
+  final protected def lintCmdSources(using CompilerOptions, LinterOptions, MemberGetSet): String =
+    (designDefFiles ++ toolFiles ++ designFiles).mkString(" ")
+  final protected def lintCmdLanguageFlag(using co: CompilerOptions): String =
+    lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Builder extends Tool:
-  type BO <: BuilderOptions
-  def build[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, BO): CompiledDesign[D]
+  def build[D <: Design](
+      cd: CompiledDesign[D]
+  )(using CompilerOptions, BuilderOptions): CompiledDesign[D]
 object Builder:
   // default linter will be vivado
   given Builder = dfhdl.tools.builders.vivado

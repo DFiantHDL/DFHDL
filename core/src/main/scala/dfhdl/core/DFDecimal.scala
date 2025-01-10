@@ -38,7 +38,7 @@ object DFDecimal:
       ValueOf[W],
       ValueOf[F],
       ValueOf[N]
-  )(using DFC, Width.CheckNUB[S, W]): DFDecimal[S, W, F, N] =
+  )(using DFC, Width.CheckNUB[S, W]): DFDecimal[S, W, F, N] = trydf:
     DFDecimal(valueOf[S], IntParam[W](valueOf[W]), valueOf[F], valueOf[N])
   object Extensions:
     extension [S <: Boolean, W <: IntP, F <: Int, N <: NativeType](dfType: DFDecimal[S, W, F, N])
@@ -576,6 +576,8 @@ object DFDecimal:
         `LS >= RS`(dfType.signed, dfVal.dfType.signed)
         dfVal
     end TC
+    object TCConv:
+      export DFXInt.Val.TCConv.given
     object Compare:
       export DFXInt.Val.Compare.given
     object Ops:
@@ -713,30 +715,39 @@ object DFXInt:
       given [LS <: Boolean, LW <: IntP, LN <: NativeType, R, IC <: Candidate[R]](using
           ic: IC
       )(using
-          check: TCCheck[LS, LW, ic.OutSMask, ic.OutWMask],
-          lsigned: OptionalGiven[ValueOf[LS]]
+          check: TCCheck[LS, LW, ic.OutSMask, ic.OutWMask]
       ): TC[DFXInt[LS, LW, LN], R] with
         type OutP = ic.OutP
         def conv(dfType: DFXInt[LS, LW, LN], value: R)(using dfc: DFC): Out =
           import Ops.resize
           import DFUInt.Val.Ops.signed
           val rhs = ic(value)
-          (dfType.asIR: ir.DFType) match
-            case ir.DFNothing =>
-              val signCheck = summon[`LS >= RS`.Check[Boolean, Boolean]]
-              signCheck(lsigned.get.value, rhs.dfType.signed)
-              if (lsigned.get.value != rhs.dfType.signed.value)
-                rhs.asValOf[DFUInt[Int]].signed.asValTP[DFXInt[LS, LW, LN], ic.OutP]
-              else rhs.asValTP[DFXInt[LS, LW, LN], ic.OutP]
-            case _ =>
-              val (rhsSigned, rhsWidth) = rhs.getActualSignedWidth
-              if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhsSigned)
-                check(dfType.signed, dfType.widthInt, rhsSigned, rhsWidth)
-              DFXInt.Val.Ops.toDFXIntOf(rhs)(dfType).asValTP[DFXInt[LS, LW, LN], ic.OutP]
-          end match
+          val (rhsSigned, rhsWidth) = rhs.getActualSignedWidth
+          if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhsSigned)
+            check(dfType.signed, dfType.widthInt, rhsSigned, rhsWidth)
+          DFXInt.Val.Ops.toDFXIntOf(rhs)(dfType).asValTP[DFXInt[LS, LW, LN], ic.OutP]
         end conv
       end given
     end TC
+
+    object TCConv:
+      import DFVal.TCConv
+      given [LS <: Boolean, R, IC <: Candidate[R]](using
+          ic: IC
+      )(using
+          checkS: `LS >= RS`.Check[LS, ic.OutSMask],
+          lsigned: OptionalGiven[ValueOf[LS]]
+      ): TCConv[DFXInt[LS, Int, BitAccurate], R] with
+        type OutP = ic.OutP
+        def apply(value: R)(using dfc: DFC): Out =
+          import DFUInt.Val.Ops.signed
+          val rhs = ic(value)
+          checkS(lsigned.get.value, rhs.dfType.signed)
+          if (lsigned.get.value != rhs.dfType.signed.value)
+            rhs.asValOf[DFUInt[Int]].signed.asValTP[DFXInt[LS, Int, BitAccurate], ic.OutP]
+          else rhs.asValTP[DFXInt[LS, Int, BitAccurate], ic.OutP]
+      end given
+    end TCConv
 
     object Compare:
       import DFVal.Compare

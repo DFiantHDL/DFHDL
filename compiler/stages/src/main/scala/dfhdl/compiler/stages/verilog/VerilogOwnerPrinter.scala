@@ -17,7 +17,6 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csLibrary(inSimulation: Boolean): String =
     s"""`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"
        |`include "${printer.globalFileName}"""".stripMargin
   def moduleName(design: DFDesignBlock): String = design.dclName
   val parameterizedModuleSupport: Boolean =
@@ -29,26 +28,41 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val ports = designMembers.view.collect { case p @ DclPort() =>
       if (parameterizedModuleSupport) printer.csDFMember(p)
       else p.getName
-    }
-      .mkString(",\n")
+    }.mkString(",\n")
     val portBlock = ports.emptyOr(v => s"""(
-         |${ports.hindent}
-         |)""".stripMargin)
+                                          |${ports.hindent}
+                                          |)""".stripMargin)
     val localTypeDcls = printer.csLocalTypeDcls(design).emptyOr(x => s"$x\n")
+    val constIntDcls =
+      designMembers.view
+        .flatMap {
+          case p @ DesignParam(_) =>
+            if (parameterizedModuleSupport) None
+            else Some(p)
+          case c @ DclConst() =>
+            c.dfType match
+              case DFInt32 => Some(c)
+              case _       => None
+          case _ => None
+        }
+        .map(x => printer.csDFMember(x) + ";")
+        .toList
+        .emptyOr(_.mkString("\n")).emptyOr(x => s"$x\n")
     val dfValDcls =
       designMembers.view
         .flatMap {
           case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport => Some(p)
-          case p @ DesignParam(_) =>
-            if (parameterizedModuleSupport) None
-            else Some(p)
-          case c @ DclConst() => Some(c)
-          case _              => None
+          case DesignParam(_)                                         => None
+          case c @ DclConst() =>
+            c.dfType match
+              case DFInt32 => None
+              case _       => Some(c)
+          case _ => None
         }
         .map(x => printer.csDFMember(x) + ";")
         .toList
         .emptyOr(_.mkString("\n"))
-    val declarations = s"$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
+    val declarations = s"$constIntDcls$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")
     val statements = csDFMembers(
       designMembers.filter {
         case _: DFVal.Dcl => false
@@ -64,7 +78,8 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       if (designParamList.length == 0 || !parameterizedModuleSupport) ""
       else if (designParamList.length == 1) designParamList.mkString("#(", ", ", ")")
       else "#(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
-    s"""module ${moduleName(design)}$designParamCS$portBlock;$declarations
+    s"""module ${moduleName(design)}$designParamCS$portBlock;
+       |  `include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"$declarations
        |${statements.hindent}
        |endmodule""".stripMargin
   end csModuleDcl
@@ -109,6 +124,10 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val insideStr = if (wildcardSupport && insideSupport) " inside" else ""
     s"$keyWord ($csSelector)$insideStr"
   def csDFMatchEnd: String = "endcase"
+  val sensitivityListSep =
+    printer.dialect match
+      case VerilogDialect.v95 => " or "
+      case _                  => ", "
   def csProcessBlock(pb: ProcessBlock): String =
     val (statements, dcls) = pb
       .members(MemberView.Folded)
@@ -138,7 +157,8 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val senList = pb.sensitivity match
       case Sensitivity.All => if (alwaysKW == "always") " @(*)" else ""
       case Sensitivity.List(refs) =>
-        if (refs.isEmpty) "" else s" @${refs.map(_.refCodeString).mkStringBrackets}"
+        if (refs.isEmpty) ""
+        else s" @${refs.map(_.refCodeString).mkString("(", sensitivityListSep, ")")}"
     s"$dcl${named}$alwaysKW$senList\nbegin\n${body.hindent}\nend"
   end csProcessBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported

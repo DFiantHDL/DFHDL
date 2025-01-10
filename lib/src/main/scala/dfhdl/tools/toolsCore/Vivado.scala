@@ -9,9 +9,7 @@ import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 
-trait VivadoOptions extends BuilderOptions
 object Vivado extends Builder:
-  type BO = VivadoOptions
   val toolName: String = "Vivado"
   protected def binExec: String = "vivado"
   override protected def windowsBinExec: String = "vivado.bat"
@@ -22,17 +20,21 @@ object Vivado extends Builder:
 
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String = ???
   override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
-      CompilerOptions, ToolOptions
+      CompilerOptions,
+      ToolOptions
   ): CompiledDesign[D] =
     addSourceFiles(
       cd,
       List(new VivadoProjectTclConfigPrinter(using cd.stagedDB.getSet).getSourceFile)
     )
-  def build[D <: Design](cd: CompiledDesign[D])(using CompilerOptions, BO): CompiledDesign[D] =
+  def build[D <: Design](
+      cd: CompiledDesign[D]
+  )(using CompilerOptions, BuilderOptions): CompiledDesign[D] =
+    given MemberGetSet = cd.stagedDB.getSet
     exec(
-      cd,
       s"-mode batch -source ${cd.stagedDB.top.dclName}.tcl"
     )
+    cd
 end Vivado
 
 case object VivadoProjectTclConfig extends SourceType.ToolConfig

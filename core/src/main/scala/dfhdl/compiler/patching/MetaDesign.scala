@@ -3,6 +3,7 @@ import dfhdl.core.*
 import dfhdl.compiler.ir
 import Patch.Add.Config as AddCfg
 import scala.annotation.unchecked.uncheckedVariance
+import dfhdl.compiler.ir.DFDesignBlock
 
 type MetaDesignAny = MetaDesign[DomainType]
 abstract class MetaDesign[+D <: DomainType](
@@ -14,12 +15,17 @@ abstract class MetaDesign[+D <: DomainType](
 ) extends Design
     with reflect.Selectable:
   lazy val patch = positionMember -> Patch.Add(this, addCfg)
+  private lazy val globalInjection: Boolean =
+    (addCfg, positionMember) match
+      case (AddCfg.Before, positionOwner: DFDesignBlock) if positionOwner.isTop => true
+      case _                                                                    => false
   lazy val injectedOwner: ir.DFOwner = addCfg match
     case AddCfg.InsideFirst | AddCfg.InsideLast =>
       positionMember match
         case positionOwner: ir.DFOwner => positionOwner
         case _ => throw new IllegalArgumentException("Expecting owner member for AddInside config.")
-    case _ => positionMember.getOwner
+    case _ if globalInjection => positionMember.asInstanceOf[DFDesignBlock]
+    case _                    => positionMember.getOwner
   final override private[dfhdl] def initOwner: Design.Block =
     dfc.mutableDB.addMember(injectedOwner)
     injectedOwner.getThisOrOwnerDesign.asFE
@@ -38,7 +44,10 @@ abstract class MetaDesign[+D <: DomainType](
   final lazy val __domainType: ir.DomainType = ir.DomainType.DF
 
   final def plantMember[T <: ir.DFMember](member: T): T =
-    dfc.mutableDB.plantMember(dfc.owner.asIR, member)
+    if (globalInjection)
+      dfc.mutableDB.plantMember(ir.DFMember.Empty, member, _ => true)
+    else
+      dfc.mutableDB.plantMember(dfc.owner.asIR, member)
   final def plantMembers(baseOwner: ir.DFOwner, members: Iterable[ir.DFMember]): Unit =
     members.foreach { m =>
       val owner = m.getOwner

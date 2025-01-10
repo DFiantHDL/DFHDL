@@ -32,7 +32,8 @@ class StageRunner(using co: CompilerOptions, po: PrinterOptions) extends LogSupp
     )
       val ll = logger.getLogLevel
       given CompilerOptions = co.copy(logLevel = LogLevel.OFF)
-      ret.printCodeString
+      if (!ret.equals(designDB))
+        ret.printCodeString
       logger.setLogLevel(ll)
     ret
   end runSingleStage

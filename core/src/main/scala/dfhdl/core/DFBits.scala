@@ -38,7 +38,7 @@ object DFBits:
       dfc: DFC,
       v: ValueOf[W],
       check: Arg.Width.CheckNUB[W]
-  ): DFBits[W] =
+  ): DFBits[W] = trydf:
     val width = IntParam.forced(v)
     check(width.toScalaInt)
     ir.DFBits(width.ref).asFE[DFBits[W]]
@@ -445,17 +445,13 @@ object DFBits:
         def conv(dfType: DFBits[LW], value: V)(using dfc: DFC): Out =
           import Ops.resizeBits
           val dfVal = ic(value)
-          (dfType.asIR: ir.DFType) match
-            case ir.DFNothing =>
-              dfVal.nameInDFCPosition.asValTP[DFBits[LW], ic.OutP]
-            case _ =>
-              if (dfVal.hasTag[DFVal.TruncateTag] && dfType.widthInt < dfVal.widthInt)
-                dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], ic.OutP]
-              else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.widthInt > dfVal.widthInt)
-                dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], ic.OutP]
-              else
-                check(dfType.widthInt, dfVal.widthInt)
-                dfVal.nameInDFCPosition.asValTP[DFBits[LW], ic.OutP]
+          if (dfVal.hasTag[DFVal.TruncateTag] && dfType.widthInt < dfVal.widthInt)
+            dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], ic.OutP]
+          else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.widthInt > dfVal.widthInt)
+            dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], ic.OutP]
+          else
+            check(dfType.widthInt, dfVal.widthInt)
+            dfVal.nameInDFCPosition.asValTP[DFBits[LW], ic.OutP]
         end conv
       end DFBitsFromCandidate
       given DFBitsFromSEV[LW <: IntP, T <: BitOrBool, V <: SameElementsVector[T]]: TC[DFBits[LW], V]
@@ -465,6 +461,16 @@ object DFBits:
           SameElementsVector.bitsValOf(dfType.widthIntParam, value, named = true)
             .asConstOf[DFBits[LW]]
     end TC
+
+    object TCConv:
+      import DFVal.TCConv
+      given DFBitsFromCandidateConv[V, IC <: Candidate[V]](using
+          ic: IC
+      ): TCConv[DFBits[Int], V] with
+        type OutP = ic.OutP
+        def apply(value: V)(using DFC): Out =
+          val dfVal = ic(value)
+          dfVal.nameInDFCPosition.asValTP[DFBits[Int], ic.OutP]
 
     object Compare:
       import DFVal.Compare

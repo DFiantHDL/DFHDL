@@ -1,7 +1,7 @@
 package dfhdl.app
 
 import org.rogach.scallop.*
-import dfhdl.options.{CompilerOptions, ElaborationOptions, AppOptions}
+import dfhdl.options.{CompilerOptions, ElaborationOptions, LinterOptions, AppOptions}
 import AppOptions.DefaultMode
 import dfhdl.internals.scastieIsRunning
 import dfhdl.internals.sbtShellIsRunning
@@ -14,6 +14,7 @@ class ParsedCommandLine(
 )(using
     eo: ElaborationOptions,
     co: CompilerOptions,
+    lo: LinterOptions,
     ao: AppOptions
 ) extends ScallopConf(commandArgs.toSeq):
   sealed abstract class Mode(val modeOption: DefaultMode, modeDesc: String)
@@ -63,6 +64,19 @@ class ParsedCommandLine(
       this: ScallopConf & Mode =>
     trait LintMode extends CommitMode:
       this: ScallopConf & Mode =>
+      val tool = opt[LintToolSelection](
+        name = "tool",
+        short = 't',
+        descr = "tool selection (run `help lint-tool` to get full list of linting tools)",
+        default = Some(LintToolSelection(lo.verilogLinter, lo.vhdlLinter)),
+        argName = "[verilogLinter][/][vhdlLinter]"
+      )
+      val fatalWarnings = opt[Boolean](
+        descr = "warnings are fatal and produce non-zero exit code",
+        default = Some(lo.fatalWarnings),
+        noshort = true
+      )
+
     case object elaborate
         extends Mode(DefaultMode.elaborate, "Elaboration only (no compilation)"),
           ElaborateMode
@@ -87,8 +101,10 @@ class ParsedCommandLine(
         ),
           LintMode:
       footer("      ~~including all commit command options~~")
+    end lint
     case object help extends Mode(DefaultMode.help, "Display usage text"):
       addSubcommand(HelpMode.backend)
+      addSubcommand(HelpMode.`lint-tool`)
   end Mode
 
   sealed abstract class HelpMode(cmdName: String) extends Subcommand(cmdName), Product, Serializable
@@ -97,6 +113,12 @@ class ParsedCommandLine(
   object HelpMode:
     case object backend extends HelpMode("backend"):
       descr("List all backend languages and dialects")
+    case object `lint-tool` extends HelpMode("lint-tool"):
+      descr("List all integrated linting tools")
+      val scan = opt[Boolean](
+        descr = "scan the system path for available tools to run",
+        default = Some(false)
+      )
 
   private val programName: String =
     import dfhdl.internals.{sbtIsRunning, scala_cliIsRunning, sbtShellIsRunning}

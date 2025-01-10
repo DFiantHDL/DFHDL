@@ -57,14 +57,15 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
     // So first we prepare the vector type declarations in a mutable map and later we remove
     // entries that were already placed in the final type printing.
     val vectorTypeDcls = mutable.Map.from(
-      printer.globalVectorTypes.view.map((tpName, depth) =>
-        tpName -> printer.csDFVectorDclsGlobal(DclScope.Pkg)(tpName, depth)
-      )
+      printer.globalVectorTypes.view.map { case (tpName, (vecType, depth)) =>
+        tpName -> printer.csDFVectorDclsGlobal(DclScope.Pkg)(tpName, vecType, depth)
+      }
     )
     // The body declarations can be in any order, as long as it's consistent between compilations.
     val vectorTypeDclsBody =
-      printer.globalVectorTypes.view.map(printer.csDFVectorDclsGlobal(DclScope.PkgBody))
-        .mkString("\n").emptyOr(x => s"$x\n")
+      printer.globalVectorTypes.view.map { case (tpName, (vecType, depth)) =>
+        printer.csDFVectorDclsGlobal(DclScope.PkgBody)(tpName, vecType, depth)
+      }.mkString("\n").emptyOr(x => s"$x\n")
     // collect the global named types, including vectors
     val namedDFTypes = ListSet.from(getSet.designDB.members.view.collect {
       case port @ DclPort()                     => port.dfType
@@ -98,7 +99,9 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
        |use work.dfhdl_pkg.all;
        |
        |package ${printer.packageName} is
-       |${namedTypeConvFuncsDcl.emptyOr(_ + "\n") + csGlobalConstDcls}
+       |${csGlobalConstIntDcls.emptyOr(_ + "\n") + namedTypeConvFuncsDcl.emptyOr(
+        _ + "\n"
+      ) + csGlobalConstNonIntDcls}
        |end package ${printer.packageName};
        |
        |package body ${printer.packageName} is

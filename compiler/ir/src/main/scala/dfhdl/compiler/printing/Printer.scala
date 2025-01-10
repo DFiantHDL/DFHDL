@@ -133,7 +133,7 @@ trait Printer
   def designFileName(designName: String): String
   def globalFileName: String
   def csGlobalFileContent: String =
-    csGlobalTypeDcls + csGlobalConstDcls
+    csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls
   val alignEnable = printerOptions.align
   def alignCode(cs: String): String
   val colorEnable = printerOptions.color
@@ -201,7 +201,7 @@ trait Printer
       case (block: DFDesignBlock, _) if printerOptions.designPrintFilter(block) =>
         formatCode(csFile(block))
     }
-    s"${formatCode(csGlobalTypeDcls + csGlobalConstDcls).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
+    s"${formatCode(csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
   end csDB
 end Printer
 
@@ -228,19 +228,22 @@ object Printer:
       case _ =>
     }
   end printBackendCode
-  def commit(db: DB, folderPathStr: String): DB =
-    val folderPath = Paths.get(folderPathStr)
+  def commit(db: DB, topCommitPathStr: String): DB =
+    val folderPath = Paths.get(topCommitPathStr).resolve("hdl")
     if (!Files.exists(folderPath))
       Files.createDirectories(folderPath)
     val updatedSrcFiles = db.srcFiles.map {
       case srcFile @ SourceFile(SourceOrigin.Compiled, _, filePathStr, contents) =>
-        val commitPathStr =
+        val commitPathAbs =
           if (Paths.get(filePathStr).isAbsolute) filePathStr
           else folderPath.resolve(filePathStr).toAbsolutePath.normalize().toString
-        val pw = new FileWriter(commitPathStr)
+        val commitPathSaved =
+          if (Paths.get(filePathStr).isAbsolute) filePathStr
+          else Paths.get("hdl").resolve(filePathStr).toString()
+        val pw = new FileWriter(commitPathAbs)
         pw.write(contents.decolor)
         pw.close()
-        srcFile.copy(sourceOrigin = SourceOrigin.Committed, path = commitPathStr)
+        srcFile.copy(sourceOrigin = SourceOrigin.Committed, path = commitPathSaved)
       case other => other
     }
     db.copy(srcFiles = updatedSrcFiles)

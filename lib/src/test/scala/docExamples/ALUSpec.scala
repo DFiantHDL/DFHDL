@@ -4,7 +4,7 @@ class ALUSpec extends util.FullCompileSpec:
   def dut = alu.ALU()
 
   def expectedVerilogCS =
-    """|typedef enum [3:0] {
+    """|typedef enum logic [3:0] {
        |  ALUSel_ADD   = 0,
        |  ALUSel_SUB   = 1,
        |  ALUSel_SLL   = 2,
@@ -20,15 +20,15 @@ class ALUSpec extends util.FullCompileSpec:
        |
        |`default_nettype none
        |`timescale 1ns/1ps
-       |`include "dfhdl_defs.svh"
        |`include "ALU_defs.svh"
        |
        |module ALU(
-       |  input  logic [31:0]  op1,
-       |  input  logic [31:0]  op2,
-       |  input  t_enum_ALUSel aluSel,
-       |  output logic [31:0]  aluOut
+       |  input  wire logic [31:0]  op1,
+       |  input  wire logic [31:0]  op2,
+       |  input  wire t_enum_ALUSel aluSel,
+       |  output      logic [31:0]  aluOut
        |);
+       |  `include "dfhdl_defs.svh"
        |  logic [4:0]  shamt;
        |  logic [31:0] outCalc;
        |  always_comb

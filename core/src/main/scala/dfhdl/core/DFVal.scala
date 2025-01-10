@@ -158,17 +158,13 @@ def DFValConversionMacro[T <: DFTypeAny, P, R](
   if (TypeRepr.of[P] =:= TypeRepr.of[CONST] && nonConstTermOpt.nonEmpty)
     nonConstTermOpt.get.compiletimeErrorPosExpr("Applied argument must be a constant.")
   else
+    val tStr = Expr(s"implicit conversion to type ${TypeRepr.of[T].showDFType}")
     '{
-      import DFStruct.apply
-      given bitsNoType: DFBits[Int] = DFNothing.asInstanceOf[DFBits[Int]]
-      given uintNoType: DFUInt[Int] = DFNothing.asInstanceOf[DFUInt[Int]]
-      given sintNoType: DFSInt[Int] = DFNothing.asInstanceOf[DFSInt[Int]]
-      val tc = compiletime.summonInline[DFVal.TC[T, fromExactInfo.Underlying]]
+      val tc = compiletime.summonInline[DFVal.TCConv[T, fromExactInfo.Underlying]]
       val dfc = compiletime.summonInline[DFC]
-      val dfType = compiletime.summonInline[T]
       trydf {
-        tc(dfType, ${ fromExactInfo.exactExpr })(using dfc).asValTP[T, P]
-      }(using dfc, compiletime.summonInline[CTName])
+        tc(${ fromExactInfo.exactExpr })(using dfc).asValTP[T, P]
+      }(using dfc, CTName($tStr))
     }
   end if
 end DFValConversionMacro
@@ -871,7 +867,7 @@ object DFVal extends DFValLP:
     end SelectField
   end Alias
 
-  trait TC[T <: DFTypeAny, R] extends TCConv[T, R, DFValAny]:
+  trait TC[T <: DFTypeAny, R] extends TCCommon[T, R, DFValAny]:
     type OutP
     type Out = DFValTP[T, OutP]
     final def apply(dfType: T, value: R)(using DFC): Out = trydf:
@@ -946,6 +942,22 @@ object DFVal extends DFValLP:
     export DFOpaque.Val.TC.given
   end TC
 
+  trait TCConv[T <: DFTypeAny, R] extends TC[T, R]:
+    type OutP
+    type Out = DFValTP[T, OutP]
+    def conv(dfType: T, from: R)(using DFC): Out = apply(from)
+    def apply(from: R)(using DFC): Out
+
+  trait TCConvLP:
+    given fromTC[T <: DFTypeAny, R, TC <: DFVal.TC[T, R]](using tc: TC, dfType: T): TCConv[T, R]
+    with
+      type OutP = tc.OutP
+      def apply(from: R)(using DFC): Out = tc(dfType, from)
+  object TCConv extends TCConvLP:
+    export DFBits.Val.TCConv.given
+    export DFDecimal.Val.TCConv.given
+    export DFTuple.Val.TCConv.given
+
   trait TC_Or_OPEN[T <: DFTypeAny, R] extends TC[T, R]
   object TC_Or_OPEN:
     type Exact[T <: DFTypeAny] = Exact1[DFTypeAny, T, [t <: DFTypeAny] =>> t, DFC, TC_Or_OPEN]
@@ -956,7 +968,7 @@ object DFVal extends DFValLP:
       type OutP = tc.OutP
       def conv(dfType: T, from: R)(using DFC): Out = tc(dfType, from)
 
-  trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCConv[T, V, DFValAny]:
+  trait Compare[T <: DFTypeAny, V, Op <: FuncOp, C <: Boolean] extends TCCommon[T, V, DFValAny]:
     type OutP
     type Out = DFValTP[T, OutP]
     final protected def func[P1, P2](arg1: DFValTP[?, P1], arg2: DFValTP[?, P2])(using

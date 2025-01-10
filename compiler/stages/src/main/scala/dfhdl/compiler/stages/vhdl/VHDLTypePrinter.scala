@@ -98,75 +98,159 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |end;""".stripMargin
   end csDFEnumConvFuncsBody
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = csDFEnumTypeName(dfType)
-  def getVectorTypes(dcls: Iterable[DFVal]): ListMap[String, Int] =
+  val supportUnconstrainedArrays: Boolean =
+    printer.dialect match
+      case VHDLDialect.v93 => false
+      case _               => true
+  def getVectorTypes(dcls: Iterable[DFVal]): ListMap[String, (DFVector, Int)] =
     ListMap.from(
       dcls.view.flatMap(dcl => dcl.dfType.decompose { case dt: DFVector => dt })
         .map(getVecDepthAndCellTypeName)
-        .foldLeft(ListMap.empty[String, Int]) { case (listMap, (cellTypeName, depth)) =>
-          listMap.updatedWith(cellTypeName)(prevDepthOpt =>
-            Some(prevDepthOpt.getOrElse(0).max(depth))
-          )
+        .foldLeft(ListMap.empty[String, (DFVector, Int)]) {
+          case (listMap, (cellTypeName, (vecType, depth))) =>
+            listMap.updatedWith(cellTypeName) {
+              case Some((vecType, prevDepth)) => Some((vecType, prevDepth.max(depth)))
+              case None                       => Some((vecType, depth))
+            }
         }
     )
   end getVectorTypes
-  lazy val globalVectorTypes: ListMap[String, Int] =
+  lazy val globalVectorTypes: ListMap[String, (DFVector, Int)] =
     getVectorTypes(
       getSet.designDB.members.view.collect {
         case port @ DclPort()                     => port
         case const @ DclConst() if const.isGlobal => const
       }
     )
-  def getLocalVectorTypes(design: DFDesignBlock): ListMap[String, Int] =
+  def getLocalVectorTypes(design: DFDesignBlock): ListMap[String, (DFVector, Int)] =
     getVectorTypes(
       getSet.designDB.designMemberTable(design).view.collect {
         case localVar @ DclVar()     => localVar
         case localConst @ DclConst() => localConst
       }
-    )
-  @tailrec private def getVecDepthAndCellTypeName(dfType: DFVector, depth: Int): (String, Int) =
+    ).filter { case (tpName, _) =>
+      // if not supporting unconstrained arrays, then there is no `depth` dependency,
+      // and therefore all the global types should be filtered out from the local types
+      supportUnconstrainedArrays || !globalVectorTypes.contains(tpName)
+    }
+  @tailrec private def getVecDepthAndCellTypeName(
+      dfType: DFVector,
+      depth: Int
+  ): (String, (DFVector, Int)) =
     dfType.cellType match
       case dfType: DFVector => getVecDepthAndCellTypeName(dfType, depth + 1)
-      case cellType         => (csDFType(cellType, true), depth)
-  def getVecDepthAndCellTypeName(dfType: DFVector): (String, Int) =
-    getVecDepthAndCellTypeName(dfType, 1)
+      case cellType         => (csDFType(cellType, true), (dfType, depth))
+  def getVecDepthAndCellTypeName(dfType: DFVector): (String, (DFVector, Int)) =
+    if (supportUnconstrainedArrays) getVecDepthAndCellTypeName(dfType, 1)
+    else (csDFVectorDclName(dfType), (dfType, 1))
+
+  def getCellTypeName(dfType: DFVector): String =
+    dfType.cellType match
+      case DFBit                 => "sl"
+      case DFBool                => "boolean"
+      case DFBits(widthParamRef) => s"slv${csIntParamRef(widthParamRef)}"
+      case DFUInt(widthParamRef) => s"unsigned${csIntParamRef(widthParamRef)}"
+      case DFSInt(widthParamRef) => s"signed${csIntParamRef(widthParamRef)}"
+      case dt: DFOpaque          => csDFOpaqueTypeName(dt)
+      case dt: DFVector          => csDFVectorDclName(dt)
+      case dt: DFStruct          => csDFStructTypeName(dt)
+      case _                     => printer.unsupported
+
+  // Wrapper used to uniquely track parameter values and index them
+  private class ParamWrapper(val dfVal: DFVal):
+    override def equals(that: Any): Boolean =
+      that.asInstanceOf[ParamWrapper].dfVal =~ dfVal
+    override def hashCode(): Int = dfVal.codeString.hashCode()
+  private val paramIdxCache = mutable.Map.empty[ParamWrapper, Int]
+  private var paramIdxLatest: Int = 0
+  def getParamIdx(dfVal: DFVal): Int =
+    val wrapper = ParamWrapper(dfVal)
+    paramIdxCache.getOrElseUpdate(
+      wrapper, {
+        paramIdxLatest = paramIdxLatest + 1
+        paramIdxLatest
+      }
+    )
+  def csIntParamRef(intParamRef: IntParamRef): String =
+    intParamRef.getRef match
+      case Some(ref) =>
+        val param = ref.get
+        if (param.isAnonymous) s"P${getParamIdx(ref.get)}"
+        else s"P${param.getName}"
+      case None => intParamRef.getInt.toString()
 
   def csDFVectorDclName(cellTypeName: String, depth: Int): String =
-    s"t_vecX${depth}_${cellTypeName}"
+    if (depth == 0) cellTypeName
+    else s"t_arrX${depth}_${cellTypeName}"
   def csDFVectorDclName(dfType: DFVector): String =
-    val (cellTypeName, depth) = getVecDepthAndCellTypeName(dfType)
-    csDFVectorDclName(cellTypeName, depth)
-  def csDFVectorDcl(dclScope: DclScope)(cellTypeName: String, depth: Int): String =
-    val ofTypeName = if (depth == 1) cellTypeName else csDFVectorDclName(cellTypeName, depth - 1)
-    val typeName = csDFVectorDclName(cellTypeName, depth)
-    val typeDcl =
-      s"type $typeName is array (natural range <>) of $ofTypeName;"
-    val dimArgs = (depth to 1 by -1).map(i => s"D$i : integer").mkString("; ", "; ", "")
+    if (supportUnconstrainedArrays)
+      val (cellTypeName, (vecType, depth)) = getVecDepthAndCellTypeName(dfType)
+      csDFVectorDclName(cellTypeName, depth)
+    else
+      val cellDim = dfType.cellDimParamRefs.head
+      s"t_arrX${csIntParamRef(cellDim)}_${getCellTypeName(dfType)}"
+    end if
+  end csDFVectorDclName
+
+  def csDFVectorDcl(
+      dclScope: DclScope
+  )(cellTypeName: String, vecType: DFVector, depth: Int): String =
+    def act(vt: DFVector => String, d: Int => String): String =
+      if (supportUnconstrainedArrays) d(depth) else vt(vecType)
+    val ofTypeName = act(
+      vecType => csDFType(vecType.cellType),
+      depth => csDFVectorDclName(cellTypeName, depth - 1)
+    )
+    val typeName = act(
+      csDFVectorDclName(_),
+      csDFVectorDclName(cellTypeName, _)
+    )
+    val arrRange = act(
+      vecType => s"0 to ${vecType.cellDimParamRefs.head.refCodeString} - 1",
+      _ => "natural range <>"
+    )
+    val typeDcl = s"type $typeName is array ($arrRange) of $ofTypeName;"
+    val dimArgs = act(
+      _ => "",
+      depth => (depth to 1 by -1).map(i => s"D$i : integer").mkString("; ", "; ", "")
+    )
     val cellDimArg = cellTypeName match
       case "std_logic_vector" | "unsigned" | "signed" => "; D0 : integer"
       case _                                          => ""
     val funcDcl =
-      s"""|function bitWidth(A: ${typeName}) return integer;
-          |function to_slv(A: ${typeName}) return std_logic_vector;
-          |function to_${typeName}(A: std_logic_vector$dimArgs$cellDimArg) return ${typeName};
+      s"""|function bitWidth(A : ${typeName}) return integer;
+          |function to_slv(A : ${typeName}) return std_logic_vector;
+          |function to_${typeName}(A : std_logic_vector$dimArgs$cellDimArg) return ${typeName};
           |function bool_sel(C : boolean; T : ${typeName}; F : ${typeName}) return ${typeName};""".stripMargin
-    val toSLV = ofTypeName match
-      case "std_logic_vector" => "A(i)"
-      case _                  => s"to_slv(A(i))"
-    val dims = (depth to 1 by -1).map(i => s"(0 to D$i - 1)").mkString
+    val toSLV = if (depth == 1) printer.csToSLV(vecType.cellType, "A(i)") else "to_slv(A(i))"
+    val dims = act(
+      _ => "",
+      depth => (depth to 1 by -1).map(i => s"(0 to D$i - 1)").mkString
+    )
     val cellDim = cellDimArg.emptyOr(_ => "(D0 - 1 downto 0)")
     val argSel = "A(hi downto lo)"
-    val toCellConv =
-      if (depth == 1)
-        cellTypeName match
-          case "std_logic_vector"    => argSel
-          case "std_logic"           => s"to_sl($argSel)"
-          case "boolean"             => s"to_bool($argSel)"
-          case "unsigned" | "signed" => s"$cellTypeName($argSel)"
-          case _                     => s"to_${cellTypeName}($argSel)"
-      else
-        val dimArgsApply = (depth - 1 to 1 by -1).map(i => s"D$i").mkString(", ", ", ", "")
-        val cellDimArgApply = cellDimArg.emptyOr(_ => ", D0")
-        s"to_${csDFVectorDclName(cellTypeName, depth - 1)}($argSel$dimArgsApply$cellDimArgApply)"
+    val toCellConv = act(
+      vecType =>
+        vecType.cellType match
+          case DFBits(_) => argSel
+          case DFBit     => s"to_sl($argSel)"
+          case DFBool    => s"to_bool($argSel)"
+          case DFUInt(_) => s"unsigned($argSel)"
+          case DFSInt(_) => s"signed($argSel)"
+          case _         => s"to_${getCellTypeName(vecType)}($argSel)",
+      depth =>
+        if (depth == 1)
+          cellTypeName match
+            case "std_logic_vector"    => argSel
+            case "std_logic"           => s"to_sl($argSel)"
+            case "boolean"             => s"to_bool($argSel)"
+            case "unsigned" | "signed" => s"$cellTypeName($argSel)"
+            case _                     => s"to_${cellTypeName}($argSel)"
+        else
+          val dimArgsApply = (depth - 1 to 1 by -1).map(i => s"D$i").mkString(", ", ", ", "")
+          val cellDimArgApply = cellDimArg.emptyOr(_ => ", D0")
+          s"to_${csDFVectorDclName(cellTypeName, depth - 1)}($argSel$dimArgsApply$cellDimArgApply)"
+    )
     val funcBody =
       s"""|function bitWidth(A : ${typeName}) return integer is
           |begin
@@ -194,7 +278,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
           |begin
           |  cellBitWidth := bitWidth(ret(0));
           |  lo := A'length;
-          |  for i in 0 to D${depth}-1 loop
+          |  for i in 0 to ret'length - 1 loop
           |    hi := lo - 1; lo := hi - cellBitWidth + 1;
           |    ret(i) := $toCellConv;
           |  end loop;
@@ -215,19 +299,32 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       case DclScope.ArchBody => s"$typeDcl\n$funcBody"
   end csDFVectorDcl
 
-  def csDFVectorDcls(dclScope: DclScope)(cellTypeName: String, depth: Int, start: Int): String =
-    (for (i <- start to depth) yield csDFVectorDcl(dclScope)(cellTypeName, i))
+  def csDFVectorDcls(
+      dclScope: DclScope
+  )(cellTypeName: String, vecType: DFVector, depth: Int, start: Int): String =
+    (for (i <- start to depth) yield csDFVectorDcl(dclScope)(cellTypeName, vecType, i))
       .mkString("\n")
-  def csDFVectorDclsGlobal(dclScope: DclScope)(cellTypeName: String, depth: Int): String =
-    csDFVectorDcls(dclScope)(cellTypeName, depth, 1)
-  def csDFVectorDclsLocal(dclScope: DclScope)(cellTypeName: String, depth: Int): String =
-    csDFVectorDcls(dclScope)(cellTypeName, depth, globalVectorTypes.getOrElse(cellTypeName, 0) + 1)
+  def csDFVectorDclsGlobal(
+      dclScope: DclScope
+  )(cellTypeName: String, vecType: DFVector, depth: Int): String =
+    csDFVectorDcls(dclScope)(cellTypeName, vecType, depth, 1)
+  def csDFVectorDclsLocal(
+      dclScope: DclScope
+  )(cellTypeName: String, vecType: DFVector, depth: Int): String =
+    csDFVectorDcls(dclScope)(
+      cellTypeName,
+      vecType,
+      depth,
+      globalVectorTypes.get(cellTypeName).map(_._2).getOrElse(0) + 1
+    )
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     if (typeCS) csDFVectorDclName(dfType)
     else
       var loopType: DFType = dfType
       var desc: String = csDFVectorDclName(dfType)
-      var inVector: Boolean = true
+      // starting the adding dimension only when unconstrained arrays are supported
+      var inVector: Boolean = supportUnconstrainedArrays
+      // add array dimensions
       while (inVector)
         loopType match
           case dfType: DFVector =>

@@ -13,6 +13,7 @@ sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives
   def isDataBubble(data: Data): Boolean
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector)
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean
   lazy val getRefs: List[DFRef.TypeRef]
 
 object DFType:
@@ -87,7 +88,10 @@ sealed trait DFBoolOrBit extends DFType:
     if (data._2.isZeros) Some(!data._1.isZeros)
     else None
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
+  def copyWithNewRefs: this.type = this
+end DFBoolOrBit
 
 object DFBoolOrBit extends DFType.Companion[DFBoolOrBit, Option[Boolean]]
 
@@ -109,7 +113,13 @@ final case class DFBits(widthParamRef: IntParamRef) extends DFType:
     case that: DFBits =>
       this.widthParamRef =~ that.widthParamRef
     case _ => false
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFBits =>
+      this.widthParamRef.isSimilarTo(that.widthParamRef)
+    case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
+  def copyWithNewRefs: this.type = copy(widthParamRef.copyAsNewRef).asInstanceOf[this.type]
+end DFBits
 
 object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
   def apply(width: Int): DFBits = DFBits(IntParamRef(width))
@@ -199,7 +209,14 @@ final case class DFDecimal(
       this.signed == that.signed && this.widthParamRef =~ that.widthParamRef &&
       this.fractionWidth == that.fractionWidth && this.nativeType == that.nativeType
     case _ => false
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFDecimal =>
+      this.signed == that.signed && this.widthParamRef.isSimilarTo(that.widthParamRef) &&
+      this.fractionWidth == that.fractionWidth && this.nativeType == that.nativeType
+    case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
+  def copyWithNewRefs: this.type =
+    copy(widthParamRef = widthParamRef.copyAsNewRef).asInstanceOf[this.type]
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
@@ -255,7 +272,9 @@ final case class DFEnum(
     if (data._2.isZeros) Some(data._1.toBigInt(false))
     else None
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
+  def copyWithNewRefs: this.type = this
 end DFEnum
 
 object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
@@ -297,7 +316,16 @@ final case class DFVector(
       this.cellType =~ that.cellType &&
       this.cellDimParamRefs.lazyZip(that.cellDimParamRefs).forall(_ =~ _)
     case _ => false
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFVector =>
+      this.cellType.isSimilarTo(that.cellType) &&
+      this.cellDimParamRefs.lazyZip(that.cellDimParamRefs).forall(_.isSimilarTo(_))
+    case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = cellType.getRefs ++ cellDimParamRefs.flatMap(_.getRef)
+  def copyWithNewRefs: this.type = copy(
+    cellType = cellType.copyWithNewRefs,
+    cellDimParamRefs = cellDimParamRefs.map(_.copyAsNewRef)
+  ).asInstanceOf[this.type]
 end DFVector
 
 object DFVector extends DFType.Companion[DFVector, Vector[Any]]
@@ -326,7 +354,15 @@ final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualTyp
       this.getName == that.getName && this.id == that.id &&
       this.actualType =~ that.actualType
     case _ => false
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFOpaque =>
+      this.getName == that.getName && this.id == that.id &&
+      this.actualType.isSimilarTo(that.actualType)
+    case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = actualType.getRefs
+  def copyWithNewRefs: this.type = copy(
+    actualType = actualType.copyWithNewRefs
+  ).asInstanceOf[this.type]
 end DFOpaque
 
 object DFOpaque extends DFType.Companion[DFOpaque, Any]:
@@ -387,7 +423,17 @@ final case class DFStruct(
         fnL == fnR && ftL =~ ftR
       }
     case _ => false
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
+    case that: DFStruct =>
+      this.getName == that.getName &&
+      this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
+        fnL == fnR && ftL.isSimilarTo(ftR)
+      }
+    case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = fieldMap.values.flatMap(_.getRefs).toList
+  def copyWithNewRefs: this.type = copy(
+    fieldMap = ListMap.from(fieldMap.view.mapValues(_.copyWithNewRefs))
+  ).asInstanceOf[this.type]
 end DFStruct
 
 object DFStruct extends DFType.Companion[DFStruct, List[Any]]:
@@ -420,7 +466,9 @@ sealed trait DFUnit extends DFType:
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
+  def copyWithNewRefs: this.type = this
 case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
 /////////////////////////////////////////////////////////////////////////////
 
@@ -440,6 +488,8 @@ sealed trait DFNothing extends DFType:
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
+  def copyWithNewRefs: this.type = this
 case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing
 /////////////////////////////////////////////////////////////////////////////

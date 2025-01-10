@@ -6,12 +6,14 @@ import scala.annotation.targetName
 import scala.reflect.{ClassTag, classTag}
 extension [M <: ir.DFMember](member: M)
   private def injectGlobalCtx()(using DFC): Unit =
+    import dfc.getSet
     member match
       case dfVal: ir.DFVal.CanBeGlobal if dfVal.isGlobal =>
         dfc.mutableDB.injectGlobals(
           dfVal.globalCtx.asInstanceOf[DesignContext]
         )
       case _ =>
+  end injectGlobalCtx
   // due to user meta-programming, it's possible that the user attempts to reference "unreachable"
   // values within a certain design. this method attempts to create reachable members instead of
   // limiting the user capabilities during elaboration.

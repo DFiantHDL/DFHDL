@@ -76,6 +76,15 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
       case _ =>
         if (getOwnerBlock.isTop) List(getOwnerBlock)
         else getOwnerBlock.getOwnerChain :+ getOwnerBlock
+  // count the hierarchy distance from inside to outside
+  final def getDistanceFromOwnerDesign(outside: DFDesignBlock)(using MemberGetSet): Int =
+    val inside = this.getThisOrOwnerDesign
+    var distance = 0
+    var dsn = inside
+    while (dsn != outside)
+      distance = distance + 1
+      dsn = dsn.getOwnerDesign
+    return distance
 end DFMember
 
 object DFMember:
@@ -96,6 +105,7 @@ object DFMember:
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs: this.type = this
 
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
@@ -105,18 +115,21 @@ object DFMember:
     final def getFullName(using MemberGetSet): String = this match
       case o: DFDesignBlock if o.isTop => getName
       case _                           => s"${getOwnerNamed.getFullName}.${getName}"
-    def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
-      val namedOwner = callOwner.getThisOrOwnerNamed
-      if (this isMemberOf namedOwner) getName
-      else if (getOwnerNamed isOneLevelBelow namedOwner) s"${getOwnerNamed.getName}.$getName"
-      else if (callOwner isInsideOwner this.getOwnerNamed) getName
+    def getRelativeName(callOwner: DFOwner | DFMember.Empty)(using MemberGetSet): String =
+      if (callOwner == DFMember.Empty) getName
       else
-        // more complex referencing just summons the two owner chains and compares them.
-        // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
-        val memberChain = this.getOwnerChain.collect { case o: DFOwnerNamed => o }
-        val ctxChain = namedOwner.getOwnerChain.collect { case o: DFOwnerNamed => o } :+ namedOwner
-        val samePath = memberChain.lazyZip(ctxChain).count(_ == _)
-        s"${memberChain.drop(samePath).map(_.getName).mkString(".")}.$getName"
+        val namedOwner = callOwner.getThisOrOwnerNamed
+        if (this.isMemberOf(namedOwner)) getName
+        else if (getOwnerNamed isOneLevelBelow namedOwner) s"${getOwnerNamed.getName}.$getName"
+        else if (callOwner isInsideOwner this.getOwnerNamed) getName
+        else
+          // more complex referencing just summons the two owner chains and compares them.
+          // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
+          val memberChain = this.getOwnerChain.collect { case o: DFOwnerNamed => o }
+          val ctxChain =
+            namedOwner.getOwnerChain.collect { case o: DFOwnerNamed => o } :+ namedOwner
+          val samePath = memberChain.lazyZip(ctxChain).count(_ == _)
+          s"${memberChain.drop(samePath).map(_.getName).mkString(".")}.$getName"
     end getRelativeName
   end Named
   extension (member: Named)
@@ -128,7 +141,7 @@ end DFMember
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
   def width(using MemberGetSet): Int = dfType.width
-  def isGlobal: Boolean = false
+  def isGlobal(using MemberGetSet): Boolean = false
   protected def protIsFullyAnonymous(using MemberGetSet): Boolean
   // using just an integer to escape redundant boxing Option[Boolean] would have achieved
   private var cachedIsFullyAnonymous: Int = -1
@@ -140,6 +153,15 @@ sealed trait DFVal extends DFMember.Named:
     else if (cachedIsFullyAnonymous > 0) true
     else false
   final def isConst(using MemberGetSet): Boolean = getConstData.nonEmpty
+  // two expressions are considered to be similar if
+  final def isSimilarTo(that: DFVal)(using MemberGetSet): Boolean =
+    def dealiasAsIs(dfVal: DFVal): DFVal = dfVal match
+      case DFVal.Alias.AsIs(dfType, DFRef(relVal), _, _, _) if dfType == relVal.dfType =>
+        dealiasAsIs(relVal)
+      case _ => dfVal
+    (dealiasAsIs(this), dealiasAsIs(that)) match
+      case (lhs: DFVal.CanBeExpr, rhs: DFVal.CanBeExpr) => lhs.protIsSimilarTo(rhs)
+      case (lhs, rhs)                                   => lhs == rhs
   protected def protGetConstData(using MemberGetSet): Option[Any]
   private var cachedConstDataReady: Boolean = false
   private var cachedConstData: Option[Any] = None
@@ -249,13 +271,27 @@ object DFVal:
     def getDomainType(using MemberGetSet): DomainType = dfVal.getOwnerDomain.domainType
   end extension
   // can be an expression
-  sealed trait CanBeExpr extends DFVal
+  sealed trait CanBeExpr extends DFVal:
+    protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean
 
   // can be a global value
   sealed trait CanBeGlobal extends CanBeExpr:
     private[dfhdl] var globalCtx: Any = compiletime.uninitialized
-    final override def isGlobal: Boolean = ownerRef.refType equals classTag[DFMember.Empty]
-    final override def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
+    final override def isGlobal(using MemberGetSet): Boolean =
+      // during elaboration with a DFC context we can use `refType` of `Empty` as an indicator
+      // that `dfVal` is global. we use it because `dfVal`'s ownerRef could be only available
+      // within dfVal's internal cached context. however, when in immutable db, `dfVal.isGlobal` can
+      // be invoked with no issue, since the DB `getSet` will have access to all references.
+      // note that it could be that `refType` is later changed from `Empty` to an actual member,
+      // so that is why we cannot rely on it after elaboration is done.
+      ownerRef.getOption match
+        case Some(DFMember.Empty) => true
+        case None                 => true
+        case _                    => false
+
+    final override def getRelativeName(
+        callOwner: DFOwner | DFMember.Empty
+    )(using MemberGetSet): String =
       if (isGlobal) this.getName
       else super.getRelativeName(callOwner)
     final override infix def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
@@ -264,6 +300,7 @@ object DFVal:
         that match
           case thatDFVal: DFVal if thatDFVal.isGlobal => false
           case _                                      => super.isSameOwnerDesignAs(that)
+  end CanBeGlobal
 
   final case class Const(
       dfType: DFType,
@@ -277,14 +314,27 @@ object DFVal:
     protected def protGetConstData(using MemberGetSet): Option[Any] = Some(data)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case that: Const =>
-        given CanEqual[Any, Any] = CanEqual.derived
-        this.dfType =~ that.dfType && this.data == that.data &&
+        this.dfType =~ that.dfType && this.data.equals(that.data) &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
+    protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
+      that match
+        case that: Const =>
+          // if constants are named, then they must be the exact same constant instance to be considered similar expressions
+          if (!this.isAnonymous && !that.isAnonymous) this == that
+          // otherwise, they must both be anonymous and have the similar type expression and same data to be considered similar expressions
+          else if (this.isAnonymous && that.isAnonymous)
+            this.dfType.isSimilarTo(that.dfType) && this.data.equals(that.data)
+          else false
+        case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithNewRefs: this.type = copy(
+      dfType = dfType.copyWithNewRefs,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end Const
 
   final case class OPEN(
@@ -302,6 +352,10 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = this
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithNewRefs: this.type = copy(
+      dfType = dfType.copyWithNewRefs,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end OPEN
 
   final case class NOTHING(
@@ -315,10 +369,16 @@ object DFVal:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case _: NOTHING => true
       case _          => false
+    protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
+      this == that
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithNewRefs: this.type = copy(
+      dfType = dfType.copyWithNewRefs,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end NOTHING
 
   final case class Dcl(
@@ -345,6 +405,11 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ initRefList
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithNewRefs: this.type = copy(
+      dfType = dfType.copyWithNewRefs,
+      ownerRef = ownerRef.copyAsNewRef,
+      initRefList = initRefList.map(_.copyAsNewRef)
+    ).asInstanceOf[this.type]
   end Dcl
   object Dcl:
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
@@ -380,10 +445,22 @@ object DFVal:
           .forall((l, r) => l =~ r)) &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
+    // TODO: consider algebraic equivalence be added here
+    protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
+      that match
+        case that: Func =>
+          this.dfType.isSimilarTo(that.dfType) && this.op == that.op &&
+          (this.args.lazyZip(that.args).forall((l, r) => l.get.isSimilarTo(r.get)))
+        case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ args
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithNewRefs: this.type = copy(
+      dfType = dfType.copyWithNewRefs,
+      ownerRef = ownerRef.copyAsNewRef,
+      args = args.map(_.copyAsNewRef)
+    ).asInstanceOf[this.type]
   end Func
 
   object Func:
@@ -418,6 +495,11 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = designInstRef :: dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithNewRefs: this.type = copy(
+      dfType = dfType.copyWithNewRefs,
+      ownerRef = ownerRef.copyAsNewRef,
+      designInstRef = designInstRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end PortByNameSelect
   object PortByNameSelect:
     type Ref = DFRef.TwoWay[DFDesignInst, PortByNameSelect]
@@ -473,9 +555,20 @@ object DFVal:
           this.dfType =~ that.dfType && sameRelVal &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
+        that match
+          case that: AsIs =>
+            this.dfType.isSimilarTo(that.dfType) &&
+            this.relValRef.get.isSimilarTo(that.relValRef.get)
+          case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+      def copyWithNewRefs: this.type = copy(
+        dfType = dfType.copyWithNewRefs,
+        ownerRef = ownerRef.copyAsNewRef,
+        relValRef = relValRef.copyAsNewRef
+      ).asInstanceOf[this.type]
     end AsIs
 
     final case class History(
@@ -501,12 +594,20 @@ object DFVal:
           this.step == that.step && this.op == that.op && sameInit &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
+        false
       def initOption(using MemberGetSet): Option[DFVal] = initRefOption.map(_.get)
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       override lazy val getRefs: List[DFRef.TwoWayAny] =
         relValRef :: dfType.getRefs ++ initRefOption
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+      def copyWithNewRefs: this.type = copy(
+        dfType = dfType.copyWithNewRefs,
+        ownerRef = ownerRef.copyAsNewRef,
+        relValRef = relValRef.copyAsNewRef,
+        initRefOption = initRefOption.map(_.copyAsNewRef)
+      ).asInstanceOf[this.type]
     end History
 
     object History:
@@ -537,9 +638,19 @@ object DFVal:
           this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
+        that match
+          case that: ApplyRange =>
+            this.relValRef.get.isSimilarTo(that.relValRef.get) &&
+            this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow
+          case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = this
+      def copyWithNewRefs: this.type = copy(
+        ownerRef = ownerRef.copyAsNewRef,
+        relValRef = relValRef.copyAsNewRef
+      ).asInstanceOf[this.type]
     end ApplyRange
     final case class ApplyIdx(
         dfType: DFType,
@@ -577,10 +688,23 @@ object DFVal:
           this.relIdx =~ that.relIdx &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
+        that match
+          case that: ApplyIdx =>
+            this.dfType.isSimilarTo(that.dfType) &&
+            this.relValRef.get.isSimilarTo(that.relValRef.get) &&
+            this.relIdx.get.isSimilarTo(that.relIdx.get)
+          case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       override lazy val getRefs: List[DFRef.TwoWayAny] = relIdx :: relValRef :: dfType.getRefs
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+      def copyWithNewRefs: this.type = copy(
+        dfType = dfType.copyWithNewRefs,
+        ownerRef = ownerRef.copyAsNewRef,
+        relValRef = relValRef.copyAsNewRef,
+        relIdx = relIdx.copyAsNewRef
+      ).asInstanceOf[this.type]
     end ApplyIdx
     object ApplyIdx:
       object ConstIdx:
@@ -612,9 +736,21 @@ object DFVal:
           this.fieldName == that.fieldName &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
+      protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
+        that match
+          case that: SelectField =>
+            this.dfType.isSimilarTo(that.dfType) &&
+            this.relValRef.get.isSimilarTo(that.relValRef.get) &&
+            this.fieldName == that.fieldName
+          case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+      def copyWithNewRefs: this.type = copy(
+        dfType = dfType.copyWithNewRefs,
+        ownerRef = ownerRef.copyAsNewRef,
+        relValRef = relValRef.copyAsNewRef
+      ).asInstanceOf[this.type]
     end SelectField
   end Alias
 end DFVal
@@ -635,6 +771,11 @@ final case class DFNet(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = List(lhsRef, rhsRef)
+  def copyWithNewRefs: this.type = copy(
+    lhsRef = lhsRef.copyAsNewRef,
+    rhsRef = rhsRef.copyAsNewRef,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
 end DFNet
 
 object DFNet:
@@ -719,6 +860,10 @@ final case class DFInterfaceOwner(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
+  def copyWithNewRefs: this.type = copy(
+    domainType = domainType.copyWithNewRefs,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
 end DFInterfaceOwner
 
 sealed trait DFBlock extends DFOwner
@@ -738,6 +883,10 @@ final case class ProcessBlock(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = sensitivity.getRefs
+  def copyWithNewRefs: this.type = copy(
+    sensitivity = sensitivity.copyWithNewRefs,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
 end ProcessBlock
 object ProcessBlock:
   sealed trait Sensitivity extends HasRefCompare[Sensitivity], Product, Serializable
@@ -748,11 +897,14 @@ object ProcessBlock:
         case All => true
         case _   => false
       lazy val getRefs: scala.List[DFRef.TwoWayAny] = Nil
+      def copyWithNewRefs: this.type = this
     final case class List(refs: scala.List[DFVal.Ref]) extends Sensitivity:
       protected def `prot_=~`(that: Sensitivity)(using MemberGetSet): Boolean = that match
         case that: List => this.refs.lazyZip(that.refs).forall(_ =~ _)
         case _          => false
       lazy val getRefs: scala.List[DFRef.TwoWayAny] = refs
+      def copyWithNewRefs: this.type = List(refs.map(_.copyAsNewRef)).asInstanceOf[this.type]
+end ProcessBlock
 
 object DFConditional:
   sealed trait Block extends DFBlock:
@@ -785,10 +937,17 @@ object DFConditional:
         this.dfType =~ that.dfType && this.selectorRef =~ that.selectorRef &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
+    protected[ir] def protIsSimilarTo(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
+      false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = selectorRef :: dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithNewRefs: this.type = copy(
+      dfType = dfType.copyWithNewRefs,
+      selectorRef = selectorRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end DFMatchHeader
 
   final case class DFCaseBlock(
@@ -810,6 +969,12 @@ object DFConditional:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] =
       List(guardRef, prevBlockOrHeaderRef) ++ pattern.getRefs
+    def copyWithNewRefs: this.type = copy(
+      pattern = pattern.copyWithNewRefs,
+      guardRef = guardRef.copyAsNewRef,
+      prevBlockOrHeaderRef = prevBlockOrHeaderRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end DFCaseBlock
   object DFCaseBlock:
     type Ref = DFRef.TwoWay[DFCaseBlock | DFMatchHeader, Block]
@@ -818,6 +983,7 @@ object DFConditional:
       case object CatchAll extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean = this == that
         lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+        def copyWithNewRefs: this.type = this
       final case class Singleton(valueRef: DFVal.Ref) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
@@ -825,6 +991,7 @@ object DFConditional:
               this.valueRef =~ that.valueRef
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = List(valueRef)
+        def copyWithNewRefs: this.type = copy(valueRef.copyAsNewRef).asInstanceOf[this.type]
       final case class Alternative(list: List[Pattern]) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
@@ -832,6 +999,7 @@ object DFConditional:
               this.list.lazyZip(that.list).forall(_ =~ _)
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = list.flatMap(_.getRefs)
+        def copyWithNewRefs: this.type = copy(list.map(_.copyWithNewRefs)).asInstanceOf[this.type]
       final case class Struct(name: String, fieldPatterns: List[Pattern]) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
@@ -841,6 +1009,9 @@ object DFConditional:
                 .forall(_ =~ _)
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = fieldPatterns.flatMap(_.getRefs)
+        def copyWithNewRefs: this.type = copy(
+          fieldPatterns = fieldPatterns.map(_.copyWithNewRefs)
+        ).asInstanceOf[this.type]
       final case class Bind(ref: Bind.Ref, pattern: Pattern) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
@@ -848,6 +1019,10 @@ object DFConditional:
               this.ref =~ that.ref && this.pattern =~ that.pattern
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = ref :: pattern.getRefs
+        def copyWithNewRefs: this.type = copy(
+          ref = ref.copyAsNewRef,
+          pattern = pattern.copyWithNewRefs
+        ).asInstanceOf[this.type]
       object Bind:
         type Ref = DFRef.TwoWay[DFVal, DFCaseBlock]
         case object Tag extends DFTagOf[DFVal]
@@ -864,6 +1039,10 @@ object DFConditional:
                 .forall(_ =~ _)
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = refs
+        def copyWithNewRefs: this.type = copy(
+          refs = refs.map(_.copyAsNewRef)
+        ).asInstanceOf[this.type]
+      end BindSI
     end Pattern
   end DFCaseBlock
 
@@ -888,7 +1067,13 @@ object DFConditional:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    protected[ir] def protIsSimilarTo(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
+      false
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithNewRefs: this.type = copy(
+      dfType = dfType.copyWithNewRefs,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end DFIfHeader
 
   final case class DFIfElseBlock(
@@ -907,6 +1092,11 @@ object DFConditional:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = List(guardRef, prevBlockOrHeaderRef)
+    def copyWithNewRefs: this.type = copy(
+      guardRef = guardRef.copyAsNewRef,
+      prevBlockOrHeaderRef = prevBlockOrHeaderRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end DFIfElseBlock
   object DFIfElseBlock:
     type Ref = DFRef.TwoWay[DFIfElseBlock | DFIfHeader, Block]
@@ -932,6 +1122,10 @@ final case class DFDesignBlock(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
+  def copyWithNewRefs: this.type = copy(
+    domainType = domainType.copyWithNewRefs,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
 end DFDesignBlock
 
 object DFDesignBlock:
@@ -991,6 +1185,10 @@ final case class DomainBlock(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
+  def copyWithNewRefs: this.type = copy(
+    domainType = domainType.copyWithNewRefs,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
 end DomainBlock
 
 sealed trait DFSimMember extends DFMember
@@ -1007,6 +1205,9 @@ object DFSimMember:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs: this.type = copy(ownerRef = ownerRef.copyAsNewRef).asInstanceOf[this.type]
+  end Assert
+end DFSimMember
 
 sealed trait Timer extends DFMember.Named
 object Timer:
@@ -1027,6 +1228,10 @@ object Timer:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
+    def copyWithNewRefs: this.type = copy(
+      triggerRef = triggerRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end Periodic
 
   final case class Func(
@@ -1045,6 +1250,10 @@ object Timer:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = List(sourceRef)
+    def copyWithNewRefs: this.type = copy(
+      sourceRef = sourceRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end Func
   object Func:
     enum Op derives CanEqual:
@@ -1065,10 +1274,16 @@ object Timer:
         this.timerRef =~ that.timerRef &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
+    protected[ir] def protIsSimilarTo(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
+      false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = List(timerRef)
     def updateDFType(dfType: DFType): this.type = this
+    def copyWithNewRefs: this.type = copy(
+      timerRef = timerRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
   end IsActive
 end Timer
 
@@ -1088,6 +1303,8 @@ object Wait:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs: this.type = copy(ownerRef = ownerRef.copyAsNewRef).asInstanceOf[this.type]
+  end Duration
 
   type TriggerRef = DFRef.TwoWay[DFVal, DFMember]
   final case class Until(
@@ -1104,4 +1321,9 @@ object Wait:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
+    def copyWithNewRefs: this.type = copy(
+      triggerRef = triggerRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
+  end Until
 end Wait

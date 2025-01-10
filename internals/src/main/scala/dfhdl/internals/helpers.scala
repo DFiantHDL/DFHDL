@@ -117,6 +117,14 @@ object Error:
     '{ compiletime.error(${ Expr(msg) }) }
 end Error
 
+transparent inline def summonInlineWithError[T]: T = ${ summonInlineWithErrorMacro[T] }
+private def summonInlineWithErrorMacro[T: Type](using Quotes): Expr[T] =
+  import quotes.reflect.*
+  Implicits.search(TypeRepr.of[T]) match
+    case iss: ImplicitSearchSuccess => iss.tree.asExprOf[T]
+    case isf: NoMatchingImplicits   => report.errorAndAbort(isf.explanation)
+    case isf: ImplicitSearchFailure => '{ compiletime.error(${ Expr(isf.explanation) }) }
+
 extension (using quotes: Quotes)(partsExprs: Seq[Expr[Any]])
   def scPartsWithArgs(argsExprs: Seq[Expr[Any]]): quotes.reflect.Term =
     import quotes.reflect.*

@@ -117,8 +117,12 @@ case object SanityCheck extends Stage:
             )
             r match
               case _: DFRef.TypeRef =>
-                if (!(prevMember isSameOwnerDesignAs m))
-                  originViolation(" from a different design")
+                r.get match
+                  // global references can be shared across types
+                  case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // no violation
+                  case _ =>
+                    if (!(prevMember isSameOwnerDesignAs m))
+                      originViolation(" from a different design")
               case _ => originViolation("")
           }
           originRefTableMutable += r -> m
@@ -205,9 +209,15 @@ case object SanityCheck extends Stage:
     getSet.designDB.members.foreach { m =>
       m.getRefs.foreach {
         case r @ DFRef(rm) if !discoveredMembers.contains(rm) =>
-          println(
-            s"The member ${m.hashString}:\n$m\nIn hierarchy:\n${m.getOwnerNamed.getFullName}\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
-          )
+          m match
+            case dfVal: DFVal if dfVal.isGlobal =>
+              println(
+                s"The global member ${m.hashString}:\n$m\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
+              )
+            case _ =>
+              println(
+                s"The member ${m.hashString}:\n$m\nIn hierarchy:\n${m.getOwnerNamed.getFullName}\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
+              )
           hasViolations = true
           require(!hasViolations, "Failed member order check!")
         case _ =>

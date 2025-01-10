@@ -8,26 +8,39 @@ sealed trait DFRef[+M <: DFMember] derives CanEqual:
   val refType: ClassTag[M @uncheckedVariance]
   final def =~(that: DFRefAny)(using MemberGetSet): Boolean = this.get =~ that.get
   def get(using getSet: MemberGetSet): M = getSet(this)
+  def getOption(using getSet: MemberGetSet): Option[M] = getSet.getOption(this)
+  def copyAsNewRef: this.type
   override def toString: String = s"<${this.hashString}>"
 
 object DFRef:
   sealed trait Empty extends DFRef[DFMember.Empty]:
     val refType = classTag[DFMember.Empty]
     override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
-  trait OneWay[+M <: DFMember] extends DFRef[M]
+  trait OneWay[+M <: DFMember] extends DFRef[M]:
+    self =>
+    final def copyAsNewRef: this.type = new OneWay[M]:
+      val refType = self.refType
+    .asInstanceOf[this.type]
   object OneWay:
     object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
 
   trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
+    self =>
     val originRefType: ClassTag[O @uncheckedVariance]
+    def copyAsNewRef: this.type = new TwoWay[M, O]:
+      val refType = self.refType
+      val originRefType = self.originRefType
+    .asInstanceOf[this.type]
   type TwoWayAny = TwoWay[DFMember, DFMember]
   object TwoWay:
     object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty:
       val originRefType = classTag[DFMember.Empty]
 
-  trait TypeRef extends TwoWay[DFVal, DFVal]:
-    val refType = classTag[DFVal]
-    val originRefType = classTag[DFVal]
+  trait TypeRef extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
+    self =>
+    val refType = classTag[DFVal.CanBeExpr]
+    val originRefType = classTag[DFVal.CanBeExpr]
+    override def copyAsNewRef: this.type = new TypeRef {}.asInstanceOf[this.type]
 
   def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
 end DFRef
@@ -50,10 +63,23 @@ object IntParamRef:
       case _                  => None
     def =~(that: IntParamRef)(using MemberGetSet): Boolean =
       (intParamRef, that) match
+        case (thisRef: DFRef.TypeRef, thatRef: DFRef.TypeRef) => thisRef =~ thatRef
+        case (thisInt: Int, thatInt: Int)                     => thisInt == thatInt
+        case _                                                => false
+    def isSimilarTo(that: IntParamRef)(using MemberGetSet): Boolean =
+      def fakeConst(value: Int): DFVal.Const =
+        DFVal.Const(DFInt32, Some(BigInt(value)), DFRef.OneWay.Empty, Meta.empty, DFTags.empty)
+      (intParamRef, that) match
         case (thisRef: DFRef.TypeRef, thatRef: DFRef.TypeRef) =>
-          thisRef =~ thatRef
+          thisRef.get.isSimilarTo(thatRef.get)
         case (thisInt: Int, thatInt: Int) => thisInt == thatInt
-        case _                            => false
+        case (thisRef: DFRef.TypeRef, thatInt: Int) =>
+          thisRef.get.isSimilarTo(fakeConst(thatInt))
+        case (thisInt: Int, thatRef: DFRef.TypeRef) =>
+          thatRef.get.isSimilarTo(fakeConst(thisInt))
+    def copyAsNewRef: IntParamRef = intParamRef match
+      case ref: DFRef.TypeRef => ref.copyAsNewRef
+      case _                  => intParamRef
   end extension
 end IntParamRef
 extension (intCompanion: Int.type)

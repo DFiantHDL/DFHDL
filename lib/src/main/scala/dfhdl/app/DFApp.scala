@@ -18,16 +18,17 @@ trait DFApp:
   val dfc: DFC = DFC.emptyNoEO
 
   private var designArgs: DesignArgs = DesignArgs.empty
-  private var elaborationOptions: options.ElaborationOptions = null
-  private var compilerOptions: options.CompilerOptions = null
-  private var printerOptions: options.PrinterOptions = null
-  private var linterOptions: options.LinterOptions = null
-  private var appOptions: options.AppOptions = null
+  private var elaborationOptions: options.ElaborationOptions = compiletime.uninitialized
+  private var compilerOptions: options.CompilerOptions = compiletime.uninitialized
+  private var printerOptions: options.PrinterOptions = compiletime.uninitialized
+  private var linterOptions: options.LinterOptions = compiletime.uninitialized
+  private var appOptions: options.AppOptions = compiletime.uninitialized
   inline given options.ElaborationOptions = elaborationOptions
   inline given options.CompilerOptions = compilerOptions
   inline given options.PrinterOptions = printerOptions
+  inline given options.LinterOptions = linterOptions
   inline given options.AppOptions = appOptions
-  private var dsn: () => core.Design = null
+  private var dsn: () => core.Design = compiletime.uninitialized
   // used by the plugin to get the updated design arguments that could be changed by the
   // command-line options
   final protected def getDsnArg(name: String): Any =
@@ -49,6 +50,7 @@ trait DFApp:
     elaborationOptions = top.elaborationOptions
     compilerOptions = top.compilerOptions
     printerOptions = top.printerOptions
+    linterOptions = top.linterOptions
     appOptions = top.appOptions
     designArgs = DesignArgs(argNames, argTypes, argValues, argDescs)
   end setInitials
@@ -103,6 +105,38 @@ trait DFApp:
     )
   end listBackends
 
+  private def listLintTools(scan: Boolean): Unit =
+    def scanned(tool: dfhdl.tools.toolsCore.Tool): String =
+      if (scan)
+        tool.installedVersion match
+          case Some(version) => s"Found version $version"
+          case None          => "Not found on your system"
+      else ""
+    println(
+      s"""|Linter tool option pattern: -t [<verilogLinter>][/][<vhdlLinter>]
+          |<verilogLinter> - the selected Verilog/SystemVerilog linter
+          |<vhdlLinter>    - the selected VHDL linter
+          |You may specify both linters by separating with `/` or just the
+          |one you intend to run according to your chosen backend.
+          |Examples:
+          |-t verilator     - Set the Verilog linter to Verilator (VHDL linter remains default)
+          |-t nvc           - Set the VHDL linter to NVC (Verilog linter remains default)
+          |-t iverilog/ghdl - Set both Verilog and VHDL linters
+          |
+          |Selectable Verilog/SystemVerilog linting tools:
+          |verilator - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
+          |iverilog  - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
+          |vlog      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
+          |xvlog     - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvlog)}
+          |
+          |Selectable VHDL linting tools:
+          |ghdl      - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
+          |nvc       - NVC                 ${scanned(dfhdl.tools.linters.nvc)}
+          |vcom      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}
+          |xvhdl     - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvhdl)}""".stripMargin
+    )
+  end listLintTools
+
   def main(commandArgs: Array[String]): Unit =
     if (appOptions.clearConsole) print("\u001bc")
     logger.info(s"Welcome to DFiant HDL (DFHDL) v$dfhdlVersion !!!")
@@ -135,12 +169,24 @@ trait DFApp:
               printBackendCode = mode.`print-backend`.toOption.get
             )
           case _ =>
+        // update linter options from command line
+        parsedCommandLine.mode match
+          case mode: Mode.LintMode =>
+            val toolSelection = mode.tool.toOption.get
+            linterOptions = linterOptions.copy(
+              verilogLinter = toolSelection.verilogLinter,
+              vhdlLinter = toolSelection.vhdlLinter,
+              fatalWarnings = mode.fatalWarnings.toOption.get
+            )
+          case _ =>
         // execute command
         parsedCommandLine.mode match
           case help @ Mode.help =>
             help.subcommand match
               case Some(HelpMode.backend) => listBackends
-              case _                      => println(parsedCommandLine.getFullHelpString())
+              case Some(lintTool: HelpMode.`lint-tool`.type) =>
+                listLintTools(lintTool.scan.toOption.get)
+              case _ => println(parsedCommandLine.getFullHelpString())
           case Mode.elaborate => elaborate
           case Mode.compile   => compile
           case Mode.commit    => commit
