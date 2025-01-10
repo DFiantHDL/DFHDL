@@ -1,12 +1,12 @@
 # Initial Setup {#getting-started}
 
-DFHDL is a domain specific language (DSL) library written in the [Scala programming language](https://www.scala-lang.org){target="_blank"} (Scala 3.5), and as such it lets you utilize the entire Scala ecosystem, including IDEs, various tools, and other libraries. 
+DFHDL is a domain specific language (DSL) library written in the [Scala programming language](https://www.scala-lang.org){target="_blank"} (Scala 3.5.2), and as such it lets you utilize the entire Scala ecosystem, including IDEs, various tools, and other libraries. 
 
 Is your system already fit for Scala development? [Jump to the DFHDL hello-world section][hello-world]
 
 ## Installing Scala and Other Dependencies
 
-We recommend directly installing Scala 3.5 (no need to install either [Coursier](https://get-coursier.io/){target="_blank"}, [Scala CLI](https://scala-cli.virtuslab.org/){target="_blank"}, or [sbt](https://www.scala-sbt.org/){target="_blank"}):
+We recommend directly installing Scala 3.5.2 (no need to install either [Coursier](https://get-coursier.io/){target="_blank"}, [Scala CLI](https://scala-cli.virtuslab.org/){target="_blank"}, or [sbt](https://www.scala-sbt.org/){target="_blank"}):
 
 <div class="grid cards" markdown>
 
@@ -19,7 +19,7 @@ We recommend directly installing Scala 3.5 (no need to install either [Coursier]
         Run the following in Windows command or powershell:
 
         ```{.cmd .copy linenums="0"}
-        choco install scala --version=3.5.0 
+        choco install scala --version=3.5.2 
         ```
 
 -   :fontawesome-brands-linux:{ .lg .middle } __Linux Instructions__
@@ -31,7 +31,7 @@ We recommend directly installing Scala 3.5 (no need to install either [Coursier]
         Run the following in your shell:
 
         ```{.sh-session .copy linenums="0"}
-        sdk install scala 3.5.0 
+        sdk install scala 3.5.2 
         ```
 
 -   :fontawesome-brands-apple:{ .lg .middle } __macOS Instructions__

@@ -1,5 +1,5 @@
-let dfhdlVersion = "0.8.0";
-let scalaVersion = "3.5.0";
+let dfhdlVersion = "0.9.0";
+let scalaVersion = "3.5.2";
 
 let sbtConfig = `
 val dfhdlVersion = "${dfhdlVersion}"
