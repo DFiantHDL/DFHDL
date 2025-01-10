@@ -835,9 +835,9 @@ class PrintVHDLCodeSpec extends StageSpec:
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
-      """|constant Foo_length5 : integer := 10;
-         |constant width : integer := 8;
+      """|constant width : integer := 8;
          |constant length : integer := 10;
+         |constant Foo_length5 : integer := 10;
          |library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;

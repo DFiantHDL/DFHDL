@@ -19,6 +19,8 @@ final case class DB(
     val designDB: DB = self
     def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0 =
       refTable(ref).asInstanceOf[M0]
+    def getOption[M <: DFMember, M0 <: M](ref: DFRef[M]): Option[M0] =
+      refTable.get(ref).asInstanceOf[Option[M0]]
     def getOrigin(ref: DFRef.TwoWayAny): DFMember = originRefTable(ref)
     def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M =
       newMemberFunc(originalMember)
@@ -60,7 +62,7 @@ final case class DB(
 
   lazy val top: DFDesignBlock = membersNoGlobals.head match
     case m: DFDesignBlock => m
-    case _                => throw new IllegalArgumentException("Unexpected member as Top.")
+    case invalidTop => throw new IllegalArgumentException(s"Unexpected member as Top:\n$invalidTop")
 
   lazy val memberTable: Map[DFMember, Set[DFRefAny]] = refTable.invert
 
@@ -485,14 +487,6 @@ final case class DB(
       //       |Hierarchy: ${targetPort.getOwnerNamed.getFullName}""".stripMargin
       // )
       None
-    // count the hierarchy distance from inside to outside
-    def distance(inside: DFDesignBlock, outside: DFDesignBlock): Int =
-      var distance = 0
-      var dsn = inside
-      while (dsn != outside)
-        distance = distance + 1
-        dsn = dsn.getOwnerDesign
-      return distance
     // group magnet ports according to the magnet type
     val magnetDclGroups =
       members.view
@@ -534,14 +528,18 @@ final case class DB(
                 port.isPortIn && !port.isSameOwnerDesignAs(targetPort) &&
                 targetPort.isInsideOwner(port.getOwnerDesign)
               }.map { port =>
-                (port, distance(targetDsn, port.getOwnerDesign))
+                (port, targetDsn.getDistanceFromOwnerDesign(port.getOwnerDesign))
               }.toList.sortBy(_._2)
               // sorted source out port candidates according to the distance
               val sourceOutCandidates = dclGrp.filter(_.isPortOut)
                 .map { port =>
                   val portDsn = port.getOwnerDesign
                   val commonDesign = targetDsn.getCommonDesignWith(portDsn)
-                  (port, distance(targetDsn, commonDesign), distance(portDsn, commonDesign))
+                  (
+                    port,
+                    targetDsn.getDistanceFromOwnerDesign(commonDesign),
+                    portDsn.getDistanceFromOwnerDesign(commonDesign)
+                  )
                 }.toList.sortBy(_._3).sortBy(_._2)
               (sourceInCandidates, sourceOutCandidates) match
                 case (Nil, Nil) =>
@@ -570,7 +568,7 @@ final case class DB(
                 port.isPortOut && !port.isSameOwnerDesignAs(targetPort) &&
                 port.isInsideOwner(targetDsn)
               }.map { port =>
-                (port, distance(port.getOwnerDesign, targetDsn))
+                (port, port.getDistanceFromOwnerDesign(targetDsn))
               }.toList.sortBy(_._2)
               sourceOutCandidates match
                 case Nil =>
@@ -853,6 +851,7 @@ enum MemberView derives CanEqual:
 trait MemberGetSet:
   def designDB: DB
   def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0
+  def getOption[M <: DFMember, M0 <: M](ref: DFRef[M]): Option[M0]
   def getOrigin(ref: DFRef.TwoWayAny): DFMember
   def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M
   def replace[M <: DFMember](originalMember: M)(newMember: M): M

@@ -53,12 +53,10 @@ class DesignContext:
   // same as addMember, but if the member is at design-level scope,
   // the ownerRef needs to be added, referring to the meta designer owner.
   def plantMember[M <: DFMember](
-      owner: DFOwner,
+      owner: DFOwner | DFMember.Empty,
       member: M,
       updateOwnerCond: DFOwner => Boolean = _.isInstanceOf[DFDesignBlock]
-  )(using
-      MemberGetSet
-  ): M =
+  )(using MemberGetSet): M =
     if (updateOwnerCond(member.getOwner))
       // now this reference will refer to meta design owner
       newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
@@ -316,7 +314,7 @@ final class MutableDB():
 
   // same as addMember, but the ownerRef needs to be added, referring to the meta designer owner
   def plantMember[M <: DFMember](
-      owner: DFOwner,
+      owner: DFOwner | DFMember.Empty,
       member: M,
       updateOwnerCond: DFOwner => Boolean = _.isInstanceOf[DFDesignBlock]
   ): M =
@@ -326,6 +324,23 @@ final class MutableDB():
   def newRefFor[M <: DFMember, R <: DFRef[M]](ref: R, member: M): R =
     dirtyDB()
     DesignContext.current.newRefFor(ref, member)
+
+  def getMemberOption[M <: DFMember, M0 <: M](
+      ref: DFRef[M]
+  ): Option[M0] =
+    // by default the current design context is searched
+    val memberOption = DesignContext.current.refTable.get(ref) match
+      case some: Some[DFMember] => some
+      // if we didn't find it, then we go up the design context stack
+      case None =>
+        DesignContext.stack.view
+          .map(_.refTable.get(ref))
+          .collectFirst { case Some(member) => member }
+          // finally, if still no member is available, then we check the
+          // external injected meta-programming context
+          .orElse(metaGetSetOpt.map(_.getOption(ref)))
+    memberOption.asInstanceOf[Option[M0]]
+  end getMemberOption
 
   def getMember[M <: DFMember, M0 <: M](
       ref: DFRef[M]
@@ -463,9 +478,8 @@ final class MutableDB():
 
   given getSet: MemberGetSet with
     def designDB: DB = immutable
-    def apply[M <: DFMember, M0 <: M](
-        ref: DFRef[M]
-    ): M0 = getMember(ref)
+    def apply[M <: DFMember, M0 <: M](ref: DFRef[M]): M0 = getMember(ref)
+    def getOption[M <: DFMember, M0 <: M](ref: DFRef[M]): Option[M0] = getMemberOption(ref)
     def getOrigin(ref: DFRef.TwoWayAny): DFMember = getOriginMember(ref)
     def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M =
       setMember(originalMember, newMemberFunc)

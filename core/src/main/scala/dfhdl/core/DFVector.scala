@@ -115,7 +115,7 @@ object DFVector:
           import dfc.getSet
           given Printer = DefaultPrinter
           check(dfType.lengthInt, arg.dfType.lengthInt)
-          if (dfType.asIR =~ arg.dfType.asIR)
+          if (dfType.asIR.isSimilarTo(arg.dfType.asIR))
             arg.asValTP[DFVector[T, Tuple1[D1]], RP]
           else
             throw new IllegalArgumentException(

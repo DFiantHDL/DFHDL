@@ -3,18 +3,20 @@ package dfhdl.compiler.stages
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.ir.*
 import dfhdl.compiler.patching.*
+import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.core.{DFTypeAny, asFE}
+import dfhdl.compiler.ir.DFVal.Alias.DesignParamTag
 
 /** This stage globalizes design parameters that set port vector lengths. This is needed only for
   * vhdl.v93 that does not support arrays with unconstrained ranges.
   */
 case object GlobalizePortVectorParams extends Stage:
   def dependencies: List[Stage] = List(UniqueDesigns)
-  def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
+  def nullifies: Set[Stage] = Set(DropUnreferencedAnons, DFHDLUniqueNames)
   override def runCondition(using co: CompilerOptions): Boolean =
     co.backend match
       case be: dfhdl.backends.vhdl =>
@@ -23,33 +25,61 @@ case object GlobalizePortVectorParams extends Stage:
           case _               => false
       case _ => false
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    // to collect unique design parameters while maintaining order for consistent compilation
+    // to collect unique design parameters while maintaining order for consistent compilation and dependency
     val designParams = mutable.LinkedHashSet.empty[DFVal]
     // check ref
-    def checkRef(ref: DFRef.TwoWayAny): Unit =
-      ref.get match
-        case p @ DesignParam(_) => designParams += p
-        case dfVal              => dfVal.getRefs.foreach(checkRef)
-    def checkIntParamRef(intParamRef: IntParamRef): Unit =
-      intParamRef.getRef.foreach(checkRef)
+    def checkRef(ref: DFRef.TwoWayAny): Int =
+      val dfVal = ref.get.asInstanceOf[DFVal]
+      if (dfVal.isGlobal) 0
+      else
+        val ret = dfVal.getRefs.map(checkRef).sum
+        if (dfVal.isAnonymous) ret
+        else
+          designParams += dfVal
+          ret + 1
+    // check int param ref
+    def checkIntParamRef(intParamRef: IntParamRef): Int =
+      intParamRef.getRef.map(checkRef).getOrElse(0)
+
     // checking vector types
-    def checkVector(dfType: DFType): Unit = dfType match
+    def checkVector(dfType: DFType): Int = dfType match
       case dt: DFVector =>
         // checking vector dimensions for parameters we need to globalize
-        val cellDimUpdate = dt.cellDimParamRefs.foreach(checkIntParamRef)
+        val dimParamCnt = dt.cellDimParamRefs.map(checkIntParamRef).sum
         // checking vector cell type for composed dependency on parameters we need to globalize
-        dt.cellType match
+        val cellTypeParamCnt = dt.cellType match
           case DFBits(widthParamRef) => checkIntParamRef(widthParamRef)
           case DFUInt(widthParamRef) => checkIntParamRef(widthParamRef)
           case DFSInt(widthParamRef) => checkIntParamRef(widthParamRef)
           case dt: DFVector          => checkVector(dt.cellType)
-          case _                     => None
-      case _ =>
-    // checking all ports
+          case _                     => 0
+        dimParamCnt + cellTypeParamCnt
+      case _ => 0
+    val vecTypeReplaceMap = mutable.Map.empty[DFVector, DFVector]
     designDB.members.foreach {
+      // checking all ports
       case dcl @ DclPort() => checkVector(dcl.dfType)
-      case _               =>
+      // checking all assignments/connections between vectors that are considered to be similar types,
+      // but are not exactly the same (e.g., two vectors types referencing a `(LEN + 1)` length value)
+      case net @ DFNet(DFRef(DFVector.Val(lhsType)), _, DFRef(DFVector.Val(rhsType)), _, _, _)
+          if !(lhsType == rhsType) && lhsType.isSimilarTo(rhsType) =>
+        val lhsCnt = checkVector(lhsType)
+        val rhsCnt = checkVector(rhsType)
+        if (lhsCnt < rhsCnt) vecTypeReplaceMap += lhsType -> rhsType
+        else if (lhsCnt > rhsCnt) vecTypeReplaceMap += rhsType -> lhsType
+      case _ =>
     }
+    val vecTypeReplacePatches = designDB.members.collect {
+      case dfVal @ DFVector.Val(dfType) if vecTypeReplaceMap.contains(dfType) =>
+        dfVal -> Patch.Replace(
+          dfVal.updateDFType(vecTypeReplaceMap(dfType)),
+          Patch.Replace.Config.FullReplacement
+        )
+    }
+    def movedMembers(namedParam: DFVal): List[DFVal] =
+      namedParam.collectRelMembers(true).filterNot(_.isGlobal)
+
+    val addedGlobals = designParams.view.flatMap(movedMembers).toList
     val dupDesignSet = designParams.view.map(_.getOwnerDesign).toSet
     // origin -> duplicates design map
     val dupDesignMap = dupDesignSet.groupBy(_.dclName).values.map { grp =>
@@ -97,21 +127,8 @@ case object GlobalizePortVectorParams extends Stage:
         dupDesignMembersMap += dup -> dupMembers
       }
     }
-    // an empty context to add the global parameters to
-    val dfc = dfhdl.core.DFC.empty
-    // adding global parameters to the context with the full name of the design parameters and their value
-    designParams.foreach { p =>
-      val updatedMeta = p.meta.setName(p.getFullName.replaceAll("\\.", "_"))
-      dfhdl.core.DFVal.Const.forced(
-        p.dfType.asFE[DFTypeAny],
-        p.getConstData.get,
-        named = true
-      )(using dfc.setMeta(updatedMeta)).asIR
-    }
-    val globalsDB = dfc.mutableDB.immutable
-    val globalParams = globalsDB.members
 
-    // manually adding the global members and the duplicated members and then using patch for replacing
+    // manually the duplicated members and then using patch for replacing
     // the design parameters with global parameters
     def populateWithDupMembers(members: List[DFMember]): List[DFMember] =
       members.flatMap {
@@ -121,28 +138,42 @@ case object GlobalizePortVectorParams extends Stage:
           )
         case member => Some(member)
       }
-    val updatedMembers =
-      globalParams ++ designDB.membersGlobals ++ populateWithDupMembers(List(designDB.top))
-    val updatedRefTable = designDB.refTable ++ dupRefTable ++ globalsDB.refTable
+    val dupDesignDB = designDB.copy(
+      members = designDB.membersGlobals ++ populateWithDupMembers(List(designDB.top)),
+      refTable = designDB.refTable ++ dupRefTable
+    )
 
-    val patchList = Iterable(
-      designParams.lazyZip(globalParams).map((dp, gp) =>
-        dp -> Patch.Replace(gp, Patch.Replace.Config.ChangeRefAndRemove)
-      ),
-      dupDesignMap.view.flatMap {
-        case (orig, dups) if dups.length >= 1 =>
-          (orig :: dups).map { design =>
-            val updatedDclMeta =
-              design.dclMeta.setName(
-                s"${design.dclName}_${design.getFullName.replaceAll("\\.", "_")}"
-              )
-            val updatedDesign = design.removeTagOf[DuplicateTag].copy(dclMeta = updatedDclMeta)
-            design -> Patch.Replace(updatedDesign, Patch.Replace.Config.FullReplacement)
-          }
-        case _ => None
+    // patches to change the duplicated design declaration names to a unique identifier according
+    // to theie instance names
+    val designPatches = dupDesignMap.view.flatMap {
+      case (orig, dups) if dups.length >= 1 =>
+        (orig :: dups).map { design =>
+          val updatedDclMeta =
+            design.dclMeta.setName(
+              s"${design.dclName}_${design.getFullName.replaceAll("\\.", "_")}"
+            )
+          val updatedDesign = design.removeTagOf[DuplicateTag].copy(dclMeta = updatedDclMeta)
+          design -> Patch.Replace(updatedDesign, Patch.Replace.Config.FullReplacement)
+        }
+      case _ => None
+    }.toList
+    // add global parameters before the design top
+    val dsn = new MetaDesign(dupDesignDB.top, Patch.Add.Config.Before):
+      // patches to replace with properly named parameter or just move the anonymous members
+      val replacePatches = addedGlobals.map {
+        case m if !m.isAnonymous =>
+          val globalParam =
+            m.setName(m.getFullName.replaceAll("\\.", "_")).removeTagOf[DesignParamTag.type]
+          plantMember(globalParam)
+          m -> Patch.Replace(globalParam, Patch.Replace.Config.ChangeRefAndRemove)
+        case m =>
+          plantMember(m)
+          m -> Patch.Remove(isMoved = true)
       }
-    ).flatten.toList
-    designDB.copy(updatedMembers, updatedRefTable).patch(patchList)
+    // TODO: when combined to a single patch, there is a bug that prevents some members to get a global ownership
+    dupDesignDB
+      .patch(dsn.patch :: dsn.replacePatches ++ vecTypeReplacePatches)
+      .patch(designPatches)
   end transform
 end GlobalizePortVectorParams
 

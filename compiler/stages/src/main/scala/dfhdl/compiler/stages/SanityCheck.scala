@@ -104,29 +104,29 @@ case object SanityCheck extends Stage:
     }
     // check a reference is only used by a single member
     val originRefTableMutable = mutable.Map.empty[DFRefAny, DFMember]
-    memberSet.foreach {
-      // ignore by-name selectors since they contain dftype that could have typerefs that are used
-      // more than once. this is considered to be ok.
-      case _: DFVal.PortByNameSelect =>
-      case m =>
-        m.getRefs.foreach {
-          case _: DFRef.Empty => // skip empty referenced
-          case r =>
-            originRefTableMutable.get(r).foreach { prevMember =>
-              def originViolation(addedText: String) = reportViolation(
-                s"""|Ref $r has more than one origin member$addedText.
-                    |Target member:   ${r.get}
-                    |Origin member 1: $prevMember
-                    |Origin member 2: $m""".stripMargin
-              )
-              r match
-                case _: DFRef.TypeRef =>
-                  if (!(prevMember isSameOwnerDesignAs m))
-                    originViolation(" from a different design")
-                case _ => originViolation("")
-            }
-            originRefTableMutable += r -> m
-        }
+    memberSet.foreach { m =>
+      m.getRefs.foreach {
+        case _: DFRef.Empty => // skip empty referenced
+        case r =>
+          originRefTableMutable.get(r).foreach { prevMember =>
+            def originViolation(addedText: String) = reportViolation(
+              s"""|Ref $r has more than one origin member$addedText.
+                  |Target member:   ${r.get}
+                  |Origin member 1: $prevMember
+                  |Origin member 2: $m""".stripMargin
+            )
+            r match
+              case _: DFRef.TypeRef =>
+                r.get match
+                  // global references can be shared across types
+                  case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // no violation
+                  case _ =>
+                    if (!(prevMember isSameOwnerDesignAs m))
+                      originViolation(" from a different design")
+              case _ => originViolation("")
+          }
+          originRefTableMutable += r -> m
+      }
     }
     // check a global member reference is anonymous only if the referencing member is global
     // or the referencing member is a design parameter
@@ -209,9 +209,15 @@ case object SanityCheck extends Stage:
     getSet.designDB.members.foreach { m =>
       m.getRefs.foreach {
         case r @ DFRef(rm) if !discoveredMembers.contains(rm) =>
-          println(
-            s"The member ${m.hashString}:\n$m\nIn hierarchy:\n${m.getOwnerNamed.getFullName}\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
-          )
+          m match
+            case dfVal: DFVal if dfVal.isGlobal =>
+              println(
+                s"The global member ${m.hashString}:\n$m\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
+              )
+            case _ =>
+              println(
+                s"The member ${m.hashString}:\n$m\nIn hierarchy:\n${m.getOwnerNamed.getFullName}\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
+              )
           hasViolations = true
           require(!hasViolations, "Failed member order check!")
         case _ =>

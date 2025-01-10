@@ -76,6 +76,15 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
       case _ =>
         if (getOwnerBlock.isTop) List(getOwnerBlock)
         else getOwnerBlock.getOwnerChain :+ getOwnerBlock
+  // count the hierarchy distance from inside to outside
+  final def getDistanceFromOwnerDesign(outside: DFDesignBlock)(using MemberGetSet): Int =
+    val inside = this.getThisOrOwnerDesign
+    var distance = 0
+    var dsn = inside
+    while (dsn != outside)
+      distance = distance + 1
+      dsn = dsn.getOwnerDesign
+    return distance
 end DFMember
 
 object DFMember:
@@ -106,18 +115,21 @@ object DFMember:
     final def getFullName(using MemberGetSet): String = this match
       case o: DFDesignBlock if o.isTop => getName
       case _                           => s"${getOwnerNamed.getFullName}.${getName}"
-    def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
-      val namedOwner = callOwner.getThisOrOwnerNamed
-      if (this isMemberOf namedOwner) getName
-      else if (getOwnerNamed isOneLevelBelow namedOwner) s"${getOwnerNamed.getName}.$getName"
-      else if (callOwner isInsideOwner this.getOwnerNamed) getName
+    def getRelativeName(callOwner: DFOwner | DFMember.Empty)(using MemberGetSet): String =
+      if (callOwner == DFMember.Empty) getName
       else
-        // more complex referencing just summons the two owner chains and compares them.
-        // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
-        val memberChain = this.getOwnerChain.collect { case o: DFOwnerNamed => o }
-        val ctxChain = namedOwner.getOwnerChain.collect { case o: DFOwnerNamed => o } :+ namedOwner
-        val samePath = memberChain.lazyZip(ctxChain).count(_ == _)
-        s"${memberChain.drop(samePath).map(_.getName).mkString(".")}.$getName"
+        val namedOwner = callOwner.getThisOrOwnerNamed
+        if (this.isMemberOf(namedOwner)) getName
+        else if (getOwnerNamed isOneLevelBelow namedOwner) s"${getOwnerNamed.getName}.$getName"
+        else if (callOwner isInsideOwner this.getOwnerNamed) getName
+        else
+          // more complex referencing just summons the two owner chains and compares them.
+          // it is possible to do this more efficiently but the simple cases cover the most common usage anyway
+          val memberChain = this.getOwnerChain.collect { case o: DFOwnerNamed => o }
+          val ctxChain =
+            namedOwner.getOwnerChain.collect { case o: DFOwnerNamed => o } :+ namedOwner
+          val samePath = memberChain.lazyZip(ctxChain).count(_ == _)
+          s"${memberChain.drop(samePath).map(_.getName).mkString(".")}.$getName"
     end getRelativeName
   end Named
   extension (member: Named)
@@ -129,7 +141,7 @@ end DFMember
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
   def width(using MemberGetSet): Int = dfType.width
-  def isGlobal: Boolean = false
+  def isGlobal(using MemberGetSet): Boolean = false
   protected def protIsFullyAnonymous(using MemberGetSet): Boolean
   // using just an integer to escape redundant boxing Option[Boolean] would have achieved
   private var cachedIsFullyAnonymous: Int = -1
@@ -142,13 +154,13 @@ sealed trait DFVal extends DFMember.Named:
     else false
   final def isConst(using MemberGetSet): Boolean = getConstData.nonEmpty
   // two expressions are considered to be similar if
-  final def isSimilarExpr(that: DFVal)(using MemberGetSet): Boolean =
+  final def isSimilarTo(that: DFVal)(using MemberGetSet): Boolean =
     def dealiasAsIs(dfVal: DFVal): DFVal = dfVal match
       case DFVal.Alias.AsIs(dfType, DFRef(relVal), _, _, _) if dfType == relVal.dfType =>
         dealiasAsIs(relVal)
       case _ => dfVal
     (dealiasAsIs(this), dealiasAsIs(that)) match
-      case (lhs: DFVal.CanBeExpr, rhs: DFVal.CanBeExpr) => lhs.protIsSimilarExpr(rhs)
+      case (lhs: DFVal.CanBeExpr, rhs: DFVal.CanBeExpr) => lhs.protIsSimilarTo(rhs)
       case (lhs, rhs)                                   => lhs == rhs
   protected def protGetConstData(using MemberGetSet): Option[Any]
   private var cachedConstDataReady: Boolean = false
@@ -260,13 +272,26 @@ object DFVal:
   end extension
   // can be an expression
   sealed trait CanBeExpr extends DFVal:
-    protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean
+    protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean
 
   // can be a global value
   sealed trait CanBeGlobal extends CanBeExpr:
     private[dfhdl] var globalCtx: Any = compiletime.uninitialized
-    final override def isGlobal: Boolean = ownerRef.refType equals classTag[DFMember.Empty]
-    final override def getRelativeName(callOwner: DFOwner)(using MemberGetSet): String =
+    final override def isGlobal(using MemberGetSet): Boolean =
+      // during elaboration with a DFC context we can use `refType` of `Empty` as an indicator
+      // that `dfVal` is global. we use it because `dfVal`'s ownerRef could be only available
+      // within dfVal's internal cached context. however, when in immutable db, `dfVal.isGlobal` can
+      // be invoked with no issue, since the DB `getSet` will have access to all references.
+      // note that it could be that `refType` is later changed from `Empty` to an actual member,
+      // so that is why we cannot rely on it after elaboration is done.
+      ownerRef.getOption match
+        case Some(DFMember.Empty) => true
+        case None                 => true
+        case _                    => false
+
+    final override def getRelativeName(
+        callOwner: DFOwner | DFMember.Empty
+    )(using MemberGetSet): String =
       if (isGlobal) this.getName
       else super.getRelativeName(callOwner)
     final override infix def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
@@ -275,6 +300,7 @@ object DFVal:
         that match
           case thatDFVal: DFVal if thatDFVal.isGlobal => false
           case _                                      => super.isSameOwnerDesignAs(that)
+  end CanBeGlobal
 
   final case class Const(
       dfType: DFType,
@@ -291,14 +317,14 @@ object DFVal:
         this.dfType =~ that.dfType && this.data.equals(that.data) &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
-    protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+    protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
       that match
         case that: Const =>
           // if constants are named, then they must be the exact same constant instance to be considered similar expressions
           if (!this.isAnonymous && !that.isAnonymous) this == that
-          // otherwise, they must both be anonymous and have the same type and data to be considered similar expressions
+          // otherwise, they must both be anonymous and have the similar type expression and same data to be considered similar expressions
           else if (this.isAnonymous && that.isAnonymous)
-            this.dfType =~ that.dfType && this.data.equals(that.data)
+            this.dfType.isSimilarTo(that.dfType) && this.data.equals(that.data)
           else false
         case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -343,7 +369,7 @@ object DFVal:
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
       case _: NOTHING => true
       case _          => false
-    protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+    protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
       this == that
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -420,11 +446,11 @@ object DFVal:
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
     // TODO: consider algebraic equivalence be added here
-    protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+    protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
       that match
         case that: Func =>
-          this.dfType =~ that.dfType && this.op == that.op &&
-          (this.args.lazyZip(that.args).forall((l, r) => l.get.isSimilarExpr(r.get)))
+          this.dfType.isSimilarTo(that.dfType) && this.op == that.op &&
+          (this.args.lazyZip(that.args).forall((l, r) => l.get.isSimilarTo(r.get)))
         case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -529,10 +555,11 @@ object DFVal:
           this.dfType =~ that.dfType && sameRelVal &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
-      protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+      protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
         that match
           case that: AsIs =>
-            this.dfType =~ that.dfType && this.relValRef.get.isSimilarExpr(that.relValRef.get)
+            this.dfType.isSimilarTo(that.dfType) &&
+            this.relValRef.get.isSimilarTo(that.relValRef.get)
           case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -567,7 +594,7 @@ object DFVal:
           this.step == that.step && this.op == that.op && sameInit &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
-      protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+      protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
         false
       def initOption(using MemberGetSet): Option[DFVal] = initRefOption.map(_.get)
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -611,10 +638,10 @@ object DFVal:
           this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
-      protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+      protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
         that match
           case that: ApplyRange =>
-            this.relValRef.get.isSimilarExpr(that.relValRef.get) &&
+            this.relValRef.get.isSimilarTo(that.relValRef.get) &&
             this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow
           case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -661,12 +688,12 @@ object DFVal:
           this.relIdx =~ that.relIdx &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
-      protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+      protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
         that match
           case that: ApplyIdx =>
-            this.dfType =~ that.dfType &&
-            this.relValRef.get.isSimilarExpr(that.relValRef.get) &&
-            this.relIdx.get.isSimilarExpr(that.relIdx.get)
+            this.dfType.isSimilarTo(that.dfType) &&
+            this.relValRef.get.isSimilarTo(that.relValRef.get) &&
+            this.relIdx.get.isSimilarTo(that.relIdx.get)
           case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -709,11 +736,11 @@ object DFVal:
           this.fieldName == that.fieldName &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
-      protected[ir] def protIsSimilarExpr(that: CanBeExpr)(using MemberGetSet): Boolean =
+      protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
         that match
           case that: SelectField =>
-            this.dfType =~ that.dfType &&
-            this.relValRef.get.isSimilarExpr(that.relValRef.get) &&
+            this.dfType.isSimilarTo(that.dfType) &&
+            this.relValRef.get.isSimilarTo(that.relValRef.get) &&
             this.fieldName == that.fieldName
           case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -910,7 +937,7 @@ object DFConditional:
         this.dfType =~ that.dfType && this.selectorRef =~ that.selectorRef &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
-    protected[ir] def protIsSimilarExpr(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
+    protected[ir] def protIsSimilarTo(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
       false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
@@ -1040,7 +1067,7 @@ object DFConditional:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
-    protected[ir] def protIsSimilarExpr(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
+    protected[ir] def protIsSimilarTo(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
       false
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     def copyWithNewRefs: this.type = copy(
@@ -1247,7 +1274,7 @@ object Timer:
         this.timerRef =~ that.timerRef &&
         this.meta =~ that.meta && this.tags =~ that.tags
       case _ => false
-    protected[ir] def protIsSimilarExpr(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
+    protected[ir] def protIsSimilarTo(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
       false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]

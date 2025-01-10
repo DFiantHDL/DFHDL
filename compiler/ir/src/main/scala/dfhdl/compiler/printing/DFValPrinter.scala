@@ -137,7 +137,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dv: Timer.IsActive       => csTimerIsActive(dv)
       case dv: NOTHING              => csNOTHING(dv)
   def csDFValNamed(dfVal: DFVal): String
-  final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner): String =
+  final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner | DFMember.Empty): String =
     dfVal.stripPortSel match
       case expr: CanBeExpr if expr.isAnonymous => csDFValExpr(expr)
       case PortOfDesignDef(Modifier.OUT, design) =>
@@ -241,7 +241,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case (t, f) if t == f => // ident
         // an ident is used as a placeholder and therefore does not require
         // applying brackets
-        val callOwner = dfVal.getOwner
+        val callOwner = dfVal.ownerRef.get
         printer.csDFValRef(relVal, callOwner)
       case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
         assert(tWidth == fWidth + 1)

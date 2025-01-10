@@ -220,6 +220,17 @@ extension (db: DB)
           ret
         // skip over empty move
         case (rc, (origMember, Patch.Move(Nil, _, config))) => rc
+        // handling move to global parameters position (before the top design)
+        case (
+              rc,
+              (
+                origMember: DFDesignBlock,
+                Patch.Move(movedMembers, origOwner, Patch.Move.Config.Before)
+              )
+            ) if origMember.isTop =>
+          movedMembers.foldLeft(rc) { case (rc, m) =>
+            rc.changeRef(m.ownerRef, DFMember.Empty)
+          }
         case (rc, (origMember, Patch.Move(movedMembers, origOwner, config))) =>
           val newOwner = config match
             case Patch.Move.Config.InsideFirst => origMember
@@ -358,7 +369,7 @@ extension (db: DB)
     ): List[DFMember] =
       waiting match
         case m :: rest =>
-          var added = List.empty[DFMember]
+          var added: List[DFMember] = Nil
           val outgoing = patchTable.get(m) match
             case Some(Patch.Replace(r, config, _)) =>
               config match
@@ -368,9 +379,20 @@ extension (db: DB)
                   ??? // Not possible since we filtered these out
             case Some(Patch.Add(db, config)) =>
               val notTop = db.members.drop(1) // adding the members without the Top design block
+              // `outGoingOverride` will always be an empty list unless we add global members before top
+              var outGoingOverride: List[DFMember] = Nil
+              // mutating `added`
               added = config match
-                case Patch.Add.Config.After  => m :: notTop
-                case Patch.Add.Config.Before => notTop :+ m
+                case Patch.Add.Config.After => m :: notTop
+                case Patch.Add.Config.Before =>
+                  m match
+                    // adding global members before top is returned directly to `outgoing`
+                    // and `added` gets an empty list
+                    case top: DFDesignBlock if top.isTop =>
+                      outGoingOverride = notTop :+ m
+                      Nil
+                    // otherwise (regular members addition), `added` gets the members
+                    case _ => notTop :+ m
                 case Patch.Add.Config.ReplaceWithMemberN(
                       n,
                       Patch.Replace.Config.ChangeRefOnly,
@@ -390,7 +412,7 @@ extension (db: DB)
                   ??? // Not possible since we replaced it to an `After`
                 case Patch.Add.Config.InsideLast =>
                   ??? // Not possible since we replaced it to an `After`
-              Nil
+              outGoingOverride
             case Some(Patch.Move(movedMembers, _, config)) =>
               config match
                 case Patch.Move.Config.After  => m :: movedMembers

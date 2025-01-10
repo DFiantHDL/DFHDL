@@ -8,6 +8,7 @@ sealed trait DFRef[+M <: DFMember] derives CanEqual:
   val refType: ClassTag[M @uncheckedVariance]
   final def =~(that: DFRefAny)(using MemberGetSet): Boolean = this.get =~ that.get
   def get(using getSet: MemberGetSet): M = getSet(this)
+  def getOption(using getSet: MemberGetSet): Option[M] = getSet.getOption(this)
   def copyAsNewRef: this.type
   override def toString: String = s"<${this.hashString}>"
 
@@ -62,10 +63,20 @@ object IntParamRef:
       case _                  => None
     def =~(that: IntParamRef)(using MemberGetSet): Boolean =
       (intParamRef, that) match
+        case (thisRef: DFRef.TypeRef, thatRef: DFRef.TypeRef) => thisRef =~ thatRef
+        case (thisInt: Int, thatInt: Int)                     => thisInt == thatInt
+        case _                                                => false
+    def isSimilarTo(that: IntParamRef)(using MemberGetSet): Boolean =
+      def fakeConst(value: Int): DFVal.Const =
+        DFVal.Const(DFInt32, Some(BigInt(value)), DFRef.OneWay.Empty, Meta.empty, DFTags.empty)
+      (intParamRef, that) match
         case (thisRef: DFRef.TypeRef, thatRef: DFRef.TypeRef) =>
-          thisRef.get.isSimilarExpr(thatRef.get)
+          thisRef.get.isSimilarTo(thatRef.get)
         case (thisInt: Int, thatInt: Int) => thisInt == thatInt
-        case _                            => false
+        case (thisRef: DFRef.TypeRef, thatInt: Int) =>
+          thisRef.get.isSimilarTo(fakeConst(thatInt))
+        case (thisInt: Int, thatRef: DFRef.TypeRef) =>
+          thatRef.get.isSimilarTo(fakeConst(thisInt))
     def copyAsNewRef: IntParamRef = intParamRef match
       case ref: DFRef.TypeRef => ref.copyAsNewRef
       case _                  => intParamRef
