@@ -105,7 +105,7 @@ markdown_extensions:
     - abbr
     - attr_list  
     - md_in_html  
-    - admonition
+    - pymdownx.blocks.admonition
     - pymdownx.blocks.html
     - pymdownx.snippets:
         check_paths: true
@@ -123,7 +123,7 @@ markdown_extensions:
             format: !!python/name:pymdownx.superfences.fence_code_format
     - pymdownx.tabbed:
         alternate_style: true 
-    - pymdownx.details
+    - pymdownx.blocks.details
     - pymdownx.inlinehilite: 
         custom_inline:
           - name: math
@@ -172,4 +172,3 @@ plugins:
   - redirects:
       redirect_maps:
           'LEGaTO/index.md': 'index.md'
-

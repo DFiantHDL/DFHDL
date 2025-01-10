@@ -8,18 +8,21 @@ Since DFHDL is a Scala library, were are creating a Scala program that takes DFH
 --8<-- "docs/getting-started/hello-world/scala-project/Counter8.scala"
 ```
 
-!!! summary "Writing a DFHDL compilation program – as easy as 01-10-11!"
-    1. `#!scala import dfhdl.*` once per source file, to import all the required namespace objects, types, and functionality.
-    2. `#!scala class _design_name_ extends RTDesign:` to define your register-transfer (RT) domain design. Populate your design with the required interface and functionality. DFHDL supports two additional design domains: dataflow (DF), and event-driven (ED).
-    3. Add `#!scala @top` annotation to your top-level design (e.g., `#!scala @top class top_design_name_ ...`) to automatically create a compilation program entry point for the design, instantiate it, elaborate it, compile it to Verilog or VHDL (see compiler options), and finally commit the files to disk.
-
+/// admonition | Writing a DFHDL compilation program – as easy as 01-10-11!
+    type: summary
+1. `#!scala import dfhdl.*` once per source file, to import all the required namespace objects, types, and functionality.
+2. `#!scala class _design_name_ extends RTDesign:` to define your register-transfer (RT) domain design. Populate your design with the required interface and functionality. DFHDL supports two additional design domains: dataflow (DF), and event-driven (ED).
+3. Add `#!scala @top` annotation to your top-level design (e.g., `#!scala @top class top_design_name_ ...`) to automatically create a compilation program entry point for the design, instantiate it, elaborate it, compile it to Verilog or VHDL (see compiler options), and finally commit the files to disk.
+///
 
 ## Run It In Your Browser
 
-???dfhdl "Run it here"
-    ```scastie
-    --8<-- "docs/getting-started/hello-world/scala-project/Counter8.scala"
-    ```
+/// details | Run it here
+    type: dfhdl
+```scastie
+--8<-- "docs/getting-started/hello-world/scala-project/Counter8.scala"
+```
+///
 
 For more examples that are available to run in your browser, see the [relevant section][run-in-browser].
 
@@ -35,11 +38,12 @@ You have several options to run Scala programs on your system:
 
 ### Scala Single File
 
-???dfhdl "View the scala single file example"
-
-    ```{.scala .copy title="Counter8.scala"}
-    --8<-- "docs/getting-started/hello-world/scala-single-file/Counter8.scala"
-    ```
+/// details | View the scala single file example
+    type: dfhdl
+```{.scala .copy title="Counter8.scala"}
+--8<-- "docs/getting-started/hello-world/scala-single-file/Counter8.scala"
+```
+///
 
 ```{.console .copy linenums="0" title="Download and run in your terminal"}
 curl -o Counter8.scala https://dfianthdl.github.io/getting-started/hello-world/scala-single-file/Counter8.scala
@@ -50,15 +54,16 @@ For more information, please run `scala run --help` or consult the [online docum
 
 ### Scala Project
 
-???dfhdl "View the scala project files example"
+/// details | View the scala project files example
+    type: dfhdl
+```{.scala .copy title="projectFolder/project.scala"}
+--8<-- "docs/getting-started/hello-world/scala-project/project.scala"
+```
 
-    ```{.scala .copy title="projectFolder/project.scala"}
-    --8<-- "docs/getting-started/hello-world/scala-project/project.scala"
-    ```
-
-    ```{.scala .copy title="projectFolder/Counter8.scala"}
-    --8<-- "docs/getting-started/hello-world/scala-project/Counter8.scala"
-    ```
+```{.scala .copy title="projectFolder/Counter8.scala"}
+--8<-- "docs/getting-started/hello-world/scala-project/Counter8.scala"
+```
+///
 
 ```{.console .copy linenums="0" title="Download and run in your terminal"}
 curl -o project.scala https://dfianthdl.github.io/getting-started/hello-world/scala-project/project.scala
@@ -86,11 +91,12 @@ For more information, please consult the [sbt documentation](https://www.scala-s
 
 We recommend to actively use [Scalafmt](https://scalameta.org/scalafmt/){target="_blank"}, a code formatter for Scala that integrates well with your toolchain. The following setting is recommended for DFHDL designs:
 
-???dfhdl "View the Scalafmt recommended configuration file"
-  
-    ```{.toml .copy title="projectFolder/.scalafmt.conf"}
-    --8<-- "docs/getting-started/hello-world/scala-project/.scalafmt.conf"
-    ```
+/// details | View the Scalafmt recommended configuration file
+    type: dfhdl
+```{.toml .copy title="projectFolder/.scalafmt.conf"}
+--8<-- "docs/getting-started/hello-world/scala-project/.scalafmt.conf"
+```
+///
 
 ```{.console .copy linenums="0" title="Download it via your terminal"}
 curl -o .scalafmt.conf https://dfianthdl.github.io/getting-started/hello-world/scala-project/.scalafmt.conf
