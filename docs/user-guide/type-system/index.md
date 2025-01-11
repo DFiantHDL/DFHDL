@@ -15,7 +15,7 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
 
     ---
 
-    Most type checking is done statically and enforces strict rules that prevent ambiguity.
+    Most type checks are performed statically, enforcing strict rules that help avoid ambiguity.
 
     ```scala linenums="0"
     //8-bit unsigned input
@@ -35,7 +35,7 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
 
     ---
 
-    Each DFHDL value has a known bit-width, which is used to enforce various rules to prevent data loss.
+    Each DFHDL value has a defined bit-width, which is used to enforce rules that prevent data loss.
 
     ```scala linenums="0"
     //8-bit unsigned input
@@ -54,7 +54,7 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
 
     ---
 
-    Types can be composed through [structs](#DFStruct) or [tuples](#DFTuple) to form new types.
+    Types can be composed through [structs](#DFStruct) or [tuples](#DFTuple) to form new, combined types.
 
     ```scala linenums="0"
     //new Pixel type as a structure
@@ -73,7 +73,7 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
 
     ---
 
-    New types can be defined, and methods can be added for new or existing types.
+    New types can be defined, and methods can be added for entirely new or existing types.
 
     ```scala linenums="0"
     //new AESByte type of unsigned 8-bit num
