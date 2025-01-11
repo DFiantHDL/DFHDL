@@ -2,7 +2,7 @@
 
 ## The Basic DFHDL Program
 
-Since DFHDL is a Scala library, were are creating a Scala program that takes DFHDL designs and compiles (transpiles) them into lower representations (e.g., VHDL or Verilog). As such, some of DFHDL's compilation process is done statically via the Scala compiler and the rest during the Scala runtime execution. The Scala code below describes a program that runs the DFHDL compiler on an 8-bit overlapping counter design, `Counter8`. 
+Since DFHDL is a Scala library, we are creating a Scala program that takes DFHDL designs and compiles (transpiles) them into lower representations (e.g., VHDL or Verilog). As such, some of DFHDL's compilation process is done statically via the Scala compiler and the rest during the Scala runtime execution. The Scala code below describes a program that runs the DFHDL compiler on an 8-bit overlapping counter design, `Counter8`. 
 
 ```{.scala .copy}
 --8<-- "docs/getting-started/hello-world/scala-project/Counter8.scala"
@@ -73,10 +73,9 @@ scala run .
 
 For more information, please run `scala run --help` or consult the [online documentation](https://scala-cli.virtuslab.org/docs/commands/run){target="_blank"}.
 
-
 ### sbt Project
 
-The best way to get started with a DFHDL sbt project, is clone our template from github:
+The best way to get started with a DFHDL sbt project is to clone our template from GitHub:
 
 ```{.console .copy linenums="0" title="Clone and run in your terminal"}
 git clone https://github.com/DFiantHDL/dfhdl-template
@@ -86,10 +85,9 @@ sbt run
 
 For more information, please consult the [sbt documentation](https://www.scala-sbt.org/1.x/docs/){target="_blank"}.
 
-
 ### Recommended Scala Formatting for DFHDL
 
-We recommend to actively use [Scalafmt](https://scalameta.org/scalafmt/){target="_blank"}, a code formatter for Scala that integrates well with your toolchain. The following setting is recommended for DFHDL designs:
+We recommend actively using [Scalafmt](https://scalameta.org/scalafmt/){target="_blank"}, a code formatter for Scala that integrates well with your toolchain. The following setting is recommended for DFHDL designs:
 
 /// details | View the Scalafmt recommended configuration file
     type: dfhdl
