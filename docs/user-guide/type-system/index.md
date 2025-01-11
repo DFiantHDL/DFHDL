@@ -35,7 +35,7 @@ DFHDL is a Scala library and thus inherently supports type-safe and modern langu
 
     ---
 
-    Each DFHDL value has known bit-width, which is used to enforce various rules to prevent data loss.
+    Each DFHDL value has a known bit-width, which is used to enforce various rules to prevent data loss.
 
     ```scala linenums="0"
     //8-bit unsigned input
@@ -135,7 +135,7 @@ Each DFHDL value is simply a Scala object that has two critical fields:
 
 /// details | Internal Type-System Hierarchy (For Advanced Users)
     type: dfhdl
-DFHDL brings type-driven development concepts to hardware design, by creating an extensible type class hierarchy. Any DFHDL value is a Scala object instance of the class `DFVal[T <: DFTypeAny, M <: ModifierAny]`, where `T` is the type (shape) of value and `M` is a modifier that sets additional characteristics of the DFHDL value, like if its assignable, connectable, initializable, etc. 
+DFHDL brings type-driven development concepts to hardware design, by creating an extensible type class hierarchy. Any DFHDL value is a Scala object instance of the class `DFVal[T <: DFTypeAny, M <: ModifierAny]`, where `T` is the type (shape) of value and `M` is a modifier that sets additional characteristics of the DFHDL value, like if it's assignable, connectable, initializable, etc. 
 
 ![type-system](type-system-light.png#only-light)
 ![type-system](type-system-dark.png#only-dark)
@@ -346,7 +346,7 @@ Constant values are not connectable, and can never be the receiving (drain/consu
 Constant values are immutable and cannot be assigned, meaning they can never be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation.
 
 ## DFHDL Value Statement Order & Referencing
-Any DFHDL value must be declared before it can be referenced in code. Other than this (pretty intuitive) limitation, no other limitations exists and ports, variables, constants, and other values may be freely distributed within their approved scope space. During the [compilation process][compilation], you can notice that the compiler reorders the port declarations so that they always come second to [constant declarations][DFConst], and variables right after.
+Any DFHDL value must be declared before it can be referenced in code. Other than this (pretty intuitive) limitation, no other limitations exist and ports, variables, constants, and other values may be freely distributed within their approved scope space. During the [compilation process][compilation], you can notice that the compiler reorders the port declarations so that they always come second to [constant declarations][DFConst], and variables right after.
 
 ## DFHDL Value Connections {#connection}
 After ([or during][via-connections]) a design instantiation, its ports need to be connected to other ports or values of the same DFType by applying the `<>` operator. Variables can also be connected and used as intermediate wiring between ports. Output ports can be directly referenced (read) without being connected to an intermediate variable. For more rules about design and port connectivity, see the [relevant section][connectivity].
