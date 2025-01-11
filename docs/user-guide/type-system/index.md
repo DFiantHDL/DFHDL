@@ -730,37 +730,38 @@ first, in an `if` condition directly; and second, in an `if` condition after a S
 When referenced directly, the `if` is elaborated as-is, but when the `if` is applied on the extracted Scala value, 
 the `if` is completely removed and either the block inside the `if` is elaborated when the argument is true or completely removed if false.
 
-=== "`Foo`"
+/// tab | `Foo`
+```scala
+class Foo(
+    val arg: Boolean <> CONST
+) extends DFDesign:
+    val o = Bit <> OUT
+    if (!arg) o := 1 
+    if (arg.toScalaBoolean) o := 0
+```
+///
 
-    ```scala
-    class Foo(
-        val arg: Boolean <> CONST
-    ) extends DFDesign:
-      val o = Bit <> OUT
-      if (!arg) o := 1 
-      if (arg.toScalaBoolean) o := 0
-    ```
 
-=== "`Foo(true)`"
+/// tab | `Foo(true)`
+```scala
+class Foo(
+    val arg: Boolean <> CONST
+) extends DFDesign:
+    val o = Bit <> OUT
+    if (!arg) o := 1 
+    o := 0
+```
+///
 
-    ```scala
-    class Foo(
-        val arg: Boolean <> CONST
-    ) extends DFDesign:
-      val o = Bit <> OUT
-      if (!arg) o := 1 
-      o := 0
-    ```
-
-=== "`Foo(false)`"
-
-    ```scala
-    class Foo(
-        val arg: Boolean <> CONST
-    ) extends DFDesign:
-      val o = Bit <> OUT
-      if (!arg) o := 1 
-    ```
+/// tab | `Foo(false)`
+```scala
+class Foo(
+    val arg: Boolean <> CONST
+) extends DFDesign:
+    val o = Bit <> OUT
+    if (!arg) o := 1 
+```
+///
 
 /// details | Runnable example
     type: dfhdl
@@ -956,29 +957,29 @@ b8 := (1, s4, b1, b"10")
 ### Concatenated Assignment
 DFHDL supports a special-case assignment of concatenated DFHDL Bits variables, using a Scala `Tuple` syntax on LHS of the assignment operator. Both LHS and RHS bits width must be the same. This assignment is just syntactic sugar for multiple separate assignments and carried out during the design [elaboration][elaboration]. The assignment ordering is from the first value at most-significant position down to the last value at least-significant position.
 
-=== "`Foo Declaration`"
+/// tab | `Foo Declaration`
+```scala
+class Foo extends DFDesign:
+  val i4 = Bits(4) <> IN
+  val b2 = Bits(2) <> OUT
+  val b3 = Bits(3) <> OUT
+  val b5 = Bits(5) <> OUT
+  (b2, b5, b3) := (b"101", i4, b"111")
+```
+///
 
-    ```scala
-    class Foo extends DFDesign:
-      val i4 = Bits(4) <> IN
-      val b2 = Bits(2) <> OUT
-      val b3 = Bits(3) <> OUT
-      val b5 = Bits(5) <> OUT
-      (b2, b5, b3) := (b"101", i4, b"111")
-    ```
-
-=== "`Foo Elaboration`"
-
-    ```scala
-    class Foo extends DFDesign:
-      val i4 = Bits(4) <> IN
-      val b2 = Bits(2) <> OUT
-      val b3 = Bits(3) <> OUT
-      val b5 = Bits(5) <> OUT
-      b2 := b"10"
-      b5 := (b"1", i4).toBits
-      b3 := b"111"
-    ```
+/// tab | `Foo Elaboration`
+```scala
+class Foo extends DFDesign:
+  val i4 = Bits(4) <> IN
+  val b2 = Bits(2) <> OUT
+  val b3 = Bits(3) <> OUT
+  val b5 = Bits(5) <> OUT
+  b2 := b"10"
+  b5 := (b"1", i4).toBits
+  b3 := b"111"
+```
+///
 
 /// details | Runnable example
     type: dfhdl
