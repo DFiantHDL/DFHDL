@@ -7,7 +7,7 @@ Help me ChatGPT, you're my only hope
 ## Summary
 
 /// admonition | Module Definition
-    type: rtl
+    type: verilog
 <div class="grid" markdown>
 
 ```sv linenums="0" title="Verilog"
@@ -52,7 +52,7 @@ end AndGate
 ///
 
 /// admonition | Parameter Declarations
-    type: rtl
+    type: verilog
 <div class="grid" markdown>
 
 ```sv linenums="0" title="Verilog"
@@ -95,7 +95,7 @@ end Concat
 ///
 
 /// admonition | logic/reg/wire
-    type: rtl
+    type: verilog
 <div class="grid" markdown>
 
 ```sv linenums="0" title="Verilog"

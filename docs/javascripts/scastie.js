@@ -37,19 +37,39 @@ function updateScastieTheme() {
   scastie.Embedded('.scastie', settings);
 }
 
-function updateCodeBlocks(preferredLanguage) {
+function updateCodeBlocksAndDetails(preferredLanguage) {
   var codeBlocks = document.querySelectorAll('.scastie'); // Assuming all targeted code blocks have this class
   codeBlocks.forEach(function(codeBlock) {
     let content = codeBlock.textContent;
     if (preferredLanguage === "Verilog") {
       content = content.replace(/(backends\.)vhdl/g, '$1verilog');
-    } else {
+    } else { // VHDL
       content = content.replace(/(backends\.)verilog/g, '$1vhdl');
     }
     codeBlock.textContent = content;
   });
   if (codeBlocks.length > 0) {
     updateScastieTheme();
+  }
+  // Open/close details based on preferred language
+  if (preferredLanguage === "Verilog") {
+    var details = document.querySelectorAll('.verilog'); 
+    details.forEach(function(div){
+      div.setAttribute("open","true");
+    })
+    var details = document.querySelectorAll('.vhdl'); 
+    details.forEach(function(div){
+      div.removeAttribute("open");
+    })
+  } else { // VHDL
+    var details = document.querySelectorAll('.vhdl'); 
+    details.forEach(function(div){
+      div.setAttribute("open","true");
+    })
+    var details = document.querySelectorAll('.verilog'); 
+    details.forEach(function(div){
+      div.removeAttribute("open");
+    })
   }
 }
 
@@ -62,12 +82,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var preferredLanguage = currentLang.textContent === "Verilog" ? "VHDL" : "Verilog";
     localStorage.setItem('preferredLanguage', preferredLanguage);
     currentLang.textContent = preferredLanguage;
-    updateCodeBlocks(preferredLanguage);
+    updateCodeBlocksAndDetails(preferredLanguage);
   });
   
   if (savedLanguage) {
     currentLang.textContent = savedLanguage;
-    updateCodeBlocks(savedLanguage);
+    updateCodeBlocksAndDetails(savedLanguage);
   }
   else {
     updateScastieTheme(); // Set theme on initial load

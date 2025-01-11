@@ -305,13 +305,13 @@ Ports can be grouped together in dedicated [interfaces][interfaces].
 ### Transitioning {#Dcl-transitioning}
 
 /// details | Differences from Verilog
-    type: rtl
+    type: verilog
 * DFHDL supports more abstraction domains, and not just ED abstraction like Verilog does.
 * The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
 ///
 
 /// details | Differences from VHDL
-    type: rtl
+    type: vhdl
 TODO
 ///
 
@@ -633,13 +633,13 @@ class Foo extends EDDesign:
 ```
 
 /// details | Transitioning from Verilog
-    type: rtl
+    type: verilog
 Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the Verilog `posedge x` and `negedge x`, respectively. 
 In future releases these operations will have an expanded functionality under the other design domains.
 ///
 
 /// details | Transitioning from VHDL
-    type: rtl
+    type: vhdl
 Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the VHDL `rising_edge(x)` and `falling_edge(x)`, respectively.
 In future releases these operations will have an expanded functionality under the other design domains.
 ///
@@ -689,7 +689,7 @@ val sc: Boolean = true && true
 ```
 
 /// details | Transitioning from Verilog
-    type: rtl
+    type: verilog
 Under the ED domain, the following operations are equivalent:
 
 | DFHDL Operation | Verilog Operation |
@@ -701,7 +701,7 @@ Under the ED domain, the following operations are equivalent:
 ///
 
 /// details | Transitioning from VHDL
-    type: rtl
+    type: vhdl
 Under the ED domain, the following operations are equivalent:
 
 | DFHDL Operation | VHDL Operation    |
@@ -820,13 +820,13 @@ val b6: Bits[6] <> CONST = all(0)
 ```
 
 /// details | Transitioning from Verilog
-    type: rtl
+    type: verilog
 * __Specifying a width instead of an index range:__ In Verilog bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `[width-1:0]` sized vector (for [generic vectors][DFVector] the element order the opposite).
 * __Additional constructors:__ DFHDL provides additional constructs to simplify some common Verilog bit vector declaration. For example, instead of declaring `reg [$clog2(DEPTH)-1:0] addr` in Verilog, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
 ///
 
 /// details | Transitioning from VHDL
-    type: rtl
+    type: vhdl
 * __Specifying a width instead of an index range:__ In VHDL bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `(width-1 downto 0)` sized vector (for [generic vectors][DFVector] the element order the opposite).
 * __Additional constructors:__ DFHDL provides additional constructs to simplify some common VHDL bit vector declaration. For example, instead of declaring `signal addr: std_logic_vector(clog2(DEPTH)-1 downto 0)` in VHDL, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
 ///
@@ -870,12 +870,12 @@ b"$p'0" // Value = 0....0 (p-bits wide)
 ```
 
 /// details | Transitioning from Verilog
-    type: rtl
+    type: verilog
 This interpolation covers the Verilog binary literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
 ///
 
 /// details | Transitioning from VHDL
-    type: rtl
+    type: vhdl
 This interpolation covers the VHDL binary literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
 ///
 
@@ -916,12 +916,12 @@ h"$width'${value}" //Value = 0011111111
 ```
 
 /// details | Transitioning from Verilog
-    type: rtl
+    type: verilog
 This interpolation covers the Verilog hexadecimal literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
 ///
 
 /// details | Transitioning from VHDL
-    type: rtl
+    type: vhdl
 This interpolation covers the VHDL hexadecimal literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
 ///
 
