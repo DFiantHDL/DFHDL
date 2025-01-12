@@ -1,0 +1,17 @@
+:root {
+  --md-admonition-icon--verilog: url('data:image/svg+xml;charset=utf-8,<svg enable-background="new 0 0 52 52" id="Layer_1" version="1.1" viewBox="0 0 52 52" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g><path d="M49,19.5v-2h-6.9984131v-7.4957886H14.4016113l-4.4000244,4.5300293v27.4699707H17.5V49h2v-6.9957886h3V49h2v-6.9957886h3   V49h2v-6.9957886h3V49h2v-6.9957886h2.8115845l4.6900024-5.6400146V34.5H49v-2h-6.9984131v-3H49v-2h-6.9984131v-3H49v-2h-6.9984131   v-3H49z M36.0015869,33.5042114c0,1.6500244-1.3499756,3-3,3h-14c-1.6599731,0-3-1.3499756-3-3v-14c0-1.6599731,1.3400269-3,3-3h14   c1.6500244,0,3,1.3400269,3,3V33.5042114z"/><rect height="2" width="7" x="3" y="17.5"/><rect height="2" width="7" x="3" y="22.5"/><rect height="2" width="7" x="3" y="27.5"/><rect height="2" width="7" x="3" y="32.5"/><rect height="7" width="2" x="32.5" y="3"/><rect height="7" width="2" x="27.5" y="3"/><rect height="7" width="2" x="22.5" y="3"/><rect height="7" width="2" x="17.5" y="3"/></g></svg>')
+}
+.md-typeset .admonition.verilog,
+.md-typeset summary.verilog {
+  /* border-color: rgb(43, 155, 70); */
+}
+.md-typeset .verilog > .admonition-title,
+.md-typeset .verilog > summary {
+  /* background-color: rgba(43, 155, 70, 0.1);  */
+}
+.md-typeset .verilog > .admonition-title::before,
+.md-typeset .verilog > summary::before {
+  background-color: var(--md-default-fg-color);
+  -webkit-mask-image: var(--md-admonition-icon--verilog);
+          mask-image: var(--md-admonition-icon--verilog);
+}

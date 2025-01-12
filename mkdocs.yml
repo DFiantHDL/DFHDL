@@ -105,8 +105,12 @@ markdown_extensions:
     - abbr
     - attr_list  
     - md_in_html  
-    - admonition
+    - pymdownx.blocks.admonition
     - pymdownx.blocks.html
+    - pymdownx.blocks.details
+    - pymdownx.blocks.caption
+    - pymdownx.blocks.tab:
+        alternate_style: true 
     - pymdownx.snippets:
         check_paths: true
         auto_append:
@@ -121,9 +125,6 @@ markdown_extensions:
           - name: scastie
             class: scastie
             format: !!python/name:pymdownx.superfences.fence_code_format
-    - pymdownx.tabbed:
-        alternate_style: true 
-    - pymdownx.details
     - pymdownx.inlinehilite: 
         custom_inline:
           - name: math
@@ -154,7 +155,8 @@ extra_css:
   - css/vs.css
   - css/lhs-permalink.css
   - css/dfhdl-admonition.css
-  - css/rtl-admonition.css
+  - css/verilog-admonition.css
+  - css/vhdl-admonition.css
   - css/d2.css
   - css/schemdraw.css
   - css/operation-tables.css
@@ -172,4 +174,3 @@ plugins:
   - redirects:
       redirect_maps:
           'LEGaTO/index.md': 'index.md'
-

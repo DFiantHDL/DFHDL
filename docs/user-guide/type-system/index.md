@@ -6,138 +6,142 @@ typora-copy-images-to: ./
 
 DFHDL is a Scala library and thus inherently supports type-safe and modern language constructs. This chapter covers the rules and API of this type system. 
 
-??? info "Check out the benefits of the DFHDL type system"
+/// details | Check out the benefits of the DFHDL type system
+    type: info
 
-    <div class="grid cards" markdown>
-    
-    - :mechanical_arm:{ .lg .middle } __Strongly-typed__
-    
-        ---
-    
-        Most type checking is done statically and enforces strict rules that prevent ambiguity.
-    
-        ```scala linenums="0"
-        //8-bit unsigned input
-        val u8 = UInt(8) <> IN 
-        //2-bit unsigned input
-        val u2 = UInt(2) <> IN 
-        val y1 = u8 - u2 //ok
-        // Error prevents ambiguous behavior 
-        // when a wider num is subtracted from 
-        // a narrow num.
-        val y2 = u2 - u8 //error
-        ```
-        ![strongly-typed-example](strongly-typed-example.png)
+<div class="grid cards" markdown>
 
+- :mechanical_arm:{ .lg .middle } __Strongly-typed__
 
-    -   :material-bullseye-arrow:{ .lg .middle } __Bit-accurate__
-    
-        ---
-    
-        Each DFHDL value has known bit-width, which is used to enforce various rules to prevent data loss.
-    
-        ```scala linenums="0"
-        //8-bit unsigned input
-        val u8 = UInt(8) <> IN  
-        //8-bit signed output
-        val s8 = SInt(8) <> OUT 
-        // Error prevents data loss when u8 is 
-        // converted to a 9-bit signed to be 
-        // assigned to s8, which is only 8-bits 
-        // wide.
-        s8 := u8 //error
-        ```
-        ![bit-accurate-example](bit-accurate-example.png)
-    
-    -   :simple-googlecloudcomposer:{ .lg .middle } __Composable__
-    
-        ---
-    
-        Types can be composed through [structs](#DFStruct) or [tuples](#DFTuple) to form new types.
-    
-        ```scala linenums="0"
-        //new Pixel type as a structure
-        //of two unsigned 8-bit numbers
-        case class Pixel(
-          x: UInt[8] <> VAL,
-          y: UInt[8] <> VAL
-        ) extends Struct
-    
-        val pixel = Pixel <> VAR
-        //select and assign fields
-        pixel.x := pixel.y
-        ```
-    
-    -   :material-expand-all:{ .lg .middle } __Expandable__
-    
-        ---
-    
-        New types can be defined, and methods can be added for new or existing types.
-    
-        ```scala linenums="0"
-        //new AESByte type of unsigned 8-bit num
-        case class AESByte() 
-          extends Opaque(UInt(8))
-        //define addition between two AESByte
-        //values as a xor operation
-        extension (lhs: AESByte <> VAL)
-          def +(rhs: AESByte <> VAL): AESByte <> DFRET =
-            (lhs.actual ^ rhs.actual).as(AESByte)
-        val x, y = AESByte <> VAR
-        val z = x + y //actually XOR
-        ```
-    
-      </div>
+    ---
 
-!!! abstract "DFHDL Values"
-    Each DFHDL value is simply a Scala object that has two critical fields:
+    Most type checks are performed statically, enforcing strict rules that help avoid ambiguity.
 
-    <div class="grid cards" markdown>
-
-    -   :material-shape-plus:{ .lg .middle } __(Shape) Type, aka DFType__
-
-        ---
-        Determines the bit-width and bit-structure of the value. Currently the supported types are: 
-
-        * [DFHDL Bit/Boolean: `Bit`/`Boolean`][DFBitOrBool] 
-        * [DFHDL Bit Vector: `Bits`][DFBits]
-        * [DFHDL Integer: `UInt`/`SInt`/`Int`][DFDecimal]
-        * > DFHDL Fix-Point (future work)
-        * > DFHDL Flt-Point (future work)
-        * > DFHDL String (future work)
-        * [DFHDL Enumeration: `... extends Encoding`][DFEnum]
-        * [DFHDL Vector: `_CellType_ X _Dim_`][DFVector]
-        * [DFHDL Structure: `... extends Struct`][DFStruct]
-        * [DFHDL Tuple: `(T1, T2, ..., Tn)`][DFTuple]
-        * [DFHDL Opaque: `... extends Opaque`][DFOpaque]
-        * [DFHDL Unit (Void): `Unit`][DFUnit]
-
-    -   :simple-openaccess:{ .lg .middle } __(Access) Modifier__
-
-        ---
-
-        Determines what kind of access the user has on the value. User explicit modifiers:
-        
-        * [Variable: `VAR[.REG][.SHARED]`][Dcl]
-        * [Port: `IN`/`OUT[.REG]`/`INOUT`][Dcl]
-        * [Constant: `CONST`][DFConst]
-        * [Struct Field: `VAL`][DFStruct]
-        * [Method Param: `VAL`][DesignDef]
-        * [Method Return: `DFRET`/`RTRET`/`EDRET`][DesignDef]
-
-        Although this mechanism can be quite complex under the hood, the explicit modifiers available to the user are straightforward.
-        
-    </div>
+    ```scala linenums="0"
+    //8-bit unsigned input
+    val u8 = UInt(8) <> IN 
+    //2-bit unsigned input
+    val u2 = UInt(2) <> IN 
+    val y1 = u8 - u2 //ok
+    // Error prevents ambiguous behavior 
+    // when a wider num is subtracted from 
+    // a narrow num.
+    val y2 = u2 - u8 //error
+    ```
+    ![strongly-typed-example](strongly-typed-example.png)
 
 
-??? dfhdl "Internal Type-System Hierarchy (For Advanced Users)"
-	DFHDL brings type-driven development concepts to hardware design, by creating an extensible type class hierarchy. Any DFHDL value is a Scala object instance of the class `DFVal[T <: DFTypeAny, M <: ModifierAny]`, where `T` is the type (shape) of value and `M` is a modifier that sets additional characteristics of the DFHDL value, like if its assignable, connectable, initializable, etc. 
+-   :material-bullseye-arrow:{ .lg .middle } __Bit-accurate__
 
-	![type-system](type-system-light.png#only-light)
-	![type-system](type-system-dark.png#only-dark)
-	
-	For example, the Scala value `x` which references a port declared like `#!scala val x = Boolean <> IN` has the type `DFVal[DFBool, Modifier.Dcl]`.
+    ---
 
+    Each DFHDL value has a defined bit-width, which is used to enforce rules that prevent data loss.
+
+    ```scala linenums="0"
+    //8-bit unsigned input
+    val u8 = UInt(8) <> IN  
+    //8-bit signed output
+    val s8 = SInt(8) <> OUT 
+    // Error prevents data loss when u8 is 
+    // converted to a 9-bit signed to be 
+    // assigned to s8, which is only 8-bits 
+    // wide.
+    s8 := u8 //error
+    ```
+    ![bit-accurate-example](bit-accurate-example.png)
+
+-   :simple-googlecloudcomposer:{ .lg .middle } __Composable__
+
+    ---
+
+    Types can be composed through [structs](#DFStruct) or [tuples](#DFTuple) to form new, combined types.
+
+    ```scala linenums="0"
+    //new Pixel type as a structure
+    //of two unsigned 8-bit numbers
+    case class Pixel(
+      x: UInt[8] <> VAL,
+      y: UInt[8] <> VAL
+    ) extends Struct
+
+    val pixel = Pixel <> VAR
+    //select and assign fields
+    pixel.x := pixel.y
+    ```
+
+-   :material-expand-all:{ .lg .middle } __Expandable__
+
+    ---
+
+    New types can be defined, and methods can be added for entirely new or existing types.
+
+    ```scala linenums="0"
+    //new AESByte type of unsigned 8-bit num
+    case class AESByte() 
+      extends Opaque(UInt(8))
+    //define addition between two AESByte
+    //values as a xor operation
+    extension (lhs: AESByte <> VAL)
+      def +(rhs: AESByte <> VAL): AESByte <> DFRET =
+        (lhs.actual ^ rhs.actual).as(AESByte)
+    val x, y = AESByte <> VAR
+    val z = x + y //actually XOR
+    ```
+
+  </div>
+///
+
+/// admonition | DFHDL Values
+    type: abstract
+Each DFHDL value is simply a Scala object that has two critical fields:
+
+<div class="grid cards" markdown>
+
+-   :material-shape-plus:{ .lg .middle } __(Shape) Type, aka DFType__
+
+    ---
+    Determines the bit-width and bit-structure of the value. Currently the supported types are: 
+
+    * [DFHDL Bit/Boolean: `Bit`/`Boolean`][DFBitOrBool] 
+    * [DFHDL Bit Vector: `Bits`][DFBits]
+    * [DFHDL Integer: `UInt`/`SInt`/`Int`][DFDecimal]
+    * > DFHDL Fix-Point (future work)
+    * > DFHDL Flt-Point (future work)
+    * > DFHDL String (future work)
+    * [DFHDL Enumeration: `... extends Encoding`][DFEnum]
+    * [DFHDL Vector: `_CellType_ X _Dim_`][DFVector]
+    * [DFHDL Structure: `... extends Struct`][DFStruct]
+    * [DFHDL Tuple: `(T1, T2, ..., Tn)`][DFTuple]
+    * [DFHDL Opaque: `... extends Opaque`][DFOpaque]
+    * [DFHDL Unit (Void): `Unit`][DFUnit]
+
+-   :simple-openaccess:{ .lg .middle } __(Access) Modifier__
+
+    ---
+
+    Determines what kind of access the user has on the value. User explicit modifiers:
+    
+    * [Variable: `VAR[.REG][.SHARED]`][Dcl]
+    * [Port: `IN`/`OUT[.REG]`/`INOUT`][Dcl]
+    * [Constant: `CONST`][DFConst]
+    * [Struct Field: `VAL`][DFStruct]
+    * [Method Param: `VAL`][DesignDef]
+    * [Method Return: `DFRET`/`RTRET`/`EDRET`][DesignDef]
+
+    Although this mechanism can be quite complex under the hood, the explicit modifiers available to the user are straightforward.
+    
+</div>
+///
+
+/// details | Internal Type-System Hierarchy (For Advanced Users)
+    type: dfhdl
+DFHDL brings type-driven development concepts to hardware design, by creating an extensible type class hierarchy. Any DFHDL value is a Scala object instance of the class `DFVal[T <: DFTypeAny, M <: ModifierAny]`, where `T` is the type (shape) of value and `M` is a modifier that sets additional characteristics of the DFHDL value, like if it's assignable, connectable, initializable, etc. 
+
+![type-system](type-system-light.png#only-light)
+![type-system](type-system-dark.png#only-dark)
+
+For example, the Scala value `x` which references a port declared like `#!scala val x = Boolean <> IN` has the type `DFVal[DFBool, Modifier.Dcl]`.
+///
 
 ## Variable and Port Declarations {#Dcl}
 Ports are DFHDL values that define the inputs and outputs of a design. Variables are DFHDL values that represent internal design wiring, logic, or state.
@@ -299,19 +303,22 @@ class I2CCore extends EDDesign:
 Ports can be grouped together in dedicated [interfaces][interfaces].
 
 ### Transitioning {#Dcl-transitioning}
-??? rtl "Differences from Verilog"
-    * DFHDL supports more abstraction domains, and not just ED abstraction like Verilog does.
-    * The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
 
+/// details | Differences from Verilog
+    type: verilog
+* DFHDL supports more abstraction domains, and not just ED abstraction like Verilog does.
+* The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
+///
 
-??? rtl "Differences from VHDL"
-    Hi there
+/// details | Differences from VHDL
+    type: vhdl
+TODO
+///
 
-??? dfhdl "Differences from Scala parameters/fields"
-    Data validity
-
-    Number of outputs
-
+/// details | Differences from Scala parameters/fields
+    type: dfhdl
+TODO: Data validity, Number of outputs
+///
 
 ## Constant/Literal Values {#DFConst}
 
@@ -339,7 +346,7 @@ Constant values are not connectable, and can never be the receiving (drain/consu
 Constant values are immutable and cannot be assigned, meaning they can never be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation.
 
 ## DFHDL Value Statement Order & Referencing
-Any DFHDL value must be declared before it can be referenced in code. Other than this (pretty intuitive) limitation, no other limitations exists and ports, variables, constants, and other values may be freely distributed within their approved scope space. During the [compilation process][compilation], you can notice that the compiler reorders the port declarations so that they always come second to [constant declarations][DFConst], and variables right after.
+Any DFHDL value must be declared before it can be referenced in code. Other than this (pretty intuitive) limitation, no other limitations exist and ports, variables, constants, and other values may be freely distributed within their approved scope space. During the [compilation process][compilation], you can notice that the compiler reorders the port declarations so that they always come second to [constant declarations][DFConst], and variables right after.
 
 ## DFHDL Value Connections {#connection}
 After ([or during][via-connections]) a design instantiation, its ports need to be connected to other ports or values of the same DFType by applying the `<>` operator. Variables can also be connected and used as intermediate wiring between ports. Output ports can be directly referenced (read) without being connected to an intermediate variable. For more rules about design and port connectivity, see the [relevant section][connectivity].
@@ -410,9 +417,10 @@ Consider, for instance, the DFiant implementation of `g` in Table \ref`tbl:State
 
 Fig. 1 demonstrates a dual class definition for every type  (immutable and mutable). The naming convention helps to reason about the mutability. For example, `DFBits` and `DFBits.Var` are immutable and mutable classes, respectively. Constructing a new variable via `DFBits` (e.g, `#!scala val a = DFBits[5]`) returns the mutable `DFBits.Var[5]`. Usually, we either receive or return an immutable type, hence we do not require annotating a type with its mutable variation. In cases where we want to return a mutable type, we annotate it as an output port (see Section~\ref`sec:io_ports`).
 
-!!! warning "Don't use `var` with DFHDL values/variables"
+/// admonition | Don't use `var` with DFHDL values/variables
+    type: warning
 	Because the semantics may get confusing, we enforced a compiler error if a dataflow variable is constructed and fed into a Scala `#!scala var` reference. For example `#!scala var a = DFUInt(8)` will generate a Scala compiler error. 
-
+///
 
 ## Bit-Accurate Operations, Type Inference, and Data Structures
 
@@ -447,45 +455,47 @@ Fig.~\ref`fig:Aliasing` demonstrates aliasing code and its effect on the content
 TODO: requires explanation
 The candidate produces a constant DFHDL value if the candidate argument is a constant.
 
-!!! info "Operation supported values for an argument of DFType `T`"
-    ```d2 pad="10" 
-    direction: right
-    classes: {
-      is!: {
-        label: ". is! ."
-        style: {
-          fill: black
-          font-color:white
-          bold: true
-        }
-      }
-      is?: {
-        label: ". is? ."
-        style: {
-          fill: black
-          font-color:white
-          bold: true
-        }
-      }
+/// admonition | Operation supported values for an argument of DFType `T`
+    type: info
+```d2 pad="10" 
+direction: right
+classes: {
+  is!: {
+    label: ". is! ."
+    style: {
+      fill: black
+      font-color:white
+      bold: true
     }
-    TCand -> TVal: {class: is!}
-    Any -> TCand: {class: is?} 
-    TCand -> OpCand: {class: is?} 
-    OpCand -> TVal: {class: is!}
-    Any -> OpCand: {class: is?} 
-    Any: {
-      label: Any\nValue
+  }
+  is?: {
+    label: ". is? ."
+    style: {
+      fill: black
+      font-color:white
+      bold: true
     }
-    TCand: {
-      label: `T`\nCandidate
-    }
-    OpCand: {
-      label: `T`\nOperation\nCandidate
-    }
-    TVal: {
-      label: `T`\nValue
-    }
-    ```
+  }
+}
+TCand -> TVal: {class: is!}
+Any -> TCand: {class: is?} 
+TCand -> OpCand: {class: is?} 
+OpCand -> TVal: {class: is!}
+Any -> OpCand: {class: is?} 
+Any: {
+  label: Any\nValue
+}
+TCand: {
+  label: `T`\nCandidate
+}
+OpCand: {
+  label: `T`\nOperation\nCandidate
+}
+TVal: {
+  label: `T`\nValue
+}
+```
+///
 
 ```scala title="Bits assignment and concatenation operation candidates example"
 val b8 = Bits(8) <> VAR //8-bits variable
@@ -511,13 +521,15 @@ val y = b8 ++ all(0) //error
 
 `Bit` DFHDL values represent binary `1` or `0` values, whereas `Boolean` DFHDL values represent `true` or `false` values, respectively. The `Bit` and `Boolean` DFHDL values are generally interchangeable, and automatically converted between one and the other. 
 
-!!! info "Should I use `Bit` or `Boolean` DFTypes?"
-    
-    Although they are interchangeable, it's generally recommended to use `Boolean` DFHDL values with conditional `if` statements, guards, or expressions, and `Bit` DFHDL values for everything else. There could be constant parameters that are better defined as a `true` or `false` `Boolean` values rather than `0` or `1` `Bit` values.
+/// admonition | Should I use `Bit` or `Boolean` DFTypes?
+    type: info
+Although they are interchangeable, it's generally recommended to use `Boolean` DFHDL values with conditional `if` statements, guards, or expressions, and `Bit` DFHDL values for everything else. There could be constant parameters that are better defined as a `true` or `false` `Boolean` values rather than `0` or `1` `Bit` values.
+///
 
-??? note "Why have both `Bit` and `Boolean` DFTypes?"
-    
-    The main reason to differentiate between `Bit` and `Boolean` is that VHDL has both `std_logic` and `boolean` types, respectively. Verilog has only a single `logic` or `wire` to represent both. Indeed VHDL'2008 has relaxed some of the type constraints, but not enough. And nevertheless, DFHDL aims to support various HDL dialects, and thus enables simple implicit or explicit conversion between these two DFType values.
+/// details | Why have both `Bit` and `Boolean` DFTypes?
+    type: note    
+The main reason to differentiate between `Bit` and `Boolean` is that VHDL has both `std_logic` and `boolean` types, respectively. Verilog has only a single `logic` or `wire` to represent both. Indeed VHDL'2008 has relaxed some of the type constraints, but not enough. And nevertheless, DFHDL aims to support various HDL dialects, and thus enables simple implicit or explicit conversion between these two DFType values.
+///
 
 ### DFType Constructors
 
@@ -620,13 +632,17 @@ class Foo extends EDDesign:
     //some sequential logic
 ```
 
-??? rtl "Transitioning from Verilog"
-    Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the Verilog `posedge x` and `negedge x`, respectively. 
-    In future releases these operations will have an expanded functionality under the other design domains.
+/// details | Transitioning from Verilog
+    type: verilog
+Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the Verilog `posedge x` and `negedge x`, respectively. 
+In future releases these operations will have an expanded functionality under the other design domains.
+///
 
-??? rtl "Transitioning from VHDL"
-    Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the VHDL `rising_edge(x)` and `falling_edge(x)`, respectively.
-    In future releases these operations will have an expanded functionality under the other design domains.
+/// details | Transitioning from VHDL
+    type: vhdl
+Under the ED domain, the `x.rising` and `x.falling` operations are equivalent to the VHDL `rising_edge(x)` and `falling_edge(x)`, respectively.
+In future releases these operations will have an expanded functionality under the other design domains.
+///
 
 For more information see either the [design domains][design-domains] or [processes][processes] sections.
 
@@ -672,25 +688,29 @@ val e3 = 0 ^ true
 val sc: Boolean = true && true
 ```
 
-??? rtl "Transitioning from Verilog"
-    Under the ED domain, the following operations are equivalent:
-    
-    | DFHDL Operation | Verilog Operation |
-    |-----------------|-------------------|
-    | `lhs && rhs`    | `lhs & rhs`       |
-    | `lhs || rhs`    | `lhs | rhs`       |
-    | `lhs ^ rhs`     | `lhs ^ rhs`       |
-    | `!lhs`          | `!lhs`            |
+/// details | Transitioning from Verilog
+    type: verilog
+Under the ED domain, the following operations are equivalent:
 
-??? rtl "Transitioning from VHDL"
-    Under the ED domain, the following operations are equivalent:
-    
-    | DFHDL Operation | VHDL Operation    |
-    |-----------------|-------------------|
-    | `lhs && rhs`    | `lhs and rhs`     |
-    | `lhs || rhs`    | `lhs or rhs`      |
-    | `lhs ^ rhs`     | `lhs xor rhs`     |
-    | `!lhs`          | `not lhs`         |
+| DFHDL Operation | Verilog Operation |
+|-----------------|-------------------|
+| `lhs && rhs`    | `lhs & rhs`       |
+| `lhs || rhs`    | `lhs | rhs`       |
+| `lhs ^ rhs`     | `lhs ^ rhs`       |
+| `!lhs`          | `!lhs`            |
+///
+
+/// details | Transitioning from VHDL
+    type: vhdl
+Under the ED domain, the following operations are equivalent:
+
+| DFHDL Operation | VHDL Operation    |
+|-----------------|-------------------|
+| `lhs && rhs`    | `lhs and rhs`     |
+| `lhs || rhs`    | `lhs or rhs`      |
+| `lhs ^ rhs`     | `lhs xor rhs`     |
+| `!lhs`          | `not lhs`         |
+///
 
 #### Constant Meta Operations
 
@@ -710,67 +730,72 @@ first, in an `if` condition directly; and second, in an `if` condition after a S
 When referenced directly, the `if` is elaborated as-is, but when the `if` is applied on the extracted Scala value, 
 the `if` is completely removed and either the block inside the `if` is elaborated when the argument is true or completely removed if false.
 
-=== "`Foo`"
+/// tab | `Foo`
+```scala
+class Foo(
+    val arg: Boolean <> CONST
+) extends DFDesign:
+    val o = Bit <> OUT
+    if (!arg) o := 1 
+    if (arg.toScalaBoolean) o := 0
+```
+///
 
-    ```scala
-    class Foo(
-        val arg: Boolean <> CONST
-    ) extends DFDesign:
-      val o = Bit <> OUT
-      if (!arg) o := 1 
-      if (arg.toScalaBoolean) o := 0
-    ```
 
-=== "`Foo(true)`"
+/// tab | `Foo(true)`
+```scala
+class Foo(
+    val arg: Boolean <> CONST
+) extends DFDesign:
+    val o = Bit <> OUT
+    if (!arg) o := 1 
+    o := 0
+```
+///
 
-    ```scala
-    class Foo(
-        val arg: Boolean <> CONST
-    ) extends DFDesign:
-      val o = Bit <> OUT
-      if (!arg) o := 1 
-      o := 0
-    ```
+/// tab | `Foo(false)`
+```scala
+class Foo(
+    val arg: Boolean <> CONST
+) extends DFDesign:
+    val o = Bit <> OUT
+    if (!arg) o := 1 
+```
+///
 
-=== "`Foo(false)`"
+/// details | Runnable example
+    type: dfhdl
+```scastie
+import dfhdl.*
 
-    ```scala
-    class Foo(
-        val arg: Boolean <> CONST
-    ) extends DFDesign:
-      val o = Bit <> OUT
-      if (!arg) o := 1 
-    ```
+@top(false) class Foo(
+    val arg: Boolean <> CONST
+) extends DFDesign:
+  val o = Bit <> OUT
+  if (!arg) o := 1 
+  if (arg.toScalaBoolean) o := 0
 
-??? dfhdl "Runnable example"
-    ```scastie
-    import dfhdl.*
-
-    class Foo(
-        val arg: Boolean <> CONST
-    ) extends DFDesign:
-      val o = Bit <> OUT
-      if (!arg) o := 1 
-      if (arg.toScalaBoolean) o := 0
-
-    @main def main = 
-      println("Foo(true) Elaboration:")
-      Foo(true).printCodeString
-      println("Foo(false) Elaboration:")
-      Foo(false).printCodeString
-    ```
+@main def main = 
+  println("Foo(true) Elaboration:")
+  Foo(true).printCodeString
+  println("Foo(false) Elaboration:")
+  Foo(false).printCodeString
+```
+///
 
 ## `Bits` DFHDL Values {#DFBits}
 
 `Bits` DFHDL values represent vectors of DFHDL `Bit` values as elements. 
 The vector bits width (length) is a positive constant number (nilable [zero-width] vectors will be supported in the future).
 
-!!! note "Differences between DFHDL `Bits` and DFHDL Vector of `Bit`"
-    In addition to `Bits`, DFHDL also supports [generic vectors of any DFHDL values][DFVector]. 
-    One could therefore construct a generic vector with `Bit` as the element DFType. 
-    This vector has a different type than `Bits`, since `Bits` is a special case, both internally 
-    in their implementations and externally in their API. Where applicable, both `Bits` and generic
-    vector of `Bits` have overlapping equivalent APIs. 
+/// admonition | Differences between DFHDL `Bits` and DFHDL Vector of `Bit`
+    type: note
+In addition to `Bits`, DFHDL also supports [generic vectors of any DFHDL values][DFVector]. 
+One could therefore construct a generic vector with `Bit` as the element DFType. 
+This vector has a different type than `Bits`, since `Bits` is a special case, both internally 
+in their implementations and externally in their API. Where applicable, both `Bits` and generic
+vector of `Bits` have overlapping equivalent APIs. 
+///
 
 ### DFType Constructors
 
@@ -795,13 +820,17 @@ val b7 = Bits(w)       <> VAR
 val b6: Bits[6] <> CONST = all(0)
 ```
 
-??? rtl "Transitioning from Verilog"
-    * __Specifying a width instead of an index range:__ In Verilog bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `[width-1:0]` sized vector (for [generic vectors][DFVector] the element order the opposite).
-    * __Additional constructors:__ DFHDL provides additional constructs to simplify some common Verilog bit vector declaration. For example, instead of declaring `reg [$clog2(DEPTH)-1:0] addr` in Verilog, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
+/// details | Transitioning from Verilog
+    type: verilog
+* __Specifying a width instead of an index range:__ In Verilog bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `[width-1:0]` sized vector (for [generic vectors][DFVector] the element order the opposite).
+* __Additional constructors:__ DFHDL provides additional constructs to simplify some common Verilog bit vector declaration. For example, instead of declaring `reg [$clog2(DEPTH)-1:0] addr` in Verilog, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
+///
 
-??? rtl "Transitioning from VHDL"
-    * __Specifying a width instead of an index range:__ In VHDL bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `(width-1 downto 0)` sized vector (for [generic vectors][DFVector] the element order the opposite).
-    * __Additional constructors:__ DFHDL provides additional constructs to simplify some common VHDL bit vector declaration. For example, instead of declaring `signal addr: std_logic_vector(clog2(DEPTH)-1 downto 0)` in VHDL, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
+/// details | Transitioning from VHDL
+    type: vhdl
+* __Specifying a width instead of an index range:__ In VHDL bit vectors are declared with an index range that enables outliers like non-zero index start, negative indexing or changing bit order. These use-cases are rare and they are better covered using different language constructs. Therefore, DFHDL simplifies things by only requiring a single width/length argument which yields a `(width-1 downto 0)` sized vector (for [generic vectors][DFVector] the element order the opposite).
+* __Additional constructors:__ DFHDL provides additional constructs to simplify some common VHDL bit vector declaration. For example, instead of declaring `signal addr: std_logic_vector(clog2(DEPTH)-1 downto 0)` in VHDL, in DFHDL simply declare `val addr = Bits.until(DEPTH) <> VAR`.
+///
 
 ### Literal (Constant) Value Generation
 
@@ -841,12 +870,15 @@ val p: Int <> CONST = 10
 b"$p'0" // Value = 0....0 (p-bits wide)
 ```
 
-??? rtl "Transitioning from Verilog"
-    This interpolation covers the Verilog binary literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
+/// details | Transitioning from Verilog
+    type: verilog
+This interpolation covers the Verilog binary literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
+///
 
-??? rtl "Transitioning from VHDL"
-    This interpolation covers the VHDL binary literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
-
+/// details | Transitioning from VHDL
+    type: vhdl
+This interpolation covers the VHDL binary literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
+///
 
 #### Hexadecimal Bits String-Interpolator {#h-interp}
 
@@ -884,12 +916,15 @@ val width = 10
 h"$width'${value}" //Value = 0011111111
 ```
 
-??? rtl "Transitioning from Verilog"
-    This interpolation covers the Verilog hexadecimal literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
+/// details | Transitioning from Verilog
+    type: verilog
+This interpolation covers the Verilog hexadecimal literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
+///
 
-??? rtl "Transitioning from VHDL"
-    This interpolation covers the VHDL hexadecimal literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
-
+/// details | Transitioning from VHDL
+    type: vhdl
+This interpolation covers the VHDL hexadecimal literal use-cases, but also adds the ability for parametric `width` to be set. The high impedance (high-Z) use-cases will be supported in the future, likely using a different language construct.
+///
 
 ### Candidates
   * DFHDL `Bits` values
@@ -922,45 +957,48 @@ b8 := (1, s4, b1, b"10")
 ### Concatenated Assignment
 DFHDL supports a special-case assignment of concatenated DFHDL Bits variables, using a Scala `Tuple` syntax on LHS of the assignment operator. Both LHS and RHS bits width must be the same. This assignment is just syntactic sugar for multiple separate assignments and carried out during the design [elaboration][elaboration]. The assignment ordering is from the first value at most-significant position down to the last value at least-significant position.
 
-=== "`Foo Declaration`"
+/// tab | `Foo Declaration`
+```scala
+class Foo extends DFDesign:
+  val i4 = Bits(4) <> IN
+  val b2 = Bits(2) <> OUT
+  val b3 = Bits(3) <> OUT
+  val b5 = Bits(5) <> OUT
+  (b2, b5, b3) := (b"101", i4, b"111")
+```
+///
 
-    ```scala
-    class Foo extends DFDesign:
-      val i4 = Bits(4) <> IN
-      val b2 = Bits(2) <> OUT
-      val b3 = Bits(3) <> OUT
-      val b5 = Bits(5) <> OUT
-      (b2, b5, b3) := (b"101", i4, b"111")
-    ```
+/// tab | `Foo Elaboration`
+```scala
+class Foo extends DFDesign:
+  val i4 = Bits(4) <> IN
+  val b2 = Bits(2) <> OUT
+  val b3 = Bits(3) <> OUT
+  val b5 = Bits(5) <> OUT
+  b2 := b"10"
+  b5 := (b"1", i4).toBits
+  b3 := b"111"
+```
+///
 
-=== "`Foo Elaboration`"
+/// details | Runnable example
+    type: dfhdl
+```scastie
+import dfhdl.*
 
-    ```scala
-    class Foo extends DFDesign:
-      val i4 = Bits(4) <> IN
-      val b2 = Bits(2) <> OUT
-      val b3 = Bits(3) <> OUT
-      val b5 = Bits(5) <> OUT
-      b2 := b"10"
-      b5 := (b"1", i4).toBits
-      b3 := b"111"
-    ```
+//print the code after elaboration
+given options.ElaborationOptions.PrintDFHDLCode = true
+//set mode to elaborate only
+given options.AppOptions.DefaultMode = options.AppOptions.DefaultMode.elaborate
 
-??? dfhdl "Runnable example"
-    ```scastie
-    import dfhdl.*
-
-    class Foo extends DFDesign:
-      val i4 = Bits(4) <> IN
-      val b2 = Bits(2) <> OUT
-      val b3 = Bits(3) <> OUT
-      val b5 = Bits(5) <> OUT
-      (b2, b5, b3) := (b"101", i4, b"111")
-
-    @main def main = 
-      Foo().printCodeString
-    ```
-
+@top class Foo extends DFDesign:
+  val i4 = Bits(4) <> IN
+  val b2 = Bits(2) <> OUT
+  val b3 = Bits(3) <> OUT
+  val b5 = Bits(5) <> OUT
+  (b2, b5, b3) := (b"101", i4, b"111")
+```
+///
 
 ## `UInt`/`SInt`/`Int` DFHDL Values {#DFDecimal}
 

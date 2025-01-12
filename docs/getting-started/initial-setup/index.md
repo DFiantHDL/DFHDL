@@ -14,39 +14,39 @@ We recommend directly installing Scala 3.5.2 (no need to install either [Coursie
 
     ---
 
-    === "Using [Chocolatey](https://community.chocolatey.org/)"
+    /// tab | Using [Chocolatey](https://community.chocolatey.org/)
+    Run the following in Windows command or powershell:
 
-        Run the following in Windows command or powershell:
-
-        ```{.cmd .copy linenums="0"}
-        choco install scala --version=3.5.2 
-        ```
+    ```{.cmd .copy linenums="0"}
+    choco install scala --version=3.5.2 
+    ```
+    ///
 
 -   :fontawesome-brands-linux:{ .lg .middle } __Linux Instructions__
 
     ---
 
-    === "Using [SDKMAN!](https://sdkman.io/)"
+    /// tab | Using [SDKMAN!](https://sdkman.io/)
+    Run the following in your shell:
 
-        Run the following in your shell:
-
-        ```{.sh-session .copy linenums="0"}
-        sdk install scala 3.5.2 
-        ```
+    ```{.sh-session .copy linenums="0"}
+    sdk install scala 3.5.2 
+    ```
+    ///
 
 -   :fontawesome-brands-apple:{ .lg .middle } __macOS Instructions__
 
     ---
 
-    === "Using [Homebrew](https://brew.sh/)"
+    /// tab | Using [Homebrew](https://brew.sh/)
+    Run the following in your shell:
 
-        Run the following in your shell:
-
-        ```{.sh-session .copy linenums="0"}
-        brew update
-        brew install scala
-        ```
-
+    ```{.sh-session .copy linenums="0"}
+    brew update
+    brew install scala
+    ```
+    ///
+    
 -   :material-help:{ .lg .middle } __Other OS/Instructions__
 
     ---
@@ -55,121 +55,121 @@ We recommend directly installing Scala 3.5.2 (no need to install either [Coursie
 
 </div>
 
+/// details | Installing Scala via [Coursier](https://get-coursier.io/){target="_blank"}
+    type: info
+We recommend directly installing Scala, as instructed above. However, if you are experiencing issues, you can try installing Scala via Coursier, as follows:
 
-???info "Installing Scala via [Coursier](https://get-coursier.io/){target="_blank"}"
+<div class="grid cards" markdown>
 
-    We recommend directly installing Scala, as instructed above. However, if you are experiencing issues, you can try installing Scala via Coursier, as follows:
+-   :fontawesome-brands-windows:{ .lg .middle } __Windows Instructions__
 
-    <div class="grid cards" markdown>
+    ---
 
-    -   :fontawesome-brands-windows:{ .lg .middle } __Windows Instructions__
+    /// tab | Manual
+    1. Download the [installer zip file](https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-win32.zip).
 
-        ---
+    2. Open the zip.
 
-        === "Manual"
+    3. Double click the `cs-x86_64-pc-win32.exe` executable to extract and run Coursier setup.
+    ///
 
-            1. Download the [installer zip file](https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-win32.zip).
+    /// tab | CMD
+    Run the following in Windows command:
 
-            2. Open the zip.
+    ```{.cmd .copy linenums="0"}
+    curl -fLo cs-x86_64-pc-win32.zip https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-win32.zip
+    tar -xf cs-x86_64-pc-win32.zip
+    move cs-x86_64-pc-win32.exe cs.exe
+    .\cs setup
+    ```
+    ///
 
-            3. Double click the `cs-x86_64-pc-win32.exe` executable to extract and run Coursier setup.
+    /// tab | Powershell
+    Run the following in Windows Powershell:
 
-        === "CMD"
-
-            Run the following in Windows command:
-
-            ```{.cmd .copy linenums="0"}
-            curl -fLo cs-x86_64-pc-win32.zip https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-win32.zip
-            tar -xf cs-x86_64-pc-win32.zip
-            move cs-x86_64-pc-win32.exe cs.exe
-            .\cs setup
-            ```
-
-        === "Powershell"
-
-            Run the following in Windows Powershell:
-
-            ```{.powershell .copy linenums="0"}
-            Invoke-WebRequest -Uri "https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-win32.zip" -OutFile "cs-x86_64-pc-win32.zip"
-            Expand-Archive -Path "cs-x86_64-pc-win32.zip"
-            Rename-Item -Path "cs-x86_64-pc-win32.exe" -NewName "cs.exe"
-            Remove-Item -Path "cs-x86_64-pc-win32.zip"
-            .\cs setup
-            ```
-
-
-    -   :fontawesome-brands-linux:{ .lg .middle } __Linux Instructions__
-
-        ---
-
-        === "x86-64 (aka AMD64)"
-
-            Run the following in your shell:
-
-            ```{.sh-session .copy linenums="0"}
-            curl -fL "https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-linux.gz" | gzip -d > cs
-            chmod +x cs
-            ./cs setup
-            ```
-
-        === "ARM64"
-
-            Run the following in your shell:
-
-            ```{.sh-session .copy linenums="0"}
-            curl -fL "https://github.com/VirtusLab/coursier-m1/releases/latest/download/cs-aarch64-pc-linux.gz" | gzip -d > cs
-            chmod +x cs
-            ./cs setup
-            ```
-
-        === "Other linux"
-
-            [:octicons-arrow-right-24: Goto Coursier's website](https://get-coursier.io/docs/cli-installation){target="_blank"}
+    ```{.powershell .copy linenums="0"}
+    Invoke-WebRequest -Uri "https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-win32.zip" -OutFile "cs-x86_64-pc-win32.zip"
+    Expand-Archive -Path "cs-x86_64-pc-win32.zip"
+    Rename-Item -Path "cs-x86_64-pc-win32.exe" -NewName "cs.exe"
+    Remove-Item -Path "cs-x86_64-pc-win32.zip"
+    .\cs setup
+    ```
+    ///
 
 
-    -   :fontawesome-brands-apple:{ .lg .middle } __macOS Instructions__
+-   :fontawesome-brands-linux:{ .lg .middle } __Linux Instructions__
 
-        ---
+    ---
 
-        === "via Brew"
+    /// tab | x86-64 (aka AMD64)
+    Run the following in your shell:
 
-            Run the following in your shell:
+    ```{.sh-session .copy linenums="0"}
+    curl -fL "https://github.com/coursier/launchers/raw/master/cs-x86_64-pc-linux.gz" | gzip -d > cs
+    chmod +x cs
+    ./cs setup
+    ```
+    ///
 
-            ```{.sh-session .copy linenums="0"}
-            brew install coursier/formulas/coursier
-            cs setup
-            ```
+    /// tab | ARM64
 
-        === "aarch64 (M1,M2,...)"
+    Run the following in your shell:
 
-            Run the following in your shell:
+    ```{.sh-session .copy linenums="0"}
+    curl -fL "https://github.com/VirtusLab/coursier-m1/releases/latest/download/cs-aarch64-pc-linux.gz" | gzip -d > cs
+    chmod +x cs
+    ./cs setup
+    ```
+    ///
 
-            ```{.sh-session .copy linenums="0"}
-            curl -fL https://github.com/VirtusLab/coursier-m1/releases/latest/download/cs-aarch64-apple-darwin.gz | gzip -d > cs
-            chmod +x cs
-            ./cs setup
-            ```
+    /// tab | Other linux
+    [:octicons-arrow-right-24: Goto Coursier's website](https://get-coursier.io/docs/cli-installation){target="_blank"}
+    ///
 
-        === "x86-64"
 
-            Run the following in your shell:
+-   :fontawesome-brands-apple:{ .lg .middle } __macOS Instructions__
 
-            ```{.sh-session .copy linenums="0"}
-            curl -fL https://github.com/coursier/launchers/raw/master/cs-x86_64-apple-darwin.gz | gzip -d > cs
-            chmod +x cs
-            ./cs setup
-            ```
+    ---
 
-    -   :material-help:{ .lg .middle } __Other OS/Instructions__
+    /// tab | via Brew
+    Run the following in your shell:
 
-        ---
+    ```{.sh-session .copy linenums="0"}
+    brew install coursier/formulas/coursier
+    cs setup
+    ```
+    ///
 
-        For other OS or instructions please consult the Coursier website.
+    /// tab | aarch64 (M1,M2,...)
+    Run the following in your shell:
 
-        [:octicons-arrow-right-24: Goto Coursier's website](https://get-coursier.io/docs/cli-installation){target="_blank"}
+    ```{.sh-session .copy linenums="0"}
+    curl -fL https://github.com/VirtusLab/coursier-m1/releases/latest/download/cs-aarch64-apple-darwin.gz | gzip -d > cs
+    chmod +x cs
+    ./cs setup
+    ```
+    ///
 
-    </div>
+    /// tab | x86-64
+    Run the following in your shell:
 
+    ```{.sh-session .copy linenums="0"}
+    curl -fL https://github.com/coursier/launchers/raw/master/cs-x86_64-apple-darwin.gz | gzip -d > cs
+    chmod +x cs
+    ./cs setup
+    ```
+    ///
+
+-   :material-help:{ .lg .middle } __Other OS/Instructions__
+
+    ---
+
+    For other OS or instructions please consult the Coursier website.
+
+    [:octicons-arrow-right-24: Goto Coursier's website](https://get-coursier.io/docs/cli-installation){target="_blank"}
+
+</div>
+///
 
 ## IDE Setup
 
