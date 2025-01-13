@@ -409,6 +409,25 @@ class IDTop extends DFDesign:
   y <> yv
 ```
 
+/// admonition | Don't use `var` with DFHDL values/designs
+    type: warning
+Because the semantics may get confusing, we enforced a compiler warning if a DFHDL value/design is constructed and fed into a Scala `#!scala var` reference. You can apply a Scala `@nowarn` annotation to suppress this warning.
+
+```scala title="Warning when using a Scala `var` and suppression example"
+import scala.annotation.nowarn
+class Foo extends DFDesign:
+  //warning: 
+  //Scala `var` modifier for DFHDL 
+  //values/designs is highly discouraged!
+  //Consider changing to `val`.   
+  var a = UInt(8) <> IN
+  //this specific warning is suppressed
+  @nowarn("msg=Scala `var` modifier for DFHDL")
+  var ok = UInt(8) <> IN 
+```
+///
+
+
 ## DFHDL Value Mutation {#mutability}
 
 DFiant supports dataflow variables mutability via the `:=` operator. Do not confuse with Scala-level mutability which is enabled by using `#!scala var` instead of `#!scala val`. Each dataflow class has two variations: an immutable class, which inherits from `DFAny.Val` and a mutable class, which inherits from `DFAny.Var` and accepts `:=`. The difference between the types enforces an immutable right-hand-side (RHS), where required, and a mutable variable creation. 
@@ -417,10 +436,6 @@ Consider, for instance, the DFiant implementation of `g` in Table \ref`tbl:State
 
 Fig. 1 demonstrates a dual class definition for every type  (immutable and mutable). The naming convention helps to reason about the mutability. For example, `DFBits` and `DFBits.Var` are immutable and mutable classes, respectively. Constructing a new variable via `DFBits` (e.g, `#!scala val a = DFBits[5]`) returns the mutable `DFBits.Var[5]`. Usually, we either receive or return an immutable type, hence we do not require annotating a type with its mutable variation. In cases where we want to return a mutable type, we annotate it as an output port (see Section~\ref`sec:io_ports`).
 
-/// admonition | Don't use `var` with DFHDL values/variables
-    type: warning
-	Because the semantics may get confusing, we enforced a compiler error if a dataflow variable is constructed and fed into a Scala `#!scala var` reference. For example `#!scala var a = DFUInt(8)` will generate a Scala compiler error. 
-///
 
 ## Bit-Accurate Operations, Type Inference, and Data Structures
 
