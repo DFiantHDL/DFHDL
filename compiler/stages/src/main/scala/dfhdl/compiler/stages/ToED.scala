@@ -89,7 +89,10 @@ case object ToED extends Stage:
             val combinationalMembers = getProcessAllMembers(members)
             val singleAssignments = combinationalMembers.flatMap {
               case net @ DFNet.Assignment(dcl: DFVal.Dcl, from)
-                  if !dcl.modifier.isReg && assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
+                  if !dcl.modifier.isReg && assignCnt.getOrElse(
+                    dcl,
+                    0
+                  ) == 1 && net.getOwner == domainOwner =>
                 net.collectRelMembers.filter(collectFilter) :+ net
               case _ => Nil
             }

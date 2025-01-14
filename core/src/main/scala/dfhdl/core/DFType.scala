@@ -227,8 +227,7 @@ object DFType:
       }
       val tpes = tcTrees
         .map(_.tpe.asTypeOf[Any] match
-          case '[TC[t] { type Type = z }] => TypeRepr.of[z]
-        )
+          case '[TC[t] { type Type = z }] => TypeRepr.of[z])
         .map(t => TypeRepr.of[DFValOf].appliedTo(t))
       def applyExpr(t: Expr[T])(dfc: Expr[DFC]): Expr[List[DFTypeAny]] =
         '{

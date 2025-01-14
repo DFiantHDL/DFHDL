@@ -699,6 +699,7 @@ final case class DB(
         dependentRTDomainOwners.get(node) match
           case Some(dependentNode) => dfs(dependentNode, newVisited, newStack)
           case None                => // No dependency, end of this path
+    end dfs
     // Iterate over all nodes in the map and perform DFS
     for (node <- dependentRTDomainOwners.keys)
       dfs(node, Set.empty, Set.empty)
