@@ -148,10 +148,11 @@ class ParsedCommandLine(
           name = designArg.name, descr = designArg.desc, argName = designArg.typeName,
           default = Some(designArg.getScalaValue), noshort = true, group = designArgOptionGroup
         )(conv.asInstanceOf[ValueConverter[Any]])
-  lazy val updatedDesignArgs: DesignArgs = DesignArgs(designArgs.lazyZip(designArgOptions).map {
-    case ((argName, designArg), opt) =>
+  lazy val updatedDesignArgs: DesignArgs = DesignArgs(
+    designArgs.lazyZip(designArgOptions).map { case ((argName, designArg), opt) =>
       (argName, designArg.updateScalaValue(opt.toOption.get))
-  })
+    }
+  )
 
   addSubcommand(Mode.elaborate)
   addSubcommand(Mode.compile)
@@ -163,7 +164,6 @@ class ParsedCommandLine(
     case DefaultMode.elaborate => Mode.elaborate
     case DefaultMode.compile   => Mode.compile
     case DefaultMode.commit    => Mode.commit
-    case DefaultMode.lint      => Mode.lint
-  ).asInstanceOf[Mode]
+    case DefaultMode.lint      => Mode.lint).asInstanceOf[Mode]
   verify()
 end ParsedCommandLine

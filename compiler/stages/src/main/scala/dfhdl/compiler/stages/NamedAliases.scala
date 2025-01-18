@@ -77,6 +77,7 @@ case object NamedVerilogSelection extends NamedAliases:
           if (transparentConversion) relVal.hasVerilogName
           else false
         case _ => false
+  end extension
   def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
     case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName => Nil
     case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>

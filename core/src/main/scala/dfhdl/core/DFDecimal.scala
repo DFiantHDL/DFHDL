@@ -350,6 +350,7 @@ object DFDecimal:
           Some(interpValue),
           named = true
         )
+    end extension
 
     extension (using Quotes)(fullTerm: quotes.reflect.Term)
       private[DFDecimal] def interpolate(
@@ -785,8 +786,9 @@ object DFXInt:
     object Ops:
       export DFUInt.Val.Ops.*
       export DFSInt.Val.Ops.*
-      def clog2[P, S <: Boolean, W <: IntP, N <: NativeType](dfVal: DFValTP[DFXInt[S, W, N], P])(
-          using
+      def clog2[P, S <: Boolean, W <: IntP, N <: NativeType](
+          dfVal: DFValTP[DFXInt[S, W, N], P]
+      )(using
           DFC,
           DFVal.ConstCheck[P]
       ): DFValTP[DFXInt[S, W, N], P] =
@@ -879,25 +881,33 @@ object DFXInt:
       extension [L <: Int](lhs: L)
         def <[RS <: Boolean, RW <: Int, RN <: NativeType](
             rhs: DFValOf[DFXInt[RS, RW, RN]]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[RS, RW, RN], es.Out, FuncOp.<.type, true]
         ): DFValOf[DFBool] = trydf { op(rhs, es(lhs)) }
         def <=[RS <: Boolean, RW <: Int, RN <: NativeType](
             rhs: DFValOf[DFXInt[RS, RW, RN]]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[RS, RW, RN], es.Out, FuncOp.<=.type, true]
         ): DFValOf[DFBool] = trydf { op(rhs, es(lhs)) }
         def >[RS <: Boolean, RW <: Int, RN <: NativeType](
             rhs: DFValOf[DFXInt[RS, RW, RN]]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[RS, RW, RN], es.Out, FuncOp.>.type, true]
         ): DFValOf[DFBool] = trydf { op(rhs, es(lhs)) }
         def >=[RS <: Boolean, RW <: Int, RN <: NativeType](
             rhs: DFValOf[DFXInt[RS, RW, RN]]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             op: DFVal.Compare[DFXInt[RS, RW, RN], es.Out, FuncOp.>=.type, true]
         ): DFValOf[DFBool] = trydf { op(rhs, es(lhs)) }
@@ -1178,7 +1188,9 @@ object DFXInt:
       extension [L <: Int](lhs: L)
         def +^[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
             rhs: DFValTP[DFXInt[RS, RW, RN], RP]
-        )(using sL: Exact.Summon[L, lhs.type])(using
+        )(using
+            sL: Exact.Summon[L, lhs.type]
+        )(using
             icL: Candidate[sL.Out]
         )(using
             dfc: DFC,
@@ -1196,7 +1208,9 @@ object DFXInt:
         }
         def -^[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
             rhs: DFValTP[DFXInt[RS, RW, RN], RP]
-        )(using sL: Exact.Summon[L, lhs.type])(using
+        )(using
+            sL: Exact.Summon[L, lhs.type]
+        )(using
             icL: Candidate[sL.Out]
         )(using
             dfc: DFC,
@@ -1215,7 +1229,9 @@ object DFXInt:
         end -^
         def *^[RS <: Boolean, RW <: IntP, RN <: NativeType, RP](
             rhs: DFValTP[DFXInt[RS, RW, RN], RP]
-        )(using sL: Exact.Summon[L, lhs.type])(using
+        )(using
+            sL: Exact.Summon[L, lhs.type]
+        )(using
             icL: Candidate[sL.Out]
         )(using
             dfc: DFC,

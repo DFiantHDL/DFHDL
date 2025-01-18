@@ -689,8 +689,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         else
           report.error(
             s"""Wrong enum entry type.
-                  |Expecting: ${enumTpe.show}
-                  |Found: ${arg.tpe.show}""".stripMargin,
+               |Expecting: ${enumTpe.show}
+               |Found: ${arg.tpe.show}""".stripMargin,
             arg.srcPos
           )
           EmptyTree

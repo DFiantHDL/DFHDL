@@ -637,10 +637,10 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       top,
       """|class BigXor extends DFDesign:
-        |  val sum = Bits(4) <> OUT
-        |  sum := ((((((h"0" ^ h"1") ^ h"2") ^ h"3") ^ h"4") ^ h"5") ^ h"6") ^ h"7"
-        |end BigXor
-        |""".stripMargin
+         |  val sum = Bits(4) <> OUT
+         |  sum := ((((((h"0" ^ h"1") ^ h"2") ^ h"3") ^ h"4") ^ h"5") ^ h"6") ^ h"7"
+         |end BigXor
+         |""".stripMargin
     )
   test("Unreachable local values"):
     class BigXorContainer extends DFDesign:
