@@ -201,7 +201,9 @@ trait Printer
       case (block: DFDesignBlock, _) if printerOptions.designPrintFilter(block) =>
         formatCode(csFile(block))
     }
-    s"${formatCode(csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
+    s"${formatCode(
+        csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls
+      ).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
   end csDB
 end Printer
 

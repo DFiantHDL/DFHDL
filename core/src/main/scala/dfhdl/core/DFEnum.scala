@@ -51,7 +51,9 @@ end DFEncoding
 
 type DFEnum[E <: DFEncoding] = DFType[ir.DFEnum, Args1[E]]
 object DFEnum:
-  def unapply(using Quotes)(
+  def unapply(using
+      Quotes
+  )(
       tpe: quotes.reflect.TypeRepr
   ): Option[List[quotes.reflect.TypeRepr]] =
     import quotes.reflect.*
@@ -75,12 +77,13 @@ object DFEnum:
   def apply[E <: DFEncoding](enumCompanion: AnyRef): DFEnum[E] =
     val enumClass = classOf[scala.reflect.Enum]
     val enumCompanionCls = enumCompanion.getClass
-    val fieldsAsPairs = for (
-      field <- enumCompanionCls.getDeclaredFields
-      if enumClass.isAssignableFrom(field.getType)
-    ) yield
-      field.setAccessible(true)
-      (field.getName, field.get(enumCompanion).asInstanceOf[DFEncoding])
+    val fieldsAsPairs =
+      for (
+        field <- enumCompanionCls.getDeclaredFields
+        if enumClass.isAssignableFrom(field.getType)
+      ) yield
+        field.setAccessible(true)
+        (field.getName, field.get(enumCompanion).asInstanceOf[DFEncoding])
     val name = enumCompanionCls.getSimpleName.replace("$", "")
     val width = fieldsAsPairs.head._2.calcWidth(fieldsAsPairs.size)
     val entryPairs = fieldsAsPairs.zipWithIndex.map { case ((name, entry), idx) =>

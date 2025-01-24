@@ -217,11 +217,12 @@ abstract class CommonPhase extends PluginPhase:
       )
         report.error(
           s"""Unsupported DFHDL member name $finalName.
-           |Only alphanumric or underscore characters are supported.
-           |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin,
+             |Only alphanumric or underscore characters are supported.
+             |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin,
           posTree.srcPos
         )
       finalName
+  end extension
 
   // custom replacement for compiler defn.ContextFunctionType
   object ContextFunctionType:
