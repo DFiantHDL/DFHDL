@@ -2,7 +2,7 @@ commands += DFHDLCommands.quickTestSetup
 
 // format: off
 val projectName = "dfhdl"
-val compilerVersion = "3.5.2"
+val compilerVersion = "3.6.3"
 
 inThisBuild(
   List(
@@ -129,7 +129,7 @@ lazy val lib = project
 lazy val dependencies =
   new {
     private val scodecV = "1.2.1"
-    private val munitV = "1.0.4"
+    private val munitV = "1.1.0"
     private val scalafmtV = "3.8.3"
     private val airframelogV = "24.12.2"
     private val oslibV = "0.9.2"
