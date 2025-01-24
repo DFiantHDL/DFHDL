@@ -152,7 +152,7 @@ Ports are DFHDL values that define the inputs and outputs of a design. Variables
 val _name_ = _dftype_ <> _modifier_ [init _const_]
 ```
 
-* __`_name_`__ is the Scala value name reference for the DFHDL port/variable you constructed. The DFHDL compiler preserves this name and uses it in error messages and the final generated artifacts (e.g., Verilog module or VHDL entity port names). More information is available under the [naming][naming] section.
+* __`_name_`__ is the Scala value name reference for the DFHDL port/variable you constructed. The DFHDL compiler preserves this name and uses it in error messages and the final generated artifacts (e.g., Verilog module or VHDL entity port names). `_name_` can also be a series of names separated by commas to declare several equivalent ports/variables. More information is available under the [naming][naming] section.
 * __`_dftype_`__ is set according to the shape type (DFType) of the DFHDL value. Each of the supported DFTypes have their own constructors. See relevant sections for the DFHDL DFType you wish to construct.
 * __`<>`__ is the operator applied between a `_dftype_` and a `_modifier_` to construct the Scala value that represents a DFHDL variable or port accordingly. Note: the same `<>` operator is used as a language construct for declaring [connections][connection]. Thanks to Scala method overloading, `<>` can be shared for both use-cases with no issues (due to the Scala argument type difference). 
 * __`_modifier_`__ is set with one of the following: 
@@ -163,25 +163,31 @@ val _name_ = _dftype_ <> _modifier_ [init _const_]
     * `VAR.REG` / `OUT.REG` - to construct a registered variable or output port (available only in RT domains) 
     * `VAR.SHARED` - to construct a shared variable that can be assigned in more than one domain (this feature is to be used scarcely, to model unique designs like [True Dual-Port RAM][true-dpr])
 * __`init`__ is an optional construct to initialize the DFHDL variable/port declaration history with the applied `_const_` value.
-* __`_const_`__ is the [state history][state] initialization value or sequence of initialization values as a [Scala Tuple](https://docs.scala-lang.org/tour/tuples.html){target="_blank"}. This value must be a [constant][DFConst] that is supported by the DFType `_dftype_`.
+* __`_const_`__ is the [state history][state] initialization value which must be a [constant][DFConst] that is supported by the DFType `_dftype_`. Under DF domain only, `_const_` can also be represented by a [Scala Tuple](https://docs.scala-lang.org/tour/tuples.html){target="_blank"} sequence of [constant][DFConst] initialization values that are supported by the DFType `_dftype_`.
 
 ```scala title="Port/Variable declaration examples"
 class Foo extends DFDesign:
   //8-bit unsigned integer input port named 'i', 
-  //initialized with the value 27.
+  //initialized with the value 27
   val i = UInt(8)     <> IN  init 27
 
   //single bit output port named 'o' 
   //with a sequence history (0, 1, 0) init
+  //(possible under DF domain only)
   val o = Bit         <> OUT init (0, 1, 0)
 
   //5 element vector of 8-bit vector cells 
   //variable named 'v' with no init
   val v = Bits(8) X 5 <> VAR
+
+  //multiple equivalent single bit input port 
+  //declarations named 'a', 'b', and 'c'
+  val a, b, c = Bit   <> IN
 ```
+
 ### Rules {#dcl-rules}
 
-#### Scope 
+#### Scope {#dcl-scope}
 * Variables can be declared in any DFHDL scope, except global scope, meaning within DFHDL designs, domains, interfaces, methods, processes, and conditional blocks.
 ```scala
 //error: Port/Variable declarations cannot be global
@@ -200,7 +206,7 @@ class Foo extends DFDesign:
     o := 0
 ```
 
-#### Naming
+#### Naming {#dcl-naming}
 Ports and variables must always be named, and cannot be anonymous. 
 
 ```scala
@@ -212,7 +218,7 @@ class Foo extends DFDesign:
 
 As you'll read later on, constants and other values can be anonymous.
 
-#### Connectable
+#### Connectable {#dcl-connectable}
 Ports and variables are connectable, meaning they can be the receiving (drain/consumer) end of a [connection][connection] `<>` operation. 
 For input ports this occurs outside their design scope, while connecting to an external value. 
 For output ports and variables this occurs only within their design scope, while connecting to an internal value.
@@ -223,7 +229,7 @@ class ID extends DFDesign:
   y <> x //connecting x to y
 ```
 
-#### Assignable (Mutable)
+#### Assignable (Mutable) {#dcl-assignable}
 Output ports, input-output ports, and variables are assignable (mutable), when they can be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation, which occurs only within their design scope. Input ports can never be assigned (are immutable). Registered ports and variables are assignable only when referencing their registers' input via `.din` selection (referencing a register without `.din` is always considered to be its output, which is immutable). 
 
 Assignment semantics are a key difference between the different design domains DFHDL has to offer. Here are some basic examples:
@@ -281,8 +287,8 @@ class Errors2 extends EDDesign:
 ```
 Be sure to read more on assignment rules and semantics in the [assignment][assignment] section.
 
-#### Not Constant
-Ports and variables are never considered to be [constant][DFConst] (even when connected/assigned only once and to a constant value) for elaboration. Later compilation stages can apply further constant propagation steps that reduce logic utilization.
+#### Variability (Not Constant) {#dcl-variability}
+DFHDL ports and variables are never considered to be [constant][DFConst] (even when connected/assigned only once and to a constant value) for elaboration. Later compilation stages can apply further constant propagation steps that reduce logic utilization.
 ```scala
 class Errors extends DFDesign:
   val x  = Bit <> VAR
@@ -299,18 +305,18 @@ class I2CCore extends EDDesign:
   val sda = Bit <> INOUT
 ```
 
-#### Grouping
+#### Grouping {#dcl-variability}
 Ports can be grouped together in dedicated [interfaces][interfaces].
 
-### Transitioning {#Dcl-transitioning}
+### Transitioning {#dcl-transitioning}
 
-/// details | Differences from Verilog
+/// details | Transitioning from Verilog
     type: verilog
 * DFHDL supports more abstraction domains, and not just ED abstraction like Verilog does.
 * The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
 ///
 
-/// details | Differences from VHDL
+/// details | Transitioning from VHDL
     type: vhdl
 TODO
 ///
@@ -340,7 +346,7 @@ val _name_: _dftype_ <> CONST = _value_
 ### Rules {#const-rules}
 
 #### Unconnectable
-Constant values are not connectable, and can never be the receiving (drain/consumer) end of a [connection][connection] `<>` operation.
+Constant values are not connectable, meaning they can never be the receiving (drain/consumer) end of a [connection][connection] `<>` operation.
 
 #### Unassignable (Immutable)
 Constant values are immutable and cannot be assigned, meaning they can never be the receiving (drain/consumer) end of an [assignment][assignment] `:=`/`:==` operation.
