@@ -401,7 +401,7 @@ var hdelk = (function(){
                         else if ( item[ 3 ] == -1 ) {
                             newItem.reverse = 1;
                         } else
-                            if ( item[3 ] == 1 )
+                            if ( item[ 3 ] == 1 )
                                 newItem.bus = 1;
                     }
                     if ( item[ 4 ] ) {
@@ -489,7 +489,7 @@ var hdelk = (function(){
 
         var portColor = ( child.highlight || child.highlight == 0 ) ? port_highlight_fill_color[ child.highlight ] : port_fill_color;
 
-        node_body( group, child.id, child.x + offsetX, child.y + offsetY, child.width, child.height, childColor, child.highlight, portColor, child.constant );
+        node_body( group, child.id, child.x + offsetX, child.y + offsetY, child.width, child.height, childColor, child.highlight, portColor, child.constant, child['stroke-width'] );
 
         var labels = child.labels;
         if ( labels ) {
@@ -592,16 +592,16 @@ var hdelk = (function(){
         return group;
     }
 
-    var node_body = function( draw, name, x, y, width, height, color, highlight, stroke_color, constant ) {
+    var node_body = function( draw, name, x, y, width, height, color, highlight, stroke_color, constant, customStrokeWidth ) {
         var group = draw.group();
-        var strokeWidth = highlight ? node_highlight_stroke_width : node_stroke_width;
+        var strokeWidthValue = highlight ? node_highlight_stroke_width : (customStrokeWidth !== undefined ? customStrokeWidth : node_stroke_width);
         var shape;
         if ( constant ) {
             shape = group.polygon( [[0,0],[width-node_constant_notch,0],[width,node_constant_notch],[width,height],[0,height]]);
         } else {
             shape = group.rect(width, height);
         }
-        shape.attr({ fill:color, 'stroke-width': node_stroke_width, stroke:stroke_color }).stroke({width:strokeWidth}).move(x,y);
+        shape.attr({ fill:color, 'stroke-width': strokeWidthValue, stroke:stroke_color }).stroke({width:strokeWidthValue}).move(x,y);
         return group;
     }
 
