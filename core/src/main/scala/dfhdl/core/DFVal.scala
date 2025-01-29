@@ -520,10 +520,16 @@ object DFVal extends DFValLP:
         s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
       )
       val modifier = Modifier[A, C, I, P](dfVal.asIR.asInstanceOf[ir.DFVal.Dcl].modifier)
-      // We do not need to replace the original Dcl, because it was anonymous and not added to the
-      // mutable DB. Also see comment in `DFVal.Dcl`.
-      DFVal.Dcl(dfVal.dfType, modifier, initValues)
-        .asVal[T, Modifier[A, C, Modifier.Initialized, P]]
+      // updating the member in the mutable DB, but in a new position, to make sure it comes
+      // after the initial value member construction.
+      val updatedDcl = DFVal.Dcl(dfVal.dfType, modifier, initValues)
+      // adding the updated member in the new position
+      dfc.mutableDB.addMember(updatedDcl.asIR)
+      // ignoring the old member
+      dfc.mutableDB.ignoreMember(dfVal.asIR)
+      // replacing all references to the old member with the new member
+      dfc.mutableDB.replaceMember(dfVal.asIR, updatedDcl.asIR)
+      updatedDcl.asVal[T, Modifier[A, C, Modifier.Initialized, P]]
     end initForced
 
     infix def init(
@@ -645,24 +651,15 @@ object DFVal extends DFValLP:
     ): DFVal[T, M] =
       val modifierIR = modifier.asIR
       val dfTypeIR = dfType.asIR.dropUnreachableRefs
-      // Anonymous Dcls are only supposed to be followed by an `init` that will construct the
-      // fully initialized Dcl. The reason for this behavior is that we do not want to add the
-      // Dcl to the mutable DB and only after add its initialization value to the DB, thereby
-      // violating the reference order rule (we can only reference values that appear before).
-      if (dfc.isAnonymous && initValues.isEmpty)
-        ir.DFVal.Dcl(
-          dfTypeIR, modifierIR, Nil, ir.DFRef.OneWay.Empty, dfc.getMeta, dfc.tags
-        ).asVal[T, M]
-      else
-        val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
-          dfTypeIR,
-          modifierIR,
-          initValues.map(_.asIR.refTW[ir.DFVal.Dcl]),
-          dfc.owner.ref,
-          dfc.getMeta,
-          dfc.tags
-        )
-        dcl.addMember.asVal[T, M]
+      val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
+        dfTypeIR,
+        modifierIR,
+        initValues.map(_.asIR.refTW[ir.DFVal.Dcl]),
+        dfc.owner.ref,
+        dfc.getMeta,
+        dfc.tags
+      )
+      dcl.addMember.asVal[T, M]
     end apply
   end Dcl
 
