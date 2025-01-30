@@ -1,6 +1,7 @@
-*[ED]: Event-Driven
+*[CLI]: Command-line Interface
 *[DF]: Dataflow
 *[DPR]: Dual-Port RAM
+*[ED]: Event-Driven
 *[RT]: Register-Transfer
 *[DSL]: Domain Specific Language
 *[HDL]: Hardware Description Language
