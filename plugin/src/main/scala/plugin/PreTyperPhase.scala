@@ -23,8 +23,8 @@ import annotation.tailrec
 
 /** This is a pre-typer phase that does very minor things:
   *   - change infix operator precedence of type signature: `a X b <> c` to be `(a X b) <> c`
-  *   - change infix operator precedence of terms: `a <> b op c` to be `a <> (b op c)`, where op is
-  *     `|`, `||`, `&`, `&&`, or `^`
+  *   - change infix operator precedence of terms: `a <> b op c` to be `a <> (b op c)` and `a op b
+  *     <> c` to be `(a op b) <> c`, where op is `|`, `||`, `&`, `&&`, `^`, or a comparison operator
   *   - workaround for https://github.com/scala/scala3/issues/20053
   */
 class PreTyperPhase(setting: Setting) extends PluginPhase:
@@ -39,7 +39,7 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
   def debug(str: => Any*): Unit =
     if (debugFlag) println(str.mkString(", "))
 
-  val opSet = Set("|", "||", "&", "&&", "^")
+  val opSet = Set("|", "||", "&", "&&", "^", "<<", ">>", "==", "!=", "<", ">", "<=", ">=")
   private val `fix<>andOpPrecedence` = new UntypedTreeMap:
     object InfixOpArgsChange:
       def unapply(tree: InfixOp)(using Context): Option[(Tree, Ident, Tree)] =
@@ -47,10 +47,18 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
           case InfixOp(InfixOpArgsChange(a, Ident(conn), b), Ident(op), c)
               if opSet.contains(op.toString) =>
             Some(a, Ident(conn), InfixOp(b, Ident(op), c))
+          case InfixOp(a, Ident(op), InfixOpArgsChange(b, Ident(conn), c))
+              if opSet.contains(op.toString) =>
+            Some(InfixOp(a, Ident(op), b), Ident(conn), c)
+          case InfixOp(a, Ident(op), InfixOp(b, Ident(conn), c))
+              if conn.toString == "<>" && opSet.contains(op.toString) =>
+            Some(InfixOp(a, Ident(op), b), Ident(conn), c)
           case InfixOp(InfixOp(a, Ident(conn), b), Ident(op), c)
               if conn.toString == "<>" && opSet.contains(op.toString) =>
             Some(a, Ident(conn), InfixOp(b, Ident(op), c))
-          case _ => None
+          case _ =>
+            None
+    end InfixOpArgsChange
     object InfixOpChange:
       def unapply(tree: InfixOp)(using Context): Option[InfixOp] =
         tree match
