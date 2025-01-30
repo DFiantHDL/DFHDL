@@ -1320,17 +1320,16 @@ object DFUInt:
       ): UBArg[UB, R] with
         type OutP = ic.OutP
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
+          import dfc.getSet
           val argVal = ic(arg)
-          unsignedCheck(argVal.dfType.signed)
-          widthCheck(ub.clog2, argVal.widthInt)
-          // for constant value we apply an explicit check for the bound
-          argVal.asIR match
-            case ir.DFVal.Const(dfType: ir.DFDecimal, data: Option[BigInt] @unchecked, _, _, _) =>
-              data match
-                case Some(value) =>
-                  summon[`UB > R`.CheckNUB[UB, Int]](ub, value.toInt)
-                case _ => // no check
-            case _ => // no check
+          // if the argument is a constant, we can check its value and width
+          argVal.asIR.getConstData match
+            case Some(Some(arg: BigInt)) =>
+              unsignedCheck(arg < 0)
+              summon[`UB > R`.CheckNUB[UB, Int]](ub, arg.toInt)
+            case _ =>
+              unsignedCheck(argVal.dfType.signed)
+              widthCheck(ub.clog2, argVal.widthInt)
           DFVal.Alias.AsIs(DFInt32, argVal)
         end apply
       end fromR
