@@ -91,6 +91,19 @@ function updateCodeBlocksAndDetails(preferredLanguage) {
   }
 }
 
+// Set preferred language tab on page load
+window.addEventListener("load", () => {
+  var savedLanguage = localStorage.getItem('preferredLanguage');
+  const tabLabels = document.querySelectorAll(
+    ".tabbed-set > label, .tabbed-alternate > .tabbed-labels > label"
+  );
+  tabLabels.forEach(label => {
+    if (label.textContent.includes(savedLanguage)) {
+      label.click();
+    }
+  });
+});
+
 document.addEventListener('DOMContentLoaded', function() {
   var currentLang = document.getElementById('current-language');
   var savedLanguage = localStorage.getItem('preferredLanguage');
@@ -110,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
   else {
     updateScastieTheme(); // Set theme on initial load
   }
-
+  
   // Listen for changes in theme
   const observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
