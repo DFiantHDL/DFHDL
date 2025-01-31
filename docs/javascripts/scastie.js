@@ -61,6 +61,15 @@ function updateCodeBlocksAndDetails(preferredLanguage) {
     details.forEach(function(div){
       div.removeAttribute("open");
     })
+    //select tabs with Verilog
+    const tabLabels = document.querySelectorAll(
+      ".tabbed-set > label, .tabbed-alternate > .tabbed-labels > label"
+    );
+    tabLabels.forEach(label => {
+      if (label.textContent.includes("Verilog")) {
+        label.click();
+      }
+    });
   } else { // VHDL
     var details = document.querySelectorAll('.vhdl'); 
     details.forEach(function(div){
@@ -70,6 +79,15 @@ function updateCodeBlocksAndDetails(preferredLanguage) {
     details.forEach(function(div){
       div.removeAttribute("open");
     })
+    //select tabs with VHDL
+    const tabLabels = document.querySelectorAll(
+      ".tabbed-set > label, .tabbed-alternate > .tabbed-labels > label"
+    );
+    tabLabels.forEach(label => {
+      if (label.textContent.includes("VHDL")) {
+        label.click();
+      }
+    });
   }
 }
 
