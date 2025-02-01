@@ -14,11 +14,6 @@ import StdNames.nme
 import Names.*
 import Constants.Constant
 import Types.*
-import dotty.tools.dotc.semanticdb.ConstantMessage.SealedValue.{
-  BooleanConstant,
-  IntConstant,
-  UnitConstant
-}
 
 import scala.language.implicitConversions
 import scala.compiletime.uninitialized
@@ -689,8 +684,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         else
           report.error(
             s"""Wrong enum entry type.
-                  |Expecting: ${enumTpe.show}
-                  |Found: ${arg.tpe.show}""".stripMargin,
+               |Expecting: ${enumTpe.show}
+               |Found: ${arg.tpe.show}""".stripMargin,
             arg.srcPos
           )
           EmptyTree
