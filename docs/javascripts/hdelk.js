@@ -577,7 +577,7 @@ var hdelk = (function(){
                     //                                   .stroke({width:strokeWidth});
                     //var portTextItem = group.text(portText).font({ size: port_name_font_size }).fill({color:nameColor});
                     //var portTextWidth = portTextItem.node.getComputedTextLength();
-                    portTextItem.transform( { rotation:90, cx:0, cy:0  } ).move( offsetY + child.y+item.y+(item.height-portTextWidth)/2, -(offsetX + child.x+item.x+item.width-(item.width-port_name_font_size)/2 + 2) );
+                    portTextItem.transform({ rotate: 90, ox: 0, oy: 0 }).move( offsetY + child.y+item.y+(item.height-portTextWidth)/2, -(offsetX + child.x+item.x+item.width-(item.width-port_name_font_size)/2 + 2) );
                 }
                 else {
                     //group.rect( item.width, item.height ).attr({ fill:portColor }).move(offsetX + child.x+item.x, offsetY + child.y+item.y );
