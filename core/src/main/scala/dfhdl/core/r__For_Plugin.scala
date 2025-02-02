@@ -86,7 +86,10 @@ object r__For_Plugin:
   @metaContextIgnore
   def genDesignParam[V <: DFValAny](paramValue: DFValAny, paramMeta: ir.Meta)(using DFC): V =
     trydf:
-      DFVal.Alias.AsIs.designParam(paramValue)(using dfc.setMeta(paramMeta)).asInstanceOf[V]
+      dfc.mutableDB.DesignContext.getReachableNamedValue(
+        paramValue.asIR,
+        DFVal.Alias.AsIs.designParam(paramValue)(using dfc.setMeta(paramMeta)).asIR
+      ).asValAny.asInstanceOf[V]
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =
     dfc.mutableDB.DesignContext.getDefInput(idx).asInstanceOf[V]
