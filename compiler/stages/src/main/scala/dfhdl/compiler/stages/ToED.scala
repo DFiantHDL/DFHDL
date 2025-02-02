@@ -63,7 +63,6 @@ case object ToED extends Stage:
               case _: DFVal.Dcl                               => false
               case DesignParam(_)                             => false
               case _: DFOwnerNamed                            => false
-              case _: DFVal.PortByNameSelect                  => false
               case dfVal: DFVal if dfVal.isReferencedByAnyDcl => false
               case _                                          => true
 
@@ -92,7 +91,7 @@ case object ToED extends Stage:
                   if !dcl.modifier.isReg && assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
                 net.collectRelMembers.filter(collectFilter) :+ net
               case _ => Nil
-            }
+            }.distinct
             val singleAssignmentsSet = singleAssignments.toSet
             val processBlockAllMembers =
               combinationalMembers.filterNot(singleAssignmentsSet.contains)
