@@ -48,6 +48,7 @@ case object ViaConnection extends Stage:
           }
         // Meta design for connections between ports and the added variables
         val connectDsn = new MetaDesign(ib, Patch.Add.Config.After):
+          dfc.mutableDB.injectMetaGetSet(addVarsDsn.getDB.getSet)
           dfc.enterLate()
           val refPatches: List[(DFMember, Patch)] = addVarsDsn.portsToVars.flatMap { case (p, v) =>
             val pbns = p.getPortsByNameSelectors
