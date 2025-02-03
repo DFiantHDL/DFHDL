@@ -75,7 +75,7 @@ extension [M <: ir.DFMember](member: M)
         // name path accounts for domains within the design that can contain the port
         val namePath = port.getRelativeName(port.getOwnerDesign)
         val portSelect: ir.DFVal.PortByNameSelect = ir.DFVal.PortByNameSelect(
-          port.dfType,
+          port.dfType.dropUnreachableRefs,
           port.getOwnerDesign.refTW[ir.DFVal.PortByNameSelect],
           namePath,
           dfc.owner.ref,

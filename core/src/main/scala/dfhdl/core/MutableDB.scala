@@ -37,6 +37,7 @@ class DesignContext:
   val refTable = mutable.Map.empty[DFRefAny, DFMember]
   val originRefTable = mutable.Map.empty[DFRef.TwoWayAny, DFMember]
   val unreachableNamedValues = mutable.Map.empty[DFVal, DFVal]
+  val unreachableDFTypes = mutable.Map.empty[DFType, DFType]
   var defInputs = List.empty[DFValAny]
   var isDuplicate = false
 
@@ -137,6 +138,9 @@ class DesignContext:
 
   def getReachableNamedValue(dfVal: DFVal, cf: => DFVal): DFVal =
     unreachableNamedValues.getOrElseUpdate(dfVal, cf)
+
+  def getReachableDFType(dfType: DFType, cf: => DFType): DFType =
+    unreachableDFTypes.getOrElseUpdate(dfType, cf)
 end DesignContext
 
 final class MutableDB():
@@ -242,6 +246,8 @@ final class MutableDB():
       }.get
     def getReachableNamedValue(dfVal: DFVal, cf: => DFVal): DFVal =
       current.getReachableNamedValue(dfVal, cf)
+    def getReachableDFType(dfType: DFType, cf: => DFType): DFType =
+      current.getReachableDFType(dfType, cf)
   end DesignContext
 
   val injectedCtx = mutable.Set.empty[DesignContext]

@@ -286,29 +286,22 @@ extension (dfType: ir.DFType)
   // type referenced values may not always be directly accessible.
   // see `dropUnreachableRef` on ir.IntParamRef for more details.
   def dropUnreachableRefs(allowDesignParamRefs: Boolean)(using dfc: DFC): ir.DFType =
-    // in compiler stages meta-programming we need to skip this, since there could be
-    // temporarily unreachable references.
-    if (dfc.inMetaProgramming) dfType
-    else
-      dfType match
-        case ir.DFBits(widthParamRef) =>
-          ir.DFBits(widthParamRef.dropUnreachableRef(allowDesignParamRefs))
-        case ir.DFDecimal(signed, widthParamRef, fractionWidth, nativeType) =>
-          ir.DFDecimal(
-            signed,
-            widthParamRef.dropUnreachableRef(allowDesignParamRefs),
-            fractionWidth,
-            nativeType
-          )
-        case ir.DFVector(cellType, cellDimParamRefs) =>
-          ir.DFVector(
-            cellType.dropUnreachableRefs(allowDesignParamRefs),
-            cellDimParamRefs.map(_.dropUnreachableRef(allowDesignParamRefs))
-          )
-        // DFStruct/DFTuple/DFOpaque indeed contain other types, but at construction they are forced to have
-        // no local references at all, so we can skip them. Other types that have no references at all
-        // are trivially skipped.
-        case _ => dfType
+    import dfc.getSet
+    // if the type has unreachable references, we need to create a new type with reachable references.
+    if (dfType.getRefs.exists(_.get.isUnreachable))
+      // get the memoized reachable type or create a new one
+      dfc.mutableDB.DesignContext.getReachableDFType(
+        dfType, {
+          // create a new type with new references to point to reachable values
+          val updatedDFType = dfType.copyWithNewRefs
+          dfType.getRefs.lazyZip(updatedDFType.getRefs).foreach { (oldRef, newRef) =>
+            // add the new reference to the value
+            dfc.mutableDB.newRefFor(newRef, oldRef.get.cloneUnreachable)
+          }
+          updatedDFType
+        }
+      )
+    else dfType
   end dropUnreachableRefs
   def dropUnreachableRefs(using DFC): ir.DFType = dropUnreachableRefs(true)
 end extension

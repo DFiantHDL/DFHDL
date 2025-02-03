@@ -1,5 +1,6 @@
 package dfhdl.core
 import dfhdl.compiler.ir
+import dfhdl.compiler.analysis.DesignParam
 import dfhdl.internals.*
 import ir.DFVal.Func.Op as FuncOp
 import ir.DFVal.Alias.History.Op as HistoryOp
@@ -1332,6 +1333,50 @@ object DFPortOps:
 end DFPortOps
 
 extension (dfVal: ir.DFVal)
+  protected[dfhdl] def isUnreachable(using dfc: DFC): Boolean =
+    import dfc.getSet
+    !dfVal.isGlobal && dfVal.getOwnerDesign.ownerRef != dfc.owner.asIR.getThisOrOwnerDesign.ownerRef
+
+  protected[dfhdl] def cloneUnreachable(using dfc: DFC): ir.DFVal =
+    import dfc.getSet
+    val currentOwner = dfc.owner.asIR
+    if (dfVal.isUnreachable)
+      dfVal match
+        case _ if !dfVal.isAnonymous && currentOwner.isInsideOwner(dfVal.getOwnerDesign) =>
+          dfc.mutableDB.DesignContext.getReachableNamedValue(
+            dfVal,
+            DFVal.Alias.AsIs.designParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta)).asIR
+          )
+        case DesignParam(of) =>
+          println("----")
+          println(dfc.getMeta)
+          println(s"Param unreachable: ${dfVal.getFullName}")
+          println(s"from: ${currentOwner.getThisOrOwnerDesign.getFullName}")
+          of.cloneUnreachable
+        case _ =>
+          def cloning: ir.DFVal =
+            println("----")
+            println(dfc.getMeta)
+            println(s"Cloning unreachable: ${dfVal.getFullName}")
+            println(s"from: ${currentOwner.getThisOrOwnerDesign.getFullName}")
+            val newDFVal = dfVal.copyWithNewRefs
+            dfVal.getRefs.lazyZip(newDFVal.getRefs).foreach { case (oldRef, newRef) =>
+              dfc.mutableDB.newRefFor(
+                newRef,
+                oldRef.get match
+                  case dfVal: ir.DFVal => dfVal.cloneUnreachable
+                  case m               => m
+              )
+            }
+            dfc.mutableDB.newRefFor(newDFVal.ownerRef, currentOwner)
+            dfc.mutableDB.addMember(newDFVal)
+            newDFVal
+          end cloning
+          if (dfVal.isAnonymous) cloning
+          else dfc.mutableDB.DesignContext.getReachableNamedValue(dfVal, cloning)
+    else dfVal
+  end cloneUnreachable
+
   protected[dfhdl] def cloneAnonValueAndDepsHere(using dfc: DFC): ir.DFVal =
     import dfc.getSet
     if (dfVal.isAnonymous)
@@ -1364,3 +1409,5 @@ extension (dfVal: ir.DFVal)
       cloned.asIR
     else dfVal
     end if
+  end cloneAnonValueAndDepsHere
+end extension
