@@ -185,6 +185,20 @@ class Foo extends DFDesign:
   val a, b, c = Bit   <> IN
 ```
 
+/// details | Transitioning from Verilog
+    type: verilog
+* Declaration Syntax: Port and variable declaration syntax is obviously very different
+* Types: 
+* Scope
+* The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
+///
+
+/// details | Transitioning from VHDL
+    type: vhdl
+* VHDL has 
+///
+
+
 ### Rules {#dcl-rules}
 
 #### Scope {#dcl-scope}
@@ -209,10 +223,9 @@ class Foo extends DFDesign:
 #### Naming {#dcl-naming}
 Ports and variables must always be named, and cannot be anonymous. 
 
-```scala
+```scala title="Anonymous declaration elaboration error example"
 class Foo extends DFDesign:
-  //error: constructed an anonymous 
-  //output port
+  //elaboration error: Unable to determine names for the members declared at the following positions
   Bit <> OUT 
 ```
 
@@ -312,7 +325,9 @@ Ports can be grouped together in dedicated [interfaces][interfaces].
 
 /// details | Transitioning from Verilog
     type: verilog
-* DFHDL supports more abstraction domains, and not just ED abstraction like Verilog does.
+* Declaration Syntax: Port and variable declaration syntax is obviously very different
+* Types: 
+* Scope
 * The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
 ///
 
