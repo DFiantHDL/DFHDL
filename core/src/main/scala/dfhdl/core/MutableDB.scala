@@ -150,10 +150,10 @@ final class MutableDB():
   val logger = new Logger
 
   // meta programming external MemberGetSet DB access
-  private[MutableDB] var metaGetSetOpt: Option[MemberGetSet] = None
-  def inMetaProgramming: Boolean = metaGetSetOpt.nonEmpty
-  def setMetaGetSet(metaGetSet: MemberGetSet): Unit =
-    metaGetSetOpt = Some(metaGetSet)
+  private[MutableDB] var metaGetSetList: List[MemberGetSet] = Nil
+  def inMetaProgramming: Boolean = metaGetSetList.nonEmpty
+  def injectMetaGetSet(metaGetSet: MemberGetSet): Unit =
+    metaGetSetList = metaGetSet :: metaGetSetList
 
   object DesignContext:
     val global: DesignContext = new DesignContext
@@ -325,7 +325,7 @@ final class MutableDB():
       updateOwnerCond: DFOwner => Boolean = _.isInstanceOf[DFDesignBlock]
   ): M =
     dirtyDB()
-    DesignContext.current.plantMember(owner, member, updateOwnerCond)(using metaGetSetOpt.get)
+    DesignContext.current.plantMember(owner, member, updateOwnerCond) // (using metaGetSetList.last)
 
   def newRefFor[M <: DFMember, R <: DFRef[M]](ref: R, member: M): R =
     dirtyDB()
@@ -335,7 +335,7 @@ final class MutableDB():
       ref: DFRef[M]
   ): Option[M0] =
     // by default the current design context is searched
-    val memberOption = DesignContext.current.refTable.get(ref) match
+    val memberOption: Option[DFMember] = DesignContext.current.refTable.get(ref) match
       case some: Some[DFMember] => some
       // if we didn't find it, then we go up the design context stack
       case None =>
@@ -344,28 +344,15 @@ final class MutableDB():
           .collectFirst { case Some(member) => member }
           // finally, if still no member is available, then we check the
           // external injected meta-programming context
-          .orElse(metaGetSetOpt.map(_.getOption(ref)))
+          .orElse(metaGetSetList.view.flatMap(_.getOption(ref)).headOption)
     memberOption.asInstanceOf[Option[M0]]
   end getMemberOption
 
   def getMember[M <: DFMember, M0 <: M](
       ref: DFRef[M]
-  ): M0 =
-    // by default the current design context is searched
-    val member = DesignContext.current.refTable.get(ref) match
-      case Some(member) => member
-      // if we didn't find it, then we go up the design context stack
-      case None =>
-        DesignContext.stack.view
-          .map(_.refTable.get(ref))
-          .collectFirst { case Some(member) => member }
-          // finally, if still no member is available, then we check the
-          // external injected meta-programming context
-          .getOrElse(
-            metaGetSetOpt.getOrElse(throw new IllegalArgumentException(s"Missing ref $ref"))(ref)
-          )
-    member.asInstanceOf[M0]
-  end getMember
+  ): M0 = getMemberOption(ref).getOrElse(
+    throw new IllegalArgumentException(s"Missing ref $ref")
+  )
 
   def getOriginMember(
       ref: DFRef.TwoWayAny
@@ -381,7 +368,9 @@ final class MutableDB():
           // finally, if still no member is available, then we check the
           // external injected meta-programming context
           .getOrElse(
-            metaGetSetOpt.getOrElse(throw new IllegalArgumentException(s"Missing ref $ref"))(ref)
+            metaGetSetList.view.flatMap(_.getOption(ref)).headOption.getOrElse(
+              throw new IllegalArgumentException(s"Missing ref $ref")
+            )
           )
     member
   end getOriginMember
@@ -441,7 +430,7 @@ final class MutableDB():
     // if in meta-programming (indicated by the existence of an external context),
     // then we need to just get the current hierarchy members and refTable
     val (members, refTable) =
-      if (metaGetSetOpt.nonEmpty)
+      if (inMetaProgramming)
         (DesignContext.current.getMemberList, DesignContext.current.refTable.toMap)
       // otherwise we first flatten the hierarchy and then make sure all design
       // declarations are unique and tag duplicate instances accordingly.

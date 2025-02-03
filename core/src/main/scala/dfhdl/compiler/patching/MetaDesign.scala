@@ -36,7 +36,7 @@ abstract class MetaDesign[+D <: DomainType](
     case _ =>
       dfc.enterOwner(injectedOwner.asFE)
 
-  dfc.mutableDB.setMetaGetSet(getSet)
+  dfc.mutableDB.injectMetaGetSet(getSet)
   final type TDomain = D @uncheckedVariance
   final protected given TDomain = domainType
   // we don't really care about the IR domain type of a meta design, since it is removed.
