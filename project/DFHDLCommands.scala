@@ -1,3 +1,4 @@
+//format: off
 import sbt._
 import Keys._
 
