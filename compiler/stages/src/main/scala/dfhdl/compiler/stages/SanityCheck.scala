@@ -120,8 +120,6 @@ case object SanityCheck extends Stage:
                 r.get match
                   // global references can be shared across types
                   case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // no violation
-                  // design parameters can be shared across types
-                  case DesignParam(_) => // no violation
                   case _ =>
                     if (!(prevMember isSameOwnerDesignAs m))
                       originViolation(" from a different design")
