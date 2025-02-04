@@ -1,5 +1,6 @@
 package dfhdl.core
 import dfhdl.compiler.ir
+import dfhdl.compiler.analysis.DesignParam
 import dfhdl.internals.*
 import ir.DFVal.Func.Op as FuncOp
 import ir.DFVal.Alias.History.Op as HistoryOp
@@ -520,10 +521,16 @@ object DFVal extends DFValLP:
         s"Cannot initialize a named value ${dfVal.asIR.getFullName}. Initialization is only supported at the declaration of the value."
       )
       val modifier = Modifier[A, C, I, P](dfVal.asIR.asInstanceOf[ir.DFVal.Dcl].modifier)
-      // We do not need to replace the original Dcl, because it was anonymous and not added to the
-      // mutable DB. Also see comment in `DFVal.Dcl`.
-      DFVal.Dcl(dfVal.dfType, modifier, initValues)
-        .asVal[T, Modifier[A, C, Modifier.Initialized, P]]
+      // updating the member in the mutable DB, but in a new position, to make sure it comes
+      // after the initial value member construction.
+      val updatedDcl = DFVal.Dcl(dfVal.dfType, modifier, initValues)
+      // adding the updated member in the new position
+      dfc.mutableDB.addMember(updatedDcl.asIR)
+      // ignoring the old member
+      dfc.mutableDB.ignoreMember(dfVal.asIR)
+      // replacing all references to the old member with the new member
+      dfc.mutableDB.replaceMember(dfVal.asIR, updatedDcl.asIR)
+      updatedDcl.asVal[T, Modifier[A, C, Modifier.Initialized, P]]
     end initForced
 
     infix def init(
@@ -645,24 +652,15 @@ object DFVal extends DFValLP:
     ): DFVal[T, M] =
       val modifierIR = modifier.asIR
       val dfTypeIR = dfType.asIR.dropUnreachableRefs
-      // Anonymous Dcls are only supposed to be followed by an `init` that will construct the
-      // fully initialized Dcl. The reason for this behavior is that we do not want to add the
-      // Dcl to the mutable DB and only after add its initialization value to the DB, thereby
-      // violating the reference order rule (we can only reference values that appear before).
-      if (dfc.isAnonymous && initValues.isEmpty)
-        ir.DFVal.Dcl(
-          dfTypeIR, modifierIR, Nil, ir.DFRef.OneWay.Empty, dfc.getMeta, dfc.tags
-        ).asVal[T, M]
-      else
-        val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
-          dfTypeIR,
-          modifierIR,
-          initValues.map(_.asIR.refTW[ir.DFVal.Dcl]),
-          dfc.owner.ref,
-          dfc.getMeta,
-          dfc.tags
-        )
-        dcl.addMember.asVal[T, M]
+      val dcl: ir.DFVal.Dcl = ir.DFVal.Dcl(
+        dfTypeIR,
+        modifierIR,
+        initValues.map(_.asIR.refTW[ir.DFVal.Dcl]),
+        dfc.owner.ref,
+        dfc.getMeta,
+        dfc.tags
+      )
+      dcl.addMember.asVal[T, M]
     end apply
   end Dcl
 
@@ -911,19 +909,10 @@ object DFVal extends DFValLP:
         import dfc.getSet
         given Printer = DefaultPrinter
         val ret: DFValAny =
-          if (dfType != value.dfType)
-            (dfType.asIR, value.dfType.asIR) match
-              case (_: ir.DFBits, _: ir.DFBits) =>
-                DFBits.Val.TC(dfType.asFE[DFBits[Int]], value.asValOf[DFBits[Int]])
-              case (ir.DFXInt(_, _, _), ir.DFXInt(_, _, _)) =>
-                DFXInt.Val.TC(
-                  dfType.asFE[DFXInt[Boolean, Int, NativeType]],
-                  value.asValOf[DFXInt[Boolean, Int, NativeType]]
-                )
-              case _ =>
-                throw new IllegalArgumentException(
-                  s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
-                )
+          if (dfType != value.dfType && !dfType.asIR.isSimilarTo(value.dfType.asIR))
+            throw new IllegalArgumentException(
+              s"Unsupported value of type `${value.dfType.codeString}` for DFHDL receiver type `${dfType.codeString}`."
+            )
           else value
         ret.asValTP[T, P]
       end conv
@@ -1335,6 +1324,45 @@ object DFPortOps:
 end DFPortOps
 
 extension (dfVal: ir.DFVal)
+  protected[dfhdl] def isUnreachable(using dfc: DFC): Boolean =
+    import dfc.getSet
+    !dfVal.isGlobal && dfVal.getOwnerDesign.ownerRef != dfc.owner.asIR.getThisOrOwnerDesign.ownerRef
+
+  protected[dfhdl] def cloneUnreachable(using dfc: DFC): ir.DFVal =
+    import dfc.getSet
+    val currentOwner = dfc.owner.asIR
+    if (dfVal.isUnreachable)
+      dfVal match
+        case _
+            if !dfVal.isAnonymous &&
+              currentOwner.getThisOrOwnerDesign.isInsideOwner(dfVal.getOwnerDesign) =>
+          dfc.mutableDB.DesignContext.getReachableNamedValue(
+            dfVal, {
+              DFVal.Alias.AsIs.designParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta)).asIR
+            }
+          )
+        case DesignParam(of) =>
+          of.cloneUnreachable
+        case _ =>
+          def cloning: ir.DFVal =
+            val newDFVal = dfVal.copyWithNewRefs
+            dfVal.getRefs.lazyZip(newDFVal.getRefs).foreach { case (oldRef, newRef) =>
+              dfc.mutableDB.newRefFor(
+                newRef,
+                oldRef.get match
+                  case dfVal: ir.DFVal => dfVal.cloneUnreachable
+                  case m               => m
+              )
+            }
+            dfc.mutableDB.newRefFor(newDFVal.ownerRef, currentOwner)
+            dfc.mutableDB.addMember(newDFVal)
+            newDFVal
+          end cloning
+          if (dfVal.isAnonymous) cloning
+          else dfc.mutableDB.DesignContext.getReachableNamedValue(dfVal, cloning)
+    else dfVal
+  end cloneUnreachable
+
   protected[dfhdl] def cloneAnonValueAndDepsHere(using dfc: DFC): ir.DFVal =
     import dfc.getSet
     if (dfVal.isAnonymous)
@@ -1367,3 +1395,5 @@ extension (dfVal: ir.DFVal)
       cloned.asIR
     else dfVal
     end if
+  end cloneAnonValueAndDepsHere
+end extension

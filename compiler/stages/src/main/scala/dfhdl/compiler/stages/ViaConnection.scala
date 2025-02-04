@@ -8,7 +8,7 @@ import dfhdl.internals.*
 
 case object ViaConnection extends Stage:
   def dependencies: List[Stage] = List(DropDesignDefs, ExplicitNamedVars)
-  def nullifies: Set[Stage] = Set()
+  def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
       case (ib, members) if !ib.isTop =>
@@ -48,6 +48,7 @@ case object ViaConnection extends Stage:
           }
         // Meta design for connections between ports and the added variables
         val connectDsn = new MetaDesign(ib, Patch.Add.Config.After):
+          dfc.mutableDB.injectMetaGetSet(addVarsDsn.getDB.getSet)
           dfc.enterLate()
           val refPatches: List[(DFMember, Patch)] = addVarsDsn.portsToVars.flatMap { case (p, v) =>
             val pbns = p.getPortsByNameSelectors

@@ -53,6 +53,8 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
       case template: Template if tree.hasDFC =>
         if (sym.is(Final) && !sym.isAnonymousClass)
           report.error("DFHDL classes cannot be final.", tree.srcPos)
+        else if (sym.is(CaseClass))
+          report.error("DFHDL classes cannot be case classes.", tree.srcPos)
         dfcArgStack = ContextArg.at(tree).get :: dfcArgStack
       case _ =>
     ctx

@@ -105,7 +105,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
       case t: ValOrDefDef if t.needsNewContext =>
         if (t.symbol.flags.is(Flags.Mutable))
           report.warning(
-            "Scala `var` modifier for DFHDL values/classes is highly discouraged!\nConsider changing to `val`.",
+            "Scala `var` modifier for DFHDL values/designs is highly discouraged!\nConsider changing to `val`.",
             t.srcPos
           )
         val (nameOpt, docOpt, annots) =

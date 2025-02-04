@@ -4,7 +4,7 @@ import dfhdl.*
 import dfhdl.compiler.stages.viaConnection
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class ViaConnectionSpec extends StageSpec:
+class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
   class ID extends DFDesign:
     val x = SInt(16) <> IN
     val y = SInt(16) <> OUT
@@ -288,6 +288,95 @@ class ViaConnectionSpec extends StageSpec:
          |    y := v(0) | v(1)
          |end IDTop
          |""".stripMargin
+    )
+  }
+
+  test("Hierarchical design with parameters") {
+    class ID(
+        val width: Int <> CONST,
+        val length: Int <> CONST
+    ) extends EDDesign:
+      val x = Bits(width) X length <> IN
+      val y = Bits(width) X length <> OUT
+      val v = Bits(width) X length <> VAR
+      v <> x
+      y <> v
+    class IDTop(
+        val widthTop: Int <> CONST  = 8,
+        val lengthTop: Int <> CONST = 10
+    ) extends EDDesign:
+      val x1  = Bits(widthTop) X lengthTop <> IN
+      val y1  = Bits(widthTop) X lengthTop <> OUT
+      val id1 = ID(widthTop, lengthTop)
+      id1.x <> x1
+      y1    <> id1.y
+      val x2  = Bits(widthTop) X (lengthTop + 1) <> IN
+      val y2  = Bits(widthTop) X (lengthTop + 1) <> OUT
+      val id2 = ID(widthTop, lengthTop + 1)
+      id2.x <> x2
+      y2    <> id2.y
+      val x3  = Bits(widthTop) X 7 <> IN
+      val y3  = Bits(widthTop) X 7 <> OUT
+      val id3 = ID(widthTop, 7)
+      id3.x <> x3
+      y3    <> id3.y
+    end IDTop
+
+    val id = (new IDTop).viaConnection
+    assertCodeString(
+      id,
+      """|class ID(
+         |    val width: Int <> CONST,
+         |    val length: Int <> CONST
+         |) extends EDDesign:
+         |  val x = Bits(width) X length <> IN
+         |  val y = Bits(width) X length <> OUT
+         |  val v = Bits(width) X length <> VAR
+         |  v <> x
+         |  y <> v
+         |end ID
+         |
+         |class IDTop(
+         |    val widthTop: Int <> CONST = 8,
+         |    val lengthTop: Int <> CONST = 10
+         |) extends EDDesign:
+         |  val x1 = Bits(widthTop) X lengthTop <> IN
+         |  val y1 = Bits(widthTop) X lengthTop <> OUT
+         |  val id1_x = Bits(widthTop) X lengthTop <> VAR
+         |  val id1_y = Bits(widthTop) X lengthTop <> VAR
+         |  val id1 = new ID(
+         |      width = widthTop,
+         |      length = lengthTop
+         |  ):
+         |    this.x <>/*<--*/ id1_x
+         |    this.y <>/*-->*/ id1_y
+         |  id1_x <> x1
+         |  y1 <> id1_y
+         |  val x2 = Bits(widthTop) X (lengthTop + 1) <> IN
+         |  val y2 = Bits(widthTop) X (lengthTop + 1) <> OUT
+         |  val id2_x = Bits(widthTop) X (lengthTop + 1) <> VAR
+         |  val id2_y = Bits(widthTop) X (lengthTop + 1) <> VAR
+         |  val id2 = new ID(
+         |      width = widthTop,
+         |      length = lengthTop + 1
+         |  ):
+         |    this.x <>/*<--*/ id2_x
+         |    this.y <>/*-->*/ id2_y
+         |  id2_x <> x2
+         |  y2 <> id2_y
+         |  val x3 = Bits(widthTop) X 7 <> IN
+         |  val y3 = Bits(widthTop) X 7 <> OUT
+         |  val id3_x = Bits(widthTop) X 7 <> VAR
+         |  val id3_y = Bits(widthTop) X 7 <> VAR
+         |  val id3 = new ID(
+         |      width = widthTop,
+         |      length = 7
+         |  ):
+         |    this.x <>/*<--*/ id3_x
+         |    this.y <>/*-->*/ id3_y
+         |  id3_x <> x3
+         |  y3 <> id3_y
+         |end IDTop""".stripMargin
     )
   }
 end ViaConnectionSpec

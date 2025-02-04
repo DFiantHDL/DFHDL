@@ -10,6 +10,7 @@ import scala.collection.mutable
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.core.{DFTypeAny, asFE}
 import dfhdl.compiler.ir.DFVal.Alias.DesignParamTag
+import dfhdl.compiler.ir.DFVal.PortByNameSelect
 
 /** This stage globalizes design parameters that set port vector lengths. This is needed only for
   * vhdl.v93 that does not support arrays with unconstrained ranges.
@@ -56,12 +57,21 @@ case object GlobalizePortVectorParams extends Stage:
         dimParamCnt + cellTypeParamCnt
       case _ => 0
     val vecTypeReplaceMap = mutable.Map.empty[DFVector, DFVector]
+    // vector type extractor through reference and port by name select
+    object VectorNetNodeType:
+      def unapply(ref: DFRefAny): Option[DFVector] = ref.get match
+        case PortByNameSelect.Of(DFVector.Val(dfType)) => Some(dfType)
+        case DFVector.Val(dfType)                      => Some(dfType)
+        case _                                         => None
     designDB.members.foreach {
       // checking all ports
       case dcl @ DclPort() => checkVector(dcl.dfType)
+      // checking all port by name selects that change their type
+      case pbns @ PortByNameSelect.Of(DFVector.Val(dclType)) if pbns.dfType != dclType =>
+        vecTypeReplaceMap += pbns.dfType.asInstanceOf[DFVector] -> dclType
       // checking all assignments/connections between vectors that are considered to be similar types,
       // but are not exactly the same (e.g., two vectors types referencing a `(LEN + 1)` length value)
-      case net @ DFNet(DFRef(DFVector.Val(lhsType)), _, DFRef(DFVector.Val(rhsType)), _, _, _)
+      case net @ DFNet(VectorNetNodeType(lhsType), _, VectorNetNodeType(rhsType), _, _, _)
           if !(lhsType == rhsType) && lhsType.isSimilarTo(rhsType) =>
         val lhsCnt = checkVector(lhsType)
         val rhsCnt = checkVector(rhsType)

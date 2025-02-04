@@ -676,4 +676,108 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+
+  test("left-right shift example") {
+    enum ShiftDir extends Encode:
+      case Left, Right
+
+    class ShiftGen(val width: Int) extends RTDesign:
+      val iBits = Bits(width)       <> IN
+      val shift = UInt.until(width) <> IN
+      val oBits = Bits(width)       <> OUT
+
+    class LeftShiftGen(width: Int) extends ShiftGen(width):
+      oBits := iBits << shift
+
+    class RightShiftGen(width: Int) extends ShiftGen(width):
+      oBits := iBits >> shift
+
+    class LRShiftGen(width: Int = 8) extends ShiftGen(width):
+      val dir      = ShiftDir <> IN
+      val lshifter = LeftShiftGen(width)
+      val rshifter = RightShiftGen(width)
+      lshifter.iBits <> iBits
+      lshifter.shift <> shift
+      rshifter.iBits <> iBits
+      rshifter.shift <> shift
+      dir match
+        case ShiftDir.Left  => oBits := lshifter.oBits
+        case ShiftDir.Right => oBits := rshifter.oBits
+
+    val top = (new LRShiftGen).toED
+    assertCodeString(
+      top,
+      """|enum ShiftDir(val value: UInt[1] <> CONST) extends Encode.Manual(1):
+         |  case Left extends ShiftDir(d"1'0")
+         |  case Right extends ShiftDir(d"1'1")
+         |
+         |class LeftShiftGen extends EDDesign:
+         |  val iBits = Bits(8) <> IN
+         |  val shift = UInt(3) <> IN
+         |  val oBits = Bits(8) <> OUT
+         |  oBits <> (iBits << shift.toInt)
+         |end LeftShiftGen
+         |
+         |class RightShiftGen extends EDDesign:
+         |  val iBits = Bits(8) <> IN
+         |  val shift = UInt(3) <> IN
+         |  val oBits = Bits(8) <> OUT
+         |  oBits <> (iBits >> shift.toInt)
+         |end RightShiftGen
+         |
+         |class LRShiftGen extends EDDesign:
+         |  val iBits = Bits(8) <> IN
+         |  val shift = UInt(3) <> IN
+         |  val oBits = Bits(8) <> OUT
+         |  val dir = ShiftDir <> IN
+         |  val lshifter = LeftShiftGen()
+         |  val rshifter = RightShiftGen()
+         |  lshifter.iBits <> iBits
+         |  lshifter.shift <> shift
+         |  rshifter.iBits <> iBits
+         |  rshifter.shift <> shift
+         |  process(all):
+         |    dir match
+         |      case ShiftDir.Left => oBits := lshifter.oBits
+         |      case ShiftDir.Right => oBits := rshifter.oBits
+         |    end match
+         |end LRShiftGen""".stripMargin
+    )
+  }
+
+  test("Basic hierarchy design with parameters") {
+    class ID(val width: Int <> CONST) extends DFDesign:
+      val x = SInt(width) <> IN
+      val y = SInt(width) <> OUT
+      y := x
+
+    class IDTop(val width: Int <> CONST) extends DFDesign:
+      val x   = SInt(width) <> IN
+      val y   = SInt(width) <> OUT
+      val id1 = ID(width)
+      val id2 = ID(width)
+      id1.x <> x
+      id1.y <> id2.x
+      id2.y <> y
+    val top = (new IDTop(16)).toED
+    assertCodeString(
+      top,
+      """|class ID(val width: Int <> CONST) extends EDDesign:
+         |  val x = SInt(width) <> IN
+         |  val y = SInt(width) <> OUT
+         |  y <> x
+         |end ID
+         |
+         |class IDTop(val width: Int <> CONST = 16) extends EDDesign:
+         |  val x = SInt(width) <> IN
+         |  val y = SInt(width) <> OUT
+         |  val id1 = ID(width = width)
+         |  val id2 = ID(width = width)
+         |  id1.x <> x
+         |  id2.x <> id1.y
+         |  y <> id2.y
+         |end IDTop""".stripMargin
+    )
+  }
+
 end ToEDSpec

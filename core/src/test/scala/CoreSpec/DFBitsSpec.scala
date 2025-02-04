@@ -256,4 +256,46 @@ class DFBitsSpec extends DFSpec:
     assert(w.&.toScalaBoolean == true)
     assert((x ^ y ^ z).|.toScalaBoolean == false)
   }
+  test("Operations") {
+    val b8 = Bits(8) <> VAR
+    val shift: Int <> CONST = 2
+    val sel: Int <> CONST = 3
+    assertCodeString(
+      """|val t1 = b8 << shift
+         |val t2 = b8 >> shift
+         |val t3 = b8(sel)""".stripMargin
+    ) {
+      val t1 = b8 << shift
+      val t2 = b8 >> shift
+      val t3 = b8(sel)
+    }
+    assertDSLErrorLog(
+      "Argument must be unsigned"
+    )(
+      """b8 << -2"""
+    ) {
+      val bad_shift: Int <> CONST = -1
+      b8 << bad_shift
+    }
+    val s3 = SInt(3) <> VAR
+    assertCompileError(
+      "Argument must be unsigned"
+    )(
+      """b8(s3)"""
+    )
+    assertDSLErrorLog(
+      "The argument must be smaller than the upper-bound 8 but found: 10"
+    )(
+      """b8 >> 10"""
+    ) {
+      val bad_shift: Int <> CONST = 10
+      b8 >> bad_shift
+    }
+    val u5 = UInt(5) <> VAR
+    assertCompileError(
+      "Expected argument width 3 but found: 5"
+    )(
+      """b8(u5)"""
+    )
+  }
 end DFBitsSpec

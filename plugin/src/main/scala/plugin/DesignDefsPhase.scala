@@ -98,7 +98,11 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
         cpy.DefDef(tree)(rhs = updatedRHS)
       case _ =>
         if (
-          !sym.isAnonymousFunction && !sym.is(Exported) &&
+          // ignoring anonymous functions (since they are not transformed into design hierarchies)
+          // and ignoring exported methods (to prevent transforming a method that was already transformed at its origin)
+          // and ignoring mutable methods (that are just a reference to a mutable variable)
+          // and ignoring constructors definitions (since they are not transformed into design hierarchies)
+          !sym.isAnonymousFunction && !sym.is(Exported) && !sym.is(Mutable) &&
           !sym.isConstructor && !sym.owner.isAnonymousClass
         )
           if (

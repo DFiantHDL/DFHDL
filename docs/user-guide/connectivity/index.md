@@ -2,70 +2,736 @@
 typora-copy-images-to: ./
 ---
 [](){#connectivity}
-# Dataflow Ports & Connectivity
+# Hierarchy and Connectivity
 
+DFHDL supports composable design hierarchies by instantiating design classes and connecting ports.
 
+<div class="grid" markdown>
 
-![1531312790115](1541501671111.png)
+/// admonition | terminology
+    type: quote
+* _design_ - a Scala class extending `XXDesign`, where `XX` can be `DF`, `RT`, or `ED`, corresponding to the desired [design domain][design-domains].
+* _design member_ - any DFHDL object instantiated within a design (the design *contains* or *owns* all its members).
+* _child design/component_ - a design instance that is owned by another design.
+* _top design_ - the highest-level design in the hierarchy (no other design contains it), also known as the *top-level design*.
+* _top-app design_ - a `@top` annotated *top design* that generates a main entry with the default application.
 
- <div style="page-break-after: always;"></div>
-## Legend
+///
 
-| Shape                                                        | Meaning                                                      |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| ![1541510366894](1541510366894.png)or ![1541510402440](1541510402440.png) | A dataflow design                                            |
-| ![1541510440673](1541510440673.png) | A dataflow port. <br />Arrow enters a dataflow design shape = INPUT port<br />Arrow exists a dataflow design shape = OUTPUT port |
-| ![1541510499046](1541510499046.png) | A dataflow variable (mutable)                                |
-| ![1541510546268](1541513593500.png) | A constant (immutable literal). <br />In this case, the value is 5. |
-| ![1541510762069](1541510762069.png) | A dataflow join calculation junction (immutable). <br />In this case, the calculation is the addition `+` arithmetic operation. |
-| ![1541520934186](1541520934186.png) | A dataflow state element, via `.prev(rank)` (immutable).<br />In this case, the rank is 3. |
-| ![1541511506371](1541511506371.png) | A single-line arrow indicates a dataflow dependency<br />**assignment** from a producer (arrow tail) to a <br />consumer (arrow head) |
-| ![1541511626760](1541511626760.png) | A double-line <u>diamond</u> arrow indicates a dataflow dependency<br />**connection** from a producer (arrow tail) to a <br />consumer (arrow head) **and** an initial conditions dependency |
-| ![1541513485972](1541513485972.png) | A double-line arrow indicates a dataflow dependency<br />**reference** from a producer (arrow tail) to a <br />consumer (arrow head) **and** an initial conditions dependency |
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = Top
+    label = "top"
+    parameters = [param]
+    inPorts = [{id = i1, label = "in port"}]
+    outPorts = [
+      {id = o1, label = "out port"}
+      {id = o2, label = " "}
+      {id = o3, label = " "}
+    ]
+    children = [
+      {
+        id = const 
+        constant = 1
+      },
+      { 
+        id = A 
+        label = "child A"
+        highlight = 1
+        parameters = [param1, param2]
+        inPorts = [
+          {id = i1, label = " "}
+          {id = i2, label = " "}
+        ]
+        outPorts = [
+          {id = o1, label = " "}
+          {id = o2, label = " "}
+        ]
+        children = [
+          {id = opA1, label = ""},
+          {id = opA2, label = ""},
+        ]
+        edges = [
+          [A.i1, opA1]
+          [opA1, A.o1]
+          [A.i2, opA2]
+          [opA2, A.o2]
+        ]
+      },
+      { 
+        id = B
+        label = "child B"
+        highlight = 1
+        inPorts = [{id = i1, label = " "}]
+        outPorts = [{id = o1, label = " "}]
+        children = [{id = opB1, label = ""}]
+        edges = [
+          [B.i1, opB1]
+          [opB1, B.o1]
+        ]
+      },
+      {id = opTop, label = ""}
+    ]
+    edges = [
+      [Top.i1, A.i1]
+      [A.o1, A.i2]
+      [A.o1, opTop]
+      [opTop, Top.o1]
+      [A.o2, B.i1]
+      [B.o1, Top.o2]
+      [A.o2, Top.o3]
+      [Top.param, A.param2]
+      [const, A.param1]
+    ]
+  }
+]
+```
+</div>
 
- <div style="page-break-after: always;"></div>
-##Table of Contents
+## Design Declaration
 
-[TOC]
+### Syntax {#design-dcl-syntax}
 
- <div style="page-break-after: always;"></div>
-## Key Differences Between `<>` and `:=`
+A DFHDL design declaration follows the standard [Scala class](https://docs.scala-lang.org/tour/classes.html){target="_blank"} syntax, with specialized handling by the DFHDL Scala compiler plugin under the hood.
 
-| Criteria                            | `<>` Connection                                              | `:=` Assignment                                              |
-| ----------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| Code                                | ![1541486481167](1541486481167.png)                          | ![1541486548350](1541486548350.png)                          |
-| Functional<br />Diagram             | ![1531354461853](1541501701314.png) <br />We use a double line arrow to indicate a dataflow dependency **with** an initial condition dependency. | ![1531312715988](1531314030378.png)<br />We use a single line arrow to indicate a dataflow dependency **without** affecting initial conditions of the consumer. |
-| Directionality &<br />Commutativity | The operator is commutative, meaning `a <> b` is equivalent to b `b <> a`.  One argument is the *producer*, while the other *consumer*. The dataflow direction is sensitive to the context in which the operator is applied. | The operator is non-commutative, meaning `a := b` determines that `b` is the *producer*, transferring data to the *consumer* `a`. |
-| Initialization                      | Initialization is transferred to the consumer.               | The consumer initialization is **not** affected.             |
-| Mutation                            | A consumer can only be connected once.                       | Consumer assignments are unlimited.                          |
-| Statement Order                     | Connections statements can be placed in any order.           | Assignment statements                                        |
-|                                     |                                                              | &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |
-
- <div style="page-break-after: always;"></div>
-##Connection `<>` Rules
-
-###Dataflow Port Connections
-
-Connections annotation is generally used to connect parent designs to their child designs (components) and connect between sibling designs (children of the same parent). Opposed to VHDL/Verilog, there is no need to go through 'signals' to connect sibling design ports, e.g.:
-
-```scala
-trait IODesign extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  o <> i
-}
-trait Container2 extends DFDesign {
-  val i = DFUInt(8) <> IN
-  val o = DFUInt(8) <> OUT
-  val io1 = new IODesign {}
-  val io2 = new IODesign {}
-  i     <> io1.i //Connecting between owner input and child input
-  io1.o <> io2.i //Connecting between siblings (output <> input)
-  io2.o <> o     //Connecting between child output and owner output
-}
+```scala linenums="0" title="Design declaration syntax"
+/** _documentation_ */
+@top(genMain) //required only for top-level designs
+class _name_(_params_) extends XXDesign:
+  _contents_
+end _name_ //optional `end` marker
 ```
 
-![1531314589019](1541502098181.png)
+* __`_name_`__ is the Scala class name reference for the design you declared. The DFHDL compiler preserves this class name and uses it in error messages and the final generated artifacts (e.g., Verilog modules or VHDL entities). See the [naming][naming] section for more details.
+* __`(_params_)`__ is an optional parameter block. The parameter block can include either Scala parameters that are inlined for the design elaboration stage or DFHDL design parameters that are preserved through the design elaboration and compilation stages. If you do not need parameters, Scala syntax accepts both empty parentheses `()` and no parentheses. See [Parameter Block Syntax][design-params-syntax] for more information.
+* __`_XXDesign_`__ is the class to extends depending on the desired [design domain][design-domains], where `XX` can be `DF` for dataflow, `RT` for register-transfer, or `ED` for event-driven.
+* __`_contents_`__ are the design interface (ports/interfaces/domains) and functionality (variables, functions, child designs, processes, etc.), depending on the semantics of the selected design domain.
+* __`@top(genMain)`__ is a special obligatory annotation for top-level designs (designs that are instantiated not within another design). The annotation has an optional `#!scala val genMain: Boolean = true` parameter. When `genMain = false`, all this annotation is doing is providing a default top-level context for the design (e.g., [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} compiler options). When `genMain = true`, the design becomes a top-app design where all design parameters must have default values, and a main Scala entry point in the name `top__name_` is generated (e.g., for a top-app design named `Foo`, the entry name is named `top_Foo`).
+* __`_documentation_`__ is the design documentation in [Scaladoc format](https://docs.scala-lang.org/style/scaladoc.html){target="_blank"}. This documentation is a meta information that is preserved throughout the compilation process and finally generated as documentation for the generated backend code. 
+
+/// admonition | Basic top-app design example: a two-bits left shifter
+The DFHDL code below implements a two-bits left shifter design named `LeftShift2` under register-transfer (RT) domain semantics, as indicated by the class `LeftShift2` extending `RTDesign`. The design has one 8-bit input port and one 8-bit output port and implements the 2-bit leftshift functionality by applying it on the input and assigning it to the output.
+
+<div class="grid" markdown>
+
+```scala
+import dfhdl.*
+//optionally set the default backend configuration option
+//(can be overridden by the top-app CLI)
+given options.CompilerOptions.Backend = backends.verilog
+/** A two-bits left shifter */
+@top class LeftShift2 extends RTDesign:
+  /** bits input */
+  val iBits = Bits(8) <> IN
+  /** bits output */
+  val oBits = Bits(8) <> OUT
+  oBits := iBits << 2
+```
+
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = LeftShift2
+    inPorts = [iBits]
+    outPorts = [oBits]
+    children = [{id = op, label = "<<"}]
+    edges = [
+      [LeftShift2.iBits, op]
+      [op, LeftShift2.oBits]
+    ]
+  }
+]
+```
+
+</div>
+
+This design is also a top-app design, since it's annotated with `@top`. This means that we have an executable Scala program that compiles the design and generates a Verilog or VHDL backend code. The backend configuration option can be set via a CLI argument, or alternatively, be set via an implicit backend setting like in the code above. The `@top` annotation captures the [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} options within its scope and feeds them to the top-app CLI program as default to run when no CLI arguments are given.
+
+/// tab | Generated Verilog
+
+```verilog
+/* A two-bits left shifter */
+`default_nettype none
+`timescale 1ns/1ps
+`include "LeftShift2_defs.svh"
+
+module LeftShift2(
+  /* bits input */
+  input  wire logic [7:0] iBits,
+  /* bits output */
+  output      logic [7:0] oBits
+);
+  `include "dfhdl_defs.svh"
+  assign oBits = iBits << 2;
+endmodule
+```
+///
+
+/// tab | Generated VHDL
+```vhdl
+-- A two-bits left shifter 
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.dfhdl_pkg.all;
+use work.LeftShift2_pkg.all;
+
+entity LeftShift2 is
+port (
+  -- bits input 
+  iBits : in  std_logic_vector(7 downto 0);
+  -- bits output 
+  oBits : out std_logic_vector(7 downto 0)
+);
+end LeftShift2;
+
+architecture LeftShift2_arch of LeftShift2 is
+begin
+  oBits <= slv_sll(iBits, 2);
+end LeftShift2_arch;
+```
+///
+
+/// details | Runnable example
+    type: dfhdl
+```scastie
+import dfhdl.*
+//optionally set the default backend configuration option
+//(can be overridden by the top-app CLI)
+given options.CompilerOptions.Backend = backends.verilog
+/** A two-bits left shifter */
+@top class LeftShift2 extends RTDesign:
+  /** bits input */
+  val iBits = Bits(8) <> IN
+  /** bits output */
+  val oBits = Bits(8) <> OUT
+  oBits := iBits << 2
+```
+///
+///
+
+
+
+
+### Parameter Block Syntax {#design-params-syntax}
+Just like any Scala class parameter blocks, the DFHDL design accepts a sequence of comma-delimited parameter declarations.
+
+```scala linenums="0" title="Design declaration parameter block syntax"
+([_access_] _name_: _type_ [= _default_], ...)
+```
+
+* __`_type_`__ is either a pure Scala parameter type or a DFHDL parameter type in the form of `DFType <> CONST`.
+    - Pure Scala parameters are completely transparent to the DFHDL compiler and are inlined during elaboration. Any type of pure Scala parameter is acceptable, except for top-app design parameters which are currently limited to `#!scala String`, `#!scala Boolean`, `#!scala Int`, and `#!scala Double` types.
+    - DFHDL parameters are preserved throughout the compilation process and manifest as parameters in the generated backend code. Top-app design DFHDL parameters are currently limited to `Int <> CONST`, `Bit <> CONST`, and `Boolean <> CONST` types.
+* __`_name_`__ is the Scala parameter name reference. The DFHDL compiler preserves this parameter name for DFHDL parameters types only. For the top-app command-line interface (CLI), these names are also preserved, so that the parameters can be listed and modified through the CLI.
+* __`_default_`__ is the optional default value of the parameter. According to the Scala language rules, once a parameter has a default value defined, all parameters that follow it must also have default values defined. For top-app designs, all parameters must have default values.
+* __`_access_`__ is the optional Scala parameter access modifier. By default a Scala class parameter access is `#!scala private val`. If the parameter affects the type of a public value (e.g., width of a DFHDL port) then the
+
+/// admonition | Scala-parameterized top-app design example: a basic left shifter
+The DFHDL code below implements a basic left shifter design named `LeftShiftBasic`. This design is similar to the earlier example of `LeftShift2` except here the design has the shift value as an input, and its input and output port widths are set according to the Scala parameter `width`.
+
+<div class="grid" markdown>
+
+```scala
+/** A basic left shifter */
+@top class LeftShiftBasic(
+    val width: Int = 8,
+) extends RTDesign:
+  /** bits input */
+  val iBits = Bits(width)       <> IN
+  /** requested shift */
+  val shift = UInt.until(width) <> IN
+  /** bits output */
+  val oBits = Bits(width)       <> OUT
+  oBits := iBits << shift  
+```
+
+```hdelk width=90%
+stroke-width = 0
+children = [
+  {
+    id = top
+    label = LeftShiftBasic
+    inPorts = [iBits, shift]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [{id = op, label = "<<"}]
+    edges = [
+      [top.shift, op]
+      [top.iBits, op]
+      [op, top.oBits]
+    ]
+  }
+]
+```
+
+</div>
+
+/// tab | Generated Verilog
+
+```verilog
+/* A basic left shifter */
+`default_nettype none
+`timescale 1ns/1ps
+`include "LeftShiftBasic_defs.svh"
+
+module LeftShiftBasic(
+  /* bits input */
+  input  wire logic [7:0] iBits,
+  /* requested shift */
+  input  wire logic [2:0] shift,
+  /* bits output */
+  output      logic [7:0] oBits
+);
+  `include "dfhdl_defs.svh"
+  assign oBits = iBits << shift;
+endmodule
+```
+///
+
+/// tab | Generated VHDL
+```vhdl
+-- A basic left shifter 
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.dfhdl_pkg.all;
+use work.LeftShiftBasic_pkg.all;
+
+entity LeftShiftBasic is
+port (
+  -- bits input 
+  iBits : in  std_logic_vector(7 downto 0);
+  -- requested shift 
+  shift : in  unsigned(2 downto 0);
+  -- bits output 
+  oBits : out std_logic_vector(7 downto 0)
+);
+end LeftShiftBasic;
+
+architecture LeftShiftBasic_arch of LeftShiftBasic is
+begin
+  oBits <= slv_sll(iBits, to_integer(shift));
+end LeftShiftBasic_arch;
+```
+///
+
+/// details | Runnable example
+    type: dfhdl
+```scastie
+import dfhdl.*
+given options.CompilerOptions.Backend = backends.verilog
+/** A basic left shifter */
+@top class LeftShiftBasic(
+    val width: Int = 8,
+) extends RTDesign:
+  /** bits input */
+  val iBits = Bits(width)       <> IN
+  /** requested shift */
+  val shift = UInt.until(width) <> IN
+  /** bits output */
+  val oBits = Bits(width)       <> OUT
+  oBits := iBits << shift  
+```
+///
+///
+
+/// admonition | DFHDL-parameterized top-app design example: a generic left shifter
+The DFHDL code below implements a generic left shifter design named `LeftShiftGen`. This design is similar to the earlier example of `LeftShiftBasic` except here the `width` parameter is now a DFHDL parameter as indicated by its `Int <> CONST` type. This enables the DFHDL compiler to preserve the parameter name and directly use it in the generated backend code where applicable.
+
+<div class="grid" markdown>
+
+```scala
+/** A generic left shifter 
+  *   
+  * @param width
+  *   the width of the input and output bits
+  */
+@top class LeftShiftGen(
+    val width: Int <> CONST = 8,
+) extends RTDesign:
+  /** bits input */
+  val iBits = Bits(width)       <> IN
+  /** requested shift */
+  val shift = UInt.until(width) <> IN
+  /** bits output */
+  val oBits = Bits(width)       <> OUT
+  oBits := iBits << shift  
+```
+
+```hdelk width=90%
+stroke-width = 0
+children = [
+  {
+    id = top
+    label = LeftShiftGen
+    inPorts = [iBits, shift]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [{id = op, label = "<<"}]
+    edges = [
+      [top.shift, op]
+      [top.iBits, op]
+      [op, top.oBits]
+    ]
+  }
+]
+```
+
+</div>
+
+/// tab | Generated Verilog
+
+```verilog
+/* A generic left shifter 
+     
+   @param width
+     the width of the input and output bits
+  */
+`default_nettype none
+`timescale 1ns/1ps
+`include "LeftShiftGen_defs.svh"
+
+module LeftShiftGen#(parameter int width = 8)(
+  /* bits input */
+  input  wire logic [width - 1:0]         iBits,
+  /* requested shift */
+  input  wire logic [$clog2(width) - 1:0] shift,
+  /* bits output */
+  output      logic [width - 1:0]         oBits
+);
+  `include "dfhdl_defs.svh"
+  assign oBits = iBits << shift;
+endmodule
+```
+///
+
+/// tab | Generated VHDL
+```vhdl
+-- A generic left shifter 
+--   
+-- @param width
+--   the width of the input and output bits
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.dfhdl_pkg.all;
+use work.LeftShiftGen_pkg.all;
+
+entity LeftShiftGen is
+generic (
+  width : integer := 8
+);
+port (
+  -- bits input 
+  iBits : in  std_logic_vector(width - 1 downto 0);
+  -- requested shift 
+  shift : in  unsigned(clog2(width) - 1 downto 0);
+  -- bits output 
+  oBits : out std_logic_vector(width - 1 downto 0)
+);
+end LeftShiftGen;
+
+architecture LeftShiftGen_arch of LeftShiftGen is
+begin
+  oBits <= slv_sll(iBits, to_integer(shift));
+end LeftShiftGen_arch;
+```
+///
+
+/// details | Runnable example
+    type: dfhdl
+```scastie
+import dfhdl.*
+given options.CompilerOptions.Backend = backends.verilog
+/** A generic left shifter 
+  *   
+  * @param width
+  *   the width of the input and output bits
+  */
+@top class LeftShiftGen(
+    val width: Int <> CONST = 8,
+) extends RTDesign:
+  /** bits input */
+  val iBits = Bits(width)       <> IN
+  /** requested shift */
+  val shift = UInt.until(width) <> IN
+  /** bits output */
+  val oBits = Bits(width)       <> OUT
+  oBits := iBits << shift  
+```
+///
+///
+
+
+### Rules {#design-dcl-rules}
+
+#### Design class inheritance
+It is possible to leverage the power of Scala inheritance to share design functionality between design class declarations.
+
+/// admonition | Design class inheritance example: left and right shifters
+The DFHDL code below implements a generic left shifter design named `LeftShiftGen`. This design is similar to the earlier example of `LeftShiftBasic` except here the `width` parameter is now a DFHDL parameter as indicated by its `Int <> CONST` type. This enables the DFHDL compiler to preserve the parameter name and directly use it in the generated backend code where applicable.
+
+<div class="grid" markdown>
+
+```scala
+/** A generic abstract shifter 
+  *   
+  * @param width
+  *   the width of the input and output bits
+  */
+abstract class ShiftGen(
+    val width: Int <> CONST = 8,
+) extends RTDesign:
+  /** bits input */
+  val iBits = Bits(width)       <> IN
+  /** requested shift */
+  val shift = UInt.until(width) <> IN
+  /** bits output */
+  val oBits = Bits(width)       <> OUT
+```
+
+```hdelk width=90%
+stroke-width = 0
+children = [
+  {
+    id = top
+    label = ShiftGen
+    inPorts = [iBits, shift]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [{id = op, label = "<<"}]
+    edges = [
+      [top.shift, op]
+      [top.iBits, op]
+      [op, top.oBits]
+    ]
+  }
+]
+```
+
+</div>
+
+/// tab | Generated Verilog
+
+```verilog
+/* A generic left shifter 
+     
+   @param width
+     the width of the input and output bits
+  */
+`default_nettype none
+`timescale 1ns/1ps
+`include "LeftShiftGen_defs.svh"
+
+module LeftShiftGen#(parameter int width = 8)(
+  /* bits input */
+  input  wire logic [width - 1:0]         iBits,
+  /* requested shift */
+  input  wire logic [$clog2(width) - 1:0] shift,
+  /* bits output */
+  output      logic [width - 1:0]         oBits
+);
+  `include "dfhdl_defs.svh"
+  assign oBits = iBits << shift;
+endmodule
+```
+///
+
+/// tab | Generated VHDL
+```vhdl
+-- A generic left shifter 
+--   
+-- @param width
+--   the width of the input and output bits
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+use work.dfhdl_pkg.all;
+use work.LeftShiftGen_pkg.all;
+
+entity LeftShiftGen is
+generic (
+  width : integer := 8
+);
+port (
+  -- bits input 
+  iBits : in  std_logic_vector(width - 1 downto 0);
+  -- requested shift 
+  shift : in  unsigned(clog2(width) - 1 downto 0);
+  -- bits output 
+  oBits : out std_logic_vector(width - 1 downto 0)
+);
+end LeftShiftGen;
+
+architecture LeftShiftGen_arch of LeftShiftGen is
+begin
+  oBits <= slv_sll(iBits, to_integer(shift));
+end LeftShiftGen_arch;
+```
+///
+
+/// details | Runnable example
+    type: dfhdl
+```scastie
+import dfhdl.*
+given options.CompilerOptions.Backend = backends.verilog
+/** A generic abstract shifter 
+  *   
+  * @param width
+  *   the width of the input and output bits
+  */
+abstract class ShiftGen(
+    val width: Int <> CONST = 8,
+) extends RTDesign:
+  /** bits input */
+  val iBits = Bits(width)       <> IN
+  /** requested shift */
+  val shift = UInt.until(width) <> IN
+  /** bits output */
+  val oBits = Bits(width)       <> OUT
+```
+///
+///
+
+#### Design class modifier limitations
+A DFHDL design class cannot be declared as `#!scala final class` or `#!scala case class`. Attempting to do so produces an error:
+```scala title="DFHDL design class modifier limitation example"
+//error: DFHDL classes cannot be final classes.
+final class Foo extends DFDesign
+//error: DFHDL classes cannot be case classes.
+case class Bar() extends DFDesign
+```
+All other Scala class modifiers have no special effect or limitation from a DFHDL compiler perspective. Nonetheless, these modifiers can be relevant when defining a more complex design API, as part of the DFHDL meta-programming capabilities through the Scala language (e.g., change class access to `#!scala protected`).
+
+#### Design parameter limitations
+
+#### Top-app design parameter type limitations
+
+
+## Design Instantiation
+
+
+## Key Differences Between `<>` and `:=`/`:==`
+
+| Criteria                            | `<>` Connection                                              | `:=`/`:==` Assignment                                              |
+| ----------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
+| Directionality &<br />Commutativity | The operator is commutative, meaning `a <> b` is equivalent to b `b <> a`.  One argument is the *producer*, while the other *consumer*. The dataflow direction is sensitive to the context in which the operator is applied. | The operator is non-commutative, meaning `a := b` determines that `b` is the *producer*, transferring data to the *consumer* `a`. |
+| Mutation                            | A consumer can only be connected once.                       | Consumer assignments are unlimited.                          |
+| Statement Order                     | Connections statements can be placed in any order.           | Assignment statements                                        |
+
+##Connection `<>` Rules
+
+###Port Direct Connections
+
+The onnection operator `<>` is generally used to connect parent designs to their child designs (components) and connect between sibling designs (children of the same parent). Opposed to VHDL/Verilog, there is no need to go through 'signals' to connect sibling design ports, e.g.:
+
+<div class="grid" markdown>
+
+```scala
+class Plus1 extends DFDesign:
+  val x = UInt(8) <> IN
+  val y = UInt(8) <> OUT
+  y <> x + 1
+
+class Plus2 extends DFDesign:
+  val x = UInt(8) <> IN
+  val y = UInt(8) <> OUT
+  val p1A = Plus1()
+  val p1B = Plus1()
+  p1A.x <> x
+  p1A.y <> p1B.x
+  y <> p1B.y
+```
+
+```hdelk width=98%
+children = [
+  {
+    id = Plus2
+    inPorts = [x]
+    outPorts = [y]
+    children = [
+      { id = p1A, highlight = 1, type = Plus1, ports = [x, y] },
+      { id = p1B, highlight = 1, type = Plus1, ports = [x, y] }
+    ]
+    edges = [
+      [Plus2.x, p1A.x],
+      [p1A.y, p1B.x],
+      [p1B.y, Plus2.y]
+    ]
+  },
+  {
+    id = Plus1
+    children = [{ id = op, label = "+1" }]
+    inPorts = [x]
+    outPorts = [y]
+    edges = [
+      [Plus1.x, op],
+      [op, Plus1.y]
+    ]
+  }
+]
+```
+
+</div>
+
+###Port Via Connections
+
+```scala
+class Plus1 extends DFDesign:
+  val x = UInt(8) <> IN
+  val y = UInt(8) <> OUT
+  y <> x + 1
+
+class Plus2 extends EDDesign:
+  val x     = UInt(8) <> IN
+  val y     = UInt(8) <> OUT
+  val p1A_x = UInt(8) <> VAR
+  val p1A_y = UInt(8) <> VAR
+  val p1A = new Plus1():
+    this.x <> p1A_x
+    this.y <> p1A_y
+  val p1B_x = UInt(8) <> VAR
+  val p1B_y = UInt(8) <> VAR
+  val p1B = new Plus1():
+    this.x <> p1B_x
+    this.y <> p1B_y
+  p1A_x    <> x
+  p1B_x    <> p1A_y
+  y        <> p1B_y
+end Plus2
+```
+
+/// details | Runnable example
+    type: dfhdl
+
+```scastie
+import dfhdl.* 
+
+class Plus1 extends DFDesign:
+  val x = UInt(8) <> IN
+  val y = UInt(8) <> OUT
+  y <> x + 1
+
+@top class Plus2 extends DFDesign:
+  val x = UInt(8) <> IN
+  val y = UInt(8) <> OUT
+  val p1A = Plus1()
+  val p1B = Plus1()
+  p1A.x <> x
+  p1A.y <> p1B.x
+  y <> p1B.y
+
+given options.CompilerOptions.PrintBackendCode = false
+given options.CompilerOptions.PrintDFHDLCode = true
+```
+
+///
+
+
 
 ###Dataflow Value Connections
 
@@ -447,6 +1113,8 @@ Note: although there is a feedback in this design, there is no circular initial 
 
 ## Via Connections
 
+
+## Magnet Port Connections
 
 ## Future Work
 
