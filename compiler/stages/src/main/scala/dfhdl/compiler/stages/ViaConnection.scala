@@ -8,7 +8,7 @@ import dfhdl.internals.*
 
 case object ViaConnection extends Stage:
   def dependencies: List[Stage] = List(DropDesignDefs, ExplicitNamedVars)
-  def nullifies: Set[Stage] = Set()
+  def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
       case (ib, members) if !ib.isTop =>

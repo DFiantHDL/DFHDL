@@ -4,7 +4,7 @@ import dfhdl.*
 import dfhdl.compiler.stages.viaConnection
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
-class ViaConnectionSpec extends StageSpec:
+class ViaConnectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
   class ID extends DFDesign:
     val x = SInt(16) <> IN
     val y = SInt(16) <> OUT
