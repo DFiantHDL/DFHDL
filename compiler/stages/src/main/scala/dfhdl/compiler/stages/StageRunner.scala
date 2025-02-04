@@ -25,7 +25,10 @@ class StageRunner(using co: CompilerOptions, po: PrinterOptions) extends LogSupp
       logger.getLogLevel >= LogLevel.DEBUG && stage != SanityCheck &&
       !stage.isInstanceOf[NoCheckStage]
     )
-      ret.sanityCheck
+      if (stage.nullifies.contains(DropUnreferencedAnons))
+        ret.dropUnreferencedAnons.sanityCheck
+      else
+        ret.sanityCheck
     if (
       (logger.getLogLevel eq LogLevel.TRACE) && !ignoredTraceStages.contains(stage) &&
       !stage.isInstanceOf[SpecialControlStage]
