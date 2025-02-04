@@ -1333,23 +1333,18 @@ extension (dfVal: ir.DFVal)
     val currentOwner = dfc.owner.asIR
     if (dfVal.isUnreachable)
       dfVal match
-        case _ if !dfVal.isAnonymous && currentOwner.isInsideOwner(dfVal.getOwnerDesign) =>
+        case _
+            if !dfVal.isAnonymous &&
+              currentOwner.getThisOrOwnerDesign.isInsideOwner(dfVal.getOwnerDesign) =>
           dfc.mutableDB.DesignContext.getReachableNamedValue(
-            dfVal,
-            DFVal.Alias.AsIs.designParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta)).asIR
+            dfVal, {
+              DFVal.Alias.AsIs.designParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta)).asIR
+            }
           )
         case DesignParam(of) =>
-          println("----")
-          println(dfc.getMeta)
-          println(s"Param unreachable: ${dfVal.getFullName}")
-          println(s"from: ${currentOwner.getThisOrOwnerDesign.getFullName}")
           of.cloneUnreachable
         case _ =>
           def cloning: ir.DFVal =
-            println("----")
-            println(dfc.getMeta)
-            println(s"Cloning unreachable: ${dfVal.getFullName}")
-            println(s"from: ${currentOwner.getThisOrOwnerDesign.getFullName}")
             val newDFVal = dfVal.copyWithNewRefs
             dfVal.getRefs.lazyZip(newDFVal.getRefs).foreach { case (oldRef, newRef) =>
               dfc.mutableDB.newRefFor(
