@@ -127,9 +127,9 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDTopGen).getCodeString
     assertNoDiff(
       id,
-      """|class IDGen extends DFDesign:
-         |  val x = SInt(16) <> IN
-         |  val y = SInt(16) <> OUT
+      """|class IDGen(val w: Int <> CONST) extends DFDesign:
+         |  val x = SInt(w) <> IN
+         |  val y = SInt(w) <> OUT
          |  y := x
          |end IDGen
          |
@@ -137,13 +137,12 @@ class PrintCodeStringSpec extends StageSpec:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  val w: Int <> CONST = 16
-         |  val id1 = IDGen()
-         |  val id2 = IDGen()
-         |  id1.x <> x
+         |  val id1 = IDGen(w = w)
+         |  val id2 = IDGen(w = w)
+         |  id1.x <> x.resize(w)
          |  id2.x <> id1.y
-         |  y <> id2.y
-         |end IDTopGen
-         |""".stripMargin
+         |  y.resize(w) <> id2.y
+         |end IDTopGen""".stripMargin
     )
   }
   test("Via-connection ID design hierarchy") {
