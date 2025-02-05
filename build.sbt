@@ -1,4 +1,5 @@
 commands += DFHDLCommands.quickTestSetup
+commands += DFHDLCommands.docExamplesRefUpdate
 
 // format: off
 val projectName = "dfhdl"

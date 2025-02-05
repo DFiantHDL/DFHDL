@@ -117,17 +117,7 @@ The DFHDL code below implements a two-bits left shifter design named `LeftShift2
 <div class="grid" markdown>
 
 ```scala
-import dfhdl.*
-//optionally set the default backend configuration option
-//(can be overridden by the top-app CLI)
-given options.CompilerOptions.Backend = backends.verilog
-/** A two-bits left shifter */
-@top class LeftShift2 extends RTDesign:
-  /** bits input */
-  val iBits = Bits(8) <> IN
-  /** bits output */
-  val oBits = Bits(8) <> OUT
-  oBits := iBits << 2
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo1/LeftShift2.scala:3"
 ```
 
 ```hdelk width=100%
@@ -151,64 +141,21 @@ children = [
 This design is also a top-app design, since it's annotated with `@top`. This means that we have an executable Scala program that compiles the design and generates a Verilog or VHDL backend code. The backend configuration option can be set via a CLI argument, or alternatively, be set via an implicit backend setting like in the code above. The `@top` annotation captures the [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} options within its scope and feeds them to the top-app CLI program as default to run when no CLI arguments are given.
 
 /// tab | Generated Verilog
-
 ```verilog
-/* A two-bits left shifter */
-`default_nettype none
-`timescale 1ns/1ps
-`include "LeftShift2_defs.svh"
-
-module LeftShift2(
-  /* bits input */
-  input  wire logic [7:0] iBits,
-  /* bits output */
-  output      logic [7:0] oBits
-);
-  `include "dfhdl_defs.svh"
-  assign oBits = iBits << 2;
-endmodule
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo1.LeftShift2Spec/verilog.sv2009/hdl/LeftShift2.sv"
 ```
 ///
 
 /// tab | Generated VHDL
 ```vhdl
--- A two-bits left shifter 
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
-use work.dfhdl_pkg.all;
-use work.LeftShift2_pkg.all;
-
-entity LeftShift2 is
-port (
-  -- bits input 
-  iBits : in  std_logic_vector(7 downto 0);
-  -- bits output 
-  oBits : out std_logic_vector(7 downto 0)
-);
-end LeftShift2;
-
-architecture LeftShift2_arch of LeftShift2 is
-begin
-  oBits <= slv_sll(iBits, 2);
-end LeftShift2_arch;
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo1.LeftShift2Spec/vhdl.v2008/hdl/LeftShift2.vhd"
 ```
 ///
 
 /// details | Runnable example
     type: dfhdl
 ```scastie
-import dfhdl.*
-//optionally set the default backend configuration option
-//(can be overridden by the top-app CLI)
-given options.CompilerOptions.Backend = backends.verilog
-/** A two-bits left shifter */
-@top class LeftShift2 extends RTDesign:
-  /** bits input */
-  val iBits = Bits(8) <> IN
-  /** bits output */
-  val oBits = Bits(8) <> OUT
-  oBits := iBits << 2
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo1/LeftShift2.scala:3"
 ```
 ///
 ///
@@ -236,17 +183,7 @@ The DFHDL code below implements a basic left shifter design named `LeftShiftBasi
 <div class="grid" markdown>
 
 ```scala
-/** A basic left shifter */
-@top class LeftShiftBasic(
-    val width: Int = 8,
-) extends RTDesign:
-  /** bits input */
-  val iBits = Bits(width)       <> IN
-  /** requested shift */
-  val shift = UInt.until(width) <> IN
-  /** bits output */
-  val oBits = Bits(width)       <> OUT
-  oBits := iBits << shift  
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo2/LeftShiftBasic.scala:6"
 ```
 
 ```hdelk width=90%
@@ -271,70 +208,21 @@ children = [
 </div>
 
 /// tab | Generated Verilog
-
 ```verilog
-/* A basic left shifter */
-`default_nettype none
-`timescale 1ns/1ps
-`include "LeftShiftBasic_defs.svh"
-
-module LeftShiftBasic(
-  /* bits input */
-  input  wire logic [7:0] iBits,
-  /* requested shift */
-  input  wire logic [2:0] shift,
-  /* bits output */
-  output      logic [7:0] oBits
-);
-  `include "dfhdl_defs.svh"
-  assign oBits = iBits << shift;
-endmodule
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo2.LeftShiftBasicSpec/verilog.sv2009/hdl/LeftShiftBasic.sv"
 ```
 ///
 
 /// tab | Generated VHDL
 ```vhdl
--- A basic left shifter 
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
-use work.dfhdl_pkg.all;
-use work.LeftShiftBasic_pkg.all;
-
-entity LeftShiftBasic is
-port (
-  -- bits input 
-  iBits : in  std_logic_vector(7 downto 0);
-  -- requested shift 
-  shift : in  unsigned(2 downto 0);
-  -- bits output 
-  oBits : out std_logic_vector(7 downto 0)
-);
-end LeftShiftBasic;
-
-architecture LeftShiftBasic_arch of LeftShiftBasic is
-begin
-  oBits <= slv_sll(iBits, to_integer(shift));
-end LeftShiftBasic_arch;
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo2.LeftShiftBasicSpec/vhdl.v2008/hdl/LeftShiftBasic.vhd"
 ```
 ///
 
 /// details | Runnable example
     type: dfhdl
 ```scastie
-import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
-/** A basic left shifter */
-@top class LeftShiftBasic(
-    val width: Int = 8,
-) extends RTDesign:
-  /** bits input */
-  val iBits = Bits(width)       <> IN
-  /** requested shift */
-  val shift = UInt.until(width) <> IN
-  /** bits output */
-  val oBits = Bits(width)       <> OUT
-  oBits := iBits << shift  
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo2/LeftShiftBasic.scala:3"
 ```
 ///
 ///
@@ -345,21 +233,7 @@ The DFHDL code below implements a generic left shifter design named `LeftShiftGe
 <div class="grid" markdown>
 
 ```scala
-/** A generic left shifter 
-  *   
-  * @param width
-  *   the width of the input and output bits
-  */
-@top class LeftShiftGen(
-    val width: Int <> CONST = 8,
-) extends RTDesign:
-  /** bits input */
-  val iBits = Bits(width)       <> IN
-  /** requested shift */
-  val shift = UInt.until(width) <> IN
-  /** bits output */
-  val oBits = Bits(width)       <> OUT
-  oBits := iBits << shift  
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo3/LeftShiftGen.scala:6"
 ```
 
 ```hdelk width=90%
@@ -384,84 +258,21 @@ children = [
 </div>
 
 /// tab | Generated Verilog
-
 ```verilog
-/* A generic left shifter 
-     
-   @param width
-     the width of the input and output bits
-  */
-`default_nettype none
-`timescale 1ns/1ps
-`include "LeftShiftGen_defs.svh"
-
-module LeftShiftGen#(parameter int width = 8)(
-  /* bits input */
-  input  wire logic [width - 1:0]         iBits,
-  /* requested shift */
-  input  wire logic [$clog2(width) - 1:0] shift,
-  /* bits output */
-  output      logic [width - 1:0]         oBits
-);
-  `include "dfhdl_defs.svh"
-  assign oBits = iBits << shift;
-endmodule
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo3.LeftShiftGenSpec/verilog.sv2009/hdl/LeftShiftGen.sv"
 ```
 ///
 
 /// tab | Generated VHDL
 ```vhdl
--- A generic left shifter 
---   
--- @param width
---   the width of the input and output bits
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
-use work.dfhdl_pkg.all;
-use work.LeftShiftGen_pkg.all;
-
-entity LeftShiftGen is
-generic (
-  width : integer := 8
-);
-port (
-  -- bits input 
-  iBits : in  std_logic_vector(width - 1 downto 0);
-  -- requested shift 
-  shift : in  unsigned(clog2(width) - 1 downto 0);
-  -- bits output 
-  oBits : out std_logic_vector(width - 1 downto 0)
-);
-end LeftShiftGen;
-
-architecture LeftShiftGen_arch of LeftShiftGen is
-begin
-  oBits <= slv_sll(iBits, to_integer(shift));
-end LeftShiftGen_arch;
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo3.LeftShiftGenSpec/vhdl.v2008/hdl/LeftShiftGen.vhd"
 ```
 ///
 
 /// details | Runnable example
     type: dfhdl
 ```scastie
-import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
-/** A generic left shifter 
-  *   
-  * @param width
-  *   the width of the input and output bits
-  */
-@top class LeftShiftGen(
-    val width: Int <> CONST = 8,
-) extends RTDesign:
-  /** bits input */
-  val iBits = Bits(width)       <> IN
-  /** requested shift */
-  val shift = UInt.until(width) <> IN
-  /** bits output */
-  val oBits = Bits(width)       <> OUT
-  oBits := iBits << shift  
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo3/LeftShiftGen.scala:3"
 ```
 ///
 ///

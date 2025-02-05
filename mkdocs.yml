@@ -76,7 +76,7 @@ nav:
   #   - Designs & Hierarchies: user-guide/designs/index.md
   #   - Type System: user-guide/type-system/index.md
   #   - Functions/Methods: user-guide/methods/index.md
-  #   - Connectivity: user-guide/connectivity/index.md
+  #   - Hierarchy and Connectivity: user-guide/connectivity/index.md
   #   - State/Registers/Memory: user-guide/state/index.md
   #   - Conditionals: user-guide/conditionals/index.md
   #   - Processes: user-guide/processes/index.md
@@ -155,6 +155,7 @@ extra_javascript:
 extra_css:
   - css/scastie.css
   - css/vs.css
+  - css/user-guide.css
   - css/lhs-permalink.css
   - css/dfhdl-admonition.css
   - css/verilog-admonition.css
@@ -177,3 +178,7 @@ plugins:
   - redirects:
       redirect_maps:
           'LEGaTO/index.md': 'index.md'
+
+watch:
+  - lib/src/test/scala/docExamples
+  - lib/src/test/resources/ref
