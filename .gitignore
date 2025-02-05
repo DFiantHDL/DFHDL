@@ -2,7 +2,7 @@ myenv/**
 out/
 .idea/
 .cache/
-/.bsp/
+.bsp/
 project/project
 project/target
 target/
@@ -21,9 +21,10 @@ private/doc/fpga2018/fpga2018.pdf
 private/doc/fpl2019/fpl2019.pdf
 site/
 sandbox/
-/.metals/**
-/.bloop/**
+.scala-build/
+.metals/
+.bloop/
 /project/.bloop/**
-/.vscode/**
+.vscode/
 project/metals.sbt
 **/__pycache__/**

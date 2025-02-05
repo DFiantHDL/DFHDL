@@ -1,0 +1,4 @@
+/* different styles for tabs inside tabs */
+html.js-focus-visible.js body div.md-container main.md-main div.md-main__inner.md-grid div.md-content article.md-content__inner.md-typeset div.admonition div.tabbed-set.tabbed-alternate div.tabbed-content div.tabbed-block div.tabbed-set.tabbed-alternate div.tabbed-labels.tabbed-labels--linked label a {
+  font-size: smaller;
+}

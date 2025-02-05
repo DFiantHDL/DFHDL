@@ -6,12 +6,21 @@ on:
       - main
       - dev
       - scala_opencb
+    paths-ignore:
+      - 'docs/**'
+      - 'docs_overrides/**'
+      - 'mkdocs.yml'  
+      - '.github/workflows/dfdocs.yml'
   pull_request:
     branches: 
       - main
       - dev
       - scala_opencb
-
+    paths-ignore:
+      - 'docs/**'
+      - 'docs_overrides/**'
+      - 'mkdocs.yml'
+      - '.github/workflows/dfdocs.yml'
 jobs:
   build:
     runs-on: ubuntu-latest

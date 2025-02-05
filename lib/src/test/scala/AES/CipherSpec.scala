@@ -6,8 +6,6 @@ import dfhdl.options.LinterOptions.VerilogLinter
 
 class CipherSpecWithOpaques extends util.FullCompileSpec:
   def dut: core.Design = Cipher()
-  def expectedVerilogCS: String = ""
-  def expectedVHDLCS: String = ""
   // TODO: need to fix Cipher verilog compilation errors
   override def verilogLinters: List[VerilogLinter] = Nil
 end CipherSpecWithOpaques
