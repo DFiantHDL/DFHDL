@@ -3,6 +3,11 @@ on:
   push:
     branches: [main, milestone]
     tags: ["*"]
+    paths-ignore:
+      - 'docs/**'
+      - 'docs_overrides/**'
+      - 'mkdocs.yml'  
+      - '.github/workflows/dfdocs.yml'
 jobs:
   publish:
     runs-on: ubuntu-latest
