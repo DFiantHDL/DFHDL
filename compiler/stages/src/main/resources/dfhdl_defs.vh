@@ -24,8 +24,6 @@
 //  
 //  For more information, please refer to <http://unlicense.org/>
 
-`ifndef DFHDL_DEFS
-`define DFHDL_DEFS
 `define MAX(a,b) ((a) > (b) ? (a) : (b))
 `define MIN(a,b) ((a) < (b) ? (a) : (b))
 `define TO_VEC_HEX(hex, hw, vw) \
@@ -77,5 +75,4 @@ begin
   end
 end
 endfunction
-`endif
 
