@@ -30,7 +30,7 @@ jobs:
       - name: Setup Scala
         uses: coursier/setup-action@v1
         with:
-          jvm: terumin:1.17.0.14
+          jvm: terumin:1.17
           apps: sbt bloop
       - name: Setup All Simulation Tools but NVC
         uses: YosysHQ/setup-oss-cad-suite@v3
