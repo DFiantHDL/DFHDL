@@ -8,13 +8,13 @@ DFHDL supports composable design hierarchies by instantiating design classes and
 
 <div class="grid" markdown>
 
-/// admonition | terminology
+/// admonition | Terminology
     type: quote
-* _design_ - a Scala class extending `XXDesign`, where `XX` can be `DF`, `RT`, or `ED`, corresponding to the desired [design domain][design-domains].
-* _design member_ - any DFHDL object instantiated within a design (the design *contains* or *owns* all its members).
-* _child design/component_ - a design instance that is owned by another design.
-* _top design_ - the highest-level design in the hierarchy (no other design contains it), also known as the *top-level design*.
-* _top-app design_ - a `@top` annotated *top design* that generates a main entry with the default application.
+* _design_ - A Scala class extending `XXDesign`, where `XX` can be `DF`, `RT`, or `ED`, corresponding to the desired [design domain][design-domains].
+* _design member_ - Any DFHDL object instantiated within a design (the design *contains* or *owns* all its members).
+* _child design/component_ - A design instance that is owned by another design.
+* _top design_ - The highest-level design in the hierarchy (no other design contains it), also known as the *top-level design*.
+* _top-app design_ - A `@top` annotated *top design* that generates a main entry with the default application.
 
 ///
 
@@ -309,7 +309,7 @@ DFHDL supports three mechanisms to form a design hierarchy through design instan
 The following subsections dive into further details of the three design composition mechanisms. For this purpose, we continue with our running example of a bits shifter. To demonstrate composition, lets first describe a bit more complex shifter that has both left and right shift capabilities, as a flat (composition-less) design:
 
 /// admonition | Generic left-right shifter, flat design example
-The DFHDL code below implements a generic left-right shifter flat design named `LRShiftFlat`. This design expands on `LeftShiftGen` by adding a `dir` enum port value that specified the shift direction and a shift operation multiplexer through a `#!scala match` statement.
+The DFHDL code below implements a generic left-right shifter flat design named `LRShiftFlat`. This design expands on `LeftShiftGen` by adding a `dir` enum port value that specifies the shift direction and a shift operation multiplexer through a `#!scala match` statement.
 
 <div class="grid" markdown>
 
