@@ -35,7 +35,7 @@ object OrderMembers:
       def apply()(using MemberGetSet): DFMember => Int = {
         // design parameters come first as they are dependent only on external
         // initialization and everything else can depend on them
-        case DesignParam(_) => 1
+        case _: DFVal.DesignParam => 1
         // anonymous members that are referenced by declarations come second
         case dfVal: DFVal if dfVal.isReferencedByAnyDcl => 2
         // third to come are constant declarations that may be referenced by ports

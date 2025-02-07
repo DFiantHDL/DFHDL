@@ -155,11 +155,13 @@ sealed trait DFVal extends DFMember.Named:
   final def isConst(using MemberGetSet): Boolean = getConstData.nonEmpty
   // two expressions are considered to be similar if
   final def isSimilarTo(that: DFVal)(using MemberGetSet): Boolean =
-    def dealiasAsIs(dfVal: DFVal): DFVal = dfVal match
+    def stripAsIsAndDesignParam(dfVal: DFVal): DFVal = dfVal match
       case DFVal.Alias.AsIs(dfType, DFRef(relVal), _, _, _) if dfType == relVal.dfType =>
-        dealiasAsIs(relVal)
+        stripAsIsAndDesignParam(relVal)
+      case DFVal.DesignParam(_, DFRef(dfVal), _, _, _, _) =>
+        stripAsIsAndDesignParam(dfVal)
       case _ => dfVal
-    (dealiasAsIs(this), dealiasAsIs(that)) match
+    (stripAsIsAndDesignParam(this), stripAsIsAndDesignParam(that)) match
       case (lhs: DFVal.CanBeExpr, rhs: DFVal.CanBeExpr) => lhs.protIsSimilarTo(rhs)
       case (lhs, rhs)                                   => lhs == rhs
   protected def protGetConstData(using MemberGetSet): Option[Any]
@@ -221,6 +223,9 @@ object DFVal:
     def isOpen: Boolean = dfVal match
       case _: DFVal.OPEN => true
       case _             => false
+    def isDesignParam: Boolean = dfVal match
+      case _: DFVal.DesignParam => true
+      case _                    => false
     @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.OPEN] = dfVal match
       case dcl: DFVal.Dcl                           => Some(dcl)
       case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)
@@ -336,6 +341,48 @@ object DFVal:
       ownerRef = ownerRef.copyAsNewRef
     ).asInstanceOf[this.type]
   end Const
+
+  final case class DesignParam(
+      dfType: DFType,
+      dfValRef: DesignParam.Ref,
+      defaultRef: DesignParam.DefaultRef,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends CanBeExpr:
+    assert(!this.isAnonymous, "Design parameters cannot be anonymous.")
+    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
+    protected def protGetConstData(using MemberGetSet): Option[Any] =
+      dfValRef.get.getConstData
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: DesignParam =>
+        // design parameters are considered to be the same even if they are referencing
+        // a different member (this should be quite common), because that member is
+        // external to the design. however, different default value is considered to be a
+        // different design parameter.
+        this.dfType =~ that.dfType && this.defaultRef =~ that.defaultRef &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
+      that match
+        case that: DesignParam =>
+          this.dfType.isSimilarTo(that.dfType) &&
+          this.dfValRef.get.isSimilarTo(that.dfValRef.get)
+        case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfValRef :: defaultRef :: dfType.getRefs
+    def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithNewRefs: this.type = copy(
+      dfType = dfType.copyWithNewRefs,
+      ownerRef = ownerRef.copyAsNewRef,
+      dfValRef = dfValRef.copyAsNewRef,
+      defaultRef = defaultRef.copyAsNewRef
+    ).asInstanceOf[this.type]
+  end DesignParam
+  object DesignParam:
+    type Ref = DFRef.TwoWay[DFVal, DesignParam]
+    type DefaultRef = DFRef.TwoWay[DFVal | DFMember.Empty, DesignParam]
 
   final case class OPEN(
       dfType: DFType,
@@ -546,13 +593,7 @@ object DFVal:
         )
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: AsIs =>
-          // design parameters are considered to be the same even if they are referencing
-          // a different member (this should be quite common), because that member is
-          // external to the design.
-          val sameRelVal =
-            if (this.hasTagOf[DesignParamTag.type]) true
-            else this.relValRef =~ that.relValRef
-          this.dfType =~ that.dfType && sameRelVal &&
+          this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =

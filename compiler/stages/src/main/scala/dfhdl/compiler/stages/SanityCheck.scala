@@ -135,7 +135,7 @@ case object SanityCheck extends Stage:
         case targetVal: DFVal if targetVal.isAnonymous && targetVal.isGlobal =>
           originMember match
             case originVal: DFVal if originVal.isGlobal =>
-            case DesignParam(_)                         =>
+            case _: DFVal.DesignParam                   =>
             case _ =>
               reportViolation(
                 s"""|A global anonymous member is referenced by a non-global member.

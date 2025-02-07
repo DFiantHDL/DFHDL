@@ -73,7 +73,7 @@ trait AbstractValPrinter extends AbstractPrinter:
     extension (named: DFMember.Named)
       def nameCS: String = if (typeCS) s"${csDFMemberName(named)}.type" else csDFMemberName(named)
     member match
-      case dfVal @ DesignParam(_) => dfVal.nameCS
+      case dfVal: DFVal.DesignParam => dfVal.nameCS
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
         if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
         else dfVal.nameCS
@@ -133,6 +133,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dv: Const                => csDFValConstExpr(dv)
       case dv: Func                 => csDFValFuncExpr(dv, typeCS)
       case dv: Alias                => csDFValAliasExpr(dv)
+      case dv: DFVal.DesignParam    => dv.getName
       case dv: DFConditional.Header => printer.csDFConditional(dv)
       case dv: Timer.IsActive       => csTimerIsActive(dv)
       case dv: NOTHING              => csNOTHING(dv)

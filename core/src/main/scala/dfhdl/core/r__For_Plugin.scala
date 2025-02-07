@@ -88,7 +88,7 @@ object r__For_Plugin:
     trydf:
       dfc.mutableDB.DesignContext.getReachableNamedValue(
         paramValue.asIR,
-        DFVal.Alias.AsIs.designParam(paramValue)(using dfc.setMeta(paramMeta)).asIR
+        DFVal.DesignParam(paramValue)(using dfc.setMeta(paramMeta)).asIR
       ).asValAny.asInstanceOf[V]
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =

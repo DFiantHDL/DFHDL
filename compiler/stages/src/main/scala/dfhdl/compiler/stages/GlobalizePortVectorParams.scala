@@ -9,7 +9,6 @@ import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.core.{DFTypeAny, asFE}
-import dfhdl.compiler.ir.DFVal.Alias.DesignParamTag
 import dfhdl.compiler.ir.DFVal.PortByNameSelect
 
 /** This stage globalizes design parameters that set port vector lengths. This is needed only for
@@ -30,14 +29,16 @@ case object GlobalizePortVectorParams extends Stage:
     val designParams = mutable.LinkedHashSet.empty[DFVal]
     // check ref
     def checkRef(ref: DFRef.TwoWayAny): Int =
-      val dfVal = ref.get.asInstanceOf[DFVal]
-      if (dfVal.isGlobal) 0
-      else
-        val ret = dfVal.getRefs.map(checkRef).sum
-        if (dfVal.isAnonymous) ret
-        else
-          designParams += dfVal
-          ret + 1
+      ref.get match
+        case dfVal: DFVal =>
+          if (dfVal.isGlobal) 0
+          else
+            val ret = dfVal.getRefs.map(checkRef).sum
+            if (dfVal.isAnonymous) ret
+            else
+              designParams += dfVal
+              ret + 1
+        case _ => 0
     // check int param ref
     def checkIntParamRef(intParamRef: IntParamRef): Int =
       intParamRef.getRef.map(checkRef).getOrElse(0)
@@ -171,9 +172,17 @@ case object GlobalizePortVectorParams extends Stage:
     val dsn = new MetaDesign(dupDesignDB.top, Patch.Add.Config.Before):
       // patches to replace with properly named parameter or just move the anonymous members
       val replacePatches = addedGlobals.map {
-        case m if !m.isAnonymous =>
+        case param: DFVal.DesignParam =>
+          val updatedMeta = param.meta.setName(param.getFullName.replaceAll("\\.", "_"))
           val globalParam =
-            m.setName(m.getFullName.replaceAll("\\.", "_")).removeTagOf[DesignParamTag.type]
+            dfhdl.core.DFVal.Alias.AsIs.forced(param.dfType, param)(using
+              dfc.setMeta(updatedMeta)
+            )
+          param -> Patch.Replace(globalParam, Patch.Replace.Config.ChangeRefAndRemove)
+        // TODO: is this needed? maybe for an internal parameter that is dependent on a design parameter?
+        // if so, need to add a test for it
+        case m if !m.isAnonymous =>
+          val globalParam = m.setName(m.getFullName.replaceAll("\\.", "_"))
           plantMember(globalParam)
           m -> Patch.Replace(globalParam, Patch.Replace.Config.ChangeRefAndRemove)
         case m =>

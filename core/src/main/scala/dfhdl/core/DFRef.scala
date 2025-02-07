@@ -43,9 +43,7 @@ extension [M <: ir.DFMember](member: M)
               else
                 dfc.mutableDB.DesignContext.getReachableNamedValue(
                   dfVal,
-                  DFVal.Alias.AsIs.designParam(dfVal.asValAny)(using
-                    dfc.setMeta(dfVal.meta).emptyTags
-                  ).asIR
+                  DFVal.DesignParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta).emptyTags).asIR
                 )
             else member
           case _ => member

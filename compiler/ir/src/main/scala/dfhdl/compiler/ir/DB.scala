@@ -753,7 +753,9 @@ final case class DB(
       membersNoGlobals.view.drop(1).flatMap {
         case _: PortByNameSelect => None
         case m =>
-          val isDesignParam = m.hasTagOf[DFVal.Alias.DesignParamTag.type]
+          val isDesignParam = m match
+            case _: DFVal.DesignParam => true
+            case _                    => false
           m.getRefs.view.map(_.get).flatMap {
             // global values are ok to be referenced
             case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => None
