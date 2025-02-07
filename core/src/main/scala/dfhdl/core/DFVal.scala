@@ -634,8 +634,8 @@ object DFVal extends DFValLP:
     )(using DFC): DFConstOf[T] =
       val alias: ir.DFVal.DesignParam =
         ir.DFVal.DesignParam(
-          dfVal.asIR.dfType,
-          dfVal.asIR.refTW[ir.DFVal.DesignParam](using dfc.tag(ir.DFVal.Alias.DesignParamTag)),
+          dfVal.asIR.dfType.dropUnreachableRefs,
+          dfVal.asIR.refTW[ir.DFVal.DesignParam](knownReachable = true),
           default.map(_.asIR.refTW[ir.DFVal.DesignParam])
             .getOrElse(ir.DFMember.Empty.refTW[ir.DFVal.DesignParam]),
           dfc.ownerOrEmptyRef,

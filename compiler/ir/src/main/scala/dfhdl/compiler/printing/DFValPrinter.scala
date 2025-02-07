@@ -133,7 +133,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dv: Const                => csDFValConstExpr(dv)
       case dv: Func                 => csDFValFuncExpr(dv, typeCS)
       case dv: Alias                => csDFValAliasExpr(dv)
-      case dv: DFVal.DesignParam    => dv.getName
+      case dv: DFVal.DesignParam    => dv.dfValRef.refCodeString
       case dv: DFConditional.Header => printer.csDFConditional(dv)
       case dv: Timer.IsActive       => csTimerIsActive(dv)
       case dv: NOTHING              => csNOTHING(dv)

@@ -564,7 +564,6 @@ object DFVal:
 
   object Alias:
     case object IdentTag extends DFTagOf[DFVal]
-    case object DesignParamTag extends DFTagOf[DFVal]
     type Ref = DFRef.TwoWay[DFVal, Alias]
     // This is complete alias that consumes its relative val
     sealed trait Consumer extends Alias:

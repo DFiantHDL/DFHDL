@@ -247,6 +247,12 @@ class GlobalizePortVectorParams extends StageSpec(stageCreatesUnrefAnons = true)
       val id2 = ID(width, length + 1)
       id2.x <> x2
       y2    <> id2.y
+      val length3 = length + 1
+      val x3      = Bits(width) X length3 <> IN
+      val y3      = Bits(width) X length3 <> OUT
+      val id3     = ID(width, length3)
+      id3.x <> x3
+      y3    <> id3.y
     end IDTop
     val top = (new IDTop()).globalizePortVectorParams
     assertCodeString(
@@ -257,6 +263,9 @@ class GlobalizePortVectorParams extends StageSpec(stageCreatesUnrefAnons = true)
          |val IDTop_id1_width: Int <> CONST = IDTop_width
          |val IDTop_id2_length: Int <> CONST = IDTop_length + 1
          |val IDTop_id2_width: Int <> CONST = IDTop_width
+         |val IDTop_length3: Int <> CONST = IDTop_length + 1
+         |val IDTop_id3_length: Int <> CONST = IDTop_length3
+         |val IDTop_id3_width: Int <> CONST = IDTop_width
          |class ID_IDTop_id1 extends RTDesign:
          |  val x = Bits(IDTop_id1_width) X IDTop_id1_length <> IN
          |  val y = Bits(IDTop_id1_width) X IDTop_id1_length <> OUT
@@ -273,6 +282,14 @@ class GlobalizePortVectorParams extends StageSpec(stageCreatesUnrefAnons = true)
          |  y <> v
          |end ID_IDTop_id2
          |
+         |class ID_IDTop_id3 extends RTDesign:
+         |  val x = Bits(IDTop_id3_width) X IDTop_id3_length <> IN
+         |  val y = Bits(IDTop_id3_width) X IDTop_id3_length <> OUT
+         |  val v = Bits(IDTop_id3_width) X IDTop_id3_length <> VAR
+         |  v <> x
+         |  y <> v
+         |end ID_IDTop_id3
+         |
          |class IDTop extends RTDesign:
          |  val x1 = Bits(IDTop_id1_width) X IDTop_id1_length <> IN
          |  val y1 = Bits(IDTop_id1_width) X IDTop_id1_length <> OUT
@@ -284,6 +301,11 @@ class GlobalizePortVectorParams extends StageSpec(stageCreatesUnrefAnons = true)
          |  val id2 = ID_IDTop_id2()
          |  id2.x <> x2
          |  y2 <> id2.y
+         |  val x3 = Bits(IDTop_id3_width) X IDTop_id3_length <> IN
+         |  val y3 = Bits(IDTop_id3_width) X IDTop_id3_length <> OUT
+         |  val id3 = ID_IDTop_id3()
+         |  id3.x <> x3
+         |  y3 <> id3.y
          |end IDTop""".stripMargin
     )
 end GlobalizePortVectorParams
