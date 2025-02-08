@@ -500,7 +500,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     )
   test("UInt counter example"):
     class Counter(val width: Int <> CONST) extends RTDesign:
-      val cnt = UInt(width) <> OUT init d"8'0"
+      val cnt = UInt(width) <> OUT init 0
       cnt := cnt.reg + 1
     val top = (new Counter(8)).getCompiledCodeString
     assertNoDiff(
