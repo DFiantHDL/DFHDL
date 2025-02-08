@@ -82,8 +82,7 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
        |$commands
        |""".stripMargin
   def commands: String =
-    lintOffUninitializedParams.emptyOr(_ + "\n") +
-      lintOffHidden.emptyOr(_ + "\n") +
+    lintOffHidden.emptyOr(_ + "\n") +
       lintOffBlackBoxes.emptyOr(_ + "\n") +
       lintOffOpenOutPorts.emptyOr(_ + "\n") +
       lintOffUnused.emptyOr(_ + "\n") +
@@ -101,12 +100,6 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
     val lineArg = lines.emptyOr(" -lines " + _)
     val matchWildArg = matchWild.emptyOr(m => s""" -match "$m"""")
     s"lint_off$ruleArg$fileArg$lineArg$matchWildArg"
-  def lintOffUninitializedParams: String =
-    lintOffCommand(
-      rule = "NEWERSTD",
-      file = "*.*",
-      matchWild = "*Parameter requires default value*"
-    )
   def lintOffHidden: String = lintOffCommand("VARHIDDEN")
   def lintOffBlackBoxes: String =
     designDB.srcFiles.flatMap {
