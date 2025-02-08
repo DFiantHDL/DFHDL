@@ -84,11 +84,15 @@ object r__For_Plugin:
   ): Pattern =
     Pattern.BindSI(op, parts, bindVals.map(_.asIR.refTW[DFConditional.DFCaseBlock]))
   @metaContextIgnore
-  def genDesignParam[V <: DFValAny](paramValue: DFValAny, paramMeta: ir.Meta)(using DFC): V =
+  def genDesignParam[V <: DFValAny](
+      paramValue: DFValAny,
+      default: Option[DFValAny],
+      paramMeta: ir.Meta
+  )(using DFC): V =
     trydf:
       dfc.mutableDB.DesignContext.getReachableNamedValue(
         paramValue.asIR,
-        DFVal.DesignParam(paramValue)(using dfc.setMeta(paramMeta)).asIR
+        DFVal.DesignParam(paramValue, default)(using dfc.setMeta(paramMeta)).asIR
       ).asValAny.asInstanceOf[V]
   @metaContextIgnore
   def designFromDefGetInput[V <: DFValAny](idx: Int)(using DFC): V =

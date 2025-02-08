@@ -33,21 +33,23 @@ object OrderMembers:
   object Order:
     object Simple extends Order:
       def apply()(using MemberGetSet): DFMember => Int = {
-        // design parameters come first as they are dependent only on external
-        // initialization and everything else can depend on them
-        case _: DFVal.DesignParam => 1
-        // anonymous members that are referenced by declarations come second
-        case dfVal: DFVal if dfVal.isReferencedByAnyDcl => 2
-        // third to come are constant declarations that may be referenced by ports
-        case DclConst() => 3
-        // fourth are ports
-        case DclPort() => 4
-        // fifth are variables
-        case DclVar() => 5
-        // sixth are design blocks instances
-        case _: DFDesignBlock => 6
+        // design parameter's default value comes first
+        case DefaultOfDesignParam(_) => 1
+        // design parameters come second as they are dependent only on external
+        // initialization or default values and everything else can depend on them
+        case _: DFVal.DesignParam => 2
+        // anonymous members that are referenced by declarations come third
+        case dfVal: DFVal if dfVal.isReferencedByAnyDcl => 3
+        // fourth to come are constant declarations that may be referenced by ports
+        case DclConst() => 4
+        // fifth are ports
+        case DclPort() => 5
+        // sixth are variables
+        case DclVar() => 6
+        // seventh are design blocks instances
+        case _: DFDesignBlock => 7
         // then the rest
-        case _ => 7
+        case _ => 8
       }
     end Simple
 //    val GuardedLast: Order = new Order:

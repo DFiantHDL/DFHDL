@@ -55,6 +55,13 @@ object Ident:
 //     else None
 // end DesignParam
 
+//extract the design param from its default value
+object DefaultOfDesignParam:
+  def unapply(dfVal: DFVal)(using MemberGetSet): Option[DFVal.DesignParam] =
+    dfVal.originMembers.collectFirst {
+      case dp: DFVal.DesignParam if dp.defaultRef.get == dfVal => dp
+    }
+
 object OpaqueActual:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
     val relVal = alias.relValRef.get
