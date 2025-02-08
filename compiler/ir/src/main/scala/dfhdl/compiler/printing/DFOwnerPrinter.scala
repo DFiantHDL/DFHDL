@@ -219,7 +219,12 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
         s"""RTDesign$cfgStr""".stripMargin
       case _ => "EDDesign"
     val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
-      val defaultValue = if (design.isTop) s" = ${param.dfValRef.refCodeString}" else ""
+      val defaultValue =
+        if (design.isTop) s" = ${param.dfValRef.refCodeString}"
+        else
+          param.defaultRef.get match
+            case DFMember.Empty => ""
+            case _              => s" = ${param.defaultRef.refCodeString}"
       s"val ${param.getName}${printer.csDFValConstType(param.dfType)}$defaultValue"
     }
     val designParamCS =

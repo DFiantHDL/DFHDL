@@ -95,7 +95,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDTop).getCodeString
     assertNoDiff(
       id,
-      """|class ID(val arg: Bit <> CONST) extends DFDesign:
+      """|class ID(val arg: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
@@ -149,7 +149,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id = (new IDTopVia).getCodeString
     assertNoDiff(
       id,
-      """|class ID(val arg: Bit <> CONST) extends DFDesign:
+      """|class ID(val arg: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
@@ -533,7 +533,7 @@ class PrintCodeStringSpec extends StageSpec:
     val top = (new IDTop).getCodeString
     assertNoDiff(
       top,
-      """|class ID(val arg: Bit <> CONST) extends DFDesign:
+      """|class ID(val arg: Bit <> CONST = 1) extends DFDesign:
          |  val x = SInt(16) <> IN
          |  val y = SInt(16) <> OUT
          |  y := x
