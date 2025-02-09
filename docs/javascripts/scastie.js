@@ -1,4 +1,4 @@
-let dfhdlVersion = "0.9.1";
+let dfhdlVersion = "0.9.2";
 let scalaVersion = "3.6.3";
 
 let sbtConfig = `
