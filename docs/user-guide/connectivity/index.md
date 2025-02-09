@@ -112,6 +112,7 @@ end _name_ //optional `end` marker
 * __`_documentation_`__ is the design documentation in [Scaladoc format](https://docs.scala-lang.org/style/scaladoc.html){target="_blank"}. This documentation is a meta information that is preserved throughout the compilation process and finally generated as documentation for the generated backend code. 
 
 /// admonition | Basic top-app design example: a two-bits left shifter
+    type: example
 The DFHDL code below implements a two-bits left shifter design named `LeftShift2` under register-transfer (RT) domain semantics, as indicated by the class `LeftShift2` extending `RTDesign`. The design has one 8-bit input port and one 8-bit output port and implements the 2-bit leftshift functionality by applying it on the input and assigning it to the output.
 
 <div class="grid" markdown>
@@ -185,9 +186,12 @@ Just like any Scala class parameter blocks, the DFHDL design accepts a sequence 
     - DFHDL parameters are preserved throughout the compilation process and manifest as parameters in the generated backend code. Top-app design DFHDL parameters are currently limited to `Int <> CONST`, `Bit <> CONST`, and `Boolean <> CONST` types.
 * __`_name_`__ is the Scala parameter name reference. The DFHDL compiler preserves this parameter name for DFHDL parameters types only. For the top-app command-line interface (CLI), these names are also preserved, so that the parameters can be listed and modified through the CLI.
 * __`_default_`__ is the optional default value of the parameter. According to the Scala language rules, once a parameter has a default value defined, all parameters that follow it must also have default values defined. For top-app designs, all parameters must have default values.
-* __`_access_`__ is the optional Scala parameter access modifier. By default a Scala class parameter access is `#!scala private val`. If the parameter affects the type of a public value (e.g., width of a DFHDL port) then the
+* __`_access_`__ is the optional Scala parameter access modifier. By default a Scala class parameter access is `#!scala private val`.
+<!--TODO access information -->
+<!-- If the parameter affects the type of a public value (e.g., width of a DFHDL port) then the -->
 
 /// admonition | Scala-parameterized top-app design example: a basic left shifter
+    type: example
 The DFHDL code below implements a basic left shifter design named `LeftShiftBasic`. This design is similar to the earlier example of `LeftShift2` except here the design has the shift value as an input, and its input and output port widths are set according to the Scala parameter `width`.
 
 <div class="grid" markdown>
@@ -242,6 +246,8 @@ children = [
 ```
 ///
 ///
+
+The basic code shifter above did not generate the `width` parameter in the Verilog and VHDL backend code. The following example shows how to preserve the `width` parameter:
 
 /// admonition | DFHDL-parameterized top-app design example: a generic left shifter
 The DFHDL code below implements a generic left shifter design named `LeftShiftGen`. This design is similar to the earlier example of `LeftShiftBasic` except here the `width` parameter is now a DFHDL parameter as indicated by its `Int <> CONST` type. This enables the DFHDL compiler to preserve the parameter name and directly use it in the generated backend code where applicable.
@@ -299,6 +305,68 @@ children = [
 ///
 ///
 
+### Design Class Inheritance
+It is possible to leverage the power of Scala inheritance to share design functionality between design class declarations.
+
+/// admonition | Generic left and right shifters, design class inheritance example
+    type: example
+The DFHDL code below implements both left and right generic shifters while saving up on code and moving the declared ports into a common `#!scala abstract class` design named `ShiftGen`. Additionally, the `width` parameter is declared as an abstract class field (no value assigned) inside the `ShiftGen` class body. By extending `ShiftGen`, both  `LeftShiftGen` and `RightShiftGen` can leverage the IOs already declared inside `ShiftGen` and only require to explicitly declare `width` as a parameter, and implement the shift functionality in their class body.
+
+<div class="grid" markdown>
+
+```scala
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftDirect.scala:6:35"
+```
+
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = left
+    label = LeftShiftGen
+    inPorts = [iBits, shift]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [
+      {
+        id = opLeft 
+        label = "<<"
+        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+    ]
+    edges = [
+      [left.shift, opLeft.shift]
+      [left.iBits, opLeft]
+      [opLeft, left.oBits]
+    ]
+  },
+  {
+    id = right
+    label = RightShiftGen
+    inPorts = [iBits, shift]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [
+      {
+        id = opRight 
+        label = ">>"
+        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+    ]
+    edges = [
+      [right.shift, opRight.shift]
+      [right.iBits, opRight]
+      [opRight, right.oBits]
+    ]
+  }
+]
+```
+
+</div>
+///
+
+
+
 ## Design Composition & Instantiation
 DFHDL supports three mechanisms to form a design hierarchy through design instantiation and composition: 
 
@@ -309,6 +377,7 @@ DFHDL supports three mechanisms to form a design hierarchy through design instan
 The following subsections dive into further details of the three design composition mechanisms. For this purpose, we continue with our running example of a bits shifter. To demonstrate composition, lets first describe a bit more complex shifter that has both left and right shift capabilities, as a flat (composition-less) design:
 
 /// admonition | Generic left-right shifter, flat design example
+    type: example
 The DFHDL code below implements a generic left-right shifter flat design named `LRShiftFlat`. This design expands on `LeftShiftGen` by adding a `dir` enum port value that specifies the shift direction and a shift operation multiplexer through a `#!scala match` statement.
 
 <div class="grid" markdown>
@@ -394,7 +463,160 @@ children = [
 ///
 
 ### Direct Connection Composition
+/// admonition | Generic left-right shifter, direct connection composed design example
+    type: example
+The DFHDL code below implements a generic left-right shifter composed (hierarchical) design named `LRShiftDirect`. This design implements the exact same functionality as seen earlier in `LeftShiftFlat`, but this time leveraing design composition and direct connectivity capabilities of DFHDL by splitting the left and right shift operations into their own separate designs named `LeftShiftGen` and `RightShiftGen`, respectively. Additionally, as already seen in the `ShiftGen` example, we use design class inheritance to save on redefining the same IOs across the three design classes.
 
+/// admonition
+    type: note
+This example is very simple to demonstrate the direct composition capabilities and generatlly for such simple designs the flat approach should be the preferred way. However, complex design should be split into sub-components for purposes of reuse, simpler verification, and generally better design practices.
+///
+
+<div class="grid" markdown>
+
+```scala
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftDirect.scala:6"
+```
+
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = left
+    label = LeftShiftGen
+    inPorts = [iBits, shift]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [
+      {
+        id = opLeft 
+        label = "<<"
+        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+    ]
+    edges = [
+      [left.shift, opLeft.shift]
+      [left.iBits, opLeft]
+      [opLeft, left.oBits]
+    ]
+  },
+  {
+    id = right
+    label = RightShiftGen
+    inPorts = [iBits, shift]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [
+      {
+        id = opRight 
+        label = ">>"
+        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+    ]
+    edges = [
+      [right.shift, opRight.shift]
+      [right.iBits, opRight]
+      [opRight, right.oBits]
+    ]
+  },
+  {
+    id = lr
+    label = LRShiftDirect
+    inPorts = [iBits, shift, dir]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [
+      {
+        id = lshifter
+        type = LeftShiftGen
+        inPorts = [iBits, shift]
+        outPorts = [oBits]
+        parameters = [width]
+        highlight = 1
+      },
+      {
+        id = rshifter
+        type = RightShiftGen
+        inPorts = [iBits, shift]
+        outPorts = [oBits]
+        parameters = [width]
+        highlight = 1
+      },
+      {
+        id = mux 
+        northPorts = [{id = sel, label = " ", height = 5, width = 1}]
+      }
+    ]
+    edges = [
+      [lshifter.oBits, mux]
+      [rshifter.oBits, mux]
+      [lr.dir, mux.sel]
+      [mux, lr.oBits]
+      [lr.shift, lshifter.shift]
+      [lr.shift, rshifter.shift]
+      [lr.iBits, lshifter.iBits]
+      [lr.iBits, rshifter.iBits]
+      [lr.width, lshifter.width]
+      [lr.width, rshifter.width]
+    ]
+  }]
+```
+
+</div>
+
+/// tab | Generated Verilog
+/// tab | LRShiftDirect.sv
+```verilog
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo5.LRShiftDirectSpec/verilog.sv2009/hdl/LRShiftDirect.sv"
+```
+///
+/// tab | LeftShiftGen.sv
+```verilog
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo5.LRShiftDirectSpec/verilog.sv2009/hdl/LeftShiftGen.sv"
+```
+///
+/// tab | RightShiftGen.sv
+```verilog
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo5.LRShiftDirectSpec/verilog.sv2009/hdl/RightShiftGen.sv"
+```
+///
+/// tab | LRShiftDirect_defs.svh
+```verilog
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo5.LRShiftDirectSpec/verilog.sv2009/hdl/LRShiftDirect_defs.svh"
+```
+///
+///
+
+/// tab | Generated VHDL
+/// tab | LRShiftDirect.vhd
+```vhdl
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo5.LRShiftDirectSpec/vhdl.v2008/hdl/LRShiftDirect.vhd"
+```
+///
+/// tab | LeftShiftGen.vhd
+```vhdl
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo5.LRShiftDirectSpec/vhdl.v2008/hdl/LeftShiftGen.vhd"
+```
+///
+/// tab | RightShiftGen.vhd
+```vhdl
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo5.LRShiftDirectSpec/vhdl.v2008/hdl/RightShiftGen.vhd"
+```
+///
+/// tab | LRShiftDirect_pkg.vhd
+```vhdl
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo5.LRShiftDirectSpec/vhdl.v2008/hdl/LRShiftDirect_pkg.vhd"
+```
+///
+///
+
+/// details | Runnable example
+    type: dfhdl
+```scastie
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftDirect.scala:3"
+```
+///
+///
 
 ### Via Connection Composition
 
@@ -402,137 +624,9 @@ children = [
 
 
 
-### Rules {#design-dcl-rules}
+## Rules {#design-dcl-rules}
 
-#### Design class inheritance
-It is possible to leverage the power of Scala inheritance to share design functionality between design class declarations.
-
-/// admonition | Design class inheritance example: left and right shifters
-The DFHDL code below implements a generic left shifter design named `LeftShiftGen`. This design is similar to the earlier example of `LeftShiftBasic` except here the `width` parameter is now a DFHDL parameter as indicated by its `Int <> CONST` type. This enables the DFHDL compiler to preserve the parameter name and directly use it in the generated backend code where applicable.
-
-<div class="grid" markdown>
-
-```scala
-/** A generic abstract shifter 
-  *   
-  * @param width
-  *   the width of the input and output bits
-  */
-abstract class ShiftGen(
-    val width: Int <> CONST = 8,
-) extends RTDesign:
-  /** bits input */
-  val iBits = Bits(width)       <> IN
-  /** requested shift */
-  val shift = UInt.until(width) <> IN
-  /** bits output */
-  val oBits = Bits(width)       <> OUT
-```
-
-```hdelk width=90%
-stroke-width = 0
-children = [
-  {
-    id = top
-    label = ShiftGen
-    inPorts = [iBits, shift]
-    outPorts = [oBits]
-    parameters = [width]
-    children = [{id = op, label = "<<"}]
-    edges = [
-      [top.shift, op]
-      [top.iBits, op]
-      [op, top.oBits]
-    ]
-  }
-]
-```
-
-</div>
-
-/// tab | Generated Verilog
-
-```verilog
-/* A generic left shifter 
-     
-   @param width
-     the width of the input and output bits
-  */
-`default_nettype none
-`timescale 1ns/1ps
-`include "LeftShiftGen_defs.svh"
-
-module LeftShiftGen#(parameter int width = 8)(
-  /* bits input */
-  input  wire logic [width - 1:0]         iBits,
-  /* requested shift */
-  input  wire logic [$clog2(width) - 1:0] shift,
-  /* bits output */
-  output      logic [width - 1:0]         oBits
-);
-  `include "dfhdl_defs.svh"
-  assign oBits = iBits << shift;
-endmodule
-```
-///
-
-/// tab | Generated VHDL
-```vhdl
--- A generic left shifter 
---   
--- @param width
---   the width of the input and output bits
-library ieee;
-use ieee.std_logic_1164.all;
-use ieee.numeric_std.all;
-use work.dfhdl_pkg.all;
-use work.LeftShiftGen_pkg.all;
-
-entity LeftShiftGen is
-generic (
-  width : integer := 8
-);
-port (
-  -- bits input 
-  iBits : in  std_logic_vector(width - 1 downto 0);
-  -- requested shift 
-  shift : in  unsigned(clog2(width) - 1 downto 0);
-  -- bits output 
-  oBits : out std_logic_vector(width - 1 downto 0)
-);
-end LeftShiftGen;
-
-architecture LeftShiftGen_arch of LeftShiftGen is
-begin
-  oBits <= slv_sll(iBits, to_integer(shift));
-end LeftShiftGen_arch;
-```
-///
-
-/// details | Runnable example
-    type: dfhdl
-```scastie
-import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
-/** A generic abstract shifter 
-  *   
-  * @param width
-  *   the width of the input and output bits
-  */
-abstract class ShiftGen(
-    val width: Int <> CONST = 8,
-) extends RTDesign:
-  /** bits input */
-  val iBits = Bits(width)       <> IN
-  /** requested shift */
-  val shift = UInt.until(width) <> IN
-  /** bits output */
-  val oBits = Bits(width)       <> OUT
-```
-///
-///
-
-#### Design class modifier limitations
+### Design class modifier limitations
 A DFHDL design class cannot be declared as `#!scala final class` or `#!scala case class`. Attempting to do so produces an error:
 ```scala title="DFHDL design class modifier limitation example"
 //error: DFHDL classes cannot be final classes.
@@ -542,12 +636,10 @@ case class Bar() extends DFDesign
 ```
 All other Scala class modifiers have no special effect or limitation from a DFHDL compiler perspective. Nonetheless, these modifiers can be relevant when defining a more complex design API, as part of the DFHDL meta-programming capabilities through the Scala language (e.g., change class access to `#!scala protected`).
 
-#### Design parameter limitations
+### Design parameter limitations
 
-#### Top-app design parameter type limitations
+### Top-app design parameter type limitations
 
-
-## Design Instantiation
 
 
 ## Key Differences Between `<>` and `:=`/`:==`
