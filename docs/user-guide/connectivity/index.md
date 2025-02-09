@@ -642,7 +642,7 @@ All other Scala class modifiers have no special effect or limitation from a DFHD
 
 
 
-## Key Differences Between `<>` and `:=`/`:==`
+<!-- ## Key Differences Between `<>` and `:=`/`:==`
 
 | Criteria                            | `<>` Connection                                              | `:=`/`:==` Assignment                                              |
 | ----------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
@@ -1138,8 +1138,6 @@ Note: although there is a feedback in this design, there is no circular initial 
 
 ---
 
-## Via Connections
-
 
 ## Magnet Port Connections
 
@@ -1147,4 +1145,4 @@ Note: although there is a feedback in this design, there is no circular initial 
 
 * In the future `<>` will be used to connect multi-port interfaces.
 * We will add support to treat an alias of a port as a port when connection `<>` rules are enforced.
-* Connecting between any ancestor which is not a parent and child. Currently not supported fully.
+* Connecting between any ancestor which is not a parent and child. Currently not supported fully. -->
