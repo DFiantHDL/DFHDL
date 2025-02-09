@@ -10,19 +10,20 @@
 module LRShiftDirect(
   iBits,
   shift,
-  dir,
-  oBits
+  oBits,
+  dir
 );
   `include "dfhdl_defs.vh"
+  /* the width of the input and output bits */
   parameter integer width = 8;
   /* bits input */
   input  wire  [width - 1:0]        iBits;
   /* requested shift */
   input  wire  [clog2(width) - 1:0] shift;
-  /* direction of shift */
-  input  wire  [0:0]                dir;
   /* bits output */
   output reg [width - 1:0]          oBits;
+  /* direction of shift */
+  input  wire  [0:0]                dir;
   wire [width - 1:0] lshifter_iBits;
   wire [clog2(width) - 1:0] lshifter_shift;
   wire [width - 1:0] lshifter_oBits;

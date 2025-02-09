@@ -17,10 +17,10 @@ port (
   iBits : in  std_logic_vector(width - 1 downto 0);
   -- requested shift 
   shift : in  unsigned(clog2(width) - 1 downto 0);
-  -- direction of shift 
-  dir   : in  t_enum_ShiftDir;
   -- bits output 
-  oBits : out std_logic_vector(width - 1 downto 0)
+  oBits : out std_logic_vector(width - 1 downto 0);
+  -- direction of shift 
+  dir   : in  t_enum_ShiftDir
 );
 end LRShiftDirect;
 
