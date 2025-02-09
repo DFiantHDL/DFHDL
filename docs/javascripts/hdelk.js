@@ -1,4 +1,13 @@
-var hdelk = (function(){
+const fs = require('fs');
+const { createSVGWindow } = require('svgdom');
+const { SVG, registerWindow } = require('@svgdotjs/svg.js');
+const ELK = require('elkjs/lib/elk.bundled.js');
+
+const window = createSVGWindow();
+const document = window.document;
+registerWindow(window, document);
+
+var hdelk = (function() {
 
     /**
      * HDElkJS Style Section
@@ -57,55 +66,29 @@ var hdelk = (function(){
     /**
      * Creates an SVG diagram from a JSON description.
      * @param {object} graph
-     * @param {string} divname
+     * @param {string} outputFilePath
      */
-    var layout = function( graph, divname  ) {
-        const elk = new ELK({
-          })
+    var layout = async function(graph, outputFilePath) {
+        const elk = new ELK();
 
         // create a dummy drawing just to get text sizes
-        var drawDummy = SVG().addTo('#' + divname).size(0, 0);
+        var drawDummy = SVG(document.documentElement).size(0, 0);
 
-        transformNode( drawDummy, graph );
+        transformNode(drawDummy, graph);
 
         drawDummy.clear();
 
-        var mp = document.getElementById( divname + "_message" );
-        if ( mp ) {
-            mp.style.display = "none";
-        }
-
         try {
-            var ep = elk.layout(graph);
+            var g = await elk.layout(graph);
 
-            ep.then(function(g) {
-                    var dp = document.getElementById( divname + "_preprocessed" );
-                    if ( dp )
-                        dp.innerHTML = "<pre style='font-size:10px'>" + JSON.stringify(graph, null, " ") + "</pre>";
+            var svgContent = diagram(g);
 
-                    var d = document.getElementById( divname + "_elk" );
-                    if ( d )
-                        d.innerHTML = "<pre style='font-size:8px'>" + JSON.stringify(g, null, " ") + "</pre>";
-
-                    diagram( divname, g );
-
-                    })
-
-            ep.catch( function(err){
-                var dp = document.getElementById( divname );
-                dp.innerHTML = "";
-                var mp = document.getElementById( divname + "_message" );
-                if ( mp ) {
-                    mp.innerHTML = err;
-                    mp.style.display = "block";
-                }
-            })
-        } catch( err ) {
-            var dp = document.getElementById( divname );
-            dp.innerHTML = "";
-            console.log( err );
+            fs.writeFileSync(outputFilePath, svgContent);
+            // console.log(`SVG file saved to ${outputFilePath}`);
+        } catch (err) {
+            console.error(err);
         }
-    }
+    };
 
     /**
      * Takes the child object and recursively transforms sub-objects into a form that Elk.JS can use
@@ -462,21 +445,18 @@ var hdelk = (function(){
 
     /**
      * Takes the output from ElkJS, renders it into SVG using SVG.js and returns the result
-     * @param {string} div_id
      * @param {elkObject} diagram_layout
      * @returns {string} svg
      */
-    var diagram = function( div_id, diagram_layout ) {
+    var diagram = function(diagram_layout) {
+        var draw = SVG(document.documentElement)
+            .viewbox(0, 0, diagram_layout.width, diagram_layout.height)
+            .size(diagram_layout.width, diagram_layout.height);
 
-        var diagramElement = document.getElementById(div_id);
-        diagramElement.innerHTML = "";
+        node(draw, diagram_layout, 0, 0);
 
-        var draw = SVG().addTo('#' + div_id)
-                        .viewbox(0, 0, diagram_layout.width, diagram_layout.height)
-                        .size('100%', '100%');
-
-        node( draw, diagram_layout, 0, 0 );
-    }
+        return draw.svg();
+    };
 
     var node = function( draw, child, offsetX, offsetY ) {
         var group = draw.group();
@@ -691,3 +671,9 @@ var hdelk = (function(){
     };
 })();
 
+const inputFilePath = process.argv[2];
+const outputFilePath = process.argv[3];
+
+const graph = JSON.parse(fs.readFileSync(inputFilePath, 'utf8'));
+
+hdelk.layout(graph, outputFilePath);

@@ -28,3 +28,6 @@ sandbox/
 .vscode/
 project/metals.sbt
 **/__pycache__/**
+node_modules/
+package.json
+package-lock.json

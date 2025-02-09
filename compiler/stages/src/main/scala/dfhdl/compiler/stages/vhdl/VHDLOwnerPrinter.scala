@@ -36,7 +36,12 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       }
       .mkString(";\n")
     val designParamList = designMembers.collect { case param: DesignParam =>
-      val defaultValue = if (design.isTop) s" := ${param.dfValRef.refCodeString}" else ""
+      val defaultValue =
+        if (design.isTop) s" := ${param.dfValRef.refCodeString}"
+        else
+          param.defaultRef.get match
+            case DFMember.Empty => ""
+            case _              => s" := ${param.defaultRef.refCodeString}"
       s"${param.getName} : ${printer.csDFType(param.dfType)}$defaultValue"
     }
     val genericBlock =
