@@ -451,7 +451,7 @@ var hdelk = (function() {
     var diagram = function(diagram_layout) {
         var draw = SVG(document.documentElement)
             .viewbox(0, 0, diagram_layout.width, diagram_layout.height)
-            .size(diagram_layout.width, diagram_layout.height);
+            .size('100%', '100%');
 
         node(draw, diagram_layout, 0, 0);
 

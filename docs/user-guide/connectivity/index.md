@@ -196,7 +196,7 @@ The DFHDL code below implements a basic left shifter design named `LeftShiftBasi
 --8<-- "lib/src/test/scala/docExamples/ugdemos/demo2/LeftShiftBasic.scala:6"
 ```
 
-```hdelk width=90%
+```hdelk width=75%
 stroke-width = 0
 children = [
   {
@@ -252,7 +252,7 @@ The DFHDL code below implements a generic left shifter design named `LeftShiftGe
 --8<-- "lib/src/test/scala/docExamples/ugdemos/demo3/LeftShiftGen.scala:6"
 ```
 
-```hdelk width=90%
+```hdelk width=100%
 stroke-width = 0
 children = [
   {
@@ -317,7 +317,7 @@ The DFHDL code below implements a generic left-right shifter flat design named `
 --8<-- "lib/src/test/scala/docExamples/ugdemos/demo4/LRShiftFlat.scala:6"
 ```
 
-```hdelk width=90%
+```hdelk width=100%
 stroke-width = 0
 children = [
   {
