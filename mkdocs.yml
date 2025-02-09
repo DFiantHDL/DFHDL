@@ -147,8 +147,6 @@ extra_javascript:
   - javascripts/scastie.js
   - javascripts/d3.js
   - https://cdn.jsdelivr.net/gh/kieler/elkjs@0.9.3/lib/elk.bundled.js
-  - https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.2.4/dist/svg.min.js
-  - javascripts/hdelk.js
   - javascripts/d3-hwschematic.js
   - javascripts/d3-hwschematic-embed.js
 
