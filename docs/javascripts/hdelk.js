@@ -84,7 +84,7 @@ var hdelk = (function() {
             var svgContent = diagram(g);
 
             fs.writeFileSync(outputFilePath, svgContent);
-            console.log(`SVG file saved to ${outputFilePath}`);
+            // console.log(`SVG file saved to ${outputFilePath}`);
         } catch (err) {
             console.error(err);
         }
