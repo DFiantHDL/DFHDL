@@ -120,15 +120,15 @@ class ParsedCommandLine(
         default = Some(false)
       )
 
-  private val programName: String =
+  private def usageText(options: String): String =
     import dfhdl.internals.{sbtIsRunning, scala_cliIsRunning, sbtShellIsRunning}
-    if (scala_cliIsRunning) s"scala run . -M $topScalaPath --"
+    if (scala_cliIsRunning) s"scala run . -M $topScalaPath -- $options"
     else if (sbtIsRunning)
-      if (sbtShellIsRunning) s"runMain $topScalaPath"
-      else s"""sbt "runMain $topScalaPath [options]""""
-    else "<your program>"
+      if (sbtShellIsRunning && !scastieIsRunning) s"runMain $topScalaPath $options"
+      else s"""sbt "runMain $topScalaPath $options""""
+    else s"<your program> $options"
 
-  banner(s"Design Name: $designName\nUsage: $programName [design-args] <mode> [options]")
+  banner(s"""Design Name: $designName\nUsage: ${usageText("[design-args] <mode> [options]")} """)
   appendDefaultToDescription = true
   helpFormatter = Mode.helpFormatter
   private var exitCodeOption: Option[Int] = None
