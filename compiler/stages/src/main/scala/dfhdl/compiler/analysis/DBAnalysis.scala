@@ -15,7 +15,7 @@ extension (designDB: DB)
   def getUnusedParamAnnotValues: List[DFVal] =
     import designDB.getSet
     designDB.members.collect:
-      case dfVal @ DesignParam(_) if dfVal.wasConstDataAccessed => dfVal
+      case dfVal: DFVal.DesignParam if dfVal.wasConstDataAccessed => dfVal
   def getUnusedBitsValues: List[(DFVal, Int, Int)] =
     import designDB.getSet
     designDB.members.flatMap:

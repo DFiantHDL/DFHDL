@@ -8,13 +8,13 @@ DFHDL supports composable design hierarchies by instantiating design classes and
 
 <div class="grid" markdown>
 
-/// admonition | terminology
+/// admonition | Terminology
     type: quote
-* _design_ - a Scala class extending `XXDesign`, where `XX` can be `DF`, `RT`, or `ED`, corresponding to the desired [design domain][design-domains].
-* _design member_ - any DFHDL object instantiated within a design (the design *contains* or *owns* all its members).
-* _child design/component_ - a design instance that is owned by another design.
-* _top design_ - the highest-level design in the hierarchy (no other design contains it), also known as the *top-level design*.
-* _top-app design_ - a `@top` annotated *top design* that generates a main entry with the default application.
+* _design_ - A Scala class extending `XXDesign`, where `XX` can be `DF`, `RT`, or `ED`, corresponding to the desired [design domain][design-domains].
+* _design member_ - Any DFHDL object instantiated within a design (the design *contains* or *owns* all its members).
+* _child design/component_ - A design instance that is owned by another design.
+* _top design_ - The highest-level design in the hierarchy (no other design contains it), also known as the *top-level design*.
+* _top-app design_ - A `@top` annotated *top design* that generates a main entry with the default application.
 
 ///
 
@@ -127,8 +127,20 @@ children = [
     id = LeftShift2
     inPorts = [iBits]
     outPorts = [oBits]
-    children = [{id = op, label = "<<"}]
+    children = [
+      {
+        id = const
+        label = 2 
+        constant = 1
+      }
+      {
+        id = op 
+        label = "<<"
+        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+    ]
     edges = [
+      [const, op.shift]
       [LeftShift2.iBits, op]
       [op, LeftShift2.oBits]
     ]
@@ -159,8 +171,6 @@ This design is also a top-app design, since it's annotated with `@top`. This mea
 ```
 ///
 ///
-
-
 
 
 ### Parameter Block Syntax {#design-params-syntax}
@@ -195,9 +205,15 @@ children = [
     inPorts = [iBits, shift]
     outPorts = [oBits]
     parameters = [width]
-    children = [{id = op, label = "<<"}]
+    children = [
+      {
+        id = op 
+        label = "<<"
+        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+    ]    
     edges = [
-      [top.shift, op]
+      [top.shift, op.shift]
       [top.iBits, op]
       [op, top.oBits]
     ]
@@ -245,9 +261,15 @@ children = [
     inPorts = [iBits, shift]
     outPorts = [oBits]
     parameters = [width]
-    children = [{id = op, label = "<<"}]
+    children = [
+      {
+        id = op 
+        label = "<<"
+        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+    ]
     edges = [
-      [top.shift, op]
+      [top.shift, op.shift]
       [top.iBits, op]
       [op, top.oBits]
     ]
@@ -276,6 +298,108 @@ children = [
 ```
 ///
 ///
+
+## Design Composition & Instantiation
+DFHDL supports three mechanisms to form a design hierarchy through design instantiation and composition: 
+
+  * [Direct Connection Composition][direct-connection-composition] - The most common and recommended mechanism to construct complex design hierarchies that have multiple inputs and outputs. Within this mechanism the design instantiation and port connection can executed separately. This enables child design ports referencing without declaring and connecting intermediate variables.
+  * [Via Connection Composition][via-connection-composition] - A legacy mechanism to connect ports only within a design instantiation. This mechanism mainly exists for co-existance with the Verilog module instancing and VHDL component instancing mechanisms. The DFHDL compiler automatically tranforms a direct connection composition into a via connection composition.
+  * [Functional Composition][functional-composition] - A method call mechanism to describe design composition. This mechanism is reserved for dataflow designs only and is mostly relevant for arithmetic/logic design functionality that has a single output port. The DFHDL compiler automatically transforms a functional composition into direct design composition.
+
+The following subsections dive into further details of the three design composition mechanisms. For this purpose, we continue with our running example of a bits shifter. To demonstrate composition, lets first describe a bit more complex shifter that has both left and right shift capabilities, as a flat (composition-less) design:
+
+/// admonition | Generic left-right shifter, flat design example
+The DFHDL code below implements a generic left-right shifter flat design named `LRShiftFlat`. This design expands on `LeftShiftGen` by adding a `dir` enum port value that specifies the shift direction and a shift operation multiplexer through a `#!scala match` statement.
+
+<div class="grid" markdown>
+
+```scala
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo4/LRShiftFlat.scala:6"
+```
+
+```hdelk width=90%
+stroke-width = 0
+children = [
+  {
+    id = top
+    label = LRShiftFlat
+    inPorts = [iBits, shift, dir]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [
+      {
+        id = opL 
+        label = "<<"
+        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+      {
+        id = opR
+        label = ">>"
+        southPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+      {
+        id = mux 
+        label = "mux"
+        northPorts = [{id = sel, label = " ", height = 5, width = 1}]
+      }
+    ]
+    edges = [
+      [top.shift, opR.shift]
+      [top.shift, opL.shift]
+      [top.iBits, opR]
+      [top.iBits, opL]
+      [top.dir, mux.sel]
+      [opL, mux]
+      [opR, mux]
+      [mux, top.oBits]
+    ]
+  }
+]
+```
+
+</div>
+
+/// tab | Generated Verilog
+/// tab | LRShiftFlat.sv
+```verilog
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo4.LRShiftFlatSpec/verilog.sv2009/hdl/LRShiftFlat.sv"
+```
+///
+/// tab | LRShiftFlat_defs.svh
+```verilog
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo4.LRShiftFlatSpec/verilog.sv2009/hdl/LRShiftFlat_defs.svh"
+```
+///
+///
+
+/// tab | Generated VHDL
+/// tab | LRShiftFlat.vhd
+```vhdl
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo4.LRShiftFlatSpec/vhdl.v2008/hdl/LRShiftFlat.vhd"
+```
+///
+/// tab | LRShiftFlat_pkg.vhd
+```vhdl
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo4.LRShiftFlatSpec/vhdl.v2008/hdl/LRShiftFlat_pkg.vhd"
+```
+///
+///
+
+/// details | Runnable example
+    type: dfhdl
+```scastie
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo4/LRShiftFlat.scala:3"
+```
+///
+///
+
+### Direct Connection Composition
+
+
+### Via Connection Composition
+
+### Functional Composition
+
 
 
 ### Rules {#design-dcl-rules}

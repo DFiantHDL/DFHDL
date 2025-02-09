@@ -35,8 +35,8 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         printer.csDFMember(p)
       }
       .mkString(";\n")
-    val designParamList = designMembers.collect { case param @ DesignParam(_) =>
-      val defaultValue = if (design.isTop) s" := ${param.relValRef.refCodeString}" else ""
+    val designParamList = designMembers.collect { case param: DesignParam =>
+      val defaultValue = if (design.isTop) s" := ${param.dfValRef.refCodeString}" else ""
       s"${param.getName} : ${printer.csDFType(param.dfType)}$defaultValue"
     }
     val genericBlock =
@@ -113,7 +113,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val constIntDcls =
       designMembers.view
         .flatMap {
-          case DesignParam(_) => None
+          case _: DesignParam => None
           case c @ DclConst() =>
             c.dfType match
               case DFInt32 => Some(c)
@@ -127,7 +127,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
       designMembers.view
         .flatMap {
           case p: DFVal.Dcl if p.isVar => Some(p)
-          case DesignParam(_)          => None
+          case _: DesignParam          => None
           case c @ DclConst() =>
             c.dfType match
               case DFInt32 => None
@@ -158,8 +158,8 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
        |""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFDesignLateBody(design)
-    val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
-      s"${param.getName} => ${param.relValRef.refCodeString}"
+    val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
+      s"${param.getName} => ${param.dfValRef.refCodeString}"
     }
     val designParamCS =
       if (designParamList.isEmpty) ""

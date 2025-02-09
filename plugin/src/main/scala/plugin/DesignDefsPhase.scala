@@ -77,7 +77,7 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
           // constant parameter generation
           val designParamGenValDefs: List[ValDef] = inContext(ctx.withOwner(anonDef.symbol)) {
             dfConstValArgs.map { v =>
-              val valDef = v.genDesignParamValDef(dfc)
+              val valDef = v.genDesignParamValDef(None, dfc)
               inputMap += v.symbol -> ref(valDef.symbol)
               valDef
             }

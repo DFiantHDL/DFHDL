@@ -106,12 +106,12 @@ class PrintVerilogCodeSpec extends StageSpec:
   }
 
   test("Basic hierarchy design with parameters") {
-    class ID(val width: Int <> CONST) extends DFDesign:
+    class ID(val width: Int <> CONST = 7) extends DFDesign:
       val x = SInt(width) <> IN
       val y = SInt(width) <> OUT
       y := x
 
-    class IDTop(val width: Int <> CONST) extends DFDesign:
+    class IDTop(val width: Int <> CONST = 9) extends DFDesign:
       val x   = SInt(width) <> IN
       val y   = SInt(width) <> OUT
       val id1 = ID(width)
@@ -126,7 +126,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`timescale 1ns/1ps
          |`include "IDTop_defs.svh"
          |
-         |module ID#(parameter int width)(
+         |module ID#(parameter int width = 7)(
          |  input  wire logic signed [width - 1:0] x,
          |  output logic signed [width - 1:0] y
          |);
@@ -169,12 +169,12 @@ class PrintVerilogCodeSpec extends StageSpec:
 
   test("Basic hierarchy design with parameters verilog.v95") {
     given options.CompilerOptions.Backend = backends.verilog.v95
-    class ID(val width: Int <> CONST) extends DFDesign:
+    class ID(val width: Int <> CONST = 7) extends DFDesign:
       val x = SInt(width) <> IN
       val y = SInt(width) <> OUT
       y := x
 
-    class IDTop(val width: Int <> CONST) extends DFDesign:
+    class IDTop(val width: Int <> CONST = 9) extends DFDesign:
       val x   = SInt(width) <> IN
       val y   = SInt(width) <> OUT
       val id1 = ID(width)
@@ -194,7 +194,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  y
          |);
          |  `include "dfhdl_defs.vh"
-         |  parameter integer width = width;
+         |  parameter integer width = 7;
          |  input  wire  [width - 1:0] x;
          |  output wire [width - 1:0] y;
          |  assign y = x;
@@ -500,7 +500,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     )
   test("UInt counter example"):
     class Counter(val width: Int <> CONST) extends RTDesign:
-      val cnt = UInt(width) <> OUT init d"8'0"
+      val cnt = UInt(width) <> OUT init 0
       cnt := cnt.reg + 1
     val top = (new Counter(8)).getCompiledCodeString
     assertNoDiff(

@@ -2,7 +2,7 @@
 `timescale 1ns/1ps
 `include "CipherNoOpaques_defs.vh"
 
-module mulByte_2#(parameter logic [7:0] lhs)(
+module mulByte_2#(parameter logic [7:0] lhs = 8'h01)(
   input  wire  [7:0] rhs,
   output wire [7:0]  o
 );

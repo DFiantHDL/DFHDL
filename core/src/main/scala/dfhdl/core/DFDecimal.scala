@@ -719,7 +719,6 @@ object DFXInt:
       ): TC[DFXInt[LS, LW, LN], R] with
         type OutP = ic.OutP
         def conv(dfType: DFXInt[LS, LW, LN], value: R)(using dfc: DFC): Out =
-          import Ops.resize
           import DFUInt.Val.Ops.signed
           val rhs = ic(value)
           val (rhsSigned, rhsWidth) = rhs.getActualSignedWidth
@@ -811,9 +810,10 @@ object DFXInt:
                     lhsSignFix.toInt.asIR
                   case BitAccurate =>
                     DFVal.Alias.AsIs(dfType, lhsSignFix).asIR
-              else if (!(dfType.asIR.widthParamRef =~ lhsSignFix.dfType.asIR.widthParamRef))
+              else if (!dfType.asIR.widthParamRef.isSimilarTo(lhsSignFix.dfType.asIR.widthParamRef))
                 lhsSignFix.resize(dfType.widthIntParam).asIR
               else lhsSignFix.asIR
+              end if
             end if
           end dfValIR
           dfValIR.asValTP[DFXInt[RS, RW, RN], P]

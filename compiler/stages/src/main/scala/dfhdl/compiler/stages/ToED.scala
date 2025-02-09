@@ -61,7 +61,7 @@ case object ToED extends Stage:
               }
             def collectFilter(member: DFMember): Boolean = member match
               case _: DFVal.Dcl                               => false
-              case DesignParam(_)                             => false
+              case _: DFVal.DesignParam                       => false
               case _: DFOwnerNamed                            => false
               case dfVal: DFVal if dfVal.isReferencedByAnyDcl => false
               case _                                          => true

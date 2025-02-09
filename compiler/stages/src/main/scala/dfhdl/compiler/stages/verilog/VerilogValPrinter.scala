@@ -19,7 +19,17 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     if (supportGlobalParameters || !dfVal.isGlobal)
       val arrRange = printer.csDFVectorRanges(dfVal.dfType)
       val endOfStatement = if (dfVal.isGlobal) ";" else ""
-      s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = ${csDFValExpr(dfVal)}$endOfStatement"
+      val default = dfVal match
+        // for non-top-level design parameters, we fetch the default value if it is defined.
+        // for all other cases, we get the parameter constant data and use that as default value.
+        // using the constant data only happens in verilog.v95, since parameters are declared in
+        // the body and must have defaults.
+        case param: DesignParam =>
+          param.defaultRef.get match
+            case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
+            case _ => printer.csConstData(param.dfType, param.getConstData.get)
+        case _ => csDFValExpr(dfVal)
+      s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = $default$endOfStatement"
     else s"`define ${dfVal.getName} ${csDFValExpr(dfVal).replace("\n", " \\\n")}"
 
   def csDFValDclWithoutInit(dfVal: Dcl): String =

@@ -41,19 +41,26 @@ object Ident:
 //  val arg: Bit <> CONST = newArg
 //  val x = Bit <> IN init arg
 //```
-object DesignParam:
-  def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
-    if (alias.hasTagOf[DFVal.Alias.DesignParamTag.type])
-      val relVal = alias.relValRef.get
-      // if (
-      //   relVal.existsInComposedReadDeps { dep =>
-      //     dep.hasTagOf[DFVal.Alias.DesignParamTag.type] &&
-      //     dep.isSameOwnerDesignAs(alias)
-      //   }
-      // ) None
-      Some(relVal)
-    else None
-end DesignParam
+// object DesignParam:
+//   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
+//     if (alias.hasTagOf[DFVal.Alias.DesignParamTag.type])
+//       val relVal = alias.relValRef.get
+//       // if (
+//       //   relVal.existsInComposedReadDeps { dep =>
+//       //     dep.hasTagOf[DFVal.Alias.DesignParamTag.type] &&
+//       //     dep.isSameOwnerDesignAs(alias)
+//       //   }
+//       // ) None
+//       Some(relVal)
+//     else None
+// end DesignParam
+
+//extract the design param from its default value
+object DefaultOfDesignParam:
+  def unapply(dfVal: DFVal)(using MemberGetSet): Option[DFVal.DesignParam] =
+    dfVal.originMembers.collectFirst {
+      case dp: DFVal.DesignParam if dp.defaultRef.get == dfVal => dp
+    }
 
 object OpaqueActual:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
@@ -410,7 +417,7 @@ extension (net: DFNet)
 extension (member: DFMember)
   def isPublicMember(using MemberGetSet): Boolean =
     member match
-      case DclPort()      => true
-      case DesignParam(_) => true
-      case _: DomainBlock => true
-      case _              => false
+      case DclPort()            => true
+      case _: DFVal.DesignParam => true
+      case _: DomainBlock       => true
+      case _                    => false

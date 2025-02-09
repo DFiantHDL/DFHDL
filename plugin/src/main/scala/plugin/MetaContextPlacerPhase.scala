@@ -46,7 +46,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
   var noTopAnnotIsRequired: TypeRef = uninitialized
-
+  val defaultParamMap = mutable.Map.empty[ClassSymbol, Map[Int, Tree]]
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     val sym = tree.symbol
     tree.rhs match
@@ -73,12 +73,17 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
 
   private def clsMetaArgsOverrideDef(owner: Symbol)(using Context): Tree =
     clsMetaArgsOverrideDef(owner, ref(requiredMethod("dfhdl.internals.ClsMetaArgs.empty")))
-  private def genDesignBodyParams(body: List[Tree], paramList: List[Tree], dfcTree: Tree)(using
+  private def genDesignBodyParams(
+      body: List[Tree],
+      paramList: List[Tree],
+      defaults: Map[Int, Tree],
+      dfcTree: Tree
+  )(using
       Context
   ): (List[Tree], List[ValDef]) =
     val designParamMap = mutable.Map.empty[Symbol, Tree]
-    val designParamGenValDefs: List[ValDef] = paramList.collect {
-      case v: ValDef if v.dfValTpeOpt.nonEmpty =>
+    val designParamGenValDefs: List[ValDef] = paramList.view.zipWithIndex.collect {
+      case (v: ValDef, i) if v.dfValTpeOpt.nonEmpty =>
         // check and report error if the user did not apply a constant modifier
         // on a design parameter
         if (!v.tpt.tpe.isDFConst)
@@ -86,12 +91,38 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
             "DFHDL design parameters must be constant values (use a `<> CONST` modifier).",
             v.tpt
           )
-        val valDef = v.genDesignParamValDef(dfcTree)
+        val valDef = v.genDesignParamValDef(defaults.get(i), dfcTree)
         designParamMap += v.symbol -> ref(valDef.symbol)
         valDef
-    }
+    }.toList
     (body.map(b => replaceArgs(b, designParamMap.toMap)), designParamGenValDefs)
   end genDesignBodyParams
+
+  override def prepareForStats(trees: List[Tree])(using Context): Context =
+    var explored: List[Tree] = trees
+    while (explored.nonEmpty)
+      explored match
+        case (td @ TypeDef(tn, template: Template)) :: rest if td.hasDFC =>
+          val clsSym = td.symbol.asClass
+          val defaultMap = mutable.Map.empty[Int, Tree]
+          rest match
+            case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
+                if compSym.symbol.companionClass == clsSym =>
+              compTemplate.body.foreach {
+                case dd @ DefDef(NameKinds.DefaultGetterName(n, i), _, _, _)
+                    if dd.dfValTpeOpt.nonEmpty =>
+                  defaultMap += i -> ref(module.symbol).select(dd.symbol)
+                case _ =>
+              }
+              defaultParamMap += clsSym -> defaultMap.toMap
+            case _ =>
+          explored = rest
+        case _ =>
+          explored = explored.drop(1)
+    end while
+    ctx
+  end prepareForStats
+
   override def transformTypeDef(tree: TypeDef)(using Context): TypeDef =
     tree.rhs match
       case template: Template =>
@@ -111,7 +142,8 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           val nonParamBody = template.body.drop(paramBody.length)
           val (updatedBody, designParamGenValDefs) = dfcArgOpt match
             case Some(dfcTree) =>
-              genDesignBodyParams(nonParamBody, paramBody, dfcTree)(using
+              val defaults = defaultParamMap.getOrElse(clsSym, Map.empty)
+              genDesignBodyParams(nonParamBody, paramBody, defaults, dfcTree)(using
                 ctx.withOwner(clsSym.primaryConstructor)
               )
             case None => (nonParamBody, Nil)
@@ -296,5 +328,6 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     appTpe = requiredClassRef("dfhdl.app.DFApp")
     noTopAnnotIsRequired = requiredClassRef("dfhdl.internals.NoTopAnnotIsRequired")
     dfcArgStack = Nil
+    defaultParamMap.clear()
     ctx
 end MetaContextPlacerPhase

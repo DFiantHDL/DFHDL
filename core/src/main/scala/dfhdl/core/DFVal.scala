@@ -1,6 +1,5 @@
 package dfhdl.core
 import dfhdl.compiler.ir
-import dfhdl.compiler.analysis.DesignParam
 import dfhdl.internals.*
 import ir.DFVal.Func.Op as FuncOp
 import ir.DFVal.Alias.History.Op as HistoryOp
@@ -628,6 +627,24 @@ object DFVal extends DFValLP:
         .asConstOf[T]
   end Const
 
+  object DesignParam:
+    def apply[T <: DFTypeAny](
+        dfVal: DFValOf[T],
+        default: Option[DFValOf[T]] = None
+    )(using DFC): DFConstOf[T] =
+      val alias: ir.DFVal.DesignParam =
+        ir.DFVal.DesignParam(
+          dfVal.asIR.dfType.dropUnreachableRefs,
+          dfVal.asIR.refTW[ir.DFVal.DesignParam](knownReachable = true),
+          default.map(_.asIR.refTW[ir.DFVal.DesignParam])
+            .getOrElse(ir.DFMember.Empty.refTW[ir.DFVal.DesignParam]),
+          dfc.ownerOrEmptyRef,
+          dfc.getMeta,
+          dfc.tags
+        )
+      alias.addMember.asConstOf[T]
+    end apply
+  end DesignParam
   type OPEN = OPEN.type
   object OPEN:
     protected[dfhdl] def apply[T <: DFTypeAny](dfType: T)(using DFC): DFValOf[T] =
@@ -745,11 +762,6 @@ object DFVal extends DFValLP:
       ): DFVal[T, M] =
         import ir.DFConditional.DFCaseBlock.Pattern
         ident(relVal)(using dfc.setName(bindName).tag(Pattern.Bind.Tag))
-      def designParam[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
-          DFC
-      ): DFVal[T, M] =
-        import ir.DFVal.Alias.DesignParamTag
-        forced(relVal.dfType.asIR, relVal.asIR)(using dfc.tag(DesignParamTag)).asVal[T, M]
     end AsIs
     object History:
       def apply[T <: DFTypeAny](
@@ -1338,10 +1350,10 @@ extension (dfVal: ir.DFVal)
               currentOwner.getThisOrOwnerDesign.isInsideOwner(dfVal.getOwnerDesign) =>
           dfc.mutableDB.DesignContext.getReachableNamedValue(
             dfVal, {
-              DFVal.Alias.AsIs.designParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta)).asIR
+              DFVal.DesignParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta)).asIR
             }
           )
-        case DesignParam(of) =>
+        case ir.DFVal.DesignParam(_, ir.DFRef(of), _, _, _, _) =>
           of.cloneUnreachable
         case _ =>
           def cloning: ir.DFVal =

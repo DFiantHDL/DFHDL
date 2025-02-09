@@ -24,9 +24,7 @@ extension [M <: ir.DFMember](member: M)
       // meta-programming since there we reference values outside of the design context entirely.
       case dfVal: ir.DFVal if !dfc.inMetaProgramming =>
         dfc.ownerOption match
-          // unreachable values happen first within designs and if the current context is not
-          // during a design parameter referencing (indicated by DesignParamTag)
-          case Some(currentOwner) if !dfc.tags.hasTagOf[ir.DFVal.Alias.DesignParamTag.type] =>
+          case Some(currentOwner) =>
             // one case of unreachable value is when the value is global and anonymous.
             // in this case we clone the entire chain of anonymous dependencies.
             if (dfVal.isGlobal)
@@ -43,9 +41,7 @@ extension [M <: ir.DFMember](member: M)
               else
                 dfc.mutableDB.DesignContext.getReachableNamedValue(
                   dfVal,
-                  DFVal.Alias.AsIs.designParam(dfVal.asValAny)(using
-                    dfc.setMeta(dfVal.meta).emptyTags
-                  ).asIR
+                  DFVal.DesignParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta).emptyTags).asIR
                 )
             else member
           case _ => member
@@ -61,10 +57,16 @@ extension [M <: ir.DFMember](member: M)
       dfc: DFC,
       m: ClassTag[M],
       o: ClassTag[O]
+  ): ir.DFRef.TwoWay[M, O] = refTW[O](knownReachable = false)
+  def refTW[O <: ir.DFMember](knownReachable: Boolean)(using
+      dfc: DFC,
+      m: ClassTag[M],
+      o: ClassTag[O]
   ): ir.DFRef.TwoWay[M, O] =
     import dfc.getSet
     injectGlobalCtx()
-    member.getReachableMember match
+    val reachableMember = if (knownReachable) member else member.getReachableMember
+    reachableMember match
       // referencing a port from another design causes by-name referencing.
       // in meta-programming we can end up with a modified copy of the design that should
       // not be treated as a different design (for example, the stage `ToED`).

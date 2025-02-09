@@ -23,6 +23,10 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     printer.dialect match
       case VerilogDialect.v95 => false
       case _                  => true
+  val noDefaultParamSupport: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
   def csModuleDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
     val ports = designMembers.view.collect { case p @ DclPort() =>
@@ -36,7 +40,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val constIntDcls =
       designMembers.view
         .flatMap {
-          case p @ DesignParam(_) =>
+          case p: DesignParam =>
             if (parameterizedModuleSupport) None
             else Some(p)
           case c @ DclConst() =>
@@ -52,7 +56,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       designMembers.view
         .flatMap {
           case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport => Some(p)
-          case DesignParam(_)                                         => None
+          case _: DesignParam                                         => None
           case c @ DclConst() =>
             c.dfType match
               case DFInt32 => None
@@ -70,8 +74,19 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         case _            => true
       }
     )
-    val designParamList = designMembers.collect { case param @ DesignParam(_) =>
-      val defaultValue = if (design.isTop) s" = ${param.relValRef.refCodeString}" else ""
+    val designParamList = designMembers.collect { case param: DesignParam =>
+      val defaultValue =
+        if (design.isTop) s" = ${param.dfValRef.refCodeString}"
+        else
+          param.defaultRef.get match
+            case DFMember.Empty =>
+              // missing default values are supported
+              if (noDefaultParamSupport) ""
+              // missing default values are not supported, so we fetch a valid constant data
+              // (different instances may have different constant data, but for default,
+              // a single module description can have any valid data, just to satisfy the standard)
+              else s" = ${printer.csConstData(param.dfType, param.getConstData.get)}"
+            case _ => s" = ${param.defaultRef.refCodeString}"
       s"parameter ${printer.csDFType(param.dfType)} ${param.getName}$defaultValue"
     }
     val designParamCS =
@@ -90,8 +105,8 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
        |""".stripMargin
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFDesignLateBody(design)
-    val designParamList = design.members(MemberView.Folded).collect { case param @ DesignParam(_) =>
-      s".${param.getName} (${param.relValRef.refCodeString})"
+    val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
+      s".${param.getName} (${param.dfValRef.refCodeString})"
     }
     val designParamCS =
       if (designParamList.isEmpty) ""

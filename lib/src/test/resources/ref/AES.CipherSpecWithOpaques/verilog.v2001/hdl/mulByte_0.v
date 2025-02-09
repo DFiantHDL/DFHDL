@@ -2,7 +2,7 @@
 `timescale 1ns/1ps
 `include "Cipher_defs.vh"
 
-module mulByte_0#(parameter logic [7:0] lhs)(
+module mulByte_0#(parameter logic [7:0] lhs = 8'h02)(
   input  wire  [7:0] rhs,
   output wire [7:0]  o
 );

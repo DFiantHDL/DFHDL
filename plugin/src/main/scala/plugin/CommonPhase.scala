@@ -149,12 +149,12 @@ abstract class CommonPhase extends PluginPhase:
   end extension
 
   extension (v: ValDef)(using Context)
-    def genDesignParamValDef(dfcTree: Tree): ValDef =
+    def genDesignParamValDef(default: Option[Tree], dfcTree: Tree): ValDef =
       val meta = v.genMeta
       val paramGen =
         ref(genDesignParamSym)
           .appliedToType(v.tpt.tpe)
-          .appliedToArgs(List(ref(v.symbol), meta))
+          .appliedToArgs(List(ref(v.symbol), mkOption(default), meta))
           .appliedTo(dfcTree)
       val uniqueName = NameKinds.UniqueName.fresh(s"${v.name}_plugin".toTermName)
       val flags: FlagSet = if (ctx.owner.isConstructor) Private else EmptyFlags
@@ -217,8 +217,8 @@ abstract class CommonPhase extends PluginPhase:
       )
         report.error(
           s"""Unsupported DFHDL member name $finalName.
-           |Only alphanumric or underscore characters are supported.
-           |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin,
+             |Only alphanumric or underscore characters are supported.
+             |You can leave the Scala name as-is and add @targetName("newName") annotation.""".stripMargin,
           posTree.srcPos
         )
       finalName
