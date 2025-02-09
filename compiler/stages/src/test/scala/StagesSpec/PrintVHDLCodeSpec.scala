@@ -113,12 +113,12 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
   test("Basic hierarchy design with parameters") {
-    class ID(val width: Int <> CONST) extends DFDesign:
+    class ID(val width: Int <> CONST = 7) extends DFDesign:
       val x = SInt(width) <> IN
       val y = SInt(width) <> OUT
       y := x
 
-    class IDTop(val width: Int <> CONST) extends DFDesign:
+    class IDTop(val width: Int <> CONST = 9) extends DFDesign:
       val x   = SInt(width) <> IN
       val y   = SInt(width) <> OUT
       val id1 = ID(width)
@@ -137,7 +137,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity ID is
          |generic (
-         |  width : integer
+         |  width : integer := 7
          |);
          |port (
          |  x : in signed(width - 1 downto 0);
