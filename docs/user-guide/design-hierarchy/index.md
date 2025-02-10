@@ -98,7 +98,7 @@ A DFHDL design declaration follows the standard [Scala class](https://docs.scala
 ```scala linenums="0" title="Design declaration syntax"
 /** _documentation_ */
 @top(genMain) //required only for top-level designs
-class _name_(_params_) extends XXDesign:
+_modifiers_ class _name_(_params_) extends XXDesign:
   _contents_
 end _name_ //optional `end` marker
 ```
@@ -109,6 +109,7 @@ end _name_ //optional `end` marker
 * __`_contents_`__ are the design interface (ports/interfaces/domains) and functionality (variables, functions, child designs, processes, etc.), depending on the semantics of the selected design domain.
 * __`@top(genMain)`__ is a special obligatory annotation for top-level designs (designs that are not instantiated within another design). The annotation has an optional `#!scala val genMain: Boolean = true` parameter. When `genMain = false`, all this annotation does is provide a default top-level context for the design (e.g., [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} compiler options). When `genMain = true`, the design becomes a top-app design where all design parameters must have default values, and a main Scala entry point named `top__name_` is generated (e.g., for a top-app design named `Foo`, the entry point is named `top_Foo`).
 * __`_documentation_`__ is the design documentation in [Scaladoc format](https://docs.scala-lang.org/style/scaladoc.html){target="_blank"}. This documentation is meta information that is preserved throughout the compilation process and finally generated as documentation for the generated backend code.
+* __`_modifier_`__ are optional Scala modifiers. See the [Design Class Modifier Rules][design-class-modifier-rules] section for more information.
 
 /// admonition | Basic top-app design example: a two-bits left shifter
     type: example
@@ -389,6 +390,16 @@ class FooOK3(
 ```
 ///
 
+### Design Class Modifier Rules
+A DFHDL design class cannot be declared as `#!scala final class` or `#!scala case class`. Attempting to do so produces an error:
+```scala title="DFHDL design class modifier limitation example"
+//error: DFHDL classes cannot be final classes.
+final class Foo extends DFDesign
+//error: DFHDL classes cannot be case classes.
+case class Bar() extends DFDesign
+```
+All other Scala class modifiers have no special effect or limitation from a DFHDL compiler perspective. Nonetheless, these modifiers can be relevant when defining a more complex design API, as part of the DFHDL meta-programming capabilities through the Scala language (e.g., changing class access to `#!scala protected`).
+
 ### Design Class Inheritance
 It is possible to leverage the power of Scala inheritance to share design functionality between design class declarations.
 
@@ -549,11 +560,13 @@ children = [
 ### Direct Connection Composition
 /// admonition | Generic left-right shifter, direct connection composed design example
     type: example
-The DFHDL code below implements a generic left-right shifter composed (hierarchical) design named `LRShiftDirect`. This design implements the exact same functionality as seen earlier in `LeftShiftFlat`, but this time leveraging design composition and direct connectivity capabilities of DFHDL by splitting the left and right shift operations into their own separate designs named `LeftShiftGen` and `RightShiftGen`, respectively. Additionally, as already seen in the `ShiftGen` example, we use design class inheritance to avoid redefining the same IOs across the three design classes.
+The DFHDL code below implements a generic left-right shifter composed (hierarchical) design named `LRShiftDirect`. This design implements the exact same functionality as seen earlier in `LeftShiftFlat`, but this time leveraging design composition and direct connectivity capabilities of DFHDL by splitting the left and right shift operations into their own separate designs named `LeftShiftGen` and `RightShiftGen`, respectively. Additionally, as shown in the `ShiftGen` example, we use design class inheritance to avoid redefining the same IOs across the three design classes.
 
 /// admonition
     type: note
-This example is very simple to demonstrate the direct composition capabilities and generally for such simple designs the flat approach should be the preferred way. However, complex designs should be split into sub-components for purposes of reuse, simpler verification, and generally better design practices.
+This example is only meant to illustrate direct composition. 
+For simpler designs, a flat approach is often preferred. 
+However, for complex designs, splitting them into sub-components promotes reuse, simplifies verification, and upholds best design practices.
 ///
 
 <div class="grid" markdown>
@@ -705,21 +718,3 @@ children = [
 ### Via Connection Composition
 
 ### Functional Composition
-
-
-
-## Rules {#design-dcl-rules}
-
-### Design class modifier limitations
-A DFHDL design class cannot be declared as `#!scala final class` or `#!scala case class`. Attempting to do so produces an error:
-```scala title="DFHDL design class modifier limitation example"
-//error: DFHDL classes cannot be final classes.
-final class Foo extends DFDesign
-//error: DFHDL classes cannot be case classes.
-case class Bar() extends DFDesign
-```
-All other Scala class modifiers have no special effect or limitation from a DFHDL compiler perspective. Nonetheless, these modifiers can be relevant when defining a more complex design API, as part of the DFHDL meta-programming capabilities through the Scala language (e.g., changing class access to `#!scala protected`).
-
-### Design parameter limitations
-
-### Top-app design parameter type limitations
