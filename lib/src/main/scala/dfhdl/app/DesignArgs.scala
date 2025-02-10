@@ -1,9 +1,23 @@
 package dfhdl.app
 import dfhdl.*
+import dfhdl.compiler.ir
 import core.{DFValAny, asValAny}
 import scala.collection.immutable.ListMap
 
-case class DesignArg(name: String, typeName: String, value: Any, desc: String)(using DFC):
+case class DesignArg(name: String, value: Any, desc: String)(using DFC):
+  val typeName =
+    value match
+      case _: String  => "String"
+      case _: Int     => "Int"
+      case _: Double  => "Double"
+      case _: Boolean => "Boolean"
+      case _: BigInt  => "Int"
+      case dfConst: DFValAny =>
+        dfConst.asIR.dfType match
+          case ir.DFBit | ir.DFBool => "Boolean"
+          case ir.DFInt32           => "Int"
+          case _                    => ""
+      case _ => ""
   def getScalaValue: Any =
     val data = value match
       case dfConst: DFValAny =>
@@ -29,13 +43,12 @@ object DesignArgs:
   def empty: DesignArgs = ListMap.empty
   def apply(
       argNames: List[String],
-      argTypes: List[String],
       argValues: List[Any],
       argDescs: List[String]
   ): DesignArgs =
     ListMap.from(
-      argNames.lazyZip(argTypes).lazyZip(argValues).lazyZip(argDescs).map(
-        (name, typeName, value, desc) => name -> DesignArg(name, typeName, value, desc)
+      argNames.lazyZip(argValues).lazyZip(argDescs).map((name, value, desc) =>
+        name -> DesignArg(name, value, desc)
       )
     )
   def apply(iter: Iterable[(String, DesignArg)]): DesignArgs = ListMap.from(iter)
