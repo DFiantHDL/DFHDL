@@ -3,7 +3,7 @@ typora-copy-images-to: ./
 ---
 # Design Hierarchy
 
-DFHDL supports composable design hierarchies by instantiating design classes and connecting ports.
+DFHDL supports composable design hierarchies by instantiating design classes and connecting their ports.
 
 <div class="grid" markdown>
 
@@ -98,7 +98,7 @@ A DFHDL design declaration follows the standard [Scala class](https://docs.scala
 ```scala linenums="0" title="Design declaration syntax"
 /** _documentation_ */
 @top(genMain) //required only for top-level designs
-_modifiers_ class _name_(_params_) extends XXDesign:
+[_modifiers_] class _name_(_params_) extends XXDesign:
   _contents_
 end _name_ //optional `end` marker
 ```
@@ -109,7 +109,7 @@ end _name_ //optional `end` marker
 * __`_contents_`__ are the design interface (ports/interfaces/domains) and functionality (variables, functions, child designs, processes, etc.), depending on the semantics of the selected design domain.
 * __`@top(genMain)`__ is a special obligatory annotation for top-level designs (designs that are not instantiated within another design). The annotation has an optional `#!scala val genMain: Boolean = true` parameter. When `genMain = false`, all this annotation does is provide a default top-level context for the design (e.g., [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} compiler options). When `genMain = true`, the design becomes a top-app design where all design parameters must have default values, and a main Scala entry point named `top__name_` is generated (e.g., for a top-app design named `Foo`, the entry point is named `top_Foo`).
 * __`_documentation_`__ is the design documentation in [Scaladoc format](https://docs.scala-lang.org/style/scaladoc.html){target="_blank"}. This documentation is meta information that is preserved throughout the compilation process and finally generated as documentation for the generated backend code.
-* __`_modifier_`__ are optional Scala modifiers. See the [Design Class Modifier Rules][design-class-modifier-rules] section for more information.
+* __`_modifiers_`__ are optional Scala modifiers. See the [Design Class Modifier Rules][design-class-modifier-rules] section for more information.
 
 /// admonition | Basic top-app design example: a two-bits left shifter
     type: example
@@ -181,14 +181,13 @@ Just like any Scala class parameter blocks, the DFHDL design accepts a sequence 
 ([_access_] _name_: _type_ [= _default_], ...)
 ```
 
-* __`_type_`__ is either a pure Scala parameter type or a DFHDL parameter type in the form of `DFType <> CONST`.
+* __`_type_`__ is either a pure Scala parameter type or a DFHDL parameter type in the form of `DFType <> CONST`. 
     - Pure Scala parameters are completely transparent to the DFHDL compiler and are inlined during elaboration. 
     - DFHDL parameters are preserved throughout the compilation process and manifest as parameters in the generated backend code.
+    - See the [Design Parameter Type Rules][design-parameter-type-rules] section for more information.
 * __`_name_`__ is the Scala parameter name reference. The DFHDL compiler preserves this parameter name for DFHDL parameter types only. For the top-app command-line interface (CLI), these names are also preserved, so that the parameters can be listed and modified through the CLI.
-* __`_default_`__ is the optional default value of the parameter. 
-* __`_access_`__ is the optional Scala parameter access modifier. By default, a Scala class parameter access is `#!scala private val`.
-<!--TODO access information -->
-<!-- If the parameter affects the type of a public value (e.g., width of a DFHDL port) then the -->
+* __`_default_`__ is the optional default value of the parameter. See the [Design Parameter Default Value Rules][design-parameter-default-value-rules] section for more information.
+* __`_access_`__ is the optional Scala parameter access modifier. Usually, you should add the `#!scala val` keyword modifier to make the parameter public. See the [Design Parameter Access Rules][design-parameter-access-rules] section for more information.
 
 /// admonition | Scala-parameterized top-app design example: a basic left shifter
     type: example
@@ -250,7 +249,8 @@ children = [
 The basic code shifter above did not generate the `width` parameter in the Verilog and VHDL backend code. The following example shows how to preserve the `width` parameter:
 
 /// admonition | DFHDL-parameterized top-app design example: a generic left shifter
-The DFHDL code below implements a generic left shifter design named `LeftShiftGen`. This design is similar to the earlier example of `LeftShiftBasic` except here the `width` parameter is now a DFHDL parameter as indicated by its `Int <> CONST` type. This enables the DFHDL compiler to preserve the parameter name and directly use it in the generated backend code where applicable.
+    type: example
+The DFHDL code below implements a generic left shifter design named `LeftShiftGen`. This design is similar to the earlier example of `LeftShiftBasic`, except here the `width` parameter is now a DFHDL parameter, as indicated by its `Int <> CONST` type. This enables the DFHDL compiler to preserve the parameter name and directly use it in the generated backend code where applicable.
 
 <div class="grid" markdown>
 
@@ -313,6 +313,7 @@ children = [
 
 /// admonition | Top-app design with accepted and ignored arguments example
     type: example
+In this example, the top-app supported parameters `pureIntArg` and `dfhdlIntArg` are preserved to be modifiable from the CLI, whereas `ignored` and `dfhdlIgnored` are ignored in the CLI and will keep their default values.
 ```scala title="DFHDL code"
 import dfhdl.*
 class CustomArg
@@ -352,11 +353,10 @@ class CustomArg
 
 #### Design Parameter Default Value Rules
 For top-app designs, all parameters must have default values.
-/// admonition | `@top` annotation and default parameter values requirement example
+/// admonition | `@top` annotation and default parameter value requirement example
     type: example
-```scala title="DFHDL code"
-import dfhdl.*
-
+This example shows `FooErr` is missing a default value and throws an error. There are three ways to overcome this error, as shown in `FooOK1`, `FooOK2`, and `FooOK3`.
+```scala
 //Error: Missing argument's default value for top-level design with a default app entry point.
 //Either add a default value or disable the app entry point generation with `@top(false)`.
 @top class FooErr(
@@ -365,30 +365,39 @@ import dfhdl.*
 ) extends DFDesign
 
 //OK: all parameters have default values
-//Top-app: YES
-//Top-level design: YES
+//Top-app capability: YES
+//Top-level design capability: YES
 @top class FooOK1(
     val arg1: Int = 5,
     val arg2: Boolean <> CONST = true
 ) extends DFDesign
 
 //OK: the `genMain` argument in the `@top` annotation is set to `false`
-//Top-app: NO
-//Top-level design: YES
+//Top-app capability: NO
+//Top-level design capability: YES
 @top(false) class FooOK2(
     val arg1: Int = 5,
     val arg2: Boolean <> CONST
 ) extends DFDesign
 
 //OK: no top annotation
-//Top-app: NO
-//Top-level design: NO
+//Top-app capability: NO
+//Top-level design capability: NO
 class FooOK3(
     val arg1: Int = 5,
     val arg2: Boolean <> CONST
 ) extends DFDesign
 ```
 ///
+
+/// admonition | Good design practice - avoid default parameter value overuse
+    type: tip
+Overusing default parameter values is considered bad design practice. In general, default values should be used sparingly and only to define "sensible defaults" for parameters that are rarely changed. A good rule of thumb is to *avoid* default values that affect a design's interface (e.g., the width of a port).
+///
+
+#### Design Parameter Access Rules
+By default, a Scala class parameter access is `#!scala private val`.
+, and in many cases it is required to explicitly define the parameter to be public by using the `#!scala val` keyword modifier.
 
 ### Design Class Modifier Rules
 A DFHDL design class cannot be declared as `#!scala final class` or `#!scala case class`. Attempting to do so produces an error:
