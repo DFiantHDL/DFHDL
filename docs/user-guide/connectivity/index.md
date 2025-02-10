@@ -182,10 +182,10 @@ Just like any Scala class parameter blocks, the DFHDL design accepts a sequence 
 ```
 
 * __`_type_`__ is either a pure Scala parameter type or a DFHDL parameter type in the form of `DFType <> CONST`.
-    - Pure Scala parameters are completely transparent to the DFHDL compiler and are inlined during elaboration. Any type of pure Scala parameter is acceptable, except for top-app design parameters which are currently limited to `#!scala String`, `#!scala Boolean`, `#!scala Int`, and `#!scala Double` types.
-    - DFHDL parameters are preserved throughout the compilation process and manifest as parameters in the generated backend code. Top-app design DFHDL parameters are currently limited to `Int <> CONST`, `Bit <> CONST`, and `Boolean <> CONST` types.
+    - Pure Scala parameters are completely transparent to the DFHDL compiler and are inlined during elaboration. 
+    - DFHDL parameters are preserved throughout the compilation process and manifest as parameters in the generated backend code.
 * __`_name_`__ is the Scala parameter name reference. The DFHDL compiler preserves this parameter name for DFHDL parameter types only. For the top-app command-line interface (CLI), these names are also preserved, so that the parameters can be listed and modified through the CLI.
-* __`_default_`__ is the optional default value of the parameter. According to the Scala language rules, once a parameter has a default value defined, all parameters that follow it must also have default values defined. For top-app designs, all parameters must have default values.
+* __`_default_`__ is the optional default value of the parameter. 
 * __`_access_`__ is the optional Scala parameter access modifier. By default, a Scala class parameter access is `#!scala private val`.
 <!--TODO access information -->
 <!-- If the parameter affects the type of a public value (e.g., width of a DFHDL port) then the -->
@@ -304,6 +304,54 @@ children = [
 ```
 ///
 ///
+
+#### Design Parameter Type Rules
+- Any pure Scala parameter or DFHDL parameter types are acceptable.
+- Top-app design parameters, to be modifiable from the CLI, must be one of the following types:
+    - Pure Scala Types: `#!scala String`, `#!scala Boolean`, `#!scala Int`, and `#!scala Double`.
+    - DFHDL Types: `#!scala Int <> CONST`, `#!scala Bit <> CONST`, and `#!scala Boolean <> CONST`.
+
+/// admonition | Top-app design with accepted and ignored arguments
+    type: example
+```scala title="DFHDL code"
+import dfhdl.*
+class CustomArg
+@top class Foo(
+    val pureIntArg:   Int              = 5,
+    val dfhdlIntArg:  Int <> CONST     = 7,
+    val ignored:      CustomArg        = CustomArg(),
+    val dfhdlIgnored: Bits[8] <> CONST = all(0)
+) extends DFDesign
+```
+``` title="CLI output, when running via sbt (truncated)"
+Design Name: Foo
+Usage: sbt runMain "top_Foo [design-args] <mode> [options]"
+ Design arguments:
+      --pureIntArg  <Int>    (default = 5)
+      --dfhdlIntArg  <Int>   (default = 7)
+```
+
+/// details | Runnable example
+    type: dfhdl
+```scastie
+import dfhdl.*
+//this option forces the top-app to run help mode
+//by default
+given options.AppOptions.DefaultMode = options.AppOptions.DefaultMode.help
+class CustomArg
+@top class Foo(
+    val pureIntArg:   Int              = 5,
+    val dfhdlIntArg:  Int <> CONST     = 7,
+    val ignored:      CustomArg        = CustomArg(),
+    val dfhdlIgnored: Bits[8] <> CONST = all(0)
+) extends DFDesign
+```
+///
+///
+
+#### Design Parameter Default Value Rules
+- According to the Scala language rules, once a parameter has a default value defined, all parameters that follow it must also have default values defined. 
+- For top-app designs, all parameters must have default values.
 
 ### Design Class Inheritance
 It is possible to leverage the power of Scala inheritance to share design functionality between design class declarations.
