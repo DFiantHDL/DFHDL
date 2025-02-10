@@ -71,13 +71,13 @@ nav:
     - Register File: in-browser/reg-file/index.md
     - UART Transmitter: in-browser/uart-tx/index.md
     - True Dual-Port RAM: in-browser/true-dpr/index.md
-  # - User Guide:
+  - User Guide:
   #   - Domain Abstractions: user-guide/design-domains/index.md
-  #   - Designs & Hierarchies: user-guide/designs/index.md
+    - Design Hierarchy: user-guide/design-hierarchy/index.md
+  #   - Connectivity: user-guide/connectivity/index.md
   #   - Type System: user-guide/type-system/index.md
-  #   - Functions/Methods: user-guide/methods/index.md
-  #   - Hierarchy and Connectivity: user-guide/connectivity/index.md
   #   - State/Registers/Memory: user-guide/state/index.md
+  #   - Functions/Methods: user-guide/methods/index.md
   #   - Conditionals: user-guide/conditionals/index.md
   #   - Processes: user-guide/processes/index.md
   #   - Interfaces [WIP]: user-guide/interfaces/index.md

@@ -81,11 +81,11 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                 val dsnArgNames = mkList(paramVDs.map(vd => Literal(Constant(vd.name.toString))))
                 val defaultMap = mutable.Map.empty[Int, Tree]
                 rest match
-                  case (_: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
+                  case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
                       if compSym.symbol.companionClass == clsSym =>
                     compTemplate.body.foreach {
                       case dd @ DefDef(NameKinds.DefaultGetterName(n, i), _, _, _) =>
-                        defaultMap += i -> ref(dd.symbol)
+                        defaultMap += i -> ref(module.symbol).select(dd.symbol)
                       case _ =>
                     }
                   case _ =>
