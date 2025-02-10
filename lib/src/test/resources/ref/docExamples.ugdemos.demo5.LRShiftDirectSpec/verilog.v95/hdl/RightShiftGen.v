@@ -13,6 +13,7 @@ module RightShiftGen(
   oBits
 );
   `include "dfhdl_defs.vh"
+  /* the width of the input and output bits */
   parameter integer width = 8;
   /* bits input */
   input  wire  [width - 1:0]        iBits;

@@ -79,25 +79,6 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                 val paramVDs =
                   template.constr.paramss.flatten.collect { case vd: ValDef => vd }
                 val dsnArgNames = mkList(paramVDs.map(vd => Literal(Constant(vd.name.toString))))
-                extension (vd: Type)
-                  def argType: Option[String] =
-                    if (vd <:< defn.IntType || vd <:< dfConstInt32Tpe) Some("Int")
-                    else if (vd <:< defn.StringType) Some("String")
-                    else if (vd <:< defn.DoubleType) Some("Double")
-                    else if (vd <:< defn.BooleanType || vd <:< dfConstBoolTpe) Some("Boolean")
-                    else if (vd <:< dfConstBitTpe) Some("Bit")
-                    else None
-
-                val dsnArgTypes = mkList(paramVDs.map { vd =>
-                  vd.tpt.tpe.argType match
-                    case Some(value) => Literal(Constant(value))
-                    case _ =>
-                      report.error(
-                        "Unsupported argument's type for top-level design with a default app entry point.\nEither use a supported type or disable the app entry point generation with `@top(false)`.",
-                        vd.srcPos
-                      )
-                      EmptyTree
-                })
                 val defaultMap = mutable.Map.empty[Int, Tree]
                 rest match
                   case (_: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
@@ -125,8 +106,8 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                   mkList(paramVDs.map(vd => Literal(Constant(vd.symbol.docString.getOrElse("")))))
                 val setInitials = This(moduleCls).select("setInitials".toTermName).appliedToArgs(
                   List(
-                    designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames, dsnArgTypes,
-                    dsnArgValues, dsnArgDescs
+                    designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames, dsnArgValues,
+                    dsnArgDescs
                   )
                 )
                 val dsnInstArgs = paramVDs.map(vd =>

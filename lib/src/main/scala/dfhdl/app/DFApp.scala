@@ -41,7 +41,6 @@ trait DFApp:
       _topScalaPath: String,
       top: dfhdl.top,
       argNames: List[String],
-      argTypes: List[String],
       argValues: List[Any],
       argDescs: List[String]
   ): Unit =
@@ -52,7 +51,7 @@ trait DFApp:
     printerOptions = top.printerOptions
     linterOptions = top.linterOptions
     appOptions = top.appOptions
-    designArgs = DesignArgs(argNames, argTypes, argValues, argDescs)
+    designArgs = DesignArgs(argNames, argValues, argDescs)
   end setInitials
   final protected def setDsn(d: => core.Design): Unit = dsn = () => d
   private def elaborate: core.Design =

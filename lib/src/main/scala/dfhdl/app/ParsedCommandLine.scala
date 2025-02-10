@@ -120,15 +120,15 @@ class ParsedCommandLine(
         default = Some(false)
       )
 
-  private val programName: String =
+  private def usageText(options: String): String =
     import dfhdl.internals.{sbtIsRunning, scala_cliIsRunning, sbtShellIsRunning}
-    if (scala_cliIsRunning) s"scala run . -M $topScalaPath --"
+    if (scala_cliIsRunning) s"scala run . -M $topScalaPath -- $options"
     else if (sbtIsRunning)
-      if (sbtShellIsRunning) s"runMain $topScalaPath"
-      else s"""sbt "runMain $topScalaPath [options]""""
-    else "<your program>"
+      if (sbtShellIsRunning && !scastieIsRunning) s"runMain $topScalaPath $options"
+      else s"""sbt "runMain $topScalaPath $options""""
+    else s"<your program> $options"
 
-  banner(s"Design Name: $designName\nUsage: $programName [design-args] <mode> [options]")
+  banner(s"""Design Name: $designName\nUsage: ${usageText("[design-args] <mode> [options]")} """)
   appendDefaultToDescription = true
   helpFormatter = Mode.helpFormatter
   private var exitCodeOption: Option[Int] = None
@@ -136,21 +136,22 @@ class ParsedCommandLine(
   exitHandler = code => exitCodeOption = Some(code)
   private lazy val designArgOptionGroup = group("Design arguments:")
   private val designArgOptions =
-    for (designArg <- designArgs.values)
-      yield
+    designArgs.view.values.collect {
+      case designArg if designArg.typeName.nonEmpty =>
         val conv = designArg.typeName match
-          case "String"          => summon[ValueConverter[String]]
-          case "Int"             => summon[ValueConverter[Int]]
-          case "Double"          => summon[ValueConverter[Double]]
-          case "Boolean" | "Bit" => summon[ValueConverter[Boolean]]
-          case _                 => ???
-        opt[Any](
+          case "String"  => summon[ValueConverter[String]]
+          case "Int"     => summon[ValueConverter[Int]]
+          case "Double"  => summon[ValueConverter[Double]]
+          case "Boolean" => summon[ValueConverter[Boolean]]
+        designArg.name -> opt[Any](
           name = designArg.name, descr = designArg.desc, argName = designArg.typeName,
           default = Some(designArg.getScalaValue), noshort = true, group = designArgOptionGroup
         )(conv.asInstanceOf[ValueConverter[Any]])
-  lazy val updatedDesignArgs: DesignArgs = DesignArgs(designArgs.lazyZip(designArgOptions).map {
-    case ((argName, designArg), opt) =>
-      (argName, designArg.updateScalaValue(opt.toOption.get))
+    }.toMap
+  lazy val updatedDesignArgs: DesignArgs = DesignArgs(designArgs.map { case (argName, designArg) =>
+    designArgOptions.get(argName) match
+      case None      => argName -> designArg
+      case Some(opt) => argName -> designArg.updateScalaValue(opt.toOption.get)
   })
 
   addSubcommand(Mode.elaborate)

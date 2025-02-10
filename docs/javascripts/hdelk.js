@@ -19,15 +19,15 @@ var hdelk = (function() {
     var node_min_width = 20;
     var node_min_height = 20;
 
-    var node_highlight_fill_color = ['#FFF', '#DDD', '#4bF','#F88', '#FE6','#7e0'];
-    var node_fill_color = '#FFF';
-    var node_stroke_color = '#666';
+    var node_highlight_fill_color = ['var(--node-highlight-fill-color-1)', 'var(--node-highlight-fill-color-2)', 'var(--node-highlight-fill-color-3)', 'var(--node-highlight-fill-color-4)', 'var(--node-highlight-fill-color-5)', 'var(--node-highlight-fill-color-6)'];
+    var node_fill_color = 'var(--node-fill-color)';
+    var node_stroke_color = 'var(--node-stroke-color)';
     var node_highlight_stroke_width = 2;
     var node_stroke_width = 1;
-    var node_name_text_color = '#666';
-    var node_highlight_name_text_color = [ '#DDD', '#222', '#46C', '#922', '#A90', '#350' ];
+    var node_name_text_color = 'var(--node-name-text-color)';
+    var node_highlight_name_text_color = ['var(--node-highlight-name-text-color-1)', 'var(--node-highlight-name-text-color-2)', 'var(--node-highlight-name-text-color-3)', 'var(--node-highlight-name-text-color-4)', 'var(--node-highlight-name-text-color-5)', 'var(--node-highlight-name-text-color-6)'];
     var node_name_font_size = 16;
-    var node_type_text_color = '#666';
+    var node_type_text_color = 'var(--node-type-text-color)';
     var node_type_font_size = 12;
     var node_label_width_padding = 4;
     var node_label_height_padding = 4;
@@ -35,32 +35,32 @@ var hdelk = (function() {
     var node_port_name_font_size = 16;
     var node_port_height = 22;
     var node_port_width = 4;
-    var node_port_name_text_color = '#FFF';
-    var node_port_fill_color = '#777';
+    var node_port_name_text_color = 'var(--node-port-name-text-color)';
+    var node_port_fill_color = 'var(--node-port-fill-color)';
 
     var node_constant_notch = 10;
     var port_height = 18;
     var port_width_padding = 10;
     var port_name_font_size = 12;
-    var port_fill_color = '#000';
-    var port_text_color = '#FFF';
-    var port_highlight_fill_color = [ '#DDD', '#444', '#06d', '#C00', '#980', '#590' ];
+    var port_fill_color = 'var(--port-fill-color)';
+    var port_text_color = 'var(--port-text-color)';
+    var port_highlight_fill_color = ['var(--port-highlight-fill-color-1)', 'var(--port-highlight-fill-color-2)', 'var(--port-highlight-fill-color-3)', 'var(--port-highlight-fill-color-4)', 'var(--port-highlight-fill-color-5)', 'var(--port-highlight-fill-color-6)'];
     var port_spacing = 4;
 
     var edge_label_text_size = 12;
-    var edge_label_fill_color = '#EEE';
-    var edge_label_text_color = '#777';
+    var edge_label_fill_color = 'var(--edge-label-fill-color)';
+    var edge_label_text_color = 'var(--edge-label-text-color)';
     var edge_label_width_padding = 4;
     var edge_label_height_padding = 4;
-    var edge_label_highlight_fill_color = [ '#DDD', '#222', '#46C', '#922', '#A90', '#350' ];
+    var edge_label_highlight_fill_color = ['var(--edge-label-highlight-fill-color-1)', 'var(--edge-label-highlight-fill-color-2)', 'var(--edge-label-highlight-fill-color-3)', 'var(--edge-label-highlight-fill-color-4)', 'var(--edge-label-highlight-fill-color-5)', 'var(--edge-label-highlight-fill-color-6)'];
 
     var edge_width = 1;
-    var edge_color = '#888';
-    var edge_highlight_color = [ '#DDD', '#444', '#06d', '#C00', '#980', '#590' ];
+    var edge_color = 'var(--edge-color)';
+    var edge_highlight_color = ['var(--edge-highlight-color-1)', 'var(--edge-highlight-color-2)', 'var(--edge-highlight-color-3)', 'var(--edge-highlight-color-4)', 'var(--edge-highlight-color-5)', 'var(--edge-highlight-color-6)'];
     var edge_highlight_width = 2;
     var edge_bus_width = 6;
-    var edge_bus_color = '#AAA';
-    var edge_bus_highlight_color = [ '#DDD', '#444', '#06d', '#C00', '#980', '#590' ];
+    var edge_bus_color = 'var(--edge-bus-color)';
+    var edge_bus_highlight_color = ['var(--edge-bus-highlight-color-1)', 'var(--edge-bus-highlight-color-2)', 'var(--edge-bus-highlight-color-3)', 'var(--edge-bus-highlight-color-4)', 'var(--edge-bus-highlight-color-5)', 'var(--edge-bus-highlight-color-6)'];
     var edge_bus_highlight_width = 6;
 
     /**
@@ -451,7 +451,7 @@ var hdelk = (function() {
     var diagram = function(diagram_layout) {
         var draw = SVG(document.documentElement)
             .viewbox(0, 0, diagram_layout.width, diagram_layout.height)
-            .size(diagram_layout.width, diagram_layout.height);
+            .size('100%', '100%');
 
         node(draw, diagram_layout, 0, 0);
 

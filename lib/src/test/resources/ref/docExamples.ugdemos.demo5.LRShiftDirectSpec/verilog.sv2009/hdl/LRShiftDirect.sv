@@ -12,10 +12,10 @@ module LRShiftDirect#(parameter int width = 8)(
   input  wire logic [width - 1:0]         iBits,
   /* requested shift */
   input  wire logic [$clog2(width) - 1:0] shift,
-  /* direction of shift */
-  input  wire t_enum_ShiftDir             dir,
   /* bits output */
-  output      logic [width - 1:0]         oBits
+  output      logic [width - 1:0]         oBits,
+  /* direction of shift */
+  input  wire t_enum_ShiftDir             dir
 );
   `include "dfhdl_defs.svh"
   logic [width - 1:0] lshifter_iBits;

@@ -3,20 +3,25 @@ package docExamples.ugdemos.demo5
 import dfhdl.*
 given options.CompilerOptions.Backend = backends.verilog
 
+/** A generic abstract shifter with only IOs */
+abstract class ShiftGen extends RTDesign:
+  /** the width of the input and output bits */
+  val width: Int <> CONST //abstract
+  /** bits input */
+  val iBits = Bits(width) <> IN
+  /** requested shift */
+  val shift = UInt.until(width) <> IN
+  /** bits output */
+  val oBits = Bits(width) <> OUT
+
 /** A generic left shifter 
   *   
   * @param width
   *   the width of the input and output bits
   */
 class LeftShiftGen(
-    val width: Int <> CONST,
-) extends RTDesign:
-  /** bits input */
-  val iBits = Bits(width)       <> IN
-  /** requested shift */
-  val shift = UInt.until(width) <> IN
-  /** bits output */
-  val oBits = Bits(width)       <> OUT
+    val width: Int <> CONST
+) extends ShiftGen:
   oBits := iBits << shift
 
 /** A generic right shifter 
@@ -25,14 +30,8 @@ class LeftShiftGen(
   *   the width of the input and output bits
   */
 class RightShiftGen(
-    val width: Int <> CONST,
-) extends RTDesign:
-  /** bits input */
-  val iBits = Bits(width)       <> IN
-  /** requested shift */
-  val shift = UInt.until(width) <> IN
-  /** bits output */
-  val oBits = Bits(width)       <> OUT
+    val width: Int <> CONST
+) extends ShiftGen:
   oBits := iBits >> shift
 
 enum ShiftDir extends Encode:
@@ -45,15 +44,9 @@ enum ShiftDir extends Encode:
   */
 @top class LRShiftDirect(
     val width: Int <> CONST = 8
-) extends RTDesign:
-  /** bits input */
-  val iBits = Bits(width)       <> IN
-  /** requested shift */
-  val shift = UInt.until(width) <> IN
+) extends ShiftGen:
   /** direction of shift */
-  val dir   = ShiftDir          <> IN
-  /** bits output */
-  val oBits = Bits(width)       <> OUT
+  val dir   = ShiftDir <> IN
   val lshifter = LeftShiftGen(width)
   val rshifter = RightShiftGen(width)
   lshifter.iBits <> iBits
