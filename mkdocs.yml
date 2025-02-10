@@ -154,6 +154,7 @@ extra_css:
   - css/scastie.css
   - css/vs.css
   - css/user-guide.css
+  - css/hdelk.css
   - css/lhs-permalink.css
   - css/dfhdl-admonition.css
   - css/verilog-admonition.css
