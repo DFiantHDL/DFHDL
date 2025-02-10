@@ -37,6 +37,19 @@ function updateScastieTheme() {
   scastie.Embedded('.scastie', settings);
 }
 
+//simulate click event without changing the view
+function simulateClick(element) {
+  const x = window.scrollX;
+  const y = window.scrollY;
+  var event = new MouseEvent('click', {
+    view: window,
+    bubbles: true,
+    cancelable: true
+  });
+  element.dispatchEvent(event);
+  window.scrollTo(x, y);
+}
+
 function updateCodeBlocksAndDetails(preferredLanguage) {
   var codeBlocks = document.querySelectorAll('.scastie'); // Assuming all targeted code blocks have this class
   codeBlocks.forEach(function(codeBlock) {
@@ -67,7 +80,7 @@ function updateCodeBlocksAndDetails(preferredLanguage) {
     );
     tabLabels.forEach(label => {
       if (label.textContent.includes("Verilog")) {
-        label.click();
+        simulateClick(label);
       }
     });
   } else { // VHDL
@@ -85,7 +98,7 @@ function updateCodeBlocksAndDetails(preferredLanguage) {
     );
     tabLabels.forEach(label => {
       if (label.textContent.includes("VHDL")) {
-        label.click();
+        simulateClick(label);
       }
     });
   }
@@ -99,7 +112,7 @@ window.addEventListener("load", () => {
   );
   tabLabels.forEach(label => {
     if (label.textContent.includes(savedLanguage)) {
-      label.click();
+      simulateClick(label);
     }
   });
 });
