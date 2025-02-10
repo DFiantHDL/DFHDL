@@ -104,7 +104,7 @@ end _name_ //optional `end` marker
 ```
 
 * __`_name_`__ is the Scala class name reference for the design you declared. The DFHDL compiler preserves this class name and uses it in error messages and the final generated artifacts (e.g., Verilog modules or VHDL entities). See the [naming][naming] section for more details.
-* __`(_params_)`__ is an optional parameter block. The parameter block can include either Scala parameters that are inlined for the design elaboration stage or DFHDL design parameters that are preserved through the design elaboration and compilation stages. If you do not need parameters, Scala syntax accepts both empty parentheses `()` and no parentheses. See [Parameter Block Syntax][design-params-syntax] for more information.
+* __`(_params_)`__ is an optional parameter (argument) block. The parameter block can include either Scala parameters that are inlined for the design elaboration stage or DFHDL design parameters that are preserved through the design elaboration and compilation stages. If you do not need parameters, Scala syntax accepts both empty parentheses `()` and no parentheses. See [Parameter Block Syntax][design-params-syntax] for more information.
 * __`_XXDesign_`__ is the class to extend depending on the desired [design domain][design-domains], where `XX` can be `DF` for dataflow, `RT` for register-transfer, or `ED` for event-driven.
 * __`_contents_`__ are the design interface (ports/interfaces/domains) and functionality (variables, functions, child designs, processes, etc.), depending on the semantics of the selected design domain.
 * __`@top(genMain)`__ is a special obligatory annotation for top-level designs (designs that are not instantiated within another design). The annotation has an optional `#!scala val genMain: Boolean = true` parameter. When `genMain = false`, all this annotation does is provide a default top-level context for the design (e.g., [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} compiler options). When `genMain = true`, the design becomes a top-app design where all design parameters must have default values, and a main Scala entry point named `top__name_` is generated (e.g., for a top-app design named `Foo`, the entry point is named `top_Foo`).
@@ -175,7 +175,7 @@ This design is also a top-app design, since it's annotated with `@top`. This mea
 
 
 ### Parameter Block Syntax {#design-params-syntax}
-Just like any Scala class parameter blocks, the DFHDL design accepts a sequence of comma-delimited parameter declarations.
+Just like any Scala class parameter (argument) blocks, the DFHDL design accepts a sequence of comma-delimited parameter declarations.
 
 ```scala linenums="0" title="Design declaration parameter block syntax"
 ([_access_] _name_: _type_ [= _default_], ...)
