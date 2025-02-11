@@ -3,7 +3,7 @@ typora-copy-images-to: ./
 ---
 # Design Hierarchy
 
-DFHDL supports composable design hierarchies by instantiating design classes and connecting their ports.
+DFHDL supports composable design hierarchies through design class instantiation and port connections.
 
 <div class="grid" markdown>
 
@@ -12,8 +12,8 @@ DFHDL supports composable design hierarchies by instantiating design classes and
 * _design_ - A Scala class extending `XXDesign`, where `XX` can be `DF`, `RT`, or `ED`, corresponding to the desired [design domain][design-domains].
 * _design member_ - Any DFHDL object instantiated within a design (the design *contains* or *owns* all its members).
 * _child design/component_ - A design instance that is owned by another design.
-* _top design_ - The highest-level design in the hierarchy (no other design contains it), also known as the *top-level design*.
-* _top-app design_ - A `@top` annotated *top design* that generates a main entry with the default application.
+* _top design_ - The highest-level design in the hierarchy (not contained by any other design), also known as the *top-level design*.
+* _top-app design_ - A `@top` annotated *top design* that generates a main entry point with the default application.
 
 ///
 
@@ -93,27 +93,39 @@ children = [
 
 ### Syntax {#design-dcl-syntax}
 
-A DFHDL design declaration follows the standard [Scala class](https://docs.scala-lang.org/tour/classes.html){target="_blank"} syntax, with specialized handling by the DFHDL Scala compiler plugin under the hood.
+A DFHDL design declaration follows standard [Scala class](https://docs.scala-lang.org/tour/classes.html){target="_blank"} syntax, with specialized handling by the DFHDL Scala compiler plugin.
 
 ```scala linenums="0" title="Design declaration syntax"
 /** _documentation_ */
 @top(genMain) //required only for top-level designs
-[_modifiers_] class _name_(_params_) extends XXDesign:
+[_modifiers_] class _name_(_params_) extends XXDesign:
   _contents_
 end _name_ //optional `end` marker
 ```
 
-* __`_name_`__ is the Scala class name reference for the design you declared. The DFHDL compiler preserves this class name and uses it in error messages and the final generated artifacts (e.g., Verilog modules or VHDL entities). See the [naming][naming] section for more details.
-* __`(_params_)`__ is an optional parameter (argument) block. The parameter block can include either Scala parameters that are inlined for the design elaboration stage or DFHDL design parameters that are preserved through the design elaboration and compilation stages. If you do not need parameters, Scala syntax accepts both empty parentheses `()` and no parentheses. See [Parameter Block Syntax][design-params-syntax] for more information.
-* __`_XXDesign_`__ is the class to extend depending on the desired [design domain][design-domains], where `XX` can be `DF` for dataflow, `RT` for register-transfer, or `ED` for event-driven.
-* __`_contents_`__ are the design interface (ports/interfaces/domains) and functionality (variables, functions, child designs, processes, etc.), depending on the semantics of the selected design domain.
-* __`@top(genMain)`__ is a special obligatory annotation for top-level designs (designs that are not instantiated within another design). The annotation has an optional `#!scala val genMain: Boolean = true` parameter. When `genMain = false`, all this annotation does is provide a default top-level context for the design (e.g., [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} compiler options). When `genMain = true`, the design becomes a top-app design where all design parameters must have default values, and a main Scala entry point named `top__name_` is generated (e.g., for a top-app design named `Foo`, the entry point is named `top_Foo`).
-* __`_documentation_`__ is the design documentation in [Scaladoc format](https://docs.scala-lang.org/style/scaladoc.html){target="_blank"}. This documentation is meta information that is preserved throughout the compilation process and finally generated as documentation for the generated backend code.
-* __`_modifiers_`__ are optional Scala modifiers. See the [Design Class Modifier Rules][design-class-modifier-rules] section for more information.
+* __`_name_`__ - The Scala class name for the design. The DFHDL compiler preserves this name and uses it in error messages and generated artifacts (e.g., Verilog modules or VHDL entities). See the [naming][naming] section for details.
+
+* __`(_params_)`__ - An optional parameter block. This can include either Scala parameters that are inlined during design elaboration, or DFHDL design parameters that are preserved through elaboration and compilation. If no parameters are needed, Scala syntax accepts either empty parentheses `()` or no parentheses. See [Parameter Block Syntax][design-params-syntax] for details.
+
+* __`_XXDesign_`__ - The base class to extend, where `XX` specifies the [design domain][design-domains]: `DF` for dataflow, `RT` for register-transfer, or `ED` for event-driven.
+
+* __`_contents_`__ - The design interface (ports/interfaces/domains) and functionality (variables, functions, child designs, processes, etc.), based on the selected design domain's semantics.
+
+* __`@top(genMain)`__ - A required annotation for top-level designs (designs not instantiated within another design). The annotation has an optional `#!scala val genMain: Boolean = true` parameter:
+    - When `genMain = true`, the design becomes a top-app design where all parameters must have default values, and a main Scala entry point named `top__name_` is generated
+    - When `genMain = false`, the annotation only provides a default top-level context for the design
+
+* __`_documentation_`__ - Design documentation in [Scaladoc format](https://docs.scala-lang.org/style/scaladoc.html){target="_blank"}. This documentation is preserved throughout compilation and included in the generated backend code.
+
+* __`_modifiers_`__ - Optional Scala modifiers. See [Design Class Modifier Rules][design-class-modifier-rules] for details.
 
 /// admonition | Basic top-app design example: a two-bits left shifter
     type: example
-The DFHDL code below implements a two-bit left shifter design named `LeftShift2` under register-transfer (RT) domain semantics, as indicated by the class `LeftShift2` extending `RTDesign`. The design has one 8-bit input port and one 8-bit output port and implements the 2-bit left shift functionality by applying it to the input and assigning it to the output.
+The DFHDL code below implements a two-bit left shifter design named `LeftShift2`. The design:
+
+- Uses register-transfer (RT) domain semantics by extending `RTDesign`
+- Has an 8-bit input port and an 8-bit output port 
+- Performs a fixed 2-bit left shift operation on the input
 
 <div class="grid" markdown>
 
@@ -151,15 +163,44 @@ children = [
 
 </div>
 
-This design is also a top-app design, since it's annotated with `@top`. This means that we have an executable Scala program that compiles the design and generates Verilog or VHDL backend code. The backend configuration option can be set via a CLI argument, or alternatively, be set via an implicit backend setting like in the code above. The `@top` annotation captures the [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} options within its scope and feeds them to the top-app CLI program as defaults to run when no CLI arguments are given.
+Since this design is annotated with `@top`, it is a top-app design that generates an executable Scala program. This program compiles the design and generates backend code (Verilog or VHDL). The backend can be configured through:
+
+- Command-line arguments when running the program
+- Implicit backend settings in the code (as shown in this example)
+
+The `@top` annotation captures any [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} options within its scope and provides them as defaults when no CLI arguments are specified.
 
 /// tab | Generated Verilog
+Looking at the generated Verilog code, we can observe several key differences from the DFHDL source:
+
+1. **Module Interface**: DFHDL's Scala-style port declarations (`<> IN/OUT`) are translated to traditional Verilog port declarations (`input wire`/`output logic`)
+
+2. **Documentation**: Scaladoc comments are preserved and converted to Verilog-style comments (`/* */`)
+
+3. **Default Settings**: The compiler adds standard Verilog settings like `` `default_nettype none`` and `` `timescale``
+
+4. **Include Files**: The compiler adds necessary include files for backend-specific definitions
+
+5. **Assignment Syntax**: DFHDL's `:=` assignments are translated to Verilog's `assign` statements
+
 ```verilog
 --8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo1.LeftShift2Spec/verilog.sv2009/hdl/LeftShift2.sv"
 ```
 ///
 
 /// tab | Generated VHDL
+The generated VHDL code shows similar transformations from the DFHDL source:
+
+1. **Entity Interface**: DFHDL's port declarations are translated to VHDL's `in`/`out` mode declarations with explicit signal types
+
+2. **Documentation**: Scaladoc comments are preserved as VHDL comments (`--`)
+
+3. **Library/Package Usage**: The compiler adds necessary library and package references (`ieee`, `std_logic_1164`, etc.)
+
+4. **Signal Types**: DFHDL's `Bits` type is translated to VHDL's `std_logic_vector` with appropriate widths
+
+5. **Assignment Syntax**: While both DFHDL and VHDL use `:=`, the semantics differ - DFHDL represents high-level connections while VHDL represents signal assignments
+
 ```vhdl
 --8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo1.LeftShift2Spec/vhdl.v2008/hdl/LeftShift2.vhd"
 ```
@@ -175,19 +216,25 @@ This design is also a top-app design, since it's annotated with `@top`. This mea
 
 
 ### Parameter Block Syntax {#design-params-syntax}
-Just like any Scala class parameter (argument) blocks, the DFHDL design accepts a sequence of comma-delimited parameter declarations.
+The DFHDL design parameter block follows standard Scala syntax, accepting a comma-separated list of parameter declarations:
 
 ```scala linenums="0" title="Design declaration parameter block syntax"
 ([_access_] _name_: _type_ [= _default_], ...)
 ```
 
-* __`_type_`__ is either a pure Scala parameter type or a DFHDL parameter type in the form of `DFType <> CONST`. 
-    - Pure Scala parameters are completely transparent to the DFHDL compiler and are inlined during elaboration. 
-    - DFHDL parameters are preserved throughout the compilation process and manifest as parameters in the generated backend code.
-    - See the [Design Parameter Type Rules][design-parameter-type-rules] section for more information.
-* __`_name_`__ is the Scala parameter name reference. The DFHDL compiler preserves this parameter name for DFHDL parameter types only. For the top-app command-line interface (CLI), these names are also preserved, so that the parameters can be listed and modified through the CLI.
-* __`_default_`__ is the optional default value of the parameter. See the [Design Parameter Default Value Rules][design-parameter-default-value-rules] section for more information.
-* __`_access_`__ is the optional Scala parameter access modifier. Usually, you should add the `#!scala val` keyword modifier to make the parameter public. See the [Design Parameter Access Rules][design-parameter-access-rules] section for more information.
+* __`_type_`__ - Either a pure Scala type or a DFHDL parameter type (`DFType <> CONST`):
+    - Pure Scala parameters are inlined during elaboration
+    - DFHDL parameters are preserved in the generated backend code
+    - See [Design Parameter Type Rules][design-parameter-type-rules] for details
+
+* __`_name_`__ - The parameter name. For DFHDL parameters, this name is:
+    - Preserved throughout compilation
+    - Used in the generated backend code
+    - Available through the CLI for top-app designs
+
+* __`_default_`__ - Optional default value. Required for all parameters in top-app designs. See [Design Parameter Default Value Rules][design-parameter-default-value-rules] for details.
+
+* __`_access_`__ - Optional [Scala access modifier](https://docs.scala-lang.org/scala3/book/domain-modeling-oop.html#access-modifiers){target="_blank"}. Usually `#!scala val` to make the parameter public. See [Design Parameter Access Rules][design-parameter-access-rules] for details.
 
 /// admonition | Scala-parameterized top-app design example: a basic left shifter
     type: example
@@ -307,13 +354,14 @@ children = [
 
 #### Design Parameter Type Rules
 - Any pure Scala parameter or DFHDL parameter types are acceptable.
-- Top-app design parameters, to be modifiable from the CLI, must be one of the following types:
-    - Pure Scala Types: `#!scala String`, `#!scala Boolean`, `#!scala Int`, and `#!scala Double`.
-    - DFHDL Types: `#!scala Int <> CONST`, `#!scala Bit <> CONST`, and `#!scala Boolean <> CONST`.
+- Top-app design parameters that can be modified from the CLI must be one of:
+    - Pure Scala Types: `#!scala String`, `#!scala Boolean`, `#!scala Int`, and `#!scala Double`
+    - DFHDL Types: `#!scala Int <> CONST`, `#!scala Bit <> CONST`, and `#!scala Boolean <> CONST`
 
-/// admonition | Top-app design with accepted and ignored arguments example
+/// admonition | Top-app design with accepted and ignored CLI arguments example
     type: example
-In this example, the top-app supported parameters `pureIntArg` and `dfhdlIntArg` are preserved to be modifiable from the CLI, whereas `ignored` and `dfhdlIgnored` are ignored in the CLI and will keep their default values.
+In this example, the top-app supported parameters `pureIntArg` and `dfhdlIntArg` are preserved to be modifiable from the CLI, while `ignored` and `dfhdlIgnored` keep their default values.
+
 ```scala title="DFHDL code"
 import dfhdl.*
 class CustomArg
@@ -324,7 +372,8 @@ class CustomArg
     val dfhdlIgnored: Bits[8] <> CONST = all(0)
 ) extends DFDesign
 ```
-``` title="CLI output, when running via sbt (truncated)"
+
+```title="CLI help mode output, when running via sbt (truncated)"
 Design Name: Foo
 Usage: sbt runMain "top_Foo [design-args] <mode> [options]"
  Design arguments:
@@ -353,12 +402,17 @@ class CustomArg
 
 #### Design Parameter Default Value Rules
 For top-app designs, all parameters must have default values.
+
 /// admonition | `@top` annotation and default parameter value requirement example
     type: example
-This example shows `FooErr` is missing a default value and throws an error. There are three ways to overcome this error, as shown in `FooOK1`, `FooOK2`, and `FooOK3`.
+This example shows `FooErr` is missing a default value and throws an error. There are three ways to resolve this, shown in `FooOK1`, `FooOK2`, and `FooOK3`.
+
 ```scala
-//Error: Missing argument's default value for top-level design with a default app entry point.
-//Either add a default value or disable the app entry point generation with `@top(false)`.
+//Error: Missing argument's default value 
+//for top-level design with a default app 
+//entry point. Either add a default value 
+//or disable the app entry point generation 
+//with `@top(false)`.
 @top class FooErr(
     val arg1: Int = 5,
     val arg2: Boolean <> CONST
@@ -372,7 +426,8 @@ This example shows `FooErr` is missing a default value and throws an error. Ther
     val arg2: Boolean <> CONST = true
 ) extends DFDesign
 
-//OK: the `genMain` argument in the `@top` annotation is set to `false`
+//OK: the `genMain` argument in the `@top` 
+//annotation is set to `false`
 //Top-app capability: NO
 //Top-level design capability: YES
 @top(false) class FooOK2(
@@ -396,21 +451,104 @@ Overusing default parameter values is considered bad design practice. In general
 ///
 
 #### Design Parameter Access Rules
-By default, a Scala class parameter access is `#!scala private val`.
-, and in many cases it is required to explicitly define the parameter to be public by using the `#!scala val` keyword modifier.
+Without any [Scala access modifier](https://docs.scala-lang.org/scala3/book/domain-modeling-oop.html#access-modifiers){target="_blank"}, a Scala class parameter access is declared as `#!scala private val`. This default access leads to an error if that parameter affects the type of non-private class member (e.g., a `width` parameter affecting the bits width of a port). To resolve this error, the parameter can be declared as public `#!scala val`, as `#!scala protected val`, or even `#!scala private[scope] val` with a scope [access qualifier](https://www.scala-lang.org/files/archive/spec/3.4/05-classes-and-objects.html#private){target="_blank"}.
+
+/// admonition | Parameter access example
+    type: example
+This example shows an access error in `FooErr`, where a private parameter `width` affects the type of a non-private member `v`. There are four ways to resolve this error, shown in `FooOK1`, `FooOK2`, `FooOK3`, and `FooOK4`. `FooOK5` demonstrates that private parameters can be accessed by public members as long as they don't affect the type.
+
+```scala
+//Error: non-private value v in class FooErr 
+//refers to private value width ... (lengthy 
+//type description)
+class FooErr(
+    width: Int <> CONST
+) extends DFDesign:
+  val v = UInt(width) <> VAR
+
+//OK: both parameter and its dependent design 
+//members are public
+class FooOK1(
+    val width: Int <> CONST
+) extends DFDesign:
+  val v = UInt(width) <> VAR
+
+//OK: both parameter and its dependent design 
+//members are private (note that ports should
+//never be private, and therefore parameters
+//that affect their types should never be 
+//private)
+class FooOK2(
+    width: Int <> CONST
+) extends DFDesign:
+  private val v = UInt(width) <> VAR
+
+//OK: the parameter is protected
+class FooOK3(
+    protected val width: Int <> CONST
+) extends DFDesign:
+  val v = UInt(width) <> VAR
+
+package Bar:
+  //OK: the parameter is private but only 
+  //outside the scope of `Bar`.
+  class FooOK4(
+      private[Bar] val width: Int <> CONST
+  ) extends DFDesign:
+    val v = UInt(width) <> VAR
+
+//OK: the parameter `v0` is private, but it
+//does not affect the type of the public
+//dfhdl variable `v`. Only `width` affects
+//the type of `v` and it's public as well.
+class FooOK5(
+    v0: Int <> CONST,
+    val width: Int <> CONST
+) extends DFDesign:
+  val v = UInt(width) <> VAR init v0
+```
+///
+
+/// admonition | Good design practice - how to choose the right parameter/member access?
+    type: tip
+* For Simple Development - During initial development, you can declare all parameters and named design members as public `#!scala val` for simplicity.
+* Protection for Shared Code - When sharing your design with others in DFHDL (Scala) form, follow good design practices to maintain source and binary compatibility of your Scala library artifacts. Remember: You can always remove protection without breaking code, but adding protection later will cause breakage.
+    * Public Interface, Protected Implementation - Keep the design interface (ports, domains, interfaces, and their type-affecting parameters) public. All other design class members should have private or protected access modifiers.
+    * Private vs. Protected Access - Use private access for members that should only be accessible within the design class itself. Use protected access for members that should also be accessible by subclasses.
+    * Scoped Protection for Testing - For verification code that needs access to internal design members, use package-private access with a scope qualifier (e.g. `#!scala private[mylib]`) instead of making members fully public. This restricts access to just your library's test code.
+
+In this example, the `Foo` class demonstrates good design practices for parameter and member access.
+```scala title="Good design practice example"
+package mylib
+import dfhdl.*
+
+class Foo(
+    val width: Int <> CONST,
+    val boolParam: Boolean <> CONST,
+    protected[mylib] val someValue: Int <> CONST
+) extends DFDesign:
+  //Public interface
+  val i = UInt(width) <> IN
+  val o = UInt(width) <> OUT
+  //Protected implementation
+  protected[mylib] val v = UInt(width) <> VAR
+```
+///
 
 ### Design Class Modifier Rules
 A DFHDL design class cannot be declared as `#!scala final class` or `#!scala case class`. Attempting to do so produces an error:
+
 ```scala title="DFHDL design class modifier limitation example"
 //error: DFHDL classes cannot be final classes.
 final class Foo extends DFDesign
 //error: DFHDL classes cannot be case classes.
 case class Bar() extends DFDesign
 ```
+
 All other Scala class modifiers have no special effect or limitation from a DFHDL compiler perspective. Nonetheless, these modifiers can be relevant when defining a more complex design API, as part of the DFHDL meta-programming capabilities through the Scala language (e.g., changing class access to `#!scala protected`).
 
 ### Design Class Inheritance
-It is possible to leverage the power of Scala inheritance to share design functionality between design class declarations.
+DFHDL leverages Scala inheritance to enable sharing functionality between design classes.
 
 /// admonition | Generic left and right shifters, design class inheritance example
     type: example
@@ -474,11 +612,13 @@ children = [
 ## Design Composition & Instantiation
 DFHDL supports three mechanisms to form a design hierarchy through design instantiation and composition:
 
-* [Direct Connection Composition][direct-connection-composition] - The most common and recommended mechanism to construct complex design hierarchies with multiple inputs and outputs. Within this mechanism, the design instantiation and port connection can be executed separately. This enables child design ports to be referenced without declaring and connecting intermediate variables.
-* [Via Connection Composition][via-connection-composition] - A legacy mechanism to connect ports only within a design instantiation. This mechanism mainly exists for coexistence with the Verilog module instancing and VHDL component instancing mechanisms. The DFHDL compiler automatically transforms a direct connection composition into a via connection composition.
-* [Functional Composition][functional-composition] - A method call mechanism to describe design composition. This mechanism is reserved for dataflow designs only and is mostly relevant for arithmetic/logic design functionality that has a single output port. The DFHDL compiler automatically transforms a functional composition into direct design composition.
+* [Direct Connection Composition][direct-connection-composition] - The recommended mechanism for complex design hierarchies with multiple inputs and outputs. Design instantiation and port connection can be done separately, allowing child design ports to be referenced without intermediate variables.
 
-The following subsections dive into further details of the three design composition mechanisms. For this purpose, we continue with our running example of a bit shifter. To demonstrate composition, let's first describe a more complex shifter that has both left and right shift capabilities, as a flat (composition-less) design:
+* [Via Connection Composition][via-connection-composition] - A legacy mechanism that connects ports only within a design instantiation. This exists for compatibility with Verilog module instancing and VHDL component instancing. The DFHDL compiler automatically transforms direct connections into via connections.
+
+* [Functional Composition][functional-composition] - A method-call mechanism for dataflow designs, primarily used for arithmetic/logic functionality with a single output port. The DFHDL compiler automatically transforms functional composition into direct design composition.
+
+The following sections explore these composition mechanisms using our running example of a bit shifter. First, let's examine a more complex shifter with both left and right shift capabilities, implemented as a flat (composition-less) design:
 
 /// admonition | Generic left-right shifter, flat design example
     type: example
@@ -567,15 +707,23 @@ children = [
 ///
 
 ### Direct Connection Composition
+Direct connection composition is the recommended way to build hierarchical designs in DFHDL. It offers several advantages:
+
+1. Separate instantiation and connection - You can create child design instances first, then connect their ports later
+2. Direct port references - Access child design ports without intermediate variables
+3. Flexible connectivity - Connect ports in any order and across multiple statements
+
 /// admonition | Generic left-right shifter, direct connection composed design example
     type: example
-The DFHDL code below implements a generic left-right shifter composed (hierarchical) design named `LRShiftDirect`. This design implements the exact same functionality as seen earlier in `LeftShiftFlat`, but this time leveraging design composition and direct connectivity capabilities of DFHDL by splitting the left and right shift operations into their own separate designs named `LeftShiftGen` and `RightShiftGen`, respectively. Additionally, as shown in the `ShiftGen` example, we use design class inheritance to avoid redefining the same IOs across the three design classes.
+The DFHDL code below implements a generic left-right shifter named `LRShiftDirect`. This design provides the same functionality as `LRShiftFlat` but uses composition to:
+- Split left and right shift operations into separate designs (`LeftShiftGen` and `RightShiftGen`)
+- Reuse the common interface and parameter declarations from `ShiftGen`
+- Connect the child designs' ports to implement the multiplexed shifting behavior
 
-/// admonition
+/// admonition  
     type: note
-This example is only meant to illustrate direct composition. 
-For simpler designs, a flat approach is often preferred. 
-However, for complex designs, splitting them into sub-components promotes reuse, simplifies verification, and upholds best design practices.
+While this example demonstrates direct composition, a flat approach is often preferred for simpler designs.
+For complex designs, however, splitting functionality into sub-components promotes code reuse, simplifies verification, and follows good design practices.
 ///
 
 <div class="grid" markdown>
