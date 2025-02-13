@@ -9,6 +9,12 @@ trait IntInfo[V <: Int]:
   def width(value: Int): Inlined[OutW] =
     Inlined.forced[OutW](IntInfo.calcWidth(value))
 object IntInfo:
+  def gen[R <: Int, OS <: Boolean, OW <: Int]: Aux[R, OS, OW] = new IntInfo[R]:
+    type OutS = OS
+    type OutW = OW
+  type Aux[R <: Int, OS <: Boolean, OW <: Int] = IntInfo[R]:
+    type OutS = OS
+    type OutW = OW
   def calcWidth(value: Int): Int =
     if (value == -1) 2
     else if (value < 0) 33 - Integer.numberOfLeadingZeros(-value - 1)
@@ -29,17 +35,9 @@ object IntInfo:
           ConstantType(BooleanConstant(value < 0)).asTypeOf[Boolean]
         val widthType =
           ConstantType(IntConstant(calcWidth(value))).asTypeOf[Int]
-        '{
-          new IntInfo[V]:
-            type OutS = signedType.Underlying
-            type OutW = widthType.Underlying
-        }
+        '{ IntInfo.gen[V, signedType.Underlying, widthType.Underlying] }
       case _ =>
-        '{
-          new IntInfo[V]:
-            type OutS = Boolean
-            type OutW = Int
-        }
+        '{ IntInfo.gen[V, Boolean, Int] }
     end match
   end macroImpl
 end IntInfo

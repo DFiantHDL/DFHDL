@@ -643,12 +643,8 @@ object DFXInt:
           type OutSMask = SMask
           type OutWMask = WMask
         }
-      type IntInfoAux[R <: Int, OS <: Boolean, OW <: Int] =
-        IntInfo[R]:
-          type OutS = OS
-          type OutW = OW
       given fromInt[R <: Int, OS <: Boolean, OW <: Int](using
-          info: IntInfoAux[R, OS, OW]
+          info: IntInfo.Aux[R, OS, OW]
       ): Candidate[R] with
         type OutS = OS
         type OutW = OW
