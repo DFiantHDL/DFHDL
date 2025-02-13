@@ -4,6 +4,8 @@ import scala.annotation.tailrec
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.collection.mutable
 import scala.util.matching.Regex
+import scala.annotation.StaticAnnotation
+import scala.annotation.implicitNotFound
 extension [T](t: T)
   def debugPrint: T =
     println(t)
@@ -419,6 +421,40 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
     val start = Expr(term.pos.start)
     val end = Expr(term.pos.end)
     '{ compiletimeErrorPos($msgExpr, $start, $end) }
+
+/* Returns the annotated class with the given annotation T */
+@implicitNotFound(
+  "No annotated class found. The annotated class must be directly owned by a class or an object."
+)
+trait AnnotatedWith[T <: StaticAnnotation]:
+  type Out
+object AnnotatedWith:
+  type Aux[T <: StaticAnnotation, O] = AnnotatedWith[T] { type Out = O }
+  def annotWith[T <: StaticAnnotation, O]: Aux[T, O] = new AnnotatedWith[T]:
+    type Out = O
+  transparent inline given [T <: StaticAnnotation]: AnnotatedWith[T] = ${
+    annotWithMacro[T]
+  }
+
+  def annotWithMacro[T <: StaticAnnotation](using Quotes, Type[T]): Expr[AnnotatedWith[T]] =
+    import quotes.reflect.*
+    val tSymbol = TypeRepr.of[T].typeSymbol
+    val macroLine = Position.ofMacroExpansion.startLine
+    val annotated = Symbol.spliceOwner.owner.owner.declarations.view.filter { x =>
+      x.isClassDef && !x.name.startsWith("module-info") &&
+      x.hasAnnotation(tSymbol)
+    }.filter { x =>
+      val line = x.pos.get.startLine
+      line == macroLine || line == macroLine + 1
+    }
+
+    val tpe = annotated.headOption.map(_.typeRef.asTypeOf[Any]).getOrElse(
+      report.errorAndAbort("No annotated class found")
+    )
+
+    '{ annotWith[T, tpe.Underlying] }
+  end annotWithMacro
+end AnnotatedWith
 
 // trait CompiletimeErrorPos[M <: String, S <: Int, E <: Int]
 // object CompiletimeErrorPos:
