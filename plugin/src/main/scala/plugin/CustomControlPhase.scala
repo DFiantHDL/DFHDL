@@ -152,28 +152,23 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     if (replaceIfs.contains(tree.srcPos.show))
       // debug("=======================")
       val dfcTree = dfcStack.head
-      var exactWrapper = false
-      val combinedTpe = tree.tpe match
-        case AppliedType(tycon, List(combinedTpe))
-            if tycon.dealias.typeSymbol == requiredClass("dfhdl.internals.Exact") =>
-          exactWrapper = true
-          combinedTpe.widen
-        case tpe => tpe
-      // debug(tree.show)
-      // debug(combinedTpe.show)
-      // debug(tree)
-      val (branchesVarArgs, elseOption) =
-        transformIfRecur(tree, combinedTpe, dfcTree, Nil)
-      val branches = mkList(branchesVarArgs)
-      val ifTree = ref(fromBranchesSym)
-        .appliedToType(combinedTpe)
-        .appliedTo(branches, elseOption)
-        .appliedTo(dfcTree)
-      if (exactWrapper)
-        ref(requiredMethod("dfhdl.internals.Exact.apply"))
+      def buildIf(combinedTpe: Type): Tree =
+        val (branchesVarArgs, elseOption) =
+          transformIfRecur(tree, combinedTpe, dfcTree, Nil)
+        val branches = mkList(branchesVarArgs)
+        ref(fromBranchesSym)
           .appliedToType(combinedTpe)
-          .appliedTo(ifTree.withType(combinedTpe))
-      else ifTree
+          .appliedTo(branches, elseOption)
+          .appliedTo(dfcTree)
+      tree.tpe match
+        case AppliedType(tycon, List(tpe))
+            if tycon.dealias.typeSymbol == requiredClass("dfhdl.internals.Exact") =>
+          val combinedTpe = tpe.widen
+          val ifTree = buildIf(combinedTpe)
+          ref(requiredMethod("dfhdl.internals.Exact.apply"))
+            .appliedToType(combinedTpe)
+            .appliedTo(ifTree.withType(combinedTpe))
+        case combinedTpe => buildIf(combinedTpe)
     else tree
 
   object DFType:
