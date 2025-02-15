@@ -1,7 +1,6 @@
 //format: off
 package docExamples.ugdemos.demo5
 import dfhdl.*
-given options.CompilerOptions.Backend = backends.verilog
 
 /** A left-right bits shifter, via composition
   *

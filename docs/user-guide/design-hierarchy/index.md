@@ -721,8 +721,10 @@ Direct connection composition is the recommended approach for building hierarchi
 The syntax for direct composition follows standard Scala class instantiation, with port connections made via the `<>` operator:
 
 ```scala linenums="0" title="Direct composition syntax"
-val _childDesignName_ = _designClass_(_params_) //instantiate a child design
-_childDesignName_._childPort_ <> _connectedValue_ //port connection (repeat for each child port)
+//instantiate a child design
+val _childDesignName_ = _designClass_(_params_)
+//port connection (repeat for each child port)
+_childDesignName_._childPort_ <> _connectedValue_ 
 ```
 
 Where:
@@ -732,17 +734,17 @@ Where:
 * `_designClass_` - The design class to instantiate.
 
 * `_params_` - Parameters for the child design. Empty parentheses `()` are required even if no parameters are needed. Parameters can be specified:
-  - As ordered values (e.g., `Counter(8, Up)`)
-  - As named parameters (e.g., `Counter(width = 8, dir = Up)`) 
-  - Parameters with default values can be omitted
+    - As ordered values (e.g., `Counter(8, Up)`)
+    - As named parameters (e.g., `Counter(width = 8, dir = Up)`) 
+    - Parameters with default values can be omitted
 
 * `_childPort_` - The port of the child design to connect.
 
 * `_connectedValue_` - The value to connect to the child port. Can be:
-  - A constant
-  - A variable
-  - A port of the parent design
-  - A port of another child design instance
+    - A constant
+    - A variable
+    - A port of the parent design
+    - A port of another child design instance
 
 The `<>` connection operator has no explicit directionality - it automatically infers producer/consumer relationships based on the connected value types and scope. See the [connectivity][connectivity] section for details.
 
@@ -910,8 +912,10 @@ Via connection composition is a legacy mechanism that connects child design port
 The syntax for via composition uses Scala anonymous class instantiation, with port connections made inside the instantiation block:
 
 ```scala linenums="0" title="Via composition syntax"
-val _childDesignName_ = new _designClass_(_params_): //instantiate a child design
-    _childPort_ <> _connectedValue_ //port connection (repeat for each child port)
+//instantiate a child design
+val _childDesignName_ = new _designClass_(_params_):
+    //port connection (repeat for each child port)
+    _childPort_ <> _connectedValue_
 ```
 
 The `#!scala new` keyword and colon `:` syntax creates an anonymous class instance. Port connections must be made within this instantiation block, similar to Verilog module and VHDL component instantiation. This means connected values must be declared before they are used in the connection operation.
@@ -929,7 +933,7 @@ To solve this, we use Scala's class self reference feature and name it `parent`,
 The DFHDL code below implements the same generic left-right shifter composition seen in the [`LRShiftDirect`][LRShiftDirect] example, but uses via composition instead of direct composition. We define a `parent` self reference for the `LRShiftVia` design to refer to the `LRShiftVia` design within the `lshifter: LeftShiftGen` and `rshifter: RightShiftGen` child designs. We also use intermediate variables for the `oBits` ports of the `lshifter` and `rshifter` child designs and apply the multiplexer logic to select between them.
 
 ```scala
---8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftVia.scala:6"
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftVia.scala:5"
 ``` 
 ///
 
