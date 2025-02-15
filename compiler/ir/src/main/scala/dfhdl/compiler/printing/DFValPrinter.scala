@@ -199,7 +199,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
           case Func.Op.unary_! | Func.Op.unary_- | Func.Op.unary_! | Func.Op.unary_~ =>
             s"${opStr.last}${csArg.applyBrackets()}"
           case Func.Op.clog2 =>
-            s"${opStr}${csArg.applyBrackets(onlyIfRequired = false)}"
+            if (typeCS) s"CLog2[$csArg]"
+            else s"clog2($csArg)"
           case _ => s"${csArg.applyBrackets()}.${opStr}"
       // multiarg func
       case args =>
