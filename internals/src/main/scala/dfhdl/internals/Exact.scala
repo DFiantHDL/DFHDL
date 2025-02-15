@@ -204,10 +204,10 @@ trait Exact1[
 end Exact1
 object Exact1:
   def apply[
+      From,
       Arg1UB,
       Arg1 <: Arg1UB,
       FArg1[Arg1 <: Arg1UB],
-      From,
       Ctx,
       TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, FArg1, From, Ctx]
   ](
@@ -246,7 +246,7 @@ object Exact1:
     import quotes.reflect.*
     val fromExactInfo = from.exactInfo
     '{
-      Exact1[Arg1UB, Arg1, FArg1, fromExactInfo.Underlying, Ctx, TC](
+      Exact1[fromExactInfo.Underlying, Arg1UB, Arg1, FArg1, Ctx, TC](
         ${ fromExactInfo.exactExpr },
         compiletime.summonInline[TC[Arg1, fromExactInfo.Underlying]]
       )
