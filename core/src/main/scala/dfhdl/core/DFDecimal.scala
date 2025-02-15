@@ -630,7 +630,9 @@ object DFXInt:
     end CandidateLP
     object Candidate extends CandidateLP:
       type Exact = Exact0[DFC, Candidate]
-      type ExactAux[R] = Exact0.Aux[DFC, Candidate, R]
+      type ExactAux[R] = Exact0[DFC, Candidate] {
+        type ExactFrom = R
+      }
       type Aux[R, S <: Boolean, W <: IntP, N <: NativeType, P] =
         Candidate[R] {
           type OutS = S
