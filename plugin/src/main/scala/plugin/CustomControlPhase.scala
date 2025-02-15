@@ -43,10 +43,16 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   var fromBooleanSym: Symbol = uninitialized
   var toFunc1Sym: Symbol = uninitialized
   var fromBranchesSym: Symbol = uninitialized
+  var fromBranchesExact0Sym: Symbol = uninitialized
+  var fromBranchesExact1Sym: Symbol = uninitialized
   var fromCasesSym: Symbol = uninitialized
+  var fromCasesExactSym: Symbol = uninitialized
   var dfValClsRef: TypeRef = uninitialized
   var dfEncodingRef: TypeRef = uninitialized
   var enumHackedUnapply: Symbol = uninitialized
+  var exact0Sym: Symbol = uninitialized
+  var exact1Sym: Symbol = uninitialized
+  var exactApplySym: Symbol = uninitialized
   var dfcStack: List[Tree] = Nil
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
@@ -148,27 +154,34 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         (pairs.reverse, someBlock)
   end transformIfRecur
 
+  private def isExact0(tpe: Type)(using Context): Boolean =
+    tpe.dealias match
+      case OrType(t1, t2)                     => isExact0(t1) || isExact0(t2)
+      case tpe if tpe.typeSymbol == exact0Sym => true
+      case _                                  => false
+
+  private def isExact1(tpe: Type)(using Context): Boolean =
+    tpe.dealias match
+      case OrType(t1, t2)                     => isExact1(t1) || isExact1(t2)
+      case tpe if tpe.typeSymbol == exact1Sym => true
+      case _                                  => false
+
   override def transformIf(tree: If)(using Context): Tree =
     if (replaceIfs.contains(tree.srcPos.show))
       // debug("=======================")
       val dfcTree = dfcStack.head
-      def buildIf(combinedTpe: Type): Tree =
-        val (branchesVarArgs, elseOption) =
-          transformIfRecur(tree, combinedTpe, dfcTree, Nil)
-        val branches = mkList(branchesVarArgs)
-        ref(fromBranchesSym)
-          .appliedToType(combinedTpe)
-          .appliedTo(branches, elseOption)
-          .appliedTo(dfcTree)
-      tree.tpe match
-        case AppliedType(tycon, List(tpe))
-            if tycon.dealias.typeSymbol == requiredClass("dfhdl.internals.Exact") =>
-          val combinedTpe = tpe.widen
-          val ifTree = buildIf(combinedTpe)
-          ref(requiredMethod("dfhdl.internals.Exact.apply"))
-            .appliedToType(combinedTpe)
-            .appliedTo(ifTree.withType(combinedTpe))
-        case combinedTpe => buildIf(combinedTpe)
+      val combinedTpe = tree.tpe.widen
+      val (branchesVarArgs, elseOption) =
+        transformIfRecur(tree, combinedTpe, dfcTree, Nil)
+      val branches = mkList(branchesVarArgs)
+      val sym =
+        if (isExact1(combinedTpe)) fromBranchesExact1Sym
+        else if (isExact0(combinedTpe)) fromBranchesExact0Sym
+        else fromBranchesSym
+      ref(sym)
+        .appliedToType(combinedTpe)
+        .appliedTo(branches, elseOption)
+        .appliedTo(dfcTree)
     else tree
 
   object DFType:
@@ -550,7 +563,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         caseTupleTrees: List[Tree],
         forceAnonymous: Boolean
     )(using Context): Tree =
-      ref(fromCasesSym)
+      val sym = if (isExact1(retTpe)) fromCasesExactSym else fromCasesSym
+      ref(sym)
         .appliedToType(retTpe)
         .appliedTo(
           selectorTree,
@@ -954,9 +968,16 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     fromBooleanSym = requiredMethod("dfhdl.core.r__For_Plugin.fromBoolean")
     toFunc1Sym = requiredMethod("dfhdl.core.r__For_Plugin.toFunc1")
     fromBranchesSym = requiredMethod("dfhdl.core.DFIf.fromBranches")
+    fromBranchesExact0Sym = requiredMethod("dfhdl.core.DFIf.fromBranchesExact0")
+    fromBranchesExact1Sym = requiredMethod("dfhdl.core.DFIf.fromBranchesExact1")
     fromCasesSym = requiredMethod("dfhdl.core.DFMatch.fromCases")
+    fromCasesExactSym = requiredMethod("dfhdl.core.DFMatch.fromCasesExact")
     dfValClsRef = requiredClassRef("dfhdl.core.DFVal")
     dfEncodingRef = requiredClassRef("dfhdl.core.DFEncoding")
     enumHackedUnapply = requiredMethod("dfhdl.unapply")
+    exact0Sym = requiredClass("dfhdl.internals.Exact0")
+    exact1Sym = requiredClass("dfhdl.internals.Exact1")
+    exactApplySym = requiredMethod("dfhdl.internals.Exact.apply")
     ctx
+  end prepareForUnit
 end CustomControlPhase

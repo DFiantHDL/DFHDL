@@ -883,6 +883,12 @@ object DFVal extends DFValLP:
     final def apply(dfType: T, value: R)(using DFC): Out = trydf:
       conv(dfType, value)
 
+  // This is a dummy instance for DFIf and DFMatch specialized Exact1 extractions
+  object TCDummy extends TC[DFTypeAny, DFValOf[DFTypeAny]]:
+    type OutP = NOTCONST
+    def conv(dfType: DFTypeAny, value: DFValOf[DFTypeAny])(using dfc: DFC): DFValOf[DFTypeAny] =
+      ???
+
   trait TCLPLP:
     // Reject OPEN with a dedicated message
     transparent inline given fromOPEN[T <: DFTypeAny]: TC[T, OPEN] =

@@ -27,6 +27,27 @@ object DFMatch:
     (dfType, block)
   end singleCase
 
+  def fromCasesExact[R](
+      selector: DFValAny,
+      cases: List[(Pattern, Option[DFValOf[DFBool]], () => DFVal.TC.Exact[DFTypeAny])],
+      forceAnonymous: Boolean
+  )(using DFC): R =
+    val ifFunc: DFTypeAny => DFValOf[DFTypeAny] = dfType =>
+      fromCases(
+        selector,
+        cases.map { case (pattern, guardOption, run) =>
+          (pattern, guardOption, () => run.apply().apply(dfType))
+        },
+        forceAnonymous
+      )
+    val exact = new DFVal.TC.Exact[DFTypeAny]:
+      type ExactFrom = DFValOf[DFTypeAny]
+      type ExactTC = DFVal.TCDummy.type
+      val tc: ExactTC = DFVal.TCDummy
+      def apply(dfType: DFTypeAny)(using ctx: DFC): tc.Out = ifFunc(dfType).asInstanceOf[tc.Out]
+    exact.asInstanceOf[R]
+  end fromCasesExact
+
   def fromCases[R](
       selector: DFValAny,
       cases: List[(Pattern, Option[DFValOf[DFBool]], () => R)],

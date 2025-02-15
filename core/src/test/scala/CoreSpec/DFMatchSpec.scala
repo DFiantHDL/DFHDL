@@ -132,12 +132,22 @@ class DFMatchSpec extends DFSpec:
          |    case d"8'0" | d"8'1" | d"8'2" | d"8'3" => d"8'77"
          |    case _ => d"8'22"
          |  end match
-         |""".stripMargin
+         |val res2 = UInt(8) <> VAR
+         |res2 := ((
+         |  x match
+         |    case d"8'0" | d"8'1" | d"8'2" | d"8'3" => d"8'77"
+         |    case _ => d"8'22"
+         |  end match
+         |): UInt[8] <> VAL)""".stripMargin
     ) {
       val res: UInt[8] <> VAL =
         x match
           case 0 | 1 | 2 | 3 => 77
           case _             => 22
+      val res2 = UInt(8) <> VAR
+      res2 := x match
+        case 0 | 1 | 2 | 3 => 77
+        case _             => 22
     }
   }
 
