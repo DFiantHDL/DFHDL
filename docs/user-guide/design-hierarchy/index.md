@@ -1000,3 +1000,149 @@ given options.CompilerOptions.PrintDFHDLCode = true
 ///
 
 ### Functional Composition
+Functional composition is a method-call based mechanism primarily used for dataflow designs with a single output. It's particularly useful for arithmetic and logic operations. The DFHDL compiler automatically transforms functional composition into direct design composition.
+
+#### Syntax
+The syntax for functional composition follows standard Scala method declaration and invocation to declare and invoke *design definitions* (aka design methods or design functions):
+
+```scala linenums="0" title="Functional composition syntax"
+//declare a design definition
+def _designName_(
+    _param1_: _type1_ <> VAL,
+    _param2_: _type2_ <> VAL,
+    ...,
+    _paramN_: _typeN_ <> VAL
+): _returnType_ <> DFRET = _expression_
+
+//invoke the design definition
+_designName_(_param1_, _param2_, ..., _paramN_)
+```
+
+Where:
+
+* `_designName_` - The name of the design definition
+* `_paramN_` - Input parameters that act as design ports
+* `_typeN_` - DFHDL types for the parameters
+* `_returnType_` - DFHDL type for the output port
+* `<> VAL` - Marks parameters as design input ports
+* `<> DFRET` - Marks the return type as a design output port
+* `_expression_` - The design functionality
+
+[](){#LRShiftFunc}
+/// admonition | Generic left-right shifter using functional composition
+    type: example
+The code below implements the same generic left-right shifter functionality seen in previous examples, but uses functional composition. The implementation is split into three function designs:
+
+1. `LeftShiftGen` - Performs left shift operation
+2. `RightShiftGen` - Performs right shift operation  
+3. `LRShiftFunc` - Top-level function that selects between left/right shift
+
+Since functions can't be top-level designs in DFHDL, we wrap `LRShiftFunc` in a top-level design class `LRShiftFuncWrapper`.
+
+<div class="grid" markdown>
+
+```scala
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo6/LRShiftFunc.scala:6"
+```
+
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = wrapper
+    label = LRShiftFuncWrapper
+    inPorts = [iBits, shift, dir]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [
+      {
+        id = func
+        label = LRShiftFunc
+        inPorts = [iBits, shift, dir]
+        outPorts = [oBits]
+        children = [
+          {
+            id = left
+            label = LeftShiftGen
+            inPorts = [iBits, shift]
+            outPorts = [oBits]
+            children = [
+              {
+                id = opLeft 
+                label = "<<"
+                northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+              }
+            ]
+            edges = [
+              [left.shift, opLeft.shift]
+              [left.iBits, opLeft]
+              [opLeft, left.oBits]
+            ]
+          },
+          {
+            id = right
+            label = RightShiftGen
+            inPorts = [iBits, shift]
+            outPorts = [oBits]
+            children = [
+              {
+                id = opRight 
+                label = ">>"
+                northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+              }
+            ]
+            edges = [
+              [right.shift, opRight.shift]
+              [right.iBits, opRight]
+              [opRight, right.oBits]
+            ]
+          },
+          {
+            id = mux
+            label = "mux"
+            northPorts = [{id = sel, label = " ", height = 5, width = 1}]
+          }
+        ]
+        edges = [
+          [func.iBits, left.iBits]
+          [func.shift, left.shift]
+          [func.iBits, right.iBits]
+          [func.shift, right.shift]
+          [func.dir, mux.sel]
+          [left.oBits, mux]
+          [right.oBits, mux]
+          [mux, func.oBits]
+        ]
+      }
+    ]
+    edges = [
+      [wrapper.iBits, func.iBits]
+      [wrapper.shift, func.shift]
+      [wrapper.dir, func.dir]
+      [func.oBits, wrapper.oBits]
+    ]
+  }
+]
+```
+
+</div>
+
+/// admonition | Advantages of functional composition
+    type: tip
+Functional composition offers several benefits:
+
+1. Concise syntax - No need for explicit port declarations and connections
+2. Natural expression - Operations can be written in a more natural mathematical style
+3. Easy reuse - Functions can be composed and reused easily
+4. Type safety - Scala's type system ensures correct port connections
+///
+
+<!-- TODO: add runnable example -->
+<!-- /// details | Runnable example
+    type: dfhdl
+```scastie
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo6/LRShiftFunc.scala:3"
+```
+/// -->
+///
+
