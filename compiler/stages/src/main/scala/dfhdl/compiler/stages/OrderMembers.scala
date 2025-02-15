@@ -46,8 +46,9 @@ object OrderMembers:
         case DclPort() => 5
         // sixth are variables
         case DclVar() => 6
-        // seventh are design blocks instances
-        case _: DFDesignBlock => 7
+        // seventh are design blocks that are direct children of named instances
+        // (e.g., design blocks inside conditional blocks are not included)
+        case dsn: DFDesignBlock if dsn.getOwner == dsn.getOwnerNamed => 7
         // then the rest
         case _ => 8
       }
