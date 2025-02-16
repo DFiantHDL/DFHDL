@@ -159,4 +159,19 @@ class DFMatchSpec extends DFSpec:
         }
     }
   }
+
+  test("Different return widths error") {
+    assertRuntimeErrorLog(
+      """|This DFHDL `match` expression has different return types for cases.
+         |These are its branch types in order:
+         |Bits(2)
+         |Bits(3)
+         |""".stripMargin
+    ) {
+      val res: Bits[Int] <> VAL =
+        i match
+          case 0 => b"11"
+          case 1 => b"111"
+    }
+  }
 end DFMatchSpec

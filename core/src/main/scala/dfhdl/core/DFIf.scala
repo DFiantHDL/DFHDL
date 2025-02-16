@@ -85,7 +85,8 @@ object DFIf:
   def fromBranches[R](
       branches: List[(DFValOf[DFBoolOrBit], () => R)],
       elseOption: Option[() => R]
-  )(using DFC): R = try
+  )(using dfc: DFC): R = try
+    import dfc.getSet
     val header = Header(DFUnit)
     val dfcAnon = summon[DFC].anonymize
     var branchTypes = List.empty[ir.DFType]
@@ -110,7 +111,7 @@ object DFIf:
     val hasNoType = branchTypes.contains(ir.DFUnit)
     // if one branch has DFUnit, the return type is DFUnit.
     // otherwise, all types must be the same.
-    if (hasNoType || branchTypes.allElementsAreEqual)
+    if (hasNoType || branchTypes.forall(_.isSimilarTo(branchTypes.head)))
       val retDFType = if (hasNoType) ir.DFUnit else branchTypes.head
       val DFVal(headerIR: DFIfHeader) = header: @unchecked
       val headerUpdate = headerIR.copy(dfType = retDFType)

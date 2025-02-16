@@ -52,7 +52,8 @@ object DFMatch:
       selector: DFValAny,
       cases: List[(Pattern, Option[DFValOf[DFBool]], () => R)],
       forceAnonymous: Boolean
-  )(using DFC): R = try
+  )(using dfc: DFC): R = try
+    import dfc.getSet
     val dfcAnon = summon[DFC].anonymize
     val header =
       Header(DFUnit, selector)(using if (forceAnonymous) dfcAnon else dfc)
@@ -61,23 +62,45 @@ object DFMatch:
     val firstCaseRun: () => R = () =>
       firstCaseRet = Some(cases.head._3())
       firstCaseRet.get
+    var dfTypes = List.empty[ir.DFType]
+    var typesAreSimilar = true
     val firstCase =
       singleCase(cases.head._1, cases.head._2, header, firstCaseRun)
+    dfTypes = firstCase._1.asIR :: dfTypes
     val (retDFType, _) =
       cases.drop(1).foldLeft(firstCase) { case ((prevDFType, prevBlock), curCase) =>
         val (dfType, block) =
           singleCase(curCase._1, curCase._2, prevBlock, curCase._3)(using dfcAnon)
+        dfTypes = dfType.asIR :: dfTypes
         val commonDFType =
-          if (dfType.asIR == prevDFType.asIR) prevDFType else DFUnit
+          if (dfType.asIR.isSimilarTo(prevDFType.asIR)) prevDFType
+          else
+            typesAreSimilar = false
+            DFUnit
         (commonDFType, block)
       }
-    retDFType match
-      case DFUnit => firstCaseRet.get
-      case _ =>
-        val DFVal(headerIR: DFMatchHeader) = header: @unchecked
-        val headerUpdate = headerIR.copy(dfType = retDFType.asIR)
-        // updating the type of the if header
-        headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
+    if (typesAreSimilar)
+      retDFType match
+        case DFUnit => firstCaseRet.get
+        case _ =>
+          val DFVal(headerIR: DFMatchHeader) = header: @unchecked
+          val headerUpdate = headerIR.copy(dfType = retDFType.asIR)
+          // updating the type of the match header
+          headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
+    else
+      given printer: Printer = DefaultPrinter(using dfc.getSet)
+      val err = DFError.Basic(
+        "match",
+        new IllegalArgumentException(
+          s"""|This DFHDL `match` expression has different return types for cases.
+              |These are its branch types in order:
+              |${dfTypes.view.reverse.map(t => printer.csDFType(t)).mkString("\n")}
+              |""".stripMargin
+        )
+      )
+      dfc.logError(err)
+      err.asVal[DFTypeAny, ModifierAny].asInstanceOf[R]
+    end if
   catch case e: DFError => DFVal(DFError.Derived(e)).asInstanceOf[R]
   end fromCases
 
