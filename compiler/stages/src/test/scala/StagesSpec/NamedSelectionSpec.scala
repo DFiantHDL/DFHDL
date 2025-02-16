@@ -11,11 +11,11 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val i = Byte    <> IN
       val o = Byte    <> OUT
       val z = Byte    <> OUT
-      o := ((if (c) i else i): Byte <> VAL)
-      z := ((i match
+      o := (if (c) i else i)
+      o := i | ((if (c) i else i): Byte <> VAL)
+      z := i match
         case all(0) => i
         case _      => i
-      ): Byte <> VAL)
 
     val id = (new Mux).verilogNamedSelection
     assertCodeString(
@@ -25,16 +25,20 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val i = Bits(8) <> IN
          |  val o = Bits(8) <> OUT
          |  val z = Bits(8) <> OUT
+         |  o := ((
+         |    if (c) i
+         |    else i
+         |  ): Bits[8] <> VAL)
          |  val o_part: Bits[8] <> VAL =
          |    if (c) i
          |    else i
-         |  o := o_part
-         |  val z_part: Bits[8] <> VAL =
+         |  o := i | o_part
+         |  z := ((
          |    i match
          |      case h"00" => i
          |      case _ => i
          |    end match
-         |  z := z_part
+         |  ): Bits[8] <> VAL)
          |end Mux
          |""".stripMargin
     )

@@ -23,7 +23,7 @@ import dfhdl.*
     iBits <> parent.iBits
     shift <> parent.shift
     oBits <> rshifter_oBits
-  dir match
-    case ShiftDir.Left  => oBits := lshifter_oBits
-    case ShiftDir.Right => oBits := rshifter_oBits
+  oBits := dir match
+    case ShiftDir.Left  => lshifter_oBits
+    case ShiftDir.Right => rshifter_oBits
 end LRShiftVia

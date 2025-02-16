@@ -42,6 +42,10 @@ object DFRef:
     val originRefType = classTag[DFVal.CanBeExpr]
     override def copyAsNewRef: this.type = new TypeRef {}.asInstanceOf[this.type]
 
+  extension (ref: DFRefAny)
+    def isTypeRef: Boolean = ref match
+      case ref: TypeRef => true
+      case _            => false
   def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
 end DFRef
 

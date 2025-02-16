@@ -96,8 +96,15 @@ case object NamedVerilogSelection extends NamedAliases:
         if !lhs.hasVerilogName && carryOps.contains(op) && func.width > lhs.width =>
       List(lhs)
     // anonymous conditional expressions
-    case ch: DFConditional.Header if ch.isAnonymous && ch.dfType != DFUnit => List(ch)
-    case _                                                                 => Nil
+    case ch: DFConditional.Header if ch.isAnonymous && ch.dfType != DFUnit =>
+      ch.getReadDeps.head match
+        // if the conditional is referred from a net, it is not a selection to be named
+        case net: DFNet => Nil
+        // if the conditional is referred from an ident, it is not a selection to be named
+        case Ident(_) => Nil
+        // otherwise, it is a selection to be named
+        case _ => List(ch)
+    case _ => Nil
 end NamedVerilogSelection
 
 extension [T: HasDB](t: T)
@@ -134,6 +141,7 @@ case object NamedAnonMultiref extends NamedAliases, NoCheckStage:
 //Names anonymous conditional expressions, as long as they are not referenced by an ident which indicates that
 //they are themselves inside another conditional expression
 case object NamedAnonCondExpr extends NamedAliases:
+  override def dependencies: List[Stage] = List(ExplicitCondExprAssign)
   def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
     case dfVal: DFConditional.Header if dfVal.isAnonymous && dfVal.dfType != DFUnit =>
       val isReferencedByIdent =

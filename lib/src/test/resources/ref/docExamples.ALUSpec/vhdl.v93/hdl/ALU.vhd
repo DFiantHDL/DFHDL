@@ -14,26 +14,24 @@ port (
 end ALU;
 
 architecture ALU_arch of ALU is
-  signal shamt   : std_logic_vector(4 downto 0);
-  signal outCalc : std_logic_vector(31 downto 0);
+  signal shamt : std_logic_vector(4 downto 0);
 begin
   process (aluSel, op1, op2, shamt)
   begin
     case aluSel is
-      when ALUSel_ADD   => outCalc <= to_slv(unsigned(op1) + unsigned(op2));
-      when ALUSel_SUB   => outCalc <= to_slv(unsigned(op1) - unsigned(op2));
-      when ALUSel_AND   => outCalc <= op1 and op2;
-      when ALUSel_OR    => outCalc <= op1 or op2;
-      when ALUSel_XOR   => outCalc <= op1 xor op2;
-      when ALUSel_SLT   => outCalc <= resize(to_slv(signed(op1) < signed(op2)), 32);
-      when ALUSel_SLTU  => outCalc <= resize(to_slv(unsigned(op1) < unsigned(op2)), 32);
-      when ALUSel_SLL   => outCalc <= slv_sll(op1, to_integer(unsigned(shamt)));
-      when ALUSel_SRL   => outCalc <= slv_srl(op1, to_integer(unsigned(shamt)));
-      when ALUSel_SRA   => outCalc <= to_slv(signed_sra(signed(op1), to_integer(unsigned(shamt))));
-      when ALUSel_COPY1 => outCalc <= op1;
-      when others       => outCalc <= "--------------------------------";
+      when ALUSel_ADD   => aluOut <= to_slv(unsigned(op1) + unsigned(op2));
+      when ALUSel_SUB   => aluOut <= to_slv(unsigned(op1) - unsigned(op2));
+      when ALUSel_AND   => aluOut <= op1 and op2;
+      when ALUSel_OR    => aluOut <= op1 or op2;
+      when ALUSel_XOR   => aluOut <= op1 xor op2;
+      when ALUSel_SLT   => aluOut <= resize(to_slv(signed(op1) < signed(op2)), 32);
+      when ALUSel_SLTU  => aluOut <= resize(to_slv(unsigned(op1) < unsigned(op2)), 32);
+      when ALUSel_SLL   => aluOut <= slv_sll(op1, to_integer(unsigned(shamt)));
+      when ALUSel_SRL   => aluOut <= slv_srl(op1, to_integer(unsigned(shamt)));
+      when ALUSel_SRA   => aluOut <= to_slv(signed_sra(signed(op1), to_integer(unsigned(shamt))));
+      when ALUSel_COPY1 => aluOut <= op1;
+      when others       => aluOut <= "--------------------------------";
     end case;
   end process;
-  shamt  <= op2(4 downto 0);
-  aluOut <= outCalc;
+  shamt <= op2(4 downto 0);
 end ALU_arch;
