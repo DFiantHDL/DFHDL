@@ -630,7 +630,9 @@ object DFXInt:
     end CandidateLP
     object Candidate extends CandidateLP:
       type Exact = Exact0[DFC, Candidate]
-      type ExactAux[R] = Exact0.Aux[DFC, Candidate, R]
+      type ExactAux[R] = Exact0[DFC, Candidate] {
+        type ExactFrom = R
+      }
       type Aux[R, S <: Boolean, W <: IntP, N <: NativeType, P] =
         Candidate[R] {
           type OutS = S
@@ -643,12 +645,8 @@ object DFXInt:
           type OutSMask = SMask
           type OutWMask = WMask
         }
-      type IntInfoAux[R <: Int, OS <: Boolean, OW <: Int] =
-        IntInfo[R]:
-          type OutS = OS
-          type OutW = OW
       given fromInt[R <: Int, OS <: Boolean, OW <: Int](using
-          info: IntInfoAux[R, OS, OW]
+          info: IntInfo.Aux[R, OS, OW]
       ): Candidate[R] with
         type OutS = OS
         type OutW = OW

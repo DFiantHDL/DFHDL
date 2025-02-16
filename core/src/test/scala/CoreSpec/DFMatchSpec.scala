@@ -132,12 +132,22 @@ class DFMatchSpec extends DFSpec:
          |    case d"8'0" | d"8'1" | d"8'2" | d"8'3" => d"8'77"
          |    case _ => d"8'22"
          |  end match
-         |""".stripMargin
+         |val res2 = UInt(8) <> VAR
+         |res2 := ((
+         |  x match
+         |    case d"8'0" | d"8'1" | d"8'2" | d"8'3" => d"8'77"
+         |    case _ => d"8'22"
+         |  end match
+         |): UInt[8] <> VAL)""".stripMargin
     ) {
       val res: UInt[8] <> VAL =
         x match
           case 0 | 1 | 2 | 3 => 77
           case _             => 22
+      val res2 = UInt(8) <> VAR
+      res2 := x match
+        case 0 | 1 | 2 | 3 => 77
+        case _             => 22
     }
   }
 
@@ -147,6 +157,21 @@ class DFMatchSpec extends DFSpec:
         (0 until 8).foldLeft[(Byte <> VAL, Byte <> VAL)]((all(0), all(0))) { case ((p, a), _) =>
           (p, a)
         }
+    }
+  }
+
+  test("Different return widths error") {
+    assertRuntimeErrorLog(
+      """|This DFHDL `match` expression has different return types for cases.
+         |These are its branch types in order:
+         |Bits(2)
+         |Bits(3)
+         |""".stripMargin
+    ) {
+      val res: Bits[Int] <> VAL =
+        i match
+          case 0 => b"11"
+          case 1 => b"111"
     }
   }
 end DFMatchSpec

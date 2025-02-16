@@ -57,68 +57,72 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                 case Literal(Constant(genMain: Boolean)) :: Nil => genMain
                 case _                                          => true
               if (genMain)
-                // the top entry point module symbol
-                val dfApp = newCompleteModuleSymbol(
-                  ctx.owner,
-                  s"top_${tn}".toTermName,
-                  Touched,
-                  Touched | NoInits,
-                  List(defn.ObjectType, appTpe),
-                  Scopes.newScope,
-                  coord = topAnnotTree.span,
-                  compUnitInfo = clsSym.compUnitInfo
-                )
-                val moduleCls = dfApp.moduleClass.asClass
                 if (template.constr.paramss.length > 1)
                   report.error(
                     "Unsupported multiple parameter blocks for top-level design.",
                     template.constr.srcPos
                   )
-                val designNameTree = Literal(Constant(tn.toString))
-                val topScalaPathTree = Literal(Constant(dfApp.fullName.toString()))
-                val paramVDs =
-                  template.constr.paramss.flatten.collect { case vd: ValDef => vd }
-                val dsnArgNames = mkList(paramVDs.map(vd => Literal(Constant(vd.name.toString))))
-                val defaultMap = mutable.Map.empty[Int, Tree]
-                rest match
-                  case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
-                      if compSym.symbol.companionClass == clsSym =>
-                    compTemplate.body.foreach {
-                      case dd @ DefDef(NameKinds.DefaultGetterName(n, i), _, _, _) =>
-                        defaultMap += i -> ref(module.symbol).select(dd.symbol)
-                      case _ =>
-                    }
-                  case _ =>
-                val dsnArgValues =
-                  mkList(
-                    paramVDs.zipWithIndex.map((vd, i) =>
-                      defaultMap.get(i) match
-                        case Some(value) => value
-                        case None =>
-                          report.error(
-                            "Missing argument's default value for top-level design with a default app entry point.\nEither add a default value or disable the app entry point generation with `@top(false)`.",
-                            vd.srcPos
-                          )
-                          EmptyTree
+                  retTrees += td
+                  explored = rest
+                else
+                  // the top entry point module symbol
+                  val dfApp = newCompleteModuleSymbol(
+                    ctx.owner,
+                    s"top_${tn}".toTermName,
+                    Touched,
+                    Touched | NoInits,
+                    List(defn.ObjectType, appTpe),
+                    Scopes.newScope,
+                    coord = topAnnotTree.span,
+                    compUnitInfo = clsSym.compUnitInfo
+                  )
+                  val moduleCls = dfApp.moduleClass.asClass
+                  val designNameTree = Literal(Constant(tn.toString))
+                  val topScalaPathTree = Literal(Constant(dfApp.fullName.toString()))
+                  val paramVDs =
+                    template.constr.paramss.flatten.collect { case vd: ValDef => vd }
+                  val dsnArgNames = mkList(paramVDs.map(vd => Literal(Constant(vd.name.toString))))
+                  val defaultMap = mutable.Map.empty[Int, Tree]
+                  rest match
+                    case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
+                        if compSym.symbol.companionClass == clsSym =>
+                      compTemplate.body.foreach {
+                        case dd @ DefDef(NameKinds.DefaultGetterName(n, i), _, _, _) =>
+                          defaultMap += i -> ref(module.symbol).select(dd.symbol)
+                        case _ =>
+                      }
+                    case _ =>
+                  val dsnArgValues =
+                    mkList(
+                      paramVDs.zipWithIndex.map((vd, i) =>
+                        defaultMap.get(i) match
+                          case Some(value) => value
+                          case None =>
+                            report.error(
+                              "Missing argument's default value for top-level design with a default app entry point.\nEither add a default value or disable the app entry point generation with `@top(false)`.",
+                              vd.srcPos
+                            )
+                            EmptyTree
+                      )
+                    )
+                  val dsnArgDescs =
+                    mkList(paramVDs.map(vd => Literal(Constant(vd.symbol.docString.getOrElse("")))))
+                  val setInitials = This(moduleCls).select("setInitials".toTermName).appliedToArgs(
+                    List(
+                      designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames, dsnArgValues,
+                      dsnArgDescs
                     )
                   )
-                val dsnArgDescs =
-                  mkList(paramVDs.map(vd => Literal(Constant(vd.symbol.docString.getOrElse("")))))
-                val setInitials = This(moduleCls).select("setInitials".toTermName).appliedToArgs(
-                  List(
-                    designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames, dsnArgValues,
-                    dsnArgDescs
+                  val dsnInstArgs = paramVDs.map(vd =>
+                    This(moduleCls).select("getDsnArg".toTermName).appliedTo(
+                      Literal(Constant(vd.name.toString))
+                    )
                   )
-                )
-                val dsnInstArgs = paramVDs.map(vd =>
-                  This(moduleCls).select("getDsnArg".toTermName).appliedTo(
-                    Literal(Constant(vd.name.toString))
-                  )
-                )
-                val dsnInst = New(clsSym.typeRef, dsnInstArgs)
-                val setDsn = This(moduleCls).select("setDsn".toTermName).appliedTo(dsnInst)
-                retTrees ++= td :: ModuleDef(dfApp, List(setInitials, setDsn)).trees
-                explored = rest
+                  val dsnInst = New(clsSym.typeRef, dsnInstArgs)
+                  val setDsn = This(moduleCls).select("setDsn".toTermName).appliedTo(dsnInst)
+                  retTrees ++= td :: ModuleDef(dfApp, List(setInitials, setDsn)).trees
+                  explored = rest
+                end if
               else
                 retTrees += td
                 explored = rest

@@ -866,4 +866,53 @@ class PrintCodeStringSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("If printing with parametric width") {
+    class IfWithParams(
+        val width: Int <> CONST = 8
+    ) extends DFDesign:
+      val sel   = Bit         <> IN
+      val iBits = Bits(width) <> IN
+      val oBits = Bits(width) <> VAR
+      oBits := (if (sel) iBits else all(0))
+    val top = (new IfWithParams).getCodeString
+    assertNoDiff(
+      top,
+      """|class IfWithParams(val width: Int <> CONST = 8) extends DFDesign:
+         |  val sel = Bit <> IN
+         |  val iBits = Bits(width) <> IN
+         |  val oBits = Bits(width) <> VAR
+         |  oBits := ((
+         |    if (sel) iBits
+         |    else b"0".repeat(width)
+         |  ): Bits[width.type] <> VAL)
+         |end IfWithParams""".stripMargin
+    )
+  }
+  test("Match printing with parametric width") {
+    class MatchWithParams(
+        val width: Int <> CONST = 8
+    ) extends DFDesign:
+      val sel   = Bit         <> IN
+      val iBits = Bits(width) <> IN
+      val oBits = Bits(width) <> VAR
+      oBits := sel match
+        case 0 => all(0)
+        case 1 => iBits
+    end MatchWithParams
+    val top = (new MatchWithParams).getCodeString
+    assertNoDiff(
+      top,
+      """|class MatchWithParams(val width: Int <> CONST = 8) extends DFDesign:
+         |  val sel = Bit <> IN
+         |  val iBits = Bits(width) <> IN
+         |  val oBits = Bits(width) <> VAR
+         |  oBits := ((
+         |    sel match
+         |      case 0 => b"0".repeat(width)
+         |      case 1 => iBits
+         |    end match
+         |  ): Bits[width.type] <> VAL)
+         |end MatchWithParams""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

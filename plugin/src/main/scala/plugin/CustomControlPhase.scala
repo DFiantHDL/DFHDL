@@ -43,10 +43,16 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   var fromBooleanSym: Symbol = uninitialized
   var toFunc1Sym: Symbol = uninitialized
   var fromBranchesSym: Symbol = uninitialized
+  var fromBranchesExact0Sym: Symbol = uninitialized
+  var fromBranchesExact1Sym: Symbol = uninitialized
   var fromCasesSym: Symbol = uninitialized
+  var fromCasesExactSym: Symbol = uninitialized
   var dfValClsRef: TypeRef = uninitialized
   var dfEncodingRef: TypeRef = uninitialized
   var enumHackedUnapply: Symbol = uninitialized
+  var exact0Sym: Symbol = uninitialized
+  var exact1Sym: Symbol = uninitialized
+  var exactApplySym: Symbol = uninitialized
   var dfcStack: List[Tree] = Nil
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
@@ -148,32 +154,34 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         (pairs.reverse, someBlock)
   end transformIfRecur
 
+  private def isExact0(tpe: Type)(using Context): Boolean =
+    tpe.dealias match
+      case OrType(t1, t2)                     => isExact0(t1) || isExact0(t2)
+      case tpe if tpe.typeSymbol == exact0Sym => true
+      case _                                  => false
+
+  private def isExact1(tpe: Type)(using Context): Boolean =
+    tpe.dealias match
+      case OrType(t1, t2)                     => isExact1(t1) || isExact1(t2)
+      case tpe if tpe.typeSymbol == exact1Sym => true
+      case _                                  => false
+
   override def transformIf(tree: If)(using Context): Tree =
     if (replaceIfs.contains(tree.srcPos.show))
       // debug("=======================")
       val dfcTree = dfcStack.head
-      var exactWrapper = false
-      val combinedTpe = tree.tpe match
-        case AppliedType(tycon, List(combinedTpe))
-            if tycon.dealias.typeSymbol == requiredClass("dfhdl.internals.Exact") =>
-          exactWrapper = true
-          combinedTpe.widen
-        case tpe => tpe
-      // debug(tree.show)
-      // debug(combinedTpe.show)
-      // debug(tree)
+      val combinedTpe = tree.tpe.widen
       val (branchesVarArgs, elseOption) =
         transformIfRecur(tree, combinedTpe, dfcTree, Nil)
       val branches = mkList(branchesVarArgs)
-      val ifTree = ref(fromBranchesSym)
+      val sym =
+        if (isExact1(combinedTpe)) fromBranchesExact1Sym
+        else if (isExact0(combinedTpe)) fromBranchesExact0Sym
+        else fromBranchesSym
+      ref(sym)
         .appliedToType(combinedTpe)
         .appliedTo(branches, elseOption)
         .appliedTo(dfcTree)
-      if (exactWrapper)
-        ref(requiredMethod("dfhdl.internals.Exact.apply"))
-          .appliedToType(combinedTpe)
-          .appliedTo(ifTree.withType(combinedTpe))
-      else ifTree
     else tree
 
   object DFType:
@@ -555,7 +563,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         caseTupleTrees: List[Tree],
         forceAnonymous: Boolean
     )(using Context): Tree =
-      ref(fromCasesSym)
+      val sym = if (isExact1(retTpe)) fromCasesExactSym else fromCasesSym
+      ref(sym)
         .appliedToType(retTpe)
         .appliedTo(
           selectorTree,
@@ -679,16 +688,23 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         FromCore.patternSingleton(selectorTree, lit)
       // hacked unapply for enum enumerations
       case Pattern.Enum(arg) =>
-        val DFEnum(enumTpe) = dfTypeTpe: @unchecked
-        if (arg.tpe <:< enumTpe) FromCore.patternSingleton(selectorTree, arg)
-        else
-          report.error(
-            s"""Wrong enum entry type.
-               |Expecting: ${enumTpe.show}
-               |Found: ${arg.tpe.show}""".stripMargin,
-            arg.srcPos
-          )
-          EmptyTree
+        dfTypeTpe match
+          case DFEnum(enumTpe) =>
+            if (arg.tpe <:< enumTpe) FromCore.patternSingleton(selectorTree, arg)
+            else
+              report.error(
+                s"""Wrong enum entry type.
+                   |Expecting: ${enumTpe.show}
+                   |Found: ${arg.tpe.show}""".stripMargin,
+                arg.srcPos
+              )
+              EmptyTree
+          case _ =>
+            report.error(
+              s"Found an enum pattern but the match selector is not an enum.",
+              patternTree.srcPos
+            )
+            EmptyTree
       // constant string interpolation
       case Pattern.SI(block, binds, rhs) =>
         dfTypeTpe match
@@ -959,9 +975,16 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
     fromBooleanSym = requiredMethod("dfhdl.core.r__For_Plugin.fromBoolean")
     toFunc1Sym = requiredMethod("dfhdl.core.r__For_Plugin.toFunc1")
     fromBranchesSym = requiredMethod("dfhdl.core.DFIf.fromBranches")
+    fromBranchesExact0Sym = requiredMethod("dfhdl.core.DFIf.fromBranchesExact0")
+    fromBranchesExact1Sym = requiredMethod("dfhdl.core.DFIf.fromBranchesExact1")
     fromCasesSym = requiredMethod("dfhdl.core.DFMatch.fromCases")
+    fromCasesExactSym = requiredMethod("dfhdl.core.DFMatch.fromCasesExact")
     dfValClsRef = requiredClassRef("dfhdl.core.DFVal")
     dfEncodingRef = requiredClassRef("dfhdl.core.DFEncoding")
     enumHackedUnapply = requiredMethod("dfhdl.unapply")
+    exact0Sym = requiredClass("dfhdl.internals.Exact0")
+    exact1Sym = requiredClass("dfhdl.internals.Exact1")
+    exactApplySym = requiredMethod("dfhdl.internals.Exact.apply")
     ctx
+  end prepareForUnit
 end CustomControlPhase

@@ -145,7 +145,11 @@ trait Exact0[
   val tc: ExactTC
   def apply()(using ctx: Ctx): tc.Out
 object Exact0:
-  type Aux[Ctx, TC[From] <: Exact0.TC[From, Ctx], R] = Exact0[Ctx, TC] { type ExactFrom = R }
+  type Aux[Ctx, TC[From] <: Exact0.TC[From, Ctx], ExactFrom0, ExactTC0 <: TC[ExactFrom0]] =
+    Exact0[Ctx, TC] {
+      type ExactFrom = ExactFrom0
+      type ExactTC = ExactTC0
+    }
   implicit inline def toValue[
       Ctx,
       TC[From] <: Exact0.TC[From, Ctx]
@@ -153,10 +157,7 @@ object Exact0:
   def apply[From, Ctx, TC[From] <: Exact0.TC[From, Ctx]](
       from: From,
       tc0: TC[From]
-  ): Exact0[Ctx, TC] {
-    type ExactFrom = From
-    type ExactTC = tc0.type
-  } = new Exact0[Ctx, TC]:
+  ): Aux[Ctx, TC, From, tc0.type] = new Exact0[Ctx, TC]:
     type ExactFrom = From
     final val exactFrom: ExactFrom = from
     type ExactTC = tc0.type
@@ -203,20 +204,29 @@ trait Exact1[
   def apply(arg1: FArg1[Arg1])(using ctx: Ctx): tc.Out
 end Exact1
 object Exact1:
-  def apply[
+  type Aux[
       Arg1UB,
       Arg1 <: Arg1UB,
       FArg1[Arg1 <: Arg1UB],
+      Ctx,
+      TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, FArg1, From, Ctx],
+      ExactFrom0,
+      ExactTC0 <: TC[Arg1, ExactFrom0]
+  ] = Exact1[Arg1UB, Arg1, FArg1, Ctx, TC] {
+    type ExactFrom = ExactFrom0
+    type ExactTC = ExactTC0
+  }
+  def apply[
       From,
+      Arg1UB,
+      Arg1 <: Arg1UB,
+      FArg1[Arg1 <: Arg1UB],
       Ctx,
       TC[Arg1 <: Arg1UB, From] <: Exact1.TC[Arg1UB, Arg1, FArg1, From, Ctx]
   ](
       from: From,
       tc0: TC[Arg1, From]
-  ): Exact1[Arg1UB, Arg1, FArg1, Ctx, TC] {
-    type ExactFrom = From
-    type ExactTC = tc0.type
-  } = new Exact1[Arg1UB, Arg1, FArg1, Ctx, TC]:
+  ): Aux[Arg1UB, Arg1, FArg1, Ctx, TC, From, tc0.type] = new Exact1[Arg1UB, Arg1, FArg1, Ctx, TC]:
     type ExactFrom = From
     type ExactTC = tc0.type
     final val tc: ExactTC = tc0
@@ -246,7 +256,7 @@ object Exact1:
     import quotes.reflect.*
     val fromExactInfo = from.exactInfo
     '{
-      Exact1[Arg1UB, Arg1, FArg1, fromExactInfo.Underlying, Ctx, TC](
+      Exact1[fromExactInfo.Underlying, Arg1UB, Arg1, FArg1, Ctx, TC](
         ${ fromExactInfo.exactExpr },
         compiletime.summonInline[TC[Arg1, fromExactInfo.Underlying]]
       )

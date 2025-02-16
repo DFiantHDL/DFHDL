@@ -14,7 +14,7 @@ enum ALUSel extends Encode:
   private val shamt = op2(4, 0)
 
   import ALUSel.*
-  val outCalc: Bits[32] <> VAL = aluSel match
+  aluOut := aluSel match
     case ADD   => op1 + op2
     case SUB   => op1 - op2
     case AND   => op1 & op2
@@ -27,7 +27,6 @@ enum ALUSel extends Encode:
     case SRA   => (op1.sint >> shamt).bits
     case COPY1 => op1
     case _     => ?
-  aluOut := outCalc
 end ALU
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

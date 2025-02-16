@@ -22,6 +22,6 @@ enum ShiftDir extends Encode:
   val dir   = ShiftDir          <> IN
   /** bits output */
   val oBits = Bits(width)       <> OUT
-  dir match
-    case ShiftDir.Left  => oBits := iBits << shift
-    case ShiftDir.Right => oBits := iBits >> shift
+  oBits := dir match
+    case ShiftDir.Left  => iBits << shift
+    case ShiftDir.Right => iBits >> shift

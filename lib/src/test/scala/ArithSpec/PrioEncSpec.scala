@@ -5,11 +5,13 @@ import lib.arith.prioEnc
 
 class PrioEncSpec extends DesignSpec:
   test("Printing Encoder-32"):
-    @top(false) class PrioTest extends DFDesign:
-      val b32 = Bits(32) <> VAR
-      val res = prioEnc(b32)
-      res._2.verifyWidth(5)
+    object Test:
+      @top(false) class PrioTest extends DFDesign:
+        val b32 = Bits(32) <> VAR
+        val res = prioEnc(b32)
+        res._2.verifyWidth(5)
 
+    import Test.*
     PrioTest().assertCodeString(
       """|@hw.pure
          |def prioEncRecur_0(value: Bits[2] <> VAL): (Bit, Bits[1]) <> DFRET =
@@ -63,11 +65,13 @@ class PrioEncSpec extends DesignSpec:
          |""".stripMargin
     )
   test("Printing Encoder-31"):
-    @top(false) class PrioTest extends DFDesign:
-      val b31 = Bits(31) <> VAR
-      val res = prioEnc(b31)
-      res._2.verifyWidth(5)
+    object Test:
+      @top(false) class PrioTest extends DFDesign:
+        val b31 = Bits(31) <> VAR
+        val res = prioEnc(b31)
+        res._2.verifyWidth(5)
 
+    import Test.*
     PrioTest().assertCodeString(
       """|@hw.pure
          |def prioEncRecur_0(value: Bits[2] <> VAL): (Bit, Bits[1]) <> DFRET =

@@ -81,12 +81,19 @@ class DFIfSpec extends DFSpec:
          |  if (i) d"8'1"
          |  else if (!i) x.bits.uint
          |  else d"8'2"
-         |""".stripMargin
+         |val res2 = UInt(8) <> VAR
+         |res2 := ((
+         |  if (i) d"8'1"
+         |  else if (!i) x.bits.uint
+         |  else d"8'2"
+         |): UInt[8] <> VAL)""".stripMargin
     ) {
       val res: UInt[8] <> VAL =
         if (i) 1
         else if (!i) x.bits.uint
         else 2
+      val res2 = UInt(8) <> VAR
+      res2 := (if (i) 1 else if (!i) x.bits.uint else 2)
     }
     assertCodeString(
       """|val res: UInt[8] <> VAL =
@@ -96,7 +103,15 @@ class DFIfSpec extends DFSpec:
          |  else if (!i) x.bits.uint
          |  else d"8'3"
          |  end if
-         |""".stripMargin
+         |val res2 = UInt(8) <> VAR
+         |res2 := ((
+         |  if (i)
+         |    if (i) d"8'1"
+         |    else d"8'2"
+         |  else if (!i) x.bits.uint
+         |  else d"8'3"
+         |  end if
+         |): UInt[8] <> VAL)""".stripMargin
     ) {
       val res: UInt[8] <> VAL =
         if (i)
@@ -104,6 +119,13 @@ class DFIfSpec extends DFSpec:
           else 2
         else if (!i) x.bits.uint
         else 3
+      val res2 = UInt(8) <> VAR
+      res2 :=
+        (if (i)
+           if (i) 1
+           else 2
+         else if (!i) x.bits.uint
+         else 3)
     }
     assertCodeString(
       """|val res: UInt[8] <> VAL =
@@ -115,7 +137,17 @@ class DFIfSpec extends DFSpec:
          |  else if (!i) x.bits.uint
          |  else d"8'3"
          |  end if
-         |""".stripMargin
+         |val res2 = UInt(8) <> VAR
+         |res2 := ((
+         |  if (i)
+         |    val internal: UInt[8] <> VAL =
+         |      if (i) d"8'1"
+         |      else d"8'2"
+         |    internal
+         |  else if (!i) x.bits.uint
+         |  else d"8'3"
+         |  end if
+         |): UInt[8] <> VAL)""".stripMargin
     ) {
       val res: UInt[8] <> VAL =
         if (i)
@@ -125,6 +157,16 @@ class DFIfSpec extends DFSpec:
           internal
         else if (!i) x.bits.uint
         else 3
+      val res2 = UInt(8) <> VAR
+      res2 := (
+        if i then
+          val internal: UInt[8] <> VAL =
+            if (i) 1
+            else 2
+          internal
+        else if (!i) x.bits.uint
+        else 3
+      )
     }
     assertCodeString(
       """|val res =
@@ -141,21 +183,29 @@ class DFIfSpec extends DFSpec:
         ((if (i) i else i): Boolean <> VAL) ||
           ((if (!i) !i else !i): Boolean <> VAL)
     }
-    // TODO: make this work! We have Exact casting to DFVal.
-    // assertCodeString(
-    //   """|val res =
-    //      |  ((
-    //      |    if (i) i
-    //      |    else i
-    //      |  ): Boolean <> VAL) || ((
-    //      |    if (!i) !i
-    //      |    else !i
-    //      |  ): Boolean <> VAL)
-    //      |""".stripMargin
-    // ) {
-    //   val res: Boolean <> VAL =
-    //     (if (i) i else i) || (if (!i) !i else !i)
-    // }
+    assertCodeString(
+      """|val res =
+         |  ((
+         |    if (i) i
+         |    else i
+         |  ): Boolean <> VAL) || ((
+         |    if (!i) !i
+         |    else !i
+         |  ): Boolean <> VAL)
+         |val res2 = Boolean <> VAR
+         |res2 := ((
+         |  if (i) i
+         |  else i
+         |): Boolean <> VAL) || ((
+         |  if (!i) !i
+         |  else !i
+         |): Boolean <> VAL)""".stripMargin
+    ) {
+      val res: Boolean <> VAL =
+        (if (i) i else i) || (if (!i) !i else !i)
+      val res2 = Boolean <> VAR
+      res2 := (if (i) i else i) || (if (!i) !i else !i)
+    }
     assertCodeString(
       """|val rs0: Boolean <> VAL =
          |  if (!i) !i

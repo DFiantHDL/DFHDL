@@ -119,6 +119,7 @@ end _name_ //optional `end` marker
 
 * __`_modifiers_`__ - Optional Scala modifiers. See [Design Class Modifier Rules][design-class-modifier-rules] for details.
 
+### `LeftShift2` example {#LeftShift2}
 /// admonition | Basic top-app design example: a two-bits left shifter
     type: example
 The DFHDL code below implements a two-bit left shifter design named `LeftShift2`. The design:
@@ -236,6 +237,7 @@ The DFHDL design parameter block follows standard Scala syntax, accepting a comm
 
 * __`_access_`__ - Optional [Scala access modifier](https://docs.scala-lang.org/scala3/book/domain-modeling-oop.html#access-modifiers){target="_blank"}. Usually `#!scala val` to make the parameter public. See [Design Parameter Access Rules][design-parameter-access-rules] for details.
 
+#### `LeftShiftBasic` example {#LeftShiftBasic}
 /// admonition | Scala-parameterized top-app design example: a basic left shifter
     type: example
 The DFHDL code below implements a basic left shifter design named `LeftShiftBasic`. This design is similar to the earlier example of `LeftShift2` except here the design has the shift value as an input, and its input and output port widths are set according to the Scala parameter `width`.
@@ -295,9 +297,10 @@ children = [
 
 The basic code shifter above did not generate the `width` parameter in the Verilog and VHDL backend code. The following example shows how to preserve the `width` parameter:
 
+#### `LeftShiftGen` example {#LeftShiftGen}
 /// admonition | DFHDL-parameterized top-app design example: a generic left shifter
     type: example
-The DFHDL code below implements a generic left shifter design named `LeftShiftGen`. This design is similar to the earlier example of `LeftShiftBasic`, except here the `width` parameter is now a DFHDL parameter, as indicated by its `Int <> CONST` type. This enables the DFHDL compiler to preserve the parameter name and directly use it in the generated backend code where applicable.
+The DFHDL code below implements a generic left shifter design named `LeftShiftGen`. This design is similar to the earlier example of [`LeftShiftBasic`][LeftShiftBasic], except here the `width` parameter is now a DFHDL parameter, as indicated by its `Int <> CONST` type. This enables the DFHDL compiler to preserve the parameter name and directly use it in the generated backend code where applicable.
 
 <div class="grid" markdown>
 
@@ -550,6 +553,7 @@ All other Scala class modifiers have no special effect or limitation from a DFHD
 ### Design Class Inheritance
 DFHDL leverages Scala inheritance to enable sharing functionality between design classes.
 
+#### `ShiftGen` example {#ShiftGen}
 /// admonition | Generic left and right shifters, design class inheritance example
     type: example
 The DFHDL code below demonstrates how to implement both left and right generic shifters efficiently by using a common `#!scala abstract class` named `ShiftGen`. The `width` parameter is declared as an abstract class field (without an assigned value) inside the `ShiftGen` class body. By extending `ShiftGen`, both `LeftShiftGen` and `RightShiftGen` can utilize the IOs already declared in `ShiftGen`. They only need to explicitly declare the `width` parameter and implement the shift functionality in their respective class bodies.
@@ -620,9 +624,10 @@ DFHDL supports three mechanisms to form a design hierarchy through design instan
 
 The following sections explore these composition mechanisms using our running example of a bit shifter. First, let's examine a more complex shifter with both left and right shift capabilities, implemented as a flat (composition-less) design:
 
+### `LRShiftFlat` example {#LRShiftFlat}
 /// admonition | Generic left-right shifter, flat design example
     type: example
-The DFHDL code below implements a generic left-right shifter flat design named `LRShiftFlat`. This design expands on `LeftShiftGen` by adding a `dir` enum port value that specifies the shift direction and a shift operation multiplexer through a `#!scala match` statement.
+The DFHDL code below implements a generic left-right shifter flat design named `LRShiftFlat`. This design expands on [`LeftShiftGen`][LeftShiftGen] by adding a `dir` enum port value that specifies the shift direction and a shift operation multiplexer through a `#!scala match` statement.
 
 <div class="grid" markdown>
 
@@ -707,22 +712,51 @@ children = [
 ///
 
 ### Direct Connection Composition
-Direct connection composition is the recommended way to build hierarchical designs in DFHDL. It offers several advantages:
+Direct connection composition is the recommended approach for building hierarchical designs in DFHDL. It offers several key advantages:
 
-1. Separate instantiation and connection - You can create child design instances first, then connect their ports later
-2. Direct port references - Access child design ports without intermediate variables
+1. Separate instantiation and connection - Create child design instances first, then connect their ports later
+2. Direct port references - Access child design ports without intermediate variables 
 3. Flexible connectivity - Connect ports in any order and across multiple statements
 
-/// admonition | Generic left-right shifter, direct connection composed design example
+#### Syntax
+The syntax for direct composition follows standard Scala class instantiation, with port connections made via the `<>` operator:
+
+```scala linenums="0" title="Direct composition syntax"
+//instantiate a child design
+val _childDesignName_ = _designClass_(_params_)
+//port connection (repeat for each child port)
+_childDesignName_._childPort_ <> _connectedValue_ 
+```
+
+Where:
+
+* `_childDesignName_` - The instance name for the child design. This name is preserved by the DFHDL compiler and used in error messages and generated artifacts. See the [naming][naming] section for details.
+
+* `_designClass_` - The design class to instantiate.
+
+* `_params_` - Parameters for the child design. Empty parentheses `()` are required even if no parameters are needed. Parameters can be specified:
+    - As ordered values (e.g., `Counter(8, Up)`)
+    - As named parameters (e.g., `Counter(width = 8, dir = Up)`) 
+    - Parameters with default values can be omitted
+
+* `_childPort_` - The port of the child design to connect.
+
+* `_connectedValue_` - The value to connect to the child port. Can be:
+    - A constant
+    - A variable
+    - A port of the parent design
+    - A port of another child design instance
+
+The `<>` connection operator has no explicit directionality - it automatically infers producer/consumer relationships based on the connected value types and scope. See the [connectivity][connectivity] section for details.
+
+#### `LRShiftDirect` example {#LRShiftDirect}
+/// admonition | Generic left-right shifter using direct connection composition
     type: example
-The DFHDL code below implements a generic left-right shifter named `LRShiftDirect`. This design provides the same functionality as `LRShiftFlat` but uses composition to:
-- Split left and right shift operations into separate designs (`LeftShiftGen` and `RightShiftGen`)
-- Reuse the common interface and parameter declarations from `ShiftGen`
-- Connect the child designs' ports to implement the multiplexed shifting behavior
+The code below implements a generic left-right shifter named `LRShiftDirect`. This design provides the same functionality as [`LRShiftFlat`][LRShiftFlat], but uses composition to split left and right shift operations into separate designs. The implementation leverages the design class inheritance shown in the [`ShiftGen`][ShiftGen] example.
 
 /// admonition  
     type: note
-While this example demonstrates direct composition, a flat approach is often preferred for simpler designs.
+While this example demonstrates direct composition, a flat approach is often preferable for simpler designs.
 For complex designs, however, splitting functionality into sub-components promotes code reuse, simplifies verification, and follows good design practices.
 ///
 
@@ -873,5 +907,243 @@ children = [
 ///
 
 ### Via Connection Composition
+Via connection composition is a legacy mechanism that connects child design ports within the child design instantiation. It exists for compatibility with Verilog module instantiation and VHDL component instantiation. The DFHDL compiler automatically transforms direct connections into via connections.
+
+#### Syntax
+The syntax for via composition uses Scala anonymous class instantiation, with port connections made inside the instantiation block:
+
+```scala linenums="0" title="Via composition syntax"
+//instantiate a child design
+val _childDesignName_ = new _designClass_(_params_):
+    //port connection (repeat for each child port)
+    _childPort_ <> _connectedValue_
+```
+
+The `#!scala new` keyword and colon `:` syntax creates an anonymous class instance. Port connections must be made within this instantiation block, similar to Verilog module and VHDL component instantiation. This means connected values must be declared before they are used in the connection operation.
+
+/// admonition | Handling port name collisions between parent and child designs
+    type: tip
+When connecting ports with the same name in parent and child designs, Scala's name shadowing rules will favor the child port name. For example, when connecting the `iBits` port of `LeftShiftGen` to the `iBits` port of `LRShiftVia`, we need a way to reference the parent's `iBits` port from within the child design.
+
+To solve this, we use Scala's class self reference feature and name it `parent`, as shown in the [`LRShiftVia`][LRShiftVia] example below.
+///
+
+#### `LRShiftVia` example {#LRShiftVia}
+/// admonition | Generic left-right shifter, via composition example
+    type: example
+The DFHDL code below implements the same generic left-right shifter composition seen in the [`LRShiftDirect`][LRShiftDirect] example, but uses via composition instead of direct composition. We define a `parent` self reference for the `LRShiftVia` design to refer to the `LRShiftVia` design within the `lshifter: LeftShiftGen` and `rshifter: RightShiftGen` child designs. We also use intermediate variables for the `oBits` ports of the `lshifter` and `rshifter` child designs and apply the multiplexer logic to select between them.
+
+```scala
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftVia.scala:5"
+``` 
+///
+
+Another interesting example is the automatic transformation of a direct composition design into a via composition design:
+/// admonition | Direct-to-via compilation transformation example
+    type: example
+The code below shows how the DFHDL compiler transforms the [`LRShiftDirect`][LRShiftDirect] design into via composition form. For each child design port, the compiler:
+
+1. Creates an intermediate variable with the same type
+2. Connects the child port to this variable inside the child's instantiation block
+3. Connects the variable to the appropriate value in the parent design
+
+```scala
+class LRShiftDirect(val width: Int <> CONST = 8) extends EDDesign:
+  /** bits input */
+  val iBits          = Bits(width)        <> IN
+  /** requested shift */
+  val shift          = UInt(clog2(width)) <> IN
+  /** bits output */
+  val oBits          = Bits(width)        <> OUT
+  /** direction of shift */
+  val dir            = ShiftDir           <> IN
+  val lshifter_iBits = Bits(width)        <> VAR
+  val lshifter_shift = UInt(clog2(width)) <> VAR
+  val lshifter_oBits = Bits(width)        <> VAR
+  val lshifter = new LeftShiftGen(width = width):
+    this.iBits   <>/*<--*/ lshifter_iBits
+    this.shift   <>/*<--*/ lshifter_shift
+    this.oBits   <>/*-->*/ lshifter_oBits
+  val rshifter_iBits = Bits(width)        <> VAR
+  val rshifter_shift = UInt(clog2(width)) <> VAR
+  val rshifter_oBits = Bits(width)        <> VAR
+  val rshifter = new RightShiftGen(width = width):
+    this.iBits   <>/*<--*/ rshifter_iBits
+    this.shift   <>/*<--*/ rshifter_shift
+    this.oBits   <>/*-->*/ rshifter_oBits
+  lshifter_iBits <> iBits
+  lshifter_shift <> shift
+  rshifter_iBits <> iBits
+  rshifter_shift <> shift
+  process(all):
+    dir match
+      case ShiftDir.Left  => oBits := lshifter_oBits
+      case ShiftDir.Right => oBits := rshifter_oBits
+    end match
+end LRShiftDirect
+``` 
+Note how the compiler adds comments (`/*<--*/` and `/*-->*/`) to indicate the direction of data flow in the child design port connections.
+
+The following runnable example is the same as the [`LRShiftDirect`][LRShiftDirect] example, except for the default compiler options, which we altered to print the compiled design in DFHDL code format rather than the backend code format.
+/// details | Runnable example
+    type: dfhdl
+```scastie
+import dfhdl.*
+given options.CompilerOptions.Backend = backends.verilog
+//disable the default backend code print (in scastie)
+given options.CompilerOptions.PrintBackendCode = false
+//enable the DFHDL code print after compilation
+given options.CompilerOptions.PrintDFHDLCode = true
+
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftDirect.scala:6"
+```
+///
+///
 
 ### Functional Composition
+Functional composition is a method-call based mechanism primarily used for dataflow designs with a single output. It's particularly useful for arithmetic and logic operations. The DFHDL compiler automatically transforms functional composition into direct design composition.
+
+#### Syntax
+The syntax for functional composition follows standard Scala method declaration and invocation to declare and invoke *design definitions* (aka design methods or design functions):
+
+```scala linenums="0" title="Functional composition syntax"
+//declare a design definition
+def _designName_(
+    _param1_: _type1_ <> VAL,
+    _param2_: _type2_ <> VAL,
+    ...,
+    _paramN_: _typeN_ <> VAL
+): _returnType_ <> DFRET = _expression_
+
+//invoke the design definition
+_designName_(_param1_, _param2_, ..., _paramN_)
+```
+
+Where:
+
+* `_designName_` - The name of the design definition
+* `_paramN_` - Input parameters that act as design ports
+* `_typeN_` - DFHDL types for the parameters
+* `_returnType_` - DFHDL type for the output port
+* `<> VAL` - Marks parameters as design input ports
+* `<> DFRET` - Marks the return type as a design output port
+* `_expression_` - The design functionality
+
+#### `LRShiftFunc` example {#LRShiftFunc}
+/// admonition | Generic left-right shifter using functional composition
+    type: example
+The code below implements the same generic left-right shifter functionality seen in previous examples, but uses functional composition. The implementation is split into three function designs:
+
+1. `LeftShiftGen` - Performs left shift operation
+2. `RightShiftGen` - Performs right shift operation  
+3. `LRShiftFunc` - Top-level function that selects between left/right shift
+
+Since functions can't be top-level designs in DFHDL, we wrap `LRShiftFunc` in a top-level design class `LRShiftFuncWrapper`.
+
+<div class="grid" markdown>
+
+```scala
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo6/LRShiftFunc.scala:6"
+```
+
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = wrapper
+    label = LRShiftFuncWrapper
+    inPorts = [iBits, shift, dir]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [
+      {
+        id = func
+        label = LRShiftFunc
+        inPorts = [iBits, shift, dir]
+        outPorts = [oBits]
+        children = [
+          {
+            id = left
+            label = LeftShiftGen
+            inPorts = [iBits, shift]
+            outPorts = [oBits]
+            children = [
+              {
+                id = opLeft 
+                label = "<<"
+                northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+              }
+            ]
+            edges = [
+              [left.shift, opLeft.shift]
+              [left.iBits, opLeft]
+              [opLeft, left.oBits]
+            ]
+          },
+          {
+            id = right
+            label = RightShiftGen
+            inPorts = [iBits, shift]
+            outPorts = [oBits]
+            children = [
+              {
+                id = opRight 
+                label = ">>"
+                northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+              }
+            ]
+            edges = [
+              [right.shift, opRight.shift]
+              [right.iBits, opRight]
+              [opRight, right.oBits]
+            ]
+          },
+          {
+            id = mux
+            label = "mux"
+            northPorts = [{id = sel, label = " ", height = 5, width = 1}]
+          }
+        ]
+        edges = [
+          [func.iBits, left.iBits]
+          [func.shift, left.shift]
+          [func.iBits, right.iBits]
+          [func.shift, right.shift]
+          [func.dir, mux.sel]
+          [left.oBits, mux]
+          [right.oBits, mux]
+          [mux, func.oBits]
+        ]
+      }
+    ]
+    edges = [
+      [wrapper.iBits, func.iBits]
+      [wrapper.shift, func.shift]
+      [wrapper.dir, func.dir]
+      [func.oBits, wrapper.oBits]
+    ]
+  }
+]
+```
+
+</div>
+
+/// admonition | Advantages of functional composition
+    type: tip
+Functional composition offers several benefits:
+
+1. Concise syntax - No need for explicit port declarations and connections
+2. Natural expression - Operations can be written in a more natural mathematical style
+3. Easy reuse - Functions can be composed and reused easily
+4. Type safety - Scala's type system ensures correct port connections
+///
+
+<!-- TODO: add runnable example -->
+<!-- /// details | Runnable example
+    type: dfhdl
+```scastie
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo6/LRShiftFunc.scala:3"
+```
+/// -->
+///
+

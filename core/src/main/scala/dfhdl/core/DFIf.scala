@@ -31,10 +31,62 @@ object DFIf:
     dfc.exitOwner()
     (dfType, block)
   end singleBranch
+
+  class Exact0TCDummy[From] extends Exact0.TC[From, DFC]:
+    type Out = DFValAny
+    def conv(from: From)(using DFC): Out = ???
+  end Exact0TCDummy
+  object Exact0TCDummy extends Exact0TCDummy[DFValAny]
+  def fromBranchesExact0[R](
+      branches: List[(DFValOf[DFBoolOrBit], () => Exact0[DFC, ?])],
+      elseOption: Option[() => Exact0[DFC, ?]]
+  )(using DFC): R =
+    val ifFunc: () => DFValAny = () =>
+      fromBranches(
+        branches.map { case (cond, run) =>
+          (
+            cond,
+            () =>
+              val e = run.apply()
+              e.apply().asInstanceOf[DFValAny]
+          )
+        },
+        elseOption.map { run => () =>
+          val e = run.apply()
+          e.apply().asInstanceOf[DFValAny]
+        }
+      )
+    val exact = new Exact0[DFC, Exact0TCDummy]:
+      type ExactFrom = DFValAny
+      val exactFrom: ExactFrom = ifFunc()
+      type ExactTC = Exact0TCDummy.type
+      val tc: ExactTC = Exact0TCDummy
+      def apply()(using ctx: DFC): tc.Out = exactFrom.asInstanceOf[tc.Out]
+    exact.asInstanceOf[R]
+  end fromBranchesExact0
+
+  def fromBranchesExact1[R](
+      branches: List[(DFValOf[DFBoolOrBit], () => DFVal.TC.Exact[DFTypeAny])],
+      elseOption: Option[() => DFVal.TC.Exact[DFTypeAny]]
+  )(using DFC): R =
+    val ifFunc: DFTypeAny => DFValOf[DFTypeAny] = dfType =>
+      fromBranches(
+        branches.map { case (cond, run) => (cond, () => run.apply().apply(dfType)) },
+        elseOption.map { run => () => run.apply().apply(dfType) }
+      )
+    val exact = new DFVal.TC.Exact[DFTypeAny]:
+      type ExactFrom = DFValOf[DFTypeAny]
+      type ExactTC = DFVal.TCDummy.type
+      val tc: ExactTC = DFVal.TCDummy
+      def apply(dfType: DFTypeAny)(using ctx: DFC): tc.Out = ifFunc(dfType).asInstanceOf[tc.Out]
+    exact.asInstanceOf[R]
+  end fromBranchesExact1
+
   def fromBranches[R](
       branches: List[(DFValOf[DFBoolOrBit], () => R)],
       elseOption: Option[() => R]
-  )(using DFC): R = try
+  )(using dfc: DFC): R = try
+    import dfc.getSet
     val header = Header(DFUnit)
     val dfcAnon = summon[DFC].anonymize
     var branchTypes = List.empty[ir.DFType]
@@ -59,10 +111,10 @@ object DFIf:
     val hasNoType = branchTypes.contains(ir.DFUnit)
     // if one branch has DFUnit, the return type is DFUnit.
     // otherwise, all types must be the same.
-    if (hasNoType || branchTypes.allElementsAreEqual)
+    if (hasNoType || branchTypes.forall(_.isSimilarTo(branchTypes.head)))
       val retDFType = if (hasNoType) ir.DFUnit else branchTypes.head
       val DFVal(headerIR: DFIfHeader) = header: @unchecked
-      val headerUpdate = headerIR.copy(dfType = retDFType)
+      val headerUpdate = headerIR.copy(dfType = retDFType.dropUnreachableRefs)
       // updating the type of the if header
       headerIR.replaceMemberWith(headerUpdate).asValAny.asInstanceOf[R]
     else // violation
