@@ -119,6 +119,7 @@ end _name_ //optional `end` marker
 
 * __`_modifiers_`__ - Optional Scala modifiers. See [Design Class Modifier Rules][design-class-modifier-rules] for details.
 
+### `LeftShift2` example {#LeftShift2}
 /// admonition | Basic top-app design example: a two-bits left shifter
     type: example
 The DFHDL code below implements a two-bit left shifter design named `LeftShift2`. The design:
@@ -236,7 +237,7 @@ The DFHDL design parameter block follows standard Scala syntax, accepting a comm
 
 * __`_access_`__ - Optional [Scala access modifier](https://docs.scala-lang.org/scala3/book/domain-modeling-oop.html#access-modifiers){target="_blank"}. Usually `#!scala val` to make the parameter public. See [Design Parameter Access Rules][design-parameter-access-rules] for details.
 
-[](){#LeftShiftBasic}
+#### `LeftShiftBasic` example {#LeftShiftBasic}
 /// admonition | Scala-parameterized top-app design example: a basic left shifter
     type: example
 The DFHDL code below implements a basic left shifter design named `LeftShiftBasic`. This design is similar to the earlier example of `LeftShift2` except here the design has the shift value as an input, and its input and output port widths are set according to the Scala parameter `width`.
@@ -296,7 +297,7 @@ children = [
 
 The basic code shifter above did not generate the `width` parameter in the Verilog and VHDL backend code. The following example shows how to preserve the `width` parameter:
 
-[](){#LeftShiftGen}
+#### `LeftShiftGen` example {#LeftShiftGen}
 /// admonition | DFHDL-parameterized top-app design example: a generic left shifter
     type: example
 The DFHDL code below implements a generic left shifter design named `LeftShiftGen`. This design is similar to the earlier example of [`LeftShiftBasic`][LeftShiftBasic], except here the `width` parameter is now a DFHDL parameter, as indicated by its `Int <> CONST` type. This enables the DFHDL compiler to preserve the parameter name and directly use it in the generated backend code where applicable.
@@ -552,7 +553,7 @@ All other Scala class modifiers have no special effect or limitation from a DFHD
 ### Design Class Inheritance
 DFHDL leverages Scala inheritance to enable sharing functionality between design classes.
 
-[](){#ShiftGen}
+#### `ShiftGen` example {#ShiftGen}
 /// admonition | Generic left and right shifters, design class inheritance example
     type: example
 The DFHDL code below demonstrates how to implement both left and right generic shifters efficiently by using a common `#!scala abstract class` named `ShiftGen`. The `width` parameter is declared as an abstract class field (without an assigned value) inside the `ShiftGen` class body. By extending `ShiftGen`, both `LeftShiftGen` and `RightShiftGen` can utilize the IOs already declared in `ShiftGen`. They only need to explicitly declare the `width` parameter and implement the shift functionality in their respective class bodies.
@@ -623,7 +624,7 @@ DFHDL supports three mechanisms to form a design hierarchy through design instan
 
 The following sections explore these composition mechanisms using our running example of a bit shifter. First, let's examine a more complex shifter with both left and right shift capabilities, implemented as a flat (composition-less) design:
 
-[](){#LRShiftFlat}
+### `LRShiftFlat` example {#LRShiftFlat}
 /// admonition | Generic left-right shifter, flat design example
     type: example
 The DFHDL code below implements a generic left-right shifter flat design named `LRShiftFlat`. This design expands on [`LeftShiftGen`][LeftShiftGen] by adding a `dir` enum port value that specifies the shift direction and a shift operation multiplexer through a `#!scala match` statement.
@@ -748,7 +749,7 @@ Where:
 
 The `<>` connection operator has no explicit directionality - it automatically infers producer/consumer relationships based on the connected value types and scope. See the [connectivity][connectivity] section for details.
 
-[](){#LRShiftDirect}
+#### `LRShiftDirect` example {#LRShiftDirect}
 /// admonition | Generic left-right shifter using direct connection composition
     type: example
 The code below implements a generic left-right shifter named `LRShiftDirect`. This design provides the same functionality as [`LRShiftFlat`][LRShiftFlat], but uses composition to split left and right shift operations into separate designs. The implementation leverages the design class inheritance shown in the [`ShiftGen`][ShiftGen] example.
@@ -927,7 +928,7 @@ When connecting ports with the same name in parent and child designs, Scala's na
 To solve this, we use Scala's class self reference feature and name it `parent`, as shown in the [`LRShiftVia`][LRShiftVia] example below.
 ///
 
-[](){#LRShiftVia}
+#### `LRShiftVia` example {#LRShiftVia}
 /// admonition | Generic left-right shifter, via composition example
     type: example
 The DFHDL code below implements the same generic left-right shifter composition seen in the [`LRShiftDirect`][LRShiftDirect] example, but uses via composition instead of direct composition. We define a `parent` self reference for the `LRShiftVia` design to refer to the `LRShiftVia` design within the `lshifter: LeftShiftGen` and `rshifter: RightShiftGen` child designs. We also use intermediate variables for the `oBits` ports of the `lshifter` and `rshifter` child designs and apply the multiplexer logic to select between them.
@@ -1028,7 +1029,7 @@ Where:
 * `<> DFRET` - Marks the return type as a design output port
 * `_expression_` - The design functionality
 
-[](){#LRShiftFunc}
+#### `LRShiftFunc` example {#LRShiftFunc}
 /// admonition | Generic left-right shifter using functional composition
     type: example
 The code below implements the same generic left-right shifter functionality seen in previous examples, but uses functional composition. The implementation is split into three function designs:
