@@ -550,80 +550,6 @@ case class Bar() extends DFDesign
 
 All other Scala class modifiers have no special effect or limitation from a DFHDL compiler perspective. Nonetheless, these modifiers can be relevant when defining a more complex design API, as part of the DFHDL meta-programming capabilities through the Scala language (e.g., changing class access to `#!scala protected`).
 
-### Design Class Inheritance
-DFHDL leverages Scala inheritance to enable sharing functionality between design classes.
-
-#### `ShiftGen` example {#ShiftGen}
-/// admonition | Generic left and right shifters, design class inheritance example
-    type: example
-The DFHDL code below demonstrates how to implement both left and right generic shifters efficiently by using a common `#!scala abstract class` named `ShiftGen`. The `width` parameter is declared as an abstract class field (without an assigned value) inside the `ShiftGen` class body. By extending `ShiftGen`, both `LeftShiftGen` and `RightShiftGen` can utilize the IOs already declared in `ShiftGen`. They only need to explicitly declare the `width` parameter and implement the shift functionality in their respective class bodies.
-
-<div class="grid" markdown>
-
-```scala
---8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftDirect.scala:6:35"
-```
-
-```hdelk width=100%
-stroke-width = 0
-children = [
-  {
-    id = left
-    label = LeftShiftGen
-    inPorts = [iBits, shift]
-    outPorts = [oBits]
-    parameters = [width]
-    children = [
-      {
-        id = opLeft 
-        label = "<<"
-        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
-      }
-    ]
-    edges = [
-      [left.shift, opLeft.shift]
-      [left.iBits, opLeft]
-      [opLeft, left.oBits]
-    ]
-  },
-  {
-    id = right
-    label = RightShiftGen
-    inPorts = [iBits, shift]
-    outPorts = [oBits]
-    parameters = [width]
-    children = [
-      {
-        id = opRight 
-        label = ">>"
-        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
-      }
-    ]
-    edges = [
-      [right.shift, opRight.shift]
-      [right.iBits, opRight]
-      [opRight, right.oBits]
-    ]
-  }
-]
-```
-
-</div>
-///
-
-
-
-## Design Composition & Instantiation
-DFHDL supports three mechanisms to form a design hierarchy through design instantiation and composition:
-
-* [Direct Connection Composition][direct-connection-composition] - The recommended mechanism for complex design hierarchies with multiple inputs and outputs. Design instantiation and port connection can be done separately, allowing child design ports to be referenced without intermediate variables.
-
-* [Via Connection Composition][via-connection-composition] - A legacy mechanism that connects ports only within a design instantiation. This exists for compatibility with Verilog module instancing and VHDL component instancing. The DFHDL compiler automatically transforms direct connections into via connections.
-
-* [Functional Composition][functional-composition] - A method-call mechanism for dataflow designs, primarily used for arithmetic/logic functionality with a single output port. The DFHDL compiler automatically transforms functional composition into direct design composition.
-
-The following sections explore these composition mechanisms using our running example of a bit shifter. First, let's examine a more complex shifter with both left and right shift capabilities, implemented as a flat (composition-less) design:
-
 ### `LRShiftFlat` example {#LRShiftFlat}
 /// admonition | Generic left-right shifter, flat design example
     type: example
@@ -710,6 +636,80 @@ children = [
 ```
 ///
 ///
+
+### Design Class Inheritance
+DFHDL leverages Scala inheritance to enable sharing functionality between design classes.
+
+#### `ShiftGen` example {#ShiftGen}
+/// admonition | Generic left and right shifters, design class inheritance example
+    type: example
+The DFHDL code below demonstrates how to implement both left and right generic shifters efficiently by using a common `#!scala abstract class` named `ShiftGen`. The `width` parameter is declared as an abstract class field (without an assigned value) inside the `ShiftGen` class body. By extending `ShiftGen`, both `LeftShiftGen` and `RightShiftGen` can utilize the IOs already declared in `ShiftGen`. They only need to explicitly declare the `width` parameter and implement the shift functionality in their respective class bodies.
+
+<div class="grid" markdown>
+
+```scala
+--8<-- "lib/src/test/scala/docExamples/ugdemos/demo5/LRShiftDirect.scala:6:35"
+```
+
+```hdelk width=100%
+stroke-width = 0
+children = [
+  {
+    id = left
+    label = LeftShiftGen
+    inPorts = [iBits, shift]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [
+      {
+        id = opLeft 
+        label = "<<"
+        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+    ]
+    edges = [
+      [left.shift, opLeft.shift]
+      [left.iBits, opLeft]
+      [opLeft, left.oBits]
+    ]
+  },
+  {
+    id = right
+    label = RightShiftGen
+    inPorts = [iBits, shift]
+    outPorts = [oBits]
+    parameters = [width]
+    children = [
+      {
+        id = opRight 
+        label = ">>"
+        northPorts = [{id = shift, label = " ", height = 5, width = 1}]
+      }
+    ]
+    edges = [
+      [right.shift, opRight.shift]
+      [right.iBits, opRight]
+      [opRight, right.oBits]
+    ]
+  }
+]
+```
+
+</div>
+///
+
+
+
+## Design Composition & Instantiation
+DFHDL supports three mechanisms to form a design hierarchy through design instantiation and composition:
+
+* [Direct Connection Composition][direct-connection-composition] - The recommended mechanism for complex design hierarchies with multiple inputs and outputs. Design instantiation and port connection can be done separately, allowing child design ports to be referenced without intermediate variables.
+
+* [Via Connection Composition][via-connection-composition] - A legacy mechanism that connects ports only within a design instantiation. This exists for compatibility with Verilog module instancing and VHDL component instancing. The DFHDL compiler automatically transforms direct connections into via connections.
+
+* [Functional Composition][functional-composition] - A method-call mechanism for dataflow designs, primarily used for arithmetic/logic functionality with a single output port. The DFHDL compiler automatically transforms functional composition into direct design composition.
+
+The following sections explore these composition mechanisms using our running example of a bit shifter:
 
 ### Direct Connection Composition
 Direct connection composition is the recommended approach for building hierarchical designs in DFHDL. It offers several key advantages:
