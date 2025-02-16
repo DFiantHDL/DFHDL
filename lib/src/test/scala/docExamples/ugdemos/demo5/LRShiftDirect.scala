@@ -53,7 +53,7 @@ enum ShiftDir extends Encode:
   lshifter.shift <> shift
   rshifter.iBits <> iBits
   rshifter.shift <> shift
-  dir match
-    case ShiftDir.Left  => oBits := lshifter.oBits
-    case ShiftDir.Right => oBits := rshifter.oBits
+  oBits := dir match
+    case ShiftDir.Left  => lshifter.oBits
+    case ShiftDir.Right => rshifter.oBits
 end LRShiftDirect
