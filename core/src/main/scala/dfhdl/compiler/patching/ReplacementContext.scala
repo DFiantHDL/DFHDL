@@ -106,13 +106,19 @@ private final case class ReplacementContext(
     // * refs from origMember - references from this member to other members
     // Together these cover both directions of two-way references
     val purgedRefs =
-      memberTable.getOrElse(origMember, Set()) ++ origMember.getRefs
+      memberTable.getOrElse(origMember, Set()) ++ origMember.getRefs + origMember.ownerRef
     val (updatedTypeRefRepeats, purgedRefsWithoutRepeatedTypeRefs) =
       getUpdatedTypeRefCount(purgedRefs)
+    val updatedMemberTable = purgedRefsWithoutRepeatedTypeRefs.foldLeft(memberTable) {
+      case (mt, r) =>
+        mt.updatedWith(r.get)(SomeRefs => Some(SomeRefs.get - r))
+    }
     this.copy(
       refTable = this.refTable -- purgedRefsWithoutRepeatedTypeRefs,
+      memberTable = updatedMemberTable,
       typeRefRepeats = updatedTypeRefRepeats
     )
+  end removeMember
 
 end ReplacementContext
 

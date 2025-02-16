@@ -13,21 +13,23 @@ case object ExplicitCondExprAssign extends Stage:
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    var headers = List.empty[DFConditional.Header]
     extension (ch: DFConditional.Header)
       // recursive call to patch conditional block chains
       private def patchChains(headerVar: DFVal, op: DFNet.Op): List[(DFMember, Patch)] =
         // changing type of header to unit, since the expression is now a statement
-        headers = ch :: headers
+        val headerPatch = ch -> Patch.Replace(
+          ch.updateDFType(DFUnit),
+          Patch.Replace.Config.FullReplacement
+        )
         val cbChain = getSet.designDB.conditionalChainTable(ch)
         val lastMembers = cbChain.map(_.members(MemberView.Folded).last)
-        lastMembers.flatMap {
+        headerPatch :: lastMembers.flatMap {
           case ident @ Ident(underlying: DFConditional.Header) =>
             ident -> Patch.Remove() :: underlying.patchChains(headerVar, op)
           case ident @ Ident(underlying) =>
             val assignDsn = new MetaDesign(
               ident,
-              Patch.Add.Config.After
+              Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)
             ):
               (op: @unchecked) match
                 case DFNet.Op.Assignment =>
@@ -39,7 +41,7 @@ case object ExplicitCondExprAssign extends Stage:
                   headerVar.asVarAny.nbassign(underlying.asValAny)(using
                     dfc.setMetaAnon(ident.meta.position)
                   )
-            ident -> Patch.Remove() :: assignDsn.patch :: Nil
+            Some(assignDsn.patch)
           case _ => ??? // not possible
         }
       end patchChains
@@ -51,7 +53,7 @@ case object ExplicitCondExprAssign extends Stage:
         val removeNetPatch = net -> Patch.Remove()
         removeNetPatch :: ch.patchChains(headerVar, op)
     end extension
-    val patchList1 = designDB.members.view
+    val patchList = designDB.members.view
       // collect all the assignments from anonymous conditionals
       .flatMap {
         case net @ DFNet.Assignment(toVal, header: DFConditional.Header) if header.isAnonymous =>
@@ -61,15 +63,7 @@ case object ExplicitCondExprAssign extends Stage:
           header.patchChainsNet(toVal, net, DFNet.Op.Assignment)
         case _ => Nil
       }.toList
-    val patchList2 = headers.map { h =>
-      h -> Patch.Replace(
-        h.updateDFType(DFUnit),
-        Patch.Replace.Config.FullReplacement
-      )
-    }
-    designDB
-      .patch(patchList1)
-      .patch(patchList2)
+    designDB.patch(patchList)
   end transform
 end ExplicitCondExprAssign
 
