@@ -4,7 +4,8 @@ import dfhdl.internals.invert
 private final case class ReplacementContext(
     refTable: Map[DFRefAny, DFMember],
     memberTable: Map[DFMember, Set[DFRefAny]],
-    memberRepTable: Map[DFMember, List[(DFMember, Patch.Replace.RefFilter)]]
+    memberRepTable: Map[DFMember, List[(DFMember, Patch.Replace.RefFilter)]],
+    typeRefRepeats: Map[DFRef.TypeRef, Int]
 )(using getSet: MemberGetSet):
   def changeRef(origRef: DFRefAny, updateMember: DFMember): ReplacementContext =
     //        println("changeRef", origRef, updateMember)
@@ -55,10 +56,12 @@ private final case class ReplacementContext(
       val purgedRefs = config match
         case Patch.Replace.Config.ChangeRefOnly => Set()
         case _                                  => refFilter(origMember.getRefs.toSet -- keepRefs)
+      val (updatedTypeRefRepeats, purgedRefsWithoutRepeatedTypeRefs) =
+        getUpdatedTypeRefCount(purgedRefs)
       val updatedRefTable: Map[DFRefAny, DFMember] =
         replacementHistory.foldRight(refTable) { case ((rm, rf), rt) =>
           rf(refs).foldLeft(rt)((rt2, r) => rt2.updated(r, rm))
-        } -- purgedRefs
+        } -- purgedRefsWithoutRepeatedTypeRefs
       val updatedMemberRepTable: Map[DFMember, List[(DFMember, Patch.Replace.RefFilter)]] =
         refFilter match
           // An all inclusive filter is purging all other replacement histories, so we only save it alone
@@ -70,24 +73,56 @@ private final case class ReplacementContext(
       val updatedMemberTable = purgedRefs.foldLeft(memberTable) { case (mt, r) =>
         mt.updatedWith(r.get)(SomeRefs => Some(SomeRefs.get - r))
       } + (latestRepMember -> refs)
-      ReplacementContext(updatedRefTable, updatedMemberTable, updatedMemberRepTable)
+      ReplacementContext(
+        updatedRefTable,
+        updatedMemberTable,
+        updatedMemberRepTable,
+        updatedTypeRefRepeats
+      )
     end if
   end replaceMember
 
-  def removeMember(origMember: DFMember): ReplacementContext =
-    // total references to be removed are both
-    // * refs - directly referencing the member
-    // * originRefs - the member is referencing other members with a two-way
-    //                reference that points back to it.
-    val totalRefs =
-      memberTable.getOrElse(origMember, Set()) ++ origMember.getRefs.filter {
-        case _: DFRef.TypeRef => false
-        case _                => true
+  // returns the updated type ref count and the purged refs without repeated type refs
+  private def getUpdatedTypeRefCount(
+      purgedRefs: Set[DFRefAny]
+  ): (Map[DFRef.TypeRef, Int], Set[DFRefAny]) =
+    val updatedTypeRefRepeats = purgedRefs.view
+      .collect { case ref: DFRef.TypeRef => ref }
+      .foldLeft(typeRefRepeats) { case (counts, ref) =>
+        counts.get(ref) match
+          case Some(count) => counts.updated(ref, count - 1)
+          case None        => counts
       }
-    this.copy(refTable = this.refTable -- totalRefs)
+    val purgedRefsWithoutRepeatedTypeRefs = purgedRefs.filter {
+      case ref: DFRef.TypeRef => updatedTypeRefRepeats.get(ref).exists(_ == 0)
+      case _                  => true
+    }
+    (updatedTypeRefRepeats, purgedRefsWithoutRepeatedTypeRefs)
+  end getUpdatedTypeRefCount
+
+  def removeMember(origMember: DFMember): ReplacementContext =
+    // Total references to be removed are:
+    // * refs from memberTable - references from other members to this member
+    // * refs from origMember - references from this member to other members
+    // Together these cover both directions of two-way references
+    val purgedRefs =
+      memberTable.getOrElse(origMember, Set()) ++ origMember.getRefs
+    val (updatedTypeRefRepeats, purgedRefsWithoutRepeatedTypeRefs) =
+      getUpdatedTypeRefCount(purgedRefs)
+    this.copy(
+      refTable = this.refTable -- purgedRefsWithoutRepeatedTypeRefs,
+      typeRefRepeats = updatedTypeRefRepeats
+    )
 
 end ReplacementContext
 
 private object ReplacementContext:
   def fromRefTable(refTable: Map[DFRefAny, DFMember])(using MemberGetSet): ReplacementContext =
-    ReplacementContext(refTable, refTable.invert, Map())
+    val typeRefRepeats =
+      getSet.designDB.members.view
+        .flatMap(_.getRefs.view.collect { case ref: DFRef.TypeRef => ref })
+        .groupBy(identity)
+        .view
+        .mapValues(_.size)
+        .toMap
+    ReplacementContext(refTable, refTable.invert, Map(), typeRefRepeats)

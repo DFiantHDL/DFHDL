@@ -12,10 +12,6 @@ case object ExplicitCondExprAssign extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
 
-  object IgnoreTypeRefs extends Patch.Replace.RefFilter:
-    def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
-      refs.filterNot(_.isTypeRef)
-
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     var headers = List.empty[DFConditional.Header]
     extension (ch: DFConditional.Header)
@@ -68,8 +64,7 @@ case object ExplicitCondExprAssign extends Stage:
     val patchList2 = headers.map { h =>
       h -> Patch.Replace(
         h.updateDFType(DFUnit),
-        Patch.Replace.Config.FullReplacement,
-        IgnoreTypeRefs
+        Patch.Replace.Config.FullReplacement
       )
     }
     designDB
