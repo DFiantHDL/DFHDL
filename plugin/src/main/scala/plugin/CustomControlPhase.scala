@@ -688,16 +688,23 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
         FromCore.patternSingleton(selectorTree, lit)
       // hacked unapply for enum enumerations
       case Pattern.Enum(arg) =>
-        val DFEnum(enumTpe) = dfTypeTpe: @unchecked
-        if (arg.tpe <:< enumTpe) FromCore.patternSingleton(selectorTree, arg)
-        else
-          report.error(
-            s"""Wrong enum entry type.
-               |Expecting: ${enumTpe.show}
-               |Found: ${arg.tpe.show}""".stripMargin,
-            arg.srcPos
-          )
-          EmptyTree
+        dfTypeTpe match
+          case DFEnum(enumTpe) =>
+            if (arg.tpe <:< enumTpe) FromCore.patternSingleton(selectorTree, arg)
+            else
+              report.error(
+                s"""Wrong enum entry type.
+                   |Expecting: ${enumTpe.show}
+                   |Found: ${arg.tpe.show}""".stripMargin,
+                arg.srcPos
+              )
+              EmptyTree
+          case _ =>
+            report.error(
+              s"Found an enum pattern but the match selector is not an enum.",
+              patternTree.srcPos
+            )
+            EmptyTree
       // constant string interpolation
       case Pattern.SI(block, binds, rhs) =>
         dfTypeTpe match
