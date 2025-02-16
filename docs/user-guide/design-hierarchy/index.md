@@ -709,7 +709,7 @@ DFHDL supports three mechanisms to form a design hierarchy through design instan
 
 * [Functional Composition][functional-composition] - A method-call mechanism for dataflow designs, primarily used for arithmetic/logic functionality with a single output port. The DFHDL compiler automatically transforms functional composition into direct design composition.
 
-The following sections explore these composition mechanisms using our running example of a bit shifter. First, let's examine a more complex shifter with both left and right shift capabilities, implemented as a flat (composition-less) design:
+The following sections explore these composition mechanisms using our running example of a bit shifter:
 
 ### Direct Connection Composition
 Direct connection composition is the recommended approach for building hierarchical designs in DFHDL. It offers several key advantages:
