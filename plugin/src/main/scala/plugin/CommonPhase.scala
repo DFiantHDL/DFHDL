@@ -67,23 +67,38 @@ abstract class CommonPhase extends PluginPhase:
 
   private val dropProxiesTreeMap = new TreeMap:
     override def transform(tree: tpd.Tree)(using Context): tpd.Tree =
+      def dropProxies(expr: Tree, trees: List[Tree]): Tree =
+        val proxyMap = trees.collect {
+          case vd: ValDef if vd.symbol.is(InlineProxy) => vd.name -> vd.rhs
+        }.toMap
+        object Transform:
+          def unapply(tree: Tree): Option[Tree] =
+            tree match
+              case Apply(fun, proxies) =>
+                Some(
+                  Apply(
+                    fun,
+                    proxies.map(_.underlying).map {
+                      case Ident(n)              => proxyMap(n.toTermName)
+                      case NamedArg(x, Ident(n)) => NamedArg(x, proxyMap(n.toTermName))
+                      case x                     => x
+                    }
+                  )
+                )
+              case Typed(Transform(tree), x) => Some(Typed(tree, x))
+              case _                         => None
+        end Transform
+        Transform.unapply(expr).getOrElse(expr)
+      end dropProxies
+
       super.transform(tree) match
+        case inlined: Inlined if inlined.bindings.nonEmpty =>
+          dropProxies(inlined.expansion, inlined.bindings)
         case block: Block =>
-          val proxyMap = block.stats.collect {
-            case vd: ValDef if vd.symbol.is(Synthetic) => vd.name -> vd.rhs
-          }.toMap
-          block.expr match
-            case Apply(fun, proxies) =>
-              Apply(
-                fun,
-                proxies.map {
-                  case Ident(n)              => proxyMap(n.toTermName)
-                  case NamedArg(x, Ident(n)) => NamedArg(x, proxyMap(n.toTermName))
-                  case x                     => x
-                }
-              )
-            case tree => tree
+          dropProxies(block.expr, block.stats)
         case tree => tree
+      end match
+    end transform
 
   protected def dropProxies(tree: Tree)(using Context): Tree =
     dropProxiesTreeMap.transform(tree)

@@ -1,5 +1,5 @@
 package dfhdl.options
-import dfhdl.core.{ClkCfg, RstCfg}
+import dfhdl.core.{ClkCfg, RstCfg, Design}
 import dfhdl.compiler.ir.RTDomainCfg
 import ElaborationOptions.*
 final case class ElaborationOptions(
@@ -12,17 +12,19 @@ final case class ElaborationOptions(
   private[dfhdl] val defaultRTDomainCfg: RTDomainCfg.Explicit =
     RTDomainCfg.Explicit("RTDomainCfg.Default", defaultClkCfg, defaultRstCfg)
 object ElaborationOptions:
-  given default(using
-      logLevel: LogLevel,
-      onError: OnError,
-      defaultClkCfg: DefaultClkCfg,
-      defaultRstCfg: DefaultRstCfg,
-      printDFHDLCode: PrintDFHDLCode
-  ): ElaborationOptions =
-    ElaborationOptions(
+  opaque type Defaults[-T <: Design] <: ElaborationOptions = ElaborationOptions
+  object Defaults:
+    given (using
+        logLevel: LogLevel,
+        onError: OnError,
+        defaultClkCfg: DefaultClkCfg,
+        defaultRstCfg: DefaultRstCfg,
+        printDFHDLCode: PrintDFHDLCode
+    ): Defaults[Design] = ElaborationOptions(
       logLevel = logLevel, onError = onError, defaultClkCfg = defaultClkCfg,
       defaultRstCfg = defaultRstCfg, printDFHDLCode = printDFHDLCode
     )
+  given (using defaults: Defaults[Design]): ElaborationOptions = defaults
 
   opaque type LogLevel <: dfhdl.options.LogLevel = dfhdl.options.LogLevel
   object LogLevel:

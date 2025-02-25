@@ -14,7 +14,7 @@ final case class DFC(
     annotations: List[HWAnnotation] = Nil, // TODO: removing default causes stale symbol crash
     mutableDB: MutableDB = new MutableDB(),
     tags: ir.DFTags = ir.DFTags.empty,
-    elaborationOptions: ElaborationOptions = ElaborationOptions.default
+    elaborationOptions: ElaborationOptions = summon[ElaborationOptions.Defaults[Design]]
 ) extends MetaContext:
   def setMeta(
       nameOpt: Option[String] = nameOpt,

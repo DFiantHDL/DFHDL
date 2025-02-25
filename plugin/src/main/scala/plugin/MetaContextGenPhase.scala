@@ -189,8 +189,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   override def transformDefDef(tree: DefDef)(using Context): tpd.Tree =
     val sym = tree.symbol
-    if (sym.is(Override) && sym.name.toString == "__dfc" && tree.tpt.tpe <:< metaContextTpe)
-      treeOwnerOverrideMap.get(tree) match
+    if (sym.name.toString == "__dfc" && tree.tpt.tpe <:< metaContextTpe)
+      if (sym.is(Override)) treeOwnerOverrideMap.get(tree) match
         case Some(ownerTree, srcPos) =>
           getMetaInfo(ownerTree, srcPos) match
             case Some(metaInfo) =>
@@ -200,6 +200,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                 cpy.DefDef(tree)(rhs = tree.rhs.setMeta(None, srcPos, None, Nil))
               else tree
         case None => tree
+      else dropProxies(tree)
     else tree
   end transformDefDef
 

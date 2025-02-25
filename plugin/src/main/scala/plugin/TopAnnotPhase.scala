@@ -51,11 +51,14 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
           val clsSym = td.symbol.asClass
           // has top annotation and no companion object
           clsSym.getAnnotation(topAnnotSym).map(a => dropProxies(a.tree)) match
-            case Some(topAnnotTree @ Apply(Apply(_, topAnnotOptionsTrees), _)) =>
+            case Some(topAnnotTree @ Apply(Apply(Apply(_, topAnnotOptionsTrees), _), _)) =>
               // genMain argument in top annotation is true by default
               val genMain = topAnnotOptionsTrees match
-                case Literal(Constant(genMain: Boolean)) :: Nil => genMain
-                case _                                          => true
+                case Literal(Constant(genMain: Boolean)) :: _ => genMain
+                case NamedArg(genMainName, Literal(Constant(genMain: Boolean))) :: _
+                    if genMainName.toString == "genMain" =>
+                  genMain
+                case _ => true
               if (genMain)
                 if (template.constr.paramss.length > 1)
                   report.error(
