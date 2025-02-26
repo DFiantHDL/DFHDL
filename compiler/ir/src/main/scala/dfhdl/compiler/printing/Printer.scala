@@ -83,7 +83,7 @@ trait Printer
   def csClkCfg(clkCfg: ClkCfg): String =
     clkCfg match
       case _: None.type => "None"
-      case ClkCfg.Explicit(edge, rate, portName) =>
+      case ClkCfg.Explicit(edge, rate, portName, _) =>
         s"ClkCfg(${csClkEdgeCfg(edge)}, ${csRateUnit(rate)}, $portName)"
   def csRstModeCfg(mode: RstCfg.Mode): String =
     mode match
@@ -96,7 +96,7 @@ trait Printer
   def csRstCfg(rstCfg: RstCfg): String =
     rstCfg match
       case _: None.type => "None"
-      case RstCfg.Explicit(mode, active, portName) =>
+      case RstCfg.Explicit(mode, active, portName, _) =>
         s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)}, $portName)"
   def csRTDomainCfg(clkCfg: ClkCfg, rstCfg: RstCfg): String =
     s"""RTDomainCfg(

@@ -20,6 +20,7 @@ import dfhdl.core.{refTW, DFC}
   *      - a register alias (for rst, a non-bubble init must be used to trigger rst usage)
   *      - an internal design that has explicit Clk/Rst configuration
   *      - an explicit Clk/Rst declaration by the user
+  *      - a top design default configuration's inclusion policy is set to `AlwaysAtTop`
   *   1. For a domain with non-Clk/Rst input port members, the explicit configuration is taken from
   *      its input source. The input source is determined by searching for a source that is
   *      registered and get its register's owner domain, and consequently its configuration. An
@@ -54,6 +55,10 @@ case object ExplicitClkRstCfg extends Stage:
             if (dependency == thatDomainOwner) true
             else dependency.isDependentOn(thatDomainOwner)
           case None => false
+      def getExplicitCfg: RTDomainCfg.Explicit =
+        domainOwner.domainType match
+          case DomainType.RT(explicitCfg: RTDomainCfg.Explicit) => explicitCfg
+          case _ => designDB.top.getTagOf[RTDomainCfg.Explicit].get
       def usesClkRst: (Boolean, Boolean) = domainOwner match
         case design: DFDesignBlock =>
           designUsesClkRst.getOrElseUpdate(
@@ -73,14 +78,23 @@ case object ExplicitClkRstCfg extends Stage:
         case reg: DFVal.Alias.History => true
         case internal: DFDesignBlock  => internal.usesClkRst._1
         case _                        => false
-      } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1)
+      } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1) ||
+        domainOwner.isTop && (domainOwner.getExplicitCfg.clkCfg match
+          case ClkCfg.Explicit(_, _, _, ClkRstInclusionPolicy.AlwaysAtTop) => true
+          case _                                                           => false
+        )
+
       def usesRst: Boolean = designDB.domainOwnerMemberTable(domainOwner).exists {
         case dcl: DFVal.Dcl =>
           (dcl.modifier.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
         case reg: DFVal.Alias.History => reg.hasNonBubbleInit
         case internal: DFDesignBlock  => internal.usesClkRst._2
         case _                        => false
-      } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._2)
+      } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._2) ||
+        domainOwner.isTop && (domainOwner.getExplicitCfg.rstCfg match
+          case RstCfg.Explicit(_, _, _, ClkRstInclusionPolicy.AlwaysAtTop) => true
+          case _                                                           => false
+        )
     end extension
 
     // filling domain to configuration map
@@ -121,9 +135,7 @@ case object ExplicitClkRstCfg extends Stage:
               end match
             // the domain is independent -> explicit configuration is set according to other factors
             case _ =>
-              val explicitCfg = domain.domainType match
-                case DomainType.RT(explicitCfg: RTDomainCfg.Explicit) => explicitCfg
-                case _ => designDB.top.getTagOf[RTDomainCfg.Explicit].get
+              val explicitCfg = domain.getExplicitCfg
               domainMap += domain -> explicitCfg.relaxed(domain)
               fillDomainMap(rest, stack)
           end match

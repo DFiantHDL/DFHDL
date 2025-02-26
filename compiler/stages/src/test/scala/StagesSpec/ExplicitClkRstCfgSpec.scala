@@ -37,6 +37,47 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("Basic hierarchy, combinational, always include clock and reset at top") {
+    given options.ElaborationOptions.DefaultClkCfg =
+      ClkCfg(inclusionPolicy = ClkCfg.InclusionPolicy.AlwaysAtTop)
+    given options.ElaborationOptions.DefaultRstCfg =
+      RstCfg(inclusionPolicy = RstCfg.InclusionPolicy.AlwaysAtTop)
+    val eo = summon[options.ElaborationOptions]
+    // force DFC with these elaboration options modifications (this is required because no @top annotation)
+    val dfc = DFC.empty(using eo)
+    def gen(using DFC): dfhdl.core.Design =
+      class ID extends RTDesign:
+        val x = SInt(16) <> IN
+        val y = SInt(16) <> OUT
+        y := x
+
+      class IDTop extends RTDesign:
+        val x  = SInt(16) <> IN
+        val y  = SInt(16) <> OUT
+        val id = ID()
+        id.x <> x
+        y    <> id.y
+
+      new IDTop
+    val id = (gen(using dfc)).explicitClkRstCfg
+    assertCodeString(
+      id,
+      """|class ID extends RTDesign(RTDomainCfg.Comb):
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  y := x
+         |end ID
+         |
+         |class IDTop extends RTDesign(RTDomainCfg.Default):
+         |  val x = SInt(16) <> IN
+         |  val y = SInt(16) <> OUT
+         |  val id = ID()
+         |  id.x <> x
+         |  y <> id.y
+         |end IDTop
+         |""".stripMargin
+    )
+  }
   test("Basic hierarchy, registered") {
     class ID extends RTDesign:
       val x = SInt(16) <> IN

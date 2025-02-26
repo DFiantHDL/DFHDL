@@ -14,6 +14,7 @@ final case class ElaborationOptions(
 object ElaborationOptions:
   opaque type Defaults[-T <: Design] <: ElaborationOptions = ElaborationOptions
   object Defaults:
+    given conv[T <: Design]: Conversion[ElaborationOptions, Defaults[T]] = identity
     given (using
         logLevel: LogLevel,
         onError: OnError,
@@ -24,7 +25,7 @@ object ElaborationOptions:
       logLevel = logLevel, onError = onError, defaultClkCfg = defaultClkCfg,
       defaultRstCfg = defaultRstCfg, printDFHDLCode = printDFHDLCode
     )
-  given (using defaults: Defaults[Design]): ElaborationOptions = defaults
+  given defaults(using defaults: Defaults[Design]): ElaborationOptions = defaults
 
   opaque type LogLevel <: dfhdl.options.LogLevel = dfhdl.options.LogLevel
   object LogLevel:

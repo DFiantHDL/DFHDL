@@ -11,6 +11,17 @@ object ConfigN:
   given [T]: CanEqual[None.type, ConfigN[T]] = CanEqual.derived
   given [L, R]: CanEqual[ConfigN[L], ConfigN[R]] = CanEqual.derived
 
+/** Sets the policy for inclusing the clock or reset signals when they are not needed
+  */
+enum ClkRstInclusionPolicy derives CanEqual:
+  /** Don't include if not needed
+    */
+  case AsNeeded
+
+  /** Always include at the top and silence with `@unused` annotation
+    */
+  case AlwaysAtTop
+
 type ClkCfg = ConfigN[ClkCfg.Explicit]
 object ClkCfg:
   enum Edge derives CanEqual:
@@ -19,7 +30,8 @@ object ClkCfg:
   final case class Explicit(
       edge: Edge,
       rate: Rate,
-      portName: String
+      portName: String,
+      inclusionPolicy: ClkRstInclusionPolicy
   ) derives CanEqual
 
 type RstCfg = ConfigN[RstCfg.Explicit]
@@ -32,7 +44,8 @@ object RstCfg:
   final case class Explicit(
       mode: Mode,
       active: Active,
-      portName: String
+      portName: String,
+      inclusionPolicy: ClkRstInclusionPolicy
   ) derives CanEqual
 end RstCfg
 
