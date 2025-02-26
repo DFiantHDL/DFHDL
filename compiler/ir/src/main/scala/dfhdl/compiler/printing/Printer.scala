@@ -142,6 +142,7 @@ trait Printer
   val keywordColor: String = s"$BLUE$BOLD"
   val keyword2Color: String = s"$MAGENTA$BOLD"
   val typeColor: String = "\u001B[38;5;94m"
+  val commentColor: String = GREEN
   final def formatCode(cs: String): String =
     val alignedContents = if (alignEnable) alignCode(cs) else cs
     if (colorEnable) colorCode(alignedContents) else alignedContents
@@ -336,6 +337,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
       .colorWords(dfhdlKW, keyword2Color)
       .colorOps(dfhdlOps, keyword2Color)
       .colorWords(dfhdlTypes, typeColor)
+      .colorLineComment("//", commentColor)
+      .colorBlockComment("/\\*", "\\*/", commentColor)
 end DFPrinter
 
 extension (member: DFMember)(using printer: Printer)

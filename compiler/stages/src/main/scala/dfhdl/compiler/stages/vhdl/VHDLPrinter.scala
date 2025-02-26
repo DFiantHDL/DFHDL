@@ -126,4 +126,5 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       .colorWords(vhdlKW, keywordColor)
       .colorOps(vhdlOps, keywordColor)
       .colorWords(vhdlTypes, typeColor)
+      .colorLineComment("--", commentColor)
 end VHDLPrinter

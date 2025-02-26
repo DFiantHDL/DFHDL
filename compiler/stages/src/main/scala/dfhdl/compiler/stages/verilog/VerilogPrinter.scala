@@ -111,5 +111,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       .colorWords(verilogKW, keywordColor)
       .colorOps(verilogOps, keywordColor)
       .colorWords(verilogTypes, typeColor)
+      .colorLineComment("//", commentColor)
+      .colorBlockComment("/\\*", "\\*/", commentColor)
 
 end VerilogPrinter
