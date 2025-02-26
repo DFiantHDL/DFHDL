@@ -41,7 +41,8 @@ lazy val root = (project in file("."))
     compiler_ir,
     core,
 	  compiler_stages,
-    lib
+    lib,
+    devices
   )
 
 lazy val internals = project
@@ -123,6 +124,21 @@ lazy val lib = project
   .dependsOn(
     core % "test->test;compile->compile",
     compiler_stages
+  )
+
+lazy val devices = (project in file("devices"))
+  .settings(
+    name := s"$projectName-devices",
+    settings,
+    pluginUseSettings,
+    libraryDependencies ++= commonDependencies
+  )
+  .dependsOn(
+    plugin,
+    internals,
+    compiler_ir,
+    core,
+    lib
   )
 
 // DEPENDENCIES
