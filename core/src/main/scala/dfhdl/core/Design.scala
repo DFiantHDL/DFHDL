@@ -41,6 +41,7 @@ trait Design extends Container, HasClsMetaArgs:
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false
 
+  def customTopChecks(): Unit = {}
   final override def onCreateEnd(thisOwner: Option[This]): Unit =
     if (hasStartedLate)
       dfc.exitLate()
@@ -56,9 +57,11 @@ trait Design extends Container, HasClsMetaArgs:
           errors.collect { case basicErr: DFError.Basic => basicErr.toString }.mkString("\n\n")
         )
       if (!skipChecks)
-        try dfc.mutableDB.immutable.check() // various checks post initial elaboration
+        try
+          dfc.mutableDB.immutable.check() // various checks post initial elaboration
+          customTopChecks() // custom user/library checks
         catch
-          case err: IllegalArgumentException =>
+          case err: (IllegalArgumentException | AssertionError) =>
             exitWithError(err.getMessage)
           case others => throw others
     end if
