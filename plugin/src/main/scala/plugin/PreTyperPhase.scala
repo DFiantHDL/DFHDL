@@ -27,6 +27,7 @@ import annotation.tailrec
   *     <> c` to be `(a op b) <> c`, where op is `|`, `||`, `&`, `&&`, `^`, or a comparison operator
   *   - change infix operator precedence of terms: `a := b match {...}` to be `a := (b match {...})`
   *     and `a <> b match {...}` to be `a <> (b match {...})`
+  *   - change process{} to process.forever{}
   *   - workaround for https://github.com/scala/scala3/issues/20053
   */
 class PreTyperPhase(setting: Setting) extends PluginPhase:
@@ -87,7 +88,10 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
         // only handling pure statements that begin as an infix
         case InfixOpChange(tree)       => tree
         case MatchAssignOpChange(tree) => tree
-        case tree                      => tree
+        // change process{} to process.forever{}
+        case Apply(Ident(process), List(block: Block)) if process.toString == "process" =>
+          Apply(Select(Ident(process), "forever".toTermName), List(block: Block))
+        case tree => tree
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
         // a connection could be in return position of a DFHDL Unit definition (if no block is used)

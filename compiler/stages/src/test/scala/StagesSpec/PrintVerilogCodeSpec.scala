@@ -283,7 +283,7 @@ class PrintVerilogCodeSpec extends StageSpec:
         my_var := x
         y     :== my_var
       }
-      process.forever {
+      process {
         z :== x
         y :== z
       }
