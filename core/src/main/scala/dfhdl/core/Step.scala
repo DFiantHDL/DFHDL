@@ -11,7 +11,7 @@ object Step:
         dfc: DFC,
         @implicitNotFound("`step` can only be used inside a process.") scope: DFC.Scope.Process,
         @implicitNotFound(
-          "`step` can only be used inside a register-transfer (RT) domain."
+          "`step` can only be used under register-transfer (RT) domains."
         ) check: DomainType.RT
     ): Step =
       scope.stepCache.updateWith(dfc.getMeta) {
@@ -33,7 +33,7 @@ object Step:
           dfc: DFC,
           @implicitNotFound("`goto` can only be used inside a process.") scope: DFC.Scope.Process,
           @implicitNotFound(
-            "`goto` can only be used inside a register-transfer (RT) domain."
+            "`goto` can only be used under register-transfer (RT) domains."
           ) check: DomainType.RT
       ): Unit =
         val member: ir.Goto = ir.Goto(

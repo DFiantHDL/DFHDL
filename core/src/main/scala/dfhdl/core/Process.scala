@@ -28,11 +28,11 @@ object Process:
   object Ops:
     protected type EDDomainOnly[A] = AssertGiven[
       A <:< DomainType.ED,
-      "A process with a sensitivity list is only allowed inside an event-driven (ED) domain."
+      "A process with a sensitivity list is only allowed under event-driven (ED) domains."
     ]
     protected type NotDFDomain[A] = AssertGiven[
       util.NotGiven[A <:< DomainType.DF],
-      "A process is not supported inside a dataflow (DF) domain."
+      "A process is not supported under dataflow (DF) domains."
     ]
     protected type NoNestingProcess = AssertGiven[
       util.NotGiven[DFC.Scope.Process],
