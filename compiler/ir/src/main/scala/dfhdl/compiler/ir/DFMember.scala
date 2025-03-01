@@ -138,6 +138,8 @@ object DFMember:
       case _                               => member
 end DFMember
 
+sealed trait Statement extends DFMember
+
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
   def width(using MemberGetSet): Int = dfType.width
@@ -802,7 +804,7 @@ final case class DFNet(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFMember:
+) extends Statement:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFNet =>
       this.lhsRef =~ that.lhsRef && this.op == that.op && this.rhsRef =~ that.rhsRef &&
@@ -895,7 +897,7 @@ final case class Goto(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFMember:
+) extends Statement:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: Goto =>
       this.stepRef =~ that.stepRef &&

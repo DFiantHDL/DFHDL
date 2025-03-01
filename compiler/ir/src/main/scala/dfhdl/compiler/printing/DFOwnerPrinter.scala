@@ -39,10 +39,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // excluding nets that are inputs to a design definition
         case DFNet.Connection(PortOfDesignDef(Modifier.IN, _), _, _) =>
           false
-        // include the rest of the nets
-        case net: DFNet => true
-        // include goto statements
-        case goto: Goto => true
+        // include the rest of statements: nets, gotos, etc.
+        case _: Statement => true
         // including only conditional statements (no type) headers
         case ch: DFConditional.Header => ch.dfType =~ DFUnit
         // process blocks
