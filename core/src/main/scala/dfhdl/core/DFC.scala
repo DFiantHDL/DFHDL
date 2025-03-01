@@ -4,8 +4,9 @@ import dfhdl.compiler.ir
 import dfhdl.options.ElaborationOptions
 import ir.{HWAnnotation, getActiveHWAnnotations}
 import scala.reflect.ClassTag
-
+import collection.mutable
 import scala.annotation.Annotation
+import scala.annotation.implicitNotFound
 
 final case class DFC(
     nameOpt: Option[String],
@@ -78,10 +79,13 @@ object DFC:
     object Design extends Design
     sealed trait Domain extends Scope
     object Domain extends Domain
-    sealed trait Process extends Scope
+    sealed trait Process extends Scope:
+      // will include the step cache according to the meta information
+      private[core] val stepCache = mutable.Map.empty[ir.Meta, ir.Step]
     object Process extends Process
     sealed trait Interface extends Scope
     object Interface extends Interface
+  end Scope
 end DFC
 
 transparent inline def dfc(using d: DFC): d.type = d

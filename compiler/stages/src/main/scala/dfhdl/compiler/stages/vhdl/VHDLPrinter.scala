@@ -37,6 +37,8 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   final val normalizeViaConnection: Boolean = true
   final val normalizeConnection: Boolean = true
   def csOpenKeyWord: String = "open"
+  def csStep(step: Step): String = unsupported
+  def csGoto(goto: Goto): String = unsupported
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
       s"""/*

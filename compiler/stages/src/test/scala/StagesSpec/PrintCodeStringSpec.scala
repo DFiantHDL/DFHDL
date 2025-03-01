@@ -915,4 +915,34 @@ class PrintCodeStringSpec extends StageSpec:
          |end MatchWithParams""".stripMargin
     )
   }
+  test("RTDesign process printing") {
+    class Foo extends RTDesign:
+      val cond = Bit <> IN
+      val v    = Bit <> VAR.REG init 0
+      process:
+        if (cond) x.goto
+        else
+          def z = step
+          if (cond) z.goto else y.goto
+        def x = step
+        def y = step
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends RTDesign:
+         |  val cond = Bit <> IN
+         |  val v = Bit <> VAR.REG init 0
+         |  process:
+         |    if (cond) x.goto
+         |    else
+         |      def z = step
+         |      if (cond) z.goto
+         |      else y.goto
+         |    end if
+         |    def x = step
+         |    def y = step
+         |end Foo""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

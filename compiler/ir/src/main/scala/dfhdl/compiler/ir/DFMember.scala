@@ -873,6 +873,46 @@ object DFNet:
   end Connection
 end DFNet
 
+final case class Step(
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFMember.Named:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: Step =>
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+  def copyWithNewRefs: this.type = copy(
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end Step
+
+final case class Goto(
+    stepRef: Goto.Ref,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFMember:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: Goto =>
+      this.stepRef =~ that.stepRef &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = List(stepRef)
+  def copyWithNewRefs: this.type = copy(
+    stepRef = stepRef.copyAsNewRef,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end Goto
+
+object Goto:
+  type Ref = DFRef.TwoWay[Step, Goto]
+
 sealed trait DFOwner extends DFMember:
   val meta: Meta
   def isTop(using MemberGetSet): Boolean = ownerRef.get match

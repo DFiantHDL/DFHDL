@@ -71,6 +71,8 @@ trait Printer
         end match
   end csDFNet
   def csOpenKeyWord: String
+  def csStep(step: Step): String
+  def csGoto(goto: Goto): String
   def csTimeUnit(time: Time): String = time.toString()
   def csFreqUnit(freq: Freq): String = freq.toString()
   def csRateUnit(rate: Rate): String = rate.toString()
@@ -128,8 +130,11 @@ trait Printer
       case pb: ProcessBlock    => csProcessBlock(pb)
       case domain: DomainBlock => csDomainBlock(domain)
       case timer: Timer        => csTimer(timer)
+      case step: Step          => csStep(step)
+      case goto: Goto          => csGoto(goto)
       case _                   => ???
     s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta)}$cs"
+  end csDFMember
   def designFileName(designName: String): String
   def globalFileName: String
   def csGlobalFileContent: String =
@@ -274,6 +279,10 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val normalizeViaConnection: Boolean = true
   val normalizeConnection: Boolean = true
   def csOpenKeyWord: String = "OPEN"
+  def csStep(step: Step): String =
+    s"def ${step.getName} = step"
+  def csGoto(goto: Goto): String =
+    s"${goto.stepRef.refCodeString}.goto"
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
@@ -326,7 +335,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
       "case", "final")
   val dfhdlKW: Set[String] =
     Set("VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
-      "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init")
+      "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
+      "goto")
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] =
     Set("Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encode", "Struct", "Opaque",

@@ -77,11 +77,18 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
             Some(InfixOp(a, Ident(op), Parens(Match(b, cases))))
           case _ =>
             None
+    object ProcessChange:
+      def unapply(tree: Tree)(using Context): Option[Tree] =
+        tree match
+          case Apply(Ident(process), List(ofTree)) if process.toString == "process" =>
+            Some(Apply(Select(Ident(process), "forever".toTermName), List(ofTree)))
+          case _ => None
     override def transformBlock(blk: Block)(using Context): Block =
       super.transformBlock(blk) match
         // a connection/assignment could be in return expression position of a Unit-typed block
         case Block(stats, InfixOpChange(expr))       => Block(stats, expr)
         case Block(stats, MatchAssignOpChange(expr)) => Block(stats, expr)
+        case Block(stats, ProcessChange(expr))       => Block(stats, expr)
         case blk                                     => blk
     override def transformStats(trees: List[Tree], exprOwner: Symbol)(using Context): List[Tree] =
       super.transformStats(trees, exprOwner).map:
@@ -89,9 +96,8 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
         case InfixOpChange(tree)       => tree
         case MatchAssignOpChange(tree) => tree
         // change process{} to process.forever{}
-        case Apply(Ident(process), List(block: Block)) if process.toString == "process" =>
-          Apply(Select(Ident(process), "forever".toTermName), List(block: Block))
-        case tree => tree
+        case ProcessChange(tree) => tree
+        case tree                => tree
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
         // a connection could be in return position of a DFHDL Unit definition (if no block is used)

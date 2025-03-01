@@ -41,6 +41,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
           false
         // include the rest of the nets
         case net: DFNet => true
+        // include goto statements
+        case goto: Goto => true
         // including only conditional statements (no type) headers
         case ch: DFConditional.Header => ch.dfType =~ DFUnit
         // process blocks
