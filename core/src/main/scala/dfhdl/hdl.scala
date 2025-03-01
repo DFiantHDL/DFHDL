@@ -40,8 +40,8 @@ protected object hdl:
   val UInt = core.DFUInt
   type SInt[W <: IntP] = core.DFSInt[W]
   val SInt = core.DFSInt
-  type Encode = core.DFEncoding.Default
-  val Encode = core.DFEncoding
+  type Encoded = core.DFEncoding.Default
+  val Encoded = core.DFEncoding
   export core.DFStruct.Fields as Struct
   export core.DFOpaque.Frontend as Opaque
   export core.DFOpaque.{Magnet, Clk, Rst}

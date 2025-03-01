@@ -678,7 +678,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
 
   test("left-right shift example") {
-    enum ShiftDir extends Encode:
+    enum ShiftDir extends Encoded:
       case Left, Right
 
     class ShiftGen(val width: Int) extends RTDesign:
@@ -707,7 +707,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val top = (new LRShiftGen).toED
     assertCodeString(
       top,
-      """|enum ShiftDir(val value: UInt[1] <> CONST) extends Encode.Manual(1):
+      """|enum ShiftDir(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
          |  case Left extends ShiftDir(d"1'0")
          |  case Right extends ShiftDir(d"1'1")
          |

@@ -219,9 +219,9 @@ class ExplicitStateSpec extends StageSpec:
          |""".stripMargin
     )
   }
-  test("Encode match pattern coverage") {
+  test("Encoded match pattern coverage") {
     class ID extends DFDesign:
-      enum MyEnum extends Encode:
+      enum MyEnum extends Encoded:
         case Foo, Baz, Bar
       import MyEnum.*
       val x  = MyEnum  <> IN
@@ -238,7 +238,7 @@ class ExplicitStateSpec extends StageSpec:
     val id = (new ID).explicitState
     assertCodeString(
       id,
-      """|enum MyEnum(val value: UInt[2] <> CONST) extends Encode.Manual(2):
+      """|enum MyEnum(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
          |  case Foo extends MyEnum(d"2'0")
          |  case Baz extends MyEnum(d"2'1")
          |  case Bar extends MyEnum(d"2'2")

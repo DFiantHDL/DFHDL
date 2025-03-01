@@ -2,7 +2,7 @@ package docExamples.alu
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 import dfhdl.* //import all the DFHDL goodness
 
-enum ALUSel extends Encode:
+enum ALUSel extends Encoded:
   case ADD, SUB, SLL, SRL, SRA, AND, OR, XOR, SLT, SLTU, COPY1
 
 @top class ALU extends DFDesign:

@@ -14,7 +14,7 @@ import dfhdl.* //import all the DFHDL goodness
   val tx_done    = Bit             <> OUT.REG
   val BIT_CLOCKS = CLK_FREQ_KHz * 1000 / BAUD_RATE_BPS
 
-  enum Status extends Encode.OneHot:
+  enum Status extends Encoded.OneHot:
     case Idle, StartBit, DataBits, StopBit, Finalize
   import Status.*
   val status     = Status                 <> VAR.REG init Idle

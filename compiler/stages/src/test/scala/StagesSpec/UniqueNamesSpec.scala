@@ -57,9 +57,9 @@ class UniqueNamesSpec extends StageSpec:
     )
   }
   class SomeEnums extends DFDesign:
-    enum MyEnumGlbl extends Encode:
+    enum MyEnumGlbl extends Encoded:
       case Bar, Baz
-    enum MyEnumLcl extends Encode:
+    enum MyEnumLcl extends Encoded:
       case Bar, Baz
     case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends Struct
     case class MyByte() extends Opaque(Bits(8))
@@ -68,7 +68,7 @@ class UniqueNamesSpec extends StageSpec:
     val pixel = Pixel      <> VAR init Pixel(0, 0)
     val byte  = MyByte     <> VAR init all(0).as(MyByte)
     object Temp:
-      enum MyEnumLcl extends Encode:
+      enum MyEnumLcl extends Encoded:
         case Baz, Bar
       val y = (MyEnumLcl, MyEnumLcl) <> VAR init (MyEnumLcl.Bar, MyEnumLcl.Baz)
     Temp.y // touch to force evaluation
@@ -77,12 +77,12 @@ class UniqueNamesSpec extends StageSpec:
     val top = (new SomeEnums).uniqueNames(Set(), true)
     assertCodeString(
       top,
-      """|enum MyEnumGlbl(val value: UInt[1] <> CONST) extends Encode.Manual(1):
+      """|enum MyEnumGlbl(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
          |  case Bar extends MyEnumGlbl(d"1'0")
          |  case Baz extends MyEnumGlbl(d"1'1")
          |
          |class SomeEnums extends DFDesign:
-         |  enum MyEnumLcl_0(val value: UInt[1] <> CONST) extends Encode.Manual(1):
+         |  enum MyEnumLcl_0(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
          |    case Bar extends MyEnumLcl_0(d"1'0")
          |    case Baz extends MyEnumLcl_0(d"1'1")
          |  final case class Pixel(
@@ -90,7 +90,7 @@ class UniqueNamesSpec extends StageSpec:
          |      y: UInt[8] <> VAL
          |  ) extends Struct
          |  case class MyByte() extends Opaque(Bits(8))
-         |  enum MyEnumLcl_1(val value: UInt[1] <> CONST) extends Encode.Manual(1):
+         |  enum MyEnumLcl_1(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
          |    case Baz extends MyEnumLcl_1(d"1'0")
          |    case Bar extends MyEnumLcl_1(d"1'1")
          |

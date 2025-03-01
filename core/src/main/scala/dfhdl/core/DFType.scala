@@ -204,7 +204,7 @@ object DFType:
             if (badTypeStr.endsWith("$package.<none>"))
               s"Type `$badTypeStr` is not a supported DFHDL type constructor.\nHint: Are you missing an argument in your DFHDL type constructor?"
             else
-              s"Type `$badTypeStr` is not a supported product companion.\nHint: Did you forget to extends `Struct` or `Encode`?"
+              s"Type `$badTypeStr` is not a supported product companion.\nHint: Did you forget to extends `Struct` or `Encoded`?"
           '{ compiletime.error(${ Expr(msg) }) }
       end match
     end productMacro
