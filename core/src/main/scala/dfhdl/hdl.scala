@@ -13,6 +13,7 @@ protected object hdl:
   export core.DFOpaque.Val.Ops.*
   export core.DFTuple.Val.Ops.*
   export core.DFVector.Ops.*
+  export core.TDFDouble.Val.Ops.*
   export core.DFVal.Ops.*
   export core.DFVarOps.*
   export core.DFPortOps.*

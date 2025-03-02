@@ -277,6 +277,8 @@ class PrintVHDLCodeSpec extends StageSpec:
       val c14: SInt[8] <> CONST         = ?
       val c15: (Bits[3], Bit) <> CONST  = (all(0), 1)
       val c16: Bits[8] X 5 X 7 <> CONST = Vector.fill(7)(Vector.tabulate(5)(i => h"8'$i$i"))
+      val c17: Double <> CONST          = 3.14159
+      val c18: Double <> CONST          = -2.71828
     end Top
     val top = (new Top).getCompiledCodeString
     assertNoDiff(
@@ -284,6 +286,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use ieee.math_real.all;
          |use work.dfhdl_pkg.all;
          |use work.Top_pkg.all;
          |
@@ -321,6 +324,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    5 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
          |    6 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44")
          |  );
+         |  constant c17 : real := 3.14159;
+         |  constant c18 : real := -2.71828;
          |begin
          |
          |end Top_arch;

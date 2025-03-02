@@ -130,10 +130,12 @@ trait AbstractDataPrinter extends AbstractPrinter:
   def csDFStructData(dfType: DFStruct, data: List[Any]): String
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String
   def csDFUnitData(dfType: DFUnit, data: Unit): String
+  def csDFDoubleData(dfType: DFDouble, data: Option[Double]): String
   final def csConstData(dfType: DFType, data: Any): String = (dfType, data) match
     case DFBits.Data(dt, data)      => csDFBitsData(dt, data)
     case DFBoolOrBit.Data(dt, data) => csDFBoolOrBitData(dt, data)
     case DFDecimal.Data(dt, data)   => csDFDecimalData(dt, data)
+    case DFDouble.Data(dt, data)    => csDFDoubleData(dt, data)
     case DFEnum.Data(dt, data)      => csDFEnumData(dt, data)
     case DFVector.Data(dt, data)    => csDFVectorData(dt, data)
     case DFOpaque.Data(dt, data)    => csDFOpaqueData(dt, data)
@@ -202,4 +204,8 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
       .map((t, d) => csConstData(t, d))
       .mkStringBrackets
   def csDFUnitData(dfType: DFUnit, data: Unit): String = "()"
+  def csDFDoubleData(dfType: DFDouble, data: Option[Double]): String =
+    data match
+      case Some(value) => value.toString
+      case None        => "?"
 end DFDataPrinter

@@ -95,9 +95,12 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       getSet.designDB.getGlobalNamedDFTypes.view
         .collect { case dfType: NamedDFType => printer.csNamedDFTypeConvFuncsBody(dfType) }
         .mkString("\n").emptyOr(x => s"$x\n")
+    val usesMathReal = getSet.designDB.membersGlobals.exists {
+      _.dfType.decompose { case dt: DFDouble => dt }.nonEmpty
+    }
     s"""library ieee;
        |use ieee.std_logic_1164.all;
-       |use ieee.numeric_std.all;
+       |use ieee.numeric_std.all;${if (usesMathReal) "\nuse ieee.math_real.all;" else ""}
        |use work.dfhdl_pkg.all;
        |
        |package ${printer.packageName} is

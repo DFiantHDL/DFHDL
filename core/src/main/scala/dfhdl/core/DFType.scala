@@ -32,6 +32,7 @@ object DFType:
     case Long      => DFSInt[64]
     case Byte      => DFBits[8]
     case Boolean   => DFBool
+    case Double    => DFDouble
     case DFOpaqueA => DFOpaque[T]
     case Product   => FromProduct[T]
     case Unit      => DFUnit
@@ -55,6 +56,7 @@ object DFType:
       case _: Boolean.type           => DFBool
       case _: Int.type               => DFInt32
       case _: Long.type              => DFSInt(64)
+      case _: Double.type            => DFDouble
       // TODO: need to add proper upper-bound if fixed in Scalac
       // see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: AnyRef => DFEnum(enumCompanion)
@@ -86,6 +88,7 @@ object DFType:
   export DFDecimal.given
   export DFEnum.given
   export DFVector.given
+  export TDFDouble.given
   // unlike the other types, this caused issues when defined in DFStruct and exported here.
   // there is some kind of Scala compiler bug (unreported) and this is a workaround.
   inline given fromFieldsOrTuple[F <: FieldsOrTuple]: DFStruct[F] = ${ DFStruct.dfTypeMacro[F] }
@@ -93,7 +96,7 @@ object DFType:
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
   type Supported = DFTypeAny | NonEmptyTuple | DFStruct.Fields | DFEncoding | DFOpaqueA | Byte |
-    Int | Long | Boolean | Object | Unit
+    Int | Long | Boolean | Double | Object | Unit
 
   protected type NotGlobalCheck[S] = AssertGiven[
     util.NotGiven[S <:< DFC.Scope.Global],
@@ -154,6 +157,10 @@ object DFType:
     given ofIntCompanion: TC[Int.type] with
       type Type = DFInt32
       def apply(t: Int.type)(using DFC): Type = DFInt32
+
+    given ofDoubleCompanion: TC[Double.type] with
+      type Type = DFDouble
+      def apply(t: Double.type)(using DFC): Type = DFDouble
 
     given ofLongCompanion: TC[Long.type] with
       type Type = DFSInt[64]

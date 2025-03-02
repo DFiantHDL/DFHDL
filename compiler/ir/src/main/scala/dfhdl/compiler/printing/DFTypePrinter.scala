@@ -54,6 +54,8 @@ trait AbstractTypePrinter extends AbstractPrinter:
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String
+  def csDFDouble(): String
+  
   final def csDFType(dfType: DFType, typeCS: Boolean = false): String = dfType match
     case dt: DFBoolOrBit => csDFBoolOrBit(dt, typeCS)
     case dt: DFBits      => csDFBits(dt, typeCS)
@@ -65,6 +67,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
       csDFTuple(dt.fieldMap.values.toList, typeCS)
     case dt: DFStruct  => csDFStruct(dt, typeCS)
     case dt: DFUnit    => csDFUnit(dt, typeCS)
+    case DFDouble      => csDFDouble()
     case dt: DFNothing => ???
 end AbstractTypePrinter
 
@@ -123,6 +126,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
     dfType.getName
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = "Unit"
+  def csDFDouble(): String = "Double"
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
   def csDFValType(dfType: DFType): String =

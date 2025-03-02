@@ -449,6 +449,43 @@ object DFTuple:
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
+// DFDouble
+/////////////////////////////////////////////////////////////////////////////
+sealed trait DFDouble extends DFType:
+  type Data = Option[Double]
+  def width(using MemberGetSet): Int = 64
+  def createBubbleData(using MemberGetSet): Data = None
+  def isDataBubble(data: Data): Boolean = data.isEmpty
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = data match
+    case Some(value) =>
+      (
+        BitVector.fromLong(java.lang.Double.doubleToRawLongBits(value), size = 64),
+        BitVector.low(64)
+      )
+    case None => (BitVector.low(64), BitVector.high(64))
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data =
+    if (data._2.isZeros) Some(java.lang.Double.longBitsToDouble(data._1.toLong(signed = false)))
+    else None
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
+  lazy val getRefs: List[DFRef.TypeRef] = Nil
+  def copyWithNewRefs: this.type = this
+end DFDouble
+
+case object DFDouble extends DFType.Companion[DFDouble, Option[Double]] with DFDouble
+/////////////////////////////////////////////////////////////////////////////
+
+sealed trait DFUnbounded extends DFType:
+  def noTypeErr = throw new IllegalArgumentException(
+    "Unexpected access to an unbounded data type"
+  )
+  def width(using MemberGetSet): Int = noTypeErr
+  def createBubbleData(using MemberGetSet): Data = noTypeErr
+  def isDataBubble(data: Data): Boolean = noTypeErr
+  def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
+  def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
+
+/////////////////////////////////////////////////////////////////////////////
 // DFUnit
 // ------
 // This meant to be just a DFType placeholder where no type is actually

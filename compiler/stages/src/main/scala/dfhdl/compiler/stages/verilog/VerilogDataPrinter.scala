@@ -81,4 +81,8 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
       .mkString("'{", ", ", "}")
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = printer.unsupported
   def csDFUnitData(dfType: DFUnit, data: Unit): String = printer.unsupported
+  def csDFDoubleData(dfType: DFDouble, data: Option[Double]): String =
+    data match
+      case Some(value) => value.toString
+      case None        => "?"
 end VerilogDataPrinter

@@ -9,7 +9,6 @@ type BitNum = 0 | 1
 type BitOrBool = BitNum | Boolean
 type DFBoolOrBit = DFType[ir.DFBoolOrBit, NoArgs]
 object DFBoolOrBit:
-  type Data = Option[Boolean]
   given DFBool = DFBool
   given DFBit = DFBit
 
