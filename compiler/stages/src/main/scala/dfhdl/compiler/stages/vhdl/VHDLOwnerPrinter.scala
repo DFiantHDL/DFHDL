@@ -14,11 +14,11 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def fileSuffix = "vhdl"
   def packageName: String =
     s"${getSet.designDB.top.dclName}_pkg"
-  def csLibrary(inSimulation: Boolean): String =
+  def csLibrary(inSimulation: Boolean, usesMathReal: Boolean): String =
     val default =
       s"""library ieee;
          |use ieee.std_logic_1164.all;
-         |use ieee.numeric_std.all;
+         |use ieee.numeric_std.all;${if (usesMathReal) "\nuse ieee.math_real.all;" else ""}
          |use work.dfhdl_pkg.all;
          |use work.$packageName.all;""".stripMargin
     if (useStdSimLibrary && inSimulation)
@@ -155,12 +155,18 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
        |end ${archName(design)};""".stripMargin
   end csArchitectureDcl
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
-    s"""${csLibrary(design.inSimulation)}
+    val usesMathReal = design.members(MemberView.Folded).exists {
+      case v: DFVal =>
+        v.dfType.decompose { case dt @ DFDouble => dt }.nonEmpty
+      case _ => false
+    }
+    s"""${csLibrary(design.inSimulation, usesMathReal)}
        |
        |${csEntityDcl(design)}
        |
        |${csArchitectureDcl(design)}
        |""".stripMargin
+  end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFDesignLateBody(design)
     val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
