@@ -945,4 +945,42 @@ class PrintCodeStringSpec extends StageSpec:
          |end Foo""".stripMargin
     )
   }
+  test("wait statements") {
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val i = Bit <> IN
+      process:
+        x :== 1
+        waitWhile(i)
+        50.ms.wait
+        x :== 0
+        waitUntil(i.rising)
+        50.us.wait
+        x :== 1
+        waitUntil(i)
+        50.ns.wait
+        x :== 0
+        1.ns.wait
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends EDDesign:
+         |  val x = Bit <> OUT
+         |  val i = Bit <> IN
+         |  process:
+         |    x :== 1
+         |    waitWhile(i.bool)
+         |    50.ms.wait
+         |    x :== 0
+         |    waitUntil(i.rising)
+         |    50.us.wait
+         |    x :== 1
+         |    waitUntil(i.bool)
+         |    50.ns.wait
+         |    x :== 0
+         |    1.ns.wait
+         |end Foo""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

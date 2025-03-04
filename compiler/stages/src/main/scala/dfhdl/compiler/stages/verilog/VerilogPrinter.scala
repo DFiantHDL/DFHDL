@@ -4,6 +4,7 @@ import dfhdl.compiler.ir.*
 import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 import dfhdl.options.PrinterOptions
+import DFVal.Func.Op as FuncOp
 
 class VerilogPrinter(val dialect: VerilogDialect)(using
     val getSet: MemberGetSet,
@@ -40,6 +41,17 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   def csOpenKeyWord: String = "/*open*/"
   def csStep(step: Step): String = unsupported
   def csGoto(goto: Goto): String = unsupported
+  def csWait(wait: Wait): String =
+    val trigger = wait.triggerRef.get
+    trigger.dfType match
+      case _: DFBoolOrBit =>
+        trigger match
+          case DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
+            s"@(${wait.triggerRef.refCodeString});"
+          case _ =>
+            s"wait(${wait.triggerRef.refCodeString});"
+      case DFTime | DFCycles => s"#${wait.triggerRef.refCodeString};"
+      case _                 => ???
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
       s"""/*
@@ -49,7 +61,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   def csCommentEOL(comment: String): String = s"// $comment"
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/*", "\n  ", "*/")
   def csAnnotations(meta: Meta): String = ""
-  def csTimer(timer: Timer): String = unsupported
+  // def csTimer(timer: Timer): String = unsupported
   def verilogFileHeaderSuffix: String =
     printer.dialect match
       case VerilogDialect.v2001 | VerilogDialect.v95 => "vh"

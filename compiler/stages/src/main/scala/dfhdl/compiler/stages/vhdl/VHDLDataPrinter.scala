@@ -90,4 +90,9 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
     data match
       case Some(value) => value.toString
       case None        => "?"
+  def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String =
+    dfType.unit match
+      case DFPhysical.Unit.Time =>
+        s"${data._1} ${data._2}"
+      case _ => printer.unsupported
 end VHDLDataPrinter

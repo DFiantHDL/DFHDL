@@ -93,33 +93,6 @@ object TDFDouble:
           DFVal.Func(DFBool, FuncOp.>=, List(lhs, rhs))
         }
       end extension
-
-      // extension [L](lhs: L)
-      //   inline def +[RP](rhs: DFValTP[DFDouble, RP])(using es: Exact.Summon[L, lhs.type])(using
-      //       Candidate[es.Out]
-      //   ): Nothing =
-      //     compiletime.error(
-      //       "Unsupported Scala Double primitive at the LHS of `+` with a DFHDL value.\nConsider switching positions of the arguments."
-      //     )
-      //   inline def -[RP](rhs: DFValTP[DFDouble, RP])(using es: Exact.Summon[L, lhs.type])(using
-      //       Candidate[es.Out]
-      //   ): Nothing =
-      //     compiletime.error(
-      //       "Unsupported Scala Double primitive at the LHS of `-` with a DFHDL value.\nConsider switching positions of the arguments."
-      //     )
-      //   inline def *[RP](rhs: DFValTP[DFDouble, RP])(using es: Exact.Summon[L, lhs.type])(using
-      //       Candidate[es.Out]
-      //   ): Nothing =
-      //     compiletime.error(
-      //       "Unsupported Scala Double primitive at the LHS of `*` with a DFHDL value.\nConsider switching positions of the arguments."
-      //     )
-      //   inline def /[RP](rhs: DFValTP[DFDouble, RP])(using es: Exact.Summon[L, lhs.type])(using
-      //       Candidate[es.Out]
-      //   ): Nothing =
-      //     compiletime.error(
-      //       "Unsupported Scala Double primitive at the LHS of `/` with a DFHDL value.\nConsider switching positions of the arguments."
-      //     )
-      // end extension
     end Ops
   end Val
 end TDFDouble

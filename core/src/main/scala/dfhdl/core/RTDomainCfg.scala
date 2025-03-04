@@ -2,7 +2,7 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.internals.*
 import dfhdl.options.ElaborationOptions
-import Freq.Ops.*
+import DFPhysical.Val.Ops.MHz
 
 type ClkCfg = ir.ClkCfg
 object ClkCfg:
@@ -10,6 +10,7 @@ object ClkCfg:
   final val Edge = ir.ClkCfg.Edge
   type InclusionPolicy = ir.ClkRstInclusionPolicy
   final val InclusionPolicy = ir.ClkRstInclusionPolicy
+  type Rate = DFConstOf[DFTime | DFFreq]
 
   def apply(
       edge: Edge = Edge.Rising,

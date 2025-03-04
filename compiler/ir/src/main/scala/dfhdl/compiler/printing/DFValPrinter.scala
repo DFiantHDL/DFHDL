@@ -120,7 +120,7 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String
   def csDFValAliasSelectField(dfVal: Alias.SelectField): String
   def csDFValAliasHistory(dfVal: Alias.History): String
-  def csTimerIsActive(dfVal: Timer.IsActive): String
+  // def csTimerIsActive(dfVal: Timer.IsActive): String
   def csNOTHING(dfVal: NOTHING): String
   final def csDFValAliasExpr(dfVal: Alias): String = dfVal match
     case dv: Alias.AsIs        => csDFValAliasAsIs(dv)
@@ -135,8 +135,8 @@ trait AbstractValPrinter extends AbstractPrinter:
       case dv: Alias                => csDFValAliasExpr(dv)
       case dv: DFVal.DesignParam    => dv.dfValRef.refCodeString
       case dv: DFConditional.Header => printer.csDFConditional(dv)
-      case dv: Timer.IsActive       => csTimerIsActive(dv)
-      case dv: NOTHING              => csNOTHING(dv)
+      // case dv: Timer.IsActive       => csTimerIsActive(dv)
+      case dv: NOTHING => csNOTHING(dv)
   def csDFValNamed(dfVal: DFVal): String
   final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner | DFMember.Empty): String =
     dfVal.stripPortSel match
@@ -315,8 +315,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
         case _                    => s"$opStr(${dfVal.step})"
     s"${dfVal.relValCodeString}$appliedStr"
   end csDFValAliasHistory
-  def csTimerIsActive(dfVal: Timer.IsActive): String =
-    s"${dfVal.timerRef.refCodeString}.isActive"
+  // def csTimerIsActive(dfVal: Timer.IsActive): String =
+  //   s"${dfVal.timerRef.refCodeString}.isActive"
   def csNOTHING(dfVal: NOTHING): String = "NOTHING"
   def csDFValNamed(dfVal: DFVal): String =
     def typeAnnot = dfVal match

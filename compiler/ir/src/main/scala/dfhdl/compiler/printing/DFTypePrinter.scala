@@ -55,7 +55,8 @@ trait AbstractTypePrinter extends AbstractPrinter:
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String
   def csDFDouble(): String
-  
+  def csDFPhysical(dfType: DFPhysical, typeCS: Boolean): String
+
   final def csDFType(dfType: DFType, typeCS: Boolean = false): String = dfType match
     case dt: DFBoolOrBit => csDFBoolOrBit(dt, typeCS)
     case dt: DFBits      => csDFBits(dt, typeCS)
@@ -65,10 +66,11 @@ trait AbstractTypePrinter extends AbstractPrinter:
     case dt: DFOpaque    => csDFOpaque(dt, typeCS)
     case dt: DFStruct if dt.isTuple && tupleSupportEnable =>
       csDFTuple(dt.fieldMap.values.toList, typeCS)
-    case dt: DFStruct  => csDFStruct(dt, typeCS)
-    case dt: DFUnit    => csDFUnit(dt, typeCS)
-    case DFDouble      => csDFDouble()
-    case dt: DFNothing => ???
+    case dt: DFStruct   => csDFStruct(dt, typeCS)
+    case dt: DFUnit     => csDFUnit(dt, typeCS)
+    case DFDouble       => csDFDouble()
+    case dt: DFPhysical => csDFPhysical(dt, typeCS)
+    case dt: DFNothing  => ???
 end AbstractTypePrinter
 
 protected trait DFTypePrinter extends AbstractTypePrinter:
@@ -127,6 +129,12 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     dfType.getName
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = "Unit"
   def csDFDouble(): String = "Double"
+  def csDFPhysical(dfType: DFPhysical, typeCS: Boolean): String =
+    dfType.unit match
+      case DFPhysical.Unit.Time   => "Time"
+      case DFPhysical.Unit.Freq   => "Freq"
+      case DFPhysical.Unit.Cycles => "Cycles"
+      case DFPhysical.Unit.Number => "Number"
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
   def csDFValType(dfType: DFType): String =

@@ -878,4 +878,56 @@ class PrintVHDLCodeSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("wait statements") {
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val i = Bit <> IN
+      process:
+        x :== 1
+        waitWhile(i)
+        50.ms.wait
+        x :== 0
+        waitUntil(i.rising)
+        50.us.wait
+        x :== 1
+        waitUntil(i)
+        50.ns.wait
+        x :== 0
+        1.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : out std_logic;
+         |  i : in std_logic
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process
+         |  begin
+         |    x <= '1';
+         |    wait until not to_bool(i);
+         |    wait for 50 ms;
+         |    x <= '0';
+         |    wait until rising_edge(i);
+         |    wait for 50 us;
+         |    x <= '1';
+         |    wait until to_bool(i);
+         |    wait for 50 ns;
+         |    x <= '0';
+         |    wait for 1 ns;
+         |  end process;
+         |end Foo_arch;""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

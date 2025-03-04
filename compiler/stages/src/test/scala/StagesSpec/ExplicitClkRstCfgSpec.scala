@@ -44,7 +44,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
       RstCfg(inclusionPolicy = RstCfg.InclusionPolicy.AlwaysAtTop)
     val eo = summon[options.ElaborationOptions]
     // force DFC with these elaboration options modifications (this is required because no @top annotation)
-    val dfc = DFC.empty(using eo)
+    val dfc = DFC.empty(eo)
     def gen(using DFC): dfhdl.core.Design =
       class ID extends RTDesign:
         val x = SInt(16) <> IN

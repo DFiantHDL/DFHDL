@@ -44,10 +44,16 @@ object Verilator extends VerilogLinter:
       CompilerOptions,
       LinterOptions,
       MemberGetSet
-  ): String = constructCommand(
-    "--lint-only",
-    "--quiet-stats"
-  )
+  ): String =
+    val hasTiming = getSet.designDB.members.exists {
+      case _: Wait => true
+      case _       => false
+    }
+    constructCommand(
+      "--lint-only",
+      "--quiet-stats",
+      if (hasTiming) "--timing" else ""
+    )
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
