@@ -1299,7 +1299,7 @@ object DFUInt:
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
           unsignedCheck(arg < 0)
           ubCheck(ub, arg)
-          DFVal.Const(DFInt32, Some(BigInt(arg)))
+          DFConstInt32(arg)
       end fromInt
       given fromR[
           UB <: IntP,
@@ -1394,5 +1394,5 @@ type DFInt32 =
 final val DFInt32 = ir.DFInt32.asFE[DFInt32]
 type DFConstInt32 = DFConstOf[DFInt32]
 object DFConstInt32:
-  def apply(int: Int)(using DFC): DFConstInt32 =
-    DFVal.Const(DFInt32, Some(BigInt(int)), named = true)
+  def apply(int: Int, named: Boolean = false)(using DFC): DFConstInt32 =
+    DFVal.Const(DFInt32, Some(BigInt(int)), named)

@@ -133,7 +133,7 @@ object IntParam extends IntParamLP:
                       case FuncOp.- => intLL + intLR
                 if (intR == 0) constL.asInstanceOf[IntParam[O]]
                 else
-                  val constR = DFVal.Const(DFInt32, Some(BigInt(intR)), named = false)
+                  val constR = DFConstInt32(intR)
                   forced[O](DFVal.Func(DFInt32, opL, List(constL, constR)))
               case _ => func
           case _ => func
@@ -144,7 +144,7 @@ object IntParam extends IntParamLP:
   extension [L <: IntP](lhs: IntParam[L])(using dfc: DFC)
     def toDFConst: DFConstInt32 =
       lhs match
-        case int: Int            => DFConstInt32(int)
+        case int: Int            => DFConstInt32(int, named = true)
         case const: DFConstInt32 => const
     def toScalaInt: Int =
       lhs match
