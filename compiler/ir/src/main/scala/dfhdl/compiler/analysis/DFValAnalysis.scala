@@ -12,10 +12,13 @@ import DFDesignBlock.InstMode
 import scala.util.boundary, boundary.break
 import scala.annotation.targetName
 
+object IteratorDcl:
+  def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Boolean =
+    dcl.hasTagOf[DFVal.Dcl.IteratorTag.type]
+
 object Ident:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
-    if (alias.hasTagOf[DFVal.Alias.IdentTag.type])
-      Some(alias.relValRef.get)
+    if (alias.hasTagOf[DFVal.Alias.IdentTag.type]) Some(alias.relValRef.get)
     else None
 
 //A design parameter is an as-is alias that:

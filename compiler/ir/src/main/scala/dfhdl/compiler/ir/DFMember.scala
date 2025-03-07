@@ -461,6 +461,7 @@ object DFVal:
     ).asInstanceOf[this.type]
   end Dcl
   object Dcl:
+    case object IteratorTag extends DFTagOf[Dcl]
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
     extension (dcl: Dcl)
       def isClkDcl(using MemberGetSet): Boolean = dcl.dfType match
@@ -796,6 +797,37 @@ object DFVal:
     end SelectField
   end Alias
 end DFVal
+
+final case class DFRange(
+    startRef: DFRange.Ref,
+    endRef: DFRange.Ref,
+    op: DFRange.Op,
+    stepRef: DFRange.Ref,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFMember:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: DFRange =>
+      this.startRef =~ that.startRef && this.endRef =~ that.endRef && this.stepRef =~ that.stepRef &&
+      this.op == that.op &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = List(startRef, endRef, stepRef)
+  def copyWithNewRefs: this.type = copy(
+    startRef = startRef.copyAsNewRef,
+    endRef = endRef.copyAsNewRef,
+    stepRef = stepRef.copyAsNewRef,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end DFRange
+
+object DFRange:
+  type Ref = DFRef.TwoWay[DFVal, DFRange]
+  enum Op derives CanEqual:
+    case Until, To
 
 final case class DFNet(
     lhsRef: DFNet.Ref,
@@ -1183,6 +1215,34 @@ object DFConditional:
   object DFIfElseBlock:
     type Ref = DFRef.TwoWay[DFIfElseBlock | DFIfHeader, Block]
 end DFConditional
+
+object DFLoop:
+  sealed trait Block extends DFBlock
+  final case class DFForBlock(
+      iteratorRef: DFForBlock.IteratorRef,
+      rangeRef: DFForBlock.RangeRef,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Block:
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: DFForBlock =>
+        this.iteratorRef =~ that.iteratorRef && this.rangeRef =~ that.rangeRef &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+    lazy val getRefs: List[DFRef.TwoWayAny] = List(iteratorRef, rangeRef)
+    def copyWithNewRefs: this.type = copy(
+      iteratorRef = iteratorRef.copyAsNewRef,
+      rangeRef = rangeRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
+  end DFForBlock
+  object DFForBlock:
+    type IteratorRef = DFRef.TwoWay[DFVal.Dcl, DFForBlock]
+    type RangeRef = DFRef.TwoWay[DFRange, DFForBlock]
+end DFLoop
 
 final case class DFDesignBlock(
     domainType: DomainType,

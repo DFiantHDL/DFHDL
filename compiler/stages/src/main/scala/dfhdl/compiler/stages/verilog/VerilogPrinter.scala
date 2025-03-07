@@ -41,6 +41,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
   def csOpenKeyWord: String = "/*open*/"
   def csStep(step: Step): String = unsupported
   def csGoto(goto: Goto): String = unsupported
+  def csDFRange(range: DFRange): String = unsupported
   def csWait(wait: Wait): String =
     val trigger = wait.triggerRef.get
     trigger.dfType match
@@ -116,7 +117,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     Set("module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
       "begin", "end", "case", "default", "endcase", "default_nettype", "include", "inside",
       "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
-      "struct", "packed", "ifndef", "endif", "define", "function", "endfunction")
+      "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while")
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] =
     Set("wire", "reg", "logic", "wire", "signed", "int", "integer")

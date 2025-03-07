@@ -687,6 +687,8 @@ object DFVal extends DFValLP:
       )
       dcl.addMember.asVal[T, M]
     end apply
+    def iterator(using DFC): DFValOf[DFInt32] =
+      apply(DFInt32, Modifier.VAR, Nil)(using dfc.tag(ir.DFVal.Dcl.IteratorTag))
   end Dcl
 
   object Func:
@@ -884,6 +886,18 @@ object DFVal extends DFValLP:
       end apply
     end SelectField
   end Alias
+
+  // object Iterator:
+  //   def apply[P](range: DFRange[P])(using dfc: DFC): DFValTP[DFInt32, P] =
+  //     val member: ir.DFVal.Iterator =
+  //       ir.DFVal.Iterator(
+  //         range.asIR.refTW[ir.DFVal.Iterator],
+  //         dfc.owner.ref,
+  //         dfc.getMeta,
+  //         dfc.tags
+  //       )
+  //     member.addMember.asValTP[DFInt32, P]
+  // end Iterator
 
   trait TC[T <: DFTypeAny, R] extends TCCommon[T, R, DFValAny]:
     type OutP

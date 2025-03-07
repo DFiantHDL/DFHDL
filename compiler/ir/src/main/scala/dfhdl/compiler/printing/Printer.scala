@@ -74,6 +74,7 @@ trait Printer
   def csOpenKeyWord: String
   def csStep(step: Step): String
   def csGoto(goto: Goto): String
+  def csDFRange(range: DFRange): String
   def csWait(wait: Wait): String
   // def csTimer(timer: Timer): String
   def csClkEdgeCfg(edge: ClkCfg.Edge): String =
@@ -125,8 +126,9 @@ trait Printer
         design.instMode match
           case InstMode.Def => csDFDesignDefInst(design)
           case _            => csDFDesignBlockInst(design)
-      case pb: ProcessBlock    => csProcessBlock(pb)
-      case domain: DomainBlock => csDomainBlock(domain)
+      case pb: ProcessBlock            => csProcessBlock(pb)
+      case forBlock: DFLoop.DFForBlock => csDFForBlock(forBlock)
+      case domain: DomainBlock         => csDomainBlock(domain)
       // case timer: Timer        => csTimer(timer)
       case step: Step => csStep(step)
       case goto: Goto => csGoto(goto)
@@ -282,6 +284,14 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     s"def ${step.getName} = step"
   def csGoto(goto: Goto): String =
     s"${goto.stepRef.refCodeString}.goto"
+  def csDFRange(range: DFRange): String =
+    val op = range.op match
+      case DFRange.Op.To    => "to"
+      case DFRange.Op.Until => "until"
+    val csBy = range.stepRef.refCodeString match
+      case "1" => ""
+      case cs  => s" by $cs"
+    s"${range.startRef.refCodeString} ${op} ${range.endRef.refCodeString}$csBy"
   def csWait(wait: Wait): String =
     val trigger = wait.triggerRef.get
     trigger.dfType match
@@ -344,7 +354,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   import io.AnsiColor._
   val scalaKW: Set[String] =
     Set("class", "def", "end", "enum", "extends", "new", "object", "val", "if", "else", "match",
-      "case", "final")
+      "case", "final", "for", "while", "until", "to", "by")
   val dfhdlKW: Set[String] =
     Set("VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
       "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",

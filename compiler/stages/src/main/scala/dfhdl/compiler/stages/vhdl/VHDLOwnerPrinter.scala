@@ -217,9 +217,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         case _                                        => true
       }
     val body = csDFMembers(statements)
-    val dcl =
-      if (dcls.isEmpty) ""
-      else s"\n${csDFMembers(dcls).hindent}"
+    val dcl = csDFMembers(dcls).emptyOr(v => s"\n${v.hindent}")
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val senList = pb.sensitivity match
       case Sensitivity.All => " (all)"
@@ -227,5 +225,24 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
     s"${named}process$senList$dcl\nbegin\n${body.hindent}\nend process;"
   end csProcessBlock
+  def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
+    val body = csDFOwnerBody(forBlock)
+    val named = forBlock.meta.nameOpt.map(n => s"$n : ").getOrElse("")
+    val rangeIR = forBlock.rangeRef.get
+    val csRange =
+      rangeIR.stepRef.refCodeString match
+        case "1" =>
+          val csOpExtra = rangeIR.op match
+            case DFRange.Op.To    => ""
+            case DFRange.Op.Until => "-1"
+          s"${rangeIR.startRef.refCodeString} to ${rangeIR.endRef.refCodeString}$csOpExtra"
+        case "-1" =>
+          val csOpExtra = rangeIR.op match
+            case DFRange.Op.To    => ""
+            case DFRange.Op.Until => "+1"
+          s"${rangeIR.startRef.refCodeString} downto ${rangeIR.endRef.refCodeString}$csOpExtra"
+        case _ => printer.unsupported
+    s"${named}for ${forBlock.iteratorRef.refCodeString} in $csRange loop\n${body.hindent}\nend loop;"
+  end csDFForBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VHDLOwnerPrinter

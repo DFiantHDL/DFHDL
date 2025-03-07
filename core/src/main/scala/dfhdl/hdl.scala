@@ -22,6 +22,7 @@ protected object hdl:
   export internals.CommonOps.*
   export core.{dfType}
   export core.DFPhysical.Val.Ops.*
+  export core.DFRange.Ops.*
   export core.Wait.Ops.*
   export core.Step.Ops.*
   type DFC = core.DFC

@@ -27,6 +27,8 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   val phaseName = "LoopFSM"
   var stepRef: TypeRef = uninitialized
   var addStepSym: Symbol = uninitialized
+  var customForSym: Symbol = uninitialized
+  var getLoopIterSym: Symbol = uninitialized
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
@@ -41,6 +43,47 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
             report.error("Unexpected step pattern. Must be `def xyz = step`", tree.srcPos)
             None
       else None
+
+  case class Foreach(iter: ValDef, range: Tree, body: Tree, dfc: Tree)
+  object Foreach:
+    def unapply(tree: Tree)(using Context): Option[Foreach] =
+      tree match
+        case Apply(
+              Apply(
+                TypeApply(Select(rangeTree, foreach), List(_)),
+                List(
+                  Block(
+                    List(
+                      dd @ DefDef(
+                        anonfun,
+                        List(List(iter: ValDef)),
+                        _,
+                        _
+                      )
+                    ),
+                    _: Closure
+                  )
+                )
+              ),
+              List(dfcTree)
+            ) if anonfun.toString.startsWith("$anonfun") && foreach.toString == "foreach" =>
+          Some(Foreach(iter, rangeTree, dd.rhs, dfcTree))
+        case _ =>
+          None
+  end Foreach
+
+  override def transformApply(tree: Apply)(using Context): Tree =
+    tree match
+      case fe @ Foreach(iter, range, body, dfc) =>
+        val loopIter =
+          ref(getLoopIterSym)
+            .appliedToType(iter.dfValTpeOpt.get.widen)
+            .appliedTo(iter.genMeta)
+            .appliedTo(dfc)
+        val updatedBody = replaceArgs(body, Map(iter.symbol -> loopIter))
+        ref(customForSym).appliedTo(iter.genMeta, range).appliedTo(updatedBody).appliedTo(dfc)
+      case _ =>
+        tree
 
   override def transformStats(trees: List[Tree])(using Context): List[Tree] =
     trees.view.map {
@@ -72,6 +115,8 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     stepRef = requiredClassRef("dfhdl.core.Step")
     addStepSym = requiredMethod("dfhdl.core.r__For_Plugin.addStep")
+    customForSym = requiredMethod("dfhdl.core.DFFor.plugin")
+    getLoopIterSym = requiredMethod("dfhdl.core.DFFor.pluginGetLoopIter")
     ctx
   end prepareForUnit
 end LoopFSMPhase

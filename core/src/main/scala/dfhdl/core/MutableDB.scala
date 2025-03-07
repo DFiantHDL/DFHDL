@@ -39,6 +39,7 @@ class DesignContext:
   val unreachableNamedValues = mutable.Map.empty[DFVal, DFVal]
   val unreachableDFTypes = mutable.Map.empty[DFType, DFType]
   var defInputs = List.empty[DFValAny]
+  val loopIterMap = mutable.Map.empty[Meta, DFValAny]
   var isDuplicate = false
 
   def setOriginRefs(member: DFMember): Unit =
@@ -234,6 +235,10 @@ final class MutableDB():
       else (false, func)
     def getDefInput(idx: Int): DFValAny =
       current.defInputs(idx)
+    def addLoopIter(meta: Meta, iter: DFValAny): Unit =
+      current.loopIterMap += meta -> iter
+    def getLoopIter(meta: Meta): DFValAny =
+      current.loopIterMap(meta)
     // for testing purposes only
     def getMembersNum: Int = current.members.size
     def getMembers(from: Int, until: Int): List[DFMember] =

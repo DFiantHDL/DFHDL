@@ -20,6 +20,8 @@ case object DropLocalDcls extends Stage:
         // only var or constant declarations ,
         // and we also require their anonymous dependencies
         .flatMap {
+          // skip iterator declarations
+          case IteratorDcl()                 => None
           case m @ DclVar()                  => m.collectRelMembers(includeOrigVal = true)
           case m @ DclConst() if !m.isGlobal => m.collectRelMembers(includeOrigVal = true)
           case _                             => None
