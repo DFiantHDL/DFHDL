@@ -983,4 +983,32 @@ class PrintCodeStringSpec extends StageSpec:
          |end Foo""".stripMargin
     )
   }
+  test("for loop printing") {
+    class Foo extends EDDesign:
+      val matrix = Bits(10) X 8 X 8 <> OUT
+      process:
+        for (
+          i <- 0 until 8;
+          j <- 0 until 8;
+          k <- 0 until 10
+        ) matrix(i)(j)(k) :== 1
+        10.ns.wait
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends EDDesign:
+         |  val matrix = Bits(10) X 8 X 8 <> OUT
+         |  process:
+         |    for (i <- 0 until 8)
+         |      for (j <- 0 until 8)
+         |        for (k <- 0 until 10)
+         |          matrix(i)(j)(k) :== 1
+         |        end for
+         |      end for
+         |    end for
+         |    10.ns.wait
+         |end Foo""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

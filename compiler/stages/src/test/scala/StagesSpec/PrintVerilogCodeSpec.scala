@@ -880,4 +880,41 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+  test("for loop printing") {
+    class Foo extends EDDesign:
+      val matrix = Bits(10) X 8 X 8 <> OUT
+      process:
+        for (
+          i <- 0 until 8;
+          j <- 0 until 8;
+          k <- 0 until 10
+        ) matrix(i)(j)(k) :== 1
+        10.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.svh"
+         |
+         |module Foo(
+         |  output logic [9:0] matrix [0:7] [0:7]
+         |);
+         |  `include "dfhdl_defs.svh"
+         |
+         |  always
+         |  begin
+         |    for (int i = 0; i < 8; i = i + 1) begin
+         |      for (int j = 0; j < 8; j = j + 1) begin
+         |        for (int k = 0; k < 10; k = k + 1) begin
+         |          matrix[i][j][k] <= 1'b1;
+         |        end
+         |      end
+         |    end
+         |    #10ns;
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec
