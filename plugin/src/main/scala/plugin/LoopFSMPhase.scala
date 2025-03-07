@@ -30,9 +30,36 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   var customForSym: Symbol = uninitialized
   var getLoopIterSym: Symbol = uninitialized
   var toFunc1Sym: Symbol = uninitialized
+  var fromBooleanSym: Symbol = uninitialized
+  var customWhileSym: Symbol = uninitialized
+  var dfcStack: List[Tree] = Nil
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
+
+  override def prepareForDefDef(tree: DefDef)(using Context): Context =
+    ContextArg.at(tree).foreach { t =>
+      dfcStack = t :: dfcStack
+    }
+    ctx
+
+  override def transformDefDef(tree: DefDef)(using Context): Tree =
+    ContextArg.at(tree).foreach { t =>
+      dfcStack = dfcStack.drop(1)
+    }
+    tree
+
+  override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
+    ContextArg.at(tree).foreach { t =>
+      dfcStack = t :: dfcStack
+    }
+    ctx
+
+  override def transformTypeDef(tree: TypeDef)(using Context): Tree =
+    ContextArg.at(tree).foreach { t =>
+      dfcStack = dfcStack.drop(1)
+    }
+    tree
 
   object Step:
     def unapply(tree: Tree)(using Context): Option[Tree] =
@@ -108,6 +135,15 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
           None
   end Foreach
 
+  override def transformWhileDo(tree: WhileDo)(using Context): Tree =
+    dfcStack.headOption.map { dfc =>
+      val guard = tree.cond match
+        case Apply(Apply(Ident(n), List(dfCond)), List(_)) if n.toString == "BooleanHack" =>
+          dfCond
+        case cond => ref(fromBooleanSym).appliedTo(cond).appliedTo(dfc)
+      ref(customWhileSym).appliedTo(guard).appliedTo(tree.body).appliedTo(dfc)
+    }.getOrElse(tree)
+
   override def transformApply(tree: Apply)(using Context): Tree =
     tree match
       case fe @ Foreach(iter, range, filters, body, dfc) =>
@@ -163,6 +199,8 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     customForSym = requiredMethod("dfhdl.core.DFFor.plugin")
     getLoopIterSym = requiredMethod("dfhdl.core.DFFor.pluginGetLoopIter")
     toFunc1Sym = requiredMethod("dfhdl.core.r__For_Plugin.toFunc1")
+    fromBooleanSym = requiredMethod("dfhdl.core.r__For_Plugin.fromBoolean")
+    customWhileSym = requiredMethod("dfhdl.core.DFWhile.plugin")
     ctx
   end prepareForUnit
 end LoopFSMPhase

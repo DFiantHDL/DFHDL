@@ -119,6 +119,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean): String
   def csDFMatchEnd: String
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String
+  def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String
   final def csDFConditionalBlock(cb: DFConditional.Block): String =
     val body = csDFOwnerBody(cb)
     val statement = cb match
@@ -310,6 +311,10 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerBody(forBlock)
     val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     s"${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})\n${body.hindent}\nend for"
+  def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
+    val body = csDFOwnerBody(whileBlock)
+    val named = whileBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    s"${named}while (${whileBlock.guardRef.refCodeString})\n${body.hindent}\nend while"
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")

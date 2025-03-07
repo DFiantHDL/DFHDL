@@ -1242,6 +1242,28 @@ object DFLoop:
   object DFForBlock:
     type IteratorRef = DFRef.TwoWay[DFVal.Dcl, DFForBlock]
     type RangeRef = DFRef.TwoWay[DFRange, DFForBlock]
+
+  final case class DFWhileBlock(
+      guardRef: DFWhileBlock.GuardRef,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Block:
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: DFWhileBlock =>
+        this.guardRef =~ that.guardRef &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+    lazy val getRefs: List[DFRef.TwoWayAny] = List(guardRef)
+    def copyWithNewRefs: this.type = copy(
+      guardRef = guardRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
+  end DFWhileBlock
+  object DFWhileBlock:
+    type GuardRef = DFRef.TwoWay[DFVal, DFWhileBlock]
 end DFLoop
 
 final case class DFDesignBlock(

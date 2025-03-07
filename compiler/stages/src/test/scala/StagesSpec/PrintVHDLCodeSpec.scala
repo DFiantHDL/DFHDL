@@ -1000,4 +1000,93 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo_arch;""".stripMargin
     )
   }
+  test("while loop printing") {
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val b = Bit <> IN
+      process:
+        while (b)
+          x :== b
+          5.ns.wait
+        while (true)
+          x :== !b
+          5.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : out std_logic;
+         |  b : in std_logic
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process
+         |  begin
+         |    while b loop
+         |      x <= b;
+         |      wait for 5 ns;
+         |    end loop;
+         |    while true loop
+         |      x <= not b;
+         |      wait for 5 ns;
+         |    end loop;
+         |  end process;
+         |end Foo_arch;""".stripMargin
+    )
+  }
+  test("while loop printing vhdl.v93") {
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val b = Bit <> IN
+      process:
+        while (b)
+          x :== b
+          5.ns.wait
+        while (true)
+          x :== !b
+          5.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : out std_logic;
+         |  b : in std_logic
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process
+         |  begin
+         |    while to_bool(b) loop
+         |      x <= b;
+         |      wait for 5 ns;
+         |    end loop;
+         |    while true loop
+         |      x <= not b;
+         |      wait for 5 ns;
+         |    end loop;
+         |  end process;
+         |end Foo_arch;""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec

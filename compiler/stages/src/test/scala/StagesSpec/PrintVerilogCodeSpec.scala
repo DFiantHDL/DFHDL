@@ -1010,4 +1010,42 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+  test("while loop printing") {
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val b = Bit <> IN
+      process:
+        while (b)
+          x :== b
+          5.ns.wait
+        while (true)
+          x :== !b
+          5.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.svh"
+         |
+         |module Foo(
+         |  output logic x,
+         |  input  wire logic b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  always
+         |  begin
+         |    while (b) begin
+         |      x <= b;
+         |      #5ns;
+         |    end
+         |    while (1) begin
+         |      x <= !b;
+         |      #5ns;
+         |    end
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

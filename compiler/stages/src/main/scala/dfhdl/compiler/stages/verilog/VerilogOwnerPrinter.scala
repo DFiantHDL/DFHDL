@@ -201,5 +201,9 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val iterType = if (forInteratorDclSupport) s"${printer.csDFType(DFInt32)} " else ""
     s"for ($iterType$csIter = ${rangeIR.startRef.refCodeString}; $csIter $csCompareOp$csCompareEq ${rangeIR.endRef.refCodeString}; $csIter = $csIter + ${csStep.applyBrackets()}) begin\n${body.hindent}\nend"
   end csDFForBlock
+  def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
+    val body = csDFOwnerBody(whileBlock)
+    s"while (${whileBlock.guardRef.refCodeString}) begin\n${body.hindent}\nend"
+  end csDFWhileBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VerilogOwnerPrinter

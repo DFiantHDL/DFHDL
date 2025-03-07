@@ -126,9 +126,10 @@ trait Printer
         design.instMode match
           case InstMode.Def => csDFDesignDefInst(design)
           case _            => csDFDesignBlockInst(design)
-      case pb: ProcessBlock            => csProcessBlock(pb)
-      case forBlock: DFLoop.DFForBlock => csDFForBlock(forBlock)
-      case domain: DomainBlock         => csDomainBlock(domain)
+      case pb: ProcessBlock                => csProcessBlock(pb)
+      case forBlock: DFLoop.DFForBlock     => csDFForBlock(forBlock)
+      case whileBlock: DFLoop.DFWhileBlock => csDFWhileBlock(whileBlock)
+      case domain: DomainBlock             => csDomainBlock(domain)
       // case timer: Timer        => csTimer(timer)
       case step: Step => csStep(step)
       case goto: Goto => csGoto(goto)

@@ -244,5 +244,18 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         case _ => printer.unsupported
     s"${named}for ${forBlock.iteratorRef.refCodeString} in $csRange loop\n${body.hindent}\nend loop;"
   end csDFForBlock
+  def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
+    val body = csDFOwnerBody(whileBlock)
+    val requiresBoolConv =
+      if (printer.inVHDL93)
+        whileBlock.guardRef.get.dfType match
+          case DFBit => true
+          case _     => false
+      else false
+    val guard =
+      if (requiresBoolConv) s"to_bool(${whileBlock.guardRef.refCodeString})"
+      else whileBlock.guardRef.refCodeString
+    s"while $guard loop\n${body.hindent}\nend loop;"
+  end csDFWhileBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VHDLOwnerPrinter
