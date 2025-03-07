@@ -29,6 +29,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   var addStepSym: Symbol = uninitialized
   var customForSym: Symbol = uninitialized
   var getLoopIterSym: Symbol = uninitialized
+  var toFunc1Sym: Symbol = uninitialized
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
@@ -44,13 +45,47 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
             None
       else None
 
-  case class Foreach(iter: ValDef, range: Tree, body: Tree, dfc: Tree)
+  case class FilteredRange(range: Tree, filters: List[(ValDef, Tree)])
+  object FilteredRange:
+    def unapply(tree: Tree)(using Context): Option[FilteredRange] =
+      tree match
+        case Apply(
+              Select(range, withFilter),
+              List(
+                Block(
+                  List(
+                    dd @ DefDef(
+                      anonfun,
+                      List(List(iter: ValDef)),
+                      _,
+                      _
+                    )
+                  ),
+                  _: Closure
+                )
+              )
+            ) if anonfun.toString.startsWith("$anonfun") && withFilter.toString == "withFilter" =>
+          val updatedRHS = dd.rhs.changeOwner(dd.symbol, ctx.owner)
+          range match
+            case FilteredRange(range, filters) =>
+              Some(FilteredRange(range, filters :+ (iter, updatedRHS)))
+            case _ => Some(FilteredRange(range, List((iter, updatedRHS))))
+        case _ => Some(FilteredRange(tree, List()))
+  end FilteredRange
+
+  case class Foreach(
+      iter: ValDef,
+      range: Tree,
+      filters: List[(ValDef, Tree)],
+      body: Tree,
+      dfc: Tree
+  )
   object Foreach:
     def unapply(tree: Tree)(using Context): Option[Foreach] =
       tree match
         case Apply(
               Apply(
-                TypeApply(Select(rangeTree, foreach), List(_)),
+                TypeApply(Select(FilteredRange(range, filters), foreach), List(_)),
                 List(
                   Block(
                     List(
@@ -67,21 +102,31 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
               ),
               List(dfcTree)
             ) if anonfun.toString.startsWith("$anonfun") && foreach.toString == "foreach" =>
-          Some(Foreach(iter, rangeTree, dd.rhs, dfcTree))
+          val updatedRHS = dd.rhs.changeOwner(dd.symbol, ctx.owner)
+          Some(Foreach(iter, range, filters, updatedRHS, dfcTree))
         case _ =>
           None
   end Foreach
 
   override def transformApply(tree: Apply)(using Context): Tree =
     tree match
-      case fe @ Foreach(iter, range, body, dfc) =>
+      case fe @ Foreach(iter, range, filters, body, dfc) =>
         val loopIter =
           ref(getLoopIterSym)
             .appliedToType(iter.dfValTpeOpt.get.widen)
             .appliedTo(iter.genMeta)
             .appliedTo(dfc)
+        val ifGuards = mkList(filters.map { case (iter, filter) =>
+          val guard = replaceArgs(filter.underlying, Map(iter.symbol -> loopIter))
+          ref(toFunc1Sym)
+            .appliedToType(guard.tpe)
+            .appliedTo(guard)
+        })
         val updatedBody = replaceArgs(body, Map(iter.symbol -> loopIter))
-        ref(customForSym).appliedTo(iter.genMeta, range).appliedTo(updatedBody).appliedTo(dfc)
+        ref(customForSym)
+          .appliedTo(iter.genMeta, range, ifGuards)
+          .appliedTo(updatedBody)
+          .appliedTo(dfc)
       case _ =>
         tree
 
@@ -117,6 +162,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     addStepSym = requiredMethod("dfhdl.core.r__For_Plugin.addStep")
     customForSym = requiredMethod("dfhdl.core.DFFor.plugin")
     getLoopIterSym = requiredMethod("dfhdl.core.DFFor.pluginGetLoopIter")
+    toFunc1Sym = requiredMethod("dfhdl.core.r__For_Plugin.toFunc1")
     ctx
   end prepareForUnit
 end LoopFSMPhase

@@ -79,6 +79,9 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
         case _ => Nil
       val patchList = renamer(
         members.view.flatMap {
+          // ignore iterator declarations that can repeat the same name wihtout collision
+          // TODO: an iterator declaration may still collide with other members. Need to revisit this.
+          case IteratorDcl() => None
           // no need to rename binds, since there is no collision
           // and will be handled after the binds are converted to explicit selectors
           case Bind(_)                             => None

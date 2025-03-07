@@ -886,9 +886,20 @@ class PrintVerilogCodeSpec extends StageSpec:
       process:
         for (
           i <- 0 until 8;
+          if i % 2 == 0;
           j <- 0 until 8;
+          if j % 2 == 0;
           k <- 0 until 10
+          if k % 2 == 0
         ) matrix(i)(j)(k) :== 1
+        for (
+          i <- 0 until 8;
+          if i % 2 == 1;
+          j <- 0 until 8;
+          if j % 2 == 1;
+          k <- 0 until 10
+          if k % 2 == 1
+        ) matrix(i)(j)(k) :== 0
         10.ns.wait
     end Foo
     val top = (new Foo).getCompiledCodeString
@@ -906,9 +917,91 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  always
          |  begin
          |    for (int i = 0; i < 8; i = i + 1) begin
-         |      for (int j = 0; j < 8; j = j + 1) begin
-         |        for (int k = 0; k < 10; k = k + 1) begin
-         |          matrix[i][j][k] <= 1'b1;
+         |      if ((i % 2) == 0) begin
+         |        for (int j = 0; j < 8; j = j + 1) begin
+         |          if ((j % 2) == 0) begin
+         |            for (int k = 0; k < 10; k = k + 1) begin
+         |              if ((k % 2) == 0) matrix[i][j][k] <= 1'b1;
+         |            end
+         |          end
+         |        end
+         |      end
+         |    end
+         |    for (int i = 0; i < 8; i = i + 1) begin
+         |      if ((i % 2) == 1) begin
+         |        for (int j = 0; j < 8; j = j + 1) begin
+         |          if ((j % 2) == 1) begin
+         |            for (int k = 0; k < 10; k = k + 1) begin
+         |              if ((k % 2) == 1) matrix[i][j][k] <= 1'b0;
+         |            end
+         |          end
+         |        end
+         |      end
+         |    end
+         |    #10ns;
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("for loop printing verilog.v2001") {
+    given options.CompilerOptions.Backend = backends.verilog.v2001
+    class Foo extends EDDesign:
+      val matrix = Bits(10) X 8 X 8 <> OUT
+      process:
+        for (
+          i <- 0 until 8;
+          if i % 2 == 0;
+          j <- 0 until 8;
+          if j % 2 == 0;
+          k <- 0 until 10
+          if k % 2 == 0
+        ) matrix(i)(j)(k) :== 1
+        for (
+          i <- 0 until 8;
+          if i % 2 == 1;
+          j <- 0 until 8;
+          if j % 2 == 1;
+          k <- 0 until 10
+          if k % 2 == 1
+        ) matrix(i)(j)(k) :== 0
+        10.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.vh"
+         |
+         |module Foo(
+         |  output reg [9:0] matrix [0:7] [0:7]
+         |);
+         |  `include "dfhdl_defs.vh"
+         |
+         |  always
+         |  begin
+         |    integer i;
+         |    integer j;
+         |    integer k;
+         |    for (i = 0; i < 8; i = i + 1) begin
+         |      if ((i % 2) == 0) begin
+         |        for (j = 0; j < 8; j = j + 1) begin
+         |          if ((j % 2) == 0) begin
+         |            for (k = 0; k < 10; k = k + 1) begin
+         |              if ((k % 2) == 0) matrix[i][j][k] <= 1'b1;
+         |            end
+         |          end
+         |        end
+         |      end
+         |    end
+         |    for (i = 0; i < 8; i = i + 1) begin
+         |      if ((i % 2) == 1) begin
+         |        for (j = 0; j < 8; j = j + 1) begin
+         |          if ((j % 2) == 1) begin
+         |            for (k = 0; k < 10; k = k + 1) begin
+         |              if ((k % 2) == 1) matrix[i][j][k] <= 1'b0;
+         |            end
+         |          end
          |        end
          |      end
          |    end

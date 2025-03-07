@@ -159,11 +159,11 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       else
         pb.members(MemberView.Flattened).view.collect { case dcl @ IteratorDcl() =>
           dcl.codeString
-        }.mkString(";\n").emptyOr(x => s"$x;\n")
-    val body = csDFMembers(statements)
+        }.toList.distinct.mkString(";\n").emptyOr(x => s"$x;\n")
+    val body = iteratorDcls + csDFMembers(statements)
     val dcl =
-      if (dcls.isEmpty) iteratorDcls
-      else s"${csDFMembers(dcls)}\n$iteratorDcls"
+      if (dcls.isEmpty) ""
+      else s"${csDFMembers(dcls)}\n"
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val alwaysKW = printer.dialect match
       case VerilogDialect.v2001 | VerilogDialect.v95 => "always"

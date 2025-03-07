@@ -936,9 +936,20 @@ class PrintVHDLCodeSpec extends StageSpec:
       process:
         for (
           i <- 0 until 8;
+          if i % 2 == 0;
           j <- 0 until 8;
+          if j % 2 == 0;
           k <- 0 until 10
+          if k % 2 == 0
         ) matrix(i)(j)(k) :== 1
+        for (
+          i <- 0 until 8;
+          if i % 2 == 1;
+          j <- 0 until 8;
+          if j % 2 == 1;
+          k <- 0 until 10
+          if k % 2 == 1
+        ) matrix(i)(j)(k) :== 0
         10.ns.wait
     end Foo
     val top = (new Foo).getCompiledCodeString
@@ -961,11 +972,28 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  process
          |  begin
          |    for i in 0 to 8-1 loop
-         |      for j in 0 to 8-1 loop
-         |        for k in 0 to 10-1 loop
-         |          matrix(i)(j)(k) <= '1';
+         |      if (i rem 2) = 0 then
+         |        for j in 0 to 8-1 loop
+         |          if (j rem 2) = 0 then
+         |            for k in 0 to 10-1 loop
+         |              if (k rem 2) = 0 then matrix(i)(j)(k) <= '1';
+         |              end if;
+         |            end loop;
+         |          end if;
          |        end loop;
-         |      end loop;
+         |      end if;
+         |    end loop;
+         |    for i in 0 to 8-1 loop
+         |      if (i rem 2) = 1 then
+         |        for j in 0 to 8-1 loop
+         |          if (j rem 2) = 1 then
+         |            for k in 0 to 10-1 loop
+         |              if (k rem 2) = 1 then matrix(i)(j)(k) <= '0';
+         |              end if;
+         |            end loop;
+         |          end if;
+         |        end loop;
+         |      end if;
          |    end loop;
          |    wait for 10 ns;
          |  end process;

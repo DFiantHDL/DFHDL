@@ -989,9 +989,20 @@ class PrintCodeStringSpec extends StageSpec:
       process:
         for (
           i <- 0 until 8;
+          if i % 2 == 0;
           j <- 0 until 8;
+          if j % 2 == 0;
           k <- 0 until 10
+          if k % 2 == 0
         ) matrix(i)(j)(k) :== 1
+        for (
+          i <- 0 until 8;
+          if i % 2 == 1;
+          j <- 0 until 8;
+          if j % 2 == 1;
+          k <- 0 until 10
+          if k % 2 == 1
+        ) matrix(i)(j)(k) :== 0
         10.ns.wait
     end Foo
     val top = (new Foo).getCodeString
@@ -1001,11 +1012,26 @@ class PrintCodeStringSpec extends StageSpec:
          |  val matrix = Bits(10) X 8 X 8 <> OUT
          |  process:
          |    for (i <- 0 until 8)
-         |      for (j <- 0 until 8)
-         |        for (k <- 0 until 10)
-         |          matrix(i)(j)(k) :== 1
+         |      if ((i % 2) == 0)
+         |        for (j <- 0 until 8)
+         |          if ((j % 2) == 0)
+         |            for (k <- 0 until 10)
+         |              if ((k % 2) == 0) matrix(i)(j)(k) :== 1
+         |            end for
+         |          end if
          |        end for
-         |      end for
+         |      end if
+         |    end for
+         |    for (i <- 0 until 8)
+         |      if ((i % 2) == 1)
+         |        for (j <- 0 until 8)
+         |          if ((j % 2) == 1)
+         |            for (k <- 0 until 10)
+         |              if ((k % 2) == 1) matrix(i)(j)(k) :== 0
+         |            end for
+         |          end if
+         |        end for
+         |      end if
          |    end for
          |    10.ns.wait
          |end Foo""".stripMargin
