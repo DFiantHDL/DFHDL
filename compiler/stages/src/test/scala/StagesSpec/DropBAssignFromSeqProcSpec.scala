@@ -28,13 +28,14 @@ class DropBAssignFromSeqProcSpec extends StageSpec:
          |  val y = SInt(16) <> OUT
          |  val z = SInt(16) <> VAR
          |  val z2 = SInt(16) <> VAR
-         |  z <> (x + sd"16'1")
-         |  z2 <> (x + sd"16'1")
          |  process(clk.rising):
+         |    z := x + sd"16'1"
          |    y :== z
-         |    if (x > sd"16'0") y :== z2
-         |end ID
-         |""".stripMargin
+         |    if (x > sd"16'0")
+         |      z2 := x + sd"16'1"
+         |      y :== z2
+         |    end if
+         |end ID""".stripMargin
     )
 
   test("keeping a combinational process blocking assignments"):
