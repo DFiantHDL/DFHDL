@@ -11,11 +11,15 @@ final class DFRange[P](val irValue: ir.DFRange | DFError) extends AnyVal with DF
     throw new IllegalArgumentException(
       "foreach is not meant to be run directly, the DFHDL compiler plugin should have replaced its call."
     )
-  def withFilter(f: DFValOf[DFInt32] => DFValOf[DFBool]): DFRange[P] = ???
+  def withFilter(f: DFValOf[DFInt32] => DFValOf[DFBoolOrBit]): DFRange[P] =
+    throw new IllegalArgumentException(
+      "withFilter is not meant to be run directly, the DFHDL compiler plugin should have replaced its call."
+    )
   def by[SP](step: DFValTP[DFInt32, SP])(using dfc: DFC): DFRange[P | SP] =
     import dfc.getSet
     this.asIR.stepRef.get.replaceMemberWith(step.asIR)
     this.asInstanceOf[DFRange[P | SP]]
+end DFRange
 object DFRange:
   extension (range: ir.DFRange) def asFE[P]: DFRange[P] = new DFRange[P](range)
   extension (range: DFRange[?]) def asFE[P]: DFRange[P] = range.asInstanceOf[DFRange[P]]
