@@ -85,7 +85,7 @@ class DFDecimalSpec extends DFSpec:
          |val s8p = SInt(param) <> VAR init sd"${param}'-1"
          |u8 := d"8'${i}"
          |val b6: Bits[6] <> CONST = h"6'00"
-         |val s32 = Int <> VAR init 0
+         |val s32: Int <> CONST = -120
          |val s32b = Int <> VAR
          |s32b := i
          |val s64 = SInt(64) <> VAR init sd"64'0"
@@ -146,13 +146,17 @@ class DFDecimalSpec extends DFSpec:
         s6 := ni
       }
       val b6: Bits[6] <> CONST = all(0)
-      val s32: Int <> VAL = Int <> VAR init 0
-      assertCompileError(
+      val s32: Int <> VAL = -120
+      assertRuntimeErrorLog(
         "Cannot apply a signed value to an unsigned variable."
-      )("u8 := s32")
-      assertCompileError(
-        "The applied RHS value width (32) is larger than the LHS variable width (6)."
-      )("s6 := s32")
+      ) {
+        u8 := s32
+      }
+      assertRuntimeErrorLog(
+        "The applied RHS value width (8) is larger than the LHS variable width (6)."
+      ) {
+        s6 := s32
+      }
       val s32b = Int <> VAR
       s32b := i
       val s64: Long <> VAL = Long <> VAR init 0
