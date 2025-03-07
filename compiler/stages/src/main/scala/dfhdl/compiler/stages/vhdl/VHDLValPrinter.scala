@@ -31,6 +31,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         case Func.Op.| => "or"
         case Func.Op.& => "and"
         case Func.Op.^ => "xor"
+        case Func.Op.% => "rem"
         case op        => op.toString()
     dfVal.args match
       // boolean sel function
