@@ -22,6 +22,12 @@ protected object hdl:
   export internals.CommonOps.*
   export core.{dfType}
   export core.DFPhysical.Val.Ops.*
+  type Time = core.DFTime
+  val Time = core.DFTime
+  type Freq = core.DFFreq
+  val Freq = core.DFFreq
+  type Cycles = core.DFCycles
+  val Cycles = core.DFCycles
   export core.DFRange.Ops.*
   export core.Wait.Ops.*
   export core.Step.Ops.*
