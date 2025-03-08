@@ -33,9 +33,10 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   var fromBooleanSym: Symbol = uninitialized
   var customWhileSym: Symbol = uninitialized
   var dfcStack: List[Tree] = Nil
+  val processDefs = mutable.Set.empty[Symbol]
 
   override val runsAfter = Set(transform.Pickler.name)
-  override val runsBefore = Set("MetaContextGen")
+  override val runsBefore = Set("CustomControl")
 
   override def prepareForDefDef(tree: DefDef)(using Context): Context =
     ContextArg.at(tree).foreach { t =>
@@ -60,6 +61,64 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
       dfcStack = dfcStack.drop(1)
     }
     tree
+
+  def allDefsErrMsg(srcPos: util.SrcPos)(using Context): Unit =
+    report.error("Process blocks must only declare `def`s or no `def`s at all.", srcPos)
+
+  def fsmStatCheck(tree: Tree, returnCheck: Boolean)(using Context): Unit =
+    tree match
+      case Block(stats, expr) =>
+        fsmStatCheck(stats, tree.srcPos)
+        expr match
+          case Literal(Constant(_: Unit)) =>
+          case _ =>
+            stats.headOption match
+              case Some(dd: DefDef) =>
+                allDefsErrMsg(expr.srcPos)
+              case _ =>
+                fsmStatCheck(expr, returnCheck)
+      case If(cond, thenp, elsep) =>
+        fsmStatCheck(thenp, returnCheck)
+        fsmStatCheck(elsep, returnCheck)
+      case Match(scrut, cases) =>
+        cases.foreach { case CaseDef(pat, guard, body) =>
+          fsmStatCheck(body, returnCheck)
+        }
+      case _ if returnCheck =>
+        tree match
+          case x @ Ident(stepName) if processDefs.contains(x.symbol)           =>
+          case Apply(x @ Ident(stepName), _) if processDefs.contains(x.symbol) =>
+          case _ =>
+            report.error(
+              "Process `def`s must end with a call to a process `def` (it could be the same `def`).",
+              tree.srcPos
+            )
+      case Foreach(_, _, _, body, _) =>
+        fsmStatCheck(body, returnCheck = false)
+      case WhileDo(_, body) =>
+        fsmStatCheck(body, returnCheck = false)
+      case _ =>
+
+  def fsmStatCheck(trees: List[Tree], srcPos: util.SrcPos)(using Context): Unit =
+    val (allDefs: List[DefDef] @unchecked, allSteps: List[Tree]) = (trees.partition {
+      case _: DefDef => true
+      case _         => false
+    }): @unchecked
+    if (allDefs.nonEmpty && allSteps.nonEmpty) allDefsErrMsg(srcPos)
+
+    var errFound = false
+    // checking process defs syntax and caching the process def symbols
+    allDefs.foreach {
+      case dd @ DefDef(_, Nil, retTypeTree, _) if retTypeTree.tpe =:= defn.UnitType =>
+        processDefs += dd.symbol
+      case dd =>
+        report.error("Unexpected process `def` syntax. Must be `def xyz: Unit = ...`", dd.srcPos)
+        errFound = true
+    }
+    if (!errFound)
+      allDefs.foreach { dd => fsmStatCheck(dd.rhs, returnCheck = true) }
+      allSteps.foreach { step => fsmStatCheck(step, returnCheck = false) }
+  end fsmStatCheck
 
   object Step:
     def unapply(tree: Tree)(using Context): Option[Tree] =
@@ -144,6 +203,29 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
       ref(customWhileSym).appliedTo(guard).appliedTo(tree.body).appliedTo(dfc)
     }.getOrElse(tree)
 
+  case class ProcessForever(scopeCtx: ValDef, block: Tree)
+  object ProcessForever:
+    def unapply(tree: Tree)(using Context): Option[ProcessForever] =
+      tree match
+        case Apply(
+              Apply(
+                Select(Ident(process), forever),
+                List(
+                  Block(
+                    List(dd @ DefDef(anonfun, List(List(scopeCtx: ValDef)), _, _)),
+                    _: Closure
+                  )
+                )
+              ),
+              _
+            )
+            if anonfun.toString.startsWith("$anonfun") && process.toString == "process" && forever
+              .toString == "forever" =>
+          Some(ProcessForever(scopeCtx, dd.rhs))
+        case _ =>
+          None
+  end ProcessForever
+
   override def transformApply(tree: Apply)(using Context): Tree =
     tree match
       case fe @ Foreach(iter, range, filters, body, dfc) =>
@@ -163,6 +245,10 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
           .appliedTo(iter.genMeta, range, ifGuards)
           .appliedTo(updatedBody)
           .appliedTo(dfc)
+      case ProcessForever(scopeCtx, block) =>
+        fsmStatCheck(block, returnCheck = false)
+        processDefs.clear()
+        tree
       case _ =>
         tree
 
@@ -201,6 +287,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     toFunc1Sym = requiredMethod("dfhdl.core.r__For_Plugin.toFunc1")
     fromBooleanSym = requiredMethod("dfhdl.core.r__For_Plugin.fromBoolean")
     customWhileSym = requiredMethod("dfhdl.core.DFWhile.plugin")
+    processDefs.clear()
     ctx
   end prepareForUnit
 end LoopFSMPhase
