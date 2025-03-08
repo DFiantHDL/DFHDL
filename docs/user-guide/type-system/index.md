@@ -108,11 +108,13 @@ Each DFHDL value is simply a Scala object that has two critical fields:
     * > DFHDL Fix-Point (future work)
     * > DFHDL Flt-Point (future work)
     * > DFHDL String (future work)
-    * [DFHDL Enumeration: `... extends Encoding`][DFEnum]
+    * [DFHDL Enumeration: `enum ... extends Encoded`][DFEnum]
     * [DFHDL Vector: `_CellType_ X _Dim_`][DFVector]
     * [DFHDL Structure: `... extends Struct`][DFStruct]
     * [DFHDL Tuple: `(T1, T2, ..., Tn)`][DFTuple]
     * [DFHDL Opaque: `... extends Opaque`][DFOpaque]
+    * [DFHDL Double: `Double`][DFDouble]
+    * [DFHDL Time/Freq: `Time`/`Freq`][DFPhysical]
     * [DFHDL Unit (Void): `Unit`][DFUnit]
 
 -   :simple-openaccess:{ .lg .middle } __(Access) Modifier__
@@ -1053,5 +1055,9 @@ given options.AppOptions.DefaultMode = options.AppOptions.DefaultMode.elaborate
 ## Tuple DFHDL Values {#DFTuple}
 
 ## Opaque DFHDL Values {#DFOpaque}
+
+## Double DFHDL Values {#DFDouble}
+
+## Time/Freq DFHDL Values {#DFPhysical}
 
 ## Unit (Void) DFHDL Values {#DFUnit}
