@@ -99,6 +99,40 @@ bits match
   case _       => y := x
 ```
 
+6. **Bit Extractor Patterns**:
+```scala
+// Match and extract a 32-bit section between DEAD and BEEF
+y match
+  case h"DEAD${secret: B[32]}BEEF" => 
+    // Use extracted secret bits
+
+// Extract multiple sections
+y match
+  case h"DE${part1: B[16]}AD${part2: B[16]}BEEF" =>
+    // Use part1 and part2 bits
+
+// Store extracted bits in variables
+val h"DEAD${extracted: B[32]}BEEF" = input: @unchecked
+
+// Extract multiple sections into variables
+val h"DE${first: B[16]}ADBE${second: B[16]}EF" = input: @unchecked
+
+// Using guards with extracted bit fields
+y match
+  case h"DEAD${secret: B[32]}BEEF" if secret > h"20000000" =>
+    // Match when the secret section is greater than 0x20000000
+  case h"DE${part1: B[16]}AD${part2: B[16]}BEEF" if part1 == h"FFFF" =>
+    // Match when part1 is all ones
+```
+
+Bit extractor patterns allow you to:
+- Match specific bit patterns while extracting variable sections
+- Use hex or binary notation for the fixed parts
+- Specify the width of extracted sections using `B[width]` syntax
+- Store extracted bits in variables for later use
+- Extract multiple sections in a single pattern match
+- Use guards to add conditions on extracted bit fields
+
 ### Match to If Conversion
 
 During compilation, match expressions are typically converted to if-else chains for hardware implementation. For example:
