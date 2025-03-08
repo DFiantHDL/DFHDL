@@ -189,15 +189,12 @@ class Foo extends DFDesign:
 
 /// details | Transitioning from Verilog
     type: verilog
-* Declaration Syntax: Port and variable declaration syntax is obviously very different
-* Types: 
-* Scope
-* The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
+TODO
 ///
 
 /// details | Transitioning from VHDL
     type: vhdl
-* VHDL has 
+TODO
 ///
 
 
@@ -327,10 +324,7 @@ Ports can be grouped together in dedicated [interfaces][interfaces].
 
 /// details | Transitioning from Verilog
     type: verilog
-* Declaration Syntax: Port and variable declaration syntax is obviously very different
-* Types: 
-* Scope
-* The non-blocking assignment operator in DFHDL is `:==` instead of `<=` in Verilog.
+TODO
 ///
 
 /// details | Transitioning from VHDL
@@ -451,37 +445,72 @@ class Foo extends DFDesign:
 ///
 
 
-## DFHDL Value Mutation {#mutability}
+## Bit-Accurate Operations and Type Inference
 
-DFiant supports dataflow variables mutability via the `:=` operator. Do not confuse with Scala-level mutability which is enabled by using `#!scala var` instead of `#!scala val`. Each dataflow class has two variations: an immutable class, which inherits from `DFAny.Val` and a mutable class, which inherits from `DFAny.Var` and accepts `:=`. The difference between the types enforces an immutable right-hand-side (RHS), where required, and a mutable variable creation. 
+DFHDL provides bit-accurate operations and strong type inference for bit-level manipulations. Here are the key features:
 
-Consider, for instance, the DFiant implementation of `g` in Table \ref`tbl:StateExDefImpl`: `a` is immutable because it is a RHS addition between the dataflow variable `i` and a literal value `5`. Contrarily, `c` is mutable, since it is a dataflow variable constructor (`.init` constructs a new initialized variable, while preserving the mutability trait). 
+### Bit Selection and Slicing
+```scala
+val b8 = Bits(8) <> VAR
+// Most significant bits selection
+val ms7 = b8(7, 1)    // 7 MSBs
+val ms1 = b8(7, 7)    // MSB only
 
-Fig. 1 demonstrates a dual class definition for every type  (immutable and mutable). The naming convention helps to reason about the mutability. For example, `DFBits` and `DFBits.Var` are immutable and mutable classes, respectively. Constructing a new variable via `DFBits` (e.g, `#!scala val a = DFBits[5]`) returns the mutable `DFBits.Var[5]`. Usually, we either receive or return an immutable type, hence we do not require annotating a type with its mutable variation. In cases where we want to return a mutable type, we annotate it as an output port (see Section~\ref`sec:io_ports`).
+// Least significant bits selection
+val ls7 = b8(6, 0)    // 7 LSBs
+val ls1 = b8(0, 0)    // LSB only
 
+// Single bit access
+val msbit = b8(7)      // MSB
+val lsbit = b8(0)      // LSB
+```
 
-## Bit-Accurate Operations, Type Inference, and Data Structures
+### Bit Operations
+```scala
+val b8 = Bits(8) <> VAR
 
-All DFiant's dataflow types are bit-accurate and structurally static, with their bit-width set upon construction (e.g., `DFBits[5]` is a 5-bit vector). Operations between dataflow variables produce a bit-accurate result with the proper type inference. For example, an addition between an unsigned 5-bit variable (`DFUInt[5]`) and a signed 10-bit variable (`DFSInt[10]`) produces an adder that can be implicitly converted to a 10-bit signed variable, if carry is not required, or an 11-bit signed variable by explicitly invoking `.wc` from the addition.
+// Shift operations
+val shifted_left = b8 << 2    // Logical left shift
+val shifted_right = b8 >> 2   // Logical right shift
 
-DFiant also allows operations between dataflow types and their corresponding Scala numeric types, by treating the Scala numeric types as constants (e.g., addition between `DFSInt` and `Integer` variables). A constant in the dataflow graph is a node that can produce infinite tokens of the same value.   
+// Bit reduction operations
+val or_reduced = b8.|         // OR reduction
+val and_reduced = b8.&        // AND reduction
+val xor_reduced = b8.^        // XOR reduction
 
-## Bit Aliasing and Casting
+// Bit concatenation
+val concat = (b"100", b"1", b"0", b"11").toBits  // Creates 8-bit value
+```
 
-Aliasing in DFiant enables referencing a part of a dataflow variable, by invoking `.bits(hiIdx, loIdx)`, which creates a bits vector alias that references the original variable at the given index parameters. Every change of a dataflow variable affects its alias and vice versa (similar to VHDL's signal aliasing). Since this function also casts the variable as `DFBits`, this feature is used as a raw-data cast between different dataflow types. Aliasing of an alias is also possible, while maintaining relative bits indexing. Aliasing preserves the mutability trait: an alias of an immutable value is immutable, while an alias of a mutable variable is mutable. 
+### Multiple Variable Assignment
+```scala
+val b4M, b4L = Bits(4) <> VAR  // Declare multiple variables
+val b3M = Bits(3) <> VAR
+val u5L = UInt(5) <> VAR
 
-Fig.~\ref`fig:Aliasing` demonstrates aliasing code and its effect on the contents of a dataflow variable (`bits128`). Each line code does as follows:
+// Assign to multiple variables using tuple pattern
+(b4M, b4L) := (h"1", 1, 0, b"11")  // Values are concatenated and split
 
+// Mix different types in assignment
+(b3M, u5L) := (h"1", 1, 0, b"11")  // Values automatically cast to appropriate types
 
+// Assign bit slices to multiple variables
+(b4M, b4L) := (u8.bits(3, 0), u8.bits(7, 4))  // Split byte into nibbles
 
-  1. Constructs a new 128-bit vector, `bits128`, and clears it.
-  2. Creates a new alias, `alias64`, which references the most significant 64 bits of `bits128`. Since `bits128` is a `DFBits` variable, there is no need to invoke `.bits()`, and we can apply the required indexes directly.
-  3. Creates a new alias, `alias32`, which references the least significant 32 bits of `alias64`, which reference bits 64 to 95 of `bits128`.
-  4. Constructs a new double precision floating point dataflow variable, `dbl`, and initialize its value as `1.0` (hexadecimal value of `0x3FF00...0`).
-  5. Modifies the least significant byte of `dbl`.
-  6. Sets the most significant bit of `bits128`.
-  7. Assigns `dbl` to the least significant 64 bits of `bits128` through casting. All the bits of `dbl` are selected because `.bits()` is invoked without index parameters.
-  8. Modifies a byte of `bits128`.
+// Complex multiple assignment
+(b4M, b3M, u5L, b4L) := (u8, b8)  // Automatically extracts appropriate bits for each variable
+```
+
+### Width Inference and Resizing
+```scala
+// Automatic width inference
+val b3 = Bits(3) <> VAR
+val b8 = Bits(8) <> VAR
+
+// Explicit resizing required when widths don't match
+b8 := b3.resize(8)     // Zero-extend to 8 bits
+b3 := b8.resize(3)     // Truncate to 3 bits
+```
 
 ## Bubble Values {#bubble}
 
