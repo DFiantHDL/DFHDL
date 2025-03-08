@@ -15,6 +15,13 @@ object Wait:
       dfc.tags
     ).addMember
   object Ops:
+    inline def __java_waitErr(): Unit =
+      compiletime.error(
+        "Did you mean to call DFHDL's `wait`? If so, use `<time>.wait` instead (e.g., `5.ns.wait`).\nDid you mean to call Java's `wait`? if so, use `this.wait` instead."
+      )
+    inline def __java_waitErr(arg: Long): Unit = __java_waitErr()
+    inline def __java_waitErr(arg: Long, arg2: Int): Unit = __java_waitErr()
+
     extension (lhs: DFConstOf[Duration]) def wait(using DFC): Unit = trydf { Wait(lhs) }
     def waitWhile(cond: DFValOf[DFBool])(using DFC): Unit =
       trydf {

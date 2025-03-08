@@ -28,6 +28,7 @@ import annotation.tailrec
   *   - change infix operator precedence of terms: `a := b match {...}` to be `a := (b match {...})`
   *     and `a <> b match {...}` to be `a <> (b match {...})`
   *   - change process{} to process.forever{}
+  *   - change wait(...) to __java_waitErr(...)
   *   - workaround for https://github.com/scala/scala3/issues/20053
   */
 class PreTyperPhase(setting: Setting) extends PluginPhase:
@@ -83,12 +84,19 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
           case Apply(Ident(process), List(ofTree)) if process.toString == "process" =>
             Some(Apply(Select(Ident(process), "forever".toTermName), List(ofTree)))
           case _ => None
+    object WaitChange:
+      def unapply(tree: Tree)(using Context): Option[Tree] =
+        tree match
+          case Apply(Ident(wait), args) if wait.toString == "wait" =>
+            Some(Apply(Ident("__java_waitErr".toTermName), args))
+          case _ => None
     override def transformBlock(blk: Block)(using Context): Block =
       super.transformBlock(blk) match
         // a connection/assignment could be in return expression position of a Unit-typed block
         case Block(stats, InfixOpChange(expr))       => Block(stats, expr)
         case Block(stats, MatchAssignOpChange(expr)) => Block(stats, expr)
         case Block(stats, ProcessChange(expr))       => Block(stats, expr)
+        case Block(stats, WaitChange(expr))          => Block(stats, expr)
         case blk                                     => blk
     override def transformStats(trees: List[Tree], exprOwner: Symbol)(using Context): List[Tree] =
       super.transformStats(trees, exprOwner).map:
@@ -97,7 +105,9 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
         case MatchAssignOpChange(tree) => tree
         // change process{} to process.forever{}
         case ProcessChange(tree) => tree
-        case tree                => tree
+        // change wait() to __java_waitErr()
+        case WaitChange(tree) => tree
+        case tree             => tree
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
         // a connection could be in return position of a DFHDL Unit definition (if no block is used)
