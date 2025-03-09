@@ -72,7 +72,6 @@ trait Printer
         end match
   end csDFNet
   def csOpenKeyWord: String
-  def csStep(step: Step): String
   def csGoto(goto: Goto): String
   def csDFRange(range: DFRange): String
   def csWait(wait: Wait): String
@@ -127,11 +126,11 @@ trait Printer
           case InstMode.Def => csDFDesignDefInst(design)
           case _            => csDFDesignBlockInst(design)
       case pb: ProcessBlock                => csProcessBlock(pb)
+      case stepBlock: StepBlock            => csStepBlock(stepBlock)
       case forBlock: DFLoop.DFForBlock     => csDFForBlock(forBlock)
       case whileBlock: DFLoop.DFWhileBlock => csDFWhileBlock(whileBlock)
       case domain: DomainBlock             => csDomainBlock(domain)
       // case timer: Timer        => csTimer(timer)
-      case step: Step => csStep(step)
       case goto: Goto => csGoto(goto)
       case wait: Wait => csWait(wait)
       case _          => ???
@@ -209,7 +208,9 @@ trait Printer
       case (block: DFDesignBlock, _) if printerOptions.designPrintFilter(block) =>
         formatCode(csFile(block))
     }
-    s"${formatCode(csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
+    s"${formatCode(
+        csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls
+      ).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
   end csDB
 end Printer
 
@@ -281,10 +282,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val normalizeViaConnection: Boolean = true
   val normalizeConnection: Boolean = true
   def csOpenKeyWord: String = "OPEN"
-  def csStep(step: Step): String =
-    s"def ${step.getName} = step"
-  def csGoto(goto: Goto): String =
-    s"${goto.stepRef.refCodeString}.goto"
+  def csGoto(goto: Goto): String = goto.stepRef.get.getName
   def csDFRange(range: DFRange): String =
     val op = range.op match
       case DFRange.Op.To    => "to"
@@ -359,11 +357,12 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val dfhdlKW: Set[String] =
     Set("VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
       "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
-      "goto")
+      "goto", "wait")
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] =
     Set("Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encoded", "Struct", "Opaque",
-      "StartAt", "OneHot", "Grey")
+      "StartAt", "OneHot", "Grey", "Unit", "Time", "Freq", "fs", "ns", "ps", "us", "ms", "sec",
+      "min", "hr", "Hz", "KHz", "MHz", "GHz")
   def colorCode(cs: String): String =
     cs
       .colorWords(scalaKW, keywordColor)

@@ -30,7 +30,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override val runsBefore = Set("MetaContextDelegate")
   var setMetaSym: Symbol = uninitialized
   var setMetaAnonSym: Symbol = uninitialized
-  var stepRef: TypeRef = uninitialized
   var treeOwnerApplyMap = Map.empty[Apply, (MemberDef, util.SrcPos)]
   var treeOwnerApplyMapStack = List.empty[Map[Apply, (MemberDef, util.SrcPos)]]
   val treeOwnerOverrideMap = mutable.Map.empty[DefDef, (Tree, util.SrcPos)]
@@ -103,15 +102,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   def getMetaInfo(ownerTree: Tree, srcPos: util.SrcPos)(using Context): Option[MetaInfo] =
     ownerTree match
-      case dd: DefDef if dd.tpe <:< stepRef =>
-        Some(
-          MetaInfo(
-            Some(dd.name.toString.nameCheck(dd)),
-            dd.srcPos,
-            dd.symbol.docString,
-            dd.symbol.staticAnnotations
-          )
-        )
       case t: ValOrDefDef if t.needsNewContext =>
         if (t.symbol.flags.is(Flags.Mutable))
           report.warning(
@@ -505,7 +495,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     setMetaAnonSym = metaContextCls.requiredMethod("setMetaAnon")
-    stepRef = requiredClassRef("dfhdl.core.Step")
     treeOwnerOverrideMap.clear()
     contextDefs.clear()
     ctx

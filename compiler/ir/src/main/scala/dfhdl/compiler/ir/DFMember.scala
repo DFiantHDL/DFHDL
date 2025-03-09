@@ -907,13 +907,14 @@ object DFNet:
   end Connection
 end DFNet
 
-final case class Step(
+final case class StepBlock(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFMember.Named:
+) extends DFBlock,
+      DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-    case that: Step =>
+    case that: StepBlock =>
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -922,7 +923,7 @@ final case class Step(
   def copyWithNewRefs: this.type = copy(
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
-end Step
+end StepBlock
 
 final case class Goto(
     stepRef: Goto.Ref,
@@ -945,7 +946,7 @@ final case class Goto(
 end Goto
 
 object Goto:
-  type Ref = DFRef.TwoWay[Step, Goto]
+  type Ref = DFRef.TwoWay[StepBlock, Goto]
 
 sealed trait DFOwner extends DFMember:
   val meta: Meta

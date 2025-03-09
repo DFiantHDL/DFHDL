@@ -118,6 +118,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     s"$csDFCaseKeyword${csDFCasePattern(caseBlock.pattern)}$csGuard$csDFCaseSeparator"
   def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean): String
   def csDFMatchEnd: String
+  def csStepBlock(stepBlock: StepBlock): String
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String
   final def csDFConditionalBlock(cb: DFConditional.Block): String =
@@ -151,7 +152,9 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"${csDFMatchStatement(csSelector, mh.hasWildcards)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(e => s"\n$e")}"
+        s"${csDFMatchStatement(csSelector, mh.hasWildcards)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(
+            e => s"\n$e"
+          )}"
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
   def csDomainBlock(pb: DomainBlock): String
@@ -307,6 +310,10 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.List(refs) if refs.isEmpty => ""
       case Sensitivity.List(refs)                 => refs.map(_.refCodeString).mkStringBrackets
     s"${named}process${senList}:\n${body.hindent}"
+  def csStepBlock(stepBlock: StepBlock): String =
+    val body = csDFOwnerBody(stepBlock)
+    val name = stepBlock.getName
+    s"def $name: Unit =\n${body.hindent}\nend $name"
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
     val body = csDFOwnerBody(forBlock)
     val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")

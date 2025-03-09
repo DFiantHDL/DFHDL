@@ -225,6 +225,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
     s"${named}process$senList$dcl\nbegin\n${body.hindent}\nend process;"
   end csProcessBlock
+  def csStepBlock(stepBlock: StepBlock): String = printer.unsupported
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
     val body = csDFOwnerBody(forBlock)
     val named = forBlock.meta.nameOpt.map(n => s"$n : ").getOrElse("")

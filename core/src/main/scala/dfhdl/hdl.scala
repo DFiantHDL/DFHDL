@@ -30,7 +30,6 @@ protected object hdl:
   val Cycles = core.DFCycles
   export core.DFRange.Ops.*
   export core.Wait.Ops.*
-  export core.Step.Ops.*
   type DFC = core.DFC
   val DFC = core.DFC
   export core.dfc

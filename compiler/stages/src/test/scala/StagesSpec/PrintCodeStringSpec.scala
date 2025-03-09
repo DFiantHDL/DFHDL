@@ -915,36 +915,46 @@ class PrintCodeStringSpec extends StageSpec:
          |end MatchWithParams""".stripMargin
     )
   }
-  // test("RTDesign process printing") {
-  //   class Foo extends RTDesign:
-  //     val cond = Bit <> IN
-  //     val v    = Bit <> VAR.REG init 0
-  //     process:
-  //       if (cond) x.goto
-  //       else
-  //         def z = step
-  //         if (cond) z.goto else y.goto
-  //       def x = step
-  //       def y = step
-  //   end Foo
-  //   val top = (new Foo).getCodeString
-  //   assertNoDiff(
-  //     top,
-  //     """|class Foo extends RTDesign:
-  //        |  val cond = Bit <> IN
-  //        |  val v = Bit <> VAR.REG init 0
-  //        |  process:
-  //        |    if (cond) x.goto
-  //        |    else
-  //        |      def z = step
-  //        |      if (cond) z.goto
-  //        |      else y.goto
-  //        |    end if
-  //        |    def x = step
-  //        |    def y = step
-  //        |end Foo""".stripMargin
-  //   )
-  // }
+  test("RTDesign process printing") {
+    class Foo extends RTDesign:
+      val x = Bit <> IN
+      val y = Bit <> OUT.REG init 0
+      process:
+        def S0: Unit =
+          y.din := 0
+          if (x) S1 else S0
+        def S1: Unit =
+          y.din := 1
+          if (x) S2 else S0
+        def S2: Unit =
+          y.din := 0
+          if (x) S2 else S0
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT.REG init 0
+         |  process:
+         |    def S0: Unit =
+         |      y.din := 0
+         |      if (x) S1
+         |      else S0
+         |    end S0
+         |    def S1: Unit =
+         |      y.din := 1
+         |      if (x) S2
+         |      else S0
+         |    end S1
+         |    def S2: Unit =
+         |      y.din := 0
+         |      if (x) S2
+         |      else S0
+         |    end S2
+         |end Foo""".stripMargin
+    )
+  }
   test("wait statements") {
     class Foo extends EDDesign:
       val x = Bit <> OUT
