@@ -11,21 +11,20 @@ final case class PrinterOptions(
     designPrintFilter: DesignPrintFilter
 )
 object PrinterOptions:
-
-  // disabling color if in Scastie because of https://github.com/scalacenter/scastie/issues/492
-  given default(using
-      align: Align,
-      color: Color,
-      showGlobals: ShowGlobals,
-      designPrintFilter: DesignPrintFilter
-  ): PrinterOptions =
-    PrinterOptions(
+  opaque type Defaults[-T] <: PrinterOptions = PrinterOptions
+  object Defaults:
+    given (using
+        align: Align,
+        color: Color,
+        showGlobals: ShowGlobals,
+        designPrintFilter: DesignPrintFilter
+    ): Defaults[Any] = PrinterOptions(
       align = align,
       color = color,
       showGlobals = showGlobals,
       designPrintFilter = designPrintFilter
     )
-
+  given (using defaults: Defaults[Any]): PrinterOptions = defaults
   opaque type Align <: Boolean = Boolean
   object Align:
     given Align = true
@@ -33,6 +32,7 @@ object PrinterOptions:
 
   opaque type Color <: Boolean = Boolean
   object Color:
+    // disabling color if in Scastie because of https://github.com/scalacenter/scastie/issues/492
     given Color = !scastieIsRunning
     given Conversion[Boolean, Color] = identity
 

@@ -12,6 +12,7 @@ class Plugin extends StandardPlugin:
     PreTyperPhase(setting) ::
       TopAnnotPhase(setting) ::
       MetaContextPlacerPhase(setting) ::
+      LoopFSMPhase(setting) ::
       CustomControlPhase(setting) ::
       DesignDefsPhase(setting) ::
       MetaContextDelegatePhase(setting) ::

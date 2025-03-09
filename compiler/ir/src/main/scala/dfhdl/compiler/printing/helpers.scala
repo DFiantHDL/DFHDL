@@ -116,6 +116,10 @@ extension (text: String)
     wordSet.foldLeft(text) { case (t, w) =>
       t.replaceAll(s" $w ", s"$color $w ${io.AnsiColor.RESET}")
     }
+  def colorLineComment(begin: String, color: String): String =
+    text.replaceAll(s"(?m)($begin.*$$)", s"$color$$1${io.AnsiColor.RESET}")
+  def colorBlockComment(begin: String, end: String, color: String): String =
+    text.replaceAll(s"(?s)(${begin}.*?${end})", s"$color$$1${io.AnsiColor.RESET}")
   def decolor: String = text.replaceAll("\u001B\\[[;\\d]*m", "")
 
 end extension

@@ -4,8 +4,9 @@ import dfhdl.compiler.ir
 import dfhdl.options.ElaborationOptions
 import ir.{HWAnnotation, getActiveHWAnnotations}
 import scala.reflect.ClassTag
-
+import collection.mutable
 import scala.annotation.Annotation
+import scala.annotation.implicitNotFound
 
 final case class DFC(
     nameOpt: Option[String],
@@ -14,8 +15,10 @@ final case class DFC(
     annotations: List[HWAnnotation] = Nil, // TODO: removing default causes stale symbol crash
     mutableDB: MutableDB = new MutableDB(),
     tags: ir.DFTags = ir.DFTags.empty,
-    elaborationOptions: ElaborationOptions = ElaborationOptions.default
+    elaborationOptionsContr: () => ElaborationOptions = () =>
+      summon[ElaborationOptions.Defaults[Design]]
 ) extends MetaContext:
+  lazy val elaborationOptions: ElaborationOptions = elaborationOptionsContr()
   def setMeta(
       nameOpt: Option[String] = nameOpt,
       position: Position = position,
@@ -65,9 +68,9 @@ final case class DFC(
 end DFC
 object DFC:
   // DFC given must be inline to force new DFC is generated for every missing DFC summon.
-  inline given dfc(using ElaborationOptions): DFC = empty // (using TopLevel)
-  def empty(using eo: ElaborationOptions): DFC =
-    DFC(None, Position.unknown, None, elaborationOptions = eo)
+  inline given dfc: DFC = emptyNoEO // (using TopLevel)
+  def empty(eo: ElaborationOptions): DFC =
+    DFC(None, Position.unknown, None, elaborationOptionsContr = () => eo)
   def emptyNoEO: DFC = DFC(None, Position.unknown, None)
   sealed trait Scope
   object Scope:
@@ -78,10 +81,13 @@ object DFC:
     object Design extends Design
     sealed trait Domain extends Scope
     object Domain extends Domain
-    sealed trait Process extends Scope
+    sealed trait Process extends Scope:
+      // will include the step cache according to the meta information
+      private[core] val stepCache = mutable.Map.empty[ir.Meta, ir.Step]
     object Process extends Process
     sealed trait Interface extends Scope
     object Interface extends Interface
+  end Scope
 end DFC
 
 transparent inline def dfc(using d: DFC): d.type = d

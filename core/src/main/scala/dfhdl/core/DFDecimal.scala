@@ -658,14 +658,14 @@ object DFXInt:
         def apply(arg: R)(using dfc: DFC): Out =
           val dfType = DFXInt(info.signed(arg), info.width(arg), BitAccurate)
           DFVal.Const(dfType, Some(BigInt(arg)), named = true)
-      // when the candidate is a DFInt32 constant we remove the signed and width tags
-      // from the type to allow for elaboration (runtime) check that considers the actual
-      // signed and width properties of the constant value.
-      given fromDFConstInt32[R <: DFConstInt32]: Candidate[R] with
+      // when the candidate is a DFInt32 we remove the signed and width tags
+      // from the type to allow for elaboration (runtime) check where values
+      // are constant and known.
+      given fromDFConstInt32[P, R <: DFValTP[DFInt32, P]]: Candidate[R] with
         type OutS = true
         type OutW = 32
         type OutN = Int32
-        type OutP = CONST
+        type OutP = P
         type OutSMask = Boolean
         type OutWMask = Int
         type IsScalaInt = false
@@ -1291,7 +1291,7 @@ object DFUInt:
         ]
     object UBArg extends UBArgLP:
       type Exact[UB <: IntP] = Exact1[IntP, UB, [ub <: IntP] =>> IntParam[ub], DFC, UBArg]
-      given fromInt[UB <: IntP, R <: Int](using
+      given fromInt[UB <: Int, R <: Int](using
           unsignedCheck: Unsigned.Check[R < 0],
           ubCheck: `UB > R`.CheckNUB[UB, R]
       ): UBArg[UB, R] with
@@ -1299,7 +1299,7 @@ object DFUInt:
         def apply(ub: IntParam[UB], arg: R)(using DFC): Out =
           unsignedCheck(arg < 0)
           ubCheck(ub, arg)
-          DFVal.Const(DFInt32, Some(BigInt(arg)))
+          DFConstInt32(arg)
       end fromInt
       given fromR[
           UB <: IntP,
@@ -1326,8 +1326,11 @@ object DFUInt:
               unsignedCheck(arg < 0)
               summon[`UB > R`.CheckNUB[UB, Int]](ub, arg.toInt)
             case _ =>
-              unsignedCheck(argVal.dfType.signed)
-              widthCheck(ub.clog2, argVal.widthInt)
+              // skip checks if the argument is an Int32.
+              // TODO: in the future, it's worth considering adding assertions
+              if (argVal.asIR.dfType != ir.DFInt32)
+                unsignedCheck(argVal.dfType.signed)
+                widthCheck(ub.clog2, argVal.widthInt)
           DFVal.Alias.AsIs(DFInt32, argVal)
         end apply
       end fromR
@@ -1394,5 +1397,5 @@ type DFInt32 =
 final val DFInt32 = ir.DFInt32.asFE[DFInt32]
 type DFConstInt32 = DFConstOf[DFInt32]
 object DFConstInt32:
-  def apply(int: Int)(using DFC): DFConstInt32 =
-    DFVal.Const(DFInt32, Some(BigInt(int)), named = true)
+  def apply(int: Int, named: Boolean = false)(using DFC): DFConstInt32 =
+    DFVal.Const(DFInt32, Some(BigInt(int)), named)

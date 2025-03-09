@@ -206,23 +206,26 @@ case object SanityCheck extends Stage:
   private def orderCheck()(using MemberGetSet): Unit =
     val discoveredMembers = mutable.Set[DFMember](DFMember.Empty)
     var hasViolations: Boolean = false
-    getSet.designDB.members.foreach { m =>
-      m.getRefs.foreach {
-        case r @ DFRef(rm) if !discoveredMembers.contains(rm) =>
-          m match
-            case dfVal: DFVal if dfVal.isGlobal =>
-              println(
-                s"The global member ${m.hashString}:\n$m\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
-              )
-            case _ =>
-              println(
-                s"The member ${m.hashString}:\n$m\nIn hierarchy:\n${m.getOwnerNamed.getFullName}\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
-              )
-          hasViolations = true
-          require(!hasViolations, "Failed member order check!")
-        case _ =>
-      }
-      discoveredMembers += m
+    getSet.designDB.members.foreach {
+      // goto statement can reference later steps
+      case _: Goto =>
+      case m =>
+        m.getRefs.foreach {
+          case r @ DFRef(rm) if !discoveredMembers.contains(rm) =>
+            m match
+              case dfVal: DFVal if dfVal.isGlobal =>
+                println(
+                  s"The global member ${m.hashString}:\n$m\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
+                )
+              case _ =>
+                println(
+                  s"The member ${m.hashString}:\n$m\nIn hierarchy:\n${m.getOwnerNamed.getFullName}\nHas reference $r pointing to a later member ${rm.hashString}:\n${rm}"
+                )
+            hasViolations = true
+            require(!hasViolations, "Failed member order check!")
+          case _ =>
+        }
+        discoveredMembers += m
     }
     require(!hasViolations, "Failed member order check!")
   end orderCheck

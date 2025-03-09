@@ -19,7 +19,7 @@ import dfhdl.internals.*
   */
 case object MatchToIf extends Stage:
   override def dependencies: List[Stage] = List(DropBinds)
-  override def nullifies: Set[Stage] = Set(DFHDLUniqueNames)
+  override def nullifies: Set[Stage] = Set(DFHDLUniqueNames, DropUnreferencedAnons)
   def matchFilter(mh: DFMatchHeader)(using getSet: MemberGetSet, co: CompilerOptions): Boolean =
     def composedPatternRemoval = mh.selectorRef.get.dfType match
       case _: ComposedDFType => true

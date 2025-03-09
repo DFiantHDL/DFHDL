@@ -14,11 +14,11 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def fileSuffix = "vhdl"
   def packageName: String =
     s"${getSet.designDB.top.dclName}_pkg"
-  def csLibrary(inSimulation: Boolean): String =
+  def csLibrary(inSimulation: Boolean, usesMathReal: Boolean): String =
     val default =
       s"""library ieee;
          |use ieee.std_logic_1164.all;
-         |use ieee.numeric_std.all;
+         |use ieee.numeric_std.all;${if (usesMathReal) "\nuse ieee.math_real.all;" else ""}
          |use work.dfhdl_pkg.all;
          |use work.$packageName.all;""".stripMargin
     if (useStdSimLibrary && inSimulation)
@@ -155,12 +155,18 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
        |end ${archName(design)};""".stripMargin
   end csArchitectureDcl
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
-    s"""${csLibrary(design.inSimulation)}
+    val usesMathReal = design.members(MemberView.Folded).exists {
+      case v: DFVal =>
+        v.dfType.decompose { case dt @ DFDouble => dt }.nonEmpty
+      case _ => false
+    }
+    s"""${csLibrary(design.inSimulation, usesMathReal)}
        |
        |${csEntityDcl(design)}
        |
        |${csArchitectureDcl(design)}
        |""".stripMargin
+  end csDFDesignBlockDcl
   def csDFDesignBlockInst(design: DFDesignBlock): String =
     val body = csDFDesignLateBody(design)
     val designParamList = design.members(MemberView.Folded).collect { case param: DesignParam =>
@@ -211,9 +217,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         case _                                        => true
       }
     val body = csDFMembers(statements)
-    val dcl =
-      if (dcls.isEmpty) ""
-      else s"\n${csDFMembers(dcls).hindent}"
+    val dcl = csDFMembers(dcls).emptyOr(v => s"\n${v.hindent}")
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val senList = pb.sensitivity match
       case Sensitivity.All => " (all)"
@@ -221,5 +225,37 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
     s"${named}process$senList$dcl\nbegin\n${body.hindent}\nend process;"
   end csProcessBlock
+  def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
+    val body = csDFOwnerBody(forBlock)
+    val named = forBlock.meta.nameOpt.map(n => s"$n : ").getOrElse("")
+    val rangeIR = forBlock.rangeRef.get
+    val csRange =
+      rangeIR.stepRef.refCodeString match
+        case "1" =>
+          val csOpExtra = rangeIR.op match
+            case DFRange.Op.To    => ""
+            case DFRange.Op.Until => "-1"
+          s"${rangeIR.startRef.refCodeString} to ${rangeIR.endRef.refCodeString}$csOpExtra"
+        case "-1" =>
+          val csOpExtra = rangeIR.op match
+            case DFRange.Op.To    => ""
+            case DFRange.Op.Until => "+1"
+          s"${rangeIR.startRef.refCodeString} downto ${rangeIR.endRef.refCodeString}$csOpExtra"
+        case _ => printer.unsupported
+    s"${named}for ${forBlock.iteratorRef.refCodeString} in $csRange loop\n${body.hindent}\nend loop;"
+  end csDFForBlock
+  def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
+    val body = csDFOwnerBody(whileBlock)
+    val requiresBoolConv =
+      if (printer.inVHDL93)
+        whileBlock.guardRef.get.dfType match
+          case DFBit => true
+          case _     => false
+      else false
+    val guard =
+      if (requiresBoolConv) s"to_bool(${whileBlock.guardRef.refCodeString})"
+      else whileBlock.guardRef.refCodeString
+    s"while $guard loop\n${body.hindent}\nend loop;"
+  end csDFWhileBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VHDLOwnerPrinter

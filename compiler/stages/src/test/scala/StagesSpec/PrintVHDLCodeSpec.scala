@@ -211,7 +211,7 @@ class PrintVHDLCodeSpec extends StageSpec:
         my_var := x
         y     :== my_var
       }
-      process.forever {
+      process {
         z :== x
         y :== z
       }
@@ -277,6 +277,8 @@ class PrintVHDLCodeSpec extends StageSpec:
       val c14: SInt[8] <> CONST         = ?
       val c15: (Bits[3], Bit) <> CONST  = (all(0), 1)
       val c16: Bits[8] X 5 X 7 <> CONST = Vector.fill(7)(Vector.tabulate(5)(i => h"8'$i$i"))
+      val c17: Double <> CONST          = 3.14159
+      val c18: Double <> CONST          = -2.71828
     end Top
     val top = (new Top).getCompiledCodeString
     assertNoDiff(
@@ -284,6 +286,7 @@ class PrintVHDLCodeSpec extends StageSpec:
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
+         |use ieee.math_real.all;
          |use work.dfhdl_pkg.all;
          |use work.Top_pkg.all;
          |
@@ -321,6 +324,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    5 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
          |    6 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44")
          |  );
+         |  constant c17 : real := 3.14159;
+         |  constant c18 : real := -2.71828;
          |begin
          |
          |end Top_arch;
@@ -871,6 +876,217 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  y5 <= x5;
          |end Foo_arch;
          |""".stripMargin
+    )
+  }
+  test("wait statements") {
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val i = Bit <> IN
+      process:
+        x :== 1
+        waitWhile(i)
+        50.ms.wait
+        x :== 0
+        waitUntil(i.rising)
+        50.us.wait
+        x :== 1
+        waitUntil(i)
+        50.ns.wait
+        x :== 0
+        1.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : out std_logic;
+         |  i : in std_logic
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process
+         |  begin
+         |    x <= '1';
+         |    wait until not to_bool(i);
+         |    wait for 50 ms;
+         |    x <= '0';
+         |    wait until rising_edge(i);
+         |    wait for 50 us;
+         |    x <= '1';
+         |    wait until to_bool(i);
+         |    wait for 50 ns;
+         |    x <= '0';
+         |    wait for 1 ns;
+         |  end process;
+         |end Foo_arch;""".stripMargin
+    )
+  }
+  test("for loop printing") {
+    class Foo extends EDDesign:
+      val matrix = Bits(10) X 8 X 8 <> OUT
+      process:
+        for (
+          i <- 0 until 8;
+          if i % 2 == 0;
+          j <- 0 until 8;
+          if j % 2 == 0;
+          k <- 0 until 10
+          if k % 2 == 0
+        ) matrix(i)(j)(k) :== 1
+        for (
+          i <- 0 until 8;
+          if i % 2 == 1;
+          j <- 0 until 8;
+          if j % 2 == 1;
+          k <- 0 until 10
+          if k % 2 == 1
+        ) matrix(i)(j)(k) :== 0
+        10.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  matrix : out t_arrX2_std_logic_vector(0 to 7)(0 to 7)(9 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process
+         |  begin
+         |    for i in 0 to 8-1 loop
+         |      if (i rem 2) = 0 then
+         |        for j in 0 to 8-1 loop
+         |          if (j rem 2) = 0 then
+         |            for k in 0 to 10-1 loop
+         |              if (k rem 2) = 0 then matrix(i)(j)(k) <= '1';
+         |              end if;
+         |            end loop;
+         |          end if;
+         |        end loop;
+         |      end if;
+         |    end loop;
+         |    for i in 0 to 8-1 loop
+         |      if (i rem 2) = 1 then
+         |        for j in 0 to 8-1 loop
+         |          if (j rem 2) = 1 then
+         |            for k in 0 to 10-1 loop
+         |              if (k rem 2) = 1 then matrix(i)(j)(k) <= '0';
+         |              end if;
+         |            end loop;
+         |          end if;
+         |        end loop;
+         |      end if;
+         |    end loop;
+         |    wait for 10 ns;
+         |  end process;
+         |end Foo_arch;""".stripMargin
+    )
+  }
+  test("while loop printing") {
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val b = Bit <> IN
+      process:
+        while (b)
+          x :== b
+          5.ns.wait
+        while (true)
+          x :== !b
+          5.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : out std_logic;
+         |  b : in std_logic
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process
+         |  begin
+         |    while b loop
+         |      x <= b;
+         |      wait for 5 ns;
+         |    end loop;
+         |    while true loop
+         |      x <= not b;
+         |      wait for 5 ns;
+         |    end loop;
+         |  end process;
+         |end Foo_arch;""".stripMargin
+    )
+  }
+  test("while loop printing vhdl.v93") {
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val b = Bit <> IN
+      process:
+        while (b)
+          x :== b
+          5.ns.wait
+        while (true)
+          x :== !b
+          5.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  x : out std_logic;
+         |  b : in std_logic
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process
+         |  begin
+         |    while to_bool(b) loop
+         |      x <= b;
+         |      wait for 5 ns;
+         |    end loop;
+         |    while true loop
+         |      x <= not b;
+         |      wait for 5 ns;
+         |    end loop;
+         |  end process;
+         |end Foo_arch;""".stripMargin
     )
   }
 end PrintVHDLCodeSpec

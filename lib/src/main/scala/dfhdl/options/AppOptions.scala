@@ -1,5 +1,6 @@
 package dfhdl.options
 import dfhdl.internals.{scastieIsRunning, metalsIsRunning, scala_cliIsRunning}
+import dfhdl.core.Design
 import AppOptions.*
 
 case class AppOptions(
@@ -8,10 +9,12 @@ case class AppOptions(
 )
 
 object AppOptions:
-  given default(using
-      defaultMode: DefaultMode,
-      clearConsole: ClearConsole
-  ): AppOptions = AppOptions(defaultMode = defaultMode, clearConsole = clearConsole)
+  opaque type Defaults[-T <: Design] <: AppOptions = AppOptions
+  object Defaults:
+    given (using
+        defaultMode: DefaultMode,
+        clearConsole: ClearConsole
+    ): Defaults[Design] = AppOptions(defaultMode = defaultMode, clearConsole = clearConsole)
 
   enum DefaultMode derives CanEqual:
     case help, elaborate, compile, commit, lint

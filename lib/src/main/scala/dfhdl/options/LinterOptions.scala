@@ -1,5 +1,5 @@
 package dfhdl.options
-
+import dfhdl.core.Design
 import LinterOptions.*
 
 final case class LinterOptions(
@@ -11,17 +11,20 @@ final case class LinterOptions(
 
 //defaults common for all linting tools
 object LinterOptions:
-  given default(using
-      onError: OnError,
-      fatalWarnings: FatalWarnings,
-      verilogLinter: VerilogLinter,
-      vhdlLinter: VHDLLinter
-  ): LinterOptions = LinterOptions(
-    onError = onError,
-    fatalWarnings = fatalWarnings,
-    verilogLinter = verilogLinter,
-    vhdlLinter = vhdlLinter
-  )
+  opaque type Defaults[-T <: Design] <: LinterOptions = LinterOptions
+  object Defaults:
+    given (using
+        onError: OnError,
+        fatalWarnings: FatalWarnings,
+        verilogLinter: VerilogLinter,
+        vhdlLinter: VHDLLinter
+    ): Defaults[Design] = LinterOptions(
+      onError = onError,
+      fatalWarnings = fatalWarnings,
+      verilogLinter = verilogLinter,
+      vhdlLinter = vhdlLinter
+    )
+  given (using defaults: Defaults[Design]): LinterOptions = defaults
 
   opaque type OnError <: dfhdl.options.ToolOptions.OnError = dfhdl.options.ToolOptions.OnError
   object OnError:

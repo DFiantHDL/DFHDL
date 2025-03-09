@@ -138,6 +138,8 @@ object DFMember:
       case _                               => member
 end DFMember
 
+sealed trait Statement extends DFMember
+
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
   def width(using MemberGetSet): Int = dfType.width
@@ -459,6 +461,7 @@ object DFVal:
     ).asInstanceOf[this.type]
   end Dcl
   object Dcl:
+    case object IteratorTag extends DFTagOf[Dcl]
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
     extension (dcl: Dcl)
       def isClkDcl(using MemberGetSet): Boolean = dcl.dfType match
@@ -795,6 +798,37 @@ object DFVal:
   end Alias
 end DFVal
 
+final case class DFRange(
+    startRef: DFRange.Ref,
+    endRef: DFRange.Ref,
+    op: DFRange.Op,
+    stepRef: DFRange.Ref,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFMember:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: DFRange =>
+      this.startRef =~ that.startRef && this.endRef =~ that.endRef && this.stepRef =~ that.stepRef &&
+      this.op == that.op &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = List(startRef, endRef, stepRef)
+  def copyWithNewRefs: this.type = copy(
+    startRef = startRef.copyAsNewRef,
+    endRef = endRef.copyAsNewRef,
+    stepRef = stepRef.copyAsNewRef,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end DFRange
+
+object DFRange:
+  type Ref = DFRef.TwoWay[DFVal, DFRange]
+  enum Op derives CanEqual:
+    case Until, To
+
 final case class DFNet(
     lhsRef: DFNet.Ref,
     op: DFNet.Op,
@@ -802,7 +836,7 @@ final case class DFNet(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFMember:
+) extends Statement:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFNet =>
       this.lhsRef =~ that.lhsRef && this.op == that.op && this.rhsRef =~ that.rhsRef &&
@@ -872,6 +906,46 @@ object DFNet:
       else None
   end Connection
 end DFNet
+
+final case class Step(
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends DFMember.Named:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: Step =>
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+  def copyWithNewRefs: this.type = copy(
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end Step
+
+final case class Goto(
+    stepRef: Goto.Ref,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends Statement:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: Goto =>
+      this.stepRef =~ that.stepRef &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = List(stepRef)
+  def copyWithNewRefs: this.type = copy(
+    stepRef = stepRef.copyAsNewRef,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end Goto
+
+object Goto:
+  type Ref = DFRef.TwoWay[Step, Goto]
 
 sealed trait DFOwner extends DFMember:
   val meta: Meta
@@ -1142,6 +1216,56 @@ object DFConditional:
     type Ref = DFRef.TwoWay[DFIfElseBlock | DFIfHeader, Block]
 end DFConditional
 
+object DFLoop:
+  sealed trait Block extends DFBlock
+  final case class DFForBlock(
+      iteratorRef: DFForBlock.IteratorRef,
+      rangeRef: DFForBlock.RangeRef,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Block:
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: DFForBlock =>
+        this.iteratorRef =~ that.iteratorRef && this.rangeRef =~ that.rangeRef &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+    lazy val getRefs: List[DFRef.TwoWayAny] = List(iteratorRef, rangeRef)
+    def copyWithNewRefs: this.type = copy(
+      iteratorRef = iteratorRef.copyAsNewRef,
+      rangeRef = rangeRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
+  end DFForBlock
+  object DFForBlock:
+    type IteratorRef = DFRef.TwoWay[DFVal.Dcl, DFForBlock]
+    type RangeRef = DFRef.TwoWay[DFRange, DFForBlock]
+
+  final case class DFWhileBlock(
+      guardRef: DFWhileBlock.GuardRef,
+      ownerRef: DFOwner.Ref,
+      meta: Meta,
+      tags: DFTags
+  ) extends Block:
+    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+      case that: DFWhileBlock =>
+        this.guardRef =~ that.guardRef &&
+        this.meta =~ that.meta && this.tags =~ that.tags
+      case _ => false
+    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+    lazy val getRefs: List[DFRef.TwoWayAny] = List(guardRef)
+    def copyWithNewRefs: this.type = copy(
+      guardRef = guardRef.copyAsNewRef,
+      ownerRef = ownerRef.copyAsNewRef
+    ).asInstanceOf[this.type]
+  end DFWhileBlock
+  object DFWhileBlock:
+    type GuardRef = DFRef.TwoWay[DFVal, DFWhileBlock]
+end DFLoop
+
 final case class DFDesignBlock(
     domainType: DomainType,
     dclMeta: Meta,
@@ -1249,121 +1373,103 @@ object DFSimMember:
   end Assert
 end DFSimMember
 
-sealed trait Timer extends DFMember.Named
-object Timer:
-  type Ref = DFRef.TwoWay[Timer, DFMember]
-  type TriggerRef = DFRef.TwoWay[DFVal | DFMember.Empty, DFMember]
-  final case class Periodic(
-      triggerRef: TriggerRef,
-      rateOpt: Option[Rate],
-      ownerRef: DFOwner.Ref,
-      meta: Meta,
-      tags: DFTags
-  ) extends Timer:
-    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case that: Periodic =>
-        this.triggerRef =~ that.triggerRef && this.rateOpt == that.rateOpt &&
-        this.meta =~ that.meta && this.tags =~ that.tags
-      case _ => false
-    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
-    def copyWithNewRefs: this.type = copy(
-      triggerRef = triggerRef.copyAsNewRef,
-      ownerRef = ownerRef.copyAsNewRef
-    ).asInstanceOf[this.type]
-  end Periodic
+// sealed trait Timer extends DFMember.Named
+// object Timer:
+//   type Ref = DFRef.TwoWay[Timer, DFMember]
+//   type TriggerRef = DFRef.TwoWay[DFVal | DFMember.Empty, DFMember]
+//   final case class Periodic(
+//       triggerRef: TriggerRef,
+//       rateOpt: Option[Rate],
+//       ownerRef: DFOwner.Ref,
+//       meta: Meta,
+//       tags: DFTags
+//   ) extends Timer:
+//     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+//       case that: Periodic =>
+//         this.triggerRef =~ that.triggerRef && this.rateOpt == that.rateOpt &&
+//         this.meta =~ that.meta && this.tags =~ that.tags
+//       case _ => false
+//     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+//     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+//     lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
+//     def copyWithNewRefs: this.type = copy(
+//       triggerRef = triggerRef.copyAsNewRef,
+//       ownerRef = ownerRef.copyAsNewRef
+//     ).asInstanceOf[this.type]
+//   end Periodic
 
-  final case class Func(
-      sourceRef: Timer.Ref,
-      op: Func.Op,
-      arg: Time | Ratio,
-      ownerRef: DFOwner.Ref,
-      meta: Meta,
-      tags: DFTags
-  ) extends Timer:
-    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case that: Func =>
-        this.sourceRef =~ that.sourceRef && this.op == that.op && this.arg == that.arg &&
-        this.meta =~ that.meta && this.tags =~ that.tags
-      case _ => false
-    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = List(sourceRef)
-    def copyWithNewRefs: this.type = copy(
-      sourceRef = sourceRef.copyAsNewRef,
-      ownerRef = ownerRef.copyAsNewRef
-    ).asInstanceOf[this.type]
-  end Func
-  object Func:
-    enum Op derives CanEqual:
-      case Delay, `*`, /
+//   final case class Func(
+//       sourceRef: Timer.Ref,
+//       op: Func.Op,
+//       arg: Time | Ratio,
+//       ownerRef: DFOwner.Ref,
+//       meta: Meta,
+//       tags: DFTags
+//   ) extends Timer:
+//     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+//       case that: Func =>
+//         this.sourceRef =~ that.sourceRef && this.op == that.op && this.arg == that.arg &&
+//         this.meta =~ that.meta && this.tags =~ that.tags
+//       case _ => false
+//     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+//     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+//     lazy val getRefs: List[DFRef.TwoWayAny] = List(sourceRef)
+//     def copyWithNewRefs: this.type = copy(
+//       sourceRef = sourceRef.copyAsNewRef,
+//       ownerRef = ownerRef.copyAsNewRef
+//     ).asInstanceOf[this.type]
+//   end Func
+//   object Func:
+//     enum Op derives CanEqual:
+//       case Delay, `*`, /
 
-  final case class IsActive(
-      timerRef: Ref,
-      ownerRef: DFOwner.Ref,
-      meta: Meta,
-      tags: DFTags
-  ) extends DFVal.CanBeExpr:
-    val dfType: DFType = DFBool
-    // TODO: revisit this in the future. can an active indication of a timer be fully anonymous?
-    protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
-    protected def protGetConstData(using MemberGetSet): Option[Any] = None
-    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case that: IsActive =>
-        this.timerRef =~ that.timerRef &&
-        this.meta =~ that.meta && this.tags =~ that.tags
-      case _ => false
-    protected[ir] def protIsSimilarTo(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
-      false
-    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = List(timerRef)
-    def updateDFType(dfType: DFType): this.type = this
-    def copyWithNewRefs: this.type = copy(
-      timerRef = timerRef.copyAsNewRef,
-      ownerRef = ownerRef.copyAsNewRef
-    ).asInstanceOf[this.type]
-  end IsActive
-end Timer
+//   final case class IsActive(
+//       timerRef: Ref,
+//       ownerRef: DFOwner.Ref,
+//       meta: Meta,
+//       tags: DFTags
+//   ) extends DFVal.CanBeExpr:
+//     val dfType: DFType = DFBool
+//     // TODO: revisit this in the future. can an active indication of a timer be fully anonymous?
+//     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
+//     protected def protGetConstData(using MemberGetSet): Option[Any] = None
+//     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+//       case that: IsActive =>
+//         this.timerRef =~ that.timerRef &&
+//         this.meta =~ that.meta && this.tags =~ that.tags
+//       case _ => false
+//     protected[ir] def protIsSimilarTo(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
+//       false
+//     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+//     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+//     lazy val getRefs: List[DFRef.TwoWayAny] = List(timerRef)
+//     def updateDFType(dfType: DFType): this.type = this
+//     def copyWithNewRefs: this.type = copy(
+//       timerRef = timerRef.copyAsNewRef,
+//       ownerRef = ownerRef.copyAsNewRef
+//     ).asInstanceOf[this.type]
+//   end IsActive
+// end Timer
 
-sealed trait Wait extends DFMember
-object Wait:
-  final case class Duration(
-      timeOpt: Option[Time],
-      ownerRef: DFOwner.Ref,
-      meta: Meta,
-      tags: DFTags
-  ) extends Wait:
-    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case that: Duration =>
-        this.timeOpt == that.timeOpt &&
-        this.meta =~ that.meta && this.tags =~ that.tags
-      case _ => false
-    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
-    def copyWithNewRefs: this.type = copy(ownerRef = ownerRef.copyAsNewRef).asInstanceOf[this.type]
-  end Duration
-
-  type TriggerRef = DFRef.TwoWay[DFVal, DFMember]
-  final case class Until(
-      triggerRef: TriggerRef,
-      ownerRef: DFOwner.Ref,
-      meta: Meta,
-      tags: DFTags
-  ) extends Wait:
-    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case that: Until =>
-        this.triggerRef =~ that.triggerRef &&
-        this.meta =~ that.meta && this.tags =~ that.tags
-      case _ => false
-    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
-    def copyWithNewRefs: this.type = copy(
-      triggerRef = triggerRef.copyAsNewRef,
-      ownerRef = ownerRef.copyAsNewRef
-    ).asInstanceOf[this.type]
-  end Until
+final case class Wait(
+    triggerRef: Wait.TriggerRef,
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends Statement:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: Wait =>
+      this.triggerRef =~ that.triggerRef &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
+  def copyWithNewRefs: this.type = copy(
+    triggerRef = triggerRef.copyAsNewRef,
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
 end Wait
+
+object Wait:
+  type TriggerRef = DFRef.TwoWay[DFVal, Wait]

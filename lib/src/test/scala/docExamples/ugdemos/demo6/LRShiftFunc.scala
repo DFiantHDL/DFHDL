@@ -15,7 +15,7 @@ def RightShiftGen(
   shift: UInt[Int] <> VAL
 ): Bits[Int] <> DFRET = iBits >> shift
 
-enum ShiftDir extends Encode:
+enum ShiftDir extends Encoded:
   case Left, Right
 
 /** A left-right bits shifter, functional composition */

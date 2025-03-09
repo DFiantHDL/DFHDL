@@ -17,7 +17,7 @@ class StageRunner(using co: CompilerOptions, po: PrinterOptions) extends LogSupp
     logger.setLogLevel(LogLevel.INFO)
   def logWarn(): Unit =
     logger.setLogLevel(LogLevel.WARN)
-  private def runSingleStage(stage: Stage)(designDB: DB): DB =
+  private def runSingleStage(stage: Stage, done: Set[Stage])(designDB: DB): DB =
     info(s"Running stage ${stage.typeName}....")
     val ret = stage.transform(designDB)(using designDB.getSet)
     info(s"Finished stage ${stage.typeName}")
@@ -25,7 +25,7 @@ class StageRunner(using co: CompilerOptions, po: PrinterOptions) extends LogSupp
       logger.getLogLevel >= LogLevel.DEBUG && stage != SanityCheck &&
       !stage.isInstanceOf[NoCheckStage]
     )
-      if (stage.nullifies.contains(DropUnreferencedAnons))
+      if (!done.contains(DropUnreferencedAnons))
         ret.dropUnreferencedAnons.sanityCheck
       else
         ret.sanityCheck
@@ -52,10 +52,12 @@ class StageRunner(using co: CompilerOptions, po: PrinterOptions) extends LogSupp
         else if (done.contains(head)) run(next, done)(designDB)
         // all the dependencies of head are done, so we can run the head stage
         else if ((head.depSet -- done).isEmpty)
-          // running the stage
-          val resultDB = runSingleStage(head)(designDB)
           // the stage is done, so we add it to the done set and remove the nullified stages
-          run(next, done + head -- head.nullifies)(resultDB)
+          val updatedDone = done + head -- head.nullifies
+          // running the stage (updatedDone set is given only for tracing purposes)
+          val resultDB = runSingleStage(head, updatedDone)(designDB)
+          // running the next stage
+          run(next, updatedDone)(resultDB)
         // still need to wait for dependencies, so we add them to the deps queue in a sorted order
         // (this is just to preserve consistency in compilation order).
         else run(head.dependencies ++ deps, done)(designDB)

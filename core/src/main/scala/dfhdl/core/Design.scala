@@ -24,12 +24,20 @@ trait Design extends Container, HasClsMetaArgs:
       annotations: List[Annotation],
       args: ListMap[String, Any]
   ): Unit =
+    import dfc.getSet
     val designBlock = owner.asIR
+    // top level is tagged with the default RT Domain configuration
+    // (the top level may be an ED or DF design, so it cannot save the default RT configuration as part
+    // of the domain type, but this could be needed later for compilation stages)
+    val tags =
+      if (designBlock.isTop) designBlock.tags.tag(dfc.elaborationOptions.defaultRTDomainCfg)
+      else designBlock.tags
     setOwner(
-      dfc.getSet.replace(designBlock)(
+      getSet.replace(designBlock)(
         designBlock.copy(
           dclMeta = ir.Meta.gen(Some(name), position, docOpt, annotations),
-          instMode = mkInstMode(args)
+          instMode = mkInstMode(args),
+          tags = tags
         )
       ).asFE
     )
@@ -41,6 +49,7 @@ trait Design extends Container, HasClsMetaArgs:
     dfc.enterLate()
   private[dfhdl] def skipChecks: Boolean = false
 
+  def customTopChecks(): Unit = {}
   final override def onCreateEnd(thisOwner: Option[This]): Unit =
     if (hasStartedLate)
       dfc.exitLate()
@@ -56,9 +65,11 @@ trait Design extends Container, HasClsMetaArgs:
           errors.collect { case basicErr: DFError.Basic => basicErr.toString }.mkString("\n\n")
         )
       if (!skipChecks)
-        try dfc.mutableDB.immutable.check() // various checks post initial elaboration
+        try
+          dfc.mutableDB.immutable.check() // various checks post initial elaboration
+          customTopChecks() // custom user/library checks
         catch
-          case err: IllegalArgumentException =>
+          case err: (IllegalArgumentException | AssertionError) =>
             exitWithError(err.getMessage)
           case others => throw others
     end if
@@ -70,14 +81,8 @@ object Design:
   type Block = DFOwner[ir.DFDesignBlock]
   object Block:
     def apply(domain: ir.DomainType, dclMeta: ir.Meta, instMode: InstMode)(using DFC): Block =
-      // top level is tagged with the default RT Domain configuration
-      // (the top level may be an ED or DF design, so it cannot save the default RT configuration as part
-      // of the domain type, but this could be needed later for compilation stages)
-      val tags =
-        if (dfc.ownerOption.isEmpty) dfc.tags.tag(dfc.elaborationOptions.defaultRTDomainCfg)
-        else dfc.tags
       ir.DFDesignBlock(
-        domain, dclMeta, instMode, dfc.ownerOrEmptyRef, dfc.getMeta, tags
+        domain, dclMeta, instMode, dfc.ownerOrEmptyRef, dfc.getMeta, dfc.tags
       )
         .addMember
         .asFE

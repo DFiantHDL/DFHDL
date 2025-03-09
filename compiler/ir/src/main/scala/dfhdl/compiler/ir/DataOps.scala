@@ -12,6 +12,14 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
     case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
       assert(tWidth == fWidth + 1)
       fromData
+    // Double to Bits conversion
+    case (DFBits(Int(tWidth)), DFDouble) =>
+      assert(tWidth == 64)
+      fromType.dataToBitsData(fromData)
+    // Bits to Double conversion
+    case (DFDouble, DFBits(Int(fWidth))) =>
+      assert(fWidth == 64)
+      toType.bitsDataToData(fromData.asInstanceOf[(BitVector, BitVector)])
     // Bits resize
     case (DFBits(Int(tWidth)), DFBits(_)) =>
       import dfhdl.internals.{resize => resizeBV}
@@ -155,6 +163,42 @@ def calcFuncData[OT <: DFType](
           case (DFBool, op @ (FuncOp.=== | FuncOp.=!=), _, lhs :: rhs :: Nil) =>
             val equals = lhs equals rhs
             Some(if (op == FuncOp.===) equals else !equals)
+          // DFDouble arithmetic operations
+          case (
+                _: DFDouble,
+                op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./ | FuncOp.max | FuncOp.min),
+                DFDouble :: DFDouble :: maybeMoreTypes,
+                argData: List[Option[Double]] @unchecked
+              ) =>
+            val data = op match
+              case FuncOp.+   => argData.map(_.get).reduce(_ + _)
+              case FuncOp.-   => argData.map(_.get).reduce(_ - _)
+              case FuncOp.*   => argData.map(_.get).reduce(_ * _)
+              case FuncOp./   => argData.map(_.get).reduce(_ / _)
+              case FuncOp.max => argData.map(_.get).reduce(_ max _)
+              case FuncOp.min => argData.map(_.get).reduce(_ min _)
+            Some(data)
+          // DFDouble unary operations
+          case (
+                DFDouble,
+                FuncOp.unary_-,
+                DFDouble :: Nil,
+                Some(data: Double) :: Nil
+              ) =>
+            Some(-data)
+          // DFDouble comparisons
+          case (
+                DFBool,
+                op @ (FuncOp.< | FuncOp.> | FuncOp.<= | FuncOp.>=),
+                DFDouble :: DFDouble :: Nil,
+                Some(lhs: Double) :: Some(rhs: Double) :: Nil
+              ) =>
+            val data = op match
+              case FuncOp.<  => lhs < rhs
+              case FuncOp.>  => lhs > rhs
+              case FuncOp.<= => lhs <= rhs
+              case FuncOp.>= => lhs >= rhs
+            Some(data)
           // DFXInt arithmetic operations and shifting
           case (
                 outType @ DFXInt(_, _, _),

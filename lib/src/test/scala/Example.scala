@@ -31,7 +31,7 @@ class RightShiftGen(
 ) extends ShiftGen:
   oBits := iBits >> shift
 
-enum ShiftDir extends Encode:
+enum ShiftDir extends Encoded:
   case Left, Right
 
 @top class LRShiftGen(

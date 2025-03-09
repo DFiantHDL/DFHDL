@@ -30,6 +30,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   override val runsBefore = Set("MetaContextDelegate")
   var setMetaSym: Symbol = uninitialized
   var setMetaAnonSym: Symbol = uninitialized
+  var stepRef: TypeRef = uninitialized
   var treeOwnerApplyMap = Map.empty[Apply, (MemberDef, util.SrcPos)]
   var treeOwnerApplyMapStack = List.empty[Map[Apply, (MemberDef, util.SrcPos)]]
   val treeOwnerOverrideMap = mutable.Map.empty[DefDef, (Tree, util.SrcPos)]
@@ -102,6 +103,15 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   def getMetaInfo(ownerTree: Tree, srcPos: util.SrcPos)(using Context): Option[MetaInfo] =
     ownerTree match
+      case dd: DefDef if dd.tpe <:< stepRef =>
+        Some(
+          MetaInfo(
+            Some(dd.name.toString.nameCheck(dd)),
+            dd.srcPos,
+            dd.symbol.docString,
+            dd.symbol.staticAnnotations
+          )
+        )
       case t: ValOrDefDef if t.needsNewContext =>
         if (t.symbol.flags.is(Flags.Mutable))
           report.warning(
@@ -189,8 +199,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   override def transformDefDef(tree: DefDef)(using Context): tpd.Tree =
     val sym = tree.symbol
-    if (sym.is(Override) && sym.name.toString == "__dfc" && tree.tpt.tpe <:< metaContextTpe)
-      treeOwnerOverrideMap.get(tree) match
+    if (sym.name.toString == "__dfc" && tree.tpt.tpe <:< metaContextTpe)
+      if (sym.is(Override)) treeOwnerOverrideMap.get(tree) match
         case Some(ownerTree, srcPos) =>
           getMetaInfo(ownerTree, srcPos) match
             case Some(metaInfo) =>
@@ -200,6 +210,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                 cpy.DefDef(tree)(rhs = tree.rhs.setMeta(None, srcPos, None, Nil))
               else tree
         case None => tree
+      else dropProxies(tree)
     else tree
   end transformDefDef
 
@@ -494,6 +505,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     setMetaAnonSym = metaContextCls.requiredMethod("setMetaAnon")
+    stepRef = requiredClassRef("dfhdl.core.Step")
     treeOwnerOverrideMap.clear()
     contextDefs.clear()
     ctx

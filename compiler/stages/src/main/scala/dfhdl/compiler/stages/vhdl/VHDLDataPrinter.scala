@@ -86,4 +86,13 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
       .mkStringBrackets
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String = printer.unsupported
   def csDFUnitData(dfType: DFUnit, data: Unit): String = printer.unsupported
+  def csDFDoubleData(dfType: DFDouble, data: Option[Double]): String =
+    data match
+      case Some(value) => value.toString
+      case None        => "?"
+  def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String =
+    dfType.unit match
+      case DFPhysical.Unit.Time =>
+        s"${data._1} ${data._2}"
+      case _ => printer.unsupported
 end VHDLDataPrinter

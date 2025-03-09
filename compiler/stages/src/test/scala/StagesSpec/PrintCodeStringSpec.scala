@@ -283,7 +283,7 @@ class PrintCodeStringSpec extends StageSpec:
       val y    = SInt(16) <> OUT
       val flag = Bit      <> IN
       val v    = SInt(16) <> VAR
-      process.forever:
+      process:
         val z = SInt(8) <> VAR
         z := z + 1
         v :== 1
@@ -306,7 +306,7 @@ class PrintCodeStringSpec extends StageSpec:
          |  val y     = SInt(16) <> OUT
          |  val flag  = Bit      <> IN
          |  val v     = SInt(16) <> VAR
-         |  process.forever:
+         |  process:
          |    val z   = SInt(8)  <> VAR
          |    z   :=  z + sd"8'1"
          |    v   :== sd"16'1"
@@ -913,6 +913,158 @@ class PrintCodeStringSpec extends StageSpec:
          |    end match
          |  ): Bits[width.type] <> VAL)
          |end MatchWithParams""".stripMargin
+    )
+  }
+  // test("RTDesign process printing") {
+  //   class Foo extends RTDesign:
+  //     val cond = Bit <> IN
+  //     val v    = Bit <> VAR.REG init 0
+  //     process:
+  //       if (cond) x.goto
+  //       else
+  //         def z = step
+  //         if (cond) z.goto else y.goto
+  //       def x = step
+  //       def y = step
+  //   end Foo
+  //   val top = (new Foo).getCodeString
+  //   assertNoDiff(
+  //     top,
+  //     """|class Foo extends RTDesign:
+  //        |  val cond = Bit <> IN
+  //        |  val v = Bit <> VAR.REG init 0
+  //        |  process:
+  //        |    if (cond) x.goto
+  //        |    else
+  //        |      def z = step
+  //        |      if (cond) z.goto
+  //        |      else y.goto
+  //        |    end if
+  //        |    def x = step
+  //        |    def y = step
+  //        |end Foo""".stripMargin
+  //   )
+  // }
+  test("wait statements") {
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val i = Bit <> IN
+      process:
+        x :== 1
+        waitWhile(i)
+        50.ms.wait
+        x :== 0
+        waitUntil(i.rising)
+        50.us.wait
+        x :== 1
+        waitUntil(i)
+        50.ns.wait
+        x :== 0
+        1.ns.wait
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends EDDesign:
+         |  val x = Bit <> OUT
+         |  val i = Bit <> IN
+         |  process:
+         |    x :== 1
+         |    waitWhile(i.bool)
+         |    50.ms.wait
+         |    x :== 0
+         |    waitUntil(i.rising)
+         |    50.us.wait
+         |    x :== 1
+         |    waitUntil(i.bool)
+         |    50.ns.wait
+         |    x :== 0
+         |    1.ns.wait
+         |end Foo""".stripMargin
+    )
+  }
+  test("for loop printing") {
+    class Foo extends EDDesign:
+      val matrix = Bits(10) X 8 X 8 <> OUT
+      process:
+        for (
+          i <- 0 until 8;
+          if i % 2 == 0;
+          j <- 0 until 8;
+          if j % 2 == 0;
+          k <- 0 until 10
+          if k % 2 == 0
+        ) matrix(i)(j)(k) :== 1
+        for (
+          i <- 0 until 8;
+          if i % 2 == 1;
+          j <- 0 until 8;
+          if j % 2 == 1;
+          k <- 0 until 10
+          if k % 2 == 1
+        ) matrix(i)(j)(k) :== 0
+        10.ns.wait
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends EDDesign:
+         |  val matrix = Bits(10) X 8 X 8 <> OUT
+         |  process:
+         |    for (i <- 0 until 8)
+         |      if ((i % 2) == 0)
+         |        for (j <- 0 until 8)
+         |          if ((j % 2) == 0)
+         |            for (k <- 0 until 10)
+         |              if ((k % 2) == 0) matrix(i)(j)(k) :== 1
+         |            end for
+         |          end if
+         |        end for
+         |      end if
+         |    end for
+         |    for (i <- 0 until 8)
+         |      if ((i % 2) == 1)
+         |        for (j <- 0 until 8)
+         |          if ((j % 2) == 1)
+         |            for (k <- 0 until 10)
+         |              if ((k % 2) == 1) matrix(i)(j)(k) :== 0
+         |            end for
+         |          end if
+         |        end for
+         |      end if
+         |    end for
+         |    10.ns.wait
+         |end Foo""".stripMargin
+    )
+  }
+  test("while loop printing") {
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val b = Bit <> IN
+      process:
+        while (b)
+          x :== b
+          5.ns.wait
+        while (true)
+          x :== !b
+          5.ns.wait
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends EDDesign:
+         |  val x = Bit <> OUT
+         |  val b = Bit <> IN
+         |  process:
+         |    while (b)
+         |      x :== b
+         |      5.ns.wait
+         |    end while
+         |    while (true)
+         |      x :== !b
+         |      5.ns.wait
+         |    end while
+         |end Foo""".stripMargin
     )
   }
 end PrintCodeStringSpec

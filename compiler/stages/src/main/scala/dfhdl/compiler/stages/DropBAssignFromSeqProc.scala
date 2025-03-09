@@ -20,7 +20,7 @@ case object DropBAssignFromSeqProc extends Stage:
             None
           // only modify nets that are blocking assignments and the assigned variable is assigned once
           case net @ DFNet.BAssignment(toVal: DFVal.Dcl, fromVal: DFVal)
-              if latestSeqProc.map(proc => net.isInsideOwner(proc)).getOrElse(false) &&
+              if latestSeqProc.map(proc => net.isOneLevelBelow(proc)).getOrElse(false) &&
                 toVal.getAssignmentsTo.size == 1 =>
             // blocking assignment changed to connection (to be moved outside a process)
             val connNet = net.copy(op = DFNet.Op.Connection)

@@ -21,6 +21,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         case _: DFVal.DesignParam => false
         // an ident placeholder (can be anonymous)
         case Ident(_) => true
+        // excluding iterator declarations
+        case IteratorDcl() => false
         // a def design that is anonymous may not be referenced later,
         // so we need to check if it has an output port that is referenced later
         case design: DFDesignBlock if design.instMode == InstMode.Def && design.isAnonymous =>
@@ -39,12 +41,14 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // excluding nets that are inputs to a design definition
         case DFNet.Connection(PortOfDesignDef(Modifier.IN, _), _, _) =>
           false
-        // include the rest of the nets
-        case net: DFNet => true
+        // include the rest of statements: nets, gotos, etc.
+        case _: Statement => true
         // including only conditional statements (no type) headers
         case ch: DFConditional.Header => ch.dfType =~ DFUnit
         // process blocks
         case pb: ProcessBlock => true
+        // loops
+        case _: DFLoop.Block => true
         // the rest are not directly viewable
         case _ => false
       }
@@ -114,6 +118,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     s"$csDFCaseKeyword${csDFCasePattern(caseBlock.pattern)}$csGuard$csDFCaseSeparator"
   def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean): String
   def csDFMatchEnd: String
+  def csDFForBlock(forBlock: DFLoop.DFForBlock): String
+  def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String
   final def csDFConditionalBlock(cb: DFConditional.Block): String =
     val body = csDFOwnerBody(cb)
     val statement = cb match
@@ -298,9 +304,17 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val named = pb.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val senList = pb.sensitivity match
       case Sensitivity.All                        => "(all)"
-      case Sensitivity.List(refs) if refs.isEmpty => ".forever"
+      case Sensitivity.List(refs) if refs.isEmpty => ""
       case Sensitivity.List(refs)                 => refs.map(_.refCodeString).mkStringBrackets
     s"${named}process${senList}:\n${body.hindent}"
+  def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
+    val body = csDFOwnerBody(forBlock)
+    val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    s"${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})\n${body.hindent}\nend for"
+  def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
+    val body = csDFOwnerBody(whileBlock)
+    val named = whileBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
+    s"${named}while (${whileBlock.guardRef.refCodeString})\n${body.hindent}\nend while"
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")

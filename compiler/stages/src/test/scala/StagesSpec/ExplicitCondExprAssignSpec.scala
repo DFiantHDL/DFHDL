@@ -117,7 +117,7 @@ class ExplicitCondExprAssignSpec extends StageSpec(stageCreatesUnrefAnons = true
   }
 
   test("LRShiftFlat example") {
-    enum ShiftDir extends Encode:
+    enum ShiftDir extends Encoded:
       case Left, Right
 
     class LRShiftFlat(
@@ -134,7 +134,7 @@ class ExplicitCondExprAssignSpec extends StageSpec(stageCreatesUnrefAnons = true
     val id = (new LRShiftFlat).explicitCondExprAssign
     assertCodeString(
       id,
-      """|enum ShiftDir(val value: UInt[1] <> CONST) extends Encode.Manual(1):
+      """|enum ShiftDir(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
          |  case Left extends ShiftDir(d"1'0")
          |  case Right extends ShiftDir(d"1'1")
          |

@@ -3,7 +3,7 @@ import dfhdl.*
 import munit.*
 
 class DFMatchSpec extends DFSpec:
-  enum MyEnum1 extends Encode:
+  enum MyEnum1 extends Encoded:
     case Foo, Bar, Baz
 
   case class Pixel(x: UInt[8] <> VAL, y: UInt[8] <> VAL) extends Struct

@@ -1,7 +1,7 @@
 package dfhdl.options
 import dfhdl.compiler.ir
 import dfhdl.compiler.stages.BackendCompiler
-import dfhdl.core.{ClkCfg, RstCfg}
+import dfhdl.core.{ClkCfg, RstCfg, Design}
 
 import java.io.File.separatorChar
 
@@ -17,20 +17,23 @@ final case class CompilerOptions(
     dropUserOpaques: DropUserOpaques
 )
 object CompilerOptions:
-  given default(using
-      commitFolder: CommitFolder,
-      newFolderForTop: NewFolderForTop,
-      backend: Backend,
-      logLevel: LogLevel,
-      printDFHDLCode: PrintDFHDLCode,
-      printBackendCode: PrintBackendCode,
-      dropUserOpaques: DropUserOpaques
-  ): CompilerOptions =
-    CompilerOptions(
+  opaque type Defaults[-T <: Design] <: CompilerOptions = CompilerOptions
+  object Defaults:
+    given (using
+        commitFolder: CommitFolder,
+        newFolderForTop: NewFolderForTop,
+        backend: Backend,
+        logLevel: LogLevel,
+        printDFHDLCode: PrintDFHDLCode,
+        printBackendCode: PrintBackendCode,
+        dropUserOpaques: DropUserOpaques
+    ): Defaults[Design] = CompilerOptions(
       commitFolder = commitFolder, newFolderForTop = newFolderForTop, backend = backend,
       logLevel = logLevel, printDFHDLCode = printDFHDLCode, printBackendCode = printBackendCode,
       dropUserOpaques = dropUserOpaques
     )
+  end Defaults
+  given (using defaults: Defaults[Design]): CompilerOptions = defaults
 
   extension (co: CompilerOptions)
     def topCommitPath(stagedDB: ir.DB): String =

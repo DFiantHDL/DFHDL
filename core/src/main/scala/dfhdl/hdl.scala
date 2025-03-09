@@ -13,6 +13,7 @@ protected object hdl:
   export core.DFOpaque.Val.Ops.*
   export core.DFTuple.Val.Ops.*
   export core.DFVector.Ops.*
+  export core.TDFDouble.Val.Ops.*
   export core.DFVal.Ops.*
   export core.DFVarOps.*
   export core.DFPortOps.*
@@ -20,12 +21,16 @@ protected object hdl:
   export core.Conditional.Ops.*
   export internals.CommonOps.*
   export core.{dfType}
-  export core.Timer.Ops.*
+  export core.DFPhysical.Val.Ops.*
+  type Time = core.DFTime
+  val Time = core.DFTime
+  type Freq = core.DFFreq
+  val Freq = core.DFFreq
+  type Cycles = core.DFCycles
+  val Cycles = core.DFCycles
+  export core.DFRange.Ops.*
   export core.Wait.Ops.*
-  export core.Time.Ops.*
-  export core.Freq.Ops.*
-  type Timer = core.Timer
-  val Timer = core.Timer
+  export core.Step.Ops.*
   type DFC = core.DFC
   val DFC = core.DFC
   export core.dfc
@@ -39,8 +44,8 @@ protected object hdl:
   val UInt = core.DFUInt
   type SInt[W <: IntP] = core.DFSInt[W]
   val SInt = core.DFSInt
-  type Encode = core.DFEncoding.Default
-  val Encode = core.DFEncoding
+  type Encoded = core.DFEncoding.Default
+  val Encoded = core.DFEncoding
   export core.DFStruct.Fields as Struct
   export core.DFOpaque.Frontend as Opaque
   export core.DFOpaque.{Magnet, Clk, Rst}

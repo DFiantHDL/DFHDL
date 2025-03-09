@@ -2,18 +2,22 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.internals.*
 import dfhdl.options.ElaborationOptions
-import Freq.Ops.*
+import DFPhysical.Val.Ops.MHz
 
 type ClkCfg = ir.ClkCfg
 object ClkCfg:
   type Edge = ir.ClkCfg.Edge
   final val Edge = ir.ClkCfg.Edge
+  type InclusionPolicy = ir.ClkRstInclusionPolicy
+  final val InclusionPolicy = ir.ClkRstInclusionPolicy
+  type Rate = DFConstOf[DFTime | DFFreq]
 
   def apply(
       edge: Edge = Edge.Rising,
       rate: Rate = 50.MHz,
-      portName: String = "clk"
-  ): ClkCfg = ir.ClkCfg.Explicit(edge, rate.asIR, portName)
+      portName: String = "clk",
+      inclusionPolicy: InclusionPolicy = InclusionPolicy.AsNeeded
+  ): ClkCfg = ir.ClkCfg.Explicit(edge, rate.asIR, portName, inclusionPolicy)
 
 type RstCfg = ir.RstCfg
 object RstCfg:
@@ -21,11 +25,15 @@ object RstCfg:
   final val Mode = ir.RstCfg.Mode
   type Active = ir.RstCfg.Active
   final val Active = ir.RstCfg.Active
+  type InclusionPolicy = ir.ClkRstInclusionPolicy
+  final val InclusionPolicy = ir.ClkRstInclusionPolicy
+
   def apply(
       mode: Mode = Mode.Sync,
       active: Active = Active.High,
-      portName: String = "rst"
-  ): RstCfg = ir.RstCfg.Explicit(mode, active, portName)
+      portName: String = "rst",
+      inclusionPolicy: InclusionPolicy = InclusionPolicy.AsNeeded
+  ): RstCfg = ir.RstCfg.Explicit(mode, active, portName, inclusionPolicy)
 
 opaque type RTDomainCfg <: ir.RTDomainCfg = ir.RTDomainCfg
 object RTDomainCfg:

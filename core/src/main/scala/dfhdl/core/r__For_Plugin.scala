@@ -138,5 +138,9 @@ object r__For_Plugin:
       output.asInstanceOf[V]
     end if
   end designFromDef
-
+  // add the step to the context and update its reference to point to
+  // the proper owner
+  def addStep(step: Step)(using dfc: DFC): Unit =
+    step.asIR.addMember
+    dfc.mutableDB.newRefFor(step.asIR.ownerRef, dfc.owner.asIR)
 end r__For_Plugin

@@ -22,7 +22,7 @@ extension [T <: DFType](t: DFValOf[T])(using dfc: DFC, w: Width[T])
     assert(t.widthIntParam.toScalaInt == r.toScalaInt)
 
 abstract class DFSpec extends NoDFCSpec, AllowTopLevel, HasTypeName, HasDFC:
-  final lazy val dfc: DFC = core.DFC.empty
+  final lazy val dfc: DFC = core.DFC.emptyNoEO
   type TScope = core.DFC.Scope.Design
   given TScope = core.DFC.Scope.Design
   type TDomain = core.DomainType.DF

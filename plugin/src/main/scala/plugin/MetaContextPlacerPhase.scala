@@ -227,16 +227,8 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     val dfcArg = dfcArgStack.headOption.getOrElse {
       owner.getAnnotation(topAnnotSym).map(a => dropProxies(a.tree)) match
         // found top annotation
-        case Some(Apply(Apply(_, _), topElaborationOptionsTree :: _)) =>
-          @tailrec def getDFAppModuleCls(owner: Symbol): Option[ClassSymbol] =
-            if (owner.isRoot) None
-            else if (owner.isClass && owner.thisType <:< appTpe) Some(owner.asClass)
-            else if (owner.isClass) None
-            else getDFAppModuleCls(owner.owner)
-          val elaborationOptionsTree = getDFAppModuleCls(owner.owner) match
-            case Some(cls) => This(cls).select("getElaborationOptions".toTermName)
-            case None      => topElaborationOptionsTree
-          ref(emptyDFCSym).appliedTo(elaborationOptionsTree)
+        case Some(Apply(Apply(Apply(_, _), _), topElaborationOptionsTree :: _)) =>
+          ref(emptyDFCSym).appliedTo(topElaborationOptionsTree)
         // no top
         case _ =>
           var currentOwner = owner.owner

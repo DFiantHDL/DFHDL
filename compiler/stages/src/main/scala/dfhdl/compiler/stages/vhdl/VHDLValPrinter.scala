@@ -31,6 +31,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         case Func.Op.| => "or"
         case Func.Op.& => "and"
         case Func.Op.^ => "xor"
+        case Func.Op.% => "rem"
         case op        => op.toString()
     dfVal.args match
       // boolean sel function
@@ -219,7 +220,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
       else s".${dfVal.fieldName}"
     s"${dfVal.relValCodeString}$fieldSel"
   def csDFValAliasHistory(dfVal: Alias.History): String = printer.unsupported
-  def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
+  // def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
   def csNOTHING(dfVal: NOTHING): String =
     dfVal.dfType match
       case DFBit     => "'Z'"

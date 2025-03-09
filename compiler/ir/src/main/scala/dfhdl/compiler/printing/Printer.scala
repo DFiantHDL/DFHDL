@@ -8,6 +8,7 @@ import java.io.FileWriter
 import java.nio.file.{Paths, Files}
 import dfhdl.options.PrinterOptions
 import DFDesignBlock.InstMode
+import DFVal.Func.Op as FuncOp
 
 protected trait AbstractPrinter:
   type TPrinter <: Printer
@@ -71,11 +72,11 @@ trait Printer
         end match
   end csDFNet
   def csOpenKeyWord: String
-  def csTimeUnit(time: Time): String = time.toString()
-  def csFreqUnit(freq: Freq): String = freq.toString()
-  def csRateUnit(rate: Rate): String = rate.toString()
-  def csRatioUnit(ratio: Ratio): String = s"${ratio.value}"
-  def csTimer(timer: Timer): String
+  def csStep(step: Step): String
+  def csGoto(goto: Goto): String
+  def csDFRange(range: DFRange): String
+  def csWait(wait: Wait): String
+  // def csTimer(timer: Timer): String
   def csClkEdgeCfg(edge: ClkCfg.Edge): String =
     edge match
       case ClkCfg.Edge.Rising  => "ClkCfg.Edge.Rising"
@@ -83,8 +84,8 @@ trait Printer
   def csClkCfg(clkCfg: ClkCfg): String =
     clkCfg match
       case _: None.type => "None"
-      case ClkCfg.Explicit(edge, rate, portName) =>
-        s"ClkCfg(${csClkEdgeCfg(edge)}, ${csRateUnit(rate)}, $portName)"
+      case ClkCfg.Explicit(edge, rate, portName, _) =>
+        s"ClkCfg(${csClkEdgeCfg(edge)}, ${csDFValRef(rate, DFMember.Empty)}, $portName)"
   def csRstModeCfg(mode: RstCfg.Mode): String =
     mode match
       case RstCfg.Mode.Sync  => "RstCfg.Mode.Sync"
@@ -96,7 +97,7 @@ trait Printer
   def csRstCfg(rstCfg: RstCfg): String =
     rstCfg match
       case _: None.type => "None"
-      case RstCfg.Explicit(mode, active, portName) =>
+      case RstCfg.Explicit(mode, active, portName, _) =>
         s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)}, $portName)"
   def csRTDomainCfg(clkCfg: ClkCfg, rstCfg: RstCfg): String =
     s"""RTDomainCfg(
@@ -125,11 +126,17 @@ trait Printer
         design.instMode match
           case InstMode.Def => csDFDesignDefInst(design)
           case _            => csDFDesignBlockInst(design)
-      case pb: ProcessBlock    => csProcessBlock(pb)
-      case domain: DomainBlock => csDomainBlock(domain)
-      case timer: Timer        => csTimer(timer)
-      case _                   => ???
+      case pb: ProcessBlock                => csProcessBlock(pb)
+      case forBlock: DFLoop.DFForBlock     => csDFForBlock(forBlock)
+      case whileBlock: DFLoop.DFWhileBlock => csDFWhileBlock(whileBlock)
+      case domain: DomainBlock             => csDomainBlock(domain)
+      // case timer: Timer        => csTimer(timer)
+      case step: Step => csStep(step)
+      case goto: Goto => csGoto(goto)
+      case wait: Wait => csWait(wait)
+      case _          => ???
     s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta)}$cs"
+  end csDFMember
   def designFileName(designName: String): String
   def globalFileName: String
   def csGlobalFileContent: String =
@@ -142,6 +149,7 @@ trait Printer
   val keywordColor: String = s"$BLUE$BOLD"
   val keyword2Color: String = s"$MAGENTA$BOLD"
   val typeColor: String = "\u001B[38;5;94m"
+  val commentColor: String = GREEN
   final def formatCode(cs: String): String =
     val alignedContents = if (alignEnable) alignCode(cs) else cs
     if (colorEnable) colorCode(alignedContents) else alignedContents
@@ -273,6 +281,31 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val normalizeViaConnection: Boolean = true
   val normalizeConnection: Boolean = true
   def csOpenKeyWord: String = "OPEN"
+  def csStep(step: Step): String =
+    s"def ${step.getName} = step"
+  def csGoto(goto: Goto): String =
+    s"${goto.stepRef.refCodeString}.goto"
+  def csDFRange(range: DFRange): String =
+    val op = range.op match
+      case DFRange.Op.To    => "to"
+      case DFRange.Op.Until => "until"
+    val csBy = range.stepRef.refCodeString match
+      case "1" => ""
+      case cs  => s" by $cs"
+    s"${range.startRef.refCodeString} ${op} ${range.endRef.refCodeString}$csBy"
+  def csWait(wait: Wait): String =
+    val trigger = wait.triggerRef.get
+    trigger.dfType match
+      case _: DFBoolOrBit =>
+        trigger match
+          case DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
+            s"waitUntil(${wait.triggerRef.refCodeString})"
+          case DFVal.Func(_, FuncOp.unary_!, List(triggerRef), _, _, _) =>
+            s"waitUntil(${triggerRef.refCodeString})"
+          case _ =>
+            s"waitWhile(${wait.triggerRef.refCodeString})"
+      case DFTime | DFCycles => s"${wait.triggerRef.refCodeString}.wait"
+      case _                 => ???
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
@@ -285,24 +318,24 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   def csAnnotations(meta: Meta): String =
     if (meta.annotations.isEmpty) ""
     else meta.annotations.view.map(x => s"@hw.${x.codeString}").mkString("", "\n", "\n")
-  def csTimer(timer: Timer): String =
-    val timerBody = timer match
-      case p: Timer.Periodic =>
-        (p.triggerRef.get, p.rateOpt) match
-          case (DFMember.Empty, None)       => "Timer()"
-          case (DFMember.Empty, Some(rate)) => s"Timer(${csRateUnit(rate)})"
-          case (trigger: DFVal, None) =>
-            s"Timer(${p.triggerRef.refCodeString})"
-          case (trigger: DFVal, Some(rate)) =>
-            s"Timer(${p.triggerRef.refCodeString},${csRateUnit(rate)})"
-          case _ => ??? // impossible
-      case f: Timer.Func =>
-        val argStr = f.arg match
-          case r: Ratio => csRatioUnit(r)
-          case t: Time  => csTimeUnit(t)
-        s"${f.sourceRef.refCodeString} ${f.op} $argStr"
-    if (timer.isAnonymous) timerBody else s"val ${timer.getName} = $timerBody"
-  end csTimer
+  // def csTimer(timer: Timer): String =
+  //   val timerBody = timer match
+  //     case p: Timer.Periodic =>
+  //       (p.triggerRef.get, p.rateOpt) match
+  //         case (DFMember.Empty, None)       => "Timer()"
+  //         case (DFMember.Empty, Some(rate)) => s"Timer(${csRateUnit(rate)})"
+  //         case (trigger: DFVal, None) =>
+  //           s"Timer(${p.triggerRef.refCodeString})"
+  //         case (trigger: DFVal, Some(rate)) =>
+  //           s"Timer(${p.triggerRef.refCodeString},${csRateUnit(rate)})"
+  //         case _ => ??? // impossible
+  //     case f: Timer.Func =>
+  //       val argStr = f.arg match
+  //         case r: Ratio => csRatioUnit(r)
+  //         case t: Time  => csTimeUnit(t)
+  //       s"${f.sourceRef.refCodeString} ${f.op} $argStr"
+  //   if (timer.isAnonymous) timerBody else s"val ${timer.getName} = $timerBody"
+  // end csTimer
   def globalFileName: String = s"${getSet.designDB.top.dclName}_globals.scala"
   def designFileName(designName: String): String = s"$designName.scala"
   def dfhdlDefsFileName: String = "" // no need in DFHDL code generation
@@ -322,13 +355,14 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   import io.AnsiColor._
   val scalaKW: Set[String] =
     Set("class", "def", "end", "enum", "extends", "new", "object", "val", "if", "else", "match",
-      "case", "final")
+      "case", "final", "for", "while", "until", "to", "by")
   val dfhdlKW: Set[String] =
     Set("VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
-      "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init")
+      "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
+      "goto")
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] =
-    Set("Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encode", "Struct", "Opaque",
+    Set("Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encoded", "Struct", "Opaque",
       "StartAt", "OneHot", "Grey")
   def colorCode(cs: String): String =
     cs
@@ -336,6 +370,8 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
       .colorWords(dfhdlKW, keyword2Color)
       .colorOps(dfhdlOps, keyword2Color)
       .colorWords(dfhdlTypes, typeColor)
+      .colorLineComment("//", commentColor)
+      .colorBlockComment("/\\*", "\\*/", commentColor)
 end DFPrinter
 
 extension (member: DFMember)(using printer: Printer)

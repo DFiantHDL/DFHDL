@@ -407,5 +407,10 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |end;""".stripMargin
   end csDFStructConvFuncsBody
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = printer.unsupported
+  def csDFDouble(): String = "real"
+  def csDFPhysical(dfType: DFPhysical, typeCS: Boolean): String =
+    dfType.unit match
+      case DFPhysical.Unit.Time => "time"
+      case _                    => printer.unsupported
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String = printer.unsupported
 end VHDLTypePrinter

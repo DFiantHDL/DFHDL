@@ -426,17 +426,21 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
 @implicitNotFound(
   "No annotated class found. The annotated class must be directly owned by a class or an object."
 )
-trait AnnotatedWith[T <: StaticAnnotation]:
-  type Out
+trait AnnotatedWith[T <: StaticAnnotation, UB]:
+  type Out <: UB
 object AnnotatedWith:
-  type Aux[T <: StaticAnnotation, O] = AnnotatedWith[T] { type Out = O }
-  def annotWith[T <: StaticAnnotation, O]: Aux[T, O] = new AnnotatedWith[T]:
+  type Aux[T <: StaticAnnotation, UB, O <: UB] = AnnotatedWith[T, UB] { type Out = O }
+  def annotWith[T <: StaticAnnotation, UB, O <: UB]: Aux[T, UB, O] = new AnnotatedWith[T, UB]:
     type Out = O
-  transparent inline given [T <: StaticAnnotation]: AnnotatedWith[T] = ${
-    annotWithMacro[T]
+  transparent inline given [T <: StaticAnnotation, UB]: AnnotatedWith[T, UB] = ${
+    annotWithMacro[T, UB]
   }
 
-  def annotWithMacro[T <: StaticAnnotation](using Quotes, Type[T]): Expr[AnnotatedWith[T]] =
+  def annotWithMacro[T <: StaticAnnotation, UB](using
+      Quotes,
+      Type[T],
+      Type[UB]
+  ): Expr[AnnotatedWith[T, UB]] =
     import quotes.reflect.*
     val tSymbol = TypeRepr.of[T].typeSymbol
     val macroLine = Position.ofMacroExpansion.startLine
@@ -448,11 +452,11 @@ object AnnotatedWith:
       line == macroLine || line == macroLine + 1
     }
 
-    val tpe = annotated.headOption.map(_.typeRef.asTypeOf[Any]).getOrElse(
+    val tpe = annotated.headOption.map(_.typeRef.asTypeOf[UB]).getOrElse(
       report.errorAndAbort("No annotated class found")
     )
 
-    '{ annotWith[T, tpe.Underlying] }
+    '{ annotWith[T, UB, tpe.Underlying] }
   end annotWithMacro
 end AnnotatedWith
 

@@ -18,6 +18,12 @@ object Width:
   given fromBooleanCompanion: Width[Boolean.type] with
     type Out = 1
     type OutI = 1
+  given fromDFDouble: Width[DFDouble] with
+    type Out = 64
+    type OutI = 64
+  given fromDoubleCompanion: Width[Double.type] with
+    type Out = 64
+    type OutI = 64
   given fromDFBits[W <: IntP]: Width[DFBits[W]] with
     type Out = W
     type OutI = IntP.ToInt[Out]
@@ -68,6 +74,8 @@ object Width:
           dfTpe.asTypeOf[DFTypeAny] match
             case '[DFBoolOrBit] =>
               ConstantType(IntConstant(1))
+            case '[DFDouble] =>
+              ConstantType(IntConstant(64))
             case '[DFBits[w]] =>
               Type.of[w] match
                 case '[DFValAny] => TypeRepr.of[Int]
@@ -111,6 +119,7 @@ object Width:
         case '[Int] =>
           dfTpe
         case '[Boolean.type] => ConstantType(IntConstant(1))
+        case '[Double.type]  => ConstantType(IntConstant(64))
         case '[Byte.type]    => ConstantType(IntConstant(8))
         case '[Int.type]     => ConstantType(IntConstant(32))
         case '[Long.type]    => ConstantType(IntConstant(64))

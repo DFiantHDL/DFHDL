@@ -190,10 +190,17 @@ final case class DB(
       case MemberView.Folded =>
         ownerMemberTable(owner)
       case MemberView.Flattened =>
+        def recur(owner: DFOwner, includeOwner: Boolean = true): List[DFMember] =
+          val members = ownerMemberTable(owner)
+          members.flatMap {
+            case d: DFDesignBlock => Some(d)
+            case o: DFOwner       => if (includeOwner) o :: recur(o) else recur(o)
+            case m                => Some(m)
+          }
+        end recur
         owner match
           case d: DFDesignBlock => designMemberTable(d)
-          case b: DFBlock       => blockMemberTable(b)
-          case _                => ownerMemberTable(owner)
+          case _                => recur(owner, includeOwner = false)
 
   // holds a hash table that lists members of each owner. The member list order is maintained.
   lazy val ownerMemberTable: Map[DFOwner, List[DFMember]] =

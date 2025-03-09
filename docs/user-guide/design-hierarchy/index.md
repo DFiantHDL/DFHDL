@@ -172,6 +172,9 @@ Since this design is annotated with `@top`, it is a top-app design that generate
 The `@top` annotation captures any [implicit/given](https://docs.scala-lang.org/scala3/book/ca-context-parameters.html#given-instances-implicit-definitions-in-scala-2){target="_blank"} options within its scope and provides them as defaults when no CLI arguments are specified.
 
 /// tab | Generated Verilog
+```verilog
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo1.LeftShift2Spec/verilog.sv2009/hdl/LeftShift2.sv"
+```
 Looking at the generated Verilog code, we can observe several key differences from the DFHDL source:
 
 1. **Module Interface**: DFHDL's Scala-style port declarations (`<> IN/OUT`) are translated to traditional Verilog port declarations (`input wire`/`output logic`)
@@ -184,12 +187,12 @@ Looking at the generated Verilog code, we can observe several key differences fr
 
 5. **Assignment Syntax**: DFHDL's `:=` assignments are translated to Verilog's `assign` statements
 
-```verilog
---8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo1.LeftShift2Spec/verilog.sv2009/hdl/LeftShift2.sv"
-```
 ///
 
 /// tab | Generated VHDL
+```vhdl
+--8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo1.LeftShift2Spec/vhdl.v2008/hdl/LeftShift2.vhd"
+```
 The generated VHDL code shows similar transformations from the DFHDL source:
 
 1. **Entity Interface**: DFHDL's port declarations are translated to VHDL's `in`/`out` mode declarations with explicit signal types
@@ -201,10 +204,6 @@ The generated VHDL code shows similar transformations from the DFHDL source:
 4. **Signal Types**: DFHDL's `Bits` type is translated to VHDL's `std_logic_vector` with appropriate widths
 
 5. **Assignment Syntax**: While both DFHDL and VHDL use `:=`, the semantics differ - DFHDL represents high-level connections while VHDL represents signal assignments
-
-```vhdl
---8<-- "lib/src/test/resources/ref/docExamples.ugdemos.demo1.LeftShift2Spec/vhdl.v2008/hdl/LeftShift2.vhd"
-```
 ///
 
 /// details | Runnable example
@@ -240,7 +239,7 @@ The DFHDL design parameter block follows standard Scala syntax, accepting a comm
 #### `LeftShiftBasic` example {#LeftShiftBasic}
 /// admonition | Scala-parameterized top-app design example: a basic left shifter
     type: example
-The DFHDL code below implements a basic left shifter design named `LeftShiftBasic`. This design is similar to the earlier example of `LeftShift2` except here the design has the shift value as an input, and its input and output port widths are set according to the Scala parameter `width`.
+The DFHDL code below implements a basic left shifter design named `LeftShiftBasic`. This design is similar to the earlier example of [`LeftShift2`][LeftShift2], except here the design has the shift value as an input, and its input and output port widths are set according to the Scala parameter `width`.
 
 <div class="grid" markdown>
 

@@ -31,3 +31,5 @@ project/metals.sbt
 node_modules/
 package.json
 package-lock.json
+*.drawio.bkp
+

@@ -55,6 +55,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val dfValDcls =
       designMembers.view
         .flatMap {
+          case IteratorDcl()                                          => None
           case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport => Some(p)
           case _: DesignParam                                         => None
           case c @ DclConst() =>
@@ -151,7 +152,15 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         case const: DFVal.Const if !const.isAnonymous => false
         case _                                        => true
       }
-    val body = csDFMembers(statements)
+    // iterator declarations within `for` loops only supported in SystemVerilog,
+    // so we need to declare them at the process block level for Verilog v95/v2001
+    val iteratorDcls =
+      if (forInteratorDclSupport) ""
+      else
+        pb.members(MemberView.Flattened).view.collect { case dcl @ IteratorDcl() =>
+          dcl.codeString
+        }.toList.distinct.mkString(";\n").emptyOr(x => s"$x;\n")
+    val body = iteratorDcls + csDFMembers(statements)
     val dcl =
       if (dcls.isEmpty) ""
       else s"${csDFMembers(dcls)}\n"
@@ -176,5 +185,25 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
         else s" @${refs.map(_.refCodeString).mkString("(", sensitivityListSep, ")")}"
     s"$dcl${named}$alwaysKW$senList\nbegin\n${body.hindent}\nend"
   end csProcessBlock
+  val forInteratorDclSupport: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
+  def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
+    val body = csDFOwnerBody(forBlock)
+    val rangeIR = forBlock.rangeRef.get
+    val csIter = forBlock.iteratorRef.refCodeString
+    val csStep = rangeIR.stepRef.refCodeString
+    val csCompareOp = if (csStep.startsWith("-")) ">" else "<"
+    val csCompareEq = rangeIR.op match
+      case DFRange.Op.To    => "="
+      case DFRange.Op.Until => ""
+    val iterType = if (forInteratorDclSupport) s"${printer.csDFType(DFInt32)} " else ""
+    s"for ($iterType$csIter = ${rangeIR.startRef.refCodeString}; $csIter $csCompareOp$csCompareEq ${rangeIR.endRef.refCodeString}; $csIter = $csIter + ${csStep.applyBrackets()}) begin\n${body.hindent}\nend"
+  end csDFForBlock
+  def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
+    val body = csDFOwnerBody(whileBlock)
+    s"while (${whileBlock.guardRef.refCodeString}) begin\n${body.hindent}\nend"
+  end csDFWhileBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
 end VerilogOwnerPrinter

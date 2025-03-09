@@ -79,5 +79,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     s"typedef struct packed {\n$fields\n} ${csDFStructTypeName(dfType)};"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String = csDFStructTypeName(dfType)
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = printer.unsupported
+  def csDFDouble(): String = "real"
+  def csDFPhysical(dfType: DFPhysical, typeCS: Boolean): String = printer.unsupported
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String = printer.unsupported
 end VerilogTypePrinter

@@ -283,7 +283,7 @@ class PrintVerilogCodeSpec extends StageSpec:
         my_var := x
         y     :== my_var
       }
-      process.forever {
+      process {
         z :== x
         y :== z
       }
@@ -342,6 +342,8 @@ class PrintVerilogCodeSpec extends StageSpec:
       val c14: SInt[8] <> CONST         = ?
       val c15: (Bits[3], Bit) <> CONST  = (all(0), 1)
       val c16: Bits[8] X 5 X 7 <> CONST = Vector.fill(7)(Vector.tabulate(5)(i => h"8'$i$i"))
+      val c17: Double <> CONST          = 3.14159
+      val c18: Double <> CONST          = -2.71828
     end Top
     val top = (new Top).getCompiledCodeString
     assertNoDiff(
@@ -380,6 +382,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
          |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44}
          |  };
+         |  parameter real c17 = 3.14159;
+         |  parameter real c18 = -2.71828;
          |
          |endmodule
          |""".stripMargin
@@ -828,6 +832,220 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  assign y5 = x5;
          |endmodule
          |""".stripMargin
+    )
+  }
+  test("wait statements") {
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val i = Bit <> IN
+      process:
+        x :== 1
+        waitWhile(i)
+        50.ms.wait
+        x :== 0
+        waitUntil(i.rising)
+        50.us.wait
+        x :== 1
+        waitUntil(i)
+        50.ns.wait
+        x :== 0
+        1.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.svh"
+         |
+         |module Foo(
+         |  output logic x,
+         |  input  wire logic i
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  always
+         |  begin
+         |    x <= 1'b1;
+         |    wait(i);
+         |    #50ms;
+         |    x <= 1'b0;
+         |    @(posedge i);
+         |    #50us;
+         |    x <= 1'b1;
+         |    wait(!i);
+         |    #50ns;
+         |    x <= 1'b0;
+         |    #1ns;
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("for loop printing") {
+    class Foo extends EDDesign:
+      val matrix = Bits(10) X 8 X 8 <> OUT
+      process:
+        for (
+          i <- 0 until 8;
+          if i % 2 == 0;
+          j <- 0 until 8;
+          if j % 2 == 0;
+          k <- 0 until 10
+          if k % 2 == 0
+        ) matrix(i)(j)(k) :== 1
+        for (
+          i <- 0 until 8;
+          if i % 2 == 1;
+          j <- 0 until 8;
+          if j % 2 == 1;
+          k <- 0 until 10
+          if k % 2 == 1
+        ) matrix(i)(j)(k) :== 0
+        10.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.svh"
+         |
+         |module Foo(
+         |  output logic [9:0] matrix [0:7] [0:7]
+         |);
+         |  `include "dfhdl_defs.svh"
+         |
+         |  always
+         |  begin
+         |    for (int i = 0; i < 8; i = i + 1) begin
+         |      if ((i % 2) == 0) begin
+         |        for (int j = 0; j < 8; j = j + 1) begin
+         |          if ((j % 2) == 0) begin
+         |            for (int k = 0; k < 10; k = k + 1) begin
+         |              if ((k % 2) == 0) matrix[i][j][k] <= 1'b1;
+         |            end
+         |          end
+         |        end
+         |      end
+         |    end
+         |    for (int i = 0; i < 8; i = i + 1) begin
+         |      if ((i % 2) == 1) begin
+         |        for (int j = 0; j < 8; j = j + 1) begin
+         |          if ((j % 2) == 1) begin
+         |            for (int k = 0; k < 10; k = k + 1) begin
+         |              if ((k % 2) == 1) matrix[i][j][k] <= 1'b0;
+         |            end
+         |          end
+         |        end
+         |      end
+         |    end
+         |    #10ns;
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("for loop printing verilog.v2001") {
+    given options.CompilerOptions.Backend = backends.verilog.v2001
+    class Foo extends EDDesign:
+      val matrix = Bits(10) X 8 X 8 <> OUT
+      process:
+        for (
+          i <- 0 until 8;
+          if i % 2 == 0;
+          j <- 0 until 8;
+          if j % 2 == 0;
+          k <- 0 until 10
+          if k % 2 == 0
+        ) matrix(i)(j)(k) :== 1
+        for (
+          i <- 0 until 8;
+          if i % 2 == 1;
+          j <- 0 until 8;
+          if j % 2 == 1;
+          k <- 0 until 10
+          if k % 2 == 1
+        ) matrix(i)(j)(k) :== 0
+        10.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.vh"
+         |
+         |module Foo(
+         |  output reg [9:0] matrix [0:7] [0:7]
+         |);
+         |  `include "dfhdl_defs.vh"
+         |
+         |  always
+         |  begin
+         |    integer i;
+         |    integer j;
+         |    integer k;
+         |    for (i = 0; i < 8; i = i + 1) begin
+         |      if ((i % 2) == 0) begin
+         |        for (j = 0; j < 8; j = j + 1) begin
+         |          if ((j % 2) == 0) begin
+         |            for (k = 0; k < 10; k = k + 1) begin
+         |              if ((k % 2) == 0) matrix[i][j][k] <= 1'b1;
+         |            end
+         |          end
+         |        end
+         |      end
+         |    end
+         |    for (i = 0; i < 8; i = i + 1) begin
+         |      if ((i % 2) == 1) begin
+         |        for (j = 0; j < 8; j = j + 1) begin
+         |          if ((j % 2) == 1) begin
+         |            for (k = 0; k < 10; k = k + 1) begin
+         |              if ((k % 2) == 1) matrix[i][j][k] <= 1'b0;
+         |            end
+         |          end
+         |        end
+         |      end
+         |    end
+         |    #10ns;
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("while loop printing") {
+    class Foo extends EDDesign:
+      val x = Bit <> OUT
+      val b = Bit <> IN
+      process:
+        while (b)
+          x :== b
+          5.ns.wait
+        while (true)
+          x :== !b
+          5.ns.wait
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.svh"
+         |
+         |module Foo(
+         |  output logic x,
+         |  input  wire logic b
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  always
+         |  begin
+         |    while (b) begin
+         |      x <= b;
+         |      #5ns;
+         |    end
+         |    while (1) begin
+         |      x <= !b;
+         |      #5ns;
+         |    end
+         |  end
+         |endmodule""".stripMargin
     )
   }
 end PrintVerilogCodeSpec
