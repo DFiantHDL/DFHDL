@@ -35,6 +35,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   var customWhileSym: Symbol = uninitialized
   var processAnonDefSym: Symbol = uninitialized
   var processScopeCtxSym: Symbol = uninitialized
+  var waitSym: Symbol = uninitialized
   var dfcStack: List[Tree] = Nil
   val processStepDefs = mutable.LinkedHashMap.empty[Symbol, DefDef]
 
@@ -81,7 +82,9 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   def allDefsErrMsg(srcPos: util.SrcPos)(using Context): Unit =
     report.error("Process blocks must only declare `def`s or no `def`s at all.", srcPos)
 
-  def processStatCheck(tree: Tree, returnCheck: Boolean)(using Context): Unit =
+  enum CheckType derives CanEqual:
+    case None, Return, Loop
+  def processStatCheck(tree: Tree, returnCheck: CheckType)(using Context): Unit =
     tree match
       case Block(stats, expr) =>
         processStatCheck(stats, tree.srcPos)
@@ -100,19 +103,30 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
         cases.foreach { case CaseDef(pat, guard, body) =>
           processStatCheck(body, returnCheck)
         }
-      case _ if returnCheck =>
-        tree match
-          case x @ Ident(stepName) if processStepDefs.contains(x.symbol)           =>
-          case Apply(x @ Ident(stepName), _) if processStepDefs.contains(x.symbol) =>
-          case _ =>
-            report.error(
-              "Process `def`s must end with a call to a process `def` (it could be the same `def`).",
-              tree.srcPos
-            )
+      case _ if returnCheck != CheckType.None =>
+        (returnCheck: @unchecked) match
+          case CheckType.Return =>
+            tree match
+              case Goto() =>
+              case _ =>
+                report.error(
+                  "Register-transfer (RT) process `def`s must end with a call to another process `def` (it could be the same `def`).",
+                  tree.srcPos
+                )
+          case CheckType.Loop =>
+            tree match
+              case Goto() =>
+              case Wait() =>
+              case _ =>
+                report.error(
+                  """|Register-transfer (RT) process loops must end with any kind of `wait` statement or a call to a process `def`.
+                     |For a purely combinational loop, call `0.cy.wait` at the end of the loop block.""".stripMargin,
+                  tree.srcPos
+                )
       case Foreach(_, _, _, body, _) =>
-        processStatCheck(body, returnCheck = false)
+        processStatCheck(body, returnCheck = CheckType.Loop)
       case WhileDo(_, body) =>
-        processStatCheck(body, returnCheck = false)
+        processStatCheck(body, returnCheck = CheckType.Loop)
       case _ =>
 
   def processStatCheck(trees: List[Tree], srcPos: util.SrcPos)(using Context): Unit =
@@ -128,12 +142,15 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
       case dd @ DefDef(_, Nil, retTypeTree, _) if retTypeTree.tpe =:= defn.UnitType =>
         processStepDefs += (dd.symbol -> dd)
       case dd =>
-        report.error("Unexpected process `def` syntax. Must be `def xyz: Unit = ...`", dd.srcPos)
+        report.error(
+          "Unexpected register-transfer (RT) process `def` syntax. Must be `def xyz: Unit = ...`",
+          dd.srcPos
+        )
         errFound = true
     }
     if (!errFound)
-      allDefs.foreach { dd => processStatCheck(dd.rhs, returnCheck = true) }
-      allStepBlocks.foreach { step => processStatCheck(step, returnCheck = false) }
+      allDefs.foreach { dd => processStatCheck(dd.rhs, returnCheck = CheckType.Return) }
+      allStepBlocks.foreach { step => processStatCheck(step, returnCheck = CheckType.None) }
   end processStatCheck
 
   case class FilteredRange(range: Tree, filters: List[(ValDef, Tree)])
@@ -210,6 +227,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
 
   case class ProcessForever(scopeCtx: ValDef, block: Tree)
   object ProcessForever:
+    // RT process forever
     def unapply(tree: Tree)(using Context): Option[ProcessForever] =
       tree match
         case Apply(
@@ -222,10 +240,10 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
                   )
                 )
               ),
-              _
+              List(domainTypeTree)
             )
-            if anonfun.toString.startsWith("$anonfun") && process.toString == "process" && forever
-              .toString == "forever" =>
+            if anonfun.toString.startsWith("$anonfun") && process.toString == "process" &&
+              forever.toString == "forever" && domainTypeTree.tpe.widenDealias.typeSymbol.name.toString == "RT" =>
           processAnonDefSym = dd.symbol
           processScopeCtxSym = scopeCtx.symbol
           Some(ProcessForever(scopeCtx, dd.rhs))
@@ -236,7 +254,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   override def prepareForApply(tree: Apply)(using Context): Context =
     tree match
       case ProcessForever(scopeCtx, block) =>
-        processStatCheck(block, returnCheck = false)
+        processStatCheck(block, returnCheck = CheckType.None)
         processStepDefs.view.groupBy(_._2.name.toString).foreach { case (name, defs) =>
           if (defs.size > 1)
             report.error(
@@ -248,12 +266,19 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
       case _ =>
     ctx
 
+  object Goto:
+    def unapply(tree: Ident)(using Context): Boolean =
+      processStepDefs.contains(tree.symbol)
+  object Wait:
+    def unapply(tree: Apply)(using Context): Boolean =
+      tree.tpe.typeSymbol.fullName.toString == "dfhdl.core.Wait$package$.Wait"
   override def transformIdent(tree: Ident)(using Context): Tree =
-    if (processStepDefs.contains(tree.symbol))
-      ref(gotoStepSym)
-        .appliedTo(Literal(Constant(tree.name.toString)))
-        .appliedTo(dfcStack.head, ref(processScopeCtxSym))
-    else tree
+    tree match
+      case Goto() =>
+        ref(gotoStepSym)
+          .appliedTo(Literal(Constant(tree.name.toString)))
+          .appliedTo(dfcStack.head, ref(processScopeCtxSym))
+      case _ => tree
 
   override def transformApply(tree: Apply)(using Context): Tree =
     tree match

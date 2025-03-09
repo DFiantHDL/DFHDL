@@ -5,7 +5,7 @@ import dfhdl.internals.*
 import scala.annotation.targetName
 import ir.DFVal.Func.Op as FuncOp
 
-//sealed class Wait private (val irValue: ir.Wait | DFError) extends DFMember[ir.Wait]
+opaque type Wait <: Unit = Unit
 object Wait:
   def apply(trigger: DFValOf[DFBool] | DFConstOf[Duration])(using DFC): Unit =
     val wait: ir.Wait = ir.Wait(
@@ -22,8 +22,8 @@ object Wait:
     inline def __java_waitErr(arg: Long): Unit = __java_waitErr()
     inline def __java_waitErr(arg: Long, arg2: Int): Unit = __java_waitErr()
 
-    extension (lhs: DFConstOf[Duration]) def wait(using DFC): Unit = trydf { Wait(lhs) }
-    def waitWhile(cond: DFValOf[DFBool])(using DFC): Unit =
+    extension (lhs: DFConstOf[Duration]) def wait(using DFC): Wait = trydf { Wait(lhs) }
+    def waitWhile(cond: DFValOf[DFBool])(using DFC): Wait =
       trydf {
         cond.asIR match
           case ir.DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
@@ -33,7 +33,7 @@ object Wait:
           case _ =>
             Wait(cond)
       }
-    def waitUntil(trigger: DFValOf[DFBool])(using DFC): Unit = trydf {
+    def waitUntil(trigger: DFValOf[DFBool])(using DFC): Wait = trydf {
       trigger.asIR match
         // special case for rising/falling edges, the trigger remains as is inside the wait
         case ir.DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
