@@ -93,6 +93,7 @@ object DFMember:
       member.tags.getTagOf[CT]
     def hasTagOf[CT <: DFTag: ClassTag]: Boolean =
       member.tags.hasTagOf[CT]
+    def getDomainType(using MemberGetSet): DomainType = member.getOwnerDomain.domainType
 
   type Empty = Empty.type
   case object Empty extends DFMember:
@@ -275,7 +276,6 @@ object DFVal:
     def stripPortSel(using MemberGetSet): DFVal = dfVal match
       case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
       case _                               => dfVal
-    def getDomainType(using MemberGetSet): DomainType = dfVal.getOwnerDomain.domainType
   end extension
   // can be an expression
   sealed trait CanBeExpr extends DFVal:
