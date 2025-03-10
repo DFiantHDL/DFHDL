@@ -128,6 +128,15 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
               .mkString(s" ${commonOpStr} ")
     end match
   end csDFValFuncExpr
+  def csFixedCond(condRef: DFRef.TwoWay[DFVal, ?]): String =
+    val requiresBoolConv =
+      if (printer.inVHDL93)
+        condRef.get.dfType match
+          case DFBit => true
+          case _     => false
+      else false
+    if (requiresBoolConv) s"to_bool(${condRef.refCodeString})"
+    else condRef.refCodeString
   def csBitsToType(toType: DFType, csArg: String): String = toType match
     case DFBits(_) => csArg
     case DFBool    => s"to_bool($csArg)"

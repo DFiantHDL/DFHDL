@@ -50,9 +50,9 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
             s"wait until ${wait.triggerRef.refCodeString};"
           // no need for `not not`, so just skipping the not operation
           case DFVal.Func(_, FuncOp.unary_!, List(triggerRef), _, _, _) =>
-            s"wait until ${triggerRef.refCodeString};"
+            s"wait until ${printer.csFixedCond(triggerRef)};"
           case _ =>
-            s"wait until not ${wait.triggerRef.refCodeString};"
+            s"wait until not ${printer.csFixedCond(wait.triggerRef)};"
       case DFTime | DFCycles => s"wait for ${wait.triggerRef.refCodeString};"
       case _                 => ???
   end csWait

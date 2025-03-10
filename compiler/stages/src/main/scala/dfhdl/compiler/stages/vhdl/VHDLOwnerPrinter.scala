@@ -183,14 +183,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
   override def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String =
-    val requiresBoolConv =
-      if (printer.inVHDL93)
-        ifBlock.guardRef.get.asInstanceOf[DFVal].dfType match
-          case DFBit => true
-          case _     => false
-      else false
-    if (requiresBoolConv) s"to_bool(${super.csDFIfGuard(ifBlock)})"
-    else super.csDFIfGuard(ifBlock)
+    printer.csFixedCond(ifBlock.guardRef.asInstanceOf[DFRef.TwoWay[DFVal, ?]])
   def csDFIfStatement(csCond: String): String = s"if $csCond then"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"
@@ -247,15 +240,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   end csDFForBlock
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
     val body = csDFOwnerBody(whileBlock)
-    val requiresBoolConv =
-      if (printer.inVHDL93)
-        whileBlock.guardRef.get.dfType match
-          case DFBit => true
-          case _     => false
-      else false
-    val guard =
-      if (requiresBoolConv) s"to_bool(${whileBlock.guardRef.refCodeString})"
-      else whileBlock.guardRef.refCodeString
+    val guard = printer.csFixedCond(whileBlock.guardRef)
     s"while $guard loop\n${body.hindent}\nend loop;"
   end csDFWhileBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported
