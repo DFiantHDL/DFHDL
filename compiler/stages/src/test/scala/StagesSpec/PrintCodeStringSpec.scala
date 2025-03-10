@@ -980,13 +980,13 @@ class PrintCodeStringSpec extends StageSpec:
          |  val i = Bit <> IN
          |  process:
          |    x :== 1
-         |    waitWhile(i.bool)
+         |    waitWhile(i)
          |    50.ms.wait
          |    x :== 0
          |    waitUntil(i.rising)
          |    50.us.wait
          |    x :== 1
-         |    waitUntil(i.bool)
+         |    waitUntil(i)
          |    50.ns.wait
          |    x :== 0
          |    1.ns.wait
