@@ -39,121 +39,13 @@ case object ExplicitClkRstCfg extends Stage:
   def dependencies: List[Stage] = List(UniqueDesigns)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    // mapping designs and their uses of Clk/Rst
-    // we use the design declaration name (after enforcing uniqueness) because designs
-    // can be empty duplicates and the indications need to come from the full designs
-    //                                       dclName  usesClk  usesRst
-    val designUsesClkRst = mutable.Map.empty[String, (Boolean, Boolean)]
-    //                                                            usesClk  usesRst
-    val domainOwnerUsesClkRst = mutable.Map.empty[DFDomainOwner, (Boolean, Boolean)]
-    val reversedDependents = designDB.dependentRTDomainOwners.invert
-    extension (domainOwner: DFDomainOwner)
-      // true if the domainOwner is dependent at any level of thatDomainOwner's configuration
-      @tailrec def isDependentOn(thatDomainOwner: DFDomainOwner): Boolean =
-        designDB.dependentRTDomainOwners.get(domainOwner) match
-          case Some(dependency) =>
-            if (dependency == thatDomainOwner) true
-            else dependency.isDependentOn(thatDomainOwner)
-          case None => false
-      def getExplicitCfg: RTDomainCfg.Explicit =
-        domainOwner.domainType match
-          case DomainType.RT(explicitCfg: RTDomainCfg.Explicit) => explicitCfg
-          case _ => designDB.top.getTagOf[RTDomainCfg.Explicit].get
-      def usesClkRst: (Boolean, Boolean) = domainOwner match
-        case design: DFDesignBlock =>
-          designUsesClkRst.getOrElseUpdate(
-            design.dclName,
-            design.domainType match
-              case DomainType.RT(RTDomainCfg.Explicit(_, clkCfg, rstCfg)) =>
-                (clkCfg != None, rstCfg != None)
-              case _ => (design.usesClk, design.usesRst)
-          )
-        case _ =>
-          domainOwnerUsesClkRst.getOrElseUpdate(
-            domainOwner,
-            (domainOwner.usesClk, domainOwner.usesRst)
-          )
-      def usesClk: Boolean = designDB.domainOwnerMemberTable(domainOwner).exists {
-        case dcl: DFVal.Dcl           => dcl.modifier.isReg || dcl.isClkDcl
-        case reg: DFVal.Alias.History => true
-        case internal: DFDesignBlock  => internal.usesClkRst._1
-        case _                        => false
-      } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1) ||
-        domainOwner.isTop && (domainOwner.getExplicitCfg.clkCfg match
-          case ClkCfg.Explicit(_, _, _, ClkRstInclusionPolicy.AlwaysAtTop) => true
-          case _                                                           => false
-        )
-
-      def usesRst: Boolean = designDB.domainOwnerMemberTable(domainOwner).exists {
-        case dcl: DFVal.Dcl =>
-          (dcl.modifier.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
-        case reg: DFVal.Alias.History => reg.hasNonBubbleInit
-        case internal: DFDesignBlock  => internal.usesClkRst._2
-        case _                        => false
-      } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._2) ||
-        domainOwner.isTop && (domainOwner.getExplicitCfg.rstCfg match
-          case RstCfg.Explicit(_, _, _, ClkRstInclusionPolicy.AlwaysAtTop) => true
-          case _                                                           => false
-        )
-    end extension
-
-    // filling domain to configuration map
-    val domainMap = mutable.Map.empty[DFDomainOwner, RTDomainCfg.Explicit]
-    extension (cfg: RTDomainCfg.Explicit)
-      // derived design configuration can be relaxed to no-Clk/Rst according to its
-      // internal usage, as determined by `usesClkRst`
-      def relaxed(atDomain: DFDomainOwner): RTDomainCfg.Explicit =
-        val (usesClk, usesRst) = atDomain.usesClkRst
-        val updatedClkCfg: ClkCfg = if (usesClk) cfg.clkCfg else None
-        val updatedRstCfg: RstCfg = if (usesRst) cfg.rstCfg else None
-        val updatedName =
-          if (!usesClk) s"RTDomainCfg.Comb"
-          else if (cfg.clkCfg != None && !usesRst)
-            s"${cfg.name}.norst"
-          else cfg.name
-        RTDomainCfg.Explicit(updatedName, updatedClkCfg, updatedRstCfg)
-          .asInstanceOf[RTDomainCfg.Explicit]
-    end extension
-
-    @tailrec def fillDomainMap(domains: List[DFDomainOwner], stack: List[DFDomainOwner]): Unit =
-      domains match
-        // already has configuration for this domain -> skip it
-        case domain :: rest if domainMap.contains(domain) => fillDomainMap(rest, stack)
-        // no configuration for this domain
-        case domain :: rest =>
-          // check if the domain is dependent
-          designDB.dependentRTDomainOwners.get(domain) match
-            // the domain is dependent -> its configuration is set by the dependency
-            case Some(dependencyDomain) =>
-              domainMap.get(dependencyDomain) match
-                // found dependency configuration -> save it to the current domain as well
-                case Some(dependencyConfig) =>
-                  domainMap += domain -> dependencyConfig.relaxed(domain)
-                  fillDomainMap(rest, stack)
-                // missing dependency -> put this domain in the stack for now
-                case None => fillDomainMap(rest, domain :: stack)
-              end match
-            // the domain is independent -> explicit configuration is set according to other factors
-            case _ =>
-              val explicitCfg = domain.getExplicitCfg
-              domainMap += domain -> explicitCfg.relaxed(domain)
-              fillDomainMap(rest, stack)
-          end match
-        // no more domains, but there are left in the stack
-        case Nil if stack.nonEmpty => fillDomainMap(domains = stack, Nil)
-        // we're done!
-        case _ =>
-      end match
-    end fillDomainMap
-    val derivedDomainOwners = designDB.domainOwnerMemberList.map(_._1)
-    fillDomainMap(derivedDomainOwners, Nil)
     val relatedCfgRefs = mutable.Map.empty[DFRefAny, DFMember]
     given dfc: DFC = DFC.emptyNoEO
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
       case (owner: (DFDomainOwner & DFBlock), members) =>
         owner.domainType match
           case domainType @ DomainType.RT(RTDomainCfg.Derived) =>
-            val explicitCfg = domainMap(owner)
+            val explicitCfg = designDB.explicitRTDomainCfgMap(owner)
             owner match
               case domain: DomainBlock =>
                 val domainOwner = domain.getOwnerDomain

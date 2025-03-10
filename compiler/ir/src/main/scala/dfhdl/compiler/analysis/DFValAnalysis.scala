@@ -342,13 +342,6 @@ extension (dfVal: DFVal)
             .replace('.', '_')
         )
       case _ => suggestName(dfVal)
-  def isBubble(using MemberGetSet): Boolean =
-    dfVal match
-      case c: DFVal.Const          => c.dfType.isDataBubble(c.data.asInstanceOf[c.dfType.Data])
-      case f: DFVal.Func           => f.args.exists(_.get.isBubble)
-      case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
-      case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
-      case _                       => false
   // true if this is a variable that is never assigned/connected to
   def isConstVAR(using MemberGetSet): Boolean =
     dfVal match
@@ -366,16 +359,6 @@ extension (dfVal: DFVal)
     case _                          => false
 
 end extension
-
-extension (dcl: DFVal.Dcl)
-  def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefList match
-    case DFRef(dfVal) :: _ => !dfVal.isBubble
-    case _                 => false
-
-extension (dcl: DFVal.Alias.History)
-  def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefOption match
-    case Some(DFRef(dfVal)) => !dfVal.isBubble
-    case _                  => false
 
 extension (refTW: DFNet.Ref)
   def isViaRef(using MemberGetSet): Boolean =
@@ -415,13 +398,4 @@ extension (member: DFMember)
       case _: DFVal.DesignParam => true
       case _: DomainBlock       => true
       case _                    => false
-  def isDFDomain(using MemberGetSet): Boolean = member.getDomainType match
-    case DomainType.DF => true
-    case _             => false
-  def isRTDomain(using MemberGetSet): Boolean = member.getDomainType match
-    case DomainType.RT(_) => true
-    case _                => false
-  def isEDDomain(using MemberGetSet): Boolean = member.getDomainType match
-    case DomainType.ED => true
-    case _             => false
 end extension

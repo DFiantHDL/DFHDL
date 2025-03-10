@@ -34,7 +34,7 @@ case object SimplifyRTOps extends Stage:
             _,
             _,
             _
-          ) if trigger.isRTDomain && !trigger.isAnonReferencedByWait =>
+          ) if trigger.isInRTDomain && !trigger.isAnonReferencedByWait =>
         val dsn = new MetaDesign(
           trigger,
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
@@ -49,7 +49,7 @@ case object SimplifyRTOps extends Stage:
         Some(dsn.patch)
 
       case waitMember @ Wait(DFRef(trigger @ DFBoolOrBit.Val(_)), _, _, _)
-          if waitMember.isRTDomain =>
+          if waitMember.isInRTDomain =>
         // Create a while loop with a cycle wait
         val dsn = new MetaDesign(
           waitMember,

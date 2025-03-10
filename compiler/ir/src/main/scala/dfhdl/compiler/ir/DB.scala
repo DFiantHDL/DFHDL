@@ -687,6 +687,115 @@ final case class DB(
       .toMap
   end dependentRTDomainOwners
 
+  // mapping designs and their uses of Clk/Rst
+  // we use the design declaration name (after enforcing uniqueness) because designs
+  // can be empty duplicates and the indications need to come from the full designs
+  //                                       dclName  usesClk  usesRst
+  private lazy val designUsesClkRst = mutable.Map.empty[String, (Boolean, Boolean)]
+  //                                                            usesClk  usesRst
+  private lazy val domainOwnerUsesClkRst = mutable.Map.empty[DFDomainOwner, (Boolean, Boolean)]
+  private lazy val reversedDependents = dependentRTDomainOwners.invert
+
+  extension (domainOwner: DFDomainOwner)
+    private def getExplicitCfg: RTDomainCfg.Explicit =
+      domainOwner.domainType match
+        case DomainType.RT(explicitCfg: RTDomainCfg.Explicit) => explicitCfg
+        case _ => top.getTagOf[RTDomainCfg.Explicit].get
+    private def usesClkRst: (Boolean, Boolean) = domainOwner match
+      case design: DFDesignBlock =>
+        designUsesClkRst.getOrElseUpdate(
+          design.dclName,
+          design.domainType match
+            case DomainType.RT(RTDomainCfg.Explicit(_, clkCfg, rstCfg)) =>
+              (clkCfg != None, rstCfg != None)
+            case _ => (design.usesClk, design.usesRst)
+        )
+      case _ =>
+        domainOwnerUsesClkRst.getOrElseUpdate(
+          domainOwner,
+          (domainOwner.usesClk, domainOwner.usesRst)
+        )
+    private def usesClk: Boolean = domainOwnerMemberTable(domainOwner).exists {
+      case dcl: DFVal.Dcl                      => dcl.modifier.isReg || dcl.isClkDcl
+      case reg: DFVal.Alias.History            => true
+      case pb: ProcessBlock if pb.isInRTDomain => true
+      case internal: DFDesignBlock             => internal.usesClkRst._1
+      case _                                   => false
+    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1) ||
+      domainOwner.isTop && (domainOwner.getExplicitCfg.clkCfg match
+        case ClkCfg.Explicit(_, _, _, ClkRstInclusionPolicy.AlwaysAtTop) => true
+        case _                                                           => false)
+
+    private def usesRst: Boolean = domainOwnerMemberTable(domainOwner).exists {
+      case dcl: DFVal.Dcl =>
+        (dcl.modifier.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
+      case reg: DFVal.Alias.History            => reg.hasNonBubbleInit
+      case pb: ProcessBlock if pb.isInRTDomain => true
+      case internal: DFDesignBlock             => internal.usesClkRst._2
+      case _                                   => false
+    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._2) ||
+      domainOwner.isTop && (domainOwner.getExplicitCfg.rstCfg match
+        case RstCfg.Explicit(_, _, _, ClkRstInclusionPolicy.AlwaysAtTop) => true
+        case _                                                           => false)
+  end extension
+
+  extension (cfg: RTDomainCfg.Explicit)
+    // derived design configuration can be relaxed to no-Clk/Rst according to its
+    // internal usage, as determined by `usesClkRst`
+    private def relaxed(atDomain: DFDomainOwner): RTDomainCfg.Explicit =
+      val (usesClk, usesRst) = atDomain.usesClkRst
+      val updatedClkCfg: ClkCfg = if (usesClk) cfg.clkCfg else None
+      val updatedRstCfg: RstCfg = if (usesRst) cfg.rstCfg else None
+      val updatedName =
+        if (!usesClk) s"RTDomainCfg.Comb"
+        else if (cfg.clkCfg != None && !usesRst)
+          s"${cfg.name}.norst"
+        else cfg.name
+      RTDomainCfg.Explicit(updatedName, updatedClkCfg, updatedRstCfg)
+        .asInstanceOf[RTDomainCfg.Explicit]
+  end extension
+
+  @tailrec private def fillDomainMap(
+      domains: List[DFDomainOwner],
+      stack: List[DFDomainOwner],
+      domainMap: mutable.Map[DFDomainOwner, RTDomainCfg.Explicit]
+  ): Unit =
+    domains match
+      // already has configuration for this domain -> skip it
+      case domain :: rest if domainMap.contains(domain) => fillDomainMap(rest, stack, domainMap)
+      // no configuration for this domain
+      case domain :: rest =>
+        // check if the domain is dependent
+        dependentRTDomainOwners.get(domain) match
+          // the domain is dependent -> its configuration is set by the dependency
+          case Some(dependencyDomain) =>
+            domainMap.get(dependencyDomain) match
+              // found dependency configuration -> save it to the current domain as well
+              case Some(dependencyConfig) =>
+                domainMap += domain -> dependencyConfig.relaxed(domain)
+                fillDomainMap(rest, stack, domainMap)
+              // missing dependency -> put this domain in the stack for now
+              case None => fillDomainMap(rest, domain :: stack, domainMap)
+            end match
+          // the domain is independent -> explicit configuration is set according to other factors
+          case _ =>
+            val explicitCfg = domain.getExplicitCfg
+            domainMap += domain -> explicitCfg.relaxed(domain)
+            fillDomainMap(rest, stack, domainMap)
+        end match
+      // no more domains, but there are left in the stack
+      case Nil if stack.nonEmpty => fillDomainMap(domains = stack, Nil, domainMap)
+      // we're done!
+      case _ =>
+    end match
+  end fillDomainMap
+
+  lazy val explicitRTDomainCfgMap: Map[DFDomainOwner, RTDomainCfg.Explicit] =
+    val domainMap = mutable.Map.empty[DFDomainOwner, RTDomainCfg.Explicit]
+    val derivedDomainOwners = domainOwnerMemberList.map(_._1)
+    fillDomainMap(derivedDomainOwners, Nil, domainMap)
+    domainMap.toMap
+
   def circularDerivedDomainsCheck(): Unit =
     // Helper function to perform DFS and detect cycles
     @tailrec def dfs(
@@ -706,6 +815,7 @@ final case class DB(
         dependentRTDomainOwners.get(node) match
           case Some(dependentNode) => dfs(dependentNode, newVisited, newStack)
           case None                => // No dependency, end of this path
+    end dfs
     // Iterate over all nodes in the map and perform DFS
     for (node <- dependentRTDomainOwners.keys)
       dfs(node, Set.empty, Set.empty)

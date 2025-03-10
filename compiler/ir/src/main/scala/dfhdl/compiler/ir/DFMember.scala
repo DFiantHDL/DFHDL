@@ -94,6 +94,16 @@ object DFMember:
     def hasTagOf[CT <: DFTag: ClassTag]: Boolean =
       member.tags.hasTagOf[CT]
     def getDomainType(using MemberGetSet): DomainType = member.getOwnerDomain.domainType
+    def isInDFDomain(using MemberGetSet): Boolean = member.getDomainType match
+      case DomainType.DF => true
+      case _             => false
+    def isInRTDomain(using MemberGetSet): Boolean = member.getDomainType match
+      case DomainType.RT(_) => true
+      case _                => false
+    def isInEDDomain(using MemberGetSet): Boolean = member.getDomainType match
+      case DomainType.ED => true
+      case _             => false
+  end extension
 
   type Empty = Empty.type
   case object Empty extends DFMember:
@@ -276,6 +286,13 @@ object DFVal:
     def stripPortSel(using MemberGetSet): DFVal = dfVal match
       case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
       case _                               => dfVal
+    def isBubble(using MemberGetSet): Boolean =
+      dfVal match
+        case c: DFVal.Const          => c.dfType.isDataBubble(c.data.asInstanceOf[c.dfType.Data])
+        case f: DFVal.Func           => f.args.exists(_.get.isBubble)
+        case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
+        case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
+        case _                       => false
   end extension
   // can be an expression
   sealed trait CanBeExpr extends DFVal:
@@ -470,7 +487,9 @@ object DFVal:
       def isRstDcl(using MemberGetSet): Boolean = dcl.dfType match
         case DFOpaque(_, id: DFOpaque.Rst, _) => true
         case _                                => false
-
+      def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefList match
+        case DFRef(dfVal) :: _ => !dfVal.isBubble
+        case _                 => false
   final case class Func(
       dfType: DFType,
       op: Func.Op,
@@ -658,6 +677,10 @@ object DFVal:
       enum Op derives CanEqual:
         case State // represents either `prev` in DF domain or `reg` in RT domain
         case Pipe // pipe only represents a pipe constraint under DF domain
+      extension (history: DFVal.Alias.History)
+        def hasNonBubbleInit(using MemberGetSet): Boolean = history.initRefOption match
+          case Some(DFRef(dfVal)) => !dfVal.isBubble
+          case _                  => false
 
     final case class ApplyRange(
         relValRef: PartialRef,

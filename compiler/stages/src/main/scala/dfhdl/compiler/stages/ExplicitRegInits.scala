@@ -19,10 +19,10 @@ case object ExplicitRegInits extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.collect {
       case dcl: DFVal.Dcl
-          if dcl.initRefList.nonEmpty && !dcl.modifier.isReg && dcl.isRTDomain && !dcl.isConstVAR =>
+          if dcl.initRefList.nonEmpty && !dcl.modifier.isReg && dcl.isInRTDomain && !dcl.isConstVAR =>
         dcl -> Patch.Replace(dcl.copy(initRefList = Nil), Patch.Replace.Config.FullReplacement)
       case ra @ DFVal.Alias.History(_, DFRef(dcl: DFVal.Dcl), _, HistoryOp.State, None, _, _, _)
-          if ra.isRTDomain =>
+          if ra.isInRTDomain =>
         // patch to add an init from the Dcl onto the register construct
         new MetaDesign(ra, AddCfg.ReplaceWithLast(ReplaceCfg.FullReplacement)):
           val clonedInit = dcl.initList.head.cloneAnonValueAndDepsHere.asConstAny
