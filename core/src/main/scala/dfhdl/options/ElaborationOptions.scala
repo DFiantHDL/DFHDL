@@ -1,6 +1,7 @@
 package dfhdl.options
 import dfhdl.core.{ClkCfg, RstCfg, Design}
 import dfhdl.compiler.ir.RTDomainCfg
+import dfhdl.core.DFPhysical.Val.Ops.MHz
 import ElaborationOptions.*
 final case class ElaborationOptions(
     logLevel: LogLevel,
@@ -41,18 +42,64 @@ object ElaborationOptions:
 
   opaque type DefaultClkCfg <: ClkCfg = ClkCfg
   object DefaultClkCfg:
-    given DefaultClkCfg = ClkCfg()
+    given default(using
+        edge: Edge,
+        rate: Rate,
+        portName: PortName,
+        inclusionPolicy: InclusionPolicy
+    ): DefaultClkCfg = ClkCfg(edge, rate, portName, inclusionPolicy)
     given Conversion[ClkCfg, DefaultClkCfg] = identity
     given Conversion[None.type, DefaultClkCfg] = x => x.asInstanceOf[DefaultClkCfg]
-    export ClkCfg.*
+    opaque type Edge <: ClkCfg.Edge = ClkCfg.Edge
+    object Edge:
+      given Edge = Edge.Rising
+      given Conversion[ClkCfg.Edge, Edge] = identity
+      export ClkCfg.Edge.*
+    opaque type Rate <: ClkCfg.Rate = ClkCfg.Rate
+    object Rate:
+      given Rate = 50.MHz
+      given Conversion[ClkCfg.Rate, Rate] = identity
+    opaque type PortName <: String = String
+    object PortName:
+      given PortName = "clk"
+      given Conversion[String, PortName] = identity
+    opaque type InclusionPolicy <: ClkCfg.InclusionPolicy = ClkCfg.InclusionPolicy
+    object InclusionPolicy:
+      given InclusionPolicy = InclusionPolicy.AsNeeded
+      given Conversion[ClkCfg.InclusionPolicy, InclusionPolicy] = identity
+      export ClkCfg.InclusionPolicy.*
+  end DefaultClkCfg
 
   opaque type DefaultRstCfg <: RstCfg = RstCfg
   object DefaultRstCfg:
-    given DefaultRstCfg = RstCfg()
+    given default(using
+        mode: Mode,
+        active: Active,
+        portName: PortName,
+        inclusionPolicy: InclusionPolicy
+    ): DefaultRstCfg = RstCfg(mode, active, portName, inclusionPolicy)
     given Conversion[RstCfg, DefaultRstCfg] = identity
     given Conversion[None.type, DefaultRstCfg] = x => x.asInstanceOf[DefaultRstCfg]
-    export RstCfg.*
-
+    opaque type Mode <: RstCfg.Mode = RstCfg.Mode
+    object Mode:
+      given Mode = Mode.Sync
+      given Conversion[RstCfg.Mode, Mode] = identity
+      export RstCfg.Mode.*
+    opaque type Active <: RstCfg.Active = RstCfg.Active
+    object Active:
+      given Active = Active.High
+      given Conversion[RstCfg.Active, Active] = identity
+      export RstCfg.Active.*
+    opaque type PortName <: String = String
+    object PortName:
+      given PortName = "rst"
+      given Conversion[String, PortName] = identity
+    opaque type InclusionPolicy <: RstCfg.InclusionPolicy = RstCfg.InclusionPolicy
+    object InclusionPolicy:
+      given InclusionPolicy = InclusionPolicy.AsNeeded
+      given Conversion[RstCfg.InclusionPolicy, InclusionPolicy] = identity
+      export RstCfg.InclusionPolicy.*
+  end DefaultRstCfg
   opaque type PrintDFHDLCode <: Boolean = Boolean
   object PrintDFHDLCode:
     given PrintDFHDLCode = false
