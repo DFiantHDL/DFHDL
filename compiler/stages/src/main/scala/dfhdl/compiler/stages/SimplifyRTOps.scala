@@ -101,7 +101,7 @@ case object SimplifyRTOps extends Stage:
             case period: DFPhysical.Unit.Time.Scale => period.to_ps(clkRateValue)
           val waitTime = waitUnit.to_ps(waitValue)
           val cycles = (waitTime / clkRatePs).toLong
-          cycles.cy.wait
+          cycles.cy.wait(using dfc.setMeta(waitMember.meta))
         Some(dsn.patch)
     }.flatten.toList
 
