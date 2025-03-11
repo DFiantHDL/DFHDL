@@ -14,13 +14,12 @@ import scala.collection.mutable
   *   - rising/falling edge operations into reg alias detection operations. For example:
   *     i.rising -> !i.reg(1, init = 1) && i
   *     i.falling -> i.reg(1, init = 0) && !i
-  *   - wait statements with time durations into cycles. For example (under 50Mhz clock):
-  *     1.sec.wait -> 50000000.cy.wait
-  *     2.ms.wait -> 100000.cy.wait
+  *   - non-zero/one cycle wait statements to while loops with a counter. For example (under 50Mhz clock):
+  *     50000000.cy.wait -> while(waitCnt != 50000000) 1.cy.wait
   */
 //format: on
 case object SimplifyRTOps extends Stage:
-  def dependencies: List[Stage] = List()
+  def dependencies: List[Stage] = List(DropTimedRTWaits, DFHDLUniqueNames)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
@@ -79,30 +78,40 @@ case object SimplifyRTOps extends Stage:
           dfc.exitOwner()
         Some(dsn.patch)
       // replace wait statements with time durations with cycles
-      case waitMember @ Wait(
-            DFRef(duration @ DFPhysical.Val(DFPhysical(DFPhysical.Unit.Time))),
-            _,
-            _,
-            _
-          ) if waitMember.isInRTDomain =>
-        val dsn = new MetaDesign(
-          waitMember,
-          Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
-          dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
-        ):
-          val (waitValue: BigDecimal, waitUnit: DFPhysical.Unit.Time.Scale) =
-            duration.getConstData.get: @unchecked
-          val (RTDomainCfg.Explicit(_, ClkCfg.Explicit(_, clkRate, _, _), _)) =
-            designDB.explicitRTDomainCfgMap(waitMember.getOwnerDomain): @unchecked
-          val (clkRateValue: BigDecimal, clkRateUnitScale) =
-            clkRate.getConstData.get: @unchecked
-          val clkRatePs = (clkRateUnitScale: @unchecked) match
-            case freq: DFPhysical.Unit.Freq.Scale   => freq.to_ps(clkRateValue)
-            case period: DFPhysical.Unit.Time.Scale => period.to_ps(clkRateValue)
-          val waitTime = waitUnit.to_ps(waitValue)
-          val cycles = (waitTime / clkRatePs).toLong
-          cycles.cy.wait(using dfc.setMeta(waitMember.meta))
-        Some(dsn.patch)
+      case waitMember @ Wait(DFRef(cyclesVal @ DFDecimal.Val(DFUInt(_))), _, _, _) =>
+        val replaceWithWhile = cyclesVal match
+          // if the number of cycles is 1, then there is no need to create a loop.
+          // if the number of cycles is 0, then its an indicator for while loops that are combinational
+          case DFVal.Const(_, Some(value: BigInt), _, _, _) if value <= 1 => false
+          case _                                                          => true
+        if (replaceWithWhile)
+          val dsn = new MetaDesign(
+            waitMember,
+            Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
+            dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+          ):
+            val iterType = cyclesVal.asValOf[UInt[Int]].dfType
+            // TODO: unclear why we cannot directly use 0 and 1 here, but there is indication that
+            // the bug originates from a conversion from UInt[1] to the iterType. It could be that the
+            // methods under core.DFVal.Alias are not working as intended because of meta-programming.
+            val initZero = dfhdl.core.DFVal.Const(iterType, Some(BigInt(0)))
+            val waitCnt = iterType.<>(VAR).initForced(List(initZero))(using dfc.setName("waitCnt"))
+            // the upper bound for the while loop count
+            val upperBound = cyclesVal match
+              // the upper bound is reduced to a simpler form when the number of cycles is a constant anonymous value
+              case DFVal.Const(_, Some(value: BigInt), _, _, _) if cyclesVal.isAnonymous =>
+                dfhdl.core.DFVal.Const(iterType, Some(value - 1))
+              // the upper bound is an expression when the number of cycles is a variable
+              case _ =>
+                cyclesVal.asValOf[UInt[Int]] - dfhdl.core.DFVal.Const(iterType, Some(BigInt(1)))
+            val whileBlock =
+              dfhdl.core.DFWhile.Block(waitCnt != upperBound)(using dfc.setMeta(waitMember.meta))
+            dfc.enterOwner(whileBlock)
+            1.cy.wait
+            dfc.exitOwner()
+          Some(dsn.patch)
+        else None
+        end if
     }.flatten.toList
 
     designDB.patch(patchList)

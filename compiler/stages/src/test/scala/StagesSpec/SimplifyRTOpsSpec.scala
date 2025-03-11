@@ -130,25 +130,35 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
-  test("wait with time duration") {
+  test("wait with cycle duration") {
     class Foo extends RTDesign:
       val x = Bit <> OUT.REG
+      val waitParam: UInt[Int] <> CONST = 50000000
       process:
         x.din := 1
-        1.sec.wait
+        50000000.cy.wait
         x.din := 0
-        2.ms.wait
+        waitParam.cy.wait
+        1.cy.wait
     end Foo
     val top = (new Foo).simplifyRTOps
     assertCodeString(
       top,
       """|class Foo extends RTDesign:
          |  val x = Bit <> OUT.REG
+         |  val waitParam: UInt[26] <> CONST = d"26'50000000"
          |  process:
          |    x.din := 1
-         |    50000000.cy.wait
+         |    val waitCnt = UInt(26) <> VAR init d"26'0"
+         |    while (waitCnt != d"26'49999999")
+         |      1.cy.wait
+         |    end while
          |    x.din := 0
-         |    100000.cy.wait
+         |    val waitCnt = UInt(26) <> VAR init d"26'0"
+         |    while (waitCnt != (waitParam - d"26'1"))
+         |      1.cy.wait
+         |    end while
+         |    1.cy.wait
          |end Foo""".stripMargin
     )
   }
