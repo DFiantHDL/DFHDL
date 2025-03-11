@@ -53,8 +53,8 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
             s"wait until ${printer.csFixedCond(triggerRef)};"
           case _ =>
             s"wait until not ${printer.csFixedCond(wait.triggerRef)};"
-      case DFTime | DFCycles => s"wait for ${wait.triggerRef.refCodeString};"
-      case _                 => ???
+      case DFTime => s"wait for ${wait.triggerRef.refCodeString};"
+      case _      => printer.unsupported
   end csWait
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))

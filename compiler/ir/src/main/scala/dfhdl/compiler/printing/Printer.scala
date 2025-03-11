@@ -302,8 +302,16 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
             s"waitUntil(${triggerRef.refCodeString})"
           case _ =>
             s"waitWhile(${wait.triggerRef.refCodeString})"
-      case DFTime | DFCycles => s"${wait.triggerRef.refCodeString}.wait"
-      case _                 => ???
+      case DFTime => s"${wait.triggerRef.refCodeString}.wait"
+      case _ =>
+        wait.triggerRef.get.getConstData match
+          // simplify display for int constant waits
+          case Some(Some(value: BigInt)) if value.isValidInt =>
+            s"${value}.cy.wait"
+          case _ =>
+            s"${wait.triggerRef.refCodeString}.cy.wait"
+    end match
+  end csWait
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))

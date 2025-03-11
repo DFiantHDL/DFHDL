@@ -26,8 +26,6 @@ protected object hdl:
   val Time = core.DFTime
   type Freq = core.DFFreq
   val Freq = core.DFFreq
-  type Cycles = core.DFCycles
-  val Cycles = core.DFCycles
   export core.DFRange.Ops.*
   export core.Wait.Ops.*
   type DFC = core.DFC

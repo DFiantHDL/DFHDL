@@ -133,7 +133,6 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     dfType.unit match
       case DFPhysical.Unit.Time   => "Time"
       case DFPhysical.Unit.Freq   => "Freq"
-      case DFPhysical.Unit.Cycles => "Cycles"
       case DFPhysical.Unit.Number => "Number"
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets

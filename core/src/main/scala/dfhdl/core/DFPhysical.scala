@@ -20,13 +20,6 @@ object DFPhysical:
     ir.DFPhysical(valueOf[U]).asFE[DFPhysical[U]]
   object Val:
     object Ops:
-      protected type CYInRT = AssertGiven[
-        DomainType.RT,
-        "`.cy` unit is only allowed under register-transfer (RT) domains."
-      ]
-      extension (lhs: Int | Long)
-        def cy(using DFC, CYInRT): DFConstOf[DFCycles] =
-          DFVal.Const(DFCycles, (BigDecimal(lhs), ir.DFPhysical.Unit.Cycles), named = true)
       extension (lhs: Int | Double)
         def fs(using DFC): DFConstOf[DFTime] =
           DFVal.Const(DFTime, (BigDecimal(lhs), PhysicalUnit.Time.Scale.fs), named = true)
@@ -96,6 +89,3 @@ type DFFreq = DFPhysical[PhysicalUnit.Freq.type]
 val DFFreq = ir.DFFreq.asFE[DFFreq]
 type DFNumber = DFPhysical[PhysicalUnit.Number.type]
 val DFNumber = ir.DFNumber.asFE[DFNumber]
-type DFCycles = DFPhysical[PhysicalUnit.Cycles.type]
-val DFCycles = ir.DFCycles.asFE[DFCycles]
-type Duration = DFTime | DFCycles

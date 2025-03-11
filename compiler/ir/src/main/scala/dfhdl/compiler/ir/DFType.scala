@@ -544,8 +544,6 @@ object DFPhysical extends DFType.Companion[DFPhysical, (BigDecimal, Any)]:
             case DFPhysical.Unit.Time.Scale.hr  => value * BigDecimal(3600000000000000L)
 
     case object Number extends Unit
-    case object Cycles extends Unit:
-      override def toString: String = "cy"
     case object Freq extends Unit:
       enum Scale derives CanEqual:
         case Hz, KHz, MHz, GHz
@@ -564,5 +562,4 @@ end DFPhysical
 val DFTime = DFPhysical(DFPhysical.Unit.Time)
 val DFFreq = DFPhysical(DFPhysical.Unit.Freq)
 val DFNumber = DFPhysical(DFPhysical.Unit.Number)
-val DFCycles = DFPhysical(DFPhysical.Unit.Cycles)
 /////////////////////////////////////////////////////////////////////////////

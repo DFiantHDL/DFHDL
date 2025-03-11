@@ -50,8 +50,8 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
             s"@(${wait.triggerRef.refCodeString});"
           case _ =>
             s"wait(${wait.triggerRef.refCodeString});"
-      case DFTime | DFCycles => s"#${wait.triggerRef.refCodeString};"
-      case _                 => ???
+      case DFTime => s"#${wait.triggerRef.refCodeString};"
+      case _      => printer.unsupported
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
       s"""/*
