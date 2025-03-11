@@ -532,12 +532,34 @@ object DFPhysical extends DFType.Companion[DFPhysical, (BigDecimal, Any)]:
     case object Time extends Unit:
       enum Scale derives CanEqual:
         case hr, min, sec, ms, us, ns, ps, fs
+        def to_ps(value: BigDecimal): BigDecimal =
+          this match
+            case DFPhysical.Unit.Time.Scale.fs  => value / BigDecimal(1000)
+            case DFPhysical.Unit.Time.Scale.ps  => value
+            case DFPhysical.Unit.Time.Scale.ns  => value * BigDecimal(1000)
+            case DFPhysical.Unit.Time.Scale.us  => value * BigDecimal(1000000)
+            case DFPhysical.Unit.Time.Scale.ms  => value * BigDecimal(1000000000)
+            case DFPhysical.Unit.Time.Scale.sec => value * BigDecimal(1000000000000L)
+            case DFPhysical.Unit.Time.Scale.min => value * BigDecimal(60000000000000L)
+            case DFPhysical.Unit.Time.Scale.hr  => value * BigDecimal(3600000000000000L)
+
     case object Number extends Unit
     case object Cycles extends Unit:
       override def toString: String = "cy"
     case object Freq extends Unit:
       enum Scale derives CanEqual:
         case Hz, KHz, MHz, GHz
+        def to_hz(value: BigDecimal): BigDecimal =
+          this match
+            case DFPhysical.Unit.Freq.Scale.Hz  => value
+            case DFPhysical.Unit.Freq.Scale.KHz => value * BigDecimal(1000)
+            case DFPhysical.Unit.Freq.Scale.MHz => value * BigDecimal(1000000)
+            case DFPhysical.Unit.Freq.Scale.GHz => value * BigDecimal(1000000000)
+        def to_ps(value: BigDecimal): BigDecimal =
+          BigDecimal(1e12) / to_hz(value)
+
+  end Unit
+end DFPhysical
 
 val DFTime = DFPhysical(DFPhysical.Unit.Time)
 val DFFreq = DFPhysical(DFPhysical.Unit.Freq)

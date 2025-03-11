@@ -796,6 +796,54 @@ final case class DB(
     fillDomainMap(derivedDomainOwners, Nil, domainMap)
     domainMap.toMap
 
+  def waitCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    for
+      wait <- members.collect { case w: Wait if w.isInRTDomain => w }
+      trigger = wait.triggerRef.get
+      if trigger.dfType == DFTime
+    do
+      def waitError(msg: String): Unit =
+        errors += s"""|DFiant HDL wait error!
+                      |Position:  ${wait.meta.position}
+                      |Hierarchy: ${wait.getOwnerDesign.getFullName}
+                      |Message:   $msg""".stripMargin
+      val ownerDomain = wait.getOwnerDomain
+      trigger.getConstData match
+        case Some((waitValue: BigDecimal, waitUnit: DFPhysical.Unit.Time.Scale)) =>
+          // Check if the wait statement is in a domain with a clock rate configuration
+          explicitRTDomainCfgMap.get(ownerDomain) match
+            case Some(RTDomainCfg.Explicit(_, clkCfg: ClkCfg.Explicit, _)) =>
+              // Get the clock period in picoseconds
+              val (clockPeriodPs: BigDecimal, desc: String) = clkCfg.rate.getConstData.get match
+                case (value: BigDecimal, unit: DFPhysical.Unit.Time.Scale) =>
+                  // Direct period specification
+                  (unit.to_ps(value), s"period ${value}.${unit}")
+                case (value: BigDecimal, unit: DFPhysical.Unit.Freq.Scale) =>
+                  // Frequency specification - convert to period
+                  (unit.to_ps(value), s"frequency ${value}.${unit}")
+              // Get wait duration in picoseconds
+              val waitDurationPs = waitUnit.to_ps(waitValue)
+
+              // Check if wait duration is exactly divisible by clock period
+              if (waitDurationPs % clockPeriodPs != 0)
+                waitError(
+                  s"Wait duration ${waitValue}.${waitUnit} is not exactly divisible by the clock $desc."
+                )
+            case _ =>
+              waitError(
+                s"Wait statement is missing an explicit clock configuration in its domain."
+              )
+          end match
+        case _ =>
+          waitError(s"Wait duration is not constant.")
+      end match
+    end for
+
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end waitCheck
+
   def circularDerivedDomainsCheck(): Unit =
     // Helper function to perform DFS and detect cycles
     @tailrec def dfs(
@@ -930,6 +978,7 @@ final case class DB(
     checkDanglingInputs()
     directRefCheck()
     circularDerivedDomainsCheck()
+    waitCheck()
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)

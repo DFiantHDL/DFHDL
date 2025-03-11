@@ -222,4 +222,29 @@ class ElaborationChecksSpec extends DesignSpec:
           |This would yield the same ports, but named "x_vec_10", "x_vec_11", etc.
           |""".stripMargin
     )
+  test("wait statement errors"):
+    given options.ElaborationOptions.DefaultClkCfg.Rate = 4.sec
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val x = Bit <> IN
+        process:
+          8.sec.wait
+          1.sec.wait
+          12.sec.wait
+    end Test
+    import Test.*
+    // TODO: figure out why there is a crash when using assertElaborationErrors
+    val err =
+      try
+        Top()
+        ""
+      catch case e: IllegalArgumentException => e.getMessage
+    assertNoDiff(
+      err,
+      s"""|Elaboration errors found!
+          |DFiant HDL wait error!
+          |Position:  lib${S}src${S}test${S}scala${S}ElaborationChecksSpec.scala:232:11 - 232:21
+          |Hierarchy: Top
+          |Message:   Wait duration 1.sec is not exactly divisible by the clock period 4.sec.""".stripMargin
+    )
 end ElaborationChecksSpec
