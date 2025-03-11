@@ -129,4 +129,27 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
+
+  test("wait with time duration") {
+    class Foo extends RTDesign:
+      val x = Bit <> OUT.REG
+      process:
+        x.din := 1
+        1.sec.wait
+        x.din := 0
+        2.ms.wait
+    end Foo
+    val top = (new Foo).simplifyRTOps
+    assertCodeString(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> OUT.REG
+         |  process:
+         |    x.din := 1
+         |    50000000.cy.wait
+         |    x.din := 0
+         |    100000.cy.wait
+         |end Foo""".stripMargin
+    )
+  }
 end SimplifyRTOpsSpec

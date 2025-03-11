@@ -14,6 +14,9 @@ import scala.collection.mutable
   *   - rising/falling edge operations into reg alias detection operations. For example:
   *     i.rising -> !i.reg(1, init = 1) && i
   *     i.falling -> i.reg(1, init = 0) && !i
+  *   - wait statements with time durations into cycles. For example (under 50Mhz clock):
+  *     1.sec.wait -> 50000000.cy.wait
+  *     2.ms.wait -> 100000.cy.wait
   */
 //format: on
 case object SimplifyRTOps extends Stage:
@@ -74,6 +77,31 @@ case object SimplifyRTOps extends Stage:
           dfc.enterOwner(whileBlock)
           1.cy.wait
           dfc.exitOwner()
+        Some(dsn.patch)
+      // replace wait statements with time durations with cycles
+      case waitMember @ Wait(
+            DFRef(duration @ DFPhysical.Val(DFPhysical(DFPhysical.Unit.Time))),
+            _,
+            _,
+            _
+          ) if waitMember.isInRTDomain =>
+        val dsn = new MetaDesign(
+          waitMember,
+          Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
+          dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
+        ):
+          val (waitValue: BigDecimal, waitUnit: DFPhysical.Unit.Time.Scale) =
+            duration.getConstData.get: @unchecked
+          val (RTDomainCfg.Explicit(_, ClkCfg.Explicit(_, clkRate, _, _), _)) =
+            designDB.explicitRTDomainCfgMap(waitMember.getOwnerDomain): @unchecked
+          val (clkRateValue: BigDecimal, clkRateUnitScale) =
+            clkRate.getConstData.get: @unchecked
+          val clkRatePs = (clkRateUnitScale: @unchecked) match
+            case freq: DFPhysical.Unit.Freq.Scale   => freq.to_ps(clkRateValue)
+            case period: DFPhysical.Unit.Time.Scale => period.to_ps(clkRateValue)
+          val waitTime = waitUnit.to_ps(waitValue)
+          val cycles = (waitTime / clkRatePs).toLong
+          cycles.cy.wait
         Some(dsn.patch)
     }.flatten.toList
 

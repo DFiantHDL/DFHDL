@@ -9,8 +9,9 @@ import scala.annotation.targetName
 import scala.annotation.implicitNotFound
 
 extension (bd: BigDecimal.type)
-  private def apply(arg: Int | Double): BigDecimal = arg match
+  private def apply(arg: Int | Long | Double): BigDecimal = arg match
     case i: Int    => BigDecimal(i)
+    case l: Long   => BigDecimal(l)
     case d: Double => BigDecimal(d)
 
 type DFPhysical[+U <: PhysicalUnit] = DFType[ir.DFPhysical, Args1[U @uncheckedVariance]]
@@ -23,7 +24,7 @@ object DFPhysical:
         DomainType.RT,
         "`.cy` unit is only allowed under register-transfer (RT) domains."
       ]
-      extension (lhs: Int)
+      extension (lhs: Int | Long)
         def cy(using DFC, CYInRT): DFConstOf[DFCycles] =
           DFVal.Const(DFCycles, (BigDecimal(lhs), ir.DFPhysical.Unit.Cycles), named = true)
       extension (lhs: Int | Double)
