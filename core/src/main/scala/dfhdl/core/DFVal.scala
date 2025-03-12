@@ -559,16 +559,17 @@ object DFVal extends DFValLP:
         else dfVal.initForced(Nil)
       }
 
-  extension [W <: IntP, D1 <: IntP, A, C, I, P](
-      dfVal: DFVal[DFVector[DFBits[W], Tuple1[D1]], Modifier[A, C, I, P]]
+  extension [W <: IntP, T <: DFBits[W] | DFUInt[W], D1 <: IntP, A, C, I, P](
+      dfVal: DFVal[DFVector[T, Tuple1[D1]], Modifier[A, C, I, P]]
   )
     infix def initFile(
         path: String,
         format: ir.InitFileFormat = ir.InitFileFormat.Auto
     )(using
-        DFC,
-        InitCheck[I]
-    ): DFVal[DFVector[DFBits[W], Tuple1[D1]], Modifier[A, C, Modifier.Initialized, P]] = trydf:
+        dfc: DFC,
+        check: InitCheck[I]
+    ): DFVal[DFVector[T, Tuple1[D1]], Modifier[A, C, Modifier.Initialized, P]] = trydf:
+      import dfc.getSet
       val vectorType = dfVal.dfType
       import DFVector.{lengthInt, cellType}
       val data = ir.InitFileFormat.readInitFile(
@@ -577,7 +578,11 @@ object DFVal extends DFValLP:
         vectorType.lengthInt,
         vectorType.cellType.widthInt
       )
-      val initFileConst = DFVal.Const(vectorType, data)
+      val initFileConst = vectorType.cellType.asIR match
+        case ir.DFBits(_) => DFVal.Const(vectorType, data)
+        case cellType =>
+          DFVal.Const(vectorType, data.map(cellType.bitsDataToData))
+
       dfVal.initForced(List(initFileConst))
     // TODO: for now, we read the data immediately. In the future, incremental compilation will make
     // it beneficial to wait for the backend last stages to do so.
