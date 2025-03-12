@@ -149,13 +149,15 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val waitParam: UInt[26] <> CONST = d"26'50000000"
          |  process:
          |    x.din := 1
-         |    val waitCnt = UInt(26) <> VAR init d"26'0"
+         |    val waitCnt = UInt(26) <> VAR.REG init d"26'0"
          |    while (waitCnt != d"26'49999999")
+         |      waitCnt.din := waitCnt + d"26'1"
          |      1.cy.wait
          |    end while
          |    x.din := 0
-         |    val waitCnt = UInt(26) <> VAR init d"26'0"
+         |    val waitCnt = UInt(26) <> VAR.REG init d"26'0"
          |    while (waitCnt != (waitParam - d"26'1"))
+         |      waitCnt.din := waitCnt + d"26'1"
          |      1.cy.wait
          |    end while
          |    1.cy.wait

@@ -95,7 +95,8 @@ case object SimplifyRTOps extends Stage:
             // the bug originates from a conversion from UInt[1] to the iterType. It could be that the
             // methods under core.DFVal.Alias are not working as intended because of meta-programming.
             val initZero = dfhdl.core.DFVal.Const(iterType, Some(BigInt(0)))
-            val waitCnt = iterType.<>(VAR).initForced(List(initZero))(using dfc.setName("waitCnt"))
+            val waitCnt =
+              iterType.<>(VAR.REG).initForced(List(initZero))(using dfc.setName("waitCnt"))
             // the upper bound for the while loop count
             val upperBound = cyclesVal match
               // the upper bound is reduced to a simpler form when the number of cycles is a constant anonymous value
@@ -107,6 +108,7 @@ case object SimplifyRTOps extends Stage:
             val whileBlock =
               dfhdl.core.DFWhile.Block(waitCnt != upperBound)(using dfc.setMeta(waitMember.meta))
             dfc.enterOwner(whileBlock)
+            waitCnt.din := waitCnt + dfhdl.core.DFVal.Const(iterType, Some(BigInt(1)))
             1.cy.wait
             dfc.exitOwner()
           Some(dsn.patch)
