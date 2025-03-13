@@ -64,6 +64,7 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case _                => true
     if (isConstBool(tpe)) TypeRepr.of[CONST]
     else TypeRepr.of[NOTCONST]
+end extension
 
 extension (using quotes: Quotes)(term: quotes.reflect.Term)
   def getNonConstTerm: Option[quotes.reflect.Term] =
@@ -922,7 +923,9 @@ object DFVal extends DFValLP:
       type OutP = CONST
       def conv(dfType: T, value: V)(using DFC): Out = Bubble.constValOf(dfType, named = true)
     // Accept NOTHING for any DFType, unless not in DF domain, and then we limit it to Bits or Bit type
-    given fromNOTHING[T <: DFTypeAny](using dt: DomainType)(using
+    given fromNOTHING[T <: DFTypeAny](using
+        dt: DomainType
+    )(using
         AssertGiven[
           dt.type <:< DomainType.DF | T <:< DFBit | T <:< DFType[ir.DFBits, Args],
           "`NOTHING` can only be assigned to either `Bits` or `Bit` DFHDL values outside of a dataflow (DF) domain."
@@ -1061,14 +1064,18 @@ object DFVal extends DFValLP:
   end Compare
 
   trait DFDomainOnly
-  given (using domain: DomainType)(using
+  given (using
+      domain: DomainType
+  )(using
       AssertGiven[
         domain.type <:< DomainType.DF,
         "This construct is only available in a dataflow domain."
       ]
   ): DFDomainOnly with {}
   trait RTDomainOnly
-  given (using domain: DomainType)(using
+  given (using
+      domain: DomainType
+  )(using
       AssertGiven[
         domain.type <:< DomainType.RT,
         "This construct is only available in a register-transfer domain."
@@ -1243,7 +1250,11 @@ object DFVarOps:
     "`.din` selection is only allowed under register-transfer (RT) domains."
   ]
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
-    def :=(rhs: DFVal.TC.Exact[T])(using DFC)(using dt: DomainType)(using
+    def :=(rhs: DFVal.TC.Exact[T])(using
+        DFC
+    )(using
+        dt: DomainType
+    )(using
         notREG: NotREG[A],
         varOnly: VarOnly[A],
 //        localOrNonED: LocalOrNonED[A],
@@ -1251,7 +1262,11 @@ object DFVarOps:
     ): Unit = trydf {
       dfVar.assign(rhs(dfVar.dfType))
     }
-    def :==(rhs: DFVal.TC.Exact[T])(using DFC)(using dt: DomainType)(using
+    def :==(rhs: DFVal.TC.Exact[T])(using
+        DFC
+    )(using
+        dt: DomainType
+    )(using
         varOnly: VarOnly[A],
         edDomainOnly: EDDomainOnly[dt.type],
 //        notLocalVar: NotLocalVar[A],
@@ -1349,6 +1364,7 @@ object DFVarOps:
           case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.width), arg)
       }
       assignRecur(dfVarsIR, argsBitsIR, 0, Nil)
+  end extension
 end DFVarOps
 
 object DFPortOps:
@@ -1357,7 +1373,9 @@ object DFPortOps:
     "The LHS of a connection must be a connectable DFHDL value (var/port)."
   ]
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
-    def <>(rhs: DFVal.TC_Or_OPEN.Exact[T])(using DFC)(using
+    def <>(rhs: DFVal.TC_Or_OPEN.Exact[T])(using
+        DFC
+    )(using
         connectableOnly: ConnectableOnly[C]
     ): ConnectPlaceholder =
       trydf { dfPort.connect(rhs(dfPort.dfType)) }

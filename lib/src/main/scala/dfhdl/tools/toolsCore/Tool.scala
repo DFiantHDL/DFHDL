@@ -54,7 +54,8 @@ trait Tool:
       case OnError.Exception => sys.error(msg)
 
   final protected def preCheck()(using to: ToolOptions): Unit =
-    if (preCheckDone) {} else
+    if (preCheckDone) {}
+    else
       installedVersion.getOrElse {
         error(s"${toolName} could not be found.")
       }
