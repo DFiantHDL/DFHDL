@@ -1,10 +1,10 @@
 import dfhdl.TestUtils._
 import dfhdl._
 
-class ParityCheckSpec extends DFTopSpec {
+class ParityCheckSpec extends DFTopSpec:
   val parityCheck = new ParityCheck
 
-  val expectedCodeString : String =
+  val expectedCodeString: String =
     """|@df final class ParityCheck extends DFDesign {
        |  object fsm_states extends DFEnum.Auto {
        |    val Even,Odd = Entry()
@@ -47,5 +47,4 @@ class ParityCheckSpec extends DFTopSpec {
     parityCheck.compile.toFolder("sandbox/parityCheck/verilog95")
     true
   }
-}
-
+end ParityCheckSpec

@@ -98,8 +98,7 @@ case object ExplicitState extends Stage:
       currentSet: Set[DFVal]
   )(using MemberGetSet): (Set[DFVal], AssignMap) =
     remaining match
-      case (nextBlock: DFBlock) :: rs
-          if nextBlock.getOwnerBlock == currentBlock => // entering child block
+      case (nextBlock: DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => // entering child block
         val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = nextBlock match
           case cb: DFConditional.Block =>
             cb.guardRef.get match

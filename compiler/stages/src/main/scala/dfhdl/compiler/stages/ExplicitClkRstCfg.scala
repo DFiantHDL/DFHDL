@@ -81,8 +81,7 @@ case object ExplicitClkRstCfg extends Stage:
       } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1) ||
         domainOwner.isTop && (domainOwner.getExplicitCfg.clkCfg match
           case ClkCfg.Explicit(_, _, _, ClkRstInclusionPolicy.AlwaysAtTop) => true
-          case _                                                           => false
-        )
+          case _                                                           => false)
 
       def usesRst: Boolean = designDB.domainOwnerMemberTable(domainOwner).exists {
         case dcl: DFVal.Dcl =>
@@ -93,8 +92,7 @@ case object ExplicitClkRstCfg extends Stage:
       } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._2) ||
         domainOwner.isTop && (domainOwner.getExplicitCfg.rstCfg match
           case RstCfg.Explicit(_, _, _, ClkRstInclusionPolicy.AlwaysAtTop) => true
-          case _                                                           => false
-        )
+          case _                                                           => false)
     end extension
 
     // filling domain to configuration map

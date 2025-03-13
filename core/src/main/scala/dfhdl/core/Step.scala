@@ -43,5 +43,6 @@ object Step:
           dfc.tags
         )
         member.addMember
+    end extension
   end Ops
 end Step

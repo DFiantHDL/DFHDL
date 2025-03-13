@@ -237,6 +237,7 @@ abstract class CommonPhase extends PluginPhase:
           posTree.srcPos
         )
       finalName
+  end extension
 
   // custom replacement for compiler defn.ContextFunctionType
   object ContextFunctionType:

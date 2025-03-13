@@ -29,6 +29,7 @@ extension (list: List[String])
     else
       val csVecData = list.grouped(colCnt).map(_.mkString(sep + " ")).mkString(sep + "\n").hindent
       s"$open\n${csVecData}\n$close"
+end extension
 
 extension (intParamRef: IntParamRef)
   def refCodeString(typeCS: Boolean)(using printer: AbstractValPrinter): String = intParamRef match

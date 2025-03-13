@@ -164,7 +164,6 @@ class ParsedCommandLine(
     case DefaultMode.elaborate => Mode.elaborate
     case DefaultMode.compile   => Mode.compile
     case DefaultMode.commit    => Mode.commit
-    case DefaultMode.lint      => Mode.lint
-  ).asInstanceOf[Mode]
+    case DefaultMode.lint      => Mode.lint).asInstanceOf[Mode]
   verify()
 end ParsedCommandLine

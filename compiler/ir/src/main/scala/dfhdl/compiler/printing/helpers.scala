@@ -86,13 +86,11 @@ extension (text: String)
       val index = quantile * (n - 1)
       val lowerIndex = math.floor(index).toInt
       val upperIndex = math.ceil(index).toInt
-      if (lowerIndex == upperIndex)
-        sortedData(lowerIndex)
-      else {
+      if (lowerIndex == upperIndex) sortedData(lowerIndex)
+      else
         val lowerValue = sortedData(lowerIndex)
         val upperValue = sortedData(upperIndex)
         lowerValue + (upperValue - lowerValue) * (index - lowerIndex)
-      }
 
     if (alignLengths.length > 0)
       // we remove long align outliers that pass the threshold

@@ -1,10 +1,10 @@
 import dfhdl.TestUtils._
 import dfhdl._
 
-class SMA_DSSpec extends DFTopSpec {
+class SMA_DSSpec extends DFTopSpec:
   val sma = new SMA_DS
 
-  val expectedCodeString : String =
+  val expectedCodeString: String =
     """|@df final class SMA_DS extends DFDesign {
        |  val x   = SInt(16) <> IN  init 0
        |  val y   = SInt(16) <> OUT
@@ -38,5 +38,4 @@ class SMA_DSSpec extends DFTopSpec {
     sma.compile.toFolder("sandbox/SMA_DS/verilog95")
     true
   }
-}
-
+end SMA_DSSpec

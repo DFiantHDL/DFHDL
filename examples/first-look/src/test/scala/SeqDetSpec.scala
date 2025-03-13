@@ -1,10 +1,10 @@
 import dfhdl.TestUtils._
 import dfhdl._
 
-class SeqDetSpec extends DFTopSpec {
+class SeqDetSpec extends DFTopSpec:
   val seqDet = new SeqDet
 
-  val expectedCodeString : String =
+  val expectedCodeString: String =
     """|@df final class SeqDet extends DFDesign {
        |  object fsm_states extends DFEnum.Auto {
        |    val S0,S1,S10,S100,S1001 = Entry()
@@ -64,5 +64,4 @@ class SeqDetSpec extends DFTopSpec {
     seqDet.compile.toFolder("sandbox/seqDet/verilog95")
     true
   }
-}
-
+end SeqDetSpec
