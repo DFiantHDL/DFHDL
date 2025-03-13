@@ -146,7 +146,7 @@ class ParsedCommandLine(
         designArg.name -> opt[Any](
           name = designArg.name, descr = designArg.desc, argName = designArg.typeName,
           default = Some(designArg.getScalaValue), noshort = true, group = designArgOptionGroup
-        )(conv.asInstanceOf[ValueConverter[Any]])
+        )(using conv.asInstanceOf[ValueConverter[Any]])
     }.toMap
   lazy val updatedDesignArgs: DesignArgs = DesignArgs(designArgs.map { case (argName, designArg) =>
     designArgOptions.get(argName) match
@@ -164,7 +164,6 @@ class ParsedCommandLine(
     case DefaultMode.elaborate => Mode.elaborate
     case DefaultMode.compile   => Mode.compile
     case DefaultMode.commit    => Mode.commit
-    case DefaultMode.lint      => Mode.lint
-  ).asInstanceOf[Mode]
+    case DefaultMode.lint      => Mode.lint).asInstanceOf[Mode]
   verify()
 end ParsedCommandLine
