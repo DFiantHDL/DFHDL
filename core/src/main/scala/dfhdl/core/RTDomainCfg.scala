@@ -3,6 +3,7 @@ import dfhdl.compiler.ir
 import dfhdl.internals.*
 import dfhdl.options.ElaborationOptions
 import DFPhysical.Val.Ops.MHz
+import scala.annotation.nowarn
 
 type ClkCfg = ir.ClkCfg
 object ClkCfg:
@@ -46,6 +47,7 @@ object RTDomainCfg:
   val Derived: RTDomainCfg = ir.RTDomainCfg.Derived
   extension (cfg: RTDomainCfg)
     def asIR: ir.RTDomainCfg = cfg
+    @nowarn("msg=Extension method norst will never be selected")
     def norst: RTDomainCfg = cfg.asIR.norst
   extension (cfg: ir.RTDomainCfg) def asFE: RTDomainCfg = cfg
   protected[core] object Related:
