@@ -80,7 +80,7 @@ object DFStruct:
       }
     else
       val fieldTypesStr = fieldErrors
-        .map { case (n, '[t]) =>
+        .collect { case (n, '[t]) =>
           s"${n}: ${TypeRepr.of[t].showType}"
         }
         .mkString("\n")
