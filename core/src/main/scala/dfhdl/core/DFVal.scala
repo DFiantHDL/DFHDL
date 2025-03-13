@@ -18,6 +18,7 @@ final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DF
     extends AnyVal
     with DFMember[ir.DFVal]
     with Selectable:
+  type Fields = DFVal.Fields[T @uncheckedVariance, M @uncheckedVariance]
 
   def selectDynamic(name: String)(using DFC): Any = trydf {
     val ir.DFStruct(structName, fieldMap) = this.asIR.dfType: @unchecked
@@ -273,6 +274,19 @@ sealed protected trait DFValLP:
     from => from.asValTP[T, NOTCONST]
 end DFValLP
 object DFVal extends DFValLP:
+  protected type FieldWithModifier[V, M <: ModifierAny] = V match
+    case DFVal[t, _] =>
+      M match
+        case Modifier[a, Any, i, p] => DFVal[t, Modifier[a, Any, i, p]]
+  protected type FieldsWithModifier[V <: NamedTuple.AnyNamedTuple, M <: ModifierAny] =
+    NamedTuple.Map[V, [t] =>> FieldWithModifier[t, M]]
+  protected[core] type Fields[T <: DFTypeAny, M <: ModifierAny] = T match
+    case DFType[t, Args1[a]] =>
+      t match
+        case ir.DFStruct => FieldsWithModifier[NamedTuple.From[a], M]
+        case _           => Any
+    case _ => Any
+
   // constructing a front-end DFVal value class object. if it's a global value, then
   // we need to save the DFC, instead of the actual member IR object
   inline def apply[T <: DFTypeAny, M <: ModifierAny, IR <: ir.DFVal | DFError](
@@ -324,10 +338,6 @@ object DFVal extends DFValLP:
   // Enabling encoding comparison
   given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[DFEncoding, DFVal[T, M]] =
     CanEqual.derived
-
-  given __refined_dfVal[T <: FieldsOrTuple, A, I, P](using
-      r: DFStruct.Val.Refiner[T, A, I, P]
-  ): Conversion[DFVal[DFStruct[T], Modifier[A, Any, I, P]], r.Out] = _.asInstanceOf[r.Out]
 
   trait ConstCheck[P]
   given [P](using

@@ -8,6 +8,7 @@ import scala.quoted.*
 import collection.mutable
 import collection.immutable.ListMap
 import DFOpaque.Abstract as DFOpaqueA
+import NamedTuple.{NamedTuple, AnyNamedTuple}
 
 sealed trait Args
 sealed trait NoArgs extends Args
@@ -89,14 +90,11 @@ object DFType:
   export DFEnum.given
   export DFVector.given
   export TDFDouble.given
-  // unlike the other types, this caused issues when defined in DFStruct and exported here.
-  // there is some kind of Scala compiler bug (unreported) and this is a workaround.
-  inline given fromFieldsOrTuple[F <: FieldsOrTuple]: DFStruct[F] = ${ DFStruct.dfTypeMacro[F] }
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
-  type Supported = DFTypeAny | NonEmptyTuple | DFStruct.Fields | DFEncoding | DFOpaqueA | Byte |
-    Int | Long | Boolean | Double | Object | Unit
+  type Supported = DFTypeAny | FieldsOrTuple | DFEncoding | DFOpaqueA | Byte | Int | Long |
+    Boolean | Double | Object | Unit
 
   protected type NotGlobalCheck[S] = AssertGiven[
     util.NotGiven[S <:< DFC.Scope.Global],
@@ -234,8 +232,7 @@ object DFType:
       }
       val tpes = tcTrees
         .map(_.tpe.asTypeOf[Any] match
-          case '[TC[t] { type Type = z }] => TypeRepr.of[z]
-        )
+          case '[TC[t] { type Type = z }] => TypeRepr.of[z])
         .map(t => TypeRepr.of[DFValOf].appliedTo(t))
       def applyExpr(t: Expr[T])(dfc: Expr[DFC]): Expr[List[DFTypeAny]] =
         '{
@@ -251,6 +248,46 @@ object DFType:
             DFTuple[tplType.Underlying](${ applyExpr('t)('dfc) })
       }
     end ofTupleMacro
+
+    transparent inline given ofNamedTuple[N <: NonEmptyTuple, T <: NonEmptyTuple]
+        : TC[NamedTuple[N, T]] = ${ ofNamedTupleMacro[N, T] }
+    def ofNamedTupleMacro[N <: NonEmptyTuple, T <: NonEmptyTuple](using
+        Quotes,
+        Type[N],
+        Type[T]
+    ): Expr[TC[NamedTuple[N, T]]] =
+      import quotes.reflect.*
+      val tTpe = TypeRepr.of[T]
+      val args = tTpe.getTupleArgs
+      val fun = defn.TupleClass(args.length).typeRef
+      val tcTrees = args.map(t =>
+        Implicits.search(TypeRepr.of[TC].appliedTo(t)) match
+          case iss: ImplicitSearchSuccess =>
+            iss.tree
+          case isf: ImplicitSearchFailure =>
+            report.errorAndAbort(isf.explanation)
+      )
+      val tcList = '{
+        List(${ Varargs(tcTrees.map(_.asExpr)) }*).asInstanceOf[List[TC[Any]]]
+      }
+      val tpes = tcTrees
+        .map(_.tpe.asTypeOf[Any] match
+          case '[TC[t] { type Type = z }] => TypeRepr.of[z])
+        .map(t => TypeRepr.of[DFValOf].appliedTo(t))
+      def applyExpr(t: Expr[T])(dfc: Expr[DFC]): Expr[List[DFTypeAny]] =
+        '{
+          val tList = $t.toList.asInstanceOf[List[Any]]
+          $tcList.lazyZip(tList).map((tc, t) => tc(t)(using $dfc)).toList
+        }
+      val tplTpe = fun.appliedTo(tpes)
+      val tplType = tplTpe.asTypeOf[NonEmptyTuple]
+      '{
+        new TC[NamedTuple[N, T]]:
+          type Type = DFTuple[tplType.Underlying]
+          def apply(t: NamedTuple[N, T])(using dfc: DFC): Type =
+            DFTuple[tplType.Underlying](${ applyExpr('t)('dfc) })
+      }
+    end ofNamedTupleMacro
   end TC
 end DFType
 
