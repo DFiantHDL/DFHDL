@@ -915,12 +915,10 @@ object DFVal extends DFValLP:
     def conv(dfType: DFTypeAny, value: DFValOf[DFTypeAny])(using dfc: DFC): DFValOf[DFTypeAny] =
       ???
 
-  trait TCLPLP:
+  trait TCLP:
     // Reject OPEN with a dedicated message
     transparent inline given fromOPEN[T <: DFTypeAny]: TC[T, OPEN] =
       compiletime.error("`OPEN` cannot be used here.")
-
-  trait TCLP extends TCLPLP:
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] with
       type OutP = CONST
