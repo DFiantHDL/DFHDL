@@ -564,7 +564,8 @@ object DFVal extends DFValLP:
   )
     infix def initFile(
         path: String,
-        format: ir.InitFileFormat = ir.InitFileFormat.Auto
+        format: ir.InitFileFormat = ir.InitFileFormat.Auto,
+        undefinedValue: ir.InitFileUndefinedValue = ir.InitFileUndefinedValue.Zeros
     )(using
         dfc: DFC,
         check: InitCheck[I]
@@ -573,10 +574,7 @@ object DFVal extends DFValLP:
       val vectorType = dfVal.dfType
       import DFVector.{lengthInt, cellType}
       val data = ir.InitFileFormat.readInitFile(
-        path,
-        format,
-        vectorType.lengthInt,
-        vectorType.cellType.widthInt
+        path, format, vectorType.lengthInt, vectorType.cellType.widthInt, undefinedValue
       )
       val initFileConst = vectorType.cellType.asIR match
         case ir.DFBits(_) => DFVal.Const(vectorType, data)

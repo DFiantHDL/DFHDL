@@ -147,11 +147,17 @@ class DFVectorSpec extends DFSpec:
       """|val v1 = Bits(8) X 4 <> VAR init DFVector(Bits(8) X 4)(h"18", h"24", h"42", h"81")
          |val v2 = Bits(8) X 4 <> VAR init DFVector(Bits(8) X 4)(h"??", h"??", h"??", h"??")
          |val v3 = Bits(8) X 4 <> VAR init DFVector(Bits(8) X 4)(h"18", h"24", h"42", h"81")
+         |val v4 = Bits(8) X 4 <> VAR init DFVector(Bits(8) X 4)(h"00", h"00", h"00", h"00")
          |""".stripMargin
     ) {
       val v1 = Bits(8) X 4 <> VAR initFile "bits8x4.bin"
-      val v2 = Bits(8) X 4 <> VAR initFile ("bits8x4.empty", InitFileFormat.VerilogBin)
+      val v2 = Bits(8) X 4 <> VAR initFile (
+        "bits8x4.empty",
+        InitFileFormat.VerilogBin,
+        InitFileUndefinedValue.Bubbles
+      )
       val v3 = Bits(8) X 4 <> VAR initFile "bits8x4.hex"
+      val v4 = Bits(8) X 4 <> VAR initFile ("bits8x4.empty", InitFileFormat.VerilogBin)
       assertRuntimeErrorLog(
         """|Init file not found: bits8x4.nofile
            |make sure either to place the file in your Scala project resource folder or provide a proper relative/absolute path.

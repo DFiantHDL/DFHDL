@@ -55,6 +55,7 @@ protected object hdl:
   type RTDomain = core.RTDomain
   type EDDomain = core.EDDomain
   export compiler.ir.InitFileFormat
+  export compiler.ir.InitFileUndefinedValue
 
   val IN = core.Modifier.IN
   val OUT = core.Modifier.OUT
