@@ -533,6 +533,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       selectMethod("patternBind")
         .appliedToArgs(List(bindValTree, patternTree))
         .appliedTo(dfcStack.head)
+    def patternNamedArg(name: String, patternTree: Tree)(using Context): Tree =
+      selectMethod("patternNamedArg")
+        .appliedToArgs(List(Literal(Constant(name)), patternTree))
     def patternBindSI(
         opTree: Tree,
         partTrees: List[Tree],
@@ -794,6 +797,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       // catch all
       case Ident(i) if i.toString == "_" =>
         FromCore.patternCatchAll
+      case NamedArg(name, tree) =>
+        val dfPattern = transformDFCasePattern(selectorTree, tree, prefixBindName)
+        FromCore.patternNamedArg(name.toString, dfPattern)
       // catch all with name bind
       case Bind(n, boundPattern) =>
         val newBindSel =

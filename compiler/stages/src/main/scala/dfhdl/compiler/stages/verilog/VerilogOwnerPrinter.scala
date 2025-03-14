@@ -129,6 +129,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCasePatternStruct(pattern: Pattern.Struct): String = printer.unsupported
   def csDFCasePatternBind(pattern: Pattern.Bind): String = printer.unsupported
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String = printer.unsupported
+  def csDFCasePatternNamedArg(pattern: Pattern.NamedArg): String = printer.unsupported
   def csDFCaseKeyword: String = ""
   def csDFCaseSeparator: String = ":"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported

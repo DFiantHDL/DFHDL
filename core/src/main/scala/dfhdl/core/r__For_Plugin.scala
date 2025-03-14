@@ -49,6 +49,8 @@ object r__For_Plugin:
   def patternStruct(name: String, list: List[Pattern]): Pattern =
     Pattern.Struct(name, list)
   def patternCatchAll: Pattern = Pattern.CatchAll
+  def patternNamedArg(name: String, pattern: Pattern): Pattern =
+    Pattern.NamedArg(name, pattern)
   def extractValDcl[V <: DFValAny](selector: V, extractName: String)(using
       DFC
   ): V =

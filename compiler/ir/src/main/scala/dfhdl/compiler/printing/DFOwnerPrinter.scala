@@ -99,14 +99,16 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFCasePatternStruct(pattern: Pattern.Struct): String
   def csDFCasePatternBind(pattern: Pattern.Bind): String
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String
+  def csDFCasePatternNamedArg(pattern: Pattern.NamedArg): String
   def csDFCasePattern(pattern: Pattern): String = pattern match
     case Pattern.CatchAll            => csDFCasePatternCatchAll
     case Pattern.Singleton(valueRef) => valueRef.refCodeString
     case Pattern.Alternative(list) =>
       list.map(csDFCasePattern).mkString(csDFCasePatternAlternativeData)
-    case pattern: Pattern.Struct => csDFCasePatternStruct(pattern)
-    case pattern: Pattern.Bind   => csDFCasePatternBind(pattern)
-    case pattern: Pattern.BindSI => csDFCasePatternBindSI(pattern)
+    case pattern: Pattern.Struct   => csDFCasePatternStruct(pattern)
+    case pattern: Pattern.Bind     => csDFCasePatternBind(pattern)
+    case pattern: Pattern.BindSI   => csDFCasePatternBindSI(pattern)
+    case pattern: Pattern.NamedArg => csDFCasePatternNamedArg(pattern)
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String
   def csDFCaseKeyword: String
   def csDFCaseSeparator: String
@@ -283,7 +285,13 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCasePatternCatchAll: String = "_"
   def csDFCasePatternAlternativeData: String = " | "
   def csDFCasePatternStruct(pattern: Pattern.Struct): String =
-    pattern.name + pattern.fieldPatterns.map(csDFCasePattern).mkStringBrackets
+    // if there is a named arg, then we need do not print the "_" catch all patterns
+    if (pattern.fieldPatterns.exists(_.isInstanceOf[Pattern.NamedArg]))
+      pattern.name +
+        pattern.fieldPatterns.filterNot(_ == Pattern.CatchAll).map(csDFCasePattern).mkStringBrackets
+    // otherwise, printing all patterns
+    else
+      pattern.name + pattern.fieldPatterns.map(csDFCasePattern).mkStringBrackets
   def csDFCasePatternBind(pattern: Pattern.Bind): String =
     val bindStr = pattern.pattern match
       case Pattern.CatchAll => ""
@@ -295,6 +303,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       .map(bindVal => s"$${${bindVal.getName}: B[${bindVal.dfType.width}]}")
     val fullTerm = pattern.parts.coalesce(csBinds).mkString
     s"""${pattern.op}"$fullTerm""""
+  def csDFCasePatternNamedArg(pattern: Pattern.NamedArg): String =
+    s"${pattern.name} = ${csDFCasePattern(pattern.pattern)}"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String =
     s" if ${guardRef.refCodeString}"
   def csDFCaseKeyword: String = "case "

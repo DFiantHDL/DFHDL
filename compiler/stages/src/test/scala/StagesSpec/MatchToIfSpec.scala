@@ -87,10 +87,12 @@ class MatchToIfSpec extends StageSpec:
       val x = Pixel    <> IN
       val y = SInt(16) <> OUT
       x match
-        case Pixel(5, 22 | 17)      => y := 0
-        case Pixel(10, py)          => y := py
-        case Pixel(px, _) if px > 4 => y := 2
-        case _                      => y := 3
+        case Pixel(5, 22 | 17)       => y := 0
+        case Pixel(10, py)           => y := py
+        case Pixel(y = 33)           => y := 0
+        case Pixel(y = py) if py < 3 => y := py
+        case Pixel(px, _) if px > 4  => y := 2
+        case _                       => y := 3
 
     end ID
     val id = (new ID).matchToIf
@@ -108,6 +110,8 @@ class MatchToIfSpec extends StageSpec:
          |  val px = x.x
          |  if ((x.x == sd"16'5") && ((x.y == sd"16'22") || (x.y == sd"16'17"))) y := sd"16'0"
          |  else if (x.x == sd"16'10") y := py
+         |  else if (x.y == sd"16'33") y := sd"16'0"
+         |  else if (py < sd"16'3") y := py
          |  else if (px > sd"16'4") y := sd"16'2"
          |  else y := sd"16'3"
          |end ID

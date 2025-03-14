@@ -1161,6 +1161,16 @@ object DFConditional:
           ref = ref.copyAsNewRef,
           pattern = pattern.copyWithNewRefs
         ).asInstanceOf[this.type]
+      final case class NamedArg(name: String, pattern: Pattern) extends Pattern:
+        protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
+          that match
+            case that: NamedArg =>
+              this.name == that.name && this.pattern =~ that.pattern
+            case _ => false
+        lazy val getRefs: List[DFRef.TwoWayAny] = pattern.getRefs
+        def copyWithNewRefs: this.type = copy(
+          pattern = pattern.copyWithNewRefs
+        ).asInstanceOf[this.type]
       object Bind:
         type Ref = DFRef.TwoWay[DFVal, DFCaseBlock]
         case object Tag extends DFTagOf[DFVal]

@@ -109,6 +109,8 @@ case object MatchToIf extends Stage:
                           getPatternCondOpt(fieldSelector, fieldPattern)
                       }.toList
                       condListReduce(condList, FuncOp.&)
+                    case Pattern.NamedArg(name, pattern) =>
+                      getPatternCondOpt(selector, pattern)
                     case _ => None
                   end match
                 end getPatternCondOpt
