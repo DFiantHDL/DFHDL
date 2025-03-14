@@ -1,0 +1,6 @@
+This VGA clock example is derived work from a verilog implementation by Matt Venn.
+https://github.com/mattvenn/vga-clock/
+
+Also see tt_vga_clock/LICENSE.txt.
+
+Thank you, Matt!
