@@ -35,7 +35,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
 
   override val runsAfter = Set("typer")
   override val runsBefore = Set("MetaContextGen")
-  // override val debugFilter: String => Boolean = _.contains("Example.scala")
+  // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
   var dfConstBoolTpe: TypeRef = uninitialized

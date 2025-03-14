@@ -23,7 +23,7 @@ import annotation.tailrec
 class LoopFSMPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-  // override val debugFilter: String => Boolean = _.contains("Example.scala")
+  // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   val phaseName = "LoopFSM"
   var registerStepSym: Symbol = uninitialized
   var addStepSym: Symbol = uninitialized

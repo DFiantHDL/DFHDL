@@ -35,7 +35,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomControl"
-  // override val debugFilter: String => Boolean = _.contains("Example.scala")
+  // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignoreIfs = mutable.Set.empty[String]

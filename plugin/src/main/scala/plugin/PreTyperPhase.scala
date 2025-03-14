@@ -164,7 +164,7 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
     val parsed = super.runOn(units)
     parsed.foreach { cu =>
-      // debugFlag = cu.source.file.path.contains("Example.scala")
+      // debugFlag = cu.source.file.path.contains("Playground.scala")
       cu.untpdTree = `fix<>andOpPrecedence`.transform(cu.untpdTree)
       cu.untpdTree = `fixXand<>Precedence`.transform(cu.untpdTree)
     }

@@ -23,7 +23,7 @@ import annotation.tailrec
 class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-  // override val debugFilter: String => Boolean = _.contains("Example.scala")
+  // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   val phaseName = "MetaContextGen"
 
   override val runsAfter = Set(transform.Pickler.name)

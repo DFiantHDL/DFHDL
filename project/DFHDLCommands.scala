@@ -14,7 +14,7 @@ object DFHDLCommands {
       (LocalProject("compiler_stages") / Test / sources) := Nil,
       (LocalProject("devices") / Compile / sources) := Nil,
       (LocalProject("devices") / Test / sources) := Nil,
-      (LocalProject("lib") / Test / sources) := ((LocalProject("lib") / Test / sources).value.filter(_.toString.contains("Example.scala")))
+      (LocalProject("lib") / Test / sources) := ((LocalProject("lib") / Test / sources).value.filter(_.toString.contains("Playground.scala")))
     ), state)
     newState
   }
