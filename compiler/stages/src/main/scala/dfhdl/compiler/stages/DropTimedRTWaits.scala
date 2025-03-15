@@ -34,7 +34,7 @@ case object DropTimedRTWaits extends Stage:
         ):
           val (waitValue: BigDecimal, waitUnit: DFPhysical.Unit.Time.Scale) =
             duration.getConstData.get: @unchecked
-          val (RTDomainCfg.Explicit(_, ClkCfg.Explicit(_, clkRate, _, _), _)) =
+          val (RTDomainCfg.Explicit(clkCfg = ClkCfg.Explicit(rate = clkRate))) =
             designDB.explicitRTDomainCfgMap(waitMember.getOwnerDomain): @unchecked
           val (clkRateValue: BigDecimal, clkRateUnitScale) =
             clkRate.getConstData.get: @unchecked

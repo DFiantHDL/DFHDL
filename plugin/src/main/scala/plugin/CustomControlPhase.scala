@@ -611,8 +611,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           case UnApply(select: Select, _, binds) =>
             select match
               case Select(tree @ Block(List(TypeDef(_, template)), _), _) =>
-                val Template(_, _, _, List(defdef)) = template: @unchecked
-                val DefDef(_, _, _, rhs: Tree @unchecked) = defdef: @unchecked
+                val Template(preBody = List(defdef)) = template: @unchecked
+                val DefDef(preRhs = rhs: Tree @unchecked) = defdef: @unchecked
                 Some(tree, binds, rhs.underlying)
               case _ => None
           case _ => None

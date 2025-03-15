@@ -123,9 +123,9 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
                      |For a purely combinational loop, call `0.cy.wait` at the end of the loop block.""".stripMargin,
                   tree.srcPos
                 )
-      case Foreach(_, _, _, body, _) =>
+      case Foreach(body = body) =>
         processStatCheck(body, returnCheck = CheckType.Loop)
-      case WhileDo(_, body) =>
+      case WhileDo(body = body) =>
         processStatCheck(body, returnCheck = CheckType.Loop)
       case _ =>
 
@@ -235,7 +235,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
                 Select(Ident(process), forever),
                 List(
                   Block(
-                    List(dd @ DefDef(anonfun, List(List(scopeCtx: ValDef)), _, _)),
+                    List(dd @ DefDef(name = anonfun, paramss = List(List(scopeCtx: ValDef)))),
                     _: Closure
                   )
                 )

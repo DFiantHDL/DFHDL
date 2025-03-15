@@ -111,7 +111,7 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
         // a connection could be in return position of a DFHDL Unit definition (if no block is used)
-        case tree @ DefDef(_, _, _, InfixOpChange(rhs)) =>
+        case tree @ DefDef(preRhs = InfixOpChange(rhs)) =>
           cpy.DefDef(tree)(rhs = rhs)
         case t => t
       end match
@@ -136,9 +136,9 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
           case _                                       => None
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
-        case tree @ ValDef(_, InfixOpChange(tpt), _) =>
+        case tree @ ValDef(tpt = InfixOpChange(tpt)) =>
           cpy.ValDef(tree)(tpt = tpt)
-        case tree @ DefDef(_, _, InfixOpChange(tpt), _) =>
+        case tree @ DefDef(tpt = InfixOpChange(tpt)) =>
           cpy.DefDef(tree)(tpt = tpt)
         // workaround https://github.com/scala/scala3/issues/21406
         case tree @ ValDef(name, select: Select, _) if name.isEmpty && tree.mods.is(Given) =>

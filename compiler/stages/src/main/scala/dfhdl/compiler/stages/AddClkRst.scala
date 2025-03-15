@@ -46,11 +46,11 @@ case object AddClkRst extends Stage:
           case DomainType.RT(cfg @ NewCfg(clkCfg, rstCfg)) =>
             // clk and rst names are according to the configuration
             val requiredClkName = clkCfg match
-              case ClkCfg.Explicit(_, _, portName, _) => Some(portName)
-              case _                                  => None
+              case ClkCfg.Explicit(portName = portName) => Some(portName)
+              case _                                    => None
             val requiredRstName = rstCfg match
-              case RstCfg.Explicit(_, _, portName, _) => Some(portName)
-              case _                                  => None
+              case RstCfg.Explicit(portName = portName) => Some(portName)
+              case _                                    => None
             // collect existing clk and rst DFHDL value members
             val existingClk = members.collectFirst {
               case clk: DFVal.Dcl if clk.isClkDcl =>
@@ -108,7 +108,7 @@ case object AddClkRst extends Stage:
         val opaqueTypeReplacePatches = members.view.flatMap {
           case dfVal: DFVal =>
             dfVal.dfType match
-              case dfType @ DFOpaque(_, _: (DFOpaque.Clk | DFOpaque.Rst), _) =>
+              case dfType @ DFOpaque(id = _: (DFOpaque.Clk | DFOpaque.Rst)) =>
                 Some(
                   dfVal -> Patch.Replace(
                     dfVal.updateDFType(opaqueReplaceMap(dfType)),

@@ -39,8 +39,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // excluding late (via) connections
         case net: DFNet if net.isViaConnection => false
         // excluding nets that are inputs to a design definition
-        case DFNet.Connection(PortOfDesignDef(Modifier.IN, _), _, _) =>
-          false
+        case DFNet.Connection(toVal = PortOfDesignDef(Modifier.IN, _)) => false
         // include the rest of statements: nets, gotos, etc.
         case _: Statement => true
         // including only conditional statements (no type) headers

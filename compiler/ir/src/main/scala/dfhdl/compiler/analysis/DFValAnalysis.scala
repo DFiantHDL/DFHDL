@@ -215,10 +215,11 @@ extension (dfVal: DFVal)
       case net: DFNet =>
         net match
           // ignoring receiver or if connecting to an OPEN
-          case DFNet.Connection(toVal: DFVal, _, _) if toVal.isOpen || toVal == dfVal => None
+          case DFNet.Connection(toVal = toVal: DFVal) if toVal.isOpen || toVal == dfVal =>
+            None
           // ignoring receiver
-          case DFNet.Assignment(toVal, _) if toVal == dfVal => None
-          case _                                            => Some(net)
+          case DFNet.Assignment(toVal = toVal) if toVal == dfVal => None
+          case _                                                 => Some(net)
       case dfVal: DFVal                                                        => Some(dfVal)
       case guardBlock: DFConditional.Block if guardBlock.guardRef.get == dfVal => Some(guardBlock)
       case _                                                                   => None
@@ -280,10 +281,10 @@ extension (dfVal: DFVal)
           case r: TypeRef =>
             // looking for what kind of type reference it is
             r.originMember.asInstanceOf[DFVal].dfType match
-              case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r => Some("length")
-              case DFBits(widthRef: TypeRef) if widthRef == r                 => Some("width")
-              case DFDecimal(_, widthRef: TypeRef, _, _) if widthRef == r     => Some("width")
-              case _                                                          => None
+              case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r    => Some("length")
+              case DFBits(widthRef: TypeRef) if widthRef == r                    => Some("width")
+              case DFDecimal(widthParamRef = widthRef: TypeRef) if widthRef == r => Some("width")
+              case _                                                             => None
           case _ => None
         }.headOption
       else None
@@ -324,9 +325,9 @@ extension (dfVal: DFVal)
     end refOwner
     refOwner match
       // name from assignment destination
-      case Some(DFNet.Assignment(toVal, _)) => Some(partName(member, toVal))
+      case Some(DFNet.Assignment(toVal = toVal)) => Some(partName(member, toVal))
       // name from connection destination
-      case Some(DFNet.Connection(toVal: DFVal, _, _)) => Some(partName(member, toVal))
+      case Some(DFNet.Connection(toVal = toVal: DFVal)) => Some(partName(member, toVal))
       // name from a named value which was referenced by an alias
       case Some(value: DFVal) if !value.isAnonymous => Some(partName(member, value))
       // found an (anonymous) value -> checking suggestion for it
@@ -387,7 +388,7 @@ extension (net: DFNet)
   @targetName("collectRelMembersDFNet")
   def collectRelMembers(using MemberGetSet): List[DFVal] =
     net match
-      case DFNet(DFRef(lhs: DFVal), _, DFRef(rhs: DFVal), _, _, _) =>
+      case DFNet(lhsRef = DFRef(lhs: DFVal), rhsRef = DFRef(rhs: DFVal)) =>
         lhs.collectRelMembers(false) ++ rhs.collectRelMembers(false)
       case _ => Nil
 

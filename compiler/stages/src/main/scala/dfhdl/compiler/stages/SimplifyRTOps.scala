@@ -50,7 +50,7 @@ case object SimplifyRTOps extends Stage:
               argFE.reg(1, init = 0).&&(!argFE)(using dfc.setMeta(trigger.meta))
         Some(dsn.patch)
 
-      case waitMember @ Wait(DFRef(trigger @ DFBoolOrBit.Val(_)), _, _, _)
+      case waitMember @ Wait(triggerRef = DFRef(trigger @ DFBoolOrBit.Val(_)))
           if waitMember.isInRTDomain =>
         // Create a while loop with a cycle wait
         val dsn = new MetaDesign(
@@ -60,7 +60,7 @@ case object SimplifyRTOps extends Stage:
         ):
           // If the trigger is a rising or falling edge, we need to negate it
           val fixedTrigger = trigger match
-            case DFVal.Func(_, op @ (FuncOp.rising | FuncOp.falling), List(DFRef(arg)), _, _, _) =>
+            case DFVal.Func(op = op @ (FuncOp.rising | FuncOp.falling), args = List(DFRef(arg))) =>
               if (trigger.isAnonReferencedByWait)
                 val argFE = arg.asValOf[dfhdl.core.DFBit]
                 op match
@@ -78,12 +78,12 @@ case object SimplifyRTOps extends Stage:
           dfc.exitOwner()
         Some(dsn.patch)
       // replace wait statements with time durations with cycles
-      case waitMember @ Wait(DFRef(cyclesVal @ DFDecimal.Val(DFUInt(_))), _, _, _) =>
+      case waitMember @ Wait(triggerRef = DFRef(cyclesVal @ DFDecimal.Val(DFUInt(_)))) =>
         val replaceWithWhile = cyclesVal match
           // if the number of cycles is 1, then there is no need to create a loop.
           // if the number of cycles is 0, then its an indicator for while loops that are combinational
-          case DFVal.Const(_, Some(value: BigInt), _, _, _) if value <= 1 => false
-          case _                                                          => true
+          case DFVal.Const(data = Some(value: BigInt)) if value <= 1 => false
+          case _                                                     => true
         if (replaceWithWhile)
           val dsn = new MetaDesign(
             waitMember,
@@ -100,7 +100,7 @@ case object SimplifyRTOps extends Stage:
             // the upper bound for the while loop count
             val upperBound = cyclesVal match
               // the upper bound is reduced to a simpler form when the number of cycles is a constant anonymous value
-              case DFVal.Const(_, Some(value: BigInt), _, _, _) if cyclesVal.isAnonymous =>
+              case DFVal.Const(data = Some(value: BigInt)) if cyclesVal.isAnonymous =>
                 dfhdl.core.DFVal.Const(iterType, Some(value - 1))
               // the upper bound is an expression when the number of cycles is a variable
               case _ =>

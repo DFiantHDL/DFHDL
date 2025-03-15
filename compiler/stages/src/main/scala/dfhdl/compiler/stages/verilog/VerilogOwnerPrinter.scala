@@ -173,10 +173,10 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           case Sensitivity.All => "always_comb"
           case Sensitivity.List(refs) =>
             refs match
-              case DFRef(DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _)) :: Nil =>
+              case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
                 "always_ff"
-              case DFRef(DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _)) ::
-                  DFRef(DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _)) :: Nil =>
+              case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) ::
+                  DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
                 "always_ff"
               case _ => "always"
     val senList = pb.sensitivity match

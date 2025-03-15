@@ -29,7 +29,7 @@ case object VHDLProcToVerilog extends Stage:
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] = designDB.members.flatMap {
-      case pb @ ProcessBlock(Sensitivity.List(stRefs), _, _, _) =>
+      case pb @ ProcessBlock(sensitivity = Sensitivity.List(stRefs)) =>
         val stVals = stRefs.view.map(_.get).toSet
         pb
           .members(MemberView.Folded)

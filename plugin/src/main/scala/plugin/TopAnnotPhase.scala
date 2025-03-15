@@ -90,7 +90,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                     case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
                         if compSym.symbol.companionClass == clsSym =>
                       compTemplate.body.foreach {
-                        case dd @ DefDef(NameKinds.DefaultGetterName(n, i), _, _, _) =>
+                        case dd @ DefDef(name = NameKinds.DefaultGetterName(n, i)) =>
                           defaultMap += i -> ref(module.symbol).select(dd.symbol)
                         case _ =>
                       }

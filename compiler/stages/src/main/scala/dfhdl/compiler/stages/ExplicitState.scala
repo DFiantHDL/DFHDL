@@ -22,7 +22,7 @@ case object ExplicitState extends Stage:
   )(using MemberGetSet): Set[DFVal] =
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
-      case DFVal.Alias.AsIs(toType, relValRef, _, _, _) =>
+      case DFVal.Alias.AsIs(dfType = toType, relValRef = relValRef) =>
         val relVal = relValRef.get
         if (toType.width == relVal.width)
           // casting maintains relative bit consumption
@@ -30,14 +30,18 @@ case object ExplicitState extends Stage:
         else
           // conversion is treated like any function argument and restarts bit consumption
           consumeFrom(relVal, relVal.width, 0, assignMap, currentSet)
-      case DFVal.Alias.ApplyRange(relValRef, rbh, rbl, _, _, _) =>
+      case DFVal.Alias.ApplyRange(relValRef = relValRef, relBitHigh = rbh, relBitLow = rbl) =>
         consumeFrom(relValRef.get, rbh - rbl + 1, relBitLow + rbl, assignMap, currentSet)
-      case DFVal.Alias.ApplyIdx(_, relValRef, idxRef, _, _, _) =>
+      case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // For simplification, consuming the entirety of selection index and array
         val rvSet = consumeFrom(relValRef.get, assignMap, currentSet)
         val idxSet = consumeFrom(idxRef.get, assignMap, currentSet)
         (rvSet union idxSet)
-      case DFVal.Alias.SelectField(dfType: DFStruct, relValRef, fieldName, _, _, _) =>
+      case DFVal.Alias.SelectField(
+            dfType = dfType: DFStruct,
+            relValRef = relValRef,
+            fieldName = fieldName
+          ) =>
 //        var rbh = dfType.width - 1
 //        dfType.fieldMap.foreach { case (n, t) =>
 //          val rbl = rbh - t.width + 1
@@ -71,16 +75,21 @@ case object ExplicitState extends Stage:
   )(using MemberGetSet): AssignMap =
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
-      case DFVal.Alias.AsIs(_, relValRef, _, _, _) =>
+      case DFVal.Alias.AsIs(relValRef = relValRef) =>
         assignTo(relValRef.get, relWidth, relBitLow, assignMap)
-      case DFVal.Alias.ApplyRange(relValRef, rbh, rbl, _, _, _) =>
+      case DFVal.Alias.ApplyRange(relValRef = relValRef, relBitHigh = rbh, relBitLow = rbl) =>
         assignTo(relValRef.get, relWidth, rbl + relBitLow, assignMap)
-      case DFVal.Alias.ApplyIdx(_, relValRef, idxRef, _, _, _) =>
+      case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // for simplification, assigning the entirety of the array
         assignTo(relValRef.get, assignMap)
-      case DFVal.Alias.SelectField(dfType: DFStruct, relValRef, fieldName, _, _, _) =>
+      case DFVal.Alias.SelectField(
+            dfType = dfType: DFStruct,
+            relValRef = relValRef,
+            fieldName = fieldName
+          ) =>
         ???
       case x => assignMap.assignTo(x, access)
+    end match
   end assignTo
 
   private def assignTo(
@@ -98,8 +107,7 @@ case object ExplicitState extends Stage:
       currentSet: Set[DFVal]
   )(using MemberGetSet): (Set[DFVal], AssignMap) =
     remaining match
-      case (nextBlock: DFBlock) :: rs
-          if nextBlock.getOwnerBlock == currentBlock => // entering child block
+      case (nextBlock: DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => // entering child block
         val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = nextBlock match
           case cb: DFConditional.Block =>
             cb.guardRef.get match

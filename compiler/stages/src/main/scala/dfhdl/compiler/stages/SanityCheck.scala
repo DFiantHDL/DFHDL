@@ -151,7 +151,7 @@ case object SanityCheck extends Stage:
     val members = getSet.designDB.members
     val memberTable = getSet.designDB.memberTable
     val violations = members.flatMap {
-      case n @ DFNet(toRef, DFNet.Op.Assignment, fromRef, _, _, _) =>
+      case n @ DFNet(lhsRef = toRef, op = DFNet.Op.Assignment, rhsRef = fromRef) =>
         val toMember = toRef.get
         val fromMember = fromRef.get
         val toValMissing = !memberTable.contains(toMember)

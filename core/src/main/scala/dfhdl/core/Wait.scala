@@ -42,7 +42,7 @@ object Wait:
     def waitWhile(cond: DFValOf[DFBoolOrBit])(using DFC): Wait =
       trydf {
         cond.asIR match
-          case ir.DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
+          case ir.DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
             throw new IllegalArgumentException(
               "`waitWhile` does not support rising/falling edges. Use `waitUntil` instead."
             )
@@ -52,7 +52,7 @@ object Wait:
     def waitUntil(trigger: DFValOf[DFBoolOrBit])(using DFC): Wait = trydf {
       trigger.asIR match
         // special case for rising/falling edges, the trigger remains as is inside the wait
-        case ir.DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
+        case ir.DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
           Wait(trigger)
         case _ =>
           import DFBoolOrBit.Val.Ops.not

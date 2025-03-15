@@ -183,7 +183,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         if (tWidth == fWidth) relValStr
         else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tr.uboundCS}:0]"
         else s"{{(${tr.refCodeString}-${fr.refCodeString}){1'b0}}, $relValStr}"
-      case (t, DFOpaque(_, _, ot)) if ot =~ t =>
+      case (t, DFOpaque(actualType = ot)) if ot =~ t =>
         relValStr
       case (DFOpaque(_, _, _), _) =>
         relValStr

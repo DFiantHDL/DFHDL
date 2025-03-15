@@ -255,15 +255,15 @@ extension (db: DB)
     val patchTable = patchList
       .flatMap {
         // Replacement of reference only does not require patching the member list, so we remove this from the table
-        case (_, Patch.Replace(_, Patch.Replace.Config.ChangeRefOnly, _)) => None
+        case (_, Patch.Replace(config = Patch.Replace.Config.ChangeRefOnly)) => None
         // Replacing a member with the same member does nothing
-        case (m, Patch.Replace(m2, _, _)) if (m == m2) => None
+        case (m, Patch.Replace(updatedMember = m2)) if (m == m2) => None
         // On change ref and remove replacement we setup the original member for removal here
-        case (m, Patch.Replace(_, Patch.Replace.Config.ChangeRefAndRemove, _)) =>
+        case (m, Patch.Replace(config = Patch.Replace.Config.ChangeRefAndRemove)) =>
           Some((m, Patch.Remove()))
         // If we attempt to replace with an existing member, then we convert the patch to remove
         // the old member just for the member list (references are replaced).
-        case (m, Patch.Replace(r, Patch.Replace.Config.FullReplacement, _))
+        case (m, Patch.Replace(updatedMember = r, config = Patch.Replace.Config.FullReplacement))
             if memberTable.contains(r) =>
           Some((m, Patch.Remove()))
         // If we add insideFirst in an owner, we need to actually place after the owner head
@@ -280,7 +280,7 @@ extension (db: DB)
             case Some(l) => Some((l, Patch.Add(db, Patch.Add.Config.After)))
             case None    => Some((owner, Patch.Add(db, Patch.Add.Config.After)))
         // Skip over empty move
-        case (m, Patch.Move(Nil, _, _)) => None
+        case (m, Patch.Move(movedMembers = Nil)) => None
         // A move patch operation adds a remove patch to all the moved members
         // If we move insideFirst in an owner, we need to actually place after the owner head
         // If we move after/insideLast an owner, we need to actually place after the last member of the owner

@@ -48,11 +48,11 @@ abstract class DropOpaques(filterPred: DFOpaque => Boolean) extends Stage:
             val relVal = dfVal.relValRef.get
             (dfVal.dfType, relVal.dfType) match
               // `x.as(opaque)` cast is changed to just `x`
-              case (toType @ DFOpaque(_, _, at), fromType)
+              case (toType @ DFOpaque(actualType = at), fromType)
                   if at == fromType && filterPred(toType) =>
                 Some(dfVal -> Patch.Replace(relVal, Patch.Replace.Config.ChangeRefAndRemove))
               // `opaqueX.actual` cast is changed to just `opaqueX`. The `opaqueX` member is changed at a different case.
-              case (toType, fromType @ DFOpaque(_, _, at))
+              case (toType, fromType @ DFOpaque(actualType = at))
                   if at == toType && filterPred(fromType) =>
                 Some(dfVal -> Patch.Replace(relVal, Patch.Replace.Config.ChangeRefAndRemove))
               // otherwise, the values should be checked for composed opaques and changed accordingly
@@ -78,15 +78,15 @@ case object DropOpaquesAll extends DropOpaques(_ => true)
 //This stage drops all magnet types
 case object DropMagnets
     extends DropOpaques({
-      case DFOpaque(_, _: DFOpaque.MagnetId, _) => true
-      case _                                    => false
+      case DFOpaque(id = _: DFOpaque.MagnetId) => true
+      case _                                   => false
     }):
   override def dependencies: List[Stage] = List(ConnectMagnets)
 
 case object DropUserOpaques
     extends DropOpaques({
-      case DFOpaque(_, _: DFOpaque.MagnetId, _) => false
-      case _                                    => true
+      case DFOpaque(id = _: DFOpaque.MagnetId) => false
+      case _                                   => true
     }),
       NoCheckStage:
   override def runCondition(using co: CompilerOptions): Boolean =

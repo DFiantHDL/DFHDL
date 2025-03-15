@@ -498,7 +498,7 @@ final case class DB(
     val magnetDclGroups =
       members.view
         .collect {
-          case dcl @ DFVal.Dcl(dfType: DFOpaque, _, _, _, _, _) if dcl.isPort && dfType.isMagnet =>
+          case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dcl.isPort && dfType.isMagnet =>
             (dcl, dfType)
         }
         .groupMap(_._2)(_._1).values.map(_.toSet).toList
@@ -506,10 +506,10 @@ final case class DB(
     // set of magnet ports that are explicitly connected/assigned
     val alreadyConnectedOrAssigned =
       assignmentsTable.keys.flatMap(_.dealias).collect {
-        case dcl @ DFVal.Dcl(dfType: DFOpaque, _, _, _, _, _) if dcl.isPort && dfType.isMagnet =>
+        case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dcl.isPort && dfType.isMagnet =>
           dcl
       }.toSet ++ connectionTable.dcls.collect {
-        case dcl @ DFVal.Dcl(dfType: DFOpaque, _, _, _, _, _) if dcl.isPort && dfType.isMagnet =>
+        case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dcl.isPort && dfType.isMagnet =>
           dcl
       }
     // flatten connection map for all magnet groups
@@ -723,8 +723,8 @@ final case class DB(
       case _                                   => false
     } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1) ||
       domainOwner.isTop && (domainOwner.getExplicitCfg.clkCfg match
-        case ClkCfg.Explicit(_, _, _, ClkRstInclusionPolicy.AlwaysAtTop) => true
-        case _                                                           => false)
+        case ClkCfg.Explicit(inclusionPolicy = ClkRstInclusionPolicy.AlwaysAtTop) => true
+        case _                                                                    => false)
 
     private def usesRst: Boolean = domainOwnerMemberTable(domainOwner).exists {
       case dcl: DFVal.Dcl =>
@@ -735,8 +735,8 @@ final case class DB(
       case _                                   => false
     } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._2) ||
       domainOwner.isTop && (domainOwner.getExplicitCfg.rstCfg match
-        case RstCfg.Explicit(_, _, _, ClkRstInclusionPolicy.AlwaysAtTop) => true
-        case _                                                           => false)
+        case RstCfg.Explicit(inclusionPolicy = ClkRstInclusionPolicy.AlwaysAtTop) => true
+        case _                                                                    => false)
   end extension
 
   extension (cfg: RTDomainCfg.Explicit)

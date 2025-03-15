@@ -196,8 +196,8 @@ trait Printer
     ).flatten
     // removing existing compiled/committed files and adding the newly compiled files
     val srcFiles = designDB.srcFiles.filter {
-      case SourceFile(SourceOrigin.Compiled | SourceOrigin.Committed, _, _, _) => false
-      case _                                                                   => true
+      case SourceFile(sourceOrigin = SourceOrigin.Compiled | SourceOrigin.Committed) => false
+      case _                                                                         => true
     } ++ compiledFiles
     designDB.copy(srcFiles = srcFiles)
   end printedDB
@@ -296,9 +296,9 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     trigger.dfType match
       case _: DFBoolOrBit =>
         trigger match
-          case DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
+          case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
             s"waitUntil(${wait.triggerRef.refCodeString})"
-          case DFVal.Func(_, FuncOp.unary_!, List(triggerRef), _, _, _) =>
+          case DFVal.Func(op = FuncOp.unary_!, args = List(triggerRef)) =>
             s"waitUntil(${triggerRef.refCodeString})"
           case _ =>
             s"waitWhile(${wait.triggerRef.refCodeString})"

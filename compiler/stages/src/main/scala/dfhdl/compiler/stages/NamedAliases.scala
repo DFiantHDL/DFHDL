@@ -77,6 +77,7 @@ case object NamedVerilogSelection extends NamedAliases:
           if (transparentConversion) relVal.hasVerilogName
           else false
         case _ => false
+  end extension
   def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
     case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName => Nil
     case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>
@@ -86,13 +87,13 @@ case object NamedVerilogSelection extends NamedAliases:
         Nil // conversion from DFInt32 is not a bit selection, so no need to break the expression
       else List(alias.relValRef.get)
     // to/from vector conversion is used with selection
-    case DFVal.Alias.AsIs(DFVector(_, _), DFRef(relVal @ DFBits.Val(_)), _, _, _) =>
+    case DFVal.Alias.AsIs(dfType = DFVector(_, _), relValRef = DFRef(relVal @ DFBits.Val(_))) =>
       List(relVal)
-    case DFVal.Alias.AsIs(DFBits(_), DFRef(relVal @ DFVector.Val(_)), _, _, _) =>
+    case DFVal.Alias.AsIs(dfType = DFBits(_), relValRef = DFRef(relVal @ DFVector.Val(_))) =>
       List(relVal)
     case alias: DFVal.Alias.ApplyIdx =>
       List(alias.relValRef.get)
-    case func @ DFVal.Func(_, op, DFRef(lhs) :: _ :: Nil, _, _, _)
+    case func @ DFVal.Func(op = op, args = DFRef(lhs) :: _ :: Nil)
         if !lhs.hasVerilogName && carryOps.contains(op) && func.width > lhs.width =>
       List(lhs)
     // anonymous conditional expressions

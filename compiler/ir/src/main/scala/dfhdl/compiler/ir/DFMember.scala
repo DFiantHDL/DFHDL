@@ -169,9 +169,10 @@ sealed trait DFVal extends DFMember.Named:
   // two expressions are considered to be similar if
   final def isSimilarTo(that: DFVal)(using MemberGetSet): Boolean =
     def stripAsIsAndDesignParam(dfVal: DFVal): DFVal = dfVal match
-      case DFVal.Alias.AsIs(dfType, DFRef(relVal), _, _, _) if dfType == relVal.dfType =>
+      case DFVal.Alias.AsIs(dfType = dfType, relValRef = DFRef(relVal))
+          if dfType == relVal.dfType =>
         stripAsIsAndDesignParam(relVal)
-      case DFVal.DesignParam(_, DFRef(dfVal), _, _, _, _) =>
+      case DFVal.DesignParam(dfValRef = DFRef(dfVal)) =>
         stripAsIsAndDesignParam(dfVal)
       case _ => dfVal
     (stripAsIsAndDesignParam(this), stripAsIsAndDesignParam(that)) match
@@ -776,7 +777,7 @@ object DFVal:
       object ConstIdx:
         def unapply(idx: DFVal.Const)(using MemberGetSet): Option[Int] =
           idx match
-            case DFVal.Const(DFInt32, data: Option[BigInt] @unchecked, _, _, _) =>
+            case DFVal.Const(dfType = DFInt32, data = data: Option[BigInt] @unchecked) =>
               data.map(_.toInt)
             case _ => None
 
@@ -894,7 +895,7 @@ object DFNet:
       case _                 => false
 
   object Assignment:
-    def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
+    def unapply(arg: DFNet)(using MemberGetSet): Option[(toVal: DFVal, fromVal: DFVal)] = arg match
       case DFNet(
             DFRef(toVal: DFVal),
             Op.Assignment | Op.NBAssignment,
@@ -906,18 +907,23 @@ object DFNet:
         Some(toVal, fromVal)
       case _ => None
   object BAssignment:
-    def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
+    def unapply(arg: DFNet)(using MemberGetSet): Option[(toVal: DFVal, fromVal: DFVal)] = arg match
       case Assignment(lhs, rhs) if arg.op == Op.Assignment => Some(lhs, rhs)
       case _                                               => None
   object NBAssignment:
-    def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
+    def unapply(arg: DFNet)(using MemberGetSet): Option[(toVal: DFVal, fromVal: DFVal)] = arg match
       case Assignment(lhs, rhs) if arg.op == Op.NBAssignment => Some(lhs, rhs)
       case _                                                 => None
   object Connection:
     def unapply(net: DFNet)(using
         MemberGetSet
-        //             toVal                                 fromVal              Swapped
-    ): Option[(DFVal.Dcl | DFVal.OPEN | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
+    ): Option[
+      (
+          toVal: DFVal.Dcl | DFVal.OPEN | DFInterfaceOwner,
+          fromVal: DFVal | DFInterfaceOwner,
+          swapped: Boolean
+      )
+    ] =
       if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>
           val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)

@@ -1412,7 +1412,7 @@ extension (dfVal: ir.DFVal)
               DFVal.DesignParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta)).asIR
             }
           )
-        case ir.DFVal.DesignParam(_, ir.DFRef(of), _, _, _, _) =>
+        case ir.DFVal.DesignParam(dfValRef = ir.DFRef(of)) =>
           of.cloneUnreachable
         case _ =>
           def cloning: ir.DFVal =

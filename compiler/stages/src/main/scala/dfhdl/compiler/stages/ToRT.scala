@@ -11,17 +11,17 @@ case object ToRT extends Stage:
   def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.collect {
-      case h @ DFVal.Alias.History(_, _, _, HistoryOp.Pipe, _, _, _, _) =>
+      case h @ DFVal.Alias.History(op = HistoryOp.Pipe) =>
         h -> Patch.Replace(
           h.copy(op = HistoryOp.State),
           Patch.Replace.Config.FullReplacement
         )
-      case d @ DFDesignBlock(DomainType.DF, _, _, _, _, _) =>
+      case d @ DFDesignBlock(domainType = DomainType.DF) =>
         d -> Patch.Replace(
           d.copy(domainType = new DomainType.RT(RTDomainCfg.Derived)),
           Patch.Replace.Config.FullReplacement
         )
-      case i @ DFInterfaceOwner(DomainType.DF, _, _, _) =>
+      case i @ DFInterfaceOwner(domainType = DomainType.DF) =>
         i -> Patch.Replace(
           i.copy(domainType = new DomainType.RT(RTDomainCfg.Derived)),
           Patch.Replace.Config.FullReplacement

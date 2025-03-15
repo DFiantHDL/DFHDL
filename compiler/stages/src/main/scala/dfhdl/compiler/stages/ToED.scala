@@ -88,7 +88,8 @@ case object ToED extends Stage:
             val combinationalMembers = getProcessAllMembers(members)
             val singleAssignments = combinationalMembers.flatMap {
               case net @ DFNet.Assignment(dcl: DFVal.Dcl, from)
-                  if !dcl.modifier.isReg && assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
+                  if !dcl.modifier.isReg &&
+                    assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
                 net.collectRelMembers.filter(collectFilter) :+ net
               case _ => Nil
             }.distinct
@@ -235,7 +236,7 @@ case object ToED extends Stage:
                     dclChangeList.foreach: (dclREG, dcl_din) =>
                       dclREG.asVarAny :== dcl_din.asValAny
                 def ifRstActive =
-                  val RstCfg.Explicit(_, active: RstCfg.Active, _, _) = rstCfg: @unchecked
+                  val RstCfg.Explicit(active = active) = rstCfg: @unchecked
                   val cond = active match
                     case RstCfg.Active.High => rst.actual == 1
                     case RstCfg.Active.Low  => rst.actual == 0
@@ -244,7 +245,7 @@ case object ToED extends Stage:
                   val (_, rstBranch) = ifRstActive
                   DFIf.singleBranch(None, rstBranch, regSaveBlock)
                 def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
-                  val ClkCfg.Explicit(edge, _, _, _) = clkCfg: @unchecked
+                  val ClkCfg.Explicit(edge = edge) = clkCfg: @unchecked
                   val cond = edge match
                     case ClkCfg.Edge.Rising  => clk.actual.rising
                     case ClkCfg.Edge.Falling => clk.actual.falling
@@ -257,7 +258,7 @@ case object ToED extends Stage:
                 if (clkCfg != None && dclREGList.nonEmpty)
                   val dclREGsHaveRst = dclREGList.exists(_.hasNonBubbleInit)
                   if (rstCfg != None && dclREGsHaveRst)
-                    val RstCfg.Explicit(mode: RstCfg.Mode, _, _, _) = rstCfg: @unchecked
+                    val RstCfg.Explicit(mode = mode) = rstCfg: @unchecked
                     mode match
                       case RstCfg.Mode.Sync =>
                         process(clk) {

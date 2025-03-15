@@ -32,7 +32,7 @@ case object DropProcessAll extends Stage:
     val patchList: List[(DFMember, Patch)] =
       designDB.members
         // patching all process(all) blocks
-        .collect { case pb @ ProcessBlock(Sensitivity.All, _, _, _) =>
+        .collect { case pb @ ProcessBlock(sensitivity = Sensitivity.All) =>
           // recursively through value dependents
           def getDFValDependents(dfVal: DFVal): collection.View[DFVal] =
             dfVal.getRefs.view.filterNot(_.isInstanceOf[DFRef.TypeRef]).map(_.get).collect {

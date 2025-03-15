@@ -21,9 +21,9 @@ case object ViaConnection extends Stage:
                 case Some(n) if n.isViaConnection =>
                   (ports, nets) // already has via connections
                 // connected to OPEN, so we skip it from variable creation
-                case Some(n @ DFNet.Connection(_: DFVal.OPEN, _, _)) =>
+                case Some(n @ DFNet.Connection(toVal = _: DFVal.OPEN)) =>
                   (ports, n :: nets)
-                case Some(n @ DFNet.Connection(DclVar(), _, _)) if conns.size == 1 =>
+                case Some(n @ DFNet.Connection(toVal = DclVar())) if conns.size == 1 =>
                   (ports, n :: nets)
                 // output ports that are not used are skipped and not via-connected
                 case None if p.getReadDeps.forall(_.isInsideOwner(ib)) =>
@@ -36,7 +36,8 @@ case object ViaConnection extends Stage:
                 // can be assigned into a signal/wire)
                 case Some(n) if n.isViaConnection =>
                   (ports, nets) // already has via connections
-                case Some(n @ DFNet.Connection(_, v @ DclVar(), _)) if v.getAssignmentsTo.isEmpty =>
+                case Some(n @ DFNet.Connection(fromVal = v @ DclVar()))
+                    if v.getAssignmentsTo.isEmpty =>
                   (ports, n :: nets)
                 case _ => (p :: ports, nets)
             case (_, x) => x

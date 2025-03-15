@@ -201,10 +201,10 @@ def calcFuncData[OT <: DFType](
             Some(data)
           // DFXInt arithmetic operations and shifting
           case (
-                outType @ DFXInt(_, _, _),
+                outType @ DFXInt(_),
                 op @ (FuncOp.+ | FuncOp.- | FuncOp.`*` | FuncOp./ | FuncOp.% | FuncOp.<< |
                 FuncOp.>> | FuncOp.** | FuncOp.max | FuncOp.min),
-                DFXInt(_, _, _) :: DFXInt(_, _, _) :: maybeMoreTypes,
+                DFXInt(_) :: DFXInt(_) :: maybeMoreTypes,
                 argData: List[Option[BigInt]] @unchecked
               ) =>
             val lhs = argData(0).get
@@ -253,9 +253,9 @@ def calcFuncData[OT <: DFType](
             Some(-data)
           // Arithmetic CLog2
           case (
-                DFXInt(_, _, _),
+                DFXInt(_),
                 FuncOp.clog2,
-                DFXInt(_, _, _) :: Nil,
+                DFXInt(_) :: Nil,
                 Some(data: BigInt) :: Nil
               ) if data.isValidInt =>
             Some(BigInt(clog2(data.toInt)))
@@ -263,7 +263,7 @@ def calcFuncData[OT <: DFType](
           case (
                 DFBool,
                 op @ (FuncOp.< | FuncOp.> | FuncOp.<= | FuncOp.>=),
-                DFXInt(_, _, _) :: DFXInt(_, _, _) :: Nil,
+                DFXInt(_) :: DFXInt(_) :: Nil,
                 Some(lhs: BigInt) :: Some(rhs: BigInt) :: Nil
               ) =>
             val data = op match

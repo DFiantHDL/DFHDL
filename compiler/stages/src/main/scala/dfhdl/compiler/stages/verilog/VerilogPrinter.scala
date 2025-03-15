@@ -46,7 +46,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     trigger.dfType match
       case _: DFBoolOrBit =>
         trigger match
-          case DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
+          case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
             s"@(${wait.triggerRef.refCodeString});"
           case _ =>
             s"wait(${wait.triggerRef.refCodeString});"
