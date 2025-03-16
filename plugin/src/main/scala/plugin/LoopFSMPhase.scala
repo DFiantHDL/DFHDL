@@ -262,9 +262,16 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
               defs.head._2.srcPos
             )
         }
-        ctx
+      case Apply(Select(This(_), wait), args) if wait.toString == "wait" => // DFHDL/Java wait
+        if (!tree.tpe.isContextualMethod) // Java's wait wouldn't be contextual
+          report.error(
+            "Did you mean to call DFHDL's `wait`? If so, use `<time>.wait` or `wait(<time>)` instead (e.g., `5.ns.wait` or `wait(5.ns)`).\nDid you mean to call Java's `wait`? if so, use `java_wait` instead.",
+            tree.srcPos
+          )
       case _ =>
+    end match
     ctx
+  end prepareForApply
 
   object Goto:
     def unapply(tree: Ident)(using Context): Boolean =

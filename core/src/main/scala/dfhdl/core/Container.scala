@@ -2,7 +2,7 @@ package dfhdl.core
 import dfhdl.internals.*
 import dfhdl.compiler.ir
 
-private trait Container extends OnCreateEvents, HasDFC:
+private trait Container extends OnCreateEvents, HasDFC, Wait.ContainerOps:
   type This <: Container
   final lazy val dfc: DFC = __dfc
   protected def __dfc: DFC =

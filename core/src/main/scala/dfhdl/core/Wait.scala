@@ -24,6 +24,14 @@ object Wait:
     def apply(value: DFValOf[DFUInt[Int]])(using DFC): Cycles = value
   type Duration = DFConstOf[DFTime] | Cycles
 
+  // Since Java's wait belongs to the Object class, we need to be able to override it
+  // with our own wait method, so we need to extend this in the Container trait, instead
+  // of relying on export like the rest of the core API.
+  trait ContainerOps:
+    extension (lhs: Duration) final def wait(using DFC): Wait = trydf { Wait(lhs) }
+    inline def java_wait(): Unit = this.wait()
+    inline def java_wait(timeoutMillis: Long): Unit = this.wait(timeoutMillis)
+    inline def java_wait(timeoutMillis: Long, nanos: Int): Unit = this.wait(timeoutMillis, nanos)
   object Ops:
     protected type CYInRT = AssertGiven[
       DomainType.RT,
@@ -31,14 +39,7 @@ object Wait:
     ]
     extension (lhs: Int | Long) def cy(using DFC, CYInRT): Cycles = Cycles(lhs)
     extension (lhs: DFValOf[DFUInt[Int]]) def cy(using DFC, CYInRT): Cycles = Cycles(lhs)
-    inline def __java_waitErr(): Unit =
-      compiletime.error(
-        "Did you mean to call DFHDL's `wait`? If so, use `<time>.wait` instead (e.g., `5.ns.wait`).\nDid you mean to call Java's `wait`? if so, use `this.wait` instead."
-      )
-    inline def __java_waitErr(arg: Long): Unit = __java_waitErr()
-    inline def __java_waitErr(arg: Long, arg2: Int): Unit = __java_waitErr()
 
-    extension (lhs: Duration) def wait(using DFC): Wait = trydf { Wait(lhs) }
     def waitWhile(cond: DFValOf[DFBoolOrBit])(using DFC): Wait =
       trydf {
         cond.asIR match
