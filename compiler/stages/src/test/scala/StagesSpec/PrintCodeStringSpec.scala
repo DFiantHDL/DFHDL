@@ -955,6 +955,50 @@ class PrintCodeStringSpec extends StageSpec:
          |end Foo""".stripMargin
     )
   }
+  test("RTDesign process steps printing with onEntry and onExit") {
+    class Foo extends RTDesign:
+      val i = Bit <> IN
+      val x = Bit <> OUT
+      process:
+        def S_1: Unit =
+          def onEntry =
+            x := 1
+          10.ms.wait
+          if (i) S_2 else S_1
+        def S_2: Unit =
+          def onEntry =
+            x := 0
+          def onExit =
+            x := 1
+          10.ms.wait
+          if (!i) S_1 else S_2
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends RTDesign:
+         |  val i = Bit <> IN
+         |  val x = Bit <> OUT
+         |  process:
+         |    def S_1: Unit =
+         |      10.ms.wait
+         |      if (i)
+         |        x := 0
+         |        S_2
+         |      else S_1
+         |    end S_1
+         |    def S_2: Unit =
+         |      10.ms.wait
+         |      if (!i)
+         |        x := 1
+         |        x := 1
+         |        S_1
+         |      else S_2
+         |      end if
+         |    end S_2
+         |end Foo""".stripMargin
+    )
+  }
   test("wait statements") {
     class Foo extends EDDesign:
       val x = Bit <> OUT

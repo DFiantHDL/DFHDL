@@ -84,7 +84,10 @@ object DFC:
     sealed trait Process extends Scope:
       // will include the step cache according to the name of the step block
       // (the plugin will make sure that the name is unique)
-      private[core] val stepCache = mutable.Map.empty[String, ir.StepBlock]
+      private[core] val stepCache = mutable.Map.empty[
+        String,
+        (stepBlock: ir.StepBlock, onEntry: () => Unit, onExit: () => Unit)
+      ]
     object Process extends Process
     sealed trait Interface extends Scope
     object Interface extends Interface

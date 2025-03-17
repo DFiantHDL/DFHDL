@@ -25,6 +25,9 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getOwnerBlock(using MemberGetSet): DFBlock = getOwner match
     case b: DFBlock => b
     case o          => o.getOwnerBlock
+  final def getOwnerStepBlock(using MemberGetSet): StepBlock = getOwner match
+    case b: StepBlock => b
+    case o            => o.getOwnerStepBlock
   final def getOwnerDesign(using MemberGetSet): DFDesignBlock =
     getOwnerBlock match
       case d: DFDesignBlock => d
@@ -41,6 +44,9 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getThisOrOwnerNamed(using MemberGetSet): DFOwnerNamed = this match
     case d: DFOwnerNamed => d
     case x               => x.getOwnerNamed
+  final def getThisOrOwnerStepBlock(using MemberGetSet): StepBlock = this match
+    case d: StepBlock => d
+    case x            => x.getOwnerStepBlock
   final infix def isMemberOf(that: DFOwnerNamed)(using MemberGetSet): Boolean =
     this match
       case DFDesignBlock.Top() => false
