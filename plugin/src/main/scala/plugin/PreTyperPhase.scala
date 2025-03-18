@@ -82,6 +82,8 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
         tree match
           case Apply(Ident(process), List(ofTree)) if process.toString == "process" =>
             Some(Apply(Select(Ident(process), "forever".toTermName), List(ofTree)))
+          case ValDef(name, tpt, ProcessChange(rhs)) =>
+            Some(ValDef(name, tpt, rhs))
           case _ => None
     override def transformBlock(blk: Block)(using Context): Block =
       super.transformBlock(blk) match
