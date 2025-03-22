@@ -282,7 +282,11 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val normalizeViaConnection: Boolean = true
   val normalizeConnection: Boolean = true
   def csOpenKeyWord: String = "OPEN"
-  def csGoto(goto: Goto): String = goto.stepRef.get.getName
+  def csGoto(goto: Goto): String = goto.stepRef.get match
+    case stepBlock: StepBlock => stepBlock.getName
+    case Goto.ThisStep        => "ThisStep"
+    case Goto.NextStep        => "NextStep"
+    case Goto.FirstStep       => "FirstStep"
   def csDFRange(range: DFRange): String =
     val op = range.op match
       case DFRange.Op.To    => "to"

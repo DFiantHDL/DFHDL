@@ -322,7 +322,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csStepBlock(stepBlock: StepBlock): String =
     val body = csDFOwnerBody(stepBlock)
     val name = stepBlock.getName
-    s"def $name: Unit =\n${body.hindent}\nend $name"
+    s"def $name: Step =\n${body.hindent}\nend $name"
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
     val body = csDFOwnerBody(forBlock)
     val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")

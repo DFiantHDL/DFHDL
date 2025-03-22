@@ -3,25 +3,51 @@ import dfhdl.compiler.ir
 import dfhdl.internals.*
 import scala.annotation.implicitNotFound
 
-type Step = DFOwner[ir.StepBlock]
-object Step:
-  object Block:
-    def apply(using dfc: DFC): Step =
-      val step: ir.StepBlock = ir.StepBlock(
-        ir.DFMember.Empty.ref,
+type StepBlock = DFOwner[ir.StepBlock]
+object StepBlock:
+  def apply(using dfc: DFC): StepBlock =
+    val step: ir.StepBlock = ir.StepBlock(
+      ir.DFMember.Empty.ref,
+      dfc.getMeta,
+      dfc.tags
+    )
+    step.asFE
+end StepBlock
+
+sealed trait Step
+object Step extends Step:
+  object Ops:
+    def ThisStep(using dfc: DFC): Step =
+      ir.Goto(
+        ir.Goto.ThisStep.refTW[ir.Goto],
+        dfc.owner.ref,
         dfc.getMeta,
         dfc.tags
-      )
-      step.asFE
-  end Block
+      ).addMember
+      Step
+    def NextStep(using dfc: DFC): Step =
+      ir.Goto(
+        ir.Goto.NextStep.refTW[ir.Goto],
+        dfc.owner.ref,
+        dfc.getMeta,
+        dfc.tags
+      ).addMember
+      Step
+    def FirstStep(using dfc: DFC): Step =
+      ir.Goto(
+        ir.Goto.FirstStep.refTW[ir.Goto],
+        dfc.owner.ref,
+        dfc.getMeta,
+        dfc.tags
+      ).addMember
+      Step
+  end Ops
   // this is called by the compiler plugin to register all steps (for each step block) in the
-  // beginning of the process. we only construct the step block IR and without its actual
-  // owner reference.
   def pluginRegisterStep(stepMeta: ir.Meta, onEntry: => Unit, onExit: => Unit)(using
       dfc: DFC,
       scope: DFC.Scope.Process
   ): Unit =
-    val step = Block(using dfc.setMeta(stepMeta))
+    val step = StepBlock(using dfc.setMeta(stepMeta))
     scope.stepCache += (stepMeta.name -> (step.asIR, () => onEntry, () => onExit))
 
   // this is called by the compiler plugin and replaces the step's `def`. this will add the

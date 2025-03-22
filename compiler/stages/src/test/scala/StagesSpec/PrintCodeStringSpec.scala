@@ -920,15 +920,15 @@ class PrintCodeStringSpec extends StageSpec:
       val x = Bit <> IN
       val y = Bit <> OUT.REG init 0
       process:
-        def S0: Unit =
+        def S0: Step =
           y.din := 0
-          if (x) S1 else S0
-        def S1: Unit =
+          if (x) S1 else ThisStep
+        def S1: Step =
           y.din := 1
-          if (x) S2 else S0
-        def S2: Unit =
+          if (x) NextStep else S0
+        def S2: Step =
           y.din := 0
-          if (x) S2 else S0
+          if (x) S2 else FirstStep
     end Foo
     val top = (new Foo).getCodeString
     assertNoDiff(
@@ -937,20 +937,20 @@ class PrintCodeStringSpec extends StageSpec:
          |  val x = Bit <> IN
          |  val y = Bit <> OUT.REG init 0
          |  process:
-         |    def S0: Unit =
+         |    def S0: Step =
          |      y.din := 0
          |      if (x) S1
-         |      else S0
+         |      else ThisStep
          |    end S0
-         |    def S1: Unit =
+         |    def S1: Step =
          |      y.din := 1
-         |      if (x) S2
+         |      if (x) NextStep
          |      else S0
          |    end S1
-         |    def S2: Unit =
+         |    def S2: Step =
          |      y.din := 0
          |      if (x) S2
-         |      else S0
+         |      else FirstStep
          |    end S2
          |end Foo""".stripMargin
     )
@@ -960,12 +960,12 @@ class PrintCodeStringSpec extends StageSpec:
       val i = Bit <> IN
       val x = Bit <> OUT
       process:
-        def S_1: Unit =
+        def S_1: Step =
           def onEntry =
             x := 1
           10.ms.wait
           if (i) S_2 else S_1
-        def S_2: Unit =
+        def S_2: Step =
           def onEntry =
             x := 0
           def onExit =
@@ -980,14 +980,14 @@ class PrintCodeStringSpec extends StageSpec:
          |  val i = Bit <> IN
          |  val x = Bit <> OUT
          |  process:
-         |    def S_1: Unit =
+         |    def S_1: Step =
          |      10.ms.wait
          |      if (i)
          |        x := 0
          |        S_2
          |      else S_1
          |    end S_1
-         |    def S_2: Unit =
+         |    def S_2: Step =
          |      10.ms.wait
          |      if (!i)
          |        x := 1

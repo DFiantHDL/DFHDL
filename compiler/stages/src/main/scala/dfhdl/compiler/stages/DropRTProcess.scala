@@ -28,6 +28,8 @@ case object DropRTProcess extends Stage:
         val pbPatch = pb -> Patch.Replace(pb.getOwner, Patch.Replace.Config.ChangeRefAndRemove)
         if (stateBlocks.isEmpty) List(pbPatch)
         else
+          // assuming flat step blocks structure
+          val nextBlocks = stateBlocks.lazyZip(stateBlocks.tail :+ stateBlocks.head).toMap
           val enumName = if (pb.isAnonymous) s"State" else s"${pb.getName}_State"
           val stateRegName = if (pb.isAnonymous) s"state" else s"${pb.getName}_state"
           val entries = ListMap.from(stateBlocks.view.zipWithIndex.map { case (sb, idx) =>
@@ -67,7 +69,12 @@ case object DropRTProcess extends Stage:
               Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove),
               dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
             ):
-              stateReg.din.:=(enumEntry(entries(g.stepRef.get.getName)))(using dfc.setMeta(g.meta))
+              val sb: StepBlock = g.stepRef.get match
+                case stepBlock: StepBlock => stepBlock
+                case Goto.ThisStep        => g.getOwnerStepBlock
+                case Goto.NextStep        => nextBlocks(g.getOwnerStepBlock)
+                case Goto.FirstStep       => stateBlocks.head
+              stateReg.din.:=(enumEntry(entries(sb.getName)))(using dfc.setMeta(g.meta))
           }
           Iterator(
             List(dsn.patch, pbPatch),

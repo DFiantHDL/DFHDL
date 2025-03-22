@@ -35,6 +35,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   var customWhileSym: Symbol = uninitialized
   var processAnonDefSym: Symbol = uninitialized
   var processScopeCtxSym: Symbol = uninitialized
+  var stepType: Type = uninitialized
   var waitSym: Symbol = uninitialized
   var dfcStack: List[Tree] = Nil
   val processStepDefs = mutable.LinkedHashMap.empty[Symbol, DefDef]
@@ -115,13 +116,13 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
       case _ if returnCheck != CheckType.None =>
         (returnCheck: @unchecked) match
           case CheckType.Return =>
-            tree match
-              case Goto() =>
-              case _ =>
-                report.error(
-                  "Register-transfer (RT) process `def`s must end with a call to another process `def` (it could be the same `def`).",
-                  tree.srcPos
-                )
+          // tree match
+          //   case Goto() =>
+          //   case _ =>
+          //     report.error(
+          //       "Register-transfer (RT) process `def`s must end with a call to another process `def` (it could be the same `def`).",
+          //       tree.srcPos
+          //     )
           case CheckType.Loop =>
             tree match
               case Goto() =>
@@ -168,7 +169,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     var errFound = false
     // checking process defs syntax and caching the process def symbols
     stepDefs.foreach {
-      case dd @ DefDef(_, Nil, retTypeTree, _) if retTypeTree.tpe =:= defn.UnitType =>
+      case dd @ DefDef(_, Nil, retTypeTree, _) if retTypeTree.tpe =:= stepType =>
         processStepDefs += (dd.symbol -> dd)
         dd.rhs match
           case Block(stats, _) =>
@@ -187,7 +188,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
         end match
       case dd =>
         report.error(
-          "Unexpected register-transfer (RT) process `def` syntax. Must be `def xyz: Unit = ...`",
+          "Unexpected register-transfer (RT) process `def` syntax. Must be `def xyz: Step = ...`",
           dd.srcPos
         )
         errFound = true
@@ -303,7 +304,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
         processStepDefs.view.groupBy(_._2.name.toString).foreach { case (name, defs) =>
           if (defs.size > 1)
             report.error(
-              s"Process step `def`s must be unique. Found multiple `def $name: Unit = ...`s.",
+              s"Process step `def`s must be unique. Found multiple `def $name: Step = ...`s.",
               defs.head._2.srcPos
             )
         }
@@ -385,6 +386,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     toFunc1Sym = requiredMethod("dfhdl.core.r__For_Plugin.toFunc1")
     fromBooleanSym = requiredMethod("dfhdl.core.r__For_Plugin.fromBoolean")
     customWhileSym = requiredMethod("dfhdl.core.DFWhile.plugin")
+    stepType = requiredClassRef("dfhdl.core.Step")
     processStepDefs.clear()
     processStepOnEntry.clear()
     processStepOnExit.clear()

@@ -17,8 +17,9 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
   final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
-    case o: DFOwner     => o
-    case DFMember.Empty => throw new IllegalArgumentException(s"No owner found for member $this.")
+    case o: DFOwner => o
+    case _: DFMember.Empty =>
+      throw new IllegalArgumentException(s"No owner found for member $this.")
   final def getOwnerNamed(using MemberGetSet): DFOwnerNamed = getOwner match
     case b: DFOwnerNamed => b
     case o               => o.getOwnerNamed
@@ -111,8 +112,7 @@ object DFMember:
       case _             => false
   end extension
 
-  type Empty = Empty.type
-  case object Empty extends DFMember:
+  sealed trait Empty extends DFMember:
     val ownerRef: DFOwner.Ref = DFRef.OneWay.Empty
     val meta: Meta = Meta(None, Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
@@ -123,6 +123,7 @@ object DFMember:
     protected def setTags(tags: DFTags): this.type = this
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs: this.type = this
+  case object Empty extends Empty
 
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
@@ -981,7 +982,10 @@ final case class Goto(
 end Goto
 
 object Goto:
-  type Ref = DFRef.TwoWay[StepBlock, Goto]
+  case object ThisStep extends DFMember.Empty
+  case object NextStep extends DFMember.Empty
+  case object FirstStep extends DFMember.Empty
+  type Ref = DFRef.TwoWay[StepBlock | ThisStep.type | NextStep.type | FirstStep.type, Goto]
 
 sealed trait DFOwner extends DFMember:
   val meta: Meta

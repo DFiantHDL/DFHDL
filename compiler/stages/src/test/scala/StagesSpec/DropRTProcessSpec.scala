@@ -9,15 +9,15 @@ class DropRTProcessSpec extends StageSpec():
       val x = Bit <> IN
       val y = Bit <> OUT.REG init 0
       val my_fsm = process:
-        def S0: Unit =
+        def S0: Step =
           y.din := 0
-          if (x) S1 else S0
-        def S1: Unit =
+          if (x) NextStep else S0
+        def S1: Step =
           y.din := 1
-          if (x) S2 else S0
-        def S2: Unit =
+          if (x) S2 else FirstStep
+        def S2: Step =
           y.din := 0
-          if (x) S2 else S0
+          if (x) ThisStep else FirstStep
     end Foo
     val top = (new Foo).dropRTProcess
     assertCodeString(
@@ -48,18 +48,18 @@ class DropRTProcessSpec extends StageSpec():
          |end Foo""".stripMargin
     )
   }
-  test("named FSM steps") {
+  test("unnamed FSM steps") {
     class Foo extends RTDesign:
       val x = Bit <> IN
       val y = Bit <> OUT.REG init 0
       process:
-        def S0: Unit =
+        def S0: Step =
           y.din := 0
           if (x) S1 else S0
-        def S1: Unit =
+        def S1: Step =
           y.din := 1
           if (x) S2 else S0
-        def S2: Unit =
+        def S2: Step =
           y.din := 0
           if (x) S2 else S0
     end Foo

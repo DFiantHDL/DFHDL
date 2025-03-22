@@ -24,26 +24,26 @@ object TrafficLight:
   val trafficLight = TrafficLight <> OUT.REG init TrafficLight.RED
 
   process:
-    def S_RED: Unit =
+    def S_RED: Step =
       trafficLight.din := TrafficLight.RED
       RED_TIME.wait
       S_RED_YELLOW
-    def S_RED_YELLOW: Unit =
+    def S_RED_YELLOW: Step =
       trafficLight.din := TrafficLight.RED_YELLOW
       RED_YELLOW_TIME.wait
       S_GREEN
-    def S_GREEN: Unit =
+    def S_GREEN: Step =
       trafficLight.din := TrafficLight.GREEN
       GREEN_TIME.wait
       S_GREEN_BLINK
-    def S_GREEN_BLINK: Unit =
+    def S_GREEN_BLINK: Step =
       for (i <- 0 until GREEN_BLINK_CNT)
         trafficLight.din := TrafficLight.OFF
         GREEN_BLINK_TIME.wait
         trafficLight.din := TrafficLight.GREEN
         GREEN_BLINK_TIME.wait
       S_YELLOW
-    def S_YELLOW: Unit =
+    def S_YELLOW: Step =
       trafficLight.din := TrafficLight.YELLOW
       YELLOW_TIME.wait
       S_RED
