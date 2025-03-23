@@ -981,20 +981,23 @@ class PrintCodeStringSpec extends StageSpec:
          |  val x = Bit <> OUT
          |  process:
          |    def S_1: Step =
+         |      def onEntry: Unit =
+         |        x := 1
+         |      end onEntry
          |      10.ms.wait
-         |      if (i)
-         |        x := 0
-         |        S_2
+         |      if (i) S_2
          |      else S_1
          |    end S_1
          |    def S_2: Step =
+         |      def onEntry: Unit =
+         |        x := 0
+         |      end onEntry
+         |      def onExit: Unit =
+         |        x := 1
+         |      end onExit
          |      10.ms.wait
-         |      if (!i)
-         |        x := 1
-         |        x := 1
-         |        S_1
+         |      if (!i) S_1
          |      else S_2
-         |      end if
          |    end S_2
          |end Foo""".stripMargin
     )

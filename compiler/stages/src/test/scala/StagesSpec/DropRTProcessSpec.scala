@@ -13,10 +13,12 @@ class DropRTProcessSpec extends StageSpec():
           y.din := 0
           if (x) NextStep else S0
         def S1: Step =
-          y.din := 1
+          def onEntry =
+            y.din := 1
           if (x) S2 else FirstStep
         def S2: Step =
-          y.din := 0
+          def onExit =
+            y.din := 0
           if (x) ThisStep else FirstStep
     end Foo
     val top = (new Foo).dropRTProcess
@@ -34,16 +36,20 @@ class DropRTProcessSpec extends StageSpec():
          |  my_fsm_state match
          |    case my_fsm_State.S0 =>
          |      y.din := 0
-         |      if (x) my_fsm_state.din := my_fsm_State.S1
+         |      if (x)
+         |        y.din := 1
+         |        my_fsm_state.din := my_fsm_State.S1
          |      else my_fsm_state.din := my_fsm_State.S0
+         |      end if
          |    case my_fsm_State.S1 =>
-         |      y.din := 1
          |      if (x) my_fsm_state.din := my_fsm_State.S2
          |      else my_fsm_state.din := my_fsm_State.S0
          |    case my_fsm_State.S2 =>
-         |      y.din := 0
          |      if (x) my_fsm_state.din := my_fsm_State.S2
-         |      else my_fsm_state.din := my_fsm_State.S0
+         |      else
+         |        y.din := 0
+         |        my_fsm_state.din := my_fsm_State.S0
+         |      end if
          |  end match
          |end Foo""".stripMargin
     )

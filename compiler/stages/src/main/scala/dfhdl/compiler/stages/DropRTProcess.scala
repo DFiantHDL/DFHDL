@@ -21,8 +21,9 @@ case object DropRTProcess extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.view.collect {
       case pb: ProcessBlock if pb.isInRTDomain =>
-        val stateBlocks = pb.members(MemberView.Folded).collect { case sb: StepBlock =>
-          sb
+        val stateBlocks = pb.members(MemberView.Folded).collect {
+          case sb: StepBlock if sb.isRegular =>
+            sb
         }
         val gotos = pb.members(MemberView.Flattened).collect { case g: Goto => g }
         val pbPatch = pb -> Patch.Replace(pb.getOwner, Patch.Replace.Config.ChangeRefAndRemove)
@@ -63,21 +64,43 @@ case object DropRTProcess extends Stage:
               )
               prevBlockOrHeader = block
           }
+          val removedOnEntryExitMembers = mutable.Set.empty[DFMember]
           val gotoDsns = gotos.map { g =>
             new MetaDesign(
               g,
               Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.ChangeRefAndRemove),
               dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
             ):
-              val sb: StepBlock = g.stepRef.get match
+              val currentStepBlock = g.getOwnerStepBlock
+              val nextStepBlock: StepBlock = g.stepRef.get match
                 case stepBlock: StepBlock => stepBlock
-                case Goto.ThisStep        => g.getOwnerStepBlock
-                case Goto.NextStep        => nextBlocks(g.getOwnerStepBlock)
+                case Goto.ThisStep        => currentStepBlock
+                case Goto.NextStep        => nextBlocks(currentStepBlock)
                 case Goto.FirstStep       => stateBlocks.head
-              stateReg.din.:=(enumEntry(entries(sb.getName)))(using dfc.setMeta(g.meta))
+              if (currentStepBlock != nextStepBlock)
+                // add currentStepBlock-onExit and nextStepBlock onEntry members
+                currentStepBlock.members(MemberView.Folded).collectFirst {
+                  case onExit: StepBlock if onExit.isOnExit => onExit
+                }.foreach { onExit =>
+                  val onExitMembers = onExit.members(MemberView.Flattened)
+                  plantClonedMembers(onExit, onExitMembers)
+                  removedOnEntryExitMembers += onExit
+                  removedOnEntryExitMembers ++= onExitMembers
+                }
+                nextStepBlock.members(MemberView.Folded).collectFirst {
+                  case onEntry: StepBlock if onEntry.isOnEntry => onEntry
+                }.foreach { onEntry =>
+                  val onEntryMembers = onEntry.members(MemberView.Flattened)
+                  plantClonedMembers(onEntry, onEntryMembers)
+                  removedOnEntryExitMembers += onEntry
+                  removedOnEntryExitMembers ++= onEntryMembers
+                }
+              end if
+              stateReg.din.:=(enumEntry(entries(nextStepBlock.getName)))(using dfc.setMeta(g.meta))
           }
           Iterator(
             List(dsn.patch, pbPatch),
+            removedOnEntryExitMembers.map(_ -> Patch.Remove()),
             caseDsns.map(_.patch),
             gotoDsns.map(_.patch)
           ).flatten

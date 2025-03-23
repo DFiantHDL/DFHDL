@@ -36,11 +36,10 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
   var processAnonDefSym: Symbol = uninitialized
   var processScopeCtxSym: Symbol = uninitialized
   var stepType: Type = uninitialized
+  var pluginOnEntryExitSym: Symbol = uninitialized
   var waitSym: Symbol = uninitialized
   var dfcStack: List[Tree] = Nil
   val processStepDefs = mutable.LinkedHashMap.empty[Symbol, DefDef]
-  val processStepOnEntry = mutable.Map.empty[Symbol, Tree]
-  val processStepOnExit = mutable.Map.empty[Symbol, Tree]
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("CustomControl")
@@ -55,10 +54,8 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     val updatedDefDef =
       if (tree.symbol == processAnonDefSym)
         val registeredSteps = processStepDefs.view.map { (sym, dd) =>
-          val onEntry = processStepOnEntry.getOrElse(sym, Literal(Constant(())))
-          val onExit = processStepOnExit.getOrElse(sym, Literal(Constant(())))
           ref(registerStepSym)
-            .appliedTo(dd.genMeta, onEntry, onExit)
+            .appliedTo(dd.genMeta)
             .appliedTo(dfcStack.head, ref(processScopeCtxSym))
         }.toList
         val updatedRHS = tree.rhs match
@@ -171,21 +168,6 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     stepDefs.foreach {
       case dd @ DefDef(_, Nil, retTypeTree, _) if retTypeTree.tpe =:= stepType =>
         processStepDefs += (dd.symbol -> dd)
-        dd.rhs match
-          case Block(stats, _) =>
-            stats.foreach {
-              case onEntry @ OnEntryDef() =>
-                processStepOnEntry += (
-                  dd.symbol -> onEntry.rhs.changeOwner(onEntry.symbol, ctx.owner)
-                )
-              case onExit @ OnExitDef() =>
-                processStepOnExit += (
-                  dd.symbol -> onExit.rhs.changeOwner(onExit.symbol, ctx.owner)
-                )
-              case _ =>
-            }
-          case _ =>
-        end match
       case dd =>
         report.error(
           "Unexpected register-transfer (RT) process `def` syntax. Must be `def xyz: Step = ...`",
@@ -360,8 +342,6 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
           .appliedTo(dfc)
       case ProcessForever(scopeCtx, block) =>
         processStepDefs.clear()
-        processStepOnEntry.clear()
-        processStepOnExit.clear()
         tree
       case _ =>
         tree
@@ -373,6 +353,11 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
           .appliedTo(Literal(Constant(dd.name.toString)))
           .appliedTo(dd.rhs.changeOwner(dd.symbol, ctx.owner))
           .appliedTo(dfcStack.head, ref(processScopeCtxSym))
+      case dd @ (OnEntryDef() | OnExitDef()) =>
+        ref(pluginOnEntryExitSym)
+          .appliedTo(dd.genMeta)
+          .appliedTo(dd.rhs.changeOwner(dd.symbol, ctx.owner))
+          .appliedTo(dfcStack.head)
       case tree => tree
     }
 
@@ -387,9 +372,8 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     fromBooleanSym = requiredMethod("dfhdl.core.r__For_Plugin.fromBoolean")
     customWhileSym = requiredMethod("dfhdl.core.DFWhile.plugin")
     stepType = requiredClassRef("dfhdl.core.Step")
+    pluginOnEntryExitSym = requiredMethod("dfhdl.core.Step.pluginOnEntryExit")
     processStepDefs.clear()
-    processStepOnEntry.clear()
-    processStepOnExit.clear()
     ctx
   end prepareForUnit
 end LoopFSMPhase

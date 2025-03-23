@@ -960,6 +960,13 @@ final case class StepBlock(
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
 end StepBlock
+object StepBlock:
+  extension (stepBlock: StepBlock)
+    def isOnEntry(using MemberGetSet): Boolean = stepBlock.getName == "onEntry"
+    def isOnExit(using MemberGetSet): Boolean = stepBlock.getName == "onExit"
+    def isRegular(using MemberGetSet): Boolean = stepBlock.getName match
+      case "onEntry" | "onExit" => false
+      case _                    => true
 
 final case class Goto(
     stepRef: Goto.Ref,
