@@ -22,7 +22,6 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  process:
          |    x.din := 1
          |    while (i)
-         |      1.cy.wait
          |    end while
          |    x.din := 0
          |end Foo""".stripMargin
@@ -80,17 +79,13 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    x.din := (!i.reg(1, init = 1)) && i
          |    x.din := i.reg(1, init = 0) && (!i)
          |    while (!i)
-         |      1.cy.wait
          |    end while
          |    while ((!i.reg(1, init = 0)) || i)
-         |      1.cy.wait
          |    end while
          |    while (i.reg(1, init = 1) || (!i))
-         |      1.cy.wait
          |    end while
          |    val temp = (!i.reg(1, init = 1)) && i
          |    while (!temp)
-         |      1.cy.wait
          |    end while
          |    x.din := 0
          |end Foo""".stripMargin
@@ -119,11 +114,9 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  process:
          |    x.din := 1
          |    while (i)
-         |      1.cy.wait
          |    end while
          |    x.din := 0
          |    while (j)
-         |      1.cy.wait
          |    end while
          |    x.din := 1
          |end Foo""".stripMargin
@@ -152,13 +145,11 @@ class SimplifyRTOpsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val waitCnt = UInt(26) <> VAR.REG init d"26'0"
          |    while (waitCnt != d"26'49999999")
          |      waitCnt.din := waitCnt + d"26'1"
-         |      1.cy.wait
          |    end while
          |    x.din := 0
          |    val waitCnt = UInt(26) <> VAR.REG init d"26'0"
          |    while (waitCnt != (waitParam - d"26'1"))
          |      waitCnt.din := waitCnt + d"26'1"
-         |      1.cy.wait
          |    end while
          |    1.cy.wait
          |end Foo""".stripMargin

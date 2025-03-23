@@ -74,7 +74,6 @@ case object SimplifyRTOps extends Stage:
           val whileBlock =
             dfhdl.core.DFWhile.Block(fixedTrigger)(using dfc.setMeta(waitMember.meta))
           dfc.enterOwner(whileBlock)
-          1.cy.wait
           dfc.exitOwner()
         Some(dsn.patch)
       // replace wait statements with time durations with cycles
@@ -109,7 +108,6 @@ case object SimplifyRTOps extends Stage:
               dfhdl.core.DFWhile.Block(waitCnt != upperBound)(using dfc.setMeta(waitMember.meta))
             dfc.enterOwner(whileBlock)
             waitCnt.din := waitCnt + dfhdl.core.DFVal.Const(iterType, Some(BigInt(1)))
-            1.cy.wait
             dfc.exitOwner()
           Some(dsn.patch)
         else None

@@ -99,8 +99,8 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
               case _ =>
                 stats.headOption match
                   case Some(OnEntryDef() | OnExitDef()) =>
-                  case Some(dd: DefDef) =>
-                    allDefsErrMsg(expr.srcPos)
+                  case Some(dd: DefDef)                 =>
+                  // allDefsErrMsg(expr.srcPos)
                   case _ =>
                     processStatCheck(expr, returnCheck)
       case If(cond, thenp, elsep) =>
@@ -124,12 +124,12 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
             tree match
               case Goto() =>
               case Wait() =>
-              case _ =>
-                report.error(
-                  """|Register-transfer (RT) process loops must end with any kind of `wait` statement or a call to a process `def`.
-                     |For a purely combinational loop, call `0.cy.wait` at the end of the loop block.""".stripMargin,
-                  tree.srcPos
-                )
+              case _      =>
+              // report.error(
+              //   """|Register-transfer (RT) process loops must end with any kind of `wait` statement or a call to a process `def`.
+              //      |For a purely combinational loop, call `0.cy.wait` at the end of the loop block.""".stripMargin,
+              //   tree.srcPos
+              // )
           case CheckType.OnEntryExit =>
             tree match
               case dd: DefDef =>
@@ -157,7 +157,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
       case _            => false
     }
 
-    if (stepDefs.nonEmpty && allStepBlocks.nonEmpty) allDefsErrMsg(srcPos)
+    // if (stepDefs.nonEmpty && allStepBlocks.nonEmpty) allDefsErrMsg(srcPos)
     // checking onEntry and onExit defs syntax
     onEntryExit.foreach { dd =>
       if (dd.paramss != Nil)

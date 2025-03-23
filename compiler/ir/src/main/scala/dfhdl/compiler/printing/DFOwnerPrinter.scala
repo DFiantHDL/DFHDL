@@ -325,13 +325,13 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val defType = if (stepBlock.isRegular) "Step" else "Unit"
     s"def $name: $defType =\n${body.hindent}\nend $name"
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
-    val body = csDFOwnerBody(forBlock)
+    val body = csDFOwnerBody(forBlock).emptyOr(body => s"${body.hindent}\n")
     val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    s"${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})\n${body.hindent}\nend for"
+    s"${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})\n${body}end for"
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
-    val body = csDFOwnerBody(whileBlock)
+    val body = csDFOwnerBody(whileBlock).emptyOr(body => s"${body.hindent}\n")
     val named = whileBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    s"${named}while (${whileBlock.guardRef.refCodeString})\n${body.hindent}\nend while"
+    s"${named}while (${whileBlock.guardRef.refCodeString})\n${body}end while"
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
