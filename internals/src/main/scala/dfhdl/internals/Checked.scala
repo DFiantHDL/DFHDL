@@ -62,8 +62,7 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
             '{ -${ arg0.asExprOf[Int] } }
           case "ITE" => // if-then-else
             '{
-              if (${ arg0.asExprOf[Boolean] }) ${ arg1.asExpr }
-              else ${ arg2.asExpr }
+              if (${ arg0.asExprOf[Boolean] }) ${ arg1.asExpr } else ${ arg2.asExpr }
             }
           case _ =>
             funcRealNameMap.get(funcName) match
@@ -161,7 +160,7 @@ object Check1:
   ]:
     def apply(arg: Wide): Unit
 
-  object CheckNubOK extends CheckNUB[Any, Any, Nothing, Nothing, Boolean]:
+  object CheckNUBOK extends CheckNUB[Any, Any, Nothing, Nothing, Boolean]:
     def apply(arg: Any): Unit = {}
 
   protected trait CheckNUBLP:
@@ -186,10 +185,12 @@ object Check1:
         Cond[T <: Wide] <: Boolean,
         Msg[T <: Wide] <: String,
         Warn <: Boolean
-    ](using inline ub: UBound.Aux[Wide, T, TUB])(using
+    ](using
+        inline ub: UBound.Aux[Wide, T, TUB]
+    )(using
         inline check: Cond[TUB] =:= true
     ): CheckNUB[Wide, T, Cond, Msg, Warn] =
-      CheckNubOK.asInstanceOf[CheckNUB[Wide, T, Cond, Msg, Warn]]
+      CheckNUBOK.asInstanceOf[CheckNUB[Wide, T, Cond, Msg, Warn]]
 
   trait Check[
       Wide,
@@ -318,7 +319,10 @@ object Check2:
         Cond[T1 <: Wide1, T2 <: Wide2] <: Boolean,
         Msg[T1 <: Wide1, T2 <: Wide2] <: String,
         Warn <: Boolean
-    ](using inline ub1: UBound.Aux[Wide1, T1, TUB1], inline ub2: UBound.Aux[Wide2, T2, TUB2])(using
+    ](using
+        inline ub1: UBound.Aux[Wide1, T1, TUB1],
+        inline ub2: UBound.Aux[Wide2, T2, TUB2]
+    )(using
         inline check: Cond[TUB1, TUB2] =:= true
     ): CheckNUB[Wide1, Wide2, T1, T2, Cond, Msg, Warn] =
       CheckNUBOK.asInstanceOf[CheckNUB[Wide1, Wide2, T1, T2, Cond, Msg, Warn]]
