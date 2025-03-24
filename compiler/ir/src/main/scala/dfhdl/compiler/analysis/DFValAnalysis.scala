@@ -400,3 +400,16 @@ extension (member: DFMember)
       case _: DomainBlock       => true
       case _                    => false
 end extension
+
+extension (member: DFMember)
+  def consumesCycles(using MemberGetSet): Boolean =
+    member match
+      case loop: DFLoop.Block =>
+        loop.isInRTDomain && !loop.isCombinational
+      case wait: Wait   => wait.isInRTDomain
+      case _: StepBlock => true
+      case _: Goto      => true
+      case cb: DFConditional.Block =>
+        cb.members(MemberView.Folded).exists(_.consumesCycles)
+      case _ => false
+end extension
