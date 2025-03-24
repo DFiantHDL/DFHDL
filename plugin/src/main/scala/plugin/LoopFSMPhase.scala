@@ -337,7 +337,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
         })
         val updatedBody = replaceArgs(body, Map(iter.symbol -> loopIter))
         ref(customForSym)
-          .appliedTo(iter.genMeta, range, ifGuards)
+          .appliedTo(iter.genMeta, fe.srcPos.positionTree, range, ifGuards)
           .appliedTo(updatedBody)
           .appliedTo(dfc)
       case ProcessForever(scopeCtx, block) =>

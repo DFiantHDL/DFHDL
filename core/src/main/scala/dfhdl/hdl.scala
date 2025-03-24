@@ -22,6 +22,7 @@ protected object hdl:
   export internals.CommonOps.*
   export core.{dfType}
   export core.DFPhysical.Val.Ops.*
+  export core.COMB_LOOP
   type Time = core.DFTime
   val Time = core.DFTime
   type Freq = core.DFFreq

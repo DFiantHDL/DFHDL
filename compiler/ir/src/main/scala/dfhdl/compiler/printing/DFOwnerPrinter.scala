@@ -325,11 +325,13 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val defType = if (stepBlock.isRegular) "Step" else "Unit"
     s"def $name: $defType =\n${body.hindent}\nend $name"
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
-    val body = csDFOwnerBody(forBlock).emptyOr(body => s"${body.hindent}\n")
+    val csCOMB_LOOP = if (forBlock.isCombinational) "COMB_LOOP\n" else ""
+    val body = (csCOMB_LOOP + csDFOwnerBody(forBlock)).emptyOr(body => s"${body.hindent}\n")
     val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     s"${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})\n${body}end for"
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
-    val body = csDFOwnerBody(whileBlock).emptyOr(body => s"${body.hindent}\n")
+    val csCOMB_LOOP = if (whileBlock.isCombinational) "COMB_LOOP\n" else ""
+    val body = (csCOMB_LOOP + csDFOwnerBody(whileBlock)).emptyOr(body => s"${body.hindent}\n")
     val named = whileBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     s"${named}while (${whileBlock.guardRef.refCodeString})\n${body}end while"
   def csDomainBlock(domain: DomainBlock): String =

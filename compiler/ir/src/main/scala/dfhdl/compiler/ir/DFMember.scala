@@ -1274,7 +1274,9 @@ object DFConditional:
 end DFConditional
 
 object DFLoop:
-  sealed trait Block extends DFBlock
+  sealed trait Block extends DFBlock:
+    def isCombinational(using MemberGetSet): Boolean = this.hasTagOf[Combinational.type]
+  case object Combinational extends DFTagOf[Block]
   final case class DFForBlock(
       iteratorRef: DFForBlock.IteratorRef,
       rangeRef: DFForBlock.RangeRef,

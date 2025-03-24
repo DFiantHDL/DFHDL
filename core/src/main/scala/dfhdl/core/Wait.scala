@@ -37,7 +37,15 @@ object Wait:
       DomainType.RT,
       "`.cy` unit is only allowed under register-transfer (RT) domains."
     ]
-    extension (lhs: Int | Long) def cy(using DFC, CYInRT): Cycles = Cycles(lhs)
+    extension (lhs: Int | Long)
+      def cy(using DFC, CYInRT): Cycles = trydf {
+        val pos = lhs match
+          case long: Long => long > 0
+          case int: Int   => int > 0
+        if (!pos)
+          throw new IllegalArgumentException("`cy` can only be used with positive values.")
+        Cycles(lhs)
+      }
     extension (lhs: DFValOf[DFUInt[Int]]) def cy(using DFC, CYInRT): Cycles = Cycles(lhs)
 
     def waitWhile(cond: DFValOf[DFBoolOrBit])(using DFC): Wait =

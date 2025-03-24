@@ -80,8 +80,7 @@ case object SimplifyRTOps extends Stage:
       case waitMember @ Wait(triggerRef = DFRef(cyclesVal @ DFDecimal.Val(DFUInt(_)))) =>
         val replaceWithWhile = cyclesVal match
           // if the number of cycles is 1, then there is no need to create a loop.
-          // if the number of cycles is 0, then its an indicator for while loops that are combinational
-          case DFVal.Const(data = Some(value: BigInt)) if value <= 1 => false
+          case DFVal.Const(data = Some(value: BigInt)) if value == 1 => false
           case _                                                     => true
         if (replaceWithWhile)
           val dsn = new MetaDesign(
