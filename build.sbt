@@ -212,7 +212,9 @@ lazy val pluginTestUseSettings = Seq(
     val jar = (plugin / Compile / packageBin).value
     Seq(
       s"-Xplugin:${jar.getAbsolutePath}",
-      s"-Jdummy=${jar.lastModified}"
+      s"-Jdummy=${jar.lastModified}",
+      // "-Yprofile-enabled",
+      // "-Yprofile-trace:compiler.trace"
     )
   }
 )
