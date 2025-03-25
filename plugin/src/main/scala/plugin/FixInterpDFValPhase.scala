@@ -34,11 +34,12 @@ class FixInterpDFValPhase(setting: Setting) extends CommonPhase:
 //  override val debugFilter: String => Boolean =
 //    _.contains("DFMatchSpec.scala")
   var dfValTpe: Type = uninitialized
+  var bTpe: Type = uninitialized
 
   object StripAndString:
     def unapply(tpe: Type)(using Context): Option[Type] =
       tpe.simple match
-        case AndType(str, t) if str =:= defn.StringType && t <:< requiredClassRef("dfhdl.hdl.B") =>
+        case AndType(str, t) if str =:= defn.StringType && t <:< bTpe =>
           Some(t)
         case _ => None
   end StripAndString
@@ -66,5 +67,6 @@ class FixInterpDFValPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     updateNamedType.clear()
     dfValTpe = requiredClassRef("dfhdl.core.DFVal")
+    bTpe = requiredClassRef("dfhdl.hdl.B")
     ctx
 end FixInterpDFValPhase
