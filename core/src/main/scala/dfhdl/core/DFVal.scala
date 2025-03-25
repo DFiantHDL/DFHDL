@@ -424,10 +424,6 @@ object DFVal extends DFValLP:
     def enable: Boolean
     def apply(dfType: T)(using dfc: DFC): DFConstOf[T]
   object InitValue:
-    def apply[T <: DFTypeAny](enable0: Boolean, f: (T, DFC) => DFConstOf[T]): InitValue[T] =
-      new InitValue[T]:
-        def enable: Boolean = enable0
-        def apply(dfType: T)(using dfc: DFC): DFConstOf[T] = f(dfType, dfc)
     transparent inline implicit def fromValue[T <: DFTypeAny, V](
         inline value: V
     ): InitValue[T] = ${ fromValueMacro[T, V]('value) }
@@ -445,10 +441,10 @@ object DFVal extends DFValLP:
           val exactInfo = argExpr.exactInfo
           '{
             val tc = compiletime.summonInline[DFVal.TC[T, exactInfo.Underlying]]
-            InitValue(
-              $enableExpr,
-              (dfType, dfc) => tc(dfType, ${ exactInfo.exactExpr })(using dfc).asConstOf[T]
-            )
+            new InitValue[T]:
+              def enable: Boolean = $enableExpr
+              def apply(dfType: T)(using dfc: DFC): DFConstOf[T] =
+                tc(dfType, ${ exactInfo.exactExpr })(using dfc).asConstOf[T]
           }
     end fromValueMacro
   end InitValue
