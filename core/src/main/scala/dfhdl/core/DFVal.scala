@@ -104,7 +104,7 @@ infix type <>[T, M] = T match
   case DFConstInt32 | IntP.Sig => DFVector.ComposedModifier[T, M]
   case _ =>
     M match
-      case DFRET => DFC ?=> DFValOf[DFType.Of[T]]
+      case DFRET => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
       case VAL   => DFValOf[DFType.Of[T]]
       case CONST => DFConstOf[DFType.Of[T]]
 
