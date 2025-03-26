@@ -65,7 +65,10 @@ case object ExplicitState extends Stage:
       assignMap: AssignMap,
       currentSet: Set[DFVal]
   )(using MemberGetSet): Set[DFVal] =
-    consumeFrom(value, value.dfType.width, 0, assignMap, currentSet)
+    value.dfType match
+      case _: DFUnbounded => currentSet
+      case _ =>
+        consumeFrom(value, value.dfType.width, 0, assignMap, currentSet)
 
   @tailrec private def assignTo(
       value: DFVal,

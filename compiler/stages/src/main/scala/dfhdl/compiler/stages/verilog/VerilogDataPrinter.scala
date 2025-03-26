@@ -94,4 +94,8 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
           case DFPhysical.Unit.Time.Scale.hr  => printer.unsupported
           case _                              => s"${data._1}${data._2}"
       case _ => printer.unsupported
+  def csDFStringData(dfType: DFString, data: Option[String]): String =
+    data match
+      case Some(value) => s""""$value""""
+      case None        => """"""""
 end VerilogDataPrinter

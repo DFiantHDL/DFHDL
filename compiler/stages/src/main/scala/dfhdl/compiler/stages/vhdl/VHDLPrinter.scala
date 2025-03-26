@@ -142,7 +142,7 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   val vhdlOps: Set[String] = Set(":=", "<=")
   val vhdlTypes: Set[String] =
     Set("std_logic", "std_logic_vector", "integer", "natural", "positive", "ieee", "numeric_std",
-      "std_logic_1164", "work", "signed", "unsigned", "'left")
+      "std_logic_1164", "work", "signed", "unsigned", "'left", "string")
   def colorCode(cs: String): String =
     cs
       .colorWords(vhdlKW, keywordColor)

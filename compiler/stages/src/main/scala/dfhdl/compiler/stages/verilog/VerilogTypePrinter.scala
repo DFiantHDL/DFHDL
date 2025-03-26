@@ -29,6 +29,13 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
         else s"logic $signedKeyword[${dfType.widthParamRef.uboundCS}:0]"
       case (false, _) => ???
       case (true, _)  => ???
+  val allowDynamicString: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
+  def csDFString(dfType: DFString, typeCS: Boolean): String =
+    if (allowDynamicString) "string"
+    else ""
 
   val allowTypeDef: Boolean =
     printer.dialect match

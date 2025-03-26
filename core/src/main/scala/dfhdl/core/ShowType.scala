@@ -30,6 +30,7 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case '[DFTime]    => "Time"
       case '[DFFreq]    => "Freq"
       case '[DFNumber]  => "Number"
+      case '[DFString]  => "String"
       case '[DFVector[t, d]] =>
         s"${TypeRepr.of[t].showDFType} X ${TypeRepr.of[d].showVecLength}"
       case '[DFType[ir.DFVector, Args2[t, d]]] =>

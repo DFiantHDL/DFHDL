@@ -199,6 +199,14 @@ def calcFuncData[OT <: DFType](
               case FuncOp.<= => lhs <= rhs
               case FuncOp.>= => lhs >= rhs
             Some(data)
+          // DFString operations
+          case (
+                DFString,
+                FuncOp.++,
+                DFString :: DFString :: Nil,
+                Some(lhs: String) :: Some(rhs: String) :: Nil
+              ) =>
+            Some(lhs + rhs)
           // DFXInt arithmetic operations and shifting
           case (
                 outType @ DFXInt(_),

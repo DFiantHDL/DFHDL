@@ -477,13 +477,15 @@ case object DFDouble extends DFType.Companion[DFDouble, Option[Double]] with DFD
 
 sealed trait DFUnbounded extends DFType:
   def noTypeErr = throw new IllegalArgumentException(
-    "Unexpected access to an unbounded data type"
+    s"Unexpected access to $this data type"
   )
   def width(using MemberGetSet): Int = noTypeErr
-  def createBubbleData(using MemberGetSet): Data = noTypeErr
-  def isDataBubble(data: Data): Boolean = noTypeErr
   def dataToBitsData(data: Data)(using MemberGetSet): (BitVector, BitVector) = noTypeErr
   def bitsDataToData(data: (BitVector, BitVector))(using MemberGetSet): Data = noTypeErr
+  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
+  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
+  lazy val getRefs: List[DFRef.TypeRef] = Nil
+  def copyWithNewRefs: this.type = this
 
 /////////////////////////////////////////////////////////////////////////////
 // DFUnit
@@ -494,10 +496,9 @@ sealed trait DFUnbounded extends DFType:
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFUnit extends DFUnbounded:
   type Data = Unit
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
-  lazy val getRefs: List[DFRef.TypeRef] = Nil
-  def copyWithNewRefs: this.type = this
+  def isDataBubble(data: Data): Boolean = noTypeErr
+  def createBubbleData(using MemberGetSet): Data = noTypeErr
+
 case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
 /////////////////////////////////////////////////////////////////////////////
 
@@ -508,10 +509,8 @@ case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
 /////////////////////////////////////////////////////////////////////////////
 sealed trait DFNothing extends DFUnbounded:
   type Data = Nothing
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
-  lazy val getRefs: List[DFRef.TypeRef] = Nil
-  def copyWithNewRefs: this.type = this
+  def isDataBubble(data: Data): Boolean = noTypeErr
+  def createBubbleData(using MemberGetSet): Data = noTypeErr
 case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing
 /////////////////////////////////////////////////////////////////////////////
 
@@ -521,10 +520,8 @@ case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothin
 final case class DFPhysical(unit: DFPhysical.Unit) extends DFUnbounded:
   //             value    scale
   type Data = (BigDecimal, Any)
-  protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
-  def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
-  lazy val getRefs: List[DFRef.TypeRef] = Nil
-  def copyWithNewRefs: this.type = this
+  def isDataBubble(data: Data): Boolean = false
+  def createBubbleData(using MemberGetSet): Data = noTypeErr
 
 object DFPhysical extends DFType.Companion[DFPhysical, (BigDecimal, Any)]:
   sealed trait Unit extends Product, Serializable derives CanEqual
@@ -562,4 +559,14 @@ end DFPhysical
 val DFTime = DFPhysical(DFPhysical.Unit.Time)
 val DFFreq = DFPhysical(DFPhysical.Unit.Freq)
 val DFNumber = DFPhysical(DFPhysical.Unit.Number)
+/////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+// DFString
+/////////////////////////////////////////////////////////////////////////////
+sealed trait DFString extends DFUnbounded:
+  type Data = Option[String]
+  def isDataBubble(data: Data): Boolean = data.isEmpty
+  def createBubbleData(using MemberGetSet): Data = None
+case object DFString extends DFType.Companion[DFString, Option[String]] with DFString
 /////////////////////////////////////////////////////////////////////////////

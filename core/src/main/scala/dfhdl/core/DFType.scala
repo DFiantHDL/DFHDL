@@ -35,6 +35,7 @@ object DFType:
     case Boolean   => DFBool
     case Double    => DFDouble
     case DFOpaqueA => DFOpaque[T]
+    case String    => DFString
     case Product   => FromProduct[T]
     case Unit      => DFUnit
 
@@ -61,6 +62,7 @@ object DFType:
       // TODO: need to add proper upper-bound if fixed in Scalac
       // see: https://contributors.scala-lang.org/t/missing-dedicated-class-for-enum-companions
       case enumCompanion: AnyRef => DFEnum(enumCompanion)
+  end apply
   private[core] def unapply(t: Any): Option[DFTypeAny] =
     t match
       case dfVal: DFValAny  => Some(dfVal.dfType)
@@ -90,11 +92,12 @@ object DFType:
   export DFEnum.given
   export DFVector.given
   export TDFDouble.given
+  export TDFString.given
 
   given [T <: DFTypeAny]: CanEqual[T, T] = CanEqual.derived
 
   type Supported = DFTypeAny | FieldsOrTuple | DFEncoding | DFOpaqueA | Byte | Int | Long |
-    Boolean | Double | Object | Unit
+    Boolean | Double | String | Object | Unit
 
   protected type NotGlobalCheck[S] = AssertGiven[
     util.NotGiven[S <:< DFC.Scope.Global],

@@ -119,7 +119,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while")
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] =
-    Set("wire", "reg", "logic", "wire", "signed", "int", "integer")
+    Set("wire", "reg", "logic", "wire", "signed", "int", "integer", "string")
   def colorCode(cs: String): String =
     cs
       .colorWords(verilogKW, keywordColor)

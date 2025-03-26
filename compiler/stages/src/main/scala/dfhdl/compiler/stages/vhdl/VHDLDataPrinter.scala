@@ -95,4 +95,8 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
       case DFPhysical.Unit.Time =>
         s"${data._1} ${data._2}"
       case _ => printer.unsupported
+  def csDFStringData(dfType: DFString, data: Option[String]): String =
+    data match
+      case Some(value) => s""""$value""""
+      case None        => """"""""
 end VHDLDataPrinter

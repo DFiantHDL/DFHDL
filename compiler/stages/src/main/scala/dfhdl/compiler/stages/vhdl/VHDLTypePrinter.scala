@@ -31,6 +31,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         else s"signed(${widthParamRef.uboundCS} downto 0)"
       case (false, _) => ???
       case (true, _)  => ???
+  def csDFString(dfType: DFString, typeCS: Boolean): String = "string"
 
   def csNamedDFTypeConvFuncsDcl(dfType: NamedDFType): String =
     val typeName = dfType match

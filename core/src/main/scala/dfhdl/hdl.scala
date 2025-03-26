@@ -14,6 +14,7 @@ protected object hdl:
   export core.DFTuple.Val.Ops.*
   export core.DFVector.Ops.*
   export core.TDFDouble.Val.Ops.*
+  export core.TDFString.Val.Ops.*
   export core.DFVal.Ops.*
   export core.DFVarOps.*
   export core.DFPortOps.*

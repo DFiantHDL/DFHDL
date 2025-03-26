@@ -210,6 +210,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
           case DFVal.Func.Op.++ =>
             def argsInBrackets = csArgs.mkStringBrackets
             dfVal.dfType match
+              case DFString =>
+                if (csArgs.length == 2)
+                  s"${csArgs.head.applyBrackets()} + ${csArgs.last.applyBrackets()}"
+                else ??? // TODO: handle more than 2 args
               case structType @ DFStruct(structName, fieldMap) =>
                 if (structType.isTuple) argsInBrackets
                 else

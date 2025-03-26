@@ -267,6 +267,14 @@ sealed protected trait DFValLP:
   ): DFValTP[DFDouble, ISCONST[P]] = ${
     DFValConversionMacro[DFDouble, ISCONST[P], R]('from)
   }
+  implicit transparent inline def DFStringValConversion[
+      P <: Boolean,
+      R <: CommonR | String
+  ](
+      inline from: R
+  ): DFValTP[DFString, ISCONST[P]] = ${
+    DFValConversionMacro[DFString, ISCONST[P], R]('from)
+  }
   given DFUnitValConversion[R <: CommonR | Unit | NonEmptyTuple](using
       dfc: DFC
   ): Conversion[R, DFValOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFValOf[DFUnit]]
@@ -984,6 +992,7 @@ object DFVal extends DFValLP:
     export DFStruct.Val.TC.given
     export DFOpaque.Val.TC.given
     export TDFDouble.Val.TC.given
+    export TDFString.Val.TC.given
   end TC
 
   trait TCConv[T <: DFTypeAny, R] extends TC[T, R]:
@@ -1072,6 +1081,7 @@ object DFVal extends DFValLP:
     export DFTuple.Val.Compare.given
     export DFStruct.Val.Compare.given
     export TDFDouble.Val.Compare.given
+    export TDFString.Val.Compare.given
   end Compare
 
   trait DFDomainOnly

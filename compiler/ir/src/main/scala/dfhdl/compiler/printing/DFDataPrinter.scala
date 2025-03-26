@@ -132,6 +132,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
   def csDFUnitData(dfType: DFUnit, data: Unit): String
   def csDFDoubleData(dfType: DFDouble, data: Option[Double]): String
   def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String
+  def csDFStringData(dfType: DFString, data: Option[String]): String
   final def csConstData(dfType: DFType, data: Any): String = (dfType, data) match
     case DFBits.Data(dt, data)      => csDFBitsData(dt, data)
     case DFBoolOrBit.Data(dt, data) => csDFBoolOrBitData(dt, data)
@@ -145,6 +146,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
     case DFStruct.Data(dt, data)   => csDFStructData(dt, data)
     case DFUnit.Data(dt, data)     => csDFUnitData(dt, data)
     case DFPhysical.Data(dt, data) => csDFPhysicalData(dt, data)
+    case DFString.Data(dt, data)   => csDFStringData(dt, data)
     case x =>
       throw new IllegalArgumentException(
         s"Unexpected data found: $x"
@@ -212,4 +214,8 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
       case None        => "?"
   def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String =
     s"${data._1}.${data._2}"
+  def csDFStringData(dfType: DFString, data: Option[String]): String =
+    data match
+      case Some(value) => s""""$value""""
+      case None        => "?"
 end DFDataPrinter

@@ -56,6 +56,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String
   def csDFDouble(): String
   def csDFPhysical(dfType: DFPhysical, typeCS: Boolean): String
+  def csDFString(dfType: DFString, typeCS: Boolean): String
 
   final def csDFType(dfType: DFType, typeCS: Boolean = false): String = dfType match
     case dt: DFBoolOrBit => csDFBoolOrBit(dt, typeCS)
@@ -70,6 +71,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
     case dt: DFUnit     => csDFUnit(dt, typeCS)
     case DFDouble       => csDFDouble()
     case dt: DFPhysical => csDFPhysical(dt, typeCS)
+    case dt: DFString   => csDFString(dt, typeCS)
     case dt: DFNothing  => ???
 end AbstractTypePrinter
 
@@ -92,7 +94,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
         else s"SInt$ob$csWidth$cb"
       case (false, _) => s"UFix$ob$magnitudeWidth, $fractionWidth$cb"
       case (true, _)  => s"SFix$ob$magnitudeWidth, $fractionWidth$cb"
-
+  def csDFString(dfType: DFString, typeCS: Boolean): String = "String"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.getName
     val entries =
