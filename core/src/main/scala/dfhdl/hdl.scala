@@ -68,6 +68,8 @@ protected object hdl:
   type VAL = core.VAL
   type CONST = core.CONST
   type DFRET = core.DFRET
+  type RTRET = core.RTRET
+  type EDRET = core.EDRET
   val OPEN = core.DFVal.OPEN
   val NOTHING = core.DFVal.NOTHING
   export core.<>

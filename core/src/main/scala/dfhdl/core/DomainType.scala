@@ -6,7 +6,6 @@ opaque type DomainType <: ir.DomainType = ir.DomainType
 object DomainType:
   opaque type DF <: DomainType = DomainType
   val DF: DF = ir.DomainType.DF
-  given DF = DF
 
   opaque type RT <: DomainType = DomainType
   object RT:

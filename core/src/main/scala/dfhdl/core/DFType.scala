@@ -9,6 +9,7 @@ import collection.mutable
 import collection.immutable.ListMap
 import DFOpaque.Abstract as DFOpaqueA
 import NamedTuple.{NamedTuple, AnyNamedTuple}
+import scala.annotation.implicitNotFound
 
 sealed trait Args
 sealed trait NoArgs extends Args
@@ -99,10 +100,6 @@ object DFType:
   type Supported = DFTypeAny | FieldsOrTuple | DFEncoding | DFOpaqueA | Byte | Int | Long |
     Boolean | Double | String | Object | Unit
 
-  protected type NotGlobalCheck[S] = AssertGiven[
-    util.NotGiven[S <:< DFC.Scope.Global],
-    "Port/Variable declarations cannot be global"
-  ]
   object Ops:
     extension [D <: Int & Singleton](cellDim: D)
       infix def <>[M <: ModifierAny](modifier: M)(using DFC): DFVector.ComposedModifier[D, M] =
@@ -116,8 +113,8 @@ object DFType:
           dfc: DFC,
           tc: DFType.TC[T],
           ck: DFC.Scope,
-          dt: DomainType
-      )(using NotGlobalCheck[ck.type]): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
+          @implicitNotFound("Port/Variable declarations cannot be global") dt: DomainType
+      ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
         trydf:
           if (modifier.value.isPort)
             dfc.owner.asIR match

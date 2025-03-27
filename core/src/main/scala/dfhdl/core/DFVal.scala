@@ -105,6 +105,8 @@ infix type <>[T, M] = T match
   case _ =>
     M match
       case DFRET => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
+      case RTRET => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
+      case EDRET => (DFC, DomainType.ED) ?=> DFValOf[DFType.Of[T]]
       case VAL   => DFValOf[DFType.Of[T]]
       case CONST => DFConstOf[DFType.Of[T]]
 
