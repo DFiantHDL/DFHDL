@@ -127,6 +127,8 @@ abstract class CommonPhase extends PluginPhase:
         tree match
           case id: (Select | Ident) if argMap.contains(id.symbol) =>
             argMap(id.symbol)
+          case vd @ ValDef(tpt = id) if argMap.contains(id.symbol) =>
+            cpy.ValDef(vd)(tpt = TypeTree(argMap(id.symbol).tpe), rhs = transform(vd.rhs))
           case _ =>
             super.transform(tree)
     replacer.transform(expr)
@@ -237,6 +239,7 @@ abstract class CommonPhase extends PluginPhase:
           posTree.srcPos
         )
       finalName
+  end extension
 
   // custom replacement for compiler defn.ContextFunctionType
   object ContextFunctionType:
