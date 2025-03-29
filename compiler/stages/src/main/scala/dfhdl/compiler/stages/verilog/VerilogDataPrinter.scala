@@ -94,8 +94,17 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
           case DFPhysical.Unit.Time.Scale.hr  => printer.unsupported
           case _                              => s"${data._1}${data._2}"
       case _ => printer.unsupported
+  def scalaToVerilogString(str: String): String =
+    str.view.map {
+      case '\\' => "\\\\"
+      case '"'  => "\\\""
+      case '\t' => "\\t"
+      case '\n' => "\\n"
+      case '\r' => "\\r"
+      case c    => c.toString
+    }.mkString("\"", "", "\"")
   def csDFStringData(dfType: DFString, data: Option[String]): String =
     data match
-      case Some(value) => s""""$value""""
-      case None        => """"""""
+      case Some(value) => scalaToVerilogString(value)
+      case None        => "\"\""
 end VerilogDataPrinter

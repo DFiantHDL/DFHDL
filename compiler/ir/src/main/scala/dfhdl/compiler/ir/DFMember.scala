@@ -1532,3 +1532,50 @@ end Wait
 
 object Wait:
   type TriggerRef = DFRef.TwoWay[DFVal, Wait]
+
+final case class TextOut(
+    op: TextOut.Op,
+    msgParts: List[String],
+    msgArgs: List[DFVal.Ref],
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends Statement:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: TextOut =>
+      this.op =~ that.op && this.msgParts == that.msgParts &&
+      this.msgArgs.lazyZip(that.msgArgs).forall(_ =~ _) &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = op.getRefs ++ msgArgs
+  def copyWithNewRefs: this.type = copy(
+    op = op.copyWithNewRefs,
+    msgArgs = msgArgs.map(_.copyAsNewRef),
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end TextOut
+
+object TextOut:
+  type AssertionRef = DFRef.TwoWay[DFVal, TextOut]
+  enum Severity derives CanEqual:
+    case Note, Warning, Error, Fatal
+  enum Op extends HasRefCompare[Op] derives CanEqual:
+    case Print, Println
+    case Report(severity: Severity) extends Op
+    case Assert(assertionRef: AssertionRef, severity: Severity) extends Op
+    lazy val getRefs: List[DFRef.TwoWayAny] = this match
+      case Assert(assertion, _) => List(assertion)
+      case _                    => Nil
+    protected def `prot_=~`(that: Op)(using MemberGetSet): Boolean = (this, that) match
+      case (thisAssert: Assert, thatAssert: Assert) =>
+        thisAssert.assertionRef =~ thatAssert.assertionRef && thisAssert.severity == thatAssert.severity
+      case _ => this equals that
+    def copyWithNewRefs: this.type = this match
+      case Assert(assertionRef, severity) =>
+        Assert(assertionRef = assertionRef.copyAsNewRef, severity = severity)
+          .asInstanceOf[this.type]
+      case _ => this
+  end Op
+end TextOut

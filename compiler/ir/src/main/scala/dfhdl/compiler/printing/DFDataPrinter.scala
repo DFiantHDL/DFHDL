@@ -214,8 +214,17 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
       case None        => "?"
   def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String =
     s"${data._1}.${data._2}"
+  def scalaToDFHDLString(str: String): String =
+    str.view.map {
+      case '\\' => "\\\\"
+      case '"'  => "\\\""
+      case '\t' => "\\t"
+      case '\n' => "\\n"
+      case '\r' => "\\r"
+      case c    => c.toString
+    }.mkString
   def csDFStringData(dfType: DFString, data: Option[String]): String =
     data match
-      case Some(value) => s""""$value""""
+      case Some(value) => s""""${scalaToDFHDLString(value)}""""
       case None        => "?"
 end DFDataPrinter

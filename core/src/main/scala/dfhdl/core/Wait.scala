@@ -32,6 +32,7 @@ object Wait:
     inline def java_wait(): Unit = this.wait()
     inline def java_wait(timeoutMillis: Long): Unit = this.wait(timeoutMillis)
     inline def java_wait(timeoutMillis: Long, nanos: Int): Unit = this.wait(timeoutMillis, nanos)
+    export TextOut.Ops.assert
   object Ops:
     protected type CYInRT = AssertGiven[
       DomainType.RT,

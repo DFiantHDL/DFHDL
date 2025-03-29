@@ -75,6 +75,7 @@ trait Printer
   def csGoto(goto: Goto): String
   def csDFRange(range: DFRange): String
   def csWait(wait: Wait): String
+  def csTextOut(textOut: TextOut): String
   // def csTimer(timer: Timer): String
   def csClkEdgeCfg(edge: ClkCfg.Edge): String =
     edge match
@@ -131,9 +132,10 @@ trait Printer
       case whileBlock: DFLoop.DFWhileBlock => csDFWhileBlock(whileBlock)
       case domain: DomainBlock             => csDomainBlock(domain)
       // case timer: Timer        => csTimer(timer)
-      case goto: Goto => csGoto(goto)
-      case wait: Wait => csWait(wait)
-      case _          => ???
+      case goto: Goto       => csGoto(goto)
+      case wait: Wait       => csWait(wait)
+      case textOut: TextOut => csTextOut(textOut)
+      case _                => ???
     s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta)}$cs"
   end csDFMember
   def designFileName(designName: String): String
@@ -316,6 +318,28 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
             s"${wait.triggerRef.refCodeString}.cy.wait"
     end match
   end csWait
+  def csTextOut(textOut: TextOut): String =
+    val msg =
+      textOut.msgParts.view.map(scalaToDFHDLString).coalesce(
+        textOut.msgArgs.view.map(a => s"$${${a.refCodeString}}")
+      ).mkString.emptyOr(m => s"s\"$m\"")
+    textOut.op match
+      case TextOut.Op.Report(severity) =>
+        val csSeverity = if (severity == TextOut.Severity.Note) "" else s", Severity.${severity}"
+        textOut.msgArgs match
+          // special case for single non-anonymous argument: we print the name and value
+          case (r @ DFRef(single)) :: Nil if textOut.msgParts.isEmpty && !single.isAnonymous =>
+            s"report(s\"${single.getName} = $${${r.refCodeString}}\"$csSeverity)"
+          case _ =>
+            s"report($msg$csSeverity)"
+        end match
+      case TextOut.Op.Assert(assertionRef, severity) =>
+        val csSeverity = if (severity == TextOut.Severity.Error) "" else s", Severity.${severity}"
+        s"assert(${assertionRef.refCodeString}${msg.emptyOr(m => s", $m")}$csSeverity)"
+      case TextOut.Op.Print   => s"print($msg)"
+      case TextOut.Op.Println => s"println($msg)"
+    end match
+  end csTextOut
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
@@ -369,7 +393,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val dfhdlKW: Set[String] =
     Set("VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
       "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
-      "goto", "wait")
+      "goto", "wait", "assert", "report", "print", "println")
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] =
     Set("Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encoded", "Struct", "Opaque",

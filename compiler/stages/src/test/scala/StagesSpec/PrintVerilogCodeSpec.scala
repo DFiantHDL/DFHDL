@@ -344,6 +344,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       val c16: Bits[8] X 5 X 7 <> CONST = Vector.fill(7)(Vector.tabulate(5)(i => h"8'$i$i"))
       val c17: Double <> CONST          = 3.14159
       val c18: Double <> CONST          = -2.71828
+      val c19: String <> CONST          = "My\nName\rIs\t\"Earl\""
     end Top
     val top = (new Top).getCompiledCodeString
     assertNoDiff(
@@ -384,6 +385,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  };
          |  parameter real c17 = 3.14159;
          |  parameter real c18 = -2.71828;
+         |  parameter string c19 = "My\nName\rIs\t\"Earl\"";
          |
          |endmodule
          |""".stripMargin

@@ -105,7 +105,7 @@ object DFEnum:
       given DFEnumFromEntry[E <: DFEncoding, RE <: E]: TC[DFEnum[E], RE] with
         type OutP = CONST
         def conv(dfType: DFEnum[E], value: RE)(using DFC): Out =
-          DFVal.Const(dfType, Some(value.bigIntValue))
+          DFVal.Const(dfType, Some(value.bigIntValue), named = true)
     object Compare:
       import DFVal.Compare
       given DFEnumCompareEntry[

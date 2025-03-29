@@ -261,6 +261,15 @@ sealed protected trait DFValLP:
   ): DFValTP[DFBool, ISCONST[P]] = ${
     DFValConversionMacro[DFBool, ISCONST[P], R]('from)
   }
+  implicit transparent inline def DFEnumValConversion[
+      E <: DFEncoding,
+      P <: Boolean,
+      R <: CommonR | E
+  ](
+      inline from: R
+  ): DFValTP[DFEnum[E], ISCONST[P]] = ${
+    DFValConversionMacro[DFEnum[E], ISCONST[P], R]('from)
+  }
   implicit transparent inline def DFDoubleValConversion[
       P <: Boolean,
       R <: CommonR | Double

@@ -52,6 +52,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
             s"wait(${wait.triggerRef.refCodeString});"
       case DFTime => s"#${wait.triggerRef.refCodeString};"
       case _      => printer.unsupported
+  def csTextOut(textOut: TextOut): String = ???
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
       s"""/*
@@ -116,7 +117,8 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     Set("module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
       "begin", "end", "case", "default", "endcase", "default_nettype", "include", "inside",
       "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
-      "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while")
+      "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while",
+      "assert", "$display")
   val verilogOps: Set[String] = Set("=", "<=")
   val verilogTypes: Set[String] =
     Set("wire", "reg", "logic", "wire", "signed", "int", "integer", "string")

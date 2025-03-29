@@ -279,57 +279,60 @@ class PrintVHDLCodeSpec extends StageSpec:
       val c16: Bits[8] X 5 X 7 <> CONST = Vector.fill(7)(Vector.tabulate(5)(i => h"8'$i$i"))
       val c17: Double <> CONST          = 3.14159
       val c18: Double <> CONST          = -2.71828
+      val c19: String <> CONST          = "My\nName\rIs\t\"Earl\""
     end Top
-    val top = (new Top).getCompiledCodeString
+    val top         = (new Top).getCompiledCodeString
+    val tripleQuote = "\"\"\""
     assertNoDiff(
       top,
-      """|library ieee;
-         |use ieee.std_logic_1164.all;
-         |use ieee.numeric_std.all;
-         |use ieee.math_real.all;
-         |use work.dfhdl_pkg.all;
-         |use work.Top_pkg.all;
-         |
-         |entity Top is
-         |end Top;
-         |
-         |architecture Top_arch of Top is
-         |  type t_struct_DFTuple2 is record
-         |    _1 : std_logic_vector(2 downto 0);
-         |    _2 : std_logic;
-         |  end record;
-         |  type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
-         |  type t_arrX2_std_logic_vector is array (natural range <>) of t_arrX1_std_logic_vector;
-         |  constant c01 : std_logic := '0';
-         |  constant c02 : std_logic := '1';
-         |  constant c03 : std_logic := '-';
-         |  constant c04 : boolean := false;
-         |  constant c05 : boolean := true;
-         |  constant c06 : std_logic_vector(7 downto 0) := x"22";
-         |  constant c07 : std_logic_vector(6 downto 0) := 7x"22";
-         |  constant c08 : std_logic_vector(2 downto 0) := "101";
-         |  constant c09 : unsigned(2 downto 0) := 3d"7";
-         |  constant c10 : unsigned(47 downto 0) := 48d"239794508230343";
-         |  constant c11 : signed(3 downto 0) := -4d"8";
-         |  constant c12 : signed(48 downto 0) := -49d"239794508230343";
-         |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
-         |  constant c14 : signed(7 downto 0) := signed'(x"--");
-         |  constant c15 : t_struct_DFTuple2 := t_struct_DFTuple2(_1 = "000", _2 = '1');
-         |  constant c16 : t_arrX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (
-         |    0 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
-         |    1 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
-         |    2 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
-         |    3 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
-         |    4 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
-         |    5 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
-         |    6 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44")
-         |  );
-         |  constant c17 : real := 3.14159;
-         |  constant c18 : real := -2.71828;
-         |begin
-         |
-         |end Top_arch;
-         |""".stripMargin
+      s"""|library ieee;
+          |use ieee.std_logic_1164.all;
+          |use ieee.numeric_std.all;
+          |use ieee.math_real.all;
+          |use work.dfhdl_pkg.all;
+          |use work.Top_pkg.all;
+          |
+          |entity Top is
+          |end Top;
+          |
+          |architecture Top_arch of Top is
+          |  type t_struct_DFTuple2 is record
+          |    _1 : std_logic_vector(2 downto 0);
+          |    _2 : std_logic;
+          |  end record;
+          |  type t_arrX1_std_logic_vector is array (natural range <>) of std_logic_vector;
+          |  type t_arrX2_std_logic_vector is array (natural range <>) of t_arrX1_std_logic_vector;
+          |  constant c01 : std_logic := '0';
+          |  constant c02 : std_logic := '1';
+          |  constant c03 : std_logic := '-';
+          |  constant c04 : boolean := false;
+          |  constant c05 : boolean := true;
+          |  constant c06 : std_logic_vector(7 downto 0) := x"22";
+          |  constant c07 : std_logic_vector(6 downto 0) := 7x"22";
+          |  constant c08 : std_logic_vector(2 downto 0) := "101";
+          |  constant c09 : unsigned(2 downto 0) := 3d"7";
+          |  constant c10 : unsigned(47 downto 0) := 48d"239794508230343";
+          |  constant c11 : signed(3 downto 0) := -4d"8";
+          |  constant c12 : signed(48 downto 0) := -49d"239794508230343";
+          |  constant c13 : unsigned(7 downto 0) := unsigned'(x"--");
+          |  constant c14 : signed(7 downto 0) := signed'(x"--");
+          |  constant c15 : t_struct_DFTuple2 := t_struct_DFTuple2(_1 = "000", _2 = '1');
+          |  constant c16 : t_arrX2_std_logic_vector(0 to 6)(0 to 4)(7 downto 0) := (
+          |    0 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+          |    1 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+          |    2 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+          |    3 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+          |    4 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+          |    5 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44"),
+          |    6 => (0 => x"00", 1 => x"11", 2 => x"22", 3 => x"33", 4 => x"44")
+          |  );
+          |  constant c17 : real := 3.14159;
+          |  constant c18 : real := -2.71828;
+          |  constant c19 : string := "My" & LF & "Name" & CR & "Is" & HT & ${tripleQuote}Earl${tripleQuote};
+          |begin
+          |
+          |end Top_arch;
+          |""".stripMargin
     )
   }
   test("Blinker example") {
@@ -1140,6 +1143,171 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    end loop;
          |  end process;
          |end Foo_arch;""".stripMargin
+    )
+  }
+  test("text out printing") {
+    class Foo(val param: String <> CONST = "Hello\n\"World\"!") extends EDDesign:
+      val bar                      = param + "!"
+      val param2                   = param + param
+      val param3: Int <> CONST     = 42
+      val param4                   = d"22"
+      val param5                   = h"abc123"
+      val param6                   = b"101010"
+      val param7                   = d"-11"
+      val param8: Bit <> CONST     = 1
+      val param9: Boolean <> CONST = false
+      enum MyEnum extends Encoded:
+        case A, B, C
+      val param10: MyEnum <> CONST = MyEnum.A
+
+      assert(param == "hello2")
+
+      process(all):
+        assert(param == "hello2")
+        report(param, Severity.Warning)
+        assert(param == "hello2", s"I am the one ${param} who knocks")
+        assert(param == "hello2", s"I am the one ${param} who knocks", Severity.Warning)
+        println(param)
+        println()
+        print(s"I am the one ${param} who knocks")
+        print("hello")
+        println(
+          s"These are the values: $param3, $param4, $param5, $param6, $param7, $param8, $param9, $param10"
+        )
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |generic (
+         |  param : string := "Hello" & LF & REPLACEWorld""!"
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |  constant param3 : integer := 42;
+         |  type t_enum_MyEnum is (
+         |    MyEnum_A, MyEnum_B, MyEnum_C
+         |  );
+         |  constant bar : string := param & "!";
+         |  constant param2 : string := param & param;
+         |  constant param4 : unsigned(4 downto 0) := 5d"22";
+         |  constant param5 : std_logic_vector(23 downto 0) := x"abc123";
+         |  constant param6 : std_logic_vector(5 downto 0) := 6x"2a";
+         |  constant param7 : signed(4 downto 0) := -5d"11";
+         |  constant param8 : std_logic := '1';
+         |  constant param9 : boolean := false;
+         |  constant param10 : t_enum_MyEnum := MyEnum_A;
+         |begin
+         |  assert param = "hello2";
+         |  process (all)
+         |  begin
+         |    assert param = "hello2";
+         |    report "param = " & param severity WARNING;
+         |    assert param = "hello2"
+         |      report "I am the one " & param & " who knocks"
+         |      severity ERROR;
+         |
+         |    assert param = "hello2"
+         |      report "I am the one " & param & " who knocks"
+         |      severity WARNING;
+         |
+         |    println(param);
+         |    println("");
+         |    print("I am the one " & param & " who knocks");
+         |    print("hello");
+         |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
+         |  end process;
+         |end Foo_arch;""".replace("REPLACE", "\"\"\"").stripMargin
+    )
+  }
+  test("text out printing vhdl.v93") {
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    class Foo(val param: String <> CONST = "Hello\n\"World\"!") extends EDDesign:
+      val bar                      = param + "!"
+      val param2                   = param + param
+      val param3: Int <> CONST     = 42
+      val param4                   = d"22"
+      val param5                   = h"abc123"
+      val param6                   = b"101010"
+      val param7                   = d"-11"
+      val param8: Bit <> CONST     = 1
+      val param9: Boolean <> CONST = false
+      enum MyEnum extends Encoded:
+        case A, B, C
+      val param10: MyEnum <> CONST = MyEnum.A
+
+      assert(param == "hello2")
+
+      process(all):
+        assert(param == "hello2")
+        report(param, Severity.Warning)
+        assert(param == "hello2", s"I am the one ${param} who knocks")
+        assert(param == "hello2", s"I am the one ${param} who knocks", Severity.Warning)
+        println(param)
+        println()
+        print(s"I am the one ${param} who knocks")
+        print("hello")
+        println(
+          s"These are the values: $param3, $param4, $param5, $param6, $param7, $param8, $param9, $param10"
+        )
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |generic (
+         |  param : string := "Hello" & LF & REPLACEWorld""!"
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |  constant param3 : integer := 42;
+         |  type t_enum_MyEnum is (
+         |    MyEnum_A, MyEnum_B, MyEnum_C
+         |  );
+         |  constant bar : string := param & "!";
+         |  constant param2 : string := param & param;
+         |  constant param4 : unsigned(4 downto 0) := to_unsigned(22, 5);
+         |  constant param5 : std_logic_vector(23 downto 0) := x"abc123";
+         |  constant param6 : std_logic_vector(5 downto 0) := "101010";
+         |  constant param7 : signed(4 downto 0) := to_signed(-11, 5);
+         |  constant param8 : std_logic := '1';
+         |  constant param9 : boolean := false;
+         |  constant param10 : t_enum_MyEnum := MyEnum_A;
+         |begin
+         |  assert param = "hello2";
+         |  process
+         |  begin
+         |    assert param = "hello2";
+         |    report "param = " & param severity WARNING;
+         |    assert param = "hello2"
+         |      report "I am the one " & param & " who knocks"
+         |      severity ERROR;
+         |
+         |    assert param = "hello2"
+         |      report "I am the one " & param & " who knocks"
+         |      severity WARNING;
+         |
+         |    println(param);
+         |    println("");
+         |    print("I am the one " & param & " who knocks");
+         |    print("hello");
+         |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
+         |  end process;
+         |end Foo_arch;""".replace("REPLACE", "\"\"\"").stripMargin
     )
   }
 end PrintVHDLCodeSpec

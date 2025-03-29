@@ -1175,4 +1175,67 @@ class PrintCodeStringSpec extends StageSpec:
          |end Foo""".stripMargin
     )
   }
+  test("text out printing") {
+    class Foo(val param: String <> CONST = "Hello\n\"World\"!") extends EDDesign:
+      val bar                      = param + "!"
+      val param2                   = param + param
+      val param3: Int <> CONST     = 42
+      val param4                   = d"22"
+      val param5                   = h"abc123"
+      val param6                   = b"101010"
+      val param7                   = d"-11"
+      val param8: Bit <> CONST     = 1
+      val param9: Boolean <> CONST = false
+      enum MyEnum extends Encoded:
+        case A, B, C
+      val param10: MyEnum <> CONST = MyEnum.A
+
+      assert(param == "hello2")
+
+      process(all):
+        assert(param == "hello2")
+        report(param, Severity.Warning)
+        assert(param == "hello2", s"I am the one ${param} who knocks")
+        assert(param == "hello2", s"I am the one ${param} who knocks", Severity.Warning)
+        println(param)
+        println()
+        print(s"I am the one ${param} who knocks")
+        print("hello")
+        println(
+          s"These are the values: $param3, $param4, $param5, $param6, $param7, $param8, $param9, $param10"
+        )
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo(val param: String <> CONST = "Hello\n\"World\"!") extends EDDesign:
+         |  enum MyEnum(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
+         |    case A extends MyEnum(d"2'0")
+         |    case B extends MyEnum(d"2'1")
+         |    case C extends MyEnum(d"2'2")
+         |
+         |  val bar: String <> CONST = param + "!"
+         |  val param2: String <> CONST = param + param
+         |  val param3: Int <> CONST = 42
+         |  val param4: UInt[5] <> CONST = d"5'22"
+         |  val param5: Bits[24] <> CONST = h"abc123"
+         |  val param6: Bits[6] <> CONST = h"6'2a"
+         |  val param7: SInt[5] <> CONST = sd"5'-11"
+         |  val param8: Bit <> CONST = 1
+         |  val param9: Boolean <> CONST = false
+         |  val param10: MyEnum <> CONST = MyEnum.A
+         |  assert(param == "hello2")
+         |  process(all):
+         |    assert(param == "hello2")
+         |    report(s"param = ${param}", Severity.Warning)
+         |    assert(param == "hello2", s"I am the one ${param} who knocks")
+         |    assert(param == "hello2", s"I am the one ${param} who knocks", Severity.Warning)
+         |    println(s"${param}")
+         |    println()
+         |    print(s"I am the one ${param} who knocks")
+         |    print(s"hello")
+         |    println(s"These are the values: ${param3}, ${param4}, ${param5}, ${param6}, ${param7}, ${param8}, ${param9}, ${param10}")
+         |end Foo""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

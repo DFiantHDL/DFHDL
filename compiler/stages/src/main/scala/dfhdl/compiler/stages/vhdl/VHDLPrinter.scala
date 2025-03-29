@@ -7,6 +7,7 @@ import dfhdl.options.PrinterOptions
 import scala.collection.mutable
 import scala.collection.immutable.ListSet
 import DFVal.Func.Op as FuncOp
+
 class VHDLPrinter(val dialect: VHDLDialect)(using
     val getSet: MemberGetSet,
     val printerOptions: PrinterOptions
@@ -56,6 +57,43 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       case DFTime => s"wait for ${wait.triggerRef.refCodeString};"
       case _      => printer.unsupported
   end csWait
+  def csTextOut(textOut: TextOut): String =
+    def csDFValToVHDLString(dfValRef: DFVal.Ref): String =
+      val dfVal = dfValRef.get
+      val csDFVal = dfValRef.refCodeString
+      dfVal.dfType match
+        case DFString       => csDFVal
+        case dfType: DFEnum => s"${printer.csDFEnumTypeName(dfType)}'image($csDFVal)"
+        case _              => s"to_string($csDFVal)"
+    val msg =
+      textOut.msgParts.view.map(scalaToVHDLString).coalesce(
+        textOut.msgArgs.view.map(csDFValToVHDLString)
+      ).mkString(" & ")
+    def csSeverity(severity: TextOut.Severity): String =
+      if (severity == TextOut.Severity.Fatal) "FAILURE" else severity.toString.toUpperCase()
+    textOut.op match
+      case TextOut.Op.Report(severity) =>
+        textOut.msgArgs match
+          // special case for single non-anonymous argument: we print the name and value
+          case (r @ DFRef(single)) :: Nil if textOut.msgParts.isEmpty && !single.isAnonymous =>
+            s"report \"${single.getName} = \" & $msg severity ${csSeverity(severity)};"
+          case _ =>
+            s"report $msg severity ${csSeverity(severity)};"
+        end match
+      case TextOut.Op.Assert(assertionRef, severity) =>
+        if (msg.isEmpty)
+          s"assert ${assertionRef.refCodeString};"
+        else
+          s"""|assert ${assertionRef.refCodeString}
+              |  report $msg
+              |  severity ${csSeverity(severity)};
+              |""".stripMargin
+      case TextOut.Op.Print => s"print($msg);"
+      case TextOut.Op.Println =>
+        if (msg.isEmpty) s"println(\"\");"
+        else s"println($msg);"
+    end match
+  end csTextOut
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
       s"""/*
@@ -142,7 +180,7 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   val vhdlOps: Set[String] = Set(":=", "<=")
   val vhdlTypes: Set[String] =
     Set("std_logic", "std_logic_vector", "integer", "natural", "positive", "ieee", "numeric_std",
-      "std_logic_1164", "work", "signed", "unsigned", "'left", "string")
+      "std_logic_1164", "work", "signed", "unsigned", "'left", "string", "HT", "LF", "CR")
   def colorCode(cs: String): String =
     cs
       .colorWords(vhdlKW, keywordColor)

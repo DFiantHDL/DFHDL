@@ -20,6 +20,8 @@ protected object hdl:
   export core.DFPortOps.*
   export core.ConnectPlaceholder.Ops.*
   export core.Conditional.Ops.*
+  export core.TextOut.Ops.*
+  export compiler.ir.TextOut.Severity
   export internals.CommonOps.*
   export core.{dfType}
   export core.DFPhysical.Val.Ops.*
