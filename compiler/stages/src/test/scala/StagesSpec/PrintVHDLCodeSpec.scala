@@ -1229,7 +1229,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    print("I am the one " & param & " who knocks");
          |    print("hello");
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
-         |    report 
+         |    report
          |      "Debug at Foo" & LF &
          |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1177:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
@@ -1291,7 +1291,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    print("I am the one " & param & " who knocks");
          |    print("hello");
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
-         |    report 
+         |    report
          |      "Debug at Foo" & LF &
          |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1177:9" & LF &
          |      "param3 = " & to_string(param3) & LF &

@@ -88,24 +88,26 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       if (msg.contains(" LF &"))
         s"\n${msg.replaceAll(" LF \\& ", " LF &\n").hindent}\n"
       else msg
+    val reportMsg =
+      if (alignedMsg.nonEmpty && !alignedMsg.contains("\n")) s" $alignedMsg" else alignedMsg
     def csSeverity(severity: TextOut.Severity): String =
       if (severity == TextOut.Severity.Fatal) "FAILURE" else severity.toString.toUpperCase()
     textOut.op match
       case TextOut.Op.Report(severity) =>
-        s"report $alignedMsg severity ${csSeverity(severity)};"
+        s"report$reportMsg severity ${csSeverity(severity)};"
       case TextOut.Op.Assert(assertionRef, severity) =>
         if (alignedMsg.isEmpty)
           s"assert ${assertionRef.refCodeString};"
         else
           s"""|assert ${assertionRef.refCodeString}
-              |  report $alignedMsg
+              |  report$reportMsg
               |  severity ${csSeverity(severity)};
               |""".stripMargin
       case TextOut.Op.Print => s"print($alignedMsg);"
       case TextOut.Op.Println =>
         if (alignedMsg.isEmpty) s"println(\"\");"
         else s"println($alignedMsg);"
-      case TextOut.Op.Debug => s"report $alignedMsg severity NOTE;"
+      case TextOut.Op.Debug => s"report$reportMsg severity NOTE;"
     end match
   end csTextOut
   def csCommentInline(comment: String): String =
