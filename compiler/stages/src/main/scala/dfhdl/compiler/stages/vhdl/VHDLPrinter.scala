@@ -66,32 +66,46 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
         case dfType: DFEnum => s"${printer.csDFEnumTypeName(dfType)}'image($csDFVal)"
         case _              => s"to_string($csDFVal)"
     val msg =
-      textOut.msgParts.view.map(scalaToVHDLString).coalesce(
-        textOut.msgArgs.view.map(csDFValToVHDLString)
-      ).mkString(" & ")
+      textOut.op match
+        case TextOut.Op.Debug =>
+          import textOut.meta.position as pos
+          Iterable(
+            Iterable(
+              scalaToVHDLString(s"Debug at ${textOut.getOwnerDomain.getFullName}"),
+              scalaToVHDLString(s"${pos.fileUnixPath}:${pos.lineStart}:${pos.columnStart}")
+            ),
+            textOut.msgArgs.view.map(a =>
+              s"${scalaToVHDLString(s"${a.get.getName} = ")} & ${csDFValToVHDLString(a)}"
+            )
+          ).flatten.mkString(" & LF & ")
+        case _ =>
+          textOut.msgParts.view.map(scalaToVHDLString).coalesce(
+            textOut.msgArgs.view.map(csDFValToVHDLString)
+          ).mkString(" & ")
+      end match
+    end msg
+    val alignedMsg =
+      if (msg.contains(" LF &"))
+        s"\n${msg.replaceAll(" LF \\& ", " LF &\n").hindent}\n"
+      else msg
     def csSeverity(severity: TextOut.Severity): String =
       if (severity == TextOut.Severity.Fatal) "FAILURE" else severity.toString.toUpperCase()
     textOut.op match
       case TextOut.Op.Report(severity) =>
-        textOut.msgArgs match
-          // special case for single non-anonymous argument: we print the name and value
-          case (r @ DFRef(single)) :: Nil if textOut.msgParts.isEmpty && !single.isAnonymous =>
-            s"report \"${single.getName} = \" & $msg severity ${csSeverity(severity)};"
-          case _ =>
-            s"report $msg severity ${csSeverity(severity)};"
-        end match
+        s"report $alignedMsg severity ${csSeverity(severity)};"
       case TextOut.Op.Assert(assertionRef, severity) =>
-        if (msg.isEmpty)
+        if (alignedMsg.isEmpty)
           s"assert ${assertionRef.refCodeString};"
         else
           s"""|assert ${assertionRef.refCodeString}
-              |  report $msg
+              |  report $alignedMsg
               |  severity ${csSeverity(severity)};
               |""".stripMargin
-      case TextOut.Op.Print => s"print($msg);"
+      case TextOut.Op.Print => s"print($alignedMsg);"
       case TextOut.Op.Println =>
-        if (msg.isEmpty) s"println(\"\");"
-        else s"println($msg);"
+        if (alignedMsg.isEmpty) s"println(\"\");"
+        else s"println($alignedMsg);"
+      case TextOut.Op.Debug => s"report $alignedMsg severity NOTE;"
     end match
   end csTextOut
   def csCommentInline(comment: String): String =

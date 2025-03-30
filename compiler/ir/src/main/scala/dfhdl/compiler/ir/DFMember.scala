@@ -1562,7 +1562,7 @@ object TextOut:
   enum Severity derives CanEqual:
     case Note, Warning, Error, Fatal
   enum Op extends HasRefCompare[Op] derives CanEqual:
-    case Print, Println
+    case Print, Println, Debug
     case Report(severity: Severity) extends Op
     case Assert(assertionRef: AssertionRef, severity: Severity) extends Op
     lazy val getRefs: List[DFRef.TwoWayAny] = this match

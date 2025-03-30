@@ -1174,10 +1174,16 @@ class PrintVHDLCodeSpec extends StageSpec:
         println(
           s"These are the values: $param3, $param4, $param5, $param6, $param7, $param8, $param9, $param10"
         )
+        debug(param3, param4, param5, param6, param7, param8, param9, param10)
     end Foo
-    val top = (new Foo).getCompiledCodeString
+    object vhdl2008:
+      given options.CompilerOptions.Backend = backends.vhdl.v2008
+      val csTop                             = (new Foo).getCompiledCodeString
+    object vhdl93:
+      given options.CompilerOptions.Backend = backends.vhdl.v93
+      val csTop                             = (new Foo).getCompiledCodeString
     assertNoDiff(
-      top,
+      vhdl2008.csTop,
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
@@ -1209,7 +1215,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  process (all)
          |  begin
          |    assert param = "hello2";
-         |    report "param = " & param severity WARNING;
+         |    report param severity WARNING;
          |    assert param = "hello2"
          |      report "I am the one " & param & " who knocks"
          |      severity ERROR;
@@ -1223,44 +1229,23 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    print("I am the one " & param & " who knocks");
          |    print("hello");
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
+         |    report 
+         |      "Debug at Foo" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1177:9" & LF &
+         |      "param3 = " & to_string(param3) & LF &
+         |      "param4 = " & to_string(param4) & LF &
+         |      "param5 = " & to_string(param5) & LF &
+         |      "param6 = " & to_string(param6) & LF &
+         |      "param7 = " & to_string(param7) & LF &
+         |      "param8 = " & to_string(param8) & LF &
+         |      "param9 = " & to_string(param9) & LF &
+         |      "param10 = " & t_enum_MyEnum'image(param10)
+         |     severity NOTE;
          |  end process;
          |end Foo_arch;""".replace("REPLACE", "\"\"\"").stripMargin
     )
-  }
-  test("text out printing vhdl.v93") {
-    given options.CompilerOptions.Backend = backends.vhdl.v93
-    class Foo(val param: String <> CONST = "Hello\n\"World\"!") extends EDDesign:
-      val bar                      = param + "!"
-      val param2                   = param + param
-      val param3: Int <> CONST     = 42
-      val param4                   = d"22"
-      val param5                   = h"abc123"
-      val param6                   = b"101010"
-      val param7                   = d"-11"
-      val param8: Bit <> CONST     = 1
-      val param9: Boolean <> CONST = false
-      enum MyEnum extends Encoded:
-        case A, B, C
-      val param10: MyEnum <> CONST = MyEnum.A
-
-      assert(param == "hello2")
-
-      process(all):
-        assert(param == "hello2")
-        report(param, Severity.Warning)
-        assert(param == "hello2", s"I am the one ${param} who knocks")
-        assert(param == "hello2", s"I am the one ${param} who knocks", Severity.Warning)
-        println(param)
-        println()
-        print(s"I am the one ${param} who knocks")
-        print("hello")
-        println(
-          s"These are the values: $param3, $param4, $param5, $param6, $param7, $param8, $param9, $param10"
-        )
-    end Foo
-    val top = (new Foo).getCompiledCodeString
     assertNoDiff(
-      top,
+      vhdl93.csTop,
       """|library ieee;
          |use ieee.std_logic_1164.all;
          |use ieee.numeric_std.all;
@@ -1292,7 +1277,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  process
          |  begin
          |    assert param = "hello2";
-         |    report "param = " & param severity WARNING;
+         |    report param severity WARNING;
          |    assert param = "hello2"
          |      report "I am the one " & param & " who knocks"
          |      severity ERROR;
@@ -1306,6 +1291,18 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    print("I am the one " & param & " who knocks");
          |    print("hello");
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
+         |    report 
+         |      "Debug at Foo" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1177:9" & LF &
+         |      "param3 = " & to_string(param3) & LF &
+         |      "param4 = " & to_string(param4) & LF &
+         |      "param5 = " & to_string(param5) & LF &
+         |      "param6 = " & to_string(param6) & LF &
+         |      "param7 = " & to_string(param7) & LF &
+         |      "param8 = " & to_string(param8) & LF &
+         |      "param9 = " & to_string(param9) & LF &
+         |      "param10 = " & t_enum_MyEnum'image(param10)
+         |     severity NOTE;
          |  end process;
          |end Foo_arch;""".replace("REPLACE", "\"\"\"").stripMargin
     )
