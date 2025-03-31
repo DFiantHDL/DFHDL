@@ -32,3 +32,10 @@
   '{8'h36, 8'h00, 8'h00, 8'h00} \
 }
 `endif
+`ifndef CIPHERNOOPAQUES_DEFS_MODULE
+`define CIPHERNOOPAQUES_DEFS_MODULE
+`else
+
+`undef CIPHERNOOPAQUES_DEFS_MODULE
+`endif
+

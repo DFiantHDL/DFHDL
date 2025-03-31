@@ -15,6 +15,7 @@ module TrueDPR(
   b_we
 );
   `include "dfhdl_defs.vh"
+  `include "TrueDPR_defs.vh"
   parameter integer DATA_WIDTH = 8;
   parameter integer ADDR_WIDTH = 8;
   input  wire                     a_clk;

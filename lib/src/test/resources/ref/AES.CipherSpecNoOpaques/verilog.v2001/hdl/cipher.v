@@ -8,6 +8,7 @@ module cipher(
   output wire [7:0] o [0:3] [0:3]
 );
   `include "dfhdl_defs.vh"
+  `include "CipherNoOpaques_defs.vh"
   wire [7:0] keySchedule_key [0:3] [0:3];
   wire [7:0] keySchedule_o [0:43] [0:3];
   wire [7:0] state_00_state [0:3] [0:3];

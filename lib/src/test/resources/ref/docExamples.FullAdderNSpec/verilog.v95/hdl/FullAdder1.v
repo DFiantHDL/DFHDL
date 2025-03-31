@@ -10,6 +10,7 @@ module FullAdder1(
   c_out
 );
   `include "dfhdl_defs.vh"
+  `include "FullAdderN_defs.vh"
   input  wire a;
   input  wire b;
   input  wire c_in;

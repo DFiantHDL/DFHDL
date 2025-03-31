@@ -32,3 +32,10 @@
   '{8'h36, 8'h00, 8'h00, 8'h00} \
 }
 `endif
+`ifndef CIPHER_DEFS_MODULE
+`define CIPHER_DEFS_MODULE
+`else
+
+`undef CIPHER_DEFS_MODULE
+`endif
+

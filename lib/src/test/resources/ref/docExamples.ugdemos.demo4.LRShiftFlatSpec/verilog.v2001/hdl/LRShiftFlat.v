@@ -18,6 +18,7 @@ module LRShiftFlat#(parameter integer width = 8)(
   output reg [width - 1:0]          oBits
 );
   `include "dfhdl_defs.vh"
+  `include "LRShiftFlat_defs.vh"
   always @(*)
   begin
     case (dir)

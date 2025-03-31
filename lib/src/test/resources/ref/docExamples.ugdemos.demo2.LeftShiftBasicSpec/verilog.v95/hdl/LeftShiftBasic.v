@@ -9,6 +9,7 @@ module LeftShiftBasic(
   oBits
 );
   `include "dfhdl_defs.vh"
+  `include "LeftShiftBasic_defs.vh"
   /* bits input */
   input  wire  [7:0] iBits;
   /* requested shift */

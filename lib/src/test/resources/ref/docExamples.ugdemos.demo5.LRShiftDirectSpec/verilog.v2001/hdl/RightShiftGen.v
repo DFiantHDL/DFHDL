@@ -16,5 +16,6 @@ module RightShiftGen#(parameter integer width = 8)(
   output wire [width - 1:0]         oBits
 );
   `include "dfhdl_defs.vh"
+  `include "LRShiftDirect_defs.vh"
   assign oBits = iBits >> shift;
 endmodule

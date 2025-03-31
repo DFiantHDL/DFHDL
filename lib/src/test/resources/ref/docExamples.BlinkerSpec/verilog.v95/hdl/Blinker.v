@@ -9,6 +9,7 @@ module Blinker(
   led
 );
   `include "dfhdl_defs.vh"
+  `include "Blinker_defs.vh"
   parameter integer CLK_FREQ_KHz = 50000;
   parameter integer LED_FREQ_Hz = 1;
   /* Half-count of the toggle for 50% duty cycle */

@@ -7,6 +7,7 @@ module shiftRows(
   o
 );
   `include "dfhdl_defs.vh"
+  `include "Cipher_defs.vh"
   input  wire  [7:0] state [0:3] [0:3];
   output wire [7:0] o [0:3] [0:3];
   assign o = '{

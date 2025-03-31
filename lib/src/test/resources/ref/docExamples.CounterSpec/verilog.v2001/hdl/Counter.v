@@ -9,6 +9,7 @@ module Counter#(parameter integer width = 8)(
   output reg [width - 1:0] cnt
 );
   `include "dfhdl_defs.vh"
+  `include "Counter_defs.vh"
   always @(posedge clk)
   begin
     if (rst == 1'b1) cnt <= `TO_UNSIGNED(0, 1, width);

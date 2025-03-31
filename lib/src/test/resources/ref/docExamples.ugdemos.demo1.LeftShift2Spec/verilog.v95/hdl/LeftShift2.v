@@ -8,6 +8,7 @@ module LeftShift2(
   oBits
 );
   `include "dfhdl_defs.vh"
+  `include "LeftShift2_defs.vh"
   /* bits input */
   input  wire  [7:0] iBits;
   /* bits output */
