@@ -21,14 +21,14 @@ module UART_Tx(
   `define Status_DataBits 4
   `define Status_StopBit 8
   `define Status_Finalize 16
-  function [8*8:1] Status_to_string;
+  function [8*15:1] Status_to_string;
     input [4:0] value;
     case (value)
-      `Status_Idle: Status_to_string = "Idle";
-      `Status_StartBit: Status_to_string = "StartBit";
-      `Status_DataBits: Status_to_string = "DataBits";
-      `Status_StopBit: Status_to_string = "StopBit";
-      `Status_Finalize: Status_to_string = "Finalize";
+      `Status_Idle: Status_to_string = "Status_Idle";
+      `Status_StartBit: Status_to_string = "Status_StartBit";
+      `Status_DataBits: Status_to_string = "Status_DataBits";
+      `Status_StopBit: Status_to_string = "Status_StopBit";
+      `Status_Finalize: Status_to_string = "Status_Finalize";
       default: Status_to_string = "?";
     endcase
   endfunction

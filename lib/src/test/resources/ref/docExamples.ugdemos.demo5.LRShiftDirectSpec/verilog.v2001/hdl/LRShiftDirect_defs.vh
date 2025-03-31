@@ -8,11 +8,11 @@
 `ifndef LRSHIFTDIRECT_DEFS_MODULE
 `define LRSHIFTDIRECT_DEFS_MODULE
 `else
-function [8*5:1] ShiftDir_to_string;
+function [8*14:1] ShiftDir_to_string;
   input [0:0] value;
   case (value)
-    `ShiftDir_Left: ShiftDir_to_string = "Left";
-    `ShiftDir_Right: ShiftDir_to_string = "Right";
+    `ShiftDir_Left: ShiftDir_to_string = "ShiftDir_Left";
+    `ShiftDir_Right: ShiftDir_to_string = "ShiftDir_Right";
     default: ShiftDir_to_string = "?";
   endcase
 endfunction

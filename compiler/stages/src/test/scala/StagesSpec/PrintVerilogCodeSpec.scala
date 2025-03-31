@@ -1160,12 +1160,12 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `define MyEnum_A 0
          |  `define MyEnum_B 1
          |  `define MyEnum_C 2
-         |  function [8*1:1] MyEnum_to_string;
+         |  function [8*8:1] MyEnum_to_string;
          |    input [1:0] value;
          |    case (value)
-         |      `MyEnum_A: MyEnum_to_string = "A";
-         |      `MyEnum_B: MyEnum_to_string = "B";
-         |      `MyEnum_C: MyEnum_to_string = "C";
+         |      `MyEnum_A: MyEnum_to_string = "MyEnum_A";
+         |      `MyEnum_B: MyEnum_to_string = "MyEnum_B";
+         |      `MyEnum_C: MyEnum_to_string = "MyEnum_C";
          |      default: MyEnum_to_string = "?";
          |    endcase
          |  endfunction

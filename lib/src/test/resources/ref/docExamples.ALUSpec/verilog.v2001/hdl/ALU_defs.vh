@@ -17,20 +17,20 @@
 `ifndef ALU_DEFS_MODULE
 `define ALU_DEFS_MODULE
 `else
-function [8*5:1] ALUSel_to_string;
+function [8*12:1] ALUSel_to_string;
   input [3:0] value;
   case (value)
-    `ALUSel_ADD: ALUSel_to_string = "ADD";
-    `ALUSel_SUB: ALUSel_to_string = "SUB";
-    `ALUSel_SLL: ALUSel_to_string = "SLL";
-    `ALUSel_SRL: ALUSel_to_string = "SRL";
-    `ALUSel_SRA: ALUSel_to_string = "SRA";
-    `ALUSel_AND: ALUSel_to_string = "AND";
-    `ALUSel_OR: ALUSel_to_string = "OR";
-    `ALUSel_XOR: ALUSel_to_string = "XOR";
-    `ALUSel_SLT: ALUSel_to_string = "SLT";
-    `ALUSel_SLTU: ALUSel_to_string = "SLTU";
-    `ALUSel_COPY1: ALUSel_to_string = "COPY1";
+    `ALUSel_ADD: ALUSel_to_string = "ALUSel_ADD";
+    `ALUSel_SUB: ALUSel_to_string = "ALUSel_SUB";
+    `ALUSel_SLL: ALUSel_to_string = "ALUSel_SLL";
+    `ALUSel_SRL: ALUSel_to_string = "ALUSel_SRL";
+    `ALUSel_SRA: ALUSel_to_string = "ALUSel_SRA";
+    `ALUSel_AND: ALUSel_to_string = "ALUSel_AND";
+    `ALUSel_OR: ALUSel_to_string = "ALUSel_OR";
+    `ALUSel_XOR: ALUSel_to_string = "ALUSel_XOR";
+    `ALUSel_SLT: ALUSel_to_string = "ALUSel_SLT";
+    `ALUSel_SLTU: ALUSel_to_string = "ALUSel_SLTU";
+    `ALUSel_COPY1: ALUSel_to_string = "ALUSel_COPY1";
     default: ALUSel_to_string = "?";
   endcase
 endfunction

@@ -49,12 +49,12 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     if (allowTypeDef) s"t_enum_${dfType.getName}"
     else csDFBits(DFBits(dfType.width), false)
   def csDFEnumToStringFuncDcl(dfType: DFEnum): String =
-    val maxCharWidth = dfType.entries.view.keys.map(_.length).max
     val enumName = dfType.getName
+    val maxCharWidth = dfType.entries.view.keys.map(_.length).max + enumName.length + 1
     val funcName = s"${enumName}_to_string"
     val cases =
       dfType.entries.view
-        .map((n, v) => s"`${enumName}_${n}: $funcName = \"${n}\";")
+        .map((n, v) => s"`${enumName}_${n}: $funcName = \"${enumName}_${n}\";")
         .mkString("\n").hindent(2)
     s"""|function [8*${maxCharWidth}:1] $funcName;
         |  input [${dfType.width - 1}:0] value;
