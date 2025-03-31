@@ -1146,7 +1146,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     )
   }
   test("text out printing") {
-    class Foo(val param: String <> CONST = "Hello\n\"World\"!") extends EDDesign:
+    class Foo(val param: String <> CONST = "Hello\n..\"World\"!") extends EDDesign:
       val bar                      = param + "!"
       val param2                   = param + param
       val param3: Int <> CONST     = 42
@@ -1160,16 +1160,14 @@ class PrintVHDLCodeSpec extends StageSpec:
         case A, B, C
       val param10: MyEnum <> CONST = MyEnum.A
 
-      assert(param == "hello2")
-
       process(all):
         assert(param == "hello2")
         report(param, Severity.Warning)
         assert(param == "hello2", s"I am the one ${param} who knocks")
-        assert(param == "hello2", s"I am the one ${param} who knocks", Severity.Warning)
-        println(param)
+        assert(param8, s"I\\am\nthe \"one\"(!)\n${param}\nwho\nknocks", Severity.Fatal)
+        println(bar)
         println()
-        print(s"I am the one ${param} who knocks")
+        print(s"I am the one ${param2} who knocks")
         print("hello")
         println(
           s"These are the values: $param3, $param4, $param5, $param6, $param7, $param8, $param9, $param10"
@@ -1192,7 +1190,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Foo is
          |generic (
-         |  param : string := "Hello" & LF & REPLACEWorld""!"
+         |  param : string := "Hello" & LF & "..""World""!"
          |);
          |end Foo;
          |
@@ -1211,27 +1209,27 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant param9 : boolean := false;
          |  constant param10 : t_enum_MyEnum := MyEnum_A;
          |begin
-         |  assert param = "hello2";
          |  process (all)
          |  begin
          |    assert param = "hello2";
-         |    report param severity WARNING;
+         |    report "" & param & "" severity WARNING;
          |    assert param = "hello2"
-         |      report "I am the one " & param & " who knocks"
-         |      severity ERROR;
-         |
-         |    assert param = "hello2"
-         |      report "I am the one " & param & " who knocks"
-         |      severity WARNING;
-         |
-         |    println(param);
+         |      report "I am the one " & param & " who knocks" severity ERROR;
+         |    assert param8
+         |      report
+         |        "I\am" & LF &
+         |        "the ""one""(!)" & param & "" & LF &
+         |        "who" & LF &
+         |        "knocks"
+         |      severity FAILURE;
+         |    println("" & bar & "");
          |    println("");
-         |    print("I am the one " & param & " who knocks");
+         |    print("I am the one " & param2 & " who knocks");
          |    print("hello");
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1177:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1175:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1240,9 +1238,9 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      "param8 = " & to_string(param8) & LF &
          |      "param9 = " & to_string(param9) & LF &
          |      "param10 = " & t_enum_MyEnum'image(param10)
-         |     severity NOTE;
+         |    severity NOTE;
          |  end process;
-         |end Foo_arch;""".replace("REPLACE", "\"\"\"").stripMargin
+         |end Foo_arch;""".stripMargin
     )
     assertNoDiff(
       vhdl93.csTop,
@@ -1254,7 +1252,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Foo is
          |generic (
-         |  param : string := "Hello" & LF & REPLACEWorld""!"
+         |  param : string := "Hello" & LF & "..""World""!"
          |);
          |end Foo;
          |
@@ -1273,27 +1271,27 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  constant param9 : boolean := false;
          |  constant param10 : t_enum_MyEnum := MyEnum_A;
          |begin
-         |  assert param = "hello2";
          |  process
          |  begin
          |    assert param = "hello2";
-         |    report param severity WARNING;
+         |    report "" & param & "" severity WARNING;
          |    assert param = "hello2"
-         |      report "I am the one " & param & " who knocks"
-         |      severity ERROR;
-         |
-         |    assert param = "hello2"
-         |      report "I am the one " & param & " who knocks"
-         |      severity WARNING;
-         |
-         |    println(param);
+         |      report "I am the one " & param & " who knocks" severity ERROR;
+         |    assert to_bool(param8)
+         |      report
+         |        "I\am" & LF &
+         |        "the ""one""(!)" & param & "" & LF &
+         |        "who" & LF &
+         |        "knocks"
+         |      severity FAILURE;
+         |    println("" & bar & "");
          |    println("");
-         |    print("I am the one " & param & " who knocks");
+         |    print("I am the one " & param2 & " who knocks");
          |    print("hello");
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1177:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1175:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1302,9 +1300,9 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      "param8 = " & to_string(param8) & LF &
          |      "param9 = " & to_string(param9) & LF &
          |      "param10 = " & t_enum_MyEnum'image(param10)
-         |     severity NOTE;
+         |    severity NOTE;
          |  end process;
-         |end Foo_arch;""".replace("REPLACE", "\"\"\"").stripMargin
+         |end Foo_arch;""".stripMargin
     )
   }
 end PrintVHDLCodeSpec

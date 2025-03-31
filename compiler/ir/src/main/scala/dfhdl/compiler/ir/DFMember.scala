@@ -1560,7 +1560,7 @@ end TextOut
 object TextOut:
   type AssertionRef = DFRef.TwoWay[DFVal, TextOut]
   enum Severity derives CanEqual:
-    case Note, Warning, Error, Fatal
+    case Info, Warning, Error, Fatal
   enum Op extends HasRefCompare[Op] derives CanEqual:
     case Print, Println, Debug
     case Report(severity: Severity) extends Op

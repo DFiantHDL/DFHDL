@@ -94,8 +94,10 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       if (designParamList.length == 0 || !parameterizedModuleSupport) ""
       else if (designParamList.length == 1) designParamList.mkString("#(", ", ", ")")
       else "#(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
+    val includeModuleDefs =
+      if (printer.allowTypeDef) "" else s"""\n  `include "${printer.globalFileName}""""
     s"""module ${moduleName(design)}$designParamCS$portBlock;
-       |  `include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"$declarations
+       |  `include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"$includeModuleDefs$declarations
        |${statements.hindent}
        |endmodule""".stripMargin
   end csModuleDcl

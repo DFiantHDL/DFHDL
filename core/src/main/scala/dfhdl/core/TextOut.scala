@@ -55,7 +55,7 @@ object TextOut:
           scala.Predef.println()
       }
 
-    inline def report(inline message: Any, severity: Severity = Severity.Note): Unit =
+    inline def report(inline message: Any, severity: Severity = Severity.Info): Unit =
       textOut(Op.Report(severity), Some(message))
 
     inline def assert(
@@ -126,7 +126,18 @@ object TextOut:
         case '{ Some($msg) } =>
           msg match
             case '{ StringContext(${ Varargs(partsExprs) }*).s(${ Varargs(argsExprs) }*) } =>
-              msgPartsExpr = '{ List(${ Varargs(partsExprs) }*) }
+              // applying the standard string interpolation escape rules
+              val msgPartsUpdated = partsExprs.map { p =>
+                Expr(
+                  p.value.get
+                    .replaceAll("\\\\n", "\n")
+                    .replaceAll("\\\\t", "\t")
+                    .replaceAll("\\\\r", "\r")
+                    .replaceAll("\\\\\"", "\"")
+                    .replaceAll("\\\\\\\\", "\\\\")
+                )
+              }
+              msgPartsExpr = '{ List(${ Varargs(msgPartsUpdated) }*) }
               val argsExprsUpdated = argsExprs.map {
                 case value if value.isExprOf[DFValAny] => value.asExprOf[DFValAny]
                 case value => '{ DFVal.Const(DFString, Some(${ value }.toString))(using $dfc) }
@@ -134,6 +145,7 @@ object TextOut:
               msgArgsExpr = '{ List(${ Varargs(argsExprsUpdated) }*) }
             case value if value.isExprOf[DFValAny] =>
               msgArgsExpr = '{ List(${ value.asExprOf[DFValAny] }) }
+              msgPartsExpr = '{ List("", "") }
             case _ =>
               msgPartsExpr = '{ List(${ msg }.toString) }
       end match

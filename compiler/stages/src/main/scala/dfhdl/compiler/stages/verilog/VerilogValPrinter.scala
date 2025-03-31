@@ -29,7 +29,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
             case _ => printer.csConstData(param.dfType, param.getConstData.get)
         case _ => csDFValExpr(dfVal)
-      s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = $default$endOfStatement"
+      val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
+      val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
+      s"parameter ${csTypeNoLogic}${dfVal.getName}${arrRange} = $default$endOfStatement"
     else s"`define ${dfVal.getName} ${csDFValExpr(dfVal).replace("\n", " \\\n")}"
 
   def csDFValDclWithoutInit(dfVal: Dcl): String =

@@ -69,45 +69,72 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       textOut.op match
         case TextOut.Op.Debug =>
           import textOut.meta.position as pos
-          Iterable(
-            Iterable(
-              scalaToVHDLString(s"Debug at ${textOut.getOwnerDomain.getFullName}"),
-              scalaToVHDLString(s"${pos.fileUnixPath}:${pos.lineStart}:${pos.columnStart}")
-            ),
-            textOut.msgArgs.view.map(a =>
-              s"${scalaToVHDLString(s"${a.get.getName} = ")} & ${csDFValToVHDLString(a)}"
-            )
-          ).flatten.mkString(" & LF & ")
+          val preambleLF = if (textOut.msgArgs.nonEmpty) " & LF &" else ""
+          //format: off
+          val preamble =
+            s"""|${scalaToVHDLString(s"Debug at ${textOut.getOwnerDomain.getFullName}")} & LF &
+                |${scalaToVHDLString(s"${pos.fileUnixPath}:${pos.lineStart}:${pos.columnStart}")}$preambleLF""".stripMargin
+          //format: on
+          val args =
+            if (textOut.msgArgs.isEmpty) ""
+            else
+              textOut.msgArgs.view.zipWithIndex.map((a, i) =>
+                val argLF = if (i == textOut.msgArgs.length - 1) "" else " & LF &"
+                s"${scalaToVHDLString(s"${a.get.getName} = ")} & ${csDFValToVHDLString(a)}$argLF"
+              ).mkString("\n", "\n", "")
+          "\n" + (preamble + args).hindent + "\n"
         case _ =>
-          textOut.msgParts.view.map(scalaToVHDLString).coalesce(
-            textOut.msgArgs.view.map(csDFValToVHDLString)
-          ).mkString(" & ")
+          val allParts = textOut.msgParts.coalesce(textOut.msgArgs).flatMap {
+            case str: String if str.contains("\n") =>
+              val strs = str.split("\n")
+              if (strs.last.isEmpty) strs.dropRight(1).map(_ + "\n")
+              else strs.dropRight(1).map(_ + "\n") :+ strs.last
+            case p =>
+              List(p)
+          }.toList
+          if (allParts.isEmpty) ""
+          else if (allParts.length == 1) scalaToVHDLString(allParts.head.asInstanceOf[String])
+          else
+            val unindented = allParts.lazyZip(allParts.tail :+ "").map {
+              case (part: String, arg: DFVal.Ref) =>
+                if (part.endsWith("\n"))
+                  s"${scalaToVHDLString(part.dropRight(1))} & ${csDFValToVHDLString(arg)} & LF &\n"
+                else
+                  s"${scalaToVHDLString(part)} & ${csDFValToVHDLString(arg)} & "
+              case (part: String, next: String) =>
+                if (next.isEmpty) scalaToVHDLString(part)
+                else if (part.endsWith("\n")) scalaToVHDLString(part.dropRight(1)) + " & LF &\n"
+                else scalaToVHDLString(part) + " & "
+              case _ => ""
+            }.mkString
+            if (unindented.contains("\n")) "\n" + unindented.hindent + "\n"
+            else unindented
+          end if
       end match
     end msg
-    val alignedMsg =
-      if (msg.contains(" LF &"))
-        s"\n${msg.replaceAll(" LF \\& ", " LF &\n").hindent}\n"
-      else msg
     val reportMsg =
-      if (alignedMsg.nonEmpty && !alignedMsg.contains("\n")) s" $alignedMsg" else alignedMsg
+      if (msg.nonEmpty && !msg.contains("\n")) s" $msg " else msg
+    def csReport(severity: TextOut.Severity, msg: String): String =
+      s"report${reportMsg}severity ${csSeverity(severity)};"
     def csSeverity(severity: TextOut.Severity): String =
-      if (severity == TextOut.Severity.Fatal) "FAILURE" else severity.toString.toUpperCase()
+      severity match
+        case TextOut.Severity.Info    => "NOTE"
+        case TextOut.Severity.Warning => "WARNING"
+        case TextOut.Severity.Error   => "ERROR"
+        case TextOut.Severity.Fatal   => "FAILURE"
     textOut.op match
-      case TextOut.Op.Report(severity) =>
-        s"report$reportMsg severity ${csSeverity(severity)};"
+      case TextOut.Op.Report(severity) => csReport(severity, msg)
       case TextOut.Op.Assert(assertionRef, severity) =>
-        if (alignedMsg.isEmpty)
-          s"assert ${assertionRef.refCodeString};"
+        if (msg.isEmpty)
+          s"assert ${printer.csFixedCond(assertionRef)};"
         else
-          s"""|assert ${assertionRef.refCodeString}
-              |  report$reportMsg
-              |  severity ${csSeverity(severity)};
-              |""".stripMargin
-      case TextOut.Op.Print => s"print($alignedMsg);"
+          s"""|assert ${printer.csFixedCond(assertionRef)}
+              |${csReport(severity, msg).hindent}""".stripMargin
+      case TextOut.Op.Print => s"print($msg);"
       case TextOut.Op.Println =>
-        if (alignedMsg.isEmpty) s"println(\"\");"
-        else s"println($alignedMsg);"
-      case TextOut.Op.Debug => s"report$reportMsg severity NOTE;"
+        if (msg.isEmpty) s"println(\"\");"
+        else s"println($msg);"
+      case TextOut.Op.Debug => csReport(TextOut.Severity.Info, msg)
     end match
   end csTextOut
   def csCommentInline(comment: String): String =
@@ -195,8 +222,9 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
   val vhdlKW: Set[String] = reservedKeywords
   val vhdlOps: Set[String] = Set(":=", "<=")
   val vhdlTypes: Set[String] =
-    Set("std_logic", "std_logic_vector", "integer", "natural", "positive", "ieee", "numeric_std",
-      "std_logic_1164", "work", "signed", "unsigned", "'left", "string", "HT", "LF", "CR")
+    Set("std_logic", "std_logic_vector", "integer", "boolean", "natural", "positive", "ieee",
+      "numeric_std", "std_logic_1164", "work", "signed", "unsigned", "'left", "string", "HT", "LF",
+      "CR")
   def colorCode(cs: String): String =
     cs
       .colorWords(vhdlKW, keywordColor)

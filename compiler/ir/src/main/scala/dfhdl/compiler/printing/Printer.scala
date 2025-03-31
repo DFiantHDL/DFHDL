@@ -330,7 +330,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
       end match
     textOut.op match
       case TextOut.Op.Report(severity) =>
-        val csSeverity = if (severity == TextOut.Severity.Note) "" else s", Severity.${severity}"
+        val csSeverity = if (severity == TextOut.Severity.Info) "" else s", Severity.${severity}"
         s"report($msg$csSeverity)"
       case TextOut.Op.Assert(assertionRef, severity) =>
         val csSeverity = if (severity == TextOut.Severity.Error) "" else s", Severity.${severity}"

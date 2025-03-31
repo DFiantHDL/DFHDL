@@ -41,9 +41,29 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
+  def csGlobalTypeFuncDcls: String =
+    getSet.designDB.getGlobalNamedDFTypes.view.collect { case dfType: DFEnum =>
+      csDFEnumToStringFuncDcl(dfType)
+    }.mkString("\n")
   def csDFEnumTypeName(dfType: DFEnum): String =
     if (allowTypeDef) s"t_enum_${dfType.getName}"
     else csDFBits(DFBits(dfType.width), false)
+  def csDFEnumToStringFuncDcl(dfType: DFEnum): String =
+    val maxCharWidth = dfType.entries.view.keys.map(_.length).max
+    val enumName = dfType.getName
+    val funcName = s"${enumName}_to_string"
+    val cases =
+      dfType.entries.view
+        .map((n, v) => s"`${enumName}_${n}: $funcName = \"${n}\";")
+        .mkString("\n").hindent(2)
+    s"""|function [8*${maxCharWidth}:1] $funcName;
+        |  input [${dfType.width - 1}:0] value;
+        |  case (value)
+        |${cases}
+        |    default: $funcName = "?";
+        |  endcase
+        |endfunction""".stripMargin
+  end csDFEnumToStringFuncDcl
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.getName
     if (allowTypeDef)
@@ -60,7 +80,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     else
       dfType.entries.view
         .map((n, v) => s"`define ${enumName}_$n $v")
-        .mkString("\n")
+        .mkString("", "\n", "\n") + (if (global) "" else csDFEnumToStringFuncDcl(dfType))
     end if
   end csDFEnumDcl
 
