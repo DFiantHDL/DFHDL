@@ -17,7 +17,7 @@ object AppOptions:
     ): Defaults[Design] = AppOptions(defaultMode = defaultMode, clearConsole = clearConsole)
 
   enum DefaultMode derives CanEqual:
-    case help, elaborate, compile, commit, lint
+    case help, elaborate, compile, commit, lint, simulate
   object DefaultMode:
     given DefaultMode =
       if (scastieIsRunning) compile

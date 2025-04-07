@@ -4,7 +4,7 @@ import dfhdl.backends
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
@@ -12,7 +12,7 @@ import java.io.FileWriter
 import java.io.File.separatorChar
 import dfhdl.compiler.stages.verilog.VerilogDialect
 
-object IcarusVerilog extends VerilogLinter:
+object IcarusVerilog extends VerilogLinter, VerilogSimulator:
   val toolName: String = "Icarus Verilog"
   protected def binExec: String = "iverilog"
   protected def versionCmd: String = "-V"
@@ -20,7 +20,7 @@ object IcarusVerilog extends VerilogLinter:
     val versionPattern = """Icarus Verilog version\s+(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
-  protected def lintIncludeFolderFlag: String = "-I"
+  protected def includeFolderFlag: String = "-I"
 
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     val generation = dialect match

@@ -34,6 +34,12 @@ final case class DB(
       globalTags.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
   end getSet
 
+  // considered to be in simulation if the top design has no ports
+  lazy val inSimulation: Boolean = membersNoGlobals.forall {
+    case dcl: DFVal.Dcl if dcl.isPort => dcl.getOwnerDesign != top
+    case _                            => true
+  }
+
   lazy val portsByName: Map[DFDesignInst, Map[String, DFVal.Dcl]] =
     members.view
       .collect { case m: DFVal.Dcl if m.isPort => m }

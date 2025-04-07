@@ -5,7 +5,7 @@ import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, LinterOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, LinterOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
@@ -13,7 +13,7 @@ import java.io.FileWriter
 import java.io.File.separatorChar
 import scala.sys.process.*
 
-object NVC extends VHDLLinter:
+object NVC extends VHDLLinter, VHDLSimulator:
   val toolName: String = "NVC"
   protected def binExec: String = "nvc"
   protected def versionCmd: String = s"--version"

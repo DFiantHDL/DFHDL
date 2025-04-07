@@ -4,7 +4,7 @@ import dfhdl.backends
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
@@ -12,7 +12,7 @@ import java.io.FileWriter
 import java.io.File.separatorChar
 import dfhdl.compiler.stages.verilog.VerilogDialect
 
-object Verilator extends VerilogLinter:
+object Verilator extends VerilogLinter, VerilogSimulator:
   val toolName: String = "Verilator"
   protected def binExec: String = "verilator"
   override protected def windowsBinExec: String = "verilator_bin.exe"
@@ -22,7 +22,7 @@ object Verilator extends VerilogLinter:
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   override val convertWindowsToLinuxPaths: Boolean = true
-  protected def lintIncludeFolderFlag: String = "-I"
+  protected def includeFolderFlag: String = "-I"
 
   override protected def toolFiles(using getSet: MemberGetSet): List[String] =
     getSet.designDB.srcFiles.collect {

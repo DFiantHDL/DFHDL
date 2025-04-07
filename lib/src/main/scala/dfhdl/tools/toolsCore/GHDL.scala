@@ -5,14 +5,14 @@ import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, LinterOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, LinterOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
 
-object GHDL extends VHDLLinter:
+object GHDL extends VHDLLinter, VHDLSimulator:
   val toolName: String = "GHDL"
   protected def binExec: String = "ghdl"
   protected def versionCmd: String = s"version"
