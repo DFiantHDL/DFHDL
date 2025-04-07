@@ -102,7 +102,9 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
       matchWild: String = ""
   ): String =
     val ruleArg = rule.emptyOr(" -rule " + _)
-    val fileArg = file.emptyOr(f => s""" -file "*$separatorChar$f"""")
+    val fileArg =
+      val sep = if (separatorChar == '\\') "\\\\" else separatorChar
+      file.emptyOr(f => s""" -file "*$sep$f"""")
     val lineArg = lines.emptyOr(" -lines " + _)
     val matchWildArg = matchWild.emptyOr(m => s""" -match "$m"""")
     s"lint_off$ruleArg$fileArg$lineArg$matchWildArg"
