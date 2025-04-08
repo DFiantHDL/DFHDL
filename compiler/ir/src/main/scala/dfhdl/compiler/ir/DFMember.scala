@@ -1414,24 +1414,6 @@ final case class DomainBlock(
   ).asInstanceOf[this.type]
 end DomainBlock
 
-sealed trait DFSimMember extends DFMember
-object DFSimMember:
-  final case class Assert(
-      ownerRef: DFOwner.Ref,
-      meta: Meta,
-      tags: DFTags
-  ) extends DFSimMember:
-    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case that: Assert =>
-        this.meta =~ that.meta && this.tags =~ that.tags
-      case _ => false
-    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
-    def copyWithNewRefs: this.type = copy(ownerRef = ownerRef.copyAsNewRef).asInstanceOf[this.type]
-  end Assert
-end DFSimMember
-
 // sealed trait Timer extends DFMember.Named
 // object Timer:
 //   type Ref = DFRef.TwoWay[Timer, DFMember]
