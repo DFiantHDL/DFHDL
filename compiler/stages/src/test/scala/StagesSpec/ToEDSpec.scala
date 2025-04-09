@@ -114,7 +114,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |class ID extends EDDesign:
          |  val clk = Clk_cfg <> IN
          |  val x = SInt(16) <> IN
-         |  val r1 = SInt(16) <> VAR
+         |  val r1 = SInt(16) <> VAR init sd"16'0"
          |  process(clk):
          |    if (clk.actual.falling) r1 :== x
          |end ID

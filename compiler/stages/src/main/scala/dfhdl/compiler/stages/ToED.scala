@@ -303,8 +303,17 @@ case object ToED extends Stage:
       import firstPart.getSet
       val patchList = firstPart.members.collect {
         case dcl: DFVal.Dcl if dcl.modifier.isReg =>
+          // if the domain has no reset, then the register init is preserved for the signal
+          // as a startup reset value
+          val updatedInitRefList = dcl.getDomainType match
+            case DomainType.RT(RTDomainCfg.Explicit(rstCfg = None)) =>
+              dcl.initRefList
+            case _ => Nil
           val updatedDcl =
-            dcl.copy(initRefList = Nil, modifier = dcl.modifier.copy(special = Modifier.Ordinary))
+            dcl.copy(
+              initRefList = updatedInitRefList,
+              modifier = dcl.modifier.copy(special = Modifier.Ordinary)
+            )
           dcl -> Patch.Replace(updatedDcl, Patch.Replace.Config.FullReplacement)
 
       }
