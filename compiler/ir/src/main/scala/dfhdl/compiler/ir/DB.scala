@@ -3,7 +3,7 @@ package dfhdl.compiler.ir
 import scala.reflect.{ClassTag, classTag}
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.collection.immutable.{ListMap, ListSet}
+import scala.collection.immutable.{ListMap, ListSet, BitSet}
 import dfhdl.internals.*
 import dfhdl.compiler.printing.{Printer, DefaultPrinter}
 import DFDesignBlock.InstMode
@@ -616,9 +616,18 @@ final case class DB(
     ret
   end magnetConnectionTable
 
-  def checkDanglingInputs(): Unit =
-    // collect all input ports that are not connected directly or implicitly as magnets
-    val danglingInputs = members.collect {
+  def checkDanglingPorts(): Unit =
+    val assignmentsDclTable =
+      assignmentsTable.keys
+        .flatMap(_.departialDcl)
+        .foldLeft(Map.empty[DFVal.Dcl, BitSet]) { case (acc, (dcl, range)) =>
+          acc.updated(
+            dcl,
+            acc.getOrElse(dcl, BitSet.empty) ++ BitSet.fromSpecific(range)
+          )
+        }
+    // collect all ports that are not connected directly or implicitly as magnets
+    val danglingPorts = members.collect {
       case p: DFVal.Dcl
           if p.isPortIn && !connectionTable.contains(p) &&
             !p.getOwnerDesign.isTop && !magnetConnectionTable.contains(p) =>
@@ -627,12 +636,21 @@ final case class DB(
             |Position:  ${ownerDesign.meta.position}
             |Hierarchy: ${ownerDesign.getFullName}
             |Message:   Found a dangling (unconnected) input port `${p.getName}`.""".stripMargin
+      case p: DFVal.Dcl
+          if p.isPortOut && !p.getOwnerDesign.isDuplicate &&
+            !connectionTable.contains(p) && !assignmentsDclTable.contains(p) &&
+            !magnetConnectionTable.contains(p) && !p.hasNonBubbleInit =>
+        val ownerDesign = p.getOwnerDesign
+        s"""|DFiant HDL connectivity error!
+            |Position:  ${ownerDesign.meta.position}
+            |Hierarchy: ${ownerDesign.getFullName}
+            |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `${p.getName}`.""".stripMargin
     }
-    if (danglingInputs.nonEmpty)
+    if (danglingPorts.nonEmpty)
       throw new IllegalArgumentException(
-        danglingInputs.mkString("\n")
+        danglingPorts.mkString("\n")
       )
-  end checkDanglingInputs
+  end checkDanglingPorts
 
   // holds for each RTDomain/RTDesign/RTInterface that its configuration on another domain,
   // the domain it is dependent on
@@ -982,7 +1000,7 @@ final case class DB(
     nameCheck()
     connectionTable // causes connectivity checks
     magnetConnectionTable // causes magnet connectivity checks
-    checkDanglingInputs()
+    checkDanglingPorts()
     directRefCheck()
     circularDerivedDomainsCheck()
     waitCheck()

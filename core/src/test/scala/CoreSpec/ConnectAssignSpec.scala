@@ -5,6 +5,7 @@ class ConnectAssignSpec extends NoDFCSpec:
   test("OPEN assignment is not allowed") {
     class Foo extends DFDesign:
       val x = Bit <> OUT
+      x := 1
       assertCompileError("`OPEN` cannot be used here.")(
         """x := OPEN"""
       )
@@ -24,6 +25,7 @@ class ConnectAssignSpec extends NoDFCSpec:
       val x = UInt(8) <> OUT
       val ok1 = Bits(8) <> OUT
       val ok2 = Bit <> OUT
+      x := 0
       ok1 := NOTHING
       ok2 := NOTHING
       assertCompileError(
@@ -38,6 +40,7 @@ class ConnectAssignSpec extends NoDFCSpec:
       val ok1 = Bits(8) <> OUT
       val ok2 = Bit <> OUT
       process(all):
+        x := 0
         ok1 := NOTHING
         ok2 := NOTHING
         assertCompileError(

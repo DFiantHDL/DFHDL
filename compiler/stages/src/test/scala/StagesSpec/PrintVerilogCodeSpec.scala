@@ -409,6 +409,9 @@ class PrintVerilogCodeSpec extends StageSpec:
         * very very very very very very very very very very long doc
         */
       val z = Bit <> VAR
+      z <> x
+      y <> z
+    end HasDocs
 
     val top = (new HasDocs).getCompiledCodeString
     assertNoDiff(
@@ -431,7 +434,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |     very very very very very very very very very very long doc
          |    */
          |  logic z;
-         |
+         |  assign z = x;
+         |  assign y = z;
          |endmodule
          |""".stripMargin
     )
@@ -1133,7 +1137,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", param10.name(), "");
          |    $info(
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1085:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1203,7 +1207,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", MyEnum_to_string(param10), "");
          |    $display("INFO: ", 
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1085:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,

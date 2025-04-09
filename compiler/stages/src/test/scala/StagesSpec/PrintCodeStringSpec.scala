@@ -283,6 +283,7 @@ class PrintCodeStringSpec extends StageSpec:
       val y    = SInt(16) <> OUT
       val flag = Bit      <> IN
       val v    = SInt(16) <> VAR
+      y <> x
       process:
         val z = SInt(8) <> VAR
         z := z + 1
@@ -306,6 +307,7 @@ class PrintCodeStringSpec extends StageSpec:
          |  val y     = SInt(16) <> OUT
          |  val flag  = Bit      <> IN
          |  val v     = SInt(16) <> VAR
+         |  y     <>  x
          |  process:
          |    val z   = SInt(8)  <> VAR
          |    z   :=  z + sd"8'1"
@@ -568,6 +570,9 @@ class PrintCodeStringSpec extends StageSpec:
         * very very very very very very very very very very long doc
         */
       val z = Bit <> VAR
+      z <> x
+      y <> z
+    end HasDocs
 
     val top = (new HasDocs).getCodeString
     assertNoDiff(
@@ -584,6 +589,8 @@ class PrintCodeStringSpec extends StageSpec:
          |    * very very very very very very very very very very long doc
          |    **/
          |  val z = Bit <> VAR
+         |  z <> x
+         |  y <> z
          |end HasDocs
          |""".stripMargin
     )
