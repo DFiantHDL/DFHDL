@@ -19,6 +19,7 @@ class ConnectMagnetsSpec extends StageSpec:
          |class Top extends EDDesign:
          |  val x = M1 <> IN
          |  val y = M1 <> OUT
+         |  y <> x
          |end Top
          |""".stripMargin
     )

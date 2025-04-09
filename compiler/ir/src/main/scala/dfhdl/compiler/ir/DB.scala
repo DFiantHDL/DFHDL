@@ -579,7 +579,8 @@ final case class DB(
               // sorted source candidates according to the distance
               val sourceOutCandidates = dclGrp.filter { port =>
                 port.isPortOut && !port.isSameOwnerDesignAs(targetPort) &&
-                port.isInsideOwner(targetDsn)
+                port.isInsideOwner(targetDsn) ||
+                port.isPortIn && port.isSameOwnerDesignAs(targetPort)
               }.map { port =>
                 (port, port.getDistanceFromOwnerDesign(targetDsn))
               }.toList.sortBy(_._2)

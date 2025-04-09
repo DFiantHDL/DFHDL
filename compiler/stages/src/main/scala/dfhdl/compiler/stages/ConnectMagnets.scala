@@ -29,6 +29,7 @@ case object ConnectMagnets extends Stage:
         case (DclIn(), DclIn())   => anotherMagnetConn(fromPortDsn)
         case (DclOut(), DclOut()) => anotherMagnetConn(toPortDsn)
         case (DclIn(), DclOut())  => anotherMagnetConn(toPortDsn.getOwnerDesign)
+        case (DclOut(), DclIn())  => anotherMagnetConn(fromPortDsn)
         case _                    => // do nothing
       end match
     }
