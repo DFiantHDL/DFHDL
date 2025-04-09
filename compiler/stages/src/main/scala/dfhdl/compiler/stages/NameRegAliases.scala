@@ -63,7 +63,7 @@ case object NameRegAliases extends Stage:
       regAlias.getNonRegAliasRelVal match
         // has reg alias versioning if assigned more than once and is not a REG declaration,
         // since REG dcl assignments are "non-blocking".
-        case dcl: DFVal.Dcl if dcl.getAssignmentsTo.size > 1 && !dcl.modifier.isReg =>
+        case dcl: DFVal.Dcl if dcl.getAssignmentsTo.size > 1 && !dcl.isReg =>
           NameGroup(s"${dcl.getName}_ver", true)
         case dfVal: DFVal if dfVal.isAnonymous =>
           dfVal.suggestName.map(NameGroup(_, true)).getOrElse(NameGroup(dfVal.getName, false))

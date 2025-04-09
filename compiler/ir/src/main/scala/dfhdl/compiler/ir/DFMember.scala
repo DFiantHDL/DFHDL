@@ -247,6 +247,9 @@ object DFVal:
     def isDesignParam: Boolean = dfVal match
       case _: DFVal.DesignParam => true
       case _                    => false
+    def isReg: Boolean = dfVal match
+      case dcl: DFVal.Dcl => dcl.modifier.isReg
+      case _              => false
     @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.OPEN] = dfVal match
       case dcl: DFVal.Dcl                           => Some(dcl)
       case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)

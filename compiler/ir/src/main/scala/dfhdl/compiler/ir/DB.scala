@@ -741,7 +741,7 @@ final case class DB(
           (domainOwner.usesClk, domainOwner.usesRst)
         )
     private def usesClk: Boolean = domainOwnerMemberTable(domainOwner).exists {
-      case dcl: DFVal.Dcl                      => dcl.modifier.isReg || dcl.isClkDcl
+      case dcl: DFVal.Dcl                      => dcl.isReg || dcl.isClkDcl
       case reg: DFVal.Alias.History            => true
       case pb: ProcessBlock if pb.isInRTDomain => true
       case internal: DFDesignBlock             => internal.usesClkRst._1
@@ -753,7 +753,7 @@ final case class DB(
 
     private def usesRst: Boolean = domainOwnerMemberTable(domainOwner).exists {
       case dcl: DFVal.Dcl =>
-        (dcl.modifier.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
+        (dcl.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
       case reg: DFVal.Alias.History            => reg.hasNonBubbleInit
       case pb: ProcessBlock if pb.isInRTDomain => true
       case internal: DFDesignBlock             => internal.usesClkRst._2

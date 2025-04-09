@@ -19,7 +19,7 @@ case object ExplicitRegInits extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.members.collect {
       case dcl: DFVal.Dcl
-          if dcl.initRefList.nonEmpty && !dcl.modifier.isReg && dcl.isInRTDomain && !dcl.isConstVAR =>
+          if dcl.initRefList.nonEmpty && !dcl.isReg && dcl.isInRTDomain && !dcl.isConstVAR =>
         dcl -> Patch.Replace(dcl.copy(initRefList = Nil), Patch.Replace.Config.FullReplacement)
       case ra @ DFVal.Alias.History(
             relValRef = DFRef(dcl: DFVal.Dcl),
