@@ -9,7 +9,7 @@ import dfhdl.options.CompilerOptions
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-case object SanityCheck extends Stage:
+case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
   def refCheck()(using MemberGetSet): Unit =
@@ -80,15 +80,16 @@ case object SanityCheck extends Stage:
                   |Referenced value: $dfVal
                   |Referencing members: ${deps.mkString("\n\t", "\n\t", "")}""".stripMargin
             )
-          if (dfVal.originMembers.isEmpty)
-            dfVal match
-              case ch: DFConditional.Header if ch.dfType == DFUnit =>
-              case Ident(_)                                        =>
-              case _ =>
-                reportViolation(
-                  s"""|An anonymous value has no references.
-                      |Referenced value: $dfVal""".stripMargin
-                )
+          if (!skipAnonRefCheck)
+            if (dfVal.originMembers.isEmpty)
+              dfVal match
+                case ch: DFConditional.Header if ch.dfType == DFUnit =>
+                case Ident(_)                                        =>
+                case _ =>
+                  reportViolation(
+                    s"""|An anonymous value has no references.
+                        |Referenced value: $dfVal""".stripMargin
+                  )
         case _ =>
       end match
     }
@@ -240,4 +241,5 @@ case object SanityCheck extends Stage:
 end SanityCheck
 
 extension [T: HasDB](t: T)
-  def sanityCheck(using CompilerOptions): DB = StageRunner.run(SanityCheck)(t.db)
+  def sanityCheck(skipAnonRefCheck: Boolean = false)(using CompilerOptions): DB =
+    StageRunner.run(SanityCheck(skipAnonRefCheck))(t.db)
