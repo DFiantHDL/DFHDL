@@ -7,9 +7,10 @@ import dfhdl.*
     val fetch_count : Int <> CONST,  // set to 2
     val dict_entry_size : Int = 20
 ) extends RTDesign:
-    val dict_in = Bits(fetch_count * dict_entry_size) <> IN 
+    val dict_in = Bits(fetch_count * dict_entry_size) <> IN
     
     val matching = Bits(fetch_count) <> VAR
+    matching := all(0) //added to the original issue code to avoid new latch error
     val addr_r = Bits(12) <> VAR.REG init all(0)
     val idx_r = Bits(12) <> VAR.REG init all(0)
     val sym_r = Bits(8) <> VAR.REG init all(0)

@@ -285,6 +285,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     class Test() extends RTDesign:
       val c = Boolean <> IN
       val z = UInt(8) <> OUT init 0
+      z := 0
       if (c)
         z := z.reg + 1
 
@@ -299,15 +300,19 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val rst = Rst_default <> IN
          |  val c = Boolean <> IN
          |  val z = UInt(8) <> OUT
-         |  val z_reg = UInt(8) <> VAR
-         |  val z_reg_din = UInt(8) <> VAR
+         |  val z_ver_reg = UInt(8) <> VAR
+         |  val z_ver_reg_din = UInt(8) <> VAR
          |  process(all):
-         |    z_reg_din := z
-         |    if (c) z := z_reg + d"8'1"
+         |    z_ver_reg_din := z_ver_reg
+         |    z := d"8'0"
+         |    if (c)
+         |      z_ver_reg_din := z
+         |      z := z_ver_reg + d"8'1"
+         |    end if
          |  process(clk):
          |    if (clk.actual.rising)
-         |      if (rst.actual == 1) z_reg :== d"8'0"
-         |      else z_reg :== z_reg_din
+         |      if (rst.actual == 1) z_ver_reg :== d"8'0"
+         |      else z_ver_reg :== z_ver_reg_din
          |    end if
          |end Test
          |""".stripMargin
@@ -401,6 +406,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     class Test(val width: Int <> CONST) extends RTDesign():
       val c = Boolean     <> IN
       val v = Bits(width) <> VAR
+      v           := all(0)
       if (c) v(0) := 1
 
     val top = Test(2).toED
@@ -410,6 +416,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val c = Boolean <> IN
          |  val v = Bits(width) <> VAR
          |  process(all):
+         |    v := b"0".repeat(width)
          |    if (c) v(0) := 1
          |end Test
          |""".stripMargin

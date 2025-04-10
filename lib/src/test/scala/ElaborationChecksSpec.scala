@@ -252,4 +252,19 @@ class ElaborationChecksSpec extends DesignSpec:
           |Hierarchy: Top
           |Message:   Wait duration 1.sec is not exactly divisible by the clock period 4.sec.""".stripMargin
     )
+  test("latch variables are forbidden under RT domains"):
+    object Test:
+      @top(false) class Top extends RTDesign:
+        val x = Bit <> IN
+        val y = Bit <> OUT
+        if (x)
+          y := 1
+    import Test.*
+    assertElaborationErrors(Top())(
+      s"""|Elaboration errors found!
+          |DFiant HDL connectivity/assignment error!
+          |Position:  ${currentFilePos}ElaborationChecksSpec.scala:259:17 - 259:27
+          |Hierarchy: Top
+          |Message:   Found a latch variable `y`. Latches are not allowed under RT domains.""".stripMargin
+    )
 end ElaborationChecksSpec

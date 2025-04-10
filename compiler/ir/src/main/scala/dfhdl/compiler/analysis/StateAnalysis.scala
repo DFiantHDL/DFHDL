@@ -43,7 +43,7 @@ object StateAnalysis:
         //        }
         ???
       case IteratorDcl() => currentSet
-      case dcl: DFVal.Dcl if (dcl.isPortOut || dcl.isVar) && !dcl.isReg =>
+      case dcl: DFVal.Dcl if (dcl.isPortOut || dcl.isVar) && !dcl.isReg && !dcl.isInProcess =>
         value.getConnectionTo match
           case Some(DFNet.Connection(_, fromVal: DFVal, _)) =>
             consumeFrom(fromVal, relWidth, relBitLow, assignMap, currentSet)

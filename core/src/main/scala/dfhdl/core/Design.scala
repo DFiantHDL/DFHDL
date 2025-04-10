@@ -2,6 +2,7 @@ package dfhdl.core
 import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.compiler.printing.*
+import dfhdl.compiler.analysis.*
 import ir.DFDesignBlock.InstMode
 
 import scala.annotation.{Annotation, implicitNotFound}
@@ -66,7 +67,10 @@ trait Design extends Container, HasClsMetaArgs:
         )
       if (!skipChecks)
         try
-          dfc.mutableDB.immutable.check() // various checks post initial elaboration
+          import Design.latchesCheck
+          val designDB = dfc.mutableDB.immutable
+          designDB.check() // various checks post initial elaboration
+          designDB.latchesCheck()
           customTopChecks() // custom user/library checks
         catch
           case err: (IllegalArgumentException | AssertionError) =>
@@ -107,6 +111,20 @@ object Design:
             else m.setName(name)
           ).asFE
       )
+  end extension
+
+  extension (designDB: ir.DB)
+    def latchesCheck(): Unit =
+      import designDB.getSet
+      val danglingVars = designDB.getImplicitStateVarsRT.view
+        .map { v =>
+          s"""|DFiant HDL connectivity/assignment error!
+              |Position:  ${v.meta.position}
+              |Hierarchy: ${v.getOwnerDomain.getFullName}
+              |Message:   Found a latch variable `${v.getName}`. Latches are not allowed under RT domains.""".stripMargin
+        }
+      if (danglingVars.nonEmpty)
+        throw new IllegalArgumentException(danglingVars.mkString("\n"))
   end extension
 end Design
 

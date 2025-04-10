@@ -52,6 +52,14 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
     this match
       case DFDesignBlock.Top() => false
       case _                   => getOwnerNamed == that
+  final def isOwnedCond(cond: DFOwner => Option[Boolean])(using MemberGetSet): Boolean =
+    var owner = this.getOwner
+    var ret = cond(owner)
+    while (ret.isEmpty && !owner.isTop)
+      owner = owner.getOwner
+      ret = cond(owner)
+    ret.getOrElse(false)
+  end isOwnedCond
   infix def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
     (this, that) match
       case (DFDesignBlock.Top(), DFDesignBlock.Top()) => this == that
@@ -110,6 +118,11 @@ object DFMember:
     def isInEDDomain(using MemberGetSet): Boolean = member.getDomainType match
       case DomainType.ED => true
       case _             => false
+    def isInProcess(using MemberGetSet): Boolean = member.isOwnedCond(cond = {
+      case _: ProcessBlock  => Some(true)
+      case _: DFDomainOwner => Some(false)
+      case _                => None
+    })
   end extension
 
   sealed trait Empty extends DFMember:
