@@ -49,7 +49,7 @@ object StateAnalysis:
             consumeFrom(fromVal, relWidth, relBitLow, assignMap, currentSet)
           case _ =>
             val scope = assignMap(value)
-            if (scope.isConsumingStateAt(access)) currentSet union Set(value) else currentSet
+            if (scope.isConsumingStateAt(access)) currentSet + value else currentSet
       case _ => currentSet
     end match
   end consumeFrom
@@ -128,10 +128,11 @@ object StateAnalysis:
             val args = func.args.map(a => consumeFrom(a.get, scopeMap, currentSet))
             (args.reduce(_ union _), scopeMap)
           case textOut: TextOut =>
-            val args = textOut.getRefs.collect { case DFRef(v: DFVal) => v }.map(a =>
-              consumeFrom(a, scopeMap, currentSet)
-            )
-            (args.reduce(_ union _), scopeMap)
+            val args = textOut.getRefs.view
+              .collect { case DFRef(v: DFVal) => v }
+              .map(a => consumeFrom(a, scopeMap, currentSet))
+            if (args.nonEmpty) (args.reduce(_ union _), scopeMap)
+            else (currentSet, scopeMap)
           case matchBlock: DFConditional.DFMatchHeader =>
             (consumeFrom(matchBlock.selectorRef.get, scopeMap, currentSet), scopeMap)
           case outPort @ DclOut() =>
