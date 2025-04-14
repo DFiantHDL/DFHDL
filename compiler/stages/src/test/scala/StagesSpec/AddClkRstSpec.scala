@@ -478,13 +478,13 @@ class AddClkRstSpec extends StageSpec:
          |  @hw.flattenMode.transparent()
          |  val clkRstSimGen = new EDDomain:
          |    process:
-         |      rst.actual := 1
+         |      rst.actual :== 1
          |      while (true)
-         |        clk.actual := 0
+         |        clk.actual :== 0
          |        10.ns.wait
-         |        clk.actual := 1
+         |        clk.actual :== 1
          |        10.ns.wait
-         |        rst.actual := 0
+         |        rst.actual :== 0
          |      end while
          |  val child = FooChild()
          |end Foo
@@ -515,9 +515,9 @@ class AddClkRstSpec extends StageSpec:
          |  val clkRstSimGen = new EDDomain:
          |    process:
          |      while (true)
-         |        clk.actual := 0
+         |        clk.actual :== 0
          |        10.ns.wait
-         |        clk.actual := 1
+         |        clk.actual :== 1
          |        10.ns.wait
          |      end while
          |  val child = FooChild()

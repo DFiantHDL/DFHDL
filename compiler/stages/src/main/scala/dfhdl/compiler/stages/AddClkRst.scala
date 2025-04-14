@@ -132,15 +132,16 @@ case object AddClkRst extends Stage:
                         dfhdl.core.DFVal.Const(dfhdl.core.DFTime, clkPeriodHalf)
                       process.forever {
                         if (addRst)
-                          rst.actual := dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(rstActive))
+                          rst.actual :== dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(rstActive))
                         val cond: Boolean <> VAL = true
                         dfhdl.core.DFWhile.plugin(cond) {
-                          clk.actual := dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(!clkActive))
+                          clk.actual :== dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(!clkActive))
                           wait(clkPeriodHalfConst)
-                          clk.actual := dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(clkActive))
+                          clk.actual :== dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(clkActive))
                           wait(clkPeriodHalfConst)
                           if (addRst)
-                            rst.actual := dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(!rstActive))
+                            rst.actual :==
+                              dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(!rstActive))
                         }
                       }
                     }
