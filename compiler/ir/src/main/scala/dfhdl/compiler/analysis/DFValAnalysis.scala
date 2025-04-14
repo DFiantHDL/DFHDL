@@ -210,20 +210,22 @@ extension (dfVal: DFVal)
     dfVal.originMembers.view
       .collect { case dfVal: DFVal => dfVal }
       .exists(dfVal => cond(dfVal) || dfVal.existsInComposedReadDeps(cond))
-  def getReadDeps(using MemberGetSet): Set[DFNet | DFVal | DFConditional.Block] =
-    val fromRefs: Set[DFNet | DFVal | DFConditional.Block] = dfVal.originMembersNoTypeRef.flatMap {
-      case net: DFNet =>
-        net match
-          // ignoring receiver or if connecting to an OPEN
-          case DFNet.Connection(toVal = toVal: DFVal) if toVal.isOpen || toVal == dfVal =>
-            None
-          // ignoring receiver
-          case DFNet.Assignment(toVal = toVal) if toVal == dfVal => None
-          case _                                                 => Some(net)
-      case dfVal: DFVal                                                        => Some(dfVal)
-      case guardBlock: DFConditional.Block if guardBlock.guardRef.get == dfVal => Some(guardBlock)
-      case _                                                                   => None
-    }
+  def getReadDeps(using MemberGetSet): Set[TextOut | DFNet | DFVal | DFConditional.Block] =
+    val fromRefs: Set[TextOut | DFNet | DFVal | DFConditional.Block] =
+      dfVal.originMembersNoTypeRef.flatMap {
+        case net: DFNet =>
+          net match
+            // ignoring receiver or if connecting to an OPEN
+            case DFNet.Connection(toVal = toVal: DFVal) if toVal.isOpen || toVal == dfVal =>
+              None
+            // ignoring receiver
+            case DFNet.Assignment(toVal = toVal) if toVal == dfVal => None
+            case _                                                 => Some(net)
+        case dfVal: DFVal                                                        => Some(dfVal)
+        case guardBlock: DFConditional.Block if guardBlock.guardRef.get == dfVal => Some(guardBlock)
+        case textOut: TextOut                                                    => Some(textOut)
+        case _                                                                   => None
+      }
     dfVal match
       // for ports we need to also account for by-name referencing
       case port @ DclPort() =>
