@@ -524,4 +524,36 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("Top-level clk/rst are VAR") {
+    // val clkCfg = ClkCfg(ClkCfg.Edge.Rising)
+    // val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
+    // val cfg    = RTDomainCfg(clkCfg, rstCfg)
+    class FooChild extends RTDesign:
+      val y = UInt(8) <> OUT.REG init 0
+      y.din := y + 1
+
+    class Foo extends RTDesign:
+      val clk = Clk <> VAR
+      val rst = Rst <> VAR
+      clk.actual := 0
+      rst.actual := 0
+      val child = new FooChild
+    val top = (new Foo).explicitClkRstCfg
+    assertCodeString(
+      top,
+      """|class FooChild extends RTDesign(RTDomainCfg.Default):
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  y.din := y + d"8'1"
+         |end FooChild
+         |
+         |class Foo extends RTDesign(RTDomainCfg.Default):
+         |  val clk = Clk <> VAR
+         |  val rst = Rst <> VAR
+         |  clk.actual := 0
+         |  rst.actual := 0
+         |  val child = FooChild()
+         |end Foo
+         |""".stripMargin
+    )
+  }
 end ExplicitClkRstCfgSpec

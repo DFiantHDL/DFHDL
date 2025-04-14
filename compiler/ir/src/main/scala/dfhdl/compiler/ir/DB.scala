@@ -500,11 +500,11 @@ final case class DB(
       //       |Hierarchy: ${targetPort.getOwnerNamed.getFullName}""".stripMargin
       // )
       None
-    // group magnet ports according to the magnet type
+    // group magnet ports/vars according to the magnet type
     val magnetDclGroups =
       members.view
         .collect {
-          case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dcl.isPort && dfType.isMagnet =>
+          case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dfType.isMagnet =>
             (dcl, dfType)
         }
         .groupMap(_._2)(_._1).values.map(_.toSet).toList
@@ -537,11 +537,11 @@ final case class DB(
           val sourcePort: Option[DFVal.Dcl] =
             if (targetPort.isPortIn)
               // sorted source in port candidates according to the distance
-              val sourceInCandidates = dclGrp.filter { port =>
-                port.isPortIn && !port.isSameOwnerDesignAs(targetPort) &&
-                targetPort.isInsideOwner(port.getOwnerDesign)
-              }.map { port =>
-                (port, targetDsn.getDistanceFromOwnerDesign(port.getOwnerDesign))
+              val sourceInCandidates = dclGrp.filter { dcl =>
+                (dcl.isPortIn || dcl.isVar) && !dcl.isSameOwnerDesignAs(targetPort) &&
+                targetPort.isInsideOwner(dcl.getOwnerDesign)
+              }.map { dcl =>
+                (dcl, targetDsn.getDistanceFromOwnerDesign(dcl.getOwnerDesign))
               }.toList.sortBy(_._2)
               // sorted source out port candidates according to the distance
               val sourceOutCandidates = dclGrp.filter(_.isPortOut)
@@ -577,12 +577,12 @@ final case class DB(
             // target is an output
             else
               // sorted source candidates according to the distance
-              val sourceOutCandidates = dclGrp.filter { port =>
-                port.isPortOut && !port.isSameOwnerDesignAs(targetPort) &&
-                port.isInsideOwner(targetDsn) ||
-                port.isPortIn && port.isSameOwnerDesignAs(targetPort)
-              }.map { port =>
-                (port, port.getDistanceFromOwnerDesign(targetDsn))
+              val sourceOutCandidates = dclGrp.filter { dcl =>
+                (dcl.isPortOut || dcl.isVar) && !dcl.isSameOwnerDesignAs(targetPort) &&
+                dcl.isInsideOwner(targetDsn) ||
+                dcl.isPortIn && dcl.isSameOwnerDesignAs(targetPort)
+              }.map { dcl =>
+                (dcl, dcl.getDistanceFromOwnerDesign(targetDsn))
               }.toList.sortBy(_._2)
               sourceOutCandidates match
                 case Nil =>
