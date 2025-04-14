@@ -199,4 +199,35 @@ class ConnectMagnetsSpec extends StageSpec:
          |end Top""".stripMargin
     )
   }
+  test("Basic hierarchy with variables as magnet sources") {
+    class Inside extends EDDesign:
+      val x = M1 <> IN
+      process(all):
+        report(x)
+    class Top extends EDDesign:
+      val x      = M1 <> VAR
+      val inside = Inside()
+      process(all):
+        x.actual :== 0
+    val top = (new Top).connectMagnets
+    assertCodeString(
+      top,
+      """|case class M1() extends Magnet(Bit)
+         |
+         |class Inside extends EDDesign:
+         |  val x = M1 <> IN
+         |  process(all):
+         |    report(s"${x}")
+         |end Inside
+         |
+         |class Top extends EDDesign:
+         |  val x = M1 <> VAR
+         |  val inside = Inside()
+         |  process(all):
+         |    x.actual :== 0
+         |  inside.x <> x
+         |end Top""".stripMargin
+    )
+  }
+
 end ConnectMagnetsSpec

@@ -9,7 +9,7 @@ import scala.collection.mutable
 import dfhdl.core.DFOpaque as coreDFOpaque
 import dfhdl.core.{asFE, ModifierAny}
 
-/** This stage creates explicit magnet port connections across the entire design.
+/** This stage creates explicit magnet port/var connections across the entire design.
   */
 case object ConnectMagnets extends Stage:
   def dependencies: List[Stage] = List(AddMagnets)
@@ -17,20 +17,20 @@ case object ConnectMagnets extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     // Populating a design magnet connection map
     val magnetConns = mutable.Map.empty[DFDesignBlock, List[(DFVal.Dcl, DFVal.Dcl)]]
-    designDB.magnetConnectionTable.foreach { (toPort, fromPort) =>
+    designDB.magnetConnectionTable.foreach { (toPort, fromDcl) =>
       val toPortDsn = toPort.getOwnerDesign
-      val fromPortDsn = fromPort.getOwnerDesign
+      val fromDclDsn = fromDcl.getOwnerDesign
       val dfType = toPort.dfType
       def anotherMagnetConn(dsn: DFDesignBlock): Unit =
         magnetConns.get(dsn) match
-          case None           => magnetConns += dsn -> List((toPort, fromPort))
-          case Some(connList) => magnetConns += dsn -> ((toPort, fromPort) :: connList)
-      (toPort, fromPort) match
-        case (DclIn(), DclIn())   => anotherMagnetConn(fromPortDsn)
-        case (DclOut(), DclOut()) => anotherMagnetConn(toPortDsn)
-        case (DclIn(), DclOut())  => anotherMagnetConn(toPortDsn.getOwnerDesign)
-        case (DclOut(), DclIn())  => anotherMagnetConn(fromPortDsn)
-        case _                    => // do nothing
+          case None           => magnetConns += dsn -> List((toPort, fromDcl))
+          case Some(connList) => magnetConns += dsn -> ((toPort, fromDcl) :: connList)
+      (toPort, fromDcl) match
+        case (DclIn(), DclIn() | DclVar())  => anotherMagnetConn(fromDclDsn)
+        case (DclOut(), DclOut())           => anotherMagnetConn(toPortDsn)
+        case (DclIn(), DclOut())            => anotherMagnetConn(toPortDsn.getOwnerDesign)
+        case (DclOut(), DclIn() | DclVar()) => anotherMagnetConn(fromDclDsn)
+        case _                              => // do nothing
       end match
     }
     val patchList: List[(DFMember, Patch)] = designDB.designMemberList.flatMap {
