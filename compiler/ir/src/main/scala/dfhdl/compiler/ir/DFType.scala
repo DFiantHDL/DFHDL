@@ -552,7 +552,16 @@ object DFPhysical extends DFType.Companion[DFPhysical, (BigDecimal, Any)]:
             case DFPhysical.Unit.Freq.Scale.GHz => value * BigDecimal(1000000000)
         def to_ps(value: BigDecimal): BigDecimal =
           BigDecimal(1e12) / to_hz(value)
-
+        def to_period(value: BigDecimal): (BigDecimal, Unit.Time.Scale) =
+          val psVal = to_ps(value)
+          if psVal < BigDecimal(1000) then (psVal, Unit.Time.Scale.ps)
+          else if psVal < BigDecimal(1000000) then (psVal / 1000, Unit.Time.Scale.ns)
+          else if psVal < BigDecimal(1000000000) then (psVal / 1000000, Unit.Time.Scale.us)
+          else if psVal < 1000000000000L then (psVal / 1000000000L, Unit.Time.Scale.ms)
+          else if psVal < 1000000000000000L then (psVal / 1000000000000L, Unit.Time.Scale.sec)
+          else (psVal / 60000000000000L, Unit.Time.Scale.min)
+      end Scale
+    end Freq
   end Unit
 end DFPhysical
 

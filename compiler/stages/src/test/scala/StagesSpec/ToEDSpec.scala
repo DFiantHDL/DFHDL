@@ -361,18 +361,22 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
   test("DFMatch test case 1") {
     class Test extends RTDesign:
+      val y      = Bit     <> OUT
       val status = UInt(8) <> VAR
+      y := 1
       status match
-        case 0 =>
+        case 0 => y := 0
 
     val top = Test().toED
     assertCodeString(
       top,
       """|class Test extends EDDesign:
+         |  val y = Bit <> OUT
          |  val status = UInt(8) <> VAR
          |  process(all):
+         |    y := 1
          |    status match
-         |      case d"8'0" =>
+         |      case d"8'0" => y := 0
          |    end match
          |end Test
          |""".stripMargin
@@ -380,9 +384,11 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
   test("DFMatch test case 2") {
     class Test extends RTDesign:
+      val y      = Bit     <> OUT
       val status = UInt(8) <> VAR.REG
+      y := 1
       status match
-        case 0 =>
+        case 0 => y := 0
 
     val top = Test().toED
     assertCodeString(
@@ -391,13 +397,16 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |
          |class Test extends EDDesign:
          |  val clk = Clk_default <> IN
+         |  val y = Bit <> OUT
          |  val status = UInt(8) <> VAR
+         |  val status_din = UInt(8) <> VAR
+         |  process(all):
+         |    y := 1
+         |    status match
+         |      case d"8'0" => y := 0
+         |    end match
          |  process(clk):
-         |    if (clk.actual.rising)
-         |      status match
-         |        case d"8'0" =>
-         |      end match
-         |    end if
+         |    if (clk.actual.rising) status :== status_din
          |end Test
          |""".stripMargin
     )

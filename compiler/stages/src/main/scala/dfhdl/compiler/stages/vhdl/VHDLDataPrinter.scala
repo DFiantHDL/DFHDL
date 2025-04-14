@@ -96,7 +96,10 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
   def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String =
     dfType.unit match
       case DFPhysical.Unit.Time =>
-        s"${data._1} ${data._2}"
+        val formattedValue = data._1 match
+          case bd if bd.isWhole && bd.abs < BigDecimal(1e9) => bd.toBigInt.toString
+          case bd                                           => bd.toString
+        s"${formattedValue} ${data._2}"
       case _ => printer.unsupported
   def scalaToVHDLString(str: String): String =
     str.view.map {

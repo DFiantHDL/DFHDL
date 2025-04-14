@@ -213,7 +213,10 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
       case Some(value) => value.toString
       case None        => "?"
   def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String =
-    s"${data._1}.${data._2}"
+    val formattedValue = data._1 match
+      case bd if bd.isWhole && bd.abs < BigDecimal(1e9) => bd.toBigInt.toString
+      case bd                                           => bd.toString
+    s"$formattedValue.${data._2}"
   def scalaToDFHDLString(str: String): String =
     str.view.map {
       case '\\' => "\\\\"
