@@ -473,10 +473,10 @@ class AddClkRstSpec extends StageSpec:
          |end FooChild
          |
          |class Foo extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> VAR
+         |  val rst = Rst_cfg <> VAR
          |  @hw.flattenMode.transparent()
          |  val clkRstSimGen = new EDDomain:
-         |    val clk = Clk_cfg <> VAR
-         |    val rst = Rst_cfg <> VAR
          |    process:
          |      rst.actual := 1
          |      while (true)
@@ -510,9 +510,9 @@ class AddClkRstSpec extends StageSpec:
          |end FooChild
          |
          |class Foo extends RTDesign(cfgNoRst):
+         |  val clk = Clk_cfgNoRst <> VAR
          |  @hw.flattenMode.transparent()
          |  val clkRstSimGen = new EDDomain:
-         |    val clk = Clk_cfgNoRst <> VAR
          |    process:
          |      while (true)
          |        clk.actual := 0

@@ -101,14 +101,14 @@ case object AddClkRst extends Stage:
               val dsn = new MetaDesign(owner, Patch.Add.Config.InsideFirst):
                 val selfDFC = dfc
                 if (simGen)
+                  val clk = (clkType <> VAR)(using dfc.setName(requiredClkName.get))
+                  lazy val rst = (rstType <> VAR)(using dfc.setName(requiredRstName.get))
+                  if (addRst) rst // touch lazy rst to create
                   val clkRstSimGen = new EDDomain:
                     override protected def __dfc: DFC =
                       selfDFC.setName("clkRstSimGen")
                         .setAnnotations(List(dfhdl.hw.flattenMode.transparent()))
                     val dfcAnon = selfDFC.anonymize.setAnnotations(Nil)
-                    val clk = (clkType <> VAR)(using dfcAnon.setName(requiredClkName.get))
-                    lazy val rst = (rstType <> VAR)(using dfcAnon.setName(requiredRstName.get))
-                    if (addRst) rst // touch lazy rst to create
                     locally {
                       given DFC = selfDFC.anonymize.setAnnotations(Nil)
                       val clkRate =

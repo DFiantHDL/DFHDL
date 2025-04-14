@@ -796,4 +796,37 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("RT design with ED domain") {
+    class Foo extends RTDesign:
+      val clk = Clk <> VAR
+      val rst = Rst <> VAR
+      val internal = new EDDomain:
+        process(all):
+          clk.actual := 0
+          rst.actual := 0
+      val y = UInt(8) <> VAR.REG init d"8'0"
+      y.din := y + d"8'1"
+    end Foo
+    val top = (new Foo).toED
+    assertCodeString(
+      top,
+      """|class Foo extends EDDesign:
+         |  case class Clk_default() extends Clk
+         |  case class Rst_default() extends Rst
+         |
+         |  val clk = Clk_default <> VAR
+         |  val rst = Rst_default <> VAR
+         |  val y = UInt(8) <> VAR
+         |  val internal = new EDDomain:
+         |    process(all):
+         |      clk.actual := 0
+         |      rst.actual := 0
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) y :== d"8'0"
+         |      else y :== y + d"8'1"
+         |    end if
+         |end Foo""".stripMargin
+    )
+  }
 end ToEDSpec
