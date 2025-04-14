@@ -241,5 +241,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
 end SanityCheck
 
 extension [T: HasDB](t: T)
-  def sanityCheck(skipAnonRefCheck: Boolean = false)(using CompilerOptions): DB =
+  def sanityCheck(skipAnonRefCheck: Boolean)(using CompilerOptions): DB =
     StageRunner.run(SanityCheck(skipAnonRefCheck))(t.db)
+  def sanityCheck(using CompilerOptions): DB =
+    t.sanityCheck(skipAnonRefCheck = false)
