@@ -1,4 +1,6 @@
 package dfhdl.options
+import dfhdl.core.Wait.Duration
+import dfhdl.core.Wait.Ops.cy
 import dfhdl.core.Design
 import SimulatorOptions.*
 
@@ -6,7 +8,8 @@ final case class SimulatorOptions(
     onError: OnError,
     fatalWarnings: FatalWarnings,
     verilogSimulator: VerilogSimulator,
-    vhdlSimulator: VHDLSimulator
+    vhdlSimulator: VHDLSimulator,
+    runLimit: RunLimit
 ) extends ToolOptions
 
 //defaults common for all linting tools
@@ -17,12 +20,11 @@ object SimulatorOptions:
         onError: OnError,
         fatalWarnings: FatalWarnings,
         verilogSimulator: VerilogSimulator,
-        vhdlSimulator: VHDLSimulator
+        vhdlSimulator: VHDLSimulator,
+        runLimit: RunLimit
     ): Defaults[Design] = SimulatorOptions(
-      onError = onError,
-      fatalWarnings = fatalWarnings,
-      verilogSimulator = verilogSimulator,
-      vhdlSimulator = vhdlSimulator
+      onError = onError, fatalWarnings = fatalWarnings, verilogSimulator = verilogSimulator,
+      vhdlSimulator = vhdlSimulator, runLimit = runLimit
     )
   given (using defaults: Defaults[Design]): SimulatorOptions = defaults
 
@@ -55,4 +57,8 @@ object SimulatorOptions:
     given VHDLSimulator = ghdl
     given Conversion[dfhdl.tools.toolsCore.VHDLSimulator, VHDLSimulator] = identity
 
+  opaque type RunLimit <: (Duration | None.type) = (Duration | None.type)
+  object RunLimit:
+    given RunLimit = 100.cy
+    given Conversion[Duration | None.type, RunLimit] = identity
 end SimulatorOptions
