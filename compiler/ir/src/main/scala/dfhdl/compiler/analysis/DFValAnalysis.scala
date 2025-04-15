@@ -394,6 +394,13 @@ extension (net: DFNet)
         lhs.collectRelMembers(false) ++ rhs.collectRelMembers(false)
       case _ => Nil
 
+extension (textOut: TextOut)
+  @targetName("collectRelMembersTextOut")
+  def collectRelMembers(using MemberGetSet): List[DFVal] =
+    textOut.getRefs.view
+      .collect { case DFRef(dfVal: DFVal) => dfVal }
+      .flatMap(_.collectRelMembers(false)).toList
+
 extension (member: DFMember)
   def isPublicMember(using MemberGetSet): Boolean =
     member match
