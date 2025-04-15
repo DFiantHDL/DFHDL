@@ -274,7 +274,7 @@ function to_string(A : unsigned) return string is
   variable temp : unsigned(A'length-1 downto 0) := A;
   variable digit : natural;
   -- Calculate max possible length: ceiling(bits * log10(2)) + 1 for null termination
-  -- log10(2) ≈ 0.301, so we multiply by 31/100 as an integer approximation (slightly larger)
+  -- log10(2) =~ 0.301, so we multiply by 31/100 as an integer approximation (slightly larger)
   variable max_len : integer := (31 * A'length) / 100 + 2;  -- +1 for rounding, +1 for safety
   variable result : string(1 to max_len);
   variable idx : integer := max_len;
