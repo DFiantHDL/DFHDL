@@ -42,7 +42,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
 
   override protected def lintCmdPreLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String =
     val hasTiming = getSet.designDB.members.exists {
@@ -57,7 +57,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     "-Wall",

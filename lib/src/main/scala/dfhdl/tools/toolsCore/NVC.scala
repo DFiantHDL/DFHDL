@@ -5,7 +5,7 @@ import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, LinterOptions, SimulatorOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
@@ -30,7 +30,7 @@ object NVC extends VHDLLinter, VHDLSimulator:
 
   override protected def lintLogger(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): Option[Tool.ProcessLogger] =
     var insideWarning = false
@@ -57,7 +57,7 @@ object NVC extends VHDLLinter, VHDLSimulator:
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     "-a",

@@ -37,7 +37,7 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
 
   override protected def lintCmdPreLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     s"-o $topName"
@@ -45,7 +45,7 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     "-Wall"
@@ -53,7 +53,7 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
 
   override protected def lintLogger(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): Option[Tool.ProcessLogger] = Some(
     Tool.ProcessLogger(

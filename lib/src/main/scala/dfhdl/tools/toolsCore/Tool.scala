@@ -156,22 +156,22 @@ trait VHDLTool extends Tool
 trait Linter extends Tool:
   final def lint[D <: Design](
       cd: CompiledDesign[D]
-  )(using CompilerOptions, LinterOptions): CompiledDesign[D] =
+  )(using CompilerOptions, ToolOptions): CompiledDesign[D] =
     given MemberGetSet = cd.stagedDB.getSet
     exec(lintCmdFlags, lintPrepare(), lintLogger)
     cd
-  protected def lintPrepare()(using CompilerOptions, LinterOptions, MemberGetSet): Unit = {}
+  protected def lintPrepare()(using CompilerOptions, ToolOptions, MemberGetSet): Unit = {}
   protected def lintLogger(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): Option[Tool.ProcessLogger] = None
   protected def lintCmdLanguageFlag(using co: CompilerOptions): String
-  protected def lintCmdSources(using CompilerOptions, LinterOptions, MemberGetSet): String
-  protected def lintCmdPreLangFlags(using CompilerOptions, LinterOptions, MemberGetSet): String = ""
-  protected def lintCmdPostLangFlags(using CompilerOptions, LinterOptions, MemberGetSet): String =
+  protected def lintCmdSources(using CompilerOptions, ToolOptions, MemberGetSet): String
+  protected def lintCmdPreLangFlags(using CompilerOptions, ToolOptions, MemberGetSet): String = ""
+  protected def lintCmdPostLangFlags(using CompilerOptions, ToolOptions, MemberGetSet): String =
     ""
-  final protected def lintCmdFlags(using CompilerOptions, LinterOptions, MemberGetSet): String =
+  final protected def lintCmdFlags(using CompilerOptions, ToolOptions, MemberGetSet): String =
     constructCommand(lintCmdPreLangFlags, lintCmdLanguageFlag, lintCmdPostLangFlags, lintCmdSources)
 end Linter
 
@@ -180,22 +180,24 @@ trait VerilogLinter extends Linter, VerilogTool:
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String
   final protected def lintCmdLanguageFlag(using co: CompilerOptions): String =
     lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.verilog].dialect)
-  final protected def lintCmdSources(using CompilerOptions, LinterOptions, MemberGetSet): String =
+  final protected def lintCmdSources(using CompilerOptions, ToolOptions, MemberGetSet): String =
     (designDefFolders.map(includeFolderFlag + _) ++ toolFiles ++ designFiles).mkString(" ")
 
 trait VHDLLinter extends Linter, VHDLTool:
   // Converts the selected compiler vhdl dialect to the relevant lint flag
   protected def lintCmdLanguageFlag(dialect: VHDLDialect): String
-  final protected def lintCmdSources(using CompilerOptions, LinterOptions, MemberGetSet): String =
+  final protected def lintCmdSources(using CompilerOptions, ToolOptions, MemberGetSet): String =
     (designDefFiles ++ toolFiles ++ designFiles).mkString(" ")
   final protected def lintCmdLanguageFlag(using co: CompilerOptions): String =
     lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Simulator extends Tool:
+  val simRunsLint: Boolean = false
   final def simulate[D <: Design](
       cd: CompiledDesign[D]
   )(using CompilerOptions, SimulatorOptions): CompiledDesign[D] =
     given MemberGetSet = cd.stagedDB.getSet
+    if (simRunsLint) this.asInstanceOf[Linter].lint(cd)
     exec(simulateCmdFlags, simulatePrepare(), simulateLogger)
     cd
   protected def simulatePrepare()(using CompilerOptions, SimulatorOptions, MemberGetSet): Unit = {}
@@ -240,7 +242,8 @@ trait VerilogSimulator extends Simulator, VerilogTool:
       SimulatorOptions,
       MemberGetSet
   ): String =
-    (designDefFolders.map(includeFolderFlag + _) ++ toolFiles ++ designFiles).mkString(" ")
+    if (simRunsLint) ""
+    else (designDefFolders.map(includeFolderFlag + _) ++ toolFiles ++ designFiles).mkString(" ")
 
 trait VHDLSimulator extends Simulator, VHDLTool:
   // Converts the selected compiler vhdl dialect to the relevant lint flag
@@ -250,7 +253,8 @@ trait VHDLSimulator extends Simulator, VHDLTool:
       SimulatorOptions,
       MemberGetSet
   ): String =
-    (designDefFiles ++ toolFiles ++ designFiles).mkString(" ")
+    if (simRunsLint) ""
+    else (designDefFiles ++ toolFiles ++ designFiles).mkString(" ")
   final protected def simulateCmdLanguageFlag(using co: CompilerOptions): String =
     simulateCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 

@@ -22,17 +22,17 @@ trait QuestaSimCommon extends Linter, Simulator:
 
   override protected def lintCmdPreLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     "-quiet",
-    summon[LinterOptions].fatalWarnings.toFlag("-warning error")
+    summon[ToolOptions].fatalWarnings.toFlag("-warning error")
   )
 
   // creating a questa sim work lib if the work/_info file is missing
   final override protected def lintPrepare()(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): Unit =
     val work = new java.io.File(s"${execPath}${separatorChar}work${separatorChar}_info")
@@ -62,7 +62,7 @@ object QuestaSimVHDL extends QuestaSimCommon, VHDLLinter, VHDLSimulator:
       case VHDLDialect.v2019 => "-2019"
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     // suppressing shared variable warnings

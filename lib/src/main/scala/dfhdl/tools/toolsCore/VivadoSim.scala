@@ -24,7 +24,7 @@ trait VivadoSimCommon extends Linter, Simulator:
   protected def suppressLine(line: String): Boolean = line.startsWith("INFO:")
   final override protected def lintLogger(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): Option[Tool.ProcessLogger] = Some(
     Tool.ProcessLogger(
