@@ -325,7 +325,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val y = Bits(8) <> OUT.REG init all(0)
       y(0).din := 1
       if (c)
-        z.din       := z + 1
+        z.din := z + 1
+        assert(z == 77, s"y: $y")
         y(7, 4).din := all(1)
       else y.din := all(0)
 
@@ -350,6 +351,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |        y(0) :== 1
          |        if (c)
          |          z :== z + d"8'1"
+         |          assert(z == d"8'77", s"y: ${y}")
          |          y(7, 4) :== h"f"
          |        else y :== h"00"
          |        end if

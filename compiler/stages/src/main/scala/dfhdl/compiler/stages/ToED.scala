@@ -77,6 +77,8 @@ case object ToED extends Stage:
                   cb.guardRef.get match
                     case dfVal: DFVal => cb :: dfVal.collectRelMembers(false)
                     case _            => List(cb)
+                case textOut: TextOut =>
+                  textOut :: textOut.collectRelMembers
                 case _ => None
               }.toSet
 
