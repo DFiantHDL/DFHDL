@@ -39,20 +39,23 @@ trait DFApp:
   // command-line options
   final protected def getElaborationOptions: options.ElaborationOptions = elaborationOptions
   final protected def setInitials(
-      _designName: String,
-      _topScalaPath: String,
+      designName: String,
+      topScalaPath: String,
       top: dfhdl.top,
       argNames: List[String],
       argValues: List[Any],
-      argDescs: List[String]
+      argDescs: List[String],
+      scalacWerror: Boolean
   ): Unit =
-    designName = _designName
-    topScalaPath = _topScalaPath
+    this.designName = designName
+    this.topScalaPath = topScalaPath
     elaborationOptions = top.elaborationOptions
     compilerOptions = top.compilerOptions
     printerOptions = top.printerOptions
-    linterOptions = top.linterOptions
-    simulatorOptions = top.simulatorOptions
+    linterOptions =
+      top.linterOptions.copy(Werror = top.linterOptions.Werror.fromScalac(scalacWerror))
+    simulatorOptions =
+      top.simulatorOptions.copy(Werror = top.simulatorOptions.Werror.fromScalac(scalacWerror))
     appOptions = top.appOptions
     designArgs = DesignArgs(argNames, argValues, argDescs)
   end setInitials
@@ -193,6 +196,7 @@ trait DFApp:
         parsedCommandLine.mode match
           case mode: Mode.ElaborateMode =>
             elaborationOptions = elaborationOptions.copy(
+              Werror = mode.Werror.toOption.get,
               printDFHDLCode = mode.`print-elaborate`.toOption.get
             )
           case _ =>
@@ -212,14 +216,14 @@ trait DFApp:
             linterOptions = linterOptions.copy(
               verilogLinter = toolSelection.verilogLinter,
               vhdlLinter = toolSelection.vhdlLinter,
-              fatalWarnings = mode.fatalWarnings.toOption.get
+              Werror = mode.`Werror-tool`.toOption.get
             )
           case mode: Mode.SimulateMode =>
             val toolSelection = mode.tool.toOption.get
             simulatorOptions = simulatorOptions.copy(
               verilogSimulator = toolSelection.verilogSimulator,
               vhdlSimulator = toolSelection.vhdlSimulator,
-              fatalWarnings = mode.fatalWarnings.toOption.get
+              Werror = mode.`Werror-tool`.toOption.get
             )
           case _ =>
         end match

@@ -6,7 +6,7 @@ import dfhdl.compiler.stages.getCompiledCodeString
 
 class IssuesSpec extends FunSuite:
   given options.OnError = options.OnError.Exception
-  given options.LinterOptions.FatalWarnings = true
+  given options.LinterOptions.WError = true
   test("i116 compiles with no exception"):
     i116.GlobCounter(64).compile
   test("i118 compiles and passes VHDL linting"):

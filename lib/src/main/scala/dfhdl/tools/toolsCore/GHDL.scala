@@ -34,7 +34,7 @@ object GHDL extends VHDLLinter, VHDLSimulator:
       MemberGetSet
   ): String = constructCommand(
     "-a",
-    summon[ToolOptions].fatalWarnings.toFlag("--warn-error")
+    summon[ToolOptions].Werror.toBoolean.toFlag("--warn-error")
   )
 
   override protected def lintCmdPostLangFlags(using

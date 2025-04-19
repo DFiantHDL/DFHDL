@@ -6,7 +6,8 @@ import dfhdl.options.{
   ElaborationOptions,
   LinterOptions,
   SimulatorOptions,
-  AppOptions
+  AppOptions,
+  ToolOptions
 }
 import AppOptions.DefaultMode
 import dfhdl.internals.scastieIsRunning
@@ -46,6 +47,19 @@ class ParsedCommandLine(
         noshort = true,
         hidden = hidden
       )
+      val descYesDefault = if (so.Werror.toBoolean) " (default ON)" else ""
+      val descNoDefault = if (!so.Werror.toBoolean) " (default OFF)" else ""
+      val Werror = toggle(
+        name = "Werror",
+        descrYes =
+          s"Turn on: elaboration warnings are fatal and produce non-zero exit code$descYesDefault",
+        descrNo =
+          s"Turn off: elaboration warnings are not fatal and produce zero exit code$descNoDefault",
+        default = Some(eo.Werror.toBoolean),
+        noshort = true,
+        hidden = hidden
+      )
+    end ElaborateMode
     trait CompileMode extends ElaborateMode:
       this: ScallopConf & Mode =>
       private val hidden = modeOption != DefaultMode.compile
@@ -69,8 +83,20 @@ class ParsedCommandLine(
     end CompileMode
     trait CommitMode extends CompileMode:
       this: ScallopConf & Mode =>
-    trait LintMode extends CommitMode:
+    trait ToolMode extends CommitMode:
       this: ScallopConf & Mode =>
+      lazy val options: ToolOptions
+      val `Werror-tool` = toggle(
+        name = "Werror-tool",
+        descrYes =
+          s"Turn on: tool warnings are fatal and produce non-zero exit code$descYesDefault",
+        descrNo = s"Turn off: tool warnings are not fatal and produce zero exit code$descNoDefault",
+        default = Some(options.Werror.toBoolean),
+        noshort = true
+      )
+    trait LintMode extends ToolMode:
+      this: ScallopConf & Mode =>
+      lazy val options = lo
       val tool = opt[LintToolSelection](
         name = "tool",
         short = 't',
@@ -78,13 +104,10 @@ class ParsedCommandLine(
         default = Some(LintToolSelection(lo.verilogLinter, lo.vhdlLinter)),
         argName = "[verilogLinter][/][vhdlLinter]"
       )
-      val fatalWarnings = opt[Boolean](
-        descr = "warnings are fatal and produce non-zero exit code",
-        default = Some(lo.fatalWarnings),
-        noshort = true
-      )
-    trait SimulateMode extends CommitMode:
+    end LintMode
+    trait SimulateMode extends ToolMode:
       this: ScallopConf & Mode =>
+      lazy val options = so
       val tool = opt[SimulateToolSelection](
         name = "tool",
         short = 't',
@@ -92,11 +115,7 @@ class ParsedCommandLine(
         default = Some(SimulateToolSelection(so.verilogSimulator, so.vhdlSimulator)),
         argName = "[verilogSimulator][/][vhdlSimulator]"
       )
-      val fatalWarnings = opt[Boolean](
-        descr = "warnings are fatal and produce non-zero exit code",
-        default = Some(so.fatalWarnings),
-        noshort = true
-      )
+    end SimulateMode
 
     case object elaborate
         extends Mode(DefaultMode.elaborate, "Elaboration only (no compilation)"),

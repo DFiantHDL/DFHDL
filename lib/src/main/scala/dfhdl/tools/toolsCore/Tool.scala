@@ -122,7 +122,7 @@ trait Tool:
       hasWarnings = logger.hasWarnings
       errCode
     ).getOrElse(process.!)
-    if (errCode != 0 || hasWarnings && summon[ToolOptions].fatalWarnings)
+    if (errCode != 0 || hasWarnings && summon[ToolOptions].Werror.toBoolean)
       val msg =
         if (errCode != 0) s"${toolName} exited with the error code ${errCode}."
         else s"${toolName} exited with warnings while `fatal warnings` is turned on."

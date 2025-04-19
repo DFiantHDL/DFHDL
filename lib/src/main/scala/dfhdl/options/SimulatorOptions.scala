@@ -6,7 +6,7 @@ import SimulatorOptions.*
 
 final case class SimulatorOptions(
     onError: OnError,
-    fatalWarnings: FatalWarnings,
+    Werror: WError,
     verilogSimulator: VerilogSimulator,
     vhdlSimulator: VHDLSimulator,
     runLimit: RunLimit
@@ -18,12 +18,12 @@ object SimulatorOptions:
   object Defaults:
     given (using
         onError: OnError,
-        fatalWarnings: FatalWarnings,
+        Werror: WError,
         verilogSimulator: VerilogSimulator,
         vhdlSimulator: VHDLSimulator,
         runLimit: RunLimit
     ): Defaults[Design] = SimulatorOptions(
-      onError = onError, fatalWarnings = fatalWarnings, verilogSimulator = verilogSimulator,
+      onError = onError, Werror = Werror, verilogSimulator = verilogSimulator,
       vhdlSimulator = vhdlSimulator, runLimit = runLimit
     )
   given (using defaults: Defaults[Design]): SimulatorOptions = defaults
@@ -34,14 +34,11 @@ object SimulatorOptions:
     given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
     export dfhdl.options.OnError.*
 
-  opaque type FatalWarnings <: dfhdl.options.ToolOptions.FatalWarnings =
-    dfhdl.options.ToolOptions.FatalWarnings
-  object FatalWarnings:
-    given (using fatalWarnings: dfhdl.options.ToolOptions.FatalWarnings): FatalWarnings =
-      fatalWarnings
-    given Conversion[Boolean, FatalWarnings] = x => x.asInstanceOf[FatalWarnings]
-    given Conversion[dfhdl.options.ToolOptions.FatalWarnings, FatalWarnings] =
-      x => x.asInstanceOf[FatalWarnings]
+  opaque type WError <: dfhdl.options.ToolOptions.WError = dfhdl.options.ToolOptions.WError
+  object WError:
+    given (using Werror: dfhdl.options.ToolOptions.WError): WError = Werror
+    given [T](using conv: Conversion[T, dfhdl.options.ToolOptions.WError]): Conversion[T, WError] =
+      t => conv(t).asInstanceOf[WError]
 
   opaque type VerilogSimulator <: dfhdl.tools.toolsCore.VerilogSimulator =
     dfhdl.tools.toolsCore.VerilogSimulator

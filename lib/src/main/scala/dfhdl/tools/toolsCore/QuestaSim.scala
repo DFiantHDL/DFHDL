@@ -26,7 +26,7 @@ trait QuestaSimCommon extends Linter, Simulator:
       MemberGetSet
   ): String = constructCommand(
     "-quiet",
-    summon[ToolOptions].fatalWarnings.toFlag("-warning error")
+    summon[ToolOptions].Werror.toBoolean.toFlag("-warning error")
   )
 
   // creating a questa sim work lib if the work/_info file is missing

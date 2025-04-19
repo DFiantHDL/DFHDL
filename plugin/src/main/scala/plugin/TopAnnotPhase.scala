@@ -110,10 +110,11 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                     )
                   val dsnArgDescs =
                     mkList(paramVDs.map(vd => Literal(Constant(vd.symbol.docString.getOrElse("")))))
+                  val Werror = Literal(Constant(ctx.settings.XfatalWarnings.value))
                   val setInitials = This(moduleCls).select("setInitials".toTermName).appliedToArgs(
                     List(
                       designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames, dsnArgValues,
-                      dsnArgDescs
+                      dsnArgDescs, Werror
                     )
                   )
                   val dsnInstArgs = paramVDs.map(vd =>

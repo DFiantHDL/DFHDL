@@ -6,6 +6,7 @@ import ElaborationOptions.*
 final case class ElaborationOptions(
     logLevel: LogLevel,
     onError: OnError,
+    Werror: WError,
     defaultClkCfg: DefaultClkCfg,
     defaultRstCfg: DefaultRstCfg,
     printDFHDLCode: PrintDFHDLCode
@@ -19,11 +20,12 @@ object ElaborationOptions:
     given (using
         logLevel: LogLevel,
         onError: OnError,
+        Werror: WError,
         defaultClkCfg: DefaultClkCfg,
         defaultRstCfg: DefaultRstCfg,
         printDFHDLCode: PrintDFHDLCode
     ): Defaults[Design] = ElaborationOptions(
-      logLevel = logLevel, onError = onError, defaultClkCfg = defaultClkCfg,
+      logLevel = logLevel, onError = onError, Werror = Werror, defaultClkCfg = defaultClkCfg,
       defaultRstCfg = defaultRstCfg, printDFHDLCode = printDFHDLCode
     )
   given defaults(using defaults: Defaults[Design]): ElaborationOptions = defaults
@@ -39,6 +41,13 @@ object ElaborationOptions:
     given (using onError: dfhdl.options.OnError): OnError = onError
     given Conversion[dfhdl.options.OnError, OnError] = x => x.asInstanceOf[OnError]
     export dfhdl.options.OnError.*
+
+  opaque type WError <: dfhdl.options.WError = dfhdl.options.WError
+  object WError:
+    given (using werror: dfhdl.options.WError): WError = werror
+    given [T](using conv: Conversion[T, dfhdl.options.WError]): Conversion[T, WError] = t =>
+      conv(t).asInstanceOf[WError]
+    given Conversion[dfhdl.options.WError, WError] = identity
 
   opaque type DefaultClkCfg <: ClkCfg = ClkCfg
   object DefaultClkCfg:
