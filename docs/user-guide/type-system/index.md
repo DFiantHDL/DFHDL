@@ -1311,7 +1311,7 @@ Vectors can be initialized in several ways:
 val vec1 = UInt(8) X 4 <> VAR init all(0)
 
 // Initialize with specific values
-val vec2 = UInt(8) X 4 <> VAR init DFVector(UInt(8) X 4)(1, 2, 3, 4)
+val vec2 = UInt(8) X 4 <> VAR init Vector(1, 2, 3, 4)
 
 // Initialize from file
 val mem = UInt(32) X 1024 <> VAR initFile "mem.hex"
