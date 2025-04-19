@@ -115,13 +115,31 @@ trait Tool:
     preCheck()
     prepare
     val fullExec = s"$runExec $cmd"
-    val process = Process(fullExec, new java.io.File(execPath))
+    var process: Option[scala.sys.process.Process] = None
+    val processBuilder = Process(fullExec, new java.io.File(execPath))
     var hasWarnings: Boolean = false
+
+    val handler = new sun.misc.SignalHandler:
+      def handle(sig: sun.misc.Signal): Unit =
+        process.foreach(p =>
+          p.destroy()
+          p.exitValue()
+        )
+        println(s"\n${toolName} interrupted by user")
+    sun.misc.Signal.handle(new sun.misc.Signal("INT"), handler)
+
     val errCode = loggerOpt.map(logger =>
-      val errCode = process.!(logger)
+      val p = processBuilder.run(logger)
+      process = Some(p)
+      val errCode = p.exitValue()
       hasWarnings = logger.hasWarnings
       errCode
-    ).getOrElse(process.!)
+    ).getOrElse({
+      val p = processBuilder.run()
+      process = Some(p)
+      p.exitValue()
+    })
+
     if (errCode != 0 || hasWarnings && summon[ToolOptions].Werror.toBoolean)
       val msg =
         if (errCode != 0) s"${toolName} exited with the error code ${errCode}."
