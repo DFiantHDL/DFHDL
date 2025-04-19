@@ -59,7 +59,8 @@ object GHDL extends VHDLLinter, VHDLSimulator:
       SimulatorOptions,
       MemberGetSet
   ): String = constructCommand(
-    topName
+    topName,
+    "--ieee-asserts=disable-at-0"
   )
 
   override protected def simulateCmdLanguageFlag(dialect: VHDLDialect): String =
