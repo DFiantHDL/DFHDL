@@ -147,7 +147,7 @@ function to_t_arrX256_slv8(A : std_logic_vector) return t_arrX256_slv8 is
   variable ret           : t_arrX256_slv8;
 begin
   cellBitWidth := bitWidth(ret(0));
-  lo       := A'length;
+  lo       := A'high + 1;
   for i in 0 to ret'length - 1 loop
     hi     := lo - 1; lo := hi - cellBitWidth + 1;
     ret(i) := A(hi downto lo);
@@ -187,7 +187,7 @@ function to_t_arrX4_t_opaque_AESByte(A : std_logic_vector) return t_arrX4_t_opaq
   variable ret           : t_arrX4_t_opaque_AESByte;
 begin
   cellBitWidth := bitWidth(ret(0));
-  lo       := A'length;
+  lo       := A'high + 1;
   for i in 0 to ret'length - 1 loop
     hi     := lo - 1; lo := hi - cellBitWidth + 1;
     ret(i) := to_t_opaque_AESByte(A(hi downto lo));
@@ -227,7 +227,7 @@ function to_t_arrX11_t_opaque_AESWord(A : std_logic_vector) return t_arrX11_t_op
   variable ret           : t_arrX11_t_opaque_AESWord;
 begin
   cellBitWidth := bitWidth(ret(0));
-  lo       := A'length;
+  lo       := A'high + 1;
   for i in 0 to ret'length - 1 loop
     hi     := lo - 1; lo := hi - cellBitWidth + 1;
     ret(i) := to_t_opaque_AESWord(A(hi downto lo));
@@ -267,7 +267,7 @@ function to_t_arrX4_t_opaque_AESWord(A : std_logic_vector) return t_arrX4_t_opaq
   variable ret           : t_arrX4_t_opaque_AESWord;
 begin
   cellBitWidth := bitWidth(ret(0));
-  lo       := A'length;
+  lo       := A'high + 1;
   for i in 0 to ret'length - 1 loop
     hi     := lo - 1; lo := hi - cellBitWidth + 1;
     ret(i) := to_t_opaque_AESWord(A(hi downto lo));
@@ -307,7 +307,7 @@ function to_t_arrX44_t_opaque_AESWord(A : std_logic_vector) return t_arrX44_t_op
   variable ret           : t_arrX44_t_opaque_AESWord;
 begin
   cellBitWidth := bitWidth(ret(0));
-  lo       := A'length;
+  lo       := A'high + 1;
   for i in 0 to ret'length - 1 loop
     hi     := lo - 1; lo := hi - cellBitWidth + 1;
     ret(i) := to_t_opaque_AESWord(A(hi downto lo));

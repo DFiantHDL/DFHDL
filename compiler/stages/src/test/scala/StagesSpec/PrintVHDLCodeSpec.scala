@@ -453,7 +453,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    variable ret : t_arrX1_std_logic_vector(0 to D1 - 1)(D0 - 1 downto 0);
          |  begin
          |    cellBitWidth := bitWidth(ret(0));
-         |    lo := A'length;
+         |    lo := A'high + 1;
          |    for i in 0 to ret'length - 1 loop
          |      hi := lo - 1; lo := hi - cellBitWidth + 1;
          |      ret(i) := A(hi downto lo);
@@ -494,7 +494,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    variable ret : t_arrX2_std_logic_vector(0 to D2 - 1)(0 to D1 - 1)(D0 - 1 downto 0);
          |  begin
          |    cellBitWidth := bitWidth(ret(0));
-         |    lo := A'length;
+         |    lo := A'high + 1;
          |    for i in 0 to ret'length - 1 loop
          |      hi := lo - 1; lo := hi - cellBitWidth + 1;
          |      ret(i) := to_t_arrX1_std_logic_vector(A(hi downto lo), D1, D0);
