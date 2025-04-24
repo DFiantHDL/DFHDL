@@ -256,8 +256,10 @@ case object ToED extends Stage:
                     ifRstOption.getOrElse(DFIf.Header(dfhdl.core.DFUnit)),
                     block
                   )
+                val hasSeqProcess =
+                  clkCfg != None && (dclREGList.nonEmpty || processBlockAllMembers.nonEmpty && domainIsPureSequential)
 
-                if (clkCfg != None && dclREGList.nonEmpty)
+                if (hasSeqProcess)
                   val dclREGsHaveRst = dclREGList.exists(_.hasNonBubbleInit)
                   if (rstCfg != None && dclREGsHaveRst)
                     val RstCfg.Explicit(mode = mode) = rstCfg: @unchecked

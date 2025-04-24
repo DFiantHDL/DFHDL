@@ -831,4 +831,45 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
+
+  test("Printing internal design port") {
+    class FooChild extends RTDesign:
+      val clk = Clk     <> IN
+      val rst = Rst     <> IN
+      val y   = UInt(8) <> OUT.REG init d"8'0"
+      y.din := y + 1
+    end FooChild
+
+    class Foo extends RTDesign:
+      val clk   = Clk <> IN
+      val rst   = Rst <> IN
+      val child = FooChild()
+      println(s"${child.y}")
+    end Foo
+    val top = (new Foo).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |class FooChild extends EDDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val y = UInt(8) <> OUT
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) y :== d"8'0"
+         |      else y :== y + d"8'1"
+         |    end if
+         |end FooChild
+         |
+         |class Foo extends EDDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val child = FooChild()
+         |  process(clk):
+         |    if (clk.actual.rising) println(s"${child.y}")
+         |end Foo""".stripMargin
+    )
+  }
 end ToEDSpec
