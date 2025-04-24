@@ -14,6 +14,7 @@ import java.io.File.separatorChar
 import scala.sys.process.*
 
 object NVC extends VHDLLinter, VHDLSimulator:
+  override val simRunsLint: Boolean = true
   val toolName: String = "NVC"
   protected def binExec: String = "nvc"
   protected def versionCmd: String = s"--version"
@@ -63,4 +64,19 @@ object NVC extends VHDLLinter, VHDLSimulator:
     "-a",
     "--relaxed"
   )
+
+  override protected def simulateCmdPostLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-e",
+    topName,
+    "-r",
+    "--ieee-warnings=off"
+  )
+
+  override protected def simulateCmdLanguageFlag(dialect: VHDLDialect): String =
+    lintCmdLanguageFlag(dialect)
+
 end NVC
