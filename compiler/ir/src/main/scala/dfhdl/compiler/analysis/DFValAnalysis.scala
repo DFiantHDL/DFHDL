@@ -21,6 +21,9 @@ object Ident:
     if (alias.hasTagOf[DFVal.Alias.IdentTag.type]) Some(alias.relValRef.get)
     else None
 
+object StrippedPortByNameSelect:
+  def unapply(dfVal: DFVal)(using MemberGetSet): Option[DFVal] = Some(dfVal.stripPortSel)
+
 //A design parameter is an as-is alias that:
 //1. has `DesignParamTag` tag
 //TODO: This is not yet working. more complicated than initially thought.
@@ -101,9 +104,11 @@ object RstActive:
             case FuncOp.=== | FuncOp.=!= =>
               val List(lhsRef, rhsRef) = func.args
               val (dcl, const) = (lhsRef.get, rhsRef.get) match
-                case (dcl: DFVal.Dcl, const: DFVal.Const) if const.dfType equals DFBit =>
+                case (dcl: (DFVal.Dcl | DFVal.PortByNameSelect), const: DFVal.Const)
+                    if const.dfType equals DFBit =>
                   (dcl, const)
-                case (const: DFVal.Const, dcl: DFVal.Dcl) if const.dfType equals DFBit =>
+                case (const: DFVal.Const, dcl: (DFVal.Dcl | DFVal.PortByNameSelect))
+                    if const.dfType equals DFBit =>
                   (dcl, const)
                 case _ => break(None)
               val value = const.data.asInstanceOf[Option[Boolean]].get
@@ -116,8 +121,8 @@ object RstActive:
               val relVal = func.args.head.get
               Some(relVal, RstCfg.Active.Low)
             case _ => None
-        case dcl: DFVal.Dcl => Some(dcl, RstCfg.Active.High)
-        case _              => None
+        case dcl: (DFVal.Dcl | DFVal.PortByNameSelect) => Some(dcl, RstCfg.Active.High)
+        case _                                         => None
 end RstActive
 
 //not only `DFVal.Const` but all non-anonymous values that

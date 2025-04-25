@@ -98,4 +98,76 @@ class VHDLProcToVerilogSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("internal clk/rst ports") {
+    class ClkGen extends EDDesign:
+      val clk = Bit <> OUT
+      clk <> 1
+    class ClkRstGen extends EDDesign:
+      val clk = Bit <> OUT
+      val rst = Bit <> OUT
+      clk <> 1
+      rst <> 0
+
+    class Foo extends EDDesign:
+      val y         = Bit <> IN
+      val z         = Bit <> OUT
+      val z2        = Bit <> OUT
+      val z3        = Bit <> OUT
+      val clkGen    = ClkGen()
+      val clkRstGen = ClkRstGen()
+      process(clkGen.clk):
+        if (clkGen.clk.rising) println(y)
+      process(clkRstGen.clk, clkRstGen.rst):
+        if (clkRstGen.rst)
+          z := 0
+        else if (clkRstGen.clk.rising)
+          z := 1
+      process(clkRstGen.clk, clkRstGen.rst):
+        if (clkRstGen.rst == 0)
+          z2 := 0
+        else if (clkRstGen.clk.falling)
+          z2 := 1
+      process(clkRstGen.clk, clkRstGen.rst):
+        if (!clkRstGen.rst)
+          z3 := 0
+        else if (clkRstGen.clk.falling)
+          z3 := 1
+    end Foo
+    val top = (new Foo).vhdlProcToVerilog
+    assertCodeString(
+      top,
+      """|class ClkGen extends EDDesign:
+         |  val clk = Bit <> OUT
+         |  clk <> 1
+         |end ClkGen
+         |
+         |class ClkRstGen extends EDDesign:
+         |  val clk = Bit <> OUT
+         |  val rst = Bit <> OUT
+         |  clk <> 1
+         |  rst <> 0
+         |end ClkRstGen
+         |
+         |class Foo extends EDDesign:
+         |  val y = Bit <> IN
+         |  val z = Bit <> OUT
+         |  val z2 = Bit <> OUT
+         |  val z3 = Bit <> OUT
+         |  val clkGen = ClkGen()
+         |  val clkRstGen = ClkRstGen()
+         |  process(clkGen.clk.rising):
+         |    println(s"${y}")
+         |  process(clkRstGen.clk.rising, clkRstGen.rst.rising):
+         |    if (clkRstGen.rst) z := 0
+         |    else z := 1
+         |  process(clkRstGen.clk.falling, clkRstGen.rst.falling):
+         |    if (clkRstGen.rst == 0) z2 := 0
+         |    else z2 := 1
+         |  process(clkRstGen.clk.falling, clkRstGen.rst.falling):
+         |    if (!clkRstGen.rst) z3 := 0
+         |    else z3 := 1
+         |end Foo
+         |""".stripMargin
+    )
+  }
 end VHDLProcToVerilogSpec

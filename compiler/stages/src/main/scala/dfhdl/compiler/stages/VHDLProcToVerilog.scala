@@ -8,6 +8,7 @@ import DFConditional.{DFIfElseBlock, DFIfHeader}
 import DFVal.Func.Op as FuncOp
 import ProcessBlock.Sensitivity
 import dfhdl.core.DomainType.ED
+import dfhdl.compiler.ir.DFVal.PortByNameSelect
 
 /** This stage transforms a sequential process from a VHDL style to Verilog style. E.g.,
   * {{{
@@ -30,30 +31,39 @@ case object VHDLProcToVerilog extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList: List[(DFMember, Patch)] = designDB.members.flatMap {
       case pb @ ProcessBlock(sensitivity = Sensitivity.List(stRefs)) =>
-        val stVals = stRefs.view.map(_.get).toSet
+        def getStVals = stRefs.view.map(_.get)
+        val stValsStripped = getStVals.map(_.stripPortSel).toSet
         pb
           .members(MemberView.Folded)
           .collect { case ifBlock: DFIfElseBlock => ifBlock } match
-          case ifBlock :: Nil if stVals.size == 1 =>
+          case ifBlock :: Nil if stValsStripped.size == 1 =>
             ifBlock.guardRef.get match
-              case clkEdge @ ClkEdge(clk, edge) if stVals.contains(clk) =>
+              case clkEdge @ ClkEdge(clkns @ StrippedPortByNameSelect(clk), edge)
+                  if stValsStripped.contains(clk) =>
                 val dsn = new MetaDesign(pb, Patch.Add.Config.ReplaceWithLast(), domainType = ED):
                   val clkEdgeSig = edge match
                     case ClkCfg.Edge.Rising  => clk.asValOf[Bit].rising
                     case ClkCfg.Edge.Falling => clk.asValOf[Bit].falling
                   val newPB =
                     dfhdl.core.Process.Block.list(List(clkEdgeSig))(using dfc.setMeta(pb.meta)).asIR
-                List(
+                val pbnsRemoveList = (clkns :: getStVals.toList).collect {
+                  case pbns: PortByNameSelect =>
+                    pbns -> Patch.Remove()
+                }
+                pbnsRemoveList ++ List(
                   clkEdge -> Patch.Remove(),
                   ifBlock.prevBlockOrHeaderRef.get -> Patch.Remove(),
                   dsn.patch,
                   ifBlock -> Patch.Replace(dsn.newPB, Patch.Replace.Config.ChangeRefAndRemove)
                 )
-              case _ => None
-          case ifBlock :: elseBlock :: Nil if stVals.size == 2 && elseBlock.getFirstCB == ifBlock =>
+              case _ => Nil
+          case ifBlock :: elseBlock :: Nil
+              if stValsStripped.size == 2 && elseBlock.getFirstCB == ifBlock =>
             (ifBlock.guardRef.get, elseBlock.guardRef.get) match
-              case (rstActive @ RstActive(rst, active), clkEdge @ ClkEdge(clk, edge))
-                  if stVals == Set(clk, rst) =>
+              case (
+                    rstActive @ RstActive(StrippedPortByNameSelect(rst), active),
+                    clkEdge @ ClkEdge(clkns @ StrippedPortByNameSelect(clk), edge)
+                  ) if stValsStripped == Set(clk, rst) =>
                 val dsn = new MetaDesign(pb, Patch.Add.Config.ReplaceWithLast(), domainType = ED):
                   val clkEdgeSig = edge match
                     case ClkCfg.Edge.Rising  => clk.asValOf[Bit].rising
@@ -65,11 +75,15 @@ case object VHDLProcToVerilog extends Stage:
                     dfhdl.core.Process.Block.list(List(clkEdgeSig, rstEdgeSig))(using
                       dfc.setMeta(pb.meta)
                     ).asIR
-                List(
+                val pbnsRemoveList = (clkns :: getStVals.toList).collect {
+                  case pbns: PortByNameSelect =>
+                    pbns -> Patch.Remove()
+                }
+                pbnsRemoveList ++ List(
                   clkEdge -> Patch.Replace(DFMember.Empty, Patch.Replace.Config.ChangeRefAndRemove),
                   dsn.patch
                 )
-              case _ => None
+              case _ => Nil
           case _ => None
         end match
       case _ => None
