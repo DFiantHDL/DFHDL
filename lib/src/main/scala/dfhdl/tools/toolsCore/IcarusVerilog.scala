@@ -40,6 +40,7 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
       ToolOptions,
       MemberGetSet
   ): String = constructCommand(
+    s"-s $topName",
     s"-o $topName"
   )
 
