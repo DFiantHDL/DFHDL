@@ -13,8 +13,12 @@ import java.io.File.separatorChar
 import dfhdl.compiler.stages.verilog.VerilogDialect
 
 object IcarusVerilog extends VerilogLinter, VerilogSimulator:
+  override val simRunsLint: Boolean = true
   val toolName: String = "Icarus Verilog"
   protected def binExec: String = "iverilog"
+  override protected def simRunExec: String =
+    val osName: String = sys.props("os.name").toLowerCase
+    if (osName.contains("windows")) "vvp.exe" else "vvp"
   protected def versionCmd: String = "-V"
   protected def extractVersion(cmdRetStr: String): Option[String] =
     val versionPattern = """Icarus Verilog version\s+(\d+\.\d+)""".r
@@ -67,4 +71,15 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
           false
     )
   )
+
+  override protected def simulateCmdPostLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    topName
+  )
+
+  override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =
+    ""
 end IcarusVerilog
