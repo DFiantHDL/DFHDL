@@ -13,7 +13,7 @@ import dfhdl.compiler.stages.verilog.VerilogDialect
 
 trait Tool:
   val toolName: String
-  private def runExec: String =
+  final protected def runExec: String =
     val osName: String = sys.props("os.name").toLowerCase
     if (osName.contains("windows")) windowsBinExec else binExec
   protected def binExec: String
@@ -110,7 +110,8 @@ trait Tool:
   final protected def exec[D <: Design](
       cmd: String,
       prepare: => Unit = (),
-      loggerOpt: Option[Tool.ProcessLogger] = None
+      loggerOpt: Option[Tool.ProcessLogger] = None,
+      runExec: String = this.runExec
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     preCheck()
     prepare
@@ -211,12 +212,13 @@ trait VHDLLinter extends Linter, VHDLTool:
 
 trait Simulator extends Tool:
   val simRunsLint: Boolean = false
+  protected def simRunExec: String = this.runExec
   final def simulate[D <: Design](
       cd: CompiledDesign[D]
   )(using CompilerOptions, SimulatorOptions): CompiledDesign[D] =
     given MemberGetSet = cd.stagedDB.getSet
     if (simRunsLint) this.asInstanceOf[Linter].lint(cd)
-    exec(simulateCmdFlags, simulatePrepare(), simulateLogger)
+    exec(simulateCmdFlags, simulatePrepare(), simulateLogger, simRunExec)
     cd
   protected def simulatePrepare()(using CompilerOptions, SimulatorOptions, MemberGetSet): Unit = {}
   protected def simulateLogger(using
