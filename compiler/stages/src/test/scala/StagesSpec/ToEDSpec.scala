@@ -188,7 +188,10 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    r := x + r
          |    y_din := r
          |  process(clk):
-         |    if (clk.actual.rising) y :== y_din
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) {}
+         |      else y :== y_din
+         |    end if
          |end ID
          |
          |class IDTop extends EDDesign:
@@ -868,7 +871,10 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val rst = Rst_default <> IN
          |  val child = FooChild()
          |  process(clk):
-         |    if (clk.actual.rising) println(s"${child.y}")
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) {}
+         |      else println(s"${child.y}")
+         |    end if
          |end Foo""".stripMargin
     )
   }

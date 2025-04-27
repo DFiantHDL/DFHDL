@@ -260,8 +260,7 @@ case object ToED extends Stage:
                   clkCfg != None && (dclREGList.nonEmpty || processBlockAllMembers.nonEmpty && domainIsPureSequential)
 
                 if (hasSeqProcess)
-                  val dclREGsHaveRst = dclREGList.exists(_.hasNonBubbleInit)
-                  if (rstCfg != None && dclREGsHaveRst)
+                  if (rstCfg != None)
                     val RstCfg.Explicit(mode = mode) = rstCfg: @unchecked
                     mode match
                       case RstCfg.Mode.Sync =>
