@@ -59,7 +59,12 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
   ): Option[Tool.ProcessLogger] = Some(
     Tool.ProcessLogger(
       lineIsWarning = (line: String) => line.contains("warning: "),
-      lineIsSuppressed = (line: String) => false
+      lineIsSuppressed = (line: String) =>
+        // suppress the "cannot be synthesized" warning when in simulation
+        if (line.contains("cannot be synthesized") && getSet.designDB.inSimulation)
+          true
+        else
+          false
     )
   )
 end IcarusVerilog
