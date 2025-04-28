@@ -74,6 +74,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     constructCommand(
       "--binary",
       "--quiet-stats",
+      "--build-jobs 0",
       s"--top-module ${topName}"
     )
 
@@ -98,6 +99,52 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =
     lintCmdLanguageFlag(dialect)
 
+  override protected def simulateLogger(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): Option[Tool.ProcessLogger] =
+    var totalCompilations = 0
+    var cpps = 0
+    var silence = false
+    def setCppsFromFolder(): Unit =
+      val objDirPath = s"${execPath}${separatorChar}obj_dir"
+      val objDir = new java.io.File(objDirPath)
+      if (objDir.exists && objDir.isDirectory)
+        val cppFiles = objDir.listFiles.count(f => f.isFile && f.getName.endsWith(".cpp"))
+        totalCompilations = cppFiles + 1 // +1 for final linking
+    // Create a process logger to silence the detailed make output and show progress
+    Some(
+      Tool.ProcessLogger(
+        lineIsWarning = (line: String) => false,
+        lineIsSuppressed = (line: String) =>
+          val ret =
+            if (line.startsWith("make: Entering directory"))
+              setCppsFromFolder()
+              silence = true
+              true
+            else if (line.startsWith("g++"))
+              cpps += 1
+              true
+            else if (line.startsWith("make: Leaving directory"))
+              cpps = totalCompilations
+              silence = false
+              true
+            else if (line.endsWith("verilator_deplist.tmp")) true
+            else silence
+          // Print progress percentage
+          if (totalCompilations > 0)
+            val percentage = (cpps * 100) / totalCompilations
+            print(s"\rCompiling Verilated C++ files: $percentage%")
+            if (cpps >= totalCompilations)
+              println() // Add a newline when complete
+              totalCompilations = 0
+              cpps = 0
+          ret
+      )
+    )
+  end simulateLogger
+
   override def simulate[D <: Design](
       cd: CompiledDesign[D]
   )(using CompilerOptions, SimulatorOptions): CompiledDesign[D] =
@@ -108,6 +155,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     val runExec: String =
       val osName: String = sys.props("os.name").toLowerCase
       if (osName.contains("windows")) s"${unixExec}.exe" else unixExec
+    println("Executing verilated binary...")
     exec(cmd = "", runExec = runExec)
     ret
 
