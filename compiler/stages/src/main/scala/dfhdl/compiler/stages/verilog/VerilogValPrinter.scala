@@ -125,7 +125,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case Func.Op.rising  => s"posedge $argStrB"
           case Func.Op.falling => s"negedge $argStrB"
           case Func.Op.unary_- => s"-$argStrB"
-          case Func.Op.unary_! => s"!$argStrB"
+          case Func.Op.unary_! =>
+            dfVal.dfType match
+              case DFBool => s"!$argStrB"
+              case _      => s"~${argStrB}"
           case Func.Op.unary_~ => s"~$argStrB"
           case Func.Op.&       => s"&$argStrB"
           case Func.Op.|       => s"|$argStrB"

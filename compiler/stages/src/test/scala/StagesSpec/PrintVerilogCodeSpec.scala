@@ -585,7 +585,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    else begin
          |      if (cnt == $clog2(HALF_PERIOD)'(HALF_PERIOD - 1)) begin
          |        cnt <= $clog2(HALF_PERIOD)'(0);
-         |        led <= !led;
+         |        led <= ~led;
          |      end
          |      else cnt <= cnt + $clog2(HALF_PERIOD)'(1);
          |    end
@@ -882,7 +882,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    @(posedge i);
          |    #50us;
          |    x <= 1'b1;
-         |    wait(!i);
+         |    wait(~i);
          |    #50ns;
          |    x <= 1'b0;
          |    #1ns;
@@ -1052,7 +1052,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |      #5ns;
          |    end
          |    while (1) begin
-         |      x <= !b;
+         |      x <= ~b;
          |      #5ns;
          |    end
          |  end

@@ -25,7 +25,7 @@ module Blinker#(
     else begin
       if (cnt == $clog2(HALF_PERIOD)'(HALF_PERIOD - 1)) begin
         cnt <= $clog2(HALF_PERIOD)'(0);
-        led <= !led;
+        led <= ~led;
       end
       else cnt <= cnt + $clog2(HALF_PERIOD)'(1);
     end
