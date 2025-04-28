@@ -78,6 +78,15 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       s"--top-module ${topName}"
     )
 
+  override protected def simulateCmdPostLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-Wall",
+    (!summon[LinterOptions].Werror.toBoolean).toFlag("-Wno-fatal")
+  )
+
   override protected[dfhdl] def lintPreprocess[D <: Design](cd: CompiledDesign[D])(using
       CompilerOptions,
       ToolOptions
@@ -135,7 +144,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
           // Print progress percentage
           if (totalCompilations > 0)
             val percentage = (cpps * 100) / totalCompilations
-            print(s"\rCompiling Verilated C++ files: $percentage%")
+            print(s"\rCompiling verilated C++ files: $percentage%")
             if (cpps >= totalCompilations)
               println() // Add a newline when complete
               totalCompilations = 0
@@ -147,7 +156,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
 
   override def simulate[D <: Design](
       cd: CompiledDesign[D]
-  )(using CompilerOptions, SimulatorOptions): CompiledDesign[D] =
+  )(using co: CompilerOptions, so: SimulatorOptions): CompiledDesign[D] =
     val ret = super.simulate(cd)
     given MemberGetSet = ret.stagedDB.getSet
     val unixExec =
@@ -156,8 +165,17 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       val osName: String = sys.props("os.name").toLowerCase
       if (osName.contains("windows")) s"${unixExec}.exe" else unixExec
     println("Executing verilated binary...")
-    exec(cmd = "", runExec = runExec)
+    // set special logger to identify warnings, because verilator does not track warnings.
+    val logger = Some(
+      Tool.ProcessLogger(
+        // `WARNING:` is used by DFHDL when compiling to v95/v2001 dialects
+        lineIsWarning = (line: String) => line.startsWith("WARNING:") || line.contains("%Warning:"),
+        lineIsSuppressed = (line: String) => false
+      )
+    )
+    exec(cmd = "", loggerOpt = logger, runExec = runExec)
     ret
+  end simulate
 
 end Verilator
 
