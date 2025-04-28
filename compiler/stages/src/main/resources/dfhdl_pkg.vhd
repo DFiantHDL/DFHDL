@@ -27,6 +27,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use std.textio.all;
 
 package dfhdl_pkg is
 function cadd(A, B : unsigned) return unsigned;
@@ -60,6 +61,14 @@ function bool_sel(C : boolean; T : signed; F : signed) return signed;
 function bool_sel(C : boolean; T : integer; F : integer) return integer;
 function bool_sel(C : boolean; T : boolean; F : boolean) return boolean;
 function bool_sel(C : boolean; T : std_logic; F : std_logic) return std_logic;
+procedure print(msg : string);
+procedure println(msg : string);
+function to_string(A : unsigned) return string;
+function to_string(A : signed) return string;
+function to_string(A : integer) return string;
+function to_string(A : boolean) return string;
+function to_string(A : std_logic) return string;
+function to_string(A : std_logic_vector) return string;
 end package dfhdl_pkg;
 
 package body dfhdl_pkg is
@@ -250,5 +259,104 @@ begin
   else
     return F;
   end if;
+end;
+procedure print(msg : string) is
+begin
+  write(output, msg);
+end procedure;
+procedure println(msg : string) is
+  variable l : line;
+begin
+  write(l, msg);
+  writeline(output, l);
+end procedure;
+function to_string(A : unsigned) return string is
+  variable temp : unsigned(A'length-1 downto 0) := A;
+  variable digit : natural;
+  -- Calculate max possible length: ceiling(bits * log10(2)) + 1 for null termination
+  -- log10(2) =~ 0.301, so we multiply by 31/100 as an integer approximation (slightly larger)
+  variable max_len : integer := (31 * A'length) / 100 + 2;  -- +1 for rounding, +1 for safety
+  variable result : string(1 to max_len);
+  variable idx : integer := max_len;
+  variable len : integer := 0;
+begin
+  if A'length <= 31 then
+    return integer'image(to_integer(A));
+  end if;
+
+  if temp = 0 then
+    return "0";
+  end if;
+
+  while temp > 0 loop
+    digit := to_integer(temp mod 10);
+    result(idx) := character'val(character'pos('0') + digit);
+    temp := temp / 10;
+    idx := idx - 1;
+    len := len + 1;
+  end loop;
+
+  return result(idx+1 to idx+len);
+end;
+function to_string(A : signed) return string is
+begin
+  return integer'image(to_integer(A));
+end;
+function to_string(A : integer) return string is
+begin
+  return integer'image(A);
+end;
+function to_string(A : boolean) return string is
+begin
+  if A then
+    return "true";
+  else
+    return "false";
+  end if;
+end;
+function to_string(A : std_logic) return string is
+begin
+  return std_logic'image(A);
+end;
+function to_string(A : std_logic_vector) return string is
+  variable nibble : std_logic_vector(3 downto 0);
+  variable hex_digit : character;
+  variable num_nibbles : integer := (A'length + 3) / 4;  -- Ceiling division
+  variable result : string(1 to num_nibbles + 2);  -- +2 for "0x" prefix
+  variable padded_input : std_logic_vector((num_nibbles * 4) - 1 downto 0);
+begin
+  -- Add "0x" prefix
+  result(1 to 2) := "0x";
+  
+  -- Zero-pad the input if needed
+  padded_input := (others => '0');
+  padded_input(A'length-1 downto 0) := A;
+  
+  -- Convert each nibble to hex
+  for i in num_nibbles downto 1 loop
+    nibble := padded_input((i*4)-1 downto (i-1)*4);
+    case nibble is
+      when "0000" => hex_digit := '0';
+      when "0001" => hex_digit := '1';
+      when "0010" => hex_digit := '2';
+      when "0011" => hex_digit := '3';
+      when "0100" => hex_digit := '4';
+      when "0101" => hex_digit := '5';
+      when "0110" => hex_digit := '6';
+      when "0111" => hex_digit := '7';
+      when "1000" => hex_digit := '8';
+      when "1001" => hex_digit := '9';
+      when "1010" => hex_digit := 'a';
+      when "1011" => hex_digit := 'b';
+      when "1100" => hex_digit := 'c';
+      when "1101" => hex_digit := 'd';
+      when "1110" => hex_digit := 'e';
+      when "1111" => hex_digit := 'f';
+      when others => hex_digit := 'x';  -- For any undefined values
+    end case;
+    result(num_nibbles - i + 3) := hex_digit;
+  end loop;
+  
+  return result;
 end;
 end package body dfhdl_pkg;

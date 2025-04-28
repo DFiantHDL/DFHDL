@@ -49,6 +49,8 @@ object r__For_Plugin:
   def patternStruct(name: String, list: List[Pattern]): Pattern =
     Pattern.Struct(name, list)
   def patternCatchAll: Pattern = Pattern.CatchAll
+  def patternNamedArg(name: String, pattern: Pattern): Pattern =
+    Pattern.NamedArg(name, pattern)
   def extractValDcl[V <: DFValAny](selector: V, extractName: String)(using
       DFC
   ): V =
@@ -138,9 +140,4 @@ object r__For_Plugin:
       output.asInstanceOf[V]
     end if
   end designFromDef
-  // add the step to the context and update its reference to point to
-  // the proper owner
-  def addStep(step: Step)(using dfc: DFC): Unit =
-    step.asIR.addMember
-    dfc.mutableDB.newRefFor(step.asIR.ownerRef, dfc.owner.asIR)
 end r__For_Plugin

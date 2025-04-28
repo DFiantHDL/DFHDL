@@ -114,7 +114,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |class ID extends EDDesign:
          |  val clk = Clk_cfg <> IN
          |  val x = SInt(16) <> IN
-         |  val r1 = SInt(16) <> VAR
+         |  val r1 = SInt(16) <> VAR init sd"16'0"
          |  process(clk):
          |    if (clk.actual.falling) r1 :== x
          |end ID
@@ -188,7 +188,10 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    r := x + r
          |    y_din := r
          |  process(clk):
-         |    if (clk.actual.rising) y :== y_din
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) {}
+         |      else y :== y_din
+         |    end if
          |end ID
          |
          |class IDTop extends EDDesign:
@@ -285,6 +288,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     class Test() extends RTDesign:
       val c = Boolean <> IN
       val z = UInt(8) <> OUT init 0
+      z := 0
       if (c)
         z := z.reg + 1
 
@@ -299,15 +303,19 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val rst = Rst_default <> IN
          |  val c = Boolean <> IN
          |  val z = UInt(8) <> OUT
-         |  val z_reg = UInt(8) <> VAR
-         |  val z_reg_din = UInt(8) <> VAR
+         |  val z_ver_reg = UInt(8) <> VAR
+         |  val z_ver_reg_din = UInt(8) <> VAR
          |  process(all):
-         |    z_reg_din := z
-         |    if (c) z := z_reg + d"8'1"
+         |    z_ver_reg_din := z_ver_reg
+         |    z := d"8'0"
+         |    if (c)
+         |      z_ver_reg_din := z
+         |      z := z_ver_reg + d"8'1"
+         |    end if
          |  process(clk):
          |    if (clk.actual.rising)
-         |      if (rst.actual == 1) z_reg :== d"8'0"
-         |      else z_reg :== z_reg_din
+         |      if (rst.actual == 1) z_ver_reg :== d"8'0"
+         |      else z_ver_reg :== z_ver_reg_din
          |    end if
          |end Test
          |""".stripMargin
@@ -320,7 +328,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val y = Bits(8) <> OUT.REG init all(0)
       y(0).din := 1
       if (c)
-        z.din       := z + 1
+        z.din := z + 1
+        assert(z == 77, s"y: $y")
         y(7, 4).din := all(1)
       else y.din := all(0)
 
@@ -345,6 +354,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |        y(0) :== 1
          |        if (c)
          |          z :== z + d"8'1"
+         |          assert(z == d"8'77", s"y: ${y}")
          |          y(7, 4) :== h"f"
          |        else y :== h"00"
          |        end if
@@ -356,18 +366,22 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
   test("DFMatch test case 1") {
     class Test extends RTDesign:
+      val y      = Bit     <> OUT
       val status = UInt(8) <> VAR
+      y := 1
       status match
-        case 0 =>
+        case 0 => y := 0
 
     val top = Test().toED
     assertCodeString(
       top,
       """|class Test extends EDDesign:
+         |  val y = Bit <> OUT
          |  val status = UInt(8) <> VAR
          |  process(all):
+         |    y := 1
          |    status match
-         |      case d"8'0" =>
+         |      case d"8'0" => y := 0
          |    end match
          |end Test
          |""".stripMargin
@@ -375,9 +389,11 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
   }
   test("DFMatch test case 2") {
     class Test extends RTDesign:
+      val y      = Bit     <> OUT
       val status = UInt(8) <> VAR.REG
+      y := 1
       status match
-        case 0 =>
+        case 0 => y := 0
 
     val top = Test().toED
     assertCodeString(
@@ -386,13 +402,16 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |
          |class Test extends EDDesign:
          |  val clk = Clk_default <> IN
+         |  val y = Bit <> OUT
          |  val status = UInt(8) <> VAR
+         |  val status_din = UInt(8) <> VAR
+         |  process(all):
+         |    y := 1
+         |    status match
+         |      case d"8'0" => y := 0
+         |    end match
          |  process(clk):
-         |    if (clk.actual.rising)
-         |      status match
-         |        case d"8'0" =>
-         |      end match
-         |    end if
+         |    if (clk.actual.rising) status :== status_din
          |end Test
          |""".stripMargin
     )
@@ -401,6 +420,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     class Test(val width: Int <> CONST) extends RTDesign():
       val c = Boolean     <> IN
       val v = Bits(width) <> VAR
+      v           := all(0)
       if (c) v(0) := 1
 
     val top = Test(2).toED
@@ -410,6 +430,7 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val c = Boolean <> IN
          |  val v = Bits(width) <> VAR
          |  process(all):
+         |    v := b"0".repeat(width)
          |    if (c) v(0) := 1
          |end Test
          |""".stripMargin
@@ -780,4 +801,81 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     )
   }
 
+  test("RT design with ED domain") {
+    class Foo extends RTDesign:
+      val clk = Clk <> VAR
+      val rst = Rst <> VAR
+      val internal = new EDDomain:
+        process(all):
+          clk.actual := 0
+          rst.actual := 0
+      val y = UInt(8) <> VAR.REG init d"8'0"
+      y.din := y + d"8'1"
+    end Foo
+    val top = (new Foo).toED
+    assertCodeString(
+      top,
+      """|class Foo extends EDDesign:
+         |  case class Clk_default() extends Clk
+         |  case class Rst_default() extends Rst
+         |
+         |  val clk = Clk_default <> VAR
+         |  val rst = Rst_default <> VAR
+         |  val y = UInt(8) <> VAR
+         |  val internal = new EDDomain:
+         |    process(all):
+         |      clk.actual := 0
+         |      rst.actual := 0
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) y :== d"8'0"
+         |      else y :== y + d"8'1"
+         |    end if
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("Printing internal design port") {
+    class FooChild extends RTDesign:
+      val clk = Clk     <> IN
+      val rst = Rst     <> IN
+      val y   = UInt(8) <> OUT.REG init d"8'0"
+      y.din := y + 1
+    end FooChild
+
+    class Foo extends RTDesign:
+      val clk   = Clk <> IN
+      val rst   = Rst <> IN
+      val child = FooChild()
+      println(s"${child.y}")
+    end Foo
+    val top = (new Foo).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |class FooChild extends EDDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val y = UInt(8) <> OUT
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) y :== d"8'0"
+         |      else y :== y + d"8'1"
+         |    end if
+         |end FooChild
+         |
+         |class Foo extends EDDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val child = FooChild()
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) {}
+         |      else println(s"${child.y}")
+         |    end if
+         |end Foo""".stripMargin
+    )
+  }
 end ToEDSpec

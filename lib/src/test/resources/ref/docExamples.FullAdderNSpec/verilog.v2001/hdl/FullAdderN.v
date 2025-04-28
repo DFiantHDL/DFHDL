@@ -10,6 +10,7 @@ module FullAdderN(
   output wire        c_out
 );
   `include "dfhdl_defs.vh"
+  `include "FullAdderN_defs.vh"
   wire adder_0_a;
   wire adder_0_b;
   wire adder_0_c_in;

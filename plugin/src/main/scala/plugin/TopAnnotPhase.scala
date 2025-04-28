@@ -35,7 +35,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
 
   override val runsAfter = Set("typer")
   override val runsBefore = Set("MetaContextGen")
-  // override val debugFilter: String => Boolean = _.contains("Example.scala")
+  // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
   var dfConstBoolTpe: TypeRef = uninitialized
@@ -90,7 +90,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                     case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
                         if compSym.symbol.companionClass == clsSym =>
                       compTemplate.body.foreach {
-                        case dd @ DefDef(NameKinds.DefaultGetterName(n, i), _, _, _) =>
+                        case dd @ DefDef(name = NameKinds.DefaultGetterName(n, i)) =>
                           defaultMap += i -> ref(module.symbol).select(dd.symbol)
                         case _ =>
                       }
@@ -110,10 +110,11 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                     )
                   val dsnArgDescs =
                     mkList(paramVDs.map(vd => Literal(Constant(vd.symbol.docString.getOrElse("")))))
+                  val Werror = Literal(Constant(ctx.settings.XfatalWarnings.value))
                   val setInitials = This(moduleCls).select("setInitials".toTermName).appliedToArgs(
                     List(
                       designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames, dsnArgValues,
-                      dsnArgDescs
+                      dsnArgDescs, Werror
                     )
                   )
                   val dsnInstArgs = paramVDs.map(vd =>

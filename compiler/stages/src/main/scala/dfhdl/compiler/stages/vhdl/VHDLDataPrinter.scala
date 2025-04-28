@@ -12,7 +12,10 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
     printer.dialect match
       case VHDLDialect.v93 => false
       case _               => true
-  val allowBitsExplicitWidth: Boolean = true
+  val allowBitsExplicitWidth: Boolean =
+    printer.dialect match
+      case VHDLDialect.v93 => false
+      case _               => true
   val allowDecimalBigInt: Boolean = true
   val allowDecimalSyntax: Boolean =
     printer.dialect match
@@ -93,6 +96,21 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
   def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String =
     dfType.unit match
       case DFPhysical.Unit.Time =>
-        s"${data._1} ${data._2}"
+        val formattedValue = data._1 match
+          case bd if bd.isWhole && bd.abs < BigDecimal(1e9) => bd.toBigInt.toString
+          case bd                                           => bd.toString
+        s"${formattedValue} ${data._2}"
       case _ => printer.unsupported
+  def scalaToVHDLString(str: String): String =
+    str.view.map {
+      case '"'  => "\"\""
+      case '\t' => "\" & HT & \""
+      case '\n' => "\" & LF & \""
+      case '\r' => "\" & CR & \""
+      case c    => c.toString
+    }.mkString("\"", "", "\"")
+  def csDFStringData(dfType: DFString, data: Option[String]): String =
+    data match
+      case Some(value) => scalaToVHDLString(value)
+      case None        => "\"\""
 end VHDLDataPrinter

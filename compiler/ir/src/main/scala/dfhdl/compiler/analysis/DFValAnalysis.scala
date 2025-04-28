@@ -21,6 +21,9 @@ object Ident:
     if (alias.hasTagOf[DFVal.Alias.IdentTag.type]) Some(alias.relValRef.get)
     else None
 
+object StrippedPortByNameSelect:
+  def unapply(dfVal: DFVal)(using MemberGetSet): Option[DFVal] = Some(dfVal.stripPortSel)
+
 //A design parameter is an as-is alias that:
 //1. has `DesignParamTag` tag
 //TODO: This is not yet working. more complicated than initially thought.
@@ -101,9 +104,11 @@ object RstActive:
             case FuncOp.=== | FuncOp.=!= =>
               val List(lhsRef, rhsRef) = func.args
               val (dcl, const) = (lhsRef.get, rhsRef.get) match
-                case (dcl: DFVal.Dcl, const: DFVal.Const) if const.dfType equals DFBit =>
+                case (dcl: (DFVal.Dcl | DFVal.PortByNameSelect), const: DFVal.Const)
+                    if const.dfType equals DFBit =>
                   (dcl, const)
-                case (const: DFVal.Const, dcl: DFVal.Dcl) if const.dfType equals DFBit =>
+                case (const: DFVal.Const, dcl: (DFVal.Dcl | DFVal.PortByNameSelect))
+                    if const.dfType equals DFBit =>
                   (dcl, const)
                 case _ => break(None)
               val value = const.data.asInstanceOf[Option[Boolean]].get
@@ -116,8 +121,8 @@ object RstActive:
               val relVal = func.args.head.get
               Some(relVal, RstCfg.Active.Low)
             case _ => None
-        case dcl: DFVal.Dcl => Some(dcl, RstCfg.Active.High)
-        case _              => None
+        case dcl: (DFVal.Dcl | DFVal.PortByNameSelect) => Some(dcl, RstCfg.Active.High)
+        case _                                         => None
 end RstActive
 
 //not only `DFVal.Const` but all non-anonymous values that
@@ -210,19 +215,22 @@ extension (dfVal: DFVal)
     dfVal.originMembers.view
       .collect { case dfVal: DFVal => dfVal }
       .exists(dfVal => cond(dfVal) || dfVal.existsInComposedReadDeps(cond))
-  def getReadDeps(using MemberGetSet): Set[DFNet | DFVal | DFConditional.Block] =
-    val fromRefs: Set[DFNet | DFVal | DFConditional.Block] = dfVal.originMembersNoTypeRef.flatMap {
-      case net: DFNet =>
-        net match
-          // ignoring receiver or if connecting to an OPEN
-          case DFNet.Connection(toVal: DFVal, _, _) if toVal.isOpen || toVal == dfVal => None
-          // ignoring receiver
-          case DFNet.Assignment(toVal, _) if toVal == dfVal => None
-          case _                                            => Some(net)
-      case dfVal: DFVal                                                        => Some(dfVal)
-      case guardBlock: DFConditional.Block if guardBlock.guardRef.get == dfVal => Some(guardBlock)
-      case _                                                                   => None
-    }
+  def getReadDeps(using MemberGetSet): Set[TextOut | DFNet | DFVal | DFConditional.Block] =
+    val fromRefs: Set[TextOut | DFNet | DFVal | DFConditional.Block] =
+      dfVal.originMembersNoTypeRef.flatMap {
+        case net: DFNet =>
+          net match
+            // ignoring receiver or if connecting to an OPEN
+            case DFNet.Connection(toVal = toVal: DFVal) if toVal.isOpen || toVal == dfVal =>
+              None
+            // ignoring receiver
+            case DFNet.Assignment(toVal = toVal) if toVal == dfVal => None
+            case _                                                 => Some(net)
+        case dfVal: DFVal                                                        => Some(dfVal)
+        case guardBlock: DFConditional.Block if guardBlock.guardRef.get == dfVal => Some(guardBlock)
+        case textOut: TextOut                                                    => Some(textOut)
+        case _                                                                   => None
+      }
     dfVal match
       // for ports we need to also account for by-name referencing
       case port @ DclPort() =>
@@ -280,10 +288,10 @@ extension (dfVal: DFVal)
           case r: TypeRef =>
             // looking for what kind of type reference it is
             r.originMember.asInstanceOf[DFVal].dfType match
-              case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r => Some("length")
-              case DFBits(widthRef: TypeRef) if widthRef == r                 => Some("width")
-              case DFDecimal(_, widthRef: TypeRef, _, _) if widthRef == r     => Some("width")
-              case _                                                          => None
+              case DFVector(_, (cellDimRef: TypeRef) :: _) if cellDimRef == r    => Some("length")
+              case DFBits(widthRef: TypeRef) if widthRef == r                    => Some("width")
+              case DFDecimal(widthParamRef = widthRef: TypeRef) if widthRef == r => Some("width")
+              case _                                                             => None
           case _ => None
         }.headOption
       else None
@@ -324,9 +332,9 @@ extension (dfVal: DFVal)
     end refOwner
     refOwner match
       // name from assignment destination
-      case Some(DFNet.Assignment(toVal, _)) => Some(partName(member, toVal))
+      case Some(DFNet.Assignment(toVal = toVal)) => Some(partName(member, toVal))
       // name from connection destination
-      case Some(DFNet.Connection(toVal: DFVal, _, _)) => Some(partName(member, toVal))
+      case Some(DFNet.Connection(toVal = toVal: DFVal)) => Some(partName(member, toVal))
       // name from a named value which was referenced by an alias
       case Some(value: DFVal) if !value.isAnonymous => Some(partName(member, value))
       // found an (anonymous) value -> checking suggestion for it
@@ -342,22 +350,6 @@ extension (dfVal: DFVal)
             .replace('.', '_')
         )
       case _ => suggestName(dfVal)
-  def isBubble(using MemberGetSet): Boolean =
-    dfVal match
-      case c: DFVal.Const          => c.dfType.isDataBubble(c.data.asInstanceOf[c.dfType.Data])
-      case f: DFVal.Func           => f.args.exists(_.get.isBubble)
-      case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
-      case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
-      case _                       => false
-  def isDFDomain(using MemberGetSet): Boolean = dfVal.getDomainType match
-    case DomainType.DF => true
-    case _             => false
-  def isRTDomain(using MemberGetSet): Boolean = dfVal.getDomainType match
-    case DomainType.RT(_) => true
-    case _                => false
-  def isEDDomain(using MemberGetSet): Boolean = dfVal.getDomainType match
-    case DomainType.ED => true
-    case _             => false
   // true if this is a variable that is never assigned/connected to
   def isConstVAR(using MemberGetSet): Boolean =
     dfVal match
@@ -375,16 +367,6 @@ extension (dfVal: DFVal)
     case _                          => false
 
 end extension
-
-extension (dcl: DFVal.Dcl)
-  def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefList match
-    case DFRef(dfVal) :: _ => !dfVal.isBubble
-    case _                 => false
-
-extension (dcl: DFVal.Alias.History)
-  def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefOption match
-    case Some(DFRef(dfVal)) => !dfVal.isBubble
-    case _                  => false
 
 extension (refTW: DFNet.Ref)
   def isViaRef(using MemberGetSet): Boolean =
@@ -413,9 +395,16 @@ extension (net: DFNet)
   @targetName("collectRelMembersDFNet")
   def collectRelMembers(using MemberGetSet): List[DFVal] =
     net match
-      case DFNet(DFRef(lhs: DFVal), _, DFRef(rhs: DFVal), _, _, _) =>
+      case DFNet(lhsRef = DFRef(lhs: DFVal), rhsRef = DFRef(rhs: DFVal)) =>
         lhs.collectRelMembers(false) ++ rhs.collectRelMembers(false)
       case _ => Nil
+
+extension (textOut: TextOut)
+  @targetName("collectRelMembersTextOut")
+  def collectRelMembers(using MemberGetSet): List[DFVal] =
+    textOut.getRefs.view
+      .collect { case DFRef(dfVal: DFVal) => dfVal }
+      .flatMap(_.collectRelMembers(false)).toList
 
 extension (member: DFMember)
   def isPublicMember(using MemberGetSet): Boolean =
@@ -424,3 +413,17 @@ extension (member: DFMember)
       case _: DFVal.DesignParam => true
       case _: DomainBlock       => true
       case _                    => false
+end extension
+
+extension (member: DFMember)
+  def consumesCycles(using MemberGetSet): Boolean =
+    member match
+      case loop: DFLoop.Block =>
+        loop.isInRTDomain && !loop.isCombinational
+      case wait: Wait   => wait.isInRTDomain
+      case _: StepBlock => true
+      case _: Goto      => true
+      case cb: DFConditional.Block =>
+        cb.members(MemberView.Folded).exists(_.consumesCycles)
+      case _ => false
+end extension

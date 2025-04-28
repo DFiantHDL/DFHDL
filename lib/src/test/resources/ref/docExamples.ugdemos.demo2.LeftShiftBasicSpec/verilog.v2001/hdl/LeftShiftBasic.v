@@ -12,5 +12,6 @@ module LeftShiftBasic(
   output wire [7:0]  oBits
 );
   `include "dfhdl_defs.vh"
+  `include "LeftShiftBasic_defs.vh"
   assign oBits = iBits << shift;
 endmodule

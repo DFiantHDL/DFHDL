@@ -418,4 +418,111 @@ class AddClkRstSpec extends StageSpec:
          |""".stripMargin
     )
   }
+  test("Top-level clk/rst are VARs") {
+    class FooChild extends RTDesign:
+      val y = UInt(8) <> OUT.REG init 0
+      y.din := y + 1
+
+    class Foo extends RTDesign(cfg):
+      val clk = Clk <> VAR
+      val rst = Rst <> VAR
+      clk.actual := 0
+      rst.actual := 0
+      val child = new FooChild
+    val top = (new Foo).addClkRst
+    assertCodeString(
+      top,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class FooChild extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  y.din := y + d"8'1"
+         |end FooChild
+         |
+         |class Foo extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> VAR
+         |  val rst = Rst_cfg <> VAR
+         |  clk.actual := 0
+         |  rst.actual := 0
+         |  val child = FooChild()
+         |end Foo
+         |""".stripMargin
+    )
+  }
+  test("Top-level simulation clk/rst generated") {
+    class FooChild extends RTDesign:
+      val y = UInt(8) <> OUT.REG init 0
+      y.din := y + 1
+
+    class Foo extends RTDesign(cfg):
+      val child = new FooChild
+    val top = (new Foo).addClkRst
+    assertCodeString(
+      top,
+      """|case class Clk_cfg() extends Clk
+         |case class Rst_cfg() extends Rst
+         |
+         |class FooChild extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> IN
+         |  val rst = Rst_cfg <> IN
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  y.din := y + d"8'1"
+         |end FooChild
+         |
+         |class Foo extends RTDesign(cfg):
+         |  val clk = Clk_cfg <> VAR
+         |  val rst = Rst_cfg <> VAR
+         |  @hw.flattenMode.transparent()
+         |  val clkRstSimGen = new EDDomain:
+         |    process:
+         |      rst.actual :== 1
+         |      while (true)
+         |        clk.actual :== 0
+         |        10.ns.wait
+         |        clk.actual :== 1
+         |        10.ns.wait
+         |        rst.actual :== 0
+         |      end while
+         |  val child = FooChild()
+         |end Foo
+         |""".stripMargin
+    )
+  }
+  test("Top-level simulation clk only generated") {
+    class FooChild extends RTDesign(cfgNoRst):
+      val y = UInt(8) <> OUT.REG init 0
+      y.din := y + 1
+
+    class Foo extends RTDesign(cfgNoRst):
+      val child = new FooChild
+    val top = (new Foo).addClkRst
+    assertCodeString(
+      top,
+      """|case class Clk_cfgNoRst() extends Clk
+         |
+         |class FooChild extends RTDesign(cfgNoRst):
+         |  val clk = Clk_cfgNoRst <> IN
+         |  val y = UInt(8) <> OUT.REG init d"8'0"
+         |  y.din := y + d"8'1"
+         |end FooChild
+         |
+         |class Foo extends RTDesign(cfgNoRst):
+         |  val clk = Clk_cfgNoRst <> VAR
+         |  @hw.flattenMode.transparent()
+         |  val clkRstSimGen = new EDDomain:
+         |    process:
+         |      while (true)
+         |        clk.actual :== 0
+         |        10.ns.wait
+         |        clk.actual :== 1
+         |        10.ns.wait
+         |      end while
+         |  val child = FooChild()
+         |end Foo
+         |""".stripMargin
+    )
+  }
 end AddClkRstSpec

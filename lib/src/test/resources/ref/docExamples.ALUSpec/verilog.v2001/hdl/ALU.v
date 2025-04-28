@@ -9,6 +9,7 @@ module ALU(
   output reg [31:0]   aluOut
 );
   `include "dfhdl_defs.vh"
+  `include "ALU_defs.vh"
   wire [4:0] shamt;
   always @(*)
   begin

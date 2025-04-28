@@ -18,6 +18,7 @@ module LRShiftDirect#(parameter integer width = 8)(
   input  wire  [0:0]                dir
 );
   `include "dfhdl_defs.vh"
+  `include "LRShiftDirect_defs.vh"
   wire [width - 1:0] lshifter_iBits;
   wire [clog2(width) - 1:0] lshifter_shift;
   wire [width - 1:0] lshifter_oBits;

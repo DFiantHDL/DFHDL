@@ -8,6 +8,7 @@ module Cipher(
   output wire [7:0] o [0:3] [0:3]
 );
   `include "dfhdl_defs.vh"
+  `include "Cipher_defs.vh"
   wire [7:0] o_part_cipher_inst_data [0:3] [0:3];
   wire [7:0] o_part_cipher_inst_key [0:3] [0:3];
   wire [7:0] o_part_cipher_inst_o [0:3] [0:3];

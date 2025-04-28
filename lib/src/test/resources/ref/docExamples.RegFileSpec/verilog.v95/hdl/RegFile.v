@@ -13,6 +13,7 @@ module RegFile(
   rd_wren
 );
   `include "dfhdl_defs.vh"
+  `include "RegFile_defs.vh"
   parameter integer DATA_WIDTH = 32;
   parameter integer REG_NUM = 32;
   input  wire                         clk;

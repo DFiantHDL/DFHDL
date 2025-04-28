@@ -246,7 +246,7 @@ final class MutableDB():
     def getLastMembers(cnt: Int): List[DFMember] =
       current.members.view.reverse.filterNot(e => e._3).map(e => e._1).take(cnt).toList.reverse
     def getLastDesignInst: DFDesignBlock =
-      current.members.view.reverse.collectFirst { case MemberEntry(d: DFDesignBlock, _, _) =>
+      current.members.view.reverse.collectFirst { case MemberEntry(irValue = d: DFDesignBlock) =>
         d
       }.get
     def getReachableNamedValue(dfVal: DFVal, cf: => DFVal): DFVal =

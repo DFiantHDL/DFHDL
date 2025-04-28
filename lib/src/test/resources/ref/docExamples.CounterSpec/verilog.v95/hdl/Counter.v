@@ -9,6 +9,7 @@ module Counter(
   cnt
 );
   `include "dfhdl_defs.vh"
+  `include "Counter_defs.vh"
   parameter integer width = 8;
   input  wire clk;
   input  wire rst;

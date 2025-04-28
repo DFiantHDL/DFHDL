@@ -48,7 +48,13 @@ object Domain:
 
 end Domain
 
-abstract class DFDomain extends DomainContainer(DomainType.DF), Domain
+trait NoClkRstDomain extends Domain:
+  protected inline def Clk: DFOpaque[DFOpaque.Clk] =
+    compiletime.error("Clk/Rst declarations are not allowed in this domain.")
+  protected inline def Rst: DFOpaque[DFOpaque.Rst] =
+    compiletime.error("Clk/Rst declarations are not allowed in this domain.")
+
+abstract class DFDomain extends DomainContainer(DomainType.DF), NoClkRstDomain
 
 abstract class RTDomain(
     cfg: RTDomainCfg = RTDomainCfg.Derived
@@ -57,4 +63,4 @@ abstract class RTDomain(
   related =>
   abstract class RelatedDomain extends RTDomain(RTDomainCfg.Related(related))
 
-abstract class EDDomain extends DomainContainer(DomainType.ED), Domain
+abstract class EDDomain extends DomainContainer(DomainType.ED), NoClkRstDomain

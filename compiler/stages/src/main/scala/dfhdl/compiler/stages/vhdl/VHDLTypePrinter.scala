@@ -31,6 +31,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         else s"signed(${widthParamRef.uboundCS} downto 0)"
       case (false, _) => ???
       case (true, _)  => ???
+  def csDFString(dfType: DFString, typeCS: Boolean): String = "string"
 
   def csNamedDFTypeConvFuncsDcl(dfType: NamedDFType): String =
     val typeName = dfType match
@@ -277,7 +278,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
           |  variable ret : ${typeName}$dims$cellDim;
           |begin
           |  cellBitWidth := bitWidth(ret(0));
-          |  lo := A'length;
+          |  lo := A'high + 1;
           |  for i in 0 to ret'length - 1 loop
           |    hi := lo - 1; lo := hi - cellBitWidth + 1;
           |    ret(i) := $toCellConv;

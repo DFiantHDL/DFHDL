@@ -35,7 +35,7 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "CustomControl"
-  // override val debugFilter: String => Boolean = _.contains("Example.scala")
+  // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")
   val ignoreIfs = mutable.Set.empty[String]
@@ -533,6 +533,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       selectMethod("patternBind")
         .appliedToArgs(List(bindValTree, patternTree))
         .appliedTo(dfcStack.head)
+    def patternNamedArg(name: String, patternTree: Tree)(using Context): Tree =
+      selectMethod("patternNamedArg")
+        .appliedToArgs(List(Literal(Constant(name)), patternTree))
     def patternBindSI(
         opTree: Tree,
         partTrees: List[Tree],
@@ -608,8 +611,8 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
           case UnApply(select: Select, _, binds) =>
             select match
               case Select(tree @ Block(List(TypeDef(_, template)), _), _) =>
-                val Template(_, _, _, List(defdef)) = template: @unchecked
-                val DefDef(_, _, _, rhs: Tree @unchecked) = defdef: @unchecked
+                val Template(preBody = List(defdef)) = template: @unchecked
+                val DefDef(preRhs = rhs: Tree @unchecked) = defdef: @unchecked
                 Some(tree, binds, rhs.underlying)
               case _ => None
           case _ => None
@@ -794,6 +797,9 @@ class CustomControlPhase(setting: Setting) extends CommonPhase:
       // catch all
       case Ident(i) if i.toString == "_" =>
         FromCore.patternCatchAll
+      case NamedArg(name, tree) =>
+        val dfPattern = transformDFCasePattern(selectorTree, tree, prefixBindName)
+        FromCore.patternNamedArg(name.toString, dfPattern)
       // catch all with name bind
       case Bind(n, boundPattern) =>
         val newBindSel =

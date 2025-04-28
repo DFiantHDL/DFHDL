@@ -46,6 +46,18 @@ class DFMatchSpec extends DFSpec:
          |p match
          |  case Pixel(d"8'1", d"8'2") =>
          |end match
+         |p match
+         |  case Pixel(x = d"8'1", y = d"8'2") =>
+         |end match
+         |p match
+         |  case Pixel(x = d"8'1") =>
+         |end match
+         |p match
+         |  case Pixel(y = d"8'2") =>
+         |end match
+         |p match
+         |  case Pixel(_, d"8'2") =>
+         |end match
          |PixelB(xy = Pixel(x = x, y = x), z = x) match
          |  case PixelB(Pixel(d"8'1", d"8'2"), d"8'3") =>
          |end match
@@ -108,6 +120,18 @@ class DFMatchSpec extends DFSpec:
 
       p match
         case Pixel(1, 2) =>
+
+      p match
+        case Pixel(x = 1, y = 2) =>
+
+      p match
+        case Pixel(x = 1) =>
+
+      p match
+        case Pixel(y = 2) =>
+
+      p match
+        case Pixel(_, 2) =>
 
       PixelB(Pixel(x, x), x) match
         case PixelB(Pixel(1, 2), 3) =>

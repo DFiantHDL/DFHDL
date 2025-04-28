@@ -19,21 +19,18 @@ private final case class ReplacementContext(
       case _ => member.asInstanceOf[M]
 
   def getUpdatedRefTable(refTable: Map[DFRefAny, DFMember]): Map[DFRefAny, DFMember] =
-    refTable.map {
-      case (ref: DFRef.TwoWayAny, member) =>
-        val replacementHistory = memberRepTable.getOrElse(member, List())
-        replacementHistory
-          .collectFirst {
-            case (repMember, Patch.Replace.RefFilter.All) => ref -> repMember
-            case (repMember, Patch.Replace.RefFilter.Outside(owner))
-                if member.isOutsideOwner(owner) =>
-              ref -> repMember
-            case (repMember, Patch.Replace.RefFilter.Inside(owner))
-                if member.isInsideOwner(owner) =>
-              ref -> repMember
-          }
-          .getOrElse(ref -> member)
-      case x => x
+    refTable.map { case (ref, member) =>
+      val replacementHistory = memberRepTable.getOrElse(member, List())
+      replacementHistory
+        .collectFirst {
+          case (repMember, Patch.Replace.RefFilter.All) => ref -> repMember
+          case (repMember, Patch.Replace.RefFilter.Outside(owner))
+              if member.isOutsideOwner(owner) =>
+            ref -> repMember
+          case (repMember, Patch.Replace.RefFilter.Inside(owner)) if member.isInsideOwner(owner) =>
+            ref -> repMember
+        }
+        .getOrElse(ref -> member)
     }
 
   def replaceMember(

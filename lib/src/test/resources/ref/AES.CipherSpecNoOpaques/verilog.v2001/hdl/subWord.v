@@ -7,6 +7,7 @@ module subWord(
   output wire [7:0] o [0:3]
 );
   `include "dfhdl_defs.vh"
+  `include "CipherNoOpaques_defs.vh"
   wire [7:0] o_part_sbox_inst_lhs;
   wire [7:0] o_part_sbox_inst_o;
   wire [7:0] sbox_inst_0_lhs;

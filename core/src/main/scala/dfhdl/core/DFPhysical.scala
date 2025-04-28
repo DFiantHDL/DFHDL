@@ -9,8 +9,9 @@ import scala.annotation.targetName
 import scala.annotation.implicitNotFound
 
 extension (bd: BigDecimal.type)
-  private def apply(arg: Int | Double): BigDecimal = arg match
+  private def apply(arg: Int | Long | Double): BigDecimal = arg match
     case i: Int    => BigDecimal(i)
+    case l: Long   => BigDecimal(l)
     case d: Double => BigDecimal(d)
 
 type DFPhysical[+U <: PhysicalUnit] = DFType[ir.DFPhysical, Args1[U @uncheckedVariance]]
@@ -19,13 +20,6 @@ object DFPhysical:
     ir.DFPhysical(valueOf[U]).asFE[DFPhysical[U]]
   object Val:
     object Ops:
-      protected type CYInRT = AssertGiven[
-        DomainType.RT,
-        "`.cy` unit is only allowed under register-transfer (RT) domains."
-      ]
-      extension (lhs: Int)
-        def cy(using DFC, CYInRT): DFConstOf[DFCycles] =
-          DFVal.Const(DFCycles, (BigDecimal(lhs), ir.DFPhysical.Unit.Cycles), named = true)
       extension (lhs: Int | Double)
         def fs(using DFC): DFConstOf[DFTime] =
           DFVal.Const(DFTime, (BigDecimal(lhs), PhysicalUnit.Time.Scale.fs), named = true)
@@ -95,6 +89,3 @@ type DFFreq = DFPhysical[PhysicalUnit.Freq.type]
 val DFFreq = ir.DFFreq.asFE[DFFreq]
 type DFNumber = DFPhysical[PhysicalUnit.Number.type]
 val DFNumber = ir.DFNumber.asFE[DFNumber]
-type DFCycles = DFPhysical[PhysicalUnit.Cycles.type]
-val DFCycles = ir.DFCycles.asFE[DFCycles]
-type Duration = DFTime | DFCycles

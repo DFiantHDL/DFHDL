@@ -7,6 +7,7 @@ module keyExpansion(
   o
 );
   `include "dfhdl_defs.vh"
+  `include "Cipher_defs.vh"
   input  wire  [7:0] key [0:3] [0:3];
   output wire [7:0] o [0:43] [0:3];
   wire [7:0] w_0 [0:3];

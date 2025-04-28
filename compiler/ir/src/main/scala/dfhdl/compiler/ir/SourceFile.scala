@@ -14,7 +14,7 @@ object SourceType:
     case BlackBox
     case GlobalDef
     case DFHDLDef
-  trait ToolConfig extends SourceType
+  trait Tool extends SourceType
 
 enum SourceOrigin derives CanEqual:
   // Compiled files are a result from a compilation process.

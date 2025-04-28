@@ -4,7 +4,7 @@ import dfhdl.backends
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
@@ -12,7 +12,7 @@ import java.io.FileWriter
 import java.io.File.separatorChar
 import dfhdl.compiler.stages.verilog.VerilogDialect
 
-object Verilator extends VerilogLinter:
+object Verilator extends VerilogLinter, VerilogSimulator:
   val toolName: String = "Verilator"
   protected def binExec: String = "verilator"
   override protected def windowsBinExec: String = "verilator_bin.exe"
@@ -22,11 +22,11 @@ object Verilator extends VerilogLinter:
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   override val convertWindowsToLinuxPaths: Boolean = true
-  protected def lintIncludeFolderFlag: String = "-I"
+  protected def includeFolderFlag: String = "-I"
 
   override protected def toolFiles(using getSet: MemberGetSet): List[String] =
     getSet.designDB.srcFiles.collect {
-      case SourceFile(SourceOrigin.Committed, VerilatorConfig, path, _) =>
+      case SourceFile(SourceOrigin.Committed, _: VerilatorToolSource, path, _) =>
         path.convertWindowsToLinuxPaths
     }
 
@@ -42,7 +42,7 @@ object Verilator extends VerilogLinter:
 
   override protected def lintCmdPreLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String =
     val hasTiming = getSet.designDB.members.exists {
@@ -52,19 +52,42 @@ object Verilator extends VerilogLinter:
     constructCommand(
       "--lint-only",
       "--quiet-stats",
+      s"--top-module ${topName}",
       if (hasTiming) "--timing" else ""
     )
+  end lintCmdPreLangFlags
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     "-Wall",
-    (!summon[LinterOptions].fatalWarnings).toFlag("-Wno-fatal")
+    (!summon[LinterOptions].Werror.toBoolean).toFlag("-Wno-fatal")
   )
 
-  override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
+  override protected def simulateCmdPreLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String =
+    constructCommand(
+      "--binary",
+      "--quiet-stats",
+      "--build-jobs 0",
+      s"--top-module ${topName}"
+    )
+
+  override protected def simulateCmdPostLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-Wall",
+    (!summon[LinterOptions].Werror.toBoolean).toFlag("-Wno-fatal")
+  )
+
+  override protected[dfhdl] def lintPreprocess[D <: Design](cd: CompiledDesign[D])(using
       CompilerOptions,
       ToolOptions
   ): CompiledDesign[D] =
@@ -72,9 +95,93 @@ object Verilator extends VerilogLinter:
       cd,
       List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
     )
+
+  // override protected[dfhdl] def simulatePreprocess[D <: Design](cd: CompiledDesign[D])(using
+  //     CompilerOptions,
+  //     SimulatorOptions
+  // ): CompiledDesign[D] =
+  //   addSourceFiles(
+  //     cd,
+  //     List(new VerilatorSimMainPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
+  //   )
+
+  override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =
+    lintCmdLanguageFlag(dialect)
+
+  override protected def simulateLogger(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): Option[Tool.ProcessLogger] =
+    var totalCompilations = 0
+    var cpps = 0
+    var silence = false
+    def setCppsFromFolder(): Unit =
+      val objDirPath = s"${execPath}${separatorChar}obj_dir"
+      val objDir = new java.io.File(objDirPath)
+      if (objDir.exists && objDir.isDirectory)
+        val cppFiles = objDir.listFiles.count(f => f.isFile && f.getName.endsWith(".cpp"))
+        totalCompilations = cppFiles + 1 // +1 for final linking
+    // Create a process logger to silence the detailed make output and show progress
+    Some(
+      Tool.ProcessLogger(
+        lineIsWarning = (line: String) => false,
+        lineIsSuppressed = (line: String) =>
+          val ret =
+            if (line.startsWith("make: Entering directory"))
+              setCppsFromFolder()
+              silence = true
+              true
+            else if (line.startsWith("g++"))
+              cpps += 1
+              true
+            else if (line.startsWith("make: Leaving directory"))
+              cpps = totalCompilations
+              silence = false
+              true
+            else if (line.endsWith("verilator_deplist.tmp")) true
+            else silence
+          // Print progress percentage
+          if (totalCompilations > 0)
+            val percentage = (cpps * 100) / totalCompilations
+            print(s"\rCompiling verilated C++ files: $percentage%")
+            if (cpps >= totalCompilations)
+              println() // Add a newline when complete
+              totalCompilations = 0
+              cpps = 0
+          ret
+      )
+    )
+  end simulateLogger
+
+  override def simulate[D <: Design](
+      cd: CompiledDesign[D]
+  )(using co: CompilerOptions, so: SimulatorOptions): CompiledDesign[D] =
+    val ret = super.simulate(cd)
+    given MemberGetSet = ret.stagedDB.getSet
+    val unixExec =
+      s"${Paths.get(execPath).toAbsolutePath()}${separatorChar}obj_dir${separatorChar}V${topName}"
+    val runExec: String =
+      val osName: String = sys.props("os.name").toLowerCase
+      if (osName.contains("windows")) s"${unixExec}.exe" else unixExec
+    println("Executing verilated binary...")
+    // set special logger to identify warnings, because verilator does not track warnings.
+    val logger = Some(
+      Tool.ProcessLogger(
+        // `WARNING:` is used by DFHDL when compiling to v95/v2001 dialects
+        lineIsWarning = (line: String) => line.startsWith("WARNING:") || line.contains("%Warning:"),
+        lineIsSuppressed = (line: String) => false
+      )
+    )
+    exec(cmd = "", loggerOpt = logger, runExec = runExec)
+    ret
+  end simulate
+
 end Verilator
 
-case object VerilatorConfig extends SourceType.ToolConfig
+sealed trait VerilatorToolSource extends SourceType.Tool
+
+case object VerilatorConfig extends VerilatorToolSource
 
 class VerilatorConfigPrinter(verilatorVersion: String)(using
     getSet: MemberGetSet,
@@ -102,7 +209,9 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
       matchWild: String = ""
   ): String =
     val ruleArg = rule.emptyOr(" -rule " + _)
-    val fileArg = file.emptyOr(f => s""" -file "*$separatorChar$f"""")
+    val fileArg =
+      val sep = if (separatorChar == '\\') "\\\\" else separatorChar
+      file.emptyOr(f => s""" -file "*$sep$f"""")
     val lineArg = lines.emptyOr(" -lines " + _)
     val matchWildArg = matchWild.emptyOr(m => s""" -match "$m"""")
     s"lint_off$ruleArg$fileArg$lineArg$matchWildArg"
@@ -169,3 +278,48 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
     SourceFile(SourceOrigin.Compiled, VerilatorConfig, configFileName, contents)
 
 end VerilatorConfigPrinter
+
+case object VerilatorSimMain extends VerilatorToolSource
+
+// class VerilatorSimMainPrinter(verilatorVersion: String)(using
+//     getSet: MemberGetSet,
+//     co: CompilerOptions,
+//     so: SimulatorOptions
+// ):
+//   val designDB: DB = getSet.designDB
+//   val topName = designDB.top.dclName
+//   def mainFileName: String = s"${topName}.cpp"
+//   def contents: String =
+//     s"""|#include "V${topName}.h"
+//         |#include "verilated.h"
+//         |#include "V${topName}___024root.h"
+//         |
+//         |int main(int argc, char** argv) {
+//         |    // Initialize Verilator
+//         |    Verilated::commandArgs(argc, argv);
+//         |
+//         |    // Create instance of our module
+//         |    V${topName}* top = new V${topName};
+//         |
+//         |    // Initialize simulation inputs
+//         |    V${topName}___024root* rootp = top->rootp;
+//         |    rootp->${topName}__DOT__rst = 1;
+//         |
+//         |    while (!Verilated::gotFinish()) {
+//         |        // Toggle clock
+//         |        rootp->${topName}__DOT__clk = 0;
+//         |        top->eval();
+//         |        rootp->${topName}__DOT__clk = 1;
+//         |        top->eval();
+//         |        rootp->${topName}__DOT__rst = 0;
+//         |    }
+//         |
+//         |    // Cleanup
+//         |    delete top;
+//         |
+//         |    return 0;
+//         |}
+//         |""".stripMargin
+//   def getSourceFile: SourceFile =
+//     SourceFile(SourceOrigin.Compiled, VerilatorSimMain, mainFileName, contents)
+// end VerilatorSimMainPrinter

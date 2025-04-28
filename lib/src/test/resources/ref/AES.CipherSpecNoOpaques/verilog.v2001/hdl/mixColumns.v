@@ -7,6 +7,7 @@ module mixColumns(
   output wire [7:0] o [0:3] [0:3]
 );
   `include "dfhdl_defs.vh"
+  `include "CipherNoOpaques_defs.vh"
   wire [7:0] o_part_mulByte_0_inst_rhs;
   wire [7:0] o_part_mulByte_0_inst_o;
   wire [7:0] o_part_mulByte_1_inst_rhs;

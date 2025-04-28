@@ -3,7 +3,7 @@ package dfhdl.compiler.ir
 import scala.reflect.{ClassTag, classTag}
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.collection.immutable.{ListMap, ListSet}
+import scala.collection.immutable.{ListMap, ListSet, BitSet}
 import dfhdl.internals.*
 import dfhdl.compiler.printing.{Printer, DefaultPrinter}
 import DFDesignBlock.InstMode
@@ -33,6 +33,12 @@ final case class DB(
     def getGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any): Option[CT] =
       globalTags.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
   end getSet
+
+  // considered to be in simulation if the top design has no ports
+  lazy val inSimulation: Boolean = membersNoGlobals.forall {
+    case dcl: DFVal.Dcl if dcl.isPort => dcl.getOwnerDesign != top
+    case _                            => true
+  }
 
   lazy val portsByName: Map[DFDesignInst, Map[String, DFVal.Dcl]] =
     members.view
@@ -494,11 +500,11 @@ final case class DB(
       //       |Hierarchy: ${targetPort.getOwnerNamed.getFullName}""".stripMargin
       // )
       None
-    // group magnet ports according to the magnet type
+    // group magnet ports/vars according to the magnet type
     val magnetDclGroups =
       members.view
         .collect {
-          case dcl @ DFVal.Dcl(dfType: DFOpaque, _, _, _, _, _) if dcl.isPort && dfType.isMagnet =>
+          case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dfType.isMagnet =>
             (dcl, dfType)
         }
         .groupMap(_._2)(_._1).values.map(_.toSet).toList
@@ -506,10 +512,10 @@ final case class DB(
     // set of magnet ports that are explicitly connected/assigned
     val alreadyConnectedOrAssigned =
       assignmentsTable.keys.flatMap(_.dealias).collect {
-        case dcl @ DFVal.Dcl(dfType: DFOpaque, _, _, _, _, _) if dcl.isPort && dfType.isMagnet =>
+        case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dcl.isPort && dfType.isMagnet =>
           dcl
       }.toSet ++ connectionTable.dcls.collect {
-        case dcl @ DFVal.Dcl(dfType: DFOpaque, _, _, _, _, _) if dcl.isPort && dfType.isMagnet =>
+        case dcl @ DFVal.Dcl(dfType = dfType: DFOpaque) if dcl.isPort && dfType.isMagnet =>
           dcl
       }
     // flatten connection map for all magnet groups
@@ -531,11 +537,11 @@ final case class DB(
           val sourcePort: Option[DFVal.Dcl] =
             if (targetPort.isPortIn)
               // sorted source in port candidates according to the distance
-              val sourceInCandidates = dclGrp.filter { port =>
-                port.isPortIn && !port.isSameOwnerDesignAs(targetPort) &&
-                targetPort.isInsideOwner(port.getOwnerDesign)
-              }.map { port =>
-                (port, targetDsn.getDistanceFromOwnerDesign(port.getOwnerDesign))
+              val sourceInCandidates = dclGrp.filter { dcl =>
+                (dcl.isPortIn || dcl.isVar) && !dcl.isSameOwnerDesignAs(targetPort) &&
+                targetPort.isInsideOwner(dcl.getOwnerDesign)
+              }.map { dcl =>
+                (dcl, targetDsn.getDistanceFromOwnerDesign(dcl.getOwnerDesign))
               }.toList.sortBy(_._2)
               // sorted source out port candidates according to the distance
               val sourceOutCandidates = dclGrp.filter(_.isPortOut)
@@ -571,11 +577,12 @@ final case class DB(
             // target is an output
             else
               // sorted source candidates according to the distance
-              val sourceOutCandidates = dclGrp.filter { port =>
-                port.isPortOut && !port.isSameOwnerDesignAs(targetPort) &&
-                port.isInsideOwner(targetDsn)
-              }.map { port =>
-                (port, port.getDistanceFromOwnerDesign(targetDsn))
+              val sourceOutCandidates = dclGrp.filter { dcl =>
+                (dcl.isPortOut || dcl.isVar) && !dcl.isSameOwnerDesignAs(targetPort) &&
+                dcl.isInsideOwner(targetDsn) ||
+                dcl.isPortIn && dcl.isSameOwnerDesignAs(targetPort)
+              }.map { dcl =>
+                (dcl, dcl.getDistanceFromOwnerDesign(targetDsn))
               }.toList.sortBy(_._2)
               sourceOutCandidates match
                 case Nil =>
@@ -609,9 +616,18 @@ final case class DB(
     ret
   end magnetConnectionTable
 
-  def checkDanglingInputs(): Unit =
-    // collect all input ports that are not connected directly or implicitly as magnets
-    val danglingInputs = members.collect {
+  def checkDanglingPorts(): Unit =
+    val assignmentsDclTable =
+      assignmentsTable.keys
+        .flatMap(_.departialDcl)
+        .foldLeft(Map.empty[DFVal.Dcl, BitSet]) { case (acc, (dcl, range)) =>
+          acc.updated(
+            dcl,
+            acc.getOrElse(dcl, BitSet.empty) ++ BitSet.fromSpecific(range)
+          )
+        }
+    // collect all ports that are not connected directly or implicitly as magnets
+    val danglingPorts = members.collect {
       case p: DFVal.Dcl
           if p.isPortIn && !connectionTable.contains(p) &&
             !p.getOwnerDesign.isTop && !magnetConnectionTable.contains(p) =>
@@ -620,12 +636,21 @@ final case class DB(
             |Position:  ${ownerDesign.meta.position}
             |Hierarchy: ${ownerDesign.getFullName}
             |Message:   Found a dangling (unconnected) input port `${p.getName}`.""".stripMargin
+      case p: DFVal.Dcl
+          if p.isPortOut && !p.getOwnerDesign.isDuplicate &&
+            !connectionTable.contains(p) && !assignmentsDclTable.contains(p) &&
+            !magnetConnectionTable.contains(p) && !p.hasNonBubbleInit =>
+        val ownerDesign = p.getOwnerDesign
+        s"""|DFiant HDL connectivity error!
+            |Position:  ${ownerDesign.meta.position}
+            |Hierarchy: ${ownerDesign.getFullName}
+            |Message:   Found a dangling (unconnected/unassigned and uninitialized) output port `${p.getName}`.""".stripMargin
     }
-    if (danglingInputs.nonEmpty)
+    if (danglingPorts.nonEmpty)
       throw new IllegalArgumentException(
-        danglingInputs.mkString("\n")
+        danglingPorts.mkString("\n")
       )
-  end checkDanglingInputs
+  end checkDanglingPorts
 
   // holds for each RTDomain/RTDesign/RTInterface that its configuration on another domain,
   // the domain it is dependent on
@@ -687,6 +712,163 @@ final case class DB(
       .toMap
   end dependentRTDomainOwners
 
+  // mapping designs and their uses of Clk/Rst
+  // we use the design declaration name (after enforcing uniqueness) because designs
+  // can be empty duplicates and the indications need to come from the full designs
+  //                                       dclName  usesClk  usesRst
+  private lazy val designUsesClkRst = mutable.Map.empty[String, (Boolean, Boolean)]
+  //                                                            usesClk  usesRst
+  private lazy val domainOwnerUsesClkRst = mutable.Map.empty[DFDomainOwner, (Boolean, Boolean)]
+  private lazy val reversedDependents = dependentRTDomainOwners.invert
+
+  extension (domainOwner: DFDomainOwner)
+    private def getExplicitCfg: RTDomainCfg.Explicit =
+      domainOwner.domainType match
+        case DomainType.RT(explicitCfg: RTDomainCfg.Explicit) => explicitCfg
+        case _ => top.getTagOf[RTDomainCfg.Explicit].get
+    private def usesClkRst: (Boolean, Boolean) = domainOwner match
+      case design: DFDesignBlock =>
+        designUsesClkRst.getOrElseUpdate(
+          design.dclName,
+          design.domainType match
+            case DomainType.RT(RTDomainCfg.Explicit(_, clkCfg, rstCfg)) =>
+              (clkCfg != None, rstCfg != None)
+            case _ => (design.usesClk, design.usesRst)
+        )
+      case _ =>
+        domainOwnerUsesClkRst.getOrElseUpdate(
+          domainOwner,
+          (domainOwner.usesClk, domainOwner.usesRst)
+        )
+    private def usesClk: Boolean = domainOwnerMemberTable(domainOwner).exists {
+      case dcl: DFVal.Dcl                      => dcl.isReg || dcl.isClkDcl
+      case reg: DFVal.Alias.History            => true
+      case pb: ProcessBlock if pb.isInRTDomain => true
+      case internal: DFDesignBlock             => internal.usesClkRst._1
+      case _                                   => false
+    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._1) ||
+      domainOwner.isTop && (domainOwner.getExplicitCfg.clkCfg match
+        case ClkCfg.Explicit(inclusionPolicy = ClkRstInclusionPolicy.AlwaysAtTop) => true
+        case _                                                                    => false)
+
+    private def usesRst: Boolean = domainOwnerMemberTable(domainOwner).exists {
+      case dcl: DFVal.Dcl =>
+        (dcl.isReg && dcl.hasNonBubbleInit) || dcl.isRstDcl
+      case reg: DFVal.Alias.History            => reg.hasNonBubbleInit
+      case pb: ProcessBlock if pb.isInRTDomain => true
+      case internal: DFDesignBlock             => internal.usesClkRst._2
+      case _                                   => false
+    } || reversedDependents.getOrElse(domainOwner, Set()).exists(_.usesClkRst._2) ||
+      domainOwner.isTop && (domainOwner.getExplicitCfg.rstCfg match
+        case RstCfg.Explicit(inclusionPolicy = ClkRstInclusionPolicy.AlwaysAtTop) => true
+        case _                                                                    => false)
+  end extension
+
+  extension (cfg: RTDomainCfg.Explicit)
+    // derived design configuration can be relaxed to no-Clk/Rst according to its
+    // internal usage, as determined by `usesClkRst`
+    private def relaxed(atDomain: DFDomainOwner): RTDomainCfg.Explicit =
+      val (usesClk, usesRst) = atDomain.usesClkRst
+      val updatedClkCfg: ClkCfg = if (usesClk) cfg.clkCfg else None
+      val updatedRstCfg: RstCfg = if (usesRst) cfg.rstCfg else None
+      val updatedName =
+        if (!usesClk) s"RTDomainCfg.Comb"
+        else if (cfg.clkCfg != None && !usesRst)
+          s"${cfg.name}.norst"
+        else cfg.name
+      RTDomainCfg.Explicit(updatedName, updatedClkCfg, updatedRstCfg)
+        .asInstanceOf[RTDomainCfg.Explicit]
+  end extension
+
+  @tailrec private def fillDomainMap(
+      domains: List[DFDomainOwner],
+      stack: List[DFDomainOwner],
+      domainMap: mutable.Map[DFDomainOwner, RTDomainCfg.Explicit]
+  ): Unit =
+    domains match
+      // already has configuration for this domain -> skip it
+      case domain :: rest if domainMap.contains(domain) => fillDomainMap(rest, stack, domainMap)
+      // no configuration for this domain
+      case domain :: rest =>
+        // check if the domain is dependent
+        dependentRTDomainOwners.get(domain) match
+          // the domain is dependent -> its configuration is set by the dependency
+          case Some(dependencyDomain) =>
+            domainMap.get(dependencyDomain) match
+              // found dependency configuration -> save it to the current domain as well
+              case Some(dependencyConfig) =>
+                domainMap += domain -> dependencyConfig.relaxed(domain)
+                fillDomainMap(rest, stack, domainMap)
+              // missing dependency -> put this domain in the stack for now
+              case None => fillDomainMap(rest, domain :: stack, domainMap)
+            end match
+          // the domain is independent -> explicit configuration is set according to other factors
+          case _ =>
+            val explicitCfg = domain.getExplicitCfg
+            domainMap += domain -> explicitCfg.relaxed(domain)
+            fillDomainMap(rest, stack, domainMap)
+        end match
+      // no more domains, but there are left in the stack
+      case Nil if stack.nonEmpty => fillDomainMap(domains = stack, Nil, domainMap)
+      // we're done!
+      case _ =>
+    end match
+  end fillDomainMap
+
+  lazy val explicitRTDomainCfgMap: Map[DFDomainOwner, RTDomainCfg.Explicit] =
+    val domainMap = mutable.Map.empty[DFDomainOwner, RTDomainCfg.Explicit]
+    val derivedDomainOwners = domainOwnerMemberList.map(_._1)
+    fillDomainMap(derivedDomainOwners, Nil, domainMap)
+    domainMap.toMap
+
+  def waitCheck(): Unit =
+    val errors = collection.mutable.ArrayBuffer[String]()
+    for
+      wait <- members.collect { case w: Wait if w.isInRTDomain => w }
+      trigger = wait.triggerRef.get
+      if trigger.dfType == DFTime
+    do
+      def waitError(msg: String): Unit =
+        errors += s"""|DFiant HDL wait error!
+                      |Position:  ${wait.meta.position}
+                      |Hierarchy: ${wait.getOwnerDesign.getFullName}
+                      |Message:   $msg""".stripMargin
+      val ownerDomain = wait.getOwnerDomain
+      trigger.getConstData match
+        case Some((waitValue: BigDecimal, waitUnit: DFPhysical.Unit.Time.Scale)) =>
+          // Check if the wait statement is in a domain with a clock rate configuration
+          explicitRTDomainCfgMap.get(ownerDomain) match
+            case Some(RTDomainCfg.Explicit(_, clkCfg: ClkCfg.Explicit, _)) =>
+              // Get the clock period in picoseconds
+              val (clockPeriodPs: BigDecimal, desc: String) = clkCfg.rate.getConstData.get match
+                case (value: BigDecimal, unit: DFPhysical.Unit.Time.Scale) =>
+                  // Direct period specification
+                  (unit.to_ps(value), s"period ${value}.${unit}")
+                case (value: BigDecimal, unit: DFPhysical.Unit.Freq.Scale) =>
+                  // Frequency specification - convert to period
+                  (unit.to_ps(value), s"frequency ${value}.${unit}")
+              // Get wait duration in picoseconds
+              val waitDurationPs = waitUnit.to_ps(waitValue)
+
+              // Check if wait duration is exactly divisible by clock period
+              if (waitDurationPs % clockPeriodPs != 0)
+                waitError(
+                  s"Wait duration ${waitValue}.${waitUnit} is not exactly divisible by the clock $desc."
+                )
+            case _ =>
+              waitError(
+                s"Wait statement is missing an explicit clock configuration in its domain."
+              )
+          end match
+        case _ =>
+          waitError(s"Wait duration is not constant.")
+      end match
+    end for
+
+    if (errors.nonEmpty)
+      throw new IllegalArgumentException(errors.mkString("\n"))
+  end waitCheck
+
   def circularDerivedDomainsCheck(): Unit =
     // Helper function to perform DFS and detect cycles
     @tailrec def dfs(
@@ -706,6 +888,7 @@ final case class DB(
         dependentRTDomainOwners.get(node) match
           case Some(dependentNode) => dfs(dependentNode, newVisited, newStack)
           case None                => // No dependency, end of this path
+    end dfs
     // Iterate over all nodes in the map and perform DFS
     for (node <- dependentRTDomainOwners.keys)
       dfs(node, Set.empty, Set.empty)
@@ -817,9 +1000,10 @@ final case class DB(
     nameCheck()
     connectionTable // causes connectivity checks
     magnetConnectionTable // causes magnet connectivity checks
-    checkDanglingInputs()
+    checkDanglingPorts()
     directRefCheck()
     circularDerivedDomainsCheck()
+    waitCheck()
 
   // There can only be a single connection to a value in a given range
   // (multiple assignments are possible)

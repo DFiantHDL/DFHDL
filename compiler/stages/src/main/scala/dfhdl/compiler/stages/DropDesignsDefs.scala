@@ -11,7 +11,7 @@ case object DropDesignDefs extends Stage:
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList = designDB.designMemberList.flatMap {
       // only going after design definitions
-      case (design @ DFDesignBlock(DomainType.DF, _, InstMode.Def, _, _, _), members) =>
+      case (design @ DFDesignBlock(domainType = DomainType.DF, instMode = InstMode.Def), members) =>
         var outPortOpt: Option[DFVal.Dcl] = None
         // we remove redundant ident that is wrapped around the return value
         val identRemovePatch = members.view.reverse.collectFirst {

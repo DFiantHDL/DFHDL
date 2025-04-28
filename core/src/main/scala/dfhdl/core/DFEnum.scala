@@ -33,7 +33,7 @@ object DFEncoding:
     val value: DFConstOf[DFUInt[W]]
     final def bigIntValue: BigInt =
       value.asIR match
-        case ir.DFVal.Const(_: ir.DFDecimal, data: Option[BigInt] @unchecked, _, _, _) =>
+        case ir.DFVal.Const(dfType = _: ir.DFDecimal, data = data: Option[BigInt] @unchecked) =>
           data.getOrElse(
             throw new IllegalArgumentException(
               "Bubbles are not accepted as enumeration values."
@@ -51,7 +51,9 @@ end DFEncoding
 
 type DFEnum[E <: DFEncoding] = DFType[ir.DFEnum, Args1[E]]
 object DFEnum:
-  def unapply(using Quotes)(
+  def unapply(using
+      Quotes
+  )(
       tpe: quotes.reflect.TypeRepr
   ): Option[List[quotes.reflect.TypeRepr]] =
     import quotes.reflect.*
@@ -75,12 +77,13 @@ object DFEnum:
   def apply[E <: DFEncoding](enumCompanion: AnyRef): DFEnum[E] =
     val enumClass = classOf[scala.reflect.Enum]
     val enumCompanionCls = enumCompanion.getClass
-    val fieldsAsPairs = for (
-      field <- enumCompanionCls.getDeclaredFields
-      if enumClass.isAssignableFrom(field.getType)
-    ) yield
-      field.setAccessible(true)
-      (field.getName, field.get(enumCompanion).asInstanceOf[DFEncoding])
+    val fieldsAsPairs =
+      for (
+        field <- enumCompanionCls.getDeclaredFields
+        if enumClass.isAssignableFrom(field.getType)
+      ) yield
+        field.setAccessible(true)
+        (field.getName, field.get(enumCompanion).asInstanceOf[DFEncoding])
     val name = enumCompanionCls.getSimpleName.replace("$", "")
     val width = fieldsAsPairs.head._2.calcWidth(fieldsAsPairs.size)
     val entryPairs = fieldsAsPairs.zipWithIndex.map { case ((name, entry), idx) =>
@@ -102,7 +105,7 @@ object DFEnum:
       given DFEnumFromEntry[E <: DFEncoding, RE <: E]: TC[DFEnum[E], RE] with
         type OutP = CONST
         def conv(dfType: DFEnum[E], value: RE)(using DFC): Out =
-          DFVal.Const(dfType, Some(value.bigIntValue))
+          DFVal.Const(dfType, Some(value.bigIntValue), named = true)
     object Compare:
       import DFVal.Compare
       given DFEnumCompareEntry[

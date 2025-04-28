@@ -11,13 +11,17 @@ enum InitFileFormat derives CanEqual:
   // AMDXilinxCOE, IntelAlteraMIF, IntelAlteraHEX
   // LatticeMEM, AMDXilinxMEM
 
+enum InitFileUndefinedValue derives CanEqual:
+  case Bubbles, Zeros
+
 object InitFileFormat:
   import InitFileFormat.*
   def readInitFile(
       fileName: String,
       fileFormat: InitFileFormat,
       arrLen: Int,
-      dataWidth: Int
+      dataWidth: Int,
+      undefinedValue: InitFileUndefinedValue
   ): Vector[(BitVector, BitVector)] =
     val source =
       try Source.fromResource(fileName)
@@ -36,8 +40,8 @@ object InitFileFormat:
       case _    => fileFormat
     try
       (detectedFormat: @unchecked) match
-        case VerilogBin => readVerilogBin(fileContents, arrLen, dataWidth)
-        case VerilogHex => readVerilogHex(fileContents, arrLen, dataWidth)
+        case VerilogBin => readVerilogBin(fileContents, arrLen, dataWidth, undefinedValue)
+        case VerilogHex => readVerilogHex(fileContents, arrLen, dataWidth, undefinedValue)
         // case AMDXilinxCOE   => readAMDXilinxCOE(fileContents, arrLen, dataWidth)
         // case IntelAlteraMIF => readIntelAlteraMIF(fileContents, arrLen, dataWidth)
         // case IntelAlteraHEX => readIntelAlteraHEX(fileContents, arrLen, dataWidth)
@@ -123,11 +127,13 @@ object InitFileFormat:
       contents: String,
       arrLen: Int,
       dataWidth: Int,
+      undefinedValue: InitFileUndefinedValue,
       isBinary: Boolean
   ): Vector[(BitVector, BitVector)] =
-    // array initialization with everything as invalid
-    val bubbleCell = (BitVector.low(dataWidth), BitVector.high(dataWidth))
-    val result = Array.fill(arrLen)(bubbleCell)
+    val undefinedCell = undefinedValue match
+      case InitFileUndefinedValue.Bubbles => (BitVector.low(dataWidth), BitVector.high(dataWidth))
+      case InitFileUndefinedValue.Zeros   => (BitVector.low(dataWidth), BitVector.low(dataWidth))
+    val result = Array.fill(arrLen)(undefinedCell)
     // starting at address zero
     // in the verilog standard the address refers to the array index
     var currentAddress = 0
@@ -183,15 +189,17 @@ object InitFileFormat:
   private def readVerilogBin(
       contents: String,
       arrLen: Int,
-      dataWidth: Int
+      dataWidth: Int,
+      undefinedValue: InitFileUndefinedValue
   ): Vector[(BitVector, BitVector)] =
-    readVerilogStdFile(contents, arrLen, dataWidth, isBinary = true)
+    readVerilogStdFile(contents, arrLen, dataWidth, undefinedValue, isBinary = true)
   private def readVerilogHex(
       contents: String,
       arrLen: Int,
-      dataWidth: Int
+      dataWidth: Int,
+      undefinedValue: InitFileUndefinedValue
   ): Vector[(BitVector, BitVector)] =
-    readVerilogStdFile(contents, arrLen, dataWidth, isBinary = false)
+    readVerilogStdFile(contents, arrLen, dataWidth, undefinedValue, isBinary = false)
   /* https://docs.amd.com/r/en-US/ug896-vivado-ip/COE-File-Syntax */
   private def readAMDXilinxCOE(
       contents: String,

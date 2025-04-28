@@ -63,7 +63,7 @@ case object NameRegAliases extends Stage:
       regAlias.getNonRegAliasRelVal match
         // has reg alias versioning if assigned more than once and is not a REG declaration,
         // since REG dcl assignments are "non-blocking".
-        case dcl: DFVal.Dcl if dcl.getAssignmentsTo.size > 1 && !dcl.modifier.isReg =>
+        case dcl: DFVal.Dcl if dcl.getAssignmentsTo.size > 1 && !dcl.isReg =>
           NameGroup(s"${dcl.getName}_ver", true)
         case dfVal: DFVal if dfVal.isAnonymous =>
           dfVal.suggestName.map(NameGroup(_, true)).getOrElse(NameGroup(dfVal.getName, false))
@@ -85,7 +85,7 @@ case object NameRegAliases extends Stage:
         val properAliases = members.view.collect {
           case DFNet.Assignment(
                 dcl: DFVal.Dcl,
-                regAlias @ DFVal.Alias.History(_, DFRef(relVal), 1, _, _, _, _, _)
+                regAlias @ DFVal.Alias.History(relValRef = DFRef(relVal), step = 1)
               ) if regAlias.isAnonymous && dcl.getAssignmentsTo.size == 1 =>
             patchRemoveHistoryInit(regAlias)
             val dsn = new MetaDesign(dcl, Patch.Add.Config.ReplaceWithLast(), RT(Derived)):
@@ -108,7 +108,7 @@ case object NameRegAliases extends Stage:
         val nameGroupRegMap =
           members.view
             .collect {
-              case regAlias @ DFVal.Alias.History(_, _, _, HistoryOp.State, _, _, _, _)
+              case regAlias @ DFVal.Alias.History(op = HistoryOp.State)
                   if !properAliases.contains(regAlias) =>
                 regAlias
             }

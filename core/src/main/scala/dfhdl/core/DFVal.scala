@@ -18,6 +18,7 @@ final class DFVal[+T <: DFTypeAny, +M <: ModifierAny](val irValue: ir.DFVal | DF
     extends AnyVal
     with DFMember[ir.DFVal]
     with Selectable:
+  type Fields = DFVal.Fields[T @uncheckedVariance, M @uncheckedVariance]
 
   def selectDynamic(name: String)(using DFC): Any = trydf {
     val ir.DFStruct(structName, fieldMap) = this.asIR.dfType: @unchecked
@@ -64,6 +65,7 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
       case _                => true
     if (isConstBool(tpe)) TypeRepr.of[CONST]
     else TypeRepr.of[NOTCONST]
+end extension
 
 extension (using quotes: Quotes)(term: quotes.reflect.Term)
   def getNonConstTerm: Option[quotes.reflect.Term] =
@@ -102,7 +104,9 @@ infix type <>[T, M] = T match
   case DFConstInt32 | IntP.Sig => DFVector.ComposedModifier[T, M]
   case _ =>
     M match
-      case DFRET => DFC ?=> DFValOf[DFType.Of[T]]
+      case DFRET => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
+      case RTRET => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
+      case EDRET => (DFC, DomainType.ED) ?=> DFValOf[DFType.Of[T]]
       case VAL   => DFValOf[DFType.Of[T]]
       case CONST => DFConstOf[DFType.Of[T]]
 
@@ -257,6 +261,15 @@ sealed protected trait DFValLP:
   ): DFValTP[DFBool, ISCONST[P]] = ${
     DFValConversionMacro[DFBool, ISCONST[P], R]('from)
   }
+  implicit transparent inline def DFEnumValConversion[
+      E <: DFEncoding,
+      P <: Boolean,
+      R <: CommonR | E
+  ](
+      inline from: R
+  ): DFValTP[DFEnum[E], ISCONST[P]] = ${
+    DFValConversionMacro[DFEnum[E], ISCONST[P], R]('from)
+  }
   implicit transparent inline def DFDoubleValConversion[
       P <: Boolean,
       R <: CommonR | Double
@@ -265,6 +278,14 @@ sealed protected trait DFValLP:
   ): DFValTP[DFDouble, ISCONST[P]] = ${
     DFValConversionMacro[DFDouble, ISCONST[P], R]('from)
   }
+  implicit transparent inline def DFStringValConversion[
+      P <: Boolean,
+      R <: CommonR | String
+  ](
+      inline from: R
+  ): DFValTP[DFString, ISCONST[P]] = ${
+    DFValConversionMacro[DFString, ISCONST[P], R]('from)
+  }
   given DFUnitValConversion[R <: CommonR | Unit | NonEmptyTuple](using
       dfc: DFC
   ): Conversion[R, DFValOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFValOf[DFUnit]]
@@ -272,6 +293,19 @@ sealed protected trait DFValLP:
     from => from.asValTP[T, NOTCONST]
 end DFValLP
 object DFVal extends DFValLP:
+  protected type FieldWithModifier[V, M <: ModifierAny] = V match
+    case DFVal[t, _] =>
+      M match
+        case Modifier[a, Any, i, p] => DFVal[t, Modifier[a, Any, i, p]]
+  protected type FieldsWithModifier[V <: NamedTuple.AnyNamedTuple, M <: ModifierAny] =
+    NamedTuple.Map[V, [t] =>> FieldWithModifier[t, M]]
+  protected[core] type Fields[T <: DFTypeAny, M <: ModifierAny] = T match
+    case DFType[t, Args1[a]] =>
+      t match
+        case ir.DFStruct => FieldsWithModifier[NamedTuple.From[a], M]
+        case _           => Any
+    case _ => Any
+
   // constructing a front-end DFVal value class object. if it's a global value, then
   // we need to save the DFC, instead of the actual member IR object
   inline def apply[T <: DFTypeAny, M <: ModifierAny, IR <: ir.DFVal | DFError](
@@ -323,10 +357,6 @@ object DFVal extends DFValLP:
   // Enabling encoding comparison
   given [T <: DFTypeAny, M <: ModifierAny]: CanEqual[DFEncoding, DFVal[T, M]] =
     CanEqual.derived
-
-  given __refined_dfVal[T <: FieldsOrTuple, A, I, P](using
-      r: DFStruct.Val.Refiner[T, A, I, P]
-  ): Conversion[DFVal[DFStruct[T], Modifier[A, Any, I, P]], r.Out] = _.asInstanceOf[r.Out]
 
   trait ConstCheck[P]
   given [P](using
@@ -558,25 +588,28 @@ object DFVal extends DFValLP:
         else dfVal.initForced(Nil)
       }
 
-  extension [W <: IntP, D1 <: IntP, A, C, I, P](
-      dfVal: DFVal[DFVector[DFBits[W], Tuple1[D1]], Modifier[A, C, I, P]]
+  extension [W <: IntP, T <: DFBits[W] | DFUInt[W], D1 <: IntP, A, C, I, P](
+      dfVal: DFVal[DFVector[T, Tuple1[D1]], Modifier[A, C, I, P]]
   )
     infix def initFile(
         path: String,
-        format: ir.InitFileFormat = ir.InitFileFormat.Auto
+        format: ir.InitFileFormat = ir.InitFileFormat.Auto,
+        undefinedValue: ir.InitFileUndefinedValue = ir.InitFileUndefinedValue.Zeros
     )(using
-        DFC,
-        InitCheck[I]
-    ): DFVal[DFVector[DFBits[W], Tuple1[D1]], Modifier[A, C, Modifier.Initialized, P]] = trydf:
+        dfc: DFC,
+        check: InitCheck[I]
+    ): DFVal[DFVector[T, Tuple1[D1]], Modifier[A, C, Modifier.Initialized, P]] = trydf:
+      import dfc.getSet
       val vectorType = dfVal.dfType
       import DFVector.{lengthInt, cellType}
       val data = ir.InitFileFormat.readInitFile(
-        path,
-        format,
-        vectorType.lengthInt,
-        vectorType.cellType.widthInt
+        path, format, vectorType.lengthInt, vectorType.cellType.widthInt, undefinedValue
       )
-      val initFileConst = DFVal.Const(vectorType, data)
+      val initFileConst = vectorType.cellType.asIR match
+        case ir.DFBits(_) => DFVal.Const(vectorType, data)
+        case cellType =>
+          DFVal.Const(vectorType, data.map(cellType.bitsDataToData))
+
       dfVal.initForced(List(initFileConst))
     // TODO: for now, we read the data immediately. In the future, incremental compilation will make
     // it beneficial to wait for the backend last stages to do so.
@@ -911,18 +944,18 @@ object DFVal extends DFValLP:
     def conv(dfType: DFTypeAny, value: DFValOf[DFTypeAny])(using dfc: DFC): DFValOf[DFTypeAny] =
       ???
 
-  trait TCLPLP:
+  trait TCLP:
     // Reject OPEN with a dedicated message
     transparent inline given fromOPEN[T <: DFTypeAny]: TC[T, OPEN] =
       compiletime.error("`OPEN` cannot be used here.")
-
-  trait TCLP extends TCLPLP:
     // Accept any bubble value
     given fromBubble[T <: DFTypeAny, V <: Bubble]: TC[T, V] with
       type OutP = CONST
       def conv(dfType: T, value: V)(using DFC): Out = Bubble.constValOf(dfType, named = true)
     // Accept NOTHING for any DFType, unless not in DF domain, and then we limit it to Bits or Bit type
-    given fromNOTHING[T <: DFTypeAny](using dt: DomainType)(using
+    given fromNOTHING[T <: DFTypeAny](using
+        dt: DomainType
+    )(using
         AssertGiven[
           dt.type <:< DomainType.DF | T <:< DFBit | T <:< DFType[ir.DFBits, Args],
           "`NOTHING` can only be assigned to either `Bits` or `Bit` DFHDL values outside of a dataflow (DF) domain."
@@ -970,6 +1003,7 @@ object DFVal extends DFValLP:
     export DFStruct.Val.TC.given
     export DFOpaque.Val.TC.given
     export TDFDouble.Val.TC.given
+    export TDFString.Val.TC.given
   end TC
 
   trait TCConv[T <: DFTypeAny, R] extends TC[T, R]:
@@ -1058,17 +1092,22 @@ object DFVal extends DFValLP:
     export DFTuple.Val.Compare.given
     export DFStruct.Val.Compare.given
     export TDFDouble.Val.Compare.given
+    export TDFString.Val.Compare.given
   end Compare
 
   trait DFDomainOnly
-  given (using domain: DomainType)(using
+  given (using
+      domain: DomainType
+  )(using
       AssertGiven[
         domain.type <:< DomainType.DF,
         "This construct is only available in a dataflow domain."
       ]
   ): DFDomainOnly with {}
   trait RTDomainOnly
-  given (using domain: DomainType)(using
+  given (using
+      domain: DomainType
+  )(using
       AssertGiven[
         domain.type <:< DomainType.RT,
         "This construct is only available in a register-transfer domain."
@@ -1243,7 +1282,11 @@ object DFVarOps:
     "`.din` selection is only allowed under register-transfer (RT) domains."
   ]
   extension [T <: DFTypeAny, A](dfVar: DFVal[T, Modifier[A, Any, Any, Any]])
-    def :=(rhs: DFVal.TC.Exact[T])(using DFC)(using dt: DomainType)(using
+    def :=(rhs: DFVal.TC.Exact[T])(using
+        DFC
+    )(using
+        dt: DomainType
+    )(using
         notREG: NotREG[A],
         varOnly: VarOnly[A],
 //        localOrNonED: LocalOrNonED[A],
@@ -1251,7 +1294,11 @@ object DFVarOps:
     ): Unit = trydf {
       dfVar.assign(rhs(dfVar.dfType))
     }
-    def :==(rhs: DFVal.TC.Exact[T])(using DFC)(using dt: DomainType)(using
+    def :==(rhs: DFVal.TC.Exact[T])(using
+        DFC
+    )(using
+        dt: DomainType
+    )(using
         varOnly: VarOnly[A],
         edDomainOnly: EDDomainOnly[dt.type],
 //        notLocalVar: NotLocalVar[A],
@@ -1349,6 +1396,7 @@ object DFVarOps:
           case dfType       => DFVal.Alias.AsIs.forced(ir.DFBits(dfType.width), arg)
       }
       assignRecur(dfVarsIR, argsBitsIR, 0, Nil)
+  end extension
 end DFVarOps
 
 object DFPortOps:
@@ -1357,7 +1405,9 @@ object DFPortOps:
     "The LHS of a connection must be a connectable DFHDL value (var/port)."
   ]
   extension [T <: DFTypeAny, C](dfPort: DFVal[T, Modifier[Any, C, Any, Any]])
-    def <>(rhs: DFVal.TC_Or_OPEN.Exact[T])(using DFC)(using
+    def <>(rhs: DFVal.TC_Or_OPEN.Exact[T])(using
+        DFC
+    )(using
         connectableOnly: ConnectableOnly[C]
     ): ConnectPlaceholder =
       trydf { dfPort.connect(rhs(dfPort.dfType)) }
@@ -1383,7 +1433,7 @@ extension (dfVal: ir.DFVal)
               DFVal.DesignParam(dfVal.asValAny)(using dfc.setMeta(dfVal.meta)).asIR
             }
           )
-        case ir.DFVal.DesignParam(_, ir.DFRef(of), _, _, _, _) =>
+        case ir.DFVal.DesignParam(dfValRef = ir.DFRef(of)) =>
           of.cloneUnreachable
         case _ =>
           def cloning: ir.DFVal =

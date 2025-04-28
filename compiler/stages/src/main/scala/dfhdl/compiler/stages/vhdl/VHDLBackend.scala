@@ -16,7 +16,9 @@ private val reservedKeywords: Set[String] = Set(
   "procedure", "process", "pure", "range", "record", "register", "reject", "rem", "report",
   "return", "rol", "ror", "select", "severity", "signal", "shared", "sla", "sll", "sra", "srl",
   "subtype", "then", "to", "transport", "type", "unaffected", "units", "until", "use", "variable",
-  "wait", "when", "while", "with", "xnor", "xor"
+  "wait", "when", "while", "with", "xnor", "xor",
+  // added by dfhdl
+  "print", "println"
 )
 
 enum VHDLDialect derives CanEqual:

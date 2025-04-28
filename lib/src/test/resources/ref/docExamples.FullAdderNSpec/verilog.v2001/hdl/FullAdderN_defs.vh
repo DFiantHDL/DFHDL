@@ -2,3 +2,10 @@
 `define FULLADDERN_DEFS
 
 `endif
+`ifndef FULLADDERN_DEFS_MODULE
+`define FULLADDERN_DEFS_MODULE
+`else
+
+`undef FULLADDERN_DEFS_MODULE
+`endif
+

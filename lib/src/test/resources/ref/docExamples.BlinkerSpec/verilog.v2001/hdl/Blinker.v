@@ -13,6 +13,7 @@ module Blinker#(
   output reg  led
 );
   `include "dfhdl_defs.vh"
+  `include "Blinker_defs.vh"
   /* Half-count of the toggle for 50% duty cycle */
   parameter integer HALF_PERIOD = (CLK_FREQ_KHz * 1000) / (LED_FREQ_Hz * 2);
   reg [clog2(HALF_PERIOD) - 1:0] cnt;
@@ -25,7 +26,7 @@ module Blinker#(
     else begin
       if (cnt == (HALF_PERIOD - 1)) begin
         cnt <= `TO_UNSIGNED(0, 1, clog2(HALF_PERIOD));
-        led <= !led;
+        led <= ~led;
       end
       else cnt <= cnt + `TO_UNSIGNED(1, 1, clog2(HALF_PERIOD));
     end

@@ -17,14 +17,18 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
   final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
-    case o: DFOwner     => o
-    case DFMember.Empty => throw new IllegalArgumentException(s"No owner found for member $this.")
+    case o: DFOwner => o
+    case _: DFMember.Empty =>
+      throw new IllegalArgumentException(s"No owner found for member $this.")
   final def getOwnerNamed(using MemberGetSet): DFOwnerNamed = getOwner match
     case b: DFOwnerNamed => b
     case o               => o.getOwnerNamed
   final def getOwnerBlock(using MemberGetSet): DFBlock = getOwner match
     case b: DFBlock => b
     case o          => o.getOwnerBlock
+  final def getOwnerStepBlock(using MemberGetSet): StepBlock = getOwner match
+    case b: StepBlock => b
+    case o            => o.getOwnerStepBlock
   final def getOwnerDesign(using MemberGetSet): DFDesignBlock =
     getOwnerBlock match
       case d: DFDesignBlock => d
@@ -41,10 +45,21 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getThisOrOwnerNamed(using MemberGetSet): DFOwnerNamed = this match
     case d: DFOwnerNamed => d
     case x               => x.getOwnerNamed
+  final def getThisOrOwnerStepBlock(using MemberGetSet): StepBlock = this match
+    case d: StepBlock => d
+    case x            => x.getOwnerStepBlock
   final infix def isMemberOf(that: DFOwnerNamed)(using MemberGetSet): Boolean =
     this match
       case DFDesignBlock.Top() => false
       case _                   => getOwnerNamed == that
+  final def isOwnedCond(cond: DFOwner => Option[Boolean])(using MemberGetSet): Boolean =
+    var owner = this.getOwner
+    var ret = cond(owner)
+    while (ret.isEmpty && !owner.isTop)
+      owner = owner.getOwner
+      ret = cond(owner)
+    ret.getOrElse(false)
+  end isOwnedCond
   infix def isSameOwnerDesignAs(that: DFMember)(using MemberGetSet): Boolean =
     (this, that) match
       case (DFDesignBlock.Top(), DFDesignBlock.Top()) => this == that
@@ -93,9 +108,24 @@ object DFMember:
       member.tags.getTagOf[CT]
     def hasTagOf[CT <: DFTag: ClassTag]: Boolean =
       member.tags.hasTagOf[CT]
+    def getDomainType(using MemberGetSet): DomainType = member.getOwnerDomain.domainType
+    def isInDFDomain(using MemberGetSet): Boolean = member.getDomainType match
+      case DomainType.DF => true
+      case _             => false
+    def isInRTDomain(using MemberGetSet): Boolean = member.getDomainType match
+      case DomainType.RT(_) => true
+      case _                => false
+    def isInEDDomain(using MemberGetSet): Boolean = member.getDomainType match
+      case DomainType.ED => true
+      case _             => false
+    def isInProcess(using MemberGetSet): Boolean = member.isOwnedCond(cond = {
+      case _: ProcessBlock  => Some(true)
+      case _: DFDomainOwner => Some(false)
+      case _                => None
+    })
+  end extension
 
-  type Empty = Empty.type
-  case object Empty extends DFMember:
+  sealed trait Empty extends DFMember:
     val ownerRef: DFOwner.Ref = DFRef.OneWay.Empty
     val meta: Meta = Meta(None, Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
@@ -106,6 +136,7 @@ object DFMember:
     protected def setTags(tags: DFTags): this.type = this
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs: this.type = this
+  case object Empty extends Empty
 
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
@@ -158,9 +189,10 @@ sealed trait DFVal extends DFMember.Named:
   // two expressions are considered to be similar if
   final def isSimilarTo(that: DFVal)(using MemberGetSet): Boolean =
     def stripAsIsAndDesignParam(dfVal: DFVal): DFVal = dfVal match
-      case DFVal.Alias.AsIs(dfType, DFRef(relVal), _, _, _) if dfType == relVal.dfType =>
+      case DFVal.Alias.AsIs(dfType = dfType, relValRef = DFRef(relVal))
+          if dfType == relVal.dfType =>
         stripAsIsAndDesignParam(relVal)
-      case DFVal.DesignParam(_, DFRef(dfVal), _, _, _, _) =>
+      case DFVal.DesignParam(dfValRef = DFRef(dfVal)) =>
         stripAsIsAndDesignParam(dfVal)
       case _ => dfVal
     (stripAsIsAndDesignParam(this), stripAsIsAndDesignParam(that)) match
@@ -228,6 +260,9 @@ object DFVal:
     def isDesignParam: Boolean = dfVal match
       case _: DFVal.DesignParam => true
       case _                    => false
+    def isReg: Boolean = dfVal match
+      case dcl: DFVal.Dcl => dcl.modifier.isReg
+      case _              => false
     @tailrec def dealias(using MemberGetSet): Option[DFVal.Dcl | DFVal.OPEN] = dfVal match
       case dcl: DFVal.Dcl                           => Some(dcl)
       case portByNameSelect: DFVal.PortByNameSelect => Some(portByNameSelect.getPortDcl)
@@ -275,7 +310,13 @@ object DFVal:
     def stripPortSel(using MemberGetSet): DFVal = dfVal match
       case portSel: DFVal.PortByNameSelect => portSel.getPortDcl
       case _                               => dfVal
-    def getDomainType(using MemberGetSet): DomainType = dfVal.getOwnerDomain.domainType
+    def isBubble(using MemberGetSet): Boolean =
+      dfVal match
+        case c: DFVal.Const          => c.dfType.isDataBubble(c.data.asInstanceOf[c.dfType.Data])
+        case f: DFVal.Func           => f.args.exists(_.get.isBubble)
+        case a: DFVal.Alias.ApplyIdx => a.relValRef.get.isBubble || a.relIdx.get.isBubble
+        case a: DFVal.Alias.Partial  => a.relValRef.get.isBubble
+        case _                       => false
   end extension
   // can be an expression
   sealed trait CanBeExpr extends DFVal:
@@ -470,7 +511,9 @@ object DFVal:
       def isRstDcl(using MemberGetSet): Boolean = dcl.dfType match
         case DFOpaque(_, id: DFOpaque.Rst, _) => true
         case _                                => false
-
+      def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefList match
+        case DFRef(dfVal) :: _ => !dfVal.isBubble
+        case _                 => false
   final case class Func(
       dfType: DFType,
       op: Func.Op,
@@ -658,6 +701,10 @@ object DFVal:
       enum Op derives CanEqual:
         case State // represents either `prev` in DF domain or `reg` in RT domain
         case Pipe // pipe only represents a pipe constraint under DF domain
+      extension (history: DFVal.Alias.History)
+        def hasNonBubbleInit(using MemberGetSet): Boolean = history.initRefOption match
+          case Some(DFRef(dfVal)) => !dfVal.isBubble
+          case _                  => false
 
     final case class ApplyRange(
         relValRef: PartialRef,
@@ -753,7 +800,7 @@ object DFVal:
       object ConstIdx:
         def unapply(idx: DFVal.Const)(using MemberGetSet): Option[Int] =
           idx match
-            case DFVal.Const(DFInt32, data: Option[BigInt] @unchecked, _, _, _) =>
+            case DFVal.Const(dfType = DFInt32, data = data: Option[BigInt] @unchecked) =>
               data.map(_.toInt)
             case _ => None
 
@@ -871,7 +918,7 @@ object DFNet:
       case _                 => false
 
   object Assignment:
-    def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
+    def unapply(arg: DFNet)(using MemberGetSet): Option[(toVal: DFVal, fromVal: DFVal)] = arg match
       case DFNet(
             DFRef(toVal: DFVal),
             Op.Assignment | Op.NBAssignment,
@@ -883,18 +930,23 @@ object DFNet:
         Some(toVal, fromVal)
       case _ => None
   object BAssignment:
-    def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
+    def unapply(arg: DFNet)(using MemberGetSet): Option[(toVal: DFVal, fromVal: DFVal)] = arg match
       case Assignment(lhs, rhs) if arg.op == Op.Assignment => Some(lhs, rhs)
       case _                                               => None
   object NBAssignment:
-    def unapply(arg: DFNet)(using MemberGetSet): Option[(DFVal, DFVal)] = arg match
+    def unapply(arg: DFNet)(using MemberGetSet): Option[(toVal: DFVal, fromVal: DFVal)] = arg match
       case Assignment(lhs, rhs) if arg.op == Op.NBAssignment => Some(lhs, rhs)
       case _                                                 => None
   object Connection:
     def unapply(net: DFNet)(using
         MemberGetSet
-        //             toVal                                 fromVal              Swapped
-    ): Option[(DFVal.Dcl | DFVal.OPEN | DFInterfaceOwner, DFVal | DFInterfaceOwner, Boolean)] =
+    ): Option[
+      (
+          toVal: DFVal.Dcl | DFVal.OPEN | DFInterfaceOwner,
+          fromVal: DFVal | DFInterfaceOwner,
+          swapped: Boolean
+      )
+    ] =
       if (net.isConnection) (net.lhsRef.get, net.rhsRef.get) match
         case (lhsVal: DFVal, rhsVal: DFVal) =>
           val toLeft = getSet.designDB.connectionTable.getNets(lhsVal).contains(net)
@@ -907,13 +959,14 @@ object DFNet:
   end Connection
 end DFNet
 
-final case class Step(
+final case class StepBlock(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFMember.Named:
+) extends DFBlock,
+      DFMember.Named:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-    case that: Step =>
+    case that: StepBlock =>
       this.meta =~ that.meta && this.tags =~ that.tags
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
@@ -922,7 +975,14 @@ final case class Step(
   def copyWithNewRefs: this.type = copy(
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
-end Step
+end StepBlock
+object StepBlock:
+  extension (stepBlock: StepBlock)
+    def isOnEntry(using MemberGetSet): Boolean = stepBlock.getName == "onEntry"
+    def isOnExit(using MemberGetSet): Boolean = stepBlock.getName == "onExit"
+    def isRegular(using MemberGetSet): Boolean = stepBlock.getName match
+      case "onEntry" | "onExit" => false
+      case _                    => true
 
 final case class Goto(
     stepRef: Goto.Ref,
@@ -945,7 +1005,10 @@ final case class Goto(
 end Goto
 
 object Goto:
-  type Ref = DFRef.TwoWay[Step, Goto]
+  case object ThisStep extends DFMember.Empty
+  case object NextStep extends DFMember.Empty
+  case object FirstStep extends DFMember.Empty
+  type Ref = DFRef.TwoWay[StepBlock | ThisStep.type | NextStep.type | FirstStep.type, Goto]
 
 sealed trait DFOwner extends DFMember:
   val meta: Meta
@@ -1137,6 +1200,16 @@ object DFConditional:
           ref = ref.copyAsNewRef,
           pattern = pattern.copyWithNewRefs
         ).asInstanceOf[this.type]
+      final case class NamedArg(name: String, pattern: Pattern) extends Pattern:
+        protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
+          that match
+            case that: NamedArg =>
+              this.name == that.name && this.pattern =~ that.pattern
+            case _ => false
+        lazy val getRefs: List[DFRef.TwoWayAny] = pattern.getRefs
+        def copyWithNewRefs: this.type = copy(
+          pattern = pattern.copyWithNewRefs
+        ).asInstanceOf[this.type]
       object Bind:
         type Ref = DFRef.TwoWay[DFVal, DFCaseBlock]
         case object Tag extends DFTagOf[DFVal]
@@ -1217,7 +1290,9 @@ object DFConditional:
 end DFConditional
 
 object DFLoop:
-  sealed trait Block extends DFBlock
+  sealed trait Block extends DFBlock:
+    def isCombinational(using MemberGetSet): Boolean = this.hasTagOf[Combinational.type]
+  case object Combinational extends DFTagOf[Block]
   final case class DFForBlock(
       iteratorRef: DFForBlock.IteratorRef,
       rangeRef: DFForBlock.RangeRef,
@@ -1355,24 +1430,6 @@ final case class DomainBlock(
   ).asInstanceOf[this.type]
 end DomainBlock
 
-sealed trait DFSimMember extends DFMember
-object DFSimMember:
-  final case class Assert(
-      ownerRef: DFOwner.Ref,
-      meta: Meta,
-      tags: DFTags
-  ) extends DFSimMember:
-    protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case that: Assert =>
-        this.meta =~ that.meta && this.tags =~ that.tags
-      case _ => false
-    protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
-    protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
-    def copyWithNewRefs: this.type = copy(ownerRef = ownerRef.copyAsNewRef).asInstanceOf[this.type]
-  end Assert
-end DFSimMember
-
 // sealed trait Timer extends DFMember.Named
 // object Timer:
 //   type Ref = DFRef.TwoWay[Timer, DFMember]
@@ -1473,3 +1530,50 @@ end Wait
 
 object Wait:
   type TriggerRef = DFRef.TwoWay[DFVal, Wait]
+
+final case class TextOut(
+    op: TextOut.Op,
+    msgParts: List[String],
+    msgArgs: List[DFVal.Ref],
+    ownerRef: DFOwner.Ref,
+    meta: Meta,
+    tags: DFTags
+) extends Statement:
+  protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
+    case that: TextOut =>
+      this.op =~ that.op && this.msgParts == that.msgParts &&
+      this.msgArgs.lazyZip(that.msgArgs).forall(_ =~ _) &&
+      this.meta =~ that.meta && this.tags =~ that.tags
+    case _ => false
+  protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
+  protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+  lazy val getRefs: List[DFRef.TwoWayAny] = op.getRefs ++ msgArgs
+  def copyWithNewRefs: this.type = copy(
+    op = op.copyWithNewRefs,
+    msgArgs = msgArgs.map(_.copyAsNewRef),
+    ownerRef = ownerRef.copyAsNewRef
+  ).asInstanceOf[this.type]
+end TextOut
+
+object TextOut:
+  type AssertionRef = DFRef.TwoWay[DFVal, TextOut]
+  enum Severity derives CanEqual:
+    case Info, Warning, Error, Fatal
+  enum Op extends HasRefCompare[Op] derives CanEqual:
+    case Print, Println, Debug, Finish
+    case Report(severity: Severity) extends Op
+    case Assert(assertionRef: AssertionRef, severity: Severity) extends Op
+    lazy val getRefs: List[DFRef.TwoWayAny] = this match
+      case Assert(assertion, _) => List(assertion)
+      case _                    => Nil
+    protected def `prot_=~`(that: Op)(using MemberGetSet): Boolean = (this, that) match
+      case (thisAssert: Assert, thatAssert: Assert) =>
+        thisAssert.assertionRef =~ thatAssert.assertionRef && thisAssert.severity == thatAssert.severity
+      case _ => this equals that
+    def copyWithNewRefs: this.type = this match
+      case Assert(assertionRef, severity) =>
+        Assert(assertionRef = assertionRef.copyAsNewRef, severity = severity)
+          .asInstanceOf[this.type]
+      case _ => this
+  end Op
+end TextOut

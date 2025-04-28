@@ -88,10 +88,26 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
   def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String =
     dfType.unit match
       case DFPhysical.Unit.Time =>
+        val formattedValue = data._1 match
+          case bd if bd.isWhole && bd.abs < BigDecimal(1e9) => bd.toBigInt.toString
+          case bd                                           => bd.toString
         data._2.asInstanceOf[DFPhysical.Unit.Time.Scale] match
-          case DFPhysical.Unit.Time.Scale.sec => s"${data._1}s"
+          case DFPhysical.Unit.Time.Scale.sec => s"${formattedValue}s"
           case DFPhysical.Unit.Time.Scale.min => printer.unsupported
           case DFPhysical.Unit.Time.Scale.hr  => printer.unsupported
-          case _                              => s"${data._1}${data._2}"
+          case _                              => s"${formattedValue}${data._2}"
       case _ => printer.unsupported
+  def scalaToVerilogString(str: String): String =
+    str.view.map {
+      case '\\' => "\\\\"
+      case '"'  => "\\\""
+      case '\t' => "\\t"
+      case '\n' => "\\n"
+      case '\r' => "\\r"
+      case c    => c.toString
+    }.mkString("\"", "", "\"")
+  def csDFStringData(dfType: DFString, data: Option[String]): String =
+    data match
+      case Some(value) => scalaToVerilogString(value)
+      case None        => "\"\""
 end VerilogDataPrinter

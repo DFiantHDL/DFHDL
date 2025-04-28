@@ -20,7 +20,7 @@ abstract class FullCompileSpec extends FunSuite:
   inline given options.CompilerOptions.CommitFolder =
     s"$projectSandboxFolder$S${compiletime.summonInline[options.CompilerOptions.Backend]}"
   given options.OnError = options.OnError.Exception
-  given options.LinterOptions.FatalWarnings = true
+  given options.LinterOptions.WError = true
   def verilogLinters: List[LinterOptions.VerilogLinter] =
     List(verilator, iverilog, vlog, xvlog)
   def vhdlLinters: List[LinterOptions.VHDLLinter] =

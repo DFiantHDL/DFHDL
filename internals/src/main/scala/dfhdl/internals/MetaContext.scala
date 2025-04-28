@@ -10,6 +10,7 @@ final case class Position(
     columnEnd: Int
 ) derives CanEqual:
   override def toString: String = s"$file:$lineStart:$columnStart - $lineEnd:$columnEnd"
+  def fileUnixPath: String = file.replaceAll("\\\\", "/")
   def isUnknown: Boolean = this == Position.unknown
 
 object Position:

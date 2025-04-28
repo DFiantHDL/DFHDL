@@ -116,6 +116,10 @@ object DFBoolOrBit:
         val (lhs, rhs) = if (castle) (dfValArg, dfVal) else (dfVal, dfValArg)
         DFVal.Func(lhs.dfType.asFE[T], op, List(lhs, rhs))
       extension [T <: DFBoolOrBit, P](lhs: DFValTP[T, P])
+        @targetName("notOfDFBoolOrBit")
+        private[core] def not(using DFC): DFValTP[T, P] = trydf {
+          DFVal.Func(lhs.dfType, FuncOp.unary_!, List(lhs))
+        }
         def ||(rhs: Candidate.Exact)(using DFC): DFValTP[T, P | rhs.tc.OutP] =
           trydf { logicOp(lhs, rhs(), FuncOp.|, false) }
         def &&(rhs: Candidate.Exact)(using DFC): DFValTP[T, P | rhs.tc.OutP] =

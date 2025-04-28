@@ -14,23 +14,26 @@ protected object hdl:
   export core.DFTuple.Val.Ops.*
   export core.DFVector.Ops.*
   export core.TDFDouble.Val.Ops.*
+  export core.TDFString.Val.Ops.*
   export core.DFVal.Ops.*
   export core.DFVarOps.*
   export core.DFPortOps.*
   export core.ConnectPlaceholder.Ops.*
   export core.Conditional.Ops.*
+  export core.TextOut.Ops.*
+  export compiler.ir.TextOut.Severity
   export internals.CommonOps.*
   export core.{dfType}
   export core.DFPhysical.Val.Ops.*
+  export core.COMB_LOOP
   type Time = core.DFTime
   val Time = core.DFTime
   type Freq = core.DFFreq
   val Freq = core.DFFreq
-  type Cycles = core.DFCycles
-  val Cycles = core.DFCycles
   export core.DFRange.Ops.*
-  export core.Wait.Ops.*
   export core.Step.Ops.*
+  export core.Wait.Ops.*
+  type Step = core.Step
   type DFC = core.DFC
   val DFC = core.DFC
   export core.dfc
@@ -58,6 +61,7 @@ protected object hdl:
   type RTDomain = core.RTDomain
   type EDDomain = core.EDDomain
   export compiler.ir.InitFileFormat
+  export compiler.ir.InitFileUndefinedValue
 
   val IN = core.Modifier.IN
   val OUT = core.Modifier.OUT
@@ -66,6 +70,8 @@ protected object hdl:
   type VAL = core.VAL
   type CONST = core.CONST
   type DFRET = core.DFRET
+  type RTRET = core.RTRET
+  type EDRET = core.EDRET
   val OPEN = core.DFVal.OPEN
   val NOTHING = core.DFVal.NOTHING
   export core.<>

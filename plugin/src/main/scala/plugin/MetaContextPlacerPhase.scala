@@ -35,7 +35,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
 
   override val runsAfter = Set("TopAnnot")
   override val runsBefore = Set("FixInterpDFValPhase")
-  // override val debugFilter: String => Boolean = _.contains("Example.scala")
+  // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   var dfcArgStack = List.empty[Tree]
   var emptyDFCSym: TermSymbol = uninitialized
   var emptyNoEODFCSym: TermSymbol = uninitialized
@@ -46,6 +46,8 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
   var topAnnotSym: ClassSymbol = uninitialized
   var appTpe: TypeRef = uninitialized
   var noTopAnnotIsRequired: TypeRef = uninitialized
+  var listMapEmptySym: TermSymbol = uninitialized
+  var listMapSym: TermSymbol = uninitialized
   val defaultParamMap = mutable.Map.empty[ClassSymbol, Map[Int, Tree]]
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     val sym = tree.symbol
@@ -109,7 +111,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
             case (module: ValDef) :: (compSym @ TypeDef(_, compTemplate: Template)) :: _
                 if compSym.symbol.companionClass == clsSym =>
               compTemplate.body.foreach {
-                case dd @ DefDef(NameKinds.DefaultGetterName(n, i), _, _, _)
+                case dd @ DefDef(name = NameKinds.DefaultGetterName(n, i))
                     if dd.dfValTpeOpt.nonEmpty =>
                   defaultMap += i -> ref(module.symbol).select(dd.symbol)
                 case _ =>
@@ -155,10 +157,10 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
           }
           val simpleArgsListMapTree =
             if (simpleArgs.isEmpty)
-              ref(requiredMethod("scala.collection.immutable.ListMap.empty"))
+              ref(listMapEmptySym)
                 .appliedToTypes(List(defn.StringType, defn.AnyType))
             else
-              ref(requiredModule("scala.collection.immutable.ListMap")).select(nme.apply)
+              ref(listMapSym).select(nme.apply)
                 .appliedToTypes(List(defn.StringType, defn.AnyType))
                 .appliedToVarargs(
                   simpleArgs,
@@ -319,7 +321,10 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
     topAnnotSym = requiredClass("dfhdl.top")
     appTpe = requiredClassRef("dfhdl.app.DFApp")
     noTopAnnotIsRequired = requiredClassRef("dfhdl.internals.NoTopAnnotIsRequired")
+    listMapEmptySym = requiredMethod("scala.collection.immutable.ListMap.empty")
+    listMapSym = requiredModule("scala.collection.immutable.ListMap")
     dfcArgStack = Nil
     defaultParamMap.clear()
     ctx
+  end prepareForUnit
 end MetaContextPlacerPhase

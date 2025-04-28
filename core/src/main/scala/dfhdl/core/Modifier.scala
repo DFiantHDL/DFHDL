@@ -47,3 +47,5 @@ sealed trait ISCONST[T <: Boolean]
 type CONST = ISCONST[true]
 type NOTCONST = Any
 sealed trait DFRET
+sealed trait RTRET
+sealed trait EDRET

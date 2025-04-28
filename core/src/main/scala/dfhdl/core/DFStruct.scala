@@ -6,7 +6,7 @@ import collection.immutable.ListMap
 import ir.DFVal.Func.Op as FuncOp
 import scala.annotation.unchecked.uncheckedVariance
 
-type FieldsOrTuple = DFStruct.Fields | NonEmptyTuple
+type FieldsOrTuple = DFStruct.Fields | NonEmptyTuple | NamedTuple.AnyNamedTuple
 type DFStruct[+F <: FieldsOrTuple] =
   DFType[ir.DFStruct, Args1[F @uncheckedVariance]]
 object DFStruct:
@@ -26,11 +26,9 @@ object DFStruct:
   ): DFStruct[F] =
     apply[F](name, ListMap(fieldNames.lazyZip(fieldTypes).toSeq*))
   private[core] def apply[F <: FieldsOrTuple](product: F): DFStruct[F] =
-    unapply(
-      product
-    ).get.asInstanceOf[DFStruct[F]]
+    unapply(product.asInstanceOf[Product]).get.asInstanceOf[DFStruct[F]]
   private[core] def unapply(
-      product: FieldsOrTuple
+      product: Product
   ): Option[DFStruct[FieldsOrTuple]] =
     val fieldTypes = product.productIterator.flatMap {
       case dfVal: DFValAny => Some(dfVal.dfType)
@@ -41,7 +39,7 @@ object DFStruct:
       Some(DFStruct(product.productPrefix, fieldNames, fieldTypes))
     else None
 
-  inline def apply[F <: FieldsOrTuple]: DFStruct[F] = ${ dfTypeMacro[F] }
+  inline given apply[F <: FieldsOrTuple]: DFStruct[F] = ${ dfTypeMacro[F] }
   def dfTypeMacro[F <: FieldsOrTuple](using
       Quotes,
       Type[F]
@@ -80,7 +78,7 @@ object DFStruct:
       }
     else
       val fieldTypesStr = fieldErrors
-        .map { case (n, '[t]) =>
+        .collect { case (n, '[t]) =>
           s"${n}: ${TypeRepr.of[t].showType}"
         }
         .mkString("\n")
@@ -156,7 +154,7 @@ object DFStruct:
 
   object Val:
     private[core] def unapply(
-        fields: FieldsOrTuple
+        fields: Product
     )(using DFC): Option[DFValOf[DFStruct[FieldsOrTuple]]] =
       fields match
         case DFStruct(dfType) =>
@@ -217,47 +215,5 @@ object DFStruct:
           sf.check(dfType, value.dfType)
           value.asValTP[DFStruct[F], RP]
     end Compare
-
-    trait Refiner[T <: FieldsOrTuple, A, I, P]:
-      type Out <: DFVal[DFStruct[T], Modifier[A, Any, I, P]]
-    object Refiner:
-      transparent inline given [T <: FieldsOrTuple, A, I, P]: Refiner[T, A, I, P] = ${
-        refineMacro[T, A, I, P]
-      }
-      def refineMacro[T <: FieldsOrTuple, A, I, P](using
-          Quotes,
-          Type[T],
-          Type[A],
-          Type[I],
-          Type[P]
-      ): Expr[Refiner[T, A, I, P]] =
-        import quotes.reflect.*
-        val dfValTpe = TypeRepr.of[DFVal[DFStruct[T], Modifier[A, Any, I, P]]]
-        val tTpe = TypeRepr.of[T]
-        val fields: List[(String, TypeRepr)] = tTpe.asTypeOf[Any] match
-          case '[NonEmptyTuple] =>
-            tTpe.getTupleArgs.zipWithIndex.map((f, i) =>
-              f.asTypeOf[Any] match
-                case '[DFValOf[t]] =>
-                  (s"_${i + 1}", TypeRepr.of[DFVal[t, Modifier[A, Any, I, P]]])
-            )
-          case _ =>
-            val clsSym = tTpe.classSymbol.get
-            clsSym.caseFields.map(m =>
-              tTpe.memberType(m).asTypeOf[Any] match
-                case '[DFValOf[t]] =>
-                  (m.name.toString, TypeRepr.of[DFVal[t, Modifier[A, Any, I, P]]])
-            )
-
-        val refined = fields.foldLeft(dfValTpe) { case (r, (n, t)) =>
-          Refinement(r, n, t)
-        }
-        val refinedType = refined.asTypeOf[DFVal[DFStruct[T], Modifier[A, Any, I, P]]]
-        '{
-          new Refiner[T, A, I, P]:
-            type Out = refinedType.Underlying
-        }
-      end refineMacro
-    end Refiner
   end Val
 end DFStruct

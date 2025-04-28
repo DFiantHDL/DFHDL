@@ -283,6 +283,7 @@ class PrintCodeStringSpec extends StageSpec:
       val y    = SInt(16) <> OUT
       val flag = Bit      <> IN
       val v    = SInt(16) <> VAR
+      y <> x
       process:
         val z = SInt(8) <> VAR
         z := z + 1
@@ -306,6 +307,7 @@ class PrintCodeStringSpec extends StageSpec:
          |  val y     = SInt(16) <> OUT
          |  val flag  = Bit      <> IN
          |  val v     = SInt(16) <> VAR
+         |  y     <>  x
          |  process:
          |    val z   = SInt(8)  <> VAR
          |    z   :=  z + sd"8'1"
@@ -568,6 +570,9 @@ class PrintCodeStringSpec extends StageSpec:
         * very very very very very very very very very very long doc
         */
       val z = Bit <> VAR
+      z <> x
+      y <> z
+    end HasDocs
 
     val top = (new HasDocs).getCodeString
     assertNoDiff(
@@ -584,6 +589,8 @@ class PrintCodeStringSpec extends StageSpec:
          |    * very very very very very very very very very very long doc
          |    **/
          |  val z = Bit <> VAR
+         |  z <> x
+         |  y <> z
          |end HasDocs
          |""".stripMargin
     )
@@ -915,36 +922,93 @@ class PrintCodeStringSpec extends StageSpec:
          |end MatchWithParams""".stripMargin
     )
   }
-  // test("RTDesign process printing") {
-  //   class Foo extends RTDesign:
-  //     val cond = Bit <> IN
-  //     val v    = Bit <> VAR.REG init 0
-  //     process:
-  //       if (cond) x.goto
-  //       else
-  //         def z = step
-  //         if (cond) z.goto else y.goto
-  //       def x = step
-  //       def y = step
-  //   end Foo
-  //   val top = (new Foo).getCodeString
-  //   assertNoDiff(
-  //     top,
-  //     """|class Foo extends RTDesign:
-  //        |  val cond = Bit <> IN
-  //        |  val v = Bit <> VAR.REG init 0
-  //        |  process:
-  //        |    if (cond) x.goto
-  //        |    else
-  //        |      def z = step
-  //        |      if (cond) z.goto
-  //        |      else y.goto
-  //        |    end if
-  //        |    def x = step
-  //        |    def y = step
-  //        |end Foo""".stripMargin
-  //   )
-  // }
+  test("RTDesign process printing") {
+    class Foo extends RTDesign:
+      val x = Bit <> IN
+      val y = Bit <> OUT.REG init 0
+      process:
+        def S0: Step =
+          y.din := 0
+          if (x) S1 else ThisStep
+        def S1: Step =
+          y.din := 1
+          if (x) NextStep else S0
+        def S2: Step =
+          y.din := 0
+          if (x) S2 else FirstStep
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends RTDesign:
+         |  val x = Bit <> IN
+         |  val y = Bit <> OUT.REG init 0
+         |  process:
+         |    def S0: Step =
+         |      y.din := 0
+         |      if (x) S1
+         |      else ThisStep
+         |    end S0
+         |    def S1: Step =
+         |      y.din := 1
+         |      if (x) NextStep
+         |      else S0
+         |    end S1
+         |    def S2: Step =
+         |      y.din := 0
+         |      if (x) S2
+         |      else FirstStep
+         |    end S2
+         |end Foo""".stripMargin
+    )
+  }
+  test("RTDesign process steps printing with onEntry and onExit") {
+    class Foo extends RTDesign:
+      val i = Bit <> IN
+      val x = Bit <> OUT
+      process:
+        def S_1: Step =
+          def onEntry =
+            x := 1
+          10.ms.wait
+          if (i) S_2 else S_1
+        def S_2: Step =
+          def onEntry =
+            x := 0
+          def onExit =
+            x := 1
+          10.ms.wait
+          if (!i) S_1 else S_2
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends RTDesign:
+         |  val i = Bit <> IN
+         |  val x = Bit <> OUT
+         |  process:
+         |    def S_1: Step =
+         |      def onEntry: Unit =
+         |        x := 1
+         |      end onEntry
+         |      10.ms.wait
+         |      if (i) S_2
+         |      else S_1
+         |    end S_1
+         |    def S_2: Step =
+         |      def onEntry: Unit =
+         |        x := 0
+         |      end onEntry
+         |      def onExit: Unit =
+         |        x := 1
+         |      end onExit
+         |      10.ms.wait
+         |      if (!i) S_1
+         |      else S_2
+         |    end S_2
+         |end Foo""".stripMargin
+    )
+  }
   test("wait statements") {
     class Foo extends EDDesign:
       val x = Bit <> OUT
@@ -970,13 +1034,13 @@ class PrintCodeStringSpec extends StageSpec:
          |  val i = Bit <> IN
          |  process:
          |    x :== 1
-         |    waitWhile(i.bool)
+         |    waitWhile(i)
          |    50.ms.wait
          |    x :== 0
          |    waitUntil(i.rising)
          |    50.us.wait
          |    x :== 1
-         |    waitUntil(i.bool)
+         |    waitUntil(i)
          |    50.ns.wait
          |    x :== 0
          |    1.ns.wait
@@ -1037,6 +1101,57 @@ class PrintCodeStringSpec extends StageSpec:
          |end Foo""".stripMargin
     )
   }
+  test("for/while loop printing with COMB_LOOP") {
+    class Foo extends RTDesign:
+      val matrix = Bits(10) X 8 X 8 <> OUT.REG
+      process:
+        for (
+          i <- 0 until 8;
+          if i % 2 == 0;
+          j <- 0 until 8;
+          if j % 2 == 0;
+          k <- 0 until 10
+          if k % 2 == 0
+        )
+          COMB_LOOP
+          matrix(i)(j)(k).din := 1
+        val ii = UInt.until(8) <> VAR init 0
+        while (ii != 7)
+          COMB_LOOP
+          matrix(ii)(0)(0).din := 0
+          ii                   := ii + 1
+        10.sec.wait
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo extends RTDesign:
+         |  val matrix = Bits(10) X 8 X 8 <> OUT.REG
+         |  process:
+         |    for (i <- 0 until 8)
+         |      COMB_LOOP
+         |      if ((i % 2) == 0)
+         |        for (j <- 0 until 8)
+         |          COMB_LOOP
+         |          if ((j % 2) == 0)
+         |            for (k <- 0 until 10)
+         |              COMB_LOOP
+         |              if ((k % 2) == 0) matrix(i)(j)(k).din := 1
+         |            end for
+         |          end if
+         |        end for
+         |      end if
+         |    end for
+         |    val ii = UInt(3) <> VAR init d"3'0"
+         |    while (ii != d"3'7")
+         |      COMB_LOOP
+         |      matrix(ii.toInt)(0)(0).din := 0
+         |      ii := ii + d"3'1"
+         |    end while
+         |    10.sec.wait
+         |end Foo""".stripMargin
+    )
+  }
   test("while loop printing") {
     class Foo extends EDDesign:
       val x = Bit <> OUT
@@ -1064,6 +1179,68 @@ class PrintCodeStringSpec extends StageSpec:
          |      x :== !b
          |      5.ns.wait
          |    end while
+         |end Foo""".stripMargin
+    )
+  }
+  test("text out printing") {
+    class Foo(val param: String <> CONST = "Hello\n..\"World\"!") extends EDDesign:
+      val bar                      = param + "!"
+      val param2                   = param + param
+      val param3: Int <> CONST     = 42
+      val param4                   = d"22"
+      val param5                   = h"abc123"
+      val param6                   = b"101010"
+      val param7                   = d"-11"
+      val param8: Bit <> CONST     = 1
+      val param9: Boolean <> CONST = false
+      enum MyEnum extends Encoded:
+        case A, B, C
+      val param10: MyEnum <> CONST = MyEnum.A
+
+      process(all):
+        assert(param == "hello2")
+        report(param, Severity.Warning)
+        assert(param == "hello2", s"I am the one ${param} who knocks")
+        assert(param8, s"I\\am\nthe \"one\"(!)\n${param}\nwho\nknocks", Severity.Fatal)
+        println(bar)
+        println()
+        print(s"I am the one ${param2} who knocks")
+        print("hello")
+        println(
+          s"These are the values: $param3, $param4, $param5, $param6, $param7, $param8, $param9, $param10"
+        )
+        debug(param3, param4, param5, param6, param7, param8, param9, param10)
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo(val param: String <> CONST = "Hello\n..\"World\"!") extends EDDesign:
+         |  enum MyEnum(val value: UInt[2] <> CONST) extends Encoded.Manual(2):
+         |    case A extends MyEnum(d"2'0")
+         |    case B extends MyEnum(d"2'1")
+         |    case C extends MyEnum(d"2'2")
+         |
+         |  val bar: String <> CONST = param + "!"
+         |  val param2: String <> CONST = param + param
+         |  val param3: Int <> CONST = 42
+         |  val param4: UInt[5] <> CONST = d"5'22"
+         |  val param5: Bits[24] <> CONST = h"abc123"
+         |  val param6: Bits[6] <> CONST = h"6'2a"
+         |  val param7: SInt[5] <> CONST = sd"5'-11"
+         |  val param8: Bit <> CONST = 1
+         |  val param9: Boolean <> CONST = false
+         |  val param10: MyEnum <> CONST = MyEnum.A
+         |  process(all):
+         |    assert(param == "hello2")
+         |    report(s"${param}", Severity.Warning)
+         |    assert(param == "hello2", s"I am the one ${param} who knocks")
+         |    assert(param8, s"I\\am\nthe \"one\"(!)\n${param}\nwho\nknocks", Severity.Fatal)
+         |    println(s"${bar}")
+         |    println()
+         |    print(s"I am the one ${param2} who knocks")
+         |    print(s"hello")
+         |    println(s"These are the values: ${param3}, ${param4}, ${param5}, ${param6}, ${param7}, ${param8}, ${param9}, ${param10}")
+         |    debug(param3, param4, param5, param6, param7, param8, param9, param10)
          |end Foo""".stripMargin
     )
   }

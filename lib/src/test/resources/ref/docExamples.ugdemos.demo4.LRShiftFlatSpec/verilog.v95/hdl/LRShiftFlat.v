@@ -14,6 +14,7 @@ module LRShiftFlat(
   oBits
 );
   `include "dfhdl_defs.vh"
+  `include "LRShiftFlat_defs.vh"
   parameter integer width = 8;
   /* bits input */
   input  wire  [width - 1:0]        iBits;

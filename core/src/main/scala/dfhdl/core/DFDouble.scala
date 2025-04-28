@@ -2,7 +2,7 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import ir.DFVal.Func.Op as FuncOp
 import dfhdl.internals.*
-
+import scala.annotation.targetName
 type DFDouble = TDFDouble
 final val DFDouble = ir.DFDouble.asFE[DFDouble]
 
@@ -49,6 +49,7 @@ object TDFDouble:
         def toScalaDouble(using DFC, DFVal.ConstCheck[P]): Double =
           lhs.toScalaValue
 
+        @targetName("plusDFDouble")
         def +[RP](rhs: DFValTP[DFDouble, RP])(using DFC): DFValTP[DFDouble, P | RP] = trydf {
           DFVal.Func(DFDouble, FuncOp.+, List(lhs, rhs))
         }

@@ -7,6 +7,7 @@ module mulByte_0#(parameter logic [7:0] lhs = 8'h02)(
   output wire [7:0]  o
 );
   `include "dfhdl_defs.vh"
+  `include "CipherNoOpaques_defs.vh"
   wire [7:0] a_lhs;
   wire [7:0] a_o;
   xtime a(

@@ -5,14 +5,15 @@ import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, LinterOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
 import java.io.FileWriter
 import java.io.File.separatorChar
 
-object GHDL extends VHDLLinter:
+object GHDL extends VHDLLinter, VHDLSimulator:
+  override val simRunsLint: Boolean = true
   val toolName: String = "GHDL"
   protected def binExec: String = "ghdl"
   protected def versionCmd: String = s"version"
@@ -29,19 +30,40 @@ object GHDL extends VHDLLinter:
 
   override protected def lintCmdPreLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     "-a",
-    summon[LinterOptions].fatalWarnings.toFlag("--warn-error")
+    summon[ToolOptions].Werror.toBoolean.toFlag("--warn-error")
   )
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     "-frelaxed",
     "-Wno-shared"
   )
+
+  override protected def simulateCmdPreLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-r"
+  )
+
+  override protected def simulateCmdPostLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    topName,
+    "--ieee-asserts=disable-at-0"
+  )
+
+  override protected def simulateCmdLanguageFlag(dialect: VHDLDialect): String =
+    lintCmdLanguageFlag(dialect)
+
 end GHDL

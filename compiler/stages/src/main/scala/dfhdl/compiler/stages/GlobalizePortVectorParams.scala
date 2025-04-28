@@ -72,7 +72,7 @@ case object GlobalizePortVectorParams extends Stage:
         vecTypeReplaceMap += pbns.dfType.asInstanceOf[DFVector] -> dclType
       // checking all assignments/connections between vectors that are considered to be similar types,
       // but are not exactly the same (e.g., two vectors types referencing a `(LEN + 1)` length value)
-      case net @ DFNet(VectorNetNodeType(lhsType), _, VectorNetNodeType(rhsType), _, _, _)
+      case net @ DFNet(lhsRef = VectorNetNodeType(lhsType), rhsRef = VectorNetNodeType(rhsType))
           if !(lhsType == rhsType) && lhsType.isSimilarTo(rhsType) =>
         val lhsCnt = checkVector(lhsType)
         val rhsCnt = checkVector(rhsType)

@@ -26,7 +26,7 @@ class DesignDefsPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
   val phaseName = "DesignDefs"
-  // override val debugFilter: String => Boolean = _.contains("Example.scala")
+  // override val debugFilter: String => Boolean = _.contains("Playground.scala")
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextGen")

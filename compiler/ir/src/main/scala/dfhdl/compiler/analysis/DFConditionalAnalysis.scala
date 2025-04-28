@@ -50,7 +50,8 @@ extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)
   def isExhaustive: Option[Boolean] = cb match
     case ib: DFConditional.DFIfElseBlock if ib.guardRef.get == DFMember.Empty =>
       Some(true) // else block
-    case DFConditional.DFCaseBlock(Pattern.CatchAll, gr, _, _, _, _) if gr.get == DFMember.Empty =>
+    case DFConditional.DFCaseBlock(pattern = Pattern.CatchAll, guardRef = gr)
+        if gr.get == DFMember.Empty =>
       Some(true) // case _ => block
     case cb: DFConditional.Block if cb.guardRef.get != DFMember.Empty =>
       None // if not all guards are empty, then we cannot know if the coverage is exhaustive

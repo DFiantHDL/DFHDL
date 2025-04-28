@@ -156,7 +156,7 @@ val _name_ = _dftype_ <> _modifier_ [init _const_]
 
 * __`_name_`__ is the Scala value name reference for the DFHDL port/variable you constructed. The DFHDL compiler preserves this name and uses it in error messages and the final generated artifacts (e.g., Verilog module or VHDL entity port names). `_name_` can also be a series of names separated by commas to declare several equivalent ports/variables. More information is available under the [naming][naming] section.
 * __`_dftype_`__ is set according to the shape type (DFType) of the DFHDL value. Each of the supported DFTypes have their own constructors. See relevant sections for the DFHDL DFType you wish to construct.
-* __<>`__ is the operator applied between a `_dftype_` and a `_modifier_` to construct the Scala value that represents a DFHDL variable or port accordingly. Note: the same `<>` operator is used as a language construct for declaring [connections][connection]. Thanks to Scala method overloading, `<>` can be shared for both use-cases with no issues (due to the Scala argument type difference). 
+* __`<>`__ is the operator applied between a `_dftype_` and a `_modifier_` to construct the Scala value that represents a DFHDL variable or port accordingly. Note: the same `<>` operator is used as a language construct for declaring [connections][connection]. Thanks to Scala method overloading, `<>` can be shared for both use-cases with no issues (due to the Scala argument type difference). 
 * __`_modifier_`__ is set with one of the following: 
     * `VAR` - to construct a variable
     * `IN` - to construct an input port
@@ -1311,7 +1311,7 @@ Vectors can be initialized in several ways:
 val vec1 = UInt(8) X 4 <> VAR init all(0)
 
 // Initialize with specific values
-val vec2 = UInt(8) X 4 <> VAR init DFVector(UInt(8) X 4)(1, 2, 3, 4)
+val vec2 = UInt(8) X 4 <> VAR init Vector(1, 2, 3, 4)
 
 // Initialize from file
 val mem = UInt(32) X 1024 <> VAR initFile "mem.hex"

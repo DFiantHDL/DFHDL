@@ -16,6 +16,7 @@ module RegFile#(
   input  wire                         rd_wren
 );
   `include "dfhdl_defs.vh"
+  `include "RegFile_defs.vh"
   reg [DATA_WIDTH - 1:0] regs [0:REG_NUM - 1];
   always @(posedge clk)
   begin

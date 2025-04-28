@@ -9,9 +9,11 @@ extension [M <: ir.DFMember](member: M)
     import dfc.getSet
     member match
       case dfVal: ir.DFVal.CanBeGlobal if dfVal.isGlobal =>
-        dfc.mutableDB.injectGlobals(
-          dfVal.globalCtx.asInstanceOf[DesignContext]
-        )
+        given CanEqual[Any, Null] = CanEqual.derived
+        if (dfVal.globalCtx != null)
+          dfc.mutableDB.injectGlobals(
+            dfVal.globalCtx.asInstanceOf[DesignContext]
+          )
       case _ =>
   end injectGlobalCtx
   // due to user meta-programming, it's possible that the user attempts to reference "unreachable"

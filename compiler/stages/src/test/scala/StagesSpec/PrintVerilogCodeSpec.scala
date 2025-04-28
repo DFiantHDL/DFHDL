@@ -194,6 +194,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  y
          |);
          |  `include "dfhdl_defs.vh"
+         |  `include "IDTop_defs.vh"
          |  parameter integer width = 7;
          |  input  wire  [width - 1:0] x;
          |  output wire [width - 1:0] y;
@@ -209,6 +210,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  y
          |);
          |  `include "dfhdl_defs.vh"
+         |  `include "IDTop_defs.vh"
          |  parameter integer width = 16;
          |  input  wire  [width - 1:0] x;
          |  output wire [width - 1:0] y;
@@ -344,6 +346,7 @@ class PrintVerilogCodeSpec extends StageSpec:
       val c16: Bits[8] X 5 X 7 <> CONST = Vector.fill(7)(Vector.tabulate(5)(i => h"8'$i$i"))
       val c17: Double <> CONST          = 3.14159
       val c18: Double <> CONST          = -2.71828
+      val c19: String <> CONST          = "My\nName\rIs\t\"Earl\""
     end Top
     val top = (new Top).getCompiledCodeString
     assertNoDiff(
@@ -384,6 +387,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  };
          |  parameter real c17 = 3.14159;
          |  parameter real c18 = -2.71828;
+         |  parameter string c19 = "My\nName\rIs\t\"Earl\"";
          |
          |endmodule
          |""".stripMargin
@@ -405,6 +409,9 @@ class PrintVerilogCodeSpec extends StageSpec:
         * very very very very very very very very very very long doc
         */
       val z = Bit <> VAR
+      z <> x
+      y <> z
+    end HasDocs
 
     val top = (new HasDocs).getCompiledCodeString
     assertNoDiff(
@@ -427,7 +434,8 @@ class PrintVerilogCodeSpec extends StageSpec:
          |     very very very very very very very very very very long doc
          |    */
          |  logic z;
-         |
+         |  assign z = x;
+         |  assign y = z;
          |endmodule
          |""".stripMargin
     )
@@ -577,7 +585,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    else begin
          |      if (cnt == $clog2(HALF_PERIOD)'(HALF_PERIOD - 1)) begin
          |        cnt <= $clog2(HALF_PERIOD)'(0);
-         |        led <= !led;
+         |        led <= ~led;
          |      end
          |      else cnt <= cnt + $clog2(HALF_PERIOD)'(1);
          |    end
@@ -755,6 +763,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  y
          |);
          |  `include "dfhdl_defs.vh"
+         |  `include "Foo_defs.vh"
          |  input  wire  [15:0] x;
          |  output reg [15:0] y;
          |  always @(x)
@@ -813,6 +822,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  y5
          |);
          |  `include "dfhdl_defs.vh"
+         |  `include "Foo_defs.vh"
          |  parameter integer width5 = 8;
          |  parameter integer length5 = 10;
          |  input  wire  [`width - 1:0] x1 [0:`length - 1];
@@ -872,7 +882,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    @(posedge i);
          |    #50us;
          |    x <= 1'b1;
-         |    wait(!i);
+         |    wait(~i);
          |    #50ns;
          |    x <= 1'b0;
          |    #1ns;
@@ -977,6 +987,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  output reg [9:0] matrix [0:7] [0:7]
          |);
          |  `include "dfhdl_defs.vh"
+         |  `include "Foo_defs.vh"
          |
          |  always
          |  begin
@@ -1041,9 +1052,171 @@ class PrintVerilogCodeSpec extends StageSpec:
          |      #5ns;
          |    end
          |    while (1) begin
-         |      x <= !b;
+         |      x <= ~b;
          |      #5ns;
          |    end
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("text out printing") {
+    class Foo(val param: String <> CONST = "Hello\n..\"World\"!") extends EDDesign:
+      val bar    = param + "!"
+      val param2 = param + param
+      val param3: Int <> CONST = 42
+      val param4 = d"22"
+      val param5 = h"abc123"
+      val param6 = b"101010"
+      val param7 = d"-11"
+      val param8: Bit <> CONST     = 1
+      val param9: Boolean <> CONST = false
+      enum MyEnum extends Encoded:
+        case A, B, C
+      val param10: MyEnum <> CONST = MyEnum.A
+
+      process(all):
+        assert(param == "hello2")
+        report(param, Severity.Warning)
+        assert(param == "hello2", s"I am the one ${param} who knocks")
+        assert(param8, s"I\\am\nthe \"one\"(!)\n${param}\nwho\nknocks", Severity.Fatal)
+        println(bar)
+        println()
+        print(s"I am the one ${param2} who knocks")
+        print("hello")
+        println(
+          s"These are the values: $param3, $param4, $param5, $param6, $param7, $param8, $param9, $param10"
+        )
+        debug(param3, param4, param5, param6, param7, param8, param9, param10)
+    end Foo
+    object sv2005:
+      given options.CompilerOptions.Backend = backends.verilog.sv2005
+      val csTop                             = (new Foo).getCompiledCodeString
+    object v95:
+      given options.CompilerOptions.Backend = backends.verilog.v95
+      val csTop                             = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      sv2005.csTop,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.svh"
+         |
+         |module Foo#(parameter string param = "Hello\n..\"World\"!");
+         |  `include "dfhdl_defs.svh"
+         |  parameter int param3 = 42;
+         |  typedef enum {
+         |    MyEnum_A = 0,
+         |    MyEnum_B = 1,
+         |    MyEnum_C = 2
+         |  } t_enum_MyEnum;
+         |  parameter string bar = {param, "!"};
+         |  parameter string param2 = {2{param}};
+         |  parameter logic [4:0] param4 = 5'd22;
+         |  parameter logic [23:0] param5 = 24'habc123;
+         |  parameter logic [5:0] param6 = 6'h2a;
+         |  parameter logic signed [4:0] param7 = -5'sd11;
+         |  parameter logic param8 = 1'b1;
+         |  parameter logic param9 = 0;
+         |  parameter t_enum_MyEnum param10 = MyEnum_A;
+         |  always_comb
+         |  begin
+         |    assert (param == "hello2");
+         |    $warning("%s", param, "");
+         |    assert (param == "hello2")
+         |    else $error("I am the one %s", param, " who knocks");
+         |    assert (param8)
+         |    else $fatal(
+         |      "I\\am\n",
+         |      "the \"one\"(!)%s", param, "\n",
+         |      "who\n",
+         |      "knocks"
+         |    );
+         |    $display("%s", bar, "");
+         |    $display();
+         |    $write("I am the one %s", param2, " who knocks");
+         |    $write("hello");
+         |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", param10.name(), "");
+         |    $info(
+         |      "Debug at Foo\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
+         |      "param3 = %d\n", param3,
+         |      "param4 = %d\n", param4,
+         |      "param5 = %h\n", param5,
+         |      "param6 = %h\n", param6,
+         |      "param7 = %d\n", param7,
+         |      "param8 = %b\n", param8,
+         |      "param9 = %s\n", param9 ? "true" : "false",
+         |      "param10 = %s", param10.name()
+         |    );
+         |  end
+         |endmodule""".stripMargin
+    )
+    assertNoDiff(
+      v95.csTop,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.vh"
+         |
+         |module Foo;
+         |  `include "dfhdl_defs.vh"
+         |  `include "Foo_defs.vh"
+         |  parameter param = "Hello\n..\"World\"!";
+         |  parameter integer param3 = 42;
+         |  `define MyEnum_A 0
+         |  `define MyEnum_B 1
+         |  `define MyEnum_C 2
+         |  function [8*8:1] MyEnum_to_string;
+         |    input [1:0] value;
+         |    case (value)
+         |      `MyEnum_A: MyEnum_to_string = "MyEnum_A";
+         |      `MyEnum_B: MyEnum_to_string = "MyEnum_B";
+         |      `MyEnum_C: MyEnum_to_string = "MyEnum_C";
+         |      default: MyEnum_to_string = "?";
+         |    endcase
+         |  endfunction
+         |  parameter bar = {param, "!"};
+         |  parameter param2 = {2{param}};
+         |  parameter [4:0] param4 = 5'd22;
+         |  parameter [23:0] param5 = 24'habc123;
+         |  parameter [5:0] param6 = 6'h2a;
+         |  parameter [4:0] param7 = -5'sd11;
+         |  parameter param8 = 1'b1;
+         |  parameter param9 = 0;
+         |  parameter [1:0] param10 = `MyEnum_A;
+         |  always
+         |  begin
+         |    if (!(param == "hello2")) begin
+         |      $display("ERROR: ", "Assertion failed!");
+         |    end
+         |    $display("WARNING: ", "%s", param, "");
+         |    if (!(param == "hello2")) begin
+         |      $display("ERROR: ", "I am the one %s", param, " who knocks");
+         |    end
+         |    if (!(param8)) begin
+         |      $display("FATAL: ", 
+         |        "I\\am\n",
+         |        "the \"one\"(!)%s", param, "\n",
+         |        "who\n",
+         |        "knocks"
+         |      );
+         |      $finish;
+         |    end
+         |    $display("%s", bar, "");
+         |    $display();
+         |    $write("I am the one %s", param2, " who knocks");
+         |    $write("hello");
+         |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", MyEnum_to_string(param10), "");
+         |    $display("INFO: ", 
+         |      "Debug at Foo\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
+         |      "param3 = %d\n", param3,
+         |      "param4 = %d\n", param4,
+         |      "param5 = %h\n", param5,
+         |      "param6 = %h\n", param6,
+         |      "param7 = %d\n", param7,
+         |      "param8 = %b\n", param8,
+         |      "param9 = %s\n", param9 ? "true" : "false",
+         |      "param10 = %s", MyEnum_to_string(param10)
+         |    );
          |  end
          |endmodule""".stripMargin
     )

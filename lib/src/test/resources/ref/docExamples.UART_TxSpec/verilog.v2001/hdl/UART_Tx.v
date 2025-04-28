@@ -6,21 +6,33 @@ module UART_Tx#(
     parameter integer CLK_FREQ_KHz = 50000,
     parameter integer BAUD_RATE_BPS = 115200
 )(
-  input  wire clk,
-  input  wire rst,
-  input  wire data_en,
+  input  wire   clk,
+  input  wire   rst,
+  input  wire   data_en,
   input  wire  [7:0] data,
-  output reg  tx,
-  output reg  tx_en,
-  output reg  tx_done
+  output reg    tx,
+  output reg    tx_en,
+  output reg    tx_done
 );
   `include "dfhdl_defs.vh"
+  `include "UART_Tx_defs.vh"
   parameter integer BIT_CLOCKS = (CLK_FREQ_KHz * 1000) / BAUD_RATE_BPS;
   `define Status_Idle 1
   `define Status_StartBit 2
   `define Status_DataBits 4
   `define Status_StopBit 8
   `define Status_Finalize 16
+  function [8*15:1] Status_to_string;
+    input [4:0] value;
+    case (value)
+      `Status_Idle: Status_to_string = "Status_Idle";
+      `Status_StartBit: Status_to_string = "Status_StartBit";
+      `Status_DataBits: Status_to_string = "Status_DataBits";
+      `Status_StopBit: Status_to_string = "Status_StopBit";
+      `Status_Finalize: Status_to_string = "Status_Finalize";
+      default: Status_to_string = "?";
+    endcase
+  endfunction
   reg [4:0] status;
   reg [clog2(BIT_CLOCKS) - 1:0] bitClkCnt;
   reg [2:0] dataBitCnt;

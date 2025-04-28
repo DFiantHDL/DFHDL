@@ -183,14 +183,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csBlockBegin: String = ""
   def csBlockEnd: String = ""
   override def csDFIfGuard(ifBlock: DFConditional.DFIfElseBlock): String =
-    val requiresBoolConv =
-      if (printer.inVHDL93)
-        ifBlock.guardRef.get.asInstanceOf[DFVal].dfType match
-          case DFBit => true
-          case _     => false
-      else false
-    if (requiresBoolConv) s"to_bool(${super.csDFIfGuard(ifBlock)})"
-    else super.csDFIfGuard(ifBlock)
+    printer.csFixedCond(ifBlock.guardRef.asInstanceOf[DFRef.TwoWay[DFVal, ?]])
   def csDFIfStatement(csCond: String): String = s"if $csCond then"
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"
@@ -202,6 +195,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCasePatternStruct(pattern: Pattern.Struct): String = printer.unsupported
   def csDFCasePatternBind(pattern: Pattern.Bind): String = printer.unsupported
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String = printer.unsupported
+  def csDFCasePatternNamedArg(pattern: Pattern.NamedArg): String = printer.unsupported
   def csDFCaseKeyword: String = "when "
   def csDFCaseSeparator: String = " =>"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
@@ -225,6 +219,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
     s"${named}process$senList$dcl\nbegin\n${body.hindent}\nend process;"
   end csProcessBlock
+  def csStepBlock(stepBlock: StepBlock): String = printer.unsupported
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
     val body = csDFOwnerBody(forBlock)
     val named = forBlock.meta.nameOpt.map(n => s"$n : ").getOrElse("")
@@ -246,15 +241,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   end csDFForBlock
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
     val body = csDFOwnerBody(whileBlock)
-    val requiresBoolConv =
-      if (printer.inVHDL93)
-        whileBlock.guardRef.get.dfType match
-          case DFBit => true
-          case _     => false
-      else false
-    val guard =
-      if (requiresBoolConv) s"to_bool(${whileBlock.guardRef.refCodeString})"
-      else whileBlock.guardRef.refCodeString
+    val guard = printer.csFixedCond(whileBlock.guardRef)
     s"while $guard loop\n${body.hindent}\nend loop;"
   end csDFWhileBlock
   def csDomainBlock(pb: DomainBlock): String = printer.unsupported

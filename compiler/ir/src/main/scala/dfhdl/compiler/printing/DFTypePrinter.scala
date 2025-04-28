@@ -41,7 +41,11 @@ trait AbstractTypePrinter extends AbstractPrinter:
       .filter {
         // show tuple structures only if tuple support is disabled
         case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
-        case _                                                        => true
+        // skipping unknown clock and reset definitions (they are unknown because
+        // they lack additional name suffix that belongs to their configuration)
+        case DFOpaque("Clk", _: DFOpaque.Clk, _) => false
+        case DFOpaque("Rst", _: DFOpaque.Rst, _) => false
+        case _                                   => true
       }
       .map(x => printer.csNamedDFTypeDcl(x, global = false))
       .mkString("\n")
@@ -56,6 +60,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String
   def csDFDouble(): String
   def csDFPhysical(dfType: DFPhysical, typeCS: Boolean): String
+  def csDFString(dfType: DFString, typeCS: Boolean): String
 
   final def csDFType(dfType: DFType, typeCS: Boolean = false): String = dfType match
     case dt: DFBoolOrBit => csDFBoolOrBit(dt, typeCS)
@@ -70,6 +75,7 @@ trait AbstractTypePrinter extends AbstractPrinter:
     case dt: DFUnit     => csDFUnit(dt, typeCS)
     case DFDouble       => csDFDouble()
     case dt: DFPhysical => csDFPhysical(dt, typeCS)
+    case dt: DFString   => csDFString(dt, typeCS)
     case dt: DFNothing  => ???
 end AbstractTypePrinter
 
@@ -92,7 +98,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
         else s"SInt$ob$csWidth$cb"
       case (false, _) => s"UFix$ob$magnitudeWidth, $fractionWidth$cb"
       case (true, _)  => s"SFix$ob$magnitudeWidth, $fractionWidth$cb"
-
+  def csDFString(dfType: DFString, typeCS: Boolean): String = "String"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
     val enumName = dfType.getName
     val entries =
@@ -133,7 +139,6 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     dfType.unit match
       case DFPhysical.Unit.Time   => "Time"
       case DFPhysical.Unit.Freq   => "Freq"
-      case DFPhysical.Unit.Cycles => "Cycles"
       case DFPhysical.Unit.Number => "Number"
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets

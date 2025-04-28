@@ -16,12 +16,17 @@ object DFFor:
   end Block
   def pluginGetLoopIter[V <: DFValAny](meta: ir.Meta)(using DFC): V =
     dfc.mutableDB.DesignContext.getLoopIter(meta).asInstanceOf[V]
-  def plugin(iterMeta: ir.Meta, range: DFRange[?], guards: List[() => DFValOf[DFBool]])(
+  def plugin(
+      iterMeta: ir.Meta,
+      forPos: Position,
+      range: DFRange[?],
+      guards: List[() => DFValOf[DFBool]]
+  )(
       run: => Unit
   )(using DFC): Unit =
     val iter = DFVal.Dcl.iterator(using dfc.setMeta(iterMeta))
     dfc.mutableDB.DesignContext.addLoopIter(iterMeta, iter)
-    val block = Block(iter, range)
+    val block = Block(iter, range)(using dfc.setMetaAnon(forPos))
     dfc.enterOwner(block)
     guards.foreach { guard =>
       val guardVal = guard()

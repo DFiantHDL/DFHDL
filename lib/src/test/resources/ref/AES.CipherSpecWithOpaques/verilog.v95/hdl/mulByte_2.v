@@ -7,7 +7,8 @@ module mulByte_2(
   o
 );
   `include "dfhdl_defs.vh"
-  parameter logic [7:0] lhs = 8'h01;
+  `include "Cipher_defs.vh"
+  parameter [7:0] lhs = 8'h01;
   input  wire  [7:0] rhs;
   output wire [7:0]  o;
   assign o = 8'h00 ^ rhs;

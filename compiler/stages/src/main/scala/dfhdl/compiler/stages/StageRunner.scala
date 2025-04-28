@@ -10,7 +10,7 @@ class StageRunner(using co: CompilerOptions, po: PrinterOptions) extends LogSupp
   logger.setFormatter(LogFormatter.BareFormatter)
   logger.setLogLevel(co.logLevel)
   private val ignoredTraceStages: Set[Stage] =
-    PrintCodeString.dependencies.toSet + PrintCodeString + SanityCheck
+    PrintCodeString.dependencies.toSet + PrintCodeString
   def logDebug(): Unit =
     logger.setLogLevel(LogLevel.DEBUG)
   def logInfo(): Unit =
@@ -22,15 +22,16 @@ class StageRunner(using co: CompilerOptions, po: PrinterOptions) extends LogSupp
     val ret = stage.transform(designDB)(using designDB.getSet)
     info(s"Finished stage ${stage.typeName}")
     if (
-      logger.getLogLevel >= LogLevel.DEBUG && stage != SanityCheck &&
+      logger.getLogLevel >= LogLevel.DEBUG && !stage.isInstanceOf[SanityCheck] &&
       !stage.isInstanceOf[NoCheckStage]
     )
       if (!done.contains(DropUnreferencedAnons))
-        ret.dropUnreferencedAnons.sanityCheck
+        ret.sanityCheck(skipAnonRefCheck = true)
       else
-        ret.sanityCheck
+        ret.sanityCheck(skipAnonRefCheck = false)
     if (
-      (logger.getLogLevel eq LogLevel.TRACE) && !ignoredTraceStages.contains(stage) &&
+      (logger.getLogLevel eq LogLevel.TRACE) &&
+      !ignoredTraceStages.contains(stage) && !stage.isInstanceOf[SanityCheck] &&
       !stage.isInstanceOf[SpecialControlStage]
     )
       val ll = logger.getLogLevel

@@ -94,8 +94,10 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       if (designParamList.length == 0 || !parameterizedModuleSupport) ""
       else if (designParamList.length == 1) designParamList.mkString("#(", ", ", ")")
       else "#(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
+    val includeModuleDefs =
+      if (printer.allowTypeDef) "" else s"""\n  `include "${printer.globalFileName}""""
     s"""module ${moduleName(design)}$designParamCS$portBlock;
-       |  `include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"$declarations
+       |  `include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"$includeModuleDefs$declarations
        |${statements.hindent}
        |endmodule""".stripMargin
   end csModuleDcl
@@ -129,6 +131,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCasePatternStruct(pattern: Pattern.Struct): String = printer.unsupported
   def csDFCasePatternBind(pattern: Pattern.Bind): String = printer.unsupported
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String = printer.unsupported
+  def csDFCasePatternNamedArg(pattern: Pattern.NamedArg): String = printer.unsupported
   def csDFCaseKeyword: String = ""
   def csDFCaseSeparator: String = ":"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String = printer.unsupported
@@ -172,10 +175,10 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           case Sensitivity.All => "always_comb"
           case Sensitivity.List(refs) =>
             refs match
-              case DFRef(DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _)) :: Nil =>
+              case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
                 "always_ff"
-              case DFRef(DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _)) ::
-                  DFRef(DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _)) :: Nil =>
+              case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) ::
+                  DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
                 "always_ff"
               case _ => "always"
     val senList = pb.sensitivity match
@@ -189,6 +192,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
+  def csStepBlock(stepBlock: StepBlock): String = printer.unsupported
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
     val body = csDFOwnerBody(forBlock)
     val rangeIR = forBlock.rangeRef.get

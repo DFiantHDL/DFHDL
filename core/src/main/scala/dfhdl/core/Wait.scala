@@ -5,42 +5,69 @@ import dfhdl.internals.*
 import scala.annotation.targetName
 import ir.DFVal.Func.Op as FuncOp
 
-//sealed class Wait private (val irValue: ir.Wait | DFError) extends DFMember[ir.Wait]
+opaque type Wait <: Unit = Unit
 object Wait:
-  def apply(trigger: DFValOf[DFBool] | DFConstOf[Duration])(using DFC): Unit =
+  def apply(trigger: DFValOf[DFBoolOrBit] | Duration)(using DFC): Unit =
     val wait: ir.Wait = ir.Wait(
       trigger.asIR.refTW[ir.Wait],
       dfc.owner.ref,
       dfc.getMeta,
       dfc.tags
     ).addMember
-  object Ops:
-    inline def __java_waitErr(): Unit =
-      compiletime.error(
-        "Did you mean to call DFHDL's `wait`? If so, use `<time>.wait` instead (e.g., `5.ns.wait`).\nDid you mean to call Java's `wait`? if so, use `this.wait` instead."
-      )
-    inline def __java_waitErr(arg: Long): Unit = __java_waitErr()
-    inline def __java_waitErr(arg: Long, arg2: Int): Unit = __java_waitErr()
+  opaque type Cycles <: DFValOf[DFUInt[Int]] = DFValOf[DFUInt[Int]]
+  object Cycles:
+    def apply(value: Int | Long)(using DFC): Cycles =
+      val bigInt = value match
+        case i: Int  => BigInt(i)
+        case l: Long => BigInt(l)
+      DFVal.Const(DFUInt(bigInt.bitsWidth(signed = false)), Some(bigInt), named = true)
+    def apply(value: DFValOf[DFUInt[Int]])(using DFC): Cycles = value
+  type Duration = DFConstOf[DFTime] | Cycles
 
-    extension (lhs: DFConstOf[Duration]) def wait(using DFC): Unit = trydf { Wait(lhs) }
-    def waitWhile(cond: DFValOf[DFBool])(using DFC): Unit =
+  protected type CYInRT = AssertGiven[
+    DomainType.RT,
+    "`.cy` unit wait is only allowed under register-transfer (RT) domains."
+  ]
+  // Since Java's wait belongs to the Object class, we need to be able to override it
+  // with our own wait method, so we need to extend this in the Container trait, instead
+  // of relying on export like the rest of the core API.
+  trait ContainerOps:
+    extension (lhs: DFConstOf[DFTime]) final def wait(using DFC): Wait = trydf { Wait(lhs) }
+    extension (lhs: Cycles) final def wait(using DFC, CYInRT): Wait = trydf { Wait(lhs) }
+    inline def java_wait(): Unit = this.wait()
+    inline def java_wait(timeoutMillis: Long): Unit = this.wait(timeoutMillis)
+    inline def java_wait(timeoutMillis: Long, nanos: Int): Unit = this.wait(timeoutMillis, nanos)
+    export TextOut.Ops.assert
+  object Ops:
+    extension (lhs: Int | Long)
+      def cy(using DFC): Cycles = trydf {
+        val pos = lhs match
+          case long: Long => long > 0
+          case int: Int   => int > 0
+        if (!pos)
+          throw new IllegalArgumentException("`cy` can only be used with positive values.")
+        Cycles(lhs)
+      }
+    extension (lhs: DFValOf[DFUInt[Int]]) def cy(using DFC): Cycles = Cycles(lhs)
+
+    def waitWhile(cond: DFValOf[DFBoolOrBit])(using DFC): Wait =
       trydf {
         cond.asIR match
-          case ir.DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
+          case ir.DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
             throw new IllegalArgumentException(
               "`waitWhile` does not support rising/falling edges. Use `waitUntil` instead."
             )
           case _ =>
             Wait(cond)
       }
-    def waitUntil(trigger: DFValOf[DFBool])(using DFC): Unit = trydf {
+    def waitUntil(trigger: DFValOf[DFBoolOrBit])(using DFC): Wait = trydf {
       trigger.asIR match
         // special case for rising/falling edges, the trigger remains as is inside the wait
-        case ir.DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
+        case ir.DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
           Wait(trigger)
         case _ =>
-          import DFBoolOrBit.Val.Ops.unary_!
-          Wait(!trigger)
+          import DFBoolOrBit.Val.Ops.not
+          Wait(trigger.not)
     }
   end Ops
 end Wait

@@ -4,7 +4,7 @@ import dfhdl.backends
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import dfhdl.compiler.stages.verilog.VerilogDialect
@@ -13,7 +13,7 @@ import java.io.FileWriter
 import java.io.File.separatorChar
 import scala.sys.process.*
 
-trait QuestaSimCommon extends Linter:
+trait QuestaSimCommon extends Linter, Simulator:
   final val toolName: String = s"QuestaSim $binExec"
   final protected def versionCmd: String = "-version"
   final protected def extractVersion(cmdRetStr: String): Option[String] =
@@ -22,17 +22,17 @@ trait QuestaSimCommon extends Linter:
 
   override protected def lintCmdPreLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     "-quiet",
-    summon[LinterOptions].fatalWarnings.toFlag("-warning error")
+    summon[ToolOptions].Werror.toBoolean.toFlag("-warning error")
   )
 
   // creating a questa sim work lib if the work/_info file is missing
   final override protected def lintPrepare()(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): Unit =
     val work = new java.io.File(s"${execPath}${separatorChar}work${separatorChar}_info")
@@ -40,9 +40,9 @@ trait QuestaSimCommon extends Linter:
       Process("vlib work", new java.io.File(execPath)).!
 end QuestaSimCommon
 
-object QuestaSimVerilog extends QuestaSimCommon, VerilogLinter:
+object QuestaSimVerilog extends QuestaSimCommon, VerilogLinter, VerilogSimulator:
   protected def binExec: String = "vlog"
-  protected def lintIncludeFolderFlag: String = "+incdir+"
+  protected def includeFolderFlag: String = "+incdir+"
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     dialect match
       case VerilogDialect.v95    => "-vlog95compat"
@@ -53,7 +53,7 @@ object QuestaSimVerilog extends QuestaSimCommon, VerilogLinter:
       case VerilogDialect.sv2017 => "-sv17compat"
 end QuestaSimVerilog
 
-object QuestaSimVHDL extends QuestaSimCommon, VHDLLinter:
+object QuestaSimVHDL extends QuestaSimCommon, VHDLLinter, VHDLSimulator:
   protected def binExec: String = "vcom"
   protected def lintCmdLanguageFlag(dialect: VHDLDialect): String =
     dialect match
@@ -62,7 +62,7 @@ object QuestaSimVHDL extends QuestaSimCommon, VHDLLinter:
       case VHDLDialect.v2019 => "-2019"
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     // suppressing shared variable warnings

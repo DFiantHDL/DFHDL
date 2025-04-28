@@ -4,7 +4,7 @@ import dfhdl.backends
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
@@ -12,15 +12,19 @@ import java.io.FileWriter
 import java.io.File.separatorChar
 import dfhdl.compiler.stages.verilog.VerilogDialect
 
-object IcarusVerilog extends VerilogLinter:
+object IcarusVerilog extends VerilogLinter, VerilogSimulator:
+  override val simRunsLint: Boolean = true
   val toolName: String = "Icarus Verilog"
   protected def binExec: String = "iverilog"
+  override protected def simRunExec: String =
+    val osName: String = sys.props("os.name").toLowerCase
+    if (osName.contains("windows")) "vvp.exe" else "vvp"
   protected def versionCmd: String = "-V"
   protected def extractVersion(cmdRetStr: String): Option[String] =
     val versionPattern = """Icarus Verilog version\s+(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
-  protected def lintIncludeFolderFlag: String = "-I"
+  protected def includeFolderFlag: String = "-I"
 
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     val generation = dialect match
@@ -37,15 +41,16 @@ object IcarusVerilog extends VerilogLinter:
 
   override protected def lintCmdPreLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
+    s"-s $topName",
     s"-o $topName"
   )
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     "-Wall"
@@ -53,12 +58,28 @@ object IcarusVerilog extends VerilogLinter:
 
   override protected def lintLogger(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): Option[Tool.ProcessLogger] = Some(
     Tool.ProcessLogger(
       lineIsWarning = (line: String) => line.contains("warning: "),
-      lineIsSuppressed = (line: String) => false
+      lineIsSuppressed = (line: String) =>
+        // suppress the "cannot be synthesized" warning when in simulation
+        if (line.contains("cannot be synthesized") && getSet.designDB.inSimulation)
+          true
+        else
+          false
     )
   )
+
+  override protected def simulateCmdPostLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    topName
+  )
+
+  override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =
+    ""
 end IcarusVerilog

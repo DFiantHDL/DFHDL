@@ -4,7 +4,7 @@ import dfhdl.backends
 import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, LinterOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
@@ -14,7 +14,7 @@ import dfhdl.compiler.stages.verilog.VerilogDialect
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import scala.sys.process.*
 
-trait VivadoSimCommon extends Linter:
+trait VivadoSimCommon extends Linter, Simulator:
   final val toolName: String = s"Vivado Simulator $binExec"
   final protected def versionCmd: String = "-version"
   final override protected def windowsBinExec: String = s"$binExec.bat"
@@ -24,7 +24,7 @@ trait VivadoSimCommon extends Linter:
   protected def suppressLine(line: String): Boolean = line.startsWith("INFO:")
   final override protected def lintLogger(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): Option[Tool.ProcessLogger] = Some(
     Tool.ProcessLogger(
@@ -34,9 +34,9 @@ trait VivadoSimCommon extends Linter:
   )
 end VivadoSimCommon
 
-object VivadoSimVerilog extends VivadoSimCommon, VerilogLinter:
+object VivadoSimVerilog extends VivadoSimCommon, VerilogLinter, VerilogSimulator:
   protected def binExec: String = "xvlog"
-  protected def lintIncludeFolderFlag: String = "-i "
+  protected def includeFolderFlag: String = "-i "
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => ""
@@ -46,7 +46,7 @@ object VivadoSimVerilog extends VivadoSimCommon, VerilogLinter:
     super.suppressLine(line) || line.matches("WARNING: \\[VRFC 10\\-3467\\].*")
 end VivadoSimVerilog
 
-object VivadoSimVHDL extends VivadoSimCommon, VHDLLinter:
+object VivadoSimVHDL extends VivadoSimCommon, VHDLLinter, VHDLSimulator:
   protected def binExec: String = "xvhdl"
   protected def lintCmdLanguageFlag(dialect: VHDLDialect): String =
     dialect match

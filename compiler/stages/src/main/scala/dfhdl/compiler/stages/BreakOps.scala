@@ -22,7 +22,7 @@ abstract class BreakOps(breakAssignments: Boolean) extends NoCheckStage:
     object AnonConcatFuncOf:
       @tailrec def unapply(dfVal: DFVal): Option[List[DFVal.Ref]] =
         if (dfVal.isAnonymous) dfVal match
-          case DFVal.Func(DFVector(_, _) | DFStruct(_, _), FuncOp.++, args, _, _, _) =>
+          case DFVal.Func(dfType = DFVector(_, _) | DFStruct(_, _), op = FuncOp.++, args = args) =>
             Some(args)
           // pass through opaque to/from casting
           case OpaqueActual(relVal) => unapply(relVal)

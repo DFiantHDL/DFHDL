@@ -23,17 +23,23 @@ import annotation.tailrec
 class LoopFSMPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-  // override val debugFilter: String => Boolean = _.contains("Example.scala")
+  // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   val phaseName = "LoopFSM"
-  var stepRef: TypeRef = uninitialized
+  var registerStepSym: Symbol = uninitialized
   var addStepSym: Symbol = uninitialized
+  var gotoStepSym: Symbol = uninitialized
   var customForSym: Symbol = uninitialized
   var getLoopIterSym: Symbol = uninitialized
   var toFunc1Sym: Symbol = uninitialized
   var fromBooleanSym: Symbol = uninitialized
   var customWhileSym: Symbol = uninitialized
+  var processAnonDefSym: Symbol = uninitialized
+  var processScopeCtxSym: Symbol = uninitialized
+  var stepType: Type = uninitialized
+  var pluginOnEntryExitSym: Symbol = uninitialized
+  var waitSym: Symbol = uninitialized
   var dfcStack: List[Tree] = Nil
-  val processDefs = mutable.Set.empty[Symbol]
+  val processStepDefs = mutable.LinkedHashMap.empty[Symbol, DefDef]
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("CustomControl")
@@ -45,10 +51,23 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     ctx
 
   override def transformDefDef(tree: DefDef)(using Context): Tree =
+    val updatedDefDef =
+      if (tree.symbol == processAnonDefSym)
+        val registeredSteps = processStepDefs.view.map { (sym, dd) =>
+          ref(registerStepSym)
+            .appliedTo(dd.genMeta)
+            .appliedTo(dfcStack.head, ref(processScopeCtxSym))
+        }.toList
+        val updatedRHS = tree.rhs match
+          case Block(stats, expr) => Block(registeredSteps ++ stats, expr)
+          case expr               => Block(registeredSteps, expr)
+        cpy.DefDef(tree)(rhs = updatedRHS)
+      else tree
     ContextArg.at(tree).foreach { t =>
       dfcStack = dfcStack.drop(1)
     }
-    tree
+    updatedDefDef
+  end transformDefDef
 
   override def prepareForTypeDef(tree: TypeDef)(using Context): Context =
     ContextArg.at(tree).foreach { t =>
@@ -63,73 +82,104 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
     tree
 
   def allDefsErrMsg(srcPos: util.SrcPos)(using Context): Unit =
-    report.error("Process blocks must only declare `def`s or no `def`s at all.", srcPos)
+    report.error("Process blocks must only declare step `def`s or no step`def`s at all.", srcPos)
 
-  def fsmStatCheck(tree: Tree, returnCheck: Boolean)(using Context): Unit =
+  enum CheckType derives CanEqual:
+    case None, Return, Loop, OnEntryExit
+  def processStatCheck(tree: Tree, returnCheck: CheckType)(using Context): Unit =
     tree match
       case Block(stats, expr) =>
-        fsmStatCheck(stats, tree.srcPos)
-        expr match
-          case Literal(Constant(_: Unit)) =>
+        returnCheck match
+          case CheckType.OnEntryExit =>
+            (expr :: stats).foreach(t => processStatCheck(t, returnCheck))
           case _ =>
-            stats.headOption match
-              case Some(dd: DefDef) =>
-                allDefsErrMsg(expr.srcPos)
+            processStatCheck(stats, tree.srcPos)
+            expr match
+              case Literal(Constant(_: Unit)) =>
               case _ =>
-                fsmStatCheck(expr, returnCheck)
+                stats.headOption match
+                  case Some(OnEntryDef() | OnExitDef()) =>
+                  case Some(dd: DefDef)                 =>
+                  // allDefsErrMsg(expr.srcPos)
+                  case _ =>
+                    processStatCheck(expr, returnCheck)
       case If(cond, thenp, elsep) =>
-        fsmStatCheck(thenp, returnCheck)
-        fsmStatCheck(elsep, returnCheck)
+        processStatCheck(thenp, returnCheck)
+        processStatCheck(elsep, returnCheck)
       case Match(scrut, cases) =>
         cases.foreach { case CaseDef(pat, guard, body) =>
-          fsmStatCheck(body, returnCheck)
+          processStatCheck(body, returnCheck)
         }
-      case _ if returnCheck =>
-        tree match
-          case x @ Ident(stepName) if processDefs.contains(x.symbol)           =>
-          case Apply(x @ Ident(stepName), _) if processDefs.contains(x.symbol) =>
-          case _ =>
-            report.error(
-              "Process `def`s must end with a call to a process `def` (it could be the same `def`).",
-              tree.srcPos
-            )
-      case Foreach(_, _, _, body, _) =>
-        fsmStatCheck(body, returnCheck = false)
-      case WhileDo(_, body) =>
-        fsmStatCheck(body, returnCheck = false)
+      case _ if returnCheck != CheckType.None =>
+        (returnCheck: @unchecked) match
+          case CheckType.Return =>
+          // tree match
+          //   case Goto() =>
+          //   case _ =>
+          //     report.error(
+          //       "Register-transfer (RT) process `def`s must end with a call to another process `def` (it could be the same `def`).",
+          //       tree.srcPos
+          //     )
+          case CheckType.Loop =>
+            tree match
+              case Goto() =>
+              case Wait() =>
+              case _      =>
+              // report.error(
+              //   """|Register-transfer (RT) process loops must end with any kind of `wait` statement or a call to a process `def`.
+              //      |For a purely combinational loop, call `0.cy.wait` at the end of the loop block.""".stripMargin,
+              //   tree.srcPos
+              // )
+          case CheckType.OnEntryExit =>
+            tree match
+              case dd: DefDef =>
+                report.error("onEntry/onExit must not contain any other `def`s.", dd.srcPos)
+              case Goto() | Wait() =>
+                report.error(
+                  "onEntry/onExit `def`s cannot have `wait` or step goto statements.",
+                  tree.srcPos
+                )
+              case _ =>
+      case Foreach(body = body) =>
+        processStatCheck(body, returnCheck = CheckType.Loop)
+      case WhileDo(body = body) =>
+        processStatCheck(body, returnCheck = CheckType.Loop)
       case _ =>
 
-  def fsmStatCheck(trees: List[Tree], srcPos: util.SrcPos)(using Context): Unit =
-    val (allDefs: List[DefDef] @unchecked, allSteps: List[Tree]) = (trees.partition {
+  def processStatCheck(trees: List[Tree], srcPos: util.SrcPos)(using Context): Unit =
+    val (allDefs: List[DefDef] @unchecked, allStepBlocks: List[Tree]) = (trees.partition {
       case _: DefDef => true
       case _         => false
     }): @unchecked
-    if (allDefs.nonEmpty && allSteps.nonEmpty) allDefsErrMsg(srcPos)
+    val (onEntryExit: List[DefDef], stepDefs: List[DefDef]) = allDefs.partition {
+      case OnEntryDef() => true
+      case OnExitDef()  => true
+      case _            => false
+    }
 
+    // if (stepDefs.nonEmpty && allStepBlocks.nonEmpty) allDefsErrMsg(srcPos)
+    // checking onEntry and onExit defs syntax
+    onEntryExit.foreach { dd =>
+      if (dd.paramss != Nil)
+        report.error(s"An ${dd.name} def must not have arguments.", dd.srcPos)
+    }
     var errFound = false
     // checking process defs syntax and caching the process def symbols
-    allDefs.foreach {
-      case dd @ DefDef(_, Nil, retTypeTree, _) if retTypeTree.tpe =:= defn.UnitType =>
-        processDefs += dd.symbol
+    stepDefs.foreach {
+      case dd @ DefDef(_, Nil, retTypeTree, _) if retTypeTree.tpe =:= stepType =>
+        processStepDefs += (dd.symbol -> dd)
       case dd =>
-        report.error("Unexpected process `def` syntax. Must be `def xyz: Unit = ...`", dd.srcPos)
+        report.error(
+          "Unexpected register-transfer (RT) process `def` syntax. Must be `def xyz: Step = ...`",
+          dd.srcPos
+        )
         errFound = true
     }
     if (!errFound)
-      allDefs.foreach { dd => fsmStatCheck(dd.rhs, returnCheck = true) }
-      allSteps.foreach { step => fsmStatCheck(step, returnCheck = false) }
-  end fsmStatCheck
-
-  object Step:
-    def unapply(tree: Tree)(using Context): Option[Tree] =
-      if (tree.tpe <:< stepRef && !(tree.tpe =:= defn.NothingType))
-        tree match
-          case Apply(Ident(stepName), dfcTree :: _) if stepName.toString == "step" =>
-            Some(dfcTree)
-          case _ =>
-            report.error("Unexpected step pattern. Must be `def xyz = step`", tree.srcPos)
-            None
-      else None
+      stepDefs.foreach { dd => processStatCheck(dd.rhs, returnCheck = CheckType.Return) }
+      onEntryExit.foreach { dd => processStatCheck(dd.rhs, returnCheck = CheckType.OnEntryExit) }
+      allStepBlocks.foreach { step => processStatCheck(step, returnCheck = CheckType.None) }
+  end processStatCheck
 
   case class FilteredRange(range: Tree, filters: List[(ValDef, Tree)])
   object FilteredRange:
@@ -205,6 +255,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
 
   case class ProcessForever(scopeCtx: ValDef, block: Tree)
   object ProcessForever:
+    // RT process forever
     def unapply(tree: Tree)(using Context): Option[ProcessForever] =
       tree match
         case Apply(
@@ -212,19 +263,63 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
                 Select(Ident(process), forever),
                 List(
                   Block(
-                    List(dd @ DefDef(anonfun, List(List(scopeCtx: ValDef)), _, _)),
+                    List(dd @ DefDef(name = anonfun, paramss = List(List(scopeCtx: ValDef)))),
                     _: Closure
                   )
                 )
               ),
-              _
+              List(domainTypeTree)
             )
-            if anonfun.toString.startsWith("$anonfun") && process.toString == "process" && forever
-              .toString == "forever" =>
+            if anonfun.toString.startsWith("$anonfun") && process.toString == "process" &&
+              forever.toString == "forever" && domainTypeTree.tpe.widenDealias.typeSymbol.name.toString == "RT" =>
+          processAnonDefSym = dd.symbol
+          processScopeCtxSym = scopeCtx.symbol
           Some(ProcessForever(scopeCtx, dd.rhs))
         case _ =>
           None
   end ProcessForever
+
+  override def prepareForApply(tree: Apply)(using Context): Context =
+    tree match
+      case ProcessForever(scopeCtx, block) =>
+        processStatCheck(block, returnCheck = CheckType.None)
+        processStepDefs.view.groupBy(_._2.name.toString).foreach { case (name, defs) =>
+          if (defs.size > 1)
+            report.error(
+              s"Process step `def`s must be unique. Found multiple `def $name: Step = ...`s.",
+              defs.head._2.srcPos
+            )
+        }
+      case Apply(Select(This(_), wait), args) if wait.toString == "wait" => // DFHDL/Java wait
+        if (!tree.tpe.isContextualMethod) // Java's wait wouldn't be contextual
+          report.error(
+            "Did you mean to call DFHDL's `wait`? If so, use `<time>.wait` or `wait(<time>)` instead (e.g., `5.ns.wait` or `wait(5.ns)`).\nDid you mean to call Java's `wait`? if so, use `java_wait` instead.",
+            tree.srcPos
+          )
+      case _ =>
+    end match
+    ctx
+  end prepareForApply
+
+  object OnEntryDef:
+    def unapply(tree: DefDef)(using Context): Boolean =
+      tree.name.toString == "onEntry"
+  object OnExitDef:
+    def unapply(tree: DefDef)(using Context): Boolean =
+      tree.name.toString == "onExit"
+  object Goto:
+    def unapply(tree: Ident)(using Context): Boolean =
+      processStepDefs.contains(tree.symbol)
+  object Wait:
+    def unapply(tree: Apply)(using Context): Boolean =
+      tree.tpe.typeSymbol.fullName.toString == "dfhdl.core.Wait$package$.Wait"
+  override def transformIdent(tree: Ident)(using Context): Tree =
+    tree match
+      case Goto() =>
+        ref(gotoStepSym)
+          .appliedTo(Literal(Constant(tree.name.toString)))
+          .appliedTo(dfcStack.head, ref(processScopeCtxSym))
+      case _ => tree
 
   override def transformApply(tree: Apply)(using Context): Tree =
     tree match
@@ -242,52 +337,43 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
         })
         val updatedBody = replaceArgs(body, Map(iter.symbol -> loopIter))
         ref(customForSym)
-          .appliedTo(iter.genMeta, range, ifGuards)
+          .appliedTo(iter.genMeta, fe.srcPos.positionTree, range, ifGuards)
           .appliedTo(updatedBody)
           .appliedTo(dfc)
       case ProcessForever(scopeCtx, block) =>
-        fsmStatCheck(block, returnCheck = false)
-        processDefs.clear()
+        processStepDefs.clear()
         tree
       case _ =>
         tree
 
   override def transformStats(trees: List[Tree])(using Context): List[Tree] =
-    trees.view.map {
-      case dd: DefDef =>
-        dd.rhs match
-          case Step(dfcTree) =>
-            val addStepRunTree =
-              ref(addStepSym).appliedTo(ref(dd.symbol)).appliedTo(dfcTree)
-            List(dd, addStepRunTree)
-          case _ =>
-            Some(dd)
-      // disallow anonymous steps
-      case stepTree @ Step(_) =>
-        report.error(
-          "Unexpected anonymous step pattern. Must be `def xyz = step`",
-          stepTree.srcPos
-        )
-        Nil
-      case tree => Some(tree)
-    }.flatten.toList
-
-  // disallow step to be a val
-  override def prepareForValDef(tree: ValDef)(using Context): Context =
-    if (tree.tpe <:< stepRef)
-      report.error("A step must have a `def` modifier", tree.srcPos)
-    ctx
+    trees.map {
+      case dd: DefDef if processStepDefs.contains(dd.symbol) =>
+        ref(addStepSym)
+          .appliedTo(Literal(Constant(dd.name.toString)))
+          .appliedTo(dd.rhs.changeOwner(dd.symbol, ctx.owner))
+          .appliedTo(dfcStack.head, ref(processScopeCtxSym))
+      case dd @ (OnEntryDef() | OnExitDef()) =>
+        ref(pluginOnEntryExitSym)
+          .appliedTo(dd.genMeta)
+          .appliedTo(dd.rhs.changeOwner(dd.symbol, ctx.owner))
+          .appliedTo(dfcStack.head)
+      case tree => tree
+    }
 
   override def prepareForUnit(tree: Tree)(using Context): Context =
     super.prepareForUnit(tree)
-    stepRef = requiredClassRef("dfhdl.core.Step")
-    addStepSym = requiredMethod("dfhdl.core.r__For_Plugin.addStep")
+    registerStepSym = requiredMethod("dfhdl.core.Step.pluginRegisterStep")
+    addStepSym = requiredMethod("dfhdl.core.Step.pluginAddStep")
+    gotoStepSym = requiredMethod("dfhdl.core.Step.pluginGotoStep")
     customForSym = requiredMethod("dfhdl.core.DFFor.plugin")
     getLoopIterSym = requiredMethod("dfhdl.core.DFFor.pluginGetLoopIter")
     toFunc1Sym = requiredMethod("dfhdl.core.r__For_Plugin.toFunc1")
     fromBooleanSym = requiredMethod("dfhdl.core.r__For_Plugin.fromBoolean")
     customWhileSym = requiredMethod("dfhdl.core.DFWhile.plugin")
-    processDefs.clear()
+    stepType = requiredClassRef("dfhdl.core.Step")
+    pluginOnEntryExitSym = requiredMethod("dfhdl.core.Step.pluginOnEntryExit")
+    processStepDefs.clear()
     ctx
   end prepareForUnit
 end LoopFSMPhase

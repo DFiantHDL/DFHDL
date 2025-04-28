@@ -59,6 +59,18 @@ abstract class MetaDesign[+D <: DomainType](
         else owner
       dfc.mutableDB.plantMember(updatedOwner, m, _ => cond)
     }
+  final def plantClonedMembers(baseOwner: ir.DFOwner, members: List[ir.DFMember]): Unit =
+    val clonedMemberMap = members.map { m => m -> m.copyWithNewRefs }.toMap
+    members.foreach { m =>
+      val cloned = clonedMemberMap(m)
+      dfc.mutableDB.addMember(cloned)
+      val owner = clonedMemberMap.getOrElse(m.getOwner, dfc.owner.asIR).asInstanceOf[ir.DFOwner]
+      dfc.mutableDB.newRefFor(cloned.ownerRef, owner)
+      m.getRefs.lazyZip(cloned.getRefs).foreach { (ref, clonedRef) =>
+        val refMember = ref.get
+        dfc.mutableDB.newRefFor(clonedRef, clonedMemberMap.getOrElse(refMember, refMember))
+      }
+    }
   final def applyBlock(owner: ir.DFOwner)(block: => Unit): Unit =
     dfc.mutableDB.OwnershipContext.enter(owner)
     block
@@ -66,7 +78,7 @@ abstract class MetaDesign[+D <: DomainType](
   // meta designs may be intermediate erroneous designs
   final override private[dfhdl] def skipChecks: Boolean = true
 
-  export dfhdl.hdl.{RTDomainCfg => _, ClkCfg => _, RstCfg => _, *}
+  export dfhdl.hdl.{RTDomainCfg => _, ClkCfg => _, RstCfg => _, assert => _, *}
   export dfhdl.core.{asValAny, asVarAny, asVarOf, asDclAny, asConstAny, cloneAnonValueAndDepsHere}
   extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
     def asInitialized: DFVal[T, Modifier[A, C, Modifier.Initialized, P]] =

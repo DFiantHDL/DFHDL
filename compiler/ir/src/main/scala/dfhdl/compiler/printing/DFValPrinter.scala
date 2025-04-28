@@ -29,6 +29,7 @@ extension (list: List[String])
     else
       val csVecData = list.grouped(colCnt).map(_.mkString(sep + " ")).mkString(sep + "\n").hindent
       s"$open\n${csVecData}\n$close"
+end extension
 
 extension (intParamRef: IntParamRef)
   def refCodeString(typeCS: Boolean)(using printer: AbstractValPrinter): String = intParamRef match
@@ -63,8 +64,8 @@ extension (alias: Alias)
 trait AbstractValPrinter extends AbstractPrinter:
   final def csSimpleRef(ref: DFRef.TwoWayAny): String =
     ref.get match
-      case DFVal.Const(_: DFDecimal, Some(i), _, _, _) => i.toString
-      case _                                           => ref.refCodeString
+      case DFVal.Const(dfType = _: DFDecimal, data = Some(i)) => i.toString
+      case _                                                  => ref.refCodeString
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String
   def csDFMemberName(named: DFMember.Named): String =
     named.getName
@@ -104,7 +105,7 @@ trait AbstractValPrinter extends AbstractPrinter:
   final def csDFValDcl(dfVal: Dcl): String =
     val noInit = csDFValDclWithoutInit(dfVal)
     val init = dfVal.initRefList match
-      case DFRef(DFVal.Func(_, FuncOp.InitFile(format, path), _, _, _, _)) :: Nil =>
+      case DFRef(DFVal.Func(op = FuncOp.InitFile(format, path))) :: Nil =>
         val csInitFile = format match
           case InitFileFormat.Auto => s""""$path""""
           case _                   => s"""("$path", InitFileFormat.$format)"""
@@ -209,6 +210,10 @@ protected trait DFValPrinter extends AbstractValPrinter:
           case DFVal.Func.Op.++ =>
             def argsInBrackets = csArgs.mkStringBrackets
             dfVal.dfType match
+              case DFString =>
+                if (csArgs.length == 2)
+                  s"${csArgs.head.applyBrackets()} + ${csArgs.last.applyBrackets()}"
+                else ??? // TODO: handle more than 2 args
               case structType @ DFStruct(structName, fieldMap) =>
                 if (structType.isTuple) argsInBrackets
                 else
@@ -269,7 +274,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.bit"
       case (DFBool, DFBit) =>
         s"${relValStr}.bool"
-      case (t, DFOpaque(_, _, ot)) if ot == t =>
+      case (t, DFOpaque(actualType = ot)) if ot == t =>
         s"${relValStr}.actual"
       case (_, DFBits(_)) | (DFOpaque(_, _, _), _) =>
         s"${relValStr}.as(${printer.csDFType(toType)})"

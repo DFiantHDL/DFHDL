@@ -15,6 +15,8 @@ import dfhdl.core.asFE
   *      are already explicitly declared by the user or an internal design has outputs of Clk/Rst of
   *      the same configuration.
   *   1. Related Clk/Rst configuration does not add Clk/Rst ports.
+  *   1. Simulation top-level designs (do not have any ports) will have Clk/Rst VARs that are driven
+  *      according to their configuration.
   */
 case object AddClkRst extends Stage:
   def dependencies: List[Stage] = List(ToRT, ExplicitClkRstCfg)
@@ -46,11 +48,11 @@ case object AddClkRst extends Stage:
           case DomainType.RT(cfg @ NewCfg(clkCfg, rstCfg)) =>
             // clk and rst names are according to the configuration
             val requiredClkName = clkCfg match
-              case ClkCfg.Explicit(_, _, portName, _) => Some(portName)
-              case _                                  => None
+              case ClkCfg.Explicit(portName = portName) => Some(portName)
+              case _                                    => None
             val requiredRstName = rstCfg match
-              case RstCfg.Explicit(_, _, portName, _) => Some(portName)
-              case _                                  => None
+              case RstCfg.Explicit(portName = portName) => Some(portName)
+              case _                                    => None
             // collect existing clk and rst DFHDL value members
             val existingClk = members.collectFirst {
               case clk: DFVal.Dcl if clk.isClkDcl =>
@@ -95,20 +97,70 @@ case object AddClkRst extends Stage:
             )
             // adding missing clk/rst ports patch
             if (addClk || addRst)
+              val simGen = designDB.inSimulation && design.isTop
               val dsn = new MetaDesign(owner, Patch.Add.Config.InsideFirst):
-                lazy val clk = (clkType <> IN)(using dfc.setName(requiredClkName.get))
-                if (addClk) clk // touch lazy clk to create
-                lazy val rst = (rstType <> IN)(using dfc.setName(requiredRstName.get))
-                if (addRst) rst // touch lazy rst to create
+                val selfDFC = dfc
+                if (simGen)
+                  val clk = (clkType <> VAR)(using dfc.setName(requiredClkName.get))
+                  lazy val rst = (rstType <> VAR)(using dfc.setName(requiredRstName.get))
+                  if (addRst) rst // touch lazy rst to create
+                  val clkRstSimGen = new EDDomain:
+                    override protected def __dfc: DFC =
+                      selfDFC.setName("clkRstSimGen")
+                        .setAnnotations(List(dfhdl.hw.flattenMode.transparent()))
+                    val dfcAnon = selfDFC.anonymize.setAnnotations(Nil)
+                    locally {
+                      given DFC = selfDFC.anonymize.setAnnotations(Nil)
+                      val clkRate =
+                        clkCfg.asInstanceOf[ClkCfg.Explicit].rate.getConstData.get.asInstanceOf[
+                          (BigDecimal, DFPhysical.Unit.Freq.Scale | DFPhysical.Unit.Time.Scale)
+                        ]
+                      val clkActive = clkCfg.asInstanceOf[ClkCfg.Explicit].edge match
+                        case ClkCfg.Edge.Rising  => true
+                        case ClkCfg.Edge.Falling => false
+                      val clkPeriodHalf =
+                        clkRate._2 match
+                          case time: DFPhysical.Unit.Time.Scale =>
+                            (clkRate._1 / 2, time)
+                          case freq: DFPhysical.Unit.Freq.Scale =>
+                            val (period, scale) = freq.to_period(clkRate._1)
+                            (period / 2, scale)
+                      lazy val rstActive = rstCfg.asInstanceOf[RstCfg.Explicit].active match
+                        case RstCfg.Active.Low  => false
+                        case RstCfg.Active.High => true
+                      def clkPeriodHalfConst(using DFC): dfhdl.core.DFConstOf[dfhdl.core.DFTime] =
+                        dfhdl.core.DFVal.Const(dfhdl.core.DFTime, clkPeriodHalf)
+                      process.forever {
+                        if (addRst)
+                          rst.actual :== dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(rstActive))
+                        val cond: Boolean <> VAL = true
+                        dfhdl.core.DFWhile.plugin(cond) {
+                          clk.actual :== dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(!clkActive))
+                          wait(clkPeriodHalfConst)
+                          clk.actual :== dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(clkActive))
+                          wait(clkPeriodHalfConst)
+                          if (addRst)
+                            rst.actual :==
+                              dfhdl.core.DFVal.Const(dfhdl.core.DFBit, Some(!rstActive))
+                        }
+                      }
+                    }
+                else
+                  lazy val clk = (clkType <> IN)(using dfc.setName(requiredClkName.get))
+                  if (addClk) clk // touch lazy clk to create
+                  lazy val rst = (rstType <> IN)(using dfc.setName(requiredRstName.get))
+                  if (addRst) rst // touch lazy rst to create
+                end if
               // the ports are added as first members
               Some(dsn.patch)
             else None
+            end if
           case _ => None
         // replace clk/rst value DFTypes with updated ones
         val opaqueTypeReplacePatches = members.view.flatMap {
           case dfVal: DFVal =>
             dfVal.dfType match
-              case dfType @ DFOpaque(_, _: (DFOpaque.Clk | DFOpaque.Rst), _) =>
+              case dfType @ DFOpaque(id = _: (DFOpaque.Clk | DFOpaque.Rst)) =>
                 Some(
                   dfVal -> Patch.Replace(
                     dfVal.updateDFType(opaqueReplaceMap(dfType)),

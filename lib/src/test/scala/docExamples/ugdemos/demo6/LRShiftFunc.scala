@@ -7,13 +7,13 @@ given options.CompilerOptions.Backend = backends.verilog
 def LeftShiftGen(
   iBits: Bits[Int] <> VAL,
   shift: UInt[Int] <> VAL
-): Bits[Int] <> DFRET = iBits << shift
+): Bits[Int] <> RTRET = iBits << shift
 
 /** A generic right shifter */
 def RightShiftGen(
   iBits: Bits[Int] <> VAL,
   shift: UInt[Int] <> VAL
-): Bits[Int] <> DFRET = iBits >> shift
+): Bits[Int] <> RTRET = iBits >> shift
 
 enum ShiftDir extends Encoded:
   case Left, Right
@@ -23,7 +23,7 @@ def LRShiftFunc(
   iBits: Bits[Int] <> VAL,
   shift: UInt[Int] <> VAL,
   dir: ShiftDir <> VAL
-): Bits[Int] <> DFRET =
+): Bits[Int] <> RTRET =
   dir match
     case ShiftDir.Left  => LeftShiftGen(iBits, shift)
     case ShiftDir.Right => RightShiftGen(iBits, shift)

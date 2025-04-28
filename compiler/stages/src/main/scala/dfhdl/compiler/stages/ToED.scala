@@ -55,7 +55,7 @@ case object ToED extends Stage:
             val assignCnt = mutable.Map.empty[DFVal.Dcl, Int]
             def anotherAssignCnt(toVal: DFVal): Unit =
               toVal.departialDcl.foreach {
-                case (dcl: DFVal.Dcl, _) if !dcl.modifier.isReg =>
+                case (dcl: DFVal.Dcl, _) if !dcl.isReg =>
                   assignCnt.update(dcl, assignCnt.getOrElse(dcl, 0) + 1)
                 case _ =>
               }
@@ -77,6 +77,8 @@ case object ToED extends Stage:
                   cb.guardRef.get match
                     case dfVal: DFVal => cb :: dfVal.collectRelMembers(false)
                     case _            => List(cb)
+                case textOut: TextOut =>
+                  textOut :: textOut.collectRelMembers
                 case _ => None
               }.toSet
 
@@ -88,7 +90,8 @@ case object ToED extends Stage:
             val combinationalMembers = getProcessAllMembers(members)
             val singleAssignments = combinationalMembers.flatMap {
               case net @ DFNet.Assignment(dcl: DFVal.Dcl, from)
-                  if !dcl.modifier.isReg && assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
+                  if !dcl.isReg &&
+                    assignCnt.getOrElse(dcl, 0) == 1 && net.getOwner == domainOwner =>
                 net.collectRelMembers.filter(collectFilter) :+ net
               case _ => Nil
             }.distinct
@@ -99,7 +102,7 @@ case object ToED extends Stage:
             // we use a linked set for order consistency
             val dclREGSet = mutable.LinkedHashSet.empty[DFVal.Dcl]
             members.foreach {
-              case dcl: DFVal.Dcl if dcl.modifier.isReg && !handledDesignREGDclSet.contains(dcl) =>
+              case dcl: DFVal.Dcl if dcl.isReg && !handledDesignREGDclSet.contains(dcl) =>
                 dclREGSet += dcl
               case _ =>
             }
@@ -116,7 +119,7 @@ case object ToED extends Stage:
             processBlockAllMembers.foreach {
               case net @ DFNet.Assignment(dfVal: DFVal, _) =>
                 val (dcl, range) = dfVal.departialDcl.get
-                if (dcl.modifier.isReg)
+                if (dcl.isReg)
                   // it could be that we are assigning to a Dcl outside the domain. this is fine,
                   // as long as we mark it as handled. two different domains are guaranteed not to assign
                   // to the same dcl.
@@ -130,7 +133,7 @@ case object ToED extends Stage:
                   case _ if range.length != dcl.width =>
                     dclREGRequiresDefaultSet += dcl
                   case _ => // do nothing
-                if (!dcl.modifier.isReg && !dcl.modifier.isShared)
+                if (!dcl.isReg && !dcl.modifier.isShared)
                   domainIsPureSequential = false
               case x =>
             }
@@ -189,7 +192,7 @@ case object ToED extends Stage:
                   case net: DFNet =>
                     @tailrec def addDinRef(ref: DFRefAny): Unit =
                       ref.get match
-                        case dcl: DFVal.Dcl if dcl.modifier.isReg =>
+                        case dcl: DFVal.Dcl if dcl.isReg =>
                           dclChangeRefMap += dcl -> (dclChangeRefMap.getOrElse(dcl, Set()) + ref)
                         case partial: DFVal.Alias.Partial =>
                           addDinRef(partial.relValRef)
@@ -235,7 +238,7 @@ case object ToED extends Stage:
                     dclChangeList.foreach: (dclREG, dcl_din) =>
                       dclREG.asVarAny :== dcl_din.asValAny
                 def ifRstActive =
-                  val RstCfg.Explicit(_, active: RstCfg.Active, _, _) = rstCfg: @unchecked
+                  val RstCfg.Explicit(active = active) = rstCfg: @unchecked
                   val cond = active match
                     case RstCfg.Active.High => rst.actual == 1
                     case RstCfg.Active.Low  => rst.actual == 0
@@ -244,7 +247,7 @@ case object ToED extends Stage:
                   val (_, rstBranch) = ifRstActive
                   DFIf.singleBranch(None, rstBranch, regSaveBlock)
                 def ifClkEdge(ifRstOption: Option[DFOwnerAny], block: () => Unit = regSaveBlock) =
-                  val ClkCfg.Explicit(edge, _, _, _) = clkCfg: @unchecked
+                  val ClkCfg.Explicit(edge = edge) = clkCfg: @unchecked
                   val cond = edge match
                     case ClkCfg.Edge.Rising  => clk.actual.rising
                     case ClkCfg.Edge.Falling => clk.actual.falling
@@ -253,11 +256,12 @@ case object ToED extends Stage:
                     ifRstOption.getOrElse(DFIf.Header(dfhdl.core.DFUnit)),
                     block
                   )
+                val hasSeqProcess =
+                  clkCfg != None && (dclREGList.nonEmpty || processBlockAllMembers.nonEmpty && domainIsPureSequential)
 
-                if (clkCfg != None && dclREGList.nonEmpty)
-                  val dclREGsHaveRst = dclREGList.exists(_.hasNonBubbleInit)
-                  if (rstCfg != None && dclREGsHaveRst)
-                    val RstCfg.Explicit(mode: RstCfg.Mode, _, _, _) = rstCfg: @unchecked
+                if (hasSeqProcess)
+                  if (rstCfg != None)
+                    val RstCfg.Explicit(mode = mode) = rstCfg: @unchecked
                     mode match
                       case RstCfg.Mode.Sync =>
                         process(clk) {
@@ -301,9 +305,18 @@ case object ToED extends Stage:
     locally {
       import firstPart.getSet
       val patchList = firstPart.members.collect {
-        case dcl: DFVal.Dcl if dcl.modifier.isReg =>
+        case dcl: DFVal.Dcl if dcl.isReg =>
+          // if the domain has no reset, then the register init is preserved for the signal
+          // as a startup reset value
+          val updatedInitRefList = dcl.getDomainType match
+            case DomainType.RT(RTDomainCfg.Explicit(rstCfg = None)) =>
+              dcl.initRefList
+            case _ => Nil
           val updatedDcl =
-            dcl.copy(initRefList = Nil, modifier = dcl.modifier.copy(special = Modifier.Ordinary))
+            dcl.copy(
+              initRefList = updatedInitRefList,
+              modifier = dcl.modifier.copy(special = Modifier.Ordinary)
+            )
           dcl -> Patch.Replace(updatedDcl, Patch.Replace.Config.FullReplacement)
 
       }

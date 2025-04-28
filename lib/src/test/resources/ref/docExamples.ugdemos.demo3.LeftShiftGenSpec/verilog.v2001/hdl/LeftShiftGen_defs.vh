@@ -2,3 +2,10 @@
 `define LEFTSHIFTGEN_DEFS
 
 `endif
+`ifndef LEFTSHIFTGEN_DEFS_MODULE
+`define LEFTSHIFTGEN_DEFS_MODULE
+`else
+
+`undef LEFTSHIFTGEN_DEFS_MODULE
+`endif
+

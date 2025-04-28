@@ -39,8 +39,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
         // excluding late (via) connections
         case net: DFNet if net.isViaConnection => false
         // excluding nets that are inputs to a design definition
-        case DFNet.Connection(PortOfDesignDef(Modifier.IN, _), _, _) =>
-          false
+        case DFNet.Connection(toVal = PortOfDesignDef(Modifier.IN, _)) => false
         // include the rest of statements: nets, gotos, etc.
         case _: Statement => true
         // including only conditional statements (no type) headers
@@ -99,14 +98,16 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFCasePatternStruct(pattern: Pattern.Struct): String
   def csDFCasePatternBind(pattern: Pattern.Bind): String
   def csDFCasePatternBindSI(pattern: Pattern.BindSI): String
+  def csDFCasePatternNamedArg(pattern: Pattern.NamedArg): String
   def csDFCasePattern(pattern: Pattern): String = pattern match
     case Pattern.CatchAll            => csDFCasePatternCatchAll
     case Pattern.Singleton(valueRef) => valueRef.refCodeString
     case Pattern.Alternative(list) =>
       list.map(csDFCasePattern).mkString(csDFCasePatternAlternativeData)
-    case pattern: Pattern.Struct => csDFCasePatternStruct(pattern)
-    case pattern: Pattern.Bind   => csDFCasePatternBind(pattern)
-    case pattern: Pattern.BindSI => csDFCasePatternBindSI(pattern)
+    case pattern: Pattern.Struct   => csDFCasePatternStruct(pattern)
+    case pattern: Pattern.Bind     => csDFCasePatternBind(pattern)
+    case pattern: Pattern.BindSI   => csDFCasePatternBindSI(pattern)
+    case pattern: Pattern.NamedArg => csDFCasePatternNamedArg(pattern)
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String
   def csDFCaseKeyword: String
   def csDFCaseSeparator: String
@@ -118,6 +119,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     s"$csDFCaseKeyword${csDFCasePattern(caseBlock.pattern)}$csGuard$csDFCaseSeparator"
   def csDFMatchStatement(csSelector: String, wildcardSupport: Boolean): String
   def csDFMatchEnd: String
+  def csStepBlock(stepBlock: StepBlock): String
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String
   final def csDFConditionalBlock(cb: DFConditional.Block): String =
@@ -151,7 +153,9 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
     ch match
       case mh: DFConditional.DFMatchHeader =>
         val csSelector = mh.selectorRef.refCodeString.applyBrackets()
-        s"${csDFMatchStatement(csSelector, mh.hasWildcards)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(e => s"\n$e")}"
+        s"${csDFMatchStatement(csSelector, mh.hasWildcards)}\n${csChains.hindent}${csDFMatchEnd.emptyOr(
+            e => s"\n$e"
+          )}"
       case ih: DFConditional.DFIfHeader => csChains
   def csProcessBlock(pb: ProcessBlock): String
   def csDomainBlock(pb: DomainBlock): String
@@ -280,7 +284,13 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
   def csDFCasePatternCatchAll: String = "_"
   def csDFCasePatternAlternativeData: String = " | "
   def csDFCasePatternStruct(pattern: Pattern.Struct): String =
-    pattern.name + pattern.fieldPatterns.map(csDFCasePattern).mkStringBrackets
+    // if there is a named arg, then we need do not print the "_" catch all patterns
+    if (pattern.fieldPatterns.exists(_.isInstanceOf[Pattern.NamedArg]))
+      pattern.name +
+        pattern.fieldPatterns.filterNot(_ == Pattern.CatchAll).map(csDFCasePattern).mkStringBrackets
+    // otherwise, printing all patterns
+    else
+      pattern.name + pattern.fieldPatterns.map(csDFCasePattern).mkStringBrackets
   def csDFCasePatternBind(pattern: Pattern.Bind): String =
     val bindStr = pattern.pattern match
       case Pattern.CatchAll => ""
@@ -292,6 +302,8 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       .map(bindVal => s"$${${bindVal.getName}: B[${bindVal.dfType.width}]}")
     val fullTerm = pattern.parts.coalesce(csBinds).mkString
     s"""${pattern.op}"$fullTerm""""
+  def csDFCasePatternNamedArg(pattern: Pattern.NamedArg): String =
+    s"${pattern.name} = ${csDFCasePattern(pattern.pattern)}"
   def csDFCaseGuard(guardRef: DFConditional.Block.GuardRef): String =
     s" if ${guardRef.refCodeString}"
   def csDFCaseKeyword: String = "case "
@@ -307,14 +319,21 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       case Sensitivity.List(refs) if refs.isEmpty => ""
       case Sensitivity.List(refs)                 => refs.map(_.refCodeString).mkStringBrackets
     s"${named}process${senList}:\n${body.hindent}"
+  def csStepBlock(stepBlock: StepBlock): String =
+    val body = csDFOwnerBody(stepBlock)
+    val name = stepBlock.getName
+    val defType = if (stepBlock.isRegular) "Step" else "Unit"
+    s"def $name: $defType =\n${body.hindent}\nend $name"
   def csDFForBlock(forBlock: DFLoop.DFForBlock): String =
-    val body = csDFOwnerBody(forBlock)
+    val csCOMB_LOOP = if (forBlock.isCombinational) "COMB_LOOP\n" else ""
+    val body = (csCOMB_LOOP + csDFOwnerBody(forBlock)).emptyOr(body => s"${body.hindent}\n")
     val named = forBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    s"${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})\n${body.hindent}\nend for"
+    s"${named}for (${forBlock.iteratorRef.refCodeString} <- ${printer.csDFRange(forBlock.rangeRef.get)})\n${body}end for"
   def csDFWhileBlock(whileBlock: DFLoop.DFWhileBlock): String =
-    val body = csDFOwnerBody(whileBlock)
+    val csCOMB_LOOP = if (whileBlock.isCombinational) "COMB_LOOP\n" else ""
+    val body = (csCOMB_LOOP + csDFOwnerBody(whileBlock)).emptyOr(body => s"${body.hindent}\n")
     val named = whileBlock.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
-    s"${named}while (${whileBlock.guardRef.refCodeString})\n${body.hindent}\nend while"
+    s"${named}while (${whileBlock.guardRef.refCodeString})\n${body}end while"
   def csDomainBlock(domain: DomainBlock): String =
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")

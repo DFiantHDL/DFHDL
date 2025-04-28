@@ -5,7 +5,7 @@ import dfhdl.compiler.stages.CompiledDesign
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.*
 import dfhdl.internals.*
-import dfhdl.options.{PrinterOptions, CompilerOptions, LinterOptions}
+import dfhdl.options.{PrinterOptions, CompilerOptions, ToolOptions, SimulatorOptions}
 import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.analysis.*
 import java.nio.file.Paths
@@ -13,7 +13,8 @@ import java.io.FileWriter
 import java.io.File.separatorChar
 import scala.sys.process.*
 
-object NVC extends VHDLLinter:
+object NVC extends VHDLLinter, VHDLSimulator:
+  override val simRunsLint: Boolean = true
   val toolName: String = "NVC"
   protected def binExec: String = "nvc"
   protected def versionCmd: String = s"--version"
@@ -30,7 +31,7 @@ object NVC extends VHDLLinter:
 
   override protected def lintLogger(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): Option[Tool.ProcessLogger] =
     var insideWarning = false
@@ -57,10 +58,25 @@ object NVC extends VHDLLinter:
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
-      LinterOptions,
+      ToolOptions,
       MemberGetSet
   ): String = constructCommand(
     "-a",
     "--relaxed"
   )
+
+  override protected def simulateCmdPostLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    "-e",
+    topName,
+    "-r",
+    "--ieee-warnings=off"
+  )
+
+  override protected def simulateCmdLanguageFlag(dialect: VHDLDialect): String =
+    lintCmdLanguageFlag(dialect)
+
 end NVC

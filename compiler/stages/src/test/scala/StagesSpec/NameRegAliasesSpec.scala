@@ -38,8 +38,8 @@ class NameRegAliasesSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val c  = UInt(16) <> VAR init 0
       val o1 = UInt(16) <> OUT
       val o2 = UInt(16) <> OUT init 0
-      o1 := c
       c  := c.reg + 1
+      o1 := c
       o2 := o2.reg + 1
     val id = (new Cnt).nameRegAliases
     assertCodeString(
@@ -52,8 +52,8 @@ class NameRegAliasesSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |  val o2_reg = UInt(16) <> VAR.REG init d"16'0"
          |  c_reg.din := c
          |  o2_reg.din := o2
-         |  o1 := c
          |  c := c_reg + d"16'1"
+         |  o1 := c
          |  o2 := o2_reg + d"16'1"
          |end Cnt
          |""".stripMargin

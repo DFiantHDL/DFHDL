@@ -22,11 +22,13 @@ trait DFApp:
   private var compilerOptions: options.CompilerOptions = compiletime.uninitialized
   private var printerOptions: options.PrinterOptions = compiletime.uninitialized
   private var linterOptions: options.LinterOptions = compiletime.uninitialized
+  private var simulatorOptions: options.SimulatorOptions = compiletime.uninitialized
   private var appOptions: options.AppOptions = compiletime.uninitialized
   inline given options.ElaborationOptions = elaborationOptions
   inline given options.CompilerOptions = compilerOptions
   inline given options.PrinterOptions = printerOptions
   inline given options.LinterOptions = linterOptions
+  inline given options.SimulatorOptions = simulatorOptions
   inline given options.AppOptions = appOptions
   private var dsn: () => core.Design = compiletime.uninitialized
   // used by the plugin to get the updated design arguments that could be changed by the
@@ -37,19 +39,23 @@ trait DFApp:
   // command-line options
   final protected def getElaborationOptions: options.ElaborationOptions = elaborationOptions
   final protected def setInitials(
-      _designName: String,
-      _topScalaPath: String,
+      designName: String,
+      topScalaPath: String,
       top: dfhdl.top,
       argNames: List[String],
       argValues: List[Any],
-      argDescs: List[String]
+      argDescs: List[String],
+      scalacWerror: Boolean
   ): Unit =
-    designName = _designName
-    topScalaPath = _topScalaPath
+    this.designName = designName
+    this.topScalaPath = topScalaPath
     elaborationOptions = top.elaborationOptions
     compilerOptions = top.compilerOptions
     printerOptions = top.printerOptions
-    linterOptions = top.linterOptions
+    linterOptions =
+      top.linterOptions.copy(Werror = top.linterOptions.Werror.fromScalac(scalacWerror))
+    simulatorOptions =
+      top.simulatorOptions.copy(Werror = top.simulatorOptions.Werror.fromScalac(scalacWerror))
     appOptions = top.appOptions
     designArgs = DesignArgs(argNames, argValues, argDescs)
   end setInitials
@@ -75,6 +81,9 @@ trait DFApp:
 
   private inline def lint =
     commit.tap(_ => logger.info("Running external linter...")).lint
+
+  private inline def simulate =
+    commit.tap(_ => logger.info("Running external simulator...")).simulate
 
   private def listBackends: Unit =
     println(
@@ -135,6 +144,37 @@ trait DFApp:
           |xvhdl     - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvhdl)}""".stripMargin
     )
   end listLintTools
+  private def listSimulateTools(scan: Boolean): Unit =
+    def scanned(tool: dfhdl.tools.toolsCore.Tool): String =
+      if (scan)
+        tool.installedVersion match
+          case Some(version) => s"Found version $version"
+          case None          => "Not found on your system"
+      else ""
+    println(
+      s"""|Simulator tool option pattern: -t [<verilogSimulator>][/][<vhdlSimulator>]
+          |<verilogSimulator> - the selected Verilog/SystemVerilog simulator
+          |<vhdlSimulator>    - the selected VHDL simulator
+          |You may specify both simulators by separating with `/` or just the
+          |one you intend to run according to your chosen backend.
+          |Examples:
+          |-t verilator     - Set the Verilog simulator to Verilator (VHDL simulator remains default)
+          |-t nvc           - Set the VHDL simulator to NVC (Verilog simulator remains default)
+          |-t iverilog/ghdl - Set both Verilog and VHDL simulators
+          |
+          |Selectable Verilog/SystemVerilog simulation tools:
+          |verilator - Verilator (default) ${scanned(dfhdl.tools.simulators.verilator)}
+          |iverilog  - Icarus Verilog      ${scanned(dfhdl.tools.simulators.iverilog)}
+          |vlog      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vlog)}
+          |xvlog     - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvlog)}
+          |
+          |Selectable VHDL simulation tools:
+          |ghdl      - GHDL (default)      ${scanned(dfhdl.tools.simulators.ghdl)}
+          |nvc       - NVC                 ${scanned(dfhdl.tools.simulators.nvc)}
+          |vcom      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vcom)}
+          |xvhdl     - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvhdl)}""".stripMargin
+    )
+  end listSimulateTools
 
   def main(commandArgs: Array[String]): Unit =
     if (appOptions.clearConsole) print("\u001bc")
@@ -156,6 +196,7 @@ trait DFApp:
         parsedCommandLine.mode match
           case mode: Mode.ElaborateMode =>
             elaborationOptions = elaborationOptions.copy(
+              Werror = mode.Werror.toOption.get,
               printDFHDLCode = mode.`print-elaborate`.toOption.get
             )
           case _ =>
@@ -175,9 +216,17 @@ trait DFApp:
             linterOptions = linterOptions.copy(
               verilogLinter = toolSelection.verilogLinter,
               vhdlLinter = toolSelection.vhdlLinter,
-              fatalWarnings = mode.fatalWarnings.toOption.get
+              Werror = mode.`Werror-tool`.toOption.get
+            )
+          case mode: Mode.SimulateMode =>
+            val toolSelection = mode.tool.toOption.get
+            simulatorOptions = simulatorOptions.copy(
+              verilogSimulator = toolSelection.verilogSimulator,
+              vhdlSimulator = toolSelection.vhdlSimulator,
+              Werror = mode.`Werror-tool`.toOption.get
             )
           case _ =>
+        end match
         // execute command
         parsedCommandLine.mode match
           case help @ Mode.help =>
@@ -185,11 +234,14 @@ trait DFApp:
               case Some(HelpMode.backend) => listBackends
               case Some(lintTool: HelpMode.`lint-tool`.type) =>
                 listLintTools(lintTool.scan.toOption.get)
+              case Some(simulateTool: HelpMode.`simulate-tool`.type) =>
+                listSimulateTools(simulateTool.scan.toOption.get)
               case _ => println(parsedCommandLine.getFullHelpString())
           case Mode.elaborate => elaborate
           case Mode.compile   => compile
           case Mode.commit    => commit
           case Mode.lint      => lint
+          case Mode.simulate  => simulate
     end match
   end main
 end DFApp

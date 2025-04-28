@@ -59,8 +59,8 @@ trait Printer
         end match
       case _ =>
         val lhsDin = net.lhsRef.get match
-          case dfVal: DFVal if dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.isReg => ".din"
-          case _                                                                        => ""
+          case dfVal: DFVal if dfVal.dealias.get.asInstanceOf[DFVal.Dcl].isReg => ".din"
+          case _                                                               => ""
         val lhsShared = net.lhsRef.get match
           case dfVal: DFVal => dfVal.dealias.get.asInstanceOf[DFVal.Dcl].modifier.isShared
           case _            => false
@@ -72,10 +72,10 @@ trait Printer
         end match
   end csDFNet
   def csOpenKeyWord: String
-  def csStep(step: Step): String
   def csGoto(goto: Goto): String
   def csDFRange(range: DFRange): String
   def csWait(wait: Wait): String
+  def csTextOut(textOut: TextOut): String
   // def csTimer(timer: Timer): String
   def csClkEdgeCfg(edge: ClkCfg.Edge): String =
     edge match
@@ -127,14 +127,15 @@ trait Printer
           case InstMode.Def => csDFDesignDefInst(design)
           case _            => csDFDesignBlockInst(design)
       case pb: ProcessBlock                => csProcessBlock(pb)
+      case stepBlock: StepBlock            => csStepBlock(stepBlock)
       case forBlock: DFLoop.DFForBlock     => csDFForBlock(forBlock)
       case whileBlock: DFLoop.DFWhileBlock => csDFWhileBlock(whileBlock)
       case domain: DomainBlock             => csDomainBlock(domain)
       // case timer: Timer        => csTimer(timer)
-      case step: Step => csStep(step)
-      case goto: Goto => csGoto(goto)
-      case wait: Wait => csWait(wait)
-      case _          => ???
+      case goto: Goto       => csGoto(goto)
+      case wait: Wait       => csWait(wait)
+      case textOut: TextOut => csTextOut(textOut)
+      case _                => ???
     s"${printer.csDocString(member.meta)}${printer.csAnnotations(member.meta)}$cs"
   end csDFMember
   def designFileName(designName: String): String
@@ -197,8 +198,8 @@ trait Printer
     ).flatten
     // removing existing compiled/committed files and adding the newly compiled files
     val srcFiles = designDB.srcFiles.filter {
-      case SourceFile(SourceOrigin.Compiled | SourceOrigin.Committed, _, _, _) => false
-      case _                                                                   => true
+      case SourceFile(sourceOrigin = SourceOrigin.Compiled | SourceOrigin.Committed) => false
+      case _                                                                         => true
     } ++ compiledFiles
     designDB.copy(srcFiles = srcFiles)
   end printedDB
@@ -209,7 +210,9 @@ trait Printer
       case (block: DFDesignBlock, _) if printerOptions.designPrintFilter(block) =>
         formatCode(csFile(block))
     }
-    s"${formatCode(csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
+    s"${formatCode(
+        csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls
+      ).emptyOr(v => s"$v\n")}${csFileList.mkString("\n")}\n"
   end csDB
 end Printer
 
@@ -281,10 +284,11 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val normalizeViaConnection: Boolean = true
   val normalizeConnection: Boolean = true
   def csOpenKeyWord: String = "OPEN"
-  def csStep(step: Step): String =
-    s"def ${step.getName} = step"
-  def csGoto(goto: Goto): String =
-    s"${goto.stepRef.refCodeString}.goto"
+  def csGoto(goto: Goto): String = goto.stepRef.get match
+    case stepBlock: StepBlock => stepBlock.getName
+    case Goto.ThisStep        => "ThisStep"
+    case Goto.NextStep        => "NextStep"
+    case Goto.FirstStep       => "FirstStep"
   def csDFRange(range: DFRange): String =
     val op = range.op match
       case DFRange.Op.To    => "to"
@@ -298,14 +302,45 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
     trigger.dfType match
       case _: DFBoolOrBit =>
         trigger match
-          case DFVal.Func(_, FuncOp.rising | FuncOp.falling, _, _, _, _) =>
+          case DFVal.Func(op = FuncOp.rising | FuncOp.falling) =>
             s"waitUntil(${wait.triggerRef.refCodeString})"
-          case DFVal.Func(_, FuncOp.unary_!, List(triggerRef), _, _, _) =>
+          case DFVal.Func(op = FuncOp.unary_!, args = List(triggerRef)) =>
             s"waitUntil(${triggerRef.refCodeString})"
           case _ =>
             s"waitWhile(${wait.triggerRef.refCodeString})"
-      case DFTime | DFCycles => s"${wait.triggerRef.refCodeString}.wait"
-      case _                 => ???
+      case DFTime => s"${wait.triggerRef.refCodeString}.wait"
+      case _ =>
+        wait.triggerRef.get.getConstData match
+          // simplify display for int constant waits
+          case Some(Some(value: BigInt)) if value.isValidInt =>
+            s"${value}.cy.wait"
+          case _ =>
+            s"${wait.triggerRef.refCodeString}.cy.wait"
+    end match
+  end csWait
+  def csTextOut(textOut: TextOut): String =
+    val msg =
+      textOut.op match
+        case TextOut.Op.Debug =>
+          textOut.msgArgs.view.map(_.refCodeString).mkString(", ")
+        case _ =>
+          textOut.msgParts.view.map(scalaToDFHDLString).coalesce(
+            textOut.msgArgs.view.map(a => s"$${${a.refCodeString}}")
+          ).mkString.emptyOr(m => s"s\"$m\"")
+      end match
+    textOut.op match
+      case TextOut.Op.Finish => "finish()"
+      case TextOut.Op.Report(severity) =>
+        val csSeverity = if (severity == TextOut.Severity.Info) "" else s", Severity.${severity}"
+        s"report($msg$csSeverity)"
+      case TextOut.Op.Assert(assertionRef, severity) =>
+        val csSeverity = if (severity == TextOut.Severity.Error) "" else s", Severity.${severity}"
+        s"assert(${assertionRef.refCodeString}${msg.emptyOr(m => s", $m")}$csSeverity)"
+      case TextOut.Op.Print   => s"print($msg)"
+      case TextOut.Op.Println => s"println($msg)"
+      case TextOut.Op.Debug   => s"debug($msg)"
+    end match
+  end csTextOut
   // to remove ambiguity in referencing a port inside a class instance we add `this.` as prefix
   def csCommentInline(comment: String): String =
     if (comment.contains('\n'))
@@ -359,11 +394,12 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val dfhdlKW: Set[String] =
     Set("VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
       "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
-      "goto")
+      "goto", "wait", "assert", "report", "print", "println", "debug", "finish")
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] =
     Set("Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encoded", "Struct", "Opaque",
-      "StartAt", "OneHot", "Grey")
+      "StartAt", "OneHot", "Grey", "Unit", "Time", "Freq", "String", "fs", "ns", "ps", "us", "ms",
+      "sec", "min", "hr", "Hz", "KHz", "MHz", "GHz")
   def colorCode(cs: String): String =
     cs
       .colorWords(scalaKW, keywordColor)

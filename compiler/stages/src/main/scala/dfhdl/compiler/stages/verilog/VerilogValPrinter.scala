@@ -29,7 +29,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
             case _ => printer.csConstData(param.dfType, param.getConstData.get)
         case _ => csDFValExpr(dfVal)
-      s"parameter ${printer.csDFType(dfVal.dfType).emptyOr(_ + " ")}${dfVal.getName}${arrRange} = $default$endOfStatement"
+      val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
+      val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
+      s"parameter ${csTypeNoLogic}${dfVal.getName}${arrRange} = $default$endOfStatement"
     else s"`define ${dfVal.getName} ${csDFValExpr(dfVal).replace("\n", " \\\n")}"
 
   def csDFValDclWithoutInit(dfVal: Dcl): String =
@@ -123,7 +125,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case Func.Op.rising  => s"posedge $argStrB"
           case Func.Op.falling => s"negedge $argStrB"
           case Func.Op.unary_- => s"-$argStrB"
-          case Func.Op.unary_! => s"!$argStrB"
+          case Func.Op.unary_! =>
+            dfVal.dfType match
+              case DFBool => s"!$argStrB"
+              case _      => s"~${argStrB}"
           case Func.Op.unary_~ => s"~$argStrB"
           case Func.Op.&       => s"&$argStrB"
           case Func.Op.|       => s"|$argStrB"
@@ -183,7 +188,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         if (tWidth == fWidth) relValStr
         else if (tWidth < fWidth) s"${relValStr.applyBrackets()}[${tr.uboundCS}:0]"
         else s"{{(${tr.refCodeString}-${fr.refCodeString}){1'b0}}, $relValStr}"
-      case (t, DFOpaque(_, _, ot)) if ot =~ t =>
+      case (t, DFOpaque(actualType = ot)) if ot =~ t =>
         relValStr
       case (DFOpaque(_, _, _), _) =>
         relValStr

@@ -23,14 +23,13 @@ import annotation.tailrec
 class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   import tpd._
 
-  // override val debugFilter: String => Boolean = _.contains("Example.scala")
+  // override val debugFilter: String => Boolean = _.contains("Playground.scala")
   val phaseName = "MetaContextGen"
 
   override val runsAfter = Set(transform.Pickler.name)
   override val runsBefore = Set("MetaContextDelegate")
   var setMetaSym: Symbol = uninitialized
   var setMetaAnonSym: Symbol = uninitialized
-  var stepRef: TypeRef = uninitialized
   var treeOwnerApplyMap = Map.empty[Apply, (MemberDef, util.SrcPos)]
   var treeOwnerApplyMapStack = List.empty[Map[Apply, (MemberDef, util.SrcPos)]]
   val treeOwnerOverrideMap = mutable.Map.empty[DefDef, (Tree, util.SrcPos)]
@@ -103,15 +102,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
 
   def getMetaInfo(ownerTree: Tree, srcPos: util.SrcPos)(using Context): Option[MetaInfo] =
     ownerTree match
-      case dd: DefDef if dd.tpe <:< stepRef =>
-        Some(
-          MetaInfo(
-            Some(dd.name.toString.nameCheck(dd)),
-            dd.srcPos,
-            dd.symbol.docString,
-            dd.symbol.staticAnnotations
-          )
-        )
       case t: ValOrDefDef if t.needsNewContext =>
         if (t.symbol.flags.is(Flags.Mutable))
           report.warning(
@@ -292,8 +282,8 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           if (ownerTree.symbol.isAnonymousFunction)
             ownerTree match
               // this case is for functions like `def foo(block : DFC ?=> Unit) : Unit`
-              case DefDef(_, List(List(arg)), _, _) => arg.tpe <:< metaContextTpe
-              case _                                => false
+              case DefDef(paramss = List(List(arg))) => arg.tpe <:< metaContextTpe
+              case _                                 => false
           else true
         if (add) iterableType match
           case Some(typeArg) =>
@@ -321,7 +311,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         if (!nameValOrDef(tree, ownerTree, typeFocus, updatedInlineSrcPos))
           val ownerTreeSym = ownerTree.symbol
           bindings.view.reverse.collectFirst {
-            case vd @ ValDef(_, _, apply: Apply)
+            case vd @ ValDef(preRhs = apply: Apply)
                 // we ignore the binding if the owner (tree) is a method.
                 // this looks like:
                 // ```
@@ -455,13 +445,13 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         tree match
           case Apply(_: TypeApply, args) => Some(args)
           case Match(Typed(tree, _), _)  => unapply(tree)
-          case Inlined(_, _, tree)       => unapply(tree)
+          case Inlined(expansion = tree) => unapply(tree)
           case _                         => None
     trees.foreach {
-      case vd @ ValDef(_, _, TupleArgs(args))
+      case vd @ ValDef(preRhs = TupleArgs(args))
           if vd.tpe <:< defn.TupleTypeRef && isSyntheticTuple(vd.symbol) =>
         tupleArgs = args
-      case vd @ ValDef(_, _, Select(x, sel))
+      case vd @ ValDef(preRhs = Select(x, sel))
           if tupleArgs.nonEmpty && x.tpe <:< defn.TupleTypeRef &&
             isSyntheticTuple(x.symbol) && sel.toString.startsWith("_") =>
         nameValOrDef(tupleArgs(idx), vd, vd.tpt.tpe.simple, None)
@@ -505,7 +495,6 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     super.prepareForUnit(tree)
     setMetaSym = metaContextCls.requiredMethod("setMeta")
     setMetaAnonSym = metaContextCls.requiredMethod("setMetaAnon")
-    stepRef = requiredClassRef("dfhdl.core.Step")
     treeOwnerOverrideMap.clear()
     contextDefs.clear()
     ctx

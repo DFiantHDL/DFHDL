@@ -7,6 +7,7 @@ module subWord(
   o
 );
   `include "dfhdl_defs.vh"
+  `include "Cipher_defs.vh"
   input  wire  [7:0] lhs [0:3];
   output wire [7:0] o [0:3];
   wire [7:0] o_part_sbox_inst_lhs;

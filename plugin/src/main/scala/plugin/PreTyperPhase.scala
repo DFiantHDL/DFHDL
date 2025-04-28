@@ -28,7 +28,6 @@ import annotation.tailrec
   *   - change infix operator precedence of terms: `a := b match {...}` to be `a := (b match {...})`
   *     and `a <> b match {...}` to be `a <> (b match {...})`
   *   - change process{} to process.forever{}
-  *   - change wait(...) to __java_waitErr(...)
   *   - workaround for https://github.com/scala/scala3/issues/20053
   */
 class PreTyperPhase(setting: Setting) extends PluginPhase:
@@ -83,12 +82,8 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
         tree match
           case Apply(Ident(process), List(ofTree)) if process.toString == "process" =>
             Some(Apply(Select(Ident(process), "forever".toTermName), List(ofTree)))
-          case _ => None
-    object WaitChange:
-      def unapply(tree: Tree)(using Context): Option[Tree] =
-        tree match
-          case Apply(Ident(wait), args) if wait.toString == "wait" =>
-            Some(Apply(Ident("__java_waitErr".toTermName), args))
+          case ValDef(name, tpt, ProcessChange(rhs)) =>
+            Some(ValDef(name, tpt, rhs))
           case _ => None
     override def transformBlock(blk: Block)(using Context): Block =
       super.transformBlock(blk) match
@@ -96,7 +91,6 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
         case Block(stats, InfixOpChange(expr))       => Block(stats, expr)
         case Block(stats, MatchAssignOpChange(expr)) => Block(stats, expr)
         case Block(stats, ProcessChange(expr))       => Block(stats, expr)
-        case Block(stats, WaitChange(expr))          => Block(stats, expr)
         case blk                                     => blk
     override def transformStats(trees: List[Tree], exprOwner: Symbol)(using Context): List[Tree] =
       super.transformStats(trees, exprOwner).map:
@@ -105,13 +99,11 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
         case MatchAssignOpChange(tree) => tree
         // change process{} to process.forever{}
         case ProcessChange(tree) => tree
-        // change wait() to __java_waitErr()
-        case WaitChange(tree) => tree
-        case tree             => tree
+        case tree                => tree
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
         // a connection could be in return position of a DFHDL Unit definition (if no block is used)
-        case tree @ DefDef(_, _, _, InfixOpChange(rhs)) =>
+        case tree @ DefDef(preRhs = InfixOpChange(rhs)) =>
           cpy.DefDef(tree)(rhs = rhs)
         case t => t
       end match
@@ -136,9 +128,9 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
           case _                                       => None
     override def transform(tree: Tree)(using Context): Tree =
       super.transform(tree) match
-        case tree @ ValDef(_, InfixOpChange(tpt), _) =>
+        case tree @ ValDef(tpt = InfixOpChange(tpt)) =>
           cpy.ValDef(tree)(tpt = tpt)
-        case tree @ DefDef(_, _, InfixOpChange(tpt), _) =>
+        case tree @ DefDef(tpt = InfixOpChange(tpt)) =>
           cpy.DefDef(tree)(tpt = tpt)
         // workaround https://github.com/scala/scala3/issues/21406
         case tree @ ValDef(name, select: Select, _) if name.isEmpty && tree.mods.is(Given) =>
@@ -164,7 +156,7 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
   override def runOn(units: List[CompilationUnit])(using Context): List[CompilationUnit] =
     val parsed = super.runOn(units)
     parsed.foreach { cu =>
-      // debugFlag = cu.source.file.path.contains("Example.scala")
+      // debugFlag = cu.source.file.path.contains("Playground.scala")
       cu.untpdTree = `fix<>andOpPrecedence`.transform(cu.untpdTree)
       cu.untpdTree = `fixXand<>Precedence`.transform(cu.untpdTree)
     }
