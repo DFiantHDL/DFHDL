@@ -19,9 +19,9 @@ object Vivado extends Builder:
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String = ???
-  override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
+  override protected[dfhdl] def buildPreprocess[D <: Design](cd: CompiledDesign[D])(using
       CompilerOptions,
-      ToolOptions
+      BuilderOptions
   ): CompiledDesign[D] =
     addSourceFiles(
       cd,
@@ -37,7 +37,7 @@ object Vivado extends Builder:
     cd
 end Vivado
 
-case object VivadoProjectTclConfig extends SourceType.ToolConfig
+case object VivadoProjectTclConfig extends SourceType.Tool
 
 class VivadoProjectTclConfigPrinter(using getSet: MemberGetSet):
   val designDB: DB = getSet.designDB

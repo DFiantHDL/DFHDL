@@ -18,10 +18,6 @@ trait Tool:
     if (osName.contains("windows")) windowsBinExec else binExec
   protected def binExec: String
   protected def windowsBinExec: String = s"$binExec.exe"
-  protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
-      CompilerOptions,
-      ToolOptions
-  ): CompiledDesign[D] = cd
   final protected def addSourceFiles[D <: Design](
       cd: CompiledDesign[D],
       sourceFiles: List[SourceFile]
@@ -173,6 +169,10 @@ trait VerilogTool extends Tool:
 trait VHDLTool extends Tool
 
 trait Linter extends Tool:
+  protected[dfhdl] def lintPreprocess[D <: Design](cd: CompiledDesign[D])(using
+      CompilerOptions,
+      ToolOptions
+  ): CompiledDesign[D] = cd
   final def lint[D <: Design](
       cd: CompiledDesign[D]
   )(using CompilerOptions, ToolOptions): CompiledDesign[D] =
@@ -211,9 +211,13 @@ trait VHDLLinter extends Linter, VHDLTool:
     lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Simulator extends Tool:
+  protected[dfhdl] def simulatePreprocess[D <: Design](cd: CompiledDesign[D])(using
+      CompilerOptions,
+      SimulatorOptions
+  ): CompiledDesign[D] = cd
   val simRunsLint: Boolean = false
   protected def simRunExec: String = this.runExec
-  final def simulate[D <: Design](
+  def simulate[D <: Design](
       cd: CompiledDesign[D]
   )(using CompilerOptions, SimulatorOptions): CompiledDesign[D] =
     given MemberGetSet = cd.stagedDB.getSet
@@ -279,6 +283,10 @@ trait VHDLSimulator extends Simulator, VHDLTool:
     simulateCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Builder extends Tool:
+  protected[dfhdl] def buildPreprocess[D <: Design](cd: CompiledDesign[D])(using
+      CompilerOptions,
+      BuilderOptions
+  ): CompiledDesign[D] = cd
   def build[D <: Design](
       cd: CompiledDesign[D]
   )(using CompilerOptions, BuilderOptions): CompiledDesign[D]

@@ -26,7 +26,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
 
   override protected def toolFiles(using getSet: MemberGetSet): List[String] =
     getSet.designDB.srcFiles.collect {
-      case SourceFile(SourceOrigin.Committed, VerilatorConfig, path, _) =>
+      case SourceFile(SourceOrigin.Committed, _: VerilatorToolSource, path, _) =>
         path.convertWindowsToLinuxPaths
     }
 
@@ -52,8 +52,10 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     constructCommand(
       "--lint-only",
       "--quiet-stats",
+      s"--top-module ${topName}",
       if (hasTiming) "--timing" else ""
     )
+  end lintCmdPreLangFlags
 
   override protected def lintCmdPostLangFlags(using
       CompilerOptions,
@@ -64,7 +66,18 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     (!summon[LinterOptions].Werror.toBoolean).toFlag("-Wno-fatal")
   )
 
-  override protected[dfhdl] def preprocess[D <: Design](cd: CompiledDesign[D])(using
+  override protected def simulateCmdPreLangFlags(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): String =
+    constructCommand(
+      "--binary",
+      "--quiet-stats",
+      s"--top-module ${topName}"
+    )
+
+  override protected[dfhdl] def lintPreprocess[D <: Design](cd: CompiledDesign[D])(using
       CompilerOptions,
       ToolOptions
   ): CompiledDesign[D] =
@@ -72,9 +85,37 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       cd,
       List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
     )
+
+  // override protected[dfhdl] def simulatePreprocess[D <: Design](cd: CompiledDesign[D])(using
+  //     CompilerOptions,
+  //     SimulatorOptions
+  // ): CompiledDesign[D] =
+  //   addSourceFiles(
+  //     cd,
+  //     List(new VerilatorSimMainPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
+  //   )
+
+  override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =
+    lintCmdLanguageFlag(dialect)
+
+  override def simulate[D <: Design](
+      cd: CompiledDesign[D]
+  )(using CompilerOptions, SimulatorOptions): CompiledDesign[D] =
+    val ret = super.simulate(cd)
+    given MemberGetSet = ret.stagedDB.getSet
+    val unixExec =
+      s"${Paths.get(execPath).toAbsolutePath()}${separatorChar}obj_dir${separatorChar}V${topName}"
+    val runExec: String =
+      val osName: String = sys.props("os.name").toLowerCase
+      if (osName.contains("windows")) s"${unixExec}.exe" else unixExec
+    exec(cmd = "", runExec = runExec)
+    ret
+
 end Verilator
 
-case object VerilatorConfig extends SourceType.ToolConfig
+sealed trait VerilatorToolSource extends SourceType.Tool
+
+case object VerilatorConfig extends VerilatorToolSource
 
 class VerilatorConfigPrinter(verilatorVersion: String)(using
     getSet: MemberGetSet,
@@ -171,3 +212,48 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
     SourceFile(SourceOrigin.Compiled, VerilatorConfig, configFileName, contents)
 
 end VerilatorConfigPrinter
+
+case object VerilatorSimMain extends VerilatorToolSource
+
+// class VerilatorSimMainPrinter(verilatorVersion: String)(using
+//     getSet: MemberGetSet,
+//     co: CompilerOptions,
+//     so: SimulatorOptions
+// ):
+//   val designDB: DB = getSet.designDB
+//   val topName = designDB.top.dclName
+//   def mainFileName: String = s"${topName}.cpp"
+//   def contents: String =
+//     s"""|#include "V${topName}.h"
+//         |#include "verilated.h"
+//         |#include "V${topName}___024root.h"
+//         |
+//         |int main(int argc, char** argv) {
+//         |    // Initialize Verilator
+//         |    Verilated::commandArgs(argc, argv);
+//         |
+//         |    // Create instance of our module
+//         |    V${topName}* top = new V${topName};
+//         |
+//         |    // Initialize simulation inputs
+//         |    V${topName}___024root* rootp = top->rootp;
+//         |    rootp->${topName}__DOT__rst = 1;
+//         |
+//         |    while (!Verilated::gotFinish()) {
+//         |        // Toggle clock
+//         |        rootp->${topName}__DOT__clk = 0;
+//         |        top->eval();
+//         |        rootp->${topName}__DOT__clk = 1;
+//         |        top->eval();
+//         |        rootp->${topName}__DOT__rst = 0;
+//         |    }
+//         |
+//         |    // Cleanup
+//         |    delete top;
+//         |
+//         |    return 0;
+//         |}
+//         |""".stripMargin
+//   def getSourceFile: SourceFile =
+//     SourceFile(SourceOrigin.Compiled, VerilatorSimMain, mainFileName, contents)
+// end VerilatorSimMainPrinter

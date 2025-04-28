@@ -12,8 +12,8 @@ extension [D <: Design](cd: CompiledDesign[D])
       lo: LinterOptions
   ): CompiledDesign[D] =
     co.backend match
-      case _: backends.verilog => lo.verilogLinter.lint(lo.verilogLinter.preprocess(cd))
-      case _: backends.vhdl    => lo.vhdlLinter.lint(lo.vhdlLinter.preprocess(cd))
+      case _: backends.verilog => lo.verilogLinter.lint(lo.verilogLinter.lintPreprocess(cd))
+      case _: backends.vhdl    => lo.vhdlLinter.lint(lo.vhdlLinter.lintPreprocess(cd))
   def simulate(using
       co: CompilerOptions,
       so: SimulatorOptions
@@ -22,13 +22,15 @@ extension [D <: Design](cd: CompiledDesign[D])
     import stagedDB.getSet
     if (stagedDB.inSimulation)
       co.backend match
-        case _: backends.verilog => so.verilogSimulator.simulate(so.verilogSimulator.preprocess(cd))
-        case _: backends.vhdl    => so.vhdlSimulator.simulate(so.vhdlSimulator.preprocess(cd))
+        case _: backends.verilog =>
+          so.verilogSimulator.simulate(so.verilogSimulator.simulatePreprocess(cd))
+        case _: backends.vhdl => so.vhdlSimulator.simulate(so.vhdlSimulator.simulatePreprocess(cd))
     else
       throw new Exception(
         s"The top design `${stagedDB.top.getName}` has ports and therefore cannot be simulated."
       )
+  end simulate
 
   def build(using builder: Builder)(using CompilerOptions, BuilderOptions): CompiledDesign[D] =
-    builder.build(builder.preprocess(cd))
+    builder.build(builder.buildPreprocess(cd))
 end extension
