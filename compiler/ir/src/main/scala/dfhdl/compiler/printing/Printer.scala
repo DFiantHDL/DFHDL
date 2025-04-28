@@ -329,6 +329,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
           ).mkString.emptyOr(m => s"s\"$m\"")
       end match
     textOut.op match
+      case TextOut.Op.Finish => "finish()"
       case TextOut.Op.Report(severity) =>
         val csSeverity = if (severity == TextOut.Severity.Info) "" else s", Severity.${severity}"
         s"report($msg$csSeverity)"
@@ -393,7 +394,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   val dfhdlKW: Set[String] =
     Set("VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
       "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
-      "goto", "wait", "assert", "report", "print", "println", "debug")
+      "goto", "wait", "assert", "report", "print", "println", "debug", "finish")
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
   val dfhdlTypes: Set[String] =
     Set("Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encoded", "Struct", "Opaque",

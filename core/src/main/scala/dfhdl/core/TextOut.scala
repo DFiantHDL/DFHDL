@@ -24,12 +24,15 @@ object TextOut:
           severity: Severity
       )(using DFC): ir.TextOut.Op =
         ir.TextOut.Op.Assert(assertion.asIR.refTW[ir.TextOut], severity)
-    export ir.TextOut.Op.{Print, Println, Report, Debug}
+    export ir.TextOut.Op.{Print, Println, Report, Debug, Finish}
   end Op
 
   object Ops:
     def debug(args: DFValAny*)(using DFC): Unit =
       TextOut(Op.Debug, Nil, args.toList)
+
+    def finish()(using DFC): Unit =
+      TextOut(Op.Finish, Nil, Nil)
 
     transparent inline def print(inline msg: Any): Unit =
       compiletime.summonFrom {

@@ -126,6 +126,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     def csDisplay(severity: TextOut.Severity, msg: String) =
       s"""$$display("${severity.toString.toUpperCase()}: ", $msg);${csFinish(severity)}"""
     textOut.op match
+      case TextOut.Op.Finish => "$finish;"
       case TextOut.Op.Report(severity) =>
         if (assertIsSupported) s"${csSeverity(severity)}($msg);"
         else csDisplay(severity, msg)
