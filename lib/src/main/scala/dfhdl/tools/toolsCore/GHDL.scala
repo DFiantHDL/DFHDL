@@ -90,6 +90,8 @@ object GHDL extends VHDLLinter, VHDLSimulator:
               line == "ghdl:error: report failed" || line == "ghdl:error: simulation failed"
             else false
           else false,
+        // GHDL does not report error codes for runtime errors, so we need to detect errors manually
+        // even when using VHDL'2008 and later
         lineIsErrorOpt = Some((line: String) =>
           line.startsWith("ghdl:error:") || line.contains(":(report failure):") ||
             line.contains(":(report error):")
