@@ -130,7 +130,9 @@ trait Tool:
       process = Some(p)
       val errCode = p.exitValue()
       hasWarnings = logger.hasWarnings
-      errCode
+      if (logger.lineIsErrorOpt.nonEmpty)
+        if (logger.hasErrors) 1 else 0
+      else errCode
     ).getOrElse({
       val p = processBuilder.run()
       process = Some(p)
@@ -150,17 +152,26 @@ trait Tool:
   override def toString(): String = binExec
 end Tool
 object Tool:
-  class ProcessLogger(lineIsWarning: String => Boolean, lineIsSuppressed: String => Boolean)
-      extends scala.sys.process.ProcessLogger:
-    private var _hasWarnings = false
+  class ProcessLogger(
+      lineIsWarning: String => Boolean,
+      lineIsSuppressed: String => Boolean,
+      // set to override error detection
+      val lineIsErrorOpt: Option[String => Boolean] = None
+  ) extends scala.sys.process.ProcessLogger:
+    private var _hasWarnings: Boolean = false
+    private var _hasErrors: Boolean = false
     final def hasWarnings: Boolean = _hasWarnings
+    final def hasErrors: Boolean = _hasErrors
     private def useLine(line: String): Unit =
       if (!lineIsSuppressed(line))
-        if (lineIsWarning(line)) _hasWarnings = true
+        if (!_hasWarnings && lineIsWarning(line)) _hasWarnings = true
+        if (!_hasErrors && lineIsErrorOpt.map(_(line)).getOrElse(false)) _hasErrors = true
         println(line)
     final def out(s: => String): Unit = useLine(s)
     final def err(s: => String): Unit = useLine(s)
     final def buffer[T](f: => T): T = f
+  end ProcessLogger
+end Tool
 
 trait VerilogTool extends Tool:
   // The include flag to be attached before each included folder
