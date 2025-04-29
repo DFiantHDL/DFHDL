@@ -123,7 +123,13 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
         case TextOut.Severity.Error   => "ERROR"
         case TextOut.Severity.Fatal   => "FAILURE"
     textOut.op match
-      case TextOut.Op.Finish           => "std.env.finish;"
+      case TextOut.Op.Finish =>
+        if (inVHDL93)
+          s"""report "Finished successfully (not an error)" severity ${csSeverity(
+              TextOut.Severity.Fatal
+            )};"""
+        else
+          "std.env.finish;"
       case TextOut.Op.Report(severity) => csReport(severity, msg)
       case TextOut.Op.Assert(assertionRef, severity) =>
         if (msg.isEmpty)

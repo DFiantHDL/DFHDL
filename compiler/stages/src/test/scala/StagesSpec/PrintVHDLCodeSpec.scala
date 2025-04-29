@@ -627,7 +627,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  begin
          |    if rising_edge(clk) then
          |      if rst = '1' then y <= 16d"0";
-         |      else end if;
+         |      else null;
+         |      end if;
          |    end if;
          |  end process;
          |end IDTop_arch;
@@ -1229,7 +1230,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1175:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1176:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1291,7 +1292,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1175:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1176:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
