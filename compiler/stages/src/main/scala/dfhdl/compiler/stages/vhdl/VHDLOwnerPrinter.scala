@@ -188,7 +188,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
   def csDFElseStatement: String = "else"
   def csDFElseIfStatement(csCond: String): String = s"elsif $csCond then"
   def csDFIfEnd(lastCB: DFConditional.DFIfElseBlock): String = "end if;"
-  def csIfBlockEmpty: String = "end if;"
+  def csIfBlockEmpty: String = "null;"
   def csDFCaseBlockEmpty: String = ""
   def csDFCasePatternCatchAll: String = "others"
   def csDFCasePatternAlternativeData: String = " | "
