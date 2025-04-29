@@ -51,6 +51,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     }
     constructCommand(
       "--lint-only",
+      "--assert",
       "--quiet-stats",
       s"--top-module ${topName}",
       if (hasTiming) "--timing" else ""
@@ -73,6 +74,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   ): String =
     constructCommand(
       "--binary",
+      "--assert",
       "--quiet-stats",
       "--build-jobs 0",
       s"--top-module ${topName}"
@@ -170,10 +172,16 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       Tool.ProcessLogger(
         // `WARNING:` is used by DFHDL when compiling to v95/v2001 dialects
         lineIsWarning = (line: String) => line.startsWith("WARNING:") || line.contains("%Warning:"),
-        lineIsSuppressed = (line: String) => false
+        lineIsSuppressed = (line: String) =>
+          // the user does not need to see this
+          line.endsWith("ignored due to +verilator+error+limit")
       )
     )
-    exec(cmd = "", loggerOpt = logger, runExec = runExec)
+    val cmd = constructCommand(
+      "+verilator+quiet",
+      s"+verilator+error+limit+${Int.MaxValue}"
+    )
+    exec(cmd = cmd, loggerOpt = logger, runExec = runExec)
     ret
   end simulate
 
