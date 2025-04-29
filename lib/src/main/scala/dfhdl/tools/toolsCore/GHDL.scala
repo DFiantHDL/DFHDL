@@ -81,7 +81,7 @@ object GHDL extends VHDLLinter, VHDLSimulator:
           if (inVHDL93)
             if (line.endsWith(":(report failure): Finished successfully (not an error)"))
               // Extract the time and message from the line
-              val timePattern = """@(\d+ns)""".r
+              val timePattern = """@(\d+\w+)""".r
               val time = timePattern.findFirstMatchIn(line).map(_.group(1)).get
               finishedSuccessfully = true
               println(s"simulation finished @$time")

@@ -74,7 +74,7 @@ object NVC extends VHDLLinter, VHDLSimulator:
               // Extract the time and extra text from the line.
               // The extra text is required because reports are asynchronous to regular printing
               // in NVC, so they can appear at the start of the line.
-              val timePattern = """(.*)\*\* Failure\: (\d+ns)""".r
+              val timePattern = """(.*)\*\* Failure\: (\d+\w+)""".r
               val matches = timePattern.findFirstMatchIn(line)
               val time = matches.map(_.group(2)).get
               val extra = matches.map(_.group(1)).get
