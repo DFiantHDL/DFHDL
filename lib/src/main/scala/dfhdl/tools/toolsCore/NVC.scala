@@ -71,14 +71,10 @@ object NVC extends VHDLLinter, VHDLSimulator:
           // fatal report and convert it to the same behavior as in VHDL'2008 and later in NVC
           if (inVHDL93)
             if (line.endsWith(": Finished successfully (not an error)"))
-              // Extract the time and extra text from the line.
-              // The extra text is required because reports are asynchronous to regular printing
-              // in NVC, so they can appear at the start of the line.
-              val timePattern = """(.*)\*\* Failure\: (\d+\w+)""".r
-              val matches = timePattern.findFirstMatchIn(line)
-              val time = matches.map(_.group(2)).get
-              val extra = matches.map(_.group(1)).get
-              println(s"$extra** Note: $time+1: FINISH called")
+              // Extract the time from the line.
+              val timePattern = """\*\* Failure\: (\d+\w+)""".r
+              val time = timePattern.findFirstMatchIn(line).map(_.group(1)).get
+              println(s"** Note: $time+1: FINISH called")
               true
             else false
           else false,

@@ -113,7 +113,10 @@ trait Tool:
     prepare
     val fullExec = s"$runExec $cmd"
     var process: Option[scala.sys.process.Process] = None
-    val processBuilder = Process(fullExec, new java.io.File(execPath))
+    val pb = new java.lang.ProcessBuilder(fullExec.split(" ")*)
+    pb.directory(new java.io.File(execPath))
+    pb.redirectErrorStream(true)
+    val processBuilder = Process(pb)
     var hasWarnings: Boolean = false
 
     val handler = new sun.misc.SignalHandler:
