@@ -21,6 +21,7 @@ import collection.mutable
 import annotation.tailrec
 import dotty.tools.dotc.ast.Trees.Alternative
 import dotty.tools.dotc.semanticdb.BooleanConstant
+import java.time.Instant
 
 /*
   This phase creates a `top_<design_name>` object with a `DFApp` main entry point
@@ -111,10 +112,11 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                   val dsnArgDescs =
                     mkList(paramVDs.map(vd => Literal(Constant(vd.symbol.docString.getOrElse("")))))
                   val Werror = Literal(Constant(ctx.settings.XfatalWarnings.value))
+                  val time = Literal(Constant(Instant.now().toString()))
                   val setInitials = This(moduleCls).select("setInitials".toTermName).appliedToArgs(
                     List(
                       designNameTree, topScalaPathTree, topAnnotTree, dsnArgNames, dsnArgValues,
-                      dsnArgDescs, Werror
+                      dsnArgDescs, Werror, time
                     )
                   )
                   val dsnInstArgs = paramVDs.map(vd =>

@@ -7,12 +7,14 @@ import dfhdl.options.CompilerOptions
 import org.rogach.scallop.*
 import dfhdl.internals.sbtShellIsRunning
 import scala.util.chaining.scalaUtilChainingOps
+import java.time.Instant
 
 trait DFApp:
   private val logger = Logger("DFHDL App")
   logger.setFormatter(LogFormatter.BareFormatter)
   private var designName: String = ""
   private var topScalaPath: String = ""
+  private var appCompileTime: Instant = compiletime.uninitialized
   // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
   val dfc: DFC = DFC.emptyNoEO
@@ -45,7 +47,8 @@ trait DFApp:
       argNames: List[String],
       argValues: List[Any],
       argDescs: List[String],
-      scalacWerror: Boolean
+      scalacWerror: Boolean,
+      compileTimeStr: String
   ): Unit =
     this.designName = designName
     this.topScalaPath = topScalaPath
@@ -58,6 +61,7 @@ trait DFApp:
       top.simulatorOptions.copy(Werror = top.simulatorOptions.Werror.fromScalac(scalacWerror))
     appOptions = top.appOptions
     designArgs = DesignArgs(argNames, argValues, argDescs)
+    appCompileTime = Instant.parse(compileTimeStr)
   end setInitials
   final protected def setDsn(d: => core.Design): Unit = dsn = () => d
   private def elaborate: core.Design =
