@@ -13,6 +13,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
+  private val nameTag = classTag[NameTag].runtimeClass.getName()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     // conditionally lower cases the name according to the case sensitivity as
     // set by `caseSensitive`
@@ -44,7 +45,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     // global type tagging for unique renamed names
     val globalTagList = renamer(designDB.getGlobalNamedDFTypes, reservedNamesLC)(
       _.getName,
-      (e, n) => (e, classTag[NameTag]) -> NameTag(n)
+      (e, n) => (e, nameTag) -> NameTag(n)
     )
     // the global reserved type names, after unique global type renaming
     val globalReservedTypeNames: Set[String] =
@@ -74,7 +75,7 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
         case design: DFDesignBlock =>
           renamer(designDB.getLocalNamedDFTypes(design), globalReservedTypeNamesLC)(
             _.getName,
-            (e, n) => (e, classTag[NameTag]) -> NameTag(n)
+            (e, n) => (e, nameTag) -> NameTag(n)
           )
         case _ => Nil
       val patchList = renamer(

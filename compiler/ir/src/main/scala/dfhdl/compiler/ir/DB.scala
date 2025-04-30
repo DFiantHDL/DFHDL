@@ -11,7 +11,7 @@ import DFDesignBlock.InstMode
 final case class DB(
     members: List[DFMember],
     refTable: Map[DFRefAny, DFMember],
-    globalTags: Map[(Any, ClassTag[?]), DFTag],
+    globalTags: Map[(Any, String), DFTag],
     srcFiles: List[SourceFile]
 ):
   private val self = this
@@ -31,7 +31,7 @@ final case class DB(
         tag: CT
     ): Unit = {}
     def getGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any): Option[CT] =
-      globalTags.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
+      globalTags.get((taggedElement, classTag[CT].runtimeClass.getName())).asInstanceOf[Option[CT]]
   end getSet
 
   // considered to be in simulation if the top design has no ports

@@ -4,20 +4,21 @@ import scala.reflect.{ClassTag, classTag}
 sealed trait DFTag extends Product with Serializable
 trait DFTagOf[-T <: DFMember] extends DFTag
 
-opaque type DFTags = Map[ClassTag[?], DFTag]
+opaque type DFTags = Map[String, DFTag]
 object DFTags:
   given CanEqual[DFTags, DFTags] = CanEqual.derived
   def empty: DFTags = Map()
   extension (tags: DFTags)
     def isEmpty: Boolean = tags.isEmpty
     def =~(that: DFTags): Boolean = tags == that
+    private def tagName[CT <: DFTag: ClassTag]: String = classTag[CT].runtimeClass.getName()
     def tag[CT <: DFTag: ClassTag](customTag: CT): DFTags =
-      tags + (classTag[CT] -> customTag)
-    def removeTagOf[CT <: DFTag: ClassTag]: DFTags = tags - classTag[CT]
+      tags + (tagName[CT] -> customTag)
+    def removeTagOf[CT <: DFTag: ClassTag]: DFTags = tags - tagName[CT]
     def getTagOf[CT <: DFTag: ClassTag]: Option[CT] =
-      tags.get(classTag[CT]).asInstanceOf[Option[CT]]
+      tags.get(tagName[CT]).asInstanceOf[Option[CT]]
     def hasTagOf[CT <: DFTag: ClassTag]: Boolean =
-      tags.contains(classTag[CT])
+      tags.contains(tagName[CT])
 
 final case class NameTag(name: String) extends DFTag
 

@@ -300,17 +300,17 @@ final class MutableDB():
   end OwnershipContext
 
   object GlobalTagContext:
-    private[MutableDB] val tagMap: mutable.Map[(Any, ClassTag[?]), DFTag] =
+    private[MutableDB] val tagMap: mutable.Map[(Any, String), DFTag] =
       mutable.Map()
     def set[CT <: DFTag: ClassTag](
         taggedElement: Any,
         tag: CT
     ): Unit =
-      tagMap += ((taggedElement, classTag[CT]) -> tag)
+      tagMap += ((taggedElement, classTag[CT].runtimeClass.getName()) -> tag)
     def get[CT <: DFTag: ClassTag](
         taggedElement: Any
     ): Option[CT] =
-      tagMap.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
+      tagMap.get((taggedElement, classTag[CT].runtimeClass.getName())).asInstanceOf[Option[CT]]
   end GlobalTagContext
 
   def addMember[M <: DFMember](member: M): M =

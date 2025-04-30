@@ -459,7 +459,7 @@ extension (db: DB)
     db.globalTags ++ that.globalTags,
     db.srcFiles ++ that.srcFiles
   )
-  def setGlobalTags(tagList: List[((Any, ClassTag[?]), DFTag)]): DB =
+  def setGlobalTags(tagList: List[((Any, String), DFTag)]): DB =
     db.copy(globalTags = db.globalTags ++ tagList)
 
 end extension
