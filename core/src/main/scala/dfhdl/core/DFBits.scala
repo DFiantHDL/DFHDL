@@ -121,6 +121,7 @@ object DFBits:
         )
         val width = IntParam.forced[W](explicitWidthOption.getOrElse(valueBits.length.toInt))
         DFVal.Const(DFBits(width), (valueBits, bubbleBits), named = true)
+    end extension
 
     extension (using Quotes)(fullTerm: quotes.reflect.Term)
       private[DFBits] def interpolate(
@@ -161,6 +162,7 @@ object DFBits:
             $explicitWidthOptionExpr
           )(using dfc)
         }
+    end extension
 
   end StrInterp
 
@@ -438,7 +440,9 @@ object DFBits:
               ") is different than the receiver width (" + ToString[LW] +
               ").\nConsider applying `.resize` to resolve this issue."
           ]
-      given DFBitsFromCandidate[LW <: IntP, V, IC <: Candidate[V]](using ic: IC)(using
+      given DFBitsFromCandidate[LW <: IntP, V, IC <: Candidate[V]](using
+          ic: IC
+      )(using
           check: `LW == RW`.CheckNUB[LW, ic.OutW]
       ): TC[DFBits[LW], V] with
         type OutP = ic.OutP
@@ -631,7 +635,9 @@ object DFBits:
       )
         def as[AT <: DFType.Supported](
             aliasType: AT
-        )(using tc: DFType.TC[AT])(using
+        )(using
+            tc: DFType.TC[AT]
+        )(using
             aW: Width[tc.Type],
             dfc: DFC
         )(using check: `AW == TW`.CheckNUB[aW.Out, W]): DFValTP[tc.Type, P] = trydf {
@@ -706,7 +712,9 @@ object DFBits:
       extension [L](lhs: L)
         def ++[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             c: Candidate[es.Out]
         ): DFValTP[DFBits[IntP.+[c.OutW, RW]], c.OutP | RP] = trydf {
@@ -716,7 +724,9 @@ object DFBits:
         }
         def &[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
@@ -726,7 +736,9 @@ object DFBits:
         }
         def |[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
@@ -736,7 +748,9 @@ object DFBits:
         }
         def ^[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
