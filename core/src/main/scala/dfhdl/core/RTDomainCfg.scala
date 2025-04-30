@@ -18,7 +18,14 @@ object ClkCfg:
       rate: Rate = 50.MHz,
       portName: String = "clk",
       inclusionPolicy: InclusionPolicy = InclusionPolicy.AsNeeded
-  ): ClkCfg = ir.ClkCfg.Explicit(edge, rate.asIR, portName, inclusionPolicy)
+  ): ClkCfg = ir.ClkCfg.Explicit(
+    edge,
+    // making sure not to drag the global context into the ClkCfg
+    rate.asIR.asInstanceOf[ir.DFVal.CanBeGlobal].copyWithoutGlobalCtx,
+    portName,
+    inclusionPolicy
+  )
+end ClkCfg
 
 type RstCfg = ir.RstCfg
 object RstCfg:

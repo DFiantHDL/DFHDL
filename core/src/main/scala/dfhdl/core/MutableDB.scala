@@ -470,8 +470,12 @@ final class MutableDB():
           case m                     => m
         }
         (members.map(replaceDesignFunc), refTable.view.mapValues(replaceDesignFunc).toMap)
+    val membersNoGlobalCtx = members.map {
+      case m: DFVal.CanBeGlobal => m.copyWithoutGlobalCtx
+      case m                    => m
+    }
     val globalTags = GlobalTagContext.tagMap.toMap
-    val db = DB(members, refTable, globalTags, Nil)
+    val db = DB(membersNoGlobalCtx, refTable, globalTags, Nil)
     memoizedDB = Some(db)
     db
   }

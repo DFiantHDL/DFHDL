@@ -336,6 +336,7 @@ object DFVal:
         case Some(DFMember.Empty) => true
         case None                 => true
         case _                    => false
+    def copyWithoutGlobalCtx: this.type
 
     final override def getRelativeName(
         callOwner: DFOwner | DFMember.Empty
@@ -379,6 +380,7 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
     def copyWithNewRefs: this.type = copy(
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef
@@ -549,6 +551,7 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ args
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+    def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
     def copyWithNewRefs: this.type = copy(
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef,
@@ -650,6 +653,7 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs: this.type = copy(
         dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
@@ -688,6 +692,7 @@ object DFVal:
       override lazy val getRefs: List[DFRef.TwoWayAny] =
         relValRef :: dfType.getRefs ++ initRefOption
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs: this.type = copy(
         dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
@@ -737,6 +742,7 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = this
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs: this.type = copy(
         ownerRef = ownerRef.copyAsNewRef,
         relValRef = relValRef.copyAsNewRef
@@ -789,6 +795,7 @@ object DFVal:
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       override lazy val getRefs: List[DFRef.TwoWayAny] = relIdx :: relValRef :: dfType.getRefs
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs: this.type = copy(
         dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
@@ -836,6 +843,7 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs: this.type = copy(
         dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
