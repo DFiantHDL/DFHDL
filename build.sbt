@@ -146,7 +146,7 @@ lazy val devices = (project in file("devices"))
 lazy val dependencies =
   new {
     private val scodecV = "1.2.1"
-    private val munitV = "1.1.0"
+    private val munitV = "1.1.1"
     private val scalafmtV = "3.8.3"
     private val airframelogV = "2025.1.10"
     private val oslibV = "0.9.2"
