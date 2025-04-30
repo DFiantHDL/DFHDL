@@ -7,7 +7,6 @@ import DFVal.Modifier
 import DFVal.Func.Op as FuncOp
 import DFVal.Alias.History.Op as HistoryOp
 import scala.annotation.tailrec
-import scala.reflect.{ClassTag, classTag}
 import DFDesignBlock.InstMode
 import scala.util.boundary, boundary.break
 import scala.annotation.targetName

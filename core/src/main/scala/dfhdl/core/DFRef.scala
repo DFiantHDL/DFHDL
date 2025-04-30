@@ -3,7 +3,6 @@ import dfhdl.compiler.ir
 import dfhdl.compiler.analysis.DclPort
 
 import scala.annotation.targetName
-import scala.reflect.{ClassTag, classTag}
 extension [M <: ir.DFMember](member: M)
   private def injectGlobalCtx()(using DFC): Unit =
     import dfc.getSet
@@ -51,20 +50,12 @@ extension [M <: ir.DFMember](member: M)
     end match
   end getReachableMember
 
-  def ref(using DFC, ClassTag[M]): ir.DFRef.OneWay[M] =
-    val newRef = new ir.DFRef.OneWay[M]:
-      val refType = classTag[M]
+  def ref(using DFC): ir.DFRef.OneWay[M] =
+    val newRef = new ir.DFRef.OneWay[M] {}
     dfc.mutableDB.newRefFor(newRef, member)
-  def refTW[O <: ir.DFMember](using
-      dfc: DFC,
-      m: ClassTag[M],
-      o: ClassTag[O]
-  ): ir.DFRef.TwoWay[M, O] = refTW[O](knownReachable = false)
-  def refTW[O <: ir.DFMember](knownReachable: Boolean)(using
-      dfc: DFC,
-      m: ClassTag[M],
-      o: ClassTag[O]
-  ): ir.DFRef.TwoWay[M, O] =
+  def refTW[O <: ir.DFMember](using dfc: DFC): ir.DFRef.TwoWay[M, O] =
+    refTW[O](knownReachable = false)
+  def refTW[O <: ir.DFMember](knownReachable: Boolean)(using dfc: DFC): ir.DFRef.TwoWay[M, O] =
     import dfc.getSet
     injectGlobalCtx()
     val reachableMember = if (knownReachable) member else member.getReachableMember
@@ -89,14 +80,12 @@ extension [M <: ir.DFMember](member: M)
         portSelect.addMember.refTW[O].asInstanceOf[ir.DFRef.TwoWay[M, O]]
       // any other kind of reference
       case member =>
-        val newRef = new ir.DFRef.TwoWay[M, O]:
-          val refType = classTag[M]
-          val originRefType = classTag[O]
+        val newRef = new ir.DFRef.TwoWay[M, O] {}
         dfc.mutableDB.newRefFor(newRef, member)
     end match
   end refTW
 end extension
 
 extension [T <: ir.DFOwner](owner: DFOwner[T])
-  def ref(using ClassTag[T], DFC): ir.DFRef.OneWay[T] =
+  def ref(using DFC): ir.DFRef.OneWay[T] =
     owner.asIR.ref

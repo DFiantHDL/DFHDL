@@ -326,11 +326,11 @@ object DFVal:
   sealed trait CanBeGlobal extends CanBeExpr:
     private[dfhdl] var globalCtx: Any = compiletime.uninitialized
     final override def isGlobal(using MemberGetSet): Boolean =
-      // during elaboration with a DFC context we can use `refType` of `Empty` as an indicator
+      // during elaboration with a DFC context we can use `Empty` as an indicator
       // that `dfVal` is global. we use it because `dfVal`'s ownerRef could be only available
       // within dfVal's internal cached context. however, when in immutable db, `dfVal.isGlobal` can
       // be invoked with no issue, since the DB `getSet` will have access to all references.
-      // note that it could be that `refType` is later changed from `Empty` to an actual member,
+      // note that it could be that the ref can late change from `Empty` to an actual member,
       // so that is why we cannot rely on it after elaboration is done.
       ownerRef.getOption match
         case Some(DFMember.Empty) => true

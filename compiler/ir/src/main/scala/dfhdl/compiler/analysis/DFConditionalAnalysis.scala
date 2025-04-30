@@ -6,7 +6,6 @@ import DFConditional.DFCaseBlock.Pattern
 import DFVal.Modifier
 
 import scala.annotation.tailrec
-import scala.reflect.{ClassTag, classTag}
 import dfhdl.compiler.ir.DFConditional.DFMatchHeader
 
 extension [CB <: DFConditional.Block](cb: CB)(using MemberGetSet)

@@ -6,17 +6,22 @@ import dfhdl.compiler.patching.*
 import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 
-import scala.reflect.classTag
-
 case object ExplicitNamedVars extends Stage:
   def dependencies: List[Stage] = List(NamedAnonCondExpr)
   def nullifies: Set[Stage] = Set(DropLocalDcls)
 
   object WhenHeader extends Patch.Replace.RefFilter:
-    val ifHeaderTag = classTag[DFConditional.DFIfHeader]
-    val matchHeaderTag = classTag[DFConditional.DFMatchHeader]
     def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
-      refs.filter { r => (r.refType equals ifHeaderTag) || (r.refType equals matchHeaderTag) }
+      refs.filter {
+        case r: DFRef.TwoWayAny =>
+          r.get match
+            case header: DFConditional.Header =>
+              header.originMembers.view
+                .collect { case b: DFConditional.Block => b }
+                .exists(_.getRefs.exists(_ equals r))
+            case _ => false
+        case _ => false
+      }
   final val WhenNotHeader = !WhenHeader
 
   extension (ch: DFConditional.Header)
@@ -36,6 +41,7 @@ case object ExplicitNamedVars extends Stage:
           Some(assignDsn.patch)
         case _ => ??? // not possible
       }
+  end extension
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList =

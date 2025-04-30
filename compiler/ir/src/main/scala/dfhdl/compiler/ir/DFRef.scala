@@ -1,11 +1,9 @@
 package dfhdl.compiler.ir
 import scala.annotation.unchecked.uncheckedVariance
-import scala.reflect.{ClassTag, classTag}
 import dfhdl.internals.hashString
 
 type DFRefAny = DFRef[DFMember]
 sealed trait DFRef[+M <: DFMember] derives CanEqual:
-  val refType: ClassTag[M @uncheckedVariance]
   final def =~(that: DFRefAny)(using MemberGetSet): Boolean = this.get =~ that.get
   def get(using getSet: MemberGetSet): M = getSet(this)
   def getOption(using getSet: MemberGetSet): Option[M] = getSet.getOption(this)
@@ -14,32 +12,20 @@ sealed trait DFRef[+M <: DFMember] derives CanEqual:
 
 object DFRef:
   sealed trait Empty extends DFRef[DFMember.Empty]:
-    val refType = classTag[DFMember.Empty]
     override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
   trait OneWay[+M <: DFMember] extends DFRef[M]:
     self =>
-    final def copyAsNewRef: this.type = new OneWay[M]:
-      val refType = self.refType
-    .asInstanceOf[this.type]
+    final def copyAsNewRef: this.type = new OneWay[M] {}.asInstanceOf[this.type]
   object OneWay:
     object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
 
   trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
-    self =>
-    val originRefType: ClassTag[O @uncheckedVariance]
-    def copyAsNewRef: this.type = new TwoWay[M, O]:
-      val refType = self.refType
-      val originRefType = self.originRefType
-    .asInstanceOf[this.type]
+    def copyAsNewRef: this.type = new TwoWay[M, O] {}.asInstanceOf[this.type]
   type TwoWayAny = TwoWay[DFMember, DFMember]
   object TwoWay:
-    object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty:
-      val originRefType = classTag[DFMember.Empty]
+    object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty
 
   trait TypeRef extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
-    self =>
-    val refType = classTag[DFVal.CanBeExpr]
-    val originRefType = classTag[DFVal.CanBeExpr]
     override def copyAsNewRef: this.type = new TypeRef {}.asInstanceOf[this.type]
 
   extension (ref: DFRefAny)
