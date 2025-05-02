@@ -19,6 +19,7 @@ case object DropTimedRTWaits extends Stage:
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList = designDB.members.collect {
       // replace wait statements with time durations to cycles
       case waitMember @ Wait(

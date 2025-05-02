@@ -15,6 +15,7 @@ case object ConnectMagnets extends Stage:
   def dependencies: List[Stage] = List(AddMagnets)
   def nullifies: Set[Stage] = Set(ViaConnection, SimpleOrderMembers)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     // Populating a design magnet connection map
     val magnetConns = mutable.Map.empty[DFDesignBlock, List[(DFVal.Dcl, DFVal.Dcl)]]
     designDB.magnetConnectionTable.foreach { (toPort, fromDcl) =>

@@ -22,6 +22,7 @@ case object AddClkRst extends Stage:
   def dependencies: List[Stage] = List(ToRT, ExplicitClkRstCfg)
   def nullifies: Set[Stage] = Set(ViaConnection)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     // saves domains that are outputting clk and rst
     val designDomainOut = mutable.Set.empty[(DFDesignBlock, RTDomainCfg)]
     // saves clk type used for a domain

@@ -26,7 +26,7 @@ case object ExplicitNamedVars extends Stage:
 
   extension (ch: DFConditional.Header)
     // recursive call to patch conditional block chains
-    private def patchChains(headerVar: DFVal)(using MemberGetSet): List[(DFMember, Patch)] =
+    private def patchChains(headerVar: DFVal)(using MemberGetSet, RefGen): List[(DFMember, Patch)] =
       val cbChain = getSet.designDB.conditionalChainTable(ch)
       val lastMembers = cbChain.map(_.members(MemberView.Folded).last)
       lastMembers.flatMap {
@@ -44,6 +44,7 @@ case object ExplicitNamedVars extends Stage:
   end extension
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList =
       designDB.members.view
         // just named values

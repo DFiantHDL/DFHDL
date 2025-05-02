@@ -40,6 +40,7 @@ case object MatchToIf extends Stage:
     composedPatternRemoval || guardsRemoval || wildcardsRemoval
   end matchFilter
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList: List[(DFMember, Patch)] =
       designDB.members.view
         // only match headers and case blocks that match filter

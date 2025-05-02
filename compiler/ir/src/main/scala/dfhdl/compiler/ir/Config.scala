@@ -37,7 +37,8 @@ object ClkCfg:
       this.edge == that.edge && this.rate =~ that.rate && this.portName == that.portName &&
         this.inclusionPolicy == that.inclusionPolicy
     lazy val getRefs: List[DFRef.TwoWayAny] = rate.getRefs
-    def copyWithNewRefs: this.type = copy(rate = rate.copyWithNewRefs).asInstanceOf[this.type]
+    def copyWithNewRefs(using RefGen): this.type =
+      copy(rate = rate.copyWithNewRefs).asInstanceOf[this.type]
 end ClkCfg
 
 type RstCfg = ConfigN[RstCfg.Explicit]
@@ -87,7 +88,7 @@ enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual:
     case Explicit(_, clkCfg: ClkCfg.Explicit, rstCfg) => clkCfg.getRefs
     case _                                            => Nil
 
-  def copyWithNewRefs: this.type = this match
+  def copyWithNewRefs(using RefGen): this.type = this match
     case Related(relatedDomainRef) => Related(relatedDomainRef.copyAsNewRef).asInstanceOf[this.type]
     case Explicit(name, clkCfg: ClkCfg.Explicit, rstCfg) =>
       Explicit(name, clkCfg.copyWithNewRefs, rstCfg).asInstanceOf[this.type]

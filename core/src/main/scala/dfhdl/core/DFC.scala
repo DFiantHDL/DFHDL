@@ -14,6 +14,7 @@ final case class DFC(
     docOpt: Option[String],
     annotations: List[HWAnnotation] = Nil, // TODO: removing default causes stale symbol crash
     mutableDB: MutableDB = new MutableDB(),
+    refGen: ir.RefGen = new ir.RefGen(0, 0),
     tags: ir.DFTags = ir.DFTags.empty,
     elaborationOptionsContr: () => ElaborationOptions = () =>
       summon[ElaborationOptions.Defaults[Design]]
@@ -24,20 +25,26 @@ final case class DFC(
       position: Position = position,
       docOpt: Option[String] = docOpt,
       annotations: List[Annotation] = Nil
-  ) = copy(
-    nameOpt = nameOpt,
-    position = position,
-    docOpt = docOpt,
-    annotations = annotations.getActiveHWAnnotations
-  ).asInstanceOf[this.type]
+  ) =
+    if (refGen.getGrpId == 0)
+      refGen.setGrpId(position.hashCode())
+    copy(
+      nameOpt = nameOpt,
+      position = position,
+      docOpt = docOpt,
+      annotations = annotations.getActiveHWAnnotations
+    ).asInstanceOf[this.type]
   def setMeta(
       meta: ir.Meta
-  ) = copy(
-    nameOpt = meta.nameOpt,
-    position = meta.position,
-    docOpt = meta.docOpt,
-    annotations = meta.annotations
-  ).asInstanceOf[this.type]
+  ) =
+    if (refGen.getGrpId == 0)
+      refGen.setGrpId(position.hashCode())
+    copy(
+      nameOpt = meta.nameOpt,
+      position = meta.position,
+      docOpt = meta.docOpt,
+      annotations = meta.annotations
+    ).asInstanceOf[this.type]
   def setTags(tags: ir.DFTags) = copy(tags = tags)
   def tag[CT <: ir.DFTag: ClassTag](customTag: CT) = setTags(tags.tag(customTag))
   def emptyTags = setTags(ir.DFTags.empty)

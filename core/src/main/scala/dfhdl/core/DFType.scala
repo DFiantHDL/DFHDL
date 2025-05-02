@@ -331,6 +331,7 @@ extension (dfType: ir.DFType)
   // see `dropUnreachableRef` on ir.IntParamRef for more details.
   def dropUnreachableRefs(allowDesignParamRefs: Boolean)(using dfc: DFC): ir.DFType =
     import dfc.getSet
+    given ir.RefGen = dfc.refGen
     // if the type has unreachable references, we need to create a new type with reachable references.
     if (dfType.getRefs.exists(_.get.isUnreachable))
       // get the memoized reachable type or create a new one

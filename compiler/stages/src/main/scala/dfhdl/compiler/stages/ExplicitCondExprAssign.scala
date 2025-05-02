@@ -12,6 +12,7 @@ case object ExplicitCondExprAssign extends Stage:
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     extension (ch: DFConditional.Header)
       // recursive call to patch conditional block chains
       private def patchChains(headerVar: DFVal, op: DFNet.Op): List[(DFMember, Patch)] =

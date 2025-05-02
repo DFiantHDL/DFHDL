@@ -23,6 +23,7 @@ case object SimplifyRTOps extends Stage:
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     extension (dfVal: DFVal)
       def isAnonReferencedByWait: Boolean = dfVal.isAnonymous && dfVal.originMembers.view.exists {
         case _: Wait => true

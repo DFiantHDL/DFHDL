@@ -11,7 +11,8 @@ abstract class MetaDesign[+D <: DomainType](
     addCfg: AddCfg,
     domainType: D = DomainType.DF
 )(using
-    getSet: ir.MemberGetSet
+    getSet: ir.MemberGetSet,
+    refGen: ir.RefGen
 ) extends Design
     with reflect.Selectable:
   lazy val patch = positionMember -> Patch.Add(this, addCfg)
@@ -29,7 +30,7 @@ abstract class MetaDesign[+D <: DomainType](
   final override private[dfhdl] def initOwner: Design.Block =
     dfc.mutableDB.addMember(injectedOwner)
     injectedOwner.getThisOrOwnerDesign.asFE
-  final override protected def __dfc: DFC = DFC.emptyNoEO
+  final override protected def __dfc: DFC = DFC.emptyNoEO.copy(refGen = refGen)
 
   injectedOwner match
     case design: ir.DFDesignBlock => // do nothing

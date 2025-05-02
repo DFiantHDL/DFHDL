@@ -71,6 +71,7 @@ case object NameRegAliases extends Stage:
   end extension
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList: List[(DFMember, Patch)] = designDB.namedOwnerMemberList.flatMap {
       case (domainOwner: (DFDomainOwner & DFBlock), members) =>
         val regPatches = mutable.ListBuffer.empty[(DFMember, Patch)]

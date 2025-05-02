@@ -51,7 +51,7 @@ extension [M <: ir.DFMember](member: M)
   end getReachableMember
 
   def ref(using DFC): ir.DFRef.OneWay[M] =
-    val newRef = new ir.DFRef.OneWay[M] {}
+    val newRef = dfc.refGen.genOneWay[M]
     dfc.mutableDB.newRefFor(newRef, member)
   def refTW[O <: ir.DFMember](using dfc: DFC): ir.DFRef.TwoWay[M, O] =
     refTW[O](knownReachable = false)
@@ -80,7 +80,7 @@ extension [M <: ir.DFMember](member: M)
         portSelect.addMember.refTW[O].asInstanceOf[ir.DFRef.TwoWay[M, O]]
       // any other kind of reference
       case member =>
-        val newRef = new ir.DFRef.TwoWay[M, O] {}
+        val newRef = dfc.refGen.genTwoWay[M, O]
         dfc.mutableDB.newRefFor(newRef, member)
     end match
   end refTW

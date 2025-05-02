@@ -3,30 +3,38 @@ import scala.annotation.unchecked.uncheckedVariance
 import dfhdl.internals.hashString
 
 type DFRefAny = DFRef[DFMember]
-sealed trait DFRef[+M <: DFMember] derives CanEqual:
+sealed trait DFRef[+M <: DFMember] extends Product, Serializable derives CanEqual:
+  val grpId: Int
+  val id: Int
   final def =~(that: DFRefAny)(using MemberGetSet): Boolean = this.get =~ that.get
   def get(using getSet: MemberGetSet): M = getSet(this)
   def getOption(using getSet: MemberGetSet): Option[M] = getSet.getOption(this)
-  def copyAsNewRef: this.type
+  def copyAsNewRef(using RefGen): this.type
   override def toString: String = s"<${this.hashString}>"
 
 object DFRef:
   sealed trait Empty extends DFRef[DFMember.Empty]:
+    val grpId: Int = 0
+    val id: Int = 0
     override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
-  trait OneWay[+M <: DFMember] extends DFRef[M]:
-    self =>
-    final def copyAsNewRef: this.type = new OneWay[M] {}.asInstanceOf[this.type]
+  sealed trait OneWay[+M <: DFMember] extends DFRef[M]:
+    final def copyAsNewRef(using refGen: RefGen): this.type =
+      refGen.genOneWay[M].asInstanceOf[this.type]
   object OneWay:
-    object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
+    case class Gen[M <: DFMember](grpId: Int, id: Int) extends OneWay[M]
+    case object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
 
-  trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
-    def copyAsNewRef: this.type = new TwoWay[M, O] {}.asInstanceOf[this.type]
+  sealed trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
+    def copyAsNewRef(using refGen: RefGen): this.type =
+      refGen.genTwoWay[M, O].asInstanceOf[this.type]
   type TwoWayAny = TwoWay[DFMember, DFMember]
   object TwoWay:
-    object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty
+    case class Gen[M <: DFMember, O <: DFMember](grpId: Int, id: Int) extends TwoWay[M, O]
+    case object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty
 
-  trait TypeRef extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
-    override def copyAsNewRef: this.type = new TypeRef {}.asInstanceOf[this.type]
+  case class TypeRef(grpId: Int, id: Int) extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
+    override def copyAsNewRef(using refGen: RefGen): this.type =
+      refGen.genTypeRef.asInstanceOf[this.type]
 
   extension (ref: DFRefAny)
     def isTypeRef: Boolean = ref match
@@ -78,3 +86,22 @@ extension (intCompanion: Int.type)
       case int: Int => Some(int)
       case DFRef(dfVal: DFVal) =>
         dfVal.getConstData.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)
+
+class RefGen(private var grpId: Int, private var lastId: Int):
+  private def nextId: Int =
+    val newId = lastId + 1
+    lastId = newId
+    newId
+  def getGrpId: Int = grpId
+  def setGrpId(newGrpId: Int): Unit =
+    grpId = newGrpId
+  def genOneWay[M <: DFMember]: DFRef.OneWay[M] = DFRef.OneWay.Gen(grpId, nextId)
+  def genTwoWay[M <: DFMember, O <: DFMember]: DFRef.TwoWay[M, O] = DFRef.TwoWay.Gen(grpId, nextId)
+  def genTypeRef: DFRef.TypeRef = DFRef.TypeRef(grpId, nextId)
+
+object RefGen:
+  def fromGetSet(using getSet: MemberGetSet): RefGen =
+    val rt = getSet.designDB.refTable
+    val grpId = rt.last._1.grpId
+    val lastId = rt.keys.map(_.id).max
+    RefGen(grpId, lastId)

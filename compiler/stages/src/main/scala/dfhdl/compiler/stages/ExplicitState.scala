@@ -11,6 +11,7 @@ case object ExplicitState extends Stage:
   def nullifies: Set[Stage] = Set()
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList = designDB.getImplicitStateVarsDF.view.flatMap {
       // for initialized ports and variables we just add an explicit prev self-assignment
       case e: DFVal.Dcl if e.initRefList.nonEmpty =>

@@ -1422,6 +1422,7 @@ extension (dfVal: ir.DFVal)
 
   protected[dfhdl] def cloneUnreachable(using dfc: DFC): ir.DFVal =
     import dfc.getSet
+    given ir.RefGen = dfc.refGen
     val currentOwner = dfc.owner.asIR
     if (dfVal.isUnreachable)
       dfVal match

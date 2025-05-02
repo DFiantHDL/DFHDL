@@ -17,6 +17,7 @@ case object ExplicitRegInits extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList = designDB.members.collect {
       case dcl: DFVal.Dcl
           if dcl.initRefList.nonEmpty && !dcl.isReg && dcl.isInRTDomain && !dcl.isConstVAR =>

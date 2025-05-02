@@ -25,6 +25,7 @@ case object GlobalizePortVectorParams extends Stage:
           case _               => false
       case _ => false
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     // to collect unique design parameters while maintaining order for consistent compilation and dependency
     val designParams = mutable.LinkedHashSet.empty[DFVal]
     // check ref

@@ -17,7 +17,7 @@ enum DomainType extends HasRefCompare[DomainType] derives CanEqual:
     case RT(cfg) => cfg.getRefs
     case _       => Nil
 
-  def copyWithNewRefs: this.type = this match
+  def copyWithNewRefs(using RefGen): this.type = this match
     case RT(cfg) => new RT(cfg.copyWithNewRefs).asInstanceOf[this.type]
     case _       => this
 
