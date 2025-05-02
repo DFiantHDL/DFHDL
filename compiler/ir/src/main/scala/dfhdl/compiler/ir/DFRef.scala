@@ -1,6 +1,7 @@
 package dfhdl.compiler.ir
 import scala.annotation.unchecked.uncheckedVariance
 import dfhdl.internals.hashString
+import upickle.default.*
 
 type DFRefAny = DFRef[DFMember]
 sealed trait DFRef[+M <: DFMember] extends Product, Serializable derives CanEqual:
@@ -17,22 +18,23 @@ object DFRef:
     val grpId: Int = 0
     val id: Int = 0
     override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
-  sealed trait OneWay[+M <: DFMember] extends DFRef[M]:
+  sealed trait OneWay[+M <: DFMember] extends DFRef[M] derives ReadWriter:
     final def copyAsNewRef(using refGen: RefGen): this.type =
       refGen.genOneWay[M].asInstanceOf[this.type]
   object OneWay:
-    case class Gen[M <: DFMember](grpId: Int, id: Int) extends OneWay[M]
+    final case class Gen[M <: DFMember](grpId: Int, id: Int) extends OneWay[M]
     case object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
 
-  sealed trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
+  sealed trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M] derives ReadWriter:
     def copyAsNewRef(using refGen: RefGen): this.type =
       refGen.genTwoWay[M, O].asInstanceOf[this.type]
   type TwoWayAny = TwoWay[DFMember, DFMember]
   object TwoWay:
-    case class Gen[M <: DFMember, O <: DFMember](grpId: Int, id: Int) extends TwoWay[M, O]
+    final case class Gen[M <: DFMember, O <: DFMember](grpId: Int, id: Int) extends TwoWay[M, O]
     case object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty
 
-  case class TypeRef(grpId: Int, id: Int) extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
+  final case class TypeRef(grpId: Int, id: Int) extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]
+      derives ReadWriter:
     override def copyAsNewRef(using refGen: RefGen): this.type =
       refGen.genTypeRef.asInstanceOf[this.type]
 
@@ -41,6 +43,28 @@ object DFRef:
       case ref: TypeRef => true
       case _            => false
   def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
+
+  given [T <: DFRefAny]: ReadWriter[T] =
+    readwriter[String].bimap(
+      ref =>
+        ref match
+          case TwoWay.Empty          => "TWE"
+          case OneWay.Empty          => "OWE"
+          case TypeRef(grpId, id)    => s"TR_${grpId}_${id}"
+          case TwoWay.Gen(grpId, id) => s"TW_${grpId}_${id}"
+          case OneWay.Gen(grpId, id) => s"OW_${grpId}_${id}"
+      ,
+      str =>
+        if str == "TWE" then TwoWay.Empty.asInstanceOf[T]
+        else if str == "OWE" then OneWay.Empty.asInstanceOf[T]
+        else
+          val parts = str.split("_")
+          parts(0) match
+            case "TR" => TypeRef(parts(1).toInt, parts(2).toInt).asInstanceOf[T]
+            case "TW" => TwoWay.Gen(parts(1).toInt, parts(2).toInt).asInstanceOf[T]
+            case "OW" => OneWay.Gen(parts(1).toInt, parts(2).toInt).asInstanceOf[T]
+            case _    => throw new IllegalArgumentException(s"Unknown reference format: $str")
+    )
 end DFRef
 
 opaque type IntParamRef = DFRef.TypeRef | Int
@@ -75,11 +99,25 @@ object IntParamRef:
           thisRef.get.isSimilarTo(fakeConst(thatInt))
         case (thisInt: Int, thatRef: DFRef.TypeRef) =>
           thatRef.get.isSimilarTo(fakeConst(thisInt))
-    def copyAsNewRef: IntParamRef = intParamRef match
+    def copyAsNewRef(using RefGen): IntParamRef = intParamRef match
       case ref: DFRef.TypeRef => ref.copyAsNewRef
       case _                  => intParamRef
   end extension
+
+  given ReadWriter[IntParamRef] = readwriter[ujson.Value].bimap(
+    param =>
+      param match
+        case int: Int           => int
+        case ref: DFRef.TypeRef => write(ref.asInstanceOf[DFRefAny])
+    ,
+    json =>
+      json match
+        case ujson.Str(s) => read[DFRefAny](s).asInstanceOf[IntParamRef]
+        case ujson.Num(n) => n.toInt
+        case _ => throw new IllegalArgumentException(s"Expected String or Int, got $json")
+  )
 end IntParamRef
+
 extension (intCompanion: Int.type)
   def unapply(intParamRef: IntParamRef)(using MemberGetSet): Option[Int] =
     (intParamRef: @unchecked) match
