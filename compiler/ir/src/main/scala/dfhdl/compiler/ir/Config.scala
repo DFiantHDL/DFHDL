@@ -1,5 +1,5 @@
 package dfhdl.compiler.ir
-
+import upickle.default.*
 opaque type ConfigN[T] = T | None.type
 object ConfigN:
   given [T]: Conversion[None.type, ConfigN[T]] with
@@ -10,6 +10,18 @@ object ConfigN:
   given [T]: CanEqual[ConfigN[T], None.type] = CanEqual.derived
   given [T]: CanEqual[None.type, ConfigN[T]] = CanEqual.derived
   given [L, R]: CanEqual[ConfigN[L], ConfigN[R]] = CanEqual.derived
+  given [T](using ReadWriter[T]): ReadWriter[ConfigN[T]] = readwriter[ujson.Value].bimap(
+    value =>
+      (value: @unchecked) match
+        case None     => ujson.Null
+        case value: T => write(value)
+    ,
+    json =>
+      json match
+        case ujson.Null => None
+        case value      => read[T](value)
+  )
+end ConfigN
 
 /** Sets the policy for inclusing the clock or reset signals when they are not needed
   */
