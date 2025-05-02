@@ -18,14 +18,14 @@ object DFRef:
     val grpId: Int = 0
     val id: Int = 0
     override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
-  sealed trait OneWay[+M <: DFMember] extends DFRef[M] derives ReadWriter:
+  sealed trait OneWay[+M <: DFMember] extends DFRef[M]:
     final def copyAsNewRef(using refGen: RefGen): this.type =
       refGen.genOneWay[M].asInstanceOf[this.type]
   object OneWay:
     final case class Gen[M <: DFMember](grpId: Int, id: Int) extends OneWay[M]
     case object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
 
-  sealed trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M] derives ReadWriter:
+  sealed trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
     def copyAsNewRef(using refGen: RefGen): this.type =
       refGen.genTwoWay[M, O].asInstanceOf[this.type]
   type TwoWayAny = TwoWay[DFMember, DFMember]
@@ -33,8 +33,7 @@ object DFRef:
     final case class Gen[M <: DFMember, O <: DFMember](grpId: Int, id: Int) extends TwoWay[M, O]
     case object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty
 
-  final case class TypeRef(grpId: Int, id: Int) extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]
-      derives ReadWriter:
+  final case class TypeRef(grpId: Int, id: Int) extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
     override def copyAsNewRef(using refGen: RefGen): this.type =
       refGen.genTypeRef.asInstanceOf[this.type]
 
