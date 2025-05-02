@@ -107,11 +107,11 @@ object IntParamRef:
     param =>
       param match
         case int: Int           => int
-        case ref: DFRef.TypeRef => write(ref.asInstanceOf[DFRefAny])
+        case ref: DFRef.TypeRef => write(ref)
     ,
     json =>
       json match
-        case ujson.Str(s) => read[DFRefAny](s).asInstanceOf[IntParamRef]
+        case ujson.Str(s) => read[DFRef.TypeRef](s)
         case ujson.Num(n) => n.toInt
         case _ => throw new IllegalArgumentException(s"Expected String or Int, got $json")
   )
