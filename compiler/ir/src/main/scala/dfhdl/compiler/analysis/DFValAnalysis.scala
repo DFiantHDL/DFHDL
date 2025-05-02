@@ -13,11 +13,11 @@ import scala.annotation.targetName
 
 object IteratorDcl:
   def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Boolean =
-    dcl.hasTagOf[DFVal.Dcl.IteratorTag.type]
+    dcl.hasTagOf[IteratorTag.type]
 
 object Ident:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
-    if (alias.hasTagOf[DFVal.Alias.IdentTag.type]) Some(alias.relValRef.get)
+    if (alias.hasTagOf[IdentTag.type]) Some(alias.relValRef.get)
     else None
 
 object StrippedPortByNameSelect:
@@ -83,7 +83,7 @@ object AsOpaque:
 
 object Bind:
   def unapply(alias: DFVal.Alias)(using MemberGetSet): Option[DFVal] =
-    if (alias.getTagOf[Pattern.Bind.Tag.type].isDefined)
+    if (alias.getTagOf[BindTag.type].isDefined)
       Some(alias.relValRef.get)
     else None
 

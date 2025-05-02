@@ -1,6 +1,5 @@
 package dfhdl.compiler.analysis
 import dfhdl.compiler.ir.*
-import dfhdl.core.DFVal.TruncateTag
 
 extension (designDB: DB)
   def getUnusedAnnotValues: List[DFVal] =

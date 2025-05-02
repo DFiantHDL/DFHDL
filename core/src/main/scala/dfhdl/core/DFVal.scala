@@ -433,11 +433,6 @@ object DFVal extends DFValLP:
       else dfVal
   end extension
 
-  case object ExtendTag extends ir.DFTagOf[ir.DFVal]
-  type ExtendTag = ExtendTag.type
-  case object TruncateTag extends ir.DFTagOf[ir.DFVal]
-  type TruncateTag = TruncateTag.type
-
   @metaContextForward(0)
   trait InitValue[T <: DFTypeAny]:
     def enable: Boolean
@@ -721,7 +716,7 @@ object DFVal extends DFValLP:
       dcl.addMember.asVal[T, M]
     end apply
     def iterator(using DFC): DFValOf[DFInt32] =
-      apply(DFInt32, Modifier.VAR, Nil)(using dfc.tag(ir.DFVal.Dcl.IteratorTag))
+      apply(DFInt32, Modifier.VAR, Nil)(using dfc.tag(ir.IteratorTag))
   end Dcl
 
   object Func:
@@ -798,13 +793,12 @@ object DFVal extends DFValLP:
       def ident[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
           dfc: DFC
       ): DFVal[T, M] =
-        import ir.DFVal.Alias.IdentTag
-        apply(relVal.dfType, relVal, forceNewAlias = true)(using dfc.tag(IdentTag))
+        apply(relVal.dfType, relVal, forceNewAlias = true)(using dfc.tag(ir.IdentTag))
       def bind[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M], bindName: String)(using
           dfc: DFC
       ): DFVal[T, M] =
         import ir.DFConditional.DFCaseBlock.Pattern
-        ident(relVal)(using dfc.setName(bindName).tag(Pattern.Bind.Tag))
+        ident(relVal)(using dfc.setName(bindName).tag(ir.BindTag))
     end AsIs
     object History:
       def apply[T <: DFTypeAny](

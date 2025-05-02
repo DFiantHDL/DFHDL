@@ -59,10 +59,7 @@ end RstCfg
 enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual:
   case Derived
   case Related(relatedDomainRef: RTDomainCfg.RelatedDomainRef) extends RTDomainCfg
-  case Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg)
-      extends RTDomainCfg,
-      NamedGlobal,
-      DFTagOf[DFDesignBlock]
+  case Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg) extends RTDomainCfg, NamedGlobal
 
   def isDerivedNoRst: Boolean = this match
     case cfg: Explicit if cfg.name.endsWith(".norst") => true

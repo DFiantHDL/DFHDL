@@ -504,7 +504,6 @@ object DFVal:
     ).asInstanceOf[this.type]
   end Dcl
   object Dcl:
-    case object IteratorTag extends DFTagOf[Dcl]
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
     extension (dcl: Dcl)
       def isClkDcl(using MemberGetSet): Boolean = dcl.dfType match
@@ -612,7 +611,6 @@ object DFVal:
     lazy val getRefs: List[DFRef.TwoWayAny] = relValRef :: dfType.getRefs
 
   object Alias:
-    case object IdentTag extends DFTagOf[DFVal]
     type Ref = DFRef.TwoWay[DFVal, Alias]
     // This is complete alias that consumes its relative val
     sealed trait Consumer extends Alias:
@@ -1224,7 +1222,6 @@ object DFConditional:
         ).asInstanceOf[this.type]
       object Bind:
         type Ref = DFRef.TwoWay[DFVal, DFCaseBlock]
-        case object Tag extends DFTagOf[DFVal]
       final case class BindSI(
           op: String,
           parts: List[String],
@@ -1303,8 +1300,7 @@ end DFConditional
 
 object DFLoop:
   sealed trait Block extends DFBlock:
-    def isCombinational(using MemberGetSet): Boolean = this.hasTagOf[Combinational.type]
-  case object Combinational extends DFTagOf[Block]
+    def isCombinational(using MemberGetSet): Boolean = this.hasTagOf[CombinationalTag.type]
   final case class DFForBlock(
       iteratorRef: DFForBlock.IteratorRef,
       rangeRef: DFForBlock.RangeRef,

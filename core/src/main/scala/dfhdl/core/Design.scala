@@ -31,7 +31,8 @@ trait Design extends Container, HasClsMetaArgs:
     // (the top level may be an ED or DF design, so it cannot save the default RT configuration as part
     // of the domain type, but this could be needed later for compilation stages)
     val tags =
-      if (designBlock.isTop) designBlock.tags.tag(dfc.elaborationOptions.defaultRTDomainCfg)
+      if (designBlock.isTop)
+        designBlock.tags.tag(ir.DefaultRTDomainCfgTag(dfc.elaborationOptions.defaultRTDomainCfg))
       else designBlock.tags
     setOwner(
       getSet.replace(designBlock)(

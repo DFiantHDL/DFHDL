@@ -121,6 +121,7 @@ object DFBits:
         )
         val width = IntParam.forced[W](explicitWidthOption.getOrElse(valueBits.length.toInt))
         DFVal.Const(DFBits(width), (valueBits, bubbleBits), named = true)
+    end extension
 
     extension (using Quotes)(fullTerm: quotes.reflect.Term)
       private[DFBits] def interpolate(
@@ -161,6 +162,7 @@ object DFBits:
             $explicitWidthOptionExpr
           )(using dfc)
         }
+    end extension
 
   end StrInterp
 
@@ -367,8 +369,8 @@ object DFBits:
         type OutP = P
         def apply(value: R)(using DFC): Out =
           import DFVal.Ops.bits
-          if (value.hasTag[DFVal.TruncateTag]) value.bits.tag(DFVal.TruncateTag)
-          else if (value.hasTag[DFVal.ExtendTag]) value.bits.tag(DFVal.ExtendTag)
+          if (value.hasTag[ir.TruncateTag]) value.bits.tag(ir.TruncateTag)
+          else if (value.hasTag[ir.ExtendTag]) value.bits.tag(ir.ExtendTag)
           else value.bits
       transparent inline given errDFEncoding[E <: DFEncoding]: Candidate[E] =
         compiletime.error(
@@ -438,16 +440,18 @@ object DFBits:
               ") is different than the receiver width (" + ToString[LW] +
               ").\nConsider applying `.resize` to resolve this issue."
           ]
-      given DFBitsFromCandidate[LW <: IntP, V, IC <: Candidate[V]](using ic: IC)(using
+      given DFBitsFromCandidate[LW <: IntP, V, IC <: Candidate[V]](using
+          ic: IC
+      )(using
           check: `LW == RW`.CheckNUB[LW, ic.OutW]
       ): TC[DFBits[LW], V] with
         type OutP = ic.OutP
         def conv(dfType: DFBits[LW], value: V)(using dfc: DFC): Out =
           import Ops.resizeBits
           val dfVal = ic(value)
-          if (dfVal.hasTag[DFVal.TruncateTag] && dfType.widthInt < dfVal.widthInt)
+          if (dfVal.hasTag[ir.TruncateTag] && dfType.widthInt < dfVal.widthInt)
             dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], ic.OutP]
-          else if (dfVal.hasTag[DFVal.ExtendTag] && dfType.widthInt > dfVal.widthInt)
+          else if (dfVal.hasTag[ir.ExtendTag] && dfType.widthInt > dfVal.widthInt)
             dfVal.resizeBits(dfType.widthIntParam).asValTP[DFBits[LW], ic.OutP]
           else
             check(dfType.widthInt, dfVal.widthInt)
@@ -525,7 +529,7 @@ object DFBits:
     object Ops:
       extension [W <: IntP, P](lhs: DFValTP[DFBits[W], P])
         def truncate(using DFC): DFValTP[DFBits[Int], P] =
-          lhs.tag(DFVal.TruncateTag).asValTP[DFBits[Int], P]
+          lhs.tag(ir.TruncateTag).asValTP[DFBits[Int], P]
         // TODO: IntP
         private[DFBits] def resizeBits[RW <: IntP](updatedWidth: IntParam[RW])(using
             DFC
@@ -595,7 +599,7 @@ object DFBits:
       end extension
       extension [L <: DFValAny, LW <: IntP, LP](lhs: L)(using icL: Candidate.Aux[L, LW, LP])
         def extend(using DFC): DFValTP[DFBits[Int], icL.OutP] =
-          icL(lhs).tag(DFVal.ExtendTag).asValTP[DFBits[Int], icL.OutP]
+          icL(lhs).tag(ir.ExtendTag).asValTP[DFBits[Int], icL.OutP]
         def resize[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: Arg.Width.CheckNUB[RW],
             dfc: DFC
@@ -631,7 +635,9 @@ object DFBits:
       )
         def as[AT <: DFType.Supported](
             aliasType: AT
-        )(using tc: DFType.TC[AT])(using
+        )(using
+            tc: DFType.TC[AT]
+        )(using
             aW: Width[tc.Type],
             dfc: DFC
         )(using check: `AW == TW`.CheckNUB[aW.Out, W]): DFValTP[tc.Type, P] = trydf {
@@ -706,7 +712,9 @@ object DFBits:
       extension [L](lhs: L)
         def ++[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             c: Candidate[es.Out]
         ): DFValTP[DFBits[IntP.+[c.OutW, RW]], c.OutP | RP] = trydf {
@@ -716,7 +724,9 @@ object DFBits:
         }
         def &[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
@@ -726,7 +736,9 @@ object DFBits:
         }
         def |[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {
@@ -736,7 +748,9 @@ object DFBits:
         }
         def ^[RW <: IntP, RP](
             rhs: DFValTP[DFBits[RW], RP]
-        )(using es: Exact.Summon[L, lhs.type])(using
+        )(using
+            es: Exact.Summon[L, lhs.type]
+        )(using
             dfc: DFC,
             c: Candidate[es.Out]
         )(using check: `LW == RW`.CheckNUB[c.OutW, RW]): DFValTP[DFBits[RW], c.OutP | RP] = trydf {

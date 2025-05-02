@@ -725,7 +725,7 @@ final case class DB(
     private def getExplicitCfg: RTDomainCfg.Explicit =
       domainOwner.domainType match
         case DomainType.RT(explicitCfg: RTDomainCfg.Explicit) => explicitCfg
-        case _ => top.getTagOf[RTDomainCfg.Explicit].get
+        case _ => top.getTagOf[DefaultRTDomainCfgTag].get.cfg
     private def usesClkRst: (Boolean, Boolean) = domainOwner match
       case design: DFDesignBlock =>
         designUsesClkRst.getOrElseUpdate(
