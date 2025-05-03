@@ -169,7 +169,7 @@ object DFMember:
       case _                               => member
 end DFMember
 
-sealed trait Statement extends DFMember
+sealed trait Statement extends DFMember derives ReadWriter
 
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
