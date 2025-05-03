@@ -1380,9 +1380,9 @@ end DFDesignBlock
 
 object DFDesignBlock:
   import InstMode.BlackBox.Source
-  enum InstMode derives CanEqual:
+  enum InstMode derives CanEqual, ReadWriter:
     case Normal, Def, Simulation
-    case BlackBox(args: ListMap[String, Any], verilogSrc: Source, vhdlSrc: Source)
+    case BlackBox(verilogSrc: Source, vhdlSrc: Source)
   object InstMode:
     object BlackBox:
       enum Source derives CanEqual, ReadWriter:
