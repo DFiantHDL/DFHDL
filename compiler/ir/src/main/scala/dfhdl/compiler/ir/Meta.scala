@@ -1,7 +1,7 @@
 package dfhdl.compiler.ir
 import dfhdl.internals.*
 import dfhdl.hw.{HWAnnotation, getActiveHWAnnotations}
-
+import upickle.default.*
 import scala.annotation.Annotation
 
 final case class Meta(
@@ -9,7 +9,8 @@ final case class Meta(
     position: Position,
     docOpt: Option[String],
     annotations: List[HWAnnotation]
-) derives CanEqual:
+) derives CanEqual,
+      ReadWriter:
   val isAnonymous: Boolean = nameOpt.isEmpty
   val name: String =
     nameOpt.getOrElse(s"anon${this.hashString}")
@@ -27,6 +28,7 @@ final case class Meta(
 end Meta
 
 object Meta:
+  given ReadWriter[Position] = macroRW
   def empty: Meta = Meta(None, Position.unknown, None, Nil)
   def gen(
       nameOpt: Option[String],
