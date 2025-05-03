@@ -31,7 +31,7 @@ object DFType:
     summon[ReadWriter[DFEnum]],
     summon[ReadWriter[DFVector]],
     summon[ReadWriter[DFStruct]],
-    // summon[ReadWriter[DFOpaque]],
+    summon[ReadWriter[DFOpaque]],
     summon[ReadWriter[DFDouble.type]],
     summon[ReadWriter[DFString.type]],
     summon[ReadWriter[DFUnit.type]],
@@ -358,14 +358,18 @@ object DFVector extends DFType.Companion[DFVector, Vector[Any]]
 /////////////////////////////////////////////////////////////////////////////
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
-final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualType: DFType)
-    extends NamedDFType,
-      ComposedDFType:
+final case class DFOpaque(
+    protected val name: String,
+    kind: DFOpaque.Kind,
+    id: Int,
+    actualType: DFType
+) extends NamedDFType,
+      ComposedDFType derives ReadWriter:
   type Data = Any
   def width(using MemberGetSet): Int = actualType.width
-  def isMagnet: Boolean = id match
-    case _: DFOpaque.MagnetId => true
-    case _                    => false
+  def isMagnet: Boolean = kind match
+    case _: DFOpaque.Kind.Magnet => true
+    case _                       => false
   def createBubbleData(using MemberGetSet): Data = actualType.createBubbleData
   def isDataBubble(data: Data): Boolean =
     actualType.isDataBubble(data.asInstanceOf[actualType.Data])
@@ -390,11 +394,25 @@ final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualTyp
 end DFOpaque
 
 object DFOpaque extends DFType.Companion[DFOpaque, Any]:
-  trait Id extends Product, Serializable derives CanEqual
-  // for types to auto-connected, like Clk and Rst
-  trait MagnetId extends Id
-  trait Clk extends MagnetId
-  trait Rst extends MagnetId
+  sealed trait Kind derives CanEqual
+  object Kind:
+    given ReadWriter[Kind] = ReadWriter.merge(
+      summon[ReadWriter[General.type]],
+      summon[ReadWriter[Clk.type]],
+      summon[ReadWriter[Rst.type]],
+      summon[ReadWriter[Magnet.type]]
+    )
+    case object General extends Kind:
+      given ReadWriter[General.type] = macroRW
+    sealed trait Magnet extends Kind
+    case object Clk extends Magnet:
+      given ReadWriter[Clk.type] = macroRW
+    case object Rst extends Magnet:
+      given ReadWriter[Rst.type] = macroRW
+    case object Magnet extends Magnet:
+      given ReadWriter[Magnet.type] = macroRW
+  end Kind
+end DFOpaque
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

@@ -158,7 +158,7 @@ case object AddClkRst extends Stage:
         val opaqueTypeReplacePatches = members.view.flatMap {
           case dfVal: DFVal =>
             dfVal.dfType match
-              case dfType @ DFOpaque(id = _: (DFOpaque.Clk | DFOpaque.Rst)) =>
+              case dfType @ DFOpaque(kind = (DFOpaque.Kind.Clk | DFOpaque.Kind.Rst)) =>
                 Some(
                   dfVal -> Patch.Replace(
                     dfVal.updateDFType(opaqueReplaceMap(dfType)),

@@ -276,7 +276,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         s"${relValStr}.bool"
       case (t, DFOpaque(actualType = ot)) if ot == t =>
         s"${relValStr}.actual"
-      case (_, DFBits(_)) | (DFOpaque(_, _, _), _) =>
+      case (_, DFBits(_)) | (DFOpaque(_, _, _, _), _) =>
         s"${relValStr}.as(${printer.csDFType(toType)})"
       case (DFUInt(tWidthParamRef), DFInt32) =>
         s"""d"${printer.csWidthInterp(tWidthParamRef)}'$${${relValStr}}""""

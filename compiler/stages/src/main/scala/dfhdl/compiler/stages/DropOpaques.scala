@@ -78,15 +78,15 @@ case object DropOpaquesAll extends DropOpaques(_ => true)
 //This stage drops all magnet types
 case object DropMagnets
     extends DropOpaques({
-      case DFOpaque(id = _: DFOpaque.MagnetId) => true
-      case _                                   => false
+      case DFOpaque(kind = _: DFOpaque.Kind.Magnet) => true
+      case _                                        => false
     }):
   override def dependencies: List[Stage] = List(ConnectMagnets)
 
 case object DropUserOpaques
     extends DropOpaques({
-      case DFOpaque(id = _: DFOpaque.MagnetId) => false
-      case _                                   => true
+      case DFOpaque(kind = _: DFOpaque.Kind.Magnet) => false
+      case _                                        => true
     }),
       NoCheckStage:
   override def runCondition(using co: CompilerOptions): Boolean =

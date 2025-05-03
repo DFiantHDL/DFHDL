@@ -509,11 +509,11 @@ object DFVal:
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
     extension (dcl: Dcl)
       def isClkDcl(using MemberGetSet): Boolean = dcl.dfType match
-        case DFOpaque(_, id: DFOpaque.Clk, _) => true
-        case _                                => false
+        case DFOpaque(kind = DFOpaque.Kind.Clk) => true
+        case _                                  => false
       def isRstDcl(using MemberGetSet): Boolean = dcl.dfType match
-        case DFOpaque(_, id: DFOpaque.Rst, _) => true
-        case _                                => false
+        case DFOpaque(kind = DFOpaque.Kind.Rst) => true
+        case _                                  => false
       def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefList match
         case DFRef(dfVal) :: _ => !dfVal.isBubble
         case _                 => false

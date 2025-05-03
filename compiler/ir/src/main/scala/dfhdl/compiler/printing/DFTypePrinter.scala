@@ -30,9 +30,9 @@ trait AbstractTypePrinter extends AbstractPrinter:
         case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
         // skipping unknown clock and reset definitions (they are unknown because
         // they lack additional name suffix that belongs to their configuration)
-        case DFOpaque("Clk", _: DFOpaque.Clk, _) => false
-        case DFOpaque("Rst", _: DFOpaque.Rst, _) => false
-        case _                                   => true
+        case DFOpaque(name = "Clk", kind = DFOpaque.Kind.Clk) => false
+        case DFOpaque(name = "Rst", kind = DFOpaque.Kind.Rst) => false
+        case _                                                => true
       }
       .map(x => printer.csNamedDFTypeDcl(x, global = true))
       .mkString("\n").emptyOr(x => s"$x\n")
@@ -43,9 +43,9 @@ trait AbstractTypePrinter extends AbstractPrinter:
         case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
         // skipping unknown clock and reset definitions (they are unknown because
         // they lack additional name suffix that belongs to their configuration)
-        case DFOpaque("Clk", _: DFOpaque.Clk, _) => false
-        case DFOpaque("Rst", _: DFOpaque.Rst, _) => false
-        case _                                   => true
+        case DFOpaque(name = "Clk", kind = DFOpaque.Kind.Clk) => false
+        case DFOpaque(name = "Rst", kind = DFOpaque.Kind.Rst) => false
+        case _                                                => true
       }
       .map(x => printer.csNamedDFTypeDcl(x, global = false))
       .mkString("\n")
@@ -122,10 +122,10 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     s"${csDFType(cellType, typeCS)} X $dimStr"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     val csActualType = csDFType(dfType.actualType)
-    val extendee = dfType.id match
-      case _: DFOpaque.Clk      => s"Clk"
-      case _: DFOpaque.Rst      => s"Rst"
-      case _: DFOpaque.MagnetId => s"Magnet($csActualType)"
+    val extendee = dfType.kind match
+      case DFOpaque.Kind.Clk    => s"Clk"
+      case DFOpaque.Kind.Rst    => s"Rst"
+      case DFOpaque.Kind.Magnet => s"Magnet($csActualType)"
       case _                    => s"Opaque($csActualType)"
     s"case class ${dfType.getName}() extends $extendee"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName

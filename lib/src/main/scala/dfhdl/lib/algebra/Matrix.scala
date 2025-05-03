@@ -1,5 +1,6 @@
 package dfhdl.lib.algebra
 import dfhdl.*
+import dfhdl.internals.ClassEv
 import scala.annotation.targetName
 //because we define our own `apply` here and still use the dfhdl.apply, we need to export it here
 //to prevent ambiguities. See: https://contributors.scala-lang.org/t/relaxed-extension-methods-sip-54-are-not-relaxed-enough/6585
@@ -15,7 +16,7 @@ abstract class Column[ET <: DFType, RN <: Int & Singleton](
 ) extends Opaque[ET X RN](elemType X rowNum)
 extension [ET <: DFType, RN <: Int & Singleton, CT <: Column[ET, RN]](
     col: CT <> VAL
-)
+)(using ClassEv[CT])
   def colType: CT = col.opaqueType
   def rowNum: RN = colType.rowNum
   def elemType: ET = colType.elemType
@@ -45,7 +46,7 @@ extension [
     RN <: Int & Singleton,
     CT <: Column[ET, RN],
     MT <: Matrix[CN, ET, RN, CT]
-](matrix: MT <> VAL)
+](matrix: MT <> VAL)(using ClassEv[MT])
   def matType: MT = matrix.opaqueType
   @targetName("matColType")
   def colType: CT = matType.colType
