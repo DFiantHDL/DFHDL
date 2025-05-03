@@ -5,6 +5,7 @@ import dfhdl.internals.*
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.reflect.ClassTag
 import scala.util.boundary, boundary.break
+import upickle.default.*
 
 sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives CanEqual:
   type Data
@@ -529,7 +530,7 @@ object DFPhysical:
 
 sealed trait DFTime extends DFPhysical[DFTime.Unit]
 case object DFTime extends DFType.Companion[DFTime, (BigDecimal, DFTime.Unit)] with DFTime:
-  enum Unit extends DFPhysical.Unit:
+  enum Unit extends DFPhysical.Unit derives ReadWriter:
     case hr, min, sec, ms, us, ns, ps, fs
     def to_ps(value: BigDecimal): BigDecimal =
       this match
@@ -544,7 +545,7 @@ case object DFTime extends DFType.Companion[DFTime, (BigDecimal, DFTime.Unit)] w
 
 sealed trait DFFreq extends DFPhysical[DFFreq.Unit]
 case object DFFreq extends DFType.Companion[DFFreq, (BigDecimal, DFFreq.Unit)] with DFFreq:
-  enum Unit extends DFPhysical.Unit:
+  enum Unit extends DFPhysical.Unit derives ReadWriter:
     case Hz, KHz, MHz, GHz
     def to_hz(value: BigDecimal): BigDecimal =
       this match

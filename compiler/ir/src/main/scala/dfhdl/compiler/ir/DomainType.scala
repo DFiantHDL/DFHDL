@@ -1,6 +1,7 @@
 package dfhdl.compiler.ir
+import upickle.default.*
 
-enum DomainType extends HasRefCompare[DomainType] derives CanEqual:
+enum DomainType extends HasRefCompare[DomainType] derives CanEqual, ReadWriter:
   // dataflow domain
   case DF
   // register-transfer domain

@@ -25,7 +25,7 @@ end ConfigN
 
 /** Sets the policy for inclusing the clock or reset signals when they are not needed
   */
-enum ClkRstInclusionPolicy derives CanEqual:
+enum ClkRstInclusionPolicy derives CanEqual, ReadWriter:
   /** Don't include if not needed
     */
   case AsNeeded
@@ -36,24 +36,27 @@ enum ClkRstInclusionPolicy derives CanEqual:
 
 type ClkCfg = ConfigN[ClkCfg.Explicit]
 object ClkCfg:
-  enum Edge derives CanEqual:
+  enum Edge derives CanEqual, ReadWriter:
     case Rising, Falling
 
   type RateData = (BigDecimal, DFFreq.Unit | DFTime.Unit)
+  given ReadWriter[DFFreq.Unit | DFTime.Unit] =
+    ReadWriter.merge(summon[ReadWriter[DFTime.Unit]], summon[ReadWriter[DFFreq.Unit]])
 
   final case class Explicit(
       edge: Edge,
       rate: RateData,
       portName: String,
       inclusionPolicy: ClkRstInclusionPolicy
-  ) derives CanEqual
+  ) derives CanEqual,
+        ReadWriter
 end ClkCfg
 
 type RstCfg = ConfigN[RstCfg.Explicit]
 object RstCfg:
-  enum Mode derives CanEqual:
+  enum Mode derives CanEqual, ReadWriter:
     case Async, Sync
-  enum Active derives CanEqual:
+  enum Active derives CanEqual, ReadWriter:
     case Low, High
 
   final case class Explicit(
@@ -61,10 +64,11 @@ object RstCfg:
       active: Active,
       portName: String,
       inclusionPolicy: ClkRstInclusionPolicy
-  ) derives CanEqual
+  ) derives CanEqual,
+        ReadWriter
 end RstCfg
 
-enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual:
+enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual, ReadWriter:
   case Derived
   case Related(relatedDomainRef: RTDomainCfg.RelatedDomainRef) extends RTDomainCfg
   case Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg) extends RTDomainCfg, NamedGlobal
