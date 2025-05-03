@@ -3,7 +3,6 @@ import dfhdl.compiler.ir
 import dfhdl.compiler.printing.{DefaultPrinter, Printer}
 import dfhdl.internals.*
 import scala.annotation.unchecked.uncheckedVariance
-import ir.DFPhysical.Unit as PhysicalUnit
 import ir.DFVal.Func.Op as FuncOp
 import scala.annotation.targetName
 import scala.annotation.implicitNotFound
@@ -14,37 +13,38 @@ extension (bd: BigDecimal.type)
     case l: Long   => BigDecimal(l)
     case d: Double => BigDecimal(d)
 
-type DFPhysical[+U <: PhysicalUnit] = DFType[ir.DFPhysical, Args1[U @uncheckedVariance]]
+type DFPhysical[U <: ir.DFPhysical.Unit] = DFType[ir.DFPhysical[U], NoArgs]
 object DFPhysical:
-  given [U <: PhysicalUnit](using ValueOf[U]): DFPhysical[U] =
-    ir.DFPhysical(valueOf[U]).asFE[DFPhysical[U]]
+  given DFTime = DFTime
+  given DFFreq = DFFreq
+  given DFNumber = DFNumber
   object Val:
     object Ops:
       extension (lhs: Int | Double)
         def fs(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), PhysicalUnit.Time.Scale.fs), named = true)
+          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.fs), named = true)
         def ps(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), PhysicalUnit.Time.Scale.ps), named = true)
+          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.ps), named = true)
         def ns(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), PhysicalUnit.Time.Scale.ns), named = true)
+          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.ns), named = true)
         def us(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), PhysicalUnit.Time.Scale.us), named = true)
+          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.us), named = true)
         def ms(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), PhysicalUnit.Time.Scale.ms), named = true)
+          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.ms), named = true)
         def sec(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), PhysicalUnit.Time.Scale.sec), named = true)
+          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.sec), named = true)
         def min(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), PhysicalUnit.Time.Scale.min), named = true)
+          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.min), named = true)
         def hr(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), PhysicalUnit.Time.Scale.hr), named = true)
+          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.hr), named = true)
         def Hz(using DFC): DFConstOf[DFFreq] =
-          DFVal.Const(DFFreq, (BigDecimal(lhs), PhysicalUnit.Freq.Scale.Hz), named = true)
+          DFVal.Const(DFFreq, (BigDecimal(lhs), ir.DFFreq.Unit.Hz), named = true)
         def KHz(using DFC): DFConstOf[DFFreq] =
-          DFVal.Const(DFFreq, (BigDecimal(lhs), PhysicalUnit.Freq.Scale.KHz), named = true)
+          DFVal.Const(DFFreq, (BigDecimal(lhs), ir.DFFreq.Unit.KHz), named = true)
         def MHz(using DFC): DFConstOf[DFFreq] =
-          DFVal.Const(DFFreq, (BigDecimal(lhs), PhysicalUnit.Freq.Scale.MHz), named = true)
+          DFVal.Const(DFFreq, (BigDecimal(lhs), ir.DFFreq.Unit.MHz), named = true)
         def GHz(using DFC): DFConstOf[DFFreq] =
-          DFVal.Const(DFFreq, (BigDecimal(lhs), PhysicalUnit.Freq.Scale.GHz), named = true)
+          DFVal.Const(DFFreq, (BigDecimal(lhs), ir.DFFreq.Unit.GHz), named = true)
       end extension
       // extension [U <: PhysicalUnit, LP](lhs: DFValTP[DFPhysical[U], LP])
       //   def +[RP](rhs: DFValTP[DFPhysical[U], RP])(using DFC): DFValTP[DFPhysical[U], LP | RP] =
@@ -83,9 +83,9 @@ object DFPhysical:
   end Val
 end DFPhysical
 
-type DFTime = DFPhysical[PhysicalUnit.Time.type]
+type DFTime = DFPhysical[ir.DFTime.Unit]
 val DFTime = ir.DFTime.asFE[DFTime]
-type DFFreq = DFPhysical[PhysicalUnit.Freq.type]
+type DFFreq = DFPhysical[ir.DFFreq.Unit]
 val DFFreq = ir.DFFreq.asFE[DFFreq]
-type DFNumber = DFPhysical[PhysicalUnit.Number.type]
+type DFNumber = DFPhysical[ir.DFNumber.Unit]
 val DFNumber = ir.DFNumber.asFE[DFNumber]

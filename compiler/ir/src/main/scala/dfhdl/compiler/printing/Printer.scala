@@ -85,7 +85,10 @@ trait Printer
     clkCfg match
       case _: None.type => "None"
       case ClkCfg.Explicit(edge, rate, portName, _) =>
-        s"ClkCfg(${csClkEdgeCfg(edge)}, ${csDFValRef(rate, DFMember.Empty)}, $portName)"
+        val csRate = rate._2 match
+          case _: DFTime.Unit => csDFTimeData(rate.asInstanceOf[(BigDecimal, DFTime.Unit)])
+          case _: DFFreq.Unit => csDFFreqData(rate.asInstanceOf[(BigDecimal, DFFreq.Unit)])
+        s"ClkCfg(${csClkEdgeCfg(edge)}, $csRate, $portName)"
   def csRstModeCfg(mode: RstCfg.Mode): String =
     mode match
       case RstCfg.Mode.Sync  => "RstCfg.Mode.Sync"

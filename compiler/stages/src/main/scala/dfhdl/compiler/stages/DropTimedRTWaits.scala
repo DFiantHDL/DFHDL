@@ -23,7 +23,7 @@ case object DropTimedRTWaits extends Stage:
     val patchList = designDB.members.collect {
       // replace wait statements with time durations to cycles
       case waitMember @ Wait(
-            DFRef(duration @ DFPhysical.Val(DFPhysical(DFPhysical.Unit.Time))),
+            DFRef(duration @ DFTime.Val(_)),
             _,
             _,
             _
@@ -33,15 +33,14 @@ case object DropTimedRTWaits extends Stage:
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement),
           dfhdl.core.DomainType.RT(dfhdl.core.RTDomainCfg.Derived)
         ):
-          val (waitValue: BigDecimal, waitUnit: DFPhysical.Unit.Time.Scale) =
+          val (waitValue: BigDecimal, waitUnit: DFTime.Unit) =
             duration.getConstData.get: @unchecked
           val (RTDomainCfg.Explicit(clkCfg = ClkCfg.Explicit(rate = clkRate))) =
             designDB.explicitRTDomainCfgMap(waitMember.getOwnerDomain): @unchecked
-          val (clkRateValue: BigDecimal, clkRateUnitScale) =
-            clkRate.getConstData.get: @unchecked
+          val (clkRateValue: BigDecimal, clkRateUnitScale) = clkRate: @unchecked
           val clkRatePs = (clkRateUnitScale: @unchecked) match
-            case freq: DFPhysical.Unit.Freq.Scale   => freq.to_ps(clkRateValue)
-            case period: DFPhysical.Unit.Time.Scale => period.to_ps(clkRateValue)
+            case freq: DFFreq.Unit   => freq.to_ps(clkRateValue)
+            case period: DFTime.Unit => period.to_ps(clkRateValue)
           val waitTime = waitUnit.to_ps(waitValue)
           val cycles = (waitTime / clkRatePs).toLong
           cycles.cy.wait(using dfc.setMeta(waitMember.meta))

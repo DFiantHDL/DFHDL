@@ -131,7 +131,13 @@ trait AbstractDataPrinter extends AbstractPrinter:
   def csDFTupleData(dfTypes: List[DFType], data: List[Any]): String
   def csDFUnitData(dfType: DFUnit, data: Unit): String
   def csDFDoubleData(dfType: DFDouble, data: Option[Double]): String
-  def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String
+  def csBigDecimalData(data: BigDecimal): String =
+    data match
+      case bd if bd.isWhole && bd.abs < BigDecimal(1e9) => bd.toBigInt.toString
+      case bd                                           => bd.toString
+  def csDFTimeData(data: (BigDecimal, DFTime.Unit)): String
+  def csDFFreqData(data: (BigDecimal, DFFreq.Unit)): String
+  def csDFNumberData(data: (BigDecimal, DFNumber.Unit)): String
   def csDFStringData(dfType: DFString, data: Option[String]): String
   final def csConstData(dfType: DFType, data: Any): String = (dfType, data) match
     case DFBits.Data(dt, data)      => csDFBitsData(dt, data)
@@ -143,10 +149,12 @@ trait AbstractDataPrinter extends AbstractPrinter:
     case DFOpaque.Data(dt, data)    => csDFOpaqueData(dt, data)
     case DFStruct.Data(dt, data) if dt.isTuple && tupleSupportEnable =>
       csDFTupleData(dt.fieldMap.values.toList, data)
-    case DFStruct.Data(dt, data)   => csDFStructData(dt, data)
-    case DFUnit.Data(dt, data)     => csDFUnitData(dt, data)
-    case DFPhysical.Data(dt, data) => csDFPhysicalData(dt, data)
-    case DFString.Data(dt, data)   => csDFStringData(dt, data)
+    case DFStruct.Data(dt, data) => csDFStructData(dt, data)
+    case DFUnit.Data(dt, data)   => csDFUnitData(dt, data)
+    case DFTime.Data(dt, data)   => csDFTimeData(data)
+    case DFFreq.Data(dt, data)   => csDFFreqData(data)
+    case DFNumber.Data(dt, data) => csDFNumberData(data)
+    case DFString.Data(dt, data) => csDFStringData(dt, data)
     case x =>
       throw new IllegalArgumentException(
         s"Unexpected data found: $x"
@@ -212,11 +220,12 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
     data match
       case Some(value) => value.toString
       case None        => "?"
-  def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String =
-    val formattedValue = data._1 match
-      case bd if bd.isWhole && bd.abs < BigDecimal(1e9) => bd.toBigInt.toString
-      case bd                                           => bd.toString
-    s"$formattedValue.${data._2}"
+  def csDFTimeData(data: (BigDecimal, DFTime.Unit)): String =
+    s"${csBigDecimalData(data._1)}.${data._2}"
+  def csDFFreqData(data: (BigDecimal, DFFreq.Unit)): String =
+    s"${csBigDecimalData(data._1)}.${data._2}"
+  def csDFNumberData(data: (BigDecimal, DFNumber.Unit)): String =
+    csBigDecimalData(data._1)
   def scalaToDFHDLString(str: String): String =
     str.view.map {
       case '\\' => "\\\\"

@@ -516,59 +516,60 @@ case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothin
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
-// DFPhysical
+// DFPhysical - DFTime, DFFreq, DFNumber
 /////////////////////////////////////////////////////////////////////////////
-final case class DFPhysical(unit: DFPhysical.Unit) extends DFUnbounded:
-  //             value    scale
-  type Data = (BigDecimal, Any)
+sealed trait DFPhysical[U <: DFPhysical.Unit] extends DFUnbounded:
+  //             value   unit
+  type Data = (BigDecimal, U)
   def isDataBubble(data: Data): Boolean = false
   def createBubbleData(using MemberGetSet): Data = noTypeErr
 
-object DFPhysical extends DFType.Companion[DFPhysical, (BigDecimal, Any)]:
+object DFPhysical:
   sealed trait Unit extends Product, Serializable derives CanEqual
-  object Unit:
-    case object Time extends Unit:
-      enum Scale derives CanEqual:
-        case hr, min, sec, ms, us, ns, ps, fs
-        def to_ps(value: BigDecimal): BigDecimal =
-          this match
-            case DFPhysical.Unit.Time.Scale.fs  => value / BigDecimal(1000)
-            case DFPhysical.Unit.Time.Scale.ps  => value
-            case DFPhysical.Unit.Time.Scale.ns  => value * BigDecimal(1000)
-            case DFPhysical.Unit.Time.Scale.us  => value * BigDecimal(1000000)
-            case DFPhysical.Unit.Time.Scale.ms  => value * BigDecimal(1000000000)
-            case DFPhysical.Unit.Time.Scale.sec => value * BigDecimal(1000000000000L)
-            case DFPhysical.Unit.Time.Scale.min => value * BigDecimal(60000000000000L)
-            case DFPhysical.Unit.Time.Scale.hr  => value * BigDecimal(3600000000000000L)
 
-    case object Number extends Unit
-    case object Freq extends Unit:
-      enum Scale derives CanEqual:
-        case Hz, KHz, MHz, GHz
-        def to_hz(value: BigDecimal): BigDecimal =
-          this match
-            case DFPhysical.Unit.Freq.Scale.Hz  => value
-            case DFPhysical.Unit.Freq.Scale.KHz => value * BigDecimal(1000)
-            case DFPhysical.Unit.Freq.Scale.MHz => value * BigDecimal(1000000)
-            case DFPhysical.Unit.Freq.Scale.GHz => value * BigDecimal(1000000000)
-        def to_ps(value: BigDecimal): BigDecimal =
-          BigDecimal(1e12) / to_hz(value)
-        def to_period(value: BigDecimal): (BigDecimal, Unit.Time.Scale) =
-          val psVal = to_ps(value)
-          if psVal < BigDecimal(1000) then (psVal, Unit.Time.Scale.ps)
-          else if psVal < BigDecimal(1000000) then (psVal / 1000, Unit.Time.Scale.ns)
-          else if psVal < BigDecimal(1000000000) then (psVal / 1000000, Unit.Time.Scale.us)
-          else if psVal < 1000000000000L then (psVal / 1000000000L, Unit.Time.Scale.ms)
-          else if psVal < 1000000000000000L then (psVal / 1000000000000L, Unit.Time.Scale.sec)
-          else (psVal / 60000000000000L, Unit.Time.Scale.min)
-      end Scale
-    end Freq
+sealed trait DFTime extends DFPhysical[DFTime.Unit]
+case object DFTime extends DFType.Companion[DFTime, (BigDecimal, DFTime.Unit)] with DFTime:
+  enum Unit extends DFPhysical.Unit:
+    case hr, min, sec, ms, us, ns, ps, fs
+    def to_ps(value: BigDecimal): BigDecimal =
+      this match
+        case `fs`  => value / BigDecimal(1000)
+        case `ps`  => value
+        case `ns`  => value * BigDecimal(1000)
+        case `us`  => value * BigDecimal(1000000)
+        case `ms`  => value * BigDecimal(1000000000)
+        case `sec` => value * BigDecimal(1000000000000L)
+        case `min` => value * BigDecimal(60000000000000L)
+        case `hr`  => value * BigDecimal(3600000000000000L)
+
+sealed trait DFFreq extends DFPhysical[DFFreq.Unit]
+case object DFFreq extends DFType.Companion[DFFreq, (BigDecimal, DFFreq.Unit)] with DFFreq:
+  enum Unit extends DFPhysical.Unit:
+    case Hz, KHz, MHz, GHz
+    def to_hz(value: BigDecimal): BigDecimal =
+      this match
+        case Hz  => value
+        case KHz => value * BigDecimal(1000)
+        case MHz => value * BigDecimal(1000000)
+        case GHz => value * BigDecimal(1000000000)
+    def to_ps(value: BigDecimal): BigDecimal =
+      BigDecimal(1e12) / to_hz(value)
+    def to_period(value: BigDecimal): (BigDecimal, DFTime.Unit) =
+      val psVal = to_ps(value)
+      if psVal < BigDecimal(1000) then (psVal, DFTime.Unit.ps)
+      else if psVal < BigDecimal(1000000) then (psVal / 1000, DFTime.Unit.ns)
+      else if psVal < BigDecimal(1000000000) then (psVal / 1000, DFTime.Unit.us)
+      else if psVal < 1000000000000L then (psVal / 1000000000L, DFTime.Unit.ms)
+      else if psVal < 1000000000000000L then (psVal / 1000000000000L, DFTime.Unit.sec)
+      else (psVal / 60000000000000L, DFTime.Unit.min)
   end Unit
-end DFPhysical
+end DFFreq
 
-val DFTime = DFPhysical(DFPhysical.Unit.Time)
-val DFFreq = DFPhysical(DFPhysical.Unit.Freq)
-val DFNumber = DFPhysical(DFPhysical.Unit.Number)
+sealed trait DFNumber extends DFPhysical[DFNumber.Unit]
+case object DFNumber extends DFType.Companion[DFNumber, (BigDecimal, DFNumber.Unit)] with DFNumber:
+  sealed trait Unit extends DFPhysical.Unit
+  case object Unit extends Unit
+
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////

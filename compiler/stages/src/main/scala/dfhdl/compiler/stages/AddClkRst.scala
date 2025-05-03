@@ -112,18 +112,15 @@ case object AddClkRst extends Stage:
                     val dfcAnon = selfDFC.anonymize.setAnnotations(Nil)
                     locally {
                       given DFC = selfDFC.anonymize.setAnnotations(Nil)
-                      val clkRate =
-                        clkCfg.asInstanceOf[ClkCfg.Explicit].rate.getConstData.get.asInstanceOf[
-                          (BigDecimal, DFPhysical.Unit.Freq.Scale | DFPhysical.Unit.Time.Scale)
-                        ]
+                      val clkRate = clkCfg.asInstanceOf[ClkCfg.Explicit].rate
                       val clkActive = clkCfg.asInstanceOf[ClkCfg.Explicit].edge match
                         case ClkCfg.Edge.Rising  => true
                         case ClkCfg.Edge.Falling => false
                       val clkPeriodHalf =
                         clkRate._2 match
-                          case time: DFPhysical.Unit.Time.Scale =>
+                          case time: DFTime.Unit =>
                             (clkRate._1 / 2, time)
-                          case freq: DFPhysical.Unit.Freq.Scale =>
+                          case freq: DFFreq.Unit =>
                             val (period, scale) = freq.to_period(clkRate._1)
                             (period / 2, scale)
                       lazy val rstActive = rstCfg.asInstanceOf[RstCfg.Explicit].active match

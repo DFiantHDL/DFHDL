@@ -835,16 +835,16 @@ final case class DB(
                       |Message:   $msg""".stripMargin
       val ownerDomain = wait.getOwnerDomain
       trigger.getConstData match
-        case Some((waitValue: BigDecimal, waitUnit: DFPhysical.Unit.Time.Scale)) =>
+        case Some((waitValue: BigDecimal, waitUnit: DFTime.Unit)) =>
           // Check if the wait statement is in a domain with a clock rate configuration
           explicitRTDomainCfgMap.get(ownerDomain) match
             case Some(RTDomainCfg.Explicit(_, clkCfg: ClkCfg.Explicit, _)) =>
               // Get the clock period in picoseconds
-              val (clockPeriodPs: BigDecimal, desc: String) = clkCfg.rate.getConstData.get match
-                case (value: BigDecimal, unit: DFPhysical.Unit.Time.Scale) =>
+              val (clockPeriodPs: BigDecimal, desc: String) = clkCfg.rate match
+                case (value: BigDecimal, unit: DFTime.Unit) =>
                   // Direct period specification
                   (unit.to_ps(value), s"period ${value}.${unit}")
-                case (value: BigDecimal, unit: DFPhysical.Unit.Freq.Scale) =>
+                case (value: BigDecimal, unit: DFFreq.Unit) =>
                   // Frequency specification - convert to period
                   (unit.to_ps(value), s"frequency ${value}.${unit}")
               // Get wait duration in picoseconds
