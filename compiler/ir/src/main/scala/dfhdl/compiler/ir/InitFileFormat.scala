@@ -5,13 +5,14 @@ import java.io.FileNotFoundException
 import scala.util.control.Exception._
 import dfhdl.internals.CommonOps.bitsWidth
 import dfhdl.internals.*
+import upickle.default.*
 
-enum InitFileFormat derives CanEqual:
+enum InitFileFormat derives CanEqual, ReadWriter:
   case Auto, VerilogBin, VerilogHex
   // AMDXilinxCOE, IntelAlteraMIF, IntelAlteraHEX
   // LatticeMEM, AMDXilinxMEM
 
-enum InitFileUndefinedValue derives CanEqual:
+enum InitFileUndefinedValue derives CanEqual, ReadWriter:
   case Bubbles, Zeros
 
 object InitFileFormat:
