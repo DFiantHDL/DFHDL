@@ -103,6 +103,15 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
 end DFMember
 
 object DFMember:
+  given ReadWriter[DFMember] = ReadWriter.merge(
+    summon[ReadWriter[DFMember.Empty.type]],
+    summon[ReadWriter[DFVal]],
+    summon[ReadWriter[Statement]],
+    summon[ReadWriter[DFInterfaceOwner]],
+    summon[ReadWriter[DFBlock]],
+    summon[ReadWriter[DFConditional.Header]],
+    summon[ReadWriter[DFRange]]
+  )
   extension (member: DFMember)
     def getTagOf[CT <: DFTag: ClassTag]: Option[CT] =
       member.tags.getTagOf[CT]
@@ -123,6 +132,7 @@ object DFMember:
       case _: DFDomainOwner => Some(false)
       case _                => None
     })
+    def toJson(using Writer[DFMember]): String = write(member)
   end extension
 
   sealed trait Empty extends DFMember:
@@ -136,7 +146,8 @@ object DFMember:
     protected def setTags(tags: DFTags): this.type = this
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs(using RefGen): this.type = this
-  case object Empty extends Empty
+  case object Empty extends Empty:
+    given ReadWriter[Empty.type] = macroRW
 
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
@@ -213,6 +224,15 @@ end DFVal
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
+  given ReadWriter[DFVal] = ReadWriter.merge(
+    summon[ReadWriter[DFVal.Dcl]],
+    summon[ReadWriter[DFVal.OPEN]],
+    summon[ReadWriter[DFVal.Alias]],
+    summon[ReadWriter[DFVal.Const]],
+    summon[ReadWriter[DFVal.DesignParam]],
+    summon[ReadWriter[DFVal.Func]],
+    summon[ReadWriter[DFVal.PortByNameSelect]]
+  )
   final case class Modifier(dir: Modifier.Dir, special: Modifier.Special)
       derives CanEqual,
         ReadWriter:
@@ -355,12 +375,12 @@ object DFVal:
 
   final case class Const(
       dfType: DFType,
-      data: Any,
+      data: Data,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
   ) extends CanBeExpr,
-        CanBeGlobal:
+        CanBeGlobal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = this.isAnonymous
     protected def protGetConstData(using MemberGetSet): Option[Any] = Some(data)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -396,7 +416,7 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends CanBeExpr:
+  ) extends CanBeExpr derives ReadWriter:
     assert(!this.isAnonymous, "Design parameters cannot be anonymous.")
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -434,7 +454,7 @@ object DFVal:
   final case class OPEN(
       dfType: DFType,
       ownerRef: DFOwner.Ref
-  ) extends DFVal:
+  ) extends DFVal derives ReadWriter:
     val meta: Meta = Meta(None, Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
@@ -457,7 +477,7 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends CanBeExpr:
+  ) extends CanBeExpr derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
     protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -482,7 +502,7 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends DFVal:
+  ) extends DFVal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -525,7 +545,7 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends CanBeExpr,
-        CanBeGlobal:
+        CanBeGlobal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
       args.forall(_.get.isFullyAnonymous)
     protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -579,7 +599,7 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends DFVal:
+  ) extends DFVal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -614,6 +634,13 @@ object DFVal:
 
   object Alias:
     type Ref = DFRef.TwoWay[DFVal, Alias]
+    given ReadWriter[Alias] = ReadWriter.merge(
+      summon[ReadWriter[DFVal.Alias.AsIs]],
+      summon[ReadWriter[DFVal.Alias.History]],
+      summon[ReadWriter[DFVal.Alias.ApplyRange]],
+      summon[ReadWriter[DFVal.Alias.ApplyIdx]],
+      summon[ReadWriter[DFVal.Alias.SelectField]]
+    )
     // This is complete alias that consumes its relative val
     sealed trait Consumer extends Alias:
       val relValRef: ConsumerRef
@@ -621,7 +648,7 @@ object DFVal:
 
     // This is a partial alias that can propagate its modifier.
     // E.g., a mutable variable `x` that we select its bit `x(1)` is also mutable.
-    sealed trait Partial extends Alias, CanBeGlobal:
+    sealed trait Partial extends Alias, CanBeGlobal derives ReadWriter:
       val relValRef: PartialRef
     type PartialRef = DFRef.TwoWay[DFVal, Partial]
 
@@ -631,7 +658,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Partial:
+    ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -670,7 +697,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Consumer:
+    ) extends Consumer derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous && initRefOption.map(_.get.isFullyAnonymous).getOrElse(true)
       protected def protGetConstData(using MemberGetSet): Option[Any] = None
@@ -718,7 +745,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Partial:
+    ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -755,7 +782,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Partial:
+    ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous && relIdx.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -818,7 +845,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Partial:
+    ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -861,7 +888,7 @@ final case class DFRange(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFMember:
+) extends DFMember derives ReadWriter:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFRange =>
       this.startRef =~ that.startRef && this.endRef =~ that.endRef && this.stepRef =~ that.stepRef &&
@@ -972,7 +999,7 @@ final case class StepBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFMember.Named:
+      DFMember.Named derives ReadWriter:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: StepBlock =>
       this.meta =~ that.meta && this.tags =~ that.tags
@@ -1036,7 +1063,7 @@ final case class DFInterfaceOwner(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFDomainOwner:
+) extends DFDomainOwner derives ReadWriter:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFInterfaceOwner =>
       this.domainType =~ that.domainType &&
@@ -1052,6 +1079,15 @@ final case class DFInterfaceOwner(
 end DFInterfaceOwner
 
 sealed trait DFBlock extends DFOwner
+object DFBlock:
+  given ReadWriter[DFBlock] = ReadWriter.merge(
+    summon[ReadWriter[ProcessBlock]],
+    summon[ReadWriter[DFConditional.Block]],
+    summon[ReadWriter[DFLoop.Block]],
+    summon[ReadWriter[StepBlock]],
+    summon[ReadWriter[DomainBlock]],
+    summon[ReadWriter[DFDesignBlock]]
+  )
 
 final case class ProcessBlock(
     sensitivity: ProcessBlock.Sensitivity,
@@ -1059,7 +1095,7 @@ final case class ProcessBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFOwnerNamed:
+      DFOwnerNamed derives ReadWriter:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: ProcessBlock =>
       this.sensitivity =~ that.sensitivity &&
@@ -1094,7 +1130,7 @@ object ProcessBlock:
 end ProcessBlock
 
 object DFConditional:
-  sealed trait Block extends DFBlock:
+  sealed trait Block extends DFBlock derives ReadWriter:
     type THeader <: Header
     val guardRef: Block.GuardRef
     val prevBlockOrHeaderRef: Block.Ref
@@ -1102,7 +1138,7 @@ object DFConditional:
     type Ref = DFRef.TwoWay[Block | Header, DFMember]
     type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty, DFMember]
 
-  sealed trait Header extends DFVal.CanBeExpr:
+  sealed trait Header extends DFVal.CanBeExpr derives ReadWriter:
     type TBlock <: Block
 
   final case class DFMatchHeader(
@@ -1111,7 +1147,7 @@ object DFConditional:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends Header:
+  ) extends Header derives ReadWriter:
     type TBlock = DFCaseBlock
     // TODO: if all returned expressions in all blocks and the selector is constant, then
     // the returned result is a fully anonymous
@@ -1302,7 +1338,7 @@ object DFConditional:
 end DFConditional
 
 object DFLoop:
-  sealed trait Block extends DFBlock:
+  sealed trait Block extends DFBlock derives ReadWriter:
     def isCombinational(using MemberGetSet): Boolean = this.hasTagOf[CombinationalTag]
   final case class DFForBlock(
       iteratorRef: DFForBlock.IteratorRef,
@@ -1360,7 +1396,7 @@ final case class DFDesignBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFDomainOwner:
+      DFDomainOwner derives ReadWriter:
   val dclName: String = dclMeta.name
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
@@ -1423,7 +1459,7 @@ final case class DomainBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFDomainOwner:
+      DFDomainOwner derives ReadWriter:
   def flattenMode: dfhdl.hw.flattenMode = meta.annotations.collectFirst {
     case fm: dfhdl.hw.flattenMode => fm
   }.getOrElse(dfhdl.hw.flattenMode.defaultPrefixUnderscore)
