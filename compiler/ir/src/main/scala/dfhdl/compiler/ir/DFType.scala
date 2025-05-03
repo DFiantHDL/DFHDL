@@ -7,6 +7,12 @@ import scala.reflect.ClassTag
 import scala.util.boundary, boundary.break
 import upickle.default.*
 
+given [T](using ReadWriter[T]): ReadWriter[ListMap[String, T]] =
+  readwriter[List[(String, T)]].bimap(
+    _.toList,
+    m => ListMap.from(m)
+  )
+
 sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives CanEqual:
   type Data
   def width(using MemberGetSet): Int
@@ -18,6 +24,22 @@ sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives
   lazy val getRefs: List[DFRef.TypeRef]
 
 object DFType:
+  given ReadWriter[DFType] = ReadWriter.merge(
+    summon[ReadWriter[DFBoolOrBit]],
+    summon[ReadWriter[DFBits]],
+    summon[ReadWriter[DFDecimal]],
+    summon[ReadWriter[DFEnum]],
+    summon[ReadWriter[DFVector]],
+    summon[ReadWriter[DFStruct]],
+    // summon[ReadWriter[DFOpaque]],
+    summon[ReadWriter[DFDouble.type]],
+    summon[ReadWriter[DFString.type]],
+    summon[ReadWriter[DFUnit.type]],
+    summon[ReadWriter[DFNothing.type]],
+    summon[ReadWriter[DFTime.type]],
+    summon[ReadWriter[DFFreq.type]],
+    summon[ReadWriter[DFNumber.type]]
+  )
   type Aux[T <: DFType, Data0] = DFType { type Data = Data0 }
 
   protected[ir] abstract class Companion[T <: DFType, D](using ClassTag[T]):
@@ -77,7 +99,7 @@ end NamedDFTypes
 /////////////////////////////////////////////////////////////////////////////
 // DFBool or DFBit
 /////////////////////////////////////////////////////////////////////////////
-sealed trait DFBoolOrBit extends DFType:
+sealed trait DFBoolOrBit extends DFType derives ReadWriter:
   type Data = Option[Boolean]
   def width(using MemberGetSet): Int = 1
   def createBubbleData(using MemberGetSet): Data = None
@@ -103,7 +125,7 @@ case object DFBit extends DFBoolOrBit
 /////////////////////////////////////////////////////////////////////////////
 // DFBits
 /////////////////////////////////////////////////////////////////////////////
-final case class DFBits(widthParamRef: IntParamRef) extends DFType:
+final case class DFBits(widthParamRef: IntParamRef) extends DFType derives ReadWriter:
   type Data = (BitVector, BitVector)
   def width(using MemberGetSet): Int = widthParamRef.getInt
   def createBubbleData(using MemberGetSet): Data = (BitVector.low(width), BitVector.high(width))
@@ -186,7 +208,7 @@ final case class DFDecimal(
     // currently nativeType only applies when width is 32-bit and is indicating
     // an `Int` in DFHDL, an `integer` in VHDL, and `int` in Verilog
     nativeType: DFDecimal.NativeType
-) extends DFType:
+) extends DFType derives ReadWriter:
   type Data = Option[BigInt]
   def width(using MemberGetSet): Int = widthParamRef.getInt
   def magnitudeWidth(using MemberGetSet): Int = width - fractionWidth
@@ -222,7 +244,7 @@ final case class DFDecimal(
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
-  enum NativeType derives CanEqual:
+  enum NativeType derives CanEqual, ReadWriter:
     case BitAccurate, Int32
   object NativeType:
     type BitAccurate = BitAccurate.type
@@ -262,7 +284,7 @@ final case class DFEnum(
     protected val name: String,
     widthParam: Int,
     entries: ListMap[String, BigInt]
-) extends NamedDFType:
+) extends NamedDFType derives ReadWriter:
   type Data = Option[BigInt]
   def width(using MemberGetSet): Int = widthParam
   def createBubbleData(using MemberGetSet): Data = None
@@ -288,7 +310,7 @@ object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
 final case class DFVector(
     cellType: DFType,
     cellDimParamRefs: List[IntParamRef]
-) extends ComposedDFType:
+) extends ComposedDFType derives ReadWriter:
   type Data = Vector[Any]
   def width(using MemberGetSet): Int = cellType.width * cellDimParamRefs.map(_.getInt).product
   // TODO: change for multidimensional arrays
@@ -382,7 +404,7 @@ final case class DFStruct(
     protected val name: String,
     fieldMap: ListMap[String, DFType]
 ) extends NamedDFType,
-      ComposedDFType:
+      ComposedDFType derives ReadWriter:
   type Data = List[Any]
   def getNameForced: String = name
   def width(using MemberGetSet): Int = fieldMap.values.map(_.width).sum
@@ -474,7 +496,8 @@ sealed trait DFDouble extends DFType:
   def copyWithNewRefs(using RefGen): this.type = this
 end DFDouble
 
-case object DFDouble extends DFType.Companion[DFDouble, Option[Double]] with DFDouble
+case object DFDouble extends DFType.Companion[DFDouble, Option[Double]] with DFDouble:
+  given ReadWriter[DFDouble.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////
 
 sealed trait DFUnbounded extends DFType:
@@ -501,7 +524,8 @@ sealed trait DFUnit extends DFUnbounded:
   def isDataBubble(data: Data): Boolean = noTypeErr
   def createBubbleData(using MemberGetSet): Data = noTypeErr
 
-case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
+case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit:
+  given ReadWriter[DFUnit.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -513,7 +537,8 @@ sealed trait DFNothing extends DFUnbounded:
   type Data = Nothing
   def isDataBubble(data: Data): Boolean = noTypeErr
   def createBubbleData(using MemberGetSet): Data = noTypeErr
-case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing
+case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing:
+  given ReadWriter[DFNothing.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -530,6 +555,7 @@ object DFPhysical:
 
 sealed trait DFTime extends DFPhysical[DFTime.Unit]
 case object DFTime extends DFType.Companion[DFTime, (BigDecimal, DFTime.Unit)] with DFTime:
+  given ReadWriter[DFTime.type] = macroRW
   enum Unit extends DFPhysical.Unit derives ReadWriter:
     case hr, min, sec, ms, us, ns, ps, fs
     def to_ps(value: BigDecimal): BigDecimal =
@@ -545,6 +571,7 @@ case object DFTime extends DFType.Companion[DFTime, (BigDecimal, DFTime.Unit)] w
 
 sealed trait DFFreq extends DFPhysical[DFFreq.Unit]
 case object DFFreq extends DFType.Companion[DFFreq, (BigDecimal, DFFreq.Unit)] with DFFreq:
+  given ReadWriter[DFFreq.type] = macroRW
   enum Unit extends DFPhysical.Unit derives ReadWriter:
     case Hz, KHz, MHz, GHz
     def to_hz(value: BigDecimal): BigDecimal =
@@ -568,6 +595,7 @@ end DFFreq
 
 sealed trait DFNumber extends DFPhysical[DFNumber.Unit]
 case object DFNumber extends DFType.Companion[DFNumber, (BigDecimal, DFNumber.Unit)] with DFNumber:
+  given ReadWriter[DFNumber.type] = macroRW
   sealed trait Unit extends DFPhysical.Unit
   case object Unit extends Unit
 
@@ -580,5 +608,6 @@ sealed trait DFString extends DFUnbounded:
   type Data = Option[String]
   def isDataBubble(data: Data): Boolean = data.isEmpty
   def createBubbleData(using MemberGetSet): Data = None
-case object DFString extends DFType.Companion[DFString, Option[String]] with DFString
+case object DFString extends DFType.Companion[DFString, Option[String]] with DFString:
+  given ReadWriter[DFString.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////
