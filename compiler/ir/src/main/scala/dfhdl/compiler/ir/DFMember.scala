@@ -1,7 +1,7 @@
 package dfhdl.compiler
 package ir
 import dfhdl.internals.*
-
+import upickle.default.*
 import annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.reflect.{ClassTag, classTag}
@@ -213,7 +213,9 @@ end DFVal
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
-  final case class Modifier(dir: Modifier.Dir, special: Modifier.Special) derives CanEqual:
+  final case class Modifier(dir: Modifier.Dir, special: Modifier.Special)
+      derives CanEqual,
+        ReadWriter:
     override def toString(): String =
       special match
         case Modifier.Special.Ordinary => dir.toString()
@@ -225,10 +227,10 @@ object DFVal:
       def isPort: Boolean = mod.dir match
         case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
         case _                                           => false
-    enum Dir derives CanEqual:
+    enum Dir derives CanEqual, ReadWriter:
       case VAR, IN, OUT, INOUT
     export Dir.{VAR, IN, OUT, INOUT}
-    enum Special derives CanEqual:
+    enum Special derives CanEqual, ReadWriter:
       case Ordinary, REG, SHARED
     export Special.{Ordinary, REG, SHARED}
 
@@ -559,7 +561,7 @@ object DFVal:
   end Func
 
   object Func:
-    enum Op derives CanEqual:
+    enum Op derives CanEqual, ReadWriter:
       case +, -, *, /, ===, =!=, <, >, <=, >=, &, |, ^, %, ++
       case >>, <<, **, ror, rol, reverse, repeat
       case unary_-, unary_~, unary_!
@@ -701,7 +703,7 @@ object DFVal:
 
     object History:
       type InitRef = DFRef.TwoWay[DFVal, History]
-      enum Op derives CanEqual:
+      enum Op derives CanEqual, ReadWriter:
         case State // represents either `prev` in DF domain or `reg` in RT domain
         case Pipe // pipe only represents a pipe constraint under DF domain
       extension (history: DFVal.Alias.History)
@@ -879,7 +881,7 @@ end DFRange
 
 object DFRange:
   type Ref = DFRef.TwoWay[DFVal, DFRange]
-  enum Op derives CanEqual:
+  enum Op derives CanEqual, ReadWriter:
     case Until, To
 
 final case class DFNet(
@@ -907,7 +909,7 @@ end DFNet
 
 object DFNet:
   type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner, DFNet]
-  enum Op derives CanEqual:
+  enum Op derives CanEqual, ReadWriter:
     case Assignment, NBAssignment, Connection, ViaConnection, LazyConnection
   extension (net: DFNet)
     def isAssignment = net.op match
@@ -1073,7 +1075,8 @@ final case class ProcessBlock(
 end ProcessBlock
 object ProcessBlock:
   sealed trait Sensitivity extends HasRefCompare[Sensitivity], Product, Serializable
-      derives CanEqual
+      derives CanEqual,
+        ReadWriter
   object Sensitivity:
     case object All extends Sensitivity:
       protected def `prot_=~`(that: Sensitivity)(using MemberGetSet): Boolean = that match
@@ -1162,7 +1165,7 @@ object DFConditional:
   end DFCaseBlock
   object DFCaseBlock:
     type Ref = DFRef.TwoWay[DFCaseBlock | DFMatchHeader, Block]
-    sealed trait Pattern extends HasRefCompare[Pattern] derives CanEqual
+    sealed trait Pattern extends HasRefCompare[Pattern] derives CanEqual, ReadWriter
     object Pattern:
       case object CatchAll extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean = this == that
@@ -1382,7 +1385,7 @@ object DFDesignBlock:
     case BlackBox(args: ListMap[String, Any], verilogSrc: Source, vhdlSrc: Source)
   object InstMode:
     object BlackBox:
-      enum Source derives CanEqual:
+      enum Source derives CanEqual, ReadWriter:
         case NA
         case File(path: String)
         case Library(libName: String, nameSpace: String)
@@ -1565,9 +1568,9 @@ end TextOut
 
 object TextOut:
   type AssertionRef = DFRef.TwoWay[DFVal, TextOut]
-  enum Severity derives CanEqual:
+  enum Severity derives CanEqual, ReadWriter:
     case Info, Warning, Error, Fatal
-  enum Op extends HasRefCompare[Op] derives CanEqual:
+  enum Op extends HasRefCompare[Op] derives CanEqual, ReadWriter:
     case Print, Println, Debug, Finish
     case Report(severity: Severity) extends Op
     case Assert(assertionRef: AssertionRef, severity: Severity) extends Op
