@@ -107,7 +107,7 @@ case object DropBinds extends Stage:
             // If the bind group contains more than one bind, then the rest of the binds are removed and
             // reference the first bind that is stripped from its alias.
             else
-              val aliasIR = headBind.removeTagOf[BindTag.type]
+              val aliasIR = headBind.removeTagOf[BindTag]
               val dropBindTagPatch =
                 headBind -> Patch.Replace(aliasIR, Patch.Replace.Config.FullReplacement)
               dropBindTagPatch :: otherBinds.map(b =>
