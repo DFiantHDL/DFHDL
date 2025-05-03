@@ -37,13 +37,13 @@ object Data:
         case ujson.Arr(ArrayBuffer(ujson.Str("bits"), bitsValue)) =>
           read[(BitVector, BitVector)](bitsValue)
         case ujson.Arr(ArrayBuffer(ujson.Str("decimal"), decimalValue)) =>
-          read[BigInt](decimalValue)
+          Some(read[BigInt](decimalValue))
         case ujson.Arr(ArrayBuffer(ujson.Str("bool"), boolValue)) =>
-          read[Boolean](boolValue)
+          Some(read[Boolean](boolValue))
         case ujson.Arr(ArrayBuffer(ujson.Str("double"), doubleValue)) =>
-          read[Double](doubleValue)
+          Some(read[Double](doubleValue))
         case ujson.Arr(ArrayBuffer(ujson.Str("string"), stringValue)) =>
-          read[String](stringValue)
+          Some(read[String](stringValue))
         case ujson.Arr(ArrayBuffer(ujson.Str("time"), timeValue)) =>
           read[(BigDecimal, DFTime.Unit)](timeValue)
         case ujson.Arr(ArrayBuffer(ujson.Str("freq"), freqValue)) =>

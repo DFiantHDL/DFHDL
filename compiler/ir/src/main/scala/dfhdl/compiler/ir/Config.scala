@@ -14,7 +14,7 @@ object ConfigN:
     value =>
       (value: @unchecked) match
         case None     => ujson.Null
-        case value: T => write(value)
+        case value: T => writeJs(value)
     ,
     json =>
       json match

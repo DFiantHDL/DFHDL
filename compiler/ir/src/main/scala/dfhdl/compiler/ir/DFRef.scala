@@ -106,8 +106,8 @@ object IntParamRef:
   given ReadWriter[IntParamRef] = readwriter[ujson.Value].bimap(
     param =>
       param match
-        case int: Int           => int
-        case ref: DFRef.TypeRef => write(ref)
+        case int: Int           => writeJs(int)
+        case ref: DFRef.TypeRef => writeJs(ref)
     ,
     json =>
       json match
