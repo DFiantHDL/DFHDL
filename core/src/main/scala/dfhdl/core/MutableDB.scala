@@ -222,7 +222,11 @@ final class MutableDB():
     def runFuncWithInputs[V <: DFValAny](func: => V, inputs: List[DFValAny]): (Boolean, V) =
       current.defInputs = inputs
       val currentDesign = OwnershipContext.currentDesign
-      if (currentDesign.dclMeta.annotations.exists { case hw.pure(true) => true })
+      val isPure = currentDesign.dclMeta.annotations.exists {
+        case hw.pure(true) => true
+        case _             => false
+      }
+      if (isPure)
         val key = (currentDesign.dclMeta.position, inputs.map(_.dfType.asIR))
         pureDesignDefOutCache.get(key) match
           case Some(ret) =>
@@ -233,6 +237,7 @@ final class MutableDB():
             pureDesignDefOutCache += key -> ret
             (false, ret)
       else (false, func)
+    end runFuncWithInputs
     def getDefInput(idx: Int): DFValAny =
       current.defInputs(idx)
     def addLoopIter(meta: Meta, iter: DFValAny): Unit =

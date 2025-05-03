@@ -2,7 +2,7 @@ package dfhdl.core
 import dfhdl.internals.*
 import dfhdl.compiler.ir
 import dfhdl.options.ElaborationOptions
-import ir.{HWAnnotation, getActiveHWAnnotations}
+import dfhdl.hw.{HWAnnotation, getActiveHWAnnotations}
 import scala.reflect.ClassTag
 import collection.mutable
 import scala.annotation.Annotation

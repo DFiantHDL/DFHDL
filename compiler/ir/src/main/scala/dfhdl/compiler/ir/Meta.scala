@@ -1,5 +1,6 @@
 package dfhdl.compiler.ir
 import dfhdl.internals.*
+import dfhdl.hw.{HWAnnotation, getActiveHWAnnotations}
 
 import scala.annotation.Annotation
 
