@@ -307,7 +307,7 @@ final class MutableDB():
 
   object GlobalTagContext:
     private[MutableDB] var tags: DFTags = DFTags.empty
-    def set[CT <: DFTag: ClassTag](tag: CT): Unit = tags.tag(tag)
+    def set[CT <: DFTag: ClassTag](tag: CT): Unit = tags = tags.tag(tag)
     def get[CT <: DFTag: ClassTag]: Option[CT] = tags.getTagOf[CT]
   end GlobalTagContext
 
@@ -488,6 +488,7 @@ final class MutableDB():
     def replace[M <: DFMember](originalMember: M)(newMember: M): M =
       replaceMember(originalMember, newMember)
     def remove[M <: DFMember](member: M): M = ignoreMember(member)
+    def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit = GlobalTagContext.set(tag)
     def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = GlobalTagContext.get[CT]
   end getSet
 

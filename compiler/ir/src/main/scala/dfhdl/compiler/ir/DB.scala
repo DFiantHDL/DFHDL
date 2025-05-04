@@ -26,8 +26,10 @@ final case class DB(
       newMemberFunc(originalMember)
     def replace[M <: DFMember](originalMember: M)(newMember: M): M = newMember
     def remove[M <: DFMember](member: M): M = member
-    def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] =
-      globalTags.getTagOf[CT]
+    def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit = throw new Exception(
+      "Cannot set global tag on immutable DB"
+    )
+    def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = globalTags.getTagOf[CT]
   end getSet
 
   // considered to be in simulation if the top design has no ports
@@ -721,7 +723,7 @@ final case class DB(
     private def getExplicitCfg: RTDomainCfg.Explicit =
       domainOwner.domainType match
         case DomainType.RT(explicitCfg: RTDomainCfg.Explicit) => explicitCfg
-        case _ => top.getTagOf[DefaultRTDomainCfgTag].get.cfg
+        case _ => globalTags.getTagOf[DefaultRTDomainCfgTag].get.cfg
     private def usesClkRst: (Boolean, Boolean) = domainOwner match
       case design: DFDesignBlock =>
         designUsesClkRst.getOrElseUpdate(
@@ -1048,6 +1050,7 @@ trait MemberGetSet:
   def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M
   def replace[M <: DFMember](originalMember: M)(newMember: M): M
   def remove[M <: DFMember](member: M): M
+  def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit
   def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT]
 
 def getSet(using MemberGetSet): MemberGetSet = summon[MemberGetSet]

@@ -26,19 +26,13 @@ trait Design extends Container, HasClsMetaArgs:
   ): Unit =
     import dfc.getSet
     val designBlock = owner.asIR
-    // top level is tagged with the default RT Domain configuration
-    // (the top level may be an ED or DF design, so it cannot save the default RT configuration as part
-    // of the domain type, but this could be needed later for compilation stages)
-    val tags =
-      if (designBlock.isTop)
-        designBlock.tags.tag(ir.DefaultRTDomainCfgTag(dfc.elaborationOptions.defaultRTDomainCfg))
-      else designBlock.tags
+    // the default RT Domain configuration is set as a global tag
+    getSet.setGlobalTag(ir.DefaultRTDomainCfgTag(dfc.elaborationOptions.defaultRTDomainCfg))
     setOwner(
       getSet.replace(designBlock)(
         designBlock.copy(
           dclMeta = ir.Meta.gen(Some(name), position, docOpt, annotations),
-          instMode = mkInstMode,
-          tags = tags
+          instMode = mkInstMode
         )
       ).asFE
     )
