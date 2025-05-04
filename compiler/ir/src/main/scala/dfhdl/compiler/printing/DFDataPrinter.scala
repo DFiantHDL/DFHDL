@@ -190,7 +190,7 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
-        s"${dfType.getName}.${entryName}"
+        s"${dfType.name}.${entryName}"
       case None => "?"
   val maxVectorDisplay: Int = 64
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
@@ -203,9 +203,9 @@ protected trait DFDataPrinter extends AbstractDataPrinter:
     end if
   end csDFVectorData
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
-    s"${csConstData(dfType.actualType, data).applyBrackets()}.as(${dfType.getName})"
+    s"${csConstData(dfType.actualType, data).applyBrackets()}.as(${dfType.name})"
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
-    dfType.getName + dfType.fieldMap
+    dfType.name + dfType.fieldMap
       .lazyZip(data)
       .map { case ((n, t), d) =>
         s"$n = ${csConstData(t, d)}"

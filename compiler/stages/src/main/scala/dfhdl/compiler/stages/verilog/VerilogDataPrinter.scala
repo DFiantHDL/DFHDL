@@ -65,7 +65,7 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
         val verilogDefine = if (printer.allowTypeDef) "" else "`"
-        s"$verilogDefine${dfType.getName}_${entryName}"
+        s"$verilogDefine${dfType.name}_${entryName}"
       case None => "?"
   val maxElementsPerLine = 64
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =

@@ -4,7 +4,6 @@ import upickle.default.*
 
 //TODO: check why enum is not working properly
 sealed trait DFTag derives ReadWriter
-case class NameTag(name: String) extends DFTag
 case object DuplicateTag extends DFTag
 type DuplicateTag = DuplicateTag.type
 case object IteratorTag extends DFTag

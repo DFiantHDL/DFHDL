@@ -13,7 +13,6 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     extends Stage:
   def dependencies: List[Stage] = List()
   def nullifies: Set[Stage] = Set()
-  private val nameTag = classTag[NameTag].runtimeClass.getName()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     // conditionally lower cases the name according to the case sensitivity as
     // set by `caseSensitive`
@@ -42,16 +41,15 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     val globalNamedMembers = designDB.membersGlobals.filterNot(_.isAnonymous)
     // reserved names in lower case (if case-insensitive)
     val reservedNamesLC = lowerCases(reservedNames)
-    // global type tagging for unique renamed names
-    val globalTagList = renamer(designDB.getGlobalNamedDFTypes, reservedNamesLC)(
-      _.getName,
-      (e, n) => (e, nameTag) -> NameTag(n)
-    )
+    // global type map for unique renamed names
+    val globalTypeUpdateMap = renamer(designDB.getGlobalNamedDFTypes, reservedNamesLC)(
+      _.name,
+      (e, n) => e -> n
+    ).toMap
     // the global reserved type names, after unique global type renaming
     val globalReservedTypeNames: Set[String] =
-      (designDB.getGlobalNamedDFTypes.map(e => e.getName) ++ globalTagList.map(e =>
-        e._2.name
-      ) ++ designNames ++ reservedNames)
+      (designDB.getGlobalNamedDFTypes.map(e => e.name) ++
+        globalTypeUpdateMap.values ++ designNames ++ reservedNames)
     val globalReservedTypeNamesLC = lowerCases(globalReservedTypeNames)
 
     val localReservedNamesLCMutable = mutable.Set.from[String](reservedNamesLC)
@@ -70,12 +68,12 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
     val localReservedNamesLC = localReservedNamesLCMutable.toSet
 
     // going through all blocks with their own scope for unique names
-    val blockPatchesAndTags = designDB.blockMemberList.map { case (block, members) =>
-      val localTagList = block match
+    val blockPatchesAndTypeUpdates = designDB.blockMemberList.map { case (block, members) =>
+      val localTypeUpdateList = block match
         case design: DFDesignBlock =>
           renamer(designDB.getLocalNamedDFTypes(design), globalReservedTypeNamesLC)(
-            _.getName,
-            (e, n) => (e, nameTag) -> NameTag(n)
+            _.name,
+            (e, n) => e -> n
           )
         case _ => Nil
       val patchList = renamer(
@@ -94,11 +92,38 @@ private abstract class UniqueNames(reservedNames: Set[String], caseSensitive: Bo
         _.getName,
         (m, n) => m -> Patch.Replace(m.setName(n), Patch.Replace.Config.FullReplacement)
       )
-      (patchList, localTagList)
+      (patchList, localTypeUpdateList)
     }.unzip
-    val patchList = globalNamedMemberPatchList ++ blockPatchesAndTags._1.flatten
-    val tagList = blockPatchesAndTags._2.flatten ++ globalTagList
-    designDB.patch(patchList).setGlobalTags(tagList)
+    val memberNamesPatchList = globalNamedMemberPatchList ++ blockPatchesAndTypeUpdates._1.flatten
+    // first patching the member names
+    val firstStep = designDB.patch(memberNamesPatchList)
+    // then patching the member with updated named types
+    locally {
+      given MemberGetSet = firstStep.getSet
+      val typeUpdateMap = globalTypeUpdateMap ++ blockPatchesAndTypeUpdates._2.flatten
+      object ComposedNamedDFTypeReplacement
+          extends ComposedDFTypeReplacement(
+            preCheck = {
+              case dt: NamedDFType => typeUpdateMap.get(dt)
+              case _               => None
+            },
+            updateFunc = { case (dt: NamedDFType, name) => dt.updateName(name) }
+          )
+      val typeNamesPatchList = firstStep.members.flatMap {
+        case dfVal: DFVal =>
+          dfVal.dfType match
+            case ComposedNamedDFTypeReplacement(updatedDFType) =>
+              Some(
+                dfVal -> Patch.Replace(
+                  dfVal.updateDFType(updatedDFType),
+                  Patch.Replace.Config.FullReplacement
+                )
+              )
+            case _ => None
+        case _ => None
+      }
+      firstStep.patch(typeNamesPatchList)
+    }
   end transform
 end UniqueNames
 

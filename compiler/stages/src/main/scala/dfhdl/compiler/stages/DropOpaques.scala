@@ -14,28 +14,14 @@ abstract class DropOpaques(filterPred: DFOpaque => Boolean) extends Stage:
   override def dependencies: List[Stage] = List()
   override def nullifies: Set[Stage] = Set()
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
-    object ComposedOpaqueDFTypeReplacement:
-      def unapply(dfType: DFType): Option[DFType] = dfType match
-        case dt: DFStruct =>
-          val updatedMap = ListMap.from(dt.fieldMap.view.collect {
-            case (name, ComposedOpaqueDFTypeReplacement(dfType)) => (name, dfType)
-          })
-          if (updatedMap.nonEmpty) Some(dt.copy(fieldMap = updatedMap))
-          else None
-        case dt: DFOpaque =>
-          dt.actualType match
-            case ComposedOpaqueDFTypeReplacement(dfType) =>
-              if (filterPred(dt)) Some(dfType)
-              else Some(dt.copy(actualType = dfType))
-            case actualType if filterPred(dt) => Some(actualType)
-            case _                            => None
-        case dt: DFVector =>
-          dt.cellType match
-            case ComposedOpaqueDFTypeReplacement(dfType) => Some(dt.copy(cellType = dfType))
-            case _                                       => None
-        case _ => None
-      end unapply
-    end ComposedOpaqueDFTypeReplacement
+    object ComposedOpaqueDFTypeReplacement
+        extends ComposedDFTypeReplacement(
+          preCheck = {
+            case dt: DFOpaque if filterPred(dt) => Some(())
+            case _                              => None
+          },
+          updateFunc = { case (dt: DFOpaque, _) => dt.actualType }
+        )
     object ComposedOpaqueDFValReplacement:
       def unapply(dfVal: DFVal): Option[DFVal] = dfVal.dfType match
         case ComposedOpaqueDFTypeReplacement(dfType) => Some(dfVal.updateDFType(dfType))

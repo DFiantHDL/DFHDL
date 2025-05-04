@@ -70,7 +70,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
         case DFBool => s"""$csDFVal ? "true" : "false""""
         case dfType: DFEnum =>
           if (printer.allowTypeDef) s"$csDFVal.name()"
-          else s"${dfType.getName}_to_string($csDFVal)"
+          else s"${dfType.name}_to_string($csDFVal)"
         case _ => csDFVal
     val msg =
       textOut.op match

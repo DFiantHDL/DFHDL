@@ -73,7 +73,9 @@ object DFType:
 end DFType
 
 sealed trait ComposedDFType extends DFType
-sealed trait NamedDFType extends DFType, NamedGlobal
+sealed trait NamedDFType extends DFType:
+  val name: String
+  def updateName(newName: String)(using MemberGetSet): this.type
 object NamedDFTypes:
   def unapply(dfVal: DFVal)(using MemberGetSet): Option[ListSet[NamedDFType]] =
     Flatten.unapply(dfVal.dfType)
@@ -281,11 +283,13 @@ final val DFInt32 = ir.DFDecimal(true, ir.IntParamRef(32), 0, Int32)
 // DFEnum
 /////////////////////////////////////////////////////////////////////////////
 final case class DFEnum(
-    protected val name: String,
+    name: String,
     widthParam: Int,
     entries: ListMap[String, BigInt]
 ) extends NamedDFType derives ReadWriter:
   type Data = Option[BigInt]
+  def updateName(newName: String)(using MemberGetSet): this.type =
+    copy(name = newName).asInstanceOf[this.type]
   def width(using MemberGetSet): Int = widthParam
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
@@ -359,13 +363,15 @@ object DFVector extends DFType.Companion[DFVector, Vector[Any]]
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
 final case class DFOpaque(
-    protected val name: String,
+    name: String,
     kind: DFOpaque.Kind,
     id: Int,
     actualType: DFType
 ) extends NamedDFType,
       ComposedDFType derives ReadWriter:
   type Data = Any
+  def updateName(newName: String)(using MemberGetSet): this.type =
+    copy(name = newName).asInstanceOf[this.type]
   def width(using MemberGetSet): Int = actualType.width
   def isMagnet: Boolean = kind match
     case _: DFOpaque.Kind.Magnet => true
@@ -379,12 +385,12 @@ final case class DFOpaque(
     actualType.bitsDataToData(data)
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFOpaque =>
-      this.getName == that.getName && this.id == that.id &&
+      this.name == that.name && this.id == that.id &&
       this.actualType =~ that.actualType
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFOpaque =>
-      this.getName == that.getName && this.id == that.id &&
+      this.name == that.name && this.id == that.id &&
       this.actualType.isSimilarTo(that.actualType)
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = actualType.getRefs
@@ -419,11 +425,13 @@ end DFOpaque
 // DFStruct
 /////////////////////////////////////////////////////////////////////////////
 final case class DFStruct(
-    protected val name: String,
+    name: String,
     fieldMap: ListMap[String, DFType]
 ) extends NamedDFType,
       ComposedDFType derives ReadWriter:
   type Data = List[Any]
+  def updateName(newName: String)(using MemberGetSet): this.type =
+    copy(name = newName).asInstanceOf[this.type]
   def getNameForced: String = name
   def width(using MemberGetSet): Int = fieldMap.values.map(_.width).sum
   def createBubbleData(using MemberGetSet): Data = fieldMap.values.map(_.createBubbleData).toList
@@ -460,14 +468,14 @@ final case class DFStruct(
   def fieldIndex(fieldName: String): Int = fieldIndexes(fieldName)
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFStruct =>
-      this.getName == that.getName &&
+      this.name == that.name &&
       this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
         fnL == fnR && ftL =~ ftR
       }
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFStruct =>
-      this.getName == that.getName &&
+      this.name == that.name &&
       this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
         fnL == fnR && ftL.isSimilarTo(ftR)
       }

@@ -217,7 +217,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
               case structType @ DFStruct(structName, fieldMap) =>
                 if (structType.isTuple) argsInBrackets
                 else
-                  structType.getName +
+                  structType.name +
                     fieldMap
                       .lazyZip(csArgs)
                       .map { case ((n, _), r) =>

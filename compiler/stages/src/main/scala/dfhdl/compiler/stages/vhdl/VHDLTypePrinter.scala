@@ -54,9 +54,9 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
       case dt: DFEnum   => csDFEnumConvFuncsBody(dt)
       case dt: DFStruct => csDFStructConvFuncsBody(dt)
       case dt: DFOpaque => csDFOpaqueConvFuncsBody(dt)
-  def csDFEnumTypeName(dfType: DFEnum): String = s"t_enum_${dfType.getName}"
+  def csDFEnumTypeName(dfType: DFEnum): String = s"t_enum_${dfType.name}"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
-    val enumName = dfType.getName
+    val enumName = dfType.name
     val entries =
       dfType.entries.view
         .map((n, v) => s"${enumName}_$n")
@@ -64,7 +64,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         .hindent
     s"type ${csDFEnumTypeName(dfType)} is (\n$entries\n);"
   def csDFEnumConvFuncsBody(dfType: DFEnum): String =
-    val enumName = dfType.getName
+    val enumName = dfType.name
     val typeName = csDFEnumTypeName(dfType)
     val to_slv_cases = dfType.entries.map((e, v) => s"when ${enumName}_$e => int_val := $v;")
     val from_slv_cases = dfType.entries.map((e, v) => s"when $v => return ${enumName}_$e;")
@@ -341,7 +341,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
             inVector = false
       desc
   end csDFVector
-  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"t_opaque_${dfType.getName}"
+  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"t_opaque_${dfType.name}"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     s"subtype ${csDFOpaqueTypeName(dfType)} is ${csDFType(dfType.actualType)};"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = csDFOpaqueTypeName(dfType)
@@ -351,7 +351,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |begin
         |  return ${printer.csBitsToType(dfType.actualType, "A")};
         |end;""".stripMargin
-  def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.getName}"
+  def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.name}"
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${n} : ${csDFType(t)};")

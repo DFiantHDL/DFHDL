@@ -212,7 +212,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFBit, DFBool)                  => relValStr
       case (DFBool, DFBit)                  => relValStr
       case (toStruct: DFStruct, _: DFBits) =>
-        s"${toStruct.getName}'($relValStr)"
+        s"${toStruct.name}'($relValStr)"
       case (toVector: DFVector, _: DFBits) =>
         def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =
           val vecLength = vectorType.length

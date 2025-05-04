@@ -104,7 +104,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
       case (true, _)  => s"SFix$ob$magnitudeWidth, $fractionWidth$cb"
   def csDFString(dfType: DFString, typeCS: Boolean): String = "String"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
-    val enumName = dfType.getName
+    val enumName = dfType.name
     val entries =
       dfType.entries.view
         .map((n, v) =>
@@ -113,7 +113,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
         .mkString("\n")
         .hindent
     s"enum ${enumName}(val value: ${csDFDecimal(DFUInt(IntParamRef(dfType.width)), true)} <> CONST) extends Encoded.Manual(${dfType.width}):\n$entries"
-  def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
+  def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.name
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
     val dimStr =
@@ -127,16 +127,16 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
       case DFOpaque.Kind.Rst    => s"Rst"
       case DFOpaque.Kind.Magnet => s"Magnet($csActualType)"
       case _                    => s"Opaque($csActualType)"
-    s"case class ${dfType.getName}() extends $extendee"
-  def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
+    s"case class ${dfType.name}() extends $extendee"
+  def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.name
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${n}${csDFValType(t)}")
       .mkString("\n")
       .hindent(2)
-    s"final case class ${dfType.getName}(\n$fields\n) extends Struct"
+    s"final case class ${dfType.name}(\n$fields\n) extends Struct"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
-    dfType.getName
+    dfType.name
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = "Unit"
   def csDFDouble(): String = "Double"
   def csDFTime(dfType: DFTime, typeCS: Boolean): String = "Time"

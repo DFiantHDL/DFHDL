@@ -69,7 +69,7 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
     data match
       case Some(value) =>
         val entryName = dfType.entries.find(_._2 == value).get._1
-        s"${dfType.getName}_${entryName}"
+        s"${dfType.name}_${entryName}"
       case None => "?"
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
     given CanEqual[Any, Any] = CanEqual.derived

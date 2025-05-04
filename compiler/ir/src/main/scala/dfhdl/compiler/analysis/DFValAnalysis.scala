@@ -10,6 +10,7 @@ import scala.annotation.tailrec
 import DFDesignBlock.InstMode
 import scala.util.boundary, boundary.break
 import scala.annotation.targetName
+import scala.collection.immutable.ListMap
 
 object IteratorDcl:
   def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Boolean =
@@ -426,3 +427,46 @@ extension (member: DFMember)
         cb.members(MemberView.Folded).exists(_.consumesCycles)
       case _ => false
 end extension
+
+/** An extractor that transforms a DFType using a provided update function.
+  *
+  * This extractor works in two phases:
+  *   1. It first applies the `preCheck` predicate to determine if the type should be transformed
+  *      and to extract a helper object of type H.
+  *   2. Then it recursively processes any nested types (for structs, vectors, opaques).
+  *   3. Finally, it applies the `updateFunc` to either the original type or the recursively
+  *      processed type, along with the helper object.
+  *
+  * @tparam H
+  *   The type of the helper object produced by preCheck and consumed by updateFunc
+  */
+class ComposedDFTypeReplacement[H](
+    preCheck: DFType => Option[H],
+    updateFunc: PartialFunction[(DFType, H), DFType]
+)(using
+    MemberGetSet
+):
+  Extractor =>
+  def unapply(dfType: DFType): Option[DFType] =
+    val composed = dfType match
+      case dt: DFStruct =>
+        val updatedMap = ListMap.from(dt.fieldMap.view.collect { case (name, Extractor(dfType)) =>
+          (name, dfType)
+        })
+        if (updatedMap.nonEmpty) Some(dt.copy(fieldMap = updatedMap))
+        else None
+      case dt: DFOpaque =>
+        dt.actualType match
+          case Extractor(dfType) => Some(dt.copy(actualType = dfType))
+          case _                 => None
+      case dt: DFVector =>
+        dt.cellType match
+          case Extractor(dfType) => Some(dt.copy(cellType = dfType))
+          case _                 => None
+      case _ => None
+    // if the original type matches the precheck, the extractor will always return some updated value
+    preCheck(dfType) match
+      case Some(helper) => Some(updateFunc(composed.getOrElse(dfType), helper))
+      case None         => composed
+  end unapply
+end ComposedDFTypeReplacement
