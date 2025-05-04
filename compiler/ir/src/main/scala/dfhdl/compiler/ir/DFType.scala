@@ -246,7 +246,7 @@ final case class DFDecimal(
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
-  enum NativeType derives CanEqual, ReadWriter:
+  enum NativeType extends StableEnum derives CanEqual, ReadWriter:
     case BitAccurate, Int32
   object NativeType:
     type BitAccurate = BitAccurate.type
@@ -582,7 +582,7 @@ object DFPhysical:
 sealed trait DFTime extends DFPhysical[DFTime.Unit]
 case object DFTime extends DFType.Companion[DFTime, (BigDecimal, DFTime.Unit)] with DFTime:
   given ReadWriter[DFTime.type] = macroRW
-  enum Unit extends DFPhysical.Unit derives ReadWriter:
+  enum Unit extends DFPhysical.Unit, StableEnum derives ReadWriter:
     case hr, min, sec, ms, us, ns, ps, fs
     def to_ps(value: BigDecimal): BigDecimal =
       this match
@@ -598,7 +598,7 @@ case object DFTime extends DFType.Companion[DFTime, (BigDecimal, DFTime.Unit)] w
 sealed trait DFFreq extends DFPhysical[DFFreq.Unit]
 case object DFFreq extends DFType.Companion[DFFreq, (BigDecimal, DFFreq.Unit)] with DFFreq:
   given ReadWriter[DFFreq.type] = macroRW
-  enum Unit extends DFPhysical.Unit derives ReadWriter:
+  enum Unit extends DFPhysical.Unit, StableEnum derives ReadWriter:
     case Hz, KHz, MHz, GHz
     def to_hz(value: BigDecimal): BigDecimal =
       this match

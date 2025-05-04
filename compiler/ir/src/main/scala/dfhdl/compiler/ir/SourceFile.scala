@@ -1,5 +1,5 @@
 package dfhdl.compiler.ir
-
+import dfhdl.internals.StableEnum
 final case class SourceFile(
     sourceOrigin: SourceOrigin,
     sourceType: SourceType,
@@ -9,14 +9,14 @@ final case class SourceFile(
 
 sealed trait SourceType extends Product with Serializable derives CanEqual
 object SourceType:
-  enum Design extends SourceType:
+  enum Design extends SourceType, StableEnum:
     case Regular
     case BlackBox
     case GlobalDef
     case DFHDLDef
   trait Tool extends SourceType
 
-enum SourceOrigin derives CanEqual:
+enum SourceOrigin extends StableEnum derives CanEqual:
   // Compiled files are a result from a compilation process.
   // These files exist only just in memory until they are committed.
   case Compiled

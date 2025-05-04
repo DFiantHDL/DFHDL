@@ -7,6 +7,7 @@ import scala.annotation.StaticAnnotation
 import dfhdl.internals.HasTypeName
 import scala.annotation.Annotation
 import upickle.default.*
+import dfhdl.internals.StableEnum
 
 sealed abstract class HWAnnotation extends StaticAnnotation, Product, Serializable derives CanEqual:
   val isActive: Boolean
@@ -53,7 +54,7 @@ final case class pure(isActive: Boolean) extends HWAnnotation derives ReadWriter
   *   - prefix: $ownerName$sep$memberName
   *   - suffix: $memberName$sep$ownerName
   */
-enum flattenMode extends HWAnnotation derives CanEqual, ReadWriter:
+enum flattenMode extends HWAnnotation, StableEnum derives CanEqual, ReadWriter:
   case transparent()
   case prefix(sep: String)
   case suffix(sep: String)
