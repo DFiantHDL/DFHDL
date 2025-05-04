@@ -11,7 +11,7 @@ import DFDesignBlock.InstMode
 final case class DB(
     members: List[DFMember],
     refTable: Map[DFRefAny, DFMember],
-    globalTags: Map[(Any, String), DFTag],
+    globalTags: DFTags,
     srcFiles: List[SourceFile]
 ):
   private val self = this
@@ -26,12 +26,8 @@ final case class DB(
       newMemberFunc(originalMember)
     def replace[M <: DFMember](originalMember: M)(newMember: M): M = newMember
     def remove[M <: DFMember](member: M): M = member
-    def setGlobalTag[CT <: DFTag: ClassTag](
-        taggedElement: Any,
-        tag: CT
-    ): Unit = {}
-    def getGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any): Option[CT] =
-      globalTags.get((taggedElement, classTag[CT].runtimeClass.getName())).asInstanceOf[Option[CT]]
+    def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] =
+      globalTags.getTagOf[CT]
   end getSet
 
   // considered to be in simulation if the top design has no ports
@@ -1052,7 +1048,6 @@ trait MemberGetSet:
   def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M
   def replace[M <: DFMember](originalMember: M)(newMember: M): M
   def remove[M <: DFMember](member: M): M
-  def setGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any, tag: CT): Unit
-  def getGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any): Option[CT]
+  def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT]
 
 def getSet(using MemberGetSet): MemberGetSet = summon[MemberGetSet]

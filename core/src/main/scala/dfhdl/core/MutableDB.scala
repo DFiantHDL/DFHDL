@@ -17,7 +17,8 @@ import dfhdl.compiler.ir.{
   MemberGetSet,
   SourceFile,
   MemberView,
-  RTDomainCfg
+  RTDomainCfg,
+  DFTags
 }
 import dfhdl.compiler.analysis.isPublicMember
 
@@ -305,17 +306,9 @@ final class MutableDB():
   end OwnershipContext
 
   object GlobalTagContext:
-    private[MutableDB] val tagMap: mutable.Map[(Any, String), DFTag] =
-      mutable.Map()
-    def set[CT <: DFTag: ClassTag](
-        taggedElement: Any,
-        tag: CT
-    ): Unit =
-      tagMap += ((taggedElement, classTag[CT].runtimeClass.getName()) -> tag)
-    def get[CT <: DFTag: ClassTag](
-        taggedElement: Any
-    ): Option[CT] =
-      tagMap.get((taggedElement, classTag[CT].runtimeClass.getName())).asInstanceOf[Option[CT]]
+    private[MutableDB] var tags: DFTags = DFTags.empty
+    def set[CT <: DFTag: ClassTag](tag: CT): Unit = tags.tag(tag)
+    def get[CT <: DFTag: ClassTag]: Option[CT] = tags.getTagOf[CT]
   end GlobalTagContext
 
   def addMember[M <: DFMember](member: M): M =
@@ -479,7 +472,7 @@ final class MutableDB():
       case m: DFVal.CanBeGlobal => m.copyWithoutGlobalCtx
       case m                    => m
     }
-    val globalTags = GlobalTagContext.tagMap.toMap
+    val globalTags = GlobalTagContext.tags
     val db = DB(membersNoGlobalCtx, refTable, globalTags, Nil)
     memoizedDB = Some(db)
     db
@@ -495,13 +488,7 @@ final class MutableDB():
     def replace[M <: DFMember](originalMember: M)(newMember: M): M =
       replaceMember(originalMember, newMember)
     def remove[M <: DFMember](member: M): M = ignoreMember(member)
-    def setGlobalTag[CT <: DFTag: ClassTag](
-        taggedElement: Any,
-        tag: CT
-    ): Unit = GlobalTagContext.set(taggedElement, tag)
-    def getGlobalTag[CT <: DFTag: ClassTag](
-        taggedElement: Any
-    ): Option[CT] = GlobalTagContext.get(taggedElement)
+    def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = GlobalTagContext.get[CT]
   end getSet
 
 end MutableDB

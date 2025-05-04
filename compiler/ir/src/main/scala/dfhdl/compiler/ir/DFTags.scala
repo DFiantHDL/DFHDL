@@ -36,4 +36,5 @@ object DFTags:
       tags.get(tagName[CT]).asInstanceOf[Option[CT]]
     def hasTagOf[CT <: DFTag: ClassTag]: Boolean =
       tags.contains(tagName[CT])
+    def ++(that: DFTags): DFTags = tags ++ that
 end DFTags
