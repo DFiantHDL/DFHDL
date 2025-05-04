@@ -28,6 +28,8 @@ trait Design extends Container, HasClsMetaArgs:
     val designBlock = owner.asIR
     // the default RT Domain configuration is set as a global tag
     getSet.setGlobalTag(ir.DefaultRTDomainCfgTag(dfc.elaborationOptions.defaultRTDomainCfg))
+    // the DFHDL version is set as a global tag
+    getSet.setGlobalTag(ir.DFHDLVersionTag(dfhdl.dfhdlVersion))
     setOwner(
       getSet.replace(designBlock)(
         designBlock.copy(
