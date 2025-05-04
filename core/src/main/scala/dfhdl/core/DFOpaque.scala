@@ -48,7 +48,11 @@ object DFOpaque:
       case _: Rst       => ir.DFOpaque.Kind.Rst
       case _: Magnet[?] => ir.DFOpaque.Kind.Magnet
       case _            => ir.DFOpaque.Kind.General
-    val id = t.getClass().hashCode()
+    // Generate a stable ID based on the fully qualified class name
+    // This ensures different case classes have different IDs even if they have the same simple name
+    // but are in different packages, and remains stable between runs
+    val fullyQualifiedClassName = t.getClass.getName
+    val id = fullyQualifiedClassName.hashCode
     ir.DFOpaque(
       t.typeName,
       kind,
