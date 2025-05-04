@@ -89,19 +89,19 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     (!summon[LinterOptions].Werror.toBoolean).toFlag("-Wno-fatal")
   )
 
-  override protected[dfhdl] def lintPreprocess[D <: Design](cd: CompiledDesign[D])(using
+  override protected[dfhdl] def lintPreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       ToolOptions
-  ): CompiledDesign[D] =
+  ): CompiledDesign =
     addSourceFiles(
       cd,
       List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
     )
 
-  // override protected[dfhdl] def simulatePreprocess[D <: Design](cd: CompiledDesign[D])(using
+  // override protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
   //     CompilerOptions,
   //     SimulatorOptions
-  // ): CompiledDesign[D] =
+  // ): CompiledDesign =
   //   addSourceFiles(
   //     cd,
   //     List(new VerilatorSimMainPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
@@ -156,9 +156,9 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     )
   end simulateLogger
 
-  override def simulate[D <: Design](
-      cd: CompiledDesign[D]
-  )(using co: CompilerOptions, so: SimulatorOptions): CompiledDesign[D] =
+  override def simulate(
+      cd: CompiledDesign
+  )(using co: CompilerOptions, so: SimulatorOptions): CompiledDesign =
     val ret = super.simulate(cd)
     given MemberGetSet = ret.stagedDB.getSet
     val unixExec =

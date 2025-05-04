@@ -6,9 +6,9 @@ import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.ir.DB
 
 trait BackendCompiler:
-  final def compile[D <: Design](
-      sd: StagedDesign[D]
-  )(using co: CompilerOptions, po: PrinterOptions): CompiledDesign[D] =
+  final def compile(
+      sd: StagedDesign
+  )(using co: CompilerOptions, po: PrinterOptions): CompiledDesign =
     val ret = CompiledDesign(sd.newStage(printer(sd.stagedDB).printedDB))
     if (co.printDFHDLCode)
       println(

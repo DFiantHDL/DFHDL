@@ -1036,8 +1036,16 @@ final case class DB(
 
 end DB
 
-//object DB:
-//end DB
+object DB:
+  extension (db: DB)
+    def toJsonString: String =
+      import upickle.default.*
+      write((db.members, db.refTable))
+  def fromJsonString(json: String): DB =
+    import upickle.default.*
+    val (members, refTable) = read[(List[DFMember], Map[DFRefAny, DFMember])](json)
+    new DB(members, refTable, DFTags.empty, List.empty)
+end DB
 
 enum MemberView derives CanEqual:
   case Folded, Flattened

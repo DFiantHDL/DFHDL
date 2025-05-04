@@ -6,5 +6,5 @@ import dfhdl.options.{CompilerOptions, PrinterOptions}
 import dfhdl.compiler.printing.Printer
 export compiler.stages.printCodeString
 
-extension [D <: Design](dsn: D)
-  def compile(using CompilerOptions, PrinterOptions): CompiledDesign[D] = StagedDesign(dsn).compile
+extension (dsn: Design)
+  def compile(using CompilerOptions, PrinterOptions): CompiledDesign = StagedDesign(dsn).compile

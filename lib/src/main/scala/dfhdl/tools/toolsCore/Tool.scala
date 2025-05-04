@@ -18,10 +18,10 @@ trait Tool:
     if (osName.contains("windows")) windowsBinExec else binExec
   protected def binExec: String
   protected def windowsBinExec: String = s"$binExec.exe"
-  final protected def addSourceFiles[D <: Design](
-      cd: CompiledDesign[D],
+  final protected def addSourceFiles(
+      cd: CompiledDesign,
       sourceFiles: List[SourceFile]
-  )(using CompilerOptions): CompiledDesign[D] =
+  )(using CompilerOptions): CompiledDesign =
     val stagedDB = cd.stagedDB
     cd.newStage(stagedDB.copy(srcFiles = stagedDB.srcFiles ++ sourceFiles)).commit
 
@@ -103,7 +103,7 @@ trait Tool:
   protected def constructCommand(args: String*): String =
     args.filter(_.nonEmpty).mkString(" ")
 
-  final protected def exec[D <: Design](
+  final protected def exec(
       cmd: String,
       prepare: => Unit = (),
       loggerOpt: Option[Tool.ProcessLogger] = None,
@@ -183,13 +183,13 @@ trait VerilogTool extends Tool:
 trait VHDLTool extends Tool
 
 trait Linter extends Tool:
-  protected[dfhdl] def lintPreprocess[D <: Design](cd: CompiledDesign[D])(using
+  protected[dfhdl] def lintPreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       ToolOptions
-  ): CompiledDesign[D] = cd
-  final def lint[D <: Design](
-      cd: CompiledDesign[D]
-  )(using CompilerOptions, ToolOptions): CompiledDesign[D] =
+  ): CompiledDesign = cd
+  final def lint(
+      cd: CompiledDesign
+  )(using CompilerOptions, ToolOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
     exec(lintCmdFlags, lintPrepare(), lintLogger)
     cd
@@ -225,15 +225,15 @@ trait VHDLLinter extends Linter, VHDLTool:
     lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Simulator extends Tool:
-  protected[dfhdl] def simulatePreprocess[D <: Design](cd: CompiledDesign[D])(using
+  protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       SimulatorOptions
-  ): CompiledDesign[D] = cd
+  ): CompiledDesign = cd
   val simRunsLint: Boolean = false
   protected def simRunExec: String = this.runExec
-  def simulate[D <: Design](
-      cd: CompiledDesign[D]
-  )(using CompilerOptions, SimulatorOptions): CompiledDesign[D] =
+  def simulate(
+      cd: CompiledDesign
+  )(using CompilerOptions, SimulatorOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
     if (simRunsLint) this.asInstanceOf[Linter].lint(cd)
     exec(simulateCmdFlags, simulatePrepare(), simulateLogger, simRunExec)
@@ -297,13 +297,13 @@ trait VHDLSimulator extends Simulator, VHDLTool:
     simulateCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Builder extends Tool:
-  protected[dfhdl] def buildPreprocess[D <: Design](cd: CompiledDesign[D])(using
+  protected[dfhdl] def buildPreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       BuilderOptions
-  ): CompiledDesign[D] = cd
-  def build[D <: Design](
-      cd: CompiledDesign[D]
-  )(using CompilerOptions, BuilderOptions): CompiledDesign[D]
+  ): CompiledDesign = cd
+  def build(
+      cd: CompiledDesign
+  )(using CompilerOptions, BuilderOptions): CompiledDesign
 object Builder:
   // default linter will be vivado
   given Builder = dfhdl.tools.builders.vivado

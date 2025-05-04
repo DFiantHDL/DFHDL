@@ -6,18 +6,18 @@ import dfhdl.tools.toolsCore.Builder
 import dfhdl.options.{CompilerOptions, LinterOptions, BuilderOptions, SimulatorOptions}
 import dfhdl.backends
 
-extension [D <: Design](cd: CompiledDesign[D])
+extension (cd: CompiledDesign)
   def lint(using
       co: CompilerOptions,
       lo: LinterOptions
-  ): CompiledDesign[D] =
+  ): CompiledDesign =
     co.backend match
       case _: backends.verilog => lo.verilogLinter.lint(lo.verilogLinter.lintPreprocess(cd))
       case _: backends.vhdl    => lo.vhdlLinter.lint(lo.vhdlLinter.lintPreprocess(cd))
   def simulate(using
       co: CompilerOptions,
       so: SimulatorOptions
-  ): CompiledDesign[D] =
+  ): CompiledDesign =
     val stagedDB = cd.stagedDB
     import stagedDB.getSet
     if (stagedDB.inSimulation)
@@ -31,6 +31,6 @@ extension [D <: Design](cd: CompiledDesign[D])
       )
   end simulate
 
-  def build(using builder: Builder)(using CompilerOptions, BuilderOptions): CompiledDesign[D] =
+  def build(using builder: Builder)(using CompilerOptions, BuilderOptions): CompiledDesign =
     builder.build(builder.buildPreprocess(cd))
 end extension
