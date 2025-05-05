@@ -5,7 +5,7 @@ import dfhdl.compiler.printing.Printer
 import dfhdl.core.Design
 import dfhdl.options.{CompilerOptions, PrinterOptions}
 
-final class StagedDesign private (val stagedDB: ir.DB)
+final class StagedDesign(val stagedDB: ir.DB)
 object StagedDesign:
   def apply(design: Design): StagedDesign = new StagedDesign(design.getDB)
   extension (sd: StagedDesign)

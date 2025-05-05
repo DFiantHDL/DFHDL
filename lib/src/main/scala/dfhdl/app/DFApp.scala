@@ -8,6 +8,8 @@ import org.rogach.scallop.*
 import dfhdl.internals.sbtShellIsRunning
 import scala.util.chaining.scalaUtilChainingOps
 import java.time.Instant
+import dfhdl.compiler.stages.{StagedDesign, CompiledDesign}
+import dfhdl.internals.DiskCache
 
 trait DFApp:
   private val logger = Logger("DFHDL App")
@@ -26,6 +28,7 @@ trait DFApp:
   private var linterOptions: options.LinterOptions = compiletime.uninitialized
   private var simulatorOptions: options.SimulatorOptions = compiletime.uninitialized
   private var appOptions: options.AppOptions = compiletime.uninitialized
+  private var dbCache: DBCache = compiletime.uninitialized
   inline given options.ElaborationOptions = elaborationOptions
   inline given options.CompilerOptions = compilerOptions
   inline given options.PrinterOptions = printerOptions
@@ -63,11 +66,19 @@ trait DFApp:
     designArgs = DesignArgs(argNames, argValues, argDescs)
     appCompileTime = Instant.parse(compileTimeStr)
   end setInitials
+
   final protected def setDsn(d: => core.Design): Unit = dsn = () => d
-  private def elaborate: core.Design =
-    logger.info("Elaborating design...")
-    // the elaboration options are set in the compiler plugin using getElaborationOptions
-    val elaborated = dsn()
+  def elaborateCacheKey =
+    (appCompileTime, dfhdlVersion, elaborationOptions.defaultRTDomainCfg, designArgs)
+  def compileCacheKey =
+    (elaborateCacheKey, compilerOptions.dropUserOpaques, compilerOptions.backend.toString())
+  private def elaborate: StagedDesign =
+    val elaboratedDB = dbCache.getOrElsePutDB("elaborate", elaborateCacheKey) {
+      logger.info("Elaborating design...")
+      // the elaboration options are set in the compiler plugin using getElaborationOptions
+      dsn().getDB
+    }
+    val elaborated = new StagedDesign(elaboratedDB)
     if (elaborationOptions.printDFHDLCode)
       println(
         """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -76,9 +87,14 @@ trait DFApp:
       )
       elaborated.printCodeString
     elaborated
+  end elaborate
 
   private inline def compile =
-    elaborate.tap(_ => logger.info("Compiling design...")).compile
+    val compiledDB = dbCache.getOrElsePutDB("compile", compileCacheKey) {
+      elaborate.tap(_ => logger.info("Compiling design...")).compile.stagedDB
+    }
+    val compiled = new StagedDesign(compiledDB)
+    CompiledDesign(compiled)
 
   private inline def commit =
     compile.tap(_ => logger.info("Committing backend files to disk...")).commit
@@ -231,6 +247,7 @@ trait DFApp:
             )
           case _ =>
         end match
+        dbCache = DBCache(compilerOptions.cachePath(designName))
         // execute command
         parsedCommandLine.mode match
           case help @ Mode.help =>
