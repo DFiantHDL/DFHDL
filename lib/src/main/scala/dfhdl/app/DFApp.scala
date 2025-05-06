@@ -28,7 +28,6 @@ trait DFApp:
   private var linterOptions: options.LinterOptions = compiletime.uninitialized
   private var simulatorOptions: options.SimulatorOptions = compiletime.uninitialized
   private var appOptions: options.AppOptions = compiletime.uninitialized
-  private var dbCache: DBCache = compiletime.uninitialized
   inline given options.ElaborationOptions = elaborationOptions
   inline given options.CompilerOptions = compilerOptions
   inline given options.PrinterOptions = printerOptions
@@ -68,36 +67,52 @@ trait DFApp:
   end setInitials
 
   final protected def setDsn(d: => core.Design): Unit = dsn = () => d
-  def elaborateCacheKey =
-    (appCompileTime, dfhdlVersion, elaborationOptions.defaultRTDomainCfg, designArgs)
-  def compileCacheKey =
-    (elaborateCacheKey, compilerOptions.dropUserOpaques, compilerOptions.backend.toString())
-  private def elaborate: StagedDesign =
-    val elaboratedDB = dbCache.getOrElsePutDB("elaborate", elaborateCacheKey) {
+  def elaborateCacheKey = (
+    appCompileTime,
+    dfhdlVersion,
+    elaborationOptions.defaultRTDomainCfg,
+    designArgs
+  )
+  def compileCacheKey = (
+    elaborationOptions.defaultRTDomainCfg,
+    compilerOptions.dropUserOpaques,
+    compilerOptions.backend.toString()
+  )
+
+  object diskCache extends DiskCache(compilerOptions.cachePath(designName))
+  object elaborate extends diskCache.Step[core.Design, StagedDesign](elaborateCacheKey, dsn):
+    protected def run(from: core.Design): StagedDesign =
       logger.info("Elaborating design...")
-      // the elaboration options are set in the compiler plugin using getElaborationOptions
-      dsn().getDB
-    }
-    val elaborated = new StagedDesign(elaboratedDB)
-    if (elaborationOptions.printDFHDLCode)
-      println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           |The design code after elaboration:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
-      )
-      elaborated.printCodeString
-    elaborated
+      val elaborated = new StagedDesign(from.getDB)
+      if (elaborationOptions.printDFHDLCode)
+        println(
+          """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             |The design code after elaboration:
+             |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+        )
+        elaborated.printCodeString
+      elaborated
+    override protected def logCachedRun(): Unit =
+      logger.info("Loading elaborated design from cache...")
+    protected def valueToCacheStr(value: StagedDesign): String = value.stagedDB.toJsonString
+    protected def cacheStrToValue(str: String): StagedDesign = new StagedDesign(
+      ir.DB.fromJsonString(str)
+    )
   end elaborate
 
-  private inline def compile =
-    val compiledDB = dbCache.getOrElsePutDB("compile", compileCacheKey) {
-      elaborate.tap(_ => logger.info("Compiling design...")).compile.stagedDB
-    }
-    val compiled = new StagedDesign(compiledDB)
-    CompiledDesign(compiled)
+  object compile extends diskCache.Step[StagedDesign, CompiledDesign](compileCacheKey, elaborate):
+    protected def run(elaborate: StagedDesign): CompiledDesign =
+      elaborate.tap(_ => logger.info("Compiling design...")).compile
+    override protected def logCachedRun(): Unit =
+      logger.info("Loading compiled design from cache...")
+    protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString
+    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign(
+      new StagedDesign(ir.DB.fromJsonString(str))
+    )
+  end compile
 
   private inline def commit =
-    compile.tap(_ => logger.info("Committing backend files to disk...")).commit
+    compile().tap(_ => logger.info("Committing backend files to disk...")).commit
 
   private inline def lint =
     commit.tap(_ => logger.info("Running external linter...")).lint
@@ -247,7 +262,7 @@ trait DFApp:
             )
           case _ =>
         end match
-        dbCache = DBCache(compilerOptions.cachePath(designName))
+
         // execute command
         parsedCommandLine.mode match
           case help @ Mode.help =>
@@ -258,8 +273,8 @@ trait DFApp:
               case Some(simulateTool: HelpMode.`simulate-tool`.type) =>
                 listSimulateTools(simulateTool.scan.toOption.get)
               case _ => println(parsedCommandLine.getFullHelpString())
-          case Mode.elaborate => elaborate
-          case Mode.compile   => compile
+          case Mode.elaborate => elaborate()
+          case Mode.compile   => compile()
           case Mode.commit    => commit
           case Mode.lint      => lint
           case Mode.simulate  => simulate
