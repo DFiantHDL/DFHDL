@@ -36,6 +36,7 @@ case object ExplicitNamedVars extends Stage:
           Some(assignDsn.patch)
         case _ => ??? // not possible
       }
+  end extension
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val patchList =
