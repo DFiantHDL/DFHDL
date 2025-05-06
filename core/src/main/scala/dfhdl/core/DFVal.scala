@@ -1145,7 +1145,7 @@ object DFVal extends DFValLP:
         check(step)
         DFVal.Alias.History(dfVal, step, HistoryOp.State, None)
       }
-      inline def prev(using DFDomainOnly, PrevInitCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
+      def prev(using DFDomainOnly, PrevInitCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
       def pipe(
           step: Inlined[S]
       )(using dfOnly: DFDomainOnly, dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] = trydf {
@@ -1158,7 +1158,7 @@ object DFVal extends DFValLP:
           Some(Bubble.constValOf(dfVal.dfType, named = false))
         )
       }
-      inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
+      def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
       def reg(step: Inlined[S])(using
           dfc: DFC,
           rtOnly: RTDomainOnly,
@@ -1177,7 +1177,7 @@ object DFVal extends DFValLP:
         val initOpt = Some(init(dfVal.dfType)(using dfc.anonymize))
         DFVal.Alias.History(dfVal, step, HistoryOp.State, initOpt)
       }
-      inline def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
+      def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
       def width(using DFC): DFConstInt32 = dfVal.widthIntParam.toDFConst
       def widthInt(using DFC): Int = dfVal.widthIntParam.toScalaInt
     end extension
