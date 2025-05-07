@@ -171,7 +171,7 @@ trait Printer
         Some(
           SourceFile(
             SourceOrigin.Compiled,
-            SourceType.Design.DFHDLDef,
+            SourceType.DFHDLDef,
             dfhdlDefsFileName,
             dfhdlSourceContents
           )
@@ -180,7 +180,7 @@ trait Printer
     val globalSourceFile =
       SourceFile(
         SourceOrigin.Compiled,
-        SourceType.Design.GlobalDef,
+        SourceType.GlobalDef,
         globalFileName,
         formatCode(csGlobalFileContent)
       )
@@ -189,8 +189,8 @@ trait Printer
       Some(globalSourceFile),
       designDB.uniqueDesignMemberList.view.map { case (block: DFDesignBlock, _) =>
         val sourceType = block.instMode match
-          case _: DFDesignBlock.InstMode.BlackBox => SourceType.Design.BlackBox
-          case _                                  => SourceType.Design.Regular
+          case _: DFDesignBlock.InstMode.BlackBox => SourceType.BlackBox
+          case _                                  => SourceType.Design
         SourceFile(
           SourceOrigin.Compiled,
           sourceType,
@@ -223,8 +223,8 @@ object Printer:
   def printBackendCode(db: DB)(using po: PrinterOptions): Unit =
     val srcTypeFilter: SourceType => Boolean =
       if (po.showGlobals)
-        srcType => srcType == SourceType.Design.Regular | srcType == SourceType.Design.GlobalDef
-      else srcType => srcType == SourceType.Design.Regular
+        srcType => srcType == SourceType.Design || srcType == SourceType.GlobalDef
+      else srcType => srcType == SourceType.Design
     val srcFiles = db.srcFiles.view.filter(srcFile => srcTypeFilter(srcFile.sourceType))
     srcFiles.foreach {
       case srcFile @ SourceFile(

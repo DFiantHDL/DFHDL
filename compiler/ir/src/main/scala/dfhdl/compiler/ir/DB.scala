@@ -7,13 +7,14 @@ import scala.collection.immutable.{ListMap, ListSet, BitSet}
 import dfhdl.internals.*
 import dfhdl.compiler.printing.{Printer, DefaultPrinter}
 import DFDesignBlock.InstMode
+import upickle.default.*
 
 final case class DB(
     members: List[DFMember],
     refTable: Map[DFRefAny, DFMember],
     globalTags: DFTags,
     srcFiles: List[SourceFile]
-):
+) derives CanEqual, ReadWriter:
   private val self = this
   given getSet: MemberGetSet with
     val designDB: DB = self
@@ -1038,14 +1039,8 @@ end DB
 
 object DB:
   extension (db: DB)
-    def toJsonString: String =
-      import upickle.default.*
-      write((db.members, db.refTable, db.globalTags))
-  def fromJsonString(json: String): DB =
-    import upickle.default.*
-    val (members, refTable, globalTags) =
-      read[(List[DFMember], Map[DFRefAny, DFMember], DFTags)](json)
-    new DB(members, refTable, globalTags, List.empty)
+    def toJsonString: String = write(db)
+  def fromJsonString(json: String): DB = read[DB](json)
 end DB
 
 enum MemberView derives CanEqual:

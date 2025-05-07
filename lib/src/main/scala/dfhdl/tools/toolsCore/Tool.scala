@@ -69,20 +69,24 @@ trait Tool:
     getSet.designDB.srcFiles.collect {
       case SourceFile(
             SourceOrigin.Committed,
-            SourceType.Design.Regular | SourceType.Design.BlackBox,
+            SourceType.Design | SourceType.BlackBox,
             path,
             _
           ) =>
         path.convertWindowsToLinuxPaths
     }
 
-  protected def toolFiles(using getSet: MemberGetSet): List[String] = Nil
+  protected def toolFiles(using getSet: MemberGetSet): List[String] =
+    getSet.designDB.srcFiles.collect {
+      case SourceFile(SourceOrigin.Committed, SourceType.Tool(tn, _), path, _) if tn == toolName =>
+        path.convertWindowsToLinuxPaths
+    }
 
   protected def designDefFiles(using getSet: MemberGetSet): List[String] =
     getSet.designDB.srcFiles.collect {
       case SourceFile(
             SourceOrigin.Committed,
-            SourceType.Design.DFHDLDef | SourceType.Design.GlobalDef,
+            SourceType.DFHDLDef | SourceType.GlobalDef,
             path,
             _
           ) =>
@@ -93,7 +97,7 @@ trait Tool:
     getSet.designDB.srcFiles.collect {
       case SourceFile(
             SourceOrigin.Committed,
-            SourceType.Design.DFHDLDef | SourceType.Design.GlobalDef,
+            SourceType.DFHDLDef | SourceType.GlobalDef,
             path,
             _
           ) =>

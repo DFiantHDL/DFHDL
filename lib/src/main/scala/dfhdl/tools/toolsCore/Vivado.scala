@@ -37,7 +37,7 @@ object Vivado extends Builder:
     cd
 end Vivado
 
-case object VivadoProjectTclConfig extends SourceType.Tool
+val VivadoProjectTclConfig = SourceType.Tool("Vivado", "ProjectTclConfig")
 
 class VivadoProjectTclConfigPrinter(using getSet: MemberGetSet):
   val designDB: DB = getSet.designDB

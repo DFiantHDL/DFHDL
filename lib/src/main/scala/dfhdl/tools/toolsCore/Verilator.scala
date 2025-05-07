@@ -24,12 +24,6 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   override val convertWindowsToLinuxPaths: Boolean = true
   protected def includeFolderFlag: String = "-I"
 
-  override protected def toolFiles(using getSet: MemberGetSet): List[String] =
-    getSet.designDB.srcFiles.collect {
-      case SourceFile(SourceOrigin.Committed, _: VerilatorToolSource, path, _) =>
-        path.convertWindowsToLinuxPaths
-    }
-
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     val language = dialect match
       case VerilogDialect.v95    => "1364-1995"
@@ -187,9 +181,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
 
 end Verilator
 
-sealed trait VerilatorToolSource extends SourceType.Tool
-
-case object VerilatorConfig extends VerilatorToolSource
+val VerilatorConfig = SourceType.Tool("Verilator", "Config")
 
 class VerilatorConfigPrinter(verilatorVersion: String)(using
     getSet: MemberGetSet,
@@ -226,7 +218,7 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
   def lintOffHidden: String = lintOffCommand("VARHIDDEN")
   def lintOffBlackBoxes: String =
     designDB.srcFiles.flatMap {
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.BlackBox, path, _) =>
+      case SourceFile(SourceOrigin.Committed, SourceType.BlackBox, path, _) =>
         val fileNameStr = Paths.get(path).getFileName.toString
         List(
           lintOffCommand(rule = "UNUSEDSIGNAL", file = fileNameStr),
@@ -287,7 +279,7 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
 
 end VerilatorConfigPrinter
 
-case object VerilatorSimMain extends VerilatorToolSource
+// val VerilatorSimMain = SourceType.Tool("Verilator", "SimMain")
 
 // class VerilatorSimMainPrinter(verilatorVersion: String)(using
 //     getSet: MemberGetSet,
