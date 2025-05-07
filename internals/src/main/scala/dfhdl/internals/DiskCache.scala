@@ -1,6 +1,6 @@
 package dfhdl.internals
 
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Paths, Files, Path, StandardCopyOption}
 import java.io.File.separatorChar
 import java.io.FileWriter
 import scala.collection.mutable.ListBuffer
@@ -31,6 +31,7 @@ class DiskCache(val cacheFolderStr: String):
       put(step, suffix, key, v)
       v
     }
+  private val base64Encoder = java.util.Base64.getEncoder
 
   /** A Step represents a cacheable computation step in a processing pipeline.
     *
@@ -75,6 +76,7 @@ class DiskCache(val cacheFolderStr: String):
     protected def cacheStrToValue(str: String): R
     protected def logCachedRun(): Unit = {}
     protected def runAfterValue(value: R): Unit = {}
+    protected def genFiles(value: R): List[String] = Nil
     protected val name: String = typeName
     private lazy val keyHash: String =
       (prevStepOrValue: @unchecked) match
@@ -92,17 +94,53 @@ class DiskCache(val cacheFolderStr: String):
           val dataHash = MurmurHash3.stringHash(calcDataStr).toHexString
           put(name, "hash", keyHash, dataHash)
           dataHash
-    private lazy val getDataValue: R =
+    private lazy val getCachedOrCalcDataValue: R =
       get(name, "data", getDataHash) match
         case Some(dataStr) =>
           logCachedRun()
-          cacheStrToValue(dataStr)
+          val value = cacheStrToValue(dataStr)
+          restoreFiles(value)
+          value
         case None =>
           put(name, "data", getDataHash, calcDataStr)
+          val value = calcDataValue
+          cacheFiles(value)
+          value
+    private def cacheGenFilePath(filePath: String): Path =
+      val filePathBase64 = base64Encoder.encodeToString(filePath.getBytes).replace('=', '_')
+      val suffix = s"${filePathBase64}.file"
+      cacheFolderPath.resolve(cacheFilePath(name, suffix, getDataHash))
+    private def cacheFiles(value: R): Unit =
+      genFiles(value).foreach { filePath =>
+        val file = Paths.get(filePath)
+        Files.copy(file, cacheGenFilePath(filePath), StandardCopyOption.REPLACE_EXISTING)
+      }
+    private def restoreFiles(value: R): Unit =
+      val files = genFiles(value)
+      files.forall { filePath =>
+        val cachedFile = cacheGenFilePath(filePath)
+        if (Files.exists(cachedFile))
+          val file = Paths.get(filePath)
+          Files.createDirectories(file.getParent)
+          // Only copy if the file doesn't exist or has a different modification time
+          if (
+            !Files.exists(file) ||
+            !(Files.getLastModifiedTime(file) equals Files.getLastModifiedTime(cachedFile))
+          )
+            Files.copy(cachedFile, file, StandardCopyOption.REPLACE_EXISTING)
+          true
+        // at least one file cache is missing, so we need to run the value calculation and cache the files
+        else
           calcDataValue
+          cacheFiles(value)
+          false // aborting the restoration, since now new files are cached and ready to use
+        end if
+      }
+    end restoreFiles
+
     // cached run
     final def apply(): R =
-      val value = getDataValue
+      val value = getCachedOrCalcDataValue
       runAfterValue(value)
       value
   end Step

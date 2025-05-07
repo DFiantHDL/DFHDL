@@ -10,6 +10,8 @@ import scala.util.chaining.scalaUtilChainingOps
 import java.time.Instant
 import dfhdl.compiler.stages.{StagedDesign, CompiledDesign}
 import dfhdl.internals.DiskCache
+import dfhdl.compiler.ir.SourceFile
+import java.nio.file.Paths
 
 trait DFApp:
   private val logger = Logger("DFHDL App")
@@ -125,14 +127,28 @@ trait DFApp:
     )
   end compile
 
-  private inline def commit =
-    compile().tap(_ => logger.info("Committing backend files to disk...")).commit
+  object commit
+      extends diskCache.Step[CompiledDesign, CompiledDesign](compile):
+    override protected def genFiles(committed: CompiledDesign): List[String] =
+      committed.stagedDB.srcFiles.collect {
+        case SourceFile(ir.SourceOrigin.Committed, _, path, _) =>
+          Paths.get(compilerOptions.topCommitPath(committed.stagedDB)).resolve(path).toString
+      }
+    protected def run(compiled: CompiledDesign): CompiledDesign =
+      compiled.tap(_ => logger.info("Committing backend files to disk...")).commit
+    override protected def logCachedRun(): Unit =
+      logger.info("Loading committed design from cache...")
+    protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString
+    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign(
+      new StagedDesign(ir.DB.fromJsonString(str))
+    )
+  end commit
 
   private inline def lint =
-    commit.tap(_ => logger.info("Running external linter...")).lint
+    commit().tap(_ => logger.info("Running external linter...")).lint
 
   private inline def simulate =
-    commit.tap(_ => logger.info("Running external simulator...")).simulate
+    commit().tap(_ => logger.info("Running external simulator...")).simulate
 
   private def listBackends: Unit =
     println(
@@ -289,7 +305,7 @@ trait DFApp:
               case _ => println(parsedCommandLine.getFullHelpString())
           case Mode.elaborate => elaborate()
           case Mode.compile   => compile()
-          case Mode.commit    => commit
+          case Mode.commit    => commit()
           case Mode.lint      => lint
           case Mode.simulate  => simulate
     end match
