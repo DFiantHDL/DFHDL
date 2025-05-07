@@ -59,10 +59,13 @@ object DFRef:
         else
           val parts = str.split("_")
           parts(0) match
-            case "TR" => TypeRef(Integer.parseInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
-            case "TW" => TwoWay.Gen(Integer.parseInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
-            case "OW" => OneWay.Gen(Integer.parseInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
-            case _    => throw new IllegalArgumentException(s"Unknown reference format: $str")
+            case "TR" =>
+              TypeRef(Integer.parseUnsignedInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+            case "TW" =>
+              TwoWay.Gen(Integer.parseUnsignedInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+            case "OW" =>
+              OneWay.Gen(Integer.parseUnsignedInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+            case _ => throw new IllegalArgumentException(s"Unknown reference format: $str")
     )
 end DFRef
 
