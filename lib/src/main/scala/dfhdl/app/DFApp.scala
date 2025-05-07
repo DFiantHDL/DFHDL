@@ -67,20 +67,12 @@ trait DFApp:
   end setInitials
 
   final protected def setDsn(d: => core.Design): Unit = dsn = () => d
-  def elaborateCacheKey = (
-    appCompileTime,
-    dfhdlVersion,
-    elaborationOptions.defaultRTDomainCfg,
-    designArgs
-  )
-  def compileCacheKey = (
-    elaborationOptions.defaultRTDomainCfg,
-    compilerOptions.dropUserOpaques,
-    compilerOptions.backend.toString()
-  )
 
   object diskCache extends DiskCache(compilerOptions.cachePath(designName))
-  object elaborate extends diskCache.Step[core.Design, StagedDesign](elaborateCacheKey, dsn):
+  object elaborate
+      extends diskCache.Step[core.Design, StagedDesign](
+        dsn, appCompileTime, dfhdlVersion, elaborationOptions.defaultRTDomainCfg, designArgs
+      ):
     protected def run(from: core.Design): StagedDesign =
       logger.info("Elaborating design...")
       val elaborated = new StagedDesign(from.getDB)
@@ -100,7 +92,13 @@ trait DFApp:
     )
   end elaborate
 
-  object compile extends diskCache.Step[StagedDesign, CompiledDesign](compileCacheKey, elaborate):
+  object compile
+      extends diskCache.Step[StagedDesign, CompiledDesign](
+        elaborate,
+        elaborationOptions.defaultRTDomainCfg,
+        compilerOptions.dropUserOpaques,
+        compilerOptions.backend.toString()
+      ):
     protected def run(elaborate: StagedDesign): CompiledDesign =
       elaborate.tap(_ => logger.info("Compiling design...")).compile
     override protected def logCachedRun(): Unit =
