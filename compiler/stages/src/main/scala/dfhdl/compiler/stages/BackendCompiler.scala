@@ -9,22 +9,7 @@ trait BackendCompiler:
   final def compile(
       sd: StagedDesign
   )(using co: CompilerOptions, po: PrinterOptions): CompiledDesign =
-    val ret = CompiledDesign(sd.newStage(printer(sd.stagedDB).printedDB))
-    if (co.printDFHDLCode)
-      println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           |The design code after compilation:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
-      )
-      ret.printCodeString
-    if (co.printBackendCode)
-      println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           |The generated backend code:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
-      )
-      ret.printBackendCode
-    ret
+    CompiledDesign(sd.newStage(printer(sd.stagedDB).printedDB))
   end compile
   def printer(
       designDB: DB

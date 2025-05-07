@@ -228,10 +228,11 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       .align("[ ]*when [a-zA-Z0-9_.]+[ ]*", "=>", ".*")
   val vhdlKW: Set[String] = reservedKeywords
   val vhdlOps: Set[String] = Set(":=", "<=")
-  val vhdlTypes: Set[String] =
-    Set("std_logic", "std_logic_vector", "integer", "boolean", "natural", "positive", "ieee",
-      "numeric_std", "std_logic_1164", "work", "signed", "unsigned", "'left", "string", "HT", "LF",
-      "CR")
+  val vhdlTypes: Set[String] = Set(
+    "std_logic", "std_logic_vector", "integer", "boolean", "natural", "positive", "ieee",
+    "numeric_std", "std_logic_1164", "work", "signed", "unsigned", "'left", "string", "HT", "LF",
+    "CR"
+  )
   def colorCode(cs: String): String =
     cs
       .colorWords(vhdlKW, keywordColor)

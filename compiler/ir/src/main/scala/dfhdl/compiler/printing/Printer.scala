@@ -145,18 +145,16 @@ trait Printer
   def globalFileName: String
   def csGlobalFileContent: String =
     csGlobalConstIntDcls + csGlobalTypeDcls + csGlobalConstNonIntDcls
-  val alignEnable = printerOptions.align
   def alignCode(cs: String): String
-  val colorEnable = printerOptions.color
   def colorCode(cs: String): String
   import io.AnsiColor._
   val keywordColor: String = s"$BLUE$BOLD"
   val keyword2Color: String = s"$MAGENTA$BOLD"
   val typeColor: String = "\u001B[38;5;94m"
   val commentColor: String = GREEN
-  final def formatCode(cs: String): String =
-    val alignedContents = if (alignEnable) alignCode(cs) else cs
-    if (colorEnable) colorCode(alignedContents) else alignedContents
+  final def formatCode(cs: String, withColor: Boolean = printerOptions.color): String =
+    val alignedContents = if (printerOptions.align) alignCode(cs) else cs
+    if (withColor) colorCode(alignedContents) else alignedContents
   final def csFile(design: DFDesignBlock): String =
     val designDcl = design.instMode match
       case InstMode.Def => csDFDesignDefDcl(design)
@@ -182,7 +180,7 @@ trait Printer
         SourceOrigin.Compiled,
         SourceType.GlobalDef,
         globalFileName,
-        formatCode(csGlobalFileContent)
+        formatCode(csGlobalFileContent, withColor = false)
       )
     val compiledFiles = Iterable(
       dfhdlSourceFile,
@@ -195,7 +193,7 @@ trait Printer
           SourceOrigin.Compiled,
           sourceType,
           designFileName(block.dclName),
-          formatCode(csFile(block))
+          formatCode(csFile(block), withColor = false)
         )
       }
     ).flatten
@@ -255,7 +253,7 @@ object Printer:
           if (Paths.get(filePathStr).isAbsolute) filePathStr
           else Paths.get("hdl").resolve(filePathStr).toString()
         val pw = new FileWriter(commitPathAbs)
-        pw.write(contents.decolor)
+        pw.write(contents)
         pw.close()
         srcFile.copy(sourceOrigin = SourceOrigin.Committed, path = commitPathSaved)
       case other => other
@@ -391,18 +389,21 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
       .align("[ ]*case [a-zA-Z0-9_.]+[ ]*", "=>", ".*")
 
   import io.AnsiColor._
-  val scalaKW: Set[String] =
-    Set("class", "def", "end", "enum", "extends", "new", "object", "val", "if", "else", "match",
-      "case", "final", "for", "while", "until", "to", "by")
-  val dfhdlKW: Set[String] =
-    Set("VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
-      "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
-      "goto", "wait", "assert", "report", "print", "println", "debug", "finish")
+  val scalaKW: Set[String] = Set(
+    "class", "def", "end", "enum", "extends", "new", "object", "val", "if", "else", "match",
+    "case", "final", "for", "while", "until", "to", "by"
+  )
+  val dfhdlKW: Set[String] = Set(
+    "VAR", "REG", "din", "IN", "OUT", "INOUT", "VAL", "DFRET", "CONST", "DFDesign", "RTDesign",
+    "EDDesign", "DFDomain", "RTDomain", "EDDomain", "process", "forever", "all", "init", "step",
+    "goto", "wait", "assert", "report", "print", "println", "debug", "finish"
+  )
   val dfhdlOps: Set[String] = Set("<>", ":=", ":==")
-  val dfhdlTypes: Set[String] =
-    Set("Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encoded", "Struct", "Opaque",
-      "StartAt", "OneHot", "Grey", "Unit", "Time", "Freq", "String", "fs", "ns", "ps", "us", "ms",
-      "sec", "min", "hr", "Hz", "KHz", "MHz", "GHz")
+  val dfhdlTypes: Set[String] = Set(
+    "Bit", "Boolean", "Int", "UInt", "SInt", "Bits", "X", "Encoded", "Struct", "Opaque",
+    "StartAt", "OneHot", "Grey", "Unit", "Time", "Freq", "String", "fs", "ns", "ps", "us", "ms",
+    "sec", "min", "hr", "Hz", "KHz", "MHz", "GHz"
+  )
   def colorCode(cs: String): String =
     cs
       .colorWords(scalaKW, keywordColor)

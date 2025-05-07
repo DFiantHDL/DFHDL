@@ -75,7 +75,8 @@ trait DFApp:
       ):
     protected def run(from: core.Design): StagedDesign =
       logger.info("Elaborating design...")
-      val elaborated = new StagedDesign(from.getDB)
+      new StagedDesign(from.getDB)
+    override protected def runAfterValue(elaborated: StagedDesign): Unit =
       if (elaborationOptions.printDFHDLCode)
         println(
           """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -83,7 +84,6 @@ trait DFApp:
              |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
         )
         elaborated.printCodeString
-      elaborated
     override protected def logCachedRun(): Unit =
       logger.info("Loading elaborated design from cache...")
     protected def valueToCacheStr(value: StagedDesign): String = value.stagedDB.toJsonString
@@ -101,6 +101,22 @@ trait DFApp:
       ):
     protected def run(elaborate: StagedDesign): CompiledDesign =
       elaborate.tap(_ => logger.info("Compiling design...")).compile
+    override protected def runAfterValue(compiled: CompiledDesign): Unit =
+      if (compilerOptions.printDFHDLCode)
+        println(
+          """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             |The design code after compilation:
+             |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+        )
+        compiled.printCodeString
+      if (compilerOptions.printBackendCode)
+        println(
+          """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             |The generated backend code:
+             |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+        )
+        compiled.printBackendCode
+    end runAfterValue
     override protected def logCachedRun(): Unit =
       logger.info("Loading compiled design from cache...")
     protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString

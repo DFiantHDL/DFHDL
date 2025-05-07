@@ -226,15 +226,17 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       // align cases
       .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*:", "", ".*")
 
-  val verilogKW: Set[String] =
-    Set("module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
-      "begin", "end", "case", "default", "endcase", "default_nettype", "include", "inside",
-      "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
-      "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while",
-      "assert", "write", "display", "info", "warning", "error", "fatal")
+  val verilogKW: Set[String] = Set(
+    "module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
+    "begin", "end", "case", "default", "endcase", "default_nettype", "include", "inside",
+    "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
+    "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while",
+    "assert", "write", "display", "info", "warning", "error", "fatal"
+  )
   val verilogOps: Set[String] = Set("=", "<=")
-  val verilogTypes: Set[String] =
-    Set("wire", "reg", "logic", "wire", "signed", "int", "integer", "string")
+  val verilogTypes: Set[String] = Set(
+    "wire", "reg", "logic", "wire", "signed", "int", "integer", "string"
+  )
   def colorCode(cs: String): String =
     cs
       .colorWords(verilogKW, keywordColor)

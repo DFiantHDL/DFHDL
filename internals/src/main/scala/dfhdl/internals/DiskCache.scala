@@ -74,6 +74,7 @@ class DiskCache(val cacheFolderStr: String):
     protected def valueToCacheStr(value: R): String
     protected def cacheStrToValue(str: String): R
     protected def logCachedRun(): Unit = {}
+    protected def runAfterValue(value: R): Unit = {}
     protected val name: String = typeName
     private lazy val keyHash: String =
       (prevStepOrValue: @unchecked) match
@@ -100,6 +101,9 @@ class DiskCache(val cacheFolderStr: String):
           put(name, "data", getDataHash, calcDataStr)
           calcDataValue
     // cached run
-    def apply(): R = getDataValue
+    final def apply(): R =
+      val value = getDataValue
+      runAfterValue(value)
+      value
   end Step
 end DiskCache
