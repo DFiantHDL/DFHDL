@@ -49,9 +49,9 @@ object DFRef:
         ref match
           case TwoWay.Empty          => "TWE"
           case OneWay.Empty          => "OWE"
-          case TypeRef(grpId, id)    => s"TR_${grpId}_${id}"
-          case TwoWay.Gen(grpId, id) => s"TW_${grpId}_${id}"
-          case OneWay.Gen(grpId, id) => s"OW_${grpId}_${id}"
+          case TypeRef(grpId, id)    => s"TR_${grpId.toHexString}_${id}"
+          case TwoWay.Gen(grpId, id) => s"TW_${grpId.toHexString}_${id}"
+          case OneWay.Gen(grpId, id) => s"OW_${grpId.toHexString}_${id}"
       ,
       str =>
         if str == "TWE" then TwoWay.Empty.asInstanceOf[T]
@@ -59,9 +59,9 @@ object DFRef:
         else
           val parts = str.split("_")
           parts(0) match
-            case "TR" => TypeRef(parts(1).toInt, parts(2).toInt).asInstanceOf[T]
-            case "TW" => TwoWay.Gen(parts(1).toInt, parts(2).toInt).asInstanceOf[T]
-            case "OW" => OneWay.Gen(parts(1).toInt, parts(2).toInt).asInstanceOf[T]
+            case "TR" => TypeRef(Integer.parseInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+            case "TW" => TwoWay.Gen(Integer.parseInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+            case "OW" => OneWay.Gen(Integer.parseInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
             case _    => throw new IllegalArgumentException(s"Unknown reference format: $str")
     )
 end DFRef
