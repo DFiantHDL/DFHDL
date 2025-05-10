@@ -38,6 +38,29 @@ trait QuestaSimCommon extends Linter, Simulator:
     val work = new java.io.File(s"${execPath}${separatorChar}work${separatorChar}_info")
     if (!work.exists())
       Process("vlib work", new java.io.File(execPath)).!
+
+  override protected def simRunExec(using MemberGetSet): String =
+    if (osIsWindows) "vsim.exe" else "vsim"
+
+  // we do not cache the work directory because it is too complex,
+  // so we override simulate and always call lint to recompile sources to work
+  override def simulate(cd: CompiledDesign)(using
+      CompilerOptions,
+      SimulatorOptions
+  ): CompiledDesign =
+    val ret = lint(cd)
+    given MemberGetSet = ret.stagedDB.getSet
+    val doCmd = "set NumericStdNoWarnings 1; run -all; quit"
+    val cmd = constructCommand(
+      "-quiet",
+      "-batch",
+      "-do",
+      s"\"${doCmd}\"",
+      topName
+    )
+    exec(cmd = cmd, loggerOpt = simulateLogger, runExec = simRunExec)
+    ret
+  end simulate
 end QuestaSimCommon
 
 object QuestaSimVerilog extends QuestaSimCommon, VerilogLinter, VerilogSimulator:
@@ -51,6 +74,29 @@ object QuestaSimVerilog extends QuestaSimCommon, VerilogLinter, VerilogSimulator
       case VerilogDialect.sv2009 => "-sv09compat"
       case VerilogDialect.sv2012 => "-sv12compat"
       case VerilogDialect.sv2017 => "-sv17compat"
+  override protected def lintCmdPostLangFlags(using
+      CompilerOptions,
+      ToolOptions,
+      MemberGetSet
+  ): String = constructCommand(
+    // suppressing "Design unit ... already exists and will be overwritten. Overwriting a VHDL entity with a Verilog module"
+    "-suppress 13233"
+  )
+  override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =
+    ""
+  override protected def simulateLogger(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): Option[Tool.ProcessLogger] =
+    Some(
+      Tool.ProcessLogger(
+        lineIsWarning = (line: String) => line.startsWith("# ** Warning:"),
+        lineIsSuppressed = (line: String) => false,
+        lineIsErrorOpt =
+          Some((line: String) => line.startsWith("# ** Error:") || line.startsWith("# ** Fatal:"))
+      )
+    )
 end QuestaSimVerilog
 
 object QuestaSimVHDL extends QuestaSimCommon, VHDLLinter, VHDLSimulator:
@@ -70,4 +116,46 @@ object QuestaSimVHDL extends QuestaSimCommon, VHDLLinter, VHDLSimulator:
     // suppressing "Type of expression ... is ambiguous"
     "-suppress 1320"
   )
+  override protected def simulateCmdLanguageFlag(dialect: VHDLDialect): String =
+    ""
+  override protected def simulateLogger(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): Option[Tool.ProcessLogger] =
+    val inVHDL93 =
+      summon[CompilerOptions].backend.asInstanceOf[backends.vhdl].dialect == VHDLDialect.v93
+    var suppressCnt = 0
+    var finishedFalseError = false
+    Some(
+      new Tool.ProcessLogger(
+        lineIsWarning = (line: String) => line.startsWith("# ** Warning:"),
+        lineIsSuppressed = (line: String) =>
+          // VHDL'93 does not have a standard finish, so we detect the DFHDL generated
+          // fatal report and convert it to the same behavior as in VHDL'2008 and later in QuestaSim
+          if (inVHDL93)
+            if (line.endsWith(": Finished successfully (not an error)"))
+              suppressCnt = 4
+              finishedFalseError = true
+              true
+            else if (suppressCnt > 0)
+              suppressCnt -= 1
+              true
+            else if (finishedFalseError && line.startsWith("# Errors:"))
+              // Extract error count and decrease by 1 for the false error
+              val errorPattern = """# Errors: (\d+), Warnings: (\d+)""".r
+              line match
+                case errorPattern(errors, warnings) =>
+                  val correctedErrors = errors.toInt - 1
+                  println(s"# Errors: $correctedErrors, Warnings: $warnings")
+              true
+            else false
+          else false,
+        lineIsErrorOpt =
+          Some((line: String) =>
+            line.startsWith("# ** Error:") || line.startsWith("# ** Failure:")
+          )
+      )
+    )
+  end simulateLogger
 end QuestaSimVHDL

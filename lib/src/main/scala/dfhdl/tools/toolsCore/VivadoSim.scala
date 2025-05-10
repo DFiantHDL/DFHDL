@@ -128,9 +128,7 @@ object VivadoSimVHDL extends VivadoSimCommon, VHDLLinter, VHDLSimulator:
             else false
           else false,
         lineIsErrorOpt =
-          if (inVHDL93)
-            Some((line: String) => line.startsWith("Error:") || line.startsWith("Failure:"))
-          else None
+          Some((line: String) => line.startsWith("Error:") || line.startsWith("Failure:"))
       )
     )
   end simulateLogger
