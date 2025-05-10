@@ -218,7 +218,8 @@ trait Printer
 end Printer
 
 object Printer:
-  def printBackendCode(db: DB)(using po: PrinterOptions): Unit =
+  def printBackendCode(printer: Printer)(using po: PrinterOptions): Unit =
+    val db = printer.getSet.designDB
     val srcTypeFilter: SourceType => Boolean =
       if (po.showGlobals)
         srcType => srcType == SourceType.Design || srcType == SourceType.GlobalDef
@@ -235,7 +236,7 @@ object Printer:
         println(srcFile.sourceOrigin)
         println(path)
         println("=======================================")
-        println(contents)
+        println(printer.formatCode(contents))
         println("")
       case _ =>
     }
