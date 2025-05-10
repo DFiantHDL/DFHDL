@@ -84,16 +84,17 @@ object DFC:
     sealed trait Global extends Scope
     object Global extends Global
     given Global = Global
-    sealed trait Design extends Scope
+    sealed trait Local extends Scope
+    sealed trait Design extends Local
     object Design extends Design
-    sealed trait Domain extends Scope
+    sealed trait Domain extends Local
     object Domain extends Domain
-    sealed trait Process extends Scope:
+    sealed trait Process extends Local:
       // will include the step cache according to the name of the step block
       // (the plugin will make sure that the name is unique)
       private[core] val stepCache = mutable.Map.empty[String, ir.StepBlock]
     object Process extends Process
-    sealed trait Interface extends Scope
+    sealed trait Interface extends Local
     object Interface extends Interface
   end Scope
 end DFC

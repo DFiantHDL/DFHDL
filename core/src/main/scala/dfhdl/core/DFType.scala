@@ -112,8 +112,8 @@ object DFType:
       infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
           dfc: DFC,
           tc: DFType.TC[T],
-          ck: DFC.Scope,
-          @implicitNotFound("Port/Variable declarations cannot be global") dt: DomainType
+          @implicitNotFound("Port/Variable declarations cannot be global") ck: DFC.Scope.Local,
+          dt: DomainType
       ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
         trydf:
           if (modifier.value.isPort)
