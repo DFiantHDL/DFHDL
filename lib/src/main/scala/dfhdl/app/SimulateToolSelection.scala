@@ -28,9 +28,9 @@ object SimulateToolSelection:
           case _           => None
       val toolNames = arg.split("\\/").toList
       val parsedTools = arg match
-        case "questa" | "modelsim" => List(Some(simulators.vlog), Some(simulators.vcom))
-        case "vivado" | "xsim"     => List(Some(simulators.xvlog), Some(simulators.xvhdl))
-        case _                     => toolNames.map(parseTool)
+        case "questa" | "vsim" => List(Some(simulators.vlog), Some(simulators.vcom))
+        case "vivado" | "xsim" => List(Some(simulators.xvlog), Some(simulators.xvhdl))
+        case _                 => toolNames.map(parseTool)
       parsedTools match
         case Some(tool: VerilogSimulator) :: Nil =>
           Right(Some(SimulateToolSelection(tool, so.vhdlSimulator)))

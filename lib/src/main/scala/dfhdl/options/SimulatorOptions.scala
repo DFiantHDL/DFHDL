@@ -49,7 +49,7 @@ object SimulatorOptions:
   opaque type VerilogSimulator <: dfhdl.tools.toolsCore.VerilogSimulator =
     dfhdl.tools.toolsCore.VerilogSimulator
   object VerilogSimulator:
-    export dfhdl.tools.simulators.{verilator, iverilog, vlog, xvlog, questa, modelsim, vivado, xsim}
+    export dfhdl.tools.simulators.{verilator, iverilog, vlog, xvlog, questa, vsim, vivado, xsim}
     given VerilogSimulator = verilator
     given Conversion[dfhdl.tools.toolsCore.VerilogSimulator, VerilogSimulator] = identity
     given Conversion[questa.type, VerilogSimulator] = _ => vlog
@@ -58,7 +58,7 @@ object SimulatorOptions:
   opaque type VHDLSimulator <: dfhdl.tools.toolsCore.VHDLSimulator =
     dfhdl.tools.toolsCore.VHDLSimulator
   object VHDLSimulator:
-    export dfhdl.tools.simulators.{ghdl, nvc, vcom, xvhdl, questa, modelsim, vivado, xsim}
+    export dfhdl.tools.simulators.{ghdl, nvc, vcom, xvhdl, questa, vsim, vivado, xsim}
     given VHDLSimulator = ghdl
     given Conversion[dfhdl.tools.toolsCore.VHDLSimulator, VHDLSimulator] = identity
     given Conversion[questa.type, VHDLSimulator] = _ => vcom

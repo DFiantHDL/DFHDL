@@ -231,16 +231,16 @@ trait DFApp:
           |-t vivado        - Set both Verilog and VHDL linters to Vivado Simulator
           |
           |Selectable Verilog/SystemVerilog linting tools:
-          |verilator            - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
-          |iverilog             - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
-          |vlog|questa|modelsim - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
-          |xvlog|vivado|xsim    - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvlog)}
+          |verilator         - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
+          |iverilog          - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
+          |vlog|questa|vsim  - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
+          |xvlog|vivado|xsim - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvlog)}
           |
           |Selectable VHDL linting tools:
-          |ghdl                 - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
-          |nvc                  - NVC                 ${scanned(dfhdl.tools.linters.nvc)}
-          |vcom|questa|modelsim - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}
-          |xvhdl|vivado|xsim    - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvhdl)}
+          |ghdl              - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
+          |nvc               - NVC                 ${scanned(dfhdl.tools.linters.nvc)}
+          |vcom|questa|vsim  - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}
+          |xvhdl|vivado|xsim - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvhdl)}
           |""".stripMargin
     )
   end listLintTools

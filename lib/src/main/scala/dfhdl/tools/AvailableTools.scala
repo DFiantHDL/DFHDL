@@ -11,7 +11,7 @@ object linters:
   val vcom = QuestaSimVHDL
   val xvhdl = VivadoSimVHDL
   object questa
-  final val modelsim = questa
+  final val vsim = questa
   object vivado
   final val xsim = vivado
 
@@ -25,7 +25,7 @@ object simulators:
   val vcom = QuestaSimVHDL
   val xvhdl = VivadoSimVHDL
   object questa
-  final val modelsim = questa
+  final val vsim = questa
   object vivado
   final val xsim = vivado
 
