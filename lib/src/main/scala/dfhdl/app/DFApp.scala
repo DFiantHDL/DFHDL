@@ -153,7 +153,13 @@ trait DFApp:
   end lint
 
   object simPrep
-      extends diskCache.Step[CompiledDesign, CompiledDesign](commit, hasGenFiles = true)():
+      extends diskCache.Step[CompiledDesign, CompiledDesign](
+        commit,
+        hasGenFiles = true
+      )(
+        simulatorOptions.getTool.toString,
+        simulatorOptions.getTool.installedVersion
+      ):
     override protected def genFiles(committed: CompiledDesign): List[String] =
       simulatorOptions.getTool.producedFiles(using committed.stagedDB.getSet).map { path =>
         Paths.get(compilerOptions.topCommitPath(committed.stagedDB)).resolve(path).toString
