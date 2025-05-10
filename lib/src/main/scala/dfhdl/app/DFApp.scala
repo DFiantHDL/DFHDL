@@ -227,18 +227,21 @@ trait DFApp:
           |-t verilator     - Set the Verilog linter to Verilator (VHDL linter remains default)
           |-t nvc           - Set the VHDL linter to NVC (Verilog linter remains default)
           |-t iverilog/ghdl - Set both Verilog and VHDL linters
+          |-t questa        - Set both Verilog and VHDL linters to QuestaSim/ModelSim
+          |-t vivado        - Set both Verilog and VHDL linters to Vivado Simulator
           |
           |Selectable Verilog/SystemVerilog linting tools:
-          |verilator - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
-          |iverilog  - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
-          |vlog      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
-          |xvlog     - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvlog)}
+          |verilator            - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
+          |iverilog             - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
+          |vlog|questa|modelsim - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
+          |xvlog|vivado|xsim    - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvlog)}
           |
           |Selectable VHDL linting tools:
-          |ghdl      - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
-          |nvc       - NVC                 ${scanned(dfhdl.tools.linters.nvc)}
-          |vcom      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}
-          |xvhdl     - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvhdl)}""".stripMargin
+          |ghdl                 - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
+          |nvc                  - NVC                 ${scanned(dfhdl.tools.linters.nvc)}
+          |vcom|questa|modelsim - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}
+          |xvhdl|vivado|xsim    - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvhdl)}
+          |""".stripMargin
     )
   end listLintTools
   private def listSimulateTools(scan: Boolean): Unit =
@@ -258,18 +261,21 @@ trait DFApp:
           |-t verilator     - Set the Verilog simulator to Verilator (VHDL simulator remains default)
           |-t nvc           - Set the VHDL simulator to NVC (Verilog simulator remains default)
           |-t iverilog/ghdl - Set both Verilog and VHDL simulators
+          |-t questa        - Set both Verilog and VHDL simulators to QuestaSim/ModelSim
+          |-t vivado        - Set both Verilog and VHDL simulators to Vivado Simulator
           |
           |Selectable Verilog/SystemVerilog simulation tools:
-          |verilator - Verilator (default) ${scanned(dfhdl.tools.simulators.verilator)}
-          |iverilog  - Icarus Verilog      ${scanned(dfhdl.tools.simulators.iverilog)}
-          |vlog      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vlog)}
-          |xvlog     - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvlog)}
+          |verilator            - Verilator (default) ${scanned(dfhdl.tools.simulators.verilator)}
+          |iverilog             - Icarus Verilog      ${scanned(dfhdl.tools.simulators.iverilog)}
+          |vlog|questa|modelsim - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vlog)}
+          |xvlog|vivado|xsim    - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvlog)}
           |
           |Selectable VHDL simulation tools:
-          |ghdl      - GHDL (default)      ${scanned(dfhdl.tools.simulators.ghdl)}
-          |nvc       - NVC                 ${scanned(dfhdl.tools.simulators.nvc)}
-          |vcom      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vcom)}
-          |xvhdl     - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvhdl)}""".stripMargin
+          |ghdl                 - GHDL (default)      ${scanned(dfhdl.tools.simulators.ghdl)}
+          |nvc                  - NVC                 ${scanned(dfhdl.tools.simulators.nvc)}
+          |vcom|questa|modelsim - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vcom)}
+          |xvhdl|vivado|xsim    - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvhdl)}
+          |""".stripMargin
     )
   end listSimulateTools
 

@@ -49,16 +49,20 @@ object SimulatorOptions:
   opaque type VerilogSimulator <: dfhdl.tools.toolsCore.VerilogSimulator =
     dfhdl.tools.toolsCore.VerilogSimulator
   object VerilogSimulator:
-    export dfhdl.tools.simulators.{verilator, iverilog, vlog, xvlog}
+    export dfhdl.tools.simulators.{verilator, iverilog, vlog, xvlog, questa, modelsim, vivado, xsim}
     given VerilogSimulator = verilator
     given Conversion[dfhdl.tools.toolsCore.VerilogSimulator, VerilogSimulator] = identity
+    given Conversion[questa.type, VerilogSimulator] = _ => vlog
+    given Conversion[vivado.type, VerilogSimulator] = _ => xvlog
 
   opaque type VHDLSimulator <: dfhdl.tools.toolsCore.VHDLSimulator =
     dfhdl.tools.toolsCore.VHDLSimulator
   object VHDLSimulator:
-    export dfhdl.tools.simulators.{ghdl, nvc, vcom, xvhdl}
+    export dfhdl.tools.simulators.{ghdl, nvc, vcom, xvhdl, questa, modelsim, vivado, xsim}
     given VHDLSimulator = ghdl
     given Conversion[dfhdl.tools.toolsCore.VHDLSimulator, VHDLSimulator] = identity
+    given Conversion[questa.type, VHDLSimulator] = _ => vcom
+    given Conversion[vivado.type, VHDLSimulator] = _ => xvhdl
 
   opaque type RunLimit <: (Duration | None.type) = (Duration | None.type)
   object RunLimit:

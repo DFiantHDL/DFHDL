@@ -1,6 +1,7 @@
 package dfhdl.app
 import dfhdl.options.SimulatorOptions
 import dfhdl.tools.toolsCore.{VerilogSimulator, VHDLSimulator}
+import dfhdl.tools.simulators
 
 final case class SimulateToolSelection(
     verilogSimulator: VerilogSimulator,
@@ -16,17 +17,21 @@ object SimulateToolSelection:
     ): Either[String, Option[SimulateToolSelection]] =
       def parseTool(toolName: String): Option[dfhdl.tools.toolsCore.Simulator] =
         toolName match
-          case "verilator" => Some(dfhdl.tools.simulators.verilator)
-          case "iverilog"  => Some(dfhdl.tools.simulators.iverilog)
-          case "vlog"      => Some(dfhdl.tools.simulators.vlog)
-          case "xvlog"     => Some(dfhdl.tools.simulators.xvlog)
-          case "ghdl"      => Some(dfhdl.tools.simulators.ghdl)
-          case "nvc"       => Some(dfhdl.tools.simulators.nvc)
-          case "vcom"      => Some(dfhdl.tools.simulators.vcom)
-          case "xvhdl"     => Some(dfhdl.tools.simulators.xvhdl)
+          case "verilator" => Some(simulators.verilator)
+          case "iverilog"  => Some(simulators.iverilog)
+          case "vlog"      => Some(simulators.vlog)
+          case "xvlog"     => Some(simulators.xvlog)
+          case "ghdl"      => Some(simulators.ghdl)
+          case "nvc"       => Some(simulators.nvc)
+          case "vcom"      => Some(simulators.vcom)
+          case "xvhdl"     => Some(simulators.xvhdl)
           case _           => None
       val toolNames = arg.split("\\/").toList
-      toolNames.map(parseTool) match
+      val parsedTools = arg match
+        case "questa" | "modelsim" => List(Some(simulators.vlog), Some(simulators.vcom))
+        case "vivado" | "xsim"     => List(Some(simulators.xvlog), Some(simulators.xvhdl))
+        case _                     => toolNames.map(parseTool)
+      parsedTools match
         case Some(tool: VerilogSimulator) :: Nil =>
           Right(Some(SimulateToolSelection(tool, so.vhdlSimulator)))
         case Some(tool: VHDLSimulator) :: Nil =>
