@@ -160,8 +160,6 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       cd: CompiledDesign
   )(using co: CompilerOptions, so: SimulatorOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
-    val runExec =
-      s"${Paths.get(execPath).toAbsolutePath()}${separatorChar}${verilatedBinary}"
     // set special logger to identify warnings, because verilator does not track warnings.
     val logger = Some(
       Tool.ProcessLogger(
@@ -176,7 +174,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       "+verilator+quiet",
       s"+verilator+error+limit+${Int.MaxValue}"
     )
-    exec(cmd = cmd, loggerOpt = logger, runExec = runExec)
+    exec(cmd = cmd, loggerOpt = logger, runExec = verilatedBinary)
     cd
   end simulate
 

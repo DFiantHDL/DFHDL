@@ -16,7 +16,7 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
   override val simRunsLint: Boolean = true
   val toolName: String = "Icarus Verilog"
   protected def binExec: String = "iverilog"
-  override protected def simRunExec: String =
+  override protected def simRunExec(using MemberGetSet): String =
     if (osIsWindows) "vvp.exe" else "vvp"
   protected def versionCmd: String = "-V"
   protected def extractVersion(cmdRetStr: String): Option[String] =

@@ -10,6 +10,7 @@ import dfhdl.internals.*
 import java.nio.file.Paths
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.stages.verilog.VerilogDialect
+import java.io.File.separatorChar
 
 trait Tool:
   val toolName: String
@@ -115,7 +116,12 @@ trait Tool:
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     preCheck()
     prepare
-    val fullExec = s"$runExec $cmd"
+    val fullExec =
+      if (runExec.contains(separatorChar))
+        val absPath = Paths.get(execPath).toAbsolutePath().resolve(runExec)
+        s"$absPath $cmd"
+      else
+        s"$runExec $cmd"
     var process: Option[scala.sys.process.Process] = None
     val pb = new java.lang.ProcessBuilder(fullExec.split(" ")*)
     pb.directory(new java.io.File(execPath))
@@ -230,7 +236,7 @@ trait VHDLLinter extends Linter, VHDLTool:
 
 trait Simulator extends Tool:
   val simRunsLint: Boolean = false
-  protected def simRunExec: String = this.runExec
+  protected def simRunExec(using MemberGetSet): String = this.runExec
   protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       SimulatorOptions
