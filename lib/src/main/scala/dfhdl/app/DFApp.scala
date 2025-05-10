@@ -71,9 +71,11 @@ trait DFApp:
   final protected def setDsn(d: => core.Design): Unit = dsn = () => d
 
   object diskCache extends DiskCache(compilerOptions.cachePath(designName))
-  object elaborate
-      extends diskCache.Step[core.Design, StagedDesign](
-        dsn, appCompileTime, dfhdlVersion, elaborationOptions.defaultRTDomainCfg, designArgs
+  object elaborate extends diskCache.Step[core.Design, StagedDesign](dsn)(
+        appCompileTime,
+        dfhdlVersion,
+        elaborationOptions.defaultRTDomainCfg,
+        designArgs
       ):
     protected def run(from: core.Design): StagedDesign =
       logger.info("Elaborating design...")
@@ -94,9 +96,7 @@ trait DFApp:
     )
   end elaborate
 
-  object compile
-      extends diskCache.Step[StagedDesign, CompiledDesign](
-        elaborate,
+  object compile extends diskCache.Step[StagedDesign, CompiledDesign](elaborate)(
         elaborationOptions.defaultRTDomainCfg,
         compilerOptions.dropUserOpaques,
         compilerOptions.backend.toString()
@@ -128,7 +128,7 @@ trait DFApp:
   end compile
 
   object commit
-      extends diskCache.Step[CompiledDesign, CompiledDesign](compile):
+      extends diskCache.Step[CompiledDesign, CompiledDesign](compile, hasGenFiles = true)():
     override protected def genFiles(committed: CompiledDesign): List[String] =
       committed.stagedDB.srcFiles.collect {
         case SourceFile(ir.SourceOrigin.Committed, _, path, _) =>
@@ -144,11 +144,37 @@ trait DFApp:
     )
   end commit
 
-  private inline def lint =
-    commit().tap(_ => logger.info("Running external linter...")).lint
+  object lint
+      extends diskCache.Step[CompiledDesign, CompiledDesign](commit)():
+    protected def run(committed: CompiledDesign): CompiledDesign =
+      committed.tap(_ => logger.info("Running external linter...")).lint
+    protected def valueToCacheStr(value: CompiledDesign): String = ???
+    protected def cacheStrToValue(str: String): CompiledDesign = ???
+  end lint
 
-  private inline def simulate =
-    commit().tap(_ => logger.info("Running external simulator...")).simulate
+  object simPrep
+      extends diskCache.Step[CompiledDesign, CompiledDesign](commit, hasGenFiles = true)():
+    override protected def genFiles(committed: CompiledDesign): List[String] =
+      simulatorOptions.getTool.producedFiles(using committed.stagedDB.getSet).map { path =>
+        Paths.get(compilerOptions.topCommitPath(committed.stagedDB)).resolve(path).toString
+      }
+    protected def run(committed: CompiledDesign): CompiledDesign =
+      committed.tap(_ => logger.info("Preparing external simulation...")).simPrep
+    override protected def logCachedRun(): Unit =
+      logger.info("Loading sim prep from cache...")
+    protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString
+    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign(
+      new StagedDesign(ir.DB.fromJsonString(str))
+    )
+  end simPrep
+
+  object simRun
+      extends diskCache.Step[CompiledDesign, CompiledDesign](simPrep)():
+    protected def run(simPrepped: CompiledDesign): CompiledDesign =
+      simPrepped.tap(_ => logger.info("Running external simulation...")).simRun
+    protected def valueToCacheStr(value: CompiledDesign): String = ???
+    protected def cacheStrToValue(str: String): CompiledDesign = ???
+  end simRun
 
   private def listBackends: Unit =
     println(
@@ -306,8 +332,8 @@ trait DFApp:
           case Mode.elaborate => elaborate()
           case Mode.compile   => compile()
           case Mode.commit    => commit()
-          case Mode.lint      => lint
-          case Mode.simulate  => simulate
+          case Mode.lint      => lint(uncached = true)
+          case Mode.simulate  => simRun(uncached = true)
     end match
   end main
 end DFApp

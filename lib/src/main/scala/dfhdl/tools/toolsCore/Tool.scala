@@ -14,8 +14,7 @@ import dfhdl.compiler.stages.verilog.VerilogDialect
 trait Tool:
   val toolName: String
   final protected def runExec: String =
-    val osName: String = sys.props("os.name").toLowerCase
-    if (osName.contains("windows")) windowsBinExec else binExec
+    if (osIsWindows) windowsBinExec else binExec
   protected def binExec: String
   protected def windowsBinExec: String = s"$binExec.exe"
   final protected def addSourceFiles(
@@ -27,6 +26,7 @@ trait Tool:
 
   protected def versionCmd: String
   protected def extractVersion(cmdRetStr: String): Option[String]
+  protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions): List[String] = Nil
 
   private[dfhdl] lazy val installedVersion: Option[String] =
     val getVersionFullCmd =
@@ -229,17 +229,18 @@ trait VHDLLinter extends Linter, VHDLTool:
     lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Simulator extends Tool:
+  val simRunsLint: Boolean = false
+  protected def simRunExec: String = this.runExec
   protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       SimulatorOptions
-  ): CompiledDesign = cd
-  val simRunsLint: Boolean = false
-  protected def simRunExec: String = this.runExec
+  ): CompiledDesign =
+    if (simRunsLint) this.asInstanceOf[Linter].lint(cd)
+    else cd
   def simulate(
       cd: CompiledDesign
   )(using CompilerOptions, SimulatorOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
-    if (simRunsLint) this.asInstanceOf[Linter].lint(cd)
     exec(simulateCmdFlags, simulatePrepare(), simulateLogger, simRunExec)
     cd
   protected def simulatePrepare()(using CompilerOptions, SimulatorOptions, MemberGetSet): Unit = {}

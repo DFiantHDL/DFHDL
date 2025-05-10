@@ -5,6 +5,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 import dfhdl.options.PrinterOptions
 import DFVal.Func.Op as FuncOp
+import dfhdl.compiler.ir.TextOut.Severity
 
 class VerilogPrinter(val dialect: VerilogDialect)(using
     val getSet: MemberGetSet,
@@ -128,7 +129,11 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     textOut.op match
       case TextOut.Op.Finish => "$finish;"
       case TextOut.Op.Report(severity) =>
-        if (assertIsSupported) s"${csSeverity(severity)}($msg);"
+        if (assertIsSupported)
+          val errCodeArg = severity match
+            case Severity.Fatal => "1, "
+            case _              => ""
+          s"${csSeverity(severity)}($errCodeArg$msg);"
         else csDisplay(severity, msg)
       case TextOut.Op.Assert(assertionRef, severity) =>
         if (msg.isEmpty)

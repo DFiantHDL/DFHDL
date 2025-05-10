@@ -62,8 +62,8 @@ class DiskCache(val cacheFolderStr: String):
     */
   abstract class Step[F, R](
       prevStepOrValue: Step[?, F] | (() => F),
-      otherDeps: => Any*
-  ) extends HasTypeName:
+      val hasGenFiles: Boolean = false
+  )(otherDeps: => Any*) extends HasTypeName:
     protected def run(from: F): R
     extension (key: String | Product | IterableOnce[?])
       protected def defaultHash: String =
@@ -99,12 +99,12 @@ class DiskCache(val cacheFolderStr: String):
         case Some(dataStr) =>
           logCachedRun()
           val value = cacheStrToValue(dataStr)
-          restoreFiles(value)
+          if (hasGenFiles) restoreFiles(value)
           value
         case None =>
           put(name, "data", getDataHash, calcDataStr)
           val value = calcDataValue
-          cacheFiles(value)
+          if (hasGenFiles) cacheFiles(value)
           value
     private def cacheGenFilePath(filePath: String): Path =
       val filePathBase64 = base64Encoder.encodeToString(filePath.getBytes).replace('=', '_')
@@ -116,6 +116,10 @@ class DiskCache(val cacheFolderStr: String):
         Files.copy(file, cacheGenFilePath(filePath), StandardCopyOption.REPLACE_EXISTING)
       }
     private def restoreFiles(value: R): Unit =
+      prevStepOrValue match
+        case prevStep: Step[?, ?] if prevStep.hasGenFiles =>
+          prevStep.getCachedOrCalcDataValue // will force restoring previous files
+        case _ =>
       val files = genFiles(value)
       files.forall { filePath =>
         val cachedFile = cacheGenFilePath(filePath)
@@ -138,9 +142,11 @@ class DiskCache(val cacheFolderStr: String):
       }
     end restoreFiles
 
-    // cached run
-    final def apply(): R =
-      val value = getCachedOrCalcDataValue
+    // cached run, unless uncached is true and then only this step is run without caching
+    final def apply(uncached: Boolean = false): R =
+      val value =
+        if (uncached) calcDataValue
+        else getCachedOrCalcDataValue
       runAfterValue(value)
       value
   end Step

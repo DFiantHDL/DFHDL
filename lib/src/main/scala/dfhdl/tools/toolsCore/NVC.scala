@@ -29,6 +29,38 @@ object NVC extends VHDLLinter, VHDLSimulator:
       case VHDLDialect.v2019 => "19"
     s"--std=$std"
 
+  override protected[dfhdl] def producedFiles(using
+      getSet: MemberGetSet,
+      co: CompilerOptions
+  ): List[String] =
+    val designWorkFiles = getSet.designDB.designMemberList.view.map(_._1)
+      .filterNot(_.isDuplicate).map(_.dclName)
+      .flatMap(name =>
+        val nameUC = name.toUpperCase()
+        List(s"WORK.${nameUC}", s"WORK.${nameUC}-${nameUC}_ARCH")
+      ).toList
+    val topNameUC = topName.toUpperCase()
+    val dsnPackageWorkFiles = List(
+      "WORK.DFHDL_PKG",
+      "WORK.DFHDL_PKG-body",
+      s"WORK.${topNameUC}_PKG",
+      s"WORK.${topNameUC}_PKG-body"
+    )
+    val topWorkFiles = List(s"WORK.${topNameUC}.elab", s"_WORK.${topNameUC}.pack")
+    val extraFiles = List("_index.", "_NVC_LIB.")
+    val allFiles = extraFiles ++ topWorkFiles ++ dsnPackageWorkFiles ++ designWorkFiles
+    allFiles.map(name => s"work${separatorChar}${name}")
+  end producedFiles
+
+  override protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
+      CompilerOptions,
+      SimulatorOptions
+  ): CompiledDesign =
+    val ret = super.simulatePreprocess(cd)
+    given MemberGetSet = ret.stagedDB.getSet
+    exec(constructCommand("-e", topName))
+    ret
+
   override protected def lintLogger(using
       CompilerOptions,
       ToolOptions,
@@ -100,9 +132,8 @@ object NVC extends VHDLLinter, VHDLSimulator:
       SimulatorOptions,
       MemberGetSet
   ): String = constructCommand(
-    "-e",
-    topName,
     "-r",
+    topName,
     "--ieee-warnings=off"
   )
 

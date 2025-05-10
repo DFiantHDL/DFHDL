@@ -3,6 +3,8 @@ import dfhdl.core.Wait.Duration
 import dfhdl.core.Wait.Ops.cy
 import dfhdl.core.Design
 import SimulatorOptions.*
+import dfhdl.tools.toolsCore.Simulator
+import dfhdl.backends
 
 final case class SimulatorOptions(
     onError: OnError,
@@ -10,7 +12,11 @@ final case class SimulatorOptions(
     verilogSimulator: VerilogSimulator,
     vhdlSimulator: VHDLSimulator,
     runLimit: RunLimit
-) extends ToolOptions
+) extends ToolOptions:
+  def getTool(using co: CompilerOptions): Simulator =
+    co.backend match
+      case _: backends.verilog => verilogSimulator
+      case _: backends.vhdl    => vhdlSimulator
 
 //defaults common for all linting tools
 object SimulatorOptions:

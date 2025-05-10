@@ -24,10 +24,20 @@ object GHDL extends VHDLLinter, VHDLSimulator:
 
   protected def lintCmdLanguageFlag(dialect: VHDLDialect): String =
     val std = dialect match
-      case VHDLDialect.v93   => "93"
+      case VHDLDialect.v93   => "93c" // using relaxed rules, because the pure VHDL-93 is too strict
       case VHDLDialect.v2008 => "08"
       case VHDLDialect.v2019 => "19"
     s"--std=$std"
+
+  override protected[dfhdl] def producedFiles(using
+      getSet: MemberGetSet,
+      co: CompilerOptions
+  ): List[String] =
+    val workFile = co.backend.asInstanceOf[backends.vhdl].dialect match
+      case VHDLDialect.v93   => "work-obj93.cf"
+      case VHDLDialect.v2008 => "work-obj08.cf"
+      case VHDLDialect.v2019 => "work-obj19.cf"
+    List(workFile)
 
   override protected def lintCmdPreLangFlags(using
       CompilerOptions,
@@ -93,7 +103,7 @@ object GHDL extends VHDLLinter, VHDLSimulator:
         // GHDL does not report error codes for runtime errors, so we need to detect errors manually
         // even when using VHDL'2008 and later
         lineIsErrorOpt = Some((line: String) =>
-          line.startsWith("ghdl:error:") || line.contains(":(report failure):") ||
+          line.contains(":error:") || line.contains(":(report failure):") ||
             line.contains(":(report error):")
         )
       )

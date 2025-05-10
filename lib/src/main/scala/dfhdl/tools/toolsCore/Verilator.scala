@@ -92,14 +92,13 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
     )
 
-  // override protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
-  //     CompilerOptions,
-  //     SimulatorOptions
-  // ): CompiledDesign =
-  //   addSourceFiles(
-  //     cd,
-  //     List(new VerilatorSimMainPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
-  //   )
+  override protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
+      CompilerOptions,
+      SimulatorOptions
+  ): CompiledDesign =
+    given MemberGetSet = cd.stagedDB.getSet
+    exec(simulateCmdFlags, (), simulateLogger, simRunExec)
+    cd
 
   override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =
     lintCmdLanguageFlag(dialect)
@@ -150,17 +149,19 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     )
   end simulateLogger
 
+  def verilatedBinary(using MemberGetSet): String =
+    val bin = s"obj_dir${separatorChar}V${topName}"
+    if (osIsWindows) s"${bin}.exe" else bin
+
+  override protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions): List[String] =
+    List(verilatedBinary)
+
   override def simulate(
       cd: CompiledDesign
   )(using co: CompilerOptions, so: SimulatorOptions): CompiledDesign =
-    val ret = super.simulate(cd)
-    given MemberGetSet = ret.stagedDB.getSet
-    val unixExec =
-      s"${Paths.get(execPath).toAbsolutePath()}${separatorChar}obj_dir${separatorChar}V${topName}"
-    val runExec: String =
-      val osName: String = sys.props("os.name").toLowerCase
-      if (osName.contains("windows")) s"${unixExec}.exe" else unixExec
-    println("Executing verilated binary...")
+    given MemberGetSet = cd.stagedDB.getSet
+    val runExec =
+      s"${Paths.get(execPath).toAbsolutePath()}${separatorChar}${verilatedBinary}"
     // set special logger to identify warnings, because verilator does not track warnings.
     val logger = Some(
       Tool.ProcessLogger(
@@ -176,7 +177,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       s"+verilator+error+limit+${Int.MaxValue}"
     )
     exec(cmd = cmd, loggerOpt = logger, runExec = runExec)
-    ret
+    cd
   end simulate
 
 end Verilator
