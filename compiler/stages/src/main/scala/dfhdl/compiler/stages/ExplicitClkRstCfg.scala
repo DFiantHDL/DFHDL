@@ -36,7 +36,7 @@ import dfhdl.core.{refTW, DFC}
   *      both domain configurations are derived from one another.
   */
 case object ExplicitClkRstCfg extends Stage:
-  def dependencies: List[Stage] = List(UniqueDesigns)
+  def dependencies: List[Stage] = List(UniqueDesigns, NamedAnonMultiref)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     val relatedCfgRefs = mutable.Map.empty[DFRefAny, DFMember]
