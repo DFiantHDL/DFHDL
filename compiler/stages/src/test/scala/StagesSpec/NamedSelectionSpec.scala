@@ -98,4 +98,38 @@ class NamedSelectionSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+  test("Named selection with default parameter values") {
+    class Foo(val width: Int <> CONST = 16) extends DFDesign:
+      val x = SInt(width) <> IN
+      val y = SInt(width) <> OUT
+      y <> x
+
+    class Top extends RTDesign:
+      val x1   = SInt(16) <> IN
+      val x2   = SInt(8)  <> IN
+      val foo1 = Foo()
+      val foo2 = Foo()
+      foo1.x <> x1
+      foo2.x <> x2
+
+    val top = (new Top).verilogNamedSelection
+    assertCodeString(
+      top,
+      """|class Foo(val width: Int <> CONST = 16) extends DFDesign:
+         |  val x = SInt(width) <> IN
+         |  val y = SInt(width) <> OUT
+         |  y <> x
+         |end Foo
+         |
+         |class Top extends RTDesign:
+         |  val x1 = SInt(16) <> IN
+         |  val x2 = SInt(8) <> IN
+         |  val foo1 = Foo(width = 16)
+         |  val foo2 = Foo(width = 16)
+         |  foo1.x <> x1
+         |  foo2.x <> x2.resize(16)
+         |end Top
+         |""".stripMargin
+    )
+  }
 end NamedSelectionSpec

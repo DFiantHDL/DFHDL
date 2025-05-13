@@ -131,19 +131,21 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     }
     // check a global member reference is anonymous only if the referencing member is global
     // or the referencing member is a design parameter
-    originRefTableMutable.foreach { (r, originMember) =>
-      r.get match
-        case targetVal: DFVal if targetVal.isAnonymous && targetVal.isGlobal =>
-          originMember match
-            case originVal: DFVal if originVal.isGlobal =>
-            case _: DFVal.DesignParam                   =>
-            case _ =>
-              reportViolation(
-                s"""|A global anonymous member is referenced by a non-global member.
-                    |Target member: ${targetVal}
-                    |Origin member: ${originMember}""".stripMargin
-              )
-        case _ =>
+    originRefTableMutable.foreach {
+      case (_: DFRef.TypeRef, _) => // do nothing
+      case (r, originMember) =>
+        r.get match
+          case targetVal: DFVal if targetVal.isAnonymous && targetVal.isGlobal =>
+            originMember match
+              case originVal: DFVal if originVal.isGlobal =>
+              case _: DFVal.DesignParam                   =>
+              case _ =>
+                reportViolation(
+                  s"""|A global anonymous member is referenced by a non-global member.
+                      |Target member: ${targetVal}
+                      |Origin member: ${originMember}""".stripMargin
+                )
+          case _ =>
     }
     require(!hasViolations, "Failed reference check!")
   end refCheck
