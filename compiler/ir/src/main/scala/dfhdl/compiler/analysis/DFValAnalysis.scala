@@ -407,12 +407,30 @@ extension (textOut: TextOut)
       .flatMap(_.collectRelMembers(false)).toList
 
 extension (member: DFMember)
-  def isPublicMember(using MemberGetSet): Boolean =
+  private def isPublicMember(using MemberGetSet): Boolean =
     member match
       case DclPort()            => true
       case _: DFVal.DesignParam => true
       case _: DomainBlock       => true
       case _                    => false
+end extension
+
+extension (members: List[DFMember])
+  def filterPublicMembers(using MemberGetSet): List[DFMember] =
+    def getPublicMembersDeps(member: DFMember): List[DFMember] =
+      member :: member.getRefs.flatMap { r =>
+        val publicMemberCandidate = r.get
+        publicMemberCandidate match
+          case _: DFMember.Empty                          => Nil
+          case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => Nil
+          case _ if publicMemberCandidate.isSameOwnerDesignAs(member) =>
+            getPublicMembersDeps(publicMemberCandidate)
+          case _ => Nil
+      }
+    members.view.filter(_.isPublicMember).flatMap {
+      case p: DFVal.DesignParam => getPublicMembersDeps(p).reverse
+      case m                    => Some(m)
+    }.toList.distinct
 end extension
 
 extension (member: DFMember)

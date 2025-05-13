@@ -111,7 +111,8 @@ case object GlobalizePortVectorParams extends Stage:
         // add the designs to the replacement map
         origToDupMemberMap += orig -> dup
         // collect all public members (they are not necessarily at the top of the design)
-        val origPublicMembers = origMembers.filter(_.isPublicMember)
+        val origPublicMembers = origMembers.filterPublicMembers
+        val origPublicMembersSet = origPublicMembers.toSet
         assert(origPublicMembers.length == dupPublicMembers.length)
         // adding public members to the orig->dup member replacement map
         origPublicMembers.lazyZip(dupPublicMembers).foreach(origToDupMemberMap += _)
@@ -121,7 +122,7 @@ case object GlobalizePortVectorParams extends Stage:
           origToDupMemberMap.getOrElse(member, member)
         val dupMembers = origMembers.map { origMember =>
           // a public member already has an equivalent as a dup design member
-          if (origMember.isPublicMember) origToDupMemberMap(origMember)
+          if (origPublicMembersSet.contains(origMember)) origToDupMemberMap(origMember)
           // a non-public member needs to be duplicated with new references to be mapped accordingly
           else
             // duplicate member

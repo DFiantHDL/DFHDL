@@ -20,7 +20,7 @@ import dfhdl.compiler.ir.{
   RTDomainCfg,
   DFTags
 }
-import dfhdl.compiler.analysis.isPublicMember
+import dfhdl.compiler.analysis.filterPublicMembers
 
 import scala.reflect.{ClassTag, classTag}
 import collection.mutable
@@ -207,20 +207,7 @@ final class MutableDB():
         // design domains. for design parameters we also get dependencies.
         // all these members are interacted with outside the design,
         // so they are kept as duplicates in the design instances
-        def getPublicMembersDeps(member: DFMember): List[DFMember] =
-          member :: member.getRefs.flatMap { r =>
-            val publicMemberCandidate = r.get
-            publicMemberCandidate match
-              case _: DFMember.Empty                          => Nil
-              case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => Nil
-              case _ if publicMemberCandidate.isSameOwnerDesignAs(member) =>
-                getPublicMembersDeps(publicMemberCandidate)
-              case _ => Nil
-          }
-        val publicMembers = currentMembers.view.filter(_.isPublicMember).flatMap {
-          case p: DFVal.DesignParam => getPublicMembersDeps(p).reverse
-          case m                    => Some(m)
-        }.toList.distinct
+        val publicMembers = currentMembers.filterPublicMembers
         designMembers += design -> publicMembers
         val transferredRefs = publicMembers.view.flatMap(m =>
           (m.ownerRef -> currentRefTable(m.ownerRef)) ::
