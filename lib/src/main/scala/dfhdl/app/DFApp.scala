@@ -18,7 +18,23 @@ trait DFApp:
   logger.setFormatter(LogFormatter.BareFormatter)
   private var designName: String = ""
   private var topScalaPath: String = ""
-  private var appCompileTime: Instant = compiletime.uninitialized
+  private val appCompileTime: Instant =
+    val clazz = this.getClass
+    val location = clazz.getProtectionDomain.getCodeSource.getLocation
+    val classPath = Paths.get(location.toURI).toRealPath().getParent()
+    // Helper function to recursively get all files in a directory
+    def getAllFiles(dir: java.io.File): List[java.io.File] =
+      val files = dir.listFiles()
+      if (files.isEmpty) Nil
+      else
+        val (dirs, regularFiles) = files.toList.partition(_.isDirectory)
+        regularFiles ++ dirs.flatMap(getAllFiles)
+    val classPathFiles = getAllFiles(classPath.toFile)
+    classPathFiles.map(
+      _.lastModified()
+    ).maxOption.map(Instant.ofEpochMilli).getOrElse(Instant.now())
+  end appCompileTime
+
   // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
   val dfc: DFC = DFC.emptyNoEO
@@ -51,8 +67,7 @@ trait DFApp:
       argNames: List[String],
       argValues: List[Any],
       argDescs: List[String],
-      scalacWerror: Boolean,
-      compileTimeStr: String
+      scalacWerror: Boolean
   ): Unit =
     this.designName = designName
     this.topScalaPath = topScalaPath
@@ -65,7 +80,6 @@ trait DFApp:
       top.simulatorOptions.copy(Werror = top.simulatorOptions.Werror.fromScalac(scalacWerror))
     appOptions = top.appOptions
     designArgs = DesignArgs(argNames, argValues, argDescs)
-    appCompileTime = Instant.parse(compileTimeStr)
   end setInitials
 
   final protected def setDsn(d: => core.Design): Unit = dsn = () => d
@@ -330,7 +344,6 @@ trait DFApp:
             )
           case _ =>
         end match
-
         // execute command
         parsedCommandLine.mode match
           case help @ Mode.help =>
