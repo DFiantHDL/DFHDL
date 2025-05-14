@@ -594,6 +594,15 @@ case object DFTime extends DFType.Companion[DFTime, (BigDecimal, DFTime.Unit)] w
         case `sec` => value * BigDecimal(1000000000000L)
         case `min` => value * BigDecimal(60000000000000L)
         case `hr`  => value * BigDecimal(3600000000000000L)
+    def to_basic_unit(value: BigDecimal): (BigDecimal, Unit) =
+      val psVal = to_ps(value)
+      if psVal < 1000 then (psVal, DFTime.Unit.ps)
+      else if psVal < 1000000 then (psVal / 1000, DFTime.Unit.ns)
+      else if psVal < 1000000000 then (psVal / 1000, DFTime.Unit.us)
+      else if psVal < 1000000000000L then (psVal / 1000000000L, DFTime.Unit.ms)
+      else (psVal / 1000000000000L, DFTime.Unit.sec)
+  end Unit
+end DFTime
 
 sealed trait DFFreq extends DFPhysical[DFFreq.Unit]
 case object DFFreq extends DFType.Companion[DFFreq, (BigDecimal, DFFreq.Unit)] with DFFreq:
@@ -610,9 +619,9 @@ case object DFFreq extends DFType.Companion[DFFreq, (BigDecimal, DFFreq.Unit)] w
       BigDecimal(1e12) / to_hz(value)
     def to_period(value: BigDecimal): (BigDecimal, DFTime.Unit) =
       val psVal = to_ps(value)
-      if psVal < BigDecimal(1000) then (psVal, DFTime.Unit.ps)
-      else if psVal < BigDecimal(1000000) then (psVal / 1000, DFTime.Unit.ns)
-      else if psVal < BigDecimal(1000000000) then (psVal / 1000, DFTime.Unit.us)
+      if psVal < 1000 then (psVal, DFTime.Unit.ps)
+      else if psVal < 1000000 then (psVal / 1000, DFTime.Unit.ns)
+      else if psVal < 1000000000 then (psVal / 1000, DFTime.Unit.us)
       else if psVal < 1000000000000L then (psVal / 1000000000L, DFTime.Unit.ms)
       else if psVal < 1000000000000000L then (psVal / 1000000000000L, DFTime.Unit.sec)
       else (psVal / 60000000000000L, DFTime.Unit.min)

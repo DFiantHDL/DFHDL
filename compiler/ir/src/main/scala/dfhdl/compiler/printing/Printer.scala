@@ -155,7 +155,10 @@ trait Printer
   final def formatCode(cs: String, withColor: Boolean = printerOptions.color): String =
     val alignedContents = if (printerOptions.align) alignCode(cs) else cs
     if (withColor) colorCode(alignedContents) else alignedContents
+  private var currentDesign: Option[DFDesignBlock] = None
+  def getCurrentDesign: DFDesignBlock = currentDesign.get
   final def csFile(design: DFDesignBlock): String =
+    currentDesign = Some(design)
     val designDcl = design.instMode match
       case InstMode.Def => csDFDesignDefDcl(design)
       case _            => csDFDesignBlockDcl(design)

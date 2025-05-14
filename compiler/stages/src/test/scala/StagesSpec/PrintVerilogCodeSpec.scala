@@ -1016,7 +1016,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |        end
          |      end
          |    end
-         |    #10ns;
+         |    #10;
          |  end
          |endmodule""".stripMargin
     )

@@ -85,13 +85,21 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
     data match
       case Some(value) => value.toString
       case None        => "?"
+  val supportTimeUnits =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
   def csDFTimeData(data: (BigDecimal, DFTime.Unit)): String =
-    val formattedValue = csBigDecimalData(data._1)
-    data._2 match
-      case DFTime.Unit.sec => s"${formattedValue}s"
-      case DFTime.Unit.min => printer.unsupported
-      case DFTime.Unit.hr  => printer.unsupported
-      case _               => s"${formattedValue}${data._2}"
+    if (supportTimeUnits)
+      val formattedValue = csBigDecimalData(data._1)
+      data._2 match
+        case DFTime.Unit.sec => s"${formattedValue}s"
+        case DFTime.Unit.min => printer.unsupported
+        case DFTime.Unit.hr  => printer.unsupported
+        case _               => s"${formattedValue}${data._2}"
+    else
+      val minTimeUnit = printer.minTimeUnitDesignMap(printer.getCurrentDesign)
+      csBigDecimalData(data._2.to_ps(data._1) / minTimeUnit.to_ps(1))
   def csDFFreqData(data: (BigDecimal, DFFreq.Unit)): String = printer.unsupported
   def csDFNumberData(data: (BigDecimal, DFNumber.Unit)): String = printer.unsupported
   def scalaToVerilogString(str: String): String =
