@@ -94,7 +94,8 @@ object QuestaSimVerilog extends QuestaSimCommon, VerilogLinter, VerilogSimulator
         lineIsWarning = (line: String) => line.startsWith("# ** Warning:"),
         lineIsSuppressed = (line: String) => false,
         lineIsErrorOpt =
-          Some((line: String) => line.startsWith("# ** Error:") || line.startsWith("# ** Fatal:"))
+          // "Error" can be followed by "(suppressible), so we don't wait for colons too"
+          Some((line: String) => line.startsWith("# ** Error") || line.startsWith("# ** Fatal:"))
       )
     )
 end QuestaSimVerilog
@@ -153,7 +154,8 @@ object QuestaSimVHDL extends QuestaSimCommon, VHDLLinter, VHDLSimulator:
           else false,
         lineIsErrorOpt =
           Some((line: String) =>
-            line.startsWith("# ** Error:") || line.startsWith("# ** Failure:")
+            // "Error" can be followed by "(suppressible), so we don't wait for colons too"
+            line.startsWith("# ** Error") || line.startsWith("# ** Failure:")
           )
       )
     )
