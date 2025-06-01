@@ -44,7 +44,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
       RstCfg(inclusionPolicy = RstCfg.InclusionPolicy.AlwaysAtTop)
     val eo = summon[options.ElaborationOptions]
     // force DFC with these elaboration options modifications (this is required because no @top annotation)
-    val dfc = DFC.empty(eo)
+    val dfc                               = DFC.empty(eo)
     def gen(using DFC): dfhdl.core.Design =
       class ID extends RTDesign:
         val x = SInt(16) <> IN
@@ -117,8 +117,8 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
       y := x
 
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = ID()
         id.x <> x
@@ -163,8 +163,8 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
       y := x
 
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = ID()
         id.x <> x
@@ -209,8 +209,8 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
       y := x
 
     class IDTop extends RTDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = ID()
         id.x <> x
@@ -255,8 +255,8 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
       y := x
 
     class IDTop extends RTDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = ID()
         id.x <> x
@@ -305,8 +305,8 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
       y := x.reg(1, init = 5)
 
     class IDTop extends RTDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain(cfg):
         val id = ID()
         id.x <> x
@@ -435,8 +435,8 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
       y := x
 
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = ID()
         id.x <> x
@@ -489,9 +489,9 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
       gen.clk <> src.clk
       gen.rst <> src.rst
     class ID extends RTDesign(cfg):
-      val x      = SInt(16) <> IN
-      val y      = SInt(16) <> OUT
-      val clkGen = new ClkGen(cfg, genCfg)
+      val x        = SInt(16) <> IN
+      val y        = SInt(16) <> OUT
+      val clkGen   = new ClkGen(cfg, genCfg)
       val internal = new RTDomain(genCfg):
         val x = SInt(16) <> IN
         val y = SInt(16) <> OUT

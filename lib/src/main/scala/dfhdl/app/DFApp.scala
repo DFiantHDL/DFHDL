@@ -231,7 +231,7 @@ trait DFApp:
         parsedCommandLine.mode match
           case help @ Mode.help =>
             help.subcommand match
-              case Some(HelpMode.backend) => listBackends
+              case Some(HelpMode.backend)                    => listBackends
               case Some(lintTool: HelpMode.`lint-tool`.type) =>
                 listLintTools(lintTool.scan.toOption.get)
               case Some(simulateTool: HelpMode.`simulate-tool`.type) =>

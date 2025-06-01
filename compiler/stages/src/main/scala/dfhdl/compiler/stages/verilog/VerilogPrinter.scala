@@ -67,7 +67,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       val dfVal = dfValRef.get
       val csDFVal = dfValRef.refCodeString
       dfVal.dfType match
-        case DFBool => s"""$csDFVal ? "true" : "false""""
+        case DFBool         => s"""$csDFVal ? "true" : "false""""
         case dfType: DFEnum =>
           if (printer.allowTypeDef) s"$csDFVal.name()"
           else s"${dfType.getName}_to_string($csDFVal)"
@@ -126,7 +126,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     def csDisplay(severity: TextOut.Severity, msg: String) =
       s"""$$display("${severity.toString.toUpperCase()}: ", $msg);${csFinish(severity)}"""
     textOut.op match
-      case TextOut.Op.Finish => "$finish;"
+      case TextOut.Op.Finish           => "$finish;"
       case TextOut.Op.Report(severity) =>
         if (assertIsSupported) s"${csSeverity(severity)}($msg);"
         else csDisplay(severity, msg)
@@ -146,7 +146,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
               |end""".stripMargin
       case TextOut.Op.Print   => s"$$write($msg);"
       case TextOut.Op.Println => s"$$display($msg);"
-      case TextOut.Op.Debug =>
+      case TextOut.Op.Debug   =>
         if (assertIsSupported) s"$$info($msg);"
         else csDisplay(TextOut.Severity.Info, msg)
     end match

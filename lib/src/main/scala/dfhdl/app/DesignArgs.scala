@@ -7,11 +7,11 @@ import scala.collection.immutable.ListMap
 case class DesignArg(name: String, value: Any, desc: String)(using DFC):
   val typeName =
     value match
-      case _: String  => "String"
-      case _: Int     => "Int"
-      case _: Double  => "Double"
-      case _: Boolean => "Boolean"
-      case _: BigInt  => "Int"
+      case _: String         => "String"
+      case _: Int            => "Int"
+      case _: Double         => "Double"
+      case _: Boolean        => "Boolean"
+      case _: BigInt         => "Int"
       case dfConst: DFValAny =>
         dfConst.asIR.dfType match
           case ir.DFBit | ir.DFBool => "Boolean"

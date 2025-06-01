@@ -61,7 +61,7 @@ object StateAnalysis:
   )(using MemberGetSet): Set[DFVal] =
     value.dfType match
       case _: DFUnbounded => currentSet
-      case _ =>
+      case _              =>
         consumeFrom(value, value.dfType.width, 0, assignMap, currentSet)
 
   @tailrec private def assignTo(

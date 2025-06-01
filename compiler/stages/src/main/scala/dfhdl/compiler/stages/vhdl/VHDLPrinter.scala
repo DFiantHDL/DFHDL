@@ -123,15 +123,15 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
         case TextOut.Severity.Error   => "ERROR"
         case TextOut.Severity.Fatal   => "FAILURE"
     textOut.op match
-      case TextOut.Op.Finish           => "std.env.finish;"
-      case TextOut.Op.Report(severity) => csReport(severity, msg)
+      case TextOut.Op.Finish                         => "std.env.finish;"
+      case TextOut.Op.Report(severity)               => csReport(severity, msg)
       case TextOut.Op.Assert(assertionRef, severity) =>
         if (msg.isEmpty)
           s"assert ${printer.csFixedCond(assertionRef)};"
         else
           s"""|assert ${printer.csFixedCond(assertionRef)}
               |${csReport(severity, msg).hindent}""".stripMargin
-      case TextOut.Op.Print => s"print($msg);"
+      case TextOut.Op.Print   => s"print($msg);"
       case TextOut.Op.Println =>
         if (msg.isEmpty) s"println(\"\");"
         else s"println($msg);"

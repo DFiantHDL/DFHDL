@@ -79,7 +79,7 @@ case object MatchToIf extends Stage:
                     list match
                       case cond :: Nil => Some(cond)
                       case Nil         => None
-                      case _ =>
+                      case _           =>
                         Some(dfhdl.core.DFVal.Func(dfhdl.core.DFBool, reductionOp, list))
                   pattern match
                     case Pattern.Singleton(DFRef(const: DFVal.Const)) =>
@@ -117,8 +117,8 @@ case object MatchToIf extends Stage:
                 val patternCondOpt = getPatternCondOpt(selector, c.pattern)
                 val guardRef: DFConditional.Block.GuardRef =
                   (c.getGuardOption, patternCondOpt) match
-                    case (_, None)          => c.guardRef
-                    case (None, Some(cond)) => cond.asIR.refTW[DFIfElseBlock]
+                    case (_, None)                    => c.guardRef
+                    case (None, Some(cond))           => cond.asIR.refTW[DFIfElseBlock]
                     case (Some(guardVal), Some(cond)) =>
                       val combinedGuard = guardVal.asValOf[dfhdl.core.DFBool] && cond
                       combinedGuard.asIR.refTW[DFIfElseBlock]

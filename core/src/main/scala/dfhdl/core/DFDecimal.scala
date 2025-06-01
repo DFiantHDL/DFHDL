@@ -330,7 +330,7 @@ object DFDecimal:
     ): Either[String, (Boolean, Int, Int, BigInt)] =
       dec.replace(",", "").replace("_", "") match
         case intExp(numStr) => Right(fromIntDecString(numStr, signedForced))
-        case _ =>
+        case _              =>
           Left(s"Invalid decimal pattern found: $dec")
       end match
     end fromDecString

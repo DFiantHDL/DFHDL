@@ -63,12 +63,12 @@ trait AbstractTypePrinter extends AbstractPrinter:
   def csDFString(dfType: DFString, typeCS: Boolean): String
 
   final def csDFType(dfType: DFType, typeCS: Boolean = false): String = dfType match
-    case dt: DFBoolOrBit => csDFBoolOrBit(dt, typeCS)
-    case dt: DFBits      => csDFBits(dt, typeCS)
-    case dt: DFDecimal   => csDFDecimal(dt, typeCS)
-    case dt: DFEnum      => csDFEnum(dt, typeCS)
-    case dt: DFVector    => csDFVector(dt, typeCS)
-    case dt: DFOpaque    => csDFOpaque(dt, typeCS)
+    case dt: DFBoolOrBit                                  => csDFBoolOrBit(dt, typeCS)
+    case dt: DFBits                                       => csDFBits(dt, typeCS)
+    case dt: DFDecimal                                    => csDFDecimal(dt, typeCS)
+    case dt: DFEnum                                       => csDFEnum(dt, typeCS)
+    case dt: DFVector                                     => csDFVector(dt, typeCS)
+    case dt: DFOpaque                                     => csDFOpaque(dt, typeCS)
     case dt: DFStruct if dt.isTuple && tupleSupportEnable =>
       csDFTuple(dt.fieldMap.values.toList, typeCS)
     case dt: DFStruct   => csDFStruct(dt, typeCS)
@@ -93,7 +93,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     val (ob, cb) = if (typeCS) ("[", "]") else ("(", ")")
     (signed, fractionWidth) match
       case (false, 0) => s"UInt$ob$csWidth$cb"
-      case (true, 0) =>
+      case (true, 0)  =>
         if (dfType.isDFInt32) "Int"
         else s"SInt$ob$csWidth$cb"
       case (false, _) => s"UFix$ob$magnitudeWidth, $fractionWidth$cb"

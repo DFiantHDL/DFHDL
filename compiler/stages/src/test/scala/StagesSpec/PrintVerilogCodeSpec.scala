@@ -22,7 +22,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val id1_y = SInt(16) <> VAR
     val id2_x = SInt(16) <> VAR
     val id2_y = SInt(16) <> VAR
-    val id1 = new ID:
+    val id1   = new ID:
       this.x  <> id1_x
       this.y  <> id1_y
       this.y2 <> OPEN

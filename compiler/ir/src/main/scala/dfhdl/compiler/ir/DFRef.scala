@@ -76,7 +76,7 @@ object IntParamRef:
       (intParamRef, that) match
         case (thisRef: DFRef.TypeRef, thatRef: DFRef.TypeRef) =>
           thisRef.get.isSimilarTo(thatRef.get)
-        case (thisInt: Int, thatInt: Int) => thisInt == thatInt
+        case (thisInt: Int, thatInt: Int)           => thisInt == thatInt
         case (thisRef: DFRef.TypeRef, thatInt: Int) =>
           thisRef.get.isSimilarTo(fakeConst(thatInt))
         case (thisInt: Int, thatRef: DFRef.TypeRef) =>
@@ -89,6 +89,6 @@ end IntParamRef
 extension (intCompanion: Int.type)
   def unapply(intParamRef: IntParamRef)(using MemberGetSet): Option[Int] =
     (intParamRef: @unchecked) match
-      case int: Int => Some(int)
+      case int: Int            => Some(int)
       case DFRef(dfVal: DFVal) =>
         dfVal.getConstData.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)

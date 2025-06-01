@@ -22,7 +22,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
     val signedKeyword = if (allowSignedKeywordAndOps) "signed " else ""
     (signed, fractionWidth) match
       case (false, 0) => s"logic [${dfType.widthParamRef.uboundCS}:0]"
-      case (true, 0) =>
+      case (true, 0)  =>
         if (dfType.isDFInt32)
           if (intTypeIsSupported) "int"
           else "integer"

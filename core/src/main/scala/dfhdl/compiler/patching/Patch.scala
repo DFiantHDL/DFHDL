@@ -375,7 +375,7 @@ extension (db: DB)
               config match
                 case Patch.Replace.Config.ChangeRefAndRemove => Nil
                 case Patch.Replace.Config.FullReplacement    => List(r)
-                case Patch.Replace.Config.ChangeRefOnly =>
+                case Patch.Replace.Config.ChangeRefOnly      =>
                   ??? // Not possible since we filtered these out
             case Some(Patch.Add(db, config)) =>
               val notTop = db.members.drop(1) // adding the members without the Top design block
@@ -383,7 +383,7 @@ extension (db: DB)
               var outGoingOverride: List[DFMember] = Nil
               // mutating `added`
               added = config match
-                case Patch.Add.Config.After => m :: notTop
+                case Patch.Add.Config.After  => m :: notTop
                 case Patch.Add.Config.Before =>
                   m match
                     // adding global members before top is returned directly to `outgoing`
@@ -408,15 +408,15 @@ extension (db: DB)
                 case Patch.Add.Config.ReplaceWithFirst(_, _)      => notTop
                 case Patch.Add.Config.ReplaceWithLast(_, _)       => notTop
                 case Patch.Add.Config.Via                         => m :: notTop
-                case Patch.Add.Config.InsideFirst =>
+                case Patch.Add.Config.InsideFirst                 =>
                   ??? // Not possible since we replaced it to an `After`
                 case Patch.Add.Config.InsideLast =>
                   ??? // Not possible since we replaced it to an `After`
               outGoingOverride
             case Some(Patch.Move(movedMembers, _, config)) =>
               config match
-                case Patch.Move.Config.After  => m :: movedMembers
-                case Patch.Move.Config.Before => movedMembers :+ m
+                case Patch.Move.Config.After       => m :: movedMembers
+                case Patch.Move.Config.Before      => movedMembers :+ m
                 case Patch.Move.Config.InsideFirst =>
                   ??? // Not possible since we replaced it to an `After`
                 case Patch.Move.Config.InsideLast =>

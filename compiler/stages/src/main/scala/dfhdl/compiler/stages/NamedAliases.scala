@@ -66,7 +66,7 @@ case object NamedVerilogSelection extends NamedAliases:
     def hasVerilogName: Boolean =
       dfVal match
         case dfVal if !dfVal.isAnonymous => true
-        case alias: DFVal.Alias.AsIs =>
+        case alias: DFVal.Alias.AsIs     =>
           val relVal = alias.relValRef.get
           val transparentConversion = (alias.dfType, relVal.dfType) match
             case (DFUInt(Int(toWidth)), DFBits(Int(fromWidth))) => toWidth == fromWidth
@@ -79,7 +79,7 @@ case object NamedVerilogSelection extends NamedAliases:
         case _ => false
   end extension
   def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
-    case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName => Nil
+    case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName                  => Nil
     case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>
       List(alias.relValRef.get)
     case alias: DFVal.Alias.AsIs if alias.width < alias.relValRef.get.width =>

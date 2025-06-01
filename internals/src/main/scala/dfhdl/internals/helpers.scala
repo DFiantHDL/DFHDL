@@ -86,7 +86,7 @@ extension (using quotes: Quotes)(lhs: quotes.reflect.TypeRepr)
         case '[head *: tail] =>
           recur(TypeRepr.of[tail], TypeRepr.of[head] :: args)
         case '[EmptyTuple] => args.reverse
-        case '[t] =>
+        case '[t]          =>
           report.errorAndAbort(s"Expecting a tuple, but found ${Type.show[t]}")
     if (lhs.show == "null")
       report.errorAndAbort(s"Expecting a tuple, but found null")
@@ -332,7 +332,7 @@ extension [T](seq: Iterable[T])
         f: T => P,
         res: List[(P, Iterable[T])]
     ): Seq[(P, Iterable[T])] = seq.headOption match
-      case None => res.reverse
+      case None    => res.reverse
       case Some(h) =>
         val key = f(h)
         val subseq = seq.takeWhile(f(_) equals key)

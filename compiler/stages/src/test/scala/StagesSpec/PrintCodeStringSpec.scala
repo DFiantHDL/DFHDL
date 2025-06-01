@@ -34,7 +34,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id1_y = SInt(16) <> VAR
     val id2_x = SInt(16) <> VAR
     val id2_y = SInt(16) <> VAR
-    val id1 = new ID(argTop):
+    val id1   = new ID(argTop):
       this.x <> id1_x
       this.y <> id1_y
     val id2 = new ID():
@@ -488,7 +488,7 @@ class PrintCodeStringSpec extends StageSpec:
   }
   test("Domains") {
     class IDWithDomains extends DFDesign:
-      val y = SInt(16) <> OUT
+      val y    = SInt(16) <> OUT
       val fast = new RTDomain:
         val pr = SInt(16) <> VAR init 0
         val pw = SInt(16) <> VAR
@@ -523,8 +523,8 @@ class PrintCodeStringSpec extends StageSpec:
   }
   test("Basic hierarchy with domains") {
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = new ID(1)
         id.x <> x.reg(1, init = 0)

@@ -32,7 +32,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
             case (_, 'F' | 'f')                  => s"$csDFBitBubbleChar"
             case (h, '0')                        => s"$h"
             case (h, b) if allowBitsBinModeInHex => s"{${binZip(BitVector(h), BitVector(b))}}"
-            case _ =>
+            case _                               =>
               err = true
               ""
           }
@@ -68,7 +68,7 @@ trait AbstractDataPrinter extends AbstractPrinter:
       case _ =>
         val binRep = csDFBitsBinFormat(toBinString)
         val hexRepOption = toHexString match
-          case Some(v) if width % 4 == 0 => Some(csDFBitsHexFormat(v))
+          case Some(v) if width % 4 == 0         => Some(csDFBitsHexFormat(v))
           case Some(v) if allowBitsExplicitWidth =>
             Some(csDFBitsHexFormat(v, binRep.length, widthParamRef))
           case _ => None
@@ -134,20 +134,20 @@ trait AbstractDataPrinter extends AbstractPrinter:
   def csDFPhysicalData(dfType: DFPhysical, data: (BigDecimal, Any)): String
   def csDFStringData(dfType: DFString, data: Option[String]): String
   final def csConstData(dfType: DFType, data: Any): String = (dfType, data) match
-    case DFBits.Data(dt, data)      => csDFBitsData(dt, data)
-    case DFBoolOrBit.Data(dt, data) => csDFBoolOrBitData(dt, data)
-    case DFDecimal.Data(dt, data)   => csDFDecimalData(dt, data)
-    case DFDouble.Data(dt, data)    => csDFDoubleData(dt, data)
-    case DFEnum.Data(dt, data)      => csDFEnumData(dt, data)
-    case DFVector.Data(dt, data)    => csDFVectorData(dt, data)
-    case DFOpaque.Data(dt, data)    => csDFOpaqueData(dt, data)
+    case DFBits.Data(dt, data)                                       => csDFBitsData(dt, data)
+    case DFBoolOrBit.Data(dt, data)                                  => csDFBoolOrBitData(dt, data)
+    case DFDecimal.Data(dt, data)                                    => csDFDecimalData(dt, data)
+    case DFDouble.Data(dt, data)                                     => csDFDoubleData(dt, data)
+    case DFEnum.Data(dt, data)                                       => csDFEnumData(dt, data)
+    case DFVector.Data(dt, data)                                     => csDFVectorData(dt, data)
+    case DFOpaque.Data(dt, data)                                     => csDFOpaqueData(dt, data)
     case DFStruct.Data(dt, data) if dt.isTuple && tupleSupportEnable =>
       csDFTupleData(dt.fieldMap.values.toList, data)
     case DFStruct.Data(dt, data)   => csDFStructData(dt, data)
     case DFUnit.Data(dt, data)     => csDFUnitData(dt, data)
     case DFPhysical.Data(dt, data) => csDFPhysicalData(dt, data)
     case DFString.Data(dt, data)   => csDFStringData(dt, data)
-    case x =>
+    case x                         =>
       throw new IllegalArgumentException(
         s"Unexpected data found: $x"
       )

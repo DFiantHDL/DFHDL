@@ -82,7 +82,7 @@ object DFMatch:
     if (typesAreSimilar)
       retDFType match
         case DFUnit => firstCaseRet.get
-        case _ =>
+        case _      =>
           val DFVal(headerIR: DFMatchHeader) = header: @unchecked
           val headerUpdate = headerIR.copy(dfType = retDFType.asIR.dropUnreachableRefs)
           // updating the type of the match header

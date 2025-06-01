@@ -129,12 +129,12 @@ object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
     val (valueBits, bubbleBits) =
       bin.foldLeft((BitVector.empty, BitVector.empty)) {
         case (t, '_' | ' ') => t // ignoring underscore or space
-        case ((v, b), c) =>
+        case ((v, b), c)    =>
           c match // bin mode
             case '?' => (v :+ false, b :+ true)
             case '0' => (v :+ false, b :+ false)
             case '1' => (v :+ true, b :+ false)
-            case x =>
+            case x   =>
               break(Left(s"Found invalid binary character: $x"))
       }
     Right((valueBits, bubbleBits))
@@ -145,11 +145,11 @@ object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
   ): Either[String, (BitVector, BitVector)] = boundary {
     val (valueBits, bubbleBits, binMode) =
       hex.foldLeft((BitVector.empty, BitVector.empty, false)) {
-        case (t, '_' | ' ') => t // ignoring underscore or space
+        case (t, '_' | ' ')     => t // ignoring underscore or space
         case ((v, b, false), c) =>
           c match // hex mode
-            case '{' => (v, b, true)
-            case '?' => (v ++ BitVector.low(4), b ++ BitVector.high(4), false)
+            case '{'     => (v, b, true)
+            case '?'     => (v ++ BitVector.low(4), b ++ BitVector.high(4), false)
             case isHex() =>
               (
                 v ++ BitVector.fromHex(c.toString).get,
@@ -164,7 +164,7 @@ object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
             case '?' => (v :+ false, b :+ true, true)
             case '0' => (v :+ false, b :+ false, true)
             case '1' => (v :+ true, b :+ false, true)
-            case x =>
+            case x   =>
               break(Left(s"Found invalid binary character in binary mode: $x"))
       }
     if (binMode) Left(s"Missing closing braces of binary mode")

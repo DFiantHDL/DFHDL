@@ -274,7 +274,7 @@ abstract class CommonPhase extends PluginPhase:
     def dfcFuncTpeOptRecur: Option[Type] =
       tp.dealias match
         case ContextFunctionType(ctx, res) if ctx.head <:< metaContextTpe => Some(res)
-        case AppliedType(tycon, args) =>
+        case AppliedType(tycon, args)                                     =>
           var requiresUpdate = false
           val updatedArgs = args.map { tp =>
             tp.dfcFuncTpeOptRecur match

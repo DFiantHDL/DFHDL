@@ -100,7 +100,7 @@ class TopAnnotPhase(setting: Setting) extends CommonPhase:
                       paramVDs.zipWithIndex.map((vd, i) =>
                         defaultMap.get(i) match
                           case Some(value) => value
-                          case None =>
+                          case None        =>
                             report.error(
                               "Missing argument's default value for top-level design with a default app entry point.\nEither add a default value or disable the app entry point generation with `@top(false)`.",
                               vd.srcPos

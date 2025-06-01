@@ -497,8 +497,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       y := x
 
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = ID()
         id.x <> x
@@ -558,8 +558,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
 
   test("RT domain with basic combinational if-else") {
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         if (x < 0) y := 0
         else y       := x
@@ -609,9 +609,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
     val cfg    = RTDomainCfg(clkCfg, rstCfg)
     class ID extends RTDesign(cfg):
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT.REG init 0
-      val r = SInt(16) <> VAR.REG init 0
+      val x   = SInt(16) <> IN
+      val y   = SInt(16) <> OUT.REG init 0
+      val r   = SInt(16) <> VAR.REG init 0
       val foo = new RelatedDomain:
         y.din := r
       r.din := 1
@@ -803,8 +803,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
 
   test("RT design with ED domain") {
     class Foo extends RTDesign:
-      val clk = Clk <> VAR
-      val rst = Rst <> VAR
+      val clk      = Clk <> VAR
+      val rst      = Rst <> VAR
       val internal = new EDDomain:
         process(all):
           clk.actual := 0

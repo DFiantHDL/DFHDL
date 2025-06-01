@@ -28,7 +28,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       else memberSet += m
       // check for missing references
       m.getRefs.foreach {
-        case _: DFRef.Empty => // do nothing
+        case _: DFRef.Empty             => // do nothing
         case r if !refTable.contains(r) =>
           reportViolation(s"Missing ref $r for the member: $m")
         case _ => // do nothing
@@ -72,7 +72,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
       // check that anonymous values are referenced exactly once
       m match
         case dfVal: DFVal if dfVal.isAllowedMultipleReferences => // skip named
-        case dfVal: DFVal =>
+        case dfVal: DFVal                                      =>
           val deps = dfVal.getReadDeps
           if (deps.size > 1)
             reportViolation(
@@ -85,7 +85,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
               dfVal match
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
                 case Ident(_)                                        =>
-                case _ =>
+                case _                                               =>
                   reportViolation(
                     s"""|An anonymous value has no references.
                         |Referenced value: $dfVal""".stripMargin
@@ -108,7 +108,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     memberSet.foreach { m =>
       m.getRefs.foreach {
         case _: DFRef.Empty => // skip empty referenced
-        case r =>
+        case r              =>
           originRefTableMutable.get(r).foreach { prevMember =>
             def originViolation(addedText: String) = reportViolation(
               s"""|Ref $r has more than one origin member$addedText.
@@ -121,7 +121,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
                 r.get match
                   // global references can be shared across types
                   case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => // no violation
-                  case _ =>
+                  case _                                          =>
                     if (!(prevMember isSameOwnerDesignAs m))
                       originViolation(" from a different design")
               case _ => originViolation("")
@@ -137,7 +137,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
           originMember match
             case originVal: DFVal if originVal.isGlobal =>
             case _: DFVal.DesignParam                   =>
-            case _ =>
+            case _                                      =>
               reportViolation(
                 s"""|A global anonymous member is referenced by a non-global member.
                     |Target member: ${targetVal}
@@ -187,7 +187,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
         m match // still in current owner
           case o: DFOwner => ownershipCheck(o, nextMembers) // entering new owner
           case _          => ownershipCheck(currentOwner, nextMembers) // new non-member found
-      case Nil => // Done! All is OK
+      case Nil    => // Done! All is OK
       case m :: _ => // not in current owner
         if (currentOwner.isTop)
           println(
@@ -210,7 +210,7 @@ case class SanityCheck(skipAnonRefCheck: Boolean) extends Stage:
     getSet.designDB.members.foreach {
       // goto statement can reference later steps
       case _: Goto =>
-      case m =>
+      case m       =>
         m.getRefs.foreach {
           case r @ DFRef(rm) if !discoveredMembers.contains(rm) =>
             m match

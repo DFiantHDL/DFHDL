@@ -5,7 +5,7 @@ trait HasRefCompare[T <: HasRefCompare[T]]:
   final def =~(that: T)(using MemberGetSet): Boolean =
     cachedCompare match
       case Some(prevCompare, result) if prevCompare eq that => result
-      case _ =>
+      case _                                                =>
         val res = this `prot_=~` that
         cachedCompare = Some(that, res)
         res

@@ -252,10 +252,10 @@ extension (dfVal: DFVal)
   @tailrec private def flatName(member: DFVal, suffix: String)(using MemberGetSet): String =
     member match
       case named if !named.isAnonymous => s"${member.getName}$suffix"
-      case alias: DFVal.Alias.Partial =>
+      case alias: DFVal.Alias.Partial  =>
         val relVal = alias.relValRef.get
         val newSuffix = alias match
-          case _: DFVal.Alias.AsIs => suffix
+          case _: DFVal.Alias.AsIs            => suffix
           case applyIdx: DFVal.Alias.ApplyIdx =>
             applyIdx.relIdx.get match
               case DFVal.Alias.ApplyIdx.ConstIdx(i) =>
@@ -420,9 +420,9 @@ extension (member: DFMember)
     member match
       case loop: DFLoop.Block =>
         loop.isInRTDomain && !loop.isCombinational
-      case wait: Wait   => wait.isInRTDomain
-      case _: StepBlock => true
-      case _: Goto      => true
+      case wait: Wait              => wait.isInRTDomain
+      case _: StepBlock            => true
+      case _: Goto                 => true
       case cb: DFConditional.Block =>
         cb.members(MemberView.Folded).exists(_.consumesCycles)
       case _ => false

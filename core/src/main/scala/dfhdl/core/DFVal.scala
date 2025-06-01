@@ -54,11 +54,11 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def isConstTpe: quotes.reflect.TypeRepr =
     import quotes.reflect.*
     def isConstBool(tpe: TypeRepr): Boolean = tpe.asType match
-      case '[DFConstOf[t]] => true
-      case '[DFValOf[t]]   => false
+      case '[DFConstOf[t]]  => true
+      case '[DFValOf[t]]    => false
       case '[NonEmptyTuple] =>
         tpe.getTupleArgs.forall(isConstBool)
-      case '[SameElementsVector[t]] => isConstBool(TypeRepr.of[t])
+      case '[SameElementsVector[t]]      => isConstBool(TypeRepr.of[t])
       case '[BoolSelWrapper[sp, ot, of]] =>
         List(TypeRepr.of[sp], TypeRepr.of[ot], TypeRepr.of[of]).forall(isConstBool)
       case '[DFVal.NOTHING] => false
@@ -77,7 +77,7 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
       case Block(_, expr)      => expr.getNonConstTerm
       case TypeApply(expr, _)  => expr.getNonConstTerm
       case Typed(expr, _)      => expr.getNonConstTerm
-      case _ =>
+      case _                   =>
         term.tpe.asType match
           case '[DFConstOf[?]]  => None
           case '[DFValOf[?]]    => Some(term)
@@ -102,7 +102,7 @@ infix type <>[T, M] = T match
   // So in this case we construct DFVector.ComposedModifier[T, M] to later used in `X`
   // to properly construct the vector type.
   case DFConstInt32 | IntP.Sig => DFVector.ComposedModifier[T, M]
-  case _ =>
+  case _                       =>
     M match
       case DFRET => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
       case RTRET => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
@@ -456,7 +456,7 @@ object DFVal extends DFValLP:
         case _                                  => (value, '{ true })
       argExpr.asTerm.getNonConstTerm match
         case Some(term) => term.compiletimeErrorPosExpr("Init value must be a constant.")
-        case None =>
+        case None       =>
           val exactInfo = argExpr.exactInfo
           '{
             val tc = compiletime.summonInline[DFVal.TC[T, exactInfo.Underlying]]
@@ -487,7 +487,7 @@ object DFVal extends DFValLP:
       val term = argExpr.asTerm.underlyingArgument
       term.getNonConstTerm match
         case Some(term) => term.compiletimeErrorPosExpr("Init value must be a constant.")
-        case _ =>
+        case _          =>
           val tTpe = TypeRepr.of[T]
           extension (lhs: TypeRepr)
             def tupleSigMatch(
@@ -607,7 +607,7 @@ object DFVal extends DFValLP:
       )
       val initFileConst = vectorType.cellType.asIR match
         case ir.DFBits(_) => DFVal.Const(vectorType, data)
-        case cellType =>
+        case cellType     =>
           DFVal.Const(vectorType, data.map(cellType.bitsDataToData))
 
       dfVal.initForced(List(initFileConst))
@@ -1220,7 +1220,7 @@ object VarsTuple:
     val tTpe = TypeRepr.of[T]
     def varsCheck(tpe: TypeRepr): Option[String] =
       tpe.asTypeOf[Any] match
-        case '[DFVarOf[t]] => None
+        case '[DFVarOf[t]]    => None
         case '[NonEmptyTuple] =>
           tpe.getTupleArgs.view.map(varsCheck).collectFirst { case Some(v) => v }
         case _ =>
@@ -1228,7 +1228,7 @@ object VarsTuple:
           Some(s"All tuple elements must be mutable but found an immutable type `${tpe.showType}`")
     varsCheck(tTpe) match
       case Some(err) => '{ compiletime.error(${ Expr(err) }) }
-      case None =>
+      case None      =>
         import Width.calcValWidth
         val widthType = tTpe.calcValWidth.asTypeOf[Int]
         '{
