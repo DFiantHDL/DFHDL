@@ -123,7 +123,13 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
         case TextOut.Severity.Error   => "ERROR"
         case TextOut.Severity.Fatal   => "FAILURE"
     textOut.op match
-      case TextOut.Op.Finish           => "std.env.finish;"
+      case TextOut.Op.Finish =>
+        if (inVHDL93)
+          s"""report "Finished successfully (not an error)" severity ${csSeverity(
+              TextOut.Severity.Fatal
+            )};"""
+        else
+          "std.env.finish;"
       case TextOut.Op.Report(severity) => csReport(severity, msg)
       case TextOut.Op.Assert(assertionRef, severity) =>
         if (msg.isEmpty)
@@ -222,10 +228,11 @@ class VHDLPrinter(val dialect: VHDLDialect)(using
       .align("[ ]*when [a-zA-Z0-9_.]+[ ]*", "=>", ".*")
   val vhdlKW: Set[String] = reservedKeywords
   val vhdlOps: Set[String] = Set(":=", "<=")
-  val vhdlTypes: Set[String] =
-    Set("std_logic", "std_logic_vector", "integer", "boolean", "natural", "positive", "ieee",
-      "numeric_std", "std_logic_1164", "work", "signed", "unsigned", "'left", "string", "HT", "LF",
-      "CR")
+  val vhdlTypes: Set[String] = Set(
+    "std_logic", "std_logic_vector", "integer", "boolean", "natural", "positive", "ieee",
+    "numeric_std", "std_logic_1164", "work", "signed", "unsigned", "'left", "string", "HT", "LF",
+    "CR"
+  )
   def colorCode(cs: String): String =
     cs
       .colorWords(vhdlKW, keywordColor)

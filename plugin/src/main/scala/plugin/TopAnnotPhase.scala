@@ -21,6 +21,7 @@ import collection.mutable
 import annotation.tailrec
 import dotty.tools.dotc.ast.Trees.Alternative
 import dotty.tools.dotc.semanticdb.BooleanConstant
+import java.time.Instant
 
 /*
   This phase creates a `top_<design_name>` object with a `DFApp` main entry point

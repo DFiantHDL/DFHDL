@@ -5,14 +5,14 @@ import dfhdl.compiler.printing.Printer
 import dfhdl.core.Design
 import dfhdl.options.{CompilerOptions, PrinterOptions}
 
-final class StagedDesign[D <: Design] private (val design: D, val stagedDB: ir.DB)
+final class StagedDesign(val stagedDB: ir.DB)
 object StagedDesign:
-  def apply[D <: Design](design: D): StagedDesign[D] = new StagedDesign[D](design, design.getDB)
-  extension [D <: Design](sd: StagedDesign[D])
-    def compile(using co: CompilerOptions, po: PrinterOptions): CompiledDesign[D] =
+  def apply(design: Design): StagedDesign = new StagedDesign(design.getDB)
+  extension (sd: StagedDesign)
+    def compile(using co: CompilerOptions, po: PrinterOptions): CompiledDesign =
       co.backend.compile(sd).commit
-    def newStage(stagedDB: ir.DB): StagedDesign[D] = new StagedDesign[D](sd.design, stagedDB)
-    def transform(transformDB: ir.DB => ir.DB): StagedDesign[D] =
+    def newStage(stagedDB: ir.DB): StagedDesign = new StagedDesign(stagedDB)
+    def transform(transformDB: ir.DB => ir.DB): StagedDesign =
       newStage(transformDB(sd.stagedDB))
-    def addFiles(files: (Iterable[String] | String)*): StagedDesign[D] = ???
+    def addFiles(files: (Iterable[String] | String)*): StagedDesign = ???
 end StagedDesign

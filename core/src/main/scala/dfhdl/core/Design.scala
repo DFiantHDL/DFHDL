@@ -13,7 +13,7 @@ trait Design extends Container, HasClsMetaArgs:
   private[core] type TScope = DFC.Scope.Design
   private[core] type TOwner = Design.Block
   final protected given TScope = DFC.Scope.Design
-  private[core] def mkInstMode(args: ListMap[String, Any]): InstMode = InstMode.Normal
+  private[core] def mkInstMode: InstMode = InstMode.Normal
   private[dfhdl] def initOwner: TOwner =
     Design.Block(__domainType, ir.Meta(Some("???"), Position.unknown, None, Nil), InstMode.Normal)(
       using dfc
@@ -22,23 +22,19 @@ trait Design extends Container, HasClsMetaArgs:
       name: String,
       position: Position,
       docOpt: Option[String],
-      annotations: List[Annotation],
-      args: ListMap[String, Any]
+      annotations: List[Annotation]
   ): Unit =
     import dfc.getSet
     val designBlock = owner.asIR
-    // top level is tagged with the default RT Domain configuration
-    // (the top level may be an ED or DF design, so it cannot save the default RT configuration as part
-    // of the domain type, but this could be needed later for compilation stages)
-    val tags =
-      if (designBlock.isTop) designBlock.tags.tag(dfc.elaborationOptions.defaultRTDomainCfg)
-      else designBlock.tags
+    // the default RT Domain configuration is set as a global tag
+    getSet.setGlobalTag(ir.DefaultRTDomainCfgTag(dfc.elaborationOptions.defaultRTDomainCfg))
+    // the DFHDL version is set as a global tag
+    getSet.setGlobalTag(ir.DFHDLVersionTag(dfhdl.dfhdlVersion))
     setOwner(
       getSet.replace(designBlock)(
         designBlock.copy(
           dclMeta = ir.Meta.gen(Some(name), position, docOpt, annotations),
-          instMode = mkInstMode(args),
-          tags = tags
+          instMode = mkInstMode
         )
       ).asFE
     )
@@ -140,7 +136,7 @@ abstract class EDDesign extends DomainContainer(DomainType.ED), Design
 
 abstract class EDBlackBox(verilogSrc: EDBlackBox.Source, vhdlSrc: EDBlackBox.Source)
     extends EDDesign:
-  override private[core] def mkInstMode(args: ListMap[String, Any]): InstMode =
-    InstMode.BlackBox(args, verilogSrc, vhdlSrc)
+  override private[core] def mkInstMode: InstMode =
+    InstMode.BlackBox(verilogSrc, vhdlSrc)
 object EDBlackBox:
   export ir.DFDesignBlock.InstMode.BlackBox.Source

@@ -10,23 +10,24 @@ import dfhdl.internals.*
 import java.nio.file.Paths
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.stages.verilog.VerilogDialect
+import java.io.File.separatorChar
 
 trait Tool:
   val toolName: String
   final protected def runExec: String =
-    val osName: String = sys.props("os.name").toLowerCase
-    if (osName.contains("windows")) windowsBinExec else binExec
+    if (osIsWindows) windowsBinExec else binExec
   protected def binExec: String
   protected def windowsBinExec: String = s"$binExec.exe"
-  final protected def addSourceFiles[D <: Design](
-      cd: CompiledDesign[D],
+  final protected def addSourceFiles(
+      cd: CompiledDesign,
       sourceFiles: List[SourceFile]
-  )(using CompilerOptions): CompiledDesign[D] =
+  )(using CompilerOptions): CompiledDesign =
     val stagedDB = cd.stagedDB
     cd.newStage(stagedDB.copy(srcFiles = stagedDB.srcFiles ++ sourceFiles)).commit
 
   protected def versionCmd: String
   protected def extractVersion(cmdRetStr: String): Option[String]
+  protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions): List[String] = Nil
 
   private[dfhdl] lazy val installedVersion: Option[String] =
     val getVersionFullCmd =
@@ -69,20 +70,24 @@ trait Tool:
     getSet.designDB.srcFiles.collect {
       case SourceFile(
             SourceOrigin.Committed,
-            SourceType.Design.Regular | SourceType.Design.BlackBox,
+            SourceType.Design | SourceType.BlackBox,
             path,
             _
           ) =>
         path.convertWindowsToLinuxPaths
     }
 
-  protected def toolFiles(using getSet: MemberGetSet): List[String] = Nil
+  protected def toolFiles(using getSet: MemberGetSet): List[String] =
+    getSet.designDB.srcFiles.collect {
+      case SourceFile(SourceOrigin.Committed, SourceType.Tool(tn, _), path, _) if tn == toolName =>
+        path.convertWindowsToLinuxPaths
+    }
 
   protected def designDefFiles(using getSet: MemberGetSet): List[String] =
     getSet.designDB.srcFiles.collect {
       case SourceFile(
             SourceOrigin.Committed,
-            SourceType.Design.DFHDLDef | SourceType.Design.GlobalDef,
+            SourceType.DFHDLDef | SourceType.GlobalDef,
             path,
             _
           ) =>
@@ -93,7 +98,7 @@ trait Tool:
     getSet.designDB.srcFiles.collect {
       case SourceFile(
             SourceOrigin.Committed,
-            SourceType.Design.DFHDLDef | SourceType.Design.GlobalDef,
+            SourceType.DFHDLDef | SourceType.GlobalDef,
             path,
             _
           ) =>
@@ -103,7 +108,7 @@ trait Tool:
   protected def constructCommand(args: String*): String =
     args.filter(_.nonEmpty).mkString(" ")
 
-  final protected def exec[D <: Design](
+  final protected def exec(
       cmd: String,
       prepare: => Unit = (),
       loggerOpt: Option[Tool.ProcessLogger] = None,
@@ -111,9 +116,17 @@ trait Tool:
   )(using CompilerOptions, ToolOptions, MemberGetSet): Unit =
     preCheck()
     prepare
-    val fullExec = s"$runExec $cmd"
+    val fullExec =
+      if (runExec.contains(separatorChar))
+        val absPath = Paths.get(execPath).toAbsolutePath().resolve(runExec)
+        s"$absPath $cmd"
+      else
+        s"$runExec $cmd"
     var process: Option[scala.sys.process.Process] = None
-    val processBuilder = Process(fullExec, new java.io.File(execPath))
+    val pb = new java.lang.ProcessBuilder(fullExec.split(" ")*)
+    pb.directory(new java.io.File(execPath))
+    pb.redirectErrorStream(true)
+    val processBuilder = Process(pb)
     var hasWarnings: Boolean = false
 
     val handler = new sun.misc.SignalHandler:
@@ -130,7 +143,9 @@ trait Tool:
       process = Some(p)
       val errCode = p.exitValue()
       hasWarnings = logger.hasWarnings
-      errCode
+      if (logger.lineIsErrorOpt.nonEmpty)
+        if (logger.hasErrors) 1 else 0
+      else errCode
     ).getOrElse({
       val p = processBuilder.run()
       process = Some(p)
@@ -150,17 +165,26 @@ trait Tool:
   override def toString(): String = binExec
 end Tool
 object Tool:
-  class ProcessLogger(lineIsWarning: String => Boolean, lineIsSuppressed: String => Boolean)
-      extends scala.sys.process.ProcessLogger:
-    private var _hasWarnings = false
+  class ProcessLogger(
+      lineIsWarning: String => Boolean,
+      lineIsSuppressed: String => Boolean,
+      // set to override error detection
+      val lineIsErrorOpt: Option[String => Boolean] = None
+  ) extends scala.sys.process.ProcessLogger:
+    private var _hasWarnings: Boolean = false
+    private var _hasErrors: Boolean = false
     final def hasWarnings: Boolean = _hasWarnings
+    final def hasErrors: Boolean = _hasErrors
     private def useLine(line: String): Unit =
       if (!lineIsSuppressed(line))
-        if (lineIsWarning(line)) _hasWarnings = true
+        if (!_hasWarnings && lineIsWarning(line)) _hasWarnings = true
+        if (!_hasErrors && lineIsErrorOpt.map(_(line)).getOrElse(false)) _hasErrors = true
         println(line)
     final def out(s: => String): Unit = useLine(s)
     final def err(s: => String): Unit = useLine(s)
     final def buffer[T](f: => T): T = f
+  end ProcessLogger
+end Tool
 
 trait VerilogTool extends Tool:
   // The include flag to be attached before each included folder
@@ -169,13 +193,13 @@ trait VerilogTool extends Tool:
 trait VHDLTool extends Tool
 
 trait Linter extends Tool:
-  protected[dfhdl] def lintPreprocess[D <: Design](cd: CompiledDesign[D])(using
+  protected[dfhdl] def lintPreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       ToolOptions
-  ): CompiledDesign[D] = cd
-  final def lint[D <: Design](
-      cd: CompiledDesign[D]
-  )(using CompilerOptions, ToolOptions): CompiledDesign[D] =
+  ): CompiledDesign = cd
+  final def lint(
+      cd: CompiledDesign
+  )(using CompilerOptions, ToolOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
     exec(lintCmdFlags, lintPrepare(), lintLogger)
     cd
@@ -211,17 +235,18 @@ trait VHDLLinter extends Linter, VHDLTool:
     lintCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Simulator extends Tool:
-  protected[dfhdl] def simulatePreprocess[D <: Design](cd: CompiledDesign[D])(using
+  val simRunsLint: Boolean = false
+  protected def simRunExec(using MemberGetSet): String = this.runExec
+  protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       SimulatorOptions
-  ): CompiledDesign[D] = cd
-  val simRunsLint: Boolean = false
-  protected def simRunExec: String = this.runExec
-  def simulate[D <: Design](
-      cd: CompiledDesign[D]
-  )(using CompilerOptions, SimulatorOptions): CompiledDesign[D] =
-    given MemberGetSet = cd.stagedDB.getSet
+  ): CompiledDesign =
     if (simRunsLint) this.asInstanceOf[Linter].lint(cd)
+    else cd
+  def simulate(
+      cd: CompiledDesign
+  )(using CompilerOptions, SimulatorOptions): CompiledDesign =
+    given MemberGetSet = cd.stagedDB.getSet
     exec(simulateCmdFlags, simulatePrepare(), simulateLogger, simRunExec)
     cd
   protected def simulatePrepare()(using CompilerOptions, SimulatorOptions, MemberGetSet): Unit = {}
@@ -283,13 +308,13 @@ trait VHDLSimulator extends Simulator, VHDLTool:
     simulateCmdLanguageFlag(co.backend.asInstanceOf[dfhdl.backends.vhdl].dialect)
 
 trait Builder extends Tool:
-  protected[dfhdl] def buildPreprocess[D <: Design](cd: CompiledDesign[D])(using
+  protected[dfhdl] def buildPreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       BuilderOptions
-  ): CompiledDesign[D] = cd
-  def build[D <: Design](
-      cd: CompiledDesign[D]
-  )(using CompilerOptions, BuilderOptions): CompiledDesign[D]
+  ): CompiledDesign = cd
+  def build(
+      cd: CompiledDesign
+  )(using CompilerOptions, BuilderOptions): CompiledDesign
 object Builder:
   // default linter will be vivado
   given Builder = dfhdl.tools.builders.vivado

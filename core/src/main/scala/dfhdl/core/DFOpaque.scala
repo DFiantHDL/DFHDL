@@ -10,7 +10,7 @@ import scala.annotation.targetName
 type DFOpaque[+TFE <: DFOpaque.Abstract] =
   DFType[ir.DFOpaque, Args1[TFE @uncheckedVariance]]
 object DFOpaque:
-  protected[core] sealed trait Abstract extends HasTypeName, ir.DFOpaque.Id:
+  protected[core] sealed trait Abstract extends HasTypeName, Product, Serializable:
     type ActualType <: DFTypeAny
     protected[core] val actualType: ActualType
   object Abstract:
@@ -34,20 +34,29 @@ object DFOpaque:
   abstract class Frontend[A <: DFTypeAny](final protected[core] val actualType: A) extends Abstract:
     type ActualType = A
 
-  abstract class Magnet[A <: DFTypeAny](actualType: A)
-      extends Frontend[A](actualType),
-        ir.DFOpaque.MagnetId
-  abstract class Clk extends Magnet[DFBit](DFBit), ir.DFOpaque.Clk
-  abstract class Rst extends Magnet[DFBit](DFBit), ir.DFOpaque.Rst
+  abstract class Magnet[A <: DFTypeAny](actualType: A) extends Frontend[A](actualType)
+  abstract class Clk extends Magnet[DFBit](DFBit)
+  abstract class Rst extends Magnet[DFBit](DFBit)
 
   given [TFE <: Abstract](using ce: ClassEv[TFE], dfc: DFC): DFOpaque[TFE] = DFOpaque(ce.value)
 
   def apply[TFE <: Abstract](
       t: TFE
   )(using DFC): DFOpaque[TFE] = trydf:
+    val kind = t match
+      case _: Clk       => ir.DFOpaque.Kind.Clk
+      case _: Rst       => ir.DFOpaque.Kind.Rst
+      case _: Magnet[?] => ir.DFOpaque.Kind.Magnet
+      case _            => ir.DFOpaque.Kind.General
+    // Generate a stable ID based on the fully qualified class name
+    // This ensures different case classes have different IDs even if they have the same simple name
+    // but are in different packages, and remains stable between runs
+    val fullyQualifiedClassName = t.getClass.getName
+    val id = fullyQualifiedClassName.hashCode
     ir.DFOpaque(
       t.typeName,
-      t,
+      kind,
+      id,
       t.actualType.asIR.dropUnreachableRefs(allowDesignParamRefs = false)
     ).asFE[DFOpaque[TFE]]
   extension [A <: DFTypeAny, TFE <: Frontend[A]](dfType: DFOpaque[TFE])
@@ -126,7 +135,7 @@ object DFOpaque:
       extension [AT <: DFTypeAny, TFE <: Frontend[AT], A, P](
           lhs: DFVal[DFOpaque[TFE], Modifier[A, Any, Any, P]]
       )
-        def opaqueType: TFE = lhs.dfType.asIR.id.asInstanceOf[TFE]
+        def opaqueType(using ce: ClassEv[TFE]): TFE = ce.value
         def actual(using DFC): DFVal[AT, Modifier[A, Any, Any, P]] = trydf {
           DFVal.Alias.AsIs(lhs.dfType.actualType, lhs)
         }

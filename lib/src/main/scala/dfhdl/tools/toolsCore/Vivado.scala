@@ -18,18 +18,18 @@ object Vivado extends Builder:
     val versionPattern = """Vivado\s+v(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
-  def filesCmdPart[D <: Design](cd: CompiledDesign[D]): String = ???
-  override protected[dfhdl] def buildPreprocess[D <: Design](cd: CompiledDesign[D])(using
+  def filesCmdPart(cd: CompiledDesign): String = ???
+  override protected[dfhdl] def buildPreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       BuilderOptions
-  ): CompiledDesign[D] =
+  ): CompiledDesign =
     addSourceFiles(
       cd,
       List(new VivadoProjectTclConfigPrinter(using cd.stagedDB.getSet).getSourceFile)
     )
-  def build[D <: Design](
-      cd: CompiledDesign[D]
-  )(using CompilerOptions, BuilderOptions): CompiledDesign[D] =
+  def build(
+      cd: CompiledDesign
+  )(using CompilerOptions, BuilderOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
     exec(
       s"-mode batch -source ${cd.stagedDB.top.dclName}.tcl"
@@ -37,7 +37,7 @@ object Vivado extends Builder:
     cd
 end Vivado
 
-case object VivadoProjectTclConfig extends SourceType.Tool
+val VivadoProjectTclConfig = SourceType.Tool("Vivado", "ProjectTclConfig")
 
 class VivadoProjectTclConfigPrinter(using getSet: MemberGetSet):
   val designDB: DB = getSet.designDB

@@ -19,6 +19,7 @@ case object DropRTProcess extends Stage:
   def nullifies: Set[Stage] = Set(DFHDLUniqueNames)
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList = designDB.members.view.collect {
       case pb: ProcessBlock if pb.isInRTDomain =>
         val stateBlocks = pb.members(MemberView.Folded).collect {

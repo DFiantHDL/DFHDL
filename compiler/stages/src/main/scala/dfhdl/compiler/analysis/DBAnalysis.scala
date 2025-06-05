@@ -1,14 +1,16 @@
 package dfhdl.compiler.analysis
 import dfhdl.compiler.ir.*
-import dfhdl.core.DFVal.TruncateTag
 
 extension (designDB: DB)
   def getUnusedAnnotValues: List[DFVal] =
     import designDB.getSet
     designDB.members.flatMap:
       case dfVal: DFVal if !dfVal.isAnonymous =>
-        if (dfVal.meta.annotations.exists { case u: dfhdl.hw.unused => u.isActive })
-          Some(dfVal)
+        val isUnused = dfVal.meta.annotations.exists {
+          case u: dfhdl.hw.unused => u.isActive
+          case _                  => false
+        }
+        if (isUnused) Some(dfVal)
         else None
       case _ => None
   // TODO: need to apply a more stable tag when converting from mutable to immutable

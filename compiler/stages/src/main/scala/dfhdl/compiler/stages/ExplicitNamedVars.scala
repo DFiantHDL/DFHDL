@@ -6,22 +6,27 @@ import dfhdl.compiler.patching.*
 import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 
-import scala.reflect.classTag
-
 case object ExplicitNamedVars extends Stage:
   def dependencies: List[Stage] = List(NamedAnonCondExpr)
   def nullifies: Set[Stage] = Set(DropLocalDcls)
 
   object WhenHeader extends Patch.Replace.RefFilter:
-    val ifHeaderTag = classTag[DFConditional.DFIfHeader]
-    val matchHeaderTag = classTag[DFConditional.DFMatchHeader]
     def apply(refs: Set[DFRefAny])(using MemberGetSet): Set[DFRefAny] =
-      refs.filter { r => (r.refType equals ifHeaderTag) || (r.refType equals matchHeaderTag) }
+      refs.filter {
+        case r: DFRef.TwoWayAny =>
+          r.get match
+            case header: DFConditional.Header =>
+              header.originMembers.view
+                .collect { case b: DFConditional.Block => b }
+                .exists(_.getRefs.exists(_ equals r))
+            case _ => false
+        case _ => false
+      }
   final val WhenNotHeader = !WhenHeader
 
   extension (ch: DFConditional.Header)
     // recursive call to patch conditional block chains
-    private def patchChains(headerVar: DFVal)(using MemberGetSet): List[(DFMember, Patch)] =
+    private def patchChains(headerVar: DFVal)(using MemberGetSet, RefGen): List[(DFMember, Patch)] =
       val cbChain = getSet.designDB.conditionalChainTable(ch)
       val lastMembers = cbChain.map(_.members(MemberView.Folded).last)
       lastMembers.flatMap {
@@ -36,8 +41,10 @@ case object ExplicitNamedVars extends Stage:
           Some(assignDsn.patch)
         case _ => ??? // not possible
       }
+  end extension
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList =
       designDB.members.view
         // just named values

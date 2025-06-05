@@ -3,7 +3,7 @@ commands += DFHDLCommands.docExamplesRefUpdate
 
 // format: off
 val projectName = "dfhdl"
-val compilerVersion = "3.7.0-RC4"
+val compilerVersion = "3.7.1"
 
 inThisBuild(
   List(
@@ -78,7 +78,8 @@ lazy val plugin = project
 lazy val compiler_ir = (project in file("compiler/ir"))
   .settings(
     name := s"$projectName-compiler-ir",
-    settings
+    settings,
+    libraryDependencies += dependencies.upickle
   ).dependsOn(internals)
 
 lazy val core = project
@@ -146,17 +147,20 @@ lazy val devices = (project in file("devices"))
 lazy val dependencies =
   new {
     private val scodecV = "1.2.1"
-    private val munitV = "1.1.0"
+    private val munitV = "1.1.1"
     private val scalafmtV = "3.8.3"
-    private val airframelogV = "2025.1.10"
+    private val airframelogV = "2025.1.12"
     private val oslibV = "0.9.2"
     private val scallopV = "5.2.0"
+    private val upickleV = "4.1.0"
+
     val scodec = "org.scodec" %% "scodec-bits" % scodecV
     val munit = "org.scalameta" %% "munit" % munitV % Test
     val scalafmt = ("org.scalameta" %% "scalafmt-dynamic" % scalafmtV).cross(CrossVersion.for3Use2_13)
     val airframelog = "org.wvlet.airframe" %% "airframe-log" % airframelogV
     val oslib = "com.lihaoyi" %% "os-lib" % oslibV
     val scallop = "org.rogach" %% "scallop" % scallopV
+    val upickle = "com.lihaoyi" %% "upickle" % upickleV
   }
 
 lazy val commonDependencies = Seq(

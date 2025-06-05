@@ -112,8 +112,8 @@ object DFType:
       infix def <>[A, C, I, P](modifier: Modifier[A, C, I, P])(using
           dfc: DFC,
           tc: DFType.TC[T],
-          ck: DFC.Scope,
-          @implicitNotFound("Port/Variable declarations cannot be global") dt: DomainType
+          @implicitNotFound("Port/Variable declarations cannot be global") ck: DFC.Scope.Local,
+          dt: DomainType
       ): DFVal[tc.Type, Modifier[A & ck.type & dt.type, C, I, P]] =
         trydf:
           if (modifier.value.isPort)
@@ -331,6 +331,7 @@ extension (dfType: ir.DFType)
   // see `dropUnreachableRef` on ir.IntParamRef for more details.
   def dropUnreachableRefs(allowDesignParamRefs: Boolean)(using dfc: DFC): ir.DFType =
     import dfc.getSet
+    given ir.RefGen = dfc.refGen
     // if the type has unreachable references, we need to create a new type with reachable references.
     if (dfType.getRefs.exists(_.get.isUnreachable))
       // get the memoized reachable type or create a new one

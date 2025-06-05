@@ -1,6 +1,7 @@
 package dfhdl.app
 import dfhdl.options.LinterOptions
 import dfhdl.tools.toolsCore.{VerilogLinter, VHDLLinter}
+import dfhdl.tools.linters
 
 final case class LintToolSelection(verilogLinter: VerilogLinter, vhdlLinter: VHDLLinter)
     derives CanEqual:
@@ -12,19 +13,23 @@ object LintToolSelection:
     def parse(
         arg: String
     ): Either[String, Option[LintToolSelection]] =
-      def parseTool(toolName: String): Option[dfhdl.tools.toolsCore.Linter] =
+      def parseTool(toolName: String): Option[dfhdl.tools.toolsCore.Simulator] =
         toolName match
-          case "verilator" => Some(dfhdl.tools.linters.verilator)
-          case "iverilog"  => Some(dfhdl.tools.linters.iverilog)
-          case "vlog"      => Some(dfhdl.tools.linters.vlog)
-          case "xvlog"     => Some(dfhdl.tools.linters.xvlog)
-          case "ghdl"      => Some(dfhdl.tools.linters.ghdl)
-          case "nvc"       => Some(dfhdl.tools.linters.nvc)
-          case "vcom"      => Some(dfhdl.tools.linters.vcom)
-          case "xvhdl"     => Some(dfhdl.tools.linters.xvhdl)
+          case "verilator" => Some(linters.verilator)
+          case "iverilog"  => Some(linters.iverilog)
+          case "vlog"      => Some(linters.vlog)
+          case "xvlog"     => Some(linters.xvlog)
+          case "ghdl"      => Some(linters.ghdl)
+          case "nvc"       => Some(linters.nvc)
+          case "vcom"      => Some(linters.vcom)
+          case "xvhdl"     => Some(linters.xvhdl)
           case _           => None
       val toolNames = arg.split("\\/").toList
-      toolNames.map(parseTool) match
+      val parsedTools = arg match
+        case "questa" | "vsim" => List(Some(linters.vlog), Some(linters.vcom))
+        case "vivado" | "xsim" => List(Some(linters.xvlog), Some(linters.xvhdl))
+        case _                 => toolNames.map(parseTool)
+      parsedTools match
         case Some(tool: VerilogLinter) :: Nil =>
           Right(Some(LintToolSelection(tool, lo.vhdlLinter)))
         case Some(tool: VHDLLinter) :: Nil =>

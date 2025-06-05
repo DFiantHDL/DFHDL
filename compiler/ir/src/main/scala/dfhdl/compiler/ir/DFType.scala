@@ -5,6 +5,13 @@ import dfhdl.internals.*
 import scala.collection.immutable.{ListMap, ListSet}
 import scala.reflect.ClassTag
 import scala.util.boundary, boundary.break
+import upickle.default.*
+
+given [T](using ReadWriter[T]): ReadWriter[ListMap[String, T]] =
+  readwriter[List[(String, T)]].bimap(
+    _.toList,
+    m => ListMap.from(m)
+  )
 
 sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives CanEqual:
   type Data
@@ -17,6 +24,22 @@ sealed trait DFType extends Product, Serializable, HasRefCompare[DFType] derives
   lazy val getRefs: List[DFRef.TypeRef]
 
 object DFType:
+  given ReadWriter[DFType] = ReadWriter.merge(
+    summon[ReadWriter[DFBoolOrBit]],
+    summon[ReadWriter[DFBits]],
+    summon[ReadWriter[DFDecimal]],
+    summon[ReadWriter[DFEnum]],
+    summon[ReadWriter[DFVector]],
+    summon[ReadWriter[DFStruct]],
+    summon[ReadWriter[DFOpaque]],
+    summon[ReadWriter[DFDouble.type]],
+    summon[ReadWriter[DFString.type]],
+    summon[ReadWriter[DFUnit.type]],
+    summon[ReadWriter[DFNothing.type]],
+    summon[ReadWriter[DFTime.type]],
+    summon[ReadWriter[DFFreq.type]],
+    summon[ReadWriter[DFNumber.type]]
+  )
   type Aux[T <: DFType, Data0] = DFType { type Data = Data0 }
 
   protected[ir] abstract class Companion[T <: DFType, D](using ClassTag[T]):
@@ -50,7 +73,9 @@ object DFType:
 end DFType
 
 sealed trait ComposedDFType extends DFType
-sealed trait NamedDFType extends DFType, NamedGlobal
+sealed trait NamedDFType extends DFType:
+  val name: String
+  def updateName(newName: String)(using MemberGetSet): this.type
 object NamedDFTypes:
   def unapply(dfVal: DFVal)(using MemberGetSet): Option[ListSet[NamedDFType]] =
     Flatten.unapply(dfVal.dfType)
@@ -76,7 +101,7 @@ end NamedDFTypes
 /////////////////////////////////////////////////////////////////////////////
 // DFBool or DFBit
 /////////////////////////////////////////////////////////////////////////////
-sealed trait DFBoolOrBit extends DFType:
+sealed trait DFBoolOrBit extends DFType derives ReadWriter:
   type Data = Option[Boolean]
   def width(using MemberGetSet): Int = 1
   def createBubbleData(using MemberGetSet): Data = None
@@ -90,7 +115,7 @@ sealed trait DFBoolOrBit extends DFType:
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
-  def copyWithNewRefs: this.type = this
+  def copyWithNewRefs(using RefGen): this.type = this
 end DFBoolOrBit
 
 object DFBoolOrBit extends DFType.Companion[DFBoolOrBit, Option[Boolean]]
@@ -102,7 +127,7 @@ case object DFBit extends DFBoolOrBit
 /////////////////////////////////////////////////////////////////////////////
 // DFBits
 /////////////////////////////////////////////////////////////////////////////
-final case class DFBits(widthParamRef: IntParamRef) extends DFType:
+final case class DFBits(widthParamRef: IntParamRef) extends DFType derives ReadWriter:
   type Data = (BitVector, BitVector)
   def width(using MemberGetSet): Int = widthParamRef.getInt
   def createBubbleData(using MemberGetSet): Data = (BitVector.low(width), BitVector.high(width))
@@ -118,7 +143,8 @@ final case class DFBits(widthParamRef: IntParamRef) extends DFType:
       this.widthParamRef.isSimilarTo(that.widthParamRef)
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
-  def copyWithNewRefs: this.type = copy(widthParamRef.copyAsNewRef).asInstanceOf[this.type]
+  def copyWithNewRefs(using RefGen): this.type =
+    copy(widthParamRef.copyAsNewRef).asInstanceOf[this.type]
 end DFBits
 
 object DFBits extends DFType.Companion[DFBits, (BitVector, BitVector)]:
@@ -184,7 +210,7 @@ final case class DFDecimal(
     // currently nativeType only applies when width is 32-bit and is indicating
     // an `Int` in DFHDL, an `integer` in VHDL, and `int` in Verilog
     nativeType: DFDecimal.NativeType
-) extends DFType:
+) extends DFType derives ReadWriter:
   type Data = Option[BigInt]
   def width(using MemberGetSet): Int = widthParamRef.getInt
   def magnitudeWidth(using MemberGetSet): Int = width - fractionWidth
@@ -215,12 +241,12 @@ final case class DFDecimal(
       this.fractionWidth == that.fractionWidth && this.nativeType == that.nativeType
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = widthParamRef.getRef.toList
-  def copyWithNewRefs: this.type =
+  def copyWithNewRefs(using RefGen): this.type =
     copy(widthParamRef = widthParamRef.copyAsNewRef).asInstanceOf[this.type]
 end DFDecimal
 
 object DFDecimal extends DFType.Companion[DFDecimal, Option[BigInt]]:
-  enum NativeType derives CanEqual:
+  enum NativeType extends StableEnum derives CanEqual, ReadWriter:
     case BitAccurate, Int32
   object NativeType:
     type BitAccurate = BitAccurate.type
@@ -257,11 +283,13 @@ final val DFInt32 = ir.DFDecimal(true, ir.IntParamRef(32), 0, Int32)
 // DFEnum
 /////////////////////////////////////////////////////////////////////////////
 final case class DFEnum(
-    protected val name: String,
+    name: String,
     widthParam: Int,
     entries: ListMap[String, BigInt]
-) extends NamedDFType:
+) extends NamedDFType derives ReadWriter:
   type Data = Option[BigInt]
+  def updateName(newName: String)(using MemberGetSet): this.type =
+    copy(name = newName).asInstanceOf[this.type]
   def width(using MemberGetSet): Int = widthParam
   def createBubbleData(using MemberGetSet): Data = None
   def isDataBubble(data: Data): Boolean = data.isEmpty
@@ -274,7 +302,7 @@ final case class DFEnum(
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
-  def copyWithNewRefs: this.type = this
+  def copyWithNewRefs(using RefGen): this.type = this
 end DFEnum
 
 object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
@@ -286,7 +314,7 @@ object DFEnum extends DFType.Companion[DFEnum, Option[BigInt]]
 final case class DFVector(
     cellType: DFType,
     cellDimParamRefs: List[IntParamRef]
-) extends ComposedDFType:
+) extends ComposedDFType derives ReadWriter:
   type Data = Vector[Any]
   def width(using MemberGetSet): Int = cellType.width * cellDimParamRefs.map(_.getInt).product
   // TODO: change for multidimensional arrays
@@ -322,7 +350,7 @@ final case class DFVector(
       this.cellDimParamRefs.lazyZip(that.cellDimParamRefs).forall(_.isSimilarTo(_))
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = cellType.getRefs ++ cellDimParamRefs.flatMap(_.getRef)
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     cellType = cellType.copyWithNewRefs,
     cellDimParamRefs = cellDimParamRefs.map(_.copyAsNewRef)
   ).asInstanceOf[this.type]
@@ -334,14 +362,20 @@ object DFVector extends DFType.Companion[DFVector, Vector[Any]]
 /////////////////////////////////////////////////////////////////////////////
 // DFOpaque
 /////////////////////////////////////////////////////////////////////////////
-final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualType: DFType)
-    extends NamedDFType,
-      ComposedDFType:
+final case class DFOpaque(
+    name: String,
+    kind: DFOpaque.Kind,
+    id: Int,
+    actualType: DFType
+) extends NamedDFType,
+      ComposedDFType derives ReadWriter:
   type Data = Any
+  def updateName(newName: String)(using MemberGetSet): this.type =
+    copy(name = newName).asInstanceOf[this.type]
   def width(using MemberGetSet): Int = actualType.width
-  def isMagnet: Boolean = id match
-    case _: DFOpaque.MagnetId => true
-    case _                    => false
+  def isMagnet: Boolean = kind match
+    case _: DFOpaque.Kind.Magnet => true
+    case _                       => false
   def createBubbleData(using MemberGetSet): Data = actualType.createBubbleData
   def isDataBubble(data: Data): Boolean =
     actualType.isDataBubble(data.asInstanceOf[actualType.Data])
@@ -351,37 +385,53 @@ final case class DFOpaque(protected val name: String, id: DFOpaque.Id, actualTyp
     actualType.bitsDataToData(data)
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFOpaque =>
-      this.getName == that.getName && this.id == that.id &&
+      this.name == that.name && this.id == that.id &&
       this.actualType =~ that.actualType
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFOpaque =>
-      this.getName == that.getName && this.id == that.id &&
+      this.name == that.name && this.id == that.id &&
       this.actualType.isSimilarTo(that.actualType)
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = actualType.getRefs
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     actualType = actualType.copyWithNewRefs
   ).asInstanceOf[this.type]
 end DFOpaque
 
 object DFOpaque extends DFType.Companion[DFOpaque, Any]:
-  trait Id extends Product, Serializable derives CanEqual
-  // for types to auto-connected, like Clk and Rst
-  trait MagnetId extends Id
-  trait Clk extends MagnetId
-  trait Rst extends MagnetId
+  sealed trait Kind derives CanEqual
+  object Kind:
+    given ReadWriter[Kind] = ReadWriter.merge(
+      summon[ReadWriter[General.type]],
+      summon[ReadWriter[Clk.type]],
+      summon[ReadWriter[Rst.type]],
+      summon[ReadWriter[Magnet.type]]
+    )
+    case object General extends Kind:
+      given ReadWriter[General.type] = macroRW
+    sealed trait Magnet extends Kind
+    case object Clk extends Magnet:
+      given ReadWriter[Clk.type] = macroRW
+    case object Rst extends Magnet:
+      given ReadWriter[Rst.type] = macroRW
+    case object Magnet extends Magnet:
+      given ReadWriter[Magnet.type] = macroRW
+  end Kind
+end DFOpaque
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
 // DFStruct
 /////////////////////////////////////////////////////////////////////////////
 final case class DFStruct(
-    protected val name: String,
+    name: String,
     fieldMap: ListMap[String, DFType]
 ) extends NamedDFType,
-      ComposedDFType:
+      ComposedDFType derives ReadWriter:
   type Data = List[Any]
+  def updateName(newName: String)(using MemberGetSet): this.type =
+    copy(name = newName).asInstanceOf[this.type]
   def getNameForced: String = name
   def width(using MemberGetSet): Int = fieldMap.values.map(_.width).sum
   def createBubbleData(using MemberGetSet): Data = fieldMap.values.map(_.createBubbleData).toList
@@ -418,20 +468,20 @@ final case class DFStruct(
   def fieldIndex(fieldName: String): Int = fieldIndexes(fieldName)
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFStruct =>
-      this.getName == that.getName &&
+      this.name == that.name &&
       this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
         fnL == fnR && ftL =~ ftR
       }
     case _ => false
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = that match
     case that: DFStruct =>
-      this.getName == that.getName &&
+      this.name == that.name &&
       this.fieldMap.lazyZip(that.fieldMap).forall { case ((fnL, ftL), (fnR, ftR)) =>
         fnL == fnR && ftL.isSimilarTo(ftR)
       }
     case _ => false
   lazy val getRefs: List[DFRef.TypeRef] = fieldMap.values.flatMap(_.getRefs).toList
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     fieldMap = ListMap.from(fieldMap.view.mapValues(_.copyWithNewRefs))
   ).asInstanceOf[this.type]
 end DFStruct
@@ -469,10 +519,11 @@ sealed trait DFDouble extends DFType:
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
-  def copyWithNewRefs: this.type = this
+  def copyWithNewRefs(using RefGen): this.type = this
 end DFDouble
 
-case object DFDouble extends DFType.Companion[DFDouble, Option[Double]] with DFDouble
+case object DFDouble extends DFType.Companion[DFDouble, Option[Double]] with DFDouble:
+  given ReadWriter[DFDouble.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////
 
 sealed trait DFUnbounded extends DFType:
@@ -485,7 +536,7 @@ sealed trait DFUnbounded extends DFType:
   protected def `prot_=~`(that: DFType)(using MemberGetSet): Boolean = this equals that
   def isSimilarTo(that: DFType)(using MemberGetSet): Boolean = this equals that
   lazy val getRefs: List[DFRef.TypeRef] = Nil
-  def copyWithNewRefs: this.type = this
+  def copyWithNewRefs(using RefGen): this.type = this
 
 /////////////////////////////////////////////////////////////////////////////
 // DFUnit
@@ -499,7 +550,8 @@ sealed trait DFUnit extends DFUnbounded:
   def isDataBubble(data: Data): Boolean = noTypeErr
   def createBubbleData(using MemberGetSet): Data = noTypeErr
 
-case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit
+case object DFUnit extends DFType.Companion[DFUnit, Unit] with DFUnit:
+  given ReadWriter[DFUnit.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -511,63 +563,77 @@ sealed trait DFNothing extends DFUnbounded:
   type Data = Nothing
   def isDataBubble(data: Data): Boolean = noTypeErr
   def createBubbleData(using MemberGetSet): Data = noTypeErr
-case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing
+case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothing:
+  given ReadWriter[DFNothing.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
-// DFPhysical
+// DFPhysical - DFTime, DFFreq, DFNumber
 /////////////////////////////////////////////////////////////////////////////
-final case class DFPhysical(unit: DFPhysical.Unit) extends DFUnbounded:
-  //             value    scale
-  type Data = (BigDecimal, Any)
+sealed trait DFPhysical[U <: DFPhysical.Unit] extends DFUnbounded:
+  //             value   unit
+  type Data = (BigDecimal, U)
   def isDataBubble(data: Data): Boolean = false
   def createBubbleData(using MemberGetSet): Data = noTypeErr
 
-object DFPhysical extends DFType.Companion[DFPhysical, (BigDecimal, Any)]:
+object DFPhysical:
   sealed trait Unit extends Product, Serializable derives CanEqual
-  object Unit:
-    case object Time extends Unit:
-      enum Scale derives CanEqual:
-        case hr, min, sec, ms, us, ns, ps, fs
-        def to_ps(value: BigDecimal): BigDecimal =
-          this match
-            case DFPhysical.Unit.Time.Scale.fs  => value / BigDecimal(1000)
-            case DFPhysical.Unit.Time.Scale.ps  => value
-            case DFPhysical.Unit.Time.Scale.ns  => value * BigDecimal(1000)
-            case DFPhysical.Unit.Time.Scale.us  => value * BigDecimal(1000000)
-            case DFPhysical.Unit.Time.Scale.ms  => value * BigDecimal(1000000000)
-            case DFPhysical.Unit.Time.Scale.sec => value * BigDecimal(1000000000000L)
-            case DFPhysical.Unit.Time.Scale.min => value * BigDecimal(60000000000000L)
-            case DFPhysical.Unit.Time.Scale.hr  => value * BigDecimal(3600000000000000L)
 
-    case object Number extends Unit
-    case object Freq extends Unit:
-      enum Scale derives CanEqual:
-        case Hz, KHz, MHz, GHz
-        def to_hz(value: BigDecimal): BigDecimal =
-          this match
-            case DFPhysical.Unit.Freq.Scale.Hz  => value
-            case DFPhysical.Unit.Freq.Scale.KHz => value * BigDecimal(1000)
-            case DFPhysical.Unit.Freq.Scale.MHz => value * BigDecimal(1000000)
-            case DFPhysical.Unit.Freq.Scale.GHz => value * BigDecimal(1000000000)
-        def to_ps(value: BigDecimal): BigDecimal =
-          BigDecimal(1e12) / to_hz(value)
-        def to_period(value: BigDecimal): (BigDecimal, Unit.Time.Scale) =
-          val psVal = to_ps(value)
-          if psVal < BigDecimal(1000) then (psVal, Unit.Time.Scale.ps)
-          else if psVal < BigDecimal(1000000) then (psVal / 1000, Unit.Time.Scale.ns)
-          else if psVal < BigDecimal(1000000000) then (psVal / 1000000, Unit.Time.Scale.us)
-          else if psVal < 1000000000000L then (psVal / 1000000000L, Unit.Time.Scale.ms)
-          else if psVal < 1000000000000000L then (psVal / 1000000000000L, Unit.Time.Scale.sec)
-          else (psVal / 60000000000000L, Unit.Time.Scale.min)
-      end Scale
-    end Freq
+sealed trait DFTime extends DFPhysical[DFTime.Unit]
+case object DFTime extends DFType.Companion[DFTime, (BigDecimal, DFTime.Unit)] with DFTime:
+  given ReadWriter[DFTime.type] = macroRW
+  enum Unit extends DFPhysical.Unit, StableEnum derives ReadWriter:
+    case hr, min, sec, ms, us, ns, ps, fs
+    def to_ps(value: BigDecimal): BigDecimal =
+      this match
+        case `fs`  => value / BigDecimal(1000)
+        case `ps`  => value
+        case `ns`  => value * BigDecimal(1000)
+        case `us`  => value * BigDecimal(1000000)
+        case `ms`  => value * BigDecimal(1000000000)
+        case `sec` => value * BigDecimal(1000000000000L)
+        case `min` => value * BigDecimal(60000000000000L)
+        case `hr`  => value * BigDecimal(3600000000000000L)
+    def to_basic_unit(value: BigDecimal): (BigDecimal, Unit) =
+      val psVal = to_ps(value)
+      if psVal < 1000 then (psVal, DFTime.Unit.ps)
+      else if psVal < 1000000 then (psVal / 1000, DFTime.Unit.ns)
+      else if psVal < 1000000000 then (psVal / 1000, DFTime.Unit.us)
+      else if psVal < 1000000000000L then (psVal / 1000000000L, DFTime.Unit.ms)
+      else (psVal / 1000000000000L, DFTime.Unit.sec)
   end Unit
-end DFPhysical
+end DFTime
 
-val DFTime = DFPhysical(DFPhysical.Unit.Time)
-val DFFreq = DFPhysical(DFPhysical.Unit.Freq)
-val DFNumber = DFPhysical(DFPhysical.Unit.Number)
+sealed trait DFFreq extends DFPhysical[DFFreq.Unit]
+case object DFFreq extends DFType.Companion[DFFreq, (BigDecimal, DFFreq.Unit)] with DFFreq:
+  given ReadWriter[DFFreq.type] = macroRW
+  enum Unit extends DFPhysical.Unit, StableEnum derives ReadWriter:
+    case Hz, KHz, MHz, GHz
+    def to_hz(value: BigDecimal): BigDecimal =
+      this match
+        case Hz  => value
+        case KHz => value * BigDecimal(1000)
+        case MHz => value * BigDecimal(1000000)
+        case GHz => value * BigDecimal(1000000000)
+    def to_ps(value: BigDecimal): BigDecimal =
+      BigDecimal(1e12) / to_hz(value)
+    def to_period(value: BigDecimal): (BigDecimal, DFTime.Unit) =
+      val psVal = to_ps(value)
+      if psVal < 1000 then (psVal, DFTime.Unit.ps)
+      else if psVal < 1000000 then (psVal / 1000, DFTime.Unit.ns)
+      else if psVal < 1000000000 then (psVal / 1000, DFTime.Unit.us)
+      else if psVal < 1000000000000L then (psVal / 1000000000L, DFTime.Unit.ms)
+      else if psVal < 1000000000000000L then (psVal / 1000000000000L, DFTime.Unit.sec)
+      else (psVal / 60000000000000L, DFTime.Unit.min)
+  end Unit
+end DFFreq
+
+sealed trait DFNumber extends DFPhysical[DFNumber.Unit]
+case object DFNumber extends DFType.Companion[DFNumber, (BigDecimal, DFNumber.Unit)] with DFNumber:
+  given ReadWriter[DFNumber.type] = macroRW
+  sealed trait Unit extends DFPhysical.Unit
+  case object Unit extends Unit
+
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -577,5 +643,6 @@ sealed trait DFString extends DFUnbounded:
   type Data = Option[String]
   def isDataBubble(data: Data): Boolean = data.isEmpty
   def createBubbleData(using MemberGetSet): Data = None
-case object DFString extends DFType.Companion[DFString, Option[String]] with DFString
+case object DFString extends DFType.Companion[DFString, Option[String]] with DFString:
+  given ReadWriter[DFString.type] = macroRW
 /////////////////////////////////////////////////////////////////////////////

@@ -19,6 +19,7 @@ abstract class BreakOps(breakAssignments: Boolean) extends NoCheckStage:
   override def dependencies: List[Stage] = List()
   override def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     object AnonConcatFuncOf:
       @tailrec def unapply(dfVal: DFVal): Option[List[DFVal.Ref]] =
         if (dfVal.isAnonymous) dfVal match

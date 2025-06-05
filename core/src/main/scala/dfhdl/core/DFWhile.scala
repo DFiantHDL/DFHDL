@@ -41,7 +41,7 @@ def COMB_LOOP(using
         else if (lineEnd != lb.meta.position.lineEnd)
           stop = true
         if (!stop)
-          ownerIR.setTags(_.tag(ir.DFLoop.Combinational))
+          ownerIR.setTags(_.tag(ir.CombinationalTag))
           ownerIR = lb.getOwner
       case _ => stop = true
 end COMB_LOOP

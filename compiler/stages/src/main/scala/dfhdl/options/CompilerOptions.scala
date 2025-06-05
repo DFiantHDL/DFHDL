@@ -36,9 +36,12 @@ object CompilerOptions:
   given (using defaults: Defaults[Design]): CompilerOptions = defaults
 
   extension (co: CompilerOptions)
-    def topCommitPath(stagedDB: ir.DB): String =
-      if (co.newFolderForTop) s"${co.commitFolder}$separatorChar${stagedDB.top.dclName}"
+    def topCommitPath(topName: String): String =
+      if (co.newFolderForTop) s"${co.commitFolder}$separatorChar${topName}"
       else co.commitFolder
+    def topCommitPath(stagedDB: ir.DB): String = co.topCommitPath(stagedDB.top.dclName)
+    def cachePath(topName: String): String =
+      s"${co.topCommitPath(topName)}${separatorChar}cache"
 
   opaque type CommitFolder <: String = String
   object CommitFolder:

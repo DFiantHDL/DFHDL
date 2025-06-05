@@ -46,10 +46,10 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
       csDFEnumToStringFuncDcl(dfType)
     }.mkString("\n")
   def csDFEnumTypeName(dfType: DFEnum): String =
-    if (allowTypeDef) s"t_enum_${dfType.getName}"
+    if (allowTypeDef) s"t_enum_${dfType.name}"
     else csDFBits(DFBits(dfType.width), false)
   def csDFEnumToStringFuncDcl(dfType: DFEnum): String =
-    val enumName = dfType.getName
+    val enumName = dfType.name
     val maxCharWidth = dfType.entries.view.keys.map(_.length).max + enumName.length + 1
     val funcName = s"${enumName}_to_string"
     val cases =
@@ -65,7 +65,7 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
         |endfunction""".stripMargin
   end csDFEnumToStringFuncDcl
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
-    val enumName = dfType.getName
+    val enumName = dfType.name
     if (allowTypeDef)
       val entries =
         dfType.entries.view
@@ -93,11 +93,11 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
     s"${csDFType(cellType, typeCS)}"
-  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"t_opaque_${dfType.getName}"
+  def csDFOpaqueTypeName(dfType: DFOpaque): String = s"t_opaque_${dfType.name}"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     s"typedef ${csDFType(dfType.actualType, typeCS = true)} ${csDFOpaqueTypeName(dfType)}${csDFVectorRanges(dfType.actualType)};"
   def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = csDFOpaqueTypeName(dfType)
-  def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.getName}"
+  def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.name}"
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${csDFType(t, typeCS = true)} $n${csDFVectorRanges(t)};")
@@ -107,6 +107,8 @@ protected trait VerilogTypePrinter extends AbstractTypePrinter:
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String = csDFStructTypeName(dfType)
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = printer.unsupported
   def csDFDouble(): String = "real"
-  def csDFPhysical(dfType: DFPhysical, typeCS: Boolean): String = printer.unsupported
+  def csDFTime(dfType: DFTime, typeCS: Boolean): String = printer.unsupported
+  def csDFFreq(dfType: DFFreq, typeCS: Boolean): String = printer.unsupported
+  def csDFNumber(dfType: DFNumber, typeCS: Boolean): String = printer.unsupported
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String = printer.unsupported
 end VerilogTypePrinter

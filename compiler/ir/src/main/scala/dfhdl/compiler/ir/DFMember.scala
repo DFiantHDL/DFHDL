@@ -1,7 +1,7 @@
 package dfhdl.compiler
 package ir
 import dfhdl.internals.*
-
+import upickle.default.*
 import annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.reflect.{ClassTag, classTag}
@@ -103,6 +103,15 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
 end DFMember
 
 object DFMember:
+  given ReadWriter[DFMember] = ReadWriter.merge(
+    summon[ReadWriter[DFMember.Empty.type]],
+    summon[ReadWriter[DFVal]],
+    summon[ReadWriter[Statement]],
+    summon[ReadWriter[DFInterfaceOwner]],
+    summon[ReadWriter[DFBlock]],
+    summon[ReadWriter[DFConditional.Header]],
+    summon[ReadWriter[DFRange]]
+  )
   extension (member: DFMember)
     def getTagOf[CT <: DFTag: ClassTag]: Option[CT] =
       member.tags.getTagOf[CT]
@@ -123,6 +132,7 @@ object DFMember:
       case _: DFDomainOwner => Some(false)
       case _                => None
     })
+    def toJson(using Writer[DFMember]): String = write(member)
   end extension
 
   sealed trait Empty extends DFMember:
@@ -130,13 +140,14 @@ object DFMember:
     val meta: Meta = Meta(None, Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
-      case Empty => true
-      case _     => false
+      case _: Empty => true
+      case _        => false
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
-    def copyWithNewRefs: this.type = this
-  case object Empty extends Empty
+    def copyWithNewRefs(using RefGen): this.type = this
+  case object Empty extends Empty:
+    given ReadWriter[Empty.type] = macroRW
 
   sealed trait Named extends DFMember:
     final def getName(using MemberGetSet): String = this match
@@ -169,7 +180,7 @@ object DFMember:
       case _                               => member
 end DFMember
 
-sealed trait Statement extends DFMember
+sealed trait Statement extends DFMember derives ReadWriter
 
 sealed trait DFVal extends DFMember.Named:
   val dfType: DFType
@@ -213,7 +224,18 @@ end DFVal
 
 object DFVal:
   type Ref = DFRef.TwoWay[DFVal, DFMember]
-  final case class Modifier(dir: Modifier.Dir, special: Modifier.Special) derives CanEqual:
+  given ReadWriter[DFVal] = ReadWriter.merge(
+    summon[ReadWriter[DFVal.Dcl]],
+    summon[ReadWriter[DFVal.OPEN]],
+    summon[ReadWriter[DFVal.Alias]],
+    summon[ReadWriter[DFVal.Const]],
+    summon[ReadWriter[DFVal.DesignParam]],
+    summon[ReadWriter[DFVal.Func]],
+    summon[ReadWriter[DFVal.PortByNameSelect]]
+  )
+  final case class Modifier(dir: Modifier.Dir, special: Modifier.Special)
+      derives CanEqual,
+        ReadWriter:
     override def toString(): String =
       special match
         case Modifier.Special.Ordinary => dir.toString()
@@ -225,10 +247,10 @@ object DFVal:
       def isPort: Boolean = mod.dir match
         case Modifier.IN | Modifier.OUT | Modifier.INOUT => true
         case _                                           => false
-    enum Dir derives CanEqual:
+    enum Dir extends StableEnum derives CanEqual, ReadWriter:
       case VAR, IN, OUT, INOUT
     export Dir.{VAR, IN, OUT, INOUT}
-    enum Special derives CanEqual:
+    enum Special extends StableEnum derives CanEqual, ReadWriter:
       case Ordinary, REG, SHARED
     export Special.{Ordinary, REG, SHARED}
 
@@ -326,16 +348,17 @@ object DFVal:
   sealed trait CanBeGlobal extends CanBeExpr:
     private[dfhdl] var globalCtx: Any = compiletime.uninitialized
     final override def isGlobal(using MemberGetSet): Boolean =
-      // during elaboration with a DFC context we can use `refType` of `Empty` as an indicator
+      // during elaboration with a DFC context we can use `Empty` as an indicator
       // that `dfVal` is global. we use it because `dfVal`'s ownerRef could be only available
       // within dfVal's internal cached context. however, when in immutable db, `dfVal.isGlobal` can
       // be invoked with no issue, since the DB `getSet` will have access to all references.
-      // note that it could be that `refType` is later changed from `Empty` to an actual member,
+      // note that it could be that the ref can late change from `Empty` to an actual member,
       // so that is why we cannot rely on it after elaboration is done.
       ownerRef.getOption match
         case Some(DFMember.Empty) => true
         case None                 => true
         case _                    => false
+    def copyWithoutGlobalCtx: this.type
 
     final override def getRelativeName(
         callOwner: DFOwner | DFMember.Empty
@@ -352,12 +375,12 @@ object DFVal:
 
   final case class Const(
       dfType: DFType,
-      data: Any,
+      data: Data,
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
   ) extends CanBeExpr,
-        CanBeGlobal:
+        CanBeGlobal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = this.isAnonymous
     protected def protGetConstData(using MemberGetSet): Option[Any] = Some(data)
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -379,7 +402,8 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs: this.type = copy(
+    def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
+    def copyWithNewRefs(using RefGen): this.type = copy(
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef
     ).asInstanceOf[this.type]
@@ -392,7 +416,7 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends CanBeExpr:
+  ) extends CanBeExpr derives ReadWriter:
     assert(!this.isAnonymous, "Design parameters cannot be anonymous.")
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -416,7 +440,7 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfValRef :: defaultRef :: dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef,
       dfValRef = dfValRef.copyAsNewRef,
@@ -430,7 +454,7 @@ object DFVal:
   final case class OPEN(
       dfType: DFType,
       ownerRef: DFOwner.Ref
-  ) extends DFVal:
+  ) extends DFVal derives ReadWriter:
     val meta: Meta = Meta(None, Position.unknown, None, Nil)
     val tags: DFTags = DFTags.empty
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
@@ -442,7 +466,7 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = this
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef
     ).asInstanceOf[this.type]
@@ -453,7 +477,7 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends CanBeExpr:
+  ) extends CanBeExpr derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = true
     protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -465,7 +489,7 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef
     ).asInstanceOf[this.type]
@@ -478,7 +502,7 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends DFVal:
+  ) extends DFVal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -495,22 +519,21 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ initRefList
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef,
       initRefList = initRefList.map(_.copyAsNewRef)
     ).asInstanceOf[this.type]
   end Dcl
   object Dcl:
-    case object IteratorTag extends DFTagOf[Dcl]
     type InitRef = DFRef.TwoWay[DFVal, Dcl]
     extension (dcl: Dcl)
       def isClkDcl(using MemberGetSet): Boolean = dcl.dfType match
-        case DFOpaque(_, id: DFOpaque.Clk, _) => true
-        case _                                => false
+        case DFOpaque(kind = DFOpaque.Kind.Clk) => true
+        case _                                  => false
       def isRstDcl(using MemberGetSet): Boolean = dcl.dfType match
-        case DFOpaque(_, id: DFOpaque.Rst, _) => true
-        case _                                => false
+        case DFOpaque(kind = DFOpaque.Kind.Rst) => true
+        case _                                  => false
       def hasNonBubbleInit(using MemberGetSet): Boolean = dcl.initRefList match
         case DFRef(dfVal) :: _ => !dfVal.isBubble
         case _                 => false
@@ -522,7 +545,7 @@ object DFVal:
       meta: Meta,
       tags: DFTags
   ) extends CanBeExpr,
-        CanBeGlobal:
+        CanBeGlobal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
       args.forall(_.get.isFullyAnonymous)
     protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -549,7 +572,8 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ args
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs: this.type = copy(
+    def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
+    def copyWithNewRefs(using RefGen): this.type = copy(
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef,
       args = args.map(_.copyAsNewRef)
@@ -557,7 +581,7 @@ object DFVal:
   end Func
 
   object Func:
-    enum Op derives CanEqual:
+    enum Op extends StableEnum derives CanEqual, ReadWriter:
       case +, -, *, /, ===, =!=, <, >, <=, >=, &, |, ^, %, ++
       case >>, <<, **, ror, rol, reverse, repeat
       case unary_-, unary_~, unary_!
@@ -575,7 +599,7 @@ object DFVal:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends DFVal:
+  ) extends DFVal derives ReadWriter:
     protected def protIsFullyAnonymous(using MemberGetSet): Boolean = false
     protected def protGetConstData(using MemberGetSet): Option[Any] = None
     protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
@@ -588,7 +612,7 @@ object DFVal:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = designInstRef :: dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef,
       designInstRef = designInstRef.copyAsNewRef
@@ -609,8 +633,14 @@ object DFVal:
     lazy val getRefs: List[DFRef.TwoWayAny] = relValRef :: dfType.getRefs
 
   object Alias:
-    case object IdentTag extends DFTagOf[DFVal]
     type Ref = DFRef.TwoWay[DFVal, Alias]
+    given ReadWriter[Alias] = ReadWriter.merge(
+      summon[ReadWriter[DFVal.Alias.AsIs]],
+      summon[ReadWriter[DFVal.Alias.History]],
+      summon[ReadWriter[DFVal.Alias.ApplyRange]],
+      summon[ReadWriter[DFVal.Alias.ApplyIdx]],
+      summon[ReadWriter[DFVal.Alias.SelectField]]
+    )
     // This is complete alias that consumes its relative val
     sealed trait Consumer extends Alias:
       val relValRef: ConsumerRef
@@ -618,7 +648,7 @@ object DFVal:
 
     // This is a partial alias that can propagate its modifier.
     // E.g., a mutable variable `x` that we select its bit `x(1)` is also mutable.
-    sealed trait Partial extends Alias, CanBeGlobal:
+    sealed trait Partial extends Alias, CanBeGlobal derives ReadWriter:
       val relValRef: PartialRef
     type PartialRef = DFRef.TwoWay[DFVal, Partial]
 
@@ -628,7 +658,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Partial:
+    ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -650,7 +680,8 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-      def copyWithNewRefs: this.type = copy(
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
+      def copyWithNewRefs(using RefGen): this.type = copy(
         dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
         relValRef = relValRef.copyAsNewRef
@@ -666,7 +697,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Consumer:
+    ) extends Consumer derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous && initRefOption.map(_.get.isFullyAnonymous).getOrElse(true)
       protected def protGetConstData(using MemberGetSet): Option[Any] = None
@@ -688,7 +719,8 @@ object DFVal:
       override lazy val getRefs: List[DFRef.TwoWayAny] =
         relValRef :: dfType.getRefs ++ initRefOption
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-      def copyWithNewRefs: this.type = copy(
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
+      def copyWithNewRefs(using RefGen): this.type = copy(
         dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
         relValRef = relValRef.copyAsNewRef,
@@ -698,7 +730,7 @@ object DFVal:
 
     object History:
       type InitRef = DFRef.TwoWay[DFVal, History]
-      enum Op derives CanEqual:
+      enum Op extends StableEnum derives CanEqual, ReadWriter:
         case State // represents either `prev` in DF domain or `reg` in RT domain
         case Pipe // pipe only represents a pipe constraint under DF domain
       extension (history: DFVal.Alias.History)
@@ -713,7 +745,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Partial:
+    ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -737,7 +769,8 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = this
-      def copyWithNewRefs: this.type = copy(
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
+      def copyWithNewRefs(using RefGen): this.type = copy(
         ownerRef = ownerRef.copyAsNewRef,
         relValRef = relValRef.copyAsNewRef
       ).asInstanceOf[this.type]
@@ -749,7 +782,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Partial:
+    ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous && relIdx.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -789,7 +822,8 @@ object DFVal:
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       override lazy val getRefs: List[DFRef.TwoWayAny] = relIdx :: relValRef :: dfType.getRefs
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-      def copyWithNewRefs: this.type = copy(
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
+      def copyWithNewRefs(using RefGen): this.type = copy(
         dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
         relValRef = relValRef.copyAsNewRef,
@@ -811,7 +845,7 @@ object DFVal:
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
-    ) extends Partial:
+    ) extends Partial derives ReadWriter:
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
@@ -836,7 +870,8 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-      def copyWithNewRefs: this.type = copy(
+      def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
+      def copyWithNewRefs(using RefGen): this.type = copy(
         dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
         relValRef = relValRef.copyAsNewRef
@@ -853,7 +888,7 @@ final case class DFRange(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFMember:
+) extends DFMember derives ReadWriter:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFRange =>
       this.startRef =~ that.startRef && this.endRef =~ that.endRef && this.stepRef =~ that.stepRef &&
@@ -863,7 +898,7 @@ final case class DFRange(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = List(startRef, endRef, stepRef)
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     startRef = startRef.copyAsNewRef,
     endRef = endRef.copyAsNewRef,
     stepRef = stepRef.copyAsNewRef,
@@ -873,7 +908,7 @@ end DFRange
 
 object DFRange:
   type Ref = DFRef.TwoWay[DFVal, DFRange]
-  enum Op derives CanEqual:
+  enum Op extends StableEnum derives CanEqual, ReadWriter:
     case Until, To
 
 final case class DFNet(
@@ -892,7 +927,7 @@ final case class DFNet(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = List(lhsRef, rhsRef)
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     lhsRef = lhsRef.copyAsNewRef,
     rhsRef = rhsRef.copyAsNewRef,
     ownerRef = ownerRef.copyAsNewRef
@@ -901,7 +936,7 @@ end DFNet
 
 object DFNet:
   type Ref = DFRef.TwoWay[DFVal | DFInterfaceOwner, DFNet]
-  enum Op derives CanEqual:
+  enum Op extends StableEnum derives CanEqual, ReadWriter:
     case Assignment, NBAssignment, Connection, ViaConnection, LazyConnection
   extension (net: DFNet)
     def isAssignment = net.op match
@@ -964,7 +999,7 @@ final case class StepBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFMember.Named:
+      DFMember.Named derives ReadWriter:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: StepBlock =>
       this.meta =~ that.meta && this.tags =~ that.tags
@@ -972,7 +1007,7 @@ final case class StepBlock(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = Nil
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
 end StepBlock
@@ -998,7 +1033,7 @@ final case class Goto(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = List(stepRef)
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     stepRef = stepRef.copyAsNewRef,
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
@@ -1028,7 +1063,7 @@ final case class DFInterfaceOwner(
     ownerRef: DFOwner.Ref,
     meta: Meta,
     tags: DFTags
-) extends DFDomainOwner:
+) extends DFDomainOwner derives ReadWriter:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFInterfaceOwner =>
       this.domainType =~ that.domainType &&
@@ -1037,13 +1072,22 @@ final case class DFInterfaceOwner(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     domainType = domainType.copyWithNewRefs,
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
 end DFInterfaceOwner
 
 sealed trait DFBlock extends DFOwner
+object DFBlock:
+  given ReadWriter[DFBlock] = ReadWriter.merge(
+    summon[ReadWriter[ProcessBlock]],
+    summon[ReadWriter[DFConditional.Block]],
+    summon[ReadWriter[DFLoop.Block]],
+    summon[ReadWriter[StepBlock]],
+    summon[ReadWriter[DomainBlock]],
+    summon[ReadWriter[DFDesignBlock]]
+  )
 
 final case class ProcessBlock(
     sensitivity: ProcessBlock.Sensitivity,
@@ -1051,7 +1095,7 @@ final case class ProcessBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFOwnerNamed:
+      DFOwnerNamed derives ReadWriter:
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: ProcessBlock =>
       this.sensitivity =~ that.sensitivity &&
@@ -1060,31 +1104,33 @@ final case class ProcessBlock(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = sensitivity.getRefs
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     sensitivity = sensitivity.copyWithNewRefs,
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
 end ProcessBlock
 object ProcessBlock:
   sealed trait Sensitivity extends HasRefCompare[Sensitivity], Product, Serializable
-      derives CanEqual
+      derives CanEqual,
+        ReadWriter
   object Sensitivity:
     case object All extends Sensitivity:
       protected def `prot_=~`(that: Sensitivity)(using MemberGetSet): Boolean = that match
         case All => true
         case _   => false
       lazy val getRefs: scala.List[DFRef.TwoWayAny] = Nil
-      def copyWithNewRefs: this.type = this
+      def copyWithNewRefs(using RefGen): this.type = this
     final case class List(refs: scala.List[DFVal.Ref]) extends Sensitivity:
       protected def `prot_=~`(that: Sensitivity)(using MemberGetSet): Boolean = that match
         case that: List => this.refs.lazyZip(that.refs).forall(_ =~ _)
         case _          => false
       lazy val getRefs: scala.List[DFRef.TwoWayAny] = refs
-      def copyWithNewRefs: this.type = List(refs.map(_.copyAsNewRef)).asInstanceOf[this.type]
+      def copyWithNewRefs(using RefGen): this.type =
+        List(refs.map(_.copyAsNewRef)).asInstanceOf[this.type]
 end ProcessBlock
 
 object DFConditional:
-  sealed trait Block extends DFBlock:
+  sealed trait Block extends DFBlock derives ReadWriter:
     type THeader <: Header
     val guardRef: Block.GuardRef
     val prevBlockOrHeaderRef: Block.Ref
@@ -1092,7 +1138,7 @@ object DFConditional:
     type Ref = DFRef.TwoWay[Block | Header, DFMember]
     type GuardRef = DFRef.TwoWay[DFVal | DFMember.Empty, DFMember]
 
-  sealed trait Header extends DFVal.CanBeExpr:
+  sealed trait Header extends DFVal.CanBeExpr derives ReadWriter:
     type TBlock <: Block
 
   final case class DFMatchHeader(
@@ -1101,7 +1147,7 @@ object DFConditional:
       ownerRef: DFOwner.Ref,
       meta: Meta,
       tags: DFTags
-  ) extends Header:
+  ) extends Header derives ReadWriter:
     type TBlock = DFCaseBlock
     // TODO: if all returned expressions in all blocks and the selector is constant, then
     // the returned result is a fully anonymous
@@ -1120,7 +1166,7 @@ object DFConditional:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = selectorRef :: dfType.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       dfType = dfType.copyWithNewRefs,
       selectorRef = selectorRef.copyAsNewRef,
       ownerRef = ownerRef.copyAsNewRef
@@ -1146,7 +1192,7 @@ object DFConditional:
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] =
       List(guardRef, prevBlockOrHeaderRef) ++ pattern.getRefs
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       pattern = pattern.copyWithNewRefs,
       guardRef = guardRef.copyAsNewRef,
       prevBlockOrHeaderRef = prevBlockOrHeaderRef.copyAsNewRef,
@@ -1155,12 +1201,12 @@ object DFConditional:
   end DFCaseBlock
   object DFCaseBlock:
     type Ref = DFRef.TwoWay[DFCaseBlock | DFMatchHeader, Block]
-    sealed trait Pattern extends HasRefCompare[Pattern] derives CanEqual
+    sealed trait Pattern extends HasRefCompare[Pattern] derives CanEqual, ReadWriter
     object Pattern:
       case object CatchAll extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean = this == that
         lazy val getRefs: List[DFRef.TwoWayAny] = Nil
-        def copyWithNewRefs: this.type = this
+        def copyWithNewRefs(using RefGen): this.type = this
       final case class Singleton(valueRef: DFVal.Ref) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
@@ -1168,7 +1214,8 @@ object DFConditional:
               this.valueRef =~ that.valueRef
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = List(valueRef)
-        def copyWithNewRefs: this.type = copy(valueRef.copyAsNewRef).asInstanceOf[this.type]
+        def copyWithNewRefs(using RefGen): this.type =
+          copy(valueRef.copyAsNewRef).asInstanceOf[this.type]
       final case class Alternative(list: List[Pattern]) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
@@ -1176,7 +1223,9 @@ object DFConditional:
               this.list.lazyZip(that.list).forall(_ =~ _)
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = list.flatMap(_.getRefs)
-        def copyWithNewRefs: this.type = copy(list.map(_.copyWithNewRefs)).asInstanceOf[this.type]
+        def copyWithNewRefs(using RefGen): this.type = copy(
+          list.map(_.copyWithNewRefs)
+        ).asInstanceOf[this.type]
       final case class Struct(name: String, fieldPatterns: List[Pattern]) extends Pattern:
         protected def `prot_=~`(that: Pattern)(using MemberGetSet): Boolean =
           that match
@@ -1186,7 +1235,7 @@ object DFConditional:
                 .forall(_ =~ _)
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = fieldPatterns.flatMap(_.getRefs)
-        def copyWithNewRefs: this.type = copy(
+        def copyWithNewRefs(using RefGen): this.type = copy(
           fieldPatterns = fieldPatterns.map(_.copyWithNewRefs)
         ).asInstanceOf[this.type]
       final case class Bind(ref: Bind.Ref, pattern: Pattern) extends Pattern:
@@ -1196,7 +1245,7 @@ object DFConditional:
               this.ref =~ that.ref && this.pattern =~ that.pattern
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = ref :: pattern.getRefs
-        def copyWithNewRefs: this.type = copy(
+        def copyWithNewRefs(using RefGen): this.type = copy(
           ref = ref.copyAsNewRef,
           pattern = pattern.copyWithNewRefs
         ).asInstanceOf[this.type]
@@ -1207,12 +1256,11 @@ object DFConditional:
               this.name == that.name && this.pattern =~ that.pattern
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = pattern.getRefs
-        def copyWithNewRefs: this.type = copy(
+        def copyWithNewRefs(using RefGen): this.type = copy(
           pattern = pattern.copyWithNewRefs
         ).asInstanceOf[this.type]
       object Bind:
         type Ref = DFRef.TwoWay[DFVal, DFCaseBlock]
-        case object Tag extends DFTagOf[DFVal]
       final case class BindSI(
           op: String,
           parts: List[String],
@@ -1226,7 +1274,7 @@ object DFConditional:
                 .forall(_ =~ _)
             case _ => false
         lazy val getRefs: List[DFRef.TwoWayAny] = refs
-        def copyWithNewRefs: this.type = copy(
+        def copyWithNewRefs(using RefGen): this.type = copy(
           refs = refs.map(_.copyAsNewRef)
         ).asInstanceOf[this.type]
       end BindSI
@@ -1257,7 +1305,7 @@ object DFConditional:
     protected[ir] def protIsSimilarTo(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
       false
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       dfType = dfType.copyWithNewRefs,
       ownerRef = ownerRef.copyAsNewRef
     ).asInstanceOf[this.type]
@@ -1279,7 +1327,7 @@ object DFConditional:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = List(guardRef, prevBlockOrHeaderRef)
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       guardRef = guardRef.copyAsNewRef,
       prevBlockOrHeaderRef = prevBlockOrHeaderRef.copyAsNewRef,
       ownerRef = ownerRef.copyAsNewRef
@@ -1290,9 +1338,8 @@ object DFConditional:
 end DFConditional
 
 object DFLoop:
-  sealed trait Block extends DFBlock:
-    def isCombinational(using MemberGetSet): Boolean = this.hasTagOf[Combinational.type]
-  case object Combinational extends DFTagOf[Block]
+  sealed trait Block extends DFBlock derives ReadWriter:
+    def isCombinational(using MemberGetSet): Boolean = this.hasTagOf[CombinationalTag]
   final case class DFForBlock(
       iteratorRef: DFForBlock.IteratorRef,
       rangeRef: DFForBlock.RangeRef,
@@ -1308,7 +1355,7 @@ object DFLoop:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = List(iteratorRef, rangeRef)
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       iteratorRef = iteratorRef.copyAsNewRef,
       rangeRef = rangeRef.copyAsNewRef,
       ownerRef = ownerRef.copyAsNewRef
@@ -1332,7 +1379,7 @@ object DFLoop:
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
     lazy val getRefs: List[DFRef.TwoWayAny] = List(guardRef)
-    def copyWithNewRefs: this.type = copy(
+    def copyWithNewRefs(using RefGen): this.type = copy(
       guardRef = guardRef.copyAsNewRef,
       ownerRef = ownerRef.copyAsNewRef
     ).asInstanceOf[this.type]
@@ -1349,7 +1396,7 @@ final case class DFDesignBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFDomainOwner:
+      DFDomainOwner derives ReadWriter:
   val dclName: String = dclMeta.name
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DFDesignBlock =>
@@ -1361,7 +1408,7 @@ final case class DFDesignBlock(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     domainType = domainType.copyWithNewRefs,
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
@@ -1369,12 +1416,12 @@ end DFDesignBlock
 
 object DFDesignBlock:
   import InstMode.BlackBox.Source
-  enum InstMode derives CanEqual:
+  enum InstMode extends StableEnum derives CanEqual, ReadWriter:
     case Normal, Def, Simulation
-    case BlackBox(args: ListMap[String, Any], verilogSrc: Source, vhdlSrc: Source)
+    case BlackBox(verilogSrc: Source, vhdlSrc: Source)
   object InstMode:
     object BlackBox:
-      enum Source derives CanEqual:
+      enum Source extends StableEnum derives CanEqual, ReadWriter:
         case NA
         case File(path: String)
         case Library(libName: String, nameSpace: String)
@@ -1412,7 +1459,7 @@ final case class DomainBlock(
     meta: Meta,
     tags: DFTags
 ) extends DFBlock,
-      DFDomainOwner:
+      DFDomainOwner derives ReadWriter:
   def flattenMode: dfhdl.hw.flattenMode = meta.annotations.collectFirst {
     case fm: dfhdl.hw.flattenMode => fm
   }.getOrElse(dfhdl.hw.flattenMode.defaultPrefixUnderscore)
@@ -1424,7 +1471,7 @@ final case class DomainBlock(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     domainType = domainType.copyWithNewRefs,
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
@@ -1449,7 +1496,7 @@ end DomainBlock
 //     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
 //     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
 //     lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
-//     def copyWithNewRefs: this.type = copy(
+//     def copyWithNewRefs(using RefGen): this.type = copy(
 //       triggerRef = triggerRef.copyAsNewRef,
 //       ownerRef = ownerRef.copyAsNewRef
 //     ).asInstanceOf[this.type]
@@ -1471,7 +1518,7 @@ end DomainBlock
 //     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
 //     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
 //     lazy val getRefs: List[DFRef.TwoWayAny] = List(sourceRef)
-//     def copyWithNewRefs: this.type = copy(
+//     def copyWithNewRefs(using RefGen): this.type = copy(
 //       sourceRef = sourceRef.copyAsNewRef,
 //       ownerRef = ownerRef.copyAsNewRef
 //     ).asInstanceOf[this.type]
@@ -1501,7 +1548,7 @@ end DomainBlock
 //     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
 //     lazy val getRefs: List[DFRef.TwoWayAny] = List(timerRef)
 //     def updateDFType(dfType: DFType): this.type = this
-//     def copyWithNewRefs: this.type = copy(
+//     def copyWithNewRefs(using RefGen): this.type = copy(
 //       timerRef = timerRef.copyAsNewRef,
 //       ownerRef = ownerRef.copyAsNewRef
 //     ).asInstanceOf[this.type]
@@ -1522,7 +1569,7 @@ final case class Wait(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     triggerRef = triggerRef.copyAsNewRef,
     ownerRef = ownerRef.copyAsNewRef
   ).asInstanceOf[this.type]
@@ -1548,7 +1595,7 @@ final case class TextOut(
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
   lazy val getRefs: List[DFRef.TwoWayAny] = op.getRefs ++ msgArgs
-  def copyWithNewRefs: this.type = copy(
+  def copyWithNewRefs(using RefGen): this.type = copy(
     op = op.copyWithNewRefs,
     msgArgs = msgArgs.map(_.copyAsNewRef),
     ownerRef = ownerRef.copyAsNewRef
@@ -1557,9 +1604,9 @@ end TextOut
 
 object TextOut:
   type AssertionRef = DFRef.TwoWay[DFVal, TextOut]
-  enum Severity derives CanEqual:
+  enum Severity extends StableEnum derives CanEqual, ReadWriter:
     case Info, Warning, Error, Fatal
-  enum Op extends HasRefCompare[Op] derives CanEqual:
+  enum Op extends HasRefCompare[Op], StableEnum derives CanEqual, ReadWriter:
     case Print, Println, Debug, Finish
     case Report(severity: Severity) extends Op
     case Assert(assertionRef: AssertionRef, severity: Severity) extends Op
@@ -1570,7 +1617,7 @@ object TextOut:
       case (thisAssert: Assert, thatAssert: Assert) =>
         thisAssert.assertionRef =~ thatAssert.assertionRef && thisAssert.severity == thatAssert.severity
       case _ => this equals that
-    def copyWithNewRefs: this.type = this match
+    def copyWithNewRefs(using RefGen): this.type = this match
       case Assert(assertionRef, severity) =>
         Assert(assertionRef = assertionRef.copyAsNewRef, severity = severity)
           .asInstanceOf[this.type]

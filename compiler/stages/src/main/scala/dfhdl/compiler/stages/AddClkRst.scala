@@ -22,6 +22,7 @@ case object AddClkRst extends Stage:
   def dependencies: List[Stage] = List(ToRT, ExplicitClkRstCfg)
   def nullifies: Set[Stage] = Set(ViaConnection)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     // saves domains that are outputting clk and rst
     val designDomainOut = mutable.Set.empty[(DFDesignBlock, RTDomainCfg)]
     // saves clk type used for a domain
@@ -111,18 +112,15 @@ case object AddClkRst extends Stage:
                     val dfcAnon = selfDFC.anonymize.setAnnotations(Nil)
                     locally {
                       given DFC = selfDFC.anonymize.setAnnotations(Nil)
-                      val clkRate =
-                        clkCfg.asInstanceOf[ClkCfg.Explicit].rate.getConstData.get.asInstanceOf[
-                          (BigDecimal, DFPhysical.Unit.Freq.Scale | DFPhysical.Unit.Time.Scale)
-                        ]
+                      val clkRate = clkCfg.asInstanceOf[ClkCfg.Explicit].rate
                       val clkActive = clkCfg.asInstanceOf[ClkCfg.Explicit].edge match
                         case ClkCfg.Edge.Rising  => true
                         case ClkCfg.Edge.Falling => false
                       val clkPeriodHalf =
                         clkRate._2 match
-                          case time: DFPhysical.Unit.Time.Scale =>
+                          case time: DFTime.Unit =>
                             (clkRate._1 / 2, time)
-                          case freq: DFPhysical.Unit.Freq.Scale =>
+                          case freq: DFFreq.Unit =>
                             val (period, scale) = freq.to_period(clkRate._1)
                             (period / 2, scale)
                       lazy val rstActive = rstCfg.asInstanceOf[RstCfg.Explicit].active match
@@ -160,7 +158,7 @@ case object AddClkRst extends Stage:
         val opaqueTypeReplacePatches = members.view.flatMap {
           case dfVal: DFVal =>
             dfVal.dfType match
-              case dfType @ DFOpaque(id = _: (DFOpaque.Clk | DFOpaque.Rst)) =>
+              case dfType @ DFOpaque(kind = (DFOpaque.Kind.Clk | DFOpaque.Kind.Rst)) =>
                 Some(
                   dfVal -> Patch.Replace(
                     dfVal.updateDFType(opaqueReplaceMap(dfType)),

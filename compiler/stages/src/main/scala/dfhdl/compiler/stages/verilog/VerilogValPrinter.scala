@@ -190,7 +190,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         else s"{{(${tr.refCodeString}-${fr.refCodeString}){1'b0}}, $relValStr}"
       case (t, DFOpaque(actualType = ot)) if ot =~ t =>
         relValStr
-      case (DFOpaque(_, _, _), _) =>
+      case (DFOpaque(_, _, _, _), _) =>
         relValStr
       case (DFUInt(tr @ Int(tWidth)), DFUInt(fr @ Int(fWidth))) =>
         if (tWidth == fWidth) relValStr
@@ -212,7 +212,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFBit, DFBool)                  => relValStr
       case (DFBool, DFBit)                  => relValStr
       case (toStruct: DFStruct, _: DFBits) =>
-        s"${toStruct.getName}'($relValStr)"
+        s"${toStruct.name}'($relValStr)"
       case (toVector: DFVector, _: DFBits) =>
         def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =
           val vecLength = vectorType.length

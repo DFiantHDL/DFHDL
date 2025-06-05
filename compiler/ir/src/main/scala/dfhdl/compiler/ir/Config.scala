@@ -1,5 +1,6 @@
 package dfhdl.compiler.ir
-
+import dfhdl.internals.StableEnum
+import upickle.default.*
 opaque type ConfigN[T] = T | None.type
 object ConfigN:
   given [T]: Conversion[None.type, ConfigN[T]] with
@@ -10,10 +11,22 @@ object ConfigN:
   given [T]: CanEqual[ConfigN[T], None.type] = CanEqual.derived
   given [T]: CanEqual[None.type, ConfigN[T]] = CanEqual.derived
   given [L, R]: CanEqual[ConfigN[L], ConfigN[R]] = CanEqual.derived
+  given [T](using ReadWriter[T]): ReadWriter[ConfigN[T]] = readwriter[ujson.Value].bimap(
+    value =>
+      (value: @unchecked) match
+        case None     => ujson.Null
+        case value: T => writeJs(value)
+    ,
+    json =>
+      json match
+        case ujson.Null => None
+        case value      => read[T](value)
+  )
+end ConfigN
 
 /** Sets the policy for inclusing the clock or reset signals when they are not needed
   */
-enum ClkRstInclusionPolicy derives CanEqual:
+enum ClkRstInclusionPolicy extends StableEnum derives CanEqual, ReadWriter:
   /** Don't include if not needed
     */
   case AsNeeded
@@ -24,27 +37,27 @@ enum ClkRstInclusionPolicy derives CanEqual:
 
 type ClkCfg = ConfigN[ClkCfg.Explicit]
 object ClkCfg:
-  enum Edge derives CanEqual:
+  enum Edge extends StableEnum derives CanEqual, ReadWriter:
     case Rising, Falling
+
+  type RateData = (BigDecimal, DFFreq.Unit | DFTime.Unit)
+  given ReadWriter[DFFreq.Unit | DFTime.Unit] =
+    ReadWriter.merge(summon[ReadWriter[DFTime.Unit]], summon[ReadWriter[DFFreq.Unit]])
 
   final case class Explicit(
       edge: Edge,
-      rate: DFVal,
+      rate: RateData,
       portName: String,
       inclusionPolicy: ClkRstInclusionPolicy
-  ) extends HasRefCompare[Explicit] derives CanEqual:
-    override protected def prot_=~(that: Explicit)(using MemberGetSet): Boolean =
-      this.edge == that.edge && this.rate =~ that.rate && this.portName == that.portName &&
-        this.inclusionPolicy == that.inclusionPolicy
-    lazy val getRefs: List[DFRef.TwoWayAny] = rate.getRefs
-    def copyWithNewRefs: this.type = copy(rate = rate.copyWithNewRefs).asInstanceOf[this.type]
+  ) derives CanEqual,
+        ReadWriter
 end ClkCfg
 
 type RstCfg = ConfigN[RstCfg.Explicit]
 object RstCfg:
-  enum Mode derives CanEqual:
+  enum Mode extends StableEnum derives CanEqual, ReadWriter:
     case Async, Sync
-  enum Active derives CanEqual:
+  enum Active extends StableEnum derives CanEqual, ReadWriter:
     case Low, High
 
   final case class Explicit(
@@ -52,16 +65,14 @@ object RstCfg:
       active: Active,
       portName: String,
       inclusionPolicy: ClkRstInclusionPolicy
-  ) derives CanEqual
+  ) derives CanEqual,
+        ReadWriter
 end RstCfg
 
-enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual:
+enum RTDomainCfg extends HasRefCompare[RTDomainCfg], StableEnum derives CanEqual, ReadWriter:
   case Derived
   case Related(relatedDomainRef: RTDomainCfg.RelatedDomainRef) extends RTDomainCfg
-  case Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg)
-      extends RTDomainCfg,
-      NamedGlobal,
-      DFTagOf[DFDesignBlock]
+  case Explicit(name: String, clkCfg: ClkCfg, rstCfg: RstCfg) extends RTDomainCfg
 
   def isDerivedNoRst: Boolean = this match
     case cfg: Explicit if cfg.name.endsWith(".norst") => true
@@ -79,19 +90,16 @@ enum RTDomainCfg extends HasRefCompare[RTDomainCfg] derives CanEqual:
             Explicit(thisName, thisClkCfg: ClkCfg.Explicit, thisRstCfg),
             Explicit(thatName, thatClkCfg: ClkCfg.Explicit, thatRstCfg)
           ) =>
-        thisName == thatName && thisClkCfg =~ thatClkCfg && thisRstCfg == thatRstCfg
+        thisName == thatName && thisClkCfg == thatClkCfg && thisRstCfg == thatRstCfg
       case _ => this == that
 
   lazy val getRefs: List[DFRef.TwoWayAny] = this match
-    case Related(relatedDomainRef)                    => List(relatedDomainRef)
-    case Explicit(_, clkCfg: ClkCfg.Explicit, rstCfg) => clkCfg.getRefs
-    case _                                            => Nil
+    case Related(relatedDomainRef) => List(relatedDomainRef)
+    case _                         => Nil
 
-  def copyWithNewRefs: this.type = this match
+  def copyWithNewRefs(using RefGen): this.type = this match
     case Related(relatedDomainRef) => Related(relatedDomainRef.copyAsNewRef).asInstanceOf[this.type]
-    case Explicit(name, clkCfg: ClkCfg.Explicit, rstCfg) =>
-      Explicit(name, clkCfg.copyWithNewRefs, rstCfg).asInstanceOf[this.type]
-    case _ => this
+    case _                         => this
 end RTDomainCfg
 
 object RTDomainCfg:

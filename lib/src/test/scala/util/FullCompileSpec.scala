@@ -25,15 +25,15 @@ abstract class FullCompileSpec extends FunSuite:
     List(verilator, iverilog, vlog, xvlog)
   def vhdlLinters: List[LinterOptions.VHDLLinter] =
     List(ghdl, nvc, vcom, xvhdl)
-  extension [D <: core.Design](cd: CompiledDesign[D])
-    def lintVerilog(using CompilerOptions): CompiledDesign[D] =
+  extension [D <: core.Design](cd: CompiledDesign)
+    def lintVerilog(using CompilerOptions): CompiledDesign =
       verilogLinters.foreach { linter =>
         if (linter.isAvailable)
           given LinterOptions.VerilogLinter = linter
           cd.lint
       }
       cd
-    def lintVHDL(using CompilerOptions): CompiledDesign[D] =
+    def lintVHDL(using CompilerOptions): CompiledDesign =
       vhdlLinters.foreach { linter =>
         if (linter.isAvailable)
           given LinterOptions.VHDLLinter = linter

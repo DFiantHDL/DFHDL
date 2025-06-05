@@ -29,6 +29,7 @@ case object DropProcessAll extends Stage:
           case VerilogDialect.v95 => true
           case _                  => false
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList: List[(DFMember, Patch)] =
       designDB.members
         // patching all process(all) blocks

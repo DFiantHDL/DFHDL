@@ -16,6 +16,7 @@ case object AddMagnets extends Stage:
   def dependencies: List[Stage] = List(AddClkRst)
   def nullifies: Set[Stage] = Set(ViaConnection, SimpleOrderMembers)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     // Populating a missing magnets map with the suggested port names and direction
     val missingMagnets = mutable.Map.empty[DFDesignBlock, Map[DFType, (String, DFVal.Modifier)]]
     designDB.magnetConnectionTable.foreach { (toPort, fromPort) =>

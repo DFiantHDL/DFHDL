@@ -16,9 +16,8 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
   override val simRunsLint: Boolean = true
   val toolName: String = "Icarus Verilog"
   protected def binExec: String = "iverilog"
-  override protected def simRunExec: String =
-    val osName: String = sys.props("os.name").toLowerCase
-    if (osName.contains("windows")) "vvp.exe" else "vvp"
+  override protected def simRunExec(using MemberGetSet): String =
+    if (osIsWindows) "vvp.exe" else "vvp"
   protected def versionCmd: String = "-V"
   protected def extractVersion(cmdRetStr: String): Option[String] =
     val versionPattern = """Icarus Verilog version\s+(\d+\.\d+)""".r
@@ -72,6 +71,11 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
     )
   )
 
+  override protected[dfhdl] def producedFiles(using
+      MemberGetSet,
+      CompilerOptions
+  ): List[String] = List(s"${topName}.")
+
   override protected def simulateCmdPostLangFlags(using
       CompilerOptions,
       SimulatorOptions,
@@ -79,6 +83,21 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
   ): String = constructCommand(
     topName
   )
+
+  override protected def simulateLogger(using
+      CompilerOptions,
+      SimulatorOptions,
+      MemberGetSet
+  ): Option[Tool.ProcessLogger] =
+    Some(
+      new Tool.ProcessLogger(
+        lineIsWarning = (line: String) => line.startsWith("WARNING:"),
+        lineIsSuppressed = (line: String) => false,
+        lineIsErrorOpt =
+          Some((line: String) => line.startsWith("ERROR:") || line.startsWith("FATAL:"))
+      )
+    )
+  end simulateLogger
 
   override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =
     ""

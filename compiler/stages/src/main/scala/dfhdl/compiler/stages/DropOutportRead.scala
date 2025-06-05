@@ -20,6 +20,7 @@ case object DropOutportRead extends Stage:
           case _               => false
       case _ => false
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList: List[(DFMember, Patch)] = designDB.members.collect {
       // go through all output ports that are read from within their design
       case port @ DclOut() if port.getReadDeps.exists(_.isSameOwnerDesignAs(port)) =>

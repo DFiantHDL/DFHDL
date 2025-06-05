@@ -30,9 +30,9 @@ trait AbstractTypePrinter extends AbstractPrinter:
         case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
         // skipping unknown clock and reset definitions (they are unknown because
         // they lack additional name suffix that belongs to their configuration)
-        case DFOpaque("Clk", _: DFOpaque.Clk, _) => false
-        case DFOpaque("Rst", _: DFOpaque.Rst, _) => false
-        case _                                   => true
+        case DFOpaque(name = "Clk", kind = DFOpaque.Kind.Clk) => false
+        case DFOpaque(name = "Rst", kind = DFOpaque.Kind.Rst) => false
+        case _                                                => true
       }
       .map(x => printer.csNamedDFTypeDcl(x, global = true))
       .mkString("\n").emptyOr(x => s"$x\n")
@@ -43,9 +43,9 @@ trait AbstractTypePrinter extends AbstractPrinter:
         case dfType: DFStruct if dfType.isTuple && tupleSupportEnable => false
         // skipping unknown clock and reset definitions (they are unknown because
         // they lack additional name suffix that belongs to their configuration)
-        case DFOpaque("Clk", _: DFOpaque.Clk, _) => false
-        case DFOpaque("Rst", _: DFOpaque.Rst, _) => false
-        case _                                   => true
+        case DFOpaque(name = "Clk", kind = DFOpaque.Kind.Clk) => false
+        case DFOpaque(name = "Rst", kind = DFOpaque.Kind.Rst) => false
+        case _                                                => true
       }
       .map(x => printer.csNamedDFTypeDcl(x, global = false))
       .mkString("\n")
@@ -59,7 +59,9 @@ trait AbstractTypePrinter extends AbstractPrinter:
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String
   def csDFDouble(): String
-  def csDFPhysical(dfType: DFPhysical, typeCS: Boolean): String
+  def csDFTime(dfType: DFTime, typeCS: Boolean): String
+  def csDFFreq(dfType: DFFreq, typeCS: Boolean): String
+  def csDFNumber(dfType: DFNumber, typeCS: Boolean): String
   def csDFString(dfType: DFString, typeCS: Boolean): String
 
   final def csDFType(dfType: DFType, typeCS: Boolean = false): String = dfType match
@@ -71,12 +73,14 @@ trait AbstractTypePrinter extends AbstractPrinter:
     case dt: DFOpaque    => csDFOpaque(dt, typeCS)
     case dt: DFStruct if dt.isTuple && tupleSupportEnable =>
       csDFTuple(dt.fieldMap.values.toList, typeCS)
-    case dt: DFStruct   => csDFStruct(dt, typeCS)
-    case dt: DFUnit     => csDFUnit(dt, typeCS)
-    case DFDouble       => csDFDouble()
-    case dt: DFPhysical => csDFPhysical(dt, typeCS)
-    case dt: DFString   => csDFString(dt, typeCS)
-    case dt: DFNothing  => ???
+    case dt: DFStruct  => csDFStruct(dt, typeCS)
+    case dt: DFUnit    => csDFUnit(dt, typeCS)
+    case DFDouble      => csDFDouble()
+    case dt: DFTime    => csDFTime(dt, typeCS)
+    case dt: DFFreq    => csDFFreq(dt, typeCS)
+    case dt: DFNumber  => csDFNumber(dt, typeCS)
+    case dt: DFString  => csDFString(dt, typeCS)
+    case dt: DFNothing => ???
 end AbstractTypePrinter
 
 protected trait DFTypePrinter extends AbstractTypePrinter:
@@ -100,7 +104,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
       case (true, _)  => s"SFix$ob$magnitudeWidth, $fractionWidth$cb"
   def csDFString(dfType: DFString, typeCS: Boolean): String = "String"
   def csDFEnumDcl(dfType: DFEnum, global: Boolean): String =
-    val enumName = dfType.getName
+    val enumName = dfType.name
     val entries =
       dfType.entries.view
         .map((n, v) =>
@@ -109,7 +113,7 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
         .mkString("\n")
         .hindent
     s"enum ${enumName}(val value: ${csDFDecimal(DFUInt(IntParamRef(dfType.width)), true)} <> CONST) extends Encoded.Manual(${dfType.width}):\n$entries"
-  def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.getName
+  def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = dfType.name
   def csDFVector(dfType: DFVector, typeCS: Boolean): String =
     import dfType.*
     val dimStr =
@@ -118,28 +122,26 @@ protected trait DFTypePrinter extends AbstractTypePrinter:
     s"${csDFType(cellType, typeCS)} X $dimStr"
   def csDFOpaqueDcl(dfType: DFOpaque): String =
     val csActualType = csDFType(dfType.actualType)
-    val extendee = dfType.id match
-      case _: DFOpaque.Clk      => s"Clk"
-      case _: DFOpaque.Rst      => s"Rst"
-      case _: DFOpaque.MagnetId => s"Magnet($csActualType)"
+    val extendee = dfType.kind match
+      case DFOpaque.Kind.Clk    => s"Clk"
+      case DFOpaque.Kind.Rst    => s"Rst"
+      case DFOpaque.Kind.Magnet => s"Magnet($csActualType)"
       case _                    => s"Opaque($csActualType)"
-    s"case class ${dfType.getName}() extends $extendee"
-  def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.getName
+    s"case class ${dfType.name}() extends $extendee"
+  def csDFOpaque(dfType: DFOpaque, typeCS: Boolean): String = dfType.name
   def csDFStructDcl(dfType: DFStruct): String =
     val fields = dfType.fieldMap.view
       .map((n, t) => s"${n}${csDFValType(t)}")
       .mkString("\n")
       .hindent(2)
-    s"final case class ${dfType.getName}(\n$fields\n) extends Struct"
+    s"final case class ${dfType.name}(\n$fields\n) extends Struct"
   def csDFStruct(dfType: DFStruct, typeCS: Boolean): String =
-    dfType.getName
+    dfType.name
   def csDFUnit(dfType: DFUnit, typeCS: Boolean): String = "Unit"
   def csDFDouble(): String = "Double"
-  def csDFPhysical(dfType: DFPhysical, typeCS: Boolean): String =
-    dfType.unit match
-      case DFPhysical.Unit.Time   => "Time"
-      case DFPhysical.Unit.Freq   => "Freq"
-      case DFPhysical.Unit.Number => "Number"
+  def csDFTime(dfType: DFTime, typeCS: Boolean): String = "Time"
+  def csDFFreq(dfType: DFFreq, typeCS: Boolean): String = "Freq"
+  def csDFNumber(dfType: DFNumber, typeCS: Boolean): String = "Number"
   def csDFTuple(fieldList: List[DFType], typeCS: Boolean): String =
     fieldList.view.map(f => csDFType(f, typeCS)).mkStringBrackets
   def csDFValType(dfType: DFType): String =

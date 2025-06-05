@@ -113,26 +113,22 @@ class PluginSpec extends DFSpec:
     private var _clsPosition: Position = Position.unknown
     private var _clsDocOpt: Option[String] = None
     private var _clsAnnotations: List[Annotation] = Nil
-    private var _clsArgs: ListMap[String, Any] = ListMap()
 
     final protected def setClsNamePos(
         name: String,
         position: Position,
         docOpt: Option[String],
-        annotations: List[Annotation],
-        args: ListMap[String, Any]
+        annotations: List[Annotation]
     ): Unit =
       _clsName = name
       _clsPosition = position
       _clsDocOpt = docOpt
       _clsAnnotations = annotations
-      _clsArgs = args
 
     final def clsName: String = _clsName
     final def clsPosition: Position = _clsPosition
     final def clsDocOpt: Option[String] = _clsDocOpt
     final def clsAnnotations: List[Annotation] = _clsAnnotations
-    final def clsArgs: ListMap[String, Any] = _clsArgs
   end HasNamePosWithVars
 
   /** This is doc */
@@ -141,7 +137,6 @@ class PluginSpec extends DFSpec:
   val gotName = new GotName(1, "2", 3)
   assertEquals(gotName.clsName, "GotName")
   assertEquals(gotName.clsDocOpt, Some(" This is doc "))
-  assertEquals(gotName.clsArgs, ListMap("x" -> 1, "y" -> "2", "z" -> 3))
   assert(gotName.clsAnnotations.head.isInstanceOf[nowarn])
   extension (bar: Bar)(using DFC) @inline def ++(that: Bar): Bar = new Plus(bar, that)
 

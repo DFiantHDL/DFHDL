@@ -7,12 +7,34 @@ import dfhdl.options.CompilerOptions
 import org.rogach.scallop.*
 import dfhdl.internals.sbtShellIsRunning
 import scala.util.chaining.scalaUtilChainingOps
+import java.time.Instant
+import dfhdl.compiler.stages.{StagedDesign, CompiledDesign}
+import dfhdl.internals.DiskCache
+import dfhdl.compiler.ir.SourceFile
+import java.nio.file.Paths
 
 trait DFApp:
   private val logger = Logger("DFHDL App")
   logger.setFormatter(LogFormatter.BareFormatter)
   private var designName: String = ""
   private var topScalaPath: String = ""
+  private val appCompileTime: Instant =
+    val clazz = this.getClass
+    val location = clazz.getProtectionDomain.getCodeSource.getLocation
+    val classPath = Paths.get(location.toURI).toRealPath().getParent()
+    // Helper function to recursively get all files in a directory
+    def getAllFiles(dir: java.io.File): List[java.io.File] =
+      val files = dir.listFiles()
+      if (files.isEmpty) Nil
+      else
+        val (dirs, regularFiles) = files.toList.partition(_.isDirectory)
+        regularFiles ++ dirs.flatMap(getAllFiles)
+    val classPathFiles = getAllFiles(classPath.toFile)
+    classPathFiles.map(
+      _.lastModified()
+    ).maxOption.map(Instant.ofEpochMilli).getOrElse(Instant.now())
+  end appCompileTime
+
   // this context is just for enabling `getConstData` to work.
   // the internal global context inside `value` will be actually at play here.
   val dfc: DFC = DFC.emptyNoEO
@@ -59,31 +81,120 @@ trait DFApp:
     appOptions = top.appOptions
     designArgs = DesignArgs(argNames, argValues, argDescs)
   end setInitials
+
   final protected def setDsn(d: => core.Design): Unit = dsn = () => d
-  private def elaborate: core.Design =
-    logger.info("Elaborating design...")
-    // the elaboration options are set in the compiler plugin using getElaborationOptions
-    val elaborated = dsn()
-    if (elaborationOptions.printDFHDLCode)
-      println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           |The design code after elaboration:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
-      )
-      elaborated.printCodeString
-    elaborated
 
-  private inline def compile =
-    elaborate.tap(_ => logger.info("Compiling design...")).compile
+  object diskCache extends DiskCache(compilerOptions.cachePath(designName))
+  object elaborate extends diskCache.Step[core.Design, StagedDesign](dsn)(
+        appCompileTime,
+        dfhdlVersion,
+        elaborationOptions.defaultRTDomainCfg,
+        designArgs
+      ):
+    protected def run(from: core.Design): StagedDesign =
+      logger.info("Elaborating design...")
+      new StagedDesign(from.getDB)
+    override protected def runAfterValue(elaborated: StagedDesign): Unit =
+      if (elaborationOptions.printDFHDLCode)
+        println(
+          """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             |The design code after elaboration:
+             |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+        )
+        elaborated.printCodeString
+    override protected def logCachedRun(): Unit =
+      logger.info("Loading elaborated design from cache...")
+    protected def valueToCacheStr(value: StagedDesign): String = value.stagedDB.toJsonString
+    protected def cacheStrToValue(str: String): StagedDesign = new StagedDesign(
+      ir.DB.fromJsonString(str)
+    )
+  end elaborate
 
-  private inline def commit =
-    compile.tap(_ => logger.info("Committing backend files to disk...")).commit
+  object compile extends diskCache.Step[StagedDesign, CompiledDesign](elaborate)(
+        elaborationOptions.defaultRTDomainCfg,
+        compilerOptions.dropUserOpaques,
+        compilerOptions.backend.toString()
+      ):
+    protected def run(elaborate: StagedDesign): CompiledDesign =
+      elaborate.tap(_ => logger.info("Compiling design...")).compile
+    override protected def runAfterValue(compiled: CompiledDesign): Unit =
+      if (compilerOptions.printDFHDLCode)
+        println(
+          """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             |The design code after compilation:
+             |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+        )
+        compiled.printCodeString
+      if (compilerOptions.printBackendCode)
+        println(
+          """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+             |The generated backend code:
+             |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
+        )
+        compiled.printBackendCode
+    end runAfterValue
+    override protected def logCachedRun(): Unit =
+      logger.info("Loading compiled design from cache...")
+    protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString
+    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign(
+      new StagedDesign(ir.DB.fromJsonString(str))
+    )
+  end compile
 
-  private inline def lint =
-    commit.tap(_ => logger.info("Running external linter...")).lint
+  object commit
+      extends diskCache.Step[CompiledDesign, CompiledDesign](compile, hasGenFiles = true)():
+    override protected def genFiles(committed: CompiledDesign): List[String] =
+      committed.stagedDB.srcFiles.collect {
+        case SourceFile(ir.SourceOrigin.Committed, _, path, _) =>
+          Paths.get(compilerOptions.topCommitPath(committed.stagedDB)).resolve(path).toString
+      }
+    protected def run(compiled: CompiledDesign): CompiledDesign =
+      compiled.tap(_ => logger.info("Committing backend files to disk...")).commit
+    override protected def logCachedRun(): Unit =
+      logger.info("Loading committed design from cache...")
+    protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString
+    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign(
+      new StagedDesign(ir.DB.fromJsonString(str))
+    )
+  end commit
 
-  private inline def simulate =
-    commit.tap(_ => logger.info("Running external simulator...")).simulate
+  object lint
+      extends diskCache.Step[CompiledDesign, CompiledDesign](commit)():
+    protected def run(committed: CompiledDesign): CompiledDesign =
+      committed.tap(_ => logger.info("Running external linter...")).lint
+    protected def valueToCacheStr(value: CompiledDesign): String = ???
+    protected def cacheStrToValue(str: String): CompiledDesign = ???
+  end lint
+
+  object simPrep
+      extends diskCache.Step[CompiledDesign, CompiledDesign](
+        commit,
+        hasGenFiles = true
+      )(
+        simulatorOptions.getTool.toString,
+        simulatorOptions.getTool.installedVersion
+      ):
+    override protected def genFiles(committed: CompiledDesign): List[String] =
+      simulatorOptions.getTool.producedFiles(using committed.stagedDB.getSet).map { path =>
+        Paths.get(compilerOptions.topCommitPath(committed.stagedDB)).resolve(path).toString
+      }
+    protected def run(committed: CompiledDesign): CompiledDesign =
+      committed.tap(_ => logger.info("Preparing external simulation...")).simPrep
+    override protected def logCachedRun(): Unit =
+      logger.info("Loading sim prep from cache...")
+    protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString
+    protected def cacheStrToValue(str: String): CompiledDesign = CompiledDesign(
+      new StagedDesign(ir.DB.fromJsonString(str))
+    )
+  end simPrep
+
+  object simRun
+      extends diskCache.Step[CompiledDesign, CompiledDesign](simPrep)():
+    protected def run(simPrepped: CompiledDesign): CompiledDesign =
+      simPrepped.tap(_ => logger.info("Running external simulation...")).simRun
+    protected def valueToCacheStr(value: CompiledDesign): String = ???
+    protected def cacheStrToValue(str: String): CompiledDesign = ???
+  end simRun
 
   private def listBackends: Unit =
     println(
@@ -130,18 +241,21 @@ trait DFApp:
           |-t verilator     - Set the Verilog linter to Verilator (VHDL linter remains default)
           |-t nvc           - Set the VHDL linter to NVC (Verilog linter remains default)
           |-t iverilog/ghdl - Set both Verilog and VHDL linters
+          |-t questa        - Set both Verilog and VHDL linters to QuestaSim/ModelSim
+          |-t vivado        - Set both Verilog and VHDL linters to Vivado Simulator
           |
           |Selectable Verilog/SystemVerilog linting tools:
-          |verilator - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
-          |iverilog  - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
-          |vlog      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
-          |xvlog     - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvlog)}
+          |verilator         - Verilator (default) ${scanned(dfhdl.tools.linters.verilator)}
+          |iverilog          - Icarus Verilog      ${scanned(dfhdl.tools.linters.iverilog)}
+          |vlog|questa|vsim  - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vlog)}
+          |xvlog|vivado|xsim - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvlog)}
           |
           |Selectable VHDL linting tools:
-          |ghdl      - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
-          |nvc       - NVC                 ${scanned(dfhdl.tools.linters.nvc)}
-          |vcom      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}
-          |xvhdl     - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvhdl)}""".stripMargin
+          |ghdl              - GHDL (default)      ${scanned(dfhdl.tools.linters.ghdl)}
+          |nvc               - NVC                 ${scanned(dfhdl.tools.linters.nvc)}
+          |vcom|questa|vsim  - QuestaSim/ModelSim  ${scanned(dfhdl.tools.linters.vcom)}
+          |xvhdl|vivado|xsim - Vivado Simulator    ${scanned(dfhdl.tools.linters.xvhdl)}
+          |""".stripMargin
     )
   end listLintTools
   private def listSimulateTools(scan: Boolean): Unit =
@@ -161,18 +275,21 @@ trait DFApp:
           |-t verilator     - Set the Verilog simulator to Verilator (VHDL simulator remains default)
           |-t nvc           - Set the VHDL simulator to NVC (Verilog simulator remains default)
           |-t iverilog/ghdl - Set both Verilog and VHDL simulators
+          |-t questa        - Set both Verilog and VHDL simulators to QuestaSim/ModelSim
+          |-t vivado        - Set both Verilog and VHDL simulators to Vivado Simulator
           |
           |Selectable Verilog/SystemVerilog simulation tools:
-          |verilator - Verilator (default) ${scanned(dfhdl.tools.simulators.verilator)}
-          |iverilog  - Icarus Verilog      ${scanned(dfhdl.tools.simulators.iverilog)}
-          |vlog      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vlog)}
-          |xvlog     - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvlog)}
+          |verilator            - Verilator (default) ${scanned(dfhdl.tools.simulators.verilator)}
+          |iverilog             - Icarus Verilog      ${scanned(dfhdl.tools.simulators.iverilog)}
+          |vlog|questa|modelsim - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vlog)}
+          |xvlog|vivado|xsim    - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvlog)}
           |
           |Selectable VHDL simulation tools:
-          |ghdl      - GHDL (default)      ${scanned(dfhdl.tools.simulators.ghdl)}
-          |nvc       - NVC                 ${scanned(dfhdl.tools.simulators.nvc)}
-          |vcom      - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vcom)}
-          |xvhdl     - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvhdl)}""".stripMargin
+          |ghdl                 - GHDL (default)      ${scanned(dfhdl.tools.simulators.ghdl)}
+          |nvc                  - NVC                 ${scanned(dfhdl.tools.simulators.nvc)}
+          |vcom|questa|modelsim - QuestaSim/ModelSim  ${scanned(dfhdl.tools.simulators.vcom)}
+          |xvhdl|vivado|xsim    - Vivado Simulator    ${scanned(dfhdl.tools.simulators.xvhdl)}
+          |""".stripMargin
     )
   end listSimulateTools
 
@@ -237,11 +354,11 @@ trait DFApp:
               case Some(simulateTool: HelpMode.`simulate-tool`.type) =>
                 listSimulateTools(simulateTool.scan.toOption.get)
               case _ => println(parsedCommandLine.getFullHelpString())
-          case Mode.elaborate => elaborate
-          case Mode.compile   => compile
-          case Mode.commit    => commit
-          case Mode.lint      => lint
-          case Mode.simulate  => simulate
+          case Mode.elaborate => elaborate()
+          case Mode.compile   => compile()
+          case Mode.commit    => commit()
+          case Mode.lint      => lint(uncached = true)
+          case Mode.simulate  => simRun(uncached = true)
     end match
   end main
 end DFApp

@@ -7,18 +7,18 @@ import DFVal.Modifier
 import DFVal.Func.Op as FuncOp
 import DFVal.Alias.History.Op as HistoryOp
 import scala.annotation.tailrec
-import scala.reflect.{ClassTag, classTag}
 import DFDesignBlock.InstMode
 import scala.util.boundary, boundary.break
 import scala.annotation.targetName
+import scala.collection.immutable.ListMap
 
 object IteratorDcl:
   def unapply(dcl: DFVal.Dcl)(using MemberGetSet): Boolean =
-    dcl.hasTagOf[DFVal.Dcl.IteratorTag.type]
+    dcl.hasTagOf[IteratorTag]
 
 object Ident:
   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
-    if (alias.hasTagOf[DFVal.Alias.IdentTag.type]) Some(alias.relValRef.get)
+    if (alias.hasTagOf[IdentTag]) Some(alias.relValRef.get)
     else None
 
 object StrippedPortByNameSelect:
@@ -49,11 +49,11 @@ object StrippedPortByNameSelect:
 //```
 // object DesignParam:
 //   def unapply(alias: DFVal.Alias.AsIs)(using MemberGetSet): Option[DFVal] =
-//     if (alias.hasTagOf[DFVal.Alias.DesignParamTag.type])
+//     if (alias.hasTagOf[DFVal.Alias.DesignParamTag])
 //       val relVal = alias.relValRef.get
 //       // if (
 //       //   relVal.existsInComposedReadDeps { dep =>
-//       //     dep.hasTagOf[DFVal.Alias.DesignParamTag.type] &&
+//       //     dep.hasTagOf[DFVal.Alias.DesignParamTag] &&
 //       //     dep.isSameOwnerDesignAs(alias)
 //       //   }
 //       // ) None
@@ -84,7 +84,7 @@ object AsOpaque:
 
 object Bind:
   def unapply(alias: DFVal.Alias)(using MemberGetSet): Option[DFVal] =
-    if (alias.getTagOf[Pattern.Bind.Tag.type].isDefined)
+    if (alias.getTagOf[BindTag].isDefined)
       Some(alias.relValRef.get)
     else None
 
@@ -407,12 +407,30 @@ extension (textOut: TextOut)
       .flatMap(_.collectRelMembers(false)).toList
 
 extension (member: DFMember)
-  def isPublicMember(using MemberGetSet): Boolean =
+  private def isPublicMember(using MemberGetSet): Boolean =
     member match
       case DclPort()            => true
       case _: DFVal.DesignParam => true
       case _: DomainBlock       => true
       case _                    => false
+end extension
+
+extension (members: List[DFMember])
+  def filterPublicMembers(using MemberGetSet): List[DFMember] =
+    def getPublicMembersDeps(member: DFMember): List[DFMember] =
+      member :: member.getRefs.flatMap { r =>
+        val publicMemberCandidate = r.get
+        publicMemberCandidate match
+          case _: DFMember.Empty                          => Nil
+          case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => Nil
+          case _ if publicMemberCandidate.isSameOwnerDesignAs(member) =>
+            getPublicMembersDeps(publicMemberCandidate)
+          case _ => Nil
+      }
+    members.view.filter(_.isPublicMember).flatMap {
+      case p: DFVal.DesignParam => getPublicMembersDeps(p).reverse
+      case m                    => Some(m)
+    }.toList.distinct
 end extension
 
 extension (member: DFMember)
@@ -427,3 +445,46 @@ extension (member: DFMember)
         cb.members(MemberView.Folded).exists(_.consumesCycles)
       case _ => false
 end extension
+
+/** An extractor that transforms a DFType using a provided update function.
+  *
+  * This extractor works in two phases:
+  *   1. It first applies the `preCheck` predicate to determine if the type should be transformed
+  *      and to extract a helper object of type H.
+  *   2. Then it recursively processes any nested types (for structs, vectors, opaques).
+  *   3. Finally, it applies the `updateFunc` to either the original type or the recursively
+  *      processed type, along with the helper object.
+  *
+  * @tparam H
+  *   The type of the helper object produced by preCheck and consumed by updateFunc
+  */
+class ComposedDFTypeReplacement[H](
+    preCheck: DFType => Option[H],
+    updateFunc: PartialFunction[(DFType, H), DFType]
+)(using
+    MemberGetSet
+):
+  Extractor =>
+  def unapply(dfType: DFType): Option[DFType] =
+    val composed = dfType match
+      case dt: DFStruct =>
+        val updatedMap = ListMap.from(dt.fieldMap.view.collect { case (name, Extractor(dfType)) =>
+          (name, dfType)
+        })
+        if (updatedMap.nonEmpty) Some(dt.copy(fieldMap = updatedMap))
+        else None
+      case dt: DFOpaque =>
+        dt.actualType match
+          case Extractor(dfType) => Some(dt.copy(actualType = dfType))
+          case _                 => None
+      case dt: DFVector =>
+        dt.cellType match
+          case Extractor(dfType) => Some(dt.copy(cellType = dfType))
+          case _                 => None
+      case _ => None
+    // if the original type matches the precheck, the extractor will always return some updated value
+    preCheck(dfType) match
+      case Some(helper) => Some(updateFunc(composed.getOrElse(dfType), helper))
+      case None         => composed
+  end unapply
+end ComposedDFTypeReplacement

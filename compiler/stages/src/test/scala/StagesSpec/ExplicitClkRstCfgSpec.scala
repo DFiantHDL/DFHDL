@@ -1,7 +1,7 @@
 package StagesSpec
 
 import dfhdl.*
-import dfhdl.compiler.stages.{explicitClkRstCfg, namedAnonMultiref}
+import dfhdl.compiler.stages.explicitClkRstCfg
 // scalafmt: { align.tokens = [{code = "<>"}, {code = "="}, {code = "=>"}, {code = ":="}]}
 
 class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
@@ -363,7 +363,7 @@ class ExplicitClkRstCfgSpec extends StageSpec(stageCreatesUnrefAnons = true):
         q.din       := ram(addr)
     end TrueDPR
 
-    val top = (new TrueDPR()).namedAnonMultiref.explicitClkRstCfg
+    val top = (new TrueDPR()).explicitClkRstCfg
     assertCodeString(
       top,
       """|class TrueDPR(

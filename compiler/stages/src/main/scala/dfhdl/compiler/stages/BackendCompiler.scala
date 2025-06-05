@@ -6,25 +6,10 @@ import dfhdl.compiler.printing.Printer
 import dfhdl.compiler.ir.DB
 
 trait BackendCompiler:
-  final def compile[D <: Design](
-      sd: StagedDesign[D]
-  )(using co: CompilerOptions, po: PrinterOptions): CompiledDesign[D] =
-    val ret = CompiledDesign(sd.newStage(printer(sd.stagedDB).printedDB))
-    if (co.printDFHDLCode)
-      println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           |The design code after compilation:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
-      )
-      ret.printCodeString
-    if (co.printBackendCode)
-      println(
-        """|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           |The generated backend code:
-           |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~""".stripMargin
-      )
-      ret.printBackendCode
-    ret
+  final def compile(
+      sd: StagedDesign
+  )(using co: CompilerOptions, po: PrinterOptions): CompiledDesign =
+    CompiledDesign(sd.newStage(printer(sd.stagedDB).printedDB))
   end compile
   def printer(
       designDB: DB

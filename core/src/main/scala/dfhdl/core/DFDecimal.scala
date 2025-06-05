@@ -621,10 +621,10 @@ object DFXInt:
           import DFBits.Val.Ops.uint
           val dfVal = ic(arg)(using dfc.anonymize)
           val ret =
-            if (dfVal.hasTag[DFVal.TruncateTag])
-              dfVal.uint.tag(DFVal.TruncateTag)
-            else if (dfVal.hasTag[DFVal.ExtendTag])
-              dfVal.uint.tag(DFVal.ExtendTag)
+            if (dfVal.hasTag[ir.TruncateTag])
+              dfVal.uint.tag(ir.TruncateTag)
+            else if (dfVal.hasTag[ir.ExtendTag])
+              dfVal.uint.tag(ir.ExtendTag)
             else dfVal.uint
           ret.asValTP[DFXInt[OutS, OutW, OutN], OutP]
       end fromDFBitsValCandidate
@@ -721,7 +721,7 @@ object DFXInt:
           import DFUInt.Val.Ops.signed
           val rhs = ic(value)
           val (rhsSigned, rhsWidth) = rhs.getActualSignedWidth
-          if (!rhs.hasTag[DFVal.TruncateTag] || dfType.signed != rhsSigned)
+          if (!rhs.hasTag[ir.TruncateTag] || dfType.signed != rhsSigned)
             check(dfType.signed, dfType.widthInt, rhsSigned, rhsWidth)
           DFXInt.Val.Ops.toDFXIntOf(rhs)(dfType).asValTP[DFXInt[LS, LW, LN], ic.OutP]
         end conv
@@ -845,7 +845,7 @@ object DFXInt:
       extension [S <: Boolean, W <: IntP, N <: NativeType, P](lhs: DFValTP[DFXInt[S, W, N], P])
         @targetName("truncateDFXInt")
         def truncate(using DFC): DFValTP[DFXInt[S, Int, N], P] =
-          lhs.tag(DFVal.TruncateTag).asValTP[DFXInt[S, Int, N], P]
+          lhs.tag(ir.TruncateTag).asValTP[DFXInt[S, Int, N], P]
         @targetName("resizeDFXInt")
         def resize[RW <: IntP](
             updatedWidth: IntParam[RW]

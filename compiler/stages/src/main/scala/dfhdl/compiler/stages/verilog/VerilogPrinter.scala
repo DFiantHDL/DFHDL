@@ -5,6 +5,7 @@ import dfhdl.compiler.analysis.*
 import dfhdl.internals.*
 import dfhdl.options.PrinterOptions
 import DFVal.Func.Op as FuncOp
+import dfhdl.compiler.ir.TextOut.Severity
 
 class VerilogPrinter(val dialect: VerilogDialect)(using
     val getSet: MemberGetSet,
@@ -70,7 +71,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
         case DFBool => s"""$csDFVal ? "true" : "false""""
         case dfType: DFEnum =>
           if (printer.allowTypeDef) s"$csDFVal.name()"
-          else s"${dfType.getName}_to_string($csDFVal)"
+          else s"${dfType.name}_to_string($csDFVal)"
         case _ => csDFVal
     val msg =
       textOut.op match
@@ -128,7 +129,11 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     textOut.op match
       case TextOut.Op.Finish => "$finish;"
       case TextOut.Op.Report(severity) =>
-        if (assertIsSupported) s"${csSeverity(severity)}($msg);"
+        if (assertIsSupported)
+          val errCodeArg = severity match
+            case Severity.Fatal => "1, "
+            case _              => ""
+          s"${csSeverity(severity)}($errCodeArg$msg);"
         else csDisplay(severity, msg)
       case TextOut.Op.Assert(assertionRef, severity) =>
         if (msg.isEmpty)
@@ -226,15 +231,17 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       // align cases
       .align("[ ]*[a-zA-Z]+[a-zA-Z0-9_.]*[ ]*:", "", ".*")
 
-  val verilogKW: Set[String] =
-    Set("module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
-      "begin", "end", "case", "default", "endcase", "default_nettype", "include", "inside",
-      "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
-      "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while",
-      "assert", "write", "display", "info", "warning", "error", "fatal")
+  val verilogKW: Set[String] = Set(
+    "module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
+    "begin", "end", "case", "default", "endcase", "default_nettype", "include", "inside",
+    "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
+    "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while",
+    "assert", "write", "display", "info", "warning", "error", "fatal", "finish"
+  )
   val verilogOps: Set[String] = Set("=", "<=")
-  val verilogTypes: Set[String] =
-    Set("wire", "reg", "logic", "wire", "signed", "int", "integer", "string")
+  val verilogTypes: Set[String] = Set(
+    "wire", "reg", "logic", "wire", "signed", "int", "integer", "string"
+  )
   def colorCode(cs: String): String =
     cs
       .colorWords(verilogKW, keywordColor)

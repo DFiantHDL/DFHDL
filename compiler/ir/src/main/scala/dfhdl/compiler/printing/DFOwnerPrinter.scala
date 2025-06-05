@@ -144,7 +144,8 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
       else s" $body"
     if (body.isEmpty) cb match
       case caseBlock: DFConditional.DFCaseBlock => s"$statement$csDFCaseBlockEmpty"
-      case ifBlock: DFConditional.DFIfElseBlock => s"$statement $csIfBlockEmpty"
+      case ifBlock: DFConditional.DFIfElseBlock =>
+        s"$statement $csIfBlockEmpty${end.emptyOr(e => s"\n$e")}"
     else s"$statement$indentBody${end.emptyOr(e => s"\n$e")}"
   end csDFConditionalBlock
   final def csDFConditional(ch: DFConditional.Header): String =

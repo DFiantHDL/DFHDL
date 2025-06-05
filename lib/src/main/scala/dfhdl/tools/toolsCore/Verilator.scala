@@ -24,12 +24,6 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   override val convertWindowsToLinuxPaths: Boolean = true
   protected def includeFolderFlag: String = "-I"
 
-  override protected def toolFiles(using getSet: MemberGetSet): List[String] =
-    getSet.designDB.srcFiles.collect {
-      case SourceFile(SourceOrigin.Committed, _: VerilatorToolSource, path, _) =>
-        path.convertWindowsToLinuxPaths
-    }
-
   protected def lintCmdLanguageFlag(dialect: VerilogDialect): String =
     val language = dialect match
       case VerilogDialect.v95    => "1364-1995"
@@ -51,6 +45,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     }
     constructCommand(
       "--lint-only",
+      "--assert",
       "--quiet-stats",
       s"--top-module ${topName}",
       if (hasTiming) "--timing" else ""
@@ -73,6 +68,7 @@ object Verilator extends VerilogLinter, VerilogSimulator:
   ): String =
     constructCommand(
       "--binary",
+      "--assert",
       "--quiet-stats",
       "--build-jobs 0",
       s"--top-module ${topName}"
@@ -87,23 +83,22 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     (!summon[LinterOptions].Werror.toBoolean).toFlag("-Wno-fatal")
   )
 
-  override protected[dfhdl] def lintPreprocess[D <: Design](cd: CompiledDesign[D])(using
+  override protected[dfhdl] def lintPreprocess(cd: CompiledDesign)(using
       CompilerOptions,
       ToolOptions
-  ): CompiledDesign[D] =
+  ): CompiledDesign =
     addSourceFiles(
       cd,
       List(new VerilatorConfigPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
     )
 
-  // override protected[dfhdl] def simulatePreprocess[D <: Design](cd: CompiledDesign[D])(using
-  //     CompilerOptions,
-  //     SimulatorOptions
-  // ): CompiledDesign[D] =
-  //   addSourceFiles(
-  //     cd,
-  //     List(new VerilatorSimMainPrinter(getInstalledVersion)(using cd.stagedDB.getSet).getSourceFile)
-  //   )
+  override protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
+      CompilerOptions,
+      SimulatorOptions
+  ): CompiledDesign =
+    given MemberGetSet = cd.stagedDB.getSet
+    exec(simulateCmdFlags, (), simulateLogger, simRunExec)
+    cd
 
   override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =
     lintCmdLanguageFlag(dialect)
@@ -154,34 +149,38 @@ object Verilator extends VerilogLinter, VerilogSimulator:
     )
   end simulateLogger
 
-  override def simulate[D <: Design](
-      cd: CompiledDesign[D]
-  )(using co: CompilerOptions, so: SimulatorOptions): CompiledDesign[D] =
-    val ret = super.simulate(cd)
-    given MemberGetSet = ret.stagedDB.getSet
-    val unixExec =
-      s"${Paths.get(execPath).toAbsolutePath()}${separatorChar}obj_dir${separatorChar}V${topName}"
-    val runExec: String =
-      val osName: String = sys.props("os.name").toLowerCase
-      if (osName.contains("windows")) s"${unixExec}.exe" else unixExec
-    println("Executing verilated binary...")
+  def verilatedBinary(using MemberGetSet): String =
+    val bin = s"obj_dir${separatorChar}V${topName}"
+    if (osIsWindows) s"${bin}.exe" else bin
+
+  override protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions): List[String] =
+    List(verilatedBinary)
+
+  override def simulate(
+      cd: CompiledDesign
+  )(using co: CompilerOptions, so: SimulatorOptions): CompiledDesign =
+    given MemberGetSet = cd.stagedDB.getSet
     // set special logger to identify warnings, because verilator does not track warnings.
     val logger = Some(
       Tool.ProcessLogger(
         // `WARNING:` is used by DFHDL when compiling to v95/v2001 dialects
         lineIsWarning = (line: String) => line.startsWith("WARNING:") || line.contains("%Warning:"),
-        lineIsSuppressed = (line: String) => false
+        lineIsSuppressed = (line: String) =>
+          // the user does not need to see this
+          line.endsWith("ignored due to +verilator+error+limit")
       )
     )
-    exec(cmd = "", loggerOpt = logger, runExec = runExec)
-    ret
+    val cmd = constructCommand(
+      "+verilator+quiet",
+      s"+verilator+error+limit+${Int.MaxValue}"
+    )
+    exec(cmd = cmd, loggerOpt = logger, runExec = verilatedBinary)
+    cd
   end simulate
 
 end Verilator
 
-sealed trait VerilatorToolSource extends SourceType.Tool
-
-case object VerilatorConfig extends VerilatorToolSource
+val VerilatorConfig = SourceType.Tool("Verilator", "Config")
 
 class VerilatorConfigPrinter(verilatorVersion: String)(using
     getSet: MemberGetSet,
@@ -218,7 +217,7 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
   def lintOffHidden: String = lintOffCommand("VARHIDDEN")
   def lintOffBlackBoxes: String =
     designDB.srcFiles.flatMap {
-      case SourceFile(SourceOrigin.Committed, SourceType.Design.BlackBox, path, _) =>
+      case SourceFile(SourceOrigin.Committed, SourceType.BlackBox, path, _) =>
         val fileNameStr = Paths.get(path).getFileName.toString
         List(
           lintOffCommand(rule = "UNUSEDSIGNAL", file = fileNameStr),
@@ -279,7 +278,7 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
 
 end VerilatorConfigPrinter
 
-case object VerilatorSimMain extends VerilatorToolSource
+// val VerilatorSimMain = SourceType.Tool("Verilator", "SimMain")
 
 // class VerilatorSimMainPrinter(verilatorVersion: String)(using
 //     getSet: MemberGetSet,

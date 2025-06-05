@@ -198,7 +198,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         s"resize($relValStr, ${tWidthParamRef.refCodeString})"
       case (t, DFOpaque(actualType = ot)) if ot =~ t =>
         relValStr
-      case (DFOpaque(_, _, _), _) =>
+      case (DFOpaque(_, _, _, _), _) =>
         relValStr
       case (DFBit, DFBool) =>
         s"to_sl($relValStr)"

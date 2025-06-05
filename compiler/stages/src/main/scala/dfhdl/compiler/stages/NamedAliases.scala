@@ -6,7 +6,6 @@ import dfhdl.compiler.patching.*
 import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import DFVal.Func.Op as FuncOp
-import scala.reflect.{ClassTag, classTag}
 
 // Names an anonymous relative value which is aliased.
 // The aliasing is limited according to the criteria provided
@@ -125,16 +124,14 @@ extension [T: HasDB](t: T)
 
 // Names an anonymous value which is referenced more than once
 case object NamedAnonMultiref extends NamedAliases, NoCheckStage:
-  private val cbTags: Set[ClassTag[?]] =
-    Set(classTag[DFConditional.DFMatchHeader], classTag[DFConditional.DFIfHeader])
   def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
     case dfVal if !dfVal.isAnonymous => Nil
     case dfVal                       =>
       // referenced more than once (excluding else/case blocks referencing their headers & type refs)
       val refs = getSet.designDB.memberTable.getOrElse(dfVal, Set()).view.flatMap {
-        case _: DFRef.TypeRef                                  => None
-        case r: DFRef.TwoWayAny if !cbTags.contains(r.refType) => Some(r)
-        case _                                                 => None
+        case _: DFRef.TypeRef                                                => None
+        case r: DFRef.TwoWayAny if !r.get.isInstanceOf[DFConditional.Header] => Some(r)
+        case _                                                               => None
       }
       if (refs.size > 1) List(dfVal)
       else Nil

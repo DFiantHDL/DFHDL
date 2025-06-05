@@ -149,25 +149,6 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
                 ctx.withOwner(clsSym.primaryConstructor)
               )
             case None => (nonParamBody, Nil)
-          val simpleArgs = paramBody.collect {
-            case v: ValDef if v.dfValTpeOpt.isEmpty =>
-              mkTuple(
-                List(Literal(Constant(v.name.toString)), ref(v.symbol))
-              )
-          }
-          val simpleArgsListMapTree =
-            if (simpleArgs.isEmpty)
-              ref(listMapEmptySym)
-                .appliedToTypes(List(defn.StringType, defn.AnyType))
-            else
-              ref(listMapSym).select(nme.apply)
-                .appliedToTypes(List(defn.StringType, defn.AnyType))
-                .appliedToVarargs(
-                  simpleArgs,
-                  TypeTree(
-                    defn.Tuple2.typeRef.appliedTo(defn.StringType, defn.AnyType)
-                  )
-                )
           // TODO: The override does not seem to be actually used by the runtime,
           // probably because it's selected during the typer stage and needs to be
           // changed somehow to reference the new overridden tree symbol.
@@ -191,8 +172,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
                   Literal(Constant(tree.name.toString)),
                   tree.positionTree,
                   mkOptionString(clsSym.docString),
-                  mkList(clsSym.staticAnnotations.map(a => dropProxies(a.tree))),
-                  simpleArgsListMapTree
+                  mkList(clsSym.staticAnnotations.map(a => dropProxies(a.tree)))
                 )
               )
           val newTemplate =

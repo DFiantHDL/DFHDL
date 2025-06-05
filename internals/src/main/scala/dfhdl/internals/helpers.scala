@@ -460,6 +460,8 @@ object AnnotatedWith:
   end annotWithMacro
 end AnnotatedWith
 
+def osIsWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
+
 // trait CompiletimeErrorPos[M <: String, S <: Int, E <: Int]
 // object CompiletimeErrorPos:
 //   inline given [M <: String, S <: Int, E <: Int]: CompiletimeErrorPos[M, S, E] =

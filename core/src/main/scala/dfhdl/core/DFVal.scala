@@ -433,11 +433,6 @@ object DFVal extends DFValLP:
       else dfVal
   end extension
 
-  case object ExtendTag extends ir.DFTagOf[ir.DFVal]
-  type ExtendTag = ExtendTag.type
-  case object TruncateTag extends ir.DFTagOf[ir.DFVal]
-  type TruncateTag = TruncateTag.type
-
   @metaContextForward(0)
   trait InitValue[T <: DFTypeAny]:
     def enable: Boolean
@@ -721,7 +716,7 @@ object DFVal extends DFValLP:
       dcl.addMember.asVal[T, M]
     end apply
     def iterator(using DFC): DFValOf[DFInt32] =
-      apply(DFInt32, Modifier.VAR, Nil)(using dfc.tag(ir.DFVal.Dcl.IteratorTag))
+      apply(DFInt32, Modifier.VAR, Nil)(using dfc.tag(ir.IteratorTag))
   end Dcl
 
   object Func:
@@ -798,13 +793,12 @@ object DFVal extends DFValLP:
       def ident[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M])(using
           dfc: DFC
       ): DFVal[T, M] =
-        import ir.DFVal.Alias.IdentTag
-        apply(relVal.dfType, relVal, forceNewAlias = true)(using dfc.tag(IdentTag))
+        apply(relVal.dfType, relVal, forceNewAlias = true)(using dfc.tag(ir.IdentTag))
       def bind[T <: DFTypeAny, M <: ModifierAny](relVal: DFVal[T, M], bindName: String)(using
           dfc: DFC
       ): DFVal[T, M] =
         import ir.DFConditional.DFCaseBlock.Pattern
-        ident(relVal)(using dfc.setName(bindName).tag(Pattern.Bind.Tag))
+        ident(relVal)(using dfc.setName(bindName).tag(ir.BindTag))
     end AsIs
     object History:
       def apply[T <: DFTypeAny](
@@ -1151,7 +1145,7 @@ object DFVal extends DFValLP:
         check(step)
         DFVal.Alias.History(dfVal, step, HistoryOp.State, None)
       }
-      inline def prev(using DFDomainOnly, PrevInitCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
+      def prev(using DFDomainOnly, PrevInitCheck[I], DFC): DFValOf[T] = dfVal.prev(1)
       def pipe(
           step: Inlined[S]
       )(using dfOnly: DFDomainOnly, dfc: DFC, check: Arg.Positive.Check[S]): DFValOf[T] = trydf {
@@ -1164,7 +1158,7 @@ object DFVal extends DFValLP:
           Some(Bubble.constValOf(dfVal.dfType, named = false))
         )
       }
-      inline def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
+      def pipe(using DFC, DFDomainOnly): DFValOf[T] = dfVal.pipe(1)
       def reg(step: Inlined[S])(using
           dfc: DFC,
           rtOnly: RTDomainOnly,
@@ -1183,7 +1177,7 @@ object DFVal extends DFValLP:
         val initOpt = Some(init(dfVal.dfType)(using dfc.anonymize))
         DFVal.Alias.History(dfVal, step, HistoryOp.State, initOpt)
       }
-      inline def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
+      def reg(using DFC, RTDomainOnly, RegInitCheck[I]): DFValOf[T] = dfVal.reg(1)
       def width(using DFC): DFConstInt32 = dfVal.widthIntParam.toDFConst
       def widthInt(using DFC): Int = dfVal.widthIntParam.toScalaInt
     end extension
@@ -1422,6 +1416,7 @@ extension (dfVal: ir.DFVal)
 
   protected[dfhdl] def cloneUnreachable(using dfc: DFC): ir.DFVal =
     import dfc.getSet
+    given ir.RefGen = dfc.refGen
     val currentOwner = dfc.owner.asIR
     if (dfVal.isUnreachable)
       dfVal match

@@ -1,6 +1,8 @@
 package dfhdl.compiler.ir
+import dfhdl.internals.StableEnum
+import upickle.default.*
 
-enum DomainType extends HasRefCompare[DomainType] derives CanEqual:
+enum DomainType extends HasRefCompare[DomainType], StableEnum derives CanEqual, ReadWriter:
   // dataflow domain
   case DF
   // register-transfer domain
@@ -17,7 +19,7 @@ enum DomainType extends HasRefCompare[DomainType] derives CanEqual:
     case RT(cfg) => cfg.getRefs
     case _       => Nil
 
-  def copyWithNewRefs: this.type = this match
+  def copyWithNewRefs(using RefGen): this.type = this match
     case RT(cfg) => new RT(cfg.copyWithNewRefs).asInstanceOf[this.type]
     case _       => this
 

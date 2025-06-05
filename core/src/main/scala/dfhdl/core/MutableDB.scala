@@ -17,9 +17,10 @@ import dfhdl.compiler.ir.{
   MemberGetSet,
   SourceFile,
   MemberView,
-  RTDomainCfg
+  RTDomainCfg,
+  DFTags
 }
-import dfhdl.compiler.analysis.isPublicMember
+import dfhdl.compiler.analysis.filterPublicMembers
 
 import scala.reflect.{ClassTag, classTag}
 import collection.mutable
@@ -125,7 +126,7 @@ class DesignContext:
     members.view.filterNot(e => e.ignore).map(e => e.irValue).head
 
   def inject(sourceCtx: DesignContext): Unit =
-    sourceCtx.getMemberList.foreach { m =>
+    sourceCtx.getImmutableMemberList.foreach { m =>
       if (!memberTable.contains(m))
         addMember(m)
     }
@@ -133,9 +134,11 @@ class DesignContext:
     originRefTable ++= sourceCtx.originRefTable
   end inject
 
-  def getMemberList: List[DFMember] =
+  def getImmutableMemberList: List[DFMember] =
     members.view.filterNot(e => e.ignore).map(e => e.irValue).toList
-  def getRefTable: Map[DFRefAny, DFMember] = refTable.toMap
+
+  def getImmutableRefTable: Map[DFRefAny, DFMember] =
+    refTable.toMap
 
   def getReachableNamedValue(dfVal: DFVal, cf: => DFVal): DFVal =
     unreachableNamedValues.getOrElseUpdate(dfVal, cf)
@@ -166,7 +169,8 @@ final class MutableDB():
       stack = current :: stack
       current = new DesignContext
     def endDesign(design: DFDesignBlock): Unit =
-      val currentMembers = current.getMemberList.drop(1)
+      val currentMembers = current.getImmutableMemberList.drop(1)
+      val currentRefTable = current.getImmutableRefTable
       val designType = design.dclName
       var isDuplicate = false
       def sameDesignAs(groupDesign: DFDesignBlock): Boolean =
@@ -200,18 +204,19 @@ final class MutableDB():
       // already minimized to the named members.
       if (isDuplicate && !current.isDuplicate)
         // public members are ports, design design parameters, and
-        // design domains. these members are interacted with outside the
-        // design, so they are kept as duplicates in the design instances
-        val publicMembers = currentMembers.filter(_.isPublicMember)
+        // design domains. for design parameters we also get dependencies.
+        // all these members are interacted with outside the design,
+        // so they are kept as duplicates in the design instances
+        val publicMembers = currentMembers.filterPublicMembers
         designMembers += design -> publicMembers
         val transferredRefs = publicMembers.view.flatMap(m =>
-          (m.ownerRef -> current.refTable(m.ownerRef)) ::
-            m.getRefs.map(r => r -> current.refTable(r))
+          (m.ownerRef -> currentRefTable(m.ownerRef)) ::
+            m.getRefs.map(r => r -> currentRefTable(r))
         )
         stack.head.refTable ++= transferredRefs
       else
         designMembers += design -> currentMembers
-        stack.head.refTable ++= current.refTable
+        stack.head.refTable ++= currentRefTable
       end if
 
       stack.head.addMember(design)
@@ -222,7 +227,11 @@ final class MutableDB():
     def runFuncWithInputs[V <: DFValAny](func: => V, inputs: List[DFValAny]): (Boolean, V) =
       current.defInputs = inputs
       val currentDesign = OwnershipContext.currentDesign
-      if (currentDesign.dclMeta.annotations.exists { case hw.pure(true) => true })
+      val isPure = currentDesign.dclMeta.annotations.exists {
+        case hw.pure(true) => true
+        case _             => false
+      }
+      if (isPure)
         val key = (currentDesign.dclMeta.position, inputs.map(_.dfType.asIR))
         pureDesignDefOutCache.get(key) match
           case Some(ret) =>
@@ -233,6 +242,7 @@ final class MutableDB():
             pureDesignDefOutCache += key -> ret
             (false, ret)
       else (false, func)
+    end runFuncWithInputs
     def getDefInput(idx: Int): DFValAny =
       current.defInputs(idx)
     def addLoopIter(meta: Meta, iter: DFValAny): Unit =
@@ -300,17 +310,9 @@ final class MutableDB():
   end OwnershipContext
 
   object GlobalTagContext:
-    private[MutableDB] val tagMap: mutable.Map[(Any, ClassTag[?]), DFTag] =
-      mutable.Map()
-    def set[CT <: DFTag: ClassTag](
-        taggedElement: Any,
-        tag: CT
-    ): Unit =
-      tagMap += ((taggedElement, classTag[CT]) -> tag)
-    def get[CT <: DFTag: ClassTag](
-        taggedElement: Any
-    ): Option[CT] =
-      tagMap.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
+    private[MutableDB] var tags: DFTags = DFTags.empty
+    def set[CT <: DFTag: ClassTag](tag: CT): Unit = tags = tags.tag(tag)
+    def get[CT <: DFTag: ClassTag]: Option[CT] = tags.getTagOf[CT]
   end GlobalTagContext
 
   def addMember[M <: DFMember](member: M): M =
@@ -436,13 +438,22 @@ final class MutableDB():
     // then we need to just get the current hierarchy members and refTable
     val (members, refTable) =
       if (inMetaProgramming)
-        (DesignContext.current.getMemberList, DesignContext.current.refTable.toMap)
+        (DesignContext.current.getImmutableMemberList, DesignContext.current.getImmutableRefTable)
       // otherwise we first flatten the hierarchy and then make sure all design
       // declarations are unique and tag duplicate instances accordingly.
       else
         val members =
-          getFlattenedMemberList(DesignContext.current.getMemberList)
-        val refTable = DesignContext.current.refTable.toMap
+          getFlattenedMemberList(DesignContext.current.getImmutableMemberList)
+        val refTable = DesignContext.current.getImmutableRefTable
+        // removing unused type references due to `dropUnreachableRefs`
+        val usedTypeRefs = members.view.flatMap {
+          case dfVal: DFVal => dfVal.getRefs.collect { case r: DFRef.TypeRef => r }
+          case _            => Nil
+        }.toSet
+        val fixedRefTable = refTable.view.filter {
+          case (ref: DFRef.TypeRef, m) => usedTypeRefs.contains(ref)
+          case _                       => true
+        }.toMap
         val duplicateDesignRepMap = DesignContext.uniqueDesigns.view.flatMap {
           case (designType, groupList) =>
             groupList.view.reverse.zipWithIndex.flatMap {
@@ -469,9 +480,13 @@ final class MutableDB():
           case design: DFDesignBlock => duplicateDesignRepMap.getOrElse(design, design)
           case m                     => m
         }
-        (members.map(replaceDesignFunc), refTable.view.mapValues(replaceDesignFunc).toMap)
-    val globalTags = GlobalTagContext.tagMap.toMap
-    val db = DB(members, refTable, globalTags, Nil)
+        (members.map(replaceDesignFunc), fixedRefTable.view.mapValues(replaceDesignFunc).toMap)
+    val membersNoGlobalCtx = members.map {
+      case m: DFVal.CanBeGlobal => m.copyWithoutGlobalCtx
+      case m                    => m
+    }
+    val globalTags = GlobalTagContext.tags
+    val db = DB(membersNoGlobalCtx, refTable, globalTags, Nil)
     memoizedDB = Some(db)
     db
   }
@@ -486,13 +501,8 @@ final class MutableDB():
     def replace[M <: DFMember](originalMember: M)(newMember: M): M =
       replaceMember(originalMember, newMember)
     def remove[M <: DFMember](member: M): M = ignoreMember(member)
-    def setGlobalTag[CT <: DFTag: ClassTag](
-        taggedElement: Any,
-        tag: CT
-    ): Unit = GlobalTagContext.set(taggedElement, tag)
-    def getGlobalTag[CT <: DFTag: ClassTag](
-        taggedElement: Any
-    ): Option[CT] = GlobalTagContext.get(taggedElement)
+    def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit = GlobalTagContext.set(tag)
+    def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = GlobalTagContext.get[CT]
   end getSet
 
 end MutableDB

@@ -48,6 +48,7 @@ case object DropBinds extends Stage:
         case _ => None
   end ReplacePattern
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     // going through all DFHDL matches
     val patchList = designDB.conditionalChainTable.toList.flatMap {
       case (mh: DFConditional.DFMatchHeader, cases: List[DFConditional.DFCaseBlock @unchecked]) =>
@@ -106,7 +107,7 @@ case object DropBinds extends Stage:
             // If the bind group contains more than one bind, then the rest of the binds are removed and
             // reference the first bind that is stripped from its alias.
             else
-              val aliasIR = headBind.removeTagOf[Pattern.Bind.Tag.type]
+              val aliasIR = headBind.removeTagOf[BindTag]
               val dropBindTagPatch =
                 headBind -> Patch.Replace(aliasIR, Patch.Replace.Config.FullReplacement)
               dropBindTagPatch :: otherBinds.map(b =>

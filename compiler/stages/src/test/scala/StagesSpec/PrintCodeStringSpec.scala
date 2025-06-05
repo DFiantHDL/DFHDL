@@ -1210,6 +1210,7 @@ class PrintCodeStringSpec extends StageSpec:
           s"These are the values: $param3, $param4, $param5, $param6, $param7, $param8, $param9, $param10"
         )
         debug(param3, param4, param5, param6, param7, param8, param9, param10)
+        finish()
     end Foo
     val top = (new Foo).getCodeString
     assertNoDiff(
@@ -1241,6 +1242,7 @@ class PrintCodeStringSpec extends StageSpec:
          |    print(s"hello")
          |    println(s"These are the values: ${param3}, ${param4}, ${param5}, ${param6}, ${param7}, ${param8}, ${param9}, ${param10}")
          |    debug(param3, param4, param5, param6, param7, param8, param9, param10)
+         |    finish()
          |end Foo""".stripMargin
     )
   }

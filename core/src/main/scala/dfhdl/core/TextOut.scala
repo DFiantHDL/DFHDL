@@ -36,7 +36,7 @@ object TextOut:
 
     transparent inline def print(inline msg: Any): Unit =
       compiletime.summonFrom {
-        case given DomainType =>
+        case given DFC.Scope.Local =>
           textOut(Op.Print, Some(msg))
         case _ =>
           scala.Predef.print(msg)
@@ -44,7 +44,7 @@ object TextOut:
 
     transparent inline def println(inline msg: Any): Unit =
       compiletime.summonFrom {
-        case given DomainType =>
+        case given DFC.Scope.Local =>
           textOut(Op.Println, Some(msg))
         case _ =>
           scala.Predef.println(msg)
@@ -52,7 +52,7 @@ object TextOut:
 
     transparent inline def println(): Unit =
       compiletime.summonFrom {
-        case given DomainType =>
+        case given DFC.Scope.Local =>
           textOut(Op.Println, None)
         case _ =>
           scala.Predef.println()
@@ -70,7 +70,7 @@ object TextOut:
 
     transparent inline def assert(inline assertion: Any, inline message: => Any): Unit =
       compiletime.summonFrom {
-        case given DomainType =>
+        case given DFC.Scope.Local =>
           assertDFHDL(assertion, Some(message), Severity.Error)(using compiletime.summonInline[DFC])
         case _ =>
           inline assertion match
@@ -80,7 +80,7 @@ object TextOut:
 
     transparent inline def assert(inline assertion: Any): Unit =
       compiletime.summonFrom {
-        case given DomainType =>
+        case given DFC.Scope.Local =>
           assertDFHDL(assertion, None, Severity.Error)(using compiletime.summonInline[DFC])
         case _ =>
           inline assertion match

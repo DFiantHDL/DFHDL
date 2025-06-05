@@ -15,6 +15,7 @@ case object ToED extends Stage:
       SimpleOrderMembers)
   def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using getSet: MemberGetSet, co: CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val domainAnalysis = new DomainAnalysis(designDB)
     // the last handled design to know when a design is switched to clear
     // the handledDesignDcls set (saving as top for initial since transforming bottom-up,
@@ -44,13 +45,6 @@ case object ToED extends Stage:
           case domainType @ Config(cfg) =>
             import cfg.{clkCfg, rstCfg}
             val clkRstOpt = domainAnalysis.designDomains(domainOwner)
-
-            // changing the owner from RT domain to ED domain
-            val updatedOwner = domainOwner match
-              case design: DFDesignBlock => design.copy(domainType = DomainType.ED)
-              case domain: DomainBlock   => domain.copy(domainType = DomainType.ED)
-            val ownerDomainPatch =
-              domainOwner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
 
             val assignCnt = mutable.Map.empty[DFVal.Dcl, Int]
             def anotherAssignCnt(toVal: DFVal): Unit =
@@ -145,7 +139,7 @@ case object ToED extends Stage:
             // println(processBlockAllMembers.mkString("\n"))
             // println("----")
             val processAllDsn =
-              new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = ED):
+              new MetaDesign(domainOwner, Patch.Add.Config.InsideLast, domainType = ED):
                 // variables to transfer combinational information from the combinational block
                 // to the sequential block, to be registered
                 val dcl_din_vars = dclREGList.map: orig =>
@@ -213,7 +207,7 @@ case object ToED extends Stage:
                 )
 
             val processSeqDsn =
-              new MetaDesign(updatedOwner, Patch.Add.Config.InsideLast, domainType = ED):
+              new MetaDesign(domainOwner, Patch.Add.Config.InsideLast, domainType = ED):
                 lazy val clk = clkRstOpt.clkOpt.get.asValOf[DFOpaque[DFOpaque.Clk]]
                 lazy val rst = clkRstOpt.rstOpt.get.asValOf[DFOpaque[DFOpaque.Rst]]
 
@@ -289,7 +283,6 @@ case object ToED extends Stage:
               m -> Patch.Remove(isMoved = true)
             }
             List(
-              Some(ownerDomainPatch),
               Some(domainOwner -> Patch.Add(processAllDsn, Patch.Add.Config.InsideLast)),
               processAllDsn.dclChangePatch,
               Some(domainOwner -> Patch.Add(processSeqDsn, Patch.Add.Config.InsideLast)),
@@ -318,7 +311,13 @@ case object ToED extends Stage:
               modifier = dcl.modifier.copy(special = Modifier.Ordinary)
             )
           dcl -> Patch.Replace(updatedDcl, Patch.Replace.Config.FullReplacement)
-
+        case domainOwner: DFDomainOwner if domainOwner.domainType != DomainType.ED =>
+          // changing the owner from RT domain to ED domain
+          val updatedOwner = domainOwner match
+            case design: DFDesignBlock => design.copy(domainType = DomainType.ED)
+            case domain: DomainBlock   => domain.copy(domainType = DomainType.ED)
+            case ifc: DFInterfaceOwner => ifc.copy(domainType = DomainType.ED)
+          domainOwner -> Patch.Replace(updatedOwner, Patch.Replace.Config.FullReplacement)
       }
       firstPart.patch(patchList)
     }

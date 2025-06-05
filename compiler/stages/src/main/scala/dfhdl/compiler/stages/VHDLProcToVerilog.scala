@@ -29,6 +29,7 @@ case object VHDLProcToVerilog extends Stage:
   override def runCondition(using co: CompilerOptions): Boolean = co.backend.isVerilog
 
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
+    given RefGen = RefGen.fromGetSet
     val patchList: List[(DFMember, Patch)] = designDB.members.flatMap {
       case pb @ ProcessBlock(sensitivity = Sensitivity.List(stRefs)) =>
         def getStVals = stRefs.view.map(_.get)

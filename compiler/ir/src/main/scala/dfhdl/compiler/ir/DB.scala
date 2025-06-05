@@ -7,13 +7,14 @@ import scala.collection.immutable.{ListMap, ListSet, BitSet}
 import dfhdl.internals.*
 import dfhdl.compiler.printing.{Printer, DefaultPrinter}
 import DFDesignBlock.InstMode
+import upickle.default.*
 
 final case class DB(
     members: List[DFMember],
     refTable: Map[DFRefAny, DFMember],
-    globalTags: Map[(Any, ClassTag[?]), DFTag],
+    globalTags: DFTags,
     srcFiles: List[SourceFile]
-):
+) derives CanEqual, ReadWriter:
   private val self = this
   given getSet: MemberGetSet with
     val designDB: DB = self
@@ -26,12 +27,10 @@ final case class DB(
       newMemberFunc(originalMember)
     def replace[M <: DFMember](originalMember: M)(newMember: M): M = newMember
     def remove[M <: DFMember](member: M): M = member
-    def setGlobalTag[CT <: DFTag: ClassTag](
-        taggedElement: Any,
-        tag: CT
-    ): Unit = {}
-    def getGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any): Option[CT] =
-      globalTags.get((taggedElement, classTag[CT])).asInstanceOf[Option[CT]]
+    def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit = throw new Exception(
+      "Cannot set global tag on immutable DB"
+    )
+    def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT] = globalTags.getTagOf[CT]
   end getSet
 
   // considered to be in simulation if the top design has no ports
@@ -725,7 +724,7 @@ final case class DB(
     private def getExplicitCfg: RTDomainCfg.Explicit =
       domainOwner.domainType match
         case DomainType.RT(explicitCfg: RTDomainCfg.Explicit) => explicitCfg
-        case _ => top.getTagOf[RTDomainCfg.Explicit].get
+        case _ => globalTags.getTagOf[DefaultRTDomainCfgTag].get.cfg
     private def usesClkRst: (Boolean, Boolean) = domainOwner match
       case design: DFDesignBlock =>
         designUsesClkRst.getOrElseUpdate(
@@ -835,16 +834,16 @@ final case class DB(
                       |Message:   $msg""".stripMargin
       val ownerDomain = wait.getOwnerDomain
       trigger.getConstData match
-        case Some((waitValue: BigDecimal, waitUnit: DFPhysical.Unit.Time.Scale)) =>
+        case Some((waitValue: BigDecimal, waitUnit: DFTime.Unit)) =>
           // Check if the wait statement is in a domain with a clock rate configuration
           explicitRTDomainCfgMap.get(ownerDomain) match
             case Some(RTDomainCfg.Explicit(_, clkCfg: ClkCfg.Explicit, _)) =>
               // Get the clock period in picoseconds
-              val (clockPeriodPs: BigDecimal, desc: String) = clkCfg.rate.getConstData.get match
-                case (value: BigDecimal, unit: DFPhysical.Unit.Time.Scale) =>
+              val (clockPeriodPs: BigDecimal, desc: String) = clkCfg.rate match
+                case (value: BigDecimal, unit: DFTime.Unit) =>
                   // Direct period specification
                   (unit.to_ps(value), s"period ${value}.${unit}")
-                case (value: BigDecimal, unit: DFPhysical.Unit.Freq.Scale) =>
+                case (value: BigDecimal, unit: DFFreq.Unit) =>
                   // Frequency specification - convert to period
                   (unit.to_ps(value), s"frequency ${value}.${unit}")
               // Get wait duration in picoseconds
@@ -1038,8 +1037,11 @@ final case class DB(
 
 end DB
 
-//object DB:
-//end DB
+object DB:
+  extension (db: DB)
+    def toJsonString: String = write(db)
+  def fromJsonString(json: String): DB = read[DB](json)
+end DB
 
 enum MemberView derives CanEqual:
   case Folded, Flattened
@@ -1052,7 +1054,7 @@ trait MemberGetSet:
   def set[M <: DFMember](originalMember: M)(newMemberFunc: M => M): M
   def replace[M <: DFMember](originalMember: M)(newMember: M): M
   def remove[M <: DFMember](member: M): M
-  def setGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any, tag: CT): Unit
-  def getGlobalTag[CT <: DFTag: ClassTag](taggedElement: Any): Option[CT]
+  def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit
+  def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT]
 
 def getSet(using MemberGetSet): MemberGetSet = summon[MemberGetSet]

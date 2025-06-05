@@ -8,8 +8,7 @@ trait HasClsMetaArgs:
       name: String,
       position: Position,
       docOpt: Option[String],
-      annotations: List[Annotation],
-      args: ListMap[String, Any]
+      annotations: List[Annotation]
   ): Unit
   protected def __clsMetaArgs: ClsMetaArgs = ClsMetaArgs.empty
 end HasClsMetaArgs
@@ -18,9 +17,8 @@ final case class ClsMetaArgs(
     name: String,
     position: Position,
     docOpt: Option[String],
-    annotations: List[Annotation],
-    args: ListMap[String, Any]
+    annotations: List[Annotation]
 ) derives CanEqual
 
 object ClsMetaArgs:
-  def empty: ClsMetaArgs = ClsMetaArgs("???", Position.unknown, None, Nil, ListMap())
+  def empty: ClsMetaArgs = ClsMetaArgs("???", Position.unknown, None, Nil)

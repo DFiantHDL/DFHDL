@@ -157,7 +157,7 @@ object IntParam extends IntParamLP:
           val constIR = const.asInstanceOf[DFValAny].asIR
           constIR.injectGlobalCtx()
           val reachable = constIR.getReachableMember
-          val newRef = new ir.DFRef.TypeRef {}
+          val newRef = dfc.refGen.genTypeRef
           ir.IntParamRef(dfc.mutableDB.newRefFor(newRef, reachable))
     def +[R <: IntP](rhs: IntParam[R]): IntParam[IntP.+[L, R]] =
       calc(FuncOp.+, lhs, rhs)(_ + _)

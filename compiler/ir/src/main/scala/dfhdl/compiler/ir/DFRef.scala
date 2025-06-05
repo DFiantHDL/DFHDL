@@ -1,52 +1,72 @@
 package dfhdl.compiler.ir
 import scala.annotation.unchecked.uncheckedVariance
-import scala.reflect.{ClassTag, classTag}
 import dfhdl.internals.hashString
+import upickle.default.*
 
 type DFRefAny = DFRef[DFMember]
-sealed trait DFRef[+M <: DFMember] derives CanEqual:
-  val refType: ClassTag[M @uncheckedVariance]
+sealed trait DFRef[+M <: DFMember] extends Product, Serializable derives CanEqual:
+  val grpId: Int
+  val id: Int
   final def =~(that: DFRefAny)(using MemberGetSet): Boolean = this.get =~ that.get
   def get(using getSet: MemberGetSet): M = getSet(this)
   def getOption(using getSet: MemberGetSet): Option[M] = getSet.getOption(this)
-  def copyAsNewRef: this.type
+  def copyAsNewRef(using RefGen): this.type
   override def toString: String = s"<${this.hashString}>"
 
 object DFRef:
   sealed trait Empty extends DFRef[DFMember.Empty]:
-    val refType = classTag[DFMember.Empty]
+    val grpId: Int = 0
+    val id: Int = 0
     override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
-  trait OneWay[+M <: DFMember] extends DFRef[M]:
-    self =>
-    final def copyAsNewRef: this.type = new OneWay[M]:
-      val refType = self.refType
-    .asInstanceOf[this.type]
+  sealed trait OneWay[+M <: DFMember] extends DFRef[M]:
+    final def copyAsNewRef(using refGen: RefGen): this.type =
+      refGen.genOneWay[M].asInstanceOf[this.type]
   object OneWay:
-    object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
+    final case class Gen[M <: DFMember](grpId: Int, id: Int) extends OneWay[M]
+    case object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
 
-  trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
-    self =>
-    val originRefType: ClassTag[O @uncheckedVariance]
-    def copyAsNewRef: this.type = new TwoWay[M, O]:
-      val refType = self.refType
-      val originRefType = self.originRefType
-    .asInstanceOf[this.type]
+  sealed trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
+    def copyAsNewRef(using refGen: RefGen): this.type =
+      refGen.genTwoWay[M, O].asInstanceOf[this.type]
   type TwoWayAny = TwoWay[DFMember, DFMember]
   object TwoWay:
-    object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty:
-      val originRefType = classTag[DFMember.Empty]
+    final case class Gen[M <: DFMember, O <: DFMember](grpId: Int, id: Int) extends TwoWay[M, O]
+    case object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty
 
-  trait TypeRef extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
-    self =>
-    val refType = classTag[DFVal.CanBeExpr]
-    val originRefType = classTag[DFVal.CanBeExpr]
-    override def copyAsNewRef: this.type = new TypeRef {}.asInstanceOf[this.type]
+  final case class TypeRef(grpId: Int, id: Int) extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
+    override def copyAsNewRef(using refGen: RefGen): this.type =
+      refGen.genTypeRef.asInstanceOf[this.type]
 
   extension (ref: DFRefAny)
     def isTypeRef: Boolean = ref match
       case ref: TypeRef => true
       case _            => false
   def unapply[M <: DFMember](ref: DFRef[M])(using MemberGetSet): Option[M] = Some(ref.get)
+
+  given [T <: DFRefAny]: ReadWriter[T] =
+    readwriter[String].bimap(
+      ref =>
+        ref match
+          case TwoWay.Empty          => "TWE"
+          case OneWay.Empty          => "OWE"
+          case TypeRef(grpId, id)    => s"TR_${grpId.toHexString}_${id}"
+          case TwoWay.Gen(grpId, id) => s"TW_${grpId.toHexString}_${id}"
+          case OneWay.Gen(grpId, id) => s"OW_${grpId.toHexString}_${id}"
+      ,
+      str =>
+        if str == "TWE" then TwoWay.Empty.asInstanceOf[T]
+        else if str == "OWE" then OneWay.Empty.asInstanceOf[T]
+        else
+          val parts = str.split("_")
+          parts(0) match
+            case "TR" =>
+              TypeRef(Integer.parseUnsignedInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+            case "TW" =>
+              TwoWay.Gen(Integer.parseUnsignedInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+            case "OW" =>
+              OneWay.Gen(Integer.parseUnsignedInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+            case _ => throw new IllegalArgumentException(s"Unknown reference format: $str")
+    )
 end DFRef
 
 opaque type IntParamRef = DFRef.TypeRef | Int
@@ -81,14 +101,47 @@ object IntParamRef:
           thisRef.get.isSimilarTo(fakeConst(thatInt))
         case (thisInt: Int, thatRef: DFRef.TypeRef) =>
           thatRef.get.isSimilarTo(fakeConst(thisInt))
-    def copyAsNewRef: IntParamRef = intParamRef match
+    def copyAsNewRef(using RefGen): IntParamRef = intParamRef match
       case ref: DFRef.TypeRef => ref.copyAsNewRef
       case _                  => intParamRef
   end extension
+
+  given ReadWriter[IntParamRef] = readwriter[ujson.Value].bimap(
+    param =>
+      param match
+        case int: Int           => writeJs(int)
+        case ref: DFRef.TypeRef => writeJs(ref)
+    ,
+    json =>
+      json match
+        case ujson.Str(s) => read[DFRef.TypeRef](s)
+        case ujson.Num(n) => n.toInt
+        case _ => throw new IllegalArgumentException(s"Expected String or Int, got $json")
+  )
 end IntParamRef
+
 extension (intCompanion: Int.type)
   def unapply(intParamRef: IntParamRef)(using MemberGetSet): Option[Int] =
     (intParamRef: @unchecked) match
       case int: Int => Some(int)
       case DFRef(dfVal: DFVal) =>
         dfVal.getConstData.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)
+
+class RefGen(private var grpId: Int, private var lastId: Int):
+  private def nextId: Int =
+    val newId = lastId + 1
+    lastId = newId
+    newId
+  def getGrpId: Int = grpId
+  def setGrpId(newGrpId: Int): Unit =
+    grpId = newGrpId
+  def genOneWay[M <: DFMember]: DFRef.OneWay[M] = DFRef.OneWay.Gen(grpId, nextId)
+  def genTwoWay[M <: DFMember, O <: DFMember]: DFRef.TwoWay[M, O] = DFRef.TwoWay.Gen(grpId, nextId)
+  def genTypeRef: DFRef.TypeRef = DFRef.TypeRef(grpId, nextId)
+
+object RefGen:
+  def fromGetSet(using getSet: MemberGetSet): RefGen =
+    val rt = getSet.designDB.refTable
+    val grpId = rt.last._1.grpId
+    val lastId = rt.keys.map(_.id).max
+    RefGen(grpId, lastId)

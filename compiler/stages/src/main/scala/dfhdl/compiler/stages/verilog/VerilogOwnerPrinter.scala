@@ -14,9 +14,18 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   def fileSuffix = "v"
   def defsName: String =
     s"${getSet.designDB.top.dclName}_defs"
-  def csLibrary(inSimulation: Boolean): String =
+  def csLibrary(inSimulation: Boolean, minTimeUnitOpt: Option[DFTime.Unit]): String =
+    val csTimeScale = minTimeUnitOpt.map { unit =>
+      def unitToStr(unit: DFTime.Unit): String =
+        unit match
+          case DFTime.Unit.sec => "s"
+          case _               => unit.toString
+      val scaleUnit = unitToStr(unit)
+      val precisionUnit = unitToStr(DFTime.Unit.ps.to_basic_unit(unit.to_ps(1e-3))._2)
+      s"`timescale 1${scaleUnit}/1${precisionUnit}"
+    }.getOrElse(s"`timescale 1ns/1ps")
     s"""`default_nettype none
-       |`timescale 1ns/1ps
+       |$csTimeScale
        |`include "${printer.globalFileName}"""".stripMargin
   def moduleName(design: DFDesignBlock): String = design.dclName
   val parameterizedModuleSupport: Boolean =
@@ -101,8 +110,22 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
        |${statements.hindent}
        |endmodule""".stripMargin
   end csModuleDcl
+  lazy val minTimeUnitDesignMap = getSet.designDB.designMemberList.view.flatMap { (dsn, members) =>
+    val minTimePSOpt = members.view.collect {
+      case DFVal.Const(dfType = DFTime, data = (value: BigDecimal, unit: DFTime.Unit)) =>
+        unit.to_ps(value)
+    }.minOption
+    minTimePSOpt.map(ps => dsn -> DFTime.Unit.ps.to_basic_unit(ps)._2)
+  }.toMap
+  lazy val minTimeUnitGlobalOpt =
+    minTimeUnitDesignMap.values.view.map(_.to_ps(1)).minOption.map(ps =>
+      DFTime.Unit.ps.to_basic_unit(ps)._2
+    )
   def csDFDesignBlockDcl(design: DFDesignBlock): String =
-    s"""${csLibrary(design.inSimulation)}
+    // once there is a design with a set time unit, all designs must have a set time unit,
+    // so we can use the global time unit if the design does not have a set time unit
+    val minTimeUnitOpt = minTimeUnitDesignMap.get(design).orElse(minTimeUnitGlobalOpt)
+    s"""${csLibrary(design.inSimulation, minTimeUnitOpt)}
        |
        |${csModuleDcl(design)}
        |""".stripMargin
