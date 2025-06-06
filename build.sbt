@@ -18,7 +18,8 @@ inThisBuild(
         "",
         url("https://twitter.com/soronpo")
       )
-    )
+    ),
+    sonatypeCredentialHost := "central.sonatype.com"
   )
 )
 
@@ -27,8 +28,6 @@ ThisBuild / organization := "io.github.dfianthdl"
 ThisBuild / scalaVersion := compilerVersion
 ThisBuild / versionScheme := Some("semver-spec")
 //ThisBuild / version      := "0.3.0-SNAPSHOT"
-
-ThisBuild / sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost
 
 // PROJECTS
 lazy val root = (project in file("."))
