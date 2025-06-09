@@ -552,4 +552,34 @@ class DFDecimalSpec extends DFSpec:
       """u8 % d"9'22""""
     )
   }
+  test("Int32 arithmetic") {
+    val param: Int <> CONST = 2
+    val t1 = 1 + param
+    val r1: Int <> CONST = 3
+    assertEquals(t1, r1)
+    val t2 = 1 - param
+    val r2: Int <> CONST = -1
+    assertEquals(t2, r2)
+    val t3 = 4 * param
+    val r3: Int <> CONST = 8
+    assertEquals(t3, r3)
+    val t4 = 10 / param
+    val r4: Int <> CONST = 5
+    assertEquals(t4, r4)
+    val t5 = 10 % param
+    val r5: Int <> CONST = 0
+    assertEquals(t5, r5)
+    val t6 = 3 ** param
+    val r6: Int <> CONST = 9
+    assertEquals(t6, r6)
+    val t7 = 1 max param
+    val r7: Int <> CONST = 2
+    assertEquals(t7, r7)
+    val t8 = 1 min param
+    val r8: Int <> CONST = 1
+    assertEquals(t8, r8)
+    val t9 = 2 ** param
+    val r9: Int <> CONST = 4
+    assertEquals(t9, r9)
+  }
 end DFDecimalSpec
