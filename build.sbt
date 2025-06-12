@@ -5,7 +5,6 @@ commands += DFHDLCommands.docExamplesRefUpdate
 val projectName = "dfhdl"
 val compilerVersion = "3.7.1"
 
-import xerial.sbt.Sonatype.sonatype01
 inThisBuild(
   List(
     homepage := Some(url("https://dfianthdl.github.io/")),
@@ -20,7 +19,6 @@ inThisBuild(
         url("https://twitter.com/soronpo")
       )
     ),
-    sonatypeCredentialHost := sonatype01
   )
 )
 
