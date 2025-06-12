@@ -4,7 +4,7 @@ import dfhdl.compiler.analysis.DclPort
 
 import scala.annotation.targetName
 extension [M <: ir.DFMember](member: M)
-  private def injectGlobalCtx()(using DFC): Unit =
+  private[dfhdl] def injectGlobalCtx()(using DFC): Unit =
     import dfc.getSet
     member match
       case dfVal: ir.DFVal.CanBeGlobal if dfVal.isGlobal =>

@@ -20,7 +20,7 @@ class PrintVHDLCodeSpec extends StageSpec:
     val id1_y = SInt(16) <> VAR
     val id2_x = SInt(16) <> VAR
     val id2_y = SInt(16) <> VAR
-    val id1 = new ID:
+    val id1   = new ID:
       this.x <> id1_x
       this.y <> id1_y
     val id2 = new ID:
@@ -1302,6 +1302,57 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      "param9 = " & to_string(param9) & LF &
          |      "param10 = " & t_enum_MyEnum'image(param10)
          |    severity NOTE;
+         |  end process;
+         |end Foo_arch;""".stripMargin
+    )
+  }
+  test("for loop with a register printing") {
+    class Foo(
+        val PORT_WIDTH: Int <> CONST = 5
+    ) extends RTDesign:
+      val r = Bits(PORT_WIDTH) <> OUT.REG init all(0)
+      for (i <- 0 until PORT_WIDTH)
+        r(i).din := 1
+      for (i <- 0 until PORT_WIDTH)
+        if (r(PORT_WIDTH - 1 - i))
+          r(i).din := 0
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |generic (
+         |  PORT_WIDTH : integer := 5
+         |);
+         |port (
+         |  clk : in std_logic;
+         |  rst : in std_logic;
+         |  r : out std_logic_vector(PORT_WIDTH - 1 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |begin
+         |  process (clk)
+         |  begin
+         |    if rising_edge(clk) then
+         |      if rst = '1' then r <= repeat("0", PORT_WIDTH);
+         |      else
+         |        for i in 0 to PORT_WIDTH-1 loop
+         |          r(i) <= '1';
+         |        end loop;
+         |        for i in 0 to PORT_WIDTH-1 loop
+         |          if r((PORT_WIDTH - 1) - i) then r(i) <= '0';
+         |          end if;
+         |        end loop;
+         |      end if;
+         |    end if;
          |  end process;
          |end Foo_arch;""".stripMargin
     )

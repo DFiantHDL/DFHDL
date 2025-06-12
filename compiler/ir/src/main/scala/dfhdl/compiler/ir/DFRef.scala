@@ -96,7 +96,7 @@ object IntParamRef:
       (intParamRef, that) match
         case (thisRef: DFRef.TypeRef, thatRef: DFRef.TypeRef) =>
           thisRef.get.isSimilarTo(thatRef.get)
-        case (thisInt: Int, thatInt: Int) => thisInt == thatInt
+        case (thisInt: Int, thatInt: Int)           => thisInt == thatInt
         case (thisRef: DFRef.TypeRef, thatInt: Int) =>
           thisRef.get.isSimilarTo(fakeConst(thatInt))
         case (thisInt: Int, thatRef: DFRef.TypeRef) =>
@@ -114,8 +114,8 @@ object IntParamRef:
     ,
     json =>
       json match
-        case ujson.Str(s) => read[DFRef.TypeRef](s)
         case ujson.Num(n) => n.toInt
+        case ujson.Str(_) => read[DFRef.TypeRef](json)
         case _ => throw new IllegalArgumentException(s"Expected String or Int, got $json")
   )
 end IntParamRef
@@ -123,7 +123,7 @@ end IntParamRef
 extension (intCompanion: Int.type)
   def unapply(intParamRef: IntParamRef)(using MemberGetSet): Option[Int] =
     (intParamRef: @unchecked) match
-      case int: Int => Some(int)
+      case int: Int            => Some(int)
       case DFRef(dfVal: DFVal) =>
         dfVal.getConstData.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)
 

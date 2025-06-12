@@ -330,7 +330,7 @@ object DFDecimal:
     ): Either[String, (Boolean, Int, Int, BigInt)] =
       dec.replace(",", "").replace("_", "") match
         case intExp(numStr) => Right(fromIntDecString(numStr, signedForced))
-        case _ =>
+        case _              =>
           Left(s"Invalid decimal pattern found: $dec")
       end match
     end fromDecString
@@ -915,6 +915,27 @@ object DFXInt:
         }
         def >>[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, CONST | P] = trydf {
           DFVal.Func(DFInt32, FuncOp.>>, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]
+        }
+        def +[P](rhs: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.+, List(DFConstInt32(lhs), rhs)).asValTP[DFInt32, P]
+        }
+        def -[P](rhs: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.-, List(DFConstInt32(lhs), rhs)).asValTP[DFInt32, P]
+        }
+        def *[P](rhs: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.`*`, List(DFConstInt32(lhs), rhs)).asValTP[DFInt32, P]
+        }
+        def /[P](rhs: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp./, List(DFConstInt32(lhs), rhs)).asValTP[DFInt32, P]
+        }
+        def %[P](rhs: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.%, List(DFConstInt32(lhs), rhs)).asValTP[DFInt32, P]
+        }
+        def max[P](rhs: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.max, List(DFConstInt32(lhs), rhs)).asValTP[DFInt32, P]
+        }
+        def min[P](rhs: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
+          DFVal.Func(DFInt32, FuncOp.min, List(DFConstInt32(lhs), rhs)).asValTP[DFInt32, P]
         }
         def **[P](shift: DFValTP[DFInt32, P])(using dfc: DFC): DFValTP[DFInt32, P] = trydf {
           DFVal.Func(DFInt32, FuncOp.**, List(DFConstInt32(lhs), shift)).asValTP[DFInt32, P]

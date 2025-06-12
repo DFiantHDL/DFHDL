@@ -497,8 +497,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
       y := x
 
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = ID()
         id.x <> x
@@ -558,8 +558,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
 
   test("RT domain with basic combinational if-else") {
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         if (x < 0) y := 0
         else y       := x
@@ -609,9 +609,9 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
     val rstCfg = RstCfg(RstCfg.Mode.Sync, RstCfg.Active.High)
     val cfg    = RTDomainCfg(clkCfg, rstCfg)
     class ID extends RTDesign(cfg):
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT.REG init 0
-      val r = SInt(16) <> VAR.REG init 0
+      val x   = SInt(16) <> IN
+      val y   = SInt(16) <> OUT.REG init 0
+      val r   = SInt(16) <> VAR.REG init 0
       val foo = new RelatedDomain:
         y.din := r
       r.din := 1
@@ -803,8 +803,8 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
 
   test("RT design with ED domain") {
     class Foo extends RTDesign:
-      val clk = Clk <> VAR
-      val rst = Rst <> VAR
+      val clk      = Clk <> VAR
+      val rst      = Rst <> VAR
       val internal = new EDDomain:
         process(all):
           clk.actual := 0
@@ -874,6 +874,91 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    if (clk.actual.rising)
          |      if (rst.actual == 1) {}
          |      else println(s"${child.y}")
+         |    end if
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("For loop with a register") {
+    class Foo(
+        val PORT_WIDTH: Int <> CONST = 5
+    ) extends RTDesign:
+      val r = Bits(PORT_WIDTH) <> OUT.REG init all(0)
+      for (i <- 0 until PORT_WIDTH)
+        r(i).din := 1
+      for (i <- 0 until PORT_WIDTH)
+        if (r(PORT_WIDTH - 1 - i))
+          r(i).din := 0
+    end Foo
+
+    val top = (new Foo()).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |class Foo(val PORT_WIDTH: Int <> CONST = 5) extends EDDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val r = Bits(PORT_WIDTH) <> OUT
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) r :== b"0".repeat(PORT_WIDTH)
+         |      else
+         |        for (i <- 0 until PORT_WIDTH)
+         |          r(i) :== 1
+         |        end for
+         |        for (i <- 0 until PORT_WIDTH)
+         |          if (r((PORT_WIDTH - 1) - i)) r(i) :== 0
+         |        end for
+         |      end if
+         |    end if
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("For loop with a register and combinational loop") {
+    class Foo(
+        val PORT_WIDTH: Int <> CONST = 5
+    ) extends RTDesign:
+      val r = Bits(PORT_WIDTH) <> OUT.REG init all(0)
+      val w = Bits(PORT_WIDTH) <> OUT
+      for (i <- 0 until PORT_WIDTH)
+        r(i).din := 1
+      for (i <- 0 until PORT_WIDTH)
+        if (r(PORT_WIDTH - 1 - i))
+          r(i).din := 0
+      for (i <- 0 until PORT_WIDTH)
+        w(i) := r(i)
+    end Foo
+
+    val top = (new Foo()).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |class Foo(val PORT_WIDTH: Int <> CONST = 5) extends EDDesign:
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val r = Bits(PORT_WIDTH) <> OUT
+         |  val w = Bits(PORT_WIDTH) <> OUT
+         |  val r_din = Bits(PORT_WIDTH) <> VAR
+         |  process(all):
+         |    r_din := r
+         |    for (i <- 0 until PORT_WIDTH)
+         |      r_din(i) := 1
+         |    end for
+         |    for (i <- 0 until PORT_WIDTH)
+         |      if (r((PORT_WIDTH - 1) - i)) r_din(i) := 0
+         |    end for
+         |    for (i <- 0 until PORT_WIDTH)
+         |      w(i) := r(i)
+         |    end for
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) r :== b"0".repeat(PORT_WIDTH)
+         |      else r :== r_din
          |    end if
          |end Foo""".stripMargin
     )

@@ -1,17 +1,17 @@
 package dfhdl.app
 import dfhdl.*
 import dfhdl.compiler.ir
-import core.{DFValAny, asValAny}
+import core.{DFValAny, asValAny, injectGlobalCtx}
 import scala.collection.immutable.ListMap
 
 case class DesignArg(name: String, value: Any, desc: String)(using DFC):
   val typeName =
     value match
-      case _: String  => "String"
-      case _: Int     => "Int"
-      case _: Double  => "Double"
-      case _: Boolean => "Boolean"
-      case _: BigInt  => "Int"
+      case _: String         => "String"
+      case _: Int            => "Int"
+      case _: Double         => "Double"
+      case _: Boolean        => "Boolean"
+      case _: BigInt         => "Int"
       case dfConst: DFValAny =>
         dfConst.asIR.dfType match
           case ir.DFBit | ir.DFBool => "Boolean"
@@ -22,6 +22,7 @@ case class DesignArg(name: String, value: Any, desc: String)(using DFC):
     val data = value match
       case dfConst: DFValAny =>
         import dfc.getSet
+        dfConst.asIR.injectGlobalCtx()
         dfConst.asIR.getConstData.asInstanceOf[Option[Option[Any]]].get.get
       case _ => value
     data match

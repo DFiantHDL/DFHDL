@@ -22,7 +22,7 @@ class PrintVerilogCodeSpec extends StageSpec:
     val id1_y = SInt(16) <> VAR
     val id2_x = SInt(16) <> VAR
     val id2_y = SInt(16) <> VAR
-    val id1 = new ID:
+    val id1   = new ID:
       this.x  <> id1_x
       this.y  <> id1_y
       this.y2 <> OPEN
@@ -1217,6 +1217,45 @@ class PrintVerilogCodeSpec extends StageSpec:
          |      "param9 = %s\n", param9 ? "true" : "false",
          |      "param10 = %s", MyEnum_to_string(param10)
          |    );
+         |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("for loop with a register printing") {
+    class Foo(
+        val PORT_WIDTH: Int <> CONST = 5
+    ) extends RTDesign:
+      val r = Bits(PORT_WIDTH) <> OUT.REG init all(0)
+      for (i <- 0 until PORT_WIDTH)
+        r(i).din := 1
+      for (i <- 0 until PORT_WIDTH)
+        if (r(PORT_WIDTH - 1 - i))
+          r(i).din := 0
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.svh"
+         |
+         |module Foo#(parameter int PORT_WIDTH = 5)(
+         |  input  wire logic clk,
+         |  input  wire logic rst,
+         |  output logic [PORT_WIDTH - 1:0] r
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  always_ff @(posedge clk)
+         |  begin
+         |    if (rst == 1'b1) r <= {PORT_WIDTH{1'b0}};
+         |    else begin
+         |      for (int i = 0; i < PORT_WIDTH; i = i + 1) begin
+         |        r[i] <= 1'b1;
+         |      end
+         |      for (int i = 0; i < PORT_WIDTH; i = i + 1) begin
+         |        if (r[(PORT_WIDTH - 1) - i]) r[i] <= 1'b0;
+         |      end
+         |    end
          |  end
          |endmodule""".stripMargin
     )
