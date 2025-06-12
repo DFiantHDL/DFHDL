@@ -131,9 +131,10 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val dfValDcls =
       designMembers.view
         .flatMap {
+          case _ @IteratorDcl()        => None
           case p: DFVal.Dcl if p.isVar => Some(p)
           case _: DesignParam          => None
-          case c @ DclConst() =>
+          case c @ DclConst()          =>
             c.dfType match
               case DFInt32 => None
               case _       => Some(c)
@@ -214,7 +215,7 @@ protected trait VHDLOwnerPrinter extends AbstractOwnerPrinter:
     val dcl = csDFMembers(dcls).emptyOr(v => s"\n${v.hindent}")
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val senList = pb.sensitivity match
-      case Sensitivity.All => " (all)"
+      case Sensitivity.All        => " (all)"
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) "" else s" ${refs.map(_.refCodeString).mkStringBrackets}"
     s"${named}process$senList$dcl\nbegin\n${body.hindent}\nend process;"
