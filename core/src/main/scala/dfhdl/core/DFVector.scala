@@ -157,8 +157,56 @@ object DFVector:
             .asValTP[DFVector[T, Tuple1[D1]], OutP]
       end DFVectorValFromSEV
     end TC
+
+    object TCConv:
+      import DFVal.TCConv
+      given DFVectorValFromDFValVectorConv[
+          T <: DFTypeAny,
+          E,
+          R <: Iterable[E],
+          TCE <: TCConv[T, E]
+      ](using
+          tc: TCE
+      ): TCConv[DFVector[T, Tuple1[Int]], R] with
+        type OutP = tc.OutP
+        def apply(arg: R)(using DFC): Out =
+          val dfVals = arg.view.map(tc(_)(using dfc.anonymize)).toList
+          val dfType = DFVector(dfVals.head.dfType, List(dfVals.length))
+          Val(dfType)(dfVals)
+
+    end TCConv
     object Compare:
       import DFVal.Compare
+      given DFVectorCompareFromDFVectorCompare[
+          T <: DFTypeAny,
+          D1 <: IntP,
+          RT <: DFTypeAny,
+          RD1 <: IntP,
+          RP,
+          R <: DFValTP[DFVector[RT, Tuple1[RD1]], RP],
+          Op <: FuncOp,
+          C <: Boolean
+      ](using
+          op: ValueOf[Op],
+          castle: ValueOf[C],
+          cellTC: Compare[T, DFValOf[RT], Op, C],
+          check: `LL == RL`.CheckNUB[D1, RD1]
+      ): Compare[DFVector[T, Tuple1[D1]], R, Op, C] with
+        type OutP = RP
+        def conv(dfType: DFVector[T, Tuple1[D1]], arg: R)(using DFC): Out =
+          import dfc.getSet
+          given Printer = DefaultPrinter
+          check(dfType.lengthInt, arg.dfType.lengthInt)
+          if (dfType.asIR.isSimilarTo(arg.dfType.asIR))
+            arg.asValTP[DFVector[T, Tuple1[D1]], RP]
+          else
+            throw new IllegalArgumentException(
+              s"""|Vector types must be the same when comparing one vector to another.
+                  |Expected type: ${dfType.codeString}
+                  |Found type:    ${arg.dfType.codeString}""".stripMargin
+            )
+      end DFVectorCompareFromDFVectorCompare
+
       given DFVectorCompareDFValVector[
           T <: DFTypeAny,
           D1 <: IntP,
@@ -202,11 +250,18 @@ object DFVector:
         def elements(using DFC): Vector[DFValOf[T]] =
           import DFDecimal.StrInterpOps.d
           val elementType = lhs.dfType.cellType
-          Vector.tabulate(lhs.dfType.lengthInt)(i =>
+          Vector.tabulate(lhs.lengthInt)(i =>
             val idxVal = DFConstInt32(i)
             DFVal.Alias.ApplyIdx(elementType, lhs, idxVal)(using dfc.anonymize)
           )
+        def length(using DFC): DFConstInt32 = lhs.dfType.lengthIntParam.toDFConst
+        def lengthInt(using DFC): Int = lhs.dfType.lengthIntParam.toScalaInt
       end extension
+      extension (str: String)
+        def toDFByteVector(using dfc: DFC): DFConstOf[DFVector[DFBits[8], Tuple1[Int]]] =
+          val dfType = dfhdl.core.DFVector(DFBits(8), List(IntParam.fromValue(str.length)))
+          val data = str.getBytes("ASCII").map(byte => (BitVector(byte), BitVector.low(8))).toVector
+          DFVal.Const.forced(dfType, data, named = true)
     end Ops
   end Val
 end DFVector
