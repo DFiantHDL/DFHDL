@@ -17,7 +17,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
   final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
-    case o: DFOwner => o
+    case o: DFOwner        => o
     case _: DFMember.Empty =>
       throw new IllegalArgumentException(s"No owner found for member $this.")
   final def getOwnerNamed(using MemberGetSet): DFOwnerNamed = getOwner match
@@ -78,7 +78,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   ): Boolean =
     thisMember match
       case DFDesignBlock.Top() => false
-      case _ =>
+      case _                   =>
         (thisMember.getOwner, thatOwner) match
           case (a, b) if a == b => true
           case (od, _)          => isInsideOwner(od, thatOwner)
@@ -88,7 +88,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getOwnerChain(using MemberGetSet): List[DFBlock] =
     this match
       case d @ DFDesignBlock.Top() => Nil
-      case _ =>
+      case _                       =>
         if (getOwnerBlock.isTop) List(getOwnerBlock)
         else getOwnerBlock.getOwnerChain :+ getOwnerBlock
   // count the hierarchy distance from inside to outside
@@ -302,7 +302,7 @@ object DFVal:
           val relVal = partial.relValRef.get
           partial match
             case partial: DFVal.Alias.ApplyRange =>
-              relVal.departial(range.offset(partial.relBitLow))
+              relVal.departial(range.offset(partial.idxLow))
             case partial: DFVal.Alias.ApplyIdx =>
               partial.relIdx.get match
                 case DFVal.Alias.ApplyIdx.ConstIdx(idx) =>
@@ -740,8 +740,8 @@ object DFVal:
 
     final case class ApplyRange(
         relValRef: PartialRef,
-        relBitHigh: Int,
-        relBitLow: Int,
+        idxHigh: Int,
+        idxLow: Int,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
@@ -751,20 +751,20 @@ object DFVal:
       protected def protGetConstData(using MemberGetSet): Option[Any] =
         val relVal = relValRef.get
         relVal.getConstData.map(relValData =>
-          selBitRangeData(relValData.asInstanceOf[(BitVector, BitVector)], relBitHigh, relBitLow)
+          selBitRangeData(relValData.asInstanceOf[(BitVector, BitVector)], idxHigh, idxLow)
         )
-      val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
+      val dfType: DFType = DFBits(idxHigh - idxLow + 1)
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
           this.relValRef =~ that.relValRef &&
-          this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow &&
+          this.idxHigh == that.idxHigh && this.idxLow == that.idxLow &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
         that match
           case that: ApplyRange =>
             this.relValRef.get.isSimilarTo(that.relValRef.get) &&
-            this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow
+            this.idxHigh == that.idxHigh && this.idxLow == that.idxLow
           case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]

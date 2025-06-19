@@ -74,7 +74,7 @@ trait AbstractValPrinter extends AbstractPrinter:
     extension (named: DFMember.Named)
       def nameCS: String = if (typeCS) s"${csDFMemberName(named)}.type" else csDFMemberName(named)
     member match
-      case dfVal: DFVal.DesignParam => dfVal.nameCS
+      case dfVal: DFVal.DesignParam                   => dfVal.nameCS
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
         if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
         else dfVal.nameCS
@@ -141,7 +141,7 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValNamed(dfVal: DFVal): String
   final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner | DFMember.Empty): String =
     dfVal.stripPortSel match
-      case expr: CanBeExpr if expr.isAnonymous => csDFValExpr(expr)
+      case expr: CanBeExpr if expr.isAnonymous   => csDFValExpr(expr)
       case PortOfDesignDef(Modifier.OUT, design) =>
         if (design.isAnonymous) printer.csDFDesignDefInst(design)
         else design.getName
@@ -177,7 +177,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match
           case _: DFVector => s"all(${argL.refCodeString})"
-          case _ =>
+          case _           =>
             val csArgL = argL.refCodeString(typeCS)
             val csArgR = argR.refCodeString(typeCS)
             s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"
@@ -289,7 +289,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
-    s"${dfVal.relValCodeString}(${dfVal.relBitHigh}, ${dfVal.relBitLow})"
+    s"${dfVal.relValCodeString}(${dfVal.idxHigh}, ${dfVal.idxLow})"
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
     val relIdxStr = dfVal.relIdx.refCodeString
     s"${dfVal.relValCodeString}($relIdxStr)"

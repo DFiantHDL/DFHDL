@@ -243,10 +243,10 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
       )
     .distinct.mkString("\n")
   def lintOffUnusedBits: String =
-    designDB.getUnusedBitsValues.map: (dfVal, relBitHigh, relBitLow) =>
+    designDB.getUnusedBitsValues.map: (dfVal, idxHigh, idxLow) =>
       val bitSel =
-        if (relBitHigh == relBitLow) s"$relBitHigh"
-        else s"$relBitHigh:$relBitLow"
+        if (idxHigh == idxLow) s"$idxHigh"
+        else s"$idxHigh:$idxLow"
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
         file = s"${dfVal.getOwnerDesign.dclName}.*",

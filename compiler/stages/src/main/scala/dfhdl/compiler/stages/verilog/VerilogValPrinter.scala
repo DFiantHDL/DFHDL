@@ -43,7 +43,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case Modifier.VAR   => ""
     def regOrWireRep = dfVal.modifier.dir match
       case Modifier.IN => ""
-      case _ =>
+      case _           =>
         if (dfVal.getConnectionTo.nonEmpty) "wire"
         else "reg"
     val fixedDFTypeStr =
@@ -92,7 +92,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
           case Func.Op.=!= => "!="
-          case Func.Op.>> =>
+          case Func.Op.>>  =>
             argL.get.dfType match
               case DFSInt(_) => ">>>"
               case _         => ">>"
@@ -133,7 +133,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case Func.Op.&       => s"&$argStrB"
           case Func.Op.|       => s"|$argStrB"
           case Func.Op.^       => s"^$argStrB"
-          case Func.Op.clog2 =>
+          case Func.Op.clog2   =>
             val internalLog = printer.dialect match
               case VerilogDialect.v95 | VerilogDialect.v2001 => ""
               case _                                         => "$"
@@ -211,7 +211,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFInt32, DFUInt(_) | DFSInt(_)) => relValStr
       case (DFBit, DFBool)                  => relValStr
       case (DFBool, DFBit)                  => relValStr
-      case (toStruct: DFStruct, _: DFBits) =>
+      case (toStruct: DFStruct, _: DFBits)  =>
         s"${toStruct.name}'($relValStr)"
       case (toVector: DFVector, _: DFBits) =>
         def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =
@@ -256,7 +256,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
-    s"${dfVal.relValCodeString}[${dfVal.relBitHigh}:${dfVal.relBitLow}]"
+    s"${dfVal.relValCodeString}[${dfVal.idxHigh}:${dfVal.idxLow}]"
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
     val relIdxStr = dfVal.relIdx.refCodeString
     s"${dfVal.relValCodeString}[$relIdxStr]"
@@ -276,7 +276,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   // def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
   def csNOTHING(dfVal: NOTHING): String =
     dfVal.dfType match
-      case DFBit => "1'bz"
+      case DFBit         => "1'bz"
       case DFBits(width) =>
         val csWidth = width.refCodeString.applyBrackets()
         s"""${csWidth}'bz"""

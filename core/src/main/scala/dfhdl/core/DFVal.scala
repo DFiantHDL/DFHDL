@@ -824,15 +824,15 @@ object DFVal extends DFValLP:
     object ApplyRange:
       def apply[W <: IntP, M <: ModifierAny, H <: Int, L <: Int](
           relVal: DFVal[DFBits[W], M],
-          relBitHigh: Inlined[H],
-          relBitLow: Inlined[L]
+          idxHigh: Inlined[H],
+          idxLow: Inlined[L]
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
-        forced(relVal.asIR, relBitHigh, relBitLow).asVal[DFBits[H - L + 1], M]
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFBits[H - L + 1], M]
       end apply
       def forced(
           relVal: ir.DFVal,
-          relBitHigh: Int,
-          relBitLow: Int
+          idxHigh: Int,
+          idxLow: Int
       )(using DFC): ir.DFVal =
         relVal match
           // anonymous constant are replace by a different constant
@@ -841,18 +841,18 @@ object DFVal extends DFValLP:
             val updatedData =
               ir.selBitRangeData(
                 const.data.asInstanceOf[(BitVector, BitVector)],
-                relBitHigh,
-                relBitLow
+                idxHigh,
+                idxLow
               )
-            Const.forced(DFBits(relBitHigh - relBitLow + 1), updatedData).asIR
+            Const.forced(DFBits(idxHigh - idxLow + 1), updatedData).asIR
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
             val alias: ir.DFVal.Alias.ApplyRange =
               ir.DFVal.Alias.ApplyRange(
                 relVal.refTW[ir.DFVal.Alias.ApplyRange],
-                relBitHigh,
-                relBitLow,
+                idxHigh,
+                idxLow,
                 dfc.ownerOrEmptyRef,
                 dfc.getMeta,
                 dfc.tags
@@ -1471,8 +1471,8 @@ extension (dfVal: ir.DFVal)
             case alias: ir.DFVal.Alias.ApplyRange =>
               DFVal.Alias.ApplyRange(
                 clonedRelVal.asValOf[DFBits[Int]],
-                alias.relBitHigh,
-                alias.relBitLow
+                alias.idxHigh,
+                alias.idxLow
               )(using dfcForClone)
             case alias: ir.DFVal.Alias.ApplyIdx =>
               val clonedIdx = alias.relIdx.get.cloneAnonValueAndDepsHere.asValOf[DFInt32]

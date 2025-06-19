@@ -23,7 +23,7 @@ object StateAnalysis:
         else
           // conversion is treated like any function argument and restarts bit consumption
           consumeFrom(relVal, relVal.width, 0, assignMap, currentSet)
-      case DFVal.Alias.ApplyRange(relValRef = relValRef, relBitHigh = rbh, relBitLow = rbl) =>
+      case DFVal.Alias.ApplyRange(relValRef = relValRef, idxHigh = rbh, idxLow = rbl) =>
         consumeFrom(relValRef.get, rbh - rbl + 1, relBitLow + rbl, assignMap, currentSet)
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // For simplification, consuming the entirety of selection index and array
@@ -61,7 +61,7 @@ object StateAnalysis:
   )(using MemberGetSet): Set[DFVal] =
     value.dfType match
       case _: DFUnbounded => currentSet
-      case _ =>
+      case _              =>
         consumeFrom(value, value.dfType.width, 0, assignMap, currentSet)
 
   @tailrec private def assignTo(
@@ -74,7 +74,7 @@ object StateAnalysis:
     value match
       case DFVal.Alias.AsIs(relValRef = relValRef) =>
         assignTo(relValRef.get, relWidth, relBitLow, assignMap)
-      case DFVal.Alias.ApplyRange(relValRef = relValRef, relBitHigh = rbh, relBitLow = rbl) =>
+      case DFVal.Alias.ApplyRange(relValRef = relValRef, idxHigh = rbh, idxLow = rbl) =>
         assignTo(relValRef.get, relWidth, rbl + relBitLow, assignMap)
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // for simplification, assigning the entirety of the array

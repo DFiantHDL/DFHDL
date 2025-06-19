@@ -299,7 +299,7 @@ object DFBits:
             case '_' | ' ' | '?'        => false
             case isHex() if op == "h"   => true
             case '0' | '1' if op == "b" => true
-            case x =>
+            case x                      =>
               report.errorAndAbort(
                 s"""|Found invalid character: ${x}.
                     |Note: string interpolation with value extraction does not support the `[w']` width extension syntax.""".stripMargin
@@ -394,7 +394,7 @@ object DFBits:
             val dfValIR = dfVal.asIR
             dfValIR.dfType match
               case _: ir.DFBits => dfValIR.asValOf[DFBits[Int]]
-              case _ =>
+              case _            =>
                 dfValIR.asValAny.bits(using Width.wide).asValOf[DFBits[Int]]
         end match
       end valueToBits
@@ -656,18 +656,18 @@ object DFBits:
           DFVal.Alias.ApplyIdx(DFBit, lhs, relIdx(lhs.widthIntParam)(using dfc.anonymize))
         }
         def apply[H <: Int, L <: Int](
-            relBitHigh: Inlined[H],
-            relBitLow: Inlined[L]
+            idxHigh: Inlined[H],
+            idxLow: Inlined[L]
         )(using
             checkHigh: BitIndex.CheckNUB[H, W],
             checkLow: BitIndex.CheckNUB[L, W],
             checkHiLo: BitsHiLo.Check[H, L],
             dfc: DFC
         ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any, P]] = trydf {
-          checkHigh(relBitHigh, lhs.widthInt)
-          checkLow(relBitLow, lhs.widthInt)
-          checkHiLo(relBitHigh, relBitLow)
-          DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
+          checkHigh(idxHigh, lhs.widthInt)
+          checkLow(idxLow, lhs.widthInt)
+          checkHiLo(idxHigh, idxLow)
+          DFVal.Alias.ApplyRange(lhs, idxHigh, idxLow)
         }
         def unary_~(using DFC): DFValTP[DFBits[W], P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
