@@ -850,6 +850,7 @@ object DFVal extends DFValLP:
           case _ =>
             val alias: ir.DFVal.Alias.ApplyRange =
               ir.DFVal.Alias.ApplyRange(
+                ir.DFBits(idxHigh - idxLow + 1),
                 relVal.refTW[ir.DFVal.Alias.ApplyRange],
                 idxHigh,
                 idxLow,

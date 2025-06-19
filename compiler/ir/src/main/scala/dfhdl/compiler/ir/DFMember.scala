@@ -739,6 +739,7 @@ object DFVal:
           case _                  => false
 
     final case class ApplyRange(
+        dfType: DFType,
         relValRef: PartialRef,
         idxHigh: Int,
         idxLow: Int,
@@ -753,16 +754,16 @@ object DFVal:
         relVal.getConstData.map(relValData =>
           selBitRangeData(relValData.asInstanceOf[(BitVector, BitVector)], idxHigh, idxLow)
         )
-      val dfType: DFType = DFBits(idxHigh - idxLow + 1)
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
-          this.relValRef =~ that.relValRef &&
+          this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
           this.idxHigh == that.idxHigh && this.idxLow == that.idxLow &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
         that match
           case that: ApplyRange =>
+            this.dfType.isSimilarTo(that.dfType) &&
             this.relValRef.get.isSimilarTo(that.relValRef.get) &&
             this.idxHigh == that.idxHigh && this.idxLow == that.idxLow
           case _ => false
@@ -771,6 +772,7 @@ object DFVal:
       def updateDFType(dfType: DFType): this.type = this
       def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs(using RefGen): this.type = copy(
+        dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
         relValRef = relValRef.copyAsNewRef
       ).asInstanceOf[this.type]
