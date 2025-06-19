@@ -828,29 +828,39 @@ object DFVal extends DFValLP:
           idxLow: Inlined[L]
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
         forced(relVal.asIR, idxHigh, idxLow).asVal[DFBits[H - L + 1], M]
-      end apply
+      def applyVector[T <: DFTypeAny, M <: ModifierAny, H <: Int, L <: Int](
+          relVal: DFVal[DFVector[T, Tuple1[?]], M],
+          idxHigh: Inlined[H],
+          idxLow: Inlined[L]
+      )(using DFC): DFVal[DFVector[T, Tuple1[H - L + 1]], M] =
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFVector[T, Tuple1[H - L + 1]], M]
       def forced(
           relVal: ir.DFVal,
           idxHigh: Int,
           idxLow: Int
       )(using DFC): ir.DFVal =
+        val selLength = idxHigh - idxLow + 1
+        val dfType = (relVal.dfType: @unchecked) match
+          case ir.DFBits(_)                     => ir.DFBits(selLength)
+          case ir.DFVector(cellType = cellType) =>
+            ir.DFVector(cellType, List(ir.IntParamRef(selLength)))
         relVal match
           // anonymous constant are replace by a different constant
           // after its data value was converted according to the alias
           case const: ir.DFVal.Const if const.isAnonymous =>
-            val updatedData =
-              ir.selBitRangeData(
-                const.data.asInstanceOf[(BitVector, BitVector)],
-                idxHigh,
-                idxLow
-              )
-            Const.forced(DFBits(idxHigh - idxLow + 1), updatedData).asIR
+            val updatedData = ir.selRangeData(
+              dfType,
+              const.data,
+              idxHigh,
+              idxLow
+            )
+            Const.forced(dfType.asFE, updatedData).asIR
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
             val alias: ir.DFVal.Alias.ApplyRange =
               ir.DFVal.Alias.ApplyRange(
-                ir.DFBits(idxHigh - idxLow + 1),
+                dfType,
                 relVal.refTW[ir.DFVal.Alias.ApplyRange],
                 idxHigh,
                 idxLow,
@@ -859,6 +869,7 @@ object DFVal extends DFValLP:
                 dfc.tags
               )
             alias.addMember
+        end match
       end forced
     end ApplyRange
     object ApplyIdx:

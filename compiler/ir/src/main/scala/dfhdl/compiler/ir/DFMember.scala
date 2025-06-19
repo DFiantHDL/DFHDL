@@ -747,12 +747,20 @@ object DFVal:
         meta: Meta,
         tags: DFTags
     ) extends Partial derives ReadWriter:
+      def elementWidth(using MemberGetSet): Int = (dfType: @unchecked) match
+        case DFBits(_)                     => 1
+        case DFVector(cellType = cellType) => cellType.width
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
         val relVal = relValRef.get
         relVal.getConstData.map(relValData =>
-          selBitRangeData(relValData.asInstanceOf[(BitVector, BitVector)], idxHigh, idxLow)
+          selRangeData(
+            relVal.dfType,
+            relValData,
+            idxHigh,
+            idxLow
+          )
         )
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>

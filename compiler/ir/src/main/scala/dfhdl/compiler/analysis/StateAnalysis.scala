@@ -23,13 +23,19 @@ object StateAnalysis:
         else
           // conversion is treated like any function argument and restarts bit consumption
           consumeFrom(relVal, relVal.width, 0, assignMap, currentSet)
-      case DFVal.Alias.ApplyRange(
-            dfType = DFBits(_),
+      case applyRange @ DFVal.Alias.ApplyRange(
             relValRef = relValRef,
-            idxHigh = rbh,
-            idxLow = rbl
+            idxHigh = idxHigh,
+            idxLow = idxLow
           ) =>
-        consumeFrom(relValRef.get, rbh - rbl + 1, relBitLow + rbl, assignMap, currentSet)
+        val elementWidth = applyRange.elementWidth
+        consumeFrom(
+          relValRef.get,
+          idxHigh * elementWidth - idxLow * elementWidth + 1,
+          relBitLow + idxLow * elementWidth,
+          assignMap,
+          currentSet
+        )
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // For simplification, consuming the entirety of selection index and array
         val rvSet = consumeFrom(relValRef.get, assignMap, currentSet)
@@ -79,13 +85,13 @@ object StateAnalysis:
     value match
       case DFVal.Alias.AsIs(relValRef = relValRef) =>
         assignTo(relValRef.get, relWidth, relBitLow, assignMap)
-      case DFVal.Alias.ApplyRange(
-            dfType = DFBits(_),
+      case applyRange @ DFVal.Alias.ApplyRange(
             relValRef = relValRef,
-            idxHigh = rbh,
-            idxLow = rbl
+            idxHigh = idxHigh,
+            idxLow = idxLow
           ) =>
-        assignTo(relValRef.get, relWidth, rbl + relBitLow, assignMap)
+        val elementWidth = applyRange.elementWidth
+        assignTo(relValRef.get, relWidth, idxLow * elementWidth + relBitLow, assignMap)
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // for simplification, assigning the entirety of the array
         assignTo(relValRef.get, assignMap)

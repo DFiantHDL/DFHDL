@@ -56,19 +56,22 @@ def dataConversion[TT <: DFType, FT <: DFType](toType: TT, fromType: FT)(
   ret.asInstanceOf[toType.Data]
 end dataConversion
 
-def selBitRangeData(
-    fromData: (BitVector, BitVector),
+def selRangeData(
+    dfType: DFType,
+    fromData: Any,
     relBitHigh: Int,
     relBitLow: Int
-): (BitVector, BitVector) =
-  assert(relBitHigh >= 0 && relBitHigh < fromData._1.length)
-  assert(relBitLow >= 0 && relBitLow < fromData._1.length)
-  assert(relBitHigh >= relBitLow)
-  val valueBits =
-    fromData._1.bits(relBitHigh.toLong, relBitLow.toLong)
-  val bubbleBits =
-    fromData._2.bits(relBitHigh.toLong, relBitLow.toLong)
-  (valueBits, bubbleBits)
+): Any = ((dfType, fromData): @unchecked) match
+  case (_: DFBits, (valueBits: BitVector, bubbleBits: BitVector)) =>
+    assert(relBitHigh >= 0 && relBitHigh < valueBits.length)
+    assert(relBitLow >= 0 && relBitLow < valueBits.length)
+    assert(relBitHigh >= relBitLow)
+    val selValueBits = valueBits.bits(relBitHigh.toLong, relBitLow.toLong)
+    val selBubbleBits = bubbleBits.bits(relBitHigh.toLong, relBitLow.toLong)
+    (selValueBits, selBubbleBits)
+  case (_: DFVector, data: Vector[Any]) =>
+    data.slice(relBitLow, relBitHigh + 1)
+end selRangeData
 
 def calcFuncData[OT <: DFType](
     outType: OT,

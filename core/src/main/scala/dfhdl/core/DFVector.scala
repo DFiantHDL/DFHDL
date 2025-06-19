@@ -2,7 +2,7 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import dfhdl.internals.*
 import DFVal.Func.Op as FuncOp
-import dfhdl.core.DFBits.BitIndex
+import dfhdl.core.DFBits.{BitIndex, BitsHiLo}
 import dfhdl.compiler.printing.{DefaultPrinter, Printer}
 
 import scala.annotation.targetName
@@ -246,6 +246,21 @@ object DFVector:
         ): DFVal[T, M] = trydf {
           val idxVal = idx(lhs.dfType.lengthIntParam)(using dfc.anonymize)
           DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idxVal)
+        }
+        @targetName("applyRangeDFVector")
+        def apply[L <: Int, H <: Int](
+            idxLow: Inlined[L],
+            idxHigh: Inlined[H]
+        )(using
+            checkLow: BitIndex.CheckNUB[L, D1],
+            checkHigh: BitIndex.CheckNUB[H, D1],
+            checkHiLo: BitsHiLo.Check[H, L],
+            dfc: DFC
+        ): DFVal[DFVector[T, Tuple1[H - L + 1]], M] = trydf {
+          checkLow(idxLow, lhs.lengthInt)
+          checkHigh(idxHigh, lhs.lengthInt)
+          checkHiLo(idxHigh, idxLow)
+          DFVal.Alias.ApplyRange.applyVector(lhs, idxHigh, idxLow)
         }
         def elements(using DFC): Vector[DFValOf[T]] =
           import DFDecimal.StrInterpOps.d

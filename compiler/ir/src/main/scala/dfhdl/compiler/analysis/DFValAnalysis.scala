@@ -266,11 +266,15 @@ extension (dfVal: DFVal)
                 s"_${i.toPaddedString(maxValue)}"
               case _ => "_sel"
           case applyRange: DFVal.Alias.ApplyRange =>
-            val idxHigh = applyRange.idxHigh.toPaddedString(applyRange.width - 1)
-            val idxLow = applyRange.idxLow.toPaddedString(applyRange.width - 1)
-            applyRange.dfType match
-              case DFBits(_) => s"_${idxHigh}_${idxLow}"
-              case _         => s"_${idxLow}_${idxHigh}"
+            (applyRange.dfType: @unchecked) match
+              case DFBits(_) =>
+                val idxHigh = applyRange.idxHigh.toPaddedString(applyRange.width - 1)
+                val idxLow = applyRange.idxLow.toPaddedString(applyRange.width - 1)
+                s"_${idxHigh}_${idxLow}"
+              case dfType: DFVector =>
+                val idxHigh = applyRange.idxHigh.toPaddedString(dfType.length - 1)
+                val idxLow = applyRange.idxLow.toPaddedString(dfType.length - 1)
+                s"_${idxLow}_${idxHigh}"
           case selectField: DFVal.Alias.SelectField => s"_${selectField.fieldName}"
         flatName(relVal, s"$newSuffix$suffix")
       case _ => s"${member.getName}$suffix"

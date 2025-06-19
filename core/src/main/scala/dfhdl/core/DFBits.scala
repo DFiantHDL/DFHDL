@@ -66,7 +66,7 @@ object DFBits:
         [I <: Int, W <: Int] =>> (I < W) && (I >= 0),
         [I <: Int, W <: Int] =>> "Index " + I + " is out of range of width/length " + W
       ]
-  protected object BitsHiLo
+  protected[core] object BitsHiLo
       extends Check2[
         Int,
         Int,
