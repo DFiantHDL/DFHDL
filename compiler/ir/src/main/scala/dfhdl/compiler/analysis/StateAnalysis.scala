@@ -12,7 +12,8 @@ object StateAnalysis:
       relBitLow: Int,
       assignMap: AssignMap,
       currentSet: Set[DFVal]
-  )(using MemberGetSet): Set[DFVal] =
+  )(using MemberGetSet, DFBlock): Set[DFVal] =
+    val currentBlock = summon[DFBlock]
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
       case DFVal.Alias.AsIs(dfType = toType, relValRef = relValRef) =>
@@ -54,6 +55,9 @@ object StateAnalysis:
         //        }
         ???
       case IteratorDcl() => currentSet
+      // out ports of child designs are not consuming state within the current design
+      case dcl @ DclOut()
+          if dcl.getOwnerDesign.isOneLevelBelow(currentBlock.getThisOrOwnerDesign) => currentSet
       case dcl: DFVal.Dcl if (dcl.isPortOut || dcl.isVar) && !dcl.isReg && !dcl.isInProcess =>
         value.getConnectionTo match
           case Some(DFNet.Connection(_, fromVal: DFVal, _)) =>
@@ -69,7 +73,7 @@ object StateAnalysis:
       value: DFVal,
       assignMap: AssignMap,
       currentSet: Set[DFVal]
-  )(using MemberGetSet): Set[DFVal] =
+  )(using MemberGetSet, DFBlock): Set[DFVal] =
     value.dfType match
       case _: DFUnbounded => currentSet
       case _              =>
@@ -120,6 +124,7 @@ object StateAnalysis:
       currentSet: Set[DFVal],
       checkedDomain: DomainType => Boolean
   )(using MemberGetSet): (Set[DFVal], AssignMap) =
+    given DFBlock = currentBlock
     remaining match
       case (nextBlock: DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => // entering child block
         val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = nextBlock match
@@ -186,6 +191,8 @@ object StateAnalysis:
           getImplicitStateVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet,
             checkedDomain)
         else (updatedSet, scopeMap)
+    end match
+  end getImplicitStateVars
 
   type AssignMap = Map[DFVal, AssignedScope]
 
