@@ -83,6 +83,8 @@ class DFDecimalSpec extends DFSpec:
          |val s6 = SInt(6) <> OUT
          |val u8p = UInt(param) <> VAR init d"${param}'0"
          |val s8p = SInt(param) <> VAR init sd"${param}'-1"
+         |val ui = UInt(clog2(i)) <> VAR init d"${clog2(i)}'${(i - 1)}"
+         |val si = SInt(8) <> VAR init sd"8'${ni}"
          |u8 := d"8'${i}"
          |val b6: Bits[6] <> CONST = h"6'00"
          |val s32: Int <> CONST = -120
@@ -134,6 +136,8 @@ class DFDecimalSpec extends DFSpec:
       val s6 = SInt(6) <> OUT
       val u8p = UInt[param.type] <> VAR init 0
       val s8p = SInt[param.type] <> VAR init -1
+      val ui = UInt.until(i) <> VAR init d"${clog2(i)}'${i - 1}"
+      val si = SInt(8) <> VAR init sd"8'${ni}"
       u8 := i
       assertDSLErrorLog(
         "Cannot apply a signed value to an unsigned variable."
