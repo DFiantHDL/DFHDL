@@ -67,16 +67,11 @@ case object ToED extends Stage:
                   net :: net.collectRelMembers
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
                   ch.collectRelMembers(true)
-                case cb: DFConditional.Block =>
-                  cb.guardRef.get match
-                    case dfVal: DFVal => cb :: dfVal.collectRelMembers(false)
-                    case _            => List(cb)
-                case lb: DFLoop.DFForBlock =>
-                  lb :: lb.iteratorRef.get.collectRelMembers(false)
-                case lb: DFLoop.DFWhileBlock =>
-                  lb :: lb.guardRef.get.collectRelMembers(false)
-                case textOut: TextOut =>
-                  textOut :: textOut.collectRelMembers
+                case cb: (DFConditional.Block | DFLoop.Block | TextOut) =>
+                  cb :: cb.getRefs.view.filterNot(_.isTypeRef).map(_.get).flatMap {
+                    case dfVal: DFVal => dfVal.collectRelMembers(true)
+                    case _            => Nil
+                  }.toList
                 case _ => None
               }.toSet
 

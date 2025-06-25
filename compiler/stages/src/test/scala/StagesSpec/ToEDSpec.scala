@@ -963,4 +963,47 @@ class ToEDSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |end Foo""".stripMargin
     )
   }
+
+  test("match inside if") {
+    class Foo extends RTDesign:
+      enum State extends Encoded:
+        case S0
+      val x     = Bit   <> IN
+      val state = State <> VAR.REG init State.S0
+      if (x) state.din := State.S0
+      else
+        state match
+          case State.S0 => state.din := State.S0
+        end match
+      end if
+    end Foo
+    val top = (new Foo).toED
+    assertCodeString(
+      top,
+      """|case class Clk_default() extends Clk
+         |case class Rst_default() extends Rst
+         |
+         |class Foo extends EDDesign:
+         |  enum State(val value: UInt[1] <> CONST) extends Encoded.Manual(1):
+         |    case S0 extends State(d"1'0")
+         |
+         |  val clk = Clk_default <> IN
+         |  val rst = Rst_default <> IN
+         |  val x = Bit <> IN
+         |  val state = State <> VAR
+         |  process(clk):
+         |    if (clk.actual.rising)
+         |      if (rst.actual == 1) state :== State.S0
+         |      else
+         |        if (x) state :== State.S0
+         |        else
+         |          state match
+         |            case State.S0 => state :== State.S0
+         |          end match
+         |        end if
+         |      end if
+         |    end if
+         |end Foo""".stripMargin
+    )
+  }
 end ToEDSpec
