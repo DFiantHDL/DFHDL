@@ -6,6 +6,8 @@ import dfhdl.compiler.patching.*
 import dfhdl.internals.*
 import dfhdl.options.CompilerOptions
 import DFVal.Func.Op as FuncOp
+import dfhdl.compiler.stages.vhdl.VHDLDialect
+import dfhdl.compiler.ir.DFConditional.DFMatchHeader
 
 // Names an anonymous relative value which is aliased.
 // The aliasing is limited according to the criteria provided
@@ -65,7 +67,7 @@ case object NamedVerilogSelection extends NamedAliases:
     def hasVerilogName: Boolean =
       dfVal match
         case dfVal if !dfVal.isAnonymous => true
-        case alias: DFVal.Alias.AsIs =>
+        case alias: DFVal.Alias.AsIs     =>
           val relVal = alias.relValRef.get
           val transparentConversion = (alias.dfType, relVal.dfType) match
             case (DFUInt(Int(toWidth)), DFBits(Int(fromWidth))) => toWidth == fromWidth
@@ -78,7 +80,7 @@ case object NamedVerilogSelection extends NamedAliases:
         case _ => false
   end extension
   def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
-    case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName => Nil
+    case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName                  => Nil
     case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>
       List(alias.relValRef.get)
     case alias: DFVal.Alias.AsIs if alias.width < alias.relValRef.get.width =>
@@ -106,6 +108,21 @@ case object NamedVerilogSelection extends NamedAliases:
         case _ => List(ch)
     case _ => Nil
 end NamedVerilogSelection
+
+// For vhdl patten matching of a selection is limited.
+case object NamedVHDLSelection extends NamedAliases:
+  override def runCondition(using co: CompilerOptions): Boolean =
+    co.backend match
+      case be: dfhdl.backends.vhdl =>
+        be.dialect match
+          case VHDLDialect.v93 => true
+          case _               => false
+      case _ => false
+  def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] =
+    dfVal.getReadDeps.headOption match
+      case Some(_: DFConditional.DFMatchHeader) => List(dfVal)
+      case _                                    => Nil
+end NamedVHDLSelection
 
 extension [T: HasDB](t: T)
   def verilogNamedSelection(using CompilerOptions): DB =

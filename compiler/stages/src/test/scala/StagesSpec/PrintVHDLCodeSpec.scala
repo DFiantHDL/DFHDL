@@ -1357,4 +1357,43 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo_arch;""".stripMargin
     )
   }
+  test("pattern matching on anonymous value in vhdl.v93") {
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    class Foo extends RTDesign:
+      val uW = UInt(8) <> IN
+      uW.resize(4) match
+        case 0 =>
+        case 1 =>
+        case _ =>
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  uW : in unsigned(7 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |  signal anon : unsigned(3 downto 0);
+         |begin
+         |  process (anon)
+         |  begin
+         |    case anon is
+         |      when to_unsigned(0, 4) =>
+         |      when to_unsigned(1, 4) =>
+         |      when others =>
+         |    end case;
+         |  end process;
+         |  anon <= resize(uW, 4);
+         |end Foo_arch;""".stripMargin
+    )
+  }
 end PrintVHDLCodeSpec
