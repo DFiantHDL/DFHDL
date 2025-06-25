@@ -607,9 +607,9 @@ object DFBits:
           check(updatedWidth)
           icL(lhs).resizeBits(updatedWidth)
         }
-        def repeat[N <: Int](num: IntParam[N])(using
+        def repeat[N <: IntP](num: IntParam[N])(using
             dfc: DFC,
-            check: Arg.Positive.Check[N]
+            check: Arg.Positive.CheckNUB[N]
         ): DFValTP[DFBits[IntP.*[icL.OutW, N]], icL.OutP | CONST] = trydf {
           val lhsVal = icL(lhs)
           check(num)
