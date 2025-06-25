@@ -22,6 +22,8 @@ private abstract class NamedAliases extends Stage:
       designDB.members.view
         // just values
         .collect { case dfVal: DFVal if dfVal.isAnonymous => dfVal }
+        // filter out partial net destinations
+        .filterNot(_.isPartialNetDest)
         // get all that meet the criteria
         .flatMap(criteria)
         // filter out the trivial cases (no need to name)

@@ -373,7 +373,14 @@ extension (dfVal: DFVal)
     case _: DFVal.PortByNameSelect  => true // allow anonymous port by name selection
     case OpaqueActual(_)            => true // allow anonymous opaque actual selection
     case _                          => false
-
+  // true if this is a partial assignment or connection destination
+  def isPartialNetDest(using MemberGetSet): Boolean = dfVal match
+    case dfVal: DFVal.Alias.Partial =>
+      dfVal.originMembers.headOption match
+        case Some(DFNet.Assignment(toVal = toVal)) if toVal == dfVal => true
+        case Some(DFNet.Connection(toVal = toVal)) if toVal == dfVal => true
+        case _                                                       => false
+    case _ => false
 end extension
 
 extension (refTW: DFNet.Ref)
