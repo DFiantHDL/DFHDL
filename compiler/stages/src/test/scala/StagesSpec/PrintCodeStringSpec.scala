@@ -1271,4 +1271,47 @@ class PrintCodeStringSpec extends StageSpec:
          |end Foo""".stripMargin
     )
   }
+  test("dropping width parameter in patterns") {
+    class Foo(val width: Int <> CONST = 8) extends RTDesign:
+      val bW = Bits(width) <> IN
+      val uW = UInt(width) <> IN
+      val sW = SInt(width) <> IN
+      bW match
+        case all(0) =>
+        case all(1) =>
+        case _      =>
+      uW match
+        case 0 =>
+        case 1 =>
+        case _ =>
+      sW match
+        case -1 =>
+        case 1  =>
+        case _  =>
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo(val width: Int <> CONST = 8) extends RTDesign:
+         |  val bW = Bits(width) <> IN
+         |  val uW = UInt(width) <> IN
+         |  val sW = SInt(width) <> IN
+         |  bW match
+         |    case h"00" =>
+         |    case h"ff" =>
+         |    case _ =>
+         |  end match
+         |  uW match
+         |    case d"8'0" =>
+         |    case d"8'1" =>
+         |    case _ =>
+         |  end match
+         |  sW match
+         |    case sd"8'-1" =>
+         |    case sd"8'1" =>
+         |    case _ =>
+         |  end match
+         |end Foo""".stripMargin
+    )
+  }
 end PrintCodeStringSpec

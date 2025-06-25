@@ -30,9 +30,18 @@ object r__For_Plugin:
       case (dt: ir.DFBoolOrBit, v: Boolean) =>
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v))
       case (dt: ir.DFBits, allBit: BitOrBool) =>
-        SameElementsVector.bitsValOf(dt.asFE[DFBits[Int]].widthIntParam, SameElementsVector(allBit))
+        // removing width as a parameter in patterns
+        val dfType = DFBits(dt.width)
+        SameElementsVector.bitsValOf(
+          dfType.asFE[DFBits[Int]].widthIntParam,
+          SameElementsVector(allBit)
+        )
       case (dt: ir.DFDecimal, v: Int) =>
-        DFVal.Const(dt.asFE[DFSInt[Int]], Some(BigInt(v)))
+        // removing width as a parameter in patterns
+        val dfType = (dt: @unchecked) match
+          case ir.DFUInt(_) => DFUInt(dt.width)
+          case ir.DFSInt(_) => DFSInt(dt.width)
+        DFVal.Const(dfType.asFE[DFSInt[Int]], Some(BigInt(v)))
       case (dt: ir.DFEnum, v: DFEncoding) =>
         DFVal.Const(dt.asFE[DFEnum[DFEncoding]], Some(v.bigIntValue))
       case (dt: ir.DFStruct, v) => ???
