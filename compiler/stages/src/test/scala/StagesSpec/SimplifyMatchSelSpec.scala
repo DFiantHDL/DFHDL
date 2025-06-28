@@ -51,10 +51,10 @@ class SimplifyMatchSelSpec extends StageSpec:
     given options.CompilerOptions.Backend = backends.vhdl.v93
     val WG: Int <> CONST                  = 8
     class Foo(val WP: Int <> CONST = 8) extends RTDesign:
-      val iu  = UInt(WP) <> IN
-      val is  = SInt(WP) <> IN
-      val iug = UInt(WG) <> IN
-      val isg = SInt(WG) <> IN
+      val iu  = UInt(WP)       <> IN
+      val is  = SInt(WP)       <> IN
+      val iug = UInt.until(WG) <> IN
+      val isg = SInt(WG)       <> IN
 
       iu match
         case 0 =>
@@ -83,7 +83,7 @@ class SimplifyMatchSelSpec extends StageSpec:
          |class Foo(val WP: Int <> CONST = 8) extends RTDesign:
          |  val iu = UInt(WP) <> IN
          |  val is = SInt(WP) <> IN
-         |  val iug = UInt(WG) <> IN
+         |  val iug = UInt(clog2(WG)) <> IN
          |  val isg = SInt(WG) <> IN
          |  val iu_slv = iu.bits(7, 0)
          |  iu_slv match
@@ -97,10 +97,10 @@ class SimplifyMatchSelSpec extends StageSpec:
          |    case h"01" =>
          |    case _ =>
          |  end match
-         |  val iug_slv = iug.bits
+         |  val iug_slv = iug.bits(2, 0)
          |  iug_slv match
-         |    case h"00" =>
-         |    case h"01" =>
+         |    case b"000" =>
+         |    case b"001" =>
          |    case _ =>
          |  end match
          |  val isg_slv = isg.bits
