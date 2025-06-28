@@ -54,6 +54,7 @@ case object ToED extends Stage:
                 case _ =>
               }
             def collectFilter(member: DFMember): Boolean = member match
+              case IteratorDcl()                              => true
               case _: DFVal.Dcl                               => false
               case _: DFVal.DesignParam                       => false
               case _: DFOwnerNamed                            => false
@@ -67,6 +68,11 @@ case object ToED extends Stage:
                   net :: net.collectRelMembers
                 case ch: DFConditional.Header if ch.dfType == DFUnit =>
                   ch.collectRelMembers(true)
+                case loop: DFLoop.DFForBlock =>
+                  val range = loop.rangeRef.get
+                  loop :: loop.iteratorRef.get :: range ::
+                    Iterator(range.startRef, range.endRef, range.stepRef)
+                      .flatMap(_.get.collectRelMembers(true)).toList
                 case cb: (DFConditional.Block | DFLoop.Block | TextOut) =>
                   cb :: cb.getRefs.view.filterNot(_.isTypeRef).map(_.get).flatMap {
                     case dfVal: DFVal => dfVal.collectRelMembers(true)
