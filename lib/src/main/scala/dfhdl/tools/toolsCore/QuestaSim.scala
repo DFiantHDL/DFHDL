@@ -40,7 +40,7 @@ trait QuestaSimCommon extends Linter, Simulator:
       Process("vlib work", new java.io.File(execPath)).!
 
   override protected def simRunExec(using MemberGetSet): String =
-    if (osIsWindows) "vsim.exe" else "vsim"
+    if (osIsWindows) "vsimk.exe" else "vsimk"
 
   // we do not cache the work directory because it is too complex,
   // so we override simulate and always call lint to recompile sources to work
