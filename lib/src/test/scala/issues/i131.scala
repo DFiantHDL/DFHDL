@@ -2,7 +2,7 @@
 package issues.i131
 
 import dfhdl.*
-
+import hw.flag.scalaRanges
 @top(false) class DictControl(
     val fetch_count : Int <> CONST,  // set to 2
     val dict_entry_size : Int = 20

@@ -15,6 +15,7 @@ abstract class MetaDesign[+D <: DomainType](
     refGen: ir.RefGen
 ) extends Design
     with reflect.Selectable:
+  export dfhdl.hw.flag.{scalaPrints, scalaAsserts, scalaRanges}
   lazy val patch = positionMember -> Patch.Add(this, addCfg)
   private lazy val globalInjection: Boolean =
     (addCfg, positionMember) match
@@ -34,7 +35,7 @@ abstract class MetaDesign[+D <: DomainType](
 
   injectedOwner match
     case design: ir.DFDesignBlock => // do nothing
-    case _ =>
+    case _                        =>
       dfc.enterOwner(injectedOwner.asFE)
 
   dfc.mutableDB.injectMetaGetSet(getSet)

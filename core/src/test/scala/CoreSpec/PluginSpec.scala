@@ -7,6 +7,7 @@ import scala.annotation.{Annotation, nowarn, targetName}
 import scala.collection.immutable.ListMap
 
 class PluginSpec extends DFSpec:
+  import dfhdl.hw.flag.{scalaPrints, scalaAsserts, scalaRanges}
   var nameStack: List[Option[String]] = Nil
   var posStack: List[Position] = Nil
   def assertLastNames(names: String*): Unit =

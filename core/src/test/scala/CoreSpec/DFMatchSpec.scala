@@ -98,7 +98,7 @@ class DFMatchSpec extends DFSpec:
         case d"8'22"     =>
         case b"10010110" =>
         case h"8'22"     =>
-        case _ =>
+        case _           =>
           x := 3
           x := 4
 
@@ -176,6 +176,7 @@ class DFMatchSpec extends DFSpec:
   }
 
   test("Trivial tuple match skip") {
+    import dfhdl.hw.flag.scalaRanges
     assertCodeString("") {
       val (ret, _) =
         (0 until 8).foldLeft[(Byte <> VAL, Byte <> VAL)]((all(0), all(0))) { case ((p, a), _) =>
