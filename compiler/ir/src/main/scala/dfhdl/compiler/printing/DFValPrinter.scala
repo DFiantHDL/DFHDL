@@ -23,7 +23,12 @@ extension (list: List[String])
     val maxVectorLineCharacters: Int = 120
     val avgTextLength = list.view.map(_.length).sum / list.length
     val maxColElems = (maxVectorLineCharacters / avgTextLength).max(1)
-    val colCnt = findLargestDivisor(list.length, maxColElems)
+    // the ideal column count is large and divisible by the number of elements
+    var colCnt = findLargestDivisor(list.length, maxColElems)
+    // however, if the number of columns is less than half of the maximum number
+    // of columns, then use the maximum number of columns. this is to avoid the
+    // case where the vector is printed very few columns, which is not readable.
+    if (colCnt <= maxColElems / 2) colCnt = maxColElems
     val rowCnt = (list.length - 1) / colCnt + 1
     if (rowCnt == 1) list.mkString(open, sep + " ", close)
     else
