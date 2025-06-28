@@ -228,8 +228,8 @@ final class MutableDB():
       current.defInputs = inputs
       val currentDesign = OwnershipContext.currentDesign
       val isPure = currentDesign.dclMeta.annotations.exists {
-        case hw.pure(true) => true
-        case _             => false
+        case hw.annotation.pure(true) => true
+        case _                        => false
       }
       if (isPure)
         val key = (currentDesign.dclMeta.position, inputs.map(_.dfType.asIR))

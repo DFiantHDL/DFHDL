@@ -1,6 +1,6 @@
 package dfhdl.devices.tinytapeout
 import dfhdl.*
-import dfhdl.hw.unused
+import dfhdl.hw.annotation.unused
 
 abstract class TT10 extends RTDesign:
   override def customTopChecks(): Unit =

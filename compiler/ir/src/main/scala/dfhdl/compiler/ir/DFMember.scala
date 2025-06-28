@@ -1470,9 +1470,9 @@ final case class DomainBlock(
     tags: DFTags
 ) extends DFBlock,
       DFDomainOwner derives ReadWriter:
-  def flattenMode: dfhdl.hw.flattenMode = meta.annotations.collectFirst {
-    case fm: dfhdl.hw.flattenMode => fm
-  }.getOrElse(dfhdl.hw.flattenMode.defaultPrefixUnderscore)
+  def flattenMode: dfhdl.hw.annotation.flattenMode = meta.annotations.collectFirst {
+    case fm: dfhdl.hw.annotation.flattenMode => fm
+  }.getOrElse(dfhdl.hw.annotation.flattenMode.defaultPrefixUnderscore)
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DomainBlock =>
       this.domainType =~ that.domainType &&

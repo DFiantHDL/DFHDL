@@ -1,6 +1,6 @@
 package dfhdl.compiler.ir
 import dfhdl.internals.*
-import dfhdl.hw.{HWAnnotation, getActiveHWAnnotations}
+import dfhdl.hw.annotation.{HWAnnotation, getActiveHWAnnotations}
 import upickle.default.*
 import scala.annotation.Annotation
 

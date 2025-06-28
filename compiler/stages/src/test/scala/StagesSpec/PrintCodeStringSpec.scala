@@ -697,7 +697,7 @@ class PrintCodeStringSpec extends StageSpec:
   //   )
   test("Cover case where same declaration domains are missing names"):
     class IDWithDomains extends EDDesign:
-      @hw.flattenMode.suffix("_")
+      @hw.annotation.flattenMode.suffix("_")
       val a, b = new EDDomain:
         val x = Bit <> IN
         val y = Bit <> OUT
@@ -706,12 +706,12 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       top,
       """|class IDWithDomains extends EDDesign:
-         |  @hw.flattenMode.suffix("_")
+         |  @hw.annotation.flattenMode.suffix("_")
          |  val a = new EDDomain:
          |    val x = Bit <> IN
          |    val y = Bit <> OUT
          |    y <> x
-         |  @hw.flattenMode.suffix("_")
+         |  @hw.annotation.flattenMode.suffix("_")
          |  val b = new EDDomain:
          |    val x = Bit <> IN
          |    val y = Bit <> OUT
