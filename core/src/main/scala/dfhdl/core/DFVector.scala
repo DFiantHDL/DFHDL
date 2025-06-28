@@ -273,7 +273,7 @@ object DFVector:
         def lengthInt(using DFC): Int = lhs.dfType.lengthIntParam.toScalaInt
       end extension
       extension (str: String)
-        def toDFByteVector(using dfc: DFC): DFConstOf[DFVector[DFBits[8], Tuple1[Int]]] =
+        def toByteVector(using dfc: DFC): DFConstOf[DFVector[DFBits[8], Tuple1[Int]]] =
           val dfType = dfhdl.core.DFVector(DFBits(8), List(IntParam.fromValue(str.length)))
           val data = str.getBytes("ASCII").map(byte => (BitVector(byte), BitVector.low(8))).toVector
           DFVal.Const.forced(dfType, data, named = true)
