@@ -90,7 +90,7 @@ class DiskCache(val cacheFolderStr: String):
     private[Step] lazy val getDataHash: String =
       get(name, "hash", keyHash) match
         case Some(dataHash) => dataHash
-        case None =>
+        case None           =>
           val dataHash = MurmurHash3.stringHash(calcDataStr).toHexString
           put(name, "hash", keyHash, dataHash)
           dataHash
@@ -142,8 +142,10 @@ class DiskCache(val cacheFolderStr: String):
       }
     end restoreFiles
 
+    protected def cacheEnable: Boolean = true
+
     // cached run, unless uncached is true and then only this step is run without caching
-    final def apply(uncached: Boolean = false): R =
+    final def apply(uncached: Boolean = !cacheEnable): R =
       val value =
         if (uncached) calcDataValue
         else getCachedOrCalcDataValue
