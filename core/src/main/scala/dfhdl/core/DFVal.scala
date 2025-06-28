@@ -1196,7 +1196,7 @@ object DFVal extends DFValLP:
     end extension
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
-      def bits(using w: Width[T])(using DFC): DFValTP[DFBits[w.Out], P] = trydf {
+      def bits(using DFC)(using w: Width[T]): DFValTP[DFBits[w.Out], P] = trydf {
         DFVal.Alias.AsIs(DFBits(dfVal.widthIntParam), dfVal)
       }
       def genNewVar(using DFC): DFVarOf[T] = trydf {

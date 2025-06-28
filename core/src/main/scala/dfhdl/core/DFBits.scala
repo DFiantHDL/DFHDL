@@ -395,7 +395,7 @@ object DFBits:
             dfValIR.dfType match
               case _: ir.DFBits => dfValIR.asValOf[DFBits[Int]]
               case _            =>
-                dfValIR.asValAny.bits(using Width.wide).asValOf[DFBits[Int]]
+                dfValIR.asValAny.bits(using dfc)(using Width.wide).asValOf[DFBits[Int]]
         end match
       end valueToBits
       transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[R] = ${ DFBitsMacro[R] }
@@ -659,10 +659,10 @@ object DFBits:
             idxHigh: Inlined[H],
             idxLow: Inlined[L]
         )(using
+            dfc: DFC,
             checkHigh: BitIndex.CheckNUB[H, W],
             checkLow: BitIndex.CheckNUB[L, W],
-            checkHiLo: BitsHiLo.Check[H, L],
-            dfc: DFC
+            checkHiLo: BitsHiLo.Check[H, L]
         ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any, P]] = trydf {
           checkHigh(idxHigh, lhs.widthInt)
           checkLow(idxLow, lhs.widthInt)

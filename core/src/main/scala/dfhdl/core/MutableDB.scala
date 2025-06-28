@@ -267,7 +267,8 @@ final class MutableDB():
 
   val injectedCtx = mutable.Set.empty[DesignContext]
   def injectGlobals(sourceCtx: DesignContext): Unit =
-    if (!injectedCtx.contains(sourceCtx))
+    // preventing meta-programming global injection to avoid duplicates
+    if (!inMetaProgramming && !injectedCtx.contains(sourceCtx))
       injectedCtx += sourceCtx
       DesignContext.global.inject(sourceCtx)
 
