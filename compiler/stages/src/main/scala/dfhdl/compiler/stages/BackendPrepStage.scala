@@ -5,6 +5,7 @@ case object BackendPrepStage
       DropUserOpaques, BreakOpsNoAssignments, DropUnreferencedAnons, NamedAnonMultiref,
       NamedVerilogSelection, NamedVHDLSelection, ToED, MatchToIf, SimplifyMatchSel, DropDomains,
       DropMagnets, VHDLProcToVerilog, ExplicitNamedVars, DropLocalDcls, DropOutportRead,
-      GlobalizePortVectorParams, LocalToDesignParams, DropBAssignFromSeqProc, DropProcessAll,
+      GlobalizePortVectorParams, LocalToDesignParams, DropDesignParamDeps, DropBAssignFromSeqProc,
+      DropProcessAll,
       SimpleOrderMembers, ViaConnection
     )
