@@ -1314,4 +1314,39 @@ class PrintCodeStringSpec extends StageSpec:
          |end Foo""".stripMargin
     )
   }
+
+  // TODO: requires fixing
+  // test("nesting parameters regression") {
+  //   class Inner(val width: Int <> CONST) extends RTDesign:
+  //     val depth: Int <> CONST = width + 1
+  //     val x                   = Bits(width) <> IN
+  //     val y                   = Bits(depth) <> OUT
+  //     y <> x.resize(depth)
+  //   end Inner
+  //   class Outer(val baseWidth: Int <> CONST = 8) extends RTDesign:
+  //     val inner = Inner(baseWidth)
+  //     val x     = Bits(baseWidth) <> IN
+  //     val y     = Bits(baseWidth) <> OUT
+  //     inner.x <> x
+  //     y       <> inner.y.resize(baseWidth)
+  //   end Outer
+  //   val top = (new Outer).getCodeString
+  //   assertNoDiff(
+  //     top,
+  //     """|class Inner(val width: Int <> CONST) extends RTDesign:
+  //        |  val depth: Int <> CONST = width + 1
+  //        |  val x = Bits(width) <> IN
+  //        |  val y = Bits(depth) <> OUT
+  //        |  y <> x.resize(depth)
+  //        |end Inner
+  //        |
+  //        |class Outer(val baseWidth: Int <> CONST = 8) extends RTDesign:
+  //        |  val inner = Inner(width = baseWidth)
+  //        |  val x = Bits(baseWidth) <> IN
+  //        |  val y = Bits(baseWidth) <> OUT
+  //        |  inner.x <> x
+  //        |  y <> inner.y.resize(baseWidth)
+  //        |end Outer""".stripMargin
+  //   )
+  // }
 end PrintCodeStringSpec
