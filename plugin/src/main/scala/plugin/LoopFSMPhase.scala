@@ -96,7 +96,7 @@ class LoopFSMPhase(setting: Setting) extends CommonPhase:
             processStatCheck(stats, tree.srcPos)
             expr match
               case Literal(Constant(_: Unit)) =>
-              case _ =>
+              case _                          =>
                 stats.headOption match
                   case Some(OnEntryDef() | OnExitDef()) =>
                   case Some(dd: DefDef)                 =>

@@ -299,7 +299,7 @@ object DFBits:
             case '_' | ' ' | '?'        => false
             case isHex() if op == "h"   => true
             case '0' | '1' if op == "b" => true
-            case x =>
+            case x                      =>
               report.errorAndAbort(
                 s"""|Found invalid character: ${x}.
                     |Note: string interpolation with value extraction does not support the `[w']` width extension syntax.""".stripMargin
@@ -394,7 +394,7 @@ object DFBits:
             val dfValIR = dfVal.asIR
             dfValIR.dfType match
               case _: ir.DFBits => dfValIR.asValOf[DFBits[Int]]
-              case _ =>
+              case _            =>
                 dfValIR.asValAny.bits(using Width.wide).asValOf[DFBits[Int]]
         end match
       end valueToBits

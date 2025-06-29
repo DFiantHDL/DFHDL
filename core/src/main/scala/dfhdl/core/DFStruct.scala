@@ -134,7 +134,7 @@ object DFStruct:
           sameTypes(TypeRepr.of[ld], TypeRepr.of[rd])
         case ('[DFOpaque[lt]], '[DFOpaque[rt]]) => sameTypes(TypeRepr.of[lt], TypeRepr.of[rt])
         case ('[DFStruct[lt]], '[DFStruct[rt]]) => sameTypes(TypeRepr.of[lt], TypeRepr.of[rt])
-        case ('[Fields], '[Fields]) =>
+        case ('[Fields], '[Fields])             =>
           val symL = tpeL.typeSymbol
           val symR = tpeR.typeSymbol
           if (!(symL equals symR)) return false

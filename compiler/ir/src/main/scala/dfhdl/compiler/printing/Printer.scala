@@ -46,7 +46,7 @@ trait Printer
         val directionStr =
           lhsOrig match
             case dfIfc: DFInterfaceOwner => "<->"
-            case dfVal: DFVal =>
+            case dfVal: DFVal            =>
               if (dfVal.getConnectionTo.contains(net) ^ swapLR) "<--"
               else "-->"
         val (lhsRef, rhsRef) = if (swapLR) (net.rhsRef, net.lhsRef) else (net.lhsRef, net.rhsRef)
@@ -83,7 +83,7 @@ trait Printer
       case ClkCfg.Edge.Falling => "ClkCfg.Edge.Falling"
   def csClkCfg(clkCfg: ClkCfg): String =
     clkCfg match
-      case _: None.type => "None"
+      case _: None.type                             => "None"
       case ClkCfg.Explicit(edge, rate, portName, _) =>
         val csRate = rate._2 match
           case _: DFTime.Unit => csDFTimeData(rate.asInstanceOf[(BigDecimal, DFTime.Unit)])
@@ -99,7 +99,7 @@ trait Printer
       case RstCfg.Active.Low  => "RstCfg.Active.Low"
   def csRstCfg(rstCfg: RstCfg): String =
     rstCfg match
-      case _: None.type => "None"
+      case _: None.type                               => "None"
       case RstCfg.Explicit(mode, active, portName, _) =>
         s"RstCfg(${csRstModeCfg(mode)}, ${csRstActiveCfg(active)}, $portName)"
   def csRTDomainCfg(clkCfg: ClkCfg, rstCfg: RstCfg): String =
@@ -109,7 +109,7 @@ trait Printer
        |)""".stripMargin
   def csRTDomainCfg(cfg: RTDomainCfg): String =
     cfg match
-      case RTDomainCfg.Derived => "Derived"
+      case RTDomainCfg.Derived                        => "Derived"
       case RTDomainCfg.Explicit(name, clkCfg, rstCfg) =>
         if (name.isEmpty) csRTDomainCfg(clkCfg, rstCfg)
         else name
@@ -125,7 +125,7 @@ trait Printer
       case dfVal: DFVal.CanBeExpr if dfVal.isAnonymous => csDFValExpr(dfVal)
       case dfVal: DFVal                                => csDFValNamed(dfVal)
       case net: DFNet                                  => csDFNet(net)
-      case design: DFDesignBlock =>
+      case design: DFDesignBlock                       =>
         design.instMode match
           case InstMode.Def => csDFDesignDefInst(design)
           case _            => csDFDesignBlockInst(design)
@@ -314,7 +314,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
           case _ =>
             s"waitWhile(${wait.triggerRef.refCodeString})"
       case DFTime => s"${wait.triggerRef.refCodeString}.wait"
-      case _ =>
+      case _      =>
         wait.triggerRef.get.getConstData match
           // simplify display for int constant waits
           case Some(Some(value: BigInt)) if value.isValidInt =>
@@ -334,7 +334,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
           ).mkString.emptyOr(m => s"s\"$m\"")
       end match
     textOut.op match
-      case TextOut.Op.Finish => "finish()"
+      case TextOut.Op.Finish           => "finish()"
       case TextOut.Op.Report(severity) =>
         val csSeverity = if (severity == TextOut.Severity.Info) "" else s", Severity.${severity}"
         s"report($msg$csSeverity)"

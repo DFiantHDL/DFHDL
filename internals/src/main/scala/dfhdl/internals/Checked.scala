@@ -39,7 +39,7 @@ private class MacroClass[Q <: Quotes](using val quotes: Q)(
   ): Term =
     import compiletime.ops.{int, string, any, boolean}
     tpe match
-      case ConstantType(const) => Literal(const)
+      case ConstantType(const)               => Literal(const)
       case t if argTypeParam.indexOf(t) >= 0 =>
         argTerm(argTypeParam.indexOf(t))
       case func: AppliedType =>

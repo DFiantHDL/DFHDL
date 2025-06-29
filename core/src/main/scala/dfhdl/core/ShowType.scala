@@ -19,18 +19,18 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
         case '[Tuple1[d]] => TypeRepr.of[d].showType
         case _            => d.showType
     tpe.asTypeOf[DFTypeAny] match
-      case '[DFBit]     => "Bit"
-      case '[DFBool]    => "Boolean"
-      case '[DFBits[w]] => s"Bits[${Type.show[w]}]"
-      case '[DFUInt[w]] => s"UInt[${Type.show[w]}]"
-      case '[DFInt32]   => "Int"
-      case '[DFSInt[w]] => s"SInt[${Type.show[w]}]"
-      case '[DFEnum[t]] => Type.show[t]
-      case '[DFDouble]  => "Double"
-      case '[DFTime]    => "Time"
-      case '[DFFreq]    => "Freq"
-      case '[DFNumber]  => "Number"
-      case '[DFString]  => "String"
+      case '[DFBit]          => "Bit"
+      case '[DFBool]         => "Boolean"
+      case '[DFBits[w]]      => s"Bits[${Type.show[w]}]"
+      case '[DFUInt[w]]      => s"UInt[${Type.show[w]}]"
+      case '[DFInt32]        => "Int"
+      case '[DFSInt[w]]      => s"SInt[${Type.show[w]}]"
+      case '[DFEnum[t]]      => Type.show[t]
+      case '[DFDouble]       => "Double"
+      case '[DFTime]         => "Time"
+      case '[DFFreq]         => "Freq"
+      case '[DFNumber]       => "Number"
+      case '[DFString]       => "String"
       case '[DFVector[t, d]] =>
         s"${TypeRepr.of[t].showDFType} X ${TypeRepr.of[d].showVecLength}"
       case '[DFType[ir.DFVector, Args2[t, d]]] =>
@@ -65,11 +65,11 @@ extension [T](using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
     tpe.asTypeOf[Any] match
       case '[DFValAny]  => tpe.showDFVal
       case '[DFTypeAny] => tpe.showDFType
-      case '[Tuple] =>
+      case '[Tuple]     =>
         tpe.showTuple(_.showType).mkStringBrackets
       case '[ContextFunction1[DFC, t]]   => TypeRepr.of[t].showType
       case '[dfhdl.internals.Inlined[t]] => Type.show[t]
-      case _ =>
+      case _                             =>
         tpe match
           case _: TermRef => s"${tpe.show}.type"
           case _          => tpe.show

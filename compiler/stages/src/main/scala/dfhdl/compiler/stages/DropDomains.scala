@@ -30,7 +30,7 @@ case object DropDomains extends Stage:
             while (inDomain)
               currentDomain.flattenMode match
                 case dfhdl.hw.flattenMode.transparent() => // no change
-                case dfhdl.hw.flattenMode.prefix(sep) =>
+                case dfhdl.hw.flattenMode.prefix(sep)   =>
                   currentName = s"${currentDomain.getName}$sep$currentName"
                 case dfhdl.hw.flattenMode.suffix(sep) =>
                   currentName = s"${currentName}$sep${currentDomain.getName}"

@@ -98,7 +98,7 @@ class DFMatchSpec extends DFSpec:
         case d"8'22"     =>
         case b"10010110" =>
         case h"8'22"     =>
-        case _ =>
+        case _           =>
           x := 3
           x := 4
 

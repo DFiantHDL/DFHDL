@@ -15,7 +15,7 @@ object Data:
   given ReadWriter[Data] = readwriter[ujson.Value].bimap(
     data =>
       data match
-        case None => ujson.Null
+        case None                                          => ujson.Null
         case (valueBits: BitVector, bubbleBits: BitVector) =>
           writeJs(("bits", (valueBits, bubbleBits)))
         case Some(decimalOrEnumValue: BigInt)            => writeJs(("decimal", decimalOrEnumValue))
@@ -24,7 +24,7 @@ object Data:
         case Some(stringValue: String)                   => writeJs(("string", stringValue))
         case (bigDecimal: BigDecimal, unit: DFTime.Unit) => writeJs(("time", (bigDecimal, unit)))
         case (bigDecimal: BigDecimal, unit: DFFreq.Unit) => writeJs(("freq", (bigDecimal, unit)))
-        case vectorData: Vector[Data] =>
+        case vectorData: Vector[Data]                    =>
           given ReadWriter[Vector[Data]] = vectorDataWriter
           writeJs(("vector", vectorData))
         case listData: List[Data] =>
@@ -33,7 +33,7 @@ object Data:
     ,
     json =>
       json match
-        case ujson.Null => None
+        case ujson.Null                                           => None
         case ujson.Arr(ArrayBuffer(ujson.Str("bits"), bitsValue)) =>
           read[(BitVector, BitVector)](bitsValue)
         case ujson.Arr(ArrayBuffer(ujson.Str("decimal"), decimalValue)) =>

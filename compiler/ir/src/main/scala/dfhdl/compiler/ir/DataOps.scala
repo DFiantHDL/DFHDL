@@ -139,7 +139,7 @@ def calcFuncData[OT <: DFType](
         ret.asInstanceOf[outType.Data]
       case _: DFVector =>
         op match
-          case FuncOp.++ => argData.toVector.asInstanceOf[outType.Data]
+          case FuncOp.++     => argData.toVector.asInstanceOf[outType.Data]
           case FuncOp.repeat =>
             val Some(cnt: BigInt) = argData(1): @unchecked
             Vector.fill(cnt.toInt)(argData.head).asInstanceOf[outType.Data]
@@ -149,7 +149,7 @@ def calcFuncData[OT <: DFType](
       case _: DFStruct =>
         op match
           case FuncOp.++ => argData.asInstanceOf[outType.Data]
-          case x =>
+          case x         =>
             println(x)
             ???
       // the rest bubble args cause a bubble output

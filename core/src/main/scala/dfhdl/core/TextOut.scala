@@ -125,7 +125,7 @@ object TextOut:
       var msgArgsExpr: Expr[List[DFValAny]] = '{ List.empty[DFValAny] }
       val dfc = Expr.summon[DFC].get
       recurse(msgOption.asTerm).asExpr match
-        case '{ None } =>
+        case '{ None }       =>
         case '{ Some($msg) } =>
           msg match
             case '{ StringContext(${ Varargs(partsExprs) }*).s(${ Varargs(argsExprs) }*) } =>

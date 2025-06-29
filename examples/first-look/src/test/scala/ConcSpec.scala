@@ -1,10 +1,10 @@
 import dfhdl.TestUtils._
 import dfhdl._
 
-class ConcSpec extends DFTopSpec {
+class ConcSpec extends DFTopSpec:
   val conc = new Conc
 
-  val expectedCodeString : String =
+  val expectedCodeString: String =
     """|@df final class Conc extends DFDesign {
        |  val i = UInt(32) <> IN
        |  val j = UInt(32) <> IN
@@ -44,5 +44,4 @@ class ConcSpec extends DFTopSpec {
     conc.compile.toFolder("sandbox/Conc/verilog95")
     true
   }
-}
-
+end ConcSpec

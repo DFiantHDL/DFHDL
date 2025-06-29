@@ -13,8 +13,8 @@ class AddClkRstSpec extends StageSpec:
   val cfgNoRstI = RTDomainCfg(clkCfg, None)
   test("Basic design clk and rst addition") {
     class ID extends RTDesign(cfg):
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x        = SInt(16) <> IN
+      val y        = SInt(16) <> OUT
       val internal = new RTDomain(cfgI):
         val x = SInt(16) <> IN
         val y = SInt(16) <> OUT
@@ -85,10 +85,10 @@ class AddClkRstSpec extends StageSpec:
   }
   test("Clk and rst already exist") {
     class ID extends RTDesign(cfg):
-      val clk = Clk      <> IN
-      val rst = Rst      <> IN
-      val x   = SInt(16) <> IN
-      val y   = SInt(16) <> OUT
+      val clk      = Clk      <> IN
+      val rst      = Rst      <> IN
+      val x        = SInt(16) <> IN
+      val y        = SInt(16) <> OUT
       val internal = new RTDomain(cfgI):
         val clk = Clk      <> IN
         val rst = Rst      <> IN
@@ -122,8 +122,8 @@ class AddClkRstSpec extends StageSpec:
   }
   test("No rst") {
     class ID extends RTDesign(cfgNoRst):
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x        = SInt(16) <> IN
+      val y        = SInt(16) <> OUT
       val internal = new RTDomain(cfgNoRstI):
         val x = SInt(16) <> IN
         val y = SInt(16) <> OUT
@@ -151,8 +151,8 @@ class AddClkRstSpec extends StageSpec:
   }
   test("No clk and rst") {
     class ID extends RTDesign(RTDomainCfg.Comb):
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x        = SInt(16) <> IN
+      val y        = SInt(16) <> OUT
       val internal = new RTDomain(cfgNoRstI):
         val x = SInt(16) <> IN
         val y = SInt(16) <> OUT
@@ -178,8 +178,8 @@ class AddClkRstSpec extends StageSpec:
   }
   test("Add once for the same domain config between design and internal related domain") {
     class ID extends RTDesign(cfg):
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x        = SInt(16) <> IN
+      val y        = SInt(16) <> OUT
       val internal = new RelatedDomain:
         val x = SInt(16) <> IN
         val y = SInt(16) <> OUT
@@ -207,8 +207,8 @@ class AddClkRstSpec extends StageSpec:
   }
   test("Add once for the same domain config between internal related domains") {
     class ID extends RTDesign(cfg):
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x         = SInt(16) <> IN
+      val y         = SInt(16) <> OUT
       val internal1 = new RTDomain(cfgI):
         val ii = new RelatedDomain:
           val x = SInt(16) <> IN
@@ -250,8 +250,8 @@ class AddClkRstSpec extends StageSpec:
   }
   test("Explicit clk and rst are kept") {
     class ID extends RTDesign(cfg):
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x        = SInt(16) <> IN
+      val y        = SInt(16) <> OUT
       val internal = new RTDomain(cfg):
         val clk = Clk      <> IN
         val rst = Rst      <> IN
@@ -293,9 +293,9 @@ class AddClkRstSpec extends StageSpec:
       gen.clk <> src.clk
       gen.rst <> src.rst
     class ID extends RTDesign(cfg):
-      val x      = SInt(16) <> IN
-      val y      = SInt(16) <> OUT
-      val clkGen = new ClkGen(cfg, genCfg)
+      val x        = SInt(16) <> IN
+      val y        = SInt(16) <> OUT
+      val clkGen   = new ClkGen(cfg, genCfg)
       val internal = new RTDomain(genCfg):
         val x = SInt(16) <> IN
         val y = SInt(16) <> OUT
@@ -342,8 +342,8 @@ class AddClkRstSpec extends StageSpec:
       y := x
 
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = ID()
         id.x <> x
@@ -390,8 +390,8 @@ class AddClkRstSpec extends StageSpec:
   }
   test("Derive config with `.norst`") {
     class ID extends RTDesign(cfg):
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x        = SInt(16) <> IN
+      val y        = SInt(16) <> OUT
       val internal = new RTDomain(cfg.norst):
         val x = SInt(16) <> IN
         val y = SInt(16) <> OUT

@@ -34,7 +34,7 @@ abstract class MetaDesign[+D <: DomainType](
 
   injectedOwner match
     case design: ir.DFDesignBlock => // do nothing
-    case _ =>
+    case _                        =>
       dfc.enterOwner(injectedOwner.asFE)
 
   dfc.mutableDB.injectMetaGetSet(getSet)

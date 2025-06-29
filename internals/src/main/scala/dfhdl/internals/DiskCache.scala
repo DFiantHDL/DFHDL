@@ -90,7 +90,7 @@ class DiskCache(val cacheFolderStr: String):
     private[Step] lazy val getDataHash: String =
       get(name, "hash", keyHash) match
         case Some(dataHash) => dataHash
-        case None =>
+        case None           =>
           val dataHash = MurmurHash3.stringHash(calcDataStr).toHexString
           put(name, "hash", keyHash, dataHash)
           dataHash

@@ -72,7 +72,7 @@ object r__For_Plugin:
     val dfType = selector.dfType.asIR
     val selectorBitsIR: ir.DFVal = dfType match
       case _: ir.DFBits => selector.asIR
-      case _ =>
+      case _            =>
         import DFVal.Ops.bits
         selector.bits(using Width.wide).asIR
     val rangeAlias = DFVal.Alias

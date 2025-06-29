@@ -48,7 +48,7 @@ extension [Q <: Quotes & Singleton](using quotes: Q)(term: quotes.reflect.Term)
             term.pos
           )
         term
-      case Literal(const) => term
+      case Literal(const)                                                                  => term
       case t @ Apply(TypeApply(fun, _), tupleArgs) if t.tpe <:< TypeRepr.of[NonEmptyTuple] =>
         val terms = tupleArgs.map(t => t.exactTerm)
         val tpes = terms.map(_.tpe)

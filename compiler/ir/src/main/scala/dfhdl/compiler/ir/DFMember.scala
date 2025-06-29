@@ -17,7 +17,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
   final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
-    case o: DFOwner => o
+    case o: DFOwner        => o
     case _: DFMember.Empty =>
       throw new IllegalArgumentException(s"No owner found for member $this.")
   final def getOwnerNamed(using MemberGetSet): DFOwnerNamed = getOwner match
@@ -78,7 +78,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   ): Boolean =
     thisMember match
       case DFDesignBlock.Top() => false
-      case _ =>
+      case _                   =>
         (thisMember.getOwner, thatOwner) match
           case (a, b) if a == b => true
           case (od, _)          => isInsideOwner(od, thatOwner)
@@ -88,7 +88,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getOwnerChain(using MemberGetSet): List[DFBlock] =
     this match
       case d @ DFDesignBlock.Top() => Nil
-      case _ =>
+      case _                       =>
         if (getOwnerBlock.isTop) List(getOwnerBlock)
         else getOwnerBlock.getOwnerChain :+ getOwnerBlock
   // count the hierarchy distance from inside to outside

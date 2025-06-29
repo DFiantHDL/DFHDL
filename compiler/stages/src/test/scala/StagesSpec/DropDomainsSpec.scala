@@ -6,8 +6,8 @@ import dfhdl.compiler.stages.{dropDomains, getCodeString}
 class DropDomainsSpec extends StageSpec:
   test("Mixed domain composition") {
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new EDDomain:
         val dmn2 = new EDDomain:
           val v = SInt(16) <> VAR init 0
@@ -54,8 +54,8 @@ class DropDomainsSpec extends StageSpec:
       y := x
 
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = ID()
         id.x <> x
