@@ -302,7 +302,7 @@ object DFVal:
           val relVal = partial.relValRef.get
           partial match
             case partial: DFVal.Alias.ApplyRange =>
-              relVal.departial(range.offset(partial.idxLow))
+              relVal.departial(range.offset(partial.idxLowRef.getInt))
             case partial: DFVal.Alias.ApplyIdx =>
               partial.relIdx.get match
                 case DFVal.Alias.ApplyIdx.ConstIdx(idx) =>
@@ -741,8 +741,8 @@ object DFVal:
     final case class ApplyRange(
         dfType: DFType,
         relValRef: PartialRef,
-        idxHigh: Int,
-        idxLow: Int,
+        idxHighRef: IntParamRef,
+        idxLowRef: IntParamRef,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
@@ -758,14 +758,14 @@ object DFVal:
           selRangeData(
             relVal.dfType,
             relValData,
-            idxHigh,
-            idxLow
+            idxHighRef.getInt,
+            idxLowRef.getInt
           )
         )
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
           this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
-          this.idxHigh == that.idxHigh && this.idxLow == that.idxLow &&
+          this.idxHighRef =~ that.idxHighRef && this.idxLowRef =~ that.idxLowRef &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
@@ -773,16 +773,26 @@ object DFVal:
           case that: ApplyRange =>
             this.dfType.isSimilarTo(that.dfType) &&
             this.relValRef.get.isSimilarTo(that.relValRef.get) &&
-            this.idxHigh == that.idxHigh && this.idxLow == that.idxLow
+            this.idxHighRef.isSimilarTo(that.idxHighRef) && this.idxLowRef.isSimilarTo(
+              that.idxLowRef
+            )
           case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+      override lazy val getRefs: List[DFRef.TwoWayAny] =
+        dfType.getRefs ++ List(relValRef) ++ (idxHighRef match
+          case ref: DFRef.TypeRef => List(ref);
+          case _                  => Nil) ++ (idxLowRef match
+          case ref: DFRef.TypeRef => List(ref);
+          case _                  => Nil)
       def updateDFType(dfType: DFType): this.type = this
       def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs(using RefGen): this.type = copy(
         dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
-        relValRef = relValRef.copyAsNewRef
+        relValRef = relValRef.copyAsNewRef,
+        idxHighRef = idxHighRef.copyAsNewRef,
+        idxLowRef = idxLowRef.copyAsNewRef
       ).asInstanceOf[this.type]
     end ApplyRange
     final case class ApplyIdx(

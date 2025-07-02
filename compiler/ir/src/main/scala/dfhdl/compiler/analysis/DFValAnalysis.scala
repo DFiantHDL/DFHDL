@@ -268,12 +268,12 @@ extension (dfVal: DFVal)
           case applyRange: DFVal.Alias.ApplyRange =>
             (applyRange.dfType: @unchecked) match
               case DFBits(_) =>
-                val idxHigh = applyRange.idxHigh.toPaddedString(applyRange.width - 1)
-                val idxLow = applyRange.idxLow.toPaddedString(applyRange.width - 1)
+                val idxHigh = applyRange.idxHighRef.getInt.toPaddedString(applyRange.width - 1)
+                val idxLow = applyRange.idxLowRef.getInt.toPaddedString(applyRange.width - 1)
                 s"_${idxHigh}_${idxLow}"
               case dfType: DFVector =>
-                val idxHigh = applyRange.idxHigh.toPaddedString(dfType.length - 1)
-                val idxLow = applyRange.idxLow.toPaddedString(dfType.length - 1)
+                val idxHigh = applyRange.idxHighRef.getInt.toPaddedString(dfType.length - 1)
+                val idxLow = applyRange.idxLowRef.getInt.toPaddedString(dfType.length - 1)
                 s"_${idxLow}_${idxHigh}"
           case selectField: DFVal.Alias.SelectField => s"_${selectField.fieldName}"
         flatName(relVal, s"$newSuffix$suffix")

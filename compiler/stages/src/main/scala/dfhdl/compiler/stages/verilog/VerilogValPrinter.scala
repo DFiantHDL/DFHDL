@@ -258,9 +258,9 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     dfVal.dfType match
       case DFBits(_) =>
-        s"${dfVal.relValCodeString}[${dfVal.idxHigh}:${dfVal.idxLow}]"
+        s"${dfVal.relValCodeString}[${dfVal.idxHighRef.refCodeString}:${dfVal.idxLowRef.refCodeString}]"
       case _ =>
-        s"${dfVal.relValCodeString}[${dfVal.idxLow}:${dfVal.idxHigh}]"
+        s"${dfVal.relValCodeString}[${dfVal.idxLowRef.refCodeString}:${dfVal.idxHighRef.refCodeString}]"
     end match
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
     val relIdxStr = dfVal.relIdx.refCodeString

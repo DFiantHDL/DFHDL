@@ -822,28 +822,29 @@ object DFVal extends DFValLP:
       end apply
     end History
     object ApplyRange:
-      def apply[W <: IntP, M <: ModifierAny, H <: Int, L <: Int](
+      import IntP.{-, +}
+      def apply[W <: IntP, M <: ModifierAny, H <: IntP, L <: IntP](
           relVal: DFVal[DFBits[W], M],
-          idxHigh: Inlined[H],
-          idxLow: Inlined[L]
+          idxHigh: IntParam[H],
+          idxLow: IntParam[L]
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
         forced(relVal.asIR, idxHigh, idxLow).asVal[DFBits[H - L + 1], M]
-      def applyVector[T <: DFTypeAny, M <: ModifierAny, H <: Int, L <: Int](
+      def applyVector[T <: DFTypeAny, M <: ModifierAny, H <: IntP, L <: IntP](
           relVal: DFVal[DFVector[T, Tuple1[?]], M],
-          idxHigh: Inlined[H],
-          idxLow: Inlined[L]
+          idxHigh: IntParam[H],
+          idxLow: IntParam[L]
       )(using DFC): DFVal[DFVector[T, Tuple1[H - L + 1]], M] =
         forced(relVal.asIR, idxHigh, idxLow).asVal[DFVector[T, Tuple1[H - L + 1]], M]
-      def forced(
+      def forced[H <: IntP, L <: IntP](
           relVal: ir.DFVal,
-          idxHigh: Int,
-          idxLow: Int
+          idxHigh: IntParam[H],
+          idxLow: IntParam[L]
       )(using DFC): ir.DFVal =
         val selLength = idxHigh - idxLow + 1
         val dfType = (relVal.dfType: @unchecked) match
-          case ir.DFBits(_)                     => ir.DFBits(selLength)
+          case ir.DFBits(_)                     => ir.DFBits(selLength.ref)
           case ir.DFVector(cellType = cellType) =>
-            ir.DFVector(cellType, List(ir.IntParamRef(selLength)))
+            ir.DFVector(cellType, List(selLength.ref))
         relVal match
           // anonymous constant are replace by a different constant
           // after its data value was converted according to the alias
@@ -862,8 +863,8 @@ object DFVal extends DFValLP:
               ir.DFVal.Alias.ApplyRange(
                 dfType,
                 relVal.refTW[ir.DFVal.Alias.ApplyRange],
-                idxHigh,
-                idxLow,
+                idxHigh.ref,
+                idxLow.ref,
                 dfc.ownerOrEmptyRef,
                 dfc.getMeta,
                 dfc.tags
@@ -1481,16 +1482,22 @@ extension (dfVal: ir.DFVal)
             case alias: ir.DFVal.Alias.AsIs =>
               DFVal.Alias.AsIs(dfType, clonedRelVal, forceNewAlias = true)(using dfcForClone)
             case alias: ir.DFVal.Alias.ApplyRange =>
+              def cloneIntParam(intParam: IntParam[Int]): IntParam[Int] =
+                val ret = (intParam: @unchecked) match
+                  case int: Int            => int
+                  case const: DFConstInt32 => const.asIR.cloneAnonValueAndDepsHere
+                ret.asInstanceOf[IntParam[Int]]
               DFVal.Alias.ApplyRange(
                 clonedRelVal.asValOf[DFBits[Int]],
-                alias.idxHigh,
-                alias.idxLow
+                cloneIntParam(alias.idxHighRef.get),
+                cloneIntParam(alias.idxLowRef.get)
               )(using dfcForClone)
             case alias: ir.DFVal.Alias.ApplyIdx =>
               val clonedIdx = alias.relIdx.get.cloneAnonValueAndDepsHere.asValOf[DFInt32]
               DFVal.Alias.ApplyIdx(dfType, clonedRelVal, clonedIdx)(using dfcForClone)
             case alias: ir.DFVal.Alias.SelectField =>
               DFVal.Alias.SelectField(clonedRelVal, alias.fieldName)(using dfcForClone)
+          end match
         case _ => throw new IllegalArgumentException(s"Unsupported cloning for: $dfVal")
       cloned.asIR
     else dfVal

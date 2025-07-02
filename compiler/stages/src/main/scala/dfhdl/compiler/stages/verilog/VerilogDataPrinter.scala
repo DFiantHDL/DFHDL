@@ -15,6 +15,10 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
+  val allowUnpackedLiterals: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
   def csDFBitBubbleChar: Char = '?'
   def csDFBitsBinFormat(binRep: String): String = s"""${binRep.length}'b$binRep"""
   def csDFBitsHexFormat(hexRep: String): String = s"""${hexRep.length * 4}'h$hexRep"""
@@ -69,11 +73,12 @@ protected trait VerilogDataPrinter extends AbstractDataPrinter:
       case None => "?"
   val maxElementsPerLine = 64
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
-    val csData =
+    if (allowUnpackedLiterals)
       data.view.zipWithIndex.map((x, i) =>
         s"${i.toPaddedString(data.length - 1, padWithZeros = false)}: ${csConstData(dfType.cellType, x)}"
-      )
-    csData.toList.csList("'{", ",", "}")
+      ).toList.csList("'{", ",", "}")
+    else
+      data.view.map(csConstData(dfType.cellType, _)).toList.csList("{", ",", "}")
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     csConstData(dfType.actualType, data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =

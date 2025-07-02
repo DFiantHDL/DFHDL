@@ -229,6 +229,7 @@ object DFVector:
       end DFVectorCompareDFValVector
     end Compare
     object Ops:
+      import IntP.{-, +}
       object DFVector:
         def apply[T <: DFTypeAny, D1 <: IntP, P](vectorType: DFVector[T, Tuple1[D1]])(
             elems: DFValTP[T, P]*
@@ -248,13 +249,13 @@ object DFVector:
           DFVal.Alias.ApplyIdx(lhs.dfType.cellType, lhs, idxVal)
         }
         @targetName("applyRangeDFVector")
-        def apply[L <: Int, H <: Int](
-            idxLow: Inlined[L],
-            idxHigh: Inlined[H]
+        def apply[L <: IntP, H <: IntP](
+            idxLow: IntParam[L],
+            idxHigh: IntParam[H]
         )(using
             checkLow: BitIndex.CheckNUB[L, D1],
             checkHigh: BitIndex.CheckNUB[H, D1],
-            checkHiLo: BitsHiLo.Check[H, L],
+            checkHiLo: BitsHiLo.CheckNUB[H, L],
             dfc: DFC
         ): DFVal[DFVector[T, Tuple1[H - L + 1]], M] = trydf {
           checkLow(idxLow, lhs.lengthInt)

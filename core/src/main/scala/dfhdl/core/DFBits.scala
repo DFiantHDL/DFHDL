@@ -527,6 +527,7 @@ object DFBits:
     end TupleOps
 
     object Ops:
+      import IntP.{-, +}
       extension [W <: IntP, P](lhs: DFValTP[DFBits[W], P])
         def truncate(using DFC): DFValTP[DFBits[Int], P] =
           lhs.tag(ir.TruncateTag).asValTP[DFBits[Int], P]
@@ -655,14 +656,14 @@ object DFBits:
         ): DFVal[DFBit, Modifier[A, Any, Any, P]] = trydf {
           DFVal.Alias.ApplyIdx(DFBit, lhs, relIdx(lhs.widthIntParam)(using dfc.anonymize))
         }
-        def apply[H <: Int, L <: Int](
-            idxHigh: Inlined[H],
-            idxLow: Inlined[L]
+        def apply[H <: IntP, L <: IntP](
+            idxHigh: IntParam[H],
+            idxLow: IntParam[L]
         )(using
             dfc: DFC,
             checkHigh: BitIndex.CheckNUB[H, W],
             checkLow: BitIndex.CheckNUB[L, W],
-            checkHiLo: BitsHiLo.Check[H, L]
+            checkHiLo: BitsHiLo.CheckNUB[H, L]
         ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any, P]] = trydf {
           checkHigh(idxHigh, lhs.widthInt)
           checkLow(idxLow, lhs.widthInt)
@@ -677,22 +678,21 @@ object DFBits:
         def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           lhs.apply(0)
         // TODO: IntP
-        def msbits[RW <: Int](updatedWidth: Inlined[RW])(using
+        def msbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFC
         ): DFValTP[DFBits[RW], P] = trydf {
           check(lhs.widthInt, updatedWidth)
-          DFVal.Alias.ApplyRange(lhs, lhs.widthInt - 1, lhs.widthInt - updatedWidth)
+          DFVal.Alias.ApplyRange(lhs, lhs.widthIntParam - 1, lhs.widthIntParam - updatedWidth)
             .asValTP[DFBits[RW], P]
         }
         // TODO: IntP
-        def lsbits[RW <: Int](updatedWidth: Inlined[RW])(using
+        def lsbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFC
         ): DFValTP[DFBits[RW], P] = trydf {
           check(lhs.widthInt, updatedWidth)
-          DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0)
-            .asValTP[DFBits[RW], P]
+          DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0).asValTP[DFBits[RW], P]
         }
         @targetName("shiftRightDFBits")
         def >>(shift: DFUInt.Val.UBArg.Exact[W])(using

@@ -216,9 +216,9 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
     dfVal.dfType match
       case DFBits(_) =>
-        s"${dfVal.relValCodeString}(${dfVal.idxHigh} downto ${dfVal.idxLow})"
+        s"${dfVal.relValCodeString}(${dfVal.idxHighRef.refCodeString} downto ${dfVal.idxLowRef.refCodeString})"
       case _ =>
-        s"${dfVal.relValCodeString}(${dfVal.idxLow} to ${dfVal.idxHigh})"
+        s"${dfVal.relValCodeString}(${dfVal.idxLowRef.refCodeString} to ${dfVal.idxHighRef.refCodeString})"
     end match
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
     val relIdxStr = dfVal.relIdx.refCodeString
