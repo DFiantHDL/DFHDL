@@ -14,7 +14,7 @@ object DFStruct:
   private[core] def apply[F <: FieldsOrTuple](
       name: String,
       fieldMap: ListMap[String, DFTypeAny]
-  ): DFStruct[F] =
+  )(using DFC): DFStruct[F] =
     ir.DFStruct(
       name,
       fieldMap.map((n, t) => (n, t.asIR.dropUnreachableRefs(allowDesignParamRefs = false)))
@@ -23,7 +23,7 @@ object DFStruct:
       name: String,
       fieldNames: List[String],
       fieldTypes: List[DFTypeAny]
-  ): DFStruct[F] =
+  )(using DFC): DFStruct[F] =
     apply[F](name, ListMap(fieldNames.lazyZip(fieldTypes).toSeq*))
   private[core] def apply[F <: FieldsOrTuple](product: F): DFStruct[F] =
     unapply(product.asInstanceOf[Product]).get.asInstanceOf[DFStruct[F]]
@@ -74,7 +74,9 @@ object DFStruct:
       val nameExpr = Expr(structName)
       '{
         DFStruct
-          .apply[F]($nameExpr, List($fieldNamesExpr*), List($fieldTypesExpr*))
+          .apply[F]($nameExpr, List($fieldNamesExpr*), List($fieldTypesExpr*))(using
+            compiletime.summonInline[DFC]
+          )
       }
     else
       val fieldTypesStr = fieldErrors
@@ -134,7 +136,7 @@ object DFStruct:
           sameTypes(TypeRepr.of[ld], TypeRepr.of[rd])
         case ('[DFOpaque[lt]], '[DFOpaque[rt]]) => sameTypes(TypeRepr.of[lt], TypeRepr.of[rt])
         case ('[DFStruct[lt]], '[DFStruct[rt]]) => sameTypes(TypeRepr.of[lt], TypeRepr.of[rt])
-        case ('[Fields], '[Fields]) =>
+        case ('[Fields], '[Fields])             =>
           val symL = tpeL.typeSymbol
           val symR = tpeR.typeSymbol
           if (!(symL equals symR)) return false
