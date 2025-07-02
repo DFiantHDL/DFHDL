@@ -79,12 +79,12 @@ object Width:
             case '[DFBits[w]] =>
               Type.of[w] match
                 case '[DFValAny] => TypeRepr.of[Int]
-                case _ =>
+                case _           =>
                   TypeRepr.of[w].calcWidth
             case '[DFDecimal[s, w, f, n]] =>
               Type.of[w] match
                 case '[DFValAny] => TypeRepr.of[Int]
-                case _ =>
+                case _           =>
                   TypeRepr.of[w].calcWidth
             case '[DFEnum[e]] =>
               TypeRepr.of[e].calcWidth
@@ -118,11 +118,11 @@ object Width:
           end match
         case '[Int] =>
           dfTpe
-        case '[Boolean.type] => ConstantType(IntConstant(1))
-        case '[Double.type]  => ConstantType(IntConstant(64))
-        case '[Byte.type]    => ConstantType(IntConstant(8))
-        case '[Int.type]     => ConstantType(IntConstant(32))
-        case '[Long.type]    => ConstantType(IntConstant(64))
+        case '[Boolean.type]  => ConstantType(IntConstant(1))
+        case '[Double.type]   => ConstantType(IntConstant(64))
+        case '[Byte.type]     => ConstantType(IntConstant(8))
+        case '[Int.type]      => ConstantType(IntConstant(32))
+        case '[Long.type]     => ConstantType(IntConstant(64))
         case '[NonEmptyTuple] =>
           val widths =
             dfTpe.getTupleArgs.map(a => a.calcWidth)
@@ -183,7 +183,7 @@ object Width:
             case compObjTpe =>
               val compPrefix = compObjTpe match
                 case TermRef(pre, _) => pre
-                case _ =>
+                case _               =>
                   report.errorAndAbort("Case class companion must be a term ref")
               val clsSym = compObjTpe.typeSymbol.companionClass
               if !clsSym.paramSymss.forall(_.headOption.forall(_.isTerm)) then
@@ -250,12 +250,14 @@ extension [T](t: T)(using tc: DFType.TC[T])
   def widthIntParam(using dfc: DFC, w: Width[tc.Type]): IntParam[w.Out] =
     import dfc.getSet
     def intParam(dfTypeIR: ir.DFType): IntParam[Int] = dfTypeIR match
-      case ir.DFBits(width)       => width.get
-      case ir.DFXInt(_, width, _) => width.get
+      case ir.DFBits(width)                        => width.get
+      case ir.DFXInt(_, width, _)                  => width.get
       case ir.DFVector(cellType, cellDimParamRefs) =>
         intParam(cellType) * cellDimParamRefs.map(_.get).asInstanceOf[List[IntParam[Int]]].reduce(
           (l, r) => (l * r).asInstanceOf[IntParam[Int]]
         )
+      case ir.DFStruct(_, fieldMap) =>
+        fieldMap.values.map(intParam).reduce(_ + _).asInstanceOf[IntParam[Int]]
       case _ => IntParam.forced[Int](dfTypeIR.width)
     intParam(tc(t).asIR).asInstanceOf[IntParam[w.Out]]
 end extension
