@@ -822,16 +822,16 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `include "Foo_defs.vh"
          |  parameter integer width5 = 8;
          |  parameter integer length5 = 10;
-         |  input  wire  [`width - 1:0] x1 [0:`length - 1];
-         |  output wire [`width - 1:0] y1 [0:`length - 1];
-         |  input  wire  [`width - 1:0] x2 [0:`length + 1 - 1];
-         |  output wire [`width - 1:0] y2 [0:`length + 1 - 1];
-         |  input  wire  [`width - 1:0] x3 [0:6];
-         |  output wire [`width - 1:0] y3 [0:6];
-         |  input  wire  [`width - 1:0] x4 [0:`length - 1] [0:6];
-         |  output wire [`width - 1:0] y4 [0:`length - 1] [0:6];
-         |  input  wire  [width5 - 1:0] x5 [0:length5 - 1] [0:6];
-         |  output wire [width5 - 1:0] y5 [0:length5 - 1] [0:6];
+         |  input  wire  [`width * `length - 1:0] x1;
+         |  output wire [`width * `length - 1:0] y1;
+         |  input  wire  [`width * (`length + 1) - 1:0] x2;
+         |  output wire [`width * (`length + 1) - 1:0] y2;
+         |  input  wire  [`width * 7 - 1:0] x3;
+         |  output wire [`width * 7 - 1:0] y3;
+         |  input  wire  [(`width * 7) * `length - 1:0] x4;
+         |  output wire [(`width * 7) * `length - 1:0] y4;
+         |  input  wire  [(width5 * 7) * length5 - 1:0] x5;
+         |  output wire [(width5 * 7) * length5 - 1:0] y5;
          |  assign y1 = x1;
          |  assign y2 = x2;
          |  assign y3 = x3;
@@ -981,7 +981,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Foo_defs.vh"
          |
          |module Foo(
-         |  output reg [9:0] matrix [0:7] [0:7]
+         |  output reg [639:0] matrix
          |);
          |  `include "dfhdl_defs.vh"
          |  `include "Foo_defs.vh"
@@ -996,7 +996,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |        for (j = 0; j < 8; j = j + 1) begin
          |          if ((j % 2) == 0) begin
          |            for (k = 0; k < 10; k = k + 1) begin
-         |              if ((k % 2) == 0) matrix[i][j][k] <= 1'b1;
+         |              if ((k % 2) == 0) (matrix[(10 + ((640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0))) - 1:(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0)])[k] <= 1'b1;
          |            end
          |          end
          |        end
@@ -1007,7 +1007,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |        for (j = 0; j < 8; j = j + 1) begin
          |          if ((j % 2) == 1) begin
          |            for (k = 0; k < 10; k = k + 1) begin
-         |              if ((k % 2) == 1) matrix[i][j][k] <= 1'b0;
+         |              if ((k % 2) == 1) (matrix[(10 + ((640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0))) - 1:(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0)])[k] <= 1'b0;
          |            end
          |          end
          |        end

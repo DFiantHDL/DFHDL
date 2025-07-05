@@ -152,6 +152,7 @@ class DFVectorSpec extends DFSpec:
     val v5: Bits[8] X 3 <> CONST = Vector(h"65", h"6c", h"6c")
     val v6 = v4(1, 3)
     val b = h"12345678"
+    assert((v(0) == h"12").toScalaBoolean)
     assert((v == v2).toScalaBoolean)
     assert((v3 == v4).toScalaBoolean)
     assert((v5 == v6).toScalaBoolean)

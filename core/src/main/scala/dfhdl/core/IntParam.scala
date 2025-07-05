@@ -100,7 +100,7 @@ object IntParam extends IntParamLP:
     given DFC = dfc.anonymize
     (argL, argR) match
       case (intL: Int, intR: Int) => forced[O](opInt(intL, intR))
-      case _ =>
+      case _                      =>
         val constL = argL.toDFConst
         val constR = argR.toDFConst
         import dfc.getSet
@@ -152,7 +152,7 @@ object IntParam extends IntParamLP:
         case const: DFConstInt32 => DFXInt.Val.Ops.toScalaInt(const)
     def ref: ir.IntParamRef =
       lhs match
-        case int: Int => ir.IntParamRef(int)
+        case int: Int            => ir.IntParamRef(int)
         case const: DFConstInt32 =>
           val constIR = const.asInstanceOf[DFValAny].asIR
           constIR.injectGlobalCtx()
@@ -177,13 +177,18 @@ object IntParam extends IntParamLP:
       calc(FuncOp.min, lhs, rhs)((x, y) => RichInt(x) min y)
     def clog2: IntParam[IntP.CLog2[L]] =
       calc(FuncOp.clog2, lhs)(dfhdl.internals.clog2)
+    protected[dfhdl] def cloneAnonValueAndDepsHere: IntParam[Int] =
+      lhs match
+        case int: Int            => int
+        case const: DFConstInt32 =>
+          dfhdl.core.cloneAnonValueAndDepsHere(const.asIR).asConstOf[DFInt32]
   end extension
 end IntParam
 
 extension (intParamRef: ir.IntParamRef)
   def get(using dfc: DFC): IntParam[Int] =
     intParamRef match
-      case int: Int => IntParam.forced[Int](int)
+      case int: Int              => IntParam.forced[Int](int)
       case ref: ir.DFRef.TypeRef =>
         import dfc.getSet
         IntParam.forced[Int](ref.get.asConstOf[DFInt32])
