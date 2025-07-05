@@ -3,15 +3,15 @@
 `include "Cipher_defs.vh"
 
 module Cipher(
-  input  wire  [7:0] key [0:3] [0:3],
-  input  wire  [7:0] data [0:3] [0:3],
-  output wire [7:0] o [0:3] [0:3]
+  input  wire  [127:0] key,
+  input  wire  [127:0] data,
+  output wire [127:0]  o
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
-  wire [7:0] o_part_cipher_inst_data [0:3] [0:3];
-  wire [7:0] o_part_cipher_inst_key [0:3] [0:3];
-  wire [7:0] o_part_cipher_inst_o [0:3] [0:3];
+  wire [127:0] o_part_cipher_inst_data;
+  wire [127:0] o_part_cipher_inst_key;
+  wire [127:0] o_part_cipher_inst_o;
   cipher_0 o_part_cipher_inst(
     .data /*<--*/ (o_part_cipher_inst_data),
     .key  /*<--*/ (o_part_cipher_inst_key),

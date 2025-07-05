@@ -8,8 +8,8 @@ module subWord(
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
-  input  wire  [7:0] lhs [0:3];
-  output wire [7:0] o [0:3];
+  input  wire  [31:0] lhs;
+  output wire [31:0]  o;
   wire [7:0] o_part_sbox_inst_lhs;
   wire [7:0] o_part_sbox_inst_o;
   wire [7:0] sbox_inst_0_lhs;
@@ -34,9 +34,9 @@ module subWord(
     .lhs /*<--*/ (sbox_inst_2_lhs),
     .o   /*-->*/ (sbox_inst_2_o)
   );
-  assign o_part_sbox_inst_lhs = lhs[0];
-  assign sbox_inst_0_lhs = lhs[1];
-  assign sbox_inst_1_lhs = lhs[2];
-  assign sbox_inst_2_lhs = lhs[3];
-  assign o               = '{o_part_sbox_inst_o, sbox_inst_0_o, sbox_inst_1_o, sbox_inst_2_o};
+  assign o_part_sbox_inst_lhs = lhs[31:24];
+  assign sbox_inst_0_lhs = lhs[23:16];
+  assign sbox_inst_1_lhs = lhs[15:8];
+  assign sbox_inst_2_lhs = lhs[7:0];
+  assign o               = {o_part_sbox_inst_o, sbox_inst_0_o, sbox_inst_1_o, sbox_inst_2_o};
 endmodule

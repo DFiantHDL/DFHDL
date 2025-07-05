@@ -9,13 +9,13 @@ module addRoundKey(
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
-  input  wire  [7:0] state [0:3] [0:3];
-  input  wire  [7:0] key [0:3] [0:3];
-  output wire [7:0] o [0:3] [0:3];
-  assign o = '{
-    '{state[0][0] ^ key[0][0], state[0][1] ^ key[0][1], state[0][2] ^ key[0][2], state[0][3] ^ key[0][3]},
-    '{state[1][0] ^ key[1][0], state[1][1] ^ key[1][1], state[1][2] ^ key[1][2], state[1][3] ^ key[1][3]},
-    '{state[2][0] ^ key[2][0], state[2][1] ^ key[2][1], state[2][2] ^ key[2][2], state[2][3] ^ key[2][3]},
-    '{state[3][0] ^ key[3][0], state[3][1] ^ key[3][1], state[3][2] ^ key[3][2], state[3][3] ^ key[3][3]}
+  input  wire  [127:0] state;
+  input  wire  [127:0] key;
+  output wire [127:0]  o;
+  assign o = {
+    {state[127:120] ^ key[127:120], state[119:112] ^ key[119:112], state[111:104] ^ key[111:104], state[103:96] ^ key[103:96]},
+    {state[95:88] ^ key[95:88], state[87:80] ^ key[87:80], state[79:72] ^ key[79:72], state[71:64] ^ key[71:64]},
+    {state[63:56] ^ key[63:56], state[55:48] ^ key[55:48], state[47:40] ^ key[47:40], state[39:32] ^ key[39:32]},
+    {state[31:24] ^ key[31:24], state[23:16] ^ key[23:16], state[15:8] ^ key[15:8], state[7:0] ^ key[7:0]}
   };
 endmodule
