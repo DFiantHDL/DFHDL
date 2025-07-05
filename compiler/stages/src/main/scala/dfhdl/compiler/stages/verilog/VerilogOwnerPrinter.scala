@@ -67,7 +67,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           case IteratorDcl()                                          => None
           case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport => Some(p)
           case _: DesignParam                                         => None
-          case c @ DclConst() =>
+          case c @ DclConst()                                         =>
             c.dfType match
               case DFInt32 => None
               case _       => Some(c)
@@ -97,7 +97,9 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
               // a single module description can have any valid data, just to satisfy the standard)
               else s" = ${printer.csConstData(param.dfType, param.getConstData.get)}"
             case _ => s" = ${param.defaultRef.refCodeString}"
-      s"parameter ${printer.csDFType(param.dfType)} ${param.getName}$defaultValue"
+      val csType = printer.csDFType(param.dfType).emptyOr(_ + " ")
+      val csTypeNoLogic = if (printer.supportLogicType) csType else csType.replace("logic ", "")
+      s"parameter ${csTypeNoLogic}${param.getName}$defaultValue"
     }
     val designParamCS =
       if (designParamList.length == 0 || !parameterizedModuleSupport) ""
@@ -193,9 +195,9 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     val named = pb.meta.nameOpt.map(n => s"$n : ").getOrElse("")
     val alwaysKW = printer.dialect match
       case VerilogDialect.v2001 | VerilogDialect.v95 => "always"
-      case _ =>
+      case _                                         =>
         pb.sensitivity match
-          case Sensitivity.All => "always_comb"
+          case Sensitivity.All        => "always_comb"
           case Sensitivity.List(refs) =>
             refs match
               case DFRef(DFVal.Func(op = FuncOp.rising | FuncOp.falling)) :: Nil =>
@@ -205,7 +207,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
                 "always_ff"
               case _ => "always"
     val senList = pb.sensitivity match
-      case Sensitivity.All => if (alwaysKW == "always") " @(*)" else ""
+      case Sensitivity.All        => if (alwaysKW == "always") " @(*)" else ""
       case Sensitivity.List(refs) =>
         if (refs.isEmpty) ""
         else s" @${refs.map(_.refCodeString).mkString("(", sensitivityListSep, ")")}"
