@@ -29,10 +29,26 @@ case object DropDesignDefs extends Stage:
               .getOrElse("") + s"${design.dclName}_inst"
           else design.getName
 
+        // we need to move the output port to the end of the inputs, to prevent
+        // malformed ordering in future stages when referencing the output port.
+        val lastInputOpt = members.dropWhile {
+          case DclIn() => false
+          case _       => true
+        }.takeWhile {
+          case DclIn() => true
+          case _       => false
+        }.lastOption
+
+        val outPortPatch = outPortOpt.map { o =>
+          lastInputOpt match
+            case Some(posMember) => posMember -> Patch.Move(o, Patch.Move.Config.After)
+            // if there are no inputs, we move the output port to the beginning
+            case None => members.head -> Patch.Move(o, Patch.Move.Config.Before)
+        }
         design -> Patch.Replace(
           design.copy(instMode = InstMode.Normal).setName(updatedName),
           Patch.Replace.Config.FullReplacement
-        ) :: identRemovePatch
+        ) :: identRemovePatch ++ outPortPatch
       case _ => None
     }
     designDB.patch(patchList)
