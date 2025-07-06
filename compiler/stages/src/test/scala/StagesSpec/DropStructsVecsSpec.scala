@@ -195,4 +195,22 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+
+  test("Global constant vector") {
+    given options.CompilerOptions.Backend = backends.verilog.v95
+    val arg: Bits[8] X 4 <> CONST         = Vector(h"01", h"02", h"03", h"04")
+    class Bar() extends DFDesign:
+      val o = Bits(8) <> OUT
+      o := arg(0) ^ arg(1)
+    val top = (new Bar).dropStructsVecs
+    assertCodeString(
+      top,
+      """|val arg: Bits[32] <> CONST = (h"01", h"02", h"03", h"04").toBits
+         |class Bar extends DFDesign:
+         |  val o = Bits(8) <> OUT
+         |  o := arg(31, 24) ^ arg(23, 16)
+         |end Bar
+         |""".stripMargin
+    )
+  }
 end DropStructsVecsSpec

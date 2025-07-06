@@ -19,6 +19,7 @@ abstract class MetaDesign[+D <: DomainType](
   lazy val patch = positionMember -> Patch.Add(this, addCfg)
   private lazy val globalInjection: Boolean =
     (addCfg, positionMember) match
+      case (_, dfVal: ir.DFVal.CanBeGlobal)                                     => dfVal.isGlobal
       case (AddCfg.Before, positionOwner: DFDesignBlock) if positionOwner.isTop => true
       case _                                                                    => false
   lazy val injectedOwner: ir.DFOwner = addCfg match
@@ -26,7 +27,7 @@ abstract class MetaDesign[+D <: DomainType](
       positionMember match
         case positionOwner: ir.DFOwner => positionOwner
         case _ => throw new IllegalArgumentException("Expecting owner member for AddInside config.")
-    case _ if globalInjection => positionMember.asInstanceOf[DFDesignBlock]
+    case _ if globalInjection => getSet.designDB.top
     case _                    => positionMember.getOwner
   final override private[dfhdl] def initOwner: Design.Block =
     dfc.mutableDB.addMember(injectedOwner)
@@ -47,7 +48,7 @@ abstract class MetaDesign[+D <: DomainType](
 
   final def plantMember[T <: ir.DFMember](member: T): T =
     if (globalInjection)
-      dfc.mutableDB.plantMember(ir.DFMember.Empty, member, _ => true)
+      dfc.mutableDB.plantMember(ir.DFMember.Empty, member)
     else
       dfc.mutableDB.plantMember(dfc.owner.asIR, member)
   final def plantMembers(baseOwner: ir.DFOwner, members: Iterable[ir.DFMember]): Unit =

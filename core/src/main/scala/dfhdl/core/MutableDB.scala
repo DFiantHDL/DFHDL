@@ -60,7 +60,7 @@ class DesignContext:
       member: M,
       updateOwnerCond: DFOwner => Boolean = _.isInstanceOf[DFDesignBlock]
   )(using MemberGetSet): M =
-    if (updateOwnerCond(member.getOwner))
+    if (owner == DFMember.Empty || updateOwnerCond(member.getOwner))
       // now this reference will refer to meta design owner
       newRefFor[DFOwner | DFMember.Empty, DFOwner.Ref](
         member.ownerRef,
