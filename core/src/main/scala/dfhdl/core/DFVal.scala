@@ -130,7 +130,7 @@ extension [V <: ir.DFVal](dfVal: V)
     DFVal[DFTypeAny, Modifier.Mutable, V](dfVal)
   inline def asDclAny: DFDclAny =
     DFVal[DFTypeAny, Modifier.Dcl, V](dfVal)
-  inline def asConstAny[T <: DFTypeAny]: DFConstOf[DFTypeAny] =
+  inline def asConstAny: DFConstOf[DFTypeAny] =
     DFVal[DFTypeAny, Modifier.CONST, V](dfVal)
   inline def asConstOf[T <: DFTypeAny]: DFConstOf[T] =
     DFVal[T, Modifier.CONST, V](dfVal)
