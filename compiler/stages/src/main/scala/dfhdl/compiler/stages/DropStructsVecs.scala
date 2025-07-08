@@ -22,7 +22,7 @@ case object DropStructsVecs extends Stage:
           case _                                         => false
       case _ => false
   override def dependencies: List[Stage] = List()
-  override def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
+  override def nullifies: Set[Stage] = Set(DropUnreferencedAnons, ExplicitRomVar)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     given RefGen = RefGen.fromGetSet
     object StructOrVecVal:
