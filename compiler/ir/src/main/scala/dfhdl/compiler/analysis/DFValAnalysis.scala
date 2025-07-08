@@ -171,6 +171,26 @@ object PortOfDesignDef:
         else None
       case _ => None
 
+object InitialValueOf:
+  def unapply(initVal: DFVal)(using MemberGetSet): Option[DFVal.Dcl] =
+    initVal.originMembersNoTypeRef.collectFirst {
+      case dcl: DFVal.Dcl if dcl.initRefList.map(_.get).contains(initVal) => dcl
+    }
+
+object BlockRamVar:
+  def unapply(dfVal: DFVal)(using MemberGetSet): Boolean = dfVal.dfType match
+    case dfType: DFVector =>
+      dfVal match
+        case DclVar() =>
+          // if the var only has non-constant index accesses, then it's a block-ram access
+          // and we don't want to drop it. otherwise, we do.
+          dfVal.getReadDeps.forall {
+            case applyIdx: DFVal.Alias.ApplyIdx => !applyIdx.relIdx.get.isConst
+            case _                              => false
+          }
+        case _ => false
+    case _ => false
+
 extension (ref: DFRef.TwoWayAny)
   def originMember(using MemberGetSet): DFMember =
     getSet.getOrigin(ref)

@@ -25,41 +25,27 @@ case object DropStructsVecs extends Stage:
   override def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     given RefGen = RefGen.fromGetSet
-    extension (dfVal: DFVal)
-      def isBlockRamAccess: Boolean = dfVal.dfType match
-        case dfType: DFVector =>
-          dfVal match
-            case DclVar() =>
-              // if the var only has index accesses, then it's a block-ram access
-              // and we don't want to drop it. otherwise, we do.
-              dfVal.getReadDeps.forall {
-                case _: DFVal.Alias.ApplyIdx => true
-                case _                       => false
-              }
-            case _ => false
-        case _ => false
     object StructOrVecVal:
-      def unapply(dfVal: DFVal): Boolean = dfVal.dfType match
+      def unapply(dfVal: DFVal)(using MemberGetSet): Boolean = dfVal.dfType match
         // all structs are dropped
         case _: DFStruct => true
-        // all vectors are dropped, except for var with block-ram access and their initialization values
+        // all vectors are dropped, except for var with block-ram and an initial value cast to vector
         case _: DFVector =>
           dfVal match
-            case const: DFVal.Const if !const.isAnonymous => false
-            case initVal: DFVal if initVal.isAnonymous    =>
-              initVal.originMembersNoTypeRef.headOption match
-                // anonymous initialization values for block-rams are not dropped
-                case Some(dfVal: DFVal) if dfVal.isBlockRamAccess => false
-                case _                                            => !dfVal.isBlockRamAccess
-            case _ => !dfVal.isBlockRamAccess
+            case BlockRamVar()                              => false
+            case initialVal @ InitialValueOf(BlockRamVar()) =>
+              initialVal match
+                case initVal: DFVal.Alias.AsIs if initVal.isAnonymous => false
+                case _                                                => true
+            case _ => true
         case _ => false
     end StructOrVecVal
     val replacementMap = mutable.Map.empty[DFVal, DFVal]
     val handledPartials = mutable.Set.empty[DFVal]
     object PartialSel:
       import DFVal.Alias.*
-      def unapply(partial: ApplyIdx | ApplyRange | SelectField): Boolean =
-        !handledPartials.contains(partial)
+      def unapply(partial: ApplyIdx | ApplyRange | SelectField)(using MemberGetSet): Boolean =
+        replacementMap.contains(partial.relValRef.get) && !handledPartials.contains(partial)
     ///////////////////////////////////////////////////////////////////////////////
     // Stage 1: Replace structs and vectors with Bits
     ///////////////////////////////////////////////////////////////////////////////
@@ -91,7 +77,7 @@ case object DropStructsVecs extends Stage:
       given RefGen = RefGen.fromGetSet
       // we need to reverse the list because we want to handle the innermost partial first
       val patchList2: List[(DFMember, Patch)] = stage1.members.view.reverse.collect {
-        case partial @ PartialSel() if replacementMap.contains(partial.relValRef.get) =>
+        case partial @ PartialSel() =>
           val dsn = new MetaDesign(
             partial,
             Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)
@@ -135,10 +121,7 @@ case object DropStructsVecs extends Stage:
                   )
               end match
               relVal match
-                case nextPartial @ PartialSel()
-                    if replacementMap.contains(
-                      nextPartial.relValRef.get
-                    ) && nextPartial.isAnonymous =>
+                case nextPartial @ PartialSel() if nextPartial.isAnonymous =>
                   handledPartials += nextPartial
                   currentPartial = nextPartial
                   relVal = currentPartial.relValRef.get

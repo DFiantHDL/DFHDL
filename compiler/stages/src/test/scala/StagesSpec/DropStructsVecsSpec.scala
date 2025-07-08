@@ -78,7 +78,8 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Ignore block ram access vectors") {
     given options.CompilerOptions.Backend = backends.verilog.v95
     class BlockRam(val width: Int <> CONST = 8, val depth: Int <> CONST = 4) extends DFDesign:
-      val v   = UInt(width) X depth <> VAR init all(0)
+      val v =
+        UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
       val v2  = UInt(width) X depth <> VAR init all(0)
       val sel = UInt.until(depth)   <> IN
       val o   = UInt(width)         <> OUT
@@ -92,7 +93,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    val width: Int <> CONST = 8,
          |    val depth: Int <> CONST = 4
          |) extends DFDesign:
-         |  val v = UInt(width) X depth <> VAR init all(d"${width}'0")
+         |  val v = UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
          |  val v2 = Bits(width * depth) <> VAR init d"${width}'0".repeat(depth)
          |  val sel = UInt(clog2(depth)) <> IN
          |  val o = UInt(width) <> OUT
@@ -199,16 +200,27 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
   test("Global constant vector") {
     given options.CompilerOptions.Backend = backends.verilog.v95
     val arg: Bits[8] X 4 <> CONST         = Vector(h"01", h"02", h"03", h"04")
+    val arg2: Bits[8] X 4 X 4 <> CONST    = Vector(
+      Vector(h"01", h"02", h"03", h"04"),
+      Vector(h"05", h"06", h"07", h"08"),
+      Vector(h"09", h"10", h"11", h"12"),
+      Vector(h"13", h"14", h"15", h"16")
+    )
     class Bar() extends DFDesign:
-      val o = Bits(8) <> OUT
-      o := arg(0) ^ arg(1)
+      val o  = Bits(8)     <> OUT
+      val o2 = Bits(8) X 4 <> OUT
+      o  := arg(0) ^ arg(1)
+      o2 := arg2(0)
     val top = (new Bar).dropStructsVecs
     assertCodeString(
       top,
       """|val arg: Bits[32] <> CONST = (h"01", h"02", h"03", h"04").toBits
+         |val arg2: Bits[128] <> CONST = h"01020304050607080910111213141516"
          |class Bar extends DFDesign:
          |  val o = Bits(8) <> OUT
+         |  val o2 = Bits(32) <> OUT
          |  o := arg(31, 24) ^ arg(23, 16)
+         |  o2 := arg2(127, 96)
          |end Bar
          |""".stripMargin
     )
