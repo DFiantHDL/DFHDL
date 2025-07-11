@@ -5,7 +5,7 @@ import upickle.default.*
 
 type DFRefAny = DFRef[DFMember]
 sealed trait DFRef[+M <: DFMember] extends Product, Serializable derives CanEqual:
-  val grpId: Int
+  val grpId: (Int, Int)
   val id: Int
   final def =~(that: DFRefAny)(using MemberGetSet): Boolean = this.get =~ that.get
   def get(using getSet: MemberGetSet): M = getSet(this)
@@ -15,14 +15,14 @@ sealed trait DFRef[+M <: DFMember] extends Product, Serializable derives CanEqua
 
 object DFRef:
   sealed trait Empty extends DFRef[DFMember.Empty]:
-    val grpId: Int = 0
+    val grpId: (Int, Int) = (0, 0)
     val id: Int = 0
     override def get(using getSet: MemberGetSet): DFMember.Empty = DFMember.Empty
   sealed trait OneWay[+M <: DFMember] extends DFRef[M]:
     final def copyAsNewRef(using refGen: RefGen): this.type =
       refGen.genOneWay[M].asInstanceOf[this.type]
   object OneWay:
-    final case class Gen[M <: DFMember](grpId: Int, id: Int) extends OneWay[M]
+    final case class Gen[M <: DFMember](grpId: (Int, Int), id: Int) extends OneWay[M]
     case object Empty extends OneWay[DFMember.Empty] with DFRef.Empty
 
   sealed trait TwoWay[+M <: DFMember, +O <: DFMember] extends DFRef[M]:
@@ -30,10 +30,12 @@ object DFRef:
       refGen.genTwoWay[M, O].asInstanceOf[this.type]
   type TwoWayAny = TwoWay[DFMember, DFMember]
   object TwoWay:
-    final case class Gen[M <: DFMember, O <: DFMember](grpId: Int, id: Int) extends TwoWay[M, O]
+    final case class Gen[M <: DFMember, O <: DFMember](grpId: (Int, Int), id: Int)
+        extends TwoWay[M, O]
     case object Empty extends TwoWay[DFMember.Empty, DFMember.Empty] with DFRef.Empty
 
-  final case class TypeRef(grpId: Int, id: Int) extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
+  final case class TypeRef(grpId: (Int, Int), id: Int)
+      extends TwoWay[DFVal.CanBeExpr, DFVal.CanBeExpr]:
     override def copyAsNewRef(using refGen: RefGen): this.type =
       refGen.genTypeRef.asInstanceOf[this.type]
 
@@ -49,9 +51,9 @@ object DFRef:
         ref match
           case TwoWay.Empty          => "TWE"
           case OneWay.Empty          => "OWE"
-          case TypeRef(grpId, id)    => s"TR_${grpId.toHexString}_${id}"
-          case TwoWay.Gen(grpId, id) => s"TW_${grpId.toHexString}_${id}"
-          case OneWay.Gen(grpId, id) => s"OW_${grpId.toHexString}_${id}"
+          case TypeRef(grpId, id)    => s"TR_${grpId._1.toHexString}_${grpId._2.toHexString}_${id}"
+          case TwoWay.Gen(grpId, id) => s"TW_${grpId._1.toHexString}_${grpId._2.toHexString}_${id}"
+          case OneWay.Gen(grpId, id) => s"OW_${grpId._1.toHexString}_${grpId._2.toHexString}_${id}"
       ,
       str =>
         if str == "TWE" then TwoWay.Empty.asInstanceOf[T]
@@ -60,12 +62,22 @@ object DFRef:
           val parts = str.split("_")
           parts(0) match
             case "TR" =>
-              TypeRef(Integer.parseUnsignedInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+              TypeRef(
+                (Integer.parseUnsignedInt(parts(1), 16), Integer.parseUnsignedInt(parts(2), 16)),
+                parts(3).toInt
+              ).asInstanceOf[T]
             case "TW" =>
-              TwoWay.Gen(Integer.parseUnsignedInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+              TwoWay.Gen(
+                (Integer.parseUnsignedInt(parts(1), 16), Integer.parseUnsignedInt(parts(2), 16)),
+                parts(3).toInt
+              ).asInstanceOf[T]
             case "OW" =>
-              OneWay.Gen(Integer.parseUnsignedInt(parts(1), 16), parts(2).toInt).asInstanceOf[T]
+              OneWay.Gen(
+                (Integer.parseUnsignedInt(parts(1), 16), Integer.parseUnsignedInt(parts(2), 16)),
+                parts(3).toInt
+              ).asInstanceOf[T]
             case _ => throw new IllegalArgumentException(s"Unknown reference format: $str")
+          end match
     )
 end DFRef
 
@@ -127,13 +139,13 @@ extension (intCompanion: Int.type)
       case DFRef(dfVal: DFVal) =>
         dfVal.getConstData.asInstanceOf[Option[Option[BigInt]]].flatten.map(_.toInt)
 
-class RefGen(private var grpId: Int, private var lastId: Int):
+class RefGen(private var grpId: (Int, Int), private var lastId: Int):
   private def nextId: Int =
     val newId = lastId + 1
     lastId = newId
     newId
-  def getGrpId: Int = grpId
-  def setGrpId(newGrpId: Int): Unit =
+  def getGrpId: (Int, Int) = grpId
+  def setGrpId(newGrpId: (Int, Int)): Unit =
     grpId = newGrpId
   def genOneWay[M <: DFMember]: DFRef.OneWay[M] = DFRef.OneWay.Gen(grpId, nextId)
   def genTwoWay[M <: DFMember, O <: DFMember]: DFRef.TwoWay[M, O] = DFRef.TwoWay.Gen(grpId, nextId)
