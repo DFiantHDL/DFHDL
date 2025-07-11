@@ -41,5 +41,5 @@ begin
   sbox_inst_0_lhs      <= lhs(1);
   sbox_inst_1_lhs      <= lhs(2);
   sbox_inst_2_lhs      <= lhs(3);
-  o                    <= (o_part_sbox_inst_o, sbox_inst_0_o, sbox_inst_1_o, sbox_inst_2_o);
+  o <= (0 => o_part_sbox_inst_o, 1 => sbox_inst_0_o, 2 => sbox_inst_1_o, 3 => sbox_inst_2_o);
 end subWord_arch;

@@ -182,10 +182,9 @@ object BlockRamVar:
     case dfType: DFVector =>
       dfVal match
         case DclVar() =>
-          // if the var only has non-constant index accesses, then it's a block-ram access
-          // and we don't want to drop it. otherwise, we do.
+          // if the var only has index accesses, then it's a block-ram access.
           dfVal.getReadDeps.forall {
-            case applyIdx: DFVal.Alias.ApplyIdx => !applyIdx.relIdx.get.isConst
+            case applyIdx: DFVal.Alias.ApplyIdx => true
             case _                              => false
           }
         case _ => false

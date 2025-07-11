@@ -65,15 +65,18 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       designMembers.view
         .flatMap {
           case IteratorDcl()                                          => None
-          case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport => Some(p)
-          case _: DesignParam                                         => None
-          case c @ DclConst()                                         =>
+          case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport =>
+            p.dfType match
+              case _: DFVector if p.initRefList.nonEmpty =>
+                List(printer.csDFMember(p) + ";", printer.csDFValDclInitialBlock(p))
+              case _ => List(printer.csDFMember(p) + ";")
+          case _: DesignParam => None
+          case c @ DclConst() =>
             c.dfType match
               case DFInt32 => None
-              case _       => Some(c)
+              case _       => Some(printer.csDFMember(c) + ";")
           case _ => None
         }
-        .map(x => printer.csDFMember(x) + ";")
         .toList
         .emptyOr(_.mkString("\n"))
     val declarations = s"$constIntDcls$localTypeDcls$dfValDcls".emptyOr(v => s"\n${v.hindent}")

@@ -107,9 +107,13 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csInitSingle(ref: Dcl.InitRef): String
   def csInitSeq(refs: List[Dcl.InitRef]): String
   def csDFValDclEnd(dfVal: Dcl): String
+  val supportVectorInlineInit: Boolean = true
   final def csDFValDcl(dfVal: Dcl): String =
     val noInit = csDFValDclWithoutInit(dfVal)
     val init = dfVal.initRefList match
+      // case DFRef(DFVector.Val(_)) :: _ if !printer.supportVectorInlineInit => ""
+      case _
+          if dfVal.dfType.isInstanceOf[DFVector] && !printer.supportVectorInlineInit => ""
       case DFRef(DFVal.Func(op = FuncOp.InitFile(format, path))) :: Nil =>
         val csInitFile = format match
           case InitFileFormat.Auto => s""""$path""""
@@ -120,6 +124,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       case refs       => s" $csInitKeyword ${csInitSeq(refs)}"
     val end = csDFValDclEnd(dfVal)
     s"$noInit$init$end"
+  end csDFValDcl
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String
@@ -213,7 +218,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         val csArgs = args.map(_.refCodeString)
         dfVal.op match
           case DFVal.Func.Op.++ =>
-            def argsInBrackets = csArgs.mkStringBrackets
+            def argsInBrackets = csArgs.csList()
             dfVal.dfType match
               case DFString =>
                 if (csArgs.length == 2)

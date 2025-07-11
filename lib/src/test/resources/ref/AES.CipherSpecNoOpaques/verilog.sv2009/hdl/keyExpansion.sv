@@ -318,7 +318,7 @@ module keyExpansion(
   assign lhs_part_01             = w_3[1] ^ keySchedule_part_009;
   assign lhs_part_02             = w_3[2] ^ keySchedule_part_010;
   assign lhs_part_03             = w_3[3] ^ keySchedule_part_011;
-  assign lhs_part_04             = '{lhs_part_00, lhs_part_01, lhs_part_02, lhs_part_03};
+  assign lhs_part_04             = '{0: lhs_part_00, 1: lhs_part_01, 2: lhs_part_02, 3: lhs_part_03};
   assign keySchedule_part_012    = keySchedule_part_000 ^ (subWord_inst_0_o[0] ^ Rcon[2][0]);
   assign keySchedule_part_013    = keySchedule_part_001 ^ (subWord_inst_0_o[1] ^ Rcon[2][1]);
   assign keySchedule_part_014    = keySchedule_part_002 ^ (subWord_inst_0_o[2] ^ Rcon[2][2]);
@@ -335,7 +335,7 @@ module keyExpansion(
   assign lhs_part_06             = lhs_part_01 ^ keySchedule_part_021;
   assign lhs_part_07             = lhs_part_02 ^ keySchedule_part_022;
   assign lhs_part_08             = lhs_part_03 ^ keySchedule_part_023;
-  assign lhs_part_09             = '{lhs_part_05, lhs_part_06, lhs_part_07, lhs_part_08};
+  assign lhs_part_09             = '{0: lhs_part_05, 1: lhs_part_06, 2: lhs_part_07, 3: lhs_part_08};
   assign keySchedule_part_024    = keySchedule_part_012 ^ (subWord_inst_1_o[0] ^ Rcon[3][0]);
   assign keySchedule_part_025    = keySchedule_part_013 ^ (subWord_inst_1_o[1] ^ Rcon[3][1]);
   assign keySchedule_part_026    = keySchedule_part_014 ^ (subWord_inst_1_o[2] ^ Rcon[3][2]);
@@ -352,7 +352,7 @@ module keyExpansion(
   assign lhs_part_11             = lhs_part_06 ^ keySchedule_part_033;
   assign lhs_part_12             = lhs_part_07 ^ keySchedule_part_034;
   assign lhs_part_13             = lhs_part_08 ^ keySchedule_part_035;
-  assign lhs_part_14             = '{lhs_part_10, lhs_part_11, lhs_part_12, lhs_part_13};
+  assign lhs_part_14             = '{0: lhs_part_10, 1: lhs_part_11, 2: lhs_part_12, 3: lhs_part_13};
   assign keySchedule_part_036    = keySchedule_part_024 ^ (subWord_inst_2_o[0] ^ Rcon[4][0]);
   assign keySchedule_part_037    = keySchedule_part_025 ^ (subWord_inst_2_o[1] ^ Rcon[4][1]);
   assign keySchedule_part_038    = keySchedule_part_026 ^ (subWord_inst_2_o[2] ^ Rcon[4][2]);
@@ -369,7 +369,7 @@ module keyExpansion(
   assign lhs_part_16             = lhs_part_11 ^ keySchedule_part_045;
   assign lhs_part_17             = lhs_part_12 ^ keySchedule_part_046;
   assign lhs_part_18             = lhs_part_13 ^ keySchedule_part_047;
-  assign lhs_part_19             = '{lhs_part_15, lhs_part_16, lhs_part_17, lhs_part_18};
+  assign lhs_part_19             = '{0: lhs_part_15, 1: lhs_part_16, 2: lhs_part_17, 3: lhs_part_18};
   assign keySchedule_part_048    = keySchedule_part_036 ^ (subWord_inst_3_o[0] ^ Rcon[5][0]);
   assign keySchedule_part_049    = keySchedule_part_037 ^ (subWord_inst_3_o[1] ^ Rcon[5][1]);
   assign keySchedule_part_050    = keySchedule_part_038 ^ (subWord_inst_3_o[2] ^ Rcon[5][2]);
@@ -386,7 +386,7 @@ module keyExpansion(
   assign lhs_part_21             = lhs_part_16 ^ keySchedule_part_057;
   assign lhs_part_22             = lhs_part_17 ^ keySchedule_part_058;
   assign lhs_part_23             = lhs_part_18 ^ keySchedule_part_059;
-  assign lhs_part_24             = '{lhs_part_20, lhs_part_21, lhs_part_22, lhs_part_23};
+  assign lhs_part_24             = '{0: lhs_part_20, 1: lhs_part_21, 2: lhs_part_22, 3: lhs_part_23};
   assign keySchedule_part_060    = keySchedule_part_048 ^ (subWord_inst_4_o[0] ^ Rcon[6][0]);
   assign keySchedule_part_061    = keySchedule_part_049 ^ (subWord_inst_4_o[1] ^ Rcon[6][1]);
   assign keySchedule_part_062    = keySchedule_part_050 ^ (subWord_inst_4_o[2] ^ Rcon[6][2]);
@@ -403,7 +403,7 @@ module keyExpansion(
   assign lhs_part_26             = lhs_part_21 ^ keySchedule_part_069;
   assign lhs_part_27             = lhs_part_22 ^ keySchedule_part_070;
   assign lhs_part_28             = lhs_part_23 ^ keySchedule_part_071;
-  assign lhs_part_29             = '{lhs_part_25, lhs_part_26, lhs_part_27, lhs_part_28};
+  assign lhs_part_29             = '{0: lhs_part_25, 1: lhs_part_26, 2: lhs_part_27, 3: lhs_part_28};
   assign keySchedule_part_072    = keySchedule_part_060 ^ (subWord_inst_5_o[0] ^ Rcon[7][0]);
   assign keySchedule_part_073    = keySchedule_part_061 ^ (subWord_inst_5_o[1] ^ Rcon[7][1]);
   assign keySchedule_part_074    = keySchedule_part_062 ^ (subWord_inst_5_o[2] ^ Rcon[7][2]);
@@ -420,7 +420,7 @@ module keyExpansion(
   assign lhs_part_31             = lhs_part_26 ^ keySchedule_part_081;
   assign lhs_part_32             = lhs_part_27 ^ keySchedule_part_082;
   assign lhs_part_33             = lhs_part_28 ^ keySchedule_part_083;
-  assign lhs_part_34             = '{lhs_part_30, lhs_part_31, lhs_part_32, lhs_part_33};
+  assign lhs_part_34             = '{0: lhs_part_30, 1: lhs_part_31, 2: lhs_part_32, 3: lhs_part_33};
   assign keySchedule_part_084    = keySchedule_part_072 ^ (subWord_inst_6_o[0] ^ Rcon[8][0]);
   assign keySchedule_part_085    = keySchedule_part_073 ^ (subWord_inst_6_o[1] ^ Rcon[8][1]);
   assign keySchedule_part_086    = keySchedule_part_074 ^ (subWord_inst_6_o[2] ^ Rcon[8][2]);
@@ -437,7 +437,7 @@ module keyExpansion(
   assign lhs_part_36             = lhs_part_31 ^ keySchedule_part_093;
   assign lhs_part_37             = lhs_part_32 ^ keySchedule_part_094;
   assign lhs_part_38             = lhs_part_33 ^ keySchedule_part_095;
-  assign lhs_part_39             = '{lhs_part_35, lhs_part_36, lhs_part_37, lhs_part_38};
+  assign lhs_part_39             = '{0: lhs_part_35, 1: lhs_part_36, 2: lhs_part_37, 3: lhs_part_38};
   assign keySchedule_part_096    = keySchedule_part_084 ^ (subWord_inst_7_o[0] ^ Rcon[9][0]);
   assign keySchedule_part_097    = keySchedule_part_085 ^ (subWord_inst_7_o[1] ^ Rcon[9][1]);
   assign keySchedule_part_098    = keySchedule_part_086 ^ (subWord_inst_7_o[2] ^ Rcon[9][2]);
@@ -454,7 +454,7 @@ module keyExpansion(
   assign lhs_part_41             = lhs_part_36 ^ keySchedule_part_105;
   assign lhs_part_42             = lhs_part_37 ^ keySchedule_part_106;
   assign lhs_part_43             = lhs_part_38 ^ keySchedule_part_107;
-  assign lhs_part_44             = '{lhs_part_40, lhs_part_41, lhs_part_42, lhs_part_43};
+  assign lhs_part_44             = '{0: lhs_part_40, 1: lhs_part_41, 2: lhs_part_42, 3: lhs_part_43};
   assign keySchedule_part_108    = keySchedule_part_096 ^ (subWord_inst_8_o[0] ^ Rcon[10][0]);
   assign keySchedule_part_109    = keySchedule_part_097 ^ (subWord_inst_8_o[1] ^ Rcon[10][1]);
   assign keySchedule_part_110    = keySchedule_part_098 ^ (subWord_inst_8_o[2] ^ Rcon[10][2]);
@@ -468,52 +468,52 @@ module keyExpansion(
   assign keySchedule_part_118    = keySchedule_part_106 ^ keySchedule_part_114;
   assign keySchedule_part_119    = keySchedule_part_107 ^ keySchedule_part_115;
   assign keySchedule = '{
-    w_0,
-    w_1,
-    w_2,
-    w_3,
-    '{keySchedule_part_000, keySchedule_part_001, keySchedule_part_002, keySchedule_part_003},
-    '{keySchedule_part_004, keySchedule_part_005, keySchedule_part_006, keySchedule_part_007},
-    '{keySchedule_part_008, keySchedule_part_009, keySchedule_part_010, keySchedule_part_011},
-    lhs_part_04,
-    '{keySchedule_part_012, keySchedule_part_013, keySchedule_part_014, keySchedule_part_015},
-    '{keySchedule_part_016, keySchedule_part_017, keySchedule_part_018, keySchedule_part_019},
-    '{keySchedule_part_020, keySchedule_part_021, keySchedule_part_022, keySchedule_part_023},
-    lhs_part_09,
-    '{keySchedule_part_024, keySchedule_part_025, keySchedule_part_026, keySchedule_part_027},
-    '{keySchedule_part_028, keySchedule_part_029, keySchedule_part_030, keySchedule_part_031},
-    '{keySchedule_part_032, keySchedule_part_033, keySchedule_part_034, keySchedule_part_035},
-    lhs_part_14,
-    '{keySchedule_part_036, keySchedule_part_037, keySchedule_part_038, keySchedule_part_039},
-    '{keySchedule_part_040, keySchedule_part_041, keySchedule_part_042, keySchedule_part_043},
-    '{keySchedule_part_044, keySchedule_part_045, keySchedule_part_046, keySchedule_part_047},
-    lhs_part_19,
-    '{keySchedule_part_048, keySchedule_part_049, keySchedule_part_050, keySchedule_part_051},
-    '{keySchedule_part_052, keySchedule_part_053, keySchedule_part_054, keySchedule_part_055},
-    '{keySchedule_part_056, keySchedule_part_057, keySchedule_part_058, keySchedule_part_059},
-    lhs_part_24,
-    '{keySchedule_part_060, keySchedule_part_061, keySchedule_part_062, keySchedule_part_063},
-    '{keySchedule_part_064, keySchedule_part_065, keySchedule_part_066, keySchedule_part_067},
-    '{keySchedule_part_068, keySchedule_part_069, keySchedule_part_070, keySchedule_part_071},
-    lhs_part_29,
-    '{keySchedule_part_072, keySchedule_part_073, keySchedule_part_074, keySchedule_part_075},
-    '{keySchedule_part_076, keySchedule_part_077, keySchedule_part_078, keySchedule_part_079},
-    '{keySchedule_part_080, keySchedule_part_081, keySchedule_part_082, keySchedule_part_083},
-    lhs_part_34,
-    '{keySchedule_part_084, keySchedule_part_085, keySchedule_part_086, keySchedule_part_087},
-    '{keySchedule_part_088, keySchedule_part_089, keySchedule_part_090, keySchedule_part_091},
-    '{keySchedule_part_092, keySchedule_part_093, keySchedule_part_094, keySchedule_part_095},
-    lhs_part_39,
-    '{keySchedule_part_096, keySchedule_part_097, keySchedule_part_098, keySchedule_part_099},
-    '{keySchedule_part_100, keySchedule_part_101, keySchedule_part_102, keySchedule_part_103},
-    '{keySchedule_part_104, keySchedule_part_105, keySchedule_part_106, keySchedule_part_107},
-    lhs_part_44,
-    '{keySchedule_part_108, keySchedule_part_109, keySchedule_part_110, keySchedule_part_111},
-    '{keySchedule_part_112, keySchedule_part_113, keySchedule_part_114, keySchedule_part_115},
-    '{keySchedule_part_116, keySchedule_part_117, keySchedule_part_118, keySchedule_part_119},
-    '{
-      lhs_part_40 ^ keySchedule_part_116, lhs_part_41 ^ keySchedule_part_117,
-      lhs_part_42 ^ keySchedule_part_118, lhs_part_43 ^ keySchedule_part_119
+     0: w_0,
+     1: w_1,
+     2: w_2,
+     3: w_3,
+     4: '{0: keySchedule_part_000, 1: keySchedule_part_001, 2: keySchedule_part_002, 3: keySchedule_part_003},
+     5: '{0: keySchedule_part_004, 1: keySchedule_part_005, 2: keySchedule_part_006, 3: keySchedule_part_007},
+     6: '{0: keySchedule_part_008, 1: keySchedule_part_009, 2: keySchedule_part_010, 3: keySchedule_part_011},
+     7: lhs_part_04,
+     8: '{0: keySchedule_part_012, 1: keySchedule_part_013, 2: keySchedule_part_014, 3: keySchedule_part_015},
+     9: '{0: keySchedule_part_016, 1: keySchedule_part_017, 2: keySchedule_part_018, 3: keySchedule_part_019},
+    10: '{0: keySchedule_part_020, 1: keySchedule_part_021, 2: keySchedule_part_022, 3: keySchedule_part_023},
+    11: lhs_part_09,
+    12: '{0: keySchedule_part_024, 1: keySchedule_part_025, 2: keySchedule_part_026, 3: keySchedule_part_027},
+    13: '{0: keySchedule_part_028, 1: keySchedule_part_029, 2: keySchedule_part_030, 3: keySchedule_part_031},
+    14: '{0: keySchedule_part_032, 1: keySchedule_part_033, 2: keySchedule_part_034, 3: keySchedule_part_035},
+    15: lhs_part_14,
+    16: '{0: keySchedule_part_036, 1: keySchedule_part_037, 2: keySchedule_part_038, 3: keySchedule_part_039},
+    17: '{0: keySchedule_part_040, 1: keySchedule_part_041, 2: keySchedule_part_042, 3: keySchedule_part_043},
+    18: '{0: keySchedule_part_044, 1: keySchedule_part_045, 2: keySchedule_part_046, 3: keySchedule_part_047},
+    19: lhs_part_19,
+    20: '{0: keySchedule_part_048, 1: keySchedule_part_049, 2: keySchedule_part_050, 3: keySchedule_part_051},
+    21: '{0: keySchedule_part_052, 1: keySchedule_part_053, 2: keySchedule_part_054, 3: keySchedule_part_055},
+    22: '{0: keySchedule_part_056, 1: keySchedule_part_057, 2: keySchedule_part_058, 3: keySchedule_part_059},
+    23: lhs_part_24,
+    24: '{0: keySchedule_part_060, 1: keySchedule_part_061, 2: keySchedule_part_062, 3: keySchedule_part_063},
+    25: '{0: keySchedule_part_064, 1: keySchedule_part_065, 2: keySchedule_part_066, 3: keySchedule_part_067},
+    26: '{0: keySchedule_part_068, 1: keySchedule_part_069, 2: keySchedule_part_070, 3: keySchedule_part_071},
+    27: lhs_part_29,
+    28: '{0: keySchedule_part_072, 1: keySchedule_part_073, 2: keySchedule_part_074, 3: keySchedule_part_075},
+    29: '{0: keySchedule_part_076, 1: keySchedule_part_077, 2: keySchedule_part_078, 3: keySchedule_part_079},
+    30: '{0: keySchedule_part_080, 1: keySchedule_part_081, 2: keySchedule_part_082, 3: keySchedule_part_083},
+    31: lhs_part_34,
+    32: '{0: keySchedule_part_084, 1: keySchedule_part_085, 2: keySchedule_part_086, 3: keySchedule_part_087},
+    33: '{0: keySchedule_part_088, 1: keySchedule_part_089, 2: keySchedule_part_090, 3: keySchedule_part_091},
+    34: '{0: keySchedule_part_092, 1: keySchedule_part_093, 2: keySchedule_part_094, 3: keySchedule_part_095},
+    35: lhs_part_39,
+    36: '{0: keySchedule_part_096, 1: keySchedule_part_097, 2: keySchedule_part_098, 3: keySchedule_part_099},
+    37: '{0: keySchedule_part_100, 1: keySchedule_part_101, 2: keySchedule_part_102, 3: keySchedule_part_103},
+    38: '{0: keySchedule_part_104, 1: keySchedule_part_105, 2: keySchedule_part_106, 3: keySchedule_part_107},
+    39: lhs_part_44,
+    40: '{0: keySchedule_part_108, 1: keySchedule_part_109, 2: keySchedule_part_110, 3: keySchedule_part_111},
+    41: '{0: keySchedule_part_112, 1: keySchedule_part_113, 2: keySchedule_part_114, 3: keySchedule_part_115},
+    42: '{0: keySchedule_part_116, 1: keySchedule_part_117, 2: keySchedule_part_118, 3: keySchedule_part_119},
+    43: '{
+      0: lhs_part_40 ^ keySchedule_part_116, 1: lhs_part_41 ^ keySchedule_part_117,
+      2: lhs_part_42 ^ keySchedule_part_118, 3: lhs_part_43 ^ keySchedule_part_119
     }
   };
 endmodule

@@ -89,10 +89,7 @@ object DFVector:
       lazy val commonMeta = fromIR.head.meta
       // a vector of fully anonymous constants that have the same meta information will become
       // a constant vector to save on references
-      if (fromIR.forall(v => v.isConst && v.isFullyAnonymous && v.meta == commonMeta))
-        DFVal.Const.forced(vectorType, Vector.from(fromIR.map(_.getConstData.get)), named = true)
-          .asValTP[DFVector[T, Tuple1[D1]], P]
-      else DFVal.Func(vectorType, FuncOp.++, from)
+      DFVal.Func(vectorType, FuncOp.++, from)
     def conv[T <: DFTypeAny, P](cellType: T, cellDim: Int)(from: Iterable[DFValTP[T, P]])(using
         DFC
     ): DFValTP[DFVector[T, Tuple1[cellDim.type]], P] =

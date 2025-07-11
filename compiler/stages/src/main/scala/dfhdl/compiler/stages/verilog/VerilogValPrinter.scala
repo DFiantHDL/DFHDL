@@ -16,23 +16,22 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case _                                         => true
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
-    if (supportGlobalParameters || !dfVal.isGlobal)
-      val arrRange = printer.csDFVectorRanges(dfVal.dfType)
-      val endOfStatement = if (dfVal.isGlobal) ";" else ""
-      val default = dfVal match
-        // for non-top-level design parameters, we fetch the default value if it is defined.
-        // for all other cases, we get the parameter constant data and use that as default value.
-        // using the constant data only happens in verilog.v95, since parameters are declared in
-        // the body and must have defaults.
-        case param: DesignParam =>
-          param.defaultRef.get match
-            case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
-            case _ => printer.csConstData(param.dfType, param.getConstData.get)
-        case _ => csDFValExpr(dfVal)
-      val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
-      val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
-      s"parameter ${csTypeNoLogic}${dfVal.getName}${arrRange} = $default$endOfStatement"
-    else s"`define ${dfVal.getName} ${csDFValExpr(dfVal).replace("\n", " \\\n")}"
+    val arrRange = printer.csDFVectorRanges(dfVal.dfType)
+    val endOfStatement = if (dfVal.isGlobal) ";" else ""
+    val default = dfVal match
+      // for non-top-level design parameters, we fetch the default value if it is defined.
+      // for all other cases, we get the parameter constant data and use that as default value.
+      // using the constant data only happens in verilog.v95, since parameters are declared in
+      // the body and must have defaults.
+      case param: DesignParam =>
+        param.defaultRef.get match
+          case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
+          case _ => printer.csConstData(param.dfType, param.getConstData.get)
+      case _ => csDFValExpr(dfVal)
+    val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
+    val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
+    s"parameter ${csTypeNoLogic}${dfVal.getName}${arrRange} = $default$endOfStatement"
+  end csDFValDclConst
 
   def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
@@ -52,19 +51,33 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     s"$modifier${fixedDFTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
   end csDFValDclWithoutInit
   def csInitKeyword: String = "="
+  override val supportVectorInlineInit: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
   def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
   def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
   def csDFValDclEnd(dfVal: Dcl): String = ""
+  def csDFValDclInitialBlock(dfVal: Dcl): String =
+    val initVal = dfVal.initRefList.head.get
+    val dfType = dfVal.dfType.asInstanceOf[DFVector]
+    val length = dfType.cellDimParamRefs.head.refCodeString
+    val cellWidth = dfType.cellType.width
+    val contents = if (initVal.isAnonymous)
+      ???
+    else
+      s"""|integer i;
+          |for (i = 0; i < ${length}; i = i + 1) begin
+          |  ${dfVal.getName}[i] = ${initVal.getName}[($length-i)*${cellWidth}-1-:${cellWidth}];
+          |end""".stripMargin
+    s"""|initial begin : ${dfVal.getName}_init
+        |${contents.hindent}
+        |end""".stripMargin
+  end csDFValDclInitialBlock
   val allowDoubleStarPowerSyntax: Boolean =
     printer.dialect match
       case VerilogDialect.v95 => false
       case _                  => true
-  override def csDFMemberName(named: DFMember.Named): String =
-    if (printer.supportGlobalParameters) named.getName
-    else
-      named match
-        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => s"`${named.getName}"
-        case _                                          => named.getName
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     def commonOpStr: String =
       dfVal.op match
@@ -145,9 +158,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         dfVal.op match
           case DFVal.Func.Op.++ =>
             dfVal.dfType match
-              case DFStruct(_, _) | DFVector(_, _) =>
+              case DFVector(_, _) =>
+                printer.csDFVectorElemCS(args.map(_.refCodeString))
+              case DFStruct(_, _) =>
                 args.map(_.refCodeString).csList("'{", ",", "}")
-//              case DFVector(_, _) => printer.unsupported
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"{${args.length}{${args.head.refCodeString}}}"

@@ -800,8 +800,8 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
-      """|`define width 8
-         |`define length 10
+      """|parameter integer width = 8;
+         |parameter integer length = 10;
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "Foo_defs.vh"
@@ -822,14 +822,14 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `include "Foo_defs.vh"
          |  parameter integer width5 = 8;
          |  parameter integer length5 = 10;
-         |  input  wire  [`width * `length - 1:0] x1;
-         |  output wire [`width * `length - 1:0] y1;
-         |  input  wire  [`width * (`length + 1) - 1:0] x2;
-         |  output wire [`width * (`length + 1) - 1:0] y2;
-         |  input  wire  [`width * 7 - 1:0] x3;
-         |  output wire [`width * 7 - 1:0] y3;
-         |  input  wire  [(`width * 7) * `length - 1:0] x4;
-         |  output wire [(`width * 7) * `length - 1:0] y4;
+         |  input  wire  [width * length - 1:0] x1;
+         |  output wire [width * length - 1:0] y1;
+         |  input  wire  [width * (length + 1) - 1:0] x2;
+         |  output wire [width * (length + 1) - 1:0] y2;
+         |  input  wire  [width * 7 - 1:0] x3;
+         |  output wire [width * 7 - 1:0] y3;
+         |  input  wire  [(width * 7) * length - 1:0] x4;
+         |  output wire [(width * 7) * length - 1:0] y4;
          |  input  wire  [(width5 * 7) * length5 - 1:0] x5;
          |  output wire [(width5 * 7) * length5 - 1:0] y5;
          |  assign y1 = x1;

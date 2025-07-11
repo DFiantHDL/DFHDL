@@ -68,7 +68,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
       val dfVal = dfValRef.get
       val csDFVal = dfValRef.refCodeString
       dfVal.dfType match
-        case DFBool => s"""$csDFVal ? "true" : "false""""
+        case DFBool         => s"""$csDFVal ? "true" : "false""""
         case dfType: DFEnum =>
           if (printer.allowTypeDef) s"$csDFVal.name()"
           else s"${dfType.name}_to_string($csDFVal)"
@@ -127,7 +127,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     def csDisplay(severity: TextOut.Severity, msg: String) =
       s"""$$display("${severity.toString.toUpperCase()}: ", $msg);${csFinish(severity)}"""
     textOut.op match
-      case TextOut.Op.Finish => "$finish;"
+      case TextOut.Op.Finish           => "$finish;"
       case TextOut.Op.Report(severity) =>
         if (assertIsSupported)
           val errCodeArg = severity match
@@ -151,7 +151,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
               |end""".stripMargin
       case TextOut.Op.Print   => s"$$write($msg);"
       case TextOut.Op.Println => s"$$display($msg);"
-      case TextOut.Op.Debug =>
+      case TextOut.Op.Debug   =>
         if (assertIsSupported) s"$$info($msg);"
         else csDisplay(TextOut.Severity.Info, msg)
     end match
@@ -177,20 +177,23 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
     // the module defs are alternating between outside of and inside of the module
     // because we will include the module defs twice, once in the top of the file
     // and second time inside the module.
+    val globalParams =
+      if (printer.supportGlobalParameters) super.csGlobalFileContent.emptyOr("\n" + _) else ""
+    val globalToLocalParams =
+      if (printer.supportGlobalParameters) "" else super.csGlobalFileContent.emptyOr("\n" + _)
     val moduleDefs =
       if (printer.allowTypeDef) ""
       else
         s"""|
             |`ifndef ${defName}_MODULE
             |`define ${defName}_MODULE
-            |`else
+            |`else$globalToLocalParams
             |${printer.csGlobalTypeFuncDcls}
             |`undef ${defName}_MODULE
             |`endif
             |""".stripMargin
     s"""`ifndef $defName
-       |`define $defName
-       |${super.csGlobalFileContent}
+       |`define $defName$globalParams
        |`endif$moduleDefs
        |""".stripMargin
   end csGlobalFileContent
@@ -233,7 +236,7 @@ class VerilogPrinter(val dialect: VerilogDialect)(using
 
   val verilogKW: Set[String] = Set(
     "module", "input", "output", "inout", "endmodule", "always", "always_comb", "always_ff",
-    "begin", "end", "case", "default", "endcase", "default_nettype", "include", "inside",
+    "begin", "end", "case", "default", "endcase", "default_nettype", "include", "initial", "inside",
     "timescale", "if", "else", "typedef", "enum", "posedge", "negedge", "assign", "parameter",
     "struct", "packed", "ifndef", "endif", "define", "function", "endfunction", "for", "while",
     "assert", "write", "display", "info", "warning", "error", "fatal", "finish"

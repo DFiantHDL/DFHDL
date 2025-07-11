@@ -71,13 +71,12 @@ protected trait VHDLDataPrinter extends AbstractDataPrinter:
         val entryName = dfType.entries.find(_._2 == value).get._1
         s"${dfType.name}_${entryName}"
       case None => "?"
+  def csDFVectorElemCS(elemCS: List[String]): String =
+    elemCS.view.zipWithIndex.map((x, i) =>
+      s"${i.toPaddedString(elemCS.length - 1, padWithZeros = false)} => $x"
+    ).toList.csList()
   def csDFVectorData(dfType: DFVector, data: Vector[Any]): String =
-    given CanEqual[Any, Any] = CanEqual.derived
-    val csData =
-      data.view.zipWithIndex.map((x, i) =>
-        s"${i.toPaddedString(data.length - 1, padWithZeros = false)} => ${csConstData(dfType.cellType, x)}"
-      )
-    csData.toList.csList()
+    csDFVectorElemCS(data.view.map(csConstData(dfType.cellType, _)).toList)
   def csDFOpaqueData(dfType: DFOpaque, data: Any): String =
     csConstData(dfType.actualType, data)
   def csDFStructData(dfType: DFStruct, data: List[Any]): String =
