@@ -547,4 +547,21 @@ class DropOpaquesSpec extends StageSpec:
     )
   }
 
+  test("Constant global vector of opaque types - drop all opaques") {
+    val g: MyOpaque X 4 <> CONST = Vector(1, 2, 3, 4).map(i => i.as(MyOpaque))
+    class Top extends RTDesign:
+      val o = MyOpaque <> OUT
+      o := g(0)
+    val top = (new Top).dropOpaques
+    assertCodeString(
+      top,
+      """|val g: UInt[32] X 4 <> CONST = DFVector(UInt(32) X 4)(d"32'1", d"32'2", d"32'3", d"32'4")
+         |class Top extends RTDesign:
+         |  val o = UInt(32) <> OUT
+         |  o := g(0)
+         |end Top
+         |""".stripMargin
+    )
+  }
+
 end DropOpaquesSpec

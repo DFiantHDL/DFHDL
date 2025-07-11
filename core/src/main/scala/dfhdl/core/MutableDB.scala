@@ -383,24 +383,27 @@ final class MutableDB():
     member
   end getOriginMember
 
-  private def globalMemberCtxCopy(originalMember: DFMember, newMember: DFMember): Unit =
-    newMember match
+  private def globalMemberCtxUpdate(member: DFMember): Unit =
+    member match
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
-        dfVal.globalCtx = originalMember.asInstanceOf[DFVal.CanBeGlobal].globalCtx
+        dfVal.globalCtx = DesignContext.global
+      case _ =>
+
+  // if the original member is global, then injects its context into
+  // the current context
+  private def globalMemberCtxInject(member: DFMember): Unit =
+    member match
+      case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
+        injectGlobals(dfVal.globalCtx.asInstanceOf[DesignContext])
       case _ =>
 
   def setMember[M <: DFMember](originalMember: M, newMemberFunc: M => M): M =
     if (inMetaProgramming) newMemberFunc(originalMember)
     else
       dirtyDB()
-      // if the original member is global, then injects its context into
-      // the current context
-      originalMember match
-        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
-          injectGlobals(dfVal.globalCtx.asInstanceOf[DesignContext])
-        case _ =>
+      globalMemberCtxInject(originalMember)
       val newMember = DesignContext.current.setMember(originalMember, newMemberFunc)
-      globalMemberCtxCopy(originalMember, newMember)
+      globalMemberCtxUpdate(newMember)
       // in case the member is an owner, we check the owner stack to replace it
       (originalMember, newMember) match
         case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)
@@ -410,8 +413,9 @@ final class MutableDB():
 
   def replaceMember[M <: DFMember](originalMember: M, newMember: M): M =
     dirtyDB()
-    globalMemberCtxCopy(originalMember, newMember)
+    globalMemberCtxInject(originalMember)
     DesignContext.current.replaceMember(originalMember, newMember)
+    globalMemberCtxUpdate(newMember)
     // in case the member is an owner, we check the owner stack to replace it
     (originalMember, newMember) match
       case (o: DFOwner, n: DFOwner) => OwnershipContext.replaceOwner(o, n)

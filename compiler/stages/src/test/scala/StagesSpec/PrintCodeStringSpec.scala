@@ -1315,6 +1315,23 @@ class PrintCodeStringSpec extends StageSpec:
     )
   }
 
+  test("constant vector regression") {
+    object Test:
+      val foo: UInt[8] <> CONST = h"00".uint
+      class Bar extends DFDesign:
+        val o = foo.bits
+      end Bar
+    import Test.*
+    val top = Bar().sanityCheck.getCodeString
+    assertNoDiff(
+      top,
+      """|val foo: UInt[8] <> CONST = d"8'0"
+         |class Bar extends DFDesign:
+         |  val o: Bits[8] <> CONST = foo.bits
+         |end Bar""".stripMargin
+    )
+  }
+
   // TODO: requires fixing
   // test("nesting parameters regression") {
   //   class Inner(val width: Int <> CONST) extends RTDesign:
