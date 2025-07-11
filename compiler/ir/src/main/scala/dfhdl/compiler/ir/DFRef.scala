@@ -11,7 +11,7 @@ sealed trait DFRef[+M <: DFMember] extends Product, Serializable derives CanEqua
   def get(using getSet: MemberGetSet): M = getSet(this)
   def getOption(using getSet: MemberGetSet): Option[M] = getSet.getOption(this)
   def copyAsNewRef(using RefGen): this.type
-  override def toString: String = s"<${this.hashString}>"
+  override def toString: String = write(this)
 
 object DFRef:
   sealed trait Empty extends DFRef[DFMember.Empty]:
