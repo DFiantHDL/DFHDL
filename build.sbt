@@ -77,7 +77,7 @@ lazy val core = project
     name := s"$projectName-core",
     settings,
     pluginTestUseSettings,
-    libraryDependencies ++= commonDependencies :+ dependencies.scalafmt,
+    libraryDependencies ++= commonDependencies,
     Compile / resourceGenerators += Def.task {
       val file = (Compile / resourceManaged).value / "version.properties"
       val contents = s"version=${version.value}"
@@ -136,17 +136,15 @@ lazy val devices = (project in file("devices"))
 
 lazy val dependencies =
   new {
-    private val scodecV = "1.2.1"
+    private val scodecV = "1.2.4"
     private val munitV = "1.1.1"
-    private val scalafmtV = "3.8.3"
-    private val airframelogV = "2025.1.12"
+    private val airframelogV = "2025.1.14"
     private val oslibV = "0.9.2"
     private val scallopV = "5.2.0"
     private val upickleV = "4.2.1"
 
     val scodec = "org.scodec" %% "scodec-bits" % scodecV
     val munit = "org.scalameta" %% "munit" % munitV % Test
-    val scalafmt = ("org.scalameta" %% "scalafmt-dynamic" % scalafmtV).cross(CrossVersion.for3Use2_13)
     val airframelog = "org.wvlet.airframe" %% "airframe-log" % airframelogV
     val oslib = "com.lihaoyi" %% "os-lib" % oslibV
     val scallop = "org.rogach" %% "scallop" % scallopV
