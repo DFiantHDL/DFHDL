@@ -186,8 +186,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match
-          case _: DFVector => s"all(${argL.refCodeString})"
-          case _           =>
+          case dfType: DFVector => s"DFVector(${printer.csDFType(dfType)})(${argL.refCodeString})"
+          case _                =>
             val csArgL = argL.refCodeString(typeCS)
             val csArgR = argR.refCodeString(typeCS)
             s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"

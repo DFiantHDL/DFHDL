@@ -230,8 +230,20 @@ object DFVector:
       object DFVector:
         def apply[T <: DFTypeAny, D1 <: IntP, P](vectorType: DFVector[T, Tuple1[D1]])(
             elems: DFValTP[T, P]*
-        )(using DFC): DFValTP[DFVector[T, Tuple1[D1]], P] =
-          DFVal.Func(vectorType, FuncOp.++, elems.toList)
+        )(using DFC): DFValTP[DFVector[T, Tuple1[D1]], P] = trydf:
+          if (elems.size == 1)
+            DFVal.Func(
+              vectorType,
+              FuncOp.repeat,
+              List(elems.head, vectorType.lengthIntParam.toDFConst)
+            ).asValTP[DFVector[T, Tuple1[D1]], P]
+          else
+            assert(
+              elems.size == dfhdl.core.DFVector.lengthInt(vectorType),
+              "The number of elements in the vector does not match the vector length."
+            )
+            DFVal.Func(vectorType, FuncOp.++, elems.toList)
+      end DFVector
 
       extension [T <: DFTypeAny, D1 <: IntP, M <: ModifierAny](
           lhs: DFVal[DFVector[T, Tuple1[D1]], M]
