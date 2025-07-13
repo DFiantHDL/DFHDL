@@ -180,8 +180,17 @@ extension (db: DB)
           // }
           ret
         case (rc, (origMember, Patch.Add(db, config))) =>
+          // if the original member is a global value, the all references pointing to the top design in the patch
+          // db should point to an empty member for global placement
+          val fixedGlobalRefTable = origMember match
+            case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
+              db.refTable.map { case (ref, member) =>
+                if (member == db.top) (ref, DFMember.Empty)
+                else (ref, member)
+              }
+            case _ => db.refTable
           // updating the patched DB reference table members with the newest members kept by the replacement context
-          val updatedPatchRefTable = rc.getUpdatedRefTable(db.refTable)
+          val updatedPatchRefTable = rc.getUpdatedRefTable(fixedGlobalRefTable)
           val keepRefList = db.members.flatMap(_.getRefs)
           val repRT = config match
             case Patch.Add.Config.ReplaceWithMemberN(n, repConfig, refFilter) =>
