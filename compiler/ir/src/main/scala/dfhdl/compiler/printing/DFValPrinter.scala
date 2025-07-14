@@ -111,10 +111,8 @@ trait AbstractValPrinter extends AbstractPrinter:
   final def csDFValDcl(dfVal: Dcl): String =
     val noInit = csDFValDclWithoutInit(dfVal)
     val init = dfVal.initRefList match
-      // case DFRef(DFVector.Val(_)) :: _ if !printer.supportVectorInlineInit => ""
-      case _
-          if dfVal.dfType.isInstanceOf[DFVector] && !printer.supportVectorInlineInit => ""
-      case DFRef(DFVal.Func(op = FuncOp.InitFile(format, path))) :: Nil =>
+      case DFRef(DFVector.Val(_)) :: _ if !printer.supportVectorInlineInit => ""
+      case DFRef(DFVal.Func(op = FuncOp.InitFile(format, path))) :: Nil    =>
         val csInitFile = format match
           case InitFileFormat.Auto => s""""$path""""
           case _                   => s"""("$path", InitFileFormat.$format)"""
@@ -186,8 +184,8 @@ protected trait DFValPrinter extends AbstractValPrinter:
       // repeat func
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match
-          case dfType: DFVector => s"DFVector(${printer.csDFType(dfType)})(${argL.refCodeString})"
-          case _                =>
+          case _: DFVector => s"all(${argL.refCodeString})"
+          case _           =>
             val csArgL = argL.refCodeString(typeCS)
             val csArgR = argR.refCodeString(typeCS)
             s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"

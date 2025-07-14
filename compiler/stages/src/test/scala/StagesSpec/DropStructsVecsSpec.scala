@@ -81,7 +81,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
       val v =
         UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
       val v2  = UInt(width) X depth <> VAR init all(0)
-      val v3  = UInt(width) X depth <> VAR init all(0)
+      val v3  = UInt(width) X depth <> VAR init Vector(0, 1, 2, 3)
       val sel = UInt.until(depth)   <> IN
       val o   = UInt(width)         <> OUT
       val o2  = UInt(width) X depth <> OUT
@@ -96,7 +96,7 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |) extends DFDesign:
          |  val v = UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
          |  val v2 = UInt(width) X depth <> VAR init h"${width}'0".repeat(depth).as(UInt(width) X depth)
-         |  val v3 = Bits(width * depth) <> VAR init d"${width}'0".repeat(depth)
+         |  val v3 = Bits(width * depth) <> VAR init (h"${width}'0", h"${width}'1", h"${width}'2", h"${width}'3").toBits
          |  val sel = UInt(clog2(depth)) <> IN
          |  val o = UInt(width) <> OUT
          |  val o2 = Bits(width * depth) <> OUT
@@ -208,11 +208,18 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
       Vector(h"09", h"10", h"11", h"12"),
       Vector(h"13", h"14", h"15", h"16")
     )
-    class Bar() extends DFDesign:
-      val o  = Bits(8)     <> OUT
-      val o2 = Bits(8) X 4 <> OUT
-      o  := arg(0) ^ arg(1)
-      o2 := arg2(0)
+    class Bar() extends RTDesign:
+      val o   = Bits(8)         <> OUT
+      val o2  = Bits(8) X 4     <> OUT
+      val o3  = Bits(8) X 4     <> OUT
+      val v   = Bits(8) X 4     <> VAR init arg
+      val v2  = Bits(8) X 4 X 4 <> VAR init arg2
+      val v3  = Bits(8) X 4     <> VAR.REG
+      val sel = UInt.until(4)   <> IN
+      o           := arg(0) ^ arg(1) ^ v(sel) ^ v3(sel)
+      o2          := arg2(0)
+      v3(sel).din := v(sel)
+      o3          := v2(sel)
     val top = (new Bar).dropStructsVecs
     assertCodeString(
       top,
@@ -222,11 +229,18 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |    (h"01", h"02", h"03", h"04").toBits, (h"05", h"06", h"07", h"08").toBits,
          |    (h"09", h"10", h"11", h"12").toBits, (h"13", h"14", h"15", h"16").toBits
          |  ).toBits
-         |class Bar extends DFDesign:
+         |class Bar extends RTDesign:
          |  val o = Bits(8) <> OUT
          |  val o2 = Bits(32) <> OUT
-         |  o := arg(31, 24) ^ arg(23, 16)
+         |  val o3 = Bits(32) <> OUT
+         |  val v = Bits(8) X 4 <> VAR init arg.as(Bits(8) X 4)
+         |  val v2 = Bits(32) X 4 <> VAR init arg2.as(Bits(32) X 4)
+         |  val v3 = Bits(8) X 4 <> VAR.REG
+         |  val sel = UInt(2) <> IN
+         |  o := ((arg(31, 24) ^ arg(23, 16)) ^ v(sel.toInt)) ^ v3(sel.toInt)
          |  o2 := arg2(127, 96)
+         |  v3(sel.toInt).din := v(sel.toInt)
+         |  o3 := v2(sel.toInt)
          |end Bar
          |""".stripMargin
     )

@@ -67,7 +67,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
           case IteratorDcl()                                          => None
           case p: DFVal.Dcl if p.isVar || !parameterizedModuleSupport =>
             p.dfType match
-              case _: DFVector if p.initRefList.nonEmpty =>
+              case _: DFVector if !printer.supportVectorInlineInit && p.initRefList.nonEmpty =>
                 List(printer.csDFMember(p) + ";", printer.csDFValDclInitialBlock(p))
               case _ => List(printer.csDFMember(p) + ";")
           case _: DesignParam => None

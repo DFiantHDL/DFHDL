@@ -1257,4 +1257,54 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+  test("vector init printing under verilog.v95") {
+    given options.CompilerOptions.Backend = backends.verilog.v95
+    class Foo(
+        val PORT_WIDTH: Int <> CONST = 8,
+        val PORT_DEPTH: Int <> CONST = 4
+    ) extends EDDesign:
+      val v1 = Bits(PORT_WIDTH) X PORT_DEPTH <> VAR init Vector(h"01", h"02", h"03", h"04")
+      val v2 = Bits(PORT_WIDTH) X PORT_DEPTH <> VAR init all(all(0))
+      val initArg: Bits[PORT_WIDTH.type] X PORT_DEPTH.type <> CONST =
+        Vector(h"01", h"02", h"03", h"04")
+      val v3 = Bits(PORT_WIDTH) X PORT_DEPTH <> VAR init initArg
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.vh"
+         |
+         |module Foo;
+         |  `include "dfhdl_defs.vh"
+         |  `include "Foo_defs.vh"
+         |  parameter integer PORT_WIDTH = 8;
+         |  parameter integer PORT_DEPTH = 4;
+         |  parameter [PORT_WIDTH * PORT_DEPTH - 1:0] initArg = {8'h01, 8'h02, 8'h03, 8'h04};
+         |  reg [PORT_WIDTH - 1:0] v1 [0:PORT_DEPTH - 1];
+         |  initial begin : v1_init
+         |    v1[0] = 8'h01;
+         |    v1[1] = 8'h02;
+         |    v1[2] = 8'h03;
+         |    v1[3] = 8'h04;
+         |  end
+         |  reg [PORT_WIDTH - 1:0] v2 [0:PORT_DEPTH - 1];
+         |  initial begin : v2_init
+         |    integer i;
+         |    for (i = 0; i < PORT_DEPTH; i = i + 1) begin
+         |      v2[i] = {PORT_WIDTH{1'b0}};
+         |    end
+         |  end
+         |  reg [PORT_WIDTH - 1:0] v3 [0:PORT_DEPTH - 1];
+         |  initial begin : v3_init
+         |    v3[0] = initArg[31:24];
+         |    v3[1] = initArg[23:16];
+         |    v3[2] = initArg[15:8];
+         |    v3[3] = initArg[7:0];
+         |  end
+         |
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

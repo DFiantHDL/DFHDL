@@ -6,9 +6,11 @@ import dfhdl.compiler.patching.*
 import dfhdl.options.CompilerOptions
 import dfhdl.compiler.stages.verilog.VerilogDialect
 import dfhdl.core.DFType.asFE
-import dfhdl.core.{DFTypeAny, widthIntParam, IntParam, get}
-import dfhdl.compiler.ir.DFVal.Alias.ApplyIdx
+import dfhdl.core.{DFTypeAny, widthIntParam, IntParam, get, DFValAny}
+import dfhdl.compiler.ir.DFType as irDFType
+import dfhdl.compiler.ir.DFVector as irDFVector
 import scala.collection.mutable
+import dfhdl.core.DFVal.Func.Op as FuncOp
 
 /** This stage drops all structs and (non-Bit) vectors that are not standard block-ram accesses. It
   * drops them by flattening them into Bits.
@@ -21,23 +23,22 @@ case object DropStructsVecs extends Stage:
           case VerilogDialect.v95 | VerilogDialect.v2001 => true
           case _                                         => false
       case _ => false
-  override def dependencies: List[Stage] = List()
-  override def nullifies: Set[Stage] = Set(DropUnreferencedAnons, ExplicitRomVar)
+  override def dependencies: List[Stage] = List(ExplicitRomVar)
+  override def nullifies: Set[Stage] = Set(DropUnreferencedAnons)
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
     given RefGen = RefGen.fromGetSet
     object StructOrVecVal:
       def unapply(dfVal: DFVal)(using MemberGetSet): Boolean = dfVal.dfType match
         // all structs are dropped
         case _: DFStruct => true
-        // all vectors are dropped, except for var with block-ram and an initial value cast to vector
+        // all vectors are dropped, except for var with block-ram.
+        // also anonymous initial vector values are specially handled within the declaration
+        // patch, so we skip over them here
         case _: DFVector =>
           dfVal match
-            case BlockRamVar()                              => false
-            case initialVal @ InitialValueOf(BlockRamVar()) =>
-              initialVal match
-                case initVal: DFVal.Alias.AsIs if initVal.isAnonymous => false
-                case _                                                => true
-            case _ => true
+            // case BlockRamVar()                          => false
+            case InitialValueOf(_) if dfVal.isAnonymous => false
+            case _                                      => true
         case _ => false
     end StructOrVecVal
     val replacementMap = mutable.Map.empty[DFVal, DFVal]
@@ -56,16 +57,85 @@ case object DropStructsVecs extends Stage:
           dfVal,
           Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)
         ):
-          val width = dfVal.dfType.asFE[DFTypeAny].widthIntParam
-          val updatedDFType = DFBits(width.ref)
+          def updateArg(arg: DFVal): DFValAny = arg.dfType match
+            // Structs and Vectors will be replaced with Bits in a different patch
+            case _: (DFStruct | DFVector | DFBits) => arg.asValAny
+            case _ if !arg.isAnonymous             => arg.asValAny.bits
+            case _                                 => recurToBits(arg).asValAny
+          def typeToBits(dfType: irDFType): DFTypeAny =
+            val width = dfType.asFE[DFTypeAny].widthIntParam
+            DFBits(width.ref).asFE[DFTypeAny]
+          def recurToBits(dfVal: DFVal): DFVal =
+            val updatedDFType = typeToBits(dfVal.dfType)
+            dfVal match
+              // update constant data to bits
+              case const: DFVal.Const =>
+                val updatedData =
+                  const.dfType.dataToBitsData(const.data.asInstanceOf[const.dfType.Data])
+                dfhdl.core.DFVal.Const.forced(updatedDFType, updatedData)(using
+                  dfc.setMeta(const.meta)
+                ).asIR
+              // update vector concatenation arguments to bits as well
+              case concat @ DFVal.Func(op = FuncOp.++, args = args) =>
+                val updatedArgs = args.map(a => updateArg(a.get))
+                dfhdl.core.DFVal.Func(updatedDFType, FuncOp.++, updatedArgs)(using
+                  dfc.setMeta(concat.meta)
+                ).asIR
+              // update vector repeated argument to bits as well
+              case repeat @ DFVal.Func(
+                    op = FuncOp.repeat,
+                    args = repeatedArgRef :: repeatCntArgRef :: Nil
+                  ) =>
+                val repeatedArg = repeatedArgRef.get
+                val updatedArgs = List(updateArg(repeatedArg), repeatCntArgRef.get.asValAny)
+                dfhdl.core.DFVal.Func(updatedDFType, FuncOp.repeat, updatedArgs)(using
+                  dfc.setMeta(repeat.meta)
+                ).asIR
+              // for other values, just update the DFType
+              case _ => plantMember(dfVal.updateDFType(updatedDFType.asIR))
+            end match
+          end recurToBits
+          // memoize the block ram variable check
+          val isBlockRamVar = dfVal match
+            case BlockRamVar() => true
+            case _             => false
           val updatedDFVal = dfVal match
-            case const: DFVal.Const =>
-              val updatedData =
-                const.dfType.dataToBitsData(const.data.asInstanceOf[const.dfType.Data])
-              const.copy(dfType = updatedDFType, data = updatedData)
-            case _ => dfVal.updateDFType(updatedDFType)
-          replacementMap += (updatedDFVal -> dfVal)
-          plantMember(updatedDFVal)
+            // declarations are special cased to handle the initial value
+            case dcl: DFVal.Dcl if dcl.initRefList.nonEmpty || isBlockRamVar =>
+              val updatedDclType =
+                // for block ram variables, we keep the type as-is, unless the cell type is a struct or vector,
+                // in which case we convert it to bits.
+                if (isBlockRamVar) dcl.dfType match
+                  case dfType @ irDFVector(cellType = cellType: (DFVector | DFStruct)) =>
+                    dfType.copy(cellType = typeToBits(cellType).asIR)
+                  case dfType => dfType
+                else typeToBits(dcl.dfType).asIR
+              // block ram variables are not replaced with bits, because they are handled
+              // by the verilog backend, but the initial value is converted to bits. so we
+              // need to cast it back to the block ram vector type for the IR to be legal,
+              // and later ignore the casting in the verilog backend.
+              def toVector(initVal: DFVal): DFVal =
+                if (isBlockRamVar) dfhdl.core.DFVal.Alias.AsIs.forced(updatedDclType, initVal)
+                else initVal
+              val updatedInits = dcl.initRefList.view.map(_.get).map {
+                // for block ram variables, this initial value appears to be already casting from
+                // bits to vector, so it is already in the correct type.
+                case asIs: DFVal.Alias.AsIs if asIs.isAnonymous && isBlockRamVar => asIs
+                // anonymous initial values are converted to bits, and maybe cast back to vector,
+                // if the declaration is a block ram variable (see `toVector`).
+                case initVal if initVal.isAnonymous => toVector(recurToBits(initVal))
+                // named initial values only may need to be cast to vector (see `toVector`).
+                case initVal => toVector(initVal)
+              }.map(_.asConstAny).toList
+              val modifier = new dfhdl.core.Modifier(dcl.modifier)
+              dfhdl.core.DFVal.Dcl(updatedDclType.asFE[DFTypeAny], modifier, updatedInits)(using
+                dfc.setMeta(dcl.meta)
+              ).asIR
+            case _ => recurToBits(dfVal)
+          // block ram variables are not replaced with bits, because they are handled
+          // by the verilog backend
+          if (!isBlockRamVar)
+            replacementMap += (updatedDFVal -> dfVal)
         dsn.patch
     }
     val stage1 = designDB.patch(patchList)

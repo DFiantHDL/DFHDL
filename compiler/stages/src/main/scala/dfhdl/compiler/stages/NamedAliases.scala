@@ -8,6 +8,7 @@ import dfhdl.options.CompilerOptions
 import DFVal.Func.Op as FuncOp
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.compiler.ir.DFConditional.DFMatchHeader
+import dfhdl.compiler.stages.verilog.VerilogDialect
 
 // Names an anonymous relative value which is aliased.
 // The aliasing is limited according to the criteria provided
@@ -15,7 +16,7 @@ private abstract class NamedAliases extends Stage:
   def dependencies: List[Stage] = Nil
   def nullifies: Set[Stage] =
     Set(DFHDLUniqueNames, DropLocalDcls, ExplicitNamedVars, DropUnreferencedAnons)
-  def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal]
+  def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal]
   def transform(designDB: DB)(using MemberGetSet, CompilerOptions): DB =
 
     val patchList: List[(DFMember, Patch)] =
@@ -81,34 +82,44 @@ case object NamedVerilogSelection extends NamedAliases:
           else false
         case _ => false
   end extension
-  def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
-    case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName                  => Nil
-    case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>
-      List(alias.relValRef.get)
-    case alias: DFVal.Alias.AsIs if alias.width < alias.relValRef.get.width =>
-      if (alias.relValRef.get.dfType == DFInt32)
-        Nil // conversion from DFInt32 is not a bit selection, so no need to break the expression
-      else List(alias.relValRef.get)
-    // to/from vector conversion is used with selection
-    case DFVal.Alias.AsIs(dfType = DFVector(_, _), relValRef = DFRef(relVal @ DFBits.Val(_))) =>
-      List(relVal)
-    case DFVal.Alias.AsIs(dfType = DFBits(_), relValRef = DFRef(relVal @ DFVector.Val(_))) =>
-      List(relVal)
-    case alias: DFVal.Alias.ApplyIdx =>
-      List(alias.relValRef.get)
-    case func @ DFVal.Func(op = op, args = DFRef(lhs) :: _ :: Nil)
-        if !lhs.hasVerilogName && carryOps.contains(op) && func.width > lhs.width =>
-      List(lhs)
-    // anonymous conditional expressions
-    case ch: DFConditional.Header if ch.isAnonymous && ch.dfType != DFUnit =>
-      ch.getReadDeps.head match
-        // if the conditional is referred from a net, it is not a selection to be named
-        case net: DFNet => Nil
-        // if the conditional is referred from an ident, it is not a selection to be named
-        case Ident(_) => Nil
-        // otherwise, it is a selection to be named
-        case _ => List(ch)
-    case _ => Nil
+  def criteria(dfVal: DFVal)(using getSet: MemberGetSet, co: CompilerOptions): List[DFVal] =
+    dfVal match
+      case alias: DFVal.Alias if alias.relValRef.get.hasVerilogName                  => Nil
+      case alias: DFVal.Alias.ApplyRange if alias.width != alias.relValRef.get.width =>
+        List(alias.relValRef.get)
+      case alias: DFVal.Alias.AsIs if alias.width < alias.relValRef.get.width =>
+        if (alias.relValRef.get.dfType == DFInt32)
+          Nil // conversion from DFInt32 is not a bit selection, so no need to break the expression
+        else List(alias.relValRef.get)
+      // to/from vector conversion is used with selection
+      case DFVal.Alias.AsIs(dfType = DFVector(_, _), relValRef = DFRef(relVal @ DFBits.Val(_))) =>
+        // in basic verilog this casting is only kept for initial values and later ignored by the backend
+        val isBasicVerilog = co.backend match
+          case be: dfhdl.backends.verilog =>
+            be.dialect match
+              case VerilogDialect.v95 | VerilogDialect.v2001 => true
+              case _                                         => false
+          case _ => false
+        // preventing basic verilog compilation from naming the casted value
+        if (isBasicVerilog) Nil
+        else List(relVal)
+      case DFVal.Alias.AsIs(dfType = DFBits(_), relValRef = DFRef(relVal @ DFVector.Val(_))) =>
+        List(relVal)
+      case alias: DFVal.Alias.ApplyIdx =>
+        List(alias.relValRef.get)
+      case func @ DFVal.Func(op = op, args = DFRef(lhs) :: _ :: Nil)
+          if !lhs.hasVerilogName && carryOps.contains(op) && func.width > lhs.width =>
+        List(lhs)
+      // anonymous conditional expressions
+      case ch: DFConditional.Header if ch.isAnonymous && ch.dfType != DFUnit =>
+        ch.getReadDeps.head match
+          // if the conditional is referred from a net, it is not a selection to be named
+          case net: DFNet => Nil
+          // if the conditional is referred from an ident, it is not a selection to be named
+          case Ident(_) => Nil
+          // otherwise, it is a selection to be named
+          case _ => List(ch)
+      case _ => Nil
 end NamedVerilogSelection
 
 // For vhdl patten matching of a selection is limited.
@@ -120,7 +131,7 @@ case object NamedVHDLSelection extends NamedAliases:
           case VHDLDialect.v93 => true
           case _               => false
       case _ => false
-  def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] =
+  def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal] =
     dfVal.getReadDeps.headOption match
       case Some(_: DFConditional.DFMatchHeader) => List(dfVal)
       case _                                    => Nil
@@ -133,7 +144,7 @@ extension [T: HasDB](t: T)
 // Creating a previous values of a value requires that value to be names to avoid random anonymous names in the
 // the backend
 case object NamedPrev extends NamedAliases:
-  def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
+  def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal] = dfVal match
     case alias: DFVal.Alias.History if alias.relValRef.get.isAnonymous =>
       List(alias.relValRef.get)
     case _ => Nil
@@ -143,7 +154,7 @@ extension [T: HasDB](t: T)
 
 // Names an anonymous value which is referenced more than once
 case object NamedAnonMultiref extends NamedAliases, NoCheckStage:
-  def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
+  def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal] = dfVal match
     case dfVal if !dfVal.isAnonymous => Nil
     case dfVal                       =>
       // referenced more than once (excluding else/case blocks referencing their headers & type refs)
@@ -159,7 +170,7 @@ case object NamedAnonMultiref extends NamedAliases, NoCheckStage:
 //they are themselves inside another conditional expression
 case object NamedAnonCondExpr extends NamedAliases:
   override def dependencies: List[Stage] = List(ExplicitCondExprAssign)
-  def criteria(dfVal: DFVal)(using MemberGetSet): List[DFVal] = dfVal match
+  def criteria(dfVal: DFVal)(using MemberGetSet, CompilerOptions): List[DFVal] = dfVal match
     case dfVal: DFConditional.Header if dfVal.isAnonymous && dfVal.dfType != DFUnit =>
       val isReferencedByIdent =
         dfVal.getReadDeps.collectFirst { case Ident(_) => true }.getOrElse(false)
