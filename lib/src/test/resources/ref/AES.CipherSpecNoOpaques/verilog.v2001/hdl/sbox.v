@@ -8,6 +8,7 @@ module sbox(
 );
   `include "dfhdl_defs.vh"
   `include "CipherNoOpaques_defs.vh"
+  `sboxLookupTable_def
   reg [7:0] sboxLookupTable_rom [0:255];
   initial begin : sboxLookupTable_rom_init
     sboxLookupTable_rom[0]   = sboxLookupTable[2047:2040];

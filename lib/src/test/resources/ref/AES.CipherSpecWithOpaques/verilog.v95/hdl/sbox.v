@@ -8,6 +8,7 @@ module sbox(
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
+  `sboxLookupTable_def
   input  wire  [7:0] lhs;
   output wire [7:0]  o;
   reg [7:0] sboxLookupTable_rom [0:255];

@@ -7,6 +7,7 @@ import DFVal.*
 import dfhdl.compiler.ir.ProcessBlock.Sensitivity
 import dfhdl.compiler.ir.DFConditional.DFCaseBlock.Pattern
 import DFVal.Func.Op as FuncOp
+import scala.collection.mutable
 
 protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter <: VerilogPrinter
@@ -36,6 +37,17 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
+  lazy val globalUsage: Map[DFDesignBlock, Set[DFVal]] =
+    val globalUsage = mutable.Map.empty[DFDesignBlock, Set[DFVal]]
+    getSet.designDB.membersGlobals.foreach { m =>
+      if (!m.isAnonymous) m.originMembersNoTypeRef.foreach {
+        case o: DFVal.CanBeGlobal if !o.isGlobal =>
+          val owner = o.getOwnerDesign
+          globalUsage += owner -> (globalUsage.getOrElse(owner, Set()) + m)
+        case _ =>
+      }
+    }
+    globalUsage.toMap
   def csModuleDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
     val ports = designMembers.view.collect { case p @ DclPort() =>
@@ -110,8 +122,14 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
       else "#(" + designParamList.mkString("\n", ",\n", "\n").hindent(2) + ")"
     val includeModuleDefs =
       if (printer.allowTypeDef) "" else s"""\n  `include "${printer.globalFileName}""""
+    // include parameter definitions only when parameters are used in the design
+    val paramDefines =
+      if (printer.supportGlobalParameters) ""
+      else globalUsage.getOrElse(design, Set()).view.map(m =>
+        s"`${m.getName}_def"
+      ).toList.sorted.mkString("\n  ").emptyOr("\n  " + _)
     s"""module ${moduleName(design)}$designParamCS$portBlock;
-       |  `include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"$includeModuleDefs$declarations
+       |  `include "dfhdl_defs.${printer.verilogFileHeaderSuffix}"$includeModuleDefs$paramDefines$declarations
        |${statements.hindent}
        |endmodule""".stripMargin
   end csModuleDcl

@@ -8,6 +8,7 @@ module keyExpansion(
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
+  `Rcon_def
   input  wire  [127:0] key;
   output wire [1407:0] o;
   wire [31:0] w_0;

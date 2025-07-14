@@ -14,6 +14,12 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
+  // under verilog 95/2001 we use concatenation because of the lack of support for
+  // array literals.
+  val literalGroupOpen =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => "{"
+      case _                                         => "'{"
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
@@ -30,7 +36,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case _ => csDFValExpr(dfVal)
     val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
     val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
-    s"parameter ${csTypeNoLogic}${dfVal.getName}${arrRange} = $default$endOfStatement"
+    val csParam = s"parameter ${csTypeNoLogic}${dfVal.getName}${arrRange} = $default$endOfStatement"
+    if (dfVal.isGlobal && !supportGlobalParameters)
+      s"`define ${dfVal.getName}_def ${csParam.linesIterator.mkString("\\\n")}"
+    else csParam
   end csDFValDclConst
 
   def csDFValDclWithoutInit(dfVal: Dcl): String =
@@ -102,7 +111,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match
           case _: DFVector =>
-            s"'{default: ${argL.refCodeString}}"
+            s"${literalGroupOpen}default: ${argL.refCodeString}}"
           case _ =>
             s"{${argR.refCodeString.applyBrackets()}{${argL.refCodeString}}}"
       // infix func
@@ -170,7 +179,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
               case DFVector(_, _) =>
                 printer.csDFVectorElemCS(args.map(_.refCodeString))
               case DFStruct(_, _) =>
-                args.map(_.refCodeString).csList("'{", ",", "}")
+                args.map(_.refCodeString).csList(literalGroupOpen, ",", "}")
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"{${args.length}{${args.head.refCodeString}}}"
@@ -243,12 +252,12 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             case cellType: DFVector =>
               List.tabulate(vecLength)(i =>
                 to_vector_conv(cellType, relHighIdx - i * cellType.width)
-              ).csList("'{", ",", "}")
+              ).csList(literalGroupOpen, ",", "}")
             case cellType: DFBits =>
               val cellWidth = cellType.width
               List.tabulate(vecLength)(i =>
                 s"$relValStr[${relHighIdx - i * cellWidth}:${relHighIdx - (i + 1) * cellWidth + 1}]"
-              ).csList("'{", ",", "}")
+              ).csList(literalGroupOpen, ",", "}")
             case x =>
               println(x)
               printer.unsupported
