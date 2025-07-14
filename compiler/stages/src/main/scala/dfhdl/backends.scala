@@ -10,6 +10,11 @@ import dfhdl.compiler.ir.DB
 object backends:
   protected[dfhdl] class verilog(val dialect: VerilogDialect) extends BackendCompiler:
     def printer(
+        cd: CompiledDesign
+    )(using CompilerOptions, PrinterOptions): Printer =
+      val compiledDB = cd.stagedDB
+      new VerilogPrinter(dialect)(using compiledDB.getSet)
+    def printer(
         designDB: DB
     )(using CompilerOptions, PrinterOptions): Printer =
       val compiledDB = StageRunner.run(VerilogBackend)(designDB)
@@ -24,6 +29,11 @@ object backends:
     val sv2017: verilog = new verilog(VerilogDialect.sv2017)
 
   protected[dfhdl] class vhdl(val dialect: VHDLDialect) extends BackendCompiler:
+    def printer(
+        cd: CompiledDesign
+    )(using CompilerOptions, PrinterOptions): Printer =
+      val compiledDB = cd.stagedDB
+      new VHDLPrinter(dialect)(using compiledDB.getSet)
     def printer(
         designDB: DB
     )(using CompilerOptions, PrinterOptions): Printer =
