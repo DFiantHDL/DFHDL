@@ -46,7 +46,7 @@ case object DropStructsVecs extends Stage:
     object PartialSel:
       import DFVal.Alias.*
       def unapply(partial: ApplyIdx | ApplyRange | SelectField)(using MemberGetSet): Boolean =
-        replacementMap.contains(partial.relValRef.get) && !handledPartials.contains(partial)
+        replacementMap.contains(partial.relValRef.get)
     ///////////////////////////////////////////////////////////////////////////////
     // Stage 1: Replace structs and vectors with Bits
     ///////////////////////////////////////////////////////////////////////////////
@@ -147,7 +147,7 @@ case object DropStructsVecs extends Stage:
       given RefGen = RefGen.fromGetSet
       // we need to reverse the list because we want to handle the innermost partial first
       val patchList2: List[(DFMember, Patch)] = stage1.members.view.reverse.collect {
-        case partial @ PartialSel() =>
+        case partial @ PartialSel() if !handledPartials.contains(partial) =>
           val dsn = new MetaDesign(
             partial,
             Patch.Add.Config.ReplaceWithLast(Patch.Replace.Config.FullReplacement)

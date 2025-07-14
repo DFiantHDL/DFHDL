@@ -245,4 +245,30 @@ class DropStructsVecsSpec extends StageSpec(stageCreatesUnrefAnons = true):
          |""".stripMargin
     )
   }
+
+  test("Inline anomaly") {
+    given options.CompilerOptions.Backend = backends.verilog.v95
+    val Rcon: Bits[8] X 4 X 2 <> CONST    = DFVector(Bits(8) X 4 X 2)(
+      DFVector(Bits(8) X 4)(h"01", h"02", h"03", h"04"),
+      DFVector(Bits(8) X 4)(h"05", h"06", h"07", h"08")
+    )
+
+    extension (lhs: Bits[8] X 4 <> VAL)
+      @inline def +++(rhs: Bits[8] X 4 <> VAL): Bits[8] X 4 <> DFRET =
+        lhs.elements.lazyZip(rhs.elements).map(_ ^ _).toList
+
+    class Bar extends RTDesign:
+      val o = Bits[8] X 4 <> OUT
+      o := Rcon(0) +++ Rcon(0)
+    val top = (new Bar).dropStructsVecs
+    assertCodeString(
+      top,
+      """|val Rcon: Bits[64] <> CONST = ((h"01", h"02", h"03", h"04").toBits, (h"05", h"06", h"07", h"08").toBits).toBits
+         |class Bar extends RTDesign:
+         |  val o = Bits(32) <> OUT
+         |  o := (Rcon(63, 56) ^ Rcon(63, 56), Rcon(55, 48) ^ Rcon(55, 48), Rcon(47, 40) ^ Rcon(47, 40), Rcon(39, 32) ^ Rcon(39, 32)).toBits
+         |end Bar
+         |""".stripMargin
+    )
+  }
 end DropStructsVecsSpec

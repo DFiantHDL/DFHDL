@@ -21,9 +21,9 @@ abstract class FullCompileSpec extends FunSuite:
     s"$projectSandboxFolder$S${compiletime.summonInline[options.CompilerOptions.Backend]}"
   given options.OnError = options.OnError.Exception
   given options.LinterOptions.WError = true
-  def verilogLinters: List[LinterOptions.VerilogLinter] =
+  def verilogLinters(using CompilerOptions): List[LinterOptions.VerilogLinter] =
     List(verilator, iverilog, vlog, xvlog)
-  def vhdlLinters: List[LinterOptions.VHDLLinter] =
+  def vhdlLinters(using CompilerOptions): List[LinterOptions.VHDLLinter] =
     List(ghdl, nvc, vcom, xvhdl)
   extension [D <: core.Design](cd: CompiledDesign)
     def lintVerilog(using CompilerOptions): CompiledDesign =
