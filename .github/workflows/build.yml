@@ -45,3 +45,5 @@ jobs:
           nvc --version
       - name: Run tests
         run: sbt test
+      - name: Run app tests
+        run: sbt testApps        
