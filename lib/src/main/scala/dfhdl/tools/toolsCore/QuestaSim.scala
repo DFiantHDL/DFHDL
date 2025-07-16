@@ -36,8 +36,12 @@ trait QuestaSimCommon extends Linter, Simulator:
       MemberGetSet
   ): Unit =
     val work = new java.io.File(s"${execPath}${separatorChar}work${separatorChar}_info")
-    if (!work.exists())
-      Process("vlib work", new java.io.File(execPath)).!
+    // TODO: currently removing the existing work library info file, because when compiling both vhdl and verilog to
+    // the same work library, there are weird errors that happen (seen in AES.CipherSim). in the future, maybe a better
+    // way is to have a different work library for each language/dialect
+    if (work.exists())
+      work.delete()
+    Process("vlib work", new java.io.File(execPath)).!
 
   override protected def simRunExec(using MemberGetSet): String =
     if (osIsWindows) "vsimk.exe" else "vsimk"
