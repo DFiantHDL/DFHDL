@@ -40,14 +40,16 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   lazy val globalUsage: Map[DFDesignBlock, Set[DFVal]] =
     val globalUsage = mutable.Map.empty[DFDesignBlock, Set[DFVal]]
     getSet.designDB.membersGlobals.foreach { m =>
-      if (!m.isAnonymous) m.originMembersNoTypeRef.foreach {
-        case o: DFVal.CanBeGlobal if !o.isGlobal =>
-          val owner = o.getOwnerDesign
-          globalUsage += owner -> (globalUsage.getOrElse(owner, Set()) + m)
-        case _ =>
-      }
+      if (!m.isAnonymous)
+        m.originMembersNoTypeRef.foreach {
+          case o: DFVal.CanBeGlobal if o.isGlobal => // do not include global members
+          case o                                  =>
+            val owner = o.getOwnerDesign
+            globalUsage += owner -> (globalUsage.getOrElse(owner, Set()) + m)
+        }
     }
     globalUsage.toMap
+  end globalUsage
   def csModuleDcl(design: DFDesignBlock): String =
     val designMembers = design.members(MemberView.Folded)
     val ports = designMembers.view.collect { case p @ DclPort() =>
