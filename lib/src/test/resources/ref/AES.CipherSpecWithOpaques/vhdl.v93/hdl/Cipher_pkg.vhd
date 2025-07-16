@@ -78,7 +78,7 @@ constant sboxLookupTable : t_arrX256_slv8 := (
   240 => x"8c", 241 => x"a1", 242 => x"89", 243 => x"0d", 244 => x"bf", 245 => x"e6", 246 => x"42", 247 => x"68",
   248 => x"41", 249 => x"99", 250 => x"2d", 251 => x"0f", 252 => x"b0", 253 => x"54", 254 => x"bb", 255 => x"16"
 );
-constant Rcon            : t_arrX11_t_opaque_AESWord := (
+constant Rcon  : t_arrX11_t_opaque_AESWord := (
    0 => (0 => x"00", 1 => x"00", 2 => x"00", 3 => x"00"),  1 => (0 => x"01", 1 => x"00", 2 => x"00", 3 => x"00"),
    2 => (0 => x"02", 1 => x"00", 2 => x"00", 3 => x"00"),  3 => (0 => x"04", 1 => x"00", 2 => x"00", 3 => x"00"),
    4 => (0 => x"08", 1 => x"00", 2 => x"00", 3 => x"00"),  5 => (0 => x"10", 1 => x"00", 2 => x"00", 3 => x"00"),
@@ -90,42 +90,56 @@ end package Cipher_pkg;
 
 package body Cipher_pkg is
 function to_t_opaque_AESByte(A : std_logic_vector) return t_opaque_AESByte is
+  variable A0  : std_logic_vector(A'length - 1 downto 0);
 begin
-  return A;
+  A0           := A;
+  return A0;
 end;
 function to_t_opaque_AESWord(A : std_logic_vector) return t_opaque_AESWord is
+  variable A0  : std_logic_vector(A'length - 1 downto 0);
 begin
-  return to_t_arrX4_t_opaque_AESByte(A);
+  A0           := A;
+  return to_t_arrX4_t_opaque_AESByte(A0);
 end;
 function to_t_opaque_AESKey(A : std_logic_vector) return t_opaque_AESKey is
+  variable A0  : std_logic_vector(A'length - 1 downto 0);
 begin
-  return to_t_arrX4_t_opaque_AESWord(A);
+  A0           := A;
+  return to_t_arrX4_t_opaque_AESWord(A0);
 end;
 function to_t_opaque_AESData(A : std_logic_vector) return t_opaque_AESData is
+  variable A0  : std_logic_vector(A'length - 1 downto 0);
 begin
-  return to_t_arrX4_t_opaque_AESWord(A);
+  A0           := A;
+  return to_t_arrX4_t_opaque_AESWord(A0);
 end;
 function to_t_opaque_AESKeySchedule(A : std_logic_vector) return t_opaque_AESKeySchedule is
+  variable A0  : std_logic_vector(A'length - 1 downto 0);
 begin
-  return to_t_arrX44_t_opaque_AESWord(A);
+  A0           := A;
+  return to_t_arrX44_t_opaque_AESWord(A0);
 end;
 function to_t_opaque_AESState(A : std_logic_vector) return t_opaque_AESState is
+  variable A0  : std_logic_vector(A'length - 1 downto 0);
 begin
-  return to_t_arrX4_t_opaque_AESWord(A);
+  A0           := A;
+  return to_t_arrX4_t_opaque_AESWord(A0);
 end;
 function to_t_opaque_AESRoundKey(A : std_logic_vector) return t_opaque_AESRoundKey is
+  variable A0  : std_logic_vector(A'length - 1 downto 0);
 begin
-  return to_t_arrX4_t_opaque_AESWord(A);
+  A0           := A;
+  return to_t_arrX4_t_opaque_AESWord(A0);
 end;
 function bitWidth(A : t_arrX256_slv8) return integer is
 begin
   return A'length * bitWidth(A(0));
 end;
 function to_slv(A : t_arrX256_slv8) return std_logic_vector is
-  variable hi            : integer;
-  variable lo            : integer;
-  variable cellBitWidth  : integer;
-  variable ret           : std_logic_vector(bitWidth(A) - 1 downto 0);
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
 begin
   cellBitWidth := bitWidth(A(0));
   lo           := bitWidth(A);
@@ -136,10 +150,10 @@ begin
   return ret;
 end;
 function to_t_arrX256_slv8(A : std_logic_vector) return t_arrX256_slv8 is
-  variable hi            : integer;
-  variable lo            : integer;
-  variable cellBitWidth  : integer;
-  variable ret           : t_arrX256_slv8;
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : t_arrX256_slv8;
 begin
   cellBitWidth := bitWidth(ret(0));
   lo           := A'high + 1;
@@ -162,10 +176,10 @@ begin
   return A'length * bitWidth(A(0));
 end;
 function to_slv(A : t_arrX4_t_opaque_AESByte) return std_logic_vector is
-  variable hi            : integer;
-  variable lo            : integer;
-  variable cellBitWidth  : integer;
-  variable ret           : std_logic_vector(bitWidth(A) - 1 downto 0);
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
 begin
   cellBitWidth := bitWidth(A(0));
   lo           := bitWidth(A);
@@ -176,10 +190,10 @@ begin
   return ret;
 end;
 function to_t_arrX4_t_opaque_AESByte(A : std_logic_vector) return t_arrX4_t_opaque_AESByte is
-  variable hi            : integer;
-  variable lo            : integer;
-  variable cellBitWidth  : integer;
-  variable ret           : t_arrX4_t_opaque_AESByte;
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : t_arrX4_t_opaque_AESByte;
 begin
   cellBitWidth := bitWidth(ret(0));
   lo           := A'high + 1;
@@ -202,10 +216,10 @@ begin
   return A'length * bitWidth(A(0));
 end;
 function to_slv(A : t_arrX11_t_opaque_AESWord) return std_logic_vector is
-  variable hi            : integer;
-  variable lo            : integer;
-  variable cellBitWidth  : integer;
-  variable ret           : std_logic_vector(bitWidth(A) - 1 downto 0);
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
 begin
   cellBitWidth := bitWidth(A(0));
   lo           := bitWidth(A);
@@ -216,10 +230,10 @@ begin
   return ret;
 end;
 function to_t_arrX11_t_opaque_AESWord(A : std_logic_vector) return t_arrX11_t_opaque_AESWord is
-  variable hi            : integer;
-  variable lo            : integer;
-  variable cellBitWidth  : integer;
-  variable ret           : t_arrX11_t_opaque_AESWord;
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : t_arrX11_t_opaque_AESWord;
 begin
   cellBitWidth := bitWidth(ret(0));
   lo           := A'high + 1;
@@ -242,10 +256,10 @@ begin
   return A'length * bitWidth(A(0));
 end;
 function to_slv(A : t_arrX4_t_opaque_AESWord) return std_logic_vector is
-  variable hi            : integer;
-  variable lo            : integer;
-  variable cellBitWidth  : integer;
-  variable ret           : std_logic_vector(bitWidth(A) - 1 downto 0);
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
 begin
   cellBitWidth := bitWidth(A(0));
   lo           := bitWidth(A);
@@ -256,10 +270,10 @@ begin
   return ret;
 end;
 function to_t_arrX4_t_opaque_AESWord(A : std_logic_vector) return t_arrX4_t_opaque_AESWord is
-  variable hi            : integer;
-  variable lo            : integer;
-  variable cellBitWidth  : integer;
-  variable ret           : t_arrX4_t_opaque_AESWord;
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : t_arrX4_t_opaque_AESWord;
 begin
   cellBitWidth := bitWidth(ret(0));
   lo           := A'high + 1;
@@ -282,10 +296,10 @@ begin
   return A'length * bitWidth(A(0));
 end;
 function to_slv(A : t_arrX44_t_opaque_AESWord) return std_logic_vector is
-  variable hi            : integer;
-  variable lo            : integer;
-  variable cellBitWidth  : integer;
-  variable ret           : std_logic_vector(bitWidth(A) - 1 downto 0);
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : std_logic_vector(bitWidth(A) - 1 downto 0);
 begin
   cellBitWidth := bitWidth(A(0));
   lo           := bitWidth(A);
@@ -296,10 +310,10 @@ begin
   return ret;
 end;
 function to_t_arrX44_t_opaque_AESWord(A : std_logic_vector) return t_arrX44_t_opaque_AESWord is
-  variable hi            : integer;
-  variable lo            : integer;
-  variable cellBitWidth  : integer;
-  variable ret           : t_arrX44_t_opaque_AESWord;
+  variable hi  : integer;
+  variable lo  : integer;
+  variable cellBitWidth: integer;
+  variable ret : t_arrX44_t_opaque_AESWord;
 begin
   cellBitWidth := bitWidth(ret(0));
   lo           := A'high + 1;
