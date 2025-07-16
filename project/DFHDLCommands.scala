@@ -126,13 +126,14 @@ object DFHDLCommands {
       val allTools = (vhdlTools ++ verilogTools).toSet
       allTools.filter(tool => helpStr.linesIterator.exists(line => line.contains(tool) && line.contains("Found version")))
     }
+    //TODO: fix caching issues
     for (tool <- vhdlTools if existingTools.contains(tool); dialect <- vhdlDialects if !skip.contains((tool, dialect))) {
-      val arguments = s" AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
+      val arguments = s" AES.top_CipherSim --nocache simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }
     for (tool <- verilogTools if existingTools.contains(tool); dialect <- verilogDialects if !skip.contains((tool, dialect))) {
-      val arguments = s" AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
+      val arguments = s" AES.top_CipherSim --nocache simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }
