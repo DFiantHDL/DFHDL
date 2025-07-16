@@ -203,7 +203,7 @@ trait DFApp:
   end simRun
 
   private def listBackends: Unit =
-    println(
+    System.out.println(
       s"""|Backend option pattern: -b <lang>[.<dialect>]
           |<lang>    - the required backend language
           |<dialect> - the optional language dialect (each language has a default dialect)
@@ -237,7 +237,7 @@ trait DFApp:
           case Some(version) => s"Found version $version"
           case None          => "Not found on your system"
       else ""
-    println(
+    System.out.println(
       s"""|Linter tool option pattern: -t [<verilogLinter>][/][<vhdlLinter>]
           |<verilogLinter> - the selected Verilog/SystemVerilog linter
           |<vhdlLinter>    - the selected VHDL linter
@@ -271,7 +271,7 @@ trait DFApp:
           case Some(version) => s"Found version $version"
           case None          => "Not found on your system"
       else ""
-    println(
+    System.out.println(
       s"""|Simulator tool option pattern: -t [<verilogSimulator>][/][<vhdlSimulator>]
           |<verilogSimulator> - the selected Verilog/SystemVerilog simulator
           |<vhdlSimulator>    - the selected VHDL simulator

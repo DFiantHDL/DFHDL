@@ -68,4 +68,72 @@ object DFHDLCommands {
 
     state
   }
+
+  val clearSandbox = Command.command("clearSandbox") { state =>
+    // Remove the sandbox folder and all its contents before running the tests
+    val sandboxPath = java.nio.file.Paths.get("sandbox")
+    if (java.nio.file.Files.exists(sandboxPath)) {
+      import java.nio.file._
+      import java.nio.file.attribute.BasicFileAttributes
+
+      Files.walkFileTree(
+        sandboxPath,
+        new SimpleFileVisitor[Path] {
+          override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+            Files.delete(file)
+            FileVisitResult.CONTINUE
+          }
+          override def postVisitDirectory(dir: Path, exc: java.io.IOException): FileVisitResult = {
+            Files.delete(dir)
+            FileVisitResult.CONTINUE
+          }
+        }
+      )
+    }
+    state
+  }
+
+  val vhdlTools = List("ghdl", "nvc", "questa", "vivado")
+  val verilogTools = List("verilator", "iverilog", "questa", "vivado")
+  val vhdlDialects = List("vhdl.v93", "vhdl.v2008")
+  val verilogDialects = List("verilog.v95", "verilog.v2001", "verilog.sv2005")
+
+  val testApps = Command.command("testApps") { state =>
+    var newState = Command.process("clearSandbox", state, _ => ())
+    val extracted = Project.extract(newState)
+    val runMainTask = LocalProject("lib") / Test / runMain
+    val existingTools: Set[String] = {
+      import java.io.{ByteArrayOutputStream, PrintStream}
+      val baos = new ByteArrayOutputStream()
+      val ps = new PrintStream(baos)
+      val oldOut = System.out
+      val oldErr = System.err
+      val arguments = s" util.top_EmptyDesign help simulate-tool -s"
+      try {
+        System.setOut(ps)
+        System.setErr(ps)
+        val extracted = Project.extract(state)
+        extracted.runInputTask(runMainTask, arguments, state)
+      } finally {
+        System.out.flush()
+        System.err.flush()
+        System.setOut(oldOut)
+        System.setErr(oldErr)
+      }
+      val helpStr = baos.toString("UTF-8")
+      val allTools = (vhdlTools ++ verilogTools).toSet
+      allTools.filter(tool => helpStr.linesIterator.exists(line => line.contains(tool) && line.contains("Found version")))
+    }
+    for (tool <- vhdlTools if existingTools.contains(tool); dialect <- vhdlDialects) {
+      val arguments = s" AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
+      val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
+      newState = updatedState
+    }
+    for (tool <- verilogTools if existingTools.contains(tool); dialect <- verilogDialects) {
+      val arguments = s" AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
+      val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
+      newState = updatedState
+    }
+    newState
+  }
 }

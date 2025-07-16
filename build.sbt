@@ -1,4 +1,6 @@
 commands += DFHDLCommands.quickTestSetup
+commands += DFHDLCommands.clearSandbox
+commands += DFHDLCommands.testApps
 commands += DFHDLCommands.docExamplesRefUpdate
 
 // format: off
