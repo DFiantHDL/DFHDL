@@ -131,7 +131,7 @@ object DFHDLCommands {
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }
-    for (tool <- verilogTools if existingTools.contains(tool); dialect <- verilogDialects if !skip.contains((tool, dialect)) {
+    for (tool <- verilogTools if existingTools.contains(tool); dialect <- verilogDialects if !skip.contains((tool, dialect))) {
       val arguments = s" AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
