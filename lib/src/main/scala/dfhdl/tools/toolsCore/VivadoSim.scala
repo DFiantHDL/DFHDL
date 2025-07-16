@@ -90,7 +90,8 @@ object VivadoSimVerilog extends VivadoSimCommon, VerilogLinter, VerilogSimulator
   ): Option[Tool.ProcessLogger] =
     Some(
       Tool.ProcessLogger(
-        lineIsWarning = (line: String) => line.startsWith("Warning:"),
+        lineIsWarning =
+          (line: String) => line.startsWith("Warning:") || line.startsWith("WARNING:"),
         lineIsSuppressed = (line: String) => false,
         lineIsErrorOpt =
           Some((line: String) => line.startsWith("Error:") || line.startsWith("Fatal:"))
@@ -119,7 +120,8 @@ object VivadoSimVHDL extends VivadoSimCommon, VHDLLinter, VHDLSimulator:
       summon[CompilerOptions].backend.asInstanceOf[backends.vhdl].dialect == VHDLDialect.v93
     Some(
       new Tool.ProcessLogger(
-        lineIsWarning = (line: String) => line.startsWith("Warning:"),
+        lineIsWarning =
+          (line: String) => line.startsWith("Warning:") || line.startsWith("WARNING:"),
         lineIsSuppressed = (line: String) =>
           // VHDL'93 does not have a standard finish, so we detect the DFHDL generated
           // fatal report and convert it to the same behavior as in VHDL'2008 and later in Vivado
