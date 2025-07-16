@@ -97,6 +97,8 @@ object DFHDLCommands {
   val verilogTools = List("verilator", "iverilog", "questa", "vivado")
   val vhdlDialects = List("vhdl.v93", "vhdl.v2008")
   val verilogDialects = List("verilog.v95", "verilog.v2001", "verilog.sv2005")
+  // Skip tests that are known to fail because of the tool
+  val skip = Set(("iverilog", "verilog.sv2005"), ("vivado", "vhdl.v2008"))
 
   val testApps = Command.command("testApps") { state =>
     var newState = Command.process("clearSandbox", state, _ => ())
@@ -124,12 +126,12 @@ object DFHDLCommands {
       val allTools = (vhdlTools ++ verilogTools).toSet
       allTools.filter(tool => helpStr.linesIterator.exists(line => line.contains(tool) && line.contains("Found version")))
     }
-    for (tool <- vhdlTools if existingTools.contains(tool); dialect <- vhdlDialects) {
+    for (tool <- vhdlTools if existingTools.contains(tool); dialect <- vhdlDialects if !skip.contains((tool, dialect))) {
       val arguments = s" AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
     }
-    for (tool <- verilogTools if existingTools.contains(tool); dialect <- verilogDialects) {
+    for (tool <- verilogTools if existingTools.contains(tool); dialect <- verilogDialects if !skip.contains((tool, dialect)) {
       val arguments = s" AES.top_CipherSim simulate -b $dialect -t $tool --Werror-tool"
       val (updatedState, _) = extracted.runInputTask(runMainTask, arguments, newState)
       newState = updatedState
