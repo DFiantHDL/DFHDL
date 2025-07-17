@@ -32,7 +32,7 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
       case VerilogDialect.sv2005 => "2005"
       case VerilogDialect.sv2009 => "2009"
       case VerilogDialect.sv2012 => "2012"
-      case _ =>
+      case _                     =>
         throw new java.lang.IllegalArgumentException(
           "Current dialect is not supported for Icarus Verilog linting."
         )
@@ -74,7 +74,7 @@ object IcarusVerilog extends VerilogLinter, VerilogSimulator:
   override protected[dfhdl] def producedFiles(using
       MemberGetSet,
       CompilerOptions
-  ): List[String] = List(s"${topName}.")
+  ): List[String] = List(s"${topName}")
 
   override protected def simulateCmdPostLangFlags(using
       CompilerOptions,
