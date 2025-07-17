@@ -28,6 +28,7 @@ trait Tool:
   protected def versionCmd: String
   protected def extractVersion(cmdRetStr: String): Option[String]
   protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions): List[String] = Nil
+  protected[dfhdl] def cleanUpBeforeFileRestore()(using MemberGetSet, CompilerOptions): Unit = {}
 
   private[dfhdl] lazy val installedVersion: Option[String] =
     val getVersionFullCmd =

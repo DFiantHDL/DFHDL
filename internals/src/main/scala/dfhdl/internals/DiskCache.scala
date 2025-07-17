@@ -76,6 +76,7 @@ class DiskCache(val cacheFolderStr: String):
     protected def cacheStrToValue(str: String): R
     protected def logCachedRun(): Unit = {}
     protected def runAfterValue(value: R): Unit = {}
+    protected def cleanUpBeforeFileRestore(value: R): Unit = {}
     protected def genFiles(value: R): List[String] = Nil
     protected val name: String = typeName
     private lazy val keyHash: String =
@@ -99,7 +100,9 @@ class DiskCache(val cacheFolderStr: String):
         case Some(dataStr) =>
           logCachedRun()
           val value = cacheStrToValue(dataStr)
-          if (hasGenFiles) restoreFiles(value)
+          if (hasGenFiles)
+            cleanUpBeforeFileRestore(value)
+            restoreFiles(value)
           value
         case None =>
           put(name, "data", getDataHash, calcDataStr)

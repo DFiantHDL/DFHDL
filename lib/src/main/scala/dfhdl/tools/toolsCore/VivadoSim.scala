@@ -37,22 +37,76 @@ trait VivadoSimCommon extends Linter, Simulator:
 
   protected def xsimFolder(using MemberGetSet): String =
     s"xsim.dir${separatorChar}work.${topName}"
+  private val workFolder = s"xsim.dir${separatorChar}work"
 
   // TODO: check if the script is indeed shell script
   val axsimScript = if (osIsWindows) "axsim.bat" else "axsim.sh"
 
-  override protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions): List[String] =
+  // must clean up work folder when switching between verilog and vhdl backends
+  private def cleanUp()(using
+      getSet: MemberGetSet,
+      co: CompilerOptions
+  ): Unit =
+    import java.nio.file.{Files, Paths, DirectoryStream}
+    import scala.jdk.CollectionConverters._
+
+    val dir = Paths.get(co.topCommitPath(topName)).resolve(workFolder)
+    if (Files.exists(dir) && Files.isDirectory(dir))
+      val removePattern = co.backend match
+        case _: backends.verilog => "*.vdb"
+        case _: backends.vhdl    => "*.sdb"
+      if (removePattern.nonEmpty)
+        val stream: DirectoryStream[java.nio.file.Path] =
+          java.nio.file.Files.newDirectoryStream(dir, removePattern)
+        try
+          for (file <- stream.asScala)
+            try Files.deleteIfExists(file)
+            catch case _: Throwable => ()
+        finally
+          stream.close()
+  end cleanUp
+
+  override protected[dfhdl] def cleanUpBeforeFileRestore()(using
+      getSet: MemberGetSet,
+      co: CompilerOptions
+  ): Unit = cleanUp()
+
+  override protected[dfhdl] def producedFiles(using
+      getSet: MemberGetSet,
+      co: CompilerOptions
+  ): List[String] =
     val folder = xsimFolder
     val axsimRunExec = s"${folder}${separatorChar}axsim${if (osIsWindows) ".exe" else ""}"
     val xsimSuffixes = List("dbg", "mem", "reloc", "rtti", "svtype", "type", "xdbg")
     val xsimSupportFiles =
       xsimSuffixes.map(suffix => s"${folder}${separatorChar}xsim.${suffix}")
-    axsimScript :: axsimRunExec :: xsimSupportFiles
+    def compiledFilePath(dclName: String): String =
+      val name = co.backend match
+        case _: backends.vhdl    => s"${dclName.toLowerCase()}.vdb"
+        case _: backends.verilog =>
+          dclName.flatMap { c =>
+            if (c.isUpper) s"@${c.toLower}" else s"$c"
+          } + ".sdb"
+      s"${workFolder}${separatorChar}${name}"
+    def compiledVHDLPackageFiles: List[String] =
+      co.backend match
+        case _: backends.vhdl =>
+          this.designDefFiles.map { path =>
+            val fileName = path.split(separatorChar).last.toLowerCase()
+            s"${workFolder}${separatorChar}${fileName.replace(".vhd", ".vdb")}"
+          }
+        case _: backends.verilog => Nil
+    val compiledFiles =
+      s"$workFolder${separatorChar}work.rlx" :: compiledVHDLPackageFiles ++
+        getSet.designDB.uniqueDesignMemberList.view.map(_._1.dclName).map(compiledFilePath).toList
+    axsimScript :: axsimRunExec :: xsimSupportFiles ++ compiledFiles
+  end producedFiles
 
   override protected[dfhdl] def simulatePreprocess(cd: CompiledDesign)(using
       co: CompilerOptions,
       so: SimulatorOptions
   ): CompiledDesign =
+    cleanUp()(using cd.stagedDB.getSet)
     val ret = super.simulatePreprocess(cd)
     given MemberGetSet = ret.stagedDB.getSet
     val runExec = if (osIsWindows) "xelab.bat" else "xelab"

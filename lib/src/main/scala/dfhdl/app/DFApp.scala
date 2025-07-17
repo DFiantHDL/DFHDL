@@ -176,7 +176,8 @@ trait DFApp:
         hasGenFiles = true
       )(
         simulatorOptions.getTool.toString,
-        simulatorOptions.getTool.installedVersion
+        simulatorOptions.getTool.installedVersion,
+        compilerOptions.backend.toString()
       ):
     override protected def cacheEnable: Boolean = appOptions.cacheEnable
     override protected def genFiles(committed: CompiledDesign): List[String] =
@@ -185,6 +186,8 @@ trait DFApp:
       }
     protected def run(committed: CompiledDesign): CompiledDesign =
       committed.tap(_ => logger.info("Preparing external simulation...")).simPrep
+    override protected def cleanUpBeforeFileRestore(committed: CompiledDesign): Unit =
+      simulatorOptions.getTool.cleanUpBeforeFileRestore()(using committed.stagedDB.getSet)
     override protected def logCachedRun(): Unit =
       logger.info("Loading sim prep from cache...")
     protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString
