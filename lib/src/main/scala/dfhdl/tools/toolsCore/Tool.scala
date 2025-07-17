@@ -34,7 +34,7 @@ trait Tool:
     val getVersionFullCmd =
       Process(s"$runExec $versionCmd", new java.io.File(System.getProperty("java.io.tmpdir")))
     try extractVersion(getVersionFullCmd.!!)
-    catch case e: IOException => None
+    catch case e: Exception => None
   final def isAvailable: Boolean = installedVersion.nonEmpty
   protected def getInstalledVersion(using to: ToolOptions): String =
     preCheck()
