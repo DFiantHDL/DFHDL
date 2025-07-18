@@ -35,7 +35,9 @@ trait Tool:
     else
       val getVersionFullCmd =
         Process(s"$runExec $versionCmd", new java.io.File(System.getProperty("java.io.tmpdir")))
-      try extractVersion(getVersionFullCmd.!!)
+      // since the command is not guaranteed to return 0, we need to use lazyLines_! and avoid
+      // exception handling (e.g., vivado returns 1 for version check)
+      try extractVersion(getVersionFullCmd.lazyLines_!.mkString("\n"))
       catch case e: Exception => None
   final def isAvailable: Boolean = installedVersion.nonEmpty
   protected def getInstalledVersion(using to: ToolOptions): String =
