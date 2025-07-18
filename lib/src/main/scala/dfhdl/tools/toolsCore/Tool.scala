@@ -31,10 +31,12 @@ trait Tool:
   protected[dfhdl] def cleanUpBeforeFileRestore()(using MemberGetSet, CompilerOptions): Unit = {}
 
   private[dfhdl] lazy val installedVersion: Option[String] =
-    val getVersionFullCmd =
-      Process(s"$runExec $versionCmd", new java.io.File(System.getProperty("java.io.tmpdir")))
-    try extractVersion(getVersionFullCmd.!!)
-    catch case e: Exception => None
+    if (!programIsAccessible(runExec)) None
+    else
+      val getVersionFullCmd =
+        Process(s"$runExec $versionCmd", new java.io.File(System.getProperty("java.io.tmpdir")))
+      try extractVersion(getVersionFullCmd.!!)
+      catch case e: Exception => None
   final def isAvailable: Boolean = installedVersion.nonEmpty
   protected def getInstalledVersion(using to: ToolOptions): String =
     preCheck()
