@@ -9,6 +9,7 @@ import java.nio.file.{Paths, Files}
 import dfhdl.options.PrinterOptions
 import DFDesignBlock.InstMode
 import DFVal.Func.Op as FuncOp
+import java.io.File.separatorChar
 
 protected trait AbstractPrinter:
   type TPrinter <: Printer
@@ -165,6 +166,7 @@ trait Printer
     s"${csDocString(design.dclMeta)}$designDcl"
   def dfhdlDefsFileName: String
   def dfhdlSourceContents: String
+  val hdlFolderName: String = "hdl"
   final def printedDB: DB =
     val designDB = getSet.designDB
     val dfhdlSourceFile: Option[SourceFile] =
@@ -173,7 +175,7 @@ trait Printer
           SourceFile(
             SourceOrigin.Compiled,
             SourceType.DFHDLDef,
-            dfhdlDefsFileName,
+            hdlFolderName + separatorChar + dfhdlDefsFileName,
             dfhdlSourceContents
           )
         )
@@ -182,7 +184,7 @@ trait Printer
       SourceFile(
         SourceOrigin.Compiled,
         SourceType.GlobalDef,
-        globalFileName,
+        hdlFolderName + separatorChar + globalFileName,
         formatCode(csGlobalFileContent, withColor = false)
       )
     val compiledFiles = Iterable(
@@ -195,7 +197,7 @@ trait Printer
         SourceFile(
           SourceOrigin.Compiled,
           sourceType,
-          designFileName(block.dclName),
+          hdlFolderName + separatorChar + designFileName(block.dclName),
           formatCode(csFile(block), withColor = false)
         )
       }
@@ -245,7 +247,7 @@ object Printer:
     }
   end printBackendCode
   def commit(db: DB, topCommitPathStr: String): DB =
-    val folderPath = Paths.get(topCommitPathStr).resolve("hdl")
+    val folderPath = Paths.get(topCommitPathStr)
     if (!Files.exists(folderPath))
       Files.createDirectories(folderPath)
     val updatedSrcFiles = db.srcFiles.map {
@@ -253,13 +255,13 @@ object Printer:
         val commitPathAbs =
           if (Paths.get(filePathStr).isAbsolute) filePathStr
           else folderPath.resolve(filePathStr).toAbsolutePath.normalize().toString
-        val commitPathSaved =
-          if (Paths.get(filePathStr).isAbsolute) filePathStr
-          else Paths.get("hdl").resolve(filePathStr).toString()
+        val commitPathFolder = Paths.get(commitPathAbs).getParent
+        if (!Files.exists(commitPathFolder))
+          Files.createDirectories(commitPathFolder)
         val pw = new FileWriter(commitPathAbs)
         pw.write(contents)
         pw.close()
-        srcFile.copy(sourceOrigin = SourceOrigin.Committed, path = commitPathSaved)
+        srcFile.copy(sourceOrigin = SourceOrigin.Committed, path = commitPathAbs)
       case other => other
     }
     db.copy(srcFiles = updatedSrcFiles)
