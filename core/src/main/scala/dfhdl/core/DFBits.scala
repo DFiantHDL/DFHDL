@@ -66,7 +66,7 @@ object DFBits:
         [I <: Int, W <: Int] =>> (I < W) && (I >= 0),
         [I <: Int, W <: Int] =>> "Index " + I + " is out of range of width/length " + W
       ]
-  protected object BitsHiLo
+  protected[core] object BitsHiLo
       extends Check2[
         Int,
         Int,
@@ -299,7 +299,7 @@ object DFBits:
             case '_' | ' ' | '?'        => false
             case isHex() if op == "h"   => true
             case '0' | '1' if op == "b" => true
-            case x =>
+            case x                      =>
               report.errorAndAbort(
                 s"""|Found invalid character: ${x}.
                     |Note: string interpolation with value extraction does not support the `[w']` width extension syntax.""".stripMargin
@@ -394,8 +394,8 @@ object DFBits:
             val dfValIR = dfVal.asIR
             dfValIR.dfType match
               case _: ir.DFBits => dfValIR.asValOf[DFBits[Int]]
-              case _ =>
-                dfValIR.asValAny.bits(using Width.wide).asValOf[DFBits[Int]]
+              case _            =>
+                dfValIR.asValAny.bits(using dfc)(using Width.wide).asValOf[DFBits[Int]]
         end match
       end valueToBits
       transparent inline given fromTuple[R <: NonEmptyTuple]: Candidate[R] = ${ DFBitsMacro[R] }
@@ -527,6 +527,7 @@ object DFBits:
     end TupleOps
 
     object Ops:
+      import IntP.{-, +}
       extension [W <: IntP, P](lhs: DFValTP[DFBits[W], P])
         def truncate(using DFC): DFValTP[DFBits[Int], P] =
           lhs.tag(ir.TruncateTag).asValTP[DFBits[Int], P]
@@ -607,9 +608,9 @@ object DFBits:
           check(updatedWidth)
           icL(lhs).resizeBits(updatedWidth)
         }
-        def repeat[N <: Int](num: IntParam[N])(using
+        def repeat[N <: IntP](num: IntParam[N])(using
             dfc: DFC,
-            check: Arg.Positive.Check[N]
+            check: Arg.Positive.CheckNUB[N]
         ): DFValTP[DFBits[IntP.*[icL.OutW, N]], icL.OutP | CONST] = trydf {
           val lhsVal = icL(lhs)
           check(num)
@@ -655,19 +656,19 @@ object DFBits:
         ): DFVal[DFBit, Modifier[A, Any, Any, P]] = trydf {
           DFVal.Alias.ApplyIdx(DFBit, lhs, relIdx(lhs.widthIntParam)(using dfc.anonymize))
         }
-        def apply[H <: Int, L <: Int](
-            relBitHigh: Inlined[H],
-            relBitLow: Inlined[L]
+        def apply[H <: IntP, L <: IntP](
+            idxHigh: IntParam[H],
+            idxLow: IntParam[L]
         )(using
+            dfc: DFC,
             checkHigh: BitIndex.CheckNUB[H, W],
             checkLow: BitIndex.CheckNUB[L, W],
-            checkHiLo: BitsHiLo.Check[H, L],
-            dfc: DFC
+            checkHiLo: BitsHiLo.CheckNUB[H, L]
         ): DFVal[DFBits[H - L + 1], Modifier[A, Any, Any, P]] = trydf {
-          checkHigh(relBitHigh, lhs.widthInt)
-          checkLow(relBitLow, lhs.widthInt)
-          checkHiLo(relBitHigh, relBitLow)
-          DFVal.Alias.ApplyRange(lhs, relBitHigh, relBitLow)
+          checkHigh(idxHigh, lhs.widthInt)
+          checkLow(idxLow, lhs.widthInt)
+          checkHiLo(idxHigh, idxLow)
+          DFVal.Alias.ApplyRange(lhs, idxHigh, idxLow)
         }
         def unary_~(using DFC): DFValTP[DFBits[W], P] = trydf {
           DFVal.Func(lhs.dfType, FuncOp.unary_~, List(lhs))
@@ -677,22 +678,21 @@ object DFBits:
         def lsbit(using DFC): DFVal[DFBit, Modifier[A, Any, Any, P]] =
           lhs.apply(0)
         // TODO: IntP
-        def msbits[RW <: Int](updatedWidth: Inlined[RW])(using
+        def msbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFC
         ): DFValTP[DFBits[RW], P] = trydf {
           check(lhs.widthInt, updatedWidth)
-          DFVal.Alias.ApplyRange(lhs, lhs.widthInt - 1, lhs.widthInt - updatedWidth)
+          DFVal.Alias.ApplyRange(lhs, lhs.widthIntParam - 1, lhs.widthIntParam - updatedWidth)
             .asValTP[DFBits[RW], P]
         }
         // TODO: IntP
-        def lsbits[RW <: Int](updatedWidth: Inlined[RW])(using
+        def lsbits[RW <: IntP](updatedWidth: IntParam[RW])(using
             check: `LW >= RW`.CheckNUB[W, RW],
             dfc: DFC
         ): DFValTP[DFBits[RW], P] = trydf {
           check(lhs.widthInt, updatedWidth)
-          DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0)
-            .asValTP[DFBits[RW], P]
+          DFVal.Alias.ApplyRange(lhs, updatedWidth - 1, 0).asValTP[DFBits[RW], P]
         }
         @targetName("shiftRightDFBits")
         def >>(shift: DFUInt.Val.UBArg.Exact[W])(using

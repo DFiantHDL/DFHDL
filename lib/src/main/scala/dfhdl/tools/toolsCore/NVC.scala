@@ -46,8 +46,12 @@ object NVC extends VHDLLinter, VHDLSimulator:
       s"WORK.${topNameUC}_PKG",
       s"WORK.${topNameUC}_PKG-body"
     )
-    val topWorkFiles = List(s"WORK.${topNameUC}.elab", s"_WORK.${topNameUC}.pack")
-    val extraFiles = List("_index.", "_NVC_LIB.")
+    val versionDouble = this.installedVersion.get.split("\\.").take(2).mkString(".").toDouble
+    val topElabFile =
+      if (versionDouble >= 1.17) s"_WORK.${topNameUC}.elab.pack"
+      else s"_WORK.${topNameUC}.pack"
+    val topWorkFiles = List(s"WORK.${topNameUC}.elab", topElabFile)
+    val extraFiles = List("_index", "_NVC_LIB")
     val allFiles = extraFiles ++ topWorkFiles ++ dsnPackageWorkFiles ++ designWorkFiles
     allFiles.map(name => s"work${separatorChar}${name}")
   end producedFiles

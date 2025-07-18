@@ -511,8 +511,10 @@ class PrintVHDLCodeSpec extends StageSpec:
          |  end;
          |  subtype t_opaque_Foo is t_arrX2_std_logic_vector(0 to 9)(0 to 15)(11 downto 0);
          |  function to_t_opaque_Foo(A : std_logic_vector) return t_opaque_Foo is
+         |    variable A0 : std_logic_vector(A'length - 1 downto 0);
          |  begin
-         |    return to_t_arrX2_std_logic_vector(A, 10, 16, 12);
+         |    A0 := A;
+         |    return to_t_arrX2_std_logic_vector(A0, 10, 16, 12);
          |  end;
          |  signal v : t_opaque_Foo;
          |begin
@@ -1230,7 +1232,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1176:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1178:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1292,7 +1294,7 @@ class PrintVHDLCodeSpec extends StageSpec:
          |    println("These are the values: " & to_string(param3) & ", " & to_string(param4) & ", " & to_string(param5) & ", " & to_string(param6) & ", " & to_string(param7) & ", " & to_string(param8) & ", " & to_string(param9) & ", " & t_enum_MyEnum'image(param10) & "");
          |    report
          |      "Debug at Foo" & LF &
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1176:9" & LF &
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVHDLCodeSpec.scala:1178:9" & LF &
          |      "param3 = " & to_string(param3) & LF &
          |      "param4 = " & to_string(param4) & LF &
          |      "param5 = " & to_string(param5) & LF &
@@ -1354,6 +1356,45 @@ class PrintVHDLCodeSpec extends StageSpec:
          |      end if;
          |    end if;
          |  end process;
+         |end Foo_arch;""".stripMargin
+    )
+  }
+  test("pattern matching on anonymous value in vhdl.v93") {
+    given options.CompilerOptions.Backend = backends.vhdl.v93
+    class Foo extends RTDesign:
+      val uW = Bits(8) <> IN
+      uW.resize(4) match
+        case all(0) =>
+        case all(1) =>
+        case _      =>
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Foo_pkg.all;
+         |
+         |entity Foo is
+         |port (
+         |  uW : in std_logic_vector(7 downto 0)
+         |);
+         |end Foo;
+         |
+         |architecture Foo_arch of Foo is
+         |  signal anon : std_logic_vector(3 downto 0);
+         |begin
+         |  process (anon)
+         |  begin
+         |    case anon is
+         |      when x"0" =>
+         |      when x"f" =>
+         |      when others =>
+         |    end case;
+         |  end process;
+         |  anon <= resize(uW, 4);
          |end Foo_arch;""".stripMargin
     )
   }

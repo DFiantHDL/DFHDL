@@ -34,7 +34,7 @@ class PrintCodeStringSpec extends StageSpec:
     val id1_y = SInt(16) <> VAR
     val id2_x = SInt(16) <> VAR
     val id2_y = SInt(16) <> VAR
-    val id1 = new ID(argTop):
+    val id1   = new ID(argTop):
       this.x <> id1_x
       this.y <> id1_y
     val id2 = new ID():
@@ -488,7 +488,7 @@ class PrintCodeStringSpec extends StageSpec:
   }
   test("Domains") {
     class IDWithDomains extends DFDesign:
-      val y = SInt(16) <> OUT
+      val y    = SInt(16) <> OUT
       val fast = new RTDomain:
         val pr = SInt(16) <> VAR init 0
         val pw = SInt(16) <> VAR
@@ -523,8 +523,8 @@ class PrintCodeStringSpec extends StageSpec:
   }
   test("Basic hierarchy with domains") {
     class IDTop extends EDDesign:
-      val x = SInt(16) <> IN
-      val y = SInt(16) <> OUT
+      val x    = SInt(16) <> IN
+      val y    = SInt(16) <> OUT
       val dmn1 = new RTDomain:
         val id = new ID(1)
         id.x <> x.reg(1, init = 0)
@@ -697,7 +697,7 @@ class PrintCodeStringSpec extends StageSpec:
   //   )
   test("Cover case where same declaration domains are missing names"):
     class IDWithDomains extends EDDesign:
-      @hw.flattenMode.suffix("_")
+      @hw.annotation.flattenMode.suffix("_")
       val a, b = new EDDomain:
         val x = Bit <> IN
         val y = Bit <> OUT
@@ -706,12 +706,12 @@ class PrintCodeStringSpec extends StageSpec:
     assertNoDiff(
       top,
       """|class IDWithDomains extends EDDesign:
-         |  @hw.flattenMode.suffix("_")
+         |  @hw.annotation.flattenMode.suffix("_")
          |  val a = new EDDomain:
          |    val x = Bit <> IN
          |    val y = Bit <> OUT
          |    y <> x
-         |  @hw.flattenMode.suffix("_")
+         |  @hw.annotation.flattenMode.suffix("_")
          |  val b = new EDDomain:
          |    val x = Bit <> IN
          |    val y = Bit <> OUT
@@ -1246,4 +1246,124 @@ class PrintCodeStringSpec extends StageSpec:
          |end Foo""".stripMargin
     )
   }
+  test("out port of child design is not consuming state within the current design") {
+    class Bar extends RTDesign:
+      val y = Bit <> OUT
+      y := 0
+    end Bar
+    class Foo extends RTDesign:
+      val bar = new Bar
+      val x   = Bit <> OUT
+      x := bar.y
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Bar extends RTDesign:
+         |  val y = Bit <> OUT
+         |  y := 0
+         |end Bar
+         |
+         |class Foo extends RTDesign:
+         |  val bar = Bar()
+         |  val x = Bit <> OUT
+         |  x := bar.y
+         |end Foo""".stripMargin
+    )
+  }
+  test("dropping width parameter in patterns") {
+    class Foo(val width: Int <> CONST = 8) extends RTDesign:
+      val bW = Bits(width) <> IN
+      val uW = UInt(width) <> IN
+      val sW = SInt(width) <> IN
+      bW match
+        case all(0) =>
+        case all(1) =>
+        case _      =>
+      uW match
+        case 0 =>
+        case 1 =>
+        case _ =>
+      sW match
+        case -1 =>
+        case 1  =>
+        case _  =>
+    end Foo
+    val top = (new Foo).getCodeString
+    assertNoDiff(
+      top,
+      """|class Foo(val width: Int <> CONST = 8) extends RTDesign:
+         |  val bW = Bits(width) <> IN
+         |  val uW = UInt(width) <> IN
+         |  val sW = SInt(width) <> IN
+         |  bW match
+         |    case h"00" =>
+         |    case h"ff" =>
+         |    case _ =>
+         |  end match
+         |  uW match
+         |    case d"8'0" =>
+         |    case d"8'1" =>
+         |    case _ =>
+         |  end match
+         |  sW match
+         |    case sd"8'-1" =>
+         |    case sd"8'1" =>
+         |    case _ =>
+         |  end match
+         |end Foo""".stripMargin
+    )
+  }
+
+  test("constant vector regression") {
+    object Test:
+      val foo: UInt[8] <> CONST = h"00".uint
+      class Bar extends DFDesign:
+        val o = foo.bits
+      end Bar
+    import Test.*
+    val top = Bar().sanityCheck.getCodeString
+    assertNoDiff(
+      top,
+      """|val foo: UInt[8] <> CONST = d"8'0"
+         |class Bar extends DFDesign:
+         |  val o: Bits[8] <> CONST = foo.bits
+         |end Bar""".stripMargin
+    )
+  }
+
+  // TODO: requires fixing
+  // test("nesting parameters regression") {
+  //   class Inner(val width: Int <> CONST) extends RTDesign:
+  //     val depth: Int <> CONST = width + 1
+  //     val x                   = Bits(width) <> IN
+  //     val y                   = Bits(depth) <> OUT
+  //     y <> x.resize(depth)
+  //   end Inner
+  //   class Outer(val baseWidth: Int <> CONST = 8) extends RTDesign:
+  //     val inner = Inner(baseWidth)
+  //     val x     = Bits(baseWidth) <> IN
+  //     val y     = Bits(baseWidth) <> OUT
+  //     inner.x <> x
+  //     y       <> inner.y.resize(baseWidth)
+  //   end Outer
+  //   val top = (new Outer).getCodeString
+  //   assertNoDiff(
+  //     top,
+  //     """|class Inner(val width: Int <> CONST) extends RTDesign:
+  //        |  val depth: Int <> CONST = width + 1
+  //        |  val x = Bits(width) <> IN
+  //        |  val y = Bits(depth) <> OUT
+  //        |  y <> x.resize(depth)
+  //        |end Inner
+  //        |
+  //        |class Outer(val baseWidth: Int <> CONST = 8) extends RTDesign:
+  //        |  val inner = Inner(width = baseWidth)
+  //        |  val x = Bits(baseWidth) <> IN
+  //        |  val y = Bits(baseWidth) <> OUT
+  //        |  inner.x <> x
+  //        |  y <> inner.y.resize(baseWidth)
+  //        |end Outer""".stripMargin
+  //   )
+  // }
 end PrintCodeStringSpec

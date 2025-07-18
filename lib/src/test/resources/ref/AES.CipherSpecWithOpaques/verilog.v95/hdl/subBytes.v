@@ -8,8 +8,8 @@ module subBytes(
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
-  input  wire  [7:0] state [0:3] [0:3];
-  output wire [7:0] o [0:3] [0:3];
+  input  wire  [127:0] state;
+  output wire [127:0]  o;
   wire [7:0] sbox_inst_00_lhs;
   wire [7:0] sbox_inst_00_o;
   wire [7:0] sbox_inst_01_lhs;
@@ -106,26 +106,26 @@ module subBytes(
     .lhs /*<--*/ (sbox_inst_15_lhs),
     .o   /*-->*/ (sbox_inst_15_o)
   );
-  assign sbox_inst_00_lhs = state[0][0];
-  assign sbox_inst_01_lhs = state[0][1];
-  assign sbox_inst_02_lhs = state[0][2];
-  assign sbox_inst_03_lhs = state[0][3];
-  assign sbox_inst_04_lhs = state[1][0];
-  assign sbox_inst_05_lhs = state[1][1];
-  assign sbox_inst_06_lhs = state[1][2];
-  assign sbox_inst_07_lhs = state[1][3];
-  assign sbox_inst_08_lhs = state[2][0];
-  assign sbox_inst_09_lhs = state[2][1];
-  assign sbox_inst_10_lhs = state[2][2];
-  assign sbox_inst_11_lhs = state[2][3];
-  assign sbox_inst_12_lhs = state[3][0];
-  assign sbox_inst_13_lhs = state[3][1];
-  assign sbox_inst_14_lhs = state[3][2];
-  assign sbox_inst_15_lhs = state[3][3];
-  assign o = '{
-    '{sbox_inst_00_o, sbox_inst_01_o, sbox_inst_02_o, sbox_inst_03_o},
-    '{sbox_inst_04_o, sbox_inst_05_o, sbox_inst_06_o, sbox_inst_07_o},
-    '{sbox_inst_08_o, sbox_inst_09_o, sbox_inst_10_o, sbox_inst_11_o},
-    '{sbox_inst_12_o, sbox_inst_13_o, sbox_inst_14_o, sbox_inst_15_o}
+  assign sbox_inst_00_lhs = state[127:120];
+  assign sbox_inst_01_lhs = state[119:112];
+  assign sbox_inst_02_lhs = state[111:104];
+  assign sbox_inst_03_lhs = state[103:96];
+  assign sbox_inst_04_lhs = state[95:88];
+  assign sbox_inst_05_lhs = state[87:80];
+  assign sbox_inst_06_lhs = state[79:72];
+  assign sbox_inst_07_lhs = state[71:64];
+  assign sbox_inst_08_lhs = state[63:56];
+  assign sbox_inst_09_lhs = state[55:48];
+  assign sbox_inst_10_lhs = state[47:40];
+  assign sbox_inst_11_lhs = state[39:32];
+  assign sbox_inst_12_lhs = state[31:24];
+  assign sbox_inst_13_lhs = state[23:16];
+  assign sbox_inst_14_lhs = state[15:8];
+  assign sbox_inst_15_lhs = state[7:0];
+  assign o = {
+    {sbox_inst_00_o, sbox_inst_01_o, sbox_inst_02_o, sbox_inst_03_o},
+    {sbox_inst_04_o, sbox_inst_05_o, sbox_inst_06_o, sbox_inst_07_o},
+    {sbox_inst_08_o, sbox_inst_09_o, sbox_inst_10_o, sbox_inst_11_o},
+    {sbox_inst_12_o, sbox_inst_13_o, sbox_inst_14_o, sbox_inst_15_o}
   };
 endmodule

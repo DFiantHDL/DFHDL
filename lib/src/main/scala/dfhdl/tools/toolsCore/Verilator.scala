@@ -96,9 +96,10 @@ object Verilator extends VerilogLinter, VerilogSimulator:
       CompilerOptions,
       SimulatorOptions
   ): CompiledDesign =
-    given MemberGetSet = cd.stagedDB.getSet
+    val linted = lintPreprocess(cd)
+    given MemberGetSet = linted.stagedDB.getSet
     exec(simulateCmdFlags, (), simulateLogger, simRunExec)
-    cd
+    linted
 
   override protected def simulateCmdLanguageFlag(dialect: VerilogDialect): String =
     lintCmdLanguageFlag(dialect)
@@ -194,7 +195,8 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
        |$commands
        |""".stripMargin
   def commands: String =
-    lintOffHidden.emptyOr(_ + "\n") +
+    lintOffNoParamDefaults.emptyOr(_ + "\n") +
+      lintOffHidden.emptyOr(_ + "\n") +
       lintOffBlackBoxes.emptyOr(_ + "\n") +
       lintOffOpenOutPorts.emptyOr(_ + "\n") +
       lintOffUnused.emptyOr(_ + "\n") +
@@ -215,6 +217,10 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
     val matchWildArg = matchWild.emptyOr(m => s""" -match "$m"""")
     s"lint_off$ruleArg$fileArg$lineArg$matchWildArg"
   def lintOffHidden: String = lintOffCommand("VARHIDDEN")
+  def lintOffNoParamDefaults: String =
+    if (co.backend.asInstanceOf[backends.verilog].dialect == VerilogDialect.sv2005)
+      lintOffCommand("NEWERSTD", file = "*.*", matchWild = "*Parameter requires default value*")
+    else ""
   def lintOffBlackBoxes: String =
     designDB.srcFiles.flatMap {
       case SourceFile(SourceOrigin.Committed, SourceType.BlackBox, path, _) =>
@@ -243,10 +249,10 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
       )
     .distinct.mkString("\n")
   def lintOffUnusedBits: String =
-    designDB.getUnusedBitsValues.map: (dfVal, relBitHigh, relBitLow) =>
+    designDB.getUnusedBitsValues.map: (dfVal, idxHigh, idxLow) =>
       val bitSel =
-        if (relBitHigh == relBitLow) s"$relBitHigh"
-        else s"$relBitHigh:$relBitLow"
+        if (idxHigh == idxLow) s"$idxHigh"
+        else s"$idxHigh:$idxLow"
       lintOffCommand(
         rule = "UNUSEDSIGNAL",
         file = s"${dfVal.getOwnerDesign.dclName}.*",

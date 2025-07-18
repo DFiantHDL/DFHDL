@@ -30,9 +30,18 @@ object r__For_Plugin:
       case (dt: ir.DFBoolOrBit, v: Boolean) =>
         DFVal.Const(dt.asFE[DFBoolOrBit], Some(v))
       case (dt: ir.DFBits, allBit: BitOrBool) =>
-        SameElementsVector.bitsValOf(dt.asFE[DFBits[Int]].widthIntParam, SameElementsVector(allBit))
+        // removing width as a parameter in patterns
+        val dfType = DFBits(dt.width)
+        SameElementsVector.bitsValOf(
+          dfType.asFE[DFBits[Int]].widthIntParam,
+          SameElementsVector(allBit)
+        )
       case (dt: ir.DFDecimal, v: Int) =>
-        DFVal.Const(dt.asFE[DFSInt[Int]], Some(BigInt(v)))
+        // removing width as a parameter in patterns
+        val dfType = (dt: @unchecked) match
+          case ir.DFUInt(_) => DFUInt(dt.width)
+          case ir.DFSInt(_) => DFSInt(dt.width)
+        DFVal.Const(dfType.asFE[DFSInt[Int]], Some(BigInt(v)))
       case (dt: ir.DFEnum, v: DFEncoding) =>
         DFVal.Const(dt.asFE[DFEnum[DFEncoding]], Some(v.bigIntValue))
       case (dt: ir.DFStruct, v) => ???
@@ -65,18 +74,17 @@ object r__For_Plugin:
   def bindValRange[V <: DFValAny](
       selector: V,
       bindName: String,
-      relBitHigh: Int,
-      relBitLow: Int
+      idxHigh: Int,
+      idxLow: Int
   )(using dfc: DFC): V =
     given DFC = dfc.anonymize
     val dfType = selector.dfType.asIR
     val selectorBitsIR: ir.DFVal = dfType match
       case _: ir.DFBits => selector.asIR
-      case _ =>
+      case _            =>
         import DFVal.Ops.bits
-        selector.bits(using Width.wide).asIR
-    val rangeAlias = DFVal.Alias
-      .ApplyRange(selectorBitsIR.asValOf[DFBits[Int]], relBitHigh, relBitLow)
+        selector.bits(using dfc)(using Width.wide).asIR
+    val rangeAlias = DFVal.Alias.ApplyRange(selectorBitsIR.asValOf[DFBits[Int]], idxHigh, idxLow)
     DFVal.Alias.AsIs.bind(rangeAlias, bindName).asInstanceOf[V]
   end bindValRange
   def patternBind(bindVal: DFValAny, pattern: Pattern)(using DFC): Pattern =

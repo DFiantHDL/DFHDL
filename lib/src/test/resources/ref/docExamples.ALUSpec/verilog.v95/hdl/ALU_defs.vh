@@ -1,5 +1,9 @@
 `ifndef ALU_DEFS
 `define ALU_DEFS
+`endif
+`ifndef ALU_DEFS_MODULE
+`define ALU_DEFS_MODULE
+`else
 `define ALUSel_ADD 0
 `define ALUSel_SUB 1
 `define ALUSel_SLL 2
@@ -13,10 +17,6 @@
 `define ALUSel_COPY1 10
 
 
-`endif
-`ifndef ALU_DEFS_MODULE
-`define ALU_DEFS_MODULE
-`else
 function [8*12:1] ALUSel_to_string;
   input [3:0] value;
   case (value)

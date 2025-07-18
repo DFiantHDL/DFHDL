@@ -54,11 +54,11 @@ extension (using quotes: Quotes)(tpe: quotes.reflect.TypeRepr)
   def isConstTpe: quotes.reflect.TypeRepr =
     import quotes.reflect.*
     def isConstBool(tpe: TypeRepr): Boolean = tpe.asType match
-      case '[DFConstOf[t]] => true
-      case '[DFValOf[t]]   => false
+      case '[DFConstOf[t]]  => true
+      case '[DFValOf[t]]    => false
       case '[NonEmptyTuple] =>
         tpe.getTupleArgs.forall(isConstBool)
-      case '[SameElementsVector[t]] => isConstBool(TypeRepr.of[t])
+      case '[SameElementsVector[t]]      => isConstBool(TypeRepr.of[t])
       case '[BoolSelWrapper[sp, ot, of]] =>
         List(TypeRepr.of[sp], TypeRepr.of[ot], TypeRepr.of[of]).forall(isConstBool)
       case '[DFVal.NOTHING] => false
@@ -77,7 +77,7 @@ extension (using quotes: Quotes)(term: quotes.reflect.Term)
       case Block(_, expr)      => expr.getNonConstTerm
       case TypeApply(expr, _)  => expr.getNonConstTerm
       case Typed(expr, _)      => expr.getNonConstTerm
-      case _ =>
+      case _                   =>
         term.tpe.asType match
           case '[DFConstOf[?]]  => None
           case '[DFValOf[?]]    => Some(term)
@@ -102,7 +102,7 @@ infix type <>[T, M] = T match
   // So in this case we construct DFVector.ComposedModifier[T, M] to later used in `X`
   // to properly construct the vector type.
   case DFConstInt32 | IntP.Sig => DFVector.ComposedModifier[T, M]
-  case _ =>
+  case _                       =>
     M match
       case DFRET => (DFC, DomainType.DF) ?=> DFValOf[DFType.Of[T]]
       case RTRET => (DFC, DomainType.RT) ?=> DFValOf[DFType.Of[T]]
@@ -130,7 +130,7 @@ extension [V <: ir.DFVal](dfVal: V)
     DFVal[DFTypeAny, Modifier.Mutable, V](dfVal)
   inline def asDclAny: DFDclAny =
     DFVal[DFTypeAny, Modifier.Dcl, V](dfVal)
-  inline def asConstAny[T <: DFTypeAny]: DFConstOf[DFTypeAny] =
+  inline def asConstAny: DFConstOf[DFTypeAny] =
     DFVal[DFTypeAny, Modifier.CONST, V](dfVal)
   inline def asConstOf[T <: DFTypeAny]: DFConstOf[T] =
     DFVal[T, Modifier.CONST, V](dfVal)
@@ -451,7 +451,7 @@ object DFVal extends DFValLP:
         case _                                  => (value, '{ true })
       argExpr.asTerm.getNonConstTerm match
         case Some(term) => term.compiletimeErrorPosExpr("Init value must be a constant.")
-        case None =>
+        case None       =>
           val exactInfo = argExpr.exactInfo
           '{
             val tc = compiletime.summonInline[DFVal.TC[T, exactInfo.Underlying]]
@@ -482,7 +482,7 @@ object DFVal extends DFValLP:
       val term = argExpr.asTerm.underlyingArgument
       term.getNonConstTerm match
         case Some(term) => term.compiletimeErrorPosExpr("Init value must be a constant.")
-        case _ =>
+        case _          =>
           val tTpe = TypeRepr.of[T]
           extension (lhs: TypeRepr)
             def tupleSigMatch(
@@ -602,7 +602,7 @@ object DFVal extends DFValLP:
       )
       val initFileConst = vectorType.cellType.asIR match
         case ir.DFBits(_) => DFVal.Const(vectorType, data)
-        case cellType =>
+        case cellType     =>
           DFVal.Const(vectorType, data.map(cellType.bitsDataToData))
 
       dfVal.initForced(List(initFileConst))
@@ -822,42 +822,55 @@ object DFVal extends DFValLP:
       end apply
     end History
     object ApplyRange:
-      def apply[W <: IntP, M <: ModifierAny, H <: Int, L <: Int](
+      import IntP.{-, +}
+      def apply[W <: IntP, M <: ModifierAny, H <: IntP, L <: IntP](
           relVal: DFVal[DFBits[W], M],
-          relBitHigh: Inlined[H],
-          relBitLow: Inlined[L]
+          idxHigh: IntParam[H],
+          idxLow: IntParam[L]
       )(using DFC): DFVal[DFBits[H - L + 1], M] =
-        forced(relVal.asIR, relBitHigh, relBitLow).asVal[DFBits[H - L + 1], M]
-      end apply
-      def forced(
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFBits[H - L + 1], M]
+      def applyVector[T <: DFTypeAny, M <: ModifierAny, H <: IntP, L <: IntP](
+          relVal: DFVal[DFVector[T, Tuple1[?]], M],
+          idxHigh: IntParam[H],
+          idxLow: IntParam[L]
+      )(using DFC): DFVal[DFVector[T, Tuple1[H - L + 1]], M] =
+        forced(relVal.asIR, idxHigh, idxLow).asVal[DFVector[T, Tuple1[H - L + 1]], M]
+      def forced[H <: IntP, L <: IntP](
           relVal: ir.DFVal,
-          relBitHigh: Int,
-          relBitLow: Int
+          idxHigh: IntParam[H],
+          idxLow: IntParam[L]
       )(using DFC): ir.DFVal =
+        val selLength = idxHigh - idxLow + 1
+        val dfType = (relVal.dfType: @unchecked) match
+          case ir.DFBits(_)                     => ir.DFBits(selLength.ref)
+          case ir.DFVector(cellType = cellType) =>
+            ir.DFVector(cellType, List(selLength.ref))
         relVal match
           // anonymous constant are replace by a different constant
           // after its data value was converted according to the alias
           case const: ir.DFVal.Const if const.isAnonymous =>
-            val updatedData =
-              ir.selBitRangeData(
-                const.data.asInstanceOf[(BitVector, BitVector)],
-                relBitHigh,
-                relBitLow
-              )
-            Const.forced(DFBits(relBitHigh - relBitLow + 1), updatedData).asIR
+            val updatedData = ir.selRangeData(
+              dfType,
+              const.data,
+              idxHigh,
+              idxLow
+            )
+            Const.forced(dfType.asFE, updatedData).asIR
           // named constants or other non-constant values are referenced
           // in a new alias construct
           case _ =>
             val alias: ir.DFVal.Alias.ApplyRange =
               ir.DFVal.Alias.ApplyRange(
+                dfType,
                 relVal.refTW[ir.DFVal.Alias.ApplyRange],
-                relBitHigh,
-                relBitLow,
+                idxHigh.ref,
+                idxLow.ref,
                 dfc.ownerOrEmptyRef,
                 dfc.getMeta,
                 dfc.tags
               )
             alias.addMember
+        end match
       end forced
     end ApplyRange
     object ApplyIdx:
@@ -1015,6 +1028,7 @@ object DFVal extends DFValLP:
     export DFBits.Val.TCConv.given
     export DFDecimal.Val.TCConv.given
     export DFTuple.Val.TCConv.given
+    export DFVector.Val.TCConv.given
 
   trait TC_Or_OPEN[T <: DFTypeAny, R] extends TC[T, R]
   object TC_Or_OPEN:
@@ -1183,7 +1197,7 @@ object DFVal extends DFValLP:
     end extension
 
     extension [T <: DFTypeAny, A, C, I, P](dfVal: DFVal[T, Modifier[A, C, I, P]])
-      def bits(using w: Width[T])(using DFC): DFValTP[DFBits[w.Out], P] = trydf {
+      def bits(using DFC)(using w: Width[T]): DFValTP[DFBits[w.Out], P] = trydf {
         DFVal.Alias.AsIs(DFBits(dfVal.widthIntParam), dfVal)
       }
       def genNewVar(using DFC): DFVarOf[T] = trydf {
@@ -1214,7 +1228,7 @@ object VarsTuple:
     val tTpe = TypeRepr.of[T]
     def varsCheck(tpe: TypeRepr): Option[String] =
       tpe.asTypeOf[Any] match
-        case '[DFVarOf[t]] => None
+        case '[DFVarOf[t]]    => None
         case '[NonEmptyTuple] =>
           tpe.getTupleArgs.view.map(varsCheck).collectFirst { case Some(v) => v }
         case _ =>
@@ -1222,7 +1236,7 @@ object VarsTuple:
           Some(s"All tuple elements must be mutable but found an immutable type `${tpe.showType}`")
     varsCheck(tTpe) match
       case Some(err) => '{ compiletime.error(${ Expr(err) }) }
-      case None =>
+      case None      =>
         import Width.calcValWidth
         val widthType = tTpe.calcValWidth.asTypeOf[Int]
         '{
@@ -1468,16 +1482,22 @@ extension (dfVal: ir.DFVal)
             case alias: ir.DFVal.Alias.AsIs =>
               DFVal.Alias.AsIs(dfType, clonedRelVal, forceNewAlias = true)(using dfcForClone)
             case alias: ir.DFVal.Alias.ApplyRange =>
+              def cloneIntParam(intParam: IntParam[Int]): IntParam[Int] =
+                val ret = (intParam: @unchecked) match
+                  case int: Int            => int
+                  case const: DFConstInt32 => const.asIR.cloneAnonValueAndDepsHere
+                ret.asInstanceOf[IntParam[Int]]
               DFVal.Alias.ApplyRange(
                 clonedRelVal.asValOf[DFBits[Int]],
-                alias.relBitHigh,
-                alias.relBitLow
+                cloneIntParam(alias.idxHighRef.get),
+                cloneIntParam(alias.idxLowRef.get)
               )(using dfcForClone)
             case alias: ir.DFVal.Alias.ApplyIdx =>
               val clonedIdx = alias.relIdx.get.cloneAnonValueAndDepsHere.asValOf[DFInt32]
               DFVal.Alias.ApplyIdx(dfType, clonedRelVal, clonedIdx)(using dfcForClone)
             case alias: ir.DFVal.Alias.SelectField =>
               DFVal.Alias.SelectField(clonedRelVal, alias.fieldName)(using dfcForClone)
+          end match
         case _ => throw new IllegalArgumentException(s"Unsupported cloning for: $dfVal")
       cloned.asIR
     else dfVal

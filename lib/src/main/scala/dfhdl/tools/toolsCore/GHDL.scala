@@ -62,7 +62,7 @@ object GHDL extends VHDLLinter, VHDLSimulator:
       SimulatorOptions,
       MemberGetSet
   ): String = constructCommand(
-    "-r"
+    "--elab-run"
   )
 
   override protected def simulateCmdPostLangFlags(using
@@ -96,9 +96,7 @@ object GHDL extends VHDLLinter, VHDLSimulator:
               finishedSuccessfully = true
               println(s"simulation finished @$time")
               true
-            else if (finishedSuccessfully)
-              line == "ghdl:error: report failed" || line == "ghdl:error: simulation failed"
-            else false
+            else finishedSuccessfully // suppress all other lines after the first finish
           else false,
         // GHDL does not report error codes for runtime errors, so we need to detect errors manually
         // even when using VHDL'2008 and later

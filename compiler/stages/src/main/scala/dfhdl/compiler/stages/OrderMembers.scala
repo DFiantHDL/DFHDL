@@ -44,8 +44,8 @@ object OrderMembers:
         case DclConst() => 4
         // fifth are ports
         case DclPort() => 5
-        // sixth are variables
-        case DclVar() => 6
+        // sixth are variables, but not iterators
+        case dcl @ DclVar() if !dcl.hasTagOf[IteratorTag] => 6
         // seventh are design blocks that are direct children of named instances
         // (e.g., design blocks inside conditional blocks are not included)
         case dsn: DFDesignBlock if dsn.getOwner == dsn.getOwnerNamed => 7

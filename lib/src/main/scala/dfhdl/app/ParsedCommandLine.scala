@@ -25,6 +25,17 @@ class ParsedCommandLine(
     so: SimulatorOptions,
     ao: AppOptions
 ) extends ScallopConf(commandArgs.toSeq):
+  val cacheDescYesDefault = if (ao.cacheEnable) " (default ON)" else ""
+  val cacheDescNoDefault = if (!ao.cacheEnable) " (default OFF)" else ""
+  val cache = toggle(
+    name = "cache",
+    descrYes =
+      s"Enable caching$cacheDescYesDefault",
+    descrNo =
+      s"Disable caching$cacheDescNoDefault",
+    default = Some(ao.cacheEnable),
+    noshort = true
+  )
   sealed abstract class Mode(val modeOption: DefaultMode, modeDesc: String)
       extends Subcommand(modeOption.toString),
         Product,

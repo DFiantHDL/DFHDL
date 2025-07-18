@@ -40,6 +40,9 @@ object DFRange:
     )
     member.addMember.asFE[P]
   end apply
+
+  trait ScalaRangesFlag
+
   object Ops:
     extension (start: Int)
       private[core] def untilOrig(end: Int): Range = Range.Exclusive(start, end, 1)
@@ -48,8 +51,9 @@ object DFRange:
       // until is selected at compile time, according to the context
       transparent inline def until(end: Int): Range | DFRange[CONST] =
         compiletime.summonFrom {
-          case given DFC.Scope.Process => untilDF(end)(using compiletime.summonInline[DFC])
-          case _                       => untilOrig(end)
+          case given ScalaRangesFlag => untilOrig(end)
+          case given DFC.Scope.Local => untilDF(end)(using compiletime.summonInline[DFC])
+          case _                     => untilOrig(end)
         }
       def until[P](end: DFValTP[DFInt32, P])(using DFC): DFRange[P] =
         DFRange(DFConstInt32(start), end, RangeOp.Until).asFE[P]
@@ -63,8 +67,9 @@ object DFRange:
       // to is selected at compile time, according to the context
       transparent inline def to(end: Int): Range | DFRange[CONST] =
         compiletime.summonFrom {
-          case given DFC.Scope.Process => toDF(end)(using compiletime.summonInline[DFC])
-          case _                       => toOrig(end)
+          case given ScalaRangesFlag => toOrig(end)
+          case given DFC.Scope.Local => toDF(end)(using compiletime.summonInline[DFC])
+          case _                     => toOrig(end)
         }
       def to[P](end: DFValTP[DFInt32, P])(using DFC): DFRange[P] =
         DFRange(DFConstInt32(start), end, RangeOp.To).asFE[P]

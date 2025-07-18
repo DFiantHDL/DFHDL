@@ -19,7 +19,7 @@ object CompiledDesign:
       import StagedDesign.transform as transform2
       CompiledDesign(staged.transform2(transformDB))
     def printBackendCode(using co: CompilerOptions, po: PrinterOptions): CompiledDesign =
-      Printer.printBackendCode(co.backend.printer(staged.stagedDB))
+      Printer.printBackendCode(co.backend.printer(cd))
       cd
     def commit(using co: CompilerOptions): CompiledDesign =
       cd.transform(designDB => Printer.commit(designDB, co.topCommitPath(designDB)))

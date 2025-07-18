@@ -58,11 +58,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case Func.Op.=== => "="
           case Func.Op.=!= => "/="
           case Func.Op.>=  => "=>"
-          case Func.Op.<< =>
+          case Func.Op.<<  =>
             argL.get.dfType match
               case DFSInt(_) => "sla"
               case DFUInt(_) => "sll"
-              case _ =>
+              case _         =>
                 infix = false
                 "slv_sll"
           case Func.Op.>> =>
@@ -71,7 +71,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                 infix = false
                 "signed_sra"
               case DFUInt(_) => "srl"
-              case _ =>
+              case _         =>
                 infix = false
                 "slv_srl"
           // if the result width for +/-/* ops is larger than the left argument width
@@ -120,7 +120,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
                 s"(0 to ${args.length - 1} => ${args.head.refCodeString})"
 
               case DFVector(_, _) =>
-                args.map(_.refCodeString).csList()
+                printer.csDFVectorElemCS(args.map(_.refCodeString))
               // regular concatenation function
               case _ => args.map(_.refCodeString).mkString(" & ")
             end match
@@ -140,11 +140,11 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     if (requiresBoolConv) s"to_bool(${condRef.refCodeString})"
     else condRef.refCodeString
   def csBitsToType(toType: DFType, csArg: String): String = toType match
-    case DFBits(_) => csArg
-    case DFBool    => s"to_bool($csArg)"
-    case DFBit     => s"to_sl($csArg)"
-    case DFUInt(_) => s"unsigned($csArg)"
-    case DFSInt(_) => s"signed($csArg)"
+    case DFBits(_)        => csArg
+    case DFBool           => s"to_bool($csArg)"
+    case DFBit            => s"to_sl($csArg)"
+    case DFUInt(_)        => s"unsigned($csArg)"
+    case DFSInt(_)        => s"signed($csArg)"
     case dfType: DFVector =>
       var loopType: DFType = dfType
       var desc: String = s"to_${printer.csDFVectorDclName(dfType)}($csArg"
@@ -180,7 +180,7 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     val fromType = relVal.dfType
     val toType = dfVal.dfType
     (toType, fromType) match
-      case (t, f) if t == f => relValStr
+      case (t, f) if t == f                           => relValStr
       case (DFSInt(Int(tWidth)), DFUInt(Int(fWidth))) =>
         assert(tWidth == fWidth + 1)
         s"signed($relValStr)"
@@ -214,7 +214,12 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
-    s"${dfVal.relValCodeString}(${dfVal.relBitHigh} downto ${dfVal.relBitLow})"
+    dfVal.dfType match
+      case DFBits(_) =>
+        s"${dfVal.relValCodeString}(${dfVal.idxHighRef.refCodeString} downto ${dfVal.idxLowRef.refCodeString})"
+      case _ =>
+        s"${dfVal.relValCodeString}(${dfVal.idxLowRef.refCodeString} to ${dfVal.idxHighRef.refCodeString})"
+    end match
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
     val relIdxStr = dfVal.relIdx.refCodeString
     s"${dfVal.relValCodeString}($relIdxStr)"

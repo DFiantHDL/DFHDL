@@ -377,13 +377,10 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  parameter logic signed [7:0] c14 = $signed(8'h??);
          |  parameter t_struct_DFTuple2 c15 = '{3'h0, 1'b1};
          |  parameter logic [7:0] c16 [0:6] [0:4] = '{
-         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
-         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
-         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
-         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
-         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
-         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44},
-         |    '{8'h00, 8'h11, 8'h22, 8'h33, 8'h44}
+         |    0: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 1: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
+         |    2: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 3: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
+         |    4: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}, 5: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44},
+         |    6: '{0: 8'h00, 1: 8'h11, 2: 8'h22, 3: 8'h33, 4: 8'h44}
          |  };
          |  parameter real c17 = 3.14159;
          |  parameter real c18 = -2.71828;
@@ -803,8 +800,8 @@ class PrintVerilogCodeSpec extends StageSpec:
     val top = (new Foo).getCompiledCodeString
     assertNoDiff(
       top,
-      """|`define width 8
-         |`define length 10
+      """|`define width_def parameter integer width = 8;
+         |`define length_def parameter integer length = 10;
          |`default_nettype none
          |`timescale 1ns/1ps
          |`include "Foo_defs.vh"
@@ -823,18 +820,20 @@ class PrintVerilogCodeSpec extends StageSpec:
          |);
          |  `include "dfhdl_defs.vh"
          |  `include "Foo_defs.vh"
+         |  `length_def
+         |  `width_def
          |  parameter integer width5 = 8;
          |  parameter integer length5 = 10;
-         |  input  wire  [`width - 1:0] x1 [0:`length - 1];
-         |  output wire [`width - 1:0] y1 [0:`length - 1];
-         |  input  wire  [`width - 1:0] x2 [0:`length + 1 - 1];
-         |  output wire [`width - 1:0] y2 [0:`length + 1 - 1];
-         |  input  wire  [`width - 1:0] x3 [0:6];
-         |  output wire [`width - 1:0] y3 [0:6];
-         |  input  wire  [`width - 1:0] x4 [0:`length - 1] [0:6];
-         |  output wire [`width - 1:0] y4 [0:`length - 1] [0:6];
-         |  input  wire  [width5 - 1:0] x5 [0:length5 - 1] [0:6];
-         |  output wire [width5 - 1:0] y5 [0:length5 - 1] [0:6];
+         |  input  wire  [width * length - 1:0] x1;
+         |  output wire [width * length - 1:0] y1;
+         |  input  wire  [width * (length + 1) - 1:0] x2;
+         |  output wire [width * (length + 1) - 1:0] y2;
+         |  input  wire  [width * 7 - 1:0] x3;
+         |  output wire [width * 7 - 1:0] y3;
+         |  input  wire  [(width * 7) * length - 1:0] x4;
+         |  output wire [(width * 7) * length - 1:0] y4;
+         |  input  wire  [(width5 * 7) * length5 - 1:0] x5;
+         |  output wire [(width5 * 7) * length5 - 1:0] y5;
          |  assign y1 = x1;
          |  assign y2 = x2;
          |  assign y3 = x3;
@@ -984,7 +983,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Foo_defs.vh"
          |
          |module Foo(
-         |  output reg [9:0] matrix [0:7] [0:7]
+         |  output reg [639:0] matrix
          |);
          |  `include "dfhdl_defs.vh"
          |  `include "Foo_defs.vh"
@@ -999,7 +998,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |        for (j = 0; j < 8; j = j + 1) begin
          |          if ((j % 2) == 0) begin
          |            for (k = 0; k < 10; k = k + 1) begin
-         |              if ((k % 2) == 0) matrix[i][j][k] <= 1'b1;
+         |              if ((k % 2) == 0) (matrix[(10 + ((640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0))) - 1:(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0)])[k] <= 1'b1;
          |            end
          |          end
          |        end
@@ -1010,7 +1009,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |        for (j = 0; j < 8; j = j + 1) begin
          |          if ((j % 2) == 1) begin
          |            for (k = 0; k < 10; k = k + 1) begin
-         |              if ((k % 2) == 1) matrix[i][j][k] <= 1'b0;
+         |              if ((k % 2) == 1) (matrix[(10 + ((640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0))) - 1:(640 - (80 * (i + 1))) + ((80 - (10 * (j + 1))) + 0)])[k] <= 1'b0;
          |            end
          |          end
          |        end
@@ -1137,7 +1136,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", param10.name(), "");
          |    $info(
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1088:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1207,7 +1206,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", MyEnum_to_string(param10), "");
          |    $display("INFO: ", 
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1089:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1088:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1257,6 +1256,56 @@ class PrintVerilogCodeSpec extends StageSpec:
          |      end
          |    end
          |  end
+         |endmodule""".stripMargin
+    )
+  }
+  test("vector init printing under verilog.v95") {
+    given options.CompilerOptions.Backend = backends.verilog.v95
+    class Foo(
+        val PORT_WIDTH: Int <> CONST = 8,
+        val PORT_DEPTH: Int <> CONST = 4
+    ) extends EDDesign:
+      val v1 = Bits(PORT_WIDTH) X PORT_DEPTH <> VAR init Vector(h"01", h"02", h"03", h"04")
+      val v2 = Bits(PORT_WIDTH) X PORT_DEPTH <> VAR init all(all(0))
+      val initArg: Bits[PORT_WIDTH.type] X PORT_DEPTH.type <> CONST =
+        Vector(h"01", h"02", h"03", h"04")
+      val v3 = Bits(PORT_WIDTH) X PORT_DEPTH <> VAR init initArg
+    end Foo
+    val top = (new Foo).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Foo_defs.vh"
+         |
+         |module Foo;
+         |  `include "dfhdl_defs.vh"
+         |  `include "Foo_defs.vh"
+         |  parameter integer PORT_WIDTH = 8;
+         |  parameter integer PORT_DEPTH = 4;
+         |  parameter [PORT_WIDTH * PORT_DEPTH - 1:0] initArg = {8'h01, 8'h02, 8'h03, 8'h04};
+         |  reg [PORT_WIDTH - 1:0] v1 [0:PORT_DEPTH - 1];
+         |  initial begin : v1_init
+         |    v1[0] = 8'h01;
+         |    v1[1] = 8'h02;
+         |    v1[2] = 8'h03;
+         |    v1[3] = 8'h04;
+         |  end
+         |  reg [PORT_WIDTH - 1:0] v2 [0:PORT_DEPTH - 1];
+         |  initial begin : v2_init
+         |    integer i;
+         |    for (i = 0; i < PORT_DEPTH; i = i + 1) begin
+         |      v2[i] = {PORT_WIDTH{1'b0}};
+         |    end
+         |  end
+         |  reg [PORT_WIDTH - 1:0] v3 [0:PORT_DEPTH - 1];
+         |  initial begin : v3_init
+         |    v3[0] = initArg[31:24];
+         |    v3[1] = initArg[23:16];
+         |    v3[2] = initArg[15:8];
+         |    v3[3] = initArg[7:0];
+         |  end
+         |
          |endmodule""".stripMargin
     )
   }

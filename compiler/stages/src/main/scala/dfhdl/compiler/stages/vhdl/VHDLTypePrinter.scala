@@ -348,8 +348,10 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
   def csDFOpaqueConvFuncsBody(dfType: DFOpaque): String =
     val typeName = csDFOpaqueTypeName(dfType)
     s"""|function to_${typeName}(A : std_logic_vector) return ${typeName} is
+        |  variable A0 : std_logic_vector(A'length - 1 downto 0);
         |begin
-        |  return ${printer.csBitsToType(dfType.actualType, "A")};
+        |  A0 := A;
+        |  return ${printer.csBitsToType(dfType.actualType, "A0")};
         |end;""".stripMargin
   def csDFStructTypeName(dfType: DFStruct): String = s"t_struct_${dfType.name}"
   def csDFStructDcl(dfType: DFStruct): String =

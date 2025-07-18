@@ -126,9 +126,9 @@ begin
   sbox_inst_14_lhs <= state(3)(2);
   sbox_inst_15_lhs <= state(3)(3);
   o                <= (
-    (sbox_inst_00_o, sbox_inst_01_o, sbox_inst_02_o, sbox_inst_03_o),
-    (sbox_inst_04_o, sbox_inst_05_o, sbox_inst_06_o, sbox_inst_07_o),
-    (sbox_inst_08_o, sbox_inst_09_o, sbox_inst_10_o, sbox_inst_11_o),
-    (sbox_inst_12_o, sbox_inst_13_o, sbox_inst_14_o, sbox_inst_15_o)
+    0 => (0 => sbox_inst_00_o, 1 => sbox_inst_01_o, 2 => sbox_inst_02_o, 3 => sbox_inst_03_o),
+    1 => (0 => sbox_inst_04_o, 1 => sbox_inst_05_o, 2 => sbox_inst_06_o, 3 => sbox_inst_07_o),
+    2 => (0 => sbox_inst_08_o, 1 => sbox_inst_09_o, 2 => sbox_inst_10_o, 3 => sbox_inst_11_o),
+    3 => (0 => sbox_inst_12_o, 1 => sbox_inst_13_o, 2 => sbox_inst_14_o, 3 => sbox_inst_15_o)
   );
 end subBytes_arch;

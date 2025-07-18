@@ -313,9 +313,11 @@ object DFDecimal:
   end Constraints
 
   object StrInterp:
-    private[DFDecimal] val widthIntExp = "(\\d+)'(-?\\d+)".r
-    private[DFDecimal] val widthFixedExp = "(\\d+)\\.(\\d+)'(-?\\d+)\\.?(\\d*)".r
-    private val intExp = "(-?\\d+)".r
+    private[DFDecimal] val widthNoValuePattern = "([\\d_,]+)'".r
+    private[DFDecimal] val valueNoWidthPattern = "'(-?\\d+)".r
+    private[DFDecimal] val widthValuePattern = "(\\d+)'(-?[\\d_,]+)".r
+    private[DFDecimal] val widthFixedPattern = "(\\d+)\\.(\\d+)'(-?\\d+)\\.?(\\d*)".r
+    private[DFDecimal] val numPattern = "(-?\\d+)".r
     private[DFDecimal] def fromIntDecString(
         numStr: String,
         signedForced: Boolean
@@ -329,8 +331,8 @@ object DFDecimal:
         signedForced: Boolean
     ): Either[String, (Boolean, Int, Int, BigInt)] =
       dec.replace(",", "").replace("_", "") match
-        case intExp(numStr) => Right(fromIntDecString(numStr, signedForced))
-        case _              =>
+        case numPattern(numStr) => Right(fromIntDecString(numStr, signedForced))
+        case _                  =>
           Left(s"Invalid decimal pattern found: $dec")
       end match
     end fromDecString
@@ -405,7 +407,7 @@ object DFDecimal:
 
   // Unclear why, but the compiler crashes if we do not separate these definitions from StrInterp
   object StrInterpOps:
-    import StrInterp.{fromDecString, interpolate, widthIntExp}
+    import StrInterp.*
     opaque type DecStrCtx <: StringContext = StringContext
     object DecStrCtx:
       extension (inline sc: DecStrCtx)
@@ -487,41 +489,78 @@ object DFDecimal:
         args: Expr[Seq[Any]]
     )(using Quotes): Expr[DFConstAny] =
       import quotes.reflect.*
-      var Varargs(argsExprs) = args: @unchecked
-
-      var parts = sc.parts.map(_.value.get).toList
-      var explicitWidthOption: Expr[Option[IntP]] = '{ None }
+      val Varargs(argsExprs) = args: @unchecked
+      val parts = sc.parts.map(_.value.get).toList
+      val dfc = Expr.summon[DFC].get
+      object WidthExpr:
+        def unapply(arg: Expr[Any]): Option[Expr[IntP]] =
+          val tpe = arg.asTerm.tpe
+          tpe.asTypeOf[Any] match
+            case '[IntP] => Some(arg.asExprOf[IntP])
+            case _       =>
+              report.errorAndAbort(
+                s"Expecting a constant DFHDL Int value but found: `${tpe.showType}`",
+                arg.asTerm.pos
+              )
+      object ValueExpr:
+        def unapply(arg: Expr[Any]): Option[Expr[DFConstInt32]] =
+          val tpe = arg.asTerm.tpe
+          tpe.asTypeOf[Any] match
+            case '[DFConstInt32] => Some(arg.asExprOf[DFConstInt32])
+            case '[Int]          => Some(ConstIntExpr(arg.asExprOf[Int]))
+            case _               =>
+              report.errorAndAbort(
+                s"Expecting a constant DFHDL Int value but found: `${tpe.showType}`",
+                arg.asTerm.pos
+              )
+      def ConstIntExpr(valueExpr: Expr[Int]): Expr[DFConstInt32] =
+        '{ DFVal.Const(DFInt32, Some(BigInt($valueExpr)))(using $dfc) }
+      def AsIsExpr(widthExpr: Expr[IntP], valueExpr: Expr[DFConstInt32]): Expr[DFConstAny] =
+        val widthType = widthExpr.asTerm.tpe.asTypeOf[IntP]
+        sc.funcName match
+          case "d" =>
+            '{
+              DFVal.Alias.AsIs(
+                DFUInt.forced[widthType.Underlying]($widthExpr)(using $dfc),
+                $valueExpr
+              )(using $dfc)
+            }
+          case "sd" =>
+            '{
+              DFVal.Alias.AsIs(
+                DFSInt.forced[widthType.Underlying]($widthExpr)(using $dfc),
+                $valueExpr
+              )(using $dfc)
+            }
+        end match
+      end AsIsExpr
       parts match
-        case "" :: p :: _ if p.startsWith("'") =>
-          argsExprs.headOption.map(_.asTerm) match
-            case Some(t) =>
-              t.tpe.asType match
-                case '[IntP] =>
-                  argsExprs = argsExprs.drop(1)
-                  parts = p.drop(1) :: parts.drop(2)
-                  explicitWidthOption = '{ Some(${ t.asExprOf[IntP] }) }
-                case '[DFValAny] =>
-                  report.errorAndAbort(
-                    s"Expecting a constant DFHDL Int value but found: `${t.tpe.showType}`",
-                    t.pos
-                  )
-                case _ =>
-                  report.errorAndAbort(
-                    s"Unsupported type as the width interpolation argument. Found: `${t.tpe.showType}`",
-                    t.pos
-                  )
-
-            case _ =>
-        case widthIntExp(widthStr, wordStr) :: rest =>
-          parts = wordStr :: rest
-          explicitWidthOption = '{ Some(${ Expr(widthStr.toInt) }) }
+        // $width'$value
+        case "" :: "'" :: "" :: Nil =>
+          val (WidthExpr(widthExpr) :: ValueExpr(valueExpr) :: Nil) =
+            argsExprs.toList: @unchecked
+          AsIsExpr(widthExpr, valueExpr)
+        // 16'$value
+        case widthNoValuePattern(widthStr) :: "" :: Nil =>
+          val (ValueExpr(valueExpr) :: Nil) = argsExprs.toList: @unchecked
+          val widthExpr = Expr(widthStr.toInt)
+          AsIsExpr(widthExpr, valueExpr)
+        // $width'1234
+        case "" :: valueNoWidthPattern(valueStr) :: Nil =>
+          val (WidthExpr(widthExpr) :: Nil) = argsExprs.toList: @unchecked
+          Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ Some($widthExpr) })
+        // 16'1234
+        case widthValuePattern(widthStr, valueStr) :: Nil =>
+          val widthExpr = Expr(widthStr.toInt)
+          Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ Some($widthExpr) })
+        // 1234
+        case numPattern(valueStr) :: Nil =>
+          Expr(valueStr).asTerm.interpolate(Expr(sc.funcName), '{ None })
         case _ =>
+          report.errorAndAbort(
+            s"Unsupported decimal string interpolation pattern"
+          )
       end match
-      // println(widthParamOption.map(_.show))
-      parts.map(Expr(_)).scPartsWithArgs(argsExprs).interpolate(
-        Expr(sc.funcName),
-        explicitWidthOption
-      )
     end applyMacro
 
     private def unapplySeqMacro[T <: DFTypeAny](
@@ -542,7 +581,7 @@ object DFDecimal:
         }
       else
         val dfVal = partsStr.head match
-          case widthIntExp(widthStr, wordStr) =>
+          case widthValuePattern(widthStr, wordStr) =>
             Literal(StringConstant(wordStr)).interpolate(
               opExpr,
               '{ Some(${ Expr(widthStr.toInt) }) }
@@ -1275,6 +1314,8 @@ type DFUInt[W <: IntP] = DFXInt[false, W, BitAccurate]
 object DFUInt:
   def apply[W <: IntP](width: IntParam[W])(using DFC, Width.CheckNUB[false, W]): DFUInt[W] =
     DFXInt(false, width, BitAccurate)
+  def forced[W <: IntP](width: IntP)(using DFC): DFUInt[W] =
+    DFUInt(IntParam[W](width.asInstanceOf[W]))
   def apply[W <: IntP](using dfc: DFC, dfType: => DFUInt[W]): DFUInt[W] = trydf { dfType }
   def until[V <: IntP](sup: IntParam[V])(using
       dfc: DFC,
@@ -1401,6 +1442,8 @@ type DFSInt[W <: IntP] = DFXInt[true, W, BitAccurate]
 object DFSInt:
   def apply[W <: IntP](width: IntParam[W])(using DFC, Width.CheckNUB[true, W]): DFSInt[W] =
     DFXInt(true, width, BitAccurate)
+  def forced[W <: IntP](width: IntP)(using DFC): DFSInt[W] =
+    DFSInt(IntParam[W](width.asInstanceOf[W]))
   def apply[W <: IntP](using dfc: DFC, dfType: => DFSInt[W]): DFSInt[W] = trydf { dfType }
 
   object Val:

@@ -1,4 +1,3 @@
 `ifndef LEFTSHIFTGEN_DEFS
 `define LEFTSHIFTGEN_DEFS
-
 `endif

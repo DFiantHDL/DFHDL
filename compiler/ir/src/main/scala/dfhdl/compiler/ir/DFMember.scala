@@ -17,7 +17,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   protected def setMeta(meta: Meta): this.type
   protected def setTags(tags: DFTags): this.type
   final def getOwner(using MemberGetSet): DFOwner = ownerRef.get match
-    case o: DFOwner => o
+    case o: DFOwner        => o
     case _: DFMember.Empty =>
       throw new IllegalArgumentException(s"No owner found for member $this.")
   final def getOwnerNamed(using MemberGetSet): DFOwnerNamed = getOwner match
@@ -78,7 +78,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   ): Boolean =
     thisMember match
       case DFDesignBlock.Top() => false
-      case _ =>
+      case _                   =>
         (thisMember.getOwner, thatOwner) match
           case (a, b) if a == b => true
           case (od, _)          => isInsideOwner(od, thatOwner)
@@ -88,7 +88,7 @@ sealed trait DFMember extends Product, Serializable, HasRefCompare[DFMember] der
   final def getOwnerChain(using MemberGetSet): List[DFBlock] =
     this match
       case d @ DFDesignBlock.Top() => Nil
-      case _ =>
+      case _                       =>
         if (getOwnerBlock.isTop) List(getOwnerBlock)
         else getOwnerBlock.getOwnerChain :+ getOwnerBlock
   // count the hierarchy distance from inside to outside
@@ -302,7 +302,7 @@ object DFVal:
           val relVal = partial.relValRef.get
           partial match
             case partial: DFVal.Alias.ApplyRange =>
-              relVal.departial(range.offset(partial.relBitLow))
+              relVal.departial(range.offset(partial.idxLowRef.getInt))
             case partial: DFVal.Alias.ApplyIdx =>
               partial.relIdx.get match
                 case DFVal.Alias.ApplyIdx.ConstIdx(idx) =>
@@ -739,40 +739,60 @@ object DFVal:
           case _                  => false
 
     final case class ApplyRange(
+        dfType: DFType,
         relValRef: PartialRef,
-        relBitHigh: Int,
-        relBitLow: Int,
+        idxHighRef: IntParamRef,
+        idxLowRef: IntParamRef,
         ownerRef: DFOwner.Ref,
         meta: Meta,
         tags: DFTags
     ) extends Partial derives ReadWriter:
+      def elementWidth(using MemberGetSet): Int = (dfType: @unchecked) match
+        case DFBits(_)                     => 1
+        case DFVector(cellType = cellType) => cellType.width
       protected def protIsFullyAnonymous(using MemberGetSet): Boolean =
         relValRef.get.isFullyAnonymous
       protected def protGetConstData(using MemberGetSet): Option[Any] =
         val relVal = relValRef.get
         relVal.getConstData.map(relValData =>
-          selBitRangeData(relValData.asInstanceOf[(BitVector, BitVector)], relBitHigh, relBitLow)
+          selRangeData(
+            relVal.dfType,
+            relValData,
+            idxHighRef.getInt,
+            idxLowRef.getInt
+          )
         )
-      val dfType: DFType = DFBits(relBitHigh - relBitLow + 1)
       protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
         case that: ApplyRange =>
-          this.relValRef =~ that.relValRef &&
-          this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow &&
+          this.dfType =~ that.dfType && this.relValRef =~ that.relValRef &&
+          this.idxHighRef =~ that.idxHighRef && this.idxLowRef =~ that.idxLowRef &&
           this.meta =~ that.meta && this.tags =~ that.tags
         case _ => false
       protected[ir] def protIsSimilarTo(that: CanBeExpr)(using MemberGetSet): Boolean =
         that match
           case that: ApplyRange =>
+            this.dfType.isSimilarTo(that.dfType) &&
             this.relValRef.get.isSimilarTo(that.relValRef.get) &&
-            this.relBitHigh == that.relBitHigh && this.relBitLow == that.relBitLow
+            this.idxHighRef.isSimilarTo(that.idxHighRef) && this.idxLowRef.isSimilarTo(
+              that.idxLowRef
+            )
           case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
+      override lazy val getRefs: List[DFRef.TwoWayAny] =
+        dfType.getRefs ++ List(relValRef) ++ (idxHighRef match
+          case ref: DFRef.TypeRef => List(ref);
+          case _                  => Nil) ++ (idxLowRef match
+          case ref: DFRef.TypeRef => List(ref);
+          case _                  => Nil)
       def updateDFType(dfType: DFType): this.type = this
       def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs(using RefGen): this.type = copy(
+        dfType = dfType.copyWithNewRefs,
         ownerRef = ownerRef.copyAsNewRef,
-        relValRef = relValRef.copyAsNewRef
+        relValRef = relValRef.copyAsNewRef,
+        idxHighRef = idxHighRef.copyAsNewRef,
+        idxLowRef = idxLowRef.copyAsNewRef
       ).asInstanceOf[this.type]
     end ApplyRange
     final case class ApplyIdx(
@@ -1460,9 +1480,9 @@ final case class DomainBlock(
     tags: DFTags
 ) extends DFBlock,
       DFDomainOwner derives ReadWriter:
-  def flattenMode: dfhdl.hw.flattenMode = meta.annotations.collectFirst {
-    case fm: dfhdl.hw.flattenMode => fm
-  }.getOrElse(dfhdl.hw.flattenMode.defaultPrefixUnderscore)
+  def flattenMode: dfhdl.hw.annotation.flattenMode = meta.annotations.collectFirst {
+    case fm: dfhdl.hw.annotation.flattenMode => fm
+  }.getOrElse(dfhdl.hw.annotation.flattenMode.defaultPrefixUnderscore)
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DomainBlock =>
       this.domainType =~ that.domainType &&

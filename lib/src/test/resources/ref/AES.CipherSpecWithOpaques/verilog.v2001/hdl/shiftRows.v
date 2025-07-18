@@ -3,13 +3,13 @@
 `include "Cipher_defs.vh"
 
 module shiftRows(
-  input  wire  [7:0] state [0:3] [0:3],
-  output wire [7:0] o [0:3] [0:3]
+  input  wire  [127:0] state,
+  output wire [127:0]  o
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
-  assign o = '{
-    '{state[0][0], state[1][1], state[2][2], state[3][3]}, '{state[1][0], state[2][1], state[3][2], state[0][3]},
-    '{state[2][0], state[3][1], state[0][2], state[1][3]}, '{state[3][0], state[0][1], state[1][2], state[2][3]}
+  assign o = {
+    {state[127:120], state[87:80], state[47:40], state[7:0]}, {state[95:88], state[55:48], state[15:8], state[103:96]},
+    {state[63:56], state[23:16], state[111:104], state[71:64]}, {state[31:24], state[119:112], state[79:72], state[39:32]}
   };
 endmodule

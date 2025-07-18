@@ -78,4 +78,28 @@ class OrderMembersSpec extends StageSpec:
          |end DesignWithIf""".stripMargin
     )
   }
+  test("for loop inside if") {
+    class Foo() extends RTDesign:
+      val z      = Bit         <> IN
+      val x      = UInt(8) X 7 <> VAR.REG
+      val FooStr = "Hello World!".toByteVector
+      if (z)
+        for (i <- 0 until 7)
+          x(i).din := FooStr(i)
+
+    val foo = (new Foo).simpleOrder
+    assertCodeString(
+      foo,
+      """|class Foo extends RTDesign:
+         |  val FooStr: Bits[8] X 12 <> CONST = DFVector(Bits(8) X 12)(h"48", h"65", h"6c", h"6c", h"6f", h"20", h"57", h"6f", h"72", h"6c", h"64", h"21")
+         |  val z = Bit <> IN
+         |  val x = UInt(8) X 7 <> VAR.REG
+         |  if (z)
+         |    for (i <- 0 until 7)
+         |      x(i).din := FooStr(i).uint
+         |    end for
+         |  end if
+         |end Foo""".stripMargin
+    )
+  }
 end OrderMembersSpec

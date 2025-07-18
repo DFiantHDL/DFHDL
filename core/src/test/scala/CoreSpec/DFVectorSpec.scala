@@ -33,6 +33,7 @@ class DFVectorSpec extends DFSpec:
          |val v9 = UInt(5) X len <> VAR
          |val v10 = UInt(4) X len <> VAR
          |v10 := v6
+         |val v11 = v10(1, 2)
          |""".stripMargin
     ) {
       val v1 = UInt(8) X 5 <> VAR init Vector.tabulate(5)(22 + _)
@@ -133,11 +134,30 @@ class DFVectorSpec extends DFSpec:
       ) {
         v9 := v6
       }
+      val v11 = v10(1, 2)
+      assertDSLErrorLog(
+        "Index 5 is out of range of width/length 5"
+      )(
+        """v1(1, 5)"""
+      ) {
+        v1(1, five)
+      }
     }
   }
   test("Big Endian Packed Order") {
     val v: Bits[8] X 4 <> CONST = Vector(h"12", h"34", h"56", h"78")
+    val v2: Bits[8] X Int <> CONST = Vector(h"12", h"34", h"56", h"78")
+    val v3 = "Hello".toByteVector
+    val v4: Bits[8] X 5 <> CONST = Vector(h"48", h"65", h"6c", h"6c", h"6f")
+    val v5: Bits[8] X 3 <> CONST = Vector(h"65", h"6c", h"6c")
+    val v6 = v4(1, 3)
     val b = h"12345678"
+    assert((v(0) == h"12").toScalaBoolean)
+    assert((v == v2).toScalaBoolean)
+    assert((v3 == v4).toScalaBoolean)
+    assert((v5 == v6).toScalaBoolean)
+    assert(v.lengthInt == 4)
+    assert(v2.length.toScalaInt == 4)
     assert((b == v.bits).toScalaBoolean)
     assert((b.as(Bits[8] X 4) == v).toScalaBoolean)
   }

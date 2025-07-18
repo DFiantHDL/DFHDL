@@ -28,12 +28,13 @@ trait Tool:
   protected def versionCmd: String
   protected def extractVersion(cmdRetStr: String): Option[String]
   protected[dfhdl] def producedFiles(using MemberGetSet, CompilerOptions): List[String] = Nil
+  protected[dfhdl] def cleanUpBeforeFileRestore()(using MemberGetSet, CompilerOptions): Unit = {}
 
   private[dfhdl] lazy val installedVersion: Option[String] =
     val getVersionFullCmd =
       Process(s"$runExec $versionCmd", new java.io.File(System.getProperty("java.io.tmpdir")))
     try extractVersion(getVersionFullCmd.!!)
-    catch case e: IOException => None
+    catch case e: Exception => None
   final def isAvailable: Boolean = installedVersion.nonEmpty
   protected def getInstalledVersion(using to: ToolOptions): String =
     preCheck()

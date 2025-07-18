@@ -91,6 +91,7 @@ trait DFApp:
         elaborationOptions.defaultRTDomainCfg,
         designArgs
       ):
+    override protected def cacheEnable: Boolean = appOptions.cacheEnable
     protected def run(from: core.Design): StagedDesign =
       logger.info("Elaborating design...")
       new StagedDesign(from.getDB)
@@ -115,6 +116,7 @@ trait DFApp:
         compilerOptions.dropUserOpaques,
         compilerOptions.backend.toString()
       ):
+    override protected def cacheEnable: Boolean = appOptions.cacheEnable
     protected def run(elaborate: StagedDesign): CompiledDesign =
       elaborate.tap(_ => logger.info("Compiling design...")).compile
     override protected def runAfterValue(compiled: CompiledDesign): Unit =
@@ -143,6 +145,7 @@ trait DFApp:
 
   object commit
       extends diskCache.Step[CompiledDesign, CompiledDesign](compile, hasGenFiles = true)():
+    override protected def cacheEnable: Boolean = appOptions.cacheEnable
     override protected def genFiles(committed: CompiledDesign): List[String] =
       committed.stagedDB.srcFiles.collect {
         case SourceFile(ir.SourceOrigin.Committed, _, path, _) =>
@@ -160,6 +163,7 @@ trait DFApp:
 
   object lint
       extends diskCache.Step[CompiledDesign, CompiledDesign](commit)():
+    override protected def cacheEnable: Boolean = appOptions.cacheEnable
     protected def run(committed: CompiledDesign): CompiledDesign =
       committed.tap(_ => logger.info("Running external linter...")).lint
     protected def valueToCacheStr(value: CompiledDesign): String = ???
@@ -172,14 +176,18 @@ trait DFApp:
         hasGenFiles = true
       )(
         simulatorOptions.getTool.toString,
-        simulatorOptions.getTool.installedVersion
+        simulatorOptions.getTool.installedVersion,
+        compilerOptions.backend.toString()
       ):
+    override protected def cacheEnable: Boolean = appOptions.cacheEnable
     override protected def genFiles(committed: CompiledDesign): List[String] =
       simulatorOptions.getTool.producedFiles(using committed.stagedDB.getSet).map { path =>
         Paths.get(compilerOptions.topCommitPath(committed.stagedDB)).resolve(path).toString
       }
     protected def run(committed: CompiledDesign): CompiledDesign =
       committed.tap(_ => logger.info("Preparing external simulation...")).simPrep
+    override protected def cleanUpBeforeFileRestore(committed: CompiledDesign): Unit =
+      simulatorOptions.getTool.cleanUpBeforeFileRestore()(using committed.stagedDB.getSet)
     override protected def logCachedRun(): Unit =
       logger.info("Loading sim prep from cache...")
     protected def valueToCacheStr(value: CompiledDesign): String = value.stagedDB.toJsonString
@@ -190,6 +198,7 @@ trait DFApp:
 
   object simRun
       extends diskCache.Step[CompiledDesign, CompiledDesign](simPrep)():
+    override protected def cacheEnable: Boolean = appOptions.cacheEnable
     protected def run(simPrepped: CompiledDesign): CompiledDesign =
       simPrepped.tap(_ => logger.info("Running external simulation...")).simRun
     protected def valueToCacheStr(value: CompiledDesign): String = ???
@@ -197,7 +206,7 @@ trait DFApp:
   end simRun
 
   private def listBackends: Unit =
-    println(
+    System.out.println(
       s"""|Backend option pattern: -b <lang>[.<dialect>]
           |<lang>    - the required backend language
           |<dialect> - the optional language dialect (each language has a default dialect)
@@ -231,7 +240,7 @@ trait DFApp:
           case Some(version) => s"Found version $version"
           case None          => "Not found on your system"
       else ""
-    println(
+    System.out.println(
       s"""|Linter tool option pattern: -t [<verilogLinter>][/][<vhdlLinter>]
           |<verilogLinter> - the selected Verilog/SystemVerilog linter
           |<vhdlLinter>    - the selected VHDL linter
@@ -265,7 +274,7 @@ trait DFApp:
           case Some(version) => s"Found version $version"
           case None          => "Not found on your system"
       else ""
-    println(
+    System.out.println(
       s"""|Simulator tool option pattern: -t [<verilogSimulator>][/][<vhdlSimulator>]
           |<verilogSimulator> - the selected Verilog/SystemVerilog simulator
           |<vhdlSimulator>    - the selected VHDL simulator
@@ -307,6 +316,8 @@ trait DFApp:
         if (!sbtShellIsRunning) sys.exit(code)
       case None =>
         given CanEqual[ScallopConfBase, ScallopConfBase] = CanEqual.derived
+        // update app options from command line
+        appOptions = appOptions.copy(cacheEnable = parsedCommandLine.cache.toOption.get)
         // update design args from command line
         designArgs = parsedCommandLine.updatedDesignArgs
         // update elaboration options from command line
@@ -348,7 +359,7 @@ trait DFApp:
         parsedCommandLine.mode match
           case help @ Mode.help =>
             help.subcommand match
-              case Some(HelpMode.backend) => listBackends
+              case Some(HelpMode.backend)                    => listBackends
               case Some(lintTool: HelpMode.`lint-tool`.type) =>
                 listLintTools(lintTool.scan.toOption.get)
               case Some(simulateTool: HelpMode.`simulate-tool`.type) =>

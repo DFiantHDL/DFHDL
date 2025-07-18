@@ -584,29 +584,29 @@ module mixColumns(
   assign mulByte_2_inst_30_rhs = state[3][2];
   assign mulByte_0_inst_14_rhs = state[3][3];
   assign o = '{
-    '{
-      ((o_part_mulByte_0_inst_o ^ o_part_mulByte_1_inst_o) ^ o_part_mulByte_2_inst_o) ^ mulByte_2_inst_00_o,
-      ((mulByte_2_inst_01_o ^ mulByte_0_inst_00_o) ^ mulByte_1_inst_00_o) ^ mulByte_2_inst_02_o,
-      ((mulByte_2_inst_03_o ^ mulByte_2_inst_04_o) ^ mulByte_0_inst_01_o) ^ mulByte_1_inst_01_o,
-      ((mulByte_1_inst_02_o ^ mulByte_2_inst_05_o) ^ mulByte_2_inst_06_o) ^ mulByte_0_inst_02_o
+    0: '{
+      0: ((o_part_mulByte_0_inst_o ^ o_part_mulByte_1_inst_o) ^ o_part_mulByte_2_inst_o) ^ mulByte_2_inst_00_o,
+      1: ((mulByte_2_inst_01_o ^ mulByte_0_inst_00_o) ^ mulByte_1_inst_00_o) ^ mulByte_2_inst_02_o,
+      2: ((mulByte_2_inst_03_o ^ mulByte_2_inst_04_o) ^ mulByte_0_inst_01_o) ^ mulByte_1_inst_01_o,
+      3: ((mulByte_1_inst_02_o ^ mulByte_2_inst_05_o) ^ mulByte_2_inst_06_o) ^ mulByte_0_inst_02_o
     },
-    '{
-      ((mulByte_0_inst_03_o ^ mulByte_1_inst_03_o) ^ mulByte_2_inst_07_o) ^ mulByte_2_inst_08_o,
-      ((mulByte_2_inst_09_o ^ mulByte_0_inst_04_o) ^ mulByte_1_inst_04_o) ^ mulByte_2_inst_10_o,
-      ((mulByte_2_inst_11_o ^ mulByte_2_inst_12_o) ^ mulByte_0_inst_05_o) ^ mulByte_1_inst_05_o,
-      ((mulByte_1_inst_06_o ^ mulByte_2_inst_13_o) ^ mulByte_2_inst_14_o) ^ mulByte_0_inst_06_o
+    1: '{
+      0: ((mulByte_0_inst_03_o ^ mulByte_1_inst_03_o) ^ mulByte_2_inst_07_o) ^ mulByte_2_inst_08_o,
+      1: ((mulByte_2_inst_09_o ^ mulByte_0_inst_04_o) ^ mulByte_1_inst_04_o) ^ mulByte_2_inst_10_o,
+      2: ((mulByte_2_inst_11_o ^ mulByte_2_inst_12_o) ^ mulByte_0_inst_05_o) ^ mulByte_1_inst_05_o,
+      3: ((mulByte_1_inst_06_o ^ mulByte_2_inst_13_o) ^ mulByte_2_inst_14_o) ^ mulByte_0_inst_06_o
     },
-    '{
-      ((mulByte_0_inst_07_o ^ mulByte_1_inst_07_o) ^ mulByte_2_inst_15_o) ^ mulByte_2_inst_16_o,
-      ((mulByte_2_inst_17_o ^ mulByte_0_inst_08_o) ^ mulByte_1_inst_08_o) ^ mulByte_2_inst_18_o,
-      ((mulByte_2_inst_19_o ^ mulByte_2_inst_20_o) ^ mulByte_0_inst_09_o) ^ mulByte_1_inst_09_o,
-      ((mulByte_1_inst_10_o ^ mulByte_2_inst_21_o) ^ mulByte_2_inst_22_o) ^ mulByte_0_inst_10_o
+    2: '{
+      0: ((mulByte_0_inst_07_o ^ mulByte_1_inst_07_o) ^ mulByte_2_inst_15_o) ^ mulByte_2_inst_16_o,
+      1: ((mulByte_2_inst_17_o ^ mulByte_0_inst_08_o) ^ mulByte_1_inst_08_o) ^ mulByte_2_inst_18_o,
+      2: ((mulByte_2_inst_19_o ^ mulByte_2_inst_20_o) ^ mulByte_0_inst_09_o) ^ mulByte_1_inst_09_o,
+      3: ((mulByte_1_inst_10_o ^ mulByte_2_inst_21_o) ^ mulByte_2_inst_22_o) ^ mulByte_0_inst_10_o
     },
-    '{
-      ((mulByte_0_inst_11_o ^ mulByte_1_inst_11_o) ^ mulByte_2_inst_23_o) ^ mulByte_2_inst_24_o,
-      ((mulByte_2_inst_25_o ^ mulByte_0_inst_12_o) ^ mulByte_1_inst_12_o) ^ mulByte_2_inst_26_o,
-      ((mulByte_2_inst_27_o ^ mulByte_2_inst_28_o) ^ mulByte_0_inst_13_o) ^ mulByte_1_inst_13_o,
-      ((mulByte_1_inst_14_o ^ mulByte_2_inst_29_o) ^ mulByte_2_inst_30_o) ^ mulByte_0_inst_14_o
+    3: '{
+      0: ((mulByte_0_inst_11_o ^ mulByte_1_inst_11_o) ^ mulByte_2_inst_23_o) ^ mulByte_2_inst_24_o,
+      1: ((mulByte_2_inst_25_o ^ mulByte_0_inst_12_o) ^ mulByte_1_inst_12_o) ^ mulByte_2_inst_26_o,
+      2: ((mulByte_2_inst_27_o ^ mulByte_2_inst_28_o) ^ mulByte_0_inst_13_o) ^ mulByte_1_inst_13_o,
+      3: ((mulByte_1_inst_14_o ^ mulByte_2_inst_29_o) ^ mulByte_2_inst_30_o) ^ mulByte_0_inst_14_o
     }
   };
 endmodule

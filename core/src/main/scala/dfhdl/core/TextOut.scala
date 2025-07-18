@@ -27,6 +27,9 @@ object TextOut:
     export ir.TextOut.Op.{Print, Println, Report, Debug, Finish}
   end Op
 
+  trait ScalaPrintsFlag
+  trait ScalaAssertsFlag
+
   object Ops:
     def debug(args: DFValAny*)(using DFC): Unit =
       TextOut(Op.Debug, Nil, args.toList)
@@ -36,26 +39,23 @@ object TextOut:
 
     transparent inline def print(inline msg: Any): Unit =
       compiletime.summonFrom {
-        case given DFC.Scope.Local =>
-          textOut(Op.Print, Some(msg))
-        case _ =>
-          scala.Predef.print(msg)
+        case given ScalaPrintsFlag => scala.Predef.print(msg)
+        case given DFC.Scope.Local => textOut(Op.Print, Some(msg))
+        case _                     => scala.Predef.print(msg)
       }
 
     transparent inline def println(inline msg: Any): Unit =
       compiletime.summonFrom {
-        case given DFC.Scope.Local =>
-          textOut(Op.Println, Some(msg))
-        case _ =>
-          scala.Predef.println(msg)
+        case given ScalaPrintsFlag => scala.Predef.println(msg)
+        case given DFC.Scope.Local => textOut(Op.Println, Some(msg))
+        case _                     => scala.Predef.println(msg)
       }
 
     transparent inline def println(): Unit =
       compiletime.summonFrom {
-        case given DFC.Scope.Local =>
-          textOut(Op.Println, None)
-        case _ =>
-          scala.Predef.println()
+        case given ScalaPrintsFlag => scala.Predef.println()
+        case given DFC.Scope.Local => textOut(Op.Println, None)
+        case _                     => scala.Predef.println()
       }
 
     inline def report(inline message: Any, severity: Severity = Severity.Info): Unit =
@@ -70,6 +70,10 @@ object TextOut:
 
     transparent inline def assert(inline assertion: Any, inline message: => Any): Unit =
       compiletime.summonFrom {
+        case given ScalaAssertsFlag =>
+          inline assertion match
+            case assertion: Boolean => scala.Predef.assert(assertion, message)
+            case _                  => compiletime.error("assert: assertion must be a Boolean")
         case given DFC.Scope.Local =>
           assertDFHDL(assertion, Some(message), Severity.Error)(using compiletime.summonInline[DFC])
         case _ =>
@@ -80,6 +84,10 @@ object TextOut:
 
     transparent inline def assert(inline assertion: Any): Unit =
       compiletime.summonFrom {
+        case given ScalaAssertsFlag =>
+          inline assertion match
+            case assertion: Boolean => scala.Predef.assert(assertion)
+            case _                  => compiletime.error("assert: assertion must be a Boolean")
         case given DFC.Scope.Local =>
           assertDFHDL(assertion, None, Severity.Error)(using compiletime.summonInline[DFC])
         case _ =>
@@ -125,7 +133,7 @@ object TextOut:
       var msgArgsExpr: Expr[List[DFValAny]] = '{ List.empty[DFValAny] }
       val dfc = Expr.summon[DFC].get
       recurse(msgOption.asTerm).asExpr match
-        case '{ None } =>
+        case '{ None }       =>
         case '{ Some($msg) } =>
           msg match
             case '{ StringContext(${ Varargs(partsExprs) }*).s(${ Varargs(argsExprs) }*) } =>

@@ -8,7 +8,12 @@ import dfhdl.compiler.stages.verilog.{VerilogBackend, VerilogPrinter, VerilogDia
 import dfhdl.compiler.stages.vhdl.{VHDLBackend, VHDLPrinter, VHDLDialect}
 import dfhdl.compiler.ir.DB
 object backends:
-  protected[dfhdl] class verilog(val dialect: VerilogDialect) extends BackendCompiler:
+  sealed class verilog(val dialect: VerilogDialect) extends BackendCompiler:
+    def printer(
+        cd: CompiledDesign
+    )(using CompilerOptions, PrinterOptions): Printer =
+      val compiledDB = cd.stagedDB
+      new VerilogPrinter(dialect)(using compiledDB.getSet)
     def printer(
         designDB: DB
     )(using CompilerOptions, PrinterOptions): Printer =
@@ -23,7 +28,12 @@ object backends:
     val sv2012: verilog = new verilog(VerilogDialect.sv2012)
     val sv2017: verilog = new verilog(VerilogDialect.sv2017)
 
-  protected[dfhdl] class vhdl(val dialect: VHDLDialect) extends BackendCompiler:
+  sealed class vhdl(val dialect: VHDLDialect) extends BackendCompiler:
+    def printer(
+        cd: CompiledDesign
+    )(using CompilerOptions, PrinterOptions): Printer =
+      val compiledDB = cd.stagedDB
+      new VHDLPrinter(dialect)(using compiledDB.getSet)
     def printer(
         designDB: DB
     )(using CompilerOptions, PrinterOptions): Printer =

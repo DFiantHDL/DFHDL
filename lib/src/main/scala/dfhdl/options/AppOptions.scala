@@ -5,7 +5,8 @@ import AppOptions.*
 
 case class AppOptions(
     defaultMode: DefaultMode,
-    clearConsole: ClearConsole
+    clearConsole: ClearConsole,
+    cacheEnable: CacheEnable
 )
 
 object AppOptions:
@@ -13,8 +14,10 @@ object AppOptions:
   object Defaults:
     given (using
         defaultMode: DefaultMode,
-        clearConsole: ClearConsole
-    ): Defaults[Design] = AppOptions(defaultMode = defaultMode, clearConsole = clearConsole)
+        clearConsole: ClearConsole,
+        cacheEnable: CacheEnable
+    ): Defaults[Design] =
+      AppOptions(defaultMode = defaultMode, clearConsole = clearConsole, cacheEnable = cacheEnable)
 
   enum DefaultMode derives CanEqual:
     case help, elaborate, compile, commit, lint, simulate
@@ -27,4 +30,9 @@ object AppOptions:
   object ClearConsole:
     given ClearConsole = if (metalsIsRunning || scala_cliIsRunning) true else false
     given Conversion[Boolean, ClearConsole] = identity
+
+  opaque type CacheEnable <: Boolean = Boolean
+  object CacheEnable:
+    given CacheEnable = true
+    given Conversion[Boolean, CacheEnable] = identity
 end AppOptions

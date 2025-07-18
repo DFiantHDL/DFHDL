@@ -8,7 +8,7 @@ module rotWord(
 );
   `include "dfhdl_defs.vh"
   `include "CipherNoOpaques_defs.vh"
-  input  wire  [7:0] lhs [0:3];
-  output wire [7:0] o [0:3];
-  assign o = '{lhs[1], lhs[2], lhs[3], lhs[0]};
+  input  wire  [31:0] lhs;
+  output wire [31:0]  o;
+  assign o = {lhs[23:16], lhs[15:8], lhs[7:0], lhs[31:24]};
 endmodule

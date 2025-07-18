@@ -7,8 +7,8 @@ extension (designDB: DB)
     designDB.members.flatMap:
       case dfVal: DFVal if !dfVal.isAnonymous =>
         val isUnused = dfVal.meta.annotations.exists {
-          case u: dfhdl.hw.unused => u.isActive
-          case _                  => false
+          case u: dfhdl.hw.annotation.unused => u.isActive
+          case _                             => false
         }
         if (isUnused) Some(dfVal)
         else None

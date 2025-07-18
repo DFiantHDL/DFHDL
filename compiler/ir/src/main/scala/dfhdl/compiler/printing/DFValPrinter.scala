@@ -23,7 +23,12 @@ extension (list: List[String])
     val maxVectorLineCharacters: Int = 120
     val avgTextLength = list.view.map(_.length).sum / list.length
     val maxColElems = (maxVectorLineCharacters / avgTextLength).max(1)
-    val colCnt = findLargestDivisor(list.length, maxColElems)
+    // the ideal column count is large and divisible by the number of elements
+    var colCnt = findLargestDivisor(list.length, maxColElems)
+    // however, if the number of columns is less than half of the maximum number
+    // of columns, then use the maximum number of columns. this is to avoid the
+    // case where the vector is printed very few columns, which is not readable.
+    if (colCnt <= maxColElems / 2) colCnt = maxColElems
     val rowCnt = (list.length - 1) / colCnt + 1
     if (rowCnt == 1) list.mkString(open, sep + " ", close)
     else
@@ -74,7 +79,7 @@ trait AbstractValPrinter extends AbstractPrinter:
     extension (named: DFMember.Named)
       def nameCS: String = if (typeCS) s"${csDFMemberName(named)}.type" else csDFMemberName(named)
     member match
-      case dfVal: DFVal.DesignParam => dfVal.nameCS
+      case dfVal: DFVal.DesignParam                   => dfVal.nameCS
       case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal =>
         if (dfVal.isAnonymous) printer.csDFValExpr(dfVal)
         else dfVal.nameCS
@@ -102,10 +107,12 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csInitSingle(ref: Dcl.InitRef): String
   def csInitSeq(refs: List[Dcl.InitRef]): String
   def csDFValDclEnd(dfVal: Dcl): String
+  val supportVectorInlineInit: Boolean = true
   final def csDFValDcl(dfVal: Dcl): String =
     val noInit = csDFValDclWithoutInit(dfVal)
     val init = dfVal.initRefList match
-      case DFRef(DFVal.Func(op = FuncOp.InitFile(format, path))) :: Nil =>
+      case DFRef(DFVector.Val(_)) :: _ if !printer.supportVectorInlineInit => ""
+      case DFRef(DFVal.Func(op = FuncOp.InitFile(format, path))) :: Nil    =>
         val csInitFile = format match
           case InitFileFormat.Auto => s""""$path""""
           case _                   => s"""("$path", InitFileFormat.$format)"""
@@ -115,6 +122,7 @@ trait AbstractValPrinter extends AbstractPrinter:
       case refs       => s" $csInitKeyword ${csInitSeq(refs)}"
     val end = csDFValDclEnd(dfVal)
     s"$noInit$init$end"
+  end csDFValDcl
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String
   def csDFValAliasAsIs(dfVal: Alias.AsIs): String
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String
@@ -141,7 +149,7 @@ trait AbstractValPrinter extends AbstractPrinter:
   def csDFValNamed(dfVal: DFVal): String
   final def csDFValRef(dfVal: DFVal, fromOwner: DFOwner | DFMember.Empty): String =
     dfVal.stripPortSel match
-      case expr: CanBeExpr if expr.isAnonymous => csDFValExpr(expr)
+      case expr: CanBeExpr if expr.isAnonymous   => csDFValExpr(expr)
       case PortOfDesignDef(Modifier.OUT, design) =>
         if (design.isAnonymous) printer.csDFDesignDefInst(design)
         else design.getName
@@ -177,7 +185,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match
           case _: DFVector => s"all(${argL.refCodeString})"
-          case _ =>
+          case _           =>
             val csArgL = argL.refCodeString(typeCS)
             val csArgR = argR.refCodeString(typeCS)
             s"${csArgL.applyBrackets()}.repeat${csArgR.applyBrackets(onlyIfRequired = false)}"
@@ -208,7 +216,7 @@ protected trait DFValPrinter extends AbstractValPrinter:
         val csArgs = args.map(_.refCodeString)
         dfVal.op match
           case DFVal.Func.Op.++ =>
-            def argsInBrackets = csArgs.mkStringBrackets
+            def argsInBrackets = csArgs.csList()
             dfVal.dfType match
               case DFString =>
                 if (csArgs.length == 2)
@@ -289,7 +297,12 @@ protected trait DFValPrinter extends AbstractValPrinter:
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
-    s"${dfVal.relValCodeString}(${dfVal.relBitHigh}, ${dfVal.relBitLow})"
+    dfVal.dfType match
+      case DFBits(_) =>
+        s"${dfVal.relValCodeString}(${dfVal.idxHighRef.refCodeString}, ${dfVal.idxLowRef.refCodeString})"
+      case _ =>
+        s"${dfVal.relValCodeString}(${dfVal.idxLowRef.refCodeString}, ${dfVal.idxHighRef.refCodeString})"
+    end match
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
     val relIdxStr = dfVal.relIdx.refCodeString
     s"${dfVal.relValCodeString}($relIdxStr)"

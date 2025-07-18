@@ -12,7 +12,8 @@ object StateAnalysis:
       relBitLow: Int,
       assignMap: AssignMap,
       currentSet: Set[DFVal]
-  )(using MemberGetSet): Set[DFVal] =
+  )(using MemberGetSet, DFBlock): Set[DFVal] =
+    val currentBlock = summon[DFBlock]
     val access = immutable.BitSet.empty ++ (relBitLow until relBitLow + relWidth)
     value match
       case DFVal.Alias.AsIs(dfType = toType, relValRef = relValRef) =>
@@ -23,8 +24,19 @@ object StateAnalysis:
         else
           // conversion is treated like any function argument and restarts bit consumption
           consumeFrom(relVal, relVal.width, 0, assignMap, currentSet)
-      case DFVal.Alias.ApplyRange(relValRef = relValRef, relBitHigh = rbh, relBitLow = rbl) =>
-        consumeFrom(relValRef.get, rbh - rbl + 1, relBitLow + rbl, assignMap, currentSet)
+      case applyRange @ DFVal.Alias.ApplyRange(
+            relValRef = relValRef,
+            idxHighRef = Int(idxHigh),
+            idxLowRef = Int(idxLow)
+          ) =>
+        val elementWidth = applyRange.elementWidth
+        consumeFrom(
+          relValRef.get,
+          idxHigh * elementWidth - idxLow * elementWidth + 1,
+          relBitLow + idxLow * elementWidth,
+          assignMap,
+          currentSet
+        )
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // For simplification, consuming the entirety of selection index and array
         val rvSet = consumeFrom(relValRef.get, assignMap, currentSet)
@@ -43,6 +55,9 @@ object StateAnalysis:
         //        }
         ???
       case IteratorDcl() => currentSet
+      // out ports of child designs are not consuming state within the current design
+      case dcl @ DclOut()
+          if dcl.getOwnerDesign.isOneLevelBelow(currentBlock.getThisOrOwnerDesign) => currentSet
       case dcl: DFVal.Dcl if (dcl.isPortOut || dcl.isVar) && !dcl.isReg && !dcl.isInProcess =>
         value.getConnectionTo match
           case Some(DFNet.Connection(_, fromVal: DFVal, _)) =>
@@ -58,10 +73,10 @@ object StateAnalysis:
       value: DFVal,
       assignMap: AssignMap,
       currentSet: Set[DFVal]
-  )(using MemberGetSet): Set[DFVal] =
+  )(using MemberGetSet, DFBlock): Set[DFVal] =
     value.dfType match
       case _: DFUnbounded => currentSet
-      case _ =>
+      case _              =>
         consumeFrom(value, value.dfType.width, 0, assignMap, currentSet)
 
   @tailrec private def assignTo(
@@ -74,8 +89,13 @@ object StateAnalysis:
     value match
       case DFVal.Alias.AsIs(relValRef = relValRef) =>
         assignTo(relValRef.get, relWidth, relBitLow, assignMap)
-      case DFVal.Alias.ApplyRange(relValRef = relValRef, relBitHigh = rbh, relBitLow = rbl) =>
-        assignTo(relValRef.get, relWidth, rbl + relBitLow, assignMap)
+      case applyRange @ DFVal.Alias.ApplyRange(
+            relValRef = relValRef,
+            idxHighRef = Int(idxHigh),
+            idxLowRef = Int(idxLow)
+          ) =>
+        val elementWidth = applyRange.elementWidth
+        assignTo(relValRef.get, relWidth, idxLow * elementWidth + relBitLow, assignMap)
       case DFVal.Alias.ApplyIdx(relValRef = relValRef, relIdx = idxRef) =>
         // for simplification, assigning the entirety of the array
         assignTo(relValRef.get, assignMap)
@@ -104,6 +124,7 @@ object StateAnalysis:
       currentSet: Set[DFVal],
       checkedDomain: DomainType => Boolean
   )(using MemberGetSet): (Set[DFVal], AssignMap) =
+    given DFBlock = currentBlock
     remaining match
       case (nextBlock: DFBlock) :: rs if nextBlock.getOwnerBlock == currentBlock => // entering child block
         val (updatedSet, updatedScopeMap): (Set[DFVal], AssignMap) = nextBlock match
@@ -170,6 +191,8 @@ object StateAnalysis:
           getImplicitStateVars(remaining, currentBlock.getOwnerBlock, updatedScopeMap, updatedSet,
             checkedDomain)
         else (updatedSet, scopeMap)
+    end match
+  end getImplicitStateVars
 
   type AssignMap = Map[DFVal, AssignedScope]
 

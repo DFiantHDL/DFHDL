@@ -14,25 +14,33 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     printer.dialect match
       case VerilogDialect.v95 | VerilogDialect.v2001 => false
       case _                                         => true
+  // under verilog 95/2001 we use concatenation because of the lack of support for
+  // array literals.
+  val literalGroupOpen =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => "{"
+      case _                                         => "'{"
   def csConditionalExprRel(csExp: String, ch: DFConditional.Header): String = printer.unsupported
   def csDFValDclConst(dfVal: DFVal.CanBeExpr): String =
-    if (supportGlobalParameters || !dfVal.isGlobal)
-      val arrRange = printer.csDFVectorRanges(dfVal.dfType)
-      val endOfStatement = if (dfVal.isGlobal) ";" else ""
-      val default = dfVal match
-        // for non-top-level design parameters, we fetch the default value if it is defined.
-        // for all other cases, we get the parameter constant data and use that as default value.
-        // using the constant data only happens in verilog.v95, since parameters are declared in
-        // the body and must have defaults.
-        case param: DesignParam =>
-          param.defaultRef.get match
-            case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
-            case _ => printer.csConstData(param.dfType, param.getConstData.get)
-        case _ => csDFValExpr(dfVal)
-      val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
-      val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
-      s"parameter ${csTypeNoLogic}${dfVal.getName}${arrRange} = $default$endOfStatement"
-    else s"`define ${dfVal.getName} ${csDFValExpr(dfVal).replace("\n", " \\\n")}"
+    val arrRange = printer.csDFVectorRanges(dfVal.dfType)
+    val endOfStatement = if (dfVal.isGlobal) ";" else ""
+    val default = dfVal match
+      // for non-top-level design parameters, we fetch the default value if it is defined.
+      // for all other cases, we get the parameter constant data and use that as default value.
+      // using the constant data only happens in verilog.v95, since parameters are declared in
+      // the body and must have defaults.
+      case param: DesignParam =>
+        param.defaultRef.get match
+          case defaultVal: CanBeExpr if !param.getOwnerDesign.isTop => csDFValExpr(defaultVal)
+          case _ => printer.csConstData(param.dfType, param.getConstData.get)
+      case _ => csDFValExpr(dfVal)
+    val csType = printer.csDFType(dfVal.dfType).emptyOr(_ + " ")
+    val csTypeNoLogic = if (supportLogicType) csType else csType.replace("logic ", "")
+    val csParam = s"parameter ${csTypeNoLogic}${dfVal.getName}${arrRange} = $default$endOfStatement"
+    if (dfVal.isGlobal && !supportGlobalParameters)
+      s"`define ${dfVal.getName}_def ${csParam.linesIterator.mkString("\\\n")}"
+    else csParam
+  end csDFValDclConst
 
   def csDFValDclWithoutInit(dfVal: Dcl): String =
     val dfTypeStr = printer.csDFType(dfVal.dfType)
@@ -43,7 +51,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case Modifier.VAR   => ""
     def regOrWireRep = dfVal.modifier.dir match
       case Modifier.IN => ""
-      case _ =>
+      case _           =>
         if (dfVal.getConnectionTo.nonEmpty) "wire"
         else "reg"
     val fixedDFTypeStr =
@@ -52,19 +60,42 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     s"$modifier${fixedDFTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
   end csDFValDclWithoutInit
   def csInitKeyword: String = "="
+  override val supportVectorInlineInit: Boolean =
+    printer.dialect match
+      case VerilogDialect.v95 | VerilogDialect.v2001 => false
+      case _                                         => true
   def csInitSingle(ref: Dcl.InitRef): String = ref.refCodeString
   def csInitSeq(refs: List[Dcl.InitRef]): String = printer.unsupported
   def csDFValDclEnd(dfVal: Dcl): String = ""
+  def csDFValDclInitialBlock(dfVal: Dcl): String =
+    val List(DFRef(DFVal.Alias.AsIs(dfType = dfType: DFVector, relValRef = DFRef(initVal)))) =
+      dfVal.initRefList: @unchecked
+    val contents = initVal match
+      case _ if !initVal.isAnonymous =>
+        val cellWidth = dfType.cellType.width
+        val length = dfType.cellDimParamRefs.head.getInt
+        val ret = for (i <- 0 until length)
+          yield s"${dfVal.getName}[$i] = ${initVal.getName}[${(length - i) * cellWidth - 1}:${(length - i) * cellWidth - cellWidth}];"
+        ret.mkString("\n")
+      case Func(op = Func.Op.++, args = args) =>
+        args.view.zipWithIndex
+          .map((a, i) => s"${dfVal.getName}[$i] = ${a.refCodeString};")
+          .mkString("\n")
+      case Func(op = Func.Op.repeat, args = repeatedArgRef :: _) =>
+        val length = dfType.cellDimParamRefs.head.refCodeString
+        s"""|integer i;
+            |for (i = 0; i < ${length}; i = i + 1) begin
+            |  ${dfVal.getName}[i] = ${repeatedArgRef.refCodeString};
+            |end""".stripMargin
+      case _ => printer.unsupported
+    s"""|initial begin : ${dfVal.getName}_init
+        |${contents.hindent}
+        |end""".stripMargin
+  end csDFValDclInitialBlock
   val allowDoubleStarPowerSyntax: Boolean =
     printer.dialect match
       case VerilogDialect.v95 => false
       case _                  => true
-  override def csDFMemberName(named: DFMember.Named): String =
-    if (printer.supportGlobalParameters) named.getName
-    else
-      named match
-        case dfVal: DFVal.CanBeGlobal if dfVal.isGlobal => s"`${named.getName}"
-        case _                                          => named.getName
   def csDFValFuncExpr(dfVal: Func, typeCS: Boolean): String =
     def commonOpStr: String =
       dfVal.op match
@@ -80,7 +111,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case argL :: argR :: Nil if dfVal.op == Func.Op.repeat =>
         dfVal.dfType match
           case _: DFVector =>
-            s"'{default: ${argL.refCodeString}}"
+            s"${literalGroupOpen}default: ${argL.refCodeString}}"
           case _ =>
             s"{${argR.refCodeString.applyBrackets()}{${argL.refCodeString}}}"
       // infix func
@@ -92,7 +123,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         val opStr = dfVal.op match
           case Func.Op.=== => "=="
           case Func.Op.=!= => "!="
-          case Func.Op.>> =>
+          case Func.Op.>>  =>
             argL.get.dfType match
               case DFSInt(_) => ">>>"
               case _         => ">>"
@@ -133,7 +164,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
           case Func.Op.&       => s"&$argStrB"
           case Func.Op.|       => s"|$argStrB"
           case Func.Op.^       => s"^$argStrB"
-          case Func.Op.clog2 =>
+          case Func.Op.clog2   =>
             val internalLog = printer.dialect match
               case VerilogDialect.v95 | VerilogDialect.v2001 => ""
               case _                                         => "$"
@@ -145,9 +176,10 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
         dfVal.op match
           case DFVal.Func.Op.++ =>
             dfVal.dfType match
-              case DFStruct(_, _) | DFVector(_, _) =>
-                args.map(_.refCodeString).csList("'{", ",", "}")
-//              case DFVector(_, _) => printer.unsupported
+              case DFVector(_, _) =>
+                printer.csDFVectorElemCS(args.map(_.refCodeString))
+              case DFStruct(_, _) =>
+                args.map(_.refCodeString).csList(literalGroupOpen, ",", "}")
               // all args are the same ==> repeat function
               case _ if args.view.map(_.get).allElementsAreEqual =>
                 s"{${args.length}{${args.head.refCodeString}}}"
@@ -211,7 +243,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
       case (DFInt32, DFUInt(_) | DFSInt(_)) => relValStr
       case (DFBit, DFBool)                  => relValStr
       case (DFBool, DFBit)                  => relValStr
-      case (toStruct: DFStruct, _: DFBits) =>
+      case (toStruct: DFStruct, _: DFBits)  =>
         s"${toStruct.name}'($relValStr)"
       case (toVector: DFVector, _: DFBits) =>
         def to_vector_conv(vectorType: DFVector, relHighIdx: Int): String =
@@ -220,12 +252,12 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
             case cellType: DFVector =>
               List.tabulate(vecLength)(i =>
                 to_vector_conv(cellType, relHighIdx - i * cellType.width)
-              ).csList("'{", ",", "}")
+              ).csList(literalGroupOpen, ",", "}")
             case cellType: DFBits =>
               val cellWidth = cellType.width
               List.tabulate(vecLength)(i =>
                 s"$relValStr[${relHighIdx - i * cellWidth}:${relHighIdx - (i + 1) * cellWidth + 1}]"
-              ).csList("'{", ",", "}")
+              ).csList(literalGroupOpen, ",", "}")
             case x =>
               println(x)
               printer.unsupported
@@ -256,7 +288,12 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     end match
   end csDFValAliasAsIs
   def csDFValAliasApplyRange(dfVal: Alias.ApplyRange): String =
-    s"${dfVal.relValCodeString}[${dfVal.relBitHigh}:${dfVal.relBitLow}]"
+    dfVal.dfType match
+      case DFBits(_) =>
+        s"${dfVal.relValCodeString}[${dfVal.idxHighRef.refCodeString}:${dfVal.idxLowRef.refCodeString}]"
+      case _ =>
+        s"${dfVal.relValCodeString}[${dfVal.idxLowRef.refCodeString}:${dfVal.idxHighRef.refCodeString}]"
+    end match
   def csDFValAliasApplyIdx(dfVal: Alias.ApplyIdx): String =
     val relIdxStr = dfVal.relIdx.refCodeString
     s"${dfVal.relValCodeString}[$relIdxStr]"
@@ -276,7 +313,7 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
   // def csTimerIsActive(dfVal: Timer.IsActive): String = printer.unsupported
   def csNOTHING(dfVal: NOTHING): String =
     dfVal.dfType match
-      case DFBit => "1'bz"
+      case DFBit         => "1'bz"
       case DFBits(width) =>
         val csWidth = width.refCodeString.applyBrackets()
         s"""${csWidth}'bz"""
