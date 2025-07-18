@@ -86,7 +86,7 @@ extension (using quotes: Quotes)(lhs: quotes.reflect.TypeRepr)
         case '[head *: tail] =>
           recur(TypeRepr.of[tail], TypeRepr.of[head] :: args)
         case '[EmptyTuple] => args.reverse
-        case '[t] =>
+        case '[t]          =>
           report.errorAndAbort(s"Expecting a tuple, but found ${Type.show[t]}")
     if (lhs.show == "null")
       report.errorAndAbort(s"Expecting a tuple, but found null")
@@ -332,7 +332,7 @@ extension [T](seq: Iterable[T])
         f: T => P,
         res: List[(P, Iterable[T])]
     ): Seq[(P, Iterable[T])] = seq.headOption match
-      case None => res.reverse
+      case None    => res.reverse
       case Some(h) =>
         val key = f(h)
         val subseq = seq.takeWhile(f(_) equals key)
@@ -460,7 +460,32 @@ object AnnotatedWith:
   end annotWithMacro
 end AnnotatedWith
 
-def osIsWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
+lazy val osIsWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
+lazy val osIsLinux: Boolean = sys.props("os.name").toLowerCase.contains("linux")
+lazy val osIsWSL: Boolean =
+  if (osIsLinux)
+    import scala.io.Source
+    try
+      val procVersion = Source.fromFile("/proc/version").getLines().mkString
+      procVersion.contains("microsoft-standard")
+    catch
+      case _: Exception => false
+  else false
+// checks if the program is accessible to the current shell
+def programIsAccessible(cmd: String): Boolean =
+  import sys.process.*
+  try
+    if (osIsWindows)
+      s"where $cmd".!!.nonEmpty
+    else
+      val result = s"which $cmd".!!.trim()
+      // reject windows programs running from WSL
+      if (result.nonEmpty && osIsWSL)
+        !result.matches("""/mnt/[a-zA-Z]/.*""")
+      else
+        result.nonEmpty
+  catch
+    case _: Exception => false
 
 // trait CompiletimeErrorPos[M <: String, S <: Int, E <: Int]
 // object CompiletimeErrorPos:
