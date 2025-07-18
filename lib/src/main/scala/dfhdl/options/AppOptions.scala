@@ -20,7 +20,7 @@ object AppOptions:
       AppOptions(defaultMode = defaultMode, clearConsole = clearConsole, cacheEnable = cacheEnable)
 
   enum DefaultMode derives CanEqual:
-    case help, elaborate, compile, commit, lint, simulate
+    case help, elaborate, compile, commit, lint, simulate, build
   object DefaultMode:
     given DefaultMode =
       if (scastieIsRunning) compile

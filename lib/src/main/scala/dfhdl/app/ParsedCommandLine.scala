@@ -7,7 +7,8 @@ import dfhdl.options.{
   LinterOptions,
   SimulatorOptions,
   AppOptions,
-  ToolOptions
+  ToolOptions,
+  BuilderOptions
 }
 import AppOptions.DefaultMode
 import dfhdl.internals.scastieIsRunning
@@ -23,6 +24,7 @@ class ParsedCommandLine(
     co: CompilerOptions,
     lo: LinterOptions,
     so: SimulatorOptions,
+    bo: BuilderOptions,
     ao: AppOptions
 ) extends ScallopConf(commandArgs.toSeq):
   val cacheDescYesDefault = if (ao.cacheEnable) " (default ON)" else ""
@@ -127,6 +129,10 @@ class ParsedCommandLine(
         argName = "[verilogSimulator][/][vhdlSimulator]"
       )
     end SimulateMode
+    trait BuildMode extends ToolMode:
+      this: ScallopConf & Mode =>
+      lazy val options = bo
+    end BuildMode
 
     case object elaborate
         extends Mode(DefaultMode.elaborate, "Elaboration only (no compilation)"),
@@ -158,6 +164,13 @@ class ParsedCommandLine(
           "Simulating (after elaboration, compilation, and committing to disk)"
         ),
           SimulateMode:
+      footer("      ~~including all commit command options~~")
+    case object build
+        extends Mode(
+          DefaultMode.build,
+          "Building (after elaboration, compilation, and committing to disk)"
+        ),
+          BuildMode:
       footer("      ~~including all commit command options~~")
     case object help extends Mode(DefaultMode.help, "Display usage text"):
       addSubcommand(HelpMode.backend)
@@ -224,6 +237,7 @@ class ParsedCommandLine(
   addSubcommand(Mode.commit)
   addSubcommand(Mode.lint)
   addSubcommand(Mode.simulate)
+  addSubcommand(Mode.build)
   addSubcommand(Mode.help)
   lazy val mode: Mode = subcommand.getOrElse(ao.defaultMode match
     case DefaultMode.help      => Mode.help
@@ -231,6 +245,7 @@ class ParsedCommandLine(
     case DefaultMode.compile   => Mode.compile
     case DefaultMode.commit    => Mode.commit
     case DefaultMode.lint      => Mode.lint
-    case DefaultMode.simulate  => Mode.simulate).asInstanceOf[Mode]
+    case DefaultMode.simulate  => Mode.simulate
+    case DefaultMode.build     => Mode.build).asInstanceOf[Mode]
   verify()
 end ParsedCommandLine

@@ -15,7 +15,7 @@ object Vivado extends Builder:
   override protected def windowsBinExec: String = "vivado.bat"
   protected def versionCmd: String = s"-version"
   protected def extractVersion(cmdRetStr: String): Option[String] =
-    val versionPattern = """Vivado\s+v(\d+\.\d+)""".r
+    val versionPattern = """vivado\s+v(\d+\.\d+)""".r
     versionPattern.findFirstMatchIn(cmdRetStr).map(_.group(1))
 
   def filesCmdPart(cd: CompiledDesign): String = ???
@@ -32,7 +32,7 @@ object Vivado extends Builder:
   )(using CompilerOptions, BuilderOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
     exec(
-      s"-mode batch -source ${cd.stagedDB.top.dclName}.tcl"
+      s"-mode batch -source ${topName}.tcl"
     )
     cd
 end Vivado

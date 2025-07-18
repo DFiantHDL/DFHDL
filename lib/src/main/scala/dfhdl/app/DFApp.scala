@@ -46,12 +46,14 @@ trait DFApp:
   private var linterOptions: options.LinterOptions = compiletime.uninitialized
   private var simulatorOptions: options.SimulatorOptions = compiletime.uninitialized
   private var appOptions: options.AppOptions = compiletime.uninitialized
+  private var builderOptions: options.BuilderOptions = compiletime.uninitialized
   inline given options.ElaborationOptions = elaborationOptions
   inline given options.CompilerOptions = compilerOptions
   inline given options.PrinterOptions = printerOptions
   inline given options.LinterOptions = linterOptions
   inline given options.SimulatorOptions = simulatorOptions
   inline given options.AppOptions = appOptions
+  inline given options.BuilderOptions = builderOptions
   private var dsn: () => core.Design = compiletime.uninitialized
   // used by the plugin to get the updated design arguments that could be changed by the
   // command-line options
@@ -78,6 +80,8 @@ trait DFApp:
       top.linterOptions.copy(Werror = top.linterOptions.Werror.fromScalac(scalacWerror))
     simulatorOptions =
       top.simulatorOptions.copy(Werror = top.simulatorOptions.Werror.fromScalac(scalacWerror))
+    builderOptions =
+      top.builderOptions.copy(Werror = top.builderOptions.Werror.fromScalac(scalacWerror))
     appOptions = top.appOptions
     designArgs = DesignArgs(argNames, argValues, argDescs)
   end setInitials
@@ -204,6 +208,15 @@ trait DFApp:
     protected def valueToCacheStr(value: CompiledDesign): String = ???
     protected def cacheStrToValue(str: String): CompiledDesign = ???
   end simRun
+
+  object build
+      extends diskCache.Step[CompiledDesign, CompiledDesign](commit)():
+    override protected def cacheEnable: Boolean = appOptions.cacheEnable
+    protected def run(committed: CompiledDesign): CompiledDesign =
+      committed.tap(_ => logger.info("Running external builder...")).build
+    protected def valueToCacheStr(value: CompiledDesign): String = ???
+    protected def cacheStrToValue(str: String): CompiledDesign = ???
+  end build
 
   private def listBackends: Unit =
     System.out.println(
@@ -353,6 +366,10 @@ trait DFApp:
               vhdlSimulator = toolSelection.vhdlSimulator,
               Werror = mode.`Werror-tool`.toOption.get
             )
+          case mode: Mode.BuildMode =>
+            builderOptions = builderOptions.copy(
+              Werror = mode.`Werror-tool`.toOption.get
+            )
           case _ =>
         end match
         // execute command
@@ -370,6 +387,8 @@ trait DFApp:
           case Mode.commit    => commit()
           case Mode.lint      => lint(uncached = true)
           case Mode.simulate  => simRun(uncached = true)
+          case Mode.build     => build()
+        end match
     end match
   end main
 end DFApp
