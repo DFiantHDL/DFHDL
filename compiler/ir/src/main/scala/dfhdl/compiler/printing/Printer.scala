@@ -378,7 +378,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   //       s"${f.sourceRef.refCodeString} ${f.op} $argStr"
   //   if (timer.isAnonymous) timerBody else s"val ${timer.getName} = $timerBody"
   // end csTimer
-  def globalFileName: String = s"${getSet.designDB.top.dclName}_globals.scala"
+  def globalFileName: String = s"${getSet.topName}_globals.scala"
   def designFileName(designName: String): String = s"$designName.scala"
   def dfhdlDefsFileName: String = "" // no need in DFHDL code generation
   def dfhdlSourceContents: String = "" // no need in DFHDL code generation

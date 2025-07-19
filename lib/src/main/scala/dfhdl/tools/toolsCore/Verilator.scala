@@ -189,7 +189,7 @@ class VerilatorConfigPrinter(verilatorVersion: String)(using
 ):
   val designDB: DB = getSet.designDB
   val verilatorVersionMajor: Int = verilatorVersion.split("\\.").head.toInt
-  def configFileName: String = s"${designDB.top.dclName}.vlt"
+  def configFileName: String = s"${getSet.topName}.vlt"
   def contents: String =
     s"""`verilator_config
        |$commands

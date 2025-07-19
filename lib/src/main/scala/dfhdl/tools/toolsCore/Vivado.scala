@@ -41,7 +41,8 @@ val VivadoProjectTclConfig = SourceType.Tool("Vivado", "ProjectTclConfig")
 
 class VivadoProjectTclConfigPrinter(using getSet: MemberGetSet):
   val designDB: DB = getSet.designDB
-  def configFileName: String = s"${designDB.top.dclName}.tcl"
+  val topName: String = getSet.topName
+  def configFileName: String = s"$topName.tcl"
   def contents: String =
     s"""
        |

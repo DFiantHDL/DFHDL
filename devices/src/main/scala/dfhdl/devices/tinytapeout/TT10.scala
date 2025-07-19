@@ -4,10 +4,10 @@ import dfhdl.hw.annotation.unused
 
 abstract class TT10 extends RTDesign:
   override def customTopChecks(): Unit =
-    val topDclName = dfc.getSet.designDB.top.dclName
+    val topName = dfc.getSet.topName
     assert(
-      topDclName.startsWith("tt_um_"),
-      s"""A tiny tapeout design name must start with "tt_um_" but found "$topDclName""""
+      topName.startsWith("tt_um_"),
+      s"""A tiny tapeout design name must start with "tt_um_" but found "$topName""""
     )
 
   /** Dedicated inputs */

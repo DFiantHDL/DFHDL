@@ -81,7 +81,7 @@ final case class DB(
       origMember.getRefs.foreach {
         case _: DFRef.Empty                     =>
         case _: DFRef.TypeRef if excludeTypeRef =>
-        case r =>
+        case r                                  =>
           tbl.updateWith(
             refTable.getOrElse(
               r,
@@ -275,7 +275,7 @@ final case class DB(
         ): (DFConditional.Header, List[DFConditional.Block]) =
           handled += block
           block.prevBlockOrHeaderRef.get match
-            case header: DFConditional.Header => (header, block :: chain)
+            case header: DFConditional.Header   => (header, block :: chain)
             case prevBlock: DFConditional.Block =>
               getChain(prevBlock, block :: chain)
         chainMap + getChain(m, Nil)
@@ -391,14 +391,14 @@ final case class DB(
         val toValOption = (lhsAccess, rhsAccess) match
           case (Write, Read | ReadWrite | Unknown) => Some(lhsVal)
           case (Read | ReadWrite | Unknown, Write) => Some(rhsVal)
-          case (Read, Read) =>
+          case (Read, Read)                        =>
             newError("Unsupported read-to-read connection.")
             None
           case (Write, Write) =>
             newError("Unsupported write-to-write connection.")
             None
-          case (_, Read) => Some(lhsVal)
-          case (Read, _) => Some(rhsVal)
+          case (_, Read)  => Some(lhsVal)
+          case (Read, _)  => Some(rhsVal)
           case (Error, _) =>
             newError(s"Unknown access pattern with ${lhsVal.relValString}.")
             None
@@ -941,7 +941,7 @@ final case class DB(
     val problemReferences: List[(DFMember, DFMember)] =
       membersNoGlobals.view.drop(1).flatMap {
         case _: PortByNameSelect => None
-        case m =>
+        case m                   =>
           val isDesignParam = m match
             case _: DFVal.DesignParam => true
             case _                    => false
@@ -1056,5 +1056,6 @@ trait MemberGetSet:
   def remove[M <: DFMember](member: M): M
   def setGlobalTag[CT <: DFTag: ClassTag](tag: CT): Unit
   def getGlobalTag[CT <: DFTag: ClassTag]: Option[CT]
+  final lazy val topName: String = designDB.top.dclName
 
 def getSet(using MemberGetSet): MemberGetSet = summon[MemberGetSet]

@@ -13,8 +13,7 @@ protected trait VerilogOwnerPrinter extends AbstractOwnerPrinter:
   type TPrinter <: VerilogPrinter
   val useStdSimLibrary: Boolean = true
   def fileSuffix = "v"
-  def defsName: String =
-    s"${getSet.designDB.top.dclName}_defs"
+  def defsName: String = s"${getSet.topName}_defs"
   def csLibrary(inSimulation: Boolean, minTimeUnitOpt: Option[DFTime.Unit]): String =
     val csTimeScale = minTimeUnitOpt.map { unit =>
       def unitToStr(unit: DFTime.Unit): String =

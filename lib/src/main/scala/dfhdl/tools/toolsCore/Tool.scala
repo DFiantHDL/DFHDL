@@ -60,8 +60,7 @@ trait Tool:
       }
       preCheckDone = true
 
-  final protected def topName(using MemberGetSet): String =
-    getSet.designDB.top.dclName
+  final protected def topName(using MemberGetSet): String = getSet.topName
 
   final protected def execPath(using co: CompilerOptions, getSet: MemberGetSet): String =
     co.topCommitPath(getSet.designDB)
