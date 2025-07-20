@@ -261,7 +261,7 @@ object Printer:
         val pw = new FileWriter(commitPathAbs)
         pw.write(contents)
         pw.close()
-        srcFile.copy(sourceOrigin = SourceOrigin.Committed, path = commitPathAbs)
+        srcFile.copy(sourceOrigin = SourceOrigin.Committed)
       case other => other
     }
     db.copy(srcFiles = updatedSrcFiles)
