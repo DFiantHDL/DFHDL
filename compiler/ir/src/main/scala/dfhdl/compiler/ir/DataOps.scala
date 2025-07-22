@@ -257,7 +257,7 @@ def calcFuncData[OT <: DFType](
           // Arithmetic Negation
           case (
                 _: DFDecimal,
-                FuncOp.unary_!,
+                FuncOp.unary_-,
                 (_: DFDecimal) :: Nil,
                 Some(data: BigInt) :: Nil
               ) =>
