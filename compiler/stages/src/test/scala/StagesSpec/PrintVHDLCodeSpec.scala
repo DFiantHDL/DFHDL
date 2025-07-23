@@ -1400,6 +1400,7 @@ class PrintVHDLCodeSpec extends StageSpec:
   }
 
   test("toggle enum printing") {
+    given options.PrinterOptions.Align = true
     enum MyEnum extends Encoded.Toggle:
       case Zero, One
 
@@ -1431,11 +1432,11 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |entity Bar is
          |port (
-         |  x : in t_enum_MyEnum;
-         |  y : out std_logic;
-         |  z : out boolean;
-         |  x1 : in std_logic;
-         |  x2 : in boolean;
+         |  x  : in  t_enum_MyEnum;
+         |  y  : out std_logic;
+         |  z  : out boolean;
+         |  x1 : in  std_logic;
+         |  x2 : in  boolean;
          |  y1 : out t_enum_MyEnum;
          |  y2 : out t_enum_MyEnum
          |);
@@ -1443,8 +1444,8 @@ class PrintVHDLCodeSpec extends StageSpec:
          |
          |architecture Bar_arch of Bar is
          |begin
-         |  y <= to_sl(toggle(x));
-         |  z <= to_bool(toggle(x));
+         |  y  <= to_sl(toggle(x));
+         |  z  <= to_bool(toggle(x));
          |  y1 <= to_t_enum_MyEnum(x1);
          |  y2 <= to_t_enum_MyEnum(x2);
          |end Bar_arch;""".stripMargin
