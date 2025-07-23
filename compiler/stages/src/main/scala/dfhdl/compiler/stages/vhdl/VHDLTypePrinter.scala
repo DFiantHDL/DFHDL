@@ -43,11 +43,20 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     val to_typeName = s"function to_${typeName}(A: std_logic_vector) return ${typeName};"
     val bool_sel =
       s"function bool_sel(C : boolean; T : ${typeName}; F : ${typeName}) return ${typeName};"
+    val toggleEnumFuncs = dfType match
+      case dt: DFEnum if dt.widthParam == 1 =>
+        s"""|
+            |function to_bool(A: ${typeName}) return boolean;
+            |function to_sl(A: ${typeName}) return std_logic;
+            |function to_${typeName}(A: boolean) return ${typeName};
+            |function to_${typeName}(A: std_logic) return ${typeName};
+            |function toggle(A: ${typeName}) return ${typeName};""".stripMargin
+      case _ => ""
     dfType match
       // since working on a VHDL subtype, opaques require only `to_typeName` function,
       // and `bitWidth` and `to_slv` of the actual type are applicable
       case dt: DFOpaque => to_typeName
-      case _            => s"$bitWidth\n$to_slv\n$to_typeName\n$bool_sel"
+      case _            => s"$bitWidth\n$to_slv\n$to_typeName\n$bool_sel$toggleEnumFuncs"
   end csNamedDFTypeConvFuncsDcl
   def csNamedDFTypeConvFuncsBody(dfType: NamedDFType): String =
     dfType match
@@ -68,6 +77,44 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
     val typeName = csDFEnumTypeName(dfType)
     val to_slv_cases = dfType.entries.map((e, v) => s"when ${enumName}_$e => int_val := $v;")
     val from_slv_cases = dfType.entries.map((e, v) => s"when $v => return ${enumName}_$e;")
+    val toggleEnumFuncs = if dfType.widthParam == 1 then
+      val (e0, v0) = dfType.entries.head
+      val (e1, v1) = dfType.entries.last
+      s"""|
+          |function to_bool(A : ${typeName}) return boolean is
+          |begin
+          |  case A is
+          |    when ${enumName}_$e0 => return false;
+          |    when ${enumName}_$e1 => return true;
+          |  end case;
+          |end;
+          |function to_sl(A : ${typeName}) return std_logic is
+          |begin
+          |  case A is
+          |    when ${enumName}_$e0 => return '0';
+          |    when ${enumName}_$e1 => return '1';
+          |  end case;
+          |end;
+          |function to_${typeName}(A : boolean) return ${typeName} is
+          |begin
+          |  if A then return ${enumName}_$e1;
+          |  else return ${enumName}_$e0;
+          |  end if;
+          |end;
+          |function to_${typeName}(A : std_logic) return ${typeName} is
+          |begin
+          |  if A = '1' then return ${enumName}_$e1;
+          |  else return ${enumName}_$e0;
+          |  end if;
+          |end;
+          |function toggle(A : ${typeName}) return ${typeName} is
+          |begin
+          |  case A is
+          |    when ${enumName}_$e0 => return ${enumName}_$e1;
+          |    when ${enumName}_$e1 => return ${enumName}_$e0;
+          |  end case;
+          |end;""".stripMargin
+    else ""
     s"""|function bitWidth(A : ${typeName}) return integer is
         |begin
         |  return ${dfType.width};
@@ -96,7 +143,7 @@ protected trait VHDLTypePrinter extends AbstractTypePrinter:
         |  else
         |    return F;
         |  end if;
-        |end;""".stripMargin
+        |end;${toggleEnumFuncs}""".stripMargin
   end csDFEnumConvFuncsBody
   def csDFEnum(dfType: DFEnum, typeCS: Boolean): String = csDFEnumTypeName(dfType)
   val supportUnconstrainedArrays: Boolean =

@@ -4,6 +4,7 @@ import dfhdl.compiler.ir
 import scala.quoted.*
 import collection.immutable.ListMap
 import ir.DFVal.Func.Op as FuncOp
+import scala.annotation.targetName
 
 sealed abstract class DFEncoding extends scala.reflect.Enum:
   def calcWidth(entryCount: Int): Int
@@ -13,6 +14,8 @@ sealed abstract class DFEncoding extends scala.reflect.Enum:
 object DFEncoding:
   sealed trait Auto extends DFEncoding:
     final val bigIntValue: BigInt = encode(ordinal)
+  sealed trait ExplicitWidth[W <: Int & Singleton] extends DFEncoding:
+    val width: W
   abstract class Default extends StartAt(0)
 
   abstract class Grey extends Auto:
@@ -29,7 +32,7 @@ object DFEncoding:
     final def calcWidth(entryCount: Int): Int = entryCount
     final def encode(idx: Int): BigInt = BigInt(1) << idx
 
-  abstract class Manual[W <: Int & Singleton](val width: W) extends DFEncoding:
+  abstract class Manual[W <: Int & Singleton](val width: W) extends ExplicitWidth[W]:
     val value: DFConstOf[DFUInt[W]]
     final def bigIntValue: BigInt =
       value.asIR match
@@ -47,6 +50,10 @@ object DFEncoding:
     final def calcWidth(entryCount: Int): Int = width
     final def encode(idx: Int): BigInt = bigIntValue
   end Manual
+
+  abstract class Toggle extends Default, ExplicitWidth[1]:
+    val width: 1 = 1
+
 end DFEncoding
 
 type DFEnum[E <: DFEncoding] = DFType[ir.DFEnum, Args1[E]]
@@ -117,5 +124,30 @@ object DFEnum:
         type OutP = CONST
         def conv(dfType: DFEnum[E], arg: RE)(using DFC): Out =
           DFVal.Const(dfType, Some(arg.bigIntValue))
+    object Ops:
+      extension [P](lhs: DFValTP[DFBoolOrBit, P])
+        @targetName("asDFEnumBinary")
+        def as[T <: AnyRef, E <: DFEncoding.ExplicitWidth[1]](
+            binaryEnumEncoding: T
+        )(using dfc: DFC, tc: DFType.TC[T])(using tc.Type <:< DFEnum[E]): DFValTP[tc.Type, P] =
+          trydf {
+            DFVal.Alias.AsIs(tc(binaryEnumEncoding), lhs)
+          }
+      // explicitly any ExplicitWidth[1] encoding can be converted to a bool or bit or
+      // toggled, and not just Binary.
+      extension [P, E <: DFEncoding.ExplicitWidth[1]](lhs: DFValTP[DFEnum[E], P])
+        @targetName("boolOfDFEnumBinary")
+        def bool(using DFC): DFValTP[DFBool, P] = trydf {
+          DFVal.Alias.AsIs(DFBool, lhs)
+        }
+        @targetName("bitOfDFEnumBinary")
+        def bit(using DFC): DFValTP[DFBit, P] = trydf {
+          DFVal.Alias.AsIs(DFBit, lhs)
+        }
+        def toggle(using DFC): DFValTP[DFEnum[E], P] = trydf {
+          DFVal.Func(lhs.dfType, FuncOp.unary_!, List(lhs))
+        }
+      end extension
+    end Ops
   end Val
 end DFEnum

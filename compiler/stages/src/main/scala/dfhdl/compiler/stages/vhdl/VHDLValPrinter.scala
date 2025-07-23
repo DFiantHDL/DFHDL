@@ -95,7 +95,10 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
           case Func.Op.rising  => s"rising_edge($argStr)"
           case Func.Op.falling => s"falling_edge($argStr)"
           case Func.Op.unary_- => s"-$argStrB"
-          case Func.Op.unary_! => s"not $argStrB"
+          case Func.Op.unary_! =>
+            dfVal.dfType match
+              case dfType: DFEnum => s"toggle($argStrB)"
+              case _              => s"not $argStrB"
           case Func.Op.unary_~ => s"not $argStrB"
           case Func.Op.&       => s"and reduce $argStrB"
           case Func.Op.|       => s"or reduce $argStrB"
@@ -200,10 +203,12 @@ protected trait VHDLValPrinter extends AbstractValPrinter:
         relValStr
       case (DFOpaque(_, _, _, _), _) =>
         relValStr
-      case (DFBit, DFBool) =>
+      case (DFBit, DFBool | DFEnum(widthParam = 1)) =>
         s"to_sl($relValStr)"
-      case (DFBool, DFBit) =>
+      case (DFBool, DFBit | DFEnum(widthParam = 1)) =>
         s"to_bool($relValStr)"
+      case (toType @ DFEnum(widthParam = 1), DFBit | DFBool) =>
+        s"to_${printer.csDFEnumTypeName(toType)}($relValStr)"
       case (DFUInt(tWidthParamRef), DFInt32) =>
         s"to_unsigned($relValStr, ${tWidthParamRef.refCodeString})"
       case (DFSInt(tWidthParamRef), DFInt32) =>

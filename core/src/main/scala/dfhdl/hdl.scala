@@ -9,6 +9,7 @@ protected object hdl:
   export core.DFBits.Val.TupleOps.*
   export core.DFDecimal.StrInterpOps.{d, sd}
   export core.DFDecimal.Val.Ops.*
+  export core.DFEnum.Val.Ops.*
   export core.DFVector.Val.Ops.*
   export core.DFOpaque.Val.Ops.*
   export core.DFTuple.Val.Ops.*

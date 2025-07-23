@@ -1309,4 +1309,99 @@ class PrintVerilogCodeSpec extends StageSpec:
          |endmodule""".stripMargin
     )
   }
+
+  test("toggle enum printing") {
+    enum MyEnum extends Encoded.Toggle:
+      case Zero, One
+
+    class Bar extends RTDesign:
+      val x  = MyEnum  <> IN
+      val y  = Bit     <> OUT
+      val z  = Boolean <> OUT
+      val x1 = Bit     <> IN
+      val x2 = Boolean <> IN
+      val y1 = MyEnum  <> OUT
+      val y2 = MyEnum  <> OUT
+      y  := (x.toggle).bit
+      z  := (x.toggle).bool
+      y1 := x1.as(MyEnum)
+      y2 := x2.as(MyEnum)
+    end Bar
+    val top = (new Bar).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|typedef enum logic [0:0] {
+         |  MyEnum_Zero = 0,
+         |  MyEnum_One = 1
+         |} t_enum_MyEnum;
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Bar_defs.svh"
+         |
+         |module Bar(
+         |  input  wire t_enum_MyEnum x,
+         |  output logic y,
+         |  output logic z,
+         |  input  wire logic x1,
+         |  input  wire logic x2,
+         |  output t_enum_MyEnum y1,
+         |  output t_enum_MyEnum y2
+         |);
+         |  `include "dfhdl_defs.svh"
+         |  assign y = ~x;
+         |  assign z = ~x;
+         |  assign y1 = t_enum_MyEnum'(x1);
+         |  assign y2 = t_enum_MyEnum'(x2);
+         |endmodule""".stripMargin
+    )
+  }
+
+  test("toggle enum printing under verilog.v2001") {
+    given options.CompilerOptions.Backend = backends.verilog.v2001
+    enum MyEnum extends Encoded.Toggle:
+      case Zero, One
+
+    class Bar extends RTDesign:
+      val x  = MyEnum  <> IN
+      val y  = Bit     <> OUT
+      val z  = Boolean <> OUT
+      val x1 = Bit     <> IN
+      val x2 = Boolean <> IN
+      val y1 = MyEnum  <> OUT
+      val y2 = MyEnum  <> OUT
+      y  := (x.toggle).bit
+      z  := (x.toggle).bool
+      y1 := x1.as(MyEnum)
+      y2 := x2.as(MyEnum)
+    end Bar
+    val top = (new Bar).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|`define MyEnum_Zero 0
+         |`define MyEnum_One 1
+         |
+         |
+         |`default_nettype none
+         |`timescale 1ns/1ps
+         |`include "Bar_defs.vh"
+         |
+         |module Bar(
+         |  input  wire  [0:0] x,
+         |  output wire y,
+         |  output wire z,
+         |  input  wire x1,
+         |  input  wire x2,
+         |  output wire [0:0] y1,
+         |  output wire [0:0] y2
+         |);
+         |  `include "dfhdl_defs.vh"
+         |  `include "Bar_defs.vh"
+         |  assign y = ~x;
+         |  assign z = ~x;
+         |  assign y1 = x1;
+         |  assign y2 = x2;
+         |endmodule""".stripMargin
+    )
+  }
 end PrintVerilogCodeSpec

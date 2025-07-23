@@ -1398,4 +1398,57 @@ class PrintVHDLCodeSpec extends StageSpec:
          |end Foo_arch;""".stripMargin
     )
   }
+
+  test("toggle enum printing") {
+    enum MyEnum extends Encoded.Toggle:
+      case Zero, One
+
+    class Bar extends RTDesign:
+      val x  = MyEnum  <> IN
+      val y  = Bit     <> OUT
+      val z  = Boolean <> OUT
+      val x1 = Bit     <> IN
+      val x2 = Boolean <> IN
+      val y1 = MyEnum  <> OUT
+      val y2 = MyEnum  <> OUT
+      y  := (x.toggle).bit
+      z  := (x.toggle).bool
+      y1 := x1.as(MyEnum)
+      y2 := x2.as(MyEnum)
+    end Bar
+    val top = (new Bar).getCompiledCodeString
+    assertNoDiff(
+      top,
+      """|type t_enum_MyEnum is (
+         |  MyEnum_Zero, MyEnum_One
+         |);
+         |
+         |library ieee;
+         |use ieee.std_logic_1164.all;
+         |use ieee.numeric_std.all;
+         |use work.dfhdl_pkg.all;
+         |use work.Bar_pkg.all;
+         |
+         |entity Bar is
+         |port (
+         |  x : in t_enum_MyEnum;
+         |  y : out std_logic;
+         |  z : out boolean;
+         |  x1 : in std_logic;
+         |  x2 : in boolean;
+         |  y1 : out t_enum_MyEnum;
+         |  y2 : out t_enum_MyEnum
+         |);
+         |end Bar;
+         |
+         |architecture Bar_arch of Bar is
+         |begin
+         |  y <= to_sl(toggle(x));
+         |  z <= to_bool(toggle(x));
+         |  y1 <= to_t_enum_MyEnum(x1);
+         |  y2 <= to_t_enum_MyEnum(x2);
+         |end Bar_arch;""".stripMargin
+    )
+  }
+
 end PrintVHDLCodeSpec
