@@ -8,8 +8,8 @@ module subWord(
 );
   `include "dfhdl_defs.vh"
   `include "CipherNoOpaques_defs.vh"
-  input  wire  [31:0] lhs;
-  output wire [31:0]  o;
+  input  wire [31:0] lhs;
+  output wire [31:0] o;
   wire [7:0] o_part_sbox_inst_lhs;
   wire [7:0] o_part_sbox_inst_o;
   wire [7:0] sbox_inst_0_lhs;

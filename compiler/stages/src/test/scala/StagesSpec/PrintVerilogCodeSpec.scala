@@ -196,7 +196,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `include "dfhdl_defs.vh"
          |  `include "IDTop_defs.vh"
          |  parameter integer width = 7;
-         |  input  wire  [width - 1:0] x;
+         |  input  wire [width - 1:0] x;
          |  output wire [width - 1:0] y;
          |  assign y = x;
          |endmodule
@@ -212,7 +212,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `include "dfhdl_defs.vh"
          |  `include "IDTop_defs.vh"
          |  parameter integer width = 16;
-         |  input  wire  [width - 1:0] x;
+         |  input  wire [width - 1:0] x;
          |  output wire [width - 1:0] y;
          |  wire [width - 1:0] id1_x;
          |  wire [width - 1:0] id1_y;
@@ -233,8 +233,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  assign id1_x = x;
          |  assign id2_x = id1_y;
          |  assign y = id2_y;
-         |endmodule
-         |""".stripMargin
+         |endmodule""".stripMargin
     )
   }
 
@@ -761,7 +760,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |);
          |  `include "dfhdl_defs.vh"
          |  `include "Foo_defs.vh"
-         |  input  wire  [15:0] x;
+         |  input  wire [15:0] x;
          |  output reg [15:0] y;
          |  always @(x)
          |  begin
@@ -824,15 +823,15 @@ class PrintVerilogCodeSpec extends StageSpec:
          |  `width_def
          |  parameter integer width5 = 8;
          |  parameter integer length5 = 10;
-         |  input  wire  [width * length - 1:0] x1;
+         |  input  wire [width * length - 1:0] x1;
          |  output wire [width * length - 1:0] y1;
-         |  input  wire  [width * (length + 1) - 1:0] x2;
+         |  input  wire [width * (length + 1) - 1:0] x2;
          |  output wire [width * (length + 1) - 1:0] y2;
-         |  input  wire  [width * 7 - 1:0] x3;
+         |  input  wire [width * 7 - 1:0] x3;
          |  output wire [width * 7 - 1:0] y3;
-         |  input  wire  [(width * 7) * length - 1:0] x4;
+         |  input  wire [(width * 7) * length - 1:0] x4;
          |  output wire [(width * 7) * length - 1:0] y4;
-         |  input  wire  [(width5 * 7) * length5 - 1:0] x5;
+         |  input  wire [(width5 * 7) * length5 - 1:0] x5;
          |  output wire [(width5 * 7) * length5 - 1:0] y5;
          |  assign y1 = x1;
          |  assign y2 = x2;
@@ -1136,7 +1135,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", param10.name(), "");
          |    $info(
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1088:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1087:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1206,7 +1205,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |    $display("These are the values: %d", param3, ", %d", param4, ", %h", param5, ", %h", param6, ", %d", param7, ", %b", param8, ", %s", param9 ? "true" : "false", ", %s", MyEnum_to_string(param10), "");
          |    $display("INFO: ", 
          |      "Debug at Foo\n",
-         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1088:9\n",
+         |      "compiler/stages/src/test/scala/StagesSpec/PrintVerilogCodeSpec.scala:1087:9\n",
          |      "param3 = %d\n", param3,
          |      "param4 = %d\n", param4,
          |      "param5 = %h\n", param5,
@@ -1387,7 +1386,7 @@ class PrintVerilogCodeSpec extends StageSpec:
          |`include "Bar_defs.vh"
          |
          |module Bar(
-         |  input  wire  [0:0] x,
+         |  input  wire [0:0] x,
          |  output wire y,
          |  output wire z,
          |  input  wire x1,

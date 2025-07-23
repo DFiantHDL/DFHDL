@@ -3,9 +3,9 @@
 `include "Cipher_defs.vh"
 
 module Cipher(
-  input  wire  [127:0] key,
-  input  wire  [127:0] data,
-  output wire [127:0]  o
+  input  wire [127:0] key,
+  input  wire [127:0] data,
+  output wire [127:0] o
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"

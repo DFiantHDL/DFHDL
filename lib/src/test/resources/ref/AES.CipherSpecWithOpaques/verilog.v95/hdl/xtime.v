@@ -8,8 +8,8 @@ module xtime(
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
-  input  wire  [7:0] lhs;
-  output reg [7:0]   o;
+  input  wire [7:0] lhs;
+  output reg [7:0]  o;
   wire [7:0] shifted;
   always @(shifted or lhs)
   begin

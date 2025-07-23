@@ -52,10 +52,11 @@ protected trait VerilogValPrinter extends AbstractValPrinter:
     def regOrWireRep = dfVal.modifier.dir match
       case Modifier.IN => ""
       case _           =>
-        if (dfVal.getConnectionTo.nonEmpty) "wire"
-        else "reg"
+        if (dfVal.getConnectionTo.nonEmpty) "wire "
+        else "reg "
     val fixedDFTypeStr =
-      if (supportLogicType) dfTypeStr else dfTypeStr.replace("logic", regOrWireRep)
+      if (supportLogicType) dfTypeStr
+      else dfTypeStr.replace("logic ", regOrWireRep).replace("logic", regOrWireRep.trim)
     val arrRange = printer.csDFVectorRanges(dfVal.dfType)
     s"$modifier${fixedDFTypeStr.emptyOr(_ + " ")}${dfVal.getName}$arrRange"
   end csDFValDclWithoutInit

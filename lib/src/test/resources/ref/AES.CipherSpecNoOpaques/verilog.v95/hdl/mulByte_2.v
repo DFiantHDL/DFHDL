@@ -9,7 +9,7 @@ module mulByte_2(
   `include "dfhdl_defs.vh"
   `include "CipherNoOpaques_defs.vh"
   parameter [7:0] lhs = 8'h01;
-  input  wire  [7:0] rhs;
-  output wire [7:0]  o;
+  input  wire [7:0] rhs;
+  output wire [7:0] o;
   assign o = 8'h00 ^ rhs;
 endmodule

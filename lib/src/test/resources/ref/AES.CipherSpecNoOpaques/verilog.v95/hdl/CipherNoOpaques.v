@@ -9,9 +9,9 @@ module CipherNoOpaques(
 );
   `include "dfhdl_defs.vh"
   `include "CipherNoOpaques_defs.vh"
-  input  wire  [127:0] key;
-  input  wire  [127:0] data;
-  output wire [127:0]  o;
+  input  wire [127:0] key;
+  input  wire [127:0] data;
+  output wire [127:0] o;
   wire [127:0] o_part_cipher_inst_data;
   wire [127:0] o_part_cipher_inst_key;
   wire [127:0] o_part_cipher_inst_o;

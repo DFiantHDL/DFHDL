@@ -5,9 +5,9 @@
 
 module LeftShift2(
   /* bits input */
-  input  wire  [7:0] iBits,
+  input  wire [7:0] iBits,
   /* bits output */
-  output wire [7:0]  oBits
+  output wire [7:0] oBits
 );
   `include "dfhdl_defs.vh"
   `include "LeftShift2_defs.vh"

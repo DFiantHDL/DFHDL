@@ -8,8 +8,8 @@ module mixColumns(
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
-  input  wire  [127:0] state;
-  output wire [127:0]  o;
+  input  wire [127:0] state;
+  output wire [127:0] o;
   wire [7:0] o_part_mulByte_0_inst_rhs;
   wire [7:0] o_part_mulByte_0_inst_o;
   wire [7:0] o_part_mulByte_1_inst_rhs;

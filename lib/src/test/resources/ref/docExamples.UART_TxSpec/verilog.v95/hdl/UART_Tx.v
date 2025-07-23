@@ -35,7 +35,7 @@ module UART_Tx(
   input  wire   clk;
   input  wire   rst;
   input  wire   data_en;
-  input  wire  [7:0] data;
+  input  wire [7:0] data;
   output reg    tx;
   output reg    tx_en;
   output reg    tx_done;

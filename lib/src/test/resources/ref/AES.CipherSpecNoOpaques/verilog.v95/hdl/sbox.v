@@ -9,8 +9,8 @@ module sbox(
   `include "dfhdl_defs.vh"
   `include "CipherNoOpaques_defs.vh"
   `sboxLookupTable_def
-  input  wire  [7:0] lhs;
-  output wire [7:0]  o;
+  input  wire [7:0] lhs;
+  output wire [7:0] o;
   reg [7:0] sboxLookupTable_rom [0:255];
   initial begin : sboxLookupTable_rom_init
     sboxLookupTable_rom[0]   = sboxLookupTable[2047:2040];

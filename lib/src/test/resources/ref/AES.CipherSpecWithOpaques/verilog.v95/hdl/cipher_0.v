@@ -9,9 +9,9 @@ module cipher_0(
 );
   `include "dfhdl_defs.vh"
   `include "Cipher_defs.vh"
-  input  wire  [127:0] data;
-  input  wire  [127:0] key;
-  output wire [127:0]  o;
+  input  wire [127:0] data;
+  input  wire [127:0] key;
+  output wire [127:0] o;
   wire [127:0] keySchedule_key;
   wire [1407:0] keySchedule_o;
   wire [127:0] state_00_state;

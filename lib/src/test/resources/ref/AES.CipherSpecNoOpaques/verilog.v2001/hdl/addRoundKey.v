@@ -3,9 +3,9 @@
 `include "CipherNoOpaques_defs.vh"
 
 module addRoundKey(
-  input  wire  [127:0] state,
-  input  wire  [127:0] key,
-  output wire [127:0]  o
+  input  wire [127:0] state,
+  input  wire [127:0] key,
+  output wire [127:0] o
 );
   `include "dfhdl_defs.vh"
   `include "CipherNoOpaques_defs.vh"
