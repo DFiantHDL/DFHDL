@@ -2,18 +2,18 @@
   */
 package dfhdl.hw
 
-import dfhdl.compiler.printing.Printer
+import dfhdl.compiler.printing.{Printer, HasCodeString}
 import scala.annotation.StaticAnnotation
 import dfhdl.internals.HasTypeName
 import scala.annotation.Annotation
 import upickle.default.*
 import dfhdl.internals.StableEnum
+import dfhdl.compiler.ir.ConfigN
 
 object annotation:
-  sealed abstract class HWAnnotation extends StaticAnnotation, Product, Serializable
+  sealed abstract class HWAnnotation extends StaticAnnotation, Product, Serializable, HasCodeString
       derives CanEqual:
     val isActive: Boolean
-    def codeString(using Printer): String
 
   extension (annotList: List[Annotation])
     def getActiveHWAnnotations: List[HWAnnotation] = annotList.collect {
@@ -23,7 +23,8 @@ object annotation:
     given ReadWriter[HWAnnotation] = ReadWriter.merge(
       summon[ReadWriter[unused]],
       summon[ReadWriter[pure]],
-      summon[ReadWriter[flattenMode]]
+      summon[ReadWriter[flattenMode]],
+      summon[ReadWriter[constraints.Constraint]]
     )
 
   sealed trait unused extends HWAnnotation derives ReadWriter
@@ -32,24 +33,24 @@ object annotation:
       */
     final case class quiet(isActive: Boolean) extends unused:
       def this() = this(true)
-      def codeString(using Printer): String = "unused.quiet"
+      def codeString(using Printer): String = "@hw.annotation.unused.quiet"
 
     /** `keep` suppresses the unused warning, and also attempts to keep the tagged value.
       */
     final case class keep(isActive: Boolean) extends unused:
       def this() = this(true)
-      def codeString(using Printer): String = "unused.keep"
+      def codeString(using Printer): String = "@hw.annotation.unused.keep"
 
     /** `prune` removes all the redundant paths until and including the tagged value.
       */
     final case class prune(isActive: Boolean) extends unused:
       def this() = this(true)
-      def codeString(using Printer): String = "unused.prune"
+      def codeString(using Printer): String = "@hw.annotation.unused.prune"
   end unused
 
   final case class pure(isActive: Boolean) extends HWAnnotation derives ReadWriter:
     def this() = this(true)
-    def codeString(using Printer): String = "pure"
+    def codeString(using Printer): String = "@hw.annotation.pure"
 
   /** Flattening Mode:
     *   - transparent: $memberName
@@ -62,10 +63,61 @@ object annotation:
     case suffix(sep: String)
     val isActive: Boolean = true
     def codeString(using Printer): String =
-      this match
-        case transparent() => "flattenMode.transparent()"
-        case prefix(sep)   => s"""flattenMode.prefix("$sep")"""
-        case suffix(sep)   => s"""flattenMode.suffix("$sep")"""
+      "@hw.annotation.flattenMode." + (
+        this match
+          case transparent() => "transparent()"
+          case prefix(sep)   => s"""prefix("$sep")"""
+          case suffix(sep)   => s"""suffix("$sep")"""
+      )
   object flattenMode:
     val defaultPrefixUnderscore = flattenMode.prefix("_")
 end annotation
+
+object constraints:
+  sealed abstract class Constraint extends annotation.HWAnnotation:
+    val isActive: Boolean = true
+  object Constraint:
+    given ReadWriter[Constraint] = ReadWriter.merge(
+      summon[ReadWriter[io.IOConstraints]]
+    )
+
+  object io:
+    enum IOStandard extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+      case LVCMOS33, LVCMOS25, LVCMOS18
+      def codeString(using Printer): String = "IOStandard." + this.toString
+    enum SlewRate extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+      case SLOW, FAST
+      def codeString(using Printer): String = "SlewRate." + this.toString
+    enum PullMode extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+      case UP, DOWN
+      def codeString(using Printer): String = "PullMode." + this.toString
+
+    final case class IOConstraints(
+        bitIdx: ConfigN[Int] = None,
+        loc: ConfigN[String] = None,
+        standard: ConfigN[IOStandard] = None,
+        slewRate: ConfigN[SlewRate] = None,
+        driveStrength: ConfigN[Int] = None,
+        pullMode: ConfigN[PullMode] = None
+    ) extends Constraint derives ReadWriter:
+      def codeString(using Printer): String =
+        def byName[T](name: String, value: ConfigN[T]): String =
+          value match
+            case None              => ""
+            case cs: HasCodeString => s"$name = ${cs.codeString}"
+            case str: String       => s"$name = \"$str\""
+            case _                 => s"$name = ${value}"
+        val params = List(
+          byName("bitIdx", bitIdx),
+          byName("loc", loc),
+          byName("standard", standard),
+          byName("slewRate", slewRate),
+          byName("driveStrength", driveStrength),
+          byName("pullMode", pullMode)
+        ).filter(_.nonEmpty).mkString(", ")
+        s"""@IOConstraints($params)"""
+      end codeString
+    end IOConstraints
+  end io
+
+end constraints

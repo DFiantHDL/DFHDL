@@ -359,7 +359,7 @@ class DFPrinter(using val getSet: MemberGetSet, val printerOptions: PrinterOptio
   def csDocString(doc: String): String = doc.betterLinesIterator.mkString("/**", "\n  *", "*/")
   def csAnnotations(meta: Meta): String =
     if (meta.annotations.isEmpty) ""
-    else meta.annotations.view.map(x => s"@hw.annotation.${x.codeString}").mkString("", "\n", "\n")
+    else meta.annotations.view.map(_.codeString).mkString("", "\n", "\n")
   // def csTimer(timer: Timer): String =
   //   val timerBody = timer match
   //     case p: Timer.Periodic =>
