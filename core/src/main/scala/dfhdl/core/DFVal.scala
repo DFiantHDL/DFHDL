@@ -291,6 +291,10 @@ sealed protected trait DFValLP:
   ): Conversion[R, DFValOf[DFUnit]] = from => DFUnitVal().asInstanceOf[DFValOf[DFUnit]]
   given ConstToNonConstAccept[T <: DFTypeAny, P]: Conversion[DFValTP[T, P], DFValTP[T, NOTCONST]] =
     from => from.asValTP[T, NOTCONST]
+  given DFRateToRateNumber(using dfc: DFC): Conversion[DFConstOf[DFTime | DFFreq], ir.RateNumber] =
+    x =>
+      import dfc.getSet
+      x.asIR.getConstData.get.asInstanceOf[ir.RateNumber]
 end DFValLP
 object DFVal extends DFValLP:
   protected type FieldWithModifier[V, M <: ModifierAny] = V match

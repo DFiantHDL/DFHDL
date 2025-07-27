@@ -13,38 +13,38 @@ extension (bd: BigDecimal.type)
     case l: Long   => BigDecimal(l)
     case d: Double => BigDecimal(d)
 
-type DFPhysical[U <: ir.DFPhysical.Unit] = DFType[ir.DFPhysical[U], NoArgs]
+type DFPhysical[U <: ir.PhysicalNumber] = DFType[ir.DFPhysical[U], NoArgs]
 object DFPhysical:
   given DFTime = DFTime
   given DFFreq = DFFreq
   given DFNumber = DFNumber
   object Val:
     object Ops:
-      extension (lhs: Int | Double)
+      extension (lhs: Int | Long | Double)
         def fs(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.fs), named = true)
+          DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.fs), named = true)
         def ps(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.ps), named = true)
+          DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.ps), named = true)
         def ns(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.ns), named = true)
+          DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.ns), named = true)
         def us(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.us), named = true)
+          DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.us), named = true)
         def ms(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.ms), named = true)
+          DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.ms), named = true)
         def sec(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.sec), named = true)
+          DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.sec), named = true)
         def min(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.min), named = true)
+          DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.min), named = true)
         def hr(using DFC): DFConstOf[DFTime] =
-          DFVal.Const(DFTime, (BigDecimal(lhs), ir.DFTime.Unit.hr), named = true)
+          DFVal.Const(DFTime, ir.TimeNumber(BigDecimal(lhs), ir.TimeNumber.Unit.hr), named = true)
         def Hz(using DFC): DFConstOf[DFFreq] =
-          DFVal.Const(DFFreq, (BigDecimal(lhs), ir.DFFreq.Unit.Hz), named = true)
+          DFVal.Const(DFFreq, ir.FreqNumber(BigDecimal(lhs), ir.FreqNumber.Unit.Hz), named = true)
         def KHz(using DFC): DFConstOf[DFFreq] =
-          DFVal.Const(DFFreq, (BigDecimal(lhs), ir.DFFreq.Unit.KHz), named = true)
+          DFVal.Const(DFFreq, ir.FreqNumber(BigDecimal(lhs), ir.FreqNumber.Unit.KHz), named = true)
         def MHz(using DFC): DFConstOf[DFFreq] =
-          DFVal.Const(DFFreq, (BigDecimal(lhs), ir.DFFreq.Unit.MHz), named = true)
+          DFVal.Const(DFFreq, ir.FreqNumber(BigDecimal(lhs), ir.FreqNumber.Unit.MHz), named = true)
         def GHz(using DFC): DFConstOf[DFFreq] =
-          DFVal.Const(DFFreq, (BigDecimal(lhs), ir.DFFreq.Unit.GHz), named = true)
+          DFVal.Const(DFFreq, ir.FreqNumber(BigDecimal(lhs), ir.FreqNumber.Unit.GHz), named = true)
       end extension
       // extension [U <: PhysicalUnit, LP](lhs: DFValTP[DFPhysical[U], LP])
       //   def +[RP](rhs: DFValTP[DFPhysical[U], RP])(using DFC): DFValTP[DFPhysical[U], LP | RP] =
@@ -83,9 +83,9 @@ object DFPhysical:
   end Val
 end DFPhysical
 
-type DFTime = DFPhysical[ir.DFTime.Unit]
+type DFTime = DFPhysical[ir.TimeNumber]
 val DFTime = ir.DFTime.asFE[DFTime]
-type DFFreq = DFPhysical[ir.DFFreq.Unit]
+type DFFreq = DFPhysical[ir.FreqNumber]
 val DFFreq = ir.DFFreq.asFE[DFFreq]
-type DFNumber = DFPhysical[ir.DFNumber.Unit]
+type DFNumber = DFPhysical[ir.LiteralNumber]
 val DFNumber = ir.DFNumber.asFE[DFNumber]

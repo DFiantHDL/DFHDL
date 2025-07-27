@@ -834,25 +834,24 @@ final case class DB(
                       |Message:   $msg""".stripMargin
       val ownerDomain = wait.getOwnerDomain
       trigger.getConstData match
-        case Some((waitValue: BigDecimal, waitUnit: DFTime.Unit)) =>
+        case Some(waitTime: TimeNumber) =>
           // Check if the wait statement is in a domain with a clock rate configuration
           explicitRTDomainCfgMap.get(ownerDomain) match
             case Some(RTDomainCfg.Explicit(_, clkCfg: ClkCfg.Explicit, _)) =>
+
               // Get the clock period in picoseconds
-              val (clockPeriodPs: BigDecimal, desc: String) = clkCfg.rate match
-                case (value: BigDecimal, unit: DFTime.Unit) =>
-                  // Direct period specification
-                  (unit.to_ps(value), s"period ${value}.${unit}")
-                case (value: BigDecimal, unit: DFFreq.Unit) =>
-                  // Frequency specification - convert to period
-                  (unit.to_ps(value), s"frequency ${value}.${unit}")
+              val clockPeriodPs = clkCfg.rate.to_ps.value
+              val desc = clkCfg.rate match
+                case time: TimeNumber => s"period ${time}"
+                case freq: FreqNumber => s"frequency ${freq}"
+
               // Get wait duration in picoseconds
-              val waitDurationPs = waitUnit.to_ps(waitValue)
+              val waitDurationPs = waitTime.to_ps.value
 
               // Check if wait duration is exactly divisible by clock period
               if (waitDurationPs % clockPeriodPs != 0)
                 waitError(
-                  s"Wait duration ${waitValue}.${waitUnit} is not exactly divisible by the clock $desc."
+                  s"Wait duration ${waitTime} is not exactly divisible by the clock $desc."
                 )
             case _ =>
               waitError(

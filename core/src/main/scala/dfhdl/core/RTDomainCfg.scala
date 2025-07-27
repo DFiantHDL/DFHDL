@@ -21,7 +21,7 @@ object ClkCfg:
   ): ClkCfg = ir.ClkCfg.Explicit(
     edge,
     // making sure not to drag the global context into the ClkCfg
-    rate.asIR.asInstanceOf[ir.DFVal.Const].data.asInstanceOf[ir.ClkCfg.RateData],
+    rate,
     portName,
     inclusionPolicy
   )

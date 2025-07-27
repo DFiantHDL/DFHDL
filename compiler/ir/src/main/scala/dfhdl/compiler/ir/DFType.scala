@@ -570,69 +570,25 @@ case object DFNothing extends DFType.Companion[DFNothing, Nothing] with DFNothin
 /////////////////////////////////////////////////////////////////////////////
 // DFPhysical - DFTime, DFFreq, DFNumber
 /////////////////////////////////////////////////////////////////////////////
-sealed trait DFPhysical[U <: DFPhysical.Unit] extends DFUnbounded:
+sealed trait DFPhysical[U <: PhysicalNumber] extends DFUnbounded:
   //             value   unit
-  type Data = (BigDecimal, U)
+  type Data = U
   def isDataBubble(data: Data): Boolean = false
   def createBubbleData(using MemberGetSet): Data = noTypeErr
 
-object DFPhysical:
-  sealed trait Unit extends Product, Serializable derives CanEqual
+object DFPhysical
 
-sealed trait DFTime extends DFPhysical[DFTime.Unit]
-case object DFTime extends DFType.Companion[DFTime, (BigDecimal, DFTime.Unit)] with DFTime:
+sealed trait DFTime extends DFPhysical[TimeNumber]
+case object DFTime extends DFType.Companion[DFTime, TimeNumber] with DFTime:
   given ReadWriter[DFTime.type] = macroRW
-  enum Unit extends DFPhysical.Unit, StableEnum derives ReadWriter:
-    case hr, min, sec, ms, us, ns, ps, fs
-    def to_ps(value: BigDecimal): BigDecimal =
-      this match
-        case `fs`  => value / BigDecimal(1000)
-        case `ps`  => value
-        case `ns`  => value * BigDecimal(1000)
-        case `us`  => value * BigDecimal(1000000)
-        case `ms`  => value * BigDecimal(1000000000)
-        case `sec` => value * BigDecimal(1000000000000L)
-        case `min` => value * BigDecimal(60000000000000L)
-        case `hr`  => value * BigDecimal(3600000000000000L)
-    def to_basic_unit(value: BigDecimal): (BigDecimal, Unit) =
-      val psVal = to_ps(value)
-      if psVal < 1000 then (psVal, DFTime.Unit.ps)
-      else if psVal < 1000000 then (psVal / 1000, DFTime.Unit.ns)
-      else if psVal < 1000000000 then (psVal / 1000, DFTime.Unit.us)
-      else if psVal < 1000000000000L then (psVal / 1000000000L, DFTime.Unit.ms)
-      else (psVal / 1000000000000L, DFTime.Unit.sec)
-  end Unit
-end DFTime
 
-sealed trait DFFreq extends DFPhysical[DFFreq.Unit]
-case object DFFreq extends DFType.Companion[DFFreq, (BigDecimal, DFFreq.Unit)] with DFFreq:
+sealed trait DFFreq extends DFPhysical[FreqNumber]
+case object DFFreq extends DFType.Companion[DFFreq, FreqNumber] with DFFreq:
   given ReadWriter[DFFreq.type] = macroRW
-  enum Unit extends DFPhysical.Unit, StableEnum derives ReadWriter:
-    case Hz, KHz, MHz, GHz
-    def to_hz(value: BigDecimal): BigDecimal =
-      this match
-        case Hz  => value
-        case KHz => value * BigDecimal(1000)
-        case MHz => value * BigDecimal(1000000)
-        case GHz => value * BigDecimal(1000000000)
-    def to_ps(value: BigDecimal): BigDecimal =
-      BigDecimal(1e12) / to_hz(value)
-    def to_period(value: BigDecimal): (BigDecimal, DFTime.Unit) =
-      val psVal = to_ps(value)
-      if psVal < 1000 then (psVal, DFTime.Unit.ps)
-      else if psVal < 1000000 then (psVal / 1000, DFTime.Unit.ns)
-      else if psVal < 1000000000 then (psVal / 1000, DFTime.Unit.us)
-      else if psVal < 1000000000000L then (psVal / 1000000000L, DFTime.Unit.ms)
-      else if psVal < 1000000000000000L then (psVal / 1000000000000L, DFTime.Unit.sec)
-      else (psVal / 60000000000000L, DFTime.Unit.min)
-  end Unit
-end DFFreq
 
-sealed trait DFNumber extends DFPhysical[DFNumber.Unit]
-case object DFNumber extends DFType.Companion[DFNumber, (BigDecimal, DFNumber.Unit)] with DFNumber:
+sealed trait DFNumber extends DFPhysical[LiteralNumber]
+case object DFNumber extends DFType.Companion[DFNumber, LiteralNumber] with DFNumber:
   given ReadWriter[DFNumber.type] = macroRW
-  sealed trait Unit extends DFPhysical.Unit
-  case object Unit extends Unit
 
 /////////////////////////////////////////////////////////////////////////////
 

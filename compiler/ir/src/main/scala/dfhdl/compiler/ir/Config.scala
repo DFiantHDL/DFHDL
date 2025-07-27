@@ -53,13 +53,9 @@ object ClkCfg:
   enum Edge extends StableEnum derives CanEqual, ReadWriter:
     case Rising, Falling
 
-  type RateData = (BigDecimal, DFFreq.Unit | DFTime.Unit)
-  given ReadWriter[DFFreq.Unit | DFTime.Unit] =
-    ReadWriter.merge(summon[ReadWriter[DFTime.Unit]], summon[ReadWriter[DFFreq.Unit]])
-
   final case class Explicit(
       edge: Edge,
-      rate: RateData,
+      rate: RateNumber,
       portName: String,
       inclusionPolicy: ClkRstInclusionPolicy
   ) derives CanEqual,
