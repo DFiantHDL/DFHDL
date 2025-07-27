@@ -22,6 +22,19 @@ object ConfigN:
         case ujson.Null => None
         case value      => read[T](value)
   )
+  extension [T](x: ConfigN[T])
+    def getOrElse(default: => T): T = x match
+      case None                => default
+      case value: T @unchecked => value
+    def foreach(f: T => Unit): Unit = x match
+      case None                => ()
+      case value: T @unchecked => f(value)
+    def map[R](f: T => R): ConfigN[R] = x match
+      case None                => None
+      case value: T @unchecked => f(value)
+    def flatMap[R](f: T => ConfigN[R]): ConfigN[R] = x match
+      case None                => None
+      case value: T @unchecked => f(value)
 end ConfigN
 
 /** Sets the policy for inclusing the clock or reset signals when they are not needed

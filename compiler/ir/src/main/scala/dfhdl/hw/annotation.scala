@@ -4,7 +4,7 @@ package dfhdl.hw
 
 import dfhdl.compiler.printing.{Printer, HasCodeString}
 import scala.annotation.StaticAnnotation
-import dfhdl.internals.HasTypeName
+import dfhdl.internals.*
 import scala.annotation.Annotation
 import upickle.default.*
 import dfhdl.internals.StableEnum
@@ -76,48 +76,65 @@ end annotation
 object constraints:
   sealed abstract class Constraint extends annotation.HWAnnotation:
     val isActive: Boolean = true
+  sealed abstract class SigConstraint extends Constraint:
+    val bitIdx: ConfigN[Int]
   object Constraint:
     given ReadWriter[Constraint] = ReadWriter.merge(
-      summon[ReadWriter[io.IOConstraints]]
+      summon[ReadWriter[io]],
+      summon[ReadWriter[device]]
     )
 
+  final case class device(name: String, properties: (String, String)*)
+      extends Constraint
+      derives CanEqual, ReadWriter:
+    def codeString(using Printer): String =
+      val props = properties.map { case (k, v) => s""""$k" -> "$v"""" }.mkString(", ")
+      s"""@device("$name"${props.emptyOr(", " + _)})"""
+
+  final case class io(
+      bitIdx: ConfigN[Int] = None,
+      loc: ConfigN[String] = None,
+      standard: ConfigN[io.Standard] = None,
+      slewRate: ConfigN[io.SlewRate] = None,
+      driveStrength: ConfigN[Int] = None,
+      pullMode: ConfigN[io.PullMode] = None
+  ) extends SigConstraint derives CanEqual, ReadWriter:
+    def codeString(using Printer): String =
+      def byName[T](name: String, value: ConfigN[T]): String =
+        value match
+          case None              => ""
+          case cs: HasCodeString => s"$name = ${cs.codeString}"
+          case str: String       => s"$name = \"$str\""
+          case _                 => s"$name = ${value}"
+      val params = List(
+        byName("bitIdx", bitIdx),
+        byName("loc", loc),
+        byName("standard", standard),
+        byName("slewRate", slewRate),
+        byName("driveStrength", driveStrength),
+        byName("pullMode", pullMode)
+      ).filter(_.nonEmpty).mkString(", ")
+      s"""@io($params)"""
+    end codeString
+  end io
   object io:
-    enum IOStandard extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
+    enum Standard extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case LVCMOS33, LVCMOS25, LVCMOS18
-      def codeString(using Printer): String = "IOStandard." + this.toString
+      def codeString(using Printer): String = "io.Standard." + this.toString
     enum SlewRate extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case SLOW, FAST
-      def codeString(using Printer): String = "SlewRate." + this.toString
+      def codeString(using Printer): String = "io.SlewRate." + this.toString
     enum PullMode extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case UP, DOWN
-      def codeString(using Printer): String = "PullMode." + this.toString
+      def codeString(using Printer): String = "io.PullMode." + this.toString
 
-    final case class IOConstraints(
-        bitIdx: ConfigN[Int] = None,
-        loc: ConfigN[String] = None,
-        standard: ConfigN[IOStandard] = None,
-        slewRate: ConfigN[SlewRate] = None,
-        driveStrength: ConfigN[Int] = None,
-        pullMode: ConfigN[PullMode] = None
-    ) extends Constraint derives ReadWriter:
+  object timing:
+    final case class ignore(bitIdx: ConfigN[Int] = None)
+        extends SigConstraint
+        derives CanEqual, ReadWriter:
       def codeString(using Printer): String =
-        def byName[T](name: String, value: ConfigN[T]): String =
-          value match
-            case None              => ""
-            case cs: HasCodeString => s"$name = ${cs.codeString}"
-            case str: String       => s"$name = \"$str\""
-            case _                 => s"$name = ${value}"
-        val params = List(
-          byName("bitIdx", bitIdx),
-          byName("loc", loc),
-          byName("standard", standard),
-          byName("slewRate", slewRate),
-          byName("driveStrength", driveStrength),
-          byName("pullMode", pullMode)
-        ).filter(_.nonEmpty).mkString(", ")
-        s"""@IOConstraints($params)"""
-      end codeString
-    end IOConstraints
-  end io
-
+        val params = bitIdx match
+          case None   => ""
+          case bitIdx => s"bitIdx = $bitIdx"
+        s"""@timing.ignore($params)"""
 end constraints
