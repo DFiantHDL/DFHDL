@@ -295,6 +295,12 @@ sealed protected trait DFValLP:
     x =>
       import dfc.getSet
       x.asIR.getConstData.get.asInstanceOf[ir.RateNumber]
+  given DFRateToRateNumberConfigN(using
+      dfc: DFC
+  ): Conversion[DFConstOf[DFTime | DFFreq], ir.ConfigN[ir.RateNumber]] =
+    x =>
+      import dfc.getSet
+      x.asIR.getConstData.get.asInstanceOf[ir.ConfigN[ir.RateNumber]]
 end DFValLP
 object DFVal extends DFValLP:
   protected type FieldWithModifier[V, M <: ModifierAny] = V match

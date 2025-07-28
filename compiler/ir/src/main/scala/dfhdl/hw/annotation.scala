@@ -9,6 +9,7 @@ import scala.annotation.Annotation
 import upickle.default.*
 import dfhdl.internals.StableEnum
 import dfhdl.compiler.ir.ConfigN
+import dfhdl.compiler.ir.{RateNumber, FreqNumber, TimeNumber}
 
 object annotation:
   sealed abstract class HWAnnotation extends StaticAnnotation, Product, Serializable, HasCodeString
@@ -74,22 +75,27 @@ object annotation:
 end annotation
 
 object constraints:
-  sealed abstract class Constraint extends annotation.HWAnnotation:
+  sealed abstract class Constraint extends annotation.HWAnnotation derives ReadWriter:
     val isActive: Boolean = true
-  sealed abstract class SigConstraint extends Constraint:
+  sealed abstract class SigConstraint extends Constraint derives ReadWriter:
     val bitIdx: ConfigN[Int]
-  object Constraint:
-    given ReadWriter[Constraint] = ReadWriter.merge(
-      summon[ReadWriter[io]],
-      summon[ReadWriter[device]]
-    )
-
-  final case class device(name: String, properties: (String, String)*)
+  final case class device(name: String, properties: Map[String, String])
       extends Constraint
       derives CanEqual, ReadWriter:
+    def this(name: String, properties: (String, String)*) =
+      this(name, properties.toMap)
     def codeString(using Printer): String =
       val props = properties.map { case (k, v) => s""""$k" -> "$v"""" }.mkString(", ")
       s"""@device("$name"${props.emptyOr(", " + _)})"""
+
+  private def csParam[T](name: String, value: ConfigN[T])(using printer: Printer): String =
+    value match
+      case None              => ""
+      case cs: HasCodeString => s"$name = ${cs.codeString}"
+      case str: String       => s"$name = \"$str\""
+      case num: FreqNumber   => s"$name = ${printer.csDFFreqData(num)}"
+      case num: TimeNumber   => s"$name = ${printer.csDFTimeData(num)}"
+      case _                 => s"$name = ${value}"
 
   final case class io(
       bitIdx: ConfigN[Int] = None,
@@ -100,19 +106,13 @@ object constraints:
       pullMode: ConfigN[io.PullMode] = None
   ) extends SigConstraint derives CanEqual, ReadWriter:
     def codeString(using Printer): String =
-      def byName[T](name: String, value: ConfigN[T]): String =
-        value match
-          case None              => ""
-          case cs: HasCodeString => s"$name = ${cs.codeString}"
-          case str: String       => s"$name = \"$str\""
-          case _                 => s"$name = ${value}"
       val params = List(
-        byName("bitIdx", bitIdx),
-        byName("loc", loc),
-        byName("standard", standard),
-        byName("slewRate", slewRate),
-        byName("driveStrength", driveStrength),
-        byName("pullMode", pullMode)
+        csParam("bitIdx", bitIdx),
+        csParam("loc", loc),
+        csParam("standard", standard),
+        csParam("slewRate", slewRate),
+        csParam("driveStrength", driveStrength),
+        csParam("pullMode", pullMode)
       ).filter(_.nonEmpty).mkString(", ")
       s"""@io($params)"""
     end codeString
@@ -129,12 +129,22 @@ object constraints:
       def codeString(using Printer): String = "io.PullMode." + this.toString
 
   object timing:
-    final case class ignore(bitIdx: ConfigN[Int] = None)
-        extends SigConstraint
+    final case class ignore(
+        bitIdx: ConfigN[Int] = None,
+        maxFreqMinPeriod: ConfigN[RateNumber] = None
+    ) extends SigConstraint
         derives CanEqual, ReadWriter:
       def codeString(using Printer): String =
-        val params = bitIdx match
-          case None   => ""
-          case bitIdx => s"bitIdx = $bitIdx"
+        val params = List(
+          csParam("bitIdx", bitIdx),
+          csParam("maxFreqMinPeriod", maxFreqMinPeriod)
+        ).filter(_.nonEmpty).mkString(", ")
         s"""@timing.ignore($params)"""
+
+    final case class clock(
+        rate: RateNumber
+    ) extends Constraint derives CanEqual, ReadWriter:
+      def codeString(using Printer): String =
+        s"""@timing.clock(${csParam("rate", rate)})"""
+  end timing
 end constraints

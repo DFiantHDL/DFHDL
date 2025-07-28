@@ -46,6 +46,7 @@ object PhysicalNumber:
         case time: TimeNumber => TimeNumber.to_ps(time)
         case freq: FreqNumber => FreqNumber.to_ps(freq)
     end to_ps
+    def to_ns: TimeNumber = TimeNumber(lhs.to_ps.value / BigDecimal(1000), TimeNumber.Unit.ns)
     def to_period: TimeNumber =
       lhs match
         case time: TimeNumber => time

@@ -12,6 +12,7 @@ import dfhdl.backends
 import dfhdl.compiler.stages.verilog.VerilogDialect
 import dfhdl.compiler.stages.vhdl.VHDLDialect
 import dfhdl.hw.constraints
+import dfhdl.compiler.ir.RateNumber
 
 object Vivado extends Builder:
   val toolName: String = "Vivado"
@@ -38,7 +39,7 @@ object Vivado extends Builder:
   )(using CompilerOptions, BuilderOptions): CompiledDesign =
     given MemberGetSet = cd.stagedDB.getSet
     exec(
-      s"-mode batch -source ${topName}.tcl"
+      s"-mode batch -script ${topName}.tcl"
     )
     cd
 end Vivado
@@ -118,12 +119,15 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
       case _ => Nil
     }.toList
 
-  def portPattern(port: DFVal.Dcl, constraint: constraints.SigConstraint): String =
+  def xdc_get_ports(port: DFVal.Dcl, constraint: constraints.SigConstraint): String =
     val portName = port.getName
-    constraint.bitIdx match
-      case None   => s"$portName[*]"
-      case bitIdx => s"$portName[$bitIdx]"
-  end portPattern
+    val portPattern =
+      port.dfType match
+        case DFBit | DFBool => portName
+        case _              => constraint.bitIdx match
+            case None   => s"$portName[*]"
+            case bitIdx => s"$portName[$bitIdx]"
+    s"[get_ports {$portPattern}]"
 
   def xdcIOConstraint(
       port: DFVal.Dcl,
@@ -170,21 +174,46 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
       addToDict("PULLMODE", pullModeStr)
     }
 
-    s"set_property -dict {$dict} [get_ports {${portPattern(port, portConstraint)}}]"
+    s"set_property -dict {$dict} ${xdc_get_ports(port, portConstraint)}"
   end xdcIOConstraint
+
+  // Vivado has a hard limit of ~200us for the clock period, even for virtual clocks
+  val VivadoMaxClockPeriodNS = BigDecimal(200000)
 
   def xdcTimingIgnoreConstraint(
       port: DFVal.Dcl,
       constraint: constraints.timing.ignore
   ): String =
-    def helper(dir: String): String =
-      s"set_false_path $dir [get_ports {${portPattern(port, constraint)}}]"
+    def set_false_path(dir: String): String =
+      s"set_false_path $dir ${xdc_get_ports(port, constraint)}"
+    def set_io_delay(dir: String): String =
+      constraint.maxFreqMinPeriod match
+        case None                         => ""
+        case maxFreqMinPeriod: RateNumber =>
+          val maxFreqMinPeriodNS = maxFreqMinPeriod.to_ns.value.min(VivadoMaxClockPeriodNS)
+          val virtualClockName = s"virtual_clock_${port.getName}"
+          //format: off
+          s"""|
+              |create_clock -period $maxFreqMinPeriodNS -name $virtualClockName
+              |set_${dir}_delay -clock [get_clocks $virtualClockName] -min 0.0 ${xdc_get_ports(port,constraint)}
+              |set_${dir}_delay -clock [get_clocks $virtualClockName] -max 0.0 ${xdc_get_ports(port,constraint)}""".stripMargin
+          //format: on
+        case _ => ""
     (port.modifier.dir: @unchecked) match
-      case DFVal.Modifier.IN  => helper("-from")
-      case DFVal.Modifier.OUT => helper("-to")
+      case DFVal.Modifier.IN =>
+        set_false_path("-from") + set_io_delay("input")
+      case DFVal.Modifier.OUT =>
+        set_false_path("-to") + set_io_delay("output")
       // TODO: for INOUT, also check that its actually used in both directions by the design
-      case DFVal.Modifier.INOUT => helper("-from") + "\n" + helper("-to")
+      case DFVal.Modifier.INOUT => set_false_path("-from") + set_false_path("-to")
   end xdcTimingIgnoreConstraint
+
+  def xdcTimingClockConstraint(
+      port: DFVal.Dcl,
+      constraint: constraints.timing.clock
+  ): String =
+    s"create_clock -add -name ${port.getName} -period ${constraint.rate.to_ns.value.bigDecimal.toPlainString} [get_ports {${port.getName}}]"
+  end xdcTimingClockConstraint
 
   def xdcPortConstraints(
       port: DFVal.Dcl
@@ -192,6 +221,7 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
     port.meta.annotations.collect {
       case constraint: constraints.io            => xdcIOConstraint(port, constraint)
       case constraint: constraints.timing.ignore => xdcTimingIgnoreConstraint(port, constraint)
+      case constraint: constraints.timing.clock  => xdcTimingClockConstraint(port, constraint)
     }
   end xdcPortConstraints
 
