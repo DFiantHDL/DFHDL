@@ -8,7 +8,7 @@ final case class Meta(
     position: Position,
     docOpt: Option[String],
     annotations: List[HWAnnotation]
-) derives CanEqual, ReadWriter:
+) extends HasRefCompare[Meta] derives CanEqual, ReadWriter:
   val isAnonymous: Boolean = nameOpt.isEmpty
   val name: String =
     nameOpt.getOrElse(s"anon${this.hashString}")
@@ -21,8 +21,14 @@ final case class Meta(
   def removeAnnotation(annotation: HWAnnotation) = setAnnotations(
     annotations.filterNot(_ == annotation)
   )
-  def =~(that: Meta): Boolean =
-    this.nameOpt == that.nameOpt && this.docOpt == that.docOpt && this.annotations == that.annotations
+  protected def `prot_=~`(that: Meta)(using MemberGetSet): Boolean =
+    this.nameOpt == that.nameOpt && this.docOpt == that.docOpt &&
+      this.annotations.lazyZip(that.annotations).forall(_ =~ _)
+  lazy val getRefs: List[DFRef.TwoWayAny] =
+    annotations.flatMap(_.getRefs)
+  def copyWithNewRefs(using RefGen): this.type = copy(
+    annotations = annotations.map(_.copyWithNewRefs)
+  ).asInstanceOf[this.type]
 end Meta
 
 object Meta:

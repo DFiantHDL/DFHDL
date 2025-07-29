@@ -5,7 +5,8 @@ import upickle.default.*
 import dfhdl.internals.StableEnum
 
 object annotation:
-  sealed abstract class HWAnnotation extends Product, Serializable, HasCodeString derives CanEqual
+  sealed abstract class HWAnnotation extends HasRefCompare[HWAnnotation], Product, Serializable,
+        HasCodeString derives CanEqual
 
   object HWAnnotation:
     given ReadWriter[HWAnnotation] = ReadWriter.merge(
@@ -17,6 +18,9 @@ object annotation:
 
   enum Unused extends HWAnnotation derives ReadWriter:
     case Quiet, Keep, Prune
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
     def codeString(using Printer): String =
       this match
         case Quiet => "@hw.annotation.unused.quiet"
@@ -25,6 +29,9 @@ object annotation:
 
   case object Pure extends HWAnnotation:
     given ReadWriter[Pure.type] = macroRW
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
     def codeString(using Printer): String = "@hw.annotation.pure"
 
   /** Flattening Mode:
@@ -36,6 +43,9 @@ object annotation:
     case Transparent
     case Prefix(sep: String)
     case Suffix(sep: String)
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
     def codeString(using Printer): String =
       "@hw.annotation.flattenMode." + (
         this match
@@ -48,13 +58,15 @@ object annotation:
 end annotation
 
 object constraints:
-  sealed abstract class Constraint extends annotation.HWAnnotation derives ReadWriter
+  import annotation.HWAnnotation
+  sealed abstract class Constraint extends HWAnnotation derives ReadWriter
   sealed abstract class SigConstraint extends Constraint derives ReadWriter:
     val bitIdx: ConfigN[Int]
   final case class Device(name: String, properties: Map[String, String]) extends Constraint
       derives CanEqual, ReadWriter:
-    def this(name: String, properties: (String, String)*) =
-      this(name, properties.toMap)
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
     def codeString(using Printer): String =
       val props = properties.map { case (k, v) => s""""$k" -> "$v"""" }.mkString(", ")
       s"""@device("$name"${props.emptyOr(", " + _)})"""
@@ -76,6 +88,9 @@ object constraints:
       driveStrength: ConfigN[Int] = None,
       pullMode: ConfigN[IO.PullMode] = None
   ) extends SigConstraint derives CanEqual, ReadWriter:
+    protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+    lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+    def copyWithNewRefs(using RefGen): this.type = this
     def codeString(using Printer): String =
       val params = List(
         csParam("bitIdx", bitIdx),
@@ -105,6 +120,9 @@ object constraints:
         maxFreqMinPeriod: ConfigN[RateNumber] = None
     ) extends SigConstraint
         derives CanEqual, ReadWriter:
+      protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+      lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+      def copyWithNewRefs(using RefGen): this.type = this
       def codeString(using Printer): String =
         val params = List(
           csParam("bitIdx", bitIdx),
@@ -115,6 +133,9 @@ object constraints:
     final case class Clock(
         rate: RateNumber
     ) extends Constraint derives CanEqual, ReadWriter:
+      protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
+      lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+      def copyWithNewRefs(using RefGen): this.type = this
       def codeString(using Printer): String =
         s"""@timing.clock(${csParam("rate", rate)})"""
   end Timing
