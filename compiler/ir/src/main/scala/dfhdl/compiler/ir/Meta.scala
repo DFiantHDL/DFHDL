@@ -1,16 +1,14 @@
 package dfhdl.compiler.ir
 import dfhdl.internals.*
-import dfhdl.hw.annotation.{HWAnnotation, getActiveHWAnnotations}
 import upickle.default.*
-import scala.annotation.Annotation
+import annotation.HWAnnotation
 
 final case class Meta(
     nameOpt: Option[String],
     position: Position,
     docOpt: Option[String],
     annotations: List[HWAnnotation]
-) derives CanEqual,
-      ReadWriter:
+) derives CanEqual, ReadWriter:
   val isAnonymous: Boolean = nameOpt.isEmpty
   val name: String =
     nameOpt.getOrElse(s"anon${this.hashString}")
@@ -30,9 +28,3 @@ end Meta
 object Meta:
   given ReadWriter[Position] = macroRW
   def empty: Meta = Meta(None, Position.unknown, None, Nil)
-  def gen(
-      nameOpt: Option[String],
-      position: Position,
-      docOpt: Option[String],
-      annotations: List[Annotation]
-  ): Meta = Meta(nameOpt, position, docOpt, annotations.getActiveHWAnnotations)

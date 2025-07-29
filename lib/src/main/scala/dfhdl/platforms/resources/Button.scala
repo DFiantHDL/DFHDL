@@ -1,6 +1,6 @@
 package dfhdl.platforms.resources
 import dfhdl.Encoded
-import dfhdl.hw.constraints.*
+import dfhdl.compiler.ir.constraints
 
 enum Button extends Encoded.Toggle:
   case Released, Pressed
@@ -8,5 +8,5 @@ enum Button extends Encoded.Toggle:
 object Button:
   final case class Resource(
       activeState: Button = Button.Pressed,
-      ioc: io = io(standard = io.Standard.LVCMOS33)
+      ioc: constraints.IO = constraints.IO(standard = constraints.IO.Standard.LVCMOS33)
   )(using RCtx) extends ToggleIO

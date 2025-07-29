@@ -1,56 +1,30 @@
-/** this package contains all the dfhdl hardware annotations
-  */
-package dfhdl.hw
-
+package dfhdl.compiler.ir
 import dfhdl.compiler.printing.{Printer, HasCodeString}
-import scala.annotation.StaticAnnotation
 import dfhdl.internals.*
-import scala.annotation.Annotation
 import upickle.default.*
 import dfhdl.internals.StableEnum
-import dfhdl.compiler.ir.ConfigN
-import dfhdl.compiler.ir.{RateNumber, FreqNumber, TimeNumber}
 
 object annotation:
-  sealed abstract class HWAnnotation extends StaticAnnotation, Product, Serializable, HasCodeString
-      derives CanEqual:
-    val isActive: Boolean
+  sealed abstract class HWAnnotation extends Product, Serializable, HasCodeString derives CanEqual
 
-  extension (annotList: List[Annotation])
-    def getActiveHWAnnotations: List[HWAnnotation] = annotList.collect {
-      case annot: HWAnnotation if annot.isActive => annot
-    }
   object HWAnnotation:
     given ReadWriter[HWAnnotation] = ReadWriter.merge(
-      summon[ReadWriter[unused]],
-      summon[ReadWriter[pure]],
-      summon[ReadWriter[flattenMode]],
+      summon[ReadWriter[Unused]],
+      summon[ReadWriter[Pure.type]],
+      summon[ReadWriter[FlattenMode]],
       summon[ReadWriter[constraints.Constraint]]
     )
 
-  sealed trait unused extends HWAnnotation derives ReadWriter
-  object unused:
-    /** `quiet` suppresses the unused warning for the tagged value.
-      */
-    final case class quiet(isActive: Boolean) extends unused:
-      def this() = this(true)
-      def codeString(using Printer): String = "@hw.annotation.unused.quiet"
+  enum Unused extends HWAnnotation derives ReadWriter:
+    case Quiet, Keep, Prune
+    def codeString(using Printer): String =
+      this match
+        case Quiet => "@hw.annotation.unused.quiet"
+        case Keep  => "@hw.annotation.unused.keep"
+        case Prune => "@hw.annotation.unused.prune"
 
-    /** `keep` suppresses the unused warning, and also attempts to keep the tagged value.
-      */
-    final case class keep(isActive: Boolean) extends unused:
-      def this() = this(true)
-      def codeString(using Printer): String = "@hw.annotation.unused.keep"
-
-    /** `prune` removes all the redundant paths until and including the tagged value.
-      */
-    final case class prune(isActive: Boolean) extends unused:
-      def this() = this(true)
-      def codeString(using Printer): String = "@hw.annotation.unused.prune"
-  end unused
-
-  final case class pure(isActive: Boolean) extends HWAnnotation derives ReadWriter:
-    def this() = this(true)
+  case object Pure extends HWAnnotation:
+    given ReadWriter[Pure.type] = macroRW
     def codeString(using Printer): String = "@hw.annotation.pure"
 
   /** Flattening Mode:
@@ -58,29 +32,26 @@ object annotation:
     *   - prefix: $ownerName$sep$memberName
     *   - suffix: $memberName$sep$ownerName
     */
-  enum flattenMode extends HWAnnotation, StableEnum derives CanEqual, ReadWriter:
-    case transparent()
-    case prefix(sep: String)
-    case suffix(sep: String)
-    val isActive: Boolean = true
+  enum FlattenMode extends HWAnnotation, StableEnum derives ReadWriter:
+    case Transparent
+    case Prefix(sep: String)
+    case Suffix(sep: String)
     def codeString(using Printer): String =
       "@hw.annotation.flattenMode." + (
         this match
-          case transparent() => "transparent()"
-          case prefix(sep)   => s"""prefix("$sep")"""
-          case suffix(sep)   => s"""suffix("$sep")"""
+          case Transparent => "transparent()"
+          case Prefix(sep) => s"""prefix("$sep")"""
+          case Suffix(sep) => s"""suffix("$sep")"""
       )
-  object flattenMode:
-    val defaultPrefixUnderscore = flattenMode.prefix("_")
+  object FlattenMode:
+    val defaultPrefixUnderscore = FlattenMode.Prefix("_")
 end annotation
 
 object constraints:
-  sealed abstract class Constraint extends annotation.HWAnnotation derives ReadWriter:
-    val isActive: Boolean = true
+  sealed abstract class Constraint extends annotation.HWAnnotation derives ReadWriter
   sealed abstract class SigConstraint extends Constraint derives ReadWriter:
     val bitIdx: ConfigN[Int]
-  final case class device(name: String, properties: Map[String, String])
-      extends Constraint
+  final case class Device(name: String, properties: Map[String, String]) extends Constraint
       derives CanEqual, ReadWriter:
     def this(name: String, properties: (String, String)*) =
       this(name, properties.toMap)
@@ -97,13 +68,13 @@ object constraints:
       case num: TimeNumber   => s"$name = ${printer.csDFTimeData(num)}"
       case _                 => s"$name = ${value}"
 
-  final case class io(
+  final case class IO(
       bitIdx: ConfigN[Int] = None,
       loc: ConfigN[String] = None,
-      standard: ConfigN[io.Standard] = None,
-      slewRate: ConfigN[io.SlewRate] = None,
+      standard: ConfigN[IO.Standard] = None,
+      slewRate: ConfigN[IO.SlewRate] = None,
       driveStrength: ConfigN[Int] = None,
-      pullMode: ConfigN[io.PullMode] = None
+      pullMode: ConfigN[IO.PullMode] = None
   ) extends SigConstraint derives CanEqual, ReadWriter:
     def codeString(using Printer): String =
       val params = List(
@@ -116,8 +87,8 @@ object constraints:
       ).filter(_.nonEmpty).mkString(", ")
       s"""@io($params)"""
     end codeString
-  end io
-  object io:
+  end IO
+  object IO:
     enum Standard extends StableEnum, HasCodeString derives CanEqual, ReadWriter:
       case LVCMOS33, LVCMOS25, LVCMOS18
       def codeString(using Printer): String = "io.Standard." + this.toString
@@ -128,8 +99,8 @@ object constraints:
       case UP, DOWN
       def codeString(using Printer): String = "io.PullMode." + this.toString
 
-  object timing:
-    final case class ignore(
+  object Timing:
+    final case class Ignore(
         bitIdx: ConfigN[Int] = None,
         maxFreqMinPeriod: ConfigN[RateNumber] = None
     ) extends SigConstraint
@@ -141,10 +112,10 @@ object constraints:
         ).filter(_.nonEmpty).mkString(", ")
         s"""@timing.ignore($params)"""
 
-    final case class clock(
+    final case class Clock(
         rate: RateNumber
     ) extends Constraint derives CanEqual, ReadWriter:
       def codeString(using Printer): String =
         s"""@timing.clock(${csParam("rate", rate)})"""
-  end timing
+  end Timing
 end constraints

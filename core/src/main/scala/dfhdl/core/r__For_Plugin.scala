@@ -2,12 +2,21 @@ package dfhdl.core
 import dfhdl.compiler.ir
 import DFVal.Func.Op as FuncOp
 import ir.DFConditional.DFCaseBlock.Pattern
-
+import dfhdl.internals.Position
 import collection.immutable.ListMap
 import dfhdl.internals.metaContextIgnore
 import dfhdl.internals.metaContextForward
 import dfhdl.compiler.ir.DFConditional
+import scala.annotation.Annotation
+import dfhdl.hw.annotation.getActiveHWAnnotations
+
 object r__For_Plugin:
+  def metaGen(
+      nameOpt: Option[String],
+      position: Position,
+      docOpt: Option[String],
+      annotations: List[Annotation]
+  ): ir.Meta = ir.Meta(nameOpt, position, docOpt, annotations.getActiveHWAnnotations)
   def toFunc1[R](block: => R): () => R = () => block
   def toTuple2[T1, T2](t1: T1, t2: T2): (T1, T2) = (t1, t2)
   def toTuple3[T1, T2, T3](t1: T1, t2: T2, t3: T3): (T1, T2, T3) = (t1, t2, t3)

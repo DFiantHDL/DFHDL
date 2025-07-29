@@ -11,7 +11,7 @@ import java.nio.file.Paths
 import dfhdl.backends
 import dfhdl.compiler.stages.verilog.VerilogDialect
 import dfhdl.compiler.stages.vhdl.VHDLDialect
-import dfhdl.hw.constraints
+import dfhdl.compiler.ir.constraints
 import dfhdl.compiler.ir.RateNumber
 
 object Vivado extends Builder:
@@ -54,7 +54,7 @@ class VivadoProjectTclConfigPrinter(using getSet: MemberGetSet, co: CompilerOpti
     case _: backends.verilog => "Verilog"
     case _: backends.vhdl    => "VHDL"
   val part: String = getSet.designDB.top.dclMeta.annotations.collectFirst {
-    case annotation: constraints.device => annotation.name
+    case annotation: constraints.Device => annotation.name
   }.getOrElse(throw new IllegalArgumentException("No device annotation found"))
   val fileType: String = co.backend match
     case backend: backends.verilog => backend.dialect match
@@ -112,7 +112,7 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
 
   def xdcDesignConstraints: List[String] =
     designDB.top.dclMeta.annotations.flatMap {
-      case deviceConstraint: constraints.device =>
+      case deviceConstraint: constraints.Device =>
         deviceConstraint.properties.map {
           case (k, v) => s"set_property $k $v [current_design]"
         }
@@ -131,7 +131,7 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
 
   def xdcIOConstraint(
       port: DFVal.Dcl,
-      portConstraint: constraints.io
+      portConstraint: constraints.IO
   ): String =
     var dict = ""
     def addToDict(key: String, value: Any): Unit =
@@ -147,17 +147,17 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
     // IO standard constraint
     portConstraint.standard.foreach { standard =>
       val standardStr = standard match
-        case constraints.io.Standard.LVCMOS33 => "LVCMOS33"
-        case constraints.io.Standard.LVCMOS25 => "LVCMOS25"
-        case constraints.io.Standard.LVCMOS18 => "LVCMOS18"
+        case constraints.IO.Standard.LVCMOS33 => "LVCMOS33"
+        case constraints.IO.Standard.LVCMOS25 => "LVCMOS25"
+        case constraints.IO.Standard.LVCMOS18 => "LVCMOS18"
       addToDict("IOSTANDARD", standardStr)
     }
 
     // Slew rate constraint
     portConstraint.slewRate.foreach { slewRate =>
       val slewRateStr = slewRate match
-        case constraints.io.SlewRate.SLOW => "SLOW"
-        case constraints.io.SlewRate.FAST => "FAST"
+        case constraints.IO.SlewRate.SLOW => "SLOW"
+        case constraints.IO.SlewRate.FAST => "FAST"
       addToDict("SLEW", slewRateStr)
     }
 
@@ -169,8 +169,8 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
     // Pull mode constraint
     portConstraint.pullMode.foreach { pullMode =>
       val pullModeStr = pullMode match
-        case constraints.io.PullMode.UP   => "PULLUP"
-        case constraints.io.PullMode.DOWN => "PULLDOWN"
+        case constraints.IO.PullMode.UP   => "PULLUP"
+        case constraints.IO.PullMode.DOWN => "PULLDOWN"
       addToDict("PULLMODE", pullModeStr)
     }
 
@@ -182,7 +182,7 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
 
   def xdcTimingIgnoreConstraint(
       port: DFVal.Dcl,
-      constraint: constraints.timing.ignore
+      constraint: constraints.Timing.Ignore
   ): String =
     def set_false_path(dir: String): String =
       s"set_false_path $dir ${xdc_get_ports(port, constraint)}"
@@ -210,7 +210,7 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
 
   def xdcTimingClockConstraint(
       port: DFVal.Dcl,
-      constraint: constraints.timing.clock
+      constraint: constraints.Timing.Clock
   ): String =
     s"create_clock -add -name ${port.getName} -period ${constraint.rate.to_ns.value.bigDecimal.toPlainString} [get_ports {${port.getName}}]"
   end xdcTimingClockConstraint
@@ -219,9 +219,9 @@ class VivadoProjectConstraintsPrinter(using getSet: MemberGetSet, co: CompilerOp
       port: DFVal.Dcl
   ): List[String] =
     port.meta.annotations.collect {
-      case constraint: constraints.io            => xdcIOConstraint(port, constraint)
-      case constraint: constraints.timing.ignore => xdcTimingIgnoreConstraint(port, constraint)
-      case constraint: constraints.timing.clock  => xdcTimingClockConstraint(port, constraint)
+      case constraint: constraints.IO            => xdcIOConstraint(port, constraint)
+      case constraint: constraints.Timing.Ignore => xdcTimingIgnoreConstraint(port, constraint)
+      case constraint: constraints.Timing.Clock  => xdcTimingClockConstraint(port, constraint)
     }
   end xdcPortConstraints
 

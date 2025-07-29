@@ -274,7 +274,7 @@ abstract class CommonPhase extends PluginPhase:
     def dfcFuncTpeOptRecur: Option[Type] =
       tp.dealias match
         case ContextFunctionType(ctx, res) if ctx.head <:< metaContextTpe => Some(res)
-        case AppliedType(tycon, args) =>
+        case AppliedType(tycon, args)                                     =>
           var requiresUpdate = false
           val updatedArgs = args.map { tp =>
             tp.dfcFuncTpeOptRecur match
@@ -381,7 +381,7 @@ abstract class CommonPhase extends PluginPhase:
     metaContextCls = requiredClass("dfhdl.internals.MetaContext")
     metaContextIgnoreAnnotSym = requiredClass("dfhdl.internals.metaContextIgnore")
     metaContextForwardAnnotSym = requiredClass("dfhdl.internals.metaContextForward")
-    metaGenSym = requiredMethod("dfhdl.compiler.ir.Meta.gen")
+    metaGenSym = requiredMethod("dfhdl.core.r__For_Plugin.metaGen")
     positionGenSym = requiredMethod("dfhdl.internals.Position.fromAbsPath")
     hasDFCTpe = requiredClassRef("dfhdl.core.HasDFC")
     inlineAnnotSym = requiredClass("scala.inline")

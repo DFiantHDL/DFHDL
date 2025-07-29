@@ -33,7 +33,7 @@ trait Design extends Container, HasClsMetaArgs:
     setOwner(
       getSet.replace(designBlock)(
         designBlock.copy(
-          dclMeta = ir.Meta.gen(Some(name), position, docOpt, annotations),
+          dclMeta = r__For_Plugin.metaGen(Some(name), position, docOpt, annotations),
           instMode = mkInstMode
         )
       ).asFE

@@ -1,6 +1,6 @@
 package dfhdl.platforms.resources
-import dfhdl.hw.constraints.*
+import dfhdl.compiler.ir.constraints
 
 final case class Sig(
-    ioc: io = io(standard = io.Standard.LVCMOS33)
+    ioc: constraints.IO = constraints.IO(standard = constraints.IO.Standard.LVCMOS33)
 )(using RCtx) extends HasIOConstraints

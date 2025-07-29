@@ -108,7 +108,7 @@ case object AddClkRst extends Stage:
                   val clkRstSimGen = new EDDomain:
                     override protected def __dfc: DFC =
                       selfDFC.setName("clkRstSimGen")
-                        .setAnnotations(List(dfhdl.hw.annotation.flattenMode.transparent()))
+                        .setAnnotations(List(annotation.FlattenMode.Transparent))
                     val dfcAnon = selfDFC.anonymize.setAnnotations(Nil)
                     locally {
                       given DFC = selfDFC.anonymize.setAnnotations(Nil)

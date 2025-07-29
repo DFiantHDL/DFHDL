@@ -2,7 +2,7 @@ package dfhdl.compiler
 package ir
 import dfhdl.internals.*
 import upickle.default.*
-import annotation.tailrec
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.reflect.{ClassTag, classTag}
 
@@ -1480,9 +1480,9 @@ final case class DomainBlock(
     tags: DFTags
 ) extends DFBlock,
       DFDomainOwner derives ReadWriter:
-  def flattenMode: dfhdl.hw.annotation.flattenMode = meta.annotations.collectFirst {
-    case fm: dfhdl.hw.annotation.flattenMode => fm
-  }.getOrElse(dfhdl.hw.annotation.flattenMode.defaultPrefixUnderscore)
+  def flattenMode: annotation.FlattenMode = meta.annotations.collectFirst {
+    case fm: annotation.FlattenMode => fm
+  }.getOrElse(annotation.FlattenMode.defaultPrefixUnderscore)
   protected def `prot_=~`(that: DFMember)(using MemberGetSet): Boolean = that match
     case that: DomainBlock =>
       this.domainType =~ that.domainType &&

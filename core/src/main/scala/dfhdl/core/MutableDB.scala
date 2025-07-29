@@ -18,7 +18,8 @@ import dfhdl.compiler.ir.{
   SourceFile,
   MemberView,
   RTDomainCfg,
-  DFTags
+  DFTags,
+  annotation
 }
 import dfhdl.compiler.analysis.filterPublicMembers
 
@@ -228,8 +229,8 @@ final class MutableDB():
       current.defInputs = inputs
       val currentDesign = OwnershipContext.currentDesign
       val isPure = currentDesign.dclMeta.annotations.exists {
-        case hw.annotation.pure(true) => true
-        case _                        => false
+        case annotation.Pure => true
+        case _               => false
       }
       if (isPure)
         val key = (currentDesign.dclMeta.position, inputs.map(_.dfType.asIR))
