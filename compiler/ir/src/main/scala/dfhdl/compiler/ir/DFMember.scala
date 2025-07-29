@@ -400,7 +400,7 @@ object DFVal:
         case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ meta.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
     def copyWithNewRefs(using RefGen): this.type = copy(
@@ -439,7 +439,8 @@ object DFVal:
         case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = dfValRef :: defaultRef :: dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] =
+      dfValRef :: defaultRef :: dfType.getRefs ++ meta.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     def copyWithNewRefs(using RefGen): this.type = copy(
       meta = meta.copyWithNewRefs,
@@ -466,7 +467,7 @@ object DFVal:
       case _       => false
     protected def setMeta(meta: Meta): this.type = this
     protected def setTags(tags: DFTags): this.type = this
-    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ meta.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     def copyWithNewRefs(using RefGen): this.type = copy(
       dfType = dfType.copyWithNewRefs,
@@ -489,7 +490,7 @@ object DFVal:
       this == that
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ meta.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     def copyWithNewRefs(using RefGen): this.type = copy(
       meta = meta.copyWithNewRefs,
@@ -520,7 +521,7 @@ object DFVal:
     def initList(using MemberGetSet): List[DFVal] = initRefList.map(_.get)
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ initRefList
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ initRefList ++ meta.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     def copyWithNewRefs(using RefGen): this.type = copy(
       meta = meta.copyWithNewRefs,
@@ -574,7 +575,7 @@ object DFVal:
         case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ args
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ args ++ meta.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
     def copyWithNewRefs(using RefGen): this.type = copy(
@@ -615,7 +616,7 @@ object DFVal:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = designInstRef :: dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = designInstRef :: dfType.getRefs ++ meta.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     def copyWithNewRefs(using RefGen): this.type = copy(
       meta = meta.copyWithNewRefs,
@@ -636,7 +637,7 @@ object DFVal:
 
   sealed trait Alias extends CanBeExpr:
     val relValRef: Alias.Ref
-    lazy val getRefs: List[DFRef.TwoWayAny] = relValRef :: dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = relValRef :: dfType.getRefs ++ meta.getRefs
 
   object Alias:
     type Ref = DFRef.TwoWay[DFVal, Alias]
@@ -724,7 +725,7 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       override lazy val getRefs: List[DFRef.TwoWayAny] =
-        relValRef :: dfType.getRefs ++ initRefOption
+        relValRef :: dfType.getRefs ++ initRefOption ++ meta.getRefs
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
       def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs(using RefGen): this.type = copy(
@@ -788,7 +789,7 @@ object DFVal:
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
       override lazy val getRefs: List[DFRef.TwoWayAny] =
-        dfType.getRefs ++ List(relValRef) ++ (idxHighRef match
+        dfType.getRefs ++ meta.getRefs ++ List(relValRef) ++ (idxHighRef match
           case ref: DFRef.TypeRef => List(ref);
           case _                  => Nil) ++ (idxLowRef match
           case ref: DFRef.TypeRef => List(ref);
@@ -849,7 +850,8 @@ object DFVal:
           case _ => false
       protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
       protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-      override lazy val getRefs: List[DFRef.TwoWayAny] = relIdx :: relValRef :: dfType.getRefs
+      override lazy val getRefs: List[DFRef.TwoWayAny] =
+        relIdx :: relValRef :: dfType.getRefs ++ meta.getRefs
       def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
       def copyWithoutGlobalCtx: this.type = copy().asInstanceOf[this.type]
       def copyWithNewRefs(using RefGen): this.type = copy(
@@ -928,7 +930,7 @@ final case class DFRange(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = List(startRef, endRef, stepRef)
+  lazy val getRefs: List[DFRef.TwoWayAny] = startRef :: endRef :: stepRef :: meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
     startRef = startRef.copyAsNewRef,
@@ -958,7 +960,7 @@ final case class DFNet(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = List(lhsRef, rhsRef)
+  lazy val getRefs: List[DFRef.TwoWayAny] = lhsRef :: rhsRef :: meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
     lhsRef = lhsRef.copyAsNewRef,
@@ -1039,7 +1041,7 @@ final case class StepBlock(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = Nil
+  lazy val getRefs: List[DFRef.TwoWayAny] = meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
     ownerRef = ownerRef.copyAsNewRef
@@ -1066,7 +1068,7 @@ final case class Goto(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = List(stepRef)
+  lazy val getRefs: List[DFRef.TwoWayAny] = List(stepRef) ++ meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
     stepRef = stepRef.copyAsNewRef,
@@ -1106,7 +1108,7 @@ final case class DFInterfaceOwner(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
+  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs ++ meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
     domainType = domainType.copyWithNewRefs,
@@ -1139,7 +1141,7 @@ final case class ProcessBlock(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = sensitivity.getRefs
+  lazy val getRefs: List[DFRef.TwoWayAny] = sensitivity.getRefs ++ meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
     sensitivity = sensitivity.copyWithNewRefs,
@@ -1201,7 +1203,7 @@ object DFConditional:
       false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = selectorRef :: dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = selectorRef :: dfType.getRefs ++ meta.getRefs
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
     def copyWithNewRefs(using RefGen): this.type = copy(
       meta = meta.copyWithNewRefs,
@@ -1340,7 +1342,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs
+    lazy val getRefs: List[DFRef.TwoWayAny] = dfType.getRefs ++ meta.getRefs
     protected[ir] def protIsSimilarTo(that: DFVal.CanBeExpr)(using MemberGetSet): Boolean =
       false
     def updateDFType(dfType: DFType): this.type = copy(dfType = dfType).asInstanceOf[this.type]
@@ -1366,7 +1368,7 @@ object DFConditional:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = List(guardRef, prevBlockOrHeaderRef)
+    lazy val getRefs: List[DFRef.TwoWayAny] = guardRef :: prevBlockOrHeaderRef :: meta.getRefs
     def copyWithNewRefs(using RefGen): this.type = copy(
       meta = meta.copyWithNewRefs,
       guardRef = guardRef.copyAsNewRef,
@@ -1395,7 +1397,7 @@ object DFLoop:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = List(iteratorRef, rangeRef)
+    lazy val getRefs: List[DFRef.TwoWayAny] = iteratorRef :: rangeRef :: meta.getRefs
     def copyWithNewRefs(using RefGen): this.type = copy(
       meta = meta.copyWithNewRefs,
       iteratorRef = iteratorRef.copyAsNewRef,
@@ -1420,7 +1422,7 @@ object DFLoop:
       case _ => false
     protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
     protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-    lazy val getRefs: List[DFRef.TwoWayAny] = List(guardRef)
+    lazy val getRefs: List[DFRef.TwoWayAny] = guardRef :: meta.getRefs
     def copyWithNewRefs(using RefGen): this.type = copy(
       meta = meta.copyWithNewRefs,
       guardRef = guardRef.copyAsNewRef,
@@ -1514,7 +1516,7 @@ final case class DomainBlock(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs
+  lazy val getRefs: List[DFRef.TwoWayAny] = domainType.getRefs ++ meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
     domainType = domainType.copyWithNewRefs,
@@ -1613,7 +1615,7 @@ final case class Wait(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = List(triggerRef)
+  lazy val getRefs: List[DFRef.TwoWayAny] = triggerRef :: meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
     triggerRef = triggerRef.copyAsNewRef,
@@ -1640,7 +1642,7 @@ final case class TextOut(
     case _ => false
   protected def setMeta(meta: Meta): this.type = copy(meta = meta).asInstanceOf[this.type]
   protected def setTags(tags: DFTags): this.type = copy(tags = tags).asInstanceOf[this.type]
-  lazy val getRefs: List[DFRef.TwoWayAny] = op.getRefs ++ msgArgs
+  lazy val getRefs: List[DFRef.TwoWayAny] = op.getRefs ++ msgArgs ++ meta.getRefs
   def copyWithNewRefs(using RefGen): this.type = copy(
     meta = meta.copyWithNewRefs,
     op = op.copyWithNewRefs,
