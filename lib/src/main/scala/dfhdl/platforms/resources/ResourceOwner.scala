@@ -3,6 +3,7 @@ import scala.collection.mutable.ListBuffer
 trait ResourceOwner:
   protected given ResourceOwner = this
   private val resources = ListBuffer[Resource]()
+  def getResources: List[Resource] = resources.toList
   def add(resource: Resource): Unit = resources += resource
 
 sealed trait NoResourceOwner extends ResourceOwner

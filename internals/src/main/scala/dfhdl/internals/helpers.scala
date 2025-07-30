@@ -460,6 +460,33 @@ object AnnotatedWith:
   end annotWithMacro
 end AnnotatedWith
 
+// getting annotations both from the class and the object
+// E.g.:
+// @annot1
+// class Foo
+// @annot2
+// val foo = new Foo
+// the annotations should be @annot1 and @annot2
+trait CTAnnotations:
+  def annotations: List[StaticAnnotation]
+object CTAnnotations:
+  inline given CTAnnotations = ${ macroImpl }
+  def macroImpl(using Quotes): Expr[CTAnnotations] =
+    import quotes.reflect.*
+    val owner = Symbol.spliceOwner.owner
+    val allAnnotations =
+      owner.termRef.classSymbol.map(_.annotations).getOrElse(Nil) ++ owner.annotations
+    val annotationsExpr =
+      Expr.ofList(allAnnotations.filter(
+        _.tpe <:< TypeRepr.of[StaticAnnotation]
+      ).map(_.asExprOf[StaticAnnotation]))
+    '{
+      new CTAnnotations:
+        def annotations: List[StaticAnnotation] = $annotationsExpr
+    }
+  end macroImpl
+end CTAnnotations
+
 lazy val osIsWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
 lazy val osIsLinux: Boolean = sys.props("os.name").toLowerCase.contains("linux")
 lazy val osIsWSL: Boolean =

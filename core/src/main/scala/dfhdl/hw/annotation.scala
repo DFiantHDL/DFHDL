@@ -63,6 +63,7 @@ end annotation
 object constraints:
   sealed abstract class Constraint extends annotation.HWAnnotation:
     val isActive: Boolean = true
+    val asIR: ir.constraints.Constraint
   sealed abstract class SigConstraint extends Constraint:
     val bitIdx: ir.ConfigN[Int]
   final case class device(name: String, properties: (String, String)*) extends Constraint:
