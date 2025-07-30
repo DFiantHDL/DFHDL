@@ -135,7 +135,7 @@ class MetaContextPlacerPhase(setting: Setting) extends CommonPhase:
         val clsTpe = tree.tpe
         val clsSym = clsTpe.classSymbol.asClass
 
-        if (clsTpe <:< hasClsMetaArgsTpe && !clsSym.isAnonymousClass)
+        if (clsTpe <:< hasClsMetaArgsTpe && !clsSym.isAnonymousClass && !clsSym.flags.is(Trait))
           val paramBody = template.body.takeWhile {
             case x: TypeDef                 => true
             case x: ValDef if x.rhs.isEmpty => true
