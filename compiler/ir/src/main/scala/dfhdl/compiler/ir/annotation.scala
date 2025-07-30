@@ -1,5 +1,5 @@
 package dfhdl.compiler.ir
-import dfhdl.compiler.printing.{Printer, HasCodeString}
+import dfhdl.compiler.printing.{Printer, HasCodeString, refCodeString}
 import dfhdl.internals.*
 import upickle.default.*
 import dfhdl.internals.StableEnum
@@ -73,12 +73,13 @@ object constraints:
 
   private def csParam[T](name: String, value: ConfigN[T])(using printer: Printer): String =
     value match
-      case None              => ""
-      case cs: HasCodeString => s"$name = ${cs.codeString}"
-      case str: String       => s"$name = \"$str\""
-      case num: FreqNumber   => s"$name = ${printer.csDFFreqData(num)}"
-      case num: TimeNumber   => s"$name = ${printer.csDFTimeData(num)}"
-      case _                 => s"$name = ${value}"
+      case None                            => ""
+      case ref: DFRef.TwoWayAny @unchecked => s"$name = ${ref.refCodeString}"
+      case cs: HasCodeString               => s"$name = ${cs.codeString}"
+      case str: String                     => s"$name = \"$str\""
+      case num: FreqNumber                 => s"$name = ${printer.csDFFreqData(num)}"
+      case num: TimeNumber                 => s"$name = ${printer.csDFTimeData(num)}"
+      case _                               => s"$name = ${value}"
 
   final case class IO(
       bitIdx: ConfigN[Int] = None,

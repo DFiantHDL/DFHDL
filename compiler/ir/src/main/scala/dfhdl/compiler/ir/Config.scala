@@ -35,6 +35,15 @@ object ConfigN:
     def flatMap[R](f: T => ConfigN[R]): ConfigN[R] = x match
       case None                => None
       case value: T @unchecked => f(value)
+    def toList: List[T] = x match
+      case None                => Nil
+      case value: T @unchecked => List(value)
+  end extension
+  extension [T <: DFRefAny](x: ConfigN[T])
+    def =~(that: ConfigN[T])(using MemberGetSet): Boolean = (x, that) match
+      case (None, None)                          => true
+      case (t: T @unchecked, that: T @unchecked) => t =~ that
+      case _                                     => false
 end ConfigN
 
 /** Sets the policy for inclusing the clock or reset signals when they are not needed

@@ -6,8 +6,8 @@ import dfhdl.compiler.printing.{Printer, HasCodeString}
 import scala.annotation.StaticAnnotation
 import dfhdl.internals.*
 import scala.annotation.Annotation
-import dfhdl.internals.StableEnum
 import dfhdl.compiler.ir
+import dfhdl.core.*
 
 object annotation:
   sealed abstract class HWAnnotation extends StaticAnnotation:
