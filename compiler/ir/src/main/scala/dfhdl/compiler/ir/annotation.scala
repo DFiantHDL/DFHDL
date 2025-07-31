@@ -60,9 +60,10 @@ end annotation
 object constraints:
   import annotation.HWAnnotation
   sealed abstract class Constraint extends HWAnnotation derives ReadWriter
+  sealed abstract class GlobalConstraint extends Constraint derives ReadWriter
   sealed abstract class SigConstraint extends Constraint derives ReadWriter:
     val bitIdx: ConfigN[Int]
-  final case class Device(name: String, properties: Map[String, String]) extends Constraint
+  final case class Device(name: String, properties: Map[String, String]) extends GlobalConstraint
       derives CanEqual, ReadWriter:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
