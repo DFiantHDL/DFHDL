@@ -62,6 +62,8 @@ object constraints:
   sealed abstract class Constraint extends HWAnnotation derives ReadWriter
   sealed abstract class GlobalConstraint extends Constraint derives ReadWriter
   sealed abstract class SigConstraint extends Constraint derives ReadWriter:
+    def merge(that: SigConstraint): Option[SigConstraint] =
+      if (this == that) Some(this) else None
     val bitIdx: ConfigN[Int]
   final case class Device(name: String, properties: Map[String, String]) extends GlobalConstraint
       derives CanEqual, ReadWriter:
@@ -71,6 +73,31 @@ object constraints:
     def codeString(using Printer): String =
       val props = properties.map { case (k, v) => s""""$k" -> "$v"""" }.mkString(", ")
       s"""@device("$name"${props.emptyOr(", " + _)})"""
+
+  extension [T](configN: ConfigN[T])
+    def merge(that: ConfigN[T]): ConfigN[T] =
+      (configN, that) match
+        case (None, None)                                         => None
+        case (t: T @unchecked, None)                              => t
+        case (None, t: T @unchecked)                              => t
+        case (t1: T @unchecked, t2: T @unchecked) if t1 equals t2 => t1
+        case x => throw new IllegalArgumentException("Constraint merge error: " + x)
+  extension (list: List[SigConstraint])
+    def merge: List[SigConstraint] =
+      list.foldLeft(List.empty[SigConstraint]) { (acc, cs) =>
+        var merged = false
+        val newAcc = acc.map { next =>
+          if (merged) next
+          else cs.merge(next) match
+            case Some(mergedCs) =>
+              merged = true
+              mergedCs
+            case None => next
+        }
+        if (merged) newAcc
+        else cs :: newAcc
+      }.reverse
+  end extension
 
   private def csParam[T](name: String, value: ConfigN[T])(using printer: Printer): String =
     value match
@@ -93,6 +120,20 @@ object constraints:
     protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
     lazy val getRefs: List[DFRef.TwoWayAny] = Nil
     def copyWithNewRefs(using RefGen): this.type = this
+    override def merge(that: SigConstraint): Option[SigConstraint] =
+      that match
+        case that: IO if bitIdx == that.bitIdx =>
+          Some(
+            IO(
+              bitIdx = bitIdx,
+              loc = loc.merge(that.loc),
+              standard = standard.merge(that.standard),
+              slewRate = slewRate.merge(that.slewRate),
+              driveStrength = driveStrength.merge(that.driveStrength),
+              pullMode = pullMode.merge(that.pullMode)
+            )
+          )
+        case _ => None
     def codeString(using Printer): String =
       val params = List(
         csParam("bitIdx", bitIdx),

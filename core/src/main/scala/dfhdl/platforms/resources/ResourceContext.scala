@@ -22,7 +22,7 @@ trait ResourceContext extends OnCreateEvents, HasDFC, HasClsMetaArgs:
     val ownerConstraints = if (isTopResource) Nil else owner.directAndOwnerSigConstraints
     (ownerConstraints ++ getResourceConstraints.collect {
       case constraint: SigConstraint => constraint
-    }).distinct
+    }).merge
   protected def __dfc: DFC =
     println("Severe error: missing DFHDL context!\nMake sure you enable the DFHDL compiler plugin.")
     sys.exit(1)
