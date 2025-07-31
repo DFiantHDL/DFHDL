@@ -1,6 +1,6 @@
 package dfhdl.platforms.resources
 
-trait ResourceGroup(using RCtx) extends Resource, ResourceOwner:
+trait ResourceGroup extends Resource, ResourceOwner:
   override protected[resources] def connect(that: Resource): Unit =
     getResources.lazyZip(that.asInstanceOf[ResourceGroup].getResources).foreach {
       // skipping ResourceDeps in the group, since their dependencies are already connected

@@ -1,6 +1,6 @@
 package dfhdl.platforms.resources
 
-trait ResourceDeps(using RCtx) extends Resource:
+trait ResourceDeps extends Resource:
   protected def deps: List[Resource]
   override protected[resources] def connect(that: Resource): Unit =
     deps.lazyZip(that.asInstanceOf[ResourceDeps].deps).foreach {

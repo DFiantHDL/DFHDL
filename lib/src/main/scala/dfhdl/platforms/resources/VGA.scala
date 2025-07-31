@@ -1,6 +1,6 @@
 package dfhdl.platforms.resources
 
-final case class VGA()(using RCtx) extends ResourceGroup:
+class VGA() extends ResourceGroup:
   val R0 = Sig()
   val R1 = Sig()
   val R2 = Sig()

@@ -311,6 +311,16 @@ final class MutableDB():
     def ownerOption: Option[DFOwner] = stack.headOption
   end OwnershipContext
 
+  object ResourceOwnershipContext:
+    import dfhdl.platforms.resources.ResourceOwner
+    private var stack: List[ResourceOwner] = Nil
+    def enter(owner: ResourceOwner): Unit =
+      stack = owner :: stack
+    def exit(): Unit =
+      stack = stack.drop(1)
+    def owner: ResourceOwner = stack.head
+    def ownerOpt: Option[ResourceOwner] = stack.headOption
+
   object GlobalTagContext:
     private[MutableDB] var tags: DFTags = DFTags.empty
     def set[CT <: DFTag: ClassTag](tag: CT): Unit = tags = tags.tag(tag)

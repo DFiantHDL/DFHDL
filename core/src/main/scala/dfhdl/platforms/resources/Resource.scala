@@ -2,13 +2,12 @@ package dfhdl.platforms.resources
 import scala.annotation.implicitNotFound
 import scala.collection.mutable.ListBuffer
 
-trait Resource(using ctx: RCtx):
-  final val id: String = ctx.id
-  final val owner: ResourceOwner = ctx.owner
+trait Resource extends ResourceContext:
+  private val owner: ResourceOwner = dfc.mutableDB.ResourceOwnershipContext.owner
   private val connections = ListBuffer[Resource]()
   protected[resources] def connect(that: Resource): Unit =
     connections += that
-  owner.add(this)
+  owner.addResource(this)
 
 private trait ResourceLP:
   import Resource.CanConnect
