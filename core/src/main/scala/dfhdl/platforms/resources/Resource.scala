@@ -1,13 +1,28 @@
 package dfhdl.platforms.resources
 import scala.annotation.implicitNotFound
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable
+import dfhdl.compiler.ir.constraints.SigConstraint
 
 trait Resource extends ResourceContext:
-  private val owner: ResourceOwner = dfc.mutableDB.ResourceOwnershipContext.owner
-  private val connections = ListBuffer[Resource]()
+  private val connections = mutable.ListBuffer[Resource]()
   protected[resources] def connect(that: Resource): Unit =
     connections += that
+  private lazy val allConnections: List[Resource] =
+    val visited = mutable.Set[Resource]()
+    val result = mutable.ListBuffer[Resource]()
+    def dfs(res: Resource): Unit =
+      for (conn <- res.connections)
+        if (!visited.contains(conn))
+          visited += conn
+          result += conn
+          dfs(conn)
+    dfs(this)
+    result.distinct.toList
+  end allConnections
+  lazy val allSigConstraints: List[SigConstraint] =
+    allConnections.flatMap(_.directAndOwnerSigConstraints).distinct
   owner.addResource(this)
+end Resource
 
 private trait ResourceLP:
   import Resource.CanConnect
