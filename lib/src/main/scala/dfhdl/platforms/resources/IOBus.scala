@@ -4,4 +4,4 @@ import dfhdl.compiler.ir.constraints
 
 class IOBus[T <: IO](val ios: T*) extends ResourceDeps:
   def apply(i: Int): T = ios(i)
-  protected def deps: List[Resource] = ios.toList
+  lazy val upstreamDeps: List[Resource] = ios.toList

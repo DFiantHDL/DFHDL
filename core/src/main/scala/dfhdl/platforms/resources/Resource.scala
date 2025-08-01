@@ -9,6 +9,9 @@ trait Resource extends ResourceContext:
   private val connections = mutable.ListBuffer[Resource]()
   protected[resources] def connect(that: Resource): Unit =
     connections += that
+  private val downstreamDeps = mutable.ListBuffer[ResourceDeps]()
+  private[resources] def addDownstreamDep(that: ResourceDeps): Unit =
+    downstreamDeps += that
   // will always return at least this resource
   private lazy val allConnections: List[Resource] =
     val visited = mutable.Set[Resource]()
@@ -24,7 +27,7 @@ trait Resource extends ResourceContext:
     if (res.isEmpty) List(this) else res
   end allConnections
   lazy val allSigConstraints: List[SigConstraint] =
-    allConnections.flatMap(_.directAndOwnerSigConstraints).merge
+    (allConnections ++ downstreamDeps).flatMap(_.directAndOwnerSigConstraints).merge
   owner.addResource(this)
 end Resource
 
