@@ -3,6 +3,7 @@ import scala.annotation.implicitNotFound
 import scala.collection.mutable
 import dfhdl.compiler.ir.constraints.SigConstraint
 import dfhdl.core.*
+import dfhdl.internals.CTName
 
 trait Resource extends ResourceContext:
   private val connections = mutable.ListBuffer[Resource]()
@@ -43,7 +44,9 @@ object Resource extends ResourceLP:
       resource1.connect(resource2)
       resource2.connect(resource1)
   given [T <: Resource, R <: DFValAny](using DFC): CanConnect[T, R] =
-    (resource: T, dfVal: R) => dfVal.connect(resource)
+    (resource: T, dfVal: R) =>
+      given CTName = CTName("<>")
+      trydf { dfVal.connect(resource) }
 
   object Ops:
     extension [T <: Resource](self: T)

@@ -1239,8 +1239,9 @@ extension [T <: DFTypeAny](dfVar: DFValOf[T])
 extension [T <: DFTypeAny](lhs: DFValOf[T])
   def connect(resource: Resource)(using dfc: DFC): Unit =
     import dfc.getSet
+    import dfhdl.compiler.analysis.DclPort
     lhs.asIR.departialDcl match
-      case Some(dcl, range) =>
+      case Some(dcl @ DclPort(), range) if dcl.getOwnerDesign.isTop =>
         val newSigConstraints =
           if (range.length != dcl.width) resource.allSigConstraints.flatMap { cs =>
             for (i <- range) yield cs.updateBitIdx(i)
@@ -1254,7 +1255,10 @@ extension [T <: DFTypeAny](lhs: DFValOf[T])
           (existingSigConstraints ++ newSigConstraints).merge.consolidate(dcl.width)
         val updatedAnnotations = updatedSigConstraints ++ otherAnnotations
         dcl.setMeta(m => m.copy(annotations = updatedAnnotations))
-      case None =>
+      case _ =>
+        throw new IllegalArgumentException(
+          "Cannot apply resource constraints to a non-top-level port value."
+        )
     end match
   end connect
   def connect[R <: DFTypeAny](rhs: DFValOf[R])(using DFC): Unit =
@@ -1461,6 +1465,7 @@ object DFPortOps:
     )(using
         connectableOnly: ConnectableOnly[C, rhs.ExactFrom]
     ): ConnectPlaceholder =
+      given CTName = CTName("<>")
       trydf {
         rhs.exactFrom match
           case resource: Resource => dfPort.connect(resource)
