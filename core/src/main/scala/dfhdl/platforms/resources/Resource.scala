@@ -2,6 +2,7 @@ package dfhdl.platforms.resources
 import scala.annotation.implicitNotFound
 import scala.collection.mutable
 import dfhdl.compiler.ir.constraints.SigConstraint
+import dfhdl.core.*
 
 trait Resource extends ResourceContext:
   private val connections = mutable.ListBuffer[Resource]()
@@ -34,14 +35,18 @@ private trait ResourceLP:
       cc.connect(resource2, resource1)
 
 object Resource extends ResourceLP:
-  @implicitNotFound("Cannot connect the resources ${T} and ${R}")
-  trait CanConnect[T <: Resource, R <: Resource]:
+  @implicitNotFound("Cannot connect the resource ${T} with ${R}")
+  trait CanConnect[T <: Resource, R]:
     def connect(resource1: T, resource2: R): Unit
   given [T <: Resource, R <: Resource](using T =:= R): CanConnect[T, R] =
     (resource1: T, resource2: R) =>
       resource1.connect(resource2)
       resource2.connect(resource1)
+  given [T <: Resource, R <: DFValAny](using DFC): CanConnect[T, R] =
+    (resource: T, dfVal: R) => dfVal.connect(resource)
 
-  extension [T <: Resource](self: T)
-    def <>[R <: Resource](that: R)(using cc: CanConnect[T, R]): Unit =
-      cc.connect(self, that)
+  object Ops:
+    extension [T <: Resource](self: T)
+      def <>[R](that: R)(using cc: CanConnect[T, R]): Unit =
+        cc.connect(self, that)
+end Resource

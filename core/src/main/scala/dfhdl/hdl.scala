@@ -26,6 +26,7 @@ protected object hdl:
   export internals.CommonOps.*
   export core.{dfType}
   export core.DFPhysical.Val.Ops.*
+  export platforms.resources.Resource.Ops.*
   export core.COMB_LOOP
   type Time = core.DFTime
   val Time = core.DFTime

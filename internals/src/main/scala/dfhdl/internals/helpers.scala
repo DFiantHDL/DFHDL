@@ -326,18 +326,12 @@ extension (str: String)
 end extension
 extension [T](seq: Iterable[T])
   def groupByOrdered[P](f: T => P): List[(P, List[T])] =
-    @tailrec
-    def accumulator(
-        seq: Iterable[T],
-        f: T => P,
-        res: List[(P, Iterable[T])]
-    ): Seq[(P, Iterable[T])] = seq.headOption match
-      case None    => res.reverse
-      case Some(h) =>
-        val key = f(h)
-        val subseq = seq.takeWhile(f(_) equals key)
-        accumulator(seq.drop(subseq.size), f, (key -> subseq) :: res)
-    accumulator(seq, f, Nil).view.map(e => (e._1, e._2.toList)).toList
+    val buf = mutable.LinkedHashMap.empty[P, mutable.ListBuffer[T]]
+    for (elem <- seq)
+      val key = f(elem)
+      buf.getOrElseUpdate(key, mutable.ListBuffer.empty) += elem
+    buf.iterator.map { case (k, v) => (k, v.toList) }.toList
+end extension
 
 lazy val getShellCommand: Option[String] =
   import scala.io.Source

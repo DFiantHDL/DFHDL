@@ -61,9 +61,10 @@ object constraints:
   import annotation.HWAnnotation
   sealed abstract class Constraint extends HWAnnotation derives ReadWriter
   sealed abstract class GlobalConstraint extends Constraint derives ReadWriter
-  sealed abstract class SigConstraint extends Constraint derives ReadWriter:
+  sealed abstract class SigConstraint extends Constraint, HasTypeName derives ReadWriter:
     def merge(that: SigConstraint): Option[SigConstraint] =
       if (this == that) Some(this) else None
+    def updateBitIdx(bitIdx: ConfigN[Int]): SigConstraint
     val bitIdx: ConfigN[Int]
   final case class Device(name: String, properties: Map[String, String]) extends GlobalConstraint
       derives CanEqual, ReadWriter:
@@ -83,6 +84,7 @@ object constraints:
         case (t1: T @unchecked, t2: T @unchecked) if t1 equals t2 => t1
         case x => throw new IllegalArgumentException("Constraint merge error: " + x)
   extension (list: List[SigConstraint])
+    /** Merge constraints that are of the same type and are mergeable. */
     def merge: List[SigConstraint] =
       list.foldLeft(List.empty[SigConstraint]) { (acc, cs) =>
         var merged = false
@@ -97,6 +99,19 @@ object constraints:
         if (merged) newAcc
         else cs :: newAcc
       }.reverse
+
+    /** Consolidate several constraints that are all the same for all the bits into a single
+      * constraint. This should be applied after merging.
+      */
+    def consolidate(length: Int)(using MemberGetSet): List[SigConstraint] =
+      list.groupByOrdered(_.typeName).map {
+        case (typeName, cs) if cs.length == length =>
+          val consolidated = cs.map(_.updateBitIdx(None))
+          if (consolidated.forall(_ =~ consolidated.head))
+            consolidated.head :: Nil
+          else cs
+        case (typeName, cs) => cs
+      }.flatten
   end extension
 
   private def csParam[T](name: String, value: ConfigN[T])(using printer: Printer): String =
@@ -134,6 +149,8 @@ object constraints:
             )
           )
         case _ => None
+    def updateBitIdx(bitIdx: ConfigN[Int]): SigConstraint =
+      this.copy(bitIdx = bitIdx)
     def codeString(using Printer): String =
       val params = List(
         csParam("bitIdx", bitIdx),
@@ -166,12 +183,15 @@ object constraints:
       protected def `prot_=~`(that: HWAnnotation)(using MemberGetSet): Boolean = this == that
       lazy val getRefs: List[DFRef.TwoWayAny] = Nil
       def copyWithNewRefs(using RefGen): this.type = this
+      def updateBitIdx(bitIdx: ConfigN[Int]): SigConstraint =
+        this.copy(bitIdx = bitIdx)
       def codeString(using Printer): String =
         val params = List(
           csParam("bitIdx", bitIdx),
           csParam("maxFreqMinPeriod", maxFreqMinPeriod)
         ).filter(_.nonEmpty).mkString(", ")
         s"""@timing.ignore($params)"""
+    end Ignore
 
     final case class Clock(
         rate: RateNumber
