@@ -40,7 +40,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   extension (tree: ValOrDefDef)(using Context)
     def needsNewContext: Boolean =
       tree match
-        case _: ValDef => true // valdefs always generate new context
+        case _: ValDef  => true // valdefs always generate new context
         case dd: DefDef =>
           val sym = tree.symbol
           // defdefs generate new context if they are not inline
@@ -71,7 +71,9 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
         val nameOptTree = mkOptionString(nameOpt)
         val positionTree = srcPos.positionTree
         val docOptTree = mkOptionString(docOpt)
-        val annotTree = mkList(annotations.map(_.tree))
+        // the compiler does not transform the annotations, so we need to do it here.
+        // See: https://github.com/scala/scala3/issues/23650
+        val annotTree = mkList(annotations.map(a => transformAllDeep(a.tree)))
         tree
           .select(setMetaSym)
           .appliedToArgs(
@@ -112,7 +114,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           t match
             case vd: ValDef if vd.isEmpty || ignoreValDef(vd) => (None, None, Nil)
             case dd: DefDef                                   => (None, None, Nil)
-            case _ =>
+            case _                                            =>
               (
                 Some(t.name.toString.nameCheck(t)),
                 t.symbol.docString,
@@ -134,20 +136,32 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
     end match
   end getMetaInfo
 
+  // The tranformation skips over the named arguments, so we need to transform them here.
+  // See: https://github.com/scala/scala3/issues/23650
+  def fixApply(tree: Apply)(using Context): Apply =
+    val updatedArgs = tree.args.map {
+      case namedArg @ NamedArg(name, arg) =>
+        cpy.NamedArg(namedArg)(name = name, arg = transformAllDeep(arg))
+      case a => a
+    }
+    cpy.Apply(tree)(fun = tree.fun, args = updatedArgs)
+  end fixApply
+
   override def transformApply(tree: Apply)(using Context): Tree =
+    val fixedApply = fixApply(tree)
     val origApply = applyStack.head
     applyStack = applyStack.drop(1)
     if (
-      tree.tpe.isParameterless && !tree.fun.symbol.ignoreMetaContext && !tree.fun.symbol.forwardMetaContext
+      fixedApply.tpe.isParameterless && !fixedApply.fun.symbol.ignoreMetaContext && !fixedApply.fun.symbol.forwardMetaContext
     )
-      tree match
+      fixedApply match
         // found a context argument
         case ContextArg(argTree) =>
           treeOwnerApplyMap.get(origApply) match
             case Some(ownerTree, srcPos) =>
               getMetaInfo(ownerTree, srcPos) match
                 case Some(metaInfo) =>
-                  tree.replaceArg(argTree, argTree.setMeta(metaInfo))
+                  fixedApply.replaceArg(argTree, argTree.setMeta(metaInfo))
                 case None =>
                   val sym = argTree.symbol
                   contextDefs.get(sym.fixedFullName) match
@@ -158,17 +172,18 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
                       )
                     case _ =>
                   // do nothing
-                  tree
+                  fixedApply
             // No owner tree found, so it's anonymous. Yet we may want to apply no new context
             // at all and just keep the propagated context.
             case None =>
               // keeping the propagated context
-              if (tree.fun.symbol.name.toString.contains("$")) tree
+              if (fixedApply.fun.symbol.name.toString.contains("$")) fixedApply
               // generating a new anonymous context
-              else tree.replaceArg(argTree, argTree.setMeta(None, origApply.srcPos, None, Nil))
+              else
+                fixedApply.replaceArg(argTree, argTree.setMeta(None, origApply.srcPos, None, Nil))
           end match
-        case _ => tree
-    else tree
+        case _ => fixedApply
+    else fixedApply
   end transformApply
 
   override def prepareForBlock(tree: Block)(using Context): Context =
