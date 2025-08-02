@@ -18,7 +18,7 @@ object Domain:
     def apply(domainType: ir.DomainType)(using DFC): Block = trydf:
       dfc.owner.asIR match
         case _: ir.DFDomainOwner =>
-        case _ =>
+        case _                   =>
           throw new IllegalArgumentException(
             "A domain can only be directly owned by a design, an interface, or another domain."
           )

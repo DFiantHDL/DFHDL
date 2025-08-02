@@ -40,7 +40,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
   extension (tree: ValOrDefDef)(using Context)
     def needsNewContext: Boolean =
       tree match
-        case _: ValDef => true // valdefs always generate new context
+        case _: ValDef  => true // valdefs always generate new context
         case dd: DefDef =>
           val sym = tree.symbol
           // defdefs generate new context if they are not inline
@@ -112,7 +112,7 @@ class MetaContextGenPhase(setting: Setting) extends CommonPhase:
           t match
             case vd: ValDef if vd.isEmpty || ignoreValDef(vd) => (None, None, Nil)
             case dd: DefDef                                   => (None, None, Nil)
-            case _ =>
+            case _                                            =>
               (
                 Some(t.name.toString.nameCheck(t)),
                 t.symbol.docString,

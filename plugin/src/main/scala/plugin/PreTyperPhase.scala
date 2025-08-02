@@ -66,7 +66,7 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
       def unapply(tree: InfixOp)(using Context): Option[InfixOp] =
         tree match
           case InfixOpArgsChange(a, Ident(conn), b) => Some(InfixOp(a, Ident(conn), Parens(b)))
-          case _ =>
+          case _                                    =>
             None
     end InfixOpChange
     object MatchAssignOpChange:

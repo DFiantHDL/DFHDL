@@ -7,11 +7,11 @@ import dfhdl.compiler.stages.vhdlProcToVerilog
 class VHDLProcToVerilogSpec extends StageSpec:
   test("Only clock") {
     class ID extends EDDesign:
-      val clk = Bit      <> IN
-      val x1  = SInt(16) <> IN
-      val y1  = SInt(16) <> OUT
-      val x2  = SInt(16) <> IN
-      val y2  = SInt(16) <> OUT
+      val clk   = Bit      <> IN
+      val x1    = SInt(16) <> IN
+      val y1    = SInt(16) <> OUT
+      val x2    = SInt(16) <> IN
+      val y2    = SInt(16) <> OUT
       val proc1 = process(clk):
         if (clk.rising)
           y1 := x1
@@ -37,16 +37,16 @@ class VHDLProcToVerilogSpec extends StageSpec:
   }
   test("if reset else clock") {
     class ID extends EDDesign:
-      val clk = Bit      <> IN
-      val rst = Bit      <> IN
-      val x1  = SInt(16) <> IN
-      val y1  = SInt(16) <> OUT
-      val x2  = SInt(16) <> IN
-      val y2  = SInt(16) <> OUT
-      val x3  = SInt(16) <> IN
-      val y3  = SInt(16) <> OUT
-      val x4  = SInt(16) <> IN
-      val y4  = SInt(16) <> OUT
+      val clk   = Bit      <> IN
+      val rst   = Bit      <> IN
+      val x1    = SInt(16) <> IN
+      val y1    = SInt(16) <> OUT
+      val x2    = SInt(16) <> IN
+      val y2    = SInt(16) <> OUT
+      val x3    = SInt(16) <> IN
+      val y3    = SInt(16) <> OUT
+      val x4    = SInt(16) <> IN
+      val y4    = SInt(16) <> OUT
       val proc1 = process(clk, rst):
         if (rst == 0)
           y1 := 0

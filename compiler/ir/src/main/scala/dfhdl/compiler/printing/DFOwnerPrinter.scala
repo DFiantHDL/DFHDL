@@ -86,7 +86,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   final def csDFIfElseStatement(ifBlock: DFConditional.DFIfElseBlock): String =
     ifBlock.prevBlockOrHeaderRef.get match
       case _: DFConditional.Header => csDFIfStatement(csDFIfGuard(ifBlock))
-      case _ =>
+      case _                       =>
         ifBlock.guardRef.get match
           case DFMember.Empty => csDFElseStatement
           case _              => csDFElseIfStatement(csDFIfGuard(ifBlock))
@@ -102,7 +102,7 @@ trait AbstractOwnerPrinter extends AbstractPrinter:
   def csDFCasePattern(pattern: Pattern): String = pattern match
     case Pattern.CatchAll            => csDFCasePatternCatchAll
     case Pattern.Singleton(valueRef) => valueRef.refCodeString
-    case Pattern.Alternative(list) =>
+    case Pattern.Alternative(list)   =>
       list.map(csDFCasePattern).mkString(csDFCasePatternAlternativeData)
     case pattern: Pattern.Struct   => csDFCasePatternStruct(pattern)
     case pattern: Pattern.Bind     => csDFCasePatternBind(pattern)
@@ -222,7 +222,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerBody(design)
     val bodyWithDcls = if (localDcls.isEmpty) body else s"$localDcls\n\n$body"
     val dsnCls = design.domainType match
-      case DomainType.DF => "DFDesign"
+      case DomainType.DF     => "DFDesign"
       case rt: DomainType.RT =>
         val cfgStr = rt.cfg match
           case RTDomainCfg.Derived => ""
@@ -271,7 +271,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
       var hasNet = false
       cb.members(MemberView.Folded).foreach {
         case block: DFBlock => break(true)
-        case net: DFNet =>
+        case net: DFNet     =>
           if (hasNet) break(true)
           hasNet = true
         case _ =>
@@ -339,7 +339,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
     val body = csDFOwnerBody(domain)
     val named = domain.meta.nameOpt.map(n => s"val $n = ").getOrElse("")
     val domainStr = domain.domainType match
-      case DomainType.DF => "DFDomain"
+      case DomainType.DF     => "DFDomain"
       case rt: DomainType.RT =>
         rt.cfg match
           case RTDomainCfg.Related(relatedDomainRef) =>
@@ -349,7 +349,7 @@ protected trait DFOwnerPrinter extends AbstractOwnerPrinter:
             else
               s"${relatedDomain.getRelativeName(domain.getOwnerNamed)}.RelatedDomain"
           case RTDomainCfg.Derived => "RTDomain"
-          case _ =>
+          case _                   =>
             s"RTDomain(${printer.csRTDomainCfg(rt.cfg)})"
       case DomainType.ED => "EDDomain"
     s"${named}new $domainStr:\n${body.hindent}"

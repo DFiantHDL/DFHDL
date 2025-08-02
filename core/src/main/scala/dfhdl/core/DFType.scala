@@ -73,7 +73,7 @@ object DFType:
 
   extension [T <: ir.DFType, A <: Args](dfType: DFType[T, A])
     def asIR: T = dfType.value match
-      case dfTypeIR: T @unchecked => dfTypeIR
+      case dfTypeIR: T @unchecked                   => dfTypeIR
       case err: DFError.REG_DIN[?] if err.firstTime =>
         err.firstTime = false
         throw err
@@ -119,7 +119,7 @@ object DFType:
           if (modifier.value.isPort)
             dfc.owner.asIR match
               case _: ir.DFDomainOwner =>
-              case _ =>
+              case _                   =>
                 throw new IllegalArgumentException(
                   "Ports can only be directly owned by a design, a domain or an interface."
                 )
@@ -174,7 +174,7 @@ object DFType:
       val compObjTpe = TypeRepr.of[T]
       val compPrefix = compObjTpe match
         case TermRef(pre, _) => pre
-        case _ =>
+        case _               =>
           report.errorAndAbort("Case class companion must be a term ref")
       val clsSym = compObjTpe.typeSymbol.companionClass
       if !clsSym.paramSymss.forall(_.headOption.forall(_.isTerm)) then

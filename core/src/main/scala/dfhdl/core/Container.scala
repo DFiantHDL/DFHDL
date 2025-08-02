@@ -20,7 +20,7 @@ private trait Container extends OnCreateEvents, HasDFC, Wait.ContainerOps:
   final private[core] def owner: TOwner =
     ownerOpt match
       case Some(owner) => owner
-      case None =>
+      case None        =>
         val owner = initOwner
         ownerOpt = Some(owner)
         owner
