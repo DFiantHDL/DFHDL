@@ -38,6 +38,9 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
   override val runsAfter = Set("parser")
   override val runsBefore = Set("typer")
   private var debugFlag = false
+  // override to prevent from running redundant MiniPhase transformation
+  // that can cause compiler errors
+  override def run(using Context): Unit = {}
 
   def debug(str: => Any*): Unit =
     if (debugFlag) println(str.mkString(", "))
@@ -66,7 +69,7 @@ class PreTyperPhase(setting: Setting) extends PluginPhase:
       def unapply(tree: InfixOp)(using Context): Option[InfixOp] =
         tree match
           case InfixOpArgsChange(a, Ident(conn), b) => Some(InfixOp(a, Ident(conn), Parens(b)))
-          case _ =>
+          case _                                    =>
             None
     end InfixOpChange
     object MatchAssignOpChange:
