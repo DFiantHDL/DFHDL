@@ -3,12 +3,16 @@ import scala.annotation.implicitNotFound
 import scala.collection.mutable
 import dfhdl.compiler.ir.constraints.SigConstraint
 import dfhdl.core.*
-import dfhdl.internals.CTName
+import dfhdl.internals.*
 
 trait Resource extends ResourceContext:
   private val connections = mutable.ListBuffer[Resource]()
   protected[resources] def connect(that: Resource): Unit =
     connections += that
+  protected[dfhdl] def connect(that: DFValAny)(using dfc: DFC): Unit =
+    throw new IllegalArgumentException(
+      "Cannot connect this resource to that DFHDL value."
+    )
   private val downstreamDeps = mutable.ListBuffer[ResourceDeps]()
   private[resources] def addDownstreamDep(that: ResourceDeps): Unit =
     downstreamDeps += that
@@ -40,19 +44,16 @@ private trait ResourceLP:
 
 object Resource extends ResourceLP:
   @implicitNotFound("Cannot connect the resource ${T} with ${R}")
-  trait CanConnect[T <: Resource, R]:
-    def connect(resource1: T, resource2: R): Unit
-  given [T <: Resource, R <: Resource](using T =:= R): CanConnect[T, R] =
-    (resource1: T, resource2: R) =>
+  trait CanConnect[R <: Resource, T]:
+    def connect(resource1: R, resource2: T): Unit
+  given [R <: Resource, T <: Resource](using R =:= T): CanConnect[R, T] =
+    (resource1: R, resource2: T) =>
       resource1.connect(resource2)
       resource2.connect(resource1)
-  given [T <: Resource, R <: DFValAny](using DFC): CanConnect[T, R] =
-    (resource: T, dfVal: R) =>
-      given CTName = CTName("<>")
-      trydf { dfVal.connect(resource) }
 
   object Ops:
-    extension [T <: Resource](self: T)
-      def <>[R](that: R)(using cc: CanConnect[T, R]): Unit =
-        cc.connect(self, that)
+    extension [R <: Resource](resource: R)
+      def <>[T](that: T)(using dfc: DFC, cc: CanConnect[R, T]): Unit = trydf {
+        cc.connect(resource, that)
+      }
 end Resource
